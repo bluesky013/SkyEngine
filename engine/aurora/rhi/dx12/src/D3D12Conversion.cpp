@@ -244,28 +244,6 @@ namespace sky::aurora {
         return type == IndexType::U16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
     }
 
-    // ---- DescriptorType ----
-    D3D12_DESCRIPTOR_RANGE_TYPE FromDescriptorType(DescriptorType type)
-    {
-        switch (type) {
-        case DescriptorType::UNIFORM_BUFFER:
-        case DescriptorType::UNIFORM_BUFFER_DYNAMIC:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-        case DescriptorType::COMBINED_IMAGE_SAMPLER:
-        case DescriptorType::SAMPLED_IMAGE:
-        case DescriptorType::INPUT_ATTACHMENT:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        case DescriptorType::SAMPLER:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-        case DescriptorType::STORAGE_BUFFER:
-        case DescriptorType::STORAGE_BUFFER_DYNAMIC:
-        case DescriptorType::STORAGE_IMAGE:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        default:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        }
-    }
-
     // ---- ShaderStageFlags ----
     D3D12_SHADER_VISIBILITY FromShaderStageFlags(const ShaderStageFlags &flags)
     {

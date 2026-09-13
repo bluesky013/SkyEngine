@@ -236,21 +236,20 @@ namespace sky::aurora {
         return op == StoreOp::STORE ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
     }
 
-    // ---- DescriptorType ----
-    VkDescriptorType FromDescriptorType(DescriptorType type)
+    // ---- ShaderResourceType ----
+    VkDescriptorType FromShaderResourceType(ShaderResourceType type)
     {
-        static const VkDescriptorType TABLE[] = {
-            VK_DESCRIPTOR_TYPE_SAMPLER,                // SAMPLER
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // COMBINED_IMAGE_SAMPLER
-            VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          // SAMPLED_IMAGE
-            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          // STORAGE_IMAGE
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         // UNIFORM_BUFFER
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         // STORAGE_BUFFER
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, // UNIFORM_BUFFER_DYNAMIC
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, // STORAGE_BUFFER_DYNAMIC
-            VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       // INPUT_ATTACHMENT
-        };
-        return TABLE[static_cast<uint32_t>(type)];
+        switch (type) {
+        case ShaderResourceType::SAMPLER:                return VK_DESCRIPTOR_TYPE_SAMPLER;
+        case ShaderResourceType::SAMPLED_IMAGE:          return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        case ShaderResourceType::STORAGE_IMAGE:          return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        case ShaderResourceType::UNIFORM_BUFFER:         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case ShaderResourceType::STORAGE_BUFFER:         return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        case ShaderResourceType::STORAGE_BUFFER_DYNAMIC: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+        case ShaderResourceType::INPUT_ATTACHMENT:       return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        }
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     }
 
     // ---- VertexInputRate ----
@@ -401,14 +400,6 @@ namespace sky::aurora {
         if (flags & PipelineStatisticFlagBits::CLIP_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT; }
         if (flags & PipelineStatisticFlagBits::CLIP_PRIMITIVES)  { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT; }
         if (flags & PipelineStatisticFlagBits::CS_INVOCATIONS)   { res |= VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT; }
-        return res;
-    }
-
-    // ---- DescriptorBindingFlags ----
-    VkDescriptorBindingFlags FromDescriptorBindingFlags(const DescriptorBindingFlags &flags)
-    {
-        VkDescriptorBindingFlags res = 0;
-        if (flags & DescriptorBindingFlagBit::VARIABLE_COUNT) { res |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT; }
         return res;
     }
 

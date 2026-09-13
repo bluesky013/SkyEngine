@@ -41,12 +41,14 @@ namespace sky::aurora {
         D3D12_SHADER_BYTECODE GetCSByteCode() const;
 
         const D3D12RootSignature* GetRootSignature() const { return rootSignature.Get(); }
+        const ShaderReflection &GetReflection() const { return reflection; }
     private:
         D3D12Device &device;
         ShaderFunctionPtr vs;
         ShaderFunctionPtr psOrCs; // used for both PS and CS since they are mutually exclusive
 
-        CounterPtr<D3D12RootSignature> rootSignature;
+        ShaderReflection                  reflection;
+        CounterPtr<D3D12RootSignature>    rootSignature;
     };
 
 } // namespace sky::aurora

@@ -47,11 +47,13 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 
 如果你新增了 capability 字段，在 `UpdateDeviceCaps()` 里写它。
 
-## ResourceGroup 命名
+## ResourceGroup 创建
 
-接口为 **`Device::CreateResourceGroup(const ResourceGroup::Descriptor&)`**。
-不要再用旧名 `CreateSampler(ResourceGroup::Descriptor)` —— 它在 quick-fixes change 中被重命名。
-ResourceGroup 的实质实现见 `aurora-resource-group` change（仍未实现，本接口当前返回 nullptr）。
+接口为 **`Device::CreateResourceGroup(const ResourceGroup::Descriptor&)`**，`Descriptor` 含 `{Shader *shader, uint32_t set}`。ResourceGroup 的 descriptor 布局从 **shader reflection** 派生，没有独立的 `ResourceGroupLayout` 对象（`aurora-remove-resource-group-layout` change 已移除）。
+
+- `shader` MUST 非空；shader 的 `reflection` MUST 非 null（空 reflection 合法）。
+- ResourceGroup 复用 shader 内派生的 native set layout（Vulkan `GetDescriptorSetLayout(set)` / DX12 从 reflection 算 descriptor 数量）。
+- binding 类型统一用 `ShaderResourceType`（含 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC`，batch tier 用）；`DescriptorType` / `DescriptorBindingFlags` 已删除。
 
 ## Vulkan dynamic rendering 与 stencil
 
@@ -152,7 +154,8 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-quick-fixes` | ✅ 已实施 | 本文档所述默认值/命名 |
 | `aurora-queue-submit-present` | 设计完成 | Queue / Submit / SwapChain Present |
 | `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
-| `aurora-resource-group` | 设计完成 | ResourceGroup / PipelineLayout / 描述符绑定 |
+| `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12；Metal / dynamic offset 留待后续） |
+| `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
 | `aurora-renderer` | 未开 | top-level 渲染主循环 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
 

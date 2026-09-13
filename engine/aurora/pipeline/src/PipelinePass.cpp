@@ -24,26 +24,14 @@ namespace sky::aurora {
 
     void PipelinePass::RebuildPassResources(Device *device)
     {
-        const auto &blocks = GetPassBlocks();
-        if (blocks.empty()) {
-            return;
-        }
-
-        ResourceGroupLayout::Descriptor layoutDesc{};
-        for (const auto &block : blocks) {
-            const auto single = ToLayoutDescriptor(block);
-            for (const auto &binding : single.bindings) {
-                layoutDesc.bindings.push_back(binding);
-            }
-        }
-
-        mPassLayout = device->CreateResourceGroupLayout(layoutDesc);
-        if (mPassLayout == nullptr) {
-            return;
+        Shader *shader = GetPassShader();
+        if (shader == nullptr) {
+            return; // pass shader not wired yet
         }
 
         ResourceGroup::Descriptor groupDesc{};
-        groupDesc.layout = mPassLayout.Get();
+        groupDesc.shader = shader;
+        groupDesc.set    = 1;
         mPassResourceGroup = device->CreateResourceGroup(groupDesc);
     }
 

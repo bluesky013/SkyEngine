@@ -51,7 +51,7 @@ namespace sky::aurora {
                     ShaderFunction* cs;
                 };
             };
-            const ShaderReflection*    reflection     = nullptr; // whole-program layout
+            const ShaderReflection*    reflection     = nullptr; // whole-program layout; MUST be non-null (empty reflection is valid)
             const ShaderSpecialization* specialization = nullptr; // spec constant values
         };
 

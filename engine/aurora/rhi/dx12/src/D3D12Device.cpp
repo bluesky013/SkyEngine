@@ -10,7 +10,6 @@
 #include <D3D12PipelineState.h>
 #include <D3D12Queue.h>
 #include <D3D12ResourceGroup.h>
-#include <D3D12ResourceGroupLayout.h>
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
 #include <core/logger/Logger.h>
@@ -252,16 +251,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
-    }
-
-    ResourceGroupLayout *D3D12Device::CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc)
-    {
-        auto *layout = new D3D12ResourceGroupLayout(*this);
-        if (!layout->Init(desc)) {
-            delete layout;
-            return nullptr;
-        }
-        return layout;
     }
 
     ResourceGroup *D3D12Device::CreateResourceGroup(const ResourceGroup::Descriptor &desc)

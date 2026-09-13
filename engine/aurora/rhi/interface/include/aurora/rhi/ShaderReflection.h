@@ -15,12 +15,14 @@
 namespace sky::aurora {
 
     enum class ShaderResourceType : uint32_t {
-        SAMPLER          = 0,
-        SAMPLED_IMAGE    = 1,
-        STORAGE_IMAGE    = 2,
-        UNIFORM_BUFFER   = 3,
-        STORAGE_BUFFER   = 4,
-        INPUT_ATTACHMENT = 5,
+        SAMPLER                = 0,
+        SAMPLED_IMAGE          = 1,
+        STORAGE_IMAGE          = 2,
+        UNIFORM_BUFFER         = 3,
+        STORAGE_BUFFER         = 4,
+        INPUT_ATTACHMENT       = 5,
+        UNIFORM_BUFFER_DYNAMIC = 6,
+        STORAGE_BUFFER_DYNAMIC = 7,
     };
 
     struct ShaderResource {

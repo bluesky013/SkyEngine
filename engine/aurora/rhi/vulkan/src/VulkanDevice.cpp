@@ -9,7 +9,6 @@
 #include "VulkanInstance.h"
 #include "VulkanPipelineState.h"
 #include "VulkanResourceGroup.h"
-#include "VulkanResourceGroupLayout.h"
 #include "VulkanSemaphore.h"
 #include "VulkanSwapChain.h"
 #include "rdg/VulkanRDGBackend.h"
@@ -381,16 +380,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
-    }
-
-    ResourceGroupLayout *VulkanDevice::CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc)
-    {
-        auto *layout = new VulkanResourceGroupLayout(*this);
-        if (!layout->Init(desc)) {
-            delete layout;
-            return nullptr;
-        }
-        return layout;
     }
 
     ResourceGroup *VulkanDevice::CreateResourceGroup(const ResourceGroup::Descriptor &desc)

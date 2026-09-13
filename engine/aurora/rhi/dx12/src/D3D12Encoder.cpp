@@ -57,11 +57,6 @@ namespace sky::aurora {
                                                  uint32_t numDynamicOffsets,
                                                  const uint32_t *dynamicOffsets)
     {
-        // Dynamic offsets are not yet supported (D3D12 root CBV requires a
-        // dedicated root parameter per dynamic binding).
-        (void)numDynamicOffsets;
-        (void)dynamicOffsets;
-
         if (currentRootSignature == nullptr || group == nullptr) {
             return;
         }
@@ -82,6 +77,27 @@ namespace sky::aurora {
         const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
         if (samplerParam != INVALID_INDEX) {
             cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
+        }
+
+        // dynamic bindings -> root CBV / root UAV with per-draw offset
+        const auto &dynamics = d3dGroup->GetDynamicBindings();
+        for (size_t i = 0; i < dynamics.size(); ++i) {
+            const auto &d = dynamics[i];
+            if (d.buffer == nullptr) {
+                continue;
+            }
+            const uint32_t rootParam = currentRootSignature->GetDynamicRootParam(set, d.binding);
+            if (rootParam == INVALID_INDEX) {
+                continue;
+            }
+            const uint32_t offset = i < numDynamicOffsets ? dynamicOffsets[i] : 0;
+            const D3D12_GPU_VIRTUAL_ADDRESS addr =
+                d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + d.baseOffset + offset;
+            if (d.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                cmdList->SetGraphicsRootUnorderedAccessView(rootParam, addr);
+            } else {
+                cmdList->SetGraphicsRootConstantBufferView(rootParam, addr);
+            }
         }
     }
 
@@ -198,9 +214,6 @@ namespace sky::aurora {
                                                 uint32_t numDynamicOffsets,
                                                 const uint32_t *dynamicOffsets)
     {
-        (void)numDynamicOffsets;
-        (void)dynamicOffsets;
-
         if (currentRootSignature == nullptr || group == nullptr) {
             return;
         }
@@ -221,6 +234,27 @@ namespace sky::aurora {
         const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
         if (samplerParam != INVALID_INDEX) {
             cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
+        }
+
+        // dynamic bindings -> root CBV / root UAV with per-draw offset
+        const auto &dynamics = d3dGroup->GetDynamicBindings();
+        for (size_t i = 0; i < dynamics.size(); ++i) {
+            const auto &d = dynamics[i];
+            if (d.buffer == nullptr) {
+                continue;
+            }
+            const uint32_t rootParam = currentRootSignature->GetDynamicRootParam(set, d.binding);
+            if (rootParam == INVALID_INDEX) {
+                continue;
+            }
+            const uint32_t offset = i < numDynamicOffsets ? dynamicOffsets[i] : 0;
+            const D3D12_GPU_VIRTUAL_ADDRESS addr =
+                d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + d.baseOffset + offset;
+            if (d.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                cmdList->SetGraphicsRootUnorderedAccessView(rootParam, addr);
+            } else {
+                cmdList->SetGraphicsRootConstantBufferView(rootParam, addr);
+            }
         }
     }
 

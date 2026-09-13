@@ -14,7 +14,6 @@
 
 #include <core/name/Name.h>
 #include <aurora/rhi/Core.h>
-#include <aurora/rhi/ResourceGroup.h>
 
 #include <string>
 #include <vector>
@@ -63,8 +62,5 @@ namespace sky::aurora {
 
     // compute per-field offsets and total block size (std140-like; vec3 occupies 16B)
     std::vector<RgFieldLayout> ComputeFieldOffsets(const RgBlockDesc &desc, uint32_t &totalSize);
-
-    // RgBlockDesc -> ResourceGroupLayout::Descriptor (single binding entry)
-    ResourceGroupLayout::Descriptor ToLayoutDescriptor(const RgBlockDesc &desc);
 
 } // namespace sky::aurora

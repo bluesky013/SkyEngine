@@ -37,9 +37,6 @@ namespace sky::aurora {
     DXGI_FORMAT                FromIndexType(IndexType type);
     D3D12_DEPTH_STENCILOP_DESC FromStencilState(const StencilState &state);
 
-    // descriptor
-    D3D12_DESCRIPTOR_RANGE_TYPE FromDescriptorType(DescriptorType type);
-
     // shader
     D3D12_SHADER_VISIBILITY    FromShaderStageFlags(const ShaderStageFlags &flags);
 

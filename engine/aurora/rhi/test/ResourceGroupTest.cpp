@@ -1,55 +1,112 @@
 //
-// Aurora ResourceGroup tests (Vulkan).
+// Aurora ResourceGroup tests (Vulkan + DX12).
+// ResourceGroup is created from {shader, set}; its layout is derived from the
+// shader reflection, not from a hand-written ResourceGroupLayout.
 //
 
 #include "AuroraTestHelper.h"
 
 #include <aurora/rhi/ResourceGroup.h>
+#include <aurora/rhi/Shader.h>
+#include <aurora/rhi/ShaderReflection.h>
+#include <core/archive/BinaryData.h>
+#include <cstring>
 
 using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
+namespace {
+
+    // Minimal compute SPIR-V: layout(local_size_x=1) in; void main() {}
+    static const uint32_t SPIRV_CS[] = {
+        0x07230203, 0x00010000, 0x00000000, 0x00000005, 0x00000000,
+        0x00020011, 0x00000001,
+        0x0003000E, 0x00000000, 0x00000001,
+        0x0005000F, 0x00000005, 0x00000001, 0x6E69616D, 0x00000000,
+        0x00060010, 0x00000001, 0x00000011, 0x00000001, 0x00000001, 0x00000001,
+        0x00020013, 0x00000002,
+        0x00030021, 0x00000003, 0x00000002,
+        0x00050036, 0x00000002, 0x00000001, 0x00000000, 0x00000003,
+        0x000200F8, 0x00000004,
+        0x000100FD,
+        0x00010038,
+    };
+
+    Shader *MakeComputeShader(Device *device, const ShaderReflection &reflection)
+    {
+        auto binary = CounterPtr<BinaryData>(new BinaryData(sizeof(SPIRV_CS)));
+        std::memcpy(binary->Data(), SPIRV_CS, sizeof(SPIRV_CS));
+
+        auto *provider       = new ShaderBinaryProvider();
+        provider->binaryData = binary;
+
+        ShaderFunction::Descriptor fnDesc = {};
+        fnDesc.stage = ShaderStageFlagBit::CS;
+        fnDesc.data  = CounterPtr<ShaderDataProvider>(provider);
+        auto *cs = device->CreateShaderFunction(fnDesc);
+        if (cs == nullptr) {
+            return nullptr;
+        }
+
+        Shader::Descriptor shaderDesc = {};
+        shaderDesc.cs         = cs;
+        shaderDesc.reflection = &reflection;
+        return device->CreateShader(shaderDesc);
+    }
+
+    ShaderReflection MakeUboReflection(uint32_t set)
+    {
+        ShaderReflection refl{};
+        ShaderResource   res{};
+        res.name    = "Ubo";
+        res.set     = set;
+        res.binding = 0;
+        res.type    = ShaderResourceType::UNIFORM_BUFFER;
+        res.count   = 1;
+        refl.resources.push_back(res);
+        return refl;
+    }
+
+    ShaderReflection MakeDynamicUboReflection(uint32_t set)
+    {
+        ShaderReflection refl{};
+        ShaderResource   res{};
+        res.name    = "BatchUbo";
+        res.set     = set;
+        res.binding = 0;
+        res.type    = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        res.count   = 1;
+        refl.resources.push_back(res);
+        return refl;
+    }
+
+} // namespace
+
 using ResourceGroupTestVulkan = AuroraVulkanTest;
 
-TEST_F(ResourceGroupTestVulkan, CreateEmptyLayoutAndGroup)
+TEST_F(ResourceGroupTestVulkan, CreateEmptyGroup)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    ResourceGroupLayout::Descriptor desc{};
-    auto layout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(desc));
-    ASSERT_NE(layout.Get(), nullptr);
+    ShaderReflection refl{}; // empty reflection: shader creation is valid
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, refl));
+    ASSERT_NE(shader.Get(), nullptr);
 
+    // set 0 does not exist in an empty reflection
     ResourceGroup::Descriptor gd{};
-    gd.layout = layout.Get();
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
-    ASSERT_NE(group.Get(), nullptr);
+    gd.shader = shader.Get();
+    gd.set    = 0;
+    auto *group = device->CreateResourceGroup(gd);
+    EXPECT_EQ(group, nullptr);
 }
 
-TEST_F(ResourceGroupTestVulkan, LayoutWithUniformAndSampledImage)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    ResourceGroupLayout::Descriptor desc{};
-    desc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::GFX, {}});
-    desc.bindings.push_back({1, DescriptorType::COMBINED_IMAGE_SAMPLER, 1, ShaderStageFlagBit::FS, {}});
-
-    auto layout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(desc));
-    ASSERT_NE(layout.Get(), nullptr);
-
-    ResourceGroup::Descriptor gd{};
-    gd.layout = layout.Get();
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
-    ASSERT_NE(group.Get(), nullptr);
-}
-
-TEST_F(ResourceGroupTestVulkan, GroupRequiresLayout)
+TEST_F(ResourceGroupTestVulkan, GroupRequiresShader)
 {
     auto *device = GetDevice();
     ResourceGroup::Descriptor gd{};
-    gd.layout = nullptr;
+    gd.shader = nullptr;
     auto *group = device->CreateResourceGroup(gd);
     EXPECT_EQ(group, nullptr);
 }
@@ -58,13 +115,12 @@ TEST_F(ResourceGroupTestVulkan, UpdateUniformBuffer)
 {
     auto *device = GetDevice();
 
-    ResourceGroupLayout::Descriptor rgDesc{};
-    rgDesc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::GFX, {}});
-    auto rgLayout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(rgDesc));
-    ASSERT_NE(rgLayout.Get(), nullptr);
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(0)));
+    ASSERT_NE(shader.Get(), nullptr);
 
     ResourceGroup::Descriptor gd{};
-    gd.layout = rgLayout.Get();
+    gd.shader = shader.Get();
+    gd.set    = 0;
     auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
     ASSERT_NE(group.Get(), nullptr);
 
@@ -82,51 +138,49 @@ TEST_F(ResourceGroupTestVulkan, UpdateUniformBuffer)
     w.bufferOffset = 0;
     w.bufferRange  = 256;
 
-    group->Update({w});       // should not assert / crash
+    group->Update({w}); // should not assert / crash
     SUCCEED();
+}
+
+TEST_F(ResourceGroupTestVulkan, SetIndexHole)
+{
+    auto *device = GetDevice();
+
+    // only set 2 has a resource; set 0/1 are absent (hole)
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(2)));
+    ASSERT_NE(shader.Get(), nullptr);
+
+    ResourceGroup::Descriptor gd{};
+    gd.shader = shader.Get();
+    gd.set    = 2;
+    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
+    ASSERT_NE(group.Get(), nullptr);
 }
 
 #if defined(SKY_PLATFORM_WINDOWS)
 using ResourceGroupTestD3D12 = AuroraD3D12Test;
 
-TEST_F(ResourceGroupTestD3D12, CreateEmptyLayoutAndGroup)
+TEST_F(ResourceGroupTestD3D12, CreateEmptyGroup)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    ResourceGroupLayout::Descriptor desc{};
-    auto layout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(desc));
-    ASSERT_NE(layout.Get(), nullptr);
+    ShaderReflection refl{};
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, refl));
+    ASSERT_NE(shader.Get(), nullptr);
 
     ResourceGroup::Descriptor gd{};
-    gd.layout = layout.Get();
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
-    ASSERT_NE(group.Get(), nullptr);
+    gd.shader = shader.Get();
+    gd.set    = 0;
+    auto *group = device->CreateResourceGroup(gd);
+    EXPECT_EQ(group, nullptr);
 }
 
-TEST_F(ResourceGroupTestD3D12, LayoutWithUniformAndSampledImage)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    ResourceGroupLayout::Descriptor desc{};
-    desc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::GFX, {}});
-    desc.bindings.push_back({1, DescriptorType::COMBINED_IMAGE_SAMPLER, 1, ShaderStageFlagBit::FS, {}});
-
-    auto layout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(desc));
-    ASSERT_NE(layout.Get(), nullptr);
-
-    ResourceGroup::Descriptor gd{};
-    gd.layout = layout.Get();
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
-    ASSERT_NE(group.Get(), nullptr);
-}
-
-TEST_F(ResourceGroupTestD3D12, GroupRequiresLayout)
+TEST_F(ResourceGroupTestD3D12, GroupRequiresShader)
 {
     auto *device = GetDevice();
     ResourceGroup::Descriptor gd{};
-    gd.layout = nullptr;
+    gd.shader = nullptr;
     auto *group = device->CreateResourceGroup(gd);
     EXPECT_EQ(group, nullptr);
 }
@@ -135,13 +189,12 @@ TEST_F(ResourceGroupTestD3D12, UpdateUniformBuffer)
 {
     auto *device = GetDevice();
 
-    ResourceGroupLayout::Descriptor rgDesc{};
-    rgDesc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::GFX, {}});
-    auto rgLayout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(rgDesc));
-    ASSERT_NE(rgLayout.Get(), nullptr);
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(0)));
+    ASSERT_NE(shader.Get(), nullptr);
 
     ResourceGroup::Descriptor gd{};
-    gd.layout = rgLayout.Get();
+    gd.shader = shader.Get();
+    gd.set    = 0;
     auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
     ASSERT_NE(group.Get(), nullptr);
 
@@ -159,45 +212,53 @@ TEST_F(ResourceGroupTestD3D12, UpdateUniformBuffer)
     w.bufferOffset = 0;
     w.bufferRange  = 256;
 
-    group->Update({w});       // should not assert / crash
+    group->Update({w});
     SUCCEED();
 }
 
-TEST_F(ResourceGroupTestD3D12, UpdateCombinedImageSampler)
+TEST_F(ResourceGroupTestD3D12, SetIndexHole)
 {
     auto *device = GetDevice();
 
-    ResourceGroupLayout::Descriptor rgDesc{};
-    rgDesc.bindings.push_back({0, DescriptorType::COMBINED_IMAGE_SAMPLER, 1, ShaderStageFlagBit::FS, {}});
-    auto rgLayout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(rgDesc));
-    ASSERT_NE(rgLayout.Get(), nullptr);
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(2)));
+    ASSERT_NE(shader.Get(), nullptr);
 
     ResourceGroup::Descriptor gd{};
-    gd.layout = rgLayout.Get();
+    gd.shader = shader.Get();
+    gd.set    = 2;
+    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
+    ASSERT_NE(group.Get(), nullptr);
+}
+
+TEST_F(ResourceGroupTestD3D12, UpdateDynamicUniformBuffer)
+{
+    auto *device = GetDevice();
+
+    // root CBV is derived from the reflection; verify it serializes + updates
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeDynamicUboReflection(2)));
+    ASSERT_NE(shader.Get(), nullptr);
+
+    ResourceGroup::Descriptor gd{};
+    gd.shader = shader.Get();
+    gd.set    = 2;
     auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
     ASSERT_NE(group.Get(), nullptr);
 
-    Image::Descriptor id{};
-    id.format      = PixelFormat::RGBA8_UNORM;
-    id.extent      = {64, 64, 1};
-    id.mipLevels   = 1;
-    id.arrayLayers = 1;
-    id.usage       = ImageUsageFlagBit::SAMPLED;
-    id.memory      = MemoryType::GPU_ONLY;
-    auto img = CounterPtr<Image>(device->CreateImage(id));
-    ASSERT_NE(img.Get(), nullptr);
-
-    Sampler::Descriptor sd{};
-    auto smp = CounterPtr<Sampler>(device->CreateSampler(sd));
-    ASSERT_NE(smp.Get(), nullptr);
+    Buffer::Descriptor bd{};
+    bd.size   = 4096;
+    bd.usage  = BufferUsageFlagBit::UNIFORM;
+    bd.memory = MemoryType::CPU_TO_GPU;
+    auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
+    ASSERT_NE(ub.Get(), nullptr);
 
     ResourceUpdateInfo w{};
-    w.binding = 0;
-    w.kind    = ResourceWriteKind::COMBINED_IMAGE_SAMPLER;
-    w.image   = img.Get();
-    w.sampler = smp.Get();
+    w.binding      = 0;
+    w.kind         = ResourceWriteKind::BUFFER;
+    w.buffer       = ub.Get();
+    w.bufferOffset = 0;
+    w.bufferRange  = 256;
 
-    group->Update({w});       // should split into SRV + sampler and not crash
+    group->Update({w}); // dynamic binding records buffer, no descriptor write
     SUCCEED();
 }
 #endif

@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by Zach Lee on 2026/4/7.
 //
 
@@ -7,6 +7,7 @@
 #include <aurora/rhi/Shader.h>
 #include <vulkan/vulkan.h>
 
+#include <map>
 #include <vector>
 
 namespace sky::aurora {
@@ -41,6 +42,11 @@ namespace sky::aurora {
         VulkanShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
         VkPipelineLayout GetPipelineLayout() const { return layout; }
         const ShaderSpecialization &GetSpecialization() const { return specialization; }
+        const ShaderReflection &GetReflection() const { return reflection; }
+
+        // Per-set descriptor set layout derived from reflection, queried by
+        // real set index (may contain holes). Returns VK_NULL_HANDLE if absent.
+        VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t set) const;
 
     private:
         bool CreatePipelineLayout();
@@ -51,7 +57,7 @@ namespace sky::aurora {
         CounterPtr<VulkanShaderFunction>    computeFunction;
         ShaderReflection                    reflection;
         ShaderSpecialization                specialization;
-        std::vector<VkDescriptorSetLayout>  descriptorSetLayouts;
+        std::map<uint32_t, VkDescriptorSetLayout> descriptorSetLayouts; // set index -> layout
         VkPipelineLayout                    layout = VK_NULL_HANDLE;
     };
 

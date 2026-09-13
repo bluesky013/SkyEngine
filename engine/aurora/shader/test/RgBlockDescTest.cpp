@@ -11,35 +11,6 @@ using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
-TEST_F(AuroraVulkanTest, RgBlockDescToLayout)
-{
-    RgBlockDesc desc{};
-    desc.set       = 0;
-    desc.binding   = 0;
-    desc.blockName = Name("Global");
-    desc.kind      = RgBlockKind::CBUFFER;
-    desc.fields    = {
-        {RgFieldType::MAT4, Name("ViewProj")},
-        {RgFieldType::FLOAT4, Name("CameraPos")},
-    };
-
-    const auto layout = ToLayoutDescriptor(desc);
-    ASSERT_EQ(layout.bindings.size(), 1u);
-    EXPECT_EQ(layout.bindings[0].binding, 0u);
-    EXPECT_EQ(layout.bindings[0].type, DescriptorType::UNIFORM_BUFFER);
-    EXPECT_EQ(layout.bindings[0].count, 1u);
-}
-
-TEST_F(AuroraVulkanTest, RgBlockDescDynamicKind)
-{
-    RgBlockDesc desc{};
-    desc.kind = RgBlockKind::CBUFFER_DYNAMIC;
-
-    const auto layout = ToLayoutDescriptor(desc);
-    ASSERT_EQ(layout.bindings.size(), 1u);
-    EXPECT_EQ(layout.bindings[0].type, DescriptorType::UNIFORM_BUFFER_DYNAMIC);
-}
-
 TEST_F(AuroraVulkanTest, RgBlockDescFieldOffsets)
 {
     RgBlockDesc desc{};
@@ -102,11 +73,8 @@ TEST_F(AuroraVulkanTest, ShaderBlockGenConsistency)
     desc.blockName = Name("PassData");
     desc.fields    = {{RgFieldType::FLOAT4, Name("Params")}};
 
-    // same desc must produce matching binding/set on both sides
-    const auto layout = ToLayoutDescriptor(desc);
     const std::string text = ShaderBlockGen::GenerateHlsl(desc);
 
-    EXPECT_EQ(layout.bindings[0].binding, desc.binding);
     EXPECT_NE(text.find("register(b0, space1)"), std::string::npos);
 }
 

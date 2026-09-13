@@ -3,7 +3,7 @@
 //
 
 #include <VulkanResourceGroup.h>
-#include <VulkanResourceGroupLayout.h>
+#include <VulkanShader.h>
 #include <VulkanDevice.h>
 #include <VulkanBuffer.h>
 #include <VulkanImage.h>
@@ -33,16 +33,24 @@ namespace sky::aurora {
 
     bool VulkanResourceGroup::Init(const Descriptor &desc)
     {
-        if (desc.layout == nullptr) {
-            LOG_E(TAG, "ResourceGroup requires a non-null layout");
+        if (desc.shader == nullptr) {
+            LOG_E(TAG, "ResourceGroup requires a non-null shader");
             return false;
         }
-        layout = static_cast<VulkanResourceGroupLayout *>(desc.layout);
+        shader = static_cast<VulkanShader *>(desc.shader);
 
-        // Build a tight descriptor pool sized exactly for this layout.
+        // snapshot this set's resources from reflection (for Update type lookup)
+        setResources.clear();
+        for (const auto &res : shader->GetReflection().resources) {
+            if (res.set == desc.set) {
+                setResources.push_back(res);
+            }
+        }
+
+        // build a tight descriptor pool sized exactly for this set.
         std::unordered_map<VkDescriptorType, uint32_t> counts;
-        for (const auto &b : layout->GetBindings()) {
-            counts[FromDescriptorType(b.type)] += b.count;
+        for (const auto &res : setResources) {
+            counts[FromShaderResourceType(res.type)] += res.count;
         }
         std::vector<VkDescriptorPoolSize> sizes;
         sizes.reserve(counts.size());
@@ -50,7 +58,6 @@ namespace sky::aurora {
             sizes.push_back({kv.first, kv.second});
         }
         if (sizes.empty()) {
-            // Empty layout (no bindings) — still allocate a 1-set pool with placeholder.
             sizes.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1});
         }
 
@@ -67,7 +74,12 @@ namespace sky::aurora {
             return false;
         }
 
-        VkDescriptorSetLayout setLayout = layout->GetNativeHandle();
+        VkDescriptorSetLayout setLayout = shader->GetDescriptorSetLayout(desc.set);
+        if (setLayout == VK_NULL_HANDLE) {
+            LOG_E(TAG, "shader has no descriptor set layout for set %u", desc.set);
+            return false;
+        }
+
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool     = pool;
@@ -97,11 +109,11 @@ namespace sky::aurora {
         std::vector<VkWriteDescriptorSet> vkWrites;
         vkWrites.reserve(writes.size());
 
-        // Look up descriptor type from layout binding index for each write.
-        const auto &bindings = layout->GetBindings();
         auto findType = [&](uint32_t b) -> VkDescriptorType {
-            for (const auto &lb : bindings) {
-                if (lb.binding == b) return FromDescriptorType(lb.type);
+            for (const auto &res : setResources) {
+                if (res.binding == b) {
+                    return FromShaderResourceType(res.type);
+                }
             }
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
         };
@@ -136,15 +148,6 @@ namespace sky::aurora {
             case ResourceWriteKind::SAMPLER: {
                 VkDescriptorImageInfo ii = {};
                 ii.sampler = w.sampler != nullptr ? static_cast<VulkanSampler *>(w.sampler)->GetNativeHandle() : VK_NULL_HANDLE;
-                imgInfos.push_back(ii);
-                write.pImageInfo = &imgInfos.back();
-                break;
-            }
-            case ResourceWriteKind::COMBINED_IMAGE_SAMPLER: {
-                VkDescriptorImageInfo ii = {};
-                ii.imageView   = w.image != nullptr ? static_cast<VulkanImage *>(w.image)->GetDefaultView() : VK_NULL_HANDLE;
-                ii.imageLayout = FromImageLayout(w.imageLayout);
-                ii.sampler     = w.sampler != nullptr ? static_cast<VulkanSampler *>(w.sampler)->GetNativeHandle() : VK_NULL_HANDLE;
                 imgInfos.push_back(ii);
                 write.pImageInfo = &imgInfos.back();
                 break;

@@ -49,33 +49,4 @@ namespace sky::aurora {
         return layouts;
     }
 
-    ResourceGroupLayout::Descriptor ToLayoutDescriptor(const RgBlockDesc &desc)
-    {
-        ResourceGroupLayout::Descriptor layout{};
-
-        DescriptorType type = DescriptorType::UNIFORM_BUFFER;
-        switch (desc.kind) {
-        case RgBlockKind::CBUFFER:         type = DescriptorType::UNIFORM_BUFFER;         break;
-        case RgBlockKind::CBUFFER_DYNAMIC: type = DescriptorType::UNIFORM_BUFFER_DYNAMIC; break;
-        case RgBlockKind::RESOURCE:
-            if (!desc.fields.empty()) {
-                switch (desc.fields.front().type) {
-                case RgFieldType::TEXTURE2D:
-                case RgFieldType::TEXTURE_CUBE: type = DescriptorType::SAMPLED_IMAGE; break;
-                case RgFieldType::SAMPLER:      type = DescriptorType::SAMPLER;       break;
-                default: break;
-                }
-            }
-            break;
-        }
-
-        ResourceGroupLayout::BindingDesc binding{};
-        binding.binding = desc.binding;
-        binding.type    = type;
-        binding.count   = 1;
-        binding.stages  = desc.stages;
-        layout.bindings.push_back(binding);
-        return layout;
-    }
-
 } // namespace sky::aurora

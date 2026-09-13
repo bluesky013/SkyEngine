@@ -11,17 +11,78 @@
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rdg/CompiledGraph.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/rhi/Shader.h>
+#include <core/archive/BinaryData.h>
+#include <cstring>
 
 using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
+namespace {
+
+    // Compile a dummy global shader carrying the set 0 layout
+    // (ParameterBlock<GlobalParams> at [[vk::binding(0, 0)]]).
+    Shader *MakeGlobalShader(Device *device)
+    {
+        const char *src = R"(
+struct GlobalParams {
+    float4x4 view;
+    float4x4 proj;
+    float4x4 viewProj;
+    float4 cameraPos;
+};
+[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal;
+
+[shader("compute")]
+[numthreads(1, 1, 1)]
+void mainCS() {}
+)";
+
+        ShaderCompilerSlang compiler;
+        ShaderCompileDesc   d{};
+        d.source = src;
+        d.entry  = "mainCS";
+        d.stage  = ShaderStageFlagBit::CS;
+        d.target = ShaderTarget::SPIRV;
+
+        ShaderCompileResult r{};
+        if (!compiler.Compile(d, r)) {
+            return nullptr;
+        }
+
+        const size_t bytes = r.data.size() * sizeof(uint32_t);
+        auto binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
+        std::memcpy(binary->Data(), r.data.data(), bytes);
+
+        auto *provider       = new ShaderBinaryProvider();
+        provider->binaryData = binary;
+
+        ShaderFunction::Descriptor fnDesc = {};
+        fnDesc.stage = ShaderStageFlagBit::CS;
+        fnDesc.data  = CounterPtr<ShaderDataProvider>(provider);
+        auto *cs = device->CreateShaderFunction(fnDesc);
+        if (cs == nullptr) {
+            return nullptr;
+        }
+
+        Shader::Descriptor shaderDesc = {};
+        shaderDesc.cs         = cs;
+        shaderDesc.reflection = &r.reflection;
+        return device->CreateShader(shaderDesc);
+    }
+
+} // namespace
+
 TEST_F(AuroraVulkanTest, GlobalRenderResourcesInitAndUpdate)
 {
     auto *device = GetDevice();
 
+    auto globalShader = CounterPtr<Shader>(MakeGlobalShader(device));
+    ASSERT_NE(globalShader.Get(), nullptr);
+
     GlobalRenderResources global;
-    ASSERT_TRUE(global.Init(device));
+    ASSERT_TRUE(global.Init(device, globalShader.Get()));
     ASSERT_NE(global.GetGlobalResourceGroup(), nullptr);
 
     SceneView view;

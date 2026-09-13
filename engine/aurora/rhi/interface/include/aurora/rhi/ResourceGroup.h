@@ -14,12 +14,12 @@ namespace sky::aurora {
     class Buffer;
     class Image;
     class Sampler;
+    class Shader;
 
     enum class ResourceWriteKind : uint32_t {
-        BUFFER                 = 0,
-        IMAGE                  = 1,
-        SAMPLER                = 2,
-        COMBINED_IMAGE_SAMPLER = 3,
+        BUFFER  = 0,
+        IMAGE   = 1,
+        SAMPLER = 2,
     };
 
     struct ResourceUpdateInfo {
@@ -32,40 +32,21 @@ namespace sky::aurora {
         uint64_t bufferOffset = 0;
         uint64_t bufferRange  = 0;
 
-        // IMAGE / COMBINED_IMAGE_SAMPLER
+        // IMAGE
         Image      *image       = nullptr;
         ImageLayout imageLayout = ImageLayout::SHADER_READ_ONLY;
 
-        // SAMPLER / COMBINED_IMAGE_SAMPLER
+        // SAMPLER
         Sampler *sampler = nullptr;
     };
-
-    class ResourceGroupLayout : public RefObject {
-    public:
-        struct BindingDesc {
-            uint32_t               binding = 0;
-            DescriptorType         type    = DescriptorType::UNIFORM_BUFFER;
-            uint32_t               count   = 1;
-            ShaderStageFlags       stages;
-            DescriptorBindingFlags flags;
-        };
-
-        struct Descriptor {
-            std::vector<BindingDesc> bindings;
-        };
-
-        ResourceGroupLayout() = default;
-        ~ResourceGroupLayout() override = default;
-    };
-
-    using ResourceGroupLayoutPtr = CounterPtr<ResourceGroupLayout>;
 
     class ResourceGroup
         : public RefObject
         , public IDelayReleaseResource {
     public:
         struct Descriptor {
-            ResourceGroupLayout *layout = nullptr;
+            Shader   *shader = nullptr; // binding layout derived from shader reflection
+            uint32_t  set    = 0;       // descriptor set index
         };
 
         ResourceGroup() = default;

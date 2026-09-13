@@ -5,8 +5,10 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/ShaderReflection.h>
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <utility>
 #include <vector>
 
 namespace sky::aurora {
@@ -16,10 +18,10 @@ namespace sky::aurora {
     class D3D12Device;
 
     struct RootSignatureDescriptorRange {
-        DescriptorType type    = DescriptorType::UNIFORM_BUFFER;
-        uint32_t       binding = 0;
-        uint32_t       count   = 1;
-        ShaderStageFlags visibility;
+        ShaderResourceType type    = ShaderResourceType::UNIFORM_BUFFER;
+        uint32_t           binding = 0;
+        uint32_t           count   = 1;
+        ShaderStageFlags   visibility;
     };
 
     struct RootSignatureDescriptorSet {
@@ -47,12 +49,15 @@ namespace sky::aurora {
         // Root param index of the sampler descriptor table for `set`,
         // or INVALID_INDEX when the set has no sampler bindings.
         uint32_t GetSamplerRootParam(uint32_t set) const;
+        // Root param index of the root CBV / root UAV for a dynamic binding,
+        // or INVALID_INDEX when the set has no such binding.
+        uint32_t GetDynamicRootParam(uint32_t set, uint32_t binding) const;
         // Root param index of the first push-constant root param.
         uint32_t GetPushConstantRootParam() const { return pushConstantRootParam; }
 
     private:
         static D3D12_SHADER_VISIBILITY ToShaderVisibility(ShaderStageFlags flags);
-        static D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(DescriptorType type);
+        static D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(ShaderResourceType type);
 
         D3D12Device &device;
         ComPtr<ID3D12RootSignature> rootSignature;
@@ -64,6 +69,8 @@ namespace sky::aurora {
         struct SetRootParams {
             uint32_t cbvSrvUav = INVALID_INDEX;
             uint32_t sampler   = INVALID_INDEX;
+            // dynamic bindings -> root CBV / root UAV param (binding, rootParam)
+            std::vector<std::pair<uint32_t, uint32_t>> dynamicRootParams;
         };
         std::vector<SetRootParams> setParams; // indexed by set index
         uint32_t                   pushConstantRootParam = INVALID_INDEX;

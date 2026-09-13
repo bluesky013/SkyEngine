@@ -744,9 +744,11 @@ TEST_F(ShaderTestVulkan, CreateGraphicsShader)
     ASSERT_NE(fs, nullptr);
     CounterPtr<ShaderFunction> fsGuard(fs);
 
+    ShaderReflection refl{}; // empty reflection is valid
     Shader::Descriptor shaderDesc = {};
-    shaderDesc.vs = vs;
-    shaderDesc.ps = fs;
+    shaderDesc.vs         = vs;
+    shaderDesc.ps         = fs;
+    shaderDesc.reflection = &refl;
 
     auto *shader = device->CreateShader(shaderDesc);
     ASSERT_NE(shader, nullptr);
@@ -764,8 +766,10 @@ TEST_F(ShaderTestVulkan, CreateComputeShader)
     ASSERT_NE(cs, nullptr);
     CounterPtr<ShaderFunction> csGuard(cs);
 
+    ShaderReflection refl{};
     Shader::Descriptor shaderDesc = {};
-    shaderDesc.cs = cs;
+    shaderDesc.cs         = cs;
+    shaderDesc.reflection = &refl;
 
     auto *shader = device->CreateShader(shaderDesc);
     ASSERT_NE(shader, nullptr);
@@ -842,9 +846,11 @@ TEST_F(ShaderTestD3D12, CreateGraphicsShader)
     ASSERT_NE(fs, nullptr);
     CounterPtr<ShaderFunction> fsGuard(fs);
 
+    ShaderReflection refl{};
     Shader::Descriptor shaderDesc = {};
-    shaderDesc.vs = vs;
-    shaderDesc.ps = fs;
+    shaderDesc.vs         = vs;
+    shaderDesc.ps         = fs;
+    shaderDesc.reflection = &refl;
 
     auto *shader = device->CreateShader(shaderDesc);
     ASSERT_NE(shader, nullptr);

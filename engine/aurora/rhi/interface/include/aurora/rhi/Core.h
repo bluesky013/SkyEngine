@@ -237,18 +237,6 @@ namespace sky::aurora {
         STORE = 1,
     };
 
-    enum class DescriptorType : uint32_t {
-        SAMPLER                = 0,
-        COMBINED_IMAGE_SAMPLER = 1,
-        SAMPLED_IMAGE          = 2,
-        STORAGE_IMAGE          = 3,
-        UNIFORM_BUFFER         = 4,
-        STORAGE_BUFFER         = 5,
-        UNIFORM_BUFFER_DYNAMIC = 6,
-        STORAGE_BUFFER_DYNAMIC = 7,
-        INPUT_ATTACHMENT       = 8,
-    };
-
     enum class VertexInputRate : uint8_t {
         PER_VERTEX   = 0,
         PER_INSTANCE = 1
@@ -359,13 +347,6 @@ namespace sky::aurora {
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
-
-    enum class DescriptorBindingFlagBit : uint32_t {
-        NONE           = 0x00,
-        VARIABLE_COUNT = 0x01
-    };
-    using DescriptorBindingFlags = Flags<DescriptorBindingFlagBit>;
-    ENABLE_FLAG_BIT_OPERATOR(DescriptorBindingFlagBit)
 
     enum class CullModeFlagBits : uint32_t {
         NONE  = 0x00000000,

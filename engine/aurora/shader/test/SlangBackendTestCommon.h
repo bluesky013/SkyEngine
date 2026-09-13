@@ -107,9 +107,11 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ASSERT_NE(vs.Get(), nullptr);
         ASSERT_NE(fs.Get(), nullptr);
 
+        ShaderReflection refl{}; // fullscreen vs/fs have no resources
         Shader::Descriptor shaderDesc{};
-        shaderDesc.vs = vs.Get();
-        shaderDesc.ps = fs.Get();
+        shaderDesc.vs         = vs.Get();
+        shaderDesc.ps         = fs.Get();
+        shaderDesc.reflection = &refl;
         CounterPtr<Shader> shader(device->CreateShader(shaderDesc));
         ASSERT_NE(shader.Get(), nullptr);
     }

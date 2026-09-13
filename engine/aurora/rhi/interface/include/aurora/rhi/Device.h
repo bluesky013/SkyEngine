@@ -65,8 +65,7 @@ namespace sky::aurora {
         virtual Buffer              *CreateBuffer(const Buffer::Descriptor &desc)                           = 0;
         virtual Image               *CreateImage(const Image::Descriptor &desc)                             = 0;
         virtual Sampler             *CreateSampler(const Sampler::Descriptor &desc)                         = 0;
-        virtual ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) = 0;
-        virtual ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc)             = 0;
+        virtual ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) = 0;
         virtual DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)            = 0;
         virtual SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc)                     = 0;
 

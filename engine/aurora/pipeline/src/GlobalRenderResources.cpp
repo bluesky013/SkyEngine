@@ -17,7 +17,7 @@ namespace sky::aurora {
         return generated::GetGlobalParamsBlockDesc();
     }
 
-    bool GlobalRenderResources::Init(Device *device)
+    bool GlobalRenderResources::Init(Device *device, Shader *globalShader)
     {
         mDevice = device;
 
@@ -34,13 +34,13 @@ namespace sky::aurora {
             return false;
         }
 
-        auto *layout = mDevice->CreateResourceGroupLayout(ToLayoutDescriptor(GetGlobalBlockDesc()));
-        if (layout == nullptr) {
+        if (globalShader == nullptr) {
             return false;
         }
 
         ResourceGroup::Descriptor groupDesc{};
-        groupDesc.layout = layout;
+        groupDesc.shader = globalShader;
+        groupDesc.set    = 0;
         mGroup = mDevice->CreateResourceGroup(groupDesc);
         if (mGroup == nullptr) {
             return false;

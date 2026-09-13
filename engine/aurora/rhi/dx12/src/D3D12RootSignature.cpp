@@ -26,24 +26,25 @@ namespace sky::aurora {
         return D3D12_SHADER_VISIBILITY_ALL;
     }
 
-    D3D12_DESCRIPTOR_RANGE_TYPE D3D12RootSignature::ToRangeType(DescriptorType type)
+    D3D12_DESCRIPTOR_RANGE_TYPE D3D12RootSignature::ToRangeType(ShaderResourceType type)
     {
         switch (type) {
-        case DescriptorType::SAMPLER:
+        case ShaderResourceType::SAMPLER:
             return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-        case DescriptorType::SAMPLED_IMAGE:
-        case DescriptorType::COMBINED_IMAGE_SAMPLER:
+        case ShaderResourceType::SAMPLED_IMAGE:
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        case DescriptorType::STORAGE_IMAGE:
-        case DescriptorType::STORAGE_BUFFER:
-        case DescriptorType::STORAGE_BUFFER_DYNAMIC:
+        case ShaderResourceType::STORAGE_IMAGE:
+        case ShaderResourceType::STORAGE_BUFFER:
+        case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
             return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        case DescriptorType::UNIFORM_BUFFER:
-        case DescriptorType::UNIFORM_BUFFER_DYNAMIC:
+        case ShaderResourceType::UNIFORM_BUFFER:
+        case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
+            // DYNAMIC types are handled as root CBV / root UAV in Init and
+            // never reach this mapping; the fallthrough keeps static UBO as CBV.
             return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-        case DescriptorType::INPUT_ATTACHMENT:
-            // D3D12 doesn't have a direct equivalent for input attachments, treat them as SRV
+        case ShaderResourceType::INPUT_ATTACHMENT:
         default:
+            // D3D12 has no direct input attachment; treat as SRV.
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
         }
     }
@@ -67,6 +68,23 @@ namespace sky::aurora {
             smpRanges.reserve(set.ranges.size());
 
             for (const auto &range : set.ranges) {
+                if (range.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC ||
+                    range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                    // Dynamic binding -> root CBV / root UAV. The root param
+                    // holds a GPU virtual address; the per-draw offset is
+                    // applied at bind time via SetGraphicsRoot*View.
+                    D3D12_ROOT_PARAMETER param = {};
+                    param.ParameterType             = range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC
+                                                          ? D3D12_ROOT_PARAMETER_TYPE_UAV
+                                                          : D3D12_ROOT_PARAMETER_TYPE_CBV;
+                    param.Descriptor.ShaderRegister = range.binding;
+                    param.Descriptor.RegisterSpace  = setIndex;
+                    param.ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
+                    setParams[setIndex].dynamicRootParams.emplace_back(range.binding, static_cast<uint32_t>(parameters.size()));
+                    parameters.emplace_back(param);
+                    continue;
+                }
+
                 D3D12_DESCRIPTOR_RANGE d3dRange = {};
                 d3dRange.RangeType                         = ToRangeType(range.type);
                 d3dRange.NumDescriptors                    = range.count;
@@ -74,7 +92,7 @@ namespace sky::aurora {
                 d3dRange.RegisterSpace                     = setIndex;
                 d3dRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-                if (range.type == DescriptorType::SAMPLER) {
+                if (range.type == ShaderResourceType::SAMPLER) {
                     smpRanges.push_back(d3dRange);
                 } else {
                     cbvRanges.push_back(d3dRange);
@@ -162,6 +180,18 @@ namespace sky::aurora {
     {
         if (set < setParams.size()) {
             return setParams[set].sampler;
+        }
+        return INVALID_INDEX;
+    }
+
+    uint32_t D3D12RootSignature::GetDynamicRootParam(uint32_t set, uint32_t binding) const
+    {
+        if (set < setParams.size()) {
+            for (const auto &kv : setParams[set].dynamicRootParams) {
+                if (kv.first == binding) {
+                    return kv.second;
+                }
+            }
         }
         return INVALID_INDEX;
     }

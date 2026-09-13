@@ -13,21 +13,6 @@ static const char *TAG = "VulkanShader";
 
 namespace sky::aurora {
 
-    namespace {
-        VkDescriptorType FromShaderResourceType(ShaderResourceType type)
-        {
-            switch (type) {
-            case ShaderResourceType::SAMPLER:          return VK_DESCRIPTOR_TYPE_SAMPLER;
-            case ShaderResourceType::SAMPLED_IMAGE:    return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            case ShaderResourceType::STORAGE_IMAGE:    return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            case ShaderResourceType::UNIFORM_BUFFER:   return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            case ShaderResourceType::STORAGE_BUFFER:   return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            case ShaderResourceType::INPUT_ATTACHMENT: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-            }
-            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        }
-    } // namespace
-
     // -----------------------------------------------------------------------
     // VulkanShaderFunction
     // -----------------------------------------------------------------------
@@ -89,8 +74,8 @@ namespace sky::aurora {
         if (layout != VK_NULL_HANDLE) {
             device.GetDeviceFn().vkDestroyPipelineLayout(device.GetNativeHandle(), layout, nullptr);
         }
-        for (auto setLayout : descriptorSetLayouts) {
-            device.GetDeviceFn().vkDestroyDescriptorSetLayout(device.GetNativeHandle(), setLayout, nullptr);
+        for (auto &kv : descriptorSetLayouts) {
+            device.GetDeviceFn().vkDestroyDescriptorSetLayout(device.GetNativeHandle(), kv.second, nullptr);
         }
     }
 
@@ -112,9 +97,8 @@ namespace sky::aurora {
             setBindings[res.set].push_back(binding);
         }
 
-        // create one VkDescriptorSetLayout per set
+        // create one VkDescriptorSetLayout per set (keyed by real set index)
         descriptorSetLayouts.clear();
-        descriptorSetLayouts.reserve(setBindings.size());
         std::vector<VkDescriptorSetLayout> setLayouts;
         setLayouts.reserve(setBindings.size());
         for (auto &entry : setBindings) {
@@ -129,7 +113,7 @@ namespace sky::aurora {
                 LOG_E(TAG, "vkCreateDescriptorSetLayout failed, VkResult=%d", static_cast<int>(r));
                 return false;
             }
-            descriptorSetLayouts.push_back(setLayout);
+            descriptorSetLayouts[entry.first] = setLayout;
             setLayouts.push_back(setLayout);
         }
 
@@ -159,11 +143,19 @@ namespace sky::aurora {
         return true;
     }
 
+    VkDescriptorSetLayout VulkanShader::GetDescriptorSetLayout(uint32_t set) const
+    {
+        auto it = descriptorSetLayouts.find(set);
+        return it != descriptorSetLayouts.end() ? it->second : VK_NULL_HANDLE;
+    }
+
     bool VulkanShader::Init(const Descriptor &desc)
     {
-        if (desc.reflection != nullptr) {
-            reflection = *desc.reflection;
+        if (desc.reflection == nullptr) {
+            LOG_E(TAG, "shader requires a non-null reflection");
+            return false;
         }
+        reflection = *desc.reflection;
         if (desc.specialization != nullptr) {
             specialization = *desc.specialization;
         }

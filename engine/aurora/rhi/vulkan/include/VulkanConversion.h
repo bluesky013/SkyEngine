@@ -5,6 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/ShaderReflection.h>
 #include <vk_mem_alloc.h>
 
 namespace sky::aurora {
@@ -49,8 +50,7 @@ namespace sky::aurora {
     VkAttachmentStoreOp   FromStoreOp(StoreOp op);
 
     // descriptor
-    VkDescriptorType         FromDescriptorType(DescriptorType type);
-    VkDescriptorBindingFlags FromDescriptorBindingFlags(const DescriptorBindingFlags &flags);
+    VkDescriptorType FromShaderResourceType(ShaderResourceType type);
 
     // shader / vertex input
     VkVertexInputRate        FromVertexInputRate(VertexInputRate rate);

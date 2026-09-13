@@ -114,9 +114,11 @@ VulkanGraphicsPipelineBundle CreateMinimalVulkanGraphicsPipeline(Device *device,
         return {};
     }
 
+    ShaderReflection refl{};
     Shader::Descriptor shaderDesc = {};
-    shaderDesc.vs = bundle.vs.Get();
-    shaderDesc.ps = bundle.fs.Get();
+    shaderDesc.vs         = bundle.vs.Get();
+    shaderDesc.ps         = bundle.fs.Get();
+    shaderDesc.reflection = &refl;
     bundle.shader = CounterPtr<Shader>(device->CreateShader(shaderDesc));
     if (!bundle.shader) {
         return {};

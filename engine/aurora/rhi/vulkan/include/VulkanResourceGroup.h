@@ -5,12 +5,15 @@
 #pragma once
 
 #include <aurora/rhi/ResourceGroup.h>
+#include <aurora/rhi/ShaderReflection.h>
 #include <vulkan/vulkan.h>
+
+#include <vector>
 
 namespace sky::aurora {
 
     class VulkanDevice;
-    class VulkanResourceGroupLayout;
+    class VulkanShader;
 
     class VulkanResourceGroup : public ResourceGroup {
     public:
@@ -24,10 +27,11 @@ namespace sky::aurora {
         VkDescriptorSet GetNativeHandle() const { return set; }
 
     private:
-        VulkanDevice               *device     = nullptr;
-        VulkanResourceGroupLayout  *layout     = nullptr;
-        VkDescriptorPool            pool       = VK_NULL_HANDLE;
-        VkDescriptorSet             set        = VK_NULL_HANDLE;
+        VulkanDevice               *device = nullptr;
+        CounterPtr<VulkanShader>    shader;         // keeps the derived set layout alive
+        std::vector<ShaderResource> setResources;   // this set's resources (type lookup for Update)
+        VkDescriptorPool            pool = VK_NULL_HANDLE;
+        VkDescriptorSet             set  = VK_NULL_HANDLE;
     };
 
 } // namespace sky::aurora
