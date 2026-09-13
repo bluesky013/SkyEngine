@@ -36,25 +36,20 @@ Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后�
 
 ### Requirement: ResourceGroup::Update 批量写入资源
 
-`ResourceGroup::Update(const std::vector<ResourceUpdateInfo> &writes)` SHALL 把 writes 中的资源指针按 (binding, arrayElement) 写入 group。
-
-`ResourceUpdateInfo` 含：
-- `uint32_t binding`、`uint32_t arrayElement`
-- `ResourceWriteKind kind`（BUFFER / IMAGE / SAMPLER）
-- 联合体携带 Buffer*/offset/range 或 Image*/layout 或 Sampler*
+`ResourceGroup` SHALL 通过 `CreateEncoder()` 返回的 `DescriptorEncoder` 写入资源：调用 `WriteBuffer` / `WriteImage` / `WriteSampler` 按 (binding, arrayElement) 积累写入，`End()` 一次性提交到 descriptor set。
 
 写入的 (binding, kind) 组合 MUST 与 shader reflection 中该 binding 的 `ShaderResourceType` 兼容；不兼容时 debug build assert，release build 行为未定义。
 
-`Update` 可被多次调用；新写入覆盖旧写入；未被覆盖的 binding 保留先前值。
+`End()` 可被多次调用（每次一组新写入）；新写入覆盖旧写入；未被覆盖的 binding 保留先前值。
 
 #### Scenario: 写入 uniform + sampled image
 
-- **WHEN** 对 set 含 binding 0=uniform buffer、binding 1=sampled image、binding 2=sampler 的 group 调用 Update 写入 [{binding=0, BUFFER, buf=ubuf, offset=0, range=64}, {binding=1, IMAGE, image=tex}, {binding=2, SAMPLER, sampler=smp}]
-- **THEN** Update 不报错；后续 BindResourceGroup + Draw 可正确采样到 tex 与 ubuf 数据
+- **WHEN** 对 set 含 binding 0=uniform buffer、binding 1=sampled image、binding 2=sampler 的 group，用 encoder `WriteBuffer(0, ubuf, 0, 64)` + `WriteImage(1, tex, SHADER_READ_ONLY)` + `WriteSampler(2, smp)` 后 `End()`
+- **THEN** `End()` 不报错；后续 BindResourceGroup + Draw 可正确采样到 tex 与 ubuf 数据
 
 #### Scenario: 写入类型不匹配 binding type
 
-- **WHEN** 对 binding=0（uniform buffer）写入 IMAGE
+- **WHEN** 对 binding=0（uniform buffer）调用 `WriteImage`
 - **THEN** Debug build assert；Release build 行为未定义但 MUST 不静默成功
 
 ### Requirement: Encoder::BindResourceGroup 真正生效，支持动态偏移
