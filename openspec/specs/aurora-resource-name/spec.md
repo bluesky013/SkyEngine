@@ -28,12 +28,11 @@ TBD - created by archiving change aurora-resource-name. Update Purpose after arc
 
 ### Requirement: 后端创建资源时设置 debug label
 
-四后端 SHALL 在 `CreateBuffer` / `CreateImage` 且 `Descriptor::name` 非空时，给底层资源设置 debug label：
+三后端 SHALL 在 `CreateBuffer` / `CreateImage` 且 `Descriptor::name` 非空时，给底层资源设置 debug label：
 
 - Vulkan：`vkSetDebugUtilsObjectNameEXT`（`VK_EXT_debug_utils` 未启用或函数未加载时跳过）；
 - DX12：`ID3D12Object::SetName`；
-- Metal：`MTLResource setLabel:`；
-- GLES：`glObjectLabel`（`GL_KHR_debug`）。
+- Metal：`MTLResource setLabel:`。
 
 #### Scenario: Vulkan 资源名可被调试器读取
 

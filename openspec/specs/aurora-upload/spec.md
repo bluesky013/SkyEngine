@@ -9,8 +9,7 @@ TBD - created by archiving change aurora-upload. Update Purpose after archive.
 
 - Vulkan：存在 `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | HOST_VISIBLE_BIT | HOST_COHERENT_BIT` 的 memory heap 时 SHALL 置 `true`；
 - DX12：`D3D12_FEATURE_DATA_ARCHITECTURE` 的 `UMA` / `CacheCoherentUMA` 为真时 SHALL 置 `true`；
-- Metal：`MTLDevice.hasUnifiedMemory` 为真时 SHALL 置 `true`；
-- GLES：SHALL 恒置 `true`。
+- Metal：`MTLDevice.hasUnifiedMemory` 为真时 SHALL 置 `true`。
 
 #### Scenario: 集成 GPU 报 UMA
 

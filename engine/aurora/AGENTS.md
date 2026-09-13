@@ -1,8 +1,10 @@
 # Aurora RHI
 
 Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `engine/rhi`）。
-四个后端：Vulkan / DX12 / Metal / GLES。
-后端以独立动态库形式编译（`AuroraVulkan` / `AuroraDX12` / `AuroraMetal` / `AuroraGL`），
+三个后端：Vulkan / DX12 / Metal。
+**GLES 不再支持**：接口 `API` 枚举不含 `GLES`，也不提供 `AuroraGL` 后端动态库；
+移动端统一走 Vulkan（Android）或 Metal（iOS），不要为 GLES 新增任何接口/后端代码。
+后端以独立动态库形式编译（`AuroraVulkan` / `AuroraDX12` / `AuroraMetal`），
 通过 `Instance::Init({api = ...})` 在运行时 dlopen 选择。
 
 ## 命名空间
@@ -66,7 +68,6 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 - **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制
 - **DX12**：12.0 起步（PSO/SwapChain 仍是 stub，见 `aurora-resource-group` change 中的 PSO 完成项）
 - **Metal**：3 起步
-- **GLES**：3.1 起步（compute shader 必备；多 queue 退化为单逻辑队列）
 
 ## Barrier 用法
 
@@ -114,7 +115,6 @@ Vulkan validation 严格检查 stage ↔ access。stage 由调用方显式填 `B
 | Vulkan | `vkCmdPipelineBarrier2` 直接落 cmdbuf |
 | DX12 | `ID3D12GraphicsCommandList::ResourceBarrier` 直接落 cmdlist；UAV barrier 用 null pResource |
 | Metal | `MetalCommandBuffer` 内部记账 active encoder：调用时若有 → `[encoder memoryBarrierWithScope:]`；若无 → 缓存到下一次 CreateXxxEncoder 入口 flush。Layout transition 在 Metal 上 noop。Blit encoder 不暴露 memoryBarrier API（依赖 encoder 边界隐式同步） |
-| GLES | 全部 access 合并 `glMemoryBarrier(...)`；layout / stage 忽略 |
 
 ## RDG 用法
 

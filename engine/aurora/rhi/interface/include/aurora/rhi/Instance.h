@@ -4,21 +4,15 @@
 
 #pragma once
 
+#include <aurora/rhi/Device.h>
 #include <core/environment/Singleton.h>
 #include <core/util/DynamicModule.h>
-#include <aurora/rhi/Device.h>
-#include <string>
 #include <memory>
+#include <string>
 
 namespace sky::aurora {
 
-    enum class API {
-        DEFAULT = 0,
-        VULKAN,
-        METAL,
-        DX12,
-        GLES
-    };
+    enum class API { DEFAULT = 0, VULKAN, METAL, DX12 };
 
     class Instance : public Singleton<Instance> {
     public:
@@ -34,19 +28,23 @@ namespace sky::aurora {
 
         class Impl {
         public:
-            Impl() = default;
+            Impl()          = default;
             virtual ~Impl() = default;
 
-            virtual bool Init(const Descriptor &) = 0;
-            virtual Device *CreateDevice() = 0;
+            virtual bool    Init(const Descriptor &) = 0;
+            virtual Device *CreateDevice()           = 0;
         };
 
         void Init(const Descriptor &);
 
-        Device* GetDevice() const { return device; }
+        Device *GetDevice() const
+        {
+            return device;
+        }
+
     private:
-        Device* device = nullptr;
-        std::unique_ptr<Impl> impl;
+        Device                        *device = nullptr;
+        std::unique_ptr<Impl>          impl;
         std::unique_ptr<DynamicModule> dynModule;
     };
 

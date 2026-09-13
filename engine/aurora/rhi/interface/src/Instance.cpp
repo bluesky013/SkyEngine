@@ -6,7 +6,7 @@
 
 namespace sky::aurora {
 
-    using InstanceFunc = Instance::Impl*(*)();
+    using InstanceFunc = Instance::Impl *(*)();
 
     Instance::~Instance()
     {
@@ -14,8 +14,8 @@ namespace sky::aurora {
             device->Shutdown();
             delete device;
         }
-        device  = nullptr;
-        impl = nullptr;
+        device    = nullptr;
+        impl      = nullptr;
         dynModule = nullptr;
     }
 
@@ -30,10 +30,9 @@ namespace sky::aurora {
             "AuroraVulkan",
             "AuroraMetal",
             "AuroraDX12",
-            "AuroraGL",
         };
 
-        auto api = nameMap[static_cast<uint32_t>(desc.api)];
+        auto api  = nameMap[static_cast<uint32_t>(desc.api)];
         dynModule = std::make_unique<DynamicModule>(api);
         if (!dynModule->Load()) {
             return;
@@ -51,4 +50,4 @@ namespace sky::aurora {
         device = impl ? impl->CreateDevice() : nullptr;
     }
 
-} // sky::aurora
+} // namespace sky::aurora

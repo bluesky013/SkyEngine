@@ -36,7 +36,7 @@ TBD - created by archiving change aurora-encoder-barriers. Update Purpose after 
 - `BeginRendering` / `EndRendering` 区间**内**仅当 Vulkan 后端 self-dependency 合法（一般不推荐）
 
 后端实现职责：
-- Vulkan / DX12 / GLES：直接落到 cmdbuf-级 native API
+- Vulkan / DX12：直接落到 cmdbuf-级 native API
 - Metal：CommandBuffer 内部记账当前 active encoder；若有，转 `[encoder memoryBarrierWithScope:after:before:]`；若无（pass 之间），缓存到下一次 `CreateXxxEncoder` 入口处 flush
 
 #### Scenario: 在 Encoder 创建前发 image transition
@@ -73,7 +73,6 @@ stage 由调用方在 `BarrierInfo.srcStage` / `dstStage` **显式指定**（RDG
 - Vulkan：access 类别直接映射 `VkAccessFlags2`（`SRV`→`SHADER_READ`，`UAV`→`SHADER_WRITE`，`RTV`→`COLOR_ATTACHMENT_WRITE`，…）；stage 由 `srcStage`/`dstStage` 直接映射 `VkPipelineStageFlags2`
 - DX12：聚合 access 推导 `D3D12_RESOURCE_STATES`（transition before/after）；UAV → UAV barrier；layout 概念 noop
 - Metal：access → `MTLBarrierScope` + `MTLRenderStages`；layout 概念 noop
-- GLES：access → `glMemoryBarrier` 位；layout / stage 忽略
 
 后端 MUST 在 debug build 下校验 `AccessFlags` 与 `oldLayout`/`newLayout` 的一致性。
 
