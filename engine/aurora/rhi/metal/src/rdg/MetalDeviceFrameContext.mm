@@ -13,6 +13,8 @@ namespace sky::aurora {
         mInflightNum = info.inflightNum;
         mParallelNum = info.parallelNum;
 
+        InitFences(mDevice);
+
         mPool.reset(device->CreateCommandPool(QueueType::GRAPHICS));
         mMetalPool = static_cast<MetalCommandPool*>(mPool.get());
         

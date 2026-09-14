@@ -210,6 +210,7 @@ namespace sky::aurora {
 
         LOG_I(TAG, "swapchain created: %ux%u format=%d images=%u presentMode=%d",
               extent.width, extent.height, surfaceFormat.format, imageCount, presentMode);
+        status = SwapChainStatus::OK;
         return true;
     }
 
@@ -245,7 +246,11 @@ namespace sky::aurora {
         uint32_t index = 0;
         const VkResult r = device.GetDeviceFn().vkAcquireNextImageKHR(device.GetNativeHandle(),
             swapchain, timeoutNs, vkSema, vkFence, &index);
-        if (r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_TIMEOUT) {
+        if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+            status = SwapChainStatus::OUT_OF_DATE;
+            return INVALID_INDEX;
+        }
+        if (r == VK_TIMEOUT) {
             return INVALID_INDEX;
         }
         if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
@@ -276,9 +281,38 @@ namespace sky::aurora {
         VkQueue vkQueue = static_cast<VulkanQueue *>(
             device.GetQueue(QueueType::GRAPHICS))->GetNativeHandle();
         const VkResult r = device.GetDeviceFn().vkQueuePresentKHR(vkQueue, &info);
-        if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR && r != VK_ERROR_OUT_OF_DATE_KHR) {
+        if (r == VK_ERROR_SURFACE_LOST_KHR) {
+            status = SwapChainStatus::LOST;
+        } else if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+            status = SwapChainStatus::OUT_OF_DATE;
+        } else if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
             LOG_E(TAG, "vkQueuePresentKHR failed: %d", r);
         }
+    }
+
+    SwapChainStatus VulkanSwapChain::GetStatus() const
+    {
+        if (status == SwapChainStatus::LOST) {
+            return SwapChainStatus::LOST;
+        }
+        const Extent2D surfaceSize = GetSurfaceSize();
+        if (surfaceSize.width != extent.width || surfaceSize.height != extent.height) {
+            return SwapChainStatus::OUT_OF_DATE;
+        }
+        return status;
+    }
+
+    Extent2D VulkanSwapChain::GetSurfaceSize() const
+    {
+        VulkanInstance &inst = device.GetVulkanInstance();
+        const auto &instFn   = inst.GetInstanceFn();
+
+        VkSurfaceCapabilitiesKHR caps = {};
+        instFn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.GetGpuHandle(), surface, &caps);
+        if (caps.currentExtent.width != UINT32_MAX) {
+            return {caps.currentExtent.width, caps.currentExtent.height};
+        }
+        return {extent.width, extent.height};
     }
 
     void VulkanSwapChain::Resize(uint32_t width, uint32_t height)

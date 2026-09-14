@@ -3,6 +3,7 @@
 //
 
 #include <aurora/rdg/RenderGraph.h>
+#include <aurora/rdg/RenderViewport.h>
 #include <aurora/rhi/Barrier.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Encoder.h>
@@ -160,6 +161,19 @@ namespace sky::aurora {
 
     void RenderGraph::CullPasses()
     {
+        // Resolve viewport backbuffers (acquire) before culling so a failed
+        // acquire leaves the resource unresolved and culls its writer passes.
+        for (uint32_t i = 0; i < mResources.size(); ++i) {
+            const auto &node = mResources[i];
+            if (!std::holds_alternative<ViewportImageTag>(node.tag)) {
+                continue;
+            }
+            auto *viewport = mViewportImages[node.payloadIndex].viewport;
+            mResolvedImages[i] = (viewport != nullptr && viewport->Acquire())
+                                     ? viewport->GetBackbuffer()
+                                     : nullptr;
+        }
+
         std::vector<bool> live(mPasses.size(), false);
         std::queue<uint32_t> work;
 
@@ -174,6 +188,9 @@ namespace sky::aurora {
             const auto &node = mResources[i];
             bool isSeed = false;
             if (std::holds_alternative<ImportImageTag>(node.tag) || std::holds_alternative<ImportBufferTag>(node.tag)) {
+                isSeed = true;
+            }
+            if (std::holds_alternative<ViewportImageTag>(node.tag) && mResolvedImages[i] != nullptr) {
                 isSeed = true;
             }
             if (std::find(mOfInterest.begin(), mOfInterest.end(), i) != mOfInterest.end()) {
@@ -587,7 +604,8 @@ namespace sky::aurora {
             }
 
             const bool isImage  = std::holds_alternative<TransientImageTag>(node.tag) ||
-                                  std::holds_alternative<ImportImageTag>(node.tag);
+                                  std::holds_alternative<ImportImageTag>(node.tag) ||
+                                  std::holds_alternative<ViewportImageTag>(node.tag);
             const bool isBuffer = std::holds_alternative<TransientBufferTag>(node.tag) ||
                                   std::holds_alternative<ImportBufferTag>(node.tag);
 

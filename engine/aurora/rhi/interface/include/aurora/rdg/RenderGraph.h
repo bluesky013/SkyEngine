@@ -38,6 +38,7 @@ namespace sky::aurora {
     class CommandBuffer;
     class TransientPool;
     class ResourceGroup;
+    class RenderViewport;
 
     class RenderGraph {
     public:
@@ -51,6 +52,7 @@ namespace sky::aurora {
         RDGBufferHandle  CreateBuffer(const Name &name, const RDGBufferDesc &desc);
         RDGTextureHandle Import(const Name &name, const ImagePtr &image, AccessFlags importAccess = AccessFlagBit::NONE);
         RDGBufferHandle  Import(const Name &name, const BufferPtr &buffer, AccessFlags importAccess = AccessFlagBit::NONE);
+        RDGTextureHandle BindViewport(const Name &name, RenderViewport *viewport);
 
         // ---- passes ----
         void AddSceneRasterPass(const Name &name,
@@ -144,6 +146,7 @@ namespace sky::aurora {
         TransientVector<GraphImportImage>  mImportImages;
         TransientVector<GraphBuffer>       mBuffers;
         TransientVector<GraphImportBuffer> mImportBuffers;
+        TransientVector<GraphViewportImage> mViewportImages;
 
         TransientVector<PassNode>            mPasses;
         TransientVector<SceneRasterPassData> mSceneRasterPasses;

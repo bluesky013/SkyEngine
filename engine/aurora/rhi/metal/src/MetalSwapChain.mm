@@ -146,4 +146,27 @@ namespace sky::aurora {
         return image.get();
     }
 
+    SwapChainStatus MetalSwapChain::GetStatus() const
+    {
+        auto *metalLayer = (CAMetalLayer *)layer;
+        if (metalLayer == nil) {
+            return SwapChainStatus::LOST;
+        }
+        const Extent2D surfaceSize = GetSurfaceSize();
+        if (surfaceSize.width != extent.width || surfaceSize.height != extent.height) {
+            return SwapChainStatus::OUT_OF_DATE;
+        }
+        return SwapChainStatus::OK;
+    }
+
+    Extent2D MetalSwapChain::GetSurfaceSize() const
+    {
+        auto *metalLayer = (CAMetalLayer *)layer;
+        if (metalLayer == nil) {
+            return extent;
+        }
+        const CGSize size = metalLayer.drawableSize;
+        return {static_cast<uint32_t>(size.width), static_cast<uint32_t>(size.height)};
+    }
+
 } // namespace sky::aurora

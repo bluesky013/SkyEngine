@@ -12,6 +12,8 @@ namespace sky::aurora {
         mInflightNum = info.inflightNum;
         mParallelNum = info.parallelNum;
 
+        InitFences(mDevice);
+
         mPool.reset(device->CreateCommandPool(QueueType::GRAPHICS));
         mVulkanPool = static_cast<VulkanCommandPool *>(mPool.get());
 

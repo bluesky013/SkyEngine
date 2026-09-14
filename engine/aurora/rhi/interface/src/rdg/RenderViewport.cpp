@@ -1,5 +1,5 @@
 //
-// Created by Zach Lee on 2026/8/8.
+// Aurora RenderViewport (base surface contract). No default implementations.
 //
 
 #include <aurora/rdg/RenderViewport.h>

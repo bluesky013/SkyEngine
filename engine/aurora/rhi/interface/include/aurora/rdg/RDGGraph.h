@@ -27,6 +27,7 @@ namespace sky::aurora {
     class ResourceGroup;
     class GraphicsPipeline;
     class ComputePipeline;
+    class RenderViewport;
 
     // ---- lifetime ----
     struct LifeTime {
@@ -65,12 +66,18 @@ namespace sky::aurora {
         AccessFlags   importAccess = AccessFlagBit::NONE;
     };
 
+    struct GraphViewportImage {
+        RenderViewport *viewport     = nullptr;
+        AccessFlags     importAccess = AccessFlagBit::NONE;
+    };
+
     // ---- resource tags (variant dispatch) ----
     struct TransientImageTag {};
     struct ImportImageTag {};
     struct TransientBufferTag {};
     struct ImportBufferTag {};
-    using ResourceTag = std::variant<TransientImageTag, ImportImageTag, TransientBufferTag, ImportBufferTag>;
+    struct ViewportImageTag {};
+    using ResourceTag = std::variant<TransientImageTag, ImportImageTag, TransientBufferTag, ImportBufferTag, ViewportImageTag>;
 
     struct ResourceNode {
         Name        name;

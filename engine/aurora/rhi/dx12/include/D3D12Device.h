@@ -56,10 +56,7 @@ namespace sky::aurora {
         {
             return nullptr; // TODO: SM6.6 ResourceDescriptorHeap (tier2)
         }
-        SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override
-        {
-            return nullptr;
-        }
+        SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader           *CreateShader(const Shader::Descriptor &desc) override;
@@ -90,6 +87,7 @@ namespace sky::aurora {
         {
             return descriptorAllocator.get();
         }
+        IDXGIFactory4 *GetDXGIFactory() const;
 
     private:
         bool        OnInit(const DeviceInit &init) override;

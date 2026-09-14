@@ -9,6 +9,9 @@
 #include <core/async/ThreadPool.h>
 #include <core/environment/Singleton.h>
 #include <core/memory/FrameAllocator.h>
+#include <aurora/rhi/Fence.h>
+
+#include <vector>
 
 namespace sky::aurora {
 
@@ -38,12 +41,21 @@ namespace sky::aurora {
             return mFrameAllocator;
         }
 
+        // The current in-flight frame's fence (shared across all viewports of
+        // this frame). Wired into SubmitInfo::fence by the frame driver.
+        Fence *GetFrameFence() const noexcept;
+
     protected:
+        // Create mInflightNum signaled fences. Called by backend subclasses once
+        // mInflightNum is assigned.
+        void InitFences(Device *device);
+
         uint32_t                    mFrameIndex  = 0;
         uint32_t                    mInflightNum = 0;
         uint32_t                    mParallelNum = 0;
         std::unique_ptr<ThreadPool> mThreadPool;
         FrameAllocator              mFrameAllocator;
+        std::vector<FencePtr>       mFences;
     };
 
     class RenderDeviceExclusive : public Singleton<RenderDeviceExclusive> {

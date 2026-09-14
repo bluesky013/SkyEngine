@@ -28,6 +28,8 @@ namespace sky::aurora {
         uint32_t    GetImageCount() const override { return static_cast<uint32_t>(images.size()); }
         PixelFormat GetFormat() const override { return pixelFormat; }
         Extent2D    GetExtent() const override { return {extent.width, extent.height}; }
+        SwapChainStatus GetStatus() const override;
+        Extent2D    GetSurfaceSize() const override;
 
     private:
         bool CreateSurface(void *window);
@@ -42,6 +44,7 @@ namespace sky::aurora {
         VkPresentModeKHR    presentMode   = VK_PRESENT_MODE_FIFO_KHR;
         VkExtent2D          extent        = {1, 1};
         PixelFormat         pixelFormat   = PixelFormat::BGRA8_UNORM;
+        SwapChainStatus     status        = SwapChainStatus::OK;
 
         std::vector<std::unique_ptr<VulkanImage>> images;
     };

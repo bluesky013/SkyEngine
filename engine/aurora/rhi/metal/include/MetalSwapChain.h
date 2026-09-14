@@ -26,6 +26,8 @@ namespace sky::aurora {
         uint32_t    GetImageCount() const override { return 1; }
         PixelFormat GetFormat() const override { return format; }
         Extent2D    GetExtent() const override { return extent; }
+        SwapChainStatus GetStatus() const override;
+        Extent2D    GetSurfaceSize() const override;
 
         void *GetLayer() const { return layer; }
 

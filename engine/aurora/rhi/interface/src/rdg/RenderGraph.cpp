@@ -19,6 +19,7 @@ namespace sky::aurora {
         , mImportImages(TransientStdAllocator<GraphImportImage>{frameAlloc.Arena()})
         , mBuffers(TransientStdAllocator<GraphBuffer>{frameAlloc.Arena()})
         , mImportBuffers(TransientStdAllocator<GraphImportBuffer>{frameAlloc.Arena()})
+        , mViewportImages(TransientStdAllocator<GraphViewportImage>{frameAlloc.Arena()})
         , mPasses(TransientStdAllocator<PassNode>{frameAlloc.Arena()})
         , mSceneRasterPasses(TransientStdAllocator<SceneRasterPassData>{frameAlloc.Arena()})
         , mFullScreenPasses(TransientStdAllocator<FullScreenPassData>{frameAlloc.Arena()})
@@ -69,6 +70,9 @@ namespace sky::aurora {
         } else if (std::holds_alternative<ImportBufferTag>(tag)) {
             node.payloadIndex = static_cast<uint32_t>(mImportBuffers.size());
             mImportBuffers.emplace_back();
+        } else if (std::holds_alternative<ViewportImageTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mViewportImages.size());
+            mViewportImages.emplace_back();
         }
 
         mResources.push_back(std::move(node));
@@ -139,6 +143,15 @@ namespace sky::aurora {
         import.buffer         = buffer;
         import.importAccess   = importAccess;
         return RDGBufferHandle{index};
+    }
+
+    RDGTextureHandle RenderGraph::BindViewport(const Name &name, RenderViewport *viewport)
+    {
+        const uint32_t index = AddResource(name, ViewportImageTag{});
+        auto &vp             = mViewportImages[mResources[index].payloadIndex];
+        vp.viewport          = viewport;
+        vp.importAccess      = AccessFlagBit::NONE; // backbuffer starts UNDEFINED each frame
+        return RDGTextureHandle{index};
     }
 
     void RenderGraph::AddSceneRasterPass(const Name &name,

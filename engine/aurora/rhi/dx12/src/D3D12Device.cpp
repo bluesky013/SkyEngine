@@ -13,6 +13,7 @@
 #include <D3D12ResourceGroup.h>
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
+#include <D3D12SwapChain.h>
 #include <core/logger/Logger.h>
 #include <rdg/D3D12DeviceFrameContext.h>
 #include "rdg/D3D12RDGBackend.h"
@@ -224,6 +225,21 @@ namespace sky::aurora {
             return nullptr;
         }
         return s;
+    }
+
+    SwapChain *D3D12Device::CreateSwapChain(const SwapChain::Descriptor &desc)
+    {
+        auto *swc = new D3D12SwapChain(*this);
+        if (!swc->Init(desc)) {
+            delete swc;
+            return nullptr;
+        }
+        return swc;
+    }
+
+    IDXGIFactory4 *D3D12Device::GetDXGIFactory() const
+    {
+        return instance.GetDXGIFactory();
     }
 
     Buffer *D3D12Device::CreateBuffer(const Buffer::Descriptor &desc)
