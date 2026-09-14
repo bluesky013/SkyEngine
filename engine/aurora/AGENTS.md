@@ -65,6 +65,16 @@ descriptor 写入统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncod
   - **shader-visible 隔离**：`D3D12DescriptorAllocator` 用 CPU-only staging heap（source of truth）+ `ringSize` 张 shader-visible heap（每 in-flight frame 一张，offset 1:1）；encoder 只写 staging，`BindResourceGroup` 前 `EnsureFrameCopy()` 用 `CopyDescriptorsSimple` 拷到当前帧 heap；`D3D12DeviceFrameContext::BeginFrame` 调 `allocator->BeginFrame(mFrameIndex)` 轮换 ring。
 - **Metal**：`MetalDescriptorEncoder` 是 header-only stub，`MetalResourceGroup` 未实现，随 `aurora-resource-group Metal phase` 落地。
 
+## DescriptorBatch 跨 set 批量
+
+帧内跨 set 的 descriptor 写入走 **`DescriptorBatch`**（`aurora/rhi/DescriptorBatch.h`）：
+
+- `Device::CreateDescriptorBatch()` 返回后端 batch；`WriteBuffer/WriteImage/WriteSampler(group, binding, ...)` 累积，`Flush()` 一帧一次，`Reset()` 帧末复用。
+- **Vulkan** `VulkanDescriptorBatch`：累积 `VkWriteDescriptorSet`（`dstSet` = 各 group 当前 set），`Flush()` 单次 `vkUpdateDescriptorSets`。
+- **DX12** `D3D12DescriptorBatch`：thin，`Write*` 复用 `D3D12DescriptorEncoder`（即时写 CPU staging），`Flush()`/`Reset()` no-op（copy 在 bind）。
+- **Metal** `MetalDescriptorBatch`：stub（随 `aurora-resource-group Metal phase`）。
+- 与 `DescriptorEncoder`（per-set template 路径）并存：单 set 快路径走 encoder，跨 set 批量走 batch。
+
 ## Dynamic UBO pack（batch tier / set 2）
 
 Batch tier（set 2）用 dynamic UBO 承载 per-object uniform 数据，契约如下：

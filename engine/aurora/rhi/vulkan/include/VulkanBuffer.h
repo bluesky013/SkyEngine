@@ -20,6 +20,8 @@ namespace sky::aurora {
 
         VkBuffer GetNativeHandle() const { return buffer; }
 
+        uint64_t GetId() const { return mId; }
+
         uint8_t *Map() override;
         void UnMap() override;
 
@@ -28,6 +30,7 @@ namespace sky::aurora {
         VkBuffer       buffer     = VK_NULL_HANDLE;
         VmaAllocation  allocation = VK_NULL_HANDLE;
         uint8_t       *mappedPtr  = nullptr;
+        uint64_t       mId        = 0;
     };
 
 } // namespace sky::aurora

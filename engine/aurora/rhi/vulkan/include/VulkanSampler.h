@@ -20,9 +20,12 @@ namespace sky::aurora {
 
         VkSampler GetNativeHandle() const { return sampler; }
 
+        uint64_t GetId() const { return mId; }
+
     private:
         VulkanDevice &device;
         VkSampler     sampler = VK_NULL_HANDLE;
+        uint64_t      mId     = 0;
     };
 
 } // namespace sky::aurora

@@ -7,6 +7,7 @@
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/DescriptorBatch.h>
 #include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/DescriptorHeap.h>
 #include <aurora/rhi/Encoder.h>
@@ -69,6 +70,7 @@ namespace sky::aurora {
         virtual Image               *CreateImage(const Image::Descriptor &desc)                             = 0;
         virtual Sampler             *CreateSampler(const Sampler::Descriptor &desc)                         = 0;
         virtual ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) = 0;
+        virtual DescriptorBatch *CreateDescriptorBatch() = 0;
         virtual DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)            = 0;
         virtual SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc)                     = 0;
 

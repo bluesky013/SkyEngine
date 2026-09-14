@@ -4,6 +4,7 @@
 
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
+#include <D3D12DescriptorBatch.h>
 #include <D3D12Device.h>
 #include <D3D12Fence.h>
 #include <D3D12Instance.h>
@@ -253,6 +254,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    DescriptorBatch *D3D12Device::CreateDescriptorBatch()
+    {
+        return new D3D12DescriptorBatch(*this);
     }
 
     ResourceGroup *D3D12Device::CreateResourceGroup(const ResourceGroup::Descriptor &desc)

@@ -14,6 +14,7 @@
 #include <aurora/rhi/Device.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -46,6 +47,7 @@ namespace sky::aurora {
         Image               *CreateImage(const Image::Descriptor &desc) override;
         Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorBatch     *CreateDescriptorBatch() override;
         DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
         SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
@@ -89,6 +91,12 @@ namespace sky::aurora {
 
         uint32_t GetQueueFamilyIndex(QueueType type) const;
 
+        // monotonic resource id for cached-content identity (never reused)
+        uint64_t AllocResourceId()
+        {
+            return mNextResourceId.fetch_add(1);
+        }
+
     private:
         bool        OnInit(const DeviceInit &init) override;
         void        UpdateDeviceCaps() override;
@@ -123,6 +131,8 @@ namespace sky::aurora {
 
         // memory properties
         VkPhysicalDeviceMemoryProperties memoryProperties = {};
+
+        std::atomic<uint64_t> mNextResourceId{1};
 
         std::vector<const char *> enabledExtensions;
     };

@@ -40,6 +40,10 @@ namespace sky::aurora {
             (void)desc;
             return nullptr; // Metal ResourceGroup lands in a later change
         }
+        DescriptorBatch *CreateDescriptorBatch() override
+        {
+            return nullptr; // Metal ResourceGroup lands in a later change
+        }
         DescriptorHeap *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
         {
             return nullptr;

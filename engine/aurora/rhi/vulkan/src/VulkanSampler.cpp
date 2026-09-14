@@ -13,6 +13,7 @@ namespace sky::aurora {
 
     VulkanSampler::VulkanSampler(VulkanDevice &dev)
         : device(dev)
+        , mId(dev.AllocResourceId())
     {
     }
 

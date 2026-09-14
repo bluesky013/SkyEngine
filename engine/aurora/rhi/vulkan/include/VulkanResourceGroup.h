@@ -16,6 +16,7 @@ namespace sky::aurora {
 
     class VulkanDevice;
     class VulkanDescriptorEncoder;
+    class VulkanDescriptorBatch;
 
     class VulkanResourceGroup : public ResourceGroup {
     public:
@@ -30,6 +31,7 @@ namespace sky::aurora {
 
     private:
         friend class VulkanDescriptorEncoder;
+        friend class VulkanDescriptorBatch;
 
         struct BindingInfo {
             uint32_t          binding  = 0;

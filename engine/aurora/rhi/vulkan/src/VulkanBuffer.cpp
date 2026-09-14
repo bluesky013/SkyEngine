@@ -14,6 +14,7 @@ namespace sky::aurora {
 
     VulkanBuffer::VulkanBuffer(VulkanDevice &dev)
         : device(dev)
+        , mId(dev.AllocResourceId())
     {
     }
 

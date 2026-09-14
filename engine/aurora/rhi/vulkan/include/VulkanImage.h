@@ -26,6 +26,8 @@ namespace sky::aurora {
         VkFormat GetVkFormat() const { return vkFormat; }
         PixelFormat GetPixelFormat() const { return pixelFormat; }
 
+        uint64_t GetId() const { return mId; }
+
     private:
         bool CreateDefaultView(const Descriptor &desc);
         bool CreateSwapChainDefaultView();
@@ -37,6 +39,7 @@ namespace sky::aurora {
         VkFormat       vkFormat   = VK_FORMAT_UNDEFINED;
         PixelFormat    pixelFormat = PixelFormat::UNDEFINED;
         bool           owned      = true;
+        uint64_t       mId        = 0;
     };
 
 } // namespace sky::aurora

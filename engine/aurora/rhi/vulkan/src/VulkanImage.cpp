@@ -48,6 +48,7 @@ namespace sky::aurora {
 
     VulkanImage::VulkanImage(VulkanDevice &dev)
         : device(dev)
+        , mId(dev.AllocResourceId())
     {
     }
 

@@ -218,6 +218,45 @@ TEST_F(ResourceGroupTestVulkan, EncoderBatchWrite)
     SUCCEED();
 }
 
+TEST_F(ResourceGroupTestVulkan, DescriptorBatchCrossSet)
+{
+    auto *device = GetDevice();
+
+    auto shader0 = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(0)));
+    auto shader1 = CounterPtr<Shader>(MakeComputeShader(device, MakeUboReflection(1)));
+    ASSERT_NE(shader0.Get(), nullptr);
+    ASSERT_NE(shader1.Get(), nullptr);
+
+    ResourceGroup::Descriptor gd0{};
+    gd0.shader = shader0.Get();
+    gd0.set    = 0;
+    ResourceGroup::Descriptor gd1{};
+    gd1.shader = shader1.Get();
+    gd1.set    = 1;
+    auto group0 = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd0));
+    auto group1 = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd1));
+    ASSERT_NE(group0.Get(), nullptr);
+    ASSERT_NE(group1.Get(), nullptr);
+
+    Buffer::Descriptor bd{};
+    bd.size   = 256;
+    bd.usage  = BufferUsageFlagBit::UNIFORM;
+    bd.memory = MemoryType::CPU_TO_GPU;
+    auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
+    ASSERT_NE(ub.Get(), nullptr);
+
+    auto *batch = device->CreateDescriptorBatch();
+    ASSERT_NE(batch, nullptr);
+
+    batch->WriteBuffer(group0.Get(), 0, ub.Get(), 0, 256);
+    batch->WriteBuffer(group1.Get(), 0, ub.Get(), 0, 256);
+    batch->Flush(); // single vkUpdateDescriptorSets across two sets
+    batch->Reset();
+
+    delete batch;
+    SUCCEED();
+}
+
 TEST_F(ResourceGroupTestVulkan, SetIndexHole)
 {
     auto *device = GetDevice();

@@ -5,6 +5,7 @@
 #include "VulkanDevice.h"
 #include "VulkanCommandPool.h"
 #include "VulkanConversion.h"
+#include "VulkanDescriptorBatch.h"
 #include "VulkanFence.h"
 #include "VulkanInstance.h"
 #include "VulkanPipelineState.h"
@@ -392,6 +393,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return group;
+    }
+
+    DescriptorBatch *VulkanDevice::CreateDescriptorBatch()
+    {
+        return new VulkanDescriptorBatch(*this);
     }
 
     DescriptorHeap *VulkanDevice::CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)
