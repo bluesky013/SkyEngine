@@ -28,6 +28,6 @@ Aurora RHI 当前只能创建 Device、分配 CommandBuffer 并通过 Encoder �
 
 - **接口头文件**：`aurora/rhi/Device.h`、`aurora/rhi/SwapChain.h`、`aurora/rhi/Semaphore.h`、`aurora/rhi/Fence.h` 新增方法/类型；新增 `aurora/rhi/Queue.h`、`aurora/rhi/SubmitInfo.h`
 - **后端实现**：4 套 `*Device` / `*SwapChain` / `*Semaphore` / `*Fence` / 新增 `*Queue` 文件
-- **测试**：`engine/aurora/rhi/test/SyncTest.cpp` 扩展；新增 `SubmitTest.cpp` / `SwapChainTest.cpp`
+- **测试**：`engine/aurora/rhi/test/SyncTest.cpp` 扩展；新增 `SubmitTest.cpp`（保持 headless，不做 SwapChain 实际 window 测试）
 - **调用方**：暂无（aurora 还未被任何 module 使用）；`engine/aurora/core/Renderer` 后续一帧主循环将基于此构建
 - **平台依赖**：Metal 需要 `CAMetalLayer`、Windows 需要 HWND 接入 SwapChain；测试中通过 headless（Vulkan offscreen + 不创建 SwapChain）路径验证 Submit 不依赖 SwapChain

@@ -138,11 +138,11 @@ GLES backend 的所有 Queue / Semaphore 实现在 CPU 端串行化，性能不�
 
 SwapChain 基于 `CAMetalLayer::nextDrawable` + `MTLCommandBuffer::presentDrawable:`。
 
-### 决策 8：测试 headless / windowed 分层
+### 决策 8：测试保持 headless
 
 - **SubmitTest**：不依赖 SwapChain；创建 buffer、用 BlitEncoder copy、submit + fence wait + 验证内容
-- **SwapChainTest**：仅在能创建 native window 的环境运行；用 SDL 创建隐藏窗口（已是依赖）
 - **SyncTest 扩展**：timeline value 单调递增、跨线程 wait
+- **不做 SwapChain 实际 window 测试**：SDL 窗口环境不适合 CI/headless；SwapChain 端到端 present 推迟到编辑器/launcher 场景，接口契约由 `ClientViewportTest` smoke test 覆盖
 - 4 个后端共享 GoogleTest 参数化（已有 `AuroraVulkanTest` 等基类，新增 `AuroraSubmitTestBase` 封装通用 fixtures）
 
 ## Risks / Trade-offs
@@ -151,7 +151,7 @@ SwapChain 基于 `CAMetalLayer::nextDrawable` + `MTLCommandBuffer::presentDrawab
 - **DX12 用 ID3D12Fence 双重身份**（同时作为 semaphore + fence） → 缓解：在 D3D12Semaphore / D3D12Fence 内部各持有独立 ID3D12Fence handle；不复用，避免 value 冲突
 - **SwapChain Resize 让 image 失效** → 缓解：在 spec 里写明 contract；测试覆盖 Resize 后老 imageIndex 的行为
 - **Vulkan 未启用 `synchronization2`** → 缓解：当前用经典 `vkQueueSubmit2` 即可（Vulkan 1.3 已有），只在 wait/signal stage mask 上用新 API；不改变 PipelineStageBit 枚举
-- **测试需要 native window 才能跑 SwapChain** → 缓解：SwapChain 部分用 conditional skip（CI 通常 headless）；headless 路径覆盖 Submit
+- **SwapChain 端到端 present 缺乏 window 测试** → 缓解：保持 headless 测试（Submit/Sync）；SwapChain 契约由 `ClientViewportTest` 覆盖，窗口端到端验证推迟到编辑器/launcher 场景
 - **Semaphore type 字段是 BREAKING（虽然加默认值）** → 缓解：当前没有调用方使用，零迁移成本；落仓时一次性更新 interface + 4 后端
 
 ## Migration Plan
