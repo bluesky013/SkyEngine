@@ -98,8 +98,44 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 ## 平台/特性下限
 
 - **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制
-- **DX12**：12.0 起步（PSO/SwapChain 仍是 stub，见 `aurora-resource-group` change 中的 PSO 完成项）
+- **DX12**：12.0 起步（PSO 仍是 stub；SwapChain 已落地 `D3D12SwapChain`）
 - **Metal**：3 起步
+
+## Queue / Submit / Semaphore / SwapChain（submit-present）
+
+提交与呈现路径（`aurora-queue-submit-present` + `aurora-client-viewport`）。
+
+### Queue::Submit 契约
+
+- `Queue::Submit(SubmitInfo)`：`SubmitInfo` 含 `commandBuffers` / `waitSemaphores` / `signalSemaphores` / `fence`。
+- `SemaphoreSubmitInfo::stageMask` 表达 wait 前 / signal 后的 pipeline stage（sync2 语义）。
+
+### Semaphore binary vs timeline
+
+- `SemaphoreType::BINARY`：跨 submit 的 GPU-GPU 信号（swapchain acquire → render-done → present）；值由后端隐式 +1，调用方不传 value。
+- `SemaphoreType::TIMELINE`：host 与 GPU 都可 signal/wait，调用方显式传 value；跨队列同步用它。
+
+### SwapChain 契约
+
+- `AcquireNextImage(signalSema, fence, timeoutNs) -> index`：拿下一帧可渲染 image，signal binary sema（+ 可选 fence）。
+- `Present(imageIndex, numWaitSemas, waitSemas)`：等待 render-done sema 后把 image 提交给窗口系统。
+- `Resize(w, h)`：重建全部 image；旧 `GetImage` 指针全部失效。
+- `GetStatus()` / `GetSurfaceSize()`：surface 尺寸由原生窗口决定，RHI 层自查；`OUT_OF_DATE` 触发 Resize，`SUBOPTIMAL` 当 `OK`，`LOST` 取消当帧 present。
+
+### 后端差异
+
+| 后端 | binary sema | timeline sema | Present | stageMask |
+|---|---|---|---|---|
+| Vulkan | `vkQueueSubmit2` binary sema | `vkSignalSemaphore` / `vkWaitSemaphores` | `vkQueuePresentKHR`（Submit 后） | 原生支持 |
+| DX12 | `ID3D12Fence`（queue 级 `Wait`/`Signal`） | 同左，value 显式 | `IDXGISwapChain3::Present`（CPU wait render-done fence） | **忽略**（DX12 fence 是 queue 级，不能按 stage 阻塞） |
+| Metal | `MTLSharedEvent` + 内部 binary counter | `MTLSharedEvent` + 显式 value | 每次 Present 起 fresh cmdbuf 挂 `encodeWaitForEvent` + `presentDrawable`（不与用户 Submit 链耦合） | 忽略 |
+
+### Viewport / present 编排
+
+- `RenderViewport`（`aurora/rdg/RenderViewport.h`）是表面基类：`Begin`/`Acquire`/`Release` + backbuffer/format/extent + acquire/render-done sema 访问器（不含 frame index/fence）。
+- `ClientViewport` 持 `SwapChain` + per-viewport 帧 ring sema（本地 `mFrameSlot` 计数，非 image index、非全局 frame index）。
+- inflight frame 全局化：`DeviceFrameContext` 持全局 `mFrameIndex` + N 个 fence + `GetFrameFence()`；多 viewport 一帧内共享，`SubmitInfo.fence` 用全局 fence。
+- RDG 绑定 viewport：`RenderGraph::BindViewport(name, viewport)`（`ViewportImageTag`），prepare 阶段（`CullPasses` 开头）`Acquire` 解析裸 `Image*`（无 refcount，避开 swapchain image 的 `unique_ptr` 所有权冲突）。
 
 ## Barrier 用法
 
@@ -182,7 +218,9 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | Change | 状态 | 说明 |
 |---|---|---|
 | `aurora-quick-fixes` | ✅ 已实施 | 本文档所述默认值/命名 |
-| `aurora-queue-submit-present` | 设计完成 | Queue / Submit / SwapChain Present |
+| `aurora-queue-submit-present` | ✅ 已实施 | Queue / Submit / SwapChain Present（3 后端） |
+| `aurora-renderpass` | ✅ 已实施 | `FullScreenPass` 基类 + `ScenePass`(HDR) + `TextureToScreenPass`（renderpass begin/end 契约） |
+| `aurora-client-viewport` | ✅ 已实施 | `RenderViewport` 表面 + `ClientViewport` + `RenderGraph::BindViewport` + inflight frame 全局化 |
 | `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
 | `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12；Metal / dynamic offset 留待后续） |
 | `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
