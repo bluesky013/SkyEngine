@@ -14,14 +14,14 @@ using namespace sky::aurora::test;
 
 TEST(RenderGeometryTest, CompositeMetadata)
 {
-    auto vb = std::make_unique<VertexBuffer<>>();
+    auto vb = std::make_unique<VertexBuffer>();
     VertexLayout layout;
     layout.stride = 32;
     layout.semantics.Set(VertexSemantic::POSITION);
     layout.semantics.Set(VertexSemantic::NORMAL);
     vb->SetLayout(layout);
 
-    auto ib = std::make_unique<IndexBuffer<>>();
+    auto ib = std::make_unique<IndexBuffer>();
     ib->SetIndexType(IndexType::U32);
 
     RenderGeometry geo(sky::Name("geo"));
@@ -43,12 +43,12 @@ TEST_F(AuroraVulkanTest, RenderGeometryOwnsUploadedBuffers)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    auto vb = std::make_unique<VertexBuffer<>>();
+    auto vb = std::make_unique<VertexBuffer>();
     ASSERT_TRUE(vb->Init(device, 256));
     std::vector<uint8_t> vdata(256, 0x42);
     ASSERT_TRUE(vb->Upload(vdata.data(), vdata.size()));
 
-    auto ib = std::make_unique<IndexBuffer<>>();
+    auto ib = std::make_unique<IndexBuffer>();
     ASSERT_TRUE(ib->Init(device, 128));
     std::vector<uint8_t> idata(128, 0x11);
     ASSERT_TRUE(ib->Upload(idata.data(), idata.size()));

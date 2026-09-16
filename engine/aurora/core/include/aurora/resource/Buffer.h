@@ -42,34 +42,17 @@ namespace sky::aurora {
         uint64_t       size = 0;
     };
 
-    // Buffer kind tags: only declare the usage bits used to create the
-    // underlying rhi buffer. Interpretation metadata (vertex layout, index
-    // type) lives on the concrete buffer types, not here.
-    struct VertexBufferKind {
-        static constexpr BufferUsageFlags Usage = BufferUsageFlagBit::VERTEX;
-    };
-    struct IndexBufferKind {
-        static constexpr BufferUsageFlags Usage = BufferUsageFlagBit::INDEX;
-    };
-    struct UniformBufferKind {
-        static constexpr BufferUsageFlags Usage = BufferUsageFlagBit::UNIFORM;
-    };
-    struct StorageBufferKind {
-        static constexpr BufferUsageFlags Usage =
-            BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX | BufferUsageFlagBit::INDIRECT;
-    };
-
     // Static tier: GPU_ONLY, uploaded once via a staging copy, immutable.
-    template <typename Kind>
     class StaticBuffer : public RenderResource {
     public:
         StaticBuffer() = default;
         explicit StaticBuffer(const Name &inName) : RenderResource(inName) {}
 
-        bool Init(Device *dev, uint64_t inSize)
+        bool Init(Device *dev, uint64_t inSize, BufferUsageFlags inUsage)
         {
             device = dev;
             size   = inSize;
+            usage  = inUsage;
             return dev != nullptr;
         }
 
@@ -101,8 +84,9 @@ namespace sky::aurora {
             return true;
         }
 
-        Buffer  *GetBuffer() const { return buffer.Get(); }
-        uint8_t *Map() { return nullptr; }
+        Buffer         *GetBuffer() const { return buffer.Get(); }
+        BufferUsageFlags GetUsage() const { return usage; }
+        uint8_t         *Map() { return nullptr; }
 
     protected:
         void Create() override
@@ -112,7 +96,7 @@ namespace sky::aurora {
             }
             Buffer::Descriptor desc;
             desc.size   = size;
-            desc.usage  = Kind::Usage | BufferUsageFlagBit::TRANSFER_DST;
+            desc.usage  = usage | BufferUsageFlagBit::TRANSFER_DST;
             desc.memory = MemoryType::GPU_ONLY;
 #if SKY_ENABLE_RESOURCE_NAME
             desc.name = name.GetStr().data();
@@ -127,23 +111,24 @@ namespace sky::aurora {
             created = false;
         }
 
-        BufferPtr buffer;
-        uint64_t  size = 0;
+        BufferPtr       buffer;
+        uint64_t        size  = 0;
+        BufferUsageFlags usage = BufferUsageFlagBit::NONE;
     };
 
     // Dynamic tier: CPU_TO_GPU, persistent-mapped, written every frame. Holds
     // a ring of numFramesInFlight buffers so a frame's write never races an
     // in-flight frame still reading the previous buffer; AdvanceFrame() cycles.
-    template <typename Kind>
     class DynamicBuffer : public RenderResource {
     public:
         DynamicBuffer() = default;
         explicit DynamicBuffer(const Name &inName) : RenderResource(inName) {}
 
-        bool Init(Device *dev, uint64_t inSize, uint32_t inFramesInFlight = 1)
+        bool Init(Device *dev, uint64_t inSize, BufferUsageFlags inUsage, uint32_t inFramesInFlight = 1)
         {
             device    = dev;
             size      = inSize;
+            usage     = inUsage;
             numFrames = inFramesInFlight < 1 ? 1 : inFramesInFlight;
             buffers.resize(numFrames);
             return dev != nullptr;
@@ -161,6 +146,8 @@ namespace sky::aurora {
             }
             return buffers[current].Get();
         }
+
+        BufferUsageFlags GetUsage() const { return usage; }
 
         uint8_t *Map()
         {
@@ -207,7 +194,7 @@ namespace sky::aurora {
                 }
                 Buffer::Descriptor desc;
                 desc.size   = size;
-                desc.usage  = Kind::Usage;
+                desc.usage  = usage;
                 desc.memory = MemoryType::CPU_TO_GPU;
 #if SKY_ENABLE_RESOURCE_NAME
                 desc.name = name.GetStr().data();
@@ -226,23 +213,24 @@ namespace sky::aurora {
         }
 
         std::vector<BufferPtr> buffers;
-        uint64_t  size      = 0;
-        uint32_t  numFrames = 1;
-        uint32_t  current   = 0;
+        uint64_t        size      = 0;
+        uint32_t        numFrames = 1;
+        uint32_t        current   = 0;
+        BufferUsageFlags usage    = BufferUsageFlagBit::NONE;
     };
 
     // Transient tier: per-frame scratch buffer. v1 allocates from the device
     // on first use (a dedicated TransientBufferPool is a follow-up).
-    template <typename Kind>
     class TransientBuffer : public RenderResource {
     public:
         TransientBuffer() = default;
         explicit TransientBuffer(const Name &inName) : RenderResource(inName) {}
 
-        bool Init(Device *dev, uint64_t inSize)
+        bool Init(Device *dev, uint64_t inSize, BufferUsageFlags inUsage)
         {
             device = dev;
             size   = inSize;
+            usage  = inUsage;
             return dev != nullptr;
         }
 
@@ -259,7 +247,9 @@ namespace sky::aurora {
             return true;
         }
 
-        Buffer  *GetBuffer() const { return buffer.Get(); }
+        Buffer *GetBuffer() const { return buffer.Get(); }
+
+        BufferUsageFlags GetUsage() const { return usage; }
 
         uint8_t *Map()
         {
@@ -280,7 +270,7 @@ namespace sky::aurora {
             }
             Buffer::Descriptor desc;
             desc.size   = size;
-            desc.usage  = Kind::Usage;
+            desc.usage  = usage;
             desc.memory = MemoryType::CPU_TO_GPU;
 #if SKY_ENABLE_RESOURCE_NAME
             desc.name = name.GetStr().data();
@@ -295,8 +285,9 @@ namespace sky::aurora {
             created = false;
         }
 
-        BufferPtr buffer;
-        uint64_t  size = 0;
+        BufferPtr       buffer;
+        uint64_t        size  = 0;
+        BufferUsageFlags usage = BufferUsageFlagBit::NONE;
     };
 
     // One vertex binding: stride + semantics + input rate (maps to
@@ -307,11 +298,15 @@ namespace sky::aurora {
         VertexSemanticMask semantics;
     };
 
-    template <typename Storage = StaticBuffer<VertexBufferKind>>
-    class VertexBuffer : public Storage {
+    class VertexBuffer : public StaticBuffer {
     public:
         VertexBuffer() = default;
-        explicit VertexBuffer(const Name &inName) : Storage(inName) {}
+        explicit VertexBuffer(const Name &inName) : StaticBuffer(inName) {}
+
+        bool Init(Device *dev, uint64_t size)
+        {
+            return StaticBuffer::Init(dev, size, BufferUsageFlagBit::VERTEX);
+        }
 
         const VertexLayout &GetLayout() const { return layout; }
         void SetLayout(const VertexLayout &inLayout) { layout = inLayout; }
@@ -320,11 +315,15 @@ namespace sky::aurora {
         VertexLayout layout;
     };
 
-    template <typename Storage = StaticBuffer<IndexBufferKind>>
-    class IndexBuffer : public Storage {
+    class IndexBuffer : public StaticBuffer {
     public:
         IndexBuffer() = default;
-        explicit IndexBuffer(const Name &inName) : Storage(inName) {}
+        explicit IndexBuffer(const Name &inName) : StaticBuffer(inName) {}
+
+        bool Init(Device *dev, uint64_t size)
+        {
+            return StaticBuffer::Init(dev, size, BufferUsageFlagBit::INDEX);
+        }
 
         IndexType GetIndexType() const { return indexType; }
         void SetIndexType(IndexType inType) { indexType = inType; }
@@ -333,36 +332,46 @@ namespace sky::aurora {
         IndexType indexType = IndexType::NONE;
     };
 
-    template <typename Storage = DynamicBuffer<UniformBufferKind>>
-    class UniformBuffer : public Storage {
+    class UniformBuffer : public DynamicBuffer {
     public:
         UniformBuffer() = default;
-        explicit UniformBuffer(const Name &inName) : Storage(inName) {}
+        explicit UniformBuffer(const Name &inName) : DynamicBuffer(inName) {}
+
+        bool Init(Device *dev, uint64_t size, uint32_t framesInFlight = 1)
+        {
+            return DynamicBuffer::Init(dev, size, BufferUsageFlagBit::UNIFORM, framesInFlight);
+        }
     };
 
     // Generic buffer: can be bound as SSBO and re-interpreted as vertex /
     // index / indirect (e.g. a compute output consumed later). The binding
     // offset is supplied at bind time.
-    template <typename Storage = DynamicBuffer<StorageBufferKind>>
-    class StorageBuffer : public Storage {
+    class StorageBuffer : public DynamicBuffer {
     public:
         StorageBuffer() = default;
-        explicit StorageBuffer(const Name &inName) : Storage(inName) {}
+        explicit StorageBuffer(const Name &inName) : DynamicBuffer(inName) {}
+
+        bool Init(Device *dev, uint64_t size, uint32_t framesInFlight = 1)
+        {
+            return DynamicBuffer::Init(dev, size,
+                BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX | BufferUsageFlagBit::INDIRECT,
+                framesInFlight);
+        }
 
         Buffer *AsVertex(uint64_t offset) const
         {
             (void)offset;
-            return this->GetBuffer();
+            return GetBuffer();
         }
         Buffer *AsIndex(uint64_t offset) const
         {
             (void)offset;
-            return this->GetBuffer();
+            return GetBuffer();
         }
         Buffer *AsIndirect(uint64_t offset) const
         {
             (void)offset;
-            return this->GetBuffer();
+            return GetBuffer();
         }
     };
 

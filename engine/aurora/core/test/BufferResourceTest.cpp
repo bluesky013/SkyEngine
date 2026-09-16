@@ -12,24 +12,34 @@
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
-TEST(BufferResourceTest, KindUsageBits)
+TEST(BufferResourceTest, ConcreteTypeUsage)
 {
-    static_assert((VertexBufferKind::Usage & BufferUsageFlagBit::VERTEX).TestBit(BufferUsageFlagBit::VERTEX));
-    static_assert((IndexBufferKind::Usage & BufferUsageFlagBit::INDEX).TestBit(BufferUsageFlagBit::INDEX));
-    static_assert((UniformBufferKind::Usage & BufferUsageFlagBit::UNIFORM).TestBit(BufferUsageFlagBit::UNIFORM));
+    VertexBuffer vb;
+    vb.Init(nullptr, 256);
+    EXPECT_TRUE(vb.GetUsage().TestBit(BufferUsageFlagBit::VERTEX));
 
-    static_assert((StorageBufferKind::Usage & BufferUsageFlagBit::STORAGE).TestBit(BufferUsageFlagBit::STORAGE));
-    static_assert((StorageBufferKind::Usage & BufferUsageFlagBit::VERTEX).TestBit(BufferUsageFlagBit::VERTEX));
-    static_assert((StorageBufferKind::Usage & BufferUsageFlagBit::INDEX).TestBit(BufferUsageFlagBit::INDEX));
-    static_assert((StorageBufferKind::Usage & BufferUsageFlagBit::INDIRECT).TestBit(BufferUsageFlagBit::INDIRECT));
+    IndexBuffer ib;
+    ib.Init(nullptr, 256);
+    EXPECT_TRUE(ib.GetUsage().TestBit(BufferUsageFlagBit::INDEX));
+
+    UniformBuffer ub;
+    ub.Init(nullptr, 256);
+    EXPECT_TRUE(ub.GetUsage().TestBit(BufferUsageFlagBit::UNIFORM));
+
+    StorageBuffer sb;
+    sb.Init(nullptr, 256);
+    EXPECT_TRUE(sb.GetUsage().TestBit(BufferUsageFlagBit::STORAGE));
+    EXPECT_TRUE(sb.GetUsage().TestBit(BufferUsageFlagBit::VERTEX));
+    EXPECT_TRUE(sb.GetUsage().TestBit(BufferUsageFlagBit::INDEX));
+    EXPECT_TRUE(sb.GetUsage().TestBit(BufferUsageFlagBit::INDIRECT));
 }
 
 TEST(BufferResourceTest, ConcreteTypes)
 {
-    VertexBuffer<>  vb;
-    IndexBuffer<>   ib;
-    UniformBuffer<> ub;
-    StorageBuffer<> sb;
+    VertexBuffer  vb;
+    IndexBuffer   ib;
+    UniformBuffer ub;
+    StorageBuffer sb;
 
     VertexLayout layout;
     layout.stride = 32;
@@ -52,7 +62,7 @@ TEST_F(AuroraVulkanTest, DynamicBufferRing)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    UniformBuffer<> ub;
+    UniformBuffer ub;
     ASSERT_TRUE(ub.Init(device, 256, 2));
 
     // Map() triggers lazy creation of the whole ring.
@@ -77,7 +87,7 @@ TEST_F(AuroraVulkanTest, UniformBufferUploadRoundTrip)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    UniformBuffer<> ub;
+    UniformBuffer ub;
     ASSERT_TRUE(ub.Init(device, 256));
 
     uint32_t src[64];
@@ -103,7 +113,7 @@ TEST_F(AuroraVulkanTest, VertexBufferUploadSmoke)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    VertexBuffer<> vb;
+    VertexBuffer vb;
     ASSERT_TRUE(vb.Init(device, 256));
 
     std::vector<uint8_t> data(256, 0x42);
@@ -120,7 +130,7 @@ TEST_F(AuroraVulkanTest, NamedResourceSmoke)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
-    VertexBuffer<> vb(sky::Name("test_vb"));
+    VertexBuffer vb(sky::Name("test_vb"));
     ASSERT_TRUE(vb.Init(device, 128));
 
     std::vector<uint8_t> data(128, 0x11);

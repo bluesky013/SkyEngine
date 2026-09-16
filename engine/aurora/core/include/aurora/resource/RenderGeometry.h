@@ -31,24 +31,24 @@ namespace sky::aurora {
             localBounds = bounds;
         }
 
-        void AddVertexStream(std::unique_ptr<VertexBuffer<>> vb)
+        void AddVertexStream(std::unique_ptr<VertexBuffer> vb)
         {
             if (vb != nullptr) {
                 vertexStreams.push_back(std::move(vb));
             }
         }
 
-        void SetIndexBuffer(std::unique_ptr<IndexBuffer<>> ib)
+        void SetIndexBuffer(std::unique_ptr<IndexBuffer> ib)
         {
             indexBuffer = std::move(ib);
         }
 
-        const std::vector<std::unique_ptr<VertexBuffer<>>> &GetVertexStreams() const
+        const std::vector<std::unique_ptr<VertexBuffer>> &GetVertexStreams() const
         {
             return vertexStreams;
         }
 
-        IndexBuffer<> *GetIndexBuffer() const
+        IndexBuffer *GetIndexBuffer() const
         {
             return indexBuffer.get();
         }
@@ -64,10 +64,10 @@ namespace sky::aurora {
         }
 
     private:
-        Name                                      name;
-        std::vector<std::unique_ptr<VertexBuffer<>>> vertexStreams;
-        std::unique_ptr<IndexBuffer<>>             indexBuffer;
-        AABB                                       localBounds{};
+        Name                                     name;
+        std::vector<std::unique_ptr<VertexBuffer>> vertexStreams;
+        std::unique_ptr<IndexBuffer>              indexBuffer;
+        AABB                                      localBounds{};
     };
 
 } // namespace sky::aurora
