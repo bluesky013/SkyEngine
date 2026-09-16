@@ -278,4 +278,55 @@ If you encounter existing trailing-underscore members during a task, do **not** 
 
 ---
 
+## Rule 6 — Comments explain "why", not "what"
+
+### Requirement
+
+Prefer self-documenting code. Do **NOT** add comments that merely restate what the code does. Keep comments that explain non-obvious design decisions, invariants, ownership, or rationale ("why").
+
+### Comments to omit
+
+Comments that restate the code add noise and are removed:
+
+```cpp
+// Bad — restates the code
+int i = 0;            // declare i and set to 0
+i++;                  // increment i
+class Foo {
+    Foo();            // constructor
+};
+```
+
+Also omit:
+
+- Per-line comments on obvious statements (`// return value` above `return value;`).
+- Comments that just repeat a method or variable name.
+- Redundant trailing comments on self-evident parameter names.
+- Long file-header banners beyond a one- or two-line purpose note.
+
+### Comments to keep (key design comments)
+
+Keep a comment when removing it would force a reader to reverse-engineer intent:
+
+| Comment answers | Example |
+|---|---|
+| Non-obvious rationale | "GPU_ONLY so the buffer cannot be host-mapped." |
+| Invariant / contract | "v1 textures are always GPU_ONLY." |
+| Ownership / lifetime | "unique_ptr member makes the object non-copyable." |
+| Delegation / boundary | "Upload delegates to the RHI queue; no staging logic here." |
+| Deliberate limitation / follow-up | "Linear packer never frees; a pooled allocator is a follow-up." |
+| API contract (threading, validity) | "Returns nullptr until the resource is created." |
+
+### Guidance
+
+- Before writing a comment, ask: "Would removing this comment change how a reader understands the design?" If the answer is no, drop it.
+- If a comment and the code disagree, fix the comment or delete it — never leave a stale comment.
+- For public/header API, a concise purpose comment per type or non-obvious method is expected; implementation details inside a function body rarely need comments.
+
+### Detection
+
+When reviewing or writing code, flag comments that only paraphrase the adjacent line. Keep only the comments that carry design intent, rationale, or a non-obvious contract.
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->
