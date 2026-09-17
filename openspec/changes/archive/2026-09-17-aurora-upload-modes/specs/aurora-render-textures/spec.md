@@ -1,0 +1,43 @@
+## MODIFIED Requirements
+
+### Requirement: Texture 是 image 侧的 RenderResource 子类（惰性创建 + 统一上传）
+
+`Texture` SHALL 继承 `RenderResource`（非模板），作为 image 资源的封装：持有 `rhi::Image::Descriptor` 与 `ImagePtr`，惰性 `Create()` 调 `Device::CreateImage(desc)`，`IsCreated()` SHALL 反映是否已创建。
+
+`Texture` SHALL 提供统一上传：
+- `Upload(data, size, offset)` SHALL 把 `data` 当作整张 **mip0、layer0 紧密打包** 数据上传（`offset` 为**源字节偏移**），构造单个 `ImageUploadRequest{mipLevel=0, layer=0, imageExtent=full extent}` 并转发 `UploadImage`。
+- `UploadImage(std::vector<ImageUploadRequest>)` SHALL 委托 `Queue::UploadImage`，SHALL NOT 内含 staging / `isUMA` / in-flight 逻辑（见 `aurora-upload` spec）。
+
+`Texture` 的上传 SHALL 为**异步**：`UploadImage` SHALL 追踪返回的 `TransferTaskHandle` 与提交它的 `Queue*`，提供 `IsUploadComplete()` 与 `WaitUploadComplete()`（阻塞等待并清空 pending）；析构（destructor）SHALL 在释放底层 image 前等待 pending 上传完成，避免在途销毁。
+
+`Texture` SHALL 提供访问器 `GetImage()` / `GetDescriptor()` / `GetExtent()` / `GetMipLevels()` / `GetArrayLayers()` / `GetFormat()`。
+
+#### Scenario: 惰性创建
+
+- **WHEN** 构造一个 `Texture2D` 但尚未访问其底层 image
+- **THEN** `IsCreated() == false`、`GetImage() == nullptr`；首次 `Upload`/`UploadImage` 后 `IsCreated() == true`、`GetImage()` 非空
+
+#### Scenario: 上传委托 RHI
+
+- **WHEN** 阅读 `Texture` 的上传实现
+- **THEN** 上传经 `Queue::UploadImage` 委托 RHI；`Texture.h` 不含 staging buffer 分配、`isUMA` 判断与 in-flight 判定
+
+#### Scenario: 便捷上传只覆盖 mip0、layer0
+
+- **WHEN** 对一个 `Texture2D` 调 `Upload(data, size)`
+- **THEN** 生成的 `ImageUploadRequest` 的 `mipLevel == 0`、`layer == 0`、`imageExtent` 等于整张纹理 extent
+
+#### Scenario: 多 layer 纹理不走便捷上传
+
+- **WHEN** 需要上传 `TextureCube`（6 面）或 `Texture2DArray`（N 层）的全部 layer
+- **THEN** 调用方 SHALL 用 `UploadImage` 传每个 layer 的请求（便捷 `Upload` 只覆盖 layer0）
+
+#### Scenario: 完成语义可查询
+
+- **WHEN** `Upload`/`UploadImage` 返回后调 `WaitUploadComplete()`
+- **THEN** 阻塞至 pending 上传完成，`IsUploadComplete() == true`
+
+#### Scenario: 析构前等待 pending
+
+- **WHEN** `Upload` 后立即析构该 `Texture`
+- **THEN** 析构（destructor）等待 pending 上传完成后再释放底层 image，不产生 `vkDestroyImage` 在途使用校验错误
