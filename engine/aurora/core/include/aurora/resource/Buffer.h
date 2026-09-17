@@ -47,6 +47,7 @@ namespace sky::aurora {
     public:
         StaticBuffer() = default;
         explicit StaticBuffer(const Name &inName) : RenderResource(inName) {}
+        ~StaticBuffer() override { WaitUploadComplete(); }
 
         bool Init(Device *dev, uint64_t inSize, BufferUsageFlags inUsage)
         {
@@ -80,13 +81,28 @@ namespace sky::aurora {
             request.source    = CounterPtr<IUploadStream>(new RawBufferStream(data, inSize));
             request.size      = inSize;
             request.dstOffset = offset;
-            queue->UploadBuffer(buffer.Get(), {request});
+            pendingHandle = queue->UploadBuffer(buffer.Get(), {request});
+            pendingQueue  = queue;
             return true;
         }
 
         Buffer         *GetBuffer() const { return buffer.Get(); }
         BufferUsageFlags GetUsage() const { return usage; }
         uint8_t         *Map() { return nullptr; }
+
+        // Async upload completion: query or block on the pending transfer task.
+        bool IsUploadComplete() const
+        {
+            return pendingQueue == nullptr || pendingQueue->HasComplete(pendingHandle);
+        }
+
+        void WaitUploadComplete()
+        {
+            if (pendingQueue != nullptr) {
+                pendingQueue->Wait(pendingHandle);
+                pendingQueue = nullptr;
+            }
+        }
 
     protected:
         void Create() override
@@ -107,18 +123,25 @@ namespace sky::aurora {
 
         void Release() override
         {
+            WaitUploadComplete();
             buffer  = nullptr;
             created = false;
         }
 
-        BufferPtr       buffer;
-        uint64_t        size  = 0;
-        BufferUsageFlags usage = BufferUsageFlagBit::NONE;
+        BufferPtr         buffer;
+        uint64_t          size  = 0;
+        BufferUsageFlags  usage = BufferUsageFlagBit::NONE;
+        TransferTaskHandle pendingHandle = 0;
+        Queue            *pendingQueue   = nullptr;
     };
 
-    // Dynamic tier: CPU_TO_GPU, persistent-mapped, written every frame. Holds
-    // a ring of numFramesInFlight buffers so a frame's write never races an
-    // in-flight frame still reading the previous buffer; AdvanceFrame() cycles.
+    // Dynamic tier: CPU_TO_GPU, persistent-mapped, written every frame (the
+    // "same-frame direct upload" mode). Holds a ring of framesInFlight buffers
+    // so a frame's write never races an in-flight frame still reading the
+    // previous buffer. framesInFlight must match DeviceFrameContext::inflightNum,
+    // and the frame driver calls AdvanceFrame() once per frame after
+    // DeviceFrameContext::BeginFrame(), keeping `current` in lockstep with the
+    // frame context's mFrameIndex.
     class DynamicBuffer : public RenderResource {
     public:
         DynamicBuffer() = default;
@@ -219,8 +242,9 @@ namespace sky::aurora {
         BufferUsageFlags usage    = BufferUsageFlagBit::NONE;
     };
 
-    // Transient tier: per-frame scratch buffer. v1 allocates from the device
-    // on first use (a dedicated TransientBufferPool is a follow-up).
+    // Transient tier: per-frame scratch buffer ("same-frame direct upload").
+    // v1 allocates from the device on first use (a dedicated TransientBufferPool
+    // is a follow-up).
     class TransientBuffer : public RenderResource {
     public:
         TransientBuffer() = default;

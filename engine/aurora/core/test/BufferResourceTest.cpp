@@ -4,8 +4,13 @@
 //
 
 #include <aurora/resource/Buffer.h>
+#include <aurora/resource/FrameStagingBuffer.h>
 
 #include "AuroraTestHelper.h"
+
+#include <aurora/rhi/CommandBuffer.h>
+#include <aurora/rhi/Queue.h>
+#include <aurora/rhi/SubmitInfo.h>
 
 #include <gtest/gtest.h>
 
@@ -121,6 +126,9 @@ TEST_F(AuroraVulkanTest, VertexBufferUploadSmoke)
 
     EXPECT_TRUE(vb.IsCreated());
     EXPECT_NE(vb.GetBuffer(), nullptr);
+
+    vb.WaitUploadComplete();
+    EXPECT_TRUE(vb.IsUploadComplete());
 }
 
 // Named resource smoke: name is carried through Create() and set on the
@@ -138,4 +146,55 @@ TEST_F(AuroraVulkanTest, NamedResourceSmoke)
 
     EXPECT_TRUE(vb.IsCreated());
     EXPECT_NE(vb.GetBuffer(), nullptr);
+}
+
+// Same-frame staging upload: stage data into a per-frame ring and flush the
+// queued copy inline via BlitEncoder::CopyBuffer on a transfer command buffer.
+TEST_F(AuroraVulkanTest, FrameStagingUpload)
+{
+    auto *device = GetDevice();
+    ASSERT_NE(device, nullptr);
+
+    Buffer::Descriptor dstDesc = {};
+    dstDesc.size   = 256;
+    dstDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
+    dstDesc.memory = MemoryType::CPU_TO_GPU;
+    BufferPtr dst(device->CreateBuffer(dstDesc));
+    ASSERT_NE(dst, nullptr);
+
+    FrameStagingBuffer staging;
+    ASSERT_TRUE(staging.Init(device, 1024, 1));
+
+    std::vector<uint8_t> data(256, 0x5A);
+    ASSERT_TRUE(staging.Upload(dst.Get(), data.data(), data.size()));
+
+    auto *queue = device->GetQueue(QueueType::TRANSFER);
+    ASSERT_NE(queue, nullptr);
+
+    auto pool = std::unique_ptr<CommandPool>(device->CreateCommandPool(QueueType::TRANSFER));
+    ASSERT_NE(pool, nullptr);
+    auto *cmdBuf = pool->Allocate();
+    ASSERT_NE(cmdBuf, nullptr);
+
+    cmdBuf->Begin();
+    {
+        auto encoder = cmdBuf->CreateBlitEncoder();
+        ASSERT_NE(encoder, nullptr);
+        staging.Flush(*encoder);
+    }
+    cmdBuf->End();
+
+    auto fence = MakeFence(device, false);
+    SubmitInfo submit{};
+    submit.commandBuffers.push_back(cmdBuf);
+    submit.fence = fence.Get();
+    queue->Submit(submit);
+    EXPECT_TRUE(fence->WaitFor(5'000'000'000ULL));
+
+    auto *mapped = dst->Map();
+    ASSERT_NE(mapped, nullptr);
+    for (uint64_t i = 0; i < data.size(); ++i) {
+        EXPECT_EQ(mapped[i], 0x5A);
+    }
+    dst->UnMap();
 }

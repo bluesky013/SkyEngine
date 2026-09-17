@@ -23,6 +23,7 @@ namespace sky::aurora {
     public:
         Texture() = default;
         explicit Texture(const Name &inName) : RenderResource(inName) {}
+        ~Texture() override { WaitUploadComplete(); }
 
         // Raw/generic entry: caller supplies the full Image::Descriptor (imageType /
         // viewUsage / usage included). Only the v1 invariant (GPU_ONLY) is forced.
@@ -69,7 +70,8 @@ namespace sky::aurora {
             if (queue == nullptr) {
                 return false;
             }
-            queue->UploadImage(image.Get(), requests);
+            pendingHandle = queue->UploadImage(image.Get(), requests);
+            pendingQueue  = queue;
             return true;
         }
 
@@ -79,6 +81,20 @@ namespace sky::aurora {
         uint32_t     GetMipLevels() const { return desc.mipLevels; }
         uint32_t     GetArrayLayers() const { return desc.arrayLayers; }
         PixelFormat  GetFormat() const { return desc.format; }
+
+        // Async upload completion: query or block on the pending transfer task.
+        bool IsUploadComplete() const
+        {
+            return pendingQueue == nullptr || pendingQueue->HasComplete(pendingHandle);
+        }
+
+        void WaitUploadComplete()
+        {
+            if (pendingQueue != nullptr) {
+                pendingQueue->Wait(pendingHandle);
+                pendingQueue = nullptr;
+            }
+        }
 
     protected:
         void Create() override
@@ -95,12 +111,15 @@ namespace sky::aurora {
 
         void Release() override
         {
+            WaitUploadComplete();
             image   = nullptr;
             created = false;
         }
 
         Image::Descriptor desc;
         ImagePtr          image;
+        TransferTaskHandle pendingHandle = 0;
+        Queue            *pendingQueue   = nullptr;
     };
 
     class Texture2D : public Texture {

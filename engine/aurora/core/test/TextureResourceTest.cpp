@@ -82,6 +82,9 @@ TEST_F(AuroraVulkanTest, TextureLazyCreateAndUpload)
     EXPECT_NE(tex.GetImage(), nullptr);
     EXPECT_EQ(tex.GetMipLevels(), 1u);
     EXPECT_EQ(tex.GetFormat(), PixelFormat::RGBA8_UNORM);
+
+    tex.WaitUploadComplete();
+    EXPECT_TRUE(tex.IsUploadComplete());
 }
 
 TEST_F(AuroraVulkanTest, TextureAtlasAllocateAndUpload)
