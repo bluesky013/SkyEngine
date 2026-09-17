@@ -194,7 +194,7 @@
 		{
 			"name": "dxcompiler",
 			"url": "https://github.com/microsoft/DirectXShaderCompiler.git",
-			"tag": "v1.8.2502",
+			"tag": "v1.9.2602",
 			"header_only": false,
 			"cache": "cmake/caches/PredefinedParams.cmake",
 			"submodule": true,
@@ -384,12 +384,14 @@
 				"SLANG_ENABLE_GFX": "OFF",
 				"SLANG_SLANG_LLVM_FLAVOR": "DISABLE",
 				"SLANG_ENABLE_SLANG_RHI": "OFF",
-				"SLANG_ENABLE_DXIL": "ON"
+				"SLANG_ENABLE_DXIL": "ON",
+				"SLANG_ENABLE_SLANGI": "OFF",
+				"SLANG_ENABLE_SLANGRT": "OFF",
+				"SLANG_ENABLE_REPLAYER": "OFF",
+				"SLANG_ENABLE_SLANG_GLSLANG": "OFF"
 			},
 			"submodules": [
 				"external/spirv-headers",
-				"external/spirv-tools",
-				"external/glslang",
 				"external/unordered_dense",
 				"external/miniz",
 				"external/lz4",
@@ -401,8 +403,8 @@
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_5d0a0c6074ef.zip",
-			"md5": "5d0a0c6074ef0e61ddb3169cf3c06fda"
+			"file": "thirdparty_Win32_ac2dca5aff19.zip",
+			"md5": "ac2dca5aff19f4a3f0d4d59f3c509a1b"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",
