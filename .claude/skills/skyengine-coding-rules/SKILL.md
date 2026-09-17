@@ -329,4 +329,26 @@ When reviewing or writing code, flag comments that only paraphrase the adjacent 
 
 ---
 
+## Rule 7 — Build system: no hardcoded local absolute paths
+
+### Requirement
+
+Build configuration (`CMakeLists.txt`, `cmake/*.cmake`, `cmake/thirdparty.json`, `cmake/patches/*`, `python/*.py`) SHALL NOT hardcode local absolute paths (e.g. `D:/Code/Engine/...`, `/home/user/...`). Every path SHALL be derived from CMake variables (`${CMAKE_CURRENT_SOURCE_DIR}`, `${CMAKE_BINARY_DIR}`), the bootstrap's `3RD_PATH` / `3RD_FIND_PATH`, or a relative path.
+
+### Why
+
+Hardcoded absolute paths only exist on the author's machine, breaking CI and other developers, and make builds non-reproducible.
+
+### What to use instead
+
+- Third-party deps: declare in `cmake/thirdparty.json`, reference via `3RD_PATH/<pkg>` (resolved by the bootstrap).
+- Files inside the repo: relative to `${CMAKE_CURRENT_SOURCE_DIR}` or the repo root.
+- Cross-package artifacts: CMake cache variables set by the bootstrap (e.g. `3RD_FIND_PATH`).
+
+### Detection
+
+Flag any `-D...=`, `URL`, `SOURCE_DIR`, include path, or patch content containing a drive letter (`C:/`) or a home-directory prefix (`/home/`, `/Users/`).
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->
