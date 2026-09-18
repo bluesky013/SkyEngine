@@ -413,11 +413,11 @@ TEST(ShaderVariantTest, BuildVertexVariant)
 {
     std::vector<VertexVariantDef> defs;
     defs.push_back({Name("HAS_VERTEX_COLOR"), {VertexSemantic::COLOR}});
-    defs.push_back({Name("HAS_SKIN"), {VertexSemantic::CUSTOM1, VertexSemantic::CUSTOM2}});
+    defs.push_back({Name("HAS_SKIN"), {VertexSemantic::JOINTS, VertexSemantic::WEIGHTS}});
 
     VertexSemanticMask mask;
     mask.Set(VertexSemantic::COLOR, true);
-    mask.Set(VertexSemantic::CUSTOM1, true); // CUSTOM2 missing
+    mask.Set(VertexSemantic::JOINTS, true); // WEIGHTS missing
 
     ShaderVariant variant;
     BuildVertexVariant(defs, mask, variant);
@@ -449,7 +449,7 @@ TEST(ShaderVariantTest, ParseVertexBlock)
     const char *source = R"(
 // ===== @vertex =====
 //   HAS_VERTEX_COLOR : COLOR
-//   HAS_SKIN         : CUSTOM1 CUSTOM2
+//   HAS_SKIN         : JOINTS WEIGHTS
 // ===================
 )";
 
@@ -463,6 +463,6 @@ TEST(ShaderVariantTest, ParseVertexBlock)
     EXPECT_EQ(defs[0].semantics[0], VertexSemantic::COLOR);
     EXPECT_EQ(defs[1].name, Name("HAS_SKIN"));
     ASSERT_EQ(defs[1].semantics.size(), 2u);
-    EXPECT_EQ(defs[1].semantics[0], VertexSemantic::CUSTOM1);
-    EXPECT_EQ(defs[1].semantics[1], VertexSemantic::CUSTOM2);
+    EXPECT_EQ(defs[1].semantics[0], VertexSemantic::JOINTS);
+    EXPECT_EQ(defs[1].semantics[1], VertexSemantic::WEIGHTS);
 }
