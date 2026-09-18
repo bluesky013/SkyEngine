@@ -6,18 +6,20 @@
 
 #include <aurora/rhi/Device.h>
 #include <core/name/Name.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky::aurora {
 
-    // Common base for all high-level render resources (buffers and, in the
-    // future, images). Wraps a lazily-created underlying rhi resource and
-    // exposes a unified upload entry point. Resource/memory statistics are a
-    // backend (VMA/D3D12MA) concern, not tracked here.
-    class RenderResource {
+    // Common base for all high-level render resources (buffers and images).
+    // Ref-counted (RefObject) so resources can be shared via CounterPtr; also
+    // ownsable via unique_ptr. Wraps a lazily-created underlying rhi resource
+    // and exposes a unified upload entry point. Resource/memory statistics are
+    // a backend (VMA/D3D12MA) concern, not tracked here.
+    class RenderResource : public RefObject {
     public:
         RenderResource() = default;
         explicit RenderResource(const Name &inName) : name(inName) {}
-        virtual ~RenderResource() = default;
+        ~RenderResource() override = default;
 
         const Name &GetName() const
         {
