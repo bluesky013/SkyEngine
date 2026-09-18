@@ -13,12 +13,15 @@ set(${LIB_NAME}_LIBS_DIR ${${LIB_NAME}_PATH}/lib)
 #        "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
 #        "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
 
-set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/bin/dxcompiler.dll)
+set(${LIB_NAME}_DYNAMIC_LIBRARY
+    ${${LIB_NAME}_PATH}/bin/dxcompiler.dll
+    ${${LIB_NAME}_PATH}/bin/dxil.dll
+)
 set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include)
 
 add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
 target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
 #target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
-set_target_properties(${TARGET_WITH_NAMESPACE} PROPERTIES INTERFACE_DYN_LIBS ${${LIB_NAME}_DYNAMIC_LIBRARY})
+set_target_properties(${TARGET_WITH_NAMESPACE} PROPERTIES INTERFACE_DYN_LIBS "${${LIB_NAME}_DYNAMIC_LIBRARY}")
 
 set(${LIB_NAME}_FOUND True)

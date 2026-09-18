@@ -16,6 +16,27 @@ index 1b78c407f..57eb3c7d3 100644
  include(FindPackageHandleStandardArgs)
  include(CMakeDependentOption)
  include(GNUInstallDirs)
+@@ -551,7 +558,19 @@ endif()
+ endif()
+ 
+ if(SLANG_ENABLE_DXIL)
+-    include(FetchDXC)
++    # Reuse the engine's dxcompiler package (3RD_PATH) instead of downloading.
++    set(_sky_dxc_bin "${3RD_PATH}/dxcompiler/bin")
++    foreach(_dll dxcompiler dxil)
++        set(_dst "${CMAKE_BINARY_DIR}/$<CONFIG>/bin/${_dll}.dll")
++        add_custom_command(
++            OUTPUT "${_dst}"
++            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_sky_dxc_bin}/${_dll}.dll" "${_dst}"
++            DEPENDS "${_sky_dxc_bin}/${_dll}.dll"
++            VERBATIM
++        )
++        add_custom_target(copy-${_dll} DEPENDS "${_dst}")
++        set_target_properties(copy-${_dll} PROPERTIES FOLDER generated)
++    endforeach()
+ endif()
+ 
+ add_subdirectory(external)
 diff --git a/source/slang-glsl-module/CMakeLists.txt b/source/slang-glsl-module/CMakeLists.txt
 index 74aed35d6..72452a7b7 100644
 --- a/source/slang-glsl-module/CMakeLists.txt

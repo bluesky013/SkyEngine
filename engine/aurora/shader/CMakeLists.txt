@@ -4,6 +4,17 @@ file(GLOB_RECURSE TEST_FILES test/*)
 
 sky_find_3rd(TARGET slang DIR slang)
 
+set(AuroraShaderExtLibs 3rdParty::slang)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    # slang's DXIL backend loads dxcompiler.dll / dxil.dll at runtime; declare
+    # the dependency so the DLLs are copied next to the shader module.
+    # engine/shader (processed earlier) already finds dxcompiler on Windows.
+    if (NOT TARGET 3rdParty::dxcompiler)
+        sky_find_3rd(TARGET dxcompiler DIR dxcompiler)
+    endif ()
+    list(APPEND AuroraShaderExtLibs 3rdParty::dxcompiler)
+endif ()
+
 sky_add_library(TARGET Aurora.Shader STATIC
     SOURCES
         ${SRC_FILES}
@@ -15,7 +26,7 @@ sky_add_library(TARGET Aurora.Shader STATIC
     LINK_LIBS
         Core
         Aurora.RHI
-        3rdParty::slang
+        ${AuroraShaderExtLibs}
 )
 
 # ---- offline shader header codegen (host tool) ----
