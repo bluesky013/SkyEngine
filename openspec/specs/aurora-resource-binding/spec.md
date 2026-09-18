@@ -3,7 +3,6 @@
 ## Purpose
 TBD - consolidated.
 ## Requirements
-
 ### Requirement: 跨后端 binding 索引一致性约定
 
 Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后端表现一致：
@@ -98,7 +97,6 @@ ResourceGroupLayout 中 `count > 1` 的 binding（如纹理数组）MUST 支持�
 - **WHEN** layout binding=0、type=COMBINED_IMAGE_SAMPLER、count=8；Update 8 次（arrayElement 0..7）；Draw shader 读 arr[3]
 - **THEN** 采样到 arrayElement=3 写入的纹理
 
-
 ### Requirement: DescriptorEncoder 接口
 
 `DescriptorEncoder` SHALL 是接口层抽象类，提供 `WriteBuffer` / `WriteImage` / `WriteSampler` 三个写入方法与 `End()` 提交方法：
@@ -167,7 +165,6 @@ D3D12 后端 SHALL 用 **CPU-only staging heap**（`D3D12_DESCRIPTOR_HEAP_FLAG_N
 - **WHEN** 调用 `group->Update({write})`
 - **THEN** 编译错误（接口已移除，改用 `CreateEncoder()` + `Write*` + `End()`）
 
-
 ### Requirement: tier 模型——tier1 pool，tier2 heap（typed 与 untyped 都走 heap）
 
 - **tier1**（无 `VK_EXT_descriptor_heap`）：typed（`layout(set, binding)`）SHALL 走 `VkDescriptorPool` + `VkDescriptorSet`；untyped SHALL NOT 可用。
@@ -228,7 +225,6 @@ heap 模型的逐 draw 索引 SHALL 先只支持 `VK_DESCRIPTOR_MAPPING_SOURCE_H
 - **WHEN** 设备支持 `VK_EXT_descriptor_heap`
 - **THEN** 对应 feature 置真，`CreateDescriptorHeap` 可用；否则返回 nullptr
 
-
 ### Requirement: SKY_ENABLE_RESOURCE_NAME 宏默认关闭、develop 开启
 
 `SKY_ENABLE_RESOURCE_NAME` SHALL 为一个 0/1 宏，默认 `0`；`SKY_DEVELOP == 1`（develop 构建）时 SHALL 为 `1`；未定义时 SHALL 经 `#ifndef` 兜底为 `0`。代码 SHALL 用 `#if SKY_ENABLE_RESOURCE_NAME`（而非 `#ifdef`）判读。
@@ -278,7 +274,6 @@ resource 层（`aurora-render-buffers`）的 `RenderResource` SHALL 仅在 `SKY_
 
 - **WHEN** `SKY_ENABLE_RESOURCE_NAME == 1`，创建名为 "cube_ib" 的 `IndexBuffer` 并触发惰性创建
 - **THEN** 底层 `rhi::Buffer` 的 debug label 为 "cube_ib"
-
 
 ### Requirement: RgBlockDesc 单一事实源
 
@@ -333,7 +328,6 @@ batch RG 的 dynamic UBO descriptor SHALL 以 `offset=0, range=blockSize` 绑定
 
 - **WHEN** FrameContext 维护多个 pack buffer，连续帧各自分配写入并提交
 - **THEN** 当前帧写入的 buffer 与仍在 GPU 读取的帧 buffer 不同，不覆盖
-
 
 ### Requirement: dynamic UBO stable binding 契约
 
@@ -403,4 +397,46 @@ pack writer SHALL 用 `RgBlockDesc`/codegen struct 的 block size 校验（`stat
 
 - **WHEN** pack writer 返回的 offset 写入 `DrawItem.batchDynamicOffset` 后 `Compile`+`Execute`
 - **THEN** executor `BindResourceGroup(2, rg, 1, &offset)` 使用该 offset 作为 dynamic offset
+
+### Requirement: D3D12 tier2 bindless DescriptorHeap
+
+`D3D12Device::CreateDescriptorHeap` SHALL 返回 `D3D12DescriptorHeap : DescriptorHeap`（而非 `nullptr`，当能力门开启时）。该对象 SHALL 内部持有两个 shader-visible backing heap（resource = `CBV_SRV_UAV`、sampler），`Allocate` SHALL 按 per-type 索引从 free list 分配并返回 `{texFirst/texCount, bufFirst/bufCount, smpFirst/smpCount}`，`Free` SHALL 归还并合并相邻区间。D3D12 descriptor 写入是即时模型：SHALL 经 `D3D12DescriptorHeap::CreateHeapEncoder(allocation)` 返回的 heap-bound `DescriptorEncoder` 立即写入；基类 `Update(allocation, encoder)` SHALL 为对称性 no-op。
+
+#### Scenario: 分配 per-type 索引
+
+- **WHEN** 申请 2 张纹理 + 1 个 buffer
+- **THEN** `Allocate` 返回纹理索引连续、buffer 索引独立的 `Allocation`
+
+#### Scenario: 释放后可复用
+
+- **WHEN** `Allocate` 后 `Free` 同一 `Allocation`，再次 `Allocate` 同规模
+- **THEN** 新分配成功且区间不重叠
+
+#### Scenario: heap encoder 写入堆
+
+- **WHEN** 用 `CreateHeapEncoder(alloc)` 的 `WriteImage/WriteBuffer/WriteSampler` 写入 descriptor
+- **THEN** 对应索引段的 heap descriptor 被立即填充；`Update` 为 no-op
+
+### Requirement: D3D12 BindDescriptorHeap 生效
+
+`D3D12GraphicsEncoder::BindDescriptorHeap` 与 `D3D12ComputeEncoder::BindDescriptorHeap` SHALL 调用 `SetDescriptorHeaps` 绑定 heap 的 resource + sampler 两个 shader-visible heap；SHALL NOT 为空实现。
+
+#### Scenario: 绑定 bindless heap
+
+- **WHEN** 在 encoder 上 `BindDescriptorHeap(heap)`
+- **THEN** 后续 draw/dispatch 的 shader 可经 heap index 访问 descriptor
+
+### Requirement: D3D12 descriptor heap 能力门基于 Shader Model 6.6
+
+`D3D12Device::UpdateDeviceCaps` SHALL 通过 `CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL)` 判定 Shader Model >= 6.6，并写入 `Device::GetFeature().descriptorHeap`。能力不可用时 `CreateDescriptorHeap` SHALL 返回 `nullptr`，调用方退化为 tier1。Vulkan 后端未实现 tier2（`VK_EXT_descriptor_heap`），`feature.descriptorHeap` SHALL 为 `false`。
+
+#### Scenario: SM6.6 设备开启
+
+- **WHEN** 设备支持 Shader Model 6.6
+- **THEN** 设备标记 descriptor heap 可用，`CreateDescriptorHeap` 返回实例
+
+#### Scenario: 低版本设备退化
+
+- **WHEN** 设备最高 Shader Model < 6.6
+- **THEN** `CreateDescriptorHeap` 返回 `nullptr`
 

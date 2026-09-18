@@ -3,7 +3,6 @@
 ## Purpose
 TBD - consolidated from: aurora-rhi-conventions aurora-sync-primitives aurora-barriers aurora-queue aurora-swapchain aurora-frame-context aurora-frame-dispatcher aurora-frame-descriptor-batch
 ## Requirements
-
 ### Requirement: Sampler 默认值适合通用 3D 内容
 
 `Sampler::Descriptor` 默认值 SHALL 满足"开箱即用"的通用 3D 采样：
@@ -89,7 +88,6 @@ format 不含 stencil 时 SHALL 不挂 `pStencilAttachment`（保持当前行为
 - **WHEN** debug build 调用 `BindVertexBuffers(0, 32, views)`
 - **THEN** 触发 assert；release build 行为未定义但 MUST 不静默截断为 16
 
-
 ### Requirement: Semaphore 区分 binary 与 timeline 类型
 
 `Semaphore::Descriptor` SHALL 包含 `SemaphoreType type`（默认 `BINARY`）与 `uint64_t initialValue`（仅 `TIMELINE` 使用，默认 0）。
@@ -173,7 +171,6 @@ format 不含 stencil 时 SHALL 不挂 `pStencilAttachment`（保持当前行为
 #### Scenario: Present 拒绝 timeline semaphore
 - **WHEN** 调用方误传 timeline semaphore 给 `swapchain->Present`
 - **THEN** Debug build 下触发 assert；Release build 下行为未定义但 MUST 不静默成功
-
 
 ### Requirement: BarrierInfo 聚合接口
 
@@ -313,7 +310,6 @@ aurora 后端在 `SwapChain::AcquireNextImage` 与 `SwapChain::Present` **不**�
 - **WHEN** 调用方录制不含任何 image barrier 的 cmdbuf 直接渲染 swapchain image 后 Present
 - **THEN** Vulkan validation layer / D3D12 debug layer 报告 layout 不匹配（说明 barrier 责任在调用方）
 
-
 ### Requirement: Queue 抽象按 QueueType 暴露
 
 Aurora `Device` SHALL 通过 `Device::GetQueue(QueueType type)` 返回对应类型的 `Queue` 指针。`Queue` 实例的所有权归 `Device` 所有，调用方不得 delete；`Queue` 在 `Device` 析构后失效。
@@ -377,7 +373,6 @@ Aurora `Device` SHALL 通过 `Device::GetQueue(QueueType type)` 返回对应类�
 #### Scenario: 多队列均空闲
 - **WHEN** 多次向不同队列 Submit 后调用 `device->WaitIdle()`
 - **THEN** 返回时所有队列上的命令均已完成
-
 
 ### Requirement: SwapChain 状态自查
 
@@ -479,7 +474,6 @@ Resize 时如有未完成的 Submit 涉及旧 image，调用方 MUST 先 `device
 - **WHEN** 调用 `device->WaitIdle()` 后释放最后一个 `CounterPtr<SwapChain>`
 - **THEN** 析构正常完成，不泄漏 native handle（valgrind / VkValidationLayer / D3D12 debug layer 不报错）
 
-
 ### Requirement: 各后端 Device::CreateFrameContext 返回真实实现
 
 `Device::CreateFrameContext(const DeviceFrameContextInitInfo&)` SHALL 在所有已落地后端返回非空的 `DeviceFrameContext*`：
@@ -549,7 +543,6 @@ Vulkan / DX12 的 frame context 头文件与源文件 SHALL 置于各自后端�
 - **WHEN** `parallelNum > 1` 时调用 `frameContext->GetParallelContext()`
 - **THEN** 返回非空 ThreadPool，worker 数 = `parallelNum`
 
-
 ### Requirement: 单线程构建 + 批次提交
 
 `DeviceFrameDispatcher` SHALL 采用单线程构建、批次提交模型：`CreateTask` / `DependsOn` 仅在调用线程（构建期）执行，`Submit` 提交整批，批次内所有节点执行完毕后统一释放节点内存。
@@ -606,7 +599,6 @@ Vulkan / DX12 的 frame context 头文件与源文件 SHALL 置于各自后端�
 
 - **WHEN** 一个线性链 / diamond / 多根依赖图被 `Submit` 并 `wait`
 - **THEN** 每个节点仅在其所有父节点完成后执行一次，无丢失、无重复、无死锁
-
 
 ### Requirement: DescriptorBatch 接口
 
@@ -685,4 +677,32 @@ cached 内容的 cache key 整套下沉 Vulkan 内部：`VulkanBuffer` / `Vulkan
 
 - **WHEN** `inflightNum=2`，帧 0 与帧 1 各自持有独立的 batch/pool/ring 段/pack buffer
 - **THEN** 帧 1 的写入不覆盖帧 0 仍在 GPU 使用的资源
+
+### Requirement: PipelineState 携带顶点输入布局
+
+`PipelineState` SHALL 携带 `std::vector<VertexBindingDesc> vertexBindings` 与 `std::vector<VertexAttributeDesc> vertexAttributes`。`VertexAttributeDesc` SHALL 含 `semantic`（名称）与 `semanticIndex`（序号，供 DX12 `SemanticName` + `SemanticIndex` 使用）。后端 PSO 创建 SHALL 能从该布局派生原生输入布局（输入装配路径）。
+
+#### Scenario: 布局随 pipeline state 传递
+
+- **WHEN** 调用方在 `PipelineState` 中声明 binding（stride/inputRate）与 attribute（location/binding/offset/format/semantic/semanticIndex）
+- **THEN** `GraphicsPipeline::Descriptor::state` 中可读到相同布局
+
+#### Scenario: 未声明布局时为空
+
+- **WHEN** 不设置 `vertexBindings` / `vertexAttributes`
+- **THEN** 两容器为空，后端按空输入布局创建（兼容 fullscreen / 顶点拉取路径）
+
+### Requirement: Buffer 暴露分配大小
+
+`Buffer` SHALL 提供 `GetSize()`（默认返回 0，后端可覆写）。需要按 buffer 推导视图大小的后端（如 DX12 index buffer view）SHALL 使用该访问器，SHALL NOT 依赖外部传入的 `range` 或硬编码 0。
+
+#### Scenario: 后端返回真实大小
+
+- **WHEN** 查询一个已创建 buffer 的 `GetSize()`
+- **THEN** 返回其分配的字节数
+
+#### Scenario: 默认实现
+
+- **WHEN** 某后端未覆写 `GetSize()`
+- **THEN** 返回 0，调用方据此跳过大小推导
 
