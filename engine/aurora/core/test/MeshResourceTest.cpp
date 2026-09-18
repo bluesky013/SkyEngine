@@ -1,5 +1,5 @@
 //
-// Mesh tests: CPU data interface + Mesh structure + RenderGeometry/Skeleton attach.
+// Mesh tests: CPU data interface + Mesh structure + RenderGeometry/Skin attach.
 //
 
 #include <aurora/resource/Mesh.h>
@@ -85,26 +85,21 @@ TEST(MeshResourceTest, MeshStructure)
     EXPECT_FALSE(mesh.HasSkin());
 }
 
-TEST(MeshResourceTest, SkeletonAttach)
+TEST(MeshResourceTest, SkinAttach)
 {
     Mesh mesh(sky::Name("skinned"));
 
-    auto skel = sky::CounterPtr<Skeleton>(new Skeleton());
-    Bone root;
-    root.name   = sky::Name("root");
-    root.parent = -1;
-    skel->AddBone(root);
-    Bone child;
-    child.name   = sky::Name("child");
-    child.parent = 0;
-    skel->AddBone(child);
+    auto skin = sky::CounterPtr<Skin>(new Skin());
+    skin->SetInverseBindMatrices({sky::Matrix4::Identity(), sky::Matrix4::Identity()});
+    skin->SetBoneMatrices({sky::Matrix4::Identity(), sky::Matrix4::Identity()});
+    skin->SetBoneMapping({0, 1});
 
-    mesh.SetSkeleton(skel);
+    mesh.SetSkin(skin);
     EXPECT_TRUE(mesh.HasSkin());
-    ASSERT_EQ(mesh.GetSkeleton()->GetBoneCount(), 2u);
-    EXPECT_EQ(mesh.GetSkeleton()->GetBone(0)->name, sky::Name("root"));
-    EXPECT_EQ(mesh.GetSkeleton()->GetBone(1)->parent, 0);
-    EXPECT_EQ(mesh.GetSkeleton()->GetBones().size(), 2u);
+    ASSERT_NE(mesh.GetSkin(), nullptr);
+    EXPECT_EQ(mesh.GetSkin()->GetInverseBindMatrices().size(), 2u);
+    EXPECT_EQ(mesh.GetSkin()->GetBoneMatrices().size(), 2u);
+    EXPECT_EQ(mesh.GetSkin()->GetBoneMapping().size(), 2u);
 }
 
 TEST(MeshResourceTest, VertexSemanticSkin)

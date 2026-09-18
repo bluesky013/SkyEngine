@@ -33,9 +33,9 @@ TEST_F(AuroraVulkanTest, SceneEntityLifecycle)
     EXPECT_TRUE(scene.IsAlive(id));
 
     scene.Add<Light>(id, Light{});
-    scene.Add<Skin>(id, Skin{12});
+    scene.Add<SkinnedMesh>(id, SkinnedMesh{});
     EXPECT_NE(scene.Get<Light>(id), nullptr);
-    EXPECT_EQ(scene.Get<Skin>(id)->jointCount, 12u);
+    EXPECT_NE(scene.Get<SkinnedMesh>(id), nullptr);
 
     scene.DestroyEntity(id);
     EXPECT_FALSE(scene.IsAlive(id));

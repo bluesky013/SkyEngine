@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <aurora/resource/Skin.h>
 #include <core/name/Name.h>
 #include <core/math/Vector3.h>
 #include <core/math/Matrix4.h>
@@ -42,9 +43,11 @@ namespace sky::aurora {
         float     outerConeAngle = 0.785398f;        // spot (radians, ~45 deg)
     };
 
-    // skinning data (placeholder; skinning pipeline fills in later)
-    struct Skin {
-        uint32_t jointCount = 0;
+    // Skinned mesh instance: references the mesh-side skinning binding (Skin).
+    // The animation rig is external to aurora (engine/animation); the bridge
+    // layer maps it into Skin's bone matrix palette.
+    struct SkinnedMesh {
+        CounterPtr<Skin> skin;
     };
 
 } // namespace sky::aurora
@@ -52,4 +55,4 @@ namespace sky::aurora {
 SKY_TYPE_TAG(sky::aurora::Bounds, "sky.aurora.Bounds")
 SKY_TYPE_TAG(sky::aurora::WorldInfo, "sky.aurora.WorldInfo")
 SKY_TYPE_TAG(sky::aurora::Light, "sky.aurora.Light")
-SKY_TYPE_TAG(sky::aurora::Skin, "sky.aurora.Skin")
+SKY_TYPE_TAG(sky::aurora::SkinnedMesh, "sky.aurora.SkinnedMesh")

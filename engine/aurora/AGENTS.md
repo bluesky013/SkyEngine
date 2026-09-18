@@ -213,6 +213,22 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 - **transient 池**：对象池（v1，按完整 desc 复用整 Image）+ 堆池（v2 预留，memory heap aliasing）
 - 低复杂度场景（demo / tool）直接用 Encoder + 手写 `PipelineBarrier` 仍是合法路径
 
+## 骨架 / 蒙皮（animation 独立，aurora 无 Skeleton）
+
+`Skeleton` 属于独立模块 `engine/animation`（target `Animation`，只依赖 `Core`），**aurora 不定义也不依赖它**。旧引擎同理：`render/core` 自持 `Skin`，只有 `render/adaptor` 才 link `Animation`。
+
+| 类型 | 位置 | 含义 |
+|---|---|---|
+| `Skin` | `aurora/resource/Skin.h` | mesh 侧蒙皮绑定（`inverseBindMatrices` + `boneMatrices` + `boneMapping`），自持 |
+| `SkinnedMesh`（scene 组件） | `aurora/scene/SceneTypes.h` | 实例：持 `CounterPtr<Skin>` |
+
+约定：
+
+- **不要在 aurora 里定义 `Skeleton` / `Bone`**，也不要新增 `aurora/animation` 之类目录；`aurora/core` 不依赖 `Animation`。
+- `animation::Skeleton`（+ pose）→ `aurora::Skin::boneMatrices` 的映射放在**桥接层**（未来 aurora adaptor / framework），由桥接层 link `Animation`。
+- 渲染侧每帧求值若需独立类型，叫 `SkinningPalette` / `SkinMatrices`，不要占用 `Skin`。
+- `Mesh` 只有 `SetSkin/GetSkin/HasSkin`。
+
 ## 后续 change 路线
 
 | Change | 状态 | 说明 |

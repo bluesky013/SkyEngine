@@ -1,14 +1,15 @@
 //
 // Mesh: high-level mesh resource. Wraps a RenderGeometry (vertex streams +
 // index + bounds) with sub-meshes (multi-material sections), blend shapes
-// (morph targets) and an optional skeleton for skinning. Pure wrapper: the
-// geometry owns the GPU buffers, the mesh adds segmentation + animation data.
+// (morph targets) and an optional Skin (mesh-side skinning binding). Pure
+// wrapper: the geometry owns the GPU buffers, the mesh adds segmentation +
+// animation data. Animation's Skeleton is mapped into Skin by the bridge layer.
 //
 
 #pragma once
 
 #include <aurora/resource/RenderGeometry.h>
-#include <core/math/Matrix4.h>
+#include <aurora/resource/Skin.h>
 #include <core/math/Vector3.h>
 #include <core/name/Name.h>
 #include <core/shapes/AABB.h>
@@ -37,38 +38,6 @@ namespace sky::aurora {
         std::vector<Vector3> positionDeltas;
         std::vector<Vector3> normalDeltas;
         std::vector<Vector3> tangentDeltas;
-    };
-
-    struct Bone {
-        Name    name;
-        int32_t parent = -1;   // parent bone index (-1 = root)
-        Matrix4 inverseBind;   // inverse bind matrix (bind pose)
-    };
-
-    class Skeleton : public RefObject {
-    public:
-        Skeleton() = default;
-        ~Skeleton() override = default;
-
-        Skeleton(const Skeleton &) = delete;
-        Skeleton &operator=(const Skeleton &) = delete;
-
-        void AddBone(Bone bone)
-        {
-            bones.push_back(std::move(bone));
-        }
-
-        const std::vector<Bone> &GetBones() const { return bones; }
-
-        const Bone *GetBone(uint32_t index) const
-        {
-            return index < bones.size() ? &bones[index] : nullptr;
-        }
-
-        uint32_t GetBoneCount() const { return static_cast<uint32_t>(bones.size()); }
-
-    private:
-        std::vector<Bone> bones;
     };
 
     class Mesh : public RefObject {
@@ -108,22 +77,25 @@ namespace sky::aurora {
         const std::vector<BlendShape> &GetBlendShapes() const { return blendShapes; }
         uint32_t GetBlendShapeCount() const { return static_cast<uint32_t>(blendShapes.size()); }
 
-        void SetSkeleton(CounterPtr<Skeleton> skel)
+        // Mesh-side skinning binding (inverse bind matrices + bone palette).
+        // Self-contained: animation's Skeleton is mapped into this Skin by the
+        // bridge/adaptor layer, not referenced from aurora.
+        void SetSkin(CounterPtr<Skin> inSkin)
         {
-            skeleton = std::move(skel);
+            skin = std::move(inSkin);
         }
 
-        CounterPtr<Skeleton> GetSkeleton() const { return skeleton; }
-        bool HasSkin() const { return skeleton != nullptr; }
+        CounterPtr<Skin> GetSkin() const { return skin; }
+        bool HasSkin() const { return skin != nullptr; }
 
         const Name &GetName() const { return name; }
 
     private:
-        Name                     name;
+        Name                       name;
         CounterPtr<RenderGeometry> geometry;
-        std::vector<SubMesh>      subMeshes;
-        std::vector<BlendShape>   blendShapes;
-        CounterPtr<Skeleton>      skeleton;
+        std::vector<SubMesh>       subMeshes;
+        std::vector<BlendShape>    blendShapes;
+        CounterPtr<Skin>           skin;
     };
 
 } // namespace sky::aurora
