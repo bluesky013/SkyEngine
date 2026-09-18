@@ -98,11 +98,17 @@ namespace sky::aurora {
             return capability;
         }
 
+        const DeviceFeature &GetFeature() const
+        {
+            return feature;
+        }
+
     protected:
         virtual bool OnInit(const DeviceInit &init) = 0;
         virtual void UpdateDeviceCaps()             = 0;
 
         DeviceCapability capability;
+        DeviceFeature    feature;
     };
 
 } // namespace sky::aurora

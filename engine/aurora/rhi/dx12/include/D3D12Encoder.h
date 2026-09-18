@@ -42,6 +42,7 @@ namespace sky::aurora {
         D3D12Device               &device;
         ID3D12GraphicsCommandList *cmdList = nullptr;
         const D3D12RootSignature  *currentRootSignature = nullptr;
+        std::vector<uint32_t>      currentVertexStrides; // cached from bound PSO
     };
 
     class D3D12ComputeEncoder : public ComputeEncoder {

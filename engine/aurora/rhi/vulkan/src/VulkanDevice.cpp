@@ -93,6 +93,11 @@ namespace sky::aurora {
             }
         }
 
+        // tier2 bindless descriptor heap (VK_EXT_descriptor_heap) is not
+        // implemented on Vulkan yet; keep the feature off explicitly so callers
+        // can gate on GetFeature() instead of getting a silent nullptr.
+        feature.descriptorHeap = false;
+
         LOG_I(TAG, "sampler anisotropy: %s", capability.anisotropyEnable ? "enabled" : "disabled");
         LOG_I(TAG, "isUMA: %s", capability.isUMA ? "yes" : "no");
     }

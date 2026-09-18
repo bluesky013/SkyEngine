@@ -1,7 +1,7 @@
 //
 // Slang -> DXIL -> RHI shader object creation (DX12).
-// NOTE: D3D12 PipelineLayout/ResourceGroup creation is still a stub
-// (aurora-resource-group DX12 backend); only shader objects are validated.
+// NOTE: D3D12 root signature / ResourceGroup creation are implemented; this
+// test still only validates shader object creation.
 //
 
 #include "SlangBackendTestCommon.h"

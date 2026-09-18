@@ -19,6 +19,7 @@
 #include <dxgi1_6.h>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <wrl/client.h>
 
@@ -28,6 +29,7 @@ namespace sky::aurora {
 
     class D3D12Device;
     class D3D12Instance;
+    class D3D12BlitHelper;
 
     struct D3D12Context : ThreadContext {
         D3D12Context(D3D12Device &dev, QueueType queue);
@@ -38,8 +40,15 @@ namespace sky::aurora {
         D3D12Device                      &device;
         std::unique_ptr<D3D12CommandPool> pool;
     };
+    // Indirect command kind for ExecuteIndirect command signatures.
+    enum class IndirectKind : uint8_t {
+        DRAW = 0,
+        DRAW_INDEXED,
+        DISPATCH,
+    };
 
-    class D3D12Device : public Device {
+    class D3D12Device : public Device
+    {
     public:
         explicit D3D12Device(D3D12Instance &inst);
         ~D3D12Device() override;
@@ -52,10 +61,7 @@ namespace sky::aurora {
         Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
         DescriptorBatch     *CreateDescriptorBatch() override;
-        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
-        {
-            return nullptr; // TODO: SM6.6 ResourceDescriptorHeap (tier2)
-        }
+        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
         SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
@@ -89,6 +95,13 @@ namespace sky::aurora {
         }
         IDXGIFactory4 *GetDXGIFactory() const;
 
+        // Lazily-created command signature for ExecuteIndirect, cached by
+        // (kind, stride). Returns nullptr when creation fails.
+        ID3D12CommandSignature *GetIndirectSignature(IndirectKind kind, uint32_t stride);
+
+        // Lazily-created built-in fullscreen blit pipeline (scaled BlitImage).
+        D3D12BlitHelper *GetBlitHelper();
+
     private:
         bool        OnInit(const DeviceInit &init) override;
         void        UpdateDeviceCaps() override;
@@ -107,8 +120,11 @@ namespace sky::aurora {
         ComPtr<D3D12MA::Allocator> allocator;
 
         std::unique_ptr<D3D12DescriptorAllocator> descriptorAllocator;
+        std::unique_ptr<D3D12BlitHelper>          blitHelper;
 
         std::array<std::unique_ptr<D3D12Queue>, 3> queues; // by QueueType
+
+        std::unordered_map<uint64_t, ComPtr<ID3D12CommandSignature>> indirectSignatures;
 
         DXGI_ADAPTER_DESC1 adapterDesc = {};
     };

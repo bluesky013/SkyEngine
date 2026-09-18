@@ -5,6 +5,7 @@
 #include "AuroraTestHelper.h"
 
 #include <aurora/rhi/CommandBuffer.h>
+#include <aurora/rhi/DescriptorHeap.h>
 #include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/Shader.h>
 #include <core/archive/BinaryData.h>
@@ -543,6 +544,34 @@ TEST_F(EncoderTestD3D12, GraphicsEncoderRenderPass)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
+    Image::Descriptor colorDesc = {};
+    colorDesc.imageType   = ImageType::IMAGE_2D;
+    colorDesc.format      = PixelFormat::RGBA8_UNORM;
+    colorDesc.extent      = {64, 64, 1};
+    colorDesc.mipLevels   = 1;
+    colorDesc.arrayLayers = 1;
+    colorDesc.samples     = SampleCount::X1;
+    colorDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
+    colorDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *colorImage = device->CreateImage(colorDesc);
+    ASSERT_NE(colorImage, nullptr);
+    CounterPtr<Image> colorGuard(colorImage);
+
+    Image::Descriptor depthDesc = {};
+    depthDesc.imageType   = ImageType::IMAGE_2D;
+    depthDesc.format      = PixelFormat::D32_S8;
+    depthDesc.extent      = {64, 64, 1};
+    depthDesc.mipLevels   = 1;
+    depthDesc.arrayLayers = 1;
+    depthDesc.samples     = SampleCount::X1;
+    depthDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
+    depthDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *depthImage = device->CreateImage(depthDesc);
+    ASSERT_NE(depthImage, nullptr);
+    CounterPtr<Image> depthGuard(depthImage);
+
     auto pool = CreatePoolFromDevice(device);
     ASSERT_NE(pool, nullptr);
 
@@ -554,19 +583,161 @@ TEST_F(EncoderTestD3D12, GraphicsEncoderRenderPass)
         auto encoder = cmdBuf->CreateGraphicsEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        Viewport vp = {0.f, 0.f, 64.f, 64.f, 0.f, 1.f};
-        encoder->SetViewport(1, &vp);
+        RenderingInfo info = {};
+        info.renderArea = {{0, 0}, {64, 64}};
+        info.numColors  = 1;
+        info.colors[0].image       = colorImage;
+        info.colors[0].loadOp      = LoadOp::CLEAR;
+        info.colors[0].storeOp     = StoreOp::STORE;
+        info.colors[0].clearValue  = ClearValue(0.f, 0.f, 0.f, 1.f);
 
-        Rect2D scissor = {{0, 0}, {64, 64}};
-        encoder->SetScissor(1, &scissor);
+        info.depthStencil.image          = depthImage;
+        info.depthStencil.depthLoadOp    = LoadOp::CLEAR;
+        info.depthStencil.depthStoreOp   = StoreOp::STORE;
+        info.depthStencil.stencilLoadOp  = LoadOp::CLEAR;
+        info.depthStencil.stencilStoreOp = StoreOp::STORE;
+        info.depthStencil.clearValue     = ClearValue(1.0f, 0u);
 
-        // BeginRendering with a color attachment requires a valid RTV descriptor
-        // on D3D12, which needs a descriptor heap. Skip rendering here;
-        // DynamicState test covers viewport/scissor recording.
+        encoder->BeginRendering(info);
+        encoder->EndRendering();
     }
     cmdBuf->End();
 
     device->WaitIdle();
+}
+
+TEST_F(EncoderTestD3D12, BlitImageSameSizeCopy)
+{
+    auto *device = GetDevice();
+    ASSERT_NE(device, nullptr);
+
+    Image::Descriptor srcDesc = {};
+    srcDesc.imageType   = ImageType::IMAGE_2D;
+    srcDesc.format      = PixelFormat::RGBA8_UNORM;
+    srcDesc.extent      = {32, 32, 1};
+    srcDesc.mipLevels   = 1;
+    srcDesc.arrayLayers = 1;
+    srcDesc.samples     = SampleCount::X1;
+    srcDesc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
+    srcDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *srcImage = device->CreateImage(srcDesc);
+    ASSERT_NE(srcImage, nullptr);
+    CounterPtr<Image> srcGuard(srcImage);
+
+    Image::Descriptor dstDesc = srcDesc;
+    dstDesc.usage = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::RENDER_TARGET;
+
+    auto *dstImage = device->CreateImage(dstDesc);
+    ASSERT_NE(dstImage, nullptr);
+    CounterPtr<Image> dstGuard(dstImage);
+
+    auto pool = CreatePoolFromDevice(device);
+    ASSERT_NE(pool, nullptr);
+
+    auto *cmdBuf = pool->Allocate();
+    ASSERT_NE(cmdBuf, nullptr);
+
+    cmdBuf->Begin();
+    {
+        auto encoder = cmdBuf->CreateBlitEncoder();
+        ASSERT_NE(encoder, nullptr);
+
+        BlitInfo region = {};
+        region.srcOffsets[0] = {0, 0, 0};
+        region.srcOffsets[1] = {32, 32, 1};
+        region.dstOffsets[0] = {0, 0, 0};
+        region.dstOffsets[1] = {32, 32, 1};
+
+        encoder->BlitImage(srcImage, dstImage, {region}, Filter::NEAREST);
+    }
+    cmdBuf->End();
+
+    device->WaitIdle();
+}
+
+TEST_F(EncoderTestD3D12, BlitImageScaled)
+{
+    auto *device = GetDevice();
+    ASSERT_NE(device, nullptr);
+
+    Image::Descriptor srcDesc = {};
+    srcDesc.imageType   = ImageType::IMAGE_2D;
+    srcDesc.format      = PixelFormat::RGBA8_UNORM;
+    srcDesc.extent      = {16, 16, 1};
+    srcDesc.mipLevels   = 1;
+    srcDesc.arrayLayers = 1;
+    srcDesc.samples     = SampleCount::X1;
+    srcDesc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
+    srcDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *srcImage = device->CreateImage(srcDesc);
+    ASSERT_NE(srcImage, nullptr);
+    CounterPtr<Image> srcGuard(srcImage);
+
+    Image::Descriptor dstDesc = srcDesc;
+    dstDesc.format = PixelFormat::RGBA8_UNORM;
+    dstDesc.extent = {64, 64, 1};
+    dstDesc.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+
+    auto *dstImage = device->CreateImage(dstDesc);
+    ASSERT_NE(dstImage, nullptr);
+    CounterPtr<Image> dstGuard(dstImage);
+
+    auto pool = CreatePoolFromDevice(device);
+    ASSERT_NE(pool, nullptr);
+
+    auto *cmdBuf = pool->Allocate();
+    ASSERT_NE(cmdBuf, nullptr);
+
+    cmdBuf->Begin();
+    {
+        auto encoder = cmdBuf->CreateBlitEncoder();
+        ASSERT_NE(encoder, nullptr);
+
+        BlitInfo region = {};
+        region.srcOffsets[0] = {0, 0, 0};
+        region.srcOffsets[1] = {16, 16, 1};
+        region.dstOffsets[0] = {0, 0, 0};
+        region.dstOffsets[1] = {64, 64, 1};
+
+        encoder->BlitImage(srcImage, dstImage, {region}, Filter::LINEAR);
+    }
+    cmdBuf->End();
+
+    device->WaitIdle();
+}
+
+TEST_F(EncoderTestD3D12, DescriptorHeapAllocateFree)
+{
+    auto *device = GetDevice();
+    ASSERT_NE(device, nullptr);
+
+    DescriptorHeap::Descriptor heapDesc = {};
+    heapDesc.maxTextures = 8;
+    heapDesc.maxBuffers  = 8;
+    heapDesc.maxSamplers = 4;
+
+    auto *heap = device->CreateDescriptorHeap(heapDesc);
+    if (heap == nullptr) {
+        GTEST_SKIP() << "device does not support Shader Model 6.6 descriptor heap";
+    }
+    CounterPtr<DescriptorHeap> heapGuard(heap);
+
+    DescriptorHeap::Descriptor allocDesc = {};
+    allocDesc.maxTextures = 2;
+    allocDesc.maxBuffers  = 1;
+    allocDesc.maxSamplers = 1;
+
+    const auto allocation = heap->Allocate(allocDesc);
+    EXPECT_EQ(allocation.texCount, 2u);
+    EXPECT_EQ(allocation.bufCount, 1u);
+    EXPECT_EQ(allocation.smpCount, 1u);
+
+    heap->Free(allocation);
+    const auto second = heap->Allocate(allocDesc);
+    EXPECT_EQ(second.texCount, 2u);
+    heap->Free(second);
 }
 
 TEST_F(EncoderTestD3D12, ComputeEncoderDispatch)

@@ -6,6 +6,7 @@
 
 #include <core/template/ReferenceObject.h>
 #include <aurora/rhi/DescriptorEncoder.h>
+#include <aurora/rhi/Resource.h>
 
 #include <cstdint>
 

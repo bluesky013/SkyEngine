@@ -30,6 +30,9 @@ namespace sky::aurora {
         // GPU_ONLY buffers return nullptr
         virtual uint8_t *Map() { return nullptr; }
         virtual void UnMap() {}
+
+        // Allocated size in bytes; backends override to expose the real size.
+        virtual uint64_t GetSize() const { return 0; }
     };
     using BufferPtr = CounterPtr<Buffer>;
 } // namespace sky::aurora

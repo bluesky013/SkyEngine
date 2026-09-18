@@ -35,6 +35,10 @@ namespace sky::aurora {
         void CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
         void CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
 
+        // Render-target / depth-stencil views for a subresource range.
+        void CreateRTV(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ImageSubRange &range) const;
+        void CreateDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ImageSubRange &range) const;
+
     private:
         D3D12Device            &device;
         ComPtr<ID3D12Resource>  resource;

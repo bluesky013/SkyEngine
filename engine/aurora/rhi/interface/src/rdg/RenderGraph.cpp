@@ -314,20 +314,30 @@ namespace sky::aurora {
 
     void RenderGraph::SetCopySrc(uint32_t passIndex, uint32_t resourceIndex)
     {
+        SetCopySrc(passIndex, resourceIndex, AccessFlagBit::COPY_SRC);
+    }
+
+    void RenderGraph::SetCopySrc(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access)
+    {
         auto &pass = mPasses[passIndex];
         if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
             mCopyBlitPasses[pass.payloadIndex].srcResourceIndex = resourceIndex;
         }
-        AddRead(passIndex, resourceIndex, AccessFlagBit::COPY_SRC);
+        AddRead(passIndex, resourceIndex, access);
     }
 
     void RenderGraph::SetCopyDst(uint32_t passIndex, uint32_t resourceIndex)
+    {
+        SetCopyDst(passIndex, resourceIndex, AccessFlagBit::COPY_DST);
+    }
+
+    void RenderGraph::SetCopyDst(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access)
     {
         auto &pass = mPasses[passIndex];
         if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
             mCopyBlitPasses[pass.payloadIndex].dstResourceIndex = resourceIndex;
         }
-        AddWrite(passIndex, resourceIndex, AccessFlagBit::COPY_DST);
+        AddWrite(passIndex, resourceIndex, access);
     }
 
     void RenderGraph::AddDrawItem(uint32_t passIndex, const DrawItem &item)
@@ -640,6 +650,18 @@ namespace sky::aurora {
     CopyBlitPassBuilder &CopyBlitPassBuilder::Dst(RDGBufferHandle handle)
     {
         mGraph->SetCopyDst(mPassIndex, handle.id);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Src(RDGTextureHandle handle, AccessFlags access)
+    {
+        mGraph->SetCopySrc(mPassIndex, handle.id, access);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Dst(RDGTextureHandle handle, AccessFlags access)
+    {
+        mGraph->SetCopyDst(mPassIndex, handle.id, access);
         return *this;
     }
 

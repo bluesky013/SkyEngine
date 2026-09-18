@@ -133,8 +133,34 @@ namespace sky::aurora {
             shaderStages.push_back(stageCI);
         }
 
-        // ---- vertex input (empty - vertex pulling / mesh shaders) ----
+        // ---- vertex input (IA; empty for fullscreen / vertex pulling) ----
+        std::vector<VkVertexInputBindingDescription>   vertexBindings;
+        std::vector<VkVertexInputAttributeDescription> vertexAttributes;
+        vertexBindings.reserve(state.vertexBindings.size());
+        for (const auto &binding : state.vertexBindings) {
+            VkVertexInputBindingDescription b = {};
+            b.binding   = binding.binding;
+            b.stride    = binding.stride;
+            b.inputRate = binding.inputRate == VertexInputRate::PER_INSTANCE
+                              ? VK_VERTEX_INPUT_RATE_INSTANCE
+                              : VK_VERTEX_INPUT_RATE_VERTEX;
+            vertexBindings.push_back(b);
+        }
+        vertexAttributes.reserve(state.vertexAttributes.size());
+        for (const auto &attr : state.vertexAttributes) {
+            VkVertexInputAttributeDescription a = {};
+            a.location = attr.location;
+            a.binding  = attr.binding;
+            a.format   = FromFormat(attr.format);
+            a.offset   = attr.offset;
+            vertexAttributes.push_back(a);
+        }
+
         VkPipelineVertexInputStateCreateInfo vertexInput = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+        vertexInput.vertexBindingDescriptionCount   = static_cast<uint32_t>(vertexBindings.size());
+        vertexInput.pVertexBindingDescriptions      = vertexBindings.empty() ? nullptr : vertexBindings.data();
+        vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributes.size());
+        vertexInput.pVertexAttributeDescriptions    = vertexAttributes.empty() ? nullptr : vertexAttributes.data();
 
         // ---- input assembly ----
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};

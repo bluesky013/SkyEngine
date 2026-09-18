@@ -36,7 +36,8 @@ namespace sky::aurora {
         D3D12DescriptorAllocator() = default;
         ~D3D12DescriptorAllocator() = default;
 
-        bool Init(D3D12Device &device, uint32_t cbvSrvUavSize, uint32_t samplerSize, uint32_t ringSize = 3);
+        bool Init(D3D12Device &device, uint32_t cbvSrvUavSize, uint32_t samplerSize, uint32_t ringSize = 3,
+                  uint32_t rtvSize = 256, uint32_t dsvSize = 64);
 
         void BeginFrame(uint32_t frameIndex);
 
@@ -44,6 +45,13 @@ namespace sky::aurora {
 
         bool Allocate(uint32_t cbvSrvUavCount, uint32_t samplerCount, DescriptorAllocation &out);
         void Free(const DescriptorAllocation &alloc);
+
+        // RTV / DSV rings: CPU-only, per in-flight frame, linear bump reset each
+        // BeginFrame. Render targets are transient within a frame, so no free list.
+        bool AllocateRtv(uint32_t count, uint32_t &outFirst);
+        bool AllocateDsv(uint32_t &outFirst);
+        D3D12_CPU_DESCRIPTOR_HANDLE GetRtvCpuHandle(uint32_t index) const;
+        D3D12_CPU_DESCRIPTOR_HANDLE GetDsvCpuHandle(uint32_t index) const;
 
         // CPU-only staging handles (encoder writes here; copy source).
         D3D12_CPU_DESCRIPTOR_HANDLE GetCbvSrvUavCpuHandle(uint32_t index) const;
@@ -77,8 +85,18 @@ namespace sky::aurora {
         std::vector<ComPtr<ID3D12DescriptorHeap>> cbvSrvUavRing; // shader-visible, per frame
         std::vector<ComPtr<ID3D12DescriptorHeap>> samplerRing;   // shader-visible, per frame
 
+        std::vector<ComPtr<ID3D12DescriptorHeap>> rtvRing; // CPU-only, per frame
+        std::vector<ComPtr<ID3D12DescriptorHeap>> dsvRing; // CPU-only, per frame
+
         uint32_t cbvSrvUavIncrement = 0;
         uint32_t samplerIncrement   = 0;
+        uint32_t rtvIncrement       = 0;
+        uint32_t dsvIncrement       = 0;
+
+        uint32_t rtvSize = 0;
+        uint32_t dsvSize = 0;
+        uint32_t rtvUsed = 0;
+        uint32_t dsvUsed = 0;
 
         uint32_t mCurrentFrame = 0;
         uint32_t mRingSize     = 1;

@@ -28,6 +28,8 @@ namespace sky::aurora {
         uint8_t *Map() override;
         void UnMap() override;
 
+        uint64_t GetSize() const override { return size; }
+
         // Write a CBV / raw SRV / raw UAV into a CPU descriptor.
         void CreateCBV(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint64_t offset, uint64_t range) const;
         void CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;

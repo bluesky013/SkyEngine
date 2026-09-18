@@ -11,6 +11,8 @@
 #include <D3D12Conversion.h>
 #include <core/logger/Logger.h>
 
+#include <algorithm>
+
 namespace sky::aurora {
 
     static const char *TAG = "D3D12PipelineState";
@@ -40,9 +42,39 @@ namespace sky::aurora {
         psoDesc.VS = d3dShader->GetVSByteCode();
         psoDesc.PS = d3dShader->GetPSByteCode();
 
-        // input layout (empty for now, vertex pulling or mesh shaders)
-        psoDesc.InputLayout.pInputElementDescs = nullptr;
-        psoDesc.InputLayout.NumElements        = 0;
+        // input layout from PipelineState vertex bindings / attributes
+        std::vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+        inputElements.reserve(state.vertexAttributes.size());
+        for (const auto &attr : state.vertexAttributes) {
+            D3D12_INPUT_ELEMENT_DESC element = {};
+            element.SemanticName         = attr.semantic != nullptr ? attr.semantic : "TEXCOORD";
+            element.SemanticIndex        = attr.semanticIndex;
+            element.Format               = FromFormat(attr.format);
+            element.InputSlot            = attr.binding;
+            element.AlignedByteOffset    = attr.offset;
+            element.InputSlotClass       = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            element.InstanceDataStepRate = 0;
+            for (const auto &binding : state.vertexBindings) {
+                if (binding.binding == attr.binding && binding.inputRate == VertexInputRate::PER_INSTANCE) {
+                    element.InputSlotClass       = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
+                    element.InstanceDataStepRate = 1;
+                    break;
+                }
+            }
+            inputElements.push_back(element);
+        }
+        psoDesc.InputLayout.pInputElementDescs = inputElements.empty() ? nullptr : inputElements.data();
+        psoDesc.InputLayout.NumElements        = static_cast<UINT>(inputElements.size());
+
+        // per-input-slot stride, cached for encoder-time BindVertexBuffers
+        uint32_t maxBinding = 0;
+        for (const auto &binding : state.vertexBindings) {
+            maxBinding = std::max(maxBinding, binding.binding);
+        }
+        vertexStrides.assign(state.vertexBindings.empty() ? 0 : static_cast<size_t>(maxBinding) + 1, 0);
+        for (const auto &binding : state.vertexBindings) {
+            vertexStrides[binding.binding] = binding.stride;
+        }
 
         // rasterizer
         auto &rs = psoDesc.RasterizerState;

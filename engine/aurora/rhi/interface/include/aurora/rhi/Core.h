@@ -628,26 +628,29 @@ namespace sky::aurora {
         SampleCount sampleCount = SampleCount::X1;
     };
 
-    struct PipelineState {
-        DepthStencil            depthStencil;
-        MultiSample             multiSample;
-        InputAssembly           inputAssembly;
-        RasterState             rasterState;
-        std::vector<BlendState> blendStates;
-    };
-
     struct VertexAttributeDesc {
-        uint32_t location = 0;
-        uint32_t binding  = 0;
-        uint32_t offset   = 0;
-        Format   format   = Format::UNDEFINED;
-        const char* sematic = nullptr;
+        uint32_t    location      = 0;
+        uint32_t    binding       = 0;
+        uint32_t    offset        = 0;
+        Format      format        = Format::UNDEFINED;
+        const char *semantic      = nullptr;
+        uint32_t    semanticIndex = 0;
     };
 
     struct VertexBindingDesc {
         uint32_t        binding   = 0;
         uint32_t        stride    = 0;
         VertexInputRate inputRate = VertexInputRate::PER_VERTEX;
+    };
+
+    struct PipelineState {
+        DepthStencil                     depthStencil;
+        MultiSample                      multiSample;
+        InputAssembly                    inputAssembly;
+        RasterState                      rasterState;
+        std::vector<BlendState>          blendStates;
+        std::vector<VertexBindingDesc>   vertexBindings;
+        std::vector<VertexAttributeDesc> vertexAttributes;
     };
 
     struct BufferViewDesc {

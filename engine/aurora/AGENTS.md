@@ -97,8 +97,8 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 ## 平台/特性下限
 
-- **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制
-- **DX12**：12.0 起步（PSO 仍是 stub；SwapChain 已落地 `D3D12SwapChain`）
+- **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制；PSO 从 `PipelineState::vertexBindings/vertexAttributes` 建 IA 输入布局（与 DX12 对齐）；tier2 `DescriptorHeap`（`VK_EXT_descriptor_heap`）**未实现**，`CreateDescriptorHeap` 返回 nullptr 且 `GetFeature().descriptorHeap == false`
+- **DX12**：12.0 起步；PSO / root signature / ResourceGroup / SwapChain 均已落地，encoder 支持 render target 绑定与 clear、IA 顶点输入、indirect draw/dispatch、内置 fullscreen blit 与 tier2 bindless `DescriptorHeap`（SM6.6 门），见 `aurora-dx12-gaps`
 - **Metal**：3 起步
 
 ## Queue / Submit / Semaphore / SwapChain（submit-present）

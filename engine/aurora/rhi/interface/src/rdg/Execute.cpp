@@ -75,6 +75,13 @@ namespace sky::aurora {
                         if (item.pso != nullptr) {
                             enc->BindPipeline(item.pso);
                         }
+                        if (item.vb != nullptr) {
+                            BufferView view{};
+                            view.buffer = item.vb;
+                            view.offset = item.vbOffset;
+                            view.range  = item.vb->GetSize() > item.vbOffset ? item.vb->GetSize() - item.vbOffset : 0;
+                            enc->BindVertexBuffers(0, 1, &view);
+                        }
                         if (item.ib != nullptr) {
                             enc->BindIndexBuffer(item.ib, item.ibOffset, IndexType::U32);
                             enc->DrawIndexed(item.args);

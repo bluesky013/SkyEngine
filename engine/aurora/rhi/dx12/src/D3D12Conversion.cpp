@@ -137,7 +137,11 @@ namespace sky::aurora {
         if (flags & ImageUsageFlagBit::RENDER_TARGET)  { res |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; }
         if (flags & ImageUsageFlagBit::DEPTH_STENCIL)  { res |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; }
         if (flags & ImageUsageFlagBit::STORAGE)        { res |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; }
-        if (!(flags & ImageUsageFlagBit::SAMPLED))     { res |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE; }
+        // D3D12 only permits DENY_SHADER_RESOURCE alongside ALLOW_DEPTH_STENCIL
+        // (or the video reference flags); color render targets must not set it.
+        if ((flags & ImageUsageFlagBit::DEPTH_STENCIL) && !(flags & ImageUsageFlagBit::SAMPLED)) {
+            res |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+        }
         return res;
     }
 

@@ -2,16 +2,22 @@
 // Created on 2026/04/07.
 //
 
+#include <D3D12BlitHelper.h>
 #include <D3D12Buffer.h>
 #include <D3D12Conversion.h>
+#include <D3D12DescriptorHeap.h>
 #include <D3D12Device.h>
 #include <D3D12Encoder.h>
 #include <D3D12Image.h>
 #include <D3D12PipelineState.h>
 #include <D3D12ResourceGroup.h>
 #include <D3D12RootSignature.h>
+#include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
 
 namespace sky::aurora {
+
+    static const char *TAG = "AuroraDX12";
 
     // ---- D3D12GraphicsEncoder ----
 
@@ -21,8 +27,6 @@ namespace sky::aurora {
 
     void D3D12GraphicsEncoder::BeginRendering(const RenderingInfo &info)
     {
-        // D3D12 uses OMSetRenderTargets; full render-target view management TBD.
-        // For now set the viewport/scissor from the render area.
         D3D12_VIEWPORT vp = {};
         vp.TopLeftX       = static_cast<float>(info.renderArea.offset.x);
         vp.TopLeftY       = static_cast<float>(info.renderArea.offset.y);
@@ -38,6 +42,62 @@ namespace sky::aurora {
         sc.right      = info.renderArea.offset.x + static_cast<LONG>(info.renderArea.extent.width);
         sc.bottom     = info.renderArea.offset.y + static_cast<LONG>(info.renderArea.extent.height);
         cmdList->RSSetScissorRects(1, &sc);
+
+        auto *allocator = device.GetDescriptorAllocator();
+        if (allocator == nullptr) {
+            return;
+        }
+
+        const ImageSubRange fullRange{};
+
+        D3D12_CPU_DESCRIPTOR_HANDLE rtvs[MAX_COLOR_ATTACHMENTS] = {};
+        const uint32_t              numColors = info.numColors < MAX_COLOR_ATTACHMENTS ? info.numColors : MAX_COLOR_ATTACHMENTS;
+        uint32_t                    rtvFirst  = 0;
+        if (numColors > 0 && allocator->AllocateRtv(numColors, rtvFirst)) {
+            for (uint32_t i = 0; i < numColors; ++i) {
+                rtvs[i] = allocator->GetRtvCpuHandle(rtvFirst + i);
+                if (info.colors[i].image != nullptr) {
+                    static_cast<D3D12Image *>(info.colors[i].image)->CreateRTV(rtvs[i], fullRange);
+                }
+            }
+        } else if (numColors > 0) {
+            LOG_E(TAG, "out of RTV descriptors for %u color attachments", numColors);
+        }
+
+        D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = {};
+        bool                        hasDsv    = info.depthStencil.image != nullptr;
+        if (hasDsv) {
+            uint32_t dsvFirst = 0;
+            if (allocator->AllocateDsv(dsvFirst)) {
+                dsvHandle = allocator->GetDsvCpuHandle(dsvFirst);
+                static_cast<D3D12Image *>(info.depthStencil.image)->CreateDSV(dsvHandle, fullRange);
+            } else {
+                LOG_E(TAG, "out of DSV descriptors");
+                hasDsv = false;
+            }
+        }
+
+        cmdList->OMSetRenderTargets(numColors, numColors > 0 ? rtvs : nullptr, FALSE, hasDsv ? &dsvHandle : nullptr);
+
+        for (uint32_t i = 0; i < numColors; ++i) {
+            if (info.colors[i].loadOp == LoadOp::CLEAR) {
+                cmdList->ClearRenderTargetView(rtvs[i], info.colors[i].clearValue.color.float32, 0, nullptr);
+            }
+        }
+        if (hasDsv) {
+            const auto &ds = info.depthStencil;
+            D3D12_CLEAR_FLAGS flags = {};
+            if (ds.depthLoadOp == LoadOp::CLEAR) {
+                flags |= D3D12_CLEAR_FLAG_DEPTH;
+            }
+            if (ds.stencilLoadOp == LoadOp::CLEAR) {
+                flags |= D3D12_CLEAR_FLAG_STENCIL;
+            }
+            if (flags != 0) {
+                cmdList->ClearDepthStencilView(dsvHandle, flags, ds.clearValue.depthStencil.depth,
+                                               static_cast<UINT8>(ds.clearValue.depthStencil.stencil), 0, nullptr);
+            }
+        }
     }
 
     void D3D12GraphicsEncoder::EndRendering()
@@ -49,6 +109,7 @@ namespace sky::aurora {
     {
         auto *d3dPso = static_cast<D3D12GraphicsPipeline *>(pso);
         currentRootSignature = d3dPso->GetRootSignature();
+        currentVertexStrides = d3dPso->GetVertexStrides();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
     }
 
@@ -104,9 +165,23 @@ namespace sky::aurora {
         }
     }
 
-    void D3D12GraphicsEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/)
+    void D3D12GraphicsEncoder::BindDescriptorHeap(DescriptorHeap *heap)
     {
-        // TODO: D3D12 descriptor heap bind (aurora-resource-group tier2)
+        auto *d3dHeap = static_cast<D3D12DescriptorHeap *>(heap);
+        if (d3dHeap == nullptr) {
+            return;
+        }
+        ID3D12DescriptorHeap *heaps[2] = {};
+        uint32_t               count    = 0;
+        if (d3dHeap->GetResourceHeap() != nullptr) {
+            heaps[count++] = d3dHeap->GetResourceHeap();
+        }
+        if (d3dHeap->GetSamplerHeap() != nullptr) {
+            heaps[count++] = d3dHeap->GetSamplerHeap();
+        }
+        if (count > 0) {
+            cmdList->SetDescriptorHeaps(count, heaps);
+        }
     }
 
     void D3D12GraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t offset, uint32_t size, const void *data)
@@ -118,22 +193,35 @@ namespace sky::aurora {
         if (rootParam == INVALID_INDEX) {
             return;
         }
+        // D3D12 root constants are 32-bit granular; a non-aligned range cannot
+        // be expressed. Reject instead of silently truncating.
+        if ((offset % 4) != 0 || (size % 4) != 0) {
+            LOG_E(TAG, "PushConstants requires 4-byte aligned offset/size on D3D12 (offset=%u size=%u)", offset, size);
+            return;
+        }
         cmdList->SetGraphicsRoot32BitConstants(rootParam, size / 4, data, offset / 4);
     }
 
     void D3D12GraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
     {
-        constexpr uint32_t       MAX_VB          = 16;
-        D3D12_VERTEX_BUFFER_VIEW vbViews[MAX_VB] = {};
-        uint32_t                 n               = count < MAX_VB ? count : MAX_VB;
+        SKY_ASSERT(count <= MAX_VERTEX_BINDINGS);
+        D3D12_VERTEX_BUFFER_VIEW vbViews[MAX_VERTEX_BINDINGS] = {};
 
-        for (uint32_t i = 0; i < n; ++i) {
-            auto *buf                 = static_cast<D3D12Buffer *>(views[i].buffer);
+        for (uint32_t i = 0; i < count; ++i) {
+            auto *buf = static_cast<D3D12Buffer *>(views[i].buffer);
+            if (buf == nullptr) {
+                continue;
+            }
             vbViews[i].BufferLocation = buf->GetNativeHandle()->GetGPUVirtualAddress() + views[i].offset;
-            vbViews[i].SizeInBytes    = static_cast<UINT>(views[i].range);
-            vbViews[i].StrideInBytes  = 0; // TODO: stride from vertex layout
+            // BufferView::range == 0 means "rest of the buffer".
+            const uint64_t totalSize  = buf->GetSize();
+            vbViews[i].SizeInBytes    = static_cast<UINT>(views[i].range != 0
+                                                               ? views[i].range
+                                                               : (totalSize > views[i].offset ? totalSize - views[i].offset : 0));
+            const uint32_t slot       = firstBinding + i;
+            vbViews[i].StrideInBytes  = slot < currentVertexStrides.size() ? currentVertexStrides[slot] : 0;
         }
-        cmdList->IASetVertexBuffers(firstBinding, n, vbViews);
+        cmdList->IASetVertexBuffers(firstBinding, count, vbViews);
     }
 
     void D3D12GraphicsEncoder::BindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType type)
@@ -142,7 +230,8 @@ namespace sky::aurora {
         D3D12_INDEX_BUFFER_VIEW ibView = {};
         ibView.BufferLocation          = buf->GetNativeHandle()->GetGPUVirtualAddress() + offset;
         ibView.Format                  = FromIndexType(type);
-        ibView.SizeInBytes             = 0; // TODO: compute from buffer size
+        const uint64_t totalSize       = buf->GetSize();
+        ibView.SizeInBytes             = totalSize > offset ? static_cast<UINT>(totalSize - offset) : 0;
         cmdList->IASetIndexBuffer(&ibView);
     }
 
@@ -186,17 +275,26 @@ namespace sky::aurora {
 
     void D3D12GraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride)
     {
-        // D3D12 ExecuteIndirect requires a command signature; simplified single-draw path here.
-        (void)stride;
-        (void)drawCount;
-        // TODO: full ExecuteIndirect with command signature
+        if (buffer == nullptr) {
+            return;
+        }
+        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DRAW, stride);
+        if (signature == nullptr) {
+            return;
+        }
+        cmdList->ExecuteIndirect(signature, drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     void D3D12GraphicsEncoder::DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride)
     {
-        (void)stride;
-        (void)drawCount;
-        // TODO: full ExecuteIndirect with command signature
+        if (buffer == nullptr) {
+            return;
+        }
+        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DRAW_INDEXED, stride);
+        if (signature == nullptr) {
+            return;
+        }
+        cmdList->ExecuteIndirect(signature, drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     // ---- D3D12ComputeEncoder ----
@@ -234,12 +332,12 @@ namespace sky::aurora {
 
         const uint32_t cbvSrvUavParam = currentRootSignature->GetCbvSrvUavRootParam(set);
         if (cbvSrvUavParam != INVALID_INDEX) {
-            cmdList->SetGraphicsRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
+            cmdList->SetComputeRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
         }
 
         const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
         if (samplerParam != INVALID_INDEX) {
-            cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
+            cmdList->SetComputeRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
         }
 
         // dynamic bindings -> root CBV / root UAV with per-draw offset
@@ -257,16 +355,30 @@ namespace sky::aurora {
             const D3D12_GPU_VIRTUAL_ADDRESS addr =
                 d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + d.baseOffset + offset;
             if (d.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                cmdList->SetGraphicsRootUnorderedAccessView(rootParam, addr);
+                cmdList->SetComputeRootUnorderedAccessView(rootParam, addr);
             } else {
-                cmdList->SetGraphicsRootConstantBufferView(rootParam, addr);
+                cmdList->SetComputeRootConstantBufferView(rootParam, addr);
             }
         }
     }
 
-    void D3D12ComputeEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/)
+    void D3D12ComputeEncoder::BindDescriptorHeap(DescriptorHeap *heap)
     {
-        // TODO: D3D12 descriptor heap bind (aurora-resource-group tier2)
+        auto *d3dHeap = static_cast<D3D12DescriptorHeap *>(heap);
+        if (d3dHeap == nullptr) {
+            return;
+        }
+        ID3D12DescriptorHeap *heaps[2] = {};
+        uint32_t               count    = 0;
+        if (d3dHeap->GetResourceHeap() != nullptr) {
+            heaps[count++] = d3dHeap->GetResourceHeap();
+        }
+        if (d3dHeap->GetSamplerHeap() != nullptr) {
+            heaps[count++] = d3dHeap->GetSamplerHeap();
+        }
+        if (count > 0) {
+            cmdList->SetDescriptorHeaps(count, heaps);
+        }
     }
 
     void D3D12ComputeEncoder::PushConstants(uint32_t offset, uint32_t size, const void *data)
@@ -278,7 +390,13 @@ namespace sky::aurora {
         if (rootParam == INVALID_INDEX) {
             return;
         }
-        cmdList->SetGraphicsRoot32BitConstants(rootParam, size / 4, data, offset / 4);
+        // D3D12 root constants are 32-bit granular; a non-aligned range cannot
+        // be expressed. Reject instead of silently truncating.
+        if ((offset % 4) != 0 || (size % 4) != 0) {
+            LOG_E(TAG, "PushConstants requires 4-byte aligned offset/size on D3D12 (offset=%u size=%u)", offset, size);
+            return;
+        }
+        cmdList->SetComputeRoot32BitConstants(rootParam, size / 4, data, offset / 4);
     }
 
     void D3D12ComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
@@ -288,7 +406,15 @@ namespace sky::aurora {
 
     void D3D12ComputeEncoder::DispatchIndirect(Buffer *buffer, uint64_t offset)
     {
-        // TODO: ExecuteIndirect with compute command signature
+        if (buffer == nullptr) {
+            return;
+        }
+        ID3D12CommandSignature *signature =
+            device.GetIndirectSignature(IndirectKind::DISPATCH, sizeof(D3D12_DISPATCH_ARGUMENTS));
+        if (signature == nullptr) {
+            return;
+        }
+        cmdList->ExecuteIndirect(signature, 1, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     // ---- D3D12BlitEncoder ----
@@ -372,10 +498,51 @@ namespace sky::aurora {
         }
     }
 
-    void D3D12BlitEncoder::BlitImage(Image * /*src*/, Image * /*dst*/, const std::vector<BlitInfo> & /*regions*/, Filter /*filter*/)
+    void D3D12BlitEncoder::BlitImage(Image *src, Image *dst, const std::vector<BlitInfo> &regions, Filter filter)
     {
-        // D3D12 has no direct BlitImage equivalent; requires a full-screen pass with a shader.
-        // TODO: implement via compute/graphics blit shader
+        if (src == nullptr || dst == nullptr) {
+            return;
+        }
+        auto *srcImg = static_cast<D3D12Image *>(src);
+        auto *dstImg = static_cast<D3D12Image *>(dst);
+
+        const bool sameFormat = srcImg->GetDxgiFormat() == dstImg->GetDxgiFormat();
+
+        for (const auto &region : regions) {
+            const bool sameExtent =
+                (region.srcOffsets[1].x - region.srcOffsets[0].x) == (region.dstOffsets[1].x - region.dstOffsets[0].x) &&
+                (region.srcOffsets[1].y - region.srcOffsets[0].y) == (region.dstOffsets[1].y - region.dstOffsets[0].y) &&
+                (region.srcOffsets[1].z - region.srcOffsets[0].z) == (region.dstOffsets[1].z - region.dstOffsets[0].z);
+
+            if (sameExtent && sameFormat) {
+                D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
+                srcLoc.pResource        = srcImg->GetNativeHandle();
+                srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                srcLoc.SubresourceIndex = region.srcRange.level + region.srcRange.baseLayer * srcImg->GetMipLevels();
+
+                D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
+                dstLoc.pResource        = dstImg->GetNativeHandle();
+                dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                dstLoc.SubresourceIndex = region.dstRange.level + region.dstRange.baseLayer * dstImg->GetMipLevels();
+
+                D3D12_BOX srcBox = {};
+                srcBox.left   = static_cast<UINT>(region.srcOffsets[0].x);
+                srcBox.top    = static_cast<UINT>(region.srcOffsets[0].y);
+                srcBox.front  = static_cast<UINT>(region.srcOffsets[0].z);
+                srcBox.right  = static_cast<UINT>(region.srcOffsets[1].x);
+                srcBox.bottom = static_cast<UINT>(region.srcOffsets[1].y);
+                srcBox.back   = static_cast<UINT>(region.srcOffsets[1].z);
+
+                cmdList->CopyTextureRegion(&dstLoc, static_cast<UINT>(region.dstOffsets[0].x),
+                                           static_cast<UINT>(region.dstOffsets[0].y),
+                                           static_cast<UINT>(region.dstOffsets[0].z), &srcLoc, &srcBox);
+            } else {
+                D3D12BlitHelper *helper = device.GetBlitHelper();
+                if (helper == nullptr || !helper->Blit(cmdList, src, dst, region, filter)) {
+                    LOG_E(TAG, "BlitImage requires scaling/format conversion but the built-in blit pipeline is unavailable");
+                }
+            }
+        }
     }
 
     void D3D12BlitEncoder::ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions)
@@ -384,8 +551,10 @@ namespace sky::aurora {
         auto *dstImg = static_cast<D3D12Image *>(dst);
 
         for (const auto &region : regions) {
-            uint32_t srcSub = region.srcRange.level + region.srcRange.baseLayer * 1;
-            uint32_t dstSub = region.dstRange.level + region.dstRange.baseLayer * 1;
+            // D3D12 ResolveSubresource addresses a single subresource and cannot
+            // honour regions; subresource index = mip + arrayLayer * mipLevels.
+            const uint32_t srcSub = region.srcRange.level + region.srcRange.baseLayer * srcImg->GetMipLevels();
+            const uint32_t dstSub = region.dstRange.level + region.dstRange.baseLayer * dstImg->GetMipLevels();
             cmdList->ResolveSubresource(dstImg->GetNativeHandle(), dstSub, srcImg->GetNativeHandle(), srcSub, dstImg->GetDxgiFormat());
         }
     }

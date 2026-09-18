@@ -2,8 +2,10 @@
 // Created by blues on 2026/3/29.
 //
 
+#include <D3D12BlitHelper.h>
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
+#include <D3D12DescriptorHeap.h>
 #include <D3D12DescriptorBatch.h>
 #include <D3D12Device.h>
 #include <D3D12Fence.h>
@@ -82,6 +84,12 @@ namespace sky::aurora {
         } else {
             capability.isUMA = false;
         }
+
+        // Directly-indexed ResourceDescriptorHeap needs Shader Model 6.6.
+        D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = {};
+        shaderModel.HighestShaderModel = D3D_SHADER_MODEL_6_6;
+        feature.descriptorHeap = SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel))) &&
+                                 shaderModel.HighestShaderModel >= D3D_SHADER_MODEL_6_6;
     }
 
     std::string D3D12Device::GetDeviceInfo() const
@@ -242,6 +250,58 @@ namespace sky::aurora {
         return instance.GetDXGIFactory();
     }
 
+    ID3D12CommandSignature *D3D12Device::GetIndirectSignature(IndirectKind kind, uint32_t stride)
+    {
+        const uint64_t key = (static_cast<uint64_t>(kind) << 32) | stride;
+        auto           iter = indirectSignatures.find(key);
+        if (iter != indirectSignatures.end()) {
+            return iter->second.Get();
+        }
+
+        D3D12_INDIRECT_ARGUMENT_DESC argument = {};
+        switch (kind) {
+        case IndirectKind::DRAW:
+            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+            break;
+        case IndirectKind::DRAW_INDEXED:
+            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+            break;
+        case IndirectKind::DISPATCH:
+            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+            break;
+        default:
+            return nullptr;
+        }
+
+        D3D12_COMMAND_SIGNATURE_DESC desc = {};
+        desc.ByteStride                   = stride;
+        desc.NumArgumentDescs             = 1;
+        desc.pArgumentDescs               = &argument;
+        desc.NodeMask                     = 0;
+
+        ComPtr<ID3D12CommandSignature> signature;
+        const HRESULT hr = device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create indirect command signature, hr=0x%08x", static_cast<unsigned>(hr));
+            return nullptr;
+        }
+
+        auto result = indirectSignatures.emplace(key, std::move(signature));
+        return result.first->second.Get();
+    }
+
+    D3D12BlitHelper *D3D12Device::GetBlitHelper()
+    {
+        if (blitHelper == nullptr) {
+            auto helper = std::make_unique<D3D12BlitHelper>();
+            if (!helper->Init(*this)) {
+                return nullptr;
+            }
+            blitHelper = std::move(helper);
+        }
+        return blitHelper.get();
+    }
+
     Buffer *D3D12Device::CreateBuffer(const Buffer::Descriptor &desc)
     {
         auto *buf = new D3D12Buffer(*this);
@@ -275,6 +335,19 @@ namespace sky::aurora {
     DescriptorBatch *D3D12Device::CreateDescriptorBatch()
     {
         return new D3D12DescriptorBatch(*this);
+    }
+
+    DescriptorHeap *D3D12Device::CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)
+    {
+        if (!feature.descriptorHeap) {
+            return nullptr;
+        }
+        auto *heap = new D3D12DescriptorHeap();
+        if (!heap->Init(*this, desc)) {
+            delete heap;
+            return nullptr;
+        }
+        return heap;
     }
 
     ResourceGroup *D3D12Device::CreateResourceGroup(const ResourceGroup::Descriptor &desc)

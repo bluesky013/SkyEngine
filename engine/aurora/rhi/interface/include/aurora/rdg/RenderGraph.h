@@ -92,6 +92,10 @@ namespace sky::aurora {
                                        LoadOp stencilLoadOp, StoreOp stencilStoreOp);
         void SetCopySrc(uint32_t passIndex, uint32_t resourceIndex);
         void SetCopyDst(uint32_t passIndex, uint32_t resourceIndex);
+        // Explicit access variant (e.g. SRV for a sampled blit source, RTV for
+        // a blit target rendered by the built-in fullscreen pipeline).
+        void SetCopySrc(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
+        void SetCopyDst(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
         void AddDrawItem(uint32_t passIndex, const DrawItem &item);
         uint32_t AddQueue(uint32_t passIndex, const Name &name, QueueSortPolicy sortPolicy, const Name &tag = Name{});
         void AddDrawItem(uint32_t passIndex, uint32_t queue, const DrawItem &item);

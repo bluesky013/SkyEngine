@@ -31,10 +31,13 @@ namespace sky::aurora {
         }
     } // namespace
 
-    bool D3D12DescriptorAllocator::Init(D3D12Device &device, uint32_t cbvSrvUavSize, uint32_t samplerSize, uint32_t ringSize)
+    bool D3D12DescriptorAllocator::Init(D3D12Device &device, uint32_t cbvSrvUavSize, uint32_t samplerSize, uint32_t ringSize,
+                                        uint32_t rtvSizeIn, uint32_t dsvSizeIn)
     {
-        mDevice   = &device;
-        mRingSize = ringSize == 0 ? 1 : ringSize;
+        mDevice       = &device;
+        mRingSize     = ringSize == 0 ? 1 : ringSize;
+        this->rtvSize = rtvSizeIn;
+        this->dsvSize = dsvSizeIn;
 
         auto *native = device.GetNativeHandle();
 
@@ -48,16 +51,23 @@ namespace sky::aurora {
         // shader-visible ring (one per in-flight frame)
         cbvSrvUavRing.resize(mRingSize);
         samplerRing.resize(mRingSize);
+        rtvRing.resize(mRingSize);
+        dsvRing.resize(mRingSize);
         for (uint32_t i = 0; i < mRingSize; ++i) {
             cbvSrvUavRing[i] = CreateHeap(native, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, cbvSrvUavSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
             samplerRing[i]   = CreateHeap(native, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, samplerSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-            if (cbvSrvUavRing[i] == nullptr || samplerRing[i] == nullptr) {
+            rtvRing[i]       = CreateHeap(native, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, rtvSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+            dsvRing[i]       = CreateHeap(native, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, dsvSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+            if (cbvSrvUavRing[i] == nullptr || samplerRing[i] == nullptr ||
+                rtvRing[i] == nullptr || dsvRing[i] == nullptr) {
                 return false;
             }
         }
 
         cbvSrvUavIncrement = native->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         samplerIncrement   = native->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+        rtvIncrement       = native->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        dsvIncrement       = native->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
         cbvSrvUavFree.push_back({0, cbvSrvUavSize});
         samplerFree.push_back({0, samplerSize});
@@ -67,6 +77,42 @@ namespace sky::aurora {
     void D3D12DescriptorAllocator::BeginFrame(uint32_t frameIndex)
     {
         mCurrentFrame = frameIndex % mRingSize;
+        rtvUsed       = 0;
+        dsvUsed       = 0;
+    }
+
+    bool D3D12DescriptorAllocator::AllocateRtv(uint32_t count, uint32_t &outFirst)
+    {
+        if (rtvUsed + count > rtvSize) {
+            return false;
+        }
+        outFirst = rtvUsed;
+        rtvUsed += count;
+        return true;
+    }
+
+    bool D3D12DescriptorAllocator::AllocateDsv(uint32_t &outFirst)
+    {
+        if (dsvUsed + 1 > dsvSize) {
+            return false;
+        }
+        outFirst = dsvUsed;
+        ++dsvUsed;
+        return true;
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE D3D12DescriptorAllocator::GetRtvCpuHandle(uint32_t index) const
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvRing[mCurrentFrame]->GetCPUDescriptorHandleForHeapStart();
+        handle.ptr += static_cast<size_t>(index) * rtvIncrement;
+        return handle;
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE D3D12DescriptorAllocator::GetDsvCpuHandle(uint32_t index) const
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = dsvRing[mCurrentFrame]->GetCPUDescriptorHandleForHeapStart();
+        handle.ptr += static_cast<size_t>(index) * dsvIncrement;
+        return handle;
     }
 
     bool D3D12DescriptorAllocator::Allocate(uint32_t cbvSrvUavCount, uint32_t samplerCount, DescriptorAllocation &out)

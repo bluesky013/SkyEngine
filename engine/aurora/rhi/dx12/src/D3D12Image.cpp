@@ -161,4 +161,66 @@ namespace sky::aurora {
         device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
     }
 
+    void D3D12Image::CreateRTV(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ImageSubRange &range) const
+    {
+        D3D12_RENDER_TARGET_VIEW_DESC rtv = {};
+        rtv.Format                        = dxgiFormat;
+
+        const uint32_t firstLayer = range.baseLayer;
+        const uint32_t arraySize  = range.layers;
+        if (imageType == ImageType::IMAGE_3D) {
+            rtv.ViewDimension           = D3D12_RTV_DIMENSION_TEXTURE3D;
+            rtv.Texture3D.MipSlice      = range.baseLevel;
+            rtv.Texture3D.FirstWSlice   = firstLayer;
+            rtv.Texture3D.WSize         = arraySize;
+        } else if (samples != SampleCount::X1) {
+            if (arrayLayers > 1) {
+                rtv.ViewDimension                     = D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY;
+                rtv.Texture2DMSArray.FirstArraySlice  = firstLayer;
+                rtv.Texture2DMSArray.ArraySize        = arraySize;
+            } else {
+                rtv.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
+            }
+        } else if (arrayLayers > 1) {
+            rtv.ViewDimension                    = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+            rtv.Texture2DArray.MipSlice          = range.baseLevel;
+            rtv.Texture2DArray.FirstArraySlice   = firstLayer;
+            rtv.Texture2DArray.ArraySize         = arraySize;
+        } else {
+            rtv.ViewDimension       = D3D12_RTV_DIMENSION_TEXTURE2D;
+            rtv.Texture2D.MipSlice  = range.baseLevel;
+        }
+
+        device.GetNativeHandle()->CreateRenderTargetView(resource.Get(), &rtv, handle);
+    }
+
+    void D3D12Image::CreateDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ImageSubRange &range) const
+    {
+        D3D12_DEPTH_STENCIL_VIEW_DESC dsv = {};
+        dsv.Format                        = dxgiFormat;
+        dsv.Flags                         = D3D12_DSV_FLAG_NONE;
+
+        const uint32_t firstLayer = range.baseLayer;
+        const uint32_t arraySize  = range.layers;
+        if (samples != SampleCount::X1) {
+            if (arrayLayers > 1) {
+                dsv.ViewDimension                     = D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY;
+                dsv.Texture2DMSArray.FirstArraySlice  = firstLayer;
+                dsv.Texture2DMSArray.ArraySize        = arraySize;
+            } else {
+                dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
+            }
+        } else if (arrayLayers > 1) {
+            dsv.ViewDimension                    = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+            dsv.Texture2DArray.MipSlice          = range.baseLevel;
+            dsv.Texture2DArray.FirstArraySlice   = firstLayer;
+            dsv.Texture2DArray.ArraySize         = arraySize;
+        } else {
+            dsv.ViewDimension       = D3D12_DSV_DIMENSION_TEXTURE2D;
+            dsv.Texture2D.MipSlice  = range.baseLevel;
+        }
+
+        device.GetNativeHandle()->CreateDepthStencilView(resource.Get(), &dsv, handle);
+    }
+
 } // namespace sky::aurora

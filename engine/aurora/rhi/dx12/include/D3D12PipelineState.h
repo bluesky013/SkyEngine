@@ -27,10 +27,14 @@ namespace sky::aurora {
         ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
         const D3D12RootSignature *GetRootSignature() const { return shader->GetRootSignature(); }
 
+        // Per-binding vertex stride, indexed by input slot (0 when unset).
+        const std::vector<uint32_t> &GetVertexStrides() const { return vertexStrides; }
+
     private:
         D3D12Device &device;
         ComPtr<ID3D12PipelineState> pso;
         CounterPtr<D3D12Shader>     shader;
+        std::vector<uint32_t>       vertexStrides;
     };
 
     class D3D12ComputePipeline : public ComputePipeline {

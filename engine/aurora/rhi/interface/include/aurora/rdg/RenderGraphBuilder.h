@@ -82,6 +82,10 @@ namespace sky::aurora {
         CopyBlitPassBuilder &Src(RDGBufferHandle handle);
         CopyBlitPassBuilder &Dst(RDGTextureHandle handle);
         CopyBlitPassBuilder &Dst(RDGBufferHandle handle);
+        // Explicit access variants: a sampled blit source is SRV, a blit target
+        // rendered by the built-in fullscreen pipeline is RTV.
+        CopyBlitPassBuilder &Src(RDGTextureHandle handle, AccessFlags access);
+        CopyBlitPassBuilder &Dst(RDGTextureHandle handle, AccessFlags access);
         CopyBlitPassBuilder &SetKind(CopyBlitPayload::Kind kind);
         CopyBlitPassBuilder &SetSize(uint64_t size);
         CopyBlitPassBuilder &SetOffsets(uint64_t srcOffset, uint64_t dstOffset);
