@@ -1,13 +1,18 @@
 ## ADDED Requirements
 
-### Requirement: adaptor 目录双 target
+### Requirement: adaptor 静态库 + runtime/editor 动态模块
 
-`engine/aurora/adaptor` SHALL 同时容纳 launcher 动态模块（target `AuroraRender` SHARED；include `aurora/adaptor/AuroraModule.h`）与桥接静态库（target `Aurora.Adaptor` STATIC；`AuroraReflection` + assets + components）。`AuroraRender` SHALL 链接 `Aurora.Adaptor`；`Aurora.Adaptor` SHALL 链接 `Aurora` + `Framework`；`aurora/core` SHALL NOT 依赖 `framework`。
+`engine/aurora/adaptor` SHALL 为**纯静态库** `Aurora.Adaptor`（`AuroraModule` + `AuroraReflection` + assets + components）。launcher 动态模块 SHALL 位于 `engine/aurora/runtime`（target `AuroraRender` SHARED，仅 `AuroraRegistry.cpp` 注册 `AuroraModule`）；编辑器扩展模块 SHALL 位于 `engine/aurora/editor`（target `AuroraRender.Editor` SHARED，`AuroraEditorModule : AuroraModule`）。`Aurora.Adaptor` SHALL 链接 `Aurora` + `Framework`；`AuroraRender`/`AuroraRender.Editor` SHALL 链接 `Aurora.Adaptor`；`aurora/core` SHALL NOT 依赖 `framework`。
 
-#### Scenario: 两个 target 同目录
+#### Scenario: 三目录产出
 
 - **WHEN** 构建引擎
-- **THEN** 同一 `engine/aurora/adaptor` 产出 `AuroraRender`（SHARED）与 `Aurora.Adaptor`（STATIC），且 `aurora/core` 不引入 framework 依赖
+- **THEN** `engine/aurora/adaptor` 产出 `Aurora.Adaptor`（STATIC），`engine/aurora/runtime` 产出 `AuroraRender`（SHARED），`engine/aurora/editor` 产出 `AuroraRender.Editor`（SHARED）
+
+#### Scenario: adaptor 不引入 framework 到 core
+
+- **WHEN** 构建 `aurora/core`
+- **THEN** 不引入 framework 依赖
 
 ### Requirement: AuroraReflection 入口
 

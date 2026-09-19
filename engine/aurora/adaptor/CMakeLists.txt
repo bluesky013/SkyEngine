@@ -1,11 +1,12 @@
+file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-# Bridge + render module (aurora -> framework), analog of legacy RenderAdaptor:
-# reflection + assets + components + the IModule implementation.
+# Static aurora -> framework bridge (analog of legacy RenderAdaptor):
+# reflection + assets + components + the IModule implementation (AuroraModule).
+# The launcher/editor module entry points live in engine/aurora/{runtime,editor}.
 sky_add_library(TARGET Aurora.Adaptor STATIC
     SOURCES
-        src/AuroraModule.cpp
-        src/AuroraReflection.cpp
+        ${SRC_FILES}
         ${INC_FILES}
     PUBLIC_INC
         include
@@ -16,27 +17,18 @@ sky_add_library(TARGET Aurora.Adaptor STATIC
         Core
 )
 
-# Launcher dynamic module (AuroraRender); registers the module.
-sky_add_library(TARGET AuroraRender SHARED
-    SOURCES
-        src/AuroraRegistry.cpp
-    PUBLIC_INC
-        include
-    LINK_LIBS
-        Aurora.Adaptor
-        Core
-)
-
-# backends are dlopen'd by Instance at runtime; only need them built + deployed
-if (TARGET AuroraVulkan)
-    add_dependencies(AuroraRender AuroraVulkan)
-endif()
-if (TARGET AuroraDX12)
-    add_dependencies(AuroraRender AuroraDX12)
-endif()
-if (TARGET AuroraMetal)
-    add_dependencies(AuroraRender AuroraMetal)
-endif()
-
-# build AuroraRender before the launcher so its dll lands next to the exe
-sky_add_dependency(TARGET AuroraRender DEPENDENCIES Launcher)
+file(GLOB_RECURSE TEST_FILES test/*)
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET AuroraAdaptorTest
+        SOURCES
+            ${TEST_FILES}
+            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
+        INCS
+            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
+        LIBS
+            Aurora.Adaptor
+            Aurora.RHI
+            Core
+            3rdParty::googletest
+    )
+endif ()

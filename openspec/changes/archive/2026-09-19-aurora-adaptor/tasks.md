@@ -1,8 +1,9 @@
-## 1. adaptor 目录双 target
+## 1. adaptor 静态库 + runtime/editor 动态模块
 
-- [x] 1.1 `engine/aurora/adaptor` 保持单一目录，新增静态库 `Aurora.Adaptor`（reflection + assets + components）
-- [x] 1.2 `AuroraRender`（SHARED）链接 `Aurora.Adaptor`，两个 target 同目录
-- [x] 1.3 `aurora/core` 不引入 framework 依赖
+- [x] 1.1 `engine/aurora/adaptor` → 纯静态库 `Aurora.Adaptor`（`AuroraModule` + reflection + assets + components）
+- [x] 1.2 `engine/aurora/runtime` → `AuroraRender`（SHARED，registry 注册 `AuroraModule`），链接 `Aurora.Adaptor`
+- [x] 1.3 `engine/aurora/editor` → `AuroraRender.Editor`（SHARED），链接 `Aurora.Adaptor`
+- [x] 1.4 `aurora/core` 不引入 framework 依赖
 
 ## 2. AuroraReflection 入口与场景类型
 

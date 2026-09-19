@@ -19,14 +19,15 @@ Aurora has none of this. `aurora/core` must stay framework-free, so the bridge i
 
 ## Decisions
 
-### D1. Single `engine/aurora/adaptor` directory, two targets
+### D1. `adaptor` static lib + `runtime`/`editor` dynamic modules
 
-Mirrors legacy `render/adaptor` (module + assets + components + reflection in one place):
+Mirrors the legacy split (`render/adaptor` static + `SkyRender`/`SkyRender.Editor` dlls):
 
-- `AuroraRender` (SHARED): the existing launcher module (`AuroraModule`, `REGISTER_MODULE`).
-- `Aurora.Adaptor` (STATIC): `AuroraReflection` + `assets/` + `components/`.
+- `engine/aurora/adaptor` → **`Aurora.Adaptor` (STATIC)**: `AuroraModule` + `AuroraReflection` + `assets/` + `components/`.
+- `engine/aurora/runtime` → **`AuroraRender` (SHARED)**: `AuroraRegistry.cpp` only (`REGISTER_MODULE(AuroraModule)`), loaded by the launcher.
+- `engine/aurora/editor` → **`AuroraRender.Editor` (SHARED)**: `AuroraEditorModule : AuroraModule` + registry.
 
-`AuroraRender` links `Aurora.Adaptor`; `Aurora.Adaptor` links `Aurora` + `Framework`. `aurora/core` unchanged (framework-free).
+`AuroraRender`/`AuroraRender.Editor` link `Aurora.Adaptor`; `Aurora.Adaptor` links `Aurora` + `Framework`. `aurora/core` unchanged (framework-free). Backend dll + `Launcher` deploy dependencies hang off `AuroraRender` (runtime).
 
 ### D2. Single entry `sky::aurora::AuroraReflection`
 
