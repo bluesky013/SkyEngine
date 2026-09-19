@@ -1,0 +1,4 @@
+- [x] 1.1 Add `UIElement::GetTypeName` (widget overrides) and `UIElement::MoveChild`
+- [x] 1.2 Add `editor/UIDocumentEditor.{h,cpp}` (find/add/remove/rename/reorder, serialize/deserialize, undo/redo)
+- [x] 2.1 Tests: add + round-trip, remove + undo/redo, move reorders siblings
+- [x] 2.2 Build and run the suite green (78 tests across UI suites)

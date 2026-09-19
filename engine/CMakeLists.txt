@@ -6,6 +6,7 @@ add_subdirectory(animation)
 add_subdirectory(shader)
 add_subdirectory(aurora)
 add_subdirectory(render)
+add_subdirectory(ui)
 add_subdirectory(physics)
 add_subdirectory(navigation)
 
