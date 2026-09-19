@@ -8,6 +8,8 @@
 #include <framework/window/NativeWindow.h>
 #include <core/file/FileSystem.h>
 
+#include <string>
+
 namespace sky {
 
     class GameApplication : public Application {
@@ -22,6 +24,8 @@ namespace sky {
         void PreTick() override;
 
         NativeWindow* GetWindow() const { return nativeWindow.get(); }
+
+        void *GetMainWindowHandle() const override;
     private:
         bool LoadConfigs() override;
 

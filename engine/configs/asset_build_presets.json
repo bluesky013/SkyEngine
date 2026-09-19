@@ -1,0 +1,12 @@
+{
+  "bundles": [
+    "common",
+    "tex_pc",
+    "tex_mobile"
+  ],
+  "presets": {
+    "windows": ["common", "tex_pc"],
+    "macos": ["common", "tex_pc"],
+    "ios": ["common", "tex_mobile"]
+  }
+}

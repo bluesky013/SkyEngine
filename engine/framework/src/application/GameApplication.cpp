@@ -17,11 +17,7 @@
 #include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
-#ifdef SKY_EDITOR
-static const char *CONFIG_PATH = "config/modules_game.json";
-#else
 static const char *CONFIG_PATH = "configs/modules_game.json";
-#endif
 
 namespace sky {
 
@@ -72,13 +68,24 @@ namespace sky {
     bool GameApplication::LoadConfigs()
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
-        modules.emplace("SkyRender", ModuleInfo{"SkyRender", {"ShaderCompiler"}});
+        modules.emplace("AuroraRender", ModuleInfo{"AuroraRender", {}});
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }
 
         std::string json;
         auto file = workFs->OpenFile(CONFIG_PATH);
+        if (!file) {
+            // Fall back to the engine builtin configs shipped next to the
+            // executable (engine/configs -> <exe>/configs).
+            FileSystemPtr builtinFs = new NativeFileSystem(Platform::Get()->GetBundlePath());
+            if (builtinFs != nullptr) {
+                file = builtinFs->OpenFile(CONFIG_PATH);
+                if (file) {
+                    workFs = builtinFs;
+                }
+            }
+        }
         if (!file || !file->ReadString(json)) {
             LOG_E(TAG, "Load Config Failed: %s", CONFIG_PATH);
             return false;
@@ -171,5 +178,10 @@ namespace sky {
 
     void GameApplication::PostInit()
     {
+    }
+
+    void *GameApplication::GetMainWindowHandle() const
+    {
+        return nativeWindow != nullptr ? nativeWindow->GetNativeHandle() : nullptr;
     }
 }

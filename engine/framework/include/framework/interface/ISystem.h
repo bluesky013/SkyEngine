@@ -18,6 +18,10 @@ namespace sky {
         virtual void SetExit() = 0;
 
         virtual ModuleManager* GetModuleManager() const { return nullptr; }
+
+        // Native handle of the application's main window, used by render
+        // modules to create a swapchain surface. Null when no window exists.
+        virtual void *GetMainWindowHandle() const { return nullptr; }
     };
 
     class ISystemEvent : public EventTraits {

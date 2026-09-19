@@ -243,5 +243,15 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-renderer` | 未开 | top-level 渲染主循环 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
 | `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
+| `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除 legacy `SkyRender`/`RenderAdaptor`；引擎内置 `engine/configs` |
 
 详见 `openspec/changes/<name>/`。
+
+## Launcher 对接（AuroraRender）
+
+- 目标 `engine/aurora/adaptor` → `AuroraRender` SHARED；入口 `AuroraRegistry.cpp` 的 `REGISTER_MODULE(sky::aurora::AuroraModule)`。
+- 加载方：framework `GameApplication` → `ModuleManager`；`GameApplication` **只注册 `AuroraRender`**，不再加载 legacy `SkyRender`，`Launcher` 也不再链接 `RenderAdaptor`。
+- 窗口：宿主经 `ISystemNotify::GetMainWindowHandle()` 提供原生窗口 handle（`GameApplication` 用 `NativeWindow::GetNativeHandle()` 实现）；模块优先用它建 `ClientViewport`，不依赖 Windows SDL 后端返回空的 `Platform::GetMainWinHandle()`。
+- 生命周期：`Init`（`Instance::Init` + `CreateDevice` + `DeviceFrameContext`/`CommandPool`）→ `Start`（主窗口 handle → `ClientViewport`）→ `Tick`（acquire → barrier → clear → barrier → submit → present）→ `Shutdown`。
+- 内置配置：`engine/configs/`（构建时拷到 exe 旁 `configs/`）；`GameApplication` 在项目 workFs 缺 `configs/modules_game.json` 时回退到内置配置。
+- 首里程碑仅 clear/present；`Renderer` 主循环、RDG 场景后续接入 `Tick`。
