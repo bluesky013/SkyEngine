@@ -15,6 +15,9 @@ namespace sky::aurora {
 
     struct StaticMeshComponentData {
         Uuid mesh;
+        // Optional override for material slot 0. Empty means the mesh asset's
+        // materials[0]; non-empty only overrides slot 0 -- sub-meshes with
+        // materialIndex != 0 keep the mesh asset's materials[materialIndex].
         Uuid material;
         bool castShadow    = false;
         bool receiveShadow = false;
@@ -36,6 +39,8 @@ namespace sky::aurora {
         }
         const Uuid &GetMeshUuid() const { return data.mesh; }
 
+        // Sets the slot 0 override; empty clears it so slot 0 falls back to the
+        // mesh asset's materials[0].
         void SetMaterialUuid(const Uuid &uuid)
         {
             data.material = uuid;
