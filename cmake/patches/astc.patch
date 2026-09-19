@@ -1,0 +1,26 @@
+diff --git a/Source/CMakeLists.txt b/Source/CMakeLists.txt
+index 7a430f0..085db7e 100644
+--- a/Source/CMakeLists.txt
++++ b/Source/CMakeLists.txt
+@@ -62,6 +62,9 @@ foreach(INDEX RANGE ${ASTCENC_ARTIFACTS_LEN})
+     endif()
+ endforeach()
+ 
++# SkyEngine: install the public encoder header once for the linked static lib.
++install(FILES astcenc.h DESTINATION include)
++
+ if(${ASTCENC_CLI} AND ${ASTCENC_UNIVERSAL_BUILD})
+     add_custom_target(
+         astc${ASTCENC_CODEC}
+diff --git a/Source/cmake_core.cmake b/Source/cmake_core.cmake
+index 5977202..e110293 100644
+--- a/Source/cmake_core.cmake
++++ b/Source/cmake_core.cmake
+@@ -538,3 +538,7 @@ if(${ASTCENC_CLI})
+         install(TARGETS ${ASTCENC_TARGET})
+     endif()
+ endif()
++
++# SkyEngine: always install the core static library so the encoder can be
++# linked in-process (the upstream rules only install it indirectly via the CLI).
++install(TARGETS ${ASTCENC_TARGET}-static ARCHIVE DESTINATION lib)

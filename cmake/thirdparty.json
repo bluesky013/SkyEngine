@@ -348,7 +348,7 @@
 		{
 			"name": "astc",
 			"url": "https://github.com/ARM-software/astc-encoder.git",
-			"tag": "5.2.0",
+			"tag": "5.7.0",
 			"header_only": false,
 			"platforms": [
 				"Win32",
@@ -356,7 +356,11 @@
 				"MacOS-arm"
 			],
 			"options": {
-				"ASTCENC_CLI": "OFF"
+				"ASTCENC_CLI": "OFF",
+				"ASTCENC_SHAREDLIB": "OFF",
+				"ASTCENC_DECOMPRESSOR": "OFF",
+				"ASTCENC_INVARIANCE": "ON",
+				"ASTCENC_UNIVERSAL_BUILD": "OFF"
 			}
 		},
 		{
@@ -403,8 +407,8 @@
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_661b1d99bb1e.zip",
-			"md5": "661b1d99bb1e6f9bd6f1dae41d520ed4"
+			"file": "thirdparty_Win32_5497a6ceca31.zip",
+			"md5": "5497a6ceca313abb66d0b770ff4641ee"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",
