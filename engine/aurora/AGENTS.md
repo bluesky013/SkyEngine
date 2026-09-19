@@ -253,7 +253,7 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 - `engine/aurora/adaptor` 同目录两个 target：
   - `AuroraRender`（SHARED）= launcher 动态模块；入口 `AuroraRegistry.cpp` 的 `REGISTER_MODULE(sky::aurora::AuroraModule)`。
   - `Aurora.Adaptor`（STATIC）= aurora→framework 桥接：`AuroraReflection(SerializationContext*)` 注册 aurora 类型、asset handler 与组件；`AuroraRender` 链接它，并在 `AuroraModule::Init` 调用（幂等）。
-- 桥接内容：`AssetTraits<aurora::Mesh/Material/Texture>` + asset data（Bin Save/Load）+ `AssetManager::RegisterAssetHandler`；组件 `AuroraStaticMeshComponent`（Uuid mesh/material，`SET_ASSET_TYPE`）、`AuroraLightComponent`、`AuroraCameraComponent`，注册到 `ComponentFactory` 组 `"Aurora"`。
+- 桥接内容：`AssetTraits<aurora::Mesh/Material/Texture>` + asset data（Bin Save/Load）+ `AssetManager::RegisterAssetHandler`；组件在 `sky::aurora` 命名空间**不再加 `Aurora` 前缀**：`StaticMeshComponent`（Uuid mesh/material，`SET_ASSET_TYPE`）、`DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`（按光源类型拆分）、`CameraComponent`，注册到 `ComponentFactory` 组 `"Aurora"`。
 - 编辑器对接：走**编辑器扩展模块**（`engine/aurora/editor` → `AuroraRender.Editor`，`AuroraEditorModule : AuroraModule` + `REGISTER_MODULE`），由编辑器模块配置加载；`Init` 走基类 `AuroraModule::Init`（内含 `AuroraReflection`）。**不是**应用入口显式调用；对齐 legacy `render/editor` 的 `RenderEditorModule : RenderModule`。编辑器扩展内容（actor/asset creator、preview）与 `modules_editor.json` 接入为后续。
 - 加载方：framework `GameApplication` → `ModuleManager`；`GameApplication` **只注册 `AuroraRender`**，不再加载 legacy `SkyRender`，`Launcher` 也不再链接 `RenderAdaptor`。
 - 窗口：宿主经 `ISystemNotify::GetMainWindowHandle()` 提供原生窗口 handle（`GameApplication` 用 `NativeWindow::GetNativeHandle()` 实现）；模块优先用它建 `ClientViewport`，不依赖 Windows SDL 后端返回空的 `Platform::GetMainWinHandle()`。

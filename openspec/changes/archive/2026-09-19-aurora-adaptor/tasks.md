@@ -19,9 +19,9 @@
 
 ## 4. 资产驱动组件
 
-- [x] 4.1 `AuroraStaticMeshComponent`（`Uuid` mesh/material + `SingleAssetHolder` + `IAssetReadyNotifier`）
-- [x] 4.2 `AuroraLightComponent`（`ComponentAdaptor<aurora::Light>`）
-- [x] 4.3 `AuroraCameraComponent`（fov/near/far 访问器）
+- [x] 4.1 `StaticMeshComponent`（`Uuid` mesh/material + `SingleAssetHolder` + `IAssetReadyNotifier`）
+- [x] 4.2 光照按类型拆分：`DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`（各自 `Data` 只含该类型字段）
+- [x] 4.3 `CameraComponent`（fov/near/far 访问器）
 - [x] 4.4 资产成员 `Uuid` + `SET_ASSET_TYPE`；注册到 `ComponentFactory` 组 `"Aurora"`
 
 ## 5. 验证

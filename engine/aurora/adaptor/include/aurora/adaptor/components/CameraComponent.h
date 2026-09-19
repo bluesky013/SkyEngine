@@ -1,25 +1,25 @@
 //
-// Aurora camera component: framework-only camera parameters (no asset).
+// Camera component: framework-only camera parameters (no asset).
 //
 
 #pragma once
 
 #include <framework/world/Component.h>
 
-namespace sky {
+namespace sky::aurora {
 
-    struct AuroraCameraData {
+    struct CameraComponentData {
         float fov   = 0.785398f; // radians (~45 deg)
         float nearZ = 0.1f;
         float farZ  = 1000.f;
     };
 
-    class AuroraCameraComponent : public ComponentAdaptor<AuroraCameraData> {
+    class CameraComponent : public ComponentAdaptor<CameraComponentData> {
     public:
-        AuroraCameraComponent()           = default;
-        ~AuroraCameraComponent() override = default;
+        CameraComponent()           = default;
+        ~CameraComponent() override = default;
 
-        COMPONENT_RUNTIME_INFO(AuroraCameraComponent)
+        COMPONENT_RUNTIME_INFO(CameraComponent)
 
         static void Reflect(SerializationContext *context);
 
@@ -33,4 +33,4 @@ namespace sky {
         float GetFarZ() const { return data.farZ; }
     };
 
-} // namespace sky
+} // namespace sky::aurora

@@ -34,17 +34,22 @@ SHALL 为 `aurora::Mesh` / `Material` / `Texture` 提供 `AssetTraits<T>`（`Dat
 
 ### Requirement: 资产驱动组件
 
-SHALL 提供 `AuroraStaticMeshComponent`（`Data{ Uuid mesh; Uuid material; castShadow; receiveShadow; }`）、`AuroraLightComponent`、`AuroraCameraComponent`，均派生 `ComponentAdaptor<Data>` 并注册到 `ComponentFactory`（分组 `"Aurora"`）。资产引用成员 SHALL 用 `Uuid` 且 SHALL 以 `SET_ASSET_TYPE(AssetTraits<T>::ASSET_TYPE)` 标注。
+组件类型 SHALL 位于命名空间 `sky::aurora` 且 SHALL NOT 再加 `Aurora` 前缀。SHALL 提供 `StaticMeshComponent`（`StaticMeshComponentData{ Uuid mesh; Uuid material; castShadow; receiveShadow; }`）、`CameraComponent`、以及按光源类型拆分的 `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`，均派生 `ComponentAdaptor<Data>` 并注册到 `ComponentFactory`（分组 `"Aurora"`）。资产引用成员 SHALL 用 `Uuid` 且 SHALL 以 `SET_ASSET_TYPE(AssetTraits<T>::ASSET_TYPE)` 标注。
 
 #### Scenario: 组件注册到组件层
 
 - **WHEN** 查询 `ComponentFactory::GetTypes()` 的 `"Aurora"` 分组
-- **THEN** 含 `AuroraStaticMeshComponent` / `AuroraLightComponent` / `AuroraCameraComponent`
+- **THEN** 含 `StaticMeshComponent` / `CameraComponent` / `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`
 
 #### Scenario: 资产成员带类型元数据
 
-- **WHEN** 取 `AuroraStaticMeshComponent` 的网格成员节点
+- **WHEN** 取 `StaticMeshComponent` 的网格成员节点
 - **THEN** 其 `CommonPropertyKey::ASSET_TYPE` 为对应资产类型
+
+#### Scenario: 光照按类型拆分
+
+- **WHEN** 取 `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`
+- **THEN** 各自 `Data` 只含该光源类型的字段
 
 ### Requirement: 编辑器经扩展模块对接
 

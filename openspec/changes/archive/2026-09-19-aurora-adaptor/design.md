@@ -48,9 +48,10 @@ Runtime-load only: no `AssetBuilderManager` product/packaging integration in thi
 
 ### D4. Components
 
-- `AuroraStaticMeshComponent : ComponentAdaptor<AuroraStaticMeshData>, IAssetReadyNotifier` — `Data{ Uuid mesh; Uuid material; bool castShadow; bool receiveShadow; }`, two `SingleAssetHolder`s.
-- `AuroraLightComponent` — mirrors `aurora::Light` fields (no asset).
-- `AuroraCameraComponent` — camera params (fov/near/far/...); no asset.
+- `StaticMeshComponent : ComponentAdaptor<StaticMeshComponentData>, IAssetReadyNotifier` — `Data{ Uuid mesh; Uuid material; bool castShadow; bool receiveShadow; }`, two `SingleAssetHolder`s.
+- `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent` — split by light type; each `Data` carries only that type's fields (no asset). Direction/position come from the entity transform.
+- `CameraComponent` — camera params (fov/near/far/...); no asset.
+- All component types live in `sky::aurora` and carry no `Aurora` prefix (the namespace scopes them).
 - Asset members reflected with `Uuid` + `SET_ASSET_TYPE(AssetTraits<T>::ASSET_TYPE)`, so the editor `PropertyUuid` picker works. Non-asset components still register with `ComponentFactory`.
 
 ### D5. Editor contract

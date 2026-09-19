@@ -9,9 +9,9 @@ Aurora's new stack has none of this, and it cannot live in `aurora/core` (which 
 - **Single `engine/aurora/adaptor` directory** hosting both targets, mirroring legacy `render/adaptor`: existing launcher module (`AuroraRender`, SHARED) **and** new bridge static lib **`Aurora.Adaptor`** (links `Aurora` + `Framework`). No path rename.
 - **Runtime asset layer**: `AssetTraits<aurora::Mesh / Material / Texture>` + asset data structs with `Json`/`Bin` save/load → build the aurora resource, and `AssetManager::RegisterAssetHandler<T>()`. Runtime-load only (no offline `AssetBuilderManager`).
 - **Reflection entry** `void sky::aurora::AuroraReflection(sky::SerializationContext *context)` (mirrors `sky::CoreReflection`): registers types, asset handlers and components; idempotent.
-- **Asset-backed components**: `AuroraStaticMeshComponent` (`Uuid` mesh + material), `AuroraLightComponent`, `AuroraCameraComponent`; `ComponentAdaptor<Data>` + `IAssetReadyNotifier`; asset members tagged `SET_ASSET_TYPE`, registered with `ComponentFactory` group `"Aurora"`.
-- **Editor integration**: component `Reflect` + `ComponentFactory` registration must run before the editor enumerates components/assets; `Uuid` + `ASSET_TYPE` members drive the `PropertyUuid` asset picker.
-- **Invocation**: `AuroraModule::Init` calls `AuroraReflection(SerializationContext::Get())` after device/module init; the editor calls it after `Application::Init`.
+- **Asset-backed components** (namespace `sky::aurora`, no `Aurora` prefix): `StaticMeshComponent` (`Uuid` mesh + material), `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent` (split by light type), `CameraComponent`; `ComponentAdaptor<Data>` + `IAssetReadyNotifier`; asset members tagged `SET_ASSET_TYPE`, registered with `ComponentFactory` group `"Aurora"`.
+- **Editor integration**: via an editor extension module (`AuroraEditorModule : AuroraModule` + `REGISTER_MODULE`, loaded by the editor module config), not an application-init call; `Uuid` + `ASSET_TYPE` members drive the `PropertyUuid` asset picker.
+- **Invocation**: `AuroraModule::Init` calls `AuroraReflection(SerializationContext::Get())`; the editor extension module inherits that `Init`.
 
 ## Capabilities
 
