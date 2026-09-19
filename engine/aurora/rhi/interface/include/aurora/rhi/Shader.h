@@ -9,6 +9,8 @@
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/ShaderReflection.h>
 
+#include <string>
+
 namespace sky::aurora {
 
     struct ShaderDataProvider : RefObject {
@@ -25,6 +27,10 @@ namespace sky::aurora {
         struct Descriptor {
             ShaderStageFlagBit stage;
             CounterPtr<ShaderDataProvider> data;
+            // entry point name inside the shader module/library; required by
+            // backends whose payload keeps the source-level name (MSL).
+            // empty -> backend default (Vulkan: "main", Metal: VSMain/FSMain/CSMain)
+            std::string entry;
         };
         ShaderFunction() = default;
         ~ShaderFunction() override = default;

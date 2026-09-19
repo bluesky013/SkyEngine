@@ -66,9 +66,15 @@ namespace sky::aurora {
         }
 
         stage = desc.stage;
-        auto *metalFunction = [metalLibrary newFunctionWithName:ToMetalEntryPoint(desc.stage)];
+        // slang keeps the source-level entry name in MSL (e.g. mainVS); fall
+        // back to the legacy VSMain/FSMain/CSMain convention for hand-written MSL
+        NSString *entryName = !desc.entry.empty()
+            ? [NSString stringWithUTF8String:desc.entry.c_str()]
+            : ToMetalEntryPoint(desc.stage);
+        auto *metalFunction = [metalLibrary newFunctionWithName:entryName];
         if (metalFunction == nil) {
-            LOG_E(TAG, "failed to find Metal entry point");
+            LOG_E(TAG, "failed to find Metal entry point '%s'",
+                  desc.entry.empty() ? [ToMetalEntryPoint(desc.stage) UTF8String] : desc.entry.c_str());
             [metalLibrary release];
             return false;
         }
@@ -85,9 +91,32 @@ namespace sky::aurora {
 
     bool MetalShader::Init(const Descriptor &desc)
     {
-        if (desc.reflection != nullptr) {
-            reflection = *desc.reflection;
+        if (desc.reflection == nullptr) {
+            LOG_E(TAG, "shader requires a non-null reflection");
+            return false;
         }
+        reflection = *desc.reflection;
+        if (desc.specialization != nullptr) {
+            specialization = *desc.specialization;
+        }
+
+        // slang MSL flattens buffer-kind resources to sequential [[buffer(N)]]
+        // indices in declaration order; by convention the push constant block is
+        // declared last, so it owns the highest buffer slot.
+        uint32_t bufferSlots = 0;
+        for (const auto &res : reflection.resources) {
+            switch (res.type) {
+            case ShaderResourceType::UNIFORM_BUFFER:
+            case ShaderResourceType::STORAGE_BUFFER:
+            case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
+            case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
+                bufferSlots = res.binding + res.count > bufferSlots ? res.binding + res.count : bufferSlots;
+                break;
+            default:
+                break;
+            }
+        }
+        pushConstantSlot = bufferSlots > 0 ? bufferSlots - 1 : 0;
 
         if (desc.cs != nullptr) {
             computeFunction = static_cast<MetalShaderFunction *>(desc.cs);

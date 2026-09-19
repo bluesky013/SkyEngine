@@ -35,15 +35,8 @@ namespace sky::aurora {
         Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
         Image               *CreateImage(const Image::Descriptor &desc) override;
         Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override
-        {
-            (void)desc;
-            return nullptr; // Metal ResourceGroup lands in a later change
-        }
-        DescriptorBatch *CreateDescriptorBatch() override
-        {
-            return nullptr; // Metal ResourceGroup lands in a later change
-        }
+        ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorBatch *CreateDescriptorBatch() override;
         DescriptorHeap *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
         {
             return nullptr;

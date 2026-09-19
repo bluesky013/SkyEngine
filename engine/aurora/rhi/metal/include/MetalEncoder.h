@@ -10,6 +10,8 @@ namespace sky::aurora {
 
     class MetalDevice;
     class MetalCommandBuffer;
+    class MetalGraphicsPipeline;
+    class MetalComputePipeline;
 
     // Metal encoders wrap MTLRenderCommandEncoder / MTLComputeCommandEncoder /
     // MTLBlitCommandEncoder, but expose them as void* to keep Metal.h out of
@@ -39,12 +41,13 @@ namespace sky::aurora {
         void DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride) override;
 
     private:
-        MetalDevice        &device;
-        MetalCommandBuffer *owner         = nullptr;
-        void               *renderEncoder = nullptr; // id<MTLRenderCommandEncoder>
-        void               *indexBuffer   = nullptr; // id<MTLBuffer>
-        uint64_t            indexOffset   = 0;
-        uint32_t            indexType     = 0; // MTLIndexType
+        MetalDevice           &device;
+        MetalCommandBuffer    *owner           = nullptr;
+        MetalGraphicsPipeline *currentPipeline = nullptr; // topology/push constant slot/dynamic state source
+        void                  *renderEncoder   = nullptr; // id<MTLRenderCommandEncoder>
+        void                  *indexBuffer     = nullptr; // id<MTLBuffer>
+        uint64_t               indexOffset     = 0;
+        uint32_t               indexType       = 0; // MTLIndexType
     };
 
     class MetalComputeEncoder : public ComputeEncoder {
@@ -60,9 +63,10 @@ namespace sky::aurora {
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 
     private:
-        MetalDevice        &device;
-        MetalCommandBuffer *owner          = nullptr;
-        void               *computeEncoder = nullptr; // id<MTLComputeCommandEncoder>
+        MetalDevice          &device;
+        MetalCommandBuffer   *owner           = nullptr;
+        MetalComputePipeline *currentPipeline = nullptr; // thread group size / push constant slot source
+        void                 *computeEncoder  = nullptr; // id<MTLComputeCommandEncoder>
     };
 
     class MetalBlitEncoder : public BlitEncoder {

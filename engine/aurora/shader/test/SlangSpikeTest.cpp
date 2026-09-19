@@ -4,6 +4,8 @@
 
 #include <aurora/shader/ShaderCompilerSlang.h>
 
+#include <core/platform/Platform.h>
+
 #include <gtest/gtest.h>
 
 #include <cstring>
@@ -88,6 +90,8 @@ TEST(SlangSpikeTest, CompileSpirvWithParameterBlocks)
 }
 
 // DX12 backend: DXIL via slang's runtime DXC loader (repo's dxcompiler package)
+// DXIL requires the dxcompiler package (Win32-only in thirdparty.json)
+#if defined(SKY_PLATFORM_WINDOWS)
 TEST(SlangSpikeTest, CompileDxilForDx12)
 {
     ShaderCompilerSlang compiler;
@@ -114,6 +118,7 @@ TEST(SlangSpikeTest, CompileDxilForDx12)
     // slang reflection on DXIL path: ParameterBlocks still visible
     EXPECT_FALSE(result.reflection.resources.empty());
 }
+#endif // SKY_PLATFORM_WINDOWS
 
 TEST(SlangSpikeTest, CompileMslDirectNoSpirvCross)
 {

@@ -923,9 +923,11 @@ TEST_F(ShaderTestMetal, CreateGraphicsShader)
     ASSERT_NE(fs, nullptr);
     CounterPtr<ShaderFunction> fsGuard(fs);
 
+    ShaderReflection refl = {}; // hand-written MSL carries no reflection
     Shader::Descriptor shaderDesc = {};
     shaderDesc.vs = vs;
     shaderDesc.ps = fs;
+    shaderDesc.reflection = &refl;
 
     auto *shader = device->CreateShader(shaderDesc);
     ASSERT_NE(shader, nullptr);
@@ -942,8 +944,10 @@ TEST_F(ShaderTestMetal, CreateComputeShader)
     ASSERT_NE(cs, nullptr);
     CounterPtr<ShaderFunction> csGuard(cs);
 
+    ShaderReflection refl = {};
     Shader::Descriptor shaderDesc = {};
     shaderDesc.cs = cs;
+    shaderDesc.reflection = &refl;
 
     auto *shader = device->CreateShader(shaderDesc);
     ASSERT_NE(shader, nullptr);

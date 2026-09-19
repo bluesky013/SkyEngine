@@ -6,6 +6,7 @@
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/gen/ShaderVariantGen.h>
 #include <aurora/rhi/Shader.h>
+#include <core/platform/Platform.h>
 
 #include <gtest/gtest.h>
 
@@ -239,6 +240,8 @@ TEST(ShaderVariantTest, SpecConstantNotFoldedOnSpirv)
     EXPECT_EQ(r8.data, r4.data);
 }
 
+// DXIL requires the dxcompiler package (Win32-only in thirdparty.json)
+#if defined(SKY_PLATFORM_WINDOWS)
 TEST(ShaderVariantTest, SpecConstantFoldedOnDxil)
 {
     auto schema = MakeSpecSchema();
@@ -271,6 +274,7 @@ TEST(ShaderVariantTest, SpecConstantFoldedOnDxil)
     // spec value folds on DXIL (no native specialization) -> different binary
     EXPECT_NE(r8.data, r4.data);
 }
+#endif // SKY_PLATFORM_WINDOWS
 
 TEST(ShaderVariantTest, BuildSpecialization)
 {

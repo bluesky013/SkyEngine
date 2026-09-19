@@ -6,8 +6,10 @@
 //   Vulkan : set -> VkDescriptorSetLayout, binding direct
 //   DX12   : set -> root parameter index (one descriptor table per set;
 //            small cbuffers may become root CBVs)
-//   Metal  : set -> argument buffer index ([[buffer(N)]], Metal 3+);
-//            (set,binding) -> MSL index remap table comes from SPIRV-Cross
+//   Metal  : slang MSL output flattens resources into per-category sequential
+//            indices (buffer/texture/sampler each from 0, spaces ignored);
+//            binding must equal that category index (declaration order).
+//            Direct setBuffer/setTexture/setSampler binding, no argument buffer.
 //
 
 #pragma once

@@ -63,7 +63,8 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
 }
 )";
 
-    inline ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const std::vector<uint32_t> &blob)
+    inline ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const std::vector<uint32_t> &blob,
+                                                         const char *entry = "")
     {
         auto *provider       = new ShaderBinaryProvider();
         provider->binaryData = CounterPtr<BinaryData>(
@@ -74,6 +75,7 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ShaderFunction::Descriptor desc{};
         desc.stage = stage;
         desc.data  = CounterPtr<ShaderDataProvider>(provider);
+        desc.entry = entry;
         return desc;
     }
 
@@ -101,9 +103,9 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ASSERT_FALSE(fsResult.data.empty());
 
         CounterPtr<ShaderFunction> vs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::VS, vsResult.data)));
+            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::VS, vsResult.data, "mainVS")));
         CounterPtr<ShaderFunction> fs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::FS, fsResult.data)));
+            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::FS, fsResult.data, "mainFS")));
         ASSERT_NE(vs.Get(), nullptr);
         ASSERT_NE(fs.Get(), nullptr);
 
@@ -132,7 +134,7 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ASSERT_FALSE(csResult.data.empty());
 
         CounterPtr<ShaderFunction> cs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult.data)));
+            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult.data, "mainCS")));
         ASSERT_NE(cs.Get(), nullptr);
 
         Shader::Descriptor shaderDesc{};

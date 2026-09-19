@@ -142,6 +142,21 @@ namespace sky::aurora {
         }
     }
 
+    inline MTLStencilOperation ToMetalStencilOp(StencilOp op)
+    {
+        switch (op) {
+        case StencilOp::ZERO: return MTLStencilOperationZero;
+        case StencilOp::REPLACE: return MTLStencilOperationReplace;
+        case StencilOp::INCREMENT_AND_CLAMP: return MTLStencilOperationIncrementClamp;
+        case StencilOp::DECREMENT_AND_CLAMP: return MTLStencilOperationDecrementClamp;
+        case StencilOp::INVERT: return MTLStencilOperationInvert;
+        case StencilOp::INCREMENT_AND_WRAP: return MTLStencilOperationIncrementWrap;
+        case StencilOp::DECREMENT_AND_WRAP: return MTLStencilOperationDecrementWrap;
+        case StencilOp::KEEP:
+        default: return MTLStencilOperationKeep;
+        }
+    }
+
     inline MTLBlendFactor ToMetalBlendFactor(BlendFactor factor)
     {
         switch (factor) {

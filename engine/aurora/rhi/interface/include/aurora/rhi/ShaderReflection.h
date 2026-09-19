@@ -77,6 +77,10 @@ namespace sky::aurora {
         std::vector<ShaderResource>    resources;
         std::vector<ShaderBlockLayout> blocks;
         std::vector<PushConstantRange> pushConstants;
+        // compute thread group size ([numthreads]); {0,0,0} when unknown or
+        // non-compute. Targets that embed it in the binary (SPIRV/DXIL) may
+        // ignore this; MSL does not carry it, so Metal needs it here.
+        uint32_t                       threadGroupSize[3] = {0, 0, 0};
     };
 
 } // namespace sky::aurora

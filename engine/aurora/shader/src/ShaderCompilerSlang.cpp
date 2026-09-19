@@ -185,6 +185,21 @@ namespace sky::aurora {
                     continue;
                 }
 
+                // push constants are not descriptor resources; record the range
+                // (SPIRV/DXIL). On Metal slang lowers them to a plain constant
+                // buffer (ConstantBuffer category), so they stay resources there.
+                if (category == slang::ParameterCategory::PushConstantBuffer) {
+                    PushConstantRange range{};
+                    range.stageFlags = ShaderStageFlagBit::VS | ShaderStageFlagBit::FS | ShaderStageFlagBit::CS;
+                    range.offset = static_cast<uint32_t>(var->getOffset(slang::ParameterCategory::Uniform));
+                    auto *typeLayout = var->getTypeLayout();
+                    auto *elemLayout = typeLayout != nullptr ? typeLayout->getElementTypeLayout() : nullptr;
+                    range.size = elemLayout != nullptr
+                        ? static_cast<uint32_t>(elemLayout->getSize(slang::ParameterCategory::Uniform)) : 0;
+                    reflection.pushConstants.push_back(range);
+                    continue;
+                }
+
                 const uint32_t set     = static_cast<uint32_t>(var->getBindingSpace());
                 const uint32_t binding = static_cast<uint32_t>(var->getBindingIndex());
                 if (set == SLANG_UNKNOWN_SIZE || binding == SLANG_UNKNOWN_SIZE) {
@@ -360,6 +375,18 @@ namespace sky::aurora {
         // slang-side reflection (per-platform own reflection principle)
         if (auto *layout = linked->getLayout(0, diagnostics.writeRef())) {
             CollectSlangResources(layout, result.reflection);
+
+            // MSL does not carry numthreads; capture it for targets that need
+            // the thread group size at dispatch time (Metal).
+            if (desc.stage == ShaderStageFlagBit::CS) {
+                if (auto *entryRefl = layout->getEntryPointByIndex(0)) {
+                    SlangUInt sizes[3] = {};
+                    entryRefl->getComputeThreadGroupSize(3, sizes);
+                    for (uint32_t i = 0; i < 3; ++i) {
+                        result.reflection.threadGroupSize[i] = static_cast<uint32_t>(sizes[i]);
+                    }
+                }
+            }
         }
 
         // spike: intentionally leak session/module chain; COM teardown order in slang

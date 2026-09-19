@@ -10,6 +10,8 @@
 #include <MetalSampler.h>
 #include <MetalShader.h>
 #include <MetalPipelineState.h>
+#include <MetalResourceGroup.h>
+#include <MetalDescriptorBatch.h>
 #include <MetalSwapChain.h>
 #include <MetalCommandPool.h>
 #include <MetalUtils.h>
@@ -105,8 +107,9 @@ namespace sky::aurora {
 
         auto *mtlDevice = (id<MTLDevice>)metalDevice;
         capability.isUMA = mtlDevice != nil && [mtlDevice hasUnifiedMemory];
-        capability.minUniformBufferOffsetAlignment =
-            mtlDevice != nil ? static_cast<uint32_t>([mtlDevice minConstantBufferAlignmentBytes]) : 256u;
+        // Metal guarantees 256-byte alignment for constant buffer offsets on
+        // macOS; there is no MTLDevice query for it
+        capability.minUniformBufferOffsetAlignment = 256u;
     }
 
     std::string MetalDevice::GetDeviceInfo() const
@@ -196,6 +199,21 @@ namespace sky::aurora {
             return nullptr;
         }
         return sampler;
+    }
+
+    ResourceGroup *MetalDevice::CreateResourceGroup(const ResourceGroup::Descriptor &desc)
+    {
+        auto *group = new MetalResourceGroup(*this);
+        if (!group->Init(desc)) {
+            delete group;
+            return nullptr;
+        }
+        return group;
+    }
+
+    DescriptorBatch *MetalDevice::CreateDescriptorBatch()
+    {
+        return new MetalDescriptorBatch();
     }
 
     SwapChain *MetalDevice::CreateSwapChain(const SwapChain::Descriptor &desc)

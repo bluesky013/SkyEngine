@@ -7,6 +7,7 @@
 
 #include <MetalQueue.h>
 #include <MetalBuffer.h>
+#include <MetalImage.h>
 #include <MetalDevice.h>
 #include <MetalCommandPool.h>
 #include <MetalSync.h>

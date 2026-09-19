@@ -10,7 +10,13 @@
 #include <MetalEncoder.h>
 #include <MetalImage.h>
 #include <MetalPipelineState.h>
+#include <MetalResourceGroup.h>
+#include <MetalShader.h>
+#include <MetalUtils.h>
 #include <aurora/rhi/Core.h>
+#include <core/logger/Logger.h>
+
+static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
@@ -87,17 +93,32 @@ void MetalGraphicsEncoder::BeginRendering(const RenderingInfo &info) {
   }
 
   if (info.depthStencil.image != nullptr) {
-    id<MTLTexture> dsTex = (__bridge id<MTLTexture>)static_cast<MetalImage *>(
-                               info.depthStencil.image)
-                               ->GetNativeHandle();
-    rpDesc.depthAttachment.texture = dsTex;
-    rpDesc.depthAttachment.loadAction =
-        FromLoadOp(info.depthStencil.depthLoadOp);
-    rpDesc.depthAttachment.storeAction =
-        FromStoreOp(info.depthStencil.depthStoreOp);
-    if (info.depthStencil.depthLoadOp == LoadOp::CLEAR) {
-      rpDesc.depthAttachment.clearDepth =
-          info.depthStencil.clearValue.depthStencil.depth;
+    auto *dsImage = static_cast<MetalImage *>(info.depthStencil.image);
+    id<MTLTexture> dsTex = (__bridge id<MTLTexture>)dsImage->GetNativeHandle();
+    const auto &fmtInfo = GetImageFormatInfo(dsImage->GetPixelFormat());
+
+    if (fmtInfo.hasDepth) {
+      rpDesc.depthAttachment.texture = dsTex;
+      rpDesc.depthAttachment.loadAction =
+          FromLoadOp(info.depthStencil.depthLoadOp);
+      rpDesc.depthAttachment.storeAction =
+          FromStoreOp(info.depthStencil.depthStoreOp);
+      if (info.depthStencil.depthLoadOp == LoadOp::CLEAR) {
+        rpDesc.depthAttachment.clearDepth =
+            info.depthStencil.clearValue.depthStencil.depth;
+      }
+    }
+
+    if (fmtInfo.hasStencil) {
+      rpDesc.stencilAttachment.texture = dsTex;
+      rpDesc.stencilAttachment.loadAction =
+          FromLoadOp(info.depthStencil.stencilLoadOp);
+      rpDesc.stencilAttachment.storeAction =
+          FromStoreOp(info.depthStencil.stencilStoreOp);
+      if (info.depthStencil.stencilLoadOp == LoadOp::CLEAR) {
+        rpDesc.stencilAttachment.clearStencil =
+            info.depthStencil.clearValue.depthStencil.stencil;
+      }
     }
   }
 
@@ -127,23 +148,69 @@ void MetalGraphicsEncoder::BindPipeline(GraphicsPipeline *pso) {
   id<MTLRenderPipelineState> state =
       (__bridge id<MTLRenderPipelineState>)mtlPso->GetNativeHandle();
   [enc setRenderPipelineState:state];
+  currentPipeline = mtlPso;
+
+  // depth/stencil + rasterizer state are baked into the pipeline object on
+  // Vulkan; on Metal they are encoder state and must be applied here
+  if (auto *dss = mtlPso->GetDepthStencilState(); dss != nullptr) {
+    [enc setDepthStencilState:(__bridge id<MTLDepthStencilState>)dss];
+    uint32_t refFront = 0, refBack = 0;
+    mtlPso->GetStencilReference(refFront, refBack);
+    [enc setStencilFrontReferenceValue:refFront backReferenceValue:refBack];
+  }
+  [enc setCullMode:ToMetalCullMode(mtlPso->GetCullMode())];
+  [enc setFrontFacingWinding:ToMetalWinding(mtlPso->GetFrontFace())];
+  [enc setTriangleFillMode:ToMetalFillMode(mtlPso->GetPolygonMode())];
+  [enc setDepthClipMode:mtlPso->GetDepthClamp() ? MTLDepthClipModeClamp
+                                                : MTLDepthClipModeClip];
+  float biasConstant = 0.f, biasClamp = 0.f, biasSlope = 0.f;
+  if (mtlPso->GetDepthBias(biasConstant, biasClamp, biasSlope)) {
+    [enc setDepthBias:biasConstant slopeScale:biasSlope clamp:biasClamp];
+  }
 }
 
 void MetalGraphicsEncoder::BindResourceGroup(
-    uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/,
-    const uint32_t * /*dynamicOffsets*/) {
-  // TODO: implement once ResourceGroup maps to Metal argument buffers
-  // (aurora-resource-group Metal phase)
+    uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets,
+    const uint32_t *dynamicOffsets) {
+  (void)set;           // slang MSL flattens register spaces; bindings are
+                       // per-category indices recorded in the group
+  (void)dynamicOffsets;
+  if (numDynamicOffsets > 0) {
+    LOG_W(TAG, "dynamic offsets are not supported by the Metal backend");
+  }
+  if (group == nullptr) {
+    return;
+  }
+  static_cast<MetalResourceGroup *>(group)->BindGraphics(renderEncoder);
 }
 
 void MetalGraphicsEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/) {
   // TODO: Metal argument buffer heap bind (aurora-resource-group tier2)
 }
 
-void MetalGraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/,
-                                         uint32_t /*offset*/, uint32_t /*size*/,
-                                         const void * /*data*/) {
-  // TODO: setVertexBytes/setFragmentBytes at slot 30 once layout is finalized
+void MetalGraphicsEncoder::PushConstants(ShaderStageFlags stages,
+                                         uint32_t offset, uint32_t size,
+                                         const void *data) {
+  // slang lowers push constants to a plain constant buffer occupying the
+  // highest buffer slot (declare-last convention); setBytes has no base
+  // offset, partial-range pushes are unsupported
+  (void)offset;
+  if (data == nullptr || size == 0 || currentPipeline == nullptr) {
+    return;
+  }
+  auto *shader = currentPipeline->GetShader();
+  if (shader == nullptr) {
+    return;
+  }
+  const uint32_t slot = shader->GetPushConstantSlot();
+  id<MTLRenderCommandEncoder> enc =
+      (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
+  if (stages & ShaderStageFlagBit::VS) {
+    [enc setVertexBytes:data length:size atIndex:slot];
+  }
+  if (stages & ShaderStageFlagBit::FS) {
+    [enc setFragmentBytes:data length:size atIndex:slot];
+  }
 }
 
 void MetalGraphicsEncoder::BindVertexBuffers(uint32_t firstBinding,
@@ -196,12 +263,17 @@ void MetalGraphicsEncoder::SetScissor(uint32_t count, const Rect2D *scissors) {
   [enc setScissorRect:sc];
 }
 
+static MTLPrimitiveType TopologyOf(const MetalGraphicsPipeline *pso) {
+  return FromPrimitiveTopology(pso != nullptr ? pso->GetTopology()
+                                              : PrimitiveTopology::TRIANGLE_LIST);
+}
+
 void MetalGraphicsEncoder::Draw(const CmdDrawLinear &cmd) {
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
-  [enc drawPrimitives:MTLPrimitiveTypeTriangle
+  [enc drawPrimitives:TopologyOf(currentPipeline)
           vertexStart:cmd.firstVertex
-          vertexCount:cmd.vertexCount
+           vertexCount:cmd.vertexCount
         instanceCount:cmd.instanceCount
          baseInstance:cmd.firstInstance];
 }
@@ -213,14 +285,14 @@ void MetalGraphicsEncoder::DrawIndexed(const CmdDrawIndexed &cmd) {
   MTLIndexType mtlIndexType = static_cast<MTLIndexType>(indexType);
   uint32_t indexStride = (mtlIndexType == MTLIndexTypeUInt32) ? 4 : 2;
 
-  [enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                  indexCount:cmd.indexCount
-                   indexType:mtlIndexType
-                 indexBuffer:ib
-           indexBufferOffset:indexOffset + cmd.firstIndex * indexStride
-               instanceCount:cmd.instanceCount
-                  baseVertex:cmd.vertexOffset
-                baseInstance:cmd.firstInstance];
+  [enc drawIndexedPrimitives:TopologyOf(currentPipeline)
+                   indexCount:cmd.indexCount
+                    indexType:mtlIndexType
+                  indexBuffer:ib
+            indexBufferOffset:indexOffset + cmd.firstIndex * indexStride
+                instanceCount:cmd.instanceCount
+                   baseVertex:cmd.vertexOffset
+                 baseInstance:cmd.firstInstance];
 }
 
 void MetalGraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset,
@@ -232,7 +304,7 @@ void MetalGraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset,
       (__bridge id<MTLBuffer>)static_cast<MetalBuffer *>(buffer)
           ->GetNativeHandle();
   for (uint32_t i = 0; i < drawCount; ++i) {
-    [enc drawPrimitives:MTLPrimitiveTypeTriangle
+    [enc drawPrimitives:TopologyOf(currentPipeline)
               indirectBuffer:indirectBuf
         indirectBufferOffset:offset +
                              i * sizeof(MTLDrawPrimitivesIndirectArguments)];
@@ -251,7 +323,7 @@ void MetalGraphicsEncoder::DrawIndexedIndirect(Buffer *buffer, uint64_t offset,
   MTLIndexType mtlIndexType = static_cast<MTLIndexType>(indexType);
 
   for (uint32_t i = 0; i < drawCount; ++i) {
-    [enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+    [enc drawIndexedPrimitives:TopologyOf(currentPipeline)
                      indexType:mtlIndexType
                    indexBuffer:ib
              indexBufferOffset:indexOffset
@@ -291,31 +363,52 @@ void MetalComputeEncoder::BindPipeline(ComputePipeline *pso) {
   id<MTLComputePipelineState> state =
       (__bridge id<MTLComputePipelineState>)mtlPso->GetNativeHandle();
   [enc setComputePipelineState:state];
+  currentPipeline = mtlPso;
 }
 
 void MetalComputeEncoder::BindResourceGroup(
-    uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/,
-    const uint32_t * /*dynamicOffsets*/) {
-  // TODO: implement once ResourceGroup maps to Metal argument buffers
-  // (aurora-resource-group Metal phase)
+    uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets,
+    const uint32_t *dynamicOffsets) {
+  (void)set; // see MetalGraphicsEncoder::BindResourceGroup
+  (void)dynamicOffsets;
+  if (numDynamicOffsets > 0) {
+    LOG_W(TAG, "dynamic offsets are not supported by the Metal backend");
+  }
+  if (group == nullptr) {
+    return;
+  }
+  static_cast<MetalResourceGroup *>(group)->BindCompute(computeEncoder);
 }
 
 void MetalComputeEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/) {
   // TODO: Metal argument buffer heap bind (aurora-resource-group tier2)
 }
 
-void MetalComputeEncoder::PushConstants(uint32_t /*offset*/, uint32_t /*size*/,
-                                        const void * /*data*/) {
-  // TODO: setBytes:length:atIndex: at slot 30 once layout is finalized
+void MetalComputeEncoder::PushConstants(uint32_t offset, uint32_t size,
+                                        const void *data) {
+  // see MetalGraphicsEncoder::PushConstants for the slot convention
+  (void)offset;
+  if (data == nullptr || size == 0 || currentPipeline == nullptr) {
+    return;
+  }
+  auto *shader = currentPipeline->GetShader();
+  if (shader == nullptr) {
+    return;
+  }
+  id<MTLComputeCommandEncoder> enc =
+      (__bridge id<MTLComputeCommandEncoder>)computeEncoder;
+  [enc setBytes:data length:size atIndex:shader->GetPushConstantSlot()];
 }
 
 void MetalComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY,
                                    uint32_t groupZ) {
   id<MTLComputeCommandEncoder> enc =
       (__bridge id<MTLComputeCommandEncoder>)computeEncoder;
-  // Default threadgroup size; should be derived from pipeline reflection in
-  // production
-  MTLSize threadsPerGroup = MTLSizeMake(1, 1, 1);
+  uint32_t tg[3] = {1, 1, 1};
+  if (currentPipeline != nullptr) {
+    currentPipeline->GetThreadGroupSize(tg);
+  }
+  MTLSize threadsPerGroup = MTLSizeMake(tg[0], tg[1], tg[2]);
   MTLSize threadgroups = MTLSizeMake(groupX, groupY, groupZ);
   [enc dispatchThreadgroups:threadgroups threadsPerThreadgroup:threadsPerGroup];
 }
@@ -326,7 +419,11 @@ void MetalComputeEncoder::DispatchIndirect(Buffer *buffer, uint64_t offset) {
   id<MTLBuffer> indirectBuf =
       (__bridge id<MTLBuffer>)static_cast<MetalBuffer *>(buffer)
           ->GetNativeHandle();
-  MTLSize threadsPerGroup = MTLSizeMake(1, 1, 1);
+  uint32_t tg[3] = {1, 1, 1};
+  if (currentPipeline != nullptr) {
+    currentPipeline->GetThreadGroupSize(tg);
+  }
+  MTLSize threadsPerGroup = MTLSizeMake(tg[0], tg[1], tg[2]);
   [enc dispatchThreadgroupsWithIndirectBuffer:indirectBuf
                          indirectBufferOffset:(NSUInteger)offset
                         threadsPerThreadgroup:threadsPerGroup];

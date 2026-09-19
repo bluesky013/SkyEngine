@@ -38,12 +38,18 @@ namespace sky::aurora {
         MetalShaderFunction *GetFragmentFunction() const { return fragmentFunction.Get(); }
         MetalShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
 
+        const ShaderReflection &GetReflection() const { return reflection; }
+        // slang MSL lowers push constants to a plain constant buffer at the
+        // highest [[buffer(N)]] slot (declare-last convention)
+        uint32_t GetPushConstantSlot() const { return pushConstantSlot; }
+
     private:
         MetalDevice                    &device;
         CounterPtr<MetalShaderFunction> vertexFunction;
         CounterPtr<MetalShaderFunction> fragmentFunction;
         CounterPtr<MetalShaderFunction> computeFunction;
-        ShaderReflection                reflection; // reserved for argument buffer derivation
+        ShaderReflection                reflection;
+        uint32_t                        pushConstantSlot = 0;
     };
 
 } // namespace sky::aurora
