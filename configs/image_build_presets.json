@@ -1,0 +1,26 @@
+{
+  "defaultBundle": "tex_pc",
+  "bundles": {
+    "common": {
+      "encode": "NONE",
+      "srgb": true,
+      "maxSize": 2048,
+      "generateMip": true
+    },
+    "tex_pc": {
+      "encode": "BC7",
+      "quality": "FAST",
+      "srgb": true,
+      "maxSize": 2048,
+      "generateMip": true
+    },
+    "tex_mobile": {
+      "encode": "ASTC",
+      "block": 4,
+      "quality": "MEDIUM",
+      "srgb": true,
+      "maxSize": 1024,
+      "generateMip": true
+    }
+  }
+}

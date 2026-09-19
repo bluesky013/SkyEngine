@@ -162,7 +162,7 @@ namespace sky {
         }
 
         for (const auto &bundle : bundles) {
-            if (bundle->GetKey() != target) {
+            if (bundle->GetKey() == target) {
                 return bundle.get();
             }
         }

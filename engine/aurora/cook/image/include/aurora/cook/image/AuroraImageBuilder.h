@@ -1,11 +1,12 @@
 //
-// Aurora image asset builder. Declares the source extensions it owns and maps
-// them to the aurora Texture asset type. The cook pipeline (decode -> resize ->
-// mip -> compress -> ImageAssetData) is filled in by later tasks.
+// Aurora image asset builder: decode -> resize -> linearize -> mip -> compress
+// -> aurora ImageAssetData, written to the bundle resolved from
+// configs/image_build_presets.json.
 //
 
 #pragma once
 
+#include <aurora/cook/image/ImageBuildConfig.h>
 #include <framework/asset/AssetBuilder.h>
 
 #include <string>
@@ -27,6 +28,7 @@ namespace sky::aurora {
 
     private:
         std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".hdr", ".ktx", ".image"};
+        cook::ImageBuildPresets  presets;
     };
 
 } // namespace sky::aurora
