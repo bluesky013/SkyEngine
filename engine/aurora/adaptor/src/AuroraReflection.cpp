@@ -5,10 +5,12 @@
 #include <aurora/adaptor/AuroraReflection.h>
 
 #include <aurora/adaptor/assets/ImageAsset.h>
+#include <aurora/adaptor/assets/LodGroupAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
+#include <aurora/adaptor/components/LodGroupComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
@@ -46,6 +48,26 @@ namespace sky {
     {
         // Device-side resource build (mesh renderer / material binding) is a
         // follow-up; the component tracks the asset handles here.
+    }
+
+    void aurora::LodGroupComponent::Reflect(SerializationContext *context)
+    {
+        context->Register<aurora::LodGroupComponentData>("LodGroupComponentData")
+            .Member<&aurora::LodGroupComponentData::lodGroup>("lodGroup")
+            .Member<&aurora::LodGroupComponentData::castShadow>("castShadow")
+            .Member<&aurora::LodGroupComponentData::receiveShadow>("receiveShadow");
+
+        context->Register<aurora::LodGroupComponent>("LodGroupComponent")
+            .Member<&aurora::LodGroupComponent::SetLodGroupUuid, &aurora::LodGroupComponent::GetLodGroupUuid>("lodGroup")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::LodGroup>::ASSET_TYPE))
+            .Member<&aurora::LodGroupComponent::SetCastShadow, &aurora::LodGroupComponent::GetCastShadow>("castShadow")
+            .Member<&aurora::LodGroupComponent::SetReceiveShadow, &aurora::LodGroupComponent::GetReceiveShadow>("receiveShadow");
+    }
+
+    void aurora::LodGroupComponent::OnAssetLoaded(const Uuid & /*uuid*/, const std::string_view & /*type*/)
+    {
+        // Device-side lod selection/build is a follow-up; the component tracks
+        // the asset handle here.
     }
 
     void aurora::CameraComponent::Reflect(SerializationContext *context)
@@ -148,10 +170,15 @@ namespace sky {
                 .BinLoad<&sky::aurora::ImageAssetData::Load>()
                 .BinSave<&sky::aurora::ImageAssetData::Save>();
 
+            context->Register<sky::aurora::LodGroupAssetData>("LodGroupAssetData")
+                .BinLoad<&sky::aurora::LodGroupAssetData::Load>()
+                .BinSave<&sky::aurora::LodGroupAssetData::Save>();
+
             auto *manager = AssetManager::Get();
             manager->RegisterAssetHandler<sky::aurora::Mesh>();
             manager->RegisterAssetHandler<sky::aurora::Material>();
             manager->RegisterAssetHandler<sky::aurora::Texture>();
+            manager->RegisterAssetHandler<sky::aurora::LodGroup>();
         }
 
         static void RegisterComponents()
@@ -159,6 +186,7 @@ namespace sky {
             auto       *factory = ComponentFactory::Get();
             const std::string group = "Aurora";
             factory->RegisterComponent<sky::aurora::StaticMeshComponent>(group);
+            factory->RegisterComponent<sky::aurora::LodGroupComponent>(group);
             factory->RegisterComponent<sky::aurora::DirectLightComponent>(group);
             factory->RegisterComponent<sky::aurora::PointLightComponent>(group);
             factory->RegisterComponent<sky::aurora::SpotLightComponent>(group);
@@ -177,6 +205,7 @@ namespace sky {
             ReflectAssetTypes(context);
 
             sky::aurora::StaticMeshComponent::Reflect(context);
+            sky::aurora::LodGroupComponent::Reflect(context);
             sky::aurora::DirectLightComponent::Reflect(context);
             sky::aurora::PointLightComponent::Reflect(context);
             sky::aurora::SpotLightComponent::Reflect(context);
