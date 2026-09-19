@@ -1,6 +1,11 @@
 set(LIB_NAME "ispc_texcomp")
 set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
 
+if (TARGET ${TARGET_WITH_NAMESPACE})
+    set(${LIB_NAME}_FOUND True)
+    return()
+endif()
+
 if (MSVC)
     set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/bin/ispc_texcomp.dll)
 elseif (APPLE)
