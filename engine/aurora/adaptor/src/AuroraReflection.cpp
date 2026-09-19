@@ -8,6 +8,7 @@
 #include <aurora/adaptor/assets/LodGroupAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/LodGroupComponent.h>
@@ -159,6 +160,10 @@ namespace sky {
                 .BinLoad<&sky::aurora::MeshAssetData::Load>()
                 .BinSave<&sky::aurora::MeshAssetData::Save>();
 
+            context->Register<sky::aurora::SkinAssetData>("SkinAssetData")
+                .BinLoad<&sky::aurora::SkinAssetData::Load>()
+                .BinSave<&sky::aurora::SkinAssetData::Save>();
+
             context->Register<sky::aurora::MaterialAssetData>("MaterialAssetData")
                 .BinLoad<&sky::aurora::MaterialAssetData::Load>()
                 .BinSave<&sky::aurora::MaterialAssetData::Save>();
@@ -173,6 +178,7 @@ namespace sky {
 
             auto *manager = AssetManager::Get();
             manager->RegisterAssetHandler<sky::aurora::Mesh>();
+            manager->RegisterAssetHandler<sky::aurora::Skin>();
             manager->RegisterAssetHandler<sky::aurora::Material>();
             manager->RegisterAssetHandler<sky::aurora::Texture>();
             manager->RegisterAssetHandler<sky::aurora::LodGroup>();

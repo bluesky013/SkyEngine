@@ -1,0 +1,23 @@
+{
+  "defaultBundle": "common",
+  "bundles": {
+    "common": {
+      "tangents": true,
+      "optimize": true,
+      "meshlets": false,
+      "skinning": true
+    },
+    "mesh_pc": {
+      "tangents": true,
+      "optimize": true,
+      "meshlets": true,
+      "skinning": true
+    },
+    "mesh_mobile": {
+      "tangents": false,
+      "optimize": true,
+      "meshlets": false,
+      "skinning": true
+    }
+  }
+}

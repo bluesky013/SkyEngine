@@ -5,6 +5,7 @@
 
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
+#include <aurora/cook/mesh/AuroraMeshBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
@@ -26,6 +27,7 @@ namespace sky::aurora {
         AuroraReflection(SerializationContext::Get());
 
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraImageBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraMeshBuilder());
         return true;
     }
 
