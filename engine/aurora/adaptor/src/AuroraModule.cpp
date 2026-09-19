@@ -5,6 +5,7 @@
 
 #include <aurora/adaptor/AuroraModule.h>
 
+#include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/rdg/ClientViewport.h>
 #include <aurora/rdg/RenderDeviceExclusive.h>
 #include <aurora/rhi/CommandBuffer.h>
@@ -23,6 +24,7 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/serialization/SerializationContext.h>
 
 static const char *TAG = "AuroraModule";
 
@@ -65,6 +67,12 @@ namespace sky::aurora {
     bool AuroraModule::Init(const StartArguments &args)
     {
         ProcessArgs(args);
+
+        // Register aurora types / asset handlers / components with the
+        // framework before the first tick (idempotent).
+        if (auto *context = SerializationContext::Get()) {
+            AuroraReflection(context);
+        }
 
         Instance::Descriptor desc = {};
         desc.appName              = "SkyGame";

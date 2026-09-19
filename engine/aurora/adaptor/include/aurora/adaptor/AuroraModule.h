@@ -1,5 +1,5 @@
 //
-// AuroraRender module: launcher integration for the Aurora RHI.
+// AuroraRender module (launcher integration) for the Aurora RHI.
 // Loaded as a dynamic module by framework ModuleManager (see AuroraRegistry.cpp).
 //
 

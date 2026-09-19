@@ -1,15 +1,29 @@
-file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET AuroraRender SHARED
+# Bridge + render module (aurora -> framework), analog of legacy RenderAdaptor:
+# reflection + assets + components + the IModule implementation.
+sky_add_library(TARGET Aurora.Adaptor STATIC
     SOURCES
-        ${SRC_FILES}
+        src/AuroraModule.cpp
+        src/AuroraReflection.cpp
         ${INC_FILES}
     PUBLIC_INC
         include
     LINK_LIBS
+        Aurora
         Aurora.RHI
         Framework
+        Core
+)
+
+# Launcher dynamic module (AuroraRender); registers the module.
+sky_add_library(TARGET AuroraRender SHARED
+    SOURCES
+        src/AuroraRegistry.cpp
+    PUBLIC_INC
+        include
+    LINK_LIBS
+        Aurora.Adaptor
         Core
 )
 

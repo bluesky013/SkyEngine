@@ -244,12 +244,17 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
 | `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
 | `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除 legacy `SkyRender`/`RenderAdaptor`；引擎内置 `engine/configs` |
+| `aurora-adaptor` | ✅ 已实施 | `engine/aurora/adaptor` 双 target：`AuroraRender`(SHARED) + `Aurora.Adaptor`(STATIC；`AuroraReflection` + assets + components)，对接 framework `SerializationContext`/`AssetManager`/`ComponentFactory` |
 
 详见 `openspec/changes/<name>/`。
 
-## Launcher 对接（AuroraRender）
+## Launcher 对接（AuroraRender）+ 桥接（Aurora.Adaptor）
 
-- 目标 `engine/aurora/adaptor` → `AuroraRender` SHARED；入口 `AuroraRegistry.cpp` 的 `REGISTER_MODULE(sky::aurora::AuroraModule)`。
+- `engine/aurora/adaptor` 同目录两个 target：
+  - `AuroraRender`（SHARED）= launcher 动态模块；入口 `AuroraRegistry.cpp` 的 `REGISTER_MODULE(sky::aurora::AuroraModule)`。
+  - `Aurora.Adaptor`（STATIC）= aurora→framework 桥接：`AuroraReflection(SerializationContext*)` 注册 aurora 类型、asset handler 与组件；`AuroraRender` 链接它，并在 `AuroraModule::Init` 调用（幂等）。
+- 桥接内容：`AssetTraits<aurora::Mesh/Material/Texture>` + asset data（Bin Save/Load）+ `AssetManager::RegisterAssetHandler`；组件 `AuroraStaticMeshComponent`（Uuid mesh/material，`SET_ASSET_TYPE`）、`AuroraLightComponent`、`AuroraCameraComponent`，注册到 `ComponentFactory` 组 `"Aurora"`。
+- 编辑器对接：走**编辑器扩展模块**（`engine/aurora/editor` → `AuroraRender.Editor`，`AuroraEditorModule : AuroraModule` + `REGISTER_MODULE`），由编辑器模块配置加载；`Init` 走基类 `AuroraModule::Init`（内含 `AuroraReflection`）。**不是**应用入口显式调用；对齐 legacy `render/editor` 的 `RenderEditorModule : RenderModule`。编辑器扩展内容（actor/asset creator、preview）与 `modules_editor.json` 接入为后续。
 - 加载方：framework `GameApplication` → `ModuleManager`；`GameApplication` **只注册 `AuroraRender`**，不再加载 legacy `SkyRender`，`Launcher` 也不再链接 `RenderAdaptor`。
 - 窗口：宿主经 `ISystemNotify::GetMainWindowHandle()` 提供原生窗口 handle（`GameApplication` 用 `NativeWindow::GetNativeHandle()` 实现）；模块优先用它建 `ClientViewport`，不依赖 Windows SDL 后端返回空的 `Platform::GetMainWinHandle()`。
 - 生命周期：`Init`（`Instance::Init` + `CreateDevice` + `DeviceFrameContext`/`CommandPool`）→ `Start`（主窗口 handle → `ClientViewport`）→ `Tick`（acquire → barrier → clear → barrier → submit → present）→ `Shutdown`。
