@@ -1,8 +1,8 @@
 diff --git a/Source/CMakeLists.txt b/Source/CMakeLists.txt
-index 7a430f0..085db7e 100644
+index 89a1d00..8ee9ff1 100644
 --- a/Source/CMakeLists.txt
 +++ b/Source/CMakeLists.txt
-@@ -62,6 +62,9 @@ foreach(INDEX RANGE ${ASTCENC_ARTIFACTS_LEN})
+@@ -66,6 +66,9 @@ foreach(INDEX RANGE ${ASTCENC_ARTIFACTS_LEN})
      endif()
  endforeach()
  
@@ -13,10 +13,10 @@ index 7a430f0..085db7e 100644
      add_custom_target(
          astc${ASTCENC_CODEC}
 diff --git a/Source/cmake_core.cmake b/Source/cmake_core.cmake
-index 5977202..e110293 100644
+index daf06f4..2327f0e 100644
 --- a/Source/cmake_core.cmake
 +++ b/Source/cmake_core.cmake
-@@ -538,3 +538,7 @@ if(${ASTCENC_CLI})
+@@ -541,3 +541,7 @@ if(${ASTCENC_CLI})
          install(TARGETS ${ASTCENC_TARGET})
      endif()
  endif()

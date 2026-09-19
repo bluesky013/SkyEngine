@@ -449,6 +449,12 @@ def process_package(package):
             repo.git.checkout(tag, b=branch_name)
         else:
             repo.git.checkout(branch_name)
+    elif tag:
+        # existing shallow checkout: enforce the configured tag (only fresh
+        # clones get branch=tag; without this a stale checkout survives a
+        # tag bump in thirdparty.json)
+        run_git_with_retry(f"fetch tag {tag} for {name}", lambda: repo.git.fetch('--depth=1', 'origin', f'refs/tags/{tag}'))
+        repo.git.checkout('--detach', 'FETCH_HEAD')
 
     # use custom step
     if custom and custom_engine:
