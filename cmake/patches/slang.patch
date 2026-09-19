@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1b78c407f..57eb3c7d3 100644
+index 1b78c407f..5650a1bd6 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -44,6 +44,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -16,7 +16,7 @@ index 1b78c407f..57eb3c7d3 100644
  include(FindPackageHandleStandardArgs)
  include(CMakeDependentOption)
  include(GNUInstallDirs)
-@@ -551,7 +558,19 @@ endif()
+@@ -551,7 +558,19 @@ if(${SLANG_USE_SYSTEM_GLSLANG})
  endif()
  
  if(SLANG_ENABLE_DXIL)
@@ -49,3 +49,37 @@ index 74aed35d6..72452a7b7 100644
      EXTRA_COMPILE_DEFINITIONS_PRIVATE SLANG_SHARED_LIBRARY_TOOL
      EXPORT_SET_NAME SlangTargets
      INCLUDE_DIRECTORIES_PRIVATE
+diff --git a/source/slang/CMakeLists.txt b/source/slang/CMakeLists.txt
+index 2a275202f..696963a3a 100644
+--- a/source/slang/CMakeLists.txt
++++ b/source/slang/CMakeLists.txt
+@@ -72,16 +72,19 @@ target_include_directories(
+ # level is incompatible with precompiled headers (warning C4653).
+ # Skip optimization in MSVC Debug builds to avoid /RTC1 conflicts.
+ # GCC/Clang don't have this issue, so they get size optimization in all configs.
+-string(
+-    CONCAT
+-    RICH_DIAG_SIZE_OPT_FLAGS
+-    "$<$<NOT:"
+-    "$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>"
+-    ">:"
+-    "$<IF:$<CXX_COMPILER_ID:MSVC>,/O1;/Os,"
+-    "$<IF:$<CXX_COMPILER_ID:GNU>,-Os,-Oz>>"
+-    ">"
+-)
++# NOTE: the MSVC branch uses $<CONFIG>, which the Xcode generator does not
++# support in per-source COMPILE_OPTIONS, so keep the branches separate.
++if(MSVC)
++    string(
++        CONCAT
++        RICH_DIAG_SIZE_OPT_FLAGS
++        "$<$<NOT:$<CONFIG:Debug>>:/O1;/Os>"
++    )
++elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
++    set(RICH_DIAG_SIZE_OPT_FLAGS "-Os")
++else()
++    set(RICH_DIAG_SIZE_OPT_FLAGS "-Oz")
++endif()
+ set_source_files_properties(
+     slang-rich-diagnostics.cpp
+     PROPERTIES
