@@ -46,6 +46,16 @@ else()
     set(SKY_BUILD_CPYTHON OFF CACHE BOOL "CPython embed (required by python plugin)" FORCE)
 endif()
 
+# OpenSSL is derived from the python ssl switch (and requires the python plugin).
+if (SKY_BUILD_PYTHON AND SKY_PYTHON_SSL)
+    set(SKY_BUILD_OPENSSL ON CACHE BOOL "OpenSSL for python ssl (required by SKY_PYTHON_SSL)" FORCE)
+else()
+    set(SKY_BUILD_OPENSSL OFF CACHE BOOL "OpenSSL for python ssl (required by SKY_PYTHON_SSL)" FORCE)
+    if (SKY_PYTHON_SSL AND NOT SKY_BUILD_PYTHON)
+        message(WARNING "SKY_PYTHON_SSL is ON but the python plugin is disabled; OpenSSL will not be used")
+    endif()
+endif()
+
 unset(_sky_plugin_count)
 unset(_sky_plugin_last)
 unset(_i)

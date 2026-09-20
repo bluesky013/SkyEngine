@@ -9,6 +9,8 @@
 #include <python/PythonApi.h>
 
 #include <cstdint>
+#include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -63,6 +65,29 @@ TEST(PythonRuntimeTest, InitRunShutdown)
 
     EXPECT_TRUE(PythonRunString("value = 40 + 2"));
     EXPECT_FALSE(PythonRunString("def broken(:"));
+
+    PythonShutdown();
+}
+
+TEST(PythonRuntimeTest, RunFile)
+{
+    if (!PythonInit()) {
+        GTEST_SKIP() << "python interpreter unavailable";
+    }
+
+    EXPECT_FALSE(PythonRunFile("no_such_script_does_not_exist.py"));
+
+    const std::string path = "python_runfile_test.py";
+    {
+        std::ofstream file(path);
+        ASSERT_TRUE(file.is_open());
+        file << "runfile_value = 6 * 7\n";
+        file << "assert runfile_value == 42\n";
+    }
+
+    EXPECT_TRUE(PythonRunFile(path.c_str()));
+    EXPECT_TRUE(PythonRunString("assert runfile_value == 42"));
+    std::remove(path.c_str());
 
     PythonShutdown();
 }
@@ -208,3 +233,24 @@ TEST(PythonRuntimeTest, ReferenceStabilitySmoke)
 
     PythonShutdown();
 }
+
+#if defined(SKY_PYTHON_SSL)
+TEST(PythonRuntimeTest, TlsBuiltins)
+{
+    if (!PythonInit()) {
+        GTEST_SKIP() << "python interpreter unavailable";
+    }
+
+    EXPECT_TRUE(PythonRunString(
+        "import ssl, _hashlib\n"
+        "assert ssl.OPENSSL_VERSION\n"
+        "assert _hashlib.openssl_md5(b'skyengine')\n"));
+
+    EXPECT_TRUE(PythonRunString(
+        "import ssl\n"
+        "ctx = ssl.create_default_context()\n"
+        "assert ctx.verify_mode == ssl.CERT_REQUIRED\n"));
+
+    PythonShutdown();
+}
+#endif

@@ -22,6 +22,7 @@ if (SKY_BUILD_EDITOR OR SKY_BUILD_TOOL OR SKY_EDITOR)
 endif ()
 
 option(SKY_BUILD_GLES  "build gles"          OFF)
+option(SKY_PYTHON_SSL  "python ssl/_hashlib via static OpenSSL" OFF)
 option(SKY_BUILD_TEST  "build test"           OFF)
 option(SKY_USE_TRACY   "use tracy profiler"   OFF)
 option(SKY_BUILD_TOOL  "build tools"          OFF)

@@ -420,6 +420,23 @@
 			}
 		},
 		{
+			"name": "openssl",
+			"url": "https://github.com/openssl/openssl.git",
+			"tag": "openssl-3.0.18",
+			"header_only": false,
+			"custom": "python/build_openssl.py",
+			"custom_engine": true,
+			"custom_need_platform": true,
+			"custom_only": true,
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm",
+				"Android",
+				"Linux"
+			]
+		},
+		{
 			"name": "cpython",
 			"url": "https://github.com/python/cpython.git",
 			"tag": "v3.13.9",

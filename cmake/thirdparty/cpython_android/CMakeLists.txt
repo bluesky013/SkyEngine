@@ -9,6 +9,7 @@ set(CPYTHON_BUILD "" CACHE PATH "CPython out-of-tree configure build directory")
 set(CPYTHON_FROZEN "" CACHE PATH "Directory containing the generated Python/frozen_modules headers")
 set(CPYTHON_VERSION "3.13" CACHE STRING "CPython major.minor")
 set(CPYTHON_PREFIX "/usr/local" CACHE STRING "Compiled-in prefix")
+set(OPENSSL_INCLUDE_DIR "" CACHE PATH "Static OpenSSL include directory (enables _ssl/_hashlib)")
 
 file(STRINGS "${CPYTHON_BUILD}/libsrc.txt" CPYTHON_LIB_SRCS)
 
@@ -44,5 +45,9 @@ target_compile_definitions(python_static PRIVATE
     CONFIG_64=1
     ANSI=1
     HAVE_UINT128_T=1)
+
+if (OPENSSL_INCLUDE_DIR)
+    target_include_directories(python_static PRIVATE "${OPENSSL_INCLUDE_DIR}")
+endif ()
 
 target_compile_options(python_static PRIVATE -Wno-deprecated-declarations -Wno-unused-parameter)

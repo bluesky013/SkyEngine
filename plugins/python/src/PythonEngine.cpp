@@ -31,6 +31,10 @@ PyObject *PyInit__socket(void);
 PyObject *PyInit_select(void);
 PyObject *PyInit__overlapped(void);
 PyObject *PyInit__queue(void);
+#if defined(SKY_PYTHON_SSL)
+PyObject *PyInit__ssl(void);
+PyObject *PyInit__hashlib(void);
+#endif
 }
 #endif
 
@@ -59,6 +63,10 @@ namespace sky::py {
         PyImport_AppendInittab("select", PyInit_select);
         PyImport_AppendInittab("_overlapped", PyInit__overlapped);
         PyImport_AppendInittab("_queue", PyInit__queue);
+#if defined(SKY_PYTHON_SSL)
+        PyImport_AppendInittab("_ssl", PyInit__ssl);
+        PyImport_AppendInittab("_hashlib", PyInit__hashlib);
+#endif
 #endif
     }
 
@@ -109,6 +117,46 @@ namespace sky::py {
         Py_XDECREF(traceback);
     }
 
+#if defined(SKY_PYTHON_SSL)
+    static void SetProcessEnv(const char *name, const std::string &value)
+    {
+#if defined(SKY_PLATFORM_WINDOWS)
+        _putenv_s(name, value.c_str());
+#else
+        setenv(name, value.c_str(), 0);
+#endif
+    }
+
+    static void ConfigureSslCertificate(const std::string &home)
+    {
+        const char *existing = std::getenv("SSL_CERT_FILE");
+        if (existing != nullptr && existing[0] != '\0') {
+            return;
+        }
+
+        std::vector<std::filesystem::path> candidates;
+        const char *override = std::getenv("SKY_PYTHON_SSL_CERT");
+        if (override != nullptr && override[0] != '\0') {
+            candidates.emplace_back(override);
+        }
+        if (!home.empty()) {
+            const std::filesystem::path root(home);
+            candidates.push_back(root / "ssl" / "cert.pem");
+            candidates.push_back(root / ".." / "openssl" / "ssl" / "cert.pem");
+        }
+
+        for (const auto &candidate : candidates) {
+            std::error_code ec;
+            if (std::filesystem::is_regular_file(candidate, ec)) {
+                SetProcessEnv("SSL_CERT_FILE", candidate.string());
+                LOG_I(TAG, "ssl ca bundle: %s", candidate.string().c_str());
+                return;
+            }
+        }
+        LOG_W(TAG, "ssl ca bundle not found; set SKY_PYTHON_SSL_CERT or SSL_CERT_FILE");
+    }
+#endif
+
     std::string PythonEngine::ResolveHome()
     {
         std::vector<std::string> candidates;
@@ -156,6 +204,10 @@ namespace sky::py {
         } else {
             LOG_I(TAG, "python home: %s", home.c_str());
         }
+
+#if defined(SKY_PYTHON_SSL)
+        ConfigureSslCertificate(home);
+#endif
 
         PyConfig config;
         PyConfig_InitPythonConfig(&config);

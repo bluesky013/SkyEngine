@@ -123,6 +123,15 @@ TIER1_STATIC_MODULES = [
 # library) and its ctypes module relies on sys.dllhandle, which is disabled by Py_NO_ENABLE_SHARED.
 STATIC_SUPPORT_LIBS = ["liblzma.lib"]
 
+# Built into the static core when a static OpenSSL package is available (SKY_PYTHON_SSL).
+SSL_STATIC_MODULES = ["_ssl", "_hashlib"]
+OPENSSL_DIR = OUTPUT_ROOT / args.platform / "openssl"
+
+
+def static_ssl_available():
+    include = OPENSSL_DIR / "include" / "openssl" / "ssl.h"
+    return include.exists() and (OPENSSL_DIR / "lib").is_dir()
+
 
 def patch_static_module_project(name):
     source = SOURCE_DIR / "PCbuild" / f"{name}.vcxproj"
@@ -148,17 +157,30 @@ def build_static_modules_windows(major, minor):
     if vcvars is None or msbuild is None or not vcvars.exists() or not msbuild.exists():
         raise RuntimeError("Visual Studio C++ tools not found; cannot build the static CPython modules")
 
+    modules = list(TIER1_STATIC_MODULES)
+    use_ssl = static_ssl_available()
+    if use_ssl:
+        modules += SSL_STATIC_MODULES
+        print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; building {', '.join(SSL_STATIC_MODULES)}")
+    else:
+        print("[cpython] static OpenSSL not found; skipping _ssl/_hashlib (build the openssl package for SKY_PYTHON_SSL)")
+
     arch_dir = SOURCE_DIR / "PCbuild" / "amd64"
     batch = SOURCE_DIR / "PCbuild" / "static_module_build.bat"
     result = {}
     for config, suffix in (("Release", ""), ("Debug", "_d")):
         libraries = []
-        for name in TIER1_STATIC_MODULES:
+        for name in modules:
             project = patch_static_module_project(name)
+            ssl_props = ""
+            if name in SSL_STATIC_MODULES:
+                ssl_props = (f' /p:opensslIncludeDir="{OPENSSL_DIR / "include"}"'
+                             f' /p:opensslOutDir="{OPENSSL_DIR / "lib"}"'
+                             f' /p:SkipCopySSLDLL=1')
             batch.write_text(
                 "@echo off\n"
                 f'call "{vcvars}" >nul\n'
-                f'"{msbuild}" "{project}" /nologo /m /v:minimal /p:Configuration={config} /p:Platform=x64\n',
+                f'"{msbuild}" "{project}" /nologo /m /v:minimal /p:Configuration={config} /p:Platform=x64{ssl_props}\n',
                 encoding="utf-8")
             run(["cmd", "/c", str(batch)], cwd=SOURCE_DIR)
             library = arch_dir / f"{name}_static{suffix}.lib"
@@ -277,6 +299,9 @@ ANDROID_BUILTIN_SETUP = [
     "_zoneinfo _zoneinfo.c",
     "_decimal _decimal/_decimal.c",
 ]
+
+# _ssl/_hashlib are appended to the builtin set when a static OpenSSL is available.
+ANDROID_SSL_SETUP = ["_ssl _ssl.c", "_hashlib _hashlib.c"]
 
 
 def resolve_android_env():
@@ -401,11 +426,19 @@ def build_android(major, minor):
     build_dir.mkdir(parents=True, exist_ok=True)
     build_triplet = "i686-pc-mingw32" if os.name == "nt" else "x86_64-pc-linux-gnu"
 
+    use_ssl = static_ssl_available()
+    openssl_prefix = to_msys_path(OPENSSL_DIR) if use_ssl else None
+
     # Builtin extension modules are read by makesetup during configure from the build directory.
+    setup_lines = list(ANDROID_BUILTIN_SETUP)
+    if use_ssl:
+        setup_lines += [f"{entry} -I{to_msys_path(OPENSSL_DIR / 'include')}" for entry in ANDROID_SSL_SETUP]
+        print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; enabling {', '.join(ANDROID_SSL_SETUP)}")
     setup_local = build_dir / "Modules" / "Setup.local"
     setup_local.parent.mkdir(parents=True, exist_ok=True)
-    setup_local.write_text("\n".join(ANDROID_BUILTIN_SETUP) + "\n", encoding="utf-8")
+    setup_local.write_text("\n".join(setup_lines) + "\n", encoding="utf-8")
 
+    openssl_arg = f'--with-openssl="{openssl_prefix}" ' if openssl_prefix else ""
     configure = (
         f'cd "{to_msys_path(build_dir)}" && '
         f'CC="{to_msys_path(bin_dir / (tool_prefix + suffix))}" '
@@ -416,6 +449,7 @@ def build_android(major, minor):
         f'LD="{to_msys_path(bin_dir / ("ld.lld" + exe))}" '
         f'"{to_msys_path(SOURCE_DIR)}/configure" --host={ANDROID_HOST} --build={build_triplet} '
         f'--disable-shared --without-ensurepip --enable-ipv6 '
+        f'{openssl_arg}'
         f'--with-build-python="{to_msys_path(sys.executable)}"'
     )
     print("[cpython] configuring for Android (bash)")
@@ -438,7 +472,7 @@ def build_android(major, minor):
         "-DANDROID_ABI=arm64-v8a", f"-DANDROID_PLATFORM=android-{api}", "-DANDROID_STL=c++_static",
         f"-DCPYTHON_SRC={SOURCE_DIR}", f"-DCPYTHON_BUILD={build_dir}",
         f"-DCPYTHON_FROZEN={frozen_root}", f"-DCPYTHON_VERSION={tag}",
-    ])
+    ] + ([f"-DOPENSSL_INCLUDE_DIR={OPENSSL_DIR / 'include'}"] if use_ssl else []))
     run(["cmake", "--build", str(cmake_build)])
 
     include_dir = INSTALL_DIR / "include"
@@ -490,7 +524,11 @@ def build_unix(major, minor):
     reset_dir(prefix)
     tag = f"{major}.{minor}"
 
-    run(["./configure", f"--prefix={prefix}", "--enable-shared", "--with-ensurepip=no"], cwd=SOURCE_DIR)
+    configure_args = ["./configure", f"--prefix={prefix}", "--enable-shared", "--with-ensurepip=no"]
+    if static_ssl_available():
+        configure_args.append(f"--with-openssl={OPENSSL_DIR}")
+        print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; enabling ssl/_hashlib")
+    run(configure_args, cwd=SOURCE_DIR)
     jobs = str(os.cpu_count() or 4)
     run(["make", f"-j{jobs}"], cwd=SOURCE_DIR)
     run(["make", "install"], cwd=SOURCE_DIR)
