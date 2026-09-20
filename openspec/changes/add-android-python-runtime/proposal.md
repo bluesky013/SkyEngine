@@ -16,7 +16,7 @@ android-31).
 - Rework `Findcpython.cmake` for Android to link the static archive with existence checks.
 - Build `PythonModule` for Android and include it, plus the standard library, in the APK; list the module for the
   Android runtime.
-- Enforce the toolchain constraints (NDK `27.0.12077973`, `android-31`, `arm64-v8a`) with clear failures.
+- Enforce the toolchain constraints (NDK `28.1.13356709`, `android-31`, `arm64-v8a`) with clear failures.
 
 **Non-goals**: iOS specifics, additional ABIs (`armeabi-v7a`, `x86_64`) in the first iteration.
 
@@ -34,4 +34,4 @@ android-31).
 - `python/build_cpython.py` (Android static path), `cmake/thirdparty.json` (add Android to the cpython package),
   `cmake/thirdparty/Findcpython.cmake`, `plugins/python`, the Android launcher packaging, and runtime configuration.
 - Depends on `add-static-python-embedding` (static core + builtin extension model) and the Android SDK/NDK.
-- Requires the pinned NDK (`27.0.12077973`); configuration/build SHALL fail clearly when it is missing.
+- Requires the pinned NDK (`28.1.13356709`); configuration/build SHALL fail clearly when it is missing.

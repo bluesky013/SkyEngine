@@ -332,7 +332,7 @@ Notes:
   - `ANDROID_PLATFORM=android-31`
   - `CMAKE_TOOLCHAIN_FILE=<ndk>/build/cmake/android.toolchain.cmake`
 - Required SDK env var: one of `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_SDK`
-- Expected NDK version in the repo script: `27.0.12077973`
+- Default Android NDK version: `28.1.13356709`
 
 ```bash
 python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p Android -j 8

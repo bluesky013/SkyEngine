@@ -41,7 +41,7 @@ tool_chain = {
 
 # Preferred Android NDK version. Overridable via ANDROID_NDK_VERSION; if unset, the
 # newest NDK installed under <sdk>/ndk is used.
-DEFAULT_NDK_VERSION = '27.0.12077973'
+DEFAULT_NDK_VERSION = '28.1.13356709'
 METADATA_FILE = 'build_metadata.json'
 THIRD_PARTY_CACHE_FILE = 'thirdparty_cache.cmake'
 GIT_RETRY_DELAYS = [1, 3, 5]

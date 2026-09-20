@@ -9,7 +9,7 @@ and the required extension modules are builtins. Android adds packaging constrai
   files directory or placed on `sys.path` as a zip.
 - CPython 3.13 ships `Android/android.py` for cross-building (`configure-build`/`make-build`,
   `configure-host`/`make-host --host=aarch64-linux-android`).
-- The engine bootstrap targets Android with Ninja, NDK `27.0.12077973`, `android-31`, `arm64-v8a`, `c++_static`.
+- The engine bootstrap targets Android with Ninja, NDK `28.1.13356709`, `android-31`, `arm64-v8a`, `c++_static`.
 
 ## Goals / Non-Goals
 
@@ -67,7 +67,7 @@ core is inside `PythonModule.so`.
 Resolve the NDK from the environment instead of a hardcoded path: `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`
 (explicit NDK path), else `ANDROID_NDK_VERSION` (a version under `<sdk>/ndk`), else auto-detect the newest NDK
 installed under `<sdk>/ndk`. The SDK root comes from `ANDROID_HOME` / `ANDROID_SDK_ROOT` / `ANDROID_SDK` (its value
-is normalized). Preferred default version `27.0.12077973`; `android-31`, `arm64-v8a`, `c++_static`. Configuration
+is normalized). Preferred default version `28.1.13356709`; `android-31`, `arm64-v8a`, `c++_static`. Configuration
 SHALL fail clearly when no NDK can be resolved. Additional ABIs are a follow-up.
 
 ### D7. APK packaging
@@ -80,7 +80,7 @@ Ensure the Android launcher packaging includes `PythonModule.so` and the standar
 - [Standard library zip vs on-disk modules] -> start with zip; extraction fallback.
 - [APK size growth] -> exclude tests and unused modules from the zip.
 - [Builtin module compilation on Android] -> same curated table as other platforms; smoke-test each Tier 1 module on device.
-- [Pinned NDK not installed locally] -> the build cannot be verified until NDK `27.0.12077973` is installed.
+- [Pinned NDK not installed locally] -> the build cannot be verified until NDK `28.1.13356709` is installed.
 
 ## Open Questions
 
