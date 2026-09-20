@@ -14,7 +14,7 @@
 			"name": "boost",
 			"url": "https://github.com/boostorg/boost.git",
 			"tag": "boost-1.88.0",
-			"header_only": false,
+			"header_only": true,
 			"submodules": [
 				"tools/cmake",
 				"libs/graph",

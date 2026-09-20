@@ -6,6 +6,7 @@ file(GLOB_RECURSE TEST_FILES test/*)
 # shader
 sky_find_3rd(TARGET glslang       DIR glslang)
 sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
+sky_find_3rd(TARGET boost         DIR boost)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
@@ -32,6 +33,7 @@ sky_add_library(TARGET ShaderCompiler.Static STATIC
         include
     LINK_LIBS
         Core
+        3rdParty::boost
         ${ShaderCompilerExtLib}
     INSTALL_DIR
         include

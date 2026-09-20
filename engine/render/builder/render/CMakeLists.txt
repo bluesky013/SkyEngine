@@ -7,6 +7,7 @@ sky_find_3rd(TARGET stb           DIR stb)
 sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
 sky_find_3rd(TARGET GKlib         DIR GKlib)
 sky_find_3rd(TARGET metis         DIR metis)
+sky_find_3rd(TARGET boost         DIR boost)
 
 sky_add_library(TARGET RenderBuilder.Static STATIC
     SOURCES
@@ -26,4 +27,5 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
         3rdParty::ispc_texcomp
         3rdParty::meshoptimizer
         3rdParty::metis
+        3rdParty::boost
     )

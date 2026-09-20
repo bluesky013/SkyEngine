@@ -5,8 +5,8 @@
 #pragma once
 
 #include <core/util/DynamicModule.h>
+#include <core/std/Graph.h>
 #include <framework/interface/IModule.h>
-#include <boost/graph/adjacency_list.hpp>
 #include <unordered_map>
 
 namespace sky {
@@ -21,8 +21,8 @@ namespace sky {
         ModuleManager() = default;
         ~ModuleManager() = default;
 
-        using Graph =  boost::adjacency_list<boost::setS, boost::vecS, boost::directedS>;
-        using vertex_descriptor = Graph::vertex_descriptor;
+        using Graph = sky::Graph;
+        using vertex_descriptor = Graph::Vertex;
 
         void RegisterModule(const ModuleInfo &info);
 

@@ -4,8 +4,6 @@
 
 #include <framework/application/ModuleManager.h>
 
-#include <boost/graph/topological_sort.hpp>
-
 #include <core/logger/Logger.h>
 
 static const char *TAG = "ModuleManager";
@@ -20,7 +18,7 @@ namespace sky {
         auto src = RegisterModuleImpl(info.name);
         for (const auto &dep : info.dependencies) {
             auto dst = RegisterModuleImpl(dep);
-            boost::add_edge(src, dst, dependencyGraph);
+            dependencyGraph.AddEdge(src, dst);
         }
     }
 
@@ -30,7 +28,7 @@ namespace sky {
         if (iter != names.end()) {
             return std::distance(names.begin(), iter);
         }
-        auto vtx = boost::add_vertex(dependencyGraph);
+        auto vtx = dependencyGraph.AddVertex();
         if (vtx >= names.size()) {
             names.resize(vtx + 1);
             names[vtx] = str;
@@ -41,7 +39,7 @@ namespace sky {
 
     void ModuleManager::TopoSort()
     {
-        boost::topological_sort(dependencyGraph, std::back_inserter(sortedContainer));
+        sortedContainer = dependencyGraph.TopologicalSort();
     }
 
     void ModuleManager::Tick(float time)
@@ -93,8 +91,10 @@ namespace sky {
 
     void ModuleManager::UnLoadModules()
     {
-        std::list<vertex_descriptor> container;
-        boost::topological_sort(dependencyGraph, std::front_inserter(container));
+        if (sortedContainer.empty()) {
+            TopoSort();
+        }
+        std::vector<vertex_descriptor> container(sortedContainer.rbegin(), sortedContainer.rend());
 
         WalkModules([this](const std::string &moduleName) {
             modules[moduleName]->Shutdown();
