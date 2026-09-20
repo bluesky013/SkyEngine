@@ -39,7 +39,9 @@ tool_chain = {
     'Linux': 'Ninja'
 }
 
-NDK_VERSION = '27.0.12077973'
+# Preferred Android NDK version. Overridable via ANDROID_NDK_VERSION; if unset, the
+# newest NDK installed under <sdk>/ndk is used.
+DEFAULT_NDK_VERSION = '27.0.12077973'
 METADATA_FILE = 'build_metadata.json'
 THIRD_PARTY_CACHE_FILE = 'thirdparty_cache.cmake'
 GIT_RETRY_DELAYS = [1, 3, 5]
@@ -283,8 +285,11 @@ def get_android_sdk_path():
     possible_names = ['ANDROID_HOME', 'ANDROID_SDK_ROOT', 'ANDROID_SDK']
 
     for name in possible_names:
-        path = os.environ.get(name)
-        if path and os.path.exists(path):
+        value = os.environ.get(name)
+        if not value:
+            continue
+        path = os.path.normpath(value)
+        if os.path.exists(path):
             print(f"find Android SDK: {path} from {name}")
             return path
     raise Exception("Android SDK path not found.")
@@ -298,8 +303,34 @@ def fill_ios_config(options):
     options['CMAKE_TOOLCHAIN_FILE'] = os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake')
     options['PLATFORM'] = 'OS64'
 
+def resolve_android_ndk():
+    for name in ['ANDROID_NDK_HOME', 'ANDROID_NDK_ROOT']:
+        path = os.environ.get(name)
+        if path and os.path.exists(path):
+            print(f"find Android NDK: {path} from {name}")
+            return path
+
+    ndk_root = os.path.join(get_android_sdk_path(), "ndk")
+    version = os.environ.get('ANDROID_NDK_VERSION')
+    if version:
+        candidate = os.path.join(ndk_root, version)
+        if not os.path.exists(candidate):
+            raise Exception(f"Android NDK {version} (ANDROID_NDK_VERSION) not found under {ndk_root}")
+        print(f"find Android NDK: {candidate} from ANDROID_NDK_VERSION")
+        return candidate
+
+    if os.path.isdir(ndk_root):
+        versions = [d for d in os.listdir(ndk_root) if os.path.isdir(os.path.join(ndk_root, d))]
+        if versions:
+            versions.sort(key=lambda v: [int(x) for x in re.findall(r'\d+', v)])
+            resolved = os.path.join(ndk_root, versions[-1])
+            print(f"find Android NDK: {resolved} (auto-detected)")
+            return resolved
+
+    raise Exception(f"Android NDK not found under {ndk_root}; set ANDROID_NDK_VERSION or install one")
+
 def fill_android_config(options):
-    ndk = os.path.join(get_android_sdk_path(), "ndk", NDK_VERSION)
+    ndk = resolve_android_ndk()
     toolchain = os.path.join(ndk, "build", "cmake", "android.toolchain.cmake")
 
     options['ANDROID_ABI'] = 'arm64-v8a'
@@ -375,6 +406,8 @@ def process_package(package):
     is_tool = package.get('is_tool')
     options = package.get('options', {})
     header_only = package.get('header_only', False)
+    custom_engine = package.get('custom_engine', False)
+    custom_only = package.get('custom_only', False)
     if len(name) == 0:
         return
 
@@ -423,6 +456,8 @@ def process_package(package):
             repo.git.checkout(branch_name)
 
     # use custom step
+    if custom and custom_engine:
+        custom = os.path.join(args.engine, custom)
     if custom:
         if custom_need_platform is True:
             subprocess.run([sys.executable, custom, '-p', args.platform], cwd=str(clone_dir), check=True)
@@ -448,6 +483,9 @@ def process_package(package):
         repo.git.clean('-f')
         repo.git.apply(patch_path)
         print('Apply Patch 成功')
+
+    if custom_only:
+        return
 
     source_dir = clone_dir
     if source:

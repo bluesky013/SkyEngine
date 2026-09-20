@@ -418,16 +418,23 @@
 				"ENABLE_ALL_WARNINGS": "false",
 				"ACL_HEADER_ONLY": "true"
 			}
-		}
-	],
-	"archives": {
-		"Win32": {
-			"file": "thirdparty_Win32_f7a49f5b40a6.zip",
-			"md5": "f7a49f5b40a6051cdc4723453cfd09a4"
 		},
-		"MacOS-x86": {
-			"file": "thirdparty_MacOS-x86_e97d2deae540.zip",
-			"md5": "e97d2deae540651fa98e0215b3186b3c"
+		{
+			"name": "cpython",
+			"url": "https://github.com/python/cpython.git",
+			"tag": "v3.13.9",
+			"header_only": false,
+			"custom": "python/build_cpython.py",
+			"custom_engine": true,
+			"custom_need_platform": true,
+			"custom_only": true,
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm",
+				"Android",
+				"Linux"
+			]
 		}
-	}
+	]
 }

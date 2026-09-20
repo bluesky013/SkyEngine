@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "PythonModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": []
         }
     ]
 }

@@ -5,6 +5,8 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <string>
+#include <string_view>
 
 namespace sky::py {
 
@@ -16,7 +18,14 @@ namespace sky::py {
         bool Init();
         void Shutdown();
 
+        bool RunString(std::string_view source);
+        bool RunFile(const std::string &path);
+
+        bool IsInited() const { return isInited; }
+
     private:
+        static std::string ResolveHome();
+
         bool isInited = false;
     };
 

@@ -19,6 +19,8 @@ namespace sky {
 
         static void Detach();
 
+        static bool IsAttached();
+
         void Register(uint32_t key, void *ptr);
 
         void UnRegister(uint32_t key);
@@ -28,6 +30,7 @@ namespace sky {
     protected:
         static Environment *instance;
         static std::mutex   globalMutex;
+        static bool         attached;
 
         Environment()  = default;
         ~Environment() = default;

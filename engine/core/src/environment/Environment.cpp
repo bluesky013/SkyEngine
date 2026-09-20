@@ -8,6 +8,7 @@ namespace sky {
 
     Environment *Environment::instance = nullptr;
     std::mutex   Environment::globalMutex;
+    bool         Environment::attached = false;
 
     Environment *Environment::Get()
     {
@@ -31,11 +32,18 @@ namespace sky {
     void Environment::Attach(Environment *env)
     {
         instance = env;
+        attached = env != nullptr;
     }
 
     void Environment::Detach()
     {
         instance = nullptr;
+        attached = false;
+    }
+
+    bool Environment::IsAttached()
+    {
+        return attached;
     }
 
     void Environment::Register(uint32_t key, void *ptr)
