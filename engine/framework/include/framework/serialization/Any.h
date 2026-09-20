@@ -49,6 +49,10 @@ namespace sky {
 
         Any &operator=(const Any &any)
         {
+            if (this == &any) {
+                return *this;
+            }
+            Destructor();
             info = any.info;
             CheckMemory();
             Copy(any);
@@ -58,14 +62,16 @@ namespace sky {
         Any(Any &&any) noexcept
         {
             info = any.info;
-            CheckMemory();
             Move(any);
         }
 
         Any &operator=(Any &&any) noexcept
         {
+            if (this == &any) {
+                return *this;
+            }
+            Destructor();
             info = any.info;
-            CheckMemory();
             Move(any);
             return *this;
         }
@@ -95,6 +101,8 @@ namespace sky {
         {
             return info;
         }
+
+        static Any Create(const TypeInfoRT *info, const void *value);
 
         explicit operator bool() const
         {

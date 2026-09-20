@@ -28,7 +28,7 @@ namespace sky {
 
     const Uuid &SequenceVisitor::GetValueType() const
     {
-        return info->sequenceView != nullptr ? info->valueType : Uuid::GetEmpty();
+        return (info != nullptr && info->sequenceView != nullptr) ? info->valueType : Uuid::GetEmpty();
     }
 
 } // namespace sky

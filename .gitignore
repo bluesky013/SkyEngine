@@ -15,6 +15,7 @@
 /build_release/
 /active_project
 /test/assets/assets.db
+/engine/test/assets.db
 /test/products/
 /python/.idea
 /review/

@@ -9,6 +9,7 @@
 #include <core/concept/Concept.h>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 #ifdef _MSC_VER
 #define PRETTY_FUNC __FUNCSIG__
@@ -117,6 +118,7 @@ namespace sky {
     using ConstructorNew    = void* (*)();
     using ConstructorPlace  = void (*)(void *ptr);
     using CopyFn            = void (*)(const void *src, void *dst);
+    using MoveFn            = void (*)(void *src, void *dst);
 
     struct TypeInfoRT {
         std::string_view       name;
@@ -129,6 +131,7 @@ namespace sky {
         DestructorDelete       deleteFunc    = nullptr; // default destructor
         Destructor             destructor    = nullptr; // default destructor
         CopyFn                 copy          = nullptr; // default copy constructor
+        MoveFn                 move          = nullptr; // default move constructor
     };
 
     // There may be different values on different platforms, limited to runtime and not persistent.
@@ -143,6 +146,7 @@ namespace sky {
         static constexpr bool CTOR = std::is_default_constructible_v<T>;
         static constexpr bool DTOR = std::is_destructible_v<T>;
         static constexpr bool COPY = std::is_copy_constructible_v<T>;
+        static constexpr bool MOVE = std::is_move_constructible_v<T>;
 
         static void Construct(void *ptr)
         {
@@ -181,6 +185,13 @@ namespace sky {
         {
             if constexpr (COPY) {
                 new(dst) T{*((T *) src)};
+            }
+        }
+
+        static void Move(void *src, void *dst)
+        {
+            if constexpr (MOVE) {
+                new(dst) T{std::move(*static_cast<T *>(src))};
             }
         }
     };

@@ -113,7 +113,7 @@ namespace sky {
             .Member<&Color::r>("r")
             .Member<&Color::g>("g")
             .Member<&Color::b>("b")
-            .Member<&Color::b>("a");
+            .Member<&Color::a>("a");
 
         context->Register<ColorRGB>("ColorRGB")
             .Member<&ColorRGB::r>("r")

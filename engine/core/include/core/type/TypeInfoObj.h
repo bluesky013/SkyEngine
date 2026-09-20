@@ -41,7 +41,8 @@ namespace sky {
                     TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
                     TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
                     TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
+                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr,
+                    TypeAllocate<T>::MOVE ? &TypeAllocate<T>::Move : nullptr
                 };
             } else {
                 info->name = name;
@@ -63,7 +64,8 @@ namespace sky {
                     TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
                     TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
                     TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
+                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr,
+                    TypeAllocate<T>::MOVE ? &TypeAllocate<T>::Move : nullptr
                 };
             }
             return info;

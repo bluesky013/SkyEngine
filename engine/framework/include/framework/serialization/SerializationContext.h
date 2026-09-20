@@ -47,6 +47,11 @@ namespace sky {
         TypeNode *FindType(const std::string_view &key);
         TypeNode *FindTypeById(const Uuid &id);
 
+        const std::unordered_map<std::string_view, TypeNode *> &GetAllTypes() const
+        {
+            return lookupTable;
+        }
+
     private:
         friend class Singleton<SerializationContext>;
 
@@ -99,7 +104,13 @@ namespace sky {
         if (iter == node->functions.end()) {
             return {};
         }
+        if (iter->second.argsNum != sizeof...(Args)) {
+            return {};
+        }
         std::array<Any, sizeof...(Args)> anyArgs{Any(std::forward<Args>(args))...};
+        if (iter->second.checkFn != nullptr && !iter->second.checkFn(anyArgs.data())) {
+            return {};
+        }
         return Any{iter->second.memberFun(reinterpret_cast<void*>(&val), anyArgs.data())};
     }
 

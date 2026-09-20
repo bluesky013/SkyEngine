@@ -87,9 +87,8 @@ namespace sky::editor {
             if (widget != nullptr) {
                 layout->addRow(name.data(), widget);
                 members.emplace_back(widget);
+                connect(widget, &ReflectedMemberWidget::ValueChanged, this, &ReflectedObjectWidget::OnValueChanged);
             }
-
-            connect(widget, &ReflectedMemberWidget::ValueChanged, this, &ReflectedObjectWidget::OnValueChanged);
         }
     }
 

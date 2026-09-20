@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <map>
 #include <functional>
+#include <vector>
 
 namespace sky {
     class JsonInputArchive;
@@ -33,6 +34,7 @@ namespace sky {
         using BinaryOutFn = void (*)(const void *p, BinaryOutputArchive &archive);
         using MemberFun = Any (*)(void *ptr, Any *);
         using CheckMemberFunc = bool (*)(Any *);
+        using TypeInfoList = std::vector<const TypeInfoRT *>;
 
         struct TypeMemberNode {
             const TypeInfoRT *info = nullptr;
@@ -49,12 +51,14 @@ namespace sky {
             const uint32_t argsNum;
             ConstructibleFn checkFn = nullptr;
             ConstructFn constructFn = nullptr;
+            TypeInfoList argTypes;
         };
 
         struct MemberFunctionNode {
             const uint32_t argsNum;
             CheckMemberFunc checkFn = nullptr;
             MemberFun memberFun = nullptr;
+            TypeInfoList argTypes;
         };
 
         struct SerializationNode {
@@ -179,6 +183,31 @@ namespace sky {
         return Any(std::in_place_type<T>, *args[I].GetAs<Args>()...);
     }
 
+    template <typename Tuple, size_t... I>
+    bool CheckMemberArgs(Any *args, std::index_sequence<I...>)
+    {
+        return ((args[I].Info() != nullptr &&
+                 args[I].Info()->registeredId ==
+                     TypeInfo<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::RegisteredId()) &&
+                ...);
+    }
+
+    template <typename... Args>
+    serialize::TypeInfoList MakeArgTypes()
+    {
+        return serialize::TypeInfoList{
+            TypeInfoObj<std::remove_cv_t<std::remove_reference_t<Args>>>::Get()->RtInfo()...
+        };
+    }
+
+    template <typename Tuple, size_t... I>
+    serialize::TypeInfoList MakeArgTypesFromTuple(std::index_sequence<I...>)
+    {
+        return serialize::TypeInfoList{
+            TypeInfoObj<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::Get()->RtInfo()...
+        };
+    }
+
     template <auto F, typename Tuple, typename Cls, size_t... I>
     Any InvokeMemberFunc(Cls* val, Any *args, std::index_sequence<I...>)
     {
@@ -206,7 +235,8 @@ namespace sky {
             type.constructList.emplace_back(
                 serialize::ConstructNode{std::tuple_size_v<ArgsType>,
                               [](Any *args) -> bool { return ConstructCheck<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
-                              [](Any *args) -> Any { return Construct<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); }});
+                              [](Any *args) -> Any { return Construct<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
+                              MakeArgTypes<Args...>()});
             return *this;
         }
 
@@ -309,10 +339,13 @@ namespace sky {
 
             type.functions.emplace(key, serialize::MemberFunctionNode {
                 std::tuple_size_v<ArgsType>,
-                [](Any *args) -> bool { return true; },
+                [](Any *args) -> bool {
+                    return CheckMemberArgs<ArgsType>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{});
+                },
                 [](void* ptr, Any *args) -> Any {
                     return InvokeMemberFunc<F, ArgsType, ClsType>(static_cast<ClsType*>(ptr), args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{});
-                }
+                },
+                MakeArgTypesFromTuple<ArgsType>(std::make_index_sequence<std::tuple_size_v<ArgsType>>{})
             });
         }
 

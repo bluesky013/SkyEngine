@@ -116,10 +116,8 @@ namespace sky::editor {
 
             if constexpr (std::is_floating_point_v<T>) {
                 line->setValidator(new QDoubleValidator(this));
-                isFloatingType = true;
             } else if constexpr (std::is_integral_v<T>) {
                 line->setValidator(new QIntValidator(std::numeric_limits<T>::min(), std::numeric_limits<T>::max(), this));
-                isFloatingType = false;
             }
 
             connect(line, &QLineEdit::textEdited, this, [this](const QString &s) {
@@ -141,14 +139,18 @@ namespace sky::editor {
 
         void RefreshValue()
         {
-            auto anyVal = memberNode->getterConstFn(object);
+            const auto anyVal = memberNode->getterConstFn(object);
+            const auto *val = static_cast<const T *>(anyVal.Data());
+            if (val == nullptr) {
+                return;
+            }
 
-            if (isFloatingType) {
-                auto *val = static_cast<float*>(anyVal.Data());
+            if constexpr (std::is_floating_point_v<T>) {
                 line->setText(QString::number(*val));
+            } else if constexpr (std::is_signed_v<T>) {
+                line->setText(QString::number(static_cast<qint64>(*val)));
             } else {
-                auto *val = static_cast<uint32_t*>(anyVal.Data());
-                line->setText(QString::number(*val));
+                line->setText(QString::number(static_cast<quint64>(*val)));
             }
         }
 
@@ -161,7 +163,6 @@ namespace sky::editor {
 
     private:
         QLineEdit* line;
-        bool isFloatingType = true;
     };
 
     template <size_t N>

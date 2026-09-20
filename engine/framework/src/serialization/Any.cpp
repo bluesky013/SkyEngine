@@ -32,19 +32,21 @@ namespace sky {
 
     void Any::Destructor()
     {
-        auto *instance = Data();
-        if (info == nullptr || instance == nullptr) {
+        if (info == nullptr) {
             return;
         }
 
-        if (info->destructor != nullptr) {
+        auto *instance = Data();
+        if (instance != nullptr && info->destructor != nullptr) {
             info->destructor(instance);
         }
 
         if (info->staticInfo->size > BLOCK_SIZE && ptr != nullptr) {
             free(ptr);
+            ptr = nullptr;
         }
         memset(data, 0, BLOCK_SIZE);
+        info = nullptr;
     }
 
     void Any::Copy(const Any &any)
@@ -54,17 +56,39 @@ namespace sky {
         }
     }
 
+    Any Any::Create(const TypeInfoRT *info, const void *value)
+    {
+        Any any;
+        any.info = info;
+        if (info == nullptr || value == nullptr) {
+            return any;
+        }
+
+        any.CheckMemory();
+        if (info->copy != nullptr) {
+            info->copy(value, any.Data());
+        } else if (info->staticInfo != nullptr && info->staticInfo->isTrivial) {
+            std::memcpy(any.Data(), value, info->staticInfo->size);
+        }
+        return any;
+    }
+
     void Any::Move(Any &any)
     {
-        if (info == nullptr) {
+        if (any.info == nullptr) {
+            info = nullptr;
             return;
         }
 
-        if (info->staticInfo->size > BLOCK_SIZE) {
-            ptr      = any.ptr;
+        if (any.info->staticInfo->size > BLOCK_SIZE) {
+            ptr     = any.ptr;
             any.ptr = nullptr;
         } else {
-            Copy(any);
+            if (info != nullptr && info->move != nullptr) {
+                info->move(any.Data(), Data());
+            } else if (info != nullptr && info->copy != nullptr) {
+                info->copy(any.Data(), Data());
+            }
             any.Destructor();
         }
     }

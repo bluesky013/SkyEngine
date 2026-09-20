@@ -5,8 +5,11 @@
 #include <framework/serialization/BinaryArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/SerializationUtil.h>
+#include <core/logger/Logger.h>
 
 namespace sky {
+
+    static const char *TAG = "BinaryArchive";
 
     void BinaryInputArchive::LoadObject(void *ptr, const Uuid &typeId)
     {
@@ -47,11 +50,40 @@ namespace sky {
                 node->serialization.binaryLoad(ptr, *this);
                 return;
             }
+
+            if (node->info->staticInfo->isEnum) {
+                LoadObject(ptr, node->info->underlyingTypeId);
+                return;
+            }
+
             for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
+                const auto *info = member.second.info;
+
+                if (info->registeredId == TypeInfo<SequenceVisitor>::RegisteredId()) {
+                    LOG_W(TAG, "member '%s' of type '%s' is not serializable", memberName.c_str(), node->info->name.data());
+                    continue;
+                }
+
                 Any value = GetValueRaw(ptr, typeId, memberName);
-                LoadObject(value.Data(), member.second.info->registeredId);
-                SetValueRaw(ptr, typeId, memberName, value.Data());
+                if (info->containerInfo != nullptr && info->containerInfo->valueType != TypeInfo<char>::RegisteredId()) {
+                    auto *containerInfo = info->containerInfo;
+                    if (containerInfo->sequenceView != nullptr) {
+                        uint32_t count = 0;
+                        LoadValue(count);
+                        SequenceVisitor visitor(containerInfo, value.Data());
+                        for (uint32_t i = 0; i < count; ++i) {
+                            auto *element = visitor.Emplace();
+                            LoadObject(element, visitor.GetValueType());
+                        }
+                        SetValueRaw(ptr, typeId, memberName, value.Data());
+                    } else {
+                        LOG_W(TAG, "container member '%s' of type '%s' is not serializable", memberName.c_str(), node->info->name.data());
+                    }
+                } else {
+                    LoadObject(value.Data(), info->registeredId);
+                    SetValueRaw(ptr, typeId, memberName, value.Data());
+                }
             }
         }
     }
@@ -96,13 +128,35 @@ namespace sky {
                 return;
             }
 
-            for (const auto &member : node->members) {
-                if (member.second.info->containerInfo != nullptr) {
+            if (node->info->staticInfo->isEnum) {
+                SaveObject(ptr, node->info->underlyingTypeId);
+                return;
+            }
 
+            for (const auto &member : node->members) {
+                std::string memberName = member.first.data();
+                const auto *info = member.second.info;
+
+                if (info->registeredId == TypeInfo<SequenceVisitor>::RegisteredId()) {
+                    LOG_W(TAG, "member '%s' of type '%s' is not serializable", memberName.c_str(), node->info->name.data());
+                    continue;
+                }
+
+                Any value = GetValueRawConst(ptr, typeId, memberName);
+                if (info->containerInfo != nullptr && info->containerInfo->valueType != TypeInfo<char>::RegisteredId()) {
+                    auto *containerInfo = info->containerInfo;
+                    if (containerInfo->sequenceView != nullptr) {
+                        SequenceVisitor visitor(containerInfo, value.Data());
+                        auto count = static_cast<uint32_t>(visitor.Count());
+                        SaveValue(count);
+                        for (uint32_t i = 0; i < count; ++i) {
+                            SaveObject(visitor.GetByIndex(i), visitor.GetValueType());
+                        }
+                    } else {
+                        LOG_W(TAG, "container member '%s' of type '%s' is not serializable", memberName.c_str(), node->info->name.data());
+                    }
                 } else {
-                    std::string memberName = member.first.data();
-                    Any value = GetValueRawConst(ptr, typeId, memberName);
-                    SaveObject(value.Data(), member.second.info->registeredId);
+                    SaveObject(value.Data(), info->registeredId);
                 }
             }
         }

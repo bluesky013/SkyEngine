@@ -5,6 +5,7 @@
 
 #include <core/logger/Logger.h>
 #include <core/archive/FileArchive.h>
+#include <core/math/Color.h>
 #include <framework/serialization/SerializationUtil.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
@@ -669,5 +670,209 @@ TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
         ASSERT_EQ(test.b1.b, 2.f);
         ASSERT_EQ(test.b2.c, 3);
         ASSERT_EQ(test.b2.d, 4.0);
+    }
+}
+
+TEST(SerializationTest, ColorAlphaReflectionTest)
+{
+    const auto *node = GetTypeNode(TypeInfo<Color>::RegisteredId());
+    ASSERT_NE(node, nullptr);
+    ASSERT_EQ(node->members.count("a"), 1);
+
+    const auto *member = GetTypeMember("a", TypeInfo<Color>::RegisteredId());
+    ASSERT_NE(member, nullptr);
+    ASSERT_NE(member->setterFn, nullptr);
+    ASSERT_NE(member->getterConstFn, nullptr);
+
+    Color color(0.f, 0.f, 0.f, 0.f);
+    float alpha = 0.5f;
+    ASSERT_TRUE(member->setterFn(&color, &alpha));
+    ASSERT_FLOAT_EQ(color.a, 0.5f);
+    ASSERT_FLOAT_EQ(color.b, 0.f);
+
+    const auto any = member->getterConstFn(&color);
+    const auto *read = any.GetAsConst<float>();
+    ASSERT_NE(read, nullptr);
+    ASSERT_FLOAT_EQ(*read, 0.5f);
+}
+
+struct AnyLargeValue {
+    double v[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+};
+
+struct AnySmallMoveOnly {
+    int32_t v = 0;
+
+    AnySmallMoveOnly() = default;
+    explicit AnySmallMoveOnly(int32_t x) : v(x) {}
+    AnySmallMoveOnly(const AnySmallMoveOnly &) = delete;
+    AnySmallMoveOnly &operator=(const AnySmallMoveOnly &) = delete;
+    AnySmallMoveOnly(AnySmallMoveOnly &&) noexcept = default;
+    AnySmallMoveOnly &operator=(AnySmallMoveOnly &&) noexcept = default;
+};
+
+TEST(SerializationTest, AnyValueSemanticsTest)
+{
+    AnyLargeValue large{};
+    for (int i = 0; i < 8; ++i) {
+        large.v[i] = static_cast<double>(i) + 0.5;
+    }
+
+    Any a(std::in_place_type<AnyLargeValue>, large);
+
+    Any b;
+    b = a;
+    ASSERT_NE(b.GetAs<AnyLargeValue>(), nullptr);
+    ASSERT_DOUBLE_EQ(b.GetAs<AnyLargeValue>()->v[3], 3.5);
+
+    Any c(std::in_place_type<AnyLargeValue>, large);
+    c = a;
+    ASSERT_DOUBLE_EQ(c.GetAs<AnyLargeValue>()->v[7], 7.5);
+
+    a = a;
+    ASSERT_DOUBLE_EQ(a.GetAs<AnyLargeValue>()->v[1], 1.5);
+
+    Any d = std::move(c);
+    ASSERT_NE(d.GetAs<AnyLargeValue>(), nullptr);
+    ASSERT_DOUBLE_EQ(d.GetAs<AnyLargeValue>()->v[0], 0.5);
+
+    Any e(std::in_place_type<AnyLargeValue>, large);
+    e = std::move(d);
+    ASSERT_DOUBLE_EQ(e.GetAs<AnyLargeValue>()->v[6], 6.5);
+
+    Any s(std::in_place_type<AnySmallMoveOnly>, 7);
+    Any t = std::move(s);
+    ASSERT_NE(t.GetAs<AnySmallMoveOnly>(), nullptr);
+    ASSERT_EQ(t.GetAs<AnySmallMoveOnly>()->v, 7);
+}
+
+enum class BinTestEnum : uint32_t { A = 1, B = 2, C = 5 };
+
+struct BinTestEnumHolder {
+    BinTestEnum e = BinTestEnum::A;
+};
+
+struct BinSeqElem {
+    uint32_t a = 0;
+    float    b = 0.f;
+};
+
+struct BinSeqVec {
+    std::vector<BinSeqElem> items;
+};
+
+struct BinSeqLst {
+    std::list<BinSeqElem> items;
+};
+
+TEST(ArchiveTest, BinaryArchiveReflection_EnumTest)
+{
+    auto *context = SerializationContext::Get();
+    context->Register<BinTestEnum>("BinTestEnum")
+        .Enum(BinTestEnum::A, "A")
+        .Enum(BinTestEnum::B, "B")
+        .Enum(BinTestEnum::C, "C");
+    context->Register<BinTestEnumHolder>("BinTestEnumHolder")
+        .Member<&BinTestEnumHolder::e>("e");
+
+    const auto path = std::filesystem::temp_directory_path() / "binary-enum-test.bin";
+    {
+        BinTestEnumHolder holder;
+        holder.e = BinTestEnum::C;
+        OFileArchive file(path.string(), std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveObject(&holder, TypeInfo<BinTestEnumHolder>::RegisteredId());
+    }
+    {
+        IFileArchive file(path.string(), std::ios::binary);
+        BinaryInputArchive archive(file);
+        BinTestEnumHolder holder;
+        archive.LoadObject(&holder, TypeInfo<BinTestEnumHolder>::RegisteredId());
+        ASSERT_EQ(holder.e, BinTestEnum::C);
+    }
+}
+
+TEST(ArchiveTest, BinaryArchiveReflection_SequenceTest)
+{
+    auto *context = SerializationContext::Get();
+    context->Register<BinSeqElem>("BinSeqElem")
+        .Member<&BinSeqElem::a>("a")
+        .Member<&BinSeqElem::b>("b");
+    context->Register<BinSeqVec>("BinSeqVec")
+        .Member<&BinSeqVec::items>("items");
+    context->Register<BinSeqLst>("BinSeqLst")
+        .Member<&BinSeqLst::items>("items");
+
+    {
+        const auto path = std::filesystem::temp_directory_path() / "binary-seq-vec-test.bin";
+        BinSeqVec value;
+        value.items.push_back(BinSeqElem{1, 1.5f});
+        value.items.push_back(BinSeqElem{2, 2.5f});
+        OFileArchive file(path.string(), std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveObject(&value, TypeInfo<BinSeqVec>::RegisteredId());
+    }
+    {
+        const auto path = std::filesystem::temp_directory_path() / "binary-seq-vec-test.bin";
+        IFileArchive file(path.string(), std::ios::binary);
+        BinaryInputArchive archive(file);
+        BinSeqVec value;
+        archive.LoadObject(&value, TypeInfo<BinSeqVec>::RegisteredId());
+        ASSERT_EQ(value.items.size(), 2u);
+        ASSERT_EQ(value.items[0].a, 1u);
+        ASSERT_FLOAT_EQ(value.items[0].b, 1.5f);
+        ASSERT_EQ(value.items[1].a, 2u);
+        ASSERT_FLOAT_EQ(value.items[1].b, 2.5f);
+    }
+    {
+        const auto path = std::filesystem::temp_directory_path() / "binary-seq-lst-test.bin";
+        BinSeqLst value;
+        value.items.push_back(BinSeqElem{3, 3.5f});
+        value.items.push_back(BinSeqElem{4, 4.5f});
+        OFileArchive file(path.string(), std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveObject(&value, TypeInfo<BinSeqLst>::RegisteredId());
+    }
+    {
+        const auto path = std::filesystem::temp_directory_path() / "binary-seq-lst-test.bin";
+        IFileArchive file(path.string(), std::ios::binary);
+        BinaryInputArchive archive(file);
+        BinSeqLst value;
+        archive.LoadObject(&value, TypeInfo<BinSeqLst>::RegisteredId());
+        ASSERT_EQ(value.items.size(), 2u);
+        auto iter = value.items.begin();
+        ASSERT_EQ(iter->a, 3u);
+        ASSERT_FLOAT_EQ(iter->b, 3.5f);
+        ++iter;
+        ASSERT_EQ(iter->a, 4u);
+        ASSERT_FLOAT_EQ(iter->b, 4.5f);
+    }
+}
+
+class TestMemberFunctionArgs {
+public:
+    uint32_t Foo(uint32_t a) const { return a + 1; } // NOLINT
+};
+
+TEST(ArchiveTest, MemberFunctionArgMismatchTest)
+{
+    SerializationContext::Get()->Register<TestMemberFunctionArgs>("TestMemberFunctionArgs")
+        .MemberFunction<&TestMemberFunctionArgs::Foo>("Foo");
+
+    TestMemberFunctionArgs obj;
+
+    {
+        auto res = InvokeMemberFunctionResult(obj, "Foo", 41u);
+        auto *val = res.GetAs<uint32_t>();
+        ASSERT_NE(val, nullptr);
+        ASSERT_EQ(*val, 42u);
+    }
+    {
+        auto res = InvokeMemberFunctionResult(obj, "Foo", std::string("bad"));
+        ASSERT_FALSE(static_cast<bool>(res));
+    }
+    {
+        auto res = InvokeMemberFunctionResult(obj, "Foo");
+        ASSERT_FALSE(static_cast<bool>(res));
     }
 }
