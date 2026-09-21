@@ -4,7 +4,12 @@
 
 #pragma once
 
+#include <navigation/NaviMesh.h>
+
 #include <core/math/Vector3.h>
+
+#include <cstdint>
+#include <vector>
 
 namespace sky::ai {
 
@@ -12,13 +17,20 @@ namespace sky::ai {
         Vector3 position;
     };
 
-    class NaviPath {
-    public:
-        NaviPath() = default;
-        ~NaviPath() = default;
+    // Query result: ordered world-space points plus their straight-path flags.
+    struct NaviPath {
+        NaviQueryResult      result = NaviQueryResult::FAILED;
+        std::vector<Vector3> points;
+        std::vector<uint8_t> flags;
 
-    private:
-        std::vector<NaviLocation> pathPoints;
+        bool IsValid() const { return result == NaviQueryResult::SUCCESS; }
+
+        void Reset()
+        {
+            result = NaviQueryResult::FAILED;
+            points.clear();
+            flags.clear();
+        }
     };
 
 } // namespace sky::ai

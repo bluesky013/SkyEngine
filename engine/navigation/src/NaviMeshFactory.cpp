@@ -51,6 +51,11 @@ namespace sky::ai {
         return factory ? factory->CreateGenerator() : nullptr;
     }
 
+    NaviQueryFilterPtr NaviMeshFactory::CreateQueryFilter()
+    {
+        return factory ? NaviQueryFilterPtr(factory->CreateQueryFilter()) : nullptr;
+    }
+
     void NaviMeshFactory::Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const
     {
         if (factory) {

@@ -10,6 +10,7 @@
 #include <recast/RecastTileCacheMeshProcessor.h>
 
 #include <navigation/NaviMeshAsset.h>
+#include <navigation/NaviPath.h>
 
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
@@ -353,9 +354,19 @@ namespace sky::ai {
 
     NaviQueryResult RecastNaviMesh::FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const
     {
+        NaviPath path;
+        return QueryPath(start, end, filter, param, path);
+    }
+
+    NaviQueryResult RecastNaviMesh::QueryPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter, const NaviPathQueryParam &param, NaviPath &out) const
+    {
+        out.Reset();
+
         if (navQuery == nullptr || navMesh == nullptr || filter == nullptr) {
             return NaviQueryResult::FAILED;
         }
+
+        std::lock_guard<std::mutex> lock(queryMutex);
 
         auto *rcFilter = static_cast<RecastQueryFilter *>(filter.Get());
         if (rcFilter == nullptr || rcFilter->GetFilter() == nullptr) {
@@ -396,6 +407,14 @@ namespace sky::ai {
                                                       RECAST_MAX_QUERY_PATH)) || straightCount == 0) {
             return NaviQueryResult::FAILED;
         }
+
+        out.points.reserve(static_cast<size_t>(straightCount));
+        out.flags.reserve(static_cast<size_t>(straightCount));
+        for (int i = 0; i < straightCount; ++i) {
+            out.points.push_back(straightPath[i]);
+            out.flags.push_back(straightPathFlags[i]);
+        }
+        out.result = NaviQueryResult::SUCCESS;
 
         return NaviQueryResult::SUCCESS;
     }

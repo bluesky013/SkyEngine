@@ -152,14 +152,67 @@ namespace sky::ai {
         }
     }
 
+    void NaviPathQueryTask::Setup(const CounterPtr<NaviMesh> &inMesh, const Vector3 &inStart, const Vector3 &inEnd, const NaviQueryFilterPtr &inFilter)
+    {
+        mesh   = inMesh;
+        start  = inStart;
+        end    = inEnd;
+        filter = inFilter;
+    }
+
+    bool NaviPathQueryTask::DoWork()
+    {
+        if (canceled.load() || mesh == nullptr || filter == nullptr) {
+            finished.store(true);
+            return false;
+        }
+
+        mesh->QueryPath(start, end, filter, param, path);
+        finished.store(true);
+        return true;
+    }
+
+    NaviPathQueryTaskPtr NavigationSystem::RequestPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter)
+    {
+        if (naviMesh == nullptr || filter == nullptr || activeQueries.size() >= queryBudget) {
+            return nullptr;
+        }
+
+        auto task = NaviPathQueryTaskPtr(new NaviPathQueryTask());
+        task->Setup(naviMesh, start, end, filter);
+        task->StartAsync();
+        activeQueries.emplace_back(task);
+        return task;
+    }
+
+    void NavigationSystem::CancelPath(const NaviPathQueryTaskPtr &task)
+    {
+        if (task != nullptr) {
+            task->Cancel();
+        }
+    }
+
     void NavigationSystem::Tick(float time)
     {
+        for (auto iter = activeQueries.begin(); iter != activeQueries.end();) {
+            if ((*iter)->IsFinished() || (*iter)->IsCanceled()) {
+                iter = activeQueries.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+
         UpdateStreaming();
     }
 
     void NavigationSystem::OnNavMeshChanged()
     {
         loadedTiles.clear();
+
+        for (auto &task : activeQueries) {
+            task->Cancel();
+        }
+        activeQueries.clear();
     }
 
 } // namespace sky::ai

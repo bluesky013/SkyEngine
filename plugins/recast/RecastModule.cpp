@@ -8,6 +8,7 @@
 #include <navigation/NaviMeshFactory.h>
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastNaviMeshGenerator.h>
+#include <recast/RecastQueryFilter.h>
 
 namespace sky::ai {
 
@@ -24,6 +25,11 @@ namespace sky::ai {
         NaviMeshGenerator* CreateGenerator() override
         {
             return new RecastNaviMeshGenerator();
+        }
+
+        NaviQueryFilter* CreateQueryFilter() override
+        {
+            return new RecastQueryFilter();
         }
     };
 

@@ -12,6 +12,8 @@
 
 #include <DetourTileCacheBuilder.h>
 
+#include <mutex>
+
 class dtNavMesh;
 class dtNavMeshQuery;
 class dtTileCache;
@@ -59,6 +61,7 @@ namespace sky::ai {
         bool Deserialize(const std::vector<uint8_t> &in);
 
         NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
+        NaviQueryResult QueryPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter, const NaviPathQueryParam &param, NaviPath &out) const override;
         void BuildDebugGeometry(NaviDebugGeometry &out) const override;
         bool LoadData(const NaviMeshData &data) override;
         bool AddTile(const NaviMeshTilePayload &tile) override;
@@ -76,5 +79,8 @@ namespace sky::ai {
         // Per-instance state: worlds must not share allocator / mesh processor state.
         dtTileCacheAlloc           tileCacheAlloc;
         RecastTileCacheMeshProcessor meshProcessor;
+
+        // dtNavMeshQuery is not thread-safe; serialize access across worker queries.
+        mutable std::mutex queryMutex;
     };
 } // namespace sky::ai

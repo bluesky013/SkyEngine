@@ -16,6 +16,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace sky::ai {
 
@@ -34,6 +35,31 @@ namespace sky::ai {
         NaviMeshTilePayload        copy;
         std::atomic_bool           finished{false};
     };
+
+    // Asynchronous path query: runs QueryPath off the world tick; result is polled.
+    class NaviPathQueryTask : public Task {
+    public:
+        void Setup(const CounterPtr<NaviMesh> &inMesh, const Vector3 &inStart, const Vector3 &inEnd, const NaviQueryFilterPtr &inFilter);
+
+        const NaviPath &GetPath() const { return path; }
+        bool IsFinished() const { return finished.load(); }
+        bool IsCanceled() const { return canceled.load(); }
+        void Cancel() { canceled.store(true); }
+
+    protected:
+        bool DoWork() override;
+
+    private:
+        CounterPtr<NaviMesh> mesh;
+        Vector3              start;
+        Vector3              end;
+        NaviQueryFilterPtr   filter;
+        NaviPathQueryParam   param;
+        NaviPath             path;
+        std::atomic_bool     finished{false};
+        std::atomic_bool     canceled{false};
+    };
+    using NaviPathQueryTaskPtr = CounterPtr<NaviPathQueryTask>;
 
     class NavigationSystem : public IWorldSubSystem {
     public:
@@ -54,6 +80,12 @@ namespace sky::ai {
         void SetLoadBudget(uint32_t tilesPerTick) { loadBudgetPerTick = tilesPerTick; }
         uint32_t GetLoadedTileCount() const { return static_cast<uint32_t>(loadedTiles.size()); }
         uint32_t GetPendingLoadCount() const { return static_cast<uint32_t>(pendingLoads.size()); }
+
+        // Async path queries: budgeted submission, polled results, cancellation on mesh change.
+        NaviPathQueryTaskPtr RequestPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter);
+        void CancelPath(const NaviPathQueryTaskPtr &task);
+        void SetQueryBudget(uint32_t maxConcurrent) { queryBudget = maxConcurrent; }
+        uint32_t GetActiveQueryCount() const { return static_cast<uint32_t>(activeQueries.size()); }
 
     private:
         void OnAttachToWorld(World &world) override;
@@ -76,6 +108,9 @@ namespace sky::ai {
         float    loadRadius   = 64.f;
         float    unloadRadius = 96.f;
         uint32_t loadBudgetPerTick = 4;
+
+        std::vector<NaviPathQueryTaskPtr> activeQueries;
+        uint32_t                          queryBudget = 4;
     };
 
 } // namespace sky::ai

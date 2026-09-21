@@ -20,6 +20,7 @@ namespace sky::ai {
     struct NaviMeshData;
     struct NaviMeshBuildParams;
     struct NaviMeshTilePayload;
+    struct NaviPath;
 
     struct NaviAgentConfig {
         float height = 2.f;
@@ -66,6 +67,9 @@ namespace sky::ai {
         NaviOctree *GetOctree() const { return octree.get(); }
 
         virtual NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const = 0;
+
+        // Same as FindPath but returns the resulting points/flags.
+        virtual NaviQueryResult QueryPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter, const NaviPathQueryParam &param, NaviPath &out) const = 0;
 
         virtual void BuildDebugGeometry(NaviDebugGeometry &out) const = 0;
 
