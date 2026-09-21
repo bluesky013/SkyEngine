@@ -234,6 +234,77 @@ namespace sky::ai {
         }
     }
 
+    bool RecastNaviMesh::InitTileCache(const NaviMeshBuildParams &params)
+    {
+        tileCache = dtAllocTileCache();
+        if (tileCache == nullptr) {
+            return false;
+        }
+
+        dtTileCacheParams tcParams = {};
+        tcParams.cs = resolution.cellSize;
+        tcParams.ch = resolution.cellHeight;
+        tcParams.width  = resolution.cellSize > 0.f ? static_cast<int>(resolution.tileSize / resolution.cellSize) : 0;
+        tcParams.height = tcParams.width;
+        tcParams.maxSimplificationError = params.maxSimplificationError;
+        tcParams.walkableHeight = agentCfg.height;
+        tcParams.walkableRadius = agentCfg.radius;
+        tcParams.walkableClimb  = agentCfg.maxClimb;
+        tcParams.maxTiles       = RECAST_MAX_BUILD_TILES;
+        tcParams.maxObstacles   = RECAST_MAX_OBSTACLES;
+
+        if (dtStatusFailed(tileCache->init(&tcParams, &tileCacheAlloc, GetOrCreateCompressor(), &meshProcessor))) {
+            dtFreeTileCache(tileCache);
+            tileCache = nullptr;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool RecastNaviMesh::PrepareStreaming(const NaviMeshBuildParams &params)
+    {
+        ResetNavMesh();
+
+        agentCfg    = params.agent;
+        resolution  = params.resolution;
+        buildBounds = params.bounds;
+
+        RecastNaviMapConfig navConfig = {};
+        if (!BuildNavMesh(navConfig)) {
+            return false;
+        }
+
+        if (!InitTileCache(params)) {
+            ResetNavMesh();
+            return false;
+        }
+
+        BuildNavQuery();
+        return true;
+    }
+
+    bool RecastNaviMesh::AddTile(const NaviMeshTilePayload &tile)
+    {
+        if (navMesh == nullptr || tileCache == nullptr || tile.data.empty()) {
+            return false;
+        }
+
+        auto *buffer = reinterpret_cast<uint8_t *>(dtAlloc(tile.data.size(), DT_ALLOC_PERM));
+        if (buffer == nullptr) {
+            return false;
+        }
+        std::memcpy(buffer, tile.data.data(), tile.data.size());
+
+        if (dtStatusFailed(tileCache->addTile(buffer, static_cast<int>(tile.data.size()), DT_COMPRESSEDTILE_FREE_DATA, nullptr))) {
+            dtFree(buffer);
+            return false;
+        }
+
+        tileCache->buildNavMeshTilesAt(tile.tx, tile.ty, navMesh);
+        return true;
+    }
+
     bool RecastNaviMesh::LoadData(const NaviMeshData &data)
     {
         if (data.mode == NaviMeshExportMode::Full) {
@@ -244,62 +315,14 @@ namespace sky::ai {
             return false;
         }
 
-        ResetNavMesh();
-
-        agentCfg    = data.params.agent;
-        resolution  = data.params.resolution;
-        buildBounds = data.params.bounds;
-
-        RecastNaviMapConfig navConfig = {};
-        if (!BuildNavMesh(navConfig)) {
-            return false;
-        }
-
-        static dtTileCacheAlloc           GAllocator;
-        static RecastTileCacheMeshProcessor GMeshProcessor;
-
-        tileCache = dtAllocTileCache();
-        if (tileCache == nullptr) {
-            ResetNavMesh();
-            return false;
-        }
-
-        dtTileCacheParams tcParams = {};
-        tcParams.cs = resolution.cellSize;
-        tcParams.ch = resolution.cellHeight;
-        tcParams.width  = resolution.cellSize > 0.f ? static_cast<int>(resolution.tileSize / resolution.cellSize) : 0;
-        tcParams.height = tcParams.width;
-        tcParams.maxSimplificationError = data.params.maxSimplificationError;
-        tcParams.walkableHeight = agentCfg.height;
-        tcParams.walkableRadius = agentCfg.radius;
-        tcParams.walkableClimb  = agentCfg.maxClimb;
-        tcParams.maxTiles       = RECAST_MAX_BUILD_TILES;
-        tcParams.maxObstacles   = RECAST_MAX_OBSTACLES;
-
-        if (dtStatusFailed(tileCache->init(&tcParams, &GAllocator, GetOrCreateCompressor(), &GMeshProcessor))) {
-            ResetNavMesh();
+        if (!PrepareStreaming(data.params)) {
             return false;
         }
 
         for (const auto &tile : data.tiles) {
-            if (tile.data.empty()) {
-                continue;
-            }
-
-            auto *buffer = reinterpret_cast<uint8_t *>(dtAlloc(tile.data.size(), DT_ALLOC_PERM));
-            if (buffer == nullptr) {
-                continue;
-            }
-            std::memcpy(buffer, tile.data.data(), tile.data.size());
-
-            if (dtStatusFailed(tileCache->addTile(buffer, static_cast<int>(tile.data.size()), DT_COMPRESSEDTILE_FREE_DATA, nullptr))) {
-                dtFree(buffer);
-                continue;
-            }
-            tileCache->buildNavMeshTilesAt(tile.tx, tile.ty, navMesh);
+            AddTile(tile);
         }
 
-        BuildNavQuery();
         return true;
     }
 

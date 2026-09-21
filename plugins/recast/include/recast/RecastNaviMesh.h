@@ -8,6 +8,9 @@
 #include <navigation/NaviMesh.h>
 #include <recast/RecastConstants.h>
 #include <recast/RecastDebugDraw.h>
+#include <recast/RecastTileCacheMeshProcessor.h>
+
+#include <DetourTileCacheBuilder.h>
 
 class dtNavMesh;
 class dtNavMeshQuery;
@@ -58,13 +61,20 @@ namespace sky::ai {
         NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
         void BuildDebugGeometry(NaviDebugGeometry &out) const override;
         bool LoadData(const NaviMeshData &data) override;
+        bool AddTile(const NaviMeshTilePayload &tile) override;
         bool RemoveTile(const NaviMeshTileCoord &coord) override;
+        bool PrepareStreaming(const NaviMeshBuildParams &params) override;
 
     private:
         void ResetNavMesh();
+        bool InitTileCache(const NaviMeshBuildParams &params);
 
         dtNavMesh *navMesh = nullptr;
         dtNavMeshQuery* navQuery = nullptr;
         dtTileCache *tileCache = nullptr;
+
+        // Per-instance state: worlds must not share allocator / mesh processor state.
+        dtTileCacheAlloc           tileCacheAlloc;
+        RecastTileCacheMeshProcessor meshProcessor;
     };
 } // namespace sky::ai

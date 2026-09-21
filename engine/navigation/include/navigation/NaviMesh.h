@@ -18,6 +18,8 @@ namespace sky {
 namespace sky::ai {
     class NavigationSystem;
     struct NaviMeshData;
+    struct NaviMeshBuildParams;
+    struct NaviMeshTilePayload;
 
     struct NaviAgentConfig {
         float height = 2.f;
@@ -70,8 +72,14 @@ namespace sky::ai {
         // Restores the mesh from a persisted asset payload (Tiled: per-tile blobs; Full: single blob).
         virtual bool LoadData(const NaviMeshData &data) = 0;
 
+        // Adds a single persisted tile (streaming). Requires the mesh to be initialized with build params.
+        virtual bool AddTile(const NaviMeshTilePayload &tile) = 0;
+
         // Removes a single tile from both the nav mesh and its tile cache (incremental rebuild precondition).
         virtual bool RemoveTile(const NaviMeshTileCoord &coord) = 0;
+
+        // Initializes an empty mesh (nav mesh + tile cache) from build params so tiles can be streamed in.
+        virtual bool PrepareStreaming(const NaviMeshBuildParams &params) = 0;
 
     protected:
         friend class NavigationSystem;

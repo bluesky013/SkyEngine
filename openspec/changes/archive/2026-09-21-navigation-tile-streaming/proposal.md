@@ -1,5 +1,11 @@
 ## Why
 
+The tile manifest and Tiled runtime load exist (`navigation-mesh-asset-pipeline`) and the builder produces
+per-tile assets (`navigation-mesh-builder`), but the runtime still loads every tile at once and never unloads any.
+This change adds runtime tile paging: tiles load and unload by proximity so memory tracks the active area instead
+of the whole world.
+
+
 The recast backend builds per-tile, but there is no runtime tile lifecycle: `PrepareTileCache` adds every tile up
 front and `NavMesh` is never asked to unload one. Memory therefore grows with world size, large/open worlds are
 not viable, and the shared `static` allocator / mesh processor / compressor block per-world isolation. This change
