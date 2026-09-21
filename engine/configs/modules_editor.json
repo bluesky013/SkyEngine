@@ -31,6 +31,10 @@
     {
       "name": "CompressionModule",
       "dependencies": []
+    },
+    {
+      "name": "AudioModule",
+      "dependencies": []
     }
   ]
 }

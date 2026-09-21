@@ -145,6 +145,15 @@
 			"header_only": true
 		},
 		{
+			"name": "miniaudio",
+			"url": "https://github.com/mackron/miniaudio.git",
+			"tag": "0.11.25",
+			"header_only": false,
+			"options": {
+				"MINIAUDIO_NO_JACK": "ON"
+			}
+		},
+		{
 			"name": "googletest",
 			"url": "https://github.com/google/googletest.git",
 			"tag": "v1.17.0",

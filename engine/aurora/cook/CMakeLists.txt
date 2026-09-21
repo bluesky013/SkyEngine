@@ -5,6 +5,7 @@ sky_add_library(TARGET Aurora.Cook SHARED
         module/AuroraCookModule.cpp
     LINK_LIBS
         AuroraCook.Static
+        AudioBuilder.Static
     )
 sky_add_dependency(TARGET Aurora.Cook DEPENDENCIES Launcher Editor)
 

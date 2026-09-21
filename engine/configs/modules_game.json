@@ -5,6 +5,10 @@
       "dependencies": [
         "AuroraRender"
       ]
+    },
+    {
+      "name": "AudioModule",
+      "dependencies": []
     }
   ]
 }

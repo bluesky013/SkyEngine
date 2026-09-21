@@ -56,6 +56,12 @@
             "enabled": true
         },
         {
+            "name": "audio",
+            "dir": "audio",
+            "cmake_var": "SKY_BUILD_AUDIO",
+            "enabled": true
+        },
+        {
             "name": "console",
             "dir": "console",
             "cmake_var": "SKY_BUILD_CONSOLE",

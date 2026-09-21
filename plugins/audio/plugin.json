@@ -1,0 +1,8 @@
+{
+    "targets": [
+        {
+            "name": "AudioModule",
+            "dependencies": ["Launcher", "Editor"]
+        }
+    ]
+}

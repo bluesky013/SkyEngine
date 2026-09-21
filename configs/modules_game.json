@@ -9,6 +9,10 @@
       "dependencies": [
         "SkyRender"
       ]
+    },
+    {
+      "name": "AudioModule",
+      "dependencies": []
     }
   ]
 }
