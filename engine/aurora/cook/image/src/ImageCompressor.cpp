@@ -122,7 +122,7 @@ namespace sky::aurora::cook {
             }
 
             astcenc_context *context = nullptr;
-            err = astcenc_context_alloc(&config, 1, &context, nullptr);
+            err = astcenc_context_alloc(&config, 1, &context);
             if (err != ASTCENC_SUCCESS) {
                 LOG_E(TAG, "astcenc_context_alloc failed: %s", astcenc_get_error_string(err));
                 return;
