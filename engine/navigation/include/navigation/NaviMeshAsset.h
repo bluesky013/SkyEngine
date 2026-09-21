@@ -6,12 +6,16 @@
 
 #include <navigation/NaviMesh.h>
 
+#include <framework/asset/Asset.h>
+
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
+    class SerializationContext;
 } // namespace sky
 
 namespace sky::ai {
@@ -47,6 +51,23 @@ namespace sky::ai {
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
+
+        static void Reflect(SerializationContext *context);
     };
 
+    using NaviMeshAssetPtr = std::shared_ptr<Asset<NaviMesh>>;
+
+    CounterPtr<NaviMesh> CreateNaviMeshFromAsset(const NaviMeshAssetPtr &asset);
+
 } // namespace sky::ai
+
+namespace sky {
+
+    template <>
+    struct AssetTraits<ai::NaviMesh> {
+        using DataType                                = ai::NaviMeshData;
+        static constexpr std::string_view ASSET_TYPE  = "NaviMesh";
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+    };
+
+} // namespace sky

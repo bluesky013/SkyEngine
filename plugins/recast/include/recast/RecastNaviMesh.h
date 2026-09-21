@@ -52,9 +52,13 @@ namespace sky::ai {
 
         dtNavMesh* GetNavMesh() const { return navMesh; }
 
+        bool Serialize(std::vector<uint8_t> &out) const;
+        bool Deserialize(const std::vector<uint8_t> &in);
+
         NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
         void BuildDebugGeometry(NaviDebugGeometry &out) const override;
         bool LoadData(const NaviMeshData &data) override;
+        bool RemoveTile(const NaviMeshTileCoord &coord) override;
 
     private:
         void ResetNavMesh();

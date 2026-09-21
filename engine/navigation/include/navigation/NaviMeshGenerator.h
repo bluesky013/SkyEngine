@@ -9,6 +9,8 @@
 #include <navigation/NaviMeshAsset.h>
 #include <framework/world/World.h>
 
+#include <vector>
+
 namespace sky::ai {
 
     class NaviMeshGenerator : public Task {
@@ -22,6 +24,17 @@ namespace sky::ai {
         // without touching backend types.
         virtual NaviMeshBuildParams GetBuildParams() const = 0;
         virtual void CollectTiles(NaviMeshData &out) const = 0;
+
+        void SetExportMode(NaviMeshExportMode mode) { exportMode = mode; }
+        NaviMeshExportMode GetExportMode() const { return exportMode; }
+
+        // Restricts the build to a subset of tiles (incremental rebuild); empty means "all tiles".
+        void SetRebuildTiles(const std::vector<NaviMeshTileCoord> &tiles) { rebuildTiles = tiles; }
+        const std::vector<NaviMeshTileCoord> &GetRebuildTiles() const { return rebuildTiles; }
+
+    protected:
+        NaviMeshExportMode               exportMode = NaviMeshExportMode::Tiled;
+        std::vector<NaviMeshTileCoord>   rebuildTiles;
     };
 
 } // namespace sky::ai

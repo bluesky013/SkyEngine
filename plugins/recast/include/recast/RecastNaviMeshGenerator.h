@@ -23,6 +23,7 @@ namespace sky::ai {
         void CollectTiles(NaviMeshData &out) const override;
 
     private:
+        void SnapshotTiles(NaviMeshData &out) const;
         void GatherGeometry(NaviOctree* octree);
         void PrepareTiles(std::vector<RecastTile> &tiles) const;
         bool PrepareTileCache();
@@ -38,6 +39,9 @@ namespace sky::ai {
         std::vector<CounterPtr<RecastTileGenerator>> tileGenerators;
 
         dtTileCache *tileCache = nullptr;
+
+        // Snapshot of tile payloads taken before ownership is transferred to the tile cache.
+        NaviMeshData exportData;
 
         rcConfig config = {};
     };

@@ -35,7 +35,6 @@ namespace sky::ai {
 
         auto *navSys = static_cast<NavigationSystem*>(world->GetSubSystem(Name(NavigationSystem::NAME.data())));
         navMesh = static_cast<RecastNaviMesh*>(navSys->GetNaviMesh().Get());
-        navMesh->SetBounds({{-50.f, -50.f, -50.f}, {50.f, 50.f, 50.f}});
         navMesh->PrepareForBuild();
 
         const auto &resolution = navMesh->GetResolution();
@@ -114,6 +113,14 @@ namespace sky::ai {
 
     void RecastNaviMeshGenerator::PrepareTiles(std::vector<RecastTile> &tiles) const
     {
+        if (!rebuildTiles.empty()) {
+            tiles.reserve(rebuildTiles.size());
+            for (const auto &coord : rebuildTiles) {
+                tiles.emplace_back(RecastTile{coord.x, coord.y});
+            }
+            return;
+        }
+
         const auto &min = config.bmin;
         const auto &max = config.bmax;
 
@@ -239,9 +246,18 @@ namespace sky::ai {
 
     void RecastNaviMeshGenerator::CollectTiles(NaviMeshData &out) const
     {
-        out.mode   = NaviMeshExportMode::Tiled;
+        out = exportData;
+    }
+
+    void RecastNaviMeshGenerator::SnapshotTiles(NaviMeshData &out) const
+    {
+        out.mode   = exportMode;
         out.params = GetBuildParams();
         out.tiles.clear();
+
+        if (exportMode == NaviMeshExportMode::Full) {
+            return;
+        }
 
         for (const auto &generator : tileGenerators) {
             const auto &coord    = generator->GetParam().coord;
@@ -265,6 +281,9 @@ namespace sky::ai {
 
     bool RecastNaviMeshGenerator::DoWork()
     {
+        // Capture the payloads before the tile cache takes ownership of them.
+        SnapshotTiles(exportData);
+
         if (!PrepareTileCache()) {
             return false;
         }
@@ -272,6 +291,12 @@ namespace sky::ai {
         if (!BuildNavMesh()) {
             return false;
         }
+
+        if (exportMode == NaviMeshExportMode::Full) {
+            exportData.mode = NaviMeshExportMode::Full;
+            navMesh->Serialize(exportData.fullData);
+        }
+
         return true;
     }
 } // namespace sky::ai

@@ -91,6 +91,131 @@ namespace sky::ai {
         RecastBuildNavMeshGeometry(*navMesh, out);
     }
 
+    namespace {
+        struct NavMeshSetHeader {
+            int32_t        version;
+            int32_t        tileCount;
+            dtNavMeshParams params;
+        };
+
+        struct NavMeshTileHeader {
+            dtTileRef tileRef;
+            int32_t   dataSize;
+        };
+
+        constexpr int32_t NAVMESH_SET_VERSION = 1;
+    } // namespace
+
+    bool RecastNaviMesh::Serialize(std::vector<uint8_t> &out) const
+    {
+        if (navMesh == nullptr) {
+            return false;
+        }
+
+        const dtNavMeshParams *params = navMesh->getParams();
+        if (params == nullptr) {
+            return false;
+        }
+
+        const dtNavMesh *mesh = navMesh;
+
+        NavMeshSetHeader header;
+        header.version   = NAVMESH_SET_VERSION;
+        header.tileCount = 0;
+        header.params    = *params;
+
+        for (int i = 0; i < mesh->getMaxTiles(); ++i) {
+            const dtMeshTile *tile = mesh->getTile(i);
+            if (tile != nullptr && tile->header != nullptr) {
+                header.tileCount++;
+            }
+        }
+
+        out.clear();
+        const auto append = [&out](const void *data, size_t size) {
+            const auto *bytes = static_cast<const uint8_t *>(data);
+            out.insert(out.end(), bytes, bytes + size);
+        };
+
+        append(&header, sizeof(header));
+
+        for (int i = 0; i < mesh->getMaxTiles(); ++i) {
+            const dtMeshTile *tile = mesh->getTile(i);
+            if (tile == nullptr || tile->header == nullptr) {
+                continue;
+            }
+
+            NavMeshTileHeader tileHeader;
+            tileHeader.tileRef  = mesh->getTileRef(tile);
+            tileHeader.dataSize = static_cast<int32_t>(tile->dataSize);
+            append(&tileHeader, sizeof(tileHeader));
+            append(tile->data, tile->dataSize);
+        }
+
+        return true;
+    }
+
+    bool RecastNaviMesh::Deserialize(const std::vector<uint8_t> &in)
+    {
+        ResetNavMesh();
+
+        if (in.size() < sizeof(NavMeshSetHeader)) {
+            return false;
+        }
+
+        size_t offset = 0;
+        NavMeshSetHeader header;
+        std::memcpy(&header, in.data(), sizeof(header));
+        offset += sizeof(header);
+
+        if (header.version != NAVMESH_SET_VERSION) {
+            return false;
+        }
+
+        navMesh = dtAllocNavMesh();
+        if (navMesh == nullptr) {
+            return false;
+        }
+
+        if (dtStatusFailed(navMesh->init(&header.params))) {
+            ResetNavMesh();
+            return false;
+        }
+
+        for (int32_t i = 0; i < header.tileCount; ++i) {
+            if (offset + sizeof(NavMeshTileHeader) > in.size()) {
+                ResetNavMesh();
+                return false;
+            }
+
+            NavMeshTileHeader tileHeader;
+            std::memcpy(&tileHeader, in.data() + offset, sizeof(tileHeader));
+            offset += sizeof(tileHeader);
+
+            if (tileHeader.dataSize <= 0 || offset + tileHeader.dataSize > in.size()) {
+                ResetNavMesh();
+                return false;
+            }
+
+            auto *data = static_cast<uint8_t *>(dtAlloc(tileHeader.dataSize, DT_ALLOC_PERM));
+            if (data == nullptr) {
+                ResetNavMesh();
+                return false;
+            }
+            std::memcpy(data, in.data() + offset, tileHeader.dataSize);
+            offset += tileHeader.dataSize;
+
+            if (dtStatusFailed(navMesh->addTile(data, tileHeader.dataSize, DT_TILE_FREE_DATA, tileHeader.tileRef, 0))) {
+                dtFree(data);
+                ResetNavMesh();
+                return false;
+            }
+        }
+
+        BuildNavQuery();
+        return true;
+    }
+
     void RecastNaviMesh::ResetNavMesh()
     {
         if (tileCache != nullptr) {
@@ -111,6 +236,10 @@ namespace sky::ai {
 
     bool RecastNaviMesh::LoadData(const NaviMeshData &data)
     {
+        if (data.mode == NaviMeshExportMode::Full) {
+            return Deserialize(data.fullData);
+        }
+
         if (data.mode != NaviMeshExportMode::Tiled) {
             return false;
         }
@@ -172,6 +301,31 @@ namespace sky::ai {
 
         BuildNavQuery();
         return true;
+    }
+
+    bool RecastNaviMesh::RemoveTile(const NaviMeshTileCoord &coord)
+    {
+        bool removed = false;
+
+        if (tileCache != nullptr) {
+            static constexpr int MAX_LAYERS = 16;
+            dtCompressedTileRef  refs[MAX_LAYERS] = {};
+            const int            count = tileCache->getTilesAt(coord.x, coord.y, refs, MAX_LAYERS);
+            for (int i = 0; i < count; ++i) {
+                tileCache->removeTile(refs[i], nullptr, nullptr);
+                removed = true;
+            }
+        }
+
+        if (navMesh != nullptr) {
+            const dtTileRef navRef = navMesh->getTileRefAt(coord.x, coord.y, 0);
+            if (navRef != 0) {
+                navMesh->removeTile(navRef, nullptr, nullptr);
+                removed = true;
+            }
+        }
+
+        return removed;
     }
 
     NaviQueryResult RecastNaviMesh::FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const

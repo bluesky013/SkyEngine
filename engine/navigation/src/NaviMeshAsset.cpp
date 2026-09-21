@@ -3,7 +3,10 @@
 //
 
 #include <navigation/NaviMeshAsset.h>
+#include <navigation/NaviMeshFactory.h>
+
 #include <framework/serialization/BinaryArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::ai {
 
@@ -104,6 +107,33 @@ namespace sky::ai {
         }
 
         LoadRaw(archive, fullData);
+    }
+
+    void NaviMeshData::Reflect(SerializationContext *context)
+    {
+        context->Register<NaviMeshData>("NaviMeshData")
+            .BinLoad<&NaviMeshData::Load>()
+            .BinSave<&NaviMeshData::Save>();
+    }
+
+    CounterPtr<NaviMesh> CreateNaviMeshFromAsset(const NaviMeshAssetPtr &asset)
+    {
+        if (asset == nullptr) {
+            return {};
+        }
+
+        return asset->GetOrCreateResource([](Asset<NaviMesh> &inAsset) -> CounterPtr<NaviMesh> {
+            auto mesh = NaviMeshFactory::Get()->CreateNaviMesh();
+            if (mesh == nullptr) {
+                return {};
+            }
+
+            if (!mesh->LoadData(inAsset.Data())) {
+                return {};
+            }
+
+            return mesh;
+        });
     }
 
 } // namespace sky::ai

@@ -36,6 +36,11 @@ namespace sky::ai {
 
     };
 
+    struct NaviMeshTileCoord {
+        int32_t x = 0;
+        int32_t y = 0;
+    };
+
     enum class NaviQueryResult {
         SUCCESS = 0,
         FAILED
@@ -48,6 +53,9 @@ namespace sky::ai {
 
         const NaviAgentConfig &GetAgentConfig() const { return agentCfg; }
         const NaviMeshResolution &GetResolution() const { return resolution; }
+
+        void SetAgentConfig(const NaviAgentConfig &cfg) { agentCfg = cfg; }
+        void SetResolution(const NaviMeshResolution &res) { resolution = res; }
 
         void SetBounds(const AABB &bounds) { buildBounds = bounds; }
         const AABB &GetBounds() const { return buildBounds; }
@@ -62,6 +70,9 @@ namespace sky::ai {
         // Restores the mesh from a persisted asset payload (Tiled: per-tile blobs; Full: single blob).
         virtual bool LoadData(const NaviMeshData &data) = 0;
 
+        // Removes a single tile from both the nav mesh and its tile cache (incremental rebuild precondition).
+        virtual bool RemoveTile(const NaviMeshTileCoord &coord) = 0;
+
     protected:
         friend class NavigationSystem;
         virtual void OnAttachToWorld(World &world) {}
@@ -72,7 +83,7 @@ namespace sky::ai {
         NaviAgentConfig    agentCfg;
         NaviMeshResolution resolution;
 
-        AABB buildBounds;
+        AABB buildBounds = {{-50.f, -50.f, -50.f}, {50.f, 50.f, 50.f}};
         std::unique_ptr<NaviOctree> octree;
     };
 

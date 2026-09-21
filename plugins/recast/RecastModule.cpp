@@ -1,7 +1,10 @@
 //
 // Created by blues on 2024/9/1.
 //
+#include <framework/asset/AssetManager.h>
 #include <framework/interface/IModule.h>
+#include <framework/serialization/SerializationContext.h>
+#include <navigation/NaviMeshAsset.h>
 #include <navigation/NaviMeshFactory.h>
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastNaviMeshGenerator.h>
@@ -31,6 +34,8 @@ namespace sky::ai {
 
         bool Init(const StartArguments &args) override
         {
+            NaviMeshData::Reflect(SerializationContext::Get());
+            AssetManager::Get()->RegisterAssetHandler<NaviMesh>();
             return true;
         }
 

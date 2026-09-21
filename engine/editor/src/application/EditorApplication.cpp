@@ -172,6 +172,7 @@ namespace sky::editor {
         modules.emplace("SkyRender.Editor", ModuleInfo{"SkyRender.Editor", {"ShaderCompiler"}});
         modules.emplace("SkyRender.Builder", ModuleInfo{"SkyRender.Builder", {"SkyRender.Editor"}});
         modules.emplace("SkyAudio.Builder", ModuleInfo{"SkyAudio.Builder", {}});
+        modules.emplace("SkyNavigation.Builder", ModuleInfo{"SkyNavigation.Builder", {}});
 
         LoadFromJson(modules);
 
