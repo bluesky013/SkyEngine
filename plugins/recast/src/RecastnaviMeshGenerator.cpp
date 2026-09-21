@@ -7,7 +7,6 @@
 #include <recast/RecastConstants.h>
 #include <recast/RecastLz4Compressor.h>
 #include <recast/RecastTileCacheMeshProcessor.h>
-#include <recast/RecastDebugDraw.h>
 #include <recast/RecastQueryFilter.h>
 
 #include <navigation/NavigationSystem.h>
@@ -21,6 +20,14 @@
 namespace sky::ai {
     static RecastTileCacheMeshProcessor GMeshProcessor;
     static dtTileCacheAlloc GAllocator;
+
+    RecastNaviMeshGenerator::~RecastNaviMeshGenerator()
+    {
+        if (tileCache != nullptr) {
+            dtFreeTileCache(tileCache);
+            tileCache = nullptr;
+        }
+    }
 
     void RecastNaviMeshGenerator::Setup(const WorldPtr &inWorld)
     {
@@ -117,7 +124,7 @@ namespace sky::ai {
 
         const int ts = config.tileSize;
         const int tw = (gw + ts - 1) / ts;
-        const int th = (gw + ts - 1) / ts;
+        const int th = (gh + ts - 1) / ts;
 
         const int sx = static_cast<int>(std::floor(min[0] / (static_cast<float>(config.tileSize) * config.cs)));
         const int sy = static_cast<int>(std::floor(min[2] / (static_cast<float>(config.tileSize) * config.cs)));
@@ -159,7 +166,6 @@ namespace sky::ai {
             tileCache->buildNavMeshTilesAt(param.coord.x,param.coord.y, navMesh->GetNavMesh());
         }
 
-        navMesh->BuildDebugDraw();
         navMesh->BuildNavQuery();
         return true;
     }
@@ -189,27 +195,70 @@ namespace sky::ai {
 
         auto status = tileCache->init(&tcParams, &GAllocator, GetOrCreateCompressor(), &GMeshProcessor);
         if (dtStatusFailed(status)) {
+            dtFreeTileCache(tileCache);
+            tileCache = nullptr;
             return false;
         }
 
         for (auto &generator : tileGenerators) {
             auto &tileData = generator->GetData();
             for (auto &tile : tileData) {
-                if (tile.navData->size == 0) {
+                if (tile.navData == nullptr || tile.navData->size == 0) {
                     continue;
                 }
 
                 status = tileCache->addTile(tile.navData->data, static_cast<int32_t>(tile.navData->size), DT_COMPRESSEDTILE_FREE_DATA, nullptr);
-                if (dtStatusFailed(status))
-                {
+                if (dtStatusFailed(status)) {
+                    // Failure leaves ownership with us: free once and detach from the owner object.
                     dtFree(tile.navData->data);
-                    tile.navData = nullptr;
-                    continue;
+                    tile.navData->data = nullptr;
+                } else {
+                    // Success transfers ownership to the tile cache; detach so we do not double free.
+                    tile.navData->data = nullptr;
                 }
+                tile.navData = nullptr;
             }
         }
 
         return true;
+    }
+
+    NaviMeshBuildParams RecastNaviMeshGenerator::GetBuildParams() const
+    {
+        NaviMeshBuildParams params;
+        params.agent                  = navMesh->GetAgentConfig();
+        params.resolution.cellSize    = config.cs;
+        params.resolution.cellHeight  = config.ch;
+        params.resolution.tileSize    = static_cast<float>(config.tileSize) * config.cs;
+        params.bounds                 = navMesh->GetBounds();
+        params.version                = 1;
+        return params;
+    }
+
+    void RecastNaviMeshGenerator::CollectTiles(NaviMeshData &out) const
+    {
+        out.mode   = NaviMeshExportMode::Tiled;
+        out.params = GetBuildParams();
+        out.tiles.clear();
+
+        for (const auto &generator : tileGenerators) {
+            const auto &coord    = generator->GetParam().coord;
+            const auto &tileData = generator->GetData();
+
+            for (uint32_t layer = 0; layer < static_cast<uint32_t>(tileData.size()); ++layer) {
+                const auto &tile = tileData[layer];
+                if (tile.navData == nullptr || tile.navData->size == 0) {
+                    continue;
+                }
+
+                NaviMeshTilePayload payload;
+                payload.tx    = coord.x;
+                payload.ty    = coord.y;
+                payload.layer = layer;
+                payload.data.assign(tile.navData->data, tile.navData->data + tile.navData->size);
+                out.tiles.emplace_back(std::move(payload));
+            }
+        }
     }
 
     bool RecastNaviMeshGenerator::DoWork()

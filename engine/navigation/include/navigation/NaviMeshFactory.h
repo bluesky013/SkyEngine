@@ -27,6 +27,7 @@ namespace sky::ai {
             virtual NaviMeshGenerator* CreateGenerator() = 0;
         };
         void Register(Impl* impl);
+        void UnRegister();
 
     private:
         void Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const override;

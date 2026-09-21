@@ -15,9 +15,13 @@ namespace sky::ai {
     class RecastNaviMeshGenerator : public NaviMeshGenerator {
     public:
         RecastNaviMeshGenerator() = default;
-        ~RecastNaviMeshGenerator() override = default;
+        ~RecastNaviMeshGenerator() override;
 
         void Setup(const WorldPtr &world) override;
+
+        NaviMeshBuildParams GetBuildParams() const override;
+        void CollectTiles(NaviMeshData &out) const override;
+
     private:
         void GatherGeometry(NaviOctree* octree);
         void PrepareTiles(std::vector<RecastTile> &tiles) const;

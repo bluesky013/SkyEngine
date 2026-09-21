@@ -31,17 +31,18 @@ namespace sky::ai {
 
         bool Init(const StartArguments &args) override
         {
-            NaviMeshFactory::Get()->Register(new RecastNaviMapFactory());
             return true;
         }
 
         void Start() override
         {
+            NaviMeshFactory::Get()->Register(new RecastNaviMapFactory());
         }
 
         void Shutdown() override
         {
+            NaviMeshFactory::Get()->UnRegister();
         }
     };
-} // namespace sky::phy
+} // namespace sky::ai
 REGISTER_MODULE(sky::ai::RecastModule)

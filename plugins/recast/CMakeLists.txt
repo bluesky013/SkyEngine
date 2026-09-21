@@ -16,9 +16,22 @@ sky_add_library(TARGET RecastNavigation SHARED
         include
     LINK_LIBS
         Navigation
-        RenderAdaptor
         Physics
         3rdParty::recast
 )
 
 sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
+
+if (SKY_BUILD_TEST)
+    file(GLOB_RECURSE TEST_FILES test/*)
+    sky_add_test(TARGET RecastModuleTest
+        SOURCES
+            ${TEST_FILES}
+        LIBS
+            Navigation
+            3rdParty::googletest
+        WORKING_DIR
+            $<TARGET_FILE_DIR:RecastNavigation>
+        )
+    add_dependencies(RecastModuleTest RecastNavigation)
+endif ()

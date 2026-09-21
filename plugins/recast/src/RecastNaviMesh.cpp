@@ -5,15 +5,10 @@
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastConstants.h>
 #include <recast/RecastQueryFilter.h>
-#include <navigation/NavigationSystem.h>
-
-#include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/adaptor/RenderSceneProxy.h>
+#include <recast/RecastDebugDraw.h>
 
 #include <DetourNavMesh.h>
 #include <DetourNavMeshQuery.h>
-
 
 namespace sky::ai {
 
@@ -28,20 +23,7 @@ namespace sky::ai {
     {
     }
 
-    struct NaviPrimitive : public RenderPrimitive {
-
-    };
-
-    RecastNaviMesh::RecastNaviMesh()
-    {
-        primitive = std::make_unique<NaviPrimitive>();
-        debugDraw = std::make_unique<DebugRenderer>();
-
-        auto techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
-        techAsset->BlockUntilLoaded();
-        auto debugTech = CreateTechniqueFromAsset(techAsset);
-        SetTechnique(debugTech);
-    }
+    RecastNaviMesh::RecastNaviMesh() = default;
 
     RecastNaviMesh::~RecastNaviMesh()
     {
@@ -51,6 +33,9 @@ namespace sky::ai {
     bool RecastNaviMesh::BuildNavMesh(const RecastNaviMapConfig &config)
     {
         navMesh = dtAllocNavMesh();
+        if (navMesh == nullptr) {
+            return false;
+        }
 
         dtNavMeshParams params = {};
         params.tileWidth  = resolution.tileSize;
@@ -61,6 +46,8 @@ namespace sky::ai {
         auto status = navMesh->init(&params);
         if (dtStatusFailed(status)) {
             DebugDetourStatusDetail(status);
+            dtFreeNavMesh(navMesh);
+            navMesh = nullptr;
             return false;
         }
 
@@ -69,82 +56,77 @@ namespace sky::ai {
 
     void RecastNaviMesh::BuildNavQuery()
     {
+        if (navMesh == nullptr) {
+            return;
+        }
+
         navQuery = dtAllocNavMeshQuery();
+        if (navQuery == nullptr) {
+            return;
+        }
+
         auto status = navQuery->init(navMesh, RECAST_MAX_QUERY_NODES);
         if (dtStatusFailed(status)) {
             DebugDetourStatusDetail(status);
+            dtFreeNavMeshQuery(navQuery);
+            navQuery = nullptr;
         }
     }
 
-    void RecastNaviMesh::SetTechnique(const RDGfxTechPtr &tech)
+    void RecastNaviMesh::BuildDebugGeometry(NaviDebugGeometry &out) const
     {
-        // RenderBatch batch = {tech};
-        // batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
-        // primitive->sections.clear();
-        // primitive->sections.emplace_back();
-        // primitive->sections[0].batches.emplace_back(batch);
-    }
+        if (navMesh == nullptr) {
+            out.vertices.clear();
+            return;
+        }
 
-    void RecastNaviMesh::BuildDebugDraw()
-    {
-        debugDraw->Reset();
-        RecastDrawNavMeshPolys(*navMesh, *debugDraw);
-
-        debugDraw->Render(primitive.get());
+        RecastBuildNavMeshGeometry(*navMesh, out);
     }
 
     void RecastNaviMesh::ResetNavMesh()
     {
-        if (navMesh != nullptr) {
-            dtFreeNavMesh(navMesh);
-        }
-
         if (navQuery != nullptr) {
             dtFreeNavMeshQuery(navQuery);
+            navQuery = nullptr;
         }
-    }
 
-    void RecastNaviMesh::OnAttachToWorld(World &world)
-    {
-        if (debugDraw) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
-            renderScene->AddPrimitive(primitive.get());
-        }
-    }
-
-    void RecastNaviMesh::OnDetachFromWorld(World &world)
-    {
-        if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
-            renderScene->RemovePrimitive(primitive.get());
+        if (navMesh != nullptr) {
+            dtFreeNavMesh(navMesh);
+            navMesh = nullptr;
         }
     }
 
     NaviQueryResult RecastNaviMesh::FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const
     {
-        auto *rcFilter = static_cast<RecastQueryFilter*>(filter.Get());
-
-        dtPolyRef startPoly = 0;
-        dtPolyRef endPoly = 0;
-
-        Vector3 rcStart = {};
-        Vector3 rcEnd = {};
-
-        static const float ext[] = {5.f, 5.f, 5.f};
-        navQuery->findNearestPoly(start.v, ext, rcFilter->GetFilter(), &startPoly, rcStart.v);
-        if (startPoly == 0) {
+        if (navQuery == nullptr || navMesh == nullptr || filter == nullptr) {
             return NaviQueryResult::FAILED;
         }
 
-        navQuery->findNearestPoly(end.v, ext, rcFilter->GetFilter(), &endPoly, rcEnd.v);
-        if (startPoly == 0) {
+        auto *rcFilter = static_cast<RecastQueryFilter *>(filter.Get());
+        if (rcFilter == nullptr || rcFilter->GetFilter() == nullptr) {
+            return NaviQueryResult::FAILED;
+        }
+
+        static const float ext[] = {5.f, 5.f, 5.f};
+
+        dtPolyRef startPoly = 0;
+        dtPolyRef endPoly   = 0;
+
+        Vector3 rcStart = {};
+        Vector3 rcEnd   = {};
+
+        if (dtStatusFailed(navQuery->findNearestPoly(start.v, ext, rcFilter->GetFilter(), &startPoly, rcStart.v)) || startPoly == 0) {
+            return NaviQueryResult::FAILED;
+        }
+
+        if (dtStatusFailed(navQuery->findNearestPoly(end.v, ext, rcFilter->GetFilter(), &endPoly, rcEnd.v)) || endPoly == 0) {
             return NaviQueryResult::FAILED;
         }
 
         std::vector<dtPolyRef> queryPath(RECAST_MAX_QUERY_PATH);
         int pathCount = 0;
-        navQuery->findPath(startPoly, endPoly, rcStart.v, rcEnd.v, rcFilter->GetFilter(), queryPath.data(), &pathCount, RECAST_MAX_QUERY_PATH);
-        if (pathCount == 0) {
+        if (dtStatusFailed(navQuery->findPath(startPoly, endPoly, rcStart.v, rcEnd.v, rcFilter->GetFilter(),
+                                              queryPath.data(), &pathCount, RECAST_MAX_QUERY_PATH)) || pathCount == 0) {
             return NaviQueryResult::FAILED;
         }
         queryPath.resize(pathCount);
@@ -152,10 +134,15 @@ namespace sky::ai {
         std::vector<Vector3>   straightPath(RECAST_MAX_QUERY_PATH * 3);
         std::vector<uint8_t>   straightPathFlags(RECAST_MAX_QUERY_PATH);
         std::vector<dtPolyRef> straightPathPolys(RECAST_MAX_QUERY_PATH);
-        navQuery->findStraightPath(start.v, end.v, queryPath.data(), pathCount, reinterpret_cast<float *>(straightPath.data()),
-                                   straightPathFlags.data(), straightPathPolys.data(), &pathCount, RECAST_MAX_QUERY_PATH);
-
+        int straightCount = 0;
+        if (dtStatusFailed(navQuery->findStraightPath(start.v, end.v, queryPath.data(), pathCount,
+                                                      reinterpret_cast<float *>(straightPath.data()),
+                                                      straightPathFlags.data(), straightPathPolys.data(), &straightCount,
+                                                      RECAST_MAX_QUERY_PATH)) || straightCount == 0) {
+            return NaviQueryResult::FAILED;
+        }
 
         return NaviQueryResult::SUCCESS;
     }
+
 } // namespace sky::ai

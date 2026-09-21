@@ -6,6 +6,7 @@
 
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/AABB.h>
+#include <navigation/NaviDebugGeometry.h>
 #include <navigation/NavigationOctree.h>
 #include <navigation/NaviQueryFilter.h>
 #include <memory>
@@ -54,6 +55,8 @@ namespace sky::ai {
         NaviOctree *GetOctree() const { return octree.get(); }
 
         virtual NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const = 0;
+
+        virtual void BuildDebugGeometry(NaviDebugGeometry &out) const = 0;
 
     protected:
         friend class NavigationSystem;

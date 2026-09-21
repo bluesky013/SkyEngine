@@ -4,13 +4,11 @@
 
 #pragma once
 
-#include <core/template/ReferenceObject.h>
-#include <render/debug/DebugRenderer.h>
-#include <DebugDraw.h>
+#include <navigation/NaviDebugGeometry.h>
 
 class dtNavMesh;
 
 namespace sky::ai {
-    void RecastDrawNavMeshPolys(const dtNavMesh& naviMesh, DebugRenderer& debugDraw);
+    void RecastBuildNavMeshGeometry(const dtNavMesh &navMesh, NaviDebugGeometry &out);
 
-} // namespace sky
+} // namespace sky::ai

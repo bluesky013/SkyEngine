@@ -36,6 +36,11 @@ namespace sky::ai {
         factory.reset(impl);
     }
 
+    void NaviMeshFactory::UnRegister()
+    {
+        factory.reset();
+    }
+
     CounterPtr<NaviMesh> NaviMeshFactory::CreateNaviMesh()
     {
         return factory ? factory->CreateNaviMesh() : nullptr;

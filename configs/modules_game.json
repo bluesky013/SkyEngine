@@ -13,6 +13,10 @@
     {
       "name": "AudioModule",
       "dependencies": []
+    },
+    {
+      "name": "RecastNavigation",
+      "dependencies": []
     }
   ]
 }

@@ -3,53 +3,64 @@
 //
 
 #include <recast/RecastDebugDraw.h>
+
+#include <DebugDraw.h>
 #include <DetourNavMesh.h>
 
 namespace sky::ai {
-    static void DrawNavMeshPoly(const dtNavMesh& mesh, dtPolyRef ref, const uint32_t color, DebugRenderer &dd)
-    {
-        const dtMeshTile* tile = nullptr;
-        const dtPoly* poly = nullptr;
-        if (dtStatusFailed(mesh.getTileAndPolyByRef(ref, &tile, &poly))) {
-            return;
-        }
-        const auto c = duTransCol(color, 64);
-        const auto ip = (unsigned int)(poly - tile->polys);
 
-        const dtPolyDetail* pd = &tile->detailMeshes[ip];
-
-        dd.SetColor(Color32(c));
-        for (int i = 0; i < pd->triCount; ++i)
+    namespace {
+        Vector4 ToColor(uint32_t color)
         {
-            const auto* t = &tile->detailTris[(pd->triBase+i)*4];
-
-            Vector3 triangle[3];
-            for (int j = 0; j < 3; ++j)
-            {
-                auto *vtx = t[j] < poly->vertCount ?
-                    &tile->verts[poly->verts[t[j]] * 3] :
-                    &tile->detailVerts[(pd->vertBase + t[j]-poly->vertCount) * 3];
-
-                triangle[j].x = vtx[0];
-                triangle[j].y = vtx[1];
-                triangle[j].z = vtx[2];
-            }
-            dd.DrawTriangle(triangle[0], triangle[1], triangle[2]);
+            return Vector4(
+                static_cast<float>(color & 0xff) / 255.f,
+                static_cast<float>((color >> 8) & 0xff) / 255.f,
+                static_cast<float>((color >> 16) & 0xff) / 255.f,
+                static_cast<float>((color >> 24) & 0xff) / 255.f);
         }
-    }
 
-    void RecastDrawNavMeshPolys(const dtNavMesh& mesh, DebugRenderer& debugDraw)
+        void AppendNavMeshPoly(const dtNavMesh &mesh, dtPolyRef ref, uint32_t color, NaviDebugGeometry &out)
+        {
+            const dtMeshTile *tile = nullptr;
+            const dtPoly     *poly = nullptr;
+            if (dtStatusFailed(mesh.getTileAndPolyByRef(ref, &tile, &poly))) {
+                return;
+            }
+
+            const auto vertexColor = ToColor(color);
+            const auto ip          = static_cast<unsigned int>(poly - tile->polys);
+            const dtPolyDetail *pd = &tile->detailMeshes[ip];
+
+            for (int i = 0; i < pd->triCount; ++i) {
+                const auto *t = &tile->detailTris[(pd->triBase + i) * 4];
+                for (int j = 0; j < 3; ++j) {
+                    const auto *vtx = t[j] < poly->vertCount
+                        ? &tile->verts[poly->verts[t[j]] * 3]
+                        : &tile->detailVerts[(pd->vertBase + t[j] - poly->vertCount) * 3];
+
+                    out.vertices.push_back(NaviDebugVertex{Vector3(vtx[0], vtx[1], vtx[2]), vertexColor});
+                }
+            }
+        }
+    } // namespace
+
+    void RecastBuildNavMeshGeometry(const dtNavMesh &navMesh, NaviDebugGeometry &out)
     {
-        for (int i = 0; i < mesh.getMaxTiles(); ++i) {
-            const dtMeshTile* tile = mesh.getTile(i);
+        out.vertices.clear();
+
+        const uint32_t color = duTransCol(duRGBA(0, 32, 0, 128), 64);
+
+        for (int i = 0; i < navMesh.getMaxTiles(); ++i) {
+            const dtMeshTile *tile = navMesh.getTile(i);
             if (tile->header == nullptr) {
                 continue;
             }
-            dtPolyRef base = mesh.getPolyRefBase(tile);
 
+            const dtPolyRef base = navMesh.getPolyRefBase(tile);
             for (int j = 0; j < tile->header->polyCount; ++j) {
-                DrawNavMeshPoly(mesh, base | (dtPolyRef)j, duRGBA(0,32,0,128), debugDraw);
+                AppendNavMeshPoly(navMesh, base | static_cast<dtPolyRef>(j), color, out);
             }
         }
     }
+
 } // namespace sky::ai

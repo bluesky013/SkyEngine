@@ -6,8 +6,8 @@
 
 #include <core/math/Vector3.h>
 #include <navigation/NaviMesh.h>
+#include <recast/RecastConstants.h>
 #include <recast/RecastDebugDraw.h>
-#include <render/RenderPrimitive.h>
 
 class dtNavMesh;
 class dtNavMeshQuery;
@@ -19,7 +19,7 @@ namespace sky {
 namespace sky::ai {
 
     struct RecastNaviMapConfig {
-        uint32_t maxTiles   = 256;
+        uint32_t maxTiles   = RECAST_MAX_BUILD_TILES;
         uint32_t maxPolys   = 16384;
     };
 
@@ -48,21 +48,16 @@ namespace sky::ai {
 
         bool BuildNavMesh(const RecastNaviMapConfig &config);
         void BuildNavQuery();
-        void BuildDebugDraw();
-        void SetTechnique(const RDGfxTechPtr &tech);
 
         dtNavMesh* GetNavMesh() const { return navMesh; }
 
         NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
+        void BuildDebugGeometry(NaviDebugGeometry &out) const override;
+
     private:
         void ResetNavMesh();
 
-        void OnAttachToWorld(World &world) override;
-        void OnDetachFromWorld(World &world) override;
         dtNavMesh *navMesh = nullptr;
         dtNavMeshQuery* navQuery = nullptr;
-
-        std::unique_ptr<RenderPrimitive> primitive;
-        std::unique_ptr<DebugRenderer> debugDraw;
     };
 } // namespace sky::ai
