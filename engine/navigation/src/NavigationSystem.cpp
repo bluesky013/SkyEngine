@@ -16,6 +16,16 @@ namespace sky::ai {
         }
     } // namespace
 
+    bool NaviMeshTileLoadTask::DoWork()
+    {
+        if (source == nullptr) {
+            return false;
+        }
+        copy = *source;
+        finished.store(true);
+        return true;
+    }
+
     NavigationSystem::NavigationSystem() = default;
 
     void NavigationSystem::OnAttachToWorld(World &world)
@@ -36,6 +46,7 @@ namespace sky::ai {
 
         availableTiles.clear();
         loadedTiles.clear();
+        pendingLoads.clear();
     }
 
     bool NavigationSystem::SetupStreaming(const NaviMeshData &data)
@@ -46,6 +57,7 @@ namespace sky::ai {
 
         availableTiles.clear();
         loadedTiles.clear();
+        pendingLoads.clear();
 
         buildParams = data.params;
         hasParams   = true;
@@ -91,7 +103,7 @@ namespace sky::ai {
         for (int32_t y = centerY - radius; y <= centerY + radius; ++y) {
             for (int32_t x = centerX - radius; x <= centerX + radius; ++x) {
                 const uint64_t key = TileKey(x, y);
-                if (loadedTiles.count(key) != 0) {
+                if (loadedTiles.count(key) != 0 || pendingLoads.count(key) != 0) {
                     continue;
                 }
 
@@ -106,10 +118,37 @@ namespace sky::ai {
                     continue;
                 }
 
-                if (naviMesh->AddTile(*iter->second)) {
-                    loadedTiles.insert(key);
-                }
+                auto task = CounterPtr<NaviMeshTileLoadTask>(new NaviMeshTileLoadTask());
+                task->Setup(iter->second);
+                task->StartAsync();
+                pendingLoads.emplace(key, task);
             }
+        }
+
+        // Apply finished prefetches on the main thread within a per-frame budget; drop ones that left range.
+        uint32_t applied = 0;
+        for (auto iter = pendingLoads.begin(); iter != pendingLoads.end() && applied < loadBudgetPerTick;) {
+            const auto x = static_cast<int32_t>(iter->first >> 32);
+            const auto y = static_cast<int32_t>(iter->first & 0xffffffff);
+
+            const float dx = (static_cast<float>(x) + 0.5f) * tileSize - (focus.x - originX);
+            const float dy = (static_cast<float>(y) + 0.5f) * tileSize - (focus.z - originZ);
+            if (dx * dx + dy * dy > unloadSq) {
+                iter->second->ResetTask();
+                iter = pendingLoads.erase(iter);
+                continue;
+            }
+
+            if (!iter->second->IsFinished()) {
+                ++iter;
+                continue;
+            }
+
+            if (naviMesh->AddTile(iter->second->GetCopy())) {
+                loadedTiles.insert(iter->first);
+            }
+            iter = pendingLoads.erase(iter);
+            ++applied;
         }
     }
 
