@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 using namespace sky;
 using namespace sky::ai;
 
@@ -16,7 +18,8 @@ namespace {
 
     FileSystemPtr CreateTestFileSystem()
     {
-        return new NativeFileSystem(FilePath("navmesh_asset_test"));
+        const auto dir = (std::filesystem::temp_directory_path() / "sky_navmesh_asset_test").string();
+        return new NativeFileSystem(FilePath(dir));
     }
 
 } // namespace

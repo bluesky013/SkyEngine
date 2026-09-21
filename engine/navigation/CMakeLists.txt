@@ -23,5 +23,7 @@ if (SKY_BUILD_TEST)
         LIBS
             Navigation
             3rdParty::googletest
+        WORKING_DIR
+            $<TARGET_FILE_DIR:NavigationTest>
         )
 endif ()
