@@ -130,6 +130,32 @@ Flag changes that:
 
 ---
 
+## Rule 6 — Asset builders are framework-level, owned and registered per subsystem
+
+The offline asset-build abstraction belongs to `engine/framework`, and each subsystem registers its own builders
+through a module it owns.
+
+Repository baseline:
+
+- `AssetBuilder` base and `AssetBuilderManager` singleton live in `engine/framework`
+  (`engine/framework/include/framework/asset/AssetBuilder.h`, `AssetBuilderManager.h`).
+- Registration happens in a **subsystem-owned builder module**, mirroring the render precedent:
+  - render: `engine/render/builder/module/BuilderModule.cpp` → target `SkyRender.Builder`
+  - audio: `engine/audio/builder/module/AudioBuilderModule.cpp` → target `SkyAudio.Builder`
+- A builder module registers only builders of its own subsystem (or a subsystem it legitimately owns), and is
+  loaded by the asset-build tooling/editor, not by the game runtime.
+
+Flag changes that:
+
+- register a subsystem's builder from an unrelated subsystem's module (for example registering an audio builder
+  from `Aurora.Cook` / `AuroraCookModule`)
+- make a builder module depend on an unrelated renderer/subsystem (an audio or navigation builder must not pull in
+  aurora; use the framework `AssetBuilder`/`AssetBuilderManager` boundary instead)
+- put asset-build registration into runtime-only modules (for example the runtime `AudioModule`)
+
+Concrete precedent: `AudioBuilder` was decoupled from `AuroraCookModule` and moved to `SkyAudio.Builder`; the
+navigation builder must follow the same pattern rather than living in `Aurora.Cook`.
+
 ## Review output format
 
 When using this skill, structure feedback like this:
