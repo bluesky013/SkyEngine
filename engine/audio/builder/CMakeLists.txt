@@ -18,3 +18,13 @@ sky_add_library(TARGET AudioBuilder.Static STATIC
         Framework
         3rdParty::miniaudio
 )
+
+file(GLOB_RECURSE MODULE_SRC module/*)
+
+sky_add_library(TARGET SkyAudio.Builder SHARED
+    SOURCES
+        ${MODULE_SRC}
+    LINK_LIBS
+        AudioBuilder.Static
+)
+sky_add_dependency(TARGET SkyAudio.Builder DEPENDENCIES Launcher Editor)
