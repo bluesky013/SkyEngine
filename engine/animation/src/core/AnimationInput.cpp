@@ -7,8 +7,8 @@
 namespace sky {
 
     AnimFadeInOut::AnimFadeInOut(float time)
-        : fadeInTime(0.f)
-        , fadeOutTime(0.f)
+        : fadeInTime(time)
+        , fadeOutTime(time)
         , initialized(false)
         , blend(time)
     {

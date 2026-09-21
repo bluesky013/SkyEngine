@@ -11,6 +11,8 @@
 
 namespace sky {
 
+    class AnimationTrackData;
+
     class AnimationChannel : public RefObject {
     public:
         explicit AnimationChannel(const Name &name_) : name(name_) {} // NOLINT
@@ -19,6 +21,10 @@ namespace sky {
         virtual void Sample(const SampleParam &param, Transform &trans) = 0;
 
         FORCEINLINE const Name& GetName() const { return name; }
+
+        virtual AnimTimeKey GetLastKeyTime() const { return -1; }
+
+        virtual void BuildTrackData(AnimationTrackData& out, uint16_t bone) const { (void)out; (void)bone; }
     protected:
         Name name;
     };

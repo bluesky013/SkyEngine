@@ -3,6 +3,7 @@
 //
 
 #include <animation/core/AnimationNodeChannel.h>
+#include <animation/core/AnimationTrackData.h>
 
 namespace sky {
 
@@ -16,8 +17,19 @@ namespace sky {
 
     void AnimationNodeChannel::Sample(const SampleParam &param, Transform& trans)
     {
-        trans.translation = AnimSampleChannel(position, param);
-        // trans.scale = AnimSampleChannel(scale, param);
-        trans.rotation = AnimSampleChannel(rotation, param);
+        if (!position.times.empty()) {
+            trans.translation = AnimSampleChannel(position, param);
+        }
+        if (!scale.times.empty()) {
+            trans.scale = AnimSampleChannel(scale, param);
+        }
+        if (!rotation.times.empty()) {
+            trans.rotation = AnimSampleChannel(rotation, param);
+        }
+    }
+
+    void AnimationNodeChannel::BuildTrackData(AnimationTrackData& out, uint16_t bone) const
+    {
+        out.AddChannelData(bone, position, scale, rotation);
     }
 } // namespace sky

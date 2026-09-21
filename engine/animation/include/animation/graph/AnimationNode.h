@@ -11,6 +11,8 @@ namespace sky {
 
     struct AnimationTick;
     class AnimationAsyncContext;
+    class AnimationPlanBuilder;
+    struct AnimPlanLowerInfo;
 
     struct AnimContext {
         AnimationAsyncContext* instance = nullptr;
@@ -19,6 +21,7 @@ namespace sky {
     struct AnimationEval : AnimContext {
         AnimPose pose;
         bool sampleRootMotion = false;
+        Transform rootMotionDelta;
 
         AnimationEval() = default;
         AnimationEval(const SkeletonPtr& skeleton)
@@ -72,6 +75,18 @@ namespace sky {
         virtual void InitAny(const AnimContext& context) = 0;
         virtual void TickAny(const AnimLayerContext& context, float deltaTime) {}
         virtual void EvalAny(AnimationEval& context) = 0;
+
+        /**
+         * Optional lowering into the data-oriented evaluation plan. Nodes that do not
+         * implement this cannot be compiled and are reported by the compiler.
+         */
+        virtual bool LowerToPlan(AnimationPlanBuilder& builder, const AnimPlanLowerInfo& info, uint32_t& outSlot)
+        {
+            (void)builder;
+            (void)info;
+            (void)outSlot;
+            return false;
+        }
     };
 
 } // namespace sky

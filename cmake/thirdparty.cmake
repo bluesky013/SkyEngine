@@ -41,6 +41,12 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    # animation
+    if (SKY_ANIMATION_ACL)
+        sky_find_3rd(TARGET acl         DIR acl)
+        add_compile_definitions(SKY_ANIMATION_ACL=1)
+    endif()
+
     if (SKY_USE_TRACY)
         sky_find_3rd(TARGET tracy         DIR tracy)
         add_definitions(-DTRACY_ENABLE)

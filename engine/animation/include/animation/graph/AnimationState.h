@@ -10,7 +10,6 @@
 #include <animation/graph/AnimationNode.h>
 #include <functional>
 #include <memory>
-#include <set>
 
 namespace sky {
 
@@ -48,6 +47,10 @@ namespace sky {
 
         FORCEINLINE const AnimHandle GetCurrentStateHandle() const { return currentState; }
         FORCEINLINE const AnimState& GetCurrentState() const { return states[currentState]; }
+        FORCEINLINE uint32_t GetNumStates() const { return static_cast<uint32_t>(states.size()); }
+        FORCEINLINE const AnimState& GetState(uint32_t index) const { return states[index]; }
+
+        void UpdateControl(const AnimLayerContext& context, float deltaTime);
 
         void PreTick(const AnimationTick& tick) override;
 
@@ -55,9 +58,11 @@ namespace sky {
         void TickAny(const AnimLayerContext& context, float deltaTime) override;
         void EvalAny(AnimationEval& context) override;
 
+        bool LowerToPlan(AnimationPlanBuilder& builder, const AnimPlanLowerInfo& info, uint32_t& outSlot) override;
+
     private:
         void SetState(const AnimContext& context, AnimHandle state);
-        bool FindTransition(const AnimLayerContext& context, AnimHandle inState, AnimHandle& outTransition, std::set<AnimHandle>& visited);
+        bool FindTransition(const AnimLayerContext& context, AnimHandle inState, AnimHandle& outTransition);
         void Transition(const AnimLayerContext& context, AnimHandle trans);
 
         AnimHandle initState = ANIM_INVALID_HANDLE;

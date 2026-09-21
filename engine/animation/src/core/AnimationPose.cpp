@@ -50,16 +50,19 @@ namespace sky {
 
     void AnimPose::BlendTransform(const Transform& src, Transform& dst, float weight)
     {
-        dst.translation = dst.translation * weight;
-        dst.scale = dst.scale * weight;
-        dst.rotation = dst.rotation * weight;
+        dst.translation = dst.translation * (1.f - weight) + src.translation * weight;
+        dst.scale = dst.scale * (1.f - weight) + src.scale * weight;
+        dst.rotation = AnimSphericalLinear(dst.rotation, src.rotation, weight);
     }
 
     void AnimPose::BlendTransformAdditive(const Transform& delta, Transform& dst, float weight)
     {
         dst.translation += delta.translation * weight;
         dst.scale += delta.scale * weight;
-        dst.rotation = AccumulateShortest(dst.rotation, delta.rotation * weight);
+
+        const Quaternion weightedDelta = AnimSphericalLinear({}, delta.rotation, weight);
+        dst.rotation = dst.rotation * weightedDelta;
+        dst.rotation.Normalize();
     }
 
     void AnimPose::BlendPose(const AnimPose & src, AnimPose & dst, float weight, PoseBlendMode mode)
@@ -70,11 +73,11 @@ namespace sky {
         }
 
         if (mode == PoseBlendMode::ADDITIVE) {
-            for (uint32_t index = 0; index < src.transforms.size(); ++index) {
+            for (size_t index = 0; index < src.transforms.size(); ++index) {
                 BlendTransformAdditive(src.transforms[index], dst.transforms[index], weight);
             }
         } else {
-            for (uint32_t index = 0; index < src.transforms.size(); ++index) {
+            for (size_t index = 0; index < src.transforms.size(); ++index) {
                 BlendTransform(src.transforms[index], dst.transforms[index], weight);
             }
         }

@@ -11,6 +11,8 @@
 
 namespace sky {
     struct AnimPose;
+    class AnimationTrackData;
+    class Skeleton;
 
     class AnimationClip : public RefObject {
     public:
@@ -21,10 +23,14 @@ namespace sky {
 
         void SamplePose(AnimPose & pose, const SampleParam& param);
 
+        void BuildTrackData(AnimationTrackData& out, const Skeleton& skeleton) const;
+
         FORCEINLINE void SetNumFrame(uint32_t num) { frameNum = num; };
         FORCEINLINE void SetFrameRate(float fate) { frameRate = fate; };
 
-        FORCEINLINE float GetDuration() const { return frameRate > 0.f ? static_cast<float>(frameNum) / frameRate : 0.f; }
+        uint32_t GetFrameCount() const;
+
+        FORCEINLINE float GetDuration() const { return frameRate > 0.f ? static_cast<float>(GetFrameCount()) / frameRate : 0.f; }
         FORCEINLINE float GetPlayRate() const { return frameRate; }
 
         FORCEINLINE const Name& GetName() const { return name; }

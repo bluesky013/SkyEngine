@@ -403,12 +403,27 @@
 				"external/vulkan",
 				"external/lua"
 			]
+		},
+		{
+			"name": "acl",
+			"url": "https://github.com/nfrechette/acl.git",
+			"tag": "v2.1.0",
+			"header_only": true,
+			"submodules": [
+				"external/rtm"
+			],
+			"options": {
+				"USE_SJSON": "false",
+				"BUILD_BENCHMARK_EXE": "false",
+				"ENABLE_ALL_WARNINGS": "false",
+				"ACL_HEADER_ONLY": "true"
+			}
 		}
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_5497a6ceca31.zip",
-			"md5": "5497a6ceca313abb66d0b770ff4641ee"
+			"file": "thirdparty_Win32_f7a49f5b40a6.zip",
+			"md5": "f7a49f5b40a6051cdc4723453cfd09a4"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_e97d2deae540.zip",

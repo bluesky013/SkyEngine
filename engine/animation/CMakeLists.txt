@@ -2,6 +2,11 @@ file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 file(GLOB_RECURSE TEST_FILES test/*)
 
+set(ANIMATION_OPT_LIBS)
+if (SKY_ANIMATION_ACL)
+    list(APPEND ANIMATION_OPT_LIBS 3rdParty::acl)
+endif ()
+
 sky_add_library(TARGET Animation STATIC
     SOURCES
         ${SRC_FILES}
@@ -12,6 +17,7 @@ sky_add_library(TARGET Animation STATIC
         include
     LINK_LIBS
         Core
+        ${ANIMATION_OPT_LIBS}
     INSTALL_DIR
         include
 )
@@ -23,5 +29,6 @@ if (SKY_BUILD_TEST)
         LIBS
             Animation
             3rdParty::googletest
+            ${ANIMATION_OPT_LIBS}
             )
 endif ()

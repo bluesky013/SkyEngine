@@ -1,0 +1,46 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ee091ac..f48b206 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -24,7 +24,7 @@ if(CMAKE_CONFIGURATION_TYPES)
+ endif()
+ 
+ # Determine if we should include unit tests
+-set(INCLUDE_UNIT_TESTS true)
++set(INCLUDE_UNIT_TESTS false)
+ 
+ if(PLATFORM_IOS)
+ 	# Catch2 2.13 doesn't compile on iOS with Xcode 8 and 9
+@@ -70,18 +70,26 @@ add_custom_target(${PROJECT_NAME} SOURCES ${ACL_INCLUDE_FILES} ${ACL_ROOT_FILES}
+ enable_testing()
+ 
+ # Add other projects
+-add_subdirectory("${PROJECT_SOURCE_DIR}/tools/acl_compressor")
++if(NOT ACL_HEADER_ONLY)
++	add_subdirectory("${PROJECT_SOURCE_DIR}/tools/acl_compressor")
+ 
+-if(BUILD_BENCHMARK_EXE)
+-	add_subdirectory("${PROJECT_SOURCE_DIR}/tools/acl_decompressor")
++	if(BUILD_BENCHMARK_EXE)
++		add_subdirectory("${PROJECT_SOURCE_DIR}/tools/acl_decompressor")
++	endif()
++
++	if(INCLUDE_UNIT_TESTS)
++		add_subdirectory("${PROJECT_SOURCE_DIR}/tests")
++	endif()
+ endif()
+ 
+-if(INCLUDE_UNIT_TESTS)
+-	add_subdirectory("${PROJECT_SOURCE_DIR}/tests")
++# install headers for header-only consumption
++install(DIRECTORY "${PROJECT_SOURCE_DIR}/includes/" DESTINATION include)
++if(EXISTS "${PROJECT_SOURCE_DIR}/external/rtm/includes")
++	install(DIRECTORY "${PROJECT_SOURCE_DIR}/external/rtm/includes/" DESTINATION include)
+ endif()
+ 
+ # Custom regression testing (requires SJSON support)
+-if(USE_SJSON)
++if(USE_SJSON AND NOT ACL_HEADER_ONLY)
+ 	if(PLATFORM_ANDROID)
+ 		add_subdirectory("${PROJECT_SOURCE_DIR}/tools/regression_tester_android")
+ 	elseif(PLATFORM_IOS)

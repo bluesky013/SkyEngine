@@ -37,6 +37,23 @@ namespace sky {
         ~AnimationNodeChannel() override = default;
 
         void Sample(const SampleParam &param, Transform &trans) override;
+
+        AnimTimeKey GetLastKeyTime() const override
+        {
+            AnimTimeKey last = -1;
+            const auto update = [&last](const auto& data) {
+                if (!data.times.empty() && data.times.back() > last) {
+                    last = data.times.back();
+                }
+            };
+
+            update(position);
+            update(scale);
+            update(rotation);
+            return last;
+        }
+
+        void BuildTrackData(AnimationTrackData& out, uint16_t bone) const override;
     private:
         AnimChannelData<Vector3> position;
         AnimChannelData<Vector3> scale;

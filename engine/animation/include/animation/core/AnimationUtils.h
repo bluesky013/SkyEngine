@@ -20,6 +20,12 @@ namespace sky {
 
         float Eval(float deltaTime, bool onActive);
 
+        void SetBlendTime(float time)
+        {
+            fadeInTime = time;
+            fadeOutTime = time;
+        }
+
         void Reset();
     };
 
