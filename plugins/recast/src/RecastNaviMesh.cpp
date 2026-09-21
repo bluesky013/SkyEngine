@@ -4,11 +4,19 @@
 
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastConstants.h>
+#include <recast/RecastLz4Compressor.h>
 #include <recast/RecastQueryFilter.h>
 #include <recast/RecastDebugDraw.h>
+#include <recast/RecastTileCacheMeshProcessor.h>
+
+#include <navigation/NaviMeshAsset.h>
 
 #include <DetourNavMesh.h>
+#include <DetourNavMeshBuilder.h>
 #include <DetourNavMeshQuery.h>
+#include <DetourTileCache.h>
+
+#include <cstring>
 
 namespace sky::ai {
 
@@ -85,6 +93,11 @@ namespace sky::ai {
 
     void RecastNaviMesh::ResetNavMesh()
     {
+        if (tileCache != nullptr) {
+            dtFreeTileCache(tileCache);
+            tileCache = nullptr;
+        }
+
         if (navQuery != nullptr) {
             dtFreeNavMeshQuery(navQuery);
             navQuery = nullptr;
@@ -94,6 +107,71 @@ namespace sky::ai {
             dtFreeNavMesh(navMesh);
             navMesh = nullptr;
         }
+    }
+
+    bool RecastNaviMesh::LoadData(const NaviMeshData &data)
+    {
+        if (data.mode != NaviMeshExportMode::Tiled) {
+            return false;
+        }
+
+        ResetNavMesh();
+
+        agentCfg    = data.params.agent;
+        resolution  = data.params.resolution;
+        buildBounds = data.params.bounds;
+
+        RecastNaviMapConfig navConfig = {};
+        if (!BuildNavMesh(navConfig)) {
+            return false;
+        }
+
+        static dtTileCacheAlloc           GAllocator;
+        static RecastTileCacheMeshProcessor GMeshProcessor;
+
+        tileCache = dtAllocTileCache();
+        if (tileCache == nullptr) {
+            ResetNavMesh();
+            return false;
+        }
+
+        dtTileCacheParams tcParams = {};
+        tcParams.cs = resolution.cellSize;
+        tcParams.ch = resolution.cellHeight;
+        tcParams.width  = resolution.cellSize > 0.f ? static_cast<int>(resolution.tileSize / resolution.cellSize) : 0;
+        tcParams.height = tcParams.width;
+        tcParams.maxSimplificationError = data.params.maxSimplificationError;
+        tcParams.walkableHeight = agentCfg.height;
+        tcParams.walkableRadius = agentCfg.radius;
+        tcParams.walkableClimb  = agentCfg.maxClimb;
+        tcParams.maxTiles       = RECAST_MAX_BUILD_TILES;
+        tcParams.maxObstacles   = RECAST_MAX_OBSTACLES;
+
+        if (dtStatusFailed(tileCache->init(&tcParams, &GAllocator, GetOrCreateCompressor(), &GMeshProcessor))) {
+            ResetNavMesh();
+            return false;
+        }
+
+        for (const auto &tile : data.tiles) {
+            if (tile.data.empty()) {
+                continue;
+            }
+
+            auto *buffer = reinterpret_cast<uint8_t *>(dtAlloc(tile.data.size(), DT_ALLOC_PERM));
+            if (buffer == nullptr) {
+                continue;
+            }
+            std::memcpy(buffer, tile.data.data(), tile.data.size());
+
+            if (dtStatusFailed(tileCache->addTile(buffer, static_cast<int>(tile.data.size()), DT_COMPRESSEDTILE_FREE_DATA, nullptr))) {
+                dtFree(buffer);
+                continue;
+            }
+            tileCache->buildNavMeshTilesAt(tile.tx, tile.ty, navMesh);
+        }
+
+        BuildNavQuery();
+        return true;
     }
 
     NaviQueryResult RecastNaviMesh::FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const

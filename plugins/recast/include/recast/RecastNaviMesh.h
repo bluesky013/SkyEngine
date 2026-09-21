@@ -11,6 +11,7 @@
 
 class dtNavMesh;
 class dtNavMeshQuery;
+class dtTileCache;
 
 namespace sky {
     class World;
@@ -53,11 +54,13 @@ namespace sky::ai {
 
         NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
         void BuildDebugGeometry(NaviDebugGeometry &out) const override;
+        bool LoadData(const NaviMeshData &data) override;
 
     private:
         void ResetNavMesh();
 
         dtNavMesh *navMesh = nullptr;
         dtNavMeshQuery* navQuery = nullptr;
+        dtTileCache *tileCache = nullptr;
     };
 } // namespace sky::ai

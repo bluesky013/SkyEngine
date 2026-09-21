@@ -2,6 +2,7 @@ set(CURRENT_FOLDER Engine)
 
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
+file(GLOB_RECURSE TEST_FILES test/*)
 
 sky_add_library(TARGET Navigation STATIC
     SOURCES
@@ -14,3 +15,13 @@ sky_add_library(TARGET Navigation STATIC
     LINK_LIBS
         Framework
 )
+
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET NavigationTest
+        SOURCES
+            ${TEST_FILES}
+        LIBS
+            Navigation
+            3rdParty::googletest
+        )
+endif ()

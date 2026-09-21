@@ -9,6 +9,11 @@
 #include <cstdint>
 #include <vector>
 
+namespace sky {
+    class BinaryInputArchive;
+    class BinaryOutputArchive;
+} // namespace sky
+
 namespace sky::ai {
 
     enum class NaviMeshExportMode : uint32_t {
@@ -20,6 +25,8 @@ namespace sky::ai {
         NaviAgentConfig    agent;
         NaviMeshResolution resolution;
         AABB               bounds;
+        float              maxSimplificationError = 1.3f;
+        int32_t            borderSize = 0;
         uint32_t           version = 1;
     };
 
@@ -37,6 +44,9 @@ namespace sky::ai {
         NaviMeshBuildParams              params;
         std::vector<NaviMeshTilePayload> tiles;
         std::vector<uint8_t>             fullData;
+
+        void Load(BinaryInputArchive &archive);
+        void Save(BinaryOutputArchive &archive) const;
     };
 
 } // namespace sky::ai

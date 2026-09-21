@@ -231,6 +231,8 @@ namespace sky::ai {
         params.resolution.cellHeight  = config.ch;
         params.resolution.tileSize    = static_cast<float>(config.tileSize) * config.cs;
         params.bounds                 = navMesh->GetBounds();
+        params.maxSimplificationError = config.maxSimplificationError;
+        params.borderSize             = config.borderSize;
         params.version                = 1;
         return params;
     }

@@ -17,6 +17,7 @@ namespace sky {
 
 namespace sky::ai {
     class NavigationSystem;
+    struct NaviMeshData;
 
     struct NaviAgentConfig {
         float height = 2.f;
@@ -57,6 +58,9 @@ namespace sky::ai {
         virtual NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const = 0;
 
         virtual void BuildDebugGeometry(NaviDebugGeometry &out) const = 0;
+
+        // Restores the mesh from a persisted asset payload (Tiled: per-tile blobs; Full: single blob).
+        virtual bool LoadData(const NaviMeshData &data) = 0;
 
     protected:
         friend class NavigationSystem;
