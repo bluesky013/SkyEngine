@@ -8,6 +8,7 @@
 #include <filesystem>
 
 #include <windows.h>
+#include <commdlg.h>
 #include <shlobj_core.h>
 
 static const char* TAG = "Win32Platform";
@@ -56,6 +57,21 @@ namespace sky {
         }
 
         return narrowText;
+    }
+
+    // Builds a double-null-terminated Win32 filter string.
+    static std::wstring BuildDialogFilter(const std::string &filter)
+    {
+        std::wstring result = L"All Files\0*.*\0";
+        if (!filter.empty()) {
+            std::wstring pattern = UTF8ToWide(filter);
+            result += pattern;
+            result += L'\0';
+            result += pattern;
+            result += L'\0';
+        }
+        result += L'\0';
+        return result;
     }
 
     struct Pipe {
@@ -178,5 +194,51 @@ namespace sky {
         CloseHandle(procInfo.hProcess);
         CloseHandle(procInfo.hThread);
         return true;
+    }
+
+    bool Win32Platform::ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                           const std::string &filter)
+    {
+        wchar_t fileName[MAX_PATH] = {0};
+        const std::wstring wideTitle = UTF8ToWide(title);
+        const std::wstring wideFilter = BuildDialogFilter(filter);
+
+        OPENFILENAMEW ofn{};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = static_cast<HWND>(owner);
+        ofn.lpstrFile = fileName;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = wideTitle.empty() ? nullptr : wideTitle.c_str();
+        ofn.lpstrFilter = wideFilter.c_str();
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+
+        if (::GetOpenFileNameW(&ofn) == TRUE) {
+            outPath = WideToUTF8(fileName);
+            return true;
+        }
+        return false;
+    }
+
+    bool Win32Platform::ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                           const std::string &filter)
+    {
+        wchar_t fileName[MAX_PATH] = {0};
+        const std::wstring wideTitle = UTF8ToWide(title);
+        const std::wstring wideFilter = BuildDialogFilter(filter);
+
+        OPENFILENAMEW ofn{};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = static_cast<HWND>(owner);
+        ofn.lpstrFile = fileName;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = wideTitle.empty() ? nullptr : wideTitle.c_str();
+        ofn.lpstrFilter = wideFilter.c_str();
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_EXPLORER;
+
+        if (::GetSaveFileNameW(&ofn) == TRUE) {
+            outPath = WideToUTF8(fileName);
+            return true;
+        }
+        return false;
     }
 }

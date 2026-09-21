@@ -50,9 +50,36 @@ namespace sky {
         SDL_free(text);
     }
 
+    std::string SDLPlatform::GetUserConfigPath() const
+    {
+        char *path = SDL_GetPrefPath("SkyEngine", "SkyEditor");
+        if (path == nullptr) {
+            return {};
+        }
+        std::string result(path);
+        SDL_free(path);
+        return result;
+    }
+
     void SDLPlatform::SetClipBoardText(const std::string &text)
     {
         SDL_SetClipboardText(text.data());
+    }
+
+    void SDLPlatform::StartTextInput()
+    {
+        SDL_StartTextInput();
+    }
+
+    void SDLPlatform::StopTextInput()
+    {
+        SDL_StopTextInput();
+    }
+
+    void SDLPlatform::SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height)
+    {
+        SDL_Rect rect{x, y, width, height};
+        SDL_SetTextInputRect(&rect);
     }
 
     void SDLPlatform::PollEvent(bool &exit)

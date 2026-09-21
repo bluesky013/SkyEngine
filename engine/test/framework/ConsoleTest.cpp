@@ -258,3 +258,99 @@ TEST(ConsoleLogTest, DoubleFlushEmpty)
     EXPECT_GT(count1, 0);
     EXPECT_EQ(count2, 0);
 }
+
+TEST(ConsoleLogTest, ManyEntriesFlushedInOrder)
+{
+    ConsoleLog log;
+    log.Install();
+
+    constexpr int kCount = 256;
+    for (int i = 0; i < kCount; ++i) {
+        LOG_I("Burst", "%d", i);
+    }
+
+    std::vector<int> seen;
+    log.FlushPendingEntries([&](const LogEntry &e) {
+        if (e.tag == "Burst") {
+            seen.push_back(std::stoi(e.message));
+        }
+    });
+
+    log.Uninstall();
+
+    ASSERT_EQ(seen.size(), static_cast<size_t>(kCount));
+    for (int i = 0; i < kCount; ++i) {
+        EXPECT_EQ(seen[static_cast<size_t>(i)], i);
+    }
+}
+
+// ============================================================
+// Builtin command tests
+// ============================================================
+
+TEST(CommandShellTest, BuiltinHelpSpecific)
+{
+    CVar<int> cv("shell.HelpTarget", 7, "help target");
+    CommandShell shell;
+
+    auto result = shell.Execute("help shell.HelpTarget");
+    EXPECT_EQ(result.status, CommandResult::Status::OK);
+    EXPECT_TRUE(result.output.find("shell.HelpTarget") != std::string::npos);
+    EXPECT_TRUE(result.output.find("7") != std::string::npos);
+}
+
+TEST(CommandShellTest, BuiltinFind)
+{
+    CVar<int> cv("shell.FindNeedle", 3, "find needle only");
+    CommandShell shell;
+
+    auto result = shell.Execute("find FindNeedle");
+    EXPECT_EQ(result.status, CommandResult::Status::OK);
+    EXPECT_TRUE(result.output.find("shell.FindNeedle") != std::string::npos);
+}
+
+TEST(CommandShellTest, BuiltinReset)
+{
+    CVar<int> cv("shell.ResetTarget", 11, "reset target");
+    CommandShell shell;
+
+    shell.Execute("shell.ResetTarget 99");
+    EXPECT_EQ(cv.Get(), 99);
+
+    auto result = shell.Execute("reset shell.ResetTarget");
+    EXPECT_EQ(result.status, CommandResult::Status::OK);
+    EXPECT_EQ(cv.Get(), 11);
+}
+
+// ============================================================
+// Completion source (FindByPrefix) tests
+// ============================================================
+
+TEST(CommandRegistryTest, FindByPrefix)
+{
+    CVar<int> visible("prefixTest.Visible", 1, "visible");
+    CVar<int> hidden("prefixTest.Hidden", 2, "hidden", CVarFlags::HIDDEN);
+    CommandRegistry::Get()->RegisterCommand("prefixTest.cmd", "a command", "test",
+        [](CommandArgs) { return CommandResult{}; });
+
+    const auto matches = CommandRegistry::Get()->FindByPrefix("prefixTest.");
+    bool foundVisible = false;
+    bool foundHidden = false;
+    bool foundCommand = false;
+    for (const auto &match : matches) {
+        if (match.cvar != nullptr && match.cvar->GetName() == "prefixTest.Visible") {
+            foundVisible = true;
+        }
+        if (match.cvar != nullptr && match.cvar->GetName() == "prefixTest.Hidden") {
+            foundHidden = true;
+        }
+        if (match.cmd != nullptr && match.cmd->name == "prefixTest.cmd") {
+            foundCommand = true;
+        }
+    }
+    EXPECT_TRUE(foundVisible);
+    EXPECT_FALSE(foundHidden);
+    EXPECT_TRUE(foundCommand);
+
+    CommandRegistry::Get()->UnregisterCommand("prefixTest.cmd");
+}

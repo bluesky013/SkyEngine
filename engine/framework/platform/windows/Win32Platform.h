@@ -19,5 +19,10 @@ namespace sky {
         std::string GetEnvVariable(const std::string &env) const;
         bool RunCmd(const std::string &str, std::string &out) const override;
         PlatformType GetType() const override;
+
+        bool ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                const std::string &filter) override;
+        bool ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                const std::string &filter) override;
     };
 }

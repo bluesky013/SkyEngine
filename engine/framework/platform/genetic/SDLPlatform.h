@@ -22,6 +22,8 @@ namespace sky {
         uint64_t GetPerformanceFrequency() const override;
         uint64_t GetPerformanceCounter() const override;
 
+        std::string GetUserConfigPath() const override;
+
         void PollEvent(bool &exit) override;
         void Dispatch(const SDL_Event &sdlEvent, bool &quit);
         void DispatchWindowEvent(const SDL_Event &sdlEvent);
@@ -29,5 +31,9 @@ namespace sky {
         char* GetClipBoardText() override;
         void FreeClipBoardText(char* text) override;
         void SetClipBoardText(const std::string &text) override;
+
+        void StartTextInput() override;
+        void StopTextInput() override;
+        void SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height) override;
     };
 } // namespace sky

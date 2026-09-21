@@ -71,6 +71,11 @@ namespace sky {
         return platform->GetBundlePath();
     }
 
+    std::string Platform::GetUserConfigPath() const
+    {
+        return platform != nullptr ? platform->GetUserConfigPath() : std::string{};
+    }
+
     void *Platform::GetMainWinHandle() const
     {
         return platform->GetMainWinHandle();
@@ -119,6 +124,33 @@ namespace sky {
     void Platform::SetClipBoardText(const std::string &text)
     {
         platform->SetClipBoardText(text);
+    }
+
+    bool Platform::ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                      const std::string &filter) const
+    {
+        return platform->ShowOpenFileDialog(owner, outPath, title, filter);
+    }
+
+    bool Platform::ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title,
+                                      const std::string &filter) const
+    {
+        return platform->ShowSaveFileDialog(owner, outPath, title, filter);
+    }
+
+    void Platform::StartTextInput()
+    {
+        platform->StartTextInput();
+    }
+
+    void Platform::StopTextInput()
+    {
+        platform->StopTextInput();
+    }
+
+    void Platform::SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height)
+    {
+        platform->SetTextInputRect(x, y, width, height);
     }
 
     void Platform::PoolEvent(bool &exit)

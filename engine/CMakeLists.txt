@@ -19,6 +19,15 @@ if (SKY_BUILD_EDITOR)
     sky_set_dependency(TARGET Editor)
 endif()
 
+# New non-Qt editor rebuild area (editor core + shell prototype + tests).
+if (SKY_BUILD_SANDBOX OR SKY_BUILD_TEST)
+    add_subdirectory(sandbox)
+endif()
+
+if (SKY_BUILD_SANDBOX)
+    sky_set_dependency(TARGET Sandbox)
+endif()
+
 if (SKY_BUILD_TEST)
     add_subdirectory(test)
 endif()

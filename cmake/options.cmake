@@ -10,6 +10,7 @@ endif ()
 
 option(SKY_BUILD_EDITOR "build editor" OFF)
 option(SKY_EDITOR "editor mode" OFF)
+option(SKY_BUILD_SANDBOX "build editor sandbox prototype" OFF)
 
 if (SKY_BUILD_EDITOR)
     set(SKY_EDITOR ON)
