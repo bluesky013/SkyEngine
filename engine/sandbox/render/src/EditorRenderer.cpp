@@ -10,6 +10,7 @@
 
 #include <editor/render/EditorRenderer.h>
 
+#include <editor/core/resource/SandboxResources.h>
 #include <ui/text/UITextLayout.h>
 
 #include <aurora/rdg/ClientViewport.h>
@@ -99,7 +100,7 @@ namespace sky::editor {
         // GUI pipeline lives in UIRender; the renderer only feeds it draw data.
         uiRenderer.Init(device, PixelFormat::BGRA8_UNORM);
 #if defined(SKY_BUILD_FREETYPE)
-        if (freeTypeFont.LoadFont("assets/fonts/OpenSans-Regular.ttf") && freeTypeFont.IsReady()) {
+        if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady()) {
             textSystem = std::make_unique<sky::ui::UITextSystem>(&freeTypeFont, &uiRenderer, 256);
             LOG_I(TAG, "UI text: FreeType (OpenSans-Regular)");
         } else {

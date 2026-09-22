@@ -18,6 +18,7 @@ sky_add_library(TARGET EditorRender STATIC
     LINK_LIBS
         Core
         Framework
+        EditorCore
         UI
         UIRender
         Aurora.RHI
