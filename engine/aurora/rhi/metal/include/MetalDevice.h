@@ -12,6 +12,7 @@
 namespace sky::aurora {
 
     class MetalInstance;
+    class MetalBlitHelper;
 
     struct MetalThreadContext : ThreadContext {
         MetalThreadContext() = default;
@@ -68,6 +69,10 @@ namespace sky::aurora {
             return instance;
         }
 
+        // render-based blit / resolve-pass helper (Metal has no native
+        // filtered blit or explicit resolve on the blit encoder)
+        MetalBlitHelper *GetBlitHelper() const { return blitHelper.get(); }
+
     private:
         bool        OnInit(const DeviceInit &init) override;
         void        UpdateDeviceCaps() override;
@@ -79,6 +84,7 @@ namespace sky::aurora {
         void          *metalDevice = nullptr;
 
         std::array<std::unique_ptr<MetalQueue>, 3> queues; // by QueueType
+        std::unique_ptr<MetalBlitHelper> blitHelper;
     };
 
 } // namespace sky::aurora

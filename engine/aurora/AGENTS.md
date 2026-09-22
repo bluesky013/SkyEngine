@@ -63,7 +63,7 @@ descriptor 写入统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncod
 - **Vulkan**：`VulkanResourceGroup` 持持久化 packed `mWriteInfos` + `mDirty`；`VulkanShader` 为每个 set 建 `VkDescriptorUpdateTemplate`（core 1.1，1.3 floor 下始终可用）。`End()` 仅 dirty 时 `vkUpdateDescriptorSetWithTemplate`；template 创建失败回退 `vkUpdateDescriptorSets`。DYNAMIC + `range==0` 仍 assert/warning（`aurora-dynamic-ubo-pack` 约定）。
 - **DX12**：无批量 flush，descriptor heap 写入即时；动态绑定（`*_DYNAMIC`）记录到 `dynamicBindings`，bind 时走 root CBV/UAV。`End()` 是 no-op（接口对称）。
   - **shader-visible 隔离**：`D3D12DescriptorAllocator` 用 CPU-only staging heap（source of truth）+ `ringSize` 张 shader-visible heap（每 in-flight frame 一张，offset 1:1）；encoder 只写 staging，`BindResourceGroup` 前 `EnsureFrameCopy()` 用 `CopyDescriptorsSimple` 拷到当前帧 heap；`D3D12DeviceFrameContext::BeginFrame` 调 `allocator->BeginFrame(mFrameIndex)` 轮换 ring。
-- **Metal**：`MetalDescriptorEncoder` 是 header-only stub，`MetalResourceGroup` 未实现，随 `aurora-resource-group Metal phase` 落地。
+- **Metal**：直接绑定模型（无 descriptor 对象）。`MetalDescriptorEncoder`/`MetalDescriptorBatch` 即时写 `MetalResourceGroup` 的绑定表（`Write* 的 arrayElement` 映射到槽位 `binding + arrayElement`，与 slang MSL 数组摊平一致），`BindResourceGroup` 时 `setBuffer/setTexture/setSampler` 应用。`*_DYNAMIC` binding 由 shader reflection 派生，bind 时按 dynamicOffsets 顺序重定 offset（与 DX12 root CBV/UAV 契约一致）。
 
 ## DescriptorBatch 跨 set 批量
 
@@ -72,7 +72,7 @@ descriptor 写入统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncod
 - `Device::CreateDescriptorBatch()` 返回后端 batch；`WriteBuffer/WriteImage/WriteSampler(group, binding, ...)` 累积，`Flush()` 一帧一次，`Reset()` 帧末复用。
 - **Vulkan** `VulkanDescriptorBatch`：累积 `VkWriteDescriptorSet`（`dstSet` = 各 group 当前 set），`Flush()` 单次 `vkUpdateDescriptorSets`。
 - **DX12** `D3D12DescriptorBatch`：thin，`Write*` 复用 `D3D12DescriptorEncoder`（即时写 CPU staging），`Flush()`/`Reset()` no-op（copy 在 bind）。
-- **Metal** `MetalDescriptorBatch`：stub（随 `aurora-resource-group Metal phase`）。
+- **Metal** `MetalDescriptorBatch`：thin，与 encoder 一样即时写绑定表，`Flush()`/`Reset()` no-op。
 - 与 `DescriptorEncoder`（per-set template 路径）并存：单 set 快路径走 encoder，跨 set 批量走 batch。
 
 ## Dynamic UBO pack（batch tier / set 2）
@@ -99,7 +99,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 - **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制；PSO 从 `PipelineState::vertexBindings/vertexAttributes` 建 IA 输入布局（与 DX12 对齐）；tier2 `DescriptorHeap`（`VK_EXT_descriptor_heap`）**未实现**，`CreateDescriptorHeap` 返回 nullptr 且 `GetFeature().descriptorHeap == false`
 - **DX12**：12.0 起步；PSO / root signature / ResourceGroup / SwapChain 均已落地，encoder 支持 render target 绑定与 clear、IA 顶点输入、indirect draw/dispatch、内置 fullscreen blit 与 tier2 bindless `DescriptorHeap`（SM6.6 门），见 `aurora-dx12-gaps`
-- **Metal**：3 起步
+- **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定（含 push constant 的 declare-last 最高槽）占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 槽数超 15 在 pipeline 创建时 assert + 报错。push constant 支持 partial-range（CPU 侧 staging block 累积后整块 `set*Bytes` 重传）。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；Resolve 走 `MTLStoreActionMultisampleResolve` 空 render pass；两者由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**（需要 slang MSL 产出 argument buffer 访问，工具链不支持，`feature.descriptorHeap == false`）
 
 ## Queue / Submit / Semaphore / SwapChain（submit-present）
 
@@ -238,7 +238,7 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-renderpass` | ✅ 已实施 | `FullScreenPass` 基类 + `ScenePass`(HDR) + `TextureToScreenPass`（renderpass begin/end 契约） |
 | `aurora-client-viewport` | ✅ 已实施 | `RenderViewport` 表面 + `ClientViewport` + `RenderGraph::BindViewport` + inflight frame 全局化 |
 | `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
-| `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12；Metal / dynamic offset 留待后续） |
+| `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12 + Metal 直接绑定，dynamic offset 三后端齐） |
 | `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
 | `aurora-renderer` | 未开 | top-level 渲染主循环 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |

@@ -15,6 +15,12 @@
 #include <MetalUtils.h>
 #include <aurora/rhi/Core.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
+
+#include "MetalBlitHelper.h"
+
+#include <algorithm>
+#include <cstring>
 
 static const char *TAG = "AuroraMetal";
 
@@ -129,6 +135,24 @@ void MetalGraphicsEncoder::BeginRendering(const RenderingInfo &info) {
   renderEncoder = (__bridge_retained void *)nativeEnc;
   owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Render,
                             (__bridge void *)nativeEnc);
+
+  // match the DX12 contract: renderArea seeds the initial viewport+scissor
+  if (info.renderArea.extent.width > 0 && info.renderArea.extent.height > 0) {
+    MTLViewport vp;
+    vp.originX = info.renderArea.offset.x;
+    vp.originY = info.renderArea.offset.y;
+    vp.width   = info.renderArea.extent.width;
+    vp.height  = info.renderArea.extent.height;
+    vp.znear   = 0.0;
+    vp.zfar    = 1.0;
+    [nativeEnc setViewport:vp];
+    MTLScissorRect sc;
+    sc.x      = info.renderArea.offset.x;
+    sc.y      = info.renderArea.offset.y;
+    sc.width  = info.renderArea.extent.width;
+    sc.height = info.renderArea.extent.height;
+    [nativeEnc setScissorRect:sc];
+  }
 }
 
 void MetalGraphicsEncoder::EndRendering() {
@@ -172,16 +196,13 @@ void MetalGraphicsEncoder::BindPipeline(GraphicsPipeline *pso) {
 void MetalGraphicsEncoder::BindResourceGroup(
     uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets,
     const uint32_t *dynamicOffsets) {
-  (void)set;           // slang MSL flattens register spaces; bindings are
-                       // per-category indices recorded in the group
-  (void)dynamicOffsets;
-  if (numDynamicOffsets > 0) {
-    LOG_W(TAG, "dynamic offsets are not supported by the Metal backend");
-  }
+  (void)set; // slang MSL flattens register spaces; bindings are
+             // per-category indices recorded in the group
   if (group == nullptr) {
     return;
   }
-  static_cast<MetalResourceGroup *>(group)->BindGraphics(renderEncoder);
+  static_cast<MetalResourceGroup *>(group)->BindGraphics(
+      renderEncoder, numDynamicOffsets, dynamicOffsets);
 }
 
 void MetalGraphicsEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/) {
@@ -192,9 +213,9 @@ void MetalGraphicsEncoder::PushConstants(ShaderStageFlags stages,
                                          uint32_t offset, uint32_t size,
                                          const void *data) {
   // slang lowers push constants to a plain constant buffer occupying the
-  // highest buffer slot (declare-last convention); setBytes has no base
-  // offset, partial-range pushes are unsupported
-  (void)offset;
+  // highest buffer slot (declare-last convention); set*Bytes has no base
+  // offset, so partial pushes accumulate in a CPU-side block and the whole
+  // block is re-uploaded
   if (data == nullptr || size == 0 || currentPipeline == nullptr) {
     return;
   }
@@ -202,28 +223,41 @@ void MetalGraphicsEncoder::PushConstants(ShaderStageFlags stages,
   if (shader == nullptr) {
     return;
   }
+  const uint32_t blockSize = shader->GetPushConstantSize();
+  const uint32_t required  = std::max(blockSize, offset + size);
+  if (pushConstantBlock.size() < required) {
+    pushConstantBlock.resize(required, 0);
+  }
+  memcpy(pushConstantBlock.data() + offset, data, size);
+
   const uint32_t slot = shader->GetPushConstantSlot();
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   if (stages & ShaderStageFlagBit::VS) {
-    [enc setVertexBytes:data length:size atIndex:slot];
+    [enc setVertexBytes:pushConstantBlock.data()
+                 length:pushConstantBlock.size()
+                atIndex:slot];
   }
   if (stages & ShaderStageFlagBit::FS) {
-    [enc setFragmentBytes:data length:size atIndex:slot];
+    [enc setFragmentBytes:pushConstantBlock.data()
+                   length:pushConstantBlock.size()
+                  atIndex:slot];
   }
 }
 
 void MetalGraphicsEncoder::BindVertexBuffers(uint32_t firstBinding,
-                                             uint32_t count,
-                                             const BufferView *views) {
+                                              uint32_t count,
+                                              const BufferView *views) {
+  SKY_ASSERT(firstBinding + count <= MAX_VERTEX_BINDINGS);
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   for (uint32_t i = 0; i < count; ++i) {
     auto *buf = static_cast<MetalBuffer *>(views[i].buffer);
     id<MTLBuffer> mtlBuf = (__bridge id<MTLBuffer>)buf->GetNativeHandle();
+    // vertex buffers live above the shader buffer range (see MetalUtils.h)
     [enc setVertexBuffer:mtlBuf
                   offset:(NSUInteger)views[i].offset
-                 atIndex:firstBinding + i];
+                 atIndex:METAL_VERTEX_BUFFER_SLOT_BASE + firstBinding + i];
   }
 }
 
@@ -235,9 +269,14 @@ void MetalGraphicsEncoder::BindIndexBuffer(Buffer *buffer, uint64_t offset,
 }
 
 void MetalGraphicsEncoder::SetViewport(uint32_t count,
-                                       const Viewport *viewports) {
+                                        const Viewport *viewports) {
+  SKY_ASSERT(count <= MAX_VIEWPORTS);
   if (count == 0)
     return;
+  if (count > 1) {
+    LOG_W(TAG, "Metal supports a single viewport; using viewport 0 of %u",
+          count);
+  }
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   MTLViewport vp;
@@ -251,8 +290,13 @@ void MetalGraphicsEncoder::SetViewport(uint32_t count,
 }
 
 void MetalGraphicsEncoder::SetScissor(uint32_t count, const Rect2D *scissors) {
+  SKY_ASSERT(count <= MAX_VIEWPORTS);
   if (count == 0)
     return;
+  if (count > 1) {
+    LOG_W(TAG, "Metal supports a single scissor rect; using rect 0 of %u",
+          count);
+  }
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   MTLScissorRect sc;
@@ -297,7 +341,12 @@ void MetalGraphicsEncoder::DrawIndexed(const CmdDrawIndexed &cmd) {
 
 void MetalGraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset,
                                         uint32_t drawCount,
-                                        uint32_t /*stride*/) {
+                                        uint32_t stride) {
+  // Metal indirect argument structs are fixed-size; a zero stride means
+  // tightly packed (same convention as Vulkan)
+  const uint32_t effectiveStride =
+      stride != 0 ? stride : sizeof(MTLDrawPrimitivesIndirectArguments);
+  SKY_ASSERT(effectiveStride >= sizeof(MTLDrawPrimitivesIndirectArguments));
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   id<MTLBuffer> indirectBuf =
@@ -306,14 +355,16 @@ void MetalGraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset,
   for (uint32_t i = 0; i < drawCount; ++i) {
     [enc drawPrimitives:TopologyOf(currentPipeline)
               indirectBuffer:indirectBuf
-        indirectBufferOffset:offset +
-                             i * sizeof(MTLDrawPrimitivesIndirectArguments)];
+        indirectBufferOffset:offset + i * effectiveStride];
   }
 }
 
 void MetalGraphicsEncoder::DrawIndexedIndirect(Buffer *buffer, uint64_t offset,
                                                uint32_t drawCount,
-                                               uint32_t /*stride*/) {
+                                               uint32_t stride) {
+  const uint32_t effectiveStride =
+      stride != 0 ? stride : sizeof(MTLDrawIndexedPrimitivesIndirectArguments);
+  SKY_ASSERT(effectiveStride >= sizeof(MTLDrawIndexedPrimitivesIndirectArguments));
   id<MTLRenderCommandEncoder> enc =
       (__bridge id<MTLRenderCommandEncoder>)renderEncoder;
   id<MTLBuffer> ib = (__bridge id<MTLBuffer>)indexBuffer;
@@ -328,8 +379,7 @@ void MetalGraphicsEncoder::DrawIndexedIndirect(Buffer *buffer, uint64_t offset,
                    indexBuffer:ib
              indexBufferOffset:indexOffset
                 indirectBuffer:indirectBuf
-          indirectBufferOffset:
-              offset + i * sizeof(MTLDrawIndexedPrimitivesIndirectArguments)];
+          indirectBufferOffset:offset + i * effectiveStride];
   }
 }
 
@@ -370,14 +420,11 @@ void MetalComputeEncoder::BindResourceGroup(
     uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets,
     const uint32_t *dynamicOffsets) {
   (void)set; // see MetalGraphicsEncoder::BindResourceGroup
-  (void)dynamicOffsets;
-  if (numDynamicOffsets > 0) {
-    LOG_W(TAG, "dynamic offsets are not supported by the Metal backend");
-  }
   if (group == nullptr) {
     return;
   }
-  static_cast<MetalResourceGroup *>(group)->BindCompute(computeEncoder);
+  static_cast<MetalResourceGroup *>(group)->BindCompute(
+      computeEncoder, numDynamicOffsets, dynamicOffsets);
 }
 
 void MetalComputeEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/) {
@@ -386,8 +433,7 @@ void MetalComputeEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/) {
 
 void MetalComputeEncoder::PushConstants(uint32_t offset, uint32_t size,
                                         const void *data) {
-  // see MetalGraphicsEncoder::PushConstants for the slot convention
-  (void)offset;
+  // see MetalGraphicsEncoder::PushConstants for the slot/staging convention
   if (data == nullptr || size == 0 || currentPipeline == nullptr) {
     return;
   }
@@ -395,9 +441,18 @@ void MetalComputeEncoder::PushConstants(uint32_t offset, uint32_t size,
   if (shader == nullptr) {
     return;
   }
+  const uint32_t blockSize = shader->GetPushConstantSize();
+  const uint32_t required  = std::max(blockSize, offset + size);
+  if (pushConstantBlock.size() < required) {
+    pushConstantBlock.resize(required, 0);
+  }
+  memcpy(pushConstantBlock.data() + offset, data, size);
+
   id<MTLComputeCommandEncoder> enc =
       (__bridge id<MTLComputeCommandEncoder>)computeEncoder;
-  [enc setBytes:data length:size atIndex:shader->GetPushConstantSlot()];
+  [enc setBytes:pushConstantBlock.data()
+         length:pushConstantBlock.size()
+        atIndex:shader->GetPushConstantSlot()];
 }
 
 void MetalComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY,
@@ -548,20 +603,100 @@ void MetalBlitEncoder::CopyImageToBuffer(
   }
 }
 
-void MetalBlitEncoder::BlitImage(Image * /*src*/, Image * /*dst*/,
-                                 const std::vector<BlitInfo> & /*regions*/,
-                                 Filter /*filter*/) {
-  // Metal has no direct blit-with-filter equivalent on MTLBlitCommandEncoder.
-  // Scaling blits require a render pass with a fragment shader.
-  // TODO: implement via render-based blit helper
+void MetalBlitEncoder::SuspendBlit() {
+  if (blitEncoder != nullptr) {
+    id<MTLBlitCommandEncoder> enc =
+        (__bridge_transfer id<MTLBlitCommandEncoder>)blitEncoder;
+    [enc endEncoding];
+    blitEncoder = nullptr;
+    owner->NotifyEncoderEnd();
+  }
+}
+
+void MetalBlitEncoder::ResumeBlit() {
+  if (blitEncoder == nullptr) {
+    id<MTLCommandBuffer> cb =
+        (__bridge id<MTLCommandBuffer>)owner->GetNativeHandle();
+    id<MTLBlitCommandEncoder> nativeEnc = [cb blitCommandEncoder];
+    blitEncoder = (__bridge_retained void *)nativeEnc;
+    owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Blit,
+                              (__bridge void *)nativeEnc);
+  }
+}
+
+void MetalBlitEncoder::BlitImage(Image *src, Image *dst,
+                                 const std::vector<BlitInfo> &regions,
+                                 Filter filter) {
+  auto *srcImage = static_cast<MetalImage *>(src);
+  auto *dstImage = static_cast<MetalImage *>(dst);
+  id<MTLTexture> srcTex = (__bridge id<MTLTexture>)srcImage->GetNativeHandle();
+  id<MTLTexture> dstTex = (__bridge id<MTLTexture>)dstImage->GetNativeHandle();
+
+  // fast path: 1:1 texel copies (same format, same extent, no filtering) map
+  // to native blit-encoder copies
+  bool allCopies = srcTex.pixelFormat == dstTex.pixelFormat;
+  if (allCopies) {
+    for (const auto &region : regions) {
+      const auto srcW = region.srcOffsets[1].x - region.srcOffsets[0].x;
+      const auto srcH = region.srcOffsets[1].y - region.srcOffsets[0].y;
+      const auto srcD = region.srcOffsets[1].z - region.srcOffsets[0].z;
+      const auto dstW = region.dstOffsets[1].x - region.dstOffsets[0].x;
+      const auto dstH = region.dstOffsets[1].y - region.dstOffsets[0].y;
+      const auto dstD = region.dstOffsets[1].z - region.dstOffsets[0].z;
+      if (srcW != dstW || srcH != dstH || srcD != dstD) {
+        allCopies = false;
+        break;
+      }
+    }
+  }
+
+  if (allCopies) {
+    id<MTLBlitCommandEncoder> enc =
+        (__bridge id<MTLBlitCommandEncoder>)blitEncoder;
+    for (const auto &region : regions) {
+      const uint32_t layers = std::max(region.dstRange.layers, 1u);
+      for (uint32_t i = 0; i < layers; ++i) {
+        MTLSize size = MTLSizeMake(
+            region.srcOffsets[1].x - region.srcOffsets[0].x,
+            region.srcOffsets[1].y - region.srcOffsets[0].y,
+            region.srcOffsets[1].z - region.srcOffsets[0].z);
+        MTLOrigin srcOrigin = MTLOriginMake(
+            region.srcOffsets[0].x, region.srcOffsets[0].y, region.srcOffsets[0].z);
+        MTLOrigin dstOrigin = MTLOriginMake(
+            region.dstOffsets[0].x, region.dstOffsets[0].y, region.dstOffsets[0].z);
+        [enc copyFromTexture:srcTex
+                   sourceSlice:region.srcRange.baseLayer + (region.srcRange.layers > 1 ? i : 0)
+                   sourceLevel:region.srcRange.level
+                  sourceOrigin:srcOrigin
+                    sourceSize:size
+                      toTexture:dstTex
+               destinationSlice:region.dstRange.baseLayer + i
+               destinationLevel:region.dstRange.level
+             destinationOrigin:dstOrigin];
+      }
+    }
+    return;
+  }
+
+  // scaling / filtering needs a render pass; suspend the blit encoder around it
+  SuspendBlit();
+  const bool ok = device.GetBlitHelper()->Blit(owner->GetNativeHandle(),
+                                               srcImage, dstImage, regions, filter);
+  if (!ok) {
+    LOG_E(TAG, "BlitImage failed (dst format not renderable?)");
+  }
+  ResumeBlit();
 }
 
 void MetalBlitEncoder::ResolveImage(
-    Image * /*src*/, Image * /*dst*/,
-    const std::vector<ResolveInfo> & /*regions*/) {
-  // Metal MSAA resolve is typically done through
-  // MTLStoreActionMultisampleResolve on the render pass attachment. Explicit
-  // resolve via blit is not directly supported. TODO: implement if needed.
+    Image *src, Image *dst,
+    const std::vector<ResolveInfo> &regions) {
+  // Metal resolves via a store-action resolve render pass, not the blit encoder
+  SuspendBlit();
+  device.GetBlitHelper()->Resolve(owner->GetNativeHandle(),
+                                  static_cast<MetalImage *>(src),
+                                  static_cast<MetalImage *>(dst), regions);
+  ResumeBlit();
 }
 
 } // namespace sky::aurora

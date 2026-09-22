@@ -21,19 +21,19 @@ namespace sky::aurora {
 
         void WriteBuffer(uint32_t binding, Buffer *buffer,
                          uint64_t offset, uint64_t /*range*/,
-                         uint32_t /*arrayElement*/ = 0) override
+                         uint32_t arrayElement = 0) override
         {
-            group->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset);
+            group->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset, arrayElement);
         }
         void WriteImage(uint32_t binding, Image *image,
-                        ImageLayout /*layout*/, uint32_t /*arrayElement*/ = 0) override
+                        ImageLayout /*layout*/, uint32_t arrayElement = 0) override
         {
-            group->WriteImage(binding, static_cast<MetalImage *>(image));
+            group->WriteImage(binding, static_cast<MetalImage *>(image), arrayElement);
         }
         void WriteSampler(uint32_t binding, Sampler *sampler,
-                          uint32_t /*arrayElement*/ = 0) override
+                          uint32_t arrayElement = 0) override
         {
-            group->WriteSampler(binding, static_cast<MetalSampler *>(sampler));
+            group->WriteSampler(binding, static_cast<MetalSampler *>(sampler), arrayElement);
         }
         void End() override {}
 

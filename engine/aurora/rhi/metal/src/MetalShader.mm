@@ -7,6 +7,9 @@
 #include <MetalUtils.h>
 #include <core/logger/Logger.h>
 
+#include <algorithm>
+#include <cstring>
+
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
@@ -48,20 +51,31 @@ namespace sky::aurora {
         }
 
         const auto &binary = binaryProvider->binaryData;
-        NSString *source = [[NSString alloc] initWithBytes:binary->Data()
-                                                   length:binary->Size()
-                                                 encoding:NSUTF8StringEncoding];
-        if (source == nil) {
-            LOG_E(TAG, "failed to decode MSL source");
-            return false;
-        }
-
         NSError *error = nil;
-        auto *metalLibrary = [metalDevice newLibraryWithSource:source options:nil error:&error];
-        [source release];
+        id<MTLLibrary> metalLibrary = nil;
+        // pre-compiled .metallib blobs start with the "MTLB" magic; anything
+        // else is treated as MSL source text and compiled at runtime
+        const bool isMetallib = binary->Size() >= 4 &&
+            memcmp(binary->Data(), "MTLB", 4) == 0;
+        if (isMetallib) {
+            dispatch_data_t data = dispatch_data_create(binary->Data(), binary->Size(),
+                                                        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+            metalLibrary = [metalDevice newLibraryWithData:data error:&error];
+            [data release];
+        } else {
+            NSString *source = [[NSString alloc] initWithBytes:binary->Data()
+                                                        length:binary->Size()
+                                                      encoding:NSUTF8StringEncoding];
+            if (source == nil) {
+                LOG_E(TAG, "failed to decode MSL source");
+                return false;
+            }
+            metalLibrary = [metalDevice newLibraryWithSource:source options:nil error:&error];
+            [source release];
+        }
         if (metalLibrary == nil) {
             const char *message = error != nil ? [[error localizedDescription] UTF8String] : "unknown";
-            LOG_E(TAG, "newLibraryWithSource failed: %s", message);
+            LOG_E(TAG, "library creation failed: %s", message);
             return false;
         }
 
@@ -117,6 +131,11 @@ namespace sky::aurora {
             }
         }
         pushConstantSlot = bufferSlots > 0 ? bufferSlots - 1 : 0;
+        bufferSlotCount  = bufferSlots;
+
+        for (const auto &range : reflection.pushConstants) {
+            pushConstantSize = std::max(pushConstantSize, range.offset + range.size);
+        }
 
         if (desc.cs != nullptr) {
             computeFunction = static_cast<MetalShaderFunction *>(desc.cs);

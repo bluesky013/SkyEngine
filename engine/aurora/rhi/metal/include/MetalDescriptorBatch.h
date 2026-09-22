@@ -20,19 +20,19 @@ namespace sky::aurora {
         ~MetalDescriptorBatch() override = default;
 
         void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer,
-                         uint64_t offset, uint64_t /*range*/, uint32_t /*arrayElement*/ = 0) override
+                         uint64_t offset, uint64_t /*range*/, uint32_t arrayElement = 0) override
         {
-            static_cast<MetalResourceGroup *>(group)->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset);
+            static_cast<MetalResourceGroup *>(group)->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset, arrayElement);
         }
         void WriteImage(ResourceGroup *group, uint32_t binding, Image *image,
-                        ImageLayout /*layout*/, uint32_t /*arrayElement*/ = 0) override
+                        ImageLayout /*layout*/, uint32_t arrayElement = 0) override
         {
-            static_cast<MetalResourceGroup *>(group)->WriteImage(binding, static_cast<MetalImage *>(image));
+            static_cast<MetalResourceGroup *>(group)->WriteImage(binding, static_cast<MetalImage *>(image), arrayElement);
         }
         void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler,
-                          uint32_t /*arrayElement*/ = 0) override
+                          uint32_t arrayElement = 0) override
         {
-            static_cast<MetalResourceGroup *>(group)->WriteSampler(binding, static_cast<MetalSampler *>(sampler));
+            static_cast<MetalResourceGroup *>(group)->WriteSampler(binding, static_cast<MetalSampler *>(sampler), arrayElement);
         }
         void Flush() override {}
         void Reset() override {}

@@ -42,6 +42,11 @@ namespace sky::aurora {
         // slang MSL lowers push constants to a plain constant buffer at the
         // highest [[buffer(N)]] slot (declare-last convention)
         uint32_t GetPushConstantSlot() const { return pushConstantSlot; }
+        // one past the highest [[buffer(N)]] slot used by the shader (incl.
+        // push constants); must stay below METAL_VERTEX_BUFFER_SLOT_BASE
+        uint32_t GetBufferSlotCount() const { return bufferSlotCount; }
+        // size of the push constant block (max offset+size over reflected ranges)
+        uint32_t GetPushConstantSize() const { return pushConstantSize; }
 
     private:
         MetalDevice                    &device;
@@ -50,6 +55,8 @@ namespace sky::aurora {
         CounterPtr<MetalShaderFunction> computeFunction;
         ShaderReflection                reflection;
         uint32_t                        pushConstantSlot = 0;
+        uint32_t                        bufferSlotCount  = 0;
+        uint32_t                        pushConstantSize = 0;
     };
 
 } // namespace sky::aurora

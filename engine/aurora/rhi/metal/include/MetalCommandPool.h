@@ -54,7 +54,8 @@ namespace sky::aurora {
     private:
         MetalDevice &device;
         void        *queue = nullptr;
-        std::vector<MetalCommandBuffer*> allocatedBuffers;
+        std::vector<MetalCommandBuffer*> allocatedBuffers; // owned
+        std::vector<MetalCommandBuffer*> freeList;         // reusable after Reset
     };
 
 } // namespace sky::aurora

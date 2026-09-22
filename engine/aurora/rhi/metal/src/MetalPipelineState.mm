@@ -7,6 +7,7 @@
 #include <MetalShader.h>
 #include <MetalUtils.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
 
 static const char *TAG = "AuroraMetal";
 
@@ -86,6 +87,39 @@ namespace sky::aurora {
         pipelineDesc.rasterSampleCount = ToMetalSampleCount(desc.format.sampleCount);
         if (desc.state != nullptr && desc.state->multiSample.alphaToCoverage) {
             pipelineDesc.alphaToCoverageEnabled = YES;
+        }
+
+        // vertex input: slang MSL emits [[attribute(location)]] on the stage_in
+        // struct; vertex buffers are bound at METAL_VERTEX_BUFFER_SLOT_BASE + binding
+        // (see MetalUtils.h) so they never alias shader buffer bindings
+        if (desc.state != nullptr && !desc.state->vertexAttributes.empty()) {
+            SKY_ASSERT(shader->GetBufferSlotCount() <= METAL_VERTEX_BUFFER_SLOT_BASE &&
+                       "shader buffer bindings collide with the vertex buffer slot range");
+            if (shader->GetBufferSlotCount() > METAL_VERTEX_BUFFER_SLOT_BASE) {
+                LOG_E(TAG, "shader uses %u buffer slots, exceeds the %u slots reserved below vertex buffers",
+                      shader->GetBufferSlotCount(), METAL_VERTEX_BUFFER_SLOT_BASE);
+                [pipelineDesc release];
+                return false;
+            }
+
+            auto *vertexDesc = [[MTLVertexDescriptor alloc] init];
+            for (const auto &binding : desc.state->vertexBindings) {
+                SKY_ASSERT(binding.binding < MAX_VERTEX_BINDINGS);
+                auto *layout = vertexDesc.layouts[METAL_VERTEX_BUFFER_SLOT_BASE + binding.binding];
+                layout.stride       = binding.stride;
+                layout.stepFunction = binding.inputRate == VertexInputRate::PER_INSTANCE
+                                          ? MTLVertexStepFunctionPerInstance
+                                          : MTLVertexStepFunctionPerVertex;
+                layout.stepRate     = 1;
+            }
+            for (const auto &attr : desc.state->vertexAttributes) {
+                auto *attribute = vertexDesc.attributes[attr.location];
+                attribute.format      = ToMetalVertexFormat(attr.format);
+                attribute.offset      = attr.offset;
+                attribute.bufferIndex = METAL_VERTEX_BUFFER_SLOT_BASE + attr.binding;
+            }
+            pipelineDesc.vertexDescriptor = vertexDesc;
+            [vertexDesc release];
         }
 
         NSError *error = nil;

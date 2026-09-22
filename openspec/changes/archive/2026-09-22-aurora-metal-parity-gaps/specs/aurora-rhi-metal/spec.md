@@ -1,23 +1,6 @@
-# aurora-rhi-metal Specification
+# Delta: aurora-rhi-metal
 
-## Purpose
-Aurora RHI Metal 后端：slang MSL 直发路径下的 shader 加载（源码/metallib）、直接绑定 ResourceGroup（含 dynamic offsets 与数组）、深度模板/光栅化状态、compute dispatch、push constant 约定、blit/resolve、顶点输入槽位分区、swapchain ring、命令缓冲池复用与格式/caps 映射。
-
-## Requirements
-
-### Requirement: Metal shader function 按 entry 名加载
-
-slang MSL 输出保留源码级 entry 名（如 `mainVS`）。`ShaderFunction::Descriptor.entry` SHALL 传递给 Metal 后端并用于 `newFunctionWithName`；entry 为空时 Metal SHALL 回退 `VSMain/FSMain/CSMain` 约定（兼容手写 MSL）。
-
-#### Scenario: slang MSL shader 加载
-
-- **WHEN** 用 slang MSL 编译产物（entry `mainVS`/`mainFS`/`mainCS`）创建 `ShaderFunction`
-- **THEN** `newFunctionWithName` 命中，`AuroraMetalTest.SlangToRhiShaderObjects` / `SlangToRhiComputePipeline` 通过
-
-#### Scenario: 手写 MSL 回退
-
-- **WHEN** `desc.entry` 为空且 MSL 源码入口为 `VSMain/FSMain/CSMain`
-- **THEN** shader function 创建成功
+## MODIFIED Requirements
 
 ### Requirement: Metal ResourceGroup 直接绑定模型
 
@@ -47,29 +30,6 @@ descriptor 数组：slang MSL 将资源数组摊平为从数组基址起连续�
 - **WHEN** group 含两个 `UNIFORM_BUFFER_DYNAMIC` binding（升序 b1<b2）且 `BindResourceGroup` 传入 `[o1, o2]`
 - **THEN** b1 以 `记录offset+o1`、b2 以 `记录offset+o2` 绑定
 
-### Requirement: Metal 深度模板与光栅化状态
-
-`MetalGraphicsPipeline` SHALL 从 `PipelineState::depthStencil` 创建 `MTLDepthStencilState`（depthTest/depthWrite/compareOp/stencil front/back)，并保存光栅化参数（cullMode/frontFace/polygonMode/depthBias/depthClamp/stencil reference);`BindPipeline` SHALL 将上述状态应用到 render encoder。`BeginRendering` SHALL 按格式 `hasDepth`/`hasStencil` 门控 depth/stencil attachment（含 load/store/clearStencil)。
-
-#### Scenario: 深度测试生效
-
-- **WHEN** pipeline state 声明 `depthTest=true, compareOp=LESS_OR_EQUAL` 且绑定该 pipeline
-- **THEN** encoder 应用对应 `MTLDepthStencilState` 与 cull/winding/fill/depthBias/depthClip 设置
-
-#### Scenario: stencil attachment 完整
-
-- **WHEN** `BeginRendering` 的 depth-stencil 图像格式含 stencil
-- **THEN** `stencilAttachment` 的 texture/loadAction/storeAction/clearStencil 被设置
-
-### Requirement: Metal compute dispatch 使用反射线程组尺寸
-
-MSL 不携带 `numthreads`。`ShaderReflection` SHALL 携带 `threadGroupSize[3]`，由 slang entry point 反射 `getComputeThreadGroupSize` 填充；`MetalComputePipeline` SHALL 保存该尺寸，`Dispatch`/`DispatchIndirect` SHALL 使用绑定 pipeline 的尺寸而非硬编码 (1,1,1)。
-
-#### Scenario: 非 (1,1,1) kernel 正确 dispatch
-
-- **WHEN** compute shader 声明 `[numthreads(8,4,2)]` 并经 slang MSL 编译
-- **THEN** `Dispatch` 的 `threadsPerThreadgroup` 为 (8,4,2)
-
 ### Requirement: Metal push constant 槽位约定
 
 slang 在 Metal 上把 `[[vk::push_constant]]` 物化为普通 `constant T* [[buffer(N)]]`。引擎约定 push constant 块在 shader 中最后声明；`MetalShader` SHALL 将 push constant 槽位推导为 buffer 类资源的最高 binding + 0（即资源数 - 1），并 SHALL 从 `reflection.pushConstants` 推导块大小（max offset+size）。encoder `PushConstants` SHALL 用 `setVertexBytes/setFragmentBytes/setBytes`（按 stageFlags）写入该槽位。
@@ -86,14 +46,7 @@ slang 在 Metal 上把 `[[vk::push_constant]]` 物化为普通 `constant T* [[bu
 - **WHEN** 对同一块先后以 `(offset=0,size=16)` 与 `(offset=16,size=16)` 调 `PushConstants`
 - **THEN** 两次写入都落在 staging block 对应偏移，最终整块 32 字节写入槽位
 
-### Requirement: shader 编译器反射补全
-
-`ShaderCompilerSlang` SHALL 对 `PushConstantBuffer` category 记录 `reflection.pushConstants`（不再产生伪 UBO descriptor 资源），SHALL 在 compute 编译时填充 `threadGroupSize`。
-
-#### Scenario: SPIRV push constant range
-
-- **WHEN** SPIRV 目标编译含 `[[vk::push_constant]]` 的 shader
-- **THEN** `reflection.pushConstants` 含对应 range，且 resources 中无对应伪 UBO
+## ADDED Requirements
 
 ### Requirement: Metal blit 与 resolve
 

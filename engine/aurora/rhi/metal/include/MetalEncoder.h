@@ -6,6 +6,8 @@
 
 #include <aurora/rhi/Encoder.h>
 
+#include <vector>
+
 namespace sky::aurora {
 
     class MetalDevice;
@@ -48,6 +50,9 @@ namespace sky::aurora {
         void                  *indexBuffer     = nullptr; // id<MTLBuffer>
         uint64_t               indexOffset     = 0;
         uint32_t               indexType       = 0; // MTLIndexType
+        // CPU-side push constant block: set*Bytes has no base offset, so
+        // partial pushes accumulate here and the whole block is re-uploaded
+        std::vector<uint8_t>   pushConstantBlock;
     };
 
     class MetalComputeEncoder : public ComputeEncoder {
@@ -67,6 +72,7 @@ namespace sky::aurora {
         MetalCommandBuffer   *owner           = nullptr;
         MetalComputePipeline *currentPipeline = nullptr; // thread group size / push constant slot source
         void                 *computeEncoder  = nullptr; // id<MTLComputeCommandEncoder>
+        std::vector<uint8_t> pushConstantBlock; // see MetalGraphicsEncoder
     };
 
     class MetalBlitEncoder : public BlitEncoder {
@@ -81,6 +87,11 @@ namespace sky::aurora {
         void ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions) override;
 
     private:
+        // blit/resolve with filtering needs render passes; suspend the native
+        // blit encoder around them and resume a fresh one afterwards
+        void SuspendBlit();
+        void ResumeBlit();
+
         MetalDevice        &device;
         MetalCommandBuffer *owner       = nullptr;
         void               *blitEncoder = nullptr; // id<MTLBlitCommandEncoder>

@@ -12,11 +12,23 @@
 
 namespace sky::aurora {
 
+    // Metal guarantees 31 buffer argument slots per stage (indices 0..30).
+    // slang MSL flattens shader buffers to sequential [[buffer(N)]] starting
+    // at 0 (push constants own the highest used slot), so vertex buffers are
+    // bound from the top of the table downwards: vertex binding i lands on
+    // slot METAL_VERTEX_BUFFER_SLOT_BASE + i. Shader buffer bindings (incl.
+    // the push constant slot) must stay below METAL_VERTEX_BUFFER_SLOT_BASE;
+    // MetalGraphicsPipeline asserts this budget at creation time.
+    inline constexpr uint32_t METAL_MAX_BUFFER_SLOTS      = 31;
+    inline constexpr uint32_t METAL_VERTEX_BUFFER_SLOT_BASE =
+        METAL_MAX_BUFFER_SLOTS - MAX_VERTEX_BINDINGS; // 15
+
     inline MTLPixelFormat ToMetalPixelFormat(PixelFormat format)
     {
         switch (format) {
         case PixelFormat::R8_UINT: return MTLPixelFormatR8Uint;
         case PixelFormat::R8_UNORM: return MTLPixelFormatR8Unorm;
+        case PixelFormat::R8_SRGB: return MTLPixelFormatR8Unorm_sRGB;
         case PixelFormat::RGBA8_UNORM: return MTLPixelFormatRGBA8Unorm;
         case PixelFormat::RGBA8_SRGB: return MTLPixelFormatRGBA8Unorm_sRGB;
         case PixelFormat::BGRA8_UNORM: return MTLPixelFormatBGRA8Unorm;
@@ -36,7 +48,63 @@ namespace sky::aurora {
         case PixelFormat::D32: return MTLPixelFormatDepth32Float;
         case PixelFormat::D24_S8: return MTLPixelFormatDepth32Float_Stencil8;
         case PixelFormat::D32_S8: return MTLPixelFormatDepth32Float_Stencil8;
+        // BCn: desktop GPUs only (macOS); unsupported on Apple-family GPUs
+        case PixelFormat::BC1_RGB_UNORM_BLOCK:  return MTLPixelFormatBC1_RGBA;
+        case PixelFormat::BC1_RGB_SRGB_BLOCK:   return MTLPixelFormatBC1_RGBA_sRGB;
+        case PixelFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
+        case PixelFormat::BC1_RGBA_SRGB_BLOCK:  return MTLPixelFormatBC1_RGBA_sRGB;
+        case PixelFormat::BC2_UNORM_BLOCK:      return MTLPixelFormatBC2_RGBA;
+        case PixelFormat::BC2_SRGB_BLOCK:       return MTLPixelFormatBC2_RGBA_sRGB;
+        case PixelFormat::BC3_UNORM_BLOCK:      return MTLPixelFormatBC3_RGBA;
+        case PixelFormat::BC3_SRGB_BLOCK:       return MTLPixelFormatBC3_RGBA_sRGB;
+        case PixelFormat::BC4_UNORM_BLOCK:      return MTLPixelFormatBC4_RUnorm;
+        case PixelFormat::BC4_SNORM_BLOCK:      return MTLPixelFormatBC4_RSnorm;
+        case PixelFormat::BC5_UNORM_BLOCK:      return MTLPixelFormatBC5_RGUnorm;
+        case PixelFormat::BC5_SNORM_BLOCK:      return MTLPixelFormatBC5_RGSnorm;
+        case PixelFormat::BC6H_UFLOAT_BLOCK:    return MTLPixelFormatBC6H_RGBUfloat;
+        case PixelFormat::BC6H_SFLOAT_BLOCK:    return MTLPixelFormatBC6H_RGBFloat;
+        case PixelFormat::BC7_UNORM_BLOCK:      return MTLPixelFormatBC7_RGBAUnorm;
+        case PixelFormat::BC7_SRGB_BLOCK:       return MTLPixelFormatBC7_RGBAUnorm_sRGB;
+        // ASTC: Apple-family GPUs (A8+/M1+)
+        case PixelFormat::ASTC_4x4_UNORM_BLOCK:   return MTLPixelFormatASTC_4x4_LDR;
+        case PixelFormat::ASTC_4x4_SRGB_BLOCK:    return MTLPixelFormatASTC_4x4_sRGB;
+        case PixelFormat::ASTC_8x8_UNORM_BLOCK:   return MTLPixelFormatASTC_8x8_LDR;
+        case PixelFormat::ASTC_8x8_SRGB_BLOCK:    return MTLPixelFormatASTC_8x8_sRGB;
+        case PixelFormat::ASTC_10x10_UNORM_BLOCK: return MTLPixelFormatASTC_10x10_LDR;
+        case PixelFormat::ASTC_10x10_SRGB_BLOCK:  return MTLPixelFormatASTC_10x10_sRGB;
+        case PixelFormat::ASTC_12x12_UNORM_BLOCK: return MTLPixelFormatASTC_12x12_LDR;
+        case PixelFormat::ASTC_12x12_SRGB_BLOCK:  return MTLPixelFormatASTC_12x12_sRGB;
+        // ETC2 has no Metal equivalent
         default: return MTLPixelFormatInvalid;
+        }
+    }
+
+    // aurora vertex attribute Format -> MTLVertexFormat (mirrors the Vulkan
+    // FORMAT_TABLE semantics: F_* = float/unorm, U_* = uint)
+    inline MTLVertexFormat ToMetalVertexFormat(Format format)
+    {
+        switch (format) {
+        case Format::F_R32:   return MTLVertexFormatFloat;
+        case Format::F_RG32:  return MTLVertexFormatFloat2;
+        case Format::F_RGB32: return MTLVertexFormatFloat3;
+        case Format::F_RGBA32: return MTLVertexFormatFloat4;
+        case Format::F_R8:    return MTLVertexFormatUCharNormalized;
+        case Format::F_RG8:   return MTLVertexFormatUChar2Normalized;
+        case Format::F_RGB8:  return MTLVertexFormatUChar3Normalized;
+        case Format::F_RGBA8: return MTLVertexFormatUChar4Normalized;
+        case Format::U_R8:    return MTLVertexFormatUChar;
+        case Format::U_RG8:   return MTLVertexFormatUChar2;
+        case Format::U_RGB8:  return MTLVertexFormatUChar3;
+        case Format::U_RGBA8: return MTLVertexFormatUChar4;
+        case Format::U_R16:   return MTLVertexFormatUShort;
+        case Format::U_RG16:  return MTLVertexFormatUShort2;
+        case Format::U_RGB16: return MTLVertexFormatUShort3;
+        case Format::U_RGBA16: return MTLVertexFormatUShort4;
+        case Format::U_R32:   return MTLVertexFormatUInt;
+        case Format::U_RG32:  return MTLVertexFormatUInt2;
+        case Format::U_RGB32: return MTLVertexFormatUInt3;
+        case Format::U_RGBA32: return MTLVertexFormatUInt4;
+        default: return MTLVertexFormatInvalid;
         }
     }
 

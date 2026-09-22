@@ -175,10 +175,20 @@ namespace sky::aurora {
 
     void MetalCommandPool::Reset()
     {
+        // MTLCommandBuffer cannot be reset, but MetalCommandBuffer::Begin()
+        // re-creates the native handle, so wrapper objects are reusable.
+        // Matches CommandPool::Reset semantics: every buffer allocated from
+        // the pool returns to the reusable state.
+        freeList = allocatedBuffers;
     }
 
     CommandBuffer *MetalCommandPool::Allocate()
     {
+        if (!freeList.empty()) {
+            auto *cmdBuffer = freeList.back();
+            freeList.pop_back();
+            return cmdBuffer;
+        }
         auto *cmdBuffer = new MetalCommandBuffer(device, queue);
         allocatedBuffers.push_back(cmdBuffer);
         return cmdBuffer;

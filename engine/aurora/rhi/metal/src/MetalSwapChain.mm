@@ -20,22 +20,23 @@ namespace sky::aurora {
 
     MetalSwapChain::~MetalSwapChain()
     {
-        ReleaseDrawable();
-        image.reset();
+        for (auto &slot : slots) {
+            ReleaseSlot(slot);
+        }
         if (layer != nullptr) {
             [(CAMetalLayer *)layer release];
             layer = nullptr;
         }
     }
 
-    void MetalSwapChain::ReleaseDrawable()
+    void MetalSwapChain::ReleaseSlot(Slot &slot)
     {
-        if (currentDrawable != nullptr) {
-            [(id<CAMetalDrawable>)currentDrawable release];
-            currentDrawable = nullptr;
+        if (slot.drawable != nullptr) {
+            [(id<CAMetalDrawable>)slot.drawable release];
+            slot.drawable = nullptr;
         }
-        if (image) {
-            image->Reset();
+        if (slot.image) {
+            slot.image->Reset();
         }
     }
 
@@ -54,9 +55,11 @@ namespace sky::aurora {
 
         auto *metalLayer = (CAMetalLayer *)desc.window;
         [metalLayer retain];
-        metalLayer.device          = metalDevice;
-        metalLayer.pixelFormat     = ToMetalPixelFormat(desc.preferredFormat);
-        metalLayer.framebufferOnly = YES;
+        metalLayer.device                = metalDevice;
+        metalLayer.pixelFormat           = ToMetalPixelFormat(desc.preferredFormat);
+        metalLayer.maximumDrawableCount  = IMAGE_COUNT;
+        // framebufferOnly=NO so backbuffers can be sampled/copied (RDG reads)
+        metalLayer.framebufferOnly       = NO;
         if (desc.width != 0 && desc.height != 0) {
             metalLayer.drawableSize = CGSizeMake(desc.width, desc.height);
         }
@@ -65,13 +68,19 @@ namespace sky::aurora {
         format = desc.preferredFormat;
         extent = {desc.width, desc.height};
 
-        image = std::make_unique<MetalImage>(device);
+        for (auto &slot : slots) {
+            slot.image = std::make_unique<MetalImage>(device);
+        }
         return true;
     }
 
     uint32_t MetalSwapChain::AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t /*timeoutNs*/)
     {
-        ReleaseDrawable();
+        const uint32_t index = acquireCursor;
+        acquireCursor = (acquireCursor + 1) % IMAGE_COUNT;
+
+        auto &slot = slots[index];
+        ReleaseSlot(slot);
 
         auto *metalLayer = (CAMetalLayer *)layer;
         id<CAMetalDrawable> drawable = [[metalLayer nextDrawable] retain];
@@ -79,8 +88,8 @@ namespace sky::aurora {
             LOG_E(TAG, "nextDrawable returned nil");
             return INVALID_INDEX;
         }
-        currentDrawable = drawable;
-        image->RebindBorrowed(drawable.texture);
+        slot.drawable = drawable;
+        slot.image->RebindBorrowed(drawable.texture);
 
         // Metal does not provide a native acquire-signal hook. The drawable is
         // immediately CPU-visible; signal the binary semaphore / fence right away
@@ -100,16 +109,20 @@ namespace sky::aurora {
             fev.signaledValue = v;
         }
 
-        return 0;
+        return index;
     }
 
-    void MetalSwapChain::Present(uint32_t /*imageIndex*/, uint32_t numWaitSemas, Semaphore *const *waitSemas)
+    void MetalSwapChain::Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas)
     {
-        if (currentDrawable == nullptr) {
+        if (imageIndex >= IMAGE_COUNT) {
+            return;
+        }
+        auto &slot = slots[imageIndex];
+        if (slot.drawable == nullptr) {
             return;
         }
 
-        id<CAMetalDrawable> drawable = (id<CAMetalDrawable>)currentDrawable;
+        id<CAMetalDrawable> drawable = (id<CAMetalDrawable>)slot.drawable;
         auto *graphicsQueue = (id<MTLCommandQueue>)device.GetCommandQueue();
         id<MTLCommandBuffer> presentCB = [graphicsQueue commandBuffer];
 
@@ -126,12 +139,14 @@ namespace sky::aurora {
         [presentCB presentDrawable:drawable];
         [presentCB commit];
 
-        ReleaseDrawable();
+        ReleaseSlot(slot);
     }
 
     void MetalSwapChain::Resize(uint32_t width, uint32_t height)
     {
-        ReleaseDrawable();
+        for (auto &slot : slots) {
+            ReleaseSlot(slot);
+        }
         extent = {width, height};
         if (layer != nullptr && width != 0 && height != 0) {
             ((CAMetalLayer *)layer).drawableSize = CGSizeMake(width, height);
@@ -140,10 +155,10 @@ namespace sky::aurora {
 
     Image *MetalSwapChain::GetImage(uint32_t index) const
     {
-        if (index != 0) {
+        if (index >= IMAGE_COUNT) {
             return nullptr;
         }
-        return image.get();
+        return slots[index].image.get();
     }
 
     SwapChainStatus MetalSwapChain::GetStatus() const

@@ -19,6 +19,7 @@
 
 #include <rdg/MetalDeviceFrameContext.h>
 #include "rdg/MetalRDGBackend.h"
+#include "MetalBlitHelper.h"
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -74,6 +75,7 @@ namespace sky::aurora {
 
         [device retain];
         metalDevice = device;
+        blitHelper  = std::make_unique<MetalBlitHelper>(*this);
 
         for (size_t i = 0; i < queues.size(); ++i) {
             id<MTLCommandQueue> q = [device newCommandQueue];
@@ -110,6 +112,20 @@ namespace sky::aurora {
         // Metal guarantees 256-byte alignment for constant buffer offsets on
         // macOS; there is no MTLDevice query for it
         capability.minUniformBufferOffsetAlignment = 256u;
+
+        if (mtlDevice != nil) {
+            // object/mesh pipeline requires Apple7 (A15) / Mac2 class GPUs
+            feature.meshShader = [mtlDevice supportsFamily:MTLGPUFamilyApple7] ||
+                                 [mtlDevice supportsFamily:MTLGPUFamilyMac2];
+            // framebuffer fetch (programmable blending input) is an Apple-GPU feature
+            feature.framebufferFetch = [mtlDevice supportsFamily:MTLGPUFamilyApple1];
+            // MTLDraw*IndirectArguments carry baseInstance
+            feature.firstInstanceIndirect = true;
+            // tier2 bindless argument-buffer heap needs shader-side argument
+            // buffer emission, which the slang MSL path does not produce yet
+            feature.descriptorHeap     = false;
+            feature.descriptorIndexing = false;
+        }
     }
 
     std::string MetalDevice::GetDeviceInfo() const
