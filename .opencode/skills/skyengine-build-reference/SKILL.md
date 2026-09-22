@@ -25,8 +25,8 @@ Use this skill when the task involves building SkyEngine, proposing build comman
 
 SkyEngine uses this order on every platform:
 
-1. Build third-party dependencies with `python/third_party.py`
-2. Configure CMake with `-D3RD_PATH=<thirdparty_output_dir>` or let CMake auto-load `build_3rd/thirdparty_cache.cmake`
+1. Build third-party dependencies with `python/third_party.py -o <thirdparty_output_dir>`
+2. Configure CMake with `-D3RD_PATH=<thirdparty_output_dir>/<platform>`
 3. Build the engine targets
 4. Optionally run tests or package the platform launcher
 
@@ -39,37 +39,42 @@ Canonical command template:
 ```bash
 python3 python/third_party.py \
   -p <platform> \
+  -o <thirdparty_output_dir> \
   -j <jobs>
 ```
 
-If `-e/--engine` is omitted, the script now defaults to the current repository root. If `-i/--intermediate` is omitted, it defaults to `<engine_root>/build_3rd/intermediate`. If `-o/--output` is omitted, the script uses `<engine_root>/build_3rd` as the output root, writes the full per-platform third-party tree into `<engine_root>/build_3rd/<platform>`, and regenerates `<engine_root>/build_3rd/thirdparty_cache.cmake` after each successful build.
+`-o/--output` is **required**: there is no implicit `<engine_root>/build_3rd` default. If `-e/--engine` is omitted, the script defaults to the current repository root. If `-i/--intermediate` is omitted, it defaults to `<output>/intermediate`. The tool writes the per-platform tree into `<output>/<platform>` and regenerates `<output>/thirdparty_cache.cmake` after each successful build. It no longer zips the output or writes an `archives` section into `cmake/thirdparty.json`.
 
 Common options:
 
-- `-i, --intermediate`: clone/build workspace for 3rd-party sources (defaults to `<engine_root>/build_3rd/intermediate`)
-- `-o, --output`: third-party output root; the effective `3RD_PATH` becomes `<output>/<platform>` (defaults to `<engine_root>/build_3rd/<platform>`)
+- `-i, --intermediate`: clone/build workspace for 3rd-party sources (defaults to `<output>/intermediate`)
+- `-o, --output`: third-party output root (**required**); the effective `3RD_PATH` becomes `<output>/<platform>`
 - `-e, --engine`: repository root (defaults to the current engine root)
 - `-p, --platform`: one of `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `Linux`
 - `-j, --jobs`: build parallelism (`0` means auto in the script)
 - `-f, --force`: force rebuild even if cached metadata says up to date
 - `-c, --clean`: clean package working trees
 - `-t, --target`: build a single package
-- `-l, --list`: list packages and supported platforms
+- `-l, --list`: list packages and supported platforms (needs no `--output`)
+- `-a, --archive`: optional; zip the platform output to the given path (explicit, never mutates tracked files)
 
 Useful examples:
 
 ```bash
 # List available packages
-python3 python/third_party.py -p Win32 --list
+python3 python/third_party.py --list
 
-# Force full rebuild for macOS arm64
-python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p MacOS-arm -j 8 -f
+# Force full rebuild for macOS arm64 into an explicit output
+python3 python/third_party.py -o <out> -e <engine_root> -p MacOS-arm -j 8 -f
 
 # Build only one package
-python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p Linux -t taskflow
+python3 python/third_party.py -o <out> -e <engine_root> -p Linux -t taskflow
 
-# Build all packages into the default build_3rd/<platform> output
-python3 python/third_party.py -p Win32 -j 8
+# Build all packages for Win32 into an explicit output directory
+python3 python/third_party.py -p Win32 -o <out> -j 8
+
+# Optional: also package the output (explicit, off by default)
+python3 python/third_party.py -p Win32 -o <out> -j 8 -a <out>/thirdparty_Win32.zip
 ```
 
 ## Step 2: Configure CMake
@@ -216,37 +221,28 @@ AI-ready editor bootstrap:
 # From <engine_root>
 python3 -m pip install -r python/requirements.txt
 
-# Build all third-party packages into the default Win32 output tree
-python3 python/third_party.py -p Win32 -j 8
+# Build all third-party packages into an explicit Win32 output tree
+python3 python/third_party.py -p Win32 -o <out> -j 8
 ```
 
 Expected third-party results:
 
-- `build_3rd/Win32/` exists and becomes the effective Win32 `3RD_PATH`
-- `build_3rd/thirdparty_cache.cmake` exists and caches the generated `3RD_PATH`
+- `<out>/Win32/` exists and becomes the effective Win32 `3RD_PATH`
+- `<out>/thirdparty_cache.cmake` exists and caches the generated `3RD_PATH`
 
-Editor configure using the generated cache:
-
-```bash
-cmake -S <engine_root> -B <build_dir> \
-  -G "Visual Studio 17 2022" \
-  -DSKY_BUILD_EDITOR=ON \
-  -DSKY_BUILD_TEST=OFF
-```
-
-Equivalent configure with explicit `3RD_PATH`:
+Editor configure using that output:
 
 ```bash
 cmake -S <engine_root> -B <build_dir> \
   -G "Visual Studio 17 2022" \
-  -D3RD_PATH=<thirdparty_output_dir> \
+  -D3RD_PATH=<out>/Win32 \
   -DSKY_BUILD_EDITOR=ON \
   -DSKY_BUILD_TEST=OFF
 ```
 
 Notes:
 
-- `cmake/options.cmake` auto-loads `build_3rd/thirdparty_cache.cmake` when `3RD_PATH` is empty, so the default `python/third_party.py -p Win32` flow is enough for a follow-up configure in a fresh build directory.
+- `cmake/options.cmake` auto-loads `build_3rd/thirdparty_cache.cmake` only when `3RD_PATH` is empty and that specific path exists; with an explicit `-o`, pass `-D3RD_PATH=<out>/<platform>` at configure time.
 - `cmake/options.cmake` maps `SKY_BUILD_EDITOR=ON` to `SKY_EDITOR=ON` automatically.
 - `cmake/thirdparty.cmake` adds editor-only third-party requirements when `SKY_BUILD_EDITOR=ON`: `assimp`, `meshoptimizer`, `stb`, `ispc_texcomp`, `GKlib`, `metis`, and `ImGuizmo`.
 - `cmake/thirdparty.cmake` also resolves Win32-only `dxcompiler` whenever `WIN32` is active.

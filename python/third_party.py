@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 
 from git import GitCommandError
 from pathlib import Path
@@ -22,6 +23,7 @@ parser.add_argument('-c', '--clean', action='store_true', default=False, help='�
 parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
 parser.add_argument('-l', '--list', action='store_true', default=False, help='列出所有包信息')
 parser.add_argument('-f', '--force', action='store_true', default=False, help='强制重新构建（忽略增量缓存）')
+parser.add_argument('-a', '--archive', type=str, help='可选：将平台输出打包到指定的 zip 路径（不修改受跟踪文件）')
 args = parser.parse_args()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -488,6 +490,27 @@ def process_package(package):
     build_package(name, source_dir, options, cache, components, header_only=header_only)
 
 
+def pack_output(zip_path):
+    """Optional, explicit packaging.
+
+    Zips the platform output to the given path. It is opt-in (--archive) and
+    does not write anything into tracked configuration.
+    """
+    output_root = Path(get_platform_output_root())
+    if not output_root.exists():
+        print(f"[archive] output does not exist: {output_root}")
+        return
+
+    Path(zip_path).parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file in sorted(output_root.rglob('*')):
+            if file.is_file() and file.name != METADATA_FILE:
+                zf.write(file, file.relative_to(output_root))
+
+    size_mb = os.path.getsize(zip_path) / (1024 * 1024)
+    print(f"[archive] {zip_path} ({size_mb:.1f} MB)")
+
+
 def list_packages(packages):
     print(f"{'Name':<20} {'Tag':<25} {'Type':<12} {'Platforms'}")
     print("-" * 80)
@@ -520,6 +543,7 @@ def app_main():
     else:
         filtered = packages
 
+    built_any = False
     for package in filtered:
         name = package.get('name', '')
         if not name:
@@ -536,6 +560,11 @@ def app_main():
             mark_package_built(metadata, name, package_key)
             save_build_metadata(metadata)
             write_cmake_cache()
+            built_any = True
+
+    # Optional, explicit packaging (never run by default, never mutates tracked files).
+    if args.archive and not args.clean:
+        pack_output(args.archive)
 
 if __name__ == "__main__":
     app_main()
