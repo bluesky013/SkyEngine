@@ -9,7 +9,6 @@
 #include <core/math/MathUtil.h>
 #include <core/math/Transform.h>
 #include <core/shapes/TriangleMesh.h>
-#include <rhi/Core.h>
 #include <btBulletCollisionCommon.h>
 
 namespace sky::phy {

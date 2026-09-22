@@ -6,6 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <physics/PhysicsBase.h>
+#include <physics/PhysicsMaterial.h>
 #include <memory>
 
 namespace sky {
@@ -32,6 +33,10 @@ namespace sky::phy {
             Impl() = default;
             virtual ~Impl() = default;
 
+            // Backend lifecycle: a backend with global SDK state bootstraps here; default is a no-op.
+            virtual bool Init() { return true; }
+            virtual void Shutdown() {}
+
             virtual PhysicsWorld* CreatePhysicsWorld() = 0;
             virtual CollisionObject* CreateCollisionObject() = 0;
             virtual RigidBody* CreateRigidBody() = 0;
@@ -40,6 +45,9 @@ namespace sky::phy {
             virtual IShapeImpl* CreateBox(const BoxShape&) = 0;
             virtual IShapeImpl* CreateSphere(const SphereShape&) = 0;
             virtual IShapeImpl* CreateTriangleMesh(const TriangleMeshShape&) = 0;
+            virtual IShapeImpl* CreateHeightField(const HeightFieldShape&) = 0;
+            virtual IShapeImpl* CreateCapsule(const CapsuleShape&) = 0;
+            virtual IMaterialImpl* CreateMaterial(const PhysicsMaterialData&) = 0;
         };
 
         PhysicsWorld* CreatePhysicsWorld();
@@ -50,6 +58,9 @@ namespace sky::phy {
         IShapeImpl* CreateBox(const BoxShape&);
         IShapeImpl* CreateSphere(const SphereShape&);
         IShapeImpl* CreateTriangleMesh(const TriangleMeshShape&);
+        IShapeImpl* CreateHeightField(const HeightFieldShape&);
+        IShapeImpl* CreateCapsule(const CapsuleShape&);
+        IMaterialImpl* CreateMaterial(const PhysicsMaterialData&);
 
         void Register(Impl* factory);
         void UnRegister();

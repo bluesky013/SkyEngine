@@ -26,4 +26,14 @@ namespace sky::phy {
     {
         impl.reset(PhysicsRegistry::Get()->CreateTriangleMesh(shape));
     }
+
+    PhysicsHeightFieldShape::PhysicsHeightFieldShape(const HeightFieldShape &shape)
+    {
+        impl.reset(PhysicsRegistry::Get()->CreateHeightField(shape));
+    }
+
+    PhysicsCapsuleShape::PhysicsCapsuleShape(const CapsuleShape &shape)
+    {
+        impl.reset(PhysicsRegistry::Get()->CreateCapsule(shape));
+    }
 } // namespace sky::phy

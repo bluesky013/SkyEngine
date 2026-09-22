@@ -4,9 +4,14 @@
 
 #include <physics/RigidBody.h>
 #include <physics/CharacterController.h>
+#include <physics/PhysicsBase.h>
+#include <physics/PhysicsQuery.h>
+#include <physics/PhysicsDebugGeometry.h>
 #include <framework/world/World.h>
+#include <core/math/Transform.h>
 #include <list>
 #include <memory>
+#include <vector>
 
 namespace sky::phy {
     class PhysicsWorld : public IWorldSubSystem {
@@ -27,6 +32,19 @@ namespace sky::phy {
 
         virtual void SetDebugDrawEnable(bool en) {}
         virtual void SetGravity(const Vector3 &gravity) {}
+
+        // Backend-neutral queries. Defaults report no hit so a backend without support stays safe.
+        virtual bool Raycast(const Vector3 &origin, const Vector3 &dir, float maxDistance, RaycastHit &out,
+                             const CollisionFilters *filter = nullptr) const { return false; }
+
+        virtual bool Sweep(const BoxShape &shape, const Transform &from, const Vector3 &dir, float maxDistance,
+                           SweepResult &out, const CollisionFilters *filter = nullptr) const { return false; }
+
+        virtual uint32_t Overlap(const BoxShape &shape, const Transform &pose, std::vector<OverlapResult> &out,
+                                 const CollisionFilters *filter = nullptr) const { return 0; }
+
+        // Fills render-agnostic debug geometry (no render resource types).
+        virtual void CollectDebugGeometry(PhysicsDebugGeometry &out) const {}
 
     protected:
         virtual void AddRigidBodyImpl(RigidBody *rb) = 0;

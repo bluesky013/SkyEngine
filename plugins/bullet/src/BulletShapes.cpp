@@ -4,13 +4,18 @@
 
 #include <bullet/BulletShapes.h>
 #include <bullet/BulletConversion.h>
-#include <render/adaptor/assets/MeshAsset.h>
+
+#include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
 
 namespace sky::phy {
 
     void TriangleMeshWrap::Set(const CounterPtr<TriangleMesh> &mesh)
     {
         triangle = mesh;
+        if (triangle == nullptr) {
+            return;
+        }
+
         meshInterface = std::make_unique<btTriangleIndexVertexArray>();
 
         auto idxStride = mesh->indexType == IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
@@ -69,18 +74,50 @@ namespace sky::phy {
 
     BulletShape::BulletShape(const TriangleMeshShape &mesh)
     {
-        auto *am = AssetManager::Get();
-
-        auto meshAsset = am->LoadAsset<Mesh>(mesh.asset);
-        meshAsset->BlockUntilLoaded();
-        triangleMesh.Set(CreateTriangleMesh(meshAsset));
-
-        collisionShape = std::make_unique<btBvhTriangleMeshShape>(triangleMesh.meshInterface.get(), true);
+        triangleMesh.Set(mesh.mesh);
+        if (triangleMesh.meshInterface != nullptr) {
+            collisionShape = std::make_unique<btBvhTriangleMeshShape>(triangleMesh.meshInterface.get(), true);
+        }
     }
 
     CounterPtr<TriangleMesh> BulletShape::GetTriangleMesh() const
     {
         return triangleMesh.triangle;
+    }
+
+    BulletShape::BulletShape(const HeightFieldShape &shape)
+    {
+        // Bullet reads from the sample buffer for the shape's lifetime; keep an owned copy.
+        heightFieldData = shape.samples;
+
+        const auto width     = static_cast<int>(shape.width);
+        const auto height    = static_cast<int>(shape.height);
+        const auto upAxis    = static_cast<int>(shape.upAxis);
+        const auto hScale    = shape.heightScale != 0.f ? shape.heightScale : 1.f;
+        const auto minHeight = shape.minHeight;
+        const auto maxHeight = shape.maxHeight > shape.minHeight ? shape.maxHeight : shape.minHeight;
+
+        auto *heightField = new btHeightfieldTerrainShape(
+            width, height, heightFieldData.data(), hScale,
+            minHeight, maxHeight, upAxis, PHY_FLOAT, false);
+
+        // Bullet heightfields are centered on the origin with unit grid spacing; scale to world size.
+        heightField->setLocalScaling(btVector3(shape.scaleX, 1.f, shape.scaleZ));
+        collisionShape.reset(heightField);
+    }
+
+    BulletShape::BulletShape(const CapsuleShape &shape)
+    {
+        auto *capsuleShape = new btCapsuleShape(shape.radius, shape.height);
+        if (shape.pivot.x == 0.f && shape.pivot.y == 0.f && shape.pivot.z == 0.f) {
+            collisionShape.reset(capsuleShape);
+        } else {
+            baseShape.reset(capsuleShape);
+            auto* compound = new btCompoundShape();
+            btTransform trans{btQuaternion::getIdentity(), ToBullet(shape.pivot)};
+            compound->addChildShape(trans, baseShape.get());
+            collisionShape.reset(compound);
+        }
     }
 
 } // namespace sky::phy

@@ -5,10 +5,20 @@
 #pragma once
 
 #include <physics/PhysicsBase.h>
+#include <physics/PhysicsMaterial.h>
 #include <btBulletCollisionCommon.h>
 #include <core/shapes/TriangleMesh.h>
 
 namespace sky::phy {
+
+    class BulletMaterial : public IMaterialImpl {
+    public:
+        explicit BulletMaterial(const PhysicsMaterialData &inData) : data(inData) {}
+        const PhysicsMaterialData &GetData() const { return data; }
+
+    private:
+        PhysicsMaterialData data;
+    };
 
     struct TriangleMeshWrap {
         void Set(const CounterPtr<TriangleMesh> &mesh);
@@ -21,6 +31,8 @@ namespace sky::phy {
         explicit BulletShape(const BoxShape &box);
         explicit BulletShape(const SphereShape &sphere);
         explicit BulletShape(const TriangleMeshShape &shape);
+        explicit BulletShape(const HeightFieldShape &shape);
+        explicit BulletShape(const CapsuleShape &shape);
 
         ~BulletShape() override = default;
 
@@ -32,5 +44,6 @@ namespace sky::phy {
         std::unique_ptr<btCollisionShape> collisionShape;
         std::unique_ptr<btCollisionShape> baseShape;
         TriangleMeshWrap triangleMesh;
+        std::vector<float> heightFieldData;
     };
 } // namespace sky::phy

@@ -22,6 +22,7 @@ namespace sky::phy {
         PhysicsWorld* GetWorld() const override;
         void OnShapeChanged() override;
         void OnGroupMaskChanged() override;
+        void OnMaterialChanged() override;
 
         std::unique_ptr<btCollisionObject> object;
         BulletPhysicsWorld* world = nullptr;

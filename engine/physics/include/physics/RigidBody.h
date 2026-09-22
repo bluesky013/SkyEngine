@@ -35,6 +35,12 @@ namespace sky::phy {
         void SetShape(PhysicsShape *shape);
         void SetGroup(CollisionFilters group_);
         void SetMask(CollisionFilters mask_);
+        void SetMaterial(PhysicsMaterial *mat)
+        {
+            material = mat;
+            OnMaterialChanged();
+        }
+        PhysicsMaterial *GetMaterial() const { return material; }
         void SetStartTrans(const Transform &trans);
         void SetMotionCallBack(IMotionCallBack* callback) { listener = callback; }
 
@@ -44,10 +50,12 @@ namespace sky::phy {
     protected:
         virtual void OnShapeChanged() = 0;
         virtual void OnGroupMaskChanged() = 0;
+        virtual void OnMaterialChanged() {}
 
         CollisionFilters group = CollisionFilterBit::ALL;
         CollisionFilters mask = CollisionFilterBit::ALL;
         std::unique_ptr<PhysicsShape> physicsShape;
+        PhysicsMaterial *material = nullptr;
 
         float mass  = 1.f;
         CollisionFlag collisionFlag = CollisionFlag::DYNAMIC;

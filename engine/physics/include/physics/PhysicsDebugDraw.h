@@ -4,16 +4,17 @@
 
 #pragma once
 
-#include <render/resource/Technique.h>
+#include <physics/PhysicsDebugGeometry.h>
 
 namespace sky::phy {
 
+    // Render-agnostic physics debug interface: emits plain geometry, no render resource types.
     class PhysicsDebugDraw {
     public:
         PhysicsDebugDraw() = default;
         virtual ~PhysicsDebugDraw() = default;
 
-        virtual void SetTechnique(const RDGfxTechPtr &tech) = 0;
+        virtual void CollectGeometry(PhysicsDebugGeometry &out) const = 0;
     };
 
 } // namespace sky::phy

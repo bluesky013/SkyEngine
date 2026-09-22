@@ -50,7 +50,17 @@ namespace sky::phy {
 
     void BulletRigidBody::SetPhysicsMat()
     {
-        rigidBody->setRestitution(0.5f);
+        if (!rigidBody) {
+            return;
+        }
+        const PhysicsMaterialData data = material != nullptr ? material->GetData() : GetDefaultPhysicsMaterial();
+        rigidBody->setFriction(data.staticFriction);
+        rigidBody->setRestitution(data.restitution);
+    }
+
+    void BulletRigidBody::OnMaterialChanged()
+    {
+        SetPhysicsMat();
     }
 
     void BulletRigidBody::SetPhysicsWorld(BulletPhysicsWorld *wd)

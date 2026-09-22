@@ -30,7 +30,7 @@ namespace sky::phy {
         COMPONENT_RUNTIME_INFO(CollisionComponent)
 
         void SetTriangleMesh(const Uuid &mesh);
-        const Uuid &GetTriangleMesh() const { return data.config.tris.asset; }
+        const Uuid &GetTriangleMesh() const { return data.config.mesh; }
 
         SequenceVisitor Spheres();
         SequenceVisitor Boxes();

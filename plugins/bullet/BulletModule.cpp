@@ -9,8 +9,6 @@
 
 #include <core/event/Event.h>
 
-#include <render/adaptor/assets/TechniqueAsset.h>
-
 #include <physics/PhysicsRegistry.h>
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletCharacterController.h>
@@ -19,23 +17,18 @@
 #include <bullet/BulletCollisionObject.h>
 #include <physics/components/RigidBodyComponent.h>
 #include <physics/components/CollisionComponent.h>
+#include <bullet/BulletRegistry.h>
 
 namespace sky::phy {
 
     class BulletFactory : public PhysicsRegistry::Impl {
     public:
-        BulletFactory()
-        {
-            auto techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
-            techAsset->BlockUntilLoaded();
-            debugTech = CreateTechniqueFromAsset(techAsset);
-        }
+        BulletFactory() = default;
         ~BulletFactory() override = default;
 
         PhysicsWorld* CreatePhysicsWorld() override
         {
             auto *world = new BulletPhysicsWorld();
-            world->SetTechnique(debugTech);
             world->SetDebugDrawEnable(true);
             return world;
         }
@@ -70,8 +63,20 @@ namespace sky::phy {
             return new BulletShape(shape);
         }
 
-    private:
-        CounterPtr<Technique> debugTech;
+        IShapeImpl* CreateHeightField(const HeightFieldShape& shape) override
+        {
+            return new BulletShape(shape);
+        }
+
+        IShapeImpl* CreateCapsule(const CapsuleShape& shape) override
+        {
+            return new BulletShape(shape);
+        }
+
+        IMaterialImpl* CreateMaterial(const PhysicsMaterialData& data) override
+        {
+            return new BulletMaterial(data);
+        }
     };
 
     class BulletPhysicsModule : public IModule {
@@ -86,7 +91,7 @@ namespace sky::phy {
 
         void Start() override
         {
-            PhysicsRegistry::Get()->Register(new BulletFactory());
+            RegisterBulletPhysics();
 
             auto *context = SerializationContext::Get();
             PhysicsRegistry::Reflect(context);
@@ -96,8 +101,18 @@ namespace sky::phy {
 
         void Shutdown() override
         {
-            PhysicsRegistry::Get()->UnRegister();
+            UnregisterBulletPhysics();
         }
     };
+
+    void RegisterBulletPhysics()
+    {
+        PhysicsRegistry::Get()->Register(new BulletFactory());
+    }
+
+    void UnregisterBulletPhysics()
+    {
+        PhysicsRegistry::Get()->UnRegister();
+    }
 } // namespace sky::phy
 REGISTER_MODULE(sky::phy::BulletPhysicsModule)

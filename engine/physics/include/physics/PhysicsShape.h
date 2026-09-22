@@ -38,4 +38,16 @@ namespace sky::phy {
         ~PhysicsTriangleMeshShape() override = default;
     };
 
+    class PhysicsHeightFieldShape : public PhysicsShape {
+    public:
+        explicit PhysicsHeightFieldShape(const HeightFieldShape &shape);
+        ~PhysicsHeightFieldShape() override = default;
+    };
+
+    class PhysicsCapsuleShape : public PhysicsShape {
+    public:
+        explicit PhysicsCapsuleShape(const CapsuleShape &shape);
+        ~PhysicsCapsuleShape() override = default;
+    };
+
 } // namespace sky::phy

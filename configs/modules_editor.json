@@ -3,6 +3,10 @@
     {
       "name": "SandboxModule",
       "dependencies": []
+    },
+    {
+      "name": "BulletPhysicsAuroraModule",
+      "dependencies": []
     }
   ]
 }

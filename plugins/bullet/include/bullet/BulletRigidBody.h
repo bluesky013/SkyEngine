@@ -28,6 +28,7 @@ namespace sky::phy {
 
         void OnShapeChanged() override;
         void OnGroupMaskChanged() override;
+        void OnMaterialChanged() override;
 
         void BuildRigidBody();
         void SetFlagsImpl();

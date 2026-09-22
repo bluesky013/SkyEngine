@@ -14,6 +14,7 @@ namespace sky::phy {
     BulletCollisionObject::BulletCollisionObject()
         : object(std::make_unique<btCollisionObject>())
     {
+        object->setUserPointer(this);
     }
 
     void BulletCollisionObject::SetPhysicsWorld(BulletPhysicsWorld *wd)
@@ -37,7 +38,17 @@ namespace sky::phy {
             physicsShape = std::make_unique<PhysicsBoxShape>(shape);
         }
         object->setCollisionShape(static_cast<BulletShape*>(physicsShape->GetShape())->GetShape());
-        object->setRestitution(1.f);
+        OnMaterialChanged();
+    }
+
+    void BulletCollisionObject::OnMaterialChanged()
+    {
+        if (!object) {
+            return;
+        }
+        const PhysicsMaterialData data = material != nullptr ? material->GetData() : GetDefaultPhysicsMaterial();
+        object->setFriction(data.staticFriction);
+        object->setRestitution(data.restitution);
     }
 
     void BulletCollisionObject::OnGroupMaskChanged()

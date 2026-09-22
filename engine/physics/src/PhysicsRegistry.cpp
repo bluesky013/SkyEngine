@@ -17,13 +17,25 @@ namespace sky::phy {
             .Member<&BoxShape::pivot>("pivot")
             .Member<&BoxShape::halfExt>("halfExt");
 
-        context->Register<TriangleMeshShape>("TriangleMeshShape")
-            .Member<&TriangleMeshShape::asset>("asset");
+        context->Register<CapsuleShape>("PhysicsCapsule")
+            .Member<&CapsuleShape::pivot>("pivot")
+            .Member<&CapsuleShape::radius>("radius")
+            .Member<&CapsuleShape::height>("height");
+
+        context->Register<HeightFieldShape>("PhysicsHeightField")
+            .Member<&HeightFieldShape::width>("width")
+            .Member<&HeightFieldShape::height>("height")
+            .Member<&HeightFieldShape::scaleX>("scaleX")
+            .Member<&HeightFieldShape::scaleZ>("scaleZ")
+            .Member<&HeightFieldShape::heightScale>("heightScale")
+            .Member<&HeightFieldShape::heightOffset>("heightOffset")
+            .Member<&HeightFieldShape::minHeight>("minHeight")
+            .Member<&HeightFieldShape::maxHeight>("maxHeight");
 
         context->Register<MeshPhysicsConfig>("MeshPhysicsConfig")
             .Member<&MeshPhysicsConfig::sphere>("sphere")
             .Member<&MeshPhysicsConfig::box>("boxes")
-            .Member<&MeshPhysicsConfig::tris>("tris");
+            .Member<&MeshPhysicsConfig::mesh>("mesh");
     }
 
     void PhysicsRegistry::GatherConfigTypes(std::set<Uuid> &typeId)
@@ -66,13 +78,34 @@ namespace sky::phy {
         return factory ? factory->CreateTriangleMesh(shape) : nullptr;
     }
 
+    IShapeImpl* PhysicsRegistry::CreateHeightField(const HeightFieldShape& shape)
+    {
+        return factory ? factory->CreateHeightField(shape) : nullptr;
+    }
+
+    IShapeImpl* PhysicsRegistry::CreateCapsule(const CapsuleShape& shape)
+    {
+        return factory ? factory->CreateCapsule(shape) : nullptr;
+    }
+
+    IMaterialImpl* PhysicsRegistry::CreateMaterial(const PhysicsMaterialData& data)
+    {
+        return factory ? factory->CreateMaterial(data) : nullptr;
+    }
+
     void PhysicsRegistry::Register(Impl* impl)
     {
         factory.reset(impl);
+        if (factory) {
+            factory->Init();
+        }
     }
 
     void PhysicsRegistry::UnRegister()
     {
+        if (factory) {
+            factory->Shutdown();
+        }
         factory.reset();
     }
 } // namespace sky::phy

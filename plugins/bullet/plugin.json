@@ -3,6 +3,10 @@
         {
             "name": "BulletPhysicsModule",
             "dependencies": ["Launcher", "Editor"]
+        },
+        {
+            "name": "BulletPhysicsAuroraModule",
+            "dependencies": ["Launcher", "Editor"]
         }
     ]
 }

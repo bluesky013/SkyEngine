@@ -5,6 +5,7 @@
 #include <physics/components/CollisionComponent.h>
 #include <physics/PhysicsWorld.h>
 #include <physics/PhysicsRegistry.h>
+#include <physics/PhysicsMesh.h>
 #include <framework/world/ComponentFactory.h>
 #include <framework/world/TransformComponent.h>
 
@@ -18,15 +19,14 @@ namespace sky::phy {
         REGISTER_BEGIN(CollisionComponent, context)
             REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
             REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged)
-            REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
-                SET_ASSET_TYPE(std::string_view("Mesh"));
+            REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh);
 
         ComponentFactory::Get()->RegisterComponent<CollisionComponent>("Physics");
     }
 
     void CollisionComponent::SetTriangleMesh(const Uuid &mesh)
     {
-        data.config.tris.asset = mesh;
+        data.config.mesh = mesh;
     }
 
     SequenceVisitor CollisionComponent::Spheres()
@@ -81,8 +81,12 @@ namespace sky::phy {
 
     void CollisionComponent::RebuildShape()
     {
-        // TODO
-        if (data.config.tris.asset) {
+        // Resolve render-agnostic collision mesh data through the physics mesh seam (registered by a
+        // render bridge, e.g. aurora). Never loads a legacy render mesh.
+        if (data.config.mesh && data.config.tris.mesh == nullptr) {
+            data.config.tris.mesh = CreatePhysicsMesh(data.config.mesh);
+        }
+        if (data.config.tris.mesh != nullptr) {
             shape = new PhysicsTriangleMeshShape(data.config.tris);
         } else if (!data.config.sphere.empty()) {
             const auto &sphere = data.config.sphere[0];

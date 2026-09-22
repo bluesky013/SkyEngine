@@ -32,8 +32,14 @@ namespace sky::phy {
         void StartSimulation() override;
         void StopSimulation() override;
 
-        void SetTechnique(const CounterPtr<Technique> &tech) { debugTech = tech; }
-        const CounterPtr<Technique> &GetTechnique() const { return debugTech; }
+        void CollectDebugGeometry(PhysicsDebugGeometry &out) const override;
+
+        bool Raycast(const Vector3 &origin, const Vector3 &dir, float maxDistance, RaycastHit &out,
+                     const CollisionFilters *filter = nullptr) const override;
+        bool Sweep(const BoxShape &shape, const Transform &from, const Vector3 &dir, float maxDistance,
+                   SweepResult &out, const CollisionFilters *filter = nullptr) const override;
+        uint32_t Overlap(const BoxShape &shape, const Transform &pose, std::vector<OverlapResult> &out,
+                         const CollisionFilters *filter = nullptr) const override;
     private:
         void Tick(float delta) override;
 
@@ -56,7 +62,6 @@ namespace sky::phy {
         bool enableSimulation = true;
         bool enableDebugDraw  = true;
 
-        CounterPtr<Technique> debugTech;
         std::unique_ptr<PhysicsDebugDraw> debugDraw;
     };
 

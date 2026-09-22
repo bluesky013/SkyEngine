@@ -5,13 +5,12 @@
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletRigidBody.h>
 #include <bullet/BulletCollisionObject.h>
+#include <bullet/BulletCharacterController.h>
 #include <bullet/BulletConversion.h>
 #include <bullet/debug/BulletDebugDraw.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <core/profile/Profiler.h>
-
-#include <render/adaptor/RenderSceneProxy.h>
 
 namespace sky::phy {
 
@@ -36,6 +35,8 @@ namespace sky::phy {
         dispatcher = std::make_unique<btCollisionDispatcher>(configuration.get());
         broadPhase = std::make_unique<btDbvtBroadphase>();
         solver = std::make_unique<btSequentialImpulseConstraintSolver>();
+
+        broadPhase->getOverlappingPairCache()->setInternalGhostPairCallback(new btGhostPairCallback());
 
         dynamicWorld = std::make_unique<btDiscreteDynamicsWorld>(dispatcher.get(),
             broadPhase.get(), solver.get(), configuration.get());
@@ -69,7 +70,6 @@ namespace sky::phy {
 
         if (!debugDraw && enableDebugDraw) {
             debugDraw = std::make_unique<BulletDebugDraw>();
-            debugDraw->SetTechnique(debugTech);
         }
 
         btIDebugDraw* bulletDebugDraw = enableDebugDraw ? static_cast<BulletDebugDraw*>(debugDraw.get()) : nullptr;
@@ -83,18 +83,116 @@ namespace sky::phy {
         }
     }
 
+    bool BulletPhysicsWorld::Raycast(const Vector3 &origin, const Vector3 &dir, float maxDistance, RaycastHit &out,
+                                     const CollisionFilters *filter) const
+    {
+        const float length = dir.Length();
+        if (!dynamicWorld || maxDistance <= 0.f || length <= 0.f) {
+            return false;
+        }
+
+        const btVector3 from = ToBullet(origin);
+        const btVector3 to   = ToBullet(origin + dir / length * maxDistance);
+
+        btCollisionWorld::ClosestRayResultCallback callback(from, to);
+        dynamicWorld->rayTest(from, to, callback);
+        if (!callback.hasHit()) {
+            return false;
+        }
+
+        auto *object = static_cast<CollisionObject *>(callback.m_collisionObject->getUserPointer());
+        if (filter != nullptr && object != nullptr && (object->GetGroup() & *filter).value == 0) {
+            return false;
+        }
+
+        out.object   = object;
+        out.position = FromBullet(callback.m_hitPointWorld);
+        out.normal   = FromBullet(callback.m_hitNormalWorld);
+        out.distance = (out.position - origin).Length();
+        return true;
+    }
+
+    bool BulletPhysicsWorld::Sweep(const BoxShape &shape, const Transform &from, const Vector3 &dir, float maxDistance,
+                                   SweepResult &out, const CollisionFilters *filter) const
+    {
+        const float length = dir.Length();
+        if (!dynamicWorld || maxDistance <= 0.f || length <= 0.f) {
+            return false;
+        }
+
+        btBoxShape box(ToBullet(shape.halfExt));
+        const btTransform start = ToBullet(from);
+        btTransform end = start;
+        end.getOrigin() += ToBullet(dir / length * maxDistance);
+
+        btCollisionWorld::ClosestConvexResultCallback callback(start.getOrigin(), end.getOrigin());
+        dynamicWorld->convexSweepTest(&box, start, end, callback);
+        if (!callback.hasHit()) {
+            return false;
+        }
+
+        auto *object = static_cast<CollisionObject *>(callback.m_hitCollisionObject->getUserPointer());
+        if (filter != nullptr && object != nullptr && (object->GetGroup() & *filter).value == 0) {
+            return false;
+        }
+
+        out.object   = object;
+        out.position = FromBullet(callback.m_hitPointWorld);
+        out.normal   = FromBullet(callback.m_hitNormalWorld);
+        out.distance = (out.position - FromBullet(start.getOrigin())).Length();
+        return true;
+    }
+
+    uint32_t BulletPhysicsWorld::Overlap(const BoxShape &shape, const Transform &pose, std::vector<OverlapResult> &out,
+                                         const CollisionFilters *filter) const
+    {
+        if (!dynamicWorld) {
+            return 0;
+        }
+
+        btBoxShape box(ToBullet(shape.halfExt));
+        btCollisionObject probe;
+        probe.setCollisionShape(&box);
+        probe.setWorldTransform(ToBullet(pose));
+
+        struct Callback : public btCollisionWorld::ContactResultCallback {
+            std::vector<OverlapResult> *out    = nullptr;
+            const CollisionFilters     *filter = nullptr;
+            uint32_t                    count  = 0;
+
+            btScalar addSingleResult(btManifoldPoint &, const btCollisionObjectWrapper *a, int, int,
+                                     const btCollisionObjectWrapper *b, int, int) override
+            {
+                const btCollisionObject *candidate = (a->m_collisionObject->getUserPointer() != nullptr)
+                                                         ? a->m_collisionObject
+                                                         : b->m_collisionObject;
+                auto *object = static_cast<CollisionObject *>(candidate->getUserPointer());
+                if (object != nullptr && (filter == nullptr || (object->GetGroup() & *filter).value != 0)) {
+                    out->push_back(OverlapResult{object});
+                    ++count;
+                }
+                return 0.f;
+            }
+        } callback;
+        callback.out    = &out;
+        callback.filter = filter;
+
+        dynamicWorld->contactTest(&probe, callback);
+        return callback.count;
+    }
+
     void BulletPhysicsWorld::OnAttachToWorld(World &world)
     {
-        if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
-            renderScene->AddPrimitive(static_cast<BulletDebugDraw*>(debugDraw.get())->GetPrimitive());
-        }
     }
+
     void BulletPhysicsWorld::OnDetachFromWorld(World &world)
     {
+    }
+
+    void BulletPhysicsWorld::CollectDebugGeometry(PhysicsDebugGeometry &out) const
+    {
         if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
-            renderScene->RemovePrimitive(static_cast<BulletDebugDraw*>(debugDraw.get())->GetPrimitive());
+            debugDraw->CollectGeometry(out);
         }
     }
 
@@ -122,12 +220,13 @@ namespace sky::phy {
         colObj->SetPhysicsWorld(nullptr);
     }
 
-    void BulletPhysicsWorld::AddCharacterControllerImpl(CharacterController *rb)
+    void BulletPhysicsWorld::AddCharacterControllerImpl(CharacterController *cc)
     {
+        static_cast<BulletCharacterController *>(cc)->SetPhysicsWorld(this);
     }
 
-    void BulletPhysicsWorld::RemoveCharacterControllerImpl(CharacterController *rb)
+    void BulletPhysicsWorld::RemoveCharacterControllerImpl(CharacterController *cc)
     {
-
+        static_cast<BulletCharacterController *>(cc)->SetPhysicsWorld(nullptr);
     }
 } // namespace sky::phy

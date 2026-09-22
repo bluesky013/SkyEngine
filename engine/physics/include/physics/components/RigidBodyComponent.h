@@ -38,7 +38,7 @@ namespace sky::phy {
         CollisionFlag GetFlag() const { return data.flag; }
 
         void SetTriangleMesh(const Uuid &mesh);
-        const Uuid &GetTriangleMesh() const { return data.config.tris.asset; }
+        const Uuid &GetTriangleMesh() const { return data.config.mesh; }
 
         SequenceVisitor Spheres();
         SequenceVisitor Boxes();
