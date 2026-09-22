@@ -51,7 +51,7 @@ namespace sky::editor {
     EditorRenderer::EditorRenderer() = default;
     EditorRenderer::~EditorRenderer() = default;
 
-    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight)
+    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api)
     {
         width  = inWidth;
         height = inHeight;
@@ -72,7 +72,7 @@ namespace sky::editor {
 #else
         desc.enableDebugLayer = false;
 #endif
-        desc.api = API::DEFAULT;
+        desc.api = api;
 
         Instance::Get()->Init(desc);
         device = Instance::Get()->GetDevice();

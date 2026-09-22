@@ -228,6 +228,26 @@ namespace sky::aurora {
         return TOPO_TABLE[static_cast<uint32_t>(topo)];
     }
 
+    // Actual command-list topology (IASetPrimitiveTopology), distinct from the
+    // PSO's topology type.
+    static const D3D12_PRIMITIVE_TOPOLOGY TOPO_VALUE_TABLE[] = {
+        D3D_PRIMITIVE_TOPOLOGY_POINTLIST,     // POINT_LIST
+        D3D_PRIMITIVE_TOPOLOGY_LINELIST,      // LINE_LIST
+        D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,     // LINE_STRIP
+        D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // TRIANGLE_LIST
+        D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, // TRIANGLE_STRIP
+        D3D_PRIMITIVE_TOPOLOGY_TRIANGLEFAN,   // TRIANGLE_FAN
+    };
+
+    D3D12_PRIMITIVE_TOPOLOGY FromPrimitiveTopologyValue(PrimitiveTopology topo)
+    {
+        const uint32_t idx = static_cast<uint32_t>(topo);
+        if (idx >= (sizeof(TOPO_VALUE_TABLE) / sizeof(TOPO_VALUE_TABLE[0]))) {
+            return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+        }
+        return TOPO_VALUE_TABLE[idx];
+    }
+
     // ---- PolygonMode ----
     D3D12_FILL_MODE FromPolygonMode(PolygonMode mode)
     {

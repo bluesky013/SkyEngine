@@ -12,8 +12,6 @@
 
 namespace sky::aurora {
 
-    enum class API { DEFAULT = 0, VULKAN, METAL, DX12 };
-
     class Instance : public Singleton<Instance> {
     public:
         Instance() = default;

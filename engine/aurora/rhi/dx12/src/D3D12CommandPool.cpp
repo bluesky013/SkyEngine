@@ -40,6 +40,13 @@ namespace sky::aurora {
         cmdList->Close();
     }
 
+    void D3D12CommandBuffer::ResetAllocator()
+    {
+        if (allocator) {
+            allocator->Reset();
+        }
+    }
+
     void D3D12CommandBuffer::PipelineBarrier(const BarrierInfo &info)
     {
         std::vector<D3D12_RESOURCE_BARRIER> barriers;
@@ -116,29 +123,36 @@ namespace sky::aurora {
             delete buffer;
         }
         allocatedBuffers.clear();
-        allocator.Reset();
     }
 
     bool D3D12CommandPool::Init()
     {
-        HRESULT hr = device.GetNativeHandle()->CreateCommandAllocator(listType, IID_PPV_ARGS(&allocator));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create ID3D12CommandAllocator, HRESULT: 0x%08x", hr);
-            return false;
-        }
+        // Each command buffer owns its allocator (created in Allocate).
         return true;
     }
 
     void D3D12CommandPool::Reset()
     {
-        allocator->Reset();
+        for (auto *buffer : allocatedBuffers) {
+            buffer->ResetAllocator();
+        }
     }
 
     CommandBuffer *D3D12CommandPool::Allocate()
     {
+        // A command buffer owns a dedicated allocator, so multiple buffers from
+        // the same pool can be recorded independently (e.g. main + preview in one
+        // frame) without resetting each other's allocator.
+        ComPtr<ID3D12CommandAllocator> bufferAllocator;
+        HRESULT hr = device.GetNativeHandle()->CreateCommandAllocator(listType, IID_PPV_ARGS(&bufferAllocator));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create ID3D12CommandAllocator, HRESULT: 0x%08x", hr);
+            return nullptr;
+        }
+
         ComPtr<ID3D12GraphicsCommandList> cmdList;
-        HRESULT hr = device.GetNativeHandle()->CreateCommandList(
-            0, listType, allocator.Get(), nullptr, IID_PPV_ARGS(&cmdList));
+        hr = device.GetNativeHandle()->CreateCommandList(
+            0, listType, bufferAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create ID3D12GraphicsCommandList, HRESULT: 0x%08x", hr);
             return nullptr;
@@ -147,7 +161,7 @@ namespace sky::aurora {
         // command list is created in recording state, close it so user calls Begin() to start
         cmdList->Close();
 
-        auto *cmdBuffer = new D3D12CommandBuffer(device, std::move(cmdList), allocator);
+        auto *cmdBuffer = new D3D12CommandBuffer(device, std::move(cmdList), std::move(bufferAllocator));
         allocatedBuffers.emplace_back(cmdBuffer);
         return cmdBuffer;
     }

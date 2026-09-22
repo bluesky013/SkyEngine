@@ -134,6 +134,7 @@ namespace sky::aurora {
 
         // topology
         psoDesc.PrimitiveTopologyType = FromPrimitiveTopology(state.inputAssembly.topology);
+        topology                      = state.inputAssembly.topology;
 
         // multi-sample
         psoDesc.SampleMask = 0xFFFFFFFFU;
@@ -165,6 +166,20 @@ namespace sky::aurora {
             &psoDesc, IID_PPV_ARGS(pso.GetAddressOf()));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create graphics pipeline state, hr=0x%08X", static_cast<unsigned>(hr));
+            if (ComPtr<ID3D12InfoQueue> infoQueue;
+                SUCCEEDED(device.GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+                const UINT64 count = infoQueue->GetNumStoredMessages();
+                for (UINT64 i = 0; i < count; ++i) {
+                    SIZE_T length = 0;
+                    infoQueue->GetMessage(i, nullptr, &length);
+                    std::vector<char> storage(length);
+                    auto *message = reinterpret_cast<D3D12_MESSAGE *>(storage.data());
+                    if (SUCCEEDED(infoQueue->GetMessage(i, message, &length))) {
+                        LOG_E(TAG, "d3d12 debug: %s", message->pDescription);
+                    }
+                }
+                infoQueue->ClearStoredMessages();
+            }
             return false;
         }
 

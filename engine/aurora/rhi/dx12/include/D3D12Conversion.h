@@ -32,6 +32,7 @@ namespace sky::aurora {
     D3D12_COMPARISON_FUNC      FromCompareOp(CompareOp op);
     D3D12_STENCIL_OP           FromStencilOp(StencilOp op);
     D3D12_PRIMITIVE_TOPOLOGY_TYPE FromPrimitiveTopology(PrimitiveTopology topo);
+    D3D12_PRIMITIVE_TOPOLOGY      FromPrimitiveTopologyValue(PrimitiveTopology topo);
     D3D12_FILL_MODE            FromPolygonMode(PolygonMode mode);
     D3D12_CULL_MODE            FromCullMode(const CullingModeFlags &flags);
     DXGI_FORMAT                FromIndexType(IndexType type);

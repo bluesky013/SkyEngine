@@ -7,6 +7,8 @@
 #include "D3D12Conversion.h"
 #include <core/logger/Logger.h>
 
+#include <vector>
+
 static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
@@ -87,7 +89,8 @@ namespace sky::aurora {
         const D3D12_RANGE readRange = {0, 0}; // no CPU read
         const HRESULT hr = resource->Map(0, &readRange, &data);
         if (FAILED(hr)) {
-            LOG_E(TAG, "buffer Map failed: 0x%08x", hr);
+            LOG_E(TAG, "buffer Map failed: 0x%08x (device removed reason 0x%08x)", static_cast<unsigned>(hr),
+                  static_cast<unsigned>(device.GetNativeHandle()->GetDeviceRemovedReason()));
             return nullptr;
         }
         return static_cast<uint8_t *>(data);

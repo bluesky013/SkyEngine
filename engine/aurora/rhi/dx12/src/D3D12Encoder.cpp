@@ -111,6 +111,13 @@ namespace sky::aurora {
         currentRootSignature = d3dPso->GetRootSignature();
         currentVertexStrides = d3dPso->GetVertexStrides();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
+        if (currentRootSignature != nullptr) {
+            // Root signature is a command-list state; it must be bound before any
+            // root descriptor table (BindResourceGroup) is set.
+            cmdList->SetGraphicsRootSignature(currentRootSignature->GetNativeHandle());
+        }
+        // Primitive topology is also command-list state on DX12.
+        cmdList->IASetPrimitiveTopology(FromPrimitiveTopologyValue(d3dPso->GetPrimitiveTopology()));
     }
 
     void D3D12GraphicsEncoder::BindResourceGroup(uint32_t set,
@@ -308,6 +315,9 @@ namespace sky::aurora {
         auto *d3dPso = static_cast<D3D12ComputePipeline *>(pso);
         currentRootSignature = d3dPso->GetRootSignature();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
+        if (currentRootSignature != nullptr) {
+            cmdList->SetComputeRootSignature(currentRootSignature->GetNativeHandle());
+        }
     }
 
     void D3D12ComputeEncoder::BindResourceGroup(uint32_t set,

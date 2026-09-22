@@ -45,6 +45,13 @@ namespace sky::aurora {
 
         bool anisotropyEnable = false;
         bool isUMA            = false;
+
+        // Clip-space Y axis of the backend's NDC:
+        //   true  -> +Y points down (Vulkan; NDC origin top-left)
+        //   false -> +Y points up   (D3D12 / Metal; NDC origin bottom-left)
+        // Projection builders authored for a +Y-up convention must flip Y when
+        // this is true. The backend fills it in UpdateDeviceCaps().
+        bool clipSpaceYDown = false;
     };
 
     class Device {
@@ -59,6 +66,10 @@ namespace sky::aurora {
         {
             return "";
         }
+
+        // Active RHI backend of this device.
+        virtual API GetAPI() const = 0;
+
         virtual void WaitIdle() const = 0;
 
         // sync object

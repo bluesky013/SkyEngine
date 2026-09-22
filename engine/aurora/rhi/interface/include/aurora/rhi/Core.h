@@ -14,6 +14,9 @@
 namespace sky::aurora {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
 
+    // Active RHI backend. DEFAULT is resolved by the instance to a concrete backend.
+    enum class API { DEFAULT = 0, VULKAN, METAL, DX12 };
+
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,
         R8_UINT,

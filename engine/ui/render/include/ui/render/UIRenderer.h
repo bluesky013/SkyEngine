@@ -5,6 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/ShaderReflection.h>
 #include <core/template/ReferenceObject.h>
 #include <ui/IUITextureRegistry.h>
 #include <ui/UIDrawData.h>
@@ -41,10 +42,10 @@ namespace sky::ui {
     //     the translation lives in the 4th ROW (m[3].xyz), not the 4th column.
     //   - `UIDrawData` vertices are in pixel space (UI origin top-left, y grows
     //     down). `UpdateDrawData` maps them to clip space with an orthographic
-    //     projection: x_clip = 2x/w - 1, y_clip = 2y/h - 1. The GPU viewport
-    //     transform then places clip (-1,-1) at the framebuffer's TOP-LEFT
-    //     (Vulkan/DX12 framebuffer origin is top-left), so no extra Y flip is
-    //     needed.
+    //     projection: x_clip = 2x/w - 1, and y_clip = +-(2y/h - 1) chosen by the
+    //     backend's clip-space Y axis (`DeviceCapability::clipSpaceYDown`: Vulkan
+    //     +Y down, D3D12/Metal +Y up), so pixel y=0 always lands at the
+    //     framebuffer top.
     //   - `UIVertex::color` is packed ABGR (0xAABBGGRR): the F_RGBA8 vertex
     //     attribute (VK_FORMAT_R8G8B8A8_UNORM) reads the bytes as R,G,B,A, so R
     //     must be in the low byte.
@@ -103,6 +104,7 @@ namespace sky::ui {
 
         aurora::Device                    *device = nullptr;
         aurora::PixelFormat                colorFormat = aurora::PixelFormat::UNDEFINED;
+        aurora::ShaderReflection           reflection; // target-specific (backend register/binding)
         sky::CounterPtr<aurora::ShaderFunction>   vs;
         sky::CounterPtr<aurora::ShaderFunction>   ps;
         sky::CounterPtr<aurora::Shader>           shader;

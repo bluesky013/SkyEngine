@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <aurora/rhi/Instance.h>
 #include <ui/UIPaintContext.h>
 #include <ui/render/UIRenderer.h>
 #include <ui/text/UIBuiltinFontProvider.h>
@@ -46,7 +47,8 @@ namespace sky::editor {
         EditorRenderer(const EditorRenderer &) = delete;
         EditorRenderer &operator=(const EditorRenderer &) = delete;
 
-        bool Init(const std::string &appName, uint32_t width, uint32_t height);
+        bool Init(const std::string &appName, uint32_t width, uint32_t height,
+                  sky::aurora::API api = sky::aurora::API::DEFAULT);
         // Creates the viewport from the main window handle (via ISystemNotify).
         void Start();
         void Tick(float delta);

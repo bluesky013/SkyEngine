@@ -72,6 +72,7 @@ namespace sky::aurora {
         bool        OnInit(const DeviceInit &init) override;
         void        UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;
+        API         GetAPI() const override { return API::METAL; }
         void        WaitIdle() const override;
 
         MetalInstance &instance;

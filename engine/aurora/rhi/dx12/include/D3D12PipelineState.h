@@ -30,11 +30,15 @@ namespace sky::aurora {
         // Per-binding vertex stride, indexed by input slot (0 when unset).
         const std::vector<uint32_t> &GetVertexStrides() const { return vertexStrides; }
 
+        // Command-list primitive topology (IASetPrimitiveTopology), from the state.
+        PrimitiveTopology GetPrimitiveTopology() const { return topology; }
+
     private:
         D3D12Device &device;
         ComPtr<ID3D12PipelineState> pso;
         CounterPtr<D3D12Shader>     shader;
         std::vector<uint32_t>       vertexStrides;
+        PrimitiveTopology           topology = PrimitiveTopology::TRIANGLE_LIST;
     };
 
     class D3D12ComputePipeline : public ComputePipeline {

@@ -31,6 +31,9 @@ namespace sky::aurora {
 
         ID3D12GraphicsCommandList *GetNativeHandle() const { return cmdList.Get(); }
 
+        // Each command buffer owns its allocator; reset only this buffer's.
+        void ResetAllocator();
+
     private:
         D3D12Device                      &device;
         ComPtr<ID3D12GraphicsCommandList> cmdList;
@@ -50,7 +53,6 @@ namespace sky::aurora {
         D3D12Device             &device;
         D3D12_COMMAND_LIST_TYPE  listType;
 
-        ComPtr<ID3D12CommandAllocator> allocator;
         std::vector<D3D12CommandBuffer*> allocatedBuffers;
     };
 

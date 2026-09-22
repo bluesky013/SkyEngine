@@ -83,6 +83,9 @@ namespace sky::aurora {
 
         capability.minUniformBufferOffsetAlignment = gpuProperties.properties.limits.minUniformBufferOffsetAlignment;
 
+        // Vulkan NDC has +Y pointing down.
+        capability.clipSpaceYDown = true;
+
         capability.isUMA = false;
         for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
             const auto flags = memoryProperties.memoryTypes[i].propertyFlags;

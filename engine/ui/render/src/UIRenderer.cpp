@@ -31,6 +31,18 @@ namespace sky::ui {
 
     namespace {
 
+        // UI shader bytecode target must match the active RHI backend.
+        ShaderTarget ToShaderTarget(API api)
+        {
+            switch (api) {
+            case API::DX12: return ShaderTarget::DXIL;
+            case API::METAL: return ShaderTarget::MSL;
+            case API::VULKAN:
+            case API::DEFAULT:
+            default: return ShaderTarget::SPIRV;
+            }
+        }
+
         const char *kUiShader = R"(
 [[vk::binding(0, 0)]] Texture2D tex;
 [[vk::binding(1, 0)]] SamplerState smp;
@@ -50,34 +62,6 @@ float4 fs_main(VSOut i) : SV_Target {
 }
 )";
 
-        // Whole-program reflection: set 0 = { Tex (sampled image), Smp (sampler) }.
-        ShaderReflection MakeReflection()
-        {
-            ShaderReflection refl{};
-            ShaderResource tex{};
-            tex.name    = "tex";
-            tex.set     = 0;
-            tex.binding = 0;
-            tex.type    = ShaderResourceType::SAMPLED_IMAGE;
-            tex.count   = 1;
-            refl.resources.push_back(tex);
-
-            ShaderResource smp{};
-            smp.name    = "smp";
-            smp.set     = 0;
-            smp.binding = 1;
-            smp.type    = ShaderResourceType::SAMPLER;
-            smp.count   = 1;
-            refl.resources.push_back(smp);
-            return refl;
-        }
-
-        const ShaderReflection &GetReflection()
-        {
-            static const ShaderReflection reflection = MakeReflection();
-            return reflection;
-        }
-
     } // namespace
 
     UIRenderer::~UIRenderer()
@@ -94,17 +78,24 @@ float4 fs_main(VSOut i) : SV_Target {
         }
 
         ShaderCompilerSlang compiler;
-        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage) -> ShaderFunction * {
+        // Use the compiler's target-specific reflection (Vulkan bindings vs DX12
+        // register numbers) instead of a hand-written one, so the root signature
+        // matches the shader for the active backend.
+        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage,
+                                ShaderReflection *reflectionOut) -> ShaderFunction * {
             ShaderCompileDesc compileDesc = {};
             compileDesc.source = kUiShader;
             compileDesc.entry  = entry;
             compileDesc.stage  = stage;
-            compileDesc.target = ShaderTarget::SPIRV;
+            compileDesc.target = ToShaderTarget(device->GetAPI());
 
             ShaderCompileResult result;
             if (!compiler.Compile(compileDesc, result)) {
                 LOG_E(TAG, "UI shader compile failed: %s", result.errorInfo.c_str());
                 return nullptr;
+            }
+            if (reflectionOut != nullptr) {
+                *reflectionOut = result.reflection;
             }
             const uint32_t bytes = static_cast<uint32_t>(result.data.size() * sizeof(uint32_t));
             auto binary = CounterPtr<BinaryData>(new BinaryData(bytes));
@@ -120,8 +111,8 @@ float4 fs_main(VSOut i) : SV_Target {
             return device->CreateShaderFunction(fnDesc);
         };
 
-        vs = makeFunction("vs_main", ShaderStageFlagBit::VS);
-        ps = makeFunction("fs_main", ShaderStageFlagBit::FS);
+        vs = makeFunction("vs_main", ShaderStageFlagBit::VS, nullptr);
+        ps = makeFunction("fs_main", ShaderStageFlagBit::FS, &reflection);
         if (vs == nullptr || ps == nullptr) {
             return false;
         }
@@ -129,7 +120,7 @@ float4 fs_main(VSOut i) : SV_Target {
         Shader::Descriptor shaderDesc = {};
         shaderDesc.vs         = vs.Get();
         shaderDesc.ps         = ps.Get();
-        shaderDesc.reflection = &GetReflection();
+        shaderDesc.reflection = &reflection;
         shader = device->CreateShader(shaderDesc);
         if (shader == nullptr) {
             LOG_E(TAG, "UI shader creation failed");
@@ -153,16 +144,22 @@ float4 fs_main(VSOut i) : SV_Target {
         attrPos.binding  = 0;
         attrPos.offset   = static_cast<uint32_t>(offsetof(UIVertex, x));
         attrPos.format   = Format::F_RG32;
+        attrPos.semantic      = "POSITION";
+        attrPos.semanticIndex = 0;
         VertexAttributeDesc attrUv = {};
         attrUv.location = 1;
         attrUv.binding  = 0;
         attrUv.offset   = static_cast<uint32_t>(offsetof(UIVertex, u));
         attrUv.format   = Format::F_RG32;
+        attrUv.semantic      = "TEXCOORD";
+        attrUv.semanticIndex = 0;
         VertexAttributeDesc attrColor = {};
         attrColor.location = 2;
         attrColor.binding  = 0;
         attrColor.offset   = static_cast<uint32_t>(offsetof(UIVertex, color));
         attrColor.format   = Format::F_RGBA8;
+        attrColor.semantic      = "COLOR";
+        attrColor.semanticIndex = 0;
         state.vertexAttributes = {attrPos, attrUv, attrColor};
 
         GraphicsPipeline::Descriptor pipeDesc = {};
@@ -389,13 +386,17 @@ float4 fs_main(VSOut i) : SV_Target {
                 // UI projection matrix: pixel space -> clip space (orthographic).
                 // NOTE: Matrix4::operator*(Vector4) = x*row0 + y*row1 + z*row2 + w*row3,
                 // so the translation lives in the 4th ROW, not the 4th column.
-                // y_clip = 2y/h - 1 maps pixel y=0 to clip y=-1 (framebuffer top).
+                // Pixel y grows down (origin top). The clip-space Y axis differs per
+                // backend: Vulkan NDC has +Y down, D3D12/Metal have +Y up. Pick the
+                // sign from the device so pixel y=0 lands at the framebuffer top on
+                // every backend.
                 const float w = static_cast<float>(surfaceWidth > 0 ? surfaceWidth : 1);
                 const float h = static_cast<float>(surfaceHeight > 0 ? surfaceHeight : 1);
+                const float ySign = device->GetCapability().clipSpaceYDown ? 1.0f : -1.0f;
                 const Matrix4 projection(Vector4(2.0f / w, 0.0f, 0.0f, 0.0f),
-                                         Vector4(0.0f, 2.0f / h, 0.0f, 0.0f),
+                                         Vector4(0.0f, ySign * 2.0f / h, 0.0f, 0.0f),
                                          Vector4(0.0f, 0.0f, 1.0f, 0.0f),
-                                         Vector4(-1.0f, -1.0f, 0.0f, 1.0f));
+                                         Vector4(-1.0f, -ySign, 0.0f, 1.0f));
 
                 auto *dst = reinterpret_cast<UIVertex *>(mapped);
                 for (size_t i = 0; i < drawData.vertices.size(); ++i) {

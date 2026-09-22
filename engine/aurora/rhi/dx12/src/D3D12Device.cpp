@@ -78,6 +78,9 @@ namespace sky::aurora {
 
         capability.minUniformBufferOffsetAlignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
 
+        // D3D12 NDC has +Y pointing up.
+        capability.clipSpaceYDown = false;
+
         D3D12_FEATURE_DATA_ARCHITECTURE arch = {};
         if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch)))) {
             capability.isUMA = arch.UMA || arch.CacheCoherentUMA;
@@ -126,8 +129,11 @@ namespace sky::aurora {
         if (instance.IsDebugEnabled()) {
             ComPtr<ID3D12InfoQueue> infoQueue;
             if (SUCCEEDED(device.As(&infoQueue))) {
-                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+                // Only break when a debugger is attached; otherwise a debug-layer
+                // error-severity message would terminate the process.
+                const BOOL breakOnError = IsDebuggerPresent() ? TRUE : FALSE;
+                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, breakOnError);
+                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, breakOnError);
             }
         }
 
