@@ -13,6 +13,7 @@ sky_add_test(TARGET EditorCoreTest
         CommandControllerTest.cpp
         DefaultPanelsTest.cpp
         EditorExtensionTest.cpp
+        ViewportTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}

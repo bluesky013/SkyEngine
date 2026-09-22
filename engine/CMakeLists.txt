@@ -25,7 +25,7 @@ if (SKY_BUILD_SANDBOX OR SKY_BUILD_TEST)
 endif()
 
 if (SKY_BUILD_SANDBOX)
-    sky_set_dependency(TARGET Sandbox)
+    sky_set_dependency(TARGET SandboxEditor)
 endif()
 
 if (SKY_BUILD_TEST)

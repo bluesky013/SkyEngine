@@ -1,8 +1,5 @@
-# editor-viewport Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change editor-shell-redesign. Update Purpose after archive.
-## Requirements
 ### Requirement: Aurora-backed viewport composited into the main window
 The editor viewport SHALL render through Aurora and SHALL present according to its own `presentation`: `TEXTURE`
 (render to an offscreen target composited by the editor UI, without creating a separate OS window) or `WINDOW`
@@ -21,21 +18,3 @@ preserving its content target. The default main viewport SHALL use `TEXTURE`.
 #### Scenario: Switch presentation
 - **WHEN** a viewport switches between `TEXTURE` and `WINDOW`
 - **THEN** the window/swapchain SHALL be created or destroyed while the content target is preserved
-
-### Requirement: Viewport presents from the native handle
-The viewport SHALL create its presentation target from the main window's native handle via
-`SwapChain::Descriptor.window`, owned by a `ClientViewport`.
-
-#### Scenario: ClientViewport initialized from handle
-- **WHEN** the viewport is created for the main window
-- **THEN** a `ClientViewport` SHALL be initialized from the window's native handle (`HWND` or `CAMetalLayer`) and
-  SHALL present on resize
-
-### Requirement: Editor viewport overlays
-The viewport SHALL support the editor camera and optional overlays (gizmo, profiler) rendered within the same
-frame.
-
-#### Scenario: Gizmo overlay drawn
-- **WHEN** the gizmo overlay is enabled and an object is selected
-- **THEN** the gizmo SHALL be drawn over the viewport output in the same frame
-

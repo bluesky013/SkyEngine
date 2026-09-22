@@ -8,6 +8,7 @@ sky_add_test(TARGET UICoreTest
         UIEditorTest.cpp
         UIInputTest.cpp
         UILayoutTest.cpp
+        UIPaintContextTest.cpp
         UIScrollTest.cpp
         UISystemTest.cpp
         UITransformTest.cpp

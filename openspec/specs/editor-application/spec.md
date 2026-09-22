@@ -32,15 +32,14 @@ and toolbars are engine-drawn and are specified by `editor-ui-shell`.
 - **WHEN** the shell starts and a text field is focused
 - **THEN** text input/IME SHALL be provided by the platform layer
 
-### Requirement: RHI-free shell prototype target
-The opt-in `Sandbox` prototype (`engine/sandbox/src`) SHALL build with `SKY_BUILD_SANDBOX` and SHALL depend only
-on `EditorCore` and `Framework`; it SHALL NOT link Aurora or the render stack. The core tests SHALL build with
-`SKY_BUILD_TEST` and run headless.
+### Requirement: Editor host target
+The editor host (`SandboxEditor`, `engine/sandbox/app`) SHALL build with `SKY_BUILD_SANDBOX` and SHALL load the
+editor module (`SandboxModule`) through the engine module system. The core tests SHALL build with `SKY_BUILD_TEST`
+and run headless. (The earlier RHI-free `Sandbox` shell has been removed in favour of this single host.)
 
-#### Scenario: Sandbox builds and opens a window
+#### Scenario: Editor host builds and runs the module
 - **WHEN** the project is configured with `SKY_BUILD_SANDBOX=ON`
-- **THEN** the `Sandbox` target SHALL build, open a non-Qt native window, pump events, and exit cleanly with no
-  Aurora/RHI dependency
+- **THEN** the `SandboxEditor` target SHALL build, open a non-Qt native window, and run the editor module
 
 #### Scenario: Headless tests run
 - **WHEN** the project is configured with `SKY_BUILD_TEST=ON`

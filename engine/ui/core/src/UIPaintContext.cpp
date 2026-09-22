@@ -85,7 +85,8 @@ namespace sky::ui {
             return;
         }
 
-        const auto base = static_cast<uint32_t>(drawData.vertices.size());
+        const auto base      = static_cast<uint32_t>(drawData.vertices.size());
+        const auto indexBase = static_cast<uint32_t>(drawData.indices.size());
 
         const uint32_t shaded = ApplyOpacity(color);
         float x0 = rect.left;
@@ -125,7 +126,7 @@ namespace sky::ui {
         }
 
         UIDrawCmd cmd;
-        cmd.indexOffset = base;
+        cmd.indexOffset = indexBase;
         cmd.indexCount  = 6;
         cmd.clip        = clip;
         cmd.textureId   = textureId;

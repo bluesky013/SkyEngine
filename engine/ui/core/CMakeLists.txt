@@ -43,3 +43,8 @@ sky_add_library(TARGET UI STATIC
     LINK_LIBS
         ${UI_LINK_LIBS}
 )
+
+# Expose the FreeType availability to C++ so callers can pick the provider.
+if (SKY_BUILD_FREETYPE)
+    target_compile_definitions(UI PUBLIC SKY_BUILD_FREETYPE=1)
+endif ()
