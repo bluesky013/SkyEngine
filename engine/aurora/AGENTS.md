@@ -260,5 +260,5 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 - 加载方：framework `GameApplication` → `ModuleManager`；`GameApplication` **只注册 `AuroraRender`**，不再加载 legacy `SkyRender`，`Launcher` 也不再链接 `RenderAdaptor`。
 - 窗口：宿主经 `ISystemNotify::GetMainWindowHandle()` 提供原生窗口 handle（`GameApplication` 用 `NativeWindow::GetNativeHandle()` 实现）；模块优先用它建 `ClientViewport`，不依赖 Windows SDL 后端返回空的 `Platform::GetMainWinHandle()`。
 - 生命周期：`Init`（`Instance::Init` + `CreateDevice` + `DeviceFrameContext`/`CommandPool`）→ `Start`（主窗口 handle → `ClientViewport`）→ `Tick`（acquire → barrier → clear → barrier → submit → present）→ `Shutdown`。
-- 内置配置：`engine/configs/`（构建时拷到 exe 旁 `configs/`）；`GameApplication` 在项目 workFs 缺 `configs/modules_game.json` 时回退到内置配置。
+- 内置配置：仓库根 `configs/`（构建时拷到 exe 旁 `configs/`）；`GameApplication` 在项目 workFs 缺 `configs/modules_game.json` 时回退到内置配置。
 - 首里程碑仅 clear/present；`Renderer` 主循环、RDG 场景后续接入 `Tick`。

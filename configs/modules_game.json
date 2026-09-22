@@ -1,13 +1,9 @@
 {
   "modules": [
 	{
-      "name": "ConsoleModule",
-      "dependencies": []
-    },
-	{
       "name": "FreeTypeModule",
       "dependencies": [
-        "SkyRender"
+        "AuroraRender"
       ]
     },
     {

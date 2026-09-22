@@ -77,7 +77,7 @@ namespace sky {
         auto file = workFs->OpenFile(CONFIG_PATH);
         if (!file) {
             // Fall back to the engine builtin configs shipped next to the
-            // executable (engine/configs -> <exe>/configs).
+            // executable (configs/ -> <exe>/configs).
             FileSystemPtr builtinFs = new NativeFileSystem(Platform::Get()->GetBundlePath());
             if (builtinFs != nullptr) {
                 file = builtinFs->OpenFile(CONFIG_PATH);

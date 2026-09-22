@@ -7,6 +7,8 @@
 		"techniques/depth_resolve.tech",
 		"techniques/depth_downsample.tech",
 		"techniques/debug.tech",
+		"techniques/box.tech",
+		"techniques/draw_id.tech",
 		"techniques/skybox.tech",
 		"techniques/meshlet_debug.tech",
 		"techniques/brdf_lut.tech"

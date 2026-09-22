@@ -22,7 +22,7 @@ if (NOT ANDROID)
     # can boot without an external project directory.
     add_custom_command(TARGET Launcher POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_SOURCE_DIR}/engine/configs
+            ${CMAKE_SOURCE_DIR}/configs
             $<TARGET_FILE_DIR:Launcher>/configs
         COMMENT "Deploying builtin engine configs"
     )
