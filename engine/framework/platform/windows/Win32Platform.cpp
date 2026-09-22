@@ -1,124 +1,86 @@
 //
 // Created by Zach Lee on 2022/9/25.
 //
+// Native Win32 platform implementation (no SDL).
+//
 
 #include "Win32Platform.h"
+#include "Win32Window.h"
 
-#include <xstring>
+#include <core/logger/Logger.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
-
 #include <windows.h>
 #include <commdlg.h>
 #include <shlobj_core.h>
 
-static const char* TAG = "Win32Platform";
+static const char *TAG = "Win32Platform";
 
 namespace sky {
 
-    static std::wstring UTF8ToWide(const std::string& utf8Text)
-    {
-        if (utf8Text.empty()) {
-            return {};
+    namespace {
+
+        std::wstring UTF8ToWide(const std::string &utf8Text)
+        {
+            if (utf8Text.empty()) {
+                return {};
+            }
+            const int wideLength =
+                ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), static_cast<int>(utf8Text.size()), nullptr, 0);
+            if (wideLength == 0) {
+                return {};
+            }
+            std::wstring wideText(static_cast<size_t>(wideLength), 0);
+            ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), static_cast<int>(utf8Text.size()),
+                                  wideText.data(), wideLength);
+            return wideText;
         }
 
-        std::wstring wideText;
-        const int wideLength = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), (int)utf8Text.size(), nullptr, 0);
-        if (wideLength == 0) {
-            return {};
+        std::string WideToUTF8(const std::wstring &wideText)
+        {
+            if (wideText.empty()) {
+                return {};
+            }
+            const int narrowLength = ::WideCharToMultiByte(
+                CP_UTF8, 0, wideText.data(), static_cast<int>(wideText.size()), nullptr, 0, nullptr, nullptr);
+            if (narrowLength == 0) {
+                return {};
+            }
+            std::string narrowText(static_cast<size_t>(narrowLength), 0);
+            ::WideCharToMultiByte(CP_UTF8, 0, wideText.data(), static_cast<int>(wideText.size()), narrowText.data(),
+                                  narrowLength, nullptr, nullptr);
+            return narrowText;
         }
 
-        wideText.resize(wideLength, 0);
-        auto* wideString = const_cast<wchar_t*>(wideText.data());
-        const int length = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), (int)utf8Text.size(), wideString, wideLength);
-        if (length != wideLength) {
-            return {};
-        }
-
-        return wideText;
-    }
-
-    static std::string WideToUTF8(const std::wstring& wideText)
-    {
-        if (wideText.empty()) {
-            return {};
-        }
-
-        std::string narrowText;
-        int narrowLength = ::WideCharToMultiByte(CP_UTF8, 0, wideText.data(), (int)wideText.size(), nullptr, 0, nullptr, nullptr);
-        if (narrowLength == 0) {
-            return {};
-        }
-
-        narrowText.resize(narrowLength, 0);
-        char* narrowString = const_cast<char*>(narrowText.data());
-        const int length = ::WideCharToMultiByte(CP_UTF8, 0, wideText.data(), (int)wideText.size(), narrowString, narrowLength, nullptr, nullptr);
-        if (length != narrowLength) {
-            return {};
-        }
-
-        return narrowText;
-    }
-
-    // Builds a double-null-terminated Win32 filter string.
-    static std::wstring BuildDialogFilter(const std::string &filter)
-    {
-        std::wstring result = L"All Files\0*.*\0";
-        if (!filter.empty()) {
-            std::wstring pattern = UTF8ToWide(filter);
-            result += pattern;
+        // Builds a double-null-terminated Win32 filter string.
+        std::wstring BuildDialogFilter(const std::string &filter)
+        {
+            std::wstring result = L"All Files\0*.*\0";
+            if (!filter.empty()) {
+                std::wstring pattern = UTF8ToWide(filter);
+                result += pattern;
+                result += L'\0';
+                result += pattern;
+                result += L'\0';
+            }
             result += L'\0';
-            result += pattern;
-            result += L'\0';
+            return result;
         }
-        result += L'\0';
-        return result;
-    }
 
-    struct Pipe {
-        ~Pipe();
-        bool Init();
-        void CloseRead();
-        void CloseWrite();
+    } // namespace
 
-        HANDLE read;
-        HANDLE write;
-    };
-
-    bool Pipe::Init()
-    {
-        SECURITY_ATTRIBUTES security = {sizeof(SECURITY_ATTRIBUTES)};
-        security.bInheritHandle = TRUE;
-        security.lpSecurityDescriptor = nullptr;
-
-        return CreatePipe(&read, &write, &security, 0) != 0;
-    }
-
-    void Pipe::CloseRead()
-    {
-        if (read != nullptr) {
-            CloseHandle(read);
-            read = nullptr;
-        }
-    }
-
-    void Pipe::CloseWrite()
-    {
-        if (write != nullptr) {
-            CloseHandle(write);
-            write = nullptr;
-        }
-    }
-
-    Pipe::~Pipe()
-    {
-        CloseRead();
-        CloseWrite();
-    }
-
-    bool Platform::Init(const PlatformInfo& info)
+    bool Platform::Init(const PlatformInfo &info)
     {
         platform = std::make_unique<Win32Platform>();
         return platform->Init(info);
+    }
+
+    bool Win32Platform::Init(const PlatformInfo & /*info*/)
+    {
+        // Pre-create the window class so window creation cannot fail on it later.
+        return Win32Window::EnsureWindowClass();
     }
 
     PlatformType Win32Platform::GetType() const
@@ -126,18 +88,50 @@ namespace sky {
         return PlatformType::Windows;
     }
 
+    uint64_t Win32Platform::GetPerformanceFrequency() const
+    {
+        LARGE_INTEGER frequency = {};
+        ::QueryPerformanceFrequency(&frequency);
+        return static_cast<uint64_t>(frequency.QuadPart);
+    }
+
+    uint64_t Win32Platform::GetPerformanceCounter() const
+    {
+        LARGE_INTEGER counter = {};
+        ::QueryPerformanceCounter(&counter);
+        return static_cast<uint64_t>(counter.QuadPart);
+    }
+
     std::string Win32Platform::GetInternalPath() const
     {
-        static const uint32_t MAX_WRITABLE_PATH = 128;
-        wchar_t fullPath[MAX_WRITABLE_PATH + 1];
-        ::GetModuleFileNameW(nullptr, fullPath, MAX_WRITABLE_PATH + 1);
-
+        wchar_t fullPath[MAX_PATH + 1] = {0};
+        ::GetModuleFileNameW(nullptr, fullPath, MAX_PATH + 1);
         return std::filesystem::path(WideToUTF8(fullPath)).parent_path().string();
     }
 
     std::string Win32Platform::GetBundlePath() const
     {
         return GetInternalPath(); // TODO
+    }
+
+    std::string Win32Platform::GetUserConfigPath() const
+    {
+        PWSTR path = nullptr;
+        if (::SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &path) != S_OK || path == nullptr) {
+            return {};
+        }
+        const std::filesystem::path configDir =
+            std::filesystem::path(path) / L"SkyEngine" / L"SkyEditor";
+        ::CoTaskMemFree(path);
+
+        std::error_code ec;
+        std::filesystem::create_directories(configDir, ec);
+
+        std::string result = configDir.string();
+        if (!result.empty() && result.back() != '\\' && result.back() != '/') {
+            result += '\\';
+        }
+        return result;
     }
 
     std::string Win32Platform::GetEnvVariable(const std::string &name) const
@@ -148,8 +142,8 @@ namespace sky {
             return {};
         }
         std::wstring envValue(size, 0);
-        const DWORD length = ::GetEnvironmentVariableW(envKey.data(), envValue.data(), (DWORD)envValue.size());
-        if ((length == 0) || (length >= envValue.size())) {
+        const DWORD length = ::GetEnvironmentVariableW(envKey.data(), envValue.data(), size);
+        if (length == 0 || length >= size) {
             return {};
         }
         envValue.resize(length);
@@ -158,42 +152,74 @@ namespace sky {
 
     bool Win32Platform::RunCmd(const std::string &cmd, std::string &out) const
     {
-        auto pipe = std::make_unique<Pipe>();
-        if (!pipe->Init()) {
+        FILE *pipe = _popen(cmd.c_str(), "r");
+        if (pipe == nullptr) {
             return false;
         }
-
-        PROCESS_INFORMATION procInfo = {};
-        STARTUPINFO startInfo = {sizeof(STARTUPINFO)};
-        startInfo.hStdOutput = pipe->write;
-        startInfo.hStdError = pipe->write;
-        startInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-        auto success = CreateProcess(nullptr, (char*)cmd.c_str(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startInfo, &procInfo);
-        if (success == 0) {
-            return false;
+        char buffer[256];
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            out += buffer;
         }
-
-        WaitForSingleObject(procInfo.hProcess, 5000);
-        for (;;) {
-            DWORD dwRead = 0;
-            DWORD dwAvail = 0;
-
-            if (::PeekNamedPipe(pipe->read, nullptr, 0, nullptr, &dwAvail, nullptr) == 0) {
-                break;
-            }
-            if (dwAvail == 0) {
-                break;
-            }
-            std::string tmp(dwAvail, 0);
-            if ((::ReadFile(pipe->read, (char*)tmp.data(), dwAvail, &dwRead, nullptr) == 0) || dwRead == 0) {
-                break;
-            }
-            out += tmp;
-        }
-        CloseHandle(procInfo.hProcess);
-        CloseHandle(procInfo.hThread);
+        _pclose(pipe);
         return true;
+    }
+
+    char* Win32Platform::GetClipBoardText()
+    {
+        if (::OpenClipboard(nullptr) == FALSE) {
+            return nullptr;
+        }
+        char *result = nullptr;
+        if (HANDLE handle = ::GetClipboardData(CF_UNICODETEXT)) {
+            auto *wide = static_cast<const wchar_t *>(::GlobalLock(handle));
+            if (wide != nullptr) {
+                const std::string utf8 = WideToUTF8(wide);
+                result = static_cast<char *>(std::malloc(utf8.size() + 1));
+                if (result != nullptr) {
+                    std::memcpy(result, utf8.c_str(), utf8.size() + 1);
+                }
+                ::GlobalUnlock(handle);
+            }
+        }
+        ::CloseClipboard();
+        return result;
+    }
+
+    void Win32Platform::FreeClipBoardText(char *text)
+    {
+        std::free(text);
+    }
+
+    void Win32Platform::SetClipBoardText(const std::string &text)
+    {
+        const std::wstring wide = UTF8ToWide(text);
+        const size_t bytes = (wide.size() + 1) * sizeof(wchar_t);
+
+        if (::OpenClipboard(nullptr) == FALSE) {
+            return;
+        }
+        ::EmptyClipboard();
+        if (HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, bytes)) {
+            if (void *dest = ::GlobalLock(handle)) {
+                std::memcpy(dest, wide.c_str(), bytes);
+                ::GlobalUnlock(handle);
+                ::SetClipboardData(CF_UNICODETEXT, handle);
+            }
+        }
+        ::CloseClipboard();
+    }
+
+    void Win32Platform::PollEvent(bool &exit)
+    {
+        MSG msg;
+        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                exit = true;
+                continue;
+            }
+            ::TranslateMessage(&msg);
+            ::DispatchMessageW(&msg);
+        }
     }
 
     bool Win32Platform::ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
@@ -203,14 +229,14 @@ namespace sky {
         const std::wstring wideTitle = UTF8ToWide(title);
         const std::wstring wideFilter = BuildDialogFilter(filter);
 
-        OPENFILENAMEW ofn{};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner = static_cast<HWND>(owner);
-        ofn.lpstrFile = fileName;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.lpstrTitle = wideTitle.empty() ? nullptr : wideTitle.c_str();
-        ofn.lpstrFilter = wideFilter.c_str();
-        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+        OPENFILENAMEW ofn = {};
+        ofn.lStructSize  = sizeof(ofn);
+        ofn.hwndOwner    = static_cast<HWND>(owner);
+        ofn.lpstrFile    = fileName;
+        ofn.nMaxFile     = MAX_PATH;
+        ofn.lpstrTitle   = wideTitle.empty() ? nullptr : wideTitle.c_str();
+        ofn.lpstrFilter  = wideFilter.c_str();
+        ofn.Flags        = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
 
         if (::GetOpenFileNameW(&ofn) == TRUE) {
             outPath = WideToUTF8(fileName);
@@ -226,14 +252,14 @@ namespace sky {
         const std::wstring wideTitle = UTF8ToWide(title);
         const std::wstring wideFilter = BuildDialogFilter(filter);
 
-        OPENFILENAMEW ofn{};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner = static_cast<HWND>(owner);
-        ofn.lpstrFile = fileName;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.lpstrTitle = wideTitle.empty() ? nullptr : wideTitle.c_str();
-        ofn.lpstrFilter = wideFilter.c_str();
-        ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_EXPLORER;
+        OPENFILENAMEW ofn = {};
+        ofn.lStructSize  = sizeof(ofn);
+        ofn.hwndOwner    = static_cast<HWND>(owner);
+        ofn.lpstrFile    = fileName;
+        ofn.nMaxFile     = MAX_PATH;
+        ofn.lpstrTitle   = wideTitle.empty() ? nullptr : wideTitle.c_str();
+        ofn.lpstrFilter  = wideFilter.c_str();
+        ofn.Flags        = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_EXPLORER;
 
         if (::GetSaveFileNameW(&ofn) == TRUE) {
             outPath = WideToUTF8(fileName);
@@ -241,4 +267,5 @@ namespace sky {
         }
         return false;
     }
-}
+
+} // namespace sky
