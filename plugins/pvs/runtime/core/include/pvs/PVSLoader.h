@@ -200,16 +200,55 @@ namespace sky {
         std::vector<PVSChunk> chunks;
     };
 
-    class PVSSectorProvider {
+    /**
+     * @brief Source of PVS sector/header data.
+     *
+     * Abstract so the loader can be driven by an in-memory provider (tests) as
+     * well as by the file-backed provider.
+     */
+    class IPVSSectorProvider {
+    public:
+        virtual ~IPVSSectorProvider() = default;
+
+        virtual bool LoadHeader(PVSConfig &config) = 0;
+        virtual bool LoadSector(const PVSSectorCoord &coord, PVSSector &outSector) = 0;
+    };
+
+    class PVSSectorProvider : public IPVSSectorProvider {
     public:
         explicit PVSSectorProvider(const FilePath& inPath) : basePath(inPath) {}
-        ~PVSSectorProvider() = default;
+        ~PVSSectorProvider() override = default;
 
         static std::string HeaderFileName() noexcept;
         static std::string SectorFileName(const PVSSectorCoord &coord) noexcept;
 
-        bool LoadHeader(PVSConfig &config);
-        bool LoadSector(const PVSSectorCoord &coord, PVSSector &outSector);
+        bool LoadHeader(PVSConfig &config) override;
+        bool LoadSector(const PVSSectorCoord &coord, PVSSector &outSector) override;
+
+        FilePath basePath;
+    };
+
+    /**
+     * @brief Sink for PVS sector/header data (write counterpart of IPVSSectorProvider).
+     *
+     * Keeps the on-disk format owned by the core so a bake or an external tool can
+     * serialize PVS data without depending on the (removed) editor bake pipeline.
+     */
+    class IPVSSectorWriter {
+    public:
+        virtual ~IPVSSectorWriter() = default;
+
+        virtual bool WriteHeader(const PVSConfig &config) = 0;
+        virtual bool WriteSector(const PVSSectorCoord &coord, const PVSSector &sector) = 0;
+    };
+
+    class PVSSectorWriter : public IPVSSectorWriter {
+    public:
+        explicit PVSSectorWriter(const FilePath &inPath) : basePath(inPath) {}
+        ~PVSSectorWriter() override = default;
+
+        bool WriteHeader(const PVSConfig &config) override;
+        bool WriteSector(const PVSSectorCoord &coord, const PVSSector &sector) override;
 
         FilePath basePath;
     };
@@ -238,6 +277,12 @@ namespace sky {
         const PVSConfig& GetConfig() const { return config; }
 
         /**
+         * @brief Bytes of visibility data per cell, or 0 when no sector has been
+         *        loaded yet. Derived from a loaded sector (chunkSize / cellsPerChunk).
+         */
+        uint32_t GetCellDataSize() const { return cellDataSize; }
+
+        /**
          * @brief Update streaming state based on the current viewer position.
          *
          * Calculates the current sector coordinate, streams in sectors within
@@ -245,9 +290,9 @@ namespace sky {
          */
         void Update(const Vector3& pos);
 
-        void SetProvider(PVSSectorProvider* provider)
+        void SetProvider(IPVSSectorProvider* provider)
         {
-            selectorProvider.reset(provider);
+            sectorProvider.reset(provider);
         }
 
         /**
@@ -271,10 +316,20 @@ namespace sky {
         const PVSSector* FindSector(const PVSSectorCoord &coord) const;
 
         /**
-         * @brief Query the visibility data for a given cell within a sector.
+         * @brief Query the visibility data for a given cell.
+         *
+         * Resolves the sector that contains the cell (not just the sector under the
+         * main view), so cells in streamed neighbor sectors can be answered.
+         *
          * @return Pointer to the raw visibility bitfield data, or nullptr if unavailable.
          */
         const uint8_t* QueryVisibility(const PVSCellCoord &cellCoord) const;
+
+        /**
+         * @brief Number of sector load attempts that failed because the sector data
+         *        (file) was absent. Recorded without failing the streaming update.
+         */
+        uint32_t GetMissingSectorCount() const { return missingSectorCount; }
 
     private:
         /**
@@ -308,10 +363,11 @@ namespace sky {
 
         // cache
         PVSSectorCoord currentSectorCoord = {};
-        const PVSSector *currentSector = nullptr;
+        uint32_t missingSectorCount = 0;
 
         // data
-        std::unique_ptr<PVSSectorProvider> selectorProvider;
+        uint32_t cellDataSize = 0;
+        std::unique_ptr<IPVSSectorProvider> sectorProvider;
         std::unordered_map<PVSSectorCoord, PVSSector, PVSSectorCoordHash> loadedSectors;
     };
 

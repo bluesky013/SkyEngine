@@ -3,8 +3,15 @@
 //
 
 #include <gtest/gtest.h>
-#include <pvs/PVSCulling.h>
+
 #include <pvs/PVSLoader.h>
+#include <pvs/PVSVisibility.h>
+
+#include <core/archive/StreamArchive.h>
+#include <framework/serialization/BinaryArchive.h>
+
+#include <memory>
+#include <sstream>
 
 using namespace sky;
 
@@ -17,6 +24,262 @@ TEST(PVSTest, VisibilityViewIDLayout)
     ASSERT_EQ(sizeof(PVSVisibilityViewID), sizeof(PVSObjectID));
     ASSERT_EQ((id.value) & 0xFF, 0x08);
     ASSERT_EQ((id.value >> 8) & 0xFFFFFF, 1024);
+}
+
+// =========================================================================
+// Visibility query (fail-safe)
+// =========================================================================
+
+TEST(PVSVisibilityQueryTest, VisibleAndCulledBits)
+{
+    const uint8_t data[2] = {0b00000101U, 0b00000010U}; // objects 0, 2 and 9 visible
+
+    EXPECT_TRUE(QueryPVSObjectVisible(data, sizeof(data), 0));
+    EXPECT_FALSE(QueryPVSObjectVisible(data, sizeof(data), 1));
+    EXPECT_TRUE(QueryPVSObjectVisible(data, sizeof(data), 2));
+    EXPECT_TRUE(QueryPVSObjectVisible(data, sizeof(data), 9));
+    EXPECT_FALSE(QueryPVSObjectVisible(data, sizeof(data), 8));
+}
+
+TEST(PVSVisibilityQueryTest, NullDataIsVisible)
+{
+    EXPECT_TRUE(QueryPVSObjectVisible(nullptr, 0, 3));
+}
+
+TEST(PVSVisibilityQueryTest, OutOfRangeByteIsVisible)
+{
+    const uint8_t data[1] = {0x00};
+    // object 100 needs byte 12, which is outside the known size -> fail safe
+    EXPECT_TRUE(QueryPVSObjectVisible(data, sizeof(data), 100));
+}
+
+TEST(PVSVisibilityQueryTest, InvalidObjectIdIsVisible)
+{
+    std::vector<uint8_t> data((MAX_OBJECTS + 8) / 8, 0xFF);
+    EXPECT_TRUE(QueryPVSObjectVisible(data.data(), static_cast<uint32_t>(data.size()), INVALID_PVS_OBJECT));
+}
+
+// =========================================================================
+// Streaming
+// =========================================================================
+
+namespace {
+
+    // In-memory sector provider so the loader/streaming can be tested without
+    // any file system or legacy render dependency.
+    class FakeSectorProvider : public IPVSSectorProvider {
+    public:
+        explicit FakeSectorProvider(const PVSConfig &inConfig, uint32_t inCellDataSize)
+            : config(inConfig)
+            , cellDataSize(inCellDataSize)
+        {
+        }
+
+        bool LoadHeader(PVSConfig &out) override
+        {
+            out = config;
+            return true;
+        }
+
+        bool LoadSector(const PVSSectorCoord & /*coord*/, PVSSector &out) override
+        {
+            out.version = 1;
+            out.chunkSize = cellDataSize * config.cellsPerChunk;
+            out.cells.resize(config.cellsInSectorXZ * config.cellsInSectorXZ);
+            for (auto &cell : out.cells) {
+                cell.chunkIndex = 0;
+                cell.dataOffset = 0;
+            }
+
+            PVSChunk chunk;
+            chunk.storage = std::make_unique<uint8_t[]>(out.chunkSize);
+            out.chunks.emplace_back(std::move(chunk));
+            return true;
+        }
+
+        PVSConfig config;
+        uint32_t cellDataSize;
+    };
+
+    PVSConfig MakeStreamingConfig()
+    {
+        PVSConfig config;
+        config.worldOffset     = Vector3(0.f, 0.f, 0.f);
+        config.cellSize        = 100.f;
+        config.cellSizeY       = 50.f;
+        config.cellsInSectorXZ = 8;   // sector size = 800
+        config.cellsPerChunk   = 16;
+        return config;
+    }
+
+} // namespace
+
+TEST(PVSStreamingTest, LoadsSectorsWithinRadius)
+{
+    PVSConfig config = MakeStreamingConfig();
+    auto *loader = new PVSLoader(config);
+    std::unique_ptr<PVSLoader> ptr(loader);
+
+    const uint32_t cellDataSize = 4;
+    loader->SetProvider(new FakeSectorProvider(config, cellDataSize));
+    loader->SetStreamingConfig(PVSStreamingConfig{1, 1});
+    loader->Update(Vector3(0.f, 0.f, 0.f));
+
+    uint32_t loaded = 0;
+    for (int32_t x = -1; x <= 1; ++x) {
+        for (int32_t y = -1; y <= 1; ++y) {
+            if (loader->FindSector(PVSSectorCoord{x, y}) != nullptr) {
+                ++loaded;
+            }
+        }
+    }
+    EXPECT_EQ(loaded, 9U);
+    EXPECT_EQ(loader->GetCellDataSize(), cellDataSize);
+}
+
+TEST(PVSStreamingTest, HysteresisKeepsSectorsUntilBeyondUnloadRadius)
+{
+    PVSConfig config = MakeStreamingConfig();
+    PVSLoader loader(config);
+    loader.SetProvider(new FakeSectorProvider(config, 4));
+    loader.SetStreamingConfig(PVSStreamingConfig{1, 1}); // unloadRadius = 2
+
+    loader.Update(Vector3(0.f, 0.f, 0.f)); // sector (0,0)
+    ASSERT_NE(loader.FindSector(PVSSectorCoord{0, 0}), nullptr);
+
+    // Move one sector east: (0,0) is within the hysteresis band, stays loaded.
+    loader.Update(Vector3(900.f, 0.f, 0.f)); // sector (1,0)
+    EXPECT_NE(loader.FindSector(PVSSectorCoord{0, 0}), nullptr);
+
+    // Move far away: (0,0) is beyond loadRadius + unloadMargin, unloaded.
+    loader.Update(Vector3(5000.f, 0.f, 0.f)); // sector (6,0)
+    EXPECT_EQ(loader.FindSector(PVSSectorCoord{0, 0}), nullptr);
+    EXPECT_NE(loader.FindSector(PVSSectorCoord{6, 0}), nullptr);
+}
+
+TEST(PVSStreamingTest, QueryAnswersCellsInNeighborSectors)
+{
+    PVSConfig config = MakeStreamingConfig();
+    PVSLoader loader(config);
+    loader.SetProvider(new FakeSectorProvider(config, 4));
+    loader.SetStreamingConfig(PVSStreamingConfig{1, 1});
+
+    loader.Update(Vector3(0.f, 0.f, 0.f)); // main view sector (0,0)
+
+    // A cell in the streamed neighbor sector (1,0): x in [800, 1600)
+    const auto neighborCell = config.CalculateCellCoordByWorldPosition(Vector3(900.f, 0.f, 0.f));
+    EXPECT_NE(loader.QueryVisibility(neighborCell), nullptr);
+
+    // A cell in a far, unloaded sector is unavailable (callers fail safe).
+    const auto farCell = config.CalculateCellCoordByWorldPosition(Vector3(100000.f, 0.f, 0.f));
+    EXPECT_EQ(loader.QueryVisibility(farCell), nullptr);
+}
+
+namespace {
+
+    // Provider whose sector files are always missing.
+    class MissingSectorProvider : public IPVSSectorProvider {
+    public:
+        bool LoadHeader(PVSConfig &) override { return true; }
+        bool LoadSector(const PVSSectorCoord & /*coord*/, PVSSector & /*out*/) override { return false; }
+    };
+
+} // namespace
+
+TEST(PVSStreamingTest, MissingSectorIsRecordedWithoutFailing)
+{
+    PVSConfig config = MakeStreamingConfig();
+    PVSLoader loader(config);
+    loader.SetProvider(new MissingSectorProvider());
+    loader.SetStreamingConfig(PVSStreamingConfig{1, 0}); // 3x3 sectors attempted
+
+    loader.Update(Vector3(0.f, 0.f, 0.f));
+
+    EXPECT_EQ(loader.FindSector(PVSSectorCoord{0, 0}), nullptr);
+    EXPECT_EQ(loader.GetMissingSectorCount(), 9u);
+}
+
+// =========================================================================
+// Serialization round-trip (the core owns the PVS on-disk format)
+// =========================================================================
+
+TEST(PVSSerializationTest, ConfigRoundTrip)
+{
+    PVSConfig config;
+    config.worldOffset     = Vector3(10.f, 20.f, 30.f);
+    config.cellSize        = 100.f;
+    config.cellSizeY       = 50.f;
+    config.cellsInSectorXZ = 8;
+    config.cellsPerChunk   = 16;
+
+    std::stringstream stream;
+    {
+        OStreamArchive os(stream);
+        BinaryOutputArchive out(os);
+        config.Save(out);
+    }
+
+    stream.seekg(0);
+
+    PVSConfig loaded;
+    {
+        IStreamArchive is(stream);
+        BinaryInputArchive in(is);
+        loaded.Load(in);
+    }
+
+    EXPECT_FLOAT_EQ(loaded.worldOffset.x, 10.f);
+    EXPECT_FLOAT_EQ(loaded.worldOffset.y, 20.f);
+    EXPECT_FLOAT_EQ(loaded.worldOffset.z, 30.f);
+    EXPECT_FLOAT_EQ(loaded.cellSize, 100.f);
+    EXPECT_FLOAT_EQ(loaded.cellSizeY, 50.f);
+    EXPECT_EQ(loaded.cellsInSectorXZ, 8);
+    EXPECT_EQ(loaded.cellsPerChunk, 16u);
+}
+
+TEST(PVSSerializationTest, SectorRoundTrip)
+{
+    PVSConfig config;
+    config.cellsInSectorXZ = 8;
+    config.cellsPerChunk   = 16;
+
+    const uint32_t cellDataSize = 4;
+
+    PVSSector sector;
+    sector.Init(config, cellDataSize);
+    sector.version = 3;
+    sector.cells[5].chunkIndex = 0;
+    sector.cells[5].dataOffset = 2;
+
+    PVSChunk chunk;
+    chunk.storage = std::make_unique<uint8_t[]>(sector.chunkSize);
+    chunk.storage[2] = 0xAB;
+    sector.chunks.emplace_back(std::move(chunk));
+
+    std::stringstream stream;
+    {
+        OStreamArchive os(stream);
+        BinaryOutputArchive out(os);
+        sector.Save(out);
+    }
+
+    stream.seekg(0);
+
+    PVSSector loaded;
+    {
+        IStreamArchive is(stream);
+        BinaryInputArchive in(is);
+        loaded.Load(in);
+    }
+
+    EXPECT_EQ(loaded.version, 3u);
+    EXPECT_EQ(loaded.chunkSize, sector.chunkSize);
+    ASSERT_EQ(loaded.cells.size(), sector.cells.size());
+    EXPECT_EQ(loaded.cells[5].chunkIndex, 0);
+    EXPECT_EQ(loaded.cells[5].dataOffset, 2);
+    ASSERT_EQ(loaded.chunks.size(), 1u);
+    ASSERT_NE(loaded.chunks[0].storage, nullptr);
+    EXPECT_EQ(loaded.chunks[0].storage[2], 0xAB);
 }
 
 // =========================================================================

@@ -5,41 +5,15 @@
 #pragma once
 
 #include <pvs/PVSLoader.h>
+#include <pvs/PVSVisibility.h>
 #include <pvs/PVSVisualizer.h>
 #include <render/RenderScene.h>
 
 namespace sky {
 
-    using PVSObjectID = uint32_t;
-    static constexpr PVSObjectID INVALID_PVS_OBJECT = 0xFFFFFF00;
-
-    #define PVS_OBJECT_MASK_IN_BYTES_BIT 8
-    #define PVS_OBJECT_INDEX_IN_BYTES_BIT 24
-    static_assert((PVS_OBJECT_MASK_IN_BYTES_BIT + PVS_OBJECT_INDEX_IN_BYTES_BIT) == sizeof(PVSObjectID) * 8);
-
-    static constexpr PVSObjectID MAX_OBJECTS = (1 << 24) - 2; // 0xFFFFFF invalid object id.
-
-    /**
-     * @brief Unique identifier for bitset visit
-     */
-    struct PVSVisibilityViewID {
-        FORCEINLINE bool IsValid() const { return (value & INVALID_PVS_OBJECT) != INVALID_PVS_OBJECT; }
-
-        explicit PVSVisibilityViewID() : value{INVALID_PVS_OBJECT} {}
-
-        explicit PVSVisibilityViewID(PVSObjectID objectID) : value{objectID} {}
-
-        union {
-            PVSObjectID value;
-            struct {
-                uint32_t maskInBytes  : PVS_OBJECT_MASK_IN_BYTES_BIT;
-                uint32_t indexInBytes : PVS_OBJECT_INDEX_IN_BYTES_BIT;
-            };
-        };
-    };
-
     struct PVSCullingViewData : RenderSceneCullingViewData {
-        const uint8_t* data = nullptr;
+        const uint8_t *data = nullptr;
+        uint32_t       dataSizeInBytes = 0;
     };
 
     /**

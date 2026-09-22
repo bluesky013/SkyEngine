@@ -12,7 +12,7 @@ namespace sky {
 
     bool PVSCulling::Init(const FilePath& path)
     {
-        std::unique_ptr<PVSSectorProvider> provider = std::make_unique<PVSSectorProvider>(path);\
+        auto provider = std::make_unique<PVSSectorProvider>(path);
 
         PVSConfig config = {};
         if (provider->LoadHeader(config)) {
@@ -37,27 +37,29 @@ namespace sky {
 
     RenderSceneCullingViewData* PVSCulling::PrepareCullingViewData(const SceneView* view) const noexcept
     {
-        const auto& config = loader->GetConfig();
-        const uint8_t* data = loader->QueryVisibility(config.CalculateCellCoordByWorldPosition(view->GetViewOrigin()));
-
-        PVSCullingViewData* cullData = nullptr;
-        if (data != nullptr) {
-            cullData = new PVSCullingViewData();
-            cullData->data = data;
+        if (loader == nullptr || view == nullptr) {
+            return nullptr;
         }
 
+        const auto& config = loader->GetConfig();
+        const uint8_t* data = loader->QueryVisibility(config.CalculateCellCoordByWorldPosition(view->GetViewOrigin()));
+        if (data == nullptr) {
+            return nullptr;
+        }
+
+        auto* cullData = new PVSCullingViewData();
+        cullData->data = data;
+        cullData->dataSizeInBytes = loader->GetCellDataSize();
         return cullData;
     }
 
     bool PVSCulling::QueryVisible(const RenderSceneCullingViewData* data, uint32_t id) const noexcept
     {
-        const PVSCullingViewData* pvsData = reinterpret_cast<const PVSCullingViewData*>(data);
-
-        uint32_t byteIndex = id / 8;
-        uint32_t bitIndex = id % 8;
-        // PVSVisibilityViewID objID(id);
-        // return (pvsData->data[objID.indexInBytes] & objID.maskInBytes) == objID.maskInBytes;
-        return pvsData->data[byteIndex] & (1 << bitIndex);
+        const auto* pvsData = reinterpret_cast<const PVSCullingViewData*>(data);
+        if (pvsData == nullptr) {
+            return true;
+        }
+        return QueryPVSObjectVisible(pvsData->data, pvsData->dataSizeInBytes, id);
     }
 
 } // namespace sky
