@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import sys
 import time
-import zipfile
 
 from git import GitCommandError
 from pathlib import Path
@@ -60,16 +59,11 @@ def get_platform_metadata_path():
     return os.path.join(get_platform_output_root(), METADATA_FILE)
 
 
-def ensure_default_output():
-    if args.output:
-        return
-    args.output = os.path.join(args.engine, 'build_3rd')
-
-
 def ensure_default_intermediate():
     if args.intermediate:
         return
-    args.intermediate = os.path.join(args.engine, 'build_3rd', 'intermediate')
+    # Derived from the explicit output directory; never an in-repo default.
+    args.intermediate = os.path.join(args.output, 'intermediate')
 
 
 def write_cmake_cache():
@@ -88,9 +82,6 @@ def write_cmake_cache():
         f.write(f'set(SKY_THIRD_PARTY_{args.platform}_PATH "{platform_output_path}" CACHE PATH "SkyEngine third-party path for {args.platform}" FORCE)\n')
         f.write(f'set(3RD_PATH "{platform_output_path}" CACHE PATH "SkyEngine 3rd path" FORCE)\n')
 
-
-ensure_default_output()
-ensure_default_intermediate()
 
 def load_build_metadata():
     meta_path = get_platform_metadata_path()
@@ -496,50 +487,6 @@ def process_package(package):
 
     build_package(name, source_dir, options, cache, components, header_only=header_only)
 
-def archive_output(json_file, data):
-    """Zip the entire output directory and record MD5 into thirdparty.json."""
-    archive_dir = os.path.join(args.engine, 'build_3rd', 'archives')
-    Path(archive_dir).mkdir(parents=True, exist_ok=True)
-
-    # create zip
-    zip_name = f"thirdparty_{args.platform}.zip"
-    zip_path = os.path.join(archive_dir, zip_name)
-    print(f"[archive] creating {zip_path} ...")
-
-    output_root = Path(get_platform_output_root())
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for file in sorted(output_root.rglob('*')):
-            if file.is_file() and file.name != METADATA_FILE:
-                arcname = file.relative_to(output_root)
-                zf.write(file, arcname)
-
-    # compute md5
-    md5 = hashlib.md5()
-    with open(zip_path, 'rb') as f:
-        while chunk := f.read(8192):
-            md5.update(chunk)
-    md5_hex = md5.hexdigest()
-
-    # rename with short hash
-    final_name = f"thirdparty_{args.platform}_{md5_hex[:12]}.zip"
-    final_path = os.path.join(archive_dir, final_name)
-    if os.path.exists(final_path):
-        os.remove(final_path)
-    os.rename(zip_path, final_path)
-
-    # update thirdparty.json
-    if 'archives' not in data:
-        data['archives'] = {}
-    data['archives'][args.platform] = {
-        'file': final_name,
-        'md5': md5_hex
-    }
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent='\t', ensure_ascii=False)
-
-    size_mb = os.path.getsize(final_path) / (1024 * 1024)
-    print(f"[archive] {final_name} ({size_mb:.1f} MB, md5: {md5_hex})")
-
 
 def list_packages(packages):
     print(f"{'Name':<20} {'Tag':<25} {'Type':<12} {'Platforms'}")
@@ -562,6 +509,10 @@ def app_main():
         list_packages(packages)
         return
 
+    if not args.output:
+        parser.error('--output is required: specify the third-party output directory')
+    ensure_default_intermediate()
+
     metadata = load_build_metadata()
 
     if args.target:
@@ -569,7 +520,6 @@ def app_main():
     else:
         filtered = packages
 
-    built_any = False
     for package in filtered:
         name = package.get('name', '')
         if not name:
@@ -586,11 +536,6 @@ def app_main():
             mark_package_built(metadata, name, package_key)
             save_build_metadata(metadata)
             write_cmake_cache()
-            built_any = True
-
-    # archive after build
-    if built_any and not args.clean:
-        archive_output(json_file, data)
 
 if __name__ == "__main__":
     app_main()

@@ -57,14 +57,16 @@ class ThirdPartyBuildWidget(QMainWindow):
 
         form = QFormLayout()
         self.engine_edit = EditWithSelect(is_dir=True, dft_path=self.engine_path, parent=self)
+        # Output (and intermediate) must be chosen explicitly; there is no
+        # in-repo default and no default archive is produced.
         self.intermediate_edit = EditWithSelect(
             is_dir=True,
-            dft_path=os.path.join(self.engine_path, 'build_3rd', 'intermediate'),
+            dft_path='',
             parent=self,
         )
         self.output_edit = EditWithSelect(
             is_dir=True,
-            dft_path=os.path.join(self.engine_path, 'build_3rd'),
+            dft_path='',
             parent=self,
         )
         self.engine_edit.on_selected.connect(self.on_path_selected)
