@@ -44,6 +44,12 @@
             "enabled": true
         },
         {
+            "name": "vegetation",
+            "dir": "vegetation",
+            "cmake_var": "SKY_BUILD_VEGETATION",
+            "enabled": true
+        },
+        {
             "name": "compression",
             "dir": "compression",
             "cmake_var": "SKY_BUILD_COMPRESSION",

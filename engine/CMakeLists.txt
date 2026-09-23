@@ -10,6 +10,8 @@ add_subdirectory(render)
 add_subdirectory(ui)
 add_subdirectory(physics)
 add_subdirectory(navigation)
+add_subdirectory(terrain)
+add_subdirectory(vegetation)
 
 add_subdirectory(launcher)
 sky_set_dependency(TARGET Launcher)

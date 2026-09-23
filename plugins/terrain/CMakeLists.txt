@@ -1,16 +1,11 @@
+set(CURRENT_FOLDER Plugins)
+
 file(GLOB_RECURSE RUNTIME_SRC_FILES runtime/src/*)
 file(GLOB_RECURSE RUNTIME_INC_FILES runtime/include/*)
-
-file(GLOB_RECURSE TOOL_SRC_FILES tools/src/*)
-file(GLOB_RECURSE TOOL_INC_FILES tools/include/*)
-
-file(GLOB_RECURSE EDITOR_SRC_FILES editor/src/*)
-file(GLOB_RECURSE EDITOR_INC_FILES editor/include/*)
-
 file(GLOB_RECURSE TEST_FILES test/*)
 
-include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
-
+# Terrain feature implementation (field, sub-system, generator, asset serialization, component, ...).
+# Engine interfaces/data live in engine/terrain (target Terrain).
 sky_add_library(TARGET Terrain.Static STATIC
     SOURCES
         ${RUNTIME_SRC_FILES}
@@ -20,53 +15,37 @@ sky_add_library(TARGET Terrain.Static STATIC
     PUBLIC_INC
         runtime/include
     LINK_LIBS
-        RenderAdaptor
+        Terrain
         Physics
+        Framework
 )
 
-sky_add_library(TARGET Terrain SHARED
+sky_add_library(TARGET TerrainRender SHARED
     SOURCES
         runtime/TerrainRegistry.cpp
-    PRIVATE_INC
-    PUBLIC_INC
     LINK_LIBS
         Terrain.Static
 )
 
-if (SKY_BUILD_EDITOR)
-    sky_add_library(TARGET TerrainEditor SHARED
-        SOURCES
-            ${EDITOR_SRC_FILES}
-            ${EDITOR_INC_FILES}
-            editor/TerrainEditorRegistry.cpp
-        PRIVATE_INC
-            editor/src
-        PUBLIC_INC
-            editor/include
-        LINK_LIBS
-            Terrain.Static
-            EditorFramework
-    )
-endif ()
+add_subdirectory(builder)
+add_subdirectory(physics)
 
 sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
 
-sky_add_library(TARGET TerrainTools STATIC
-    SOURCES
-        ${TOOL_SRC_FILES}
-        ${TOOL_INC_FILES}
-    PRIVATE_INC
-        tools/src
-    PUBLIC_INC
-        tools/include
-   LINK_LIBS
-        Terrain.Static
-)
-
-sky_add_test(TARGET TerrainTest
-    SOURCES
-        ${TEST_FILES}
-    LIBS
-        Terrain.Static
-        3rdParty::googletest
-)
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET TerrainPluginTest
+        SOURCES
+            ${TEST_FILES}
+        LIBS
+            Terrain.Static
+            Terrain
+            Physics
+            Navigation
+            NavigationTerrain
+            Vegetation
+            VegetationTerrain
+            3rdParty::googletest
+        WORKING_DIR
+            $<TARGET_FILE_DIR:TerrainPluginTest>
+        )
+endif ()

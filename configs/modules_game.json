@@ -17,6 +17,14 @@
     {
       "name": "BulletPhysicsAuroraModule",
       "dependencies": []
+    },
+    {
+      "name": "TerrainModule",
+      "dependencies": []
+    },
+    {
+      "name": "VegetationModule",
+      "dependencies": []
     }
   ]
 }

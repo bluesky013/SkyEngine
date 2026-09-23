@@ -17,6 +17,7 @@ sky_add_library(TARGET Navigation STATIC
 )
 
 add_subdirectory(builder)
+add_subdirectory(terrain)
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET NavigationTest

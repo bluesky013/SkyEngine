@@ -8,10 +8,12 @@
 #include <navigation/NaviMesh.h>
 #include <navigation/NaviMeshAsset.h>
 #include <navigation/NaviPath.h>
+#include <navigation/NaviGeometryProvider.h>
 
 #include <core/async/Task.h>
 #include <core/math/Vector3.h>
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <unordered_map>
@@ -81,6 +83,19 @@ namespace sky::ai {
         uint32_t GetLoadedTileCount() const { return static_cast<uint32_t>(loadedTiles.size()); }
         uint32_t GetPendingLoadCount() const { return static_cast<uint32_t>(pendingLoads.size()); }
 
+        // Geometry providers: external sources (e.g. terrain) feeding nav mesh generation.
+        void AddGeometryProvider(INaviGeometryProvider *provider)
+        {
+            if (provider != nullptr && std::find(geometryProviders.begin(), geometryProviders.end(), provider) == geometryProviders.end()) {
+                geometryProviders.push_back(provider);
+            }
+        }
+        void RemoveGeometryProvider(INaviGeometryProvider *provider)
+        {
+            geometryProviders.erase(std::remove(geometryProviders.begin(), geometryProviders.end(), provider), geometryProviders.end());
+        }
+        const std::vector<INaviGeometryProvider *> &GetGeometryProviders() const { return geometryProviders; }
+
         // Async path queries: budgeted submission, polled results, cancellation on mesh change.
         NaviPathQueryTaskPtr RequestPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter);
         void CancelPath(const NaviPathQueryTaskPtr &task);
@@ -111,6 +126,8 @@ namespace sky::ai {
 
         std::vector<NaviPathQueryTaskPtr> activeQueries;
         uint32_t                          queryBudget = 4;
+
+        std::vector<INaviGeometryProvider *> geometryProviders;
     };
 
 } // namespace sky::ai

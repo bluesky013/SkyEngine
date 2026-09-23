@@ -12,6 +12,9 @@
 #include <navigation/NavigationSystem.h>
 #include <core/math/MathUtil.h>
 
+#include <algorithm>
+#include <cstring>
+
 #include <physics/components/CollisionComponent.h>
 #include <framework/world/TransformComponent.h>
 
@@ -20,6 +23,50 @@
 namespace sky::ai {
     static RecastTileCacheMeshProcessor GMeshProcessor;
     static dtTileCacheAlloc GAllocator;
+
+    namespace {
+
+        // Feeds provider triangles into the nav octree as engine triangle meshes.
+        class OctreeTriangleSink : public INaviGeometrySink {
+        public:
+            explicit OctreeTriangleSink(NaviOctree *inOctree) : octree(inOctree) {}
+
+            void AddTriangles(const Vector3 *vertices, uint32_t vertexCount,
+                              const uint32_t *indices, uint32_t indexCount) override
+            {
+                if (vertices == nullptr || indices == nullptr || vertexCount == 0 || indexCount == 0) {
+                    return;
+                }
+
+                auto *mesh = new TriangleMesh();
+                mesh->position.resize(static_cast<size_t>(vertexCount) * sizeof(Vector3));
+                std::memcpy(mesh->position.data(), vertices, mesh->position.size());
+
+                mesh->indexRaw.resize(static_cast<size_t>(indexCount) * sizeof(uint32_t));
+                std::memcpy(mesh->indexRaw.data(), indices, mesh->indexRaw.size());
+                mesh->indexType = IndexType::U32;
+                mesh->vtxStride = sizeof(Vector3);
+
+                AABB box;
+                box.min = vertices[0];
+                box.max = vertices[0];
+                for (uint32_t i = 1; i < vertexCount; ++i) {
+                    box.min = Vector3(std::min(box.min.x, vertices[i].x), std::min(box.min.y, vertices[i].y), std::min(box.min.z, vertices[i].z));
+                    box.max = Vector3(std::max(box.max.x, vertices[i].x), std::max(box.max.y, vertices[i].y), std::max(box.max.z, vertices[i].z));
+                }
+                mesh->AddView(0, vertexCount, 0, indexCount, box);
+
+                auto *element = new NaviOctreeElement();
+                element->triangleMesh = mesh;
+                element->viewIndex = 0;
+                octree->AddElement(element);
+            }
+
+        private:
+            NaviOctree *octree;
+        };
+
+    } // namespace
 
     RecastNaviMeshGenerator::~RecastNaviMeshGenerator()
     {
@@ -107,6 +154,19 @@ namespace sky::ai {
                 element->viewIndex = i;
 
                 octree->AddElement(element);
+            }
+        }
+
+        // Providers (e.g. terrain) contribute additional geometry sources without the backend linking them.
+        auto *navSys = static_cast<NavigationSystem *>(world->GetSubSystem(Name(NavigationSystem::NAME.data())));
+        if (navSys != nullptr && !navSys->GetGeometryProviders().empty()) {
+            AABB buildBounds;
+            buildBounds.min = Vector3(config.bmin[0], config.bmin[1], config.bmin[2]);
+            buildBounds.max = Vector3(config.bmax[0], config.bmax[1], config.bmax[2]);
+
+            OctreeTriangleSink sink(octree);
+            for (auto *provider : navSys->GetGeometryProviders()) {
+                provider->Collect(buildBounds, sink);
             }
         }
     }

@@ -1,0 +1,8 @@
+{
+    "targets": [
+        {
+            "name": "VegetationRender",
+            "dependencies": ["Launcher", "Editor"]
+        }
+    ]
+}
