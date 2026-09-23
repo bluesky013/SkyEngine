@@ -33,6 +33,10 @@ namespace sky::ui {
         void SetFocus(UIElement *element) { focus = element; }
         UIElement *GetFocus() const { return focus; }
 
+        // Clears focus/hover/capture element pointers. Call before the element
+        // tree is destroyed or rebuilt, so no stale pointer is dereferenced.
+        void Reset();
+
         UIElement *GetCapture(uint32_t pointerId = 0) const;
 
     private:

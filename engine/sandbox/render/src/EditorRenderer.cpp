@@ -143,37 +143,12 @@ namespace sky::editor {
 
     void EditorRenderer::PaintUI(uint32_t surfaceWidth, uint32_t surfaceHeight)
     {
-        // A small real UI painted with sky::ui: a top bar, a left panel and a
-        // semi-transparent overlay. Pixel space; UIRenderer converts to NDC.
-        const float w = static_cast<float>(surfaceWidth);
-        const float h = static_cast<float>(surfaceHeight);
-
-        paintContext.Begin(sky::ui::UIRect{0.0f, 0.0f, w, h});
-        // UIVertex.color is packed ABGR (0xAABBGGRR): the RGBA8 vertex attribute
-        // reads the bytes as R,G,B,A, so R must be in the low byte.
-        paintContext.AddRect(sky::ui::UIRect{0.0f, 0.0f, w, 40.0f}, 0xFF3A2F2A);          // top bar  rgb(2A,2F,3A)
-        paintContext.AddRect(sky::ui::UIRect{0.0f, 40.0f, 240.0f, h}, 0xFF201C18);       // left panel rgb(18,1C,20)
-        paintContext.AddRect(sky::ui::UIRect{24.0f, 24.0f, 180.0f, 56.0f}, 0xFF3399E5);  // accent  rgb(E5,99,33)
-        paintContext.AddRect(sky::ui::UIRect{280.0f, 80.0f, 640.0f, 260.0f}, 0x803399E5); // overlay rgb(E5,99,33) a=0x80
-
-        // Viewport content target (TEXTURE presentation) composited as a UI image.
-        const sky::ui::UIRect viewportRect{340.0f, 300.0f, 340.0f + kViewportWidth, 300.0f + kViewportHeight};
-        paintContext.AddRect(
-            sky::ui::UIRect{viewportRect.left - 2.0f, viewportRect.top - 2.0f, viewportRect.right + 2.0f,
-                            viewportRect.bottom + 2.0f},
-            0xFF8899AA);                                                              // border
-        paintContext.AddTexturedQuad(viewportRect, sky::ui::UIRect{0.0f, 0.0f, 1.0f, 1.0f}, kViewportTextureId,
-                                     0xFFFFFFFF);                                     // content
-
-        // Text (glyph atlas through the UIRenderer's IUITextureRegistry). Colors
-        // are packed ABGR (0xAABBGGRR).
-        if (textSystem != nullptr) {
-            sky::ui::UIFontAtlas &atlas = textSystem->GetAtlas();
-            sky::ui::UITextLayout::Emit(paintContext, "SkyEngine Editor", 18, 280.0f, 10.0f, 0xFFFFFFFF, atlas);
-            sky::ui::UITextLayout::Emit(paintContext, "Outliner", 14, 12.0f, 90.0f, 0xFFDEC4B0, atlas);
-            sky::ui::UITextLayout::Emit(paintContext, "Inspector", 14, 12.0f, 120.0f, 0xFFDEC4B0, atlas);
-            sky::ui::UITextLayout::Emit(paintContext, "Viewport", 16, 348.0f, 276.0f, 0xFFE0E0E0, atlas);
+        // GUI content comes from the editor shell (set via SetGuiSource); the
+        // renderer holds no hardcoded UI.
+        if (!guiSource) {
+            return;
         }
+        guiSource(paintContext, surfaceWidth, surfaceHeight);
     }
 
     void EditorRenderer::Start()

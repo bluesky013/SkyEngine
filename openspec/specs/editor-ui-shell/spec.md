@@ -41,3 +41,77 @@ wants input so game/viewport input is gated while UI is active.
 - **WHEN** a focused or modal UI surface is active
 - **THEN** the shell SHALL report that it wants input and the viewport SHALL not receive that input
 
+### Requirement: Shell composed from the core layout and panel registry
+
+The editor shell SHALL build its `sky::ui` element tree from the `editor-layout` model and the `PanelRegistry`
+owned by `EditorCore`, and SHALL NOT hardcode panel content or placement. Panel ids that have no registered view
+SHALL be skipped without failing.
+
+#### Scenario: Panels follow the default layout
+- **WHEN** the editor starts with the default layout and the registered core panel ids
+- **THEN** the shell SHALL create a `sky::ui` element subtree for each panel id present in the layout
+
+#### Scenario: Unknown panel id is skipped
+- **WHEN** the layout references a panel id that has no registered view
+- **THEN** the shell SHALL skip it and continue building the rest of the shell
+
+### Requirement: Input routed through the UI event router
+
+Platform window pointer and keyboard events SHALL be forwarded to the shell, which SHALL dispatch them through the
+`sky::ui` `UIEventRouter`, and SHALL expose `UIContext::WantsInput()` so the host can gate non-UI input.
+
+#### Scenario: Pointer routes to the topmost element
+- **WHEN** a pointer event occurs over overlapping UI elements
+- **THEN** the router SHALL dispatch it to the topmost visible element under the point
+
+#### Scenario: Wants input reported
+- **WHEN** a focused or modal UI surface is active
+- **THEN** `UIContext::WantsInput()` SHALL be true
+
+### Requirement: Viewport input gating
+
+While the shell reports that it wants input, the editor viewport SHALL NOT receive the pointer/keyboard input.
+
+#### Scenario: UI captures input
+- **WHEN** the shell reports `WantsInput()` and a pointer event arrives over the UI
+- **THEN** the viewport SHALL NOT receive that event
+
+### Requirement: Theme-driven panel styling
+
+The editor shell SHALL style its surfaces through the UI theme (`UITheme`/`UIStyle`), so panel, title, menu and
+button colors come from a single theme rather than hardcoded per-panel values.
+
+#### Scenario: Panels resolve colors from the theme
+- **WHEN** a panel is painted
+- **THEN** its background and title colors SHALL come from the theme's resolved style for the panel's classes
+
+#### Scenario: Changing the theme changes the shell
+- **WHEN** a theme style value is changed
+- **THEN** the affected shell surfaces SHALL render with the new value, with no per-panel constant to change
+
+### Requirement: Tab headers switch the active panel
+
+A tab that contains more than one panel SHALL render a header row of its panel titles, and selecting a header SHALL
+make that panel the tab's active panel and show its view.
+
+#### Scenario: Switch tabs
+- **WHEN** the user selects a panel title in a multi-panel tab's header
+- **THEN** that panel SHALL become active and its view SHALL be shown
+
+#### Scenario: Only the active panel body is shown
+- **WHEN** a tab has multiple panels
+- **THEN** only the active panel's body SHALL be laid out and painted
+
+### Requirement: Engine-drawn tool/menu bar
+
+The shell SHALL provide an engine-drawn tool/menu bar with labeled action items; selecting an item SHALL run the
+associated editor action. Items SHALL be grouped (for example a View group whose items toggle panel visibility).
+
+#### Scenario: Run a toolbar item
+- **WHEN** the user selects an item in the tool/menu bar
+- **THEN** the associated editor action SHALL run
+
+#### Scenario: View group toggles a panel
+- **WHEN** the user selects a panel item in the View group
+- **THEN** that panel SHALL be hidden if shown, or shown if hidden
+

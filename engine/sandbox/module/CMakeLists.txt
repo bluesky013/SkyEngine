@@ -16,6 +16,8 @@ sky_add_library(TARGET SandboxModule SHARED
     LINK_LIBS
         Core
         Framework
+        EditorCore
+        EditorShell
         EditorRender
 )
 

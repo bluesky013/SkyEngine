@@ -14,6 +14,7 @@
 #endif
 #include <core/template/ReferenceObject.h>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -41,6 +42,10 @@ namespace sky::editor {
     // feeds it draw data. `SandboxModule` delegates to it.
     class EditorRenderer {
     public:
+        // Fills the GUI paint context for the current surface size. The editor
+        // shell provides this; the renderer never knows the shell type.
+        using GuiPaintFn = std::function<void(sky::ui::UIPaintContext &, uint32_t width, uint32_t height)>;
+
         EditorRenderer();
         ~EditorRenderer();
 
@@ -56,8 +61,15 @@ namespace sky::editor {
 
         bool IsInitialized() const { return device != nullptr; }
 
+        // GUI content source (the editor shell). Set after Init, before Start.
+        void SetGuiSource(GuiPaintFn fn) { guiSource = std::move(fn); }
+        // Text system (available after Init) so the shell can build text views.
+        sky::ui::UITextSystem *GetTextSystem() const { return textSystem.get(); }
+
     private:
         void PaintUI(uint32_t surfaceWidth, uint32_t surfaceHeight);
+
+        GuiPaintFn                                       guiSource;
 
         sky::aurora::Device                             *device = nullptr;
         std::unique_ptr<sky::aurora::DeviceFrameContext> frameContext;

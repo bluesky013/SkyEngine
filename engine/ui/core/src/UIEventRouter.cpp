@@ -143,4 +143,11 @@ namespace sky::ui {
         return Bubble(focus, [&event](UIElement *element) { return element->OnTextInput(event); });
     }
 
+    void UIEventRouter::Reset()
+    {
+        focus = nullptr;
+        hovered = nullptr;
+        captures.clear();
+    }
+
 } // namespace sky::ui

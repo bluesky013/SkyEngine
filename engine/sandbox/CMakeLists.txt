@@ -7,7 +7,10 @@ set(CURRENT_FOLDER Sandbox)
 add_subdirectory(core)
 
 if (SKY_BUILD_SANDBOX)
-    # Editor-owned renderer (Aurora + UI); independent of EditorCore.
+    # UI-linked shell: composes EditorCore into a sky::ui tree.
+    add_subdirectory(shell)
+
+    # Editor-owned renderer (Aurora + UI); draws the shell's draw data.
     add_subdirectory(render)
 
     # Editor module (dynamic) + non-Qt host that loads it.
