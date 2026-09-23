@@ -61,7 +61,7 @@
 
 ## 7. Editor and validation
 
-- [ ] 7.1 Implement biome authoring (rules, palette, density) in the editor vegetation tool
+- [ ] 7.1 Implement biome authoring (rules, palette, density) in a vegetation editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt)
 - [ ] 7.2 Implement density painting/erasing into world-space density maps
 - [ ] 7.3 Implement editor preview using the same deterministic placement as runtime
 - [ ] 7.4 Implement bake of the configuration into the vegetation asset

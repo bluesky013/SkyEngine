@@ -97,7 +97,7 @@ Prerequisite: the backend-neutral heightfield shape from the `physics-backend-ab
 
 ## 9. Editor tooling
 
-- [ ] 9.1 Re-bind the terrain editor tool/widgets to the refactored component and core data model
+- [ ] 9.1 Implement a terrain editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt) bound to the refactored component and core data model
 - [ ] 9.2 Restore the "Create Terrain" path (actor + component with selected metadata)
 - [ ] 9.3 Implement grid add/remove that mutates the terrain tile set and persists it
 - [ ] 9.4 Make the editor terrain generator a thin config/preview/bake UI over the core `TerrainGenerateConfig` and core generator, producing splatmaps and the per-tile LOD chain

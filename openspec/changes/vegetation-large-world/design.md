@@ -125,7 +125,7 @@ IVegetationSurfaceProvider {
 
 ### D11: Editor authoring
 
-**Decision**: A vegetation tool authors biomes, paints density into world-space maps, previews placement/streaming using the same deterministic core placement, and bakes the vegetation asset/source.
+**Decision**: A vegetation editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt; not the legacy Qt editor) authors biomes, paints density into world-space maps, previews placement/streaming using the same deterministic core placement, and bakes the vegetation asset/source.
 
 **Rationale**: Enables authoring while keeping preview and runtime consistent.
 

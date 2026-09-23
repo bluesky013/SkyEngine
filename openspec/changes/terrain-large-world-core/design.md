@@ -97,7 +97,7 @@ Constraints: engine positions are 32-bit `float` `Vector3` (no world origin reba
 
 ### D8: Editor rebinding and reserved seam
 
-**Decision**: Re-bind the editor tool/widgets to the new component and core: restore "Create Terrain" (create actor + `TerrainComponent` with `TerrainMeta`), make grid add/remove actually mutate the terrain asset/tile set, drive the generator from `TerrainGenerateConfig` (seed) and `TerrainMeta` (height format), and generate splatmaps. Overlay drawing moves behind an editor render helper that consumes core data. A documented no-op seam (interface + TODO) is reserved for sculpt/paint.
+**Decision**: Implement the editor tooling as an aurora sandbox `EditorExtension` (`engine/sandbox`, non-Qt; not the legacy Qt editor). Re-bind it to the new component and core: restore "Create Terrain" (create actor + `TerrainComponent` with `TerrainMeta`), make grid add/remove actually mutate the terrain asset/tile set, drive the generator from `TerrainGenerateConfig` (seed) and `TerrainMeta` (height format), and generate splatmaps. Overlay drawing moves behind an editor render helper that consumes core data. A documented no-op seam (interface + TODO) is reserved for sculpt/paint.
 
 **Rationale**: The archived design flagged editor regression; authoring must produce the new asset shape or the pipeline is untestable end to end.
 
