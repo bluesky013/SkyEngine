@@ -76,7 +76,7 @@ Prerequisite: the backend-neutral heightfield shape from the `physics-backend-ab
 - [ ] 7.6 Implement skirt-based LOD seam stitching for clipmap block edges (default technique, hides T-junction cracks)
 - [ ] 7.7 Bind the terrain material and color/depth/shadow techniques with height scale/offset and layer parameters
 - [ ] 7.8 Update `assets/shaders/terrain/`, `assets/techniques/`, and `assets/materials/` for the LOD atlas-based tile model
-- [ ] 7.9 Confirm the core `Terrain` target links without the aurora render layer
+- [x] 7.9 Confirm the core `Terrain` target links without the aurora render layer
 - [ ] 7.10 Implement optional vertex geomorphing between adjacent LOD levels (removes popping in addition to cracks)
 - [ ] 7.11 Apply the same stitching (skirt/geomorph) to adjacent tiles rendered at different LODs
 - [ ] 7.12 Verify stitching does not affect core data, CPU queries, or collision (LOD independence)

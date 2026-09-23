@@ -65,5 +65,5 @@
 - [ ] 7.2 Implement density painting/erasing into world-space density maps
 - [ ] 7.3 Implement editor preview using the same deterministic placement as runtime
 - [ ] 7.4 Implement bake of the configuration into the vegetation asset
-- [ ] 7.5 Run the vegetation tests (placement, streaming, asset round-trip, synthetic provider) and confirm they pass
-- [ ] 7.6 Build the engine (desktop) and confirm no compile/link regressions
+- [x] 7.5 Run the vegetation tests (placement, streaming, asset round-trip, synthetic provider) and confirm they pass
+- [x] 7.6 Build the engine (desktop) and confirm no compile/link regressions
