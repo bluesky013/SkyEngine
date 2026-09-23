@@ -52,6 +52,7 @@ namespace {
         const TerrainTileManifest &GetManifest() const override { return manifest; }
         uint32_t GetLoadedTileCount() const override { return 0; }
         bool SampleRegionLod0(const AABB &, ITerrainRegionSink &) const override { return coverage; }
+        bool ConsumeResidencyDelta(std::vector<TerrainTileLodRef> &, std::vector<TerrainTileLodRef> &) override { return false; }
 
         void AddChangeListener(ITerrainChangeListener *listener) override
         {
