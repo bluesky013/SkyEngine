@@ -7,6 +7,7 @@
 #include <framework/world/World.h>
 
 #include <vegetation/VegetationPlacement.h>
+#include <vegetation/VegetationRenderAdaptor.h>
 #include <vegetation/VegetationSurface.h>
 #include <vegetation/VegetationSystemInterface.h>
 #include <vegetation/VegetationTypes.h>
@@ -64,7 +65,7 @@ namespace sky::vegetation {
     // Per-world vegetation runtime: owns the palette/config and pages cells around a focus position.
     class VegetationSystem : public IWorldSubSystem, public IVegetationSurfaceListener, public IVegetationSystem {
     public:
-        VegetationSystem() = default;
+        VegetationSystem();
         ~VegetationSystem() override;
 
         static constexpr std::string_view NAME = "Vegetation";
@@ -118,6 +119,7 @@ namespace sky::vegetation {
         float DensityScaleAt(float distanceSq) const;
 
         IVegetationSurfaceProvider *surfaceProvider = nullptr;
+        std::unique_ptr<IVegetationRenderAdaptor> renderAdaptor;
         VegetationPalette           palette;
         VegetationPlacementConfig   config;
         bool                        hasPalette = false;

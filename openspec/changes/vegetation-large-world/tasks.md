@@ -44,7 +44,7 @@
 
 ## 6. Aurora render adaptor (`plugins/vegetation`)
 
-- [ ] 6.1 Define the render adaptor/factory seam in the core (no render types) and register/consume an implementation
+- [x] 6.1 Define the render adaptor/factory seam in the core (no render types) and register/consume an implementation
 - [ ] 6.2 Create the `plugins/vegetation` plugin with the aurora adaptor and module registration, registering it with the seam
 - [ ] 6.3 Implement GPU population of instances from the density field with core-provided plain data
 - [ ] 6.4 Implement instanced (near) and merged/billboard (far) tiers with density LOD fade

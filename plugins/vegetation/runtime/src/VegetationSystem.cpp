@@ -43,6 +43,11 @@ namespace sky::vegetation {
         return true;
     }
 
+    VegetationSystem::VegetationSystem()
+    {
+        renderAdaptor.reset(VegetationRenderFactory::Get()->CreateAdaptor());
+    }
+
     VegetationSystem::~VegetationSystem()
     {
         if (surfaceProvider != nullptr) {
@@ -151,7 +156,9 @@ namespace sky::vegetation {
         for (int32_t y = minY; y <= maxY; ++y) {
             for (int32_t x = minX; x <= maxX; ++x) {
                 const uint64_t key = MakeCellKey(x, y);
-                loadedCells.erase(key);
+                if (loadedCells.erase(key) > 0 && renderAdaptor) {
+                    renderAdaptor->OnCellUnloaded(x, y);
+                }
                 const auto iter = pendingCells.find(key);
                 if (iter != pendingCells.end()) {
                     iter->second->ResetTask();
@@ -182,6 +189,9 @@ namespace sky::vegetation {
             const float dx = center.x - focus.x;
             const float dz = center.z - focus.z;
             if (dx * dx + dz * dz > unloadSq) {
+                if (renderAdaptor) {
+                    renderAdaptor->OnCellUnloaded(cell.cellX, cell.cellY);
+                }
                 iter = loadedCells.erase(iter);
             } else {
                 ++iter;
@@ -238,7 +248,11 @@ namespace sky::vegetation {
                 continue;
             }
 
-            loadedCells.emplace(iter->first, iter->second->GetCell());
+            const VegetationCell cell = iter->second->GetCell();
+            loadedCells.emplace(iter->first, cell);
+            if (renderAdaptor) {
+                renderAdaptor->OnCellLoaded(VegetationRenderCell{cell.cellX, cell.cellY, cell.instances});
+            }
             iter = pendingCells.erase(iter);
             ++applied;
         }
