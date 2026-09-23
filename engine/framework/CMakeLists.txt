@@ -10,14 +10,13 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(FM_EXT_LIB
         )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    # NOTE: the macOS window backend (previously SDL-based) has been removed with
-    # the SDL dependency. macOS is unsupported until a native backend is added;
-    # GeneticPerfManager (cross-platform) remains.
+    # native Cocoa window/event backend (no SDL)
     file(GLOB_RECURSE PLATFORM_SRC
-        platform/genetic/*
+        platform/macos/*
         platform/posix/*)
     set(FM_EXT_LIB
-        )
+        "-framework Cocoa"
+        "-framework QuartzCore")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_package(game-activity REQUIRED CONFIG)
 
