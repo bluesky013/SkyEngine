@@ -29,7 +29,7 @@
 - [x] 4.2 Implement binary save/load and register the asset type/handler
 - [x] 4.3 Add a serialization round-trip test
 - [x] 4.4 Define the vegetation source type with reflection
-- [x] 4.5 Define and register the logic-only `VegetationComponent` (asset/source id, biome set, seed, density/LOD/streaming params)
+- [x] 4.5 Define and register the logic-only `VegetationComponent`
 
 ## 5. Vegetation sub-system and streaming
 
@@ -42,28 +42,15 @@
 - [x] 5.7 Add the render-adaptor plain-data handoff (cell bounds, biome/palette params, density reference, surface handle)
 - [x] 5.8 Add tests for paging, density LOD, budget, isolation, and invalidation
 
-## 6. Aurora render adaptor (`plugins/vegetation`)
+## 6. Render adaptor seam (core)
 
 - [x] 6.1 Define the render adaptor/factory seam in the core (no render types) and register/consume an implementation
-- [ ] 6.2 Create the `plugins/vegetation` plugin with the aurora adaptor and module registration, registering it with the seam
-- [ ] 6.3 Implement GPU population of instances from the density field with core-provided plain data
-- [ ] 6.4 Implement instanced (near) and merged/billboard (far) tiers with density LOD fade
-- [ ] 6.5 Implement the wind field deformation
-- [ ] 6.6 Implement character interaction (bounded actor buffer/texture) pushing vegetation
-- [ ] 6.7 Implement the dedicated foliage-lit pass with shadow participation
-- [ ] 6.8 Add vegetation shaders/techniques/materials under `assets/shaders/vegetation/`, `assets/techniques/`, `assets/materials/`
 - [x] 6.9 Register the plugin in `plugins/plugins.json`, `plugin.json`, and the runtime module configs
 - [x] 6.10 Confirm the core `Vegetation` target links with neither `Terrain` nor the aurora render layer
-- [ ] 6.11 Implement cell-level frustum + distance culling (conservative bounds inflated by max vegetation height)
-- [ ] 6.12 Implement GPU per-instance frustum cull in the population pass with per-cell indirect draw args
-- [ ] 6.13 Skip submitting/indirect-drawing empty (fully culled) cells
-- [ ] 6.14 Validate culling: cells outside the frustum/distance are not drawn, empty cells emit no draw
 
-## 7. Editor and validation
+## 7. Validation
 
-- [ ] 7.1 Implement biome authoring (rules, palette, density) in a vegetation editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt)
-- [ ] 7.2 Implement density painting/erasing into world-space density maps
-- [ ] 7.3 Implement editor preview using the same deterministic placement as runtime
-- [ ] 7.4 Implement bake of the configuration into the vegetation asset
 - [x] 7.5 Run the vegetation tests (placement, streaming, asset round-trip, synthetic provider) and confirm they pass
 - [x] 7.6 Build the engine (desktop) and confirm no compile/link regressions
+
+> The aurora render adaptor was split into `vegetation-aurora-render`; editor tooling (aurora sandbox, non-Qt) into `vegetation-editor-tools`.

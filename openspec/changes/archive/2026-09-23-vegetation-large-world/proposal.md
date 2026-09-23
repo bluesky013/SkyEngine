@@ -29,8 +29,8 @@ Both seams mirror the established patterns: `engine/navigation` defines a geomet
 - `vegetation-surface`: the abstract surface-provider seam (height/slope/layer sampling, cell bounds, change notification) and the terrain-backed bridge implementation.
 - `vegetation-data`: vegetation asset format (biome sets, species/palette, density maps, placement rules), binary serialization round-trip, source, and the logic-only vegetation component.
 - `vegetation-streaming`: focus-driven cell paging, per-cell distance density LOD, per-tick budget, off-tick async prefetch, per-world isolation, and invalidation on surface change.
-- `vegetation-render`: the render adaptor seam (factory/handoff) plus the aurora implementation — GPU population, instanced/billboard tiers, wind, character interaction, and a dedicated foliage-lit pass.
-- `vegetation-editor`: biome/density authoring and painting, preview, and bake to the vegetation asset.
+- `vegetation-render`: split out to the `vegetation-aurora-render` change.
+- `vegetation-editor`: split out to the `vegetation-editor-tools` change.
 
 ### Modified Capabilities
 

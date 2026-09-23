@@ -24,8 +24,10 @@
 - `terrain-core`: render-agnostic `engine/terrain` module boundary, terrain system lifecycle (`IWorldSubSystem`), tile addressing/coordinate model, LOD/clipmap description as data, backend/factory seam, and the CPU sampling/query API.
 - `terrain-data`: tiled terrain asset format (tile manifest, heightmap/splatmap tile payloads, layer definitions, height scale/offset/format), binary serialization round-trip, source, and the POD `TerrainComponent` data model.
 - `terrain-streaming`: focus-driven proximity paging with load/unload hysteresis, per-tick apply budget, off-tick async payload prefetch, pending cancellation, and per-world tile state isolation.
-- `terrain-render`: aurora render layer — feature processor ownership, GPU atlas construction from core tile data, clipmap instanced rendering, material/technique binding, an optional GPU-driven path (GPU culling/LOD/indirect) with a CPU fallback, and render-agnostic debug/geometry handoff.
-- `terrain-editor`: editor tool re-binding to the refactored core/component, generator config/preview/bake UI, create-terrain path, grid tile add/remove, and a reserved sculpt/paint seam.
+- `terrain-collision`: per-tile static heightfield colliders built from core terrain samples and created/destroyed with tile streaming, plus the runtime physics attach.
+- `terrain-generation`: deterministic seeded world-space generation of heights, splatmaps, and per-tile LOD chains, runnable offline (builder) and on demand (runtime streaming), with the algorithm in the render-free core.
+- `terrain-render`: split out to the `terrain-aurora-render` change.
+- `terrain-editor`: split out to the `terrain-editor-tools` change.
 - `terrain-generation`: deterministic seeded world-space generation of heights, splatmaps, and per-tile LOD chains, runnable offline (builder) and on demand (runtime streaming), with the algorithm in the render-free core.
 - `terrain-collision`: per-tile static heightfield colliders built from core terrain samples and created/destroyed with tile streaming, plus the runtime physics attach.
 
