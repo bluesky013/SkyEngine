@@ -23,7 +23,8 @@ Treat the current repository structure as the architectural baseline:
 - `engine/framework` — windowing, input, assets, world/application services
 - `engine/render` — RHI backends, shader compiler, render core, adaptors, ImGui rendering
 - `engine/animation`, `engine/physics`, `engine/navigation` — domain-specific engine subsystems
-- `engine/editor` — Qt-based editor runtime and tooling
+- `engine/editor` — **legacy** Qt-based editor runtime and tooling
+- `engine/sandbox` — non-Qt (aurora) editor: `EditorCore`, `EditorRender`, `SandboxModule`, `SandboxEditor`; launched through `Launcher`. New editor modules depend on this, not on legacy `engine/editor`
 - `engine/launcher` — runtime entry point
 - `plugins` — optional modules selected by CMake/plugin configuration
 
@@ -73,6 +74,7 @@ Flag changes that:
 - assume building a plugin automatically loads it at runtime
 - add runtime module dependencies without matching compile-time support
 - introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_EDITOR`
+- make a plugin depend on the legacy `Editor` target: plugins depend only on `Launcher`, and editor runtime modules are selected through `configs/modules_editor.json`
 
 ---
 
@@ -129,6 +131,24 @@ Flag changes that:
 - move editor tooling concerns into launcher/runtime paths
 
 ---
+
+## Rule 6 — Module types and dependency budgets
+
+Every engine big module and every plugin splits into up to four target types, each with a fixed dependency budget:
+
+- **core logic** (`<feature>` / `<feature>.Static`): depends mostly on `Core` (plus engine interfaces / `Framework` interfaces). Must not depend on editor, adaptor, builder, or a concrete backend/renderer.
+- **editor** (`<feature>.Editor`): may depend on the Sandbox editor framework (e.g. `EditorCore`; planned `Sandbox.framework`). Must not be depended on by runtime or core logic.
+- **adaptor** (`<feature>.Adaptor`): may depend on `Framework`, `Aurora`, and `RenderAdaptor` when required.
+- **builder / cook / chef** (`<feature>.Builder` / `<feature>.Cook`): depends only on its own core module plus needed third-party libraries.
+
+Dependency direction (bottom-up): core logic ← adaptor / editor / builder. Reverse edges are violations.
+
+Flag changes that:
+
+- make a core-logic module depend on editor / adaptor / builder or a concrete backend/renderer
+- let runtime or core logic depend on an editor module, or let an editor module bypass the Sandbox editor framework (e.g. link Qt directly)
+- make an adaptor depend on editor / builder, or a builder/cook/chef depend on runtime / adaptor / editor
+- collapse a feature into a single target that mixes core logic with editor/adaptor/builder concerns
 
 ## Review output format
 
