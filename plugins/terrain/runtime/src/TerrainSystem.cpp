@@ -65,6 +65,9 @@ namespace sky::terrain {
         }
         pendingLoads.clear();
         pendingGenerates.clear();
+        for (const auto &key : loadedTiles) {
+            pendingRemoved.push_back(TerrainTileLodRef{key.coord, key.lod});
+        }
         loadedTiles.clear();
         generatedTiles.clear();
         field.Clear();
@@ -122,6 +125,7 @@ namespace sky::terrain {
                 if (q == 0) {
                     field.RemoveTile(iter->coord);
                 }
+                pendingRemoved.push_back(TerrainTileLodRef{iter->coord, q});
                 iter = loadedTiles.erase(iter);
             } else {
                 ++iter;
@@ -230,6 +234,7 @@ namespace sky::terrain {
             }
             if (ok) {
                 loadedTiles.insert(key);
+                pendingAdded.push_back(TerrainTileLodRef{key.coord, key.lod});
             }
             iter = pendingLoads.erase(iter);
             ++applied;
@@ -263,6 +268,16 @@ namespace sky::terrain {
         return complete;
     }
 
+    bool TerrainSystem::ConsumeResidencyDelta(std::vector<TerrainTileLodRef> &added, std::vector<TerrainTileLodRef> &removed)
+    {
+        const bool changed = !pendingAdded.empty() || !pendingRemoved.empty();
+        added.swap(pendingAdded);
+        removed.swap(pendingRemoved);
+        pendingAdded.clear();
+        pendingRemoved.clear();
+        return changed;
+    }
+
     void TerrainSystem::AddChangeListener(ITerrainChangeListener *listener)
     {
         if (listener == nullptr) {
@@ -286,6 +301,7 @@ namespace sky::terrain {
                     if (iter->lod == 0) {
                         field.RemoveTile(c);
                     }
+                    pendingRemoved.push_back(TerrainTileLodRef{iter->coord, iter->lod});
                     iter = loadedTiles.erase(iter);
                 } else {
                     ++iter;

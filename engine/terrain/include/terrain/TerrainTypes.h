@@ -82,6 +82,12 @@ namespace sky::terrain {
         bool             hasData   = true; // false = hole / no surface data
     };
 
+    // A resident (tile, LOD) entry, used for residency change deltas.
+    struct TerrainTileLodRef {
+        TerrainTileCoord coord;
+        uint32_t         lod = 0;
+    };
+
     using TerrainTileManifest = std::vector<TerrainTileInfo>;
 
 } // namespace sky::terrain

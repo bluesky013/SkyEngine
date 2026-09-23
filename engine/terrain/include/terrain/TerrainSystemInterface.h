@@ -28,6 +28,11 @@ namespace sky::terrain {
 
         virtual bool SampleRegionLod0(const AABB &bounds, ITerrainRegionSink &sink) const = 0;
 
+        // Residency change since the last consume: entries added and removed, for incremental GPU
+        // updates. Returns true when there was any change.
+        virtual bool ConsumeResidencyDelta(std::vector<TerrainTileLodRef> &added,
+                                           std::vector<TerrainTileLodRef> &removed) = 0;
+
         virtual void AddChangeListener(ITerrainChangeListener *listener) = 0;
         virtual void RemoveChangeListener(ITerrainChangeListener *listener) = 0;
         virtual void NotifyTilesChanged(const std::vector<TerrainTileCoord> &coords) = 0;

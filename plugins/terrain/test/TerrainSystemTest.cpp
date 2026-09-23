@@ -207,3 +207,34 @@ TEST(TerrainSystemTest, HoleTilesAreNotLoaded)
     float height = 0.f;
     EXPECT_FALSE(system.GetField().QueryHeight(Vector3(4.f, 0.f, 4.f), height));
 }
+
+TEST(TerrainSystemTest, ResidencyDelta)
+{
+    const auto data = MakeGridData(2);
+
+    TerrainSystem system;
+    ASSERT_TRUE(system.Setup(data));
+    system.SetStreamingEnabled(true);
+    system.SetStreamingFocus(Vector3(4.f, 0.f, 4.f));
+    system.SetStreamingRadii(12.f, 20.f);
+    system.SetLoadBudget(200);
+    Settle(system);
+
+    std::vector<TerrainTileLodRef> added;
+    std::vector<TerrainTileLodRef> removed;
+    EXPECT_TRUE(system.ConsumeResidencyDelta(added, removed));
+    EXPECT_GT(added.size(), 0u);
+    EXPECT_TRUE(removed.empty());
+
+    added.clear();
+    removed.clear();
+    EXPECT_FALSE(system.ConsumeResidencyDelta(added, removed));   // no change since last consume
+
+    system.SetStreamingFocus(Vector3(1000.f, 0.f, 1000.f));
+    Settle(system);
+
+    std::vector<TerrainTileLodRef> added2;
+    std::vector<TerrainTileLodRef> removed2;
+    EXPECT_TRUE(system.ConsumeResidencyDelta(added2, removed2));
+    EXPECT_GT(removed2.size(), 0u);
+}

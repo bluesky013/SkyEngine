@@ -79,6 +79,9 @@ namespace sky::terrain {
         // overlapping tile has no resident LOD0 data (caller can defer/retry).
         bool SampleRegionLod0(const AABB &bounds, ITerrainRegionSink &sink) const override;
 
+        bool ConsumeResidencyDelta(std::vector<TerrainTileLodRef> &added,
+                                   std::vector<TerrainTileLodRef> &removed) override;
+
         void AddChangeListener(ITerrainChangeListener *listener) override;
         void RemoveChangeListener(ITerrainChangeListener *listener) override;
         void NotifyTilesChanged(const std::vector<TerrainTileCoord> &coords) override;
@@ -102,6 +105,9 @@ namespace sky::terrain {
         std::unordered_map<TerrainTileCoord, const TerrainTilePayload *, TerrainTileHash> availableTiles;
         std::unordered_set<TerrainTileCoord, TerrainTileHash>                             holeTiles;
         std::unordered_set<TileLodKey, TileLodHash>                                       loadedTiles;
+
+        std::vector<TerrainTileLodRef> pendingAdded;
+        std::vector<TerrainTileLodRef> pendingRemoved;
         std::unordered_map<TileLodKey, CounterPtr<TerrainTileLoadTask>, TileLodHash>      pendingLoads;
 
         std::unordered_map<TerrainTileCoord, TerrainTilePayload, TerrainTileHash>         generatedTiles;

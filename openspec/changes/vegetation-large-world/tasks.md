@@ -52,8 +52,8 @@
 - [ ] 6.6 Implement character interaction (bounded actor buffer/texture) pushing vegetation
 - [ ] 6.7 Implement the dedicated foliage-lit pass with shadow participation
 - [ ] 6.8 Add vegetation shaders/techniques/materials under `assets/shaders/vegetation/`, `assets/techniques/`, `assets/materials/`
-- [ ] 6.9 Register the plugin in `plugins/plugins.json`, `plugin.json`, and the runtime module configs
-- [ ] 6.10 Confirm the core `Vegetation` target links with neither `Terrain` nor the aurora render layer
+- [x] 6.9 Register the plugin in `plugins/plugins.json`, `plugin.json`, and the runtime module configs
+- [x] 6.10 Confirm the core `Vegetation` target links with neither `Terrain` nor the aurora render layer
 - [ ] 6.11 Implement cell-level frustum + distance culling (conservative bounds inflated by max vegetation height)
 - [ ] 6.12 Implement GPU per-instance frustum cull in the population pass with per-cell indirect draw args
 - [ ] 6.13 Skip submitting/indirect-drawing empty (fully culled) cells

@@ -52,7 +52,7 @@
 - [x] 5.7 Expose loaded (coordinate, LOD) entries and their payloads to render and non-render consumers
 - [x] 5.8 Add tests for per-LOD paging, hysteresis, budget application, cancellation, LOD switching, and per-world isolation
 - [x] 5.9 Derive the per-LOD annulus radii and the level -> tile LOD mapping from metadata and cover them with tests
-- [ ] 5.10 Expose a residency change delta (added/removed (coordinate, LOD) entries) for incremental GPU updates
+- [x] 5.10 Expose a residency change delta (added/removed (coordinate, LOD) entries) for incremental GPU updates
 - [x] 5.11 Record hole/no-data tiles in the manifest (`TerrainTileInfo::hasData`) and never load them in streaming (no queries/collision there)
 
 ## 6. Terrain collision layer
@@ -63,7 +63,7 @@ Prerequisite: the backend-neutral heightfield shape from the `physics-backend-ab
 - [x] 6.2 Build a static collision object per loaded tile from highest-detail (LOD0) height samples and metadata at the tile world transform, using the heightfield shape from `physics-backend-abstraction`
 - [x] 6.3 Create and destroy colliders in lockstep with `TerrainSystem` LOD0 tile add/remove, per world
 - [x] 6.4 Confirm collision uses highest-detail (LOD0) data and never the render clipmap LOD
-- [ ] 6.5 Add a runtime `PhysicsWorld` attach path and enable the physics backend module in the game module config
+- [x] 6.5 Add a runtime `PhysicsWorld` attach path and enable the physics backend module in the game module config
 - [x] 6.6 Add tests for per-tile collider construction, removal on unload, and per-world isolation
 
 ## 7. Aurora render layer
@@ -91,8 +91,8 @@ Prerequisite: the backend-neutral heightfield shape from the `physics-backend-ab
 - [x] 8.1 Rewrite `TerrainComponent` to hold only plain data (metadata, terrain asset/source id, material id, layers, streaming params)
 - [x] 8.2 Update component reflection/serialization for the new data model and register it in the component factory
 - [x] 8.3 Wire `OnAttachToWorld`/`OnDetachFromWorld` to push/release state through `TerrainSystem` instead of a feature processor
-- [ ] 8.4 Update `plugin.json`, `plugins/plugins.json`, and `plugins/terrain/CMakeLists.txt` for the core/render/collision target split
-- [ ] 8.5 Add terrain entries to the runtime module configs and confirm the module loads in game/editor startup
+- [x] 8.4 Update `plugin.json`, `plugins/plugins.json`, and `plugins/terrain/CMakeLists.txt` for the core/render/collision target split
+- [x] 8.5 Add terrain entries to the runtime module configs and confirm the module loads in game/editor startup
 - [ ] 8.6 Add a module load/factory test for the render module
 
 ## 9. Editor tooling
