@@ -133,6 +133,39 @@ TEST(VegetationStreamingTest, UnloadsOnFocusMove)
     EXPECT_GT(system.GetLoadedCellCount(), 0u);
 }
 
+TEST(VegetationStreamingTest, InstancesOverrideProcedural)
+{
+    UniformSurface surface;
+
+    VegetationSystem system;
+    system.SetSurfaceProvider(&surface);
+    system.SetPalette(MakePalette());
+
+    VegetationInstance instance;
+    instance.position     = Vector3(4.f, 0.f, 4.f); // cell (0,0), cellSize 8
+    instance.rotation     = 10.f;
+    instance.scale        = 2.f;
+    instance.biomeId      = 1;
+    instance.speciesIndex = 0;
+    system.SetInstances({instance});
+
+    system.SetStreamingEnabled(true);
+    system.SetStreamingFocus(Vector3(4.f, 0.f, 4.f));
+    system.SetStreamingRadii(15.f, 23.f);
+    system.SetLoadBudget(100);
+    Settle(system);
+
+    const auto &cells = system.GetLoadedCells();
+    ASSERT_TRUE(cells.count(0) != 0);
+    ASSERT_EQ(cells.at(0).instances.size(), 1u);
+    EXPECT_FLOAT_EQ(cells.at(0).instances[0].scale, 2.f);
+
+    // A cell without instance instances still uses procedural placement.
+    const uint64_t farKey = (1ull << 32) | 1u; // cell (1,1)
+    ASSERT_TRUE(cells.count(farKey) != 0);
+    EXPECT_GT(cells.at(farKey).instances.size(), 1u);
+}
+
 TEST(VegetationStreamingTest, PerWorldIsolation)
 {
     UniformSurface surface;

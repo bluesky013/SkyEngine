@@ -100,6 +100,7 @@ namespace sky::terrain {
         std::vector<ITerrainChangeListener *> changeListeners;
 
         std::unordered_map<TerrainTileCoord, const TerrainTilePayload *, TerrainTileHash> availableTiles;
+        std::unordered_set<TerrainTileCoord, TerrainTileHash>                             holeTiles;
         std::unordered_set<TileLodKey, TileLodHash>                                       loadedTiles;
         std::unordered_map<TileLodKey, CounterPtr<TerrainTileLoadTask>, TileLodHash>      pendingLoads;
 

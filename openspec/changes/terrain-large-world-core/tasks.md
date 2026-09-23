@@ -21,7 +21,7 @@
 - [x] 3.3 Implement binary save/load for the terrain asset (LOD-aware) and register the asset type/handler
 - [x] 3.4 Add a serialization round-trip test covering metadata, manifest, and per-LOD tile payloads
 - [x] 3.5 Record per-tile LOD availability in the manifest and expose addressable access by (coordinate, LOD)
-- [x] 3.6 Define the authored terrain source data type (scene-independent tile configuration, including LOD count) with reflection
+- [x] 3.6 Define the terrain source data type (scene-independent tile configuration, including LOD count) with reflection
 - [x] 3.7 Add an offline terrain asset builder (`engine/terrain/builder`) linking `Framework` + `Terrain` and producing a per-tile LOD chain from source
 - [x] 3.8 Define a reflected `TerrainGenerateConfig` (seed, noise octaves incl. frequency/amplitude/lacunarity/gain, optional domain warp and ridged layers, splat layer rules, LOD count)
 - [x] 3.9 Implement deterministic, world-space layered-noise height generation in `engine/terrain` (render-free, order-independent)
@@ -53,6 +53,7 @@
 - [x] 5.8 Add tests for per-LOD paging, hysteresis, budget application, cancellation, LOD switching, and per-world isolation
 - [x] 5.9 Derive the per-LOD annulus radii and the level -> tile LOD mapping from metadata and cover them with tests
 - [ ] 5.10 Expose a residency change delta (added/removed (coordinate, LOD) entries) for incremental GPU updates
+- [x] 5.11 Record hole/no-data tiles in the manifest (`TerrainTileInfo::hasData`) and never load them in streaming (no queries/collision there)
 
 ## 6. Terrain collision layer
 

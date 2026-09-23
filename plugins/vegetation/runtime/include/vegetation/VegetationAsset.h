@@ -36,6 +36,9 @@ namespace sky::vegetation {
         VegetationPalette                    palette;
         std::vector<VegetationDensityMap>    densityMaps;
         VegetationPlacementConfig            config;
+        // Asset-provided instances (e.g. imported foliage). Cells with instances use them instead
+        // of procedural placement.
+        std::vector<VegetationInstance>      instances;
 
         void Save(BinaryOutputArchive &archive) const;
         void Load(BinaryInputArchive &archive);
@@ -52,7 +55,7 @@ namespace sky::vegetation {
 
     using VegetationAssetPtr = std::shared_ptr<Asset<VegetationAsset>>;
 
-    // Flat, reflected authored source used by the vegetation baker (JSON).
+    // Flat, reflected source used by the vegetation baker (JSON).
     struct VegetationSourceData {
         uint32_t seed                 = 0;
         float    pointsPerSquareMeter = 1.f;

@@ -57,7 +57,7 @@ Constraints: engine positions are 32-bit `float` `Vector3` (no world origin reba
 
 ### D3: Terrain asset format and component data model
 
-**Decision**: Introduce a terrain asset that carries `TerrainMeta` + a tile manifest (`TerrainTileInfo[]`) + per-tile **multi-level LOD** heightmap payloads (each tile stores a LOD chain `LOD0..LODn`, halving the vertex resolution per level) plus splatmap payloads grouped 4 layers per RGBA tile (splat stored on the near/high-detail LODs only). Assets are produced by an offline builder (`engine/terrain/builder`, non-render, links `Framework` + `Terrain`) and can also be authored in-editor. `TerrainComponent` holds only POD: `TerrainMeta`, terrain asset `Uuid` (or source `Uuid`), material `Uuid`, layer definitions, and streaming parameters. It resolves its runtime state through `TerrainSystem`, never a feature processor.
+**Decision**: Introduce a terrain asset that carries `TerrainMeta` + a tile manifest (`TerrainTileInfo[]`) + per-tile **multi-level LOD** heightmap payloads (each tile stores a LOD chain `LOD0..LODn`, halving the vertex resolution per level) plus splatmap payloads grouped 4 layers per RGBA tile (splat stored on the near/high-detail LODs only). Assets are produced by an offline builder (`engine/terrain/builder`, non-render, links `Framework` + `Terrain`) and can also be created in-editor. `TerrainComponent` holds only POD: `TerrainMeta`, terrain asset `Uuid` (or source `Uuid`), material `Uuid`, layer definitions, and streaming parameters. It resolves its runtime state through `TerrainSystem`, never a feature processor.
 
 **Rationale**: Matches `NaviMeshData` (manifest + addressable tile payloads) and keeps the component logic-only. A per-tile LOD chain is what makes near/far rendering out-of-core: each clipmap ring loads the tile LOD it actually needs instead of full-resolution data everywhere.
 
@@ -101,7 +101,7 @@ Constraints: engine positions are 32-bit `float` `Vector3` (no world origin reba
 
 **Rationale**: The archived design flagged editor regression; authoring must produce the new asset shape or the pipeline is untestable end to end.
 
-**Alternatives considered**: Leave editor for a follow-up (terrain asset cannot be authored, blocking validation).
+**Alternatives considered**: Leave editor for a follow-up (terrain asset cannot be created, blocking validation).
 
 ### D9: Retire dead code and re-focus tests
 
@@ -141,7 +141,7 @@ Generation runs in two modes with identical output: offline cook in `engine/terr
 
 **Rationale**: Deterministic world-space sampling makes adjacent tiles match at borders without cross-tile dependencies, which is exactly what makes per-tile parallel baking and on-demand streaming generation possible. Keeping the algorithm in the core (not the editor) lets the offline builder, the runtime, and the editor share one implementation and keeps it testable and render-free. The old editor generator hardcodes the seed, samples with swapped axes, downsamples height with a max filter, and emits no splatmaps — none of which fit the per-tile LOD-chain asset.
 
-**Alternatives considered**: GPU/shader-based generation (RHI-dependent, hard to bake/cache deterministically, no headless path). Editor-only generation (cannot feed offline cook or runtime streaming). Pre-authored heightmaps only (no procedural path, but authored sources remain supported).
+**Alternatives considered**: GPU/shader-based generation (RHI-dependent, hard to bake/cache deterministically, no headless path). Editor-only generation (cannot feed offline cook or runtime streaming). Pre-made heightmaps only (no procedural path, but source assets remain supported).
 
 ### D13: LOD seam stitching
 

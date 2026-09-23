@@ -184,3 +184,26 @@ TEST(TerrainSystemTest, InvalidateOnTerrainChanged)
     float height = 0.f;
     EXPECT_FALSE(system.GetField().QueryHeight(Vector3(4.f, 0.f, 4.f), height));
 }
+
+TEST(TerrainSystemTest, HoleTilesAreNotLoaded)
+{
+    auto data = MakeGridData(1);
+
+    TerrainTileInfo hole;
+    hole.coord   = TerrainTileCoord{0, 0};
+    hole.hasData = false;
+    data.manifest.push_back(hole);
+
+    TerrainSystem system;
+    ASSERT_TRUE(system.Setup(data));
+    system.SetStreamingEnabled(true);
+    system.SetStreamingFocus(Vector3(4.f, 0.f, 4.f));
+    system.SetStreamingRadii(12.f, 20.f);
+    system.SetLoadBudget(100);
+    Settle(system);
+
+    EXPECT_FALSE(system.IsTileLoaded({0, 0}, 0));
+
+    float height = 0.f;
+    EXPECT_FALSE(system.GetField().QueryHeight(Vector3(4.f, 0.f, 4.f), height));
+}

@@ -79,6 +79,7 @@ namespace sky::terrain {
         float            minHeight = 0.f;
         float            maxHeight = 0.f;
         uint32_t         lodCount  = 1;   // LOD levels available for this tile
+        bool             hasData   = true; // false = hole / no surface data
     };
 
     using TerrainTileManifest = std::vector<TerrainTileInfo>;

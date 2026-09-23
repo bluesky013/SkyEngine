@@ -40,3 +40,22 @@ The vegetation component SHALL hold only plain data (vegetation asset/source ide
 
 - **WHEN** the vegetation component is serialized and restored
 - **THEN** all of its configuration SHALL round-trip as plain data and asset identifiers
+
+### Requirement: Instances
+
+The vegetation asset SHALL carry an instance list (position, rotation, scale, biome, species); cells whose area contains instances SHALL use them in place of procedural placement, while cells without instances continue procedural placement.
+
+#### Scenario: Instances override procedural placement
+
+- **WHEN** a cell contains instances
+- **THEN** that cell SHALL emit the instances instead of procedurally generated ones
+
+#### Scenario: Procedural placement for cells without instances
+
+- **WHEN** a cell contains no instances
+- **THEN** that cell SHALL emit procedurally generated instances
+
+#### Scenario: Instances round-trip
+
+- **WHEN** a vegetation asset with instances is serialized and reloaded
+- **THEN** the instances SHALL be preserved

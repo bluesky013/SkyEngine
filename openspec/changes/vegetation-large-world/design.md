@@ -4,7 +4,7 @@ The engine has no vegetation system. The world surface is provided by the terrai
 
 Large-world vegetation (grass, ground cover, small foliage) has well-established requirements, learned from open-world titles such as Ghost of Tsushima:
 
-- **Procedural population**: instances generated from a density/biome field rather than authored per instance.
+- **Procedural population**: instances generated from a density/biome field rather than placed per instance.
 - **GPU-driven**: population and drawing on the GPU to keep CPU cost flat.
 - **Streaming and density LOD**: cells around the camera with density decreasing by distance.
 - **Wind and interaction**: global wind plus per-instance response, and characters pushing vegetation.
@@ -69,7 +69,7 @@ IVegetationSurfaceProvider {
 
 ### D4: Terrain-driven deterministic placement
 
-**Decision**: Placement is a pure function of provider-sampled height, slope, and layer weights, plus authored biome density and a seed, evaluated in world space per cell. Same inputs -> identical distribution, independent of order.
+**Decision**: Placement is a pure function of provider-sampled height, slope, and layer weights, plus density maps and a seed, evaluated in world space per cell. Same inputs -> identical distribution, independent of order.
 
 **Rationale**: The surface provider is the surface of record; determinism makes results cacheable, lets the editor preview match runtime, and keeps GPU population a deterministic function of the same inputs.
 
@@ -77,7 +77,7 @@ IVegetationSurfaceProvider {
 
 ### D5: Vegetation asset and component
 
-**Decision**: Define a vegetation asset (biome set, species/palette definitions, world-space density maps, rules) with an authored source and a logic-only `VegetationComponent` (asset/source id, biome set, seed, parameters) resolved through `VegetationSystem`, never a render or terrain object.
+**Decision**: Define a vegetation asset (biome set, species/palette definitions, world-space density maps, rules) with a source and a logic-only `VegetationComponent` (asset/source id, biome set, seed, parameters) resolved through `VegetationSystem`, never a render or terrain object.
 
 **Rationale**: Matches the terrain/navigation asset + component pattern and keeps the component plain-data.
 
@@ -166,7 +166,7 @@ IVegetationSurfaceProvider {
 ## Migration Plan
 
 1. Land `engine/vegetation` core (surface provider abstraction, biome model, placement rules, LOD rules, subsystem, streaming) with tests using a synthetic surface provider.
-2. Add the vegetation asset format + authored source + logic-only component.
+2. Add the vegetation asset format + source + logic-only component.
 3. Add the terrain surface bridge (links `Terrain` + `Vegetation`) implementing the provider.
 4. Add the `plugins/vegetation` aurora render adaptor (factory registration, GPU population, tiers, wind, interaction, dedicated pass).
 5. Add editor tooling.

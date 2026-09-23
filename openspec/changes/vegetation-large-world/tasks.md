@@ -17,17 +17,18 @@
 ## 3. Biome, palette, and placement rules
 
 - [x] 3.1 Define biome, species/palette, scale/rotation jitter, wind response, and density types in `engine/vegetation`
-- [x] 3.2 Implement deterministic world-space placement from provider-sampled height, slope, and layer weights plus authored density and a seed
+- [x] 3.2 Implement deterministic world-space placement from provider-sampled height, slope, and layer weights plus density maps and a seed
 - [x] 3.3 Implement placement rules (layer/splat gating, max slope, density modulation) as data
 - [x] 3.4 Expose vegetation presence/density queries over world positions
 - [x] 3.5 Add tests for determinism, rule gating, and distance density
+- [x] 3.6 Add an instance path: the asset carries an instance list and cells containing instances use them; cells without instances use procedural placement
 
 ## 4. Vegetation asset and component
 
 - [x] 4.1 Define the vegetation asset payload: biome set, palette, world-space density map payloads, and rules
 - [x] 4.2 Implement binary save/load and register the asset type/handler
 - [x] 4.3 Add a serialization round-trip test
-- [x] 4.4 Define the authored vegetation source type with reflection
+- [x] 4.4 Define the vegetation source type with reflection
 - [x] 4.5 Define and register the logic-only `VegetationComponent` (asset/source id, biome set, seed, density/LOD/streaming params)
 
 ## 5. Vegetation sub-system and streaming
@@ -63,6 +64,6 @@
 - [ ] 7.1 Implement biome authoring (rules, palette, density) in the editor vegetation tool
 - [ ] 7.2 Implement density painting/erasing into world-space density maps
 - [ ] 7.3 Implement editor preview using the same deterministic placement as runtime
-- [ ] 7.4 Implement bake of the authored configuration into the vegetation asset
+- [ ] 7.4 Implement bake of the configuration into the vegetation asset
 - [ ] 7.5 Run the vegetation tests (placement, streaming, asset round-trip, synthetic provider) and confirm they pass
 - [ ] 7.6 Build the engine (desktop) and confirm no compile/link regressions

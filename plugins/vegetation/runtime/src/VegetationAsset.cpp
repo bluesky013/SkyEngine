@@ -83,6 +83,15 @@ namespace sky::vegetation {
             archive.SaveValue(map.sizeY);
             SaveRaw(archive, map.data);
         }
+
+        archive.SaveValue(static_cast<uint32_t>(instances.size()));
+        for (const auto &instance : instances) {
+            SaveVec3(archive, instance.position);
+            archive.SaveValue(instance.rotation);
+            archive.SaveValue(instance.scale);
+            archive.SaveValue(instance.biomeId);
+            archive.SaveValue(instance.speciesIndex);
+        }
     }
 
     void VegetationAssetData::Load(BinaryInputArchive &archive)
@@ -128,6 +137,17 @@ namespace sky::vegetation {
             archive.LoadValue(map.sizeX);
             archive.LoadValue(map.sizeY);
             LoadRaw(archive, map.data);
+        }
+
+        uint32_t instanceCount = 0;
+        archive.LoadValue(instanceCount);
+        instances.resize(instanceCount);
+        for (auto &instance : instances) {
+            LoadVec3(archive, instance.position);
+            archive.LoadValue(instance.rotation);
+            archive.LoadValue(instance.scale);
+            archive.LoadValue(instance.biomeId);
+            archive.LoadValue(instance.speciesIndex);
         }
     }
 

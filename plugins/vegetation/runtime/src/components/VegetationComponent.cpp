@@ -56,6 +56,7 @@ namespace sky::vegetation {
                 asset->BlockUntilLoaded();
                 system->SetPalette(asset->Data().palette);
                 system->SetPlacementConfig(asset->Data().config);
+                system->SetInstances(asset->Data().instances);
             }
         }
 

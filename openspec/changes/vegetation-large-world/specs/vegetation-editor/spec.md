@@ -34,9 +34,9 @@ The editor preview SHALL use the same deterministic placement as runtime, so the
 
 ### Requirement: Bake
 
-The editor tool SHALL bake the authored biome/density configuration into the vegetation asset used at runtime.
+The editor tool SHALL bake the biome/density configuration into the vegetation asset used at runtime.
 
 #### Scenario: Bake vegetation asset
 
 - **WHEN** the user bakes the vegetation configuration
-- **THEN** a vegetation asset SHALL be produced containing the authored biomes, palettes, and density maps
+- **THEN** a vegetation asset SHALL be produced containing the biomes, palettes, and density maps

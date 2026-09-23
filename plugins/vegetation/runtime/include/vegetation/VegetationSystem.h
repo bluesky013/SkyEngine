@@ -29,7 +29,8 @@ namespace sky::vegetation {
     class VegetationCellTask : public Task {
     public:
         void Setup(const IVegetationSurfaceProvider *inProvider, const VegetationPlacementConfig *inConfig,
-                   const VegetationPalette *inPalette, int32_t inCellX, int32_t inCellY, float inDensityScale)
+                   const VegetationPalette *inPalette, int32_t inCellX, int32_t inCellY, float inDensityScale,
+                   const std::vector<VegetationInstance> *inInstances = nullptr)
         {
             provider     = inProvider;
             config       = inConfig;
@@ -37,6 +38,10 @@ namespace sky::vegetation {
             densityScale = inDensityScale;
             cell.cellX   = inCellX;
             cell.cellY   = inCellY;
+            if (inInstances != nullptr) {
+                instances    = *inInstances;
+                hasInstances = true;
+            }
         }
 
         const VegetationCell &GetCell() const { return cell; }
@@ -50,6 +55,8 @@ namespace sky::vegetation {
         const VegetationPlacementConfig  *config       = nullptr;
         const VegetationPalette          *palette      = nullptr;
         float                             densityScale = 1.f;
+        std::vector<VegetationInstance>   instances;
+        bool                              hasInstances  = false;
         VegetationCell                    cell;
         std::atomic_bool                  finished{false};
     };
@@ -75,6 +82,9 @@ namespace sky::vegetation {
             hasPalette = true;
         }
         void SetPlacementConfig(const VegetationPlacementConfig &inConfig) override { config = inConfig; }
+
+        // Asset-provided instances (e.g. imported foliage) override procedural placement for their cells.
+        void SetInstances(const std::vector<VegetationInstance> &inInstances);
 
         void SetStreamingEnabled(bool enable) override { streamingEnabled = enable; }
         void SetStreamingFocus(const Vector3 &position) override { focus = position; }
@@ -104,12 +114,16 @@ namespace sky::vegetation {
         void OnDetachFromWorld(World &world) override;
 
         void  CancelPending();
+        void  RebuildInstancesByCell();
         float DensityScaleAt(float distanceSq) const;
 
         IVegetationSurfaceProvider *surfaceProvider = nullptr;
         VegetationPalette           palette;
         VegetationPlacementConfig   config;
         bool                        hasPalette = false;
+
+        std::vector<VegetationInstance> instances;
+        std::unordered_map<uint64_t, std::vector<VegetationInstance>> instancesByCell;
 
         bool     streamingEnabled = false;
         Vector3  focus;

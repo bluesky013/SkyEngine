@@ -42,6 +42,15 @@ namespace sky::terrain {
             availableTiles.emplace(tile.coord, &tile);
         }
 
+        // Hole / no-data tiles are never loaded (no surface data).
+        holeTiles.clear();
+        for (const auto &info : manifest) {
+            if (!info.hasData) {
+                holeTiles.insert(info.coord);
+                availableTiles.erase(info.coord);
+            }
+        }
+
         hasData = true;
         return true;
     }
@@ -127,6 +136,9 @@ namespace sky::terrain {
             for (int32_t y = center.y - radius; y <= center.y + radius; ++y) {
                 for (int32_t x = center.x - radius; x <= center.x + radius; ++x) {
                     const TerrainTileCoord coord{x, y};
+                    if (holeTiles.count(coord) != 0) {
+                        continue;
+                    }
                     if (availableTiles.count(coord) != 0 || generatedTiles.count(coord) != 0 ||
                         pendingGenerates.count(coord) != 0) {
                         continue;

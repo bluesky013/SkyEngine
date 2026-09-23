@@ -14,8 +14,8 @@ Both seams mirror the established patterns: `engine/navigation` defines a geomet
 - Add a render-agnostic vegetation core module (`engine/vegetation`, target links `Framework` only — no `Terrain`, no `render/`, no `rhi/`) holding the biome/palette model, deterministic placement rules, density/LOD rules, per-world subsystem, and streaming state.
 - Add a **surface provider seam**: the core defines an abstract `IVegetationSurfaceProvider` (world-space height, slope, layer/splat sampling, cell bounds, and change notification); a terrain bridge implements it (linking `Terrain` + `Vegetation`) so terrain is one pluggable surface.
 - Add a **render adaptor seam**: the core defines a render adaptor/factory seam and hands over plain data; the aurora vegetation plugin implements the adaptor, so the core never includes or links aurora/render types.
-- Add a vegetation asset format: biome sets, species/palette definitions, density (distribution) maps, and placement rules, with binary serialization and an authored source.
-- Place vegetation deterministically from the surface provider (height, slope, layer weights) plus authored density maps, so the same inputs always produce the same distribution.
+- Add a vegetation asset format: biome sets, species/palette definitions, density (distribution) maps, and placement rules, with binary serialization and a source.
+- Place vegetation deterministically from the surface provider (height, slope, layer weights) plus density maps, so the same inputs always produce the same distribution.
 - Add focus-driven vegetation streaming in cells (bounds supplied by the provider, aligned to terrain tiles when the provider is terrain), with per-cell density LOD bands, off-tick async prefetch, and per-world isolation.
 - Add the aurora render adaptor: GPU-driven population, instanced/billboard tiers with density LOD fade, wind, character interaction, a dedicated foliage-lit pass, and material/technique binding.
 - Add editor tooling for biome/density authoring, painting, preview, and bake.
@@ -27,7 +27,7 @@ Both seams mirror the established patterns: `engine/navigation` defines a geomet
 
 - `vegetation-core`: render-agnostic `engine/vegetation` module (links `Framework` only), biome/palette model, deterministic placement rules, density/LOD rules, per-world vegetation subsystem lifecycle, and the render-agnostic handoff.
 - `vegetation-surface`: the abstract surface-provider seam (height/slope/layer sampling, cell bounds, change notification) and the terrain-backed bridge implementation.
-- `vegetation-data`: vegetation asset format (biome sets, species/palette, density maps, placement rules), binary serialization round-trip, authored source, and the logic-only vegetation component.
+- `vegetation-data`: vegetation asset format (biome sets, species/palette, density maps, placement rules), binary serialization round-trip, source, and the logic-only vegetation component.
 - `vegetation-streaming`: focus-driven cell paging, per-cell distance density LOD, per-tick budget, off-tick async prefetch, per-world isolation, and invalidation on surface change.
 - `vegetation-render`: the render adaptor seam (factory/handoff) plus the aurora implementation — GPU population, instanced/billboard tiers, wind, character interaction, and a dedicated foliage-lit pass.
 - `vegetation-editor`: biome/density authoring and painting, preview, and bake to the vegetation asset.

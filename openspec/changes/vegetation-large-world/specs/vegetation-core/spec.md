@@ -30,7 +30,7 @@ The core SHALL define an abstract surface-provider interface supplying world-spa
 
 ### Requirement: Deterministic terrain-driven placement
 
-Placement SHALL be a deterministic function of provider-sampled height, layer weights, and slope, plus authored biome density and a seed, evaluated in world space, so the same inputs produce an identical distribution independent of evaluation order.
+Placement SHALL be a deterministic function of provider-sampled height, layer weights, and slope, plus density maps and a seed, evaluated in world space, so the same inputs produce an identical distribution independent of evaluation order.
 
 #### Scenario: Reproducible distribution
 

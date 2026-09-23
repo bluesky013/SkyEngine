@@ -58,7 +58,7 @@ The terrain asset SHALL store per-tile material layer weights as splatmap tiles 
 
 #### Scenario: Four layers per splatmap tile
 
-- **WHEN** a terrain with more than four layers is authored
+- **WHEN** a terrain with more than four layers is created
 - **THEN** the asset SHALL store additional splatmap tiles per terrain tile such that each RGBA tile carries at most four layer weights
 
 ### Requirement: Terrain asset serialization round-trip
@@ -78,3 +78,17 @@ The terrain component SHALL hold only plain data (terrain metadata, terrain asse
 
 - **WHEN** the terrain component is serialized and restored
 - **THEN** all of its configuration SHALL round-trip as plain data and asset identifiers
+
+### Requirement: Hole / no-data tiles
+
+The terrain manifest SHALL mark tiles that have no surface data (holes) via a `hasData` flag, and streaming SHALL NOT load hole tiles so that queries and collision report no data there.
+
+#### Scenario: Hole tile is not loaded
+
+- **WHEN** a manifest entry marks a tile as a hole
+- **THEN** streaming SHALL NOT load that tile and terrain queries at its location SHALL report no data
+
+#### Scenario: Hole survives round-trip
+
+- **WHEN** a terrain asset with a hole tile is serialized and reloaded
+- **THEN** the hole marking SHALL be preserved

@@ -29,6 +29,12 @@ namespace sky::vegetation {
 
     bool VegetationCellTask::DoWork()
     {
+        if (hasInstances) {
+            cell.instances = instances;
+            finished.store(true);
+            return true;
+        }
+
         if (provider == nullptr || config == nullptr || palette == nullptr) {
             return false;
         }
@@ -56,6 +62,32 @@ namespace sky::vegetation {
         surfaceProvider = provider;
         if (surfaceProvider != nullptr) {
             surfaceProvider->AddSurfaceListener(this);
+        }
+        RebuildInstancesByCell();
+    }
+
+    void VegetationSystem::SetInstances(const std::vector<VegetationInstance> &inInstances)
+    {
+        instances = inInstances;
+        RebuildInstancesByCell();
+    }
+
+    void VegetationSystem::RebuildInstancesByCell()
+    {
+        instancesByCell.clear();
+        if (surfaceProvider == nullptr) {
+            return;
+        }
+
+        const float cellSize = surfaceProvider->GetCellSize();
+        if (cellSize <= 0.f) {
+            return;
+        }
+
+        for (const auto &instance : instances) {
+            const int32_t cellX = static_cast<int32_t>(std::floor(instance.position.x / cellSize));
+            const int32_t cellY = static_cast<int32_t>(std::floor(instance.position.z / cellSize));
+            instancesByCell[MakeCellKey(cellX, cellY)].push_back(instance);
         }
     }
 
@@ -190,7 +222,9 @@ namespace sky::vegetation {
                 }
 
                 auto task = CounterPtr<VegetationCellTask>(new VegetationCellTask());
-                task->Setup(surfaceProvider, &config, &palette, x, y, DensityScaleAt(distanceSq));
+                const auto instancesIt = instancesByCell.find(key);
+                const std::vector<VegetationInstance> *instances = instancesIt != instancesByCell.end() ? &instancesIt->second : nullptr;
+                task->Setup(surfaceProvider, &config, &palette, x, y, DensityScaleAt(distanceSq), instances);
                 task->StartAsync();
                 pendingCells.emplace(key, task);
             }

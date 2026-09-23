@@ -55,6 +55,14 @@ namespace {
         map.data       = {1, 2, 3, 4, 5, 6};
         data.densityMaps.push_back(map);
 
+        VegetationInstance instance;
+        instance.position     = Vector3(3.f, 0.f, 5.f);
+        instance.rotation     = 45.f;
+        instance.scale        = 1.2f;
+        instance.biomeId      = 7;
+        instance.speciesIndex = 1;
+        data.instances.push_back(instance);
+
         return data;
     }
 
@@ -98,4 +106,10 @@ TEST(VegetationAssetTest, SaveLoadRoundTrip)
     EXPECT_FLOAT_EQ(dst.densityMaps[0].origin.z, 2.f);
     EXPECT_EQ(dst.densityMaps[0].sizeX, 5u);
     EXPECT_EQ(dst.densityMaps[0].data, src.densityMaps[0].data);
+
+    ASSERT_EQ(dst.instances.size(), 1u);
+    EXPECT_FLOAT_EQ(dst.instances[0].position.z, 5.f);
+    EXPECT_FLOAT_EQ(dst.instances[0].rotation, 45.f);
+    EXPECT_FLOAT_EQ(dst.instances[0].scale, 1.2f);
+    EXPECT_EQ(dst.instances[0].speciesIndex, 1u);
 }
