@@ -9,6 +9,8 @@
 #include <terrain/TerrainQuery.h>
 #include <terrain/TerrainSystemInterface.h>
 
+#include <core/async/Task.h>
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -94,10 +96,17 @@ namespace {
     class FakeFactory : public NaviMeshFactory::Impl {
     public:
         NaviMesh *CreateNaviMesh() override { return nullptr; }
-        NaviMeshGenerator *CreateGenerator() override { lastGenerator = new FakeGenerator(); return lastGenerator; }
+        NaviMeshGenerator *CreateGenerator() override
+        {
+            // Retain ownership so the raw pointer stays valid after the async build releases its reference.
+            lastGeneratorHolder = new FakeGenerator();
+            lastGenerator       = lastGeneratorHolder.Get();
+            return lastGeneratorHolder.Get();
+        }
         NaviQueryFilter *CreateQueryFilter() override { return nullptr; }
 
         FakeGenerator *lastGenerator = nullptr;
+        CounterPtr<FakeGenerator> lastGeneratorHolder;
     };
 
     NaviMeshBuildParams MakeNavParams()
@@ -124,6 +133,7 @@ TEST(TerrainNavRebuildTest, RebuildsMappedTiles)
     EXPECT_EQ(coordinator.GetPendingCount(), 4u);
 
     const uint32_t built = coordinator.Update();
+    TaskExecutor::Get()->WaitForAll();
     EXPECT_EQ(built, 4u);
     EXPECT_EQ(coordinator.GetPendingCount(), 0u);
 
@@ -158,6 +168,7 @@ TEST(TerrainNavRebuildTest, DefersWhenLod0Missing)
 
     terrain.coverage = true;
     EXPECT_EQ(coordinator.Update(), 4u);
+    TaskExecutor::Get()->WaitForAll();
     EXPECT_EQ(coordinator.GetPendingCount(), 0u);
 
     coordinator.Shutdown();
@@ -175,6 +186,7 @@ TEST(TerrainNavRebuildTest, DeterministicOrder)
 
     terrain.NotifyTilesChanged({{1, 0}, {0, 0}, {0, 1}});
     coordinator.Update();
+    TaskExecutor::Get()->WaitForAll();
 
     const auto first = coordinator.GetLastBuiltTiles();
     // Sorted ascending by (x, y).
