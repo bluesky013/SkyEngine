@@ -9,6 +9,7 @@
 
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
+#include <core/file/FileSystem.h>
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 
@@ -50,10 +51,10 @@ namespace sky {
         AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey));
 
 #else
-        // AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
-        // auto fs = std::make_shared<NativeFileSystem>();
-        // fs->AddPath(Platform::Get()->GetInternalPath());
-        // workFs = fs;
+        // No project argument outside editor mode: use the bundle path so the
+        // builtin configs/assets deployed next to the executable are found.
+        workFs = new NativeFileSystem(Platform::Get()->GetBundlePath());
+        AssetManager::Get()->SetWorkFileSystem(workFs);
 #endif
         if (!Application::Init(argc, argv)) {
             return false;
@@ -74,7 +75,10 @@ namespace sky {
         }
 
         std::string json;
-        auto file = workFs->OpenFile(CONFIG_PATH);
+        FilePtr file;
+        if (workFs != nullptr) {
+            file = workFs->OpenFile(CONFIG_PATH);
+        }
         if (!file) {
             // Fall back to the engine builtin configs shipped next to the
             // executable (configs/ -> <exe>/configs).

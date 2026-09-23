@@ -33,13 +33,20 @@ and toolbars are engine-drawn and are specified by `editor-ui-shell`.
 - **THEN** text input/IME SHALL be provided by the platform layer
 
 ### Requirement: Editor host target
-The editor host (`SandboxEditor`, `engine/sandbox/app`) SHALL build with `SKY_BUILD_SANDBOX` and SHALL load the
-editor module (`SandboxModule`) through the engine module system. The core tests SHALL build with `SKY_BUILD_TEST`
-and run headless. (The earlier RHI-free `Sandbox` shell has been removed in favour of this single host.)
+
+The editor host SHALL be startable either by the dedicated `SandboxEditor` executable (`engine/sandbox/app`) or by
+the launcher in editor mode (`--app editor`); both SHALL run the same editor host logic. The editor host SHALL load
+its modules from `configs/modules_editor.json` (falling back to `SandboxModule` when the config is absent). The
+`SandboxEditor` target and the editor mode SHALL build with `SKY_BUILD_SANDBOX`; the core tests SHALL build with
+`SKY_BUILD_TEST` and run headless.
 
 #### Scenario: Editor host builds and runs the module
 - **WHEN** the project is configured with `SKY_BUILD_SANDBOX=ON`
 - **THEN** the `SandboxEditor` target SHALL build, open a non-Qt native window, and run the editor module
+
+#### Scenario: Launcher editor mode runs the editor
+- **WHEN** the launcher is started with `--app editor` and the sandbox editor is built
+- **THEN** it SHALL run the editor host with modules from `configs/modules_editor.json`
 
 #### Scenario: Headless tests run
 - **WHEN** the project is configured with `SKY_BUILD_TEST=ON`
