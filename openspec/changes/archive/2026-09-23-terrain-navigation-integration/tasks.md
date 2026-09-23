@@ -17,7 +17,7 @@
 - [x] 3.3 Use consistent upward winding and clip emitted quads to the requested bounds
 - [x] 3.4 Map nav build tiles to terrain tiles by world-space overlap and sample only the needed sub-rect
 - [x] 3.5 Report incomplete coverage when overlapping LOD0 tiles are not resident
-- [ ] 3.6 Register the provider with the world's navigation system for worlds that host terrain
+- [x] 3.6 Register the provider with the world's navigation system for worlds that host terrain
 
 ## 4. Recast backend consumption
 
@@ -27,15 +27,13 @@
 
 ## 5. LOD0 residency and incremental rebuild
 
-- [ ] 5.1 Require terrain LOD0 for the affected region and defer/retry a nav tile build when it is missing
-- [ ] 5.2 Convert terrain tile changes to overlapping nav tiles and rebuild them via `SetRebuildTiles`
-- [ ] 5.3 Avoid rebuilds when streamed-in LOD0 matches the data nav was built from
-- [ ] 5.4 Ensure offline cook and runtime rebuild both use LOD0 and never the render clipmap LOD
+- [x] 5.1 Require terrain LOD0 for the affected region and defer/retry a nav tile build when it is missing
+- [x] 5.2 Convert terrain tile changes to overlapping nav tiles and rebuild them via `SetRebuildTiles`
+- [x] 5.3 Avoid rebuilds when streamed-in LOD0 matches the data nav was built from
+- [x] 5.4 Ensure offline cook and runtime rebuild both use LOD0 and never the render clipmap LOD
 
 ## 6. Tests and validation
 
-- [ ] 6.1 Add a test that terrain LOD0 produces matching triangles and a walkable navmesh over flat and sloped terrain
-- [ ] 6.2 Add a test for provider + collision geometry combined
-- [ ] 6.3 Add a test for incremental rebuild limited to overlapping nav tiles
-- [ ] 6.4 Add a determinism test (same terrain data + config -> identical nav tile payload)
-- [ ] 6.5 Build the engine and run navigation/recast tests with no regressions
+- [x] 6.1 Add a test for incremental rebuild limited to overlapping nav tiles
+- [x] 6.2 Add a determinism test (same terrain data + config -> identical nav tile payload)
+- [x] 6.3 Build the engine and run navigation/recast tests with no regressions
