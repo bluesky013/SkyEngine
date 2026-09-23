@@ -11,7 +11,6 @@ sky_add_library(TARGET AudioBackend.Static STATIC
         src
     LINK_LIBS
         Audio
-        Framework
         3rdParty::miniaudio
 )
 
@@ -22,7 +21,10 @@ sky_add_library(TARGET AudioModule SHARED
         src
     LINK_LIBS
         AudioBackend.Static
+        Framework
 )
+
+add_subdirectory(builder)
 
 sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
 

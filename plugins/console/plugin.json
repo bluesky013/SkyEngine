@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "ConsoleModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }

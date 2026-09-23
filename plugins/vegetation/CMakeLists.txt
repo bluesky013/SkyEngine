@@ -16,7 +16,6 @@ sky_add_library(TARGET Vegetation.Static STATIC
         runtime/include
     LINK_LIBS
         Vegetation
-        Terrain
         Framework
 )
 

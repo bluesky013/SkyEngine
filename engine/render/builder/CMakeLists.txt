@@ -10,7 +10,7 @@ sky_add_library(TARGET SkyRender.Builder SHARED
     LINK_LIBS
         RenderBuilder.Static
     )
-sky_add_dependency(TARGET SkyRender.Builder DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET SkyRender.Builder DEPENDENCIES Launcher)
 
 if (SKY_BUILD_TEST)
     file(GLOB_RECURSE TEST_FILES test/*)

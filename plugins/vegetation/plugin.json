@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "VegetationRender",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }

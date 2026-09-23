@@ -24,4 +24,4 @@ sky_add_library(TARGET SkyNavigation.Builder SHARED
     LINK_LIBS
         NavigationBuilder.Static
 )
-sky_add_dependency(TARGET SkyNavigation.Builder DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET SkyNavigation.Builder DEPENDENCIES Launcher)

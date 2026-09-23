@@ -16,7 +16,6 @@ sky_add_library(TARGET Terrain.Static STATIC
         runtime/include
     LINK_LIBS
         Terrain
-        Physics
         Framework
 )
 

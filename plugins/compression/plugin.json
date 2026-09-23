@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "CompressionModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }

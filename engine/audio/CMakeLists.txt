@@ -16,8 +16,6 @@ sky_add_library(TARGET Audio STATIC
         Framework
 )
 
-add_subdirectory(builder)
-
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET AudioTest
         SOURCES

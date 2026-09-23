@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "AudioModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }

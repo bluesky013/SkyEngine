@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "ImGuizmoModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }

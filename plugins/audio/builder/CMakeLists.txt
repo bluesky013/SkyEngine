@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Engine)
+set(CURRENT_FOLDER Plugins)
 
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
@@ -27,4 +27,4 @@ sky_add_library(TARGET SkyAudio.Builder SHARED
     LINK_LIBS
         AudioBuilder.Static
 )
-sky_add_dependency(TARGET SkyAudio.Builder DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET SkyAudio.Builder DEPENDENCIES Launcher)

@@ -2,7 +2,7 @@
     "targets": [
         {
             "name": "TerrainRender",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         }
     ]
 }
