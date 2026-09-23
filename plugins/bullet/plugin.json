@@ -2,11 +2,11 @@
     "targets": [
         {
             "name": "BulletPhysicsModule",
-            "dependencies": ["Launcher", "Editor"]
+            "dependencies": ["Launcher"]
         },
         {
-            "name": "BulletPhysicsAuroraModule",
-            "dependencies": ["Launcher", "Editor"]
+            "name": "BulletPhysicsRenderModule",
+            "dependencies": ["Launcher"]
         }
     ]
 }

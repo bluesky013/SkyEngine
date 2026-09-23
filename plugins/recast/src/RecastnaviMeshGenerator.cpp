@@ -15,8 +15,7 @@
 #include <algorithm>
 #include <cstring>
 
-#include <physics/components/CollisionComponent.h>
-#include <framework/world/TransformComponent.h>
+#include <physics/IPhysicsSystem.h>
 
 #include <DetourNavMesh.h>
 
@@ -116,44 +115,44 @@ namespace sky::ai {
 
     void RecastNaviMeshGenerator::GatherGeometry(NaviOctree* octree)
     {
-        const auto &actors = world->GetActors();
-        for (const auto &actor : actors) {
-            auto *comp = actor->GetComponent<phy::CollisionComponent>();
-            if (comp == nullptr) {
-                continue;
-            }
-            auto *trans = actor->GetComponent<TransformComponent>();
-            SKY_ASSERT(trans != nullptr);
-            const auto &worldMatrix = trans->GetWorldMatrix();
+        // Collision geometry comes from the physics runtime through an engine interface, so navigation
+        // never depends on a physics backend or render module.
+        auto *provider = static_cast<phy::IPhysicsSystem *>(
+            world->GetSubSystem(Name(phy::PHYSICS_SYSTEM_NAME.data())));
+        if (provider != nullptr) {
+            std::vector<phy::CollisionMeshInstance> instances;
+            provider->GatherCollisionMeshes(instances);
 
-            auto *shape = comp->GetPhysicsShape();
-            auto triangleMesh = shape->GetTriangleMesh();
-            if (!triangleMesh) {
-                continue;
-            }
+            for (const auto &instance : instances) {
+                if (!instance.mesh) {
+                    continue;
+                }
+                const Matrix4      worldMatrix  = instance.transform.ToMatrix();
+                const TriangleMesh *triangleMesh = instance.mesh.Get();
 
-            auto *scaledTriangleMesh = new TriangleMesh();
-            scaledTriangleMesh->position.resize(triangleMesh->position.size());
-            scaledTriangleMesh->indexRaw = triangleMesh->indexRaw;
-            scaledTriangleMesh->vtxStride = triangleMesh->vtxStride;
-            scaledTriangleMesh->indexType = triangleMesh->indexType;
-            scaledTriangleMesh->views = triangleMesh->views;
+                auto *scaledTriangleMesh = new TriangleMesh();
+                scaledTriangleMesh->position.resize(triangleMesh->position.size());
+                scaledTriangleMesh->indexRaw = triangleMesh->indexRaw;
+                scaledTriangleMesh->vtxStride = triangleMesh->vtxStride;
+                scaledTriangleMesh->indexType = triangleMesh->indexType;
+                scaledTriangleMesh->views = triangleMesh->views;
 
-            auto vtxCount = triangleMesh->position.size() / sizeof(Vector3);
-            const auto* src = reinterpret_cast<const Vector3*>(triangleMesh->position.data());
-            auto* dst = reinterpret_cast<Vector3*>(scaledTriangleMesh->position.data());
-            for (auto i = 0; i < vtxCount; ++i) {
-                dst[i] = ToVec3(worldMatrix * Vector4(src[i].x, src[i].y, src[i].z, 1.0f));
-            }
+                auto vtxCount = triangleMesh->position.size() / sizeof(Vector3);
+                const auto *src = reinterpret_cast<const Vector3 *>(triangleMesh->position.data());
+                auto *dst = reinterpret_cast<Vector3 *>(scaledTriangleMesh->position.data());
+                for (auto i = 0; i < vtxCount; ++i) {
+                    dst[i] = instance.transform.Translate(src[i]);
+                }
 
-            for (uint32_t i = 0; i < triangleMesh->views.size(); ++i) {
-                scaledTriangleMesh->views[i].aabb = AABB::Transform(triangleMesh->views[i].aabb, worldMatrix);
+                for (uint32_t i = 0; i < triangleMesh->views.size(); ++i) {
+                    scaledTriangleMesh->views[i].aabb = AABB::Transform(triangleMesh->views[i].aabb, worldMatrix);
 
-                auto *element = new NaviOctreeElement();
-                element->triangleMesh = scaledTriangleMesh;
-                element->viewIndex = i;
+                    auto *element = new NaviOctreeElement();
+                    element->triangleMesh = scaledTriangleMesh;
+                    element->viewIndex = i;
 
-                octree->AddElement(element);
+                    octree->AddElement(element);
+                }
             }
         }
 

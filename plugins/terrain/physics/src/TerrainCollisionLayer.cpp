@@ -7,21 +7,17 @@
 #include <terrain/TerrainAddress.h>
 #include <terrain/TerrainSystem.h>
 
-#include <physics/CollisionObject.h>
-#include <physics/PhysicsRegistry.h>
-#include <physics/PhysicsShape.h>
-#include <physics/PhysicsWorld.h>
-
 #include <algorithm>
 #include <unordered_set>
 
 namespace sky::terrain {
 
-    phy::HeightFieldShape TerrainCollisionLayer::BuildHeightField(const TerrainMeta &meta, const float *heights, uint32_t vertexSize)
+    phy::ShapeDesc TerrainCollisionLayer::BuildHeightField(const TerrainMeta &meta, const float *heights, uint32_t vertexSize)
     {
-        phy::HeightFieldShape shape;
-        shape.width       = vertexSize;
-        shape.height      = vertexSize;
+        phy::ShapeDesc shape;
+        shape.type        = phy::ShapeType::HeightField;
+        shape.cols        = vertexSize;
+        shape.rows        = vertexSize;
         shape.samples     = std::vector<float>(heights, heights + static_cast<size_t>(vertexSize) * vertexSize);
         shape.scaleX      = meta.resolution;
         shape.scaleZ      = meta.resolution;
@@ -55,7 +51,7 @@ namespace sky::terrain {
         Shutdown();
     }
 
-    void TerrainCollisionLayer::Setup(TerrainSystem *inSystem, phy::PhysicsWorld *inWorld)
+    void TerrainCollisionLayer::Setup(TerrainSystem *inSystem, phy::IPhysicsWorld *inWorld)
     {
         system = inSystem;
         world  = inWorld;
@@ -63,9 +59,9 @@ namespace sky::terrain {
 
     void TerrainCollisionLayer::Shutdown()
     {
-        for (auto &entry : colliders) {
-            if (world != nullptr) {
-                world->RemoveCollisionObject(entry.second);
+        if (world != nullptr) {
+            for (auto &entry : colliders) {
+                world->DestroyObject(entry.second);
             }
         }
         colliders.clear();
@@ -73,16 +69,19 @@ namespace sky::terrain {
 
     void TerrainCollisionLayer::CreateCollider(const TerrainTileCoord &coord, const float *heights, uint32_t vertexSize)
     {
-        auto *object = phy::PhysicsRegistry::Get()->CreateCollisionObject();
-        if (object == nullptr) {
+        if (world == nullptr) {
             return;
         }
 
-        object->SetShape(new phy::PhysicsHeightFieldShape(BuildHeightField(system->GetMeta(), heights, vertexSize)));
-        object->SetWorldTransform(TileCollisionTransform(system->GetMeta(), coord));
+        phy::PhysicsBodyDesc desc;
+        desc.kind      = phy::BodyKind::Static;
+        desc.shape     = BuildHeightField(system->GetMeta(), heights, vertexSize);
+        desc.transform = TileCollisionTransform(system->GetMeta(), coord);
 
-        world->AddCollisionObject(object);
-        colliders.emplace(coord, object);
+        const phy::PhysicsObjectId id = world->CreateBody(desc);
+        if (phy::IsValid(id)) {
+            colliders.emplace(coord, id);
+        }
     }
 
     void TerrainCollisionLayer::DestroyCollider(const TerrainTileCoord &coord)
@@ -91,7 +90,9 @@ namespace sky::terrain {
         if (iter == colliders.end()) {
             return;
         }
-        world->RemoveCollisionObject(iter->second);
+        if (world != nullptr) {
+            world->DestroyObject(iter->second);
+        }
         colliders.erase(iter);
     }
 
@@ -110,7 +111,7 @@ namespace sky::terrain {
 
         for (auto iter = colliders.begin(); iter != colliders.end();) {
             if (present.count(iter->first) == 0) {
-                world->RemoveCollisionObject(iter->second);
+                world->DestroyObject(iter->second);
                 iter = colliders.erase(iter);
             } else {
                 ++iter;

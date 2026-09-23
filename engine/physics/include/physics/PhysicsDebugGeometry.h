@@ -6,9 +6,20 @@
 
 #include <core/math/Vector3.h>
 
+#include <cstdint>
 #include <vector>
 
 namespace sky::phy {
+
+    // Debug categories are a bitmask so callers request only what they visualize.
+    namespace PhysicsDebugCategory {
+        constexpr uint32_t Shapes      = 1u << 0;
+        constexpr uint32_t Contacts    = 1u << 1;
+        constexpr uint32_t AABBs       = 1u << 2;
+        constexpr uint32_t Constraints = 1u << 3;
+        constexpr uint32_t Character   = 1u << 4;
+        constexpr uint32_t All         = 0xFFFFFFFFu;
+    } // namespace PhysicsDebugCategory
 
     // Plain debug vertex (no render resource types).
     struct PhysicsDebugVertex {

@@ -12,7 +12,7 @@
 namespace sky::phy {
 
     // Interface seam: converts a mesh asset into physics TriangleMesh data. Implemented by a render
-    // submodule (engine/physics/aurora) so the physics core stays free of render dependencies.
+    // bridge (plugins/bullet/render) so the physics core stays free of render dependencies.
     using PhysicsMeshProvider = std::function<CounterPtr<TriangleMesh>(const Uuid &asset)>;
 
     void SetPhysicsMeshProvider(PhysicsMeshProvider provider);

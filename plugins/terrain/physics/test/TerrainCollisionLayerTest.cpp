@@ -7,9 +7,7 @@
 #include <terrain/TerrainSystem.h>
 #include <terrain/TerrainRegion.h>
 
-#include <physics/CollisionObject.h>
-#include <physics/PhysicsRegistry.h>
-#include <physics/PhysicsWorld.h>
+#include <physics/IPhysicsBackend.h>
 
 #include <core/async/Task.h>
 
@@ -20,56 +18,70 @@ using namespace sky::terrain;
 
 namespace {
 
-    class FakeShape : public phy::IShapeImpl {
+    // Minimal engine-side fake: records created bodies and destroyed handles without a backend.
+    class FakePhysicsWorld : public phy::IPhysicsWorld {
     public:
-        CounterPtr<TriangleMesh> GetTriangleMesh() const override { return nullptr; }
-    };
+        phy::PhysicsBackendCaps            caps;
+        std::vector<phy::PhysicsBodyDesc>  created;
+        std::vector<phy::PhysicsObjectId>  destroyed;
+        uint64_t                           next = 1;
 
-    class FakeCollisionObject : public phy::CollisionObject {
-    public:
-        void SetWorldTransform(const Transform &trans) override { transform = trans; }
-        phy::PhysicsWorld *GetWorld() const override { return nullptr; }
+        const phy::PhysicsBackendCaps &GetCaps() const override { return caps; }
+        void           SetOptions(const phy::PhysicsOptions &) override {}
+        phy::PhysicsOptions GetOptions() const override { return {}; }
 
-        Transform transform;
+        phy::PhysicsMaterialId CreateMaterial(const phy::PhysicsMaterialData &) override { return {}; }
+        bool DestroyMaterial(phy::PhysicsMaterialId) override { return false; }
+        bool GetMaterial(phy::PhysicsMaterialId, phy::PhysicsMaterialData &) const override { return false; }
 
-    protected:
-        void OnShapeChanged() override {}
-        void OnGroupMaskChanged() override {}
-    };
-
-    class FakeWorld : public phy::PhysicsWorld {
-    public:
-        std::vector<phy::CollisionObject *> added;
-        std::vector<phy::CollisionObject *> removed;
-
-    protected:
-        void AddRigidBodyImpl(phy::RigidBody *rb) override {}
-        void RemoveRigidBodyImpl(phy::RigidBody *rb) override {}
-        void AddCollisionObjectImpl(phy::CollisionObject *obj) override { added.push_back(obj); }
-        void RemoveCollisionObjectImpl(phy::CollisionObject *obj) override { removed.push_back(obj); }
-        void AddCharacterControllerImpl(phy::CharacterController *ch) override {}
-        void RemoveCharacterControllerImpl(phy::CharacterController *ch) override {}
-    };
-
-    class FakeFactory : public phy::PhysicsRegistry::Impl {
-    public:
-        phy::PhysicsWorld *CreatePhysicsWorld() override { return nullptr; }
-        phy::CollisionObject *CreateCollisionObject() override { return new FakeCollisionObject(); }
-        phy::RigidBody *CreateRigidBody() override { return nullptr; }
-        phy::CharacterController *CreateCharacterController() override { return nullptr; }
-
-        phy::IShapeImpl *CreateBox(const phy::BoxShape &) override { return new FakeShape(); }
-        phy::IShapeImpl *CreateSphere(const phy::SphereShape &) override { return new FakeShape(); }
-        phy::IShapeImpl *CreateTriangleMesh(const phy::TriangleMeshShape &) override { return new FakeShape(); }
-        phy::IShapeImpl *CreateHeightField(const phy::HeightFieldShape &shape) override
+        phy::PhysicsObjectId CreateBody(const phy::PhysicsBodyDesc &desc) override
         {
-            lastShape = shape;
-            return new FakeShape();
+            created.push_back(desc);
+            return phy::PhysicsObjectId{next++, 1};
         }
-        phy::IShapeImpl *CreateCapsule(const phy::CapsuleShape &) override { return new FakeShape(); }
-        phy::IMaterialImpl *CreateMaterial(const phy::PhysicsMaterialData &) override { return nullptr; }
+        bool DestroyObject(phy::PhysicsObjectId id) override
+        {
+            destroyed.push_back(id);
+            return true;
+        }
+        bool HasObject(phy::PhysicsObjectId) const override { return false; }
 
-        phy::HeightFieldShape lastShape;
+        bool GetBodyTransform(phy::PhysicsObjectId, Transform &) const override { return false; }
+        bool SetBodyTransform(phy::PhysicsObjectId, const Transform &) override { return false; }
+        void SetInterpolationAlpha(float) override {}
+        bool GetInterpolatedTransform(phy::PhysicsObjectId, Transform &) const override { return false; }
+        bool GetBodyVelocity(phy::PhysicsObjectId, Vector3 &, Vector3 &) const override { return false; }
+        bool SetBodyVelocity(phy::PhysicsObjectId, const Vector3 &, const Vector3 &) override { return false; }
+        bool ApplyForce(phy::PhysicsObjectId, const Vector3 &, const Vector3 &) override { return false; }
+        bool ApplyImpulse(phy::PhysicsObjectId, const Vector3 &, const Vector3 &) override { return false; }
+        bool SetBodyFilter(phy::PhysicsObjectId, const phy::CollisionFilter &) override { return false; }
+        bool SetBodyMaterial(phy::PhysicsObjectId, phy::PhysicsMaterialId) override { return false; }
+        bool Wake(phy::PhysicsObjectId) override { return false; }
+
+        phy::PhysicsObjectId CreateConstraint(const phy::ConstraintDesc &) override { return {}; }
+        bool DestroyConstraint(phy::PhysicsObjectId) override { return false; }
+
+        phy::PhysicsObjectId CreateCharacter(const phy::CharacterDesc &) override { return {}; }
+        bool DestroyCharacter(phy::PhysicsObjectId) override { return false; }
+        phy::CharacterMoveResult MoveCharacter(phy::PhysicsObjectId, const Vector3 &) override
+        {
+            return phy::CharacterMoveResult::NotAttached;
+        }
+        bool GetCharacterState(phy::PhysicsObjectId, phy::CharacterState &) const override { return false; }
+        bool SetCharacterTransform(phy::PhysicsObjectId, const Transform &) override { return false; }
+        bool SetCharacterCapsule(phy::PhysicsObjectId, float, float) override { return false; }
+
+        void Step(float) override {}
+
+        bool Raycast(const Vector3 &, const Vector3 &, float, const phy::PhysicsQueryFilter &, phy::PhysicsQueryHit &) const override { return false; }
+        bool Sweep(const phy::ShapeDesc &, const Transform &, const Vector3 &, float, const phy::PhysicsQueryFilter &, phy::PhysicsQueryHit &) const override { return false; }
+        void Overlap(const phy::ShapeDesc &, const Transform &, const phy::PhysicsQueryFilter &, std::vector<phy::PhysicsQueryOverlap> &) const override {}
+
+        void DrainEvents(std::vector<phy::PhysicsEvent> &) override {}
+        void CollectDebugGeometry(uint32_t, phy::PhysicsDebugGeometry &) const override {}
+        phy::PhysicsWorldStats GetStats() const override { return {}; }
+        bool CaptureState(phy::PhysicsWorldState &, phy::PhysicsSnapshotScope) const override { return false; }
+        bool RestoreState(const phy::PhysicsWorldState &) override { return false; }
     };
 
     TerrainAssetData MakeSingleTileData()
@@ -117,15 +129,15 @@ TEST(TerrainCollisionLayerTest, BuildHeightFieldAndTransform)
     }
 
     const auto shape = TerrainCollisionLayer::BuildHeightField(meta, heights.data(), 9);
-    EXPECT_EQ(shape.width, 9u);
-    EXPECT_EQ(shape.height, 9u);
+    EXPECT_EQ(shape.type, phy::ShapeType::HeightField);
+    EXPECT_EQ(shape.cols, 9u);
+    EXPECT_EQ(shape.rows, 9u);
     EXPECT_EQ(shape.samples.size(), 81u);
     EXPECT_FLOAT_EQ(shape.scaleX, 2.f);
     EXPECT_FLOAT_EQ(shape.scaleZ, 2.f);
     EXPECT_FLOAT_EQ(shape.minHeight, 0.f);
     EXPECT_FLOAT_EQ(shape.maxHeight, 8.f);
     EXPECT_EQ(shape.upAxis, 1);
-    EXPECT_FALSE(shape.samples.empty());
 
     const auto transform = TerrainCollisionLayer::TileCollisionTransform(meta, TerrainTileCoord{1, 2});
     // tileWorld = 8 * 2 = 16; origin = (16, 0, 32); center = (24, 0, 40).
@@ -147,24 +159,21 @@ TEST(TerrainCollisionLayerTest, CreatesAndDestroysColliders)
     Settle(system);
     ASSERT_GT(system.GetLoadedTileCount(), 0u);
 
-    auto *factory = new FakeFactory();
-    phy::PhysicsRegistry::Get()->Register(factory);
-
-    FakeWorld world;
+    FakePhysicsWorld world;
     TerrainCollisionLayer layer;
     layer.Setup(&system, &world);
 
     layer.Update();
     EXPECT_EQ(layer.GetColliderCount(), 1u);
-    ASSERT_EQ(world.added.size(), 1u);
-    EXPECT_EQ(factory->lastShape.width, data.meta.GetTileVertexSize());
+    ASSERT_EQ(world.created.size(), 1u);
+    EXPECT_EQ(world.created[0].kind, phy::BodyKind::Static);
+    EXPECT_EQ(world.created[0].shape.type, phy::ShapeType::HeightField);
+    EXPECT_EQ(world.created[0].shape.cols, data.meta.GetTileVertexSize());
 
     system.SetStreamingFocus(Vector3(1000.f, 0.f, 1000.f));
     Settle(system);
     layer.Update();
 
     EXPECT_EQ(layer.GetColliderCount(), 0u);
-    EXPECT_EQ(world.removed.size(), 1u);
-
-    phy::PhysicsRegistry::Get()->UnRegister();
+    EXPECT_EQ(world.destroyed.size(), 1u);
 }

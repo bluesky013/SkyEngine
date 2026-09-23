@@ -4,29 +4,26 @@
 
 #pragma once
 
+#include <physics/PhysicsObjectId.h>
+
 #include <core/math/Vector3.h>
+
+#include <vector>
 
 namespace sky::phy {
 
-    class CollisionObject;
+    // Handle-based results: the hit object is addressed by a stable id for every object kind, with no
+    // backend pointer. Ordered by ascending distance, then by handle.
+    struct PhysicsQueryHit {
+        PhysicsObjectId object = INVALID_PHYSICS_OBJECT_ID;
 
-    // Backend-neutral query results (no backend handles/types).
-    struct RaycastHit {
-        CollisionObject *object = nullptr;
-        Vector3          position;
-        Vector3          normal;
-        float            distance = 0.f;
+        Vector3 position = VEC3_ZERO;
+        Vector3 normal   = VEC3_ZERO;
+        float   distance = 0.f;
     };
 
-    struct SweepResult {
-        CollisionObject *object = nullptr;
-        Vector3          position;
-        Vector3          normal;
-        float            distance = 0.f;
-    };
-
-    struct OverlapResult {
-        CollisionObject *object = nullptr;
+    struct PhysicsQueryOverlap {
+        PhysicsObjectId object = INVALID_PHYSICS_OBJECT_ID;
     };
 
 } // namespace sky::phy

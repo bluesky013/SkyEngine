@@ -19,11 +19,11 @@ sky_add_library(TARGET BulletPhysicsModule SHARED
         3rdParty::bullet3
 )
 
-# Aurora render bridge module: registers the physics mesh provider with an aurora-mesh converter.
+# Render bridge module: registers the physics mesh provider with a render-mesh converter.
 # Lives in the bullet plugin so the physics core stays interface-only and legacy render is not used.
-sky_add_library(TARGET BulletPhysicsAuroraModule SHARED
+sky_add_library(TARGET BulletPhysicsRenderModule SHARED
     SOURCES
-        aurora/BulletPhysicsAuroraModule.cpp
+        render/BulletPhysicsRenderModule.cpp
     LINK_LIBS
         Physics
         Aurora.Adaptor
