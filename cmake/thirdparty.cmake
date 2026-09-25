@@ -41,6 +41,11 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    # network backend
+    if (SKY_BUILD_NETWORK_ENET)
+        sky_find_3rd(TARGET enet        DIR enet)
+    endif()
+
     # animation
     if (SKY_ANIMATION_ACL)
         sky_find_3rd(TARGET acl         DIR acl)

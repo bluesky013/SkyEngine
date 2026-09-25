@@ -231,6 +231,17 @@
 			}
 		},
 		{
+			"name": "enet",
+			"url": "https://github.com/zpl-c/enet.git",
+			"tag": "v2.7.0",
+			"header_only": false,
+			"options": {
+				"ENET_STATIC": "ON",
+				"ENET_SHARED": "OFF",
+				"ENET_TEST": "OFF"
+			}
+		},
+		{
 			"name": "bullet3",
 			"url": "https://github.com/bulletphysics/bullet3.git",
 			"tag": "3.25",

@@ -72,6 +72,12 @@
             "dir": "console",
             "cmake_var": "SKY_BUILD_CONSOLE",
             "enabled": true
+        },
+        {
+            "name": "network-enet",
+            "dir": "network-enet",
+            "cmake_var": "SKY_BUILD_NETWORK_ENET",
+            "enabled": true
         }
     ]
 }
