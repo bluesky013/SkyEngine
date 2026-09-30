@@ -6,6 +6,7 @@
 #include <aurora/pipeline/GlobalVariantLayout.h>
 
 #include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderHash.h>
 #include <aurora/shader/gen/ShaderVariantGen.h>
 
 namespace sky::aurora {
@@ -18,11 +19,34 @@ namespace sky::aurora {
             }
             return false;
         }
+
+        const uint32_t total = static_cast<uint32_t>(reservedBits) + kVertexSemanticBits + schema.totalBits;
+        if (total > ShaderVariantKey::kMaxBits) {
+            if (error != nullptr) {
+                *error = "pipeline + vertex + shader variant bits exceed 128";
+            }
+            return false;
+        }
+
+        uint64_t fp = kFnv1aBasis;
+        fp          = HashMixU64(fp, reservedBits);
+        for (const auto &source : schema.sources) {
+            fp = HashMixU64(fp, source.name.GetHandle());
+            fp = HashMixU64(fp, source.bitOffset);
+            fp = HashMixU64(fp, source.bitWidth);
+        }
+        for (const auto &entry : schema.entries) {
+            fp = HashMixU64(fp, entry.key.GetHandle());
+            fp = HashMixU64(fp, entry.source.GetHandle());
+            fp = HashMixU64(fp, entry.bitOffset);
+            fp = HashMixU64(fp, entry.bitWidth);
+            fp = HashMixU64(fp, entry.defaultValue);
+        }
+        fingerprint = fp;
         return true;
     }
 
-    bool GlobalVariantLayout::Load(ShaderFileSystem &fs, const std::string &path,
-                                   std::string *error)
+    bool GlobalVariantLayout::Load(ShaderFileSystem &fs, const std::string &path, std::string *error)
     {
         std::string source;
         if (!fs.ReadFile(path, source)) {
@@ -52,10 +76,9 @@ namespace sky::aurora {
         return key.ToString(schema);
     }
 
-    std::string GlobalVariantLayout::ToString(const ShaderVariantKey &key,
-                                              const ShaderVariantSchema &perShaderSchema) const
+    std::string GlobalVariantLayout::ToString(const ShaderVariantKey &key, const ShaderVariantSchema &perShaderSchema) const
     {
-        std::string s = key.ToString(schema);
+        std::string       s   = key.ToString(schema);
         const std::string per = key.ToString(perShaderSchema, reservedBits);
         if (!s.empty() && !per.empty()) {
             s += ", ";

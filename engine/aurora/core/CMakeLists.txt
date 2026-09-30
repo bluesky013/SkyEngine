@@ -12,6 +12,7 @@ sky_add_library(TARGET Aurora STATIC
     LINK_LIBS
         Core
         Aurora.RHI
+        3rdParty::rapidjson
     INSTALL_DIR
         include
 )

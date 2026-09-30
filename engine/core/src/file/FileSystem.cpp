@@ -2,10 +2,10 @@
 // Created by blues on 2024/4/1.
 //
 
-#include <core/file/FileSystem.h>
-#include <core/file/FileIO.h>
 #include <core/archive/FileArchive.h>
 #include <core/archive/MemoryStreamArchive.h>
+#include <core/file/FileIO.h>
+#include <core/file/FileSystem.h>
 #include <core/util/String.h>
 #include <filesystem>
 
@@ -23,8 +23,7 @@ namespace sky {
     {
     }
 
-    FilePath::FilePath(const std::string &filePath_)
-        : filePath(filePath_) // NOLINT
+    FilePath::FilePath(const std::string &filePath_) : filePath(filePath_) // NOLINT
     {
         filePath.make_preferred();
     }
@@ -81,19 +80,19 @@ namespace sky {
         return std::ifstream(filePath, mode);
     }
 
-    FilePath FilePath::Relative(const FilePath& base) const
+    FilePath FilePath::Relative(const FilePath &base) const
     {
         auto result = std::filesystem::relative(filePath, base.filePath);
         return FilePath(result);
     }
 
-    FilePath& FilePath::operator/=(const FilePath& sub)
+    FilePath &FilePath::operator/=(const FilePath &sub)
     {
         filePath /= sub.filePath;
         return *this;
     }
 
-    FilePath FilePath::operator/(const FilePath& sub) const
+    FilePath FilePath::operator/(const FilePath &sub) const
     {
         return FilePath(filePath) /= sub;
     }
@@ -144,7 +143,7 @@ namespace sky {
         stream.read(reinterpret_cast<char *>(out), static_cast<int64_t>(size));
     }
 
-    uint64_t NativeFile::AppendData(const char* data, uint64_t size)
+    uint64_t NativeFile::AppendData(const char *data, uint64_t size)
     {
         std::fstream file = filePath.OpenFStream(std::ios::out | std::ios::binary | std::ios::app);
         file.write(reinterpret_cast<const char *>(data), size);
@@ -183,7 +182,7 @@ namespace sky {
         return {};
     }
 
-    uint64_t RawBufferView::AppendData(const char* data, uint64_t size)
+    uint64_t RawBufferView::AppendData(const char *data, uint64_t size)
     {
         SKY_ASSERT(0) // read only
         return 0;
@@ -209,12 +208,23 @@ namespace sky {
         res.MakeDirectory();
     }
 
+    bool NativeFileSystem::Rename(const FilePath &from, const FilePath &to) const
+    {
+        auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
+        auto toPath   = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
+
+        std::error_code ec;
+        std::filesystem::remove(toPath, ec); // replace existing target (best-effort)
+        std::filesystem::rename(fromPath, toPath, ec);
+        return !ec;
+    }
+
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)
     {
         FilePath res = fsRoot;
         res /= path;
 
-        return res.Exist() ?  new NativeFile(res) : nullptr;
+        return res.Exist() ? new NativeFile(res) : nullptr;
     }
 
     FilePtr NativeFileSystem::CreateOrOpenFile(const FilePath &path)
@@ -228,19 +238,9 @@ namespace sky {
     void NativeFileSystem::Copy(const FilePath &from, const FilePath &to) const
     {
         auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
-        auto toPath = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
+        auto toPath   = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
 
         std::filesystem::copy(fromPath, toPath, std::filesystem::copy_options::overwrite_existing);
-    }
-
-    bool NativeFileSystem::Rename(const FilePath &from, const FilePath &to) const
-    {
-        auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
-        auto toPath = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
-
-        std::error_code ec;
-        std::filesystem::rename(fromPath, toPath, ec);
-        return !ec;
     }
 
     bool NativeFileSystem::IsSubDir(const std::string &path) const
@@ -264,7 +264,7 @@ namespace sky {
         if (std::filesystem::exists(path.filePath)) {
             for (const auto &entry : std::filesystem::recursive_directory_iterator{path.filePath}) {
                 if (entry.is_regular_file() && entry.path().extension() == ext) {
-                    result.emplace_back(FilePath( std::filesystem::relative(entry.path(), path.filePath)));
+                    result.emplace_back(FilePath(std::filesystem::relative(entry.path(), path.filePath)));
                 }
             }
         }

@@ -14,7 +14,6 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         Core
         Aurora.RHI
         Aurora
-        Aurora.Shader
 )
 
 # generated shader headers must exist before Aurora.Pipeline compiles
@@ -31,6 +30,7 @@ if (SKY_BUILD_TEST)
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS
             Aurora.Pipeline
+            AuroraShaderCompiler.Static
             3rdParty::googletest
     )
 endif ()

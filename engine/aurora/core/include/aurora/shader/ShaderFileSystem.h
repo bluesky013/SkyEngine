@@ -1,8 +1,7 @@
 //
-// ShaderFileSystem: virtual include provider for shader compilation.
-// Inherits core MultiFileSystem for search-path priority across mounted
-// IFileSystem instances, and adds in-memory virtual files (packaged content)
-// plus a Slang ISlangFileSystem bridge.
+// ShaderFileSystem: search-path-ordered virtual include provider for shader
+// compilation. Inherits core MultiFileSystem for search-path priority across
+// mounted IFileSystem instances, and adds in-memory virtual files.
 //
 
 #pragma once
@@ -12,8 +11,6 @@
 #include <string>
 #include <unordered_map>
 
-struct ISlangFileSystem;
-
 namespace sky::aurora {
 
     class ShaderFileSystem : public sky::MultiFileSystem {
@@ -21,7 +18,7 @@ namespace sky::aurora {
         ShaderFileSystem() = default;
         ~ShaderFileSystem() override;
 
-        ShaderFileSystem(const ShaderFileSystem &) = delete;
+        ShaderFileSystem(const ShaderFileSystem &)            = delete;
         ShaderFileSystem &operator=(const ShaderFileSystem &) = delete;
 
         // Convenience: mount an on-disk search directory.
@@ -31,23 +28,14 @@ namespace sky::aurora {
         // for a packaged shader source).
         void AddVirtualFile(std::string path, std::string content);
 
-        // Look up an in-memory virtual file; nullptr when not registered.
-        const std::string *Find(const std::string &path) const;
-
         // Resolve a logical path (virtual first, then disk search paths) to its
         // content. Returns false when unresolved.
         bool ReadFile(const std::string &path, std::string &content);
-
-        // Slang file system adapter (global ::ISlangFileSystem) that resolves
-        // #include against virtual files (top priority) then mounted file systems.
-        ISlangFileSystem *GetSlangFileSystem();
 
     private:
         bool Resolve(const std::string &path, std::string &content);
 
         std::unordered_map<std::string, std::string> mFiles;
-        class SlangAdapter;
-        SlangAdapter *mAdapter = nullptr;
     };
 
 } // namespace sky::aurora

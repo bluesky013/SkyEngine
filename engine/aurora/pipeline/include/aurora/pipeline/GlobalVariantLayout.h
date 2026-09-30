@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <aurora/rhi/VertexSemantic.h>
 #include <aurora/shader/ShaderVariant.h>
 
 #include <cstdint>
@@ -21,10 +22,33 @@ namespace sky::aurora {
         // reserved pipeline bits (budget), read from `@reserved` at load time
         uint16_t reservedBits = 0;
 
+        // fingerprint of the pipeline region definition (bit budget + layout);
+        // a component of the shader cache key so layout changes invalidate cached
+        // shaders.
+        uint64_t fingerprint = 0;
+
         // `@source pipeline` keys (relative bit offsets), loaded from data
         ShaderVariantSchema schema;
 
-        // validate: pipeline key bits must fit within `reservedBits`
+        // ---- P | V | S region layout (bit 0 upward) ----
+        //   [0, reservedBits)                       pipeline keys (P)
+        //   [reservedBits, +kVertexSemanticBits)    vertex semantics (V)
+        //   [+kVertexSemanticBits, ...)             per-shader schema (S)
+        uint16_t PipelineRegionBits() const
+        {
+            return reservedBits;
+        }
+        uint16_t VertexRegionBase() const
+        {
+            return reservedBits;
+        }
+        uint16_t ShaderRegionBase() const
+        {
+            return static_cast<uint16_t>(reservedBits + kVertexSemanticBits);
+        }
+
+        // validate: pipeline key bits fit within `reservedBits`, and
+        // P + V + S <= 128; also (re)computes `fingerprint`.
         bool Init(std::string *error = nullptr);
 
         // load + parse + validate from a pipeline variant .slang via a
@@ -37,8 +61,7 @@ namespace sky::aurora {
         std::string ToString(const ShaderVariantKey &key) const;
 
         // dump pipeline bits + per-shader bits of a composed key
-        std::string ToString(const ShaderVariantKey &key,
-                             const ShaderVariantSchema &perShaderSchema) const;
+        std::string ToString(const ShaderVariantKey &key, const ShaderVariantSchema &perShaderSchema) const;
     };
 
 } // namespace sky::aurora

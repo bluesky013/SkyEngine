@@ -1,5 +1,9 @@
 {
   "modules": [
+    {
+      "name": "AuroraShaderCompiler",
+      "dependencies": []
+    },
 	{
       "name": "FreeTypeModule",
       "dependencies": [

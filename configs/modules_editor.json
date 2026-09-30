@@ -1,6 +1,10 @@
 {
   "modules": [
     {
+      "name": "AuroraShaderCompiler",
+      "dependencies": []
+    },
+    {
       "name": "SandboxModule",
       "dependencies": []
     },

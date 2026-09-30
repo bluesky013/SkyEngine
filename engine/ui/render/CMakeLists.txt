@@ -15,5 +15,5 @@ sky_add_library(TARGET UIRender STATIC
         UI
         Aurora.Pipeline
         Aurora.RHI
-        Aurora.Shader
+        AuroraShaderCompiler.Static
 )

@@ -3,7 +3,6 @@
 ## Purpose
 TBD - consolidated from: aurora-shader-derived-layout aurora-shader-derived-pso aurora-shader-derived-resource-group aurora-shader-header-codegen aurora-shader-variant shader-slang-spike
 ## Requirements
-
 ### Requirement: PipelineLayout 接口对象被移除
 
 RHI 接口层 SHALL 不暴露 `PipelineLayout` 对象：不存在 `aurora/rhi/PipelineLayout.h`，`Device` SHALL 无 `CreatePipelineLayout`，`GraphicsPipeline::Descriptor` 与 `ComputePipeline::Descriptor` SHALL 无 `layout` 字段。
@@ -58,7 +57,6 @@ shader 内派生的 per-set descriptor set layout SHALL 不仅用于 pipeline la
 - **WHEN** 用同一 shader 分别创建 pipeline 与 ResourceGroup{shader, set}
 - **THEN** ResourceGroup 的 descriptor set 与 pipeline layout 的对应 set 使用同一 `VkDescriptorSetLayout`
 
-
 ### Requirement: shader 反射进入 RHI Shader
 
 后端无关的 `ShaderReflection` SHALL 定义在 `aurora/rhi` 接口层（`aurora/rhi/ShaderReflection.h`），`Shader::Descriptor` SHALL 携带 `const ShaderReflection *reflection`。`aurora/shader` 编译器 SHALL 填充该反射，各后端 SHALL 消费它构建 native layout。
@@ -85,7 +83,6 @@ shader 内派生的 per-set descriptor set layout SHALL 不仅用于 pipeline la
 
 - **WHEN** 创建 `D3D12GraphicsPipeline`/`D3D12ComputePipeline`
 - **THEN** `pRootSignature` 取自 `d3dShader->GetRootSignature()`（由反射构建），无外部传入
-
 
 ### Requirement: ResourceGroup 由 shader + set 创建
 
@@ -164,7 +161,6 @@ DYNAMIC 变体非 SPIR-V 反射自然产物，SHALL 由上层 codegen 按 `RgBlo
 - **WHEN** global（set 0）/ pass（set 1）block 的 reflection resource 类型为 `UNIFORM_BUFFER`
 - **THEN** ResourceGroup{shader, 0} 与 {shader, 1} 的 UBO 为 static，无 dynamic offset
 
-
 ### Requirement: 反射驱动 codegen
 
 离线 codegen（host 工具）SHALL 以 `.slang` shader 反射为输入，对每个 resource block 产出两侧共享头：C++ 镜像 struct 与 `RgBlockDesc`。
@@ -219,7 +215,6 @@ DYNAMIC 变体非 SPIR-V 反射自然产物，SHALL 由上层 codegen 按 `RgBlo
 
 - **WHEN** 运行时 `ValidateBlockAgainstReflection(desc, reflection)`
 - **THEN** 一致时返回空串；不一致时返回描述差异的错误信息
-
 
 ### Requirement: 统一变体模型
 
@@ -276,13 +271,17 @@ aurora.shader SHALL 提供统一 `Name→value` 变体模型，接口与 cache k
 
 ### Requirement: 统一 cache key 与 ShaderCache 接口
 
-`ShaderCacheKey{sourceHash, variantHash, target}` SHALL 统一（variantHash 不分强/弱）。aurora.shader SHALL 预留 `ShaderCache` 接口（Load/Store），`ShaderCompileDesc` 预留 `cache` 字段；本 change 不实现落地。
+`ShaderCacheKey` SHALL 统一（variantHash 不分强/弱）并扩展为 `{sourceHash, variantHash, target, stage, entryHash, layoutFp, schemaFp, toolchainFp}`。`ShaderCache`（Load/Store）接口 SHALL 由 `shader-cache` change 落地为内容寻址存储后端（offline 只读 / local 可写两 root）；`ShaderCompileDesc` 的 `cache` 字段 SHALL 被使用。
 
 #### Scenario: 统一 key
 
-- **WHEN** 同一 source + 同一 variant + 同一 target 编译两次
+- **WHEN** 同一 source + 同一 variant + 同一 target + 同一 layout/schema/toolchain 编译两次
 - **THEN** 产生相同 `ShaderCacheKey`；`cache == nullptr` 时走直接编译
 
+#### Scenario: key 含工具链与布局
+
+- **WHEN** source / variant / target 相同，但 `toolchainFp` 或 `layoutFp` 不同
+- **THEN** `ShaderCacheKey` 不同，不会命中旧产物
 
 ### Requirement: Slang 编译通道
 

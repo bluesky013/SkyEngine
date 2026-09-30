@@ -7,15 +7,16 @@ sky_find_3rd(TARGET slang DIR slang)
 set(AuroraShaderExtLibs 3rdParty::slang)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     # slang's DXIL backend loads dxcompiler.dll / dxil.dll at runtime; declare
-    # the dependency so the DLLs are copied next to the shader module.
-    # engine/shader (processed earlier) already finds dxcompiler on Windows.
+    # the dependency so the DLLs are copied next to the shader compiler module.
     if (NOT TARGET 3rdParty::dxcompiler)
         sky_find_3rd(TARGET dxcompiler DIR dxcompiler)
     endif ()
     list(APPEND AuroraShaderExtLibs 3rdParty::dxcompiler)
 endif ()
 
-sky_add_library(TARGET Aurora.Shader STATIC
+# Slang compiler implementation. Depends on aurora/core (ShaderRef / variants /
+# ShaderFileSystem / RgBlockDesc) which stays slang-free.
+sky_add_library(TARGET AuroraShaderCompiler.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -25,9 +26,21 @@ sky_add_library(TARGET Aurora.Shader STATIC
         include
     LINK_LIBS
         Core
+        Aurora
         Aurora.RHI
         ${AuroraShaderExtLibs}
 )
+
+# Optional framework module: registers the compiler into ShaderCompilerFactory.
+# Apps that omit it fall back to cache-only shader resolution.
+sky_add_library(TARGET AuroraShaderCompiler SHARED
+    SOURCES
+        module/AuroraShaderCompilerModule.cpp
+    LINK_LIBS
+        AuroraShaderCompiler.Static
+        Framework
+)
+sky_add_dependency(TARGET AuroraShaderCompiler DEPENDENCIES Launcher Editor)
 
 # ---- offline shader header codegen (host tool) ----
 
@@ -38,9 +51,20 @@ sky_add_exe(TARGET ShaderHeaderTool
         include
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     LIBS
-        Aurora.Shader
+        AuroraShaderCompiler.Static
         Core
         3rdParty::slang
+)
+
+# offline shader cook: usage.json -> index/blobs
+sky_add_exe(TARGET ShaderCookTool
+    SOURCES
+        tool/ShaderCookTool.cpp
+    INCS
+        include
+    LIBS
+        AuroraShaderCompiler.Static
+        Core
 )
 
 # slang shader assets, organized by resource tier:
@@ -71,7 +95,7 @@ if (SKY_BUILD_TEST)
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS
-            Aurora.Shader
+            AuroraShaderCompiler.Static
             Aurora.RHI
             3rdParty::googletest
     )

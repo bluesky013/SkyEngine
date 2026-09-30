@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <core/name/Name.h>
 #include <aurora/rhi/VertexSemantic.h>
+#include <core/name/Name.h>
 
 #include <cstdint>
 #include <string>
@@ -32,8 +32,7 @@ namespace sky::aurora {
         uint32_t ContentHash() const;
 
         // collect spec-constant entries into a specialization (id -> value)
-        void BuildSpecialization(const ShaderVariantSchema &schema,
-                                 ShaderSpecialization &out) const;
+        void BuildSpecialization(const ShaderVariantSchema &schema, ShaderSpecialization &out) const;
 
         // human-readable "key=value, key=value" dump
         std::string ToString() const;
@@ -41,13 +40,12 @@ namespace sky::aurora {
 
     // a vertex switch depends on a set of vertex semantics (all must be present)
     struct VertexVariantDef {
-        Name                          name;       // "HAS_VERTEX_COLOR"
-        std::vector<VertexSemantic>   semantics;  // {COLOR}
+        Name                        name;      // "HAS_VERTEX_COLOR"
+        std::vector<VertexSemantic> semantics; // {COLOR}
     };
 
     // compute switch values from a semantic mask and append to `out`
-    void BuildVertexVariant(const std::vector<VertexVariantDef> &defs,
-                            const VertexSemanticMask &mask, ShaderVariant &out);
+    void BuildVertexVariant(const std::vector<VertexVariantDef> &defs, const VertexSemanticMask &mask, ShaderVariant &out);
 
     // ---- global reserved pipeline bits ----
     // NOTE: the pipeline variant keys live in aurora/pipeline/GlobalVariantLayout
@@ -64,18 +62,18 @@ namespace sky::aurora {
         struct Entry {
             Name     key;
             Name     source;
-            uint16_t bitOffset = 0;   // bit offset relative to its source
-            uint8_t  bitWidth  = 0;
+            uint16_t bitOffset    = 0; // bit offset relative to its source
+            uint8_t  bitWidth     = 0;
             uint32_t defaultValue = 0;
-            bool     isSpec = false;  // true = specialization constant (weak variant)
-            uint32_t specId = 0;      // valid when isSpec
+            bool     isSpec       = false; // true = specialization constant (weak variant)
+            uint32_t specId       = 0;     // valid when isSpec
         };
 
         std::vector<Source> sources;
         std::vector<Entry>  entries;
-        uint32_t totalBits = 0;       // per-shader region size (caller adds pipeline reserved bits)
+        uint32_t            totalBits = 0; // per-shader region size (caller adds pipeline reserved bits)
 
-        bool Validate(std::string *error = nullptr) const;
+        bool          Validate(std::string *error = nullptr) const;
         const Entry  *FindEntry(Name key) const;
         const Source *FindSource(Name name) const;
         uint16_t      EntryAbsoluteOffset(const Entry &entry) const;
@@ -89,13 +87,13 @@ namespace sky::aurora {
         uint64_t words[2]  = {0, 0};
         uint32_t totalBits = 0;
 
-        void Set(const ShaderVariantSchema &schema, Name key, uint32_t value);
+        void     Set(const ShaderVariantSchema &schema, Name key, uint32_t value);
         uint32_t Get(const ShaderVariantSchema &schema, Name key) const;
-        void SetPipelineBit(uint16_t bitOffset, bool on);
+        void     SetPipelineBit(uint16_t bitOffset, bool on);
         uint32_t GetPipelineBit(uint16_t bitOffset) const;
 
         // 16-bit vertex semantic region at `offset`
-        void SetVertexSemantics(uint16_t offset, const VertexSemanticMask &mask);
+        void               SetVertexSemantics(uint16_t offset, const VertexSemanticMask &mask);
         VertexSemanticMask GetVertexSemantics(uint16_t offset) const;
 
         // human-readable "key=value, key=value" dump of the per-shader keys
@@ -110,8 +108,7 @@ namespace sky::aurora {
 
         bool operator==(const ShaderVariantKey &other) const
         {
-            return words[0] == other.words[0] && words[1] == other.words[1] &&
-                   totalBits == other.totalBits;
+            return words[0] == other.words[0] && words[1] == other.words[1] && totalBits == other.totalBits;
         }
 
     private:
@@ -123,13 +120,18 @@ namespace sky::aurora {
     struct ShaderCacheKey {
         uint64_t sourceHash  = 0;
         uint64_t variantHash = 0;
-        uint32_t target      = 0;   // static_cast<uint32_t>(ShaderTarget)
+        uint64_t layoutFp    = 0; // GlobalVariantLayout fingerprint
+        uint64_t schemaFp    = 0; // per-shader schema fingerprint
+        uint64_t toolchainFp = 0; // compiler/toolchain fingerprint
+        uint64_t entryHash   = 0; // hash of the entry point name (entry-level v1)
+        uint32_t target      = 0; // static_cast<uint32_t>(ShaderTarget)
+        uint32_t stage       = 0; // static_cast<uint32_t>(ShaderStageFlagBit)
     };
 
     class ShaderCache {
     public:
-        virtual ~ShaderCache() = default;
-        virtual bool Load(const ShaderCacheKey &key, ShaderCompileResult &out) = 0;
+        virtual ~ShaderCache()                                                           = default;
+        virtual bool Load(const ShaderCacheKey &key, ShaderCompileResult &out)           = 0;
         virtual void Store(const ShaderCacheKey &key, const ShaderCompileResult &result) = 0;
     };
 

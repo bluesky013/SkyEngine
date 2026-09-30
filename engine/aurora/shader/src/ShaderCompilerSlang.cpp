@@ -4,10 +4,11 @@
 
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/SlangFileSystemAdapter.h>
 #include <core/logger/Logger.h>
 
-#include <slang.h>
 #include <slang-com-ptr.h>
+#include <slang.h>
 
 #include <array>
 #include <cstring>
@@ -23,12 +24,12 @@ namespace sky::aurora {
         SlangStage ToSlangStage(ShaderStageFlagBit stage)
         {
             switch (stage) {
-            case ShaderStageFlagBit::VS:  return SLANG_STAGE_VERTEX;
-            case ShaderStageFlagBit::FS:  return SLANG_STAGE_FRAGMENT;
-            case ShaderStageFlagBit::CS:  return SLANG_STAGE_COMPUTE;
+            case ShaderStageFlagBit::VS: return SLANG_STAGE_VERTEX;
+            case ShaderStageFlagBit::FS: return SLANG_STAGE_FRAGMENT;
+            case ShaderStageFlagBit::CS: return SLANG_STAGE_COMPUTE;
             case ShaderStageFlagBit::TAS: return SLANG_STAGE_AMPLIFICATION;
-            case ShaderStageFlagBit::MS:  return SLANG_STAGE_MESH;
-            default:                      return SLANG_STAGE_NONE;
+            case ShaderStageFlagBit::MS: return SLANG_STAGE_MESH;
+            default: return SLANG_STAGE_NONE;
             }
         }
 
@@ -36,9 +37,9 @@ namespace sky::aurora {
         {
             switch (target) {
             case ShaderTarget::SPIRV: return "spirv_1_5";
-            case ShaderTarget::MSL:   return "metal";
-            case ShaderTarget::DXIL:  return "sm_6_5";
-            default:                  return nullptr;
+            case ShaderTarget::MSL: return "metal";
+            case ShaderTarget::DXIL: return "sm_6_5";
+            default: return nullptr;
             }
         }
 
@@ -46,9 +47,9 @@ namespace sky::aurora {
         {
             switch (target) {
             case ShaderTarget::SPIRV: return SLANG_SPIRV;
-            case ShaderTarget::MSL:   return SLANG_METAL;
-            case ShaderTarget::DXIL:  return SLANG_DXIL;
-            default:                  return SLANG_TARGET_UNKNOWN;
+            case ShaderTarget::MSL: return SLANG_METAL;
+            case ShaderTarget::DXIL: return SLANG_DXIL;
+            default: return SLANG_TARGET_UNKNOWN;
             }
         }
 
@@ -58,21 +59,16 @@ namespace sky::aurora {
                 const auto kind = typeLayout->getType()->getKind();
                 switch (kind) {
                 case slang::TypeReflection::Kind::SamplerState: return ShaderResourceType::SAMPLER;
-                default:                                        return ShaderResourceType::SAMPLED_IMAGE;
+                default: return ShaderResourceType::SAMPLED_IMAGE;
                 }
             }
             switch (category) {
-            case slang::ParameterCategory::SamplerState:
-                return ShaderResourceType::SAMPLER;
+            case slang::ParameterCategory::SamplerState: return ShaderResourceType::SAMPLER;
             case slang::ParameterCategory::ConstantBuffer:
-            case slang::ParameterCategory::PushConstantBuffer:
-                return ShaderResourceType::UNIFORM_BUFFER;
-            case slang::ParameterCategory::ShaderResource:
-                return ShaderResourceType::SAMPLED_IMAGE;
-            case slang::ParameterCategory::UnorderedAccess:
-                return ShaderResourceType::STORAGE_IMAGE;
-            default:
-                return ShaderResourceType::UNIFORM_BUFFER;
+            case slang::ParameterCategory::PushConstantBuffer: return ShaderResourceType::UNIFORM_BUFFER;
+            case slang::ParameterCategory::ShaderResource: return ShaderResourceType::SAMPLED_IMAGE;
+            case slang::ParameterCategory::UnorderedAccess: return ShaderResourceType::STORAGE_IMAGE;
+            default: return ShaderResourceType::UNIFORM_BUFFER;
             }
         }
 
@@ -80,10 +76,10 @@ namespace sky::aurora {
         {
             switch (type) {
             case slang::TypeReflection::ScalarType::Float32: return ShaderScalarType::FLOAT;
-            case slang::TypeReflection::ScalarType::Int32:   return ShaderScalarType::INT;
-            case slang::TypeReflection::ScalarType::UInt32:  return ShaderScalarType::UINT;
-            case slang::TypeReflection::ScalarType::Bool:    return ShaderScalarType::BOOL;
-            default:                                         return ShaderScalarType::UNKNOWN;
+            case slang::TypeReflection::ScalarType::Int32: return ShaderScalarType::INT;
+            case slang::TypeReflection::ScalarType::UInt32: return ShaderScalarType::UINT;
+            case slang::TypeReflection::ScalarType::Bool: return ShaderScalarType::BOOL;
+            default: return ShaderScalarType::UNKNOWN;
             }
         }
 
@@ -93,14 +89,13 @@ namespace sky::aurora {
             case slang::TypeReflection::Kind::Scalar: return ShaderTypeKind::SCALAR;
             case slang::TypeReflection::Kind::Vector: return ShaderTypeKind::VECTOR;
             case slang::TypeReflection::Kind::Matrix: return ShaderTypeKind::MATRIX;
-            case slang::TypeReflection::Kind::Array:  return ShaderTypeKind::ARRAY;
+            case slang::TypeReflection::Kind::Array: return ShaderTypeKind::ARRAY;
             case slang::TypeReflection::Kind::Struct: return ShaderTypeKind::STRUCT;
-            default:                                  return ShaderTypeKind::UNKNOWN;
+            default: return ShaderTypeKind::UNKNOWN;
             }
         }
 
-        void ReflectBlockMembers(slang::VariableLayoutReflection *var, uint32_t set, uint32_t binding,
-                                 ShaderReflection &reflection)
+        void ReflectBlockMembers(slang::VariableLayoutReflection *var, uint32_t set, uint32_t binding, ShaderReflection &reflection)
         {
             // ParameterBlock / ConstantBuffer: unwrap to the element type, then read fields
             auto *typeLayout = var->getTypeLayout();
@@ -113,8 +108,7 @@ namespace sky::aurora {
             block.name    = var->getName() != nullptr ? var->getName() : "";
             block.set     = set;
             block.binding = binding;
-            block.size    = static_cast<uint32_t>(
-                elemLayout->getSize(slang::ParameterCategory::Uniform));
+            block.size    = static_cast<uint32_t>(elemLayout->getSize(slang::ParameterCategory::Uniform));
 
             auto *elemType = elemLayout->getType();
             if (elemType != nullptr && elemType->getName() != nullptr) {
@@ -128,14 +122,12 @@ namespace sky::aurora {
                     continue;
                 }
                 ShaderBlockMember member{};
-                member.name   = field->getName() != nullptr ? field->getName() : "";
-                member.offset = static_cast<uint32_t>(
-                    field->getOffset(slang::ParameterCategory::Uniform));
+                member.name     = field->getName() != nullptr ? field->getName() : "";
+                member.offset   = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::Uniform));
                 auto *fieldType = field->getTypeLayout();
                 if (fieldType != nullptr) {
-                    member.size = static_cast<uint32_t>(
-                        fieldType->getSize(slang::ParameterCategory::Uniform));
-                    auto *type = fieldType->getType();
+                    member.size = static_cast<uint32_t>(fieldType->getSize(slang::ParameterCategory::Uniform));
+                    auto *type  = fieldType->getType();
                     if (type != nullptr) {
                         member.kind       = MapTypeKind(type->getKind());
                         member.scalarType = MapScalarType(type->getScalarType());
@@ -162,8 +154,8 @@ namespace sky::aurora {
                 // ParameterBlock occupies a whole register space (descriptor set);
                 // on SPIRV its getBindingIndex() is the descriptor set index it owns
                 if (category == slang::ParameterCategory::SubElementRegisterSpace) {
-                    const auto blockSet = var->getBindingIndex();
-                    const uint32_t set = blockSet == SLANG_UNKNOWN_SIZE ? 0 : static_cast<uint32_t>(blockSet);
+                    const auto     blockSet = var->getBindingIndex();
+                    const uint32_t set      = blockSet == SLANG_UNKNOWN_SIZE ? 0 : static_cast<uint32_t>(blockSet);
 
                     ShaderResource res{};
                     res.name    = var->getName() != nullptr ? var->getName() : "";
@@ -176,12 +168,9 @@ namespace sky::aurora {
                     continue;
                 }
 
-                if (category != slang::ParameterCategory::ConstantBuffer &&
-                    category != slang::ParameterCategory::ShaderResource &&
-                    category != slang::ParameterCategory::UnorderedAccess &&
-                    category != slang::ParameterCategory::SamplerState &&
-                    category != slang::ParameterCategory::DescriptorTableSlot &&
-                    category != slang::ParameterCategory::PushConstantBuffer) {
+                if (category != slang::ParameterCategory::ConstantBuffer && category != slang::ParameterCategory::ShaderResource &&
+                    category != slang::ParameterCategory::UnorderedAccess && category != slang::ParameterCategory::SamplerState &&
+                    category != slang::ParameterCategory::DescriptorTableSlot && category != slang::ParameterCategory::PushConstantBuffer) {
                     continue;
                 }
 
@@ -191,11 +180,10 @@ namespace sky::aurora {
                 if (category == slang::ParameterCategory::PushConstantBuffer) {
                     PushConstantRange range{};
                     range.stageFlags = ShaderStageFlagBit::VS | ShaderStageFlagBit::FS | ShaderStageFlagBit::CS;
-                    range.offset = static_cast<uint32_t>(var->getOffset(slang::ParameterCategory::Uniform));
+                    range.offset     = static_cast<uint32_t>(var->getOffset(slang::ParameterCategory::Uniform));
                     auto *typeLayout = var->getTypeLayout();
                     auto *elemLayout = typeLayout != nullptr ? typeLayout->getElementTypeLayout() : nullptr;
-                    range.size = elemLayout != nullptr
-                        ? static_cast<uint32_t>(elemLayout->getSize(slang::ParameterCategory::Uniform)) : 0;
+                    range.size       = elemLayout != nullptr ? static_cast<uint32_t>(elemLayout->getSize(slang::ParameterCategory::Uniform)) : 0;
                     reflection.pushConstants.push_back(range);
                     continue;
                 }
@@ -240,7 +228,7 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto slangTarget = ToSlangTarget(desc.target);
+        const auto  slangTarget = ToSlangTarget(desc.target);
         const char *profileName = SlangTargetProfile(desc.target);
         if (slangTarget == SLANG_TARGET_UNKNOWN || profileName == nullptr) {
             result.errorInfo = "unsupported slang target";
@@ -248,17 +236,17 @@ namespace sky::aurora {
         }
 
         slang::SessionDesc sessionDesc = {};
-        slang::TargetDesc targetDesc = {};
-        targetDesc.format  = slangTarget;
-        targetDesc.profile = gGlobalSession->findProfile(profileName);
+        slang::TargetDesc  targetDesc  = {};
+        targetDesc.format              = slangTarget;
+        targetDesc.profile             = gGlobalSession->findProfile(profileName);
 
         // variant defines (strong variants) -> preprocessor macros. String
         // storage must stay alive for the duration of the compile call.
         // Weak variants (specialization constants) are NOT injected on
         // SPIRV/MSL (value applied at pipeline/function creation); on DXIL they
         // fold via a -D override (no native specialization constant).
-        std::vector<std::string>               macroNames;
-        std::vector<std::string>               macroValues;
+        std::vector<std::string>                  macroNames;
+        std::vector<std::string>                  macroValues;
         std::vector<slang::PreprocessorMacroDesc> macros;
 
         // target-identifying macros (string literals have static storage) so
@@ -276,10 +264,10 @@ namespace sky::aurora {
                 bool isSpec = false;
                 if (desc.schema != nullptr) {
                     const ShaderVariantSchema::Entry *se = desc.schema->FindEntry(entry.key);
-                    isSpec = se != nullptr && se->isSpec;
+                    isSpec                               = se != nullptr && se->isSpec;
                 }
                 if (isSpec && desc.target != ShaderTarget::DXIL) {
-                    continue;   // leave for native specialization
+                    continue; // leave for native specialization
                 }
                 macroNames.emplace_back(entry.key.GetStr());
                 macroValues.emplace_back(std::to_string(entry.value));
@@ -292,30 +280,29 @@ namespace sky::aurora {
         // no #line directives in emitted code (keeps MSL/GLSL output clean);
         // output-format options live on TargetDesc
         slang::CompilerOptionEntry lineOpt{};
-        lineOpt.name            = slang::CompilerOptionName::LineDirectiveMode;
-        lineOpt.value.kind      = slang::CompilerOptionValueKind::Int;
-        lineOpt.value.intValue0 = SLANG_LINE_DIRECTIVE_MODE_NONE;
+        lineOpt.name                        = slang::CompilerOptionName::LineDirectiveMode;
+        lineOpt.value.kind                  = slang::CompilerOptionValueKind::Int;
+        lineOpt.value.intValue0             = SLANG_LINE_DIRECTIVE_MODE_NONE;
         targetDesc.compilerOptionEntries    = &lineOpt;
         targetDesc.compilerOptionEntryCount = 1;
 
         sessionDesc.targets     = &targetDesc;
         sessionDesc.targetCount = 1;
-
         // virtual include: resolve #include against in-memory generated headers
-        sessionDesc.fileSystem = desc.fileSystem != nullptr
-            ? desc.fileSystem->GetSlangFileSystem()
-            : nullptr;
-
+        Slang::ComPtr<ISlangFileSystem> slangFileSystem;
+        if (desc.fileSystem != nullptr) {
+            slangFileSystem.attach(CreateSlangFileSystem(desc.fileSystem));
+        }
+        sessionDesc.fileSystem = slangFileSystem.get();
         Slang::ComPtr<slang::ISession> session;
         if (!SLANG_SUCCEEDED(gGlobalSession->createSession(sessionDesc, session.writeRef()))) {
             result.errorInfo = "createSession failed";
             return false;
         }
 
-        Slang::ComPtr<slang::IBlob> diagnostics;
+        Slang::ComPtr<slang::IBlob>   diagnostics;
         Slang::ComPtr<slang::IModule> module;
-        module.attach(session->loadModuleFromSourceString(
-            "spike", "spike.slang", desc.source.c_str(), diagnostics.writeRef()));
+        module.attach(session->loadModuleFromSourceString("spike", "spike.slang", desc.source.c_str(), diagnostics.writeRef()));
         if (diagnostics != nullptr) {
             result.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
         }
@@ -324,8 +311,8 @@ namespace sky::aurora {
         }
 
         Slang::ComPtr<slang::IEntryPoint> entryPoint;
-        if (!SLANG_SUCCEEDED(module->findAndCheckEntryPoint(desc.entry.c_str(), ToSlangStage(desc.stage),
-                                                            entryPoint.writeRef(), diagnostics.writeRef()))) {
+        if (!SLANG_SUCCEEDED(
+                module->findAndCheckEntryPoint(desc.entry.c_str(), ToSlangStage(desc.stage), entryPoint.writeRef(), diagnostics.writeRef()))) {
             if (diagnostics != nullptr) {
                 result.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
             }
@@ -333,9 +320,9 @@ namespace sky::aurora {
         }
 
         std::array<slang::IComponentType *, 2> components = {module.get(), entryPoint.get()};
-        Slang::ComPtr<slang::IComponentType> composed;
-        if (!SLANG_SUCCEEDED(session->createCompositeComponentType(components.data(), components.size(),
-                                                                   composed.writeRef(), diagnostics.writeRef()))) {
+        Slang::ComPtr<slang::IComponentType>   composed;
+        if (!SLANG_SUCCEEDED(
+                session->createCompositeComponentType(components.data(), components.size(), composed.writeRef(), diagnostics.writeRef()))) {
             if (diagnostics != nullptr) {
                 result.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
             }
@@ -358,13 +345,12 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto *bytes = static_cast<const uint8_t *>(code->getBufferPointer());
-        const size_t size = code->getBufferSize();
+        const auto  *bytes = static_cast<const uint8_t *>(code->getBufferPointer());
+        const size_t size  = code->getBufferSize();
 
         if (desc.target == ShaderTarget::SPIRV) {
             const size_t wordCount = size / sizeof(uint32_t);
-            result.data.assign(reinterpret_cast<const uint32_t *>(bytes),
-                               reinterpret_cast<const uint32_t *>(bytes) + wordCount);
+            result.data.assign(reinterpret_cast<const uint32_t *>(bytes), reinterpret_cast<const uint32_t *>(bytes) + wordCount);
         } else {
             // MSL text / DXIL blob packed into words
             const size_t wordCount = (size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
@@ -400,15 +386,14 @@ namespace sky::aurora {
         return true;
     }
 
-    bool ShaderCompilerSlang::ReflectBlocks(const std::string &source, ShaderTarget target,
-                                            ShaderReflection &reflection, std::string &error)
+    bool ShaderCompilerSlang::ReflectBlocks(const std::string &source, ShaderTarget target, ShaderReflection &reflection, std::string &error)
     {
         if (!InitGlobalSession()) {
             error = "createGlobalSession failed";
             return false;
         }
 
-        const auto slangTarget = ToSlangTarget(target);
+        const auto  slangTarget = ToSlangTarget(target);
         const char *profileName = SlangTargetProfile(target);
         if (slangTarget == SLANG_TARGET_UNKNOWN || profileName == nullptr) {
             error = "unsupported slang target";
@@ -416,11 +401,11 @@ namespace sky::aurora {
         }
 
         slang::SessionDesc sessionDesc = {};
-        slang::TargetDesc targetDesc = {};
-        targetDesc.format  = slangTarget;
-        targetDesc.profile = gGlobalSession->findProfile(profileName);
-        sessionDesc.targets     = &targetDesc;
-        sessionDesc.targetCount = 1;
+        slang::TargetDesc  targetDesc  = {};
+        targetDesc.format              = slangTarget;
+        targetDesc.profile             = gGlobalSession->findProfile(profileName);
+        sessionDesc.targets            = &targetDesc;
+        sessionDesc.targetCount        = 1;
 
         Slang::ComPtr<slang::ISession> session;
         if (!SLANG_SUCCEEDED(gGlobalSession->createSession(sessionDesc, session.writeRef()))) {
@@ -428,10 +413,9 @@ namespace sky::aurora {
             return false;
         }
 
-        Slang::ComPtr<slang::IBlob> diagnostics;
+        Slang::ComPtr<slang::IBlob>   diagnostics;
         Slang::ComPtr<slang::IModule> module;
-        module.attach(session->loadModuleFromSourceString(
-            "spike", "spike.slang", source.c_str(), diagnostics.writeRef()));
+        module.attach(session->loadModuleFromSourceString("spike", "spike.slang", source.c_str(), diagnostics.writeRef()));
         if (diagnostics != nullptr) {
             error = static_cast<const char *>(diagnostics->getBufferPointer());
         }

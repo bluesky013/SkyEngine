@@ -23,5 +23,4 @@ sky_add_library(TARGET EditorRender STATIC
         UIRender
         Aurora.RHI
         Aurora.Pipeline
-        Aurora.Shader
 )
