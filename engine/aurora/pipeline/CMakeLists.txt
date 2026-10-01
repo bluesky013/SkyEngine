@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET Aurora.Pipeline STATIC
+sky_add_library(TARGET Aurora.Pipeline.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -12,25 +12,25 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         include
     LINK_LIBS
         Core
-        Aurora.RHI
-        Aurora
+        Aurora.RHI.Static
+        Aurora.Core.Static
 )
 
-# generated shader headers must exist before Aurora.Pipeline compiles
-add_dependencies(Aurora.Pipeline ShaderHeaders)
+# generated shader headers must exist before Aurora.Pipeline.Static compiles
+add_dependencies(Aurora.Pipeline.Static ShaderHeaders)
 
 file(GLOB_RECURSE TEST_FILES test/*)
 
 if (SKY_BUILD_TEST)
-    sky_add_test(TARGET AuroraPipelineTest
+    sky_add_test(TARGET Aurora.PipelineTest
         SOURCES
             ${TEST_FILES}
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS
-            Aurora.Pipeline
-            AuroraShaderCompiler.Static
+            Aurora.Pipeline.Static
+            Aurora.ShaderCompiler.Static
             3rdParty::googletest
     )
 endif ()

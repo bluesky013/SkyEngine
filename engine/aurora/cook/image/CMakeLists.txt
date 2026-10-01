@@ -5,7 +5,7 @@ sky_find_3rd(TARGET stb          DIR stb)
 sky_find_3rd(TARGET ispc_texcomp DIR ispc_texcomp)
 sky_find_3rd(TARGET astc         DIR astc)
 
-sky_add_library(TARGET AuroraCook.Static STATIC
+sky_add_library(TARGET Aurora.Cook.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -14,7 +14,7 @@ sky_add_library(TARGET AuroraCook.Static STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Aurora.Adaptor
+        Aurora.Adaptor.Static
         Framework
         Core
         3rdParty::stb

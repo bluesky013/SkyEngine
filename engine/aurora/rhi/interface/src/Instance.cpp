@@ -26,10 +26,10 @@ namespace sky::aurora {
         }
 
         std::string nameMap[] = {
-            "AuroraVulkan",
-            "AuroraVulkan",
-            "AuroraMetal",
-            "AuroraDX12",
+            "Aurora.Vulkan",
+            "Aurora.Vulkan",
+            "Aurora.Metal",
+            "Aurora.DX12",
         };
 
         auto api  = nameMap[static_cast<uint32_t>(desc.api)];

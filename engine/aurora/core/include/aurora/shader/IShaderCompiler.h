@@ -2,7 +2,7 @@
 // IShaderCompiler: abstract shader compiler + process-wide registry.
 //
 // The compiler implementation lives in a separate (optional) module
-// (AuroraShaderCompiler) that registers itself here on load. The resolver
+// (Aurora.ShaderCompiler) that registers itself here on load. The resolver
 // consults GetCompiler(); a null compiler means cache-only resolution.
 //
 

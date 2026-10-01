@@ -26,7 +26,7 @@ sky_add_library(TARGET BulletPhysicsRenderModule SHARED
         render/BulletPhysicsRenderModule.cpp
     LINK_LIBS
         Physics
-        Aurora.Adaptor
+        Aurora.Adaptor.Static
         Framework
 )
 

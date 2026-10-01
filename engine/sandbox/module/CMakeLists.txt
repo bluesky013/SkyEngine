@@ -22,14 +22,14 @@ sky_add_library(TARGET SandboxModule SHARED
 )
 
 # backends are dlopen'd by Instance at runtime; build + deploy them next to the host
-if (TARGET AuroraVulkan)
-    add_dependencies(SandboxModule AuroraVulkan)
+if (TARGET Aurora.Vulkan)
+    add_dependencies(SandboxModule Aurora.Vulkan)
 endif ()
-if (TARGET AuroraDX12)
-    add_dependencies(SandboxModule AuroraDX12)
+if (TARGET Aurora.DX12)
+    add_dependencies(SandboxModule Aurora.DX12)
 endif ()
-if (TARGET AuroraMetal)
-    add_dependencies(SandboxModule AuroraMetal)
+if (TARGET Aurora.Metal)
+    add_dependencies(SandboxModule Aurora.Metal)
 endif ()
 
 sky_add_dependency(TARGET SandboxModule DEPENDENCIES SandboxEditor)

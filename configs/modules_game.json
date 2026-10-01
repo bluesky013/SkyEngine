@@ -1,13 +1,13 @@
 {
   "modules": [
     {
-      "name": "AuroraShaderCompiler",
+      "name": "Aurora.ShaderCompiler",
       "dependencies": []
     },
 	{
       "name": "FreeTypeModule",
       "dependencies": [
-        "AuroraRender"
+        "Aurora.Render"
       ]
     },
     {

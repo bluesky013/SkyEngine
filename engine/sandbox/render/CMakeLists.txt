@@ -21,6 +21,6 @@ sky_add_library(TARGET EditorRender STATIC
         EditorCore
         UI
         UIRender
-        Aurora.RHI
-        Aurora.Pipeline
+        Aurora.RHI.Static
+        Aurora.Pipeline.Static
 )

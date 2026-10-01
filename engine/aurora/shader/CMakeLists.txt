@@ -16,7 +16,7 @@ endif ()
 
 # Slang compiler implementation. Depends on aurora/core (ShaderRef / variants /
 # ShaderFileSystem / RgBlockDesc) which stays slang-free.
-sky_add_library(TARGET AuroraShaderCompiler.Static STATIC
+sky_add_library(TARGET Aurora.ShaderCompiler.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -26,21 +26,21 @@ sky_add_library(TARGET AuroraShaderCompiler.Static STATIC
         include
     LINK_LIBS
         Core
-        Aurora
-        Aurora.RHI
+        Aurora.Core.Static
+        Aurora.RHI.Static
         ${AuroraShaderExtLibs}
 )
 
 # Optional framework module: registers the compiler into ShaderCompilerFactory.
 # Apps that omit it fall back to cache-only shader resolution.
-sky_add_library(TARGET AuroraShaderCompiler SHARED
+sky_add_library(TARGET Aurora.ShaderCompiler SHARED
     SOURCES
         module/AuroraShaderCompilerModule.cpp
     LINK_LIBS
-        AuroraShaderCompiler.Static
+        Aurora.ShaderCompiler.Static
         Framework
 )
-sky_add_dependency(TARGET AuroraShaderCompiler DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET Aurora.ShaderCompiler DEPENDENCIES Launcher Editor)
 
 # ---- offline shader header codegen (host tool) ----
 
@@ -51,7 +51,7 @@ sky_add_exe(TARGET ShaderHeaderTool
         include
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     LIBS
-        AuroraShaderCompiler.Static
+        Aurora.ShaderCompiler.Static
         Core
         3rdParty::slang
 )
@@ -63,7 +63,7 @@ sky_add_exe(TARGET ShaderCookTool
     INCS
         include
     LIBS
-        AuroraShaderCompiler.Static
+        Aurora.ShaderCompiler.Static
         Core
 )
 
@@ -89,25 +89,25 @@ add_custom_command(
 add_custom_target(ShaderHeaders DEPENDS ${GLOBAL_BLOCK_GEN})
 
 if (SKY_BUILD_TEST)
-    sky_add_test(TARGET AuroraShaderTest
+    sky_add_test(TARGET Aurora.ShaderTest
         SOURCES
             ${TEST_FILES}
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS
-            AuroraShaderCompiler.Static
-            Aurora.RHI
+            Aurora.ShaderCompiler.Static
+            Aurora.RHI.Static
             3rdParty::googletest
     )
 
     # backends are dlopen'd at runtime; only need them built, not linked
-    if (TARGET AuroraVulkan)
-        add_dependencies(AuroraShaderTest AuroraVulkan)
+    if (TARGET Aurora.Vulkan)
+        add_dependencies(Aurora.ShaderTest Aurora.Vulkan)
     endif()
-    if (TARGET AuroraDX12)
-        add_dependencies(AuroraShaderTest AuroraDX12)
+    if (TARGET Aurora.DX12)
+        add_dependencies(Aurora.ShaderTest Aurora.DX12)
     endif()
-    if (TARGET AuroraMetal)
-        add_dependencies(AuroraShaderTest AuroraMetal)
+    if (TARGET Aurora.Metal)
+        add_dependencies(Aurora.ShaderTest Aurora.Metal)
     endif()
 endif ()

@@ -1,23 +1,23 @@
 # Runtime render module (launcher-facing dynamic module), symmetric with
 # engine/aurora/editor. Links the static bridge and registers AuroraModule.
-sky_add_library(TARGET AuroraRender SHARED
+sky_add_library(TARGET Aurora.Render SHARED
     SOURCES
         src/AuroraRegistry.cpp
     LINK_LIBS
-        Aurora.Adaptor
+        Aurora.Adaptor.Static
         Core
 )
 
 # backends are dlopen'd by Instance at runtime; only need them built + deployed
-if (TARGET AuroraVulkan)
-    add_dependencies(AuroraRender AuroraVulkan)
+if (TARGET Aurora.Vulkan)
+    add_dependencies(Aurora.Render Aurora.Vulkan)
 endif()
-if (TARGET AuroraDX12)
-    add_dependencies(AuroraRender AuroraDX12)
+if (TARGET Aurora.DX12)
+    add_dependencies(Aurora.Render Aurora.DX12)
 endif()
-if (TARGET AuroraMetal)
-    add_dependencies(AuroraRender AuroraMetal)
+if (TARGET Aurora.Metal)
+    add_dependencies(Aurora.Render Aurora.Metal)
 endif()
 
-# build AuroraRender before the launcher so its dll lands next to the exe
-sky_add_dependency(TARGET AuroraRender DEPENDENCIES Launcher)
+# build Aurora.Render before the launcher so its dll lands next to the exe
+sky_add_dependency(TARGET Aurora.Render DEPENDENCIES Launcher)
