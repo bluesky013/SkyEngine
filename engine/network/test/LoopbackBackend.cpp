@@ -4,7 +4,6 @@
 
 #include "LoopbackBackend.h"
 
-#include <algorithm>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -95,8 +94,11 @@ namespace sky::net::test {
             if (peer == nullptr || peer->closed) {
                 return NetResult::NotConnected;
             }
-            if (owner != nullptr && owner->ShouldDropNextSend()) {
-                return NetResult::Ok;
+            if (owner != nullptr) {
+                const bool unreliable = mode == DeliveryMode::Unreliable || mode == DeliveryMode::UnreliableSequenced;
+                if (unreliable && owner->ShouldDropNextSend()) {
+                    return NetResult::Ok;
+                }
             }
 
             LoopbackItem item;
@@ -180,6 +182,7 @@ namespace sky::net::test {
         c.client     = true;
         c.server     = true;
         c.defaultMode = DeliveryMode::ReliableOrdered;
+        c.realSendSequence = true;   // loopback assigns the sequence at send time
         c.threading.supportsCallerPump = true;
         c.threading.supportsHostThread = true;
         c.maxChannels = 8;

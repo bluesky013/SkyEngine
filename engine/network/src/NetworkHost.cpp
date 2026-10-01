@@ -4,6 +4,8 @@
 
 #include <network/NetworkHost.h>
 
+#include <network/detail/ByteCodec.h>
+
 #include <core/logger/Logger.h>
 
 #include <algorithm>
@@ -21,48 +23,13 @@ namespace sky::net {
             return static_cast<uint64_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
         }
 
-        void AppendU16(std::vector<uint8_t> &out, uint16_t value)
-        {
-            out.push_back(static_cast<uint8_t>(value & 0xFFu));
-            out.push_back(static_cast<uint8_t>((value >> 8u) & 0xFFu));
-        }
-
-        void AppendU64(std::vector<uint8_t> &out, uint64_t value)
-        {
-            for (uint32_t i = 0; i < 8; ++i) {
-                out.push_back(static_cast<uint8_t>((value >> (i * 8u)) & 0xFFu));
-            }
-        }
-
-        bool ReadU16(const uint8_t *data, uint32_t size, uint32_t &offset, uint16_t &out)
-        {
-            if (offset + 2 > size) {
-                return false;
-            }
-            out = static_cast<uint16_t>(data[offset]) | (static_cast<uint16_t>(data[offset + 1]) << 8u);
-            offset += 2;
-            return true;
-        }
-
-        bool ReadU64(const uint8_t *data, uint32_t size, uint32_t &offset, uint64_t &out)
-        {
-            if (offset + 8 > size) {
-                return false;
-            }
-            out = 0;
-            for (uint32_t i = 0; i < 8; ++i) {
-                out |= static_cast<uint64_t>(data[offset + i]) << (i * 8u);
-            }
-            offset += 8;
-            return true;
-        }
-
     } // namespace
 
     NetworkHost::NetworkHost(const NetworkHostConfig &cfg) : config(cfg), clock(&DefaultNowMs)
     {
         queueCapacity = config.eventQueueCapacity == 0 ? 1 : config.eventQueueCapacity;
         reconnectBackoffMs = config.reconnectInitialBackoffMs;
+        server = (config.role == NetworkRole::Server);
 
         const uint32_t laneCount = config.laneCount == 0 ? 1 : config.laneCount;
         lanes.resize(laneCount);
@@ -126,6 +93,7 @@ namespace sky::net {
         if (threading == NetworkThreading::OwnedThread && !running.exchange(true)) {
             ioThread = std::thread([this]() {
                 while (running.load()) {
+                    FlushOutbound();
                     uint32_t pumped = 0;
                     for (auto *backend : backends) {
                         if (backend != nullptr) {
@@ -134,7 +102,12 @@ namespace sky::net {
                         }
                     }
                     pumpingBackend = nullptr;
-                    if (pumped == 0) {
+                    bool outboundEmpty = false;
+                    {
+                        std::lock_guard<std::mutex> lock(outboundMutex);
+                        outboundEmpty = outbound.empty();
+                    }
+                    if (pumped == 0 && outboundEmpty) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     }
                 }
@@ -211,38 +184,12 @@ namespace sky::net {
 
     NetResult NetworkHost::Send(ConnectionId id, ChannelId channel, std::span<const uint8_t> payload, DeliveryMode mode)
     {
-        auto *backend = BackendFor(id);
-        if (backend == nullptr) {
-            return NetResult::NotConnected;
-        }
-        auto *connection = backend->GetConnection(id);
-        if (connection == nullptr) {
-            return NetResult::NotConnected;
-        }
-        const auto &caps = backend->GetCaps();
-        if (!caps.Supports(mode)) {
-            return NetResult::UnsupportedDeliveryMode;
-        }
-        if (payload.size() > caps.maxPayload) {
-            return NetResult::PayloadTooLarge;
-        }
-        NetResult result = connection->Send(channel, payload, mode);
-        if (result == NetResult::Ok) {
-            bytesOut += payload.size();
-            if (auto *lane = LaneFor(id)) {
-                lane->bytesOut += payload.size();
-            }
-        }
-        return result;
+        return DeliverSend(id, channel, payload, mode);
     }
 
     void NetworkHost::Disconnect(ConnectionId id, DisconnectReason reason)
     {
-        if (auto *backend = BackendFor(id)) {
-            if (auto *connection = backend->GetConnection(id)) {
-                connection->Close(reason);
-            }
-        }
+        DeliverClose(id, reason);
     }
 
     NetResult NetworkHost::RedirectTo(ConnectionId id, const NetworkAddress &target)
@@ -259,12 +206,12 @@ namespace sky::net {
         }
 
         std::vector<uint8_t> body;
-        body.reserve(2 + addressText.size() + ResumeToken::SERIALIZED_SIZE);
-        AppendU16(body, static_cast<uint16_t>(addressText.size()));
-        body.insert(body.end(), addressText.begin(), addressText.end());
+        ByteWriter writer(body);
+        writer.U16(static_cast<uint16_t>(addressText.size()));
+        writer.Bytes(std::span<const uint8_t>(reinterpret_cast<const uint8_t *>(addressText.data()), addressText.size()));
         uint8_t tokenBytes[ResumeToken::SERIALIZED_SIZE] = {};
         token.Serialize(tokenBytes, sizeof(tokenBytes));
-        body.insert(body.end(), tokenBytes, tokenBytes + ResumeToken::SERIALIZED_SIZE);
+        writer.Bytes(std::span<const uint8_t>(tokenBytes, sizeof(tokenBytes)));
 
         SendControl(id, NetControlType::Redirect, body);
         return NetResult::Ok;
@@ -352,6 +299,96 @@ namespace sky::net {
         return LaneIndexFor(id);
     }
 
+    bool NetworkHost::NeedsDefer(INetBackend *backend) const
+    {
+        return threading == NetworkThreading::OwnedThread && backend != nullptr &&
+               !backend->GetCaps().threading.threadSafeSend;
+    }
+
+    NetResult NetworkHost::DeliverSend(ConnectionId id, ChannelId channel, std::span<const uint8_t> payload,
+                                       DeliveryMode mode)
+    {
+        auto *backend = BackendFor(id);
+        if (backend == nullptr) {
+            return NetResult::NotConnected;
+        }
+        const auto &caps = backend->GetCaps();
+        if (!caps.Supports(mode)) {
+            return NetResult::UnsupportedDeliveryMode;
+        }
+        if (payload.size() > caps.maxPayload) {
+            return NetResult::PayloadTooLarge;
+        }
+
+        if (NeedsDefer(backend)) {
+            Outbound command;
+            command.kind       = Outbound::Kind::Send;
+            command.backend    = backend;
+            command.connection = id;
+            command.channel    = channel;
+            command.mode       = mode;
+            command.payload.assign(payload.begin(), payload.end());
+            std::lock_guard<std::mutex> lock(outboundMutex);
+            outbound.push_back(std::move(command));
+        } else {
+            auto *connection = backend->GetConnection(id);
+            if (connection == nullptr) {
+                return NetResult::NotConnected;
+            }
+            if (connection->Send(channel, payload, mode) != NetResult::Ok) {
+                return NetResult::NotConnected;
+            }
+        }
+
+        bytesOut += payload.size();
+        if (auto *lane = LaneFor(id)) {
+            lane->bytesOut += payload.size();
+        }
+        return NetResult::Ok;
+    }
+
+    void NetworkHost::DeliverClose(ConnectionId id, DisconnectReason reason)
+    {
+        auto *backend = BackendFor(id);
+        if (backend == nullptr) {
+            return;
+        }
+        if (NeedsDefer(backend)) {
+            Outbound command;
+            command.kind       = Outbound::Kind::Close;
+            command.backend    = backend;
+            command.connection = id;
+            command.reason     = reason;
+            std::lock_guard<std::mutex> lock(outboundMutex);
+            outbound.push_back(std::move(command));
+        } else if (auto *connection = backend->GetConnection(id)) {
+            connection->Close(reason);
+        }
+    }
+
+    void NetworkHost::FlushOutbound()
+    {
+        std::deque<Outbound> local;
+        {
+            std::lock_guard<std::mutex> lock(outboundMutex);
+            local.swap(outbound);
+        }
+        for (auto &command : local) {
+            if (command.backend == nullptr) {
+                continue;
+            }
+            auto *connection = command.backend->GetConnection(command.connection);
+            if (connection == nullptr) {
+                continue;
+            }
+            if (command.kind == Outbound::Kind::Close) {
+                connection->Close(command.reason);
+            } else {
+                connection->Send(command.channel, command.payload, command.mode);
+            }
+        }
+    }
+
     void NetworkHost::PushEvent(QueuedEvent &&event)
     {
         std::lock_guard<std::mutex> lock(queueMutex);
@@ -373,23 +410,82 @@ namespace sky::net {
 
         for (auto &event : local) {
             switch (event.type) {
-            case NetEventType::Connected:
+            case NetEventType::Connected: {
+                connectionBackends[event.connection] = event.backend;
+                if (server && lifecycle != NetworkLifecycle::Accepting) {
+                    // Reject new incoming connections while draining/closing.
+                    connectionBackends.erase(event.connection);
+                    DeliverClose(event.connection, DisconnectReason::ServerShutdown);
+                    if (disconnectHandler) {
+                        disconnectHandler(event.connection, DisconnectReason::ServerShutdown);
+                    }
+                    break;
+                }
+                connected.insert(event.connection);
+                lastActivityMs[event.connection]  = Now();
+                lastHeartbeatMs[event.connection] = Now();
+                if (auto *lane = LaneFor(event.connection)) {
+                    lane->Add(event.connection);
+                }
+                if (!server) {
+                    // Client announces itself (with a resume token when reconnecting).
+                    auto it = pendingTokens.find(event.connection);
+                    ResumeToken token = it != pendingTokens.end() ? it->second : lastResumeToken;
+                    std::vector<uint8_t> body;
+                    if (!token.IsZero()) {
+                        uint8_t tokenBytes[ResumeToken::SERIALIZED_SIZE] = {};
+                        token.Serialize(tokenBytes, sizeof(tokenBytes));
+                        body.insert(body.end(), tokenBytes, tokenBytes + ResumeToken::SERIALIZED_SIZE);
+                    }
+                    SendControl(event.connection, NetControlType::Hello, body);
+                }
                 if (connectHandler) {
                     connectHandler(event.connection);
                 }
                 break;
-            case NetEventType::Disconnected:
+            }
+            case NetEventType::Disconnected: {
+                connected.erase(event.connection);
+                if (auto *lane = LaneFor(event.connection)) {
+                    lane->Remove(event.connection);
+                }
+                lastActivityMs.erase(event.connection);
+                lastHeartbeatMs.erase(event.connection);
+                pendingTokens.erase(event.connection);
+
+                auto sessionIt = connectionSessions.find(event.connection);
+                if (sessionIt != connectionSessions.end()) {
+                    auto connectionsIt = sessionConnections.find(sessionIt->second.value);
+                    if (connectionsIt != sessionConnections.end()) {
+                        auto &connections = connectionsIt->second;
+                        connections.erase(std::remove(connections.begin(), connections.end(), event.connection),
+                                          connections.end());
+                    }
+                }
+                connectionBackends.erase(event.connection);
+
+                if (!server && config.autoReconnect && hasConnectTarget &&
+                    event.reason != DisconnectReason::LocalClose && event.reason != DisconnectReason::Redirect) {
+                    nextReconnectAtMs = Now();
+                }
                 if (disconnectHandler) {
                     disconnectHandler(event.connection, event.reason);
                 }
                 break;
-            case NetEventType::Message:
+            }
+            case NetEventType::Message: {
+                lastActivityMs[event.connection] = Now();
+                bytesIn += event.payload.size();
+                if (auto *lane = LaneFor(event.connection)) {
+                    lane->bytesIn += event.payload.size();
+                }
                 if (event.channel == CONTROL_CHANNEL) {
                     HandleControl(event.connection, event.payload);
                 } else if (messageHandler) {
                     messageHandler(event.connection, event.channel, event.sequence, event.payload);
                 }
                 break;
+            }
             case NetEventType::Error:
                 if (errorHandler) {
                     errorHandler(event.connection, event.error);
@@ -406,11 +502,7 @@ namespace sky::net {
         }
         ConnectionId id = overflowConnection;
         overflowConnection = INVALID_CONNECTION_ID;
-        if (auto *backend = BackendFor(id)) {
-            if (auto *connection = backend->GetConnection(id)) {
-                connection->Close(DisconnectReason::Backpressure);
-            }
-        }
+        DeliverClose(id, DisconnectReason::Backpressure);
         if (disconnectHandler) {
             disconnectHandler(id, DisconnectReason::Backpressure);
         }
@@ -472,24 +564,11 @@ namespace sky::net {
 
     void NetworkHost::SendControl(ConnectionId id, NetControlType type, std::span<const uint8_t> body)
     {
-        auto *backend = BackendFor(id);
-        if (backend == nullptr) {
-            return;
-        }
-        auto *connection = backend->GetConnection(id);
-        if (connection == nullptr) {
-            return;
-        }
         std::vector<uint8_t> frame;
         frame.reserve(1 + body.size());
         frame.push_back(static_cast<uint8_t>(type));
         frame.insert(frame.end(), body.begin(), body.end());
-        if (connection->Send(CONTROL_CHANNEL, frame, DeliveryMode::ReliableOrdered) == NetResult::Ok) {
-            bytesOut += frame.size();
-            if (auto *lane = LaneFor(id)) {
-                lane->bytesOut += frame.size();
-            }
-        }
+        DeliverSend(id, CONTROL_CHANNEL, frame, DeliveryMode::ReliableOrdered);
     }
 
     void NetworkHost::HandleControl(ConnectionId id, std::span<const uint8_t> payload)
@@ -517,21 +596,23 @@ namespace sky::net {
 
             ResumeToken assigned = tokenCodec.Issue(bound, Now(), config.resumeTokenTtlMs, ++nonceCounter);
             std::vector<uint8_t> body;
-            AppendU64(body, bound.value);
+            ByteWriter writer(body);
+            writer.U64(bound.value);
             uint8_t tokenBytes[ResumeToken::SERIALIZED_SIZE] = {};
             assigned.Serialize(tokenBytes, sizeof(tokenBytes));
-            body.insert(body.end(), tokenBytes, tokenBytes + ResumeToken::SERIALIZED_SIZE);
+            writer.Bytes(std::span<const uint8_t>(tokenBytes, sizeof(tokenBytes)));
             SendControl(id, NetControlType::HelloAck, body);
             break;
         }
         case NetControlType::HelloAck: {
-            uint32_t offset = 0;
+            ByteReader reader(std::span<const uint8_t>(data, size));
             uint64_t sessionValue = 0;
-            if (!ReadU64(data, size, offset, sessionValue)) {
+            if (!reader.U64(sessionValue)) {
                 break;
             }
             ResumeToken token;
-            if (!ResumeToken::Deserialize(data + offset, size - offset, token)) {
+            const std::span<const uint8_t> rest = reader.Rest();
+            if (!ResumeToken::Deserialize(rest.data(), static_cast<uint32_t>(rest.size()), token)) {
                 break;
             }
             SessionId session{sessionValue};
@@ -543,15 +624,19 @@ namespace sky::net {
             break;
         }
         case NetControlType::Redirect: {
-            uint32_t offset = 0;
+            ByteReader reader(std::span<const uint8_t>(data, size));
             uint16_t length = 0;
-            if (!ReadU16(data, size, offset, length) || offset + length > size) {
+            if (!reader.U16(length)) {
                 break;
             }
-            std::string addressText(reinterpret_cast<const char *>(data + offset), length);
-            offset += length;
+            std::span<const uint8_t> addressBytes;
+            if (!reader.Bytes(length, addressBytes)) {
+                break;
+            }
+            std::string addressText(reinterpret_cast<const char *>(addressBytes.data()), addressBytes.size());
             ResumeToken token;
-            ResumeToken::Deserialize(data + offset, size - offset, token);
+            const std::span<const uint8_t> rest = reader.Rest();
+            ResumeToken::Deserialize(rest.data(), static_cast<uint32_t>(rest.size()), token);
             NetworkAddress address = NetworkAddress::Parse(addressText);
             if (redirectHandler) {
                 redirectHandler(address, SessionId{token.session}, token);
@@ -564,76 +649,15 @@ namespace sky::net {
 
     void NetworkHost::OnConnected(ConnectionId id)
     {
-        connectionBackends[id] = pumpingBackend;
-        connected.insert(id);
-        lastActivityMs[id]  = Now();
-        lastHeartbeatMs[id] = Now();
-
-        if (server && lifecycle != NetworkLifecycle::Accepting) {
-            // Reject new incoming connections while draining/closing.
-            connected.erase(id);
-            connectionBackends.erase(id);
-            if (auto *backend = pumpingBackend) {
-                if (auto *connection = backend->GetConnection(id)) {
-                    connection->Close(DisconnectReason::ServerShutdown);
-                }
-            }
-            QueuedEvent event;
-            event.type       = NetEventType::Disconnected;
-            event.connection = id;
-            event.reason     = DisconnectReason::ServerShutdown;
-            PushEvent(std::move(event));
-            return;
-        }
-
-        if (!server) {
-            // Client announces itself (with a resume token when reconnecting).
-            auto it = pendingTokens.find(id);
-            ResumeToken token = it != pendingTokens.end() ? it->second : lastResumeToken;
-            std::vector<uint8_t> body;
-            if (!token.IsZero()) {
-                uint8_t tokenBytes[ResumeToken::SERIALIZED_SIZE] = {};
-                token.Serialize(tokenBytes, sizeof(tokenBytes));
-                body.insert(body.end(), tokenBytes, tokenBytes + ResumeToken::SERIALIZED_SIZE);
-            }
-            SendControl(id, NetControlType::Hello, body);
-        }
-
-        if (auto *lane = LaneFor(id)) {
-            lane->Add(id);
-        }
-
         QueuedEvent event;
         event.type       = NetEventType::Connected;
         event.connection = id;
+        event.backend    = pumpingBackend;
         PushEvent(std::move(event));
     }
 
     void NetworkHost::OnDisconnected(ConnectionId id, DisconnectReason reason)
     {
-        connected.erase(id);
-        if (auto *lane = LaneFor(id)) {
-            lane->Remove(id);
-        }
-        lastActivityMs.erase(id);
-        lastHeartbeatMs.erase(id);
-        pendingTokens.erase(id);
-
-        auto sessionIt = connectionSessions.find(id);
-        if (sessionIt != connectionSessions.end()) {
-            auto connectionsIt = sessionConnections.find(sessionIt->second.value);
-            if (connectionsIt != sessionConnections.end()) {
-                auto &connections = connectionsIt->second;
-                connections.erase(std::remove(connections.begin(), connections.end(), id), connections.end());
-            }
-        }
-        connectionBackends.erase(id);
-
-        if (!server && config.autoReconnect && hasConnectTarget &&
-            reason != DisconnectReason::LocalClose && reason != DisconnectReason::Redirect) {
-            nextReconnectAtMs = Now();
-        }
-
         QueuedEvent event;
         event.type       = NetEventType::Disconnected;
         event.connection = id;
@@ -644,12 +668,6 @@ namespace sky::net {
     void NetworkHost::OnMessage(ConnectionId id, ChannelId channel, MessageSequence sequence,
                                 std::span<const uint8_t> payload)
     {
-        lastActivityMs[id] = Now();
-        bytesIn += payload.size();
-        if (auto *lane = LaneFor(id)) {
-            lane->bytesIn += payload.size();
-        }
-
         QueuedEvent event;
         event.type       = NetEventType::Message;
         event.connection = id;

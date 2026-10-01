@@ -80,3 +80,12 @@ The host SHALL use a real monotonic clock for timeouts, heartbeats, reconnect ba
 - **WHEN** the world simulation is paused while the host update continues to be driven
 - **THEN** heartbeat and timeout handling SHALL continue using real time and the connection SHALL NOT time out due to the pause
 
+### Requirement: Host serializes backend access in OwnedThread mode
+
+When the host runs an owned I/O thread, it SHALL serialize all backend access so that a backend which is not thread-safe for concurrent send is only ever touched by the I/O thread. Outbound sends and closes SHALL be deferred to that thread in this mode.
+
+#### Scenario: Non-thread-safe backend under OwnedThread
+
+- **WHEN** a backend that does not support thread-safe send is used in `OwnedThread` mode
+- **THEN** the host SHALL route outbound sends and closes through the I/O thread instead of the caller thread
+

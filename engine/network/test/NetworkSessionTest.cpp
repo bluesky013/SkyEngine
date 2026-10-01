@@ -21,7 +21,7 @@ TEST(NetworkResumeTokenTest, IssueVerifyAndExpiry)
     EXPECT_FALSE(codec.Verify(token, 1200));
 
     ResumeToken tampered = token;
-    tampered.signature ^= 0x1;
+    tampered.signature[0] ^= 0x1u;
     EXPECT_FALSE(codec.Verify(tampered, 200));
 
     ResumeToken wrongKey = ResumeTokenCodec(0x123456).Issue(SessionId{7}, 100, 1000, 1);

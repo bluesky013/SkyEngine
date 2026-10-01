@@ -6,7 +6,6 @@
 
 #include <array>
 #include <cstdio>
-#include <cstdlib>
 
 namespace sky::net {
 

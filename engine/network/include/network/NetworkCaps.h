@@ -57,6 +57,9 @@ namespace sky::net {
         bool client      = false;
         bool server      = false;
         bool peerToPeer  = false;
+        // True when sequenced delivery carries the sender's sequence (loss-detectable). A backend that
+        // synthesizes the sequence on receive reports false.
+        bool realSendSequence = false;
 
         DeliveryMode         defaultMode = DeliveryMode::ReliableOrdered;
         NetworkThreadingCaps threading{};

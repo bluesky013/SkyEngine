@@ -6,23 +6,26 @@
 
 #include <network/ConnectionId.h>
 
+#include <array>
 #include <cstdint>
 
 namespace sky::net {
 
-    // Stateless, expiring, keyed-hash-signed resume token. Any server holding the shared key can verify
-    // it without a directory service. (Placeholder keyed hash; to be replaced by a crypto HMAC.)
+    using ResumeTokenSignature = std::array<uint8_t, 32>;
+
+    // Stateless, expiring, HMAC-SHA256-signed resume token. Any server holding the shared key can verify
+    // it without a directory service.
     struct ResumeToken {
-        uint64_t session     = 0;
-        uint64_t expiresAtMs = 0;
-        uint32_t nonce       = 0;
-        uint64_t signature   = 0;
+        uint64_t             session     = 0;
+        uint64_t             expiresAtMs = 0;
+        uint32_t             nonce       = 0;
+        ResumeTokenSignature signature{};
 
-        static constexpr uint32_t SERIALIZED_SIZE = 8 + 8 + 4 + 8;
+        static constexpr uint32_t SERIALIZED_SIZE = 8 + 8 + 4 + 32;
 
-        bool IsZero() const { return session == 0 && expiresAtMs == 0 && nonce == 0 && signature == 0; }
+        bool IsZero() const;
 
-        uint32_t Serialize(uint8_t *out, uint32_t capacity) const;
+        uint32_t    Serialize(uint8_t *out, uint32_t capacity) const;
         static bool Deserialize(const uint8_t *data, uint32_t size, ResumeToken &out);
     };
 
@@ -31,12 +34,12 @@ namespace sky::net {
         explicit ResumeTokenCodec(uint64_t secret = 0) : secret(secret) {}
 
         ResumeToken Issue(SessionId session, uint64_t nowMs, uint64_t ttlMs, uint32_t nonce) const;
-        bool        Verify(const ResumeToken &token, uint64_t nowMs) const;
 
-        uint64_t GetSecret() const { return secret; }
+        // Constant-time signature comparison to avoid a timing side channel.
+        bool Verify(const ResumeToken &token, uint64_t nowMs) const;
 
     private:
-        uint64_t Sign(const ResumeToken &token) const;
+        ResumeTokenSignature Sign(const ResumeToken &token) const;
 
         uint64_t secret;
     };

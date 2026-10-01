@@ -107,10 +107,23 @@ namespace sky::net {
         struct QueuedEvent {
             NetEventType     type       = NetEventType::Error;
             ConnectionId     connection = INVALID_CONNECTION_ID;
+            INetBackend     *backend    = nullptr;
             ChannelId        channel    = 0;
             MessageSequence  sequence   = 0;
             DisconnectReason reason     = DisconnectReason::Unknown;
             NetResult        error      = NetResult::Ok;
+            std::vector<uint8_t> payload;
+        };
+
+        // Deferred outbound command executed on the I/O thread in OwnedThread mode so a non-thread-safe
+        // backend is only ever touched by one thread.
+        struct Outbound {
+            enum class Kind { Send, Close } kind = Kind::Send;
+            INetBackend     *backend    = nullptr;
+            ConnectionId     connection = INVALID_CONNECTION_ID;
+            ChannelId        channel    = 0;
+            DeliveryMode     mode       = DeliveryMode::ReliableOrdered;
+            DisconnectReason reason     = DisconnectReason::Unknown;
             std::vector<uint8_t> payload;
         };
 
@@ -134,6 +147,11 @@ namespace sky::net {
         INetBackend *BackendFor(ConnectionId id) const;
         NetworkLane *LaneFor(ConnectionId id);
         uint32_t     LaneIndexFor(ConnectionId id) const;
+
+        bool      NeedsDefer(INetBackend *backend) const;
+        NetResult DeliverSend(ConnectionId id, ChannelId channel, std::span<const uint8_t> payload, DeliveryMode mode);
+        void      DeliverClose(ConnectionId id, DisconnectReason reason);
+        void      FlushOutbound();
 
         NetworkHostConfig config;
         NetworkThreading  threading = NetworkThreading::CallerPump;
@@ -160,6 +178,9 @@ namespace sky::net {
         std::deque<QueuedEvent> eventQueue;
         uint32_t              queueCapacity = 1;
         ConnectionId          overflowConnection = INVALID_CONNECTION_ID;
+
+        mutable std::mutex    outboundMutex;
+        std::deque<Outbound>  outbound;
 
         std::thread       ioThread;
         std::atomic<bool> running{false};

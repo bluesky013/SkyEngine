@@ -14,7 +14,7 @@ The host SHALL represent a logical session by a stable `SessionId` that is indep
 
 ### Requirement: Resume tokens are stateless, signed, and expiring
 
-A `ResumeToken` SHALL be verifiable by any server holding the shared signing key, SHALL carry an expiration, and SHALL require no cluster or directory service to validate.
+A `ResumeToken` SHALL be verifiable by any server holding the shared signing key, SHALL carry an expiration, and SHALL require no cluster or directory service to validate. The signature SHALL be an HMAC-SHA256 over the token fields, and verification SHALL use a constant-time comparison.
 
 #### Scenario: Any server can validate a token
 
@@ -25,6 +25,11 @@ A `ResumeToken` SHALL be verifiable by any server holding the shared signing key
 
 - **WHEN** a resume token is presented after its expiration
 - **THEN** the host SHALL reject the resume attempt
+
+#### Scenario: Tampered token is rejected
+
+- **WHEN** any signed field or signature byte of a token is modified
+- **THEN** verification SHALL fail
 
 ### Requirement: Reconnection uses bounded backoff
 

@@ -77,10 +77,15 @@ The transport SHALL expose the maximum payload size a single send may use, deriv
 
 ### Requirement: Sequenced delivery exposes peer sequence numbers
 
-For `UnreliableSequenced` delivery, the host SHALL expose the sequence number associated with each delivered message, so an upper layer can implement application-level acknowledgement and baseline tracking (distinct from transport reliability).
+For `UnreliableSequenced` delivery, the host SHALL expose the sequence number associated with each delivered message, so an upper layer can implement application-level acknowledgement and baseline tracking (distinct from transport reliability). A backend that cannot carry the sender's sequence SHALL report `realSendSequence = false`; consumers SHALL NOT rely on a synthesized sequence for loss detection.
 
 #### Scenario: Application acks a snapshot
 
 - **WHEN** a message is delivered on an `UnreliableSequenced` channel
 - **THEN** the host SHALL report the message sequence number to the consumer so it can acknowledge the corresponding baseline
+
+#### Scenario: Synthesized sequence is not loss-detectable
+
+- **WHEN** a backend reports `realSendSequence = false`
+- **THEN** consumers SHALL use their own application sequence for gap detection rather than the reported sequence
 

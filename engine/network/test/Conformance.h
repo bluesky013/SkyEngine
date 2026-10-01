@@ -6,6 +6,8 @@
 
 #include <network/NetworkHost.h>
 
+#include "LoopbackHarness.h"
+
 #include <chrono>
 #include <functional>
 #include <gtest/gtest.h>
@@ -46,16 +48,12 @@ namespace sky::net::test {
         ASSERT_TRUE(serverBackend->Init());
         ASSERT_TRUE(clientBackend->Init());
 
-        NetworkHostConfig serverConfig;
-        serverConfig.role = NetworkRole::Server;
-        NetworkHost server(serverConfig);
+        NetworkHost server(ServerHostConfig());
         server.SetServer(true);
         ASSERT_TRUE(server.AttachBackend(NetworkRole::Server, serverBackend.get()));
         ASSERT_NE(server.Listen(NetworkAddress::Parse(address)), nullptr);
 
-        NetworkHostConfig clientConfig;
-        clientConfig.role = NetworkRole::Client;
-        NetworkHost client(clientConfig);
+        NetworkHost client(ClientHostConfig());
         ASSERT_TRUE(client.AttachBackend(NetworkRole::Client, clientBackend.get()));
 
         int serverConnected = 0;

@@ -7,6 +7,7 @@
 #include <network/NetworkHost.h>
 
 #include "LoopbackBackend.h"
+#include "LoopbackHarness.h"
 
 #include <memory>
 
@@ -32,10 +33,7 @@ namespace sky::net::test {
 
         void Init(uint32_t serverQueueCapacity = 4096)
         {
-            NetworkHostConfig serverConfig;
-            serverConfig.role              = NetworkRole::Server;
-            serverConfig.eventQueueCapacity = serverQueueCapacity;
-            server = std::make_unique<NetworkHost>(serverConfig);
+            server = std::make_unique<NetworkHost>(ServerHostConfig(serverQueueCapacity));
             server->SetServer(true);
             server->AttachBackend(NetworkRole::Server, &serverBackend);
             server->SetConnectHandler([this](ConnectionId id) {
@@ -47,9 +45,7 @@ namespace sky::net::test {
                 lastServerReason = reason;
             });
 
-            NetworkHostConfig clientConfig;
-            clientConfig.role = NetworkRole::Client;
-            client = std::make_unique<NetworkHost>(clientConfig);
+            client = std::make_unique<NetworkHost>(ClientHostConfig());
             client->AttachBackend(NetworkRole::Client, &clientBackend);
             client->SetConnectHandler([this](ConnectionId id) {
                 ++clientConnected;
@@ -60,13 +56,7 @@ namespace sky::net::test {
             client->Connect(NetworkAddress::Parse(LOOPBACK_ADDR));
         }
 
-        void Pump(int iterations)
-        {
-            for (int i = 0; i < iterations; ++i) {
-                client->Update();
-                server->Update();
-            }
-        }
+        void Pump(int iterations) { PumpBoth(*client, *server, iterations); }
 
         void ConnectAndSettle()
         {

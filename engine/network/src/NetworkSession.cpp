@@ -4,64 +4,41 @@
 
 #include <network/NetworkSession.h>
 
+#include <network/detail/ByteCodec.h>
+
+#include "crypto/Sha256.h"
+
+#include <cstring>
+#include <vector>
+
 namespace sky::net {
 
-    namespace {
-
-        void WriteU64(uint8_t *out, uint64_t value)
-        {
-            for (uint32_t i = 0; i < 8; ++i) {
-                out[i] = static_cast<uint8_t>((value >> (i * 8u)) & 0xFFu);
+    bool ResumeToken::IsZero() const
+    {
+        if (session != 0 || expiresAtMs != 0 || nonce != 0) {
+            return false;
+        }
+        for (uint8_t byte : signature) {
+            if (byte != 0) {
+                return false;
             }
         }
-
-        void WriteU32(uint8_t *out, uint32_t value)
-        {
-            for (uint32_t i = 0; i < 4; ++i) {
-                out[i] = static_cast<uint8_t>((value >> (i * 8u)) & 0xFFu);
-            }
-        }
-
-        uint64_t ReadU64(const uint8_t *in)
-        {
-            uint64_t value = 0;
-            for (uint32_t i = 0; i < 8; ++i) {
-                value |= static_cast<uint64_t>(in[i]) << (i * 8u);
-            }
-            return value;
-        }
-
-        uint32_t ReadU32(const uint8_t *in)
-        {
-            uint32_t value = 0;
-            for (uint32_t i = 0; i < 4; ++i) {
-                value |= static_cast<uint32_t>(in[i]) << (i * 8u);
-            }
-            return value;
-        }
-
-        uint64_t KeyedHash(uint64_t seed, const uint8_t *data, uint32_t size)
-        {
-            // FNV-1a 64 with the secret folded into the initial state.
-            uint64_t hash = 1469598103934665603ull ^ seed;
-            for (uint32_t i = 0; i < size; ++i) {
-                hash ^= data[i];
-                hash *= 1099511628211ull;
-            }
-            return hash;
-        }
-
-    } // namespace
+        return true;
+    }
 
     uint32_t ResumeToken::Serialize(uint8_t *out, uint32_t capacity) const
     {
         if (out == nullptr || capacity < SERIALIZED_SIZE) {
             return 0;
         }
-        WriteU64(out + 0, session);
-        WriteU64(out + 8, expiresAtMs);
-        WriteU32(out + 16, nonce);
-        WriteU64(out + 20, signature);
+        std::vector<uint8_t> buffer;
+        buffer.reserve(SERIALIZED_SIZE);
+        ByteWriter writer(buffer);
+        writer.U64(session);
+        writer.U64(expiresAtMs);
+        writer.U32(nonce);
+        writer.Bytes(signature);
+        std::memcpy(out, buffer.data(), SERIALIZED_SIZE);
         return SERIALIZED_SIZE;
     }
 
@@ -70,20 +47,32 @@ namespace sky::net {
         if (data == nullptr || size < SERIALIZED_SIZE) {
             return false;
         }
-        out.session     = ReadU64(data + 0);
-        out.expiresAtMs = ReadU64(data + 8);
-        out.nonce       = ReadU32(data + 16);
-        out.signature   = ReadU64(data + 20);
+        ByteReader reader(std::span<const uint8_t>(data, size));
+        if (!reader.U64(out.session) || !reader.U64(out.expiresAtMs) || !reader.U32(out.nonce)) {
+            return false;
+        }
+        std::span<const uint8_t> signatureBytes;
+        if (!reader.Bytes(static_cast<uint32_t>(out.signature.size()), signatureBytes)) {
+            return false;
+        }
+        std::memcpy(out.signature.data(), signatureBytes.data(), out.signature.size());
         return true;
     }
 
-    uint64_t ResumeTokenCodec::Sign(const ResumeToken &token) const
+    ResumeTokenSignature ResumeTokenCodec::Sign(const ResumeToken &token) const
     {
-        uint8_t buffer[24] = {};
-        WriteU64(buffer + 0, token.session);
-        WriteU64(buffer + 8, token.expiresAtMs);
-        WriteU32(buffer + 16, token.nonce);
-        return KeyedHash(secret, buffer, sizeof(buffer));
+        std::vector<uint8_t> message;
+        ByteWriter writer(message);
+        writer.U64(token.session);
+        writer.U64(token.expiresAtMs);
+        writer.U32(token.nonce);
+
+        uint8_t key[8];
+        for (uint32_t i = 0; i < 8; ++i) {
+            key[i] = static_cast<uint8_t>((secret >> (i * 8u)) & 0xFFu);
+        }
+
+        return HmacSha256(std::span<const uint8_t>(key, sizeof(key)), message);
     }
 
     ResumeToken ResumeTokenCodec::Issue(SessionId session, uint64_t nowMs, uint64_t ttlMs, uint32_t nonce) const
@@ -98,7 +87,15 @@ namespace sky::net {
 
     bool ResumeTokenCodec::Verify(const ResumeToken &token, uint64_t nowMs) const
     {
-        if (token.session == 0 || token.signature != Sign(token)) {
+        if (token.session == 0) {
+            return false;
+        }
+        const ResumeTokenSignature expected = Sign(token);
+        uint8_t diff = 0;
+        for (uint32_t i = 0; i < expected.size(); ++i) {
+            diff |= static_cast<uint8_t>(token.signature[i] ^ expected[i]);
+        }
+        if (diff != 0) {
             return false;
         }
         return nowMs <= token.expiresAtMs;
