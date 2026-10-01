@@ -148,8 +148,6 @@ namespace sky {
                 .Member<&sky::aurora::Light::type>("type")
                 .Member<&sky::aurora::Light::color>("color")
                 .Member<&sky::aurora::Light::intensity>("intensity")
-                .Member<&sky::aurora::Light::direction>("direction")
-                .Member<&sky::aurora::Light::position>("position")
                 .Member<&sky::aurora::Light::range>("range")
                 .Member<&sky::aurora::Light::innerConeAngle>("innerConeAngle")
                 .Member<&sky::aurora::Light::outerConeAngle>("outerConeAngle");

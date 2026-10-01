@@ -132,11 +132,12 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 
 `RenderScene` SHALL 内嵌 `EntityRegistry`，提供 entity 注册与 SoA 组件池能力（`CreateEntity` / `DestroyEntity` / `Add<T>` / `Get<T>` / `Pool<T>` / `View<Ts...>`）；views（SceneView）保留独立 registry 不进 ECS。
 
-场景组件（`aurora/scene/SceneTypes.h`）SHALL 包括：
+场景组件 SHALL 包括：
 
 - `Bounds`（`BoundingBoxSphere`）
--  `WorldInfo`（纯 world 矩阵：`Matrix4 world`，默认 Identity；不拆 TRS）
-- `Light`（type/color/intensity + point/spot 参数：`position` / `range` / `innerConeAngle` / `outerConeAngle`）
+- `WorldInfo`（纯 world 矩阵：`Matrix4 world`，默认 Identity；不拆 TRS）
+- `Light`（声明于 `aurora/light/LightTypes.h`，由 `aurora/scene/SceneTypes.h` 转发：type/color/intensity + point/spot 参数 `range` / `innerConeAngle` / `outerConeAngle`；**不**存储 `position` / `direction`，世界位置 / 朝向由 `WorldInfo` 变换派生）
+- `MainLight`（`aurora/light/LightTypes.h`，注册组件：把某个 `Light{DIRECTIONAL}` entity 标记为场景主光，携带 `castShadow` 等；`RenderScene` **不**缓存主光）
 - `Skin`（占位）
 
 #### Scenario: ECS 组件挂载
@@ -151,8 +152,8 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 
 #### Scenario: point/spot 参数
 
-- **WHEN** `Light{type=POINT, position, range}` 或 `Light{type=SPOT, position, direction, range, innerConeAngle, outerConeAngle}`
-- **THEN** 各参数完整存储于组件
+- **WHEN** `Light{type=POINT, range}` 或 `Light{type=SPOT, range, innerConeAngle, outerConeAngle}`
+- **THEN** 各参数完整存储于组件；位置 / 朝向不存于组件，而从同 entity 的 `WorldInfo.world` 派生
 
 #### Scenario: WorldInfo 矩阵存储
 

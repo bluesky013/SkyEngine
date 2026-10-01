@@ -5,11 +5,11 @@
 
 #pragma once
 
+#include <aurora/light/LightTypes.h>
 #include <aurora/resource/Skin.h>
 #include <core/ecs/TypeId.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector3.h>
-#include <core/name/Name.h>
 #include <core/shapes/Bounds.h>
 
 namespace sky::aurora {
@@ -24,28 +24,6 @@ namespace sky::aurora {
         Matrix4 world = Matrix4::Identity();
     };
 
-    // scene light data (placeholder; lighting pipeline fills in later)
-    enum class LightType : uint8_t {
-        DIRECTIONAL = 0,
-        POINT,
-        SPOT,
-    };
-
-    struct Light {
-        LightType type      = LightType::DIRECTIONAL;
-        Vector3   color     = {1.f, 1.f, 1.f};
-        float     intensity = 1.f;
-
-        Vector3 direction      = {0.f, -1.f, 0.f}; // directional / spot
-        Vector3 position       = {};               // point / spot
-        float   range          = 10.f;             // point / spot attenuation radius
-        float   innerConeAngle = 0.f;              // spot (radians)
-        float   outerConeAngle = 0.785398f;        // spot (radians, ~45 deg)
-    };
-
-    // Skinned mesh instance: references the mesh-side skinning binding (Skin).
-    // The animation rig is external to aurora (engine/animation); the bridge
-    // layer maps it into Skin's bone matrix palette.
     struct SkinnedMesh {
         CounterPtr<Skin> skin;
     };
@@ -54,5 +32,4 @@ namespace sky::aurora {
 
 SKY_TYPE_TAG(sky::aurora::Bounds, "sky.aurora.Bounds")
 SKY_TYPE_TAG(sky::aurora::WorldInfo, "sky.aurora.WorldInfo")
-SKY_TYPE_TAG(sky::aurora::Light, "sky.aurora.Light")
 SKY_TYPE_TAG(sky::aurora::SkinnedMesh, "sky.aurora.SkinnedMesh")
