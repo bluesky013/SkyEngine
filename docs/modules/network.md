@@ -1,6 +1,6 @@
 ---
 title: "Network Module"
-description: "Backend-swappable multiplayer transport, sessions, and data-oriented replication (Network, NetworkReplication, NetworkEcs)."
+description: "Backend-swappable multiplayer transport, sessions, data-oriented replication, and deterministic lockstep (Network, NetworkReplication, NetworkEcs, NetworkLockstep)."
 module: "network"
 updated: "2026-10-01"
 ---
@@ -18,12 +18,14 @@ plugins (for example [ENet Network Backend](../plugins/network-enet.md)).
 | `Network` | `engine/network` | `Core` | transport contract, sessions, roles, lanes, lifecycle, statistics |
 | `NetworkReplication` | `engine/network/replication` | `Network` | replication algorithm, snapshot codec, encode cache, transport binding |
 | `NetworkEcs` | `engine/network/ecs` | `NetworkReplication`, `Core` | data-oriented `core/ecs` source adapter |
+| `NetworkLockstep` | `engine/network/lockstep` | `NetworkReplication` | deterministic lockstep, input frames, rollback, desync recovery |
 
 ```mermaid
 graph LR
     Core["Core"] --> Network["Network"]
     Network --> NetworkReplication["NetworkReplication"]
     NetworkReplication --> NetworkEcs["NetworkEcs (+ Core)"]
+    NetworkReplication --> NetworkLockstep["NetworkLockstep"]
     NetworkReplication --> Backend["plugins/network-enet"]
 ```
 
@@ -73,6 +75,22 @@ for graceful scale-down, and `NetworkHostStats` intended as autoscaler input.
 `NetworkEcs` adapts a `core/ecs` `EntityRegistry` to the source seam with a layout-independent, deterministic
 iteration order.
 
+## Lockstep and rollback
+
+`NetworkLockstep` is a host-authoritative deterministic lockstep layer for RTS and rollback netcode:
+
+- **Simulation seam** (`ILockstepSimulation`): advance one fixed tick, capture/restore deterministic state, and
+  produce a state hash. Determinism (fixed step, deterministic iteration order, deterministic RNG, deterministic
+  math mode) is the implementer's contract.
+- **`LockstepHost`**: exchanges input frames on a reliable-ordered channel, blocks a tick until all players'
+  inputs arrive, applies a configurable input delay, predicts remote inputs with rollback reconciliation, and
+  detects divergence via periodic state hashes with authoritative-state resynchronization.
+- **Determinism guard**: `LockstepConfig` requires `DeterministicMathMode::Exact`; a non-deterministic math mode
+  is rejected and rollback is unavailable. `DeterministicRng` provides a tick-seeded RNG.
+
+Rollback is bounded (`rollbackMaxFrames`); exceeding the bound requests a resync instead. Deterministic physics
+(`PhysicsMathMode::Exact`, Jolt) remains a separate dependency tracked by the physics module.
+
 ## Usage
 
 ```cpp
@@ -99,6 +117,7 @@ host.Update();                                               // CallerPump; or S
 | `NetworkTest` | transport contract, lanes, sessions, threading, overflow, lifecycle, crypto vectors |
 | `NetworkReplicationTest` | snapshot/delta/baseline/repair, field delta, split, cache, interpolation, loopback end-to-end |
 | `NetworkEcsTest` | ECS adapter, field delta, scale, reliability (loss/soak), per-connection AoI |
+| `NetworkLockstepTest` | determinism config/RNG, blocking, input delay, rollback, bounded rollback, desync recovery |
 | `EnetNetworkTest` | shared conformance suite over real UDP |
 | `NetworkBenchmark` | scale, field delta, dormancy, split, AoI, multi-connection, resume token |
 
@@ -111,8 +130,11 @@ Baseline numbers are recorded in `engine/network/replication/bench/BASELINE.md`.
 - The core's `OwnedThread` wakeup is a short poll rather than a semaphore wake.
 - A backend that cannot carry a sender sequence (for example ENet) reports `realSendSequence = false`; consumers
   use their own application sequence for gap detection.
+- Lockstep determinism depends on a deterministic physics backend (`PhysicsMathMode::Exact`, Jolt), which is not
+  yet shipped; the lockstep layer is validated against a simplified deterministic simulation.
 
 ## Dependencies
 
 - Depends on: `Core` (and `Core` ECS for `NetworkEcs`).
-- Depended on by: `plugins/network-enet`; future prediction and lockstep layers.
+- Depended on by: `plugins/network-enet`; the lockstep layer (`NetworkLockstep`); future prediction.
+

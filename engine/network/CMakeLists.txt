@@ -38,3 +38,4 @@ endif ()
 
 add_subdirectory(replication)
 add_subdirectory(ecs)
+add_subdirectory(lockstep)
