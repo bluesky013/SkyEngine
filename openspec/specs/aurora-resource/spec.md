@@ -192,7 +192,7 @@ in-flight 安全由 `StagingBufferAllocator` 的 per-frame ring 保证。`FrameS
 
 ### Requirement: RenderGeometry 是复合网格资源（纯封装）
 
-`RenderGeometry` SHALL 是一个 `RefObject` 复合资源（**不**继承 `RenderResource`），持有：顶点流 `std::vector<std::unique_ptr<VertexBuffer<>>>`（每个自带 `VertexLayout`）、可选索引缓冲 `std::unique_ptr<IndexBuffer<>>`（自带 `IndexType`）、本地 `AABB localBounds`。
+`RenderGeometry` SHALL 是一个 `RefObject` 复合资源（**不**继承 `RenderResource`），持有：顶点流 `std::vector<std::unique_ptr<VertexBuffer<>>>`（每个自带 `VertexLayout`）、可选索引缓冲 `std::unique_ptr<IndexBuffer<>>`（自带 `IndexType`）、本地 `BoundingBoxSphere localBounds`。
 
 `RenderGeometry` SHALL 提供 `AddVertexStream(std::unique_ptr<VertexBuffer<>>)` / `SetIndexBuffer(std::unique_ptr<IndexBuffer<>>)` 转移所有权，以及 `GetVertexStreams()` / `GetIndexBuffer()` / `GetLocalBounds()` / `GetName()` 访问器。
 
@@ -200,7 +200,7 @@ in-flight 安全由 `StagingBufferAllocator` 的 per-frame ring 保证。`FrameS
 
 #### Scenario: 组合顶点流 + 索引 + 包围盒
 
-- **WHEN** 创建一个 `RenderGeometry`，`AddVertexStream` 一个 `VertexBuffer`、`SetIndexBuffer` 一个 `IndexBuffer`、`SetLocalBounds` 一个 `AABB`
+- **WHEN** 创建一个 `RenderGeometry`，`AddVertexStream` 一个 `VertexBuffer`、`SetIndexBuffer` 一个 `IndexBuffer`、`SetLocalBounds` 一个 `BoundingBoxSphere`
 - **THEN** `GetVertexStreams().size() == 1`、`GetIndexBuffer()` 非空、`GetLocalBounds()` 等于所设值
 
 #### Scenario: 不继承 RenderResource
@@ -226,15 +226,6 @@ in-flight 安全由 `StagingBufferAllocator` 的 per-frame ring 保证。`FrameS
 
 - **WHEN** 阅读 `RenderGeometry.h`
 - **THEN** 未定义 `VertexBufferPtr` / `IndexBufferPtr`（独占所有权直接用 `std::unique_ptr` 表达）
-
-### Requirement: 包围盒为本地空间 AABB
-
-`RenderGeometry` 的 `localBounds` SHALL 是模型/本地空间的 `AABB`；世界空间包围盒由 scene 的 `WorldInfo` 变换推导，SHALL NOT 在 geometry 内重复存储。
-
-#### Scenario: 本地包围盒可查询
-
-- **WHEN** 设置 `localBounds` 为某 `AABB{min, max}` 后调用 `GetLocalBounds()`
-- **THEN** 返回值与该 `AABB` 一致
 
 ### Requirement: Texture 是 image 侧的 RenderResource 子类（惰性创建 + 统一上传）
 
@@ -419,4 +410,13 @@ resource 层（`aurora-render-buffers` 的 `RenderResource::Upload` / `StaticBuf
 
 - **WHEN** 阅读 `aurora/resource` 的上传实现
 - **THEN** 无 staging buffer 分配、无 `isUMA` 判断、无 in-flight 判定；上传意图全部经 `Queue::UploadBuffer` 委托 RHI
+
+### Requirement: 包围盒为本地空间 BoundingBoxSphere
+
+`RenderGeometry` 的 `localBounds` SHALL 是模型/本地空间的 `BoundingBoxSphere`（center + extent + radius）；世界空间包围盒由 scene 的 `WorldInfo` 变换推导，SHALL NOT 在 geometry 内重复存储。
+
+#### Scenario: 本地包围盒可查询
+
+- **WHEN** 设置 `localBounds` 为某 `BoundingBoxSphere` 后调用 `GetLocalBounds()`
+- **THEN** 返回值与该 `BoundingBoxSphere` 一致
 

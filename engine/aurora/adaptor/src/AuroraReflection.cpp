@@ -16,7 +16,7 @@
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/scene/SceneTypes.h>
 
-#include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/PropertyCommon.h>
@@ -130,15 +130,14 @@ namespace sky {
 
         static void ReflectSceneTypes(SerializationContext *context)
         {
-            context->Register<AABB>("AABB")
-                .Member<&AABB::min>("min")
-                .Member<&AABB::max>("max");
+            context->Register<BoundingBoxSphere>("BoundingBoxSphere")
+                .Member<&BoundingBoxSphere::center>("center")
+                .Member<&BoundingBoxSphere::extent>("extent")
+                .Member<&BoundingBoxSphere::radius>("radius");
 
-            context->Register<sky::aurora::Bounds>("Bounds")
-                .Member<&sky::aurora::Bounds::worldBounds>("worldBounds");
+            context->Register<sky::aurora::Bounds>("Bounds").Member<&sky::aurora::Bounds::worldBounds>("worldBounds");
 
-            context->Register<sky::aurora::WorldInfo>("WorldInfo")
-                .Member<&sky::aurora::WorldInfo::world>("world");
+            context->Register<sky::aurora::WorldInfo>("WorldInfo").Member<&sky::aurora::WorldInfo::world>("world");
 
             context->Register<sky::aurora::LightType>("LightType")
                 .Enum(sky::aurora::LightType::DIRECTIONAL, "DIRECTIONAL")
@@ -183,8 +182,8 @@ namespace sky {
 
         static void RegisterComponents()
         {
-            auto       *factory = ComponentFactory::Get();
-            const std::string group = "Aurora";
+            auto             *factory = ComponentFactory::Get();
+            const std::string group   = "Aurora";
             factory->RegisterComponent<sky::aurora::StaticMeshComponent>(group);
             factory->RegisterComponent<sky::aurora::LodGroupComponent>(group);
             factory->RegisterComponent<sky::aurora::DirectLightComponent>(group);

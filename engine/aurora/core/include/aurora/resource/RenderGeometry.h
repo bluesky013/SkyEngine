@@ -9,7 +9,7 @@
 
 #include <aurora/resource/Buffer.h>
 #include <core/name/Name.h>
-#include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <core/template/ReferenceObject.h>
 
 #include <memory>
@@ -20,13 +20,15 @@ namespace sky::aurora {
     class RenderGeometry : public RefObject {
     public:
         RenderGeometry() = default;
-        explicit RenderGeometry(const Name &inName) : name(inName) {}
+        explicit RenderGeometry(const Name &inName) : name(inName)
+        {
+        }
         ~RenderGeometry() override = default;
 
-        RenderGeometry(const RenderGeometry &) = delete;
+        RenderGeometry(const RenderGeometry &)            = delete;
         RenderGeometry &operator=(const RenderGeometry &) = delete;
 
-        void SetLocalBounds(const AABB &bounds)
+        void SetLocalBounds(const BoundingBoxSphere &bounds)
         {
             localBounds = bounds;
         }
@@ -53,7 +55,7 @@ namespace sky::aurora {
             return indexBuffer.get();
         }
 
-        const AABB &GetLocalBounds() const
+        const BoundingBoxSphere &GetLocalBounds() const
         {
             return localBounds;
         }
@@ -64,10 +66,10 @@ namespace sky::aurora {
         }
 
     private:
-        Name                                     name;
+        Name                                       name;
         std::vector<std::unique_ptr<VertexBuffer>> vertexStreams;
-        std::unique_ptr<IndexBuffer>              indexBuffer;
-        AABB                                      localBounds{};
+        std::unique_ptr<IndexBuffer>               indexBuffer;
+        BoundingBoxSphere                          localBounds{};
     };
 
 } // namespace sky::aurora

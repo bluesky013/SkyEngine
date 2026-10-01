@@ -25,7 +25,7 @@ namespace sky::phy {
                 return nullptr;
             }
 
-            auto *mesh = new TriangleMesh();
+            auto *mesh      = new TriangleMesh();
             mesh->vtxStride = sizeof(Vector3);
             mesh->position  = data.vertexData;
             mesh->indexType = IndexType::U32;
@@ -33,7 +33,7 @@ namespace sky::phy {
 
             const uint32_t vertexCount = static_cast<uint32_t>(mesh->position.size() / mesh->vtxStride);
             for (const auto &sub : data.subMeshes) {
-                mesh->AddView(0, vertexCount, sub.indexOffset, sub.indexCount, data.bounds);
+                mesh->AddView(0, vertexCount, sub.indexOffset, sub.indexCount, data.bounds.ToAABB());
             }
 
             return mesh;
@@ -46,7 +46,10 @@ namespace sky::phy {
         BulletPhysicsRenderModule()           = default;
         ~BulletPhysicsRenderModule() override = default;
 
-        bool Init(const StartArguments &args) override { return true; }
+        bool Init(const StartArguments &args) override
+        {
+            return true;
+        }
 
         void Start() override
         {

@@ -24,15 +24,17 @@ namespace sky::aurora {
         mFrustum     = CreateFrustumByViewProjectMatrix(mViewProject);
     }
 
-    bool SceneView::FrustumCulling(const AABB &bounds) const
+    bool SceneView::FrustumCulling(const BoundingBoxSphere &bounds) const
     {
-        // AABB-vs-frustum: outside if fully negative on any plane
+        // box-vs-frustum: outside if fully negative on any plane
+        const Vector3 min = bounds.Min();
+        const Vector3 max = bounds.Max();
         for (const auto &plane : mFrustum.planes) {
-            // positive vertex (p-vertex) of the AABB against the plane normal
+            // positive vertex (p-vertex) of the box against the plane normal
             const Vector3 pVertex{
-                plane.normal.x >= 0.f ? bounds.max.x : bounds.min.x,
-                plane.normal.y >= 0.f ? bounds.max.y : bounds.min.y,
-                plane.normal.z >= 0.f ? bounds.max.z : bounds.min.z,
+                plane.normal.x >= 0.f ? max.x : min.x,
+                plane.normal.y >= 0.f ? max.y : min.y,
+                plane.normal.z >= 0.f ? max.z : min.z,
             };
             if (plane.normal.Dot(pVertex) + plane.distance < 0.f) {
                 return false;

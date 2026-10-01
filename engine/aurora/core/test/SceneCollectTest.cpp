@@ -14,13 +14,13 @@ using namespace sky::aurora::test;
 TEST_F(AuroraVulkanTest, SceneCollectFrustumCull)
 {
     RenderScene scene;
-    auto *view = scene.CreateView(Name("main"));
+    auto       *view = scene.CreateView(Name("main"));
     view->SetViewMatrix(Matrix4::Identity());
     view->SetProjectionMatrix(Matrix4::Identity());
 
     // identity view-project: frustum is unit cube-ish; far-z primitive outside
-    AABB inside(Vector3(0.f, 0.f, -0.5f), Vector3(0.f, 0.f, 0.5f));
-    AABB farOutside(Vector3(100.f, 100.f, 100.f), Vector3(101.f, 101.f, 101.f));
+    BoundingBoxSphere inside     = BoundingBoxSphere::FromMinMax(Vector3(0.f, 0.f, -0.5f), Vector3(0.f, 0.f, 0.5f));
+    BoundingBoxSphere farOutside = BoundingBoxSphere::FromMinMax(Vector3(100.f, 100.f, 100.f), Vector3(101.f, 101.f, 101.f));
 
     EXPECT_TRUE(view->FrustumCulling(inside));
     EXPECT_FALSE(view->FrustumCulling(farOutside));
@@ -28,7 +28,7 @@ TEST_F(AuroraVulkanTest, SceneCollectFrustumCull)
 
 TEST_F(AuroraVulkanTest, SceneEntityLifecycle)
 {
-    RenderScene scene;
+    RenderScene    scene;
     const EntityId id = scene.CreateEntity();
     EXPECT_TRUE(scene.IsAlive(id));
 
@@ -44,7 +44,7 @@ TEST_F(AuroraVulkanTest, SceneEntityLifecycle)
 
 TEST_F(AuroraVulkanTest, SceneBoundsPoolDense)
 {
-    RenderScene scene;
+    RenderScene    scene;
     const EntityId e1 = scene.CreateEntity();
     const EntityId e2 = scene.CreateEntity();
     const EntityId e3 = scene.CreateEntity();
@@ -67,7 +67,7 @@ TEST_F(AuroraVulkanTest, SceneBoundsPoolDense)
 TEST_F(AuroraVulkanTest, SceneViewDepth)
 {
     RenderScene scene;
-    auto *view = scene.CreateView(Name("main"));
+    auto       *view = scene.CreateView(Name("main"));
     view->SetViewMatrix(Matrix4::Identity());
     view->SetProjectionMatrix(Matrix4::Identity());
 
@@ -77,7 +77,7 @@ TEST_F(AuroraVulkanTest, SceneViewDepth)
 
 TEST_F(AuroraVulkanTest, SceneLightPointSpotParams)
 {
-    RenderScene scene;
+    RenderScene    scene;
     const EntityId id = scene.CreateEntity();
 
     Light spot{};
@@ -103,11 +103,11 @@ TEST_F(AuroraVulkanTest, SceneLightPointSpotParams)
 
 TEST_F(AuroraVulkanTest, SceneWorldInfoMatrixStorage)
 {
-    RenderScene scene;
+    RenderScene    scene;
     const EntityId id = scene.CreateEntity();
 
     Matrix4 m = Matrix4::Identity();
-    m.m[3] = Vector4(10.f, 20.f, 0.f, 1.f); // translation column
+    m.m[3]    = Vector4(10.f, 20.f, 0.f, 1.f); // translation column
     scene.Add<WorldInfo>(id, WorldInfo{m});
 
     const auto *stored = scene.Get<WorldInfo>(id);
@@ -118,8 +118,8 @@ TEST_F(AuroraVulkanTest, SceneWorldInfoMatrixStorage)
 
 TEST_F(AuroraVulkanTest, SceneViewLightAndWorldInfo)
 {
-    RenderScene scene;
-    const EntityId both = scene.CreateEntity();
+    RenderScene    scene;
+    const EntityId both      = scene.CreateEntity();
     const EntityId lightOnly = scene.CreateEntity();
 
     scene.Add<Light>(both, Light{});
@@ -127,10 +127,9 @@ TEST_F(AuroraVulkanTest, SceneViewLightAndWorldInfo)
     scene.Add<Light>(lightOnly, Light{});
 
     int hits = 0;
-    scene.GetRegistry().View<Light, WorldInfo>().ForEach(
-        [&](EntityId id, Light &, WorldInfo &) {
-            EXPECT_EQ(id, both);
-            ++hits;
-        });
+    scene.GetRegistry().View<Light, WorldInfo>().ForEach([&](EntityId id, Light &, WorldInfo &) {
+        EXPECT_EQ(id, both);
+        ++hits;
+    });
     EXPECT_EQ(hits, 1);
 }

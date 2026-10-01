@@ -19,7 +19,7 @@ TEST_F(AuroraVulkanTest, BuildCube)
     ASSERT_NE(device, nullptr);
 
     auto streams = GenerateCube(1.0f);
-    auto geo = BuiltinGeometry::Build(device, streams, IndexType::U32);
+    auto geo     = BuiltinGeometry::Build(device, streams, IndexType::U32);
     ASSERT_NE(geo, nullptr);
     ASSERT_EQ(geo->GetVertexStreams().size(), 4u);
 
@@ -30,8 +30,8 @@ TEST_F(AuroraVulkanTest, BuildCube)
 
     EXPECT_NE(geo->GetIndexBuffer(), nullptr);
     EXPECT_EQ(geo->GetIndexBuffer()->GetIndexType(), IndexType::U32);
-    EXPECT_GE(geo->GetLocalBounds().max.x, 0.5f);
-    EXPECT_LE(geo->GetLocalBounds().min.x, -0.5f);
+    EXPECT_GE(geo->GetLocalBounds().Max().x, 0.5f);
+    EXPECT_LE(geo->GetLocalBounds().Min().x, -0.5f);
 }
 
 TEST_F(AuroraVulkanTest, BuildU16OverflowReturnsNull)
@@ -41,6 +41,6 @@ TEST_F(AuroraVulkanTest, BuildU16OverflowReturnsNull)
 
     // 257*257 = 66049 vertices >= 65536
     auto streams = GenerateSphere(1.0f, 256, 256);
-    auto geo = BuiltinGeometry::Build(device, streams, IndexType::U16);
+    auto geo     = BuiltinGeometry::Build(device, streams, IndexType::U16);
     EXPECT_EQ(geo, nullptr);
 }

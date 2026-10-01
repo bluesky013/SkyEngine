@@ -3,7 +3,6 @@
 ## Purpose
 TBD - consolidated from: aurora-renderpass aurora-render-viewport aurora-scene-collect pipeline-pass-template
 ## Requirements
-
 ### Requirement: Render pass begin/end 声明契约
 
 Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store + clear）与 depth/stencil attachment（handle + depth/stencil load/store + clear）以及 render area 声明 render target，**不**手写 `BeginRendering`/`EndRendering`。RDG executor SHALL 在编译后为 SCENE_RASTER 与 FULLSCREEN pass 统一生成 `BeginRendering(RenderingInfo)` 与 `EndRendering()`。
@@ -35,7 +34,6 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 
 - **WHEN** `ScenePass` 写出 HDR color 后由 `TextureToScreenPass` 以 SRV 读取，且 RDG `Compile()` 完成
 - **THEN** 两 pass 之间对 HDR texture 产生从 RTV 到 SRV 的 barrier（由 `SetInputSRV` 的 read 依赖驱动），保证先写后读
-
 
 ### Requirement: RenderViewport 三阶段生命周期契约
 
@@ -107,12 +105,12 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 - **WHEN** 同一 `ClientViewport` 调用序列跑在 Vulkan / DX12 / Metal 任一后端
 - **THEN** `Begin`/`Acquire`/`Release` 接口与顺序一致，后端差异不泄漏到调用方
 
-
 ### Requirement: SceneView（aurora）
 
-`SceneView` SHALL 提供 frustum（6 plane）+ view/viewProject 矩阵，以及 `FrustumCulling(const AABB&) -> bool`。v1 只为 culling 与排序服务，不涉及常量上传。
+`SceneView` SHALL 提供 frustum（6 plane）+ view/viewProject 矩阵，以及 `FrustumCulling(const BoundingBoxSphere&) -> bool`。v1 只为 culling 与排序服务，不涉及常量上传。
 
 #### Scenario: frustum 剔除
+
 - **WHEN** primitive 的 worldBounds 完全在 view frustum 外
 - **THEN** `FrustumCulling(bounds)` 返回 false，该 primitive 被剔除
 
@@ -136,24 +134,28 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 
 场景组件（`aurora/scene/SceneTypes.h`）SHALL 包括：
 
-- `Bounds`（AABB）
+- `Bounds`（`BoundingBoxSphere`）
 -  `WorldInfo`（纯 world 矩阵：`Matrix4 world`，默认 Identity；不拆 TRS）
 - `Light`（type/color/intensity + point/spot 参数：`position` / `range` / `innerConeAngle` / `outerConeAngle`）
 - `Skin`（占位）
 
 #### Scenario: ECS 组件挂载
+
 - **WHEN** `scene.CreateEntity()` 后 `scene.Add<Light>(id, {...})`
 - **THEN** Light 存入对应 SoA 池；`scene.DestroyEntity(id)` 后移除
 
 #### Scenario: 收集链路不受影响
+
 - **WHEN** pass BuildRDG 触发 Collect
 - **THEN** 仍遍历 `Bounds`（经 `View<Bounds>`），frustum cull 语义与现状一致
 
 #### Scenario: point/spot 参数
+
 - **WHEN** `Light{type=POINT, position, range}` 或 `Light{type=SPOT, position, direction, range, innerConeAngle, outerConeAngle}`
 - **THEN** 各参数完整存储于组件
 
 #### Scenario: WorldInfo 矩阵存储
+
 - **WHEN** `scene.Add<WorldInfo>(id, {matrix})` 后 `scene.Get<WorldInfo>(id)`
 - **THEN** 读回的 world 矩阵与写入一致
 
@@ -164,7 +166,6 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 #### Scenario: dense 遍历收集
 - **WHEN** Collect 遍历场景
 - **THEN** bounds 数组连续扫描（无指针跳转）；RenderItem 按 entity 下标索引（int 索引，无 Name 哈希）
-
 
 ### Requirement: PipelinePass 模板基类
 

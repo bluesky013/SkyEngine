@@ -6,17 +6,17 @@
 #pragma once
 
 #include <aurora/resource/Skin.h>
-#include <core/name/Name.h>
-#include <core/math/Vector3.h>
-#include <core/math/Matrix4.h>
-#include <core/shapes/AABB.h>
 #include <core/ecs/TypeId.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Vector3.h>
+#include <core/name/Name.h>
+#include <core/shapes/Bounds.h>
 
 namespace sky::aurora {
 
-    // AABB in world space; drives culling and sort depth
+    // Bounding box + sphere in world space; drives culling and sort depth
     struct Bounds {
-        AABB worldBounds{};
+        BoundingBoxSphere worldBounds{};
     };
 
     // world-space placement (plain matrix; TRS composition is the caller's business)
@@ -36,11 +36,11 @@ namespace sky::aurora {
         Vector3   color     = {1.f, 1.f, 1.f};
         float     intensity = 1.f;
 
-        Vector3   direction      = {0.f, -1.f, 0.f}; // directional / spot
-        Vector3   position       = {};               // point / spot
-        float     range          = 10.f;             // point / spot attenuation radius
-        float     innerConeAngle = 0.f;              // spot (radians)
-        float     outerConeAngle = 0.785398f;        // spot (radians, ~45 deg)
+        Vector3 direction      = {0.f, -1.f, 0.f}; // directional / spot
+        Vector3 position       = {};               // point / spot
+        float   range          = 10.f;             // point / spot attenuation radius
+        float   innerConeAngle = 0.f;              // spot (radians)
+        float   outerConeAngle = 0.785398f;        // spot (radians, ~45 deg)
     };
 
     // Skinned mesh instance: references the mesh-side skinning binding (Skin).

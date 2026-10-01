@@ -9,7 +9,7 @@
 
 #include <aurora/resource/RenderGeometry.h>
 #include <core/math/GeometryGenerator.h>
-#include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <core/template/ReferenceObject.h>
 
 #include <algorithm>
@@ -20,8 +20,7 @@ namespace sky::aurora {
 
     class BuiltinGeometry {
     public:
-        static CounterPtr<RenderGeometry> Build(Device *device, const sky::GeometryStreams &streams,
-                                                IndexType indexType = IndexType::U32)
+        static CounterPtr<RenderGeometry> Build(Device *device, const sky::GeometryStreams &streams, IndexType indexType = IndexType::U32)
         {
             if (device == nullptr || streams.positions.empty()) {
                 return nullptr;
@@ -43,13 +42,12 @@ namespace sky::aurora {
 
     private:
         template <typename T>
-        static void AddStream(CounterPtr<RenderGeometry> &geo, Device *device,
-                              const std::vector<T> &data, VertexSemantic semantic)
+        static void AddStream(CounterPtr<RenderGeometry> &geo, Device *device, const std::vector<T> &data, VertexSemantic semantic)
         {
             if (data.empty()) {
                 return;
             }
-            auto vb = std::make_unique<VertexBuffer>();
+            auto         vb = std::make_unique<VertexBuffer>();
             VertexLayout layout;
             layout.stride = sizeof(T);
             layout.semantics.Set(semantic);
@@ -60,8 +58,7 @@ namespace sky::aurora {
             }
         }
 
-        static void AddIndexBuffer(CounterPtr<RenderGeometry> &geo, Device *device,
-                                   const std::vector<uint32_t> &indices, IndexType indexType)
+        static void AddIndexBuffer(CounterPtr<RenderGeometry> &geo, Device *device, const std::vector<uint32_t> &indices, IndexType indexType)
         {
             if (indices.empty()) {
                 return;
@@ -85,20 +82,20 @@ namespace sky::aurora {
             }
         }
 
-        static AABB ComputeBounds(const std::vector<Vector3> &positions)
+        static BoundingBoxSphere ComputeBounds(const std::vector<Vector3> &positions)
         {
             Vector3 lo = positions[0];
             Vector3 hi = positions[0];
             for (size_t i = 1; i < positions.size(); ++i) {
                 const Vector3 &p = positions[i];
-                lo.x = std::min(lo.x, p.x);
-                lo.y = std::min(lo.y, p.y);
-                lo.z = std::min(lo.z, p.z);
-                hi.x = std::max(hi.x, p.x);
-                hi.y = std::max(hi.y, p.y);
-                hi.z = std::max(hi.z, p.z);
+                lo.x             = std::min(lo.x, p.x);
+                lo.y             = std::min(lo.y, p.y);
+                lo.z             = std::min(lo.z, p.z);
+                hi.x             = std::max(hi.x, p.x);
+                hi.y             = std::max(hi.y, p.y);
+                hi.z             = std::max(hi.z, p.z);
             }
-            return AABB(lo, hi);
+            return BoundingBoxSphere::FromMinMax(lo, hi);
         }
     };
 

@@ -7,7 +7,7 @@
 
 #include <aurora/resource/Mesh.h>
 #include <core/logger/Logger.h>
-#include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <core/util/Uuid.h>
 #include <framework/asset/Asset.h>
 #include <framework/serialization/BinaryArchive.h>
@@ -26,14 +26,14 @@ namespace sky::aurora {
     };
 
     struct MeshAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 1;
+        static constexpr uint32_t CURRENT_VERSION = 2; // v2: bounds AABB -> BoundingBoxSphere
 
         uint32_t                     version = CURRENT_VERSION;
         std::vector<uint8_t>         vertexData;
         std::vector<uint8_t>         indexData;
         std::vector<MeshSubMeshData> subMeshes;
         std::vector<Uuid>            materials; // material slot table indexed by MeshSubMeshData::materialIndex
-        AABB                         bounds;
+        BoundingBoxSphere            bounds;
 
         // Returns null when there is no slot table; an out-of-range index falls
         // back to slot 0. Only slot 0 is a valid fallback because sub-meshes with
@@ -72,8 +72,9 @@ namespace sky::aurora {
             for (const auto &material : materials) {
                 ar.SaveValue(material.ToString());
             }
-            ar.SaveValue(bounds.min);
-            ar.SaveValue(bounds.max);
+            ar.SaveValue(bounds.center);
+            ar.SaveValue(bounds.extent);
+            ar.SaveValue(bounds.radius);
         }
 
         void Load(BinaryInputArchive &ar)
@@ -112,8 +113,9 @@ namespace sky::aurora {
                 ar.LoadValue(materialStr);
                 material = Uuid::CreateFromString(materialStr);
             }
-            ar.LoadValue(bounds.min);
-            ar.LoadValue(bounds.max);
+            ar.LoadValue(bounds.center);
+            ar.LoadValue(bounds.extent);
+            ar.LoadValue(bounds.radius);
         }
 
         void clear()
@@ -122,7 +124,7 @@ namespace sky::aurora {
             indexData.clear();
             subMeshes.clear();
             materials.clear();
-            bounds = AABB{};
+            bounds = BoundingBoxSphere{};
         }
     };
 
@@ -132,9 +134,9 @@ namespace sky {
 
     template <>
     struct AssetTraits<sky::aurora::Mesh> {
-        using DataType                                = sky::aurora::MeshAssetData;
-        static constexpr std::string_view ASSET_TYPE  = "AuroraMesh";
-        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+        using DataType                                   = sky::aurora::MeshAssetData;
+        static constexpr std::string_view ASSET_TYPE     = "AuroraMesh";
+        static constexpr SerializeType    SERIALIZE_TYPE = SerializeType::BIN;
     };
 
 } // namespace sky

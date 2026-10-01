@@ -14,7 +14,7 @@ using namespace sky::aurora::test;
 
 TEST(RenderGeometryTest, CompositeMetadata)
 {
-    auto vb = std::make_unique<VertexBuffer>();
+    auto         vb = std::make_unique<VertexBuffer>();
     VertexLayout layout;
     layout.stride = 32;
     layout.semantics.Set(VertexSemantic::POSITION);
@@ -27,14 +27,14 @@ TEST(RenderGeometryTest, CompositeMetadata)
     RenderGeometry geo(sky::Name("geo"));
     geo.AddVertexStream(std::move(vb));
     geo.SetIndexBuffer(std::move(ib));
-    geo.SetLocalBounds(sky::AABB(sky::VEC3_ZERO, sky::VEC3_ONE));
+    geo.SetLocalBounds(sky::BoundingBoxSphere::FromMinMax(sky::VEC3_ZERO, sky::VEC3_ONE));
 
     ASSERT_EQ(geo.GetVertexStreams().size(), 1u);
     EXPECT_EQ(geo.GetVertexStreams()[0]->GetLayout().stride, 32u);
     EXPECT_TRUE(geo.GetVertexStreams()[0]->GetLayout().semantics.Test(VertexSemantic::POSITION));
     EXPECT_NE(geo.GetIndexBuffer(), nullptr);
     EXPECT_EQ(geo.GetIndexBuffer()->GetIndexType(), IndexType::U32);
-    EXPECT_EQ(geo.GetLocalBounds().max.x, 1.0f);
+    EXPECT_EQ(geo.GetLocalBounds().Max().x, 1.0f);
     EXPECT_EQ(geo.GetName(), sky::Name("geo"));
 }
 
