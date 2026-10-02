@@ -24,27 +24,10 @@ namespace sky {
 
     bool GameApplication::Init(int argc, char **argv)
     {
-#ifdef SKY_EDITOR
-        CmdOptions options("GameApplication Launcher", "SkyEngine Launcher");
-        options.allow_unrecognised_options();
-
-        options.add_options()("p,project", "Project Directory", CmdValue<std::string>());
-        auto result = options.parse(argc, argv);
-        if (result.count("project") != 0u) {
-            std::string projectPath = result["project"].as<std::string>();
-            workFs = new NativeFileSystem(projectPath);
-            AssetManager::Get()->SetWorkFileSystem(workFs);
-        } else {
-            std::string workPath = Platform::Get()->GetBundlePath();
-            workFs = new NativeFileSystem(workPath);
-            AssetManager::Get()->SetWorkFileSystem(workFs);
-        }
-#elif __ANDROID__
+#if __ANDROID__
         workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());//Platform::Get()->GetBundleFileSystem();
 //        workFs = std::make_shared<NativeFileSystem>(Platform::Get()->GetInternalPath());
 //        AssetManager::Get()->SetWorkPath(workFs);
-        AssetDataBase::Get()->SetWorkSpaceFs(workFs);
-        AssetDataBase::Get()->Load();
 
         std::string bundleKey = "common";
         auto bundleFs = workFs->CreateSubSystem(bundleKey, false);

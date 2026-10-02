@@ -21,9 +21,3 @@
 #define SKY_ENABLE_RESOURCE_NAME 0
 #endif
 #endif
-
-#if SKY_EDITOR
-    #define EDITABLE(stat) (stat)
-#else
-    #define EDITABLE(stat)
-#endif

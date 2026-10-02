@@ -9,6 +9,7 @@
 #include <fstream>
 #include <vector>
 #include <filesystem>
+#include <functional>
 #include <core/archive/BinaryData.h>
 #include <core/archive/StreamArchive.h>
 #include <core/template/ReferenceObject.h>
@@ -130,6 +131,7 @@ namespace sky {
         ~IFileSystem() override = default;
 
         virtual void Copy(const FilePath &from, const FilePath &to) const {}
+        virtual bool Rename(const FilePath &from, const FilePath &to) const { return false; }
         virtual bool FileExist(const FilePath &path) const = 0;
         virtual void MakeDir(const FilePath &path) {}
         virtual FilePtr OpenFile(const FilePath &name) = 0;
@@ -154,6 +156,7 @@ namespace sky {
         const FilePath &GetPath() const override { return fsRoot; }
 
         void Copy(const FilePath &from, const FilePath &to) const override;
+        bool Rename(const FilePath &from, const FilePath &to) const override;
         bool IsSubDir(const std::string &path) const;
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 
@@ -168,3 +171,15 @@ namespace sky {
         ~PackageFileSystem() override = default;
     };
 } // namespace sky
+
+namespace std {
+
+    template <>
+    struct hash<sky::FilePath> {
+        size_t operator()(const sky::FilePath &path) const noexcept
+        {
+            return hash<std::string>()(path.GetStr());
+        }
+    };
+
+} // namespace std

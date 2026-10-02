@@ -172,7 +172,7 @@ namespace sky {
 
         auto source = AssetDataBase::Get()->FindAsset(material);
         if (source) {
-            archive.SaveValue(source->path.path.GetStr());
+            archive.SaveValue(source->path.GetStr());
         } else {
             archive.SaveValue("");
         }
@@ -226,7 +226,7 @@ namespace sky {
                     [&archive, this](const MaterialTexture &tex) {
                         auto asset = AssetDataBase::Get()->FindAsset(tex.texID);
                         if (asset) {
-                            archive.SaveValue(asset->path.path.GetStr());
+                            archive.SaveValue(asset->path.GetStr());
                         } else {
                             archive.SaveValue("");
                         }

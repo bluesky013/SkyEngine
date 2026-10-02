@@ -7,8 +7,6 @@
 #include <framework/application/Application.h>
 
 namespace sky {
-#ifdef SKY_EDITOR
-
     class ToolApplicationBase : public Application {
     public:
         ToolApplicationBase() = default;
@@ -21,6 +19,4 @@ namespace sky {
     protected:
         std::string projectPath;
     };
-
-#endif
 } // namespace sky

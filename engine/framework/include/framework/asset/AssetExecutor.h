@@ -4,19 +4,26 @@
 
 #pragma once
 
-#include <taskflow/taskflow.hpp>
 #include <core/environment/Singleton.h>
 #include <core/file/FileSystem.h>
+#include <core/async/ThreadPool.h>
 
 #include <framework/asset/Asset.h>
 
-#include <unordered_map>
+#include <algorithm>
+#include <future>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace sky {
 
     struct SavingTask {
-        FilePtr file;
-        tf::AsyncTask asyncTask;
+        std::string key;
+        std::future<void> asyncTask;
     };
 
     class AssetExecutor : public Singleton<AssetExecutor> {
@@ -24,49 +31,70 @@ namespace sky {
         AssetExecutor();
         ~AssetExecutor() override = default;
 
-        template <typename Func, typename ...Tasks>
-        auto DependentAsync(Func &&func, Tasks &&...tasks)
+        // Schedule func to run after all deps complete. Returns the task node and an already-created future.
+        template <typename Func>
+        std::pair<TaskNodePtr, std::future<void>> DependentAsync(Func &&func, const std::vector<TaskNodePtr> &deps)
         {
-            return executor.dependent_async(std::forward<Func>(func), std::forward<Tasks>(tasks)...);
+            auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
+            auto node = pool.CreateTask([holder](ThreadContext &) mutable { (*holder)(); });
+            for (const auto &dep : deps) {
+                if (dep) {
+                    node->DependsOn(dep);
+                }
+            }
+            // Obtain the future before submitting so completion cannot race the promise creation.
+            auto future = node->GetFuture();
+            pool.Submit(node);
+            return { node, std::move(future) };
         }
 
-        template <typename Func, typename Iter>
-        auto DependentAsyncRange(Func &&func, Iter begin, Iter last)
+        template <typename Func>
+        std::pair<TaskNodePtr, std::future<void>> DependentAsync(Func &&func)
         {
-            return executor.dependent_async(std::forward<Func>(func), begin, last);
+            return DependentAsync(std::forward<Func>(func), std::vector<TaskNodePtr>{});
         }
 
-        template <typename Func, typename ...Tasks>
-        void PushSavingTask(const FilePtr &file, Func &&func, Tasks &&...tasks)
+        template <typename Func>
+        void PushSavingTask(const std::string &key, Func &&func)
         {
             std::lock_guard<std::mutex> lock(mutex);
-            auto iter = std::find_if(savingTasks.begin(), savingTasks.end(), [file](const auto &v) {
-                return v.file->GetPath() == file->GetPath();
+            auto iter = std::find_if(savingTasks.begin(), savingTasks.end(), [&key](const auto &v) {
+                return v.key == key;
             });
-
-            if (iter == savingTasks.end()) {
-                SavingTask task = {
-                    file,
-                    executor.silent_dependent_async([fn = std::forward<Func>(func), file, this]() {
-                        fn();
-                        std::lock_guard<std::mutex> lock(mutex);
-                        auto iter  = std::find_if(savingTasks.begin(), savingTasks.end(), [file](const auto &v) {
-                            return v.file.Get() == file.Get();
-                        });
-                        if (iter != savingTasks.end()) {
-                            savingTasks.erase(iter);
-                        }
-                    }, std::forward<Tasks>(tasks)...)
-                };
-
-                savingTasks.emplace_back(std::move(task));
+            if (iter != savingTasks.end()) {
+                return;
             }
+
+            auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
+            auto sharedKey = std::make_shared<std::string>(key);
+            SavingTask task;
+            task.key = key;
+            task.asyncTask = pool.Dispatch([holder, sharedKey, this](ThreadContext &) mutable {
+                (*holder)();
+                std::lock_guard<std::mutex> innerLock(mutex);
+                auto it = std::find_if(savingTasks.begin(), savingTasks.end(), [&sharedKey](const auto &v) {
+                    return v.key == *sharedKey;
+                });
+                if (it != savingTasks.end()) {
+                    savingTasks.erase(it);
+                }
+            });
+            savingTasks.emplace_back(std::move(task));
         }
 
         void WaitForAll();
 
+        // Submit an in-process cook task on a dedicated pool so the loader pool is never occupied.
+        template <typename Func>
+        void SubmitCook(Func &&func)
+        {
+            auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
+            cookPool.Schedule([holder](ThreadContext &) mutable { (*holder)(); });
+        }
+
     private:
-        tf::Executor executor;
+        ThreadPool pool;
+        ThreadPool cookPool;
 
         mutable std::mutex mutex;
         std::list<SavingTask> savingTasks;

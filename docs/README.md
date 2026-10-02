@@ -21,6 +21,11 @@ Markdown, and grounded in the current repository state.
 - [PVS Plugin](plugins/pvs.md) - precomputed visibility: render-independent core, runtime culling glue, streaming,
   visibility queries and serialization.
 
+### Features
+
+- [Asset Pipeline](features/asset-pipeline.md) - source identities, the mounted source namespace, product bundles,
+  loading, on-demand cook, cook configuration and the dependency graph.
+
 ### Adding documents
 
 - One topic per file; group by `architecture/`, `modules/`, `plugins/`, `features/`, or `guides/`.

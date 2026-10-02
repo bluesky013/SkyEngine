@@ -9,11 +9,17 @@
 
 #include <framework/asset/Asset.h>
 #include <framework/asset/AssetProductBundle.h>
+#include <framework/asset/AssetIndexFile.h>
+#include <framework/compression/Compressor.h>
 #include <framework/asset/AssetExecutor.h>
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace sky {
+
+    class AssetDependencyGraph;
+    class ISourceCatalog;
 
     class AssetManager : public Singleton<AssetManager> {
     public:
@@ -21,6 +27,10 @@ namespace sky {
         ~AssetManager() override = default;
 
         void SetWorkFileSystem(const FileSystemPtr &fs);
+        void SetSourceCatalog(ISourceCatalog *catalog) { sourceCatalog = catalog; }
+        // Compress product payloads with the given codec (see CompressionManager). Off by default.
+        void SetProductCompression(CompressionMethod method) { compressionMethod = method; compressProducts = true; }
+        void DisableProductCompression() { compressProducts = false; }
         void AddAssetProductBundle(AssetProductBundle *bundle);
 
         AssetPtr FindAsset(const Uuid &uuid) const;
@@ -59,6 +69,9 @@ namespace sky {
 
         FilePtr OpenFile(const Uuid &uuid) const;
 
+        // Build the runtime dependency graph from loaded product assets.
+        void BuildDependencyGraph(AssetDependencyGraph &graph) const;
+
         void RegisterAssetHandler(const std::string_view &type, AssetHandlerBase *handler);
         template <class T>
         void RegisterAssetHandler()
@@ -67,11 +80,29 @@ namespace sky {
         }
     private:
         FileSystemPtr workSpace;
-        AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive);
+        ISourceCatalog *sourceCatalog = nullptr;
+        bool compressProducts = false;
+        CompressionMethod compressionMethod = CompressionMethod::LZ4;
+        AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec);
+        // Resolve the payload archive, decompressing when the product header records a codec.
+        IStreamArchivePtr PreparePayload(const IStreamArchivePtr &archive, const std::string &codec) const;
+        // Product missing + source exists: schedule an in-process cook and return a LOADING asset.
+        AssetPtr LoadAssetOnDemand(const Uuid &uuid);
+        // Synchronous deserialize from an existing product (used by the in-process cook task).
+        void DeserializeProduct(const Uuid &uuid);
+        // Run the handler load + status transition + loaded event for an asset whose deps are resolved.
+        bool LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload);
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
 
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>> bundles;
+
+        // Product path index (canonical logical path -> uuid), assembled from each bundle's product.index.
+        std::unordered_map<std::string, Uuid> productPathMap;
+        // Per-bundle parsed product indexes (canonical logical path -> uuid).
+        AssetIndexFileCache productIndices{"product.index", "path"};
+        // Assets with an in-flight on-demand cook (coalesced per uuid).
+        std::unordered_set<Uuid> pendingCooks;
 
         mutable std::recursive_mutex mutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;

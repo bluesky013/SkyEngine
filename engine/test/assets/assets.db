@@ -1,33 +1,38 @@
 {
     "assets": [
         {
-            "uuid": "C965739A-683B-4200-9CE5-68F45D5E7113",
+            "uuid": "670A103B-18BA-4F98-9D4F-8A2D3F84382F",
             "markedName": "",
             "ext": ".t1",
-            "type": "T1",
-            "bundle": 2,
             "path": "framework\\data\\test_asset.t1",
             "dependencies": []
         },
         {
-            "uuid": "91C803A0-0029-4702-B884-93A38A6F848E",
-            "markedName": "",
-            "ext": ".t3",
-            "type": "T3",
-            "bundle": 2,
-            "path": "framework\\data\\test_asset.t3",
-            "dependencies": [
-                "C965739A-683B-4200-9CE5-68F45D5E7113",
-                "177D7E7E-06EF-4105-9E59-DED9DDACD3CA"
-            ]
-        },
-        {
-            "uuid": "177D7E7E-06EF-4105-9E59-DED9DDACD3CA",
+            "uuid": "3944E904-7461-4822-BAAA-341E69965B68",
             "markedName": "",
             "ext": ".t2",
-            "type": "T2",
-            "bundle": 2,
             "path": "framework\\data\\test_asset.t2",
+            "dependencies": []
+        },
+        {
+            "uuid": "1CC6E7E7-5310-48CB-B16B-F2216234F880",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\compressed.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "0C91651C-DB3B-41DE-AB92-0E66F3920D88",
+            "markedName": "",
+            "ext": ".t3",
+            "path": "framework\\data\\test_asset.t3",
+            "dependencies": []
+        },
+        {
+            "uuid": "151453FF-A3E3-4D75-AC00-418CEF14A4BC",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\imported.t1",
             "dependencies": []
         }
     ]

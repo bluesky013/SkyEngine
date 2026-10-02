@@ -66,7 +66,8 @@ namespace sky::editor {
 
         AssetManager::Get()->SetWorkFileSystem(workFs);
         AssetDataBase::Get()->SetEngineFs(engineFs);
-        AssetDataBase::Get()->SetWorkSpaceFs(workFs);
+        AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
+        AssetManager::Get()->SetSourceCatalog(AssetDataBase::Get());
 
         AssetBuilderManager::Get()->SetEngineFs(engineFs);
         AssetBuilderManager::Get()->SetWorkSpaceFs(workFs);

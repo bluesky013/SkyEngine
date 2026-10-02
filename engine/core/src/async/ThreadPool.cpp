@@ -34,8 +34,16 @@ namespace sky {
 
     void TaskNode::DependsOn(const CounterPtr<TaskNode> &parent)
     {
-        pendingParents.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<SpinLock> lock(parent->childLock);
+
+        // A dependency may already have completed (e.g. an already-loaded asset).
+        // Do not count it and do not register an edge for it: the node stays at
+        // zero pending parents for that edge, and Submit() enqueues when no edge remains.
+        if (parent->done) {
+            return;
+        }
+
+        pendingParents.fetch_add(1, std::memory_order_relaxed);
         parent->children.push_back(this);
     }
 
@@ -48,6 +56,14 @@ namespace sky {
 
     void TaskNode::TryEnqueue()
     {
+        {
+            std::lock_guard<SpinLock> lock(childLock);
+            if (enqueued) {
+                return;
+            }
+            enqueued = true;
+        }
+
         // Hold an explicit reference for the queued task; the node is released
         // when the task completes. The node is arena-backed, so the raw pointer
         // stays valid while this reference is outstanding.

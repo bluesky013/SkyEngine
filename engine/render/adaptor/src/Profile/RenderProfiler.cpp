@@ -17,12 +17,7 @@ namespace sky {
         : scene(scn)
         , fps(1.f)
     {
-
-#if SKY_EDITOR
         auto fs = AssetDataBase::Get()->GetEngineFs();
-#else
-        auto fs = AssetDataBase::Get()->GetWorkSpaceFs();
-#endif
         font = TextRegistry::Get()->LoadFont(fs, "fonts/OpenSans-Regular.ttf");
         text = scene->GetFeature<TextFeatureProcessor>()->CreateText(font);
         text->Init(TextDesc{20});

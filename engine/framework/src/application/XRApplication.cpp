@@ -22,21 +22,6 @@ namespace sky {
 
     bool XRApplication::Init(int argc, char **argv)
     {
-#ifdef SKY_EDITOR
-        CmdOptions options("GameApplication Launcher", "SkyEngine Launcher");
-        options.allow_unrecognised_options();
-
-        options.add_options()("p,project", "Project Directory", CmdValue<std::string>());
-        auto result = options.parse(argc, argv);
-        if (result.count("project") != 0u) {
-            AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(result["project"].as<std::string>()));
-        } else {
-            AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(Platform::Get()->GetBundlePath()));
-        }
-#else
-//        AssetManager::Get()->SetWorkPath(Platform::Get()->GetBundleFileSystem());
-#endif
-
         if (!Application::Init(argc, argv)) {
             return false;
         }
@@ -46,41 +31,7 @@ namespace sky {
 
     bool XRApplication::LoadConfigs()
     {
-//#ifdef SKY_EDITOR
-//        auto configPath = AssetManager::Get()->GetProjectPath() + CONFIG_PATH;
-//#else
-//        auto configPath = Platform::Get()->GetInternalPath() + CONFIG_PATH;
-//#endif
-//
-//        std::string json;
-//        if (!ReadString(configPath, json)) {
-//            LOG_W(TAG, "Load Config Failed");
-//            return;
-//        }
-//
-//        rapidjson::Document document;
-//        document.Parse(json.c_str());
-//
-//        if (document.HasMember("modules")) {
-//            auto array = document["modules"].GetArray();
-//            for (auto &module : array) {
-//                if (!module.HasMember("name")) {
-//                    continue;
-//                }
-//
-//                ModuleInfo info;
-//                info.name = module["name"].GetString();
-//
-//                if (module.HasMember("dependencies")) {
-//                    auto depArray = module["dependencies"].GetArray();
-//                    for (auto &dep : depArray) {
-//                        info.dependencies.emplace_back(dep.GetString());
-//                    }
-//                }
-//                moduleManager->RegisterModule(info);
-//            }
-//        }
-    return true;
+        return true;
     }
 
 

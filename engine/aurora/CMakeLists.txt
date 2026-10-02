@@ -8,6 +8,6 @@ add_subdirectory(adaptor)
 add_subdirectory(runtime)
 add_subdirectory(editor)
 
-if ((SKY_BUILD_TOOL) AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")))
+if ((SKY_DEVELOP) AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")))
     add_subdirectory(cook)
 endif ()

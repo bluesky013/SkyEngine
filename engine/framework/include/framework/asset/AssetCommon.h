@@ -9,8 +9,6 @@
 #include <utility>
 #include <type_traits>
 #include <core/file/FileSystem.h>
-#include <core/hash/Hash.h>
-#include <core/hash/Fnv1a.h>
 #include <core/util/Uuid.h>
 #include <core/template/ReferenceObject.h>
 #include <core/event/Event.h>
@@ -18,24 +16,11 @@
 
 namespace sky {
 
-    enum class SourceAssetBundle : uint32_t {
-        INVALID,
-        ENGINE,
-        WORKSPACE,
-        CUSTOM_BEGIN = WORKSPACE + 1
-    };
-
-    struct AssetSourcePath {
-        SourceAssetBundle bundle;       // asset bundle
-        FilePath path;                  // relative path to bundle
-    };
-
     // asset source info
     struct AssetSourceInfo : public RefObject {
-        AssetSourcePath path;           // asset path
+        FilePath path;                  // logical source path within the mounted namespace
         std::string name;               // marked name used to load by name, can be empty
-        std::string ext;                // file extension
-        std::string category;           // asset category
+        std::string ext;                // file extension (source of the derived AssetTypeId)
         Uuid uuid;                      // uuid of the asset
         std::vector<Uuid> dependencies; // dependent assets
     };
@@ -60,7 +45,10 @@ namespace sky {
     };
 
     struct AssetBuildResult {
+        Uuid uuid;
+        ProductBundleKey target;
         AssetBuildRetCode retCode;
+        std::string error;
     };
 
     struct AssetRawData {
@@ -68,24 +56,3 @@ namespace sky {
     };
 } // namespace sky
 
-namespace std {
-
-    template <>
-    struct hash<sky::AssetSourcePath> {
-        size_t operator()(const sky::AssetSourcePath &path) const noexcept
-        {
-            auto hash = static_cast<uint32_t>(path.bundle);
-            sky::HashCombine32(hash, sky::Fnv1a32(path.path.GetStr()));
-            return hash;
-        }
-    };
-
-    template <>
-    struct equal_to<sky::AssetSourcePath> {
-        bool operator()(const sky::AssetSourcePath &x, const sky::AssetSourcePath &y) const noexcept
-        {
-            return x.bundle == y.bundle && x.path == y.path;
-        }
-    };
-
-} // namespace std

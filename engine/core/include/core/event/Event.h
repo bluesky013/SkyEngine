@@ -10,6 +10,8 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <mutex>
+#include <type_traits>
 
 namespace sky {
 
@@ -25,6 +27,15 @@ namespace sky {
         static constexpr StorageMode STORAGE = StorageMode::IMMEDIATE;
     };
 
+    // No-op lockable used when an event opts out of locking (EventTraits::MutexType == void).
+    struct NullEventMutex {
+        void lock() {}
+        void unlock() {}
+    };
+
+    template <typename M>
+    using EventMutex = std::conditional_t<std::is_void_v<M>, NullEventMutex, M>;
+
     template <typename Interface, class KeyType = Interface::KeyType>
     class Event {
     public:
@@ -33,14 +44,18 @@ namespace sky {
 
         class Storage : public Singleton<Storage> {
         public:
+            using MutexType = EventMutex<typename Interface::MutexType>;
+
             void Emplace(const KeyType &key, Interface *listener)
             {
+                std::lock_guard<MutexType> lock(mutex);
                 auto &set = this->listeners[key];
                 set.emplace_back(listener);
             }
 
             void Erase(Interface *listener)
             {
+                std::lock_guard<MutexType> lock(mutex);
                 for (auto &pair : this->listeners) {
                     auto iter = std::find(pair.second.begin(), pair.second.end(), listener);
                     if (iter != pair.second.end()) {
@@ -53,12 +68,18 @@ namespace sky {
             template <typename T, typename... Args>
             void BroadCast(const KeyType &key, T &&func, Args &&...args)
             {
-                auto iter = this->listeners.find(key);
-                if (iter == this->listeners.end()) {
-                    return;
+                // Snapshot under lock, invoke outside so a listener may connect/disconnect safely.
+                std::vector<Interface *> snapshot;
+                {
+                    std::lock_guard<MutexType> lock(mutex);
+                    auto iter = this->listeners.find(key);
+                    if (iter == this->listeners.end()) {
+                        return;
+                    }
+                    snapshot = iter->second;
                 }
 
-                for (auto &listener : iter->second) {
+                for (auto *listener : snapshot) {
                     std::invoke(func, listener, std::forward<Args>(args)...);
                 }
             }
@@ -67,6 +88,7 @@ namespace sky {
             friend class Singleton<Storage>;
             Storage()  = default;
             ~Storage() override = default;
+            mutable MutexType mutex;
             std::unordered_map<KeyType, std::vector<Interface *>> listeners;
         };
 
@@ -95,13 +117,17 @@ namespace sky {
 
         class Storage : public Singleton<Storage> {
         public:
+            using MutexType = EventMutex<typename Interface::MutexType>;
+
             void Emplace(Interface *listener)
             {
+                std::lock_guard<MutexType> lock(mutex);
                 listeners.emplace(listener);
             }
 
             void Erase(Interface *listener)
             {
+                std::lock_guard<MutexType> lock(mutex);
                 auto iter = listeners.find(listener);
                 if (iter != listeners.end()) {
                     listeners.erase(iter);
@@ -111,7 +137,13 @@ namespace sky {
             template <typename T, typename... Args>
             void BroadCast(T &&func, Args &&...args)
             {
-                for (auto &listener : listeners) {
+                std::vector<Interface *> snapshot;
+                {
+                    std::lock_guard<MutexType> lock(mutex);
+                    snapshot.assign(listeners.begin(), listeners.end());
+                }
+
+                for (auto *listener : snapshot) {
                     std::invoke(func, listener, std::forward<Args>(args)...);
                 }
             }
@@ -120,6 +152,7 @@ namespace sky {
             friend class Singleton<Storage>;
             Storage()  = default;
             ~Storage() = default;
+            mutable MutexType mutex;
             std::set<Interface *> listeners;
         };
 

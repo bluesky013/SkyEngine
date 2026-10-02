@@ -18,7 +18,7 @@ if (_sky_plugin_count GREATER 0)
                GET "${_SKY_PLUGINS_JSON}" "plugins" "${_i}" "requires_editor")
 
         set(_can_build TRUE)
-        if ((NOT _requires_editor_err) AND _requires_editor AND (NOT SKY_EDITOR))
+        if ((NOT _requires_editor_err) AND _requires_editor AND (NOT SKY_BUILD_SANDBOX) AND (NOT SKY_BUILD_EDITOR))
             set(_can_build FALSE)
         endif()
 

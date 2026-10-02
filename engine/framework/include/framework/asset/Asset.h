@@ -12,7 +12,7 @@
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
 
-#include <taskflow/taskflow.hpp>
+#include <core/async/ThreadPool.h>
 
 #include <memory>
 #include <mutex>
@@ -24,7 +24,7 @@ namespace sky {
     class AssetBase;
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    using AsyncTask = std::pair<tf::AsyncTask, std::future<void>>;
+    using AsyncTask = std::pair<TaskNodePtr, std::future<void>>;
 
     class AssetBase {
     public:
@@ -45,6 +45,8 @@ namespace sky {
 
         void AddDependencies(const Uuid &id);
         void ResetDependencies();
+        // Blocks until the asset reaches LOADED or FAILED.
+        // MUST NOT be called from the asset executor's worker (loader or cook) pool threads.
         void BlockUntilLoaded() const;
 
         virtual const uint8_t *GetData() const = 0;

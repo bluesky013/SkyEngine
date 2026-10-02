@@ -27,7 +27,7 @@ namespace sky::builder {
         request.file->ReadBin(raw);
 
         if (raw.empty()) {
-            LOG_W(TAG, "Empty audio source: %s", request.assetInfo->path.path.GetStr().c_str());
+            LOG_W(TAG, "Empty audio source: %s", request.assetInfo->path.GetStr().c_str());
             result.retCode = AssetBuildRetCode::FAILED;
             return;
         }
@@ -35,7 +35,7 @@ namespace sky::builder {
         auto  asset = AssetManager::Get()->FindOrCreateAsset<AudioClip>(request.assetInfo->uuid);
         auto &data  = asset->Data();
 
-        data.desc.source     = request.assetInfo->path.path.GetStr();
+        data.desc.source     = request.assetInfo->path.GetStr();
         data.desc.loadMode   = AudioLoadMode::InMemory;
         data.desc.defaultBus = audio::SFX_BUS;
         data.desc.loop       = false;

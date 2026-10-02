@@ -8,8 +8,9 @@
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetBuilder.h>
 #include <framework/asset/AssetExecutor.h>
-#include <framework/asset/AssetBuilderConfig.h>
+#include <framework/asset/CookConfig.h>
 #include <queue>
+#include <mutex>
 
 namespace sky {
 
@@ -35,8 +36,24 @@ namespace sky {
 
         void BuildRequest(const AssetBuildRequest &request);
         void BuildRequest(const Uuid &uuid, const std::string &target);
+        // Runs the builder inline (used by the in-process on-demand cook path).
+        void BuildRequestSync(const Uuid &uuid, const std::string &target);
+
+        // Unified cook/build configuration (bundles, presets, platform targets).
+        CookConfig GetCookConfig() const
+        {
+            std::lock_guard<std::mutex> lock(configMutex);
+            return config;
+        }
+        void SetCookConfig(CookConfig c)
+        {
+            std::lock_guard<std::mutex> lock(configMutex);
+            config = std::move(c);
+        }
 
         AssetBuilder *QueryBuilder(const std::string &ext) const;
+        // All extensions claimed by registered builders.
+        std::vector<std::string> GetExtensions() const;
 
     private:
         std::vector<std::unique_ptr<AssetBuilder>> assetBuilders;
@@ -45,7 +62,8 @@ namespace sky {
         NativeFileSystemPtr engineFs;
         NativeFileSystemPtr workSpaceFs;
         NativeFileSystemPtr intermediateFs;
-        AssetBuilderConfig config;
+        CookConfig config;
+        mutable std::mutex configMutex;
     };
 
 } // namespace sky

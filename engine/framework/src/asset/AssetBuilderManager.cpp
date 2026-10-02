@@ -16,6 +16,16 @@ namespace sky {
         return iter == assetBuilderMap.end() ? nullptr : iter->second;
     }
 
+    std::vector<std::string> AssetBuilderManager::GetExtensions() const
+    {
+        std::vector<std::string> extensions;
+        extensions.reserve(assetBuilderMap.size());
+        for (const auto &[ext, builder] : assetBuilderMap) {
+            extensions.push_back(ext);
+        }
+        return extensions;
+    }
+
     void AssetBuilderManager::SetEngineFs(const NativeFileSystemPtr &fs)
     {
         engineFs = fs;
@@ -35,17 +45,24 @@ namespace sky {
         auto configFs = workSpaceFs->CreateSubSystem("configs", false);
 
         auto *am = AssetManager::Get();
-        // load configs
-        auto file = configFs->OpenFile("asset_build_presets.json");
+        // Unified cook/build config; falls back to the legacy presets file name.
+        auto file = configFs->OpenFile("asset_cook.jsonc");
+        if (!file) {
+            file = configFs->OpenFile("asset_build_presets.json");
+        }
         if (file) {
-            auto archive = file->ReadAsArchive();
-            JsonInputArchive json(*archive);
-            config.LoadJson(json);
+            std::string text;
+            file->ReadString(text);
 
-            if (config.bundles.empty()) {
-                config.bundles.emplace_back("common");
+            CookConfig parsed;
+            parsed.Parse(text);
+            SetCookConfig(parsed);
+
+            auto bundles = parsed.GetBundles();
+            if (bundles.empty()) {
+                bundles.emplace_back("common");
             }
-            for (auto &bundle :config.bundles) {
+            for (auto &bundle : bundles) {
                 auto bundleFs = productFs->CreateSubSystem(bundle, true);
                 am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundle));
             }
@@ -106,15 +123,43 @@ namespace sky {
 
     void AssetBuilderManager::BuildRequest(const AssetBuildRequest &request)
     {
-        AssetExecutor::Get()->PushSavingTask(request.file, [this, request]() {
+        const auto key = request.assetInfo->uuid.ToString() + "#" + request.target;
+        AssetExecutor::Get()->PushSavingTask(key, [this, request]() {
             auto *builder = QueryBuilder(request.assetInfo->ext);
             request.assetInfo->dependencies.clear();
 
             AssetBuildResult result = {};
+            result.uuid = request.assetInfo->uuid;
+            result.target = request.target;
             builder->Request(request, result);
 
             AsseEvent::BroadCast(request.assetInfo->uuid, &IAssetEvent::OnAssetBuildFinished, result);
         });
+    }
+
+    void AssetBuilderManager::BuildRequestSync(const Uuid &uuid, const std::string &target)
+    {
+        auto srcAsset = AssetDataBase::Get()->FindAsset(uuid);
+        if (!srcAsset) {
+            return;
+        }
+
+        auto *builder = QueryBuilder(srcAsset->ext);
+        if (builder == nullptr) {
+            return;
+        }
+
+        AssetBuildRequest request = {};
+        request.assetInfo = srcAsset;
+        request.file = AssetDataBase::Get()->OpenFile(srcAsset);
+        request.target = target;
+
+        srcAsset->dependencies.clear();
+
+        AssetBuildResult result = {};
+        result.uuid = uuid;
+        result.target = target;
+        builder->Request(request, result);
     }
 
     Any AssetBuilderManager::GetImportConfig(const FilePath &filePath)

@@ -4,18 +4,21 @@
 
 #include <framework/asset/AssetExecutor.h>
 
+#include <algorithm>
+#include <thread>
+
 namespace sky {
 
     AssetExecutor::AssetExecutor()
-#ifndef _WIN32
-        : executor(1)
-#endif
+        : pool(std::max(1U, std::thread::hardware_concurrency()))
+        , cookPool(std::max(1U, std::thread::hardware_concurrency()))
     {
     }
 
     void AssetExecutor::WaitForAll()
     {
-        executor.wait_for_all();
+        pool.WaitIdle();
+        cookPool.WaitIdle();
         std::lock_guard<std::mutex> lock(mutex);
         SKY_ASSERT(savingTasks.empty());
     }

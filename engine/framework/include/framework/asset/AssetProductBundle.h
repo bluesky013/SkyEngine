@@ -22,6 +22,7 @@ namespace sky {
         virtual FilePtr CreateOrOpenFile(const Uuid &uuid) const = 0;
 
         const ProductBundleKey &GetKey() const { return key; }
+        const FileSystemPtr &GetFileSystem() const { return fs; }
         virtual bool IsPacked() const { return false; }
 
     protected:

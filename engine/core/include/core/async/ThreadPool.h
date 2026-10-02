@@ -182,6 +182,7 @@ namespace sky {
         ThreadTask                          func;
         std::unique_ptr<std::promise<void>> promise;
         bool                                done{false};
+        bool                                enqueued{false};
         std::atomic_uint32_t                pendingParents{0};
         std::atomic_uint32_t                counter{0};
         SpinLock                            childLock;

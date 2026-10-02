@@ -14,7 +14,7 @@ static const char *TAG = "Application";
 static const char *CONFIG_PATH = "/config/modules_tool.json";
 
 namespace sky {
-#ifdef SKY_EDITOR
+
     void ToolApplicationBase::ParseStartArgs()
     {
         CmdOptions options("Application Launcher", "SkyEngine Launcher");
@@ -80,5 +80,4 @@ namespace sky {
     void ToolApplicationBase::PostInit()
     {
     }
-#endif
 } // namespace sky

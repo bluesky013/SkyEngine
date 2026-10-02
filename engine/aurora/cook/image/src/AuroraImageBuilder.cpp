@@ -80,7 +80,7 @@ namespace sky::aurora {
 
         std::vector<uint8_t> bytes;
         if (!request.file->ReadBin(bytes) || bytes.empty()) {
-            LOG_E(TAG, "failed to read source %s", request.assetInfo->path.path.GetStr().c_str());
+            LOG_E(TAG, "failed to read source %s", request.assetInfo->path.GetStr().c_str());
             return;
         }
 
@@ -98,7 +98,7 @@ namespace sky::aurora {
         cook::CookImageSource source;
         if (ext == ".ktx") {
             if (!cook::LoadKtx(bytes, source)) {
-                LOG_E(TAG, "ktx decode failed: %s", request.assetInfo->path.path.GetStr().c_str());
+                LOG_E(TAG, "ktx decode failed: %s", request.assetInfo->path.GetStr().c_str());
                 return;
             }
         } else if (ext == ".image") {
@@ -123,7 +123,7 @@ namespace sky::aurora {
         } else {
             auto image = cook::LoadStbImage(bytes, ext == ".hdr");
             if (!image) {
-                LOG_E(TAG, "image decode failed: %s", request.assetInfo->path.path.GetStr().c_str());
+                LOG_E(TAG, "image decode failed: %s", request.assetInfo->path.GetStr().c_str());
                 return;
             }
             source.image     = image;

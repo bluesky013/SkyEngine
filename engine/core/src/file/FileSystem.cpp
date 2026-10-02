@@ -233,6 +233,16 @@ namespace sky {
         std::filesystem::copy(fromPath, toPath, std::filesystem::copy_options::overwrite_existing);
     }
 
+    bool NativeFileSystem::Rename(const FilePath &from, const FilePath &to) const
+    {
+        auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
+        auto toPath = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
+
+        std::error_code ec;
+        std::filesystem::rename(fromPath, toPath, ec);
+        return !ec;
+    }
+
     bool NativeFileSystem::IsSubDir(const std::string &path) const
     {
         return path.find(fsRoot.GetStr()) != std::string::npos;

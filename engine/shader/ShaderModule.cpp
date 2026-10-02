@@ -83,41 +83,11 @@ namespace sky {
             }
         }
 
-#ifdef SKY_EDITOR
-        FilePath enginePath;
-        if (result.count("engine") != 0u) {
-            enginePath = FilePath(result["engine"].as<std::string>());
-        }
-
-        FilePath projectPath;
-        if (result.count("project") != 0u) {
-            projectPath = FilePath(result["project"].as<std::string>());
-        }
-
-        FilePath intermediatePath;
-        if (result.count("intermediate") != 0u) {
-            intermediatePath = FilePath(result["intermediate"].as<std::string>());
-        } else {
-            intermediatePath = projectPath / FilePath("Intermediate/shaders");
-        }
-
-        auto cachePath = projectPath / FilePath("products/shaders");
-        FileSystemPtr shaderCacheFs        = new NativeFileSystem(cachePath);
-        FileSystemPtr shaderIntermediateFs = new NativeFileSystem(intermediatePath);
-        ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
-        ShaderFileSystem::Get()->SetCacheFS(shaderCacheFs);
-        ShaderFileSystem::Get()->SetIntermediateFS(shaderIntermediateFs);
-        ShaderFileSystem::Get()->AddSearchPath(enginePath / FilePath("assets/shaders"));
-        ShaderFileSystem::Get()->AddSearchPath(projectPath / FilePath("assets/shaders"));
-
-        RefreshShaders();
-#else
         auto *cacheFs = new NativeFileSystem(Platform::Get()->GetInternalPath());
 
         ShaderFileSystem::Get()->SetWorkFS(AssetDataBase::Get()->GetWorkSpaceFs());
         ShaderFileSystem::Get()->SetCacheFS(cacheFs);
         ShaderFileSystem::Get()->AddSearchPath(FilePath("shaders"));
-#endif
 
         ShaderCompiler::Get()->LoadPipelineOptions("pipeline/pass_options.hlslh");
 
