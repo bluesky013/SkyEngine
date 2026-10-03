@@ -27,7 +27,9 @@ endif()
 add_subdirectory(engine)
 add_subdirectory(plugins)
 
-if (SKY_BUILD_TOOL)
+# Tools are always available on desktop (AssetTool is the out-of-process cook worker);
+# the SKY_BUILD_TOOL gate only controls the optional developer tools inside tools/.
+if (NOT ANDROID)
     add_subdirectory(tools)
 endif()
 

@@ -13,12 +13,15 @@
 #include <framework/compression/Compressor.h>
 #include <framework/asset/AssetExecutor.h>
 
+#include <future>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace sky {
 
+    struct AssetBuildResult;
     class AssetDependencyGraph;
+    class ICookRunner;
     class ISourceCatalog;
 
     class AssetManager : public Singleton<AssetManager> {
@@ -28,6 +31,10 @@ namespace sky {
 
         void SetWorkFileSystem(const FileSystemPtr &fs);
         void SetSourceCatalog(ISourceCatalog *catalog) { sourceCatalog = catalog; }
+        // Select the cook backend. Null keeps the built-in inline in-process path.
+        void SetCookRunner(ICookRunner *runner);
+        // Re-read every bundle's product.index into the path map (out-of-process cook, D11).
+        void RefreshProductIndex();
         // Compress product payloads with the given codec (see CompressionManager). Off by default.
         void SetProductCompression(CompressionMethod method) { compressionMethod = method; compressProducts = true; }
         void DisableProductCompression() { compressProducts = false; }
@@ -86,7 +93,9 @@ namespace sky {
         AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec);
         // Resolve the payload archive, decompressing when the product header records a codec.
         IStreamArchivePtr PreparePayload(const IStreamArchivePtr &archive, const std::string &codec) const;
-        // Product missing + source exists: schedule an in-process cook and return a LOADING asset.
+        // Resolve an in-flight on-demand cook: refresh the index, deserialize or fail.
+        void OnCookFinished(const AssetBuildResult &result);
+        // Product missing + source exists: schedule a cook and return a LOADING asset.
         AssetPtr LoadAssetOnDemand(const Uuid &uuid);
         // Synchronous deserialize from an existing product (used by the in-process cook task).
         void DeserializeProduct(const Uuid &uuid);
@@ -103,6 +112,15 @@ namespace sky {
         AssetIndexFileCache productIndices{"product.index", "path"};
         // Assets with an in-flight on-demand cook (coalesced per uuid).
         std::unordered_set<Uuid> pendingCooks;
+        // Selected cook backend (null = built-in inline in-process path).
+        ICookRunner *cookRunner = nullptr;
+
+        struct PendingCook {
+            std::string                         target;
+            std::string                         path;
+            std::shared_ptr<std::promise<void>> promise;
+        };
+        std::unordered_map<Uuid, PendingCook> pendingJobs;
 
         mutable std::recursive_mutex mutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;

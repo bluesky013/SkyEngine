@@ -12,7 +12,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/genetic/*
-        platform/macos/*)
+        platform/macos/*
+        platform/posix/*)
     set(FM_EXT_LIB
         3rdParty::sdl)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")

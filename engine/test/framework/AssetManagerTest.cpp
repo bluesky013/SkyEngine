@@ -17,6 +17,7 @@
 #include <framework/asset/CookConfig.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/asset/CookWorker.h>
+#include <framework/asset/InProcessCookRunner.h>
 #include <framework/compression/Compressor.h>
 
 #include <cstring>
@@ -459,6 +460,42 @@ TEST_F(AssetManagerTest, OnDemandCookTest)
     asset->BlockUntilLoaded();
     ASSERT_TRUE(asset->IsLoaded());
     EXPECT_EQ(asset->Data().v, 42);
+
+    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
+TEST_F(AssetManagerTest, InProcessCookRunnerTest)
+{
+    auto *db = AssetDataBase::Get();
+    const std::string path = "framework/data/ondemand_runner.t1";
+
+    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    ASSERT_NE(file, nullptr);
+    {
+        auto archive = file->WriteAsArchive();
+        ASSERT_NE(archive, nullptr);
+        const char data[] = "{\"val\": 7}";
+        archive->SaveRaw(data, sizeof(data) - 1);
+        archive->Flush();
+    }
+
+    auto src = db->RegisterAsset(path, false);
+    ASSERT_NE(src, nullptr);
+    const Uuid id = src->uuid;
+
+    // Route the on-demand cook through the ICookRunner seam (in-process).
+    InProcessCookRunner runner;
+    AssetManager::Get()->SetCookRunner(&runner);
+
+    auto asset = AssetManager::Get()->LoadAsset<T1Data>(id);
+    ASSERT_NE(asset, nullptr);
+    asset->BlockUntilLoaded();
+    ASSERT_TRUE(asset->IsLoaded());
+    EXPECT_EQ(asset->Data().v, 7);
+
+    AssetManager::Get()->SetCookRunner(nullptr);
 
     auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
     std::filesystem::remove(FilePath(root + "/" + path).GetStr());

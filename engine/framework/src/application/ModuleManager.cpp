@@ -42,18 +42,30 @@ namespace sky {
         sortedContainer = dependencyGraph.TopologicalSort();
     }
 
+    static IModule *FindModule(const std::unordered_map<std::string, std::unique_ptr<IModule>> &modules, const std::string &name)
+    {
+        const auto iter = modules.find(name);
+        return iter == modules.end() ? nullptr : iter->second.get();
+    }
+
     void ModuleManager::Tick(float time)
     {
         WalkModules([this, time](const std::string &moduleName) {
-            modules[moduleName]->PreTick(time);
+            if (auto *module = FindModule(modules, moduleName)) {
+                module->PreTick(time);
+            }
         }, sortedContainer);
 
         WalkModules([this, time](const std::string &moduleName) {
-            modules[moduleName]->Tick(time);
+            if (auto *module = FindModule(modules, moduleName)) {
+                module->Tick(time);
+            }
         }, sortedContainer);
 
         WalkModules([this, time](const std::string &moduleName) {
-            modules[moduleName]->PostTick(time);
+            if (auto *module = FindModule(modules, moduleName)) {
+                module->PostTick(time);
+            }
         }, sortedContainer);
     }
 
@@ -85,7 +97,9 @@ namespace sky {
     void ModuleManager::StartModules()
     {
         WalkModules([this](const std::string &moduleName) {
-            modules[moduleName]->Start();
+            if (auto *module = FindModule(modules, moduleName)) {
+                module->Start();
+            }
         });
     }
 
@@ -97,7 +111,9 @@ namespace sky {
         std::vector<vertex_descriptor> container(sortedContainer.rbegin(), sortedContainer.rend());
 
         WalkModules([this](const std::string &moduleName) {
-            modules[moduleName]->Shutdown();
+            if (auto *module = FindModule(modules, moduleName)) {
+                module->Shutdown();
+            }
         }, container);
         modules.clear();
 

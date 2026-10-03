@@ -58,6 +58,26 @@ namespace sky {
         targets.clear();
         bundles.clear();
         presets.clear();
+        mode = CookMode::InProcess;
+        workerPath.clear();
+        workerTimeoutMs = 10u * 60u * 1000u;
+
+        if (doc.HasMember("cook") && doc["cook"].IsObject()) {
+            const auto &cook = doc["cook"];
+            if (cook.HasMember("mode") && cook["mode"].IsString()) {
+                const std::string name = cook["mode"].GetString();
+                mode = (name == "out-of-process") ? CookMode::OutOfProcess : CookMode::InProcess;
+            }
+            if (cook.HasMember("worker") && cook["worker"].IsObject()) {
+                const auto &worker = cook["worker"];
+                if (worker.HasMember("path") && worker["path"].IsString()) {
+                    workerPath = worker["path"].GetString();
+                }
+                if (worker.HasMember("timeoutMs") && worker["timeoutMs"].IsUint()) {
+                    workerTimeoutMs = worker["timeoutMs"].GetUint();
+                }
+            }
+        }
 
         if (doc.HasMember("platforms") && doc["platforms"].IsObject()) {
             for (auto iter = doc["platforms"].MemberBegin(); iter != doc["platforms"].MemberEnd(); ++iter) {

@@ -4,6 +4,7 @@
 
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetEvent.h>
+#include <framework/asset/ICookRunner.h>
 #include <framework/asset/ISourceCatalog.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetIndexFile.h>
@@ -46,6 +47,58 @@ namespace sky {
     void AssetManager::SetWorkFileSystem(const FileSystemPtr &fs)
     {
         workSpace = fs;
+    }
+
+    void AssetManager::SetCookRunner(ICookRunner *runner)
+    {
+        cookRunner = runner;
+        if (cookRunner != nullptr) {
+            cookRunner->SetCompletion([this](const AssetBuildResult &result) {
+                OnCookFinished(result);
+            });
+        }
+    }
+
+    void AssetManager::RefreshProductIndex()
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+
+        productPathMap.clear();
+        for (auto &bundle : bundles) {
+            const auto &bundleFs = bundle->GetFileSystem();
+            productIndices.Invalidate(bundleFs, FilePath{});
+            const auto &index = productIndices.Get(bundleFs, FilePath{});
+            for (const auto &entry : index.Entries()) {
+                productPathMap[entry.key] = entry.id;
+            }
+        }
+    }
+
+    void AssetManager::OnCookFinished(const AssetBuildResult &result)
+    {
+        std::shared_ptr<std::promise<void>> promise;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            const auto iter = pendingJobs.find(result.uuid);
+            if (iter == pendingJobs.end()) {
+                return; // unknown or duplicate completion
+            }
+            promise = iter->second.promise;
+            pendingJobs.erase(iter);
+            pendingCooks.erase(result.uuid);
+        }
+
+        const bool produced = OpenFile(result.uuid) != nullptr;
+        if (produced) {
+            RefreshProductIndex();
+            DeserializeProduct(result.uuid);
+        } else if (auto asset = FindAsset(result.uuid); asset) {
+            asset->status.store(AssetBase::Status::FAILED);
+        }
+
+        if (promise) {
+            promise->set_value();
+        }
     }
 
     void AssetManager::AddAssetProductBundle(AssetProductBundle *bundle)
@@ -265,25 +318,38 @@ namespace sky {
         auto promise = std::make_shared<std::promise<void>>();
         loading->asyncTask.second = promise->get_future();
 
-        AssetExecutor::Get()->SubmitCook([this, uuid, target, promise]() {
-            if (auto *builderManager = AssetBuilderManager::Get(); builderManager != nullptr) {
-                builderManager->BuildRequestSync(uuid, target);
-            }
-
-            const bool produced = OpenFile(uuid) != nullptr;
+        if (cookRunner != nullptr) {
+            // Mode-agnostic path (D5): the runner raises the build-finished event and calls
+            // OnCookFinished on completion, which refreshes the index and resolves the load.
+            std::string sourcePath;
+            sourceCatalog->GetSourcePath(uuid, sourcePath);
             {
                 std::lock_guard<std::recursive_mutex> lock(mutex);
-                pendingCooks.erase(uuid);
+                pendingJobs[uuid] = PendingCook{target, sourcePath, promise};
             }
+            cookRunner->Request(CookJob{uuid, target, sourcePath});
+        } else {
+            // Built-in inline in-process path (default; unchanged behavior).
+            AssetExecutor::Get()->SubmitCook([this, uuid, target, promise]() {
+                if (auto *builderManager = AssetBuilderManager::Get(); builderManager != nullptr) {
+                    builderManager->BuildRequestSync(uuid, target);
+                }
 
-            if (produced) {
-                DeserializeProduct(uuid);
-            } else if (auto asset = FindAsset(uuid); asset) {
-                asset->status.store(AssetBase::Status::FAILED);
-            }
+                const bool produced = OpenFile(uuid) != nullptr;
+                {
+                    std::lock_guard<std::recursive_mutex> lock(mutex);
+                    pendingCooks.erase(uuid);
+                }
 
-            promise->set_value();
-        });
+                if (produced) {
+                    DeserializeProduct(uuid);
+                } else if (auto asset = FindAsset(uuid); asset) {
+                    asset->status.store(AssetBase::Status::FAILED);
+                }
+
+                promise->set_value();
+            });
+        }
 
         return loading;
     }

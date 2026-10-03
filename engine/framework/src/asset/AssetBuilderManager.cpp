@@ -7,9 +7,39 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetEvent.h>
+#include <framework/asset/InProcessCookRunner.h>
+#include <framework/asset/OutOfProcessCookRunner.h>
+#include <framework/platform/PlatformBase.h>
 #include <core/file/FileUtil.h>
+#include <core/platform/Platform.h>
 
 namespace sky {
+
+    namespace {
+
+        std::string DefaultWorkerPath()
+        {
+            std::string dir = Platform::Get()->GetBundlePath();
+            if (!dir.empty() && dir.back() != '/' && dir.back() != '\\') {
+                dir += '/';
+            }
+#if SKY_PLATFORM_WINDOWS
+            return dir + "AssetTool.exe";
+#else
+            return dir + "AssetTool";
+#endif
+        }
+    } // namespace
+
+    AssetBuilderManager::~AssetBuilderManager()
+    {
+        // The runner is destroyed after this body; drop the completion first so its Drain
+        // cannot call back into AssetManager during (unordered) singleton teardown.
+        if (cookRunner) {
+            cookRunner->SetCompletion({});
+        }
+    }
+
     AssetBuilder *AssetBuilderManager::QueryBuilder(const std::string &ext) const
     {
         auto iter = assetBuilderMap.find(ext);
@@ -67,6 +97,30 @@ namespace sky {
                 am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundle));
             }
         }
+
+        // Select the cook backend from the parsed config (D5); default in-process keeps the
+        // built-in inline path (cookRunner == null on AssetManager).
+        const CookConfig effective = GetCookConfig();
+        outOfProcessActive = !forceInProcess && effective.GetMode() == CookMode::OutOfProcess;
+        if (outOfProcessActive) {
+            CookRunnerConfig runnerConfig;
+            runnerConfig.workerPath = effective.GetWorkerPath().empty() ? DefaultWorkerPath() : effective.GetWorkerPath();
+            runnerConfig.projectPath = workSpaceFs->GetPath().GetStr();
+            if (engineFs) {
+                runnerConfig.enginePath = engineFs->GetPath().GetStr();
+            }
+            if (intermediateFs) {
+                runnerConfig.intermediatePath = intermediateFs->GetPath().GetStr();
+            }
+            runnerConfig.platform = effective.GetActivePlatform();
+            runnerConfig.timeoutMs = effective.GetWorkerTimeoutMs();
+
+            cookRunner = std::make_unique<OutOfProcessCookRunner>(std::move(runnerConfig));
+            am->SetCookRunner(cookRunner.get());
+        } else {
+            cookRunner.reset();
+            am->SetCookRunner(nullptr);
+        }
     }
 
     void AssetBuilderManager::RegisterBuilder(AssetBuilder *builder)
@@ -108,7 +162,7 @@ namespace sky {
         }
     }
 
-    void AssetBuilderManager::BuildRequest(const Uuid &uuid, const std::string &target)
+    void AssetBuilderManager::BuildRequest(const Uuid &uuid, const std::string &target, BuildCompletion onFinished)
     {
         auto srcAsset = AssetDataBase::Get()->FindAsset(uuid);
         if (srcAsset) {
@@ -117,14 +171,18 @@ namespace sky {
             request.file = AssetDataBase::Get()->OpenFile(srcAsset);
             request.target = target;
 
-            BuildRequest(request);
+            BuildRequest(request, std::move(onFinished));
         }
     }
 
-    void AssetBuilderManager::BuildRequest(const AssetBuildRequest &request)
+    void AssetBuilderManager::BuildRequest(const AssetBuildRequest &request, BuildCompletion onFinished)
     {
+        // Single-writer invariant (D11): when out-of-process cook is active the worker is
+        // the only writer of product bundles, so the editor must not cook in-process.
+        SKY_ASSERT(!outOfProcessActive && "in-process cook requested while out-of-process cook is active");
+
         const auto key = request.assetInfo->uuid.ToString() + "#" + request.target;
-        AssetExecutor::Get()->PushSavingTask(key, [this, request]() {
+        AssetExecutor::Get()->PushSavingTask(key, [this, request, onFinished = std::move(onFinished)]() {
             auto *builder = QueryBuilder(request.assetInfo->ext);
             request.assetInfo->dependencies.clear();
 
@@ -134,6 +192,9 @@ namespace sky {
             builder->Request(request, result);
 
             AsseEvent::BroadCast(request.assetInfo->uuid, &IAssetEvent::OnAssetBuildFinished, result);
+            if (onFinished) {
+                onFinished(result);
+            }
         });
     }
 
