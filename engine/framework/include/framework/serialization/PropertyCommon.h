@@ -10,7 +10,8 @@ namespace sky {
         VISIBLE,
         LABEL_VISIBLE,
         LABEL_COLOR,
-        ASSET_TYPE
+        ASSET_TYPE,
+        REPLICATED
     };
 
 }

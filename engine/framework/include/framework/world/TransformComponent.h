@@ -27,6 +27,7 @@ namespace sky {
         COMPONENT_RUNTIME_INFO(TransformComponent)
 
         void SetParent(TransformComponent *parent);
+        void SetParentPreserveLocal(TransformComponent *parent);
         TransformComponent *GetParent() const { return parent; }
         void OnTransformChanged();
 
@@ -52,6 +53,9 @@ namespace sky {
         const Vector3 &GetLocalScale() const;
 
     private:
+        bool LinkParent(TransformComponent *parent);
+        bool HasAncestor(const TransformComponent *target) const;
+
         void UpdateLocal();
         void UpdateGlobal();
         void OnSerialized() override;

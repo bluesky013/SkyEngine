@@ -75,6 +75,40 @@ TEST(UtilTest, UuIdTest)
     }
 }
 
+static Uuid MakeUuidOrdering(uint64_t w0, uint64_t w1)
+{
+    Uuid id;
+    id.word[0] = w0;
+    id.word[1] = w1;
+    return id;
+}
+
+TEST(UtilTest, UuidStrictOrdering)
+{
+    Uuid a = MakeUuidOrdering(1, 5);
+    Uuid b = MakeUuidOrdering(1, 3);
+    Uuid c = MakeUuidOrdering(2, 0);
+
+    ASSERT_TRUE(b < a);
+    ASSERT_TRUE(a < c);
+    ASSERT_FALSE(a < a);
+
+    // A partial-dominance comparator (w0<v0 && w1<v1) would report x,z as incomparable here.
+    Uuid x = MakeUuidOrdering(1, 1);
+    Uuid z = MakeUuidOrdering(5, 1);
+    ASSERT_TRUE(x < z);
+    ASSERT_FALSE(z < x);
+
+    std::set<Uuid> ordered{a, b, c, x, z};
+    auto it   = ordered.begin();
+    Uuid prev = *it;
+    ++it;
+    for (; it != ordered.end(); ++it) {
+        ASSERT_TRUE(prev < *it);
+        prev = *it;
+    }
+}
+
 TEST(UtilTest, AlignTest)
 {
     ASSERT_EQ(Align(3, 4), 4);

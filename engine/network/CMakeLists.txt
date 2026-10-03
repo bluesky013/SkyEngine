@@ -38,4 +38,5 @@ endif ()
 
 add_subdirectory(replication)
 add_subdirectory(ecs)
+add_subdirectory(world)
 add_subdirectory(lockstep)

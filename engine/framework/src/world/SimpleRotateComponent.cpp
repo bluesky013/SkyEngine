@@ -16,7 +16,7 @@ namespace sky {
             .Member<&SimpleRotateData::speed>("Speed");
 
         REGISTER_BEGIN(SimpleRotateComponent, context)
-        REGISTER_MEMBER(Speed, SetSpeed, GetSpeed);
+        REGISTER_MEMBER(Speed, SetSpeed, GetSpeed) SET_REPLICATED();
 
         ComponentFactory::Get()->RegisterComponent<SimpleRotateComponent>("Base");
     }
@@ -26,6 +26,9 @@ namespace sky {
         angle += time * data.speed;
 
         auto *trans = actor->GetComponent<TransformComponent>();
+        if (trans == nullptr) {
+            return;
+        }
 
         Quaternion quad;
         quad.FromEulerYZX(Vector3{0, angle, 0.f});

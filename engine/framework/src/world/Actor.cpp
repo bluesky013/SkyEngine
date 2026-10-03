@@ -23,15 +23,25 @@ namespace sky {
     {
         component->actor = this;
         auto res = storage.emplace(typeId, component);
+        if (!res.second) {
+            return false;
+        }
+
         if (world != nullptr) {
             component->OnAttachToWorld();
         }
-        return res.second;
+        return true;
     }
 
     ComponentBase *Actor::AddComponent(const Uuid &typeId)
     {
-        auto *component = static_cast<ComponentBase*>(SerializationContext::Get()->FindTypeById(typeId)->info->newFunc());
+        auto *node = SerializationContext::Get()->FindTypeById(typeId);
+        if (node == nullptr || node->info == nullptr || node->info->newFunc == nullptr) {
+            // Unknown or non-constructible component type: skip without crashing.
+            return nullptr;
+        }
+
+        auto *component = static_cast<ComponentBase*>(node->info->newFunc());
         if (!EmplaceComponent(typeId, component)) {
             delete component;
             component = nullptr;
@@ -41,7 +51,15 @@ namespace sky {
 
     void Actor::RemoveComponent(const Uuid &typeId)
     {
-        storage.erase(typeId);
+        auto iter = storage.find(typeId);
+        if (iter == storage.end()) {
+            return;
+        }
+
+        if (world != nullptr) {
+            iter->second->OnDetachFromWorld();
+        }
+        storage.erase(iter);
     }
 
     void Actor::SaveJson(JsonOutputArchive &archive)
@@ -54,7 +72,7 @@ namespace sky {
 
         archive.Key("components");
         archive.StartArray();
-        for (auto &[id, component] : storage) {
+        for (const auto &[id, component] : storage) {
             archive.StartObject();
             archive.Key("type");
             archive.SaveValue(id.ToString());
@@ -87,13 +105,15 @@ namespace sky {
             archive.End();
 
             archive.Start("data");
-            auto* iter = context->FindTypeById(typeId);
-            if (iter->info->newFunc != nullptr) {
-                auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
+            auto *node = context->FindTypeById(typeId);
+            if (node != nullptr && node->info != nullptr && node->info->newFunc != nullptr) {
+                auto *tmp = static_cast<ComponentBase*>(node->info->newFunc());
                 tmp->LoadJson(archive);
                 tmp->actor = this;
                 tmp->OnSerialized();
-                EmplaceComponent(typeId, tmp);
+                if (!EmplaceComponent(typeId, tmp)) {
+                    delete tmp;
+                }
             }
             archive.End();
 
@@ -102,18 +122,22 @@ namespace sky {
         archive.End();
     }
 
-    void Actor::SetParent(const ActorPtr &parent)
+    void Actor::SetParent(Actor *parent)
     {
         auto* trans = GetComponent<TransformComponent>();
 
         Actor* oldActor = nullptr;
+        if (trans != nullptr) {
+            auto* oldParentTrans = trans->GetParent();
+            oldActor = oldParentTrans != nullptr ? oldParentTrans->GetActor() : nullptr;
+        }
 
-        auto* parentTrans = parent ? parent->GetComponent<TransformComponent>() : nullptr;
+        auto* parentTrans = parent != nullptr ? parent->GetComponent<TransformComponent>() : nullptr;
         if (trans != nullptr) {
             trans->SetParent(parentTrans);
         }
 
-        ActorEvent::BroadCast(this, &IActorEvent::OnParentChanged, oldActor, parent.get());
+        ActorEvent::BroadCast(this, &IActorEvent::OnParentChanged, oldActor, parent);
     }
 
     void Actor::Tick(float time)

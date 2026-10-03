@@ -260,6 +260,7 @@ TEST(BulletBackendTest, OptionsAreConfigurable)
 TEST(PhysicsComponentTest, AttachDetachAndReattach)
 {
     PhysicsBodyComponent::Reflect(SerializationContext::Get());
+    World::Reflect(SerializationContext::Get());
 
     auto &registry = PhysicsBackendRegistry::Get();
     ASSERT_TRUE(registry.Register(std::make_unique<BulletBackend>()));
@@ -268,15 +269,15 @@ TEST(PhysicsComponentTest, AttachDetachAndReattach)
     world->Init();
     ASSERT_NE(AttachPhysicsSystem(*world), nullptr);
 
-    auto actor = world->CreateActor("body");
+    auto *actor = world->CreateActor("body");
     auto *body = actor->AddComponent<PhysicsBodyComponent>();
     ASSERT_NE(body, nullptr);
     EXPECT_TRUE(IsValid(body->GetObjectId()));
 
-    world->DetachFromWorld(actor);
+    auto owned = world->DetachFromWorld(actor);
     EXPECT_FALSE(IsValid(body->GetObjectId()));
 
-    world->AttachToWorld(actor);
+    world->AttachToWorld(std::move(owned));
     EXPECT_TRUE(IsValid(body->GetObjectId()));
 
     registry.Unregister();

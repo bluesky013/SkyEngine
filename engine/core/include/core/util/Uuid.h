@@ -82,7 +82,7 @@ namespace sky {
 
         constexpr bool operator<(const Uuid &v) const noexcept
         {
-            return (word[0] < v.word[0]) && (word[1] < v.word[1]);
+            return (word[0] < v.word[0]) || (word[0] == v.word[0] && word[1] < v.word[1]);
         }
 
         union {

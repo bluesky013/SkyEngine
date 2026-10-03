@@ -10,17 +10,13 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/Component.h>
 
-#include <list>
-#include <unordered_map>
+#include <map>
 #include <memory>
 
 namespace sky {
 
     class Actor;
     class World;
-
-    using ActorPtr = std::shared_ptr<Actor>;
-    using ActorWeakPtr = std::weak_ptr<Actor>;
 
     class IActorEvent {
     public:
@@ -86,7 +82,7 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
 
-        void SetParent(const ActorPtr &actor);
+        void SetParent(Actor *parent);
 
         void Tick(float time);
 
@@ -95,7 +91,7 @@ namespace sky {
         void SetName(const std::string &name_) { name = name_; }
         World *GetWorld() const { return world; }
 
-        const std::unordered_map<Uuid, ComponentPtr> &GetComponents() const { return storage; }
+        const std::map<Uuid, ComponentPtr> &GetComponents() const { return storage; }
 
         void AttachToWorld(World *world);
         void DetachFromWorld();
@@ -103,7 +99,8 @@ namespace sky {
         friend class World;
         bool EmplaceComponent(const Uuid &typeId, ComponentBase* component);
 
-        std::unordered_map<Uuid, ComponentPtr> storage;
+        // Ordered by component type id: deterministic, stable iteration for Tick and serialization.
+        std::map<Uuid, ComponentPtr> storage;
 
         Uuid uuid;
         std::string name;

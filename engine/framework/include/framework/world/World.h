@@ -9,13 +9,13 @@
 #include <core/event/Event.h>
 #include <core/template/ReferenceObject.h>
 #include <core/name/Name.h>
-#include <framework/world/Entity.h>
 #include <framework/world/Actor.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <functional>
 
 
@@ -32,8 +32,8 @@ namespace sky {
         using KeyType   = World*;
         using MutexType = void;
 
-        virtual void OnActorAttached(const ActorPtr &actor) = 0;
-        virtual void OnActorDetached(const ActorPtr &actor) = 0;
+        virtual void OnActorAttached(Actor *actor) = 0;
+        virtual void OnActorDetached(Actor *actor) = 0;
     };
     using WorldEvent = Event<IWorldEvent>;
 
@@ -71,15 +71,17 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
 
-        ActorPtr CreateActor(bool withTrans = true);
-        ActorPtr CreateActor(const char *name, bool withTrans = true);
-        ActorPtr CreateActor(const std::string &name, bool withTrans = true);
-        ActorPtr CreateActor(const Uuid &id, bool withTrans = true);
-        ActorPtr GetActorByUuid(const Uuid &id);
-        const std::vector<ActorPtr> &GetActors() const { return actors; }
+        Actor *CreateActor(bool withTrans = true);
+        Actor *CreateActor(const char *name, bool withTrans = true);
+        Actor *CreateActor(const std::string &name, bool withTrans = true);
+        Actor *CreateActor(const Uuid &id, bool withTrans = true);
+        Actor *GetActorByUuid(const Uuid &id);
+        const std::vector<std::unique_ptr<Actor>> &GetActors() const { return actors; }
 
-        void AttachToWorld(const ActorPtr &);
-        void DetachFromWorld(const ActorPtr &);
+        // Takes ownership; the actor must not already belong to a world.
+        Actor *AttachToWorld(std::unique_ptr<Actor> actor);
+        // Releases ownership of the actor (returns it) so the caller can retain or move it.
+        std::unique_ptr<Actor> DetachFromWorld(Actor *actor);
         void Reset();
 
         void AddSubSystem(const Name &name, IWorldSubSystem*);
@@ -91,12 +93,12 @@ namespace sky {
     private:
         World() = default;
 
-        std::vector<ActorPtr> actors;
+        std::vector<std::unique_ptr<Actor>> actors;
+        std::unordered_map<Uuid, size_t> actorIndex;
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         Uuid persistID;
 
         std::unordered_map<Name, Any> worldConfigs;
-        uint32_t version = 0;
     };
 } // namespace sky

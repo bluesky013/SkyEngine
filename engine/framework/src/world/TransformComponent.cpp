@@ -27,9 +27,21 @@ namespace sky {
 
     TransformComponent::~TransformComponent()
     {
-        SetParent(nullptr);
-        for (auto &child : children) {
-            child->parent = nullptr;
+        if (parent != nullptr) {
+            auto &siblings = parent->children;
+            siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
+            parent = nullptr;
+        }
+
+        // Reparent children to the root before this component dies, so they neither keep a dangling
+        // parent pointer nor a stale serialized parent id.
+        auto childCopy = children;
+        children.clear();
+        for (auto *child : childCopy) {
+            if (child != nullptr) {
+                child->LinkParent(nullptr);
+                child->UpdateGlobal();
+            }
         }
     }
 
@@ -43,22 +55,53 @@ namespace sky {
         return data.global;
     }
 
-    void TransformComponent::SetParent(TransformComponent *parent_)
+    bool TransformComponent::HasAncestor(const TransformComponent *target) const
+    {
+        for (auto *node = parent; node != nullptr; node = node->parent) {
+            if (node == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool TransformComponent::LinkParent(TransformComponent *parent_)
     {
         if (parent_ == parent || parent_ == this) {
-            return;
+            return false;
+        }
+        // Reject links that would create a cycle (parent_ is already a descendant of this).
+        if (parent_ != nullptr && parent_->HasAncestor(this)) {
+            return false;
         }
 
         if (parent != nullptr) {
-            parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
+            auto &siblings = parent->children;
+            siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
         }
 
         parent = parent_;
-        data.parent = parent != nullptr ? parent->actor->GetUuid() : Uuid::GetEmpty();
-        UpdateLocal();
+        data.parent = (parent_ != nullptr && parent_->actor != nullptr) ? parent_->actor->GetUuid() : Uuid::GetEmpty();
 
-        if (parent != nullptr) {
-            parent->children.emplace_back(this);
+        if (parent_ != nullptr) {
+            parent_->children.emplace_back(this);
+        }
+        return true;
+    }
+
+    void TransformComponent::SetParent(TransformComponent *parent_)
+    {
+        // Preserve the current world transform (used for runtime re-parenting).
+        if (LinkParent(parent_)) {
+            UpdateLocal();
+        }
+    }
+
+    void TransformComponent::SetParentPreserveLocal(TransformComponent *parent_)
+    {
+        // Preserve the authored/serialized local transform and derive the world transform.
+        if (LinkParent(parent_)) {
+            UpdateGlobal();
         }
     }
 
@@ -66,7 +109,10 @@ namespace sky {
     {
         TransformEvent::BroadCast(actor, &ITransformEvent::OnTransformChanged, data.global, data.local);
         for (auto *child : children) {
-            child->OnTransformChanged();
+            if (child != nullptr) {
+                child->data.global = child->parent != nullptr ? child->parent->data.global * child->data.local : child->data.local;
+                child->OnTransformChanged();
+            }
         }
     }
 
@@ -151,7 +197,7 @@ namespace sky {
 
     void TransformComponent::UpdateGlobal()
     {
-        data.global = parent != nullptr ? parent->data.global * data.local * data.global : data.local;
+        data.global = parent != nullptr ? parent->data.global * data.local : data.local;
     }
 
     void TransformComponent::OnSerialized()

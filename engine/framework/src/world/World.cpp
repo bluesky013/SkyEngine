@@ -10,8 +10,6 @@
 
 #include <core/profile/Profiler.h>
 
-#include <atomic>
-#include <deque>
 #include <memory>
 
 namespace sky {
@@ -22,6 +20,7 @@ namespace sky {
             actor->DetachFromWorld();
         }
         actors.clear();
+        actorIndex.clear();
 
         for (auto &sub : subSystems) {
             sub.second->OnDetachFromWorld(*this);
@@ -81,9 +80,9 @@ namespace sky {
     {
         auto num = archive.StartArray("actors");
         for (uint32_t i = 0; i < num; ++i) {
-            auto actor = std::make_shared<Actor>();
+            auto actor = std::make_unique<Actor>();
             actor->LoadJson(archive);
-            AttachToWorld(actor);
+            AttachToWorld(std::move(actor));
             archive.NextArrayElement();
         }
         archive.End();
@@ -96,76 +95,94 @@ namespace sky {
 
                 if (parentActor != nullptr) {
                     auto *parentTrans = parentActor->GetComponent<TransformComponent>();
-                    SKY_ASSERT(parentTrans);
-                    trans->SetParent(parentTrans);
+                    if (parentTrans != nullptr) {
+                        // Preserve the serialized local transform and derive the world transform.
+                        trans->SetParentPreserveLocal(parentTrans);
+                    }
                 }
             }
         }
     }
 
-    ActorPtr World::CreateActor(const char *name, bool withTrans)
+    Actor *World::CreateActor(const char *name, bool withTrans)
     {
-        auto actor = CreateActor(Uuid::Create(), withTrans);
+        auto *actor = CreateActor(Uuid::Create(), withTrans);
         actor->SetName(name);
         return actor;
     }
 
-    ActorPtr World::CreateActor(const std::string &name, bool withTrans)
+    Actor *World::CreateActor(const std::string &name, bool withTrans)
     {
-        auto actor = CreateActor(Uuid::Create(), withTrans);
+        auto *actor = CreateActor(Uuid::Create(), withTrans);
         actor->SetName(name);
         return actor;
     }
 
-    ActorPtr World::CreateActor(bool withTrans)
+    Actor *World::CreateActor(bool withTrans)
     {
         return CreateActor("Actor", withTrans);
     }
 
-    ActorPtr World::CreateActor(const Uuid &id, bool withTrans)
+    Actor *World::CreateActor(const Uuid &id, bool withTrans)
     {
-        AttachToWorld(std::make_shared<Actor>(id));
+        auto *actor = AttachToWorld(std::make_unique<Actor>(id));
         if (withTrans) {
-            actors.back()->AddComponent<TransformComponent>();
+            actor->AddComponent<TransformComponent>();
         }
-        return actors.back();
+        return actor;
     }
 
-    ActorPtr World::GetActorByUuid(const Uuid &id)
+    Actor *World::GetActorByUuid(const Uuid &id)
     {
-        auto iter = std::find_if(actors.begin(), actors.end(), [&id](const auto &v) {
-            return id == v->GetUuid();
-        });
-        return iter != actors.end() ? *iter : ActorPtr{};
+        auto iter = actorIndex.find(id);
+        return iter != actorIndex.end() ? actors[iter->second].get() : nullptr;
     }
 
-    void World::AttachToWorld(const ActorPtr &actor)
+    Actor *World::AttachToWorld(std::unique_ptr<Actor> actor)
     {
-        if (actor->world != nullptr && actor->world != this) {
-            actor->world->DetachFromWorld(actor);
+        SKY_ASSERT(actor != nullptr);
+        SKY_ASSERT(actor->world == nullptr);
+
+        Actor *ptr = actor.get();
+        actors.emplace_back(std::move(actor));
+        actorIndex[ptr->GetUuid()] = actors.size() - 1;
+        ptr->AttachToWorld(this);
+
+        WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, ptr);
+        return ptr;
+    }
+
+    std::unique_ptr<Actor> World::DetachFromWorld(Actor *actor)
+    {
+        auto iter = actorIndex.find(actor->GetUuid());
+        if (iter == actorIndex.end()) {
+            return nullptr;
         }
-        actors.emplace_back(actor);
-        actor->AttachToWorld(this);
 
-        WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, actor);
-    }
-
-    void World::DetachFromWorld(const ActorPtr &actor)
-    {
         WorldEvent::BroadCast(this, &IWorldEvent::OnActorDetached, actor);
-
         actor->DetachFromWorld();
-        auto iter = std::find_if(actors.begin(), actors.end(),
-            [&actor](const auto &v) { return actor == v; });
 
-        if (iter != actors.end()) {
-            actors.erase(iter);
+        // Swap-remove: O(1) removal, keeping the dense actor list packed.
+        const size_t index = iter->second;
+        actorIndex.erase(iter);
+
+        std::unique_ptr<Actor> owned = std::move(actors[index]);
+        const size_t last = actors.size() - 1;
+        if (index != last) {
+            actors[index] = std::move(actors[last]);
+            actorIndex[actors[index]->GetUuid()] = index;
         }
+        actors.pop_back();
+        return owned;
     }
 
     void World::Reset()
     {
+        for (auto &actor : actors) {
+            actor->DetachFromWorld();
+        }
         actors.clear();
+        actorIndex.clear();
     }
 
     void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)
