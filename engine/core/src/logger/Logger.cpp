@@ -10,10 +10,16 @@
 namespace sky {
 
     LogOutputCallback Logger::sOutputCallback;
+    FILE             *Logger::sOutputStream = nullptr;
 
     void Logger::SetOutputCallback(LogOutputCallback callback)
     {
         sOutputCallback = std::move(callback);
+    }
+
+    void Logger::SetOutputStream(FILE *stream)
+    {
+        sOutputStream = stream;
     }
 
     void Logger::Print(const char *tag, const char *type, const char *fmt, ...)
@@ -26,7 +32,7 @@ namespace sky {
         va_end(params);
         buffer[MAX_SIZE - 1] = '\0';
 
-        printf("[%s] [%s] : %s\n", tag, type, buffer);
+        fprintf(sOutputStream != nullptr ? sOutputStream : stdout, "[%s] [%s] : %s\n", tag, type, buffer);
 
         if (sOutputCallback) {
             sOutputCallback(tag, type, buffer);
@@ -42,6 +48,6 @@ namespace sky {
         vswprintf(buffer, MAX_SIZE - 1, fmt, params);
         va_end(params);
         buffer[MAX_SIZE - 1] = '\0';
-        wprintf(L"[%ls] [%ls] : %ls\n", tag, type, buffer);
+        fwprintf(sOutputStream != nullptr ? sOutputStream : stdout, L"[%ls] [%ls] : %ls\n", tag, type, buffer);
     }
 } // namespace sky

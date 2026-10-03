@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #if __ANDROID__
 #include <android/log.h>
@@ -22,8 +23,13 @@ namespace sky {
 
         static void SetOutputCallback(LogOutputCallback callback);
 
+        // Redirects the console stream used by Print/PrintW. Defaults to stdout.
+        // Call before other threads start logging so the change is not racy.
+        static void SetOutputStream(FILE *stream);
+
     private:
         static LogOutputCallback sOutputCallback;
+        static FILE             *sOutputStream;
     };
 
 } // namespace sky
