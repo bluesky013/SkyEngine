@@ -250,6 +250,12 @@ namespace sky::aurora {
             status = SwapChainStatus::OUT_OF_DATE;
             return INVALID_INDEX;
         }
+        if (r == VK_ERROR_SURFACE_LOST_KHR || r == VK_ERROR_DEVICE_LOST) {
+            // The window/surface is gone; mark the swapchain lost so the caller
+            // stops acquiring instead of blocking on a dead surface.
+            status = SwapChainStatus::LOST;
+            return INVALID_INDEX;
+        }
         if (r == VK_TIMEOUT) {
             return INVALID_INDEX;
         }

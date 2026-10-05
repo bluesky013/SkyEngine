@@ -109,6 +109,12 @@ namespace sky {
         // pool events
         Platform::Get()->PoolEvent(exit);
 
+        // A quit request (e.g. the main window closed) must stop the frame
+        // before rendering: the window may already be destroyed.
+        if (exit) {
+            return;
+        }
+
         {
             SKY_PROFILE_NAME("PreTick")
             PreTick();

@@ -213,6 +213,15 @@ namespace sky {
                     Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseWheel, event);
                     break;
                 }
+                case WM_CLOSE:
+                    // Let owners stop presenting to this window before it is
+                    // destroyed; the main window also requests application exit.
+                    Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowClose,
+                                                   static_cast<const NativeWindow *>(window));
+                    if (window->IsMainWindow()) {
+                        ::PostQuitMessage(0);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -309,6 +318,11 @@ namespace sky {
     void *Win32Window::GetNativeHandle() const
     {
         return hwnd;
+    }
+
+    bool Win32Window::IsMainWindow() const
+    {
+        return Platform::Get() != nullptr && hwnd != nullptr && hwnd == Platform::Get()->GetMainWinHandle();
     }
 
     NativeWindow *NativeWindow::Create(const Descriptor &des)

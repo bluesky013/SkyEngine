@@ -208,6 +208,9 @@ namespace sky {
 
         virtual void OnWindowResize(const WindowResizeEvent& event) {}
         virtual void OnFocusChanged(bool focus) {}
+        // Broadcast when a window receives a close request (before it is
+        // destroyed), so owners can stop presenting to it / drop its viewport.
+        virtual void OnWindowClose(const NativeWindow *window) {}
     };
 
 } // namespace sky

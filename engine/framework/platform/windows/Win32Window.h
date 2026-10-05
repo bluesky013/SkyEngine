@@ -20,6 +20,11 @@ namespace sky {
 
         void *GetHwnd() const { return hwnd; }
 
+        // True when this is the process main window (the first created); closing
+        // it requests application exit. Secondary windows (e.g. a preview) close
+        // independently.
+        bool IsMainWindow() const;
+
         static bool EnsureWindowClass();
 
     private:

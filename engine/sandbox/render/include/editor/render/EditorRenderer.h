@@ -5,6 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Instance.h>
+#include <framework/window/IWindowEvent.h>
 #include <ui/UIPaintContext.h>
 #include <ui/render/UIRenderer.h>
 #include <ui/text/UIBuiltinFontProvider.h>
@@ -40,7 +41,7 @@ namespace sky::editor {
     // frame (barrier -> scene pass -> UI pass -> present). The GUI pipeline
     // itself lives in `sky::ui::UIRenderer`; this class only hosts the frame and
     // feeds it draw data. `SandboxModule` delegates to it.
-    class EditorRenderer {
+    class EditorRenderer : public sky::IWindowEvent {
     public:
         // Fills the GUI paint context for the current surface size. The editor
         // shell provides this; the renderer never knows the shell type.
@@ -58,6 +59,10 @@ namespace sky::editor {
         void Start();
         void Tick(float delta);
         void Shutdown();
+
+        // Stops presenting to the standalone preview window once it is closed
+        // (event-driven; the viewport/window are dropped on the next Tick).
+        void OnWindowClose(const sky::NativeWindow *window) override;
 
         bool IsInitialized() const { return device != nullptr; }
 
@@ -94,6 +99,7 @@ namespace sky::editor {
         std::unique_ptr<sky::aurora::ClientViewport>     previewViewport;
         sky::CounterPtr<sky::aurora::Image>              previewTarget;
         sky::aurora::CommandBuffer                      *previewCommandBuffer = nullptr;
+        bool                                             previewClosed = false;
         uint32_t                                         width  = 1280;
         uint32_t                                         height = 720;
     };

@@ -49,7 +49,10 @@ namespace sky::editor {
     using namespace sky::aurora;
 
     EditorRenderer::EditorRenderer() = default;
-    EditorRenderer::~EditorRenderer() = default;
+    EditorRenderer::~EditorRenderer()
+    {
+        sky::Event<sky::IWindowEvent>::DisConnect(this);
+    }
 
     bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api)
     {
@@ -199,23 +202,56 @@ namespace sky::editor {
         if (previewViewport != nullptr) {
             previewCommandBuffer = commandPool->Allocate();
         }
+
+        // React to the preview window closing so we stop acquiring it.
+        if (previewWindow != nullptr) {
+            sky::Event<sky::IWindowEvent>::Connect(previewWindow.get(), this);
+        }
+    }
+
+    void EditorRenderer::OnWindowClose(const sky::NativeWindow *window)
+    {
+        if (previewWindow != nullptr && window == previewWindow.get()) {
+            previewClosed = true;
+        }
     }
 
     void EditorRenderer::Tick(float /*delta*/)
     {
+        // Drop a closed preview window outside its message handler: its HWND is
+        // already gone, so release the swapchain and stop acquiring it.
+        if (previewClosed) {
+            previewViewport.reset();
+            previewCommandBuffer = nullptr;
+            previewWindow.reset();
+            previewClosed = false;
+        }
+
         if (device == nullptr || frameContext == nullptr || commandBuffer == nullptr || viewport == nullptr) {
             return;
         }
 
         frameContext->BeginFrame();
-        if (!viewport->Begin() || !viewport->Acquire()) {
+        if (!viewport->Begin()) {
             frameContext->EndFrame();
             return;
         }
 
-        Image       *backbuffer = viewport->GetBackbuffer();
-        const Extent2D extent   = viewport->GetExtent();
-        if (backbuffer == nullptr || extent.width == 0 || extent.height == 0) {
+        // Check the surface size before acquiring so a minimized/zero-size window
+        // never acquires an image it cannot present.
+        const Extent2D extent = viewport->GetExtent();
+        if (extent.width == 0 || extent.height == 0) {
+            frameContext->EndFrame();
+            return;
+        }
+        if (!viewport->Acquire()) {
+            frameContext->EndFrame();
+            return;
+        }
+
+        Image *backbuffer = viewport->GetBackbuffer();
+        if (backbuffer == nullptr) {
+            viewport->Release(); // acquired but unusable; present to keep the queue moving
             frameContext->EndFrame();
             return;
         }
@@ -443,6 +479,8 @@ namespace sky::editor {
 
     void EditorRenderer::Shutdown()
     {
+        sky::Event<sky::IWindowEvent>::DisConnect(this);
+
         if (device != nullptr) {
             device->WaitIdle();
         }

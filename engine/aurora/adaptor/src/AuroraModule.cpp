@@ -149,14 +149,26 @@ namespace sky::aurora {
 
         mFrameContext->BeginFrame();
 
-        if (!mViewport->Begin() || !mViewport->Acquire()) {
+        if (!mViewport->Begin()) {
             mFrameContext->EndFrame();
             return;
         }
 
-        Image       *backbuffer = mViewport->GetBackbuffer();
-        const Extent2D extent   = mViewport->GetExtent();
-        if (backbuffer == nullptr || extent.width == 0 || extent.height == 0) {
+        // Check the surface size before acquiring so a minimized/zero-size window
+        // never acquires an image it cannot present (which would stall the loop).
+        const Extent2D extent = mViewport->GetExtent();
+        if (extent.width == 0 || extent.height == 0) {
+            mFrameContext->EndFrame();
+            return;
+        }
+        if (!mViewport->Acquire()) {
+            mFrameContext->EndFrame();
+            return;
+        }
+
+        Image *backbuffer = mViewport->GetBackbuffer();
+        if (backbuffer == nullptr) {
+            mViewport->Release(); // acquired but unusable; present to keep the queue moving
             mFrameContext->EndFrame();
             return;
         }

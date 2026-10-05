@@ -36,6 +36,18 @@ resize/focus/close to `IWindowEvent`, and key down/up and text to `IKeyboardEven
 - **WHEN** the user presses a key or enters text
 - **THEN** `IKeyboardEvent::OnKeyDown`/`OnKeyUp` and `OnTextInput` SHALL be broadcast
 
+#### Scenario: Close event before destruction
+- **WHEN** a window receives a close request
+- **THEN** an `IWindowEvent::OnWindowClose` SHALL be broadcast for that window before it is destroyed
+
+#### Scenario: Closing the main window exits
+- **WHEN** the main window receives a close request
+- **THEN** the backend SHALL post a quit message so the message loop exits
+
+#### Scenario: Closing a secondary window does not exit
+- **WHEN** a secondary window (not the main window) receives a close request
+- **THEN** only that window SHALL be destroyed and the application SHALL keep running
+
 ### Requirement: Native handle for the RHI
 `NativeWindow::GetNativeHandle()` SHALL return the platform handle used by the RHI to create its surface
 (`HWND` on Windows, a `CAMetalLayer`-backed view on macOS).

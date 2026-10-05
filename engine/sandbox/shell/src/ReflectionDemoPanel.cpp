@@ -169,6 +169,17 @@ namespace sky::editor {
                 Bind(PropertyObject{&object, GetTypeNode(TypeInfo<refldemo::DemoObject>::RegisteredId())});
             }
 
+            ~ReflectionDemoPanel() override
+            {
+                // Panels are recreated on every shell rebuild; release the icon
+                // texture so repeated rebuilds do not leak GPU images.
+                if (saveIconReady && saveIcon != sky::ui::UI_INVALID_TEXTURE && Text() != nullptr) {
+                    if (sky::ui::IUITextureRegistry *registry = Text()->GetRegistry()) {
+                        registry->ReleaseTexture(saveIcon);
+                    }
+                }
+            }
+
             const char *GetTypeName() const override { return "ReflectionDemoPanel"; }
 
         protected:
