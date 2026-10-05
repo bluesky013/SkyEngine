@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace sky {
 
     enum class CommonPropertyKey : uint32_t {
@@ -11,7 +13,21 @@ namespace sky {
         LABEL_VISIBLE,
         LABEL_COLOR,
         ASSET_TYPE,
-        REPLICATED
+        REPLICATED,
+        // UI attributes (appended so existing values stay stable).
+        LABEL,
+        TOOLTIP,
+        ORDER,
+        CATEGORY,
+        READONLY,
+        MULTILINE,
+        RANGE_MIN,
+        RANGE_MAX,
+        RANGE_STEP,
+        EDITOR_HINT,
+        EDITOR_KIND,
+        ENUM_FLAGS,
+        COLOR_SPACE
     };
 
 }

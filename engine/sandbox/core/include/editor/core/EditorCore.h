@@ -5,6 +5,8 @@
 #pragma once
 
 #include <editor/core/command/CommandService.h>
+#include <editor/core/property/PropertyChangeNotifier.h>
+#include <editor/core/property/PropertyEditor.h>
 
 namespace sky::editor {
 
@@ -18,6 +20,13 @@ namespace sky::editor {
 
         // The editor-wide undo/redo service.
         static CommandService &GetCommandService();
+
+        // The editor-wide reflected property editor registry.
+        static PropertyEditorRegistry &GetPropertyEditors();
+
+        // Notifies views that reflected data changed outside the editor; views
+        // poll the revision and rebuild when it advances.
+        static PropertyChangeNotifier &GetPropertyChanges();
     };
 
 } // namespace sky::editor

@@ -20,6 +20,18 @@ namespace sky::editor {
         return service;
     }
 
+    PropertyEditorRegistry &EditorCore::GetPropertyEditors()
+    {
+        static PropertyEditorRegistry registry;
+        return registry;
+    }
+
+    PropertyChangeNotifier &EditorCore::GetPropertyChanges()
+    {
+        static PropertyChangeNotifier notifier;
+        return notifier;
+    }
+
     void EditorCore::Init()
     {
         LOG_I(TAG, "EditorCore init");

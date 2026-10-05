@@ -8,6 +8,7 @@ namespace sky::ui {
 
     UITextSystem::UITextSystem(IUIFontProvider *provider, IUITextureRegistry *registry, uint32_t pageSize)
         : provider(provider)
+        , registry(registry)
         , atlas(registry, pageSize)
     {
         atlas.SetProvider(provider);

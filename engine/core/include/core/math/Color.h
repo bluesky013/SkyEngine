@@ -44,6 +44,15 @@ namespace sky {
         explicit ColorRGB(const Color& rgba);
     };
 
+    struct ColorHSV {
+        float h;
+        float s;
+        float v;
+    };
+
+    ColorHSV ToHSV(const Color &color);
+    Color FromHSV(float h, float s, float v, float a = 1.0f);
+
     struct Color32 {
         uint32_t color;
 

@@ -21,9 +21,11 @@ namespace sky::ui {
         UIFontAtlas &GetAtlas() { return atlas; }
         const UIFontAtlas &GetAtlas() const { return atlas; }
         IUIFontProvider *GetProvider() const { return provider; }
+        IUITextureRegistry *GetRegistry() const { return registry; }
 
     private:
         IUIFontProvider *provider = nullptr;
+        IUITextureRegistry *registry = nullptr;
         UIFontAtlas atlas;
     };
 

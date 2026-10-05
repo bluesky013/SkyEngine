@@ -3,6 +3,10 @@
 //
 
 #include <editor/shell/EditorShell.h>
+#include <editor/shell/ReflectionDemoPanel.h>
+#include <editor/shell/UiDraw.h>
+#include <editor/shell/UiSkin.h>
+#include <editor/shell/UiTheme.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIContext.h>
@@ -22,33 +26,11 @@ namespace sky::editor {
 
     namespace {
 
-        constexpr uint32_t kPanelBg    = 0xFF201C18; // fallback (ABGR)
-        constexpr uint32_t kTitleColor = 0xFFDEC4B0;
-        constexpr uint32_t kBarBg      = 0xFF2A2F3A;
-        constexpr float    kTitleSize  = 14.0f;
-        constexpr float    kInset      = 8.0f;
-        constexpr float    kTabHeaderH = 22.0f;
-        constexpr float    kToolItemW  = 120.0f;
+        namespace uc = uidraw;
 
-        uint32_t PanelBackground(const sky::ui::UITheme *theme)
-        {
-            if (theme != nullptr) {
-                const sky::ui::UIStyle style = theme->Resolve({"panel"});
-                if (style.backgroundColor != 0) {
-                    return style.backgroundColor;
-                }
-            }
-            return kPanelBg;
-        }
-
-        uint32_t PanelTitleColor(const sky::ui::UITheme *theme)
-        {
-            if (theme != nullptr) {
-                const sky::ui::UIStyle style = theme->Resolve({"panel-title"});
-                return style.textColor;
-            }
-            return kTitleColor;
-        }
+        constexpr float kInset      = 10.0f;
+        constexpr float kTabHeaderH = 26.0f;
+        constexpr float kToolItemW  = 160.0f;
 
         // Titled, themed panel frame (fallback / viewport).
         class ShellPanel : public sky::ui::UIElement {
@@ -62,12 +44,8 @@ namespace sky::editor {
 
             void OnPaint(sky::ui::UIPaintContext &context) override
             {
-                context.AddRect(GetBounds(), PanelBackground(context.GetTheme()));
-                if (textSystem != nullptr && !title.empty()) {
-                    sky::ui::UITextLayout::Emit(context, title, kTitleSize, GetBounds().left + kInset,
-                                                GetBounds().top + 4.0f, PanelTitleColor(context.GetTheme()),
-                                                textSystem->GetAtlas());
-                }
+                UiSkin skin(GetDefaultUiTheme(), textSystem);
+                skin.DrawPanel(context, GetBounds(), title);
             }
 
         private:
@@ -89,14 +67,9 @@ namespace sky::editor {
 
             void OnPaint(sky::ui::UIPaintContext &context) override
             {
-                context.AddRect(GetBounds(), PanelBackground(context.GetTheme()));
-                if (textSystem == nullptr) {
-                    return;
-                }
-                sky::ui::UITextLayout::Emit(context, title, kTitleSize, GetBounds().left + kInset,
-                                            GetBounds().top + 4.0f, PanelTitleColor(context.GetTheme()),
-                                            textSystem->GetAtlas());
-                float y = GetBounds().top + 26.0f;
+                UiSkin skin(GetDefaultUiTheme(), textSystem);
+                const sky::ui::UIRect content = skin.DrawPanel(context, GetBounds(), title);
+                float y = content.top + 6.0f;
                 DrawBody(context, GetBounds(), y);
             }
 
@@ -104,14 +77,16 @@ namespace sky::editor {
             virtual void DrawBody(sky::ui::UIPaintContext &context, const sky::ui::UIRect &bounds, float &y) = 0;
 
             void Line(sky::ui::UIPaintContext &context, float &y, const std::string &text,
-                      uint32_t color = 0xFFE0E0E0, float size = 13.0f)
+                      uint32_t color = 0xFFDCDCDC, float size = 13.0f)
             {
                 if (textSystem == nullptr || y > GetBounds().bottom - 2.0f) {
                     return;
                 }
-                sky::ui::UITextLayout::Emit(context, text, size, GetBounds().left + kInset, y, color,
-                                            textSystem->GetAtlas());
-                y += 18.0f;
+                const float rowH = size + 6.0f;
+                uc::Text(context, text, static_cast<uint32_t>(size),
+                         sky::ui::UIRect{GetBounds().left + kInset, y, GetBounds().right - kInset, y + rowH},
+                         color, textSystem);
+                y += rowH;
             }
 
             std::string           title;
@@ -242,20 +217,20 @@ namespace sky::editor {
 
             void OnPaint(sky::ui::UIPaintContext &context) override
             {
+                const UiTheme &th = GetDefaultUiTheme();
                 const sky::ui::UIRect b = GetBounds();
-                context.AddRect(b, kBarBg);
-                if (textSystem == nullptr || titles.empty()) {
+                uc::Fill(context, b, th.colors.tabInactive);
+                uc::HLine(context, b.left, b.right, b.bottom - 1.0f, th.colors.borderSoft);
+                if (titles.empty()) {
                     return;
                 }
+                UiSkin skin(th, textSystem);
                 const float span = std::max(1.0f, b.right - b.left);
                 const float cell = span / static_cast<float>(titles.size());
                 for (size_t i = 0; i < titles.size(); ++i) {
                     const float left = b.left + cell * static_cast<float>(i);
-                    if (static_cast<int32_t>(i) == activeIndex) {
-                        context.AddRect(sky::ui::UIRect{left, b.top, left + cell, b.bottom}, kPanelBg);
-                    }
-                    sky::ui::UITextLayout::Emit(context, titles[i], 13.0f, left + 8.0f, b.top + 3.0f, 0xFFE0E0E0,
-                                                textSystem->GetAtlas());
+                    skin.DrawTab(context, sky::ui::UIRect{left, b.top, left + cell, b.bottom}, titles[i],
+                                 static_cast<int32_t>(i) == activeIndex);
                 }
             }
 
@@ -299,18 +274,18 @@ namespace sky::editor {
 
             void OnPaint(sky::ui::UIPaintContext &context) override
             {
+                const UiTheme &th = GetDefaultUiTheme();
                 const sky::ui::UIRect b = GetBounds();
-                context.AddRect(b, 0xFF1C2026);
-                if (textSystem == nullptr) {
+                uc::Fill(context, b, th.colors.toolbar);
+                uc::HLine(context, b.left, b.right, b.bottom - 1.0f, th.colors.borderSoft);
+                if (items.empty()) {
                     return;
                 }
+                UiSkin skin(th, textSystem);
                 for (size_t i = 0; i < items.size(); ++i) {
                     const float left = b.left + kToolItemW * static_cast<float>(i);
-                    if (static_cast<int32_t>(i) == hovered) {
-                        context.AddRect(sky::ui::UIRect{left, b.top, left + kToolItemW, b.bottom}, kBarBg);
-                    }
-                    sky::ui::UITextLayout::Emit(context, items[i].label, 13.0f, left + 8.0f, b.top + 4.0f,
-                                                0xFFE0E0E0, textSystem->GetAtlas());
+                    skin.DrawToolItem(context, sky::ui::UIRect{left, b.top + 2.0f, left + kToolItemW - 4.0f, b.bottom - 2.0f},
+                                      items[i].label, static_cast<int32_t>(i) == hovered);
                 }
             }
 
@@ -397,24 +372,26 @@ namespace sky::editor {
     {
         sky::ui::UITheme &theme = context->GetTheme();
 
+        const UiTheme &ui = GetDefaultUiTheme();
+
         sky::ui::UIStyle panel;
-        panel.SetBackgroundColor(0xFF201C18);
-        panel.SetBorderColor(0xFF3A2F2A);
+        panel.SetBackgroundColor(ui.colors.panel);
+        panel.SetBorderColor(ui.colors.borderSoft);
         panel.SetBorderWidth(1.0f);
         theme.SetStyle("panel", panel);
 
         sky::ui::UIStyle title;
-        title.SetTextColor(0xFFDEC4B0);
+        title.SetTextColor(ui.colors.text);
         theme.SetStyle("panel-title", title);
 
         sky::ui::UIStyle bar;
-        bar.SetBackgroundColor(0xFF2A2F3A);
-        bar.SetTextColor(0xFFE0E0E0);
+        bar.SetBackgroundColor(ui.colors.toolbar);
+        bar.SetTextColor(ui.colors.text);
         theme.SetStyle("menu-bar", bar);
 
         sky::ui::UIStyle item;
-        item.SetButtonColors(0x00000000, 0xFF3A4150, 0xFF2A2F3A);
-        item.SetTextColor(0xFFE0E0E0);
+        item.SetButtonColors(0x00000000, ui.colors.rowHover, ui.colors.toolbar);
+        item.SetTextColor(ui.colors.text);
         theme.SetStyle("menu-item", item);
     }
 
@@ -450,6 +427,9 @@ namespace sky::editor {
         });
         RegisterPanelView("inspector", [this, t = titleOf("inspector", "Inspector")]() {
             return std::unique_ptr<sky::ui::UIElement>(new InspectorPanel(inspectorModel, textSystem, t));
+        });
+        RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() {
+            return CreateReflectionDemoPanel(textSystem, t);
         });
         RegisterPanelView("outputlog", [this, t = titleOf("outputlog", "Output Log")]() {
             return std::unique_ptr<sky::ui::UIElement>(new OutputLogPanel(logService, textSystem, t));
@@ -605,7 +585,7 @@ namespace sky::editor {
 
         // Tool/menu bar: one "Show/Hide <panel>" item per built-in panel.
         std::vector<ToolBar::Item> items;
-        static const char *kIds[] = {"viewport", "outliner", "inspector", "outputlog", "console"};
+        static const char *kIds[] = {"viewport", "outliner", "inspector", "refldemo", "outputlog", "console"};
         std::vector<std::string> present;
         if (layoutModel != nullptr) {
             layoutModel->CollectPanels(present);

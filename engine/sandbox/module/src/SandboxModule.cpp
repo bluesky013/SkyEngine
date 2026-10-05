@@ -64,6 +64,7 @@ namespace sky::editor {
 
         layoutModel.SetDefault({"outliner"});
         layoutModel.SplitPanel("outliner", SplitOrientation::HORIZONTAL, "viewport");
+        layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "refldemo");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
         layoutModel.Tabify("inspector", "outliner");
         layoutModel.Tabify("console", "outputlog");
