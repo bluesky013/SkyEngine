@@ -24,11 +24,6 @@ namespace sky::editor {
         bool OnMove(ReflectedWidgetHost &host, const sky::ui::UIPointerEvent &event) override;
         bool OnUp(ReflectedWidgetHost &host, const sky::ui::UIPointerEvent &event) override;
 
-        bool HasPopup() const override { return enumField != nullptr; }
-        void PaintPopup(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context) override;
-        bool OnPopupPointer(ReflectedWidgetHost &host, const sky::ui::UIPointerEvent &event) override;
-        bool OnEscape(ReflectedWidgetHost &host) override;
-
     private:
         sky::ui::UIRect SliderRect(const sky::ui::UIRect &control) const;
         sky::ui::UIRect VectorCell(const sky::ui::UIRect &control, int index, int count) const;
@@ -36,12 +31,6 @@ namespace sky::editor {
         static float ReadComponent(const PropertyField &field, int index);
         bool WriteComponent(ReflectedWidgetHost &host, PropertyField &field, int index, float value);
         void BeginScalarTextEdit(ReflectedWidgetHost &host, PropertyField &field);
-        void OpenEnum(PropertyField &field, const sky::ui::UIRect &control);
-
-        PropertyField *enumField = nullptr;
-        int            hoverEnumItem = -1;
-        sky::ui::UIRect enumPopupRect;
-        std::vector<sky::ui::UIRect> enumItemRects;
 
         PropertyField *dragField = nullptr;
         sky::ui::UIRect dragControl;

@@ -109,6 +109,10 @@ namespace sky::ui {
         sky::CounterPtr<aurora::ShaderFunction>   ps;
         sky::CounterPtr<aurora::Shader>           shader;
         sky::CounterPtr<aurora::GraphicsPipeline> pipeline;
+        aurora::ShaderReflection                  roundReflection;
+        sky::CounterPtr<aurora::ShaderFunction>   psRound;
+        sky::CounterPtr<aurora::Shader>           roundShader;
+        sky::CounterPtr<aurora::GraphicsPipeline> roundPipeline;
         sky::CounterPtr<aurora::Buffer>           vertexBuffer;
         sky::CounterPtr<aurora::Buffer>           indexBuffer;
         sky::CounterPtr<aurora::Buffer>           staging;

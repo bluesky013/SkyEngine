@@ -90,8 +90,10 @@ namespace sky::editor {
         UiFonts     fonts;
     };
 
-    // Built-in dark theme (VS Code / Unity / Godot inspired).
-    UiTheme MakeDarkTheme();
+    // Built-in dark theme (VS Code / Unity / Godot inspired). `scale` multiplies
+    // metrics and font sizes so the UI is authored once but drawn crisp at the
+    // device pixel ratio (DPI scale = dpi / 96).
+    UiTheme MakeDarkTheme(float scale = 1.0f);
 
     // Process-wide default theme; panels use it unless a custom one is supplied.
     const UiTheme &GetDefaultUiTheme();

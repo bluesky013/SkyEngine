@@ -15,6 +15,26 @@
 
 namespace sky::editor::uidraw {
 
+    namespace {
+
+
+        uint32_t ScaleAlpha(uint32_t color, float a)
+        {
+            const uint32_t alpha = (color >> 24) & 0xFFu;
+            const uint32_t scaled =
+                static_cast<uint32_t>(static_cast<float>(alpha) * std::clamp(a, 0.0f, 1.0f) + 0.5f);
+            return (color & 0x00FFFFFFu) | ((scaled & 0xFFu) << 24);
+        }
+
+        
+    } // namespace
+
+    
+    namespace {
+
+        
+    } // namespace
+
     float TextWidth(const std::string &text, uint32_t size, sky::ui::UITextSystem *textSystem)
     {
         if (textSystem == nullptr) {
@@ -110,7 +130,28 @@ namespace sky::editor::uidraw {
                     }
                 }
                 const float t = (yc - rect.top) / h;
-                context.AddRect(sky::ui::UIRect{rect.left + inset, y0, rect.right - inset, y1}, colorAt(t));
+                const uint32_t color = colorAt(t);
+                if (inset <= 0.0f) {
+                    // Straight-edge row: keep it crisp, no feathering.
+                    context.AddRect(sky::ui::UIRect{rect.left, y0, rect.right, y1}, color);
+                } else {
+                    // Rounded corner row: anti-alias the curved edge with coverage.
+                    const float xL = rect.left + inset;
+                    const float xR = rect.right - inset;
+                    const float fL = std::ceil(xL);
+                    const float fR = std::floor(xR);
+                    if (fR > fL) {
+                        context.AddRect(sky::ui::UIRect{fL, y0, fR, y1}, color);
+                    }
+                    const float aL = fL - xL;
+                    if (aL > 0.003f) {
+                        context.AddRect(sky::ui::UIRect{std::floor(xL), y0, fL, y1}, ScaleAlpha(color, aL));
+                    }
+                    const float aR = xR - fR;
+                    if (aR > 0.003f) {
+                        context.AddRect(sky::ui::UIRect{fR, y0, std::ceil(xR), y1}, ScaleAlpha(color, aR));
+                    }
+                }
             }
         }
 
@@ -118,7 +159,7 @@ namespace sky::editor::uidraw {
 
     void RoundedRect(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, uint32_t color, float radius)
     {
-        RoundedRectImpl(context, rect, radius, [color](float) { return color; });
+        context.AddRoundedRect(rect, color, radius);
     }
 
     void RoundedGradient(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, uint32_t topColor,

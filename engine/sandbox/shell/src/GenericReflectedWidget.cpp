@@ -166,8 +166,11 @@ namespace sky::editor {
                                    static_cast<float>(field.control.rangeMax));
             const sky::ui::UIRect valueBox{slider.right + 6.0f, rect.top, rect.right, rect.bottom};
             char buffer[32] = {0};
-            std::snprintf(buffer, sizeof(buffer), (field.kind == PropertyEditorKind::Integer) ? "%d" : "%.2f",
-                          (field.kind == PropertyEditorKind::Integer) ? static_cast<int>(v) : v);
+            if (field.kind == PropertyEditorKind::Integer) {
+                std::snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(v));
+            } else {
+                std::snprintf(buffer, sizeof(buffer), "%.2f", v);
+            }
             host.Skin().DrawField(context, valueBox, false, false);
             uc::Text(context, buffer, th.fonts.value, valueBox, th.colors.text, host.Text(), uc::HAlign::Center);
             return;
@@ -212,13 +215,6 @@ namespace sky::editor {
             host.RefreshForm();
             return true;
         }
-        case PropertyEditorKind::Enum:
-            if (!field.control.enumNames.empty()) {
-                OpenEnum(field, rect);
-                return true;
-            }
-            BeginScalarTextEdit(host, field);
-            return true;
         case PropertyEditorKind::Vector: {
             const int count = std::max(1, static_cast<int>(field.control.componentCount));
             for (int i = 0; i < count; ++i) {
@@ -301,36 +297,8 @@ namespace sky::editor {
         return true;
     }
 
-    void GenericReflectedWidget::OpenEnum(PropertyField &field, const sky::ui::UIRect &control)
-    {
-        (void)control;
-        enumField = &field;
-        hoverEnumItem = -1;
-        enumItemRects.clear();
-        (void)enumPopupRect;
-    }
-
-    void GenericReflectedWidget::PaintPopup(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context)
-    {
-        (void)host;
-        (void)context;
-    }
-
-    bool GenericReflectedWidget::OnPopupPointer(ReflectedWidgetHost &host, const sky::ui::UIPointerEvent &event)
-    {
-        (void)host;
-        (void)event;
-        return false;
-    }
-
-    bool GenericReflectedWidget::OnEscape(ReflectedWidgetHost &host)
-    {
-        (void)host;
-        if (enumField != nullptr) {
-            enumField = nullptr;
-            return true;
-        }
-        return false;
-    }
-
+    
+    
+    
+    
 } // namespace sky::editor

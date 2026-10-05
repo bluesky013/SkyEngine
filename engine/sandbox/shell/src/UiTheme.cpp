@@ -5,12 +5,17 @@
 #include <editor/shell/UiTheme.h>
 #include <editor/shell/UiDraw.h>
 
+#include <algorithm>
+
+#include <algorithm>
+
 namespace sky::editor {
 
-    UiTheme MakeDarkTheme()
+    UiTheme MakeDarkTheme(float scale)
     {
         UiTheme theme;
         theme.name = "dark";
+        scale = scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
 
         UiColors &c = theme.colors;
         c.window       = uidraw::RGB(0x1E, 0x1E, 0x1E);
@@ -47,6 +52,37 @@ namespace sky::editor {
         c.shadow       = 0x50000000;
         c.error        = uidraw::RGB(0xE0, 0x40, 0x40);
         c.white        = uidraw::RGB(0xFF, 0xFF, 0xFF);
+
+        UiMetrics &m = theme.metrics;
+        m.panelHeaderHeight *= scale;
+        m.headerHeight *= scale;
+        m.sectionHeight *= scale;
+        m.rowHeight *= scale;
+        m.tabHeaderHeight *= scale;
+        m.popupItemHeight *= scale;
+        m.padX *= scale;
+        m.controlPad *= scale;
+        m.indentX *= scale;
+        m.scrollBarWidth *= scale;
+        m.rowRadius *= scale;
+        m.fieldRadius *= scale;
+        m.sectionRadius *= scale;
+        m.buttonRadius *= scale;
+        m.popupRadius *= scale;
+        m.checkboxRadius *= scale;
+        m.swatchRadius *= scale;
+        m.checkboxSize *= scale;
+        m.sliderTrackHeight *= scale;
+        m.sliderKnobWidth *= scale;
+
+        UiFonts &f = theme.fonts;
+        const auto sf = [scale](uint32_t v) { return static_cast<uint32_t>(v * scale + 0.5f); };
+        f.title = std::max<uint32_t>(1, sf(f.title));
+        f.section = std::max<uint32_t>(1, sf(f.section));
+        f.label = std::max<uint32_t>(1, sf(f.label));
+        f.value = std::max<uint32_t>(1, sf(f.value));
+        f.small = std::max<uint32_t>(1, sf(f.small));
+        f.tiny = std::max<uint32_t>(1, sf(f.tiny));
         return theme;
     }
 

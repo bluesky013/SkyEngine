@@ -63,6 +63,9 @@ namespace sky::editor {
         // Optional: supplies named reflected configurations for the config panel.
         void SetConfigSource(IEditorConfigSource *source);
 
+        // DPI/UI scale: layout stays logical, painting scales to physical pixels.
+        void SetUiScale(float scale);
+
         // Registers a view factory for a panel id. Falls back to a titled frame
         // when no factory is registered.
         void RegisterPanelView(const std::string &panelId, PanelViewFactory factory);
@@ -117,6 +120,7 @@ namespace sky::editor {
         PropertyModel *inspectorModel = nullptr;
         IEditorPropertySource *propertySource = nullptr;
         IEditorConfigSource *configSource = nullptr;
+        float uiScale = 1.0f;
 
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
         std::vector<sky::ui::UIElement *> panels; // panel bodies, creation/traversal order

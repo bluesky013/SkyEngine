@@ -11,6 +11,13 @@
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/property/EditorPropertySource.h>
 
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 static const char *TAG = "SandboxModule";
 
 namespace sky::editor {
@@ -78,6 +85,27 @@ namespace sky::editor {
         shell.SetSelection(&selection);
         static RegisteredPropertySource propertySource;
         shell.SetPropertySource(&propertySource);
+
+        // DPI scale = dpi / 96 (96 = 100%). Read the window's DPI so the UI is
+        // drawn crisp at physical size on high-DPI displays.
+        float uiScale = 1.0f;
+#if defined(_WIN32)
+        if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
+            if (void *handle = system->GetMainWindowHandle()) {
+                const UINT dpi = ::GetDpiForWindow(static_cast<HWND>(handle));
+                if (dpi > 0) {
+                    uiScale = static_cast<float>(dpi) / 96.0f;
+                }
+            }
+        }
+#endif
+        if (const char *env = std::getenv("SKY_UI_SCALE")) { // explicit override
+            const float value = static_cast<float>(std::atof(env));
+            if (value >= 0.5f && value <= 4.0f) {
+                uiScale = value;
+            }
+        }
+        shell.SetUiScale(uiScale);
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
         shell.RegisterBuiltinPanelViews();

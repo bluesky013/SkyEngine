@@ -655,7 +655,11 @@ namespace sky::editor {
             skin.DrawSlider(context, slider, static_cast<float>(v), static_cast<float>(field.control.rangeMin), static_cast<float>(field.control.rangeMax));
             const sky::ui::UIRect valueBox{slider.right + 6.0f, rect.top, rect.right, rect.bottom};
             char buffer[32] = {0};
-            std::snprintf(buffer, sizeof(buffer), (field.kind == PropertyEditorKind::Integer) ? "%d" : "%.2f", (field.kind == PropertyEditorKind::Integer) ? static_cast<int>(v) : v);
+            if (field.kind == PropertyEditorKind::Integer) {
+                std::snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(v));
+            } else {
+                std::snprintf(buffer, sizeof(buffer), "%.2f", v);
+            }
             skin.DrawField(context, valueBox, false, false);
             uc::Text(context, buffer, th.fonts.value, valueBox, th.colors.text, textSystem, uc::HAlign::Center);
             return;

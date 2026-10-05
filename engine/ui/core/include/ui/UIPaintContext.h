@@ -27,6 +27,8 @@ namespace sky::ui {
 
         void AddRect(const UIRect &rect, uint32_t color);
         void AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color);
+        // Anti-aliased rounded box drawn analytically (fs_round).
+        void AddRoundedRect(const UIRect &rect, uint32_t color, float radius);
 
         const UIDrawData &GetDrawData() const { return drawData; }
         const UIRect &CurrentClip() const { return clipStack.back(); }
@@ -35,7 +37,7 @@ namespace sky::ui {
         const UITheme *GetTheme() const { return theme; }
 
     private:
-        void AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color);
+        void AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius);
         uint32_t ApplyOpacity(uint32_t color) const;
 
         UIDrawData drawData;

@@ -20,6 +20,12 @@ namespace sky::ui {
         float u = 0.0f;
         float v = 0.0f;
         uint32_t color = 0xFFFFFFFF;
+        // Rounded-box SDF parameters: rect center (xy), half extents (zw), radius.
+        float roundCenterX = 0.0f;
+        float roundCenterY = 0.0f;
+        float roundHalfX = 0.0f;
+        float roundHalfY = 0.0f;
+        float roundRadius = 0.0f;
     };
 
     struct UIDrawCmd {
@@ -27,6 +33,7 @@ namespace sky::ui {
         uint32_t indexCount = 0;
         UIRect clip;
         UITextureId textureId = UI_INVALID_TEXTURE;
+        bool shape = false; // draw as a rounded box (fs_round), ignores the texture
     };
 
     struct UIDrawData {

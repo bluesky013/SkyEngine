@@ -7,6 +7,7 @@
 #include <ui/UIPaintContext.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace sky::ui {
 
@@ -66,11 +67,15 @@ namespace sky::ui {
 
             const UIGlyphEntry &glyph = atlas.GetGlyph(static_cast<uint32_t>(static_cast<unsigned char>(ch)), size);
             if (glyph.width > 0.0f && glyph.height > 0.0f && glyph.textureId != UI_INVALID_TEXTURE) {
+                // Snap each glyph quad to integer pixels so linear sampling stays
+                // texel-aligned (subpixel placement blurs bitmap text).
+                const float gx = std::round(penX + glyph.bearingX);
+                const float gy = std::round(penY + (lineHeight - glyph.bearingY));
                 UIRect quad;
-                quad.left = penX + glyph.bearingX;
-                quad.top = penY + (lineHeight - glyph.bearingY);
-                quad.right = quad.left + glyph.width;
-                quad.bottom = quad.top + glyph.height;
+                quad.left = gx;
+                quad.top = gy;
+                quad.right = gx + glyph.width;
+                quad.bottom = gy + glyph.height;
                 context.AddTexturedQuad(quad, glyph.uv, glyph.textureId, color);
             }
             penX += glyph.advance;

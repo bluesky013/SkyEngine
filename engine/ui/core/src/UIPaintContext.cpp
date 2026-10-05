@@ -60,14 +60,20 @@ namespace sky::ui {
 
     void UIPaintContext::AddRect(const UIRect &rect, uint32_t color)
     {
-        AddQuad(rect, UIRect{}, UI_INVALID_TEXTURE, color);
+        AddQuad(rect, UIRect{}, UI_INVALID_TEXTURE, color, -1.0f);
     }
 
     void UIPaintContext::AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color)
     {
-        AddQuad(rect, uv, textureId, color);
+        AddQuad(rect, uv, textureId, color, -1.0f);
     }
 
+    void UIPaintContext::AddRoundedRect(const UIRect &rect, uint32_t color, float radius)
+    {
+        AddQuad(rect, UIRect{}, UI_INVALID_TEXTURE, color, radius);
+    }
+
+    
     uint32_t UIPaintContext::ApplyOpacity(uint32_t color) const
     {
         if (opacity >= 1.0f) {
@@ -78,7 +84,7 @@ namespace sky::ui {
         return (color & 0x00FFFFFF) | (scaled << 24);
     }
 
-    void UIPaintContext::AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color)
+    void UIPaintContext::AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius)
     {
         const UIRect &clip = clipStack.back();
         if (UIRect::Intersect(rect, clip).IsEmpty()) {
@@ -89,6 +95,12 @@ namespace sky::ui {
         const auto indexBase = static_cast<uint32_t>(drawData.indices.size());
 
         const uint32_t shaded = ApplyOpacity(color);
+        const bool shape = radius >= 0.0f;
+        const float centerX = (rect.left + rect.right) * 0.5f;
+        const float centerY = (rect.top + rect.bottom) * 0.5f;
+        const float halfX = (rect.right - rect.left) * 0.5f;
+        const float halfY = (rect.bottom - rect.top) * 0.5f;
+
         float x0 = rect.left;
         float y0 = rect.top;
         float x1 = rect.right;
@@ -102,10 +114,24 @@ namespace sky::ui {
         transform.Apply(x2, y2);
         transform.Apply(x3, y3);
 
-        drawData.vertices.push_back({x0, y0, uv.left, uv.top, shaded});
-        drawData.vertices.push_back({x1, y1, uv.right, uv.top, shaded});
-        drawData.vertices.push_back({x2, y2, uv.right, uv.bottom, shaded});
-        drawData.vertices.push_back({x3, y3, uv.left, uv.bottom, shaded});
+        const auto makeVertex = [&](float x, float y, float u, float v) {
+            UIVertex vert;
+            vert.x = x;
+            vert.y = y;
+            vert.u = u;
+            vert.v = v;
+            vert.color = shaded;
+            vert.roundCenterX = centerX;
+            vert.roundCenterY = centerY;
+            vert.roundHalfX = halfX;
+            vert.roundHalfY = halfY;
+            vert.roundRadius = radius < 0.0f ? 0.0f : radius;
+            return vert;
+        };
+        drawData.vertices.push_back(makeVertex(x0, y0, uv.left, uv.top));
+        drawData.vertices.push_back(makeVertex(x1, y1, uv.right, uv.top));
+        drawData.vertices.push_back(makeVertex(x2, y2, uv.right, uv.bottom));
+        drawData.vertices.push_back(makeVertex(x3, y3, uv.left, uv.bottom));
 
         drawData.indices.push_back(base + 0);
         drawData.indices.push_back(base + 1);
@@ -114,12 +140,12 @@ namespace sky::ui {
         drawData.indices.push_back(base + 2);
         drawData.indices.push_back(base + 3);
 
-        if (!drawData.commands.empty()) {
+        if (!shape && !drawData.commands.empty()) {
             const UIDrawCmd &last = drawData.commands.back();
             const bool sameTexture = last.textureId == textureId;
             const bool sameClip = last.clip.left == clip.left && last.clip.top == clip.top &&
                                   last.clip.right == clip.right && last.clip.bottom == clip.bottom;
-            if (sameTexture && sameClip) {
+            if (sameTexture && sameClip && !last.shape) {
                 drawData.commands.back().indexCount += 6;
                 return;
             }
@@ -130,6 +156,7 @@ namespace sky::ui {
         cmd.indexCount  = 6;
         cmd.clip        = clip;
         cmd.textureId   = textureId;
+        cmd.shape       = shape;
         drawData.commands.push_back(cmd);
     }
 

@@ -409,6 +409,13 @@ namespace sky::editor {
 
     void EditorShell::SetConfigSource(IEditorConfigSource *source) { configSource = source; }
 
+    void EditorShell::SetUiScale(float scale)
+    {
+        // Scale the theme metrics/fonts by the DPI ratio so the UI is drawn at
+        // physical size 1:1 (crisp) instead of upscaling a logical layout.
+        SetDefaultUiTheme(MakeDarkTheme(scale));
+    }
+
     void EditorShell::RegisterPanelView(const std::string &panelId, PanelViewFactory factory)
     {
         viewFactories[panelId] = std::move(factory);

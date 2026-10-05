@@ -150,15 +150,23 @@ namespace sky::ui {
 
     void UIContext::Paint(UIPaintContext &context)
     {
+        Paint(context, UI2DTransform::Identity());
+    }
+
+    void UIContext::Paint(UIPaintContext &context, const UI2DTransform &rootTransform)
+    {
         if (root == nullptr) {
             return;
         }
 
         context.Begin(root->GetBounds());
         context.SetTheme(&theme);
+        // Applied after Begin (which resets the transform) so it is not lost.
+        context.PushTransform(rootTransform);
         for (const auto &child : root->GetChildren()) {
             child->Paint(context);
         }
+        context.PopTransform();
     }
 
 } // namespace sky::ui

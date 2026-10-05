@@ -265,6 +265,12 @@ namespace sky {
         RECT rect = {0, 0, static_cast<LONG>(desc.width), static_cast<LONG>(desc.height)};
         ::AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
 
+        // Declare Per-Monitor-V2 DPI awareness before creating the window so the OS
+        // does not bitmap-stretch the whole window (which blurs the entire UI).
+#if defined(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+        ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+#endif
+
         HWND handle = ::CreateWindowExW(0, kWindowClass, title.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
                                         CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, nullptr,
                                         nullptr, ::GetModuleHandleW(nullptr), nullptr);

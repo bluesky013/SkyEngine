@@ -57,6 +57,8 @@ namespace sky::ui {
         // Arranges top-level elements inside the root's content rect.
         void Layout();
         void Paint(UIPaintContext &context);
+        // Paints with a root transform applied after Begin (for DPI/UI scaling).
+        void Paint(UIPaintContext &context, const UI2DTransform &rootTransform);
 
         UIAnimation *AddAnimation(std::unique_ptr<UIAnimation> animation);
         // Advances animations and removes completed ones.
