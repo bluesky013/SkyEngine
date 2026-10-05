@@ -3,6 +3,8 @@
 //
 
 #include <editor/shell/EditorShell.h>
+#include <editor/shell/ReflectedConfigPanel.h>
+#include <editor/shell/ReflectedInspectorPanel.h>
 #include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiSkin.h>
@@ -403,6 +405,10 @@ namespace sky::editor {
     void EditorShell::SetCommandController(CommandController *value) { commandController = value; }
     void EditorShell::SetInspectorModel(PropertyModel *model) { inspectorModel = model; }
 
+    void EditorShell::SetPropertySource(IEditorPropertySource *source) { propertySource = source; }
+
+    void EditorShell::SetConfigSource(IEditorConfigSource *source) { configSource = source; }
+
     void EditorShell::RegisterPanelView(const std::string &panelId, PanelViewFactory factory)
     {
         viewFactories[panelId] = std::move(factory);
@@ -426,7 +432,11 @@ namespace sky::editor {
             return std::unique_ptr<sky::ui::UIElement>(new OutlinerPanel(selection, textSystem, t));
         });
         RegisterPanelView("inspector", [this, t = titleOf("inspector", "Inspector")]() {
-            return std::unique_ptr<sky::ui::UIElement>(new InspectorPanel(inspectorModel, textSystem, t));
+            return std::unique_ptr<sky::ui::UIElement>(
+                new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
+        });
+        RegisterPanelView("config", [this, t = titleOf("config", "Config")]() {
+            return std::unique_ptr<sky::ui::UIElement>(new ReflectedConfigPanel(textSystem, configSource, t));
         });
         RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() {
             return CreateReflectionDemoPanel(textSystem, t);
@@ -585,7 +595,7 @@ namespace sky::editor {
 
         // Tool/menu bar: one "Show/Hide <panel>" item per built-in panel.
         std::vector<ToolBar::Item> items;
-        static const char *kIds[] = {"viewport", "outliner", "inspector", "refldemo", "outputlog", "console"};
+        static const char *kIds[] = {"viewport", "outliner", "inspector", "config", "refldemo", "outputlog", "console"};
         std::vector<std::string> present;
         if (layoutModel != nullptr) {
             layoutModel->CollectPanels(present);

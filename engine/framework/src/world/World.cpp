@@ -208,4 +208,9 @@ namespace sky {
         auto iter = worldConfigs.find(name);
         return iter != worldConfigs.end() ? iter->second : EMPTY;
     }
+
+    Any& World::GetMutableConfigByName(const Name &name)
+    {
+        return worldConfigs[name];
+    }
 } // namespace sky

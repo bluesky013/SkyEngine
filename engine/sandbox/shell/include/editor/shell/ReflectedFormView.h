@@ -121,11 +121,6 @@ namespace sky::editor {
         void BeginInteraction(const Row &row, float x, float y);
         void HandleSequenceButton(PropertyField &field, const sky::ui::UIRect &rect, float x);
 
-        void OpenEnum(PropertyField &field, const sky::ui::UIRect &control);
-        int EnumCurrentIndex(const PropertyField &field) const;
-        void SelectEnum(int index);
-        sky::ui::UIEventResult HandleEnumPopup(const sky::ui::UIPointerEvent &event);
-        void DrawEnumPopup(sky::ui::UIPaintContext &context);
 
 
         // Generic float-component access over a reflected struct (works for any
@@ -152,10 +147,6 @@ namespace sky::editor {
         sky::ui::UIRect hintRect;
         sky::ui::UIRect headerExtraRect;
 
-        PropertyField *openEnum = nullptr;
-        int            hoverEnumItem = -1;
-        sky::ui::UIRect enumPopupRect;
-        std::vector<sky::ui::UIRect> enumItemRects;
 
         ReflectedWidget *activeWidget = nullptr;
 

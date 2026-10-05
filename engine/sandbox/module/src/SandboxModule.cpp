@@ -9,6 +9,7 @@
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
+#include <editor/core/property/EditorPropertySource.h>
 
 static const char *TAG = "SandboxModule";
 
@@ -67,6 +68,7 @@ namespace sky::editor {
         layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "refldemo");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
         layoutModel.Tabify("inspector", "outliner");
+        layoutModel.Tabify("config", "inspector");
         layoutModel.Tabify("console", "outputlog");
 
         // UI-linked shell composed from the layout + registry.
@@ -74,6 +76,8 @@ namespace sky::editor {
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
+        static RegisteredPropertySource propertySource;
+        shell.SetPropertySource(&propertySource);
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
         shell.RegisterBuiltinPanelViews();

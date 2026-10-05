@@ -89,6 +89,7 @@ namespace sky {
 
         void RegisterConfiguration(const Name &name, const Any& any);
         const Any& GetConfigByName(const Name &name) const;
+        Any& GetMutableConfigByName(const Name &name);
 
     private:
         World() = default;

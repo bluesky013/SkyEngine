@@ -9,6 +9,7 @@
 #include <editor/core/command/CommandService.h>
 #include <editor/core/console/CommandController.h>
 #include <editor/core/log/LogService.h>
+#include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
 #include <ui/UIEvent.h>
@@ -55,6 +56,12 @@ namespace sky::editor {
         void SetCommandController(CommandController *console);
         // Optional: the object the Inspector renders. Null shows an empty state.
         void SetInspectorModel(PropertyModel *model);
+
+        // Optional: resolves the current selection to reflected data for the inspector.
+        void SetPropertySource(IEditorPropertySource *source);
+
+        // Optional: supplies named reflected configurations for the config panel.
+        void SetConfigSource(IEditorConfigSource *source);
 
         // Registers a view factory for a panel id. Falls back to a titled frame
         // when no factory is registered.
@@ -108,6 +115,8 @@ namespace sky::editor {
         LogService *logService = nullptr;
         CommandController *commandController = nullptr;
         PropertyModel *inspectorModel = nullptr;
+        IEditorPropertySource *propertySource = nullptr;
+        IEditorConfigSource *configSource = nullptr;
 
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
         std::vector<sky::ui::UIElement *> panels; // panel bodies, creation/traversal order

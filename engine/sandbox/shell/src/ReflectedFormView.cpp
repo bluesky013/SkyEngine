@@ -5,6 +5,7 @@
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/AssetReflectedWidget.h>
 #include <editor/shell/ColorReflectedWidget.h>
+#include <editor/shell/EnumReflectedWidget.h>
 #include <editor/shell/GenericReflectedWidget.h>
 #include <editor/shell/RotationReflectedWidget.h>
 #include <editor/shell/UiDraw.h>
@@ -161,6 +162,7 @@ namespace sky::editor {
             widgets.Register(PropertyEditorKind::Color, std::make_shared<ColorReflectedWidget>());
             widgets.Register(PropertyEditorKind::Rotation, std::make_shared<RotationReflectedWidget>());
             widgets.Register(PropertyEditorKind::Asset, std::make_shared<AssetReflectedWidget>());
+            widgets.Register(PropertyEditorKind::Enum, std::make_shared<EnumReflectedWidget>());
             auto generic = std::make_shared<GenericReflectedWidget>();
             for (PropertyEditorKind kind : {PropertyEditorKind::Bool, PropertyEditorKind::Integer,
                                             PropertyEditorKind::Float, PropertyEditorKind::String,
@@ -221,7 +223,6 @@ namespace sky::editor {
         context.PopClip();
 
         skin.DrawScrollbar(context, content, contentHeight, scroll);
-        DrawEnumPopup(context);
         if (ReflectedWidget *popup = ReflectedWidgetRegistry::Get().FindWithPopup(); popup != nullptr) {
             popup->PaintPopup(*this, context);
         }
@@ -233,9 +234,6 @@ namespace sky::editor {
         if (ReflectedWidget *popup = ReflectedWidgetRegistry::Get().FindWithPopup(); popup != nullptr) {
             return popup->OnPopupPointer(*this, event) ? sky::ui::UIEventResult::HANDLED
                                                        : sky::ui::UIEventResult::UNHANDLED;
-        }
-        if (openEnum != nullptr) {
-            return HandleEnumPopup(event);
         }
 
         if (event.action == sky::ui::UIPointerAction::WHEEL) {
@@ -351,11 +349,6 @@ namespace sky::editor {
                 MarkPaintDirty();
                 return sky::ui::UIEventResult::HANDLED;
             }
-        }
-        if (openEnum != nullptr && event.keyCode == kKeyEscape) {
-            openEnum = nullptr;
-            MarkPaintDirty();
-            return sky::ui::UIEventResult::HANDLED;
         }
         if (event.keyCode == kKeyZ && event.modifiers != 0) {
             if (commands->Undo()) {
@@ -721,9 +714,6 @@ namespace sky::editor {
         case PropertyEditorKind::Sequence:
             HandleSequenceButton(field, row.controlRect, x);
             return;
-        case PropertyEditorKind::Enum:
-            OpenEnum(field, row.controlRect);
-            return;
         default:
             return;
         }
@@ -750,113 +740,11 @@ namespace sky::editor {
     }
 
     
-    void ReflectedFormView::OpenEnum(PropertyField &field, const sky::ui::UIRect &control)
-    {
-        if (field.control.enumNames.empty()) {
-            return;
-        }
-        const UiMetrics &m = skin.Theme().metrics;
-        if (ReflectedWidget *popup = ReflectedWidgetRegistry::Get().FindWithPopup(); popup != nullptr) {
-            popup->OnEscape(*this);
-        }
-        openEnum = &field;
-        hoverEnumItem = -1;
-        const int count = static_cast<int>(field.control.enumNames.size());
-        const float h = m.popupItemHeight * static_cast<float>(count) + 4.0f;
-        float top = control.bottom + 2.0f;
-        if (top + h > GetBounds().bottom - 4.0f) {
-            top = control.top - h - 2.0f;
-        }
-        enumPopupRect = sky::ui::UIRect{control.left, top, control.right, top + h};
-        enumItemRects.clear();
-        for (int i = 0; i < count; ++i) {
-            enumItemRects.push_back(sky::ui::UIRect{enumPopupRect.left + 2.0f,
-                                                    enumPopupRect.top + 2.0f + m.popupItemHeight * static_cast<float>(i),
-                                                    enumPopupRect.right - 2.0f,
-                                                    enumPopupRect.top + 2.0f + m.popupItemHeight * static_cast<float>(i + 1)});
-        }
-        MarkPaintDirty();
-    }
-
-    int ReflectedFormView::EnumCurrentIndex(const PropertyField &field) const
-    {
-        const int64_t raw = EnumRaw(field.descriptor.GetValue());
-        for (size_t i = 0; i < field.control.enumValues.size(); ++i) {
-            if (field.control.enumValues[i] == raw) {
-                return static_cast<int>(i);
-            }
-        }
-        return -1;
-    }
-
-    void ReflectedFormView::SelectEnum(int index)
-    {
-        if (openEnum == nullptr || index < 0 || index >= static_cast<int>(openEnum->control.enumValues.size())) {
-            return;
-        }
-        PropertyField *field = openEnum;
-        const int64_t value = field->control.enumValues[index];
-        openEnum = nullptr;
-        enumItemRects.clear();
-        if (form.Edit(*field, MakeEnumValue(field->descriptor.GetType(), value), *commands)) {
-            Refresh();
-        }
-    }
-
-    sky::ui::UIEventResult ReflectedFormView::HandleEnumPopup(const sky::ui::UIPointerEvent &event)
-    {
-        if (event.action == sky::ui::UIPointerAction::MOVE) {
-            int hover = -1;
-            for (size_t i = 0; i < enumItemRects.size(); ++i) {
-                if (enumItemRects[i].Contains(event.x, event.y)) {
-                    hover = static_cast<int>(i);
-                    break;
-                }
-            }
-            if (hover != hoverEnumItem) {
-                hoverEnumItem = hover;
-                MarkPaintDirty();
-            }
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        if (event.action == sky::ui::UIPointerAction::DOWN || event.action == sky::ui::UIPointerAction::UP) {
-            for (size_t i = 0; i < enumItemRects.size(); ++i) {
-                if (enumItemRects[i].Contains(event.x, event.y)) {
-                    SelectEnum(static_cast<int>(i));
-                    return sky::ui::UIEventResult::HANDLED;
-                }
-            }
-            openEnum = nullptr;
-            enumItemRects.clear();
-            MarkPaintDirty();
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        return sky::ui::UIEventResult::HANDLED;
-    }
-
-    void ReflectedFormView::DrawEnumPopup(sky::ui::UIPaintContext &context)
-    {
-        if (openEnum == nullptr) {
-            return;
-        }
-        const UiTheme &th = skin.Theme();
-        context.PushClip(GetBounds());
-        skin.DrawPopup(context, enumPopupRect);
-        const int current = EnumCurrentIndex(*openEnum);
-        for (size_t i = 0; i < enumItemRects.size(); ++i) {
-            const bool selected = static_cast<int>(i) == current;
-            skin.DrawPopupItem(context, enumItemRects[i], static_cast<int>(i) == hoverEnumItem, selected);
-            if (selected) {
-                const float cy = (enumItemRects[i].top + enumItemRects[i].bottom) * 0.5f;
-                skin.DrawCheck(context, sky::ui::UIRect{enumItemRects[i].left + 4.0f, cy - 6.0f, enumItemRects[i].left + 16.0f, cy + 6.0f}, th.colors.textOnAccent);
-            }
-            uc::Text(context, openEnum->control.enumNames[i], th.fonts.value,
-                     sky::ui::UIRect{enumItemRects[i].left + 22.0f, enumItemRects[i].top, enumItemRects[i].right - 4.0f, enumItemRects[i].bottom},
-                     th.colors.text, textSystem);
-        }
-        context.PopClip();
-    }
-
+    
+    
+    
+    
+    
     
     
     
