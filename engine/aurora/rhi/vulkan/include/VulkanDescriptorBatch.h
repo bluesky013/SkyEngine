@@ -7,6 +7,7 @@
 #include <aurora/rhi/DescriptorBatch.h>
 #include <vulkan/vulkan.h>
 
+#include <deque>
 #include <vector>
 
 namespace sky::aurora {
@@ -21,12 +22,9 @@ namespace sky::aurora {
         explicit VulkanDescriptorBatch(VulkanDevice &dev);
         ~VulkanDescriptorBatch() override = default;
 
-        void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer,
-                         uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
-        void WriteImage(ResourceGroup *group, uint32_t binding, Image *image,
-                        ImageLayout layout, uint32_t arrayElement = 0) override;
-        void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler,
-                          uint32_t arrayElement = 0) override;
+        void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
+        void WriteImage(ResourceGroup *group, uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
+        void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
 
         void Flush() override;
         void Reset() override;
@@ -34,9 +32,11 @@ namespace sky::aurora {
     private:
         VulkanDevice *device = nullptr;
 
-        std::vector<VkWriteDescriptorSet>   mWrites;
-        std::vector<VkDescriptorBufferInfo> mBufInfos;
-        std::vector<VkDescriptorImageInfo>  mImgInfos;
+        std::vector<VkWriteDescriptorSet> mWrites;
+        // deque: element addresses stay stable across growth, so the
+        // pBufferInfo / pImageInfo pointers stored in mWrites remain valid.
+        std::deque<VkDescriptorBufferInfo> mBufInfos;
+        std::deque<VkDescriptorImageInfo>  mImgInfos;
     };
 
 } // namespace sky::aurora
