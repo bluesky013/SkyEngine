@@ -5,12 +5,15 @@
 //
 
 #include <editor/sandbox/SandboxModule.h>
+#include <editor/sandbox/UiIconBuilder.h>
 
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/property/EditorPropertySource.h>
+#include <editor/core/resource/SandboxResources.h>
 
+#include <framework/asset/DerivedDataCache.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 
@@ -106,6 +109,11 @@ namespace sky::editor {
             }
         }
         shell.SetUiScale(uiScale);
+
+        // Register the editor UI icon builder (SVG -> cached RGBA) with the DDC,
+        // storing derived artifacts under the sandbox resources dir.
+        sky::DerivedDataCache::Get().SetRoot(SandboxResources::Resolve("cache"));
+        InstallUiIconBuilder();
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
         shell.RegisterBuiltinPanelViews();

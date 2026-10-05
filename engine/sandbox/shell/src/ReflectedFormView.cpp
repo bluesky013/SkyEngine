@@ -249,6 +249,10 @@ namespace sky::editor {
                 activeWidget->OnMove(*this, event);
                 return sky::ui::UIEventResult::HANDLED;
             }
+            ComputeHeaderRects();
+            if (HandleExtraHeaderPointer(event) != sky::ui::UIEventResult::UNHANDLED) {
+                return sky::ui::UIEventResult::HANDLED;
+            }
             const Row *row = RowAt(event.x, event.y);
             PropertyField *hover = row != nullptr ? row->field : nullptr;
             if (hover != hoverField) {

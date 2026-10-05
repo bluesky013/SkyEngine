@@ -1,5 +1,8 @@
 set(CURRENT_FOLDER Sandbox/Module)
 
+# SVG rasterizer for editor UI icons (only the sandbox module references it).
+sky_find_3rd(TARGET nanosvg DIR nanosvg)
+
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
@@ -19,6 +22,7 @@ sky_add_library(TARGET SandboxModule SHARED
         EditorCore
         EditorShell
         EditorRender
+        3rdParty::nanosvg
 )
 
 # backends are dlopen'd by Instance at runtime; build + deploy them next to the host
