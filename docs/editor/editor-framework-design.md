@@ -498,6 +498,33 @@ Notes / layering:
 (2) the shell renders through a **per-window path** so a second window can reuse it; (3) the §8
 multi-window items (close / DPI / focus) already cover floating windows.
 
+### 3.10 File browser dialog & shared text editing
+
+The Project Manager (hub) and the editor need to pick a **directory** (New Project), a **project file**
+(Add/Open), and later an **asset**. One reusable, engine-drawn modal `FileBrowserDialog` serves all
+three:
+
+- **Layering**: a UI-free `FileBrowserModel` + `IFileBrowserSource` (`FileSystemSource` is the default)
+  live in `core`; the `FileBrowserDialog` element lives in `shell`. Locations are opaque strings owned
+  by the source, so a future asset source lists asset-database nodes and fills `FileBrowserEntry::typeId`
+  without touching the UI.
+- **Modes & filters**: `OPEN_FILE` / `OPEN_PROJECT` / `SELECT_DIRECTORY`; `FileBrowserFilter{ label,
+  extensions[], assetTypes[] }` matches by file suffix and/or asset type; the filter dropdown includes
+  "All Files"; `SELECT_DIRECTORY` lists directories only.
+- **Layout**: places sidebar, toolbar (up + location), Name/Type list, and filter + Name + Open/Cancel.
+- **Hosting**: the hub hosts it in `hubContext`; the editor exposes `EditorShell::OpenFileBrowser`.
+
+**Shared text editing.** The name field is driven by a headless `TextEditState`
+(`editor/core/text/TextEditState.h`): text + caret + anchor-based selection with `Insert` / `Erase` /
+`Move` / `SelectAll` and `OnKey` / `OnText`. It **rejects control characters on insert**, so the
+platform `WM_CHAR` codes produced for Backspace/Enter/Tab/Esc never enter the buffer. The dialog only
+renders the state (caret/selection), it does not implement editing.
+
+**Input convention (single place).** The platform forwards the engine `ScanCode` enum, but the UI
+widgets (`EditBox`, `ReflectedFormView`, `FileBrowserDialog`) expect **virtual-key codes**.
+`SandboxModule` maps `ScanCode -> VK` and drops `WM_CHAR` control codes **once** before forwarding, so
+every consumer sees consistent keys. Widgets must not reinterpret key codes individually.
+
 ## 4. Review rounds
 
 **Round 1 — Unreal lens.** World Outliner / Details / Content Browser triad, Play-in-Editor

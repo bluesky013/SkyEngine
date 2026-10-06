@@ -2,9 +2,10 @@
 // Created on 2026/09/22.
 //
 
-#include <editor/shell/EditorShell.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/shell/ShellModels.h>
+#include <editor/shell/EditorShell.h>
+#include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/PanelView.h>
 #include <editor/shell/ReflectedConfigPanel.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
@@ -12,13 +13,13 @@
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiSkin.h>
 #include <editor/shell/UiTheme.h>
+#include <editor/shell/panels/ServicePanels.h>
+#include <editor/shell/widgets/DockWidgets.h>
 #include <editor/shell/widgets/MenuBar.h>
 #include <editor/shell/widgets/StatusBar.h>
-#include <editor/shell/widgets/DockWidgets.h>
-#include <editor/shell/panels/ServicePanels.h>
 
-#include <ui/UIElement.h>
 #include <ui/UIContext.h>
+#include <ui/UIElement.h>
 #include <ui/UIEventRouter.h>
 #include <ui/UIPaintContext.h>
 #include <ui/UIStyle.h>
@@ -26,9 +27,9 @@
 #include <ui/text/UITextSystem.h>
 
 #include <algorithm>
+#include <core/logger/Logger.h>
 #include <cstdio>
 #include <functional>
-#include <core/logger/Logger.h>
 
 static const char *TAG = "EditorShell";
 
@@ -38,14 +39,11 @@ namespace sky::editor {
 
         namespace uc = uidraw;
 
-
-
         // Child rectangles of a split, via the shared core geometry helper.
         std::vector<sky::ui::UIRect> SplitRect(LayoutNode *node, const sky::ui::UIRect &rect)
         {
             std::vector<LayoutRect> children;
-            ComputeChildRects(*static_cast<SplitNode *>(node), LayoutRect{rect.left, rect.top, rect.right, rect.bottom},
-                              children);
+            ComputeChildRects(*static_cast<SplitNode *>(node), LayoutRect{rect.left, rect.top, rect.right, rect.bottom}, children);
             std::vector<sky::ui::UIRect> out;
             out.reserve(children.size());
             for (const LayoutRect &child : children) {
@@ -55,8 +53,7 @@ namespace sky::editor {
         }
     } // namespace
 
-    EditorShell::EditorShell()
-        : context(std::make_unique<sky::ui::UIContext>())
+    EditorShell::EditorShell() : context(std::make_unique<sky::ui::UIContext>())
     {
         eventRouter = std::make_unique<sky::ui::UIEventRouter>(*context);
         ApplyTheme();
@@ -91,17 +88,44 @@ namespace sky::editor {
         theme.SetStyle("menu-item", item);
     }
 
-    void EditorShell::SetTextSystem(sky::ui::UITextSystem *text) { textSystem = text; }
-    void EditorShell::SetLayout(LayoutModel *layout) { layoutModel = layout; }
-    void EditorShell::SetPanelRegistry(PanelRegistry *registry) { panelRegistry = registry; }
-    void EditorShell::SetSelection(SelectionService *value) { selection = value; }
-    void EditorShell::SetLogService(LogService *value) { logService = value; }
-    void EditorShell::SetCommandController(CommandController *value) { commandController = value; }
-    void EditorShell::SetInspectorModel(PropertyModel *model) { inspectorModel = model; }
+    void EditorShell::SetTextSystem(sky::ui::UITextSystem *text)
+    {
+        textSystem = text;
+    }
+    void EditorShell::SetLayout(LayoutModel *layout)
+    {
+        layoutModel = layout;
+    }
+    void EditorShell::SetPanelRegistry(PanelRegistry *registry)
+    {
+        panelRegistry = registry;
+    }
+    void EditorShell::SetSelection(SelectionService *value)
+    {
+        selection = value;
+    }
+    void EditorShell::SetLogService(LogService *value)
+    {
+        logService = value;
+    }
+    void EditorShell::SetCommandController(CommandController *value)
+    {
+        commandController = value;
+    }
+    void EditorShell::SetInspectorModel(PropertyModel *model)
+    {
+        inspectorModel = model;
+    }
 
-    void EditorShell::SetPropertySource(IEditorPropertySource *source) { propertySource = source; }
+    void EditorShell::SetPropertySource(IEditorPropertySource *source)
+    {
+        propertySource = source;
+    }
 
-    void EditorShell::SetConfigSource(IEditorConfigSource *source) { configSource = source; }
+    void EditorShell::SetConfigSource(IEditorConfigSource *source)
+    {
+        configSource = source;
+    }
 
     void EditorShell::SetUiScale(float scale)
     {
@@ -133,22 +157,18 @@ namespace sky::editor {
             return fallback;
         };
 
-        RegisterPanelView("viewport", [this, t = titleOf("viewport", "Viewport")]() {
-            return std::unique_ptr<sky::ui::UIElement>(new ShellPanel(t));
-        });
+        RegisterPanelView("viewport",
+                          [this, t = titleOf("viewport", "Viewport")]() { return std::unique_ptr<sky::ui::UIElement>(new ShellPanel(t)); });
         RegisterPanelView("outliner", [this, t = titleOf("outliner", "Outliner")]() {
             return std::unique_ptr<sky::ui::UIElement>(new OutlinerPanel(selection, textSystem, t));
         });
         RegisterPanelView("inspector", [this, t = titleOf("inspector", "Inspector")]() {
-            return std::unique_ptr<sky::ui::UIElement>(
-                new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
+            return std::unique_ptr<sky::ui::UIElement>(new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
         });
         RegisterPanelView("config", [this, t = titleOf("config", "Config")]() {
             return std::unique_ptr<sky::ui::UIElement>(new ReflectedConfigPanel(textSystem, configSource, t));
         });
-        RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() {
-            return CreateReflectionDemoPanel(textSystem, t);
-        });
+        RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() { return CreateReflectionDemoPanel(textSystem, t); });
         RegisterPanelView("outputlog", [this, t = titleOf("outputlog", "Output Log")]() {
             return std::unique_ptr<sky::ui::UIElement>(new OutputLogPanel(logService, textSystem, t));
         });
@@ -166,7 +186,7 @@ namespace sky::editor {
             }
         }
         std::unique_ptr<sky::ui::UIElement> element;
-        const auto it = viewFactories.find(panelId);
+        const auto                          it = viewFactories.find(panelId);
         if (it != viewFactories.end() && it->second) {
             element = it->second();
         }
@@ -187,7 +207,7 @@ namespace sky::editor {
             return nullptr;
         }
         sky::ui::UIElement *raw = context->AddChild(std::move(element));
-        attachedViews[panelId] = raw;
+        attachedViews[panelId]  = raw;
         return raw;
     }
 
@@ -228,8 +248,8 @@ namespace sky::editor {
             return it->second.get();
         }
         std::unique_ptr<sky::ui::UIElement> element = MakePanelView(panelId);
-        sky::ui::UIElement *raw = element.get();
-        detachedViews[panelId] = std::move(element);
+        sky::ui::UIElement                 *raw     = element.get();
+        detachedViews[panelId]                      = std::move(element);
         return raw;
     }
 
@@ -256,12 +276,11 @@ namespace sky::editor {
     bool EditorShell::ConsumeLayoutDirty()
     {
         const bool dirty = layoutDirty;
-        layoutDirty = false;
+        layoutDirty      = false;
         return dirty;
     }
 
-    uint32_t EditorShell::FloatPanelToSurface(const std::string &panelId, uint32_t surfaceId,
-                                              const FloatingPanel &geometry)
+    uint32_t EditorShell::FloatPanelToSurface(const std::string &panelId, uint32_t surfaceId, const FloatingPanel &geometry)
     {
         if (layoutModel != nullptr) {
             layoutModel->FloatPanel(panelId, geometry);
@@ -282,10 +301,10 @@ namespace sky::editor {
             return it->second;
         }
         Surface surface;
-        surface.context = std::make_unique<sky::ui::UIContext>();
-        surface.router = std::make_unique<sky::ui::UIEventRouter>(*surface.context);
+        surface.context             = std::make_unique<sky::ui::UIContext>();
+        surface.router              = std::make_unique<sky::ui::UIEventRouter>(*surface.context);
         surface.context->GetTheme() = context->GetTheme();
-        surface.panelId = panelId;
+        surface.panelId             = panelId;
 
         std::unique_ptr<sky::ui::UIElement> view = TakePanelView(panelId);
         if (view == nullptr) {
@@ -296,7 +315,7 @@ namespace sky::editor {
 
         surfaces.emplace(surfaceId, std::move(surface));
         panelSurfaceIds[panelId] = surfaceId;
-        pendingRebuild = true; // the main tree no longer contains this panel
+        pendingRebuild           = true; // the main tree no longer contains this panel
         return surfaceId;
     }
 
@@ -307,8 +326,7 @@ namespace sky::editor {
         }
     }
 
-    void EditorShell::DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId,
-                                        DockPosition position)
+    void EditorShell::DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position)
     {
         const auto it = panelSurfaceIds.find(panelId);
         if (it == panelSurfaceIds.end()) {
@@ -343,8 +361,7 @@ namespace sky::editor {
         return it != panelSurfaceIds.end() ? it->second : 0;
     }
 
-    void EditorShell::PaintSurface(uint32_t surfaceId, sky::ui::UIPaintContext &paintContext, float inWidth,
-                                   float inHeight)
+    void EditorShell::PaintSurface(uint32_t surfaceId, sky::ui::UIPaintContext &paintContext, float inWidth, float inHeight)
     {
         // Each window has its own DPI scale; widgets read the global default
         // theme, so switch it to the surface's scale before painting.
@@ -412,11 +429,14 @@ namespace sky::editor {
     void EditorShell::SetStatusInfo(const std::string &project, const std::string &rhi, const std::string &mode)
     {
         statusProject = project;
-        statusRhi = rhi;
-        statusMode = mode;
+        statusRhi     = rhi;
+        statusMode    = mode;
     }
 
-    void EditorShell::SetFrameStats(float fps) { statusFps = fps; }
+    void EditorShell::SetFrameStats(float fps)
+    {
+        statusFps = fps;
+    }
 
     void EditorShell::CreateSplitters(const sky::ui::UIRect &contentRect)
     {
@@ -449,7 +469,7 @@ namespace sky::editor {
         if (splitterHandles.empty() || layoutModel == nullptr) {
             return;
         }
-        const LayoutRect content{contentRect.left, contentRect.top, contentRect.right, contentRect.bottom};
+        const LayoutRect          content{contentRect.left, contentRect.top, contentRect.right, contentRect.bottom};
         std::vector<SplitterBand> bands;
         CollectSplitterBands(layoutModel->GetRoot(), content, kSplitterThickness, bands);
         if (bands.size() != splitterHandles.size()) {
@@ -460,8 +480,7 @@ namespace sky::editor {
         for (size_t i = 0; i < bands.size(); ++i) {
             if (auto *handle = dynamic_cast<SplitterHandle *>(splitterHandles[i])) {
                 handle->SetBand(bands[i]);
-                handle->SetBounds(sky::ui::UIRect{bands[i].rect.left, bands[i].rect.top, bands[i].rect.right,
-                                                  bands[i].rect.bottom});
+                handle->SetBounds(sky::ui::UIRect{bands[i].rect.left, bands[i].rect.top, bands[i].rect.right, bands[i].rect.bottom});
             }
         }
     }
@@ -479,7 +498,7 @@ namespace sky::editor {
 
     void EditorShell::BeginTabPress(const std::string &panelId, float x, float y)
     {
-        dragPanel = panelId;
+        dragPanel     = panelId;
         dragGhostText = panelId;
         if (panelRegistry != nullptr) {
             if (const PanelInfo *info = panelRegistry->Find(panelId)) {
@@ -510,8 +529,7 @@ namespace sky::editor {
                 ghost->SetText(dragGhostText);
             }
             const float ghostWidth = std::max(60.0f, uc::TextWidth(dragGhostText, 12, textSystem) + 20.0f);
-            dragGhost->SetBounds(
-                sky::ui::UIRect{x + 12.0f, y + 12.0f, x + 12.0f + ghostWidth, y + 12.0f + 24.0f});
+            dragGhost->SetBounds(sky::ui::UIRect{x + 12.0f, y + 12.0f, x + 12.0f + ghostWidth, y + 12.0f + 24.0f});
             dragGhost->SetVisible(true);
             dragGhost->MarkPaintDirty();
         }
@@ -527,19 +545,19 @@ namespace sky::editor {
             dropHighlight->SetVisible(false);
             return;
         }
-        const Slot &slot = slots[static_cast<size_t>(slotIndex)];
-        sky::ui::UIRect zone = slot.rect;
-        const float headerBottom = slot.rect.top + kTabHeaderH;
+        const Slot     &slot         = slots[static_cast<size_t>(slotIndex)];
+        sky::ui::UIRect zone         = slot.rect;
+        const float     headerBottom = slot.rect.top + kTabHeaderH;
         if (y >= headerBottom) {
             const LayoutRect body{slot.rect.left, headerBottom, slot.rect.right, slot.rect.bottom};
-            const float hw = body.Width() * 0.5f;
-            const float hh = body.Height() * 0.5f;
+            const float      hw = body.Width() * 0.5f;
+            const float      hh = body.Height() * 0.5f;
             switch (ResolveDockPosition(body, x, y, 0.25f)) {
-                case DockPosition::LEFT:   zone = {body.left, body.top, body.left + hw, body.bottom}; break;
-                case DockPosition::RIGHT:  zone = {body.left + hw, body.top, body.right, body.bottom}; break;
-                case DockPosition::TOP:    zone = {body.left, body.top, body.right, body.top + hh}; break;
-                case DockPosition::BOTTOM: zone = {body.left, body.top + hh, body.right, body.bottom}; break;
-                default: break;
+            case DockPosition::LEFT: zone = {body.left, body.top, body.left + hw, body.bottom}; break;
+            case DockPosition::RIGHT: zone = {body.left + hw, body.top, body.right, body.bottom}; break;
+            case DockPosition::TOP: zone = {body.left, body.top, body.right, body.top + hh}; break;
+            case DockPosition::BOTTOM: zone = {body.left, body.top + hh, body.right, body.bottom}; break;
+            default: break;
             }
         }
         dropHighlight->SetBounds(zone);
@@ -559,15 +577,15 @@ namespace sky::editor {
         if (slot.activePanel.empty() || slot.activePanel == dragPanel) {
             return;
         }
-        DockPosition position = DockPosition::CENTER;
-        const float headerBottom = slot.rect.top + kTabHeaderH;
+        DockPosition position     = DockPosition::CENTER;
+        const float  headerBottom = slot.rect.top + kTabHeaderH;
         if (y >= headerBottom) {
             const LayoutRect body{slot.rect.left, headerBottom, slot.rect.right, slot.rect.bottom};
             position = ResolveDockPosition(body, x, y, 0.25f);
         }
         if (layoutModel->DockPanel(dragPanel, slot.activePanel, position)) {
             pendingRebuild = true;
-            layoutDirty = true;
+            layoutDirty    = true;
         }
     }
 
@@ -612,8 +630,7 @@ namespace sky::editor {
             return sky::StandardCursor::Arrow;
         }
         if (auto *handle = dynamic_cast<SplitterHandle *>(router->GetHovered())) {
-            return handle->IsHorizontal() ? sky::StandardCursor::ResizeHorizontal
-                                          : sky::StandardCursor::ResizeVertical;
+            return handle->IsHorizontal() ? sky::StandardCursor::ResizeHorizontal : sky::StandardCursor::ResizeVertical;
         }
         return sky::StandardCursor::Arrow;
     }
@@ -649,7 +666,7 @@ namespace sky::editor {
 
             Slot slot;
             slot.activePanel = ids[static_cast<size_t>(index)];
-            slot.panels = ids;
+            slot.panels      = ids;
             {
                 // Every panel gets a tab header (draggable + closable), including
                 // single-panel areas (UE/Blender style).
@@ -657,19 +674,18 @@ namespace sky::editor {
                     titles, ids, index, textSystem,
                     [this, tab](int32_t idx) {
                         tab->activeIndex = idx;
-                        pendingRebuild = true;
-                        layoutDirty = true;
+                        pendingRebuild   = true;
+                        layoutDirty      = true;
                     },
                     [this, ids](int32_t idx) {
                         if (layoutModel != nullptr && idx >= 0 && idx < static_cast<int32_t>(ids.size())) {
                             layoutModel->ClosePanel(ids[static_cast<size_t>(idx)]);
                             pendingRebuild = true;
-                            layoutDirty = true;
+                            layoutDirty    = true;
                         }
                     },
                     [this](const std::string &panelId, float x, float y) { BeginTabPress(panelId, x, y); },
-                    [this](float x, float y) { TabDragMove(x, y); },
-                    [this](float x, float y) { TabDragEnd(x, y); });
+                    [this](float x, float y) { TabDragMove(x, y); }, [this](float x, float y) { TabDragEnd(x, y); });
                 slot.header = context->AddChild(std::move(header));
             }
             if (sky::ui::UIElement *body = CreatePanelView(ids[static_cast<size_t>(index)])) {
@@ -720,15 +736,15 @@ namespace sky::editor {
                 return;
             }
             Slot &slot = slots[panelCursor++];
-            slot.rect = rect; // outer rect: drop zones / hit-testing
+            slot.rect  = rect; // outer rect: drop zones / hit-testing
             // Inset the drawn panel so adjacent panels show a window-colored gap
             // (Blender-like separation).
-            const float gap = GetDefaultUiTheme().metrics.panelGap;
+            const float           gap = GetDefaultUiTheme().metrics.panelGap;
             const sky::ui::UIRect inner{rect.left + gap, rect.top + gap, rect.right - gap, rect.bottom - gap};
-            sky::ui::UIRect bodyRect = inner;
+            sky::ui::UIRect       bodyRect = inner;
             if (slot.header != nullptr) {
                 sky::ui::UIRect headerRect = inner;
-                headerRect.bottom = inner.top + kTabHeaderH;
+                headerRect.bottom          = inner.top + kTabHeaderH;
                 slot.header->SetBounds(headerRect);
                 bodyRect.top = headerRect.bottom;
             }
@@ -756,16 +772,16 @@ namespace sky::editor {
         eventRouter->Reset();
         HarvestViews();
         context->GetRoot()->ClearChildren();
-        menuBarElement = nullptr;
+        menuBarElement   = nullptr;
         statusBarElement = nullptr;
         slots.clear();
-        built = false;
+        built          = false;
         pendingRebuild = false;
 
         // Menu bar: File/Edit/View/Window/Tools/Help. View exposes panel
         // visibility, Window exposes Reset Layout.
         std::vector<MenuBar::Menu> menus;
-        MenuBar::Menu file;
+        MenuBar::Menu              file;
         file.label = "File";
         file.items.push_back({"Quit", []() { LOG_I(TAG, "quit requested"); }});
         menus.push_back(std::move(file));
@@ -779,19 +795,18 @@ namespace sky::editor {
         if (layoutModel != nullptr && panelRegistry != nullptr) {
             for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
                 const std::string panelId = entry.panelId;
-                const bool shown = entry.shown;
-                view.items.push_back({(shown ? "Hide " : "Show ") + entry.title,
-                                      [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
+                const bool        shown   = entry.shown;
+                view.items.push_back({(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
             }
         }
         menus.push_back(std::move(view));
         menus.push_back({"Window", {{"Reset Layout", [this]() {
-                                        if (layoutModel != nullptr) {
-                                            layoutModel->ResetToDefault();
-                                            pendingRebuild = true;
-                                            layoutDirty = true;
-                                        }
-                                    }}}});
+                                         if (layoutModel != nullptr) {
+                                             layoutModel->ResetToDefault();
+                                             pendingRebuild = true;
+                                             layoutDirty    = true;
+                                         }
+                                     }}}});
         menus.push_back({"Tools", {{"About", []() { LOG_I(TAG, "SkyEngine Editor (sandbox shell)"); }}}});
         MenuBar::Menu help;
         help.label = "Help";
@@ -815,6 +830,22 @@ namespace sky::editor {
         auto menuBar = std::make_unique<MenuBar>(std::move(menus), textSystem);
         menuBar->SetBarHeight(headerHeight);
         menuBarElement = context->AddChild(std::move(menuBar));
+
+        // File browser overlay is added last so it paints above everything. It is
+        // re-created on rebuild; if one was open, restore it.
+        auto browser       = std::make_unique<FileBrowserDialog>(textSystem);
+        fileBrowserElement = browser.get();
+        browser->SetOnResult([this](const FileBrowserResult &result) {
+            browserOpen   = false;
+            auto callback = browserCallback;
+            if (callback) {
+                callback(result);
+            }
+        });
+        context->AddChild(std::move(browser));
+        if (browserOpen) {
+            fileBrowserElement->Open(browserRequest);
+        }
 
         built = true;
         LOG_I(TAG, "editor shell built (%zu panels)", attachedViews.size());
@@ -843,7 +874,7 @@ namespace sky::editor {
             }
         }
         pendingRebuild = true;
-        layoutDirty = true;
+        layoutDirty    = true;
     }
 
     void EditorShell::Layout(float inWidth, float inHeight)
@@ -874,10 +905,25 @@ namespace sky::editor {
 
         if (layoutModel != nullptr && !layoutModel->IsEmpty()) {
             const sky::ui::UIRect rect{0.0f, headerHeight, width, height - footerHeight};
-            size_t             cursor = 0;
+            size_t                cursor = 0;
             ApplyNode(layoutModel->GetRoot(), rect, cursor);
         }
         UpdateSplitters(sky::ui::UIRect{0.0f, headerHeight, width, height - footerHeight});
+
+        if (fileBrowserElement != nullptr) {
+            fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        }
+    }
+
+    void EditorShell::OpenFileBrowser(const FileBrowserRequest &request, std::function<void(const FileBrowserResult &)> callback)
+    {
+        browserRequest  = request;
+        browserCallback = std::move(callback);
+        browserOpen     = true;
+        if (fileBrowserElement != nullptr) {
+            fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            fileBrowserElement->Open(browserRequest);
+        }
     }
 
     void EditorShell::Paint(sky::ui::UIPaintContext &paintContext)
@@ -892,6 +938,10 @@ namespace sky::editor {
 
     bool EditorShell::DispatchPointer(const sky::ui::UIPointerEvent &event)
     {
+        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
+            fileBrowserElement->OnPointerEvent(event);
+            return true;
+        }
         if (eventRouter == nullptr || context == nullptr) {
             return false;
         }
@@ -902,6 +952,10 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
+        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
+            fileBrowserElement->OnKeyEvent(event);
+            return true;
+        }
         if (eventRouter == nullptr || context == nullptr) {
             return false;
         }
@@ -911,6 +965,10 @@ namespace sky::editor {
 
     bool EditorShell::DispatchText(const sky::ui::UITextInputEvent &event)
     {
+        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
+            fileBrowserElement->OnTextInput(event);
+            return true;
+        }
         if (eventRouter == nullptr) {
             return false;
         }
@@ -919,6 +977,9 @@ namespace sky::editor {
 
     bool EditorShell::WantsInput() const
     {
+        if (browserOpen) {
+            return true;
+        }
         return context != nullptr && context->WantsInput();
     }
 

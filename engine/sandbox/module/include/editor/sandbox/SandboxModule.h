@@ -8,6 +8,7 @@
 #include <editor/render/EditorRenderer.h>
 #include <editor/sandbox/UiTarget.h>
 #include <editor/shell/EditorShell.h>
+#include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ProjectManagerView.h>
 #include <framework/interface/IModule.h>
 #include <framework/project/ProjectDescriptor.h>
@@ -49,6 +50,9 @@ namespace sky::editor {
         void OpenProject(const std::string &skyprojPath);
         void AddProject();
         void NewProject();
+        void OnFileBrowserResult(const FileBrowserResult &result);
+        void CreateProjectFromResult(const FileBrowserResult &result);
+        void AddProjectFromResult(const FileBrowserResult &result);
         void RemoveFromList(const std::string &skyprojPath);
         void DeleteProjectFolder(const std::string &skyprojPath);
         void RefreshHubRecent();
@@ -60,7 +64,10 @@ namespace sky::editor {
         bool AcceptWindowEvent(sky::WindowID winID);
 
         // Active UI input sink (hub view or editor shell) for the current mode.
-        IUiTarget *ActiveTarget() const { return (hubMode ? hubTarget : shellTarget).get(); }
+        IUiTarget *ActiveTarget() const
+        {
+            return (hubMode ? hubTarget : shellTarget).get();
+        }
 
         // Routes a pointer event to the active target (main/hub) or, for a
         // floating window, to that surface.
@@ -70,12 +77,12 @@ namespace sky::editor {
         EditorRenderer renderer;
 
         // EditorCore services (render-independent) owned by the host.
-        PanelRegistry        panelRegistry;
-        LayoutModel          layoutModel;
-        SelectionService     selection;
-        LogService           logService;
-        CommandController    commandController;
-        EditorExtensionHost  extensionHost;
+        PanelRegistry       panelRegistry;
+        LayoutModel         layoutModel;
+        SelectionService    selection;
+        LogService          logService;
+        CommandController   commandController;
+        EditorExtensionHost extensionHost;
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;
@@ -85,20 +92,21 @@ namespace sky::editor {
         std::unique_ptr<IUiTarget> shellTarget;
 
         // Hub (project manager) mode.
-        bool                                 hubMode = false;
-        std::unique_ptr<sky::ui::UIContext>  hubContext;
-        ProjectManagerView                  *hubView = nullptr;
-        ProjectDescriptor                    project;
-        sky::ProjectLock                     projectLock;
+        bool                                hubMode = false;
+        std::unique_ptr<sky::ui::UIContext> hubContext;
+        ProjectManagerView                 *hubView = nullptr;
+        FileBrowserDialog                  *browser = nullptr;
+        ProjectDescriptor                   project;
+        sky::ProjectLock                    projectLock;
 
         sky::EventBinder<sky::IMouseEvent>    mouseBinder;
         sky::EventBinder<sky::IKeyboardEvent> keyBinder;
 
-        bool  initialized = false;
-        float uiScale = 1.0f;
-        std::string layoutPath;      // per-user editor layout file (empty if unavailable)
-        std::string rhiName = "Auto"; // active RHI name for the status bar
-        sky::WindowID primaryWindowId = 0; // main window id, learned from the first event
+        bool          initialized = false;
+        float         uiScale     = 1.0f;
+        std::string   layoutPath;               // per-user editor layout file (empty if unavailable)
+        std::string   rhiName         = "Auto"; // active RHI name for the status bar
+        sky::WindowID primaryWindowId = 0;      // main window id, learned from the first event
     };
 
 } // namespace sky::editor

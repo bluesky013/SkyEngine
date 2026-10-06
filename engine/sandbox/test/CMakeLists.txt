@@ -16,6 +16,8 @@ sky_add_test(TARGET EditorCoreTest
         DefaultPanelsTest.cpp
         EditorExtensionTest.cpp
         ViewportTest.cpp
+        FileBrowserModelTest.cpp
+        TextEditStateTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}

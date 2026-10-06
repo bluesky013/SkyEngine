@@ -4,16 +4,17 @@
 
 #pragma once
 
+#include <editor/core/command/CommandService.h>
+#include <editor/core/console/CommandController.h>
+#include <editor/core/filebrowser/FileBrowserTypes.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
-#include <framework/window/Cursor.h>
-#include <editor/core/command/CommandService.h>
-#include <editor/core/console/CommandController.h>
 #include <editor/core/log/LogService.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
+#include <framework/window/Cursor.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
 
@@ -33,6 +34,8 @@ namespace sky::ui {
 
 namespace sky::editor {
 
+    class FileBrowserDialog;
+
     // UI-linked editor shell.
     //
     // Composes a `sky::ui` element tree from the render-independent layout model
@@ -46,7 +49,7 @@ namespace sky::editor {
         EditorShell();
         ~EditorShell();
 
-        EditorShell(const EditorShell &) = delete;
+        EditorShell(const EditorShell &)            = delete;
         EditorShell &operator=(const EditorShell &) = delete;
 
         // Services the shell reads from (owned by the editor host).
@@ -65,6 +68,15 @@ namespace sky::editor {
         // Optional: supplies named reflected configurations for the config panel.
         void SetConfigSource(IEditorConfigSource *source);
 
+        // Opens the reusable file browser as a modal over the shell. The callback
+        // receives the result on accept/cancel. While open, the dialog captures
+        // pointer/keyboard/text input.
+        void OpenFileBrowser(const FileBrowserRequest &request, std::function<void(const FileBrowserResult &)> callback);
+        bool IsFileBrowserOpen() const
+        {
+            return browserOpen;
+        }
+
         // DPI/UI scale: layout stays logical, painting scales to physical pixels.
         void SetUiScale(float scale);
 
@@ -82,7 +94,10 @@ namespace sky::editor {
         // (Re)builds the element tree from the current layout + registry. Panel
         // views are preserved across rebuilds through the view registry.
         void Rebuild();
-        bool IsBuilt() const { return built; }
+        bool IsBuilt() const
+        {
+            return built;
+        }
 
         // Sets the surface size and re-applies panel rectangles.
         void Layout(float width, float height);
@@ -91,15 +106,18 @@ namespace sky::editor {
         // Input entry points (device pixels). The host maps platform events to
         // these and forwards them; the shell dispatches through the UI event
         // router. Returns whether the event was handled.
-        bool DispatchPointer(const sky::ui::UIPointerEvent &event);
-        bool DispatchKey(const sky::ui::UIKeyEvent &event);
-        bool DispatchText(const sky::ui::UITextInputEvent &event);
+        bool                DispatchPointer(const sky::ui::UIPointerEvent &event);
+        bool                DispatchKey(const sky::ui::UIKeyEvent &event);
+        bool                DispatchText(const sky::ui::UITextInputEvent &event);
         sky::ui::UIElement *HitTest(float x, float y) const;
 
         // Whether the UI wants input (used to gate viewport input).
         bool WantsInput() const;
 
-        size_t GetPanelCount() const { return attachedViews.size(); }
+        size_t GetPanelCount() const
+        {
+            return attachedViews.size();
+        }
         bool HasPanel(const std::string &panelId) const;
         // Toggles a panel's visibility through the layout model and rebuilds.
         void SetPanelVisible(const std::string &panelId, bool visible);
@@ -110,7 +128,7 @@ namespace sky::editor {
         // Detaches a panel view and transfers ownership (used when moving a panel
         // into a floating window's UI context).
         std::unique_ptr<sky::ui::UIElement> TakePanelView(const std::string &panelId);
-        bool IsPanelAttached(const std::string &panelId) const;
+        bool                                IsPanelAttached(const std::string &panelId) const;
 
         // True once since the last call if the layout was mutated by a committed
         // edit (dock/close/float/ratio/reset). The host auto-saves on this.
@@ -122,13 +140,13 @@ namespace sky::editor {
         // Binds a panel that is already in the model's floating set (startup
         // restore) to a surface, without re-floating it.
         uint32_t RestoreFloatingPanel(const std::string &panelId, uint32_t surfaceId);
-        void DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position);
-        void SetFloatingGeometry(const std::string &panelId, float x, float y, float width, float height);
-        void PaintSurface(uint32_t surfaceId, sky::ui::UIPaintContext &context, float width, float height);
-        bool DispatchPointerToSurface(uint32_t surfaceId, const sky::ui::UIPointerEvent &event);
-        bool DispatchKeyToSurface(uint32_t surfaceId, const sky::ui::UIKeyEvent &event);
-        bool DispatchTextToSurface(uint32_t surfaceId, const sky::ui::UITextInputEvent &event);
-        bool IsPanelFloating(const std::string &panelId) const;
+        void     DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position);
+        void     SetFloatingGeometry(const std::string &panelId, float x, float y, float width, float height);
+        void     PaintSurface(uint32_t surfaceId, sky::ui::UIPaintContext &context, float width, float height);
+        bool     DispatchPointerToSurface(uint32_t surfaceId, const sky::ui::UIPointerEvent &event);
+        bool     DispatchKeyToSurface(uint32_t surfaceId, const sky::ui::UIKeyEvent &event);
+        bool     DispatchTextToSurface(uint32_t surfaceId, const sky::ui::UITextInputEvent &event);
+        bool     IsPanelFloating(const std::string &panelId) const;
         uint32_t GetPanelSurface(const std::string &panelId) const;
 
         // Cursor the OS should show for a surface (0 = main), based on what is
@@ -145,11 +163,11 @@ namespace sky::editor {
     private:
         // One layout tab: an optional header row plus the active panel's body.
         struct Slot {
-            sky::ui::UIElement        *header = nullptr;
-            sky::ui::UIElement        *body   = nullptr;
-            sky::ui::UIRect            rect;         // tab area (header + body)
-            std::string                activePanel;  // panel currently shown
-            std::vector<std::string>   panels;       // filtered panel ids in tab order
+            sky::ui::UIElement      *header = nullptr;
+            sky::ui::UIElement      *body   = nullptr;
+            sky::ui::UIRect          rect;        // tab area (header + body)
+            std::string              activePanel; // panel currently shown
+            std::vector<std::string> panels;      // filtered panel ids in tab order
         };
 
         // One floating window's UI: its own context + router + the panel view.
@@ -167,14 +185,14 @@ namespace sky::editor {
         // it. Shared by float (tear-out) and startup restore.
         uint32_t CreateSurfaceContext(const std::string &panelId, uint32_t surfaceId);
 
-        void ApplyTheme();
-        void CreateNode(LayoutNode *node, const sky::ui::UIRect &rect);
-        void ApplyNode(LayoutNode *node, const sky::ui::UIRect &rect, size_t &panelCursor);
-        sky::ui::UIElement *CreatePanelView(const std::string &panelId);
+        void                                ApplyTheme();
+        void                                CreateNode(LayoutNode *node, const sky::ui::UIRect &rect);
+        void                                ApplyNode(LayoutNode *node, const sky::ui::UIRect &rect, size_t &panelCursor);
+        sky::ui::UIElement                 *CreatePanelView(const std::string &panelId);
         std::unique_ptr<sky::ui::UIElement> MakePanelView(const std::string &panelId);
-        sky::ui::UIElement *AdoptView(const std::string &panelId, std::unique_ptr<sky::ui::UIElement> element);
-        void HarvestViews();
-        std::vector<std::string> VisiblePanelIds() const;
+        sky::ui::UIElement                 *AdoptView(const std::string &panelId, std::unique_ptr<sky::ui::UIElement> element);
+        void                                HarvestViews();
+        std::vector<std::string>            VisiblePanelIds() const;
 
         // Splitter + tab-drag interaction.
         void CreateSplitters(const sky::ui::UIRect &contentRect);
@@ -184,20 +202,20 @@ namespace sky::editor {
         void TabDragEnd(float x, float y);
         void UpdateDropHighlight(float x, float y);
         void ApplyTabDrop(float x, float y);
-        int FindSlotAt(float x, float y) const;
+        int  FindSlotAt(float x, float y) const;
 
-        std::unique_ptr<sky::ui::UIContext>      context;
+        std::unique_ptr<sky::ui::UIContext>     context;
         std::unique_ptr<sky::ui::UIEventRouter> eventRouter;
-        LayoutModel *layoutModel = nullptr;
-        PanelRegistry *panelRegistry = nullptr;
-        sky::ui::UITextSystem *textSystem = nullptr;
-        SelectionService *selection = nullptr;
-        LogService *logService = nullptr;
-        CommandController *commandController = nullptr;
-        PropertyModel *inspectorModel = nullptr;
-        IEditorPropertySource *propertySource = nullptr;
-        IEditorConfigSource *configSource = nullptr;
-        float uiScale = 1.0f;
+        LayoutModel                            *layoutModel       = nullptr;
+        PanelRegistry                          *panelRegistry     = nullptr;
+        sky::ui::UITextSystem                  *textSystem        = nullptr;
+        SelectionService                       *selection         = nullptr;
+        LogService                             *logService        = nullptr;
+        CommandController                      *commandController = nullptr;
+        PropertyModel                          *inspectorModel    = nullptr;
+        IEditorPropertySource                  *propertySource    = nullptr;
+        IEditorConfigSource                    *configSource      = nullptr;
+        float                                   uiScale           = 1.0f;
 
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
         // View registry: views not currently attached to the main context. Views
@@ -211,32 +229,36 @@ namespace sky::editor {
         std::unordered_map<uint32_t, float>       surfaceScales;   // surfaceId -> DPI scale
         float                                     lastThemeScale = -1.0f;
 
-        std::vector<Slot> slots; // per-tab, matching tree traversal order
-        std::vector<sky::ui::UIElement *> splitterHandles;
-        std::vector<SplitterBand>         splitterBands;
-        sky::ui::UIElement               *dropHighlight = nullptr;
-        sky::ui::UIElement               *dragGhost = nullptr;
-        std::string                       dragPanel;
-        std::string                       dragGhostText;
-        std::string                       pendingFloatPanel;
-        bool                              dragActive = false;
-        float                             dragStartX = 0.0f;
-        float                             dragStartY = 0.0f;
-        sky::ui::UIElement               *menuBarElement = nullptr;
-        sky::ui::UIElement               *statusBarElement = nullptr;
-        float width = 1280.0f;
-        float height = 720.0f;
-        float headerHeight = 24.0f;
-        float footerHeight = 22.0f;
+        std::vector<Slot>                              slots; // per-tab, matching tree traversal order
+        std::vector<sky::ui::UIElement *>              splitterHandles;
+        std::vector<SplitterBand>                      splitterBands;
+        sky::ui::UIElement                            *dropHighlight = nullptr;
+        sky::ui::UIElement                            *dragGhost     = nullptr;
+        std::string                                    dragPanel;
+        std::string                                    dragGhostText;
+        std::string                                    pendingFloatPanel;
+        bool                                           dragActive         = false;
+        float                                          dragStartX         = 0.0f;
+        float                                          dragStartY         = 0.0f;
+        sky::ui::UIElement                            *menuBarElement     = nullptr;
+        sky::ui::UIElement                            *statusBarElement   = nullptr;
+        FileBrowserDialog                             *fileBrowserElement = nullptr;
+        std::function<void(const FileBrowserResult &)> browserCallback;
+        FileBrowserRequest                             browserRequest;
+        bool                                           browserOpen  = false;
+        float                                          width        = 1280.0f;
+        float                                          height       = 720.0f;
+        float                                          headerHeight = 24.0f;
+        float                                          footerHeight = 22.0f;
 
         std::string statusProject = "SkyEngine";
-        std::string statusRhi = "-";
-        std::string statusMode = "Edit";
-        float statusFps = 0.0f;
+        std::string statusRhi     = "-";
+        std::string statusMode    = "Edit";
+        float       statusFps     = 0.0f;
 
-        bool built = false;
+        bool built          = false;
         bool pendingRebuild = false;
-        bool layoutDirty = false;
+        bool layoutDirty    = false;
     };
 
 } // namespace sky::editor

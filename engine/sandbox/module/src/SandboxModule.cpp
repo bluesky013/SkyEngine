@@ -29,8 +29,7 @@
 #include <filesystem>
 
 #if defined(_WIN32)
-#include <windows.h>
-#include <commdlg.h>
+    #include <windows.h>
 #endif
 
 static const char *TAG = "SandboxModule";
@@ -38,6 +37,73 @@ static const char *TAG = "SandboxModule";
 namespace sky::editor {
 
     namespace {
+        // The UI widgets (EditBox, ReflectedFormView, FileBrowserDialog) expect
+        // virtual-key codes. Map the platform ScanCode enum (framework/window/
+        // IWindowEvent.h) to VK once here so every consumer sees the same keys.
+        std::uint32_t ScanCodeToVirtualKey(sky::ScanCode code)
+        {
+            switch (code) {
+            case sky::ScanCode::KEY_A: return 'A';
+            case sky::ScanCode::KEY_B: return 'B';
+            case sky::ScanCode::KEY_C: return 'C';
+            case sky::ScanCode::KEY_D: return 'D';
+            case sky::ScanCode::KEY_E: return 'E';
+            case sky::ScanCode::KEY_F: return 'F';
+            case sky::ScanCode::KEY_G: return 'G';
+            case sky::ScanCode::KEY_H: return 'H';
+            case sky::ScanCode::KEY_I: return 'I';
+            case sky::ScanCode::KEY_J: return 'J';
+            case sky::ScanCode::KEY_K: return 'K';
+            case sky::ScanCode::KEY_L: return 'L';
+            case sky::ScanCode::KEY_M: return 'M';
+            case sky::ScanCode::KEY_N: return 'N';
+            case sky::ScanCode::KEY_O: return 'O';
+            case sky::ScanCode::KEY_P: return 'P';
+            case sky::ScanCode::KEY_Q: return 'Q';
+            case sky::ScanCode::KEY_R: return 'R';
+            case sky::ScanCode::KEY_S: return 'S';
+            case sky::ScanCode::KEY_T: return 'T';
+            case sky::ScanCode::KEY_U: return 'U';
+            case sky::ScanCode::KEY_V: return 'V';
+            case sky::ScanCode::KEY_W: return 'W';
+            case sky::ScanCode::KEY_X: return 'X';
+            case sky::ScanCode::KEY_Y: return 'Y';
+            case sky::ScanCode::KEY_Z: return 'Z';
+            case sky::ScanCode::KEY_0: return '0';
+            case sky::ScanCode::KEY_1: return '1';
+            case sky::ScanCode::KEY_2: return '2';
+            case sky::ScanCode::KEY_3: return '3';
+            case sky::ScanCode::KEY_4: return '4';
+            case sky::ScanCode::KEY_5: return '5';
+            case sky::ScanCode::KEY_6: return '6';
+            case sky::ScanCode::KEY_7: return '7';
+            case sky::ScanCode::KEY_8: return '8';
+            case sky::ScanCode::KEY_9: return '9';
+            case sky::ScanCode::KEY_RETURN: return 0x0D;
+            case sky::ScanCode::KEY_ESCAPE: return 0x1B;
+            case sky::ScanCode::KEY_BACKSPACE: return 0x08;
+            case sky::ScanCode::KEY_TAB: return 0x09;
+            case sky::ScanCode::KEY_SPACE: return 0x20;
+            case sky::ScanCode::KEY_LEFT: return 0x25;
+            case sky::ScanCode::KEY_RIGHT: return 0x27;
+            case sky::ScanCode::KEY_UP: return 0x26;
+            case sky::ScanCode::KEY_DOWN: return 0x28;
+            case sky::ScanCode::KEY_HOME: return 0x24;
+            case sky::ScanCode::KEY_END: return 0x23;
+            case sky::ScanCode::KEY_DELETE: return 0x2E;
+            default: return 0;
+            }
+        }
+
+        std::string DefaultProjectsDirectory()
+        {
+            std::string base = sky::Platform::Get() != nullptr ? sky::Platform::Get()->GetUserConfigPath() : std::string{};
+            if (base.empty()) {
+                base = ".";
+            }
+            return (std::filesystem::path(base) / "skyengine" / "projects").string();
+        }
+
         sky::aurora::API ParseApi(const std::string &name)
         {
             if (name == "vulkan" || name == "vk") {
@@ -55,10 +121,10 @@ namespace sky::editor {
         const char *ApiName(sky::aurora::API api)
         {
             switch (api) {
-                case sky::aurora::API::VULKAN: return "Vulkan";
-                case sky::aurora::API::DX12: return "DX12";
-                case sky::aurora::API::METAL: return "Metal";
-                default: return "Auto";
+            case sky::aurora::API::VULKAN: return "Vulkan";
+            case sky::aurora::API::DX12: return "DX12";
+            case sky::aurora::API::METAL: return "Metal";
+            default: return "Auto";
             }
         }
 
@@ -95,14 +161,19 @@ namespace sky::editor {
         }
         class HubTarget : public IUiTarget {
         public:
-            explicit HubTarget(ProjectManagerView *view) : view(view) {}
+            explicit HubTarget(ProjectManagerView *view) : view(view)
+            {
+            }
             void OnPointer(const sky::ui::UIPointerEvent &event) override
             {
                 if (view != nullptr) {
                     view->OnPointerEvent(event);
                 }
             }
-            bool WantsInput() const override { return view != nullptr; }
+            bool WantsInput() const override
+            {
+                return view != nullptr;
+            }
 
         private:
             ProjectManagerView *view = nullptr;
@@ -110,7 +181,9 @@ namespace sky::editor {
 
         class ShellTarget : public IUiTarget {
         public:
-            explicit ShellTarget(EditorShell *shell) : shell(shell) {}
+            explicit ShellTarget(EditorShell *shell) : shell(shell)
+            {
+            }
             void OnPointer(const sky::ui::UIPointerEvent &event) override
             {
                 if (shell != nullptr) {
@@ -129,7 +202,10 @@ namespace sky::editor {
                     shell->DispatchText(event);
                 }
             }
-            bool WantsInput() const override { return shell != nullptr && shell->WantsInput(); }
+            bool WantsInput() const override
+            {
+                return shell != nullptr && shell->WantsInput();
+            }
 
         private:
             EditorShell *shell = nullptr;
@@ -146,15 +222,15 @@ namespace sky::editor {
         return std::make_unique<ShellTarget>(shell);
     }
 
-    SandboxModule::SandboxModule() = default;
+    SandboxModule::SandboxModule()  = default;
     SandboxModule::~SandboxModule() = default;
 
     bool SandboxModule::Init(const sky::StartArguments &args)
     {
-        const auto api = ParseApiArgs(args);
-        rhiName = ApiName(api);
+        const auto api                = ParseApiArgs(args);
+        rhiName                       = ApiName(api);
         const std::string projectPath = ParseProjectArg(args);
-        hubMode = projectPath.empty();
+        hubMode                       = projectPath.empty();
 
         // Editor mode: read the project and take the single-instance lock BEFORE
         // any window/GPU work, so a second editor on the same project refuses
@@ -209,9 +285,7 @@ namespace sky::editor {
             return false;
         }
 
-        renderer.SetGuiSource([this](uint32_t /*surfaceId*/, sky::ui::UIPaintContext &context, uint32_t w, uint32_t h) {
-            PaintGui(context, w, h);
-        });
+        renderer.SetGuiSource([this](uint32_t /*surfaceId*/, sky::ui::UIPaintContext &context, uint32_t w, uint32_t h) { PaintGui(context, w, h); });
 
         mouseBinder.Bind(this);
         keyBinder.Bind(this);
@@ -223,9 +297,9 @@ namespace sky::editor {
         ProjectRegistry::Get()->Load();
 
         hubContext = std::make_unique<sky::ui::UIContext>();
-        auto view = std::make_unique<ProjectManagerView>();
-        hubView = view.get();
-        hubTarget = MakeHubTarget(hubView);
+        auto view  = std::make_unique<ProjectManagerView>();
+        hubView    = view.get();
+        hubTarget  = MakeHubTarget(hubView);
         hubView->SetTextSystem(renderer.GetTextSystem());
         // Fill the whole window (default layout is a zero-size point anchor).
         sky::ui::UILayoutParams fill;
@@ -246,6 +320,13 @@ namespace sky::editor {
         };
         hubView->SetEngineVersion(sky::kEngineVersion);
         hubContext->AddChild(std::move(view));
+
+        auto dialog = std::make_unique<FileBrowserDialog>(renderer.GetTextSystem());
+        browser     = dialog.get();
+        dialog->SetLayout(fill);
+        dialog->SetOnResult([this](const FileBrowserResult &result) { OnFileBrowserResult(result); });
+        hubContext->AddChild(std::move(dialog));
+
         RefreshHubRecent();
         LOG_I(TAG, "project manager (hub) mode");
         return true;
@@ -257,7 +338,7 @@ namespace sky::editor {
         // the authoring asset DB, mirroring the legacy editor. Paths are relative
         // to each side's `assets/` root.
         if (!project.Dir().empty()) {
-            auto *workFs = new sky::NativeFileSystem(project.Dir());
+            auto *workFs   = new sky::NativeFileSystem(project.Dir());
             auto *engineFs = new sky::NativeFileSystem(Platform::Get()->GetBundlePath());
             sky::AssetDataBase::Get()->SetEngineFs(engineFs);
             sky::AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
@@ -284,7 +365,7 @@ namespace sky::editor {
         if (auto *rootSplit = static_cast<SplitNode *>(layoutModel.GetRoot())) {
             if (rootSplit->children.size() == 2 && IsSplit(rootSplit->children[1].get())) {
                 rootSplit->ratios = {0.22f, 0.78f}; // outliner | rest
-                auto *inner = static_cast<SplitNode *>(rootSplit->children[1].get());
+                auto *inner       = static_cast<SplitNode *>(rootSplit->children[1].get());
                 if (inner->children.size() == 2) {
                     inner->ratios = {0.68f, 0.32f}; // (viewport/outputlog) | inspector
                 }
@@ -310,12 +391,9 @@ namespace sky::editor {
         shell.SetUiScale(uiScale);
         shell.SetStatusInfo(project.name, rhiName, "Edit");
         // A closed floating window re-docks its panel into the main window.
-        renderer.SetSurfaceClosedCallback([this](const std::string &panelId) {
-            shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER);
-        });
-        renderer.SetSurfaceGeometryCallback([this](const std::string &panelId, float x, float y, float w, float h) {
-            shell.SetFloatingGeometry(panelId, x, y, w, h);
-        });
+        renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
+        renderer.SetSurfaceGeometryCallback(
+            [this](const std::string &panelId, float x, float y, float w, float h) { shell.SetFloatingGeometry(panelId, x, y, w, h); });
 
         sky::DerivedDataCache::Get().SetRoot(SandboxResources::Resolve("cache"));
         InstallUiIconBuilder();
@@ -327,10 +405,9 @@ namespace sky::editor {
 
         // Materialize floating windows restored from the saved layout.
         for (const FloatingPanel &fp : layoutModel.GetFloatingPanels()) {
-            const uint32_t fw = fp.width > 1.0f ? static_cast<uint32_t>(fp.width) : 720u;
-            const uint32_t fh = fp.height > 1.0f ? static_cast<uint32_t>(fp.height) : 480u;
-            const uint32_t surfaceId =
-                renderer.CreateSurface(fp.panelId, static_cast<int>(fp.x), static_cast<int>(fp.y), fw, fh);
+            const uint32_t fw        = fp.width > 1.0f ? static_cast<uint32_t>(fp.width) : 720u;
+            const uint32_t fh        = fp.height > 1.0f ? static_cast<uint32_t>(fp.height) : 480u;
+            const uint32_t surfaceId = renderer.CreateSurface(fp.panelId, static_cast<int>(fp.x), static_cast<int>(fp.y), fw, fh);
             if (surfaceId != 0) {
                 shell.SetSurfaceScale(surfaceId, renderer.SurfaceDpiScale(surfaceId));
                 shell.RestoreFloatingPanel(fp.panelId, surfaceId);
@@ -388,32 +465,61 @@ namespace sky::editor {
 
     void SandboxModule::AddProject()
     {
-#if defined(_WIN32)
-        if (hubView == nullptr) {
+        if (browser == nullptr) {
             return;
         }
-        wchar_t file[MAX_PATH] = L"";
-        OPENFILENAMEW ofn = {};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner   = nullptr;
-        if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
-            ofn.hwndOwner = static_cast<HWND>(system->GetMainWindowHandle());
+        FileBrowserRequest request;
+        request.mode      = FileBrowserMode::OPEN_PROJECT;
+        request.title     = "Add Existing Project";
+        request.filters   = {{"SkyEngine Project (*.skyproj)", {"skyproj"}}};
+        request.directory = DefaultProjectsDirectory();
+        browser->Open(request);
+        if (hubView != nullptr) {
+            hubView->SetStatus("Choose a *.skyproj to add");
         }
-        ofn.lpstrFilter = L"SkyEngine Project (*.skyproj)\0*.skyproj\0All Files\0*.*\0\0";
-        ofn.lpstrFile   = file;
-        ofn.nMaxFile    = MAX_PATH;
-        ofn.Flags       = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-        if (::GetOpenFileNameW(&ofn) == FALSE) {
+    }
+
+    void SandboxModule::OnFileBrowserResult(const FileBrowserResult &result)
+    {
+        if (!result.accepted || hubView == nullptr) {
             return;
         }
-        const int size = ::WideCharToMultiByte(CP_UTF8, 0, file, -1, nullptr, 0, nullptr, nullptr);
-        std::string path(size > 0 ? size - 1 : 0, '\0');
-        if (size > 0) {
-            ::WideCharToMultiByte(CP_UTF8, 0, file, -1, path.data(), size, nullptr, nullptr);
+        if (result.directory) {
+            CreateProjectFromResult(result);
+        } else {
+            AddProjectFromResult(result);
         }
+    }
+
+    void SandboxModule::CreateProjectFromResult(const FileBrowserResult &result)
+    {
+        const std::filesystem::path target(result.path);
+        const std::string           name   = target.filename().string();
+        const std::string           parent = target.parent_path().string();
+        if (name.empty() || parent.empty()) {
+            hubView->SetStatus("Invalid project location");
+            return;
+        }
+        if (std::filesystem::exists(target)) {
+            hubView->SetStatus("Target already exists: " + result.path);
+            return;
+        }
+        std::string skyproj;
+        if (ProjectDescriptor::Create(parent, name, skyproj)) {
+            ProjectRegistry::Get()->Add(skyproj);
+            RefreshHubRecent();
+            hubView->SetStatus("Created " + skyproj);
+            LOG_I(TAG, "created project '%s'", skyproj.c_str());
+        } else {
+            hubView->SetStatus("Failed to create project under " + parent);
+        }
+    }
+
+    void SandboxModule::AddProjectFromResult(const FileBrowserResult &result)
+    {
         ProjectDescriptor descriptor;
-        if (!descriptor.Read(path)) {
-            hubView->SetStatus("Not a valid project: " + path);
+        if (!descriptor.Read(result.path)) {
+            hubView->SetStatus("Not a valid project: " + result.path);
             return;
         }
         std::string message;
@@ -421,14 +527,9 @@ namespace sky::editor {
             hubView->SetStatus(message);
             return;
         }
-        ProjectRegistry::Get()->Add(path);
+        ProjectRegistry::Get()->Add(result.path);
         RefreshHubRecent();
         hubView->SetStatus(message.empty() ? ("Added " + descriptor.name) : message);
-#else
-        if (hubView != nullptr) {
-            hubView->SetStatus("Add Project is not available on this platform yet");
-        }
-#endif
     }
 
     void SandboxModule::RemoveFromList(const std::string &skyprojPath)
@@ -443,10 +544,8 @@ namespace sky::editor {
     void SandboxModule::DeleteProjectFolder(const std::string &skyprojPath)
     {
         ProjectDescriptor descriptor;
-        const std::string dir = descriptor.Read(skyprojPath)
-                                    ? descriptor.Dir()
-                                    : std::filesystem::path(skyprojPath).parent_path().string();
-        std::error_code error;
+        const std::string dir = descriptor.Read(skyprojPath) ? descriptor.Dir() : std::filesystem::path(skyprojPath).parent_path().string();
+        std::error_code   error;
         std::filesystem::remove_all(dir, error);
         ProjectRegistry::Get()->Remove(skyprojPath);
         RefreshHubRecent();
@@ -457,31 +556,21 @@ namespace sky::editor {
 
     void SandboxModule::NewProject()
     {
-        std::string base = Platform::Get() != nullptr ? Platform::Get()->GetUserConfigPath() : std::string{};
-        if (base.empty()) {
-            base = ".";
+        if (browser == nullptr) {
+            return;
         }
-        const std::string projectsDir = (std::filesystem::path(base) / "skyengine" / "projects").string();
+        const std::string projectsDir = DefaultProjectsDirectory();
+        std::error_code   error;
+        std::filesystem::create_directories(projectsDir, error);
 
-        // Unique "MyProject", "MyProject2", ... under the user projects dir.
-        std::string name = "MyProject";
-        std::string skyproj;
-        for (int i = 1; i < 1000; ++i) {
-            name = (i == 1) ? "MyProject" : ("MyProject" + std::to_string(i));
-            if (!std::filesystem::exists(std::filesystem::path(projectsDir) / name)) {
-                break;
-            }
-        }
-
-        if (ProjectDescriptor::Create(projectsDir, name, skyproj)) {
-            ProjectRegistry::Get()->Add(skyproj);
-            RefreshHubRecent();
-            if (hubView != nullptr) {
-                hubView->SetStatus("Created " + skyproj);
-            }
-            LOG_I(TAG, "created project '%s'", skyproj.c_str());
-        } else if (hubView != nullptr) {
-            hubView->SetStatus("Failed to create project under " + projectsDir);
+        FileBrowserRequest request;
+        request.mode        = FileBrowserMode::SELECT_DIRECTORY;
+        request.title       = "New Project - Choose Directory";
+        request.directory   = projectsDir;
+        request.defaultName = "MyProject";
+        browser->Open(request);
+        if (hubView != nullptr) {
+            hubView->SetStatus("Choose a directory and project name");
         }
     }
 
@@ -552,7 +641,9 @@ namespace sky::editor {
     void SandboxModule::RoutePointer(const sky::ui::UIPointerEvent &pointer, sky::WindowID winID)
     {
         if (AcceptWindowEvent(winID)) {
-            if (auto *target = ActiveTarget()) {
+            if (hubMode && browser != nullptr && browser->IsOpen()) {
+                browser->OnPointerEvent(pointer);
+            } else if (auto *target = ActiveTarget()) {
                 target->OnPointer(pointer);
             }
         } else {
@@ -643,10 +734,12 @@ namespace sky::editor {
             return;
         }
         sky::ui::UIKeyEvent key;
-        key.keyCode   = static_cast<uint32_t>(event.scanCode);
+        key.keyCode   = ScanCodeToVirtualKey(event.scanCode);
         key.action    = sky::ui::UIKeyAction::DOWN;
         key.modifiers = static_cast<uint32_t>(event.mod);
-        if (auto *target = ActiveTarget()) {
+        if (hubMode && browser != nullptr && browser->IsOpen()) {
+            browser->OnKeyEvent(key);
+        } else if (auto *target = ActiveTarget()) {
             target->OnKey(key);
         }
     }
@@ -657,10 +750,12 @@ namespace sky::editor {
             return;
         }
         sky::ui::UIKeyEvent key;
-        key.keyCode   = static_cast<uint32_t>(event.scanCode);
+        key.keyCode   = ScanCodeToVirtualKey(event.scanCode);
         key.action    = sky::ui::UIKeyAction::UP;
         key.modifiers = static_cast<uint32_t>(event.mod);
-        if (auto *target = ActiveTarget()) {
+        if (hubMode && browser != nullptr && browser->IsOpen()) {
+            browser->OnKeyEvent(key);
+        } else if (auto *target = ActiveTarget()) {
             target->OnKey(key);
         }
     }
@@ -670,9 +765,21 @@ namespace sky::editor {
         if (text == nullptr || !AcceptWindowEvent(winID)) {
             return;
         }
+        // TranslateMessage emits WM_CHAR control codes for Backspace/Enter/Tab/Esc
+        // (0x08/0x0D/0x09/0x1B); drop them so they are not inserted as text.
         sky::ui::UITextInputEvent input;
-        input.text = text;
-        if (auto *target = ActiveTarget()) {
+        for (const char *p = text; *p != '\0'; ++p) {
+            const unsigned char c = static_cast<unsigned char>(*p);
+            if (c >= 0x20 && c != 0x7F) {
+                input.text.push_back(static_cast<char>(c));
+            }
+        }
+        if (input.text.empty()) {
+            return;
+        }
+        if (hubMode && browser != nullptr && browser->IsOpen()) {
+            browser->OnTextInput(input);
+        } else if (auto *target = ActiveTarget()) {
             target->OnText(input);
         }
     }
@@ -687,6 +794,7 @@ namespace sky::editor {
         keyBinder.Reset();
         projectLock.Release();
         hubView = nullptr;
+        browser = nullptr;
         hubContext.reset();
         if (!hubMode) {
             extensionHost.UnregisterAll();
