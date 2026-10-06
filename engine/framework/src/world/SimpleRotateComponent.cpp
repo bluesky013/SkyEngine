@@ -2,18 +2,17 @@
 // Created by blues on 2025/2/21.
 //
 
-#include <framework/world/SimpleRotateComponent.h>
-#include <framework/world/ComponentFactory.h>
-#include <framework/world/TransformComponent.h>
-#include <framework/world/Actor.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/Actor.h>
+#include <framework/world/ComponentFactory.h>
+#include <framework/world/SimpleRotateComponent.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky {
 
     void SimpleRotateComponent::Reflect(SerializationContext *context)
     {
-        context->Register<SimpleRotateData>("SimpleRotateData")
-            .Member<&SimpleRotateData::speed>("Speed");
+        context->Register<SimpleRotateData>("SimpleRotateData").Member<&SimpleRotateData::speed>("Speed");
 
         REGISTER_BEGIN(SimpleRotateComponent, context)
         REGISTER_MEMBER(Speed, SetSpeed, GetSpeed) SET_REPLICATED();

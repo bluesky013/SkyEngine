@@ -73,7 +73,7 @@ namespace sky {
         }
 
         std::string ToString() const;
-        void FromString(const std::string & string);
+        void        FromString(const std::string &string);
 
         explicit operator bool() const
         {
@@ -118,7 +118,7 @@ namespace std {
 
     template <>
     struct less<sky::Uuid> {
-        constexpr auto operator()(const sky::Uuid& x, const sky::Uuid& y) const
+        constexpr auto operator()(const sky::Uuid &x, const sky::Uuid &y) const
         {
             return x < y;
         }

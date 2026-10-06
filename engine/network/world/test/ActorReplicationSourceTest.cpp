@@ -2,8 +2,8 @@
 // Created on 2026/10/03.
 //
 
-#include <network/world/ActorReplicationSource.h>
 #include <network/replication/ReplicationSnapshot.h>
+#include <network/world/ActorReplicationSource.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/Actor.h>
@@ -33,25 +33,41 @@ namespace {
 
         static void Reflect(SerializationContext *context)
         {
-            context->Register<ReplData>("ReplTestData")
-                    .Member<&ReplData::x>("x")
-                    .Member<&ReplData::y>("y")
-                    .Member<&ReplData::hidden>("hidden");
+            context->Register<ReplData>("ReplTestData").Member<&ReplData::x>("x").Member<&ReplData::y>("y").Member<&ReplData::hidden>("hidden");
 
             REGISTER_BEGIN(ReplComponent, context)
-                REGISTER_MEMBER(X, SetX, GetX) SET_REPLICATED()
-                REGISTER_MEMBER(Y, SetY, GetY) SET_REPLICATED()
-                REGISTER_MEMBER(Hidden, SetHidden, GetHidden);
+            REGISTER_MEMBER(X, SetX, GetX)
+            SET_REPLICATED() REGISTER_MEMBER(Y, SetY, GetY) SET_REPLICATED() REGISTER_MEMBER(Hidden, SetHidden, GetHidden);
         }
 
-        void SetX(float v) { data.x = v; ++SetterCalls; LastApplyGuard = IsApplyingReplication(); }
-        float GetX() const { return data.x; }
+        void SetX(float v)
+        {
+            data.x = v;
+            ++SetterCalls;
+            LastApplyGuard = IsApplyingReplication();
+        }
+        float GetX() const
+        {
+            return data.x;
+        }
 
-        void SetY(float v) { data.y = v; }
-        float GetY() const { return data.y; }
+        void SetY(float v)
+        {
+            data.y = v;
+        }
+        float GetY() const
+        {
+            return data.y;
+        }
 
-        void SetHidden(float v) { data.hidden = v; }
-        float GetHidden() const { return data.hidden; }
+        void SetHidden(float v)
+        {
+            data.hidden = v;
+        }
+        float GetHidden() const
+        {
+            return data.hidden;
+        }
     };
 
     int  ReplComponent::SetterCalls    = 0;
@@ -104,11 +120,11 @@ TEST(ActorReplicationSourceTest, EncodeApplyReplicatedFields)
         fields = record.FieldCount();
     });
 
-    EXPECT_EQ(fields, 2u);   // X and Y replicated, hidden not
+    EXPECT_EQ(fields, 2u); // X and Y replicated, hidden not
     EXPECT_EQ(rtype, REPL_TYPE);
     EXPECT_GT(payload.size(), 0u);
 
-    auto *clientActor = client->CreateActor(id);
+    auto                  *clientActor = client->CreateActor(id);
     ActorReplicationSource clientSource(*client);
     clientSource.RegisterComponent(typeId, REPL_TYPE);
 
@@ -123,9 +139,9 @@ TEST(ActorReplicationSourceTest, EncodeApplyReplicatedFields)
     ASSERT_NE(clientComp, nullptr);
     EXPECT_FLOAT_EQ(clientComp->GetX(), 1.5f);
     EXPECT_FLOAT_EQ(clientComp->GetY(), 2.5f);
-    EXPECT_FLOAT_EQ(clientComp->GetHidden(), 0.f);   // unmarked field never replicated
+    EXPECT_FLOAT_EQ(clientComp->GetHidden(), 0.f); // unmarked field never replicated
     EXPECT_EQ(ReplComponent::SetterCalls, 1);
-    EXPECT_TRUE(ReplComponent::LastApplyGuard);       // apply guard active during the setter
+    EXPECT_TRUE(ReplComponent::LastApplyGuard); // apply guard active during the setter
 }
 
 TEST(ActorReplicationSourceTest, SnapshotLoopback)
@@ -166,7 +182,7 @@ TEST(ActorReplicationSourceTest, SnapshotLoopback)
     ASSERT_NE(cComp, nullptr);
     EXPECT_FLOAT_EQ(cComp->GetX(), 3.f);
     EXPECT_FLOAT_EQ(cComp->GetY(), 4.f);
-    EXPECT_FLOAT_EQ(cComp->GetHidden(), 0.f);   // not replicated
+    EXPECT_FLOAT_EQ(cComp->GetHidden(), 0.f); // not replicated
 }
 
 TEST(ActorReplicationSourceTest, IterationOrderIsDeterministic)
@@ -182,7 +198,7 @@ TEST(ActorReplicationSourceTest, IterationOrderIsDeterministic)
     world->CreateActor(idA)->AddComponent<ReplComponent>();
     world->CreateActor(idB)->AddComponent<ReplComponent>();
 
-    const Uuid typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
+    const Uuid             typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
     ActorReplicationSource source(*world);
     source.RegisterComponent(typeId, REPL_TYPE);
 
@@ -191,7 +207,7 @@ TEST(ActorReplicationSourceTest, IterationOrderIsDeterministic)
 
     std::vector<ReplicatedEntityId> second;
     source.ForEachRecord([&](IReplicationRecord &r) { second.push_back(r.Entity()); });
-    EXPECT_EQ(first, second);   // stable across calls
+    EXPECT_EQ(first, second); // stable across calls
 
     // Stable relative order under removal: remaining entities keep their relative position.
     ASSERT_EQ(first.size(), 3u);
@@ -214,7 +230,7 @@ TEST(ActorReplicationSourceTest, IndexTracksAttachDetach)
     EnsureReflection();
 
     std::unique_ptr<World> world(World::CreateWorld());
-    const Uuid typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
+    const Uuid             typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
 
     // Constructed before any actor exists; the index is driven by world events.
     ActorReplicationSource source(*world);
@@ -240,13 +256,13 @@ TEST(ActorReplicationSourceTest, FieldEncodeApply)
     EnsureReflection();
 
     std::unique_ptr<World> world(World::CreateWorld());
-    const Uuid id    = Uuid::CreateWithSeed(99);
-    auto      *actor = world->CreateActor(id);
-    auto      *comp  = actor->AddComponent<ReplComponent>();
+    const Uuid             id    = Uuid::CreateWithSeed(99);
+    auto                  *actor = world->CreateActor(id);
+    auto                  *comp  = actor->AddComponent<ReplComponent>();
     comp->SetX(1.f);
     comp->SetY(2.f);
 
-    const Uuid typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
+    const Uuid             typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
     ActorReplicationSource source(*world);
     source.RegisterComponent(typeId, REPL_TYPE);
 
@@ -259,7 +275,7 @@ TEST(ActorReplicationSourceTest, FieldEncodeApply)
     comp->SetX(0.f);
     record->ApplyField(0, fieldX);
     EXPECT_FLOAT_EQ(comp->GetX(), 1.f);
-    EXPECT_FLOAT_EQ(comp->GetY(), 2.f);   // untouched by field 0
+    EXPECT_FLOAT_EQ(comp->GetY(), 2.f); // untouched by field 0
 
     std::vector<uint8_t> fieldY;
     record->EncodeField(1, fieldY);

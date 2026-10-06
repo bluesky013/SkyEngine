@@ -7,8 +7,8 @@
 #include <array>
 #include <core/environment/Singleton.h>
 #include <core/platform/Platform.h>
-#include <framework/serialization/SerializationFactory.h>
 #include <framework/serialization/PropertyCommon.h>
+#include <framework/serialization/SerializationFactory.h>
 
 namespace sky {
 
@@ -20,7 +20,7 @@ namespace sky {
             auto underlyingTypeId = uuid;
             if constexpr (std::is_enum_v<T>) {
                 using UnderlyingType = std::underlying_type_t<T>;
-                underlyingTypeId = TypeInfoObj<UnderlyingType>::Get()->RtInfo()->registeredId;
+                underlyingTypeId     = TypeInfoObj<UnderlyingType>::Get()->RtInfo()->registeredId;
             }
 
             const auto *info = TypeInfoObj<T>::Get()->Register(name, uuid, underlyingTypeId);
@@ -29,9 +29,7 @@ namespace sky {
             type.info  = info;
             if constexpr (std::is_default_constructible_v<T>) {
                 type.constructList.emplace_back(
-                        serialize::ConstructNode{0,
-                                      [](Any *args) { return true; },
-                                      [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
+                    serialize::ConstructNode{0, [](Any *args) { return true; }, [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
             }
 
             SKY_ASSERT(lookupTable.emplace(info->name, &type).second)
@@ -58,15 +56,15 @@ namespace sky {
         SerializationContext();
         ~SerializationContext() override = default;
 
-        std::unordered_map<Uuid, TypeNode>  types;
-        std::unordered_map<std::string_view, TypeNode*> lookupTable;
+        std::unordered_map<Uuid, TypeNode>               types;
+        std::unordered_map<std::string_view, TypeNode *> lookupTable;
     };
 
     template <typename... Args>
     Any MakeAny(const Uuid &typeId, Args &&...args)
     {
-        auto *context = SerializationContext::Get();
-        TypeNode *node = context->FindTypeById(typeId);
+        auto     *context = SerializationContext::Get();
+        TypeNode *node    = context->FindTypeById(typeId);
         if (node == nullptr || node->constructList.empty()) {
             return {};
         }
@@ -93,10 +91,10 @@ namespace sky {
     }
 
     template <typename T, typename... Args>
-    inline Any InvokeMemberFunctionResult(T& val, std::string_view func, Args&& ...args)
+    inline Any InvokeMemberFunctionResult(T &val, std::string_view func, Args &&...args)
     {
-        auto *context = SerializationContext::Get();
-        TypeNode *node = context->FindTypeById(TypeInfo<T>::RegisteredId());
+        auto     *context = SerializationContext::Get();
+        TypeNode *node    = context->FindTypeById(TypeInfo<T>::RegisteredId());
         if (node == nullptr) {
             return {};
         }
@@ -111,7 +109,7 @@ namespace sky {
         if (iter->second.checkFn != nullptr && !iter->second.checkFn(anyArgs.data())) {
             return {};
         }
-        return Any{iter->second.memberFun(reinterpret_cast<void*>(&val), anyArgs.data())};
+        return Any{iter->second.memberFun(reinterpret_cast<void *>(&val), anyArgs.data())};
     }
 
     inline const TypeNode *GetTypeNode(const Any &any)
@@ -136,7 +134,7 @@ namespace sky {
     inline serialize::TypeMemberNode *GetTypeMember(const std::string_view &member, const Uuid &typeId)
     {
         auto *context = SerializationContext::Get();
-        auto *node = context->FindTypeById(typeId);
+        auto *node    = context->FindTypeById(typeId);
         if (node == nullptr) {
             return nullptr;
         }
@@ -158,9 +156,8 @@ namespace sky {
 
 } // namespace sky
 
-#define REGISTER_BEGIN(NAME, context) context->Register<MY_CLASS>(#NAME)
-#define REGISTER_MEMBER(NAME, Setter, Getter) .Member<&MY_CLASS::Setter, &MY_CLASS::Getter>(#NAME)
+#define REGISTER_BEGIN(NAME, context)                  context->Register<MY_CLASS>(#NAME)
+#define REGISTER_MEMBER(NAME, Setter, Getter)          .Member<&MY_CLASS::Setter, &MY_CLASS::Getter>(#NAME)
 #define REGISTER_MEMBER_NS(NAME, Getter, ValueChanged) .MemberNoSetter<&MY_CLASS::Getter, &MY_CLASS::ValueChanged>(#NAME)
-#define SET_ASSET_TYPE(TYPE) .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(TYPE))
-#define SET_REPLICATED() .Property(static_cast<uint32_t>(CommonPropertyKey::REPLICATED), Any(true))
-
+#define SET_ASSET_TYPE(TYPE)                           .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(TYPE))
+#define SET_REPLICATED()                               .Property(static_cast<uint32_t>(CommonPropertyKey::REPLICATED), Any(true))

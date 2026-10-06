@@ -2,46 +2,54 @@
 // Created by blues on 2024/5/14.
 //
 
-#include <framework/world/World.h>
+#include <filesystem>
+#include <framework/serialization/SerializationUtil.h>
 #include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
-#include <framework/serialization/SerializationUtil.h>
-#include <filesystem>
+#include <framework/world/World.h>
 #include <fstream>
-#include <sstream>
 #include <gtest/gtest.h>
+#include <sstream>
 
 using namespace sky;
 
 struct TestComponentData {
-    int a;
+    int   a;
     float b;
 };
 
 class TestComponent : public ComponentAdaptor<TestComponentData> {
 public:
-    TestComponent() = default;
+    TestComponent()           = default;
     ~TestComponent() override = default;
 
     COMPONENT_RUNTIME_INFO(TestComponent)
 
     static void Reflect(SerializationContext *context)
     {
-        context->Register<TestComponentData>("TestComponentData")
-                .Member<&TestComponentData::a>("a")
-                .Member<&TestComponentData::b>("b");
-
+        context->Register<TestComponentData>("TestComponentData").Member<&TestComponentData::a>("a").Member<&TestComponentData::b>("b");
 
         REGISTER_BEGIN(TestComponent, context)
-            REGISTER_MEMBER(a, SetA, GetA) SET_REPLICATED()
-            REGISTER_MEMBER(b, SetB, GetB);
+        REGISTER_MEMBER(a, SetA, GetA) SET_REPLICATED() REGISTER_MEMBER(b, SetB, GetB);
     }
 
-    void SetA(int a) { data.a = a; }
-    int GetA() const { return data.a; }
+    void SetA(int a)
+    {
+        data.a = a;
+    }
+    int GetA() const
+    {
+        return data.a;
+    }
 
-    void SetB(float b) { data.b = b; }
-    float GetB() const { return data.b; }
+    void SetB(float b)
+    {
+        data.b = b;
+    }
+    float GetB() const
+    {
+        return data.b;
+    }
 };
 
 class LifecycleComponent : public ComponentBase {
@@ -57,8 +65,14 @@ public:
         REGISTER_BEGIN(LifecycleComponent, context);
     }
 
-    void OnAttachToWorld() override { ++AttachCount; }
-    void OnDetachFromWorld() override { ++DetachCount; }
+    void OnAttachToWorld() override
+    {
+        ++AttachCount;
+    }
+    void OnDetachFromWorld() override
+    {
+        ++DetachCount;
+    }
 };
 
 int LifecycleComponent::AttachCount = 0;
@@ -89,13 +103,13 @@ public:
 TEST_F(ComponentTest, ActorTest)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto &world = *pWorld;
+    auto                  &world = *pWorld;
 
-    auto id = Uuid::CreateWithSeed(0);
+    auto   id    = Uuid::CreateWithSeed(0);
     Actor *actor = world.CreateActor(id);
 
     {
-        auto* comp = actor->AddComponent<TestComponent>();
+        auto *comp = actor->AddComponent<TestComponent>();
         comp->SetA(1);
         comp->SetB(2.f);
 
@@ -104,7 +118,7 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        auto* comp = actor->GetComponent<TestComponent>();
+        auto *comp = actor->GetComponent<TestComponent>();
         comp->SetA(1);
         comp->SetB(2.f);
 
@@ -120,8 +134,8 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        std::ofstream stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
-        OStreamArchive streamArchive(stream);
+        std::ofstream     stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
+        OStreamArchive    streamArchive(stream);
         JsonOutputArchive archive(streamArchive);
 
         world.SaveJson(archive);
@@ -129,7 +143,7 @@ TEST_F(ComponentTest, ActorTest)
 
     {
         actor->RemoveComponent<TestComponent>();
-        auto* comp = actor->GetComponent<TestComponent>();
+        auto *comp = actor->GetComponent<TestComponent>();
         ASSERT_EQ(comp, nullptr);
 
         actor->RemoveComponent(Uuid{});
@@ -138,8 +152,8 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        std::ifstream stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
-        IStreamArchive streamArchive(stream);
+        std::ifstream    stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
+        IStreamArchive   streamArchive(stream);
         JsonInputArchive archive(streamArchive);
 
         world.LoadJson(archive);
@@ -147,50 +161,50 @@ TEST_F(ComponentTest, ActorTest)
         auto tActor = world.GetActorByUuid(id);
         ASSERT_NE(tActor, nullptr);
 
-        auto* comp = tActor->GetComponent<TestComponent>();
+        auto *comp = tActor->GetComponent<TestComponent>();
         ASSERT_NE(tActor, nullptr);
         ASSERT_EQ(comp->GetA(), 1);
         ASSERT_EQ(comp->GetB(), 2.f);
     }
 }
 
-//TEST_F(ComponentTest, ActorHierarchy)
+// TEST_F(ComponentTest, ActorHierarchy)
 //{
-//    {
-//        std::unique_ptr<World> world(World::CreateWorld());
+//     {
+//         std::unique_ptr<World> world(World::CreateWorld());
 //
-//        auto *actor1 = world->CreateActor();
-//        auto *actor2 = world->CreateActor();
-//        auto *actor3 = world->CreateActor();
+//         auto *actor1 = world->CreateActor();
+//         auto *actor2 = world->CreateActor();
+//         auto *actor3 = world->CreateActor();
 //
-//        actor3->SetParent(actor1);
-//        ASSERT_EQ(actor1->GetChildren()[0], actor3);
-//        ASSERT_EQ(actor2->GetChildren().size(), 0);
-//        ASSERT_EQ(actor3->GetParent(), actor1);
+//         actor3->SetParent(actor1);
+//         ASSERT_EQ(actor1->GetChildren()[0], actor3);
+//         ASSERT_EQ(actor2->GetChildren().size(), 0);
+//         ASSERT_EQ(actor3->GetParent(), actor1);
 //
-//        actor3->SetParent(actor2);
-//        ASSERT_EQ(actor1->GetChildren().size(), 0);
-//        ASSERT_EQ(actor2->GetChildren()[0], actor3);
-//        ASSERT_EQ(actor3->GetParent(), actor2);
-//    }
+//         actor3->SetParent(actor2);
+//         ASSERT_EQ(actor1->GetChildren().size(), 0);
+//         ASSERT_EQ(actor2->GetChildren()[0], actor3);
+//         ASSERT_EQ(actor3->GetParent(), actor2);
+//     }
 //
-//    {
-//        std::unique_ptr<World> world(World::CreateWorld());
+//     {
+//         std::unique_ptr<World> world(World::CreateWorld());
 //
-//        auto *actor1 = world->CreateActor();
-//        auto *actor2 = world->CreateActor();
-//        auto *actor3 = world->CreateActor();
+//         auto *actor1 = world->CreateActor();
+//         auto *actor2 = world->CreateActor();
+//         auto *actor3 = world->CreateActor();
 //
-//        actor2->SetParent(actor1);
-//        actor3->SetParent(actor2);
+//         actor2->SetParent(actor1);
+//         actor3->SetParent(actor2);
 //
-//        world->DestroyActor(actor1);
-//        ASSERT_EQ(actor2->GetChildren()[0], actor3);
-//        ASSERT_EQ(actor2->GetParent(), world->GetRoot());
-//        ASSERT_EQ(actor3->GetParent(), actor2);
-//    }
+//         world->DestroyActor(actor1);
+//         ASSERT_EQ(actor2->GetChildren()[0], actor3);
+//         ASSERT_EQ(actor2->GetParent(), world->GetRoot());
+//         ASSERT_EQ(actor3->GetParent(), actor2);
+//     }
 //
-//}
+// }
 
 TEST_F(ComponentTest, TransformComponentTest)
 {
@@ -220,7 +234,7 @@ TEST_F(ComponentTest, RemoveComponentDetaches)
     LifecycleComponent::DetachCount = 0;
 
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto actor = pWorld->CreateActor();
+    auto                   actor = pWorld->CreateActor();
 
     auto *comp = actor->AddComponent<LifecycleComponent>();
     ASSERT_NE(comp, nullptr);
@@ -234,7 +248,7 @@ TEST_F(ComponentTest, RemoveComponentDetaches)
 TEST_F(ComponentTest, UnknownComponentTypeIsSafe)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto actor = pWorld->CreateActor();
+    auto                   actor = pWorld->CreateActor();
 
     ASSERT_EQ(actor->AddComponent(Uuid::Create()), nullptr);
     actor->RemoveComponent(Uuid::Create());
@@ -246,7 +260,7 @@ TEST_F(ComponentTest, WorldResetDetaches)
     LifecycleComponent::DetachCount = 0;
 
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto actor = pWorld->CreateActor();
+    auto                   actor = pWorld->CreateActor();
     actor->AddComponent<LifecycleComponent>();
     ASSERT_EQ(LifecycleComponent::DetachCount, 0);
 
@@ -257,7 +271,7 @@ TEST_F(ComponentTest, WorldResetDetaches)
 TEST_F(ComponentTest, DetachReattachKeepsSingleEntry)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto *actor = pWorld->CreateActor();
+    auto                  *actor = pWorld->CreateActor();
     ASSERT_EQ(pWorld->GetActors().size(), 1u);
 
     auto owned = pWorld->DetachFromWorld(actor);
@@ -271,8 +285,8 @@ TEST_F(ComponentTest, DetachReattachKeepsSingleEntry)
 TEST_F(ComponentTest, LocalSetDoesNotCompoundGlobal)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto parent = pWorld->CreateActor();
-    auto child  = pWorld->CreateActor();
+    auto                   parent = pWorld->CreateActor();
+    auto                   child  = pWorld->CreateActor();
 
     auto *pt = parent->GetComponent<TransformComponent>();
     auto *ct = child->GetComponent<TransformComponent>();
@@ -290,8 +304,8 @@ TEST_F(ComponentTest, LocalSetDoesNotCompoundGlobal)
 TEST_F(ComponentTest, ParentMovePropagatesToChild)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto parent = pWorld->CreateActor();
-    auto child  = pWorld->CreateActor();
+    auto                   parent = pWorld->CreateActor();
+    auto                   child  = pWorld->CreateActor();
 
     auto *pt = parent->GetComponent<TransformComponent>();
     auto *ct = child->GetComponent<TransformComponent>();
@@ -306,8 +320,8 @@ TEST_F(ComponentTest, ParentMovePropagatesToChild)
 TEST_F(ComponentTest, ReparentPreservesWorld)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto parent = pWorld->CreateActor();
-    auto child  = pWorld->CreateActor();
+    auto                   parent = pWorld->CreateActor();
+    auto                   child  = pWorld->CreateActor();
 
     parent->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(10.f, 0.f, 0.f));
 
@@ -323,8 +337,8 @@ TEST_F(ComponentTest, ReparentPreservesWorld)
 TEST_F(ComponentTest, CycleIsRejected)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto a1 = pWorld->CreateActor();
-    auto a2 = pWorld->CreateActor();
+    auto                   a1 = pWorld->CreateActor();
+    auto                   a2 = pWorld->CreateActor();
 
     auto *t1 = a1->GetComponent<TransformComponent>();
     auto *t2 = a2->GetComponent<TransformComponent>();
@@ -344,25 +358,25 @@ TEST_F(ComponentTest, SaveLoadPreservesHierarchy)
 
     {
         std::unique_ptr<World> pWorld(World::CreateWorld());
-        auto parent = pWorld->CreateActor(parentId);
-        auto child  = pWorld->CreateActor(childId);
+        auto                   parent = pWorld->CreateActor(parentId);
+        auto                   child  = pWorld->CreateActor(childId);
 
         parent->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(10.f, 0.f, 0.f));
         auto *ct = child->GetComponent<TransformComponent>();
         ct->SetLocalTranslation(Vector3(1.f, 0.f, 0.f));
         ct->SetParentPreserveLocal(parent->GetComponent<TransformComponent>());
 
-        std::ofstream stream(path);
-        OStreamArchive streamArchive(stream);
+        std::ofstream     stream(path);
+        OStreamArchive    streamArchive(stream);
         JsonOutputArchive archive(streamArchive);
         pWorld->SaveJson(archive);
     }
 
     {
         std::unique_ptr<World> pWorld(World::CreateWorld());
-        std::ifstream stream(path);
-        IStreamArchive streamArchive(stream);
-        JsonInputArchive archive(streamArchive);
+        std::ifstream          stream(path);
+        IStreamArchive         streamArchive(stream);
+        JsonInputArchive       archive(streamArchive);
         pWorld->LoadJson(archive);
 
         auto loadedChild = pWorld->GetActorByUuid(childId);
@@ -396,9 +410,9 @@ TEST_F(ComponentTest, ReflectionReplicatedFlag)
 TEST_F(ComponentTest, ActorLookupConsistentAfterDetach)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    Uuid idA = Uuid::CreateWithSeed(201);
-    Uuid idB = Uuid::CreateWithSeed(202);
-    Uuid idC = Uuid::CreateWithSeed(203);
+    Uuid                   idA = Uuid::CreateWithSeed(201);
+    Uuid                   idB = Uuid::CreateWithSeed(202);
+    Uuid                   idC = Uuid::CreateWithSeed(203);
 
     pWorld->CreateActor(idA);
     auto b = pWorld->CreateActor(idB);
@@ -418,7 +432,7 @@ TEST_F(ComponentTest, ActorLookupConsistentAfterDetach)
 TEST_F(ComponentTest, DeterministicSerializationOrder)
 {
     std::unique_ptr<World> pWorld(World::CreateWorld());
-    auto actor = pWorld->CreateActor();
+    auto                   actor = pWorld->CreateActor();
     actor->AddComponent<TestComponent>();
     actor->AddComponent<LifecycleComponent>();
 
@@ -426,15 +440,15 @@ TEST_F(ComponentTest, DeterministicSerializationOrder)
     std::string second;
     {
         std::ostringstream stream;
-        OStreamArchive streamArchive(stream);
-        JsonOutputArchive archive(streamArchive);
+        OStreamArchive     streamArchive(stream);
+        JsonOutputArchive  archive(streamArchive);
         pWorld->SaveJson(archive);
         first = stream.str();
     }
     {
         std::ostringstream stream;
-        OStreamArchive streamArchive(stream);
-        JsonOutputArchive archive(streamArchive);
+        OStreamArchive     streamArchive(stream);
+        JsonOutputArchive  archive(streamArchive);
         pWorld->SaveJson(archive);
         second = stream.str();
     }

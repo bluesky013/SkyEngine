@@ -4,9 +4,9 @@
 
 #include <network/world/ActorReplicationSource.h>
 
+#include <framework/serialization/BinaryArchive.h>
 #include <framework/world/Actor.h>
 #include <framework/world/Component.h>
-#include <framework/serialization/BinaryArchive.h>
 
 #include <core/archive/MemoryStreamArchive.h>
 
@@ -29,7 +29,7 @@ namespace sky::net {
 
             Any value = member.getter(component);
 
-            OMemoryArchive    oarchive;
+            OMemoryArchive      oarchive;
             BinaryOutputArchive archive(oarchive);
             archive.SaveObject(value.Data(), member.info->registeredId);
 
@@ -56,7 +56,7 @@ namespace sky::net {
                 return;
             }
 
-            IMemoryArchive    iarchive(blob.data() + sizeof(uint32_t), size);
+            IMemoryArchive     iarchive(blob.data() + sizeof(uint32_t), size);
             BinaryInputArchive archive(iarchive);
 
             Any value = member.getter(component);
@@ -154,10 +154,10 @@ namespace sky::net {
             if (member.setterFn == nullptr || member.getterConstFn == nullptr) {
                 continue;
             }
-            entry.members.push_back(ReplicatedMember{ member.info, member.setterFn, member.getterConstFn });
+            entry.members.push_back(ReplicatedMember{member.info, member.setterFn, member.getterConstFn});
         }
 
-        typeIndex[replicationTypeId] = types.size();
+        typeIndex[replicationTypeId]         = types.size();
         componentTypeLookup[componentTypeId] = types.size();
         types.push_back(std::move(entry));
     }
@@ -225,9 +225,8 @@ namespace sky::net {
         }
 
         for (auto &entry : types) {
-            std::sort(entry.bucket.begin(), entry.bucket.end(), [](const ComponentBase *a, const ComponentBase *b) {
-                return a->GetActor()->GetUuid() < b->GetActor()->GetUuid();
-            });
+            std::sort(entry.bucket.begin(), entry.bucket.end(),
+                      [](const ComponentBase *a, const ComponentBase *b) { return a->GetActor()->GetUuid() < b->GetActor()->GetUuid(); });
 
             for (auto *component : entry.bucket) {
                 if (component == nullptr || component->GetActor() == nullptr) {

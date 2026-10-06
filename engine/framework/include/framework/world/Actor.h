@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <core/platform/Platform.h>
 #include <core/event/Event.h>
+#include <core/platform/Platform.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/Component.h>
@@ -20,28 +20,36 @@ namespace sky {
 
     class IActorEvent {
     public:
-        IActorEvent() = default;
+        IActorEvent()          = default;
         virtual ~IActorEvent() = default;
 
-        using KeyType   = Actor*;
+        using KeyType   = Actor *;
         using MutexType = void;
 
-        virtual void OnAttachToWorld(World* world) {}
-        virtual void OnDetachFromWorld(World* world) {}
-        virtual void OnParentChanged(Actor* oldParent, Actor* newParent) {}
+        virtual void OnAttachToWorld(World *world)
+        {
+        }
+        virtual void OnDetachFromWorld(World *world)
+        {
+        }
+        virtual void OnParentChanged(Actor *oldParent, Actor *newParent)
+        {
+        }
     };
     using ActorEvent = Event<IActorEvent>;
 
     class Actor {
     public:
         Actor() = default;
-        explicit Actor(Uuid id) : uuid(id), name("Actor") {}
+        explicit Actor(Uuid id) : uuid(id), name("Actor")
+        {
+        }
         ~Actor();
 
         using ComponentPtr = std::unique_ptr<ComponentBase>;
 
-        template <typename T, typename ...Args>
-        T* AddComponent(Args &&...args)
+        template <typename T, typename... Args>
+        T *AddComponent(Args &&...args)
         {
             static_assert(std::is_base_of_v<ComponentBase, T>);
             const auto &id = TypeInfoObj<T>::Get()->RtInfo()->registeredId;
@@ -56,13 +64,13 @@ namespace sky {
         }
 
         template <typename T>
-        T* GetComponent()
+        T *GetComponent()
         {
             static_assert(std::is_base_of_v<ComponentBase, T>);
             const auto &id = TypeInfoObj<T>::Get()->RtInfo()->registeredId;
             SKY_ASSERT(static_cast<bool>(id));
 
-            return static_cast<T*>(GetComponent(id));
+            return static_cast<T *>(GetComponent(id));
         }
 
         template <typename T>
@@ -77,7 +85,7 @@ namespace sky {
 
         ComponentBase *GetComponent(const Uuid &typeId);
         ComponentBase *AddComponent(const Uuid &typeId);
-        void RemoveComponent(const Uuid &typeId);
+        void           RemoveComponent(const Uuid &typeId);
 
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
@@ -86,23 +94,39 @@ namespace sky {
 
         void Tick(float time);
 
-        const Uuid &GetUuid() const { return uuid; }
-        const std::string &GetName() const { return name; }
-        void SetName(const std::string &name_) { name = name_; }
-        World *GetWorld() const { return world; }
+        const Uuid &GetUuid() const
+        {
+            return uuid;
+        }
+        const std::string &GetName() const
+        {
+            return name;
+        }
+        void SetName(const std::string &name_)
+        {
+            name = name_;
+        }
+        World *GetWorld() const
+        {
+            return world;
+        }
 
-        const std::map<Uuid, ComponentPtr> &GetComponents() const { return storage; }
+        const std::map<Uuid, ComponentPtr> &GetComponents() const
+        {
+            return storage;
+        }
 
         void AttachToWorld(World *world);
         void DetachFromWorld();
+
     private:
         friend class World;
-        bool EmplaceComponent(const Uuid &typeId, ComponentBase* component);
+        bool EmplaceComponent(const Uuid &typeId, ComponentBase *component);
 
         // Ordered by component type id: deterministic, stable iteration for Tick and serialization.
         std::map<Uuid, ComponentPtr> storage;
 
-        Uuid uuid;
+        Uuid        uuid;
         std::string name;
 
         World *world = nullptr;

@@ -3,15 +3,15 @@
 //
 
 #include <core/hash/Fnv1a.h>
-#include <core/util/Memory.h>
-#include <core/util/Uuid.h>
 #include <core/util/ArrayBitFlag.h>
-#include <core/util/TimeBlend.h>
 #include <core/util/BitUtil.h>
+#include <core/util/Memory.h>
+#include <core/util/TimeBlend.h>
+#include <core/util/Uuid.h>
 
-#include <unordered_set>
 #include <gtest/gtest.h>
 #include <string>
+#include <unordered_set>
 
 static constexpr uint32_t hash32 = sky::Fnv1a32("SkyEngine");
 static constexpr uint64_t hash64 = sky::Fnv1a64("SkyEngine");
@@ -100,8 +100,8 @@ TEST(UtilTest, UuidStrictOrdering)
     ASSERT_FALSE(z < x);
 
     std::set<Uuid> ordered{a, b, c, x, z};
-    auto it   = ordered.begin();
-    Uuid prev = *it;
+    auto           it   = ordered.begin();
+    Uuid           prev = *it;
     ++it;
     for (; it != ordered.end(); ++it) {
         ASSERT_TRUE(prev < *it);
@@ -116,13 +116,7 @@ TEST(UtilTest, AlignTest)
     ASSERT_EQ(Align(3, 8), 8);
 }
 
-enum ArrayBitTestE : uint32_t {
-    VAL1 = 1,
-    VAL4 = 4,
-    VAL32 = 32,
-    VAL33 = 33,
-    MAX
-};
+enum ArrayBitTestE : uint32_t { VAL1 = 1, VAL4 = 4, VAL32 = 32, VAL33 = 33, MAX };
 TEST(UtilTest, ArrayBitTest)
 {
     ArrayBit<ArrayBitTestE, ArrayBitTestE::MAX> bit;

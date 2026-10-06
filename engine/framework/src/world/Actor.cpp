@@ -3,8 +3,8 @@
 //
 
 #include <framework/world/Actor.h>
-#include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/world/World.h>
 
 namespace sky {
 
@@ -19,10 +19,10 @@ namespace sky {
         return iter != storage.end() ? iter->second.get() : nullptr;
     }
 
-    bool Actor::EmplaceComponent(const Uuid &typeId, ComponentBase* component)
+    bool Actor::EmplaceComponent(const Uuid &typeId, ComponentBase *component)
     {
         component->actor = this;
-        auto res = storage.emplace(typeId, component);
+        auto res         = storage.emplace(typeId, component);
         if (!res.second) {
             return false;
         }
@@ -41,7 +41,7 @@ namespace sky {
             return nullptr;
         }
 
-        auto *component = static_cast<ComponentBase*>(node->info->newFunc());
+        auto *component = static_cast<ComponentBase *>(node->info->newFunc());
         if (!EmplaceComponent(typeId, component)) {
             delete component;
             component = nullptr;
@@ -107,7 +107,7 @@ namespace sky {
             archive.Start("data");
             auto *node = context->FindTypeById(typeId);
             if (node != nullptr && node->info != nullptr && node->info->newFunc != nullptr) {
-                auto *tmp = static_cast<ComponentBase*>(node->info->newFunc());
+                auto *tmp = static_cast<ComponentBase *>(node->info->newFunc());
                 tmp->LoadJson(archive);
                 tmp->actor = this;
                 tmp->OnSerialized();
@@ -124,15 +124,15 @@ namespace sky {
 
     void Actor::SetParent(Actor *parent)
     {
-        auto* trans = GetComponent<TransformComponent>();
+        auto *trans = GetComponent<TransformComponent>();
 
-        Actor* oldActor = nullptr;
+        Actor *oldActor = nullptr;
         if (trans != nullptr) {
-            auto* oldParentTrans = trans->GetParent();
-            oldActor = oldParentTrans != nullptr ? oldParentTrans->GetActor() : nullptr;
+            auto *oldParentTrans = trans->GetParent();
+            oldActor             = oldParentTrans != nullptr ? oldParentTrans->GetActor() : nullptr;
         }
 
-        auto* parentTrans = parent != nullptr ? parent->GetComponent<TransformComponent>() : nullptr;
+        auto *parentTrans = parent != nullptr ? parent->GetComponent<TransformComponent>() : nullptr;
         if (trans != nullptr) {
             trans->SetParent(parentTrans);
         }

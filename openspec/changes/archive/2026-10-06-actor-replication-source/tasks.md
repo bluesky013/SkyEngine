@@ -29,4 +29,4 @@
 
 - [x] 5.1 Built `NetworkWorld` + `NetworkWorldTest`; confirmed the algorithm target (`NetworkReplication`) does not link `Framework`.
 - [x] 5.2 `NetworkWorldTest` 4/4 incl. a `SnapshotCodec` loopback (`SnapshotLoopback`); framework/plugins unaffected.
-- [ ] 5.3 clang-format/clang-tidy.
+- [x] 5.3 clang-format/clang-tidy.

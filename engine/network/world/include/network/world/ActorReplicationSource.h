@@ -6,8 +6,8 @@
 
 #include <network/replication/IReplicationSource.h>
 
-#include <framework/world/World.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/World.h>
 
 #include <functional>
 #include <span>
@@ -24,7 +24,7 @@ namespace sky::net {
     public:
         ReplicationApplyScope();
         ~ReplicationApplyScope();
-        ReplicationApplyScope(const ReplicationApplyScope &) = delete;
+        ReplicationApplyScope(const ReplicationApplyScope &)            = delete;
         ReplicationApplyScope &operator=(const ReplicationApplyScope &) = delete;
 
     private:
@@ -33,19 +33,19 @@ namespace sky::net {
 
     // One reflected member selected for replication.
     struct ReplicatedMember {
-        const TypeInfoRT      *info    = nullptr;
-        serialize::SetterFn    setter  = nullptr;
+        const TypeInfoRT        *info   = nullptr;
+        serialize::SetterFn      setter = nullptr;
         serialize::GetterConstFn getter = nullptr;
     };
 
     // A component type and its replicated members (from REPLICATED reflection flags).
     struct ActorReplicationType {
-        Uuid                           componentTypeId;
-        ReplicationTypeId              type = 0;
-        std::vector<ReplicatedMember>  members;
+        Uuid                          componentTypeId;
+        ReplicationTypeId             type = 0;
+        std::vector<ReplicatedMember> members;
 
         // Per-iteration bucket of live components of this type (dense, deterministic order).
-        std::vector<ComponentBase*>    bucket;
+        std::vector<ComponentBase *> bucket;
     };
 
     // Record returned through the seam; reused per iteration/call.
@@ -55,8 +55,14 @@ namespace sky::net {
         ComponentBase              *component = nullptr;
         ReplicatedEntityId          entity    = 0;
 
-        ReplicatedEntityId Entity() const override { return entity; }
-        ReplicationTypeId  Type() const override { return type != nullptr ? type->type : 0; }
+        ReplicatedEntityId Entity() const override
+        {
+            return entity;
+        }
+        ReplicationTypeId Type() const override
+        {
+            return type != nullptr ? type->type : 0;
+        }
 
         void Encode(std::vector<uint8_t> &out) const override;
         void Apply(std::span<const uint8_t> data) override;
@@ -79,9 +85,9 @@ namespace sky::net {
 
         void RegisterComponent(const Uuid &componentTypeId, ReplicationTypeId replicationTypeId);
 
-        void ForEachRecord(const std::function<void(IReplicationRecord &)> &fn) override;
+        void                ForEachRecord(const std::function<void(IReplicationRecord &)> &fn) override;
         IReplicationRecord *CreateReplica(ReplicatedEntityId entity, ReplicationTypeId type) override;
-        void DestroyReplica(ReplicatedEntityId entity, ReplicationTypeId type) override;
+        void                DestroyReplica(ReplicatedEntityId entity, ReplicationTypeId type) override;
         IReplicationRecord *FindReplica(ReplicatedEntityId entity, ReplicationTypeId type) override;
 
         // IWorldEvent: keep the entity index in sync with the world.
@@ -93,14 +99,14 @@ namespace sky::net {
 
     private:
         ActorReplicationType *FindType(ReplicationTypeId type);
-        Actor *FindActor(ReplicatedEntityId entity) const;
+        Actor                *FindActor(ReplicatedEntityId entity) const;
 
-        World &world;
-        std::unordered_map<ReplicatedEntityId, Actor*> actorIndex;
-        std::vector<ActorReplicationType> types;
-        std::unordered_map<ReplicationTypeId, size_t> typeIndex;
-        std::unordered_map<Uuid, size_t> componentTypeLookup;
-        ActorReplicationRecord scratch;
+        World                                          &world;
+        std::unordered_map<ReplicatedEntityId, Actor *> actorIndex;
+        std::vector<ActorReplicationType>               types;
+        std::unordered_map<ReplicationTypeId, size_t>   typeIndex;
+        std::unordered_map<Uuid, size_t>                componentTypeLookup;
+        ActorReplicationRecord                          scratch;
     };
 
 } // namespace sky::net

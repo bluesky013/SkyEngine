@@ -2,10 +2,10 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <framework/world/TransformComponent.h>
-#include <framework/world/ComponentFactory.h>
-#include <framework/world/Actor.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/Actor.h>
+#include <framework/world/ComponentFactory.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky {
 
@@ -13,14 +13,12 @@ namespace sky {
 
     void TransformComponent::Reflect(SerializationContext *context)
     {
-        context->Register<TransformData>("TransformData")
-                .Member<&TransformData::local>("data")
-                .Member<&TransformData::parent>("parent");
+        context->Register<TransformData>("TransformData").Member<&TransformData::local>("data").Member<&TransformData::parent>("parent");
 
         REGISTER_BEGIN(TransformComponent, context)
-                REGISTER_MEMBER(translation, SetLocalTranslation, GetLocalTranslation)
-                REGISTER_MEMBER(rotation, SetLocalRotationEuler, GetLocalRotationEuler)
-                REGISTER_MEMBER(scale, SetLocalScale, GetLocalScale);
+        REGISTER_MEMBER(translation, SetLocalTranslation, GetLocalTranslation)
+        REGISTER_MEMBER(rotation, SetLocalRotationEuler, GetLocalRotationEuler)
+        REGISTER_MEMBER(scale, SetLocalScale, GetLocalScale);
 
         ComponentFactory::Get()->RegisterComponent<TransformComponent>("Base");
     }
@@ -80,7 +78,7 @@ namespace sky {
             siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
         }
 
-        parent = parent_;
+        parent      = parent_;
         data.parent = (parent_ != nullptr && parent_->actor != nullptr) ? parent_->actor->GetUuid() : Uuid::GetEmpty();
 
         if (parent_ != nullptr) {

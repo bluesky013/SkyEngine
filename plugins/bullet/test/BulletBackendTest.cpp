@@ -69,14 +69,12 @@ namespace {
 
 TEST(BulletBackendTest, BodyStepAndTransform)
 {
-    BulletBackend backend;
+    BulletBackend  backend;
     IPhysicsWorld *world = backend.CreateWorld(PhysicsWorldDesc{});
     ASSERT_NE(world, nullptr);
 
-    const PhysicsObjectId ground = world->CreateBody(
-        MakeStaticBody(MakeBox(Vector3(10.f, 0.5f, 10.f)), Transform{{0, -0.5f, 0}}));
-    const PhysicsObjectId sphere = world->CreateBody(
-        MakeDynamicSphere(0.5f, Transform{{0, 5.f, 0}}));
+    const PhysicsObjectId ground = world->CreateBody(MakeStaticBody(MakeBox(Vector3(10.f, 0.5f, 10.f)), Transform{{0, -0.5f, 0}}));
+    const PhysicsObjectId sphere = world->CreateBody(MakeDynamicSphere(0.5f, Transform{{0, 5.f, 0}}));
     ASSERT_TRUE(IsValid(ground));
     ASSERT_TRUE(IsValid(sphere));
 
@@ -93,16 +91,14 @@ TEST(BulletBackendTest, BodyStepAndTransform)
 
 TEST(BulletBackendTest, QueryResolvesHandlesAndSkipsFiltered)
 {
-    BulletBackend backend;
+    BulletBackend  backend;
     IPhysicsWorld *world = backend.CreateWorld(PhysicsWorldDesc{});
     ASSERT_NE(world, nullptr);
 
-    const PhysicsObjectId ground = world->CreateBody(
-        MakeStaticBody(MakeBox(Vector3(10.f, 0.5f, 10.f)), Transform{{0, -0.5f, 0}}, 1));
-    const PhysicsObjectId sphere = world->CreateBody(
-        MakeDynamicSphere(0.5f, Transform{{0, 3.f, 0}}, 2));
+    const PhysicsObjectId ground = world->CreateBody(MakeStaticBody(MakeBox(Vector3(10.f, 0.5f, 10.f)), Transform{{0, -0.5f, 0}}, 1));
+    const PhysicsObjectId sphere = world->CreateBody(MakeDynamicSphere(0.5f, Transform{{0, 3.f, 0}}, 2));
 
-    PhysicsQueryHit hit;
+    PhysicsQueryHit    hit;
     PhysicsQueryFilter filter;
     ASSERT_TRUE(world->Raycast(Vector3(0, 5, 0), Vector3(0, -1, 0), 20.f, filter, hit));
     EXPECT_EQ(hit.object, sphere);
@@ -125,7 +121,7 @@ TEST(BulletBackendTest, QueryResolvesHandlesAndSkipsFiltered)
 
 TEST(BulletBackendTest, SnapshotRoundTrip)
 {
-    BulletBackend backend;
+    BulletBackend  backend;
     IPhysicsWorld *world = backend.CreateWorld(PhysicsWorldDesc{});
     ASSERT_NE(world, nullptr);
 
@@ -155,7 +151,7 @@ TEST(BulletBackendTest, SnapshotRoundTrip)
 
 TEST(BulletBackendTest, TriggerEventsAreEmitted)
 {
-    BulletBackend backend;
+    BulletBackend  backend;
     IPhysicsWorld *world = backend.CreateWorld(PhysicsWorldDesc{});
     ASSERT_NE(world, nullptr);
 
@@ -165,7 +161,7 @@ TEST(BulletBackendTest, TriggerEventsAreEmitted)
     // Bullet does not generate manifolds for static-static pairs, so a trigger needs at least one
     // non-static participant to be detected in this first implementation.
     PhysicsBodyDesc trigger = MakeStaticBody(MakeBox(Vector3(2.f, 2.f, 2.f)), Transform{{0, 1.f, 0}});
-    trigger.isTrigger = true;
+    trigger.isTrigger       = true;
     world->CreateBody(trigger);
 
     world->CreateBody(MakeDynamicSphere(0.5f, Transform{{0, 1.f, 0}}));
@@ -196,7 +192,7 @@ TEST(BulletBackendTest, CharacterAndTeardownAreSafe)
         world->CreateBody(MakeStaticBody(MakeBox(Vector3(10.f, 0.5f, 10.f)), Transform{{0, -0.5f, 0}}));
 
         CharacterDesc character;
-        character.transform = Transform{{0, 2.f, 0}};
+        character.transform      = Transform{{0, 2.f, 0}};
         const PhysicsObjectId id = world->CreateCharacter(character);
         ASSERT_TRUE(IsValid(id));
 
@@ -220,7 +216,7 @@ TEST(BulletBackendTest, StatsAndModeRejection)
     EXPECT_EQ(registry.CreateWorld(exact), nullptr);
 
     PhysicsWorldDesc fast;
-    fast.mathMode = PhysicsMathMode::Fast;
+    fast.mathMode        = PhysicsMathMode::Fast;
     IPhysicsWorld *world = registry.CreateWorld(fast);
     ASSERT_NE(world, nullptr);
 
@@ -237,18 +233,16 @@ TEST(BulletBackendTest, StatsAndModeRejection)
 
 TEST(BulletBackendTest, OptionsAreConfigurable)
 {
-    BulletBackend backend;
+    BulletBackend    backend;
     PhysicsWorldDesc desc;
     desc.options.allowDynamicTriangleMesh = false;
     desc.options.maxBodies                = 1;
-    IPhysicsWorld *world = backend.CreateWorld(desc);
+    IPhysicsWorld *world                  = backend.CreateWorld(desc);
     ASSERT_NE(world, nullptr);
 
-    EXPECT_TRUE(IsValid(world->CreateBody(
-        MakeStaticBody(MakeBox(Vector3(1.f, 1.f, 1.f)), Transform{{0, 0, 0}}))));
+    EXPECT_TRUE(IsValid(world->CreateBody(MakeStaticBody(MakeBox(Vector3(1.f, 1.f, 1.f)), Transform{{0, 0, 0}}))));
     // maxBodies = 1 rejects the second body.
-    EXPECT_FALSE(IsValid(world->CreateBody(
-        MakeStaticBody(MakeBox(Vector3(1.f, 1.f, 1.f)), Transform{{2, 0, 0}}))));
+    EXPECT_FALSE(IsValid(world->CreateBody(MakeStaticBody(MakeBox(Vector3(1.f, 1.f, 1.f)), Transform{{2, 0, 0}}))));
 
     const PhysicsOptions options = world->GetOptions();
     EXPECT_FALSE(options.allowDynamicTriangleMesh);
@@ -270,7 +264,7 @@ TEST(PhysicsComponentTest, AttachDetachAndReattach)
     ASSERT_NE(AttachPhysicsSystem(*world), nullptr);
 
     auto *actor = world->CreateActor("body");
-    auto *body = actor->AddComponent<PhysicsBodyComponent>();
+    auto *body  = actor->AddComponent<PhysicsBodyComponent>();
     ASSERT_NE(body, nullptr);
     EXPECT_TRUE(IsValid(body->GetObjectId()));
 

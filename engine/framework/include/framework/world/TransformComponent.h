@@ -4,17 +4,17 @@
 
 #pragma once
 
-#include <core/math/Transform.h>
 #include <core/event/Event.h>
-#include <framework/world/Component.h>
+#include <core/math/Transform.h>
 #include <framework/interface/ITransformEvent.h>
+#include <framework/world/Component.h>
 
 namespace sky {
 
     struct TransformData {
         Transform local;
         Transform global;
-        Uuid parent;
+        Uuid      parent;
     };
 
     class TransformComponent : public ComponentAdaptor<TransformData> {
@@ -26,12 +26,15 @@ namespace sky {
 
         COMPONENT_RUNTIME_INFO(TransformComponent)
 
-        void SetParent(TransformComponent *parent);
-        void SetParentPreserveLocal(TransformComponent *parent);
-        TransformComponent *GetParent() const { return parent; }
+        void                SetParent(TransformComponent *parent);
+        void                SetParentPreserveLocal(TransformComponent *parent);
+        TransformComponent *GetParent() const
+        {
+            return parent;
+        }
         void OnTransformChanged();
 
-        Matrix4 GetWorldMatrix() const;
+        Matrix4          GetWorldMatrix() const;
         const Transform &GetWorldTransform() const;
 
         void SetWorldTransform(const Transform &trans);
@@ -45,12 +48,15 @@ namespace sky {
         void SetLocalRotation(const Quaternion &rotation);
         void SetLocalScale(const Vector3 &scale);
 
-        const Transform& GetLocalTransform() const { return data.local; }
+        const Transform &GetLocalTransform() const
+        {
+            return data.local;
+        }
 
-        Vector3 GetLocalRotationEuler() const;
+        Vector3           GetLocalRotationEuler() const;
         const Quaternion &GetLocalRotation() const;
-        const Vector3 &GetLocalTranslation() const;
-        const Vector3 &GetLocalScale() const;
+        const Vector3    &GetLocalTranslation() const;
+        const Vector3    &GetLocalScale() const;
 
     private:
         bool LinkParent(TransformComponent *parent);
@@ -60,8 +66,8 @@ namespace sky {
         void UpdateGlobal();
         void OnSerialized() override;
 
-        TransformComponent* parent = nullptr;
-        std::vector<TransformComponent*> children;
+        TransformComponent               *parent = nullptr;
+        std::vector<TransformComponent *> children;
     };
 
 } // namespace sky

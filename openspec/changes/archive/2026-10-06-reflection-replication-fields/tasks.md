@@ -18,4 +18,4 @@
 
 - [x] 4.1 Build framework + tests (FrameworkTest 57/57).
 - [x] 4.2 Run framework tests.
-- [ ] 4.3 clang-format/clang-tidy.
+- [x] 4.3 clang-format/clang-tidy.

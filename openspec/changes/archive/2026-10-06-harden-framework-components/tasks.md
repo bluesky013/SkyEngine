@@ -51,4 +51,4 @@
 
 - [x] 7.1 Build `Framework` and `FrameworkTest` (also `CoreTest`) in Debug.
 - [x] 7.2 Run `ComponentTest.*` (12/12) and `UtilTest.*` (7/7); full `CoreTest` (269/269). The pre-existing `AssetManagerTest.BuilderTest` failure is unrelated (reproduces with the original `Uuid.h`).
-- [ ] 7.3 Run clang-format/clang-tidy on changed files.
+- [x] 7.3 Run clang-format/clang-tidy on changed files.
