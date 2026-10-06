@@ -24,6 +24,10 @@ namespace sky {
         bool Init(const Descriptor &desc) override;
         void *GetNativeHandle() const override;
 
+        // Device pixels / point; queried live from the window so it tracks moves
+        // between displays with different backing scale factors.
+        float GetDpiScale() const override;
+
         void *GetNSWindow() const { return window; }
 
     private:

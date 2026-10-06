@@ -381,6 +381,14 @@ namespace sky {
         return metalLayer;
     }
 
+    float CocoaWindow::GetDpiScale() const
+    {
+        if (window == nullptr) {
+            return scale;
+        }
+        return static_cast<float>([static_cast<NSWindow *>(window) backingScaleFactor]);
+    }
+
     NativeWindow *NativeWindow::Create(const Descriptor &des)
     {
         NativeWindow *window = new CocoaWindow();
