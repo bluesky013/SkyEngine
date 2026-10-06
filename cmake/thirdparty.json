@@ -101,23 +101,6 @@
 			"header_only": false
 		},
 		{
-			"name": "sdl",
-			"url": "https://github.com/libsdl-org/SDL.git",
-			"tag": "release-2.32.6",
-			"header_only": false,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm",
-				"Linux"
-			],
-			"options": {
-				"SDL_SHARED": "OFF",
-				"SDL_STATIC": "ON",
-				"SDL_TEST_LIBRARY": "OFF"
-			}
-		},
-		{
 			"name": "rapidjson",
 			"url": "https://github.com/Tencent/rapidjson.git",
 			"tag": "v1.1.0",

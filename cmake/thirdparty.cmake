@@ -24,7 +24,6 @@ if(EXISTS ${3RD_PATH})
 
     # framework
     sky_find_3rd(TARGET rapidjson     DIR rapidjson)
-    sky_find_3rd(TARGET sdl           DIR sdl)
 
     # vulkan
     sky_find_3rd(TARGET vulkan_headers DIR vulkan_headers)

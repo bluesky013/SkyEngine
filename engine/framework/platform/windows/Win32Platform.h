@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    // Native Win32 platform (no SDL): message pump, clipboard, timing, and paths.
+    // Native Win32 platform: message pump, clipboard, timing, and paths.
     class Win32Platform : public PlatformBase {
     public:
         Win32Platform() = default;
@@ -37,7 +37,9 @@ namespace sky {
                                 const std::string &filter) override;
 
         // Records the first created window as the main window (used by the RHI
-        // when a host does not pass a handle explicitly).
+        // when a host does not pass a handle explicitly). Invariant: the host
+        // must create its main window before any secondary/floating window, so
+        // the first window registered here is always the main one.
         void SetMainWindow(void *handle)
         {
             if (mainWindow == nullptr) {

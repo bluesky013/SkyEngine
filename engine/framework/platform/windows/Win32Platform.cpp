@@ -1,7 +1,7 @@
 //
 // Created by Zach Lee on 2022/9/25.
 //
-// Native Win32 platform implementation (no SDL).
+// Native Win32 platform implementation.
 //
 
 #include "Win32Platform.h"
