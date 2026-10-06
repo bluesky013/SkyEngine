@@ -22,6 +22,8 @@ parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86",
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
 parser.add_argument('-l', '--list', action='store_true', default=False, help='列出所有包信息')
+parser.add_argument('-k', '--check', action='store_true', default=False, help='校验本地三方库与 thirdparty.json 是否一致（只读，不构建）')
+parser.add_argument('--strict', action='store_true', default=False, help='配合 --check：输出目录缺失也视为失败')
 parser.add_argument('-f', '--force', action='store_true', default=False, help='强制重新构建（忽略增量缓存）')
 parser.add_argument('-a', '--archive', type=str, help='可选：将平台输出打包到指定的 zip 路径（不修改受跟踪文件）')
 args = parser.parse_args()
@@ -521,6 +523,68 @@ def list_packages(packages):
         platforms = ', '.join(pkg.get('platforms', ['all']))
         print(f"{name:<20} {tag:<25} {ptype:<12} {platforms}")
 
+def check_platform(packages, platform):
+    """Read-only validation of one platform: compare the pinned package
+    definitions in thirdparty.json against the build_metadata.json written when
+    the platform output was last built.
+
+    Returns (hard_fail, warn): hard_fail counts packages that are missing or
+    stale (pin changed since the output was built); warn counts packages whose
+    metadata is current but whose output directory is gone.
+    """
+    output_root = os.path.join(args.output, platform)
+    metadata_path = os.path.join(output_root, METADATA_FILE)
+
+    print(f"\n[{platform}] {output_root}")
+    if not os.path.exists(metadata_path):
+        print(f"  no {METADATA_FILE} - third-party output not built for this platform")
+        return 1, 0
+
+    with open(metadata_path, 'r', encoding='utf-8') as f:
+        metadata = json.load(f)
+
+    print(f"{'package':<20} {'state':<8} detail")
+    print('-' * 64)
+
+    hard_fail = 0
+    warn = 0
+    for pkg in packages:
+        name = pkg.get('name', '')
+        if not name:
+            continue
+
+        platforms = pkg.get('platforms')
+        if platforms and platform not in platforms:
+            continue
+
+        package_key = compute_package_key(pkg)
+        entry = metadata.get(name)
+        out_dir = os.path.join(output_root, name)
+
+        if entry is None:
+            state = 'MISSING'
+            detail = 'not built (absent from build_metadata)'
+            hard_fail += 1
+        elif entry.get('key') != package_key:
+            state = 'STALE'
+            detail = f"meta={entry.get('key')} pin={package_key}"
+            hard_fail += 1
+        elif not os.path.isdir(out_dir):
+            state = 'NOOUT'
+            detail = 'metadata current but output dir missing'
+            warn += 1
+        else:
+            state = 'ok'
+            detail = pkg.get('tag') or pkg.get('commit', '')
+            if len(detail) == 40:
+                detail = detail[:12]
+
+        print(f"{name:<20} {state:<8} {detail}")
+
+    print(f"  -> {hard_fail} missing/stale, {warn} output-missing")
+    return hard_fail, warn
+
+
 def app_main():
     json_file = os.path.join(args.engine, 'cmake', 'thirdparty.json')
     with open(json_file, 'r', encoding='utf-8') as file:
@@ -530,6 +594,36 @@ def app_main():
 
     if args.list:
         list_packages(packages)
+        return
+
+    if args.check:
+        if not args.output:
+            parser.error('--output is required for --check: specify the third-party output directory')
+        if args.platform:
+            platforms = [args.platform]
+        else:
+            platforms = [
+                name for name in sorted(os.listdir(args.output))
+                if os.path.isfile(os.path.join(args.output, name, METADATA_FILE))
+            ]
+        if not platforms:
+            print(f"[check] no platform build_metadata.json found under {args.output}")
+            sys.exit(1)
+
+        total_hard = 0
+        total_warn = 0
+        for platform in platforms:
+            hard_fail, warn = check_platform(packages, platform)
+            total_hard += hard_fail
+            total_warn += warn
+
+        if total_hard != 0:
+            print(f"\n[check] FAIL: {total_hard} package(s) missing/stale")
+            sys.exit(1)
+        if total_warn != 0 and args.strict:
+            print(f"\n[check] FAIL (strict): {total_warn} package(s) with missing output")
+            sys.exit(1)
+        print("\n[check] OK")
         return
 
     if not args.output:
