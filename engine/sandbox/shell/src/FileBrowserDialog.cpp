@@ -5,6 +5,7 @@
 #include <editor/shell/FileBrowserDialog.h>
 
 #include <editor/shell/UiDraw.h>
+#include <editor/shell/UiTheme.h>
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>
 
@@ -17,20 +18,18 @@ namespace sky::editor {
     namespace uc = uidraw;
 
     namespace {
-        constexpr float    kPanelW     = 820.0f;
-        constexpr float    kPanelH     = 560.0f;
-        constexpr float    kMargin     = 12.0f;
-        constexpr float    kTitleH     = 36.0f;
-        constexpr float    kSidebarW   = 170.0f;
-        constexpr float    kToolbarH   = 30.0f;
-        constexpr float    kHeaderRowH = 22.0f;
-        constexpr float    kRowH       = 24.0f;
-        constexpr float    kFooterH    = 46.0f;
-        constexpr float    kBtnW       = 88.0f;
-        constexpr float    kBtnH       = 26.0f;
-        constexpr float    kItemH      = 22.0f;
-        constexpr uint32_t kTitleSize  = 15;
-        constexpr uint32_t kTextSize   = 13;
+        constexpr float kPanelW     = 820.0f;
+        constexpr float kPanelH     = 560.0f;
+        constexpr float kMargin     = 12.0f;
+        constexpr float kTitleH     = 36.0f;
+        constexpr float kSidebarW   = 170.0f;
+        constexpr float kToolbarH   = 30.0f;
+        constexpr float kHeaderRowH = 22.0f;
+        constexpr float kRowH       = 24.0f;
+        constexpr float kFooterH    = 46.0f;
+        constexpr float kBtnW       = 88.0f;
+        constexpr float kBtnH       = 26.0f;
+        constexpr float kItemH      = 22.0f;
 
         long long NowMs()
         {
@@ -54,9 +53,20 @@ namespace sky::editor {
             }
             return "File";
         }
+
+        RowState StateFor(int index, bool selected, bool hovered)
+        {
+            if (selected) {
+                return RowState::Selected;
+            }
+            if (hovered) {
+                return RowState::Hover;
+            }
+            return (index % 2) ? RowState::Alt : RowState::Normal;
+        }
     } // namespace
 
-    FileBrowserDialog::FileBrowserDialog(sky::ui::UITextSystem *text) : textSystem(text)
+    FileBrowserDialog::FileBrowserDialog(sky::ui::UITextSystem *text) : textSystem(text), skin(GetDefaultUiTheme(), text)
     {
         SetVisible(false);
     }
@@ -78,21 +88,16 @@ namespace sky::editor {
         contextMenuOpen  = false;
         contextMenuRow   = -1;
         hoverContextItem = -1;
-        // Caret at the end, nothing selected; double-click the field to select all.
         nameEdit.SetText(model.GetName());
-        isOpen = true;
-        SetVisible(true);
-        MarkPaintDirty();
+        ModalDialog::Open();
     }
 
     void FileBrowserDialog::Close()
     {
-        isOpen          = false;
         filterPopupOpen = false;
         contextMenuOpen = false;
         renameActive    = false;
-        SetVisible(false);
-        MarkPaintDirty();
+        ModalDialog::Close();
     }
 
     int FileBrowserDialog::NameCaretFromX(float x) const
@@ -104,7 +109,7 @@ namespace sky::editor {
         const sky::ui::UIRect field  = NameFieldRect();
         float                 cursor = field.left;
         for (std::size_t i = 0; i < name.size(); ++i) {
-            const float w = uc::TextWidth(name.substr(i, 1), kTextSize, textSystem);
+            const float w = uc::TextWidth(name.substr(i, 1), skin.Theme().fonts.value, textSystem);
             if (x < cursor + w * 0.5f) {
                 return static_cast<int>(i);
             }
@@ -121,8 +126,7 @@ namespace sky::editor {
         }
         const std::string &name  = nameEdit.GetText();
         const std::size_t  caret = std::min(nameEdit.GetCaret(), name.size());
-        // Text is drawn at rect.left with no padding; keep the caret aligned.
-        return field.left + uc::TextWidth(name.substr(0, caret), kTextSize, textSystem);
+        return field.left + uc::TextWidth(name.substr(0, caret), skin.Theme().fonts.value, textSystem);
     }
 
     void FileBrowserDialog::SyncName()
@@ -135,12 +139,7 @@ namespace sky::editor {
 
     sky::ui::UIRect FileBrowserDialog::PanelRect() const
     {
-        const sky::ui::UIRect bounds = GetBounds();
-        const float           w      = std::min(kPanelW, std::max(360.0f, bounds.Width() - 60.0f));
-        const float           h      = std::min(kPanelH, std::max(260.0f, bounds.Height() - 60.0f));
-        const float           left   = bounds.left + (bounds.Width() - w) * 0.5f;
-        const float           top    = bounds.top + (bounds.Height() - h) * 0.5f;
-        return sky::ui::UIRect{left, top, left + w, top + h};
+        return CenteredPanel(kPanelW, kPanelH, 360.0f, 260.0f);
     }
 
     sky::ui::UIRect FileBrowserDialog::SidebarRect() const
@@ -396,136 +395,131 @@ namespace sky::editor {
 
     void FileBrowserDialog::PaintChrome(sky::ui::UIPaintContext &context) const
     {
-        const sky::ui::UIRect bounds = GetBounds();
-        const sky::ui::UIRect panel  = PanelRect();
+        const UiTheme        &th    = skin.Theme();
+        const sky::ui::UIRect panel = PanelRect();
 
-        uc::Fill(context, bounds, uc::RGB(0, 0, 0, 170));
+        PaintBackdrop(context);
         uc::SoftShadow(context, panel, 8.0f);
-        uc::RoundedField(context, panel, uc::color::Panel, uc::color::Border, 6.0f);
+        uc::RoundedField(context, panel, th.colors.panel, th.colors.border, th.metrics.panelRadius);
 
         const sky::ui::UIRect title{panel.left, panel.top, panel.right, panel.top + kTitleH};
-        uc::Fill(context, title, uc::color::Header);
+        skin.DrawPanelHeader(context, title);
         const std::string &titleText = !model.GetRequest().title.empty() ? model.GetRequest().title : std::string("Browse");
-        uc::Text(context, titleText, kTitleSize, sky::ui::UIRect{title.left + kMargin, title.top, title.right - kMargin, title.bottom},
-                 uc::color::Text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
-        uc::HLine(context, panel.left, panel.right, panel.top + kTitleH, uc::color::Border);
+        uc::Text(context, titleText, th.fonts.title,
+                 sky::ui::UIRect{title.left + th.metrics.padX, title.top, title.right - th.metrics.padX, title.bottom}, th.colors.text, textSystem,
+                 uc::HAlign::Left, uc::VAlign::Middle, false);
     }
 
     void FileBrowserDialog::PaintSidebar(sky::ui::UIPaintContext &context) const
     {
+        const UiTheme        &th      = skin.Theme();
         const sky::ui::UIRect sidebar = SidebarRect();
-        uc::Fill(context, sidebar, uc::color::Section);
+        uc::Fill(context, sidebar, th.colors.section);
         const auto &places = model.GetPlaces();
         for (std::size_t i = 0; i < places.size(); ++i) {
             const sky::ui::UIRect row = PlaceRowRect(static_cast<int>(i));
-            if (static_cast<int>(i) == hoverPlace) {
-                uc::Fill(context, row, uc::color::RowHover);
-            }
-            uc::Text(context, places[i].label, kTextSize, row, uc::color::Text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+            skin.DrawRow(context, row, StateFor(static_cast<int>(i), false, static_cast<int>(i) == hoverPlace));
+            uc::Text(context, places[i].label, th.fonts.label, sky::ui::UIRect{row.left + th.metrics.padX, row.top, row.right, row.bottom},
+                     th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
         }
     }
 
     void FileBrowserDialog::PaintToolbar(sky::ui::UIPaintContext &context) const
     {
+        const UiTheme        &th = skin.Theme();
         const sky::ui::UIRect up = UpRect();
-        uc::RoundedField(context, up, hoverUp ? uc::color::FieldHover : uc::color::Section, uc::color::Border, 4.0f);
-        uc::Text(context, "^", kTextSize, up, uc::color::Text, textSystem, uc::HAlign::Center, uc::VAlign::Middle, false);
+        skin.DrawToolItem(context, up, "^", hoverUp);
 
         const sky::ui::UIRect path = PathRect();
-        uc::Field(context, path, uc::color::Field, uc::color::BorderSoft);
-        uc::Text(context, model.GetLocation(), kTextSize, path, uc::color::TextMuted, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+        skin.DrawField(context, path, false, false);
+        uc::Text(context, model.GetLocation(), th.fonts.value,
+                 sky::ui::UIRect{path.left + th.metrics.controlPad, path.top, path.right - th.metrics.controlPad, path.bottom}, th.colors.textMuted,
+                 textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
 
         if (WriteMode()) {
-            const sky::ui::UIRect newFolder = NewFolderRect();
-            uc::RoundedField(context, newFolder, hoverNewFolder ? uc::color::FieldHover : uc::color::Section, uc::color::Border, 4.0f);
-            uc::Text(context, "New Folder", kTextSize, newFolder, uc::color::Text, textSystem, uc::HAlign::Center, uc::VAlign::Middle, false);
+            skin.DrawToolItem(context, NewFolderRect(), "New Folder", hoverNewFolder);
         }
     }
 
     void FileBrowserDialog::PaintList(sky::ui::UIPaintContext &context) const
     {
+        const UiTheme        &th     = skin.Theme();
         const sky::ui::UIRect header = ListHeaderRect();
-        uc::Fill(context, header, uc::color::Header);
+        uc::Fill(context, header, th.colors.header);
         const float nameCol = header.left + header.Width() * 0.68f;
-        uc::Text(context, "Name", kTextSize, sky::ui::UIRect{header.left + 8.0f, header.top, nameCol, header.bottom}, uc::color::TextMuted,
-                 textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
-        uc::Text(context, "Type", kTextSize, sky::ui::UIRect{nameCol, header.top, header.right - 8.0f, header.bottom}, uc::color::TextMuted,
-                 textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
+        uc::Text(context, "Name", th.fonts.label, sky::ui::UIRect{header.left + th.metrics.padX, header.top, nameCol, header.bottom},
+                 th.colors.textMuted, textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
+        uc::Text(context, "Type", th.fonts.label, sky::ui::UIRect{nameCol, header.top, header.right - th.metrics.padX, header.bottom},
+                 th.colors.textMuted, textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
 
         const sky::ui::UIRect list = ListRect();
-        uc::Fill(context, list, uc::color::Window);
-        uc::Border(context, list, uc::color::BorderSoft);
+        uc::Fill(context, list, th.colors.window);
+        uc::Border(context, list, th.colors.borderSoft);
 
         const auto &entries = model.GetEntries();
         const int   visible = static_cast<int>(list.Height() / kRowH);
         const int   count   = std::min(static_cast<int>(entries.size()), visible);
         for (int i = 0; i < count; ++i) {
             const sky::ui::UIRect row = RowRect(i);
-            uint32_t              bg  = (i % 2 == 0) ? uc::color::RowEven : uc::color::RowOdd;
-            if (i == model.GetSelected()) {
-                bg = uc::color::RowSelected;
-            } else if (i == hoverRow) {
-                bg = uc::color::RowHover;
-            }
-            uc::Fill(context, row, bg);
+            skin.DrawRow(context, row, StateFor(i, i == model.GetSelected(), i == hoverRow));
 
             const FileBrowserEntry &entry      = entries[static_cast<std::size_t>(i)];
             const float             rowNameCol = row.left + list.Width() * 0.68f;
-            uc::Text(context, entry.name, kTextSize, sky::ui::UIRect{row.left + 8.0f, row.top, rowNameCol, row.bottom}, uc::color::Text, textSystem,
-                     uc::HAlign::Left, uc::VAlign::Middle, true);
-            uc::Text(context, TypeLabelFor(entry), kTextSize, sky::ui::UIRect{rowNameCol, row.top, row.right - 8.0f, row.bottom},
-                     uc::color::TextDisabled, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+            uc::Text(context, entry.name, th.fonts.value, sky::ui::UIRect{row.left + th.metrics.padX, row.top, rowNameCol, row.bottom},
+                     th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+            uc::Text(context, TypeLabelFor(entry), th.fonts.value, sky::ui::UIRect{rowNameCol, row.top, row.right - th.metrics.padX, row.bottom},
+                     th.colors.textDisabled, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
         }
 
         if (!model.GetError().empty()) {
-            uc::Text(context, model.GetError(), kTextSize, sky::ui::UIRect{list.left + 8.0f, list.bottom - 18.0f, list.right, list.bottom},
-                     uc::color::TextMuted, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+            uc::Text(context, model.GetError(), th.fonts.value,
+                     sky::ui::UIRect{list.left + th.metrics.padX, list.bottom - 18.0f, list.right, list.bottom}, th.colors.textMuted, textSystem,
+                     uc::HAlign::Left, uc::VAlign::Middle, true);
         }
     }
 
     void FileBrowserDialog::PaintFooter(sky::ui::UIPaintContext &context) const
     {
+        const UiTheme        &th     = skin.Theme();
         const sky::ui::UIRect panel  = PanelRect();
         const sky::ui::UIRect footer = FooterRect();
-        uc::Fill(context, footer, uc::color::Section);
-        uc::HLine(context, panel.left, panel.right, footer.top, uc::color::Border);
+        uc::Fill(context, footer, th.colors.section);
+        uc::HLine(context, panel.left, panel.right, footer.top, th.colors.border);
 
         const sky::ui::UIRect filter = FilterRect();
-        uc::Field(context, filter, hoverFilter ? uc::color::FieldHover : uc::color::Field, uc::color::BorderSoft);
-        uc::Text(context, model.GetFilterLabel(model.GetActiveFilter()), kTextSize,
-                 sky::ui::UIRect{filter.left + 8.0f, filter.top, filter.right - 20.0f, filter.bottom}, uc::color::Text, textSystem, uc::HAlign::Left,
-                 uc::VAlign::Middle, true);
-        uc::Text(context, "v", kTextSize, sky::ui::UIRect{filter.right - 18.0f, filter.top, filter.right - 4.0f, filter.bottom}, uc::color::TextMuted,
-                 textSystem, uc::HAlign::Center, uc::VAlign::Middle, false);
+        skin.DrawField(context, filter, false, false);
+        uc::Text(context, model.GetFilterLabel(model.GetActiveFilter()), th.fonts.value,
+                 sky::ui::UIRect{filter.left + th.metrics.controlPad, filter.top, filter.right - 20.0f, filter.bottom}, th.colors.text, textSystem,
+                 uc::HAlign::Left, uc::VAlign::Middle, true);
+        skin.DrawTriangle(context, filter.right - 12.0f, (filter.top + filter.bottom) * 0.5f, true, th.colors.textMuted);
 
         const sky::ui::UIRect nameField = NameFieldRect();
-        uc::Field(context, nameField, uc::color::Field, uc::color::BorderSoft);
+        skin.DrawField(context, nameField, false, false);
         const std::string &name = nameEdit.GetText();
         if (nameEdit.HasSelection() && textSystem != nullptr) {
             const std::size_t selStart = nameEdit.GetSelectionStart();
             const std::size_t selEnd   = nameEdit.GetSelectionEnd();
-            const float       startX   = nameField.left + uc::TextWidth(name.substr(0, selStart), kTextSize, textSystem);
-            const float       endX     = nameField.left + uc::TextWidth(name.substr(0, selEnd), kTextSize, textSystem);
-            uc::Fill(context, sky::ui::UIRect{startX, nameField.top + 3.0f, endX, nameField.bottom - 3.0f}, uc::color::RowSelected);
+            const float       startX   = nameField.left + uc::TextWidth(name.substr(0, selStart), th.fonts.value, textSystem);
+            const float       endX     = nameField.left + uc::TextWidth(name.substr(0, selEnd), th.fonts.value, textSystem);
+            uc::Fill(context, sky::ui::UIRect{startX, nameField.top + 3.0f, endX, nameField.bottom - 3.0f}, th.colors.rowSelected);
         }
-        uc::Text(context, name, kTextSize, nameField, uc::color::Text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+        uc::Text(context, name, th.fonts.value, nameField, th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
         const float caretX = NameCaretX();
-        uc::Fill(context, sky::ui::UIRect{caretX, nameField.top + 5.0f, caretX + 1.0f, nameField.bottom - 5.0f}, uc::color::Text);
+        uc::Fill(context, sky::ui::UIRect{caretX, nameField.top + 5.0f, caretX + 1.0f, nameField.bottom - 5.0f}, th.colors.text);
 
         const char *labels[2] = {"Open", "Cancel"};
         for (int i = 0; i < 2; ++i) {
             const sky::ui::UIRect btn     = ButtonRect(i);
             const bool            primary = (i == 0);
             const bool            enabled = !primary || model.CanAccept();
-            uint32_t              bg      = primary ? (enabled ? uc::color::Accent : uc::color::Section) : uc::color::FieldHover;
-            if (primary && enabled && hoverButton == i) {
-                bg = uc::color::AccentHover;
-            } else if (!primary && hoverButton == i) {
-                bg = uc::color::RowHover;
+            if (primary) {
+                const uint32_t bg = enabled ? (hoverButton == i ? th.colors.accentHover : th.colors.accent) : th.colors.section;
+                uc::RoundedField(context, btn, bg, th.colors.border, th.metrics.buttonRadius);
+                uc::Text(context, labels[i], th.fonts.value, btn, enabled ? th.colors.textOnAccent : th.colors.textDisabled, textSystem,
+                         uc::HAlign::Center, uc::VAlign::Middle, false);
+            } else {
+                skin.DrawToolItem(context, btn, labels[i], hoverButton == i);
             }
-            uc::RoundedField(context, btn, bg, uc::color::Border, 4.0f);
-            uc::Text(context, labels[i], kTextSize, btn, enabled ? uc::color::White : uc::color::TextDisabled, textSystem, uc::HAlign::Center,
-                     uc::VAlign::Middle, false);
         }
     }
 
@@ -534,22 +528,19 @@ namespace sky::editor {
         if (!filterPopupOpen) {
             return;
         }
+        const UiTheme        &th     = skin.Theme();
         const sky::ui::UIRect filter = FilterRect();
-        const int             count  = FilterItemCount();
+        const sky::ui::UIRect menu{filter.left, FilterItemRect(0).top, filter.right, filter.top};
+        skin.DrawPopup(context, menu);
+        const int count = FilterItemCount();
         for (int i = 0; i < count; ++i) {
             const sky::ui::UIRect item        = FilterItemRect(i);
             const int             filterIndex = i - 1;
-            if (i == hoverFilterItem) {
-                uc::Fill(context, item, uc::color::RowHover);
-            } else if (filterIndex == model.GetActiveFilter()) {
-                uc::Fill(context, item, uc::color::RowSelected);
-            } else {
-                uc::Fill(context, item, uc::color::Panel);
-            }
-            uc::Text(context, model.GetFilterLabel(filterIndex), kTextSize, item, uc::color::Text, textSystem, uc::HAlign::Left, uc::VAlign::Middle,
-                     true);
+            skin.DrawPopupItem(context, item, i == hoverFilterItem, filterIndex == model.GetActiveFilter());
+            uc::Text(context, model.GetFilterLabel(filterIndex), th.fonts.value,
+                     sky::ui::UIRect{item.left + th.metrics.padX, item.top, item.right, item.bottom}, th.colors.text, textSystem, uc::HAlign::Left,
+                     uc::VAlign::Middle, true);
         }
-        uc::Border(context, sky::ui::UIRect{filter.left, FilterItemRect(0).top, filter.right, filter.top}, uc::color::Border);
     }
 
     void FileBrowserDialog::PaintContextMenu(sky::ui::UIPaintContext &context) const
@@ -557,18 +548,15 @@ namespace sky::editor {
         if (!contextMenuOpen) {
             return;
         }
+        const UiTheme        &th    = skin.Theme();
         const auto            items = ContextItems();
         const sky::ui::UIRect menu  = ContextMenuRect();
-        uc::SoftShadow(context, menu, 6.0f);
-        uc::Fill(context, menu, uc::color::Panel);
-        uc::Border(context, menu, uc::color::Border);
+        skin.DrawPopup(context, menu);
         for (int i = 0; i < static_cast<int>(items.size()); ++i) {
             const sky::ui::UIRect item = ContextItemRect(i);
-            if (i == hoverContextItem) {
-                uc::Fill(context, item, uc::color::RowHover);
-            }
-            uc::Text(context, items[static_cast<std::size_t>(i)], kTextSize,
-                     sky::ui::UIRect{item.left + 10.0f, item.top, item.right - 6.0f, item.bottom}, uc::color::Text, textSystem, uc::HAlign::Left,
+            skin.DrawPopupItem(context, item, i == hoverContextItem, false);
+            uc::Text(context, items[static_cast<std::size_t>(i)], th.fonts.value,
+                     sky::ui::UIRect{item.left + th.metrics.padX, item.top, item.right, item.bottom}, th.colors.text, textSystem, uc::HAlign::Left,
                      uc::VAlign::Middle, false);
         }
     }
@@ -760,9 +748,8 @@ namespace sky::editor {
         }
 
         // Virtual-key codes: the host maps platform ScanCode -> VK before forwarding.
-        constexpr uint32_t kEscape = 0x1B;
-        constexpr uint32_t kReturn = 0x0D;
-        // KeyModFlags bits (framework/window/IWindowEvent.h).
+        constexpr uint32_t kEscape   = 0x1B;
+        constexpr uint32_t kReturn   = 0x0D;
         constexpr uint32_t kModShift = 0x0003;
         constexpr uint32_t kModCtrl  = 0x00C0;
 
@@ -804,7 +791,6 @@ namespace sky::editor {
         if (!isOpen) {
             return sky::ui::UIEventResult::UNHANDLED;
         }
-        // TextEditState filters control characters (Backspace/Enter/Tab/Esc).
         if (nameEdit.OnText(event.text)) {
             SyncName();
         }

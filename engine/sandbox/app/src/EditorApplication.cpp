@@ -12,10 +12,12 @@
 
 #include <rapidjson/document.h>
 
+#include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
-static const char *TAG = "EditorApplication";
+static const char *TAG                = "EditorApplication";
 static const char *EDITOR_CONFIG_PATH = "configs/modules_editor.json";
 
 namespace sky::editor::sandbox {
@@ -66,6 +68,74 @@ namespace sky::editor::sandbox {
         }
     } // namespace
 
+    static std::string WindowStatePath()
+    {
+        if (Platform::Get() == nullptr) {
+            return {};
+        }
+        const std::string base = Platform::Get()->GetUserConfigPath();
+        return base.empty() ? std::string() : base + "/skyengine/editor_window.json";
+    }
+
+    EditorApplication::~EditorApplication()
+    {
+        SaveWindowGeometry();
+    }
+
+    void EditorApplication::LoadWindowGeometry()
+    {
+        const std::string path = WindowStatePath();
+        if (path.empty()) {
+            return;
+        }
+        std::string json;
+        if (!ReadString(path, json) || json.empty()) {
+            return;
+        }
+        rapidjson::Document document;
+        document.Parse(json.c_str());
+        if (document.HasParseError() || !document.IsObject()) {
+            return;
+        }
+        if (document.HasMember("width") && document["width"].IsUint() && document["width"].GetUint() >= 320u) {
+            width = document["width"].GetUint();
+        }
+        if (document.HasMember("height") && document["height"].IsUint() && document["height"].GetUint() >= 240u) {
+            height = document["height"].GetUint();
+        }
+        if (document.HasMember("x") && document["x"].IsInt() && document.HasMember("y") && document["y"].IsInt()) {
+            windowX          = document["x"].GetInt();
+            windowY          = document["y"].GetInt();
+            hasSavedPosition = true;
+        }
+        LOG_I(TAG, "restored window geometry %ux%u from %s", width, height, path.c_str());
+    }
+
+    void EditorApplication::SaveWindowGeometry()
+    {
+        // Skip bounded/dev runs (-frames) so they do not clobber the saved size.
+        if (window == nullptr || maxFrames > 0) {
+            return;
+        }
+        const std::string path = WindowStatePath();
+        if (path.empty()) {
+            return;
+        }
+
+        const uint32_t w = window->GetWidth();
+        const uint32_t h = window->GetHeight();
+        int32_t        x = 0;
+        int32_t        y = 0;
+        window->GetPosition(x, y);
+
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+
+        char buffer[160];
+        std::snprintf(buffer, sizeof(buffer), "{\n  \"width\": %u,\n  \"height\": %u,\n  \"x\": %d,\n  \"y\": %d\n}\n", w, h, x, y);
+        WriteString(path, buffer);
+    }
+
     bool EditorApplication::LoadConfigs()
     {
         // Load the editor module list from the builtin config deployed next to
@@ -73,7 +143,7 @@ namespace sky::editor::sandbox {
         // (e.g. the editor is launched without the launcher's configs/).
         const std::string configPath = Platform::Get()->GetBundlePath() + "/" + EDITOR_CONFIG_PATH;
 
-        std::string json;
+        std::string             json;
         std::vector<ModuleInfo> modules;
         if (ReadString(configPath, json) && ReadModules(json, modules) && !modules.empty()) {
             for (auto &info : modules) {
@@ -90,12 +160,15 @@ namespace sky::editor::sandbox {
 
     bool EditorApplication::PreInit()
     {
-        window.reset(NativeWindow::Create(
-            NativeWindow::Descriptor{width, height, "SandboxEditor", "SandboxEditor",
-                                     Platform::Get()->GetMainWinHandle()}));
+        LoadWindowGeometry();
+        window.reset(
+            NativeWindow::Create(NativeWindow::Descriptor{width, height, "SandboxEditor", "SandboxEditor", Platform::Get()->GetMainWinHandle()}));
         if (window == nullptr) {
             LOG_E(TAG, "create native window failed");
             return false;
+        }
+        if (hasSavedPosition) {
+            window->SetPosition(windowX, windowY);
         }
         return true;
     }

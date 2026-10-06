@@ -5,6 +5,8 @@
 #pragma once
 
 #include <editor/core/extension/EditorExtensionHost.h>
+#include <editor/core/preferences/PreferenceRegistry.h>
+#include <editor/core/preferences/PreferenceStore.h>
 #include <editor/render/EditorRenderer.h>
 #include <editor/sandbox/UiTarget.h>
 #include <editor/shell/EditorShell.h>
@@ -45,19 +47,23 @@ namespace sky::editor {
         void OnTextInput(sky::WindowID winID, const char *text) override;
 
     private:
-        bool BuildHub();
-        bool BuildEditor();
-        void OpenProject(const std::string &skyprojPath);
-        void AddProject();
-        void NewProject();
-        void OnFileBrowserResult(const FileBrowserResult &result);
-        void CreateProjectFromResult(const FileBrowserResult &result);
-        void AddProjectFromResult(const FileBrowserResult &result);
-        void RemoveFromList(const std::string &skyprojPath);
-        void DeleteProjectFolder(const std::string &skyprojPath);
-        void RefreshHubRecent();
-        bool ValidateProject(const ProjectDescriptor &descriptor, std::string &message);
-        void PaintGui(sky::ui::UIPaintContext &context, uint32_t width, uint32_t height);
+        bool        BuildHub();
+        bool        BuildEditor();
+        void        OpenProject(const std::string &skyprojPath);
+        void        AddProject();
+        void        NewProject();
+        void        OnFileBrowserResult(const FileBrowserResult &result);
+        void        CreateProjectFromResult(const FileBrowserResult &result);
+        void        AddProjectFromResult(const FileBrowserResult &result);
+        void        RegisterPreferencePages();
+        void        LoadPreferences();
+        void        SavePreferences();
+        std::string PreferencePath() const;
+        void        RemoveFromList(const std::string &skyprojPath);
+        void        DeleteProjectFolder(const std::string &skyprojPath);
+        void        RefreshHubRecent();
+        bool        ValidateProject(const ProjectDescriptor &descriptor, std::string &message);
+        void        PaintGui(sky::ui::UIPaintContext &context, uint32_t width, uint32_t height);
 
         // Per-window input routing: records the primary (main) window id on first
         // event and accepts only events for it (or id-less ones as a fallback).
@@ -83,6 +89,9 @@ namespace sky::editor {
         LogService          logService;
         CommandController   commandController;
         EditorExtensionHost extensionHost;
+
+        PreferenceRegistry               preferenceRegistry;
+        std::unique_ptr<PreferenceStore> preferenceStore;
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;

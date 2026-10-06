@@ -1,93 +1,65 @@
 ---
 title: "Editor Framework - Status & Handoff"
-description: "Operational state of the sandbox editor / project-manager work, for resuming in a new session."
-updated: "2026-10-06"
+description: "Operational state of the sandbox editor work, for resuming in a new session."
+updated: "2026-10-07"
 ---
 
 ## Where things stand
 
-- **Branch**: `dev_refactor_rhi` (ahead of `origin` by 4 commits).
-- **Recent commits**: `[fix]: event-driven window close …`, `[feat]: editor UI icon pipeline …`,
-  `[feat]: ui anti-aliasing … and dpi scaling`, `[feat]: editor property panels …`,
-  `[feat]: sandbox reflection widget editor framework`.
-- **Uncommitted (working tree)**: the `editor-project-manager` slice — code + `docs/editor/editor-framework-design.md`
-  + `openspec/changes/editor-project-manager/`. **Nothing committed for it yet**, not pushed.
+- **Branch**: `dev_refactor_rhi` (ahead of `origin` by 3 commits).
+- **Landed (committed)**:
+  - `[fix]: correct astcenc_context_alloc arity …` (839960d8)
+  - `[tool]: add third-party version precheck (--check/--strict)` (8dc58e0e)
+  - `[feat]: engine file browser dialog …` (21c1f5f8)
+  - earlier: editor project-manager hub (0281296f), interactive docking/floating (0fe0187f),
+    SDL removal / Win32-only window backend (608e420d).
+- **Uncommitted (working tree)**: `editor-preferences-dialog` and `editor-window-state` code + their
+  openspec artifacts, the shared `ModalDialog` / dialog-skin refactor, and a `FileIO::WriteString` fix.
 
-Design: `docs/editor/editor-framework-design.md`. Change: `openspec/changes/editor-project-manager/`.
+Design: `docs/editor/editor-framework-design.md`. Changes: `openspec/changes/editor-*/`.
 
-## Implemented (uncommitted) — editor startup / project manager
+## Editor dialogs (shell)
 
-- `SandboxEditor` **no `--project`** → Project Manager **hub**; **`--project <path>`** → editor bound to it.
-- **GUI subsystem**: no console by default; **`--console`** attaches one (stdout/stderr).
-- **Hub** (`ProjectManagerView`): **Add existing** (native file picker + `engineVersion` validation),
-  **New**, **Open**, **Remove from list**, **Delete folder** (two-step confirm), **Quit**; recent rows
-  select + double-click open.
-- **`*.skyproj`** descriptor read/write; **recent list** persisted at
-  `GetUserConfigPath()/skyengine/projects.json`.
-- **Single-instance hard lock**: `<project>/cache/editor.lock` (owner PID, stale reclaim); a second
-  editor on the same project is refused.
-- **Project work-FS mount**: `AssetDataBase` engine (read-only) + workspace (writable) +
-  `AssetManager::SetWorkFileSystem`.
-- Engine **`assets/` + `configs/`** deployed next to the editor.
-- Editor opens **no standalone preview window** (`EditorRenderer::Init(..., withPreview=false)`).
+- **File browser dialog** (`editor-file-browser-dialog`): engine-drawn modal over the hub / editor; a headless
+  `FileBrowserModel` + `IFileBrowserSource` (`FileSystemSource`); `OpenFile` / `OpenProject` /
+  `SelectDirectory` modes; extension + asset-type filters; Places sidebar; New Folder (write mode); context
+  menu + inline rename. Project Manager **New** → directory chooser, **Add** → `*.skyproj` chooser (retired
+  the raw Win32 open dialog).
+- **Preferences dialog** (`editor-preferences-dialog`): registry-driven pages (General/Editor/Rendering)
+  editing a `PreferenceStore`; OK/Apply/Cancel/Reset; persists to `editor-preferences.json`. Opened from
+  **File > Preferences…**; the old docked `config` panel was removed.
+- Both derive from a shared **`ModalDialog`** base (backdrop / centered panel / open state) and paint via
+  **`UiSkin`/`UiTheme`**, matching the reflected panels. Shell routes input to the topmost modal via
+  `EditorShell::ActiveModal()`.
 
-Files:
+## Window state (`editor-window-state`)
 
-- framework: `engine/framework/{include,src}/project/{ProjectDescriptor,ProjectLock}.*`
-- sandbox/app: `engine/sandbox/app/{src/main.cpp,CMakeLists.txt}` (GUI subsystem, assets/configs deploy)
-- sandbox/module: `engine/sandbox/module/{include,src}/…/SandboxModule.*`, `CMakeLists.txt` (comdlg32)
-- sandbox/shell: `engine/sandbox/shell/{include,src}/…/ProjectManagerView.*`
-- sandbox/render: `engine/sandbox/render/{include,src}/…/EditorRenderer.*` (`withPreview`)
-- docs: `docs/editor/editor-framework-design.md`, `docs/README.md`
+- Main window size/position persisted to `<user-config>/skyengine/editor_window.json` (restored on launch,
+  saved on graceful exit; `--frames` dev runs skip saving).
+- Backend support: `Win32Window` reports live client size on `WM_SIZE`; `NativeWindow::GetPosition/
+  SetPosition` (Win32 `GetWindowRect`/`SetWindowPos`).
 
 ## Build / run
 
-- Close any running `SandboxEditor.exe` first (it locks `SandboxModule.dll`/`dxcompiler.dll`).
-- Reconfigure (new files use `GLOB`): `cmake -S . -B build`
-- Build: `cmake --build build --config Release --target SandboxEditor`
-- Run hub: `output/bin/Release/SandboxEditor.exe`
-- Run a project: `output/bin/Release/SandboxEditor.exe --project <path>/<name>.skyproj`
-- Live logs: append `--console`.
-
-## Verified
-
-Build green; hub renders; **New** creates a real project (`.skyproj` + `assets/configs/cache`) and the
-recent list updates; `--project` opens the editor; a **second** instance on the same project is
-**refused**; no console window; no preview window.
-
-## Interactive docking + floating + SDL removal (uncommitted)
-
-Change: `openspec/changes/editor-interactive-docking/` (separate from `editor-project-manager`).
-
-- **Docking**: engine menu bar (File/Edit/View/Window/Tools/Help) + status bar replace the flat toolbar;
-  view registry survives rebuilds; draggable splitters (hover grab band + grip + cursor change);
-  tab drag/reorder/tabify + drop-zone highlight + drag ghost; tab close; `View > Reset Layout`.
-- **Persistence**: per-user `GetUserConfigPath()/editor_layout.json` (v2 with a `floating` array),
-  auto-saved coalesced at end-of-frame and restored on startup.
-- **Floating (tear-out)**: dragging a tab out of the dock area floats it into its own OS window;
-  per-surface `UIContext`/`UIRenderer` on the one device; shared font atlas across windows;
-  close → re-dock; geometry write-back; startup restore; per-window DPI. Win32-only.
-- **Style**: UE + Blender hybrid — rounded panels with a 3px gap, flat muted headers, subtle separators,
-  balanced default ratios (Outliner 22% / center ~53% / Inspector 25%).
-- **SDL removed project-wide**: deleted `3rdParty::sdl` (`cmake/thirdparty.json`/`.cmake`, `Findsdl.cmake`)
-  and the SDL/macOS window backend (`platform/genetic/SDL*`, `platform/macos/Macos*`).
-  **macOS is now unsupported** until a native backend is added; Windows is the only backend.
-- Core helpers added: `core/layout/DockInteraction` (geometry) and `core/shell/ShellModels` (view-model).
+- **Close any running `SandboxEditor.exe` first** — it locks `SandboxModule.dll`/`dxcompiler.dll`, so the
+  shader target's post-build copy fails and the app target never relinks.
+- Editor UI lives in **`SandboxModule.dll`** (loaded at runtime): after changing shell/module code, build the
+  **`SandboxModule`** target, not only `SandboxEditor`.
+- New files use `GLOB`: re-run `cmake -S . -B cmake-build-debug` before building them.
+- Run hub: `output/bin/Debug/SandboxEditor.exe`; run a project: add `--project <path>.skyproj`; logs: `--console`.
 
 ## Gotchas
 
-- Two **stuck zombie** `SandboxEditor.exe` (0 MB, no owner/path) cannot be killed without admin:
-  `taskkill /F /IM SandboxEditor.exe` from an **elevated** prompt (or reboot).
-- Capturing the window from a **non-DPI-aware** PowerShell yields virtualized coordinates; call
-  `SetProcessDPIAware()` and use `PrintWindow`. Injected mouse messages are DPI-scaled (×1.25 here),
-  so synthetic click coordinates must be divided by the scale — real input is unaffected.
+- The editor auto-formats on file write (clang-format): edits can reflow whole files / move brace blocks;
+  prefer small, exact edits.
+- `ScanCode` vs virtual-key: the platform forwards the engine `ScanCode` enum; `SandboxModule` maps once to
+  VK (and drops `WM_CHAR` control codes) so all UI widgets agree.
 - `engineVersion` compare is lexicographic (`x.y.z`); replace with semver later.
 - Opening a project is **in-process** (v1), not the designed `re-exec`.
 
 ## Next steps
 
-See `openspec/changes/editor-project-manager/tasks.md` §6:
-
-- `re-exec` instead of the in-process open; hub as a **separate top-level window**.
-- Asset browser (`editor-content-browser`), `--safe-mode`, named workspaces, PIE, namespaced plugin mounts.
-- Commit / archive `editor-project-manager` (needs explicit user confirmation per `AGENTS.md`).
+- Commit / archive the completed `editor-file-browser-dialog` / `editor-window-state` and finish
+  `editor-preferences-dialog` (tasks 3.3, 4.3, 4.5, 5.1).
+- `editor-project-manager` follow-ups (§6): `re-exec`, hub as a separate top-level window.
+- Asset browser (`editor-content-browser`) reusing `IFileBrowserSource`/`FileBrowserModel`.

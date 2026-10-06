@@ -6,6 +6,8 @@
 
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/text/TextEditState.h>
+#include <editor/shell/ModalDialog.h>
+#include <editor/shell/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
@@ -26,7 +28,7 @@ namespace sky::editor {
     // browser: a Places sidebar, a location toolbar, a Name/Type list, and a
     // filter + Name + OK/Cancel footer. Backed by a headless FileBrowserModel, so
     // the same control serves filesystem picks and (later) asset-type picks.
-    class FileBrowserDialog : public sky::ui::UIElement {
+    class FileBrowserDialog : public ModalDialog {
     public:
         explicit FileBrowserDialog(sky::ui::UITextSystem *text);
         ~FileBrowserDialog() override = default;
@@ -43,10 +45,6 @@ namespace sky::editor {
 
         void Open(const FileBrowserRequest &request);
         void Close();
-        bool IsOpen() const
-        {
-            return isOpen;
-        }
 
         FileBrowserModel &Model()
         {
@@ -127,11 +125,11 @@ namespace sky::editor {
         sky::ui::UIEventResult HandlePointerDown(float x, float y);
 
         sky::ui::UITextSystem                         *textSystem = nullptr;
+        UiSkin                                         skin;
         FileBrowserModel                               model;
         std::function<void(const FileBrowserResult &)> onResult;
         TextEditState                                  nameEdit;
 
-        bool      isOpen           = false;
         bool      filterPopupOpen  = false;
         int       hoverPlace       = -1;
         int       hoverRow         = -1;

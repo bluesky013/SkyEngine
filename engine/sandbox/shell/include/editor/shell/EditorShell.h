@@ -35,6 +35,9 @@ namespace sky::ui {
 namespace sky::editor {
 
     class FileBrowserDialog;
+    class PreferencesDialog;
+    class PreferenceRegistry;
+    class PreferenceStore;
 
     // UI-linked editor shell.
     //
@@ -76,6 +79,12 @@ namespace sky::editor {
         {
             return browserOpen;
         }
+
+        // Preferences: the shell hosts one dialog over the supplied registry/store.
+        // `onApplied` is invoked after a commit so the host can persist.
+        void SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied);
+        void OpenPreferences();
+        bool IsPreferencesOpen() const;
 
         // DPI/UI scale: layout stays logical, painting scales to physical pixels.
         void SetUiScale(float scale);
@@ -161,6 +170,10 @@ namespace sky::editor {
         bool ConsumeFloatRequest(std::string &panelId);
 
     private:
+        // Topmost open modal dialog (preferences over file browser); nullptr if
+        // none. Used to route input while a modal is open.
+        sky::ui::UIElement *ActiveModal() const;
+
         // One layout tab: an optional header row plus the active panel's body.
         struct Slot {
             sky::ui::UIElement      *header = nullptr;
@@ -245,11 +258,16 @@ namespace sky::editor {
         FileBrowserDialog                             *fileBrowserElement = nullptr;
         std::function<void(const FileBrowserResult &)> browserCallback;
         FileBrowserRequest                             browserRequest;
-        bool                                           browserOpen  = false;
-        float                                          width        = 1280.0f;
-        float                                          height       = 720.0f;
-        float                                          headerHeight = 24.0f;
-        float                                          footerHeight = 22.0f;
+        bool                                           browserOpen = false;
+
+        PreferencesDialog    *preferencesElement = nullptr;
+        PreferenceRegistry   *preferenceRegistry = nullptr;
+        PreferenceStore      *preferenceStore    = nullptr;
+        std::function<void()> preferencesApplied;
+        float                 width        = 1280.0f;
+        float                 height       = 720.0f;
+        float                 headerHeight = 24.0f;
+        float                 footerHeight = 22.0f;
 
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";

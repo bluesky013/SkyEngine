@@ -525,6 +525,28 @@ widgets (`EditBox`, `ReflectedFormView`, `FileBrowserDialog`) expect **virtual-k
 `SandboxModule` maps `ScanCode -> VK` and drops `WM_CHAR` control codes **once** before forwarding, so
 every consumer sees consistent keys. Widgets must not reinterpret key codes individually.
 
+Both modal dialogs share a `ModalDialog` base (backdrop, centered panel, open state) and paint through
+`UiSkin`/`UiTheme`, so the file browser and Preferences render identically to the reflected panels.
+
+### 3.11 Persistence (per-user editor state)
+
+The editor keeps its per-user state next to the OS user-config directory
+(`Platform::GetUserConfigPath()/skyengine/`):
+
+| File | Contents | Owner |
+|---|---|---|
+| `editor_layout.json` | panel split/tab/floating arrangement | `SandboxModule` (editor core `LayoutPersistence`) |
+| `editor_window.json` | main window `{width,height,x,y}` | `EditorApplication` (sandbox app) |
+| `editor-preferences.json` | preference values (JSON v1) | `SandboxModule` (`PreferenceStore`) |
+
+**Window geometry** is captured and restored by the host: `EditorApplication` reads
+`editor_window.json` before creating the native window and applies the saved size/position, then writes the
+live geometry on graceful exit (`~EditorApplication`). To make that possible the window layer reports live
+geometry: `Win32Window` writes the client size back into its descriptor on `WM_SIZE`, and
+`NativeWindow::GetPosition/SetPosition` (Win32: `GetWindowRect`/`SetWindowPos`) expose the screen position.
+Bounded/dev runs (`--frames N`) skip saving so they do not overwrite the user's layout. Only a graceful
+window close persists state; force-killing the process does not.
+
 ## 4. Review rounds
 
 **Round 1 — Unreal lens.** World Outliner / Details / Content Browser triad, Play-in-Editor
@@ -624,12 +646,13 @@ runtime).
 
 ## 8. Cross-platform considerations (macOS / Linux)
 
-Windows-first, but macOS and Linux are targets. Parity is required at every layer:
+Windows-first, but macOS and Linux are targets. **Only the native Win32 window backend exists today**; SDL
+was removed, so macOS/Linux need a native backend added. Parity is required at every layer:
 
 - **Window close event + quit**: broadcast `IWindowEvent::OnWindowClose` and map main-window close to
-  quit on **every** backend (Win32, macOS `NSWindow`, SDL on Linux), not just Win32.
+  quit on **every** backend (Win32 today; macOS `NSWindow` / a Linux backend once added), not just Win32.
 - **Multiple top-level windows**: the hub window and the editor window require independent top-level
-  windows per platform (multi-window `NativeWindowManager` on Win32 / `NSWindow` / SDL).
+  windows per platform (multi-window `NativeWindowManager` on Win32 / `NSWindow` / Linux).
 - **Re-exec / restart**: Windows `CreateProcess`; macOS/Linux `posix_spawn`. On macOS the editor ships
   as a **`.app` bundle** — re-exec targets the bundle executable and respects single-instance
   semantics; on Linux a binary + `.desktop`.

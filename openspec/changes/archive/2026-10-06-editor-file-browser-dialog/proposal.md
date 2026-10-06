@@ -25,8 +25,9 @@ directory and **Add / Open Project** can choose a `*.skyproj`.
   SelectDirectory modes, extension filters, and a navigation/listing model.
 
 ### Modified Capabilities
-- `editor-application`: the Project Manager hub New/Add/Open flows use the file-browser dialog (directory
-  chooser for New, project chooser for Add/Open) instead of a hard-coded path or a raw native picker.
+- `editor-project-manager`: the Project Manager hub New/Add/Open flows use the file-browser dialog
+  (directory chooser for New, project chooser for Add/Open) instead of a hard-coded path or a raw native
+  picker.
 
 ## Impact
 

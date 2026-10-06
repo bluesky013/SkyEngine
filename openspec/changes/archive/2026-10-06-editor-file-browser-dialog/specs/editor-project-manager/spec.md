@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Project Manager hub
+### Requirement: Project Manager hub actions
 The Project Manager hub SHALL let the user add an existing project, create a new project, open a selected
 project, remove a project from the recent list, and delete a project folder. Creating a new project SHALL
 use the file browser dialog in SelectDirectory mode to choose the target directory and a name; adding or

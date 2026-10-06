@@ -1,7 +1,7 @@
 ---
 title: "SkyEngine Documentation"
 description: "Index of SkyEngine technical documentation."
-updated: "2026-10-01"
+updated: "2026-10-07"
 ---
 
 ## SkyEngine Documentation

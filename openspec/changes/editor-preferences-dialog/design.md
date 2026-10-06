@@ -20,7 +20,9 @@ change), `--safe-mode`.
 
 1. **Modal dialog owned by the shell.** A full-window `PreferencesDialog` element (dim backdrop + centered
    panel; left category list, right page host) shown/hidden by shell state. While open it captures input;
-   **Esc = Cancel**, **Enter = OK**. The shell never blocks the whole app, only the editor content.
+   **Esc = Cancel**, **Enter = OK**. The shell never blocks the whole app, only the editor content. The
+   dialog derives from the shared `ModalDialog` base (backdrop, centered panel, open state), also used by
+   the file browser dialog.
 2. **Contribution model lives in `core` (UI-free, headless, tested).** `PreferencePage{ id, title }`,
    `PreferenceSection`, and a typed `PreferenceValue` (bool/int/float/string/color) with defaults;
    modules register pages into a `PreferenceRegistry`. No UI types in `core`.

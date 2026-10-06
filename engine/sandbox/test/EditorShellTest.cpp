@@ -5,6 +5,8 @@
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
+#include <editor/core/preferences/PreferenceRegistry.h>
+#include <editor/core/preferences/PreferenceStore.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
 #include <filesystem>
@@ -358,6 +360,56 @@ TEST(EditorShellTest, OpenFileBrowserHostsModal)
     EXPECT_TRUE(called);
     EXPECT_TRUE(captured.accepted);
     EXPECT_EQ(std::filesystem::path(captured.path), fixture.root / "MyProject");
+}
+
+TEST(EditorShellTest, PreferencesHostsDialog)
+{
+    LayoutModel layout;
+    layout.SetDefault({"viewport"});
+    PanelRegistry registry;
+    registry.Register(PanelInfo{"viewport", "Viewport", 0.0f, 0.0f, nullptr});
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    shell.RegisterPanelView("viewport", []() { return std::make_unique<TestPanel>(); });
+    shell.Rebuild();
+    shell.Layout(1000.0f, 700.0f);
+
+    PreferenceRegistry pref;
+    PreferenceSection  sectionA;
+    sectionA.id    = "a.main";
+    sectionA.title = "A";
+    sectionA.entries.push_back({"a.enabled", "Enabled", PreferenceValue::Bool(true)});
+    PreferencePage pageA;
+    pageA.id       = "a";
+    pageA.title    = "A";
+    pageA.sections = {sectionA};
+    pref.RegisterPage(pageA);
+
+    PreferenceSection sectionB;
+    sectionB.id    = "b.main";
+    sectionB.title = "B";
+    sectionB.entries.push_back({"b.count", "Count", PreferenceValue::Int(1), 0.0, 10.0});
+    PreferencePage pageB;
+    pageB.id       = "b";
+    pageB.title    = "B";
+    pageB.sections = {sectionB};
+    pref.RegisterPage(pageB);
+
+    PreferenceStore store(&pref);
+    shell.SetPreferences(&pref, &store, []() {});
+
+    EXPECT_FALSE(shell.IsPreferencesOpen());
+    shell.OpenPreferences();
+    EXPECT_TRUE(shell.IsPreferencesOpen());
+    EXPECT_TRUE(shell.WantsInput());
+
+    sky::ui::UIKeyEvent esc;
+    esc.keyCode = 0x1B;
+    esc.action  = sky::ui::UIKeyAction::DOWN;
+    EXPECT_TRUE(shell.DispatchKey(esc));
+    EXPECT_FALSE(shell.IsPreferencesOpen());
 }
 
 TEST(FileBrowserDialogTest, EscCancels)

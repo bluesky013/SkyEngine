@@ -9,6 +9,7 @@
 #include <editor/sandbox/UiIconBuilder.h>
 
 #include <core/cmdline/CmdParser.h>
+#include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/layout/LayoutPersistence.h>
@@ -332,6 +333,77 @@ namespace sky::editor {
         return true;
     }
 
+    void SandboxModule::RegisterPreferencePages()
+    {
+        preferenceRegistry.Clear();
+
+        PreferencePage general;
+        general.id    = "general";
+        general.title = "General";
+        PreferenceSection generalMain;
+        generalMain.id    = "general.main";
+        generalMain.title = "General";
+        generalMain.entries.push_back({"general.language", "Language", PreferenceValue::Str("English"), 0.0, 0.0, {"English", "Chinese"}});
+        generalMain.entries.push_back({"general.theme", "Theme", PreferenceValue::Str("Dark"), 0.0, 0.0, {"Dark", "Light"}});
+        generalMain.entries.push_back({"general.autosave", "Autosave", PreferenceValue::Bool(true)});
+        general.sections.push_back(std::move(generalMain));
+        preferenceRegistry.RegisterPage(std::move(general));
+
+        PreferencePage editor;
+        editor.id    = "editor";
+        editor.title = "Editor";
+        PreferenceSection editorMain;
+        editorMain.id    = "editor.main";
+        editorMain.title = "Editor";
+        editorMain.entries.push_back({"editor.gridSize", "Grid Size", PreferenceValue::Float(10.0), 1.0, 100.0});
+        editorMain.entries.push_back({"editor.snap", "Snap", PreferenceValue::Bool(true)});
+        editorMain.entries.push_back({"editor.undoDepth", "Undo Depth", PreferenceValue::Int(32), 1.0, 256.0});
+        editor.sections.push_back(std::move(editorMain));
+        preferenceRegistry.RegisterPage(std::move(editor));
+
+        PreferencePage rendering;
+        rendering.id    = "rendering";
+        rendering.title = "Rendering";
+        PreferenceSection renderingMain;
+        renderingMain.id    = "rendering.main";
+        renderingMain.title = "Rendering";
+        renderingMain.entries.push_back({"rendering.vsync", "V-Sync", PreferenceValue::Bool(true)});
+        renderingMain.entries.push_back({"rendering.resolutionScale", "Resolution Scale", PreferenceValue::Float(1.0), 0.5, 2.0});
+        rendering.sections.push_back(std::move(renderingMain));
+        preferenceRegistry.RegisterPage(std::move(rendering));
+    }
+
+    std::string SandboxModule::PreferencePath() const
+    {
+        const std::string layout = LayoutPersistence::GetDefaultPath();
+        const std::size_t slash  = layout.find_last_of("/\\");
+        if (slash == std::string::npos) {
+            return {};
+        }
+        return layout.substr(0, slash + 1) + "editor-preferences.json";
+    }
+
+    void SandboxModule::LoadPreferences()
+    {
+        const std::string path = PreferencePath();
+        if (path.empty() || preferenceStore == nullptr) {
+            return;
+        }
+        std::string json;
+        if (ReadString(path, json) && !json.empty() && preferenceStore->FromJson(json)) {
+            LOG_I(TAG, "loaded preferences from %s", path.c_str());
+        }
+    }
+
+    void SandboxModule::SavePreferences()
+    {
+        const std::string path = PreferencePath();
+        if (path.empty() || preferenceStore == nullptr) {
+            return;
+        }
+        WriteString(path, preferenceStore->ToJson());
+    }
+
     bool SandboxModule::BuildEditor()
     {
         // Mount the project workspace (writable) + engine bundle (read-only) into
@@ -357,7 +429,6 @@ namespace sky::editor {
         layoutModel.SplitPanel("outliner", SplitOrientation::HORIZONTAL, "viewport");
         layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "inspector");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
-        layoutModel.Tabify("config", "outliner");
         layoutModel.Tabify("console", "outputlog");
 
         // SplitPanel nests by halving, which leaves the Outliner too wide. Set
@@ -399,6 +470,12 @@ namespace sky::editor {
         InstallUiIconBuilder();
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
+
+        RegisterPreferencePages();
+        preferenceStore = std::make_unique<PreferenceStore>(&preferenceRegistry);
+        LoadPreferences();
+        shell.SetPreferences(&preferenceRegistry, preferenceStore.get(), [this]() { SavePreferences(); });
+
         shell.RegisterBuiltinPanelViews();
         shellTarget = MakeShellTarget(&shell);
         shell.Rebuild();

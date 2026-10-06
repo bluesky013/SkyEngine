@@ -15,14 +15,28 @@ namespace sky {
         Win32Window() = default;
         ~Win32Window() override;
 
-        bool Init(const Descriptor &desc) override;
+        bool  Init(const Descriptor &desc) override;
         void *GetNativeHandle() const override;
-        void SetPointerCapture(bool capture) override;
-        bool GetGlobalCursorPosition(int32_t &x, int32_t &y) const override;
-        void SetCursor(StandardCursor cursor) override;
+        void  SetPointerCapture(bool capture) override;
+        bool  GetGlobalCursorPosition(int32_t &x, int32_t &y) const override;
+        void  SetCursor(StandardCursor cursor) override;
         float GetDpiScale() const override;
 
-        void *GetHwnd() const { return hwnd; }
+        bool GetPosition(int32_t &x, int32_t &y) const override;
+        void SetPosition(int32_t x, int32_t y) override;
+
+        // Called from the window proc on WM_SIZE so GetWidth/GetHeight report the
+        // live client size.
+        void NotifyResized(uint32_t w, uint32_t h)
+        {
+            descriptor.width  = w;
+            descriptor.height = h;
+        }
+
+        void *GetHwnd() const
+        {
+            return hwnd;
+        }
 
         // Applies the requested cursor to the OS (used by WM_SETCURSOR too).
         void ApplyCursor() const;
@@ -35,7 +49,7 @@ namespace sky {
         static bool EnsureWindowClass();
 
     private:
-        void        *hwnd = nullptr;
+        void          *hwnd          = nullptr;
         StandardCursor desiredCursor = StandardCursor::Arrow;
     };
 

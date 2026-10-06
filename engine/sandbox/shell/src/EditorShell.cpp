@@ -7,6 +7,7 @@
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/PanelView.h>
+#include <editor/shell/PreferencesDialog.h>
 #include <editor/shell/ReflectedConfigPanel.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <editor/shell/ReflectionDemoPanel.h>
@@ -783,6 +784,7 @@ namespace sky::editor {
         std::vector<MenuBar::Menu> menus;
         MenuBar::Menu              file;
         file.label = "File";
+        file.items.push_back({"Preferences...", [this]() { OpenPreferences(); }});
         file.items.push_back({"Quit", []() { LOG_I(TAG, "quit requested"); }});
         menus.push_back(std::move(file));
 
@@ -794,6 +796,9 @@ namespace sky::editor {
         MenuBar::Menu view{"View", {}};
         if (layoutModel != nullptr && panelRegistry != nullptr) {
             for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
+                if (entry.panelId == "config") {
+                    continue; // retired in favor of File > Preferences
+                }
                 const std::string panelId = entry.panelId;
                 const bool        shown   = entry.shown;
                 view.items.push_back({(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
@@ -846,6 +851,17 @@ namespace sky::editor {
         if (browserOpen) {
             fileBrowserElement->Open(browserRequest);
         }
+
+        auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
+        preferencesElement = preferences.get();
+        preferences->SetModel(preferenceRegistry, preferenceStore);
+        preferences->SetOnApplied([this]() {
+            auto callback = preferencesApplied;
+            if (callback) {
+                callback();
+            }
+        });
+        context->AddChild(std::move(preferences));
 
         built = true;
         LOG_I(TAG, "editor shell built (%zu panels)", attachedViews.size());
@@ -913,6 +929,34 @@ namespace sky::editor {
         if (fileBrowserElement != nullptr) {
             fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
+        if (preferencesElement != nullptr) {
+            preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        }
+    }
+
+    void EditorShell::SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied)
+    {
+        preferenceRegistry = registry;
+        preferenceStore    = store;
+        preferencesApplied = std::move(onApplied);
+        if (preferencesElement != nullptr) {
+            preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+        }
+    }
+
+    void EditorShell::OpenPreferences()
+    {
+        if (preferencesElement == nullptr) {
+            return;
+        }
+        preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+        preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        preferencesElement->Open();
+    }
+
+    bool EditorShell::IsPreferencesOpen() const
+    {
+        return preferencesElement != nullptr && preferencesElement->IsOpen();
     }
 
     void EditorShell::OpenFileBrowser(const FileBrowserRequest &request, std::function<void(const FileBrowserResult &)> callback)
@@ -936,10 +980,21 @@ namespace sky::editor {
         return eventRouter != nullptr ? eventRouter->HitTest(x, y) : nullptr;
     }
 
+    sky::ui::UIElement *EditorShell::ActiveModal() const
+    {
+        if (preferencesElement != nullptr && preferencesElement->IsVisible()) {
+            return preferencesElement;
+        }
+        if (fileBrowserElement != nullptr && fileBrowserElement->IsVisible()) {
+            return fileBrowserElement;
+        }
+        return nullptr;
+    }
+
     bool EditorShell::DispatchPointer(const sky::ui::UIPointerEvent &event)
     {
-        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
-            fileBrowserElement->OnPointerEvent(event);
+        if (sky::ui::UIElement *modal = ActiveModal()) {
+            modal->OnPointerEvent(event);
             return true;
         }
         if (eventRouter == nullptr || context == nullptr) {
@@ -952,8 +1007,8 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
-        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
-            fileBrowserElement->OnKeyEvent(event);
+        if (sky::ui::UIElement *modal = ActiveModal()) {
+            modal->OnKeyEvent(event);
             return true;
         }
         if (eventRouter == nullptr || context == nullptr) {
@@ -965,8 +1020,8 @@ namespace sky::editor {
 
     bool EditorShell::DispatchText(const sky::ui::UITextInputEvent &event)
     {
-        if (fileBrowserElement != nullptr && fileBrowserElement->IsOpen()) {
-            fileBrowserElement->OnTextInput(event);
+        if (sky::ui::UIElement *modal = ActiveModal()) {
+            modal->OnTextInput(event);
             return true;
         }
         if (eventRouter == nullptr) {
@@ -977,7 +1032,7 @@ namespace sky::editor {
 
     bool EditorShell::WantsInput() const
     {
-        if (browserOpen) {
+        if (ActiveModal() != nullptr) {
             return true;
         }
         return context != nullptr && context->WantsInput();

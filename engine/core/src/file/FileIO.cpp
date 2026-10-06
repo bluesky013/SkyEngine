@@ -23,7 +23,7 @@ namespace sky {
         if (!file.is_open()) {
             return;
         }
-        file.write(out.data(), out.size() + 1);
+        file.write(out.data(), static_cast<std::streamsize>(out.size()));
     }
 
     bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size)
@@ -33,7 +33,7 @@ namespace sky {
             return false;
         }
         size = (uint32_t)file.tellg();
-        out = new uint8_t[size];
+        out  = new uint8_t[size];
         file.seekg(0);
         file.read((char *)out, size);
         file.close();
@@ -46,8 +46,8 @@ namespace sky {
         if (!file.is_open()) {
             return nullptr;
         }
-        auto fileSize = static_cast<uint32_t>(file.tellg());
-        BinaryDataPtr data = new BinaryData(fileSize);
+        auto          fileSize = static_cast<uint32_t>(file.tellg());
+        BinaryDataPtr data     = new BinaryData(fileSize);
 
         file.seekg(0);
         file.read(reinterpret_cast<char *>(data->Data()), fileSize);
@@ -92,6 +92,10 @@ namespace sky {
         std::stringstream buffer;
         buffer << file.rdbuf();
         out = buffer.str();
+        // Tolerate a trailing NUL left by older writers.
+        while (!out.empty() && out.back() == '\0') {
+            out.pop_back();
+        }
         return true;
     }
 
