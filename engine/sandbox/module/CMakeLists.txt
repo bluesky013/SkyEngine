@@ -3,6 +3,11 @@ set(CURRENT_FOLDER Sandbox/Module)
 # SVG rasterizer for editor UI icons (only the sandbox module references it).
 sky_find_3rd(TARGET nanosvg DIR nanosvg)
 
+# Windows: comdlg32 for the "add existing project" file dialog.
+if (WIN32)
+    set(SANDBOX_MODULE_EXTRA_LIBS comdlg32)
+endif ()
+
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
@@ -23,6 +28,7 @@ sky_add_library(TARGET SandboxModule SHARED
         EditorShell
         EditorRender
         3rdParty::nanosvg
+        ${SANDBOX_MODULE_EXTRA_LIBS}
 )
 
 # backends are dlopen'd by Instance at runtime; build + deploy them next to the host
