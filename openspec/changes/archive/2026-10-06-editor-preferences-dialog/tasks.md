@@ -30,4 +30,4 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Update `docs/editor/editor-framework-design.md` (Preferences section) and the status doc.
+- [x] 5.1 Update `docs/editor/editor-framework-design.md` (Preferences section) and the status doc.

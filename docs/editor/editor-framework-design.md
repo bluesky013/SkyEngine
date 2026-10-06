@@ -528,6 +528,11 @@ every consumer sees consistent keys. Widgets must not reinterpret key codes indi
 Both modal dialogs share a `ModalDialog` base (backdrop, centered panel, open state) and paint through
 `UiSkin`/`UiTheme`, so the file browser and Preferences render identically to the reflected panels.
 
+**Preferences** are registry-driven: modules contribute `PreferencePage`s into a `PreferenceRegistry`, and a
+UI-free `PreferenceStore` holds typed values (bool/int/float/string/color) as a working copy of the committed
+set. `PreferencesDialog` edits the working copy (OK/Apply commit, Cancel reverts, Reset restores the page)
+and the host persists it as JSON v1.
+
 ### 3.11 Persistence (per-user editor state)
 
 The editor keeps its per-user state next to the OS user-config directory
