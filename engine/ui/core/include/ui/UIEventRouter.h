@@ -39,6 +39,9 @@ namespace sky::ui {
 
         UIElement *GetCapture(uint32_t pointerId = 0) const;
 
+        // Element currently under the pointer (nullptr if none).
+        UIElement *GetHovered() const { return hovered; }
+
     private:
         static UIElement *HitTestElement(UIElement *element, float x, float y, const struct UIRect &clip);
 

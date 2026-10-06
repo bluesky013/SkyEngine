@@ -165,6 +165,147 @@ TEST(LayoutModelTest, FromJsonRejectsGarbage)
     EXPECT_FALSE(LayoutModel::FromJson("not json", model));
 }
 
+TEST(LayoutModelTest, DockCenterTabifies)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+    ASSERT_NE(model.FindTab("a"), model.FindTab("b"));
+
+    ASSERT_TRUE(model.DockPanel("b", "a", DockPosition::CENTER));
+    EXPECT_EQ(model.FindTab("a"), model.FindTab("b"));
+}
+
+TEST(LayoutModelTest, DockLeftSplitsOnSide)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::VERTICAL, "b"));
+
+    ASSERT_TRUE(model.DockPanel("b", "a", DockPosition::LEFT));
+
+    auto *root = model.GetRoot();
+    ASSERT_TRUE(IsSplit(root));
+    auto *split = static_cast<SplitNode *>(root);
+    EXPECT_EQ(split->orientation, SplitOrientation::HORIZONTAL);
+    ASSERT_EQ(split->children.size(), 2u);
+    ASSERT_TRUE(IsTab(split->children[0].get()));
+    ASSERT_TRUE(IsTab(split->children[1].get()));
+    EXPECT_EQ(static_cast<TabNode *>(split->children[0].get())->panels[0].panelId, "b");
+    EXPECT_EQ(static_cast<TabNode *>(split->children[1].get())->panels[0].panelId, "a");
+}
+
+TEST(LayoutModelTest, DockTopSplitsVertically)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+
+    ASSERT_TRUE(model.DockPanel("b", "a", DockPosition::TOP));
+
+    auto *root = model.GetRoot();
+    ASSERT_TRUE(IsSplit(root));
+    auto *split = static_cast<SplitNode *>(root);
+    EXPECT_EQ(split->orientation, SplitOrientation::VERTICAL);
+    ASSERT_EQ(split->children.size(), 2u);
+    EXPECT_EQ(static_cast<TabNode *>(split->children[0].get())->panels[0].panelId, "b");
+    EXPECT_EQ(static_cast<TabNode *>(split->children[1].get())->panels[0].panelId, "a");
+}
+
+TEST(LayoutModelTest, DockOntoSelfRejected)
+{
+    LayoutModel model;
+    model.SetDefault({"a", "b"});
+    EXPECT_FALSE(model.DockPanel("a", "a", DockPosition::CENTER));
+    EXPECT_FALSE(model.DockPanel("a", "missing", DockPosition::LEFT));
+}
+
+TEST(LayoutModelTest, FloatAndRedockExclusivity)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+
+    FloatingPanel geometry;
+    geometry.x = 10.0f;
+    geometry.y = 20.0f;
+    geometry.width = 300.0f;
+    geometry.height = 200.0f;
+    geometry.active = true;
+
+    ASSERT_TRUE(model.FloatPanel("b", geometry));
+    EXPECT_TRUE(model.IsFloating("b"));
+    EXPECT_EQ(model.FindTab("b"), nullptr);
+    EXPECT_EQ(model.FindTab("a"), model.GetRoot());
+    const FloatingPanel *fp = model.FindFloating("b");
+    ASSERT_NE(fp, nullptr);
+    EXPECT_FLOAT_EQ(fp->x, 10.0f);
+    EXPECT_FLOAT_EQ(fp->height, 200.0f);
+
+    ASSERT_TRUE(model.DockFloatingPanel("b", "a", DockPosition::RIGHT));
+    EXPECT_FALSE(model.IsFloating("b"));
+    EXPECT_NE(model.FindTab("b"), nullptr);
+}
+
+TEST(LayoutModelTest, SetFloatingGeometryWriteBack)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+    ASSERT_TRUE(model.FloatPanel("b", FloatingPanel{}));
+
+    ASSERT_TRUE(model.SetFloatingGeometry("b", 5.0f, 6.0f, 7.0f, 8.0f));
+    const FloatingPanel *fp = model.FindFloating("b");
+    ASSERT_NE(fp, nullptr);
+    EXPECT_FLOAT_EQ(fp->x, 5.0f);
+    EXPECT_FLOAT_EQ(fp->y, 6.0f);
+    EXPECT_FLOAT_EQ(fp->width, 7.0f);
+    EXPECT_FLOAT_EQ(fp->height, 8.0f);
+    EXPECT_FALSE(model.SetFloatingGeometry("missing", 0.0f, 0.0f, 0.0f, 0.0f));
+}
+
+TEST(LayoutModelTest, ResetClearsFloating)
+{
+    LayoutModel model;
+    model.SetDefault({"a", "b"});
+    ASSERT_TRUE(model.FloatPanel("b", FloatingPanel{}));
+    ASSERT_TRUE(model.IsFloating("b"));
+    EXPECT_EQ(model.FindTab("b"), nullptr);
+
+    model.ResetToDefault();
+    EXPECT_FALSE(model.IsFloating("b"));
+    EXPECT_TRUE(model.GetFloatingPanels().empty());
+    const auto panels = Panels(model);
+    ASSERT_EQ(panels.size(), 2u);
+    EXPECT_TRUE(Contains(panels, "a"));
+    EXPECT_TRUE(Contains(panels, "b"));
+}
+
+TEST(LayoutModelTest, FloatingJsonRoundTrip)
+{
+    LayoutModel model;
+    model.SetDefault({"a"});
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+    FloatingPanel geometry;
+    geometry.x = 1.0f;
+    geometry.y = 2.0f;
+    geometry.width = 3.0f;
+    geometry.height = 4.0f;
+    geometry.active = true;
+    ASSERT_TRUE(model.FloatPanel("b", geometry));
+
+    const std::string json = model.ToJson(2);
+    LayoutModel restored;
+    ASSERT_TRUE(LayoutModel::FromJson(json, restored, nullptr, nullptr));
+    EXPECT_EQ(restored.GetVersion(), 2);
+    const FloatingPanel *fp = restored.FindFloating("b");
+    ASSERT_NE(fp, nullptr);
+    EXPECT_FLOAT_EQ(fp->x, 1.0f);
+    EXPECT_FLOAT_EQ(fp->width, 3.0f);
+    EXPECT_TRUE(fp->active);
+    EXPECT_EQ(Panels(restored), Panels(model));
+}
+
 TEST(PanelRegistryTest, RegisterFindUnregister)
 {
     PanelRegistry registry;

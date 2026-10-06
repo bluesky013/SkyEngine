@@ -24,9 +24,25 @@ namespace sky::ui {
     } // namespace
 
     UIFontAtlas::UIFontAtlas(IUITextureRegistry *registry, uint32_t pageSize)
-        : registry(registry)
-        , pageSize(std::max<uint32_t>(pageSize, 1))
+        : pageSize(std::max<uint32_t>(pageSize, 1))
     {
+        if (registry != nullptr) {
+            registries.push_back(registry);
+        }
+    }
+
+    void UIFontAtlas::AddRegistry(IUITextureRegistry *registry)
+    {
+        if (registry == nullptr || std::find(registries.begin(), registries.end(), registry) != registries.end()) {
+            return;
+        }
+        registries.push_back(registry);
+        // Replay existing pages so a newly added window renders current glyphs.
+        for (const auto &page : pages) {
+            if (page.textureId != UI_INVALID_TEXTURE) {
+                registry->RegisterTextureAs(page.textureId, page.image);
+            }
+        }
     }
 
     UIFontAtlas::Page *UIFontAtlas::AcquirePage(uint32_t width, uint32_t height)
@@ -53,7 +69,10 @@ namespace sky::ui {
         page.image.width = pageSize;
         page.image.height = pageSize;
         page.image.pixels.assign(static_cast<size_t>(pageSize) * pageSize * 4, 0);
-        page.textureId = registry != nullptr ? registry->RegisterTexture(page.image) : UI_INVALID_TEXTURE;
+        page.textureId = nextPageId++;
+        for (IUITextureRegistry *reg : registries) {
+            reg->RegisterTextureAs(page.textureId, page.image);
+        }
         pages.push_back(std::move(page));
         return &pages.back();
     }
@@ -102,8 +121,8 @@ namespace sky::ui {
                 page->rowHeight = std::max(page->rowHeight, glyph.height);
                 page->cursorX += glyph.width;
 
-                if (registry != nullptr) {
-                    registry->UpdateTexture(page->textureId, page->image);
+                for (IUITextureRegistry *reg : registries) {
+                    reg->UpdateTexture(page->textureId, page->image);
                 }
 
                 const float inv = 1.0f / static_cast<float>(pageSize);

@@ -28,6 +28,10 @@ namespace sky::ui {
         IUITextureRegistry &operator=(const IUITextureRegistry &) = delete;
 
         virtual UITextureId RegisterTexture(const UIImageData &image) = 0;
+        // Registers under a caller-chosen id so the same texture can share one id
+        // across several registries (e.g. a font atlas used by multiple windows).
+        // Returns the id, or the existing id if already present.
+        virtual UITextureId RegisterTextureAs(UITextureId id, const UIImageData &image) = 0;
         virtual void UpdateTexture(UITextureId id, const UIImageData &image) = 0;
         virtual void ReleaseTexture(UITextureId id) = 0;
     };

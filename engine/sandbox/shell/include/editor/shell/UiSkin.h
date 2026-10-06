@@ -33,8 +33,13 @@ namespace sky::editor {
 
         // Panel frame with a gradient header and accent underline; returns the
         // content rect below the header.
+        // Draws a panel; when showTitle is false no header row is drawn (the shell
+        // supplies a tab header instead) and the full bounds are returned.
         sky::ui::UIRect DrawPanel(sky::ui::UIPaintContext &context, const sky::ui::UIRect &bounds,
-                                  const std::string &title) const;
+                                  const std::string &title, bool showTitle = true) const;
+
+        // Shared flat/rounded panel header (used by panels and form views).
+        void DrawPanelHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &header) const;
 
         void DrawSectionHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect,
                                const std::string &title) const;
@@ -61,7 +66,7 @@ namespace sky::editor {
                            bool selected) const;
 
         void DrawTab(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &title,
-                     bool active) const;
+                     bool active, bool hovered = false) const;
 
         void DrawToolItem(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &label,
                           bool hovered) const;

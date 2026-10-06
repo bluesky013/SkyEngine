@@ -5,12 +5,9 @@
 #pragma once
 
 #include <string>
+#include <framework/window/Cursor.h>
 #include <framework/window/IWindow.h>
 #include <framework/window/IWindowEvent.h>
-
-//struct SDL_Window;
-//union SDL_Event;
-//struct SDL_WindowEvent;
 
 namespace sky {
     class IWindowEvent;
@@ -38,6 +35,22 @@ namespace sky {
         uint32_t GetHeight() const { return descriptor.height; }
 
         WindowID GetWinId() const { return winID; }
+
+        // OS-level pointer capture so a drag keeps delivering motion to this
+        // window even when the cursor leaves its client area. Backends without
+        // support leave it as a no-op.
+        virtual void SetPointerCapture(bool capture) {}
+
+        // Cursor position in global (screen) pixels; used to resolve cross-window
+        // drags. Backends without support return false.
+        virtual bool GetGlobalCursorPosition(int32_t &x, int32_t &y) const { return false; }
+
+        // Requests the OS cursor shown over this window (e.g. a resize cursor
+        // over a splitter). Backends without support leave it as a no-op.
+        virtual void SetCursor(StandardCursor cursor) {}
+
+        // Window DPI scale (device pixels / 96). Backends default to 1.
+        virtual float GetDpiScale() const { return 1.0f; }
     protected:
         friend class NativeWindowManager;
 

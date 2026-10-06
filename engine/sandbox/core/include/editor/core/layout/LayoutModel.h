@@ -45,10 +45,29 @@ namespace sky::editor {
         // Removes a panel; empty tabs/splits collapse.
         bool ClosePanel(const std::string &panelId);
 
+        // Docks a panel (docked or floating) relative to targetPanelId. CENTER
+        // tabifies; edges split on the requested side. A panel cannot dock onto
+        // itself.
+        bool DockPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position);
+
+        // Removes a docked panel from the tree and records it as floating.
+        bool FloatPanel(const std::string &panelId, const FloatingPanel &geometry);
+
+        // Docks a floating panel relative to targetPanelId.
+        bool DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position);
+
+        // Updates the recorded geometry of a floating panel.
+        bool SetFloatingGeometry(const std::string &panelId, float x, float y, float width, float height);
+
+        bool IsFloating(const std::string &panelId) const;
+        const FloatingPanel *FindFloating(const std::string &panelId) const;
+        const std::vector<FloatingPanel> &GetFloatingPanels() const { return floatingPanels; }
+
         // Sets the ratio at split position index (between child index and index+1).
         bool SetRatio(LayoutNode *splitNode, uint32_t index, float ratio);
 
         void CollectPanels(std::vector<std::string> &out) const;
+        void CollectFloating(std::vector<std::string> &out) const;
         TabNode *FindTab(const std::string &panelId) const;
         LayoutNode *FindParent(const LayoutNode *node) const;
 
@@ -61,8 +80,9 @@ namespace sky::editor {
     private:
         LayoutNodePtr root;
         std::vector<std::string> defaultPanels;
+        std::vector<FloatingPanel> floatingPanels;
         bool hasDefault = false;
-        int version = 1;
+        int version = 2;
     };
 
 } // namespace sky::editor

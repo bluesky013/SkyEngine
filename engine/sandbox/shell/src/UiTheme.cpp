@@ -60,6 +60,8 @@ namespace sky::editor {
         m.rowHeight *= scale;
         m.tabHeaderHeight *= scale;
         m.popupItemHeight *= scale;
+        m.panelRadius *= scale;
+        m.panelGap *= scale;
         m.padX *= scale;
         m.controlPad *= scale;
         m.indentX *= scale;

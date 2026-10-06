@@ -25,6 +25,12 @@ namespace sky {
         uint32_t height;
     };
 
+    struct WindowMoveEvent {
+        WindowID winID;
+        int32_t x;
+        int32_t y;
+    };
+
     struct MouseButtonEvent {
         WindowID winID;
         MouseButtonType button;
@@ -207,6 +213,7 @@ namespace sky {
         virtual ~IWindowEvent() = default;
 
         virtual void OnWindowResize(const WindowResizeEvent& event) {}
+        virtual void OnWindowMove(const WindowMoveEvent& event) {}
         virtual void OnFocusChanged(bool focus) {}
         // Broadcast when a window receives a close request (before it is
         // destroyed), so owners can stop presenting to it / drop its viewport.

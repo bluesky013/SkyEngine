@@ -1,8 +1,8 @@
 //
 // Created by Zach Lee on 2022/9/25.
 //
-// Native Win32 window implementation (no SDL). windows.h is included here, after
-// the engine headers, so its macros do not leak into them.
+// Native Win32 window implementation. windows.h is included here, after the
+// engine headers, so its macros do not leak into them.
 //
 
 #include "Win32Window.h"
@@ -128,6 +128,20 @@ namespace sky {
             return (length > 0) ? std::string(buffer, static_cast<size_t>(length)) : std::string();
         }
 
+        HCURSOR CursorHandle(StandardCursor cursor)
+        {
+            LPCWSTR id = IDC_ARROW;
+            switch (cursor) {
+                case StandardCursor::ResizeHorizontal: id = IDC_SIZEWE; break;
+                case StandardCursor::ResizeVertical:   id = IDC_SIZENS; break;
+                case StandardCursor::ResizeAll:        id = IDC_SIZEALL; break;
+                case StandardCursor::Text:             id = IDC_IBEAM; break;
+                case StandardCursor::Hand:             id = IDC_HAND; break;
+                default:                               id = IDC_ARROW; break;
+            }
+            return ::LoadCursorW(nullptr, id);
+        }
+
         void HandleMessage(Win32Window *window, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         {
             const WindowID winID = window->GetWinId();
@@ -142,6 +156,14 @@ namespace sky {
                         event.height = height;
                         Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowResize, event);
                     }
+                    break;
+                }
+                case WM_MOVE: {
+                    WindowMoveEvent event = {};
+                    event.winID = winID;
+                    event.x    = GET_X_LPARAM(lparam);
+                    event.y    = GET_Y_LPARAM(lparam);
+                    Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowMove, event);
                     break;
                 }
                 case WM_SETFOCUS:
@@ -231,6 +253,11 @@ namespace sky {
         {
             auto *window = reinterpret_cast<Win32Window *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (window != nullptr) {
+                // Apply the host-requested cursor over the client area.
+                if (msg == WM_SETCURSOR && LOWORD(lparam) == HTCLIENT) {
+                    window->ApplyCursor();
+                    return TRUE;
+                }
                 HandleMessage(window, hwnd, msg, wparam, lparam);
             }
             return ::DefWindowProcW(hwnd, msg, wparam, lparam);
@@ -318,6 +345,50 @@ namespace sky {
     void *Win32Window::GetNativeHandle() const
     {
         return hwnd;
+    }
+
+    void Win32Window::SetPointerCapture(bool capture)
+    {
+        if (hwnd == nullptr) {
+            return;
+        }
+        const auto handle = static_cast<HWND>(hwnd);
+        if (capture) {
+            ::SetCapture(handle);
+        } else if (::GetCapture() == handle) {
+            ::ReleaseCapture();
+        }
+    }
+
+    bool Win32Window::GetGlobalCursorPosition(int32_t &x, int32_t &y) const
+    {
+        POINT point = {};
+        if (::GetCursorPos(&point) == FALSE) {
+            return false;
+        }
+        x = static_cast<int32_t>(point.x);
+        y = static_cast<int32_t>(point.y);
+        return true;
+    }
+
+    void Win32Window::SetCursor(StandardCursor cursor)
+    {
+        desiredCursor = cursor;
+        ::SetCursor(CursorHandle(cursor));
+    }
+
+    void Win32Window::ApplyCursor() const
+    {
+        ::SetCursor(CursorHandle(desiredCursor));
+    }
+
+    float Win32Window::GetDpiScale() const
+    {
+        if (hwnd == nullptr) {
+            return 1.0f;
+        }
+        const UINT dpi = ::GetDpiForWindow(static_cast<HWND>(hwnd));
+        return dpi > 0 ? static_cast<float>(dpi) / 96.0f : 1.0f;
     }
 
     bool Win32Window::IsMainWindow() const

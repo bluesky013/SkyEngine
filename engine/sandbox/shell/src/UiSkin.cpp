@@ -15,19 +15,33 @@ namespace sky::editor {
     namespace uc = uidraw;
 
     sky::ui::UIRect UiSkin::DrawPanel(sky::ui::UIPaintContext &context, const sky::ui::UIRect &bounds,
-                                      const std::string &title) const
+                                      const std::string &title, bool showTitle) const
     {
         const UiColors &c = theme->colors;
         const UiMetrics &m = theme->metrics;
-        uc::Fill(context, bounds, c.panel);
+        // Blender-like rounded panel with a subtle border.
+        const float radius = m.panelRadius;
+        uc::RoundedField(context, bounds, c.panel, c.borderSoft, radius);
+        if (!showTitle) {
+            return bounds; // the shell draws a tab header instead
+        }
+        // UE-like flat header with rounded top corners.
         const sky::ui::UIRect header{bounds.left, bounds.top, bounds.right, bounds.top + m.panelHeaderHeight};
-        uc::RoundedGradient(context, header, c.headerTop, c.header, 0.0f);
-        uc::HLine(context, bounds.left, bounds.right, header.bottom - 1.0f, c.accent);
-        uc::Border(context, bounds, c.borderSoft);
+        DrawPanelHeader(context, header);
         uc::Text(context, title, theme->fonts.title,
-                 sky::ui::UIRect{header.left + m.padX, header.top, header.right - m.padX, header.bottom}, c.text,
+                 sky::ui::UIRect{header.left + m.padX, header.top, header.right - m.padX, header.bottom}, c.textMuted,
                  textSystem);
         return sky::ui::UIRect{bounds.left, header.bottom, bounds.right, bounds.bottom};
+    }
+
+    void UiSkin::DrawPanelHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &header) const
+    {
+        const UiColors &c = theme->colors;
+        const float radius = theme->metrics.panelRadius;
+        uc::RoundedRect(context, sky::ui::UIRect{header.left, header.top, header.right, header.top + radius}, c.header,
+                        radius);
+        uc::Fill(context, sky::ui::UIRect{header.left, header.top + radius, header.right, header.bottom}, c.header);
+        uc::HLine(context, header.left + 1.0f, header.right - 1.0f, header.bottom - 1.0f, c.borderSoft);
     }
 
     void UiSkin::DrawSectionHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect,
@@ -125,7 +139,7 @@ namespace sky::editor {
     }
 
     void UiSkin::DrawTab(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &title,
-                         bool active) const
+                         bool active, bool hovered) const
     {
         const UiColors &c = theme->colors;
         if (active) {
@@ -134,12 +148,15 @@ namespace sky::editor {
             uc::RoundedRect(context,
                             sky::ui::UIRect{rect.left + 8.0f, rect.bottom - 3.0f, rect.right - 8.0f, rect.bottom - 1.0f},
                             c.accentSoft, 1.0f);
+        } else if (hovered) {
+            uc::RoundedRect(context, sky::ui::UIRect{rect.left + 1.0f, rect.top + 2.0f, rect.right - 1.0f, rect.bottom},
+                            c.rowHover, 5.0f);
         } else {
             uc::Fill(context, rect, c.tabInactive);
         }
         uc::Text(context, title, theme->fonts.value,
                  sky::ui::UIRect{rect.left + 10.0f, rect.top, rect.right - 6.0f, rect.bottom},
-                 active ? c.text : c.textMuted, textSystem);
+                 (active || hovered) ? c.text : c.textMuted, textSystem);
     }
 
     void UiSkin::DrawToolItem(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &label,

@@ -23,6 +23,10 @@ namespace sky::ui {
         IUIFontProvider *GetProvider() const { return provider; }
         IUITextureRegistry *GetRegistry() const { return registry; }
 
+        // Register the atlas pages into an additional texture registry (a second
+        // window's renderer) so text renders in every surface.
+        void AddRegistry(IUITextureRegistry *value) { atlas.AddRegistry(value); }
+
     private:
         IUIFontProvider *provider = nullptr;
         IUITextureRegistry *registry = nullptr;

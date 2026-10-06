@@ -31,6 +31,10 @@ namespace sky::ui {
     public:
         UIFontAtlas(IUITextureRegistry *registry, uint32_t pageSize = 256);
 
+        // Adds another registry (e.g. a second window's renderer). Existing pages
+        // are replayed into it so glyphs render everywhere.
+        void AddRegistry(IUITextureRegistry *registry);
+
         void SetProvider(IUIFontProvider *value) { provider = value; }
         IUIFontProvider *GetProvider() const { return provider; }
 
@@ -48,9 +52,10 @@ namespace sky::ui {
 
         Page *AcquirePage(uint32_t width, uint32_t height);
 
-        IUITextureRegistry *registry = nullptr;
+        std::vector<IUITextureRegistry *> registries;
         IUIFontProvider *provider = nullptr;
         uint32_t pageSize = 256;
+        UITextureId nextPageId = 0x40000000u; // high base: avoids colliding with auto-assigned ids
         std::vector<Page> pages;
         std::unordered_map<uint64_t, UIGlyphEntry> cache;
     };

@@ -21,8 +21,28 @@ namespace sky::editor {
         VERTICAL,
     };
 
+    // Drop target position when docking a panel onto another panel.
+    // CENTER tabifies; the four edges split on that side of the target.
+    enum class DockPosition : uint8_t {
+        CENTER = 0,
+        LEFT,
+        RIGHT,
+        TOP,
+        BOTTOM,
+    };
+
     struct PanelNode {
         std::string panelId;
+    };
+
+    // A panel presented in its own OS window. Geometry is in device pixels.
+    struct FloatingPanel {
+        std::string panelId;
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        bool active = false;
     };
 
     struct LayoutNode {

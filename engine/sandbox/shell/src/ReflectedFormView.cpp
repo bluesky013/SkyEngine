@@ -209,7 +209,7 @@ namespace sky::editor {
 
         const UiTheme &th = skin.Theme();
         const sky::ui::UIRect bounds = GetBounds();
-        uc::Fill(context, bounds, th.colors.panel);
+        uc::RoundedField(context, bounds, th.colors.panel, th.colors.borderSoft, th.metrics.panelRadius);
         DrawHeader(context, bounds);
         BuildRows();
 
@@ -505,11 +505,11 @@ namespace sky::editor {
     void ReflectedFormView::DrawHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &bounds)
     {
         const UiTheme &th = skin.Theme();
+        // Same flat header as UiSkin::DrawPanel (UE/Blender style).
         const sky::ui::UIRect header{bounds.left, bounds.top, bounds.right, bounds.top + th.metrics.headerHeight};
-        uc::RoundedGradient(context, header, th.colors.headerTop, th.colors.header, 0.0f);
-        uc::HLine(context, header.left, header.right, header.bottom - 1.0f, th.colors.accent);
+        skin.DrawPanelHeader(context, header);
         ComputeHeaderRects();
-        uc::Text(context, title, th.fonts.title, headerTitleRect, th.colors.text, textSystem);
+        uc::Text(context, title, th.fonts.title, headerTitleRect, th.colors.textMuted, textSystem);
         uc::Text(context, "ctrl+Z/Y undo", th.fonts.small, hintRect, th.colors.textMuted, textSystem, uc::HAlign::Right);
         if (ExtraHeaderWidth() > 0.0f) {
             PaintExtraHeader(context, headerExtraRect);

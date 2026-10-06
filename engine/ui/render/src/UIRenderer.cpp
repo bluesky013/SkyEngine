@@ -317,8 +317,19 @@ float4 fs_round(VSOut i) : SV_Target {
         while (textures.find(nextTextureId) != textures.end()) {
             ++nextTextureId;
         }
-        const UITextureId id = nextTextureId++;
+        return AddTexture(nextTextureId++, image);
+    }
 
+    UITextureId UIRenderer::RegisterTextureAs(UITextureId id, const UIImageData &image)
+    {
+        if (id == UI_INVALID_TEXTURE || textures.find(id) != textures.end()) {
+            return id;
+        }
+        return AddTexture(id, image);
+    }
+
+    UITextureId UIRenderer::AddTexture(UITextureId id, const UIImageData &image)
+    {
         TextureEntry entry;
         entry.width  = image.width;
         entry.height = image.height;

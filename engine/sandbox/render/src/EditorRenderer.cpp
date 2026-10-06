@@ -54,17 +54,22 @@ namespace sky::editor {
         sky::Event<sky::IWindowEvent>::DisConnect(this);
     }
 
-    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api)
+    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api,
+                              bool withPreview)
     {
         width  = inWidth;
         height = inHeight;
 
-        // Create the preview window BEFORE the RHI instance: SDL only creates
-        // Vulkan-capable windows while it still owns the instance setup.
-        previewWindow.reset(NativeWindow::Create(
-            NativeWindow::Descriptor{kPreviewWidth, kPreviewHeight, "SkyEnginePreview", "SkyEngine Preview", nullptr}));
-        if (previewWindow == nullptr) {
-            LOG_E(TAG, "preview window creation failed");
+        // The standalone preview window is only created in editor mode; the hub
+        // (Project Manager) has no preview surface.
+        if (withPreview) {
+            // Create any window before the RHI instance so backends that bind the
+            // surface during instance setup can do so.
+            previewWindow.reset(NativeWindow::Create(
+                NativeWindow::Descriptor{kPreviewWidth, kPreviewHeight, "SkyEnginePreview", "SkyEngine Preview", nullptr}));
+            if (previewWindow == nullptr) {
+                LOG_E(TAG, "preview window creation failed");
+            }
         }
 
         Instance::Descriptor desc = {};
@@ -144,14 +149,14 @@ namespace sky::editor {
         return true;
     }
 
-    void EditorRenderer::PaintUI(uint32_t surfaceWidth, uint32_t surfaceHeight)
+    void EditorRenderer::PaintUI(uint32_t surfaceId, uint32_t surfaceWidth, uint32_t surfaceHeight)
     {
         // GUI content comes from the editor shell (set via SetGuiSource); the
         // renderer holds no hardcoded UI.
         if (!guiSource) {
             return;
         }
-        guiSource(paintContext, surfaceWidth, surfaceHeight);
+        guiSource(surfaceId, paintContext, surfaceWidth, surfaceHeight);
     }
 
     void EditorRenderer::Start()
@@ -209,10 +214,216 @@ namespace sky::editor {
         }
     }
 
+    uint32_t EditorRenderer::CreateSurface(const std::string &panelId, int x, int y, uint32_t w, uint32_t h)
+    {
+        if (device == nullptr || commandPool == nullptr || textSystem == nullptr || w == 0 || h == 0) {
+            return 0;
+        }
+
+        auto surface = std::make_unique<FloatingSurface>();
+        surface->id = nextSurfaceId++;
+        surface->panelId = panelId;
+        surface->x = static_cast<float>(x);
+        surface->y = static_cast<float>(y);
+        surface->w = w;
+        surface->h = h;
+
+        const std::string name = "SkyEnginePanel" + std::to_string(surface->id);
+        surface->window.reset(NativeWindow::Create(NativeWindow::Descriptor{w, h, name.c_str(), panelId.c_str(), nullptr}));
+        if (surface->window == nullptr) {
+            LOG_E(TAG, "floating window creation failed for panel '%s'", panelId.c_str());
+            return 0;
+        }
+        // Capture the window's DPI once (per-window UI scale).
+        surface->dpiScale = surface->window->GetDpiScale();
+
+        SwapChain::Descriptor scDesc = {};
+        scDesc.window          = surface->window->GetNativeHandle();
+        scDesc.width           = w;
+        scDesc.height          = h;
+        scDesc.preferredFormat = PixelFormat::BGRA8_UNORM;
+        scDesc.preferredMode   = PresentMode::IMMEDIATE;
+        surface->viewport = std::make_unique<ClientViewport>(Name("editor_panel"));
+        if (!surface->viewport->Init(device, scDesc)) {
+            LOG_E(TAG, "floating viewport init failed");
+            return 0;
+        }
+        surface->commandBuffer = commandPool->Allocate();
+
+        surface->uiRenderer = std::make_unique<sky::ui::UIRenderer>();
+        surface->uiRenderer->Init(device, PixelFormat::BGRA8_UNORM);
+        if (contentTarget != nullptr) {
+            surface->uiRenderer->RegisterImage(kViewportTextureId, contentTarget.Get());
+        }
+        // Share the font atlas so text renders in this window too.
+        textSystem->AddRegistry(surface->uiRenderer.get());
+
+        sky::Event<sky::IWindowEvent>::Connect(surface->window.get(), this);
+        surfaces.push_back(std::move(surface));
+        return surfaces.back()->id;
+    }
+
+    void EditorRenderer::DestroySurface(uint32_t id)
+    {
+        for (auto it = surfaces.begin(); it != surfaces.end(); ++it) {
+            if ((*it)->id != id) {
+                continue;
+            }
+            if ((*it)->uiRenderer != nullptr) {
+                (*it)->uiRenderer->Shutdown();
+            }
+            surfaces.erase(it);
+            return;
+        }
+    }
+
+    uint32_t EditorRenderer::SurfaceIdForWindow(const sky::NativeWindow *window) const
+    {
+        for (const auto &surface : surfaces) {
+            if (surface->window.get() == window) {
+                return surface->id;
+            }
+        }
+        return 0;
+    }
+
+    float EditorRenderer::SurfaceDpiScale(uint32_t id) const
+    {
+        for (const auto &surface : surfaces) {
+            if (surface->id == id) {
+                return surface->dpiScale;
+            }
+        }
+        return 1.0f;
+    }
+
+    void EditorRenderer::RecordUiPass(sky::aurora::CommandBuffer *cmd, sky::aurora::Image *backbuffer, uint32_t w,
+                                      uint32_t h, sky::ui::UIRenderer &uiRenderer,
+                                      sky::ui::UIPaintContext &paintContext, const std::function<void()> &paint)
+    {
+        paint();
+        uiRenderer.UpdateDrawData(paintContext.GetDrawData(), w, h);
+        uiRenderer.EnsureTextureReady(cmd);
+        {
+            auto encoder = cmd->CreateGraphicsEncoder();
+            RenderingInfo info     = {};
+            info.renderArea        = {{0, 0}, Extent2D{w, h}};
+            info.numColors         = 1;
+            info.colors[0].image   = backbuffer;
+            info.colors[0].loadOp  = LoadOp::LOAD;
+            info.colors[0].storeOp = StoreOp::STORE;
+            encoder->BeginRendering(info);
+            uiRenderer.Render(encoder.get(), paintContext.GetDrawData(), w, h);
+            encoder->EndRendering();
+        }
+        {
+            BarrierInfo barrier{};
+            barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
+            barrier.dstStage = PipelineStageBit::BOTTOM;
+            ImageBarrierInfo imageBarrier{};
+            imageBarrier.image     = backbuffer;
+            imageBarrier.srcAccess = AccessFlagBit::RTV;
+            imageBarrier.dstAccess = AccessFlagBit::PRESENT;
+            imageBarrier.oldLayout = ImageLayout::COLOR_ATTACHMENT;
+            imageBarrier.newLayout = ImageLayout::PRESENT;
+            barrier.imageBarriers.push_back(imageBarrier);
+            cmd->PipelineBarrier(barrier);
+        }
+    }
+
+    bool EditorRenderer::RenderSurface(FloatingSurface &surface)
+    {
+        if (surface.viewport == nullptr || surface.commandBuffer == nullptr || surface.uiRenderer == nullptr) {
+            return false;
+        }
+        if (!surface.viewport->Begin() || !surface.viewport->Acquire()) {
+            return false;
+        }
+        const Extent2D extent = surface.viewport->GetExtent();
+        Image *backbuffer = surface.viewport->GetBackbuffer();
+        if (backbuffer == nullptr || extent.width == 0 || extent.height == 0) {
+            surface.viewport->Release();
+            return false;
+        }
+
+        surface.commandBuffer->Begin();
+        {
+            BarrierInfo barrier{};
+            barrier.srcStage = PipelineStageBit::TOP;
+            barrier.dstStage = PipelineStageBit::COLOR_OUTPUT;
+            ImageBarrierInfo imageBarrier{};
+            imageBarrier.image     = backbuffer;
+            imageBarrier.srcAccess = AccessFlagBit::NONE;
+            imageBarrier.dstAccess = AccessFlagBit::RTV;
+            imageBarrier.oldLayout = ImageLayout::UNDEFINED;
+            imageBarrier.newLayout = ImageLayout::COLOR_ATTACHMENT;
+            barrier.imageBarriers.push_back(imageBarrier);
+            surface.commandBuffer->PipelineBarrier(barrier);
+        }
+        {
+            auto encoder = surface.commandBuffer->CreateGraphicsEncoder();
+            RenderingInfo info        = {};
+            info.renderArea           = {{0, 0}, extent};
+            info.numColors            = 1;
+            info.colors[0].image      = backbuffer;
+            info.colors[0].loadOp     = LoadOp::CLEAR;
+            info.colors[0].storeOp    = StoreOp::STORE;
+            info.colors[0].clearValue = ClearValue(0.05f, 0.06f, 0.09f, 1.0f);
+            encoder->BeginRendering(info);
+            encoder->EndRendering();
+        }
+
+        RecordUiPass(surface.commandBuffer, backbuffer, extent.width, extent.height, *surface.uiRenderer,
+                     surface.paintContext, [this, &surface, extent]() {
+                         if (guiSource) {
+                             guiSource(surface.id, surface.paintContext, extent.width, extent.height);
+                         }
+                     });
+        surface.commandBuffer->End();
+        return true;
+    }
+
     void EditorRenderer::OnWindowClose(const sky::NativeWindow *window)
     {
         if (previewWindow != nullptr && window == previewWindow.get()) {
             previewClosed = true;
+            return;
+        }
+        for (auto &surface : surfaces) {
+            if (surface->window.get() == window) {
+                surface->closed = true;
+                return;
+            }
+        }
+    }
+
+    void EditorRenderer::OnWindowMove(const sky::WindowMoveEvent &event)
+    {
+        for (auto &surface : surfaces) {
+            if (surface->window != nullptr && surface->window->GetWinId() == event.winID) {
+                surface->x = static_cast<float>(event.x);
+                surface->y = static_cast<float>(event.y);
+                if (surfaceGeometryChanged) {
+                    surfaceGeometryChanged(surface->panelId, surface->x, surface->y, static_cast<float>(surface->w),
+                                           static_cast<float>(surface->h));
+                }
+                return;
+            }
+        }
+    }
+
+    void EditorRenderer::OnWindowResize(const sky::WindowResizeEvent &event)
+    {
+        for (auto &surface : surfaces) {
+            if (surface->window != nullptr && surface->window->GetWinId() == event.winID) {
+                surface->w = event.width;
+                surface->h = event.height;
+                if (surfaceGeometryChanged) {
+                    surfaceGeometryChanged(surface->panelId, surface->x, surface->y, static_cast<float>(surface->w),
+                                           static_cast<float>(surface->h));
+                }
+                return;
+            }
         }
     }
 
@@ -225,6 +436,23 @@ namespace sky::editor {
             previewCommandBuffer = nullptr;
             previewWindow.reset();
             previewClosed = false;
+        }
+
+        // Drop floating windows the user closed, and report back so the shell can
+        // re-dock the panel.
+        for (auto it = surfaces.begin(); it != surfaces.end();) {
+            if ((*it)->closed) {
+                const std::string panelId = (*it)->panelId;
+                if ((*it)->uiRenderer != nullptr) {
+                    (*it)->uiRenderer->Shutdown();
+                }
+                it = surfaces.erase(it);
+                if (surfaceClosed) {
+                    surfaceClosed(panelId);
+                }
+            } else {
+                ++it;
+            }
         }
 
         if (device == nullptr || frameContext == nullptr || commandBuffer == nullptr || viewport == nullptr) {
@@ -324,38 +552,8 @@ namespace sky::editor {
             commandBuffer->PipelineBarrier(toRead);
         }
 
-        PaintUI(extent.width, extent.height);
-        uiRenderer.UpdateDrawData(paintContext.GetDrawData(), extent.width, extent.height);
-        // Upload/transition textures AFTER PaintUI: glyph pages are created lazily
-        // during painting, so they must be transitioned before this frame samples them.
-        uiRenderer.EnsureTextureReady(commandBuffer);
-        {
-            // UI pass: UIRenderer draws the sky::ui draw data over the scene.
-            auto encoder = commandBuffer->CreateGraphicsEncoder();
-            RenderingInfo info     = {};
-            info.renderArea        = {{0, 0}, extent};
-            info.numColors         = 1;
-            info.colors[0].image    = backbuffer;
-            info.colors[0].loadOp   = LoadOp::LOAD;
-            info.colors[0].storeOp  = StoreOp::STORE;
-            encoder->BeginRendering(info);
-            uiRenderer.Render(encoder.get(), paintContext.GetDrawData(), extent.width, extent.height);
-            encoder->EndRendering();
-        }
-        {
-            BarrierInfo barrier{};
-            barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
-            barrier.dstStage = PipelineStageBit::BOTTOM;
-            ImageBarrierInfo imageBarrier{};
-            imageBarrier.image     = backbuffer;
-            imageBarrier.subRange  = ImageSubRange{};
-            imageBarrier.srcAccess = AccessFlagBit::RTV;
-            imageBarrier.dstAccess = AccessFlagBit::PRESENT;
-            imageBarrier.oldLayout = ImageLayout::COLOR_ATTACHMENT;
-            imageBarrier.newLayout = ImageLayout::PRESENT;
-            barrier.imageBarriers.push_back(imageBarrier);
-            commandBuffer->PipelineBarrier(barrier);
-        }
+        RecordUiPass(commandBuffer, backbuffer, extent.width, extent.height, uiRenderer, paintContext,
+                     [this, extent]() { PaintUI(0, extent.width, extent.height); });
         commandBuffer->End();
 
         // Standalone preview window (WINDOW presentation, scheme C): render its
@@ -440,6 +638,14 @@ namespace sky::editor {
             previewCommandBuffer->End();
         }
 
+        // Record floating panel windows (each into its own command buffer).
+        std::vector<FloatingSurface *> activeSurfaces;
+        for (auto &surface : surfaces) {
+            if (RenderSurface(*surface)) {
+                activeSurfaces.push_back(surface.get());
+            }
+        }
+
         SubmitInfo submit = {};
         submit.commandBuffers.push_back(commandBuffer);
 
@@ -467,12 +673,29 @@ namespace sky::editor {
             submit.signalSemaphores.push_back(previewSignal);
         }
 
+        for (FloatingSurface *surface : activeSurfaces) {
+            submit.commandBuffers.push_back(surface->commandBuffer);
+
+            SemaphoreSubmitInfo surfaceWait = {};
+            surfaceWait.semaphore = surface->viewport->GetAcquireSemaphore();
+            surfaceWait.stageMask = PipelineStageBit::COLOR_OUTPUT;
+            submit.waitSemaphores.push_back(surfaceWait);
+
+            SemaphoreSubmitInfo surfaceSignal = {};
+            surfaceSignal.semaphore = surface->viewport->GetRenderDoneSemaphore();
+            surfaceSignal.stageMask = PipelineStageBit::BOTTOM;
+            submit.signalSemaphores.push_back(surfaceSignal);
+        }
+
         submit.fence = frameContext->GetFrameFence();
         device->GetQueue(QueueType::GRAPHICS)->Submit(submit);
 
         viewport->Release();
         if (hasPreview) {
             previewViewport->Release();
+        }
+        for (FloatingSurface *surface : activeSurfaces) {
+            surface->viewport->Release();
         }
         frameContext->EndFrame();
     }
@@ -484,6 +707,13 @@ namespace sky::editor {
         if (device != nullptr) {
             device->WaitIdle();
         }
+        for (auto &surface : surfaces) {
+            if (surface->uiRenderer != nullptr) {
+                surface->uiRenderer->Shutdown();
+            }
+        }
+        surfaces.clear();
+
         uiRenderer.Shutdown();
         previewCommandBuffer = nullptr;
         previewViewport.reset();

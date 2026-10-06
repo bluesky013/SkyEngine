@@ -99,6 +99,101 @@ namespace sky::editor {
             return nullptr;
         }
 
+        void RemovePanelFromTab(TabNode *tab, const std::string &panelId)
+        {
+            if (tab == nullptr) {
+                return;
+            }
+            const auto it = std::find_if(tab->panels.begin(), tab->panels.end(),
+                                         [&](const PanelNode &panel) { return panel.panelId == panelId; });
+            if (it == tab->panels.end()) {
+                return;
+            }
+            const int32_t index = static_cast<int32_t>(it - tab->panels.begin());
+            tab->panels.erase(it);
+            if (tab->activeIndex > index) {
+                --tab->activeIndex;
+            }
+            if (tab->activeIndex >= static_cast<int32_t>(tab->panels.size())) {
+                tab->activeIndex = static_cast<int32_t>(tab->panels.size()) - 1;
+            }
+        }
+
+        // Places newTab next to target inside the tree rooted at rootSlot. When
+        // the target's parent already splits along the required axis the new tab
+        // is inserted there; otherwise the target is wrapped in a new split.
+        bool InsertBeside(LayoutNodePtr &rootSlot, LayoutNode *target, LayoutNodePtr newTab, DockPosition position)
+        {
+            const SplitOrientation want =
+                (position == DockPosition::LEFT || position == DockPosition::RIGHT) ? SplitOrientation::HORIZONTAL
+                                                                                   : SplitOrientation::VERTICAL;
+            const bool before = (position == DockPosition::LEFT || position == DockPosition::TOP);
+
+            LayoutNode *parent = FindParentImpl(rootSlot.get(), target);
+            if (parent == nullptr) {
+                if (rootSlot.get() != target) {
+                    return false;
+                }
+                auto split = std::make_unique<SplitNode>();
+                split->orientation = want;
+                split->ratios = {0.5f, 0.5f};
+                if (before) {
+                    split->children.push_back(std::move(newTab));
+                    split->children.push_back(std::move(rootSlot));
+                } else {
+                    split->children.push_back(std::move(rootSlot));
+                    split->children.push_back(std::move(newTab));
+                }
+                rootSlot = std::move(split);
+                return true;
+            }
+
+            auto *parentSplit = static_cast<SplitNode *>(parent);
+            if (parentSplit->orientation == want) {
+                size_t index = 0;
+                for (size_t i = 0; i < parentSplit->children.size(); ++i) {
+                    if (parentSplit->children[i].get() == target) {
+                        index = i;
+                        break;
+                    }
+                }
+                const float base = index < parentSplit->ratios.size()
+                    ? parentSplit->ratios[index]
+                    : (1.0f / static_cast<float>(parentSplit->children.size()));
+                if (index < parentSplit->ratios.size()) {
+                    parentSplit->ratios[index] = base * 0.5f;
+                }
+                const size_t insertAt = before ? index : index + 1;
+                parentSplit->children.insert(parentSplit->children.begin() + static_cast<std::ptrdiff_t>(insertAt),
+                                             std::move(newTab));
+                parentSplit->ratios.insert(parentSplit->ratios.begin() + static_cast<std::ptrdiff_t>(insertAt),
+                                           base * 0.5f);
+                NormalizeRatios(*parentSplit);
+                return true;
+            }
+
+            for (auto &child : parentSplit->children) {
+                if (child.get() != target) {
+                    continue;
+                }
+                auto sub = std::make_unique<SplitNode>();
+                sub->orientation = want;
+                sub->ratios = {0.5f, 0.5f};
+                LayoutNodePtr targetOwned = std::move(child);
+                if (before) {
+                    sub->children.push_back(std::move(newTab));
+                    sub->children.push_back(std::move(targetOwned));
+                } else {
+                    sub->children.push_back(std::move(targetOwned));
+                    sub->children.push_back(std::move(newTab));
+                }
+                child = std::move(sub);
+                NormalizeRatios(*parentSplit);
+                return true;
+            }
+            return false;
+        }
+
         TabNode *FindTabImpl(LayoutNode *node, const std::string &panelId)
         {
             if (node == nullptr) {
@@ -258,6 +353,7 @@ namespace sky::editor {
     {
         defaultPanels = panelIds;
         hasDefault = true;
+        floatingPanels.clear();
 
         root = std::make_unique<TabNode>();
         auto *tab = static_cast<TabNode *>(root.get());
@@ -279,6 +375,7 @@ namespace sky::editor {
     void LayoutModel::Clear()
     {
         root.reset();
+        floatingPanels.clear();
     }
 
     bool LayoutModel::SplitPanel(const std::string &panelId, SplitOrientation orientation, const std::string &newPanelId)
@@ -323,10 +420,18 @@ namespace sky::editor {
         if (panelId == targetPanelId) {
             return false;
         }
-        TabNode *source = FindTab(panelId);
         TabNode *target = FindTab(targetPanelId);
-        if (source == nullptr || target == nullptr) {
+        if (target == nullptr) {
             return false;
+        }
+
+        TabNode *source = FindTab(panelId);
+        if (source == nullptr) {
+            // Panel is not docked yet: add it to the target tab (e.g. building a
+            // default layout by grouping a registered-but-unplaced panel).
+            target->panels.push_back(PanelNode{panelId});
+            target->activeIndex = static_cast<int32_t>(target->panels.size()) - 1;
+            return true;
         }
 
         const auto sourceIt = std::find_if(source->panels.begin(), source->panels.end(),
@@ -362,6 +467,109 @@ namespace sky::editor {
         tab->panels.erase(it);
         Collapse(root);
         return true;
+    }
+
+    bool LayoutModel::DockPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position)
+    {
+        if (panelId == targetPanelId || FindTab(targetPanelId) == nullptr) {
+            return false;
+        }
+        const bool docked = FindTab(panelId) != nullptr;
+        const bool floating = IsFloating(panelId);
+        if (!docked && !floating) {
+            return false;
+        }
+
+        if (docked) {
+            RemovePanelFromTab(FindTab(panelId), panelId);
+        }
+        if (floating) {
+            floatingPanels.erase(std::remove_if(floatingPanels.begin(), floatingPanels.end(),
+                                                [&](const FloatingPanel &fp) { return fp.panelId == panelId; }),
+                                 floatingPanels.end());
+        }
+        Collapse(root);
+
+        TabNode *target = FindTab(targetPanelId);
+        if (target == nullptr) {
+            return false;
+        }
+
+        if (position == DockPosition::CENTER) {
+            const auto targetIt = std::find_if(target->panels.begin(), target->panels.end(),
+                                               [&](const PanelNode &panel) { return panel.panelId == targetPanelId; });
+            const size_t at = targetIt == target->panels.end()
+                ? target->panels.size()
+                : static_cast<size_t>(targetIt - target->panels.begin()) + 1;
+            target->panels.insert(target->panels.begin() + static_cast<std::ptrdiff_t>(at), PanelNode{panelId});
+            target->activeIndex = static_cast<int32_t>(at);
+            return true;
+        }
+
+        auto newTab = std::make_unique<TabNode>();
+        newTab->panels.push_back(PanelNode{panelId});
+        newTab->activeIndex = 0;
+        return InsertBeside(root, target, std::move(newTab), position);
+    }
+
+    bool LayoutModel::FloatPanel(const std::string &panelId, const FloatingPanel &geometry)
+    {
+        TabNode *tab = FindTab(panelId);
+        if (tab == nullptr || IsFloating(panelId)) {
+            return false;
+        }
+        RemovePanelFromTab(tab, panelId);
+        Collapse(root);
+
+        FloatingPanel entry = geometry;
+        entry.panelId = panelId;
+        floatingPanels.push_back(entry);
+        return true;
+    }
+
+    bool LayoutModel::DockFloatingPanel(const std::string &panelId, const std::string &targetPanelId, DockPosition position)
+    {
+        if (!IsFloating(panelId)) {
+            return false;
+        }
+        return DockPanel(panelId, targetPanelId, position);
+    }
+
+    bool LayoutModel::SetFloatingGeometry(const std::string &panelId, float x, float y, float width, float height)
+    {
+        for (auto &fp : floatingPanels) {
+            if (fp.panelId == panelId) {
+                fp.x = x;
+                fp.y = y;
+                fp.width = width;
+                fp.height = height;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool LayoutModel::IsFloating(const std::string &panelId) const
+    {
+        return std::any_of(floatingPanels.begin(), floatingPanels.end(),
+                           [&](const FloatingPanel &fp) { return fp.panelId == panelId; });
+    }
+
+    const FloatingPanel *LayoutModel::FindFloating(const std::string &panelId) const
+    {
+        for (const auto &fp : floatingPanels) {
+            if (fp.panelId == panelId) {
+                return &fp;
+            }
+        }
+        return nullptr;
+    }
+
+    void LayoutModel::CollectFloating(std::vector<std::string> &out) const
+    {
+        for (const auto &fp : floatingPanels) {
+            out.push_back(fp.panelId);
+        }
     }
 
     bool LayoutModel::SetRatio(LayoutNode *splitNode, uint32_t index, float ratio)
@@ -425,6 +633,22 @@ namespace sky::editor {
         if (root != nullptr) {
             document.AddMember("root", NodeToJson(root.get(), allocator), allocator);
         }
+        if (!floatingPanels.empty()) {
+            rapidjson::Value floating(rapidjson::kArrayType);
+            for (const auto &fp : floatingPanels) {
+                rapidjson::Value entry(rapidjson::kObjectType);
+                entry.AddMember("panel", rapidjson::StringRef(fp.panelId.c_str(),
+                                                             static_cast<rapidjson::SizeType>(fp.panelId.size())),
+                                allocator);
+                entry.AddMember("x", fp.x, allocator);
+                entry.AddMember("y", fp.y, allocator);
+                entry.AddMember("w", fp.width, allocator);
+                entry.AddMember("h", fp.height, allocator);
+                entry.AddMember("active", fp.active, allocator);
+                floating.PushBack(entry, allocator);
+            }
+            document.AddMember("floating", floating, allocator);
+        }
 
         rapidjson::StringBuffer buffer;
         if (indent >= 0) {
@@ -456,6 +680,40 @@ namespace sky::editor {
             out.root = NodeFromJson(rootIt->value, registry, warnings);
         }
         Collapse(out.root);
+
+        out.floatingPanels.clear();
+        const auto floatingIt = document.FindMember("floating");
+        if (floatingIt != document.MemberEnd() && floatingIt->value.IsArray()) {
+            for (const auto &entry : floatingIt->value.GetArray()) {
+                if (!entry.IsObject()) {
+                    continue;
+                }
+                const auto panelIt = entry.FindMember("panel");
+                if (panelIt == entry.MemberEnd() || !panelIt->value.IsString()) {
+                    continue;
+                }
+                const std::string id = panelIt->value.GetString();
+                if (registry != nullptr && !registry->Contains(id)) {
+                    if (warnings != nullptr) {
+                        warnings->push_back("unknown panel: " + id);
+                    }
+                    continue;
+                }
+                const auto readFloat = [&entry](const char *key, float fallback) -> float {
+                    const auto it = entry.FindMember(key);
+                    return (it != entry.MemberEnd() && it->value.IsNumber()) ? it->value.GetFloat() : fallback;
+                };
+                FloatingPanel fp;
+                fp.panelId = id;
+                fp.x = readFloat("x", 0.0f);
+                fp.y = readFloat("y", 0.0f);
+                fp.width = readFloat("w", 0.0f);
+                fp.height = readFloat("h", 0.0f);
+                const auto activeIt = entry.FindMember("active");
+                fp.active = activeIt != entry.MemberEnd() && activeIt->value.IsBool() && activeIt->value.GetBool();
+                out.floatingPanels.push_back(fp);
+            }
+        }
         return true;
     }
 

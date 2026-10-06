@@ -21,6 +21,14 @@ Markdown, and grounded in the current repository state.
 - [PVS Plugin](plugins/pvs.md) - precomputed visibility: render-independent core, runtime culling glue, streaming,
   visibility queries and serialization.
 
+### Editor
+
+- [Editor Framework Design](editor/editor-framework-design.md) - startup/project-manager flow and overall layout
+  design for the sandbox (non-Qt) editor.
+- [Editor Framework Status](editor/editor-framework-status.md) - current implementation state, build/run, gotchas,
+  and next steps (session handoff).
+- [Reflection Widget Framework](editor/reflection-widget-framework.md) - reflection-driven editor property UI.
+
 ### Features
 
 - [Asset Pipeline](features/asset-pipeline.md) - source identities, the mounted source namespace, product bundles,

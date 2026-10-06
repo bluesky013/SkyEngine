@@ -78,6 +78,7 @@ namespace sky::ui {
 
         // IUITextureRegistry: CPU images (icons / atlas pages).
         UITextureId RegisterTexture(const UIImageData &image) override;
+        UITextureId RegisterTextureAs(UITextureId id, const UIImageData &image) override;
         void UpdateTexture(UITextureId id, const UIImageData &image) override;
         void ReleaseTexture(UITextureId id) override;
 
@@ -95,6 +96,8 @@ namespace sky::ui {
             uint32_t                               height = 0;
             bool                                   uploaded = false;
         };
+
+        UITextureId AddTexture(UITextureId id, const UIImageData &image);
 
         bool EnsureBuffers(uint64_t vertexBytes, uint64_t indexBytes);
         aurora::ResourceGroup *CreateTextureGroup(aurora::Image *image);

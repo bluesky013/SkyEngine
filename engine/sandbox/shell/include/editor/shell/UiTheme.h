@@ -55,6 +55,8 @@ namespace sky::editor {
         float rowHeight = 24.0f;
         float tabHeaderHeight = 26.0f;
         float popupItemHeight = 20.0f;
+        float panelRadius = 5.0f; // panel corner radius (Blender-like)
+        float panelGap = 3.0f;    // gap between panels (Blender-like)
 
         float padX = 10.0f;
         float controlPad = 8.0f;
