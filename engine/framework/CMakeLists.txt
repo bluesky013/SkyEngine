@@ -9,6 +9,18 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     set(FM_EXT_LIB
         )
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+    # native UIKit window/event backend. Note: an iOS toolchain sets
+    # CMAKE_SYSTEM_NAME to "iOS", not "Darwin", so this branch is required and
+    # must not fall through to the macOS (Cocoa) sources.
+    file(GLOB_RECURSE PLATFORM_SRC
+        platform/ios/*
+        platform/posix/*)
+    set(FM_EXT_LIB
+        "-framework UIKit"
+        "-framework QuartzCore"
+        "-framework Metal"
+        "-framework Foundation")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     # native Cocoa window/event backend (no SDL)
     file(GLOB_RECURSE PLATFORM_SRC
@@ -26,6 +38,13 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         log
         android
         game-activity::game-activity)
+endif ()
+
+# The UIKit backend uses ARC ownership idioms (__bridge_retained/transfer for
+# native handles). Must be set before the target is created.
+if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+    file(GLOB_RECURSE IOS_OBJCXX_SRC platform/ios/*.mm)
+    set_source_files_properties(${IOS_OBJCXX_SRC} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 endif ()
 
 sky_add_library(TARGET Framework STATIC
