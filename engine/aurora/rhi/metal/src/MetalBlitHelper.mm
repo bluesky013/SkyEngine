@@ -5,9 +5,9 @@
 #import <Metal/Metal.h>
 
 #include "MetalBlitHelper.h"
-#include <MetalDevice.h>
-#include <MetalImage.h>
-#include <MetalUtils.h>
+#include "MetalDevice.h"
+#include "MetalImage.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
@@ -56,8 +56,7 @@ fragment float4 blitFS(VSOut in [[stage_in]],
         };
     } // namespace
 
-    MetalBlitHelper::MetalBlitHelper(MetalDevice &dev)
-        : device(dev)
+    MetalBlitHelper::MetalBlitHelper(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -79,13 +78,12 @@ fragment float4 blitFS(VSOut in [[stage_in]],
     {
         void *&slot = linear ? linearSampler : nearestSampler;
         if (slot == nullptr) {
-            auto *desc = [[MTLSamplerDescriptor alloc] init];
-            desc.minFilter = linear ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
-            desc.magFilter = desc.minFilter;
+            auto *desc        = [[MTLSamplerDescriptor alloc] init];
+            desc.minFilter    = linear ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+            desc.magFilter    = desc.minFilter;
             desc.sAddressMode = MTLSamplerAddressModeClampToEdge;
             desc.tAddressMode = MTLSamplerAddressModeClampToEdge;
-            slot = (__bridge_retained void *)[(id<MTLDevice>)device.GetNativeDevice()
-                newSamplerStateWithDescriptor:desc];
+            slot              = (__bridge_retained void *)[(id<MTLDevice>)device.GetNativeDevice() newSamplerStateWithDescriptor:desc];
             [desc release];
         }
         return slot;
@@ -94,32 +92,30 @@ fragment float4 blitFS(VSOut in [[stage_in]],
     void *MetalBlitHelper::GetBlitPipeline(uint32_t mtlFormat, uint32_t sampleCount)
     {
         const uint64_t key = (uint64_t(mtlFormat) << 8) | sampleCount;
-        auto it = pipelines.find(key);
+        auto           it  = pipelines.find(key);
         if (it != pipelines.end()) {
             return it->second;
         }
 
-        auto *mtlDevice = (id<MTLDevice>)device.GetNativeDevice();
-        NSError *error = nil;
-        NSString *source = [NSString stringWithUTF8String:BLIT_SHADER_SOURCE];
-        id<MTLLibrary> library = [mtlDevice newLibraryWithSource:source options:nil error:&error];
+        auto          *mtlDevice = (id<MTLDevice>)device.GetNativeDevice();
+        NSError       *error     = nil;
+        NSString      *source    = [NSString stringWithUTF8String:BLIT_SHADER_SOURCE];
+        id<MTLLibrary> library   = [mtlDevice newLibraryWithSource:source options:nil error:&error];
         if (library == nil) {
-            LOG_E(TAG, "blit shader compile failed: %s",
-                  error != nil ? [[error localizedDescription] UTF8String] : "unknown");
+            LOG_E(TAG, "blit shader compile failed: %s", error != nil ? [[error localizedDescription] UTF8String] : "unknown");
             return nullptr;
         }
 
-        auto *desc = [[MTLRenderPipelineDescriptor alloc] init];
-        desc.vertexFunction   = [library newFunctionWithName:@"blitVS"];
-        desc.fragmentFunction = [library newFunctionWithName:@"blitFS"];
+        auto *desc                           = [[MTLRenderPipelineDescriptor alloc] init];
+        desc.vertexFunction                  = [library newFunctionWithName:@"blitVS"];
+        desc.fragmentFunction                = [library newFunctionWithName:@"blitFS"];
         desc.colorAttachments[0].pixelFormat = static_cast<MTLPixelFormat>(mtlFormat);
-        desc.rasterSampleCount = sampleCount;
-        id<MTLRenderPipelineState> pso = [mtlDevice newRenderPipelineStateWithDescriptor:desc error:&error];
+        desc.rasterSampleCount               = sampleCount;
+        id<MTLRenderPipelineState> pso       = [mtlDevice newRenderPipelineStateWithDescriptor:desc error:&error];
         [desc release];
         [library release];
         if (pso == nil) {
-            LOG_E(TAG, "blit pipeline creation failed: %s",
-                  error != nil ? [[error localizedDescription] UTF8String] : "unknown");
+            LOG_E(TAG, "blit pipeline creation failed: %s", error != nil ? [[error localizedDescription] UTF8String] : "unknown");
             return nullptr;
         }
 
@@ -128,12 +124,11 @@ fragment float4 blitFS(VSOut in [[stage_in]],
         return handle;
     }
 
-    bool MetalBlitHelper::Blit(void *commandBuffer, MetalImage *src, MetalImage *dst,
-                               const std::vector<BlitInfo> &regions, Filter filter)
+    bool MetalBlitHelper::Blit(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<BlitInfo> &regions, Filter filter)
     {
-        auto *cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
-        auto *srcTex = (__bridge id<MTLTexture>)src->GetNativeHandle();
-        auto *dstTex = (__bridge id<MTLTexture>)dst->GetNativeHandle();
+        auto               *cb      = (__bridge id<MTLCommandBuffer>)commandBuffer;
+        auto               *srcTex  = (__bridge id<MTLTexture>)src->GetNativeHandle();
+        auto               *dstTex  = (__bridge id<MTLTexture>)dst->GetNativeHandle();
         id<MTLSamplerState> sampler = (__bridge id<MTLSamplerState>)GetSampler(filter == Filter::LINEAR);
 
         for (const auto &region : regions) {
@@ -144,9 +139,8 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 const uint32_t srcLevel = region.srcRange.level;
                 const uint32_t srcSlice = region.srcRange.baseLayer + (region.srcRange.layers > 1 ? i : 0);
 
-                auto *pso = (__bridge id<MTLRenderPipelineState>)
-                    GetBlitPipeline(static_cast<uint32_t>(dstTex.pixelFormat),
-                                    static_cast<uint32_t>(dstTex.sampleCount));
+                auto *pso = (__bridge id<MTLRenderPipelineState>)GetBlitPipeline(static_cast<uint32_t>(dstTex.pixelFormat),
+                                                                                 static_cast<uint32_t>(dstTex.sampleCount));
                 if (pso == nil) {
                     return false;
                 }
@@ -157,7 +151,7 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 const float dstW = float(std::max(dstTex.width >> dstLevel, 1ul));
                 const float dstH = float(std::max(dstTex.height >> dstLevel, 1ul));
 
-                BlitRects rects = {};
+                BlitRects rects  = {};
                 rects.srcRect[0] = float(region.srcOffsets[0].x);
                 rects.srcRect[1] = float(region.srcOffsets[0].y);
                 rects.srcRect[2] = float(region.srcOffsets[1].x - region.srcOffsets[0].x);
@@ -171,7 +165,7 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 rects.dstSize[0] = dstW;
                 rects.dstSize[1] = dstH;
 
-                auto *rpDesc = [MTLRenderPassDescriptor renderPassDescriptor];
+                auto *rpDesc                           = [MTLRenderPassDescriptor renderPassDescriptor];
                 rpDesc.colorAttachments[0].texture     = dstTex;
                 rpDesc.colorAttachments[0].level       = dstLevel;
                 rpDesc.colorAttachments[0].slice       = dstSlice;
@@ -180,11 +174,11 @@ fragment float4 blitFS(VSOut in [[stage_in]],
 
                 // sample through a single-level/single-slice view so the
                 // shader always reads mip 0 of the view
-                id<MTLTexture> srcView = [srcTex newTextureViewWithPixelFormat:srcTex.pixelFormat
-                                                                 textureType:MTLTextureType2D
-                                                                      levels:NSMakeRange(srcLevel, 1)
-                                                                      slices:NSMakeRange(srcSlice, 1)];
-                id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rpDesc];
+                id<MTLTexture>              srcView = [srcTex newTextureViewWithPixelFormat:srcTex.pixelFormat
+                                                                   textureType:MTLTextureType2D
+                                                                        levels:NSMakeRange(srcLevel, 1)
+                                                                        slices:NSMakeRange(srcSlice, 1)];
+                id<MTLRenderCommandEncoder> enc     = [cb renderCommandEncoderWithDescriptor:rpDesc];
                 if (enc == nil) {
                     [srcView release];
                     LOG_E(TAG, "blit: failed to create render encoder (dst not renderable?)");
@@ -194,11 +188,10 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 [enc setVertexBytes:&rects length:sizeof(rects) atIndex:0];
                 [enc setFragmentTexture:srcView atIndex:0];
                 [enc setFragmentSamplerState:sampler atIndex:0];
-                MTLViewport vp = {rects.dstRect[0], rects.dstRect[1],
-                                  rects.dstRect[2], rects.dstRect[3], 0.0, 1.0};
+                MTLViewport vp = {rects.dstRect[0], rects.dstRect[1], rects.dstRect[2], rects.dstRect[3], 0.0, 1.0};
                 [enc setViewport:vp];
-                MTLScissorRect sc = {uint32_t(region.dstOffsets[0].x), uint32_t(region.dstOffsets[0].y),
-                                     uint32_t(rects.dstRect[2]), uint32_t(rects.dstRect[3])};
+                MTLScissorRect sc = {uint32_t(region.dstOffsets[0].x), uint32_t(region.dstOffsets[0].y), uint32_t(rects.dstRect[2]),
+                                     uint32_t(rects.dstRect[3])};
                 [enc setScissorRect:sc];
                 [enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
                 [enc endEncoding];
@@ -208,10 +201,9 @@ fragment float4 blitFS(VSOut in [[stage_in]],
         return true;
     }
 
-    void MetalBlitHelper::Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst,
-                                  const std::vector<ResolveInfo> &regions)
+    void MetalBlitHelper::Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<ResolveInfo> &regions)
     {
-        auto *cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
+        auto *cb     = (__bridge id<MTLCommandBuffer>)commandBuffer;
         auto *srcTex = (__bridge id<MTLTexture>)src->GetNativeHandle();
         auto *dstTex = (__bridge id<MTLTexture>)dst->GetNativeHandle();
 
@@ -220,7 +212,7 @@ fragment float4 blitFS(VSOut in [[stage_in]],
             for (uint32_t i = 0; i < layers; ++i) {
                 // an empty pass with a multisample-resolve store action still
                 // performs the resolve at endEncoding
-                auto *rpDesc = [MTLRenderPassDescriptor renderPassDescriptor];
+                auto *rpDesc                              = [MTLRenderPassDescriptor renderPassDescriptor];
                 rpDesc.colorAttachments[0].texture        = srcTex;
                 rpDesc.colorAttachments[0].level          = region.srcRange.level;
                 rpDesc.colorAttachments[0].slice          = region.srcRange.baseLayer + i;

@@ -17,7 +17,10 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void *GetNativeHandle() const { return sampler; }
+        void *GetNativeHandle() const
+        {
+            return sampler;
+        }
 
     private:
         MetalDevice &device;

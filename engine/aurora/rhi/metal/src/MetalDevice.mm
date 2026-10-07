@@ -2,24 +2,24 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalDevice.h>
-#include <MetalInstance.h>
-#include <MetalSync.h>
-#include <MetalBuffer.h>
-#include <MetalImage.h>
-#include <MetalSampler.h>
-#include <MetalShader.h>
-#include <MetalPipelineState.h>
-#include <MetalResourceGroup.h>
-#include <MetalDescriptorBatch.h>
-#include <MetalSwapChain.h>
-#include <MetalCommandPool.h>
-#include <MetalUtils.h>
+#include "MetalBuffer.h"
+#include "MetalCommandPool.h"
+#include "MetalDescriptorBatch.h"
+#include "MetalDevice.h"
+#include "MetalImage.h"
+#include "MetalInstance.h"
+#include "MetalPipelineState.h"
+#include "MetalResourceGroup.h"
+#include "MetalSampler.h"
+#include "MetalShader.h"
+#include "MetalSwapChain.h"
+#include "MetalSync.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
-#include <rdg/MetalDeviceFrameContext.h>
-#include "rdg/MetalRDGBackend.h"
 #include "MetalBlitHelper.h"
+#include "rdg/MetalRDGBackend.h"
+#include <rdg/MetalDeviceFrameContext.h>
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -49,14 +49,15 @@ namespace sky::aurora {
         }
     }
 
-    MetalDevice::MetalDevice(MetalInstance &inst)
-        : instance(inst)
+    MetalDevice::MetalDevice(MetalInstance &inst) : instance(inst)
     {
     }
 
     MetalDevice::~MetalDevice()
     {
-        for (auto &q : queues) { q.reset(); }
+        for (auto &q : queues) {
+            q.reset();
+        }
         if (metalDevice != nullptr) {
             [(id<MTLDevice>)metalDevice release];
             metalDevice = nullptr;
@@ -83,8 +84,7 @@ namespace sky::aurora {
                 LOG_E(TAG, "failed to create Metal command queue %zu", i);
                 return false;
             }
-            queues[i] = std::make_unique<MetalQueue>(*this, static_cast<QueueType>(i),
-                (__bridge_retained void *)q);
+            queues[i] = std::make_unique<MetalQueue>(*this, static_cast<QueueType>(i), (__bridge_retained void *)q);
         }
 
         LOG_I(TAG, "Metal device initialized: %s", [[device name] UTF8String]);
@@ -104,10 +104,10 @@ namespace sky::aurora {
 
     void MetalDevice::UpdateDeviceCaps()
     {
-        capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
+        capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
 
-        auto *mtlDevice = (id<MTLDevice>)metalDevice;
+        auto *mtlDevice  = (id<MTLDevice>)metalDevice;
         capability.isUMA = mtlDevice != nil && [mtlDevice hasUnifiedMemory];
         // Metal guarantees 256-byte alignment for constant buffer offsets on
         // macOS; there is no MTLDevice query for it
@@ -115,8 +115,7 @@ namespace sky::aurora {
 
         if (mtlDevice != nil) {
             // object/mesh pipeline requires Apple7 (A15) / Mac2 class GPUs
-            feature.meshShader = [mtlDevice supportsFamily:MTLGPUFamilyApple7] ||
-                                 [mtlDevice supportsFamily:MTLGPUFamilyMac2];
+            feature.meshShader = [mtlDevice supportsFamily:MTLGPUFamilyApple7] || [mtlDevice supportsFamily:MTLGPUFamilyMac2];
             // framebuffer fetch (programmable blending input) is an Apple-GPU feature
             feature.framebufferFetch = [mtlDevice supportsFamily:MTLGPUFamilyApple1];
             // MTLDraw*IndirectArguments carry baseInstance
@@ -289,7 +288,7 @@ namespace sky::aurora {
             return {};
         }
 
-        const auto &info = GetImageFormatInfo(format);
+        const auto             &info = GetImageFormatInfo(format);
         PixelFormatFeatureFlags result;
 
         if (info.isCompressed) {
@@ -308,9 +307,7 @@ namespace sky::aurora {
         result |= PixelFormatFeatureFlagBit::SAMPLE;
 
         // integer formats: no blend, no filter
-        const bool isInteger = (format == PixelFormat::R8_UINT ||
-                                format == PixelFormat::R32_UINT ||
-                                format == PixelFormat::RG32_UINT ||
+        const bool isInteger = (format == PixelFormat::R8_UINT || format == PixelFormat::R32_UINT || format == PixelFormat::RG32_UINT ||
                                 format == PixelFormat::RGBA32_UINT);
 
         if (!isInteger) {
@@ -326,11 +323,8 @@ namespace sky::aurora {
 
         // storage: Metal supports write for most non-compressed formats
         // (8-bit, 16-bit, 32-bit; not sRGB, not 3-channel)
-        const bool isSrgb = (format == PixelFormat::R8_SRGB ||
-                             format == PixelFormat::RGBA8_SRGB ||
-                             format == PixelFormat::BGRA8_SRGB);
-        const bool is3Channel = (format == PixelFormat::RGB32_SFLOAT ||
-                                 format == PixelFormat::RGB32_UINT);
+        const bool isSrgb     = (format == PixelFormat::R8_SRGB || format == PixelFormat::RGBA8_SRGB || format == PixelFormat::BGRA8_SRGB);
+        const bool is3Channel = (format == PixelFormat::RGB32_SFLOAT || format == PixelFormat::RGB32_UINT);
 
         if (!isSrgb && !is3Channel) {
             switch (mtlFormat) {
@@ -345,11 +339,8 @@ namespace sky::aurora {
             case MTLPixelFormatR32Uint:
             case MTLPixelFormatRG32Uint:
             case MTLPixelFormatRGBA32Uint:
-            case MTLPixelFormatRGBA8Unorm:
-                result |= PixelFormatFeatureFlagBit::STORAGE;
-                break;
-            default:
-                break;
+            case MTLPixelFormatRGBA8Unorm: result |= PixelFormatFeatureFlagBit::STORAGE; break;
+            default: break;
             }
         }
 
@@ -361,7 +352,7 @@ namespace sky::aurora {
         return result;
     }
 
-    DeviceFrameContext* MetalDevice::CreateFrameContext(const DeviceFrameContextInitInfo& info)
+    DeviceFrameContext *MetalDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)
     {
         return new MetalDeviceFrameContext(this, info);
     }

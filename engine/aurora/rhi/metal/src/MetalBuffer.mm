@@ -2,17 +2,16 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalBuffer.h>
-#include <MetalDevice.h>
-#include <MetalUtils.h>
+#include "MetalBuffer.h"
+#include "MetalDevice.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalBuffer::MetalBuffer(MetalDevice &dev)
-        : device(dev)
+    MetalBuffer::MetalBuffer(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -37,7 +36,7 @@ namespace sky::aurora {
             return false;
         }
 
-        auto options = ToMetalBufferOptions(desc.usage, desc.memory);
+        auto  options      = ToMetalBufferOptions(desc.usage, desc.memory);
         auto *nativeBuffer = [metalDevice newBufferWithLength:desc.size options:options];
         if (nativeBuffer == nil) {
             LOG_E(TAG, "newBufferWithLength failed, size = %llu", desc.size);

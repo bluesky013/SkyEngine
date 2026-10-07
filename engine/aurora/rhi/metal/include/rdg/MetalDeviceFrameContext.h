@@ -7,7 +7,7 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
-#include <MetalCommandPool.h>
+#include "MetalCommandPool.h"
 #include <aurora/rdg/RenderDeviceExclusive.h>
 
 namespace sky::aurora {

@@ -3,9 +3,9 @@
 //
 
 #import <Metal/Metal.h>
-#include <MetalCommandPool.h>
-#include <MetalDevice.h>
-#include <MetalEncoder.h>
+#include "MetalCommandPool.h"
+#include "MetalDevice.h"
+#include "MetalEncoder.h"
 #include <aurora/rhi/Core.h>
 
 namespace sky::aurora {
@@ -33,8 +33,8 @@ namespace sky::aurora {
                 r |= MTLRenderStageFragment;
             }
             // top/bottom/color-output etc. roll into both stages
-            if (flags & (PipelineStageBit::TOP | PipelineStageBit::COLOR_OUTPUT |
-                        PipelineStageBit::EARLY_FRAGMENT | PipelineStageBit::LATE_FRAGMENT)) {
+            if (flags &
+                (PipelineStageBit::TOP | PipelineStageBit::COLOR_OUTPUT | PipelineStageBit::EARLY_FRAGMENT | PipelineStageBit::LATE_FRAGMENT)) {
                 r |= MTLRenderStageFragment;
             }
             if (r == (MTLRenderStages)0) {
@@ -42,13 +42,11 @@ namespace sky::aurora {
             }
             return r;
         }
-    }
+    } // namespace
 
     // ---- MetalCommandBuffer ----
 
-    MetalCommandBuffer::MetalCommandBuffer(MetalDevice &dev, void *q)
-        : device(dev)
-        , queue(q)
+    MetalCommandBuffer::MetalCommandBuffer(MetalDevice &dev, void *q) : device(dev), queue(q)
     {
     }
 
@@ -56,8 +54,8 @@ namespace sky::aurora {
     {
         if (cmdBuffer != nullptr) {
             id<MTLCommandBuffer> cb = (__bridge_transfer id<MTLCommandBuffer>)cmdBuffer;
-            cb = nil;
-            cmdBuffer = nullptr;
+            cb                      = nil;
+            cmdBuffer               = nullptr;
         }
     }
 
@@ -65,12 +63,12 @@ namespace sky::aurora {
     {
         if (cmdBuffer != nullptr) {
             id<MTLCommandBuffer> old = (__bridge_transfer id<MTLCommandBuffer>)cmdBuffer;
-            old = nil;
-            cmdBuffer = nullptr;
+            old                      = nil;
+            cmdBuffer                = nullptr;
         }
-        id<MTLCommandQueue> mtlQueue = (__bridge id<MTLCommandQueue>)queue;
-        id<MTLCommandBuffer> cb = [mtlQueue commandBuffer];
-        cmdBuffer = (__bridge_retained void *)cb;
+        id<MTLCommandQueue>  mtlQueue = (__bridge id<MTLCommandQueue>)queue;
+        id<MTLCommandBuffer> cb       = [mtlQueue commandBuffer];
+        cmdBuffer                     = (__bridge_retained void *)cb;
     }
 
     void MetalCommandBuffer::End()
@@ -97,9 +95,9 @@ namespace sky::aurora {
 
         switch (activeKind) {
         case ActiveEncoderKind::Render: {
-            id<MTLRenderCommandEncoder> e = (__bridge id<MTLRenderCommandEncoder>)activeEncoder;
-            const MTLRenderStages after  = StagesForRender(info.srcStage);
-            const MTLRenderStages before = StagesForRender(info.dstStage);
+            id<MTLRenderCommandEncoder> e      = (__bridge id<MTLRenderCommandEncoder>)activeEncoder;
+            const MTLRenderStages       after  = StagesForRender(info.srcStage);
+            const MTLRenderStages       before = StagesForRender(info.dstStage);
             [e memoryBarrierWithScope:scope afterStages:after beforeStages:before];
             break;
         }
@@ -111,8 +109,7 @@ namespace sky::aurora {
         case ActiveEncoderKind::Blit:
             // Blit encoders rely on implicit between-encoder sync; no API.
             break;
-        case ActiveEncoderKind::None:
-            break;
+        case ActiveEncoderKind::None: break;
         }
     }
 
@@ -154,9 +151,7 @@ namespace sky::aurora {
 
     // ---- MetalCommandPool ----
 
-    MetalCommandPool::MetalCommandPool(MetalDevice &dev, void *q)
-        : device(dev)
-        , queue(q)
+    MetalCommandPool::MetalCommandPool(MetalDevice &dev, void *q) : device(dev), queue(q)
     {
     }
 

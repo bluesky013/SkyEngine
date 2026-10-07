@@ -4,11 +4,11 @@
 
 #pragma once
 
+#include "MetalBuffer.h"
+#include "MetalImage.h"
+#include "MetalResourceGroup.h"
+#include "MetalSampler.h"
 #include <aurora/rhi/DescriptorBatch.h>
-#include <MetalResourceGroup.h>
-#include <MetalBuffer.h>
-#include <MetalImage.h>
-#include <MetalSampler.h>
 
 namespace sky::aurora {
 
@@ -19,23 +19,25 @@ namespace sky::aurora {
         MetalDescriptorBatch()           = default;
         ~MetalDescriptorBatch() override = default;
 
-        void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer,
-                         uint64_t offset, uint64_t /*range*/, uint32_t arrayElement = 0) override
+        void
+        WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t /*range*/, uint32_t arrayElement = 0) override
         {
             static_cast<MetalResourceGroup *>(group)->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset, arrayElement);
         }
-        void WriteImage(ResourceGroup *group, uint32_t binding, Image *image,
-                        ImageLayout /*layout*/, uint32_t arrayElement = 0) override
+        void WriteImage(ResourceGroup *group, uint32_t binding, Image *image, ImageLayout /*layout*/, uint32_t arrayElement = 0) override
         {
             static_cast<MetalResourceGroup *>(group)->WriteImage(binding, static_cast<MetalImage *>(image), arrayElement);
         }
-        void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler,
-                          uint32_t arrayElement = 0) override
+        void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override
         {
             static_cast<MetalResourceGroup *>(group)->WriteSampler(binding, static_cast<MetalSampler *>(sampler), arrayElement);
         }
-        void Flush() override {}
-        void Reset() override {}
+        void Flush() override
+        {
+        }
+        void Reset() override
+        {
+        }
     };
 
 } // namespace sky::aurora

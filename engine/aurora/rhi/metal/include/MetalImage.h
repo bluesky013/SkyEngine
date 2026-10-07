@@ -24,8 +24,14 @@ namespace sky::aurora {
         // Release any current texture reference (also drops borrowed wrappers).
         void Reset();
 
-        void       *GetNativeHandle() const { return texture; }
-        PixelFormat GetPixelFormat() const { return pixelFormat; }
+        void *GetNativeHandle() const
+        {
+            return texture;
+        }
+        PixelFormat GetPixelFormat() const
+        {
+            return pixelFormat;
+        }
 
     private:
         MetalDevice &device;

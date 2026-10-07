@@ -29,22 +29,20 @@ namespace sky::aurora {
 
         // render-based filtered blit; commandBuffer is id<MTLCommandBuffer>.
         // Returns false when the dst format cannot be rendered into.
-        bool Blit(void *commandBuffer, MetalImage *src, MetalImage *dst,
-                  const std::vector<BlitInfo> &regions, Filter filter);
+        bool Blit(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<BlitInfo> &regions, Filter filter);
 
         // resolve pass per region (MSAA src -> single-sampled dst via store action)
-        void Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst,
-                     const std::vector<ResolveInfo> &regions);
+        void Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<ResolveInfo> &regions);
 
     private:
         // mtlFormat is MTLPixelFormat kept as uint32_t to hide Obj-C types
         void *GetBlitPipeline(uint32_t mtlFormat, uint32_t sampleCount);
         void *GetSampler(bool linear);
 
-        MetalDevice &device;
-        std::unordered_map<uint64_t, void *> pipelines; // id<MTLRenderPipelineState> by (format, samples)
-        void *linearSampler  = nullptr;                 // id<MTLSamplerState>
-        void *nearestSampler = nullptr;                 // id<MTLSamplerState>
+        MetalDevice                         &device;
+        std::unordered_map<uint64_t, void *> pipelines;                // id<MTLRenderPipelineState> by (format, samples)
+        void                                *linearSampler  = nullptr; // id<MTLSamplerState>
+        void                                *nearestSampler = nullptr; // id<MTLSamplerState>
     };
 
 } // namespace sky::aurora

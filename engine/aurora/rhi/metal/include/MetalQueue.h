@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <aurora/rhi/Queue.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/Fence.h>
+#include <aurora/rhi/Queue.h>
 
 #include <memory>
 #include <vector>
@@ -23,7 +23,10 @@ namespace sky::aurora {
 
         void      Submit(const SubmitInfo &info) override;
         void      WaitIdle() override;
-        QueueType GetType() const override { return type; }
+        QueueType GetType() const override
+        {
+            return type;
+        }
 
         TransferTaskHandle UploadBuffer(Buffer *buffer, const std::vector<BufferUploadRequest> &requests) override;
         TransferTaskHandle UploadImage(Image *image, const std::vector<ImageUploadRequest> &requests) override;
@@ -31,7 +34,10 @@ namespace sky::aurora {
         void Wait(TransferTaskHandle handle) override;
         bool HasComplete(TransferTaskHandle handle) const override;
 
-        void *GetNativeHandle() const { return queue; }    // id<MTLCommandQueue>
+        void *GetNativeHandle() const
+        {
+            return queue;
+        } // id<MTLCommandQueue>
 
     private:
         struct PendingUpload {
@@ -42,7 +48,7 @@ namespace sky::aurora {
 
         MetalDevice &device;
         QueueType    type;
-        void        *queue = nullptr;     // owned id<MTLCommandQueue>
+        void        *queue = nullptr; // owned id<MTLCommandQueue>
 
         std::vector<PendingUpload> pendingUploads;
     };

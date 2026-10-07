@@ -2,17 +2,16 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalSampler.h>
-#include <MetalDevice.h>
-#include <MetalUtils.h>
+#include "MetalDevice.h"
+#include "MetalSampler.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalSampler::MetalSampler(MetalDevice &dev)
-        : device(dev)
+    MetalSampler::MetalSampler(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -37,15 +36,15 @@ namespace sky::aurora {
             LOG_W(TAG, "sampler anisotropy requested but not supported by the current Metal device; falling back to anisotropy disabled");
         }
 
-        auto *samplerDesc = [[MTLSamplerDescriptor alloc] init];
-        samplerDesc.minFilter = ToMetalFilter(desc.minFilter);
-        samplerDesc.magFilter = ToMetalFilter(desc.magFilter);
-        samplerDesc.mipFilter = ToMetalMipFilter(desc.mipmapMode);
-        samplerDesc.sAddressMode = ToMetalAddressMode(desc.addressModeU);
-        samplerDesc.tAddressMode = ToMetalAddressMode(desc.addressModeV);
-        samplerDesc.rAddressMode = ToMetalAddressMode(desc.addressModeW);
-        samplerDesc.lodMinClamp = desc.minLod;
-        samplerDesc.lodMaxClamp = desc.maxLod;
+        auto *samplerDesc         = [[MTLSamplerDescriptor alloc] init];
+        samplerDesc.minFilter     = ToMetalFilter(desc.minFilter);
+        samplerDesc.magFilter     = ToMetalFilter(desc.magFilter);
+        samplerDesc.mipFilter     = ToMetalMipFilter(desc.mipmapMode);
+        samplerDesc.sAddressMode  = ToMetalAddressMode(desc.addressModeU);
+        samplerDesc.tAddressMode  = ToMetalAddressMode(desc.addressModeV);
+        samplerDesc.rAddressMode  = ToMetalAddressMode(desc.addressModeW);
+        samplerDesc.lodMinClamp   = desc.minLod;
+        samplerDesc.lodMaxClamp   = desc.maxLod;
         samplerDesc.maxAnisotropy = anisotropyEnabled ? static_cast<NSUInteger>(desc.maxAnisotropy) : 1U;
 
         auto *nativeSampler = [metalDevice newSamplerStateWithDescriptor:samplerDesc];

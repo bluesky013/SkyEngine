@@ -15,10 +15,13 @@ namespace sky::aurora {
         MetalInstance() = default;
         ~MetalInstance() override;
 
-        bool Init(const Instance::Descriptor &desc) override;
+        bool    Init(const Instance::Descriptor &desc) override;
         Device *CreateDevice() override;
 
-        void *GetNativeDevice() const { return metalDevice; }
+        void *GetNativeDevice() const
+        {
+            return metalDevice;
+        }
 
     private:
         void *metalDevice = nullptr;

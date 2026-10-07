@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <aurora/rhi/SwapChain.h>
 #include <array>
+#include <aurora/rhi/SwapChain.h>
 #include <memory>
 
 namespace sky::aurora {
@@ -26,17 +26,29 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        uint32_t    AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t timeoutNs) override;
-        void        Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas) override;
-        void        Resize(uint32_t width, uint32_t height) override;
-        Image*      GetImage(uint32_t index) const override;
-        uint32_t    GetImageCount() const override { return IMAGE_COUNT; }
-        PixelFormat GetFormat() const override { return format; }
-        Extent2D    GetExtent() const override { return extent; }
+        uint32_t AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t timeoutNs) override;
+        void     Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas) override;
+        void     Resize(uint32_t width, uint32_t height) override;
+        Image   *GetImage(uint32_t index) const override;
+        uint32_t GetImageCount() const override
+        {
+            return IMAGE_COUNT;
+        }
+        PixelFormat GetFormat() const override
+        {
+            return format;
+        }
+        Extent2D GetExtent() const override
+        {
+            return extent;
+        }
         SwapChainStatus GetStatus() const override;
-        Extent2D    GetSurfaceSize() const override;
+        Extent2D        GetSurfaceSize() const override;
 
-        void *GetLayer() const { return layer; }
+        void *GetLayer() const
+        {
+            return layer;
+        }
 
     private:
         struct Slot {
@@ -46,12 +58,12 @@ namespace sky::aurora {
 
         void ReleaseSlot(Slot &slot);
 
-        MetalDevice                 &device;
-        void                        *layer = nullptr; // CAMetalLayer
+        MetalDevice                  &device;
+        void                         *layer = nullptr; // CAMetalLayer
         std::array<Slot, IMAGE_COUNT> slots;
-        uint32_t                    acquireCursor = 0;
-        PixelFormat                 format = PixelFormat::BGRA8_UNORM;
-        Extent2D                    extent = {1, 1};
+        uint32_t                      acquireCursor = 0;
+        PixelFormat                   format        = PixelFormat::BGRA8_UNORM;
+        Extent2D                      extent        = {1, 1};
     };
 
 } // namespace sky::aurora

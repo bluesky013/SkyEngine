@@ -2,19 +2,20 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalSwapChain.h>
-#include <MetalDevice.h>
-#include <MetalImage.h>
-#include <MetalSync.h>
-#include <MetalUtils.h>
+#include "MetalDevice.h"
+#include "MetalImage.h"
+#include "MetalSwapChain.h"
+#include "MetalSync.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
+
+#import <QuartzCore/CAMetalLayer.h>
 
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalSwapChain::MetalSwapChain(MetalDevice &dev)
-        : device(dev)
+    MetalSwapChain::MetalSwapChain(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -55,11 +56,11 @@ namespace sky::aurora {
 
         auto *metalLayer = (CAMetalLayer *)desc.window;
         [metalLayer retain];
-        metalLayer.device                = metalDevice;
-        metalLayer.pixelFormat           = ToMetalPixelFormat(desc.preferredFormat);
-        metalLayer.maximumDrawableCount  = IMAGE_COUNT;
+        metalLayer.device               = metalDevice;
+        metalLayer.pixelFormat          = ToMetalPixelFormat(desc.preferredFormat);
+        metalLayer.maximumDrawableCount = IMAGE_COUNT;
         // framebufferOnly=NO so backbuffers can be sampled/copied (RDG reads)
-        metalLayer.framebufferOnly       = NO;
+        metalLayer.framebufferOnly = NO;
         if (desc.width != 0 && desc.height != 0) {
             metalLayer.drawableSize = CGSizeMake(desc.width, desc.height);
         }
@@ -77,13 +78,13 @@ namespace sky::aurora {
     uint32_t MetalSwapChain::AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t /*timeoutNs*/)
     {
         const uint32_t index = acquireCursor;
-        acquireCursor = (acquireCursor + 1) % IMAGE_COUNT;
+        acquireCursor        = (acquireCursor + 1) % IMAGE_COUNT;
 
         auto &slot = slots[index];
         ReleaseSlot(slot);
 
-        auto *metalLayer = (CAMetalLayer *)layer;
-        id<CAMetalDrawable> drawable = [[metalLayer nextDrawable] retain];
+        auto               *metalLayer = (CAMetalLayer *)layer;
+        id<CAMetalDrawable> drawable   = [[metalLayer nextDrawable] retain];
         if (drawable == nil) {
             LOG_E(TAG, "nextDrawable returned nil");
             return INVALID_INDEX;
@@ -95,18 +96,16 @@ namespace sky::aurora {
         // immediately CPU-visible; signal the binary semaphore / fence right away
         // so callers can chain wait/Submit safely.
         if (signalSema != nullptr) {
-            auto *sema = static_cast<MetalSemaphore *>(signalSema);
-            id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-            const uint64_t v = (sema->GetType() == SemaphoreType::TIMELINE)
-                                   ? 1
-                                   : sema->AdvanceBinarySignalValue();
-            ev.signaledValue = v;
+            auto              *sema = static_cast<MetalSemaphore *>(signalSema);
+            id<MTLSharedEvent> ev   = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
+            const uint64_t     v    = (sema->GetType() == SemaphoreType::TIMELINE) ? 1 : sema->AdvanceBinarySignalValue();
+            ev.signaledValue        = v;
         }
         if (fence != nullptr) {
-            auto *f = static_cast<MetalFence *>(fence);
-            const uint64_t v = f->TakeNextValue();
+            auto              *f   = static_cast<MetalFence *>(fence);
+            const uint64_t     v   = f->TakeNextValue();
             id<MTLSharedEvent> fev = (__bridge id<MTLSharedEvent>)f->GetSharedEvent();
-            fev.signaledValue = v;
+            fev.signaledValue      = v;
         }
 
         return index;
@@ -122,17 +121,16 @@ namespace sky::aurora {
             return;
         }
 
-        id<CAMetalDrawable> drawable = (id<CAMetalDrawable>)slot.drawable;
-        auto *graphicsQueue = (id<MTLCommandQueue>)device.GetCommandQueue();
-        id<MTLCommandBuffer> presentCB = [graphicsQueue commandBuffer];
+        id<CAMetalDrawable>  drawable      = (id<CAMetalDrawable>)slot.drawable;
+        auto                *graphicsQueue = (id<MTLCommandQueue>)device.GetCommandQueue();
+        id<MTLCommandBuffer> presentCB     = [graphicsQueue commandBuffer];
 
         for (uint32_t i = 0; i < numWaitSemas; ++i) {
             auto *sema = static_cast<MetalSemaphore *>(waitSemas[i]);
-            if (sema == nullptr) continue;
-            id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-            const uint64_t value = (sema->GetType() == SemaphoreType::TIMELINE)
-                                       ? sema->GetCurrentValue()
-                                       : sema->GetBinaryWaitValue();
+            if (sema == nullptr)
+                continue;
+            id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
+            const uint64_t     value = (sema->GetType() == SemaphoreType::TIMELINE) ? sema->GetCurrentValue() : sema->GetBinaryWaitValue();
             [presentCB encodeWaitForEvent:ev value:value];
         }
 

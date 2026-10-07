@@ -2,17 +2,16 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalImage.h>
-#include <MetalDevice.h>
-#include <MetalUtils.h>
+#include "MetalDevice.h"
+#include "MetalImage.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalImage::MetalImage(MetalDevice &dev)
-        : device(dev)
+    MetalImage::MetalImage(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -56,17 +55,17 @@ namespace sky::aurora {
             return false;
         }
 
-        auto *textureDesc = [[MTLTextureDescriptor alloc] init];
-        textureDesc.textureType = ToMetalTextureType(desc);
-        textureDesc.pixelFormat = pixelFormat;
-        textureDesc.width = desc.extent.width;
-        textureDesc.height = desc.extent.height;
-        textureDesc.depth = desc.extent.depth;
+        auto *textureDesc            = [[MTLTextureDescriptor alloc] init];
+        textureDesc.textureType      = ToMetalTextureType(desc);
+        textureDesc.pixelFormat      = pixelFormat;
+        textureDesc.width            = desc.extent.width;
+        textureDesc.height           = desc.extent.height;
+        textureDesc.depth            = desc.extent.depth;
         textureDesc.mipmapLevelCount = desc.mipLevels;
-        textureDesc.arrayLength = desc.arrayLayers;
-        textureDesc.sampleCount = ToMetalSampleCount(desc.samples);
-        textureDesc.storageMode = ToMetalStorageMode(desc.usage, desc.memory);
-        textureDesc.usage = ToMetalTextureUsage(desc.usage);
+        textureDesc.arrayLength      = desc.arrayLayers;
+        textureDesc.sampleCount      = ToMetalSampleCount(desc.samples);
+        textureDesc.storageMode      = ToMetalStorageMode(desc.usage, desc.memory);
+        textureDesc.usage            = ToMetalTextureUsage(desc.usage);
 
         auto *nativeTexture = [metalDevice newTextureWithDescriptor:textureDesc];
         [textureDesc release];

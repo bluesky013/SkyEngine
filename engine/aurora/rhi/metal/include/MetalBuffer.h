@@ -17,10 +17,15 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void *GetNativeHandle() const { return buffer; }
+        void *GetNativeHandle() const
+        {
+            return buffer;
+        }
 
         uint8_t *Map() override;
-        void UnMap() override {}
+        void     UnMap() override
+        {
+        }
 
     private:
         MetalDevice &device;

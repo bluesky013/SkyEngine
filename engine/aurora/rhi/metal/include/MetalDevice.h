@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <MetalQueue.h>
+#include "MetalQueue.h"
 #include <array>
 #include <aurora/rhi/Device.h>
 #include <memory>
@@ -33,12 +33,12 @@ namespace sky::aurora {
         Fence     *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
-        Image               *CreateImage(const Image::Descriptor &desc) override;
-        Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
+        Buffer          *CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image           *CreateImage(const Image::Descriptor &desc) override;
+        Sampler         *CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
         DescriptorBatch *CreateDescriptorBatch() override;
-        DescriptorHeap *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
+        DescriptorHeap  *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
         {
             return nullptr;
         }
@@ -71,20 +71,26 @@ namespace sky::aurora {
 
         // render-based blit / resolve-pass helper (Metal has no native
         // filtered blit or explicit resolve on the blit encoder)
-        MetalBlitHelper *GetBlitHelper() const { return blitHelper.get(); }
+        MetalBlitHelper *GetBlitHelper() const
+        {
+            return blitHelper.get();
+        }
 
     private:
         bool        OnInit(const DeviceInit &init) override;
         void        UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;
-        API         GetAPI() const override { return API::METAL; }
-        void        WaitIdle() const override;
+        API         GetAPI() const override
+        {
+            return API::METAL;
+        }
+        void WaitIdle() const override;
 
         MetalInstance &instance;
         void          *metalDevice = nullptr;
 
         std::array<std::unique_ptr<MetalQueue>, 3> queues; // by QueueType
-        std::unique_ptr<MetalBlitHelper> blitHelper;
+        std::unique_ptr<MetalBlitHelper>           blitHelper;
     };
 
 } // namespace sky::aurora

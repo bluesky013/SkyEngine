@@ -1,7 +1,42 @@
 ---
+# Default / Objective-C (.m, .mm). Without a Language key clang-format falls
+# back to LLVM's 2-space style for Objective-C++ and mangles the repo's 4-space
+# Allman layout. Keep this section in sync with the Cpp section below.
 ObjCBlockIndentWidth:                            4
 ObjCSpaceAfterProperty:                          true
 ObjCBinPackProtocolList:                         Auto
+
+IndentWidth:                                     4
+AccessModifierOffset:                            -4
+NamespaceIndentation:                            All
+ColumnLimit:                                     150
+PointerAlignment:                                Right
+AlignConsecutiveMacros:                          true
+AlignConsecutiveAssignments:                     true
+AlignConsecutiveDeclarations:                    true
+AllowShortCaseLabelsOnASingleLine:               true
+AllowShortFunctionsOnASingleLine:                None
+ConstructorInitializerIndentWidth:               4
+ConstructorInitializerAllOnOneLineOrOnePerLine:  true
+BreakConstructorInitializers:                    BeforeComma
+BinPackParameters:                               false
+AlwaysBreakTemplateDeclarations:                 Yes
+AlignOperands:                                   Align
+IndentPPDirectives:                              BeforeHash
+
+BreakBeforeBraces:                               Custom
+BraceWrapping:
+    AfterClass:	                                 false
+    AfterControlStatement:	                     false
+    AfterEnum:	                                 false
+    AfterFunction:	                             true
+    AfterNamespace:	                             false
+    AfterObjCDeclaration:	                     false
+    AfterStruct:	                             false
+    AfterUnion:	                                 false
+    BeforeCatch:	                             true
+    BeforeElse:	                                 false
+    IndentBraces:	                             false
 
 ---
 Language:                                        Cpp

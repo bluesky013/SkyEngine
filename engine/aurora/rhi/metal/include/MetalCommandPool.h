@@ -5,8 +5,8 @@
 #pragma once
 
 #include <aurora/rhi/CommandBuffer.h>
-#include <vector>
 #include <memory>
+#include <vector>
 
 namespace sky::aurora {
 
@@ -22,10 +22,13 @@ namespace sky::aurora {
         void PipelineBarrier(const BarrierInfo &info) override;
 
         std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
-        std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;
-        std::unique_ptr<BlitEncoder> CreateBlitEncoder() override;
+        std::unique_ptr<ComputeEncoder>  CreateComputeEncoder() override;
+        std::unique_ptr<BlitEncoder>     CreateBlitEncoder() override;
 
-        void *GetNativeHandle() const { return cmdBuffer; }    // id<MTLCommandBuffer>
+        void *GetNativeHandle() const
+        {
+            return cmdBuffer;
+        } // id<MTLCommandBuffer>
 
         // Backend-only: encoders call these on construction/destruction so the
         // command buffer can route in-encoder barriers and flush pending ones.
@@ -34,12 +37,12 @@ namespace sky::aurora {
         void NotifyEncoderEnd();
 
     private:
-        MetalDevice          &device;
-        void                 *queue          = nullptr;  // id<MTLCommandQueue>, not owned
-        void                 *cmdBuffer      = nullptr;  // id<MTLCommandBuffer>
-        void                 *activeEncoder  = nullptr;  // typed Obj-C encoder (render/compute/blit)
-        ActiveEncoderKind     activeKind     = ActiveEncoderKind::None;
-        std::vector<BarrierInfo> pendingBarriers;        // queued until next encoder begins
+        MetalDevice             &device;
+        void                    *queue         = nullptr; // id<MTLCommandQueue>, not owned
+        void                    *cmdBuffer     = nullptr; // id<MTLCommandBuffer>
+        void                    *activeEncoder = nullptr; // typed Obj-C encoder (render/compute/blit)
+        ActiveEncoderKind        activeKind    = ActiveEncoderKind::None;
+        std::vector<BarrierInfo> pendingBarriers; // queued until next encoder begins
     };
 
     class MetalCommandPool : public CommandPool {
@@ -47,15 +50,15 @@ namespace sky::aurora {
         MetalCommandPool(MetalDevice &device, void *queue);
         ~MetalCommandPool() override;
 
-        bool Init() override;
-        void Reset() override;
+        bool           Init() override;
+        void           Reset() override;
         CommandBuffer *Allocate() override;
 
     private:
-        MetalDevice &device;
-        void        *queue = nullptr;
-        std::vector<MetalCommandBuffer*> allocatedBuffers; // owned
-        std::vector<MetalCommandBuffer*> freeList;         // reusable after Reset
+        MetalDevice                      &device;
+        void                             *queue = nullptr;
+        std::vector<MetalCommandBuffer *> allocatedBuffers; // owned
+        std::vector<MetalCommandBuffer *> freeList;         // reusable after Reset
     };
 
 } // namespace sky::aurora

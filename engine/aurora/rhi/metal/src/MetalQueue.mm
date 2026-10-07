@@ -5,22 +5,19 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
-#include <MetalQueue.h>
-#include <MetalBuffer.h>
-#include <MetalImage.h>
-#include <MetalDevice.h>
-#include <MetalCommandPool.h>
-#include <MetalSync.h>
+#include "MetalBuffer.h"
+#include "MetalCommandPool.h"
+#include "MetalDevice.h"
+#include "MetalImage.h"
+#include "MetalQueue.h"
+#include "MetalSync.h"
 #include <aurora/rhi/SubmitInfo.h>
 
 #include <algorithm>
 
 namespace sky::aurora {
 
-    MetalQueue::MetalQueue(MetalDevice &dev, QueueType t, void *nativeQueue)
-        : device(dev)
-        , type(t)
-        , queue(nativeQueue)
+    MetalQueue::MetalQueue(MetalDevice &dev, QueueType t, void *nativeQueue) : device(dev), type(t), queue(nativeQueue)
     {
     }
 
@@ -28,8 +25,8 @@ namespace sky::aurora {
     {
         if (queue != nullptr) {
             id<MTLCommandQueue> q = (__bridge_transfer id<MTLCommandQueue>)queue;
-            q = nil;
-            queue = nullptr;
+            q                     = nil;
+            queue                 = nullptr;
         }
     }
 
@@ -47,8 +44,8 @@ namespace sky::aurora {
         mtlCmdBufs.reserve(info.commandBuffers.empty() ? 1 : info.commandBuffers.size());
 
         for (auto *cb : info.commandBuffers) {
-            auto *metalCB = static_cast<MetalCommandBuffer *>(cb);
-            id<MTLCommandBuffer> raw = (__bridge id<MTLCommandBuffer>)metalCB->GetNativeHandle();
+            auto                *metalCB = static_cast<MetalCommandBuffer *>(cb);
+            id<MTLCommandBuffer> raw     = (__bridge id<MTLCommandBuffer>)metalCB->GetNativeHandle();
             if (raw != nil) {
                 mtlCmdBufs.push_back(raw);
             }
@@ -64,11 +61,10 @@ namespace sky::aurora {
             id<MTLCommandBuffer> first = mtlCmdBufs.front();
             for (const auto &w : info.waitSemaphores) {
                 auto *sema = static_cast<MetalSemaphore *>(w.semaphore);
-                if (sema == nullptr) continue;
-                id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-                const uint64_t value = (sema->GetType() == SemaphoreType::TIMELINE)
-                                           ? w.value
-                                           : sema->GetBinaryWaitValue();
+                if (sema == nullptr)
+                    continue;
+                id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
+                const uint64_t     value = (sema->GetType() == SemaphoreType::TIMELINE) ? w.value : sema->GetBinaryWaitValue();
                 [first encodeWaitForEvent:ev value:value];
             }
         }
@@ -78,11 +74,10 @@ namespace sky::aurora {
             id<MTLCommandBuffer> last = mtlCmdBufs.back();
             for (const auto &s : info.signalSemaphores) {
                 auto *sema = static_cast<MetalSemaphore *>(s.semaphore);
-                if (sema == nullptr) continue;
-                id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-                const uint64_t value = (sema->GetType() == SemaphoreType::TIMELINE)
-                                           ? s.value
-                                           : sema->AdvanceBinarySignalValue();
+                if (sema == nullptr)
+                    continue;
+                id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
+                const uint64_t     value = (sema->GetType() == SemaphoreType::TIMELINE) ? s.value : sema->AdvanceBinarySignalValue();
                 [last encodeSignalEvent:ev value:value];
             }
         }
@@ -90,9 +85,9 @@ namespace sky::aurora {
         // Fence completion: encode a signal on a private MTLSharedEvent that the
         // fence's listener flips to host-visible "signaled".
         if (info.fence != nullptr) {
-            auto *fence = static_cast<MetalFence *>(info.fence);
-            const uint64_t v = fence->TakeNextValue();
-            id<MTLSharedEvent> ev = (__bridge id<MTLSharedEvent>)fence->GetSharedEvent();
+            auto              *fence = static_cast<MetalFence *>(info.fence);
+            const uint64_t     v     = fence->TakeNextValue();
+            id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)fence->GetSharedEvent();
             [mtlCmdBufs.back() encodeSignalEvent:ev value:v];
         }
 
@@ -103,8 +98,8 @@ namespace sky::aurora {
 
     void MetalQueue::WaitIdle()
     {
-        id<MTLCommandQueue> mtlQueue = (__bridge id<MTLCommandQueue>)queue;
-        id<MTLCommandBuffer> cb = [mtlQueue commandBuffer];
+        id<MTLCommandQueue>  mtlQueue = (__bridge id<MTLCommandQueue>)queue;
+        id<MTLCommandBuffer> cb       = [mtlQueue commandBuffer];
         if (cb == nil) {
             return;
         }
@@ -125,11 +120,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingMtl = static_cast<MetalBuffer *>(staging.Get());
+        auto     *stagingMtl = static_cast<MetalBuffer *>(staging.Get());
         if (stagingMtl == nullptr) {
             return 0;
         }
@@ -156,8 +151,8 @@ namespace sky::aurora {
         }
         cb->Begin();
         {
-            auto blit = cb->CreateBlitEncoder();
-            uint64_t src = 0;
+            auto     blit = cb->CreateBlitEncoder();
+            uint64_t src  = 0;
             for (const auto &req : requests) {
                 blit->CopyBuffer(stagingMtl, dst, req.size, src, req.dstOffset);
                 src += req.size;
@@ -200,11 +195,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingMtl = static_cast<MetalBuffer *>(staging.Get());
+        auto     *stagingMtl = static_cast<MetalBuffer *>(staging.Get());
         if (stagingMtl == nullptr) {
             return 0;
         }
@@ -236,28 +231,28 @@ namespace sky::aurora {
         barrier.srcStage = PipelineStageBit::TOP;
         barrier.dstStage = PipelineStageBit::TRANSFER;
         ImageBarrierInfo imageBarrier;
-        imageBarrier.image                = dst;
-        imageBarrier.subRange.baseLevel   = 0;
-        imageBarrier.subRange.levels      = maxLevel + 1;
-        imageBarrier.subRange.baseLayer   = 0;
-        imageBarrier.subRange.layers      = maxLayer + 1;
-        imageBarrier.srcAccess            = AccessFlagBit::NONE;
-        imageBarrier.dstAccess            = AccessFlagBit::COPY_DST;
-        imageBarrier.oldLayout            = ImageLayout::UNDEFINED;
-        imageBarrier.newLayout            = ImageLayout::TRANSFER_DST;
+        imageBarrier.image              = dst;
+        imageBarrier.subRange.baseLevel = 0;
+        imageBarrier.subRange.levels    = maxLevel + 1;
+        imageBarrier.subRange.baseLayer = 0;
+        imageBarrier.subRange.layers    = maxLayer + 1;
+        imageBarrier.srcAccess          = AccessFlagBit::NONE;
+        imageBarrier.dstAccess          = AccessFlagBit::COPY_DST;
+        imageBarrier.oldLayout          = ImageLayout::UNDEFINED;
+        imageBarrier.newLayout          = ImageLayout::TRANSFER_DST;
         barrier.imageBarriers.push_back(imageBarrier);
         cb->PipelineBarrier(barrier);
 
         {
-            auto blit = cb->CreateBlitEncoder();
+            auto                         blit = cb->CreateBlitEncoder();
             std::vector<BufferImageCopy> regions(requests.size());
-            uint64_t bufferOffset = 0;
+            uint64_t                     bufferOffset = 0;
             for (size_t i = 0; i < requests.size(); ++i) {
-                const auto &req    = requests[i];
-                auto       &region = regions[i];
-                region.bufferOffset      = bufferOffset;
-                region.bufferRowLength   = req.bufferRowLength;
-                region.bufferImageHeight = req.bufferImageHeight;
+                const auto &req           = requests[i];
+                auto       &region        = regions[i];
+                region.bufferOffset       = bufferOffset;
+                region.bufferRowLength    = req.bufferRowLength;
+                region.bufferImageHeight  = req.bufferImageHeight;
                 region.subRange.level     = req.mipLevel;
                 region.subRange.baseLayer = req.layer;
                 region.subRange.layers    = 1;
