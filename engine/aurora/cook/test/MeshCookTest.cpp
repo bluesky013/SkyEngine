@@ -221,8 +221,8 @@ TEST(MeshCookWriterTest, MeshAssetRoundTrip)
     EXPECT_EQ(loaded.meshletVertices, data.meshletVertices);
     EXPECT_EQ(loaded.meshletTriangles, data.meshletTriangles);
     ASSERT_EQ(loaded.meshletBounds.size(), data.meshletBounds.size());
-    EXPECT_FLOAT_EQ(loaded.bounds.min.x, data.bounds.min.x);
-    EXPECT_FLOAT_EQ(loaded.bounds.max.y, data.bounds.max.y);
+    EXPECT_FLOAT_EQ(loaded.bounds.center.x, data.bounds.center.x);
+    EXPECT_FLOAT_EQ(loaded.bounds.extent.y, data.bounds.extent.y);
 }
 
 TEST(MeshCookWriterTest, VersionMismatchRejected)
