@@ -22,14 +22,17 @@ documentation and/or software.
 
 #pragma once
 
+#include <cstdint>
+
 /* POINTER defines a generic pointer type */
 typedef unsigned char *POINTER;
 
 /* UINT2 defines a two byte word */
 typedef unsigned short int UINT2;
 
-/* UINT4 defines a four byte word */
-typedef unsigned long int UINT4;
+/* UINT4 defines a four byte word. Must be exactly 32-bit: 'unsigned long' is
+ * 64-bit on LP64 (macOS/Linux) and breaks the algorithm. */
+typedef uint32_t UINT4;
 
 /* MD5 context. */
 typedef struct {
