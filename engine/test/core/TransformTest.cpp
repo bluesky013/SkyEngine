@@ -17,10 +17,12 @@ TEST(TransformTest, BasicTest)
     Transform inverse = trans.GetInverse();
     Transform result  = trans * inverse;
 
-    ASSERT_FLOAT_EQ(result.rotation.w, 1.f);
-    ASSERT_FLOAT_EQ(result.rotation.x, 0.f);
-    ASSERT_FLOAT_EQ(result.rotation.y, 0.f);
-    ASSERT_FLOAT_EQ(result.rotation.z, 0.f);
+    // A * inverse is identity up to floating point error (~1e-9 on the
+    // near-zero components); ULP-based ASSERT_FLOAT_EQ is too strict near 0.
+    ASSERT_NEAR(result.rotation.w, 1.f, 1e-5f);
+    ASSERT_NEAR(result.rotation.x, 0.f, 1e-5f);
+    ASSERT_NEAR(result.rotation.y, 0.f, 1e-5f);
+    ASSERT_NEAR(result.rotation.z, 0.f, 1e-5f);
 }
 
 TEST(TransformTest, MatrixTest)

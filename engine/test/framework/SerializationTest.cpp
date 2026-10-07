@@ -75,7 +75,9 @@ TEST(SerializationTest, TypeTest)
    ASSERT_EQ(*GetValueRaw(reinterpret_cast<void*>(&v), typeId, "a").GetAs<uint32_t>(), 5U);
    ASSERT_EQ(*GetValueRaw(reinterpret_cast<void*>(&v), typeId, "b").GetAs<float>(), 6.f);
 
-   uint32_t **vc = GetValueRaw(reinterpret_cast<void*>(&v), typeId, "c").GetAs<uint32_t*>();
+   // Any stores the value by copy; keep it alive while dereferencing GetAs.
+   Any        cValue = GetValueRaw(reinterpret_cast<void*>(&v), typeId, "c");
+   uint32_t **vc     = cValue.GetAs<uint32_t*>();
    ASSERT_NE(vc, nullptr);
    ASSERT_EQ(*vc, nullptr);
 }
