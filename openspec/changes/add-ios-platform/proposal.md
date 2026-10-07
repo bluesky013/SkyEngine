@@ -16,11 +16,7 @@ Apple 平台目前**只有 macOS 完整支持**，iOS 处于「仅核心识别�
 
 ## What Changes
 
-- **iOS 平台层**：新增 `engine/framework/platform/ios`（`IOSPlatform` + `IOSWindow`），基于 UIKit：
-  - `UIApplicationMain` + AppDelegate 驱动事件循环（`PollEvent`）；
-  - 内容 `UIView` 的 `layerClass` 为 `CAMetalLayer`；`GetNativeHandle()` 返回该 `CAMetalLayer`（与 macOS/Metal swapchain 及 MoltenVK `VK_EXT_metal_surface` 一致）；
-  - 触摸映射为引擎事件（按下/抬起/移动 → 现有 `Mouse*`/或新增触摸事件），键盘（软键盘）经 `UIKeyInput`/`UITextInput` 映射到 `IKeyboardEvent`（含 `OnTextInput`）。
-- **CMake 拆分**：`Darwin` 分支按 `CMAKE_SYSTEM_NAME` 区分 `macOS`（`platform/macos/*`）与 `iOS`（`platform/ios/*`），并加 iOS 系统 framework（`UIKit`、`QuartzCore`、`Metal`、`Foundation`）。
+- **iOS 平台层（委托 `add-ios-uikit-backend`）**：UIKit 窗口/事件后端（`IOSPlatform`/`IOSWindow`、`CAMetalLayer` 句柄、`CADisplayLink` 帧驱动、触摸/软键盘、生命周期、框架 CMake iOS 分支/ARC）由 `add-ios-uikit-backend` 实现；本 change 只保留其**表面契约**（`GetNativeHandle()` 返回 `CAMetalLayer`）与其余 iOS 支撑。
 - **启动器**：新增 `engine/launcher/ios`（`main.mm` + AppDelegate 承载 view），复用 `Application`/模块加载。
 - **三方集**：为运行期包补齐 `IOS` 平台（或说明经 Xcode 交叉构建的路径）；`-D3RD_PATH` 指向 iOS 产物。
 - **RHI 验证**：`Aurora.Metal` 在 iOS 上构建并渲染到 `CAMetalLayer`；swapchain/RDG 在移动端可用。
@@ -29,12 +25,12 @@ Apple 平台目前**只有 macOS 完整支持**，iOS 处于「仅核心识别�
 
 ### Modified Capabilities
 
-- `native-platform-backend`: 新增 iOS（UIKit）窗口/事件后端要求——`GetNativeHandle()` 返回 `CAMetalLayer`；事件循环由 `UIApplicationMain` 驱动；触摸/软键盘映射到引擎事件。
+- `native-platform-backend`: 新增 iOS **RHI 表面契约**——`GetNativeHandle()` 返回 `CAMetalLayer`（后端细节见 `ios-uikit-backend`）。
 
 ## Impact
 
-- 新增 `engine/framework/platform/ios/**`、`engine/launcher/ios/**`
-- `engine/framework/CMakeLists.txt`（Darwin/iOS 分支）、`engine/launcher/CMakeLists.txt`
+- 新增 `engine/launcher/ios/**`；UIKit 后端 `engine/framework/platform/ios/**` 由 `add-ios-uikit-backend` 交付
+- `engine/launcher/CMakeLists.txt`（iOS launcher）
 - `cmake/thirdparty.json`（IOS 运行期包）、可能的 iOS 部署/打包脚本
 - `Aurora.Metal` 在 iOS 的构建与移动端验证
-- 依赖：`native-platform-backend`（接口）、`aurora-rhi-metal`（后端）
+- 依赖：`add-ios-uikit-backend`（UIKit 后端/CMake）、`native-platform-backend`（接口）、`aurora-rhi-metal`（后端）

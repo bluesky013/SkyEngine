@@ -2,24 +2,16 @@
 
 ## ADDED Requirements
 
-### Requirement: iOS (UIKit) window backend
-The framework SHALL provide an iOS window/event backend based on UIKit, behind the existing
-`NativeWindow`/`PlatformBase` interfaces (no interface change). The content view SHALL be backed by a
-`CAMetalLayer` and `GetNativeHandle()` SHALL return that layer (same contract as macOS). The event loop SHALL be
-driven by `UIApplicationMain`, not `NSApplication`.
+### Requirement: iOS RHI surface contract
+On iOS, `NativeWindow::GetNativeHandle()` SHALL return the window's `CAMetalLayer` (the same surface contract as
+macOS), so the Metal swapchain and the MoltenVK `VK_EXT_metal_surface` path can create their surface unchanged.
+The iOS window/event backend that provides this handle — and its frame loop, input mapping, DPI and lifecycle — is
+specified by the `ios-uikit-backend` capability (change `add-ios-uikit-backend`).
 
 #### Scenario: iOS surface handle
-- **WHEN** an `IOSWindow` is created
-- **THEN** its view's backing layer SHALL be a `CAMetalLayer`, and `GetNativeHandle()` SHALL return it so the RHI can create a Metal surface
+- **WHEN** a window is created on iOS
+- **THEN** `GetNativeHandle()` SHALL return its `CAMetalLayer`
 
-#### Scenario: UIKit event loop
-- **WHEN** the app runs on iOS
-- **THEN** `Platform::PollEvent` SHALL drain UIKit events with `UIApplicationMain` owning the outer loop
-
-#### Scenario: Touch and soft keyboard
-- **WHEN** the user touches the screen or uses the soft keyboard
-- **THEN** the backend SHALL emit engine mouse/touch and keyboard (`OnKeyDown/Up`, `OnTextInput`) events
-
-#### Scenario: DPI scale
-- **WHEN** the display scale differs (e.g. @2x/@3x)
-- **THEN** `GetDpiScale()` SHALL report the current `UIScreen` scale
+#### Scenario: RHI consumes the handle unchanged
+- **WHEN** the RHI creates a Metal/Vulkan surface for the iOS window
+- **THEN** it SHALL use the handle from `GetNativeHandle()` without platform-specific handling
