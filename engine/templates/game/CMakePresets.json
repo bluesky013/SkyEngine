@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "SKY_ENGINE_ROOT": "$env{SKY_ENGINE_ROOT}",
+        "SKY_BUILD_EDITOR": "OFF"
+      }
+    },
+    {
+      "name": "macos",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "windows",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "macos", "configurePreset": "macos" },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
+    { "name": "linux", "configurePreset": "linux" }
+  ]
+}

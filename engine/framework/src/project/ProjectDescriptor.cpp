@@ -5,6 +5,7 @@
 #include <framework/project/ProjectDescriptor.h>
 
 #include <framework/platform/PlatformBase.h>
+#include <framework/project/ProjectScaffold.h>
 
 #include <rapidjson/document.h>
 
@@ -190,7 +191,11 @@ namespace sky {
         descriptor.name          = name;
         descriptor.engineVersion = kEngineVersion;
         descriptor.filePath      = (root / (name + ".skyproj")).string();
+        descriptor.modules       = { ProjectScaffold::ModuleName(name) };
         if (!descriptor.Write(descriptor.filePath)) {
+            return false;
+        }
+        if (!ProjectScaffold::Scaffold(root.string(), name)) {
             return false;
         }
         skyprojPath = descriptor.filePath;

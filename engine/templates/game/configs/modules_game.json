@@ -1,0 +1,28 @@
+{
+  "modules": [
+    {
+      "name": "Aurora.ShaderCompiler",
+      "dependencies": []
+    },
+    {
+      "name": "FreeTypeModule",
+      "dependencies": ["Aurora.Render"]
+    },
+    {
+      "name": "AudioModule",
+      "dependencies": []
+    },
+    {
+      "name": "BulletPhysicsModule",
+      "dependencies": []
+    },
+    {
+      "name": "RecastNavigation",
+      "dependencies": []
+    },
+    {
+      "name": "{{PROJECT_NAME}}Module",
+      "dependencies": []
+    }
+  ]
+}

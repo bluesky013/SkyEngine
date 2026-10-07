@@ -1,0 +1,41 @@
+# Delta: game-project-build
+
+## ADDED Requirements
+
+### Requirement: Project scaffolding generates a game module project
+
+Creating a project SHALL generate, in addition to the existing `assets/`/`configs/`/`cache/`/`<name>.skyproj`, a
+`source/` tree containing a Game module skeleton and a project-level build entry, so the project's game code is
+compilable on every supported platform. The scaffolded files SHALL come from a single engine template
+(`engine/templates/game/`).
+
+#### Scenario: New project has a source tree
+
+- **WHEN** a new project `TestProject` is created
+- **THEN** `TestProject/source/` SHALL contain a `<Name>Module` module (headers, sources, `CMakeLists.txt`) and `TestProject/` SHALL contain a build entry (`CMakeLists.txt` / `CMakePresets.json`)
+
+#### Scenario: Module is registered
+
+- **WHEN** the scaffold is generated
+- **THEN** the `<name>.skyproj` `modules` list and the project `configs/modules_game.json` SHALL include the game module id
+
+### Requirement: Game module builds cross-platform as a loadable shared module
+
+The generated game module SHALL build as a SHARED library exporting `StartModule`/`StopModule` (via
+`REGISTER_MODULE`) and SHALL be loadable by `ModuleManager`. The project build SHALL reuse the engine's CMake
+helpers and third-party flow (`3RD_PATH`) and SHALL support the engine's platform set.
+
+#### Scenario: Build a module per platform
+
+- **WHEN** the project is configured/built for a supported platform (Win32/macOS/Linux/Android)
+- **THEN** it SHALL produce the game module as that platform's shared library
+
+#### Scenario: Runtime load
+
+- **WHEN** the launcher starts with the project
+- **THEN** `ModuleManager` SHALL load the game module by name and the module's `Tick` SHALL run
+
+#### Scenario: Engine reference
+
+- **WHEN** the project build resolves the engine
+- **THEN** it SHALL use the engine source tree via `SKY_ENGINE_ROOT` (initial `add_subdirectory` approach)

@@ -43,6 +43,14 @@ if (NOT ANDROID)
         COMMENT "Deploying builtin engine configs"
     )
 
+    # Deploy the project templates so ProjectScaffold can generate game projects.
+    add_custom_command(TARGET Launcher POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/engine/templates
+            $<TARGET_FILE_DIR:Launcher>/templates
+        COMMENT "Deploying project templates"
+    )
+
     # When the sandbox editor is built, deploy its builtin resources too so
     # `Launcher --app editor` resolves the editor fonts/icons.
     if (SKY_BUILD_SANDBOX)

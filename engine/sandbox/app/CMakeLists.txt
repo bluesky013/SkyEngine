@@ -46,3 +46,11 @@ add_custom_command(TARGET SandboxEditor POST_BUILD
         -P ${CMAKE_CURRENT_SOURCE_DIR}/deploy_resources.cmake
     COMMENT "Deploying engine assets + configs"
 )
+
+# Deploy the project templates so ProjectScaffold can generate game projects.
+add_custom_command(TARGET SandboxEditor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/engine/templates
+        $<TARGET_FILE_DIR:SandboxEditor>/templates
+    COMMENT "Deploying project templates"
+)
