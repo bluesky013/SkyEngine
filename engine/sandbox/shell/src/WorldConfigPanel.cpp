@@ -20,11 +20,6 @@ namespace sky::editor {
     namespace uc = uidraw;
 
     namespace {
-        // Checkbox geometry within a row (left-aligned) and the name text offset.
-        constexpr float kCheckPad  = 2.0f;
-        constexpr float kCheckSize = 14.0f;
-        constexpr float kNameX     = 22.0f;
-
         std::vector<Name> RegistryNames()
         {
             return WorldSubSystemRegistry::Get().GetNames();
@@ -56,21 +51,27 @@ namespace sky::editor {
     sky::ui::UIRect WorldConfigPanel::ListRect() const
     {
         const sky::ui::UIRect &b = GetBounds();
-        return sky::ui::UIRect{b.left, b.top + kTop, b.left + kListW, b.bottom};
+        const UiMetrics       &m = skin.Theme().metrics;
+        return sky::ui::UIRect{b.left, b.top + m.headerHeight, b.left + m.listColumnWidth, b.bottom};
     }
 
     sky::ui::UIRect WorldConfigPanel::RowRect(int index) const
     {
-        const sky::ui::UIRect list = ListRect();
-        const float           top  = list.top + static_cast<float>(index) * kRowH;
-        return sky::ui::UIRect{list.left + 4.0f, top, list.right - 4.0f, top + kRowH - 2.0f};
+        const UiMetrics      &m     = skin.Theme().metrics;
+        const sky::ui::UIRect list  = ListRect();
+        const float           inset = m.controlPad * 0.5f;
+        const float           top   = list.top + static_cast<float>(index) * m.rowHeight;
+        return sky::ui::UIRect{list.left + inset, top, list.right - inset, top + m.rowHeight - m.checkboxPad};
     }
 
     sky::ui::UIRect WorldConfigPanel::CheckRect(int index) const
     {
+        const UiMetrics      &m   = skin.Theme().metrics;
         const sky::ui::UIRect row = RowRect(index);
         const float           cy  = (row.top + row.bottom) * 0.5f;
-        return sky::ui::UIRect{row.left + kCheckPad, cy - kCheckSize * 0.5f, row.left + kCheckPad + kCheckSize, cy + kCheckSize * 0.5f};
+        const float           pad = m.checkboxPad;
+        const float           sz  = m.checkboxSize;
+        return sky::ui::UIRect{row.left + pad, cy - sz * 0.5f, row.left + pad + sz, cy + sz * 0.5f};
     }
 
     int WorldConfigPanel::RowAt(float x, float y) const
@@ -203,12 +204,12 @@ namespace sky::editor {
             const bool inDesc = doc->IsSubSystemEnabled(std::string(names[static_cast<std::size_t>(i)].GetStr()), flag);
             skin.DrawCheckbox(context, CheckRect(i), !inDesc || flag, false);
             uc::Text(context, std::string(names[static_cast<std::size_t>(i)].GetStr()), th.fonts.label,
-                     sky::ui::UIRect{row.left + kNameX, row.top, row.right, row.bottom}, th.colors.text, textSystem, uc::HAlign::Left,
-                     uc::VAlign::Middle, true);
+                     sky::ui::UIRect{row.left + th.metrics.listLabelIndent, row.top, row.right, row.bottom}, th.colors.text, textSystem,
+                     uc::HAlign::Left, uc::VAlign::Middle, true);
         }
 
         // The reflected-form child occupies the right pane.
-        formView->SetBounds(sky::ui::UIRect{content.left + kListW, content.top, content.right, content.bottom});
+        formView->SetBounds(sky::ui::UIRect{content.left + th.metrics.listColumnWidth, content.top, content.right, content.bottom});
         formView->SetVisible(!names.empty());
     }
 

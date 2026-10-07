@@ -11,10 +11,13 @@
 #include <core/cmdline/CmdParser.h>
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
+#include <editor/core/EditorCore.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
+#include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/layout/LayoutPersistence.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/resource/SandboxResources.h>
+#include <editor/shell/UiTheme.h>
 
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
@@ -23,11 +26,18 @@
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/window/NativeWindowManager.h>
+#include <ui/IUITextureRegistry.h>
 #include <ui/UILayout.h>
+#include <ui/text/UITextSystem.h>
 
 #include <core/file/FileSystem.h>
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+
+#include <nanosvg/nanosvg.h>
+#include <nanosvg/nanosvgrast.h>
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -38,6 +48,33 @@ static const char *TAG = "SandboxModule";
 namespace sky::editor {
 
     namespace {
+        // Rasterizes an editor SVG icon into an RGBA8 image (nanosvg).
+        bool RasterizeSvg(const std::string &path, uint32_t size, sky::ui::UIImageData &out)
+        {
+            std::ifstream file(path, std::ios::binary);
+            if (!file) {
+                return false;
+            }
+            std::string svg((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            if (svg.empty()) {
+                return false;
+            }
+            NSVGimage *image = nsvgParse(svg.data(), "px", 96.0f);
+            if (image == nullptr) {
+                return false;
+            }
+            NSVGrasterizer *rasterizer = nsvgCreateRasterizer();
+            out.width                  = size;
+            out.height                 = size;
+            out.pixels.assign(static_cast<std::size_t>(size) * size * 4u, 0);
+            const float scale = static_cast<float>(size) / std::max(image->width, image->height);
+            nsvgRasterize(rasterizer, image, 0.0f, 0.0f, scale, out.pixels.data(), static_cast<int>(size), static_cast<int>(size),
+                          static_cast<int>(size * 4u));
+            nsvgDeleteRasterizer(rasterizer);
+            nsvgDelete(image);
+            return true;
+        }
+
         // The UI widgets (EditBox, ReflectedFormView, FileBrowserDialog) expect
         // virtual-key codes. Map the platform ScanCode enum (framework/window/
         // IWindowEvent.h) to VK once here so every consumer sees the same keys.
@@ -255,14 +292,14 @@ namespace sky::editor {
         }
         initialized = true;
 
-        // DPI scale = dpi / 96 (96 = 100%).
-        uiScale = 1.0f;
+        // System DPI scale = dpi / 96 (96 = 100%); SKY_UI_SCALE overrides it for dev.
+        systemUiScale = 1.0f;
 #if defined(_WIN32)
         if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
             if (void *handle = system->GetMainWindowHandle()) {
                 const UINT dpi = ::GetDpiForWindow(static_cast<HWND>(handle));
                 if (dpi > 0) {
-                    uiScale = static_cast<float>(dpi) / 96.0f;
+                    systemUiScale = static_cast<float>(dpi) / 96.0f;
                 }
             }
         }
@@ -270,9 +307,10 @@ namespace sky::editor {
         if (const char *env = std::getenv("SKY_UI_SCALE")) {
             const float value = static_cast<float>(std::atof(env));
             if (value >= 0.5f && value <= 4.0f) {
-                uiScale = value;
+                systemUiScale = value;
             }
         }
+        uiScale = EffectiveUiScale();
 
         // No project -> hub (Project Manager); otherwise the editor shell.
         bool ok = false;
@@ -296,6 +334,10 @@ namespace sky::editor {
     bool SandboxModule::BuildHub()
     {
         ProjectRegistry::Get()->Load();
+
+        // The hub has no EditorShell, so apply the DPI/UI scale to the default
+        // theme directly (the hub built its views at 1.0 before).
+        SetDefaultUiTheme(MakeDarkTheme(EffectiveUiScale()));
 
         hubContext = std::make_unique<sky::ui::UIContext>();
         auto view  = std::make_unique<ProjectManagerView>();
@@ -343,6 +385,16 @@ namespace sky::editor {
         }
         const std::string cfg = Platform::Get() != nullptr ? Platform::Get()->GetUserConfigPath() : std::string{};
         return cfg.empty() ? std::string(".") : (std::filesystem::path(cfg) / "skyengine").string();
+    }
+
+    float SandboxModule::EffectiveUiScale() const
+    {
+        double pref = 1.0;
+        if (preferenceStore != nullptr) {
+            preferenceStore->GetFloat("editor.uiScale", pref);
+        }
+        const float scale = systemUiScale * static_cast<float>(pref);
+        return scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
     }
 
     void SandboxModule::NewWorld()
@@ -466,6 +518,7 @@ namespace sky::editor {
         PreferenceSection editorMain;
         editorMain.id    = "editor.main";
         editorMain.title = "Editor";
+        editorMain.entries.push_back({"editor.uiScale", "UI Scale", PreferenceValue::Float(1.0), 0.5, 2.0});
         editorMain.entries.push_back({"editor.gridSize", "Grid Size", PreferenceValue::Float(10.0), 1.0, 100.0});
         editorMain.entries.push_back({"editor.snap", "Snap", PreferenceValue::Bool(true)});
         editorMain.entries.push_back({"editor.undoDepth", "Undo Depth", PreferenceValue::Int(32), 1.0, 256.0});
@@ -555,6 +608,9 @@ namespace sky::editor {
             }
         }
 
+        // Snapshot the built-in default so View > Reset Layout restores it.
+        layoutModel.CaptureDefault();
+
         // Per-user layout: restore a saved arrangement when present/valid, else
         // keep the default built above.
         layoutPath = LayoutPersistence::GetDefaultPath();
@@ -566,12 +622,25 @@ namespace sky::editor {
         }
 
         shell.SetTextSystem(renderer.GetTextSystem());
+
+        // Register editor SVG icons as textures for the toolbar (see editor-toolbar.md).
+        if (sky::ui::UITextSystem *text = renderer.GetTextSystem()) {
+            if (sky::ui::IUITextureRegistry *registry = text->GetRegistry()) {
+                static const char *kIcons[] = {"open", "save", "undo", "redo", "play", "pause", "stop"};
+                for (const char *name : kIcons) {
+                    sky::ui::UIImageData image;
+                    if (RasterizeSvg(SandboxResources::Resolve(std::string("icons/") + name + ".svg"), 48u, image)) {
+                        shell.SetIcon(name, registry->RegisterTexture(image));
+                    }
+                }
+            }
+        }
+
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
         static RegisteredPropertySource propertySource;
         shell.SetPropertySource(&propertySource);
-        shell.SetUiScale(uiScale);
         shell.SetStatusInfo(project.name, rhiName, "Edit");
         // A closed floating window re-docks its panel into the main window.
         renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
@@ -586,6 +655,8 @@ namespace sky::editor {
         RegisterPreferencePages();
         preferenceStore = std::make_unique<PreferenceStore>(&preferenceRegistry);
         LoadPreferences();
+        uiScale = EffectiveUiScale();
+        shell.SetUiScale(uiScale);
         shell.SetPreferences(&preferenceRegistry, preferenceStore.get(), [this]() { SavePreferences(); });
         shell.SetNewWorldHandler([this]() { NewWorld(); });
         shell.SetOpenWorldHandler([this]() { OpenWorld(); });
@@ -600,6 +671,8 @@ namespace sky::editor {
                 system->SetExit();
             }
         });
+        shell.SetUndoHandler([]() { EditorCore::GetCommandService().Undo(); });
+        shell.SetRedoHandler([]() { EditorCore::GetCommandService().Redo(); });
 
         // Play-In-Editor: the session duplicates the edit world and ticks it.
         playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
@@ -623,6 +696,31 @@ namespace sky::editor {
             }
         });
         RefreshDocumentInfo();
+
+        // Toolbar actions (see docs/editor/editor-toolbar.md). Plugins contribute
+        // through EditorActionRegistry in their EditorExtension::Register().
+        EditorActionRegistry &actions = *EditorActionRegistry::Get();
+        actions.Clear();
+        actions.Add({"file.open", "Open", "open", "file", 0, nullptr, [this]() { OpenWorld(); }});
+        actions.Add({"file.save", "Save", "save", "file", 10, nullptr, [this]() { SaveWorld(); }});
+        actions.Add({"edit.undo", "Undo", "undo", "history", 0, []() { return EditorCore::GetCommandService().CanUndo(); },
+                     []() { EditorCore::GetCommandService().Undo(); }});
+        actions.Add({"edit.redo", "Redo", "redo", "history", 10, []() { return EditorCore::GetCommandService().CanRedo(); },
+                     []() { EditorCore::GetCommandService().Redo(); }});
+        actions.Add({"play.play", "Play", "play", "play", 0, [this]() { return playSession.GetState() != PlayState::Playing; },
+                     [this]() {
+                         if (playSession.Play()) {
+                             LOG_I(TAG, "PIE play");
+                         }
+                         shell.SetPlayState(playSession.GetState());
+                     }});
+        actions.Add({"play.pause", "Pause", "pause", "play", 10, [this]() { return playSession.GetState() == PlayState::Playing; },
+                     [this]() {
+                         playSession.Pause();
+                         shell.SetPlayState(playSession.GetState());
+                     }});
+        actions.Add(
+            {"play.stop", "Stop", "stop", "play", 20, [this]() { return playSession.GetState() != PlayState::Editing; }, [this]() { StopPlay(); }});
 
         shell.RegisterBuiltinPanelViews();
         shellTarget = MakeShellTarget(&shell);
@@ -852,6 +950,8 @@ namespace sky::editor {
             playSession.Tick(delta);
             // Reflect document edits (-> title/status dirty marker).
             RefreshDocumentInfo();
+            // Refresh the toolbar items' enabled state (Undo/Redo/Play/...).
+            shell.RefreshActions();
         }
 
         // Coalesced end-of-frame auto-save: only after a committed layout edit.

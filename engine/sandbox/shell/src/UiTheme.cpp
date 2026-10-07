@@ -2,8 +2,8 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/shell/UiTheme.h>
 #include <editor/shell/UiDraw.h>
+#include <editor/shell/UiTheme.h>
 
 #include <algorithm>
 
@@ -14,10 +14,11 @@ namespace sky::editor {
     UiTheme MakeDarkTheme(float scale)
     {
         UiTheme theme;
-        theme.name = "dark";
-        scale = scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
+        theme.name  = "dark";
+        scale       = scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
+        theme.scale = scale;
 
-        UiColors &c = theme.colors;
+        UiColors &c    = theme.colors;
         c.window       = uidraw::RGB(0x1E, 0x1E, 0x1E);
         c.panel        = uidraw::RGB(0x25, 0x25, 0x26);
         c.header       = uidraw::RGB(0x2D, 0x2D, 0x30);
@@ -53,39 +54,93 @@ namespace sky::editor {
         c.error        = uidraw::RGB(0xE0, 0x40, 0x40);
         c.white        = uidraw::RGB(0xFF, 0xFF, 0xFF);
 
-        UiMetrics &m = theme.metrics;
-        m.panelHeaderHeight *= scale;
-        m.headerHeight *= scale;
-        m.sectionHeight *= scale;
-        m.rowHeight *= scale;
-        m.tabHeaderHeight *= scale;
-        m.popupItemHeight *= scale;
-        m.panelRadius *= scale;
-        m.panelGap *= scale;
-        m.padX *= scale;
-        m.controlPad *= scale;
-        m.indentX *= scale;
-        m.scrollBarWidth *= scale;
-        m.rowRadius *= scale;
-        m.fieldRadius *= scale;
-        m.sectionRadius *= scale;
-        m.buttonRadius *= scale;
-        m.popupRadius *= scale;
-        m.checkboxRadius *= scale;
-        m.swatchRadius *= scale;
-        m.checkboxSize *= scale;
-        m.sliderTrackHeight *= scale;
-        m.sliderKnobWidth *= scale;
+        theme.metrics.Scale(scale);
 
-        UiFonts &f = theme.fonts;
+        UiFonts   &f  = theme.fonts;
         const auto sf = [scale](uint32_t v) { return static_cast<uint32_t>(v * scale + 0.5f); };
-        f.title = std::max<uint32_t>(1, sf(f.title));
-        f.section = std::max<uint32_t>(1, sf(f.section));
-        f.label = std::max<uint32_t>(1, sf(f.label));
-        f.value = std::max<uint32_t>(1, sf(f.value));
-        f.small = std::max<uint32_t>(1, sf(f.small));
-        f.tiny = std::max<uint32_t>(1, sf(f.tiny));
+        f.banner      = std::max<uint32_t>(1, sf(f.banner));
+        f.title       = std::max<uint32_t>(1, sf(f.title));
+        f.section     = std::max<uint32_t>(1, sf(f.section));
+        f.label       = std::max<uint32_t>(1, sf(f.label));
+        f.value       = std::max<uint32_t>(1, sf(f.value));
+        f.small       = std::max<uint32_t>(1, sf(f.small));
+        f.tiny        = std::max<uint32_t>(1, sf(f.tiny));
         return theme;
+    }
+
+    void UiMetrics::Scale(float scale)
+    {
+        const auto s = [scale](float &v) { v *= scale; };
+
+        s(panelHeaderHeight);
+        s(headerHeight);
+        s(sectionHeight);
+        s(rowHeight);
+        s(tabHeaderHeight);
+        s(popupItemHeight);
+        s(popupMinWidth);
+        s(popupMaxHeight);
+        s(panelRadius);
+        s(panelGap);
+
+        s(padX);
+        s(controlPad);
+        s(indentX);
+        s(indentSmall);
+        s(scrollBarWidth);
+        s(itemSpacing);
+        s(cellPadding);
+        s(hairline);
+        s(frameHeight);
+        s(iconSize);
+
+        s(rowRadius);
+        s(fieldRadius);
+        s(sectionRadius);
+        s(buttonRadius);
+        s(popupRadius);
+        s(checkboxRadius);
+        s(swatchRadius);
+
+        s(checkboxSize);
+        s(checkboxPad);
+        s(sliderTrackHeight);
+        s(sliderKnobWidth);
+        s(buttonMinWidth);
+        s(sliderValueWidth);
+
+        s(listColumnWidth);
+        s(listLabelIndent);
+
+        s(dialogMargin);
+        s(titleBarHeight);
+        s(footerHeight);
+        s(toolbarHeight);
+        s(sidebarWidth);
+        s(listHeaderHeight);
+        s(formLabelWidth);
+        s(dialogMinWidth);
+        s(dialogMinHeight);
+        s(fieldWidth);
+        s(iconButtonWidth);
+        s(controlButtonWidth);
+        s(fileBrowserPanelWidth);
+        s(fileBrowserPanelHeight);
+        s(preferencesPanelWidth);
+        s(preferencesPanelHeight);
+        s(newWorldPanelWidth);
+        s(newWorldPanelHeight);
+        s(categoryWidth);
+        s(categoryRowHeight);
+        s(preferenceRowHeight);
+        s(colorRowHeight);
+
+        s(bannerHeight);
+        s(hubActionBarHeight);
+        s(hubHeaderHeight);
+        s(hubRowHeight);
+        s(hubButtonWidth);
+        s(hubActionWidth);
     }
 
     namespace {
@@ -106,6 +161,11 @@ namespace sky::editor {
     void SetDefaultUiTheme(const UiTheme &theme)
     {
         MutableDefaultTheme() = theme;
+    }
+
+    float GetThemeScale()
+    {
+        return GetDefaultUiTheme().scale;
     }
 
 } // namespace sky::editor

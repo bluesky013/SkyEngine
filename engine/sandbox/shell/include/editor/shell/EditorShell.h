@@ -16,6 +16,7 @@
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
 #include <framework/window/Cursor.h>
+#include <ui/UIDrawData.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
 
@@ -112,6 +113,21 @@ namespace sky::editor {
         {
             quitHandler = std::move(handler);
         }
+
+        // Undo/Redo: invoked by the toolbar / Edit menu and Ctrl+Z / Ctrl+Y.
+        void SetUndoHandler(std::function<void()> handler)
+        {
+            undoHandler = std::move(handler);
+        }
+        void SetRedoHandler(std::function<void()> handler)
+        {
+            redoHandler = std::move(handler);
+        }
+        // Refreshes the toolbar items' enabled state from the action registry.
+        void RefreshActions();
+
+        // Icon registry (name -> UI texture), used to draw toolbar action icons.
+        void SetIcon(const std::string &name, sky::ui::UITextureId texture);
 
         // Opens the "New World" create dialog. The callback receives the full
         // world file path.
@@ -235,6 +251,9 @@ namespace sky::editor {
         // none. Used to route input while a modal is open.
         sky::ui::UIElement *ActiveModal() const;
 
+        // Texture for a registered icon name (UI_INVALID_TEXTURE if unknown).
+        sky::ui::UITextureId ResolveIcon(const std::string &name) const;
+
         // One layout tab: an optional header row plus the active panel's body.
         struct Slot {
             sky::ui::UIElement      *header = nullptr;
@@ -278,17 +297,18 @@ namespace sky::editor {
         void ApplyTabDrop(float x, float y);
         int  FindSlotAt(float x, float y) const;
 
-        std::unique_ptr<sky::ui::UIContext>     context;
-        std::unique_ptr<sky::ui::UIEventRouter> eventRouter;
-        LayoutModel                            *layoutModel       = nullptr;
-        PanelRegistry                          *panelRegistry     = nullptr;
-        sky::ui::UITextSystem                  *textSystem        = nullptr;
-        SelectionService                       *selection         = nullptr;
-        LogService                             *logService        = nullptr;
-        CommandController                      *commandController = nullptr;
-        PropertyModel                          *inspectorModel    = nullptr;
-        IEditorPropertySource                  *propertySource    = nullptr;
-        float                                   uiScale           = 1.0f;
+        std::unique_ptr<sky::ui::UIContext>                   context;
+        std::unique_ptr<sky::ui::UIEventRouter>               eventRouter;
+        LayoutModel                                          *layoutModel   = nullptr;
+        PanelRegistry                                        *panelRegistry = nullptr;
+        sky::ui::UITextSystem                                *textSystem    = nullptr;
+        std::unordered_map<std::string, sky::ui::UITextureId> icons;
+        SelectionService                                     *selection         = nullptr;
+        LogService                                           *logService        = nullptr;
+        CommandController                                    *commandController = nullptr;
+        PropertyModel                                        *inspectorModel    = nullptr;
+        IEditorPropertySource                                *propertySource    = nullptr;
+        float                                                 uiScale           = 1.0f;
 
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
         // View registry: views not currently attached to the main context. Views
@@ -314,6 +334,7 @@ namespace sky::editor {
         float                                          dragStartX         = 0.0f;
         float                                          dragStartY         = 0.0f;
         sky::ui::UIElement                            *menuBarElement     = nullptr;
+        sky::ui::UIElement                            *toolBarElement     = nullptr;
         sky::ui::UIElement                            *statusBarElement   = nullptr;
         FileBrowserDialog                             *fileBrowserElement = nullptr;
         std::function<void(const FileBrowserResult &)> browserCallback;
@@ -331,6 +352,8 @@ namespace sky::editor {
         std::function<void()> saveWorldHandler;
         std::function<void()> closeWorldHandler;
         std::function<void()> quitHandler;
+        std::function<void()> undoHandler;
+        std::function<void()> redoHandler;
         std::function<void()> playHandler;
         std::function<void()> pauseHandler;
         std::function<void()> stopHandler;

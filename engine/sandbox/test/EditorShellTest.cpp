@@ -15,6 +15,7 @@
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
+#include <editor/shell/widgets/ToolBar.h>
 #include <filesystem>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/WorldSubSystemRegistry.h>
@@ -286,10 +287,11 @@ TEST(EditorShellTest, TabCloseAffordance)
     shell.Rebuild();
     shell.Layout(800.0f, 600.0f);
 
-    // Header row (content top + header height); first tab cell spans x in [0,400);
-    // its close box sits at x >= 382.
-    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 390.0f, 37.0f));
-    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 390.0f, 37.0f));
+    // Header row is below the menu bar (24) + toolbar; first tab cell spans
+    // x in [0,400) and its close box sits at x >= 382.
+    const float headerRowY = 24.0f + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 390.0f, headerRowY));
+    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 390.0f, headerRowY));
     shell.Layout(800.0f, 600.0f);
 
     std::vector<std::string> panels;
@@ -320,7 +322,8 @@ TEST(EditorShellTest, DragTabDocksIntoOtherTab)
     shell.Layout(800.0f, 600.0f);
 
     // Tab1 header is the left half; its second cell ("b") spans x in [200,400).
-    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 300.0f, 37.0f));
+    const float headerRowY = 24.0f + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 300.0f, headerRowY));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::MOVE, 600.0f, 300.0f));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 600.0f, 300.0f));
     shell.Layout(800.0f, 600.0f);
@@ -608,6 +611,24 @@ TEST(EditorShellTest, CtrlWInvokesCloseWorldHandler)
     EXPECT_EQ(closes, 1);
 }
 
+TEST(EditorShellTest, UiMetricsScaleDoublesDimensionsAndFonts)
+{
+    UiMetrics scaled;
+    scaled.Scale(2.0f);
+    const UiMetrics base;
+    EXPECT_FLOAT_EQ(scaled.rowHeight, base.rowHeight * 2.0f);
+    EXPECT_FLOAT_EQ(scaled.frameHeight, base.frameHeight * 2.0f);
+    EXPECT_FLOAT_EQ(scaled.listColumnWidth, base.listColumnWidth * 2.0f);
+    EXPECT_FLOAT_EQ(scaled.hubRowHeight, base.hubRowHeight * 2.0f);
+
+    const UiTheme one = MakeDarkTheme(1.0f);
+    const UiTheme two = MakeDarkTheme(2.0f);
+    EXPECT_FLOAT_EQ(two.metrics.rowHeight, one.metrics.rowHeight * 2.0f);
+    EXPECT_FLOAT_EQ(two.scale, 2.0f);
+    EXPECT_EQ(two.fonts.label, one.fonts.label * 2);
+    EXPECT_EQ(two.fonts.banner, one.fonts.banner * 2);
+}
+
 TEST(EditorShellTest, DocumentInfoDrivesWindowTitle)
 {
     EditorShell shell;
@@ -663,6 +684,39 @@ TEST(EditorShellTest, RevertIconClickResetsField)
     view.OnPointerEvent(down);
 
     EXPECT_FLOAT_EQ(object.value, 0.f); // reset restored the type default
+}
+
+TEST(EditorShellTest, ToolBarHitAndEnabledState)
+{
+    ToolBar bar(nullptr);
+    int     clicks = 0;
+    bar.SetItems({
+        {"open", "Open", sky::ui::UI_INVALID_TEXTURE, [&clicks]() { ++clicks; }, true, false},
+        {"save", "Save", sky::ui::UI_INVALID_TEXTURE, [&clicks]() { ++clicks; }, false, false},
+    });
+    bar.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 400.0f, 30.0f});
+
+    const UiMetrics &m = GetDefaultUiTheme().metrics;
+    // No text system => label width 0 => the item is padded to iconButtonWidth.
+    const float w   = std::max(2.0f * m.controlPad, m.iconButtonWidth);
+    const float cy  = 15.0f;
+    const float i1l = m.padX + w + m.itemSpacing;
+
+    sky::ui::UIPointerEvent down;
+    down.action = sky::ui::UIPointerAction::DOWN;
+
+    down.x = m.padX + w * 0.5f; // enabled "Open"
+    down.y = cy;
+    bar.OnPointerEvent(down);
+    EXPECT_EQ(clicks, 1);
+
+    down.x = i1l + w * 0.5f; // disabled "Save"
+    bar.OnPointerEvent(down);
+    EXPECT_EQ(clicks, 1);
+
+    bar.SetItemEnabled("save", true);
+    bar.OnPointerEvent(down);
+    EXPECT_EQ(clicks, 2);
 }
 
 TEST(EditorShellTest, NewWorldDialogOpens)

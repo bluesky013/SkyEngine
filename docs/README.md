@@ -29,6 +29,8 @@ Markdown, and grounded in the current repository state.
   and next steps (session handoff).
 - [Reflection Widget Framework](editor/reflection-widget-framework.md) - reflection-driven editor property UI.
 - [Play-In-Editor (PIE)](editor/play-in-editor.md) - world duplication, the play session, and editor controls.
+- [Editor UI Sizing & DPI Scaling](editor/ui-sizing-and-scaling.md) - single style source, content-derived sizing, DPI/UI scaling.
+- [Editor Toolbar](editor/editor-toolbar.md) - quick-action toolbar (Open/Save/Undo/Redo), with a UE/JetBrains/VS Code/Unity comparison.
 
 ### Features
 

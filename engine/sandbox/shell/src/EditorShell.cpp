@@ -3,6 +3,7 @@
 //
 
 #include <editor/core/document/WorldDocument.h>
+#include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/shell/ShellModels.h>
@@ -22,6 +23,7 @@
 #include <editor/shell/widgets/DockWidgets.h>
 #include <editor/shell/widgets/MenuBar.h>
 #include <editor/shell/widgets/StatusBar.h>
+#include <editor/shell/widgets/ToolBar.h>
 
 #include <ui/UIContext.h>
 #include <ui/UIElement.h>
@@ -445,6 +447,31 @@ namespace sky::editor {
         statusMode = state == PlayState::Playing ? "Play" : (state == PlayState::Paused ? "Pause" : "Edit");
     }
 
+    sky::ui::UITextureId EditorShell::ResolveIcon(const std::string &name) const
+    {
+        const auto it = icons.find(name);
+        return it != icons.end() ? it->second : sky::ui::UI_INVALID_TEXTURE;
+    }
+
+    void EditorShell::SetIcon(const std::string &name, sky::ui::UITextureId texture)
+    {
+        icons[name] = texture;
+    }
+
+    void EditorShell::RefreshActions()
+    {
+        auto *toolBar = dynamic_cast<ToolBar *>(toolBarElement);
+        if (toolBar == nullptr) {
+            return;
+        }
+        for (const EditorAction &action : EditorActionRegistry::Get()->GetActions()) {
+            toolBar->SetItemEnabled(action.id, action.enabled ? action.enabled() : true);
+            if (!action.icon.empty()) {
+                toolBar->SetItemIcon(action.id, ResolveIcon(action.icon));
+            }
+        }
+    }
+
     void EditorShell::SetDocumentInfo(const std::string &name, bool dirty)
     {
         documentName  = name;
@@ -789,13 +816,14 @@ namespace sky::editor {
         HarvestViews();
         context->GetRoot()->ClearChildren();
         menuBarElement   = nullptr;
+        toolBarElement   = nullptr;
         statusBarElement = nullptr;
         slots.clear();
         built          = false;
         pendingRebuild = false;
 
-        // Menu bar: File/Edit/View/Window/Tools/Help. View exposes panel
-        // visibility, Window exposes Reset Layout.
+        // Menu bar: File/Edit/View/Help. View toggles the docking windows (under
+        // a "Windows" submenu) and exposes Reset Layout.
         std::vector<MenuBar::Menu> menus;
         MenuBar::Menu              file;
         file.label = "File";
@@ -829,46 +857,41 @@ namespace sky::editor {
 
         MenuBar::Menu edit;
         edit.label = "Edit";
-        edit.items.push_back({"Undo", []() {}});
+        edit.items.push_back({"Undo", [this]() {
+                                  if (undoHandler) {
+                                      undoHandler();
+                                  }
+                              }});
+        edit.items.push_back({"Redo", [this]() {
+                                  if (redoHandler) {
+                                      redoHandler();
+                                  }
+                              }});
         menus.push_back(std::move(edit));
 
+        // View: the docking-window toggles live under a second-level "Windows"
+        // submenu; Reset Layout is a direct View item.
         MenuBar::Menu view{"View", {}};
+        MenuBar::Item windowsItem;
+        windowsItem.label = "Windows";
         if (layoutModel != nullptr && panelRegistry != nullptr) {
             for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
                 const std::string panelId = entry.panelId;
                 const bool        shown   = entry.shown;
-                view.items.push_back({(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
+                windowsItem.children.push_back(
+                    {(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
             }
         }
+        view.items.push_back(std::move(windowsItem));
+        view.items.push_back({"Reset Layout", [this]() {
+                                  if (layoutModel != nullptr) {
+                                      layoutModel->ResetToDefault();
+                                      pendingRebuild = true;
+                                      layoutDirty    = true;
+                                  }
+                              }});
         menus.push_back(std::move(view));
 
-        MenuBar::Menu play;
-        play.label = "Play";
-        play.items.push_back({"Play", [this]() {
-                                  if (playHandler) {
-                                      playHandler();
-                                  }
-                              }});
-        play.items.push_back({"Pause", [this]() {
-                                  if (pauseHandler) {
-                                      pauseHandler();
-                                  }
-                              }});
-        play.items.push_back({"Stop", [this]() {
-                                  if (stopHandler) {
-                                      stopHandler();
-                                  }
-                              }});
-        menus.push_back(std::move(play));
-
-        menus.push_back({"Window", {{"Reset Layout", [this]() {
-                                         if (layoutModel != nullptr) {
-                                             layoutModel->ResetToDefault();
-                                             pendingRebuild = true;
-                                             layoutDirty    = true;
-                                         }
-                                     }}}});
-        menus.push_back({"Tools", {{"About", []() { LOG_I(TAG, "SkyEngine Editor (sandbox shell)"); }}}});
         MenuBar::Menu help;
         help.label = "Help";
         help.items.push_back({"Demo", [this]() { SetPanelVisible("refldemo", true); }});
@@ -877,14 +900,34 @@ namespace sky::editor {
 
         statusBarElement = context->AddChild(std::make_unique<StatusBar>(textSystem));
 
+        const float dockTop = headerHeight + GetDefaultUiTheme().metrics.toolbarHeight;
         if (layoutModel != nullptr && !layoutModel->IsEmpty()) {
-            const sky::ui::UIRect rect{0.0f, headerHeight, width, height - footerHeight};
+            const sky::ui::UIRect rect{0.0f, dockTop, width, height - footerHeight};
             CreateNode(layoutModel->GetRoot(), rect);
         }
 
         dragPanel.clear();
         dragActive = false;
-        CreateSplitters(sky::ui::UIRect{0.0f, headerHeight, width, height - footerHeight});
+        CreateSplitters(sky::ui::UIRect{0.0f, dockTop, width, height - footerHeight});
+
+        // Quick-action toolbar, built from the process-wide action registry so
+        // plugins/extensions can contribute entries (see editor-toolbar.md).
+        auto                       toolBar = std::make_unique<ToolBar>(textSystem);
+        std::vector<ToolBar::Item> items;
+        std::string                lastGroup;
+        for (const EditorAction &action : EditorActionRegistry::Get()->GetActions()) {
+            ToolBar::Item item;
+            item.id              = action.id;
+            item.label           = action.label;
+            item.icon            = ResolveIcon(action.icon);
+            item.action          = action.invoke;
+            item.enabled         = action.enabled ? action.enabled() : true;
+            item.separatorBefore = !lastGroup.empty() && action.group != lastGroup;
+            lastGroup            = action.group;
+            items.push_back(std::move(item));
+        }
+        toolBar->SetItems(std::move(items));
+        toolBarElement = context->AddChild(std::move(toolBar));
 
         // Menu bar is added LAST so it (and its popup) paints on top of the dock
         // content; otherwise panels cover the open menu.
@@ -971,6 +1014,11 @@ namespace sky::editor {
             menuBarElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, barBottom});
         }
 
+        const float toolBarHeight = GetDefaultUiTheme().metrics.toolbarHeight;
+        if (toolBarElement != nullptr) {
+            toolBarElement->SetBounds(sky::ui::UIRect{0.0f, headerHeight, width, headerHeight + toolBarHeight});
+        }
+
         if (statusBarElement != nullptr) {
             statusBarElement->SetBounds(sky::ui::UIRect{0.0f, height - footerHeight, width, height});
             if (auto *statusBar = dynamic_cast<StatusBar *>(statusBarElement)) {
@@ -979,12 +1027,12 @@ namespace sky::editor {
             }
         }
 
+        const sky::ui::UIRect dockRect{0.0f, headerHeight + toolBarHeight, width, height - footerHeight};
         if (layoutModel != nullptr && !layoutModel->IsEmpty()) {
-            const sky::ui::UIRect rect{0.0f, headerHeight, width, height - footerHeight};
-            size_t                cursor = 0;
-            ApplyNode(layoutModel->GetRoot(), rect, cursor);
+            size_t cursor = 0;
+            ApplyNode(layoutModel->GetRoot(), dockRect, cursor);
         }
-        UpdateSplitters(sky::ui::UIRect{0.0f, headerHeight, width, height - footerHeight});
+        UpdateSplitters(dockRect);
 
         if (fileBrowserElement != nullptr) {
             fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
@@ -1101,6 +1149,20 @@ namespace sky::editor {
         if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyW && (event.modifiers & kModCtrl) != 0) {
             if (closeWorldHandler) {
                 closeWorldHandler();
+            }
+            return true;
+        }
+        // Ctrl+Z undoes; Ctrl+Shift+Z / Ctrl+Y redo.
+        constexpr uint32_t kKeyZ = 'Z';
+        constexpr uint32_t kKeyY = 'Y';
+        if (event.action == sky::ui::UIKeyAction::DOWN && (event.modifiers & kModCtrl) != 0 && (event.keyCode == kKeyZ || event.keyCode == kKeyY)) {
+            const bool redo = event.keyCode == kKeyY || (event.modifiers & kModShift) != 0;
+            if (redo) {
+                if (redoHandler) {
+                    redoHandler();
+                }
+            } else if (undoHandler) {
+                undoHandler();
             }
             return true;
         }

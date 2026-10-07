@@ -18,20 +18,33 @@ namespace sky::editor {
     // persistence are headless. A frontend renders the computed areas.
     class LayoutModel {
     public:
-        LayoutModel() = default;
+        LayoutModel()  = default;
         ~LayoutModel() = default;
 
-        LayoutModel(const LayoutModel &) = delete;
+        LayoutModel(const LayoutModel &)            = delete;
         LayoutModel &operator=(const LayoutModel &) = delete;
 
-        bool IsEmpty() const { return root == nullptr; }
-        LayoutNode *GetRoot() const { return root.get(); }
+        bool IsEmpty() const
+        {
+            return root == nullptr;
+        }
+        LayoutNode *GetRoot() const
+        {
+            return root.get();
+        }
 
-        int GetVersion() const { return version; }
+        int GetVersion() const
+        {
+            return version;
+        }
 
         // Replaces the layout with a single tab containing the given panels and
         // records it as the default arrangement.
         void SetDefault(std::vector<std::string> panelIds);
+        // Snapshots the current arrangement as the reset target. Call after
+        // building the default (e.g. after splitting) so ResetToDefault restores
+        // the full default, not just the initial panel list.
+        void CaptureDefault();
         void ResetToDefault();
         void Clear();
 
@@ -59,30 +72,33 @@ namespace sky::editor {
         // Updates the recorded geometry of a floating panel.
         bool SetFloatingGeometry(const std::string &panelId, float x, float y, float width, float height);
 
-        bool IsFloating(const std::string &panelId) const;
-        const FloatingPanel *FindFloating(const std::string &panelId) const;
-        const std::vector<FloatingPanel> &GetFloatingPanels() const { return floatingPanels; }
+        bool                              IsFloating(const std::string &panelId) const;
+        const FloatingPanel              *FindFloating(const std::string &panelId) const;
+        const std::vector<FloatingPanel> &GetFloatingPanels() const
+        {
+            return floatingPanels;
+        }
 
         // Sets the ratio at split position index (between child index and index+1).
         bool SetRatio(LayoutNode *splitNode, uint32_t index, float ratio);
 
-        void CollectPanels(std::vector<std::string> &out) const;
-        void CollectFloating(std::vector<std::string> &out) const;
-        TabNode *FindTab(const std::string &panelId) const;
+        void        CollectPanels(std::vector<std::string> &out) const;
+        TabNode    *FindTab(const std::string &panelId) const;
         LayoutNode *FindParent(const LayoutNode *node) const;
 
         // Versioned JSON persistence. When a registry is given, unknown panel ids
         // are skipped and reported through warnings.
         std::string ToJson(int indent = -1) const;
-        static bool FromJson(const std::string &json, LayoutModel &out, const PanelRegistry *registry = nullptr,
-                             std::vector<std::string> *warnings = nullptr);
+        static bool
+        FromJson(const std::string &json, LayoutModel &out, const PanelRegistry *registry = nullptr, std::vector<std::string> *warnings = nullptr);
 
     private:
-        LayoutNodePtr root;
-        std::vector<std::string> defaultPanels;
+        LayoutNodePtr              root;
+        std::vector<std::string>   defaultPanels;
+        std::string                defaultJson; // snapshot of the default arrangement (CaptureDefault)
         std::vector<FloatingPanel> floatingPanels;
-        bool hasDefault = false;
-        int version = 2;
+        bool                       hasDefault = false;
+        int                        version    = 2;
     };
 
 } // namespace sky::editor

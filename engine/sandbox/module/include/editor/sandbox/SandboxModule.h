@@ -62,6 +62,8 @@ namespace sky::editor {
         void RefreshDocumentInfo();
         // Directory new/open world dialogs start in (project assets, else user config).
         std::string WorldBasePath() const;
+        // Effective UI scale = system DPI scale * the `editor.uiScale` preference.
+        float       EffectiveUiScale() const;
         void        OnFileBrowserResult(const FileBrowserResult &result);
         void        CreateProjectFromResult(const FileBrowserResult &result);
         void        AddProjectFromResult(const FileBrowserResult &result);
@@ -126,8 +128,9 @@ namespace sky::editor {
         sky::EventBinder<sky::IMouseEvent>    mouseBinder;
         sky::EventBinder<sky::IKeyboardEvent> keyBinder;
 
-        bool          initialized = false;
-        float         uiScale     = 1.0f;
+        bool          initialized   = false;
+        float         systemUiScale = 1.0f;     // DPI scale (dpi/96); SKY_UI_SCALE overrides
+        float         uiScale       = 1.0f;     // effective = systemUiScale * editor.uiScale
         std::string   layoutPath;               // per-user editor layout file (empty if unavailable)
         std::string   rhiName         = "Auto"; // active RHI name for the status bar
         sky::WindowID primaryWindowId = 0;      // main window id, learned from the first event

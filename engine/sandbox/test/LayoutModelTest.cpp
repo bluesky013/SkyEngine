@@ -2,10 +2,10 @@
 // Created on 2026/09/21.
 //
 
+#include <algorithm>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
 #include <gtest/gtest.h>
-#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -122,6 +122,26 @@ TEST(LayoutModelTest, ResetToDefault)
     EXPECT_TRUE(Contains(panels, "b"));
 }
 
+TEST(LayoutModelTest, CaptureDefaultRestoresArrangement)
+{
+    LayoutModel model;
+    model.SetDefault({"a"}); // initial flat default
+    ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
+    ASSERT_TRUE(model.SplitPanel("b", SplitOrientation::VERTICAL, "c"));
+    model.CaptureDefault(); // snapshot the built-out default
+
+    ASSERT_TRUE(model.ClosePanel("b"));
+    ASSERT_TRUE(model.ClosePanel("c"));
+    EXPECT_EQ(Panels(model).size(), 1u); // "only one left"
+
+    model.ResetToDefault();
+    const auto panels = Panels(model);
+    ASSERT_EQ(panels.size(), 3u);
+    EXPECT_TRUE(Contains(panels, "a"));
+    EXPECT_TRUE(Contains(panels, "b"));
+    EXPECT_TRUE(Contains(panels, "c"));
+}
+
 TEST(LayoutModelTest, JsonRoundTrip)
 {
     LayoutModel model;
@@ -131,7 +151,7 @@ TEST(LayoutModelTest, JsonRoundTrip)
 
     const std::string json = model.ToJson(2);
 
-    LayoutModel restored;
+    LayoutModel              restored;
     std::vector<std::string> warnings;
     ASSERT_TRUE(LayoutModel::FromJson(json, restored, nullptr, &warnings));
     EXPECT_TRUE(warnings.empty());
@@ -148,7 +168,7 @@ TEST(LayoutModelTest, JsonSkipsUnknownPanels)
     registry.Register(PanelInfo{"a", "A", 0.f, 0.f, nullptr});
     registry.Register(PanelInfo{"c", "C", 0.f, 0.f, nullptr});
 
-    LayoutModel restored;
+    LayoutModel              restored;
     std::vector<std::string> warnings;
     ASSERT_TRUE(LayoutModel::FromJson(json, restored, &registry, &warnings));
 
@@ -227,9 +247,9 @@ TEST(LayoutModelTest, FloatAndRedockExclusivity)
     ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
 
     FloatingPanel geometry;
-    geometry.x = 10.0f;
-    geometry.y = 20.0f;
-    geometry.width = 300.0f;
+    geometry.x      = 10.0f;
+    geometry.y      = 20.0f;
+    geometry.width  = 300.0f;
     geometry.height = 200.0f;
     geometry.active = true;
 
@@ -287,15 +307,15 @@ TEST(LayoutModelTest, FloatingJsonRoundTrip)
     model.SetDefault({"a"});
     ASSERT_TRUE(model.SplitPanel("a", SplitOrientation::HORIZONTAL, "b"));
     FloatingPanel geometry;
-    geometry.x = 1.0f;
-    geometry.y = 2.0f;
-    geometry.width = 3.0f;
+    geometry.x      = 1.0f;
+    geometry.y      = 2.0f;
+    geometry.width  = 3.0f;
     geometry.height = 4.0f;
     geometry.active = true;
     ASSERT_TRUE(model.FloatPanel("b", geometry));
 
     const std::string json = model.ToJson(2);
-    LayoutModel restored;
+    LayoutModel       restored;
     ASSERT_TRUE(LayoutModel::FromJson(json, restored, nullptr, nullptr));
     EXPECT_EQ(restored.GetVersion(), 2);
     const FloatingPanel *fp = restored.FindFloating("b");

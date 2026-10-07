@@ -18,19 +18,10 @@ namespace sky::editor {
     namespace uc = uidraw;
 
     namespace {
-        constexpr float kPanelW    = 880.0f;
-        constexpr float kPanelH    = 600.0f;
-        constexpr float kMargin    = 14.0f;
-        constexpr float kTitleH    = 36.0f;
-        constexpr float kFooterH   = 48.0f;
-        constexpr float kCatW      = 200.0f;
-        constexpr float kCatRowH   = 26.0f;
-        constexpr float kSectionH  = 26.0f;
-        constexpr float kRowH      = 30.0f;
-        constexpr float kColorRowH = 64.0f;
-        constexpr float kBtnW      = 88.0f;
-        constexpr float kBtnH      = 26.0f;
-        constexpr float kGap       = 8.0f;
+        const UiMetrics &M()
+        {
+            return GetDefaultUiTheme().metrics;
+        }
 
         float Clamp01(float value)
         {
@@ -121,20 +112,21 @@ namespace sky::editor {
 
     sky::ui::UIRect PreferencesDialog::PanelRect() const
     {
-        return CenteredPanel(kPanelW, kPanelH, 420.0f, 320.0f);
+        return CenteredPanel(M().preferencesPanelWidth, M().preferencesPanelHeight, 420.0f, 320.0f);
     }
 
     sky::ui::UIRect PreferencesDialog::ContentRect() const
     {
         const sky::ui::UIRect panel = PanelRect();
-        return sky::ui::UIRect{panel.left, panel.top + kTitleH, panel.right, panel.bottom - kFooterH};
+        return sky::ui::UIRect{panel.left, panel.top + M().titleBarHeight, panel.right, panel.bottom - M().footerHeight};
     }
 
     sky::ui::UIRect PreferencesDialog::CategoryRect(int index) const
     {
         const sky::ui::UIRect content = ContentRect();
-        const float           top     = content.top + 8.0f + static_cast<float>(index) * kCatRowH;
-        return sky::ui::UIRect{content.left + 8.0f, top, content.left + kCatW - 8.0f, top + kCatRowH - 2.0f};
+        const float           top     = content.top + M().itemSpacing + static_cast<float>(index) * M().categoryRowHeight;
+        return sky::ui::UIRect{content.left + M().itemSpacing, top, content.left + M().categoryWidth - M().itemSpacing,
+                               top + M().categoryRowHeight - M().checkboxPad};
     }
 
     int PreferencesDialog::CategoryAt(float x, float y) const
@@ -150,9 +142,9 @@ namespace sky::editor {
     sky::ui::UIRect PreferencesDialog::ButtonRect(int index) const
     {
         const sky::ui::UIRect panel     = PanelRect();
-        const float           top       = panel.bottom - kFooterH + 11.0f;
-        const float           rightEdge = panel.right - kMargin - static_cast<float>(index) * (kBtnW + kGap);
-        return sky::ui::UIRect{rightEdge - kBtnW, top, rightEdge, top + kBtnH};
+        const float           top       = panel.bottom - M().footerHeight + 11.0f;
+        const float           rightEdge = panel.right - M().dialogMargin - static_cast<float>(index) * (M().buttonMinWidth + M().itemSpacing);
+        return sky::ui::UIRect{rightEdge - M().buttonMinWidth, top, rightEdge, top + M().frameHeight};
     }
 
     int PreferencesDialog::ButtonAt(float x, float y) const
@@ -172,20 +164,21 @@ namespace sky::editor {
             return;
         }
         const sky::ui::UIRect content = ContentRect();
-        const sky::ui::UIRect page{content.left + kCatW, content.top + 8.0f, content.right - kMargin, content.bottom - 8.0f};
+        const sky::ui::UIRect page{content.left + M().categoryWidth, content.top + M().itemSpacing, content.right - M().dialogMargin,
+                                   content.bottom - M().itemSpacing};
 
         float y = page.top;
         for (const PreferenceSection &section : registry->GetPages()[pageIndex].sections) {
-            y += kSectionH;
+            y += M().sectionHeight;
             for (const PreferenceEntry &entry : section.entries) {
-                const float height = entry.defaultValue.type == PreferenceType::COLOR ? kColorRowH : kRowH;
+                const float height = entry.defaultValue.type == PreferenceType::COLOR ? M().colorRowHeight : M().preferenceRowHeight;
                 Row         row;
                 row.entry   = &entry;
                 row.bounds  = sky::ui::UIRect{page.left, y, page.right, y + height};
                 row.label   = sky::ui::UIRect{page.left, y, page.left + page.Width() * 0.45f, y + height};
                 row.control = sky::ui::UIRect{page.left + page.Width() * 0.45f, y, page.right, y + height};
                 rows.push_back(row);
-                y += height + 4.0f;
+                y += height + M().checkboxPad * 2.0f;
             }
         }
     }
@@ -318,7 +311,7 @@ namespace sky::editor {
         const sky::ui::UIRect body = skin.DrawPanel(context, panel, "Preferences", true);
 
         // Category list.
-        const sky::ui::UIRect cats{body.left, body.top, body.left + kCatW, body.bottom - kFooterH + 11.0f};
+        const sky::ui::UIRect cats{body.left, body.top, body.left + M().categoryWidth, body.bottom - M().footerHeight + 11.0f};
         uc::Fill(context, cats, th.colors.section);
         const auto &pages = registry->GetPages();
         for (int i = 0; i < static_cast<int>(pages.size()); ++i) {
@@ -334,14 +327,15 @@ namespace sky::editor {
         // Page rows.
         std::vector<Row> rows;
         BuildRows(rows);
-        const sky::ui::UIRect page{body.left + kCatW, body.top + 8.0f, body.right - kMargin, body.bottom - kFooterH};
+        const sky::ui::UIRect page{body.left + M().categoryWidth, body.top + M().itemSpacing, body.right - M().dialogMargin,
+                                   body.bottom - M().footerHeight};
         const auto           &sections = pages[static_cast<std::size_t>(pageIndex)].sections;
 
         std::size_t rowIndex = 0;
         float       y        = page.top;
         for (const PreferenceSection &section : sections) {
-            skin.DrawSectionHeader(context, sky::ui::UIRect{page.left, y, page.right, y + kSectionH}, section.title);
-            y += kSectionH;
+            skin.DrawSectionHeader(context, sky::ui::UIRect{page.left, y, page.right, y + M().sectionHeight}, section.title);
+            y += M().sectionHeight;
             for (const PreferenceEntry &entry : section.entries) {
                 if (rowIndex < rows.size()) {
                     const Row &row = rows[rowIndex];
@@ -363,9 +357,11 @@ namespace sky::editor {
                             if (!entry.options.empty()) {
                                 skin.DrawField(context, control, false, false);
                                 uc::Text(context, value->stringValue, th.fonts.value,
-                                         sky::ui::UIRect{control.left + th.metrics.controlPad, control.top, control.right - 16.0f, control.bottom},
+                                         sky::ui::UIRect{control.left + th.metrics.controlPad, control.top, control.right - M().indentSmall,
+                                                         control.bottom},
                                          th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
-                                skin.DrawTriangle(context, control.right - 12.0f, (control.top + control.bottom) * 0.5f, true, th.colors.textMuted);
+                                skin.DrawTriangle(context, control.right - M().cellPadding * 2.0f, (control.top + control.bottom) * 0.5f, true,
+                                                  th.colors.textMuted);
                             } else {
                                 skin.DrawField(context, control, entry.key == textKey, false);
                                 const std::string shown = entry.key == textKey ? textEdit.GetText() : value->stringValue;
@@ -382,8 +378,8 @@ namespace sky::editor {
                                 skin.DrawSlider(context, control, static_cast<float>(current), static_cast<float>(entry.minValue),
                                                 static_cast<float>(entry.maxValue));
                                 uc::Text(context, FormatValue(*value), th.fonts.value,
-                                         sky::ui::UIRect{control.right - 56.0f, control.top, control.right, control.bottom}, th.colors.textMuted,
-                                         textSystem, uc::HAlign::Right, uc::VAlign::Middle, false);
+                                         sky::ui::UIRect{control.right - M().sliderValueWidth, control.top, control.right, control.bottom},
+                                         th.colors.textMuted, textSystem, uc::HAlign::Right, uc::VAlign::Middle, false);
                             } else {
                                 uc::Text(context, FormatValue(*value), th.fonts.value, control, th.colors.text, textSystem, uc::HAlign::Left,
                                          uc::VAlign::Middle, true);
@@ -404,12 +400,12 @@ namespace sky::editor {
                     }
                 }
                 ++rowIndex;
-                y += (entry.defaultValue.type == PreferenceType::COLOR ? kColorRowH : kRowH) + 4.0f;
+                y += (entry.defaultValue.type == PreferenceType::COLOR ? M().colorRowHeight : M().preferenceRowHeight) + M().checkboxPad * 2.0f;
             }
         }
 
         // Footer buttons.
-        const sky::ui::UIRect footer{panel.left, panel.bottom - kFooterH, panel.right, panel.bottom};
+        const sky::ui::UIRect footer{panel.left, panel.bottom - M().footerHeight, panel.right, panel.bottom};
         uc::Fill(context, footer, th.colors.section);
         uc::HLine(context, panel.left, panel.right, footer.top, th.colors.border);
         const char *labels[4] = {"OK", "Cancel", "Apply", "Reset"};

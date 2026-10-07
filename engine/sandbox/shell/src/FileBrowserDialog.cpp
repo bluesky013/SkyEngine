@@ -19,18 +19,10 @@ namespace sky::editor {
     namespace uc = uidraw;
 
     namespace {
-        constexpr float kPanelW     = 820.0f;
-        constexpr float kPanelH     = 560.0f;
-        constexpr float kMargin     = 12.0f;
-        constexpr float kTitleH     = 36.0f;
-        constexpr float kSidebarW   = 170.0f;
-        constexpr float kToolbarH   = 30.0f;
-        constexpr float kHeaderRowH = 22.0f;
-        constexpr float kRowH       = 24.0f;
-        constexpr float kFooterH    = 46.0f;
-        constexpr float kBtnW       = 88.0f;
-        constexpr float kBtnH       = 26.0f;
-        constexpr float kItemH      = 22.0f;
+        const UiMetrics &M()
+        {
+            return GetDefaultUiTheme().metrics;
+        }
 
         long long NowMs()
         {
@@ -140,103 +132,107 @@ namespace sky::editor {
 
     sky::ui::UIRect FileBrowserDialog::PanelRect() const
     {
-        return CenteredPanel(kPanelW, kPanelH, 360.0f, 260.0f);
+        return CenteredPanel(M().fileBrowserPanelWidth, M().fileBrowserPanelHeight, M().dialogMinWidth, M().dialogMinHeight);
     }
 
     sky::ui::UIRect FileBrowserDialog::SidebarRect() const
     {
         const sky::ui::UIRect panel = PanelRect();
-        return sky::ui::UIRect{panel.left, panel.top + kTitleH, panel.left + kSidebarW, panel.bottom - kFooterH};
+        return sky::ui::UIRect{panel.left, panel.top + M().titleBarHeight, panel.left + M().sidebarWidth, panel.bottom - M().footerHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::PlaceRowRect(int index) const
     {
         const sky::ui::UIRect sidebar = SidebarRect();
-        const float           top     = sidebar.top + 6.0f + static_cast<float>(index) * kItemH;
-        return sky::ui::UIRect{sidebar.left + 6.0f, top, sidebar.right - 6.0f, top + kItemH - 2.0f};
+        const float           top     = sidebar.top + M().cellPadding + static_cast<float>(index) * M().rowHeight;
+        return sky::ui::UIRect{sidebar.left + M().cellPadding, top, sidebar.right - M().cellPadding, top + M().rowHeight - M().checkboxPad};
     }
 
     sky::ui::UIRect FileBrowserDialog::ToolbarRect() const
     {
         const sky::ui::UIRect panel = PanelRect();
-        const float           left  = panel.left + kSidebarW + kMargin;
-        return sky::ui::UIRect{left, panel.top + kTitleH, panel.right - kMargin, panel.top + kTitleH + kToolbarH};
+        const float           left  = panel.left + M().sidebarWidth + M().dialogMargin;
+        return sky::ui::UIRect{left, panel.top + M().titleBarHeight, panel.right - M().dialogMargin,
+                               panel.top + M().titleBarHeight + M().toolbarHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::UpRect() const
     {
         const sky::ui::UIRect toolbar = ToolbarRect();
-        return sky::ui::UIRect{toolbar.left + 2.0f, toolbar.top + 3.0f, toolbar.left + 34.0f, toolbar.bottom - 3.0f};
+        return sky::ui::UIRect{toolbar.left + M().checkboxPad, toolbar.top + M().hairline, toolbar.left + M().iconButtonWidth,
+                               toolbar.bottom - M().hairline};
     }
 
     sky::ui::UIRect FileBrowserDialog::PathRect() const
     {
         const sky::ui::UIRect toolbar = ToolbarRect();
         const sky::ui::UIRect up      = UpRect();
-        const float           right   = WriteMode() ? NewFolderRect().left - 6.0f : toolbar.right - 2.0f;
-        return sky::ui::UIRect{up.right + 6.0f, toolbar.top + 3.0f, right, toolbar.bottom - 3.0f};
+        const float           right   = WriteMode() ? NewFolderRect().left - M().cellPadding : toolbar.right - M().checkboxPad;
+        return sky::ui::UIRect{up.right + M().cellPadding, toolbar.top + M().hairline, right, toolbar.bottom - M().hairline};
     }
 
     sky::ui::UIRect FileBrowserDialog::NewFolderRect() const
     {
         const sky::ui::UIRect toolbar = ToolbarRect();
-        return sky::ui::UIRect{toolbar.right - 108.0f, toolbar.top + 3.0f, toolbar.right, toolbar.bottom - 3.0f};
+        return sky::ui::UIRect{toolbar.right - M().controlButtonWidth, toolbar.top + M().hairline, toolbar.right, toolbar.bottom - M().hairline};
     }
 
     sky::ui::UIRect FileBrowserDialog::ListHeaderRect() const
     {
         const sky::ui::UIRect toolbar = ToolbarRect();
-        return sky::ui::UIRect{toolbar.left, toolbar.bottom, toolbar.right, toolbar.bottom + kHeaderRowH};
+        return sky::ui::UIRect{toolbar.left, toolbar.bottom, toolbar.right, toolbar.bottom + M().listHeaderHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::ListRect() const
     {
         const sky::ui::UIRect toolbar = ToolbarRect();
         const sky::ui::UIRect panel   = PanelRect();
-        return sky::ui::UIRect{toolbar.left, toolbar.bottom + kHeaderRowH, toolbar.right, panel.bottom - kFooterH - 2.0f};
+        return sky::ui::UIRect{toolbar.left, toolbar.bottom + M().listHeaderHeight, toolbar.right, panel.bottom - M().footerHeight - M().checkboxPad};
     }
 
     sky::ui::UIRect FileBrowserDialog::RowRect(int index) const
     {
         const sky::ui::UIRect list = ListRect();
-        const float           top  = list.top + static_cast<float>(index) * kRowH;
-        return sky::ui::UIRect{list.left, top, list.right, top + kRowH - 2.0f};
+        const float           top  = list.top + static_cast<float>(index) * M().rowHeight;
+        return sky::ui::UIRect{list.left, top, list.right, top + M().rowHeight - M().checkboxPad};
     }
 
     sky::ui::UIRect FileBrowserDialog::FooterRect() const
     {
         const sky::ui::UIRect panel = PanelRect();
-        return sky::ui::UIRect{panel.left, panel.bottom - kFooterH, panel.right, panel.bottom};
+        return sky::ui::UIRect{panel.left, panel.bottom - M().footerHeight, panel.right, panel.bottom};
     }
 
     sky::ui::UIRect FileBrowserDialog::FilterRect() const
     {
         const sky::ui::UIRect footer = FooterRect();
-        return sky::ui::UIRect{footer.left + kMargin, footer.top + 10.0f, footer.left + kMargin + 220.0f, footer.top + 10.0f + kBtnH};
+        return sky::ui::UIRect{footer.left + M().dialogMargin, footer.top + M().padX, footer.left + M().dialogMargin + M().fieldWidth,
+                               footer.top + M().padX + M().frameHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::FilterItemRect(int index) const
     {
         const sky::ui::UIRect filter = FilterRect();
         const int             count  = FilterItemCount();
-        const float           bottom = filter.top - 2.0f;
-        const float           top    = bottom - static_cast<float>(count - index) * kItemH;
-        return sky::ui::UIRect{filter.left, top, filter.right, top + kItemH};
+        const float           bottom = filter.top - M().checkboxPad;
+        const float           top    = bottom - static_cast<float>(count - index) * M().rowHeight;
+        return sky::ui::UIRect{filter.left, top, filter.right, top + M().rowHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::NameFieldRect() const
     {
         const sky::ui::UIRect footer = FooterRect();
         const sky::ui::UIRect filter = FilterRect();
-        return sky::ui::UIRect{filter.right + 16.0f, footer.top + 10.0f, filter.right + 16.0f + 220.0f, footer.top + 10.0f + kBtnH};
+        return sky::ui::UIRect{filter.right + M().indentSmall, footer.top + M().padX, filter.right + M().indentSmall + M().fieldWidth,
+                               footer.top + M().padX + M().frameHeight};
     }
 
     sky::ui::UIRect FileBrowserDialog::ButtonRect(int index) const
     {
         const sky::ui::UIRect footer    = FooterRect();
-        const float           gap       = 8.0f;
-        const float           rightEdge = footer.right - kMargin - static_cast<float>(1 - index) * (kBtnW + gap);
-        return sky::ui::UIRect{rightEdge - kBtnW, footer.top + 10.0f, rightEdge, footer.top + 10.0f + kBtnH};
+        const float           gap       = M().itemSpacing;
+        const float           rightEdge = footer.right - M().dialogMargin - static_cast<float>(1 - index) * (M().buttonMinWidth + gap);
+        return sky::ui::UIRect{rightEdge - M().buttonMinWidth, footer.top + M().padX, rightEdge, footer.top + M().padX + M().frameHeight};
     }
 
     // ---- hit testing --------------------------------------------------------
@@ -259,7 +255,7 @@ namespace sky::editor {
             return -1;
         }
         const auto &entries = model.GetEntries();
-        const int   visible = std::max(0, static_cast<int>(list.Height() / kRowH));
+        const int   visible = std::max(0, static_cast<int>(list.Height() / M().rowHeight));
         const int   count   = std::min(static_cast<int>(entries.size()), visible);
         for (int i = 0; i < count; ++i) {
             if (RowRect(i).Contains(x, y)) {
@@ -303,7 +299,7 @@ namespace sky::editor {
 
     sky::ui::UIRect FileBrowserDialog::ContextMenuRect() const
     {
-        const float           height = static_cast<float>(ContextItemCount()) * kItemH;
+        const float           height = static_cast<float>(ContextItemCount()) * M().rowHeight;
         const sky::ui::UIRect bounds = GetBounds();
         float                 left   = contextX;
         float                 top    = contextY;
@@ -319,8 +315,8 @@ namespace sky::editor {
     sky::ui::UIRect FileBrowserDialog::ContextItemRect(int index) const
     {
         const sky::ui::UIRect menu = ContextMenuRect();
-        const float           top  = menu.top + static_cast<float>(index) * kItemH;
-        return sky::ui::UIRect{menu.left, top, menu.right, top + kItemH};
+        const float           top  = menu.top + static_cast<float>(index) * M().rowHeight;
+        return sky::ui::UIRect{menu.left, top, menu.right, top + M().rowHeight};
     }
 
     int FileBrowserDialog::ContextItemAt(float x, float y) const
@@ -400,10 +396,10 @@ namespace sky::editor {
         const sky::ui::UIRect panel = PanelRect();
 
         PaintBackdrop(context);
-        uc::SoftShadow(context, panel, 8.0f);
+        uc::SoftShadow(context, panel, M().itemSpacing);
         uc::RoundedField(context, panel, th.colors.panel, th.colors.border, th.metrics.panelRadius);
 
-        const sky::ui::UIRect title{panel.left, panel.top, panel.right, panel.top + kTitleH};
+        const sky::ui::UIRect title{panel.left, panel.top, panel.right, panel.top + M().titleBarHeight};
         skin.DrawPanelHeader(context, title);
         const std::string &titleText = !model.GetRequest().title.empty() ? model.GetRequest().title : std::string("Browse");
         uc::Text(context, titleText, th.fonts.title,
@@ -458,7 +454,7 @@ namespace sky::editor {
         uc::Border(context, list, th.colors.borderSoft);
 
         const auto &entries = model.GetEntries();
-        const int   visible = static_cast<int>(list.Height() / kRowH);
+        const int   visible = static_cast<int>(list.Height() / M().rowHeight);
         const int   count   = std::min(static_cast<int>(entries.size()), visible);
         for (int i = 0; i < count; ++i) {
             const sky::ui::UIRect row = RowRect(i);
@@ -474,8 +470,8 @@ namespace sky::editor {
 
         if (!model.GetError().empty()) {
             uc::Text(context, model.GetError(), th.fonts.value,
-                     sky::ui::UIRect{list.left + th.metrics.padX, list.bottom - 18.0f, list.right, list.bottom}, th.colors.textMuted, textSystem,
-                     uc::HAlign::Left, uc::VAlign::Middle, true);
+                     sky::ui::UIRect{list.left + th.metrics.padX, list.bottom - (M().indentSmall + M().checkboxPad), list.right, list.bottom},
+                     th.colors.textMuted, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
         }
     }
 
@@ -490,9 +486,9 @@ namespace sky::editor {
         const sky::ui::UIRect filter = FilterRect();
         skin.DrawField(context, filter, false, false);
         uc::Text(context, model.GetFilterLabel(model.GetActiveFilter()), th.fonts.value,
-                 sky::ui::UIRect{filter.left + th.metrics.controlPad, filter.top, filter.right - 20.0f, filter.bottom}, th.colors.text, textSystem,
-                 uc::HAlign::Left, uc::VAlign::Middle, true);
-        skin.DrawTriangle(context, filter.right - 12.0f, (filter.top + filter.bottom) * 0.5f, true, th.colors.textMuted);
+                 sky::ui::UIRect{filter.left + th.metrics.controlPad, filter.top, filter.right - M().padX * 2.0f, filter.bottom}, th.colors.text,
+                 textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
+        skin.DrawTriangle(context, filter.right - M().cellPadding * 2.0f, (filter.top + filter.bottom) * 0.5f, true, th.colors.textMuted);
 
         const sky::ui::UIRect nameField = NameFieldRect();
         skin.DrawField(context, nameField, false, false);
@@ -502,11 +498,12 @@ namespace sky::editor {
             const std::size_t selEnd   = nameEdit.GetSelectionEnd();
             const float       startX   = nameField.left + uc::TextWidth(name.substr(0, selStart), th.fonts.value, textSystem);
             const float       endX     = nameField.left + uc::TextWidth(name.substr(0, selEnd), th.fonts.value, textSystem);
-            uc::Fill(context, sky::ui::UIRect{startX, nameField.top + 3.0f, endX, nameField.bottom - 3.0f}, th.colors.rowSelected);
+            uc::Fill(context, sky::ui::UIRect{startX, nameField.top + M().hairline, endX, nameField.bottom - M().hairline}, th.colors.rowSelected);
         }
         uc::Text(context, name, th.fonts.value, nameField, th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
         const float caretX = NameCaretX();
-        uc::Fill(context, sky::ui::UIRect{caretX, nameField.top + 5.0f, caretX + 1.0f, nameField.bottom - 5.0f}, th.colors.text);
+        uc::Fill(context, sky::ui::UIRect{caretX, nameField.top + M().cellPadding, caretX + 1.0f, nameField.bottom - M().cellPadding},
+                 th.colors.text);
 
         const char *labels[2] = {"Open", "Cancel"};
         for (int i = 0; i < 2; ++i) {

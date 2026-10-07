@@ -46,6 +46,20 @@ PIE: `docs/editor/play-in-editor.md`. Changes: `openspec/changes/editor-*/`.
 - Backend support: `Win32Window` reports live client size on `WM_SIZE`; `NativeWindow::GetPosition/
   SetPosition` (Win32 `GetWindowRect`/`SetWindowPos`).
 
+## DPI / UI scale
+
+Design: `docs/editor/ui-sizing-and-scaling.md` (single style source, ImGui-style).
+
+- Windows Per-Monitor-V2 aware; `Win32Window::GetDpiScale()` = `GetDpiForWindow / 96`. `SandboxModule`
+  computes `systemUiScale` (overridable by `SKY_UI_SCALE`) and the **effective** scale =
+  `systemUiScale * editor.uiScale` (preference, 0.5–2.0, default 1.0).
+- `UiTheme` is the single source: `MakeDarkTheme(scale)` → `UiMetrics::Scale(scale)` (analogue of
+  `ImGuiStyle::ScaleAllSizes`) + scaled `UiFonts`. All views read `metrics` / `fonts` — no hard-coded
+  layout pixels, no per-view scale shims.
+- Applied to **both** the editor (`EditorShell::SetUiScale`) and the Project Manager hub
+  (`SetDefaultUiTheme` before building the hub view — previously the hub was unscaled). Applied at startup
+  (restart to change).
+
 ## World subsystems (`world-subsystem-registry`, uncommitted)
 
 - Framework: `WorldSubSystemRegistry` (a cross-DLL `Singleton<T>`) + `WorldDesc` +

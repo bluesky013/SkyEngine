@@ -46,10 +46,6 @@ namespace sky::editor {
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
 
     private:
-        static constexpr float kListW = 150.0f;
-        static constexpr float kRowH  = 24.0f;
-        static constexpr float kTop   = 30.0f;
-
         sky::ui::UIRect ListRect() const;
         sky::ui::UIRect RowRect(int index) const;
         sky::ui::UIRect CheckRect(int index) const;

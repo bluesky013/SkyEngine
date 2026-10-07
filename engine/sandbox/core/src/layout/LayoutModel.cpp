@@ -2,13 +2,13 @@
 // Created on 2026/09/21.
 //
 
+#include <algorithm>
+#include <cmath>
 #include <editor/core/layout/LayoutModel.h>
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include <algorithm>
-#include <cmath>
 
 namespace sky::editor {
 
@@ -67,9 +67,9 @@ namespace sky::editor {
             for (auto &child : split->children) {
                 Collapse(child);
             }
-            split->children.erase(std::remove_if(split->children.begin(), split->children.end(),
-                                                 [](const LayoutNodePtr &child) { return child == nullptr; }),
-                                  split->children.end());
+            split->children.erase(
+                std::remove_if(split->children.begin(), split->children.end(), [](const LayoutNodePtr &child) { return child == nullptr; }),
+                split->children.end());
             if (split->children.empty()) {
                 slot.reset();
                 return;
@@ -104,8 +104,7 @@ namespace sky::editor {
             if (tab == nullptr) {
                 return;
             }
-            const auto it = std::find_if(tab->panels.begin(), tab->panels.end(),
-                                         [&](const PanelNode &panel) { return panel.panelId == panelId; });
+            const auto it = std::find_if(tab->panels.begin(), tab->panels.end(), [&](const PanelNode &panel) { return panel.panelId == panelId; });
             if (it == tab->panels.end()) {
                 return;
             }
@@ -125,8 +124,7 @@ namespace sky::editor {
         bool InsertBeside(LayoutNodePtr &rootSlot, LayoutNode *target, LayoutNodePtr newTab, DockPosition position)
         {
             const SplitOrientation want =
-                (position == DockPosition::LEFT || position == DockPosition::RIGHT) ? SplitOrientation::HORIZONTAL
-                                                                                   : SplitOrientation::VERTICAL;
+                (position == DockPosition::LEFT || position == DockPosition::RIGHT) ? SplitOrientation::HORIZONTAL : SplitOrientation::VERTICAL;
             const bool before = (position == DockPosition::LEFT || position == DockPosition::TOP);
 
             LayoutNode *parent = FindParentImpl(rootSlot.get(), target);
@@ -134,9 +132,9 @@ namespace sky::editor {
                 if (rootSlot.get() != target) {
                     return false;
                 }
-                auto split = std::make_unique<SplitNode>();
+                auto split         = std::make_unique<SplitNode>();
                 split->orientation = want;
-                split->ratios = {0.5f, 0.5f};
+                split->ratios      = {0.5f, 0.5f};
                 if (before) {
                     split->children.push_back(std::move(newTab));
                     split->children.push_back(std::move(rootSlot));
@@ -157,17 +155,14 @@ namespace sky::editor {
                         break;
                     }
                 }
-                const float base = index < parentSplit->ratios.size()
-                    ? parentSplit->ratios[index]
-                    : (1.0f / static_cast<float>(parentSplit->children.size()));
+                const float base =
+                    index < parentSplit->ratios.size() ? parentSplit->ratios[index] : (1.0f / static_cast<float>(parentSplit->children.size()));
                 if (index < parentSplit->ratios.size()) {
                     parentSplit->ratios[index] = base * 0.5f;
                 }
                 const size_t insertAt = before ? index : index + 1;
-                parentSplit->children.insert(parentSplit->children.begin() + static_cast<std::ptrdiff_t>(insertAt),
-                                             std::move(newTab));
-                parentSplit->ratios.insert(parentSplit->ratios.begin() + static_cast<std::ptrdiff_t>(insertAt),
-                                           base * 0.5f);
+                parentSplit->children.insert(parentSplit->children.begin() + static_cast<std::ptrdiff_t>(insertAt), std::move(newTab));
+                parentSplit->ratios.insert(parentSplit->ratios.begin() + static_cast<std::ptrdiff_t>(insertAt), base * 0.5f);
                 NormalizeRatios(*parentSplit);
                 return true;
             }
@@ -176,9 +171,9 @@ namespace sky::editor {
                 if (child.get() != target) {
                     continue;
                 }
-                auto sub = std::make_unique<SplitNode>();
-                sub->orientation = want;
-                sub->ratios = {0.5f, 0.5f};
+                auto sub                  = std::make_unique<SplitNode>();
+                sub->orientation          = want;
+                sub->ratios               = {0.5f, 0.5f};
                 LayoutNodePtr targetOwned = std::move(child);
                 if (before) {
                     sub->children.push_back(std::move(newTab));
@@ -246,8 +241,7 @@ namespace sky::editor {
                 rapidjson::Value panels(rapidjson::kArrayType);
                 for (const auto &panel : tab->panels) {
                     rapidjson::Value id;
-                    id.SetString(panel.panelId.c_str(), static_cast<rapidjson::SizeType>(panel.panelId.size()),
-                                 allocator);
+                    id.SetString(panel.panelId.c_str(), static_cast<rapidjson::SizeType>(panel.panelId.size()), allocator);
                     panels.PushBack(id, allocator);
                 }
                 value.AddMember("panels", panels, allocator);
@@ -270,8 +264,7 @@ namespace sky::editor {
             return value;
         }
 
-        LayoutNodePtr NodeFromJson(const rapidjson::Value &value, const PanelRegistry *registry,
-                                   std::vector<std::string> *warnings)
+        LayoutNodePtr NodeFromJson(const rapidjson::Value &value, const PanelRegistry *registry, std::vector<std::string> *warnings)
         {
             if (!value.IsObject()) {
                 return nullptr;
@@ -283,7 +276,7 @@ namespace sky::editor {
             const std::string type = typeIt->value.GetString();
 
             if (type == "tab") {
-                auto tab = std::make_unique<TabNode>();
+                auto       tab      = std::make_unique<TabNode>();
                 const auto panelsIt = value.FindMember("panels");
                 if (panelsIt != value.MemberEnd() && panelsIt->value.IsArray()) {
                     for (const auto &panel : panelsIt->value.GetArray()) {
@@ -304,8 +297,7 @@ namespace sky::editor {
                     return nullptr;
                 }
                 const auto activeIt = value.FindMember("active");
-                tab->activeIndex =
-                    activeIt != value.MemberEnd() && activeIt->value.IsInt() ? activeIt->value.GetInt() : 0;
+                tab->activeIndex    = activeIt != value.MemberEnd() && activeIt->value.IsInt() ? activeIt->value.GetInt() : 0;
                 if (tab->activeIndex < 0 || tab->activeIndex >= static_cast<int32_t>(tab->panels.size())) {
                     tab->activeIndex = 0;
                 }
@@ -313,10 +305,9 @@ namespace sky::editor {
             }
 
             if (type == "split") {
-                auto split = std::make_unique<SplitNode>();
+                auto       split         = std::make_unique<SplitNode>();
                 const auto orientationIt = value.FindMember("orientation");
-                if (orientationIt != value.MemberEnd() && orientationIt->value.IsString() &&
-                    std::string(orientationIt->value.GetString()) == "v") {
+                if (orientationIt != value.MemberEnd() && orientationIt->value.IsString() && std::string(orientationIt->value.GetString()) == "v") {
                     split->orientation = SplitOrientation::VERTICAL;
                 }
                 const auto childrenIt = value.FindMember("children");
@@ -352,10 +343,11 @@ namespace sky::editor {
     void LayoutModel::SetDefault(std::vector<std::string> panelIds)
     {
         defaultPanels = panelIds;
+        defaultJson.clear();
         hasDefault = true;
         floatingPanels.clear();
 
-        root = std::make_unique<TabNode>();
+        root      = std::make_unique<TabNode>();
         auto *tab = static_cast<TabNode *>(root.get());
         for (auto &id : panelIds) {
             tab->panels.push_back(PanelNode{std::move(id)});
@@ -363,8 +355,18 @@ namespace sky::editor {
         tab->activeIndex = 0;
     }
 
+    void LayoutModel::CaptureDefault()
+    {
+        defaultJson = ToJson();
+        hasDefault  = true;
+        defaultPanels.clear();
+    }
+
     void LayoutModel::ResetToDefault()
     {
+        if (!defaultJson.empty() && FromJson(defaultJson, *this)) {
+            return;
+        }
         if (!hasDefault) {
             Clear();
             return;
@@ -385,9 +387,9 @@ namespace sky::editor {
             return false;
         }
 
-        auto split = std::make_unique<SplitNode>();
+        auto split         = std::make_unique<SplitNode>();
         split->orientation = orientation;
-        split->ratios = {0.5f, 0.5f};
+        split->ratios      = {0.5f, 0.5f};
 
         LayoutNode *parent = FindParent(tab);
         if (parent == nullptr) {
@@ -434,18 +436,16 @@ namespace sky::editor {
             return true;
         }
 
-        const auto sourceIt = std::find_if(source->panels.begin(), source->panels.end(),
-                                           [&](const PanelNode &panel) { return panel.panelId == panelId; });
+        const auto sourceIt =
+            std::find_if(source->panels.begin(), source->panels.end(), [&](const PanelNode &panel) { return panel.panelId == panelId; });
         if (sourceIt == source->panels.end()) {
             return false;
         }
         source->panels.erase(sourceIt);
 
-        const auto targetIt = std::find_if(target->panels.begin(), target->panels.end(),
-                                           [&](const PanelNode &panel) { return panel.panelId == targetPanelId; });
-        const size_t position = targetIt == target->panels.end()
-            ? target->panels.size()
-            : static_cast<size_t>(targetIt - target->panels.begin()) + 1;
+        const auto targetIt =
+            std::find_if(target->panels.begin(), target->panels.end(), [&](const PanelNode &panel) { return panel.panelId == targetPanelId; });
+        const size_t position = targetIt == target->panels.end() ? target->panels.size() : static_cast<size_t>(targetIt - target->panels.begin()) + 1;
         target->panels.insert(target->panels.begin() + static_cast<std::ptrdiff_t>(position), PanelNode{panelId});
         target->activeIndex = static_cast<int32_t>(position);
 
@@ -459,8 +459,7 @@ namespace sky::editor {
         if (tab == nullptr) {
             return false;
         }
-        const auto it = std::find_if(tab->panels.begin(), tab->panels.end(),
-                                     [&](const PanelNode &panel) { return panel.panelId == panelId; });
+        const auto it = std::find_if(tab->panels.begin(), tab->panels.end(), [&](const PanelNode &panel) { return panel.panelId == panelId; });
         if (it == tab->panels.end()) {
             return false;
         }
@@ -474,7 +473,7 @@ namespace sky::editor {
         if (panelId == targetPanelId || FindTab(targetPanelId) == nullptr) {
             return false;
         }
-        const bool docked = FindTab(panelId) != nullptr;
+        const bool docked   = FindTab(panelId) != nullptr;
         const bool floating = IsFloating(panelId);
         if (!docked && !floating) {
             return false;
@@ -484,9 +483,9 @@ namespace sky::editor {
             RemovePanelFromTab(FindTab(panelId), panelId);
         }
         if (floating) {
-            floatingPanels.erase(std::remove_if(floatingPanels.begin(), floatingPanels.end(),
-                                                [&](const FloatingPanel &fp) { return fp.panelId == panelId; }),
-                                 floatingPanels.end());
+            floatingPanels.erase(
+                std::remove_if(floatingPanels.begin(), floatingPanels.end(), [&](const FloatingPanel &fp) { return fp.panelId == panelId; }),
+                floatingPanels.end());
         }
         Collapse(root);
 
@@ -496,11 +495,9 @@ namespace sky::editor {
         }
 
         if (position == DockPosition::CENTER) {
-            const auto targetIt = std::find_if(target->panels.begin(), target->panels.end(),
-                                               [&](const PanelNode &panel) { return panel.panelId == targetPanelId; });
-            const size_t at = targetIt == target->panels.end()
-                ? target->panels.size()
-                : static_cast<size_t>(targetIt - target->panels.begin()) + 1;
+            const auto targetIt =
+                std::find_if(target->panels.begin(), target->panels.end(), [&](const PanelNode &panel) { return panel.panelId == targetPanelId; });
+            const size_t at = targetIt == target->panels.end() ? target->panels.size() : static_cast<size_t>(targetIt - target->panels.begin()) + 1;
             target->panels.insert(target->panels.begin() + static_cast<std::ptrdiff_t>(at), PanelNode{panelId});
             target->activeIndex = static_cast<int32_t>(at);
             return true;
@@ -522,7 +519,7 @@ namespace sky::editor {
         Collapse(root);
 
         FloatingPanel entry = geometry;
-        entry.panelId = panelId;
+        entry.panelId       = panelId;
         floatingPanels.push_back(entry);
         return true;
     }
@@ -539,9 +536,9 @@ namespace sky::editor {
     {
         for (auto &fp : floatingPanels) {
             if (fp.panelId == panelId) {
-                fp.x = x;
-                fp.y = y;
-                fp.width = width;
+                fp.x      = x;
+                fp.y      = y;
+                fp.width  = width;
                 fp.height = height;
                 return true;
             }
@@ -551,8 +548,7 @@ namespace sky::editor {
 
     bool LayoutModel::IsFloating(const std::string &panelId) const
     {
-        return std::any_of(floatingPanels.begin(), floatingPanels.end(),
-                           [&](const FloatingPanel &fp) { return fp.panelId == panelId; });
+        return std::any_of(floatingPanels.begin(), floatingPanels.end(), [&](const FloatingPanel &fp) { return fp.panelId == panelId; });
     }
 
     const FloatingPanel *LayoutModel::FindFloating(const std::string &panelId) const
@@ -563,13 +559,6 @@ namespace sky::editor {
             }
         }
         return nullptr;
-    }
-
-    void LayoutModel::CollectFloating(std::vector<std::string> &out) const
-    {
-        for (const auto &fp : floatingPanels) {
-            out.push_back(fp.panelId);
-        }
     }
 
     bool LayoutModel::SetRatio(LayoutNode *splitNode, uint32_t index, float ratio)
@@ -637,9 +626,7 @@ namespace sky::editor {
             rapidjson::Value floating(rapidjson::kArrayType);
             for (const auto &fp : floatingPanels) {
                 rapidjson::Value entry(rapidjson::kObjectType);
-                entry.AddMember("panel", rapidjson::StringRef(fp.panelId.c_str(),
-                                                             static_cast<rapidjson::SizeType>(fp.panelId.size())),
-                                allocator);
+                entry.AddMember("panel", rapidjson::StringRef(fp.panelId.c_str(), static_cast<rapidjson::SizeType>(fp.panelId.size())), allocator);
                 entry.AddMember("x", fp.x, allocator);
                 entry.AddMember("y", fp.y, allocator);
                 entry.AddMember("w", fp.width, allocator);
@@ -662,8 +649,7 @@ namespace sky::editor {
         return buffer.GetString();
     }
 
-    bool LayoutModel::FromJson(const std::string &json, LayoutModel &out, const PanelRegistry *registry,
-                               std::vector<std::string> *warnings)
+    bool LayoutModel::FromJson(const std::string &json, LayoutModel &out, const PanelRegistry *registry, std::vector<std::string> *warnings)
     {
         rapidjson::Document document;
         document.Parse(json.c_str(), json.size());
@@ -673,7 +659,7 @@ namespace sky::editor {
 
         out.root.reset();
         const auto versionIt = document.FindMember("version");
-        out.version = versionIt != document.MemberEnd() && versionIt->value.IsInt() ? versionIt->value.GetInt() : 1;
+        out.version          = versionIt != document.MemberEnd() && versionIt->value.IsInt() ? versionIt->value.GetInt() : 1;
 
         const auto rootIt = document.FindMember("root");
         if (rootIt != document.MemberEnd()) {
@@ -704,13 +690,13 @@ namespace sky::editor {
                     return (it != entry.MemberEnd() && it->value.IsNumber()) ? it->value.GetFloat() : fallback;
                 };
                 FloatingPanel fp;
-                fp.panelId = id;
-                fp.x = readFloat("x", 0.0f);
-                fp.y = readFloat("y", 0.0f);
-                fp.width = readFloat("w", 0.0f);
-                fp.height = readFloat("h", 0.0f);
+                fp.panelId          = id;
+                fp.x                = readFloat("x", 0.0f);
+                fp.y                = readFloat("y", 0.0f);
+                fp.width            = readFloat("w", 0.0f);
+                fp.height           = readFloat("h", 0.0f);
                 const auto activeIt = entry.FindMember("active");
-                fp.active = activeIt != entry.MemberEnd() && activeIt->value.IsBool() && activeIt->value.GetBool();
+                fp.active           = activeIt != entry.MemberEnd() && activeIt->value.IsBool() && activeIt->value.GetBool();
                 out.floatingPanels.push_back(fp);
             }
         }

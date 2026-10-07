@@ -22,7 +22,7 @@ namespace sky::editor {
 
         int64_t EnumRaw(const Any &value)
         {
-            int64_t out = 0;
+            int64_t           out  = 0;
             const TypeInfoRT *info = value.Info();
             if (info == nullptr || info->staticInfo == nullptr || value.Data() == nullptr) {
                 return 0;
@@ -37,28 +37,29 @@ namespace sky::editor {
             if (info == nullptr || info->staticInfo == nullptr) {
                 return {};
             }
-            uint8_t buffer[8] = {0};
-            const size_t size = std::min<size_t>(info->staticInfo->size, sizeof(buffer));
+            uint8_t      buffer[8] = {0};
+            const size_t size      = std::min<size_t>(info->staticInfo->size, sizeof(buffer));
             std::memcpy(buffer, &raw, size);
             return Any::Create(info, buffer);
         }
 
     } // namespace
 
-    void EnumReflectedWidget::Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field,
-                                    const sky::ui::UIRect &rect)
+    void EnumReflectedWidget::Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field, const sky::ui::UIRect &rect)
     {
-        const UiTheme &th = host.Skin().Theme();
+        const UiTheme   &th = host.Skin().Theme();
+        const UiMetrics &m  = th.metrics;
         host.Skin().DrawField(context, rect, false, false);
         uc::Text(context, FormatPropertyValue(field.descriptor, field.control), th.fonts.value,
-                 sky::ui::UIRect{rect.left + 6.0f, rect.top, rect.right - 18.0f, rect.bottom}, th.colors.text, host.Text());
+                 sky::ui::UIRect{rect.left + m.cellPadding, rect.top, rect.right - (m.indentSmall + m.checkboxPad), rect.bottom}, th.colors.text,
+                 host.Text());
         if (!field.control.enumNames.empty()) {
-            host.Skin().DrawTriangle(context, rect.right - 13.0f, (rect.top + rect.bottom) * 0.5f, true, th.colors.textMuted);
+            host.Skin().DrawTriangle(context, rect.right - (m.indentSmall - m.hairline), (rect.top + rect.bottom) * 0.5f, true, th.colors.textMuted);
         }
     }
 
-    bool EnumReflectedWidget::OnDown(ReflectedWidgetHost &host, PropertyField &field, const sky::ui::UIPointerEvent &event,
-                                     const sky::ui::UIRect &rect)
+    bool
+    EnumReflectedWidget::OnDown(ReflectedWidgetHost &host, PropertyField &field, const sky::ui::UIPointerEvent &event, const sky::ui::UIRect &rect)
     {
         if (field.control.enumNames.empty()) {
             return false;
@@ -70,20 +71,22 @@ namespace sky::editor {
 
     void EnumReflectedWidget::Open(PropertyField &field, const sky::ui::UIRect &control, const sky::ui::UIRect &bounds)
     {
-        openField = &field;
-        hoverItem = -1;
-        const float rowH = 20.0f;
-        const int count = static_cast<int>(field.control.enumNames.size());
-        const float h = rowH * static_cast<float>(count) + 4.0f;
-        float top = control.bottom + 2.0f;
-        if (top + h > bounds.bottom - 4.0f) {
-            top = control.top - h - 2.0f;
+        openField              = &field;
+        hoverItem              = -1;
+        const UiMetrics &m     = GetDefaultUiTheme().metrics;
+        const float      pad   = m.checkboxPad;
+        const float      rowH  = m.popupItemHeight;
+        const int        count = static_cast<int>(field.control.enumNames.size());
+        const float      h     = rowH * static_cast<float>(count) + pad * 2.0f;
+        float            top   = control.bottom + pad;
+        if (top + h > bounds.bottom - pad * 2.0f) {
+            top = control.top - h - pad;
         }
         popupRect = sky::ui::UIRect{control.left, top, control.right, top + h};
         itemRects.clear();
         for (int i = 0; i < count; ++i) {
-            itemRects.push_back(sky::ui::UIRect{popupRect.left + 2.0f, popupRect.top + 2.0f + rowH * static_cast<float>(i),
-                                                popupRect.right - 2.0f, popupRect.top + 2.0f + rowH * static_cast<float>(i + 1)});
+            itemRects.push_back(sky::ui::UIRect{popupRect.left + pad, popupRect.top + pad + rowH * static_cast<float>(i), popupRect.right - pad,
+                                                popupRect.top + pad + rowH * static_cast<float>(i + 1)});
         }
     }
 
@@ -104,8 +107,8 @@ namespace sky::editor {
             return;
         }
         PropertyField *field = openField;
-        const int64_t value = field->control.enumValues[index];
-        openField = nullptr;
+        const int64_t  value = field->control.enumValues[index];
+        openField            = nullptr;
         itemRects.clear();
         host.Form().Edit(*field, MakeEnumValue(field->descriptor.GetType(), value), host.Commands());
         host.RefreshForm();
@@ -116,7 +119,8 @@ namespace sky::editor {
         if (openField == nullptr) {
             return;
         }
-        const UiTheme &th = host.Skin().Theme();
+        const UiTheme   &th = host.Skin().Theme();
+        const UiMetrics &m  = th.metrics;
         host.Skin().DrawPopup(context, popupRect);
         const int current = CurrentIndex(*openField);
         for (size_t i = 0; i < itemRects.size(); ++i) {
@@ -124,10 +128,14 @@ namespace sky::editor {
             host.Skin().DrawPopupItem(context, itemRects[i], static_cast<int>(i) == hoverItem, selected);
             if (selected) {
                 const float cy = (itemRects[i].top + itemRects[i].bottom) * 0.5f;
-                host.Skin().DrawCheck(context, sky::ui::UIRect{itemRects[i].left + 4.0f, cy - 6.0f, itemRects[i].left + 16.0f, cy + 6.0f}, th.colors.textOnAccent);
+                host.Skin().DrawCheck(context,
+                                      sky::ui::UIRect{itemRects[i].left + m.checkboxPad * 2.0f, cy - m.cellPadding, itemRects[i].left + m.indentSmall,
+                                                      cy + m.cellPadding},
+                                      th.colors.textOnAccent);
             }
             uc::Text(context, openField->control.enumNames[i], th.fonts.value,
-                     sky::ui::UIRect{itemRects[i].left + 22.0f, itemRects[i].top, itemRects[i].right - 4.0f, itemRects[i].bottom},
+                     sky::ui::UIRect{itemRects[i].left + m.listLabelIndent, itemRects[i].top, itemRects[i].right - m.checkboxPad * 2.0f,
+                                     itemRects[i].bottom},
                      th.colors.text, host.Text());
         }
     }
