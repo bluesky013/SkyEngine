@@ -17,10 +17,12 @@ namespace sky {
 
     inline constexpr uint32_t Fnv1a32(std::string_view str)
     {
-        uint32_t res  = FNVOffsetBias32;
-        auto size = static_cast<uint32_t>(str.size());
+        uint32_t res = FNVOffsetBias32;
+        auto     size = static_cast<uint32_t>(str.size());
         for (uint32_t i = 0; i < size; ++i) {
-            res ^= str[i];
+            // cast to uint8_t: plain char is signed on x86 and unsigned on ARM,
+            // so hashing it directly would differ across platforms for bytes >= 0x80
+            res ^= static_cast<uint8_t>(str[i]);
             res *= FNVPrime32;
         }
         return res;
@@ -31,7 +33,7 @@ namespace sky {
         uint64_t res  = FNVOffsetBias64;
         uint64_t size = str.size();
         for (uint32_t i = 0; i < size; ++i) {
-            res ^= str[i];
+            res ^= static_cast<uint8_t>(str[i]);
             res *= FNVPrime64;
         }
         return res;
