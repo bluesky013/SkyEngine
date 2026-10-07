@@ -33,6 +33,17 @@ if (SKY_MATH_SIMD)
     add_compile_definitions(SKY_MATH_SIMD=1)
 endif ()
 
+if (SKY_DETERMINISTIC_FP)
+    add_compile_definitions(SKY_DETERMINISTIC_FP=1)
+    # No FP contraction (a*b+c must not become fma) so results are identical
+    # across compilers and architectures (x86/ARM, clang/gcc/msvc).
+    if (MSVC)
+        add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/fp:precise>)
+    else ()
+        add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-ffp-contract=off>)
+    endif ()
+endif ()
+
 if (SKY_DEVELOP)
     add_compile_definitions(SKY_DEVELOP=1)
 endif ()

@@ -23,4 +23,8 @@ option(SKY_PYTHON_SSL  "python ssl/_hashlib via static OpenSSL" OFF)
 option(SKY_BUILD_TEST  "build test"           OFF)
 option(SKY_USE_TRACY   "use tracy profiler"   OFF)
 option(SKY_MATH_SIMD   "enable simd math"     OFF)
+# Disable FP contraction (a*b+c -> fma) and force IEEE-conformant FP so results
+# match across compilers/architectures (required for lockstep / deterministic
+# physics). Off by default; enable for deterministic/replay builds.
+option(SKY_DETERMINISTIC_FP "deterministic floating point (no FMA contraction)" OFF)
 option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
