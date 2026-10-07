@@ -63,3 +63,37 @@ development convenience and is not the shipping layout.
 - **WHEN** the game runs via `--project <dir>` from the project tree
 - **THEN** it MAY read the project's `assets/` (and on-demand cook in the editor); this is not the shipping layout
 
+### Requirement: Configurable bundle id, signing, and IDE project generation
+
+Project packaging SHALL support a configurable application identity and signing, and SHALL be able to generate
+the platform IDE project from the same project configuration:
+
+- **Bundle id**: a project setting maps to Android `applicationId` (and gradle `namespace`) and to Apple
+  `CFBundleIdentifier`; the value SHALL flow from the project descriptor/settings, not be hardcoded.
+- **Signing**: Android keystore (path/alias/passwords, kept out of VCS) and Apple signing
+  (`DEVELOPMENT_TEAM`, provisioning, entitlements/codesign) SHALL be configurable per project.
+- **IDE project generation**: the project SHALL generate an **Android Studio** gradle project and an **Xcode**
+  project (iOS/macOS) carrying the resolved id/signing, so the game can be opened/run from the IDE.
+- The same project configuration SHALL drive build -> IDE project generation -> signing -> output (`APK` / `.app`).
+
+#### Scenario: Custom bundle id
+
+- **WHEN** a project sets its application id
+- **THEN** the generated Android `applicationId`/`namespace` and Apple `CFBundleIdentifier` SHALL use that value
+
+#### Scenario: Signing configured
+
+- **WHEN** signing is configured for a platform
+- **THEN** packaging SHALL sign the output with the configured identity (Android keystore / Apple team+provisioning)
+
+#### Scenario: Generate IDE projects
+
+- **WHEN** IDE project generation is requested
+- **THEN** an Android Studio gradle project and an Xcode project SHALL be produced with the resolved id/signing
+
+#### Scenario: End-to-end packaging
+
+- **WHEN** a project is packaged for a platform
+- **THEN** one configuration SHALL drive build, IDE project generation, signing, and the final `APK`/`.app`
+
+

@@ -17,6 +17,8 @@
 - [ ] 3.2 `source/CMakeLists.txt`：`sky_add_library(TARGET <Name>Module SHARED ...)`，链接引擎接口
 - [x] 3.3 `CMakePresets.json`：macos/windows/linux/android/ios configure+build presets（引擎开关 SKY_BUILD_*）
 - [ ] 3.4 平台覆盖：Win32 / macOS(x86/arm) / Linux / Android（iOS 待 `add-ios-platform`）
+  - Win32：**预留**，模板 `windows` preset 与引擎 Win32 后端已具备；构建/运行验证由 Windows PC 上后续完成
+  - macOS：本机已验证；Android：需 `ANDROID_HOME` + Android 三方；iOS：待 `add-ios-platform`
 
 ## 4. Runtime
 
@@ -39,3 +41,12 @@
 - [ ] 7.2 打包步骤：对工程源资产跑 cook（`asset_cook`/`CookConfig` 目标）产出该平台 product bundle，随游戏模块/引擎一起分发
 - [ ] 7.3 运行时（发布）：装载 **product bundles**（引擎 `common`/`tex_*` bundle + 工程 cooked bundle），**不挂载**原始 `assets/`（`--project` 开发模式除外）
 - [ ] 7.4 文档记录该约束（源资产→cook→product 打包；运行时只读 product）
+
+## 8. Platform packaging & IDE project generation（后续）
+
+- [ ] 8.0 参考/复用 legacy `python/project_manager.py` + `python/build/{Project,Presets}.py`（`Android/IOS/Darwin` config presets、`engine_assets` 符号链接思路）；确认其退役或迁移到原生
+- [ ] 8.1 **可定制 bundle id**：工程配置（`.skyproj` settings）→ Android `applicationId` / Apple `CFBundleIdentifier`（含 namespace/包名一致性）
+- [ ] 8.2 **签名**：Android keystore（`signingConfigs`/`storeFile`/密码，勿入库）与 Apple signing（`DEVELOPMENT_TEAM`/provisioning/codesign）
+- [ ] 8.3 **生成 Android Studio 工程**：由模板生成/参数化 gradle 工程（`applicationId`/`namespace`/ABI/签名），可 `open in Android Studio`
+- [ ] 8.4 **生成 Xcode 工程**：iOS/macOS 由 CMake `Xcode` 生成 `.xcodeproj`（bundle id/team/signing/entitlements 可配）
+- [ ] 8.5 与打包联动：同一工程配置驱动「构建 → 生成 IDE 工程 → 签名 → 产出（APK `.app`）」
