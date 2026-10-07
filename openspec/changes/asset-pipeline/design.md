@@ -67,7 +67,7 @@ A one-time, idempotent pass scans all mounts (D12; builder-known extensions plus
 
 ### D6. Source-asset mutation (framework)
 
-Add `IFileSystem` move/rename and `AssetDataBase::{MoveAsset, RemoveAsset, DuplicateAsset}`. Editor UI wiring is deferred to the sandbox editor refactor.
+Add `IFileSystem` move/rename and `AssetDataBase::{MoveAsset, RemoveAsset, DuplicateAsset}`. Editor UI wiring is deferred to the sandbox editor refactor (no tracking change yet).
 - Import: copy the source into the target writable mount → `RegisterAsset` (create the manifest entry and asset-level cook-config entry) → optionally cook the current platform (default on, configurable). Import does not modify references.
 - Move/rename: move file + manifest line, same UUID; references untouched.
 - Delete: remove file + manifest line + `idMap`; products are reclaimed by a later build. (Tooling may query dependents first, D13.)
@@ -104,7 +104,7 @@ Scope: this removes taskflow only from Framework's own asset code/headers; `Core
 `AssetSourceInfo::category` is already derived (`builder->QueryType(ext)`, `AssetDataBase.cpp:129`) yet persisted (assets.db). Replace it with a single **`AssetTypeId`**:
 - **Source side**: `typeForSource(path) = builderRegistry.QueryType(ext)`; computed, never authored, never written to `assets.jsonl` or `assets.db`.
 - **Product side**: the product header carries the `AssetTypeId`; the loader selects the handler by it (existing behavior).
-- **Consumers**: type-based selection (`Gather`, validation, preview, grouping) uses `AssetTypeId`; editor wiring is deferred to the sandbox editor refactor.
+- **Consumers**: type-based selection (`Gather`, validation, preview, grouping) uses `AssetTypeId`; editor wiring is deferred to the sandbox editor refactor (no tracking change yet).
 - Drop the `category` field from `AssetSourceInfo` and its (de)serialization.
 
 Invariant: the same `AssetTypeId` string MUST be used by `AssetTraits<T>::ASSET_TYPE` (compile-time), the builder registry's `QueryType(ext)`, the `AssetManager` handler-registry key (an interned `Name`), the product header `type`, and the editor property metadata `SET_ASSET_TYPE`; a builder returning a type with no registered handler is invalid.

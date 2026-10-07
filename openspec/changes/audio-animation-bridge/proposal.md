@@ -16,11 +16,11 @@ the mapping belongs in a new bridge layer, mirroring how `render/adaptor` links 
 ### New Capabilities
 - `audio-animation-bridge`: event-name to audio-clip mapping component and playback wiring.
 
-## Related backlog (to split into its own change when expanded)
+## Related backlog (no change exists yet; create when expanded)
 
-- `aurora-animation-bridge`: map `animation::AnimPose` to `aurora::Skin::boneMatrices` in a bridge layer (aurora
-  must not depend on `Animation`). Bone-socket audio positioning depends on this; the legacy bridge lives in
-  `engine/render/adaptor`.
+- Aurora animation bridge (not yet a change): map `animation::AnimPose` to `aurora::Skin::boneMatrices` in a
+  bridge layer (aurora must not depend on `Animation`). Bone-socket audio positioning depends on this; the
+  legacy bridge lives in `engine/render/adaptor`.
 - Bone socket query: expose `AnimPose::GetBoneTransform(Name)`-style access (currently only `ToSkinRenderData`).
 
 ## Impact

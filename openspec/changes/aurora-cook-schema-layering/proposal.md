@@ -1,6 +1,6 @@
 # Change: aurora-cook-schema-layering
 
-> 状态：proposal（未实现）。记录 review 发现的既有分层债务，供后续排期。
+> 状态：Debt record（未实现，not scheduled）。记录 review 发现的既有分层债务；未排期，触发条件成熟时再提案。
 
 ## Why
 

@@ -18,4 +18,4 @@
 
 ## Related backlog
 
-- [ ] 4.1 `animation-graph-assets`: complete graph asset schema + event-node editor (split into its own change)
+- [ ] 4.1 Animation graph assets (no change yet): complete graph asset schema + event-node editor (split into its own change when expanded)

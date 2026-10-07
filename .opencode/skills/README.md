@@ -28,6 +28,8 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - Generate or update English technical documentation under `docs/`, with optional local PDF export to `docs/pdf/`
 - `vulkan-spec-quick-index/`
   - Fast topic map for the Vulkan spec, with lookup keywords, common navigation paths, and official reference entry points
+- `openspec-change-hygiene/`
+  - Keep the OpenSpec change backlog healthy: prevent proposal-only changes, dangling change references, stale/superseded task rows, frozen records mixed into scheduled work, and invisible prerequisite chains
 
 Each skill lives in its own folder and must expose `SKILL.md`.
 

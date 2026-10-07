@@ -38,7 +38,7 @@
 
 ## 6. World/document identity
 
-- [ ] 6.1 Register world documents (`.world`) as source assets via the resolver (`RegisterAsset(path, build=false)`) so they get manifest identity; the editor document wiring lands with the sandbox editor refactor. (deferred: sandbox editor refactor)
+- [ ] 6.1 Register world documents (`.world`) as source assets via the resolver (`RegisterAsset(path, build=false)`) so they get manifest identity; the editor document wiring lands with the sandbox editor refactor (no tracking change yet). (deferred: sandbox editor refactor (no tracking change yet))
 
 ## 7. assets.db scope
 
@@ -47,10 +47,10 @@
 
 ## 8. Unified product loading
 
-- [x] 8.1 Make the editor load asset data through `AssetManager`/product bundles (same loader as runtime), not from source files; viewport wiring lands with the sandbox editor refactor.
+- [x] 8.1 Make the editor load asset data through `AssetManager`/product bundles (same loader as runtime), not from source files; viewport wiring lands with the sandbox editor refactor (no tracking change yet).
 - [x] 8.2 Convert product payloads to UUID-only references: migrate `engine/render/adaptor/src/assets/MaterialAsset.cpp` JSON writes/reads (`:173-175,227-229`, `:192-193`) and any other path-referencing payload writer.
-- [ ] 8.3 Make the editor load only from products (never source); delegate a missing product whose source exists to the on-demand cook path (group 10), with no source fallback. (deferred: sandbox editor refactor)
-- [ ] 8.4 Add tests: a material product with a texture UUID loads without the source catalog; the editor load path reads no source files. (deferred: sandbox editor refactor)
+- [ ] 8.3 Make the editor load only from products (never source); delegate a missing product whose source exists to the on-demand cook path (group 10), with no source fallback. (deferred: sandbox editor refactor (no tracking change yet))
+- [ ] 8.4 Add tests: a material product with a texture UUID loads without the source catalog; the editor load path reads no source files. (deferred: sandbox editor refactor (no tracking change yet))
 
 ## 9. Asset async executor (remove taskflow)
 
@@ -65,12 +65,12 @@
 - [x] 10.1 Extend `AssetBuildResult` (and the `IAssetEvent::OnAssetBuildFinished` payload) to carry `uuid`, `target`, `retCode`, and an error string so completions can be correlated.
 - [x] 10.2 Add the source catalog interface (`ResolvePath`/`Exists`/`GetTarget`; editor: `AssetDataBase`-backed, runtime: empty) and, on an editor load miss with an existing source, schedule a cook and return the asset in a LOADING state (coalesced per UUID); choose the cook target from the effective cook configuration (asset override × preset × platform; default primary bundle `common`); report the asset as missing when no source record exists, and fail hard in runtime.
 - [x] 10.3 From the build-finished event, mark the pending asset LOADED on success or FAILED on failure (no source fallback); a later load of a FAILED asset re-attempts.
-- [ ] 10.4 Add `ICookRunner` with `InProcessCookRunner` (current `AssetBuilderManager::BuildRequest` on the thread pool) and `OutOfProcessCookRunner` (AssetBuilder process + IPC that raises the same event); select via config. (deferred: out-of-process cook/IPC follow-up)
-- [ ] 10.5 Add tests: missing product schedules a cook and the load resumes on success; cook failure fails the load; out-of-process completion raises the same event. (deferred: out-of-process cook/IPC follow-up)
+- [x] 10.4 Add `ICookRunner` with `InProcessCookRunner` (current `AssetBuilderManager::BuildRequest` on the thread pool) and `OutOfProcessCookRunner` (AssetBuilder process + IPC that raises the same event); select via config. (delivered by archived `asset-cook-ipc`)
+- [x] 10.5 Add tests: missing product schedules a cook and the load resumes on success; cook failure fails the load; out-of-process completion raises the same event. (delivered in part by archived `asset-cook-ipc`; residual real-builder verification noted there)
 - [ ] 10.6 Add the builder-side `AssetTool` (built independent of `SKY_BUILD_TOOL`, D7), in two parts:
   - [ ] 10.6a Frontend (asset browser): browse the source catalog/manifests, inspect the effective cook config, and trigger cooks. (deferred: AssetTool follow-up)
   - [x] 10.6b Background worker (in-process batch cooking): `CookWorker` drains a work list of `(uuid, target)` jobs (and `CookAll` over registered sources) on the asset/cook pools.
-  - [ ] 10.6c Out-of-process cook host: worker process + request/response protocol + worker lifecycle (IPC). (deferred: out-of-process cook/IPC follow-up)
+  - [x] 10.6c Out-of-process cook host: worker process + request/response protocol + worker lifecycle (IPC). (delivered by archived `asset-cook-ipc`)
 
 ## 11. Asset type identity
 
@@ -97,8 +97,8 @@
 - [x] 14.1 Run in-process cooks on a separate cook pool (off the loader pool); ensure no loader-pool starvation; document that `BlockUntilLoaded` must not be called on the asset pool.
 - [x] 14.2 Serialize `product.index` writes per bundle (lock + atomic temp+rename) so concurrent cooks do not lose entries.
 - [x] 14.3 Guard the pending-load table with a lock, make `IAssetEvent` subscription thread-safe, and establish the LOADING wait handle before scheduling the cook.
-- [ ] 14.4 Define the IPC length-prefixed frame encoding, route worker logs to stderr, handle partial frames, start the worker with the same mount namespace/platform target, and fail+restart on timeout/crash. (deferred: out-of-process cook/IPC follow-up)
-- [ ] 14.5 Add tests: concurrent cooks on one bundle; loader pool not starved under on-demand cook; IPC logs do not corrupt frames. (deferred: out-of-process cook/IPC follow-up)
+- [x] 14.4 Define the IPC length-prefixed frame encoding, route worker logs to stderr, handle partial frames, start the worker with the same mount namespace/platform target, and fail+restart on timeout/crash. (delivered by archived `asset-cook-ipc`)
+- [x] 14.5 Add tests: concurrent cooks on one bundle; loader pool not starved under on-demand cook; IPC logs do not corrupt frames. (delivered in part by archived `asset-cook-ipc`; residual noted there)
 
 ## 15. Verification
 

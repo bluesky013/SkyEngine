@@ -1,6 +1,6 @@
 # Change: legacy-render-thirdparty-cleanup
 
-> 状态：proposal（未实现）。渲染重构完成后执行的三方库清理清单。
+> 状态：Debt record（未实现，not scheduled）。渲染重构完成后执行的三方库清理清单；未排期，阻塞于 legacy render 退役。
 
 ## Why
 

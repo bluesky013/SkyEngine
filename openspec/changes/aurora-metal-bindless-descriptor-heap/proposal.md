@@ -1,6 +1,6 @@
 # Change: aurora-metal-bindless-descriptor-heap
 
-> 状态：proposal（未实现）。记录 Metal 侧 tier2 bindless 的模型差异与落地路线。
+> 状态：Debt record（未实现，not scheduled）。记录 Metal 侧 tier2 bindless 的模型差异与落地路线；未排期，待上游 slang 就绪后再提案。
 
 ## Why
 

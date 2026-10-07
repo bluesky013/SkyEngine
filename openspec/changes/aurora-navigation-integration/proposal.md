@@ -19,10 +19,10 @@ core first, and the recast runtime wiring is intentionally render-agnostic until
 - `navigation-aurora-integration`: aurora debug rendering for the nav mesh and render-independent navigation
   runtime wiring.
 
-## Related backlog (to split into its own change when expanded)
+## Related backlog (no change exists yet; create when expanded)
 
-- `navigation-path-query`: a real `NaviPath` output API, a `NaviQueryFilter` creation path, and navigation
-  components/reflection so gameplay can request paths.
+- Navigation path query (not yet a change): a real `NaviPath` output API, a `NaviQueryFilter` creation path,
+  and navigation components/reflection so gameplay can request paths.
 
 ## Impact
 

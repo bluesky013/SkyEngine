@@ -18,10 +18,11 @@ an unimplemented `// fetch events` seam. Without this, audio (and VFX/gameplay) 
 ### New Capabilities
 - `animation-events`: marker track, playhead crossing detection, per-frame dispatch, state enter/exit events.
 
-## Related backlog (to split into its own change when expanded)
+## Related backlog (no change exists yet; create when expanded)
 
-- `animation-graph-assets`: complete the started-but-unused graph asset schema (`AnimationAssetData` currently only
-  carries `version`; `AnimationStateData` / conditions are defined but unused) and add an event-node authoring UI.
+- Animation graph assets (not yet a change): complete the started-but-unused graph asset schema
+  (`AnimationAssetData` currently only carries `version`; `AnimationStateData` / conditions are defined but
+  unused) and add an event-node authoring UI.
 
 ## Impact
 

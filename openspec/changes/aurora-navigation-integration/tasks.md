@@ -16,4 +16,4 @@
 
 ## Related backlog
 
-- [ ] 4.1 `navigation-path-query`: `NaviPath` output API + query-filter factory + nav components (split into its own change)
+- [ ] 4.1 Navigation path query (no change yet): `NaviPath` output API + query-filter factory + nav components (split into its own change when expanded)

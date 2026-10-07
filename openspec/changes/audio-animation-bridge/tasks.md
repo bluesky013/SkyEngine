@@ -21,4 +21,4 @@
 
 ## Related backlog
 
-- [ ] 5.1 `aurora-animation-bridge`: `AnimPose` -> `aurora::Skin` bridge (split into its own change)
+- [ ] 5.1 Aurora animation bridge (no change yet): `AnimPose` -> `aurora::Skin` bridge (split into its own change when expanded)
