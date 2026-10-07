@@ -42,7 +42,7 @@ else ()
         list(APPEND _cpython_missing ${${LIB_NAME}_STATIC_LIBRARY})
     endif()
     set(${LIB_NAME}_LIBRARY ${${LIB_NAME}_STATIC_LIBRARY})
-    set(${LIB_NAME}_SYSTEM_LIBS pthread dl m)
+    set(${LIB_NAME}_SYSTEM_LIBS pthread dl m z)
     if (ANDROID)
         list(APPEND ${LIB_NAME}_SYSTEM_LIBS log)
     endif ()
@@ -65,8 +65,8 @@ target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE
         ${${LIB_NAME}_LIBRARY}
         ${${LIB_NAME}_MODULE_LIBS}
         ${${LIB_NAME}_SYSTEM_LIBS})
-# The CPython objects are built with /GL, so the final link needs /LTCG.
-target_link_options(${TARGET_WITH_NAMESPACE} INTERFACE "$<$<CONFIG:Release>:/LTCG>")
+# The CPython objects are built with /GL on Windows, so the final link needs /LTCG there.
+target_link_options(${TARGET_WITH_NAMESPACE} INTERFACE "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>>:/LTCG>")
 
 set_target_properties(${TARGET_WITH_NAMESPACE} PROPERTIES INTERFACE_DYN_LIBS "")
 

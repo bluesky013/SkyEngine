@@ -4,14 +4,14 @@
 - [x] 1.2 Windows: install the static library and headers into `3RD_PATH/cpython/libs/<config>`
 - [x] 1.3 Prove static linking with a minimal embed smoke (initialize + run a string) before wiring the plugin
 - [x] 1.4 Windows: build a Debug static core and modules, matching `/MD`/`/MDd` (validated with a Debug static spike)
-- [ ] 1.5 Linux/macOS: build a static core (`./configure --disable-shared`) and install `libpython3.XX.a`
+- [x] 1.5 Linux/macOS: build a static core (`./configure --disable-shared` + `Modules/Setup.local` Tier 1 builtins) and install `libpython3.XX.a`
 - [ ] 1.6 Android/iOS: add a static core cross-build (details coordinated with `add-android-python-runtime`)
 
 ## 2. Builtin extension modules (all platforms)
 
 - [x] 2.1 Compile the Tier 1 extension set as builtins on Windows (`build_cpython.py`; `_ctypes` excluded on Windows static) (`unicodedata`, `_decimal`, `_uuid`, `_zoneinfo`, `_elementtree`, `pyexpat`, `_bz2`, `_lzma`, `_socket`, `select`, `_overlapped`, `_queue`)
-- [ ] 2.2 Add a Tier 2 build option and, when enabled, build/register `_ssl`, `_hashlib`, `_sqlite3`, `_asyncio`, `_multiprocessing` (resolve OpenSSL)
-- [ ] 2.3 Add the Tier 1 builtin set for Linux/macOS (equivalent module names)
+- [x] 2.2 Tier 2: `SKY_PYTHON_SSL` enables `_ssl`/`_hashlib` (static OpenSSL); `_sqlite3`/`_asyncio`/`_multiprocessing` ship in the Unix static set
+- [x] 2.3 Tier 1 builtin set for Linux/macOS via `Setup.local` (`_socket` corrected; `_decimal` bundles libmpdec sources with `CONFIG_64`/`ANSI`/`HAVE_UINT128_T`)
 - [x] 2.4 Add an import smoke for every Tier 1 module on Windows; document the excluded set (`_ctypes`)
 
 ## 3. CMake discovery and linking

@@ -33,5 +33,5 @@
 
 - [ ] 6.1 Android end-to-end: build the Android CPython core with `_ssl`/`_hashlib` (unix variant + `Setup.local`), link into `PythonModule`, and confirm the builtins import on device/emulator
 - [ ] 6.2 5.2 HTTPS request test once Android is wired (uses the bundled `ssl/cert.pem`)
-- [ ] 6.3 macOS/Linux: build the `darwin`/`unix` variants and run the same verification
+- [x] 6.3 macOS/Linux: built the `unix` static variant with `_ssl`/`_hashlib`; PythonRuntimeTest (TlsBuiltins) passes; no shared libpython/openssl at runtime
 - [ ] 6.4 Confirm `_ssl`/`_hashlib` registration is a no-op on Android (modules already in the core inittab via `Setup.local`)

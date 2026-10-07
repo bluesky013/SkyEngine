@@ -295,14 +295,14 @@ ANDROID_BUILTIN_SETUP = [
     "math mathmodule.c",
     "zlib zlibmodule.c",
     "select selectmodule.c",
-    "socket socketmodule.c",
+    "_socket socketmodule.c",
     "unicodedata unicodedata.c",
     "_zoneinfo _zoneinfo.c",
     "_decimal _decimal/_decimal.c",
 ]
 
 # _ssl/_hashlib are appended to the builtin set when a static OpenSSL is available.
-ANDROID_SSL_SETUP = ["_ssl _ssl.c", "_hashlib _hashlib.c"]
+ANDROID_SSL_SETUP = ["_ssl _ssl.c", "_hashlib _hashopenssl.c"]
 
 
 def resolve_android_env():
@@ -520,29 +520,64 @@ def package_android_stdlib_zip(tag):
     print(f"[cpython] android stdlib zip: {zip_path}")
 
 
+def decimal_setup_entry():
+    # A handwritten Setup.local entry for _decimal must also list the bundled
+    # libmpdec sources, otherwise _decimal.o has unresolved mpd_* symbols.
+    mpdec_dir = SOURCE_DIR / "Modules" / "_decimal" / "libmpdec"
+    # bench.c/bench_full.c define main() and must not be compiled into the core
+    rel = ["_decimal/libmpdec/" + p.name for p in sorted(mpdec_dir.glob("*.c"))
+           if "bench" not in p.name]
+    return ("_decimal _decimal/_decimal.c " + " ".join(rel) +
+            " -DCONFIG_64 -DANSI -DHAVE_UINT128_T -I./Modules/_decimal/libmpdec")
+
+
+def builtin_setup_lines():
+    lines = [e for e in ANDROID_BUILTIN_SETUP if not e.startswith("_decimal ")]
+    lines.append(decimal_setup_entry())
+    return lines
+
+
 def build_unix(major, minor):
     prefix = INSTALL_DIR / "stage"
     reset_dir(prefix)
     tag = f"{major}.{minor}"
 
-    configure_args = ["./configure", f"--prefix={prefix}", "--enable-shared", "--with-ensurepip=no"]
-    if static_ssl_available():
+    # A static core cannot dlopen extension modules, so the Tier 1 set (and, when
+    # available, _ssl/_hashlib) is compiled in via Modules/Setup.local marked
+    # *static* — same mechanism as the Android cross-build.
+    build_env = None
+    use_ssl = static_ssl_available()
+    setup_lines = builtin_setup_lines()
+    if use_ssl:
+        setup_lines += [f"{entry} -I{OPENSSL_DIR / 'include'}" for entry in ANDROID_SSL_SETUP]
+    setup_local = SOURCE_DIR / "Modules" / "Setup.local"
+    setup_local.parent.mkdir(parents=True, exist_ok=True)
+    setup_local.write_text("\n".join(setup_lines) + "\n", encoding="utf-8")
+
+    configure_args = ["./configure", f"--prefix={prefix}", "--disable-shared", "--without-ensurepip",
+                      "--without-system-libmpdec"]
+    if use_ssl:
         configure_args.append(f"--with-openssl={OPENSSL_DIR}")
+        # CPython's openssl probe links only -lssl -lcrypto, but OpenSSL 3 static
+        # splits provider symbols into libdefault/libcommon/liblegacy; append them
+        # so detection (and the host python link) resolves.
+        build_env = os.environ.copy()
+        build_env["LDFLAGS"] = f"-L{OPENSSL_DIR / 'lib'}"
+        build_env["LIBS"] = "-lssl -lcrypto -ldefault -lcommon -llegacy"
         print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; enabling ssl/_hashlib")
-    run(configure_args, cwd=SOURCE_DIR)
+    run(configure_args, cwd=SOURCE_DIR, env=build_env)
     jobs = str(os.cpu_count() or 4)
-    run(["make", f"-j{jobs}"], cwd=SOURCE_DIR)
-    run(["make", "install"], cwd=SOURCE_DIR)
+    run(["make", f"-j{jobs}"], cwd=SOURCE_DIR, env=build_env)
+    run(["make", "install"], cwd=SOURCE_DIR, env=build_env)
 
     copy_headers()
     (INSTALL_DIR / "lib").mkdir(parents=True, exist_ok=True)
-    (INSTALL_DIR / "bin").mkdir(parents=True, exist_ok=True)
 
-    for pattern in (f"libpython{tag}.*",):
-        for lib in (prefix / "lib").glob(pattern):
-            shutil.copy2(lib, INSTALL_DIR / "lib" / lib.name)
-            shutil.copy2(lib, INSTALL_DIR / "bin" / lib.name)
-            shutil.copy2(lib, INSTALL_DIR / lib.name)
+    static_lib = prefix / "lib" / f"libpython{tag}.a"
+    if not static_lib.exists():
+        raise RuntimeError(f"static core library not found: {static_lib}")
+    shutil.copy2(static_lib, INSTALL_DIR / "lib" / static_lib.name)
+    shutil.copy2(static_lib, INSTALL_DIR / static_lib.name)
 
     python_lib_dir = prefix / "lib" / f"python{tag}"
     if python_lib_dir.exists():
@@ -551,9 +586,6 @@ def build_unix(major, minor):
             shutil.rmtree(target)
         shutil.copytree(python_lib_dir, target)
 
-    for exe in (prefix / "bin").glob(f"python{tag}*"):
-        if exe.is_file():
-            shutil.copy2(exe, INSTALL_DIR / "bin" / exe.name)
 
 
 def main():

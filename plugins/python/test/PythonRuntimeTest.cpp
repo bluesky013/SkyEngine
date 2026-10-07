@@ -209,7 +209,12 @@ TEST(PythonRuntimeTest, Tier1Builtins)
 
     EXPECT_TRUE(PythonRunString(
         "import unicodedata, _decimal, _uuid, _zoneinfo, _elementtree, pyexpat, _bz2, _lzma\n"
+#if defined(_WIN32)
         "import _socket, select, _overlapped, _queue\n"
+#else
+        // _overlapped is a Windows-only module
+        "import _socket, select, _queue\n"
+#endif
         "import socket, decimal, zlib, json, re, bz2, lzma, xml.etree.ElementTree\n"
         "print('tier1 builtins ok')\n"));
 
