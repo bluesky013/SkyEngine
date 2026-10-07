@@ -57,13 +57,13 @@ namespace sky::aurora {
 
         std::vector<uint8_t> bytes;
         if (!request.file->ReadBin(bytes) || bytes.empty()) {
-            LOG_E(TAG, "failed to read source %s", request.assetInfo->path.path.GetStr().c_str());
+            LOG_E(TAG, "failed to read source %s", request.assetInfo->path.GetStr().c_str());
             return;
         }
 
         cook::CookMeshSource source;
         if (!cook::LoadMeshSource(bytes, request.assetInfo->ext, source)) {
-            LOG_E(TAG, "mesh import failed: %s", request.assetInfo->path.path.GetStr().c_str());
+            LOG_E(TAG, "mesh import failed: %s", request.assetInfo->path.GetStr().c_str());
             return;
         }
 

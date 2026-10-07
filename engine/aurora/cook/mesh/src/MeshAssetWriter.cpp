@@ -20,7 +20,7 @@ namespace sky::aurora::cook {
         out.vertexData = mesh.vertexData;
         out.indexData  = mesh.indexData;
         out.subMeshes  = mesh.subMeshes;
-        out.bounds     = mesh.bounds;
+        out.bounds     = BoundingBoxSphere(mesh.bounds);
 
         out.meshlets         = mesh.meshlets;
         out.meshletVertices  = mesh.meshletVertices;

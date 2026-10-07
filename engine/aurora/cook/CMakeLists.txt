@@ -20,7 +20,7 @@ sky_add_library(TARGET AuroraCook.Static STATIC
         image/include
         mesh/include
     LINK_LIBS
-        Aurora.Adaptor
+        Aurora.Adaptor.Static
         Framework
         Core
         3rdParty::stb
@@ -34,7 +34,7 @@ sky_add_library(TARGET Aurora.Cook SHARED
     SOURCES
         module/AuroraCookModule.cpp
     LINK_LIBS
-        Aurora.Cook.Static
+        AuroraCook.Static
     )
 sky_add_dependency(TARGET Aurora.Cook DEPENDENCIES Launcher Editor)
 
@@ -47,7 +47,7 @@ if (SKY_BUILD_TEST)
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS
-            Aurora.Cook.Static
+            AuroraCook.Static
             Aurora.RHI.Static
             Core
             3rdParty::googletest
