@@ -166,6 +166,15 @@ uuid = Uuid::CreateWithSeed(hash);
 | `AssetDependencyGraph` | Forward/reverse dependency queries |
 | `AssetExecutor` | Loader/cook thread pools |
 
+## Packaging
+
+A shipped game package contains the **cooked product bundles** for the target platform (`product.index` +
+`<uuid>.bin` payloads, under `common/` and `tex_*`/platform bundles) plus the engine and game modules. It does
+**not** contain the raw `assets/` source files, and the runtime has no source catalog: it resolves every asset
+from product bundles only. Packaging therefore runs the cook for the project's sources with that platform's
+`CookConfig` target and ships the resulting bundle. Running from a project directory (`--project <dir>`) reads
+`assets/` and cooks on demand in the editor — that is a development convenience, not the shipping layout.
+
 ## Limitations
 
 - `assets.db` is rebuilt by scanning every mount for builder-known extensions plus `.world`; engine assets

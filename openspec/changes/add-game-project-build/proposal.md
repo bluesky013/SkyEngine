@@ -23,6 +23,7 @@
 - **引擎模板**：新增 `engine/templates/game/` 作为脚手架**唯一来源**，由创建流程拷贝并做名称替换。
 - **工程构建**：工程 CMake 通过 `SKY_ENGINE_ROOT` 引用引擎（首版 `add_subdirectory`），产出**以工程命名的 SHARED 游戏模块**，链接引擎接口；平台覆盖与引擎一致（iOS 待 `add-ios-platform`）。
 - **编辑器接入**：Project Manager 的创建动作调用脚手架（`ProjectDescriptor::Create` 扩展或新增 `ProjectScaffold` 助手）。
+- **打包约束**：发布的工程包内容是**该平台的 cook 产物（product bundles）**，**不是** `assets/` 源文件；运行时只读 product bundle（引擎 `common`/`tex_*` + 工程 cooked bundle）。`--project <dir>` 属开发模式（读工程树/编辑器内按需 cook），非发布形态。详见 `docs/features/asset-pipeline.md`。
 
 ## Capabilities
 
@@ -38,5 +39,6 @@
 - 新增 `engine/templates/game/**`
 - `engine/sandbox/shell/src/ProjectManagerView.cpp`（创建动作）
 - 工程侧 `CMakeLists.txt` / `CMakePresets.json` / `source/**`
+- 打包：工程源资产 → cook → 逐平台 product bundle（`assets/` 源不进包）
 - 文档：工程创建与构建指南
 - 依赖：`editor-project-manager`（创建流程）、`thirdparty-build`（第三方）

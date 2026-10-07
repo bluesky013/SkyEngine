@@ -74,6 +74,19 @@ callers get it too). The editor Project Manager create action already routes thr
 The sample component shows the reflection/registration pattern so user components appear in the editor; this must
 follow the engine's component registration rules (macro/registry at module `Start`).
 
+### D7. Packaging ships cooked products (not source assets)
+The asset pipeline separates **source assets** (authoring files under `assets/`) from **product assets** (cooked
+outputs shipped as product bundles: `product.index` + `<uuid>.bin` payloads; see
+`docs/features/asset-pipeline.md`). A shipped game package therefore contains the **cooked product bundles** for
+the target platform, **not** the raw `assets/` sources:
+
+- Packaging runs the asset cook for the project's sources with the platform's `CookConfig` target, producing that
+  platform's product bundle; the bundle ships alongside the game module and engine bundles.
+- The runtime loads product bundles (engine `common`/`tex_*` + the project's cooked bundle); it does not require
+  `assets/` and has no source catalog.
+- `--project <dir>` (this change's dev mode) reads the project tree including `assets/` and relies on on-demand
+  cook in the editor — that is a development convenience, **not** the shipping layout.
+
 ## Risks / Trade-offs
 
 - [Engine source coupling] -> A couples the project to the engine source tree; D1-B (SDK) is the escape hatch.

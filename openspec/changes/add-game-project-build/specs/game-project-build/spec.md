@@ -39,3 +39,27 @@ helpers and third-party flow (`3RD_PATH`) and SHALL support the engine's platfor
 
 - **WHEN** the project build resolves the engine
 - **THEN** it SHALL use the engine source tree via `SKY_ENGINE_ROOT` (initial `add_subdirectory` approach)
+
+### Requirement: Packaging ships cooked products, not source assets
+
+A shipped project SHALL package the **cooked product bundles** for the target platform (`product.index` +
+`<uuid>.bin` payloads), not the raw `assets/` source files. The runtime SHALL load product bundles (the engine
+`common`/platform bundles plus the project's cooked bundle); it SHALL NOT require the raw `assets/` directory.
+The `--project <dir>` dev mode (loading from the project tree, including on-demand cook in the editor) is a
+development convenience and is not the shipping layout.
+
+#### Scenario: Shipped layout contains products
+
+- **WHEN** a project is packaged for a platform
+- **THEN** the output SHALL contain that platform's product bundle(s) (cooked), and SHALL NOT ship the source `assets/`
+
+#### Scenario: Runtime reads products
+
+- **WHEN** the shipped game runs
+- **THEN** `AssetManager` SHALL resolve assets from product bundles only (no source catalog)
+
+#### Scenario: Dev mode differs
+
+- **WHEN** the game runs via `--project <dir>` from the project tree
+- **THEN** it MAY read the project's `assets/` (and on-demand cook in the editor); this is not the shipping layout
+

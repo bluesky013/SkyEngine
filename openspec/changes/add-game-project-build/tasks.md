@@ -32,3 +32,10 @@
 - [ ] 6.1 `docs/`：新建工程与跨平台构建指南
 - [x] 6.2 端到端（macOS）：模板生成 `TestProject` → 编译出 `libTestProjectModule.dylib` → `Launcher --project` 挂载并加载模块
 - [ ] 6.3 至少双平台验证（如 macOS + Win32）
+
+## 7. Packaging（cooked products）
+
+- [ ] 7.1 明确**打包内容 = cook 产物**（product bundles：`product.index` + `<uuid>.bin`，逐平台），**不含** `assets/` 源文件
+- [ ] 7.2 打包步骤：对工程源资产跑 cook（`asset_cook`/`CookConfig` 目标）产出该平台 product bundle，随游戏模块/引擎一起分发
+- [ ] 7.3 运行时（发布）：装载 **product bundles**（引擎 `common`/`tex_*` bundle + 工程 cooked bundle），**不挂载**原始 `assets/`（`--project` 开发模式除外）
+- [ ] 7.4 文档记录该约束（源资产→cook→product 打包；运行时只读 product）
