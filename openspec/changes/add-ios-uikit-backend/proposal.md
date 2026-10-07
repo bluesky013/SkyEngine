@@ -31,4 +31,5 @@
 
 - 新增 `engine/framework/platform/ios/**`
 - `engine/framework/CMakeLists.txt`（iOS 分支）
+- `engine/framework/src/application/Application.*` / `GameApplication`（`Mainloop` seam 与初始化顺序：iOS 由 `CADisplayLink` 驱动帧，不走桌面 `PollEvent` 循环）
 - 依赖：`native-platform-backend`（接口）、`add-ios-platform`（启动器/三方/验证）、`aurora-rhi-metal`（渲染到 `CAMetalLayer`）

@@ -32,9 +32,11 @@ is `SkyIOSView : UIView` with `+ (Class)layerClass { return [CAMetalLayer class]
 
 ### D3. Frame loop
 UIKit owns the run loop; the engine cannot block in `Application::Mainloop`. The view controller owns a
-`CADisplayLink` whose callback drives the engine frame (`Application::Loop`), while `IOSPlatform::PollEvent`
+`CADisplayLink` whose callback drives the engine frame. This requires a **clean seam** in the shared
+`Application`: the desktop `Mainloop` (which loops on `PollEvent` + tick) SHALL NOT be used on iOS. Instead the
+`CADisplayLink` tick calls the per-frame entry (`Application::Loop` / a `Tick` hook) directly. `IOSPlatform::PollEvent`
 becomes a no-op with respect to the run loop (events arrive via UIKit callbacks). This is the main divergence from
-macOS/desktop, where `PollEvent` pumps the loop.
+macOS/desktop.
 
 ### D4. Input
 - Touch: `touchesBegan/Moved/Ended/Cancelled` -> single-touch mapped to the existing `Mouse*` events (position in
@@ -51,11 +53,21 @@ handles slot release; ensure the display link stops).
 ### D6. CMake
 `engine/framework/CMakeLists.txt`: branch on `CMAKE_SYSTEM_NAME STREQUAL "iOS"` -> compile `platform/ios/*` and
 link `-framework UIKit -framework QuartzCore -framework Metal -framework Foundation`; reuse `platform/posix`.
-Channel the macOS branch to `platform/macos/*` only when not iOS so the two never mix.
+Keep the macOS branch on `platform/macos/*` only when not iOS so the two never mix. Note: an iOS toolchain sets
+`CMAKE_SYSTEM_NAME` to `iOS`, **not** `Darwin`, so the existing `Darwin` branch will not match iOS — an explicit
+`iOS` branch is required.
+
+### D7. Initialization order
+The AppDelegate creates the `UIViewController`/`SkyIOSView` first (app launch), then the engine `Application`
+starts and `NativeWindow::Create` returns an `IOSWindow` wrapping that view. `GameApplication::PreInit` (which
+creates the `NativeWindow`) therefore runs **after** the view exists; the RHI then samples the layer size. Do not
+create the window before the UIKit view is ready.
 
 ## Risks / Trade-offs
 
-- [Frame ownership] -> `CADisplayLink` vs the desktop `PollEvent` model needs a clean seam in `Application`.
+- [Frame ownership] -> `CADisplayLink` vs the desktop `PollEvent` model needs the explicit `Mainloop` seam (D3);
+  `Application` must not enter its own loop on iOS.
+- [Init order] -> window creation before the view/RHI is a hard failure (D7).
 - [Input model] -> mapping touch to `Mouse*` loses multi-touch; a first-class touch event may be needed for games.
 - [Backgrounding] -> drawable/resource lifetime across suspend/resume; test on device/simulator.
 - [Build validation] -> simulator is easiest; device needs signing (see `add-game-project-build` 8.x).
@@ -65,3 +77,4 @@ Channel the macOS branch to `platform/macos/*` only when not iOS so the two neve
 - Dedicated touch event vs single-touch -> `Mouse*`.
 - `CADisplayLink` frame pacing vs fixed-step accumulation for deterministic/game loop.
 - Whether the iOS backend shares code with macOS via a `platform/apple` base.
+

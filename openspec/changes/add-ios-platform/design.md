@@ -29,8 +29,9 @@ iOS is an additional backend behind unchanged interfaces — analogous to the ex
 `CAMetalLayer`; `GetNativeHandle()` returns it.
 
 ### D2. Event loop
-`PollEvent` drains the UIKit run loop. Engine frames are driven by a `CADisplayLink` (or `NSTimer`) ticking the
-`Application` loop; `UIApplicationMain` owns the outer loop via an AppDelegate. No `NSApplication` usage.
+UIKit owns the run loop (`UIApplicationMain` + AppDelegate); engine frames are driven by a `CADisplayLink`
+ticking the per-frame entry. `PollEvent` SHALL NOT pump the run loop (events arrive via UIKit callbacks) — see
+`add-ios-uikit-backend` D3 for the explicit `Application::Mainloop` seam. No `NSApplication` usage.
 
 ### D3. Input mapping
 - Touch: `touchesBegan/Moved/Ended/Cancelled` map to the engine mouse/touch events (position in points →

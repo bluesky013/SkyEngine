@@ -8,8 +8,9 @@
 
 ## 2. Frame / lifecycle
 
-- [ ] 2.1 `CADisplayLink` 驱动引擎帧（与 `Application::Loop` 的 seam）
-- [ ] 2.2 前后台：`applicationWillResignActive`/`didEnterBackground`/`willEnterForeground` → 暂停/恢复，停止 display link 避免 drawable 泄漏
+- [ ] 2.1 `Application` 的 **Mainloop seam**：iOS 不走桌面 `PollEvent` 循环；`CADisplayLink` tick 直接驱动每帧入口（`Loop`/`Tick` hook）
+- [ ] 2.2 初始化顺序：AppDelegate 先建 `UIViewController`/`SkyIOSView`，`NativeWindow::Create`/`GameApplication::PreInit` 在其后（不可先建窗口）
+- [ ] 2.3 前后台：`applicationWillResignActive`/`didEnterBackground`/`willEnterForeground` → 暂停/恢复，停止 display link 避免 drawable 泄漏
 
 ## 3. Input
 
