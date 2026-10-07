@@ -4,16 +4,14 @@
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
-#include <MetalSync.h>
-#include <MetalDevice.h>
-#include <chrono>
+#include "MetalDevice.h"
+#include "MetalSync.h"
 
 namespace sky::aurora {
 
     // ---- MetalFence -------------------------------------------------------------
 
-    MetalFence::MetalFence(MetalDevice &dev)
-        : device(dev)
+    MetalFence::MetalFence(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -21,17 +19,18 @@ namespace sky::aurora {
     {
         if (sharedEvent != nullptr) {
             id<MTLSharedEvent> e = (__bridge_transfer id<MTLSharedEvent>)sharedEvent;
-            e = nil;
-            sharedEvent = nullptr;
+            e                    = nil;
+            sharedEvent          = nullptr;
         }
     }
 
     bool MetalFence::Init(const Descriptor &desc)
     {
-        signaled = desc.createSignaled;
+        signaled     = desc.createSignaled;
+        pendingValue = desc.createSignaled ? 0 : 1;
 
-        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
-        id<MTLSharedEvent> event = [metalDevice newSharedEvent];
+        auto              *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
+        id<MTLSharedEvent> event       = [metalDevice newSharedEvent];
         if (event == nil) {
             return false;
         }
@@ -41,8 +40,16 @@ namespace sky::aurora {
 
     void MetalFence::Wait()
     {
-        std::unique_lock<std::mutex> lock(mutex);
-        condition.wait(lock, [this]() { return signaled; });
+        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
+        if (event == nil) {
+            return;
+        }
+        // Block on the GPU value directly; robust across autorelease-pool drains
+        // (no listener object that could be deallocated before it fires).
+        [event waitUntilSignaledValue:pendingValue.load() timeoutMS:UINT64_MAX];
+
+        std::lock_guard<std::mutex> lock(mutex);
+        signaled = true;
     }
 
     void MetalFence::Reset()
@@ -53,49 +60,43 @@ namespace sky::aurora {
 
     bool MetalFence::IsSignaled()
     {
+        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
+        if (event != nil) {
+            return event.signaledValue >= pendingValue.load();
+        }
         std::lock_guard<std::mutex> lock(mutex);
         return signaled;
     }
 
     bool MetalFence::WaitFor(uint64_t timeoutNs)
     {
-        std::unique_lock<std::mutex> lock(mutex);
-        return condition.wait_for(lock, std::chrono::nanoseconds(timeoutNs), [this]() { return signaled; });
+        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
+        if (event == nil) {
+            return signaled;
+        }
+        const bool ok = [event waitUntilSignaledValue:pendingValue.load() timeoutMS:timeoutNs / 1'000'000ULL] == YES;
+        if (ok) {
+            std::lock_guard<std::mutex> lock(mutex);
+            signaled = true;
+        }
+        return ok;
     }
 
     uint64_t MetalFence::TakeNextValue()
     {
         const uint64_t v = ++nextValue;
 
-        // Reset signaled state since we expect the GPU to re-signal at this value.
         {
             std::lock_guard<std::mutex> lock(mutex);
             signaled = false;
         }
-
-        // Register notify listener that will flip signaled=true when GPU reaches v.
-        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        MTLSharedEventListener *listener = [[[MTLSharedEventListener alloc] init] autorelease];
-        [event notifyListener:listener atValue:v block:^(id<MTLSharedEvent>, uint64_t) {
-            this->Signal();
-        }];
-
+        pendingValue = v;
         return v;
-    }
-
-    void MetalFence::Signal()
-    {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            signaled = true;
-        }
-        condition.notify_all();
     }
 
     // ---- MetalSemaphore ---------------------------------------------------------
 
-    MetalSemaphore::MetalSemaphore(MetalDevice &dev)
-        : device(dev)
+    MetalSemaphore::MetalSemaphore(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -103,8 +104,8 @@ namespace sky::aurora {
     {
         if (sharedEvent != nullptr) {
             id<MTLSharedEvent> e = (__bridge_transfer id<MTLSharedEvent>)sharedEvent;
-            e = nil;
-            sharedEvent = nullptr;
+            e                    = nil;
+            sharedEvent          = nullptr;
         }
     }
 
@@ -112,8 +113,8 @@ namespace sky::aurora {
     {
         type = desc.type;
 
-        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
-        id<MTLSharedEvent> event = [metalDevice newSharedEvent];
+        auto              *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
+        id<MTLSharedEvent> event       = [metalDevice newSharedEvent];
         if (event == nil) {
             return false;
         }

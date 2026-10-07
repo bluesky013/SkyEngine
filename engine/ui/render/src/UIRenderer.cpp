@@ -128,6 +128,22 @@ float4 fs_round(VSOut i) : SV_Target {
             return false;
         }
 
+        // Resolve the authored `tex`/`smp` bindings from the target-specific
+        // reflection instead of hardcoding 0/1: Metal numbers each resource
+        // category independently (sampler is 0), Vulkan/DX12 keep 0/1. Falls back
+        // to the first resource of each category if names are mangled.
+        bool sawTex = false;
+        bool sawSmp = false;
+        for (const auto &res : reflection.resources) {
+            if (res.name == "tex" || (!sawTex && res.type == ShaderResourceType::SAMPLED_IMAGE)) {
+                texBinding = res.binding;
+                sawTex     = true;
+            } else if (res.name == "smp" || (!sawSmp && res.type == ShaderResourceType::SAMPLER)) {
+                smpBinding = res.binding;
+                sawSmp     = true;
+            }
+        }
+
         Shader::Descriptor shaderDesc = {};
         shaderDesc.vs         = vs.Get();
         shaderDesc.ps         = ps.Get();
@@ -291,8 +307,8 @@ float4 fs_round(VSOut i) : SV_Target {
         ResourceGroup *group = device->CreateResourceGroup(groupDesc);
         if (group != nullptr) {
             auto groupEncoder = group->CreateEncoder();
-            groupEncoder->WriteImage(0, image, ImageLayout::SHADER_READ_ONLY);
-            groupEncoder->WriteSampler(1, sampler.Get());
+            groupEncoder->WriteImage(texBinding, image, ImageLayout::SHADER_READ_ONLY);
+            groupEncoder->WriteSampler(smpBinding, sampler.Get());
             groupEncoder->End();
         }
         return group;

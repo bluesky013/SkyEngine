@@ -2,12 +2,13 @@
 // Aurora Metal ResourceGroup.
 //
 
-#include <MetalResourceGroup.h>
-#include <MetalDescriptorEncoder.h>
-#include <MetalBuffer.h>
-#include <MetalImage.h>
-#include <MetalSampler.h>
-#include <MetalShader.h>
+#include "MetalBuffer.h"
+#include "MetalDescriptorEncoder.h"
+#include "MetalImage.h"
+#include "MetalMSLSlots.h"
+#include "MetalResourceGroup.h"
+#include "MetalSampler.h"
+#include "MetalShader.h"
 #include <core/logger/Logger.h>
 
 #include <algorithm>
@@ -18,8 +19,7 @@ static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalResourceGroup::MetalResourceGroup(MetalDevice &dev)
-        : device(dev)
+    MetalResourceGroup::MetalResourceGroup(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -32,12 +32,17 @@ namespace sky::aurora {
         shader   = static_cast<MetalShader *>(desc.shader);
         setIndex = desc.set;
 
+        // Per-category MSL slots (shared derivation, see MetalMSLSlots.h). Only
+        // this set's slots are recorded; the counters still walk the whole
+        // reflection so they stay aligned with the generated MSL.
+        const auto layout = BuildMetalMSLSlotLayout(shader->GetReflection(), setIndex);
+        bufferSlot        = layout.set.buffer;
+        textureSlot       = layout.set.texture;
+        samplerSlot       = layout.set.sampler;
+
+        // bindings typed *_DYNAMIC, consumed in ascending binding order at bind
         for (const auto &res : shader->GetReflection().resources) {
-            if (res.set != setIndex) {
-                continue;
-            }
-            if (res.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC ||
-                res.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+            if (res.set == setIndex && (res.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || res.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC)) {
                 dynamicBindings.push_back(res.binding);
             }
         }
@@ -69,9 +74,8 @@ namespace sky::aurora {
 
     // dynamic bindings are rebound per draw with the caller-provided offsets
     // (stable descriptor + per-draw offset, same contract as the other backends)
-    uint64_t MetalResourceGroup::ResolveOffset(uint32_t binding, uint64_t recordedOffset,
-                                               uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets,
-                                               uint32_t &dynamicCursor) const
+    uint64_t MetalResourceGroup::ResolveOffset(
+        uint32_t binding, uint64_t recordedOffset, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets, uint32_t &dynamicCursor) const
     {
         if (dynamicCursor < dynamicBindings.size() && dynamicBindings[dynamicCursor] == binding) {
             ++dynamicCursor;
@@ -86,7 +90,7 @@ namespace sky::aurora {
 
     void MetalResourceGroup::BindGraphics(void *encoder, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) const
     {
-        auto *enc = (__bridge id<MTLRenderCommandEncoder>)encoder;
+        auto    *enc           = (__bridge id<MTLRenderCommandEncoder>)encoder;
         uint32_t dynamicCursor = 0;
         // buffers must be visited in ascending binding order so dynamic
         // offsets line up with the sorted dynamicBindings table
@@ -95,49 +99,48 @@ namespace sky::aurora {
         for (const auto &[binding, slot] : buffers) {
             ordered.emplace_back(binding, &slot);
         }
-        std::sort(ordered.begin(), ordered.end(),
-                  [](const auto &a, const auto &b) { return a.first < b.first; });
+        std::sort(ordered.begin(), ordered.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
         for (const auto &[binding, slot] : ordered) {
-            auto *buf = (__bridge id<MTLBuffer>)slot->buffer->GetNativeHandle();
-            const auto offset = (NSUInteger)ResolveOffset(binding, slot->offset,
-                                                          numDynamicOffsets, dynamicOffsets, dynamicCursor);
-            [enc setVertexBuffer:buf offset:offset atIndex:binding];
-            [enc setFragmentBuffer:buf offset:offset atIndex:binding];
+            auto            *buf    = (__bridge id<MTLBuffer>)slot->buffer->GetNativeHandle();
+            const auto       offset = (NSUInteger)ResolveOffset(binding, slot->offset, numDynamicOffsets, dynamicOffsets, dynamicCursor);
+            const NSUInteger index  = SlotFor(bufferSlot, binding);
+            [enc setVertexBuffer:buf offset:offset atIndex:index];
+            [enc setFragmentBuffer:buf offset:offset atIndex:index];
         }
         for (const auto &[binding, image] : textures) {
-            auto *tex = (__bridge id<MTLTexture>)image->GetNativeHandle();
-            [enc setVertexTexture:tex atIndex:binding];
-            [enc setFragmentTexture:tex atIndex:binding];
+            auto            *tex   = (__bridge id<MTLTexture>)image->GetNativeHandle();
+            const NSUInteger index = SlotFor(textureSlot, binding);
+            [enc setVertexTexture:tex atIndex:index];
+            [enc setFragmentTexture:tex atIndex:index];
         }
         for (const auto &[binding, sampler] : samplers) {
-            auto *smp = (__bridge id<MTLSamplerState>)sampler->GetNativeHandle();
-            [enc setVertexSamplerState:smp atIndex:binding];
-            [enc setFragmentSamplerState:smp atIndex:binding];
+            auto            *smp   = (__bridge id<MTLSamplerState>)sampler->GetNativeHandle();
+            const NSUInteger index = SlotFor(samplerSlot, binding);
+            [enc setVertexSamplerState:smp atIndex:index];
+            [enc setFragmentSamplerState:smp atIndex:index];
         }
     }
 
     void MetalResourceGroup::BindCompute(void *encoder, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) const
     {
-        auto *enc = (__bridge id<MTLComputeCommandEncoder>)encoder;
-        uint32_t dynamicCursor = 0;
+        auto                                                   *enc           = (__bridge id<MTLComputeCommandEncoder>)encoder;
+        uint32_t                                                dynamicCursor = 0;
         std::vector<std::pair<uint32_t, const BufferBinding *>> ordered;
         ordered.reserve(buffers.size());
         for (const auto &[binding, slot] : buffers) {
             ordered.emplace_back(binding, &slot);
         }
-        std::sort(ordered.begin(), ordered.end(),
-                  [](const auto &a, const auto &b) { return a.first < b.first; });
+        std::sort(ordered.begin(), ordered.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
         for (const auto &[binding, slot] : ordered) {
-            auto *buf = (__bridge id<MTLBuffer>)slot->buffer->GetNativeHandle();
-            const auto offset = (NSUInteger)ResolveOffset(binding, slot->offset,
-                                                          numDynamicOffsets, dynamicOffsets, dynamicCursor);
-            [enc setBuffer:buf offset:offset atIndex:binding];
+            auto      *buf    = (__bridge id<MTLBuffer>)slot->buffer->GetNativeHandle();
+            const auto offset = (NSUInteger)ResolveOffset(binding, slot->offset, numDynamicOffsets, dynamicOffsets, dynamicCursor);
+            [enc setBuffer:buf offset:offset atIndex:SlotFor(bufferSlot, binding)];
         }
         for (const auto &[binding, image] : textures) {
-            [enc setTexture:(__bridge id<MTLTexture>)image->GetNativeHandle() atIndex:binding];
+            [enc setTexture:(__bridge id<MTLTexture>)image->GetNativeHandle() atIndex:SlotFor(textureSlot, binding)];
         }
         for (const auto &[binding, sampler] : samplers) {
-            [enc setSamplerState:(__bridge id<MTLSamplerState>)sampler->GetNativeHandle() atIndex:binding];
+            [enc setSamplerState:(__bridge id<MTLSamplerState>)sampler->GetNativeHandle() atIndex:SlotFor(samplerSlot, binding)];
         }
     }
 

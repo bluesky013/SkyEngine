@@ -60,11 +60,23 @@ namespace sky::aurora {
         std::unordered_map<uint32_t, CounterPtr<MetalSampler>> samplers;
         // bindings typed UNIFORM_BUFFER_DYNAMIC / STORAGE_BUFFER_DYNAMIC,
         // sorted ascending; consumed in order at bind time
-        std::vector<uint32_t>                                  dynamicBindings;
+        std::vector<uint32_t> dynamicBindings;
+        // vk binding -> MSL per-category index ([[buffer]]/[[texture]]/[[sampler]]).
+        // slang MSL numbers each category independently from 0 in declaration
+        // order, ignoring the [[vk::binding]] value, so the recorded binding must
+        // be remapped before setBuffer/setTexture/setSampler.
+        std::unordered_map<uint32_t, uint32_t> bufferSlot;
+        std::unordered_map<uint32_t, uint32_t> textureSlot;
+        std::unordered_map<uint32_t, uint32_t> samplerSlot;
 
-        uint64_t ResolveOffset(uint32_t binding, uint64_t recordedOffset,
-                               uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets,
-                               uint32_t &dynamicCursor) const;
+        uint32_t SlotFor(const std::unordered_map<uint32_t, uint32_t> &map, uint32_t binding) const
+        {
+            const auto it = map.find(binding);
+            return it != map.end() ? it->second : binding;
+        }
+
+        uint64_t ResolveOffset(
+            uint32_t binding, uint64_t recordedOffset, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets, uint32_t &dynamicCursor) const;
     };
 
 } // namespace sky::aurora

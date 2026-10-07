@@ -17,14 +17,20 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void *GetNativeHandle() const { return function; }
-        ShaderStageFlagBit GetStage() const { return stage; }
+        void *GetNativeHandle() const
+        {
+            return function;
+        }
+        ShaderStageFlagBit GetStage() const
+        {
+            return stage;
+        }
 
     private:
-        MetalDevice        &device;
-        void               *library  = nullptr;
-        void               *function = nullptr;
-        ShaderStageFlagBit  stage    = ShaderStageFlagBit::VS;
+        MetalDevice       &device;
+        void              *library  = nullptr;
+        void              *function = nullptr;
+        ShaderStageFlagBit stage    = ShaderStageFlagBit::VS;
     };
 
     class MetalShader : public Shader {
@@ -34,19 +40,40 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        MetalShaderFunction *GetVertexFunction() const { return vertexFunction.Get(); }
-        MetalShaderFunction *GetFragmentFunction() const { return fragmentFunction.Get(); }
-        MetalShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
+        MetalShaderFunction *GetVertexFunction() const
+        {
+            return vertexFunction.Get();
+        }
+        MetalShaderFunction *GetFragmentFunction() const
+        {
+            return fragmentFunction.Get();
+        }
+        MetalShaderFunction *GetComputeFunction() const
+        {
+            return computeFunction.Get();
+        }
 
-        const ShaderReflection &GetReflection() const { return reflection; }
+        const ShaderReflection &GetReflection() const
+        {
+            return reflection;
+        }
         // slang MSL lowers push constants to a plain constant buffer at the
         // highest [[buffer(N)]] slot (declare-last convention)
-        uint32_t GetPushConstantSlot() const { return pushConstantSlot; }
+        uint32_t GetPushConstantSlot() const
+        {
+            return pushConstantSlot;
+        }
         // one past the highest [[buffer(N)]] slot used by the shader (incl.
         // push constants); must stay below METAL_VERTEX_BUFFER_SLOT_BASE
-        uint32_t GetBufferSlotCount() const { return bufferSlotCount; }
+        uint32_t GetBufferSlotCount() const
+        {
+            return bufferSlotCount;
+        }
         // size of the push constant block (max offset+size over reflected ranges)
-        uint32_t GetPushConstantSize() const { return pushConstantSize; }
+        uint32_t GetPushConstantSize() const
+        {
+            return pushConstantSize;
+        }
 
     private:
         MetalDevice                    &device;

@@ -108,6 +108,11 @@ namespace sky::ui {
         aurora::Device                    *device = nullptr;
         aurora::PixelFormat                colorFormat = aurora::PixelFormat::UNDEFINED;
         aurora::ShaderReflection           reflection; // target-specific (backend register/binding)
+        // Bindings of the `tex`/`smp` resources, resolved from the target-specific
+        // reflection: on Metal the categories are numbered independently (sampler
+        // is 0), while Vulkan/DX12 keep the authored 0/1 register numbers.
+        uint32_t                           texBinding = 0;
+        uint32_t                           smpBinding = 1;
         sky::CounterPtr<aurora::ShaderFunction>   vs;
         sky::CounterPtr<aurora::ShaderFunction>   ps;
         sky::CounterPtr<aurora::Shader>           shader;

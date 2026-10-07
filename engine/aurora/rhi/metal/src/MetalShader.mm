@@ -2,9 +2,10 @@
 // Created on 2026/04/02.
 //
 
-#include <MetalShader.h>
-#include <MetalDevice.h>
-#include <MetalUtils.h>
+#include "MetalDevice.h"
+#include "MetalMSLSlots.h"
+#include "MetalShader.h"
+#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 #include <algorithm>
@@ -14,8 +15,7 @@ static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
-    MetalShaderFunction::MetalShaderFunction(MetalDevice &dev)
-        : device(dev)
+    MetalShaderFunction::MetalShaderFunction(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -50,22 +50,18 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto &binary = binaryProvider->binaryData;
-        NSError *error = nil;
+        const auto    &binary       = binaryProvider->binaryData;
+        NSError       *error        = nil;
         id<MTLLibrary> metalLibrary = nil;
         // pre-compiled .metallib blobs start with the "MTLB" magic; anything
         // else is treated as MSL source text and compiled at runtime
-        const bool isMetallib = binary->Size() >= 4 &&
-            memcmp(binary->Data(), "MTLB", 4) == 0;
+        const bool isMetallib = binary->Size() >= 4 && memcmp(binary->Data(), "MTLB", 4) == 0;
         if (isMetallib) {
-            dispatch_data_t data = dispatch_data_create(binary->Data(), binary->Size(),
-                                                        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-            metalLibrary = [metalDevice newLibraryWithData:data error:&error];
+            dispatch_data_t data = dispatch_data_create(binary->Data(), binary->Size(), nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+            metalLibrary         = [metalDevice newLibraryWithData:data error:&error];
             [data release];
         } else {
-            NSString *source = [[NSString alloc] initWithBytes:binary->Data()
-                                                        length:binary->Size()
-                                                      encoding:NSUTF8StringEncoding];
+            NSString *source = [[NSString alloc] initWithBytes:binary->Data() length:binary->Size() encoding:NSUTF8StringEncoding];
             if (source == nil) {
                 LOG_E(TAG, "failed to decode MSL source");
                 return false;
@@ -82,24 +78,20 @@ namespace sky::aurora {
         stage = desc.stage;
         // slang keeps the source-level entry name in MSL (e.g. mainVS); fall
         // back to the legacy VSMain/FSMain/CSMain convention for hand-written MSL
-        NSString *entryName = !desc.entry.empty()
-            ? [NSString stringWithUTF8String:desc.entry.c_str()]
-            : ToMetalEntryPoint(desc.stage);
-        auto *metalFunction = [metalLibrary newFunctionWithName:entryName];
+        NSString *entryName     = !desc.entry.empty() ? [NSString stringWithUTF8String:desc.entry.c_str()] : ToMetalEntryPoint(desc.stage);
+        auto     *metalFunction = [metalLibrary newFunctionWithName:entryName];
         if (metalFunction == nil) {
-            LOG_E(TAG, "failed to find Metal entry point '%s'",
-                  desc.entry.empty() ? [ToMetalEntryPoint(desc.stage) UTF8String] : desc.entry.c_str());
+            LOG_E(TAG, "failed to find Metal entry point '%s'", desc.entry.empty() ? [ToMetalEntryPoint(desc.stage) UTF8String] : desc.entry.c_str());
             [metalLibrary release];
             return false;
         }
 
-        library = metalLibrary;
+        library  = metalLibrary;
         function = metalFunction;
         return true;
     }
 
-    MetalShader::MetalShader(MetalDevice &dev)
-        : device(dev)
+    MetalShader::MetalShader(MetalDevice &dev) : device(dev)
     {
     }
 
@@ -115,40 +107,26 @@ namespace sky::aurora {
         }
 
         // slang MSL flattens buffer-kind resources to sequential [[buffer(N)]]
-        // indices in declaration order; by convention the push constant block is
-        // declared last, so it owns the highest buffer slot.
-        uint32_t bufferSlots = 0;
-        for (const auto &res : reflection.resources) {
-            switch (res.type) {
-            case ShaderResourceType::UNIFORM_BUFFER:
-            case ShaderResourceType::STORAGE_BUFFER:
-            case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
-            case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
-                bufferSlots = res.binding + res.count > bufferSlots ? res.binding + res.count : bufferSlots;
-                break;
-            default:
-                break;
-            }
-        }
-        pushConstantSlot = bufferSlots > 0 ? bufferSlots - 1 : 0;
-        bufferSlotCount  = bufferSlots;
+        // indices in declaration order; the push constant block is declared last
+        // and owns the highest buffer slot (shared layout, see MetalMSLSlots.h)
+        const auto layout = BuildMetalMSLSlotLayout(reflection, 0);
+        pushConstantSlot  = layout.PushConstantSlot();
+        bufferSlotCount   = layout.bufferCount;
 
         for (const auto &range : reflection.pushConstants) {
             pushConstantSize = std::max(pushConstantSize, range.offset + range.size);
         }
 
-        if (desc.cs != nullptr) {
-            computeFunction = static_cast<MetalShaderFunction *>(desc.cs);
-            return computeFunction != nullptr;
+        // Descriptor::vs/ps and ::cs alias the same union storage; the graphics
+        // case is the one with a fragment shader (same convention as Vulkan).
+        if (desc.ps != nullptr) {
+            vertexFunction   = desc.vs != nullptr ? static_cast<MetalShaderFunction *>(desc.vs) : nullptr;
+            fragmentFunction = static_cast<MetalShaderFunction *>(desc.ps);
+            return vertexFunction != nullptr || fragmentFunction != nullptr;
         }
 
-        if (desc.vs != nullptr) {
-            vertexFunction = static_cast<MetalShaderFunction *>(desc.vs);
-        }
-        if (desc.ps != nullptr) {
-            fragmentFunction = static_cast<MetalShaderFunction *>(desc.ps);
-        }
-        return vertexFunction != nullptr || fragmentFunction != nullptr;
+        computeFunction = static_cast<MetalShaderFunction *>(desc.cs);
+        return computeFunction != nullptr;
     }
 
 } // namespace sky::aurora
