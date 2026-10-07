@@ -13,10 +13,13 @@ Reading the active set shows four problems:
    changes).
 4. **Dangling references** to changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`,
    `navigation-path-query`, `aurora-material-pso`).
+5. **Live drift during this change**: `add-static-python-embedding` was archived mid-flight (its dependents are
+   now unblocked) and task counts moved, confirming the snapshot must be re-derived, not treated as frozen truth.
 
 Constraints: `AGENTS.md` requires explicit user confirmation before archiving, and requires spec and code for a
-change to ship together. This change is therefore **planning-only**: it records the snapshot and the cleanup
-checklist, and executes none of the cleanup.
+change to ship together. This change records the snapshot and the cleanup checklist; the non-destructive cleanup
+items (C1 parking labels, C3 reference rewording, C4 superseded-row trimming, C5-C7 decision records) have been
+applied with user approval. No change directory was archived.
 
 ## Goals / Non-Goals
 
@@ -52,7 +55,7 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 
 | ID | Workstream | Members |
 |----|------------|---------|
-| WS-PYTHON | Python static runtime | `add-static-python-embedding`, `add-android-python-runtime`, `add-python-ssl` |
+| WS-PYTHON | Python static runtime | `add-android-python-runtime`, `add-python-ssl` (base `add-static-python-embedding` archived) |
 | WS-AURORA | Aurora render loop (hub) | `aurora-renderer`, `aurora-scene-bridge`, `aurora-navigation-integration` |
 | WS-WORLD | Terrain / vegetation render + editor tools | `terrain-aurora-render`, `terrain-editor-tools`, `vegetation-aurora-render`, `vegetation-editor-tools`, `navigation-terrain-build-tests` |
 | WS-AUDIO | Audio / animation | `animation-events`, `audio-animation-bridge`, `audio-world-integration` |
@@ -65,9 +68,8 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 
 | Change | Disposition | Notes |
 |--------|-------------|-------|
-| `add-static-python-embedding` | active | 20/24; foundation of WS-PYTHON |
-| `add-android-python-runtime` | blocked-on-prereq | on `add-static-python-embedding` |
-| `add-python-ssl` | blocked-on-prereq | on `add-static-python-embedding`, `add-android-python-runtime` |
+| `add-android-python-runtime` | active | 14/20; prereq `add-static-python-embedding` archived |
+| `add-python-ssl` | active | 15/20; prereq `add-static-python-embedding` archived |
 | `animation-events` | active | 0/10 but unblocked; gates `audio-animation-bridge` |
 | `audio-animation-bridge` | blocked-on-prereq | on `animation-events` |
 | `audio-world-integration` | blocked-on-prereq | on `aurora-renderer` (world/scene attach path) |
@@ -77,7 +79,7 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 | `aurora-cook-schema-layering` | debt-record | layering debt; no spec delta |
 | `legacy-render-thirdparty-cleanup` | debt-record | blocked on legacy render retirement; no tasks/specs |
 | `lazy-transform-update` | frozen | explicit "Frozen (not scheduled)" |
-| `asset-pipeline` | active (+ superseded rows) | 48/62; IPC task rows delivered by archived `asset-cook-ipc` |
+| `asset-pipeline` | active (superseded rows trimmed) | 51/59; IPC task rows delivered by archived `asset-cook-ipc` |
 | `navigation-terrain-build-tests` | active | test-only; prereq `terrain-navigation-integration` archived |
 | `terrain-aurora-render` | blocked-on-prereq | on `aurora-renderer` |
 | `terrain-editor-tools` | blocked-on-prereq | on aurora sandbox editor + `terrain-aurora-render` |
@@ -88,7 +90,7 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 
 ### Decision: Prerequisite graph
 
-- `add-static-python-embedding` -> `add-android-python-runtime` -> `add-python-ssl`
+- `add-static-python-embedding` (ARCHIVED) -> `add-android-python-runtime` -> `add-python-ssl` (both now active)
 - `aurora-renderer` -> `aurora-scene-bridge`, `terrain-aurora-render`, `vegetation-aurora-render`,
   `audio-world-integration`, `aurora-navigation-integration`
 - `terrain-aurora-render` -> `terrain-editor-tools`
@@ -99,30 +101,15 @@ The single highest-leverage prerequisite is `aurora-renderer`: it gates the whol
 audio-world and navigation-integration attach paths. It is proposal-only, so making it actionable is the primary
 unblocking action.
 
-### Decision: Cleanup checklist carried by this change (not executed here)
+### Decision: Cleanup checklist (C1-C7; decisions recorded)
 
-- **C1 — Park frozen/debt changes (DECIDED: keep as labeled references; no archive).** `lazy-transform-update`
-  (frozen) and the three debt-records stay in place with an explicit "Frozen / Debt record - not scheduled"
-  banner. Archiving is NOT performed. Revisit only if the underlying trigger fires.
-- **C2 — Complete or fold proposal-only changes.** `aurora-renderer` must gain `design.md`/`specs/`/`tasks.md`
-  before it is actionable (owned by the user); `legacy-render-thirdparty-cleanup` stays a debt-record until
-  legacy render retires.
-- **C3 — Fix dangling references (DONE for the three active ones).** `animation-events`,
-  `audio-animation-bridge`, and `aurora-navigation-integration` now read "not yet a change" instead of naming a
-  nonexistent change. `aurora-renderer` -> `aurora-material-pso` is owned by the user (handling
-  `aurora-renderer` directly).
-- **C4 — Trim superseded task rows (DONE).** `asset-pipeline` tasks 10.4/10.5/10.6c/14.4/14.5 are marked
-  delivered by archived `asset-cook-ipc`; the "sandbox editor refactor" deferrals are marked
-  "no tracking change yet".
-- **C5 — Rebase network prediction (DECIDED: coexist; prediction is the active model).** `add-network-prediction`
-  is the current line for the replication bridge; archived `network-lockstep` remains an alternative model and
-  is not retired.
-- **C6 — Resolve the scene-seam overlap (DECIDED: `aurora-renderer` owns the seam).** `aurora-renderer` owns the
-  main-thread scene handle + command queue (`RenderSceneProxy`); `aurora-scene-bridge` only transfers framework
-  component data into the aurora scene ECS and MUST NOT add a second scene proxy.
-- **C7 — Missing artifacts (DECIDED: leave; no new tracking changes).** The not-yet-existing follow-ups
-  (animation graph assets, aurora animation bridge, navigation path query, and the "sandbox editor refactor")
-  stay as clearly labeled "not yet a change" notes.
+- **C1 — Park frozen/debt (decided): labeled "not scheduled", no archive.**
+- **C2 — Proposal-only: `aurora-renderer` needs design/specs/tasks (owner: user).**
+- **C3 — Dangling refs (done): 3 active ones reworded to "not yet a change"; `aurora-renderer` ref owner: user.**
+- **C4 — Superseded rows (done): `asset-pipeline` 10.4/10.5/10.6c/14.4/14.5 marked delivered by archived `asset-cook-ipc`; deferrals marked "no tracking change yet".**
+- **C5 — Network (decided): `add-network-prediction` coexists with archived `network-lockstep`; prediction is the active model.**
+- **C6 — Scene seam (decided): `aurora-renderer` owns `RenderSceneProxy`; `aurora-scene-bridge` transfers data only.**
+- **C7 — Follow-ups (decided): no new tracking changes; missing items stay as "not yet a change" notes.**
 
 ### Decision: End-state criterion
 
@@ -148,8 +135,3 @@ labeled as not scheduled (or archived); and no active change references a nonexi
    confirmation before any archive).
 3. Re-derive the active list and confirm the end-state criterion holds. Rollback: no destructive operation is
    performed by this change, so reverting is a no-op.
-
-## Open Questions
-
-- None blocking. Revisit the WS-AURORA hub shape only if `aurora-renderer`'s own design (owned by the user)
-  changes the render-loop vs scene-seam split.

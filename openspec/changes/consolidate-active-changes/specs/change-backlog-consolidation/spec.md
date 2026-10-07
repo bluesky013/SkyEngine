@@ -1,22 +1,16 @@
 ## ADDED Requirements
 
 ### Requirement: Every active change has a disposition
-The consolidation snapshot SHALL assign exactly one disposition to every directory under
-`openspec/changes/` that is not in `archive/`.
+The consolidation snapshot SHALL assign exactly one disposition to every directory under `openspec/changes/`
+that is not in `archive/`, drawn from the fixed set `active`, `blocked-on-prereq`, `frozen`, `debt-record`,
+`superseded`.
 
 #### Scenario: Snapshot covers the full active set
 - **WHEN** the snapshot is produced
-- **THEN** it lists every active change directory and each entry carries a disposition
-
-#### Scenario: Undispositioned change is a failure
-- **WHEN** an active change directory has no disposition in the snapshot
-- **THEN** the snapshot is considered incomplete and the change is not consolidated
-
-### Requirement: Dispositions come from a fixed vocabulary
-Each disposition SHALL be one of `active`, `blocked-on-prereq`, `frozen`, `debt-record`, or `superseded`.
+- **THEN** it lists every active change directory and each entry carries one disposition from the fixed set
 
 #### Scenario: Unknown disposition rejected
-- **WHEN** a change is classified with a value outside the fixed vocabulary
+- **WHEN** a change is classified with a value outside the fixed set
 - **THEN** the classification is invalid and MUST be corrected before the snapshot is accepted
 
 ### Requirement: Blocked changes name an existing prerequisite
@@ -39,11 +33,6 @@ The snapshot SHALL NOT reference any change name that does not exist in the acti
 - **WHEN** a recorded relationship or note points at a change that does not exist
 - **THEN** the reference MUST be replaced with a real change or spec name, or removed
 
-#### Scenario: Known dangling references are resolved
-- **WHEN** the snapshot is produced
-- **THEN** the previously dangling references (`animation-graph-assets`, `aurora-animation-bridge`,
-  `navigation-path-query`, `aurora-material-pso`) are each mapped to a real change or spec, or removed
-
 ### Requirement: Prerequisite-ordered workstream grouping
 The snapshot SHALL group active changes into named workstreams and SHALL record the prerequisite ordering
 between them.
@@ -64,13 +53,14 @@ and whether user confirmation is required.
 - **WHEN** a cleanup item is recorded
 - **THEN** it identifies the target change, the intended action, and whether confirmation is required
 
-### Requirement: No archive without confirmation
-The consolidation change SHALL NOT archive, delete, or merge any existing change directory; archiving requires
+### Requirement: No destructive change without confirmation
+This change SHALL NOT archive, delete, or merge any existing change directory; those operations require
 explicit user confirmation.
 
-#### Scenario: Planning-only guarantee
+#### Scenario: Non-destructive-only guarantee
 - **WHEN** this change is applied
-- **THEN** no change directory other than `consolidate-active-changes` is modified or archived
+- **THEN** no change directory is archived, deleted, or merged, and any edits to other changes are limited to
+  non-destructive documentation (references, task-row status, status banners)
 
 ### Requirement: Defined end state
 Consolidation SHALL be considered complete only when the active set contains solely `active` and

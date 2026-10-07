@@ -136,15 +136,6 @@ openspec status --change <name> --json
 openspec validate <name>
 ```
 
-## Anti-patterns (do not do)
-
-- Hand-editing `openspec-*` skills — they are OpenSpec-generated; re-run `openspec init`/`openspec update`.
-- Leaving a change with only `proposal.md`.
-- Writing a `depends on`/`see change X` name without verifying X exists.
-- Archiving without repointing dependents and trimming superseded rows.
-- Mixing frozen/debt records into the scheduled list without a status banner.
-- Turning a vague "clean up" request into a change before it is pinned to one deliverable.
-
 ## Output convention
 
 When this skill is used for an audit/consolidation, report:
