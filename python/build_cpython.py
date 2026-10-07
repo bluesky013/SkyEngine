@@ -20,6 +20,7 @@ PyConfig.site_import = 0.
 """
 
 import argparse
+import struct
 import os
 import re
 import shutil
@@ -279,6 +280,9 @@ def build_windows(major, minor):
         if dll.name not in (release_dll.name, debug_dll.name):
             shutil.copy2(dll, dlls / dll.name)
 
+    if static_ssl_available():
+        write_ssl_stamp()
+
 
 ANDROID_HOST = "aarch64-linux-android"
 
@@ -431,7 +435,7 @@ def build_android(major, minor):
     openssl_prefix = to_msys_path(OPENSSL_DIR) if use_ssl else None
 
     # Builtin extension modules are read by makesetup during configure from the build directory.
-    setup_lines = list(ANDROID_BUILTIN_SETUP)
+    setup_lines = builtin_setup_lines()
     if use_ssl:
         setup_lines += [f"{entry} -I{to_msys_path(OPENSSL_DIR / 'include')}" for entry in ANDROID_SSL_SETUP]
         print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; enabling {', '.join(ANDROID_SSL_SETUP)}")
@@ -500,6 +504,9 @@ def build_android(major, minor):
 
     package_android_stdlib_zip(tag)
 
+    if use_ssl:
+        write_ssl_stamp()
+
 
 ANDROID_STDLIB_EXCLUDE = {"test", "idlelib", "tkinter", "turtledemo", "lib2to3", "__pycache__", "ensurepip"}
 
@@ -527,14 +534,24 @@ def decimal_setup_entry():
     # bench.c/bench_full.c define main() and must not be compiled into the core
     rel = ["_decimal/libmpdec/" + p.name for p in sorted(mpdec_dir.glob("*.c"))
            if "bench" not in p.name]
+    if struct.calcsize("P") * 8 == 64:
+        defines = "-DCONFIG_64 -DANSI -DHAVE_UINT128_T"
+    else:
+        defines = "-DCONFIG_32 -DANSI"
     return ("_decimal _decimal/_decimal.c " + " ".join(rel) +
-            " -DCONFIG_64 -DANSI -DHAVE_UINT128_T -I./Modules/_decimal/libmpdec")
+            f" {defines} -I./Modules/_decimal/libmpdec")
 
 
 def builtin_setup_lines():
     lines = [e for e in ANDROID_BUILTIN_SETUP if not e.startswith("_decimal ")]
     lines.append(decimal_setup_entry())
     return lines
+
+
+def write_ssl_stamp():
+    # Marks the package as built with _ssl/_hashlib so the CMake side can link
+    # OpenSSL consistently (build-time is the source of truth, not SKY_PYTHON_SSL).
+    (INSTALL_DIR / "ssl.txt").write_text(str(OPENSSL_DIR) + "\n", encoding="utf-8")
 
 
 def build_unix(major, minor):
@@ -586,6 +603,12 @@ def build_unix(major, minor):
             shutil.rmtree(target)
         shutil.copytree(python_lib_dir, target)
 
+    # The dropped Setup.local would otherwise linger in the checkout and affect a
+    # future configure of a different flavour.
+    setup_local.unlink(missing_ok=True)
+
+    if use_ssl:
+        write_ssl_stamp()
 
 
 def main():

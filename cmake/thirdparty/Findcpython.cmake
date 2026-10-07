@@ -71,7 +71,9 @@ target_link_options(${TARGET_WITH_NAMESPACE} INTERFACE "$<$<AND:$<CONFIG:Release
 set_target_properties(${TARGET_WITH_NAMESPACE} PROPERTIES INTERFACE_DYN_LIBS "")
 
 # The statically built _ssl/_hashlib builtins need the static OpenSSL libraries.
-if (SKY_PYTHON_SSL AND TARGET 3rdParty::openssl)
+# The consumer (plugins/python) ensures the openssl target exists whenever the
+# cpython package was built with ssl (see the ssl.txt stamp).
+if (TARGET 3rdParty::openssl)
     target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE 3rdParty::openssl)
 endif ()
 

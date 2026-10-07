@@ -3,9 +3,16 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
-# Find OpenSSL before cpython so Findcpython can link the static ssl/crypto when enabled.
+# The cpython package records whether it was built with _ssl/_hashlib (ssl.txt).
+# Build-time is the source of truth: whenever the core embeds ssl, pull OpenSSL so
+# Findcpython links it — regardless of the SKY_PYTHON_SSL configure hint.
+set(_python_ssl OFF)
+if (SKY_PYTHON_SSL OR EXISTS "${3RD_PATH}/cpython/ssl.txt")
+    set(_python_ssl ON)
+endif ()
+
 set(_python_ssl_defines "")
-if (SKY_PYTHON_SSL)
+if (_python_ssl)
     sky_find_3rd(TARGET openssl DIR openssl)
     list(APPEND _python_ssl_defines SKY_PYTHON_SSL)
 endif ()
@@ -42,12 +49,12 @@ if (SKY_BUILD_TEST)
             3rdParty::googletest
     )
 
-    if (SKY_PYTHON_SSL)
+    if (_python_ssl)
         target_compile_definitions(PythonRuntimeTest PRIVATE SKY_PYTHON_SSL)
     endif ()
 
     set(_python_test_env "SKY_PYTHON_HOME=${3RD_PATH}/cpython")
-    if (SKY_PYTHON_SSL)
+    if (_python_ssl)
         list(APPEND _python_test_env "SKY_PYTHON_SSL_CERT=${3RD_PATH}/openssl/ssl/cert.pem")
     endif ()
 
