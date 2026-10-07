@@ -7,6 +7,13 @@ cmake_minimum_required(VERSION 3.20)
 
 project({{PROJECT_NAME}} LANGUAGES C CXX)
 
+# The engine targets are C++20; the standard is directory-scoped in the engine,
+# so it must be set here as well for the project's own targets.
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+set(CMAKE_C_STANDARD 17)
+
 if (NOT DEFINED SKY_ENGINE_ROOT OR SKY_ENGINE_ROOT STREQUAL "")
     set(SKY_ENGINE_ROOT "$ENV{SKY_ENGINE_ROOT}")
 endif ()
