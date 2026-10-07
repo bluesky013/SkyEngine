@@ -140,6 +140,11 @@ namespace sky {
 
     void Application::Mainloop()
     {
+        // Platforms that own the frame loop (iOS/CADisplayLink) set the external
+        // frame loop flag; the host calls Loop() each frame instead.
+        if (externalFrameLoop) {
+            return;
+        }
         while (!exit) {
             Loop();
         }

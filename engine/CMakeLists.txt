@@ -3,10 +3,17 @@ set(CURRENT_FOLDER Engine)
 add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(animation)
-add_subdirectory(shader)
+
+# Legacy render/shader stack is desktop-only (the runtime renderer is aurora on
+# slang). Skipped on mobile so legacy third-party (boost/glslang/SPIRV-Cross/
+# taskflow) is neither found nor built there.
+if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "iOS" AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    add_subdirectory(shader)
+    add_subdirectory(render)
+endif ()
+
 add_subdirectory(audio)
 add_subdirectory(aurora)
-add_subdirectory(render)
 add_subdirectory(ui)
 add_subdirectory(physics)
 add_subdirectory(network)

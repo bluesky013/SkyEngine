@@ -32,6 +32,11 @@ namespace sky {
 
         void Loop();
 
+        // When true, Mainloop() is a no-op: the platform host drives frames
+        // itself (e.g. iOS via CADisplayLink), calling Loop() each frame.
+        void SetExternalFrameLoop(bool value) { externalFrameLoop = value; }
+        bool UsesExternalFrameLoop() const { return externalFrameLoop; }
+
         bool IsExit() const { return exit; }
         void SetExit() override;
 
@@ -50,7 +55,8 @@ namespace sky {
         std::unique_ptr<ModuleManager>  moduleManager;
         StartArguments                  arguments;
         std::function<void(float)>      tickFn;
-        bool                            exit = false;
+        bool                            exit              = false;
+        bool                            externalFrameLoop = false;
 
         virtual void ParseStartArgs() {}
         virtual bool LoadConfigs() { return true; }

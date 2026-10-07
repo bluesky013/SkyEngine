@@ -13,6 +13,7 @@
 #include <filesystem>
 
 #import <Foundation/Foundation.h>
+#import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #include <mach/mach_time.h>
 
@@ -22,7 +23,30 @@ namespace sky {
 
     // Ensures a UIApplication exists so window/view creation cannot fail on it.
     // UIApplicationMain normally owns this; calling it here is idempotent.
-    bool EnsureUIApplication();
+    bool EnsureUIApplication()
+    {
+        (void)[UIApplication sharedApplication];
+        return true;
+    }
+
+} // namespace sky
+
+// CADisplayLink target: forwards each tick to the C++ platform.
+@interface SkyDisplayLinkTarget : NSObject
+@property(nonatomic, assign) sky::IOSPlatform *owner;
+@end
+
+@implementation SkyDisplayLinkTarget
+- (void)tick:(CADisplayLink *)link
+{
+    (void)link;
+    if (_owner != nullptr) {
+        _owner->OnDisplayTick();
+    }
+}
+@end
+
+namespace sky {
 
     bool Platform::Init(const PlatformInfo &info)
     {
@@ -34,6 +58,25 @@ namespace sky {
     {
         EnsureUIApplication();
         nativeApp = info.application != nullptr ? info.application : (__bridge void *)[UIApplication sharedApplication];
+
+        // Pause/resume the frame loop across app lifecycle transitions so the
+        // drawable is not held while backgrounded.
+        NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+        id bgObserver = [center addObserverForName:UIApplicationDidEnterBackgroundNotification
+                                            object:nil
+                                             queue:nil
+                                        usingBlock:^(NSNotification *) {
+                                            this->StopFrameLoop();
+                                        }];
+        backgroundObs = (__bridge_retained void *)bgObserver;
+
+        id fgObserver = [center addObserverForName:UIApplicationWillEnterForegroundNotification
+                                            object:nil
+                                             queue:nil
+                                        usingBlock:^(NSNotification *) {
+                                            this->StartFrameLoop();
+                                        }];
+        foregroundObs = (__bridge_retained void *)fgObserver;
         return true;
     }
 
@@ -131,6 +174,57 @@ namespace sky {
         // UIKit owns the run loop; events are delivered via view/controller
         // callbacks and frames via CADisplayLink. Nothing to pump here.
         (void)exit;
+    }
+
+    void IOSPlatform::SetFrameCallback(std::function<void()> callback)
+    {
+        frameCallback = std::move(callback);
+    }
+
+    void IOSPlatform::StartFrameLoop()
+    {
+        if (displayLink != nullptr || frameCallback == nullptr) {
+            return;
+        }
+        auto *target = [[SkyDisplayLinkTarget alloc] init];
+        target.owner = this;
+        CADisplayLink *link = [CADisplayLink displayLinkWithTarget:target selector:@selector(tick:)];
+        [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+        linkTarget  = (__bridge_retained void *)target;
+        displayLink = (__bridge_retained void *)link;
+    }
+
+    void IOSPlatform::StopFrameLoop()
+    {
+        if (displayLink != nullptr) {
+            auto *link = (__bridge_transfer CADisplayLink *)displayLink;
+            [link invalidate];
+            displayLink = nullptr;
+        }
+        if (linkTarget != nullptr) {
+            (void)(__bridge_transfer SkyDisplayLinkTarget *)linkTarget;
+            linkTarget = nullptr;
+        }
+    }
+
+    void IOSPlatform::OnDisplayTick()
+    {
+        if (frameCallback) {
+            frameCallback();
+        }
+    }
+
+    IOSPlatform::~IOSPlatform()
+    {
+        StopFrameLoop();
+        if (backgroundObs != nullptr) {
+            [[NSNotificationCenter defaultCenter] removeObserver:(__bridge_transfer id)backgroundObs];
+            backgroundObs = nullptr;
+        }
+        if (foregroundObs != nullptr) {
+            [[NSNotificationCenter defaultCenter] removeObserver:(__bridge_transfer id)foregroundObs];
+            foregroundObs = nullptr;
+        }
     }
 
 } // namespace sky

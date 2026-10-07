@@ -295,7 +295,8 @@ def fill_ios_config(options):
     # options['CMAKE_OSX_ARCHITECTURES'] = 'arm64'
     # options['CMAKE_IOS_DEVELOPER_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer'
     # options['CMAKE_IOS_SDK_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
-    options['CMAKE_TOOLCHAIN_FILE'] = os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake')
+    # Absolute: CMake resolves a relative toolchain path against the build dir.
+    options['CMAKE_TOOLCHAIN_FILE'] = os.path.abspath(os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake'))
     options['PLATFORM'] = 'OS64'
 
 def resolve_android_ndk():

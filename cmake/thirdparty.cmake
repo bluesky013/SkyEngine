@@ -19,8 +19,9 @@ endfunction()
 if(EXISTS ${3RD_PATH})
     # core
     sky_find_3rd(TARGET sfmt          DIR sfmt)
-    sky_find_3rd(TARGET boost         DIR boost)
-    sky_find_3rd(TARGET taskflow      DIR taskflow)
+    # boost/taskflow are legacy-render/shader-only and found by those
+    # subdirectories themselves (desktop-only). Not found globally so mobile
+    # builds (which skip engine/render + engine/shader) don't require them.
 
     # framework
     sky_find_3rd(TARGET rapidjson     DIR rapidjson)

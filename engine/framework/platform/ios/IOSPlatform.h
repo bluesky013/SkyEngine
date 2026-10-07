@@ -6,6 +6,8 @@
 
 #include <framework/platform/PlatformBase.h>
 
+#include <functional>
+
 namespace sky {
 
     // Native iOS platform (UIKit): app lifecycle, clipboard, mach timing, paths.
@@ -15,7 +17,7 @@ namespace sky {
     class IOSPlatform : public PlatformBase {
     public:
         IOSPlatform()           = default;
-        ~IOSPlatform() override = default;
+        ~IOSPlatform() override;
 
         bool Init(const PlatformInfo &info) override;
         uint64_t GetPerformanceFrequency() const override;
@@ -35,6 +37,15 @@ namespace sky {
 
         void PollEvent(bool &exit) override;
 
+        // Frame loop: UIKit owns the run loop, so the host registers a frame
+        // callback and starts a CADisplayLink that ticks it each frame.
+        void SetFrameCallback(std::function<void()> callback);
+        void StartFrameLoop();
+        void StopFrameLoop();
+
+        // Invoked by the CADisplayLink target.
+        void OnDisplayTick();
+
         // Records the first created window's layer as the main surface.
         void SetMainWindow(void *handle)
         {
@@ -44,8 +55,13 @@ namespace sky {
         }
 
     private:
-        void *mainWindow = nullptr; // CAMetalLayer of the main window
-        void *nativeApp  = nullptr; // UIApplication
+        void *mainWindow    = nullptr; // CAMetalLayer of the main window
+        void *nativeApp     = nullptr; // UIApplication
+        void *displayLink   = nullptr; // CADisplayLink
+        void *linkTarget    = nullptr; // SkyDisplayLinkTarget
+        void *backgroundObs = nullptr; // UIApplicationDidEnterBackgroundNotification
+        void *foregroundObs = nullptr; // UIApplicationWillEnterForegroundNotification
+        std::function<void()> frameCallback;
     };
 
 } // namespace sky
