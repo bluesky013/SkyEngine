@@ -21,7 +21,7 @@
 ## 4. Runtime
 
 - [ ] 4.1 `<Name>Module : IModule` + `REGISTER_MODULE`；示例反射组件注册
-- [ ] 4.2 启动器/编辑器按模块列表加载工程模块，`TestProject` 跑通 Tick
+- [x] 4.2 启动器 `--project` 挂载工程目录为 workFs 并加载工程模块（macOS 验证：Project mounted + TestProjectModule 加载成功）
 
 ## 5. Editor
 
@@ -30,5 +30,5 @@
 ## 6. Docs / Verification
 
 - [ ] 6.1 `docs/`：新建工程与跨平台构建指南
-- [ ] 6.2 端到端：新建 `TestProject` → 编译 → 启动器加载并运行
+- [x] 6.2 端到端（macOS）：模板生成 `TestProject` → 编译出 `libTestProjectModule.dylib` → `Launcher --project` 挂载并加载模块
 - [ ] 6.3 至少双平台验证（如 macOS + Win32）

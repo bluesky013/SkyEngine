@@ -6,6 +6,7 @@
 
 #include <framework/application/Application.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/project/ProjectDescriptor.h>
 #include <core/file/FileSystem.h>
 
 #include <string>
@@ -26,6 +27,12 @@ namespace sky {
         NativeWindow* GetWindow() const { return nativeWindow.get(); }
 
         void *GetMainWindowHandle() const override;
+
+    protected:
+        // Parses `--project <path>`; when present the project directory becomes the
+        // work file system (its configs/ and assets/) and its modules are loaded.
+        void ParseStartArgs() override;
+
     private:
         bool LoadConfigs() override;
 
@@ -33,7 +40,9 @@ namespace sky {
         uint32_t width = 1024;
         uint32_t height = 1024;
 
-        FileSystemPtr workFs;
+        FileSystemPtr     workFs;
+        ProjectDescriptor project;
+        bool              hasProject = false;
     };
 
 }

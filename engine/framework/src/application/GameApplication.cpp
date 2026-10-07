@@ -13,6 +13,8 @@
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 
+#include <filesystem>
+
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/platform/PlatformBase.h>
@@ -45,6 +47,43 @@ namespace sky {
         return true;
     }
 
+    void GameApplication::ParseStartArgs()
+    {
+        // `--project <path>`: mount the project directory as the work file system
+        // (so its configs/ and assets/ resolve) and remember its descriptor.
+        const auto &values = arguments.values;
+        for (auto it = values.begin(); it != values.end(); ++it) {
+            if (*it != "--project") {
+                continue;
+            }
+            auto next = std::next(it);
+            if (next == values.end()) {
+                LOG_E(TAG, "--project requires a path argument");
+                break;
+            }
+            // Accept either the .skyproj file or the project directory.
+            std::string path = *next;
+            std::error_code error;
+            if (std::filesystem::is_directory(path, error)) {
+                for (const auto &entry : std::filesystem::directory_iterator(path, error)) {
+                    if (entry.path().extension() == ".skyproj") {
+                        path = entry.path().string();
+                        break;
+                    }
+                }
+            }
+            if (project.Read(path)) {
+                hasProject = true;
+                workFs     = new NativeFileSystem(project.Dir());
+                AssetManager::Get()->SetWorkFileSystem(workFs);
+                LOG_I(TAG, "Project mounted: %s (%s)", project.name.c_str(), project.Dir().c_str());
+            } else {
+                LOG_E(TAG, "Failed to read project: %s", path.c_str());
+            }
+            break;
+        }
+    }
+
     void GameApplication::PreTick()
     {
     }
@@ -55,6 +94,14 @@ namespace sky {
         modules.emplace("Aurora.Render", ModuleInfo{"Aurora.Render", {}});
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
+        }
+
+        // Project modules come from the descriptor, so a project still loads its
+        // module even without a configs/modules_game.json.
+        if (hasProject) {
+            for (const auto &id : project.modules) {
+                moduleManager->RegisterModule(ModuleInfo{id, {}});
+            }
         }
 
         std::string json;
