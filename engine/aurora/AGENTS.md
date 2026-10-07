@@ -101,6 +101,14 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 - **DX12**：12.0 起步；PSO / root signature / ResourceGroup / SwapChain 均已落地，encoder 支持 render target 绑定与 clear、IA 顶点输入、indirect draw/dispatch、内置 fullscreen blit 与 tier2 bindless `DescriptorHeap`（SM6.6 门），见 `aurora-dx12-gaps`
 - **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定（含 push constant 的 declare-last 最高槽）占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 槽数超 15 在 pipeline 创建时 assert + 报错。push constant 支持 partial-range（CPU 侧 staging block 累积后整块 `set*Bytes` 重传）。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；Resolve 走 `MTLStoreActionMultisampleResolve` 空 render pass；两者由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**（需要 slang MSL 产出 argument buffer 访问，工具链不支持，`feature.descriptorHeap == false`）
 
+## Metal 后端实现约定（ARC / 句柄 / 线程池 / MSL 槽位）
+
+- **ARC**：`Aurora.Metal` 的 `.mm` 单独开启 `-fobjc-arc`（`metal/CMakeLists.txt` 对 `src/*.mm` 设 `set_source_files_properties(... "-fobjc-arc")`）。**不得**混用手工 `retain/release/dealloc`（ARC 下编译报错）。不要给整个后端加 `-fobjc-arc` 到 `.cpp`（`MetalRDGBackend.cpp` 是纯 C++）。
+- **native 句柄**：Obj-C 类型不进头文件，句柄一律 `void*`。跨越 `id` ↔ `void*` 必须用 bridge cast：存句柄 `(__bridge_retained void *)obj`（+1，脱离 ARC），读句柄 `(__bridge id<MTLXxx>)handle`（借用），释放 `(void)(__bridge_transfer id<MTLXxx>)handle`（+1 交还 ARC）。**每个 `__bridge_retained` 必须恰有一个配对的 `__bridge_transfer`**（否则泄漏；MRC 下这些 cast 是 no-op，正是历史泄漏根因）。
+- **Device 工厂**：统一走 `MetalDevice.mm` 内部模板 `CreateAndInit<T>(device, desc)`（`new T` + `Init` + 失败 `delete`），不逐方法复制样板。
+- **MSL 槽位**：`src/MetalMSLSlots.h` 的 `BuildMetalMSLSlotLayout(reflection, set)` 是**唯一**来源——slang MSL 按类别（buffer/texture/sampler）各自从 0 顺序编号，忽略 `[[vk::binding]]`；`MetalShader`（push constant 槽 + buffer 预算）与 `MetalResourceGroup`（类别绑定槽映射）共用它。
+- **线程池 / autorelease pool**：主线程帧池在 `MacosPlatform::PollEvent`（帧首建、次帧首 drain）；worker 线程池在 `MetalThreadContext::OnAttach/OnDetach` 用 `objc_autoreleasePoolPush/Pop`（ARC 禁 `NSAutoreleasePool`）。**ARC 不自动建池**；任何创建 autoreleased 对象的线程都必须有池。需跨帧/等 GPU 的对象**不可**依赖 autorelease pool（池 drain 早于 GPU 完成），必须显式强持有（`__bridge_retained` 句柄或 Metal 内部持有），GPU 完成信号用 `encodeSignalEvent` + fence（见 `MetalQueue::PendingUpload`）。
+
 ## Queue / Submit / Semaphore / SwapChain（submit-present）
 
 提交与呈现路径（`aurora-queue-submit-present` + `aurora-client-viewport`）。
