@@ -24,6 +24,13 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
+// Autorelease pool push/pop (the same entry points @autoreleasepool lowers to);
+// not declared by the SDK headers but exported by libobjc.
+extern "C" {
+void *objc_autoreleasePoolPush(void);
+void  objc_autoreleasePoolPop(void *context);
+}
+
 static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
@@ -66,10 +73,19 @@ namespace sky::aurora {
     void MetalThreadContext::OnAttach(uint32_t threadIndex)
     {
         (void)threadIndex;
+        // Autorelease pools are per-thread and are NOT created automatically by
+        // ARC: every worker that can autorelease an Obj-C object needs its own
+        // pool. objc_autoreleasePoolPush/Pop is portable across MRC/ARC (unlike
+        // NSAutoreleasePool, which ARC forbids).
+        poolToken = objc_autoreleasePoolPush();
     }
 
     void MetalThreadContext::OnDetach()
     {
+        if (poolToken != nullptr) {
+            objc_autoreleasePoolPop(poolToken);
+            poolToken = nullptr;
+        }
     }
 
     MetalDevice::MetalDevice(MetalInstance &inst) : instance(inst)

@@ -20,6 +20,9 @@ namespace sky::aurora {
 
         void OnAttach(uint32_t threadIndex) override;
         void OnDetach() override;
+
+    private:
+        void *poolToken = nullptr; // objc_autoreleasePoolPush token, ARC-safe
     };
 
     class MetalDevice : public Device {
