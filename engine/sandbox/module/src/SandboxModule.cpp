@@ -473,6 +473,17 @@ namespace sky::editor {
         LOG_I(TAG, "closed world");
     }
 
+    void SandboxModule::Quit()
+    {
+        StopPlay();
+        if (worldDocument != nullptr && worldDocument->IsDirty()) {
+            worldDocument->Save();
+        }
+        if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
+            system->SetExit();
+        }
+    }
+
     void SandboxModule::StopPlay()
     {
         if (playSession.Stop()) {
@@ -658,35 +669,8 @@ namespace sky::editor {
         uiScale = EffectiveUiScale();
         shell.SetUiScale(uiScale);
         shell.SetPreferences(&preferenceRegistry, preferenceStore.get(), [this]() { SavePreferences(); });
-        shell.SetNewWorldHandler([this]() { NewWorld(); });
-        shell.SetOpenWorldHandler([this]() { OpenWorld(); });
-        shell.SetSaveWorldHandler([this]() { SaveWorld(); });
-        shell.SetCloseWorldHandler([this]() { CloseWorld(); });
-        shell.SetQuitHandler([this]() {
-            StopPlay();
-            if (worldDocument != nullptr && worldDocument->IsDirty()) {
-                worldDocument->Save();
-            }
-            if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
-                system->SetExit();
-            }
-        });
-        shell.SetUndoHandler([]() { EditorCore::GetCommandService().Undo(); });
-        shell.SetRedoHandler([]() { EditorCore::GetCommandService().Redo(); });
-
         // Play-In-Editor: the session duplicates the edit world and ticks it.
         playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
-        shell.SetPlayHandler([this]() {
-            if (playSession.Play()) {
-                LOG_I(TAG, "PIE play");
-            }
-            shell.SetPlayState(playSession.GetState());
-        });
-        shell.SetPauseHandler([this]() {
-            playSession.Pause();
-            shell.SetPlayState(playSession.GetState());
-        });
-        shell.SetStopHandler([this]() { StopPlay(); });
 
         // The window title reflects the open world + dirty marker (see
         // docs/editor/play-in-editor.md / editor-framework-status.md).
@@ -697,30 +681,86 @@ namespace sky::editor {
         });
         RefreshDocumentInfo();
 
-        // Toolbar actions (see docs/editor/editor-toolbar.md). Plugins contribute
+        // Editor actions: the toolbar, menus, and keyboard shortcuts all drive
+        // these by id (see docs/editor/editor-toolbar.md). Plugins contribute
         // through EditorActionRegistry in their EditorExtension::Register().
-        EditorActionRegistry &actions = *EditorActionRegistry::Get();
-        actions.Clear();
-        actions.Add({"file.open", "Open", "open", "file", 0, nullptr, [this]() { OpenWorld(); }});
-        actions.Add({"file.save", "Save", "save", "file", 10, nullptr, [this]() { SaveWorld(); }});
-        actions.Add({"edit.undo", "Undo", "undo", "history", 0, []() { return EditorCore::GetCommandService().CanUndo(); },
-                     []() { EditorCore::GetCommandService().Undo(); }});
-        actions.Add({"edit.redo", "Redo", "redo", "history", 10, []() { return EditorCore::GetCommandService().CanRedo(); },
-                     []() { EditorCore::GetCommandService().Redo(); }});
-        actions.Add({"play.play", "Play", "play", "play", 0, [this]() { return playSession.GetState() != PlayState::Playing; },
-                     [this]() {
-                         if (playSession.Play()) {
-                             LOG_I(TAG, "PIE play");
-                         }
-                         shell.SetPlayState(playSession.GetState());
-                     }});
-        actions.Add({"play.pause", "Pause", "pause", "play", 10, [this]() { return playSession.GetState() == PlayState::Playing; },
-                     [this]() {
-                         playSession.Pause();
-                         shell.SetPlayState(playSession.GetState());
-                     }});
-        actions.Add(
-            {"play.stop", "Stop", "stop", "play", 20, [this]() { return playSession.GetState() != PlayState::Editing; }, [this]() { StopPlay(); }});
+        EditorActionRegistry *actions = EditorActionRegistry::Get();
+        actions->Clear();
+        actions->Add({.id = "file.new", .label = "New World...", .menu = "File", .order = 0, .menuOrder = 0, .invoke = [this]() { NewWorld(); }});
+        actions->Add({.id        = "file.open",
+                      .label     = "Open World...",
+                      .icon      = "open",
+                      .group     = "file",
+                      .menu      = "File",
+                      .order     = 1,
+                      .menuOrder = 0,
+                      .invoke    = [this]() { OpenWorld(); }});
+        actions->Add({.id        = "file.save",
+                      .label     = "Save World",
+                      .icon      = "save",
+                      .group     = "file",
+                      .menu      = "File",
+                      .order     = 2,
+                      .menuOrder = 0,
+                      .invoke    = [this]() { SaveWorld(); }});
+        actions->Add({.id = "file.close", .label = "Close World", .menu = "File", .order = 3, .menuOrder = 0, .invoke = [this]() { CloseWorld(); }});
+        actions->Add({.id = "file.quit", .label = "Quit", .menu = "File", .order = 9, .menuOrder = 0, .invoke = [this]() { Quit(); }});
+        actions->Add({.id        = "edit.undo",
+                      .label     = "Undo",
+                      .icon      = "undo",
+                      .group     = "history",
+                      .menu      = "Edit",
+                      .order     = 0,
+                      .menuOrder = 1,
+                      .enabled   = []() { return EditorCore::GetCommandService().CanUndo(); },
+                      .invoke    = []() { EditorCore::GetCommandService().Undo(); }});
+        actions->Add({.id        = "edit.redo",
+                      .label     = "Redo",
+                      .icon      = "redo",
+                      .group     = "history",
+                      .menu      = "Edit",
+                      .order     = 1,
+                      .menuOrder = 1,
+                      .enabled   = []() { return EditorCore::GetCommandService().CanRedo(); },
+                      .invoke    = []() { EditorCore::GetCommandService().Redo(); }});
+        actions->Add(
+            {.id = "view.reset", .label = "Reset Layout", .menu = "View", .order = 5, .menuOrder = 2, .invoke = [this]() { shell.ResetLayout(); }});
+        actions->Add({.id = "help.demo", .label = "Demo", .menu = "Help", .order = 0, .menuOrder = 3, .invoke = [this]() {
+                          shell.SetPanelVisible("refldemo", true);
+                      }});
+        actions->Add(
+            {.id = "help.about", .label = "About", .menu = "Help", .order = 1, .menuOrder = 3, .invoke = []() { LOG_I(TAG, "SkyEngine Editor"); }});
+        actions->Add({.id      = "play.play",
+                      .label   = "Play",
+                      .icon    = "play",
+                      .group   = "play",
+                      .order   = 0,
+                      .enabled = [this]() { return playSession.GetState() != PlayState::Playing; },
+                      .invoke =
+                          [this]() {
+                              if (playSession.Play()) {
+                                  LOG_I(TAG, "PIE play");
+                              }
+                              shell.SetPlayState(playSession.GetState());
+                          }});
+        actions->Add({.id      = "play.pause",
+                      .label   = "Pause",
+                      .icon    = "pause",
+                      .group   = "play",
+                      .order   = 1,
+                      .enabled = [this]() { return playSession.GetState() == PlayState::Playing; },
+                      .invoke =
+                          [this]() {
+                              playSession.Pause();
+                              shell.SetPlayState(playSession.GetState());
+                          }});
+        actions->Add({.id      = "play.stop",
+                      .label   = "Stop",
+                      .icon    = "stop",
+                      .group   = "play",
+                      .order   = 2,
+                      .enabled = [this]() { return playSession.GetState() != PlayState::Editing; },
+                      .invoke  = [this]() { StopPlay(); }});
 
         shell.RegisterBuiltinPanelViews();
         shellTarget = MakeShellTarget(&shell);

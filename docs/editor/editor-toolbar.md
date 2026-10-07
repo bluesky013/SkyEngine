@@ -105,9 +105,13 @@ Everything from the theme per `ui-sizing-and-scaling.md`: `metrics.toolbarHeight
   registered as UI textures (`IUITextureRegistry`); `EditorShell::SetIcon` maps name → texture and the toolbar
   draws them via `AddTexturedQuad`. Items are **icon-only** (label reserved for a hover tooltip); items without
   an icon fall back to text.
-- Menu parity: `Edit` menu `Undo`/`Redo`; `Ctrl+Z` / `Ctrl+Y` (and `Ctrl+Shift+Z`) shortcuts.
+- **Unified actions**: menus are built from the same registry (`EditorAction.menu` / `menuOrder` /
+  `submenu`), and keyboard shortcuts invoke actions by id (`EditorShell::InvokeAction`). No per-command shell
+  handlers remain — toolbar, menus, and shortcuts (Ctrl+S/W/Z/Y, F5/Shift+F5) all resolve through
+  `EditorActionRegistry`. Host-only entries (Preferences) and dynamic panel toggles (View > Windows) are
+  injected by the shell.
+- **Hover tooltip**: icon-only toolbar items reveal their label in a small panel below the bar.
 
 ## Follow-ups
 
-- Hover tooltips (show the label), icon dim/tint polish.
 - Tool modes / Play as a combined control, user-customizable / hideable toolbar.

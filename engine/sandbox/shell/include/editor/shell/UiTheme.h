@@ -100,7 +100,9 @@ namespace sky::editor {
         float dialogMargin           = 14.0f;
         float titleBarHeight         = 36.0f;
         float footerHeight           = 46.0f;
-        float toolbarHeight          = 30.0f;
+        float toolbarHeight          = 36.0f;
+        float menuBarHeight          = 30.0f;  // menu bar (shell header)
+        float statusBarHeight        = 24.0f;  // status bar (shell footer)
         float sidebarWidth           = 170.0f; // file browser places
         float listHeaderHeight       = 22.0f;  // list/table header row
         float formLabelWidth         = 78.0f;  // new-world label column

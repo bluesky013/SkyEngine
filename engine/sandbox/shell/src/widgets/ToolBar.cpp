@@ -99,14 +99,15 @@ namespace sky::editor {
         const sky::ui::UIRect b  = GetBounds();
 
         uc::Fill(context, b, th.colors.toolbar);
-        uc::HLine(context, b.left, b.right, b.bottom - 1.0f, th.colors.borderSoft);
+        uc::HLine(context, b.left, b.right, b.bottom - 1.0f, th.colors.border);
 
         for (size_t i = 0; i < items.size(); ++i) {
             const Item           &item = items[i];
             const sky::ui::UIRect r    = ItemRect(i);
             if (item.separatorBefore && i > 0) {
+                // Full-height divider between toolbar groups (UE/Blender-style).
                 const float lx = r.left - m.itemSpacing * 0.75f;
-                uc::Fill(context, sky::ui::UIRect{lx, r.top, lx + 1.0f, r.bottom}, th.colors.border);
+                uc::Fill(context, sky::ui::UIRect{lx, b.top + m.hairline, lx + 1.0f, b.bottom - m.hairline}, th.colors.border);
             }
 
             const bool     hovered = static_cast<int>(i) == hoverItem && item.enabled;
@@ -123,6 +124,20 @@ namespace sky::editor {
             } else if (!item.label.empty()) {
                 uc::Text(context, item.label, th.fonts.label, sky::ui::UIRect{r.left + m.controlPad, r.top, r.right - m.controlPad, r.bottom}, color,
                          textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
+            }
+        }
+
+        // Hover tooltip: an icon-only item reveals its label below the bar (the
+        // toolbar is not clipped to its bounds, like the MenuBar popup).
+        if (hoverItem >= 0 && hoverItem < static_cast<int>(items.size())) {
+            const Item &item = items[static_cast<size_t>(hoverItem)];
+            if (item.icon != sky::ui::UI_INVALID_TEXTURE && !item.label.empty()) {
+                const sky::ui::UIRect hovered = ItemRect(static_cast<size_t>(hoverItem));
+                const float           w       = uc::TextWidth(item.label, th.fonts.label, textSystem) + 2.0f * m.controlPad;
+                const sky::ui::UIRect tip{hovered.left, b.bottom + m.panelGap, hovered.left + w, b.bottom + m.panelGap + m.popupItemHeight};
+                uc::Fill(context, tip, th.colors.borderSoft);
+                uc::Fill(context, sky::ui::UIRect{tip.left + 1.0f, tip.top + 1.0f, tip.right - 1.0f, tip.bottom - 1.0f}, th.colors.panel);
+                uc::Text(context, item.label, th.fonts.label, tip, th.colors.text, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
             }
         }
     }

@@ -116,6 +116,8 @@ namespace sky::editor {
         s(titleBarHeight);
         s(footerHeight);
         s(toolbarHeight);
+        s(menuBarHeight);
+        s(statusBarHeight);
         s(sidebarWidth);
         s(listHeaderHeight);
         s(formLabelWidth);

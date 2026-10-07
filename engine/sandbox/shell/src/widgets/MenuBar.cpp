@@ -24,7 +24,7 @@ namespace sky::editor {
     float MenuBar::LabelWidth(const std::string &text) const
     {
         const UiMetrics &m = GetDefaultUiTheme().metrics;
-        return 2.0f * m.padX + uc::TextWidth(text, GetDefaultUiTheme().fonts.label, textSystem);
+        return 2.0f * m.controlPad + uc::TextWidth(text, GetDefaultUiTheme().fonts.label, textSystem);
     }
 
     float MenuBar::RowHeight() const
@@ -76,11 +76,17 @@ namespace sky::editor {
         const UiTheme        &th = GetDefaultUiTheme();
         const sky::ui::UIRect b  = GetBounds();
         const sky::ui::UIRect bar{b.left, b.top, b.right, b.top + barHeight};
-        uc::Fill(context, bar, th.colors.toolbar);
-        uc::HLine(context, bar.left, bar.right, bar.bottom - 1.0f, th.colors.borderSoft);
-        UiSkin skin(th, textSystem);
+        uc::Fill(context, bar, th.colors.window);
+        uc::HLine(context, bar.left, bar.right, bar.bottom - 1.0f, th.colors.border);
+        const UiMetrics &m = th.metrics;
         for (size_t i = 0; i < menus.size(); ++i) {
-            skin.DrawToolItem(context, LabelRect(i), menus[i].label, static_cast<int32_t>(i) == openIndex || static_cast<int32_t>(i) == hoverLabel);
+            const sky::ui::UIRect r = LabelRect(i);
+            const sky::ui::UIRect pill{r.left, r.top + m.panelGap, r.right, r.bottom - m.panelGap};
+            const bool            on = static_cast<int32_t>(i) == openIndex || static_cast<int32_t>(i) == hoverLabel;
+            if (on) {
+                uc::RoundedRect(context, pill, th.colors.rowHover, m.buttonRadius);
+            }
+            uc::Text(context, menus[i].label, th.fonts.label, pill, th.colors.text, textSystem, uc::HAlign::Center, uc::VAlign::Middle, false);
         }
         if (openIndex < 0) {
             return;
@@ -156,9 +162,10 @@ namespace sky::editor {
     sky::ui::UIRect MenuBar::LabelRect(size_t index) const
     {
         const sky::ui::UIRect b = GetBounds();
-        float                 x = b.left + GetDefaultUiTheme().metrics.panelGap;
+        const UiMetrics      &m = GetDefaultUiTheme().metrics;
+        float                 x = b.left + m.padX;
         for (size_t i = 0; i < index; ++i) {
-            x += LabelWidth(menus[i].label);
+            x += LabelWidth(menus[i].label) + m.itemSpacing;
         }
         return sky::ui::UIRect{x, b.top, x + LabelWidth(menus[index].label), b.top + barHeight};
     }

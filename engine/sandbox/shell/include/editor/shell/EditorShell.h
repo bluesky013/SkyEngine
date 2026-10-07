@@ -90,44 +90,19 @@ namespace sky::editor {
         // Project-level world configuration. The shell hosts the dialog over the
         // supplied world document.
         void SetWorldDocument(WorldDocument *document);
-        void SetNewWorldHandler(std::function<void()> handler)
-        {
-            newWorldHandler = std::move(handler);
-        }
-        void SetOpenWorldHandler(std::function<void()> handler)
-        {
-            openWorldHandler = std::move(handler);
-        }
-        // Invoked by File > Save World and Ctrl+S; the host saves the document.
-        void SetSaveWorldHandler(std::function<void()> handler)
-        {
-            saveWorldHandler = std::move(handler);
-        }
-        // Invoked by File > Close World and Ctrl+W; the host closes the document.
-        void SetCloseWorldHandler(std::function<void()> handler)
-        {
-            closeWorldHandler = std::move(handler);
-        }
-        // Invoked by File > Quit; the host requests application exit.
-        void SetQuitHandler(std::function<void()> handler)
-        {
-            quitHandler = std::move(handler);
-        }
 
-        // Undo/Redo: invoked by the toolbar / Edit menu and Ctrl+Z / Ctrl+Y.
-        void SetUndoHandler(std::function<void()> handler)
-        {
-            undoHandler = std::move(handler);
-        }
-        void SetRedoHandler(std::function<void()> handler)
-        {
-            redoHandler = std::move(handler);
-        }
-        // Refreshes the toolbar items' enabled state from the action registry.
+        // Actions: the toolbar, menus, and keyboard shortcuts all drive
+        // EditorActionRegistry entries by id (there are no per-command handlers).
+        // Returns true when the id resolved (invoked or disabled-and-consumed).
+        bool InvokeAction(const std::string &id);
+        // Refreshes the toolbar items' enabled state + icons from the registry.
         void RefreshActions();
 
         // Icon registry (name -> UI texture), used to draw toolbar action icons.
         void SetIcon(const std::string &name, sky::ui::UITextureId texture);
+
+        // Restores the default layout (View > Reset Layout).
+        void ResetLayout();
 
         // Opens the "New World" create dialog. The callback receives the full
         // world file path.
@@ -149,21 +124,8 @@ namespace sky::editor {
             titleHandler = std::move(handler);
         }
 
-        // Play-In-Editor controls. The host wires the handlers to its session and
-        // reports the state back so the menu/status reflect it. F5 toggles
-        // Play/Pause; Shift+F5 stops.
-        void SetPlayHandler(std::function<void()> handler)
-        {
-            playHandler = std::move(handler);
-        }
-        void SetPauseHandler(std::function<void()> handler)
-        {
-            pauseHandler = std::move(handler);
-        }
-        void SetStopHandler(std::function<void()> handler)
-        {
-            stopHandler = std::move(handler);
-        }
+        // Play state is reported by the host so the toolbar/status reflect it and
+        // F5 can toggle Play/Pause. The commands themselves are actions.
         void      SetPlayState(PlayState state);
         PlayState GetPlayState() const
         {
@@ -346,23 +308,13 @@ namespace sky::editor {
         PreferenceStore      *preferenceStore    = nullptr;
         std::function<void()> preferencesApplied;
 
-        WorldDocument        *worldDocument = nullptr;
-        std::function<void()> newWorldHandler;
-        std::function<void()> openWorldHandler;
-        std::function<void()> saveWorldHandler;
-        std::function<void()> closeWorldHandler;
-        std::function<void()> quitHandler;
-        std::function<void()> undoHandler;
-        std::function<void()> redoHandler;
-        std::function<void()> playHandler;
-        std::function<void()> pauseHandler;
-        std::function<void()> stopHandler;
-        PlayState             playState       = PlayState::Editing;
-        NewWorldDialog       *newWorldElement = nullptr;
-        float                 width           = 1280.0f;
-        float                 height          = 720.0f;
-        float                 headerHeight    = 24.0f;
-        float                 footerHeight    = 22.0f;
+        WorldDocument  *worldDocument   = nullptr;
+        PlayState       playState       = PlayState::Editing;
+        NewWorldDialog *newWorldElement = nullptr;
+        float           width           = 1280.0f;
+        float           height          = 720.0f;
+        float           headerHeight    = 32.0f;
+        float           footerHeight    = 22.0f;
 
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";

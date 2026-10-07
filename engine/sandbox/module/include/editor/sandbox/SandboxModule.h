@@ -58,6 +58,7 @@ namespace sky::editor {
         void OpenWorld();
         void SaveWorld();
         void CloseWorld();
+        void Quit();
         void StopPlay();
         void RefreshDocumentInfo();
         // Directory new/open world dialogs start in (project assets, else user config).

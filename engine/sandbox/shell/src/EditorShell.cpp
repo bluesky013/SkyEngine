@@ -458,13 +458,37 @@ namespace sky::editor {
         icons[name] = texture;
     }
 
+    bool EditorShell::InvokeAction(const std::string &id)
+    {
+        const EditorAction *action = EditorActionRegistry::Get()->Find(id);
+        if (action == nullptr) {
+            return false;
+        }
+        if (action->enabled && !action->enabled()) {
+            return true; // registered but disabled -> consume, do nothing
+        }
+        if (action->invoke) {
+            action->invoke();
+        }
+        return true;
+    }
+
+    void EditorShell::ResetLayout()
+    {
+        if (layoutModel != nullptr) {
+            layoutModel->ResetToDefault();
+            pendingRebuild = true;
+            layoutDirty    = true;
+        }
+    }
+
     void EditorShell::RefreshActions()
     {
         auto *toolBar = dynamic_cast<ToolBar *>(toolBarElement);
         if (toolBar == nullptr) {
             return;
         }
-        for (const EditorAction &action : EditorActionRegistry::Get()->GetActions()) {
+        for (const EditorAction &action : EditorActionRegistry::Get()->GetToolbarActions()) {
             toolBar->SetItemEnabled(action.id, action.enabled ? action.enabled() : true);
             if (!action.icon.empty()) {
                 toolBar->SetItemIcon(action.id, ResolveIcon(action.icon));
@@ -810,6 +834,8 @@ namespace sky::editor {
 
     void EditorShell::Rebuild()
     {
+        headerHeight = GetDefaultUiTheme().metrics.menuBarHeight;
+        footerHeight = GetDefaultUiTheme().metrics.statusBarHeight;
         // Drop focus/hover/capture first: rebuilding destroys the chrome and
         // would leave the router holding dangling pointers.
         eventRouter->Reset();
@@ -822,56 +848,49 @@ namespace sky::editor {
         built          = false;
         pendingRebuild = false;
 
-        // Menu bar: File/Edit/View/Help. View toggles the docking windows (under
-        // a "Windows" submenu) and exposes Reset Layout.
+        // Menus come from the action registry: actions are grouped by `menu`
+        // (ordered by `menuOrder`) and may nest under a `submenu`. The host-only
+        // entries (Preferences, and the dynamic panel toggles) are injected here.
         std::vector<MenuBar::Menu> menus;
-        MenuBar::Menu              file;
-        file.label = "File";
-        file.items.push_back({"Preferences...", [this]() { OpenPreferences(); }});
-        file.items.push_back({"New World...", [this]() {
-                                  if (newWorldHandler) {
-                                      newWorldHandler();
-                                  }
-                              }});
-        file.items.push_back({"Open World...", [this]() {
-                                  if (openWorldHandler) {
-                                      openWorldHandler();
-                                  }
-                              }});
-        file.items.push_back({"Save World", [this]() {
-                                  if (saveWorldHandler) {
-                                      saveWorldHandler();
-                                  }
-                              }});
-        file.items.push_back({"Close World", [this]() {
-                                  if (closeWorldHandler) {
-                                      closeWorldHandler();
-                                  }
-                              }});
-        file.items.push_back({"Quit", [this]() {
-                                  if (quitHandler) {
-                                      quitHandler();
-                                  }
-                              }});
-        menus.push_back(std::move(file));
+        MenuBar::Menu              current;
+        auto                       flushMenu = [&menus, &current]() {
+            if (!current.label.empty()) {
+                menus.push_back(std::move(current));
+                current = MenuBar::Menu{};
+            }
+        };
+        for (const EditorAction &action : EditorActionRegistry::Get()->GetMenuActions()) {
+            if (action.menu != current.label) {
+                flushMenu();
+                current.label = action.menu;
+            }
+            const std::string id = action.id;
+            MenuBar::Item     item;
+            item.label  = action.label;
+            item.action = [this, id]() { InvokeAction(id); };
+            if (action.submenu.empty()) {
+                current.items.push_back(std::move(item));
+            } else {
+                auto it = std::find_if(current.items.begin(), current.items.end(),
+                                       [&](const MenuBar::Item &existing) { return existing.label == action.submenu; });
+                if (it == current.items.end()) {
+                    MenuBar::Item sub;
+                    sub.label = action.submenu;
+                    sub.children.push_back(std::move(item));
+                    current.items.push_back(std::move(sub));
+                } else {
+                    it->children.push_back(std::move(item));
+                }
+            }
+        }
+        flushMenu();
 
-        MenuBar::Menu edit;
-        edit.label = "Edit";
-        edit.items.push_back({"Undo", [this]() {
-                                  if (undoHandler) {
-                                      undoHandler();
-                                  }
-                              }});
-        edit.items.push_back({"Redo", [this]() {
-                                  if (redoHandler) {
-                                      redoHandler();
-                                  }
-                              }});
-        menus.push_back(std::move(edit));
+        auto fileMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "File"; });
+        if (fileMenu != menus.end()) {
+            fileMenu->items.insert(fileMenu->items.begin(), {"Preferences...", [this]() { OpenPreferences(); }});
+        }
 
-        // View: the docking-window toggles live under a second-level "Windows"
-        // submenu; Reset Layout is a direct View item.
-        MenuBar::Menu view{"View", {}};
+        // Dynamic View > Windows panel toggles (panels are not registry actions).
         MenuBar::Item windowsItem;
         windowsItem.label = "Windows";
         if (layoutModel != nullptr && panelRegistry != nullptr) {
@@ -882,21 +901,15 @@ namespace sky::editor {
                     {(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
             }
         }
-        view.items.push_back(std::move(windowsItem));
-        view.items.push_back({"Reset Layout", [this]() {
-                                  if (layoutModel != nullptr) {
-                                      layoutModel->ResetToDefault();
-                                      pendingRebuild = true;
-                                      layoutDirty    = true;
-                                  }
-                              }});
-        menus.push_back(std::move(view));
-
-        MenuBar::Menu help;
-        help.label = "Help";
-        help.items.push_back({"Demo", [this]() { SetPanelVisible("refldemo", true); }});
-        help.items.push_back({"About", []() { LOG_I(TAG, "SkyEngine Editor"); }});
-        menus.push_back(std::move(help));
+        auto viewMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "View"; });
+        if (viewMenu == menus.end()) {
+            MenuBar::Menu view;
+            view.label = "View";
+            view.items.push_back(std::move(windowsItem));
+            menus.push_back(std::move(view));
+        } else {
+            viewMenu->items.insert(viewMenu->items.begin(), std::move(windowsItem));
+        }
 
         statusBarElement = context->AddChild(std::make_unique<StatusBar>(textSystem));
 
@@ -915,7 +928,7 @@ namespace sky::editor {
         auto                       toolBar = std::make_unique<ToolBar>(textSystem);
         std::vector<ToolBar::Item> items;
         std::string                lastGroup;
-        for (const EditorAction &action : EditorActionRegistry::Get()->GetActions()) {
+        for (const EditorAction &action : EditorActionRegistry::Get()->GetToolbarActions()) {
             ToolBar::Item item;
             item.id              = action.id;
             item.label           = action.label;
@@ -998,8 +1011,10 @@ namespace sky::editor {
 
     void EditorShell::Layout(float inWidth, float inHeight)
     {
-        width  = inWidth > 0.0f ? inWidth : 1.0f;
-        height = inHeight > 0.0f ? inHeight : 1.0f;
+        width        = inWidth > 0.0f ? inWidth : 1.0f;
+        height       = inHeight > 0.0f ? inHeight : 1.0f;
+        headerHeight = GetDefaultUiTheme().metrics.menuBarHeight;
+        footerHeight = GetDefaultUiTheme().metrics.statusBarHeight;
         context->SetContentSize(width, height);
 
         if (pendingRebuild) {
@@ -1136,49 +1151,36 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
-        // Global shortcuts take precedence over the focused widget / modal.
-        constexpr uint32_t kKeyS = 'S';
-        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyS && (event.modifiers & kModCtrl) != 0) {
-            if (saveWorldHandler) {
-                saveWorldHandler();
-            }
+        // Global shortcuts take precedence over the focused widget / modal. They
+        // drive the same registry actions as the toolbar/menus.
+        const bool         down   = event.action == sky::ui::UIKeyAction::DOWN;
+        const bool         ctrl   = (event.modifiers & kModCtrl) != 0;
+        constexpr uint32_t kKeyS  = 'S';
+        constexpr uint32_t kKeyW  = 'W';
+        constexpr uint32_t kKeyZ  = 'Z';
+        constexpr uint32_t kKeyY  = 'Y';
+        constexpr uint32_t kKeyF5 = 0x74; // VK_F5
+        if (down && ctrl && event.keyCode == kKeyS) {
+            InvokeAction("file.save");
             return true;
         }
-        // Ctrl+W closes the current world.
-        constexpr uint32_t kKeyW = 'W';
-        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyW && (event.modifiers & kModCtrl) != 0) {
-            if (closeWorldHandler) {
-                closeWorldHandler();
-            }
+        if (down && ctrl && event.keyCode == kKeyW) {
+            InvokeAction("file.close");
             return true;
         }
-        // Ctrl+Z undoes; Ctrl+Shift+Z / Ctrl+Y redo.
-        constexpr uint32_t kKeyZ = 'Z';
-        constexpr uint32_t kKeyY = 'Y';
-        if (event.action == sky::ui::UIKeyAction::DOWN && (event.modifiers & kModCtrl) != 0 && (event.keyCode == kKeyZ || event.keyCode == kKeyY)) {
+        if (down && ctrl && (event.keyCode == kKeyZ || event.keyCode == kKeyY)) {
             const bool redo = event.keyCode == kKeyY || (event.modifiers & kModShift) != 0;
-            if (redo) {
-                if (redoHandler) {
-                    redoHandler();
-                }
-            } else if (undoHandler) {
-                undoHandler();
-            }
+            InvokeAction(redo ? "edit.redo" : "edit.undo");
             return true;
         }
         // F5 toggles Play/Pause; Shift+F5 stops (UE convention).
-        constexpr uint32_t kKeyF5 = 0x74; // VK_F5
-        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyF5) {
+        if (down && event.keyCode == kKeyF5) {
             if ((event.modifiers & kModShift) != 0) {
-                if (stopHandler) {
-                    stopHandler();
-                }
+                InvokeAction("play.stop");
             } else if (playState == PlayState::Playing) {
-                if (pauseHandler) {
-                    pauseHandler();
-                }
-            } else if (playHandler) {
-                playHandler();
+                InvokeAction("play.pause");
+            } else {
+                InvokeAction("play.play");
             }
             return true;
         }

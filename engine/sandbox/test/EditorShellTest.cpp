@@ -5,6 +5,7 @@
 #include <core/type/TypeInfo.h>
 #include <core/type/TypeInfoObj.h>
 #include <editor/core/document/WorldDocument.h>
+#include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
@@ -289,7 +290,7 @@ TEST(EditorShellTest, TabCloseAffordance)
 
     // Header row is below the menu bar (24) + toolbar; first tab cell spans
     // x in [0,400) and its close box sits at x >= 382.
-    const float headerRowY = 24.0f + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    const float headerRowY = GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 390.0f, headerRowY));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 390.0f, headerRowY));
     shell.Layout(800.0f, 600.0f);
@@ -322,7 +323,7 @@ TEST(EditorShellTest, DragTabDocksIntoOtherTab)
     shell.Layout(800.0f, 600.0f);
 
     // Tab1 header is the left half; its second cell ("b") spans x in [200,400).
-    const float headerRowY = 24.0f + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    const float headerRowY = GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 300.0f, headerRowY));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::MOVE, 600.0f, 300.0f));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 600.0f, 300.0f));
@@ -522,22 +523,13 @@ TEST(EditorShellTest, ConfigPanelKeepsConfigValidAfterToggleRealloc)
     sky::WorldSubSystemRegistry::Get().Clear();
 }
 
-TEST(EditorShellTest, CtrlSInvokesSaveWorldHandler)
+TEST(EditorShellTest, CtrlSInvokesSaveAction)
 {
-    LayoutModel layout;
-    layout.SetDefault({"viewport"});
-    PanelRegistry registry;
-    registry.Register(PanelInfo{"viewport", "Viewport", 0.0f, 0.0f, nullptr});
-
-    EditorShell shell;
-    shell.SetLayout(&layout);
-    shell.SetPanelRegistry(&registry);
-    shell.RegisterPanelView("viewport", []() { return std::make_unique<TestPanel>(); });
-    shell.Rebuild();
-
+    EditorActionRegistry::Get()->Clear();
     int saves = 0;
-    shell.SetSaveWorldHandler([&saves]() { ++saves; });
+    EditorActionRegistry::Get()->Add({.id = "file.save", .label = "Save", .invoke = [&saves]() { ++saves; }});
 
+    EditorShell         shell;
     sky::ui::UIKeyEvent s;
     s.keyCode   = 'S';
     s.action    = sky::ui::UIKeyAction::DOWN;
@@ -548,27 +540,42 @@ TEST(EditorShellTest, CtrlSInvokesSaveWorldHandler)
     s.modifiers = 0; // plain 'S' does not save
     shell.DispatchKey(s);
     EXPECT_EQ(saves, 1);
+    EditorActionRegistry::Get()->Clear();
 }
 
 TEST(EditorShellTest, F5TogglesPlayPauseAndShiftStops)
 {
     EditorShell shell;
+    EditorActionRegistry::Get()->Clear();
 
-    int plays  = 0;
-    int pauses = 0;
-    int stops  = 0;
-    shell.SetPlayHandler([&]() {
-        ++plays;
-        shell.SetPlayState(PlayState::Playing);
-    });
-    shell.SetPauseHandler([&]() {
-        ++pauses;
-        shell.SetPlayState(PlayState::Paused);
-    });
-    shell.SetStopHandler([&]() {
-        ++stops;
-        shell.SetPlayState(PlayState::Editing);
-    });
+    int   plays  = 0;
+    int   pauses = 0;
+    int   stops  = 0;
+    auto *reg    = EditorActionRegistry::Get();
+    reg->Add({.id      = "play.play",
+              .label   = "Play",
+              .enabled = [&shell]() { return shell.GetPlayState() != PlayState::Playing; },
+              .invoke =
+                  [&]() {
+                      ++plays;
+                      shell.SetPlayState(PlayState::Playing);
+                  }});
+    reg->Add({.id      = "play.pause",
+              .label   = "Pause",
+              .enabled = [&shell]() { return shell.GetPlayState() == PlayState::Playing; },
+              .invoke =
+                  [&]() {
+                      ++pauses;
+                      shell.SetPlayState(PlayState::Paused);
+                  }});
+    reg->Add({.id      = "play.stop",
+              .label   = "Stop",
+              .enabled = [&shell]() { return shell.GetPlayState() != PlayState::Editing; },
+              .invoke =
+                  [&]() {
+                      ++stops;
+                      shell.SetPlayState(PlayState::Editing);
+                  }});
 
     sky::ui::UIKeyEvent f5;
     f5.keyCode = 0x74; // F5
@@ -590,15 +597,16 @@ TEST(EditorShellTest, F5TogglesPlayPauseAndShiftStops)
     EXPECT_TRUE(shell.DispatchKey(f5));
     EXPECT_EQ(stops, 1);
     EXPECT_EQ(shell.GetPlayState(), PlayState::Editing);
+    EditorActionRegistry::Get()->Clear();
 }
 
-TEST(EditorShellTest, CtrlWInvokesCloseWorldHandler)
+TEST(EditorShellTest, CtrlWInvokesCloseAction)
 {
-    EditorShell shell;
-
+    EditorActionRegistry::Get()->Clear();
     int closes = 0;
-    shell.SetCloseWorldHandler([&closes]() { ++closes; });
+    EditorActionRegistry::Get()->Add({.id = "file.close", .label = "Close", .invoke = [&closes]() { ++closes; }});
 
+    EditorShell         shell;
     sky::ui::UIKeyEvent w;
     w.keyCode   = 'W';
     w.action    = sky::ui::UIKeyAction::DOWN;
@@ -609,6 +617,7 @@ TEST(EditorShellTest, CtrlWInvokesCloseWorldHandler)
     w.modifiers = 0; // plain 'W' does not close
     shell.DispatchKey(w);
     EXPECT_EQ(closes, 1);
+    EditorActionRegistry::Get()->Clear();
 }
 
 TEST(EditorShellTest, UiMetricsScaleDoublesDimensionsAndFonts)
