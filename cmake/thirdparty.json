@@ -319,7 +319,6 @@
 			"name": "nanosvg",
 			"url": "https://github.com/memononen/nanosvg.git",
 			"commit": "239e102ec2c691f2902e20ace2ed36ee4a35cfe6",
-			"header_only": true,
 			"platforms": [
 				"Win32",
 				"MacOS-x86",
