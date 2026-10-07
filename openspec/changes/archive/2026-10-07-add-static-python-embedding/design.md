@@ -81,6 +81,48 @@ requires `/LTCG` on Windows because the objects use `/GL`. The consumer also lin
 `Lib/` (or `lib/python3.XX`) is shipped and the interpreter home points at it. On Windows the embedding sets
 `PyConfig.site_import = 0` because a static core has no `sys.winver`; on other platforms `site` is unaffected.
 
+### D7. Unix (Linux/macOS) implementation notes
+Static core via `./configure --disable-shared --without-ensurepip --without-system-libmpdec`. Because a static
+core cannot `dlopen` extensions, the Tier 1 set is compiled in through `Modules/Setup.local` marked `*static*`
+(the same mechanism as the Android cross-build). Pitfalls hit and resolved:
+
+- **Module name mapping**: a builtin name must match the C init symbol. `socket socketmodule.c` is wrong
+  (inittab expects `PyInit_socket`; the source defines `PyInit__socket`) → `_socket socketmodule.c`.
+- **`_hashlib` source name**: since 3.13 it is `Modules/_hashopenssl.c` (not `_hashlib.c`).
+- **`_decimal` + bundled libmpdec**: a handwritten Setup entry for `_decimal` must also list the bundled
+  `Modules/_decimal/libmpdec/*.c` sources, compiled with `-DCONFIG_64 -DANSI -DHAVE_UINT128_T` (64-bit) and
+  **excluding `bench.c`/`bench_full.c`** (they define `main`, colliding with build tools). Use
+  `--without-system-libmpdec` so the bundled copy is used (a system mpdecimal makes the package non-self-contained).
+- **OpenSSL 3 static split**: the probe links only `-lssl -lcrypto`, but OpenSSL 3 providers hide symbols in
+  `libdefault`/`libcommon`/`liblegacy`; append these (order-sensitive) via `LDFLAGS`/`LIBS` so detection and the
+  host link resolve.
+- **`/LTCG` is MSVC-only**: guard it with `$<CXX_COMPILER_ID:MSVC>` in `Findcpython`, otherwise Unix emits
+  `/LTCG` as a file.
+- **`_overlapped` is Windows-only**: the Tier 1 import smoke must platform-gate it.
+- **System libs**: Unix static needs `z` in addition to `pthread dl m`.
+
+Build-time is the source of truth for ssl: `build_cpython.py` writes `cpython/ssl.txt` when the core embeds
+`_ssl`/`_hashlib`, and `plugins/python` links OpenSSL based on that stamp (not on the `SKY_PYTHON_SSL` hint),
+removing the build/link gating mismatch. The dropped `Setup.local` is deleted after the build.
+
+## Industry comparison and alternatives
+
+Embedding CPython cross-platform is **not** the common engine pattern, and static + curated builtins is the
+heaviest variant:
+
+- **Editor/desktop-only**: Unreal (`UnrealPython`), Godot and Unity embed/host scripting only in the editor;
+  runtime scripting uses C++/Blueprint/GDScript/C#. Python is generally **not** shipped on mobile/console.
+- **Prebuilt, vendored, patched CPython**: Blender and O3DE build Python in a **separate prebuilt pipeline**
+  (vendored/patched) rather than inside the consumer's third-party step. O3DE uses a **shared** `libpython` plus a
+  bundled stdlib zip.
+- **Mobile Python needs a dedicated toolchain**: Chaquopy, python-for-android, BeeWare exist precisely because
+  hand-rolling is painful; iOS additionally restricts dynamic code loading.
+
+Recommendation for future decisions: (1) if Python only serves the editor/tools, restrict embedding to desktop
+and drop mobile; (2) if it must ship cross-platform, prefer **shared `libpython` + stdlib zip** or a
+**prebuilt/patched vendored CPython** pipeline; (3) keep the static model only under a hard "no runtime `.so`"
+constraint, treating per-platform `Setup.local`/project curation as ongoing maintenance.
+
 ## Risks / Trade-offs
 
 - [Builtin extension compilation is manual and version-specific] -> keep a single module table and an import smoke
