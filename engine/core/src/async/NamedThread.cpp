@@ -9,8 +9,8 @@ namespace sky {
         void SetCurrentThreadName(const std::string_view &name);
     }
 
-    NamedThread::NamedThread(const Name& name)
-        : executor(1)
+    NamedThread::NamedThread(const Name &name)
+        : pool(std::make_unique<ThreadPool>(1))
         , semaphore(1)
     {
         Dispatch([name]() { impl::SetCurrentThreadName(name.GetStr()); });

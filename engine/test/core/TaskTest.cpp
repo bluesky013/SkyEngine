@@ -34,6 +34,6 @@ TEST(TaskTest, TaskTestBase)
     CounterPtr<TestTask> task = new TestTask(id);
     ASSERT_EQ(id, 0);
     task->StartAsync();
-    TaskExecutor::Get()->GetExecutor().wait_for_all();
+    TaskExecutor::Get()->WaitForAll();
     ASSERT_EQ(id, 20);
 }

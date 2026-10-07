@@ -7,6 +7,8 @@ file(GLOB_RECURSE TEST_FILES test/*)
 sky_find_3rd(TARGET glslang       DIR glslang)
 sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
 sky_find_3rd(TARGET boost         DIR boost)
+# legacy ShaderFileSystem still uses tf::Executor
+sky_find_3rd(TARGET taskflow      DIR taskflow)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
@@ -34,6 +36,7 @@ sky_add_library(TARGET ShaderCompiler.Static STATIC
     LINK_LIBS
         Core
         3rdParty::boost
+        3rdParty::taskflow
         ${ShaderCompilerExtLib}
     INSTALL_DIR
         include

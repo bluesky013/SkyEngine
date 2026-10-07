@@ -4,14 +4,17 @@
 
 #pragma once
 
-#include <taskflow/taskflow.hpp>
-
-#include <core/name/Name.h>
-#include <core/environment/Singleton.h>
 #include <core/async/Semaphore.h>
+#include <core/async/ThreadPool.h>
+#include <core/name/Name.h>
+
+#include <memory>
+#include <utility>
 
 namespace sky {
 
+    // Single-worker thread with a name; Sync() blocks until the worker reaches a
+    // Signal() point. Backed by the engine ThreadPool (no taskflow).
     class NamedThread {
     public:
         explicit NamedThread(const Name &name = {});
@@ -20,15 +23,15 @@ namespace sky {
         template <typename Func>
         void Dispatch(Func &&func)
         {
-            executor.async(std::forward<Func>(func));
+            pool->Dispatch([f = std::forward<Func>(func)](ThreadContext &) mutable { f(); });
         }
 
         void Sync();
         void Signal();
 
     private:
-        tf::Executor executor;
-        Semaphore semaphore;
+        std::unique_ptr<ThreadPool> pool;
+        Semaphore                   semaphore;
     };
 
 } // namespace sky

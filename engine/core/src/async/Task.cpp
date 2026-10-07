@@ -4,6 +4,9 @@
 
 #include <core/async/Task.h>
 
+#include <algorithm>
+#include <thread>
+
 namespace sky {
     void Task::StartAsync()
     {
@@ -14,33 +17,43 @@ namespace sky {
         PrepareWork();
 
         CounterPtr<Task> thisTask = this;
+        isDone.store(false);
 
-        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
-            bool result = thisTask->DoWork();
+        handle = TaskExecutor::Get()->GetPool().CreateTask([thisTask](ThreadContext &) {
+            const bool result = thisTask->DoWork();
             thisTask->OnComplete(result);
-            thisTask->ResetTask();
-        }, dependencies.begin(), dependencies.end()).first;
+            thisTask->isDone.store(true);
+        });
 
+        for (const auto &dep : dependencies) {
+            handle->DependsOn(dep);
+        }
         dependencies.clear();
+
+        TaskExecutor::Get()->GetPool().Submit(handle);
     }
 
     bool Task::IsWorking() const
     {
-        return !handle.empty();
+        return handle != nullptr && !isDone.load();
     }
 
     void Task::ResetTask()
     {
-        handle.reset();
+        handle = nullptr;
+        isDone.store(false);
         dependencies.clear();
     }
 
-    TaskExecutor::TaskExecutor(size_t N) : executor(N)
+    TaskExecutor::TaskExecutor(size_t N)
     {
+        const uint32_t count = N != 0 ? static_cast<uint32_t>(N)
+                                      : std::max<uint32_t>(1, std::thread::hardware_concurrency());
+        pool = std::make_unique<ThreadPool>(count);
     }
 
     void TaskExecutor::WaitForAll()
     {
-        executor.wait_for_all();
+        pool->WaitIdle();
     }
 } // namespace sky
