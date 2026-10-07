@@ -15,7 +15,7 @@
 
 - [ ] 3.1 工程 `CMakeLists.txt`：引用引擎（`SKY_ENGINE_ROOT` + `add_subdirectory`）+ `source/`
 - [ ] 3.2 `source/CMakeLists.txt`：`sky_add_library(TARGET <Name>Module SHARED ...)`，链接引擎接口
-- [ ] 3.3 `CMakePresets.json`：各平台 configure/build（`3RD_PATH`、生成器）
+- [x] 3.3 `CMakePresets.json`：macos/windows/linux/android/ios configure+build presets（引擎开关 SKY_BUILD_*）
 - [ ] 3.4 平台覆盖：Win32 / macOS(x86/arm) / Linux / Android（iOS 待 `add-ios-platform`）
 
 ## 4. Runtime

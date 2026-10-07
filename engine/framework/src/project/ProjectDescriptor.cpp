@@ -132,6 +132,13 @@ namespace sky {
         engineVersion = str("engineVersion");
         defaultScene  = str("defaultScene");
 
+        if (document.HasMember("settings") && document["settings"].IsObject()) {
+            const auto &settings = document["settings"];
+            if (settings.HasMember("rhi") && settings["rhi"].IsString()) {
+                rhi = settings["rhi"].GetString();
+            }
+        }
+
         modules.clear();
         if (document.HasMember("modules") && document["modules"].IsArray()) {
             for (const auto &m : document["modules"].GetArray()) {
@@ -162,7 +169,7 @@ namespace sky {
         json += "  \"name\": " + Quote(name) + ",\n";
         json += "  \"engineVersion\": " + Quote(engineVersion) + ",\n";
         json += "  \"defaultScene\": " + Quote(defaultScene) + ",\n";
-        json += "  \"settings\": { \"rhi\": \"vulkan\" },\n";
+        json += "  \"settings\": { \"rhi\": " + Quote(rhi) + " },\n";
         json += "  \"modules\": [";
         for (size_t i = 0; i < modules.size(); ++i) {
             json += (i == 0 ? "" : ", ") + Quote(modules[i]);

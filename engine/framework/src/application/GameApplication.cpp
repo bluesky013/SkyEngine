@@ -82,6 +82,24 @@ namespace sky {
             }
             break;
         }
+
+        // Apply the project's preferred RHI backend unless the CLI overrides it
+        // (`-r`/`--rhi`). AuroraModule parses this from the module arguments.
+        if (hasProject && !project.rhi.empty()) {
+            bool overridden = false;
+            for (const auto &value : arguments.values) {
+                if (value == "--rhi" || value == "-r") {
+                    overridden = true;
+                    break;
+                }
+            }
+            if (!overridden) {
+                arguments.values.emplace_back("--rhi");
+                arguments.args.emplace_back(arguments.values.back().c_str());
+                arguments.values.emplace_back(project.rhi);
+                arguments.args.emplace_back(arguments.values.back().c_str());
+            }
+        }
     }
 
     void GameApplication::PreTick()

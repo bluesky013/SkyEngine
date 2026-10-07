@@ -23,6 +23,7 @@ namespace sky {
         std::string name;
         std::string engineVersion;
         std::string defaultScene;
+        std::string rhi = "vulkan"; // settings.rhi: preferred RHI backend (vulkan/metal/dx12)
         std::vector<std::string> modules; // module ids
         std::vector<std::string> plugins; // plugin ids
         std::string filePath;             // the .skyproj path (runtime only, not serialized)
