@@ -28,11 +28,14 @@ Markdown, and grounded in the current repository state.
 - [Editor Framework Status](editor/editor-framework-status.md) - current implementation state, build/run, gotchas,
   and next steps (session handoff).
 - [Reflection Widget Framework](editor/reflection-widget-framework.md) - reflection-driven editor property UI.
+- [Play-In-Editor (PIE)](editor/play-in-editor.md) - world duplication, the play session, and editor controls.
 
 ### Features
 
 - [Asset Pipeline](features/asset-pipeline.md) - source identities, the mounted source namespace, product bundles,
   loading, on-demand cook, cook configuration and the dependency graph.
+- [World Subsystems](features/world-subsystems.md) - the declarative world subsystem registry, `WorldDesc`,
+  JSON persistence, and the editor world-config surface.
 
 ### Adding documents
 

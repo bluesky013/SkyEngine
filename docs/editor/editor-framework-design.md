@@ -111,7 +111,7 @@ Current implementation state, build/run, gotchas and handoff live in **`editor-f
   `viewport`, right `refldemo`, bottom `outputlog`/`console` tabs; plus a `ToolBar` row of
   Show/Hide items.
 - Layout model + registry + persistence already exist (`editor-layout`); persistence is currently
-  test-only. `editor-global-config` has a seam (`IEditorConfigSource`) that is not yet wired.
+  test-only. The `editor-global-config` user-settings seam is not yet defined.
 - **Two editor entries exist today**: `SandboxEditor.exe` (`engine/sandbox/app`) and
   `Launcher --app editor` (`engine/launcher/windows/Win32Launcher.cpp`, gated by `SKY_EDITOR_HOST`),
   both constructing `editor::sandbox::EditorApplication`. The decision above collapses this to one.
@@ -234,7 +234,7 @@ recent-list + templates + create/open surface.
   command line. RHI is **owned by the render
   side** (`--rhi`, parsed in `SandboxModule`/`AuroraModule`); the host only forwards the project's
   `settings.rhi` when the flag is absent.
-  `editor-global-config` (`IEditorConfigSource`) is the seam for the user layer; the project layer is
+  `editor-global-config` is the seam for the user layer; the project layer is
   the descriptor's `settings` block.
 
 ### 2.4 Project Manager (hub)
@@ -432,6 +432,22 @@ flat toolbar items are replaced by this registry — new capability **`editor-ac
 
 Project name, engine version, RHI/backend, fps/frame ms, current tool/mode, selection count. Cheap
 to add and greatly aids orientation; reads from existing services.
+
+**Current document + dirty marker.** The open document (world) name is shown both in the **OS window title**
+and at the **front of the status bar**, with a `*` suffix while unsaved — the interaction every major editor
+uses:
+
+| Editor | Window title | Dirty marker |
+|---|---|---|
+| Unreal | `<Level> - <Project> - Unreal Editor` | `*` (level/unsaved) |
+| Godot | `<SceneName> (<path>) - <Project> - Godot Engine` | `*` before the scene name |
+| Unity | `Unity - <Scene>* - <Project> - <Platform>` | `*` after the scene name |
+| Blender | `<file>.blend` | `*` prefix on the filename |
+
+Our form: `"<world><*> - <project> - SkyEngine Editor"` (`FormatWindowTitle`) and
+`"<world><*>    <project>    <mode>    RHI: …    sel: …    fps"` (`FormatStatusBar`), with `Untitled` before a
+world is opened. The dirty flag is the document's (`WorldDocument::IsDirty`); config edits mark it dirty so the
+marker is accurate and Save persists them.
 
 ### 3.8 Asset Browser (`editor-content-browser`)
 

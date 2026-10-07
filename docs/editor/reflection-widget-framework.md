@@ -14,7 +14,7 @@ engine/sandbox/core            (no UI / no world / no math types; Core + Framewo
   PropertyValidation           type parsing, input filtering, range/step constraints, formatting
   PropertyChangeNotifier       external-change revision + callbacks
   EditorAssetCatalog           asset lookup seam (default: framework AssetDataBase)
-  EditorPropertySource         IEditorPropertySource / RegisteredPropertySource / IEditorConfigSource
+  EditorPropertySource         IEditorPropertySource / RegisteredPropertySource
 
 engine/sandbox/shell           (sky::ui; styling + interaction)
   UiDraw / UiTheme / UiSkin    primitives (rounded/gradient/shadow/slider/color) + theme + component skin
@@ -41,8 +41,16 @@ engine/sandbox/shell           (sky::ui; styling + interaction)
   registered type handler (`RegisterType`), or inference (`registeredId` for scalars).
 - **External change**: a data owner calls `EditorCore::GetPropertyChanges().Notify()`;
   the view polls the revision and rebuilds (deferred while editing).
-- **Reset to default**: the form snapshots defaults on first bind; `IsModified` /
-  `ResetToDefault` (one undoable edit).
+- **Hit areas**: a widget's `OnDown` owns only the control rect; the view dispatches
+  the pointer to a widget only when it lands inside `controlRect`, so clicks on the row's
+  label / **revert icon** fall through to `BeginInteraction` (previously a widget
+  swallowed every click on its row, so the reset icon did nothing).
+- **Reset to default**: the reset baseline is the type's **default-constructed value**
+  (`MakeDefaultValue` via `TypeInfoRT::newFunc`), so reset means "restore the type
+  default" (UE/Godot-style) and persists across load/save. `IsModified` / `ResetToDefault`
+  (one undoable edit); `ResetToDefault` writes the baseline back through the normal
+  undoable edit path. Types without a default constructor fall back to a snapshot of the
+  bound values.
 
 ## Widget model
 
@@ -94,7 +102,7 @@ with a commit callback that parses and applies the value.
 - **New data flow**: add a `CommonPropertyKey` attribute; parse it in
   `ReadPropertyAttributes`; read it from a widget/`EditorControl`.
 - **Restyle**: `SetDefaultUiTheme(theme)` or build a `UiSkin` from a custom `UiTheme`.
-- **Data sources**: implement `IEditorPropertySource` / `IEditorConfigSource`.
+- **Data sources**: implement `IEditorPropertySource`.
 - **Member appearance**: `PropertyEditorRegistry::RegisterMemberAppearance(typeId, member,
   {label, order})` relabels/reorders a struct's members in the form (used by `Transform`
   -> Position / Rotation / Scale).

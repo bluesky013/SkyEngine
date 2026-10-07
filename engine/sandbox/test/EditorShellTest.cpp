@@ -2,6 +2,9 @@
 // Created on 2026/10/06.
 //
 
+#include <core/type/TypeInfo.h>
+#include <core/type/TypeInfoObj.h>
+#include <editor/core/document/WorldDocument.h>
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
@@ -9,12 +12,19 @@
 #include <editor/core/preferences/PreferenceStore.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
+#include <editor/shell/ReflectedFormView.h>
+#include <editor/shell/UiTheme.h>
+#include <editor/shell/WorldConfigPanel.h>
 #include <filesystem>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/world/WorldSubSystemRegistry.h>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
 #include <ui/UIElement.h>
+
+#include "TestTypes.h"
 
 using namespace sky::editor;
 
@@ -410,6 +420,268 @@ TEST(EditorShellTest, PreferencesHostsDialog)
     esc.action  = sky::ui::UIKeyAction::DOWN;
     EXPECT_TRUE(shell.DispatchKey(esc));
     EXPECT_FALSE(shell.IsPreferencesOpen());
+}
+
+TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
+{
+    sky::WorldSubSystemRegistry::Get().Clear();
+    sky::WorldSubSystemRegistry::Get().Register(sky::Name("Test"),
+                                                sky::WorldSubSystemRegistration{
+                                                    [](sky::World &, const sky::Any &) -> std::unique_ptr<sky::IWorldSubSystem> { return nullptr; },
+                                                    nullptr,
+                                                    {},
+                                                    {},
+                                                });
+
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "world_config_panel_test.world";
+    std::error_code             ec;
+    std::filesystem::remove(path, ec);
+
+    WorldDocument    document(path.string());
+    WorldConfigPanel panel(
+        nullptr, [&document]() { return &document; }, "Config");
+    panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 300.0f, 400.0f});
+
+    // Subsystems are enabled by default; clicking the row's checkbox disables it
+    // and persists the selection.
+    sky::ui::UIPointerEvent down;
+    down.action = sky::ui::UIPointerAction::DOWN;
+    down.x      = 10.0f;
+    down.y      = 41.0f; // first row's checkbox
+    panel.OnPointerEvent(down);
+
+    bool enabled = true;
+    ASSERT_TRUE(document.IsSubSystemEnabled("Test", enabled));
+    EXPECT_FALSE(enabled);
+
+    std::filesystem::remove(path, ec);
+    sky::WorldSubSystemRegistry::Get().Clear();
+}
+
+TEST(EditorShellTest, ConfigPanelKeepsConfigValidAfterToggleRealloc)
+{
+    test::RegisterTestTypes();
+    sky::WorldSubSystemRegistry::Get().Clear();
+    auto reg = []() -> sky::WorldSubSystemRegistration {
+        return sky::WorldSubSystemRegistration{
+            [](sky::World &, const sky::Any &) -> std::unique_ptr<sky::IWorldSubSystem> { return nullptr; },
+            sky::TypeInfoObj<test::TestConfig>::Get()->RtInfo(),
+            [] { return sky::Any(std::in_place_type<test::TestConfig>); },
+            {},
+        };
+    };
+    sky::WorldSubSystemRegistry::Get().Register(sky::Name("CfgA"), reg());
+    sky::WorldSubSystemRegistry::Get().Register(sky::Name("CfgB"), reg());
+
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "world_config_panel_realloc_test.world";
+    std::error_code             ec;
+    std::filesystem::remove(path, ec);
+
+    WorldDocument    document(path.string());
+    WorldConfigPanel panel(
+        nullptr, [&document]() { return &document; }, "Config");
+    panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 300.0f, 400.0f});
+
+    ReflectedFormView *form = nullptr;
+    for (const auto &child : panel.GetChildren()) {
+        if (auto *view = dynamic_cast<ReflectedFormView *>(child.get())) {
+            form = view;
+        }
+    }
+    ASSERT_NE(form, nullptr);
+    auto readGravity = [](ReflectedFormView *view) -> float {
+        for (auto &section : view->Form().GetSections()) {
+            for (auto &field : section.fields) {
+                if (field.path == "gravity") {
+                    const sky::Any value = field.descriptor.GetValue();
+                    if (const float *g = value.GetAsConst<float>()) {
+                        return *g;
+                    }
+                }
+            }
+        }
+        return -1.0f;
+    };
+    EXPECT_FLOAT_EQ(readGravity(form), -9.81f); // initial bind
+
+    // "CfgA" is row 0 (sorted); the ctor already selected/bound it. Toggling
+    // "CfgB" (row 1) appends to WorldDesc::subSystems -> vector reallocation.
+    sky::ui::UIPointerEvent toggle;
+    toggle.action = sky::ui::UIPointerAction::DOWN;
+    toggle.x      = 10.0f;
+    toggle.y      = 65.0f; // row 1 checkbox
+    panel.OnPointerEvent(toggle);
+
+    // The panel must have rebound: the form still reads CfgA's default, not garbage.
+    EXPECT_FLOAT_EQ(readGravity(form), -9.81f);
+
+    std::filesystem::remove(path, ec);
+    sky::WorldSubSystemRegistry::Get().Clear();
+}
+
+TEST(EditorShellTest, CtrlSInvokesSaveWorldHandler)
+{
+    LayoutModel layout;
+    layout.SetDefault({"viewport"});
+    PanelRegistry registry;
+    registry.Register(PanelInfo{"viewport", "Viewport", 0.0f, 0.0f, nullptr});
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    shell.RegisterPanelView("viewport", []() { return std::make_unique<TestPanel>(); });
+    shell.Rebuild();
+
+    int saves = 0;
+    shell.SetSaveWorldHandler([&saves]() { ++saves; });
+
+    sky::ui::UIKeyEvent s;
+    s.keyCode   = 'S';
+    s.action    = sky::ui::UIKeyAction::DOWN;
+    s.modifiers = 0x00C0; // Ctrl
+    EXPECT_TRUE(shell.DispatchKey(s));
+    EXPECT_EQ(saves, 1);
+
+    s.modifiers = 0; // plain 'S' does not save
+    shell.DispatchKey(s);
+    EXPECT_EQ(saves, 1);
+}
+
+TEST(EditorShellTest, F5TogglesPlayPauseAndShiftStops)
+{
+    EditorShell shell;
+
+    int plays  = 0;
+    int pauses = 0;
+    int stops  = 0;
+    shell.SetPlayHandler([&]() {
+        ++plays;
+        shell.SetPlayState(PlayState::Playing);
+    });
+    shell.SetPauseHandler([&]() {
+        ++pauses;
+        shell.SetPlayState(PlayState::Paused);
+    });
+    shell.SetStopHandler([&]() {
+        ++stops;
+        shell.SetPlayState(PlayState::Editing);
+    });
+
+    sky::ui::UIKeyEvent f5;
+    f5.keyCode = 0x74; // F5
+    f5.action  = sky::ui::UIKeyAction::DOWN;
+
+    EXPECT_TRUE(shell.DispatchKey(f5));
+    EXPECT_EQ(plays, 1);
+    EXPECT_EQ(shell.GetPlayState(), PlayState::Playing);
+
+    EXPECT_TRUE(shell.DispatchKey(f5));
+    EXPECT_EQ(pauses, 1);
+    EXPECT_EQ(shell.GetPlayState(), PlayState::Paused);
+
+    EXPECT_TRUE(shell.DispatchKey(f5)); // resume from paused
+    EXPECT_EQ(plays, 2);
+    EXPECT_EQ(shell.GetPlayState(), PlayState::Playing);
+
+    f5.modifiers = 0x0003; // Shift
+    EXPECT_TRUE(shell.DispatchKey(f5));
+    EXPECT_EQ(stops, 1);
+    EXPECT_EQ(shell.GetPlayState(), PlayState::Editing);
+}
+
+TEST(EditorShellTest, CtrlWInvokesCloseWorldHandler)
+{
+    EditorShell shell;
+
+    int closes = 0;
+    shell.SetCloseWorldHandler([&closes]() { ++closes; });
+
+    sky::ui::UIKeyEvent w;
+    w.keyCode   = 'W';
+    w.action    = sky::ui::UIKeyAction::DOWN;
+    w.modifiers = 0x00C0; // Ctrl
+    EXPECT_TRUE(shell.DispatchKey(w));
+    EXPECT_EQ(closes, 1);
+
+    w.modifiers = 0; // plain 'W' does not close
+    shell.DispatchKey(w);
+    EXPECT_EQ(closes, 1);
+}
+
+TEST(EditorShellTest, DocumentInfoDrivesWindowTitle)
+{
+    EditorShell shell;
+    shell.SetStatusInfo("Proj", "Vulkan", "Edit");
+
+    std::string title;
+    shell.SetTitleHandler([&title](const std::string &t) { title = t; });
+
+    shell.SetDocumentInfo("world.world", false);
+    EXPECT_EQ(title, "world.world - Proj - SkyEngine Editor");
+
+    shell.SetDocumentInfo("world.world", true);
+    EXPECT_EQ(title, "world.world* - Proj - SkyEngine Editor");
+}
+
+TEST(EditorShellTest, RevertIconClickResetsField)
+{
+    test::RegisterTestTypes();
+    const sky::TypeNode *type = sky::GetTypeNode(sky::TypeInfo<test::TestObject>::RegisteredId());
+    ASSERT_NE(type, nullptr);
+
+    test::TestObject object; // default: value == 0
+    object.value = 5.f;
+
+    ReflectedFormView     view(nullptr, "");
+    const sky::ui::UIRect bounds{0.0f, 0.0f, 300.0f, 240.0f};
+    view.SetBounds(bounds);
+    view.Bind(PropertyObject{&object, type});
+
+    ASSERT_EQ(view.Form().GetSections().size(), 1u);
+    const auto &fields   = view.Form().GetSections()[0].fields;
+    int         rowIndex = -1;
+    for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
+        if (fields[static_cast<std::size_t>(i)].path == "value") {
+            rowIndex = i;
+        }
+    }
+    ASSERT_GE(rowIndex, 0);
+    ASSERT_TRUE(view.Form().IsModified(fields[static_cast<std::size_t>(rowIndex)]));
+
+    // Mirror ReflectedFormView::BuildRows / LayoutField geometry to hit the
+    // revert icon of the first row (outside the control rect).
+    const UiMetrics &m           = GetDefaultUiTheme().metrics;
+    const float      layoutRight = bounds.right - m.padX - m.scrollBarWidth;
+    const float      rowsTop     = bounds.top + m.headerHeight + 4.0f + m.sectionHeight;
+    const float      revertX     = layoutRight - 8.0f;
+    const float      rowY        = rowsTop + (static_cast<float>(rowIndex) + 0.5f) * m.rowHeight;
+
+    sky::ui::UIPointerEvent down;
+    down.action = sky::ui::UIPointerAction::DOWN;
+    down.x      = revertX;
+    down.y      = rowY;
+    view.OnPointerEvent(down);
+
+    EXPECT_FLOAT_EQ(object.value, 0.f); // reset restored the type default
+}
+
+TEST(EditorShellTest, NewWorldDialogOpens)
+{
+    LayoutModel layout;
+    layout.SetDefault({"viewport"});
+    PanelRegistry registry;
+    registry.Register(PanelInfo{"viewport", "Viewport", 0.0f, 0.0f, nullptr});
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    shell.RegisterPanelView("viewport", []() { return std::make_unique<TestPanel>(); });
+    shell.Rebuild();
+    shell.Layout(1000.0f, 700.0f);
+
+    EXPECT_FALSE(shell.WantsInput());
+    shell.OpenNewWorldDialog("C:/tmp", "main", [](const std::string &) {});
+    EXPECT_TRUE(shell.WantsInput()); // the new-world dialog is now the active modal
 }
 
 TEST(FileBrowserDialogTest, EscCancels)

@@ -19,6 +19,9 @@ sky_add_test(TARGET EditorCoreTest
         FileBrowserModelTest.cpp
         TextEditStateTest.cpp
         PreferenceStoreTest.cpp
+        WorldDocumentTest.cpp
+        PlaySessionTest.cpp
+        ReflectedFormTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}

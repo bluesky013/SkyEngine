@@ -4,6 +4,7 @@
 
 #include <editor/shell/FileBrowserDialog.h>
 
+#include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiTheme.h>
 #include <ui/UIPaintContext.h>
@@ -748,10 +749,8 @@ namespace sky::editor {
         }
 
         // Virtual-key codes: the host maps platform ScanCode -> VK before forwarding.
-        constexpr uint32_t kEscape   = 0x1B;
-        constexpr uint32_t kReturn   = 0x0D;
-        constexpr uint32_t kModShift = 0x0003;
-        constexpr uint32_t kModCtrl  = 0x00C0;
+        constexpr uint32_t kEscape = 0x1B;
+        constexpr uint32_t kReturn = 0x0D;
 
         if (event.keyCode == kEscape) {
             if (contextMenuOpen) {

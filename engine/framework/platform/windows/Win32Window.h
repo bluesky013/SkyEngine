@@ -24,6 +24,7 @@ namespace sky {
 
         bool GetPosition(int32_t &x, int32_t &y) const override;
         void SetPosition(int32_t x, int32_t y) override;
+        void SetTitle(const std::string &title) override;
 
         // Called from the window proc on WM_SIZE so GetWidth/GetHeight report the
         // live client size.
@@ -44,7 +45,7 @@ namespace sky {
         // True when this is the process main window (the first created); closing
         // it requests application exit. Secondary windows (e.g. a preview) close
         // independently.
-        bool IsMainWindow() const;
+        bool IsMainWindow() const override;
 
         static bool EnsureWindowClass();
 

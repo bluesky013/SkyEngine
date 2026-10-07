@@ -4,18 +4,18 @@
 
 #pragma once
 
-#include <editor/core/property/ReflectedForm.h>
-#include <editor/core/property/PropertyEditor.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
+#include <editor/core/property/PropertyEditor.h>
+#include <editor/core/property/ReflectedForm.h>
 #include <editor/shell/ReflectedWidget.h>
 #include <editor/shell/UiSkin.h>
 #include <editor/shell/UiTheme.h>
 
+#include <ui/UIDrawData.h>
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
 #include <ui/UIPaintContext.h>
 #include <ui/UIRect.h>
-#include <ui/UIDrawData.h>
 
 #include <cstdint>
 #include <functional>
@@ -46,34 +46,68 @@ namespace sky::editor {
         ReflectedFormView(sky::ui::UITextSystem *text, std::string title);
         ~ReflectedFormView() override;
 
-        // Binds the view to a reflected data object (rebuilds the form).
+        // Binds the view to a reflected data object (rebuilds the form). The reset
+        // baseline is the type's default value; see ReflectedForm::Build.
         void Bind(const PropertyObject &object);
         void Refresh();
 
+        // Notifies the owner after any committed edit to the bound data (used by
+        // the world-config panel to mark its document dirty).
+        void SetOnEdited(std::function<void()> callback)
+        {
+            form.SetOnChanged(std::move(callback));
+        }
+
         // ReflectedWidgetHost
-        ReflectedForm &Form() override { return form; }
+        ReflectedForm &Form() override
+        {
+            return form;
+        }
         CommandService &Commands() override;
-        const UiSkin &Skin() const override { return skin; }
-        sky::ui::UITextSystem *Text() const override { return textSystem; }
-        sky::ui::UIRect ViewBounds() const override { return GetBounds(); }
+        const UiSkin   &Skin() const override
+        {
+            return skin;
+        }
+        sky::ui::UITextSystem *Text() const override
+        {
+            return textSystem;
+        }
+        sky::ui::UIRect ViewBounds() const override
+        {
+            return GetBounds();
+        }
         void MarkDirty() override;
         void RefreshForm() override;
-        bool IsHovered(const PropertyField &field) const override { return hoverField == &field; }
-        void BeginTextEdit(PropertyField &field, int component, PropertyEditorKind inputKind,
-                           const std::string &initial, std::function<bool(const std::string &)> commit) override;
+        bool IsHovered(const PropertyField &field) const override
+        {
+            return hoverField == &field;
+        }
+        void BeginTextEdit(PropertyField                           &field,
+                           int                                      component,
+                           PropertyEditorKind                       inputKind,
+                           const std::string                       &initial,
+                           std::function<bool(const std::string &)> commit) override;
 
-        const char *GetTypeName() const override { return "ReflectedFormView"; }
+        const char *GetTypeName() const override
+        {
+            return "ReflectedFormView";
+        }
 
-        void OnPaint(sky::ui::UIPaintContext &context) override;
+        void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
         sky::ui::UIEventResult OnKeyEvent(const sky::ui::UIKeyEvent &event) override;
         sky::ui::UIEventResult OnTextInput(const sky::ui::UITextInputEvent &event) override;
-        void OnPointerLeave(const sky::ui::UIPointerEvent &event) override;
+        void                   OnPointerLeave(const sky::ui::UIPointerEvent &event) override;
 
     protected:
         // Hooks for specialized panels (e.g. a demo with a Live toggle).
-        virtual void OnViewTick() {}
-        virtual float ExtraHeaderWidth() const { return 0.0f; }
+        virtual void OnViewTick()
+        {
+        }
+        virtual float ExtraHeaderWidth() const
+        {
+            return 0.0f;
+        }
         virtual void PaintExtraHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect)
         {
             (void)context;
@@ -85,8 +119,14 @@ namespace sky::editor {
             return sky::ui::UIEventResult::UNHANDLED;
         }
 
-        const UiTheme &Theme() const { return skin.Theme(); }
-        const sky::ui::UIRect &HeaderExtraRect() const { return headerExtraRect; }
+        const UiTheme &Theme() const
+        {
+            return skin.Theme();
+        }
+        const sky::ui::UIRect &HeaderExtraRect() const
+        {
+            return headerExtraRect;
+        }
 
     private:
         struct Row {
@@ -96,12 +136,12 @@ namespace sky::editor {
             sky::ui::UIRect controlRect;
             sky::ui::UIRect revertRect;
             int             depth = 0;
-            bool            alt = false;
+            bool            alt   = false;
         };
 
-        void PollExternalChanges();
-        void BuildRows();
-        void LayoutField(PropertyField &field, int depth, float &y, bool &alt);
+        void       PollExternalChanges();
+        void       BuildRows();
+        void       LayoutField(PropertyField &field, int depth, float &y, bool &alt);
         const Row *RowAt(float x, float y) const;
         const Row *RowOf(const PropertyField *field) const;
 
@@ -121,8 +161,6 @@ namespace sky::editor {
         void BeginInteraction(const Row &row, float x, float y);
         void HandleSequenceButton(PropertyField &field, const sky::ui::UIRect &rect, float x);
 
-
-
         // Generic float-component access over a reflected struct (works for any
         // vector-like type, not just Vector2/3/4).
         void CommitEdit();
@@ -137,36 +175,34 @@ namespace sky::editor {
         ReflectedForm form;
 
         std::vector<Row> rows;
-        float layoutLeft = 0.0f;
-        float layoutRight = 0.0f;
-        float labelWidth = 0.0f;
-        float scroll = 0.0f;
-        float contentHeight = 0.0f;
+        float            layoutLeft    = 0.0f;
+        float            layoutRight   = 0.0f;
+        float            labelWidth    = 0.0f;
+        float            scroll        = 0.0f;
+        float            contentHeight = 0.0f;
 
         sky::ui::UIRect headerTitleRect;
         sky::ui::UIRect hintRect;
         sky::ui::UIRect headerExtraRect;
 
-
         ReflectedWidget *activeWidget = nullptr;
 
-
-        uint64_t lastRevision = 0;
+        uint64_t lastRevision           = 0;
         bool     pendingExternalRefresh = false;
 
         PropertyField *hoverField = nullptr;
 
-        PropertyField *editField = nullptr;
-        int            editComponent = -1;
-        PropertyEditorKind editKind = PropertyEditorKind::String;
-        std::string    editText;
-        size_t         editCaret = 0;
-        bool           editInvalid = false;
+        PropertyField                           *editField     = nullptr;
+        int                                      editComponent = -1;
+        PropertyEditorKind                       editKind      = PropertyEditorKind::String;
+        std::string                              editText;
+        size_t                                   editCaret   = 0;
+        bool                                     editInvalid = false;
         std::function<bool(const std::string &)> editCommit;
 
-        PropertyField *dragField = nullptr;
+        PropertyField *dragField     = nullptr;
         int            dragComponent = -1;
-        double         dragValue = 0.0;
+        double         dragValue     = 0.0;
     };
 
 } // namespace sky::editor

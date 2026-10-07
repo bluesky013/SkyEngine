@@ -88,6 +88,18 @@ namespace sky {
             return 1.0f;
         }
 
+        // Updates the OS window title. Backends without support leave it a no-op.
+        virtual void SetTitle(const std::string &title)
+        {
+            (void)title;
+        }
+
+        // True when this is the process main window. Backends default to false.
+        virtual bool IsMainWindow() const
+        {
+            return false;
+        }
+
     protected:
         friend class NativeWindowManager;
 

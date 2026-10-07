@@ -12,10 +12,15 @@
 
 #include <rapidjson/document.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+    #include <windows.h>
+#endif
 
 static const char *TAG                = "EditorApplication";
 static const char *EDITOR_CONFIG_PATH = "configs/modules_editor.json";
@@ -162,12 +167,20 @@ namespace sky::editor::sandbox {
     {
         LoadWindowGeometry();
         window.reset(
-            NativeWindow::Create(NativeWindow::Descriptor{width, height, "SandboxEditor", "SandboxEditor", Platform::Get()->GetMainWinHandle()}));
+            NativeWindow::Create(NativeWindow::Descriptor{width, height, "SandboxEditor", "SkyEngine Editor", Platform::Get()->GetMainWinHandle()}));
         if (window == nullptr) {
             LOG_E(TAG, "create native window failed");
             return false;
         }
         if (hasSavedPosition) {
+            // Keep the main window reachable: clamp the restored position to the
+            // primary screen so a stale position cannot hide the window off-screen.
+#if defined(_WIN32)
+            const int screenW = ::GetSystemMetrics(SM_CXSCREEN);
+            const int screenH = ::GetSystemMetrics(SM_CYSCREEN);
+            windowX           = std::max(0, std::min(windowX, std::max(0, screenW - 100)));
+            windowY           = std::max(0, std::min(windowY, std::max(0, screenH - 100)));
+#endif
             window->SetPosition(windowX, windowY);
         }
         return true;

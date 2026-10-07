@@ -70,3 +70,30 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - 核心逻辑模块依赖 editor / adaptor / builder 或具体后端/渲染。
 - editor 模块被 runtime / 核心逻辑依赖；editor 模块绕过 Sandbox 编辑器 framework 自接 Qt 等。
 - builder/cook/chef 依赖 runtime / adaptor / editor。
+
+## 跨 DLL 单例（关键）
+
+- Framework/Core 是**静态库**，被**每个模块 DLL 各链一份**。因此**进程级共享的单例必须继承 `sky::Singleton<T>`**（实例存在 `Environment`，跨 DLL 唯一），例：`SerializationContext`、`PhysicsBackendRegistry`、`WorldSubSystemRegistry`。
+- **禁止**用函数内普通 `static T instance;` 实现跨模块共享的注册表/缓存——那会让每个 DLL 各持一份，模块注册的东西上层看不到（曾导致 world 子系统注册后编辑器列不出来）。
+- 速记：**要多模块共享的状态 → `Singleton<T>`；纯模块内状态 → 普通 static 无妨。**
+- 反例：`static WorldSubSystemRegistry instance;`（错）→ `class X : public Singleton<X>` + `friend class Singleton<X>;`（对）。
+
+## 构建与验证（Win32 / VS 2022）
+
+- 使用现有 `cmake-build-debug`（cache 已含 `3RD_PATH=D:/Code/sky3rd_win32_output/Win32`、`-G "Visual Studio 17 2022"`）。
+- 顺序：关编辑器 → 配置 → 构建。
+
+```bash
+taskkill //IM SandboxEditor.exe //F        # 构建前必须关；否则锁 SandboxModule.dll/dxcompiler.dll 导致 post-build 拷贝失败
+cmake -S . -B cmake-build-debug            # 新增源文件时必须重跑（GLOB）；已配置过可省略
+cmake --build cmake-build-debug --config Debug --parallel
+```
+
+- **编辑器 UI 在 `SandboxModule.dll`（运行时加载）**：改了 shell/module 代码要编 `SandboxModule` 目标，不能只编 `SandboxEditor`。
+- 只编相关目标更快，例：
+  `cmake --build cmake-build-debug --config Debug --parallel --target Framework FrameworkTest EditorCoreTest EditorShellTest BulletPhysicsModule RecastNavigation SandboxModule SandboxEditor`
+- 测试（gtest）：
+  `output/bin/Debug/FrameworkTest.exe` · `EditorCoreTest.exe` · `EditorShellTest.exe`
+- 三方库版本预检：`python python/third_party.py -p Win32 -o D:/Code/sky3rd_win32_output --check`
+- 运行：`output/bin/Debug/SandboxEditor.exe`（`--project <path>.skyproj` 进编辑器；`--console` 出日志；`--frames N` 有界运行）。
+- 环境备注：编辑器（IDE/工具链）在写文件时会自动跑 clang-format，可能整文件重排或挪动块；新增/改动 C++ 文件后留意 include 与括号完整性。

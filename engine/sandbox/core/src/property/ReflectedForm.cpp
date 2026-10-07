@@ -2,10 +2,11 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/core/property/ReflectedForm.h>
-#include <core/type/TypeInfo.h>
 #include <algorithm>
+#include <core/type/TypeInfo.h>
 #include <cstring>
+#include <editor/core/property/PropertyDefaults.h>
+#include <editor/core/property/ReflectedForm.h>
 #include <utility>
 
 namespace sky::editor {
@@ -46,12 +47,23 @@ namespace sky::editor {
 
     void ReflectedForm::Build(const PropertyObject &object, const PropertyEditorRegistry &inRegistry)
     {
-        if (root.object != object.object || root.type != object.type) {
-            defaults.clear();
-            defaultsCaptured = false;
-        }
-        root = object;
+        root     = object;
         registry = &inRegistry;
+        defaults.clear();
+
+        // Reset baseline: a default-constructed instance of the bound type. The
+        // scratch form captures each field's default from it (keyed by path); the
+        // live build below then reuses those values. Falls back to a snapshot of
+        // the object's own values when the type has no default constructor.
+        const sky::TypeInfoRT *info        = (object.type != nullptr) ? object.type->info : nullptr;
+        Any                    typeDefault = MakeDefaultValue(info);
+        if (typeDefault.Data() != nullptr && typeDefault.Data() != object.object) {
+            ReflectedForm scratch;
+            scratch.root     = PropertyObject{typeDefault.Data(), object.type};
+            scratch.registry = &inRegistry;
+            scratch.Rebuild();
+            defaults = std::move(scratch.defaults);
+        }
         Rebuild();
     }
 
@@ -73,34 +85,32 @@ namespace sky::editor {
                 continue;
             }
             PropertyDescriptor descriptor(root.object, &entry.second, std::string(entry.first), section.title);
-            PropertyField field;
+            PropertyField      field;
             BuildField(std::move(descriptor), *registry, std::string(entry.first), field);
             ApplyAppearance(field, ownerTypeId, std::string(entry.first));
             section.fields.push_back(std::move(field));
         }
-        std::stable_sort(section.fields.begin(), section.fields.end(),
-                         [](const PropertyField &a, const PropertyField &b) {
-                             const int ka = a.hasOrder ? a.order : 0;
-                             const int kb = b.hasOrder ? b.order : 0;
-                             return ka < kb;
-                         });
+        std::stable_sort(section.fields.begin(), section.fields.end(), [](const PropertyField &a, const PropertyField &b) {
+            const int ka = a.hasOrder ? a.order : 0;
+            const int kb = b.hasOrder ? b.order : 0;
+            return ka < kb;
+        });
 
         for (auto &field : section.fields) {
             FixParents(field);
             AssignDefaults(field);
         }
-        defaultsCaptured = true;
         sections.push_back(std::move(section));
     }
 
-    void ReflectedForm::BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry,
-                                   const std::string &path, PropertyField &out)
+    void
+    ReflectedForm::BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry, const std::string &path, PropertyField &out)
     {
         out.descriptor = std::move(descriptor);
-        out.control = inRegistry.Resolve(out.descriptor);
-        out.kind = out.control.kind;
-        out.path = path;
-        out.label = out.control.label.empty() ? out.descriptor.GetDisplayName() : out.control.label;
+        out.control    = inRegistry.Resolve(out.descriptor);
+        out.kind       = out.control.kind;
+        out.path       = path;
+        out.label      = out.control.label.empty() ? out.descriptor.GetDisplayName() : out.control.label;
 
         if (out.kind == PropertyEditorKind::Sequence) {
             out.isSequence = true;
@@ -116,24 +126,22 @@ namespace sky::editor {
         }
 
         if (out.kind == PropertyEditorKind::Struct) {
-            out.isStruct = true;
+            out.isStruct   = true;
             out.ownedValue = out.descriptor.GetValue();
             if (const TypeNode *node = out.descriptor.GetStructType(); node != nullptr) {
                 const Uuid ownerTypeId = (node->info != nullptr) ? node->info->registeredId : Uuid{};
                 for (const auto &entry : node->members) {
-                    PropertyDescriptor child(out.ownedValue.Data(), &entry.second, std::string(entry.first),
-                                            out.descriptor.GetCategory());
-                    PropertyField childField;
+                    PropertyDescriptor child(out.ownedValue.Data(), &entry.second, std::string(entry.first), out.descriptor.GetCategory());
+                    PropertyField      childField;
                     BuildField(std::move(child), inRegistry, path + "." + std::string(entry.first), childField);
                     ApplyAppearance(childField, ownerTypeId, std::string(entry.first));
                     out.children.push_back(std::move(childField));
                 }
-                std::stable_sort(out.children.begin(), out.children.end(),
-                                 [](const PropertyField &a, const PropertyField &b) {
-                                     const int ka = a.hasOrder ? a.order : 0;
-                                     const int kb = b.hasOrder ? b.order : 0;
-                                     return ka < kb;
-                                 });
+                std::stable_sort(out.children.begin(), out.children.end(), [](const PropertyField &a, const PropertyField &b) {
+                    const int ka = a.hasOrder ? a.order : 0;
+                    const int kb = b.hasOrder ? b.order : 0;
+                    return ka < kb;
+                });
             }
         }
     }
@@ -147,7 +155,7 @@ namespace sky::editor {
             if (!appearance->label.empty()) {
                 field.label = appearance->label;
             }
-            field.order = appearance->order;
+            field.order    = appearance->order;
             field.hasOrder = appearance->hasOrder;
         }
     }
@@ -156,10 +164,10 @@ namespace sky::editor {
     {
         const auto iter = defaults.find(node.path);
         if (iter != defaults.end()) {
-            node.hasDefault = true;
+            node.hasDefault   = true;
             node.defaultValue = iter->second;
         } else {
-            node.hasDefault = true;
+            node.hasDefault   = true;
             node.defaultValue = node.descriptor.GetValue();
             defaults.emplace(node.path, node.defaultValue);
         }
@@ -190,13 +198,12 @@ namespace sky::editor {
             return false;
         }
 
-        PropertyField *rootField = &field;
-        Any newRootValue = std::move(value);
+        PropertyField *rootField    = &field;
+        Any            newRootValue = std::move(value);
 
         if (field.parent != nullptr) {
             field.descriptor.SetValue(newRootValue);
-            for (PropertyField *node = field.parent; node != nullptr && node->parent != nullptr;
-                 node = node->parent) {
+            for (PropertyField *node = field.parent; node != nullptr && node->parent != nullptr; node = node->parent) {
                 node->descriptor.SetValue(node->ownedValue);
             }
             rootField = &field;
@@ -211,6 +218,9 @@ namespace sky::editor {
             return false;
         }
         commands.Execute(std::move(command));
+        if (onChanged) {
+            onChanged();
+        }
         return true;
     }
 

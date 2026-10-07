@@ -17,6 +17,8 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/world/World.h>
+#include <framework/world/WorldDesc.h>
+#include <framework/world/WorldSubSystemRegistry.h>
 
 namespace sky::builder {
 
@@ -56,7 +58,16 @@ namespace sky::builder {
             world->LoadJson(json);
         }
 
-        world->AddSubSystem(Name(ai::NavigationSystem::NAME.data()), new ai::NavigationSystem());
+        auto &registry = WorldSubSystemRegistry::Get();
+        if (!registry.IsRegistered(Name(ai::NavigationSystem::NAME.data()))) {
+            registry.Register(Name(ai::NavigationSystem::NAME.data()),
+                              WorldSubSystemRegistration{
+                                  [](World &, const Any &) -> std::unique_ptr<IWorldSubSystem> { return std::make_unique<ai::NavigationSystem>(); },
+                              });
+        }
+        WorldDesc desc;
+        desc.subSystems.push_back(WorldSubSystemDesc{Name(ai::NavigationSystem::NAME.data()), Any{}, true});
+        world->Build(desc);
         world->Init();
 
         auto *navSys = static_cast<ai::NavigationSystem *>(world->GetSubSystem(Name(ai::NavigationSystem::NAME.data())));
@@ -71,7 +82,7 @@ namespace sky::builder {
             return;
         }
 
-        ai::NaviAgentConfig    agent;
+        ai::NaviAgentConfig agent;
         agent.height   = source.agentHeight;
         agent.radius   = source.agentRadius;
         agent.maxSlope = source.agentMaxSlope;
@@ -104,7 +115,7 @@ namespace sky::builder {
         ai::NaviMeshData data;
         generator->CollectTiles(data);
 
-        auto asset = AssetManager::Get()->FindOrCreateAsset<ai::NaviMesh>(request.assetInfo->uuid);
+        auto asset    = AssetManager::Get()->FindOrCreateAsset<ai::NaviMesh>(request.assetInfo->uuid);
         asset->Data() = data;
         AssetManager::Get()->SaveAsset(asset, request.target);
 

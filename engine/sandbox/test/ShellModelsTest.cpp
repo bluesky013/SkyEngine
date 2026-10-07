@@ -28,8 +28,17 @@ TEST(ShellModelsTest, ViewMenuItemsReflectLayout)
     EXPECT_FALSE(items[1].shown);
 }
 
+TEST(ShellModelsTest, WindowTitleFormat)
+{
+    EXPECT_EQ(FormatWindowTitle("world.world", false, "Proj"), "world.world - Proj - SkyEngine Editor");
+    EXPECT_EQ(FormatWindowTitle("world.world", true, "Proj"), "world.world* - Proj - SkyEngine Editor");
+    EXPECT_EQ(FormatWindowTitle("", false, ""), "Untitled - SkyEngine - SkyEngine Editor");
+}
+
 TEST(ShellModelsTest, StatusTextFormat)
 {
-    EXPECT_EQ(FormatStatusBar("Proj", "Edit", "Vulkan", 3, 60.0f),
-              "Proj    Edit    RHI: Vulkan    sel: 3    60 fps");
+    EXPECT_EQ(FormatStatusBar("world.world", false, "Proj", "Edit", "Vulkan", 3, 60.0f),
+              "world.world    Proj    Edit    RHI: Vulkan    sel: 3    60 fps");
+    EXPECT_EQ(FormatStatusBar("world.world", true, "Proj", "Play", "Vulkan", 0, 30.0f),
+              "world.world*    Proj    Play    RHI: Vulkan    sel: 0    30 fps");
 }

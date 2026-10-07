@@ -25,8 +25,17 @@ namespace sky::editor {
     // Registered panels with their current visibility, ordered by title.
     std::vector<ViewMenuItem> BuildViewMenuItems(const PanelRegistry &registry, const LayoutModel &layout);
 
-    // Single-line status text (project / mode / RHI / selection / fps).
-    std::string FormatStatusBar(const std::string &project, const std::string &mode, const std::string &rhi,
-                                std::size_t selectionCount, float fps);
+    // OS window title: "<document><dirty marker> - <project> - SkyEngine Editor"
+    // (UE/Godot/Unity-style: document first, engine last).
+    std::string FormatWindowTitle(const std::string &document, bool dirty, const std::string &project);
+
+    // Single-line status text (document / project / mode / RHI / selection / fps).
+    std::string FormatStatusBar(const std::string &document,
+                                bool               dirty,
+                                const std::string &project,
+                                const std::string &mode,
+                                const std::string &rhi,
+                                std::size_t        selectionCount,
+                                float              fps);
 
 } // namespace sky::editor

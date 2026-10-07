@@ -329,8 +329,119 @@ namespace sky::editor {
         hubContext->AddChild(std::move(dialog));
 
         RefreshHubRecent();
+        if (auto *window = sky::NativeWindowManager::Get()->GetMainWindow()) {
+            window->SetTitle("Project Manager - SkyEngine Editor");
+        }
         LOG_I(TAG, "project manager (hub) mode");
         return true;
+    }
+
+    std::string SandboxModule::WorldBasePath() const
+    {
+        if (!project.Dir().empty()) {
+            return (std::filesystem::path(project.Dir()) / "assets").string();
+        }
+        const std::string cfg = Platform::Get() != nullptr ? Platform::Get()->GetUserConfigPath() : std::string{};
+        return cfg.empty() ? std::string(".") : (std::filesystem::path(cfg) / "skyengine").string();
+    }
+
+    void SandboxModule::NewWorld()
+    {
+        StopPlay();
+        // Open the "New World" create dialog (name + location).
+        shell.OpenNewWorldDialog(WorldBasePath(), "main", [this](const std::string &path) {
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+
+            worldDocument = std::make_unique<WorldDocument>(path);
+            worldDocument->Save(); // write the initial world file so it exists on disk
+            shell.SetWorldDocument(worldDocument.get());
+            shell.SetPanelVisible("config", true);
+            RefreshDocumentInfo();
+            LOG_I(TAG, "new world '%s'", path.c_str());
+        });
+    }
+
+    void SandboxModule::OpenWorld()
+    {
+        StopPlay();
+
+        FileBrowserRequest request;
+        request.mode      = FileBrowserMode::OPEN_FILE;
+        request.title     = "Open World";
+        request.directory = WorldBasePath();
+        request.filters   = {{"World (*.world)", {"world"}}};
+
+        shell.OpenFileBrowser(request, [this](const FileBrowserResult &result) {
+            if (!result.accepted) {
+                return;
+            }
+            auto document = std::make_unique<WorldDocument>(result.path);
+            if (!document->Load()) {
+                LOG_W(TAG, "failed to load world '%s'", result.path.c_str());
+                return;
+            }
+            worldDocument = std::move(document);
+            shell.SetWorldDocument(worldDocument.get());
+            shell.SetPanelVisible("config", true);
+            RefreshDocumentInfo();
+            LOG_I(TAG, "opened world '%s'", result.path.c_str());
+        });
+    }
+
+    void SandboxModule::SaveWorld()
+    {
+        if (worldDocument == nullptr) {
+            LOG_W(TAG, "save: no world open");
+            return;
+        }
+        if (worldDocument->Save()) {
+            LOG_I(TAG, "saved world");
+            RefreshDocumentInfo();
+        } else {
+            LOG_W(TAG, "failed to save world");
+        }
+    }
+
+    void SandboxModule::CloseWorld()
+    {
+        if (worldDocument == nullptr) {
+            LOG_W(TAG, "close: no world open");
+            return;
+        }
+        StopPlay();
+        if (worldDocument->IsDirty()) {
+            worldDocument->Save();
+        }
+        // Detach from the shell before destroying so the config panel never sees
+        // a dangling document pointer.
+        shell.SetWorldDocument(nullptr);
+        worldDocument.reset();
+        RefreshDocumentInfo();
+        LOG_I(TAG, "closed world");
+    }
+
+    void SandboxModule::StopPlay()
+    {
+        if (playSession.Stop()) {
+            shell.SetPlayState(playSession.GetState());
+            LOG_I(TAG, "PIE stopped");
+        }
+    }
+
+    void SandboxModule::RefreshDocumentInfo()
+    {
+        const bool dirty      = worldDocument != nullptr && worldDocument->IsDirty();
+        const bool docChanged = worldDocument.get() != lastDocPtr;
+        if (docInfoApplied && !docChanged && dirty == lastDocDirty) {
+            return;
+        }
+        lastDocPtr     = worldDocument.get();
+        lastDocDirty   = dirty;
+        docInfoApplied = true;
+
+        const std::string name = (worldDocument != nullptr) ? std::filesystem::path(worldDocument->GetPath()).filename().string() : std::string{};
+        shell.SetDocumentInfo(name, dirty);
     }
 
     void SandboxModule::RegisterPreferencePages()
@@ -426,6 +537,7 @@ namespace sky::editor {
         // The Reflection Demo panel is not shown by default; it opens from
         // Help > Demo (see EditorShell).
         layoutModel.SetDefault({"outliner"});
+        layoutModel.Tabify("config", "outliner"); // world config shares the Outliner dock
         layoutModel.SplitPanel("outliner", SplitOrientation::HORIZONTAL, "viewport");
         layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "inspector");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
@@ -475,6 +587,42 @@ namespace sky::editor {
         preferenceStore = std::make_unique<PreferenceStore>(&preferenceRegistry);
         LoadPreferences();
         shell.SetPreferences(&preferenceRegistry, preferenceStore.get(), [this]() { SavePreferences(); });
+        shell.SetNewWorldHandler([this]() { NewWorld(); });
+        shell.SetOpenWorldHandler([this]() { OpenWorld(); });
+        shell.SetSaveWorldHandler([this]() { SaveWorld(); });
+        shell.SetCloseWorldHandler([this]() { CloseWorld(); });
+        shell.SetQuitHandler([this]() {
+            StopPlay();
+            if (worldDocument != nullptr && worldDocument->IsDirty()) {
+                worldDocument->Save();
+            }
+            if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
+                system->SetExit();
+            }
+        });
+
+        // Play-In-Editor: the session duplicates the edit world and ticks it.
+        playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
+        shell.SetPlayHandler([this]() {
+            if (playSession.Play()) {
+                LOG_I(TAG, "PIE play");
+            }
+            shell.SetPlayState(playSession.GetState());
+        });
+        shell.SetPauseHandler([this]() {
+            playSession.Pause();
+            shell.SetPlayState(playSession.GetState());
+        });
+        shell.SetStopHandler([this]() { StopPlay(); });
+
+        // The window title reflects the open world + dirty marker (see
+        // docs/editor/play-in-editor.md / editor-framework-status.md).
+        shell.SetTitleHandler([](const std::string &title) {
+            if (auto *window = sky::NativeWindowManager::Get()->GetMainWindow()) {
+                window->SetTitle(title);
+            }
+        });
+        RefreshDocumentInfo();
 
         shell.RegisterBuiltinPanelViews();
         shellTarget = MakeShellTarget(&shell);
@@ -697,6 +845,14 @@ namespace sky::editor {
             }
         }
         renderer.Tick(delta);
+
+        if (!hubMode) {
+            // Play-In-Editor: advances the runtime world only while playing; the
+            // edit world is never ticked.
+            playSession.Tick(delta);
+            // Reflect document edits (-> title/status dirty marker).
+            RefreshDocumentInfo();
+        }
 
         // Coalesced end-of-frame auto-save: only after a committed layout edit.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {

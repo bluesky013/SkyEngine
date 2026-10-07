@@ -9,6 +9,14 @@
       "dependencies": []
     },
     {
+      "name": "BulletPhysicsModule",
+      "dependencies": []
+    },
+    {
+      "name": "RecastNavigation",
+      "dependencies": []
+    },
+    {
       "name": "BulletPhysicsRenderModule",
       "dependencies": []
     },

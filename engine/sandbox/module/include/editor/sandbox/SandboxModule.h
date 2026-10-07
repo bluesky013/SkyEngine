@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorExtensionHost.h>
+#include <editor/core/play/PlaySession.h>
 #include <editor/core/preferences/PreferenceRegistry.h>
 #include <editor/core/preferences/PreferenceStore.h>
 #include <editor/render/EditorRenderer.h>
@@ -47,11 +49,19 @@ namespace sky::editor {
         void OnTextInput(sky::WindowID winID, const char *text) override;
 
     private:
-        bool        BuildHub();
-        bool        BuildEditor();
-        void        OpenProject(const std::string &skyprojPath);
-        void        AddProject();
-        void        NewProject();
+        bool BuildHub();
+        bool BuildEditor();
+        void OpenProject(const std::string &skyprojPath);
+        void AddProject();
+        void NewProject();
+        void NewWorld();
+        void OpenWorld();
+        void SaveWorld();
+        void CloseWorld();
+        void StopPlay();
+        void RefreshDocumentInfo();
+        // Directory new/open world dialogs start in (project assets, else user config).
+        std::string WorldBasePath() const;
         void        OnFileBrowserResult(const FileBrowserResult &result);
         void        CreateProjectFromResult(const FileBrowserResult &result);
         void        AddProjectFromResult(const FileBrowserResult &result);
@@ -92,6 +102,11 @@ namespace sky::editor {
 
         PreferenceRegistry               preferenceRegistry;
         std::unique_ptr<PreferenceStore> preferenceStore;
+        std::unique_ptr<WorldDocument>   worldDocument;
+        PlaySession                      playSession;
+        WorldDocument                   *lastDocPtr     = nullptr; // detects document switches
+        bool                             lastDocDirty   = false;
+        bool                             docInfoApplied = false; // forces the first title/status push
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;

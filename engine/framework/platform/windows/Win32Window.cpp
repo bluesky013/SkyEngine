@@ -454,6 +454,16 @@ namespace sky {
         ::SetWindowPos(static_cast<HWND>(hwnd), nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
+    void Win32Window::SetTitle(const std::string &title)
+    {
+        if (hwnd == nullptr) {
+            return;
+        }
+        descriptor.titleName = title;
+        const std::wstring wide(title.begin(), title.end());
+        ::SetWindowTextW(static_cast<HWND>(hwnd), wide.c_str());
+    }
+
     bool Win32Window::IsMainWindow() const
     {
         return Platform::Get() != nullptr && hwnd != nullptr && hwnd == Platform::Get()->GetMainWinHandle();

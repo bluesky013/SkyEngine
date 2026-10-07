@@ -11,6 +11,7 @@
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
 #include <editor/core/log/LogService.h>
+#include <editor/core/play/PlaySession.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
@@ -38,6 +39,8 @@ namespace sky::editor {
     class PreferencesDialog;
     class PreferenceRegistry;
     class PreferenceStore;
+    class WorldDocument;
+    class NewWorldDialog;
 
     // UI-linked editor shell.
     //
@@ -68,9 +71,6 @@ namespace sky::editor {
         // Optional: resolves the current selection to reflected data for the inspector.
         void SetPropertySource(IEditorPropertySource *source);
 
-        // Optional: supplies named reflected configurations for the config panel.
-        void SetConfigSource(IEditorConfigSource *source);
-
         // Opens the reusable file browser as a modal over the shell. The callback
         // receives the result on accept/cancel. While open, the dialog captures
         // pointer/keyboard/text input.
@@ -86,12 +86,73 @@ namespace sky::editor {
         void OpenPreferences();
         bool IsPreferencesOpen() const;
 
+        // Project-level world configuration. The shell hosts the dialog over the
+        // supplied world document.
+        void SetWorldDocument(WorldDocument *document);
+        void SetNewWorldHandler(std::function<void()> handler)
+        {
+            newWorldHandler = std::move(handler);
+        }
+        void SetOpenWorldHandler(std::function<void()> handler)
+        {
+            openWorldHandler = std::move(handler);
+        }
+        // Invoked by File > Save World and Ctrl+S; the host saves the document.
+        void SetSaveWorldHandler(std::function<void()> handler)
+        {
+            saveWorldHandler = std::move(handler);
+        }
+        // Invoked by File > Close World and Ctrl+W; the host closes the document.
+        void SetCloseWorldHandler(std::function<void()> handler)
+        {
+            closeWorldHandler = std::move(handler);
+        }
+        // Invoked by File > Quit; the host requests application exit.
+        void SetQuitHandler(std::function<void()> handler)
+        {
+            quitHandler = std::move(handler);
+        }
+
+        // Opens the "New World" create dialog. The callback receives the full
+        // world file path.
+        void OpenNewWorldDialog(const std::string &location, const std::string &name, std::function<void(const std::string &)> onCreate);
+
         // DPI/UI scale: layout stays logical, painting scales to physical pixels.
         void SetUiScale(float scale);
 
         // Status-bar values resolved by the host (project/engine/RHI/mode/fps).
         void SetStatusInfo(const std::string &project, const std::string &rhi, const std::string &mode);
         void SetFrameStats(float fps);
+
+        // The open document's display name + dirty flag; shown in the status bar
+        // and pushed to `titleHandler` (the host applies it to the OS window
+        // title). Empty name -> "Untitled".
+        void SetDocumentInfo(const std::string &name, bool dirty);
+        void SetTitleHandler(std::function<void(const std::string &)> handler)
+        {
+            titleHandler = std::move(handler);
+        }
+
+        // Play-In-Editor controls. The host wires the handlers to its session and
+        // reports the state back so the menu/status reflect it. F5 toggles
+        // Play/Pause; Shift+F5 stops.
+        void SetPlayHandler(std::function<void()> handler)
+        {
+            playHandler = std::move(handler);
+        }
+        void SetPauseHandler(std::function<void()> handler)
+        {
+            pauseHandler = std::move(handler);
+        }
+        void SetStopHandler(std::function<void()> handler)
+        {
+            stopHandler = std::move(handler);
+        }
+        void      SetPlayState(PlayState state);
+        PlayState GetPlayState() const
+        {
+            return playState;
+        }
 
         // Registers a view factory for a panel id. Falls back to a titled frame
         // when no factory is registered.
@@ -227,7 +288,6 @@ namespace sky::editor {
         CommandController                      *commandController = nullptr;
         PropertyModel                          *inspectorModel    = nullptr;
         IEditorPropertySource                  *propertySource    = nullptr;
-        IEditorConfigSource                    *configSource      = nullptr;
         float                                   uiScale           = 1.0f;
 
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
@@ -264,15 +324,31 @@ namespace sky::editor {
         PreferenceRegistry   *preferenceRegistry = nullptr;
         PreferenceStore      *preferenceStore    = nullptr;
         std::function<void()> preferencesApplied;
-        float                 width        = 1280.0f;
-        float                 height       = 720.0f;
-        float                 headerHeight = 24.0f;
-        float                 footerHeight = 22.0f;
+
+        WorldDocument        *worldDocument = nullptr;
+        std::function<void()> newWorldHandler;
+        std::function<void()> openWorldHandler;
+        std::function<void()> saveWorldHandler;
+        std::function<void()> closeWorldHandler;
+        std::function<void()> quitHandler;
+        std::function<void()> playHandler;
+        std::function<void()> pauseHandler;
+        std::function<void()> stopHandler;
+        PlayState             playState       = PlayState::Editing;
+        NewWorldDialog       *newWorldElement = nullptr;
+        float                 width           = 1280.0f;
+        float                 height          = 720.0f;
+        float                 headerHeight    = 24.0f;
+        float                 footerHeight    = 22.0f;
 
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";
         std::string statusMode    = "Edit";
         float       statusFps     = 0.0f;
+
+        std::string                              documentName;
+        bool                                     documentDirty = false;
+        std::function<void(const std::string &)> titleHandler;
 
         bool built          = false;
         bool pendingRebuild = false;

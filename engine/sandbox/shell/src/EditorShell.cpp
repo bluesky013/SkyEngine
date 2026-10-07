@@ -2,18 +2,22 @@
 // Created on 2026/09/22.
 //
 
+#include <editor/core/document/WorldDocument.h>
+#include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/shell/ShellModels.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
+#include <editor/shell/NewWorldDialog.h>
 #include <editor/shell/PanelView.h>
 #include <editor/shell/PreferencesDialog.h>
-#include <editor/shell/ReflectedConfigPanel.h>
+
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiSkin.h>
 #include <editor/shell/UiTheme.h>
+#include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/ServicePanels.h>
 #include <editor/shell/widgets/DockWidgets.h>
 #include <editor/shell/widgets/MenuBar.h>
@@ -123,11 +127,6 @@ namespace sky::editor {
         propertySource = source;
     }
 
-    void EditorShell::SetConfigSource(IEditorConfigSource *source)
-    {
-        configSource = source;
-    }
-
     void EditorShell::SetUiScale(float scale)
     {
         // Scale the theme metrics/fonts by the DPI ratio so the UI is drawn at
@@ -167,7 +166,8 @@ namespace sky::editor {
             return std::unique_ptr<sky::ui::UIElement>(new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
         });
         RegisterPanelView("config", [this, t = titleOf("config", "Config")]() {
-            return std::unique_ptr<sky::ui::UIElement>(new ReflectedConfigPanel(textSystem, configSource, t));
+            return std::unique_ptr<sky::ui::UIElement>(new WorldConfigPanel(
+                textSystem, [this]() { return worldDocument; }, t));
         });
         RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() { return CreateReflectionDemoPanel(textSystem, t); });
         RegisterPanelView("outputlog", [this, t = titleOf("outputlog", "Output Log")]() {
@@ -437,6 +437,21 @@ namespace sky::editor {
     void EditorShell::SetFrameStats(float fps)
     {
         statusFps = fps;
+    }
+
+    void EditorShell::SetPlayState(PlayState state)
+    {
+        playState  = state;
+        statusMode = state == PlayState::Playing ? "Play" : (state == PlayState::Paused ? "Pause" : "Edit");
+    }
+
+    void EditorShell::SetDocumentInfo(const std::string &name, bool dirty)
+    {
+        documentName  = name;
+        documentDirty = dirty;
+        if (titleHandler) {
+            titleHandler(FormatWindowTitle(documentName, documentDirty, statusProject));
+        }
     }
 
     void EditorShell::CreateSplitters(const sky::ui::UIRect &contentRect)
@@ -785,7 +800,31 @@ namespace sky::editor {
         MenuBar::Menu              file;
         file.label = "File";
         file.items.push_back({"Preferences...", [this]() { OpenPreferences(); }});
-        file.items.push_back({"Quit", []() { LOG_I(TAG, "quit requested"); }});
+        file.items.push_back({"New World...", [this]() {
+                                  if (newWorldHandler) {
+                                      newWorldHandler();
+                                  }
+                              }});
+        file.items.push_back({"Open World...", [this]() {
+                                  if (openWorldHandler) {
+                                      openWorldHandler();
+                                  }
+                              }});
+        file.items.push_back({"Save World", [this]() {
+                                  if (saveWorldHandler) {
+                                      saveWorldHandler();
+                                  }
+                              }});
+        file.items.push_back({"Close World", [this]() {
+                                  if (closeWorldHandler) {
+                                      closeWorldHandler();
+                                  }
+                              }});
+        file.items.push_back({"Quit", [this]() {
+                                  if (quitHandler) {
+                                      quitHandler();
+                                  }
+                              }});
         menus.push_back(std::move(file));
 
         MenuBar::Menu edit;
@@ -796,15 +835,32 @@ namespace sky::editor {
         MenuBar::Menu view{"View", {}};
         if (layoutModel != nullptr && panelRegistry != nullptr) {
             for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
-                if (entry.panelId == "config") {
-                    continue; // retired in favor of File > Preferences
-                }
                 const std::string panelId = entry.panelId;
                 const bool        shown   = entry.shown;
                 view.items.push_back({(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
             }
         }
         menus.push_back(std::move(view));
+
+        MenuBar::Menu play;
+        play.label = "Play";
+        play.items.push_back({"Play", [this]() {
+                                  if (playHandler) {
+                                      playHandler();
+                                  }
+                              }});
+        play.items.push_back({"Pause", [this]() {
+                                  if (pauseHandler) {
+                                      pauseHandler();
+                                  }
+                              }});
+        play.items.push_back({"Stop", [this]() {
+                                  if (stopHandler) {
+                                      stopHandler();
+                                  }
+                              }});
+        menus.push_back(std::move(play));
+
         menus.push_back({"Window", {{"Reset Layout", [this]() {
                                          if (layoutModel != nullptr) {
                                              layoutModel->ResetToDefault();
@@ -863,6 +919,10 @@ namespace sky::editor {
         });
         context->AddChild(std::move(preferences));
 
+        auto newWorld   = std::make_unique<NewWorldDialog>(textSystem);
+        newWorldElement = newWorld.get();
+        context->AddChild(std::move(newWorld));
+
         built = true;
         LOG_I(TAG, "editor shell built (%zu panels)", attachedViews.size());
     }
@@ -915,7 +975,7 @@ namespace sky::editor {
             statusBarElement->SetBounds(sky::ui::UIRect{0.0f, height - footerHeight, width, height});
             if (auto *statusBar = dynamic_cast<StatusBar *>(statusBarElement)) {
                 const std::size_t selectionCount = selection != nullptr ? selection->GetSelection().size() : 0;
-                statusBar->SetText(FormatStatusBar(statusProject, statusMode, statusRhi, selectionCount, statusFps));
+                statusBar->SetText(FormatStatusBar(documentName, documentDirty, statusProject, statusMode, statusRhi, selectionCount, statusFps));
             }
         }
 
@@ -932,6 +992,24 @@ namespace sky::editor {
         if (preferencesElement != nullptr) {
             preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
+        if (newWorldElement != nullptr) {
+            newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        }
+    }
+
+    void EditorShell::OpenNewWorldDialog(const std::string &location, const std::string &name, std::function<void(const std::string &)> onCreate)
+    {
+        if (newWorldElement == nullptr) {
+            return;
+        }
+        newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        newWorldElement->SetOnCreate(std::move(onCreate));
+        newWorldElement->Open(location, name);
+    }
+
+    void EditorShell::SetWorldDocument(WorldDocument *document)
+    {
+        worldDocument = document;
     }
 
     void EditorShell::SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied)
@@ -982,6 +1060,9 @@ namespace sky::editor {
 
     sky::ui::UIElement *EditorShell::ActiveModal() const
     {
+        if (newWorldElement != nullptr && newWorldElement->IsVisible()) {
+            return newWorldElement;
+        }
         if (preferencesElement != nullptr && preferencesElement->IsVisible()) {
             return preferencesElement;
         }
@@ -1007,6 +1088,38 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
+        // Global shortcuts take precedence over the focused widget / modal.
+        constexpr uint32_t kKeyS = 'S';
+        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyS && (event.modifiers & kModCtrl) != 0) {
+            if (saveWorldHandler) {
+                saveWorldHandler();
+            }
+            return true;
+        }
+        // Ctrl+W closes the current world.
+        constexpr uint32_t kKeyW = 'W';
+        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyW && (event.modifiers & kModCtrl) != 0) {
+            if (closeWorldHandler) {
+                closeWorldHandler();
+            }
+            return true;
+        }
+        // F5 toggles Play/Pause; Shift+F5 stops (UE convention).
+        constexpr uint32_t kKeyF5 = 0x74; // VK_F5
+        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyF5) {
+            if ((event.modifiers & kModShift) != 0) {
+                if (stopHandler) {
+                    stopHandler();
+                }
+            } else if (playState == PlayState::Playing) {
+                if (pauseHandler) {
+                    pauseHandler();
+                }
+            } else if (playHandler) {
+                playHandler();
+            }
+            return true;
+        }
         if (sky::ui::UIElement *modal = ActiveModal()) {
             modal->OnKeyEvent(event);
             return true;

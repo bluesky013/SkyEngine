@@ -2,15 +2,21 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <framework/world/World.h>
-#include <framework/world/TransformComponent.h>
-#include <framework/world/SimpleRotateComponent.h>
-#include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/world/SimpleRotateComponent.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/world/World.h>
+#include <framework/world/WorldDesc.h>
+#include <framework/world/WorldSubSystemRegistry.h>
 
+#include <core/logger/Logger.h>
 #include <core/profile/Profiler.h>
 
 #include <memory>
+#include <string>
+
+static const char *TAG = "World";
 
 namespace sky {
 
@@ -43,6 +49,53 @@ namespace sky {
     {
     }
 
+    const WorldDesc *World::GetWorldDesc() const
+    {
+        return worldDesc.get();
+    }
+
+    WorldDesc *World::GetMutableWorldDesc()
+    {
+        if (worldDesc == nullptr) {
+            worldDesc = std::make_unique<WorldDesc>();
+        }
+        return worldDesc.get();
+    }
+
+    void World::Build(const WorldDesc &desc)
+    {
+        worldDesc      = std::make_unique<WorldDesc>(desc);
+        auto &registry = WorldSubSystemRegistry::Get();
+        for (const auto &entry : worldDesc->subSystems) {
+            if (!entry.enabled) {
+                continue;
+            }
+            if (GetSubSystem(entry.name) != nullptr) {
+                LOG_W(TAG, "world subsystem already present, skipping");
+                continue;
+            }
+            const WorldSubSystemRegistration *registration = registry.GetRegistration(entry.name);
+            if (registration == nullptr) {
+                LOG_W(TAG, "world subsystem '%.*s' not registered, skipping", static_cast<int>(entry.name.GetStr().size()),
+                      entry.name.GetStr().data());
+                continue;
+            }
+            if (registration->validate != nullptr) {
+                std::string reason;
+                if (!registration->validate(entry.config, reason)) {
+                    LOG_E(TAG, "world subsystem '%.*s' config invalid: %s", static_cast<int>(entry.name.GetStr().size()), entry.name.GetStr().data(),
+                          reason.c_str());
+                    SKY_ASSERT(false); // develop/debug: fail loudly; release: skip and continue
+                    continue;
+                }
+            }
+            std::unique_ptr<IWorldSubSystem> subSystem = registration->factory(*this, entry.config);
+            if (subSystem != nullptr) {
+                AddSubSystem(entry.name, subSystem.release());
+            }
+        }
+    }
+
     void World::Tick(float time)
     {
         {
@@ -73,6 +126,24 @@ namespace sky {
 
         archive.EndArray();
 
+        archive.Key("subSystems");
+        archive.StartArray();
+        if (worldDesc != nullptr) {
+            for (const WorldSubSystemDesc &entry : worldDesc->subSystems) {
+                archive.StartObject();
+                archive.Key("name");
+                archive.SaveValue(entry.name.GetStr());
+                archive.Key("enabled");
+                archive.SaveValue(entry.enabled);
+                if (entry.config) {
+                    archive.Key("config");
+                    archive.SaveValueObject(entry.config);
+                }
+                archive.EndObject();
+            }
+        }
+        archive.EndArray();
+
         archive.EndObject();
     }
 
@@ -84,6 +155,37 @@ namespace sky {
             actor->LoadJson(archive);
             AttachToWorld(std::move(actor));
             archive.NextArrayElement();
+        }
+        archive.End();
+
+        const uint32_t subCount = archive.StartArray("subSystems");
+        if (subCount > 0) {
+            auto desc = std::make_unique<WorldDesc>();
+            for (uint32_t i = 0; i < subCount; ++i) {
+                WorldSubSystemDesc entry;
+                std::string        name;
+                archive.Start("name");
+                name = archive.LoadString();
+                archive.End();
+                entry.name = Name(name.c_str());
+
+                bool enabled = true;
+                archive.Start("enabled");
+                enabled = archive.LoadBool();
+                archive.End();
+                entry.enabled = enabled;
+
+                const WorldSubSystemRegistration *registration = WorldSubSystemRegistry::Get().GetRegistration(entry.name);
+                if (registration != nullptr && registration->configType != nullptr) {
+                    archive.Start("config");
+                    entry.config = archive.LoadValueById(registration->configType->registeredId);
+                    archive.End();
+                }
+
+                desc->subSystems.push_back(std::move(entry));
+                archive.NextArrayElement();
+            }
+            worldDesc = std::move(desc);
         }
         archive.End();
 
@@ -167,9 +269,9 @@ namespace sky {
         actorIndex.erase(iter);
 
         std::unique_ptr<Actor> owned = std::move(actors[index]);
-        const size_t last = actors.size() - 1;
+        const size_t           last  = actors.size() - 1;
         if (index != last) {
-            actors[index] = std::move(actors[last]);
+            actors[index]                        = std::move(actors[last]);
             actorIndex[actors[index]->GetUuid()] = index;
         }
         actors.pop_back();
@@ -185,32 +287,29 @@ namespace sky {
         actorIndex.clear();
     }
 
-    void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)
+    void World::AddSubSystem(const Name &name, IWorldSubSystem *sys)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
         sys->OnAttachToWorld(*this);
     }
 
-    IWorldSubSystem* World::GetSubSystem(const Name &name) const
+    IWorldSubSystem *World::GetSubSystem(const Name &name) const
     {
         auto iter = subSystems.find(name);
         return iter != subSystems.end() ? iter->second.get() : nullptr;
     }
 
-    void World::RegisterConfiguration(const Name& name, const Any& any)
+    void World::StartSimulation()
     {
-        SKY_ASSERT(worldConfigs.emplace(name, any).second);
+        for (auto &sub : subSystems) {
+            sub.second->StartSimulation();
+        }
     }
 
-    const Any& World::GetConfigByName(const Name &name) const
+    void World::StopSimulation()
     {
-        static Any EMPTY;
-        auto iter = worldConfigs.find(name);
-        return iter != worldConfigs.end() ? iter->second : EMPTY;
-    }
-
-    Any& World::GetMutableConfigByName(const Name &name)
-    {
-        return worldConfigs[name];
+        for (auto &sub : subSystems) {
+            sub.second->StopSimulation();
+        }
     }
 } // namespace sky
