@@ -24,6 +24,16 @@ namespace sky::ui {
                 return next++;
             }
 
+            UITextureId RegisterTextureAs(UITextureId id, const UIImageData &image) override
+            {
+                (void)image;
+                registrations++;
+                if (id >= next) {
+                    next = id + 1;
+                }
+                return id;
+            }
+
             void UpdateTexture(UITextureId id, const UIImageData &image) override
             {
                 (void)id;
