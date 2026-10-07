@@ -40,6 +40,22 @@ namespace sky::aurora {
             }
             return object;
         }
+
+        // MTL pixel formats that support shader-write (storage / UAV) usage.
+        bool IsStorageCapableFormat(MTLPixelFormat format)
+        {
+            static const MTLPixelFormat capable[] = {
+                MTLPixelFormatR8Unorm,      MTLPixelFormatR8Uint,        MTLPixelFormatR16Float,     MTLPixelFormatRG16Float,
+                MTLPixelFormatRGBA16Float,  MTLPixelFormatR32Float,      MTLPixelFormatRG32Float,    MTLPixelFormatRGBA32Float,
+                MTLPixelFormatR32Uint,      MTLPixelFormatRG32Uint,      MTLPixelFormatRGBA32Uint,   MTLPixelFormatRGBA8Unorm,
+            };
+            for (MTLPixelFormat candidate : capable) {
+                if (candidate == format) {
+                    return true;
+                }
+            }
+            return false;
+        }
     } // namespace
 
     MetalThreadContext::~MetalThreadContext()
@@ -277,22 +293,8 @@ namespace sky::aurora {
         const bool isSrgb     = (format == PixelFormat::R8_SRGB || format == PixelFormat::RGBA8_SRGB || format == PixelFormat::BGRA8_SRGB);
         const bool is3Channel = (format == PixelFormat::RGB32_SFLOAT || format == PixelFormat::RGB32_UINT);
 
-        if (!isSrgb && !is3Channel) {
-            switch (mtlFormat) {
-            case MTLPixelFormatR8Unorm:
-            case MTLPixelFormatR8Uint:
-            case MTLPixelFormatR16Float:
-            case MTLPixelFormatRG16Float:
-            case MTLPixelFormatRGBA16Float:
-            case MTLPixelFormatR32Float:
-            case MTLPixelFormatRG32Float:
-            case MTLPixelFormatRGBA32Float:
-            case MTLPixelFormatR32Uint:
-            case MTLPixelFormatRG32Uint:
-            case MTLPixelFormatRGBA32Uint:
-            case MTLPixelFormatRGBA8Unorm: result |= PixelFormatFeatureFlagBit::STORAGE; break;
-            default: break;
-            }
+        if (!isSrgb && !is3Channel && IsStorageCapableFormat(mtlFormat)) {
+            result |= PixelFormatFeatureFlagBit::STORAGE;
         }
 
         // atomic: R32Uint

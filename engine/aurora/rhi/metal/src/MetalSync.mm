@@ -5,9 +5,32 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include "MetalDevice.h"
+#include "MetalSharedEvent.h"
 #include "MetalSync.h"
 
 namespace sky::aurora {
+
+    bool CreateMetalSharedEvent(MetalDevice &device, uint64_t initialValue, void *&outEvent)
+    {
+        auto              *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
+        id<MTLSharedEvent> event       = [metalDevice newSharedEvent];
+        if (event == nil) {
+            return false;
+        }
+        if (initialValue > 0) {
+            event.signaledValue = initialValue;
+        }
+        outEvent = (__bridge_retained void *)event;
+        return true;
+    }
+
+    void ReleaseMetalSharedEvent(void *&event)
+    {
+        if (event != nullptr) {
+            (void)(__bridge_transfer id<MTLSharedEvent>)event;
+            event = nullptr;
+        }
+    }
 
     // ---- MetalFence -------------------------------------------------------------
 
@@ -17,25 +40,14 @@ namespace sky::aurora {
 
     MetalFence::~MetalFence()
     {
-        if (sharedEvent != nullptr) {
-            id<MTLSharedEvent> e = (__bridge_transfer id<MTLSharedEvent>)sharedEvent;
-            e                    = nil;
-            sharedEvent          = nullptr;
-        }
+        ReleaseMetalSharedEvent(sharedEvent);
     }
 
     bool MetalFence::Init(const Descriptor &desc)
     {
         signaled     = desc.createSignaled;
         pendingValue = desc.createSignaled ? 0 : 1;
-
-        auto              *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
-        id<MTLSharedEvent> event       = [metalDevice newSharedEvent];
-        if (event == nil) {
-            return false;
-        }
-        sharedEvent = (__bridge_retained void *)event;
-        return true;
+        return CreateMetalSharedEvent(device, 0, sharedEvent);
     }
 
     void MetalFence::Wait()
@@ -102,27 +114,14 @@ namespace sky::aurora {
 
     MetalSemaphore::~MetalSemaphore()
     {
-        if (sharedEvent != nullptr) {
-            id<MTLSharedEvent> e = (__bridge_transfer id<MTLSharedEvent>)sharedEvent;
-            e                    = nil;
-            sharedEvent          = nullptr;
-        }
+        ReleaseMetalSharedEvent(sharedEvent);
     }
 
     bool MetalSemaphore::Init(const Descriptor &desc)
     {
-        type = desc.type;
-
-        auto              *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
-        id<MTLSharedEvent> event       = [metalDevice newSharedEvent];
-        if (event == nil) {
-            return false;
-        }
-        if (type == SemaphoreType::TIMELINE && desc.initialValue > 0) {
-            event.signaledValue = desc.initialValue;
-        }
-        sharedEvent = (__bridge_retained void *)event;
-        return true;
+        type               = desc.type;
+        const uint64_t init = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
+        return CreateMetalSharedEvent(device, init, sharedEvent);
     }
 
     void MetalSemaphore::Signal(uint64_t value)
