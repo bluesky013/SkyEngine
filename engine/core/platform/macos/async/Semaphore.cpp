@@ -18,6 +18,7 @@ namespace sky {
     {
         if (uHandle != 0) {
             semaphore_destroy(mach_task_self(), uHandle);
+            uHandle = 0;
         }
     }
 
@@ -28,8 +29,13 @@ namespace sky {
 
     void Semaphore::Signal(int32_t count)
     {
-        while(count-- > 0) {
-            while (semaphore_signal(uHandle) != KERN_SUCCESS);
+        for (int32_t i = 0; i < count; ++i) {
+            // Do not retry on failure: after teardown (or if the semaphore was
+            // destroyed) semaphore_signal returns KERN_TERMINATED/KERN_ABORTED and
+            // a busy retry loop would spin forever.
+            if (semaphore_signal(uHandle) != KERN_SUCCESS) {
+                break;
+            }
         }
     }
 } // namespace sky
