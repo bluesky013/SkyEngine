@@ -15,8 +15,8 @@ namespace sky {
     // main window's CAMetalLayer (the RHI surface handle on macOS).
     class MacosPlatform : public PlatformBase {
     public:
-        MacosPlatform() = default;
-        ~MacosPlatform() override = default;
+        MacosPlatform()           = default;
+        ~MacosPlatform() override;
 
         bool Init(const PlatformInfo &info) override;
         uint64_t GetPerformanceFrequency() const override;
@@ -59,6 +59,7 @@ namespace sky {
 
     private:
         void *mainWindow    = nullptr; // CAMetalLayer of the main window
+        void *framePool     = nullptr; // NSAutoreleasePool, drained once per frame
         bool  exitRequested = false;
     };
 

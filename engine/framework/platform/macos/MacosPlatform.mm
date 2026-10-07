@@ -152,6 +152,14 @@ namespace sky {
 
     void MacosPlatform::PollEvent(bool &exit)
     {
+        // Drain the previous frame's pool and open a fresh one so autoreleased
+        // objects created anywhere during this frame are reclaimed on the next
+        // frame boundary (the loop itself has no @autoreleasepool).
+        if (framePool != nullptr) {
+            [(NSAutoreleasePool *)framePool drain];
+        }
+        framePool = [[NSAutoreleasePool alloc] init];
+
         @autoreleasepool {
             for (;;) {
                 NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -167,6 +175,14 @@ namespace sky {
         }
         if (exitRequested) {
             exit = true;
+        }
+    }
+
+    MacosPlatform::~MacosPlatform()
+    {
+        if (framePool != nullptr) {
+            [(NSAutoreleasePool *)framePool drain];
+            framePool = nullptr;
         }
     }
 
