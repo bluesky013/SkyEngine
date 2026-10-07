@@ -18,7 +18,7 @@ namespace sky::aurora {
     MetalBuffer::~MetalBuffer()
     {
         if (buffer != nullptr) {
-            [(id<MTLBuffer>)buffer release];
+            (void)(__bridge_transfer id<MTLBuffer>)buffer;
             buffer = nullptr;
         }
     }
@@ -30,7 +30,7 @@ namespace sky::aurora {
             return false;
         }
 
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
             LOG_E(TAG, "invalid Metal device for buffer creation");
             return false;
@@ -43,7 +43,7 @@ namespace sky::aurora {
             return false;
         }
 
-        buffer = nativeBuffer;
+        buffer = (__bridge_retained void *)nativeBuffer;
 
 #if SKY_ENABLE_RESOURCE_NAME
         if (desc.name != nullptr) {
@@ -59,7 +59,7 @@ namespace sky::aurora {
         if (buffer == nullptr) {
             return nullptr;
         }
-        return static_cast<uint8_t *>([(id<MTLBuffer>)buffer contents]);
+        return static_cast<uint8_t *>([(__bridge id<MTLBuffer>)buffer contents]);
     }
 
 } // namespace sky::aurora

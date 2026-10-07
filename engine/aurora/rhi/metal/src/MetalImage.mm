@@ -23,7 +23,7 @@ namespace sky::aurora {
     void MetalImage::Reset()
     {
         if (texture != nullptr && owned) {
-            [(id<MTLTexture>)texture release];
+            (void)(__bridge_transfer id<MTLTexture>)texture;
         }
         texture = nullptr;
     }
@@ -37,7 +37,7 @@ namespace sky::aurora {
 
     bool MetalImage::Init(const Descriptor &desc)
     {
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
             LOG_E(TAG, "invalid Metal device for image creation");
             return false;
@@ -68,14 +68,13 @@ namespace sky::aurora {
         textureDesc.usage            = ToMetalTextureUsage(desc.usage);
 
         auto *nativeTexture = [metalDevice newTextureWithDescriptor:textureDesc];
-        [textureDesc release];
 
         if (nativeTexture == nil) {
             LOG_E(TAG, "newTextureWithDescriptor failed");
             return false;
         }
 
-        texture = nativeTexture;
+        texture = (__bridge_retained void *)nativeTexture;
         owned   = true;
 
 #if SKY_ENABLE_RESOURCE_NAME

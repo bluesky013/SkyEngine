@@ -25,7 +25,7 @@ namespace sky::aurora {
             ReleaseSlot(slot);
         }
         if (layer != nullptr) {
-            [(CAMetalLayer *)layer release];
+            (void)(__bridge_transfer CAMetalLayer *)layer;
             layer = nullptr;
         }
     }
@@ -33,7 +33,7 @@ namespace sky::aurora {
     void MetalSwapChain::ReleaseSlot(Slot &slot)
     {
         if (slot.drawable != nullptr) {
-            [(id<CAMetalDrawable>)slot.drawable release];
+            (void)(__bridge_transfer id<CAMetalDrawable>)slot.drawable;
             slot.drawable = nullptr;
         }
         if (slot.image) {
@@ -48,14 +48,13 @@ namespace sky::aurora {
             return false;
         }
 
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
             LOG_E(TAG, "invalid Metal device for swapchain creation");
             return false;
         }
 
-        auto *metalLayer = (CAMetalLayer *)desc.window;
-        [metalLayer retain];
+        auto *metalLayer = (__bridge CAMetalLayer *)desc.window;
         metalLayer.device               = metalDevice;
         metalLayer.pixelFormat          = ToMetalPixelFormat(desc.preferredFormat);
         metalLayer.maximumDrawableCount = IMAGE_COUNT;
@@ -63,9 +62,7 @@ namespace sky::aurora {
         metalLayer.framebufferOnly = NO;
         if (desc.width != 0 && desc.height != 0) {
             metalLayer.drawableSize = CGSizeMake(desc.width, desc.height);
-        }
-
-        layer  = metalLayer;
+        } layer = (__bridge_retained void *)metalLayer;
         format = desc.preferredFormat;
         extent = {desc.width, desc.height};
 
@@ -83,14 +80,14 @@ namespace sky::aurora {
         auto &slot = slots[index];
         ReleaseSlot(slot);
 
-        auto               *metalLayer = (CAMetalLayer *)layer;
-        id<CAMetalDrawable> drawable   = [[metalLayer nextDrawable] retain];
+        auto *metalLayer = (__bridge CAMetalLayer *)layer;
+        id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
         if (drawable == nil) {
             LOG_E(TAG, "nextDrawable returned nil");
             return INVALID_INDEX;
         }
-        slot.drawable = drawable;
-        slot.image->RebindBorrowed(drawable.texture);
+        slot.drawable = (__bridge_retained void *)drawable;
+        slot.image->RebindBorrowed((__bridge void *)drawable.texture);
 
         // Metal does not provide a native acquire-signal hook. The drawable is
         // immediately CPU-visible; signal the binary semaphore / fence right away
@@ -121,8 +118,8 @@ namespace sky::aurora {
             return;
         }
 
-        id<CAMetalDrawable>  drawable      = (id<CAMetalDrawable>)slot.drawable;
-        auto                *graphicsQueue = (id<MTLCommandQueue>)device.GetCommandQueue();
+        id<CAMetalDrawable>  drawable      = (__bridge id<CAMetalDrawable>)slot.drawable;
+        auto                *graphicsQueue = (__bridge id<MTLCommandQueue>)device.GetCommandQueue();
         id<MTLCommandBuffer> presentCB     = [graphicsQueue commandBuffer];
 
         for (uint32_t i = 0; i < numWaitSemas; ++i) {
@@ -147,7 +144,7 @@ namespace sky::aurora {
         }
         extent = {width, height};
         if (layer != nullptr && width != 0 && height != 0) {
-            ((CAMetalLayer *)layer).drawableSize = CGSizeMake(width, height);
+            ((__bridge CAMetalLayer *)layer).drawableSize = CGSizeMake(width, height);
         }
     }
 
@@ -161,7 +158,7 @@ namespace sky::aurora {
 
     SwapChainStatus MetalSwapChain::GetStatus() const
     {
-        auto *metalLayer = (CAMetalLayer *)layer;
+        auto *metalLayer = (__bridge CAMetalLayer *)layer;
         if (metalLayer == nil) {
             return SwapChainStatus::LOST;
         }
@@ -174,7 +171,7 @@ namespace sky::aurora {
 
     Extent2D MetalSwapChain::GetSurfaceSize() const
     {
-        auto *metalLayer = (CAMetalLayer *)layer;
+        auto *metalLayer = (__bridge CAMetalLayer *)layer;
         if (metalLayer == nil) {
             return extent;
         }

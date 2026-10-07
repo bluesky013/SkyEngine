@@ -20,9 +20,6 @@ namespace sky::aurora {
 
         void OnAttach(uint32_t threadIndex) override;
         void OnDetach() override;
-
-    private:
-        void *autoReleasePool = nullptr;
     };
 
     class MetalDevice : public Device {

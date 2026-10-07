@@ -12,6 +12,12 @@ set(METAL_EXT_LIBS
     "-framework Metal"
 )
 
+# The backend uses ARC ownership idioms (__bridge_retained / __bridge_transfer
+# between native handles and void* members); without ARC those casts are no-ops
+# and leak. Scoped to the Obj-C++ sources only (must be set before the target).
+file(GLOB_RECURSE METAL_OBJCXX_SRC src/*.mm)
+set_source_files_properties(${METAL_OBJCXX_SRC} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+
 sky_add_library(TARGET Aurora.Metal SHARED
     SOURCES
         ${SRC_FILES}

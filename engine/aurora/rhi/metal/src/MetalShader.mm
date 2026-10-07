@@ -22,11 +22,11 @@ namespace sky::aurora {
     MetalShaderFunction::~MetalShaderFunction()
     {
         if (function != nullptr) {
-            [(id<MTLFunction>)function release];
+            (void)(__bridge_transfer id<MTLFunction>)function;
             function = nullptr;
         }
         if (library != nullptr) {
-            [(id<MTLLibrary>)library release];
+            (void)(__bridge_transfer id<MTLLibrary>)library;
             library = nullptr;
         }
     }
@@ -44,7 +44,7 @@ namespace sky::aurora {
             return false;
         }
 
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
             LOG_E(TAG, "invalid Metal device for shader creation");
             return false;
@@ -59,7 +59,6 @@ namespace sky::aurora {
         if (isMetallib) {
             dispatch_data_t data = dispatch_data_create(binary->Data(), binary->Size(), nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
             metalLibrary         = [metalDevice newLibraryWithData:data error:&error];
-            [data release];
         } else {
             NSString *source = [[NSString alloc] initWithBytes:binary->Data() length:binary->Size() encoding:NSUTF8StringEncoding];
             if (source == nil) {
@@ -67,7 +66,6 @@ namespace sky::aurora {
                 return false;
             }
             metalLibrary = [metalDevice newLibraryWithSource:source options:nil error:&error];
-            [source release];
         }
         if (metalLibrary == nil) {
             const char *message = error != nil ? [[error localizedDescription] UTF8String] : "unknown";
@@ -82,12 +80,10 @@ namespace sky::aurora {
         auto     *metalFunction = [metalLibrary newFunctionWithName:entryName];
         if (metalFunction == nil) {
             LOG_E(TAG, "failed to find Metal entry point '%s'", desc.entry.empty() ? [ToMetalEntryPoint(desc.stage) UTF8String] : desc.entry.c_str());
-            [metalLibrary release];
             return false;
         }
-
-        library  = metalLibrary;
-        function = metalFunction;
+        library  = (__bridge_retained void *)metalLibrary;
+        function = (__bridge_retained void *)metalFunction;
         return true;
     }
 

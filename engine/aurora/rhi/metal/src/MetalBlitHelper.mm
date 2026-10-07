@@ -63,14 +63,17 @@ fragment float4 blitFS(VSOut in [[stage_in]],
     MetalBlitHelper::~MetalBlitHelper()
     {
         for (auto &[key, pso] : pipelines) {
-            [(id<MTLRenderPipelineState>)pso release];
+            (void)(__bridge_transfer id<MTLRenderPipelineState>)pso;
         }
         pipelines.clear();
         if (linearSampler != nullptr) {
-            [(id<MTLSamplerState>)linearSampler release];
+            (void)(__bridge_transfer id<MTLSamplerState>)linearSampler;
         }
         if (nearestSampler != nullptr) {
-            [(id<MTLSamplerState>)nearestSampler release];
+            (void)(__bridge_transfer id<MTLSamplerState>)nearestSampler;
+        }
+        if (library != nullptr) {
+            (void)(__bridge_transfer id<MTLLibrary>)library;
         }
     }
 
@@ -83,8 +86,7 @@ fragment float4 blitFS(VSOut in [[stage_in]],
             desc.magFilter    = desc.minFilter;
             desc.sAddressMode = MTLSamplerAddressModeClampToEdge;
             desc.tAddressMode = MTLSamplerAddressModeClampToEdge;
-            slot              = (__bridge_retained void *)[(id<MTLDevice>)device.GetNativeDevice() newSamplerStateWithDescriptor:desc];
-            [desc release];
+            slot              = (__bridge_retained void *)[(__bridge id<MTLDevice>)device.GetNativeDevice() newSamplerStateWithDescriptor:desc];
         }
         return slot;
     }
@@ -97,23 +99,28 @@ fragment float4 blitFS(VSOut in [[stage_in]],
             return it->second;
         }
 
-        auto          *mtlDevice = (id<MTLDevice>)device.GetNativeDevice();
-        NSError       *error     = nil;
-        NSString      *source    = [NSString stringWithUTF8String:BLIT_SHADER_SOURCE];
-        id<MTLLibrary> library   = [mtlDevice newLibraryWithSource:source options:nil error:&error];
-        if (library == nil) {
-            LOG_E(TAG, "blit shader compile failed: %s", error != nil ? [[error localizedDescription] UTF8String] : "unknown");
-            return nullptr;
+        auto *mtlDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
+        NSError *error  = nil;
+
+        // the MSL source is format-independent: compile the library once and only
+        // build a new PSO per (format, sampleCount)
+        if (library == nullptr) {
+            NSString    *source   = [NSString stringWithUTF8String:BLIT_SHADER_SOURCE];
+            id<MTLLibrary> lib    = [mtlDevice newLibraryWithSource:source options:nil error:&error];
+            if (lib == nil) {
+                LOG_E(TAG, "blit shader compile failed: %s", error != nil ? [[error localizedDescription] UTF8String] : "unknown");
+                return nullptr;
+            }
+            library = (__bridge_retained void *)lib;
         }
+        auto *lib = (__bridge id<MTLLibrary>)library;
 
         auto *desc                           = [[MTLRenderPipelineDescriptor alloc] init];
-        desc.vertexFunction                  = [library newFunctionWithName:@"blitVS"];
-        desc.fragmentFunction                = [library newFunctionWithName:@"blitFS"];
+        desc.vertexFunction                  = [lib newFunctionWithName:@"blitVS"];
+        desc.fragmentFunction                = [lib newFunctionWithName:@"blitFS"];
         desc.colorAttachments[0].pixelFormat = static_cast<MTLPixelFormat>(mtlFormat);
         desc.rasterSampleCount               = sampleCount;
         id<MTLRenderPipelineState> pso       = [mtlDevice newRenderPipelineStateWithDescriptor:desc error:&error];
-        [desc release];
-        [library release];
         if (pso == nil) {
             LOG_E(TAG, "blit pipeline creation failed: %s", error != nil ? [[error localizedDescription] UTF8String] : "unknown");
             return nullptr;
@@ -180,7 +187,6 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                                                                         slices:NSMakeRange(srcSlice, 1)];
                 id<MTLRenderCommandEncoder> enc     = [cb renderCommandEncoderWithDescriptor:rpDesc];
                 if (enc == nil) {
-                    [srcView release];
                     LOG_E(TAG, "blit: failed to create render encoder (dst not renderable?)");
                     return false;
                 }
@@ -195,7 +201,6 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 [enc setScissorRect:sc];
                 [enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
                 [enc endEncoding];
-                [srcView release];
             }
         }
         return true;
@@ -223,6 +228,10 @@ fragment float4 blitFS(VSOut in [[stage_in]],
                 rpDesc.colorAttachments[0].storeAction    = MTLStoreActionMultisampleResolve;
 
                 id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rpDesc];
+                if (enc == nil) {
+                    LOG_E(TAG, "resolve: failed to create render encoder (src/dst not resolvable?)");
+                    return;
+                }
                 [enc endEncoding];
             }
         }

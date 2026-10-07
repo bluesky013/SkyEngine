@@ -15,7 +15,7 @@ namespace sky::aurora {
     MetalInstance::~MetalInstance()
     {
         if (metalDevice != nullptr) {
-            [(id<MTLDevice>)metalDevice release];
+            (void)(__bridge_transfer id<MTLDevice>)metalDevice;
             metalDevice = nullptr;
         }
     }
@@ -30,8 +30,7 @@ namespace sky::aurora {
             return false;
         }
 
-        [device retain];
-        metalDevice = device;
+        metalDevice = (__bridge_retained void *)device;
 
         LOG_I(TAG, "Metal instance initialized: %s", [[device name] UTF8String]);
         return true;

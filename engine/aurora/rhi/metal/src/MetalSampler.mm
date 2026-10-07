@@ -18,14 +18,14 @@ namespace sky::aurora {
     MetalSampler::~MetalSampler()
     {
         if (sampler != nullptr) {
-            [(id<MTLSamplerState>)sampler release];
+            (void)(__bridge_transfer id<MTLSamplerState>)sampler;
             sampler = nullptr;
         }
     }
 
     bool MetalSampler::Init(const Descriptor &desc)
     {
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
             LOG_E(TAG, "invalid Metal device for sampler creation");
             return false;
@@ -48,14 +48,13 @@ namespace sky::aurora {
         samplerDesc.maxAnisotropy = anisotropyEnabled ? static_cast<NSUInteger>(desc.maxAnisotropy) : 1U;
 
         auto *nativeSampler = [metalDevice newSamplerStateWithDescriptor:samplerDesc];
-        [samplerDesc release];
 
         if (nativeSampler == nil) {
             LOG_E(TAG, "newSamplerStateWithDescriptor failed");
             return false;
         }
 
-        sampler = nativeSampler;
+        sampler = (__bridge_retained void *)nativeSampler;
         return true;
     }
 

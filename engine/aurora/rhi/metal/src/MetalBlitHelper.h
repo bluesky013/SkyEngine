@@ -40,6 +40,7 @@ namespace sky::aurora {
         void *GetSampler(bool linear);
 
         MetalDevice                         &device;
+        void                                *library        = nullptr; // id<MTLLibrary>, built once
         std::unordered_map<uint64_t, void *> pipelines;                // id<MTLRenderPipelineState> by (format, samples)
         void                                *linearSampler  = nullptr; // id<MTLSamplerState>
         void                                *nearestSampler = nullptr; // id<MTLSamplerState>

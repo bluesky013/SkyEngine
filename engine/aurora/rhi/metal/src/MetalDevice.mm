@@ -28,6 +28,20 @@ static const char *TAG = "AuroraMetal";
 
 namespace sky::aurora {
 
+    namespace {
+        // Shared create-then-init pattern for every RHI object this device owns.
+        template <typename T, typename D>
+        T *CreateAndInit(MetalDevice &device, const D &desc)
+        {
+            auto *object = new T(device);
+            if (!object->Init(desc)) {
+                delete object;
+                return nullptr;
+            }
+            return object;
+        }
+    } // namespace
+
     MetalThreadContext::~MetalThreadContext()
     {
         OnDetach();
@@ -36,17 +50,10 @@ namespace sky::aurora {
     void MetalThreadContext::OnAttach(uint32_t threadIndex)
     {
         (void)threadIndex;
-        if (autoReleasePool == nullptr) {
-            autoReleasePool = [[NSAutoreleasePool alloc] init];
-        }
     }
 
     void MetalThreadContext::OnDetach()
     {
-        if (autoReleasePool != nullptr) {
-            [(NSAutoreleasePool *)autoReleasePool drain];
-            autoReleasePool = nullptr;
-        }
     }
 
     MetalDevice::MetalDevice(MetalInstance &inst) : instance(inst)
@@ -59,7 +66,7 @@ namespace sky::aurora {
             q.reset();
         }
         if (metalDevice != nullptr) {
-            [(id<MTLDevice>)metalDevice release];
+            (void)(__bridge_transfer id<MTLDevice>)metalDevice;
             metalDevice = nullptr;
         }
     }
@@ -68,14 +75,13 @@ namespace sky::aurora {
     {
         (void)init;
 
-        auto *device = (id<MTLDevice>)instance.GetNativeDevice();
+        auto *device = (__bridge id<MTLDevice>)instance.GetNativeDevice();
         if (device == nil) {
             LOG_E(TAG, "instance does not provide a Metal device");
             return false;
         }
 
-        [device retain];
-        metalDevice = device;
+        metalDevice = (__bridge_retained void *)device;
         blitHelper  = std::make_unique<MetalBlitHelper>(*this);
 
         for (size_t i = 0; i < queues.size(); ++i) {
@@ -107,7 +113,7 @@ namespace sky::aurora {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
 
-        auto *mtlDevice  = (id<MTLDevice>)metalDevice;
+        auto *mtlDevice  = (__bridge id<MTLDevice>)metalDevice;
         capability.isUMA = mtlDevice != nil && [mtlDevice hasUnifiedMemory];
         // Metal guarantees 256-byte alignment for constant buffer offsets on
         // macOS; there is no MTLDevice query for it
@@ -129,7 +135,7 @@ namespace sky::aurora {
 
     std::string MetalDevice::GetDeviceInfo() const
     {
-        auto *device = (id<MTLDevice>)metalDevice;
+        auto *device = (__bridge id<MTLDevice>)metalDevice;
         if (device == nil) {
             return "Metal";
         }
@@ -168,62 +174,32 @@ namespace sky::aurora {
 
     Fence *MetalDevice::CreateFence(const Fence::Descriptor &desc)
     {
-        auto *fence = new MetalFence(*this);
-        if (!fence->Init(desc)) {
-            delete fence;
-            return nullptr;
-        }
-        return fence;
+        return CreateAndInit<MetalFence>(*this, desc);
     }
 
     Semaphore *MetalDevice::CreateSema(const Semaphore::Descriptor &desc)
     {
-        auto *semaphore = new MetalSemaphore(*this);
-        if (!semaphore->Init(desc)) {
-            delete semaphore;
-            return nullptr;
-        }
-        return semaphore;
+        return CreateAndInit<MetalSemaphore>(*this, desc);
     }
 
     Buffer *MetalDevice::CreateBuffer(const Buffer::Descriptor &desc)
     {
-        auto *buffer = new MetalBuffer(*this);
-        if (!buffer->Init(desc)) {
-            delete buffer;
-            return nullptr;
-        }
-        return buffer;
+        return CreateAndInit<MetalBuffer>(*this, desc);
     }
 
     Image *MetalDevice::CreateImage(const Image::Descriptor &desc)
     {
-        auto *image = new MetalImage(*this);
-        if (!image->Init(desc)) {
-            delete image;
-            return nullptr;
-        }
-        return image;
+        return CreateAndInit<MetalImage>(*this, desc);
     }
 
     Sampler *MetalDevice::CreateSampler(const Sampler::Descriptor &desc)
     {
-        auto *sampler = new MetalSampler(*this);
-        if (!sampler->Init(desc)) {
-            delete sampler;
-            return nullptr;
-        }
-        return sampler;
+        return CreateAndInit<MetalSampler>(*this, desc);
     }
 
     ResourceGroup *MetalDevice::CreateResourceGroup(const ResourceGroup::Descriptor &desc)
     {
-        auto *group = new MetalResourceGroup(*this);
-        if (!group->Init(desc)) {
-            delete group;
-            return nullptr;
-        }
-        return group;
+        return CreateAndInit<MetalResourceGroup>(*this, desc);
     }
 
     DescriptorBatch *MetalDevice::CreateDescriptorBatch()
@@ -233,52 +209,27 @@ namespace sky::aurora {
 
     SwapChain *MetalDevice::CreateSwapChain(const SwapChain::Descriptor &desc)
     {
-        auto *swapChain = new MetalSwapChain(*this);
-        if (!swapChain->Init(desc)) {
-            delete swapChain;
-            return nullptr;
-        }
-        return swapChain;
+        return CreateAndInit<MetalSwapChain>(*this, desc);
     }
 
     ShaderFunction *MetalDevice::CreateShaderFunction(const ShaderFunction::Descriptor &desc)
     {
-        auto *function = new MetalShaderFunction(*this);
-        if (!function->Init(desc)) {
-            delete function;
-            return nullptr;
-        }
-        return function;
+        return CreateAndInit<MetalShaderFunction>(*this, desc);
     }
 
     Shader *MetalDevice::CreateShader(const Shader::Descriptor &desc)
     {
-        auto *shader = new MetalShader(*this);
-        if (!shader->Init(desc)) {
-            delete shader;
-            return nullptr;
-        }
-        return shader;
+        return CreateAndInit<MetalShader>(*this, desc);
     }
 
     GraphicsPipeline *MetalDevice::CreatePipelineState(const GraphicsPipeline::Descriptor &desc)
     {
-        auto *pipeline = new MetalGraphicsPipeline(*this);
-        if (!pipeline->Init(desc)) {
-            delete pipeline;
-            return nullptr;
-        }
-        return pipeline;
+        return CreateAndInit<MetalGraphicsPipeline>(*this, desc);
     }
 
     ComputePipeline *MetalDevice::CreatePipelineState(const ComputePipeline::Descriptor &desc)
     {
-        auto *pipeline = new MetalComputePipeline(*this);
-        if (!pipeline->Init(desc)) {
-            delete pipeline;
-            return nullptr;
-        }
-        return pipeline;
+        return CreateAndInit<MetalComputePipeline>(*this, desc);
     }
 
     PixelFormatFeatureFlags MetalDevice::GetFormatFeatureFlags(PixelFormat format) const

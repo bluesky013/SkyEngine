@@ -32,20 +32,18 @@ namespace sky::aurora {
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline()
-    {
-        if (depthStencilState != nullptr) {
-            [(id<MTLDepthStencilState>)depthStencilState release];
+    {if (depthStencilState != nullptr) {
+            (void)(__bridge_transfer id<MTLDepthStencilState>)depthStencilState;
             depthStencilState = nullptr;
-        }
-        if (pipeline != nullptr) {
-            [(id<MTLRenderPipelineState>)pipeline release];
+        }if (pipeline != nullptr) {
+            (void)(__bridge_transfer id<MTLRenderPipelineState>)pipeline;
             pipeline = nullptr;
         }
     }
 
     bool MetalGraphicsPipeline::Init(const Descriptor &desc)
     {
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         auto *shader      = desc.shader != nullptr ? static_cast<MetalShader *>(desc.shader) : nullptr;
         if (metalDevice == nil || shader == nullptr || shader->GetVertexFunction() == nullptr) {
             LOG_E(TAG, "graphics pipeline requires a valid Metal device and vertex shader");
@@ -53,9 +51,9 @@ namespace sky::aurora {
         }
 
         auto *pipelineDesc          = [[MTLRenderPipelineDescriptor alloc] init];
-        pipelineDesc.vertexFunction = (id<MTLFunction>)shader->GetVertexFunction()->GetNativeHandle();
+        pipelineDesc.vertexFunction = (__bridge id<MTLFunction>)shader->GetVertexFunction()->GetNativeHandle();
         pipelineDesc.fragmentFunction =
-            shader->GetFragmentFunction() != nullptr ? (id<MTLFunction>)shader->GetFragmentFunction()->GetNativeHandle() : nil;
+            shader->GetFragmentFunction() != nullptr ? (__bridge id<MTLFunction>)shader->GetFragmentFunction()->GetNativeHandle() : nil;
         pipelineDesc.inputPrimitiveTopology =
             ToMetalPrimitiveTopology(desc.state != nullptr ? desc.state->inputAssembly.topology : PrimitiveTopology::TRIANGLE_LIST);
 
@@ -97,7 +95,6 @@ namespace sky::aurora {
             if (shader->GetBufferSlotCount() > METAL_VERTEX_BUFFER_SLOT_BASE) {
                 LOG_E(TAG, "shader uses %u buffer slots, exceeds the %u slots reserved below vertex buffers", shader->GetBufferSlotCount(),
                       METAL_VERTEX_BUFFER_SLOT_BASE);
-                [pipelineDesc release];
                 return false;
             }
 
@@ -117,12 +114,10 @@ namespace sky::aurora {
                 attribute.bufferIndex = METAL_VERTEX_BUFFER_SLOT_BASE + attr.binding;
             }
             pipelineDesc.vertexDescriptor = vertexDesc;
-            [vertexDesc release];
         }
 
         NSError *error          = nil;
         auto    *nativePipeline = [metalDevice newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
-        [pipelineDesc release];
         if (nativePipeline == nil) {
             const char *message = error != nil ? [[error localizedDescription] UTF8String] : "unknown";
             LOG_E(TAG, "newRenderPipelineStateWithDescriptor failed: %s", message);
@@ -140,14 +135,10 @@ namespace sky::aurora {
                 dsDesc.frontFaceStencil = ToMetalStencilDescriptor(ds.front);
                 dsDesc.backFaceStencil  = ToMetalStencilDescriptor(ds.back);
                 // MTLDepthStencilDescriptor copies the stencil descriptors
-                [dsDesc.frontFaceStencil release];
-                [dsDesc.backFaceStencil release];
             }
             auto *dsState = [metalDevice newDepthStencilStateWithDescriptor:dsDesc];
-            [dsDesc release];
             if (dsState == nil) {
                 LOG_E(TAG, "newDepthStencilStateWithDescriptor failed");
-                [nativePipeline release];
                 return false;
             }
             depthStencilState = (__bridge_retained void *)dsState;
@@ -167,7 +158,7 @@ namespace sky::aurora {
         }
 
         shader   = static_cast<MetalShader *>(desc.shader);
-        pipeline = nativePipeline;
+        pipeline = (__bridge_retained void *)nativePipeline;
         return true;
     }
 
@@ -178,14 +169,14 @@ namespace sky::aurora {
     MetalComputePipeline::~MetalComputePipeline()
     {
         if (pipeline != nullptr) {
-            [(id<MTLComputePipelineState>)pipeline release];
+            (void)(__bridge_transfer id<MTLComputePipelineState>)pipeline;
             pipeline = nullptr;
         }
     }
 
     bool MetalComputePipeline::Init(const Descriptor &desc)
     {
-        auto *metalDevice = (id<MTLDevice>)device.GetNativeDevice();
+        auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         auto *shader      = desc.cs != nullptr ? static_cast<MetalShader *>(desc.cs) : nullptr;
         if (metalDevice == nil || shader == nullptr || shader->GetComputeFunction() == nullptr) {
             LOG_E(TAG, "compute pipeline requires a valid compute shader");
@@ -193,7 +184,7 @@ namespace sky::aurora {
         }
 
         NSError *error          = nil;
-        auto    *nativePipeline = [metalDevice newComputePipelineStateWithFunction:(id<MTLFunction>)shader->GetComputeFunction()->GetNativeHandle()
+        auto    *nativePipeline = [metalDevice newComputePipelineStateWithFunction:(__bridge id<MTLFunction>)shader->GetComputeFunction()->GetNativeHandle()
                                                                           error:&error];
         if (nativePipeline == nil) {
             const char *message = error != nil ? [[error localizedDescription] UTF8String] : "unknown";
@@ -213,7 +204,7 @@ namespace sky::aurora {
         }
 
         this->shader = shader;
-        pipeline     = nativePipeline;
+        pipeline     = (__bridge_retained void *)nativePipeline;
         return true;
     }
 
