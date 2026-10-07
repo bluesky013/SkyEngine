@@ -34,6 +34,9 @@ Markdown, and grounded in the current repository state.
 
 - [Asset Pipeline](features/asset-pipeline.md) - source identities, the mounted source namespace, product bundles,
   loading, on-demand cook, cook configuration and the dependency graph.
+- [Cross-Platform Determinism](features/cross-platform-determinism.md) - constraints for bit-identical results
+  across platforms: fixed-width integers, byte/char handling, endianness, floating point, ordering, and the
+  `SKY_DETERMINISTIC_FP` build option.
 - [World Subsystems](features/world-subsystems.md) - the declarative world subsystem registry, `WorldDesc`,
   JSON persistence, and the editor world-config surface.
 
