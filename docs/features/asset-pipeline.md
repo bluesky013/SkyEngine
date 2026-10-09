@@ -2,7 +2,7 @@
 title: "Asset Pipeline"
 description: "Source identities, the mounted source namespace, product bundles, loading, cook configuration and the dependency graph."
 module: "framework"
-updated: "2026-10-02"
+updated: "2026-10-09"
 ---
 
 ## Overview
@@ -117,6 +117,28 @@ in-process cooking, so a cook never occupies a loader worker. `Asset::AsyncTask`
 - `DuplicateAsset(from, to)` copies the file and assigns a new UUID.
 - `RemoveAsset(id)` removes the file's manifest entry and identity; products are reclaimed by a later build.
 
+## Source identity and legacy migration
+
+Source identity lives in the per-directory **manifest** (`assets.jsonl`, JSON Lines `{"file","id"[,"cook"]}`,
+sorted, committed). `assets.db` is a regenerable dev cache and an optional cross-check, never the source of truth.
+
+Because the old identity was derived from `(bundle, path)`, the migration **reproduces the legacy UUID exactly**:
+
+```cpp
+// legacy: Uuid::CreateWithSeed(HashCombine32(bundle, Fnv1a32(path)))
+// legacy SourceAssetBundle ordinals: INVALID=0, ENGINE=1, WORKSPACE=2
+uint32_t hash = 0;
+HashCombine32(hash, bundle);          // mount -> legacy role (engine -> ENGINE, else WORKSPACE)
+HashCombine32(hash, Fnv1a32(path));
+uuid = Uuid::CreateWithSeed(hash);
+```
+
+- `AssetDataBase::MigrateLegacyIdentity()` scans every mount (builder-known extensions **plus `.world`**) and seeds
+  each directory manifest with the legacy UUID. Existing manifest entries and `assets.db` rows win, so it is
+  **idempotent**; only directories containing assets get a manifest.
+- Entry point: `AssetTool --project <dir> --engine <dir> --migrate` (one-shot, then exits).
+- **Rollback**: delete the manifests; path-derived identity (`CalculateUuidByPath`) resumes.
+
 ## Key types
 
 | Type | Role |
@@ -131,7 +153,7 @@ in-process cooking, so a cook never occupies a loader worker. `Asset::AsyncTask`
 
 ## Limitations
 
-- `assets.db` is rebuilt by scanning the writable source mount for builder-known extensions; the engine mount is
-  covered by migration (not the scan).
-- Out-of-process cooking, the `AssetTool` (frontend asset browser + background batch-cook worker) and single-file
-  packaging are follow-ups.
+- `assets.db` is rebuilt by scanning every mount for builder-known extensions plus `.world`; engine assets
+  without a committed manifest fall back to path-derived identity.
+- Out-of-process cooking is wired (the `AssetTool` background worker) and the asset-browser frontend triggers cooks,
+  including batch (`Cook All Sources`). Single-file packaging remains a follow-up.

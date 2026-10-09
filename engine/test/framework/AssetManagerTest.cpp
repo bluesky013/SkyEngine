@@ -8,6 +8,7 @@
 #include <framework/asset/AssetManager.h>
 #include <gtest/gtest.h>
 
+#include <core/hash/Hash.h>
 #include <framework/asset/AssetIndexFile.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/asset/CookConfig.h>
@@ -437,6 +438,46 @@ TEST_F(AssetManagerTest, MountProvenanceTest)
 
     fs::remove_all(engRoot);
     fs::remove_all(projRoot);
+}
+
+TEST_F(AssetManagerTest, MigrateLegacyIdentityTest)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path root = "migrate_tmp";
+    fs::remove_all(root);
+    fs::create_directories(root / "assets" / "framework" / "data");
+    {
+        std::ofstream out(root / "assets" / "framework" / "data" / "m.t3");
+        out << "{}";
+    }
+
+    auto *db = AssetDataBase::Get();
+    db->Reset();
+    db->SetWorkSpaceFs((new NativeFileSystem(root.string()))->CreateSubSystem("assets", true));
+
+    // Migration seeds the legacy (bundle, path) UUID reproduced via the mount->legacy bundle mapping.
+    db->MigrateLegacyIdentity();
+
+    auto src = db->FindAsset(FilePath("framework/data/m.t3"));
+    ASSERT_NE(src, nullptr);
+
+    uint32_t hash = 0;
+    HashCombine32(hash, 2u); // legacy SourceAssetBundle::WORKSPACE ordinal
+    HashCombine32(hash, Fnv1a32(src->path.GetStr()));
+    EXPECT_TRUE(src->uuid == Uuid::CreateWithSeed(hash));
+
+    // Idempotent: re-running the migration keeps the same identity.
+    db->MigrateLegacyIdentity();
+    EXPECT_TRUE(db->FindAsset(FilePath("framework/data/m.t3"))->uuid == src->uuid);
+
+    // Restore the suite fixture's mounts for the remaining tests.
+    db->Reset();
+    NativeFileSystemPtr fixtureProjectFs = new NativeFileSystem(PROJECT_ROOT);
+    db->SetEngineFs(new NativeFileSystem(ENGINE_ROOT));
+    db->SetWorkSpaceFs(fixtureProjectFs->CreateSubSystem("assets", true));
+
+    fs::remove_all(root);
 }
 
 TEST_F(AssetManagerTest, BuilderSettingsTest)

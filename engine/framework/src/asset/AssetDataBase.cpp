@@ -78,6 +78,27 @@ namespace sky {
         return Uuid::CreateWithSeed(Fnv1a32(path.GetStr()));
     }
 
+    Uuid AssetDataBase::CalculateLegacyUuid(const FilePath &path) const
+    {
+        // Reproduce the legacy identity: Uuid::CreateWithSeed(HashCombine32(bundle, Fnv1a32(path))).
+        // Legacy SourceAssetBundle ordinals: INVALID=0, ENGINE=1, WORKSPACE=2; map the mount role.
+        const int      index  = FindMountIndex(path);
+        const uint32_t bundle = (index >= 0 && mountInfos[index].id == "engine") ? 1u : 2u; // ENGINE : WORKSPACE
+        uint32_t       hash   = 0;
+        HashCombine32(hash, bundle);
+        HashCombine32(hash, Fnv1a32(path.GetStr()));
+        return Uuid::CreateWithSeed(hash);
+    }
+
+    void AssetDataBase::MigrateLegacyIdentity()
+    {
+        // Seed legacy `(bundle, path)` UUIDs into every source manifest. Existing entries and any
+        // `assets.db` rows win (idempotent); only directories containing assets get a manifest.
+        migrationMode = true;
+        RebuildCacheFromScan();
+        migrationMode = false;
+    }
+
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
     {
         std::lock_guard lock(assetMutex);
@@ -251,10 +272,12 @@ namespace sky {
             const auto  fileName = path.FileName();
             const auto *entry    = manifests.Get(fs, dir).Find(fileName);
 
-            // Prefer the manifest UUID; a read-only mount without a manifest keeps stable
-            // path-derived identity (never written), so re-scans are reproducible.
-            const Uuid uuid = entry != nullptr ? entry->id : (readOnly ? CalculateUuidByPath(path) : Uuid::Create());
-            auto       ext  = path.Extension();
+            // Prefer the manifest UUID; during migration seed the legacy (bundle, path) UUID; otherwise
+            // a read-only mount without a manifest keeps stable path-derived identity, and a writable
+            // mount assigns a fresh UUID on first registration.
+            const Uuid uuid =
+                entry != nullptr ? entry->id : (migrationMode ? CalculateLegacyUuid(path) : (readOnly ? CalculateUuidByPath(path) : Uuid::Create()));
+            auto ext = path.Extension();
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
             srcInfo->path          = path;
@@ -268,7 +291,9 @@ namespace sky {
                 pathMap.emplace(path, uuid);
             }
 
-            if (entry == nullptr && !readOnly) {
+            // Write a manifest entry for writable mounts, and for any mount during the migration (the
+            // committed engine tree manifests are produced by migration).
+            if (entry == nullptr && (migrationMode || !readOnly)) {
                 EnsureManifestEntry(fs, path, uuid);
             }
         }
@@ -543,7 +568,8 @@ namespace sky {
     {
         // Discover sources across every mount in order (earlier mounts shadow later ones), with one
         // recursive walk per mount testing builder-known extensions in the visitor. Read-only mounts
-        // keep path-derived identity and are not written to.
+        // keep path-derived identity and are not written to (except during the legacy migration, which
+        // seeds the committed engine manifests).
         //
         // World documents (`.world`) are source assets too: they have no builder (never cooked), but they
         // get manifest identity like any other source so document/world references stay stable.

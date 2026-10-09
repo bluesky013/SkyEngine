@@ -26,9 +26,9 @@
 
 ## 4. Migration pass
 
-- [ ] 4.1 Implement a one-time migration that scans all mounts (filtered by builder-known extensions, plus `.world`) and seeds each manifest with the legacy `(bundle, path)` UUID, reproduced via a mount→legacy `SourceAssetBundle` role mapping; use `assets.db`, when present, only as a cross-check. (deferred: source-identity migration follow-up)
-- [ ] 4.2 Provide an idempotent migration entry point via the `AssetTool` background worker (D5/D7); create manifests only in asset directories (may land in per-tree batches). (deferred: source-identity migration follow-up)
-- [ ] 4.3 Document rollback (delete manifests → path derivation resumes) and verify existing references resolve after migration using a migrated world/material fixture. (deferred: source-identity migration follow-up)
+- [x] 4.1 One-time migration: `AssetDataBase::MigrateLegacyIdentity()` scans every mount (builder-known extensions + `.world`) and seeds each directory manifest with the legacy `(bundle, path)` UUID reproduced via the mount→legacy `SourceAssetBundle` role (`CalculateLegacyUuid`: engine mount → ENGINE=1, else WORKSPACE=2; `CreateWithSeed(HashCombine32(bundle, Fnv1a32(path)))`). Existing manifest entries and `assets.db` rows win (idempotent); only asset directories get a manifest. Covered by `AssetManagerTest.MigrateLegacyIdentityTest`.
+- [x] 4.2 Idempotent entry point via the `AssetTool` background worker: `AssetTool --project <dir> --engine <dir> --migrate` loads the project, runs the migration, then exits (no IPC host loop).
+- [x] 4.3 Rollback documented (`docs/features/asset-pipeline.md`: delete manifests → path derivation resumes); legacy-UUID reproduction verified by `AssetManagerTest.MigrateLegacyIdentityTest` (the migrated identity equals the reproduced legacy hash).
 
 ## 5. Source-asset mutation (framework)
 

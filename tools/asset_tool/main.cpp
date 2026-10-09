@@ -4,13 +4,13 @@
 
 #include "CookWorkerHost.h"
 
+#include <core/cmdline/CmdParser.h>
+#include <core/logger/Logger.h>
 #include <framework/application/Application.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
-#include <core/cmdline/CmdParser.h>
-#include <core/logger/Logger.h>
 
 #include <cstdio>
 #include <string>
@@ -24,16 +24,21 @@ namespace {
     // Headless worker application: replicates the editor's asset bootstrap (mounts,
     // source catalog, builder filesystems) and loads the builder modules (D10).
     class WorkerApplication : public Application {
+    public:
+        // True when invoked as a one-shot identity migration (no IPC host loop).
+        bool MigrateRequested() const
+        {
+            return migrate;
+        }
+
     protected:
         void ParseStartArgs() override
         {
             CmdOptions options("AssetTool", "SkyEngine asset cook worker");
             options.allow_unrecognised_options();
-            options.add_options()
-                ("p,project", "Project Directory", CmdValue<std::string>())
-                ("e,engine", "Engine Directory", CmdValue<std::string>())
-                ("i,intermediate", "Intermediate Directory", CmdValue<std::string>())
-                ("h,help", "Print usage");
+            options.add_options()("p,project", "Project Directory", CmdValue<std::string>())("e,engine", "Engine Directory", CmdValue<std::string>())(
+                "i,intermediate", "Intermediate Directory", CmdValue<std::string>())(
+                "m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")("h,help", "Print usage");
 
             auto result = options.parse(static_cast<int32_t>(arguments.args.size()), arguments.args.data());
             if (result.count("project") != 0u) {
@@ -45,6 +50,7 @@ namespace {
             if (result.count("intermediate") != 0u) {
                 intermediatePath = result["intermediate"].as<std::string>();
             }
+            migrate = result.count("migrate") != 0u;
         }
 
         bool LoadConfigs() override
@@ -68,7 +74,7 @@ namespace {
 
             const std::string intermediate = intermediatePath.empty() ? (projectPath + "/Intermediate") : intermediatePath;
 
-            auto workFs = new NativeFileSystem(projectPath);
+            auto workFs   = new NativeFileSystem(projectPath);
             auto engineFs = new NativeFileSystem(enginePath);
 
             AssetManager::Get()->SetWorkFileSystem(workFs);
@@ -92,6 +98,7 @@ namespace {
         std::string projectPath;
         std::string enginePath;
         std::string intermediatePath;
+        bool        migrate = false;
     };
 
 } // namespace
@@ -113,6 +120,13 @@ int main(int argc, char **argv)
 
     // Populate the source catalog (needs builders registered by the modules above).
     AssetDataBase::Get()->Load();
+
+    // One-shot identity migration (`--migrate`): seed legacy UUIDs, then exit (no IPC host loop).
+    if (app.MigrateRequested()) {
+        AssetDataBase::Get()->MigrateLegacyIdentity();
+        LOG_I(TAG, "legacy identity migration complete");
+        return 0;
+    }
 
     CookWorkerHost host;
     return host.Run() ? 0 : -1;
