@@ -7,8 +7,6 @@
 #include <core/logger/Logger.h>
 
 #include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
 
 static const char *TAG = "CookConfig";
 
@@ -16,12 +14,39 @@ namespace sky {
 
     namespace {
 
-        std::string ValueToString(const rapidjson::Value &value)
+        // Scalar -> string for the cook override transport. Returns false for non-scalars
+        // (objects/arrays/null), which are ignored.
+        bool ScalarToString(const rapidjson::Value &value, std::string &out)
         {
-            rapidjson::StringBuffer buffer;
-            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-            value.Accept(writer);
-            return std::string(buffer.GetString(), buffer.GetSize());
+            if (value.IsBool()) {
+                out = value.GetBool() ? "true" : "false";
+                return true;
+            }
+            if (value.IsInt()) {
+                out = std::to_string(value.GetInt());
+                return true;
+            }
+            if (value.IsUint()) {
+                out = std::to_string(value.GetUint());
+                return true;
+            }
+            if (value.IsInt64()) {
+                out = std::to_string(value.GetInt64());
+                return true;
+            }
+            if (value.IsUint64()) {
+                out = std::to_string(value.GetUint64());
+                return true;
+            }
+            if (value.IsDouble()) {
+                out = std::to_string(value.GetDouble());
+                return true;
+            }
+            if (value.IsString()) {
+                out = value.GetString();
+                return true;
+            }
+            return false;
         }
 
         std::vector<std::string> ParseAssetTargets(const std::string &assetCookJson)
@@ -66,7 +91,7 @@ namespace sky {
             const auto &cook = doc["cook"];
             if (cook.HasMember("mode") && cook["mode"].IsString()) {
                 const std::string name = cook["mode"].GetString();
-                mode = (name == "out-of-process") ? CookMode::OutOfProcess : CookMode::InProcess;
+                mode                   = (name == "out-of-process") ? CookMode::OutOfProcess : CookMode::InProcess;
             }
             if (cook.HasMember("worker") && cook["worker"].IsObject()) {
                 const auto &worker = cook["worker"];
@@ -97,14 +122,6 @@ namespace sky {
                 if (iter->value.HasMember("bundle") && iter->value["bundle"].IsString()) {
                     target.bundle = iter->value["bundle"].GetString();
                 }
-
-                rapidjson::Document copy;
-                copy.CopyFrom(iter->value, copy.GetAllocator());
-                if (copy.HasMember("bundle")) {
-                    copy.RemoveMember("bundle");
-                }
-                target.settings = ValueToString(copy);
-
                 targets[iter->name.GetString()] = std::move(target);
             }
         }
@@ -164,10 +181,52 @@ namespace sky {
 
     std::vector<std::string> CookConfig::GetTargets(const std::string &assetCookJson) const
     {
+        return GetTargets(assetCookJson, activePlatform);
+    }
+
+    std::vector<std::string> CookConfig::GetTargets(const std::string &assetCookJson, const std::string &platform) const
+    {
         auto result = ParseAssetTargets(assetCookJson);
         if (result.empty()) {
             for (const auto &[name, target] : targets) {
                 result.push_back(name);
+            }
+        }
+        if (result.empty()) {
+            // No asset/project targets: fall back to the platform's preset product bundles.
+            result = GetPresetBundles(platform);
+        }
+        return result;
+    }
+
+    std::string CookConfig::ResolveBundleForTarget(const std::string &target) const
+    {
+        const CookTarget *found = FindTarget(target);
+        return found != nullptr ? found->bundle : target;
+    }
+
+    std::map<std::string, std::string> CookConfig::GetTargetSettings(const std::string &assetCookJson, const std::string &target) const
+    {
+        std::map<std::string, std::string> result;
+        if (assetCookJson.empty() || target.empty()) {
+            return result;
+        }
+
+        rapidjson::Document cook;
+        cook.Parse<rapidjson::kParseCommentsFlag>(assetCookJson.c_str(), assetCookJson.size());
+        if (cook.HasParseError() || !cook.IsObject() || !cook.HasMember("settings") || !cook["settings"].IsObject()) {
+            return result;
+        }
+
+        const auto &settings = cook["settings"];
+        if (!settings.HasMember(target.c_str()) || !settings[target.c_str()].IsObject()) {
+            return result;
+        }
+
+        for (auto iter = settings[target.c_str()].MemberBegin(); iter != settings[target.c_str()].MemberEnd(); ++iter) {
+            std::string value;
+            if (iter->name.IsString() && ScalarToString(iter->value, value)) {
+                result[iter->name.GetString()] = std::move(value);
             }
         }
         return result;

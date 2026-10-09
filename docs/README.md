@@ -1,13 +1,18 @@
 ---
 title: "SkyEngine Documentation"
 description: "Index of SkyEngine technical documentation."
-updated: "2026-10-07"
+updated: "2026-10-09"
 ---
 
 ## SkyEngine Documentation
 
 Technical documentation for engine contributors and technical users. All documents are written in English, in
 Markdown, and grounded in the current repository state.
+
+### Architecture
+
+- [Multi-Platform Support](architecture/platform-support.md) - per-OS status of window/input/filesystem/process
+  backends and RHI, with open TODOs and build caveats.
 
 ### Modules
 

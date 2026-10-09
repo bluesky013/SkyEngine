@@ -6,8 +6,7 @@
 
 #pragma once
 
-#include <aurora/cook/image/ImageProcess.h>
-#include <aurora/rhi/Core.h>
+#include <aurora/cook/image/ImageTypes.h>
 #include <framework/serialization/JsonArchive.h>
 
 #include <cstdint>
@@ -23,19 +22,25 @@ namespace sky::aurora::cook {
     };
 
     struct ImageBuildConfig {
-        ImageEncode encode    = ImageEncode::NONE;
-        bool        srgb      = true;
-        Quality     quality   = Quality::FAST;
-        uint32_t    astcBlock = 4;      // 4 or 8
-        uint32_t    maxSize   = 0;      // 0 == unlimited
+        ImageEncode encode      = ImageEncode::NONE;
+        bool        srgb        = true;
+        Quality     quality     = Quality::FAST;
+        uint32_t    astcBlock   = 4; // 4 or 8
+        uint32_t    maxSize     = 0; // 0 == unlimited
         bool        generateMip = true;
 
-        PixelFormat ResolveFormat() const;
-        bool        IsCompressed() const { return encode != ImageEncode::NONE; }
+        bool IsCompressed() const
+        {
+            return encode != ImageEncode::NONE;
+        }
+
+        // Overlay a sparse per-asset override (keys: encode/srgb/quality/block/maxSize/generateMip).
+        // Unknown keys and unparsable values are ignored, keeping the preset value.
+        void ApplyOverride(const std::map<std::string, std::string> &override);
     };
 
     struct ImageBuildPresets {
-        std::string                            defaultBundle;
+        std::string                             defaultBundle;
         std::map<std::string, ImageBuildConfig> bundles;
 
         void LoadJson(JsonInputArchive &json);

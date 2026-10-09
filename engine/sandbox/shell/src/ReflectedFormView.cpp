@@ -196,9 +196,9 @@ namespace sky::editor {
         Refresh();
     }
 
-    void ReflectedFormView::Bind(const PropertyObject &object)
+    void ReflectedFormView::Bind(const PropertyObject &object, const PropertyObject *baseline)
     {
-        form.Build(object, *registry);
+        form.Build(object, *registry, baseline);
         MarkPaintDirty();
     }
 
@@ -206,6 +206,13 @@ namespace sky::editor {
     {
         form.Rebuild();
         MarkPaintDirty();
+    }
+
+    sky::ui::UIRect ReflectedFormView::ContentRect() const
+    {
+        const sky::ui::UIRect bounds  = GetBounds();
+        const float           headerH = headerVisible ? skin.Theme().metrics.headerHeight : 0.0f;
+        return {bounds.left, bounds.top + headerH, bounds.right, bounds.bottom};
     }
 
     void ReflectedFormView::OnPaint(sky::ui::UIPaintContext &context)
@@ -216,10 +223,13 @@ namespace sky::editor {
         const UiTheme        &th     = skin.Theme();
         const sky::ui::UIRect bounds = GetBounds();
         uc::RoundedField(context, bounds, th.colors.panel, th.colors.borderSoft, th.metrics.panelRadius);
-        DrawHeader(context, bounds);
+        if (headerVisible) {
+            DrawHeader(context, bounds);
+        }
         BuildRows();
 
-        const sky::ui::UIRect content{bounds.left, bounds.top + th.metrics.headerHeight, bounds.right, bounds.bottom};
+        const float           headerH = headerVisible ? th.metrics.headerHeight : 0.0f;
+        const sky::ui::UIRect content = ContentRect();
         context.PushClip(content);
         float y = content.top + 4.0f - scroll;
         for (auto &section : form.GetSections()) {
@@ -228,10 +238,23 @@ namespace sky::editor {
         contentHeight = (y + scroll) - content.top + 8.0f;
         context.PopClip();
 
-        skin.DrawScrollbar(context, content, contentHeight, scroll);
+        const uint32_t thumbColor = (scrollDrag || hoverScroll) ? uc::color::Text : th.colors.scrollBar;
+        uc::ScrollBar(context, content, contentHeight, scroll, thumbColor);
         if (ReflectedWidget *popup = ReflectedWidgetRegistry::Get().FindWithPopup(); popup != nullptr) {
             popup->PaintPopup(*this, context);
         }
+    }
+
+    float ReflectedFormView::GetPreferredHeight()
+    {
+        BuildRows();
+        const float headerH = headerVisible ? skin.Theme().metrics.headerHeight : 0.0f;
+        return headerH + contentHeight + 12.0f;
+    }
+
+    bool ReflectedFormView::WantsPointerCapture() const
+    {
+        return ReflectedWidgetRegistry::Get().FindWithPopup() != nullptr;
     }
 
     sky::ui::UIEventResult ReflectedFormView::OnPointerEvent(const sky::ui::UIPointerEvent &event)
@@ -241,10 +264,59 @@ namespace sky::editor {
             return popup->OnPopupPointer(*this, event) ? sky::ui::UIEventResult::HANDLED : sky::ui::UIEventResult::UNHANDLED;
         }
 
+        // Generic scrollbar: hover + drag (shared by every reflected form).
+        {
+            const sky::ui::UIRect track  = ContentRect();
+            const bool            hasBar = contentHeight > track.Height() && track.Height() > 0.0f;
+            const bool  onBar = hasBar && event.x >= track.right - 10.0f && event.x <= track.right && event.y >= track.top && event.y <= track.bottom;
+            const float ratio = hasBar ? std::clamp(track.Height() / contentHeight, 0.08f, 1.0f) : 1.0f;
+            const float thumbH    = track.Height() * ratio;
+            const float maxScroll = std::max(0.0f, contentHeight - track.Height());
+
+            if (event.action == sky::ui::UIPointerAction::MOVE) {
+                if (scrollDrag) {
+                    const float denom = std::max(1.0f, track.Height() - thumbH);
+                    const float t     = std::clamp((event.y - track.top - scrollDragOffset) / denom, 0.0f, 1.0f);
+                    scroll            = t * maxScroll;
+                    MarkPaintDirty();
+                    return sky::ui::UIEventResult::HANDLED;
+                }
+                if (onBar != hoverScroll) {
+                    hoverScroll = onBar;
+                    MarkPaintDirty();
+                }
+                if (onBar) {
+                    return sky::ui::UIEventResult::HANDLED;
+                }
+            } else if (event.action == sky::ui::UIPointerAction::DOWN && onBar) {
+                const float t0  = maxScroll > 0.0f ? std::clamp(scroll / maxScroll, 0.0f, 1.0f) : 0.0f;
+                const float top = track.top + (track.Height() - thumbH) * t0;
+                if (event.y >= top && event.y <= top + thumbH) {
+                    scrollDragOffset = event.y - top;
+                } else {
+                    scrollDragOffset  = thumbH * 0.5f; // clicking the track jumps the thumb to the cursor
+                    const float denom = std::max(1.0f, track.Height() - thumbH);
+                    scroll            = std::clamp((event.y - track.top - scrollDragOffset) / denom, 0.0f, 1.0f) * maxScroll;
+                }
+                scrollDrag = true;
+                MarkPaintDirty();
+                return sky::ui::UIEventResult::HANDLED;
+            } else if (event.action == sky::ui::UIPointerAction::UP && scrollDrag) {
+                scrollDrag = false;
+                MarkPaintDirty();
+                return sky::ui::UIEventResult::HANDLED;
+            }
+        }
+
         if (event.action == sky::ui::UIPointerAction::WHEEL) {
-            const UiMetrics &m     = skin.Theme().metrics;
-            const float      viewH = std::max(0.0f, GetBounds().bottom - GetBounds().top - m.headerHeight);
-            scroll                 = std::clamp(scroll - event.wheelDelta * 0.6f, 0.0f, std::max(0.0f, contentHeight - viewH));
+            const UiMetrics &m         = skin.Theme().metrics;
+            const float      headerH   = headerVisible ? m.headerHeight : 0.0f;
+            const float      viewH     = std::max(0.0f, GetBounds().bottom - GetBounds().top - headerH);
+            const float      maxScroll = std::max(0.0f, contentHeight - viewH);
+            if (maxScroll <= 0.0f) {
+                return sky::ui::UIEventResult::UNHANDLED; // nothing to scroll: let an ancestor handle it
+            }
+            scroll = std::clamp(scroll - event.wheelDelta * 0.6f, 0.0f, maxScroll);
             MarkPaintDirty();
             return sky::ui::UIEventResult::HANDLED;
         }
@@ -422,8 +494,9 @@ namespace sky::editor {
         layoutRight                  = bounds.right - m.padX - m.scrollBarWidth;
         labelWidth                   = std::min(240.0f, (layoutRight - layoutLeft) * 0.42f);
 
-        float y   = bounds.top + m.headerHeight + 4.0f - scroll;
-        bool  alt = false;
+        const float headerH = headerVisible ? m.headerHeight : 0.0f;
+        float       y       = bounds.top + headerH + 4.0f - scroll;
+        bool        alt     = false;
         for (auto &section : form.GetSections()) {
             y += m.sectionHeight;
             for (auto &field : section.fields) {

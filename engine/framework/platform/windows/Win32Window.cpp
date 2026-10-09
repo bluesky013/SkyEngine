@@ -275,7 +275,12 @@ namespace sky {
             case WM_MOUSEWHEEL: {
                 MouseWheelEvent event = {};
                 event.winID           = winID;
-                event.y               = GET_WHEEL_DELTA_WPARAM(wparam);
+                // lparam is screen-space; convert to client so the UI can hit-test the cursor.
+                POINT cursor = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+                ::ScreenToClient(hwnd, &cursor);
+                event.x     = cursor.x;
+                event.y     = cursor.y;
+                event.delta = GET_WHEEL_DELTA_WPARAM(wparam);
                 Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseWheel, event);
                 break;
             }

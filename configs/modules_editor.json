@@ -1,7 +1,11 @@
 {
   "modules": [
     {
-      "name": "Aurora.ShaderCompiler",
+      "name": "AuroraShaderCompiler",
+      "dependencies": []
+    },
+    {
+      "name": "Aurora.Cook",
       "dependencies": []
     },
     {
@@ -14,18 +18,6 @@
     },
     {
       "name": "RecastNavigation",
-      "dependencies": []
-    },
-    {
-      "name": "BulletPhysicsRenderModule",
-      "dependencies": []
-    },
-    {
-      "name": "TerrainModule",
-      "dependencies": []
-    },
-    {
-      "name": "VegetationModule",
       "dependencies": []
     }
   ]

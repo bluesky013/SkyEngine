@@ -2,26 +2,26 @@
 // Created by blues on 2024/6/21.
 //
 
-
-#include <gtest/gtest.h>
-#include <framework/asset/AssetManager.h>
-#include <framework/asset/AssetDataBase.h>
-#include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetBuilder.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetManager.h>
+#include <gtest/gtest.h>
 
-#include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/CoreReflection.h>
-#include <framework/platform/PlatformBase.h>
-#include <test/EngineRoot.h>
 #include <framework/asset/AssetIndexFile.h>
-#include <framework/asset/CookConfig.h>
 #include <framework/asset/AssetProductBundle.h>
+#include <framework/asset/CookConfig.h>
 #include <framework/asset/CookWorker.h>
 #include <framework/asset/InProcessCookRunner.h>
 #include <framework/compression/Compressor.h>
+#include <framework/platform/PlatformBase.h>
+#include <framework/serialization/CoreReflection.h>
+#include <framework/serialization/SerializationContext.h>
+#include <test/EngineRoot.h>
 
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <span>
 #include <thread>
 
@@ -30,22 +30,25 @@ using namespace sky;
 // Identity codec used to exercise the compressed product path without the CompressionModule.
 class DummyCompressor : public ICompressor {
 public:
-    uint32_t CompressBound(uint32_t inDataSize) override { return inDataSize; }
+    uint32_t CompressBound(uint32_t inDataSize) override
+    {
+        return inDataSize;
+    }
     CompressResult Compress(const std::span<const uint8_t> &inData, const std::span<uint8_t> &out, uint32_t) override
     {
         if (out.size() < inData.size()) {
-            return { false, 0 };
+            return {false, 0};
         }
         std::memcpy(out.data(), inData.data(), inData.size());
-        return { true, static_cast<uint32_t>(inData.size()) };
+        return {true, static_cast<uint32_t>(inData.size())};
     }
     CompressResult DeCompress(const std::span<const uint8_t> &inData, const std::span<uint8_t> &out, uint32_t) override
     {
         if (out.size() < inData.size()) {
-            return { false, 0 };
+            return {false, 0};
         }
         std::memcpy(out.data(), inData.data(), inData.size());
-        return { true, static_cast<uint32_t>(inData.size()) };
+        return {true, static_cast<uint32_t>(inData.size())};
     }
 };
 
@@ -66,14 +69,14 @@ class MultiTargetBuilder : public AssetBuilder {
 public:
     void Request(const AssetBuildRequest &request, AssetBuildResult &result) override
     {
-        auto archive = request.file->ReadAsArchive();
+        auto             archive = request.file->ReadAsArchive();
         JsonInputArchive json(*archive);
         json.Start("val");
         const int v = json.LoadInt();
         json.End();
 
-        auto *am = AssetManager::Get();
-        auto asset = std::static_pointer_cast<Asset<MAggData>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("MAgg")));
+        auto *am        = AssetManager::Get();
+        auto  asset     = std::static_pointer_cast<Asset<MAggData>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("MAgg")));
         asset->Data().v = v;
         am->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
@@ -81,11 +84,29 @@ public:
 
     const std::vector<std::string> &GetExtensions() const override
     {
-        static std::vector<std::string> ext = { ".mt" };
+        static std::vector<std::string> ext = {".mt"};
         return ext;
     }
 
-    std::string_view QueryType(const std::string &) const override { return AssetTraits<MAggData>::ASSET_TYPE; }
+    std::string_view QueryType(const std::string &) const override
+    {
+        return AssetTraits<MAggData>::ASSET_TYPE;
+    }
+};
+
+// Reports a fixed settings description so AssetBuilderManager::GetBuilderSettings can be exercised.
+class SettingsBuilder : public AssetBuilder {
+public:
+    const std::vector<std::string> &GetExtensions() const override
+    {
+        static std::vector<std::string> ext = {".setup"};
+        return ext;
+    }
+
+    std::vector<std::pair<std::string, std::string>> DescribeSettings(const ProductBundleKey &) const override
+    {
+        return {{"encode", "BC7"}, {"srgb", "true"}};
+    }
 };
 
 struct T1Data : public RefObject {
@@ -94,7 +115,7 @@ struct T1Data : public RefObject {
 
 struct T2Data : public RefObject {
     float v;
-    int extVal;
+    int   extVal;
 };
 
 template <>
@@ -128,7 +149,7 @@ struct AssetTraits<T3Data> {
 
 class TestBuilder1 : public AssetBuilder {
 public:
-    TestBuilder1() = default;
+    TestBuilder1()           = default;
     ~TestBuilder1() override = default;
 
     struct Config {
@@ -155,7 +176,7 @@ public:
 
     void LoadConfig(const FileSystemPtr &cfg) override
     {
-        auto archive = cfg->OpenFile("asset_cfg_t2.json")->ReadAsArchive();
+        auto             archive = cfg->OpenFile("asset_cfg_t2.json")->ReadAsArchive();
         JsonInputArchive json(*archive);
 
         json.Start("t2");
@@ -183,16 +204,16 @@ public:
             }
             json.End();
         });
-        
+
         json.End();
     }
 
     void Request(const AssetBuildRequest &request, AssetBuildResult &result) override
     {
-        auto archive = request.file->ReadAsArchive();
+        auto             archive = request.file->ReadAsArchive();
         JsonInputArchive json(*archive);
 
-        auto *am = AssetManager::Get();
+        auto *am      = AssetManager::Get();
         auto *builder = AssetBuilderManager::Get()->QueryBuilder(request.assetInfo->ext);
         if (builder != nullptr && builder->QueryType(request.assetInfo->ext) == AssetTraits<T1Data>::ASSET_TYPE) {
             auto asset = std::static_pointer_cast<Asset<T1Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T1")));
@@ -225,18 +246,18 @@ public:
     }
 
 private:
-    std::unordered_map<std::string, Config> configs;
+    std::unordered_map<std::string, Config>       configs;
     std::unordered_map<PlatformType, std::string> defaultBundles;
 };
 
 class TestBuilder2 : public AssetBuilder {
 public:
-    TestBuilder2() = default;
+    TestBuilder2()           = default;
     ~TestBuilder2() override = default;
 
     void Request(const AssetBuildRequest &request, AssetBuildResult &result) override
     {
-        auto archive = request.file->ReadAsArchive();
+        auto             archive = request.file->ReadAsArchive();
         JsonInputArchive json(*archive);
 
         json.Start("v1");
@@ -247,8 +268,8 @@ public:
         std::string p2 = json.LoadString();
         json.End();
 
-        auto *am = AssetManager::Get();
-        auto asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T3")));
+        auto *am    = AssetManager::Get();
+        auto  asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T3")));
 
         auto p1Asset = AssetDataBase::Get()->RegisterAsset(p1);
         auto p2Asset = AssetDataBase::Get()->RegisterAsset(p2);
@@ -259,8 +280,8 @@ public:
         request.assetInfo->dependencies.emplace_back(p2Asset->uuid);
 
         auto &data = asset->Data();
-        data.t1 = p1Asset->uuid;
-        data.t2 = p2Asset->uuid;
+        data.t1    = p1Asset->uuid;
+        data.t2    = p2Asset->uuid;
 
         asset->AddDependencies(p1Asset->uuid);
         asset->AddDependencies(p2Asset->uuid);
@@ -275,7 +296,10 @@ public:
         return ext;
     }
 
-    std::string_view QueryType(const std::string &ext) const override { return AssetTraits<T3Data>::ASSET_TYPE; }
+    std::string_view QueryType(const std::string &ext) const override
+    {
+        return AssetTraits<T3Data>::ASSET_TYPE;
+    }
 };
 
 class AssetManagerTest : public ::testing::Test {
@@ -284,16 +308,11 @@ public:
     {
         auto *context = SerializationContext::Get();
 
-        context->Register<T1Data>("T1Data")
-                .Member<&T1Data::v>("v");
+        context->Register<T1Data>("T1Data").Member<&T1Data::v>("v");
 
-        context->Register<T2Data>("T2Data")
-                .Member<&T2Data::v>("v")
-                .Member<&T2Data::extVal>("extVal");
+        context->Register<T2Data>("T2Data").Member<&T2Data::v>("v").Member<&T2Data::extVal>("extVal");
 
-        context->Register<T3Data>("T3Data")
-                .Member<&T3Data::t1>("t1")
-                .Member<&T3Data::t2>("t2");
+        context->Register<T3Data>("T3Data").Member<&T3Data::t1>("t1").Member<&T3Data::t2>("t2");
 
         NativeFileSystemPtr projectFs = new NativeFileSystem(PROJECT_ROOT);
         AssetDataBase::Get()->SetEngineFs(new NativeFileSystem(ENGINE_ROOT));
@@ -329,9 +348,8 @@ TEST_F(AssetManagerTest, BuilderTest)
     asset->BlockUntilLoaded();
 
     auto &data = asset->Data();
-    auto t1 = AssetManager::Get()->FindAsset<T1Data>(data.t1);
-    auto t2 = AssetManager::Get()->FindAsset<T2Data>(data.t2);
-
+    auto  t1   = AssetManager::Get()->FindAsset<T1Data>(data.t1);
+    auto  t2   = AssetManager::Get()->FindAsset<T2Data>(data.t2);
 
     ASSERT_EQ(t1->Data().v, 1);
     ASSERT_EQ(t2->Data().v, 2.f);
@@ -348,16 +366,103 @@ TEST_F(AssetManagerTest, BuilderTest)
     EXPECT_TRUE(byPath->IsLoaded());
 }
 
+TEST_F(AssetManagerTest, MountProvenanceTest)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path engRoot  = "mount_engine_tmp";
+    const fs::path projRoot = "mount_proj_tmp";
+    fs::remove_all(engRoot);
+    fs::remove_all(projRoot);
+    fs::create_directories(engRoot / "assets" / "framework" / "data");
+    fs::create_directories(projRoot / "assets" / "framework" / "data");
+    const auto touch = [](const fs::path &p) {
+        std::ofstream out(p);
+        out << "{}";
+    };
+    touch(engRoot / "assets" / "framework" / "data" / "eng_only.t3");
+    touch(projRoot / "assets" / "framework" / "data" / "proj_only.t3");
+    touch(engRoot / "assets" / "framework" / "data" / "shared.t3");
+    touch(projRoot / "assets" / "framework" / "data" / "shared.t3");
+
+    auto *db = AssetDataBase::Get();
+    db->Reset();
+    NativeFileSystemPtr engTsFs  = new NativeFileSystem(engRoot.string());
+    NativeFileSystemPtr projTsFs = new NativeFileSystem(projRoot.string());
+    db->SetEngineFs(engTsFs);
+    db->SetWorkSpaceFs(projTsFs->CreateSubSystem("assets", true));
+
+    const auto &mounts = db->GetMounts();
+    ASSERT_GE(mounts.size(), 2u);
+    EXPECT_EQ(mounts[0].id, "workspace");
+    EXPECT_EQ(mounts[0].displayName, "Project");
+    EXPECT_TRUE(mounts[0].writable);
+    EXPECT_EQ(mounts[1].id, "engine");
+    EXPECT_EQ(mounts[1].displayName, "Engine");
+    EXPECT_FALSE(mounts[1].writable);
+
+    auto engAsset = db->RegisterAsset(FilePath("framework/data/eng_only.t3"), false);
+    ASSERT_NE(engAsset, nullptr);
+    EXPECT_EQ(engAsset->mount, "engine");
+    const Uuid engUuid = engAsset->uuid;
+
+    auto projAsset = db->RegisterAsset(FilePath("framework/data/proj_only.t3"), false);
+    ASSERT_NE(projAsset, nullptr);
+    EXPECT_EQ(projAsset->mount, "workspace");
+
+    // Shadowing: a path present in both mounts resolves to the writable (earlier) mount.
+    auto shared = db->RegisterAsset(FilePath("framework/data/shared.t3"), false);
+    ASSERT_NE(shared, nullptr);
+    EXPECT_EQ(shared->mount, "workspace");
+
+    // Read-only identity is stable across a rescan and no manifest is written for the engine mount.
+    db->RebuildCacheFromScan();
+    auto engAgain = db->RegisterAsset(FilePath("framework/data/eng_only.t3"), false);
+    ASSERT_NE(engAgain, nullptr);
+    EXPECT_EQ(engAgain->uuid, engUuid);
+    EXPECT_FALSE(fs::exists(engRoot / "assets" / "framework" / "data" / "assets.jsonl"));
+
+    // Restore the suite fixture's mounts for the remaining tests.
+    db->Reset();
+    NativeFileSystemPtr fixtureProjectFs = new NativeFileSystem(PROJECT_ROOT);
+    db->SetEngineFs(new NativeFileSystem(ENGINE_ROOT));
+    db->SetWorkSpaceFs(fixtureProjectFs->CreateSubSystem("assets", true));
+
+    fs::remove_all(engRoot);
+    fs::remove_all(projRoot);
+}
+
+TEST_F(AssetManagerTest, BuilderSettingsTest)
+{
+    auto *manager = AssetBuilderManager::Get();
+
+    // A builder without an override reports no settings (default empty).
+    EXPECT_TRUE(manager->GetBuilderSettings(".t1", "common").empty());
+    // Unknown extension reports no settings.
+    EXPECT_TRUE(manager->GetBuilderSettings(".unknown", "common").empty());
+
+    auto *builder = new SettingsBuilder();
+    manager->RegisterBuilder(builder);
+
+    auto settings = manager->GetBuilderSettings(".setup", "any");
+    ASSERT_EQ(settings.size(), 2u);
+    EXPECT_EQ(settings[0].first, "encode");
+    EXPECT_EQ(settings[0].second, "BC7");
+
+    manager->UnRegisterBuilder(builder);
+    EXPECT_TRUE(manager->GetBuilderSettings(".setup", "any").empty());
+}
+
 TEST_F(AssetManagerTest, MutationTest)
 {
     auto *db = AssetDataBase::Get();
 
-    const std::string src = "framework/data/mut_tmp.t3";
+    const std::string src   = "framework/data/mut_tmp.t3";
     const std::string moved = "framework/data/mut_moved.t3";
-    const std::string dup = "framework/data/mut_dup.t3";
+    const std::string dup   = "framework/data/mut_dup.t3";
 
     auto writeFile = [db](const std::string &path) {
-        auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+        auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
         ASSERT_NE(file, nullptr);
         auto archive = file->WriteAsArchive();
         ASSERT_NE(archive, nullptr);
@@ -378,12 +483,12 @@ TEST_F(AssetManagerTest, MutationTest)
     EXPECT_TRUE(again->uuid == original);
 
     // Move preserves identity.
-    auto movedAsset = db->MoveAsset(FilePath{ FilePath(src) }, FilePath{ FilePath(moved) });
+    auto movedAsset = db->MoveAsset(FilePath{FilePath(src)}, FilePath{FilePath(moved)});
     ASSERT_NE(movedAsset, nullptr);
     EXPECT_TRUE(movedAsset->uuid == original);
 
     // Duplicate assigns a new identity.
-    auto dupAsset = db->DuplicateAsset(FilePath{ FilePath(moved) }, FilePath{ FilePath(dup) });
+    auto dupAsset = db->DuplicateAsset(FilePath{FilePath(moved)}, FilePath{FilePath(dup)});
     ASSERT_NE(dupAsset, nullptr);
     EXPECT_FALSE(dupAsset->uuid == original);
 
@@ -393,7 +498,7 @@ TEST_F(AssetManagerTest, MutationTest)
 
     // Cleanup generated sources and the manifest written by this test.
     auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
-    for (const auto &name : { src, moved, dup }) {
+    for (const auto &name : {src, moved, dup}) {
         std::filesystem::remove(FilePath(root + "/" + name).GetStr());
     }
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
@@ -403,20 +508,20 @@ TEST_F(AssetManagerTest, ManifestIdentityTest)
 {
     auto *db = AssetDataBase::Get();
 
-    const std::string path = "framework/data/manifest_seed.t3";
-    const Uuid seeded = Uuid::Create();
+    const std::string path   = "framework/data/manifest_seed.t3";
+    const Uuid        seeded = Uuid::Create();
 
     // Pre-write a manifest entry; registration must reuse it regardless of the path.
-    auto fs = db->GetWorkSpaceFs();
+    auto           fs = db->GetWorkSpaceFs();
     AssetIndexFile manifest("file", "cook");
     IndexFileEntry entry;
     entry.key = "manifest_seed.t3";
-    entry.id = seeded;
+    entry.id  = seeded;
     manifest.Set(entry);
     AssetIndexFile::Save(fs, FilePath("framework/data/assets.jsonl"), manifest);
     db->Reset(); // drop cached maps + parsed manifests so the seeded manifest is reloaded
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
         auto archive = file->WriteAsArchive();
@@ -437,10 +542,10 @@ TEST_F(AssetManagerTest, ManifestIdentityTest)
 
 TEST_F(AssetManagerTest, OnDemandCookTest)
 {
-    auto *db = AssetDataBase::Get();
+    auto             *db   = AssetDataBase::Get();
     const std::string path = "framework/data/ondemand.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
         auto archive = file->WriteAsArchive();
@@ -468,10 +573,10 @@ TEST_F(AssetManagerTest, OnDemandCookTest)
 
 TEST_F(AssetManagerTest, InProcessCookRunnerTest)
 {
-    auto *db = AssetDataBase::Get();
+    auto             *db   = AssetDataBase::Get();
     const std::string path = "framework/data/ondemand_runner.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
         auto archive = file->WriteAsArchive();
@@ -517,11 +622,11 @@ TEST_F(AssetManagerTest, ScanRebuildTest)
 
 TEST_F(AssetManagerTest, ImportTest)
 {
-    auto *db = AssetDataBase::Get();
-    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    auto *db   = AssetDataBase::Get();
+    auto  root = db->GetWorkSpaceFs()->GetPath().GetStr();
 
     const FilePath sourceFile(root + "/framework/data/test_asset.t1");
-    const FilePath dest{ FilePath("framework/data/imported.t1") };
+    const FilePath dest{FilePath("framework/data/imported.t1")};
 
     auto asset = db->ImportAsset(sourceFile, dest, false);
     ASSERT_NE(asset, nullptr);
@@ -536,10 +641,10 @@ TEST_F(AssetManagerTest, CompressionTest)
     CompressionManager::Get()->Register(CompressionMethod::LZ4, new DummyCompressor());
     AssetManager::Get()->SetProductCompression(CompressionMethod::LZ4);
 
-    auto *db = AssetDataBase::Get();
+    auto             *db   = AssetDataBase::Get();
     const std::string path = "framework/data/compressed.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
         auto archive = file->WriteAsArchive();
@@ -587,7 +692,7 @@ TEST_F(AssetManagerTest, MultiTargetTest)
     AssetBuilderManager::Get()->SetCookConfig(config);
 
     const std::string path = "framework/data/multi.mt";
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto              file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
         auto archive = file->WriteAsArchive();
@@ -632,15 +737,15 @@ TEST_F(AssetManagerTest, TypeIdentityTest)
     EXPECT_EQ(std::string(builder->QueryType(".t1")), std::string(AssetTraits<T1Data>::ASSET_TYPE));
 
     // The source-derived type matches.
-    auto *db = AssetDataBase::Get();
-    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    auto             *db   = AssetDataBase::Get();
+    auto              root = db->GetWorkSpaceFs()->GetPath().GetStr();
     const std::string path = "framework/data/type_id.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
-        auto archive = file->WriteAsArchive();
-        const char data[] = "{\"val\": 1}";
+        auto       archive = file->WriteAsArchive();
+        const char data[]  = "{\"val\": 1}";
         archive->SaveRaw(data, sizeof(data) - 1);
         archive->Flush();
     }
@@ -659,15 +764,15 @@ TEST_F(AssetManagerTest, TypeIdentityTest)
 
 TEST_F(AssetManagerTest, ConcurrentLoadTest)
 {
-    auto *db = AssetDataBase::Get();
-    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    auto             *db   = AssetDataBase::Get();
+    auto              root = db->GetWorkSpaceFs()->GetPath().GetStr();
     const std::string path = "framework/data/concurrent.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
-        auto archive = file->WriteAsArchive();
-        const char data[] = "{\"val\": 9}";
+        auto       archive = file->WriteAsArchive();
+        const char data[]  = "{\"val\": 9}";
         archive->SaveRaw(data, sizeof(data) - 1);
         archive->Flush();
     }
@@ -678,11 +783,9 @@ TEST_F(AssetManagerTest, ConcurrentLoadTest)
 
     // Concurrent loads of an unbuilt asset must coalesce onto one in-process cook without deadlock.
     std::vector<std::shared_ptr<Asset<T1Data>>> results(4);
-    std::vector<std::thread> threads;
+    std::vector<std::thread>                    threads;
     for (int i = 0; i < 4; ++i) {
-        threads.emplace_back([src, i, &results]() {
-            results[i] = AssetManager::Get()->LoadAsset<T1Data>(src->uuid);
-        });
+        threads.emplace_back([src, i, &results]() { results[i] = AssetManager::Get()->LoadAsset<T1Data>(src->uuid); });
     }
     for (auto &thread : threads) {
         thread.join();
@@ -701,15 +804,15 @@ TEST_F(AssetManagerTest, ConcurrentLoadTest)
 
 TEST_F(AssetManagerTest, CookWorkerTest)
 {
-    auto *db = AssetDataBase::Get();
-    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    auto             *db   = AssetDataBase::Get();
+    auto              root = db->GetWorkSpaceFs()->GetPath().GetStr();
     const std::string path = "framework/data/batch.t1";
 
-    auto file = db->CreateOrOpenFile(FilePath{ FilePath(path) });
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
     ASSERT_NE(file, nullptr);
     {
-        auto archive = file->WriteAsArchive();
-        const char data[] = "{\"val\": 3}";
+        auto       archive = file->WriteAsArchive();
+        const char data[]  = "{\"val\": 3}";
         archive->SaveRaw(data, sizeof(data) - 1);
         archive->Flush();
     }
@@ -720,7 +823,7 @@ TEST_F(AssetManagerTest, CookWorkerTest)
 
     // Batch cook the work list, then load the freshly produced product.
     CookWorker worker;
-    worker.CookBatch({ CookWorker::Job{ src->uuid, "common" } });
+    worker.CookBatch({CookWorker::Job{src->uuid, "common"}});
 
     auto asset = AssetManager::Get()->LoadAsset<T1Data>(src->uuid);
     ASSERT_NE(asset, nullptr);

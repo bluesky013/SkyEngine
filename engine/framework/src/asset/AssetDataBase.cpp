@@ -2,20 +2,20 @@
 // Created by blues on 2024/6/16.
 //
 
-#include <framework/asset/AssetDataBase.h>
-#include <framework/asset/AssetManager.h>
-#include <framework/asset/AssetBuilderManager.h>
-#include <framework/asset/AssetDependencyProvider.h>
-#include <framework/serialization/JsonArchive.h>
 #include <core/file/FileUtil.h>
 #include <core/file/MultiFileSystem.h>
-#include <core/logger/Logger.h>
 #include <core/hash/Hash.h>
+#include <core/logger/Logger.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetDependencyProvider.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/serialization/JsonArchive.h>
 
 #include <fstream>
 #include <iterator>
 
-static const char* TAG = "AssetDataBase";
+static const char *TAG = "AssetDataBase";
 
 namespace sky {
 
@@ -33,28 +33,47 @@ namespace sky {
 
     void AssetDataBase::RebuildMounts()
     {
+        mountInfos.clear();
+        mountFsList.clear();
+
+        const auto addMount = [this](const std::string &id, const std::string &name, bool writable, const FileSystemPtr &fs) {
+            if (fs == nullptr) {
+                return;
+            }
+            mountInfos.push_back(AssetMount{id, name, writable});
+            mountFsList.push_back(fs);
+        };
+        addMount("workspace", "Project", true, workSpaceFs);
+        addMount("engine", "Engine", false, engineFs);
+
         auto mounts = new MultiFileSystem();
-        if (workSpaceFs != nullptr) {
-            mounts->AddFileSystem(workSpaceFs);
-        }
-        if (engineFs != nullptr) {
-            mounts->AddFileSystem(engineFs);
+        for (const auto &fs : mountFsList) {
+            mounts->AddFileSystem(fs);
         }
         mountFs = mounts;
     }
 
+    int AssetDataBase::FindMountIndex(const FilePath &path) const
+    {
+        for (size_t i = 0; i < mountFsList.size(); ++i) {
+            if (mountFsList[i] != nullptr && mountFsList[i]->FileExist(path)) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+
     FileSystemPtr AssetDataBase::ResolveOwningFs(const FilePath &path) const
     {
-        if (workSpaceFs != nullptr && workSpaceFs->FileExist(path)) {
-            return workSpaceFs;
-        }
-        if (engineFs != nullptr && engineFs->FileExist(path)) {
-            return engineFs;
+        for (const auto &fs : mountFsList) {
+            if (fs != nullptr && fs->FileExist(path)) {
+                return fs;
+            }
         }
         return {};
     }
 
-    Uuid AssetDataBase::CalculateUuidByPath(const FilePath& path)
+    Uuid AssetDataBase::CalculateUuidByPath(const FilePath &path)
     {
         return Uuid::CreateWithSeed(Fnv1a32(path.GetStr()));
     }
@@ -62,7 +81,7 @@ namespace sky {
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
     {
         std::lock_guard lock(assetMutex);
-        auto iter = idMap.find(id);
+        auto            iter = idMap.find(id);
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
@@ -70,7 +89,7 @@ namespace sky {
     {
         {
             std::lock_guard lock(assetMutex);
-            auto iter = pathMap.find(path);
+            auto            iter = pathMap.find(path);
             if (iter != pathMap.end()) {
                 return idMap.at(iter->second);
             }
@@ -86,12 +105,12 @@ namespace sky {
         return {};
     }
 
-    std::vector<AssetSourcePtr> AssetDataBase::Gather(const std::string_view& category)
+    std::vector<AssetSourcePtr> AssetDataBase::Gather(const std::string_view &category)
     {
         std::vector<AssetSourcePtr> res;
 
         std::lock_guard lock(assetMutex);
-        for (auto& [id, asset] : idMap) {
+        for (auto &[id, asset] : idMap) {
             if (QueryType(asset->ext) == category) {
                 res.emplace_back(asset);
             }
@@ -100,14 +119,35 @@ namespace sky {
         return res;
     }
 
+    void AssetDataBase::ForEachSource(const std::function<void(const AssetSourcePtr &)> &fn) const
+    {
+        if (!fn) {
+            return;
+        }
+
+        std::vector<AssetSourcePtr> snapshot;
+        {
+            std::lock_guard lock(assetMutex);
+            snapshot.reserve(idMap.size());
+            for (const auto &[id, asset] : idMap) {
+                snapshot.emplace_back(asset);
+            }
+        }
+
+        for (const auto &asset : snapshot) {
+            fn(asset);
+        }
+    }
+
     std::string AssetDataBase::QueryType(const std::string &ext) const
     {
         auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
         return builder != nullptr ? std::string(builder->QueryType(ext)) : std::string{};
     }
 
-    void AssetDataBase::EnsureManifestEntry(const FileSystemPtr &fs, const FilePath &path, const Uuid &uuid)    {
-        const auto dir = path.Parent();
+    void AssetDataBase::EnsureManifestEntry(const FileSystemPtr &fs, const FilePath &path, const Uuid &uuid)
+    {
+        const auto dir      = path.Parent();
         const auto fileName = path.FileName();
 
         auto manifest = manifests.Get(fs, dir);
@@ -117,7 +157,7 @@ namespace sky {
 
         IndexFileEntry entry;
         entry.key = fileName;
-        entry.id = uuid;
+        entry.id  = uuid;
         manifest.Set(entry);
         manifests.Save(fs, dir, manifest);
     }
@@ -160,7 +200,7 @@ namespace sky {
     bool AssetDataBase::GetTarget(const Uuid &id, std::string &out) const
     {
         auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
-        out = AssetBuilderManager::Get()->GetCookConfig().ResolveTarget(CookJsonFor(src));
+        out      = AssetBuilderManager::Get()->GetCookConfig().ResolveTarget(CookJsonFor(src));
         return true;
     }
 
@@ -185,27 +225,42 @@ namespace sky {
         AssetSourcePtr info = nullptr;
         {
             std::lock_guard lock(assetMutex);
-            auto iter = pathMap.find(path);
+            auto            iter = pathMap.find(path);
             if (iter != pathMap.end()) {
                 info = idMap.at(iter->second);
             }
         }
 
-        if (info != nullptr) {
-            // Legacy asset (assets.db row): keep its identity and seed the manifest on first write.
-            EnsureManifestEntry(fs, path, info->uuid);
-        } else {
-            const auto dir = path.Parent();
-            const auto fileName = path.FileName();
-            const auto *entry = manifests.Get(fs, dir).Find(fileName);
+        const int         mountIndex = FindMountIndex(path);
+        const std::string mountId    = mountIndex >= 0 ? mountInfos[mountIndex].id : std::string{};
+        // "Read-only" is a property of the owning mount (the engine bundle), not of the underlying
+        // filesystem object; read-only mounts never get manifests written.
+        const bool readOnly = mountIndex < 0 || !mountInfos[mountIndex].writable;
 
-            const Uuid uuid = entry != nullptr ? entry->id : Uuid::Create();
-            auto ext = path.Extension();
+        if (info != nullptr) {
+            // Legacy asset (assets.db row): keep its identity and seed the manifest on first write
+            // (writable mounts only).
+            if (info->mount.empty()) {
+                info->mount = mountId;
+            }
+            if (!readOnly) {
+                EnsureManifestEntry(fs, path, info->uuid);
+            }
+        } else {
+            const auto  dir      = path.Parent();
+            const auto  fileName = path.FileName();
+            const auto *entry    = manifests.Get(fs, dir).Find(fileName);
+
+            // Prefer the manifest UUID; a read-only mount without a manifest keeps stable
+            // path-derived identity (never written), so re-scans are reproducible.
+            const Uuid uuid = entry != nullptr ? entry->id : (readOnly ? CalculateUuidByPath(path) : Uuid::Create());
+            auto       ext  = path.Extension();
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
-            srcInfo->path = path;
-            srcInfo->uuid = uuid;
-            srcInfo->ext = ext;
+            srcInfo->path          = path;
+            srcInfo->uuid          = uuid;
+            srcInfo->ext           = ext;
+            srcInfo->mount         = mountId;
 
             {
                 std::lock_guard lock(assetMutex);
@@ -213,15 +268,15 @@ namespace sky {
                 pathMap.emplace(path, uuid);
             }
 
-            if (entry == nullptr) {
+            if (entry == nullptr && !readOnly) {
                 EnsureManifestEntry(fs, path, uuid);
             }
         }
 
         if (build) {
             AssetBuildRequest request = {};
-            request.file = fs->OpenFile(path);
-            request.assetInfo = info;
+            request.file              = fs->OpenFile(path);
+            request.assetInfo         = info;
             LOG_I(TAG, "Request Build Asset %s", info->uuid.ToString().c_str());
             AssetBuilderManager::Get()->BuildRequest(request);
         }
@@ -234,7 +289,7 @@ namespace sky {
         FilePath path;
         {
             std::lock_guard lock(assetMutex);
-            auto iter = idMap.find(id);
+            auto            iter = idMap.find(id);
             if (iter == idMap.end()) {
                 return;
             }
@@ -268,23 +323,23 @@ namespace sky {
             return nullptr;
         }
 
-        Uuid uuid;
+        Uuid        uuid;
         std::string cook;
         {
             const auto &manifest = manifests.Get(fs, from.Parent());
-            const auto *entry = manifest.Find(from.FileName());
-            uuid = entry != nullptr ? entry->id : Uuid::Create();
-            cook = entry != nullptr ? entry->extra : std::string{};
+            const auto *entry    = manifest.Find(from.FileName());
+            uuid                 = entry != nullptr ? entry->id : Uuid::Create();
+            cook                 = entry != nullptr ? entry->extra : std::string{};
 
             auto updated = manifest;
             updated.Remove(from.FileName());
             manifests.Save(fs, from.Parent(), updated);
         }
         {
-            auto dest = manifests.Get(fs, to.Parent());
+            auto           dest = manifests.Get(fs, to.Parent());
             IndexFileEntry entry;
-            entry.key = to.FileName();
-            entry.id = uuid;
+            entry.key   = to.FileName();
+            entry.id    = uuid;
             entry.extra = cook;
             dest.Set(entry);
             manifests.Save(fs, to.Parent(), dest);
@@ -293,7 +348,7 @@ namespace sky {
         AssetSourcePtr info;
         {
             std::lock_guard lock(assetMutex);
-            auto iter = pathMap.find(from);
+            auto            iter = pathMap.find(from);
             if (iter != pathMap.end()) {
                 info = idMap.at(iter->second);
                 pathMap.erase(iter);
@@ -355,7 +410,7 @@ namespace sky {
         return mountFs->CreateOrOpenFile(path);
     }
 
-    void AssetDataBase::SetMarkedName(const Uuid& id, const std::string &name)
+    void AssetDataBase::SetMarkedName(const Uuid &id, const std::string &name)
     {
         auto iter = idMap.find(id);
         if (iter == idMap.end()) {
@@ -378,14 +433,14 @@ namespace sky {
             return;
         }
 
-        auto archive = file->ReadAsArchive();
+        auto             archive = file->ReadAsArchive();
         JsonInputArchive json(*archive);
 
         {
             uint32_t count = json.StartArray("assets");
             for (uint32_t i = 0; i < count; ++i) {
                 auto *pInfo = new AssetSourceInfo();
-                auto &info = *pInfo;
+                auto &info  = *pInfo;
 
                 json.Start("uuid");
                 info.uuid = Uuid::CreateFromString(json.LoadString());
@@ -421,6 +476,10 @@ namespace sky {
 
             json.End();
         }
+
+        // Discover sources from every mount (the manifest provides stable identity; the db is only
+        // a legacy seed / cross-check). Ensures read-only engine assets appear too.
+        RebuildCacheFromScan();
     }
 
     void AssetDataBase::Save()
@@ -431,8 +490,8 @@ namespace sky {
             return;
         }
 
-        auto file = workSpaceFs->CreateOrOpenFile("assets.db");
-        auto archive = file->WriteAsArchive();
+        auto              file    = workSpaceFs->CreateOrOpenFile("assets.db");
+        auto              archive = file->WriteAsArchive();
         JsonOutputArchive json(*archive);
 
         {
@@ -482,14 +541,21 @@ namespace sky {
 
     void AssetDataBase::RebuildCacheFromScan()
     {
-        if (workSpaceFs == nullptr) {
+        // Discover sources across every mount in order (earlier mounts shadow later ones), with one
+        // recursive walk per mount testing builder-known extensions in the visitor. Read-only mounts
+        // keep path-derived identity and are not written to.
+        const auto extensions = AssetBuilderManager::Get()->GetExtensions();
+        if (extensions.empty()) {
             return;
         }
 
-        const auto root = workSpaceFs->GetPath();
-        for (const auto &ext : AssetBuilderManager::Get()->GetExtensions()) {
-            for (const auto &relative : NativeFileSystem::FilterFiles(root, ext)) {
-                RegisterAsset(FilePath{ relative }, false);
+        for (const auto &fs : mountFsList) {
+            if (fs == nullptr) {
+                continue;
+            }
+            const auto root = fs->GetPath();
+            for (const auto &relative : NativeFileSystem::FilterFiles(root, extensions)) {
+                RegisterAsset(FilePath{relative}, false);
             }
         }
     }
@@ -501,7 +567,9 @@ namespace sky {
             return;
         }
 
-        for (const auto &target : AssetBuilderManager::Get()->GetCookConfig().GetTargets(CookJsonFor(src))) {
+        const auto cookCfg = AssetBuilderManager::Get()->GetCookConfig();
+        const auto targets = cookCfg.GetTargets(CookJsonFor(src), cookCfg.GetActivePlatform());
+        for (const auto &target : targets) {
             AssetBuilderManager::Get()->BuildRequest(uuid, target);
         }
     }
@@ -521,14 +589,67 @@ namespace sky {
         return entry != nullptr ? entry->extra : std::string{};
     }
 
+    std::string AssetDataBase::GetCookJson(const Uuid &id) const
+    {
+        auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
+        return CookJsonFor(src);
+    }
+
+    bool AssetDataBase::SetCookJson(const Uuid &id, const std::string &cookJson)
+    {
+        std::lock_guard lock(assetMutex);
+
+        auto iter = idMap.find(id);
+        if (iter == idMap.end() || iter->second == nullptr) {
+            return false;
+        }
+        const AssetSourcePtr &src = iter->second;
+
+        const int index = FindMountIndex(src->path);
+        if (index < 0 || index >= static_cast<int>(mountInfos.size()) || !mountInfos[index].writable) {
+            return false; // read-only mount or unmounted path
+        }
+        const FileSystemPtr &fs = mountFsList[index];
+        if (fs == nullptr) {
+            return false;
+        }
+
+        const auto dir      = src->path.Parent();
+        const auto fileName = src->path.FileName();
+
+        auto        manifest = manifests.Get(fs, dir);
+        const auto *entry    = manifest.Find(fileName);
+        if (entry == nullptr) {
+            return false; // no manifest identity to attach the cook block to
+        }
+
+        IndexFileEntry updated = *entry;
+        updated.extra          = cookJson;
+        manifest.Set(updated);
+        manifests.Save(fs, dir, manifest);
+        return true;
+    }
+
+    bool AssetDataBase::GetAbsoluteSourcePath(const Uuid &id, std::string &out) const
+    {
+        auto *self = const_cast<AssetDataBase *>(this);
+        auto  src  = self->FindAsset(id);
+        if (!src) {
+            return false;
+        }
+        const int index = FindMountIndex(src->path);
+        if (index < 0 || mountFsList[index] == nullptr) {
+            return false;
+        }
+        out = mountFsList[index]->GetPath().GetStr() + "/" + src->path.GetStr();
+        return true;
+    }
+
     void AssetDataBase::Dump(std::ostream &stream)
     {
         std::lock_guard lock(assetMutex);
         for (auto &[id, info] : idMap) {
-            stream << id.ToString() << "\t"
-                << QueryType(info->ext) << "\t"
-                << info->name << "\t"
-                << info->path.GetStr() << "\n";
+            stream << id.ToString() << "\t" << QueryType(info->ext) << "\t" << info->name << "\t" << info->path.GetStr() << "\n";
         }
     }
 

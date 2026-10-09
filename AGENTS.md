@@ -78,6 +78,16 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - 速记：**要多模块共享的状态 → `Singleton<T>`；纯模块内状态 → 普通 static 无妨。**
 - 反例：`static WorldSubSystemRegistry instance;`（错）→ `class X : public Singleton<X>` + `friend class Singleton<X>;`（对）。
 
+## 编辑器配置/设置 UI（关键）
+
+- **所有 config / 设置类 UI 必须走通用反射面板**，不得为每种 config 手搓表单/控件：
+  - 数据对象用反射注册：`context->Register<T>("T").Member<&T::field>("field")...`；UI 元数据用 `.Property(...)`（`LABEL` / `ORDER` / `CATEGORY` / `RANGE_MIN/MAX/STEP` / `ASSET_TYPE` / `EDITOR_KIND` 等，见 `framework/asset/.../PropertyCommon.h` 的 `CommonPropertyKey`）。
+  - 视图用 `ReflectedFormView::Bind(PropertyObject{obj, node})`（`node = GetTypeNode(*any)`）；编辑经 `CommandService`（可撤销），`SetOnEdited` 通知宿主标 dirty；`ReflectedInspectorPanel` 是 selection 驱动版。
+  - 参照：世界子系统 config（`WorldConfigPanel`）、组件 inspector（`ReflectedInspectorPanel`）、`docs/editor/reflection-widget-framework.md`。
+- **禁止**新增逐字段 `switch` / 自绘控件的手搓 config 表单；`PreferencesDialog` 的手搓实现是历史遗留例外，不再照搬（后续统一迁移到反射面板）。
+- config 的**数据/注册在 core / plugin 侧（不含 `ui`）**，shell 侧只做 `Bind`；数据与视图分离。
+- 动态、schema 驱动、无法用固定反射结构表达的设置（如 asset cook 的 per-builder settings），必须在 change 的 `design.md` 说明理由，并保持同样的数据/视图分离与可撤销编辑；**不得**把逐类型控件硬编码进面板。
+
 ## 构建与验证（Win32 / VS 2022）
 
 - 使用现有 `cmake-build-debug`（cache 已含 `3RD_PATH=D:/Code/sky3rd_win32_output/Win32`、`-G "Visual Studio 17 2022"`）。

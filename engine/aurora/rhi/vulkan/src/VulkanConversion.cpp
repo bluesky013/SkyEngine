@@ -8,61 +8,63 @@ namespace sky::aurora {
 
     // ---- PixelFormat ----
     static const VkFormat PIXEL_FORMAT_TABLE[] = {
-        VK_FORMAT_UNDEFINED,                  // UNDEFINED
-        VK_FORMAT_R8_UINT,                    // R8_UINT
-        VK_FORMAT_R8_UNORM,                   // R8_UNORM
-        VK_FORMAT_R8_SRGB,                    // R8_SRGB
-        VK_FORMAT_R8G8B8A8_UNORM,             // RGBA8_UNORM
-        VK_FORMAT_R8G8B8A8_SRGB,              // RGBA8_SRGB
-        VK_FORMAT_B8G8R8A8_UNORM,             // BGRA8_UNORM
-        VK_FORMAT_B8G8R8A8_SRGB,              // BGRA8_SRGB
-        VK_FORMAT_R16_UNORM,                  // R16_UNORM
-        VK_FORMAT_R16G16_UNORM,               // RG16_UNORM
-        VK_FORMAT_R16G16B16A16_UNORM,         // RGBA16_UNORM
-        VK_FORMAT_R16_SFLOAT,                 // R16_SFLOAT
-        VK_FORMAT_R16G16_SFLOAT,              // RG16_SFLOAT
-        VK_FORMAT_R16G16B16A16_SFLOAT,        // RGBA16_SFLOAT
-        VK_FORMAT_R32_SFLOAT,                 // R32_SFLOAT
-        VK_FORMAT_R32G32_SFLOAT,              // RG32_SFLOAT
-        VK_FORMAT_R32G32B32_SFLOAT,           // RGB32_SFLOAT
-        VK_FORMAT_R32G32B32A32_SFLOAT,        // RGBA32_SFLOAT
-        VK_FORMAT_R32_UINT,                   // R32_UINT
-        VK_FORMAT_R32G32_UINT,                // RG32_UINT
-        VK_FORMAT_R32G32B32_UINT,             // RGB32_UINT
-        VK_FORMAT_R32G32B32A32_UINT,          // RGBA32_UINT
-        VK_FORMAT_D32_SFLOAT,                 // D32
-        VK_FORMAT_D24_UNORM_S8_UINT,          // D24_S8
-        VK_FORMAT_D32_SFLOAT_S8_UINT,         // D32_S8
-        VK_FORMAT_BC1_RGB_UNORM_BLOCK,        // BC1_RGB_UNORM_BLOCK
-        VK_FORMAT_BC1_RGB_SRGB_BLOCK,         // BC1_RGB_SRGB_BLOCK
-        VK_FORMAT_BC1_RGBA_UNORM_BLOCK,       // BC1_RGBA_UNORM_BLOCK
-        VK_FORMAT_BC1_RGBA_SRGB_BLOCK,        // BC1_RGBA_SRGB_BLOCK
-        VK_FORMAT_BC2_UNORM_BLOCK,            // BC2_UNORM_BLOCK
-        VK_FORMAT_BC2_SRGB_BLOCK,             // BC2_SRGB_BLOCK
-        VK_FORMAT_BC3_UNORM_BLOCK,            // BC3_UNORM_BLOCK
-        VK_FORMAT_BC3_SRGB_BLOCK,             // BC3_SRGB_BLOCK
-        VK_FORMAT_BC4_UNORM_BLOCK,            // BC4_UNORM_BLOCK
-        VK_FORMAT_BC4_SNORM_BLOCK,            // BC4_SNORM_BLOCK
-        VK_FORMAT_BC5_UNORM_BLOCK,            // BC5_UNORM_BLOCK
-        VK_FORMAT_BC5_SNORM_BLOCK,            // BC5_SNORM_BLOCK
-        VK_FORMAT_BC6H_UFLOAT_BLOCK,          // BC6H_UFLOAT_BLOCK
-        VK_FORMAT_BC6H_SFLOAT_BLOCK,          // BC6H_SFLOAT_BLOCK
-        VK_FORMAT_BC7_UNORM_BLOCK,            // BC7_UNORM_BLOCK
-        VK_FORMAT_BC7_SRGB_BLOCK,             // BC7_SRGB_BLOCK
-        VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,    // ETC2_R8G8B8_UNORM_BLOCK
-        VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,     // ETC2_R8G8B8_SRGB_BLOCK
-        VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK,  // ETC2_R8G8B8A1_UNORM_BLOCK
-        VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,   // ETC2_R8G8B8A1_SRGB_BLOCK
-        VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,  // ETC2_R8G8B8A8_UNORM_BLOCK
-        VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,   // ETC2_R8G8B8A8_SRGB_BLOCK
-        VK_FORMAT_ASTC_4x4_UNORM_BLOCK,       // ASTC_4x4_UNORM_BLOCK
-        VK_FORMAT_ASTC_4x4_SRGB_BLOCK,        // ASTC_4x4_SRGB_BLOCK
-        VK_FORMAT_ASTC_8x8_UNORM_BLOCK,       // ASTC_8x8_UNORM_BLOCK
-        VK_FORMAT_ASTC_8x8_SRGB_BLOCK,        // ASTC_8x8_SRGB_BLOCK
-        VK_FORMAT_ASTC_10x10_UNORM_BLOCK,     // ASTC_10x10_UNORM_BLOCK
-        VK_FORMAT_ASTC_10x10_SRGB_BLOCK,      // ASTC_10x10_SRGB_BLOCK
-        VK_FORMAT_ASTC_12x12_UNORM_BLOCK,     // ASTC_12x12_UNORM_BLOCK
-        VK_FORMAT_ASTC_12x12_SRGB_BLOCK,      // ASTC_12x12_SRGB_BLOCK
+        VK_FORMAT_UNDEFINED,                 // UNDEFINED
+        VK_FORMAT_R8_UINT,                   // R8_UINT
+        VK_FORMAT_R8_UNORM,                  // R8_UNORM
+        VK_FORMAT_R8_SRGB,                   // R8_SRGB
+        VK_FORMAT_R8G8B8A8_UNORM,            // RGBA8_UNORM
+        VK_FORMAT_R8G8B8A8_SRGB,             // RGBA8_SRGB
+        VK_FORMAT_B8G8R8A8_UNORM,            // BGRA8_UNORM
+        VK_FORMAT_B8G8R8A8_SRGB,             // BGRA8_SRGB
+        VK_FORMAT_R16_UNORM,                 // R16_UNORM
+        VK_FORMAT_R16G16_UNORM,              // RG16_UNORM
+        VK_FORMAT_R16G16B16A16_UNORM,        // RGBA16_UNORM
+        VK_FORMAT_R16_SFLOAT,                // R16_SFLOAT
+        VK_FORMAT_R16G16_SFLOAT,             // RG16_SFLOAT
+        VK_FORMAT_R16G16B16A16_SFLOAT,       // RGBA16_SFLOAT
+        VK_FORMAT_R32_SFLOAT,                // R32_SFLOAT
+        VK_FORMAT_R32G32_SFLOAT,             // RG32_SFLOAT
+        VK_FORMAT_R32G32B32_SFLOAT,          // RGB32_SFLOAT
+        VK_FORMAT_R32G32B32A32_SFLOAT,       // RGBA32_SFLOAT
+        VK_FORMAT_R32_UINT,                  // R32_UINT
+        VK_FORMAT_R32G32_UINT,               // RG32_UINT
+        VK_FORMAT_R32G32B32_UINT,            // RGB32_UINT
+        VK_FORMAT_R32G32B32A32_UINT,         // RGBA32_UINT
+        VK_FORMAT_D32_SFLOAT,                // D32
+        VK_FORMAT_D24_UNORM_S8_UINT,         // D24_S8
+        VK_FORMAT_D32_SFLOAT_S8_UINT,        // D32_S8
+        VK_FORMAT_BC1_RGB_UNORM_BLOCK,       // BC1_RGB_UNORM_BLOCK
+        VK_FORMAT_BC1_RGB_SRGB_BLOCK,        // BC1_RGB_SRGB_BLOCK
+        VK_FORMAT_BC1_RGBA_UNORM_BLOCK,      // BC1_RGBA_UNORM_BLOCK
+        VK_FORMAT_BC1_RGBA_SRGB_BLOCK,       // BC1_RGBA_SRGB_BLOCK
+        VK_FORMAT_BC2_UNORM_BLOCK,           // BC2_UNORM_BLOCK
+        VK_FORMAT_BC2_SRGB_BLOCK,            // BC2_SRGB_BLOCK
+        VK_FORMAT_BC3_UNORM_BLOCK,           // BC3_UNORM_BLOCK
+        VK_FORMAT_BC3_SRGB_BLOCK,            // BC3_SRGB_BLOCK
+        VK_FORMAT_BC4_UNORM_BLOCK,           // BC4_UNORM_BLOCK
+        VK_FORMAT_BC4_SNORM_BLOCK,           // BC4_SNORM_BLOCK
+        VK_FORMAT_BC5_UNORM_BLOCK,           // BC5_UNORM_BLOCK
+        VK_FORMAT_BC5_SNORM_BLOCK,           // BC5_SNORM_BLOCK
+        VK_FORMAT_BC6H_UFLOAT_BLOCK,         // BC6H_UFLOAT_BLOCK
+        VK_FORMAT_BC6H_SFLOAT_BLOCK,         // BC6H_SFLOAT_BLOCK
+        VK_FORMAT_BC7_UNORM_BLOCK,           // BC7_UNORM_BLOCK
+        VK_FORMAT_BC7_SRGB_BLOCK,            // BC7_SRGB_BLOCK
+        VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,   // ETC2_R8G8B8_UNORM_BLOCK
+        VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,    // ETC2_R8G8B8_SRGB_BLOCK
+        VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK, // ETC2_R8G8B8A1_UNORM_BLOCK
+        VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,  // ETC2_R8G8B8A1_SRGB_BLOCK
+        VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK, // ETC2_R8G8B8A8_UNORM_BLOCK
+        VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,  // ETC2_R8G8B8A8_SRGB_BLOCK
+        VK_FORMAT_ASTC_4x4_UNORM_BLOCK,      // ASTC_4x4_UNORM_BLOCK
+        VK_FORMAT_ASTC_4x4_SRGB_BLOCK,       // ASTC_4x4_SRGB_BLOCK
+        VK_FORMAT_ASTC_8x8_UNORM_BLOCK,      // ASTC_8x8_UNORM_BLOCK
+        VK_FORMAT_ASTC_8x8_SRGB_BLOCK,       // ASTC_8x8_SRGB_BLOCK
+        VK_FORMAT_ASTC_10x10_UNORM_BLOCK,    // ASTC_10x10_UNORM_BLOCK
+        VK_FORMAT_ASTC_10x10_SRGB_BLOCK,     // ASTC_10x10_SRGB_BLOCK
+        VK_FORMAT_ASTC_12x12_UNORM_BLOCK,    // ASTC_12x12_UNORM_BLOCK
+        VK_FORMAT_ASTC_12x12_SRGB_BLOCK,     // ASTC_12x12_SRGB_BLOCK
+        VK_FORMAT_ASTC_6x6_UNORM_BLOCK,      // ASTC_6x6_UNORM_BLOCK
+        VK_FORMAT_ASTC_6x6_SRGB_BLOCK,       // ASTC_6x6_SRGB_BLOCK
     };
 
     VkFormat FromPixelFormat(PixelFormat format)
@@ -76,27 +78,27 @@ namespace sky::aurora {
 
     // ---- Format (vertex attribute) ----
     static const VkFormat FORMAT_TABLE[] = {
-        VK_FORMAT_UNDEFINED,             // UNDEFINED
-        VK_FORMAT_R32_SFLOAT,            // F_R32
-        VK_FORMAT_R32G32_SFLOAT,         // F_RG32
-        VK_FORMAT_R32G32B32_SFLOAT,      // F_RGB32
-        VK_FORMAT_R32G32B32A32_SFLOAT,   // F_RGBA32
-        VK_FORMAT_R8_UNORM,              // F_R8
-        VK_FORMAT_R8G8_UNORM,            // F_RG8
-        VK_FORMAT_R8G8B8_UNORM,          // F_RGB8
-        VK_FORMAT_R8G8B8A8_UNORM,        // F_RGBA8
-        VK_FORMAT_R8_UINT,               // U_R8
-        VK_FORMAT_R8G8_UINT,             // U_RG8
-        VK_FORMAT_R8G8B8_UINT,           // U_RGB8
-        VK_FORMAT_R8G8B8A8_UINT,         // U_RGBA8
-        VK_FORMAT_R16_UINT,              // U_R16
-        VK_FORMAT_R16G16_UINT,           // U_RG16
-        VK_FORMAT_R16G16B16_UINT,        // U_RGB16
-        VK_FORMAT_R16G16B16A16_UINT,     // U_RGBA16
-        VK_FORMAT_R32_UINT,              // U_R32
-        VK_FORMAT_R32G32_UINT,           // U_RG32
-        VK_FORMAT_R32G32B32_UINT,        // U_RGB32
-        VK_FORMAT_R32G32B32A32_UINT,     // U_RGBA32
+        VK_FORMAT_UNDEFINED,           // UNDEFINED
+        VK_FORMAT_R32_SFLOAT,          // F_R32
+        VK_FORMAT_R32G32_SFLOAT,       // F_RG32
+        VK_FORMAT_R32G32B32_SFLOAT,    // F_RGB32
+        VK_FORMAT_R32G32B32A32_SFLOAT, // F_RGBA32
+        VK_FORMAT_R8_UNORM,            // F_R8
+        VK_FORMAT_R8G8_UNORM,          // F_RG8
+        VK_FORMAT_R8G8B8_UNORM,        // F_RGB8
+        VK_FORMAT_R8G8B8A8_UNORM,      // F_RGBA8
+        VK_FORMAT_R8_UINT,             // U_R8
+        VK_FORMAT_R8G8_UINT,           // U_RG8
+        VK_FORMAT_R8G8B8_UINT,         // U_RGB8
+        VK_FORMAT_R8G8B8A8_UINT,       // U_RGBA8
+        VK_FORMAT_R16_UINT,            // U_R16
+        VK_FORMAT_R16G16_UINT,         // U_RG16
+        VK_FORMAT_R16G16B16_UINT,      // U_RGB16
+        VK_FORMAT_R16G16B16A16_UINT,   // U_RGBA16
+        VK_FORMAT_R32_UINT,            // U_R32
+        VK_FORMAT_R32G32_UINT,         // U_RG32
+        VK_FORMAT_R32G32B32_UINT,      // U_RGB32
+        VK_FORMAT_R32G32B32A32_UINT,   // U_RGBA32
     };
 
     VkFormat FromFormat(Format format)
@@ -209,8 +211,12 @@ namespace sky::aurora {
     VkCullModeFlags FromCullMode(const CullingModeFlags &flags)
     {
         VkCullModeFlags res = VK_CULL_MODE_NONE;
-        if (flags & CullModeFlagBits::FRONT) { res |= VK_CULL_MODE_FRONT_BIT; }
-        if (flags & CullModeFlagBits::BACK)  { res |= VK_CULL_MODE_BACK_BIT; }
+        if (flags & CullModeFlagBits::FRONT) {
+            res |= VK_CULL_MODE_FRONT_BIT;
+        }
+        if (flags & CullModeFlagBits::BACK) {
+            res |= VK_CULL_MODE_BACK_BIT;
+        }
         return res;
     }
 
@@ -240,14 +246,14 @@ namespace sky::aurora {
     VkDescriptorType FromShaderResourceType(ShaderResourceType type)
     {
         switch (type) {
-        case ShaderResourceType::SAMPLER:                return VK_DESCRIPTOR_TYPE_SAMPLER;
-        case ShaderResourceType::SAMPLED_IMAGE:          return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        case ShaderResourceType::STORAGE_IMAGE:          return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        case ShaderResourceType::UNIFORM_BUFFER:         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case ShaderResourceType::STORAGE_BUFFER:         return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case ShaderResourceType::SAMPLER: return VK_DESCRIPTOR_TYPE_SAMPLER;
+        case ShaderResourceType::SAMPLED_IMAGE: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        case ShaderResourceType::STORAGE_IMAGE: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        case ShaderResourceType::UNIFORM_BUFFER: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case ShaderResourceType::STORAGE_BUFFER: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         case ShaderResourceType::STORAGE_BUFFER_DYNAMIC: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-        case ShaderResourceType::INPUT_ATTACHMENT:       return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        case ShaderResourceType::INPUT_ATTACHMENT: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         }
         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     }
@@ -262,12 +268,12 @@ namespace sky::aurora {
     VkShaderStageFlagBits FromShaderStage(ShaderStageFlagBit stage)
     {
         switch (stage) {
-        case ShaderStageFlagBit::VS:  return VK_SHADER_STAGE_VERTEX_BIT;
-        case ShaderStageFlagBit::FS:  return VK_SHADER_STAGE_FRAGMENT_BIT;
-        case ShaderStageFlagBit::CS:  return VK_SHADER_STAGE_COMPUTE_BIT;
+        case ShaderStageFlagBit::VS: return VK_SHADER_STAGE_VERTEX_BIT;
+        case ShaderStageFlagBit::FS: return VK_SHADER_STAGE_FRAGMENT_BIT;
+        case ShaderStageFlagBit::CS: return VK_SHADER_STAGE_COMPUTE_BIT;
 #ifndef ANDROID
         case ShaderStageFlagBit::TAS: return VK_SHADER_STAGE_TASK_BIT_EXT;
-        case ShaderStageFlagBit::MS:  return VK_SHADER_STAGE_MESH_BIT_EXT;
+        case ShaderStageFlagBit::MS: return VK_SHADER_STAGE_MESH_BIT_EXT;
 #endif
         default: return VK_SHADER_STAGE_VERTEX_BIT;
         }
@@ -276,12 +282,22 @@ namespace sky::aurora {
     VkShaderStageFlags FromShaderStageFlags(const ShaderStageFlags &flags)
     {
         VkShaderStageFlags res = 0;
-        if (flags & ShaderStageFlagBit::VS)  { res |= VK_SHADER_STAGE_VERTEX_BIT; }
-        if (flags & ShaderStageFlagBit::FS)  { res |= VK_SHADER_STAGE_FRAGMENT_BIT; }
-        if (flags & ShaderStageFlagBit::CS)  { res |= VK_SHADER_STAGE_COMPUTE_BIT; }
+        if (flags & ShaderStageFlagBit::VS) {
+            res |= VK_SHADER_STAGE_VERTEX_BIT;
+        }
+        if (flags & ShaderStageFlagBit::FS) {
+            res |= VK_SHADER_STAGE_FRAGMENT_BIT;
+        }
+        if (flags & ShaderStageFlagBit::CS) {
+            res |= VK_SHADER_STAGE_COMPUTE_BIT;
+        }
 #ifndef ANDROID
-        if (flags & ShaderStageFlagBit::TAS) { res |= VK_SHADER_STAGE_TASK_BIT_EXT; }
-        if (flags & ShaderStageFlagBit::MS)  { res |= VK_SHADER_STAGE_MESH_BIT_EXT; }
+        if (flags & ShaderStageFlagBit::TAS) {
+            res |= VK_SHADER_STAGE_TASK_BIT_EXT;
+        }
+        if (flags & ShaderStageFlagBit::MS) {
+            res |= VK_SHADER_STAGE_MESH_BIT_EXT;
+        }
 #endif
         return res;
     }
@@ -290,14 +306,30 @@ namespace sky::aurora {
     VkImageUsageFlags FromImageUsageFlags(const ImageUsageFlags &flags)
     {
         VkImageUsageFlags res = 0;
-        if (flags & ImageUsageFlagBit::TRANSFER_SRC)     { res |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT; }
-        if (flags & ImageUsageFlagBit::TRANSFER_DST)     { res |= VK_IMAGE_USAGE_TRANSFER_DST_BIT; }
-        if (flags & ImageUsageFlagBit::SAMPLED)          { res |= VK_IMAGE_USAGE_SAMPLED_BIT; }
-        if (flags & ImageUsageFlagBit::STORAGE)          { res |= VK_IMAGE_USAGE_STORAGE_BIT; }
-        if (flags & ImageUsageFlagBit::RENDER_TARGET)    { res |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; }
-        if (flags & ImageUsageFlagBit::DEPTH_STENCIL)    { res |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; }
-        if (flags & ImageUsageFlagBit::TRANSIENT)        { res |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT; }
-        if (flags & ImageUsageFlagBit::INPUT_ATTACHMENT)  { res |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT; }
+        if (flags & ImageUsageFlagBit::TRANSFER_SRC) {
+            res |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
+        if (flags & ImageUsageFlagBit::TRANSFER_DST) {
+            res |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        }
+        if (flags & ImageUsageFlagBit::SAMPLED) {
+            res |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        }
+        if (flags & ImageUsageFlagBit::STORAGE) {
+            res |= VK_IMAGE_USAGE_STORAGE_BIT;
+        }
+        if (flags & ImageUsageFlagBit::RENDER_TARGET) {
+            res |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        }
+        if (flags & ImageUsageFlagBit::DEPTH_STENCIL) {
+            res |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        }
+        if (flags & ImageUsageFlagBit::TRANSIENT) {
+            res |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+        }
+        if (flags & ImageUsageFlagBit::INPUT_ATTACHMENT) {
+            res |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        }
         return res;
     }
 
@@ -305,13 +337,27 @@ namespace sky::aurora {
     VkBufferUsageFlags FromBufferUsageFlags(const BufferUsageFlags &flags)
     {
         VkBufferUsageFlags res = 0;
-        if (flags & BufferUsageFlagBit::TRANSFER_SRC) { res |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT; }
-        if (flags & BufferUsageFlagBit::TRANSFER_DST) { res |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
-        if (flags & BufferUsageFlagBit::UNIFORM)      { res |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; }
-        if (flags & BufferUsageFlagBit::STORAGE)      { res |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; }
-        if (flags & BufferUsageFlagBit::VERTEX)       { res |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT; }
-        if (flags & BufferUsageFlagBit::INDEX)        { res |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT; }
-        if (flags & BufferUsageFlagBit::INDIRECT)     { res |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT; }
+        if (flags & BufferUsageFlagBit::TRANSFER_SRC) {
+            res |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        }
+        if (flags & BufferUsageFlagBit::TRANSFER_DST) {
+            res |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        }
+        if (flags & BufferUsageFlagBit::UNIFORM) {
+            res |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        }
+        if (flags & BufferUsageFlagBit::STORAGE) {
+            res |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        }
+        if (flags & BufferUsageFlagBit::VERTEX) {
+            res |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        }
+        if (flags & BufferUsageFlagBit::INDEX) {
+            res |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        }
+        if (flags & BufferUsageFlagBit::INDIRECT) {
+            res |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+        }
         return res;
     }
 
@@ -319,11 +365,11 @@ namespace sky::aurora {
     VmaMemoryUsage FromMemoryType(MemoryType type)
     {
         switch (type) {
-        case MemoryType::GPU_ONLY:   return VMA_MEMORY_USAGE_GPU_ONLY;
-        case MemoryType::CPU_ONLY:   return VMA_MEMORY_USAGE_CPU_ONLY;
+        case MemoryType::GPU_ONLY: return VMA_MEMORY_USAGE_GPU_ONLY;
+        case MemoryType::CPU_ONLY: return VMA_MEMORY_USAGE_CPU_ONLY;
         case MemoryType::CPU_TO_GPU: return VMA_MEMORY_USAGE_CPU_TO_GPU;
         case MemoryType::GPU_TO_CPU: return VMA_MEMORY_USAGE_GPU_TO_CPU;
-        default:                     return VMA_MEMORY_USAGE_GPU_ONLY;
+        default: return VMA_MEMORY_USAGE_GPU_ONLY;
         }
     }
 
@@ -340,9 +386,15 @@ namespace sky::aurora {
     VkImageAspectFlags FromAspectFlags(const AspectFlags &flags)
     {
         VkImageAspectFlags res = 0;
-        if (flags & AspectFlagBit::COLOR_BIT)   { res |= VK_IMAGE_ASPECT_COLOR_BIT; }
-        if (flags & AspectFlagBit::DEPTH_BIT)   { res |= VK_IMAGE_ASPECT_DEPTH_BIT; }
-        if (flags & AspectFlagBit::STENCIL_BIT) { res |= VK_IMAGE_ASPECT_STENCIL_BIT; }
+        if (flags & AspectFlagBit::COLOR_BIT) {
+            res |= VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+        if (flags & AspectFlagBit::DEPTH_BIT) {
+            res |= VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        if (flags & AspectFlagBit::STENCIL_BIT) {
+            res |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
         return res;
     }
 
@@ -350,17 +402,39 @@ namespace sky::aurora {
     VkPipelineStageFlags FromPipelineStageFlags(const PipelineStageFlags &flags)
     {
         VkPipelineStageFlags res = 0;
-        if (flags & PipelineStageBit::TOP)             { res |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; }
-        if (flags & PipelineStageBit::DRAW_INDIRECT)   { res |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT; }
-        if (flags & PipelineStageBit::VERTEX_INPUT)    { res |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT; }
-        if (flags & PipelineStageBit::VERTEX_SHADER)   { res |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT; }
-        if (flags & PipelineStageBit::FRAGMENT_SHADER) { res |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; }
-        if (flags & PipelineStageBit::EARLY_FRAGMENT)  { res |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; }
-        if (flags & PipelineStageBit::LATE_FRAGMENT)   { res |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; }
-        if (flags & PipelineStageBit::COLOR_OUTPUT)    { res |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; }
-        if (flags & PipelineStageBit::COMPUTE_SHADER)  { res |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT; }
-        if (flags & PipelineStageBit::TRANSFER)        { res |= VK_PIPELINE_STAGE_TRANSFER_BIT; }
-        if (flags & PipelineStageBit::BOTTOM)          { res |= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; }
+        if (flags & PipelineStageBit::TOP) {
+            res |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        }
+        if (flags & PipelineStageBit::DRAW_INDIRECT) {
+            res |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        }
+        if (flags & PipelineStageBit::VERTEX_INPUT) {
+            res |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        }
+        if (flags & PipelineStageBit::VERTEX_SHADER) {
+            res |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::FRAGMENT_SHADER) {
+            res |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::EARLY_FRAGMENT) {
+            res |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        }
+        if (flags & PipelineStageBit::LATE_FRAGMENT) {
+            res |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        }
+        if (flags & PipelineStageBit::COLOR_OUTPUT) {
+            res |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
+        if (flags & PipelineStageBit::COMPUTE_SHADER) {
+            res |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::TRANSFER) {
+            res |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        }
+        if (flags & PipelineStageBit::BOTTOM) {
+            res |= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        }
         return res;
     }
 
@@ -368,13 +442,13 @@ namespace sky::aurora {
     VkStencilOpState FromStencilState(const StencilState &state)
     {
         VkStencilOpState ret = {};
-        ret.failOp      = FromStencilOp(state.failOp);
-        ret.passOp      = FromStencilOp(state.passOp);
-        ret.depthFailOp = FromStencilOp(state.depthFailOp);
-        ret.compareOp   = FromCompareOp(state.compareOp);
-        ret.compareMask = state.compareMask;
-        ret.writeMask   = state.writeMask;
-        ret.reference   = state.reference;
+        ret.failOp           = FromStencilOp(state.failOp);
+        ret.passOp           = FromStencilOp(state.passOp);
+        ret.depthFailOp      = FromStencilOp(state.depthFailOp);
+        ret.compareOp        = FromCompareOp(state.compareOp);
+        ret.compareMask      = state.compareMask;
+        ret.writeMask        = state.writeMask;
+        ret.reference        = state.reference;
         return ret;
     }
 
@@ -383,8 +457,8 @@ namespace sky::aurora {
     {
         switch (type) {
         case QueryType::PIPELINE_STATISTICS: return VK_QUERY_TYPE_PIPELINE_STATISTICS;
-        case QueryType::TIME_STAMP:          return VK_QUERY_TYPE_TIMESTAMP;
-        case QueryType::OCCLUSION:           return VK_QUERY_TYPE_OCCLUSION;
+        case QueryType::TIME_STAMP: return VK_QUERY_TYPE_TIMESTAMP;
+        case QueryType::OCCLUSION: return VK_QUERY_TYPE_OCCLUSION;
         default: return VK_QUERY_TYPE_MAX_ENUM;
         }
     }
@@ -393,13 +467,27 @@ namespace sky::aurora {
     VkQueryPipelineStatisticFlags FromPipelineStatisticFlags(const PipelineStatisticFlags &flags)
     {
         VkQueryPipelineStatisticFlags res = 0;
-        if (flags & PipelineStatisticFlagBits::IA_VERTICES)      { res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT; }
-        if (flags & PipelineStatisticFlagBits::IA_PRIMITIVES)    { res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT; }
-        if (flags & PipelineStatisticFlagBits::VS_INVOCATIONS)   { res |= VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT; }
-        if (flags & PipelineStatisticFlagBits::FS_INVOCATIONS)   { res |= VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT; }
-        if (flags & PipelineStatisticFlagBits::CLIP_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT; }
-        if (flags & PipelineStatisticFlagBits::CLIP_PRIMITIVES)  { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT; }
-        if (flags & PipelineStatisticFlagBits::CS_INVOCATIONS)   { res |= VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT; }
+        if (flags & PipelineStatisticFlagBits::IA_VERTICES) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::IA_PRIMITIVES) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::VS_INVOCATIONS) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::FS_INVOCATIONS) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::CLIP_INVOCATIONS) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::CLIP_PRIMITIVES) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT;
+        }
+        if (flags & PipelineStatisticFlagBits::CS_INVOCATIONS) {
+            res |= VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+        }
         return res;
     }
 
@@ -407,17 +495,39 @@ namespace sky::aurora {
     VkPipelineStageFlags2 FromPipelineStageFlags2(const PipelineStageFlags &flags)
     {
         VkPipelineStageFlags2 res = 0;
-        if (flags & PipelineStageBit::TOP)             { res |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT; }
-        if (flags & PipelineStageBit::DRAW_INDIRECT)   { res |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT; }
-        if (flags & PipelineStageBit::VERTEX_INPUT)    { res |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT; }
-        if (flags & PipelineStageBit::VERTEX_SHADER)   { res |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT; }
-        if (flags & PipelineStageBit::FRAGMENT_SHADER) { res |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; }
-        if (flags & PipelineStageBit::EARLY_FRAGMENT)  { res |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT; }
-        if (flags & PipelineStageBit::LATE_FRAGMENT)   { res |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT; }
-        if (flags & PipelineStageBit::COLOR_OUTPUT)    { res |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT; }
-        if (flags & PipelineStageBit::COMPUTE_SHADER)  { res |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT; }
-        if (flags & PipelineStageBit::TRANSFER)        { res |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT; }
-        if (flags & PipelineStageBit::BOTTOM)          { res |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT; }
+        if (flags & PipelineStageBit::TOP) {
+            res |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+        }
+        if (flags & PipelineStageBit::DRAW_INDIRECT) {
+            res |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+        }
+        if (flags & PipelineStageBit::VERTEX_INPUT) {
+            res |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+        }
+        if (flags & PipelineStageBit::VERTEX_SHADER) {
+            res |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::FRAGMENT_SHADER) {
+            res |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::EARLY_FRAGMENT) {
+            res |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+        }
+        if (flags & PipelineStageBit::LATE_FRAGMENT) {
+            res |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        }
+        if (flags & PipelineStageBit::COLOR_OUTPUT) {
+            res |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
+        if (flags & PipelineStageBit::COMPUTE_SHADER) {
+            res |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        }
+        if (flags & PipelineStageBit::TRANSFER) {
+            res |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+        }
+        if (flags & PipelineStageBit::BOTTOM) {
+            res |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+        }
         return res;
     }
 
@@ -425,17 +535,39 @@ namespace sky::aurora {
     VkAccessFlags2 FromAccessFlags2(const AccessFlags &flags)
     {
         VkAccessFlags2 res = 0;
-        if (flags & AccessFlagBit::INDIRECT_BUFFER) { res |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT; }
-        if (flags & AccessFlagBit::INDEX_BUFFER)    { res |= VK_ACCESS_2_INDEX_READ_BIT; }
-        if (flags & AccessFlagBit::VERTEX_BUFFER)   { res |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT; }
-        if (flags & AccessFlagBit::CBV)             { res |= VK_ACCESS_2_UNIFORM_READ_BIT; }
-        if (flags & AccessFlagBit::SRV)             { res |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT; }
-        if (flags & AccessFlagBit::UAV)             { res |= (VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT); }
-        if (flags & AccessFlagBit::RTV)             { res |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT; }
-        if (flags & AccessFlagBit::DSV)             { res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; }
-        if (flags & AccessFlagBit::DSV_READ)        { res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT; }
-        if (flags & AccessFlagBit::COPY_SRC)        { res |= VK_ACCESS_2_TRANSFER_READ_BIT; }
-        if (flags & AccessFlagBit::COPY_DST)        { res |= VK_ACCESS_2_TRANSFER_WRITE_BIT; }
+        if (flags & AccessFlagBit::INDIRECT_BUFFER) {
+            res |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+        }
+        if (flags & AccessFlagBit::INDEX_BUFFER) {
+            res |= VK_ACCESS_2_INDEX_READ_BIT;
+        }
+        if (flags & AccessFlagBit::VERTEX_BUFFER) {
+            res |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+        }
+        if (flags & AccessFlagBit::CBV) {
+            res |= VK_ACCESS_2_UNIFORM_READ_BIT;
+        }
+        if (flags & AccessFlagBit::SRV) {
+            res |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+        }
+        if (flags & AccessFlagBit::UAV) {
+            res |= (VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
+        }
+        if (flags & AccessFlagBit::RTV) {
+            res |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+        }
+        if (flags & AccessFlagBit::DSV) {
+            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+        if (flags & AccessFlagBit::DSV_READ) {
+            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        }
+        if (flags & AccessFlagBit::COPY_SRC) {
+            res |= VK_ACCESS_2_TRANSFER_READ_BIT;
+        }
+        if (flags & AccessFlagBit::COPY_DST) {
+            res |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        }
         return res;
     }
 
@@ -443,18 +575,18 @@ namespace sky::aurora {
     VkImageLayout FromImageLayout(ImageLayout layout)
     {
         switch (layout) {
-        case ImageLayout::UNDEFINED:                          return VK_IMAGE_LAYOUT_UNDEFINED;
-        case ImageLayout::GENERAL:                            return VK_IMAGE_LAYOUT_GENERAL;
-        case ImageLayout::COLOR_ATTACHMENT:                   return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        case ImageLayout::DEPTH_STENCIL_ATTACHMENT:           return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        case ImageLayout::DEPTH_STENCIL_READ_ONLY:            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-        case ImageLayout::SHADER_READ_ONLY:                   return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        case ImageLayout::TRANSFER_SRC:                       return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        case ImageLayout::TRANSFER_DST:                       return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        case ImageLayout::PRESENT:                            return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        case ImageLayout::FRAGMENT_SHADING_RATE_ATTACHMENT:   return VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
-        case ImageLayout::FEEDBACK_LOOP:                      return VK_IMAGE_LAYOUT_GENERAL;
-        default:                                              return VK_IMAGE_LAYOUT_UNDEFINED;
+        case ImageLayout::UNDEFINED: return VK_IMAGE_LAYOUT_UNDEFINED;
+        case ImageLayout::GENERAL: return VK_IMAGE_LAYOUT_GENERAL;
+        case ImageLayout::COLOR_ATTACHMENT: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ImageLayout::DEPTH_STENCIL_ATTACHMENT: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ImageLayout::DEPTH_STENCIL_READ_ONLY: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        case ImageLayout::SHADER_READ_ONLY: return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case ImageLayout::TRANSFER_SRC: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case ImageLayout::TRANSFER_DST: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case ImageLayout::PRESENT: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case ImageLayout::FRAGMENT_SHADING_RATE_ATTACHMENT: return VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+        case ImageLayout::FEEDBACK_LOOP: return VK_IMAGE_LAYOUT_GENERAL;
+        default: return VK_IMAGE_LAYOUT_UNDEFINED;
         }
     }
 
@@ -464,28 +596,18 @@ namespace sky::aurora {
         switch (format) {
         case VK_FORMAT_D16_UNORM:
         case VK_FORMAT_X8_D24_UNORM_PACK32:
-        case VK_FORMAT_D32_SFLOAT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT;
-        case VK_FORMAT_S8_UINT:
-            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D32_SFLOAT: return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT: return VK_IMAGE_ASPECT_STENCIL_BIT;
         case VK_FORMAT_D24_UNORM_S8_UINT:
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-        default:
-            (void)layout;
-            return VK_IMAGE_ASPECT_COLOR_BIT;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT: return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        default: (void)layout; return VK_IMAGE_ASPECT_COLOR_BIT;
         }
     }
 
     // ---- ImageSubresourceLayers ----
     VkImageSubresourceLayers FromImageSubRangeLayers(const ImageSubRangeLayers &range)
     {
-        return VkImageSubresourceLayers{
-            FromAspectFlags(range.aspectMask),
-            range.level,
-            range.baseLayer,
-            range.layers
-        };
+        return VkImageSubresourceLayers{FromAspectFlags(range.aspectMask), range.level, range.baseLayer, range.layers};
     }
 
 } // namespace sky::aurora

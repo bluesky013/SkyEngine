@@ -15,6 +15,7 @@ namespace sky::editor {
         registry.Register(PanelInfo{"config", "Config", 260.f, 200.f, nullptr});
         registry.Register(PanelInfo{"outputlog", "Output Log", 240.f, 120.f, nullptr});
         registry.Register(PanelInfo{"console", "Console", 240.f, 120.f, nullptr});
+        registry.Register(PanelInfo{"assets", "Assets", 240.f, 160.f, nullptr});
     }
 
 } // namespace sky::editor

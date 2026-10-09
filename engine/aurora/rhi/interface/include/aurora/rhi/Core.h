@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <cstdint>
-#include <memory>
-#include <vector>
-#include <string>
 #include <core/template/Flags.h>
 #include <core/template/ReferenceObject.h>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace sky::aurora {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
@@ -73,31 +73,33 @@ namespace sky::aurora {
         ASTC_10x10_SRGB_BLOCK,
         ASTC_12x12_UNORM_BLOCK,
         ASTC_12x12_SRGB_BLOCK,
+        ASTC_6x6_UNORM_BLOCK,
+        ASTC_6x6_SRGB_BLOCK,
         MAX
     };
 
     enum class Format : uint32_t {
         UNDEFINED = 0,
-        F_R32     ,
-        F_RG32    ,
-        F_RGB32   ,
-        F_RGBA32  ,
-        F_R8      ,
-        F_RG8     ,
-        F_RGB8    ,
-        F_RGBA8   ,
-        U_R8      ,
-        U_RG8     ,
-        U_RGB8    ,
-        U_RGBA8   ,
-        U_R16     ,
-        U_RG16    ,
-        U_RGB16   ,
-        U_RGBA16  ,
-        U_R32     ,
-        U_RG32    ,
-        U_RGB32   ,
-        U_RGBA32  ,
+        F_R32,
+        F_RG32,
+        F_RGB32,
+        F_RGBA32,
+        F_R8,
+        F_RG8,
+        F_RGB8,
+        F_RGBA8,
+        U_R8,
+        U_RG8,
+        U_RGB8,
+        U_RGBA8,
+        U_R16,
+        U_RG16,
+        U_RGB16,
+        U_RGBA16,
+        U_R32,
+        U_RG32,
+        U_RGB32,
+        U_RGBA32,
     };
 
     enum class IndexType : uint32_t {
@@ -106,11 +108,7 @@ namespace sky::aurora {
         U32,
     };
 
-    enum class ImageType : uint32_t {
-        IMAGE_1D,
-        IMAGE_2D,
-        IMAGE_3D
-    };
+    enum class ImageType : uint32_t { IMAGE_1D, IMAGE_2D, IMAGE_3D };
 
     enum class ImageViewType : uint32_t {
         VIEW_2D,
@@ -120,21 +118,16 @@ namespace sky::aurora {
         VIEW_3D,
     };
 
-    enum class MemoryType : uint32_t {
-        GPU_ONLY,
-        CPU_ONLY,
-        CPU_TO_GPU,
-        GPU_TO_CPU
-    };
+    enum class MemoryType : uint32_t { GPU_ONLY, CPU_ONLY, CPU_TO_GPU, GPU_TO_CPU };
 
     enum class Filter : uint32_t {
         NEAREST = 0,
-        LINEAR = 1,
+        LINEAR  = 1,
     };
 
     enum class MipFilter : uint32_t {
         NEAREST = 0,
-        LINEAR = 1,
+        LINEAR  = 1,
     };
 
     enum class WrapMode : uint32_t {
@@ -145,10 +138,7 @@ namespace sky::aurora {
         MIRROR_CLAMP_TO_EDGE = 4,
     };
 
-    enum class PresentMode : uint32_t {
-        IMMEDIATE = 0,
-        VSYNC     = 1
-    };
+    enum class PresentMode : uint32_t { IMMEDIATE = 0, VSYNC = 1 };
 
     enum class BlendFactor : uint32_t {
         ZERO                     = 0,
@@ -210,12 +200,12 @@ namespace sky::aurora {
     };
 
     enum class PrimitiveTopology : uint32_t {
-        POINT_LIST                    = 0,
-        LINE_LIST                     = 1,
-        LINE_STRIP                    = 2,
-        TRIANGLE_LIST                 = 3,
-        TRIANGLE_STRIP                = 4,
-        TRIANGLE_FAN                  = 5,
+        POINT_LIST     = 0,
+        LINE_LIST      = 1,
+        LINE_STRIP     = 2,
+        TRIANGLE_LIST  = 3,
+        TRIANGLE_STRIP = 4,
+        TRIANGLE_FAN   = 5,
     };
 
     enum class PolygonMode : uint32_t {
@@ -229,21 +219,14 @@ namespace sky::aurora {
         CCW = 1,
     };
 
-    enum class LoadOp : uint32_t {
-        DONT_CARE = 0,
-        LOAD  = 1,
-        CLEAR = 2
-    };
+    enum class LoadOp : uint32_t { DONT_CARE = 0, LOAD = 1, CLEAR = 2 };
 
     enum class StoreOp : uint32_t {
         DONT_CARE = 0,
-        STORE = 1,
+        STORE     = 1,
     };
 
-    enum class VertexInputRate : uint8_t {
-        PER_VERTEX   = 0,
-        PER_INSTANCE = 1
-    };
+    enum class VertexInputRate : uint8_t { PER_VERTEX = 0, PER_INSTANCE = 1 };
 
     enum class QueueType : uint8_t {
         GRAPHICS,
@@ -252,7 +235,7 @@ namespace sky::aurora {
     };
 
     enum class SubPassContent : uint32_t {
-        INLINE = 0,
+        INLINE                    = 0,
         SECONDARY_COMMAND_BUFFERS = 1,
     };
 
@@ -328,26 +311,19 @@ namespace sky::aurora {
     ENABLE_FLAG_BIT_OPERATOR(AspectFlagBit)
 
     enum class BufferUsageFlagBit : uint32_t {
-        NONE            = 0x00000000,
-        TRANSFER_SRC    = 0x00000001,
-        TRANSFER_DST    = 0x00000002,
-        UNIFORM         = 0x00000004,
-        STORAGE         = 0x00000008,
-        VERTEX          = 0x00000010,
-        INDEX           = 0x00000020,
-        INDIRECT        = 0x00000040,
+        NONE         = 0x00000000,
+        TRANSFER_SRC = 0x00000001,
+        TRANSFER_DST = 0x00000002,
+        UNIFORM      = 0x00000004,
+        STORAGE      = 0x00000008,
+        VERTEX       = 0x00000010,
+        INDEX        = 0x00000020,
+        INDIRECT     = 0x00000040,
     };
     using BufferUsageFlags = Flags<BufferUsageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(BufferUsageFlagBit)
 
-    enum class ShaderStageFlagBit : uint32_t {
-        VS  = 0x01,
-        FS  = 0x02,
-        CS  = 0x04,
-        TAS = 0x80,
-        MS  = 0x100,
-        GFX = VS | FS
-    };
+    enum class ShaderStageFlagBit : uint32_t { VS = 0x01, FS = 0x02, CS = 0x04, TAS = 0x80, MS = 0x100, GFX = VS | FS };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
 
@@ -376,10 +352,7 @@ namespace sky::aurora {
     using PipelineStageFlags = Flags<PipelineStageBit>;
     ENABLE_FLAG_BIT_OPERATOR(PipelineStageBit)
 
-    enum class DescriptorBindFlagBit : uint32_t {
-        NONE          = 0x00000000,
-        FEEDBACK_LOOP = 0x00000001
-    };
+    enum class DescriptorBindFlagBit : uint32_t { NONE = 0x00000000, FEEDBACK_LOOP = 0x00000001 };
     using DescriptorBindFlags = Flags<DescriptorBindFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(DescriptorBindFlagBit)
 
@@ -391,20 +364,20 @@ namespace sky::aurora {
         CLIP_PRIMITIVES  = 0x00000010,
         FS_INVOCATIONS   = 0x00000020,
         CS_INVOCATIONS   = 0x00000040,
-        ALL = IA_VERTICES | IA_PRIMITIVES | VS_INVOCATIONS | CLIP_INVOCATIONS | CLIP_PRIMITIVES | FS_INVOCATIONS | CS_INVOCATIONS
+        ALL              = IA_VERTICES | IA_PRIMITIVES | VS_INVOCATIONS | CLIP_INVOCATIONS | CLIP_PRIMITIVES | FS_INVOCATIONS | CS_INVOCATIONS
     };
     using PipelineStatisticFlags = Flags<PipelineStatisticFlagBits>;
     ENABLE_FLAG_BIT_OPERATOR(PipelineStatisticFlagBits)
 
     enum class PixelFormatFeatureFlagBit : uint32_t {
-        COLOR           = 0x00000001,
-        BLEND           = 0x00000002,
-        DEPTH_STENCIL   = 0x00000004,
-        SHADING_RATE    = 0x00000008,
-        SAMPLE          = 0x00000010,
-        SAMPLE_FILTER   = 0x00000020,
-        STORAGE         = 0x00000040,
-        STORAGE_ATOMIC  = 0x00000080
+        COLOR          = 0x00000001,
+        BLEND          = 0x00000002,
+        DEPTH_STENCIL  = 0x00000004,
+        SHADING_RATE   = 0x00000008,
+        SAMPLE         = 0x00000010,
+        SAMPLE_FILTER  = 0x00000020,
+        STORAGE        = 0x00000040,
+        STORAGE_ATOMIC = 0x00000080
     };
     using PixelFormatFeatureFlags = Flags<PixelFormatFeatureFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(PixelFormatFeatureFlagBit)
@@ -438,18 +411,18 @@ namespace sky::aurora {
     };
 
     struct Viewport {
-        float x = 0.f;
-        float y = 0.f;
-        float width = 1.f;
-        float height = 1.f;
+        float x        = 0.f;
+        float y        = 0.f;
+        float width    = 1.f;
+        float height   = 1.f;
         float minDepth = 0.f;
         float maxDepth = 1.f;
     };
 
     union ClearColorValue {
-        float       float32[4];
-        int32_t     int32[4];
-        uint32_t    uint32[4];
+        float    float32[4];
+        int32_t  int32[4];
+        uint32_t uint32[4];
     };
 
     struct ClearDepthStencilValue {
@@ -477,7 +450,7 @@ namespace sky::aurora {
 
         ClearValue(float d, uint32_t s) noexcept
         {
-            depthStencil.depth = d;
+            depthStencil.depth   = d;
             depthStencil.stencil = s;
         }
 
@@ -487,38 +460,38 @@ namespace sky::aurora {
 
     struct PushConstantRange {
         ShaderStageFlags stageFlags;
-        uint32_t offset;
-        uint32_t size;
+        uint32_t         offset;
+        uint32_t         size;
     };
 
     struct IUploadStream : public RefObject {
-        IUploadStream() = default;
-        ~IUploadStream() override = default;
-        virtual const uint8_t *Data(uint64_t offset) = 0;
-        virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
+        IUploadStream()                                                               = default;
+        ~IUploadStream() override                                                     = default;
+        virtual const uint8_t *Data(uint64_t offset)                                  = 0;
+        virtual void           ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
 
     struct BufferUploadRequest {
         CounterPtr<IUploadStream> source;
-        uint64_t       offset    = 0;  // source offset into the stream
-        uint64_t       size      = 0;
-        uint64_t       dstOffset = 0;  // destination offset into the buffer
+        uint64_t                  offset    = 0; // source offset into the stream
+        uint64_t                  size      = 0;
+        uint64_t                  dstOffset = 0; // destination offset into the buffer
     };
 
     struct ImageUploadRequest {
         CounterPtr<IUploadStream> source;
-        uint64_t       offset   = 0;   // source offset into the stream (bytes)
-        uint64_t       size     = 0;   // bytes to read (strided data included)
-        uint32_t       mipLevel = 0;
-        uint32_t       layer    = 0;
+        uint64_t                  offset   = 0; // source offset into the stream (bytes)
+        uint64_t                  size     = 0; // bytes to read (strided data included)
+        uint32_t                  mipLevel = 0;
+        uint32_t                  layer    = 0;
         // Source buffer row length / slice height in texels. 0 means tightly
         // packed (= imageExtent.width / imageExtent.height). Non-zero for a
         // strided sub-region whose source row/slice pitch is larger than the
         // copied extent.
-        uint32_t       bufferRowLength   = 0;
-        uint32_t       bufferImageHeight = 0;
-        Offset3D       imageOffset       = {0, 0, 0};
-        Extent3D       imageExtent       = {0, 0, 0};
+        uint32_t bufferRowLength   = 0;
+        uint32_t bufferImageHeight = 0;
+        Offset3D imageOffset       = {0, 0, 0};
+        Extent3D imageExtent       = {0, 0, 0};
     };
 
     // Opaque waitable handle returned by Queue upload operations.
@@ -545,17 +518,17 @@ namespace sky::aurora {
     uint64_t GetImageSlicePitch(PixelFormat format, uint32_t width, uint32_t height);
 
     struct ImageSubRange {
-        uint32_t baseLevel = 0;
-        uint32_t levels    = 1;
-        uint32_t baseLayer = 0;
-        uint32_t layers    = 1;
+        uint32_t    baseLevel = 0;
+        uint32_t    levels    = 1;
+        uint32_t    baseLayer = 0;
+        uint32_t    layers    = 1;
         AspectFlags aspectMask;
     };
 
     struct ImageSubRangeLayers {
-        uint32_t level     = 0;
-        uint32_t baseLayer = 0;
-        uint32_t layers    = 1;
+        uint32_t    level     = 0;
+        uint32_t    baseLayer = 0;
+        uint32_t    layers    = 1;
         AspectFlags aspectMask;
     };
 
@@ -575,8 +548,8 @@ namespace sky::aurora {
     };
 
     struct StencilState {
-        StencilOp failOp = StencilOp::KEEP;
-        StencilOp passOp = StencilOp::KEEP;
+        StencilOp failOp      = StencilOp::KEEP;
+        StencilOp passOp      = StencilOp::KEEP;
         StencilOp depthFailOp = StencilOp::KEEP;
         CompareOp compareOp   = CompareOp::NEVER;
         uint32_t  compareMask = 0;
@@ -585,27 +558,27 @@ namespace sky::aurora {
     };
 
     struct DepthStencil {
-        bool depthTest      = false;
-        bool depthWrite     = false;
-        bool stencilTest    = false;
-        bool rsv            = false;
-        CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
-        float minDepth      = 0.f;
-        float maxDepth      = 1.f;
-        StencilState        front;
-        StencilState        back;
+        bool         depthTest   = false;
+        bool         depthWrite  = false;
+        bool         stencilTest = false;
+        bool         rsv         = false;
+        CompareOp    compareOp   = CompareOp::LESS_OR_EQUAL;
+        float        minDepth    = 0.f;
+        float        maxDepth    = 1.f;
+        StencilState front;
+        StencilState back;
     };
 
     struct BlendState {
-        bool blendEn         = false;
-        uint8_t writeMask    = 0xF;
-        uint8_t padding[2]   = {0};
-        BlendFactor srcColor = BlendFactor::ZERO;
-        BlendFactor dstColor = BlendFactor::ZERO;
-        BlendFactor srcAlpha = BlendFactor::ZERO;
-        BlendFactor dstAlpha = BlendFactor::ZERO;
-        BlendOp colorBlendOp = BlendOp::ADD;
-        BlendOp alphaBlendOp = BlendOp::ADD;
+        bool        blendEn      = false;
+        uint8_t     writeMask    = 0xF;
+        uint8_t     padding[2]   = {0};
+        BlendFactor srcColor     = BlendFactor::ZERO;
+        BlendFactor dstColor     = BlendFactor::ZERO;
+        BlendFactor srcAlpha     = BlendFactor::ZERO;
+        BlendFactor dstAlpha     = BlendFactor::ZERO;
+        BlendOp     colorBlendOp = BlendOp::ADD;
+        BlendOp     alphaBlendOp = BlendOp::ADD;
     };
 
     struct RasterState {
@@ -618,8 +591,8 @@ namespace sky::aurora {
         float            depthBiasSlopeFactor    = 0.f;
         float            lineWidth               = 1.f;
         CullingModeFlags cullMode                = CullModeFlagBits::NONE;
-        FrontFace        frontFace   = FrontFace::CCW;
-        PolygonMode      polygonMode = PolygonMode::FILL;
+        FrontFace        frontFace               = FrontFace::CCW;
+        PolygonMode      polygonMode             = PolygonMode::FILL;
     };
 
     struct InputAssembly {
@@ -627,8 +600,8 @@ namespace sky::aurora {
     };
 
     struct MultiSample {
-        bool alphaToCoverage = false;
-        SampleCount sampleCount = SampleCount::X1;
+        bool        alphaToCoverage = false;
+        SampleCount sampleCount     = SampleCount::X1;
     };
 
     struct VertexAttributeDesc {
@@ -662,12 +635,12 @@ namespace sky::aurora {
     };
 
     struct BufferImageCopy {
-        uint64_t bufferOffset      = 0;
-        uint32_t bufferRowLength   = 0;
-        uint32_t bufferImageHeight = 0;
+        uint64_t            bufferOffset      = 0;
+        uint32_t            bufferRowLength   = 0;
+        uint32_t            bufferImageHeight = 0;
         ImageSubRangeLayers subRange;
-        Offset3D imageOffset = {0, 0, 0};
-        Extent3D imageExtent = {0, 0, 0};
+        Offset3D            imageOffset = {0, 0, 0};
+        Extent3D            imageExtent = {0, 0, 0};
     };
 
     struct PipelineStatisticData {
@@ -681,18 +654,18 @@ namespace sky::aurora {
     };
 
     struct DeviceFeature {
-        bool sparseBinding = false;
-        bool descriptorIndexing = false;
-        bool descriptorHeap = false;
-        bool variableRateShading = false;
-        bool multiView = false;
-        bool meshShader = false;
-        bool framebufferFetch = false;
-        bool frameBufferFetchDS = false;
+        bool sparseBinding              = false;
+        bool descriptorIndexing         = false;
+        bool descriptorHeap             = false;
+        bool variableRateShading        = false;
+        bool multiView                  = false;
+        bool meshShader                 = false;
+        bool framebufferFetch           = false;
+        bool frameBufferFetchDS         = false;
         bool frameBufferFetchNoCoherent = false;
-        bool multiDrawIndirect = false;
-        bool firstInstanceIndirect = false;
-        bool depthStencilResolve = false;
+        bool multiDrawIndirect          = false;
+        bool firstInstanceIndirect      = false;
+        bool depthStencilResolve        = false;
     };
 
     struct MeshShaderProperties {
@@ -712,8 +685,7 @@ namespace sky::aurora {
         uint32_t size;
     };
 
-    struct ShaderVertexInput {
-    };
+    struct ShaderVertexInput {};
 
     // draw commands
     struct CmdDrawLinear {
@@ -747,26 +719,26 @@ namespace sky::aurora {
 
     // rendering attachment
     struct ColorAttachment {
-        Image      *image       = nullptr;
-        LoadOp      loadOp      = LoadOp::DONT_CARE;
-        StoreOp     storeOp     = StoreOp::STORE;
-        ClearValue  clearValue;
+        Image     *image   = nullptr;
+        LoadOp     loadOp  = LoadOp::DONT_CARE;
+        StoreOp    storeOp = StoreOp::STORE;
+        ClearValue clearValue;
     };
 
     struct DepthStencilAttachment {
-        Image      *image          = nullptr;
-        LoadOp      depthLoadOp    = LoadOp::DONT_CARE;
-        StoreOp     depthStoreOp   = StoreOp::STORE;
-        LoadOp      stencilLoadOp  = LoadOp::DONT_CARE;
-        StoreOp     stencilStoreOp = StoreOp::DONT_CARE;
-        ClearValue  clearValue;
+        Image     *image          = nullptr;
+        LoadOp     depthLoadOp    = LoadOp::DONT_CARE;
+        StoreOp    depthStoreOp   = StoreOp::STORE;
+        LoadOp     stencilLoadOp  = LoadOp::DONT_CARE;
+        StoreOp    stencilStoreOp = StoreOp::DONT_CARE;
+        ClearValue clearValue;
     };
 
     struct RenderingInfo {
-        Rect2D                          renderArea = {};
-        uint32_t                        numColors  = 0;
-        ColorAttachment                 colors[MAX_COLOR_ATTACHMENTS] = {};
-        DepthStencilAttachment          depthStencil;
+        Rect2D                 renderArea                    = {};
+        uint32_t               numColors                     = 0;
+        ColorAttachment        colors[MAX_COLOR_ATTACHMENTS] = {};
+        DepthStencilAttachment depthStencil;
     };
 
     struct BufferView {
@@ -776,20 +748,20 @@ namespace sky::aurora {
     };
 
     struct ImageBarrierInfo {
-        Image          *image     = nullptr;
-        ImageSubRange   subRange;
-        AccessFlags     srcAccess;
-        AccessFlags     dstAccess;
-        ImageLayout     oldLayout = ImageLayout::UNDEFINED;
-        ImageLayout     newLayout = ImageLayout::UNDEFINED;
+        Image        *image = nullptr;
+        ImageSubRange subRange;
+        AccessFlags   srcAccess;
+        AccessFlags   dstAccess;
+        ImageLayout   oldLayout = ImageLayout::UNDEFINED;
+        ImageLayout   newLayout = ImageLayout::UNDEFINED;
     };
 
     struct BufferBarrierInfo {
-        Buffer      *buffer   = nullptr;
-        uint64_t     offset   = 0;
-        uint64_t     range    = 0;
-        AccessFlags  srcAccess;
-        AccessFlags  dstAccess;
+        Buffer     *buffer = nullptr;
+        uint64_t    offset = 0;
+        uint64_t    range  = 0;
+        AccessFlags srcAccess;
+        AccessFlags dstAccess;
     };
 
     struct MemoryBarrierInfo {
@@ -798,11 +770,11 @@ namespace sky::aurora {
     };
 
     struct BarrierInfo {
-        PipelineStageFlags                srcStage = PipelineStageBit::TOP;
-        PipelineStageFlags                dstStage = PipelineStageBit::BOTTOM;
-        std::vector<MemoryBarrierInfo>    memoryBarriers;
-        std::vector<BufferBarrierInfo>    bufferBarriers;
-        std::vector<ImageBarrierInfo>     imageBarriers;
+        PipelineStageFlags             srcStage = PipelineStageBit::TOP;
+        PipelineStageFlags             dstStage = PipelineStageBit::BOTTOM;
+        std::vector<MemoryBarrierInfo> memoryBarriers;
+        std::vector<BufferBarrierInfo> bufferBarriers;
+        std::vector<ImageBarrierInfo>  imageBarriers;
     };
 
 }; // namespace sky::aurora

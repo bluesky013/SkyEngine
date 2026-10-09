@@ -45,21 +45,32 @@ namespace sky::editor {
 
     } // namespace
 
-    void ReflectedForm::Build(const PropertyObject &object, const PropertyEditorRegistry &inRegistry)
+    void ReflectedForm::Build(const PropertyObject &object, const PropertyEditorRegistry &inRegistry, const PropertyObject *baseline)
     {
         root     = object;
         registry = &inRegistry;
         defaults.clear();
 
-        // Reset baseline: a default-constructed instance of the bound type. The
-        // scratch form captures each field's default from it (keyed by path); the
-        // live build below then reuses those values. Falls back to a snapshot of
-        // the object's own values when the type has no default constructor.
-        const sky::TypeInfoRT *info        = (object.type != nullptr) ? object.type->info : nullptr;
-        Any                    typeDefault = MakeDefaultValue(info);
-        if (typeDefault.Data() != nullptr && typeDefault.Data() != object.object) {
+        // Reset baseline: an explicit baseline object when provided, else a
+        // default-constructed instance of the bound type. The scratch form captures
+        // each field's default from it (keyed by path); the live build below then
+        // reuses those values. Falls back to a snapshot of the object's own values
+        // when neither is available.
+        PropertyObject base;
+        Any            typeDefault;
+        if (baseline != nullptr && baseline->object != nullptr && baseline->type != nullptr) {
+            base = *baseline;
+        } else {
+            const sky::TypeInfoRT *info = (object.type != nullptr) ? object.type->info : nullptr;
+            typeDefault                 = MakeDefaultValue(info);
+            if (typeDefault.Data() != nullptr && typeDefault.Data() != object.object) {
+                base = PropertyObject{typeDefault.Data(), object.type};
+            }
+        }
+
+        if (base.object != nullptr && base.object != object.object) {
             ReflectedForm scratch;
-            scratch.root     = PropertyObject{typeDefault.Data(), object.type};
+            scratch.root     = base;
             scratch.registry = &inRegistry;
             scratch.Rebuild();
             defaults = std::move(scratch.defaults);

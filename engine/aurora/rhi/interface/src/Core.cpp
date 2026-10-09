@@ -119,6 +119,10 @@ namespace sky::aurora {
         {4, 16, 12, 12, true, false, false},
         // ASTC_12x12_SRGB_BLOCK
         {4, 16, 12, 12, true, false, false},
+        // ASTC_6x6_UNORM_BLOCK
+        {4, 16, 6, 6, true, false, false},
+        // ASTC_6x6_SRGB_BLOCK
+        {4, 16, 6, 6, true, false, false},
     };
 
     static_assert(sizeof(FORMAT_INFO_TABLE) / sizeof(FORMAT_INFO_TABLE[0]) == static_cast<uint32_t>(PixelFormat::MAX),
@@ -135,15 +139,15 @@ namespace sky::aurora {
 
     uint64_t GetImageRowPitch(PixelFormat format, uint32_t width)
     {
-        const auto &info = GetImageFormatInfo(format);
+        const auto    &info         = GetImageFormatInfo(format);
         const uint32_t blocksPerRow = (width + info.blockWidth - 1) / info.blockWidth;
         return static_cast<uint64_t>(blocksPerRow) * info.blockSize;
     }
 
     uint64_t GetImageSlicePitch(PixelFormat format, uint32_t width, uint32_t height)
     {
-        const auto &info = GetImageFormatInfo(format);
-        const uint64_t rowPitch = GetImageRowPitch(format, width);
+        const auto    &info         = GetImageFormatInfo(format);
+        const uint64_t rowPitch     = GetImageRowPitch(format, width);
         const uint32_t rowsPerSlice = (height + info.blockHeight - 1) / info.blockHeight;
         return rowPitch * rowsPerSlice;
     }

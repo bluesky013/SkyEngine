@@ -12,6 +12,10 @@
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <editor/core/EditorCore.h>
+#include <editor/core/asset/AssetCookService.h>
+#include <editor/core/asset/AssetMutationService.h>
+#include <editor/core/asset/EditorAssetCatalog.h>
+#include <editor/core/asset/EditorAssetEditor.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/layout/LayoutPersistence.h>
@@ -19,6 +23,7 @@
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/shell/UiTheme.h>
 
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/DerivedDataCache.h>
@@ -32,8 +37,11 @@
 
 #include <core/file/FileSystem.h>
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 
 #include <nanosvg/nanosvg.h>
@@ -590,6 +598,19 @@ namespace sky::editor {
             sky::AssetDataBase::Get()->SetEngineFs(engineFs);
             sky::AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
             sky::AssetManager::Get()->SetWorkFileSystem(workFs);
+            // Register the project's existing source assets so the browser reflects them.
+            sky::AssetDataBase::Get()->Load();
+
+            // Cook setup: load the project's build presets and register its product bundles, then
+            // select the host platform so cook targets resolve from the platform presets.
+            auto *builderMgr = sky::AssetBuilderManager::Get();
+            builderMgr->SetWorkSpaceFs(workFs);
+
+            std::string platform = sky::Platform::GetPlatformNameByType(sky::Platform::Get()->GetType());
+            std::transform(platform.begin(), platform.end(), platform.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            auto cookConfig = builderMgr->GetCookConfig();
+            cookConfig.SetActivePlatform(platform);
+            builderMgr->SetCookConfig(std::move(cookConfig));
         }
 
         // EditorCore services + default panels (registered through the extension
@@ -597,24 +618,34 @@ namespace sky::editor {
         extensionHost.Add(std::make_unique<DefaultEditorExtension>(panelRegistry));
         extensionHost.RegisterAll();
 
-        // Default: Outliner (left) | Viewport/OutputLog (center) | Inspector (right).
-        // The Reflection Demo panel is not shown by default; it opens from
-        // Help > Demo (see EditorShell).
+        // Default: Outliner (left) | Viewport (center) | Inspector (right), with a bottom dock
+        // for the asset browser + output log (Unity/Godot/O3DE place the asset browser at the
+        // bottom). The Reflection Demo panel opens from Help > Demo (see EditorShell).
         layoutModel.SetDefault({"outliner"});
         layoutModel.Tabify("config", "outliner"); // world config shares the Outliner dock
         layoutModel.SplitPanel("outliner", SplitOrientation::HORIZONTAL, "viewport");
         layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "inspector");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
+        // Bottom dock (created above): asset browser + console share the Output Log dock.
         layoutModel.Tabify("console", "outputlog");
+        layoutModel.Tabify("assets", "outputlog");
 
-        // SplitPanel nests by halving, which leaves the Outliner too wide. Set
-        // explicit ratios for a balanced UE/Blender-like layout.
+        // SplitPanel nests by halving, which leaves the Outliner too wide and the bottom dock
+        // half the center column. Set explicit ratios for a balanced UE/Blender-like layout.
         if (auto *rootSplit = static_cast<SplitNode *>(layoutModel.GetRoot())) {
             if (rootSplit->children.size() == 2 && IsSplit(rootSplit->children[1].get())) {
                 rootSplit->ratios = {0.22f, 0.78f}; // outliner | rest
                 auto *inner       = static_cast<SplitNode *>(rootSplit->children[1].get());
                 if (inner->children.size() == 2) {
                     inner->ratios = {0.68f, 0.32f}; // (viewport/outputlog) | inspector
+                    // The vertical split nests the viewport over the bottom dock (asset browser +
+                    // console); without this it defaults to a half-height dock.
+                    if (IsSplit(inner->children[0].get())) {
+                        auto *center = static_cast<SplitNode *>(inner->children[0].get());
+                        if (center->orientation == SplitOrientation::VERTICAL && center->children.size() == 2) {
+                            center->ratios = {0.75f, 0.25f}; // viewport | bottom dock
+                        }
+                    }
                 }
             }
         }
@@ -652,6 +683,31 @@ namespace sky::editor {
         shell.SetSelection(&selection);
         static RegisteredPropertySource propertySource;
         shell.SetPropertySource(&propertySource);
+
+        // Asset browser: the shell reads the (cross-DLL singleton) catalog and routes asset
+        // actions back through the action registry.
+        shell.SetAssetCatalog(sky::editor::EditorAssetCatalog::Get());
+        shell.SetAssetActionHandler([this](const std::string &id) { return shell.InvokeAction(id); });
+        shell.SetAssetRenameHandler([](const std::string &from, const std::string &to) {
+            if (auto *catalog = EditorAssetCatalog::Get(); catalog != nullptr) {
+                AssetMutationService::Get()->Move(from, to); // same API backs both rename and move
+            }
+        });
+        shell.SetAssetOpenHandler([this](const sky::Uuid &id) {
+            auto       *catalog = EditorAssetCatalog::Get();
+            std::string type;
+            if (catalog != nullptr && catalog->GetType(id, type)) {
+                if (auto *editor = EditorAssetEditorRegistry::Get()->Find(type); editor != nullptr) {
+                    // Load the asset's data through the product-based loader (on-demand cook);
+                    // never read source files.
+                    sky::AssetManager::Get()->LoadAsset(id);
+                    editor->Open(id);
+                    return;
+                }
+            }
+            // No type-specific editor: open the generic asset viewer widget.
+            shell.OpenAssetViewer(id);
+        });
         shell.SetStatusInfo(project.name, rhiName, "Edit");
         // A closed floating window re-docks its panel into the main window.
         renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
@@ -725,11 +781,175 @@ namespace sky::editor {
                       .invoke    = []() { EditorCore::GetCommandService().Redo(); }});
         actions->Add(
             {.id = "view.reset", .label = "Reset Layout", .menu = "View", .order = 5, .menuOrder = 2, .invoke = [this]() { shell.ResetLayout(); }});
+        actions->Add({.id = "view.assets", .label = "Assets", .menu = "View", .order = 4, .menuOrder = 2, .invoke = [this]() {
+                          shell.SetPanelVisible("assets", true);
+                      }});
         actions->Add({.id = "help.demo", .label = "Demo", .menu = "Help", .order = 0, .menuOrder = 3, .invoke = [this]() {
                           shell.SetPanelVisible("refldemo", true);
                       }});
         actions->Add(
             {.id = "help.about", .label = "About", .menu = "Help", .order = 1, .menuOrder = 3, .invoke = []() { LOG_I(TAG, "SkyEngine Editor"); }});
+
+        // Asset browser actions. Enablement is driven by the current asset selection + mount
+        // writability, so the toolbar, menus, shortcuts, and the panel context menu agree.
+        {
+            EditorAssetCatalog *assetCatalog  = EditorAssetCatalog::Get();
+            auto                selectedAsset = [this]() -> sky::Uuid {
+                for (const auto &item : selection.GetSelection()) {
+                    if (item.type == SelectionType::ASSET) {
+                        return item.id;
+                    }
+                }
+                return {};
+            };
+            auto selectedWritable = [this, assetCatalog]() -> bool {
+                for (const auto &item : selection.GetSelection()) {
+                    if (item.type != SelectionType::ASSET) {
+                        continue;
+                    }
+                    EditorAssetItem entry;
+                    if (assetCatalog != nullptr && assetCatalog->Find(item.id, entry)) {
+                        return entry.writable;
+                    }
+                }
+                return false;
+            };
+            auto selectedItem = [this, assetCatalog]() -> EditorAssetItem {
+                for (const auto &item : selection.GetSelection()) {
+                    if (item.type != SelectionType::ASSET) {
+                        continue;
+                    }
+                    EditorAssetItem entry;
+                    if (assetCatalog != nullptr && assetCatalog->Find(item.id, entry)) {
+                        return entry;
+                    }
+                }
+                return {};
+            };
+
+            actions->Add({.id = "asset.refresh", .label = "Refresh", .menu = "Assets", .order = 0, .menuOrder = 4, .invoke = [assetCatalog]() {
+                              if (assetCatalog != nullptr) {
+                                  assetCatalog->Refresh();
+                              }
+                          }});
+            actions->Add({.id        = "asset.open",
+                          .label     = "Open",
+                          .menu      = "Assets",
+                          .order     = 11,
+                          .menuOrder = 4,
+                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke =
+                              [this, selectedAsset]() {
+                                  const sky::Uuid id      = selectedAsset();
+                                  auto           *catalog = EditorAssetCatalog::Get();
+                                  std::string     type;
+                                  if (catalog != nullptr && catalog->GetType(id, type)) {
+                                      if (auto *editor = EditorAssetEditorRegistry::Get()->Find(type); editor != nullptr) {
+                                          sky::AssetManager::Get()->LoadAsset(id);
+                                          editor->Open(id);
+                                          return;
+                                      }
+                                  }
+                                  shell.OpenAssetViewer(id);
+                              }});
+            actions->Add({.id        = "asset.cook",
+                          .label     = "Cook",
+                          .menu      = "Assets",
+                          .order     = 1,
+                          .menuOrder = 4,
+                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke =
+                              [assetCatalog, selectedAsset]() {
+                                  if (assetCatalog != nullptr) {
+                                      AssetCookService::Get()->TriggerCook(selectedAsset());
+                                  }
+                              }});
+            actions->Add({.id        = "asset.copyReference",
+                          .label     = "Copy Reference",
+                          .menu      = "Assets",
+                          .order     = 2,
+                          .menuOrder = 4,
+                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke    = [selectedAsset]() { LOG_I(TAG, "asset reference: %s", selectedAsset().ToString().c_str()); }});
+            actions->Add({.id        = "asset.showInExplorer",
+                          .label     = "Show in Explorer",
+                          .menu      = "Assets",
+                          .order     = 3,
+                          .menuOrder = 4,
+                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke =
+                              [selectedAsset]() {
+                                  std::string absolute;
+                                  if (auto *db = sky::AssetDataBase::Get(); db != nullptr && db->GetAbsoluteSourcePath(selectedAsset(), absolute)) {
+                                      sky::Platform::Get()->RevealInFileExplorer(absolute);
+                                  }
+                              }});
+            actions->Add({.id        = "asset.findReferences",
+                          .label     = "Find References",
+                          .menu      = "Assets",
+                          .order     = 4,
+                          .menuOrder = 4,
+                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke    = []() { LOG_I(TAG, "Find References (not implemented)"); }});
+            actions->Add({.id = "asset.new", .label = "New Asset", .menu = "Assets", .order = 5, .menuOrder = 4, .invoke = []() {
+                              LOG_I(TAG, "New Asset (not implemented)");
+                          }});
+            actions->Add({.id = "asset.import", .label = "Import...", .menu = "Assets", .order = 6, .menuOrder = 4, .invoke = [this, assetCatalog]() {
+                              FileBrowserRequest request;
+                              request.mode      = FileBrowserMode::OPEN_FILE;
+                              request.title     = "Import Asset";
+                              request.directory = project.Dir();
+                              shell.OpenFileBrowser(request, [assetCatalog](const FileBrowserResult &result) {
+                                  if (!result.accepted || assetCatalog == nullptr) {
+                                      return;
+                                  }
+                                  const std::filesystem::path source(result.path);
+                                  const std::string           dest = "Project/" + source.filename().string();
+                                  AssetMutationService::Get()->Import(result.path, dest, true);
+                              });
+                          }});
+            actions->Add({.id        = "asset.rename",
+                          .label     = "Rename",
+                          .menu      = "Assets",
+                          .order     = 7,
+                          .menuOrder = 4,
+                          .enabled   = selectedWritable,
+                          .invoke    = [this]() { shell.BeginAssetRename(); }});
+            actions->Add(
+                {.id = "asset.move", .label = "Move", .menu = "Assets", .order = 8, .menuOrder = 4, .enabled = selectedWritable, .invoke = [this]() {
+                     shell.BeginAssetRename(); // the inline editor accepts a full path
+                 }});
+            actions->Add({.id        = "asset.duplicate",
+                          .label     = "Duplicate",
+                          .menu      = "Assets",
+                          .order     = 9,
+                          .menuOrder = 4,
+                          .enabled   = selectedWritable,
+                          .invoke    = [assetCatalog, selectedItem]() {
+                              const EditorAssetItem item = selectedItem();
+                              if (assetCatalog == nullptr || item.path.empty()) {
+                                  return;
+                              }
+                              const auto        dot    = item.path.rfind('.');
+                              const auto        slash  = item.path.rfind('/');
+                              const bool        hasExt = dot != std::string::npos && (slash == std::string::npos || dot > slash);
+                              const std::string base   = hasExt ? item.path.substr(0, dot) : item.path;
+                              const std::string ext    = hasExt ? item.path.substr(dot) : std::string{};
+                              AssetMutationService::Get()->Duplicate(item.path, base + "_copy" + ext);
+                          }});
+            actions->Add({.id        = "asset.delete",
+                          .label     = "Delete",
+                          .menu      = "Assets",
+                          .order     = 10,
+                          .menuOrder = 4,
+                          .enabled   = selectedWritable,
+                          .invoke    = [selectedAsset]() {
+                              std::string absolute;
+                              if (auto *db = sky::AssetDataBase::Get(); db != nullptr && db->GetAbsoluteSourcePath(selectedAsset(), absolute)) {
+                                  sky::Platform::Get()->RevealInFileExplorer(absolute);
+                              }
+                          }});
+        }
         actions->Add({.id      = "play.play",
                       .label   = "Play",
                       .icon    = "play",
@@ -1097,7 +1317,7 @@ namespace sky::editor {
         pointer.action     = sky::ui::UIPointerAction::WHEEL;
         pointer.x          = static_cast<float>(event.x);
         pointer.y          = static_cast<float>(event.y);
-        pointer.wheelDelta = static_cast<float>(event.y);
+        pointer.wheelDelta = static_cast<float>(event.delta);
         RoutePointer(pointer, event.winID);
     }
 

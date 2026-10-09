@@ -8,10 +8,10 @@
 #include <core/file/FileSystem.h>
 
 #include <framework/asset/Asset.h>
-#include <framework/asset/AssetProductBundle.h>
-#include <framework/asset/AssetIndexFile.h>
-#include <framework/compression/Compressor.h>
 #include <framework/asset/AssetExecutor.h>
+#include <framework/asset/AssetIndexFile.h>
+#include <framework/asset/AssetProductBundle.h>
+#include <framework/compression/Compressor.h>
 
 #include <future>
 #include <unordered_map>
@@ -26,29 +26,44 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-        AssetManager() = default;
+        AssetManager()           = default;
         ~AssetManager() override = default;
 
         void SetWorkFileSystem(const FileSystemPtr &fs);
-        void SetSourceCatalog(ISourceCatalog *catalog) { sourceCatalog = catalog; }
+        void SetSourceCatalog(ISourceCatalog *catalog)
+        {
+            sourceCatalog = catalog;
+        }
         // Select the cook backend. Null keeps the built-in inline in-process path.
         void SetCookRunner(ICookRunner *runner);
         // Re-read every bundle's product.index into the path map (out-of-process cook, D11).
         void RefreshProductIndex();
         // Compress product payloads with the given codec (see CompressionManager). Off by default.
-        void SetProductCompression(CompressionMethod method) { compressionMethod = method; compressProducts = true; }
-        void DisableProductCompression() { compressProducts = false; }
+        void SetProductCompression(CompressionMethod method)
+        {
+            compressionMethod = method;
+            compressProducts  = true;
+        }
+        void DisableProductCompression()
+        {
+            compressProducts = false;
+        }
         void AddAssetProductBundle(AssetProductBundle *bundle);
+        // Whether a product for the uuid exists in a specific bundle.
+        bool HasProduct(const Uuid &uuid, const ProductBundleKey &bundle) const;
 
         AssetPtr FindAsset(const Uuid &uuid) const;
         AssetPtr FindOrCreateAsset(const Uuid &uuid, const Name &type);
 
         AssetPtr LoadAsset(const Uuid &uuid);
-        void SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
+        void     SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
 
         AssetPtr LoadAssetFromPath(const std::string &path);
 
-        const FileSystemPtr &GetWorkSpaceFS() const { return workSpace; }
+        const FileSystemPtr &GetWorkSpaceFS() const
+        {
+            return workSpace;
+        }
 
         template <typename T>
         std::shared_ptr<Asset<T>> LoadAssetFromPath(const std::string &path)
@@ -85,12 +100,13 @@ namespace sky {
         {
             RegisterAssetHandler(AssetTraits<T>::ASSET_TYPE, new AssetHandler<T>());
         }
+
     private:
-        FileSystemPtr workSpace;
-        ISourceCatalog *sourceCatalog = nullptr;
-        bool compressProducts = false;
+        FileSystemPtr     workSpace;
+        ISourceCatalog   *sourceCatalog     = nullptr;
+        bool              compressProducts  = false;
         CompressionMethod compressionMethod = CompressionMethod::LZ4;
-        AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec);
+        AssetPtr          CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec);
         // Resolve the payload archive, decompressing when the product header records a codec.
         IStreamArchivePtr PreparePayload(const IStreamArchivePtr &archive, const std::string &codec) const;
         // Resolve an in-flight on-demand cook: refresh the index, deserialize or fail.
@@ -100,11 +116,11 @@ namespace sky {
         // Synchronous deserialize from an existing product (used by the in-process cook task).
         void DeserializeProduct(const Uuid &uuid);
         // Run the handler load + status transition + loaded event for an asset whose deps are resolved.
-        bool LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload);
+        bool                LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload);
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
 
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
-        std::vector<std::unique_ptr<AssetProductBundle>> bundles;
+        std::vector<std::unique_ptr<AssetProductBundle>>            bundles;
 
         // Product path index (canonical logical path -> uuid), assembled from each bundle's product.index.
         std::unordered_map<std::string, Uuid> productPathMap;
@@ -122,7 +138,7 @@ namespace sky {
         };
         std::unordered_map<Uuid, PendingCook> pendingJobs;
 
-        mutable std::recursive_mutex mutex;
+        mutable std::recursive_mutex                       mutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;
     };
 

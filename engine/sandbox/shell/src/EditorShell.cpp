@@ -7,6 +7,7 @@
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/shell/ShellModels.h>
+#include <editor/shell/AssetViewerWidget.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/NewWorldDialog.h>
@@ -19,6 +20,7 @@
 #include <editor/shell/UiSkin.h>
 #include <editor/shell/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
+#include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/panels/ServicePanels.h>
 #include <editor/shell/widgets/DockWidgets.h>
 #include <editor/shell/widgets/MenuBar.h>
@@ -129,6 +131,33 @@ namespace sky::editor {
         propertySource = source;
     }
 
+    void EditorShell::SetAssetCatalog(EditorAssetCatalog *catalog)
+    {
+        assetCatalog = catalog;
+    }
+
+    void EditorShell::SetAssetActionHandler(std::function<bool(const std::string &)> handler)
+    {
+        assetActionHandler = std::move(handler);
+    }
+
+    void EditorShell::SetAssetOpenHandler(std::function<void(const Uuid &)> handler)
+    {
+        assetOpenHandler = std::move(handler);
+    }
+
+    void EditorShell::SetAssetRenameHandler(std::function<void(const std::string &, const std::string &)> handler)
+    {
+        assetRenameHandler = std::move(handler);
+    }
+
+    void EditorShell::BeginAssetRename()
+    {
+        if (assetPanel != nullptr) {
+            assetPanel->BeginRename();
+        }
+    }
+
     void EditorShell::SetUiScale(float scale)
     {
         // Scale the theme metrics/fonts by the DPI ratio so the UI is drawn at
@@ -177,6 +206,17 @@ namespace sky::editor {
         });
         RegisterPanelView("console", [this, t = titleOf("console", "Console")]() {
             return std::unique_ptr<sky::ui::UIElement>(new ConsolePanel(commandController, textSystem, t));
+        });
+        RegisterPanelView("assets", [this, t = titleOf("assets", "Assets")]() {
+            auto panel = std::make_unique<AssetBrowserPanel>(t);
+            panel->SetTextSystem(textSystem);
+            panel->SetCatalog(assetCatalog);
+            panel->SetSelection(selection);
+            panel->SetActionHandler(assetActionHandler);
+            panel->SetOpenHandler(assetOpenHandler);
+            panel->SetRenameHandler(assetRenameHandler);
+            assetPanel = panel.get();
+            return std::unique_ptr<sky::ui::UIElement>(std::move(panel));
         });
     }
 
@@ -964,6 +1004,19 @@ namespace sky::editor {
             fileBrowserElement->Open(browserRequest);
         }
 
+        // Asset viewer overlay (header + reserved preview + reflected cook settings).
+        auto viewer        = std::make_unique<AssetViewerWidget>(textSystem);
+        assetViewerElement = viewer.get();
+        viewer->SetCatalog(assetCatalog);
+        viewer->SetOnClosed([this]() {
+            assetViewerOpen  = false;
+            assetViewerAsset = Uuid{};
+        });
+        context->AddChild(std::move(viewer));
+        if (assetViewerOpen) {
+            assetViewerElement->Open(assetViewerAsset);
+        }
+
         auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
         preferencesElement = preferences.get();
         preferences->SetModel(preferenceRegistry, preferenceStore);
@@ -973,11 +1026,21 @@ namespace sky::editor {
                 callback();
             }
         });
+        preferences->SetOnClosed([this]() { preferencesOpen = false; });
         context->AddChild(std::move(preferences));
+        if (preferencesOpen) {
+            preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+            preferencesElement->Open();
+        }
 
         auto newWorld   = std::make_unique<NewWorldDialog>(textSystem);
         newWorldElement = newWorld.get();
+        newWorld->SetOnClosed([this]() { newWorldOpen = false; });
         context->AddChild(std::move(newWorld));
+        if (newWorldOpen) {
+            newWorldElement->SetOnCreate(newWorldCreate);
+            newWorldElement->Open(newWorldLocation, newWorldName);
+        }
 
         built = true;
         LOG_I(TAG, "editor shell built (%zu panels)", attachedViews.size());
@@ -1058,6 +1121,9 @@ namespace sky::editor {
         if (newWorldElement != nullptr) {
             newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
+        if (assetViewerElement != nullptr) {
+            assetViewerElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        }
     }
 
     void EditorShell::OpenNewWorldDialog(const std::string &location, const std::string &name, std::function<void(const std::string &)> onCreate)
@@ -1065,8 +1131,12 @@ namespace sky::editor {
         if (newWorldElement == nullptr) {
             return;
         }
+        newWorldOpen     = true;
+        newWorldLocation = location;
+        newWorldName     = name;
+        newWorldCreate   = onCreate;
         newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
-        newWorldElement->SetOnCreate(std::move(onCreate));
+        newWorldElement->SetOnCreate(newWorldCreate);
         newWorldElement->Open(location, name);
     }
 
@@ -1090,6 +1160,7 @@ namespace sky::editor {
         if (preferencesElement == nullptr) {
             return;
         }
+        preferencesOpen = true;
         preferencesElement->SetModel(preferenceRegistry, preferenceStore);
         preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
         preferencesElement->Open();
@@ -1109,6 +1180,21 @@ namespace sky::editor {
             fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
             fileBrowserElement->Open(browserRequest);
         }
+    }
+
+    void EditorShell::OpenAssetViewer(const Uuid &asset)
+    {
+        assetViewerAsset = asset;
+        assetViewerOpen  = true;
+        if (assetViewerElement != nullptr) {
+            assetViewerElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            assetViewerElement->Open(asset);
+        }
+    }
+
+    bool EditorShell::IsAssetViewerOpen() const
+    {
+        return assetViewerElement != nullptr && assetViewerElement->IsOpen();
     }
 
     void EditorShell::Paint(sky::ui::UIPaintContext &paintContext)
@@ -1131,6 +1217,9 @@ namespace sky::editor {
         }
         if (fileBrowserElement != nullptr && fileBrowserElement->IsVisible()) {
             return fileBrowserElement;
+        }
+        if (assetViewerElement != nullptr && assetViewerElement->IsOpen()) {
+            return assetViewerElement;
         }
         return nullptr;
     }

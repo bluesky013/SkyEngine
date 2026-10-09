@@ -42,6 +42,9 @@ namespace sky::editor {
     class PreferenceStore;
     class WorldDocument;
     class NewWorldDialog;
+    class EditorAssetCatalog;
+    class AssetBrowserPanel;
+    class AssetViewerWidget;
 
     // UI-linked editor shell.
     //
@@ -69,6 +72,15 @@ namespace sky::editor {
         // Optional: the object the Inspector renders. Null shows an empty state.
         void SetInspectorModel(PropertyModel *model);
 
+        // Asset browser: the catalog it reads, plus handlers for invoking a registered asset
+        // action by id and for opening an asset (product-load path).
+        void SetAssetCatalog(EditorAssetCatalog *catalog);
+        void SetAssetActionHandler(std::function<bool(const std::string &)> handler);
+        void SetAssetOpenHandler(std::function<void(const Uuid &)> handler);
+        void SetAssetRenameHandler(std::function<void(const std::string &, const std::string &)> handler);
+        // Begin an inline rename/move edit on the asset browser (if attached).
+        void BeginAssetRename();
+
         // Optional: resolves the current selection to reflected data for the inspector.
         void SetPropertySource(IEditorPropertySource *source);
 
@@ -80,6 +92,11 @@ namespace sky::editor {
         {
             return browserOpen;
         }
+
+        // Opens the reusable asset viewer widget (header + reserved preview + reflected cook settings) as a
+        // modal overlay for the given asset.
+        void OpenAssetViewer(const Uuid &asset);
+        bool IsAssetViewerOpen() const;
 
         // Preferences: the shell hosts one dialog over the supplied registry/store.
         // `onApplied` is invoked after a commit so the host can persist.
@@ -272,6 +289,12 @@ namespace sky::editor {
         IEditorPropertySource                                *propertySource    = nullptr;
         float                                                 uiScale           = 1.0f;
 
+        EditorAssetCatalog                                           *assetCatalog = nullptr;
+        AssetBrowserPanel                                            *assetPanel   = nullptr;
+        std::function<bool(const std::string &)>                      assetActionHandler;
+        std::function<void(const Uuid &)>                             assetOpenHandler;
+        std::function<void(const std::string &, const std::string &)> assetRenameHandler;
+
         std::unordered_map<std::string, PanelViewFactory> viewFactories;
         // View registry: views not currently attached to the main context. Views
         // attached to the main context are owned by it; this pool holds the rest
@@ -303,18 +326,27 @@ namespace sky::editor {
         FileBrowserRequest                             browserRequest;
         bool                                           browserOpen = false;
 
+        AssetViewerWidget *assetViewerElement = nullptr;
+        Uuid               assetViewerAsset;
+        bool               assetViewerOpen = false;
+
         PreferencesDialog    *preferencesElement = nullptr;
         PreferenceRegistry   *preferenceRegistry = nullptr;
         PreferenceStore      *preferenceStore    = nullptr;
         std::function<void()> preferencesApplied;
+        bool                  preferencesOpen = false;
 
-        WorldDocument  *worldDocument   = nullptr;
-        PlayState       playState       = PlayState::Editing;
-        NewWorldDialog *newWorldElement = nullptr;
-        float           width           = 1280.0f;
-        float           height          = 720.0f;
-        float           headerHeight    = 32.0f;
-        float           footerHeight    = 22.0f;
+        WorldDocument                           *worldDocument   = nullptr;
+        PlayState                                playState       = PlayState::Editing;
+        NewWorldDialog                          *newWorldElement = nullptr;
+        bool                                     newWorldOpen    = false;
+        std::string                              newWorldLocation;
+        std::string                              newWorldName;
+        std::function<void(const std::string &)> newWorldCreate;
+        float                                    width        = 1280.0f;
+        float                                    height       = 720.0f;
+        float                                    headerHeight = 32.0f;
+        float                                    footerHeight = 22.0f;
 
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";

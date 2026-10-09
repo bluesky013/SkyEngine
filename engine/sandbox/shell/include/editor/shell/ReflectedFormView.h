@@ -47,9 +47,18 @@ namespace sky::editor {
         ~ReflectedFormView() override;
 
         // Binds the view to a reflected data object (rebuilds the form). The reset
-        // baseline is the type's default value; see ReflectedForm::Build.
-        void Bind(const PropertyObject &object);
+        // baseline defaults to the type's default value; pass `baseline` to make
+        // reset restore a different baseline (see ReflectedForm::Build).
+        void Bind(const PropertyObject &object, const PropertyObject *baseline = nullptr);
         void Refresh();
+
+        // Hides the built-in header (title + "ctrl+Z/Y undo" hint). Useful when the form is embedded
+        // as a section of a larger panel that already has its own title.
+        void SetHeaderVisible(bool visible)
+        {
+            headerVisible = visible;
+            MarkPaintDirty();
+        }
 
         // Notifies the owner after any committed edit to the bound data (used by
         // the world-config panel to mark its document dirty).
@@ -74,11 +83,20 @@ namespace sky::editor {
         }
         sky::ui::UIRect ViewBounds() const override
         {
-            return GetBounds();
+            // Bounds used to place popups (enum dropdowns): the top-level element, so a popup only flips up
+            // near the window edge, not the (possibly small) form edge.
+            const sky::ui::UIElement *root = this;
+            while (root->GetParent() != nullptr) {
+                root = root->GetParent();
+            }
+            return root->GetBounds();
         }
-        void MarkDirty() override;
-        void RefreshForm() override;
-        bool IsHovered(const PropertyField &field) const override
+
+        // Natural height that fits all rows without an internal scrollbar (for stacking hosts).
+        float GetPreferredHeight();
+        void  MarkDirty() override;
+        void  RefreshForm() override;
+        bool  IsHovered(const PropertyField &field) const override
         {
             return hoverField == &field;
         }
@@ -92,6 +110,9 @@ namespace sky::editor {
         {
             return "ReflectedFormView";
         }
+        // True while a popup (enum dropdown / color picker) is open: the host should deliver the pointer
+        // to this form regardless of hit-testing, since the popup may extend beyond its bounds.
+        bool WantsPointerCapture() const override;
 
         void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
@@ -180,6 +201,13 @@ namespace sky::editor {
         float            labelWidth    = 0.0f;
         float            scroll        = 0.0f;
         float            contentHeight = 0.0f;
+        bool             headerVisible = true;
+
+        // Generic scrollbar interaction (hover + drag), shared by every reflected form.
+        sky::ui::UIRect ContentRect() const;
+        bool            scrollDrag       = false;
+        bool            hoverScroll      = false;
+        float           scrollDragOffset = 0.0f;
 
         sky::ui::UIRect headerTitleRect;
         sky::ui::UIRect hintRect;

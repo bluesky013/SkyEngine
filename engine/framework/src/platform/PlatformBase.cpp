@@ -9,19 +9,13 @@ namespace sky {
     std::string Platform::GetPlatformNameByType(PlatformType type)
     {
         switch (type) {
-            case PlatformType::Windows:
-                return "Windows";
-            case PlatformType::MacOS:
-                return "MacOS";
-            case PlatformType::Linux:
-                return "Linux";
-            case PlatformType::Android:
-                return "Android";
-            case PlatformType::IOS:
-                return "iOS";
-            case PlatformType::Default:
-            case PlatformType::UNDEFINED:
-                break;
+        case PlatformType::Windows: return "Windows";
+        case PlatformType::MacOS: return "MacOS";
+        case PlatformType::Linux: return "Linux";
+        case PlatformType::Android: return "Android";
+        case PlatformType::IOS: return "iOS";
+        case PlatformType::Default:
+        case PlatformType::UNDEFINED: break;
         }
         return {};
     }
@@ -111,12 +105,12 @@ namespace sky {
         return platform->GetType();
     }
 
-    char* Platform::GetClipBoardText() const
+    char *Platform::GetClipBoardText() const
     {
         return platform->GetClipBoardText();
     }
 
-    void Platform::FreeClipBoardText(char* text)
+    void Platform::FreeClipBoardText(char *text)
     {
         platform->FreeClipBoardText(text);
     }
@@ -126,16 +120,19 @@ namespace sky {
         platform->SetClipBoardText(text);
     }
 
-    bool Platform::ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
-                                      const std::string &filter) const
+    bool Platform::ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) const
     {
         return platform->ShowOpenFileDialog(owner, outPath, title, filter);
     }
 
-    bool Platform::ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title,
-                                      const std::string &filter) const
+    bool Platform::ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) const
     {
         return platform->ShowSaveFileDialog(owner, outPath, title, filter);
+    }
+
+    void Platform::RevealInFileExplorer(const std::string &path)
+    {
+        platform->RevealInFileExplorer(path);
     }
 
     void Platform::StartTextInput()
@@ -157,4 +154,4 @@ namespace sky {
     {
         platform->PollEvent(exit);
     }
-}
+} // namespace sky

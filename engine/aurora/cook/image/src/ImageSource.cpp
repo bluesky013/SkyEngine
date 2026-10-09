@@ -70,6 +70,8 @@ namespace sky::aurora::cook {
             case 146: return PixelFormat::BC7_SRGB_BLOCK;
             case 157: return PixelFormat::ASTC_4x4_UNORM_BLOCK;
             case 158: return PixelFormat::ASTC_4x4_SRGB_BLOCK;
+            case 173: return PixelFormat::ASTC_6x6_UNORM_BLOCK;
+            case 174: return PixelFormat::ASTC_6x6_SRGB_BLOCK;
             case 171: return PixelFormat::ASTC_8x8_UNORM_BLOCK;
             case 172: return PixelFormat::ASTC_8x8_SRGB_BLOCK;
             case 179: return PixelFormat::ASTC_10x10_UNORM_BLOCK;
@@ -84,12 +86,14 @@ namespace sky::aurora::cook {
         PixelFormat MapGlInternalFormat(uint32_t gl)
         {
             switch (gl) {
-            case 0x8058: return PixelFormat::RGBA8_UNORM;        // GL_RGBA8
-            case 0x8C43: return PixelFormat::RGBA8_SRGB;         // GL_SRGB8_ALPHA8
-            case 0x8E8C: return PixelFormat::BC7_UNORM_BLOCK;    // GL_COMPRESSED_RGBA_BPTC_UNORM
-            case 0x8E8D: return PixelFormat::BC7_SRGB_BLOCK;     // GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
+            case 0x8058: return PixelFormat::RGBA8_UNORM;     // GL_RGBA8
+            case 0x8C43: return PixelFormat::RGBA8_SRGB;      // GL_SRGB8_ALPHA8
+            case 0x8E8C: return PixelFormat::BC7_UNORM_BLOCK; // GL_COMPRESSED_RGBA_BPTC_UNORM
+            case 0x8E8D: return PixelFormat::BC7_SRGB_BLOCK;  // GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
             case 0x93B0: return PixelFormat::ASTC_4x4_UNORM_BLOCK;
             case 0x93D0: return PixelFormat::ASTC_4x4_SRGB_BLOCK;
+            case 0x93B3: return PixelFormat::ASTC_6x6_UNORM_BLOCK;
+            case 0x93D3: return PixelFormat::ASTC_6x6_SRGB_BLOCK;
             case 0x93B7: return PixelFormat::ASTC_8x8_UNORM_BLOCK;
             case 0x93D7: return PixelFormat::ASTC_8x8_SRGB_BLOCK;
             case 0x93BB: return PixelFormat::ASTC_10x10_UNORM_BLOCK;
@@ -115,7 +119,8 @@ namespace sky::aurora::cook {
             return ImageAssetType::TEXTURE_2D;
         }
 
-        ImageObjectPtr MakeUncompressed(uint32_t width, uint32_t height, uint32_t layers, uint32_t mipLevels, PixelFormat fmt, ImageAssetType type, CookImageSource &out)
+        ImageObjectPtr MakeUncompressed(
+            uint32_t width, uint32_t height, uint32_t layers, uint32_t mipLevels, PixelFormat fmt, ImageAssetType type, CookImageSource &out)
         {
             auto image        = std::make_shared<ImageObject>();
             image->width      = width;
@@ -127,8 +132,8 @@ namespace sky::aurora::cook {
             image->type       = ImageType::IMAGE_2D;
             image->mips.resize(mipLevels);
 
-            out.image      = image;
-            out.assetType  = type;
+            out.image     = image;
+            out.assetType = type;
             return image;
         }
 
@@ -148,19 +153,19 @@ namespace sky::aurora::cook {
                 LOG_E(TAG, "unsupported KTX1 format 0x%x", glInternalFormat);
                 return false;
             }
-            mipLevels                = std::max(1u, mipLevels);
-            const uint32_t layers    = std::max(1u, arrayElements) * std::max(1u, faces);
-            const ImageAssetType type = DeduceType(faces, arrayElements, depth);
-            const bool compressed    = GetImageFormatInfo(fmt).isCompressed;
+            mipLevels                       = std::max(1u, mipLevels);
+            const uint32_t       layers     = std::max(1u, arrayElements) * std::max(1u, faces);
+            const ImageAssetType type       = DeduceType(faces, arrayElements, depth);
+            const bool           compressed = GetImageFormatInfo(fmt).isCompressed;
 
             if (compressed) {
-                out.precompressed  = true;
-                out.asset.format   = fmt;
-                out.asset.type     = type;
-                out.asset.width    = width;
-                out.asset.height   = height;
-                out.asset.depth    = std::max(1u, depth);
-                out.asset.mipLevels = mipLevels;
+                out.precompressed     = true;
+                out.asset.format      = fmt;
+                out.asset.type        = type;
+                out.asset.width       = width;
+                out.asset.height      = height;
+                out.asset.depth       = std::max(1u, depth);
+                out.asset.mipLevels   = mipLevels;
                 out.asset.arrayLayers = layers;
             } else {
                 MakeUncompressed(width, height, layers, mipLevels, fmt, type, out);
@@ -177,8 +182,8 @@ namespace sky::aurora::cook {
 
                 if (imageSize == 0) {
                     const uint32_t sliceH = mipD > 1 ? MipDim(height, mip) : mipH;
-                    imageSize = compressed ? static_cast<uint32_t>(GetImageSlicePitch(fmt, mipW, sliceH))
-                                           : static_cast<uint32_t>(GetImageSlicePitch(fmt, mipW, sliceH));
+                    imageSize             = compressed ? static_cast<uint32_t>(GetImageSlicePitch(fmt, mipW, sliceH))
+                                                       : static_cast<uint32_t>(GetImageSlicePitch(fmt, mipW, sliceH));
                 }
 
                 if (compressed) {
@@ -187,18 +192,18 @@ namespace sky::aurora::cook {
                             return false;
                         }
                         ImageSliceHeader slice = {};
-                        slice.offset   = static_cast<uint32_t>(out.asset.rawData.size());
-                        slice.size     = imageSize;
-                        slice.mipLevel = mip;
-                        slice.layer    = layer;
+                        slice.offset           = static_cast<uint32_t>(out.asset.rawData.size());
+                        slice.size             = imageSize;
+                        slice.mipLevel         = mip;
+                        slice.layer            = layer;
                         out.asset.slices.push_back(slice);
                         out.asset.rawData.insert(out.asset.rawData.end(), bytes.begin() + offset, bytes.begin() + offset + imageSize);
                         offset = Align4(offset + imageSize);
                     }
                 } else {
-                    auto &image   = out.image;
-                    auto &mipData = image->mips[mip];
-                    mipData       = ImageMipData::Create(mipW, mipH, layers, image->pixelSize);
+                    auto &image                = out.image;
+                    auto &mipData              = image->mips[mip];
+                    mipData                    = ImageMipData::Create(mipW, mipH, layers, image->pixelSize);
                     const uint32_t layerStride = mipW * mipH * image->pixelSize;
                     for (uint32_t layer = 0; layer < layers; ++layer) {
                         if (offset + imageSize > bytes.size()) {
@@ -218,13 +223,13 @@ namespace sky::aurora::cook {
             if (bytes.size() < 80) {
                 return false;
             }
-            const uint32_t vkFormat      = ReadU32(bytes, 12);
-            const uint32_t width         = ReadU32(bytes, 20);
-            const uint32_t height        = ReadU32(bytes, 24);
-            const uint32_t depth         = ReadU32(bytes, 28);
-            const uint32_t layerCount    = ReadU32(bytes, 32);
-            const uint32_t faceCount     = ReadU32(bytes, 36);
-            uint32_t       levelCount    = ReadU32(bytes, 40);
+            const uint32_t vkFormat         = ReadU32(bytes, 12);
+            const uint32_t width            = ReadU32(bytes, 20);
+            const uint32_t height           = ReadU32(bytes, 24);
+            const uint32_t depth            = ReadU32(bytes, 28);
+            const uint32_t layerCount       = ReadU32(bytes, 32);
+            const uint32_t faceCount        = ReadU32(bytes, 36);
+            uint32_t       levelCount       = ReadU32(bytes, 40);
             const uint32_t superCompression = ReadU32(bytes, 44);
 
             if (superCompression != 0) {
@@ -237,10 +242,10 @@ namespace sky::aurora::cook {
                 LOG_E(TAG, "unsupported KTX2 vkFormat %u", vkFormat);
                 return false;
             }
-            levelCount             = std::max(1u, levelCount);
-            const uint32_t layers  = std::max(1u, layerCount) * std::max(1u, faceCount);
-            const ImageAssetType type = DeduceType(faceCount, layerCount, depth);
-            const bool compressed  = GetImageFormatInfo(fmt).isCompressed;
+            levelCount                      = std::max(1u, levelCount);
+            const uint32_t       layers     = std::max(1u, layerCount) * std::max(1u, faceCount);
+            const ImageAssetType type       = DeduceType(faceCount, layerCount, depth);
+            const bool           compressed = GetImageFormatInfo(fmt).isCompressed;
 
             if (compressed) {
                 out.precompressed     = true;
@@ -267,10 +272,10 @@ namespace sky::aurora::cook {
                     const uint64_t perLayer = byteLength / layers;
                     for (uint32_t layer = 0; layer < layers; ++layer) {
                         ImageSliceHeader slice = {};
-                        slice.offset   = static_cast<uint32_t>(out.asset.rawData.size());
-                        slice.size     = static_cast<uint32_t>(perLayer);
-                        slice.mipLevel = mip;
-                        slice.layer    = layer;
+                        slice.offset           = static_cast<uint32_t>(out.asset.rawData.size());
+                        slice.size             = static_cast<uint32_t>(perLayer);
+                        slice.mipLevel         = mip;
+                        slice.layer            = layer;
                         out.asset.slices.push_back(slice);
 
                         const size_t srcOffset = static_cast<size_t>(byteOffset) + layer * perLayer;
@@ -280,9 +285,9 @@ namespace sky::aurora::cook {
                         out.asset.rawData.insert(out.asset.rawData.end(), bytes.begin() + srcOffset, bytes.begin() + srcOffset + perLayer);
                     }
                 } else {
-                    auto &image    = out.image;
-                    auto &mipData  = image->mips[mip];
-                    mipData        = ImageMipData::Create(mipW, mipH, layers, image->pixelSize);
+                    auto &image                = out.image;
+                    auto &mipData              = image->mips[mip];
+                    mipData                    = ImageMipData::Create(mipW, mipH, layers, image->pixelSize);
                     const uint32_t layerStride = mipW * mipH * image->pixelSize;
                     for (uint32_t layer = 0; layer < layers; ++layer) {
                         const size_t srcOffset = static_cast<size_t>(byteOffset) + layer * layerStride;

@@ -61,6 +61,8 @@ namespace sky::aurora {
         case PixelFormat::ASTC_10x10_SRGB_BLOCK: return MTLPixelFormatASTC_10x10_sRGB;
         case PixelFormat::ASTC_12x12_UNORM_BLOCK: return MTLPixelFormatASTC_12x12_LDR;
         case PixelFormat::ASTC_12x12_SRGB_BLOCK: return MTLPixelFormatASTC_12x12_sRGB;
+        case PixelFormat::ASTC_6x6_UNORM_BLOCK: return MTLPixelFormatASTC_6x6_LDR;
+        case PixelFormat::ASTC_6x6_SRGB_BLOCK: return MTLPixelFormatASTC_6x6_sRGB;
         // ETC2 has no Metal equivalent
         default: return MTLPixelFormatInvalid;
         }
@@ -107,10 +109,8 @@ namespace sky::aurora {
         }
 
         switch (desc.imageType) {
-        case ImageType::IMAGE_1D:
-            return desc.arrayLayers > 1 ? MTLTextureType1DArray : MTLTextureType1D;
-        case ImageType::IMAGE_3D:
-            return MTLTextureType3D;
+        case ImageType::IMAGE_1D: return desc.arrayLayers > 1 ? MTLTextureType1DArray : MTLTextureType1D;
+        case ImageType::IMAGE_3D: return MTLTextureType3D;
         case ImageType::IMAGE_2D:
         default:
             if (desc.samples != SampleCount::X1) {

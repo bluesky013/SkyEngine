@@ -18,6 +18,7 @@ TEST(DefaultPanelsTest, RegistersCorePanelIds)
     EXPECT_TRUE(registry.Contains("inspector"));
     EXPECT_TRUE(registry.Contains("outputlog"));
     EXPECT_TRUE(registry.Contains("console"));
+    EXPECT_TRUE(registry.Contains("assets"));
 
     const PanelInfo *console = registry.Find("console");
     ASSERT_NE(console, nullptr);

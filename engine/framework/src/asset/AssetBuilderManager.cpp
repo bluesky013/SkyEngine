@@ -2,16 +2,16 @@
 // Created by blues on 2024/6/21.
 //
 
+#include <core/file/FileUtil.h>
+#include <core/platform/Platform.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
-#include <framework/asset/AssetManager.h>
-#include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetEvent.h>
+#include <framework/asset/AssetExecutor.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/asset/InProcessCookRunner.h>
 #include <framework/asset/OutOfProcessCookRunner.h>
 #include <framework/platform/PlatformBase.h>
-#include <core/file/FileUtil.h>
-#include <core/platform/Platform.h>
 
 namespace sky {
 
@@ -56,6 +56,37 @@ namespace sky {
         return extensions;
     }
 
+    std::vector<std::pair<std::string, std::string>> AssetBuilderManager::GetBuilderSettings(const std::string      &ext,
+                                                                                             const ProductBundleKey &bundle) const
+    {
+        auto *builder = QueryBuilder(ext);
+        return builder != nullptr ? builder->DescribeSettings(bundle) : std::vector<std::pair<std::string, std::string>>{};
+    }
+
+    std::vector<std::pair<std::string, std::string>>
+    AssetBuilderManager::GetBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const BuildSettingsOverride &override) const
+    {
+        auto *builder = QueryBuilder(ext);
+        return builder != nullptr ? builder->DescribeSettings(bundle, override) : std::vector<std::pair<std::string, std::string>>{};
+    }
+
+    const TypeInfoRT *AssetBuilderManager::GetBuilderSettingsType(const std::string &ext) const
+    {
+        auto *builder = QueryBuilder(ext);
+        return builder != nullptr ? builder->GetSettingsType() : nullptr;
+    }
+
+    Any AssetBuilderManager::MakeBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const BuildSettingsOverride &override) const
+    {
+        auto *builder = QueryBuilder(ext);
+        return builder != nullptr ? builder->MakeSettings(bundle, override) : Any{};
+    }
+
+    BuildSettingsOverride AssetBuilderManager::DiffBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const Any &edited) const
+    {
+        auto *builder = QueryBuilder(ext);
+        return builder != nullptr ? builder->DiffSettings(bundle, edited) : BuildSettingsOverride{};
+    }
     void AssetBuilderManager::SetEngineFs(const NativeFileSystemPtr &fs)
     {
         engineFs = fs;
@@ -72,7 +103,13 @@ namespace sky {
 
         // create products directory
         auto productFs = workSpaceFs->CreateSubSystem("products", true);
-        auto configFs = workSpaceFs->CreateSubSystem("configs", false);
+        auto configFs  = workSpaceFs->CreateSubSystem("configs", false);
+
+        // Load per-kind build presets (e.g. image_build_presets.json) into the registered builders, so
+        // both in-process cooking and the editor's reflected settings operate on the same presets.
+        if (configFs != nullptr) {
+            LoadBuildConfigs(configFs);
+        }
 
         auto *am = AssetManager::Get();
         // Unified cook/build config; falls back to the legacy presets file name.
@@ -101,10 +138,10 @@ namespace sky {
         // Select the cook backend from the parsed config (D5); default in-process keeps the
         // built-in inline path (cookRunner == null on AssetManager).
         const CookConfig effective = GetCookConfig();
-        outOfProcessActive = !forceInProcess && effective.GetMode() == CookMode::OutOfProcess;
+        outOfProcessActive         = !forceInProcess && effective.GetMode() == CookMode::OutOfProcess;
         if (outOfProcessActive) {
             CookRunnerConfig runnerConfig;
-            runnerConfig.workerPath = effective.GetWorkerPath().empty() ? DefaultWorkerPath() : effective.GetWorkerPath();
+            runnerConfig.workerPath  = effective.GetWorkerPath().empty() ? DefaultWorkerPath() : effective.GetWorkerPath();
             runnerConfig.projectPath = workSpaceFs->GetPath().GetStr();
             if (engineFs) {
                 runnerConfig.enginePath = engineFs->GetPath().GetStr();
@@ -112,7 +149,7 @@ namespace sky {
             if (intermediateFs) {
                 runnerConfig.intermediatePath = intermediateFs->GetPath().GetStr();
             }
-            runnerConfig.platform = effective.GetActivePlatform();
+            runnerConfig.platform  = effective.GetActivePlatform();
             runnerConfig.timeoutMs = effective.GetWorkerTimeoutMs();
 
             cookRunner = std::make_unique<OutOfProcessCookRunner>(std::move(runnerConfig));
@@ -142,10 +179,7 @@ namespace sky {
     void AssetBuilderManager::UnRegisterBuilder(AssetBuilder *builder)
     {
         {
-            auto iter = std::find_if(assetBuilders.begin(), assetBuilders.end(),
-                                     [builder](const auto &val) {
-                                         return builder == val.get();
-                                     });
+            auto iter = std::find_if(assetBuilders.begin(), assetBuilders.end(), [builder](const auto &val) { return builder == val.get(); });
             if (iter != assetBuilders.end()) {
                 assetBuilders.erase(iter);
             }
@@ -167,9 +201,11 @@ namespace sky {
         auto srcAsset = AssetDataBase::Get()->FindAsset(uuid);
         if (srcAsset) {
             AssetBuildRequest request = {};
-            request.assetInfo = srcAsset;
-            request.file = AssetDataBase::Get()->OpenFile(srcAsset);
-            request.target = target;
+            request.assetInfo         = srcAsset;
+            request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
+            request.target            = target;
+            request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
+            request.settings          = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
 
             BuildRequest(request, std::move(onFinished));
         }
@@ -187,8 +223,8 @@ namespace sky {
             request.assetInfo->dependencies.clear();
 
             AssetBuildResult result = {};
-            result.uuid = request.assetInfo->uuid;
-            result.target = request.target;
+            result.uuid             = request.assetInfo->uuid;
+            result.target           = request.target;
             builder->Request(request, result);
 
             AsseEvent::BroadCast(request.assetInfo->uuid, &IAssetEvent::OnAssetBuildFinished, result);
@@ -211,21 +247,23 @@ namespace sky {
         }
 
         AssetBuildRequest request = {};
-        request.assetInfo = srcAsset;
-        request.file = AssetDataBase::Get()->OpenFile(srcAsset);
-        request.target = target;
+        request.assetInfo         = srcAsset;
+        request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
+        request.target            = target;
+        request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
+        request.settings          = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
 
         srcAsset->dependencies.clear();
 
         AssetBuildResult result = {};
-        result.uuid = uuid;
-        result.target = target;
+        result.uuid             = uuid;
+        result.target           = target;
         builder->Request(request, result);
     }
 
     Any AssetBuilderManager::GetImportConfig(const FilePath &filePath)
     {
-        auto ext = filePath.Extension();
+        auto  ext     = filePath.Extension();
         auto *builder = QueryBuilder(ext);
         if (builder == nullptr) {
             return Any{};
@@ -235,14 +273,12 @@ namespace sky {
 
     void AssetBuilderManager::ImportAsset(const AssetImportRequest &request)
     {
-        auto ext = request.filePath.Extension();
+        auto  ext     = request.filePath.Extension();
         auto *builder = QueryBuilder(ext);
         if (builder == nullptr) {
             return;
         }
 
-        AssetExecutor::Get()->DependentAsync([request, builder]() {
-            builder->Import(request);
-        });
+        AssetExecutor::Get()->DependentAsync([request, builder]() { builder->Import(request); });
     }
 } // namespace sky

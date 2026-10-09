@@ -2,9 +2,9 @@
 // Created by blues on 2024/5/19.
 //
 
+#include <algorithm>
 #include <framework/controller/SimpleController.h>
 #include <framework/window/NativeWindow.h>
-#include <algorithm>
 
 namespace sky {
 
@@ -30,7 +30,7 @@ namespace sky {
             startY = currentY;
 
             // Mouse rotation is driven by pixel delta (per-frame input),
-            // not by deltaTime ¡ª otherwise sensitivity varies with frame rate.
+            // not by deltaTime ï¿½ï¿½ otherwise sensitivity varies with frame rate.
             euler.y -= diffX * mouseSensitivity;
             euler.x -= diffY * mouseSensitivity;
             res.rotation.FromEulerYZX(euler);
@@ -38,8 +38,8 @@ namespace sky {
         }
 
         auto forward = trans.rotation * (-VEC3_Z);
-        auto up = trans.rotation * (VEC3_Y);
-        auto right = forward.Cross(up);
+        auto up      = trans.rotation * (VEC3_Y);
+        auto right   = forward.Cross(up);
 
         if (keyButtons[ScanCode::KEY_W]) {
             res.translation += forward * time * moveSpeed;
@@ -113,7 +113,7 @@ namespace sky {
             return;
         }
 
-        moveSpeed += static_cast<float>(event.y);
+        moveSpeed += static_cast<float>(event.delta);
         moveSpeed = std::clamp(moveSpeed, 0.1f, 10000.f);
     }
 

@@ -58,3 +58,37 @@ the shell or any concrete editor type.
 - **WHEN** a plugin registers an action in its `Register()`
 - **THEN** it SHALL appear in the toolbar and/or menus alongside the built-in actions
 
+### Requirement: Cook targets from platform preset bundles
+
+The editor SHALL resolve an asset's cook targets to the active platform's preset product bundles when
+the asset declares no cook-target override and the project declares no named targets, and the Cook
+action SHALL cook each of them.
+
+#### Scenario: Target-less project
+- **WHEN** an asset with no cook override is cooked and the project has no named targets
+- **THEN** the cook SHALL run for each product bundle in the active platform preset (e.g. common,
+  tex_pc) instead of doing nothing
+
+#### Scenario: Asset override wins
+- **WHEN** an asset declares cook targets
+- **THEN** the cook SHALL run for the declared targets
+
+### Requirement: Asset browser actions
+
+The editor SHALL register the asset browser actions in the `EditorActionRegistry` as `EditorAction`
+records with ids, labels, and enabled predicates: New Asset, Import, Rename, Move, Duplicate, Delete,
+Cook/Build, Reimport, Copy Reference, Show in Explorer, and Find References, and Refresh. Mutating
+actions SHALL declare an enabled predicate that is false when the selection is empty or read-only.
+
+#### Scenario: Actions resolve by id
+- **WHEN** the editor invokes an asset browser action id
+- **THEN** the registry SHALL resolve it and run its invoke callback
+
+#### Scenario: Enabled predicate drives the UI
+- **WHEN** the selection is empty or only read-only assets
+- **THEN** the mutating actions SHALL report disabled and invoking them SHALL be a no-op
+
+#### Scenario: Shared implementation
+- **WHEN** an asset action is triggered from the toolbar, a menu, a shortcut, or the panel context menu
+- **THEN** the same registered action SHALL run
+

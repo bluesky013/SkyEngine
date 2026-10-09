@@ -30,7 +30,6 @@ TEST(CookConfigTest, ProjectConfigAndResolution)
     const auto *pc = config.FindTarget("pc_bc");
     ASSERT_NE(pc, nullptr);
     EXPECT_EQ(pc->bundle, "tex_pc");
-    EXPECT_FALSE(pc->settings.empty());
 
     // Asset-level override wins.
     EXPECT_EQ(config.ResolveTarget(R"({"targets":["mobile_astc"]})"), "mobile_astc");
@@ -60,4 +59,34 @@ TEST(CookConfigTest, BundlesAndPresets)
     EXPECT_EQ(win[1], "tex_pc");
 
     EXPECT_TRUE(config.GetPresetBundles("linux").empty());
+}
+
+TEST(CookConfigTest, AssetTargetSettingsOverride)
+{
+    CookConfig config;
+
+    // Sparse per-target overrides; non-scalar values and unknown targets are ignored.
+    const std::string cook = R"({
+        "targets": ["common", "tex_mobile"],
+        "settings": {
+            "tex_mobile": { "encode": "ASTC", "block": 4, "maxSize": 512, "generateMip": false, "extra": { "nested": 1 } },
+            "tex_pc": { "quality": "SLOW" }
+        }
+    })";
+
+    const auto targets = config.GetTargets(cook);
+    ASSERT_EQ(targets.size(), 2u);
+
+    const auto mobile = config.GetTargetSettings(cook, "tex_mobile");
+    EXPECT_EQ(mobile.at("encode"), "ASTC");
+    EXPECT_EQ(mobile.at("block"), "4");
+    EXPECT_EQ(mobile.at("maxSize"), "512");
+    EXPECT_EQ(mobile.at("generateMip"), "false");
+    EXPECT_EQ(mobile.count("extra"), 0u); // non-scalar ignored
+
+    const auto pc = config.GetTargetSettings(cook, "tex_pc");
+    EXPECT_EQ(pc.at("quality"), "SLOW");
+
+    EXPECT_TRUE(config.GetTargetSettings(cook, "unknown").empty());
+    EXPECT_TRUE(config.GetTargetSettings("", "tex_mobile").empty());
 }

@@ -2,20 +2,20 @@
 // Created by blues on 2024/6/16.
 //
 
-#include <framework/asset/AssetManager.h>
+#include <core/archive/FileArchive.h>
+#include <core/archive/MemoryStreamArchive.h>
+#include <core/logger/Logger.h>
+#include <core/profile/Profiler.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDependencyProvider.h>
 #include <framework/asset/AssetEvent.h>
+#include <framework/asset/AssetIndexFile.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/asset/ICookRunner.h>
 #include <framework/asset/ISourceCatalog.h>
-#include <framework/asset/AssetBuilderManager.h>
-#include <framework/asset/AssetIndexFile.h>
-#include <framework/asset/AssetDependencyProvider.h>
 #include <framework/platform/PlatformBase.h>
-#include <core/logger/Logger.h>
-#include <core/archive/FileArchive.h>
-#include <core/profile/Profiler.h>
-#include <core/archive/MemoryStreamArchive.h>
 
-static const char* TAG = "AssetManager";
+static const char *TAG = "AssetManager";
 
 namespace sky {
 
@@ -53,9 +53,7 @@ namespace sky {
     {
         cookRunner = runner;
         if (cookRunner != nullptr) {
-            cookRunner->SetCompletion([this](const AssetBuildResult &result) {
-                OnCookFinished(result);
-            });
+            cookRunner->SetCompletion([this](const AssetBuildResult &result) { OnCookFinished(result); });
         }
     }
 
@@ -79,7 +77,7 @@ namespace sky {
         std::shared_ptr<std::promise<void>> promise;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
-            const auto iter = pendingJobs.find(result.uuid);
+            const auto                            iter = pendingJobs.find(result.uuid);
             if (iter == pendingJobs.end()) {
                 return; // unknown or duplicate completion
             }
@@ -117,7 +115,7 @@ namespace sky {
     {
         // check asset exists
         std::lock_guard<std::recursive_mutex> lock(mutex);
-        auto iter = assets.find(uuid);
+        auto                                  iter = assets.find(uuid);
         if (iter != assets.end()) {
             if (auto res = iter->second.lock(); res) {
                 return res;
@@ -137,7 +135,7 @@ namespace sky {
         std::shared_ptr<AssetBase> asset;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
-            auto &ref = assets[uuid];
+            auto                                 &ref = assets[uuid];
             if (auto res = ref.lock(); res) {
                 return res;
             }
@@ -199,9 +197,7 @@ namespace sky {
         archive->LoadRaw(reinterpret_cast<char *>(compressed.data()), compressedSize);
 
         BinaryDataPtr decompressed = new BinaryData(uncompressedSize);
-        auto res = compressor->DeCompress(
-            {compressed.data(), compressed.size()},
-            {decompressed->Data(), decompressed->Size()}, 0);
+        auto          res          = compressor->DeCompress({compressed.data(), compressed.size()}, {decompressed->Data(), decompressed->Size()}, 0);
         if (!res.first) {
             LOG_E(TAG, "Product decompression failed");
             return {};
@@ -224,7 +220,7 @@ namespace sky {
             return LoadAssetOnDemand(uuid);
         }
 
-        auto  bin  = file->ReadBin();
+        auto              bin     = file->ReadBin();
         IStreamArchivePtr archive = new IMemoryArchive(bin);
 
         std::string codec;
@@ -238,9 +234,8 @@ namespace sky {
             return {};
         }
 
-
         // avoid release dep asset
-        std::vector<AssetPtr> holder;
+        std::vector<AssetPtr>    holder;
         std::vector<TaskNodePtr> asyncTasks;
         holder.reserve(asset->dependencies.size());
 
@@ -269,15 +264,15 @@ namespace sky {
                 SKY_PROFILE_NAME("LoadAsset")
                 auto asset = FindAsset(uuid);
 
-                if (!asset)
-                {
+                if (!asset) {
                     LOG_E(TAG, "Asset %s not found while loading. Maybe deleted?", uuid.ToString().c_str());
                 }
 
                 SKY_ASSERT(asset)
                 asset->depAssets.swap(deps);
                 LoadInto(asset, payload);
-            }, asyncTasks);
+            },
+            asyncTasks);
 
         return asset;
     }
@@ -315,7 +310,7 @@ namespace sky {
         loading->status.store(AssetBase::Status::LOADING);
 
         // Establish the wait handle before scheduling the cook so BlockUntilLoaded unblocks on completion.
-        auto promise = std::make_shared<std::promise<void>>();
+        auto promise              = std::make_shared<std::promise<void>>();
         loading->asyncTask.second = promise->get_future();
 
         if (cookRunner != nullptr) {
@@ -375,7 +370,7 @@ namespace sky {
         IStreamArchivePtr archive = new IMemoryArchive(file->ReadBin());
 
         std::string codec;
-        auto asset = CreateAssetByHeader(uuid, archive, codec);
+        auto        asset = CreateAssetByHeader(uuid, archive, codec);
         if (!asset) {
             return;
         }
@@ -402,7 +397,8 @@ namespace sky {
         LoadInto(asset, payload);
     }
 
-    AssetProductBundle *AssetManager::GetBundle(const ProductBundleKey &target) const    {
+    AssetProductBundle *AssetManager::GetBundle(const ProductBundleKey &target) const
+    {
         if (bundles.empty()) {
             return nullptr;
         }
@@ -419,13 +415,19 @@ namespace sky {
         return nullptr;
     }
 
+    bool AssetManager::HasProduct(const Uuid &uuid, const ProductBundleKey &bundle) const
+    {
+        auto *productBundle = GetBundle(bundle);
+        return productBundle != nullptr && productBundle->OpenFile(uuid) != nullptr;
+    }
+
     AssetPtr AssetManager::LoadAssetFromPath(const std::string &path)
     {
-        Uuid uuid;
+        Uuid       uuid;
         const auto canonical = MakeCanonicalPath(path);
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
-            auto iter = productPathMap.find(canonical);
+            auto                                  iter = productPathMap.find(canonical);
             if (iter != productPathMap.end()) {
                 uuid = iter->second;
             }
@@ -479,8 +481,8 @@ namespace sky {
             archive->Save(dep.word[1]);
         }
 
-        auto *compressor = compressProducts ? CompressionManager::Get()->GetCompressor(compressionMethod) : nullptr;
-        std::string codec = compressor != nullptr ? CodecName(compressionMethod) : std::string{};
+        auto       *compressor = compressProducts ? CompressionManager::Get()->GetCompressor(compressionMethod) : nullptr;
+        std::string codec      = compressor != nullptr ? CodecName(compressionMethod) : std::string{};
         archive->Save(static_cast<uint32_t>(codec.size()));
         archive->SaveRaw(codec.data(), codec.size());
 
@@ -491,11 +493,10 @@ namespace sky {
             OMemoryArchive payload;
             hIter->second->Save(payload, asset);
 
-            uint32_t bound = compressor->CompressBound(static_cast<uint32_t>(payload.Size()));
+            uint32_t             bound = compressor->CompressBound(static_cast<uint32_t>(payload.Size()));
             std::vector<uint8_t> compressed(bound);
-            auto res = compressor->Compress(
-                {reinterpret_cast<const uint8_t *>(payload.Data()), payload.Size()},
-                {compressed.data(), compressed.size()}, 0);
+            auto                 res =
+                compressor->Compress({reinterpret_cast<const uint8_t *>(payload.Data()), payload.Size()}, {compressed.data(), compressed.size()}, 0);
             if (res.first) {
                 archive->Save(static_cast<uint32_t>(payload.Size()));
                 archive->Save(res.second);
@@ -512,11 +513,11 @@ namespace sky {
             std::lock_guard<std::recursive_mutex> lock(mutex);
 
             auto bundleFs = pBundle->GetFileSystem();
-            auto index = productIndices.Get(bundleFs, FilePath{});
+            auto index    = productIndices.Get(bundleFs, FilePath{});
 
             IndexFileEntry entry;
             entry.key = MakeCanonicalPath(sourcePath);
-            entry.id = asset->GetUuid();
+            entry.id  = asset->GetUuid();
             index.Set(entry);
             productIndices.Save(bundleFs, FilePath{}, index);
 

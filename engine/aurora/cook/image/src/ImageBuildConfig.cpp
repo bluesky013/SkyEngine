@@ -6,6 +6,7 @@
 
 #include <core/logger/Logger.h>
 
+#include <cstdlib>
 #include <string>
 
 static const char *TAG = "AuroraImageCook";
@@ -45,21 +46,45 @@ namespace sky::aurora::cook {
             return Quality::FAST;
         }
 
+        uint32_t ParseUint(const std::string &value, uint32_t fallback)
+        {
+            if (value.empty()) {
+                return fallback;
+            }
+            char               *end    = nullptr;
+            const unsigned long parsed = std::strtoul(value.c_str(), &end, 10);
+            return end != value.c_str() ? static_cast<uint32_t>(parsed) : fallback;
+        }
+
+        bool ParseBool(const std::string &value, bool fallback)
+        {
+            if (value == "true" || value == "1") {
+                return true;
+            }
+            if (value == "false" || value == "0") {
+                return false;
+            }
+            return fallback;
+        }
+
     } // namespace
 
-    PixelFormat ImageBuildConfig::ResolveFormat() const
+    void ImageBuildConfig::ApplyOverride(const std::map<std::string, std::string> &override)
     {
-        switch (encode) {
-        case ImageEncode::BC7:
-            return srgb ? PixelFormat::BC7_SRGB_BLOCK : PixelFormat::BC7_UNORM_BLOCK;
-        case ImageEncode::ASTC:
-            if (astcBlock == 8) {
-                return srgb ? PixelFormat::ASTC_8x8_SRGB_BLOCK : PixelFormat::ASTC_8x8_UNORM_BLOCK;
+        for (const auto &[key, value] : override) {
+            if (key == "encode") {
+                encode = ParseEncode(value);
+            } else if (key == "quality") {
+                quality = ParseQuality(value);
+            } else if (key == "srgb") {
+                srgb = ParseBool(value, srgb);
+            } else if (key == "block") {
+                astcBlock = ParseUint(value, astcBlock);
+            } else if (key == "maxSize") {
+                maxSize = ParseUint(value, maxSize);
+            } else if (key == "generateMip") {
+                generateMip = ParseBool(value, generateMip);
             }
-            return srgb ? PixelFormat::ASTC_4x4_SRGB_BLOCK : PixelFormat::ASTC_4x4_UNORM_BLOCK;
-        case ImageEncode::NONE:
-        default:
-            return srgb ? PixelFormat::RGBA8_SRGB : PixelFormat::RGBA8_UNORM;
         }
     }
 

@@ -22,6 +22,7 @@ sky_add_test(TARGET EditorCoreTest
         WorldDocumentTest.cpp
         PlaySessionTest.cpp
         ReflectedFormTest.cpp
+        EditorAssetCatalogTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}

@@ -14,7 +14,14 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <type_traits>
 #include <vector>
+
+// Pin the expected astcenc ABI here: context allocation is the 3-arg form
+// (config, thread_count, out). If a future third-party refresh changes it, this
+// fails to compile instead of silently mis-linking.
+static_assert(std::is_invocable_r_v<astcenc_error, decltype(&astcenc_context_alloc), const astcenc_config *, unsigned int, astcenc_context **>,
+              "Unexpected astcenc API version: update ImageCompressor to match the installed astcenc");
 
 static const char *TAG = "AuroraImageCompressor";
 
@@ -24,7 +31,7 @@ namespace sky::aurora::cook {
 
         // --- ispc_texcomp runtime module (BC7) ---
 
-        using PFN_GetProfile = void (*)(bc7_enc_settings *settings);
+        using PFN_GetProfile        = void (*)(bc7_enc_settings *settings);
         using PFN_CompressBlocksBC7 = void (*)(const rgba_surface *src, uint8_t *dst, bc7_enc_settings *settings);
 
         PFN_GetProfile        S_BC7_ultrafast       = nullptr;
@@ -74,10 +81,10 @@ namespace sky::aurora::cook {
             PFN_GetProfile   profile  = nullptr;
             switch (quality) {
             case Quality::ULTRA_FAST: profile = hasAlpha ? S_BC7_alpha_ultrafast : S_BC7_ultrafast; break;
-            case Quality::VERY_FAST:  profile = hasAlpha ? S_BC7_alpha_veryfast : S_BC7_veryfast; break;
-            case Quality::FAST:       profile = hasAlpha ? S_BC7_alpha_fast : S_BC7_fast; break;
-            case Quality::BASIC:      profile = hasAlpha ? S_BC7_alpha_basic : S_BC7_basic; break;
-            case Quality::SLOW:       profile = hasAlpha ? S_BC7_alpha_slow : S_BC7_slow; break;
+            case Quality::VERY_FAST: profile = hasAlpha ? S_BC7_alpha_veryfast : S_BC7_veryfast; break;
+            case Quality::FAST: profile = hasAlpha ? S_BC7_alpha_fast : S_BC7_fast; break;
+            case Quality::BASIC: profile = hasAlpha ? S_BC7_alpha_basic : S_BC7_basic; break;
+            case Quality::SLOW: profile = hasAlpha ? S_BC7_alpha_slow : S_BC7_slow; break;
             }
             if (profile == nullptr) {
                 return;
@@ -97,21 +104,18 @@ namespace sky::aurora::cook {
         {
             switch (quality) {
             case Quality::ULTRA_FAST:
-            case Quality::VERY_FAST:
-                return ASTCENC_PRE_FAST;
-            case Quality::FAST:
-                return ASTCENC_PRE_MEDIUM;
-            case Quality::BASIC:
-                return ASTCENC_PRE_THOROUGH;
-            case Quality::SLOW:
-                return ASTCENC_PRE_EXHAUSTIVE;
+            case Quality::VERY_FAST: return ASTCENC_PRE_FAST;
+            case Quality::FAST: return ASTCENC_PRE_MEDIUM;
+            case Quality::BASIC: return ASTCENC_PRE_THOROUGH;
+            case Quality::SLOW: return ASTCENC_PRE_EXHAUSTIVE;
             }
             return ASTCENC_PRE_MEDIUM;
         }
 
-        void CompressASTC(const uint8_t *ptr, uint32_t width, uint32_t height, uint32_t blockSize, bool srgb, uint8_t *out, uint32_t outSize, Quality quality)
+        void CompressASTC(
+            const uint8_t *ptr, uint32_t width, uint32_t height, uint32_t blockSize, bool srgb, uint8_t *out, uint32_t outSize, Quality quality)
         {
-            astcenc_config config = {};
+            astcenc_config        config  = {};
             const astcenc_profile profile = srgb ? ASTCENC_PRF_LDR_SRGB : ASTCENC_PRF_LDR;
             const unsigned int    flags   = ASTCENC_FLG_USE_PERCEPTUAL | ASTCENC_FLG_USE_ALPHA_WEIGHT;
 
@@ -122,22 +126,22 @@ namespace sky::aurora::cook {
             }
 
             astcenc_context *context = nullptr;
-            err = astcenc_context_alloc(&config, 1, &context, nullptr);
+            err                      = astcenc_context_alloc(&config, 1, &context);
             if (err != ASTCENC_SUCCESS) {
                 LOG_E(TAG, "astcenc_context_alloc failed: %s", astcenc_get_error_string(err));
                 return;
             }
 
             astcenc_image image = {};
-            image.dim_x        = width;
-            image.dim_y        = height;
-            image.dim_z        = 1;
-            image.data_type    = ASTCENC_TYPE_U8;
-            void *slice        = const_cast<uint8_t *>(ptr);
-            image.data         = &slice;
+            image.dim_x         = width;
+            image.dim_y         = height;
+            image.dim_z         = 1;
+            image.data_type     = ASTCENC_TYPE_U8;
+            void *slice         = const_cast<uint8_t *>(ptr);
+            image.data          = &slice;
 
             const astcenc_swizzle swizzle = {ASTCENC_SWZ_R, ASTCENC_SWZ_G, ASTCENC_SWZ_B, ASTCENC_SWZ_A};
-            err = astcenc_compress_image(context, &image, &swizzle, out, outSize, 0);
+            err                           = astcenc_compress_image(context, &image, &swizzle, out, outSize, 0);
             if (err != ASTCENC_SUCCESS) {
                 LOG_E(TAG, "astcenc_compress_image failed: %s", astcenc_get_error_string(err));
             }
@@ -148,7 +152,7 @@ namespace sky::aurora::cook {
 
     void ImageCompressor::DoWork()
     {
-        const auto &targetFormat = payload.config.ResolveFormat();
+        const auto &targetFormat = ResolveImageFormat(payload.config);
         const auto &info         = GetImageFormatInfo(targetFormat);
         if (!info.isCompressed) {
             return;
@@ -168,8 +172,8 @@ namespace sky::aurora::cook {
         const uint32_t extW = ((src.width + blockW - 1) / blockW) * blockW;
         const uint32_t extH = ((src.height + blockH - 1) / blockH) * blockH;
 
-        const uint8_t *srcPtr    = src.data.get();
-        uint32_t       srcStride = src.rowPitch;
+        const uint8_t       *srcPtr    = src.data.get();
+        uint32_t             srcStride = src.rowPitch;
         std::vector<uint8_t> padded;
 
         if (extW != src.width || extH != src.height) {
@@ -189,10 +193,10 @@ namespace sky::aurora::cook {
         const uint32_t blocksY  = (src.height + blockH - 1) / blockH;
         const uint32_t dataSize = blocksX * blocksY * info.blockSize;
 
-        auto &dst        = payload.compressed->mips[payload.mip];
-        dst.rowPitch     = blocksX * info.blockSize;
-        dst.dataLength   = dataSize;
-        dst.data         = std::make_unique<uint8_t[]>(dataSize);
+        auto &dst      = payload.compressed->mips[payload.mip];
+        dst.rowPitch   = blocksX * info.blockSize;
+        dst.dataLength = dataSize;
+        dst.data       = std::make_unique<uint8_t[]>(dataSize);
 
         if (payload.config.encode == ImageEncode::BC7) {
             CompressBC7(srcPtr, srcStride, extW, extH, dst.data.get(), payload.config.quality, payload.hasAlpha);

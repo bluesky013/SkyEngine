@@ -193,6 +193,8 @@ namespace sky {
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 
         static std::vector<FilePath> FilterFiles(const FilePath &path, const std::string &ext);
+        // Single-pass variant: walks the tree once and keeps files matching any of `extensions`.
+        static std::vector<FilePath> FilterFiles(const FilePath &path, const std::vector<std::string> &extensions);
 
     private:
         FilePath fsRoot;

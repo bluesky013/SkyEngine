@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <aurora/cook/image/ImageBuildConfig.h>
+#include <aurora/cook/image/ImageTypes.h>
 #include <aurora/rhi/Core.h>
 #include <core/math/Color.h>
 
@@ -15,40 +17,18 @@
 
 namespace sky::aurora::cook {
 
-    enum class PixelType : uint32_t {
-        U8,
-        HALF,
-        Float,
-    };
-
-    enum class MipGenType : uint32_t {
-        Box,
-        Kaiser,
-        Lanczos3
-    };
-
-    enum class Quality : uint32_t {
-        ULTRA_FAST,
-        VERY_FAST,
-        FAST,
-        BASIC,
-        SLOW
-    };
-
     struct ImageMipData {
-        uint32_t width      = 0;
-        uint32_t height     = 0;
-        uint32_t depth      = 0;
-        uint32_t rowPitch   = 0;
-        uint32_t dataLength = 0;
+        uint32_t                   width      = 0;
+        uint32_t                   height     = 0;
+        uint32_t                   depth      = 0;
+        uint32_t                   rowPitch   = 0;
+        uint32_t                   dataLength = 0;
         std::unique_ptr<uint8_t[]> data;
 
         static ImageMipData Create(uint32_t width, uint32_t height, uint32_t depth, uint32_t pixelSize)
         {
             const uint32_t dataLength = width * height * depth * pixelSize;
-            return ImageMipData{
-                width, height, depth, width * pixelSize, dataLength, std::make_unique<uint8_t[]>(dataLength)
-            };
+            return ImageMipData{width, height, depth, width * pixelSize, dataLength, std::make_unique<uint8_t[]>(dataLength)};
         }
 
         ImageMipData CopyNoData() const
@@ -61,6 +41,10 @@ namespace sky::aurora::cook {
     uint32_t  GetBytePerComp(PixelFormat fmt);
     uint32_t  GetNumComp(PixelFormat fmt);
     PixelType GetPixelType(PixelFormat fmt);
+
+    // Maps a build config's encode settings to the RHI pixel format. Lives here (not on ImageBuildConfig)
+    // so the build config stays independent of aurora/rhi.
+    PixelFormat ResolveImageFormat(const ImageBuildConfig &config);
 
     // IEEE 754 binary16 <-> binary32; shared by the pixel helpers and the
     // resampling kernel so 16-bit sources filter correctly.

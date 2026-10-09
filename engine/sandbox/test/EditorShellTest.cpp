@@ -4,9 +4,12 @@
 
 #include <core/type/TypeInfo.h>
 #include <core/type/TypeInfoObj.h>
+#include <cstdlib>
+#include <editor/core/asset/EditorAssetCatalog.h>
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/filebrowser/FileBrowserModel.h>
+#include <editor/core/layout/DefaultPanels.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
 #include <editor/core/preferences/PreferenceRegistry.h>
@@ -16,8 +19,12 @@
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
+#include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/widgets/ToolBar.h>
 #include <filesystem>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/CookConfig.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 #include <fstream>
@@ -25,6 +32,7 @@
 #include <memory>
 #include <string>
 #include <ui/UIElement.h>
+#include <ui/UIPaintContext.h>
 
 #include "TestTypes.h"
 
@@ -141,6 +149,27 @@ TEST(EditorShellTest, ViewRegistrySurvivesRebuild)
     sky::ui::UIElement *second = shell.GetPanelView("a");
     EXPECT_EQ(first, second);
     EXPECT_EQ(factoryCalls, 1);
+}
+
+TEST(EditorShellTest, AssetsPanelRegistered)
+{
+    LayoutModel layout;
+    layout.SetDefault({"outliner"});
+    layout.Tabify("assets", "outliner");
+
+    PanelRegistry registry;
+    RegisterDefaultEditorPanels(registry);
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    shell.SetAssetCatalog(EditorAssetCatalog::Get());
+    shell.RegisterBuiltinPanelViews();
+    shell.Rebuild();
+
+    sky::ui::UIElement *view = shell.GetPanelView("assets");
+    ASSERT_NE(view, nullptr);
+    EXPECT_STREQ(view->GetTypeName(), "AssetBrowserPanel");
 }
 
 TEST(EditorShellTest, SetPanelVisibleToggles)
@@ -290,7 +319,8 @@ TEST(EditorShellTest, TabCloseAffordance)
 
     // Header row is below the menu bar (24) + toolbar; first tab cell spans
     // x in [0,400) and its close box sits at x >= 382.
-    const float headerRowY = GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    const float headerRowY =
+        GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 390.0f, headerRowY));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 390.0f, headerRowY));
     shell.Layout(800.0f, 600.0f);
@@ -323,7 +353,8 @@ TEST(EditorShellTest, DragTabDocksIntoOtherTab)
     shell.Layout(800.0f, 600.0f);
 
     // Tab1 header is the left half; its second cell ("b") spans x in [200,400).
-    const float headerRowY = GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
+    const float headerRowY =
+        GetDefaultUiTheme().metrics.menuBarHeight + GetDefaultUiTheme().metrics.toolbarHeight + GetDefaultUiTheme().metrics.tabHeaderHeight * 0.5f;
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::DOWN, 300.0f, headerRowY));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::MOVE, 600.0f, 300.0f));
     shell.DispatchPointer(Pointer(sky::ui::UIPointerAction::UP, 600.0f, 300.0f));
@@ -924,4 +955,150 @@ TEST(FileBrowserDialogTest, FilterPopupSwitchesToAllFiles)
 
     EXPECT_EQ(dialog->Model().GetActiveFilter(), -1);
     EXPECT_EQ(dialog->Model().GetEntries().size(), 3u); // sub + a.skyproj + b.txt
+}
+
+namespace {
+
+    struct ShellCookSettings {
+        uint32_t maxSize = 0;
+    };
+
+    class ShellTextBuilder : public sky::AssetBuilder {
+    public:
+        ShellTextBuilder()
+        {
+            static bool registered = false;
+            if (!registered) {
+                registered = true;
+                sky::SerializationContext::Get()->Register<ShellCookSettings>("ShellTestCookSettings").Member<&ShellCookSettings::maxSize>("maxSize");
+            }
+        }
+
+        const std::vector<std::string> &GetExtensions() const override
+        {
+            static const std::vector<std::string> exts{".txt"};
+            return exts;
+        }
+        std::string_view QueryType(const std::string &ext) const override
+        {
+            return ext == ".txt" ? std::string_view("Text") : std::string_view{};
+        }
+        std::vector<std::pair<std::string, std::string>> DescribeSettings(const sky::ProductBundleKey &,
+                                                                          const sky::BuildSettingsOverride &override) const override
+        {
+            const auto it = override.find("maxSize");
+            return {{"maxSize", it != override.end() ? it->second : std::string("0")}};
+        }
+        const sky::TypeInfoRT *GetSettingsType() const override
+        {
+            return sky::TypeInfoObj<ShellCookSettings>::Get()->RtInfo();
+        }
+        sky::Any MakeSettings(const sky::ProductBundleKey &, const sky::BuildSettingsOverride &override) const override
+        {
+            ShellCookSettings settings;
+            const auto        it = override.find("maxSize");
+            if (it != override.end()) {
+                settings.maxSize = static_cast<uint32_t>(std::strtoul(it->second.c_str(), nullptr, 10));
+            }
+            return sky::Any(settings);
+        }
+        sky::BuildSettingsOverride DiffSettings(const sky::ProductBundleKey &, const sky::Any &edited) const override
+        {
+            sky::BuildSettingsOverride out;
+            const auto                *values = edited.GetAsConst<ShellCookSettings>();
+            if (values != nullptr && values->maxSize != 0) {
+                out["maxSize"] = std::to_string(values->maxSize);
+            }
+            return out;
+        }
+    };
+
+} // namespace
+
+TEST(EditorShellTest, AssetBrowserEditsCookSetting)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path root = fs::temp_directory_path() / "sky_shell_asset_edit";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    std::ofstream(root / "a.txt") << "hello";
+
+    auto *manager = sky::AssetBuilderManager::Get();
+    auto *builder = new ShellTextBuilder();
+    manager->RegisterBuilder(builder);
+
+    sky::CookConfig cookConfig;
+    cookConfig.Parse(R"({"bundles":["common"],"presets":{"windows":["common"]}})");
+    cookConfig.SetActivePlatform("windows");
+    manager->SetCookConfig(std::move(cookConfig));
+
+    sky::FileSystemPtr workSpace = new sky::NativeFileSystem(sky::FilePath(root.string()));
+    auto              *db        = sky::AssetDataBase::Get();
+    db->Reset();
+    db->SetWorkSpaceFs(workSpace);
+    db->RebuildCacheFromScan();
+
+    auto *catalog = EditorAssetCatalog::Get();
+    catalog->Refresh();
+
+    AssetBrowserPanel panel;
+    panel.SetCatalog(catalog);
+    panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 900.0f, 220.0f}); // short, like the bottom dock
+
+    sky::ui::UIPaintContext ctx;
+    ctx.Begin(sky::ui::UIRect{0.0f, 0.0f, 900.0f, 220.0f});
+    panel.OnPaint(ctx); // populates the folder/item caches
+
+    // Select the first item tile.
+    panel.OnPointerEvent(Pointer(sky::ui::UIPointerAction::UP, 430.0f, 60.0f));
+
+    EditorAssetItem item;
+    ASSERT_TRUE(catalog->FindByPath("Project/a.txt", item));
+
+    const auto infos  = catalog->GetTargetInfos(item.uuid);
+    const auto target = infos.empty() ? std::string("common") : infos.front().target;
+
+    // Edit through the reflected object and persist (what a committed form edit does).
+    auto settings = catalog->GetCookSettings(item.uuid, target);
+    ASSERT_TRUE(settings.IsValid());
+    ASSERT_NE(settings.object.GetAsConst<ShellCookSettings>(), nullptr);
+    settings.object.GetAs<ShellCookSettings>()->maxSize = 512;
+    ASSERT_TRUE(catalog->ApplyCookSettings(item.uuid, target, settings.object));
+    EXPECT_NE(db->GetCookJson(item.uuid).find("512"), std::string::npos);
+
+    // Reset to the preset default removes the override key.
+    settings                                            = catalog->GetCookSettings(item.uuid, target);
+    settings.object.GetAs<ShellCookSettings>()->maxSize = 0;
+    ASSERT_TRUE(catalog->ApplyCookSettings(item.uuid, target, settings.object));
+    EXPECT_EQ(db->GetCookJson(item.uuid).find("512"), std::string::npos);
+
+    manager->SetCookConfig(sky::CookConfig{});
+    manager->UnRegisterBuilder(builder);
+    db->Reset();
+    fs::remove_all(root);
+}
+
+TEST(EditorShellTest, AssetViewerOpensAndCloses)
+{
+    LayoutModel layout;
+    layout.SetDefault({"outliner"});
+    PanelRegistry registry;
+    RegisterDefaultEditorPanels(registry);
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    shell.SetAssetCatalog(EditorAssetCatalog::Get());
+    shell.RegisterBuiltinPanelViews();
+    shell.Rebuild();
+
+    EXPECT_FALSE(shell.IsAssetViewerOpen());
+
+    shell.OpenAssetViewer(sky::Uuid::Create());
+    EXPECT_TRUE(shell.IsAssetViewerOpen());
+
+    // Escape is routed to the active modal and closes the viewer.
+    shell.DispatchKey(Key(0x1B));
+    EXPECT_FALSE(shell.IsAssetViewerOpen());
 }

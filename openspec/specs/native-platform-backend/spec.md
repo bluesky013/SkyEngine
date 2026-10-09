@@ -87,7 +87,6 @@ phase; until then, plain text input SHALL work on Windows.
 - **WHEN** the user composes CJK text via the system IME on macOS
 - **THEN** the committed text SHALL be delivered through `OnTextInput`, and the composition SHALL be dropped if the window loses focus before commit
 
-
 ### Requirement: Window DPI scale
 `NativeWindow::GetDpiScale()` SHALL return the window's device-pixels-per-point ratio and SHALL reflect
 the display the window currently occupies (Windows: per-monitor DPI; macOS: the window's
@@ -100,3 +99,22 @@ the display the window currently occupies (Windows: per-monitor DPI; macOS: the 
 #### Scenario: Scale follows the display
 - **WHEN** the window moves to a display with a different backing scale
 - **THEN** `GetDpiScale()` SHALL subsequently report the new scale without recreating the window
+
+### Requirement: Reveal a path in the OS file manager
+
+The platform layer SHALL expose a native shell service to reveal a file path in the operating
+system's file manager, implemented per desktop backend and defaulting to a no-op where unsupported.
+
+#### Scenario: Desktop reveal
+- **WHEN** a desktop host asks the platform to reveal an existing path
+- **THEN** the OS file manager SHALL open with that path selected
+
+#### Scenario: Unsupported backend
+- **WHEN** a backend does not implement the service (e.g. mobile)
+- **THEN** the call SHALL do nothing and SHALL NOT fail
+
+#### Scenario: Interface home
+- **WHEN** the service is declared
+- **THEN** it SHALL live on `PlatformBase`/`Platform` alongside the other native shell services
+  (open/save dialogs), so hosts do not call OS APIs directly
+

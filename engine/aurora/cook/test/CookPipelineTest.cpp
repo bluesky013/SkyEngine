@@ -3,17 +3,22 @@
 // output mapping and build-preset bundle resolution.
 //
 
+#include <aurora/cook/image/AuroraImageBuilder.h>
 #include <aurora/cook/image/ImageAssetWriter.h>
 #include <aurora/cook/image/ImageBuildConfig.h>
 #include <aurora/cook/image/ImageCompressor.h>
+#include <aurora/cook/image/ImageCookSettings.h>
 #include <aurora/cook/image/ImageSource.h>
 
 #include <core/archive/MemoryStreamArchive.h>
+#include <core/file/FileSystem.h>
 #include <framework/serialization/JsonArchive.h>
 
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -81,7 +86,7 @@ namespace {
 
     ImageObjectPtr MakeRGBA8(uint32_t width, uint32_t height, uint32_t depth = 1)
     {
-        auto image = ImageObject::CreateImage2D(width, height, PixelFormat::RGBA8_UNORM);
+        auto image   = ImageObject::CreateImage2D(width, height, PixelFormat::RGBA8_UNORM);
         image->depth = depth;
         image->FillMip0();
         for (uint32_t i = 0; i < width * height * depth; ++i) {
@@ -95,7 +100,7 @@ namespace {
 
     uint32_t CompressOne(const PixelFormat format, const ImageBuildConfig &config, uint32_t width, uint32_t height)
     {
-        auto image = MakeRGBA8(width, height);
+        auto image      = MakeRGBA8(width, height);
         auto compressed = CompressedImage::CreateFromImageObject(image, format);
 
         ImageCompressor::Payload payload;
@@ -146,8 +151,8 @@ TEST(CookCompressTest, Bc7BlockAlignedSize)
     config.srgb   = true;
 
     // 8x8 BC7 = (8/4)*(8/4) blocks * 16 bytes = 64.
-    EXPECT_EQ(CompressOne(config.ResolveFormat(), config, 8, 8), 64u);
-    EXPECT_EQ(config.ResolveFormat(), PixelFormat::BC7_SRGB_BLOCK);
+    EXPECT_EQ(CompressOne(ResolveImageFormat(config), config, 8, 8), 64u);
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::BC7_SRGB_BLOCK);
 }
 
 TEST(CookCompressTest, AstcBlockAlignedSize)
@@ -158,8 +163,8 @@ TEST(CookCompressTest, AstcBlockAlignedSize)
     config.srgb      = true;
 
     // 9x9 ASTC 4x4 -> ceil(9/4)^2 = 9 blocks * 16 bytes = 144.
-    EXPECT_EQ(CompressOne(config.ResolveFormat(), config, 9, 9), 144u);
-    EXPECT_EQ(config.ResolveFormat(), PixelFormat::ASTC_4x4_SRGB_BLOCK);
+    EXPECT_EQ(CompressOne(ResolveImageFormat(config), config, 9, 9), 144u);
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_4x4_SRGB_BLOCK);
 }
 
 TEST(CookCompressTest, Astc8x8Format)
@@ -169,14 +174,14 @@ TEST(CookCompressTest, Astc8x8Format)
     config.astcBlock = 8;
     config.srgb      = false;
 
-    EXPECT_EQ(config.ResolveFormat(), PixelFormat::ASTC_8x8_UNORM_BLOCK);
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_8x8_UNORM_BLOCK);
     // 8x8 -> 1 block * 16 bytes.
-    EXPECT_EQ(CompressOne(config.ResolveFormat(), config, 8, 8), 16u);
+    EXPECT_EQ(CompressOne(ResolveImageFormat(config), config, 8, 8), 16u);
 }
 
 TEST(CookAssetWriterTest, Write2D)
 {
-    auto image = MakeRGBA8(2, 2);
+    auto           image = MakeRGBA8(2, 2);
     ImageAssetData data;
     WriteImageAsset(*image, ImageAssetType::TEXTURE_2D, data);
 
@@ -191,7 +196,7 @@ TEST(CookAssetWriterTest, Write2D)
 
 TEST(CookAssetWriterTest, WriteCube)
 {
-    auto image = MakeRGBA8(2, 2, 6);
+    auto           image = MakeRGBA8(2, 2, 6);
     ImageAssetData data;
     WriteImageAsset(*image, ImageAssetType::TEXTURE_CUBE, data);
 
@@ -208,8 +213,8 @@ TEST(CookAssetWriterTest, WriteCompressed)
     config.encode = ImageEncode::BC7;
     config.srgb   = false;
 
-    auto image      = MakeRGBA8(8, 8);
-    auto compressed = CompressedImage::CreateFromImageObject(image, config.ResolveFormat());
+    auto                     image      = MakeRGBA8(8, 8);
+    auto                     compressed = CompressedImage::CreateFromImageObject(image, ResolveImageFormat(config));
     ImageCompressor::Payload payload;
     payload.image      = image;
     payload.compressed = compressed;
@@ -226,10 +231,11 @@ TEST(CookAssetWriterTest, WriteCompressed)
 
 TEST(CookConfigTest, LoadJsonAndResolve)
 {
-    const char *json = R"({"defaultBundle":"tex_pc","bundles":{"tex_pc":{"encode":"BC7","srgb":true,"maxSize":2048,"generateMip":true},"tex_mobile":{"encode":"ASTC","block":8,"srgb":true,"maxSize":1024,"generateMip":true}}})";
+    const char *json =
+        R"({"defaultBundle":"tex_pc","bundles":{"tex_pc":{"encode":"BC7","srgb":true,"maxSize":2048,"generateMip":true},"tex_mobile":{"encode":"ASTC","block":8,"srgb":true,"maxSize":1024,"generateMip":true}}})";
     std::vector<uint8_t> bytes(json, json + std::strlen(json));
 
-    IMemoryArchive in(bytes.data(), bytes.size());
+    IMemoryArchive   in(bytes.data(), bytes.size());
     JsonInputArchive archive(in);
 
     ImageBuildPresets presets;
@@ -237,13 +243,13 @@ TEST(CookConfigTest, LoadJsonAndResolve)
 
     ASSERT_EQ(presets.bundles.size(), 2u);
 
-    std::string key;
+    std::string             key;
     const ImageBuildConfig *cfg = presets.Resolve("tex_mobile", key);
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "tex_mobile");
     EXPECT_EQ(cfg->encode, ImageEncode::ASTC);
     EXPECT_EQ(cfg->astcBlock, 8u);
-    EXPECT_EQ(cfg->ResolveFormat(), PixelFormat::ASTC_8x8_SRGB_BLOCK);
+    EXPECT_EQ(ResolveImageFormat(*cfg), PixelFormat::ASTC_8x8_SRGB_BLOCK);
 
     cfg = presets.Resolve("missing", key);
     ASSERT_NE(cfg, nullptr);
@@ -252,4 +258,152 @@ TEST(CookConfigTest, LoadJsonAndResolve)
     cfg = presets.Resolve("", key);
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "tex_pc");
+}
+
+TEST(CookConfigTest, AuroraImageBuilderDescribeSettings)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path dir = "aurora_img_settings_tmp";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "image_build_presets.json");
+        out << R"({"defaultBundle":"tex_pc","bundles":{"common":{"encode":"NONE"},"tex_pc":{"encode":"BC7","srgb":true,"maxSize":2048,"generateMip":true}}})";
+    }
+
+    AuroraImageBuilder  builder;
+    NativeFileSystemPtr settingsFs = new NativeFileSystem(dir.string());
+    builder.LoadConfig(settingsFs);
+
+    const auto settings = builder.DescribeSettings("tex_pc");
+    ASSERT_FALSE(settings.empty());
+    const auto find = [&settings](const std::string &key) {
+        for (const auto &[k, v] : settings) {
+            if (k == key) {
+                return v;
+            }
+        }
+        return std::string{};
+    };
+    EXPECT_EQ(find("encode"), "BC7");
+    EXPECT_EQ(find("srgb"), "true");
+    EXPECT_EQ(find("maxSize"), "2048");
+    EXPECT_EQ(find("generateMip"), "true");
+
+    // Unknown bundle falls back to the default bundle's settings (non-empty).
+    EXPECT_FALSE(builder.DescribeSettings("missing").empty());
+
+    // A builder with no loaded presets reports nothing.
+    AuroraImageBuilder empty;
+    EXPECT_TRUE(empty.DescribeSettings("tex_pc").empty());
+
+    fs::remove_all(dir);
+}
+
+TEST(CookConfigTest, ImageBuildConfigApplyOverride)
+{
+    ImageBuildConfig config;
+    config.encode      = ImageEncode::ASTC;
+    config.astcBlock   = 4;
+    config.maxSize     = 1024;
+    config.generateMip = true;
+
+    config.ApplyOverride({{"maxSize", "512"}, {"generateMip", "false"}, {"block", "8"}, {"unknown", "x"}});
+
+    EXPECT_EQ(config.maxSize, 512u);
+    EXPECT_FALSE(config.generateMip);
+    EXPECT_EQ(config.astcBlock, 8u);
+    EXPECT_EQ(config.encode, ImageEncode::ASTC); // unset key keeps the preset value
+}
+
+TEST(CookConfigTest, AstcBlockResolveFormat)
+{
+    ImageBuildConfig config;
+    config.encode = ImageEncode::ASTC;
+    config.srgb   = false;
+
+    config.astcBlock = 4;
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_4x4_UNORM_BLOCK);
+    config.astcBlock = 6;
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_6x6_UNORM_BLOCK);
+    config.astcBlock = 8;
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_8x8_UNORM_BLOCK);
+
+    config.srgb      = true;
+    config.astcBlock = 6;
+    EXPECT_EQ(ResolveImageFormat(config), PixelFormat::ASTC_6x6_SRGB_BLOCK);
+}
+
+TEST(CookConfigTest, ImageBuilderReflectedSettings)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path dir = "aurora_img_reflect_tmp";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "image_build_presets.json");
+        out << R"({"defaultBundle":"tex_pc","bundles":{"tex_mobile":{"encode":"ASTC","block":4,"srgb":true,"quality":"FAST","maxSize":1024,"generateMip":true}}})";
+    }
+
+    AuroraImageBuilder  builder;
+    NativeFileSystemPtr settingsFs = new NativeFileSystem(dir.string());
+    builder.LoadConfig(settingsFs);
+
+    ASSERT_NE(builder.GetSettingsType(), nullptr);
+
+    const auto preset = builder.MakeSettings("tex_mobile", {});
+    ASSERT_NE(preset.Data(), nullptr);
+    const auto *values = preset.GetAsConst<ImageCookSettings>();
+    ASSERT_NE(values, nullptr);
+    EXPECT_EQ(values->encode, ImageEncode::ASTC);
+    EXPECT_EQ(values->maxSize, 1024u);
+
+    // No difference from the preset -> empty sparse override.
+    EXPECT_TRUE(builder.DiffSettings("tex_mobile", preset).empty());
+
+    // A changed field yields only that key.
+    auto edited        = *values;
+    edited.maxSize     = 512;
+    edited.generateMip = false;
+    const auto diff    = builder.DiffSettings("tex_mobile", Any(edited));
+    EXPECT_EQ(diff.at("maxSize"), "512");
+    EXPECT_EQ(diff.at("generateMip"), "false");
+    EXPECT_EQ(diff.size(), 2u);
+
+    fs::remove_all(dir);
+}
+
+TEST(CookConfigTest, AuroraImageBuilderDescribeSettingsOverride)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path dir = "aurora_img_override_tmp";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "image_build_presets.json");
+        out << R"({"defaultBundle":"tex_pc","bundles":{"tex_mobile":{"encode":"ASTC","block":4,"srgb":true,"quality":"MEDIUM","maxSize":1024,"generateMip":true}}})";
+    }
+
+    AuroraImageBuilder  builder;
+    NativeFileSystemPtr settingsFs = new NativeFileSystem(dir.string());
+    builder.LoadConfig(settingsFs);
+
+    const auto eff  = builder.DescribeSettings("tex_mobile", {{"maxSize", "512"}, {"generateMip", "false"}});
+    const auto find = [&eff](const std::string &key) {
+        for (const auto &[k, v] : eff) {
+            if (k == key) {
+                return v;
+            }
+        }
+        return std::string{};
+    };
+    EXPECT_EQ(find("maxSize"), "512");
+    EXPECT_EQ(find("generateMip"), "false");
+    EXPECT_EQ(find("encode"), "ASTC"); // unset key keeps the preset
+    EXPECT_EQ(find("astcBlock"), "4"); // unset key keeps the preset
+
+    fs::remove_all(dir);
 }

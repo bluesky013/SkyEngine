@@ -176,3 +176,104 @@ The File menu SHALL include a `Preferences…` command that opens the Preference
 - **WHEN** the editor starts with the default layout
 - **THEN** there SHALL be no `Config` panel/tab, and no `Config` entry in the View menu
 
+### Requirement: Asset browser is a renderer
+
+The asset browser panel SHALL render the catalog-built tree and item set and perform layout and hit
+testing only; it SHALL NOT assemble the folder tree or query per-folder contents.
+
+#### Scenario: Render core-built tree
+- **WHEN** the panel displays the folder tree
+- **THEN** it SHALL render the tree provided by the catalog without recursing per folder
+
+#### Scenario: View holds no structure
+- **WHEN** the catalog changes
+- **THEN** the panel SHALL re-render from the catalog rather than maintaining its own folder model
+
+### Requirement: Detail view shows targets and settings
+
+The asset browser detail view SHALL show the active platform, the resolved cook targets, and, for
+each target, the effective per-kind settings reported by the asset's builder (or the targets alone
+when the kind reports no settings).
+
+#### Scenario: Texture settings shown
+- **WHEN** a texture is selected
+- **THEN** the detail view SHALL show its targets and each target's effective settings (e.g. encode,
+  srgb, max size, mip generation)
+
+#### Scenario: No builder settings
+- **WHEN** the asset's kind reports no settings
+- **THEN** the detail view SHALL show the targets without settings and SHALL NOT error
+
+### Requirement: Usable default bottom dock
+
+The default layout SHALL give the bottom dock (asset browser + output log) a usable height, set
+explicitly on the correct split rather than left to an accidental ratio.
+
+#### Scenario: Bottom dock visible by default
+- **WHEN** the editor starts with the default layout
+- **THEN** the bottom dock SHALL show the asset browser with enough height to display items
+
+### Requirement: Built-in asset browser panel
+
+The shell SHALL register a built-in view for the `assets` panel id and SHALL include it in the default
+layout, composed from the core layout and panel registry like the other built-in panels. The panel view
+SHALL render the asset browser with the in-house `sky::ui` toolkit.
+
+#### Scenario: Registered built-in view
+- **WHEN** the shell registers its built-in panel views
+- **THEN** an `assets` panel id SHALL have a view that renders the asset browser
+
+#### Scenario: Present in the default layout
+- **WHEN** the editor starts with the default layout
+- **THEN** the `assets` panel SHALL be part of it and SHALL dock, float, and tab like the other panels
+
+### Requirement: Editable per-asset cook settings in the asset browser
+
+The asset browser details pane SHALL edit the selected asset's per-target cook settings through the generic
+reflected form view (`ReflectedFormView`) bound to the catalog's effective reflected settings object with the
+global-preset baseline, so that enums/bools/ints render as their standard typed controls and "reset"
+restores the preset. Edits SHALL be committed through the asset catalog and persisted to the manifest; for
+assets on a read-only mount the settings SHALL be shown non-editable.
+
+#### Scenario: Bind the reflected form
+
+- **WHEN** an asset with a builder-declared settings type is selected
+- **THEN** the details pane binds a `ReflectedFormView` to the effective settings with the preset baseline
+
+#### Scenario: Edit persists
+
+- **WHEN** the user changes a value through the form
+- **THEN** the catalog persists the resulting sparse override and the pane reflects the new effective value
+
+#### Scenario: Reset restores the preset
+
+- **WHEN** the user resets an overridden value through the form
+- **THEN** the override key is removed and the shown value returns to the preset baseline
+
+#### Scenario: Read-only mount
+
+- **WHEN** the selected asset belongs to a read-only mount
+- **THEN** the settings are displayed without editable controls
+
+### Requirement: Shell hosts the asset viewer
+
+`EditorShell` SHALL host the asset viewer widget as an overlay dialog (like the file browser), expose
+`OpenAssetViewer(uuid)`, include it in modal input routing and layout, and SHALL route asset double-click /
+`asset.open` to it when no type-specific `IEditorAssetEditor` is registered. The type-specific editor SHALL
+take precedence when registered.
+
+#### Scenario: Double-click opens the viewer
+
+- **WHEN** an asset is double-clicked and no type-specific editor is registered
+- **THEN** the shell opens the asset viewer for that uuid and it becomes the active modal
+
+#### Scenario: Type-specific editor wins
+
+- **WHEN** an `IEditorAssetEditor` is registered for the asset type
+- **THEN** opening routes to that editor instead of the generic viewer
+
+#### Scenario: Viewer participates in input routing
+
+- **WHEN** the viewer is open
+- **THEN** pointer/key/text input is routed to it (Escape closes) and normal panels do not receive it
+

@@ -47,7 +47,9 @@ namespace sky::editor {
         // default-constructed value (UE/Godot-style "reset to default"), so the
         // reset affordance persists across load/save. Falls back to a snapshot of
         // the object's own values when the type has no default constructor.
-        void Build(const PropertyObject &object, const PropertyEditorRegistry &registry);
+        // A non-null `baseline` overrides the reset baseline (e.g. a per-asset
+        // cook preset), so "reset" restores that baseline rather than type default.
+        void Build(const PropertyObject &object, const PropertyEditorRegistry &registry, const PropertyObject *baseline = nullptr);
         void Rebuild();
 
         bool Edit(PropertyField &field, Any value, CommandService &commands);
