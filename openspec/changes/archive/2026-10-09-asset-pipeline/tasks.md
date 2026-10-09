@@ -38,7 +38,7 @@
 
 ## 6. World/document identity
 
-- [x] 6.1 Register world documents (`.world`) as source assets: `RebuildCacheFromScan` scans builder extensions plus `.world` and `RegisterAsset(path, build=false)` gives them manifest identity; covered by `AssetManagerTest.MountProvenanceTest`. (deferred: editor document wiring via the registered identity — sandbox editor refactor, no tracking change yet)
+- [x] 6.1 Register world documents (`.world`) as source assets: `RebuildCacheFromScan` scans builder extensions plus `.world` and `RegisterAsset(path, build=false)` gives them manifest identity; covered by `AssetManagerTest.MountProvenanceTest`. (remaining: the editor must open world documents via this registered identity rather than raw paths — unblocked when the editor document model uses source identity)
 
 ## 7. assets.db scope
 
@@ -47,7 +47,7 @@
 
 ## 8. Unified product loading
 
-- [x] 8.1 Make the editor load asset data through `AssetManager`/product bundles (same loader as runtime), not from source files; viewport wiring lands with the sandbox editor refactor (no tracking change yet).
+- [x] 8.1 Make the editor load asset data through `AssetManager`/product bundles (same loader as runtime), not from source files; the editor's viewport/load call sites must route through `AssetManager` (unblocked when the editor viewport load sites are reworked).
 - [x] 8.2 Convert product payloads to UUID-only references: migrate `engine/render/adaptor/src/assets/MaterialAsset.cpp` JSON writes/reads (`:173-175,227-229`, `:192-193`) and any other path-referencing payload writer.
 - [x] 8.3 Make the editor load only from products (never source); delegate a missing product whose source exists to the on-demand cook path (group 10), with no source fallback. (Wired `AssetManager::SetSourceCatalog(AssetDataBase::Get())` in `SandboxModule` so the sandbox editor resolves source identity + triggers on-demand cook; products-only load has no source fallback.)
 - [x] 8.4 Add tests: a material product with a texture UUID loads without the source catalog; the editor load path reads no source files. (`AssetManagerTest.LoadFromProductsOnlyTest`: after a cook, removing the source file and clearing the source catalog still loads from the product, and a miss with no catalog fails hard — no source read.)

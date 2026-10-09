@@ -117,6 +117,21 @@ in-process cooking, so a cook never occupies a loader worker. `Asset::AsyncTask`
 - `DuplicateAsset(from, to)` copies the file and assigns a new UUID.
 - `RemoveAsset(id)` removes the file's manifest entry and identity; products are reclaimed by a later build.
 
+## Runtime product index
+
+At runtime the only lookup table is the per-bundle **`product.index`** (JSON Lines `{"path","id"}`); the source
+tree, manifests and `assets.db` are absent.
+
+- **Register bundles**: `AssetManager::AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey))`
+  (e.g. `GameApplication` for the `common` bundle). Adding a bundle reads its `product.index` into the
+  in-memory `productPathMap[canonicalPath] = uuid`; `RefreshProductIndex()` rebuilds it across all bundles.
+- **Products are content-addressed by UUID**: `<bundleFs>/<uuid[0:2]>/<uuid>.bin` (`HashedAssetBundle::OpenFile`).
+- **By path**: `LoadAssetFromPath(path)` -> `MakeCanonicalPath(path)` -> `productPathMap` -> `LoadAsset(uuid)`.
+- **By UUID**: `LoadAsset(uuid)` -> `OpenFile(uuid)` iterates the bundles -> `<xx>/<uuid>.bin` -> deserialize
+  (with optional per-product decompression via `CompressionManager`).
+- Runtime sets **no source catalog**, so there is no path fallback beyond `product.index`; a miss fails.
+- Single-file packaging (`PackageAssetBundle`, `.pak`) is a stub.
+
 ## Source identity and legacy migration
 
 Source identity lives in the per-directory **manifest** (`assets.jsonl`, JSON Lines `{"file","id"[,"cook"]}`,
