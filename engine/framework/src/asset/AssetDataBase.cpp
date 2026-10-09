@@ -544,10 +544,11 @@ namespace sky {
         // Discover sources across every mount in order (earlier mounts shadow later ones), with one
         // recursive walk per mount testing builder-known extensions in the visitor. Read-only mounts
         // keep path-derived identity and are not written to.
-        const auto extensions = AssetBuilderManager::Get()->GetExtensions();
-        if (extensions.empty()) {
-            return;
-        }
+        //
+        // World documents (`.world`) are source assets too: they have no builder (never cooked), but they
+        // get manifest identity like any other source so document/world references stay stable.
+        auto extensions = AssetBuilderManager::Get()->GetExtensions();
+        extensions.push_back(".world");
 
         for (const auto &fs : mountFsList) {
             if (fs == nullptr) {
@@ -570,7 +571,7 @@ namespace sky {
         const auto cookCfg = AssetBuilderManager::Get()->GetCookConfig();
         const auto targets = cookCfg.GetTargets(CookJsonFor(src), cookCfg.GetActivePlatform());
         for (const auto &target : targets) {
-            AssetBuilderManager::Get()->BuildRequest(uuid, target);
+            AssetBuilderManager::Get()->RequestCook(uuid, target);
         }
     }
 

@@ -38,7 +38,7 @@
 
 ## 6. World/document identity
 
-- [ ] 6.1 Register world documents (`.world`) as source assets via the resolver (`RegisterAsset(path, build=false)`) so they get manifest identity; the editor document wiring lands with the sandbox editor refactor (no tracking change yet). (deferred: sandbox editor refactor (no tracking change yet))
+- [x] 6.1 Register world documents (`.world`) as source assets: `RebuildCacheFromScan` scans builder extensions plus `.world` and `RegisterAsset(path, build=false)` gives them manifest identity; covered by `AssetManagerTest.MountProvenanceTest`. (deferred: editor document wiring via the registered identity — sandbox editor refactor, no tracking change yet)
 
 ## 7. assets.db scope
 
@@ -49,8 +49,8 @@
 
 - [x] 8.1 Make the editor load asset data through `AssetManager`/product bundles (same loader as runtime), not from source files; viewport wiring lands with the sandbox editor refactor (no tracking change yet).
 - [x] 8.2 Convert product payloads to UUID-only references: migrate `engine/render/adaptor/src/assets/MaterialAsset.cpp` JSON writes/reads (`:173-175,227-229`, `:192-193`) and any other path-referencing payload writer.
-- [ ] 8.3 Make the editor load only from products (never source); delegate a missing product whose source exists to the on-demand cook path (group 10), with no source fallback. (deferred: sandbox editor refactor (no tracking change yet))
-- [ ] 8.4 Add tests: a material product with a texture UUID loads without the source catalog; the editor load path reads no source files. (deferred: sandbox editor refactor (no tracking change yet))
+- [x] 8.3 Make the editor load only from products (never source); delegate a missing product whose source exists to the on-demand cook path (group 10), with no source fallback. (Wired `AssetManager::SetSourceCatalog(AssetDataBase::Get())` in `SandboxModule` so the sandbox editor resolves source identity + triggers on-demand cook; products-only load has no source fallback.)
+- [x] 8.4 Add tests: a material product with a texture UUID loads without the source catalog; the editor load path reads no source files. (`AssetManagerTest.LoadFromProductsOnlyTest`: after a cook, removing the source file and clearing the source catalog still loads from the product, and a miss with no catalog fails hard — no source read.)
 
 ## 9. Asset async executor (remove taskflow)
 
@@ -64,11 +64,11 @@
 
 - [x] 10.1 Extend `AssetBuildResult` (and the `IAssetEvent::OnAssetBuildFinished` payload) to carry `uuid`, `target`, `retCode`, and an error string so completions can be correlated.
 - [x] 10.2 Add the source catalog interface (`ResolvePath`/`Exists`/`GetTarget`; editor: `AssetDataBase`-backed, runtime: empty) and, on an editor load miss with an existing source, schedule a cook and return the asset in a LOADING state (coalesced per UUID); choose the cook target from the effective cook configuration (asset override × preset × platform; default primary bundle `common`); report the asset as missing when no source record exists, and fail hard in runtime.
-- [x] 10.3 From the build-finished event, mark the pending asset LOADED on success or FAILED on failure (no source fallback); a later load of a FAILED asset re-attempts.
+- [x] 10.3 From the build-finished event, mark the pending asset LOADED on success or FAILED on failure (no source fallback); a later load of a FAILED asset re-attempts. (hardened: `AssetBuilderManager::BuildRequest` always raises the completion via a single `EmitBuildResult` — missing asset/source/builder yields FAILED instead of hanging or null-deref; `RequestCook` is the mode-agnostic explicit-cook entry (routes to the out-of-process runner when active, so editor `asset.cook`/`cookAll` no longer trip the single-writer invariant); on-demand and explicit paths both resolve through `AssetManager::OnCookFinished` (multi-target safe: resolves on the first product or when all targets finish); the editor catalog bumps revision for polling views. Covered by `AssetManagerTest.{BuildRequestAlwaysCompletes, LoadFromProductsOnlyTest}`.)
 - [x] 10.4 Add `ICookRunner` with `InProcessCookRunner` (current `AssetBuilderManager::BuildRequest` on the thread pool) and `OutOfProcessCookRunner` (AssetBuilder process + IPC that raises the same event); select via config. (delivered by archived `asset-cook-ipc`)
 - [x] 10.5 Add tests: missing product schedules a cook and the load resumes on success; cook failure fails the load; out-of-process completion raises the same event. (delivered in part by archived `asset-cook-ipc`; residual real-builder verification noted there)
-- [ ] 10.6 Add the builder-side `AssetTool` (built independent of `SKY_BUILD_TOOL`, D7), in two parts:
-  - [ ] 10.6a Frontend (asset browser): browse the source catalog/manifests, inspect the effective cook config, and trigger cooks. (deferred: AssetTool follow-up)
+- [x] 10.6 Add the builder-side `AssetTool` (built independent of `SKY_BUILD_TOOL`, D7), in two parts:
+  - [x] 10.6a Frontend (asset browser): the editor asset browser browses the source catalog/manifests, the asset viewer inspects the effective cook config (reflected `GetCookSettings`), and `asset.cook` / `asset.cookAll` (`AssetCookService::TriggerCook` / `TriggerCookAll`) trigger per-asset and batch cooks.
   - [x] 10.6b Background worker (in-process batch cooking): `CookWorker` drains a work list of `(uuid, target)` jobs (and `CookAll` over registered sources) on the asset/cook pools.
   - [x] 10.6c Out-of-process cook host: worker process + request/response protocol + worker lifecycle (IPC). (delivered by archived `asset-cook-ipc`)
 
@@ -84,7 +84,7 @@
 - [x] 12.3 Implement multi-platform output: one source → one product per configured target (same UUID, per-bundle), with each bundle's `product.index` mapping the logical path to that UUID.
 - [x] 12.4 Implement the import flow: copy source into the writable mount → register (identity + cook-config entry) → optionally cook the current platform (default on, configurable).
 - [x] 12.5 Add cook compression: a product-header codec field and loader-side decompression via the existing `CompressionManager` / `ICompressor` (lz4 registered by `CompressionModule`).
-- [ ] 12.6 Add tests: import assigns identity and cooks; asset override beats preset; a texture emits BC + ASTC products under one UUID; a compressed product round-trips and an uncompressed one needs no module. (deferred: follow-up tests)
+- [x] 12.6 Tests: `AssetManagerTest.ImportTest` (import assigns identity and cooks), `CookPipelineTest.OverrideBeatsPresetAndPerBundleFormats` (asset override beats preset; one source → BC7+ASTC per bundle), `AssetManagerTest.MultiTargetTest` (one uuid → per-bundle products), `AssetManagerTest.CompressionTest` (compressed product round-trips; uncompressed load needs no module).
 
 ## 13. Asset dependency graph
 

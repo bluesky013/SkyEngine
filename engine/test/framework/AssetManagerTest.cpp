@@ -384,6 +384,8 @@ TEST_F(AssetManagerTest, MountProvenanceTest)
     touch(projRoot / "assets" / "framework" / "data" / "proj_only.t3");
     touch(engRoot / "assets" / "framework" / "data" / "shared.t3");
     touch(projRoot / "assets" / "framework" / "data" / "shared.t3");
+    fs::create_directories(projRoot / "assets" / "worlds");
+    touch(projRoot / "assets" / "worlds" / "main.world");
 
     auto *db = AssetDataBase::Get();
     db->Reset();
@@ -421,6 +423,11 @@ TEST_F(AssetManagerTest, MountProvenanceTest)
     ASSERT_NE(engAgain, nullptr);
     EXPECT_EQ(engAgain->uuid, engUuid);
     EXPECT_FALSE(fs::exists(engRoot / "assets" / "framework" / "data" / "assets.jsonl"));
+
+    // World documents (`.world`) are scanned as source assets (no builder/cook) and get identity.
+    auto worldAsset = db->FindAsset(FilePath("worlds/main.world"));
+    ASSERT_NE(worldAsset, nullptr);
+    EXPECT_EQ(worldAsset->mount, "workspace");
 
     // Restore the suite fixture's mounts for the remaining tests.
     db->Reset();
@@ -571,6 +578,46 @@ TEST_F(AssetManagerTest, OnDemandCookTest)
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
 }
 
+TEST_F(AssetManagerTest, LoadFromProductsOnlyTest)
+{
+    auto             *db   = AssetDataBase::Get();
+    const std::string path = "framework/data/products_only.t1";
+
+    auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
+    ASSERT_NE(file, nullptr);
+    {
+        auto archive = file->WriteAsArchive();
+        ASSERT_NE(archive, nullptr);
+        const char data[] = "{\"val\": 9}";
+        archive->SaveRaw(data, sizeof(data) - 1);
+        archive->Flush();
+    }
+    auto src = db->RegisterAsset(path, false);
+    ASSERT_NE(src, nullptr);
+    const Uuid id = src->uuid;
+
+    // Produce the product on disk (cook) without ever loading it through the asset loader.
+    AssetBuilderManager::Get()->BuildRequestSync(id, "common");
+    AssetExecutor::Get()->WaitForAll();
+
+    // Drop the source file and the source catalog: the product alone must load (no source fallback).
+    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    AssetManager::Get()->SetSourceCatalog(nullptr);
+
+    auto asset = AssetManager::Get()->LoadAsset<T1Data>(id);
+    ASSERT_NE(asset, nullptr);
+    asset->BlockUntilLoaded();
+    EXPECT_TRUE(asset->IsLoaded());
+    EXPECT_EQ(asset->Data().v, 9);
+
+    // A miss with no source catalog fails hard: the loader never falls back to reading source.
+    EXPECT_EQ(AssetManager::Get()->LoadAsset(Uuid::Create()), nullptr);
+
+    AssetManager::Get()->SetSourceCatalog(AssetDataBase::Get());
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
 TEST_F(AssetManagerTest, InProcessCookRunnerTest)
 {
     auto             *db   = AssetDataBase::Get();
@@ -628,9 +675,16 @@ TEST_F(AssetManagerTest, ImportTest)
     const FilePath sourceFile(root + "/framework/data/test_asset.t1");
     const FilePath dest{FilePath("framework/data/imported.t1")};
 
-    auto asset = db->ImportAsset(sourceFile, dest, false);
+    // Import assigns identity (manifest entry) and (cook=true) cooks the current platform.
+    auto asset = db->ImportAsset(sourceFile, dest, true);
     ASSERT_NE(asset, nullptr);
     EXPECT_NE(db->FindAsset("framework/data/imported.t1"), nullptr);
+
+    AssetExecutor::Get()->WaitForAll();
+    auto loaded = AssetManager::Get()->LoadAsset<T1Data>(asset->uuid);
+    ASSERT_NE(loaded, nullptr);
+    loaded->BlockUntilLoaded();
+    EXPECT_TRUE(loaded->IsLoaded());
 
     std::filesystem::remove(FilePath(root + "/framework/data/imported.t1").GetStr());
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
@@ -725,6 +779,42 @@ TEST_F(AssetManagerTest, MultiTargetTest)
     std::filesystem::remove_all(bundleRoot);
 
     auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
+TEST_F(AssetManagerTest, BuildRequestAlwaysCompletes)
+{
+    auto *manager = AssetBuilderManager::Get();
+    auto *db      = AssetDataBase::Get();
+    auto  root    = db->GetWorkSpaceFs()->GetPath().GetStr();
+
+    // Unknown asset: the completion still fires FAILED so an on-demand load never hangs waiting.
+    bool             called = false;
+    AssetBuildResult first{};
+    manager->BuildRequest(Uuid::Create(), "common", [&](const AssetBuildResult &r) {
+        called = true;
+        first  = r;
+    });
+    AssetExecutor::Get()->WaitForAll();
+    EXPECT_TRUE(called);
+    EXPECT_EQ(first.retCode, AssetBuildRetCode::FAILED);
+    EXPECT_FALSE(first.error.empty());
+
+    // Known source with no registered builder: also completes FAILED (no null deref).
+    const std::string path = "framework/data/nobuilder.zzz";
+    {
+        std::ofstream out(FilePath(root + "/" + path).GetStr());
+        out << "x";
+    }
+    auto src = db->RegisterAsset(path, false);
+    ASSERT_NE(src, nullptr);
+
+    bool called2 = false;
+    manager->BuildRequest(src->uuid, "common", [&](const AssetBuildResult &r) { called2 = (r.retCode == AssetBuildRetCode::FAILED); });
+    AssetExecutor::Get()->WaitForAll();
+    EXPECT_TRUE(called2);
+
     std::filesystem::remove(FilePath(root + "/" + path).GetStr());
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
 }

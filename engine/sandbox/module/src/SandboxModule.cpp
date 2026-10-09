@@ -598,6 +598,9 @@ namespace sky::editor {
             sky::AssetDataBase::Get()->SetEngineFs(engineFs);
             sky::AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
             sky::AssetManager::Get()->SetWorkFileSystem(workFs);
+            // The editor resolves source identity and triggers on-demand cooks through the source
+            // catalog (same loader as runtime; missing products cook instead of reading source).
+            sky::AssetManager::Get()->SetSourceCatalog(sky::AssetDataBase::Get());
             // Register the project's existing source assets so the browser reflects them.
             sky::AssetDataBase::Get()->Load();
 
@@ -864,6 +867,9 @@ namespace sky::editor {
                                       AssetCookService::Get()->TriggerCook(selectedAsset());
                                   }
                               }});
+            actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = "Assets", .order = 2, .menuOrder = 4, .invoke = []() {
+                              AssetCookService::Get()->TriggerCookAll();
+                          }});
             actions->Add({.id        = "asset.copyReference",
                           .label     = "Copy Reference",
                           .menu      = "Assets",

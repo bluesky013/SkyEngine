@@ -291,6 +291,7 @@ namespace sky::aurora {
         const cook::ImageBuildConfig *resolved   = presets.Resolve(resolveKey, bundleKey);
         if (resolved == nullptr) {
             LOG_E(TAG, "no image build config for bundle '%s'", resolveKey.c_str());
+            result.error = "no image build config for bundle '" + resolveKey + "'";
             return;
         }
 
@@ -304,8 +305,14 @@ namespace sky::aurora {
               QualityName(config.quality), config.astcBlock, config.maxSize, config.generateMip ? 1 : 0);
 
         std::vector<uint8_t> bytes;
+        if (request.file == nullptr) {
+            LOG_E(TAG, "no source file for %s", request.assetInfo->path.GetStr().c_str());
+            result.error = "no source file";
+            return;
+        }
         if (!request.file->ReadBin(bytes) || bytes.empty()) {
             LOG_E(TAG, "failed to read source %s", request.assetInfo->path.GetStr().c_str());
+            result.error = "failed to read source";
             return;
         }
 
@@ -313,6 +320,7 @@ namespace sky::aurora {
         auto  asset   = manager->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
         if (!asset) {
             LOG_E(TAG, "failed to create texture asset %s", request.assetInfo->uuid.ToString().c_str());
+            result.error = "failed to create texture asset";
             return;
         }
 
@@ -324,6 +332,7 @@ namespace sky::aurora {
         if (ext == ".ktx") {
             if (!cook::LoadKtx(bytes, source)) {
                 LOG_E(TAG, "ktx decode failed: %s", request.assetInfo->path.GetStr().c_str());
+                result.error = "ktx decode failed";
                 return;
             }
             LOG_I(TAG, "  decode ktx: precompressed=%d bytes=%u", source.precompressed ? 1 : 0, static_cast<uint32_t>(bytes.size()));
@@ -351,6 +360,7 @@ namespace sky::aurora {
             auto image = cook::LoadStbImage(bytes, ext == ".hdr");
             if (!image) {
                 LOG_E(TAG, "image decode failed: %s", request.assetInfo->path.GetStr().c_str());
+                result.error = "image decode failed";
                 return;
             }
             source.image     = image;

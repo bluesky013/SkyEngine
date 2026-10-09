@@ -57,6 +57,11 @@ namespace sky {
         // Runs the builder inline (used by the in-process on-demand cook path).
         void BuildRequestSync(const Uuid &uuid, const std::string &target);
 
+        // Mode-agnostic cook of one (uuid, target): dispatches to the out-of-process worker when active,
+        // otherwise cooks in-process. The single entry point for explicit/editor cooks; the build-finished
+        // event fires in both modes (`onFinished` is honored in-process only).
+        void RequestCook(const Uuid &uuid, const std::string &target, BuildCompletion onFinished = {});
+
         // Unified cook/build configuration (bundles, presets, platform targets).
         CookConfig GetCookConfig() const
         {
@@ -73,6 +78,9 @@ namespace sky {
         // All extensions claimed by registered builders.
         std::vector<std::string> GetExtensions() const;
 
+        // Whether any registered builder handles the extension (i.e. the kind is cookable).
+        bool HasBuilder(const std::string &ext) const;
+
         // Effective settings description for an extension's builder and product bundle (empty when
         // the extension is unknown or the builder reports none).
         std::vector<std::pair<std::string, std::string>> GetBuilderSettings(const std::string &ext, const ProductBundleKey &bundle) const;
@@ -82,8 +90,8 @@ namespace sky {
         GetBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const BuildSettingsOverride &override) const;
 
         // The builder's reflected cook-settings type (nullptr when unknown / none).
-        const TypeInfoRT *GetBuilderSettingsType(const std::string &ext) const;
-        // Materialize a builder's effective settings for one target into a reflected Any.
+        const TypeInfoRT     *
+        GetBuilderSettingsType(const std::string &ext) const; // Materialize a builder's effective settings for one target into a reflected Any.
         Any MakeBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const BuildSettingsOverride &override) const;
         // Sparse override reproducing an edited reflected settings object vs the bundle preset.
         BuildSettingsOverride DiffBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const Any &edited) const;

@@ -56,6 +56,11 @@ namespace sky {
         return extensions;
     }
 
+    bool AssetBuilderManager::HasBuilder(const std::string &ext) const
+    {
+        return QueryBuilder(ext) != nullptr;
+    }
+
     std::vector<std::pair<std::string, std::string>> AssetBuilderManager::GetBuilderSettings(const std::string      &ext,
                                                                                              const ProductBundleKey &bundle) const
     {
@@ -196,19 +201,51 @@ namespace sky {
         }
     }
 
+    namespace {
+
+        // Raises the build-finished event and invokes the caller's completion. The single place a cook
+        // result is published, so every path (success, failure, missing asset/source/builder) notifies
+        // observers (editor cook state) and completes the on-demand load.
+        void EmitBuildResult(const AssetBuildResult &result, const AssetBuilderManager::BuildCompletion &onFinished)
+        {
+            AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result);
+            if (onFinished) {
+                onFinished(result);
+            }
+        }
+
+        AssetBuildResult MakeBuildFailure(const Uuid &uuid, const std::string &target, const std::string &error)
+        {
+            AssetBuildResult result = {};
+            result.uuid             = uuid;
+            result.target           = target;
+            result.retCode          = AssetBuildRetCode::FAILED;
+            result.error            = error;
+            return result;
+        }
+
+    } // namespace
+
     void AssetBuilderManager::BuildRequest(const Uuid &uuid, const std::string &target, BuildCompletion onFinished)
     {
         auto srcAsset = AssetDataBase::Get()->FindAsset(uuid);
-        if (srcAsset) {
-            AssetBuildRequest request = {};
-            request.assetInfo         = srcAsset;
-            request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
-            request.target            = target;
-            request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
-            request.settings          = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
-
-            BuildRequest(request, std::move(onFinished));
+        if (srcAsset == nullptr) {
+            EmitBuildResult(MakeBuildFailure(uuid, target, "asset not found"), onFinished);
+            return;
         }
+
+        AssetBuildRequest request = {};
+        request.assetInfo         = srcAsset;
+        request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
+        request.target            = target;
+        request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
+        request.settings          = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
+
+        if (request.file == nullptr) {
+            EmitBuildResult(MakeBuildFailure(uuid, target, "source file missing"), onFinished);
+            return;
+        }
+        BuildRequest(request, std::move(onFinished));
     }
 
     void AssetBuilderManager::BuildRequest(const AssetBuildRequest &request, BuildCompletion onFinished)
@@ -225,12 +262,13 @@ namespace sky {
             AssetBuildResult result = {};
             result.uuid             = request.assetInfo->uuid;
             result.target           = request.target;
-            builder->Request(request, result);
-
-            AsseEvent::BroadCast(request.assetInfo->uuid, &IAssetEvent::OnAssetBuildFinished, result);
-            if (onFinished) {
-                onFinished(result);
+            if (builder == nullptr) {
+                result = MakeBuildFailure(request.assetInfo->uuid, request.target, "no builder for extension '" + request.assetInfo->ext + "'");
+            } else {
+                builder->Request(request, result);
             }
+
+            EmitBuildResult(result, onFinished);
         });
     }
 
@@ -249,9 +287,12 @@ namespace sky {
         AssetBuildRequest request = {};
         request.assetInfo         = srcAsset;
         request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
-        request.target            = target;
-        request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
-        request.settings          = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
+        if (request.file == nullptr) {
+            return;
+        }
+        request.target   = target;
+        request.bundle   = GetCookConfig().ResolveBundleForTarget(target);
+        request.settings = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
 
         srcAsset->dependencies.clear();
 
@@ -259,6 +300,24 @@ namespace sky {
         result.uuid             = uuid;
         result.target           = target;
         builder->Request(request, result);
+
+        // Raise the same completion event as the async path so observers (editor cook state) update,
+        // even when the sync path is driven by the inline on-demand cook.
+        EmitBuildResult(result, {});
+    }
+
+    void AssetBuilderManager::RequestCook(const Uuid &uuid, const std::string &target, BuildCompletion onFinished)
+    {
+        if (outOfProcessActive && cookRunner != nullptr) {
+            std::string path;
+            if (auto src = AssetDataBase::Get()->FindAsset(uuid); src != nullptr) {
+                path = src->path.GetStr();
+            }
+            // Completion goes to AssetManager (its single SetCompletion); observers still get the event.
+            cookRunner->Request(CookJob{uuid, target, path});
+            return;
+        }
+        BuildRequest(uuid, target, std::move(onFinished));
     }
 
     Any AssetBuilderManager::GetImportConfig(const FilePath &filePath)

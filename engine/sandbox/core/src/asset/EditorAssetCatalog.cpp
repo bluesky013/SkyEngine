@@ -727,7 +727,8 @@ namespace sky::editor {
             state.state           = success ? AssetCookState::Ready : AssetCookState::Failed;
             state.error           = error;
         }
-        // Bumped here (may run on a cook thread); views poll GetStateRevision() and re-read.
+        // Bumped here (may run on a cook thread); views poll GetStateRevision() and re-read on the
+        // next paint. Observers are intentionally NOT notified here: this can run off the main thread.
         BumpRevision();
     }
 

@@ -74,26 +74,37 @@ namespace sky {
 
     void AssetManager::OnCookFinished(const AssetBuildResult &result)
     {
+        const bool produced = OpenFile(result.uuid) != nullptr;
+        if (produced) {
+            RefreshProductIndex();
+        }
+
         std::shared_ptr<std::promise<void>> promise;
+        bool                                resolved = false;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             const auto                            iter = pendingJobs.find(result.uuid);
             if (iter == pendingJobs.end()) {
-                return; // unknown or duplicate completion
+                return; // no pending on-demand load (e.g. an explicit editor cook) or duplicate completion
             }
-            promise = iter->second.promise;
-            pendingJobs.erase(iter);
-            pendingCooks.erase(result.uuid);
+            iter->second.targets.erase(result.target);
+            // Resolve once any target produced a product, or when every requested target has finished.
+            if (produced || iter->second.targets.empty()) {
+                promise  = iter->second.promise;
+                resolved = true;
+                pendingJobs.erase(iter);
+                pendingCooks.erase(result.uuid);
+            }
         }
 
-        const bool produced = OpenFile(result.uuid) != nullptr;
+        if (!resolved) {
+            return; // more targets for this asset are still cooking
+        }
         if (produced) {
-            RefreshProductIndex();
             DeserializeProduct(result.uuid);
         } else if (auto asset = FindAsset(result.uuid); asset) {
             asset->status.store(AssetBase::Status::FAILED);
         }
-
         if (promise) {
             promise->set_value();
         }
@@ -313,37 +324,22 @@ namespace sky {
         auto promise              = std::make_shared<std::promise<void>>();
         loading->asyncTask.second = promise->get_future();
 
+        // Both paths register a pending job and resolve through OnCookFinished, so in-process and
+        // out-of-process cooks behave identically (D5/D7).
         if (cookRunner != nullptr) {
-            // Mode-agnostic path (D5): the runner raises the build-finished event and calls
-            // OnCookFinished on completion, which refreshes the index and resolves the load.
             std::string sourcePath;
             sourceCatalog->GetSourcePath(uuid, sourcePath);
             {
                 std::lock_guard<std::recursive_mutex> lock(mutex);
-                pendingJobs[uuid] = PendingCook{target, sourcePath, promise};
+                pendingJobs[uuid] = PendingCook{{target}, sourcePath, promise};
             }
             cookRunner->Request(CookJob{uuid, target, sourcePath});
         } else {
-            // Built-in inline in-process path (default; unchanged behavior).
-            AssetExecutor::Get()->SubmitCook([this, uuid, target, promise]() {
-                if (auto *builderManager = AssetBuilderManager::Get(); builderManager != nullptr) {
-                    builderManager->BuildRequestSync(uuid, target);
-                }
-
-                const bool produced = OpenFile(uuid) != nullptr;
-                {
-                    std::lock_guard<std::recursive_mutex> lock(mutex);
-                    pendingCooks.erase(uuid);
-                }
-
-                if (produced) {
-                    DeserializeProduct(uuid);
-                } else if (auto asset = FindAsset(uuid); asset) {
-                    asset->status.store(AssetBase::Status::FAILED);
-                }
-
-                promise->set_value();
-            });
+            {
+                std::lock_guard<std::recursive_mutex> lock(mutex);
+                pendingJobs[uuid] = PendingCook{{target}, {}, promise};
+            }
+            AssetBuilderManager::Get()->BuildRequest(uuid, target, [this](const AssetBuildResult &result) { OnCookFinished(result); });
         }
 
         return loading;

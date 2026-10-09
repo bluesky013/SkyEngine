@@ -30,4 +30,18 @@ namespace sky::editor {
         db->BuildAllTargets(uuid);
     }
 
+    void AssetCookService::TriggerCookAll()
+    {
+        auto *db = sky::AssetDataBase::Get();
+        if (db == nullptr) {
+            return;
+        }
+        auto *builders = sky::AssetBuilderManager::Get();
+        db->ForEachSource([&](const sky::AssetSourcePtr &source) {
+            if (source != nullptr && builders->HasBuilder(source->ext)) {
+                TriggerCook(source->uuid);
+            }
+        });
+    }
+
 } // namespace sky::editor

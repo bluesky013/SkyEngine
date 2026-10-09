@@ -407,3 +407,40 @@ TEST(CookConfigTest, AuroraImageBuilderDescribeSettingsOverride)
 
     fs::remove_all(dir);
 }
+
+TEST(CookConfigTest, OverrideBeatsPresetAndPerBundleFormats)
+{
+    namespace fs = std::filesystem;
+
+    const fs::path dir = "aurora_img_override_beats_tmp";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "image_build_presets.json");
+        out << R"({"defaultBundle":"tex_pc","bundles":{"tex_pc":{"encode":"BC7","srgb":true,"maxSize":2048,"generateMip":true},"tex_mobile":{"encode":"ASTC","block":4,"srgb":true,"maxSize":1024,"generateMip":true}}})";
+    }
+
+    AuroraImageBuilder builder;
+    builder.LoadConfig(new NativeFileSystem(dir.string()));
+
+    // Asset override wins over the preset for the keys it sets; unset keys keep the preset.
+    const auto  effective = builder.MakeSettings("tex_pc", {{"encode", "ASTC"}, {"block", "6"}, {"maxSize", "512"}});
+    const auto *values    = effective.GetAsConst<ImageCookSettings>();
+    ASSERT_NE(values, nullptr);
+    EXPECT_EQ(values->encode, ImageEncode::ASTC); // overrides the preset BC7
+    EXPECT_EQ(values->block, 6u);
+    EXPECT_EQ(values->maxSize, 512u);
+    EXPECT_TRUE(values->generateMip); // unset -> preset
+
+    // One source, two bundles -> BC7 and ASTC products that share the source uuid (per-bundle outputs).
+    const auto  pcAny     = builder.MakeSettings("tex_pc", {});
+    const auto  mobileAny = builder.MakeSettings("tex_mobile", {});
+    const auto *pc        = pcAny.GetAsConst<ImageCookSettings>();
+    const auto *mobile    = mobileAny.GetAsConst<ImageCookSettings>();
+    ASSERT_NE(pc, nullptr);
+    ASSERT_NE(mobile, nullptr);
+    EXPECT_EQ(pc->encode, ImageEncode::BC7);
+    EXPECT_EQ(mobile->encode, ImageEncode::ASTC);
+
+    fs::remove_all(dir);
+}

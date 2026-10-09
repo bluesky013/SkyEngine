@@ -132,7 +132,7 @@ namespace sky {
         ICookRunner *cookRunner = nullptr;
 
         struct PendingCook {
-            std::string                         target;
+            std::unordered_set<std::string>     targets; // in-flight targets for this uuid
             std::string                         path;
             std::shared_ptr<std::promise<void>> promise;
         };
