@@ -9,7 +9,9 @@
 #include <core/util/Uuid.h>
 #include <framework/asset/Asset.h>
 #include <framework/asset/AssetCommon.h>
+#include <framework/serialization/JsonArchive.h>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -84,5 +86,28 @@ namespace sky {
         virtual void LoadConfig(const FileSystemPtr &cfg)
         {
         }
+
+    protected:
+        // --- common source-builder helpers (JSON asset builders) ---
+
+        // Open the source file and parse it as JSON, emitting a failure into `result` and logging
+        // on error. Returns false on failure.
+        bool LoadJsonDocument(const AssetBuildRequest &request, AssetBuildResult &result, rapidjson::Document &document);
+
+        // Find-or-create the product asset for the request uuid (null on failure, emitted into result).
+        std::shared_ptr<AssetBase> FindOrCreateProduct(const Uuid &uuid, const Name &type, AssetBuildResult &result);
+
+        template <typename T>
+        std::shared_ptr<Asset<T>> CreateProduct(const AssetBuildRequest &request, AssetBuildResult &result)
+        {
+            return std::static_pointer_cast<Asset<T>>(FindOrCreateProduct(request.assetInfo->uuid, Name(AssetTraits<T>::ASSET_TYPE.data()), result));
+        }
+
+        // Record a dependency on `id`: always a product dependency, plus a source dependency when
+        // `id` is a registered source. Source asset references are stored as Uuid.
+        void AddAssetDependency(const std::shared_ptr<AssetBase> &asset, const AssetBuildRequest &request, const Uuid &id);
+
+        // Save the product into the request bundle and mark the result successful.
+        void FinishProduct(const std::shared_ptr<AssetBase> &asset, const AssetBuildRequest &request, AssetBuildResult &result);
     };
 } // namespace sky

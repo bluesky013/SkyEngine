@@ -5,7 +5,11 @@
 
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
+#include <aurora/cook/lodgroup/AuroraLodGroupBuilder.h>
+#include <aurora/cook/material/AuroraMaterialBuilder.h>
+#include <aurora/cook/material/AuroraMaterialInstanceBuilder.h>
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
+#include <aurora/cook/skeleton/AuroraSkeletonBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
@@ -18,7 +22,9 @@ namespace sky::aurora {
         ~AuroraCookModule() override = default;
 
         bool Init(const StartArguments &args) override;
-        void Tick(float delta) override {}
+        void Tick(float delta) override
+        {
+        }
     };
 
     bool AuroraCookModule::Init(const StartArguments &args)
@@ -28,6 +34,10 @@ namespace sky::aurora {
 
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraImageBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraMeshBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraMaterialBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraMaterialInstanceBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraLodGroupBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraSkeletonBuilder());
         return true;
     }
 

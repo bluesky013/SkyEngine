@@ -6,7 +6,7 @@
 
 namespace sky::aurora::cook {
 
-    void WriteMeshAsset(const CookedMesh &mesh, const Uuid &skin, MeshAssetData &out)
+    void WriteMeshAsset(const CookedMesh &mesh, const Uuid &skin, const Uuid &skeleton, MeshAssetData &out)
     {
         out.clear();
         out.version = MeshAssetData::CURRENT_VERSION;
@@ -27,7 +27,8 @@ namespace sky::aurora::cook {
         out.meshletTriangles = mesh.meshletTriangles;
         out.meshletBounds    = mesh.meshletBounds;
 
-        out.skin = skin;
+        out.skin     = skin;
+        out.skeleton = skeleton;
     }
 
     void WriteSkinAsset(const SkinAssetData &skin, SkinAssetData &out)
@@ -37,6 +38,19 @@ namespace sky::aurora::cook {
         out.inverseBindMatrices = skin.inverseBindMatrices;
         out.boneNames           = skin.boneNames;
         out.boneMapping         = skin.boneMapping;
+    }
+
+    void WriteSkeletonAsset(const CookMeshSource &source, SkeletonAssetData &out)
+    {
+        out.clear();
+        out.version = SkeletonAssetData::CURRENT_VERSION;
+        out.boneData.resize(source.bones.size());
+        out.refPos.resize(source.bones.size());
+        for (size_t i = 0; i < source.bones.size(); ++i) {
+            out.boneData[i].name        = Name(source.bones[i].name.c_str());
+            out.boneData[i].parentIndex = source.bones[i].parentIndex;
+            out.refPos[i]               = source.bones[i].refTransform;
+        }
     }
 
 } // namespace sky::aurora::cook

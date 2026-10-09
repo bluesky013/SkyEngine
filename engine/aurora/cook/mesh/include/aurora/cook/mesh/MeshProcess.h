@@ -7,10 +7,11 @@
 
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Transform.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 #include <core/math/Vector4.h>
-#include <core/math/Matrix4.h>
 #include <core/shapes/AABB.h>
 
 #include <cstdint>
@@ -30,17 +31,28 @@ namespace sky::aurora::cook {
         std::vector<Vector4> joints;   // global bone indices (as float for simplicity pre-pack)
         std::vector<Vector4> weights;
 
-        std::vector<uint32_t> indices;     // local to this primitive
+        std::vector<uint32_t> indices;           // local to this primitive
         uint32_t              materialIndex = 0; // index into CookMeshSource::materialNames
         Matrix4               transform;         // baked node transform
+    };
+
+    // One bone of the source hierarchy (index-aligned with SkinAssetData::boneNames).
+    struct CookBone {
+        std::string name;
+        uint16_t    parentIndex = 0xFFFF; // 0xFFFF -> root
+        Transform   refTransform;
     };
 
     struct CookMeshSource {
         std::vector<MeshSourcePrimitive> primitives;
         std::vector<std::string>         materialNames; // slot table (uuid wiring lands with material cook)
         SkinAssetData                    skin;          // inverseBindMatrices + boneNames; empty when not skinned
+        std::vector<CookBone>            bones;         // bone hierarchy; empty when not skinned
 
-        bool Skinned() const { return !skin.boneNames.empty(); }
+        bool Skinned() const
+        {
+            return !skin.boneNames.empty();
+        }
         bool Valid() const
         {
             for (const auto &prim : primitives) {

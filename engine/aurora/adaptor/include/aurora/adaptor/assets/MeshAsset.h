@@ -46,18 +46,19 @@ namespace sky::aurora {
     };
 
     struct MeshletBoundsData {
-        float   center[3]     = {};
-        float   radius        = 0.f;
-        float   coneApex[3]   = {};
-        float   coneAxis[3]   = {};
-        float   coneCutoff    = 0.f;
-        int8_t  coneAxisS8[3] = {};
-        int8_t  coneCutoffS8  = 0;
+        float  center[3]     = {};
+        float  radius        = 0.f;
+        float  coneApex[3]   = {};
+        float  coneAxis[3]   = {};
+        float  coneCutoff    = 0.f;
+        int8_t coneAxisS8[3] = {};
+        int8_t coneCutoffS8  = 0;
     };
 
     struct MeshAssetData {
-        // v2: bounds AABB -> BoundingBoxSphere, vertex stream description, skin, meshlets
-        static constexpr uint32_t CURRENT_VERSION = 2;
+        // v3: skeleton (bone hierarchy asset) alongside skin; v2: bounds AABB ->
+        // BoundingBoxSphere, vertex stream description, skin, meshlets
+        static constexpr uint32_t CURRENT_VERSION = 3;
 
         uint32_t                     version = CURRENT_VERSION;
         std::vector<uint8_t>         vertexData; // single interleaved stream
@@ -67,14 +68,17 @@ namespace sky::aurora {
         BoundingBoxSphere            bounds;
 
         // v2: vertex stream description (required to rebuild VertexLayout)
-        uint32_t                            vertexStride = 0;
-        uint32_t                            vertexCount  = 0;
-        uint32_t                            indexCount   = 0;
-        uint32_t                            indexType    = 0; // aurora::IndexType
+        uint32_t                             vertexStride = 0;
+        uint32_t                             vertexCount  = 0;
+        uint32_t                             indexCount   = 0;
+        uint32_t                             indexType    = 0; // aurora::IndexType
         std::vector<MeshVertexAttributeData> attributes;
 
         // v2: optional skinning, skin payload lives in its own AuroraSkin asset
         Uuid skin; // invalid -> not skinned
+
+        // v3: optional skeleton (bone hierarchy) in its own AuroraSkeleton asset
+        Uuid skeleton; // invalid -> no skeleton
 
         // v2: optional meshlet payload (empty = not built)
         std::vector<MeshletData>       meshlets;
@@ -98,8 +102,18 @@ namespace sky::aurora {
             return &materials[materialIndex];
         }
 
-        bool HasMeshlets() const { return !meshlets.empty(); }
-        bool HasSkin() const { return static_cast<bool>(skin); }
+        bool HasMeshlets() const
+        {
+            return !meshlets.empty();
+        }
+        bool HasSkin() const
+        {
+            return static_cast<bool>(skin);
+        }
+        bool HasSkeleton() const
+        {
+            return static_cast<bool>(skeleton);
+        }
 
         void Save(BinaryOutputArchive &ar) const
         {
@@ -123,7 +137,8 @@ namespace sky::aurora {
                 ar.SaveValue(attr.format);
                 ar.SaveValue(attr.offset);
             }
-            ar.SaveValue(skin.ToString());
+            ar.SaveValue(skin);
+            ar.SaveValue(skeleton);
             ar.SaveValue(static_cast<uint32_t>(subMeshes.size()));
             for (const auto &sub : subMeshes) {
                 ar.SaveValue(sub.indexOffset);
@@ -132,7 +147,7 @@ namespace sky::aurora {
             }
             ar.SaveValue(static_cast<uint32_t>(materials.size()));
             for (const auto &material : materials) {
-                ar.SaveValue(material.ToString());
+                ar.SaveValue(material);
             }
             ar.SaveValue(bounds.center);
             ar.SaveValue(bounds.extent);
@@ -182,9 +197,8 @@ namespace sky::aurora {
                 ar.LoadValue(attr.format);
                 ar.LoadValue(attr.offset);
             }
-            std::string skinStr;
-            ar.LoadValue(skinStr);
-            skin = Uuid::CreateFromString(skinStr);
+            ar.LoadValue(skin);
+            ar.LoadValue(skeleton);
             ar.LoadValue(count);
             subMeshes.resize(count);
             for (auto &sub : subMeshes) {
@@ -196,9 +210,7 @@ namespace sky::aurora {
             ar.LoadValue(materialCount);
             materials.resize(materialCount);
             for (auto &material : materials) {
-                std::string materialStr;
-                ar.LoadValue(materialStr);
-                material = Uuid::CreateFromString(materialStr);
+                ar.LoadValue(material);
             }
             ar.LoadValue(bounds.center);
             ar.LoadValue(bounds.extent);
@@ -227,13 +239,14 @@ namespace sky::aurora {
             indexData.clear();
             subMeshes.clear();
             materials.clear();
-            bounds = BoundingBoxSphere{};
+            bounds       = BoundingBoxSphere{};
             vertexStride = 0;
             vertexCount  = 0;
             indexCount   = 0;
             indexType    = 0;
             attributes.clear();
-            skin = Uuid{};
+            skin     = Uuid{};
+            skeleton = Uuid{};
             meshlets.clear();
             meshletVertices.clear();
             meshletTriangles.clear();

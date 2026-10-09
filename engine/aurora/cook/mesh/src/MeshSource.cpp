@@ -5,11 +5,13 @@
 #include <aurora/cook/mesh/MeshSource.h>
 
 #include <core/logger/Logger.h>
+#include <core/math/MathUtil.h>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include <functional>
 #include <unordered_map>
 
 static const char *TAG = "AuroraMeshCook";
@@ -30,11 +32,10 @@ namespace sky::aurora::cook {
             return res;
         }
 
-        uint32_t GlobalBoneIndex(std::unordered_map<std::string, uint32_t> &table, SkinAssetData &skin,
-                                 const aiBone *bone)
+        uint32_t GlobalBoneIndex(std::unordered_map<std::string, uint32_t> &table, SkinAssetData &skin, const aiBone *bone)
         {
             const std::string name = bone->mName.C_Str();
-            auto iter = table.find(name);
+            auto              iter = table.find(name);
             if (iter != table.end()) {
                 return iter->second;
             }
@@ -45,8 +46,11 @@ namespace sky::aurora::cook {
             return index;
         }
 
-        void ProcessPrimitive(const aiMesh *mesh, const Matrix4 &transform, uint32_t materialIndex,
-                              std::unordered_map<std::string, uint32_t> &boneTable, CookMeshSource &out)
+        void ProcessPrimitive(const aiMesh                              *mesh,
+                              const Matrix4                             &transform,
+                              uint32_t                                   materialIndex,
+                              std::unordered_map<std::string, uint32_t> &boneTable,
+                              CookMeshSource                            &out)
         {
             if (!mesh->HasPositions() || !mesh->HasFaces()) {
                 return;
@@ -104,7 +108,7 @@ namespace sky::aurora::cook {
                 prim.joints.resize(vertexCount, Vector4{});
                 prim.weights.resize(vertexCount, Vector4{});
                 for (uint32_t b = 0; b < mesh->mNumBones; ++b) {
-                    const aiBone *bone   = mesh->mBones[b];
+                    const aiBone  *bone  = mesh->mBones[b];
                     const uint32_t index = GlobalBoneIndex(boneTable, out.skin, bone);
                     for (uint32_t w = 0; w < bone->mNumWeights; ++w) {
                         const auto &weight = bone->mWeights[w];
@@ -139,9 +143,12 @@ namespace sky::aurora::cook {
             out.primitives.emplace_back(std::move(prim));
         }
 
-        void ProcessNode(const aiNode *node, const Matrix4 &parent, const aiScene *scene,
+        void ProcessNode(const aiNode                              *node,
+                         const Matrix4                             &parent,
+                         const aiScene                             *scene,
                          std::unordered_map<std::string, uint32_t> &materialTable,
-                         std::unordered_map<std::string, uint32_t> &boneTable, CookMeshSource &out)
+                         std::unordered_map<std::string, uint32_t> &boneTable,
+                         CookMeshSource                            &out)
         {
             const Matrix4 local     = FromAssimp(node->mTransformation);
             const Matrix4 transform = parent * local;
@@ -153,8 +160,8 @@ namespace sky::aurora::cook {
                     aiString          name;
                     material->Get(AI_MATKEY_NAME, name);
                     const std::string materialName = name.C_Str();
-                    auto iter = materialTable.find(materialName);
-                    uint32_t    slot = 0;
+                    auto              iter         = materialTable.find(materialName);
+                    uint32_t          slot         = 0;
                     if (iter != materialTable.end()) {
                         slot = iter->second;
                     } else {
@@ -176,11 +183,10 @@ namespace sky::aurora::cook {
     bool LoadMeshSource(const std::vector<uint8_t> &bytes, const std::string &ext, CookMeshSource &out)
     {
         Assimp::Importer importer;
-        const uint32_t flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
-                               aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_OptimizeGraph |
-                               aiProcess_OptimizeMeshes | aiProcess_PopulateArmatureData;
+        const uint32_t   flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace |
+                               aiProcess_LimitBoneWeights | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes | aiProcess_PopulateArmatureData;
 
-        const std::string hint      = !ext.empty() && ext[0] == '.' ? ext.substr(1) : ext;
+        const std::string hint  = !ext.empty() && ext[0] == '.' ? ext.substr(1) : ext;
         const aiScene    *scene = importer.ReadFileFromMemory(bytes.data(), bytes.size(), flags, hint.c_str());
         if (scene == nullptr || scene->mRootNode == nullptr) {
             LOG_E(TAG, "assimp import failed: %s", importer.GetErrorString());
@@ -190,6 +196,34 @@ namespace sky::aurora::cook {
         std::unordered_map<std::string, uint32_t> materialTable;
         std::unordered_map<std::string, uint32_t> boneTable;
         ProcessNode(scene->mRootNode, Matrix4::Identity(), scene, materialTable, boneTable, out);
+
+        // Build the bone hierarchy (parent + local ref transform) from the node
+        // tree, index-aligned with skin.boneNames.
+        if (!out.skin.boneNames.empty()) {
+            out.bones.resize(out.skin.boneNames.size());
+            for (size_t i = 0; i < out.bones.size(); ++i) {
+                out.bones[i].name = out.skin.boneNames[i];
+            }
+            std::function<void(const aiNode *, uint16_t)> visit = [&](const aiNode *node, uint16_t parentBone) {
+                uint16_t   selfBone = parentBone;
+                const auto iter     = boneTable.find(node->mName.C_Str());
+                if (iter != boneTable.end()) {
+                    const uint16_t index = static_cast<uint16_t>(iter->second);
+                    Vector3        translation;
+                    Quaternion     rotation;
+                    Vector3        scale;
+                    Decompose(FromAssimp(node->mTransformation), translation, rotation, scale);
+                    out.bones[index].parentIndex  = parentBone;
+                    out.bones[index].refTransform = Transform{translation, scale, rotation};
+                    selfBone                      = index;
+                }
+                for (uint32_t i = 0; i < node->mNumChildren; ++i) {
+                    visit(node->mChildren[i], selfBone);
+                }
+            };
+            visit(scene->mRootNode, 0xFFFF);
+        }
+
         if (!out.Valid()) {
             LOG_E(TAG, "assimp import produced no valid primitives");
             return false;

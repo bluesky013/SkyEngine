@@ -3,12 +3,12 @@
 // asset writer round-trips, config presets.
 //
 
-#include <aurora/cook/mesh/MeshAssetWriter.h>
 #include <aurora/cook/mesh/MeshAssembler.h>
+#include <aurora/cook/mesh/MeshAssetWriter.h>
 #include <aurora/cook/mesh/MeshBuildConfig.h>
 #include <aurora/cook/mesh/MeshOptimizer.h>
-#include <aurora/cook/mesh/MeshletBuilder.h>
 #include <aurora/cook/mesh/MeshSource.h>
+#include <aurora/cook/mesh/MeshletBuilder.h>
 
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/VertexSemantic.h>
@@ -53,7 +53,7 @@ f 1/1/1 3/3/1 4/4/1
         CookMeshSource source;
         EXPECT_TRUE(LoadMeshSource(ToBytes(kQuadObj), ".obj", source));
 
-        CookedMesh mesh;
+        CookedMesh             mesh;
         MeshAssembler::Payload assemble;
         assemble.source = &source;
         assemble.config = &config;
@@ -65,11 +65,11 @@ f 1/1/1 3/3/1 4/4/1
     template <typename T>
     void RoundTrip(const T &in, T &out)
     {
-        OMemoryArchive     outArchive;
+        OMemoryArchive      outArchive;
         BinaryOutputArchive writer(outArchive);
         in.Save(writer);
 
-        IMemoryArchive    inArchive(outArchive.Data(), outArchive.Size());
+        IMemoryArchive     inArchive(outArchive.Data(), outArchive.Size());
         BinaryInputArchive reader(inArchive);
         out.Load(reader);
     }
@@ -132,12 +132,12 @@ TEST(MeshCookAssembleTest, InterleavedStreamLayout)
         offset = attr.offset + 0; // checked via stride accumulation below
         switch (static_cast<VertexSemantic>(attr.semantic)) {
         case VertexSemantic::POSITION:
-        case VertexSemantic::NORMAL:  offset += 12; break;
+        case VertexSemantic::NORMAL: offset += 12; break;
         case VertexSemantic::TANGENT:
         case VertexSemantic::WEIGHTS:
-        case VertexSemantic::COLOR:   offset += 16; break;
-        case VertexSemantic::UV1:     offset += 8;  break;
-        case VertexSemantic::JOINTS:  offset += 4;  break;
+        case VertexSemantic::COLOR: offset += 16; break;
+        case VertexSemantic::UV1: offset += 8; break;
+        case VertexSemantic::JOINTS: offset += 4; break;
         default: break;
         }
     }
@@ -153,7 +153,7 @@ TEST(MeshCookAssembleTest, InterleavedStreamLayout)
 TEST(MeshCookAssembleTest, TangentsCanBeDisabled)
 {
     MeshBuildConfig config;
-    config.tangents = false;
+    config.tangents       = false;
     const CookedMesh mesh = CookQuad(config);
     for (const auto &attr : mesh.attributes) {
         EXPECT_NE(attr.semantic, static_cast<uint8_t>(VertexSemantic::TANGENT));
@@ -162,7 +162,7 @@ TEST(MeshCookAssembleTest, TangentsCanBeDisabled)
 
 TEST(MeshCookOptimizeTest, PreservesCountsAndRanges)
 {
-    CookedMesh mesh = CookQuad();
+    CookedMesh             mesh = CookQuad();
     MeshOptimizer::Payload optimize;
     optimize.mesh = &mesh;
     MeshOptimizer(optimize).DoWork();
@@ -177,7 +177,7 @@ TEST(MeshCookOptimizeTest, PreservesCountsAndRanges)
 
 TEST(MeshCookMeshletTest, BuildsMeshletsWithBounds)
 {
-    CookedMesh mesh = CookQuad();
+    CookedMesh              mesh = CookQuad();
     MeshletBuilder::Payload meshlets;
     meshlets.mesh = &mesh;
     MeshletBuilder(meshlets).DoWork();
@@ -194,15 +194,16 @@ TEST(MeshCookMeshletTest, BuildsMeshletsWithBounds)
 TEST(MeshCookWriterTest, MeshAssetRoundTrip)
 {
     MeshBuildConfig config;
-    config.meshlets = true;
-    CookedMesh mesh = CookQuad(config);
+    config.meshlets              = true;
+    CookedMesh              mesh = CookQuad(config);
     MeshletBuilder::Payload meshlets;
     meshlets.mesh = &mesh;
     MeshletBuilder(meshlets).DoWork();
 
-    Uuid skin; // no skin
+    Uuid          skin;     // no skin
+    Uuid          skeleton; // no skeleton
     MeshAssetData data;
-    WriteMeshAsset(mesh, skin, data);
+    WriteMeshAsset(mesh, skin, skeleton, data);
     EXPECT_EQ(data.version, MeshAssetData::CURRENT_VERSION);
     EXPECT_TRUE(data.HasMeshlets());
     EXPECT_FALSE(data.HasSkin());
@@ -229,7 +230,7 @@ TEST(MeshCookWriterTest, VersionMismatchRejected)
 {
     MeshAssetData data;
     CookedMesh    mesh = CookQuad();
-    WriteMeshAsset(mesh, Uuid{}, data);
+    WriteMeshAsset(mesh, Uuid{}, Uuid{}, data);
     data.version = 1; // v1 payloads must be rejected by the v2 loader
 
     MeshAssetData loaded;
@@ -260,7 +261,8 @@ TEST(MeshCookWriterTest, SkinAssetRoundTrip)
 
 TEST(MeshCookConfigTest, LoadJsonAndResolve)
 {
-    const char *json = R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true,"meshlets":false},"mesh_pc":{"tangents":true,"optimize":true,"meshlets":true}}})";
+    const char *json =
+        R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true,"meshlets":false},"mesh_pc":{"tangents":true,"optimize":true,"meshlets":true}}})";
     std::vector<uint8_t> bytes(json, json + std::strlen(json));
 
     IMemoryArchive   in(bytes.data(), bytes.size());
@@ -271,7 +273,7 @@ TEST(MeshCookConfigTest, LoadJsonAndResolve)
 
     ASSERT_EQ(presets.bundles.size(), 2u);
 
-    std::string key;
+    std::string            key;
     const MeshBuildConfig *cfg = presets.Resolve("mesh_pc", key);
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "mesh_pc");

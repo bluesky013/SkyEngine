@@ -7,7 +7,9 @@
 #include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/adaptor/assets/LodGroupAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
+#include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
@@ -164,9 +166,17 @@ namespace sky {
                 .BinLoad<&sky::aurora::SkinAssetData::Load>()
                 .BinSave<&sky::aurora::SkinAssetData::Save>();
 
+            context->Register<sky::aurora::SkeletonAssetData>("SkeletonAssetData")
+                .BinLoad<&sky::aurora::SkeletonAssetData::Load>()
+                .BinSave<&sky::aurora::SkeletonAssetData::Save>();
+
             context->Register<sky::aurora::MaterialAssetData>("MaterialAssetData")
                 .BinLoad<&sky::aurora::MaterialAssetData::Load>()
                 .BinSave<&sky::aurora::MaterialAssetData::Save>();
+
+            context->Register<sky::aurora::MaterialInstanceAssetData>("MaterialInstanceAssetData")
+                .BinLoad<&sky::aurora::MaterialInstanceAssetData::Load>()
+                .BinSave<&sky::aurora::MaterialInstanceAssetData::Save>();
 
             context->Register<sky::aurora::ImageAssetData>("ImageAssetData")
                 .BinLoad<&sky::aurora::ImageAssetData::Load>()
@@ -179,7 +189,9 @@ namespace sky {
             auto *manager = AssetManager::Get();
             manager->RegisterAssetHandler<sky::aurora::Mesh>();
             manager->RegisterAssetHandler<sky::aurora::Skin>();
+            manager->RegisterAssetHandler<sky::Skeleton>();
             manager->RegisterAssetHandler<sky::aurora::Material>();
+            manager->RegisterAssetHandler<sky::aurora::MaterialInstance>();
             manager->RegisterAssetHandler<sky::aurora::Texture>();
             manager->RegisterAssetHandler<sky::aurora::LodGroup>();
         }

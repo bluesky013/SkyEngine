@@ -1,7 +1,7 @@
 # one AuroraCook.Static for all cookers; each cooker contributes its sources
 # under <name>/src + <name>/include and its own third-party deps
-file(GLOB_RECURSE SRC_FILES image/src/* mesh/src/*)
-file(GLOB_RECURSE INC_FILES image/include/* mesh/include/*)
+file(GLOB_RECURSE SRC_FILES image/src/* mesh/src/* material/src/* lodgroup/src/* skeleton/src/*)
+file(GLOB_RECURSE INC_FILES image/include/* mesh/include/* material/include/* lodgroup/include/* skeleton/include/*)
 
 sky_find_3rd(TARGET stb          DIR stb)
 sky_find_3rd(TARGET ispc_texcomp DIR ispc_texcomp)
@@ -19,6 +19,9 @@ sky_add_library(TARGET AuroraCook.Static STATIC
     PUBLIC_INC
         image/include
         mesh/include
+        material/include
+        lodgroup/include
+        skeleton/include
     LINK_LIBS
         Aurora.Adaptor.Static
         Framework

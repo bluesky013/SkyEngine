@@ -12,6 +12,7 @@ if (NOT SKY_MOBILE)
     add_subdirectory(render)
 endif ()
 
+add_subdirectory(content)
 add_subdirectory(audio)
 add_subdirectory(aurora)
 add_subdirectory(ui)

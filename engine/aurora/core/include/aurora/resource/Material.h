@@ -10,8 +10,8 @@
 
 #include <aurora/resource/Texture.h>
 #include <aurora/rhi/Core.h>
-#include <aurora/rhi/Shader.h>
 #include <aurora/shader/RgBlockDesc.h>
+#include <aurora/shader/ShaderRef.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
@@ -71,7 +71,7 @@ namespace sky::aurora {
     // inlined).
     struct MaterialTechnique {
         Name                techniqueTag;
-        CounterPtr<Shader>  shader;
+        ShaderRef           shader; // path + entry; resolved by the renderer's ShaderResolver
         MaterialRenderState renderState;
     };
 

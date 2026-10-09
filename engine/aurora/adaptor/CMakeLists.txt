@@ -13,6 +13,7 @@ sky_add_library(TARGET Aurora.Adaptor.Static STATIC
     LINK_LIBS
         Aurora.Core.Static
         Aurora.RHI.Static
+        Animation
         Framework
         Core
 )

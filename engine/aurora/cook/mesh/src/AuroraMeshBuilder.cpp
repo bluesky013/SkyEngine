@@ -5,12 +5,13 @@
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
 
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
-#include <aurora/cook/mesh/MeshAssetWriter.h>
 #include <aurora/cook/mesh/MeshAssembler.h>
+#include <aurora/cook/mesh/MeshAssetWriter.h>
 #include <aurora/cook/mesh/MeshOptimizer.h>
-#include <aurora/cook/mesh/MeshletBuilder.h>
 #include <aurora/cook/mesh/MeshSource.h>
+#include <aurora/cook/mesh/MeshletBuilder.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
@@ -37,18 +38,17 @@ namespace sky::aurora {
             return;
         }
 
-        auto archive = file->ReadAsArchive();
+        auto             archive = file->ReadAsArchive();
         JsonInputArchive json(*archive);
         presets.LoadJson(json);
-        LOG_I(TAG, "loaded %u mesh build bundles (default '%s')", static_cast<uint32_t>(presets.bundles.size()),
-              presets.defaultBundle.c_str());
+        LOG_I(TAG, "loaded %u mesh build bundles (default '%s')", static_cast<uint32_t>(presets.bundles.size()), presets.defaultBundle.c_str());
     }
 
     void AuroraMeshBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         result.retCode = AssetBuildRetCode::FAILED;
 
-        std::string                bundleKey;
+        std::string                  bundleKey;
         const cook::MeshBuildConfig *config = presets.Resolve(request.target, bundleKey);
         if (config == nullptr) {
             LOG_E(TAG, "no mesh build config for target '%s'", request.target.c_str());
@@ -67,7 +67,7 @@ namespace sky::aurora {
             return;
         }
 
-        cook::CookedMesh cooked;
+        cook::CookedMesh             cooked;
         cook::MeshAssembler::Payload assemble;
         assemble.source = &source;
         assemble.config = config;
@@ -88,17 +88,27 @@ namespace sky::aurora {
 
         auto *manager = AssetManager::Get();
 
-        // skin rides in its own asset; the mesh references it by uuid
+        // skin + skeleton ride in their own assets; the mesh references them by uuid
         Uuid skinUuid;
+        Uuid skeletonUuid;
         if (config->skinning && source.Skinned()) {
-            skinUuid        = Uuid::Create();
-            auto skinAsset  = manager->FindOrCreateAsset<Skin>(skinUuid);
+            skinUuid       = Uuid::Create();
+            auto skinAsset = manager->FindOrCreateAsset<Skin>(skinUuid);
             if (!skinAsset) {
                 LOG_E(TAG, "failed to create skin asset %s", skinUuid.ToString().c_str());
                 return;
             }
             cook::WriteSkinAsset(source.skin, skinAsset->Data());
             manager->SaveAsset(skinAsset, bundleKey);
+
+            skeletonUuid       = Uuid::Create();
+            auto skeletonAsset = manager->FindOrCreateAsset<sky::Skeleton>(skeletonUuid);
+            if (!skeletonAsset) {
+                LOG_E(TAG, "failed to create skeleton asset %s", skeletonUuid.ToString().c_str());
+                return;
+            }
+            cook::WriteSkeletonAsset(source, skeletonAsset->Data());
+            manager->SaveAsset(skeletonAsset, bundleKey);
         }
 
         auto asset = manager->FindOrCreateAsset<Mesh>(request.assetInfo->uuid);
@@ -106,11 +116,15 @@ namespace sky::aurora {
             LOG_E(TAG, "failed to create mesh asset %s", request.assetInfo->uuid.ToString().c_str());
             return;
         }
+        asset->ResetDependencies();
         if (static_cast<bool>(skinUuid)) {
             asset->AddDependencies(skinUuid);
         }
+        if (static_cast<bool>(skeletonUuid)) {
+            asset->AddDependencies(skeletonUuid);
+        }
 
-        cook::WriteMeshAsset(cooked, skinUuid, asset->Data());
+        cook::WriteMeshAsset(cooked, skinUuid, skeletonUuid, asset->Data());
         manager->SaveAsset(asset, bundleKey);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
