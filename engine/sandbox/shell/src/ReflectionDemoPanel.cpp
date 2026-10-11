@@ -4,7 +4,7 @@
 
 #include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/ReflectedFormView.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 
 #include <editor/core/EditorCore.h>
 #include <editor/core/resource/SandboxResources.h>

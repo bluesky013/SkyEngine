@@ -21,7 +21,7 @@
 #include <editor/core/layout/LayoutPersistence.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/resource/SandboxResources.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>

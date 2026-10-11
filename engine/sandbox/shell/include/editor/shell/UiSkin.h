@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cstdint>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 #include <string>
 #include <ui/UIRect.h>
 

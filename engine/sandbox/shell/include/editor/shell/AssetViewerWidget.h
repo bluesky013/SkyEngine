@@ -9,7 +9,8 @@
 
 #include <editor/core/asset/AssetViewData.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
-#include <editor/shell/AssetViewProvider.h>
+#include <editor/ui/AssetViewProvider.h>
+#include <editor/shell/AssetViewFlags.h>
 #include <editor/shell/ModalDialog.h>
 #include <editor/shell/UiSkin.h>
 

@@ -9,9 +9,9 @@
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
 #include <editor/shell/PanelView.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 #include <editor/shell/UiSkin.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIPaintContext.h>

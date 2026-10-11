@@ -128,10 +128,11 @@ once, scrollable). It commits edits via `EditorAssetCatalog::ApplyCookSettings`,
 grip, and closes on Escape/close-button. `EditorShell` hosts it like the file browser (`OpenAssetViewer` /
 `IsAssetViewerOpen`, included in modal routing + layout).
 
-**Per-asset-type customization:** `AssetViewProviderRegistry` (`editor/shell/.../AssetViewProvider.h`, a
+**Per-asset-type customization:** `AssetViewProviderRegistry` (`editor/ui/.../AssetViewProvider.h`, a
 cross-DLL `Singleton`) maps an asset type to an `IAssetViewProvider` that can supply a custom content widget
-(right) and/or preview widget (left); the viewer uses them in place of the defaults. This is the seam for
-asset-specific viewers (mesh/material/terrain) without changing the generic widget.
+(right); the viewer uses it in place of the default reflected form. This is the seam for asset-specific
+viewers (mesh/material) without changing the generic widget, and it lives in the **`EditorUi`** target so
+feature editor extensions can register providers without linking `EditorShell`.
 
 The preview region (when no provider preview) uses the reserved **`IAssetPreviewProvider`** seam
 (`AssetPreviewProviderRegistry`, a cross-DLL singleton mirroring `IAssetThumbnailProvider`): the widget
@@ -161,7 +162,10 @@ UI, the New Asset creator-picker flow, and the standalone builder-side `AssetToo
   MakeBuilderSettings, DiffBuilderSettings}`, `CookConfig::GetTargetSettings`, `AssetBuildRequest::settings`,
   `ReflectedFormView::Bind(object, baseline)`; `Platform::RevealInFileExplorer` (Windows/macOS backends).
 - Shell: `editor/shell/panels/AssetBrowserPanel.{h,cpp}`, `EditorShell` (`SetAssetCatalog` /
-  `SetAssetActionHandler` / `SetAssetOpenHandler` / `SetAssetRenameHandler`, built-in `assets` view).
+  `SetAssetActionHandler` / `SetAssetOpenHandler` / `SetAssetRenameHandler`, built-in `assets` view);
+  `editor/shell/AssetViewFlags.{h,cpp}` (`DeriveAssetViewFlags`, viewer policy).
+- EditorUi: `editor/ui/AssetViewProvider.{h}` (`IAssetViewProvider` + registry) — the seam feature editor
+  extensions link without pulling `EditorShell`.
 - Module: `SandboxModule.cpp` (catalog + builder-manager wiring, asset actions, default layout).
 - Tests: `engine/sandbox/test/EditorAssetCatalogTest.cpp`, `EditorShellTest.cpp`,
   `engine/test/framework/{AssetManagerTest,AssetCookOverrideTest,CookConfigTest}.cpp`,

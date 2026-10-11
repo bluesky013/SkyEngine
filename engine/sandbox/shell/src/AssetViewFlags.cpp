@@ -1,10 +1,11 @@
 //
-// Asset view flag derivation (see AssetViewProvider.h).
+// Asset view flag derivation (see AssetViewFlags.h).
 //
 
-#include <editor/shell/AssetViewProvider.h>
+#include <editor/shell/AssetViewFlags.h>
 
 #include <editor/core/asset/AssetViewData.h>
+#include <editor/ui/AssetViewProvider.h>
 #include <framework/asset/AssetBuilderManager.h>
 
 namespace sky::editor {

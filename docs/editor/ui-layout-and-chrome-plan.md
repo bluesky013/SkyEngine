@@ -143,7 +143,7 @@ until the new path is verified, then delete the old code in the same commit.
 ## 6. Code placement
 
 - Layout + widgets: `engine/ui/core` (`ui/widgets/*`, layout containers).
-- Theme/skin/painters: `engine/sandbox/shell` (`UiTheme`, `UiSkin`, `UiDraw`).
+- Theme/painters: `engine/sandbox/ui` (`EditorUi`; `UiTheme`, `UiDraw`); component skin: `engine/sandbox/shell` (`UiSkin`).
 - Chrome widgets: `engine/sandbox/shell/widgets` (`ToolBar`, `MenuBar`, future `ActionBarBuilder`).
 - Actions/icons: `engine/sandbox/core` (`EditorActionRegistry`), icons in `resources/icons`.
 - Views: shell panels/dialogs; asset views via `IAssetViewProvider` (owning plugin editor

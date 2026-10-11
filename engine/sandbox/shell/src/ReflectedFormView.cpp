@@ -8,7 +8,7 @@
 #include <editor/shell/GenericReflectedWidget.h>
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/RotationReflectedWidget.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 
 #include <editor/core/EditorCore.h>
 #include <editor/core/command/CommandService.h>

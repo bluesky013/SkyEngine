@@ -2,7 +2,7 @@
 // Per-asset-type customization seam for the asset viewer (see asset-viewer-widget). A provider keyed by
 // asset type can supply a custom content widget (right region; default = reflected cook settings). The
 // left preview region is reserved and served by the separate IAssetPreviewProvider seam (editor/core).
-// Widgets are `UIElement`s, so providers live in the shell layer.
+// Widgets are `UIElement`s, so providers live in the UI layer (EditorUi).
 //
 
 #pragma once
@@ -11,7 +11,6 @@
 #include <core/util/Uuid.h>
 #include <ui/UIElement.h>
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -21,26 +20,6 @@ namespace sky::ui {
 } // namespace sky::ui
 
 namespace sky::editor {
-
-    // What the asset viewer renders for a type (see asset-viewer-widget).
-    //   BUNDLE: the asset's builder exposes reflected cook settings -> per-target forms.
-    //   DATA:   a per-asset content view (a registered provider here, and/or a reflected view).
-    //   NONE = HIDDEN: neither -> the viewer must not open.
-    enum class AssetViewFlags : uint32_t {
-        NONE   = 0,
-        BUNDLE = 1u << 0,
-        DATA   = 1u << 1,
-        HIDDEN = NONE,
-    };
-
-    constexpr AssetViewFlags operator|(AssetViewFlags a, AssetViewFlags b)
-    {
-        return static_cast<AssetViewFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
-    }
-    constexpr bool HasAssetViewFlag(AssetViewFlags flags, AssetViewFlags bit)
-    {
-        return (static_cast<uint32_t>(flags) & static_cast<uint32_t>(bit)) != 0;
-    }
 
     class IAssetViewProvider {
     public:
@@ -90,11 +69,5 @@ namespace sky::editor {
     private:
         std::unordered_map<std::string, IAssetViewProvider *> providers;
     };
-
-    // Derives the viewer flags for an asset type: BUNDLE when the type's builder exposes a
-    // cook-settings type, DATA when a content provider is registered. NONE (HIDDEN) when neither.
-    // An empty/unknown type defaults to BUNDLE (unregistered types still open the viewer).
-    // `ext` is the source extension (e.g. ".png"); pass the catalog item's path extension.
-    AssetViewFlags DeriveAssetViewFlags(const std::string &type, const std::string &ext);
 
 } // namespace sky::editor

@@ -2,8 +2,8 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/shell/UiDraw.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiDraw.h>
+#include <editor/ui/UiTheme.h>
 
 #include <algorithm>
 

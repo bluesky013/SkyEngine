@@ -35,6 +35,13 @@ if (SKY_BUILD_SANDBOX OR SKY_BUILD_TEST)
     add_subdirectory(sandbox)
 endif()
 
+# Feature editor-extension modules (asset-view data + custom views). They depend on the
+# editor framework (EditorCore / EditorUi), so they must be configured after `sandbox`.
+if (SKY_BUILD_SANDBOX)
+    add_subdirectory(content/editor)
+    add_subdirectory(aurora/editor)
+endif()
+
 if (SKY_BUILD_SANDBOX)
     sky_set_dependency(TARGET SandboxEditor)
 

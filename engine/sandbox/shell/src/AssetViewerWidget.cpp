@@ -16,10 +16,11 @@ extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
 
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetPreviewProvider.h>
-#include <editor/shell/AssetViewProvider.h>
+#include <editor/ui/AssetViewProvider.h>
+#include <editor/shell/AssetViewFlags.h>
 #include <editor/shell/ReflectedFormView.h>
-#include <editor/shell/UiDraw.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiDraw.h>
+#include <editor/ui/UiTheme.h>
 #include <editor/shell/widgets/ActionBarBuilder.h>
 #include <editor/shell/widgets/MenuBar.h>
 #include <editor/shell/widgets/ToolBar.h>

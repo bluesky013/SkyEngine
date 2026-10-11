@@ -18,5 +18,6 @@ sky_add_library(TARGET EditorShell STATIC
         Core
         Framework
         EditorCore
+        EditorUi
         UI
 )

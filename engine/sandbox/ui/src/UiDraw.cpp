@@ -2,10 +2,10 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 
 #include <core/math/Color.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextLayout.h>
 #include <ui/text/UITextSystem.h>

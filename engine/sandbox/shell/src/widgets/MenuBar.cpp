@@ -5,9 +5,9 @@
 #include <editor/shell/widgets/MenuBar.h>
 
 #include <editor/core/extension/IconRegistry.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 #include <editor/shell/UiSkin.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>

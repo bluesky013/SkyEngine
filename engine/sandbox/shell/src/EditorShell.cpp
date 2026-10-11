@@ -17,11 +17,12 @@
 #include <editor/shell/PanelView.h>
 #include <editor/shell/PreferencesDialog.h>
 
+#include <editor/shell/AssetViewFlags.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <editor/shell/ReflectionDemoPanel.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 #include <editor/shell/UiSkin.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/panels/ServicePanels.h>

@@ -5,8 +5,8 @@
 #include <editor/shell/panels/AssetBrowserPanel.h>
 
 #include <editor/core/asset/AssetThumbnailProvider.h>
-#include <editor/shell/UiDraw.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiDraw.h>
+#include <editor/ui/UiTheme.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>

@@ -3,7 +3,7 @@
 //
 
 #include <editor/shell/RotationReflectedWidget.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 
 #include <editor/core/command/CommandService.h>
 

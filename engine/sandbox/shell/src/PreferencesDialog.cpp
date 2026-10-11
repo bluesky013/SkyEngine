@@ -7,8 +7,8 @@
 #include <editor/core/EditorCore.h>
 #include <editor/core/command/CommandService.h>
 #include <editor/shell/ReflectedFormView.h>
-#include <editor/shell/UiDraw.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiDraw.h>
+#include <editor/ui/UiTheme.h>
 
 #include <core/type/Rtti.h>
 #include <framework/serialization/SerializationFactory.h>

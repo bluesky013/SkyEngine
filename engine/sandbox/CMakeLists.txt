@@ -7,6 +7,10 @@ set(CURRENT_FOLDER Sandbox)
 add_subdirectory(core)
 
 if (SKY_BUILD_SANDBOX)
+    # Editor UI primitives + the UI-facing extension seam, shared with feature editor
+    # modules so they can provide custom `UIElement` views without linking the shell.
+    add_subdirectory(ui)
+
     # UI-linked shell: composes EditorCore into a sky::ui tree.
     add_subdirectory(shell)
 

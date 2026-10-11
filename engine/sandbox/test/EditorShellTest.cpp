@@ -17,7 +17,7 @@
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ReflectedFormView.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/widgets/ActionBarBuilder.h>

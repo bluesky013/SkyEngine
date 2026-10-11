@@ -9,7 +9,7 @@
 #include <editor/core/property/ReflectedForm.h>
 #include <editor/shell/ReflectedWidget.h>
 #include <editor/shell/UiSkin.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 
 #include <ui/UIDrawData.h>
 #include <ui/UIElement.h>

@@ -4,7 +4,7 @@
 
 #include <editor/shell/ModalDialog.h>
 
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 #include <ui/UIPaintContext.h>
 
 #include <algorithm>

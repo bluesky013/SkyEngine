@@ -16,8 +16,11 @@ engine/sandbox/core            (no UI / no world / no math types; Core + Framewo
   EditorAssetCatalog           asset lookup seam (default: framework AssetDataBase)
   EditorPropertySource         IEditorPropertySource / RegisteredPropertySource
 
+engine/sandbox/ui              (sky::ui primitives + extension provider seam; Core + UI only)
+  UiDraw / UiTheme             painter primitives (rounded/gradient/shadow/slider/color) + theme
+
 engine/sandbox/shell           (sky::ui; styling + interaction)
-  UiDraw / UiTheme / UiSkin    primitives (rounded/gradient/shadow/slider/color) + theme + component skin
+  UiSkin                       component skin (draws widgets from a UiTheme via UiDraw)
   ReflectedWidget              per-kind widget base
   ReflectedWidgetHost          services a widget borrows from its host (the form view)
   ReflectedWidgetRegistry      kind -> widget (singletons)

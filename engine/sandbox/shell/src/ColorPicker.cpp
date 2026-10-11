@@ -3,9 +3,9 @@
 //
 
 #include <editor/shell/ColorPicker.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/UiDraw.h>
 #include <editor/shell/UiSkin.h>
-#include <editor/shell/UiTheme.h>
+#include <editor/ui/UiTheme.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/UIEvent.h>
