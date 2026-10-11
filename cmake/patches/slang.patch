@@ -50,7 +50,7 @@ index 74aed35d6..72452a7b7 100644
      EXPORT_SET_NAME SlangTargets
      INCLUDE_DIRECTORIES_PRIVATE
 diff --git a/source/slang/CMakeLists.txt b/source/slang/CMakeLists.txt
-index 2a275202f..696963a3a 100644
+index 2a275202f..88f4f954a 100644
 --- a/source/slang/CMakeLists.txt
 +++ b/source/slang/CMakeLists.txt
 @@ -72,16 +72,19 @@ target_include_directories(
@@ -83,3 +83,12 @@ index 2a275202f..696963a3a 100644
  set_source_files_properties(
      slang-rich-diagnostics.cpp
      PROPERTIES
+@@ -356,8 +359,6 @@ endif()
+ set_target_properties(
+     slang
+     PROPERTIES
+-        VERSION 0.${SLANG_VERSION_NUMERIC}
+-        SOVERSION 0.${SLANG_VERSION_NUMERIC}
+         MACHO_COMPATIBILITY_VERSION 0.0.0
+         MACHO_CURRENT_VERSION ${SLANG_VERSION_NUMERIC}
+ )

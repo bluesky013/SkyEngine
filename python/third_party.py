@@ -71,7 +71,10 @@ def ensure_default_intermediate():
 
 
 def write_cmake_cache():
-    cache_path = os.path.join(args.output, THIRD_PARTY_CACHE_FILE)
+    # Per-platform cache so switching platforms (iOS/Android/macOS) never
+    # clobbers another platform's 3RD_PATH. cmake/options.cmake loads the one
+    # matching the current build platform.
+    cache_path = os.path.join(args.output, f'thirdparty_cache_{args.platform}.cmake')
     output_root = normalize_cmake_path(args.output)
     platform_output_path = normalize_cmake_path(get_platform_output_root())
     engine_path = normalize_cmake_path(args.engine)
@@ -183,6 +186,31 @@ def run_stream(cmd, log_file=None):
     if process.returncode != 0:
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
+def install_slang_ios_libs(build_dir, build_type):
+    # On iOS slang builds the main static lib into <build>/<Config>/lib but the
+    # install component does not place it; copy it into install/lib so
+    # copy_package picks it up (engine links libslang-compiler.a on iOS).
+    src = os.path.join(build_dir, build_type, 'lib')
+    dst = os.path.join(build_dir, 'install', 'lib')
+    if not os.path.isdir(src):
+        return
+    os.makedirs(dst, exist_ok=True)
+    for entry in os.listdir(src):
+        if entry.endswith('.a'):
+            shutil.copy2(os.path.join(src, entry), os.path.join(dst, entry))
+            print(f"  [slang-ios] installed {entry}")
+    # slang's static libs reference its bundled third-party archives (lz4 /
+    # miniz / cmark), which live under external/*/ build dirs, not lib/.
+    for root, _dirs, files in os.walk(build_dir):
+        for entry in files:
+            if entry.endswith('.a') and (entry.startswith('liblz4') or entry.startswith('libminiz')
+                                         or entry.startswith('libcmark')):
+                target = os.path.join(dst, entry)
+                if not os.path.exists(target):
+                    shutil.copy2(os.path.join(root, entry), target)
+                    print(f"  [slang-ios] installed {entry}")
+
+
 def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, str] | None = None, cache: str | None = None,
               components: list[str] | None = None, log_name: str | None = None):
     # 确保构建目录存在
@@ -236,6 +264,9 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
             log_file.write(f"=== install ===\n")
         run_stream(install_cmd, log_file)
 
+        if log_name == 'slang' and args.platform == 'IOS':
+            install_slang_ios_libs(build_dir, build_type)
+
         print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:
         if log_file:
@@ -273,7 +304,7 @@ def copy_package(name, install_dir, build_type):
         if src.exists():
             if dst.exists():
                 shutil.rmtree(dst)
-            shutil.copytree(src, dst)
+            shutil.copytree(src, dst, symlinks=True)
 
 
 def get_android_sdk_path():
@@ -298,6 +329,17 @@ def fill_ios_config(options):
     # Absolute: CMake resolves a relative toolchain path against the build dir.
     options['CMAKE_TOOLCHAIN_FILE'] = os.path.abspath(os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake'))
     options['PLATFORM'] = 'OS64'
+    # ios-cmake defaults executables to MACOSX_BUNDLE; third-party libraries/tools
+    # are not app bundles, and several install(TARGETS ...) calls omit a BUNDLE
+    # DESTINATION, so building them as bundles fails. Keep them plain.
+    options['CMAKE_MACOSX_BUNDLE'] = 'OFF'
+    # slang builds its main compiler lib as a NO_SOURCE aggregation target when
+    # the core module is embedded (SLANG_EMBED_CORE_MODULE, default ON); that
+    # target produces no library under iOS/Xcode. Disabling it makes the main lib
+    # carry sources and link normally on iOS. slang's SHARED lib is also not
+    # produced under iOS/Xcode, so build it statically on iOS.
+    options['SLANG_EMBED_CORE_MODULE'] = 'OFF'
+    options['SLANG_LIB_TYPE'] = 'STATIC'
 
 def resolve_android_ndk():
     for name in ['ANDROID_NDK_HOME', 'ANDROID_NDK_ROOT']:
@@ -341,6 +383,9 @@ def fill_common_options(options, build_type, install_dir):
     options['BUILD_TESTING'] = 'OFF'
     options['CMAKE_INSTALL_PREFIX'] = install_dir
     options['CMAKE_BUILD_TYPE'] = build_type
+    # CMake 4 removed compatibility with cmake_minimum_required(<3.5); several
+    # third-party projects are older, so relax the policy floor globally.
+    options['CMAKE_POLICY_VERSION_MINIMUM'] = '3.5'
 
     if args.platform == 'Android':
         fill_android_config(options)
@@ -377,8 +422,46 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
 
     copy_package(name, install_dir, build_type)
 
+def build_slang_host_generators(source_dir, options):
+    # slang's code generators (slang-embed, slang-fiddle, ...) must run on the
+    # HOST. When cross-compiling (iOS/Android) build them once for the host and
+    # point the target build at them via SLANG_GENERATORS_PATH — otherwise the
+    # target build tries to run target-arch generators (and installs them as
+    # MACOSX_BUNDLE on iOS, which fails).
+    host_build = os.path.join(source_dir, 'build_host_generators')
+
+    def find_generators_dir():
+        # slang emits generators under generators/<config>/bin; locate by the
+        # slang-bootstrap executable (the one the target build references).
+        for root, _dirs, files in os.walk(host_build):
+            if 'slang-bootstrap' in files:
+                return normalize_cmake_path(root)
+        return None
+
+    existing = find_generators_dir()
+    if existing:
+        return existing
+
+    print("  [slang] building host generators")
+    # Ninja (single-config) for a deterministic host tools build.
+    cmake_cmd = ["cmake", "-S", source_dir, "-B", host_build, "-G", "Ninja",
+                 "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"]
+    for key, value in options.items():
+        cmake_cmd.append(f"-D{key}={value}")
+    run_stream(cmake_cmd)
+    run_stream(["cmake", "--build", host_build, "--target", "all-generators",
+                "--parallel", str(os.cpu_count() or 4)])
+    return find_generators_dir()
+
+
+
+
 def build_package(name, source_dir, options, cache, components, header_only=False):
     print("build package ...", name)
+    if name == 'slang' and args.platform in ('IOS', 'Android'):
+        generators = build_slang_host_generators(source_dir, options)
+        if generators:
+            options['SLANG_GENERATORS_PATH'] = generators
     if header_only:
         build_package_type(name, source_dir, 'Release', dict(options), cache, components, header_only=True)
     else:

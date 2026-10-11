@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ee091ac..f48b206 100644
+index ee091ac7..f48b2065 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -24,7 +24,7 @@ if(CMAKE_CONFIGURATION_TYPES)
@@ -44,3 +44,19 @@ index ee091ac..f48b206 100644
  	if(PLATFORM_ANDROID)
  		add_subdirectory("${PROJECT_SOURCE_DIR}/tools/regression_tester_android")
  	elseif(PLATFORM_IOS)
+diff --git a/cmake/CMakePlatforms.cmake b/cmake/CMakePlatforms.cmake
+index a2b440db..0a8efda6 100644
+--- a/cmake/CMakePlatforms.cmake
++++ b/cmake/CMakePlatforms.cmake
+@@ -8,8 +8,9 @@ endif()
+ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+ 	set(PLATFORM_WINDOWS 1)
+ 	set(PLATFORM_NAME "Windows")
+-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+-	if(PLATFORM_IOS)
++elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin" OR ${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
++	if(PLATFORM_IOS OR ${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
++		set(PLATFORM_IOS 1)
+ 		set(PLATFORM_NAME "iOS")
+ 	else()
+ 		set(PLATFORM_OSX 1)

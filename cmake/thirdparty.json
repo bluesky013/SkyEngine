@@ -144,6 +144,12 @@
 			"url": "https://github.com/mackron/miniaudio.git",
 			"tag": "0.11.25",
 			"header_only": false,
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm",
+				"Linux"
+			],
 			"options": {
 				"MINIAUDIO_NO_JACK": "ON"
 			}
@@ -242,6 +248,12 @@
 			"url": "https://github.com/zpl-c/enet.git",
 			"tag": "v2.7.0",
 			"header_only": false,
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm",
+				"Linux"
+			],
 			"options": {
 				"ENET_STATIC": "ON",
 				"ENET_SHARED": "OFF",
@@ -429,7 +441,8 @@
 				"SLANG_ENABLE_SLANGI": "OFF",
 				"SLANG_ENABLE_SLANGRT": "OFF",
 				"SLANG_ENABLE_REPLAYER": "OFF",
-				"SLANG_ENABLE_SLANG_GLSLANG": "OFF"
+				"SLANG_ENABLE_SLANG_GLSLANG": "OFF",
+				"SLANG_ENABLE_SPLIT_DEBUG_INFO": "OFF"
 			},
 			"submodules": [
 				"external/spirv-headers",

@@ -1,3 +1,12 @@
+# Mobile platforms (iOS/Android) build a runtime subset: no legacy render/shader
+# stack, no desktop-only plugins or host codegen tools. Defined once here so
+# gating conditions across engine/plugins stay in sync.
+if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS" OR ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    set(SKY_MOBILE ON)
+else ()
+    set(SKY_MOBILE OFF)
+endif ()
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     set(PLATFORM_EXT_LIBS
         iconv
