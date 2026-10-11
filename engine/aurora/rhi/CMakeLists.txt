@@ -6,7 +6,11 @@ if (WIN32)
     add_subdirectory(dx12)
 endif()
 
-add_subdirectory(vulkan)
+# Vulkan is the runtime backend on desktop/Android; iOS uses Metal only (no
+# Vulkan SDK / MoltenVK there).
+if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+    add_subdirectory(vulkan)
+endif()
 
 if (APPLE)
     add_subdirectory(metal)

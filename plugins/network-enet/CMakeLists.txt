@@ -3,6 +3,12 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
+# enet's clock_gettime conflicts with the modern iOS SDK; skip the enet transport
+# plugin on mobile for now (networking on mobile is a follow-up).
+if (SKY_MOBILE)
+    return()
+endif ()
+
 sky_find_3rd(TARGET enet DIR enet)
 
 sky_add_library(TARGET EnetNetwork SHARED

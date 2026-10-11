@@ -8,6 +8,12 @@ file(GLOB_RECURSE TEST_FILES test/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
+# The PVS render side depends on the legacy render stack, which is not built on
+# mobile (iOS/Android use aurora). Skip the plugin there.
+if (SKY_MOBILE)
+    return()
+endif ()
+
 # Render-independent core: PVS grid config, sector storage + streaming, and the
 # fail-safe visibility query. No RenderCore / editor dependency, so it (and its
 # tests) build on any configuration.

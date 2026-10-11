@@ -7,7 +7,7 @@ add_subdirectory(animation)
 # Legacy render/shader stack is desktop-only (the runtime renderer is aurora on
 # slang). Skipped on mobile so legacy third-party (boost/glslang/SPIRV-Cross/
 # taskflow) is neither found nor built there.
-if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "iOS" AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+if (NOT SKY_MOBILE)
     add_subdirectory(shader)
     add_subdirectory(render)
 endif ()

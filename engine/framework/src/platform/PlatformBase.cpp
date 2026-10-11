@@ -154,4 +154,14 @@ namespace sky {
     {
         platform->PollEvent(exit);
     }
+
+    void Platform::SetFrameCallback(std::function<void()> callback)
+    {
+        platform->SetFrameCallback(std::move(callback));
+    }
+
+    void Platform::StartFrameLoop()
+    {
+        platform->StartFrameLoop();
+    }
 } // namespace sky

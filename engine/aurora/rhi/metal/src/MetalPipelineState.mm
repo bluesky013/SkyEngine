@@ -75,7 +75,14 @@ namespace sky::aurora {
         }
 
         const auto depthStencilFormat = ToMetalPixelFormat(desc.format.depthStencil);
-        if (depthStencilFormat == MTLPixelFormatDepth24Unorm_Stencil8 || depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8) {
+#if TARGET_OS_IPHONE
+        // MTLPixelFormatDepth24Unorm_Stencil8 is unavailable on iOS.
+        const bool hasStencil = depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8;
+#else
+        const bool hasStencil = depthStencilFormat == MTLPixelFormatDepth24Unorm_Stencil8 ||
+                                depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8;
+#endif
+        if (hasStencil) {
             pipelineDesc.depthAttachmentPixelFormat   = depthStencilFormat;
             pipelineDesc.stencilAttachmentPixelFormat = depthStencilFormat;
         } else if (depthStencilFormat != MTLPixelFormatInvalid) {

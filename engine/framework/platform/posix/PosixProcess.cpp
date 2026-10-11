@@ -26,8 +26,13 @@ extern char **environ;
 
 // posix_spawn_file_actions_addchdir_np availability:
 //  - macOS: declared in <spawn.h> (10.15+), no _GNU_SOURCE needed
+//  - iOS:   NOT available (declared but marked unavailable) -> use 0
 //  - glibc: declared only with _GNU_SOURCE and >= 2.29
 #if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
     #define SKY_POSIX_HAVE_ADDCHDIR_NP 1
 #elif defined(__GLIBC__) && defined(_GNU_SOURCE) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
     #define SKY_POSIX_HAVE_ADDCHDIR_NP 1

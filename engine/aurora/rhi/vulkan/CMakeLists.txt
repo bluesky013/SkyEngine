@@ -3,7 +3,7 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC platform/windows/*)
-elseif(APPLE)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
     find_package(Vulkan REQUIRED)
 

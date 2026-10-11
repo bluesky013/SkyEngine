@@ -39,8 +39,8 @@ namespace sky {
 
         // Frame loop: UIKit owns the run loop, so the host registers a frame
         // callback and starts a CADisplayLink that ticks it each frame.
-        void SetFrameCallback(std::function<void()> callback);
-        void StartFrameLoop();
+        void SetFrameCallback(std::function<void()> callback) override;
+        void StartFrameLoop() override;
         void StopFrameLoop();
 
         // Invoked by the CADisplayLink target.

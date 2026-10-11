@@ -2,6 +2,8 @@ set(CURRENT_FOLDER Executable)
 
 if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC windows/*)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+    file(GLOB_RECURSE PLATFORM_SRC ios/*)
 elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC macos/*)
 endif()
@@ -32,6 +34,13 @@ if (NOT ANDROID)
     if (SKY_BUILD_SANDBOX)
         target_link_libraries(Launcher Core)
         target_compile_definitions(Launcher PRIVATE SKY_EDITOR_HOST)
+    endif()
+
+    if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+        set_target_properties(Launcher PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist
+            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.skyengine.launcher"
+        )
     endif()
 
     # Deploy the engine builtin configs next to the executable so the launcher

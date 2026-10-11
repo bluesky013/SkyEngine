@@ -46,6 +46,8 @@ Markdown, and grounded in the current repository state.
   `SKY_DETERMINISTIC_FP` build option.
 - [World Subsystems](features/world-subsystems.md) - the declarative world subsystem registry, `WorldDesc`,
   JSON persistence, and the editor world-config surface.
+- [Shader System](features/shader-system.md) - aurora's slang-based shader pipeline and the pre-generated
+  `GlobalBlock.gen.h` (how and when to regenerate it for cross builds).
 
 ### Adding documents
 

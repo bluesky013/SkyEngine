@@ -11,6 +11,10 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/macos/*)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+    # iOS reuses the macOS mach-based async primitives (Semaphore/Thread).
+    file(GLOB_RECURSE CORE_PLATFORM_SRC
+        platform/macos/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/android/*)

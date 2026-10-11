@@ -77,6 +77,16 @@ namespace sky {
         virtual void PollEvent(bool &exit)
         {
         }
+        // Frame loop ownership. Platforms that own the run loop (iOS via
+        // CADisplayLink) let the host register a frame callback and start the
+        // loop; others are no-ops and the host uses Application::Mainloop().
+        virtual void SetFrameCallback(std::function<void()> callback)
+        {
+            (void)callback;
+        }
+        virtual void StartFrameLoop()
+        {
+        }
         // Native shell services. Defaults fail / do nothing; backends override.
         virtual bool ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title = {}, const std::string &filter = {})
         {
@@ -143,6 +153,9 @@ namespace sky {
         PlatformType GetType() const;
 
         void PoolEvent(bool &exit);
+
+        void SetFrameCallback(std::function<void()> callback);
+        void StartFrameLoop();
 
         template <typename T>
         void setLaunchCallback(T &&cb)

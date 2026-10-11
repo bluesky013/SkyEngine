@@ -42,51 +42,46 @@ sky_add_library(TARGET Aurora.ShaderCompiler SHARED
 )
 sky_add_dependency(TARGET Aurora.ShaderCompiler DEPENDENCIES Launcher Editor)
 
-# ---- offline shader header codegen (host tool) ----
+# ---- offline shader codegen (host-only tools) ----
+#
+# These tools run on the build host; they are skipped for cross builds
+# (iOS/Android). The generated header they produce is committed under
+# engine/aurora/pipeline/generated so cross builds need no host tool:
+#   output/bin/ShaderHeaderTool assets/shaders/slang/global/GlobalBlock.slang \
+#       engine/aurora/pipeline/generated/GlobalBlock.gen.h
+if (NOT SKY_MOBILE)
+    sky_add_exe(TARGET ShaderHeaderTool
+        SOURCES
+            tool/ShaderHeaderTool.cpp
+        INCS
+            include
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        LIBS
+            Aurora.ShaderCompiler.Static
+            Core
+            3rdParty::slang
+    )
 
-sky_add_exe(TARGET ShaderHeaderTool
-    SOURCES
-        tool/ShaderHeaderTool.cpp
-    INCS
-        include
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-    LIBS
-        Aurora.ShaderCompiler.Static
-        Core
-        3rdParty::slang
-)
-
-# offline shader cook: usage.json -> index/blobs
-sky_add_exe(TARGET ShaderCookTool
-    SOURCES
-        tool/ShaderCookTool.cpp
-    INCS
-        include
-    LIBS
-        Aurora.ShaderCompiler.Static
-        Core
-)
+    # offline shader cook: usage.json -> index/blobs
+    sky_add_exe(TARGET ShaderCookTool
+        SOURCES
+            tool/ShaderCookTool.cpp
+        INCS
+            include
+        LIBS
+            Aurora.ShaderCompiler.Static
+            Core
+    )
+endif()
 
 # slang shader assets, organized by resource tier:
 #   assets/shaders/slang/global/    -> set 0 (GlobalRenderResources)
 #   assets/shaders/slang/pipeline/  -> set 1 (PipelinePass)
 #   assets/shaders/slang/batch/     -> set 2 (per-draw dynamic UBO)
-set(SLANG_SHADER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/slang)
-
-set(SHADER_GEN_DIR ${CMAKE_BINARY_DIR}/Gen/ShaderHeaders)
-file(MAKE_DIRECTORY ${SHADER_GEN_DIR})
-
-set(GLOBAL_BLOCK_SRC ${SLANG_SHADER_ROOT}/global/GlobalBlock.slang)
-set(GLOBAL_BLOCK_GEN ${SHADER_GEN_DIR}/GlobalBlock.gen.h)
-
-add_custom_command(
-    OUTPUT ${GLOBAL_BLOCK_GEN}
-    COMMAND $<TARGET_FILE:ShaderHeaderTool> ${GLOBAL_BLOCK_SRC} ${GLOBAL_BLOCK_GEN}
-    DEPENDS ShaderHeaderTool ${GLOBAL_BLOCK_SRC}
-    VERBATIM
-)
-
-add_custom_target(ShaderHeaders DEPENDS ${GLOBAL_BLOCK_GEN})
+#
+# `GlobalBlock.gen.h` (derived from global/GlobalBlock.slang) is pre-generated on
+# a host machine and committed at engine/aurora/pipeline/generated; regenerate it
+# with ShaderHeaderTool when the slang block changes (no build-time codegen).
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET Aurora.ShaderTest

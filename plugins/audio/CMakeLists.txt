@@ -2,6 +2,12 @@ file(GLOB_RECURSE SRC_FILES src/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
+# miniaudio has no mobile build here yet (Apple CoreAudio path needs ObjC
+# compilation); skip the audio plugin on iOS/Android for now.
+if (SKY_MOBILE)
+    return()
+endif ()
+
 sky_find_3rd(TARGET miniaudio DIR miniaudio)
 
 sky_add_library(TARGET AudioBackend.Static STATIC
