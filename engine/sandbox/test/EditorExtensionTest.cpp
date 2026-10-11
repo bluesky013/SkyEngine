@@ -5,7 +5,9 @@
 #include <editor/core/actor/EditorActorCreation.h>
 #include <editor/core/asset/AssetCreator.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
+#include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorExtensionHost.h>
+#include <editor/core/extension/EditorScopeStack.h>
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
@@ -127,4 +129,40 @@ TEST(EditorExtensionTest, DefaultExtensionDeclaresBuiltinIconRoot)
     const std::vector<std::string> dirs = extension.GetIconDirectories();
     ASSERT_EQ(dirs.size(), 1u);
     EXPECT_EQ(dirs.front(), "icons");
+}
+
+TEST(EditorExtensionTest, ExtensionActionsGoThroughRegistry)
+{
+    // An extension contributes actions from Register() and removes them from Unregister();
+    // the host drains extensions before the host's built-in actions are registered, so they
+    // survive (see SandboxModule::BuildEditor).
+    class ActionExtension : public EditorExtension {
+    public:
+        const char *GetName() const override
+        {
+            return "ActionExtension";
+        }
+        void Register() override
+        {
+            EditorActionRegistry::Get()->Add({.id = "ext.demo", .label = "Demo", .invoke = []() {}});
+        }
+        void Unregister() override
+        {
+            EditorActionRegistry::Get()->Remove(EditorScopeStack::GlobalScope(), "ext.demo");
+        }
+    };
+
+    EditorActionRegistry::Get()->Clear();
+    EditorScopeStack::Get()->Clear();
+
+    EditorExtensionHost host;
+    host.Add(std::make_unique<ActionExtension>());
+    host.RegisterAll();
+    EXPECT_NE(EditorActionRegistry::Get()->Find("ext.demo"), nullptr);
+
+    host.UnregisterAll();
+    EXPECT_EQ(EditorActionRegistry::Get()->Find("ext.demo"), nullptr);
+
+    EditorActionRegistry::Get()->Clear();
+    EditorScopeStack::Get()->Clear();
 }

@@ -22,6 +22,19 @@ namespace sky::editor {
         return action.scope.empty() ? std::string(EditorScopeStack::GlobalScope()) : action.scope;
     }
 
+    const char *EditorMenuLabel(EditorMenu menu)
+    {
+        switch (menu) {
+        case EditorMenu::File: return "File";
+        case EditorMenu::Edit: return "Edit";
+        case EditorMenu::View: return "View";
+        case EditorMenu::Help: return "Help";
+        case EditorMenu::Assets: return "Assets";
+        case EditorMenu::None:
+        default: return nullptr;
+        }
+    }
+
     void EditorActionRegistry::Add(EditorAction action)
     {
         if (action.id.empty()) {
@@ -60,13 +73,15 @@ namespace sky::editor {
     {
         std::vector<EditorAction> out;
         for (const EditorAction &action : GetActions()) {
-            if (!action.group.empty()) {
+            if (action.group != EditorGroup::None) {
                 out.push_back(action);
             }
         }
         std::sort(out.begin(), out.end(), [](const EditorAction &a, const EditorAction &b) {
-            if (a.group != b.group) {
-                return a.group < b.group;
+            const int ga = static_cast<int>(a.group);
+            const int gb = static_cast<int>(b.group);
+            if (ga != gb) {
+                return ga < gb;
             }
             if (a.order != b.order) {
                 return a.order < b.order;
@@ -80,16 +95,15 @@ namespace sky::editor {
     {
         std::vector<EditorAction> out;
         for (const EditorAction &action : GetActions()) {
-            if (!action.menu.empty()) {
+            if (action.menu != EditorMenu::None) {
                 out.push_back(action);
             }
         }
         std::sort(out.begin(), out.end(), [](const EditorAction &a, const EditorAction &b) {
-            if (a.menuOrder != b.menuOrder) {
-                return a.menuOrder < b.menuOrder;
-            }
-            if (a.menu != b.menu) {
-                return a.menu < b.menu;
+            const int ma = static_cast<int>(a.menu);
+            const int mb = static_cast<int>(b.menu);
+            if (ma != mb) {
+                return ma < mb;
             }
             if (a.order != b.order) {
                 return a.order < b.order;

@@ -7,12 +7,34 @@
 #include <core/environment/Singleton.h>
 #include <editor/core/extension/EditorScopeStack.h>
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace sky::editor {
+
+    // Top-level menu identity; ordering follows the declaration order.
+    enum class EditorMenu : uint8_t {
+        None = 0,
+        File,
+        Edit,
+        View,
+        Help,
+        Assets,
+    };
+
+    // Toolbar group identity (section + ordering); ordering follows the declaration order.
+    enum class EditorGroup : uint8_t {
+        None = 0,
+        File,
+        History,
+        Play,
+    };
+
+    // Display label for a menu ("File", "Edit", ...); nullptr for EditorMenu::None.
+    const char *EditorMenuLabel(EditorMenu menu);
 
     // A toolkit-agnostic editor action (toolbar / menu entry / shortcut). Plugins register
     // actions through their EditorExtension; the shell renders them. No UI/render type appears
@@ -21,13 +43,12 @@ namespace sky::editor {
     struct EditorAction {
         std::string           id;
         std::string           label;
-        std::string           icon;          // icon name resolved by the UI; empty = text only
-        std::string           group;         // toolbar section (e.g. "file"/"history"/"play"); empty = no toolbar
-        std::string           menu;          // top-level menu label (e.g. "File"); empty = not in a menu
-        std::string           submenu;       // optional second-level menu within `menu`
-        int                   order     = 0; // order within the toolbar group / menu
-        int                   menuOrder = 0; // top-level menu order
-        std::function<bool()> enabled;       // null => always enabled
+        std::string           icon;                      // icon name resolved by the UI; empty = text only
+        EditorGroup           group = EditorGroup::None; // toolbar section; None = not on the toolbar
+        EditorMenu            menu  = EditorMenu::None;  // top-level menu; None = not in a menu
+        std::string           submenu;                   // optional second-level menu within `menu`
+        int                   order = 0;                 // order within the toolbar group / menu
+        std::function<bool()> enabled;                   // null => always enabled
         std::function<void()> invoke;
         // Chrome scope: empty/"global" = the main-window chrome. A dialog/viewer pushes its scope
         // (EditorScopeStack) so its actions drive the chrome while it is active; actions only

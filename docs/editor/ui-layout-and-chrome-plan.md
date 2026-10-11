@@ -113,7 +113,9 @@ until the new path is verified, then delete the old code in the same commit.
 - **P2** done: `IconRegistry` + `UiSkin::DrawIcon` + `ToolItemButton` (icon-only).
 - **P3** done (方案 1): asset viewer embeds `MenuBar` + `StackPanel`/`ToolItemButton`; File(Open/Save/Close) + Edit(Undo/Redo), accelerators (Ctrl+S/O/Z/Y, Esc).
 - **P4** mostly done: `MenuBar::Item` now supports `shortcut`, `icon`, `separator`; accelerators wired. Remaining: `ActionBarBuilder`, enums for groups/order.
-- **P5** mostly done: containers `StackPanel`/`DockPanel`/`GridPanel`/`Overlay`; **asset-viewer top chrome migrated to `DockPanel`** (menu/toolbar/body, no hand offsets). Remaining: migrate the material-editor row layout off `ComputeRowRects`.
+- **P5** done: containers `StackPanel`/`DockPanel`/`GridPanel`/`Overlay`; **asset-viewer top chrome
+  migrated to `DockPanel`** (menu/toolbar/body, no hand offsets); **material-editor row list uses a
+  vertical `StackPanel`** (row geometry owned by the container, not `ComputeRowRects`).
 - **P6** done: `EditorExtensionRegistry` (cross-DLL `Singleton`) lets plugin editor modules stage
   `EditorExtension`s in `Init`; `SandboxModule` drains it into the host before `RegisterAll`.
   Aurora (`AuroraEditorExtension`) + Content (`ContentEditorExtension`) are live consumers
@@ -183,6 +185,7 @@ resolves the handler.
    delete the ctor's local `MenuBar` and the `AssetViewerWidget::OnKeyEvent` key switch (consumed
    via the active scope's accelerators).
 4. Also route plugin `EditorExtension::Register()` actions through the same registry (ties into P6).
+   Done: the host clears the registry *before* extensions register, so their actions survive.
 
 **Risks:** scope lifetime with nested dialogs; id collisions; `when` predicates. Start with plain
 scope filtering (no `when`) and add predicates only where needed.
@@ -191,21 +194,27 @@ scope filtering (no `when`) and add predicates only where needed.
 
 **Done:** P0–P6 (layout containers + asset-viewer chrome + icons + accelerators; plugin
 `EditorExtension`s staged via `EditorExtensionRegistry` + icon roots scanned from
-`GetIconDirectories()`), P4 menu `shortcut`/`icon`/`separator`, **P7** (scoped/dialog actions:
-`EditorAction.scope`/`accelerator`, `EditorScopeStack`, `ActionBarBuilder`; asset viewer migrated,
-local `MenuBar` + key switch deleted).
+`GetIconDirectories()`), P4 menu `shortcut`/`icon`/`separator`/`checkable`, **P7** (scoped/dialog
+actions: `EditorAction.scope`/`accelerator`, `EditorScopeStack`, `ActionBarBuilder`; asset viewer
+migrated, local `MenuBar` + key switch deleted; plugin `EditorExtension::Register()` actions are
+routed through the registry — the registry is cleared before extensions register), **P5**
+(material-editor rows now use a `StackPanel`), and shared `EditorMenu`/`EditorGroup` enums (no
+magic menu strings / `menuOrder` ints).
 
 **Next, in rough priority:**
 
-1. **P5 remainder**: migrate the material-editor row layout off `ComputeRowRects` onto containers.
-2. Menu `checkable`; shared enums for action group/order (drop magic strings/ints).
-3. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
+1. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
    `{value,default}`); also add/delete for material-instance overrides.
-4. Remove `assets/techniques/*.tech` + their `configs/render_preload_assets.json` entries once the
-   render side no longer needs them (paired with the shader migration; see
-   `docs/aurora/shader-design-and-migration.md`).
-5. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
+2. Preferences dialog: migrate hand-computed rects onto layout containers.
+3. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
    is the deferred MVP item; archive when ready.
+
+**Blocked / gated:**
+
+- Remove `assets/techniques/*.tech` + their `configs/render_preload_assets.json` entries: still
+  referenced by the legacy `engine/render` stack (`MaterialBuilder`/`TechniqueBuilder`/
+  `DefaultForwardPipeline`/`BuilderModule`) — do it only once the render side no longer needs them
+  (paired with the shader migration; see `docs/aurora/shader-design-and-migration.md`).
 
 **Known build-infra issue (not this work):** `Aurora.ShaderCompiler.Static`'s `ShaderHeaderTool`
 custom command needs its CWD/PATH to find the slang runtime DLLs, else it exits non-zero and fails

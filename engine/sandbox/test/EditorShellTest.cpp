@@ -659,8 +659,8 @@ TEST(EditorShellTest, ScopedChromeFiltersByActiveScope)
     reg->Clear();
     EditorScopeStack::Get()->Clear();
 
-    reg->Add({.id = "global.save", .label = "Save", .group = "file", .invoke = []() {}});
-    reg->Add({.id = "assetViewer.save", .label = "Save", .group = "file", .invoke = []() {}, .scope = "assetViewer", .accelerator = "Ctrl+S"});
+    reg->Add({.id = "global.save", .label = "Save", .group = EditorGroup::File, .invoke = []() {}});
+    reg->Add({.id = "assetViewer.save", .label = "Save", .group = EditorGroup::File, .invoke = []() {}, .scope = "assetViewer", .accelerator = "Ctrl+S"});
 
     const auto invoke = [](const std::string &) {};
 

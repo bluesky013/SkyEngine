@@ -21,6 +21,7 @@
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextLayout.h>
 #include <ui/text/UITextSystem.h>
+#include <ui/widgets/StackPanel.h>
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -138,6 +139,9 @@ namespace sky::aurora::editor {
         : text(textSystem), asset(uuid), title(std::move(titleText)), propertyRows(std::move(propRows)), allowTechniques(enableTechniques)
     {
         SetFocusable(true);
+        rowsPanel = static_cast<sky::ui::StackPanel *>(AddChild(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Vertical)));
+        rowsPanel->SetGap(0.0f);
+        rowsPanel->SetPadding(0.0f);
         ReloadTechniques();
     }
 
@@ -263,6 +267,7 @@ namespace sky::aurora::editor {
             rows.push_back(std::move(add));
         }
 
+        RebuildRowSlots();
         MarkPaintDirty();
     }
 
@@ -332,16 +337,41 @@ namespace sky::aurora::editor {
         outHeight = kPad + kTitleH + static_cast<float>(rows.size()) * kRowH + kPad;
     }
 
-    std::vector<sky::ui::UIRect> MaterialEditorView::ComputeRowRects() const
+    void MaterialEditorView::RebuildRowSlots()
     {
-        std::vector<sky::ui::UIRect> rects;
-        const sky::ui::UIRect        bounds = GetBounds();
-        float                        y      = bounds.top + kPad + kTitleH;
-        for (size_t i = 0; i < rows.size(); ++i) {
-            rects.push_back(sky::ui::UIRect{bounds.left, y, bounds.right, y + kRowH});
-            y += kRowH;
+        if (rowsPanel == nullptr) {
+            return;
         }
-        return rects;
+        // Each row is a fixed-height child of the vertical stack; the panel owns the geometry
+        // (the view paints the rows from the arranged child bounds in OnPaint).
+        rowsPanel->ClearChildren();
+        for (size_t i = 0; i < rows.size(); ++i) {
+            sky::ui::StackSlot slot;
+            slot.width  = sky::ui::StackSize::Fill;
+            slot.height = sky::ui::StackSize::Fixed;
+            slot.fixedH = kRowH;
+            rowsPanel->Add(std::make_unique<sky::ui::UIElement>(), slot);
+        }
+        MarkPaintDirty();
+    }
+
+    void MaterialEditorView::LayoutRows()
+    {
+        if (rowsPanel == nullptr) {
+            return;
+        }
+        const sky::ui::UIRect bounds = GetBounds();
+        const float           top    = bounds.top + kPad + kTitleH;
+        rowsPanel->SetBounds(sky::ui::UIRect{bounds.left, top, bounds.right, top + static_cast<float>(rows.size()) * kRowH});
+        rowsPanel->Layout();
+    }
+
+    sky::ui::UIRect MaterialEditorView::RowRect(size_t index) const
+    {
+        if (rowsPanel == nullptr || index >= rowsPanel->GetChildren().size()) {
+            return sky::ui::UIRect{};
+        }
+        return rowsPanel->GetChildren()[index]->GetBounds();
     }
 
     void MaterialEditorView::OnPaint(sky::ui::UIPaintContext &context)
@@ -352,10 +382,10 @@ namespace sky::aurora::editor {
                  uc::color::TextMuted, text);
         uc::HLine(context, bounds.left + kPad, bounds.right - kPad, bounds.top + kPad + kTitleH, uc::color::BorderSoft);
 
-        const auto rowRects = ComputeRowRects();
+        LayoutRows();
         for (size_t i = 0; i < rows.size(); ++i) {
             const MaterialEditorRow &prop = rows[i];
-            const sky::ui::UIRect    row  = rowRects[i];
+            const sky::ui::UIRect    row  = RowRect(i);
             if (row.bottom < bounds.top || row.top > bounds.bottom) {
                 continue;
             }
@@ -681,10 +711,10 @@ namespace sky::aurora::editor {
         }
 
         if (event.action == sky::ui::UIPointerAction::MOVE) {
-            int        hovered = -1;
-            const auto rr      = ComputeRowRects();
-            for (size_t i = 0; i < rr.size() && i < rows.size(); ++i) {
-                if (rr[i].Contains(event.x, event.y)) {
+            int hovered = -1;
+            LayoutRows();
+            for (size_t i = 0; i < rows.size(); ++i) {
+                if (RowRect(i).Contains(event.x, event.y)) {
                     hovered = static_cast<int>(i);
                     break;
                 }
@@ -703,14 +733,14 @@ namespace sky::aurora::editor {
             CommitValue(editingRow);
             editingRow = -1;
         }
-        const auto rowRects = ComputeRowRects();
-        for (size_t i = 0; i < rowRects.size() && i < rows.size(); ++i) {
-            if (!rowRects[i].Contains(event.x, event.y)) {
+        LayoutRows();
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const sky::ui::UIRect row = RowRect(i);
+            if (!row.Contains(event.x, event.y)) {
                 continue;
             }
             if (rows[i].kind == MaterialRowKind::TechniqueHeader) {
-                const sky::ui::UIRect del{rowRects[i].right - kPad - kBrowseW, rowRects[i].top + 1.0f, rowRects[i].right - kPad,
-                                          rowRects[i].bottom - 1.0f};
+                const sky::ui::UIRect del{row.right - kPad - kBrowseW, row.top + 1.0f, row.right - kPad, row.bottom - 1.0f};
                 if (del.Contains(event.x, event.y)) {
                     DeleteTechnique(rows[i].techniqueIndex);
                 }
@@ -721,9 +751,9 @@ namespace sky::aurora::editor {
                 return sky::ui::UIEventResult::HANDLED;
             }
             if (IsTextureProperty(rows[i].type)) {
-                const sky::ui::UIRect browse{rowRects[i].right - kPad - kBrowseW, rowRects[i].top, rowRects[i].right - kPad, rowRects[i].bottom};
+                const sky::ui::UIRect browse{row.right - kPad - kBrowseW, row.top, row.right - kPad, row.bottom};
                 if (browse.Contains(event.x, event.y)) {
-                    OpenPicker(static_cast<int>(i), rowRects[i]);
+                    OpenPicker(static_cast<int>(i), row);
                 }
             } else if (rows[i].type != MaterialPropertyType::MAT4) {
                 editingRow = static_cast<int>(i);

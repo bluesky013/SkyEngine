@@ -89,8 +89,9 @@ scope (`EditorScopeStack`) while it is open; the chrome then resolves to that sc
    `EditorExtensionRegistry`; the host drains them (`EditorExtensionHost`) and reads their icon
    roots (`GetIconDirectories()`). Aurora/Content are live consumers.
 
-Layout containers (`ui::StackPanel/DockPanel/GridPanel/Overlay`) now exist; migrate remaining
-hand-computed rects (material-editor rows, preferences) onto them.
+Layout containers (`ui::StackPanel/DockPanel/GridPanel/Overlay`) exist; the asset-viewer top
+chrome and the material-editor row list now lay out through them. Remaining: the preferences
+dialog still uses hand-computed rects.
 
 ## 6. Quick checklist for a new editor view/dialog
 

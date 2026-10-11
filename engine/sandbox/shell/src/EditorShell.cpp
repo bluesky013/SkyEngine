@@ -905,15 +905,19 @@ namespace sky::editor {
             fileMenu->items.insert(fileMenu->items.begin(), {"Preferences...", [this]() { OpenPreferences(); }});
         }
 
-        // Dynamic View > Windows panel toggles (panels are not registry actions).
+        // Dynamic View > Windows panel toggles (panels are not registry actions); checkable rows.
         MenuBar::Item windowsItem;
         windowsItem.label = "Windows";
         if (layoutModel != nullptr && panelRegistry != nullptr) {
             for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
                 const std::string panelId = entry.panelId;
                 const bool        shown   = entry.shown;
-                windowsItem.children.push_back(
-                    {(shown ? "Hide " : "Show ") + entry.title, [this, panelId, shown]() { SetPanelVisible(panelId, !shown); }});
+                MenuBar::Item     toggle;
+                toggle.label     = entry.title;
+                toggle.checkable = true;
+                toggle.checked   = shown;
+                toggle.action    = [this, panelId, shown]() { SetPanelVisible(panelId, !shown); };
+                windowsItem.children.push_back(std::move(toggle));
             }
         }
         auto viewMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "View"; });
@@ -1184,12 +1188,11 @@ namespace sky::editor {
         auto             *actions = EditorActionRegistry::Get();
         const std::string scope   = "assetViewer";
 
-        actions->Add({.id        = "assetViewer.open",
-                      .label     = "Open",
-                      .icon      = "open",
-                      .menu      = "File",
-                      .order     = 0,
-                      .menuOrder = 0,
+        actions->Add({.id    = "assetViewer.open",
+                      .label = "Open",
+                      .icon  = "open",
+                      .menu  = EditorMenu::File,
+                      .order = 0,
                       .invoke =
                           [this]() {
                               if (assetViewerElement != nullptr) {
@@ -1198,13 +1201,12 @@ namespace sky::editor {
                           },
                       .scope       = scope,
                       .accelerator = "Ctrl+O"});
-        actions->Add({.id        = "assetViewer.save",
-                      .label     = "Save",
-                      .icon      = "save",
-                      .group     = "file",
-                      .menu      = "File",
-                      .order     = 1,
-                      .menuOrder = 0,
+        actions->Add({.id    = "assetViewer.save",
+                      .label = "Save",
+                      .icon  = "save",
+                      .group = EditorGroup::File,
+                      .menu  = EditorMenu::File,
+                      .order = 1,
                       .invoke =
                           [this]() {
                               if (assetViewerElement != nullptr) {
@@ -1213,11 +1215,10 @@ namespace sky::editor {
                           },
                       .scope       = scope,
                       .accelerator = "Ctrl+S"});
-        actions->Add({.id        = "assetViewer.close",
-                      .label     = "Close",
-                      .menu      = "File",
-                      .order     = 2,
-                      .menuOrder = 0,
+        actions->Add({.id    = "assetViewer.close",
+                      .label = "Close",
+                      .menu  = EditorMenu::File,
+                      .order = 2,
                       .invoke =
                           [this]() {
                               if (assetViewerElement != nullptr) {
@@ -1229,10 +1230,9 @@ namespace sky::editor {
         actions->Add({.id          = "assetViewer.undo",
                       .label       = "Undo",
                       .icon        = "undo",
-                      .group       = "history",
-                      .menu        = "Edit",
+                      .group       = EditorGroup::History,
+                      .menu        = EditorMenu::Edit,
                       .order       = 0,
-                      .menuOrder   = 1,
                       .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
                       .invoke      = []() { EditorCore::GetCommandService().Undo(); },
                       .scope       = scope,
@@ -1240,10 +1240,9 @@ namespace sky::editor {
         actions->Add({.id          = "assetViewer.redo",
                       .label       = "Redo",
                       .icon        = "redo",
-                      .group       = "history",
-                      .menu        = "Edit",
+                      .group       = EditorGroup::History,
+                      .menu        = EditorMenu::Edit,
                       .order       = 1,
-                      .menuOrder   = 1,
                       .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
                       .invoke      = []() { EditorCore::GetCommandService().Redo(); },
                       .scope       = scope,

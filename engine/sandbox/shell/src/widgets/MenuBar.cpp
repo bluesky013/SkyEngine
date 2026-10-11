@@ -45,9 +45,14 @@ namespace sky::editor {
 
     static float ItemsWidth(const std::vector<MenuBar::Item> &items, const UiTheme &th, sky::ui::UITextSystem *text)
     {
-        float w = th.metrics.controlButtonWidth;
+        float w         = th.metrics.controlButtonWidth;
+        bool  checkable = false;
         for (const auto &item : items) {
-            w = std::max(w, 3.0f * th.metrics.controlPad + uc::TextWidth(item.label, th.fonts.label, text));
+            w         = std::max(w, 3.0f * th.metrics.controlPad + uc::TextWidth(item.label, th.fonts.label, text));
+            checkable = checkable || item.checkable;
+        }
+        if (checkable) {
+            w += th.metrics.iconSize + th.metrics.panelGap;
         }
         return w;
     }
@@ -77,6 +82,12 @@ namespace sky::editor {
             }
             const float cy       = (row.top + row.bottom) * 0.5f;
             float       textLeft = row.left + m.controlPad;
+            if (item.checkable) {
+                const float           cb = m.iconSize;
+                const sky::ui::UIRect box{textLeft, cy - cb * 0.5f, textLeft + cb, cy + cb * 0.5f};
+                skin.DrawCheckbox(context, box, item.checked, hoveredRow);
+                textLeft += cb + m.panelGap;
+            }
             if (!item.icon.empty()) {
                 const uint32_t iconId = IconRegistry::Get()->Find(item.icon);
                 if (iconId != 0) {

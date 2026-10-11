@@ -31,6 +31,8 @@ namespace sky::editor {
             std::string           shortcut;          // optional accelerator hint, right-aligned
             std::string           icon;              // optional icon name (IconRegistry)
             bool                  separator = false; // draws a divider instead of a row
+            bool                  checkable = false; // reserves a check column; draws a checkbox
+            bool                  checked   = false; // checked state (only when checkable)
         };
         struct Menu {
             std::string       label;

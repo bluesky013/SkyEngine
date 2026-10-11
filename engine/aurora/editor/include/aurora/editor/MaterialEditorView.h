@@ -20,6 +20,7 @@
 namespace sky::ui {
     class UIPaintContext;
     class UITextSystem;
+    class StackPanel;
 } // namespace sky::ui
 
 namespace sky::aurora::editor {
@@ -83,20 +84,23 @@ namespace sky::aurora::editor {
             std::string name;
         };
 
-        std::vector<sky::ui::UIRect> ComputeRowRects() const;
-        void                         CommitValue(int index);
-        void                         CommitTexture(int index, const Uuid &id);
-        bool                         PersistProperty(int index);
-        void                         OpenPicker(int index, const sky::ui::UIRect &row);
-        void                         ReloadTechniques();
-        void                         AddTechnique();
-        void                         DeleteTechnique(int techniqueIndex);
+        void            RebuildRowSlots();
+        void            LayoutRows();
+        sky::ui::UIRect RowRect(size_t index) const;
+        void            CommitValue(int index);
+        void            CommitTexture(int index, const Uuid &id);
+        bool            PersistProperty(int index);
+        void            OpenPicker(int index, const sky::ui::UIRect &row);
+        void            ReloadTechniques();
+        void            AddTechnique();
+        void            DeleteTechnique(int techniqueIndex);
 
         sky::ui::UITextSystem         *text = nullptr;
         Uuid                           asset;
         std::string                    title;
-        std::vector<MaterialEditorRow> propertyRows; // cached property rows
-        std::vector<MaterialEditorRow> rows;         // techniques (grouped) + properties
+        std::vector<MaterialEditorRow> propertyRows;              // cached property rows
+        std::vector<MaterialEditorRow> rows;                      // techniques (grouped) + properties
+        sky::ui::StackPanel           *rowsPanel       = nullptr; // owns the vertical row layout
         bool                           allowTechniques = false;
         bool                           dirty           = false;
 

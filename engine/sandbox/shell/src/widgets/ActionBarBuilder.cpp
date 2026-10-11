@@ -139,7 +139,7 @@ namespace sky::editor {
     std::vector<ToolBar::Item> ActionBarBuilder::BuildToolBarItems(const Invoker &invoke)
     {
         std::vector<ToolBar::Item> items;
-        std::string                lastGroup;
+        EditorGroup                lastGroup = EditorGroup::None;
         for (const EditorAction &action : EditorActionRegistry::Get()->GetToolbarActions()) {
             ToolBar::Item item;
             item.id    = action.id;
@@ -152,7 +152,7 @@ namespace sky::editor {
             const std::string id = action.id;
             item.action          = [invoke, id]() { invoke(id); };
             item.enabled         = action.enabled ? action.enabled() : true;
-            item.separatorBefore = !lastGroup.empty() && action.group != lastGroup;
+            item.separatorBefore = lastGroup != EditorGroup::None && action.group != lastGroup;
             lastGroup            = action.group;
             items.push_back(std::move(item));
         }
@@ -163,16 +163,19 @@ namespace sky::editor {
     {
         std::vector<MenuBar::Menu> menus;
         MenuBar::Menu              current;
-        auto                       flush = [&menus, &current]() {
+        EditorMenu                 currentMenu = EditorMenu::None;
+        auto                       flush       = [&menus, &current]() {
             if (!current.label.empty()) {
                 menus.push_back(std::move(current));
                 current = MenuBar::Menu{};
             }
         };
         for (const EditorAction &action : EditorActionRegistry::Get()->GetMenuActions()) {
-            if (action.menu != current.label) {
+            if (action.menu != currentMenu) {
                 flush();
-                current.label = action.menu;
+                currentMenu   = action.menu;
+                const char *l = EditorMenuLabel(action.menu);
+                current.label = l != nullptr ? l : std::string{};
             }
             const std::string id = action.id;
             MenuBar::Item     item;

@@ -619,6 +619,9 @@ namespace sky::editor {
 
         // EditorCore services + default panels (registered through the extension host) + default
         // layout. Plugin editor modules staged their extensions during Init; drain them first.
+        // Clear the action registry BEFORE extensions register so actions they add from
+        // EditorExtension::Register() are not wiped by the host's built-in action setup below.
+        EditorActionRegistry::Get()->Clear();
         for (auto &extension : EditorExtensionRegistry::Get()->TakeAll()) {
             extensionHost.Add(std::move(extension));
         }
@@ -762,65 +765,60 @@ namespace sky::editor {
 
         // Editor actions: the toolbar, menus, and keyboard shortcuts all drive
         // these by id (see docs/editor/editor-toolbar.md). Plugins contribute
-        // through EditorActionRegistry in their EditorExtension::Register().
+        // through EditorActionRegistry in their EditorExtension::Register()
+        // (the registry was cleared before extensions registered, above).
         EditorActionRegistry *actions = EditorActionRegistry::Get();
-        actions->Clear();
-        actions->Add({.id = "file.new", .label = "New World...", .menu = "File", .order = 0, .menuOrder = 0, .invoke = [this]() { NewWorld(); }});
+        actions->Add({.id = "file.new", .label = "New World...", .menu = EditorMenu::File, .order = 0, .invoke = [this]() { NewWorld(); }});
         actions->Add({.id        = "file.open",
                       .label     = "Open World...",
                       .icon      = "open",
-                      .group     = "file",
-                      .menu      = "File",
+                      .group     = EditorGroup::File,
+                      .menu      = EditorMenu::File,
                       .order     = 1,
-                      .menuOrder = 0,
                       .invoke    = [this]() { OpenWorld(); }});
         actions->Add({.id          = "file.save",
                       .label       = "Save World",
                       .icon        = "save",
-                      .group       = "file",
-                      .menu        = "File",
+                      .group       = EditorGroup::File,
+                      .menu        = EditorMenu::File,
                       .order       = 2,
-                      .menuOrder   = 0,
                       .invoke      = [this]() { SaveWorld(); },
                       .accelerator = "Ctrl+S"});
         actions->Add({.id          = "file.close",
                       .label       = "Close World",
-                      .menu        = "File",
+                      .menu        = EditorMenu::File,
                       .order       = 3,
-                      .menuOrder   = 0,
                       .invoke      = [this]() { CloseWorld(); },
                       .accelerator = "Ctrl+W"});
-        actions->Add({.id = "file.quit", .label = "Quit", .menu = "File", .order = 9, .menuOrder = 0, .invoke = [this]() { Quit(); }});
+        actions->Add({.id = "file.quit", .label = "Quit", .menu = EditorMenu::File, .order = 9, .invoke = [this]() { Quit(); }});
         actions->Add({.id          = "edit.undo",
                       .label       = "Undo",
                       .icon        = "undo",
-                      .group       = "history",
-                      .menu        = "Edit",
+                      .group       = EditorGroup::History,
+                      .menu        = EditorMenu::Edit,
                       .order       = 0,
-                      .menuOrder   = 1,
                       .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
                       .invoke      = []() { EditorCore::GetCommandService().Undo(); },
                       .accelerator = "Ctrl+Z"});
         actions->Add({.id          = "edit.redo",
                       .label       = "Redo",
                       .icon        = "redo",
-                      .group       = "history",
-                      .menu        = "Edit",
+                      .group       = EditorGroup::History,
+                      .menu        = EditorMenu::Edit,
                       .order       = 1,
-                      .menuOrder   = 1,
                       .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
                       .invoke      = []() { EditorCore::GetCommandService().Redo(); },
                       .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
         actions->Add(
-            {.id = "view.reset", .label = "Reset Layout", .menu = "View", .order = 5, .menuOrder = 2, .invoke = [this]() { shell.ResetLayout(); }});
-        actions->Add({.id = "view.assets", .label = "Assets", .menu = "View", .order = 4, .menuOrder = 2, .invoke = [this]() {
+            {.id = "view.reset", .label = "Reset Layout", .menu = EditorMenu::View, .order = 5, .invoke = [this]() { shell.ResetLayout(); }});
+        actions->Add({.id = "view.assets", .label = "Assets", .menu = EditorMenu::View, .order = 4, .invoke = [this]() {
                           shell.SetPanelVisible("assets", true);
                       }});
-        actions->Add({.id = "help.demo", .label = "Demo", .menu = "Help", .order = 0, .menuOrder = 3, .invoke = [this]() {
+        actions->Add({.id = "help.demo", .label = "Demo", .menu = EditorMenu::Help, .order = 0, .invoke = [this]() {
                           shell.SetPanelVisible("refldemo", true);
                       }});
         actions->Add(
-            {.id = "help.about", .label = "About", .menu = "Help", .order = 1, .menuOrder = 3, .invoke = []() { LOG_I(TAG, "SkyEngine Editor"); }});
+            {.id = "help.about", .label = "About", .menu = EditorMenu::Help, .order = 1, .invoke = []() { LOG_I(TAG, "SkyEngine Editor"); }});
 
         // Asset browser actions. Enablement is driven by the current asset selection + mount
         // writability, so the toolbar, menus, shortcuts, and the panel context menu agree.
@@ -859,16 +857,15 @@ namespace sky::editor {
                 return {};
             };
 
-            actions->Add({.id = "asset.refresh", .label = "Refresh", .menu = "Assets", .order = 0, .menuOrder = 4, .invoke = [assetCatalog]() {
+            actions->Add({.id = "asset.refresh", .label = "Refresh", .menu = EditorMenu::Assets, .order = 0, .invoke = [assetCatalog]() {
                               if (assetCatalog != nullptr) {
                                   assetCatalog->Refresh();
                               }
                           }});
             actions->Add({.id        = "asset.open",
                           .label     = "Open",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 11,
-                          .menuOrder = 4,
                           .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [this, selectedAsset]() {
@@ -886,9 +883,8 @@ namespace sky::editor {
                               }});
             actions->Add({.id        = "asset.cook",
                           .label     = "Cook",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 1,
-                          .menuOrder = 4,
                           .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [assetCatalog, selectedAsset]() {
@@ -896,21 +892,19 @@ namespace sky::editor {
                                       AssetCookService::Get()->TriggerCook(selectedAsset());
                                   }
                               }});
-            actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = "Assets", .order = 2, .menuOrder = 4, .invoke = []() {
+            actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = EditorMenu::Assets, .order = 2, .invoke = []() {
                               AssetCookService::Get()->TriggerCookAll();
                           }});
             actions->Add({.id        = "asset.copyReference",
                           .label     = "Copy Reference",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 2,
-                          .menuOrder = 4,
                           .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke    = [selectedAsset]() { LOG_I(TAG, "asset reference: %s", selectedAsset().ToString().c_str()); }});
             actions->Add({.id        = "asset.showInExplorer",
                           .label     = "Show in Explorer",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 3,
-                          .menuOrder = 4,
                           .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [selectedAsset]() {
@@ -921,15 +915,14 @@ namespace sky::editor {
                               }});
             actions->Add({.id        = "asset.findReferences",
                           .label     = "Find References",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 4,
-                          .menuOrder = 4,
                           .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke    = []() { LOG_I(TAG, "Find References (not implemented)"); }});
-            actions->Add({.id = "asset.new", .label = "New Asset", .menu = "Assets", .order = 5, .menuOrder = 4, .invoke = []() {
+            actions->Add({.id = "asset.new", .label = "New Asset", .menu = EditorMenu::Assets, .order = 5, .invoke = []() {
                               LOG_I(TAG, "New Asset (not implemented)");
                           }});
-            actions->Add({.id = "asset.import", .label = "Import...", .menu = "Assets", .order = 6, .menuOrder = 4, .invoke = [this, assetCatalog]() {
+            actions->Add({.id = "asset.import", .label = "Import...", .menu = EditorMenu::Assets, .order = 6, .invoke = [this, assetCatalog]() {
                               FileBrowserRequest request;
                               request.mode      = FileBrowserMode::OPEN_FILE;
                               request.title     = "Import Asset";
@@ -945,20 +938,18 @@ namespace sky::editor {
                           }});
             actions->Add({.id        = "asset.rename",
                           .label     = "Rename",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 7,
-                          .menuOrder = 4,
                           .enabled   = selectedWritable,
                           .invoke    = [this]() { shell.BeginAssetRename(); }});
             actions->Add(
-                {.id = "asset.move", .label = "Move", .menu = "Assets", .order = 8, .menuOrder = 4, .enabled = selectedWritable, .invoke = [this]() {
+                {.id = "asset.move", .label = "Move", .menu = EditorMenu::Assets, .order = 8, .enabled = selectedWritable, .invoke = [this]() {
                      shell.BeginAssetRename(); // the inline editor accepts a full path
                  }});
             actions->Add({.id        = "asset.duplicate",
                           .label     = "Duplicate",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 9,
-                          .menuOrder = 4,
                           .enabled   = selectedWritable,
                           .invoke    = [assetCatalog, selectedItem]() {
                               const EditorAssetItem item = selectedItem();
@@ -974,9 +965,8 @@ namespace sky::editor {
                           }});
             actions->Add({.id        = "asset.delete",
                           .label     = "Delete",
-                          .menu      = "Assets",
+                          .menu      = EditorMenu::Assets,
                           .order     = 10,
-                          .menuOrder = 4,
                           .enabled   = selectedWritable,
                           .invoke    = [selectedAsset]() {
                               std::string absolute;
@@ -988,7 +978,7 @@ namespace sky::editor {
         actions->Add({.id      = "play.play",
                       .label   = "Play",
                       .icon    = "play",
-                      .group   = "play",
+                      .group   = EditorGroup::Play,
                       .order   = 0,
                       .enabled = [this]() { return playSession.GetState() != PlayState::Playing; },
                       .invoke =
@@ -1001,7 +991,7 @@ namespace sky::editor {
         actions->Add({.id      = "play.pause",
                       .label   = "Pause",
                       .icon    = "pause",
-                      .group   = "play",
+                      .group   = EditorGroup::Play,
                       .order   = 1,
                       .enabled = [this]() { return playSession.GetState() == PlayState::Playing; },
                       .invoke =
@@ -1012,7 +1002,7 @@ namespace sky::editor {
         actions->Add({.id      = "play.stop",
                       .label   = "Stop",
                       .icon    = "stop",
-                      .group   = "play",
+                      .group   = EditorGroup::Play,
                       .order   = 2,
                       .enabled = [this]() { return playSession.GetState() != PlayState::Editing; },
                       .invoke  = [this]() { StopPlay(); }});
