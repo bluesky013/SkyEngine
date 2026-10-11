@@ -7,8 +7,8 @@
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorExtensionHost.h>
 #include <editor/core/play/PlaySession.h>
-#include <editor/core/preferences/PreferenceRegistry.h>
-#include <editor/core/preferences/PreferenceStore.h>
+#include <editor/core/preferences/EditorSettings.h>
+#include <editor/core/preferences/PreferencePageRegistry.h>
 #include <editor/render/EditorRenderer.h>
 #include <editor/sandbox/UiTarget.h>
 #include <editor/shell/EditorShell.h>
@@ -103,13 +103,16 @@ namespace sky::editor {
         CommandController   commandController;
         EditorExtensionHost extensionHost;
 
-        PreferenceRegistry               preferenceRegistry;
-        std::unique_ptr<PreferenceStore> preferenceStore;
-        std::unique_ptr<WorldDocument>   worldDocument;
-        PlaySession                      playSession;
-        WorldDocument                   *lastDocPtr     = nullptr; // detects document switches
-        bool                             lastDocDirty   = false;
-        bool                             docInfoApplied = false; // forces the first title/status push
+        // Reflected editor settings (one struct per Preferences page); registered with reflection
+        // and exposed to the dialog through PreferencePageRegistry.
+        GeneralSettings                generalSettings;
+        EditorViewSettings             editorSettings;
+        RenderingSettings              renderingSettings;
+        std::unique_ptr<WorldDocument> worldDocument;
+        PlaySession                    playSession;
+        WorldDocument                 *lastDocPtr     = nullptr; // detects document switches
+        bool                           lastDocDirty   = false;
+        bool                           docInfoApplied = false; // forces the first title/status push
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;

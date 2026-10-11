@@ -61,7 +61,6 @@ namespace sky::editor {
         // Chrome command targets (driven by the scoped actions registered by the host).
         void OpenAsset();
         void SaveAsset();
-        void CloseWithSave();
 
         void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;

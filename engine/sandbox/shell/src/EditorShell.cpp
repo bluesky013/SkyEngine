@@ -990,7 +990,7 @@ namespace sky::editor {
 
         auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
         preferencesElement = preferences.get();
-        preferences->SetModel(preferenceRegistry, preferenceStore);
+        preferences->SetModel(preferenceRegistry);
         preferences->SetOnApplied([this]() {
             auto callback = preferencesApplied;
             if (callback) {
@@ -1000,7 +1000,7 @@ namespace sky::editor {
         preferences->SetOnClosed([this]() { preferencesOpen = false; });
         context->AddChild(std::move(preferences));
         if (preferencesOpen) {
-            preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+            preferencesElement->SetModel(preferenceRegistry);
             preferencesElement->Open();
         }
 
@@ -1116,13 +1116,12 @@ namespace sky::editor {
         worldDocument = document;
     }
 
-    void EditorShell::SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied)
+    void EditorShell::SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied)
     {
         preferenceRegistry = registry;
-        preferenceStore    = store;
         preferencesApplied = std::move(onApplied);
         if (preferencesElement != nullptr) {
-            preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+            preferencesElement->SetModel(preferenceRegistry);
         }
     }
 
@@ -1132,7 +1131,7 @@ namespace sky::editor {
             return;
         }
         preferencesOpen = true;
-        preferencesElement->SetModel(preferenceRegistry, preferenceStore);
+        preferencesElement->SetModel(preferenceRegistry);
         preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
         preferencesElement->Open();
     }
@@ -1221,8 +1220,11 @@ namespace sky::editor {
                       .order = 2,
                       .invoke =
                           [this]() {
+                              // Close must NOT save+cook: cooking is heavy work and running it inside
+                              // the pointer/key dispatch blocks the UI (see coding rule 9). Saving is
+                              // explicit (Save button / Ctrl+S).
                               if (assetViewerElement != nullptr) {
-                                  assetViewerElement->CloseWithSave();
+                                  assetViewerElement->Close();
                               }
                           },
                       .scope       = scope,

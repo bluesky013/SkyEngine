@@ -4,14 +4,19 @@
 
 #include <editor/shell/PreferencesDialog.h>
 
-#include <editor/core/input/KeyModifiers.h>
+#include <editor/core/EditorCore.h>
+#include <editor/core/command/CommandService.h>
+#include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiTheme.h>
+
+#include <core/type/Rtti.h>
+#include <framework/serialization/SerializationFactory.h>
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>
 
-#include <algorithm>
-#include <cstdio>
+#include <cstring>
+#include <memory>
 
 namespace sky::editor {
 
@@ -23,60 +28,28 @@ namespace sky::editor {
             return GetDefaultUiTheme().metrics;
         }
 
-        float Clamp01(float value)
+        std::size_t TypeSize(const PreferencePage &page)
         {
-            return std::max(0.0f, std::min(1.0f, value));
-        }
-
-        std::string FormatNumber(double value)
-        {
-            char buffer[32];
-            std::snprintf(buffer, sizeof(buffer), "%.2f", value);
-            return buffer;
-        }
-
-        std::string FormatValue(const PreferenceValue &value)
-        {
-            switch (value.type) {
-            case PreferenceType::BOOL: return value.boolValue ? "On" : "Off";
-            case PreferenceType::INT: return std::to_string(value.intValue);
-            case PreferenceType::FLOAT: return FormatNumber(value.floatValue);
-            case PreferenceType::STRING: return value.stringValue;
-            case PreferenceType::COLOR: {
-                char buffer[16];
-                std::snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", static_cast<int>(Clamp01(value.colorValue.r) * 255.0f),
-                              static_cast<int>(Clamp01(value.colorValue.g) * 255.0f), static_cast<int>(Clamp01(value.colorValue.b) * 255.0f));
-                return buffer;
+            if (page.type == nullptr || page.type->info == nullptr || page.type->info->staticInfo == nullptr) {
+                return 0;
             }
-            }
-            return {};
-        }
-
-        bool IsSlider(const PreferenceEntry &entry)
-        {
-            return (entry.defaultValue.type == PreferenceType::FLOAT || entry.defaultValue.type == PreferenceType::INT) &&
-                   entry.maxValue > entry.minValue;
-        }
-
-        uint32_t PackColor(const PreferenceColor &color)
-        {
-            const uint32_t r = static_cast<uint32_t>(Clamp01(color.r) * 255.0f);
-            const uint32_t g = static_cast<uint32_t>(Clamp01(color.g) * 255.0f);
-            const uint32_t b = static_cast<uint32_t>(Clamp01(color.b) * 255.0f);
-            const uint32_t a = static_cast<uint32_t>(Clamp01(color.a) * 255.0f);
-            return (a << 24) | (b << 16) | (g << 8) | r;
+            return page.type->info->staticInfo->size;
         }
     } // namespace
 
     PreferencesDialog::PreferencesDialog(sky::ui::UITextSystem *text) : textSystem(text), skin(GetDefaultUiTheme(), text)
     {
         SetVisible(false);
+        form = static_cast<ReflectedFormView *>(AddChild(std::make_unique<ReflectedFormView>(text, "")));
+        form->SetHeaderVisible(false);
+        form->SetVisible(false);
     }
 
-    void PreferencesDialog::SetModel(PreferenceRegistry *inRegistry, PreferenceStore *inStore)
+    PreferencesDialog::~PreferencesDialog() = default;
+
+    void PreferencesDialog::SetModel(PreferencePageRegistry *inRegistry)
     {
         registry = inRegistry;
-        store    = inStore;
     }
 
     int PreferencesDialog::GetPageCount() const
@@ -84,19 +57,29 @@ namespace sky::editor {
         return registry != nullptr ? static_cast<int>(registry->GetPages().size()) : 0;
     }
 
+    bool PreferencesDialog::IsEditable() const
+    {
+        return registry != nullptr && pageIndex >= 0 && pageIndex < GetPageCount();
+    }
+
     void PreferencesDialog::Open()
     {
-        textKey.clear();
-        dragKey.clear();
         hoverCategory = -1;
         hoverButton   = -1;
+        pageIndex     = 0;
+        SnapshotLive();
         ModalDialog::Open();
+        if (form != nullptr) {
+            form->SetVisible(true);
+        }
+        BindPage(pageIndex);
     }
 
     void PreferencesDialog::Close()
     {
-        textKey.clear();
-        dragKey.clear();
+        if (form != nullptr) {
+            form->SetVisible(false);
+        }
         ModalDialog::Close();
     }
 
@@ -106,8 +89,71 @@ namespace sky::editor {
             return;
         }
         pageIndex = index;
-        textKey.clear();
+        BindPage(index);
         MarkPaintDirty();
+    }
+
+    void PreferencesDialog::BindPage(int index)
+    {
+        if (form == nullptr || registry == nullptr || index < 0 || index >= GetPageCount()) {
+            return;
+        }
+        const PreferencePage &page = registry->GetPages()[static_cast<std::size_t>(index)];
+        form->Bind(PropertyObject{page.object, page.type});
+        MarkPaintDirty();
+    }
+
+    void PreferencesDialog::SnapshotLive()
+    {
+        snapshot.clear();
+        if (registry == nullptr) {
+            return;
+        }
+        for (const PreferencePage &page : registry->GetPages()) {
+            const std::size_t    size = TypeSize(page);
+            std::vector<uint8_t> bytes(size, 0);
+            if (size != 0 && page.object != nullptr) {
+                std::memcpy(bytes.data(), page.object, size);
+            }
+            snapshot.push_back(std::move(bytes));
+        }
+    }
+
+    void PreferencesDialog::RestoreSnapshot()
+    {
+        if (registry == nullptr) {
+            return;
+        }
+        const auto &pages = registry->GetPages();
+        for (std::size_t i = 0; i < pages.size() && i < snapshot.size(); ++i) {
+            if (pages[i].object != nullptr && !snapshot[i].empty()) {
+                std::memcpy(pages[i].object, snapshot[i].data(), snapshot[i].size());
+            }
+        }
+        BindPage(pageIndex);
+    }
+
+    void PreferencesDialog::Commit()
+    {
+        if (onApplied) {
+            onApplied();
+        }
+        SnapshotLive(); // Cancel after Apply reverts to the applied state
+    }
+
+    void PreferencesDialog::ResetPage()
+    {
+        if (form == nullptr) {
+            return;
+        }
+        ReflectedForm  &reflected = form->Form();
+        CommandService &commands  = form->Commands();
+        for (FormSection &section : reflected.GetSections()) {
+            for (PropertyField &field : section.fields) {
+                reflected.ResetToDefault(field, commands);
+            }
+        }
+        form->Refresh();
     }
 
     sky::ui::UIRect PreferencesDialog::PanelRect() const
@@ -157,145 +203,11 @@ namespace sky::editor {
         return -1;
     }
 
-    void PreferencesDialog::BuildRows(std::vector<Row> &rows) const
+    sky::ui::UIRect PreferencesDialog::PageRect() const
     {
-        rows.clear();
-        if (registry == nullptr || pageIndex < 0 || pageIndex >= GetPageCount()) {
-            return;
-        }
         const sky::ui::UIRect content = ContentRect();
-        const sky::ui::UIRect page{content.left + M().categoryWidth, content.top + M().itemSpacing, content.right - M().dialogMargin,
-                                   content.bottom - M().itemSpacing};
-
-        float y = page.top;
-        for (const PreferenceSection &section : registry->GetPages()[pageIndex].sections) {
-            y += M().sectionHeight;
-            for (const PreferenceEntry &entry : section.entries) {
-                const float height = entry.defaultValue.type == PreferenceType::COLOR ? M().colorRowHeight : M().preferenceRowHeight;
-                Row         row;
-                row.entry   = &entry;
-                row.bounds  = sky::ui::UIRect{page.left, y, page.right, y + height};
-                row.label   = sky::ui::UIRect{page.left, y, page.left + page.Width() * 0.45f, y + height};
-                row.control = sky::ui::UIRect{page.left + page.Width() * 0.45f, y, page.right, y + height};
-                rows.push_back(row);
-                y += height + M().checkboxPad * 2.0f;
-            }
-        }
-    }
-
-    const PreferencesDialog::Row *PreferencesDialog::RowAt(float x, float y, std::vector<Row> &rows) const
-    {
-        for (const Row &row : rows) {
-            if (row.bounds.Contains(x, y)) {
-                return &row;
-            }
-        }
-        return nullptr;
-    }
-
-    void PreferencesDialog::SetSlider(const Row &row, float x, int channel)
-    {
-        const PreferenceEntry &entry    = *row.entry;
-        const sky::ui::UIRect  area     = row.control;
-        const float            fraction = Clamp01(area.Width() > 0.0f ? (x - area.left) / area.Width() : 0.0f);
-
-        if (entry.defaultValue.type == PreferenceType::COLOR) {
-            PreferenceColor color;
-            store->GetColor(entry.key, color);
-            float *channels[4] = {&color.r, &color.g, &color.b, &color.a};
-            *channels[channel] = fraction;
-            store->SetColor(entry.key, color);
-        } else if (entry.defaultValue.type == PreferenceType::INT) {
-            const double value = entry.minValue + fraction * (entry.maxValue - entry.minValue);
-            store->SetInt(entry.key, static_cast<int64_t>(value + 0.5));
-        } else {
-            const double value = entry.minValue + fraction * (entry.maxValue - entry.minValue);
-            store->SetFloat(entry.key, value);
-        }
-        MarkPaintDirty();
-    }
-
-    void PreferencesDialog::CycleCombo(const Row &row)
-    {
-        const PreferenceEntry &entry = *row.entry;
-        std::string            current;
-        store->GetString(entry.key, current);
-        const std::vector<std::string> &options = entry.options;
-        if (options.empty()) {
-            return;
-        }
-        std::size_t index = 0;
-        for (std::size_t i = 0; i < options.size(); ++i) {
-            if (options[i] == current) {
-                index = i;
-                break;
-            }
-        }
-        index = (index + 1) % options.size();
-        store->SetString(entry.key, options[index]);
-        MarkPaintDirty();
-    }
-
-    void PreferencesDialog::FocusText(const Row &row, float x)
-    {
-        textKey = row.entry->key;
-        std::string value;
-        store->GetString(row.entry->key, value);
-        textEdit.SetText(value);
-        (void)x;
-        MarkPaintDirty();
-    }
-
-    void PreferencesDialog::Activate(const Row &row, float x, float y)
-    {
-        const PreferenceEntry &entry = *row.entry;
-        switch (entry.defaultValue.type) {
-        case PreferenceType::BOOL: {
-            bool value = false;
-            store->GetBool(entry.key, value);
-            store->SetBool(entry.key, !value);
-            MarkPaintDirty();
-            break;
-        }
-        case PreferenceType::INT:
-        case PreferenceType::FLOAT:
-            if (IsSlider(entry)) {
-                SetSlider(row, x, -1);
-            }
-            break;
-        case PreferenceType::STRING:
-            if (!entry.options.empty()) {
-                CycleCombo(row);
-            } else if (row.control.Contains(x, y)) {
-                FocusText(row, x);
-            }
-            break;
-        case PreferenceType::COLOR: {
-            const float bandH   = row.control.Height() / 4.0f;
-            int         channel = static_cast<int>((y - row.control.top) / std::max(1.0f, bandH));
-            channel             = std::max(0, std::min(3, channel));
-            SetSlider(row, x, channel);
-            break;
-        }
-        }
-    }
-
-    void PreferencesDialog::Commit()
-    {
-        if (store != nullptr) {
-            store->Commit();
-        }
-        if (onApplied) {
-            onApplied();
-        }
-    }
-
-    void PreferencesDialog::Cancel()
-    {
-        if (store != nullptr) {
-            store->Revert();
-        }
-        Close();
+        return sky::ui::UIRect{content.left + M().categoryWidth, content.top + M().itemSpacing, content.right - M().dialogMargin,
+                               content.bottom - M().itemSpacing};
     }
 
     void PreferencesDialog::OnPaint(sky::ui::UIPaintContext &context)
@@ -324,84 +236,9 @@ namespace sky::editor {
                      uc::VAlign::Middle, true);
         }
 
-        // Page rows.
-        std::vector<Row> rows;
-        BuildRows(rows);
-        const sky::ui::UIRect page{body.left + M().categoryWidth, body.top + M().itemSpacing, body.right - M().dialogMargin,
-                                   body.bottom - M().footerHeight};
-        const auto           &sections = pages[static_cast<std::size_t>(pageIndex)].sections;
-
-        std::size_t rowIndex = 0;
-        float       y        = page.top;
-        for (const PreferenceSection &section : sections) {
-            skin.DrawSectionHeader(context, sky::ui::UIRect{page.left, y, page.right, y + M().sectionHeight}, section.title);
-            y += M().sectionHeight;
-            for (const PreferenceEntry &entry : section.entries) {
-                if (rowIndex < rows.size()) {
-                    const Row &row = rows[rowIndex];
-                    skin.DrawRow(context, row.bounds, (rowIndex % 2) ? RowState::Alt : RowState::Normal);
-                    uc::Text(context, entry.label, th.fonts.label, row.label, th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
-
-                    const PreferenceValue *value = store->FindWorking(entry.key);
-                    if (value != nullptr) {
-                        const sky::ui::UIRect control = row.control;
-                        switch (entry.defaultValue.type) {
-                        case PreferenceType::BOOL: {
-                            const float           size = th.metrics.checkboxSize;
-                            const sky::ui::UIRect box{control.left, (control.top + control.bottom - size) * 0.5f, control.left + size,
-                                                      (control.top + control.bottom + size) * 0.5f};
-                            skin.DrawCheckbox(context, box, value->boolValue, false);
-                            break;
-                        }
-                        case PreferenceType::STRING:
-                            if (!entry.options.empty()) {
-                                skin.DrawField(context, control, false, false);
-                                uc::Text(context, value->stringValue, th.fonts.value,
-                                         sky::ui::UIRect{control.left + th.metrics.controlPad, control.top, control.right - M().indentSmall,
-                                                         control.bottom},
-                                         th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
-                                skin.DrawTriangle(context, control.right - M().cellPadding * 2.0f, (control.top + control.bottom) * 0.5f, true,
-                                                  th.colors.textMuted);
-                            } else {
-                                skin.DrawField(context, control, entry.key == textKey, false);
-                                const std::string shown = entry.key == textKey ? textEdit.GetText() : value->stringValue;
-                                uc::Text(context, shown, th.fonts.value,
-                                         sky::ui::UIRect{control.left + th.metrics.controlPad, control.top, control.right, control.bottom},
-                                         th.colors.text, textSystem, uc::HAlign::Left, uc::VAlign::Middle, true);
-                            }
-                            break;
-                        case PreferenceType::INT:
-                        case PreferenceType::FLOAT:
-                            if (IsSlider(entry)) {
-                                const double current =
-                                    entry.defaultValue.type == PreferenceType::INT ? static_cast<double>(value->intValue) : value->floatValue;
-                                skin.DrawSlider(context, control, static_cast<float>(current), static_cast<float>(entry.minValue),
-                                                static_cast<float>(entry.maxValue));
-                                uc::Text(context, FormatValue(*value), th.fonts.value,
-                                         sky::ui::UIRect{control.right - M().sliderValueWidth, control.top, control.right, control.bottom},
-                                         th.colors.textMuted, textSystem, uc::HAlign::Right, uc::VAlign::Middle, false);
-                            } else {
-                                uc::Text(context, FormatValue(*value), th.fonts.value, control, th.colors.text, textSystem, uc::HAlign::Left,
-                                         uc::VAlign::Middle, true);
-                            }
-                            break;
-                        case PreferenceType::COLOR: {
-                            const PreferenceColor color       = value->colorValue;
-                            const float           bandH       = control.Height() / 4.0f;
-                            const float           channels[4] = {color.r, color.g, color.b, color.a};
-                            for (int c = 0; c < 4; ++c) {
-                                const float           top = control.top + static_cast<float>(c) * bandH;
-                                const sky::ui::UIRect band{control.left, top + 1.0f, control.right, top + bandH - 1.0f};
-                                skin.DrawSlider(context, band, Clamp01(channels[c]), 0.0f, 1.0f);
-                            }
-                            break;
-                        }
-                        }
-                    }
-                }
-                ++rowIndex;
-                y += (entry.defaultValue.type == PreferenceType::COLOR ? M().colorRowHeight : M().preferenceRowHeight) + M().checkboxPad * 2.0f;
-            }
+        // Page content: the reflected form renders the selected page (rows built from reflection).
+        if (form != nullptr) {
+            form->SetBounds(PageRect());
         }
 
         // Footer buttons.
@@ -428,26 +265,25 @@ namespace sky::editor {
             return sky::ui::UIEventResult::UNHANDLED;
         }
 
+        // A form popup (enum dropdown / color picker) extends beyond its bounds: deliver to it first.
+        if (form != nullptr && form->WantsPointerCapture()) {
+            return form->OnPointerEvent(event);
+        }
+
         if (event.action == sky::ui::UIPointerAction::MOVE) {
             hoverCategory = CategoryAt(event.x, event.y);
             hoverButton   = ButtonAt(event.x, event.y);
-            if (!dragKey.empty()) {
-                std::vector<Row> rows;
-                BuildRows(rows);
-                for (const Row &row : rows) {
-                    if (row.entry->key == dragKey) {
-                        SetSlider(row, event.x, dragChannel);
-                        break;
-                    }
-                }
+            if (form != nullptr && PageRect().Contains(event.x, event.y)) {
+                form->OnPointerEvent(event);
             }
             MarkPaintDirty();
             return sky::ui::UIEventResult::HANDLED;
         }
 
         if (event.action == sky::ui::UIPointerAction::UP) {
-            dragKey.clear();
-            dragChannel = -1;
+            if (form != nullptr) {
+                form->OnPointerEvent(event);
+            }
             return sky::ui::UIEventResult::HANDLED;
         }
 
@@ -461,12 +297,12 @@ namespace sky::editor {
                 Commit();
                 Close();
             } else if (button == 1) {
-                Cancel();
+                RestoreSnapshot();
+                Close();
             } else if (button == 2) {
                 Commit();
             } else if (button == 3) {
-                store->ResetPageToDefaults(registry->GetPages()[static_cast<std::size_t>(pageIndex)].id);
-                MarkPaintDirty();
+                ResetPage();
             }
             return sky::ui::UIEventResult::HANDLED;
         }
@@ -477,26 +313,8 @@ namespace sky::editor {
             return sky::ui::UIEventResult::HANDLED;
         }
 
-        std::vector<Row> rows;
-        BuildRows(rows);
-        const Row *row = RowAt(event.x, event.y, rows);
-        if (row != nullptr) {
-            Activate(*row, event.x, event.y);
-            const PreferenceType type = row->entry->defaultValue.type;
-            if ((type == PreferenceType::INT || type == PreferenceType::FLOAT) && IsSlider(*row->entry)) {
-                dragKey     = row->entry->key;
-                dragChannel = -1;
-            } else if (type == PreferenceType::COLOR) {
-                dragKey           = row->entry->key;
-                const float bandH = row->control.Height() / 4.0f;
-                dragChannel       = std::max(0, std::min(3, static_cast<int>((event.y - row->control.top) / std::max(1.0f, bandH))));
-            }
-            return sky::ui::UIEventResult::HANDLED;
-        }
-
-        if (!textKey.empty()) {
-            textKey.clear();
-            MarkPaintDirty();
+        if (form != nullptr && PageRect().Contains(event.x, event.y)) {
+            form->OnPointerEvent(event);
         }
         return sky::ui::UIEventResult::HANDLED;
     }
@@ -506,46 +324,24 @@ namespace sky::editor {
         if (!isOpen || event.action == sky::ui::UIKeyAction::UP) {
             return sky::ui::UIEventResult::UNHANDLED;
         }
-
+        if (form != nullptr && form->OnKeyEvent(event) == sky::ui::UIEventResult::HANDLED) {
+            return sky::ui::UIEventResult::HANDLED;
+        }
         constexpr uint32_t kEscape = 0x1B;
-        constexpr uint32_t kReturn = 0x0D;
-
         if (event.keyCode == kEscape) {
-            Cancel();
+            RestoreSnapshot();
+            Close();
             return sky::ui::UIEventResult::HANDLED;
         }
-        if (event.keyCode == kReturn) {
-            if (!textKey.empty()) {
-                textKey.clear();
-                MarkPaintDirty();
-            } else {
-                Commit();
-                Close();
-            }
-            return sky::ui::UIEventResult::HANDLED;
-        }
-
-        if (!textKey.empty()) {
-            const bool shift = (event.modifiers & kModShift) != 0;
-            const bool ctrl  = (event.modifiers & kModCtrl) != 0;
-            if (textEdit.OnKey(event.keyCode, shift, ctrl)) {
-                store->SetString(textKey, textEdit.GetText());
-                MarkPaintDirty();
-            }
-        }
-        return sky::ui::UIEventResult::HANDLED;
+        return sky::ui::UIEventResult::UNHANDLED;
     }
 
     sky::ui::UIEventResult PreferencesDialog::OnTextInput(const sky::ui::UITextInputEvent &event)
     {
-        if (!isOpen || textKey.empty()) {
+        if (!isOpen || form == nullptr) {
             return sky::ui::UIEventResult::UNHANDLED;
         }
-        if (textEdit.OnText(event.text)) {
-            store->SetString(textKey, textEdit.GetText());
-            MarkPaintDirty();
-        }
-        return sky::ui::UIEventResult::HANDLED;
+        return form->OnTextInput(event);
     }
 
 } // namespace sky::editor

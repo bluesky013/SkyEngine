@@ -13,8 +13,7 @@
 #include <editor/core/layout/DefaultPanels.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
-#include <editor/core/preferences/PreferenceRegistry.h>
-#include <editor/core/preferences/PreferenceStore.h>
+#include <editor/core/preferences/PreferencePageRegistry.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ReflectedFormView.h>
@@ -423,29 +422,18 @@ TEST(EditorShellTest, PreferencesHostsDialog)
     shell.Rebuild();
     shell.Layout(1000.0f, 700.0f);
 
-    PreferenceRegistry pref;
-    PreferenceSection  sectionA;
-    sectionA.id    = "a.main";
-    sectionA.title = "A";
-    sectionA.entries.push_back({"a.enabled", "Enabled", PreferenceValue::Bool(true)});
+    PreferencePageRegistry *pages = PreferencePageRegistry::Get();
+    pages->Clear();
     PreferencePage pageA;
-    pageA.id       = "a";
-    pageA.title    = "A";
-    pageA.sections = {sectionA};
-    pref.RegisterPage(pageA);
-
-    PreferenceSection sectionB;
-    sectionB.id    = "b.main";
-    sectionB.title = "B";
-    sectionB.entries.push_back({"b.count", "Count", PreferenceValue::Int(1), 0.0, 10.0});
+    pageA.id    = "a";
+    pageA.title = "A";
+    pages->Add(std::move(pageA));
     PreferencePage pageB;
-    pageB.id       = "b";
-    pageB.title    = "B";
-    pageB.sections = {sectionB};
-    pref.RegisterPage(pageB);
+    pageB.id    = "b";
+    pageB.title = "B";
+    pages->Add(std::move(pageB));
 
-    PreferenceStore store(&pref);
-    shell.SetPreferences(&pref, &store, []() {});
+    shell.SetPreferences(pages, []() {});
 
     EXPECT_FALSE(shell.IsPreferencesOpen());
     shell.OpenPreferences();
@@ -457,6 +445,7 @@ TEST(EditorShellTest, PreferencesHostsDialog)
     esc.action  = sky::ui::UIKeyAction::DOWN;
     EXPECT_TRUE(shell.DispatchKey(esc));
     EXPECT_FALSE(shell.IsPreferencesOpen());
+    pages->Clear();
 }
 
 TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
@@ -660,7 +649,8 @@ TEST(EditorShellTest, ScopedChromeFiltersByActiveScope)
     EditorScopeStack::Get()->Clear();
 
     reg->Add({.id = "global.save", .label = "Save", .group = EditorGroup::File, .invoke = []() {}});
-    reg->Add({.id = "assetViewer.save", .label = "Save", .group = EditorGroup::File, .invoke = []() {}, .scope = "assetViewer", .accelerator = "Ctrl+S"});
+    reg->Add(
+        {.id = "assetViewer.save", .label = "Save", .group = EditorGroup::File, .invoke = []() {}, .scope = "assetViewer", .accelerator = "Ctrl+S"});
 
     const auto invoke = [](const std::string &) {};
 

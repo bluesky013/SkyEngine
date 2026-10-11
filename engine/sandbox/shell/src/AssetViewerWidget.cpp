@@ -58,19 +58,17 @@ namespace sky::editor {
         contentViewport = AddChild(std::make_unique<sky::ui::UIElement>());
         contentViewport->SetClipsChildren(true);
 
-        // Top chrome docked with DockPanel: menu (top), toolbar (top), body (fill). No hand offsets.
-        // The menu/toolbar items are filled from the active-scope actions in RebuildChrome() (Open()).
-        // Heights come from the theme metrics so they DPI-scale with the chrome (icons/labels).
-        const UiMetrics &m     = GetDefaultUiTheme().metrics;
-        const float      menuH = m.menuBarHeight;
-        const float      toolH = m.toolbarHeight;
-        topDock                = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
-        menuBar                = static_cast<MenuBar *>(
-            topDock->Add(std::make_unique<MenuBar>(std::vector<MenuBar::Menu>{}, text), sky::ui::DockSlot{sky::ui::DockSide::Top, menuH}));
-        menuBar->SetBarHeight(menuH);
-        toolBar = static_cast<ToolBar *>(topDock->Add(std::make_unique<ToolBar>(text), sky::ui::DockSlot{sky::ui::DockSide::Top, toolH}));
+        // Toolbar + body docked with DockPanel (no hand offsets); heights come from the theme
+        // metrics so they DPI-scale. The menu bar is a DIRECT child added LAST so its open popup
+        // paints above the toolbar/body (same reason the main shell adds the menu bar after the
+        // toolbar). Items are filled from the active-scope actions in RebuildChrome() (Open()).
+        const UiMetrics &m = GetDefaultUiTheme().metrics;
+        topDock            = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
+        toolBar = static_cast<ToolBar *>(topDock->Add(std::make_unique<ToolBar>(text), sky::ui::DockSlot{sky::ui::DockSide::Top, m.toolbarHeight}));
         bodyArea =
             static_cast<sky::ui::UIElement *>(topDock->Add(std::make_unique<sky::ui::UIElement>(), sky::ui::DockSlot{sky::ui::DockSide::Fill}));
+        menuBar = static_cast<MenuBar *>(AddChild(std::make_unique<MenuBar>(std::vector<MenuBar::Menu>{}, text)));
+        menuBar->SetBarHeight(m.menuBarHeight);
     }
 
     AssetViewerWidget::~AssetViewerWidget() = default;
@@ -261,12 +259,6 @@ namespace sky::editor {
         MarkPaintDirty();
     }
 
-    void AssetViewerWidget::CloseWithSave()
-    {
-        SaveAsset();
-        Close();
-    }
-
     void AssetViewerWidget::OpenAsset()
     {
         // "Open" = open the asset's source file with the OS default handler.
@@ -316,9 +308,11 @@ namespace sky::editor {
         const std::string     title   = assetName.empty() ? std::string("Asset Viewer") : assetName;
         const sky::ui::UIRect content = skin.DrawPanel(context, panel, title, true);
 
-        // Toolbar row at the top of the content area (below the title header).
-        // Top chrome (menu + toolbar) docked via DockPanel; body = the Fill area (no hand offsets).
-        topDock->SetBounds(content);
+        // Menu bar (top, a direct child added last so its popup paints above the toolbar) and the
+        // toolbar+body dock below it.
+        const float menuH = skin.Theme().metrics.menuBarHeight;
+        menuBar->SetBounds(sky::ui::UIRect{content.left, content.top, content.right, content.top + menuH});
+        topDock->SetBounds(sky::ui::UIRect{content.left, content.top + menuH, content.right, content.bottom});
         topDock->Layout();
         const sky::ui::UIRect body     = bodyArea->GetBounds();
         const float           previewW = (body.right - body.left) * 0.38f;

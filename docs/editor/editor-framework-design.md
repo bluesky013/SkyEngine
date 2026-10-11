@@ -544,10 +544,12 @@ every consumer sees consistent keys. Widgets must not reinterpret key codes indi
 Both modal dialogs share a `ModalDialog` base (backdrop, centered panel, open state) and paint through
 `UiSkin`/`UiTheme`, so the file browser and Preferences render identically to the reflected panels.
 
-**Preferences** are registry-driven: modules contribute `PreferencePage`s into a `PreferenceRegistry`, and a
-UI-free `PreferenceStore` holds typed values (bool/int/float/string/color) as a working copy of the committed
-set. `PreferencesDialog` edits the working copy (OK/Apply commit, Cancel reverts, Reset restores the page)
-and the host persists it as JSON v1.
+**Preferences** are reflection-driven: settings are reflected structs (one per page) registered with
+metadata (label/range/enum), and modules contribute `PreferencePage`s (`{ id, title, object, TypeNode }`)
+into the cross-DLL `PreferencePageRegistry`. `PreferencesDialog` renders the selected page with a
+`ReflectedFormView` (undoable edits; OK/Apply commit + persist, Cancel restores the open snapshot, Reset
+restores type defaults) and the host persists the structs as reflection JSON. No per-type controls live in
+the dialog. See `docs/editor/preferences-and-settings.md`.
 
 ### 3.11 Persistence (per-user editor state)
 

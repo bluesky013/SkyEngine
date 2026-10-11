@@ -33,6 +33,13 @@ Build chrome only through **`ActionBarBuilder`** (`BuildToolBarItems` / `BuildMe
 toolbars/menus per window, and do **NOT** hard-code shortcuts in a `switch` — each action declares
 its `accelerator` and `EditorShell::DispatchKey` resolves it through `ActionBarBuilder`.
 
+**Global menu bar vs context menu**: the menu bar (`menu != EditorMenu::None`) holds only
+operations that are independent of the current selection (e.g. Assets: `Refresh`, `New Asset`,
+`Import…`, `Cook All Sources`). Selection-scoped operations (Open / Cook / Rename / Move /
+Duplicate / Delete / Show in Explorer / …) leave `menu` unset so they are **not** on the menu bar;
+register them by id and invoke them from the owning panel's **context menu** (see
+`AssetBrowserPanel`). A menu entry that is greyed out until something is selected is a smell.
+
 ## 2. Use the shared widgets (mandatory)
 
 - Toolbar → `editor/shell/widgets/ToolBar` (reads `GetToolbarActions()`, icon-only + tooltip).

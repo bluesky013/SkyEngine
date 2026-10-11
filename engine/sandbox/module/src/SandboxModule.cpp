@@ -9,7 +9,6 @@
 #include <editor/sandbox/UiIconBuilder.h>
 
 #include <core/cmdline/CmdParser.h>
-#include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/asset/AssetCookService.h>
@@ -31,7 +30,11 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 #include <framework/window/NativeWindowManager.h>
+
+#include <core/archive/StreamArchive.h>
 #include <ui/IUITextureRegistry.h>
 #include <ui/UILayout.h>
 #include <ui/text/UITextSystem.h>
@@ -398,11 +401,7 @@ namespace sky::editor {
 
     float SandboxModule::EffectiveUiScale() const
     {
-        double pref = 1.0;
-        if (preferenceStore != nullptr) {
-            preferenceStore->GetFloat("editor.uiScale", pref);
-        }
-        const float scale = systemUiScale * static_cast<float>(pref);
+        const float scale = systemUiScale * editorSettings.uiScale;
         return scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
     }
 
@@ -518,43 +517,24 @@ namespace sky::editor {
 
     void SandboxModule::RegisterPreferencePages()
     {
-        preferenceRegistry.Clear();
+        // Register the reflected settings types (metadata drives the UI) and expose the pages.
+        // Dynamic list of pages; each page's fields are a fixed reflected type.
+        RegisterEditorSettings(sky::SerializationContext::Get());
 
-        PreferencePage general;
-        general.id    = "general";
-        general.title = "General";
-        PreferenceSection generalMain;
-        generalMain.id    = "general.main";
-        generalMain.title = "General";
-        generalMain.entries.push_back({"general.language", "Language", PreferenceValue::Str("English"), 0.0, 0.0, {"English", "Chinese"}});
-        generalMain.entries.push_back({"general.theme", "Theme", PreferenceValue::Str("Dark"), 0.0, 0.0, {"Dark", "Light"}});
-        generalMain.entries.push_back({"general.autosave", "Autosave", PreferenceValue::Bool(true)});
-        general.sections.push_back(std::move(generalMain));
-        preferenceRegistry.RegisterPage(std::move(general));
+        auto *pages = PreferencePageRegistry::Get();
+        pages->Clear();
 
-        PreferencePage editor;
-        editor.id    = "editor";
-        editor.title = "Editor";
-        PreferenceSection editorMain;
-        editorMain.id    = "editor.main";
-        editorMain.title = "Editor";
-        editorMain.entries.push_back({"editor.uiScale", "UI Scale", PreferenceValue::Float(1.0), 0.5, 2.0});
-        editorMain.entries.push_back({"editor.gridSize", "Grid Size", PreferenceValue::Float(10.0), 1.0, 100.0});
-        editorMain.entries.push_back({"editor.snap", "Snap", PreferenceValue::Bool(true)});
-        editorMain.entries.push_back({"editor.undoDepth", "Undo Depth", PreferenceValue::Int(32), 1.0, 256.0});
-        editor.sections.push_back(std::move(editorMain));
-        preferenceRegistry.RegisterPage(std::move(editor));
-
-        PreferencePage rendering;
-        rendering.id    = "rendering";
-        rendering.title = "Rendering";
-        PreferenceSection renderingMain;
-        renderingMain.id    = "rendering.main";
-        renderingMain.title = "Rendering";
-        renderingMain.entries.push_back({"rendering.vsync", "V-Sync", PreferenceValue::Bool(true)});
-        renderingMain.entries.push_back({"rendering.resolutionScale", "Resolution Scale", PreferenceValue::Float(1.0), 0.5, 2.0});
-        rendering.sections.push_back(std::move(renderingMain));
-        preferenceRegistry.RegisterPage(std::move(rendering));
+        auto addPage = [pages](const char *id, const char *title, void *object, const sky::Uuid &typeId) {
+            PreferencePage page;
+            page.id     = id;
+            page.title  = title;
+            page.object = object;
+            page.type   = sky::GetTypeNode(typeId);
+            pages->Add(std::move(page));
+        };
+        addPage("general", "General", &generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
+        addPage("editor", "Editor", &editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
+        addPage("rendering", "Rendering", &renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
     }
 
     std::string SandboxModule::PreferencePath() const
@@ -570,22 +550,52 @@ namespace sky::editor {
     void SandboxModule::LoadPreferences()
     {
         const std::string path = PreferencePath();
-        if (path.empty() || preferenceStore == nullptr) {
+        if (path.empty()) {
             return;
         }
-        std::string json;
-        if (ReadString(path, json) && !json.empty() && preferenceStore->FromJson(json)) {
-            LOG_I(TAG, "loaded preferences from %s", path.c_str());
+        const sky::FilePath filePath(path);
+        sky::NativeFile     file(filePath);
+        auto                archive = file.ReadAsArchive();
+        if (!archive || !archive->IsOpen()) {
+            return;
         }
+        sky::JsonInputArchive json(*archive);
+        if (json.Start("general")) {
+            json.LoadValueById(&generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
+            json.End();
+        }
+        if (json.Start("editor")) {
+            json.LoadValueById(&editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
+            json.End();
+        }
+        if (json.Start("rendering")) {
+            json.LoadValueById(&renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
+            json.End();
+        }
+        LOG_I(TAG, "loaded preferences from %s", path.c_str());
     }
 
     void SandboxModule::SavePreferences()
     {
         const std::string path = PreferencePath();
-        if (path.empty() || preferenceStore == nullptr) {
+        if (path.empty()) {
             return;
         }
-        WriteString(path, preferenceStore->ToJson());
+        const sky::FilePath filePath(path);
+        sky::NativeFile     file(filePath);
+        auto                archive = file.WriteAsArchive();
+        if (!archive || !archive->IsOpen()) {
+            return;
+        }
+        sky::JsonOutputArchive json(*archive);
+        json.StartObject();
+        json.Key("general");
+        json.SaveValueObject(&generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
+        json.Key("editor");
+        json.SaveValueObject(&editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
+        json.Key("rendering");
+        json.SaveValueObject(&renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
+        json.EndObject();
     }
 
     bool SandboxModule::BuildEditor()
@@ -746,11 +756,10 @@ namespace sky::editor {
         shell.SetCommandController(&commandController);
 
         RegisterPreferencePages();
-        preferenceStore = std::make_unique<PreferenceStore>(&preferenceRegistry);
         LoadPreferences();
         uiScale = EffectiveUiScale();
         shell.SetUiScale(uiScale);
-        shell.SetPreferences(&preferenceRegistry, preferenceStore.get(), [this]() { SavePreferences(); });
+        shell.SetPreferences(PreferencePageRegistry::Get(), [this]() { SavePreferences(); });
         // Play-In-Editor: the session duplicates the edit world and ticks it.
         playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
 
@@ -769,13 +778,13 @@ namespace sky::editor {
         // (the registry was cleared before extensions registered, above).
         EditorActionRegistry *actions = EditorActionRegistry::Get();
         actions->Add({.id = "file.new", .label = "New World...", .menu = EditorMenu::File, .order = 0, .invoke = [this]() { NewWorld(); }});
-        actions->Add({.id        = "file.open",
-                      .label     = "Open World...",
-                      .icon      = "open",
-                      .group     = EditorGroup::File,
-                      .menu      = EditorMenu::File,
-                      .order     = 1,
-                      .invoke    = [this]() { OpenWorld(); }});
+        actions->Add({.id     = "file.open",
+                      .label  = "Open World...",
+                      .icon   = "open",
+                      .group  = EditorGroup::File,
+                      .menu   = EditorMenu::File,
+                      .order  = 1,
+                      .invoke = [this]() { OpenWorld(); }});
         actions->Add({.id          = "file.save",
                       .label       = "Save World",
                       .icon        = "save",
@@ -857,16 +866,39 @@ namespace sky::editor {
                 return {};
             };
 
+            // Global Assets menu: only collection-scoped operations (no current selection needed).
             actions->Add({.id = "asset.refresh", .label = "Refresh", .menu = EditorMenu::Assets, .order = 0, .invoke = [assetCatalog]() {
                               if (assetCatalog != nullptr) {
                                   assetCatalog->Refresh();
                               }
                           }});
-            actions->Add({.id        = "asset.open",
-                          .label     = "Open",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 11,
-                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+            actions->Add({.id = "asset.new", .label = "New Asset", .menu = EditorMenu::Assets, .order = 1, .invoke = []() {
+                              LOG_I(TAG, "New Asset (not implemented)");
+                          }});
+            actions->Add({.id = "asset.import", .label = "Import...", .menu = EditorMenu::Assets, .order = 2, .invoke = [this, assetCatalog]() {
+                              FileBrowserRequest request;
+                              request.mode      = FileBrowserMode::OPEN_FILE;
+                              request.title     = "Import Asset";
+                              request.directory = project.Dir();
+                              shell.OpenFileBrowser(request, [assetCatalog](const FileBrowserResult &result) {
+                                  if (!result.accepted || assetCatalog == nullptr) {
+                                      return;
+                                  }
+                                  const std::filesystem::path source(result.path);
+                                  const std::string           dest = "Project/" + source.filename().string();
+                                  AssetMutationService::Get()->Import(result.path, dest, true);
+                              });
+                          }});
+            actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = EditorMenu::Assets, .order = 3, .invoke = []() {
+                              AssetCookService::Get()->TriggerCookAll();
+                          }});
+
+            // Selection-scoped asset operations. No `menu` => not on the global menu bar; they are
+            // invoked by id from the Asset Browser context menu (see AssetBrowserPanel) and gated by
+            // the current selection.
+            actions->Add({.id      = "asset.open",
+                          .label   = "Open",
+                          .enabled = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [this, selectedAsset]() {
                                   const sky::Uuid id      = selectedAsset();
@@ -881,31 +913,22 @@ namespace sky::editor {
                                   }
                                   shell.OpenAssetViewer(id);
                               }});
-            actions->Add({.id        = "asset.cook",
-                          .label     = "Cook",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 1,
-                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+            actions->Add({.id      = "asset.cook",
+                          .label   = "Cook",
+                          .enabled = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [assetCatalog, selectedAsset]() {
                                   if (assetCatalog != nullptr) {
                                       AssetCookService::Get()->TriggerCook(selectedAsset());
                                   }
                               }});
-            actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = EditorMenu::Assets, .order = 2, .invoke = []() {
-                              AssetCookService::Get()->TriggerCookAll();
-                          }});
-            actions->Add({.id        = "asset.copyReference",
-                          .label     = "Copy Reference",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 2,
-                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
-                          .invoke    = [selectedAsset]() { LOG_I(TAG, "asset reference: %s", selectedAsset().ToString().c_str()); }});
-            actions->Add({.id        = "asset.showInExplorer",
-                          .label     = "Show in Explorer",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 3,
-                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+            actions->Add({.id      = "asset.copyReference",
+                          .label   = "Copy Reference",
+                          .enabled = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke  = [selectedAsset]() { LOG_I(TAG, "asset reference: %s", selectedAsset().ToString().c_str()); }});
+            actions->Add({.id      = "asset.showInExplorer",
+                          .label   = "Show in Explorer",
+                          .enabled = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
                           .invoke =
                               [selectedAsset]() {
                                   std::string absolute;
@@ -913,45 +936,15 @@ namespace sky::editor {
                                       sky::Platform::Get()->RevealInFileExplorer(absolute);
                                   }
                               }});
-            actions->Add({.id        = "asset.findReferences",
-                          .label     = "Find References",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 4,
-                          .enabled   = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
-                          .invoke    = []() { LOG_I(TAG, "Find References (not implemented)"); }});
-            actions->Add({.id = "asset.new", .label = "New Asset", .menu = EditorMenu::Assets, .order = 5, .invoke = []() {
-                              LOG_I(TAG, "New Asset (not implemented)");
+            actions->Add({.id      = "asset.findReferences",
+                          .label   = "Find References",
+                          .enabled = [selectedAsset]() { return static_cast<bool>(selectedAsset()); },
+                          .invoke  = []() { LOG_I(TAG, "Find References (not implemented)"); }});
+            actions->Add({.id = "asset.rename", .label = "Rename", .enabled = selectedWritable, .invoke = [this]() { shell.BeginAssetRename(); }});
+            actions->Add({.id = "asset.move", .label = "Move", .enabled = selectedWritable, .invoke = [this]() {
+                              shell.BeginAssetRename(); // the inline editor accepts a full path
                           }});
-            actions->Add({.id = "asset.import", .label = "Import...", .menu = EditorMenu::Assets, .order = 6, .invoke = [this, assetCatalog]() {
-                              FileBrowserRequest request;
-                              request.mode      = FileBrowserMode::OPEN_FILE;
-                              request.title     = "Import Asset";
-                              request.directory = project.Dir();
-                              shell.OpenFileBrowser(request, [assetCatalog](const FileBrowserResult &result) {
-                                  if (!result.accepted || assetCatalog == nullptr) {
-                                      return;
-                                  }
-                                  const std::filesystem::path source(result.path);
-                                  const std::string           dest = "Project/" + source.filename().string();
-                                  AssetMutationService::Get()->Import(result.path, dest, true);
-                              });
-                          }});
-            actions->Add({.id        = "asset.rename",
-                          .label     = "Rename",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 7,
-                          .enabled   = selectedWritable,
-                          .invoke    = [this]() { shell.BeginAssetRename(); }});
-            actions->Add(
-                {.id = "asset.move", .label = "Move", .menu = EditorMenu::Assets, .order = 8, .enabled = selectedWritable, .invoke = [this]() {
-                     shell.BeginAssetRename(); // the inline editor accepts a full path
-                 }});
-            actions->Add({.id        = "asset.duplicate",
-                          .label     = "Duplicate",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 9,
-                          .enabled   = selectedWritable,
-                          .invoke    = [assetCatalog, selectedItem]() {
+            actions->Add({.id = "asset.duplicate", .label = "Duplicate", .enabled = selectedWritable, .invoke = [assetCatalog, selectedItem]() {
                               const EditorAssetItem item = selectedItem();
                               if (assetCatalog == nullptr || item.path.empty()) {
                                   return;
@@ -963,16 +956,8 @@ namespace sky::editor {
                               const std::string ext    = hasExt ? item.path.substr(dot) : std::string{};
                               AssetMutationService::Get()->Duplicate(item.path, base + "_copy" + ext);
                           }});
-            actions->Add({.id        = "asset.delete",
-                          .label     = "Delete",
-                          .menu      = EditorMenu::Assets,
-                          .order     = 10,
-                          .enabled   = selectedWritable,
-                          .invoke    = [selectedAsset]() {
-                              std::string absolute;
-                              if (auto *db = sky::AssetDataBase::Get(); db != nullptr && db->GetAbsoluteSourcePath(selectedAsset(), absolute)) {
-                                  sky::Platform::Get()->RevealInFileExplorer(absolute);
-                              }
+            actions->Add({.id = "asset.delete", .label = "Delete", .enabled = selectedWritable, .invoke = [selectedAsset]() {
+                              AssetMutationService::Get()->Delete(selectedAsset());
                           }});
         }
         actions->Add({.id      = "play.play",

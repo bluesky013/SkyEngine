@@ -205,9 +205,10 @@ magic menu strings / `menuOrder` ints).
 
 1. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
    `{value,default}`); also add/delete for material-instance overrides.
-2. Preferences dialog: migrate hand-computed rects onto layout containers.
-3. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
-   is the deferred MVP item; archive when ready.
+2. Asset-view **source write-back** (改源重 cook): the deferred MVP item of the archived
+   `editor-asset-views` change.
+
+(Archived: `editor-asset-views`, `editor-preferences-reflected` — see `openspec/changes/archive/`.)
 
 **Blocked / gated:**
 

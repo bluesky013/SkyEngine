@@ -38,8 +38,7 @@ namespace sky::editor {
 
     class FileBrowserDialog;
     class PreferencesDialog;
-    class PreferenceRegistry;
-    class PreferenceStore;
+    class PreferencePageRegistry;
     class WorldDocument;
     class NewWorldDialog;
     class EditorAssetCatalog;
@@ -103,9 +102,9 @@ namespace sky::editor {
         // See docs/editor/ui-layout-and-chrome-plan.md (P7).
         void RegisterAssetViewerActions();
 
-        // Preferences: the shell hosts one dialog over the supplied registry/store.
+        // Preferences: the shell hosts one dialog over the registered reflected settings pages.
         // `onApplied` is invoked after a commit so the host can persist.
-        void SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied);
+        void SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied);
         void OpenPreferences();
         bool IsPreferencesOpen() const;
 
@@ -336,11 +335,10 @@ namespace sky::editor {
         bool               assetViewerOpen  = false;
         bool               assetViewerScope = false; // scope stack holds "assetViewer"
 
-        PreferencesDialog    *preferencesElement = nullptr;
-        PreferenceRegistry   *preferenceRegistry = nullptr;
-        PreferenceStore      *preferenceStore    = nullptr;
-        std::function<void()> preferencesApplied;
-        bool                  preferencesOpen = false;
+        PreferencesDialog      *preferencesElement = nullptr;
+        PreferencePageRegistry *preferenceRegistry = nullptr;
+        std::function<void()>   preferencesApplied;
+        bool                    preferencesOpen = false;
 
         WorldDocument                           *worldDocument   = nullptr;
         PlayState                                playState       = PlayState::Editing;

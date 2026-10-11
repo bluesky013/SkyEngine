@@ -18,7 +18,7 @@ sky_add_test(TARGET EditorCoreTest
         ViewportTest.cpp
         FileBrowserModelTest.cpp
         TextEditStateTest.cpp
-        PreferenceStoreTest.cpp
+        EditorSettingsTest.cpp
         WorldDocumentTest.cpp
         PlaySessionTest.cpp
         ReflectedFormTest.cpp
