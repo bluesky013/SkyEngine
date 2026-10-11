@@ -1,7 +1,31 @@
 SET(3RD_PATH "" CACHE STRING "SkyEngine 3rd path")
 
-if (3RD_PATH STREQUAL "" AND EXISTS "${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
-    include("${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
+if (3RD_PATH STREQUAL "")
+    # Load the third-party cache for the current build platform (per-platform
+    # files avoid one platform clobbering another's 3RD_PATH). Falls back to the
+    # legacy single file if no per-platform cache exists.
+    if (WIN32)
+        set(_sky_tp_platform "Win32")
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
+        set(_sky_tp_platform "Android")
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set(_sky_tp_platform "IOS")
+    elseif (APPLE)
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+            set(_sky_tp_platform "MacOS-arm")
+        else ()
+            set(_sky_tp_platform "MacOS-x86")
+        endif ()
+    elseif (UNIX)
+        set(_sky_tp_platform "Linux")
+    endif ()
+
+    set(_sky_tp_cache "${ENGINE_ROOT}/build_3rd/thirdparty_cache_${_sky_tp_platform}.cmake")
+    if (_sky_tp_platform AND EXISTS "${_sky_tp_cache}")
+        include("${_sky_tp_cache}")
+    elseif (EXISTS "${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
+        include("${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
+    endif ()
 endif ()
 
 if (NOT 3RD_PATH STREQUAL "")
@@ -28,3 +52,7 @@ option(SKY_MATH_SIMD   "enable simd math"     OFF)
 # physics). Off by default; enable for deterministic/replay builds.
 option(SKY_DETERMINISTIC_FP "deterministic floating point (no FMA contraction)" OFF)
 option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
+
+# FreeType UI font provider (engine/ui/core + sandbox). Decoupled from the
+# removed legacy freetype render plugin; on by default.
+option(SKY_BUILD_FREETYPE "enable the FreeType UI font provider" ON)

@@ -32,12 +32,6 @@
             "enabled": true
         },
         {
-            "name": "freetype",
-            "dir": "freetype",
-            "cmake_var": "SKY_BUILD_FREETYPE",
-            "enabled": false
-        },
-        {
             "name": "terrain",
             "dir": "terrain",
             "cmake_var": "SKY_BUILD_TERRAIN",

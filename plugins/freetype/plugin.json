@@ -1,8 +1,0 @@
-{
-    "targets": [
-        {
-            "name": "FreeTypeModule",
-            "dependencies": ["Launcher"]
-        }
-    ]
-}

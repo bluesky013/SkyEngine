@@ -4,12 +4,6 @@
       "name": "Aurora.ShaderCompiler",
       "dependencies": []
     },
-	{
-      "name": "FreeTypeModule",
-      "dependencies": [
-        "Aurora.Render"
-      ]
-    },
     {
       "name": "AudioModule",
       "dependencies": []
