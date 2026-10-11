@@ -38,7 +38,9 @@ android {
 
     externalNativeBuild {
         cmake {
-            path '../../../CMakeLists.txt'
+            // Repository root (4 levels up from app/): that is the top-level
+            // project which defines project() + the sky_* CMake helpers.
+            path '../../../../CMakeLists.txt'
         }
     }
 

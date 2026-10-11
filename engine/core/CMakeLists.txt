@@ -26,6 +26,14 @@ if (SKY_USE_TRACY)
     list(APPEND CORE_OPT_LIBS   3rdParty::tracy)
 endif ()
 
+# The LOG_* macros map to __android_log_print on Android; every artifact that
+# uses them must link liblog. Attaching it to Core makes it propagate to all
+# consumers (Aurora backends, plugins, launcher).
+set(CORE_PLATFORM_LIBS)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    list(APPEND CORE_PLATFORM_LIBS log)
+endif ()
+
 sky_add_library(TARGET Core STATIC
     SOURCES
         ${SRC_FILES}
@@ -40,6 +48,7 @@ sky_add_library(TARGET Core STATIC
         3rdParty::rapidjson
 #        3rdParty::mimalloc
         ${CORE_OPT_LIBS}
+        ${CORE_PLATFORM_LIBS}
     INSTALL_DIR
         include
     )

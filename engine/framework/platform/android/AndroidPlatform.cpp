@@ -3,6 +3,7 @@
 //
 
 #include "AndroidPlatform.h"
+#include "AndroidWindow.h"
 #include <android/window.h>
 #include <game-activity/GameActivity.cpp>
 #include <game-text-input/gametextinput.cpp>
@@ -21,8 +22,8 @@ namespace sky {
             case APP_CMD_SAVE_STATE:
                 break;
             case APP_CMD_INIT_WINDOW:
+                platform->SetMainWinHandle(app->window);
                 if (!platform->IsLaunched()) {
-                    platform->SetMainWinHandle(app->window);
                     platform->Launch();
                 }
 
@@ -44,14 +45,17 @@ namespace sky {
         case APP_CMD_WINDOW_RESIZED:
         case APP_CMD_CONFIG_CHANGED:
         {
-            auto width = ANativeWindow_getWidth(app->window);
-            auto height = ANativeWindow_getHeight(app->window);
-            auto *window = platform->GetMainWindow();
+            auto *window = static_cast<AndroidWindow*>(platform->GetMainWindow());
             if (window != nullptr) {
-                Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowHandleChanged,
-                                               static_cast<uint32_t>(width),
-                                               static_cast<uint32_t>(height),
-                                               app->window);
+                auto width  = static_cast<uint32_t>(ANativeWindow_getWidth(app->window));
+                auto height = static_cast<uint32_t>(ANativeWindow_getHeight(app->window));
+                window->NotifyResized(width, height);
+
+                WindowResizeEvent event = {};
+                event.winID             = window->GetWinId();
+                event.width             = width;
+                event.height            = height;
+                Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowResize, event);
             }
         }
             break;
@@ -65,6 +69,9 @@ namespace sky {
     void AndroidPlatform::SetMainWinHandle(ANativeWindow *handle)
     {
         mainWindow = handle;
+        if (nativeWindow != nullptr) {
+            static_cast<AndroidWindow*>(nativeWindow)->SetWinHandle(handle);
+        }
     }
 
     void AndroidPlatform::SetNativeWindow(NativeWindow* hwnd)

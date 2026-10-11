@@ -27,6 +27,9 @@
 /agent/backup
 # third-party build outputs and generated CMake cache
 /build_3rd/
+# local standalone build trees (Android/iOS)
+/build_android/
+/build_ios/
 # generated PDF documentation
 /docs/pdf/
 .DS_Store

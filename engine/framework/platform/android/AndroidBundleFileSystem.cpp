@@ -116,6 +116,23 @@ namespace sky {
         return true;
     }
 
+    BinaryDataPtr AndroidAssetFile::ReadBin()
+    {
+        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
+        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
+        if (assetFile == nullptr) {
+            return nullptr;
+        }
+
+        auto assetLength = static_cast<uint32_t>(AAsset_getLength(assetFile));
+        auto data = new BinaryData(assetLength);
+        if (assetLength != 0) {
+            AAsset_read(assetFile, data->Data(), assetLength);
+        }
+        AAsset_close(assetFile);
+        return data;
+    }
+
     bool AndroidAssetFile::ReadString(std::string &out)
     {
         auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;

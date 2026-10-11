@@ -24,11 +24,11 @@ namespace sky::ai {
         void doLog(const rcLogCategory category, const char* msg, const int len) override
         {
             if (category == rcLogCategory::RC_LOG_ERROR) {
-                LOG_E(TAG, msg);
+                LOG_E(TAG, "%.*s", len, msg);
             } else if (category == rcLogCategory::RC_LOG_WARNING) {
-                LOG_W(TAG, msg);
+                LOG_W(TAG, "%.*s", len, msg);
             } else {
-                LOG_I(TAG, msg);
+                LOG_I(TAG, "%.*s", len, msg);
             }
         }
 

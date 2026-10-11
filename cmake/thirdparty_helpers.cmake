@@ -78,9 +78,16 @@ function(sky_3rd_static LIB_NAME)
         list(APPEND RELEASE_LIBS ${ARGS_EXT_LIBS})
     endif()
 
-    set(LIBRARY
-        "$<$<CONFIG:debug>:${DEBUG_LIBS}>"
-        "$<$<CONFIG:release>:${RELEASE_LIBS}>")
+    # One generator expression per library. Putting the whole list inside a
+    # single "$<$<CONFIG:...>:${LIBS}>" splits the outer genex on the list
+    # semicolons (breaks on older CMake, e.g. the AGP-pinned 3.22).
+    set(LIBRARY)
+    foreach(lib ${DEBUG_LIBS})
+        list(APPEND LIBRARY "$<$<CONFIG:Debug>:${lib}>")
+    endforeach()
+    foreach(lib ${RELEASE_LIBS})
+        list(APPEND LIBRARY "$<$<CONFIG:Release>:${lib}>")
+    endforeach()
 
     add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
     target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${INC_DIR})

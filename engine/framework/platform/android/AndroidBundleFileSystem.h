@@ -18,8 +18,9 @@ namespace sky {
         IStreamArchivePtr ReadAsArchive() override;
         OStreamArchivePtr WriteAsArchive() override;
 
-        bool ReadBin(std::vector<uint8_t> &out) override;
-        bool ReadString(std::string &out) override;
+        bool          ReadBin(std::vector<uint8_t> &out) override;
+        BinaryDataPtr ReadBin() override;
+        bool          ReadString(std::string &out) override;
 
         uint64_t AppendData(const char* data, uint64_t size) override { return 0; }
         std::string GetPath() const override { return path; }
@@ -39,7 +40,7 @@ namespace sky {
 //        OArchivePtr WriteAsArchive(const std::string &path) override;
         FilePtr OpenFile(const FilePath &name) override;
         FilePtr CreateOrOpenFile(const FilePath &name) override;
-        FileSystemPtr CreateSubSystem(const std::string &path, bool createDir);
+        FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 
     private:
         std::string basePath;
