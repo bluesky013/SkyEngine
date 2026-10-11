@@ -44,7 +44,7 @@
 
 ## 8. Platform packaging & IDE project generation（后续）
 
-- [ ] 8.0 参考/复用 legacy `python/project_manager.py` + `python/build/{Project,Presets}.py`（`Android/IOS/Darwin` config presets、`engine_assets` 符号链接思路）；确认其退役或迁移到原生
+- [x] 8.0 legacy Python 项目/GUI 工具已退役删除（`project_manager.py`/`setup.py`/`third_party_gui.py`/`build/`/`widgets/`），统一到原生 ProjectScaffold + 模板
 - [ ] 8.1 **可定制 bundle id**：工程配置（`.skyproj` settings）→ Android `applicationId` / Apple `CFBundleIdentifier`（含 namespace/包名一致性）
 - [ ] 8.2 **签名**：Android keystore（`signingConfigs`/`storeFile`/密码，勿入库）与 Apple signing（`DEVELOPMENT_TEAM`/provisioning/codesign）
 - [ ] 8.3 **生成 Android Studio 工程**：由模板生成/参数化 gradle 工程（`applicationId`/`namespace`/ABI/签名），可 `open in Android Studio`

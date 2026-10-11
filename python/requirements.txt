@@ -1,9 +1,5 @@
-configparser==7.2.0
+# Python tooling dependencies. PySide6 was only needed by the removed project /
+# third-party GUIs; the CLI entry (third_party.py) needs GitPython only.
 gitdb==4.0.12
 GitPython==3.1.44
-PySide6==6.9.1
-PySide6_Addons==6.9.1
-PySide6_Essentials==6.9.1
-shiboken6==6.9.1
 smmap==5.0.2
-typing==3.7.4.3

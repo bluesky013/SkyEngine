@@ -228,7 +228,7 @@ recent-list + templates + create/open surface.
   `<bundle>/assets`, composed workspace-first (`MultiFileSystem`). The **sandbox host does not wire
   these yet** (only the legacy editor does) — P0 wires them.
 - **Recent projects**: persisted under `Platform::GetUserConfigPath()` (e.g. `projects.json`);
-  mirrors the Python `project_manager.ini` intent but at runtime.
+  replaces the retired Python `project_manager` tooling.
 - **Settings layering** (low → high precedence): **engine defaults** (built-in engine `configs/` +
   code defaults) → project `<project>/.skyproj settings` → user preferences (`GetUserConfigPath()`) →
   command line. RHI is **owned by the render

@@ -283,10 +283,6 @@ presets:
 | 脚本 | 说明 |
 |------|------|
 | `python/third_party.py` | 三方库编译 |
-| `python/setup.py` | 引擎配置 UI |
-| `python/project_manager.py` | 项目管理 UI |
-| `python/build/Presets.py` | CMake Preset 生成 |
-| `python/build/Project.py` | 项目配置/构建 |
 
 ### 三方库编译命令
 ```bash
