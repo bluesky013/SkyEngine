@@ -27,7 +27,10 @@ namespace sky::editor {
         struct Item {
             std::string           label;
             std::function<void()> action;
-            std::vector<Item>     children; // non-empty => opens a second-level submenu
+            std::vector<Item>     children;          // non-empty => opens a second-level submenu
+            std::string           shortcut;          // optional accelerator hint, right-aligned
+            std::string           icon;              // optional icon name (IconRegistry)
+            bool                  separator = false; // draws a divider instead of a row
         };
         struct Menu {
             std::string       label;

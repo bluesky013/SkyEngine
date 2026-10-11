@@ -4,6 +4,7 @@
 
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorActionRegistry.h>
+#include <editor/core/extension/IconRegistry.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/core/shell/ShellModels.h>
@@ -496,6 +497,7 @@ namespace sky::editor {
     void EditorShell::SetIcon(const std::string &name, sky::ui::UITextureId texture)
     {
         icons[name] = texture;
+        IconRegistry::Get()->Set(name, texture);
     }
 
     bool EditorShell::InvokeAction(const std::string &id)
@@ -1184,6 +1186,18 @@ namespace sky::editor {
 
     void EditorShell::OpenAssetViewer(const Uuid &asset)
     {
+        if (assetCatalog != nullptr) {
+            EditorAssetItem item;
+            if (assetCatalog->Find(asset, item) && !item.type.empty()) {
+                std::string ext;
+                if (const auto dot = item.path.find_last_of('.'); dot != std::string::npos) {
+                    ext = item.path.substr(dot);
+                }
+                if (DeriveAssetViewFlags(item.type, ext) == AssetViewFlags::NONE) {
+                    return; // HIDDEN: internal assets do not open the viewer
+                }
+            }
+        }
         assetViewerAsset = asset;
         assetViewerOpen  = true;
         if (assetViewerElement != nullptr) {

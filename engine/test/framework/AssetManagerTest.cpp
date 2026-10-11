@@ -148,6 +148,21 @@ struct AssetTraits<T3Data> {
     static constexpr std::string_view ASSET_TYPE = "T3";
 };
 
+// Header + bulk asset: the header carries a byte range into the product bulk.
+struct BulkData : public RefObject {
+    uint32_t magic  = 0;
+    uint64_t offset = 0;
+    uint64_t size   = 0;
+};
+
+template <>
+struct AssetTraits<BulkData> {
+    using DataType                                = BulkData;
+    static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
+    static constexpr std::string_view ASSET_TYPE = "Bulk";
+};
+
 class TestBuilder1 : public AssetBuilder {
 public:
     TestBuilder1()           = default;
@@ -315,6 +330,8 @@ public:
 
         context->Register<T3Data>("T3Data").Member<&T3Data::t1>("t1").Member<&T3Data::t2>("t2");
 
+        context->Register<BulkData>("BulkData").Member<&BulkData::magic>("magic").Member<&BulkData::offset>("offset").Member<&BulkData::size>("size");
+
         NativeFileSystemPtr projectFs = new NativeFileSystem(PROJECT_ROOT);
         AssetDataBase::Get()->SetEngineFs(new NativeFileSystem(ENGINE_ROOT));
         AssetDataBase::Get()->SetWorkSpaceFs(projectFs->CreateSubSystem("assets", true));
@@ -329,6 +346,7 @@ public:
         AssetManager::Get()->RegisterAssetHandler<T1Data>();
         AssetManager::Get()->RegisterAssetHandler<T2Data>();
         AssetManager::Get()->RegisterAssetHandler<T3Data>();
+        AssetManager::Get()->RegisterAssetHandler<BulkData>();
     }
 
     static void TearDownTestSuite()
@@ -962,6 +980,105 @@ TEST_F(AssetManagerTest, CookWorkerTest)
     EXPECT_TRUE(asset->IsLoaded());
     EXPECT_EQ(asset->Data().v, 3);
 
+    std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+TEST_F(AssetManagerTest, BulkRoundTripTest)
+{
+    auto *db = AssetDataBase::Get();
+
+    const auto bundleRoot = std::filesystem::temp_directory_path() / "sky_bulk_test";
+    std::filesystem::remove_all(bundleRoot);
+    NativeFileSystemPtr bundleFs = new NativeFileSystem(FilePath((bundleRoot / "b").string()));
+    AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, "bulk"));
+
+    const std::string path = "framework/data/bulk.bulk";
+    auto              file = db->CreateOrOpenFile(FilePath{FilePath(path)});
+    ASSERT_NE(file, nullptr);
+    {
+        auto       archive = file->WriteAsArchive();
+        const char data[]  = "{}";
+        archive->SaveRaw(data, 2);
+        archive->Flush();
+    }
+    file     = nullptr;
+    auto src = db->RegisterAsset(path, false);
+    ASSERT_NE(src, nullptr);
+    const Uuid id = src->uuid;
+
+    const std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04};
+
+    {
+        auto asset =
+            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->FindOrCreateAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
+        ASSERT_NE(asset, nullptr);
+        asset->Data().magic  = 0xC0DE;
+        asset->Data().offset = 0;
+        asset->Data().size   = payload.size();
+        asset->AddBulk(payload.data(), payload.size());
+        AssetManager::Get()->SaveAsset(asset, "bulk");
+    }
+
+    // Reload from the product only: the header is resident, the payload is read on demand.
+    auto loaded = AssetManager::Get()->LoadAsset<BulkData>(id);
+    ASSERT_NE(loaded, nullptr);
+    loaded->BlockUntilLoaded();
+    ASSERT_TRUE(loaded->IsLoaded());
+    EXPECT_EQ(loaded->Data().magic, 0xC0DEu);
+    EXPECT_EQ(loaded->Data().size, payload.size());
+    EXPECT_TRUE(loaded->HasBulk());
+    EXPECT_EQ(loaded->ReadBulk(loaded->Data().offset, loaded->Data().size), payload);
+    EXPECT_TRUE(loaded->ReadBulk(4, 0).empty());
+
+    loaded.reset(); // release the product stream before removing the temp bundle
+
+    std::filesystem::remove_all(bundleRoot);
+    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
+    std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
+TEST_F(AssetManagerTest, NoBulkRoundTripTest)
+{
+    auto *db = AssetDataBase::Get();
+
+    const auto bundleRoot = std::filesystem::temp_directory_path() / "sky_nobulk_test";
+    std::filesystem::remove_all(bundleRoot);
+    NativeFileSystemPtr bundleFs = new NativeFileSystem(FilePath((bundleRoot / "b").string()));
+    AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, "nobulk"));
+
+    const std::string path = "framework/data/nobulk.bulk";
+    auto              file = db->CreateOrOpenFile(FilePath{FilePath(path)});
+    ASSERT_NE(file, nullptr);
+    {
+        auto       archive = file->WriteAsArchive();
+        const char data[]  = "{}";
+        archive->SaveRaw(data, 2);
+        archive->Flush();
+    }
+    file     = nullptr;
+    auto src = db->RegisterAsset(path, false);
+    ASSERT_NE(src, nullptr);
+    const Uuid id = src->uuid;
+
+    {
+        auto asset =
+            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->FindOrCreateAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
+        ASSERT_NE(asset, nullptr);
+        asset->Data().magic = 0x1234;
+        AssetManager::Get()->SaveAsset(asset, "nobulk");
+    }
+
+    auto loaded = AssetManager::Get()->LoadAsset<BulkData>(id);
+    ASSERT_NE(loaded, nullptr);
+    loaded->BlockUntilLoaded();
+    ASSERT_TRUE(loaded->IsLoaded());
+    EXPECT_EQ(loaded->Data().magic, 0x1234u);
+    EXPECT_FALSE(loaded->HasBulk());
+    EXPECT_TRUE(loaded->ReadBulk(0, 4).empty());
+
+    std::filesystem::remove_all(bundleRoot);
+    auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
     std::filesystem::remove(FilePath(root + "/" + path).GetStr());
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
 }

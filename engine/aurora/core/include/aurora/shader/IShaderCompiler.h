@@ -10,6 +10,8 @@
 
 #include <aurora/shader/ShaderCompile.h>
 
+#include <core/environment/Singleton.h>
+
 namespace sky::aurora {
 
     class IShaderCompiler {
@@ -19,7 +21,9 @@ namespace sky::aurora {
         virtual bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) = 0;
     };
 
-    class ShaderCompilerFactory {
+    // Process-wide (cross-DLL) registry: Aurora.Core is a static lib linked into several module DLLs,
+    // so the instance lives in the shared Environment (Singleton) rather than a function-local static.
+    class ShaderCompilerFactory : public Singleton<ShaderCompilerFactory> {
     public:
         static ShaderCompilerFactory &Get();
 
@@ -27,6 +31,10 @@ namespace sky::aurora {
         IShaderCompiler *GetCompiler() const;
 
     private:
+        friend class Singleton<ShaderCompilerFactory>;
+
+        ShaderCompilerFactory() = default;
+
         IShaderCompiler *mCompiler = nullptr;
     };
 

@@ -1,5 +1,5 @@
 //
-// Mesh cook pipeline tests: source import, assembly, optimization, meshlets,
+// Mesh cook pipeline tests: source import, assembly, optimization,
 // asset writer round-trips, config presets.
 //
 
@@ -8,7 +8,6 @@
 #include <aurora/cook/mesh/MeshBuildConfig.h>
 #include <aurora/cook/mesh/MeshOptimizer.h>
 #include <aurora/cook/mesh/MeshSource.h>
-#include <aurora/cook/mesh/MeshletBuilder.h>
 
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/VertexSemantic.h>
@@ -175,38 +174,17 @@ TEST(MeshCookOptimizeTest, PreservesCountsAndRanges)
     EXPECT_EQ(mesh.vertexData.size(), static_cast<size_t>(mesh.vertexStride) * mesh.vertexCount);
 }
 
-TEST(MeshCookMeshletTest, BuildsMeshletsWithBounds)
-{
-    CookedMesh              mesh = CookQuad();
-    MeshletBuilder::Payload meshlets;
-    meshlets.mesh = &mesh;
-    MeshletBuilder(meshlets).DoWork();
-
-    ASSERT_EQ(mesh.meshlets.size(), 1u); // a quad fits in one meshlet
-    EXPECT_EQ(mesh.meshlets[0].vertexCount, 6u);
-    EXPECT_EQ(mesh.meshlets[0].triangleCount, 2u);
-    EXPECT_EQ(mesh.meshletBounds.size(), 1u);
-    EXPECT_EQ(mesh.meshletVertices.size(), 6u);
-    EXPECT_EQ(mesh.meshletTriangles.size(), 6u);
-    EXPECT_GT(mesh.meshletBounds[0].radius, 0.f);
-}
-
 TEST(MeshCookWriterTest, MeshAssetRoundTrip)
 {
-    MeshBuildConfig config;
-    config.meshlets              = true;
-    CookedMesh              mesh = CookQuad(config);
-    MeshletBuilder::Payload meshlets;
-    meshlets.mesh = &mesh;
-    MeshletBuilder(meshlets).DoWork();
+    CookedMesh mesh = CookQuad();
 
-    Uuid          skin;     // no skin
     Uuid          skeleton; // no skeleton
     MeshAssetData data;
-    WriteMeshAsset(mesh, skin, skeleton, data);
+    WriteMeshAsset(mesh, CookSkin{}, skeleton, data);
     EXPECT_EQ(data.version, MeshAssetData::CURRENT_VERSION);
-    EXPECT_TRUE(data.HasMeshlets());
     EXPECT_FALSE(data.HasSkin());
+    EXPECT_EQ(data.vertexSize, mesh.vertexData.size());
+    EXPECT_EQ(data.indexSize, mesh.indexData.size());
 
     MeshAssetData loaded;
     RoundTrip(data, loaded);
@@ -215,13 +193,11 @@ TEST(MeshCookWriterTest, MeshAssetRoundTrip)
     EXPECT_EQ(loaded.indexCount, data.indexCount);
     EXPECT_EQ(loaded.indexType, data.indexType);
     ASSERT_EQ(loaded.attributes.size(), data.attributes.size());
-    EXPECT_EQ(loaded.vertexData, data.vertexData);
-    EXPECT_EQ(loaded.indexData, data.indexData);
+    EXPECT_EQ(loaded.vertexOffset, data.vertexOffset);
+    EXPECT_EQ(loaded.vertexSize, data.vertexSize);
+    EXPECT_EQ(loaded.indexOffset, data.indexOffset);
+    EXPECT_EQ(loaded.indexSize, data.indexSize);
     ASSERT_EQ(loaded.subMeshes.size(), data.subMeshes.size());
-    EXPECT_EQ(loaded.meshlets.size(), data.meshlets.size());
-    EXPECT_EQ(loaded.meshletVertices, data.meshletVertices);
-    EXPECT_EQ(loaded.meshletTriangles, data.meshletTriangles);
-    ASSERT_EQ(loaded.meshletBounds.size(), data.meshletBounds.size());
     EXPECT_FLOAT_EQ(loaded.bounds.center.x, data.bounds.center.x);
     EXPECT_FLOAT_EQ(loaded.bounds.extent.y, data.bounds.extent.y);
 }
@@ -230,39 +206,44 @@ TEST(MeshCookWriterTest, VersionMismatchRejected)
 {
     MeshAssetData data;
     CookedMesh    mesh = CookQuad();
-    WriteMeshAsset(mesh, Uuid{}, Uuid{}, data);
-    data.version = 1; // v1 payloads must be rejected by the v2 loader
+    WriteMeshAsset(mesh, CookSkin{}, Uuid{}, data);
+    data.version = 1; // v1 payloads must be rejected by the current loader
 
     MeshAssetData loaded;
     RoundTrip(data, loaded);
-    EXPECT_TRUE(loaded.vertexData.empty());
+    EXPECT_EQ(loaded.vertexSize, 0u);
     EXPECT_TRUE(loaded.attributes.empty());
 }
 
-TEST(MeshCookWriterTest, SkinAssetRoundTrip)
+TEST(MeshCookWriterTest, MeshSkinAbsorbedIntoHeader)
 {
-    SkinAssetData skin;
+    CookedMesh mesh = CookQuad();
+
+    CookSkin skin;
     skin.inverseBindMatrices = {Matrix4::Identity(), Matrix4::Identity()};
     skin.boneNames           = {"root", "spine"};
     skin.boneMapping         = {0, 1};
 
-    SkinAssetData out;
-    WriteSkinAsset(skin, out);
-    EXPECT_EQ(out.version, SkinAssetData::CURRENT_VERSION);
+    MeshAssetData data;
+    WriteMeshAsset(mesh, skin, Uuid{}, data);
+    EXPECT_TRUE(data.HasSkin());
+    EXPECT_EQ(data.skinBoneCount, 2u);
+    EXPECT_EQ(data.skinMappingCount, 2u);
+    EXPECT_EQ(data.skinSize, 2u * sizeof(Matrix4) + 2u * sizeof(uint32_t));
 
-    SkinAssetData loaded;
-    RoundTrip(out, loaded);
-    ASSERT_EQ(loaded.inverseBindMatrices.size(), 2u);
-    ASSERT_EQ(loaded.boneNames.size(), 2u);
-    EXPECT_EQ(loaded.boneNames[1], "spine");
-    ASSERT_EQ(loaded.boneMapping.size(), 2u);
-    EXPECT_EQ(loaded.boneMapping[1], 1u);
+    MeshAssetData loaded;
+    RoundTrip(data, loaded);
+    EXPECT_EQ(loaded.skinBoneCount, 2u);
+    EXPECT_EQ(loaded.skinMappingCount, 2u);
+    EXPECT_EQ(loaded.skinSize, data.skinSize);
+    ASSERT_EQ(loaded.skinBoneNames.size(), 2u);
+    EXPECT_EQ(loaded.skinBoneNames[1], "spine");
 }
 
 TEST(MeshCookConfigTest, LoadJsonAndResolve)
 {
     const char *json =
-        R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true,"meshlets":false},"mesh_pc":{"tangents":true,"optimize":true,"meshlets":true}}})";
+        R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true},"mesh_pc":{"tangents":true,"optimize":true}}})";
     std::vector<uint8_t> bytes(json, json + std::strlen(json));
 
     IMemoryArchive   in(bytes.data(), bytes.size());
@@ -277,7 +258,6 @@ TEST(MeshCookConfigTest, LoadJsonAndResolve)
     const MeshBuildConfig *cfg = presets.Resolve("mesh_pc", key);
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "mesh_pc");
-    EXPECT_TRUE(cfg->meshlets);
     EXPECT_TRUE(cfg->optimize);
 
     // unknown key falls back to the default bundle

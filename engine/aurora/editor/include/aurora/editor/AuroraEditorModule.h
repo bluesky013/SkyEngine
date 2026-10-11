@@ -1,17 +1,17 @@
 //
-// Aurora editor extension module. Loaded by the editor through the module
-// config (mirrors legacy render/editor RenderEditorModule : RenderModule).
-// Its Init runs the base AuroraModule::Init (reflection + device) and registers
-// editor-side extensions.
+// Aurora editor extension module (registration-only). Loaded by the editor through the
+// module config. It does NOT create an aurora device: the editor owns rendering via its
+// own host. Init runs AuroraReflection (asset handlers / components / reflection) and
+// registers the aurora per-asset view data with the editor.
 //
 
 #pragma once
 
-#include <aurora/adaptor/AuroraModule.h>
+#include <framework/interface/IModule.h>
 
 namespace sky::aurora::editor {
 
-    class AuroraEditorModule : public sky::aurora::AuroraModule {
+    class AuroraEditorModule : public sky::IModule {
     public:
         AuroraEditorModule()           = default;
         ~AuroraEditorModule() override = default;

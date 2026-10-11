@@ -351,4 +351,102 @@ Flag any `-D...=`, `URL`, `SOURCE_DIR`, include path, or patch content containin
 
 ---
 
+## Rule 8 — Cross-DLL shared state: no per-DLL `static` singletons / one-shot guards
+
+### Context
+
+Core/Framework and every `*.Static` library (`Aurora.Adaptor.Static`, `AuroraCook.Static`, `Content.Adaptor`, `Physics`, `Network`, ...) are **static libraries linked into each module DLL**. Any function-local `static` therefore gets **one copy per DLL**, not one per process. State that must be visible process-wide (registries, caches, "run once" flags) silently breaks when read from another module.
+
+### Prohibitions
+
+1. Do **NOT** implement a process-wide shared registry/cache with a function-local `static T instance;`.
+2. Do **NOT** use a function-local `static bool` as an "only register once" / idempotent-init guard when the guarded work touches shared state (e.g. registering types into the shared `SerializationContext`, registering a backend into a shared registry).
+
+Both compile and appear to work within one module, then fail once a second module participates — a missing registration (consumer sees an empty registry) or a **duplicate registration assert** (`SerializationContext::Register` -> `SKY_ASSERT(!types.count(id))`).
+
+### What to do instead
+
+| Need | Use |
+|---|---|
+| Process-wide singleton registry/cache | `class X : public sky::Singleton<X>` + `friend class sky::Singleton<X>;` (instance stored in `Environment`, cross-DLL unique). Keep a `static X &Get()` only if callers need a reference. |
+| "Initialize/register exactly once" across modules | `sky::Once` (`core/environment/Once.h`): `if (!sky::Once::Get()->Run("UniqKey")) { return; }` |
+| Purely module-local / non-shared state | a plain function-local `static` is fine |
+
+### Examples
+
+```cpp
+// Bad — per-DLL singleton; another module's registrations are invisible
+X &X::Get() { static X instance; return instance; }
+
+// Good — cross-DLL unique
+class X : public Singleton<X> {
+    friend class Singleton<X>;
+    X() = default;
+};
+X &X::Get() { return *Singleton<X>::Get(); }
+```
+
+```cpp
+// Bad — per-DLL guard; the second DLL re-registers into the shared context -> assert
+void Reflect(SerializationContext *ctx) { static bool done = false; if (done) return; done = true; ctx->Register<T>(...); }
+
+// Good — process-wide once
+void Reflect(SerializationContext *ctx) { if (!Once::Get()->Run("MyReflection")) return; ctx->Register<T>(...); }
+```
+
+### Detection
+
+Search for function-local `static bool` and `static <Type> instance;` (e.g. `grep -rn "static bool\|static .* instance;"`). For each, ask: is the guarded/held state read or written by more than one module DLL? If yes, it is a bug. Fixed history: `AuroraReflection` / `ContentReflection` / `RegisterImageCookSettings` (`Once`); `PhysicsBackendRegistry` / `NetworkBackendRegistry` / `ShaderCompilerFactory` (`Singleton`).
+
+---
+
+## Rule 9 — Editor / asset-view: investigate first, respect lifecycle, reuse framework
+
+### Context
+
+Editor UI (asset viewer, custom content providers, inspector) is event-driven and shares the asset/cook/UI subsystems. Doing heavy work mid-event or hand-rolling facilities the framework already provides causes crashes (use-after-free) and inconsistent UI. Observed failures: cooking during a pointer event (UAF), wrong source-path resolution, broken/overflowing scroll, no caret, inconsistent button hover.
+
+### Prohibitions
+
+1. Do **NOT** run heavy work (asset **cook** / reload / rebuild of the UI tree) inside a pointer/key/text event dispatch. Cooking (`AssetCookService::TriggerCook` → `BuildAllTargets`) rewrites products and can rebuild the very widget being dispatched → **use-after-free**. Defer to an explicit action (Save/close), not every edit.
+2. Do **NOT** guess formats/schemas. Read the parser + spec + spec-of-record first (e.g. a material technique is an inline `MaterialTechniqueData {tag, shader, entry, renderState}`, **not** a deprecated `.tech` path string).
+3. Do **NOT** hand-roll facilities the framework owns: source paths → `AssetDataBase::GetAbsoluteSourcePath(id, out)`; scroll clipping → the viewer element with `SetClipsChildren(true)` + `PushClip` (children positioned at full height, clipped by the viewport).
+4. Do **NOT** let custom content replace the reflected cook-settings section: `BUNDLE` and `DATA` sections **coexist** (spec).
+5. Do **NOT** ship temp diagnostics (`Diag(...)`/debug logs), demo projects, or dead endpoints. Remove them once verified.
+
+### What to do instead
+
+- **Investigate before coding**: `grep`/read the schema, parser, callers, and the spec delta; state the model you're implementing, then implement.
+- **Separate edit from commit**: edits mutate an in-memory buffer + set a dirty flag; the base window owns **Save**, which writes the source and re-cooks once.
+- **Reuse UI**: reflected values → `ReflectedFormView`; buttons → a **shared** button (hover/pressed/disabled), not per-row `uidraw` hand-drawing; text edit → show a real caret.
+- **Get facts early**: when something misbehaves (missing rows, crash), add checkpoints/logging to find the exact step instead of blind edits; remove them after.
+- **Mind lifecycle**: events are dispatched while elements/asset data are live; don't destroy/reload them mid-dispatch.
+
+### Examples
+
+```cpp
+// Bad — cook during the edit event; rebuilds the widget being dispatched -> UAF crash
+onEdited = [&]{ Persist(field); AssetCookService::Get()->TriggerCook(asset); };
+
+// Good — buffer on edit; cook once on the base window's Save
+onEdited = [&]{ Buffer(field); dirty = true; };
+bool Save() { WriteSource(buffer); AssetCookService::Get()->TriggerCook(asset); dirty = false; }
+```
+
+```cpp
+// Bad — guessed path (wrong for engine-mounted assets)
+abs = workspaceRoot + "/" + relativeSourcePath;
+
+// Good — framework resolves the mount root
+db->GetAbsoluteSourcePath(id, abs);
+```
+
+### Detection
+
+- Search for `TriggerCook(` / `BuildAllTargets(` / heavy reload calls reachable from `OnPointerEvent`/`OnKeyEvent`/`OnTextInput`/`SetOnEdited`.
+- Search for custom content that returns early when a DATA view exists (should render BUNDLE **and** DATA).
+- Search for manual string-joining of source paths, manual scroll clamping, missing caret, ad-hoc hover.
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->

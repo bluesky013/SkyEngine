@@ -646,7 +646,7 @@ namespace sky::editor {
             }
         }
 
-        if (form.IsModified(field)) {
+        if (form.IsModified(field) && !field.control.readOnly) {
             DrawRevertIcon(context, row->revertRect, hoverField == &field);
         }
 
@@ -772,7 +772,7 @@ namespace sky::editor {
             CommitEdit();
         }
 
-        if (row.revertRect.Contains(x, y)) {
+        if (!field.control.readOnly && row.revertRect.Contains(x, y)) {
             if (form.IsModified(field) && form.ResetToDefault(field, *commands)) {
                 Refresh();
             }

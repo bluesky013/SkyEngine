@@ -34,10 +34,6 @@ namespace sky::aurora::cook {
                 cfg.optimize = json.LoadBool();
                 json.End();
             }
-            if (json.Start("meshlets")) {
-                cfg.meshlets = json.LoadBool();
-                json.End();
-            }
             if (json.Start("skinning")) {
                 cfg.skinning = json.LoadBool();
                 json.End();

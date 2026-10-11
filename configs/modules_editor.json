@@ -9,6 +9,14 @@
       "dependencies": []
     },
     {
+      "name": "Aurora.Render.Editor",
+      "dependencies": []
+    },
+    {
+      "name": "Content.Views",
+      "dependencies": []
+    },
+    {
       "name": "SandboxModule",
       "dependencies": []
     },

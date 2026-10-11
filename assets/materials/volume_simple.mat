@@ -1,5 +1,14 @@
 {
     "techniques": [
-        "techniques/volumes/volume_simple.tech"
+        {
+            "tag": "ForwardColor",
+            "shader": "volumes/volume_simple.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": false,
+                "cullMode": "back"
+            }
+        }
     ]
 }

@@ -8,8 +8,7 @@ namespace sky::net {
 
     NetworkBackendRegistry &NetworkBackendRegistry::Get()
     {
-        static NetworkBackendRegistry instance;
-        return instance;
+        return *Singleton<NetworkBackendRegistry>::Get();
     }
 
     NetworkBackendRegistry::~NetworkBackendRegistry()

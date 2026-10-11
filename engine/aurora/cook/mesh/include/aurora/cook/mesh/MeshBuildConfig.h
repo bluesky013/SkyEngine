@@ -14,14 +14,13 @@ namespace sky {
 namespace sky::aurora::cook {
 
     struct MeshBuildConfig {
-        bool tangents  = true;  // keep tangent attribute when the source has one
-        bool optimize  = true;  // meshopt vertex cache / overdraw / vertex fetch
-        bool meshlets  = false; // build meshlet payload (meshopt)
-        bool skinning  = true;  // emit the AuroraSkin asset for skinned sources
+        bool tangents = true; // keep tangent attribute when the source has one
+        bool optimize = true; // meshopt vertex cache / overdraw / vertex fetch
+        bool skinning = true; // absorb skin into the mesh (+ emit the skeleton asset) for skinned sources
     };
 
     struct MeshBuildPresets {
-        std::string                        defaultBundle;
+        std::string                            defaultBundle;
         std::map<std::string, MeshBuildConfig> bundles;
 
         void LoadJson(JsonInputArchive &json);

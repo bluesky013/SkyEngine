@@ -19,17 +19,18 @@ namespace sky::phy {
 
     namespace {
 
-        CounterPtr<TriangleMesh> ConvertAuroraMesh(const aurora::MeshAssetData &data)
+        CounterPtr<TriangleMesh> ConvertAuroraMesh(const Asset<aurora::Mesh> &asset)
         {
-            if (data.vertexData.empty() || data.indexData.empty()) {
+            const aurora::MeshAssetData &data = asset.Data();
+            if (data.vertexSize == 0 || data.indexSize == 0) {
                 return nullptr;
             }
 
             auto *mesh      = new TriangleMesh();
             mesh->vtxStride = sizeof(Vector3);
-            mesh->position  = data.vertexData;
+            mesh->position  = asset.ReadBulk(data.vertexOffset, data.vertexSize);
             mesh->indexType = IndexType::U32;
-            mesh->indexRaw  = data.indexData;
+            mesh->indexRaw  = asset.ReadBulk(data.indexOffset, data.indexSize);
 
             const uint32_t vertexCount = static_cast<uint32_t>(mesh->position.size() / mesh->vtxStride);
             for (const auto &sub : data.subMeshes) {
@@ -59,7 +60,7 @@ namespace sky::phy {
                     return nullptr;
                 }
                 asset->BlockUntilLoaded();
-                return ConvertAuroraMesh(asset->Data());
+                return ConvertAuroraMesh(*asset);
             });
         }
 

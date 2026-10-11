@@ -15,17 +15,16 @@ namespace {
 
     void RoundTrip(const aurora::ImageAssetData &in, aurora::ImageAssetData &out)
     {
-        OMemoryArchive     outArchive;
+        OMemoryArchive      outArchive;
         BinaryOutputArchive writer(outArchive);
         in.Save(writer);
 
-        IMemoryArchive    inArchive(outArchive.Data(), outArchive.Size());
+        IMemoryArchive     inArchive(outArchive.Data(), outArchive.Size());
         BinaryInputArchive reader(inArchive);
         out.Load(reader);
     }
 
-    aurora::ImageAssetData MakeData(aurora::ImageAssetType type, uint32_t width, uint32_t height, uint32_t depth,
-                                     uint32_t arrayLayers)
+    aurora::ImageAssetData MakeData(aurora::ImageAssetType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t arrayLayers)
     {
         aurora::ImageAssetData data;
         data.format      = aurora::PixelFormat::RGBA8_UNORM;
@@ -40,7 +39,7 @@ namespace {
         slice.offset = 0;
         slice.size   = 16;
         data.slices.push_back(slice);
-        data.rawData.resize(16, 0xAB);
+        data.dataSize = 16;
         return data;
     }
 
@@ -61,7 +60,9 @@ TEST(ImageAssetTest, RoundTrip2D)
     EXPECT_EQ(out.arrayLayers, 1u);
     ASSERT_EQ(out.slices.size(), 1u);
     EXPECT_EQ(out.slices[0].size, 16u);
-    EXPECT_EQ(out.rawData, in.rawData);
+    EXPECT_EQ(out.dataSize, in.dataSize);
+    ASSERT_EQ(out.slices.size(), 1u);
+    EXPECT_EQ(out.slices[0].offset, in.slices[0].offset);
 }
 
 TEST(ImageAssetTest, RoundTrip2DArray)
@@ -73,7 +74,9 @@ TEST(ImageAssetTest, RoundTrip2DArray)
 
     EXPECT_EQ(out.type, aurora::ImageAssetType::TEXTURE_2D_ARRAY);
     EXPECT_EQ(out.arrayLayers, 4u);
-    EXPECT_EQ(out.rawData, in.rawData);
+    EXPECT_EQ(out.dataSize, in.dataSize);
+    ASSERT_EQ(out.slices.size(), 1u);
+    EXPECT_EQ(out.slices[0].offset, in.slices[0].offset);
 }
 
 TEST(ImageAssetTest, RoundTrip3D)
@@ -85,7 +88,9 @@ TEST(ImageAssetTest, RoundTrip3D)
 
     EXPECT_EQ(out.type, aurora::ImageAssetType::TEXTURE_3D);
     EXPECT_EQ(out.depth, 8u);
-    EXPECT_EQ(out.rawData, in.rawData);
+    EXPECT_EQ(out.dataSize, in.dataSize);
+    ASSERT_EQ(out.slices.size(), 1u);
+    EXPECT_EQ(out.slices[0].offset, in.slices[0].offset);
 }
 
 TEST(ImageAssetTest, RoundTripCube)
@@ -97,7 +102,9 @@ TEST(ImageAssetTest, RoundTripCube)
 
     EXPECT_EQ(out.type, aurora::ImageAssetType::TEXTURE_CUBE);
     EXPECT_EQ(out.arrayLayers, 6u);
-    EXPECT_EQ(out.rawData, in.rawData);
+    EXPECT_EQ(out.dataSize, in.dataSize);
+    ASSERT_EQ(out.slices.size(), 1u);
+    EXPECT_EQ(out.slices[0].offset, in.slices[0].offset);
 }
 
 TEST(ImageAssetTest, VersionMismatchRejected)
@@ -110,6 +117,6 @@ TEST(ImageAssetTest, VersionMismatchRejected)
 
     // Load rejects a mismatched version and clears the payload.
     EXPECT_EQ(out.format, aurora::PixelFormat::UNDEFINED);
-    EXPECT_TRUE(out.rawData.empty());
+    EXPECT_EQ(out.dataSize, 0u);
     EXPECT_TRUE(out.slices.empty());
 }

@@ -7,13 +7,18 @@
 #include <network/INetBackend.h>
 #include <network/NetworkCaps.h>
 
+#include <core/environment/Singleton.h>
+
 #include <array>
 
 namespace sky::net {
 
     // Registry of active backends keyed by role. Unlike the physics registry, several backends may be
     // active at once (for example Server and Cluster), so registration is per role.
-    class NetworkBackendRegistry {
+    //
+    // Process-wide (cross-DLL): engine/network is a static lib linked into the backend plugin and the
+    // hosts, so the instance lives in the shared Environment (Singleton), not a function-local static.
+    class NetworkBackendRegistry : public Singleton<NetworkBackendRegistry> {
     public:
         static NetworkBackendRegistry &Get();
 
@@ -26,11 +31,14 @@ namespace sky::net {
         bool         Has(NetworkRole role) const;
         INetBackend *Get(NetworkRole role) const;
 
-        NetworkBackendRegistry()  = default;
-        ~NetworkBackendRegistry();
+        ~NetworkBackendRegistry() override;
 
     private:
-        static constexpr size_t ROLE_COUNT = static_cast<size_t>(NetworkRole::Count);
+        friend class Singleton<NetworkBackendRegistry>;
+
+        NetworkBackendRegistry() = default;
+
+        static constexpr size_t               ROLE_COUNT = static_cast<size_t>(NetworkRole::Count);
         std::array<INetBackend *, ROLE_COUNT> backends{};
     };
 

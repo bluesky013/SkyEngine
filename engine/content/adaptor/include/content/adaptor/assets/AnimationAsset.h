@@ -3,6 +3,10 @@
 // AnimationClip (bone channels) and an animation graph. Bridges the
 // framework-free `Animation` module to the framework asset system.
 //
+// The clip header (resident) carries the channel table (per-track offset/size);
+// the times/keys bytes live in the product bulk and are read on demand by
+// CreateAnimationClipFromAsset.
+//
 
 #pragma once
 
@@ -21,17 +25,45 @@
 
 namespace sky {
 
-    struct AnimationClipAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 1;
+    // Byte range of one time/key array relative to the clip's product bulk.
+    struct AnimTrackHeader {
+        uint64_t offset = 0;
+        uint64_t size   = 0;
+    };
 
-        uint32_t                         version = CURRENT_VERSION;
-        std::string                      name;
-        float                            frameRate = 0.f;
-        Uuid                             skeleton; // bound skeleton asset (optional)
+    struct AnimChannelHeader {
+        std::string     name;
+        AnimTrackHeader positionTimes;
+        AnimTrackHeader positionKeys;
+        AnimTrackHeader scaleTimes;
+        AnimTrackHeader scaleKeys;
+        AnimTrackHeader rotationTimes;
+        AnimTrackHeader rotationKeys;
+    };
+
+    struct AnimationClipAssetData {
+        static constexpr uint32_t CURRENT_VERSION = 2;
+
+        uint32_t                       version = CURRENT_VERSION;
+        std::string                    name;
+        float                          frameRate = 0.f;
+        Uuid                           skeleton; // bound skeleton asset (optional)
+        std::vector<AnimChannelHeader> channels;
+
+        // Build-side scratch (not serialized): the decoded/compressed channels.
         std::vector<AnimNodeChannelData> nodeChannels;
 
+        // Product header (channel table; times/keys live in the bulk).
         void Load(BinaryInputArchive &ar);
         void Save(BinaryOutputArchive &ar) const;
+
+        // Authoring source (.clip): inline channel arrays (backward compatible).
+        void LoadSource(BinaryInputArchive &ar);
+
+        // Lay out the (post-compress) nodeChannels into `channels` and return the
+        // bulk bytes (position -> scale -> rotation, times then keys per track).
+        std::vector<uint8_t> BuildBulk();
+
         void clear();
     };
 

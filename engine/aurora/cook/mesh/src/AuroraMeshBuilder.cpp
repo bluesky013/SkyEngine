@@ -6,12 +6,10 @@
 
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/cook/mesh/MeshAssembler.h>
 #include <aurora/cook/mesh/MeshAssetWriter.h>
 #include <aurora/cook/mesh/MeshOptimizer.h>
 #include <aurora/cook/mesh/MeshSource.h>
-#include <aurora/cook/mesh/MeshletBuilder.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
@@ -26,6 +24,30 @@ namespace sky::aurora {
     {
         return AssetTraits<Mesh>::ASSET_TYPE;
     }
+
+    namespace {
+
+        // Move the build-scratch vertex/index/skin streams into the product bulk
+        // (the header keeps only the section table). Order must match the offsets
+        // written by WriteMeshAsset.
+        void CommitMeshBulk(Asset<Mesh> &asset)
+        {
+            auto &data = asset.Data();
+            if (!data.vertexData.empty()) {
+                asset.AddBulk(data.vertexData.data(), data.vertexData.size());
+            }
+            if (!data.indexData.empty()) {
+                asset.AddBulk(data.indexData.data(), data.indexData.size());
+            }
+            if (!data.skinData.empty()) {
+                asset.AddBulk(data.skinData.data(), data.skinData.size());
+            }
+            data.vertexData.clear();
+            data.indexData.clear();
+            data.skinData.clear();
+        }
+
+    } // namespace
 
     void AuroraMeshBuilder::LoadConfig(const FileSystemPtr &cfg)
     {
@@ -80,27 +102,11 @@ namespace sky::aurora {
             cook::MeshOptimizer(optimize).DoWork();
         }
 
-        if (config->meshlets) {
-            cook::MeshletBuilder::Payload meshlets;
-            meshlets.mesh = &cooked;
-            cook::MeshletBuilder(meshlets).DoWork();
-        }
-
         auto *manager = AssetManager::Get();
 
-        // skin + skeleton ride in their own assets; the mesh references them by uuid
-        Uuid skinUuid;
+        // The skeleton rides in its own asset; skin data is absorbed into the mesh.
         Uuid skeletonUuid;
         if (config->skinning && source.Skinned()) {
-            skinUuid       = Uuid::Create();
-            auto skinAsset = manager->FindOrCreateAsset<Skin>(skinUuid);
-            if (!skinAsset) {
-                LOG_E(TAG, "failed to create skin asset %s", skinUuid.ToString().c_str());
-                return;
-            }
-            cook::WriteSkinAsset(source.skin, skinAsset->Data());
-            manager->SaveAsset(skinAsset, bundleKey);
-
             skeletonUuid       = Uuid::Create();
             auto skeletonAsset = manager->FindOrCreateAsset<sky::Skeleton>(skeletonUuid);
             if (!skeletonAsset) {
@@ -117,14 +123,12 @@ namespace sky::aurora {
             return;
         }
         asset->ResetDependencies();
-        if (static_cast<bool>(skinUuid)) {
-            asset->AddDependencies(skinUuid);
-        }
         if (static_cast<bool>(skeletonUuid)) {
             asset->AddDependencies(skeletonUuid);
         }
 
-        cook::WriteMeshAsset(cooked, skinUuid, skeletonUuid, asset->Data());
+        cook::WriteMeshAsset(cooked, source.skin, skeletonUuid, asset->Data());
+        CommitMeshBulk(*asset);
         manager->SaveAsset(asset, bundleKey);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }

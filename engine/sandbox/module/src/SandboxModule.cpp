@@ -18,6 +18,7 @@
 #include <editor/core/asset/EditorAssetEditor.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/extension/EditorActionRegistry.h>
+#include <editor/core/extension/EditorExtensionRegistry.h>
 #include <editor/core/layout/LayoutPersistence.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/resource/SandboxResources.h>
@@ -616,8 +617,11 @@ namespace sky::editor {
             builderMgr->SetCookConfig(std::move(cookConfig));
         }
 
-        // EditorCore services + default panels (registered through the extension
-        // host) + default layout.
+        // EditorCore services + default panels (registered through the extension host) + default
+        // layout. Plugin editor modules staged their extensions during Init; drain them first.
+        for (auto &extension : EditorExtensionRegistry::Get()->TakeAll()) {
+            extensionHost.Add(std::move(extension));
+        }
         extensionHost.Add(std::make_unique<DefaultEditorExtension>(panelRegistry));
         extensionHost.RegisterAll();
 

@@ -1,38 +1,45 @@
 {
     "assets": [
         {
-            "uuid": "670A103B-18BA-4F98-9D4F-8A2D3F84382F",
-            "markedName": "",
-            "ext": ".t1",
-            "path": "framework\\data\\test_asset.t1",
-            "dependencies": []
-        },
-        {
-            "uuid": "3944E904-7461-4822-BAAA-341E69965B68",
-            "markedName": "",
-            "ext": ".t2",
-            "path": "framework\\data\\test_asset.t2",
-            "dependencies": []
-        },
-        {
-            "uuid": "1CC6E7E7-5310-48CB-B16B-F2216234F880",
-            "markedName": "",
-            "ext": ".t1",
-            "path": "framework\\data\\compressed.t1",
-            "dependencies": []
-        },
-        {
-            "uuid": "0C91651C-DB3B-41DE-AB92-0E66F3920D88",
+            "uuid": "2132E24B-9DC6-45AE-83CD-71975A0CB9C9",
             "markedName": "",
             "ext": ".t3",
             "path": "framework\\data\\test_asset.t3",
             "dependencies": []
         },
         {
-            "uuid": "151453FF-A3E3-4D75-AC00-418CEF14A4BC",
+            "uuid": "D1F11E3D-81FC-4BD4-B81D-55E2DCF75EBA",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\test_asset.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "1130B291-D12B-47A5-BF95-C06CFD44F145",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\concurrent.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "F7C67924-B284-418B-9A8B-3025454A9D8E",
             "markedName": "",
             "ext": ".t1",
             "path": "framework\\data\\imported.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "37052EAD-FD7E-4556-A8A0-88F933AD9826",
+            "markedName": "",
+            "ext": ".t2",
+            "path": "framework\\data\\test_asset.t2",
+            "dependencies": []
+        },
+        {
+            "uuid": "EBE298A9-6E64-4F71-9D7D-0162F0F7AE67",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\compressed.t1",
             "dependencies": []
         }
     ]

@@ -10,7 +10,6 @@
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/LodGroupComponent.h>
@@ -19,6 +18,7 @@
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/scene/SceneTypes.h>
 
+#include <core/environment/Once.h>
 #include <core/shapes/Bounds.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/Any.h>
@@ -162,10 +162,6 @@ namespace sky {
                 .BinLoad<&sky::aurora::MeshAssetData::Load>()
                 .BinSave<&sky::aurora::MeshAssetData::Save>();
 
-            context->Register<sky::aurora::SkinAssetData>("SkinAssetData")
-                .BinLoad<&sky::aurora::SkinAssetData::Load>()
-                .BinSave<&sky::aurora::SkinAssetData::Save>();
-
             context->Register<sky::aurora::SkeletonAssetData>("SkeletonAssetData")
                 .BinLoad<&sky::aurora::SkeletonAssetData::Load>()
                 .BinSave<&sky::aurora::SkeletonAssetData::Save>();
@@ -188,7 +184,6 @@ namespace sky {
 
             auto *manager = AssetManager::Get();
             manager->RegisterAssetHandler<sky::aurora::Mesh>();
-            manager->RegisterAssetHandler<sky::aurora::Skin>();
             manager->RegisterAssetHandler<sky::Skeleton>();
             manager->RegisterAssetHandler<sky::aurora::Material>();
             manager->RegisterAssetHandler<sky::aurora::MaterialInstance>();
@@ -210,11 +205,12 @@ namespace sky {
 
         void AuroraReflection(sky::SerializationContext *context)
         {
-            static bool reflected = false;
-            if (reflected) {
+            // Cross-DLL one-shot guard: Aurora.Adaptor.Static is linked into each module DLL, so a
+            // function-local `static bool` would be per-DLL and re-register into the shared
+            // SerializationContext (assert on duplicate type). See sky::Once.
+            if (!sky::Once::Get()->Run("AuroraReflection")) {
                 return;
             }
-            reflected = true;
 
             ReflectSceneTypes(context);
             ReflectAssetTypes(context);

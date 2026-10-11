@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include <core/util/Uuid.h>
-#include <core/util/Macros.h>
-#include <core/name/Name.h>
 #include <core/archive/StreamArchive.h>
+#include <core/name/Name.h>
 #include <core/template/ReferenceObject.h>
-#include <framework/serialization/JsonArchive.h>
+#include <core/util/Macros.h>
+#include <core/util/Uuid.h>
 #include <framework/serialization/BinaryArchive.h>
+#include <framework/serialization/JsonArchive.h>
 
 #include <core/async/ThreadPool.h>
 
@@ -34,14 +34,32 @@ namespace sky {
 
         enum class Status : uint32_t { INITIAL, LOADING, LOADED, FAILED };
 
-        void SetUuid(const Uuid &id) { uuid = id; }
-        const Uuid &GetUuid() const { return uuid; }
+        void SetUuid(const Uuid &id)
+        {
+            uuid = id;
+        }
+        const Uuid &GetUuid() const
+        {
+            return uuid;
+        }
 
-        void SetType(const Name &val) { type = val; }
-        const Name &GetType() const { return type; }
-        
-        Status GetStatus() const { return status.load(); }
-        bool IsLoaded() const { return status.load() == Status::LOADED; }
+        void SetType(const Name &val)
+        {
+            type = val;
+        }
+        const Name &GetType() const
+        {
+            return type;
+        }
+
+        Status GetStatus() const
+        {
+            return status.load();
+        }
+        bool IsLoaded() const
+        {
+            return status.load() == Status::LOADED;
+        }
 
         void AddDependencies(const Uuid &id);
         void ResetDependencies();
@@ -49,17 +67,37 @@ namespace sky {
         // MUST NOT be called from the asset executor's worker (loader or cook) pool threads.
         void BlockUntilLoaded() const;
 
+        // ---- bulk payload (build side: opaque bytes appended after the header) ----
+        // The per-resource layout (offsets/sizes) lives in the asset's typed header;
+        // the bulk is addressed by those (see ReadBulk).
+        void AddBulk(const void *data, size_t size);
+        // ---- bulk payload (load side: read a byte range of the bulk on demand) ----
+        bool HasBulk() const
+        {
+            return productStream != nullptr;
+        }
+        std::vector<uint8_t> ReadBulk(uint64_t offset, uint64_t size) const;
+
         virtual const uint8_t *GetData() const = 0;
 
-        const AsyncTask &GetAsyncTask() const { return asyncTask; }
+        const AsyncTask &GetAsyncTask() const
+        {
+            return asyncTask;
+        }
+
     protected:
-        friend class AssetManager;
         friend class AssetManager;
 
         Uuid                  uuid;
         Name                  type;
         std::vector<Uuid>     dependencies;
         std::vector<AssetPtr> depAssets;
+
+        // build side
+        std::vector<uint8_t> bulk;
+        // load side
+        uint64_t                  bulkStart = 0;
+        mutable IStreamArchivePtr productStream;
 
         std::atomic<Status> status = Status::INITIAL;
         AsyncTask           asyncTask;
@@ -69,7 +107,7 @@ namespace sky {
 
     template <typename T>
     struct AssetTraits {
-        using DataType = std::vector<uint8_t>;
+        using DataType                                = std::vector<uint8_t>;
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
     };
 
@@ -92,7 +130,7 @@ namespace sky {
         }
 
         template <typename Func>
-        const CounterPtr<T> &GetOrCreateResource(Func&& createFn)
+        const CounterPtr<T> &GetOrCreateResource(Func &&createFn)
         {
             std::lock_guard<std::mutex> lock(mutex);
             if (cacheObject) {
@@ -103,14 +141,18 @@ namespace sky {
             return cacheObject;
         }
 
-        const uint8_t *GetData() const override { return reinterpret_cast<const uint8_t *>(&data); }
+        const uint8_t *GetData() const override
+        {
+            return reinterpret_cast<const uint8_t *>(&data);
+        }
+
     private:
         friend class AssetManager;
 
         DataType data;
 
         mutable std::mutex mutex;
-        CounterPtr<T> cacheObject;
+        CounterPtr<T>      cacheObject;
     };
 
     class AssetHandlerBase {
@@ -146,7 +188,7 @@ namespace sky {
 
         bool Load(IStreamArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
+            auto      asset     = std::static_pointer_cast<Asset<T>>(assetBase);
             DataType &assetData = asset->Data();
             if (SERIALIZE_TYPE == SerializeType::JSON) {
                 JsonInputArchive jArchive(archive);
@@ -160,12 +202,12 @@ namespace sky {
 
         void Save(OStreamArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
-            auto         &assetData = asset->Data();
+            auto  asset     = std::static_pointer_cast<Asset<T>>(assetBase);
+            auto &assetData = asset->Data();
 
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-//                JsonOutputArchive archive(file);
-//                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
+                //                JsonOutputArchive archive(file);
+                //                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryOutputArchive bArchive(archive);
                 bArchive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
@@ -173,10 +215,18 @@ namespace sky {
         }
 
     protected:
-        virtual void LoadBinary(BinaryInputArchive &archive) {}
-        virtual void SaveBinary(BinaryOutputArchive &archive) {}
+        virtual void LoadBinary(BinaryInputArchive &archive)
+        {
+        }
+        virtual void SaveBinary(BinaryOutputArchive &archive)
+        {
+        }
 
-        virtual void LoadJson(JsonInputArchive &archive) {}
-        virtual void SaveJson(JsonOutputArchive &archive) {}
+        virtual void LoadJson(JsonInputArchive &archive)
+        {
+        }
+        virtual void SaveJson(JsonOutputArchive &archive)
+        {
+        }
     };
-} // names
+} // namespace sky

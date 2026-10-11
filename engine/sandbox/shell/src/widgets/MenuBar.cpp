@@ -4,6 +4,7 @@
 
 #include <editor/shell/widgets/MenuBar.h>
 
+#include <editor/core/extension/IconRegistry.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiSkin.h>
 #include <editor/shell/UiTheme.h>
@@ -62,11 +63,37 @@ namespace sky::editor {
         uc::Fill(context, sky::ui::UIRect{popup.left + 1.0f, popup.top + 1.0f, popup.right - 1.0f, popup.bottom - 1.0f}, th.colors.panel);
         UiSkin skin(th, textSystem);
         for (size_t i = 0; i < items.size(); ++i) {
-            const float           top = popup.top + m.panelGap + rowH * static_cast<float>(i);
+            const Item           &item = items[i];
+            const float           top  = popup.top + m.panelGap + rowH * static_cast<float>(i);
             const sky::ui::UIRect row{popup.left + 1.0f, top, popup.right - 1.0f, top + rowH};
-            skin.DrawToolItem(context, row, items[i].label, static_cast<int32_t>(i) == hovered);
-            if (withSubmenuArrows && !items[i].children.empty()) {
-                skin.DrawTriangle(context, row.right - m.controlPad, (row.top + row.bottom) * 0.5f, true, th.colors.textMuted);
+            if (item.separator) {
+                const float y = (row.top + row.bottom) * 0.5f;
+                uc::HLine(context, row.left + m.controlPad, row.right - m.controlPad, y, th.colors.borderSoft);
+                continue;
+            }
+            const bool hoveredRow = static_cast<int32_t>(i) == hovered;
+            if (hoveredRow) {
+                uc::RoundedRect(context, row, th.colors.rowHover, m.buttonRadius);
+            }
+            const float cy       = (row.top + row.bottom) * 0.5f;
+            float       textLeft = row.left + m.controlPad;
+            if (!item.icon.empty()) {
+                const uint32_t iconId = IconRegistry::Get()->Find(item.icon);
+                if (iconId != 0) {
+                    const float           isz = m.iconSize;
+                    const sky::ui::UIRect ir{textLeft, cy - isz * 0.5f, textLeft + isz, cy + isz * 0.5f};
+                    skin.DrawIcon(context, ir, iconId, th.colors.text);
+                }
+                textLeft += m.iconSize + m.panelGap;
+            }
+            uc::Text(context, item.label, th.fonts.label, sky::ui::UIRect{textLeft, row.top, row.right - m.controlPad, row.bottom}, th.colors.text,
+                     textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
+            if (!item.shortcut.empty()) {
+                uc::Text(context, item.shortcut, th.fonts.small, sky::ui::UIRect{row.left, row.top, row.right - m.controlPad * 2.0f, row.bottom},
+                         th.colors.textMuted, textSystem, uc::HAlign::Right, uc::VAlign::Middle, false);
+            }
+            if (withSubmenuArrows && !item.children.empty()) {
+                skin.DrawTriangle(context, row.right - m.controlPad, cy, true, th.colors.textMuted);
             }
         }
     }

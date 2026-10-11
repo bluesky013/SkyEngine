@@ -1,7 +1,7 @@
 //
 // Aurora mesh builder: AssetBuilder implementation cooking mesh sources
-// (gltf/glb/fbx/obj) into AuroraMesh (+ AuroraSkin for skinned sources).
-// Mirrors AuroraImageBuilder.
+// (gltf/glb/fbx/obj) into AuroraMesh (+ AuroraSkeleton for skinned sources;
+// skin data is absorbed into the mesh bulk). Mirrors AuroraImageBuilder.
 //
 
 #pragma once
@@ -20,10 +20,13 @@ namespace sky::aurora {
         AuroraMeshBuilder()           = default;
         ~AuroraMeshBuilder() override = default;
 
-        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+        const std::vector<std::string> &GetExtensions() const override
+        {
+            return extensions;
+        }
         std::string_view QueryType(const std::string &) const override;
-        void LoadConfig(const FileSystemPtr &cfg) override;
-        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
+        void             LoadConfig(const FileSystemPtr &cfg) override;
+        void             Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
     private:
         std::vector<std::string> extensions = {".gltf", ".glb", ".fbx", ".obj"};

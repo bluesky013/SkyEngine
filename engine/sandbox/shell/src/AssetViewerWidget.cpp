@@ -4,14 +4,33 @@
 
 #include <editor/shell/AssetViewerWidget.h>
 
+#include <core/platform/Platform.h>
+#include <framework/asset/AssetDataBase.h>
+
+#if defined(SKY_PLATFORM_WINDOWS)
+// Declared manually to avoid <windows.h> macro pollution (e.g. RGB) in this TU.
+extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
+    void *hwnd, const wchar_t *op, const wchar_t *file, const wchar_t *params, const wchar_t *dir, int show);
+    #pragma comment(lib, "shell32.lib")
+#endif
+
+#include <editor/core/EditorCore.h>
+#include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetPreviewProvider.h>
+#include <editor/core/command/CommandService.h>
+#include <editor/core/extension/IconRegistry.h>
+#include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/AssetViewProvider.h>
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiTheme.h>
+#include <editor/shell/widgets/MenuBar.h>
+#include <editor/shell/widgets/ToolItemButton.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>
+#include <ui/widgets/DockPanel.h>
+#include <ui/widgets/StackPanel.h>
 
 #include <algorithm>
 #include <memory>
@@ -39,6 +58,55 @@ namespace sky::editor {
     {
         SetFocusable(true);
         SetVisible(false);
+        // Clipping viewport for the scrollable content (viewer child; clipped to the content column).
+        contentViewport = AddChild(std::make_unique<sky::ui::UIElement>());
+        contentViewport->SetClipsChildren(true);
+
+        // Top chrome docked with DockPanel: menu (top), toolbar (top), body (fill). No hand offsets.
+        constexpr float kMenuH    = 24.0f;
+        constexpr float kToolbarH = 24.0f;
+        topDock                   = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
+
+        // Menu bar first (top), then toolbar, then body -> menu sits above the toolbar (dock order = add order).
+        std::vector<MenuBar::Menu> menus;
+        MenuBar::Menu              fileMenu;
+        fileMenu.label = "File";
+        fileMenu.items.push_back(MenuBar::Item{"Open", [this] { OpenAsset(); }, {}, "Ctrl+O", "open"});
+        fileMenu.items.push_back(MenuBar::Item{"Save", [this] { SaveAsset(); }, {}, "Ctrl+S", "save"});
+        fileMenu.items.push_back(MenuBar::Item{"", {}, {}, "", "", true});
+        fileMenu.items.push_back(MenuBar::Item{"Close",
+                                               [this] {
+                                                   SaveAsset();
+                                                   Close();
+                                               },
+                                               {},
+                                               "Esc"});
+        menus.push_back(std::move(fileMenu));
+        MenuBar::Menu editMenu;
+        editMenu.label = "Edit";
+        editMenu.items.push_back(MenuBar::Item{"Undo", [this] { EditorCore::GetCommandService().Undo(); }, {}, "Ctrl+Z", "undo"});
+        editMenu.items.push_back(MenuBar::Item{"Redo", [this] { EditorCore::GetCommandService().Redo(); }, {}, "Ctrl+Y", "redo"});
+        menus.push_back(std::move(editMenu));
+        menuBar = static_cast<MenuBar *>(
+            topDock->Add(std::make_unique<MenuBar>(std::move(menus), text), sky::ui::DockSlot{sky::ui::DockSide::Top, kMenuH}));
+
+        toolbarPanel = static_cast<sky::ui::StackPanel *>(topDock->Add(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Horizontal),
+                                                                       sky::ui::DockSlot{sky::ui::DockSide::Top, kToolbarH}));
+        toolbarPanel->SetGap(4.0f);
+        auto addToolButton = [&](const char *label, const char *iconName, std::function<void()> callback) {
+            auto           button = std::make_unique<ToolItemButton>(&skin, label, std::move(callback));
+            const uint32_t icon   = IconRegistry::Get()->Find(iconName);
+            if (icon != 0) {
+                button->SetIcon(icon);
+            }
+            toolbarPanel->Add(std::move(button));
+        };
+        addToolButton("Save", "save", [this] { SaveAsset(); });
+        addToolButton("Undo", "undo", [this] { EditorCore::GetCommandService().Undo(); });
+        addToolButton("Redo", "redo", [this] { EditorCore::GetCommandService().Redo(); });
+
+        bodyArea =
+            static_cast<sky::ui::UIElement *>(topDock->Add(std::make_unique<sky::ui::UIElement>(), sky::ui::DockSlot{sky::ui::DockSide::Fill}));
     }
 
     AssetViewerWidget::~AssetViewerWidget() = default;
@@ -49,6 +117,7 @@ namespace sky::editor {
         assetName.clear();
         assetType.clear();
         assetPath.clear();
+        viewFlags = AssetViewFlags::BUNDLE;
 
         if (catalog != nullptr) {
             EditorAssetItem item;
@@ -58,8 +127,16 @@ namespace sky::editor {
                 assetPath = item.path;
             }
         }
+
+        std::string ext;
+        if (const auto dot = assetPath.find_last_of('.'); dot != std::string::npos) {
+            ext = assetPath.substr(dot);
+        }
+        viewFlags = DeriveAssetViewFlags(assetType, ext);
+
         contentScroll = 0.0f;
         RebuildCustomContent();
+        RebuildDataView();
         RebuildTargetPanels();
         Reload();
         ModalDialog::Open();
@@ -73,22 +150,45 @@ namespace sky::editor {
             RemoveChild(customContent);
             customContent = nullptr;
         }
-        if (customPreview != nullptr) {
-            RemoveChild(customPreview);
-            customPreview = nullptr;
+
+        if (!HasAssetViewFlag(viewFlags, AssetViewFlags::DATA)) {
+            return;
         }
 
         IAssetViewProvider *provider = AssetViewProviderRegistry::Get()->Find(assetType);
         if (provider == nullptr) {
             return;
         }
-        if (auto content = provider->CreateContent(asset, assetType)) {
-            customContent = AddChild(std::move(content));
+        if (auto content = provider->CreateContent(asset, assetType, textSystem)) {
+            customContent = contentViewport->AddChild(std::move(content));
             AddContentElement(customContent);
         }
-        if (auto preview = provider->CreatePreview(asset, assetType)) {
-            customPreview = AddChild(std::move(preview));
+    }
+
+    void AssetViewerWidget::RebuildDataView()
+    {
+        if (dataView != nullptr) {
+            RemoveChild(dataView);
+            dataView = nullptr;
         }
+        registeredViewData = AssetViewData{};
+
+        // A custom provider content widget takes precedence over the generic reflected view.
+        if (!HasAssetViewFlag(viewFlags, AssetViewFlags::DATA) || customContent != nullptr) {
+            return;
+        }
+
+        auto data = AssetViewDataRegistry::Get()->Build(assetType, asset);
+        if (!data.IsValid()) {
+            return;
+        }
+        registeredViewData = std::move(data);
+
+        auto view = std::make_unique<ReflectedFormView>(textSystem, assetName);
+        view->SetHeaderVisible(false);
+        view->Bind(PropertyObject{registeredViewData.object.Data(), registeredViewData.type});
+        dataView = static_cast<ReflectedFormView *>(contentViewport->AddChild(std::move(view)));
+        AddContentElement(dataView);
     }
 
     void AssetViewerWidget::RebuildTargetPanels()
@@ -100,8 +200,8 @@ namespace sky::editor {
         }
         panels.clear();
 
-        // A custom provider content widget replaces the per-target reflected forms.
-        if (customContent != nullptr || catalog == nullptr) {
+        // BUNDLE and DATA render together; only skip when there is no cook-settings section.
+        if (catalog == nullptr || !HasAssetViewFlag(viewFlags, AssetViewFlags::BUNDLE)) {
             return;
         }
 
@@ -113,6 +213,7 @@ namespace sky::editor {
             view->SetOnEdited([this, target]() {
                 for (auto &panel : panels) {
                     if (panel.target == target && catalog != nullptr && panel.settings.IsValid()) {
+                        // Persist the sparse override; the actual re-cook happens on Save/close.
                         catalog->ApplyCookSettings(asset, target, panel.settings.object);
                         break;
                     }
@@ -121,7 +222,7 @@ namespace sky::editor {
             });
             TargetPanel panel;
             panel.target = target;
-            panel.view   = static_cast<ReflectedFormView *>(AddChild(std::move(view)));
+            panel.view   = static_cast<ReflectedFormView *>(contentViewport->AddChild(std::move(view)));
             AddContentElement(panel.view);
             panels.push_back(std::move(panel));
         }
@@ -169,6 +270,31 @@ namespace sky::editor {
         return {panel.right - 26.0f, panel.top + 6.0f, panel.right - 6.0f, panel.top + 26.0f};
     }
 
+    void AssetViewerWidget::SaveAsset()
+    {
+        if (IAssetViewProvider *provider = AssetViewProviderRegistry::Get()->Find(assetType)) {
+            provider->SaveContent(asset, assetType, customContent);
+        }
+        if (catalog != nullptr) {
+            AssetCookService::Get()->TriggerCook(asset);
+        }
+        MarkPaintDirty();
+    }
+
+    void AssetViewerWidget::OpenAsset()
+    {
+        // "Open" = open the asset's source file with the OS default handler.
+        std::string sourcePath;
+        auto       *db = AssetDataBase::Get();
+        if (db == nullptr || !db->GetAbsoluteSourcePath(asset, sourcePath) || sourcePath.empty()) {
+            return;
+        }
+#if defined(SKY_PLATFORM_WINDOWS)
+        const std::wstring wide(sourcePath.begin(), sourcePath.end());
+        ShellExecuteW(nullptr, L"open", wide.c_str(), nullptr, nullptr, 1 /* SW_SHOWNORMAL */);
+#endif
+    }
+
     sky::ui::UIRect AssetViewerWidget::ResizeRect(const sky::ui::UIRect &panel) const
     {
         return {panel.right - kGrip, panel.bottom - kGrip, panel.right, panel.bottom};
@@ -204,21 +330,21 @@ namespace sky::editor {
         const std::string     title   = assetName.empty() ? std::string("Asset Viewer") : assetName;
         const sky::ui::UIRect content = skin.DrawPanel(context, panel, title, true);
 
-        const float           previewW = (content.right - content.left) * 0.38f;
-        const sky::ui::UIRect preview{content.left + kPad, content.top + kPad, content.left + previewW, content.bottom - kPad};
-        const sky::ui::UIRect right = RightRect(content);
+        // Toolbar row at the top of the content area (below the title header).
+        // Top chrome (menu + toolbar) docked via DockPanel; body = the Fill area (no hand offsets).
+        topDock->SetBounds(content);
+        topDock->Layout();
+        const sky::ui::UIRect body     = bodyArea->GetBounds();
+        const float           previewW = (body.right - body.left) * 0.38f;
+        const sky::ui::UIRect preview{body.left + kPad, body.top + kPad, body.left + previewW, body.bottom - kPad};
+        const sky::ui::UIRect right = RightRect(body);
 
-        // Preview region: a provider widget when present, else a reserved placeholder.
-        if (customPreview != nullptr) {
-            customPreview->SetBounds(preview);
-            customPreview->SetVisible(true);
-        } else {
-            uc::RoundedField(context, preview, uc::color::Section, uc::color::BorderSoft, 4.0f);
-            IAssetPreviewProvider *provider   = AssetPreviewProviderRegistry::Get()->GetProvider();
-            const bool             hasPreview = provider != nullptr && provider->GetPreview(asset, assetType);
-            uc::Text(context, hasPreview ? "preview (reserved)" : "no preview", kTextSize, preview, uc::color::TextDisabled, textSystem,
-                     uc::HAlign::Center, uc::VAlign::Middle);
-        }
+        // Preview region: reserved. Served by the (optional) IAssetPreviewProvider seam.
+        uc::RoundedField(context, preview, uc::color::Section, uc::color::BorderSoft, 4.0f);
+        IAssetPreviewProvider *provider   = AssetPreviewProviderRegistry::Get()->GetProvider();
+        const bool             hasPreview = provider != nullptr && provider->GetPreview(asset, assetType);
+        uc::Text(context, hasPreview ? "preview (reserved)" : "no preview", kTextSize, preview, uc::color::TextDisabled, textSystem,
+                 uc::HAlign::Center, uc::VAlign::Middle);
 
         float y   = right.top;
         auto  row = [&](float h) {
@@ -233,8 +359,20 @@ namespace sky::editor {
         const float viewH   = std::max(0.0f, right.bottom - viewTop);
         contentViewH        = viewH;
 
-        // Size each target form to fit its rows (no inner scrollbar); the right region scrolls as one.
-        float total = 0.0f;
+        // Right region scrolls as one: the DATA section (asset view) then one form per cook target.
+        const bool hasData = (customContent != nullptr) || (dataView != nullptr);
+
+        float dataH = 0.0f;
+        if (dataView != nullptr) {
+            dataH = dataView->GetPreferredHeight();
+        } else if (customContent != nullptr) {
+            float prefW = 0.0f;
+            float prefH = 0.0f;
+            customContent->Measure(prefW, prefH);
+            dataH = std::max(prefH, kRowHeight);
+        }
+
+        float total = hasData ? (dataH + kPanelGap) : 0.0f;
         for (auto &tp : panels) {
             const float formH = std::min((tp.view != nullptr) ? tp.view->GetPreferredHeight() : kTargetFormH, kCardMaxH);
             tp.h              = kRowHeight + formH + kPanelGap;
@@ -247,27 +385,49 @@ namespace sky::editor {
         const float           barW   = hasBar ? kScrollbarW : 0.0f;
         const sky::ui::UIRect contentRight{right.left, right.top, right.right - barW, right.bottom};
 
-        if (customContent != nullptr) {
-            customContent->SetBounds(sky::ui::UIRect{contentRight.left, viewTop, contentRight.right, right.bottom});
-            customContent->SetVisible(true);
-        } else {
-            float py = viewTop - contentScroll;
-            for (auto &tp : panels) {
-                const sky::ui::UIRect labelRect{contentRight.left, py, contentRight.right, py + kRowHeight};
-                if (labelRect.bottom > viewTop && labelRect.top < right.bottom) {
-                    skin.DrawSectionHeader(context, labelRect, tp.target);
-                }
-                const float formTop    = std::max(py + kRowHeight, viewTop);
-                const float formBottom = std::min(py + kRowHeight + (tp.h - kRowHeight - kPanelGap), right.bottom);
-                const bool  visible    = (formBottom > formTop) && tp.settings.IsValid() && labelRect.top < right.bottom && (py + tp.h) > viewTop;
-                if (visible) {
-                    tp.view->SetBounds(sky::ui::UIRect{contentRight.left, formTop, contentRight.right, formBottom});
-                    tp.view->SetVisible(true);
-                } else {
-                    tp.view->SetVisible(false);
-                }
-                py += tp.h;
+        float py = viewTop - contentScroll;
+
+        if (contentViewport != nullptr) {
+            contentViewport->SetBounds(right);
+        }
+
+        sky::ui::UIElement *dataElement = customContent != nullptr ? customContent : static_cast<sky::ui::UIElement *>(dataView);
+        if (hasData && dataElement != nullptr) {
+            // Full height positioned at py (not clamped to the viewport); the parent clip scrolls it.
+            const float top     = py;
+            const float bottom  = py + dataH;
+            const bool  visible = (bottom > viewTop) && (top < right.bottom);
+            if (visible) {
+                dataElement->SetBounds(sky::ui::UIRect{contentRight.left, top, contentRight.right, bottom});
+                dataElement->SetVisible(true);
+            } else {
+                dataElement->SetVisible(false);
             }
+            py += dataH + kPanelGap;
+        } else {
+            if (customContent != nullptr) {
+                customContent->SetVisible(false);
+            }
+            if (dataView != nullptr) {
+                dataView->SetVisible(false);
+            }
+        }
+
+        for (auto &tp : panels) {
+            const sky::ui::UIRect labelRect{contentRight.left, py, contentRight.right, py + kRowHeight};
+            if (labelRect.bottom > viewTop && labelRect.top < right.bottom) {
+                skin.DrawSectionHeader(context, labelRect, tp.target);
+            }
+            const float formTop    = py + kRowHeight;
+            const float formBottom = py + kRowHeight + (tp.h - kRowHeight - kPanelGap);
+            const bool  visible    = tp.settings.IsValid() && (formBottom > viewTop) && (formTop < right.bottom);
+            if (visible) {
+                tp.view->SetBounds(sky::ui::UIRect{contentRight.left, formTop, contentRight.right, formBottom});
+                tp.view->SetVisible(true);
+            } else {
+                tp.view->SetVisible(false);
+            }
+            py += tp.h;
         }
 
         // Outer scrollbar (hover + drag + wheel): one bar for the whole right region.
@@ -294,6 +454,22 @@ namespace sky::editor {
             return sky::ui::UIEventResult::UNHANDLED;
         }
         const sky::ui::UIRect panel = PanelRect();
+
+        if (menuBar != nullptr) {
+            const sky::ui::UIEventResult menuResult = menuBar->OnPointerEvent(event);
+            if (menuResult == sky::ui::UIEventResult::HANDLED) {
+                MarkPaintDirty();
+                return menuResult;
+            }
+        }
+
+        if (toolbarPanel != nullptr) {
+            const sky::ui::UIEventResult toolbarResult = toolbarPanel->RoutePointer(event);
+            if (toolbarResult == sky::ui::UIEventResult::HANDLED) {
+                MarkPaintDirty();
+                return toolbarResult;
+            }
+        }
 
         if (event.action == sky::ui::UIPointerAction::MOVE) {
             if (resizing) {
@@ -358,8 +534,27 @@ namespace sky::editor {
         if (event.action == sky::ui::UIKeyAction::UP) {
             return sky::ui::UIEventResult::UNHANDLED;
         }
+        const bool ctrl  = (event.modifiers & kModCtrl) != 0;
+        const bool shift = (event.modifiers & kModShift) != 0;
+        if (ctrl && event.keyCode == 'S') {
+            SaveAsset();
+            return sky::ui::UIEventResult::HANDLED;
+        }
+        if (ctrl && event.keyCode == 'O') {
+            OpenAsset();
+            return sky::ui::UIEventResult::HANDLED;
+        }
+        if (ctrl && event.keyCode == 'Z') {
+            EditorCore::GetCommandService().Undo();
+            return sky::ui::UIEventResult::HANDLED;
+        }
+        if (ctrl && (event.keyCode == 'Y' || shift)) {
+            EditorCore::GetCommandService().Redo();
+            return sky::ui::UIEventResult::HANDLED;
+        }
         constexpr uint32_t kEscape = 0x1B;
         if (event.keyCode == kEscape) {
+            SaveAsset();
             Close();
             return sky::ui::UIEventResult::HANDLED;
         }

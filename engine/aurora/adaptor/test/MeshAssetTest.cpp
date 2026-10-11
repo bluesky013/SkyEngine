@@ -15,11 +15,11 @@ namespace {
 
     void RoundTrip(const aurora::MeshAssetData &in, aurora::MeshAssetData &out)
     {
-        OMemoryArchive     outArchive;
+        OMemoryArchive      outArchive;
         BinaryOutputArchive writer(outArchive);
         in.Save(writer);
 
-        IMemoryArchive    inArchive(outArchive.Data(), outArchive.Size());
+        IMemoryArchive     inArchive(outArchive.Data(), outArchive.Size());
         BinaryInputArchive reader(inArchive);
         out.Load(reader);
     }
@@ -27,8 +27,13 @@ namespace {
     aurora::MeshAssetData MakeData()
     {
         aurora::MeshAssetData data;
-        data.vertexData = {1, 2, 3, 4};
-        data.indexData  = {0, 1, 2};
+        data.vertexOffset = 0;
+        data.vertexSize   = 4;
+        data.vertexStride = 16;
+        data.vertexCount  = 1;
+        data.indexOffset  = 4;
+        data.indexSize    = 6;
+        data.indexCount   = 3; // 2 x uint16 indices
 
         aurora::MeshSubMeshData first;
         first.indexOffset   = 0;
@@ -57,8 +62,10 @@ TEST(MeshAssetTest, RoundTripMaterialsAndVersion)
     RoundTrip(in, out);
 
     EXPECT_EQ(out.version, aurora::MeshAssetData::CURRENT_VERSION);
-    EXPECT_EQ(out.vertexData, in.vertexData);
-    EXPECT_EQ(out.indexData, in.indexData);
+    EXPECT_EQ(out.vertexOffset, in.vertexOffset);
+    EXPECT_EQ(out.vertexSize, in.vertexSize);
+    EXPECT_EQ(out.indexOffset, in.indexOffset);
+    EXPECT_EQ(out.indexSize, in.indexSize);
     ASSERT_EQ(out.subMeshes.size(), 2u);
     EXPECT_EQ(out.subMeshes[1].materialIndex, 1u);
     ASSERT_EQ(out.materials.size(), 2u);
@@ -98,8 +105,8 @@ TEST(MeshAssetTest, VersionMismatchRejected)
     RoundTrip(in, out);
 
     // Load rejects a mismatched version and clears the payload.
-    EXPECT_TRUE(out.vertexData.empty());
-    EXPECT_TRUE(out.indexData.empty());
+    EXPECT_EQ(out.vertexSize, 0u);
+    EXPECT_EQ(out.indexSize, 0u);
     EXPECT_TRUE(out.subMeshes.empty());
     EXPECT_TRUE(out.materials.empty());
 }

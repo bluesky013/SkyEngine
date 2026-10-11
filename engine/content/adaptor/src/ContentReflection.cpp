@@ -5,6 +5,7 @@
 #include <content/adaptor/ContentReflection.h>
 
 #include <content/adaptor/assets/AnimationAsset.h>
+#include <core/environment/Once.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -12,11 +13,10 @@ namespace sky {
 
     void ContentReflection(SerializationContext *context)
     {
-        static bool reflected = false;
-        if (reflected) {
+        // Cross-DLL one-shot guard (Content.Adaptor is linked into each module DLL; see sky::Once).
+        if (!sky::Once::Get()->Run("ContentReflection")) {
             return;
         }
-        reflected = true;
 
         context->Register<AnimationClipAssetData>("AnimationClipAssetData")
             .BinLoad<&AnimationClipAssetData::Load>()

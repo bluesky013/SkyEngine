@@ -1,5 +1,14 @@
 {
     "techniques": [
-        "techniques/skybox.tech"
+        {
+            "tag": "SkyBox",
+            "shader": "skybox.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": false,
+                "cullMode": "none"
+            }
+        }
     ]
 }

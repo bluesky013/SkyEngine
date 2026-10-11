@@ -4,7 +4,28 @@
 
 #include <framework/asset/Asset.h>
 
+#include <cstring>
+
 namespace sky {
+
+    void AssetBase::AddBulk(const void *data, size_t size)
+    {
+        if (size != 0 && data != nullptr) {
+            const auto *begin = reinterpret_cast<const uint8_t *>(data);
+            bulk.insert(bulk.end(), begin, begin + size);
+        }
+    }
+
+    std::vector<uint8_t> AssetBase::ReadBulk(uint64_t offset, uint64_t size) const
+    {
+        if (productStream == nullptr || size == 0) {
+            return {};
+        }
+        std::vector<uint8_t> out(static_cast<size_t>(size));
+        productStream->GetStream().seekg(static_cast<std::streamoff>(bulkStart + offset), std::ios::beg);
+        productStream->GetStream().read(reinterpret_cast<char *>(out.data()), static_cast<std::streamsize>(size));
+        return out;
+    }
 
     void AssetBase::AddDependencies(const Uuid &id)
     {

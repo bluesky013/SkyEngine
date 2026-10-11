@@ -1,5 +1,14 @@
 {
     "techniques": [
-        "techniques/unlit.tech"
+        {
+            "tag": "ForwardColor",
+            "shader": "unlit.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": true,
+                "cullMode": "back"
+            }
+        }
     ]
 }

@@ -11,5 +11,8 @@ sky_add_library(TARGET Aurora.Render.Editor SHARED
         include
     LINK_LIBS
         Aurora.Adaptor.Static
+        EditorCore
+        EditorShell
+        Framework
         Core
 )

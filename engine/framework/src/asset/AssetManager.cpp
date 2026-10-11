@@ -231,18 +231,39 @@ namespace sky {
             return LoadAssetOnDemand(uuid);
         }
 
-        auto              bin     = file->ReadBin();
-        IStreamArchivePtr archive = new IMemoryArchive(bin);
+        IStreamArchivePtr stream = file->ReadAsArchive();
 
         std::string codec;
-        asset = CreateAssetByHeader(uuid, archive, codec);
+        asset = CreateAssetByHeader(uuid, stream, codec);
         if (!asset) {
             return {};
         }
 
-        auto payload = PreparePayload(archive, codec);
+        // Header block (the handler DataType), then the payload section table.
+        uint32_t headerBlockSize = 0;
+        stream->Load(headerBlockSize);
+        BinaryDataPtr headerData = new BinaryData(headerBlockSize);
+        if (headerBlockSize != 0) {
+            stream->LoadRaw(reinterpret_cast<char *>(headerData->Data()), headerBlockSize);
+        }
+
+        IStreamArchivePtr payload;
+        if (codec.empty()) {
+            payload = new IMemoryArchive(headerData);
+        } else {
+            auto blockArchive = new IMemoryArchive(headerData);
+            payload           = PreparePayload(blockArchive, codec);
+        }
         if (!payload) {
             return {};
+        }
+
+        uint64_t bulkSize = 0;
+        stream->Load(bulkSize);
+        if (bulkSize != 0) {
+            // keep the product stream open to read bulk ranges on demand
+            asset->bulkStart     = static_cast<uint64_t>(stream->Tell());
+            asset->productStream = stream;
         }
 
         // avoid release dep asset
@@ -363,18 +384,39 @@ namespace sky {
             return;
         }
 
-        IStreamArchivePtr archive = new IMemoryArchive(file->ReadBin());
+        IStreamArchivePtr stream = file->ReadAsArchive();
 
         std::string codec;
-        auto        asset = CreateAssetByHeader(uuid, archive, codec);
+        auto        asset = CreateAssetByHeader(uuid, stream, codec);
         if (!asset) {
             return;
         }
 
-        auto payload = PreparePayload(archive, codec);
+        uint32_t headerBlockSize = 0;
+        stream->Load(headerBlockSize);
+        BinaryDataPtr headerData = new BinaryData(headerBlockSize);
+        if (headerBlockSize != 0) {
+            stream->LoadRaw(reinterpret_cast<char *>(headerData->Data()), headerBlockSize);
+        }
+
+        IStreamArchivePtr payload;
+        if (codec.empty()) {
+            payload = new IMemoryArchive(headerData);
+        } else {
+            auto blockArchive = new IMemoryArchive(headerData);
+            payload           = PreparePayload(blockArchive, codec);
+        }
         if (!payload) {
             asset->status.store(AssetBase::Status::FAILED);
             return;
+        }
+
+        uint64_t bulkSize = 0;
+        stream->Load(bulkSize);
+        if (bulkSize != 0) {
+            // keep the product stream open to read bulk ranges on demand
+            asset->bulkStart     = static_cast<uint64_t>(stream->Tell());
+            asset->productStream = stream;
         }
 
         std::vector<AssetPtr> deps;
@@ -483,24 +525,44 @@ namespace sky {
         archive->SaveRaw(codec.data(), codec.size());
 
         asset->status.store(AssetBase::Status::LOADED);
-        if (compressor == nullptr) {
-            hIter->second->Save(*archive, asset);
-        } else {
-            OMemoryArchive payload;
-            hIter->second->Save(payload, asset);
 
-            uint32_t             bound = compressor->CompressBound(static_cast<uint32_t>(payload.Size()));
+        // Header block = the handler's DataType payload (compressed when a codec is set).
+        OMemoryArchive headerPayload;
+        hIter->second->Save(headerPayload, asset);
+
+        std::vector<uint8_t> headerBlock;
+        if (compressor == nullptr) {
+            const auto *begin = reinterpret_cast<const uint8_t *>(headerPayload.Data());
+            headerBlock.assign(begin, begin + headerPayload.Size());
+        } else {
+            uint32_t             bound = compressor->CompressBound(static_cast<uint32_t>(headerPayload.Size()));
             std::vector<uint8_t> compressed(bound);
-            auto                 res =
-                compressor->Compress({reinterpret_cast<const uint8_t *>(payload.Data()), payload.Size()}, {compressed.data(), compressed.size()}, 0);
-            if (res.first) {
-                archive->Save(static_cast<uint32_t>(payload.Size()));
-                archive->Save(res.second);
-                archive->SaveRaw(reinterpret_cast<const char *>(compressed.data()), res.second);
-            } else {
+            auto                 res = compressor->Compress({reinterpret_cast<const uint8_t *>(headerPayload.Data()), headerPayload.Size()},
+                                                            {compressed.data(), compressed.size()}, 0);
+            if (!res.first) {
                 LOG_E(TAG, "Product compression failed for %s", asset->GetUuid().ToString().c_str());
+                return;
             }
+            const auto appendU32 = [&headerBlock](uint32_t value) {
+                const auto *bytes = reinterpret_cast<const uint8_t *>(&value);
+                headerBlock.insert(headerBlock.end(), bytes, bytes + sizeof(uint32_t));
+            };
+            appendU32(static_cast<uint32_t>(headerPayload.Size()));
+            appendU32(res.second);
+            headerBlock.insert(headerBlock.end(), compressed.begin(), compressed.begin() + res.second);
         }
+        archive->Save(static_cast<uint32_t>(headerBlock.size()));
+        if (!headerBlock.empty()) {
+            archive->SaveRaw(reinterpret_cast<const char *>(headerBlock.data()), headerBlock.size());
+        }
+
+        // Bulk payload (opaque bytes; the per-resource layout lives in the header).
+        archive->Save(static_cast<uint64_t>(asset->bulk.size()));
+        if (!asset->bulk.empty()) {
+            archive->SaveRaw(reinterpret_cast<const char *>(asset->bulk.data()), asset->bulk.size());
+        }
+        archive->Flush();
+        asset->bulk.clear();
 
         // Update the bundle's product index (path -> uuid) so a later path load resolves.
         // Serialized per AssetManager so concurrent cooks do not lose entries (read-modify-write).

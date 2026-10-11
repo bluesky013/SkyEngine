@@ -10,8 +10,7 @@ namespace sky::phy {
 
     PhysicsBackendRegistry &PhysicsBackendRegistry::Get()
     {
-        static PhysicsBackendRegistry instance;
-        return instance;
+        return *Singleton<PhysicsBackendRegistry>::Get();
     }
 
     bool PhysicsBackendRegistry::Register(std::unique_ptr<IPhysicsBackend> newBackend)

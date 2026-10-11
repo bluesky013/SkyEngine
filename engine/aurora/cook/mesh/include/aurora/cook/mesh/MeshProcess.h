@@ -6,7 +6,6 @@
 #pragma once
 
 #include <aurora/adaptor/assets/MeshAsset.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Transform.h>
 #include <core/math/Vector2.h>
@@ -36,17 +35,24 @@ namespace sky::aurora::cook {
         Matrix4               transform;         // baked node transform
     };
 
-    // One bone of the source hierarchy (index-aligned with SkinAssetData::boneNames).
+    // One bone of the source hierarchy (index-aligned with CookSkin::boneNames).
     struct CookBone {
         std::string name;
         uint16_t    parentIndex = 0xFFFF; // 0xFFFF -> root
         Transform   refTransform;
     };
 
+    // Bind-pose skinning payload absorbed into the mesh asset's bulk.
+    struct CookSkin {
+        std::vector<Matrix4>     inverseBindMatrices;
+        std::vector<std::string> boneNames;   // index-aligned with inverseBindMatrices
+        std::vector<uint32_t>    boneMapping; // optional vertex-bone-slot -> bone index
+    };
+
     struct CookMeshSource {
         std::vector<MeshSourcePrimitive> primitives;
         std::vector<std::string>         materialNames; // slot table (uuid wiring lands with material cook)
-        SkinAssetData                    skin;          // inverseBindMatrices + boneNames; empty when not skinned
+        CookSkin                         skin;          // inverseBindMatrices + boneNames; empty when not skinned
         std::vector<CookBone>            bones;         // bone hierarchy; empty when not skinned
 
         bool Skinned() const
@@ -77,11 +83,6 @@ namespace sky::aurora::cook {
         std::vector<uint8_t>                 indexData;
         std::vector<MeshSubMeshData>         subMeshes;
         AABB                                 bounds;
-
-        std::vector<MeshletData>       meshlets;
-        std::vector<uint32_t>          meshletVertices;
-        std::vector<uint8_t>           meshletTriangles;
-        std::vector<MeshletBoundsData> meshletBounds;
     };
 
     class MeshProcess {

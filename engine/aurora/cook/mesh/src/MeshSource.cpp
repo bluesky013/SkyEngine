@@ -32,7 +32,7 @@ namespace sky::aurora::cook {
             return res;
         }
 
-        uint32_t GlobalBoneIndex(std::unordered_map<std::string, uint32_t> &table, SkinAssetData &skin, const aiBone *bone)
+        uint32_t GlobalBoneIndex(std::unordered_map<std::string, uint32_t> &table, CookSkin &skin, const aiBone *bone)
         {
             const std::string name = bone->mName.C_Str();
             auto              iter = table.find(name);

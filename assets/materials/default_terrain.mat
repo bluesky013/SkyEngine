@@ -1,7 +1,34 @@
 {
     "techniques": [
-        "techniques/terrain.tech",
-        "techniques/terrain_depth.tech",
-        "techniques/terrain_shadow.tech"
+        {
+            "tag": "ForwardColor",
+            "shader": "terrain/terrain.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": true,
+                "cullMode": "back"
+            }
+        },
+        {
+            "tag": "DepthOnly",
+            "shader": "terrain/terrain_depth.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": true,
+                "cullMode": "back"
+            }
+        },
+        {
+            "tag": "Shadow",
+            "shader": "terrain/terrain_depth.hlsl",
+            "entry": "FSMain",
+            "renderState": {
+                "depthTest": true,
+                "depthWrite": true,
+                "cullMode": "back"
+            }
+        }
     ]
 }

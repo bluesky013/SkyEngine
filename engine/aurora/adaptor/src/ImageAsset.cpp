@@ -19,11 +19,11 @@ namespace sky::aurora {
 
         Extent3D MipExtent(const ImageAssetData &data, uint32_t mipLevel)
         {
-            const uint32_t shift = mipLevel;
+            const uint32_t shift  = mipLevel;
             Extent3D       extent = {};
-            extent.width         = std::max(1u, data.width >> shift);
-            extent.height        = std::max(1u, data.height >> shift);
-            extent.depth         = data.type == ImageAssetType::TEXTURE_3D ? std::max(1u, data.depth >> shift) : 1u;
+            extent.width          = std::max(1u, data.width >> shift);
+            extent.height         = std::max(1u, data.height >> shift);
+            extent.depth          = data.type == ImageAssetType::TEXTURE_3D ? std::max(1u, data.depth >> shift) : 1u;
             return extent;
         }
 
@@ -82,9 +82,7 @@ namespace sky::aurora {
             desc.viewUsage   = ImageViewUsageFlagBit::CUBE_MAP_COMPATIBLE;
             texture          = new TextureCube();
             break;
-        default:
-            LOG_E(TAG, "unknown image asset type: %u", static_cast<uint32_t>(data.type));
-            return {};
+        default: LOG_E(TAG, "unknown image asset type: %u", static_cast<uint32_t>(data.type)); return {};
         }
 
         if (texture == nullptr || !texture->Init(device, desc)) {
@@ -92,19 +90,28 @@ namespace sky::aurora {
         }
 
         if (!data.slices.empty()) {
-            // Keep the source streams alive until the transfer completes.
+            // Read the pixel ranges from the product bulk on demand. Keep the
+            // backing buffers alive until the transfer completes.
+            std::vector<std::vector<uint8_t>>        sliceBytes;
             std::vector<CounterPtr<RawBufferStream>> streams;
             std::vector<ImageUploadRequest>          requests;
+            sliceBytes.reserve(data.slices.size());
             streams.reserve(data.slices.size());
             requests.reserve(data.slices.size());
 
             for (const auto &slice : data.slices) {
-                const uint64_t end = static_cast<uint64_t>(slice.offset) + slice.size;
-                if (end > data.rawData.size()) {
+                auto bytes = asset.ReadBulk(slice.offset, slice.size);
+                if (bytes.size() != slice.size) {
                     LOG_E(TAG, "image slice out of range (offset=%u size=%u)", slice.offset, slice.size);
                     return {};
                 }
-                auto *stream = new RawBufferStream(data.rawData.data() + slice.offset, slice.size);
+                sliceBytes.emplace_back(std::move(bytes));
+            }
+            // Take stream pointers only after the container is fully sized so no
+            // reallocation invalidates the addresses.
+            for (size_t i = 0; i < data.slices.size(); ++i) {
+                const auto &slice  = data.slices[i];
+                auto       *stream = new RawBufferStream(sliceBytes[i].data(), sliceBytes[i].size());
                 streams.emplace_back(stream);
 
                 ImageUploadRequest request = {};
@@ -121,8 +128,13 @@ namespace sky::aurora {
                 return {};
             }
             texture->WaitUploadComplete();
-        } else if (!data.rawData.empty()) {
-            texture->Upload(data.rawData.data(), data.rawData.size());
+        } else if (data.dataSize != 0) {
+            auto bytes = asset.ReadBulk(0, data.dataSize);
+            if (bytes.size() != data.dataSize) {
+                LOG_E(TAG, "image bulk out of range (size=%llu)", static_cast<unsigned long long>(data.dataSize));
+                return {};
+            }
+            texture->Upload(bytes.data(), bytes.size());
             texture->WaitUploadComplete();
         }
 

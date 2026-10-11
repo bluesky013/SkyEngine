@@ -44,7 +44,7 @@ namespace sky::builder {
         BinaryInputArchive bin(*archive);
 
         auto &data = asset->Data();
-        data.Load(bin);
+        data.LoadSource(bin);
         if (data.version != AnimationClipAssetData::CURRENT_VERSION) {
             result.retCode = AssetBuildRetCode::FAILED;
             result.error   = "unsupported clip version";
@@ -55,6 +55,10 @@ namespace sky::builder {
         for (auto &channel : data.nodeChannels) {
             channel.Compress();
         }
+
+        // Lay the compressed channels out into the channel table + product bulk.
+        auto bulk = data.BuildBulk();
+        asset->AddBulk(bulk.data(), bulk.size());
 
         asset->ResetDependencies();
         if (data.skeleton) {

@@ -71,12 +71,16 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - editor 模块被 runtime / 核心逻辑依赖；editor 模块绕过 Sandbox 编辑器 framework 自接 Qt 等。
 - builder/cook/chef 依赖 runtime / adaptor / editor。
 
-## 跨 DLL 单例（关键）
+## 跨 DLL 单例 / 幂等（关键）
 
-- Framework/Core 是**静态库**，被**每个模块 DLL 各链一份**。因此**进程级共享的单例必须继承 `sky::Singleton<T>`**（实例存在 `Environment`，跨 DLL 唯一），例：`SerializationContext`、`PhysicsBackendRegistry`、`WorldSubSystemRegistry`。
+- Framework/Core（以及各 `*.Static` 库，如 `Aurora.Adaptor.Static`、`AuroraCook.Static`、`Content.Adaptor`）是**静态库**，被**每个模块 DLL 各链一份**。因此**进程级共享的单例必须继承 `sky::Singleton<T>`**（实例存在 `Environment`，跨 DLL 唯一），例：`SerializationContext`、`PhysicsBackendRegistry`、`NetworkBackendRegistry`、`ShaderCompilerFactory`、`WorldSubSystemRegistry`。
 - **禁止**用函数内普通 `static T instance;` 实现跨模块共享的注册表/缓存——那会让每个 DLL 各持一份，模块注册的东西上层看不到（曾导致 world 子系统注册后编辑器列不出来）。
-- 速记：**要多模块共享的状态 → `Singleton<T>`；纯模块内状态 → 普通 static 无妨。**
-- 反例：`static WorldSubSystemRegistry instance;`（错）→ `class X : public Singleton<X>` + `friend class Singleton<X>;`（对）。
+- **禁止**用函数内 `static bool` 做“只注册一次”的幂等守卫——**它同样是 per-DLL 的**。若守卫保护的是跨模块共享状态（如向共享 `SerializationContext` 注册类型、向共享注册表注册后端），第二个 DLL 里守卫为 `false`，会**重复注册**（`SerializationContext::Register` 的 `SKY_ASSERT(!types.count(id))` 触发，表现为编辑器加载模块时断言/挂起）。改用 `sky::Once`（`core/environment/Once.h`，实例在 `Environment`，跨 DLL 唯一）：`if (!sky::Once::Get()->Run("AuroraReflection")) { return; }`。当前 `AuroraReflection` / `ContentReflection` / `RegisterImageCookSettings` 都走 `Once`。
+- 速记：**要多模块共享的状态 → `Singleton<T>`；跨模块的“只初始化一次” → `sky::Once`；纯模块内状态/纯函数内无共享的 static → 普通 static 无妨。**
+- 反例：
+  - `static WorldSubSystemRegistry instance;`（错）→ `class X : public Singleton<X>` + `friend class Singleton<X>;`（对）。
+  - `static bool reflected = false; if (reflected) return; ...RegisterSharedTypes();`（错）→ `if (!Once::Get()->Run("XReflection")) return;`（对）。
+- 排查手法：`grep -rn "static bool\|static .* instance;"` 看函数内 static；若其保护/持有的东西会跨模块被读取，即有隐患。历史已修：`AuroraReflection`/`ContentReflection`/`RegisterImageCookSettings`（Once）、`PhysicsBackendRegistry`/`NetworkBackendRegistry`/`ShaderCompilerFactory`（Singleton）。
 
 ## 编辑器配置/设置 UI（关键）
 
@@ -87,6 +91,15 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - **禁止**新增逐字段 `switch` / 自绘控件的手搓 config 表单；`PreferencesDialog` 的手搓实现是历史遗留例外，不再照搬（后续统一迁移到反射面板）。
 - config 的**数据/注册在 core / plugin 侧（不含 `ui`）**，shell 侧只做 `Bind`；数据与视图分离。
 - 动态、schema 驱动、无法用固定反射结构表达的设置（如 asset cook 的 per-builder settings），必须在 change 的 `design.md` 说明理由，并保持同样的数据/视图分离与可撤销编辑；**不得**把逐类型控件硬编码进面板。
+
+## 编辑器界面（工具栏/菜单/图标）统一（关键）
+
+- **一切 chrome 走 `EditorActionRegistry`**（跨 DLL 单例，`editor/core/extension/EditorActionRegistry.h`）：一条 `EditorAction{id,label,icon,group,menu,submenu,order,enabled,invoke}` 同时驱动**工具栏 + 菜单栏 + 快捷键**。禁止每个窗口各画一套工具栏/菜单。
+- 工具栏用 `editor/shell/widgets/ToolBar`、菜单用 `widgets/MenuBar`（都消费 registry）；控件用 `UiSkin` 画（`DrawPanel/DrawToolItem/DrawField/...`），禁止手绘按钮/行。
+- 图标：`engine/sandbox/resources/icons/<name>.svg`（单色白，光栅化成 `UITextureId`，按主题色 tint）；工具栏**icon-only + hover tooltip**。
+- 尺寸/颜色**只来自 `UiTheme`**（`UiMetrics`/`UiColors`），禁止硬编码像素；见 `docs/editor/ui-sizing-and-scaling.md`。
+- **对话框/viewer 也必须复用同一套 ToolBar/MenuBar + action**（如 asset 编辑器要有 File→Open/Close/Save 菜单 + 图标工具栏），风格与主窗口一致。
+- 完整规范：`docs/editor/ui-standards.md`（含待补齐项：IconRegistry、菜单 icon/shortcut/separator、data-driven accelerator、统一 ActionBarBuilder）。
 
 ## 构建与验证（Win32 / VS 2022）
 

@@ -149,6 +149,14 @@ namespace sky::editor {
                  theme->colors.text, textSystem);
     }
 
+    void UiSkin::DrawIcon(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, uint32_t textureId, uint32_t tint) const
+    {
+        if (textureId == sky::ui::UI_INVALID_TEXTURE) {
+            return;
+        }
+        context.AddTexturedQuad(rect, sky::ui::UIRect{0.0f, 0.0f, 1.0f, 1.0f}, textureId, tint);
+    }
+
     void UiSkin::DrawTriangle(sky::ui::UIPaintContext &context, float x, float cy, bool down, uint32_t color) const
     {
         const float s = 4.0f;

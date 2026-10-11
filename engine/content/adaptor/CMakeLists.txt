@@ -15,3 +15,15 @@ sky_add_library(TARGET Content.Adaptor STATIC
         Animation
         Framework
 )
+
+file(GLOB_RECURSE TEST_FILES test/*)
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET Content.AdaptorTest
+        SOURCES
+            ${TEST_FILES}
+        LIBS
+            Content.Adaptor
+            Framework
+            3rdParty::googletest
+    )
+endif ()

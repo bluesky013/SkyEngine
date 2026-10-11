@@ -30,6 +30,18 @@ namespace sky::aurora {
 
     namespace {
 
+        // Move the build-scratch pixels into the product bulk (header keeps only the
+        // slice table + dataSize). Must run on every SaveAsset path.
+        void CommitImageBulk(Asset<Texture> &asset)
+        {
+            auto &data    = asset.Data();
+            data.dataSize = data.rawData.size();
+            if (!data.rawData.empty()) {
+                asset.AddBulk(data.rawData.data(), data.rawData.size());
+                data.rawData.clear();
+            }
+        }
+
         bool DetectAlpha(const cook::ImageObject &image)
         {
             if (image.mips.empty() || image.pixelSize != 4) {
@@ -337,8 +349,8 @@ namespace sky::aurora {
             }
             LOG_I(TAG, "  decode ktx: precompressed=%d bytes=%u", source.precompressed ? 1 : 0, static_cast<uint32_t>(bytes.size()));
         } else if (ext == ".image") {
-            // Re-cook of an aurora product: skip the asset header (type + deps)
-            // and read the ImageAssetData payload.
+            // Re-cook of an aurora image source: [asset header(type + deps)][ImageAssetData
+            // header][bulk]. Read the header, then the pixel bytes and re-emit into the bulk.
             auto        stream = request.file->ReadAsArchive();
             std::string type;
             stream->Load(type);
@@ -352,6 +364,11 @@ namespace sky::aurora {
             }
             BinaryInputArchive bin(*stream);
             imageData.Load(bin);
+            if (imageData.dataSize != 0) {
+                std::vector<uint8_t> pixels(static_cast<size_t>(imageData.dataSize));
+                stream->LoadRaw(reinterpret_cast<char *>(pixels.data()), pixels.size());
+                asset->AddBulk(pixels.data(), pixels.size());
+            }
             manager->SaveAsset(asset, bundleKey);
             result.retCode = AssetBuildRetCode::SUCCESS;
             LOG_I(TAG, "  re-cook product passthrough: %s", request.assetInfo->path.GetStr().c_str());
@@ -371,6 +388,7 @@ namespace sky::aurora {
         // 2) Already block compressed (KTX with BC/ASTC payload): pass through.
         if (source.precompressed) {
             imageData = source.asset;
+            CommitImageBulk(*asset);
             manager->SaveAsset(asset, bundleKey);
             result.retCode = AssetBuildRetCode::SUCCESS;
             return;
@@ -386,6 +404,7 @@ namespace sky::aurora {
         }
         CompressAndEmit(image, config, assetType, imageData);
 
+        CommitImageBulk(*asset);
         manager->SaveAsset(asset, bundleKey);
         result.retCode = AssetBuildRetCode::SUCCESS;
         LOG_I(TAG, "  saved texture '%s' bundle='%s'", request.assetInfo->path.GetStr().c_str(), bundleKey.c_str());

@@ -1,7 +1,8 @@
 //
 // Aurora image asset: versioned CPU payload for aurora::Texture. Supports 2D,
 // 2D array, 3D and cube maps with an explicit slice table (mip / layer / depth).
-// The runtime-only build path CreateTextureFromAsset turns it into a Texture.
+// The header (this struct, minus rawData) is resident; the pixel bytes live in the
+// product bulk and are addressed by slice.offset / dataSize (see CreateTextureFromAsset).
 //
 
 #pragma once
@@ -26,7 +27,7 @@ namespace sky::aurora {
     };
 
     struct ImageSliceHeader {
-        uint32_t offset   = 0; // byte offset into rawData
+        uint32_t offset   = 0; // byte offset into the product bulk
         uint32_t size     = 0; // byte size of the slice
         uint32_t mipLevel = 0;
         uint32_t layer    = 0; // array layer / cube face
@@ -34,7 +35,7 @@ namespace sky::aurora {
     };
 
     struct ImageAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 1;
+        static constexpr uint32_t CURRENT_VERSION = 2;
 
         uint32_t                      version     = CURRENT_VERSION;
         PixelFormat                   format      = PixelFormat::UNDEFINED;
@@ -45,7 +46,11 @@ namespace sky::aurora {
         uint32_t                      mipLevels   = 1;
         uint32_t                      arrayLayers = 1;
         std::vector<ImageSliceHeader> slices;
-        std::vector<uint8_t>          rawData;
+        uint64_t                      dataSize = 0; // total pixel bytes in the product bulk
+
+        // Build-side scratch (not serialized): pixels produced by the cook pipeline,
+        // moved into the product bulk via AssetBase::AddBulk before Save.
+        std::vector<uint8_t> rawData;
 
         void Save(BinaryOutputArchive &ar) const
         {
@@ -67,10 +72,7 @@ namespace sky::aurora {
                 ar.SaveValue(slice.depth);
             }
 
-            ar.SaveValue(static_cast<uint32_t>(rawData.size()));
-            if (!rawData.empty()) {
-                ar.SaveValue(reinterpret_cast<const char *>(rawData.data()), rawData.size());
-            }
+            ar.SaveValue(dataSize);
         }
 
         void Load(BinaryInputArchive &ar)
@@ -105,12 +107,7 @@ namespace sky::aurora {
                 ar.LoadValue(slice.depth);
             }
 
-            uint32_t rawSize = 0;
-            ar.LoadValue(rawSize);
-            rawData.resize(rawSize);
-            if (rawSize != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(rawData.data()), rawSize);
-            }
+            ar.LoadValue(dataSize);
         }
 
         void clear()
@@ -123,6 +120,7 @@ namespace sky::aurora {
             mipLevels   = 1;
             arrayLayers = 1;
             slices.clear();
+            dataSize = 0;
             rawData.clear();
         }
     };
@@ -138,9 +136,9 @@ namespace sky {
 
     template <>
     struct AssetTraits<sky::aurora::Texture> {
-        using DataType                                = sky::aurora::ImageAssetData;
-        static constexpr std::string_view ASSET_TYPE  = "AuroraTexture";
-        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+        using DataType                                   = sky::aurora::ImageAssetData;
+        static constexpr std::string_view ASSET_TYPE     = "AuroraTexture";
+        static constexpr SerializeType    SERIALIZE_TYPE = SerializeType::BIN;
     };
 
 } // namespace sky

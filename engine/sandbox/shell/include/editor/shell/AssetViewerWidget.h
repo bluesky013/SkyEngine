@@ -7,7 +7,9 @@
 
 #pragma once
 
+#include <editor/core/asset/AssetViewData.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
+#include <editor/shell/AssetViewProvider.h>
 #include <editor/shell/ModalDialog.h>
 #include <editor/shell/UiSkin.h>
 
@@ -22,11 +24,15 @@
 namespace sky::ui {
     class UIPaintContext;
     class UITextSystem;
+    class StackPanel;
+    class DockPanel;
 } // namespace sky::ui
 
 namespace sky::editor {
 
     class ReflectedFormView;
+
+    class MenuBar;
 
     class AssetViewerWidget : public ModalDialog {
     public:
@@ -62,10 +68,13 @@ namespace sky::editor {
         void            RebuildTargetPanels();
         void            Reload();
         void            RebuildCustomContent();
+        void            RebuildDataView();
         sky::ui::UIRect PanelRect() const;
         sky::ui::UIRect ContentRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect RightRect(const sky::ui::UIRect &content) const;
         sky::ui::UIRect CloseRect(const sky::ui::UIRect &panel) const;
+        void            SaveAsset();
+        void            OpenAsset();
         sky::ui::UIRect ResizeRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect ScrollTrackRect() const;
         sky::ui::UIRect ScrollThumbRect() const;
@@ -75,13 +84,21 @@ namespace sky::editor {
         UiSkin                 skin;
 
         std::vector<TargetPanel> panels;
-        sky::ui::UIElement      *customContent = nullptr; // provider content, when any
-        sky::ui::UIElement      *customPreview = nullptr; // provider preview, when any
+        sky::ui::UIElement      *customContent   = nullptr; // provider content, when any
+        sky::ui::UIElement      *contentViewport = nullptr; // clips the scrollable content region
+        sky::ui::StackPanel     *toolbarPanel    = nullptr; // Undo/Redo/Save buttons
+        sky::ui::DockPanel      *topDock         = nullptr; // docks menu/toolbar/body
+        sky::ui::UIElement      *bodyArea        = nullptr; // Fill area (preview + content columns)
+        MenuBar                 *menuBar         = nullptr; // File/Edit menu
 
-        Uuid        asset;
-        std::string assetName;
-        std::string assetType;
-        std::string assetPath;
+        AssetViewData      registeredViewData; // owns the reflected view struct
+        ReflectedFormView *dataView = nullptr; // reflected DATA form, when any
+
+        Uuid           asset;
+        std::string    assetName;
+        std::string    assetType;
+        std::string    assetPath;
+        AssetViewFlags viewFlags = AssetViewFlags::NONE;
 
         float contentScroll = 0.0f;
         float contentTotal  = 0.0f;

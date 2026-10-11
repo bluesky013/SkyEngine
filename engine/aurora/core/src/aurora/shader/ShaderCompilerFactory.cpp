@@ -8,8 +8,7 @@ namespace sky::aurora {
 
     ShaderCompilerFactory &ShaderCompilerFactory::Get()
     {
-        static ShaderCompilerFactory instance;
-        return instance;
+        return *Singleton<ShaderCompilerFactory>::Get();
     }
 
     void ShaderCompilerFactory::Register(IShaderCompiler *compiler)
