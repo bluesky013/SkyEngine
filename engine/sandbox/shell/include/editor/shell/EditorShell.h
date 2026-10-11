@@ -98,6 +98,11 @@ namespace sky::editor {
         void OpenAssetViewer(const Uuid &asset);
         bool IsAssetViewerOpen() const;
 
+        // Registers the asset-viewer-scoped actions (File/Edit) that drive the viewer's chrome
+        // while its "assetViewer" scope is active. Idempotent; called lazily when the viewer opens.
+        // See docs/editor/ui-layout-and-chrome-plan.md (P7).
+        void RegisterAssetViewerActions();
+
         // Preferences: the shell hosts one dialog over the supplied registry/store.
         // `onApplied` is invoked after a commit so the host can persist.
         void SetPreferences(PreferenceRegistry *registry, PreferenceStore *store, std::function<void()> onApplied);
@@ -328,7 +333,8 @@ namespace sky::editor {
 
         AssetViewerWidget *assetViewerElement = nullptr;
         Uuid               assetViewerAsset;
-        bool               assetViewerOpen = false;
+        bool               assetViewerOpen  = false;
+        bool               assetViewerScope = false; // scope stack holds "assetViewer"
 
         PreferencesDialog    *preferencesElement = nullptr;
         PreferenceRegistry   *preferenceRegistry = nullptr;

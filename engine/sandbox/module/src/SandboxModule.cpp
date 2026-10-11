@@ -672,14 +672,30 @@ namespace sky::editor {
 
         shell.SetTextSystem(renderer.GetTextSystem());
 
-        // Register editor SVG icons as textures for the toolbar (see editor-toolbar.md).
+        // Register editor SVG icons as textures (see ui-standards.md): scan the built-in `icons/`
+        // root plus every root an editor extension declares via GetIconDirectories(), rasterizing
+        // each `*.svg` and keying it by file stem.
         if (sky::ui::UITextSystem *text = renderer.GetTextSystem()) {
             if (sky::ui::IUITextureRegistry *registry = text->GetRegistry()) {
-                static const char *kIcons[] = {"open", "save", "undo", "redo", "play", "pause", "stop"};
-                for (const char *name : kIcons) {
-                    sky::ui::UIImageData image;
-                    if (RasterizeSvg(SandboxResources::Resolve(std::string("icons/") + name + ".svg"), 48u, image)) {
-                        shell.SetIcon(name, registry->RegisterTexture(image));
+                std::vector<std::string> iconDirs;
+                for (const auto &extension : extensionHost.GetExtensions()) {
+                    const std::vector<std::string> declared = extension->GetIconDirectories();
+                    iconDirs.insert(iconDirs.end(), declared.begin(), declared.end());
+                }
+                for (const std::string &dir : iconDirs) {
+                    std::error_code             ec;
+                    const std::filesystem::path root = SandboxResources::Resolve(dir);
+                    if (!std::filesystem::is_directory(root, ec)) {
+                        continue;
+                    }
+                    for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(root, ec)) {
+                        if (!entry.is_regular_file(ec) || entry.path().extension() != ".svg") {
+                            continue;
+                        }
+                        sky::ui::UIImageData image;
+                        if (RasterizeSvg(entry.path().string(), 48u, image)) {
+                            shell.SetIcon(entry.path().stem().string(), registry->RegisterTexture(image));
+                        }
                     }
                 }
             }
@@ -758,34 +774,43 @@ namespace sky::editor {
                       .order     = 1,
                       .menuOrder = 0,
                       .invoke    = [this]() { OpenWorld(); }});
-        actions->Add({.id        = "file.save",
-                      .label     = "Save World",
-                      .icon      = "save",
-                      .group     = "file",
-                      .menu      = "File",
-                      .order     = 2,
-                      .menuOrder = 0,
-                      .invoke    = [this]() { SaveWorld(); }});
-        actions->Add({.id = "file.close", .label = "Close World", .menu = "File", .order = 3, .menuOrder = 0, .invoke = [this]() { CloseWorld(); }});
+        actions->Add({.id          = "file.save",
+                      .label       = "Save World",
+                      .icon        = "save",
+                      .group       = "file",
+                      .menu        = "File",
+                      .order       = 2,
+                      .menuOrder   = 0,
+                      .invoke      = [this]() { SaveWorld(); },
+                      .accelerator = "Ctrl+S"});
+        actions->Add({.id          = "file.close",
+                      .label       = "Close World",
+                      .menu        = "File",
+                      .order       = 3,
+                      .menuOrder   = 0,
+                      .invoke      = [this]() { CloseWorld(); },
+                      .accelerator = "Ctrl+W"});
         actions->Add({.id = "file.quit", .label = "Quit", .menu = "File", .order = 9, .menuOrder = 0, .invoke = [this]() { Quit(); }});
-        actions->Add({.id        = "edit.undo",
-                      .label     = "Undo",
-                      .icon      = "undo",
-                      .group     = "history",
-                      .menu      = "Edit",
-                      .order     = 0,
-                      .menuOrder = 1,
-                      .enabled   = []() { return EditorCore::GetCommandService().CanUndo(); },
-                      .invoke    = []() { EditorCore::GetCommandService().Undo(); }});
-        actions->Add({.id        = "edit.redo",
-                      .label     = "Redo",
-                      .icon      = "redo",
-                      .group     = "history",
-                      .menu      = "Edit",
-                      .order     = 1,
-                      .menuOrder = 1,
-                      .enabled   = []() { return EditorCore::GetCommandService().CanRedo(); },
-                      .invoke    = []() { EditorCore::GetCommandService().Redo(); }});
+        actions->Add({.id          = "edit.undo",
+                      .label       = "Undo",
+                      .icon        = "undo",
+                      .group       = "history",
+                      .menu        = "Edit",
+                      .order       = 0,
+                      .menuOrder   = 1,
+                      .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
+                      .invoke      = []() { EditorCore::GetCommandService().Undo(); },
+                      .accelerator = "Ctrl+Z"});
+        actions->Add({.id          = "edit.redo",
+                      .label       = "Redo",
+                      .icon        = "redo",
+                      .group       = "history",
+                      .menu        = "Edit",
+                      .order       = 1,
+                      .menuOrder   = 1,
+                      .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
+                      .invoke      = []() { EditorCore::GetCommandService().Redo(); },
+                      .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
         actions->Add(
             {.id = "view.reset", .label = "Reset Layout", .menu = "View", .order = 5, .menuOrder = 2, .invoke = [this]() { shell.ResetLayout(); }});
         actions->Add({.id = "view.assets", .label = "Assets", .menu = "View", .order = 4, .menuOrder = 2, .invoke = [this]() {

@@ -17,6 +17,7 @@
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,7 +25,6 @@
 namespace sky::ui {
     class UIPaintContext;
     class UITextSystem;
-    class StackPanel;
     class DockPanel;
 } // namespace sky::ui
 
@@ -33,6 +33,7 @@ namespace sky::editor {
     class ReflectedFormView;
 
     class MenuBar;
+    class ToolBar;
 
     class AssetViewerWidget : public ModalDialog {
     public:
@@ -49,7 +50,18 @@ namespace sky::editor {
             catalog = value;
         }
 
+        // Routes a chrome action id back to the host (EditorShell::InvokeAction).
+        void SetActionHandler(std::function<bool(const std::string &)> handler)
+        {
+            actionHandler = std::move(handler);
+        }
+
         void Open(const Uuid &uuid);
+
+        // Chrome command targets (driven by the scoped actions registered by the host).
+        void OpenAsset();
+        void SaveAsset();
+        void CloseWithSave();
 
         void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
@@ -65,6 +77,7 @@ namespace sky::editor {
             float              h    = 0.0f;
         };
 
+        void            RebuildChrome();
         void            RebuildTargetPanels();
         void            Reload();
         void            RebuildCustomContent();
@@ -73,8 +86,6 @@ namespace sky::editor {
         sky::ui::UIRect ContentRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect RightRect(const sky::ui::UIRect &content) const;
         sky::ui::UIRect CloseRect(const sky::ui::UIRect &panel) const;
-        void            SaveAsset();
-        void            OpenAsset();
         sky::ui::UIRect ResizeRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect ScrollTrackRect() const;
         sky::ui::UIRect ScrollThumbRect() const;
@@ -83,13 +94,15 @@ namespace sky::editor {
         EditorAssetCatalog    *catalog    = nullptr;
         UiSkin                 skin;
 
+        std::function<bool(const std::string &)> actionHandler;
+
         std::vector<TargetPanel> panels;
         sky::ui::UIElement      *customContent   = nullptr; // provider content, when any
         sky::ui::UIElement      *contentViewport = nullptr; // clips the scrollable content region
-        sky::ui::StackPanel     *toolbarPanel    = nullptr; // Undo/Redo/Save buttons
         sky::ui::DockPanel      *topDock         = nullptr; // docks menu/toolbar/body
         sky::ui::UIElement      *bodyArea        = nullptr; // Fill area (preview + content columns)
-        MenuBar                 *menuBar         = nullptr; // File/Edit menu
+        MenuBar                 *menuBar         = nullptr; // scoped File/Edit menu
+        ToolBar                 *toolBar         = nullptr; // scoped Save/Undo/Redo buttons
 
         AssetViewData      registeredViewData; // owns the reflected view struct
         ReflectedFormView *dataView = nullptr; // reflected DATA form, when any

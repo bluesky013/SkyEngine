@@ -2,8 +2,10 @@
 // Created on 2026/09/22.
 //
 
+#include <editor/core/EditorCore.h>
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorActionRegistry.h>
+#include <editor/core/extension/EditorScopeStack.h>
 #include <editor/core/extension/IconRegistry.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
@@ -23,6 +25,7 @@
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/panels/ServicePanels.h>
+#include <editor/shell/widgets/ActionBarBuilder.h>
 #include <editor/shell/widgets/DockWidgets.h>
 #include <editor/shell/widgets/MenuBar.h>
 #include <editor/shell/widgets/StatusBar.h>
@@ -509,8 +512,10 @@ namespace sky::editor {
         if (action->enabled && !action->enabled()) {
             return true; // registered but disabled -> consume, do nothing
         }
-        if (action->invoke) {
-            action->invoke();
+        // Copy: an invoked action may unregister itself (e.g. a dialog tearing down its scope).
+        const std::function<void()> invoke = action->invoke;
+        if (invoke) {
+            invoke();
         }
         return true;
     }
@@ -890,42 +895,10 @@ namespace sky::editor {
         built          = false;
         pendingRebuild = false;
 
-        // Menus come from the action registry: actions are grouped by `menu`
-        // (ordered by `menuOrder`) and may nest under a `submenu`. The host-only
-        // entries (Preferences, and the dynamic panel toggles) are injected here.
-        std::vector<MenuBar::Menu> menus;
-        MenuBar::Menu              current;
-        auto                       flushMenu = [&menus, &current]() {
-            if (!current.label.empty()) {
-                menus.push_back(std::move(current));
-                current = MenuBar::Menu{};
-            }
-        };
-        for (const EditorAction &action : EditorActionRegistry::Get()->GetMenuActions()) {
-            if (action.menu != current.label) {
-                flushMenu();
-                current.label = action.menu;
-            }
-            const std::string id = action.id;
-            MenuBar::Item     item;
-            item.label  = action.label;
-            item.action = [this, id]() { InvokeAction(id); };
-            if (action.submenu.empty()) {
-                current.items.push_back(std::move(item));
-            } else {
-                auto it = std::find_if(current.items.begin(), current.items.end(),
-                                       [&](const MenuBar::Item &existing) { return existing.label == action.submenu; });
-                if (it == current.items.end()) {
-                    MenuBar::Item sub;
-                    sub.label = action.submenu;
-                    sub.children.push_back(std::move(item));
-                    current.items.push_back(std::move(sub));
-                } else {
-                    it->children.push_back(std::move(item));
-                }
-            }
-        }
-        flushMenu();
+        // Menus come from the action registry (via ActionBarBuilder) for the active scope:
+        // actions are grouped by `menu` and may nest under a `submenu`. The host-only entries
+        // (Preferences, and the dynamic panel toggles) are injected here.
+        std::vector<MenuBar::Menu> menus = ActionBarBuilder::BuildMenus([this](const std::string &id) { InvokeAction(id); });
 
         auto fileMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "File"; });
         if (fileMenu != menus.end()) {
@@ -965,23 +938,10 @@ namespace sky::editor {
         dragActive = false;
         CreateSplitters(sky::ui::UIRect{0.0f, dockTop, width, height - footerHeight});
 
-        // Quick-action toolbar, built from the process-wide action registry so
-        // plugins/extensions can contribute entries (see editor-toolbar.md).
-        auto                       toolBar = std::make_unique<ToolBar>(textSystem);
-        std::vector<ToolBar::Item> items;
-        std::string                lastGroup;
-        for (const EditorAction &action : EditorActionRegistry::Get()->GetToolbarActions()) {
-            ToolBar::Item item;
-            item.id              = action.id;
-            item.label           = action.label;
-            item.icon            = ResolveIcon(action.icon);
-            item.action          = action.invoke;
-            item.enabled         = action.enabled ? action.enabled() : true;
-            item.separatorBefore = !lastGroup.empty() && action.group != lastGroup;
-            lastGroup            = action.group;
-            items.push_back(std::move(item));
-        }
-        toolBar->SetItems(std::move(items));
+        // Quick-action toolbar, built from the process-wide action registry (via
+        // ActionBarBuilder) so plugins/extensions contribute entries (see editor-toolbar.md).
+        auto toolBar = std::make_unique<ToolBar>(textSystem);
+        toolBar->SetItems(ActionBarBuilder::BuildToolBarItems([this](const std::string &id) { InvokeAction(id); }));
         toolBarElement = context->AddChild(std::move(toolBar));
 
         // Menu bar is added LAST so it (and its popup) paints on top of the dock
@@ -1010,7 +970,12 @@ namespace sky::editor {
         auto viewer        = std::make_unique<AssetViewerWidget>(textSystem);
         assetViewerElement = viewer.get();
         viewer->SetCatalog(assetCatalog);
+        viewer->SetActionHandler([this](const std::string &id) { return InvokeAction(id); });
         viewer->SetOnClosed([this]() {
+            if (assetViewerScope) {
+                EditorScopeStack::Get()->Pop("assetViewer");
+                assetViewerScope = false;
+            }
             assetViewerOpen  = false;
             assetViewerAsset = Uuid{};
         });
@@ -1200,10 +1165,89 @@ namespace sky::editor {
         }
         assetViewerAsset = asset;
         assetViewerOpen  = true;
+        // Ensure the viewer's scoped actions (File/Edit + accelerators) exist, then make the
+        // viewer scope active so the chrome resolves to them.
+        RegisterAssetViewerActions();
+        if (!assetViewerScope) {
+            EditorScopeStack::Get()->Push("assetViewer");
+            assetViewerScope = true;
+        }
         if (assetViewerElement != nullptr) {
+            assetViewerElement->SetActionHandler([this](const std::string &id) { return InvokeAction(id); });
             assetViewerElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
             assetViewerElement->Open(asset);
         }
+    }
+
+    void EditorShell::RegisterAssetViewerActions()
+    {
+        auto             *actions = EditorActionRegistry::Get();
+        const std::string scope   = "assetViewer";
+
+        actions->Add({.id        = "assetViewer.open",
+                      .label     = "Open",
+                      .icon      = "open",
+                      .menu      = "File",
+                      .order     = 0,
+                      .menuOrder = 0,
+                      .invoke =
+                          [this]() {
+                              if (assetViewerElement != nullptr) {
+                                  assetViewerElement->OpenAsset();
+                              }
+                          },
+                      .scope       = scope,
+                      .accelerator = "Ctrl+O"});
+        actions->Add({.id        = "assetViewer.save",
+                      .label     = "Save",
+                      .icon      = "save",
+                      .group     = "file",
+                      .menu      = "File",
+                      .order     = 1,
+                      .menuOrder = 0,
+                      .invoke =
+                          [this]() {
+                              if (assetViewerElement != nullptr) {
+                                  assetViewerElement->SaveAsset();
+                              }
+                          },
+                      .scope       = scope,
+                      .accelerator = "Ctrl+S"});
+        actions->Add({.id        = "assetViewer.close",
+                      .label     = "Close",
+                      .menu      = "File",
+                      .order     = 2,
+                      .menuOrder = 0,
+                      .invoke =
+                          [this]() {
+                              if (assetViewerElement != nullptr) {
+                                  assetViewerElement->CloseWithSave();
+                              }
+                          },
+                      .scope       = scope,
+                      .accelerator = "Esc"});
+        actions->Add({.id          = "assetViewer.undo",
+                      .label       = "Undo",
+                      .icon        = "undo",
+                      .group       = "history",
+                      .menu        = "Edit",
+                      .order       = 0,
+                      .menuOrder   = 1,
+                      .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
+                      .invoke      = []() { EditorCore::GetCommandService().Undo(); },
+                      .scope       = scope,
+                      .accelerator = "Ctrl+Z"});
+        actions->Add({.id          = "assetViewer.redo",
+                      .label       = "Redo",
+                      .icon        = "redo",
+                      .group       = "history",
+                      .menu        = "Edit",
+                      .order       = 1,
+                      .menuOrder   = 1,
+                      .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
+                      .invoke      = []() { EditorCore::GetCommandService().Redo(); },
+                      .scope       = scope,
+                      .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
     }
 
     bool EditorShell::IsAssetViewerOpen() const
@@ -1254,30 +1298,20 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
-        // Global shortcuts take precedence over the focused widget / modal. They
-        // drive the same registry actions as the toolbar/menus.
-        const bool         down   = event.action == sky::ui::UIKeyAction::DOWN;
-        const bool         ctrl   = (event.modifiers & kModCtrl) != 0;
-        constexpr uint32_t kKeyS  = 'S';
-        constexpr uint32_t kKeyW  = 'W';
-        constexpr uint32_t kKeyZ  = 'Z';
-        constexpr uint32_t kKeyY  = 'Y';
+        // Data-driven accelerators for the active scope (a dialog scope wins over global):
+        // the same registry entries that drive the toolbar/menus are resolved here by `accelerator`.
+        if (event.action == sky::ui::UIKeyAction::DOWN) {
+            const std::string id = ActionBarBuilder::MatchAccelerator(event);
+            if (!id.empty()) {
+                InvokeAction(id);
+                return true;
+            }
+        }
+
+        // F5 toggles Play/Pause (stateful -- it picks among play/play.stop by the current state,
+        // so it is not a plain accelerator); Shift+F5 stops (UE convention).
         constexpr uint32_t kKeyF5 = 0x74; // VK_F5
-        if (down && ctrl && event.keyCode == kKeyS) {
-            InvokeAction("file.save");
-            return true;
-        }
-        if (down && ctrl && event.keyCode == kKeyW) {
-            InvokeAction("file.close");
-            return true;
-        }
-        if (down && ctrl && (event.keyCode == kKeyZ || event.keyCode == kKeyY)) {
-            const bool redo = event.keyCode == kKeyY || (event.modifiers & kModShift) != 0;
-            InvokeAction(redo ? "edit.redo" : "edit.undo");
-            return true;
-        }
-        // F5 toggles Play/Pause; Shift+F5 stops (UE convention).
-        if (down && event.keyCode == kKeyF5) {
+        if (event.action == sky::ui::UIKeyAction::DOWN && event.keyCode == kKeyF5) {
             if ((event.modifiers & kModShift) != 0) {
                 InvokeAction("play.stop");
             } else if (playState == PlayState::Playing) {

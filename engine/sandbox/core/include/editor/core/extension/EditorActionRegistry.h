@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <editor/core/extension/EditorScopeStack.h>
 
 #include <functional>
 #include <string>
@@ -13,10 +14,10 @@
 
 namespace sky::editor {
 
-    // A toolkit-agnostic editor action (toolbar / menu entry). Plugins register
-    // actions through their EditorExtension; the shell renders them. No UI/render
-    // type appears in this contract. One action can appear on the toolbar (by
-    // `group`), in a menu (by `menu` / `submenu`), in both, or in neither.
+    // A toolkit-agnostic editor action (toolbar / menu entry / shortcut). Plugins register
+    // actions through their EditorExtension; the shell renders them. No UI/render type appears
+    // in this contract. One action can appear on the toolbar (by `group`), in a menu (by `menu` /
+    // `submenu`), in both, or in neither.
     struct EditorAction {
         std::string           id;
         std::string           label;
@@ -28,26 +29,40 @@ namespace sky::editor {
         int                   menuOrder = 0; // top-level menu order
         std::function<bool()> enabled;       // null => always enabled
         std::function<void()> invoke;
+        // Chrome scope: empty/"global" = the main-window chrome. A dialog/viewer pushes its scope
+        // (EditorScopeStack) so its actions drive the chrome while it is active; actions only
+        // render/resolve in their own scope.
+        std::string scope;
+        // Data-driven accelerator, e.g. "Ctrl+S", "Ctrl+Shift+Z"; comma-separates alternatives.
+        std::string accelerator;
     };
 
-    // Process-wide registry (cross-DLL Singleton) of editor actions. The module /
-    // plugins Add actions; the shell reads them to build the toolbar and menus.
+    // Process-wide registry (cross-DLL Singleton) of editor actions, keyed by (scope, id). The
+    // module / plugins Add actions; the shell reads them to build the toolbar and menus for the
+    // active scope. Handler resolution follows the active scope (see EditorScopeStack).
     class EditorActionRegistry : public sky::Singleton<EditorActionRegistry> {
         friend class sky::Singleton<EditorActionRegistry>;
 
     public:
-        // Adds or overrides an action by id.
+        // Adds or overrides an action by (scope, id). An empty scope means "global".
         void Add(EditorAction action);
+        void Remove(const std::string &scope, const std::string &id);
         void Clear();
 
-        // Toolbar actions (non-empty `group`), sorted by (group, order, id).
+        // Actions in the active scope, sorted by id (for accelerator matching).
+        std::vector<EditorAction> GetActions() const;
+        // Active-scope toolbar actions (non-empty `group`), sorted by (group, order, id).
         std::vector<EditorAction> GetToolbarActions() const;
-        // Menu actions (non-empty `menu`), sorted by (menuOrder, menu, order, id).
+        // Active-scope menu actions (non-empty `menu`), sorted by (menuOrder, menu, order, id).
         std::vector<EditorAction> GetMenuActions() const;
-        const EditorAction       *Find(const std::string &id) const;
+        // Resolves by active scope first, then global.
+        const EditorAction *Find(const std::string &id) const;
+
+        // The scope an action belongs to ("global" when unset).
+        static std::string ScopeOf(const EditorAction &action);
 
     private:
-        std::unordered_map<std::string, EditorAction> actions;
+        std::unordered_map<std::string, EditorAction> actions; // key(scope, id) -> action
     };
 
 } // namespace sky::editor

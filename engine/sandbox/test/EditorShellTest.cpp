@@ -8,6 +8,7 @@
 #include <editor/core/asset/EditorAssetCatalog.h>
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorActionRegistry.h>
+#include <editor/core/extension/EditorScopeStack.h>
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/layout/DefaultPanels.h>
 #include <editor/core/layout/LayoutModel.h>
@@ -20,6 +21,7 @@
 #include <editor/shell/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
+#include <editor/shell/widgets/ActionBarBuilder.h>
 #include <editor/shell/widgets/ToolBar.h>
 #include <filesystem>
 #include <framework/asset/AssetBuilderManager.h>
@@ -558,7 +560,7 @@ TEST(EditorShellTest, CtrlSInvokesSaveAction)
 {
     EditorActionRegistry::Get()->Clear();
     int saves = 0;
-    EditorActionRegistry::Get()->Add({.id = "file.save", .label = "Save", .invoke = [&saves]() { ++saves; }});
+    EditorActionRegistry::Get()->Add({.id = "file.save", .label = "Save", .invoke = [&saves]() { ++saves; }, .accelerator = "Ctrl+S"});
 
     EditorShell         shell;
     sky::ui::UIKeyEvent s;
@@ -635,7 +637,7 @@ TEST(EditorShellTest, CtrlWInvokesCloseAction)
 {
     EditorActionRegistry::Get()->Clear();
     int closes = 0;
-    EditorActionRegistry::Get()->Add({.id = "file.close", .label = "Close", .invoke = [&closes]() { ++closes; }});
+    EditorActionRegistry::Get()->Add({.id = "file.close", .label = "Close", .invoke = [&closes]() { ++closes; }, .accelerator = "Ctrl+W"});
 
     EditorShell         shell;
     sky::ui::UIKeyEvent w;
@@ -649,6 +651,62 @@ TEST(EditorShellTest, CtrlWInvokesCloseAction)
     shell.DispatchKey(w);
     EXPECT_EQ(closes, 1);
     EditorActionRegistry::Get()->Clear();
+}
+
+TEST(EditorShellTest, ScopedChromeFiltersByActiveScope)
+{
+    auto *reg = EditorActionRegistry::Get();
+    reg->Clear();
+    EditorScopeStack::Get()->Clear();
+
+    reg->Add({.id = "global.save", .label = "Save", .group = "file", .invoke = []() {}});
+    reg->Add({.id = "assetViewer.save", .label = "Save", .group = "file", .invoke = []() {}, .scope = "assetViewer", .accelerator = "Ctrl+S"});
+
+    const auto invoke = [](const std::string &) {};
+
+    const auto globalItems = ActionBarBuilder::BuildToolBarItems(invoke);
+    ASSERT_EQ(globalItems.size(), 1u);
+    EXPECT_EQ(globalItems.front().id, "global.save");
+
+    EditorScopeStack::Get()->Push("assetViewer");
+    const auto scopedItems = ActionBarBuilder::BuildToolBarItems(invoke);
+    ASSERT_EQ(scopedItems.size(), 1u);
+    EXPECT_EQ(scopedItems.front().id, "assetViewer.save");
+    EditorScopeStack::Get()->Pop("assetViewer");
+
+    reg->Clear();
+    EditorScopeStack::Get()->Clear();
+}
+
+TEST(EditorShellTest, ScopedAcceleratorResolvesInActiveScope)
+{
+    auto *reg = EditorActionRegistry::Get();
+    reg->Clear();
+    EditorScopeStack::Get()->Clear();
+
+    int global = 0;
+    int scoped = 0;
+    reg->Add({.id = "file.save", .label = "Save", .invoke = [&global]() { ++global; }, .accelerator = "Ctrl+S"});
+    reg->Add({.id = "assetViewer.save", .label = "Save", .invoke = [&scoped]() { ++scoped; }, .scope = "assetViewer", .accelerator = "Ctrl+S"});
+
+    EditorShell         shell;
+    sky::ui::UIKeyEvent s;
+    s.keyCode   = 'S';
+    s.action    = sky::ui::UIKeyAction::DOWN;
+    s.modifiers = 0x00C0; // Ctrl
+
+    EXPECT_TRUE(shell.DispatchKey(s));
+    EXPECT_EQ(global, 1);
+    EXPECT_EQ(scoped, 0);
+
+    EditorScopeStack::Get()->Push("assetViewer");
+    EXPECT_TRUE(shell.DispatchKey(s));
+    EXPECT_EQ(global, 1);
+    EXPECT_EQ(scoped, 1);
+    EditorScopeStack::Get()->Pop("assetViewer");
+
+    reg->Clear();
+    EditorScopeStack::Get()->Clear();
 }
 
 TEST(EditorShellTest, UiMetricsScaleDoublesDimensionsAndFonts)
@@ -1098,7 +1156,8 @@ TEST(EditorShellTest, AssetViewerOpensAndCloses)
     shell.OpenAssetViewer(sky::Uuid::Create());
     EXPECT_TRUE(shell.IsAssetViewerOpen());
 
-    // Escape is routed to the active modal and closes the viewer.
+    // Escape is routed to the active modal and closes the viewer (via the scoped action).
     shell.DispatchKey(Key(0x1B));
     EXPECT_FALSE(shell.IsAssetViewerOpen());
+    EditorActionRegistry::Get()->Clear();
 }

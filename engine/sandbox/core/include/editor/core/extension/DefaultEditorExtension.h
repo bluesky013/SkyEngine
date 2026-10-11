@@ -16,13 +16,22 @@ namespace sky::editor {
     // extension seam (external extensions add panels the same way).
     class DefaultEditorExtension : public EditorExtension {
     public:
-        explicit DefaultEditorExtension(PanelRegistry &inRegistry) : registry(inRegistry) {}
+        explicit DefaultEditorExtension(PanelRegistry &inRegistry) : registry(inRegistry)
+        {
+        }
         ~DefaultEditorExtension() override = default;
 
-        const char *GetName() const override { return "DefaultEditorPanels"; }
+        const char *GetName() const override
+        {
+            return "DefaultEditorPanels";
+        }
 
         void Register() override;
         void Unregister() override;
+
+        // The built-in editor icon root ("icons/"), so the host scans it through the same
+        // extension seam plugins use instead of a hard-coded name list.
+        std::vector<std::string> GetIconDirectories() const override;
 
     private:
         PanelRegistry           &registry;

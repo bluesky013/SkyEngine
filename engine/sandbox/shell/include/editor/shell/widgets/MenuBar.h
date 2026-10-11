@@ -48,6 +48,13 @@ namespace sky::editor {
         {
             barHeight = h;
         }
+        // Replaces the menus (used when the chrome is rebuilt for a different action scope).
+        void SetMenus(std::vector<Menu> inMenus)
+        {
+            menus     = std::move(inMenus);
+            openIndex = hoverLabel = hoverItem = hoverSubItem = -1;
+            MarkPaintDirty();
+        }
         bool IsOpen() const
         {
             return openIndex >= 0;

@@ -14,23 +14,19 @@ extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
     #pragma comment(lib, "shell32.lib")
 #endif
 
-#include <editor/core/EditorCore.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetPreviewProvider.h>
-#include <editor/core/command/CommandService.h>
-#include <editor/core/extension/IconRegistry.h>
-#include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/AssetViewProvider.h>
 #include <editor/shell/ReflectedFormView.h>
 #include <editor/shell/UiDraw.h>
 #include <editor/shell/UiTheme.h>
+#include <editor/shell/widgets/ActionBarBuilder.h>
 #include <editor/shell/widgets/MenuBar.h>
-#include <editor/shell/widgets/ToolItemButton.h>
+#include <editor/shell/widgets/ToolBar.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>
 #include <ui/widgets/DockPanel.h>
-#include <ui/widgets/StackPanel.h>
 
 #include <algorithm>
 #include <memory>
@@ -63,53 +59,36 @@ namespace sky::editor {
         contentViewport->SetClipsChildren(true);
 
         // Top chrome docked with DockPanel: menu (top), toolbar (top), body (fill). No hand offsets.
-        constexpr float kMenuH    = 24.0f;
-        constexpr float kToolbarH = 24.0f;
-        topDock                   = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
-
-        // Menu bar first (top), then toolbar, then body -> menu sits above the toolbar (dock order = add order).
-        std::vector<MenuBar::Menu> menus;
-        MenuBar::Menu              fileMenu;
-        fileMenu.label = "File";
-        fileMenu.items.push_back(MenuBar::Item{"Open", [this] { OpenAsset(); }, {}, "Ctrl+O", "open"});
-        fileMenu.items.push_back(MenuBar::Item{"Save", [this] { SaveAsset(); }, {}, "Ctrl+S", "save"});
-        fileMenu.items.push_back(MenuBar::Item{"", {}, {}, "", "", true});
-        fileMenu.items.push_back(MenuBar::Item{"Close",
-                                               [this] {
-                                                   SaveAsset();
-                                                   Close();
-                                               },
-                                               {},
-                                               "Esc"});
-        menus.push_back(std::move(fileMenu));
-        MenuBar::Menu editMenu;
-        editMenu.label = "Edit";
-        editMenu.items.push_back(MenuBar::Item{"Undo", [this] { EditorCore::GetCommandService().Undo(); }, {}, "Ctrl+Z", "undo"});
-        editMenu.items.push_back(MenuBar::Item{"Redo", [this] { EditorCore::GetCommandService().Redo(); }, {}, "Ctrl+Y", "redo"});
-        menus.push_back(std::move(editMenu));
-        menuBar = static_cast<MenuBar *>(
-            topDock->Add(std::make_unique<MenuBar>(std::move(menus), text), sky::ui::DockSlot{sky::ui::DockSide::Top, kMenuH}));
-
-        toolbarPanel = static_cast<sky::ui::StackPanel *>(topDock->Add(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Horizontal),
-                                                                       sky::ui::DockSlot{sky::ui::DockSide::Top, kToolbarH}));
-        toolbarPanel->SetGap(4.0f);
-        auto addToolButton = [&](const char *label, const char *iconName, std::function<void()> callback) {
-            auto           button = std::make_unique<ToolItemButton>(&skin, label, std::move(callback));
-            const uint32_t icon   = IconRegistry::Get()->Find(iconName);
-            if (icon != 0) {
-                button->SetIcon(icon);
-            }
-            toolbarPanel->Add(std::move(button));
-        };
-        addToolButton("Save", "save", [this] { SaveAsset(); });
-        addToolButton("Undo", "undo", [this] { EditorCore::GetCommandService().Undo(); });
-        addToolButton("Redo", "redo", [this] { EditorCore::GetCommandService().Redo(); });
-
+        // The menu/toolbar items are filled from the active-scope actions in RebuildChrome() (Open()).
+        // Heights come from the theme metrics so they DPI-scale with the chrome (icons/labels).
+        const UiMetrics &m     = GetDefaultUiTheme().metrics;
+        const float      menuH = m.menuBarHeight;
+        const float      toolH = m.toolbarHeight;
+        topDock                = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
+        menuBar                = static_cast<MenuBar *>(
+            topDock->Add(std::make_unique<MenuBar>(std::vector<MenuBar::Menu>{}, text), sky::ui::DockSlot{sky::ui::DockSide::Top, menuH}));
+        menuBar->SetBarHeight(menuH);
+        toolBar = static_cast<ToolBar *>(topDock->Add(std::make_unique<ToolBar>(text), sky::ui::DockSlot{sky::ui::DockSide::Top, toolH}));
         bodyArea =
             static_cast<sky::ui::UIElement *>(topDock->Add(std::make_unique<sky::ui::UIElement>(), sky::ui::DockSlot{sky::ui::DockSide::Fill}));
     }
 
     AssetViewerWidget::~AssetViewerWidget() = default;
+
+    void AssetViewerWidget::RebuildChrome()
+    {
+        const auto invoke = [this](const std::string &id) {
+            if (actionHandler) {
+                actionHandler(id);
+            }
+        };
+        if (menuBar != nullptr) {
+            menuBar->SetMenus(ActionBarBuilder::BuildMenus(invoke));
+        }
+        if (toolBar != nullptr) {
+            toolBar->SetItems(ActionBarBuilder::BuildToolBarItems(invoke));
+        }
+    }
 
     void AssetViewerWidget::Open(const Uuid &uuid)
     {
@@ -138,6 +117,7 @@ namespace sky::editor {
         RebuildCustomContent();
         RebuildDataView();
         RebuildTargetPanels();
+        RebuildChrome();
         Reload();
         ModalDialog::Open();
     }
@@ -279,6 +259,12 @@ namespace sky::editor {
             AssetCookService::Get()->TriggerCook(asset);
         }
         MarkPaintDirty();
+    }
+
+    void AssetViewerWidget::CloseWithSave()
+    {
+        SaveAsset();
+        Close();
     }
 
     void AssetViewerWidget::OpenAsset()
@@ -463,8 +449,8 @@ namespace sky::editor {
             }
         }
 
-        if (toolbarPanel != nullptr) {
-            const sky::ui::UIEventResult toolbarResult = toolbarPanel->RoutePointer(event);
+        if (toolBar != nullptr) {
+            const sky::ui::UIEventResult toolbarResult = toolBar->OnPointerEvent(event);
             if (toolbarResult == sky::ui::UIEventResult::HANDLED) {
                 MarkPaintDirty();
                 return toolbarResult;
@@ -531,33 +517,8 @@ namespace sky::editor {
 
     sky::ui::UIEventResult AssetViewerWidget::OnKeyEvent(const sky::ui::UIKeyEvent &event)
     {
-        if (event.action == sky::ui::UIKeyAction::UP) {
-            return sky::ui::UIEventResult::UNHANDLED;
-        }
-        const bool ctrl  = (event.modifiers & kModCtrl) != 0;
-        const bool shift = (event.modifiers & kModShift) != 0;
-        if (ctrl && event.keyCode == 'S') {
-            SaveAsset();
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        if (ctrl && event.keyCode == 'O') {
-            OpenAsset();
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        if (ctrl && event.keyCode == 'Z') {
-            EditorCore::GetCommandService().Undo();
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        if (ctrl && (event.keyCode == 'Y' || shift)) {
-            EditorCore::GetCommandService().Redo();
-            return sky::ui::UIEventResult::HANDLED;
-        }
-        constexpr uint32_t kEscape = 0x1B;
-        if (event.keyCode == kEscape) {
-            SaveAsset();
-            Close();
-            return sky::ui::UIEventResult::HANDLED;
-        }
+        // Shortcuts (Ctrl+S/O/Z/Y, Esc) are resolved by EditorShell from the scoped actions'
+        // accelerators before this is reached; only content editing keys land here.
         return RouteContentKey(event);
     }
 

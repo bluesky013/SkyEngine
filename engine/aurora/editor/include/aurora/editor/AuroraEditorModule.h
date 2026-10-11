@@ -2,7 +2,7 @@
 // Aurora editor extension module (registration-only). Loaded by the editor through the
 // module config. It does NOT create an aurora device: the editor owns rendering via its
 // own host. Init runs AuroraReflection (asset handlers / components / reflection) and
-// registers the aurora per-asset view data with the editor.
+// stages an AuroraEditorExtension for the editor host to drain (per-asset views + icon root).
 //
 
 #pragma once

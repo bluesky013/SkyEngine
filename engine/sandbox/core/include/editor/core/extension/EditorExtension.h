@@ -5,6 +5,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace sky::editor {
 
@@ -18,8 +20,15 @@ namespace sky::editor {
         virtual ~EditorExtension() = default;
 
         virtual const char *GetName() const = 0;
-        virtual void Register() = 0;
-        virtual void Unregister() = 0;
+        virtual void        Register()      = 0;
+        virtual void        Unregister()    = 0;
+
+        // Resource-relative icon directories this extension contributes (e.g. "icons/aurora").
+        // The host scans each for `*.svg` and registers them by file stem. Empty by default.
+        virtual std::vector<std::string> GetIconDirectories() const
+        {
+            return {};
+        }
     };
 
     using EditorExtensionPtr = std::unique_ptr<EditorExtension>;

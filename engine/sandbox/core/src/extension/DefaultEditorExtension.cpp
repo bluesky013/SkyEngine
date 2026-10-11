@@ -28,4 +28,9 @@ namespace sky::editor {
         registeredIds.clear();
     }
 
+    std::vector<std::string> DefaultEditorExtension::GetIconDirectories() const
+    {
+        return {"icons"};
+    }
+
 } // namespace sky::editor

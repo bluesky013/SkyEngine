@@ -114,10 +114,19 @@ until the new path is verified, then delete the old code in the same commit.
 - **P3** done (方案 1): asset viewer embeds `MenuBar` + `StackPanel`/`ToolItemButton`; File(Open/Save/Close) + Edit(Undo/Redo), accelerators (Ctrl+S/O/Z/Y, Esc).
 - **P4** mostly done: `MenuBar::Item` now supports `shortcut`, `icon`, `separator`; accelerators wired. Remaining: `ActionBarBuilder`, enums for groups/order.
 - **P5** mostly done: containers `StackPanel`/`DockPanel`/`GridPanel`/`Overlay`; **asset-viewer top chrome migrated to `DockPanel`** (menu/toolbar/body, no hand offsets). Remaining: migrate the material-editor row layout off `ComputeRowRects`.
-- **P6** partly done: `EditorExtensionRegistry` (cross-DLL `Singleton`) lets plugin editor modules
-  stage `EditorExtension`s in `Init`; `SandboxModule` drains it into the host before `RegisterAll`.
-  Remaining: a plugin consumer (none yet) + plugin icon roots into `IconRegistry`.
-- **P7** pending (design): scoped/context actions in `EditorActionRegistry`.
+- **P6** done: `EditorExtensionRegistry` (cross-DLL `Singleton`) lets plugin editor modules stage
+  `EditorExtension`s in `Init`; `SandboxModule` drains it into the host before `RegisterAll`.
+  Aurora (`AuroraEditorExtension`) + Content (`ContentEditorExtension`) are live consumers
+  (per-asset views + declared icon roots). Icons load by scanning `EditorExtension::GetIconDirectories()`
+  roots (default extension = built-in `icons`, plugins = `icons/aurora` / `icons/content`) instead
+  of the hard-coded `kIcons[]`.
+- **P7** done (step 1-3): `EditorAction` gained `scope` + `accelerator`; `EditorScopeStack`
+  (cross-DLL) holds the active scope; `ActionBarBuilder` builds toolbar/menu/accelerator for the
+  active scope; `EditorShell` and the asset viewer both use it. The viewer registers
+  `assetViewer.*` scoped actions (File Open/Save/Close + Edit Undo/Redo, "Esc"/"Ctrl+S/O/Z/Y")
+  and no longer builds a local `MenuBar` or its own key switch. `DispatchKey` is data-driven
+  (F5 stays special-cased: it is a stateful Play/Pause/Stop toggle). Remaining: route plugin
+  `EditorExtension::Register()` actions through the registry (P6/P7 step 4).
 - Open is now the real action (open the asset source with the OS); non-Windows is a no-op.
 - Known build-infra flake (not this work): `Aurora.ShaderCompiler.Static`'s `ShaderHeaderTool` custom command needs its CWD/PATH to find the slang DLLs.
 
@@ -180,24 +189,22 @@ scope filtering (no `when`) and add predicates only where needed.
 
 ## 9. Current backlog (handoff)
 
-**Done:** P0–P5 (layout containers + asset-viewer chrome migrated to `DockPanel` + icons +
-accelerators), P6 foundation (`EditorExtensionRegistry`), P4 menu `shortcut`/`icon`/`separator`.
+**Done:** P0–P6 (layout containers + asset-viewer chrome + icons + accelerators; plugin
+`EditorExtension`s staged via `EditorExtensionRegistry` + icon roots scanned from
+`GetIconDirectories()`), P4 menu `shortcut`/`icon`/`separator`, **P7** (scoped/dialog actions:
+`EditorAction.scope`/`accelerator`, `EditorScopeStack`, `ActionBarBuilder`; asset viewer migrated,
+local `MenuBar` + key switch deleted).
 
 **Next, in rough priority:**
 
-1. **P7 step 1** (additive): `EditorAction` gains `scope` + `accelerator`; add `ActionBarBuilder`.
-   Then move the asset viewer to registered scoped actions and delete its local `MenuBar` +
-   `OnKeyEvent` key switch.
-2. **P6 remainder**: a plugin consumer of `EditorExtensionRegistry` + plugin icon roots
-   (`IconRegistry` directory scan instead of the hard-coded `kIcons[]`).
-3. **P5 remainder**: migrate the material-editor row layout off `ComputeRowRects` onto containers.
-4. Menu `checkable`; shared enums for action group/order (drop magic strings/ints).
-5. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
+1. **P5 remainder**: migrate the material-editor row layout off `ComputeRowRects` onto containers.
+2. Menu `checkable`; shared enums for action group/order (drop magic strings/ints).
+3. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
    `{value,default}`); also add/delete for material-instance overrides.
-6. Remove `assets/techniques/*.tech` + their `configs/render_preload_assets.json` entries once the
+4. Remove `assets/techniques/*.tech` + their `configs/render_preload_assets.json` entries once the
    render side no longer needs them (paired with the shader migration; see
    `docs/aurora/shader-design-and-migration.md`).
-7. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
+5. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
    is the deferred MVP item; archive when ready.
 
 **Known build-infra issue (not this work):** `Aurora.ShaderCompiler.Static`'s `ShaderHeaderTool`

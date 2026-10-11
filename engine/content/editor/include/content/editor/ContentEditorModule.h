@@ -1,6 +1,7 @@
 //
 // Content editor extension module (registration-only): registers the content adaptor's
-// animation asset types and their per-asset view data with the editor. No device.
+// animation asset types and stages a ContentEditorExtension for the editor host to drain
+// (per-asset views + icon root). No device.
 //
 
 #pragma once

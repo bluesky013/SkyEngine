@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <editor/core/extension/EditorExtension.h>
 #include <cstddef>
+#include <editor/core/extension/EditorExtension.h>
 #include <string>
 #include <vector>
 
@@ -21,20 +21,32 @@ namespace sky::editor {
         EditorExtensionHost() = default;
         ~EditorExtensionHost();
 
-        EditorExtensionHost(const EditorExtensionHost &) = delete;
+        EditorExtensionHost(const EditorExtensionHost &)            = delete;
         EditorExtensionHost &operator=(const EditorExtensionHost &) = delete;
 
         void Add(EditorExtensionPtr extension);
         void RegisterAll();
         void UnregisterAll();
 
-        bool IsRegistered() const { return registered; }
-        size_t GetCount() const { return extensions.size(); }
+        bool IsRegistered() const
+        {
+            return registered;
+        }
+        size_t GetCount() const
+        {
+            return extensions.size();
+        }
         const EditorExtension *Find(const std::string &name) const;
+
+        // The owned extensions, e.g. so the host can collect their contributed icon roots.
+        const std::vector<EditorExtensionPtr> &GetExtensions() const
+        {
+            return extensions;
+        }
 
     private:
         std::vector<EditorExtensionPtr> extensions;
-        bool registered = false;
+        bool                            registered = false;
     };
 
 } // namespace sky::editor
