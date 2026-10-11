@@ -157,6 +157,11 @@ namespace sky::editor {
         // Rebuild the cached snapshot from the AssetDataBase and notify observers.
         void Refresh();
 
+        // Coalesced rescan: run once per frame on the main thread. OnBuildFinished only marks the flag
+        // (cheap); this does the mount rescan + observer notify at most once per frame, regardless of
+        // how many builds completed.
+        void FlushRefresh();
+
         // ---- observers ----
         uint32_t AddObserver(Observer observer);
         void     RemoveObserver(uint32_t id);
@@ -209,6 +214,7 @@ namespace sky::editor {
         mutable std::unordered_map<Uuid, std::vector<Uuid>> dependents;
         mutable bool                                        graphBuilt = false;
         std::atomic<uint64_t>                               stateRevision{0};
+        std::atomic<bool>                                   refreshPending{false};
 
         mutable std::mutex                   itemsMutex;
         mutable std::vector<EditorAssetItem> itemsCache;

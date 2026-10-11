@@ -688,6 +688,14 @@ namespace sky::editor {
         NotifyObservers();
     }
 
+    void EditorAssetCatalog::FlushRefresh()
+    {
+        if (!refreshPending.exchange(false)) {
+            return;
+        }
+        Refresh();
+    }
+
     uint32_t EditorAssetCatalog::AddObserver(Observer observer)
     {
         std::lock_guard lock(observerMutex);
@@ -727,9 +735,11 @@ namespace sky::editor {
             state.state           = success ? AssetCookState::Ready : AssetCookState::Failed;
             state.error           = error;
         }
-        // Bumped here (may run on a cook thread); views poll GetStateRevision() and re-read on the
-        // next paint. Observers are intentionally NOT notified here: this can run off the main thread.
+        // Bumped here; views poll GetStateRevision() and re-read on the next paint. Observers are NOT
+        // notified here (it would run per completion, and can run off the main thread). Instead mark a
+        // pending refresh; the editor tick calls FlushRefresh() once per frame to rescan + notify.
         BumpRevision();
+        refreshPending.store(true, std::memory_order_relaxed);
     }
 
     namespace {

@@ -890,7 +890,7 @@ namespace sky::editor {
                               });
                           }});
             actions->Add({.id = "asset.cookAll", .label = "Cook All Sources", .menu = EditorMenu::Assets, .order = 3, .invoke = []() {
-                              AssetCookService::Get()->TriggerCookAll();
+                              AssetCookService::Get()->RequestCookAll();
                           }});
 
             // Selection-scoped asset operations. No `menu` => not on the global menu bar; they are
@@ -919,7 +919,7 @@ namespace sky::editor {
                           .invoke =
                               [assetCatalog, selectedAsset]() {
                                   if (assetCatalog != nullptr) {
-                                      AssetCookService::Get()->TriggerCook(selectedAsset());
+                                      AssetCookService::Get()->RequestCook(selectedAsset());
                                   }
                               }});
             actions->Add({.id      = "asset.copyReference",
@@ -1199,6 +1199,11 @@ namespace sky::editor {
             return;
         }
         if (!hubMode) {
+            // Run deferred cook requests (main thread) before rendering, then coalesce any build
+            // completions into a single catalog rescan this frame.
+            AssetCookService::Get()->Drain();
+            EditorAssetCatalog::Get()->FlushRefresh();
+
             logService.Pump();
 
             // Tear-out: a tab dragged out of the dock area floats into its own

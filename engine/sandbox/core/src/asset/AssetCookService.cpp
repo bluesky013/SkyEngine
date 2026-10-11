@@ -12,7 +12,38 @@
 
 namespace sky::editor {
 
-    void AssetCookService::TriggerCook(const Uuid &uuid)
+    void AssetCookService::RequestCook(const Uuid &uuid)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        pending.insert(uuid);
+    }
+
+    void AssetCookService::RequestCookAll()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        cookAllPending = true;
+    }
+
+    void AssetCookService::Drain()
+    {
+        std::unordered_set<Uuid> batch;
+        bool                     all = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            batch.swap(pending);
+            all            = cookAllPending;
+            cookAllPending = false;
+        }
+
+        for (const auto &uuid : batch) {
+            CookOne(uuid);
+        }
+        if (all) {
+            CookAll();
+        }
+    }
+
+    void AssetCookService::CookOne(const Uuid &uuid)
     {
         auto *db = sky::AssetDataBase::Get();
         if (db == nullptr) {
@@ -30,7 +61,7 @@ namespace sky::editor {
         db->BuildAllTargets(uuid);
     }
 
-    void AssetCookService::TriggerCookAll()
+    void AssetCookService::CookAll()
     {
         auto *db = sky::AssetDataBase::Get();
         if (db == nullptr) {
@@ -39,7 +70,7 @@ namespace sky::editor {
         auto *builders = sky::AssetBuilderManager::Get();
         db->ForEachSource([&](const sky::AssetSourcePtr &source) {
             if (source != nullptr && builders->HasBuilder(source->ext)) {
-                TriggerCook(source->uuid);
+                CookOne(source->uuid);
             }
         });
     }

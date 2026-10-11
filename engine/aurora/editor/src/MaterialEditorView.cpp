@@ -178,6 +178,90 @@ namespace sky::aurora::editor {
             return true;
         }
 
+        // Applies one buffered row edit to the parsed source document (mutations only, no I/O).
+        void ApplyRowToDocument(rapidjson::Document &doc, const MaterialEditorRow &prop)
+        {
+            auto &alloc = doc.GetAllocator();
+            if (prop.isString) {
+                if (!doc.HasMember("techniques") || !doc["techniques"].IsArray()) {
+                    return;
+                }
+                rapidjson::Value &techs = doc["techniques"];
+                if (prop.techniqueIndex < 0 || prop.techniqueIndex >= static_cast<int>(techs.Size()) ||
+                    !techs[prop.techniqueIndex].IsObject()) {
+                    return;
+                }
+                rapidjson::Value &tech = techs[prop.techniqueIndex];
+                if (prop.techniqueField == 10) {
+                    if (!tech.HasMember("renderState") || !tech["renderState"].IsObject()) {
+                        tech.RemoveMember("renderState");
+                        tech.AddMember(rapidjson::Value("renderState", alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
+                    }
+                    rapidjson::Value *target = &tech["renderState"];
+                    std::string       key    = prop.renderKey;
+                    if (const auto dot = key.find('.'); dot != std::string::npos) {
+                        const std::string outer = key.substr(0, dot);
+                        if (!target->HasMember(outer.c_str()) || !(*target)[outer.c_str()].IsObject()) {
+                            target->RemoveMember(outer.c_str());
+                            target->AddMember(rapidjson::Value(outer.c_str(), alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
+                        }
+                        target = &(*target)[outer.c_str()];
+                        key    = key.substr(dot + 1);
+                    }
+                    target->RemoveMember(key.c_str());
+                    rapidjson::Value value;
+                    if (prop.text == "true") {
+                        value = rapidjson::Value(true);
+                    } else if (prop.text == "false") {
+                        value = rapidjson::Value(false);
+                    } else {
+                        char        *end = nullptr;
+                        const double num = std::strtod(prop.text.c_str(), &end);
+                        if (end != nullptr && *end == '\0' && !prop.text.empty()) {
+                            value = rapidjson::Value(num);
+                        } else {
+                            value = rapidjson::Value(prop.text.c_str(), alloc);
+                        }
+                    }
+                    target->AddMember(rapidjson::Value(key.c_str(), alloc), value, alloc);
+                } else {
+                    const char *fieldKey = prop.techniqueField == 0 ? "tag" : (prop.techniqueField == 1 ? "shader" : "entry");
+                    tech.RemoveMember(fieldKey);
+                    tech.AddMember(rapidjson::Value(fieldKey, alloc), rapidjson::Value(prop.text.c_str(), alloc), alloc);
+                }
+            } else {
+                if (!doc.HasMember("properties") || !doc["properties"].IsObject()) {
+                    doc.RemoveMember("properties");
+                    doc.AddMember("properties", rapidjson::Value(rapidjson::kObjectType), alloc);
+                }
+                rapidjson::Value &props = doc["properties"];
+                props.RemoveMember(prop.name.c_str());
+                rapidjson::Value key(prop.name.c_str(), alloc);
+
+                if (IsTextureProperty(prop.type)) {
+                    if (prop.texture) {
+                        props.AddMember(key, rapidjson::Value(prop.texture.ToString().c_str(), alloc), alloc);
+                    }
+                } else if (prop.type == MaterialPropertyType::BOOL) {
+                    props.AddMember(key, rapidjson::Value(ReadPod<uint8_t>(prop.value) != 0), alloc);
+                } else if (prop.type == MaterialPropertyType::INT) {
+                    props.AddMember(key, rapidjson::Value(ReadPod<int32_t>(prop.value)), alloc);
+                } else if (prop.type == MaterialPropertyType::UINT) {
+                    props.AddMember(key, rapidjson::Value(ReadPod<uint32_t>(prop.value)), alloc);
+                } else if (prop.type == MaterialPropertyType::FLOAT) {
+                    props.AddMember(key, rapidjson::Value(ReadPod<float>(prop.value)), alloc);
+                } else {
+                    rapidjson::Value arr(rapidjson::kArrayType);
+                    const size_t     n = (prop.type == MaterialPropertyType::MAT4) ? prop.value.size() / sizeof(float)
+                                                                                  : SizeOfPropertyType(prop.type) / sizeof(float);
+                    for (size_t i = 0; i < n; ++i) {
+                        arr.PushBack(rapidjson::Value(ReadPod<float>(prop.value, i * sizeof(float))), alloc);
+                    }
+                    props.AddMember(key, arr, alloc);
+                }
+            }
+        }
+
         void AddRow(std::vector<MaterialEditorRow> &rows,
                     const std::string              &name,
                     const std::string              &text,
@@ -319,13 +403,30 @@ namespace sky::aurora::editor {
         if (!dirty) {
             return false;
         }
+
+        rapidjson::Document doc;
+        std::string         abs;
+        if (!ReadSourceJson(asset, doc, abs)) {
+            LOG_W(TAG, "no readable source for asset %s; edits are in-memory only", asset.ToString().c_str());
+            dirty = false;
+            MarkPaintDirty();
+            return false;
+        }
+
+        // Apply every buffered field edit to the single parsed document, then write once.
         for (size_t i = 0; i < rows.size(); ++i) {
             if (rows[i].kind != MaterialRowKind::Field) {
                 continue;
             }
-            PersistProperty(static_cast<int>(i));
+            ApplyRowToDocument(doc, rows[i]);
         }
-        sky::editor::AssetCookService::Get()->TriggerCook(asset);
+        if (!WriteSourceJson(abs, doc)) {
+            LOG_W(TAG, "cannot write source %s; edits kept in memory", abs.c_str());
+            MarkPaintDirty();
+            return false; // keep `dirty` so a later Save retries
+        }
+
+        sky::editor::AssetCookService::Get()->RequestCook(asset);
         dirty = false;
         MarkPaintDirty();
         return true;
@@ -512,7 +613,8 @@ namespace sky::aurora::editor {
         }
         default: return;
         }
-        PersistProperty(index);
+        dirty = true;
+        MarkPaintDirty();
     }
 
     void MaterialEditorView::CommitTexture(int index, const Uuid &id)
@@ -521,131 +623,8 @@ namespace sky::aurora::editor {
             return;
         }
         rows[index].texture = id;
-        PersistProperty(index);
-    }
-
-    bool MaterialEditorView::PersistProperty(int index)
-    {
-        if (index < 0 || index >= static_cast<int>(rows.size())) {
-            return false;
-        }
-        const MaterialEditorRow &prop = rows[index];
-
-        const std::string abs = SourceAbsolutePath(asset);
-        if (abs.empty()) {
-            LOG_W(TAG, "no source path for asset %s; edit is in-memory only", asset.ToString().c_str());
-            return false;
-        }
-
-        std::ifstream in(abs, std::ios::binary);
-        if (!in) {
-            LOG_W(TAG, "cannot open source %s", abs.c_str());
-            return false;
-        }
-        std::stringstream buffer;
-        buffer << in.rdbuf();
-        in.close();
-
-        rapidjson::Document doc;
-        doc.Parse(buffer.str().c_str());
-        if (doc.HasParseError() || !doc.IsObject()) {
-            LOG_W(TAG, "source parse failed: %s", abs.c_str());
-            return false;
-        }
-        auto &alloc = doc.GetAllocator();
-        if (prop.isString) {
-            if (!doc.HasMember("techniques") || !doc["techniques"].IsArray()) {
-                return false;
-            }
-            rapidjson::Value &techs = doc["techniques"];
-            if (prop.techniqueIndex < 0 || prop.techniqueIndex >= static_cast<int>(techs.Size()) || !techs[prop.techniqueIndex].IsObject()) {
-                return false;
-            }
-            rapidjson::Value &tech = techs[prop.techniqueIndex];
-            if (prop.techniqueField == 10) {
-                if (!tech.HasMember("renderState") || !tech["renderState"].IsObject()) {
-                    tech.RemoveMember("renderState");
-                    tech.AddMember(rapidjson::Value("renderState", alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
-                }
-                rapidjson::Value *target = &tech["renderState"];
-                std::string       key    = prop.renderKey;
-                if (const auto dot = key.find('.'); dot != std::string::npos) {
-                    const std::string outer = key.substr(0, dot);
-                    if (!target->HasMember(outer.c_str()) || !(*target)[outer.c_str()].IsObject()) {
-                        target->RemoveMember(outer.c_str());
-                        target->AddMember(rapidjson::Value(outer.c_str(), alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
-                    }
-                    target = &(*target)[outer.c_str()];
-                    key    = key.substr(dot + 1);
-                }
-                target->RemoveMember(key.c_str());
-                rapidjson::Value value;
-                if (prop.text == "true") {
-                    value = rapidjson::Value(true);
-                } else if (prop.text == "false") {
-                    value = rapidjson::Value(false);
-                } else {
-                    char        *end = nullptr;
-                    const double num = std::strtod(prop.text.c_str(), &end);
-                    if (end != nullptr && *end == '\0' && !prop.text.empty()) {
-                        value = rapidjson::Value(num);
-                    } else {
-                        value = rapidjson::Value(prop.text.c_str(), alloc);
-                    }
-                }
-                target->AddMember(rapidjson::Value(key.c_str(), alloc), value, alloc);
-            } else {
-                const char *fieldKey = prop.techniqueField == 0 ? "tag" : (prop.techniqueField == 1 ? "shader" : "entry");
-                tech.RemoveMember(fieldKey);
-                tech.AddMember(rapidjson::Value(fieldKey, alloc), rapidjson::Value(prop.text.c_str(), alloc), alloc);
-            }
-        } else {
-            if (!doc.HasMember("properties") || !doc["properties"].IsObject()) {
-                doc.RemoveMember("properties");
-                doc.AddMember("properties", rapidjson::Value(rapidjson::kObjectType), alloc);
-            }
-            rapidjson::Value &props = doc["properties"];
-            props.RemoveMember(prop.name.c_str());
-            rapidjson::Value key(prop.name.c_str(), alloc);
-
-            if (IsTextureProperty(prop.type)) {
-                if (prop.texture) {
-                    props.AddMember(key, rapidjson::Value(prop.texture.ToString().c_str(), alloc), alloc);
-                }
-            } else if (prop.type == MaterialPropertyType::BOOL) {
-                props.AddMember(key, rapidjson::Value(ReadPod<uint8_t>(prop.value) != 0), alloc);
-            } else if (prop.type == MaterialPropertyType::INT) {
-                props.AddMember(key, rapidjson::Value(ReadPod<int32_t>(prop.value)), alloc);
-            } else if (prop.type == MaterialPropertyType::UINT) {
-                props.AddMember(key, rapidjson::Value(ReadPod<uint32_t>(prop.value)), alloc);
-            } else if (prop.type == MaterialPropertyType::FLOAT) {
-                props.AddMember(key, rapidjson::Value(ReadPod<float>(prop.value)), alloc);
-            } else {
-                rapidjson::Value arr(rapidjson::kArrayType);
-                const size_t     n =
-                    (prop.type == MaterialPropertyType::MAT4) ? prop.value.size() / sizeof(float) : SizeOfPropertyType(prop.type) / sizeof(float);
-                for (size_t i = 0; i < n; ++i) {
-                    arr.PushBack(rapidjson::Value(ReadPod<float>(prop.value, i * sizeof(float))), alloc);
-                }
-                props.AddMember(key, arr, alloc);
-            }
-        }
-
-        rapidjson::StringBuffer                    sb;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-        doc.Accept(writer);
-
-        std::ofstream out(abs, std::ios::binary | std::ios::trunc);
-        if (!out) {
-            LOG_W(TAG, "cannot write source %s", abs.c_str());
-            return false;
-        }
-        out.write(sb.GetString(), static_cast<std::streamsize>(sb.GetSize()));
-        out.close();
-
-        // NOTE: TriggerCook disabled for crash bisect.
+        dirty              = true;
         MarkPaintDirty();
-        return true;
     }
 
     void MaterialEditorView::OpenPicker(int index, const sky::ui::UIRect &row)

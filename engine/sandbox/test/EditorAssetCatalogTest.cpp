@@ -229,6 +229,31 @@ TEST(EditorAssetCatalog, CookStateTransitions)
     EXPECT_EQ(error, "boom");
 }
 
+TEST(EditorAssetCatalog, CoalescedRefreshNotifiesOncePerFlush)
+{
+    auto           *catalog = EditorAssetCatalog::Get();
+    const sky::Uuid id      = sky::Uuid::Create();
+
+    int            refreshCount = 0;
+    const uint32_t observer     = catalog->AddObserver([&refreshCount]() { ++refreshCount; });
+
+    // Several completions in one frame only mark a pending refresh (no scan/notify each time).
+    catalog->OnBuildFinished(id, "common", true, "");
+    catalog->OnBuildFinished(id, "common", true, "");
+    catalog->OnBuildFinished(id, "common", true, "");
+    EXPECT_EQ(refreshCount, 0);
+
+    // A single flush performs the rescan + notify once.
+    catalog->FlushRefresh();
+    EXPECT_EQ(refreshCount, 1);
+
+    // Nothing pending -> no further notify.
+    catalog->FlushRefresh();
+    EXPECT_EQ(refreshCount, 1);
+
+    catalog->RemoveObserver(observer);
+}
+
 TEST(EditorAssetCatalog, MutationPreservesIdentity)
 {
     namespace fs = std::filesystem;

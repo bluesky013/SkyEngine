@@ -255,7 +255,7 @@ namespace sky::editor {
             provider->SaveContent(asset, assetType, customContent);
         }
         if (catalog != nullptr) {
-            AssetCookService::Get()->TriggerCook(asset);
+            AssetCookService::Get()->RequestCook(asset);
         }
         MarkPaintDirty();
     }

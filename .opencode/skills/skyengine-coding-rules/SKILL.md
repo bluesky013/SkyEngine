@@ -408,7 +408,7 @@ Editor UI (asset viewer, custom content providers, inspector) is event-driven an
 
 ### Prohibitions
 
-1. Do **NOT** run heavy work (asset **cook** / reload / rebuild of the UI tree) inside a pointer/key/text event dispatch. Cooking (`AssetCookService::TriggerCook` → `BuildAllTargets`) rewrites products and can rebuild the very widget being dispatched → **use-after-free**. Defer to an explicit action (Save/close), not every edit.
+1. Do **NOT** run heavy work (asset **cook** / reload / rebuild of the UI tree) inside a pointer/key/text event dispatch. Cooking (`BuildAllTargets`) rewrites products and can rebuild the very widget being dispatched → **use-after-free**. Event handlers only **enqueue** a request (`AssetCookService::RequestCook`); the deferred queue is drained on the main thread in the editor tick (once per frame). Save/close enqueue too — never cook inline.
 2. Do **NOT** guess formats/schemas. Read the parser + spec + spec-of-record first (e.g. a material technique is an inline `MaterialTechniqueData {tag, shader, entry, renderState}`, **not** a deprecated `.tech` path string).
 3. Do **NOT** hand-roll facilities the framework owns: source paths → `AssetDataBase::GetAbsoluteSourcePath(id, out)`; scroll clipping → the viewer element with `SetClipsChildren(true)` + `PushClip` (children positioned at full height, clipped by the viewport).
 4. Do **NOT** let custom content replace the reflected cook-settings section: `BUNDLE` and `DATA` sections **coexist** (spec).
@@ -417,7 +417,8 @@ Editor UI (asset viewer, custom content providers, inspector) is event-driven an
 ### What to do instead
 
 - **Investigate before coding**: `grep`/read the schema, parser, callers, and the spec delta; state the model you're implementing, then implement.
-- **Separate edit from commit**: edits mutate an in-memory buffer + set a dirty flag; the base window owns **Save**, which writes the source and re-cooks once.
+- **Separate edit from commit**: edits mutate an in-memory buffer + set a dirty flag; the base window owns **Save**, which writes the source **once** (batch all field mutations into one read/write) and enqueues a cook (`AssetCookService::RequestCook`); the editor tick drains it.
+- **Cross-thread asset events arrive on the main thread**: `OnAssetBuildFinished` (cook worker / out-of-process monitor) and `OnAssetLoaded` (load worker) are posted to the `ThreadRole::Main` queue via `ThreadDispatcher` and broadcast when the main role dispatches (once per frame, before the tick). Do not assume a listener runs on a worker thread.
 - **Reuse UI**: reflected values → `ReflectedFormView`; buttons → a **shared** button (hover/pressed/disabled), not per-row `uidraw` hand-drawing; text edit → show a real caret.
 - **Get facts early**: when something misbehaves (missing rows, crash), add checkpoints/logging to find the exact step instead of blind edits; remove them after.
 - **Mind lifecycle**: events are dispatched while elements/asset data are live; don't destroy/reload them mid-dispatch.
@@ -425,12 +426,12 @@ Editor UI (asset viewer, custom content providers, inspector) is event-driven an
 ### Examples
 
 ```cpp
-// Bad — cook during the edit event; rebuilds the widget being dispatched -> UAF crash
-onEdited = [&]{ Persist(field); AssetCookService::Get()->TriggerCook(asset); };
+// Bad — cook inline during the edit event; rebuilds the widget being dispatched -> UAF crash
+onEdited = [&]{ Persist(field); BuildAllTargets(asset); };
 
-// Good — buffer on edit; cook once on the base window's Save
+// Good — buffer on edit; write once + enqueue on Save; drained on the main thread in the editor tick
 onEdited = [&]{ Buffer(field); dirty = true; };
-bool Save() { WriteSource(buffer); AssetCookService::Get()->TriggerCook(asset); dirty = false; }
+bool Save() { WriteSource(buffer); AssetCookService::Get()->RequestCook(asset); dirty = false; }
 ```
 
 ```cpp
@@ -443,7 +444,8 @@ db->GetAbsoluteSourcePath(id, abs);
 
 ### Detection
 
-- Search for `TriggerCook(` / `BuildAllTargets(` / heavy reload calls reachable from `OnPointerEvent`/`OnKeyEvent`/`OnTextInput`/`SetOnEdited`.
+- Search for `BuildAllTargets(` / synchronous cook / heavy reload calls reachable from `OnPointerEvent`/`OnKeyEvent`/`OnTextInput`/`SetOnEdited`; event handlers should only `RequestCook`.
+- Cross-thread asset events are main-thread: `OnAssetBuildFinished` / `OnAssetLoaded` arrive on the main role (via `ThreadDispatcher`), never a worker.
 - Search for custom content that returns early when a DATA view exists (should render BUNDLE **and** DATA).
 - Search for manual string-joining of source paths, manual scroll clamping, missing caret, ad-hoc hover.
 
