@@ -1,8 +1,0 @@
-{
-    "targets": [
-        {
-            "name": "ImGuizmoModule",
-            "dependencies": ["Launcher"]
-        }
-    ]
-}

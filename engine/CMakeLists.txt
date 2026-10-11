@@ -4,10 +4,9 @@ add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(animation)
 
-# Legacy render/shader stack is desktop-only (the runtime renderer is aurora on
-# slang). Skipped on mobile so legacy third-party (boost/glslang/SPIRV-Cross/
-# taskflow) is neither found nor built there.
-if (NOT SKY_MOBILE)
+# Legacy render/shader stack (pre-aurora). Deprecated, desktop-only, and not used
+# by the aurora runtime or the sandbox editor. Opt in with -DSKY_BUILD_LEGACY_RENDER=ON.
+if (SKY_BUILD_LEGACY_RENDER AND NOT SKY_MOBILE)
     add_subdirectory(shader)
     add_subdirectory(render)
 endif ()

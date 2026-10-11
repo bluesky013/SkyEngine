@@ -10,6 +10,5 @@ sky_add_exe(TARGET PerfCat ${PLATFORM_TYPE}
     LIBS
         Framework
         VulkanRHI.Static
-        3rdParty::imgui
         3rdParty::implot
     )

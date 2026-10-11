@@ -12,7 +12,6 @@ sky_add_library(TARGET RenderAdaptor STATIC
     LINK_LIBS
         RenderCore
         Animation
-        ImGuiRender
         Framework
     INSTALL_DIR
         include

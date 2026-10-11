@@ -4,14 +4,14 @@
 
 #include <render/adaptor/RenderModule.h>
 
+#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
-#include <framework/platform/PlatformBase.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/application/ModuleManager.h>
+#include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
-#include <framework/world/World.h>
 #include <framework/world/ComponentFactory.h>
+#include <framework/world/World.h>
 
 #include <render/RenderTechniqueLibrary.h>
 #include <render/adaptor/Reflection.h>
@@ -23,21 +23,20 @@
 #include <render/adaptor/components/SkyBoxComponent.h>
 #include <render/adaptor/components/StaticMeshComponent.h>
 
-#include <render/adaptor/animation/SkeletonDisplayComponent.h>
 #include <render/adaptor/animation/AnimationPreviewComponent.h>
 #include <render/adaptor/animation/CharacterLocomotion.h>
+#include <render/adaptor/animation/SkeletonDisplayComponent.h>
 
-#include <render/light/LightFeature.h>
 #include <render/env/EnvFeature.h>
+#include <render/light/LightFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
-#include <imgui/ImGuiFeature.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
 
-#include <core/profile/Profiler.h>
 #include <core/cmdline/CmdParser.h>
+#include <core/profile/Profiler.h>
 
 namespace sky {
 
@@ -78,10 +77,8 @@ namespace sky {
         CmdOptions options("SkyEngine Render Module", "SkyEngine Render Module");
         options.allow_unrecognised_options();
 
-        options.add_options()
-            ("e,engine", "Engine Directory", CmdValue<std::string>())
-            ("p,project", "Project Directory", CmdValue<std::string>())
-            ("r,rhi", "RHI Type", CmdValue<std::string>());
+        options.add_options()("e,engine", "Engine Directory", CmdValue<std::string>())("p,project", "Project Directory", CmdValue<std::string>())(
+            "r,rhi", "RHI Type", CmdValue<std::string>());
 
         if (!args.args.empty()) {
             auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
@@ -100,8 +97,8 @@ namespace sky {
         ProcessArgs(args);
 
         rhi::Instance::Descriptor rhiDesc = {};
-        rhiDesc.engineName = "SkyEngine";
-        rhiDesc.appName = "";
+        rhiDesc.engineName                = "SkyEngine";
+        rhiDesc.appName                   = "";
 #if defined(_DEBUG) && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
@@ -121,7 +118,7 @@ namespace sky {
         return true;
     }
 
-    static void LoadAndRegister(AssetManager* am, const char* name)
+    static void LoadAndRegister(AssetManager *am, const char *name)
     {
         auto asset = am->LoadAssetFromPath<Technique>(name);
         asset->BlockUntilLoaded();
@@ -132,8 +129,8 @@ namespace sky {
 
     void RenderModule::Start()
     {
-        auto *mm = Interface<ISystemNotify>::Get()->GetApi()->GetModuleManager();
-        auto shaderCompileFunc = mm->GetFunctionFomModule<ShaderCompileFunc>("ShaderCompiler", "CompileBinary");
+        auto *mm                = Interface<ISystemNotify>::Get()->GetApi()->GetModuleManager();
+        auto  shaderCompileFunc = mm->GetFunctionFomModule<ShaderCompileFunc>("ShaderCompiler", "CompileBinary");
         Renderer::Get()->SetShaderCompiler(shaderCompileFunc);
 
         InitFeatures();
@@ -142,19 +139,11 @@ namespace sky {
     void RenderModule::InitFeatures() // NOLINT
     {
         MeshFeature::Get()->Init();
-        ImGuiFeature::Get()->Init();
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
         EnvFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
-        {
-            auto guiAsset = am->LoadAssetFromPath<Technique>("techniques/gui.tech");
-            guiAsset->BlockUntilLoaded();
-
-            auto tech = CreateTechniqueFromAsset(guiAsset);
-            ImGuiFeature::Get()->SetTechnique(tech);
-        }
         {
             auto guiAsset = am->LoadAssetFromPath<Technique>("techniques/text.tech");
             guiAsset->BlockUntilLoaded();
@@ -172,7 +161,6 @@ namespace sky {
 
         RenderTechniqueLibrary::Destroy();
         MeshFeature::Destroy();
-        ImGuiFeature::Destroy();
         TextFeature::Destroy();
         EnvFeature::Destroy();
 
@@ -185,4 +173,4 @@ namespace sky {
         SKY_PROFILE_SCOPE;
         Renderer::Get()->Tick(delta);
     }
-}
+} // namespace sky

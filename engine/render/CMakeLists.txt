@@ -3,7 +3,6 @@ set(CURRENT_FOLDER Engine/Render)
 add_subdirectory(backend)
 add_subdirectory(core)
 add_subdirectory(adaptor)
-add_subdirectory(imgui)
 if ((SKY_BUILD_TOOL) AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")))
     add_subdirectory(builder)
 endif ()
@@ -15,7 +14,6 @@ sky_add_library(TARGET SkyRender SHARED
     PUBLIC_INC
     LINK_LIBS
         RenderAdaptor
-        ImGuiRender
     )
 
 if (SKY_BUILD_EDITOR)
@@ -41,7 +39,6 @@ if (SKY_BUILD_EDITOR)
         editor/include
     LINK_LIBS
         RenderAdaptor
-        ImGuiRender
         EditorFramework
     )
 endif ()

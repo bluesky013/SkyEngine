@@ -30,6 +30,9 @@ sky_add_library(TARGET PVS.Core STATIC
         Framework
 )
 
+# Legacy-render glue depends on the deprecated legacy render stack (opt-in).
+if (SKY_BUILD_LEGACY_RENDER)
+
 # Legacy-render glue: the IRenderSceneCulling implementation, the runtime module
 # and the debug visualizer. Isolated from the core so the core does not depend on
 # the legacy render stack.
@@ -54,6 +57,8 @@ sky_add_library(TARGET PVS SHARED
 )
 
 sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
+
+endif ()
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET PVSTest

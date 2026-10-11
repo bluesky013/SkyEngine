@@ -1,13 +1,6 @@
 {
     "plugins": [
         {
-            "name": "guizmo",
-            "dir": "guizmo",
-            "cmake_var": "SKY_BUILD_GUIZMO",
-            "enabled": true,
-            "requires_editor": true
-        },
-        {
             "name": "python",
             "dir": "python",
             "cmake_var": "SKY_BUILD_PYTHON",

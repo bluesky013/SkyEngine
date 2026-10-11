@@ -11,96 +11,6 @@
 			]
 		},
 		{
-			"name": "boost",
-			"url": "https://github.com/boostorg/boost.git",
-			"tag": "boost-1.88.0",
-			"header_only": true,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm",
-				"Linux"
-			],
-			"submodules": [
-				"tools/cmake",
-				"libs/graph",
-				"libs/container",
-				"libs/assert",
-				"libs/intrusive",
-				"libs/move",
-				"libs/algorithm",
-				"libs/array",
-				"libs/bind",
-				"libs/concept_check",
-				"libs/core",
-				"libs/exception",
-				"libs/function",
-				"libs/static_assert",
-				"libs/preprocessor",
-				"libs/smart_ptr",
-				"libs/any",
-				"libs/iterator",
-				"libs/throw_exception",
-				"libs/type_traits",
-				"libs/bimap",
-				"libs/detail",
-				"libs/tuple",
-				"libs/type_index",
-				"libs/mpl",
-				"libs/container_hash",
-				"libs/predef",
-				"libs/fusion",
-				"libs/range",
-				"libs/conversion",
-				"libs/utility",
-				"libs/optional",
-				"libs/function_types",
-				"libs/describe",
-				"libs/lambda",
-				"libs/regex",
-				"libs/io",
-				"libs/foreach",
-				"libs/typeof",
-				"libs/mp11",
-				"libs/multi_index",
-				"libs/unordered",
-				"libs/integer",
-				"libs/functional",
-				"libs/lexical_cast",
-				"libs/math",
-				"libs/random",
-				"libs/parameter",
-				"libs/dynamic_bitset",
-				"libs/property_map",
-				"libs/system",
-				"libs/property_tree",
-				"libs/serialization",
-				"libs/variant",
-				"libs/variant2",
-				"libs/winapi",
-				"libs/spirit",
-				"libs/endian",
-				"libs/tti",
-				"libs/phoenix",
-				"libs/xpressive",
-				"libs/numeric/conversion",
-				"libs/pool",
-				"libs/proto",
-				"libs/align",
-				"libs/chrono",
-				"libs/thread",
-				"libs/atomic",
-				"libs/date_time",
-				"libs/tokenizer",
-				"libs/ratio",
-				"libs/config"
-			],
-			"options": {
-				"BOOST_INSTALL_INCLUDE_SUBDIR": "",
-				"BOOST_INSTALL_LAYOUT": "system"
-			}
-		},
-		{
 			"name": "sfmt",
 			"url": "https://github.com/MersenneTwister-Lab/SFMT.git",
 			"tag": "1.5.4",
@@ -116,28 +26,6 @@
 				"RAPIDJSON_BUILD_EXAMPLES": "OFF",
 				"RAPIDJSON_BUILD_TESTS": "OFF"
 			}
-		},
-		{
-			"name": "taskflow",
-			"url": "https://github.com/taskflow/taskflow.git",
-			"tag": "v3.7.0",
-			"header_only": true,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm",
-				"Linux"
-			],
-			"options": {
-				"TF_BUILD_TESTS": "OFF",
-				"TF_BUILD_EXAMPLES": "OFF"
-			}
-		},
-		{
-			"name": "imgui",
-			"url": "https://github.com/ocornut/imgui.git",
-			"tag": "v1.88",
-			"header_only": true
 		},
 		{
 			"name": "miniaudio",
@@ -183,35 +71,6 @@
 			"options": {
 				"D3D12MA_BUILD_SAMPLE": "OFF"
 			}
-		},
-		{
-			"name": "glslang",
-			"url": "https://github.com/KhronosGroup/glslang.git",
-			"tag": "15.3.0",
-			"header_only": false,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm",
-				"Linux"
-			],
-			"custom": "update_glslang_sources.py",
-			"options": {
-				"GLSLANG_TESTS": "OFF",
-				"INSTALL_GTEST": "OFF"
-			}
-		},
-		{
-			"name": "SPIRV-Cross",
-			"url": "https://github.com/KhronosGroup/SPIRV-Cross.git",
-			"tag": "vulkan-sdk-1.4.313.0",
-			"header_only": false,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm",
-				"Linux"
-			]
 		},
 		{
 			"name": "dxcompiler",
@@ -355,17 +214,6 @@
 			"name": "nanosvg",
 			"url": "https://github.com/memononen/nanosvg.git",
 			"commit": "239e102ec2c691f2902e20ace2ed36ee4a35cfe6",
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm"
-			]
-		},
-		{
-			"name": "ImGuizmo",
-			"url": "https://github.com/CedricGuillemet/ImGuizmo.git",
-			"tag": "1.83",
-			"header_only": true,
 			"platforms": [
 				"Win32",
 				"MacOS-x86",
