@@ -4,6 +4,7 @@
 
 #include <core/file/FileUtil.h>
 #include <core/platform/Platform.h>
+#include <core/thread/ThreadDispatcher.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetEvent.h>
@@ -208,7 +209,12 @@ namespace sky {
         // observers (editor cook state) and completes the on-demand load.
         void EmitBuildResult(const AssetBuildResult &result, const AssetBuilderManager::BuildCompletion &onFinished)
         {
-            AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result);
+            // The broadcast may originate on a cook worker or the caller thread; deliver it on the
+            // main role so observers (editor cook state) never run off the main thread. `onFinished`
+            // stays direct: it resolves on-demand loads, some of which block the main thread.
+            ThreadDispatcher::Get()->PostToMain([result]() {
+                AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result);
+            });
             if (onFinished) {
                 onFinished(result);
             }
@@ -255,7 +261,7 @@ namespace sky {
         SKY_ASSERT(!outOfProcessActive && "in-process cook requested while out-of-process cook is active");
 
         const auto key = request.assetInfo->uuid.ToString() + "#" + request.target;
-        AssetExecutor::Get()->PushSavingTask(key, [this, request, onFinished = std::move(onFinished)]() {
+        AssetExecutor::Get()->PushCookTask(key, [this, request, onFinished = std::move(onFinished)]() {
             auto *builder = QueryBuilder(request.assetInfo->ext);
             request.assetInfo->dependencies.clear();
 

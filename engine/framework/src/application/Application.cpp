@@ -13,9 +13,11 @@
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
 
+#include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetManager.h>
 //#include <framework/database/DBManager.h>
 #include <framework/platform/PlatformBase.h>
+#include <core/thread/ThreadDispatcher.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/World.h>
 
@@ -34,6 +36,11 @@ namespace sky {
         }
 
         Interface<ISystemNotify>::Get()->UnRegister();
+
+        // Join in-flight asset workers BEFORE tearing down the managers they touch, then drop any
+        // queued cross-thread callbacks so no posted callback runs against half-destroyed state.
+        AssetExecutor::Get()->WaitForAll();
+        ThreadDispatcher::Get()->Clear();
 
         AssetManager::Destroy();
 
@@ -114,6 +121,9 @@ namespace sky {
         if (exit) {
             return;
         }
+
+        // Run cross-thread callbacks posted to the main role before this frame's tick work.
+        ThreadDispatcher::Get()->Dispatch(ThreadRole::Main);
 
         {
             SKY_PROFILE_NAME("PreTick")

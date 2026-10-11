@@ -54,8 +54,9 @@ namespace sky {
             return DependentAsync(std::forward<Func>(func), std::vector<TaskNodePtr>{});
         }
 
+        // Schedule func on `targetPool`, deduped on `key` and tracked by WaitForAll.
         template <typename Func>
-        void PushSavingTask(const std::string &key, Func &&func)
+        void PushTask(const std::string &key, ThreadPool &targetPool, Func &&func)
         {
             std::lock_guard<std::mutex> lock(mutex);
             auto iter = std::find_if(savingTasks.begin(), savingTasks.end(), [&key](const auto &v) {
@@ -69,7 +70,7 @@ namespace sky {
             auto sharedKey = std::make_shared<std::string>(key);
             SavingTask task;
             task.key = key;
-            task.asyncTask = pool.Dispatch([holder, sharedKey, this](ThreadContext &) mutable {
+            task.asyncTask = targetPool.Dispatch([holder, sharedKey, this](ThreadContext &) mutable {
                 (*holder)();
                 std::lock_guard<std::mutex> innerLock(mutex);
                 auto it = std::find_if(savingTasks.begin(), savingTasks.end(), [&sharedKey](const auto &v) {
@@ -82,15 +83,21 @@ namespace sky {
             savingTasks.emplace_back(std::move(task));
         }
 
-        void WaitForAll();
-
-        // Submit an in-process cook task on a dedicated pool so the loader pool is never occupied.
+        // Non-cook save work -> loader pool.
         template <typename Func>
-        void SubmitCook(Func &&func)
+        void PushSavingTask(const std::string &key, Func &&func)
         {
-            auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
-            cookPool.Schedule([holder](ThreadContext &) mutable { (*holder)(); });
+            PushTask(key, pool, std::forward<Func>(func));
         }
+
+        // Cook build -> dedicated cook pool, so the loader pool is never occupied by a cook.
+        template <typename Func>
+        void PushCookTask(const std::string &key, Func &&func)
+        {
+            PushTask(key, cookPool, std::forward<Func>(func));
+        }
+
+        void WaitForAll();
 
     private:
         ThreadPool pool;

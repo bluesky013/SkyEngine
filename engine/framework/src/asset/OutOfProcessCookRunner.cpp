@@ -10,6 +10,7 @@
 #include <framework/ipc/FrameChannel.h>
 #include <framework/platform/Process.h>
 #include <core/logger/Logger.h>
+#include <core/thread/ThreadDispatcher.h>
 
 #include <chrono>
 #include <utility>
@@ -34,7 +35,10 @@ namespace sky {
         result.retCode = code;
         result.error = error;
 
-        AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetBuildFinished, result);
+        // Runs on the out-of-process monitor thread; deliver the broadcast on the main role.
+        ThreadDispatcher::Get()->PostToMain([uuid, result]() {
+            AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetBuildFinished, result);
+        });
 
         CookCompletion handler;
         {

@@ -6,6 +6,7 @@
 #include <core/archive/MemoryStreamArchive.h>
 #include <core/logger/Logger.h>
 #include <core/profile/Profiler.h>
+#include <core/thread/ThreadDispatcher.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDependencyProvider.h>
 #include <framework/asset/AssetEvent.h>
@@ -371,7 +372,11 @@ namespace sky {
         asset->status.store(AssetBase::Status::LOADING);
         auto res = assetHandlers[asset->type]->Load(*payload, asset);
         asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
-        AsseEvent::BroadCast(asset->uuid, &IAssetEvent::OnAssetLoaded);
+        // May run on the load worker; deliver OnAssetLoaded on the main role.
+        const Uuid uuid = asset->uuid;
+        ThreadDispatcher::Get()->PostToMain([uuid]() {
+            AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded);
+        });
         return res;
     }
 
