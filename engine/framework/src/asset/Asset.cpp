@@ -39,8 +39,11 @@ namespace sky {
 
     void AssetBase::BlockUntilLoaded() const
     {
-        if (asyncTask.second.valid()) {
-            asyncTask.second.wait();
+        // Copy the handle under the lock, then wait OUTSIDE it (the cook completion resolves under the
+        // same lock, so waiting while holding it would deadlock).
+        std::shared_future<void> handle = GetWaitHandle();
+        if (handle.valid()) {
+            handle.wait();
         }
     }
 

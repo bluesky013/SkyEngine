@@ -951,6 +951,55 @@ TEST_F(AssetManagerTest, ConcurrentLoadTest)
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
 }
 
+TEST_F(AssetManagerTest, ConcurrentLoadStress)
+{
+    auto *db   = AssetDataBase::Get();
+    auto  root = db->GetWorkSpaceFs()->GetPath().GetStr();
+
+    constexpr int kIterations = 25;
+    constexpr int kThreads    = 8;
+
+    for (int it = 0; it < kIterations; ++it) {
+        const std::string path = "framework/data/concurrent_stress_" + std::to_string(it) + ".t1";
+
+        auto file = db->CreateOrOpenFile(FilePath{FilePath(path)});
+        ASSERT_NE(file, nullptr);
+        {
+            auto       archive = file->WriteAsArchive();
+            const char data[]  = "{\"val\": 7}";
+            archive->SaveRaw(data, sizeof(data) - 1);
+            archive->Flush();
+        }
+        file = nullptr;
+
+        auto src = db->RegisterAsset(path, false);
+        ASSERT_NE(src, nullptr);
+
+        // Hammer one UUID from many threads; every waiter must unblock (no orphaned wait handle, no
+        // overwritten future) and the asset must end LOADED with the cooked value.
+        std::vector<std::shared_ptr<Asset<T1Data>>> results(kThreads);
+        std::vector<std::thread>                    threads;
+        threads.reserve(kThreads);
+        for (int i = 0; i < kThreads; ++i) {
+            threads.emplace_back([src, i, &results]() { results[i] = AssetManager::Get()->LoadAsset<T1Data>(src->uuid); });
+        }
+        for (auto &thread : threads) {
+            thread.join();
+        }
+
+        for (auto &result : results) {
+            ASSERT_NE(result, nullptr);
+            result->BlockUntilLoaded();
+            ASSERT_TRUE(result->IsLoaded());
+            EXPECT_EQ(result->Data().v, 7);
+        }
+
+        std::filesystem::remove(FilePath(root + "/" + path).GetStr());
+    }
+
+    std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
 TEST_F(AssetManagerTest, CookWorkerTest)
 {
     auto             *db   = AssetDataBase::Get();

@@ -126,8 +126,6 @@ namespace sky {
         std::unordered_map<std::string, Uuid> productPathMap;
         // Per-bundle parsed product indexes (canonical logical path -> uuid).
         AssetIndexFileCache productIndices{"product.index", "path"};
-        // Assets with an in-flight on-demand cook (coalesced per uuid).
-        std::unordered_set<Uuid> pendingCooks;
         // Selected cook backend (null = built-in inline in-process path).
         ICookRunner *cookRunner = nullptr;
 

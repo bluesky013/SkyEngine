@@ -81,7 +81,6 @@ namespace sky {
         }
 
         std::shared_ptr<std::promise<void>> promise;
-        bool                                resolved = false;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             const auto                            iter = pendingJobs.find(result.uuid);
@@ -90,21 +89,26 @@ namespace sky {
             }
             iter->second.targets.erase(result.target);
             // Resolve once any target produced a product, or when every requested target has finished.
-            if (produced || iter->second.targets.empty()) {
-                promise  = iter->second.promise;
-                resolved = true;
-                pendingJobs.erase(iter);
-                pendingCooks.erase(result.uuid);
+            if (!(produced || iter->second.targets.empty())) {
+                return; // more targets for this asset are still cooking
             }
+            promise = iter->second.promise;
+            // NOTE: keep pendingJobs[uuid] until the status transition below, so a concurrent on-demand
+            // caller keeps coalescing (sees this load in flight) instead of starting a redundant second
+            // cook whose wait handle no cook would fulfil.
         }
 
-        if (!resolved) {
-            return; // more targets for this asset are still cooking
-        }
         if (produced) {
             DeserializeProduct(result.uuid);
         } else if (auto asset = FindAsset(result.uuid); asset) {
             asset->status.store(AssetBase::Status::FAILED);
+        }
+
+        // Only now drop the in-flight marker: a late caller then sees a LOADED/FAILED asset, never a
+        // LOADING-without-in-flight gap.
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            pendingJobs.erase(result.uuid);
         }
         if (promise) {
             promise->set_value();
@@ -279,11 +283,11 @@ namespace sky {
             }
 
             holder.emplace_back(depAsset);
-            asyncTasks.emplace_back(depAsset->asyncTask.first);
+            asyncTasks.emplace_back(depAsset->GetAsyncNode());
         }
 
         asset->status.store(AssetBase::Status::LOADING);
-        asset->asyncTask = AssetExecutor::Get()->DependentAsync(
+        auto async = AssetExecutor::Get()->DependentAsync(
             [this, uuid, payload, deps = std::move(holder)]() mutable {
                 bool success = true;
                 for (const auto &dep : deps) {
@@ -306,6 +310,7 @@ namespace sky {
                 LoadInto(asset, payload);
             },
             asyncTasks);
+        asset->SetAsyncTask(async.first, async.second.share());
 
         return asset;
     }
@@ -323,44 +328,43 @@ namespace sky {
             return {};
         }
 
-        // Create the LOADING asset first so a coalescing caller always gets a valid handle.
-        auto loading = FindOrCreateAsset(uuid, Name(type.c_str()));
-        if (!loading) {
-            return {};
-        }
-
-        // Coalesce concurrent on-demand cooks for the same asset.
-        {
-            std::lock_guard<std::recursive_mutex> lock(mutex);
-            if (!pendingCooks.insert(uuid).second) {
-                return loading;
-            }
-        }
-
         std::string target;
         sourceCatalog->GetTarget(uuid, target);
 
-        loading->status.store(AssetBase::Status::LOADING);
+        // Establish the coalescing decision AND the wait handle atomically: a concurrent caller for an
+        // in-flight load observes pendingJobs[uuid] and reuses the same handle; it never overwrites it.
+        // Scheduling happens after the lock is released (both runners only enqueue).
+        AssetPtr                            loading;
+        std::shared_ptr<std::promise<void>> promise;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
 
-        // Establish the wait handle before scheduling the cook so BlockUntilLoaded unblocks on completion.
-        auto promise              = std::make_shared<std::promise<void>>();
-        loading->asyncTask.second = promise->get_future();
+            loading = FindOrCreateAsset(uuid, Name(type.c_str()));
+            if (!loading) {
+                return {};
+            }
 
-        // Both paths register a pending job and resolve through OnCookFinished, so in-process and
-        // out-of-process cooks behave identically (D5/D7).
+            const bool inFlight    = pendingJobs.find(uuid) != pendingJobs.end();
+            const bool alreadyDone = loading->GetStatus() == AssetBase::Status::LOADED;
+            if (inFlight || alreadyDone) {
+                return loading;
+            }
+
+            loading->status.store(AssetBase::Status::LOADING);
+
+            // Establish the wait handle before scheduling the cook; set exactly once per load.
+            promise = std::make_shared<std::promise<void>>();
+            loading->SetWaitHandle(promise->get_future().share());
+            pendingJobs[uuid] = PendingCook{{target}, {}, promise};
+        }
+
+        // Both runners register the pending job above and resolve through OnCookFinished, so in-process
+        // and out-of-process cooks behave identically (D5/D7).
         if (cookRunner != nullptr) {
             std::string sourcePath;
             sourceCatalog->GetSourcePath(uuid, sourcePath);
-            {
-                std::lock_guard<std::recursive_mutex> lock(mutex);
-                pendingJobs[uuid] = PendingCook{{target}, sourcePath, promise};
-            }
             cookRunner->Request(CookJob{uuid, target, sourcePath});
         } else {
-            {
-                std::lock_guard<std::recursive_mutex> lock(mutex);
-                pendingJobs[uuid] = PendingCook{{target}, {}, promise};
-            }
             AssetBuilderManager::Get()->BuildRequest(uuid, target, [this](const AssetBuildResult &result) { OnCookFinished(result); });
         }
 
@@ -498,7 +502,7 @@ namespace sky {
 
         // Flush an in-flight load task; the on-demand placeholder has no task node, so skip it
         // (waiting on it would deadlock the cooking task itself).
-        if (asset->asyncTask.first != nullptr) {
+        if (asset->GetAsyncNode() != nullptr) {
             asset->BlockUntilLoaded();
         }
 

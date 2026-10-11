@@ -14,6 +14,7 @@
 
 #include <core/async/ThreadPool.h>
 
+#include <future>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -24,7 +25,9 @@ namespace sky {
     class AssetBase;
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    using AsyncTask = std::pair<TaskNodePtr, std::future<void>>;
+    // The completion handle is a shared_future so it can be copied under the lock and awaited outside
+    // it (a plain std::future is move-only and would force waiting while holding the lock).
+    using AsyncTask = std::pair<TaskNodePtr, std::shared_future<void>>;
 
     class AssetBase {
     public:
@@ -80,9 +83,36 @@ namespace sky {
 
         virtual const uint8_t *GetData() const = 0;
 
-        const AsyncTask &GetAsyncTask() const
+        AsyncTask GetAsyncTask() const
         {
+            std::lock_guard<std::mutex> lock(asyncMutex);
             return asyncTask;
+        }
+
+        TaskNodePtr GetAsyncNode() const
+        {
+            std::lock_guard<std::mutex> lock(asyncMutex);
+            return asyncTask.first;
+        }
+
+        // Copy the wait handle (safe to hold/await after the caller releases any external lock).
+        std::shared_future<void> GetWaitHandle() const
+        {
+            std::lock_guard<std::mutex> lock(asyncMutex);
+            return asyncTask.second;
+        }
+
+        void SetAsyncTask(TaskNodePtr node, std::shared_future<void> handle)
+        {
+            std::lock_guard<std::mutex> lock(asyncMutex);
+            asyncTask.first  = std::move(node);
+            asyncTask.second = std::move(handle);
+        }
+
+        void SetWaitHandle(std::shared_future<void> handle)
+        {
+            std::lock_guard<std::mutex> lock(asyncMutex);
+            asyncTask.second = std::move(handle);
         }
 
     protected:
@@ -100,6 +130,7 @@ namespace sky {
         mutable IStreamArchivePtr productStream;
 
         std::atomic<Status> status = Status::INITIAL;
+        mutable std::mutex  asyncMutex;
         AsyncTask           asyncTask;
     };
 
