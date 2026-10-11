@@ -1,0 +1,69 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/../build/${presetName}",
+      "cacheVariables": {
+        "SKY_ENGINE_ROOT": "$env{SKY_ENGINE_ROOT}",
+        "SKY_BUILD_EDITOR": "OFF",
+        "SKY_BUILD_TEST": "OFF",
+        "SKY_BUILD_TOOL": "OFF"
+      }
+    },
+    {
+      "name": "macos",
+      "inherits": "base",
+      "generator": "Xcode",
+      "cacheVariables": { "SKY_PLATFORM": "macos", "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "windows",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "cacheVariables": { "SKY_PLATFORM": "windows" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": { "SKY_PLATFORM": "linux", "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "android",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "SKY_PLATFORM": "android",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+        "ANDROID_ABI": "arm64-v8a",
+        "ANDROID_PLATFORM": "android-31",
+        "ANDROID_STL": "c++_static"
+      }
+    },
+    {
+      "name": "ios",
+      "inherits": "base",
+      "generator": "Xcode",
+      "cacheVariables": {
+        "SKY_PLATFORM": "ios",
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_OSX_ARCHITECTURES": "arm64"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "macos", "configurePreset": "macos", "configuration": "Release" },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "android", "configurePreset": "android" },
+    { "name": "ios", "configurePreset": "ios", "configuration": "Release" }
+  ]
+}

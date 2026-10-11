@@ -20,7 +20,7 @@ The codebase is organized around a small set of core engine modules and optional
 | Physics abstraction | `engine/physics` | Physics-facing engine interfaces |
 | Navigation abstraction | `engine/navigation` | Navigation-facing engine interfaces |
 | Editor | `engine/editor` | Qt-based editor runtime and tooling |
-| Launcher | `engine/launcher` | Game/runtime executable entry point |
+| Launcher | `<Project>/native` | Game/runtime executable entry point; the engine no longer ships a launcher |
 | Plugins | `plugins` | Optional modules such as Bullet, Recast, FreeType, Terrain, Console, Python, XR |
 | Assets | `assets` | Shaders, materials, textures, splash data, techniques |
 | Python tooling | `python` | Third-party bootstrap and project helper scripts |
@@ -238,28 +238,25 @@ Some extra tools exist in the repository but are not all wired into the default 
 
 ## Running
 
-### Launcher
+### Running
 
-After a successful build, run the launcher from the generated output directory.
+The engine no longer ships its own runtime launcher; the runtime host is **project-owned**. Create a project and
+build its launcher (see `docs/features/game-project-build.md`):
 
 ```bash
-./output/bin/Launcher
+python3 python/package_project.py create --dir <parent> --name MyGame
+python3 python/package_project.py generate --project <parent>/MyGame --preset MyGame-macos
+cmake --build --preset macos   # in <Project>/native -> <Project>/build/<platform>/bin/<Name>
 ```
 
-On Windows, the launcher accepts `--app xr` to start XR application mode:
-
-```cmd
-output\bin\Launcher.exe --app xr
-```
-
-Depending on the generator, the actual executable may also live under a configuration subdirectory such as `output/bin/Release`.
+The editor is a separate host built as `SandboxEditor`.
 
 ### Editor
 
-When built with `SKY_BUILD_EDITOR=ON` and Qt5 available:
+When built with `SKY_BUILD_SANDBOX=ON` (or `SKY_BUILD_EDITOR=ON` and Qt5 available):
 
 ```bash
-./output/bin/Editor
+./output/bin/SandboxEditor
 ```
 
 ## Assets And Shaders
@@ -276,7 +273,7 @@ Shader compilation support is provided by the `ShaderCompiler` libraries and `Sh
 ## Notes
 
 - `SKY_BUILD_EDITOR=ON` automatically enables `SKY_EDITOR=ON`
-- Android uses a separate launcher project under `engine/launcher/android`
+- The runtime launcher is project-owned (generated under `<Project>/native` + `<Project>/build/<platform>`); the engine ships launcher **templates** under `engine/templates/launcher/`
 - The top-level `tools/` directory contains additional experiments and tooling targets, but the default build currently focuses on engine, plugins, and render-related tool targets
 
 ![SkyEngine screenshot](https://user-images.githubusercontent.com/35895395/195400282-ca50e99a-090b-4c52-a84c-d7e31a489e2f.png)

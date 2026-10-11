@@ -14,7 +14,7 @@
 
 ## 3. Launcher
 
-- [ ] 3.1 `engine/launcher/ios/`：`main.mm`（`UIApplicationMain`）+ AppDelegate/ViewController 承载引擎视图
+- [ ] 3.1 `engine/templates/launcher/ios/`：`main.mm`（`UIApplicationMain`）+ AppDelegate/ViewController 承载引擎视图
 - [ ] 3.2 从应用生命周期启动引擎 `Application`（与 `add-ios-uikit-backend` 的 `CADisplayLink` 帧循环协同）
 - [ ] 3.3 **Info.plist / app bundle**：bundle id、显示名、支持的设备朝向、`Metal`/`UIRequiredDeviceCapabilities` 等；随 `.app` 打包（bundle id 定制见 `add-game-project-build` 8.x）
   

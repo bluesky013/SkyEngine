@@ -349,7 +349,7 @@ cmake --build <build_dir> --config Release --parallel 8
 Notes:
 
 - If the Android SDK/NDK env vars are missing, `python/third_party.py` fails.
-- The repo also contains an Android Gradle project under `engine/launcher/android/` for launcher packaging.
+- The runtime launcher is project-owned: `engine/templates/launcher/` holds the launcher templates; a project's generated Android Studio project lives under `<Project>/build/android/`.
 - Native engine/library build and Android app packaging are related but not identical steps.
 
 ### Linux

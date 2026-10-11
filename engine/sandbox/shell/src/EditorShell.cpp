@@ -23,7 +23,10 @@
 #include <editor/ui/UiDraw.h>
 #include <editor/shell/UiSkin.h>
 #include <editor/ui/UiTheme.h>
+#include <editor/shell/PresetEditorPanel.h>
 #include <editor/shell/WorldConfigPanel.h>
+
+#include <framework/project/ExportPreset.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/panels/ServicePanels.h>
 #include <editor/shell/widgets/ActionBarBuilder.h>
@@ -204,6 +207,16 @@ namespace sky::editor {
         RegisterPanelView("config", [this, t = titleOf("config", "Config")]() {
             return std::unique_ptr<sky::ui::UIElement>(new WorldConfigPanel(
                 textSystem, [this]() { return worldDocument; }, t));
+        });
+        RegisterPanelView("export-presets", [this, t = titleOf("export-presets", "Export Presets")]() {
+            return std::unique_ptr<sky::ui::UIElement>(new PresetEditorPanel(
+                textSystem, [this]() { return exportPresets; },
+                [this]() {
+                    if (exportPresets != nullptr && !exportPresetsPath.empty()) {
+                        exportPresets->Save(exportPresetsPath);
+                    }
+                },
+                t));
         });
         RegisterPanelView("refldemo", [this, t = titleOf("refldemo", "Reflection Demo")]() { return CreateReflectionDemoPanel(textSystem, t); });
         RegisterPanelView("outputlog", [this, t = titleOf("outputlog", "Output Log")]() {
@@ -1115,6 +1128,12 @@ namespace sky::editor {
     void EditorShell::SetWorldDocument(WorldDocument *document)
     {
         worldDocument = document;
+    }
+
+    void EditorShell::SetExportPresets(sky::ExportPresets *presets, std::string path)
+    {
+        exportPresets     = presets;
+        exportPresetsPath = std::move(path);
     }
 
     void EditorShell::SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied)

@@ -4,6 +4,11 @@ description: "Startup/project flow and overall layout design for the sandbox edi
 updated: "2026-10-05"
 ---
 
+> **Note (project launcher):** the change `add-project-native-layout` removes the engine's `engine/launcher` and
+> makes the runtime host **project-owned** (`<Project>/native/Launcher`). References below to `Launcher`,
+> `engine/launcher/*`, `Launcher --project`, and `Launcher --app editor` predate that change: `--app editor` is gone
+> (the editor host is `SandboxEditor`), and `Launcher --project` becomes the project launcher's dev mode.
+
 ## Scope
 
 Design for the **sandbox editor only** (`engine/sandbox`, `sky::ui`, non-Qt). Covers:

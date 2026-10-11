@@ -47,7 +47,7 @@ ticking the per-frame entry. `PollEvent` SHALL NOT pump the run loop (events arr
 `posix` process backend.
 
 ### D5. Launcher
-`engine/launcher/ios/` with `main.mm` (calls `UIApplicationMain`) and an `AppDelegate`/`ViewController` hosting
+`engine/templates/launcher/ios/` with `main.mm` (calls `UIApplicationMain`) and an `AppDelegate`/`ViewController` hosting
 the engine view; the engine `Application` is started from the app lifecycle (didFinishLaunching).
 
 ### D6. ARC for the iOS backend

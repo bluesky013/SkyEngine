@@ -19,7 +19,7 @@ Catch CPU regressions by verifying that work is happening in the right subsystem
 
 Relevant repository facts:
 
-- CPU-heavy runtime systems span `engine/core`, `engine/framework`, `engine/animation`, `engine/render`, `engine/launcher`, and runtime-facing plugins
+- CPU-heavy runtime systems span `engine/core`, `engine/framework`, `engine/animation`, `engine/render`, project `native/`, and runtime-facing plugins
 - `SKY_USE_TRACY` exists as a build-time profiling hook
 - `SKY_MATH_SIMD` exists as a build-time math optimization switch
 - plugin inclusion is compile-time configurable

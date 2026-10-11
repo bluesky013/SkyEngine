@@ -15,6 +15,7 @@
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ProjectManagerView.h>
 #include <framework/interface/IModule.h>
+#include <framework/project/ExportPreset.h>
 #include <framework/project/ProjectDescriptor.h>
 #include <framework/project/ProjectLock.h>
 #include <framework/window/IWindowEvent.h>
@@ -109,6 +110,7 @@ namespace sky::editor {
         EditorViewSettings             editorSettings;
         RenderingSettings              renderingSettings;
         std::unique_ptr<WorldDocument> worldDocument;
+        std::unique_ptr<sky::ExportPresets> exportPresets; // project export_presets.json (editor)
         PlaySession                    playSession;
         WorldDocument                 *lastDocPtr     = nullptr; // detects document switches
         bool                           lastDocDirty   = false;

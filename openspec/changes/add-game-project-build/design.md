@@ -26,6 +26,9 @@ second build system.
 ## Decisions
 
 ### D1. Engine reference: `add_subdirectory` first, SDK export later
+> **Superseded by `add-project-native-layout`**, which replaces this with an independent CMake entry
+> (`native/CMakeLists.txt` includes the engine `cmake/*` helpers and adds the engine + plugins targets).
+
 Two ways for a project build to reach the engine:
 - **A (initial)**: project `CMakeLists.txt` does `add_subdirectory("${SKY_ENGINE_ROOT}")` and then
   `add_subdirectory(source)`. Reuses the engine's targets/helpers directly; requires the engine source tree
@@ -39,6 +42,9 @@ Start with A; leave the project CMake structured so B can replace the engine ref
 `engine/templates/game/` holds the scaffolded files with placeholder tokens (`{{PROJECT_NAME}}`, `{{MODULE_ID}}`).
 The create flow copies the tree and substitutes tokens. Keeping templates out of code makes them editable and
 reviewable.
+
+> **Superseded by `add-project-native-layout`**: the scaffolded layout becomes `native/` + `build/<platform>/`
+> instead of the root-level `source/` shown below.
 
 Scaffolded layout:
 ```
@@ -67,6 +73,9 @@ engine interface/static targets the same way engine modules do; on Unix/macOS ou
 Windows a `.dll`. iOS is deferred to `add-ios-platform`.
 
 ### D5. Where creation happens
+> **Superseded by `add-project-native-layout`**, which makes the packaging CLI (`python/package_project.py create`)
+> the single create implementation and has the editor shell out to it (removing `ProjectScaffold`).
+
 The scaffold is applied by a `ProjectScaffold` helper invoked from `ProjectDescriptor::Create` (so non-editor
 callers get it too). The editor Project Manager create action already routes through `ProjectDescriptor::Create`.
 
@@ -87,18 +96,46 @@ the target platform, **not** the raw `assets/` sources:
 - `--project <dir>` (this change's dev mode) reads the project tree including `assets/` and relies on on-demand
   cook in the editor — that is a development convenience, **not** the shipping layout.
 
+### D8. Application identity, signing, and packaging presets
+
+Packaging identity and options live in the project, not hardcoded:
+
+- **Identity vs. presets vs. credentials** (Godot-style): `.skyproj` `settings` holds the default identity
+  (`applicationId`/`versionName`/`versionCode`); `export_presets.json` (committed) holds per-platform package
+  options (bundle id, variant, abis, keystore ref, team); `export_credentials.json` (not committed) holds secrets.
+  Credentials resolve **env > file**. `python/package_project.py` reads both; the `.skyproj` schema stays defined in
+  C++ (`ProjectDescriptor`) so the editor and runtime share one model.
+- **Preset extra build options**: a preset may also carry `cacheVariables` (dict → CMake `-D`), `compileDefinitions`
+  / `compileFlags` (→ `SKY_EXTRA_CXX_DEFINITIONS` / `SKY_EXTRA_CXX_FLAGS`), and `extraConfigureArgs` /
+  `extraBuildArgs` (verbatim passthrough). Optional top-level `defaults` merge into every preset. Precedence:
+  `defaults` < preset < env/CLI.
+- **Packaging modes**: this change ships **dynamic-only** (each runtime module is a SHARED library with dynamic
+  registration). Static bundling is a follow-up in `add-static-module-bundling`, which reuses the preset option
+  surface above.
+
+The per-platform project layout (where the generated IDE project lives and how the launcher consumes the resolved
+bundle id/signing) is defined by `add-project-native-layout`. iOS packaging (IPA via `xcodebuild`) depends on
+`add-ios-platform` and remains a follow-up.
+
 ## Risks / Trade-offs
 
-- [Engine source coupling] -> A couples the project to the engine source tree; D1-B (SDK) is the escape hatch.
-- [Module naming collisions] -> enforce `<Name>Module` and reject names that collide with engine modules.
-- [Platform drift] -> the project CMake mirrors engine presets; document the per-platform bootstrap.
-- [Module ABI vs engine] -> the game module must build with the same toolchain/CRT/`3RD_PATH` as the engine; a
-  mismatch is a load failure at runtime.
-- [Large `add_subdirectory` cost] -> building the whole engine per project is heavy; gate with existing
-  `SKY_BUILD_*` switches to build only needed parts.
+- [Engine source coupling] -> the project consumes the engine source tree; D1-B (SDK) is the escape hatch.
+- [Module naming collisions] -> enforce `<Name>Module`; validate the application id maps to a legal Java package.
+- [Platform drift] -> the project entry includes the same `cmake/*.cmake` helpers; document the bootstrap.
+- [Module ABI vs engine] -> the module must build with the same toolchain/CRT/`3RD_PATH` as the engine.
+- [Heavy project build] -> `add_subdirectory(engine)+plugins` builds the whole engine per project. Mitigations:
+  existing `SKY_BUILD_<plugin>` switches; a future installed-SDK mode (D1-B).
+- [No engine-runnable host] -> removing `engine/launcher` means an engine-only build has no runnable exit; running
+  is via `SandboxEditor` (editor) or a project build. Docs must reflect this.
+- [Deploy anchor fragility] -> correctness depends on keeping the target name `Launcher` and calling
+  `sky_set_dependency(TARGET Launcher)` once, after all engine/plugin/tool registrations.
+- [Android output dir] -> overriding `CMAKE_*_OUTPUT_DIRECTORY` on Android breaks gradle's native-lib collection;
+  the project entry must not do it when `ANDROID`.
+- [Python runtime dependency] -> the editor shells out to the CLI for create/generate/package; needs Python (and the
+  script) available, else a clear error.
 
 ## Open Questions
 
-- SDK vs source-tree engine reference for distribution (D1-B design).
-- Whether game projects need their own third-party set (beyond reusing the engine's `3RD_PATH`).
+- D1-B installed SDK / export templates for distribution.
+- Whether projects need their own third-party set beyond reusing the engine's `3RD_PATH`.
 - Hot-reload of the game module (unload/reload) — separate feature?

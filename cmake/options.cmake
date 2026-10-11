@@ -59,3 +59,11 @@ option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
 # FreeType UI font provider (engine/ui/core + sandbox). Decoupled from the
 # removed legacy freetype render plugin; on by default.
 option(SKY_BUILD_FREETYPE "enable the FreeType UI font provider" ON)
+
+# Application identity for the launcher bundle. Overridden per project by the
+# generated IDE project/CMake preset so applicationId / CFBundleIdentifier are
+# driven by project settings rather than hardcoded.
+set(SKY_BUNDLE_ID "com.skyengine.launcher" CACHE STRING "Launcher bundle/application identifier")
+set(SKY_APPLE_TEAM_ID "" CACHE STRING "Apple DEVELOPMENT_TEAM for code signing")
+set(SKY_APPLE_SIGNING_IDENTITY "" CACHE STRING "Apple code signing identity")
+set(SKY_APPLE_PROVISIONING_PROFILE "" CACHE STRING "Apple provisioning profile")

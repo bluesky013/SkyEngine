@@ -5,16 +5,13 @@
 #include <framework/project/ProjectDescriptor.h>
 
 #include <framework/platform/PlatformBase.h>
-#include <framework/project/ProjectScaffold.h>
 
 #include <rapidjson/document.h>
 
 #include <algorithm>
-#include <chrono>
-#include <cstdio>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
-#include <random>
 #include <sstream>
 
 static const char *TAG = "Project";
@@ -97,15 +94,26 @@ namespace sky {
         return (AsPath(Dir()) / "cache").string();
     }
 
-    std::string ProjectDescriptor::MakeId()
+    std::string ProjectDescriptor::ResolvedApplicationId() const
     {
-        static std::mt19937_64 rng(std::chrono::steady_clock::now().time_since_epoch().count());
-        const uint64_t a = rng();
-        const uint64_t b = rng();
-        char buffer[40];
-        std::snprintf(buffer, sizeof(buffer), "%016llx%08llx", static_cast<unsigned long long>(a),
-                      static_cast<unsigned long long>(b & 0xffffffffULL));
-        return buffer;
+        if (!applicationId.empty()) {
+            return applicationId;
+        }
+        std::string identifier;
+        for (const char ch : name) {
+            if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_') {
+                identifier += ch;
+            }
+        }
+        if (identifier.empty() || std::isdigit(static_cast<unsigned char>(identifier[0]))) {
+            identifier = "Game" + identifier;
+        }
+        std::string lowered;
+        lowered.reserve(identifier.size());
+        for (const char ch : identifier) {
+            lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+        return "com.skyengine." + lowered;
     }
 
     bool ProjectDescriptor::Read(const std::string &skyprojPath)
@@ -136,6 +144,15 @@ namespace sky {
             const auto &settings = document["settings"];
             if (settings.HasMember("rhi") && settings["rhi"].IsString()) {
                 rhi = settings["rhi"].GetString();
+            }
+            if (settings.HasMember("applicationId") && settings["applicationId"].IsString()) {
+                applicationId = settings["applicationId"].GetString();
+            }
+            if (settings.HasMember("versionName") && settings["versionName"].IsString()) {
+                versionName = settings["versionName"].GetString();
+            }
+            if (settings.HasMember("versionCode") && settings["versionCode"].IsInt()) {
+                versionCode = settings["versionCode"].GetInt();
             }
         }
 
@@ -169,7 +186,12 @@ namespace sky {
         json += "  \"name\": " + Quote(name) + ",\n";
         json += "  \"engineVersion\": " + Quote(engineVersion) + ",\n";
         json += "  \"defaultScene\": " + Quote(defaultScene) + ",\n";
-        json += "  \"settings\": { \"rhi\": " + Quote(rhi) + " },\n";
+        json += "  \"settings\": {\n";
+        json += "    \"rhi\": " + Quote(rhi) + ",\n";
+        json += "    \"applicationId\": " + Quote(ResolvedApplicationId()) + ",\n";
+        json += "    \"versionName\": " + Quote(versionName) + ",\n";
+        json += "    \"versionCode\": " + std::to_string(versionCode) + "\n";
+        json += "  },\n";
         json += "  \"modules\": [";
         for (size_t i = 0; i < modules.size(); ++i) {
             json += (i == 0 ? "" : ", ") + Quote(modules[i]);
@@ -180,33 +202,6 @@ namespace sky {
         }
         json += "]\n}\n";
         return WriteAll(skyprojPath, json);
-    }
-
-    bool ProjectDescriptor::Create(const std::string &dir, const std::string &name, std::string &skyprojPath)
-    {
-        const auto root = AsPath(dir) / name;
-        std::error_code error;
-        std::filesystem::create_directories(root / "assets", error);
-        std::filesystem::create_directories(root / "configs", error);
-        std::filesystem::create_directories(root / "cache", error);
-        if (error) {
-            return false;
-        }
-
-        ProjectDescriptor descriptor;
-        descriptor.id            = MakeId();
-        descriptor.name          = name;
-        descriptor.engineVersion = kEngineVersion;
-        descriptor.filePath      = (root / (name + ".skyproj")).string();
-        descriptor.modules       = { ProjectScaffold::ModuleName(name) };
-        if (!descriptor.Write(descriptor.filePath)) {
-            return false;
-        }
-        if (!ProjectScaffold::Scaffold(root.string(), name)) {
-            return false;
-        }
-        skyprojPath = descriptor.filePath;
-        return true;
     }
 
     std::string ProjectRegistry::FilePath() const

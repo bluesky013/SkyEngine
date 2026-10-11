@@ -1,0 +1,5 @@
+# Signing credentials / secrets (never commit).
+export_credentials.json
+
+# Generated build projects and packaged artifacts (regenerate via package_project.py).
+/build/

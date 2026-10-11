@@ -23,7 +23,7 @@ Treat the current repository structure as the architectural baseline:
 - `engine/render` — RHI backends, shader compiler, render core, adaptors, ImGui rendering
 - `engine/animation`, `engine/physics`, `engine/navigation` — domain-specific engine subsystems
 - `engine/editor` — Qt-based editor runtime and tooling
-- `engine/launcher` — runtime entry point
+- project `native/` — runtime entry point (engine ships launcher templates in `engine/templates/launcher/`)
 - `plugins` — optional modules selected by CMake/plugin configuration
 
 ## Working rules

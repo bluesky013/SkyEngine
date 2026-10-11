@@ -10,6 +10,7 @@
 
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
+#include <cstdlib>
 #include <editor/core/EditorCore.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetMutationService.h>
@@ -625,6 +626,15 @@ namespace sky::editor {
             auto cookConfig = builderMgr->GetCookConfig();
             cookConfig.SetActivePlatform(platform);
             builderMgr->SetCookConfig(std::move(cookConfig));
+
+            // Project export presets (`export_presets.json`), edited by the reflected panel.
+            const std::filesystem::path presetsPath = std::filesystem::path(project.Dir()) / "export_presets.json";
+            exportPresets = std::make_unique<sky::ExportPresets>();
+            if (exportPresets->Load(presetsPath.string())) {
+                shell.SetExportPresets(exportPresets.get(), presetsPath.string());
+            } else {
+                exportPresets.reset();
+            }
         }
 
         // EditorCore services + default panels (registered through the extension host) + default
@@ -642,7 +652,8 @@ namespace sky::editor {
         // for the asset browser + output log (Unity/Godot/O3DE place the asset browser at the
         // bottom). The Reflection Demo panel opens from Help > Demo (see EditorShell).
         layoutModel.SetDefault({"outliner"});
-        layoutModel.Tabify("config", "outliner"); // world config shares the Outliner dock
+        layoutModel.Tabify("config", "outliner");         // world config shares the Outliner dock
+        layoutModel.Tabify("export-presets", "outliner"); // export presets share the Outliner dock
         layoutModel.SplitPanel("outliner", SplitOrientation::HORIZONTAL, "viewport");
         layoutModel.SplitPanel("viewport", SplitOrientation::HORIZONTAL, "inspector");
         layoutModel.SplitPanel("viewport", SplitOrientation::VERTICAL, "outputlog");
@@ -1084,6 +1095,43 @@ namespace sky::editor {
         }
     }
 
+    namespace {
+        std::string FindPackagingScript()
+        {
+            const char *envRoot = std::getenv("SKY_ENGINE_ROOT");
+            if (envRoot != nullptr) {
+                const auto candidate = std::filesystem::path(envRoot) / "python" / "package_project.py";
+                if (std::filesystem::exists(candidate)) {
+                    return candidate.string();
+                }
+            }
+            std::filesystem::path dir;
+            if (Platform::Get() != nullptr) {
+                dir = std::filesystem::path(Platform::Get()->GetBundlePath());
+            }
+            for (int i = 0; i < 6 && !dir.empty(); ++i) {
+                const auto candidate = dir / "python" / "package_project.py";
+                if (std::filesystem::exists(candidate)) {
+                    return candidate.string();
+                }
+                dir = dir.parent_path();
+            }
+            return {};
+        }
+
+        const char *FindPythonCommand()
+        {
+            if (const char *env = std::getenv("SKY_PYTHON")) {
+                return env;
+            }
+#if defined(_WIN32)
+            return "python";
+#else
+            return "python3";
+#endif
+        }
+    } // namespace
+
     void SandboxModule::CreateProjectFromResult(const FileBrowserResult &result)
     {
         const std::filesystem::path target(result.path);
@@ -1097,15 +1145,31 @@ namespace sky::editor {
             hubView->SetStatus("Target already exists: " + result.path);
             return;
         }
-        std::string skyproj;
-        if (ProjectDescriptor::Create(parent, name, skyproj)) {
-            ProjectRegistry::Get()->Add(skyproj);
-            RefreshHubRecent();
-            hubView->SetStatus("Created " + skyproj);
-            LOG_I(TAG, "created project '%s'", skyproj.c_str());
-        } else {
-            hubView->SetStatus("Failed to create project under " + parent);
+
+        // Creation is implemented by the packaging CLI (single implementation).
+        const std::string script = FindPackagingScript();
+        if (script.empty()) {
+            hubView->SetStatus("Cannot locate python/package_project.py (set SKY_ENGINE_ROOT)");
+            return;
         }
+        const char *python = FindPythonCommand();
+        const std::string command =
+            std::string("\"") + python + "\" \"" + script + "\" create --dir \"" + parent + "\" --name \"" + name + "\"";
+        LOG_I(TAG, "create project: %s", command.c_str());
+        if (std::system(command.c_str()) != 0) {
+            hubView->SetStatus("Project creation failed (python CLI)");
+            return;
+        }
+
+        const std::filesystem::path skyproj = target / (name + ".skyproj");
+        if (!std::filesystem::exists(skyproj)) {
+            hubView->SetStatus("Creation ran but descriptor missing: " + skyproj.string());
+            return;
+        }
+        ProjectRegistry::Get()->Add(skyproj.string());
+        RefreshHubRecent();
+        hubView->SetStatus("Created " + skyproj.string());
+        LOG_I(TAG, "created project '%s'", skyproj.string().c_str());
     }
 
     void SandboxModule::AddProjectFromResult(const FileBrowserResult &result)

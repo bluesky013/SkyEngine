@@ -25,7 +25,7 @@ Treat the current repository structure as the architectural baseline:
 - `engine/animation`, `engine/physics`, `engine/navigation` — domain-specific engine subsystems
 - `engine/editor` — **legacy** Qt-based editor runtime and tooling
 - `engine/sandbox` — non-Qt (aurora) editor: `EditorCore`, `EditorRender`, `SandboxModule`, `SandboxEditor`; launched through `Launcher`. New editor modules depend on this, not on legacy `engine/editor`
-- `engine/launcher` — runtime entry point
+- project `native/` — runtime entry point (engine ships launcher templates in `engine/templates/launcher/`)
 - `plugins` — optional modules selected by CMake/plugin configuration
 
 ## Working rules

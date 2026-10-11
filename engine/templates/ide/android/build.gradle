@@ -1,0 +1,8 @@
+// Top-level build file for the generated {{PROJECT_NAME}} Android project.
+plugins {
+    id 'com.android.application' version '8.8.2' apply false
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.buildDir
+}

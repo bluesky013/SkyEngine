@@ -34,6 +34,10 @@ namespace sky::ui {
     class UITextSystem;
 } // namespace sky::ui
 
+namespace sky {
+    struct ExportPresets;
+} // namespace sky
+
 namespace sky::editor {
 
     class FileBrowserDialog;
@@ -111,6 +115,10 @@ namespace sky::editor {
         // Project-level world configuration. The shell hosts the dialog over the
         // supplied world document.
         void SetWorldDocument(WorldDocument *document);
+
+        // Project export presets (`export_presets.json`), edited by the reflected
+        // "Export Presets" panel; `path` is where edits are persisted.
+        void SetExportPresets(sky::ExportPresets *presets, std::string path);
 
         // Actions: the toolbar, menus, and keyboard shortcuts all drive
         // EditorActionRegistry entries by id (there are no per-command handlers).
@@ -351,6 +359,9 @@ namespace sky::editor {
         float                                    height       = 720.0f;
         float                                    headerHeight = 32.0f;
         float                                    footerHeight = 22.0f;
+
+        sky::ExportPresets *exportPresets = nullptr;
+        std::string         exportPresetsPath;
 
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";
