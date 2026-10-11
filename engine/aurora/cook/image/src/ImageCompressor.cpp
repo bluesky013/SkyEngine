@@ -17,10 +17,10 @@
 #include <type_traits>
 #include <vector>
 
-// Pin the expected astcenc ABI here: context allocation is the 3-arg form
-// (config, thread_count, out). If a future third-party refresh changes it, this
-// fails to compile instead of silently mis-linking.
-static_assert(std::is_invocable_r_v<astcenc_error, decltype(&astcenc_context_alloc), const astcenc_config *, unsigned int, astcenc_context **>,
+// Pin the expected astcenc ABI here: context allocation is the 4-arg form
+// (config, thread_count, out, parent). If a future third-party refresh changes
+// it, this fails to compile instead of silently mis-linking.
+static_assert(std::is_invocable_r_v<astcenc_error, decltype(&astcenc_context_alloc), const astcenc_config *, unsigned int, astcenc_context **, const astcenc_context *>,
               "Unexpected astcenc API version: update ImageCompressor to match the installed astcenc");
 
 static const char *TAG = "AuroraImageCompressor";
@@ -126,7 +126,7 @@ namespace sky::aurora::cook {
             }
 
             astcenc_context *context = nullptr;
-            err                      = astcenc_context_alloc(&config, 1, &context);
+            err                      = astcenc_context_alloc(&config, 1, &context, nullptr);
             if (err != ASTCENC_SUCCESS) {
                 LOG_E(TAG, "astcenc_context_alloc failed: %s", astcenc_get_error_string(err));
                 return;
