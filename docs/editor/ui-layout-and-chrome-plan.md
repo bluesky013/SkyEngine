@@ -178,3 +178,30 @@ resolves the handler.
 **Risks:** scope lifetime with nested dialogs; id collisions; `when` predicates. Start with plain
 scope filtering (no `when`) and add predicates only where needed.
 
+## 9. Current backlog (handoff)
+
+**Done:** P0–P5 (layout containers + asset-viewer chrome migrated to `DockPanel` + icons +
+accelerators), P6 foundation (`EditorExtensionRegistry`), P4 menu `shortcut`/`icon`/`separator`.
+
+**Next, in rough priority:**
+
+1. **P7 step 1** (additive): `EditorAction` gains `scope` + `accelerator`; add `ActionBarBuilder`.
+   Then move the asset viewer to registered scoped actions and delete its local `MenuBar` +
+   `OnKeyEvent` key switch.
+2. **P6 remainder**: a plugin consumer of `EditorExtensionRegistry` + plugin icon roots
+   (`IconRegistry` directory scan instead of the hard-coded `kIcons[]`).
+3. **P5 remainder**: migrate the material-editor row layout off `ComputeRowRects` onto containers.
+4. Menu `checkable`; shared enums for action group/order (drop magic strings/ints).
+5. Material editor `defaults` + per-property **reset** (format TBD: sibling `defaults` map vs inline
+   `{value,default}`); also add/delete for material-instance overrides.
+6. Remove `assets/techniques/*.tech` + their `configs/render_preload_assets.json` entries once the
+   render side no longer needs them (paired with the shader migration; see
+   `docs/aurora/shader-design-and-migration.md`).
+7. **openspec `editor-asset-views`**: all tasks checked; the DATA **source write-back** (改源重 cook)
+   is the deferred MVP item; archive when ready.
+
+**Known build-infra issue (not this work):** `Aurora.ShaderCompiler.Static`'s `ShaderHeaderTool`
+custom command needs its CWD/PATH to find the slang runtime DLLs, else it exits non-zero and fails
+the build. Reportedly fixed on another machine — verify locally after a clean reconfigure.
+
+
