@@ -19,7 +19,7 @@ sky_add_library(TARGET Vegetation.Static STATIC
         Framework
 )
 
-sky_add_library(TARGET VegetationRender SHARED
+sky_add_module(TARGET VegetationRender
     SOURCES
         runtime/VegetationRegistry.cpp
     LINK_LIBS

@@ -28,4 +28,4 @@ namespace sky::vegetation {
     };
 
 } // namespace sky::vegetation
-REGISTER_MODULE(sky::vegetation::VegetationModule)
+REGISTER_MODULE_TAGGED(VegetationRender, sky::vegetation::VegetationModule)

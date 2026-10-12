@@ -19,7 +19,7 @@ sky_add_library(TARGET Terrain.Static STATIC
         Framework
 )
 
-sky_add_library(TARGET TerrainRender SHARED
+sky_add_module(TARGET TerrainRender
     SOURCES
         runtime/TerrainRegistry.cpp
     LINK_LIBS

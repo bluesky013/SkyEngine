@@ -21,11 +21,11 @@
       "dependencies": []
     },
     {
-      "name": "TerrainModule",
+      "name": "TerrainRender",
       "dependencies": []
     },
     {
-      "name": "VegetationModule",
+      "name": "VegetationRender",
       "dependencies": []
     }
   ]

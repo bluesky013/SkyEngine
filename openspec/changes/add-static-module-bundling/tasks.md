@@ -8,7 +8,7 @@
 ## 2. Engine build support
 
 - [x] 2.1 `sky_add_module()`（按选项出 SHARED/STATIC；登记 `SKY_STATIC_MODULE_TARGETS`）+ `ModuleManager::AddStaticModule`
-- [~] 2.2 模块迁移到 `sky_add_module` + `REGISTER_MODULE_TAGGED`：**已迁** `Aurora.Render` / `Aurora.ShaderCompiler` / `AudioModule` / `RecastNavigation` / `BulletPhysicsModule` / `BulletPhysicsRenderModule` / `CompressionModule` / `ConsoleModule` / `EnetNetwork` / `PVS` / `XRModule` / `PythonModule` / `Content.Module`；**待迁** terrain/vegetation（运行时模块 id 与 target 名不一致，需先核对）+ editor 专属（按 2.6 不迁）
+- [x] 2.2 运行时模块迁移到 `sky_add_module` + `REGISTER_MODULE_TAGGED`：`Aurora.Render`/`Aurora.ShaderCompiler`/`AudioModule`/`RecastNavigation`/`BulletPhysicsModule`/`BulletPhysicsRenderModule`/`CompressionModule`/`ConsoleModule`/`EnetNetwork`/`PVS`/`XRModule`/`PythonModule`/`Content.Module`/`TerrainRender`/`VegetationRender`。editor/cook-builder 模块不迁（2.6）。**附带修** terrain/vegetation 运行时 id（`*Module`→`*Render`）与 target 对齐（原动态 dlopen 找 `lib<X>Module` 必失败）
 - [x] 2.3 生成器 `sky_generate_static_modules()`（configure 期按 `SKY_STATIC_MODULE_TARGETS` 产出 `RegisterStaticModules.cpp`；tag 名非法字符 `.`/`-` → `_`）
 - [~] 2.4 集合来源：**生成基于 `sky_add_module` 目标**（不再需要单独的 `SKY_STATIC_MODULES` 列表 / `engine/runtime_modules.json`）；`plugin.json` 的 `kind` 未采用（保留为后续可选元数据）
 - [x] 2.5 tag 规则：target 名（`. `/`-`→`_`）唯一，避免多模块符号冲突
