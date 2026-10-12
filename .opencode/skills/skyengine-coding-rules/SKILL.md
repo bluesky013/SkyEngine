@@ -451,4 +451,32 @@ db->GetAbsoluteSourcePath(id, abs);
 
 ---
 
+## Rule 8 - Reuse existing implementations before adding new code
+
+### Requirement
+
+Before creating a new file, class, CMake target, tool, or subsystem, **search the repository for an existing
+implementation** and reuse or extend it instead of duplicating it.
+
+### Rationale
+
+The repository already provides many utilities, tools and subsystems (e.g. the asset cook worker
+`tools/asset_tool`, the asset/packaging pipeline, reflection panels, registries, `Singleton<T>` / `Once`). Duplicating
+them causes drift, broken invariants and rejected reviews. (Real incident: a second headless cook tool was written
+that re-implemented `AssetTool`'s project bootstrap and ignored its IPC path.)
+
+### How to apply
+
+1. Search first - grep/glob for the capability, tool/target names in `CMakeLists.txt` / `plugins/plugins.json`, and
+   the relevant `engine/*` interfaces - before writing anything.
+2. Prefer extending an existing tool/host/module: add a mode/flag or a small seam rather than a parallel
+   implementation.
+3. If duplication is truly unavoidable, justify it in the change `design.md` (why the existing one cannot be reused).
+4. If you introduced a duplicate, remove it and fold the behavior into the existing component.
+
+### Detection
+
+When adding a tool/target/file, if something similar already exists, flag it and reuse it. Re-implementing bootstrap,
+registration, or serialization that another component already performs is a red flag.
+
 <!-- Future rules go here as ## Rule N sections -->

@@ -31,6 +31,17 @@ namespace {
             return migrate;
         }
 
+        // True when invoked as a one-shot batch cook (no IPC host loop).
+        bool CookAllRequested() const
+        {
+            return cookAll;
+        }
+
+        const std::string &CookPlatform() const
+        {
+            return platform;
+        }
+
     protected:
         void ParseStartArgs() override
         {
@@ -38,7 +49,9 @@ namespace {
             options.allow_unrecognised_options();
             options.add_options()("p,project", "Project Directory", CmdValue<std::string>())("e,engine", "Engine Directory", CmdValue<std::string>())(
                 "i,intermediate", "Intermediate Directory", CmdValue<std::string>())(
-                "m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")("h,help", "Print usage");
+                "m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")(
+                "cook-all", "One-shot: cook all project sources for --platform, then exit")("platform", "Target platform for --cook-all", CmdValue<std::string>())(
+                "h,help", "Print usage");
 
             auto result = options.parse(static_cast<int32_t>(arguments.args.size()), arguments.args.data());
             if (result.count("project") != 0u) {
@@ -50,7 +63,11 @@ namespace {
             if (result.count("intermediate") != 0u) {
                 intermediatePath = result["intermediate"].as<std::string>();
             }
+            if (result.count("platform") != 0u) {
+                platform = result["platform"].as<std::string>();
+            }
             migrate = result.count("migrate") != 0u;
+            cookAll = result.count("cook-all") != 0u;
         }
 
         bool LoadConfigs() override
@@ -58,6 +75,7 @@ namespace {
             if (moduleManager) {
                 // Builder modules register the concrete AssetBuilders; missing DLLs are
                 // skipped by ModuleManager and cooks then fail observably.
+                moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyRender.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
@@ -98,7 +116,9 @@ namespace {
         std::string projectPath;
         std::string enginePath;
         std::string intermediatePath;
+        std::string platform;
         bool        migrate = false;
+        bool        cookAll = false;
     };
 
 } // namespace
@@ -125,6 +145,29 @@ int main(int argc, char **argv)
     if (app.MigrateRequested()) {
         AssetDataBase::Get()->MigrateLegacyIdentity();
         LOG_I(TAG, "legacy identity migration complete");
+        return 0;
+    }
+
+    // One-shot batch cook (`--cook-all --platform <p>`): cook every source for the
+    // platform's targets into <project>/products, then exit (no IPC host loop).
+    if (app.CookAllRequested()) {
+        auto *builderMgr = AssetBuilderManager::Get();
+        auto  cookConfig = builderMgr->GetCookConfig();
+        if (!app.CookPlatform().empty()) {
+            cookConfig.SetActivePlatform(app.CookPlatform());
+        }
+        builderMgr->SetCookConfig(std::move(cookConfig));
+        const std::string activePlatform = builderMgr->GetCookConfig().GetActivePlatform();
+
+        uint32_t cooked = 0;
+        AssetDataBase::Get()->ForEachSource([&](const AssetSourcePtr &src) {
+            const std::string cookJson = AssetDataBase::Get()->GetCookJson(src->uuid);
+            for (const auto &target : builderMgr->GetCookConfig().GetTargets(cookJson, activePlatform)) {
+                builderMgr->BuildRequestSync(src->uuid, target);
+                ++cooked;
+            }
+        });
+        LOG_I(TAG, "cook-all: %u product(s) for platform '%s'", cooked, activePlatform.c_str());
         return 0;
     }
 

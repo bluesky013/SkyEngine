@@ -118,6 +118,19 @@ project's cooked bundle) and requires no source catalog.
 The project launcher's `--project <dir>` is a **development** mode: it mounts the project tree (including `assets/`)
 and relies on on-demand cook in the editor. It is a convenience, not the shipping layout.
 
+### Asset cook paths
+
+Assets are authored under `assets/` and shipped as **cooked product bundles** (see [Asset Pipeline](asset-pipeline.md)).
+Cook is performed by `AssetBuilderManager` (builders registered by modules such as `Aurora.Cook`); three entry points exist:
+
+- **Editor on-demand**: the editor cooks a asset when it is first loaded (source catalog resolves missing products).
+- **Out-of-process worker**: `tools/asset_tool` (target `AssetTool`) is a headless worker that mounts the project +
+  engine filesystems, loads the builder modules, and serves cook requests over the length-prefixed frame protocol
+  (`asset-cook-ipc`) when the host selects the out-of-process runner.
+- **Headless batch (`--cook-all`)**: the same tool with `--project <dir> --engine <bundle> --cook-all --platform <p>`
+  cooks every source into `<project>/products/` and exits (used by `python/package_project.py` before packaging, and
+  the `--migrate` one-shot uses the same bootstrap).
+
 ### Product bundles in a package
 
 A package ships only the bundles a **distribution** needs (an export preset), so a platform can ship several packages
@@ -126,6 +139,8 @@ without cross-tier UUID conflicts (quality tiers use distinct bundle names, e.g.
 - Bundles are staged under `products/<bundle>/`:
   - **Android** → the APK's `assets/products/<bundle>/` (read at runtime via the APK asset filesystem).
   - **desktop / iOS** → `products/<bundle>/` next to the launcher (`.app` → `Contents/Resources/products/`).
+- `package`/`generate` first run the headless cook worker (`tools/asset_tool` -> `AssetTool
+  --project <dir> --engine <bundle> --cook-all --platform <p>`) to cook `<Project>/assets/` into `<Project>/products/`.
 - `package_project.py` copies `<Project>/products/<bundle>` for each selected bundle and writes
   **`products/bundles.json`** (`{ platform, distribution, bundles: [...] }`). Selection comes from the preset's
   `bundles` list, else the cook config's distribution.

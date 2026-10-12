@@ -6,7 +6,7 @@
 
 ## 2. Packaging (python/package_project.py)
 
-- [ ] 2.1 `package` 增加 **cook**（或要求已有 `products/`）：未接——当前直接读取 `<Project>/products/<bundle>`（若存在）
+- [x] 2.1 `package`/`generate` 前 **cook**：**复用既有** `tools/asset_tool`（`AssetTool`）——给它加一次性 `--cook-all --platform <p>` 模式（沿用其既有 project/engine 引导 + builder 模块加载 + `SetForceInProcess`），遍历源 → `CookConfig::GetTargets` → `BuildRequestSync` → `<Project>/products/`；脚本经 `run_cook()` 调 `AssetTool --cook-all`。实测：`AssetTool --cook-all` 运行成功（空工程 0 条）；**带真实资产的验证待补**
 - [x] 2.2 只挑选该档的 bundle 目录，按平台落位：Android → gradle `assets/products/<bundle>/`（实测进 APK）；桌面/iOS → `<Project>/build/<platform>/bin/products/`（best-effort，exe 目录/`.app Contents/Resources` 的最终对齐待 cook 接入后收口）
 - [x] 2.3 写 `products/bundles.json` 清单（`{platform,distribution,bundles:[…]}`），与拷贝同一步生成
 - [ ] 2.4 冲突校验（同 uuid/同名）未实现

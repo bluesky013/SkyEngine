@@ -263,6 +263,27 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
     return args
 
 
+def find_asset_tool(engine):
+    name = 'AssetTool.exe' if os.name == 'nt' else 'AssetTool'
+    for sub in ('Debug', 'Release', ''):
+        candidate = engine / 'output' / 'bin' / sub / name if sub else engine / 'output' / 'bin' / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def run_cook(engine, project_dir, platform):
+    """Headless cook of the project's assets into <project>/products (AssetTool --cook-all)."""
+    tool = find_asset_tool(engine)
+    if tool is None:
+        print('  (AssetTool not built; skipping cook - assets must be pre-cooked)')
+        return False
+    cmd = [str(tool), '--project', str(project_dir), '--engine', str(tool.parent), '--cook-all', '--platform', platform]
+    print('cook: {}'.format(' '.join(cmd)))
+    result = subprocess.run(cmd, cwd=str(tool.parent))
+    return result.returncode == 0
+
+
 def select_bundles(preset):
     """Bundles to package: the preset's explicit list, else [common]."""
     return list(preset.get('bundles') or ['common'])
@@ -369,6 +390,7 @@ def _generate(engine, project_dir, preset, tokens, credentials):
     if platform == 'android':
         out_dir = project_dir / 'build' / 'android'
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
+        run_cook(engine, project_dir, 'android')
         stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
     elif platform in ('ios', 'macos'):
         run_cmake_preset(engine, project_dir, platform, build=False,
@@ -394,12 +416,14 @@ def cmd_package(args):
     if platform == 'android':
         out_dir = project_dir / 'build' / 'android'
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
+        run_cook(engine, project_dir, 'android')
         stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
         package_android(out_dir, project_dir, tokens, variant)
     elif platform in ('ios', 'macos'):
         run_cmake_preset(engine, project_dir, platform, build=True,
                          extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
                          extra_build=preset.get('extraBuildArgs') or [])
+        run_cook(engine, project_dir, platform)
         stage_bundles(project_dir, preset, project_dir / 'build' / platform / 'bin' / 'products')
     else:
         raise SystemExit('不支持的平台: {}'.format(platform))
