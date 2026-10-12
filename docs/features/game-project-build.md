@@ -114,8 +114,8 @@ Runtime modules are built and loaded two ways, selected by an option / export pr
 
 - **dynamic** (default): each module is a shared library (`REGISTER_MODULE`), loaded by `ModuleManager` via dlopen.
 - **static** (`SKY_MODULE_PACKAGING=static`, preset `packing`): modules are compiled into the host. Each uses
-  `REGISTER_MODULE_TAGGED(tag, name)` producing a unique `sky_module_create_<tag>()` factory (tag = target name with
-  `.`/`-` -> `_`). At configure time `sky_generate_static_modules()` emits `RegisterStaticModules.cpp` from the
+  `REGISTER_MODULE_TAGGED(name)` producing a unique `sky_module_create_<tag>()` factory, where the tag is injected
+  per module by `sky_add_module()` (`SKY_MODULE_TAG` = target name with `.`/`-` -> `_`). At configure time `sky_generate_static_modules()` emits `RegisterStaticModules.cpp` from the
   modules declared via `sky_add_module()`; the project launcher links those static modules plus the generated cpp,
   and `Application` calls `SkyEngineRegisterStaticModules(ModuleManager&)` before `LoadModules`. Static bundling also
   applies on platforms where dlopen of module code is restricted (e.g. iOS).

@@ -28,4 +28,4 @@ namespace sky::terrain {
     };
 
 } // namespace sky::terrain
-REGISTER_MODULE_TAGGED(TerrainRender, sky::terrain::TerrainModule)
+REGISTER_MODULE_TAGGED(sky::terrain::TerrainModule)

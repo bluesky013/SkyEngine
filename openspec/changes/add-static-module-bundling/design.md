@@ -63,9 +63,9 @@ is a packaging choice, not a hard platform switch, but the design must allow a p
 
 Implementation refines D1/D2/D4 (no `<Name>.Dynamic` shim split, no hand `SKY_STATIC_MODULES` list):
 
-- **One macro**: `REGISTER_MODULE_TAGGED(tag, name)` (`IModule.h`). `SKY_MODULE_STATIC` defined → a uniquely named
-  factory `sky_module_create_<tag>()` (tag = the module's target/module id); otherwise it falls back to the existing
-  `REGISTER_MODULE` dlopen shim. So a module is compiled SHARED (dynamic) or STATIC (tagged) from the same source.
+- **One macro**: `REGISTER_MODULE_TAGGED(name)` (`IModule.h`). `SKY_MODULE_STATIC` defined → a uniquely named factory
+  `sky_module_create_<tag>()`, where `SKY_MODULE_TAG` is injected per module by `sky_add_module()` (target name, `.`/`-`
+  -> `_`); otherwise it falls back to the existing `REGISTER_MODULE` dlopen shim. Same source builds SHARED or STATIC.
 - **Source of the static set = the plugin config**: `plugins/plugins.json` (`enabled`) + each `plugins/<x>/plugin.json`
   `targets` tagged with `kind` (`runtime`/`render`/`editor`), plus an engine-side `engine/runtime_modules.json` for
   non-plugin runtime modules. This reuses the existing "which plugins are built" source of truth (D2) with no new list.

@@ -225,6 +225,14 @@ function(sky_add_module)
         PRIVATE_DEFS ${_sky_mod_defs}
         INSTALL_DIR ${TMP_INSTALL_DIR}
     )
+
+    if (SKY_MODULE_PACKAGING STREQUAL "static")
+        # Tag = target name with non-identifier chars replaced by '_'; used by
+        # REGISTER_MODULE_TAGGED to name the factory the generated registration calls.
+        string(REPLACE "." "_" _sky_mod_tag "${TMP_TARGET}")
+        string(REPLACE "-" "_" _sky_mod_tag "${_sky_mod_tag}")
+        target_compile_definitions(${TMP_TARGET} PRIVATE SKY_MODULE_TAG=${_sky_mod_tag})
+    endif()
 endfunction()
 
 # Generates RegisterStaticModules.cpp from the statically-built runtime modules

@@ -3,7 +3,7 @@
 - [x] 1.1 普查：现状模块 = 单 SHARED + `REGISTER_MODULE`（无 static/dynamic 拆分）→ 采用 **tagged 宏 + 生成注册 cpp** 方案
 - [x] 1.2 打包模式：`SKY_MODULE_PACKAGING=dynamic|static`（默认 dynamic）；静态集合 = 经 `sky_add_module` 声明（=编译选择/plugin config 的体现）的模块目标
 - [x] 1.3 引擎选项 `SKY_MODULE_PACKAGING`（`cmake/options.cmake`）；static 时全局 `SKY_MODULE_STATIC`
-- [x] 1.4 `IModule.h` `REGISTER_MODULE_TAGGED(tag, name)`（static→唯一工厂 `sky_module_create_<tag>()`；dynamic→回退 `REGISTER_MODULE`）
+- [x] 1.4 `IModule.h` `REGISTER_MODULE_TAGGED(name)`（static→唯一工厂 `sky_module_create_<tag>()`，tag 由 `sky_add_module` 经 `SKY_MODULE_TAG` 注入；dynamic→回退 `REGISTER_MODULE`）
 
 ## 2. Engine build support
 
@@ -11,7 +11,7 @@
 - [x] 2.2 运行时模块迁移到 `sky_add_module` + `REGISTER_MODULE_TAGGED`：`Aurora.Render`/`Aurora.ShaderCompiler`/`AudioModule`/`RecastNavigation`/`BulletPhysicsModule`/`BulletPhysicsRenderModule`/`CompressionModule`/`ConsoleModule`/`EnetNetwork`/`PVS`/`XRModule`/`PythonModule`/`Content.Module`/`TerrainRender`/`VegetationRender`。editor/cook-builder 模块不迁（2.6）。**附带修** terrain/vegetation 运行时 id（`*Module`→`*Render`）与 target 对齐（原动态 dlopen 找 `lib<X>Module` 必失败）
 - [x] 2.3 生成器 `sky_generate_static_modules()`（configure 期按 `SKY_STATIC_MODULE_TARGETS` 产出 `RegisterStaticModules.cpp`；tag 名非法字符 `.`/`-` → `_`）
 - [x] 2.4 集合来源：**生成基于 `sky_add_module` 目标**（无需单独的 `SKY_STATIC_MODULES` 列表 / `engine/runtime_modules.json`）；`plugin.json` 的 `kind` 未采用（保留为后续可选元数据）
-- [x] 2.5 tag 规则：target 名（`. `/`-`→`_`）唯一，避免多模块符号冲突
+- [x] 2.5 tag 规则：`sky_add_module` 以 target 名（`.`/`-`→`_`）定义 `SKY_MODULE_TAG`，源码无需手写 tag → 生成符号与注册天生一致、无冲突
 - [x] 2.6 编辑器分层：仅 runtime 模块用 `sky_add_module` → editor/`requires_editor` 模块天然不进 runtime 静态集合（**约定 + 文档**；若改配置驱动选择再按 `kind` 过滤）
 
 ## 3. Runtime resolution

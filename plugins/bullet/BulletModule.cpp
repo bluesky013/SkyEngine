@@ -65,4 +65,4 @@ namespace sky::phy {
     };
 
 } // namespace sky::phy
-REGISTER_MODULE_TAGGED(BulletPhysicsModule, sky::phy::BulletPhysicsModule)
+REGISTER_MODULE_TAGGED(sky::phy::BulletPhysicsModule)

@@ -26,4 +26,4 @@ namespace sky::content {
     };
 
 } // namespace sky::content
-REGISTER_MODULE_TAGGED(Content_Module, sky::content::ContentModule)
+REGISTER_MODULE_TAGGED(sky::content::ContentModule)

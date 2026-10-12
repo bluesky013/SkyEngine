@@ -4,4 +4,4 @@
 
 #include <console/ConsoleModule.h>
 
-REGISTER_MODULE_TAGGED(ConsoleModule, sky::ConsoleModule)
+REGISTER_MODULE_TAGGED(sky::ConsoleModule)

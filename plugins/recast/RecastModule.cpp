@@ -76,4 +76,4 @@ namespace sky::ai {
         }
     };
 } // namespace sky::ai
-REGISTER_MODULE_TAGGED(RecastNavigation, sky::ai::RecastModule)
+REGISTER_MODULE_TAGGED(sky::ai::RecastModule)

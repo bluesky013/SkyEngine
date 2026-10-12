@@ -47,20 +47,24 @@ namespace sky {
     }
 
 // Module registration for static bundling. When the module is compiled into the
-// host (`SKY_MODULE_STATIC`), it exposes a uniquely-named factory (tag = the
-// module's target/module id) instead of the `StartModule` dlopen shim, so several
-// modules can be linked together without symbol clashes. A generated registration
-// cpp (from the plugin config) calls `sky_module_create_<tag>()` for each.
+// host (`SKY_MODULE_STATIC`), it exposes a uniquely-named factory instead of the
+// `StartModule` dlopen shim, so several modules link together without symbol
+// clashes; a generated registration cpp calls `sky_module_create_<tag>()` for each.
+// `SKY_MODULE_TAG` is injected per module by `sky_add_module()` (the target name with
+// non-identifier chars replaced by '_'), so the factory name always matches the
+// generated registration without the module hand-writing a tag.
 #if defined(SKY_MODULE_STATIC)
-#define REGISTER_MODULE_TAGGED(tag, name)                                                                                                            \
-    extern "C" SKY_EXPORT sky::IModule *sky_module_create_##tag()                                                                                    \
+#define SKY_MODULE_CAT_(a, b) a##b
+#define SKY_MODULE_CAT(a, b) SKY_MODULE_CAT_(a, b)
+#define REGISTER_MODULE_TAGGED(name)                                                                                                                 \
+    extern "C" SKY_EXPORT sky::IModule *SKY_MODULE_CAT(sky_module_create_, SKY_MODULE_TAG)()                                                         \
     {                                                                                                                                                \
         return new name();                                                                                                                           \
     }                                                                                                                                                \
-    extern "C" SKY_EXPORT void sky_module_destroy_##tag(sky::IModule *module)                                                                        \
+    extern "C" SKY_EXPORT void SKY_MODULE_CAT(sky_module_destroy_, SKY_MODULE_TAG)(sky::IModule *module)                                             \
     {                                                                                                                                                \
         delete module;                                                                                                                               \
     }
 #else
-#define REGISTER_MODULE_TAGGED(tag, name) REGISTER_MODULE(name)
+#define REGISTER_MODULE_TAGGED(name) REGISTER_MODULE(name)
 #endif

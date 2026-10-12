@@ -38,4 +38,4 @@ namespace sky::aurora {
     }
 
 } // namespace sky::aurora
-REGISTER_MODULE_TAGGED(Aurora_ShaderCompiler, sky::aurora::AuroraShaderCompilerModule)
+REGISTER_MODULE_TAGGED(sky::aurora::AuroraShaderCompilerModule)

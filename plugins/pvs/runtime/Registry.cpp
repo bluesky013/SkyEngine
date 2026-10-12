@@ -4,4 +4,4 @@
 
 #include <pvs/PVSModule.h>
 
-REGISTER_MODULE_TAGGED(PVS, sky::PVSModule)
+REGISTER_MODULE_TAGGED(sky::PVSModule)

@@ -96,4 +96,4 @@ namespace sky::py {
 
 } // namespace sky::py
 
-REGISTER_MODULE_TAGGED(PythonModule, sky::py::PythonModule)
+REGISTER_MODULE_TAGGED(sky::py::PythonModule)
