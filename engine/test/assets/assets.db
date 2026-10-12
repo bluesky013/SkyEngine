@@ -1,45 +1,45 @@
 {
     "assets": [
         {
-            "uuid": "2132E24B-9DC6-45AE-83CD-71975A0CB9C9",
-            "markedName": "",
-            "ext": ".t3",
-            "path": "framework\\data\\test_asset.t3",
-            "dependencies": []
-        },
-        {
-            "uuid": "D1F11E3D-81FC-4BD4-B81D-55E2DCF75EBA",
-            "markedName": "",
-            "ext": ".t1",
-            "path": "framework\\data\\test_asset.t1",
-            "dependencies": []
-        },
-        {
-            "uuid": "1130B291-D12B-47A5-BF95-C06CFD44F145",
+            "uuid": "C1FB4505-C6C4-4DB0-8397-82362F74B00D",
             "markedName": "",
             "ext": ".t1",
             "path": "framework\\data\\concurrent.t1",
             "dependencies": []
         },
         {
-            "uuid": "F7C67924-B284-418B-9A8B-3025454A9D8E",
+            "uuid": "68B2D41F-720D-4E2A-8B91-716336A3A6A0",
             "markedName": "",
             "ext": ".t1",
-            "path": "framework\\data\\imported.t1",
+            "path": "framework\\data\\compressed.t1",
             "dependencies": []
         },
         {
-            "uuid": "37052EAD-FD7E-4556-A8A0-88F933AD9826",
+            "uuid": "E8BB2DFD-5C20-4C76-8A96-6861181A23B5",
+            "markedName": "",
+            "ext": ".t1",
+            "path": "framework\\data\\test_asset.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "0B508004-BBCC-41AD-84FD-E7A58D89005A",
             "markedName": "",
             "ext": ".t2",
             "path": "framework\\data\\test_asset.t2",
             "dependencies": []
         },
         {
-            "uuid": "EBE298A9-6E64-4F71-9D7D-0162F0F7AE67",
+            "uuid": "6F5AE619-6C26-46CB-BED1-F119B00FD650",
             "markedName": "",
             "ext": ".t1",
-            "path": "framework\\data\\compressed.t1",
+            "path": "framework\\data\\imported.t1",
+            "dependencies": []
+        },
+        {
+            "uuid": "C7DBBC9F-57E0-47BC-938D-B31574339818",
+            "markedName": "",
+            "ext": ".t3",
+            "path": "framework\\data\\test_asset.t3",
             "dependencies": []
         }
     ]

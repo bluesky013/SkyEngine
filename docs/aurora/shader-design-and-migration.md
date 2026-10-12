@@ -46,22 +46,30 @@ Shader source root convention (`engine/aurora/shader/CMakeLists.txt`): `global/`
 
 ## 4. Material technique model (new)
 
-Material source `assets/materials/*.mat`:
+Material source `assets/materials/*.mat` (JSON, loaded/saved through the reflection codec
+`MaterialAssetData` — `engine/aurora/adaptor/src/MaterialReflection.cpp`):
 
 ```json
 {
   "techniques": [
-    { "tag": "ForwardColor", "shader": "standard_pbr.slang", "entry": "FSMain",
-      "renderState": { "depthTest": true, "depthWrite": true, "cullMode": "back" } }
+    { "tag": "ForwardColor",
+      "shader": { "relativePath": "standard_pbr.hlsl", "entry": "FSMain" },
+      "renderState": { "depthStencil": { "depthTest": true, "depthWrite": true },
+                       "rasterState": { "cullMode": 2 } } }
   ],
-  "properties": { }
+  "properties": [
+    { "name": "Metallic", "type": 0, "value": { "index": 0, "value": 0.5 } },
+    { "name": "AlbedoMap", "type": 5, "value": { "index": 8, "value": "textures/white.png" } }
+  ]
 }
 ```
 
-- Parsed by `engine/aurora/cook/material/src/MaterialSourceParse.cpp`:
-  `ParseMaterialTechniques` (`tag`/`shader`/`entry`/`renderState`), `ParseMaterialRenderState`
-  (`depthTest, depthWrite, stencilTest, depthCompare, stencilFail, stencilPass, cullMode,
-  frontFace, polygonMode, depthBias{constant,slope,clamp}, alphaToCoverage, blend`).
+- Loaded/written by the **hand-written JSON codecs** on `MaterialAssetData` / `MaterialInstanceSource`
+  (`MaterialReflection.cpp`, via `LoadValueObject` / `SaveValueObject`); BIN codecs live on the data
+  structs. `type` is `MaterialPropertyType` (= `RgFieldType`); `value.index` selects the `std::variant`
+  alternative (`float` / `float2` / `float3` / `float4` / `mat4` / `int` / `uint` / `bool` / texture).
+  Sampler state is **not** a standalone material parameter (per glTF / Unreal / Unity / Godot it lives
+  on the texture); there is no `SAMPLER` property in the source.
 - Asset payload: `MaterialTechniqueData { tag; ShaderRef shader; MaterialRenderState renderState; }`
   (`engine/aurora/adaptor/include/aurora/adaptor/assets/MaterialAsset.h`).
 - Runtime: `aurora::Material` / `MaterialTechnique` (`engine/aurora/core/include/aurora/resource/Material.h`);

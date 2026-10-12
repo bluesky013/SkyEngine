@@ -8,6 +8,10 @@
 
 #include <aurora/resource/Material.h>
 #include <aurora/shader/ShaderRef.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Vector2.h>
+#include <core/math/Vector3.h>
+#include <core/math/Vector4.h>
 #include <core/util/Uuid.h>
 #include <framework/asset/Asset.h>
 #include <framework/serialization/BinaryArchive.h>
@@ -15,6 +19,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace sky::aurora {
@@ -165,30 +170,77 @@ namespace sky::aurora {
             ar.LoadValue(rs.alphaToCoverage);
         }
 
-        // Shared { name, type, value-bytes } codec (material properties / instance overrides).
-        inline void SaveTypedValue(BinaryOutputArchive &ar, const std::string &name, uint32_t type, const std::vector<uint8_t> &value)
+        // Typed property value (memory-lean: one alternative active). Textures use the Uuid
+        // alternative; the property's MaterialPropertyType tells which alternative / texture kind.
+        using MaterialPropertyValue = std::variant<float, Vector2, Vector3, Vector4, Matrix4, int32_t, uint32_t, bool, Uuid>;
+
+        inline void SavePropertyValue(BinaryOutputArchive &ar, const MaterialPropertyValue &value)
         {
-            ar.SaveValue(name);
-            ar.SaveValue(type);
-            ar.SaveValue(static_cast<uint32_t>(value.size()));
-            if (!value.empty()) {
-                ar.SaveValue(reinterpret_cast<const char *>(value.data()), value.size());
+            ar.SaveValue(static_cast<uint32_t>(value.index()));
+            std::visit(
+                [&ar](const auto &v) {
+                    using T = std::decay_t<decltype(v)>;
+                    if constexpr (std::is_same_v<T, float>) {
+                        ar.SaveValue(reinterpret_cast<const char *>(&v), sizeof(float));
+                    } else if constexpr (std::is_same_v<T, Vector2>) {
+                        ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 2);
+                    } else if constexpr (std::is_same_v<T, Vector3>) {
+                        ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 3);
+                    } else if constexpr (std::is_same_v<T, Vector4>) {
+                        ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 4);
+                    } else if constexpr (std::is_same_v<T, Matrix4>) {
+                        ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 16);
+                    } else if constexpr (std::is_same_v<T, Uuid>) {
+                        ar.SaveValue(v);
+                    } else {
+                        ar.SaveValue(v);
+                    }
+                },
+                value);
+        }
+
+        template <typename T>
+        inline void LoadOne(BinaryInputArchive &ar, T &v)
+        {
+            if constexpr (std::is_same_v<T, float>) {
+                ar.LoadValue(reinterpret_cast<char *>(&v), sizeof(float));
+            } else if constexpr (std::is_same_v<T, Vector2>) {
+                ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 2);
+            } else if constexpr (std::is_same_v<T, Vector3>) {
+                ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 3);
+            } else if constexpr (std::is_same_v<T, Vector4>) {
+                ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 4);
+            } else if constexpr (std::is_same_v<T, Matrix4>) {
+                ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 16);
+            } else {
+                ar.LoadValue(v);
             }
         }
 
-        inline void LoadTypedValue(BinaryInputArchive &ar, std::string &name, uint32_t &type, std::vector<uint8_t> &value)
+        template <typename V, std::size_t I = 0>
+        inline void LoadVariantByIndex(BinaryInputArchive &ar, uint32_t index, V &out)
         {
-            ar.LoadValue(name);
-            ar.LoadValue(type);
-            uint32_t size = 0;
-            ar.LoadValue(size);
-            value.resize(size);
-            if (size != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(value.data()), size);
+            if constexpr (I < std::variant_size_v<V>) {
+                if (index == I) {
+                    std::variant_alternative_t<I, V> alt{};
+                    LoadOne(ar, alt);
+                    out = std::move(alt);
+                    return;
+                }
+                LoadVariantByIndex<V, I + 1>(ar, index, out);
             }
+        }
+
+        inline void LoadPropertyValue(BinaryInputArchive &ar, MaterialPropertyValue &value)
+        {
+            uint32_t index = 0;
+            ar.LoadValue(index);
+            LoadVariantByIndex(ar, index, value);
         }
 
     } // namespace detail
+
+    using MaterialPropertyValue = detail::MaterialPropertyValue;
 
     struct MaterialTechniqueData {
         std::string         tag;
@@ -213,23 +265,24 @@ namespace sky::aurora {
     };
 
     struct MaterialPropertyData {
-        std::string          name;
-        MaterialPropertyType type = MaterialPropertyType::FLOAT;
-        std::vector<uint8_t> value;   // uniform bytes; size implied by type
-        Uuid                 texture; // texture binding (when type is a texture kind)
+        std::string                   name;
+        MaterialPropertyType          type = MaterialPropertyType::FLOAT;
+        detail::MaterialPropertyValue value;
 
         void Save(BinaryOutputArchive &ar) const
         {
-            detail::SaveTypedValue(ar, name, static_cast<uint32_t>(type), value);
-            ar.SaveValue(texture);
+            ar.SaveValue(name);
+            ar.SaveValue(static_cast<uint32_t>(type));
+            detail::SavePropertyValue(ar, value);
         }
 
         void Load(BinaryInputArchive &ar)
         {
             uint32_t typeValue = 0;
-            detail::LoadTypedValue(ar, name, typeValue, value);
+            ar.LoadValue(name);
+            ar.LoadValue(typeValue);
             type = static_cast<MaterialPropertyType>(typeValue);
-            ar.LoadValue(texture);
+            detail::LoadPropertyValue(ar, value);
         }
     };
 

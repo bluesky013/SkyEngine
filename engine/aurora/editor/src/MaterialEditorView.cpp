@@ -7,12 +7,15 @@
 #include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/adaptor/assets/MaterialReflection.h>
+#include <core/archive/MemoryStreamArchive.h>
+#include <framework/serialization/JsonArchive.h>
 
 #include <core/logger/Logger.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
-#include <editor/ui/AssetViewProvider.h>
-#include <editor/ui/UiDraw.h>
+#include <editor/shell/AssetViewProvider.h>
+#include <editor/shell/UiDraw.h>
 
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
@@ -70,40 +73,46 @@ namespace sky::aurora::editor {
             if (r.isString) {
                 return r.text;
             }
-            switch (r.type) {
-            case MaterialPropertyType::FLOAT: return FloatToString(ReadPod<float>(r.value));
-            case MaterialPropertyType::INT: return std::to_string(ReadPod<int32_t>(r.value));
-            case MaterialPropertyType::UINT: return std::to_string(ReadPod<uint32_t>(r.value));
-            case MaterialPropertyType::BOOL: return ReadPod<uint8_t>(r.value) ? "true" : "false";
-            case MaterialPropertyType::FLOAT2:
-            case MaterialPropertyType::FLOAT3:
-            case MaterialPropertyType::FLOAT4: {
-                const int   n = static_cast<int>(SizeOfPropertyType(r.type) / sizeof(float));
-                std::string s;
-                for (int i = 0; i < n; ++i) {
-                    if (i != 0) {
-                        s += ", ";
+            return std::visit(
+                [](const auto &v) -> std::string {
+                    using T = std::decay_t<decltype(v)>;
+                    if constexpr (std::is_same_v<T, float>) {
+                        return FloatToString(v);
+                    } else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>) {
+                        return std::to_string(v);
+                    } else if constexpr (std::is_same_v<T, bool>) {
+                        return v ? "true" : "false";
+                    } else if constexpr (std::is_same_v<T, Uuid>) {
+                        return {}; // textures use DisplayText
+                    } else if constexpr (std::is_same_v<T, Matrix4>) {
+                        return "(matrix)";
+                    } else {
+                        std::string           s;
+                        constexpr std::size_t n = sizeof(v.v) / sizeof(float);
+                        for (std::size_t i = 0; i < n; ++i) {
+                            if (i != 0) {
+                                s += ", ";
+                            }
+                            s += FloatToString(v.v[i]);
+                        }
+                        return s;
                     }
-                    s += FloatToString(ReadPod<float>(r.value, i * sizeof(float)));
-                }
-                return s;
-            }
-            case MaterialPropertyType::MAT4: return "(matrix)";
-            default: return {};
-            }
+                },
+                r.value);
         }
 
         std::string DisplayText(const MaterialEditorRow &r)
         {
             if (IsTextureProperty(r.type)) {
-                if (!r.texture) {
+                const Uuid *texture = std::get_if<Uuid>(&r.value);
+                if (texture == nullptr || !*texture) {
                     return "(none)";
                 }
                 std::string name;
-                if (auto *catalog = sky::editor::GetEditorAssetCatalog(); catalog != nullptr && catalog->GetName(r.texture, name)) {
+                if (auto *catalog = sky::editor::GetEditorAssetCatalog(); catalog != nullptr && catalog->GetName(*texture, name)) {
                     return name;
                 }
-                return r.texture.ToString();
+                return texture->ToString();
             }
             return EditableText(r);
         }
@@ -132,26 +141,12 @@ namespace sky::aurora::editor {
             return abs;
         }
 
-    } // namespace
-
-    MaterialEditorView::MaterialEditorView(
-        sky::ui::UITextSystem *textSystem, const Uuid &uuid, std::string titleText, std::vector<MaterialEditorRow> propRows, bool enableTechniques)
-        : text(textSystem), asset(uuid), title(std::move(titleText)), propertyRows(std::move(propRows)), allowTechniques(enableTechniques)
-    {
-        SetFocusable(true);
-        rowsPanel = static_cast<sky::ui::StackPanel *>(AddChild(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Vertical)));
-        rowsPanel->SetGap(0.0f);
-        rowsPanel->SetPadding(0.0f);
-        ReloadTechniques();
-    }
-
-    MaterialEditorView::~MaterialEditorView() = default;
-
-    namespace {
-
-        bool ReadSourceJson(const Uuid &asset, rapidjson::Document &doc, std::string &abs)
+        // Source I/O through the framework reflection (no bespoke parser): the `.mat` / `.mati`
+        // source IS the reflected MaterialAssetData / MaterialInstanceSource JSON.
+        template <typename T>
+        bool LoadSourceJson(const Uuid &asset, T &out)
         {
-            abs = SourceAbsolutePath(asset);
+            const std::string abs = SourceAbsolutePath(asset);
             if (abs.empty()) {
                 return false;
             }
@@ -161,106 +156,52 @@ namespace sky::aurora::editor {
             }
             std::stringstream ss;
             ss << in.rdbuf();
-            doc.Parse(ss.str().c_str());
-            return !doc.HasParseError() && doc.IsObject();
+            const std::string     json = ss.str();
+            sky::IMemoryArchive   memory(json.data(), json.size());
+            sky::JsonInputArchive archive(memory);
+            archive.LoadValueObject(out);
+            return true;
         }
 
-        bool WriteSourceJson(const std::string &abs, const rapidjson::Document &doc)
+        template <typename T>
+        bool SaveSourceJson(const Uuid &asset, const T &value)
         {
-            rapidjson::StringBuffer                    sb;
-            rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-            doc.Accept(writer);
+            const std::string abs = SourceAbsolutePath(asset);
+            if (abs.empty()) {
+                return false;
+            }
+            sky::OMemoryArchive    memory;
+            sky::JsonOutputArchive archive(memory);
+            archive.SaveValueObject(value);
             std::ofstream out(abs, std::ios::binary | std::ios::trunc);
             if (!out) {
                 return false;
             }
-            out.write(sb.GetString(), static_cast<std::streamsize>(sb.GetSize()));
+            out.write(static_cast<const char *>(memory.Data()), static_cast<std::streamsize>(memory.Size()));
             return true;
         }
 
-        // Applies one buffered row edit to the parsed source document (mutations only, no I/O).
-        void ApplyRowToDocument(rapidjson::Document &doc, const MaterialEditorRow &prop)
-        {
-            auto &alloc = doc.GetAllocator();
-            if (prop.isString) {
-                if (!doc.HasMember("techniques") || !doc["techniques"].IsArray()) {
-                    return;
-                }
-                rapidjson::Value &techs = doc["techniques"];
-                if (prop.techniqueIndex < 0 || prop.techniqueIndex >= static_cast<int>(techs.Size()) ||
-                    !techs[prop.techniqueIndex].IsObject()) {
-                    return;
-                }
-                rapidjson::Value &tech = techs[prop.techniqueIndex];
-                if (prop.techniqueField == 10) {
-                    if (!tech.HasMember("renderState") || !tech["renderState"].IsObject()) {
-                        tech.RemoveMember("renderState");
-                        tech.AddMember(rapidjson::Value("renderState", alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
-                    }
-                    rapidjson::Value *target = &tech["renderState"];
-                    std::string       key    = prop.renderKey;
-                    if (const auto dot = key.find('.'); dot != std::string::npos) {
-                        const std::string outer = key.substr(0, dot);
-                        if (!target->HasMember(outer.c_str()) || !(*target)[outer.c_str()].IsObject()) {
-                            target->RemoveMember(outer.c_str());
-                            target->AddMember(rapidjson::Value(outer.c_str(), alloc), rapidjson::Value(rapidjson::kObjectType), alloc);
-                        }
-                        target = &(*target)[outer.c_str()];
-                        key    = key.substr(dot + 1);
-                    }
-                    target->RemoveMember(key.c_str());
-                    rapidjson::Value value;
-                    if (prop.text == "true") {
-                        value = rapidjson::Value(true);
-                    } else if (prop.text == "false") {
-                        value = rapidjson::Value(false);
-                    } else {
-                        char        *end = nullptr;
-                        const double num = std::strtod(prop.text.c_str(), &end);
-                        if (end != nullptr && *end == '\0' && !prop.text.empty()) {
-                            value = rapidjson::Value(num);
-                        } else {
-                            value = rapidjson::Value(prop.text.c_str(), alloc);
-                        }
-                    }
-                    target->AddMember(rapidjson::Value(key.c_str(), alloc), value, alloc);
-                } else {
-                    const char *fieldKey = prop.techniqueField == 0 ? "tag" : (prop.techniqueField == 1 ? "shader" : "entry");
-                    tech.RemoveMember(fieldKey);
-                    tech.AddMember(rapidjson::Value(fieldKey, alloc), rapidjson::Value(prop.text.c_str(), alloc), alloc);
-                }
-            } else {
-                if (!doc.HasMember("properties") || !doc["properties"].IsObject()) {
-                    doc.RemoveMember("properties");
-                    doc.AddMember("properties", rapidjson::Value(rapidjson::kObjectType), alloc);
-                }
-                rapidjson::Value &props = doc["properties"];
-                props.RemoveMember(prop.name.c_str());
-                rapidjson::Value key(prop.name.c_str(), alloc);
+    } // namespace
 
-                if (IsTextureProperty(prop.type)) {
-                    if (prop.texture) {
-                        props.AddMember(key, rapidjson::Value(prop.texture.ToString().c_str(), alloc), alloc);
-                    }
-                } else if (prop.type == MaterialPropertyType::BOOL) {
-                    props.AddMember(key, rapidjson::Value(ReadPod<uint8_t>(prop.value) != 0), alloc);
-                } else if (prop.type == MaterialPropertyType::INT) {
-                    props.AddMember(key, rapidjson::Value(ReadPod<int32_t>(prop.value)), alloc);
-                } else if (prop.type == MaterialPropertyType::UINT) {
-                    props.AddMember(key, rapidjson::Value(ReadPod<uint32_t>(prop.value)), alloc);
-                } else if (prop.type == MaterialPropertyType::FLOAT) {
-                    props.AddMember(key, rapidjson::Value(ReadPod<float>(prop.value)), alloc);
-                } else {
-                    rapidjson::Value arr(rapidjson::kArrayType);
-                    const size_t     n = (prop.type == MaterialPropertyType::MAT4) ? prop.value.size() / sizeof(float)
-                                                                                  : SizeOfPropertyType(prop.type) / sizeof(float);
-                    for (size_t i = 0; i < n; ++i) {
-                        arr.PushBack(rapidjson::Value(ReadPod<float>(prop.value, i * sizeof(float))), alloc);
-                    }
-                    props.AddMember(key, arr, alloc);
-                }
-            }
+    MaterialEditorView::MaterialEditorView(
+        sky::ui::UITextSystem *textSystem, const Uuid &uuid, std::string titleText, bool instance, bool enableTechniques)
+        : text(textSystem), asset(uuid), title(std::move(titleText)), isInstance(instance), allowTechniques(enableTechniques)
+    {
+        SetFocusable(true);
+        rowsPanel = static_cast<sky::ui::StackPanel *>(AddChild(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Vertical)));
+        rowsPanel->SetGap(0.0f);
+        rowsPanel->SetPadding(0.0f);
+        if (isInstance) {
+            LoadSourceJson(asset, instanceSource);
+        } else {
+            LoadSourceJson(asset, materialSource);
         }
+        ReloadTechniques();
+    }
+
+    MaterialEditorView::~MaterialEditorView() = default;
+
+    namespace {
 
         void AddRow(std::vector<MaterialEditorRow> &rows,
                     const std::string              &name,
@@ -279,76 +220,161 @@ namespace sky::aurora::editor {
             rows.push_back(std::move(r));
         }
 
+        const char *CompareOpName(CompareOp op)
+        {
+            static const std::pair<CompareOp, const char *> kTable[] = {{CompareOp::NEVER, "never"},
+                                                                        {CompareOp::LESS, "less"},
+                                                                        {CompareOp::EQUAL, "equal"},
+                                                                        {CompareOp::LESS_OR_EQUAL, "less_equal"},
+                                                                        {CompareOp::GREATER, "greater"},
+                                                                        {CompareOp::NOT_EQUAL, "not_equal"},
+                                                                        {CompareOp::GREATER_OR_EQUAL, "greater_equal"},
+                                                                        {CompareOp::ALWAYS, "always"}};
+            for (const auto &e : kTable) {
+                if (e.first == op) {
+                    return e.second;
+                }
+            }
+            return "less_equal";
+        }
+
+        const char *PolygonModeName(PolygonMode m)
+        {
+            if (m == PolygonMode::LINE) {
+                return "line";
+            }
+            if (m == PolygonMode::POINT) {
+                return "point";
+            }
+            return "fill";
+        }
+
+        std::string CullModeText(CullingModeFlags c)
+        {
+            const bool front = c == CullingModeFlags(CullModeFlagBits::FRONT);
+            const bool back  = c == CullingModeFlags(CullModeFlagBits::BACK);
+            if (front && back) {
+                return "both";
+            }
+            if (front) {
+                return "front";
+            }
+            if (back) {
+                return "back";
+            }
+            return "none";
+        }
+
+        CompareOp CompareOpFromName(const std::string &s)
+        {
+            static const std::pair<const char *, CompareOp> kTable[] = {{"never", CompareOp::NEVER},
+                                                                        {"less", CompareOp::LESS},
+                                                                        {"equal", CompareOp::EQUAL},
+                                                                        {"less_equal", CompareOp::LESS_OR_EQUAL},
+                                                                        {"greater", CompareOp::GREATER},
+                                                                        {"not_equal", CompareOp::NOT_EQUAL},
+                                                                        {"greater_equal", CompareOp::GREATER_OR_EQUAL},
+                                                                        {"always", CompareOp::ALWAYS}};
+            for (const auto &e : kTable) {
+                if (s == e.first) {
+                    return e.second;
+                }
+            }
+            return CompareOp::LESS_OR_EQUAL;
+        }
+
+        // Set one render-state field from an edited text value; returns false for unknown keys.
+        bool SetRenderStateValue(MaterialRenderState &rs, const std::string &key, const std::string &value)
+        {
+            const bool flag = (value == "true" || value == "1");
+            const auto num  = static_cast<float>(std::strtod(value.c_str(), nullptr));
+            if (key == "depthTest") {
+                rs.depthStencil.depthTest = flag;
+            } else if (key == "depthWrite") {
+                rs.depthStencil.depthWrite = flag;
+            } else if (key == "stencilTest") {
+                rs.depthStencil.stencilTest = flag;
+            } else if (key == "alphaToCoverage") {
+                rs.alphaToCoverage = flag;
+            } else if (key == "depthCompare") {
+                rs.depthStencil.compareOp = CompareOpFromName(value);
+            } else if (key == "cullMode") {
+                CullingModeFlags c;
+                if (value == "front") {
+                    c = CullModeFlagBits::FRONT;
+                } else if (value == "back") {
+                    c = CullModeFlagBits::BACK;
+                } else if (value == "both") {
+                    c = CullModeFlagBits::FRONT | CullModeFlagBits::BACK;
+                }
+                rs.rasterState.cullMode = c;
+            } else if (key == "frontFace") {
+                rs.rasterState.frontFace = (value == "cw") ? FrontFace::CW : FrontFace::CCW;
+            } else if (key == "polygonMode") {
+                rs.rasterState.polygonMode = (value == "line") ? PolygonMode::LINE : ((value == "point") ? PolygonMode::POINT : PolygonMode::FILL);
+            } else if (key == "depthBias.constant") {
+                rs.rasterState.depthBiasConstantFactor = num;
+                rs.rasterState.depthBiasEnable         = true;
+            } else if (key == "depthBias.slope") {
+                rs.rasterState.depthBiasSlopeFactor = num;
+                rs.rasterState.depthBiasEnable      = true;
+            } else if (key == "depthBias.clamp") {
+                rs.rasterState.depthBiasClamp  = num;
+                rs.rasterState.depthBiasEnable = true;
+            } else {
+                return false;
+            }
+            return true;
+        }
+
     } // namespace
 
     void MaterialEditorView::ReloadTechniques()
     {
         rows.clear();
-        for (const auto &p : propertyRows) {
-            rows.push_back(p);
-        }
-        rapidjson::Document doc;
-        std::string         abs;
-        if (allowTechniques && ReadSourceJson(asset, doc, abs) && doc.HasMember("techniques") && doc["techniques"].IsArray()) {
-            int techIndex = 0;
-            for (const auto &t : doc["techniques"].GetArray()) {
-                if (!t.IsObject()) {
-                    continue;
-                }
-                const std::string tag = (t.HasMember("tag") && t["tag"].IsString()) ? t["tag"].GetString() : std::to_string(techIndex);
 
-                MaterialEditorRow header;
-                header.kind           = MaterialRowKind::TechniqueHeader;
-                header.techniqueIndex = techIndex;
-                header.name           = "Technique " + std::to_string(techIndex) + (tag.empty() ? "" : " [" + tag + "]");
-                rows.push_back(std::move(header));
-
-                AddRow(rows, "tag", (t.HasMember("tag") && t["tag"].IsString()) ? t["tag"].GetString() : "", techIndex, 0);
-                AddRow(rows, "shader", (t.HasMember("shader") && t["shader"].IsString()) ? t["shader"].GetString() : "", techIndex, 1);
-                AddRow(rows, "entry", (t.HasMember("entry") && t["entry"].IsString()) ? t["entry"].GetString() : "main", techIndex, 2);
-
-                if (t.HasMember("renderState") && t["renderState"].IsObject()) {
-                    const auto &rs      = t["renderState"];
-                    auto        addBool = [&](const char *key) {
-                        if (rs.HasMember(key)) {
-                            AddRow(rows, std::string("rs.") + key, rs[key].GetBool() ? "true" : "false", techIndex, 10, key);
-                        }
-                    };
-                    auto addStr = [&](const char *key) {
-                        if (rs.HasMember(key) && rs[key].IsString()) {
-                            AddRow(rows, std::string("rs.") + key, rs[key].GetString(), techIndex, 10, key);
-                        }
-                    };
-                    addBool("depthTest");
-                    addBool("depthWrite");
-                    addBool("stencilTest");
-                    addStr("depthCompare");
-                    addStr("cullMode");
-                    addStr("frontFace");
-                    addStr("polygonMode");
-                    addBool("alphaToCoverage");
-                    if (rs.HasMember("depthBias") && rs["depthBias"].IsObject()) {
-                        const auto &b = rs["depthBias"];
-                        if (b.HasMember("constant")) {
-                            AddRow(rows, "rs.depthBias.constant", FloatToString(b["constant"].GetFloat()), techIndex, 10, "depthBias.constant");
-                        }
-                        if (b.HasMember("slope")) {
-                            AddRow(rows, "rs.depthBias.slope", FloatToString(b["slope"].GetFloat()), techIndex, 10, "depthBias.slope");
-                        }
-                        if (b.HasMember("clamp")) {
-                            AddRow(rows, "rs.depthBias.clamp", FloatToString(b["clamp"].GetFloat()), techIndex, 10, "depthBias.clamp");
-                        }
-                    }
-                }
-                ++techIndex;
+        auto appendProperties = [&](const std::vector<MaterialPropertyData> &props) {
+            for (const auto &p : props) {
+                rows.push_back(MaterialEditorRow{p.name, p.type, p.value});
             }
-        }
+        };
 
-        if (allowTechniques) {
-            MaterialEditorRow add;
-            add.kind = MaterialRowKind::AddTechnique;
-            add.name = "+ Add Technique";
-            rows.push_back(std::move(add));
+        if (isInstance) {
+            appendProperties(instanceSource.properties);
+        } else {
+            appendProperties(materialSource.properties);
+            if (allowTechniques) {
+                for (size_t i = 0; i < materialSource.techniques.size(); ++i) {
+                    const MaterialTechniqueData &t  = materialSource.techniques[i];
+                    const int                    ti = static_cast<int>(i);
+                    MaterialEditorRow            header;
+                    header.kind           = MaterialRowKind::TechniqueHeader;
+                    header.techniqueIndex = ti;
+                    header.name           = "Technique " + std::to_string(i) + (t.tag.empty() ? "" : " [" + t.tag + "]");
+                    rows.push_back(std::move(header));
+                    AddRow(rows, "tag", t.tag, ti, 0);
+                    AddRow(rows, "shader", t.shader.relativePath, ti, 1);
+                    AddRow(rows, "entry", t.shader.entry, ti, 2);
+                    const MaterialRenderState &rs = t.renderState;
+                    auto addBool = [&](const char *key, bool v) { AddRow(rows, std::string("rs.") + key, v ? "true" : "false", ti, 10, key); };
+                    auto addStr  = [&](const char *key, const std::string &v) { AddRow(rows, std::string("rs.") + key, v, ti, 10, key); };
+                    addBool("depthTest", rs.depthStencil.depthTest);
+                    addBool("depthWrite", rs.depthStencil.depthWrite);
+                    addBool("stencilTest", rs.depthStencil.stencilTest);
+                    addStr("depthCompare", CompareOpName(rs.depthStencil.compareOp));
+                    addStr("cullMode", CullModeText(rs.rasterState.cullMode));
+                    addStr("frontFace", rs.rasterState.frontFace == FrontFace::CW ? "cw" : "ccw");
+                    addStr("polygonMode", PolygonModeName(rs.rasterState.polygonMode));
+                    addBool("alphaToCoverage", rs.alphaToCoverage);
+                    addStr("depthBias.constant", FloatToString(rs.rasterState.depthBiasConstantFactor));
+                    addStr("depthBias.slope", FloatToString(rs.rasterState.depthBiasSlopeFactor));
+                    addStr("depthBias.clamp", FloatToString(rs.rasterState.depthBiasClamp));
+                }
+                MaterialEditorRow add;
+                add.kind = MaterialRowKind::AddTechnique;
+                add.name = "+ Add Technique";
+                rows.push_back(std::move(add));
+            }
         }
 
         RebuildRowSlots();
@@ -357,43 +383,21 @@ namespace sky::aurora::editor {
 
     void MaterialEditorView::AddTechnique()
     {
-        rapidjson::Document doc;
-        std::string         abs;
-        if (!ReadSourceJson(asset, doc, abs)) {
-            return;
-        }
-        auto &alloc = doc.GetAllocator();
-        if (!doc.HasMember("techniques") || !doc["techniques"].IsArray()) {
-            doc.RemoveMember("techniques");
-            doc.AddMember("techniques", rapidjson::Value(rapidjson::kArrayType), alloc);
-        }
-        rapidjson::Value entry(rapidjson::kObjectType);
-        entry.AddMember(rapidjson::Value("tag", alloc), rapidjson::Value("", alloc), alloc);
-        entry.AddMember(rapidjson::Value("shader", alloc), rapidjson::Value("", alloc), alloc);
-        entry.AddMember(rapidjson::Value("entry", alloc), rapidjson::Value("main", alloc), alloc);
-        doc["techniques"].PushBack(entry, alloc);
-        if (!WriteSourceJson(abs, doc)) {
-            return;
-        }
+        MaterialTechniqueData technique;
+        technique.shader.entry = "main";
+        materialSource.techniques.push_back(std::move(technique));
+        SaveSourceJson(asset, materialSource);
         ReloadTechniques();
         dirty = true;
     }
 
     void MaterialEditorView::DeleteTechnique(int techniqueIndex)
     {
-        rapidjson::Document doc;
-        std::string         abs;
-        if (!ReadSourceJson(asset, doc, abs) || !doc.HasMember("techniques") || !doc["techniques"].IsArray()) {
+        if (techniqueIndex < 0 || techniqueIndex >= static_cast<int>(materialSource.techniques.size())) {
             return;
         }
-        rapidjson::Value &techs = doc["techniques"];
-        if (techniqueIndex < 0 || techniqueIndex >= static_cast<int>(techs.Size())) {
-            return;
-        }
-        techs.Erase(techs.Begin() + techniqueIndex);
-        if (!WriteSourceJson(abs, doc)) {
-            return;
-        }
+        materialSource.techniques.erase(materialSource.techniques.begin() + techniqueIndex);
+        SaveSourceJson(asset, materialSource);
         ReloadTechniques();
         dirty = true;
     }
@@ -403,30 +407,13 @@ namespace sky::aurora::editor {
         if (!dirty) {
             return false;
         }
-
-        rapidjson::Document doc;
-        std::string         abs;
-        if (!ReadSourceJson(asset, doc, abs)) {
-            LOG_W(TAG, "no readable source for asset %s; edits are in-memory only", asset.ToString().c_str());
-            dirty = false;
-            MarkPaintDirty();
-            return false;
-        }
-
-        // Apply every buffered field edit to the single parsed document, then write once.
         for (size_t i = 0; i < rows.size(); ++i) {
             if (rows[i].kind != MaterialRowKind::Field) {
                 continue;
             }
-            ApplyRowToDocument(doc, rows[i]);
+            PersistProperty(static_cast<int>(i));
         }
-        if (!WriteSourceJson(abs, doc)) {
-            LOG_W(TAG, "cannot write source %s; edits kept in memory", abs.c_str());
-            MarkPaintDirty();
-            return false; // keep `dirty` so a later Save retries
-        }
-
-        sky::editor::AssetCookService::Get()->RequestCook(asset);
+        sky::editor::AssetCookService::Get()->TriggerCook(asset);
         dirty = false;
         MarkPaintDirty();
         return true;
@@ -523,8 +510,10 @@ namespace sky::aurora::editor {
 
             if (isTexture) {
                 uc::RoundedField(context, box, uc::color::Field, uc::color::BorderSoft, 3.0f);
+                const Uuid *texturePtr = std::get_if<Uuid>(&prop.value);
+                const bool  hasTexture = texturePtr != nullptr && static_cast<bool>(*texturePtr);
                 uc::Text(context, DisplayText(prop), kTextSz, sky::ui::UIRect{box.left + 5.0f, box.top, box.right - 5.0f, box.bottom},
-                         prop.texture ? uc::color::Text : uc::color::TextDisabled, text);
+                         hasTexture ? uc::color::Text : uc::color::TextDisabled, text);
                 const sky::ui::UIRect browse{row.right - kPad - kBrowseW, row.top + 1.0f, row.right - kPad, row.bottom - 1.0f};
                 uc::RoundedField(context, browse, uc::color::FieldHover, uc::color::BorderSoft, 3.0f);
                 uc::Text(context, "...", kTextSz, browse, uc::color::Text, text, uc::HAlign::Center);
@@ -577,44 +566,43 @@ namespace sky::aurora::editor {
             dirty  = true;
             return;
         }
-        std::vector<float> floats;
-        switch (p.type) {
-        case MaterialPropertyType::FLOAT: {
-            const float v = std::strtof(editText.c_str(), nullptr);
-            p.value.resize(sizeof(float));
-            std::memcpy(p.value.data(), &v, sizeof(float));
-            break;
-        }
-        case MaterialPropertyType::INT: {
-            const int32_t v = static_cast<int32_t>(std::strtol(editText.c_str(), nullptr, 10));
-            p.value.resize(sizeof(int32_t));
-            std::memcpy(p.value.data(), &v, sizeof(int32_t));
-            break;
-        }
-        case MaterialPropertyType::UINT: {
-            const uint32_t v = static_cast<uint32_t>(std::strtoul(editText.c_str(), nullptr, 10));
-            p.value.resize(sizeof(uint32_t));
-            std::memcpy(p.value.data(), &v, sizeof(uint32_t));
-            break;
-        }
-        case MaterialPropertyType::BOOL: {
-            p.value.assign(1, (editText == "true" || editText == "1") ? 1u : 0u);
-            break;
-        }
-        case MaterialPropertyType::FLOAT2:
-        case MaterialPropertyType::FLOAT3:
-        case MaterialPropertyType::FLOAT4: {
-            const size_t n = SizeOfPropertyType(p.type) / sizeof(float);
-            if (ParseFloats(editText, floats, n)) {
-                p.value.resize(n * sizeof(float));
-                std::memcpy(p.value.data(), floats.data(), p.value.size());
+        if (p.type == MaterialPropertyType::FLOAT) {
+            p.value = std::strtof(editText.c_str(), nullptr);
+        } else if (p.type == MaterialPropertyType::INT) {
+            p.value = static_cast<int32_t>(std::strtol(editText.c_str(), nullptr, 10));
+        } else if (p.type == MaterialPropertyType::UINT) {
+            p.value = static_cast<uint32_t>(std::strtoul(editText.c_str(), nullptr, 10));
+        } else if (p.type == MaterialPropertyType::BOOL) {
+            p.value = (editText == "true" || editText == "1");
+        } else if (p.type == MaterialPropertyType::FLOAT2 || p.type == MaterialPropertyType::FLOAT3 || p.type == MaterialPropertyType::FLOAT4) {
+            std::vector<float> floats;
+            const size_t       n = SizeOfPropertyType(p.type) / sizeof(float);
+            if (!ParseFloats(editText, floats, n)) {
+                return;
             }
-            break;
+            if (n == 2) {
+                Vector2 v{};
+                v.v[0]  = floats[0];
+                v.v[1]  = floats[1];
+                p.value = v;
+            } else if (n == 3) {
+                Vector3 v{};
+                v.v[0]  = floats[0];
+                v.v[1]  = floats[1];
+                v.v[2]  = floats[2];
+                p.value = v;
+            } else {
+                Vector4 v{};
+                v.v[0]  = floats[0];
+                v.v[1]  = floats[1];
+                v.v[2]  = floats[2];
+                v.v[3]  = floats[3];
+                p.value = v;
+            }
+        } else {
+            return;
         }
-        default: return;
-        }
-        dirty = true;
-        MarkPaintDirty();
+        PersistProperty(index);
     }
 
     void MaterialEditorView::CommitTexture(int index, const Uuid &id)
@@ -622,9 +610,48 @@ namespace sky::aurora::editor {
         if (index < 0 || index >= static_cast<int>(rows.size())) {
             return;
         }
-        rows[index].texture = id;
-        dirty              = true;
+        rows[index].value = id;
+        PersistProperty(index);
+    }
+
+    bool MaterialEditorView::PersistProperty(int index)
+    {
+        if (index < 0 || index >= static_cast<int>(rows.size())) {
+            return false;
+        }
+        const MaterialEditorRow &prop = rows[index];
+
+        if (prop.isString) {
+            if (isInstance || prop.techniqueIndex < 0 || prop.techniqueIndex >= static_cast<int>(materialSource.techniques.size())) {
+                return false;
+            }
+            MaterialTechniqueData &tech = materialSource.techniques[prop.techniqueIndex];
+            if (prop.techniqueField == 10) {
+                SetRenderStateValue(tech.renderState, prop.renderKey, prop.text);
+            } else if (prop.techniqueField == 0) {
+                tech.tag = prop.text;
+            } else if (prop.techniqueField == 1) {
+                tech.shader.relativePath = prop.text;
+            } else if (prop.techniqueField == 2) {
+                tech.shader.entry = prop.text;
+            }
+        } else {
+            std::vector<MaterialPropertyData> &props = isInstance ? instanceSource.properties : materialSource.properties;
+            for (auto &p : props) {
+                if (p.name == prop.name) {
+                    p.type  = prop.type;
+                    p.value = prop.value;
+                    break;
+                }
+            }
+        }
+
+        const bool ok = isInstance ? SaveSourceJson(asset, instanceSource) : SaveSourceJson(asset, materialSource);
+        if (!ok) {
+            LOG_W(TAG, "cannot write source for %s", asset.ToString().c_str());
+        }
         MarkPaintDirty();
+        return ok;
     }
 
     void MaterialEditorView::OpenPicker(int index, const sky::ui::UIRect &row)
@@ -795,14 +822,8 @@ namespace sky::aurora::editor {
 
             std::unique_ptr<sky::ui::UIElement> CreateContent(const Uuid &uuid, const std::string &, sky::ui::UITextSystem *text) override
             {
-                std::vector<MaterialEditorRow> propRows;
-                if (auto asset = AssetManager::Get()->LoadAsset<Material>(uuid)) {
-                    asset->BlockUntilLoaded();
-                    for (const auto &p : asset->Data().properties) {
-                        propRows.push_back(MaterialEditorRow{p.name, p.type, p.value, p.texture});
-                    }
-                }
-                return std::make_unique<MaterialEditorView>(text, uuid, "Material", std::move(propRows), /*enableTechniques=*/true);
+                // The view loads the reflected `.mat` source itself (no parser).
+                return std::make_unique<MaterialEditorView>(text, uuid, "Material", /*isInstance=*/false, /*enableTechniques=*/true);
             }
         };
 
@@ -816,17 +837,7 @@ namespace sky::aurora::editor {
 
             std::unique_ptr<sky::ui::UIElement> CreateContent(const Uuid &uuid, const std::string &, sky::ui::UITextSystem *text) override
             {
-                std::vector<MaterialEditorRow> rows;
-                if (auto asset = AssetManager::Get()->LoadAsset<MaterialInstance>(uuid)) {
-                    asset->BlockUntilLoaded();
-                    for (const auto &v : asset->Data().valueOverrides) {
-                        rows.push_back(MaterialEditorRow{v.name, v.type, v.value, Uuid{}});
-                    }
-                    for (const auto &t : asset->Data().textureOverrides) {
-                        rows.push_back(MaterialEditorRow{t.name, MaterialPropertyType::TEXTURE2D, {}, t.texture});
-                    }
-                }
-                return std::make_unique<MaterialEditorView>(text, uuid, "Material Instance Overrides", std::move(rows));
+                return std::make_unique<MaterialEditorView>(text, uuid, "Material Instance", /*isInstance=*/true, /*enableTechniques=*/false);
             }
         };
 

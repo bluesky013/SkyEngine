@@ -5,9 +5,11 @@
 #include <aurora/cook/material/AuroraMaterialInstanceBuilder.h>
 
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
-#include <aurora/cook/material/MaterialSourceParse.h>
+#include <aurora/adaptor/assets/MaterialReflection.h>
 
+#include <core/archive/MemoryStreamArchive.h>
 #include <core/logger/Logger.h>
+#include <framework/serialization/JsonArchive.h>
 
 #include <string>
 #include <vector>
@@ -24,10 +26,14 @@ namespace sky::aurora {
     void AuroraMaterialInstanceBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         result.retCode = AssetBuildRetCode::FAILED;
-        rapidjson::Document document;
-        if (!LoadJsonDocument(request, result, document)) {
+        if (request.file == nullptr) {
+            result.error = "no source file";
             return;
         }
+        std::string json;
+        request.file->ReadString(json);
+        sky::IMemoryArchive   memory(json.data(), json.size());
+        sky::JsonInputArchive archive(memory);
 
         auto asset = CreateProduct<MaterialInstance>(request, result);
         if (!asset) {
@@ -38,33 +44,27 @@ namespace sky::aurora {
         auto &data   = asset->Data();
         data.version = MaterialInstanceAssetData::CURRENT_VERSION;
 
-        if (document.HasMember("material") && document["material"].IsString()) {
-            const Uuid material = Uuid::CreateFromString(document["material"].GetString());
-            if (material) {
-                data.material = material;
-                AddAssetDependency(asset, request, material);
-            } else {
-                LOG_W(TAG, "invalid parent material uuid '%s'", document["material"].GetString());
-            }
+        MaterialInstanceSource source;
+        archive.LoadValueObject(source);
+        if (source.material) {
+            data.material = source.material;
+            AddAssetDependency(asset, request, source.material);
         }
 
-        if (document.HasMember("properties")) {
-            std::vector<cook::ParsedProperty> parsed;
-            cook::ParseMaterialProperties(document["properties"], parsed);
-            for (auto &property : parsed) {
-                if (IsTextureProperty(property.type) && property.texture) {
-                    MaterialInstanceTextureOverride override;
-                    override.name    = property.name;
-                    override.texture = property.texture;
-                    AddAssetDependency(asset, request, property.texture);
-                    data.textureOverrides.push_back(std::move(override));
-                } else {
-                    MaterialInstanceValueOverride override;
-                    override.name  = property.name;
-                    override.type  = property.type;
-                    override.value = std::move(property.value);
-                    data.valueOverrides.push_back(std::move(override));
-                }
+        for (auto &property : source.properties) {
+            const Uuid *texture = std::get_if<Uuid>(&property.value);
+            if (IsTextureProperty(property.type) && texture != nullptr) {
+                MaterialInstanceTextureOverride override;
+                override.name    = property.name;
+                override.texture = *texture;
+                AddAssetDependency(asset, request, *texture);
+                data.textureOverrides.push_back(std::move(override));
+            } else {
+                MaterialInstanceValueOverride override;
+                override.name  = property.name;
+                override.type  = property.type;
+                override.value = std::move(property.value);
+                data.valueOverrides.push_back(std::move(override));
             }
         }
 

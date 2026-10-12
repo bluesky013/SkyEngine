@@ -572,7 +572,6 @@ namespace sky::aurora {
     struct BlendState {
         bool        blendEn      = false;
         uint8_t     writeMask    = 0xF;
-        uint8_t     padding[2]   = {0};
         BlendFactor srcColor     = BlendFactor::ZERO;
         BlendFactor dstColor     = BlendFactor::ZERO;
         BlendFactor srcAlpha     = BlendFactor::ZERO;

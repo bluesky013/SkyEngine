@@ -1,12 +1,14 @@
 //
-// Editable material / material-instance property list, surfaced as custom asset-view content
-// (see asset-viewer-widget). Dispatches per MaterialPropertyType directly (no reflection): value
-// rows edit the uniform bytes, texture rows open an AuroraTexture picker. Commits write the source
-// JSON ("properties" object) and re-cook.
+// Editable material / material-instance property list, surfaced as custom asset-view content.
+// The source (`.mat` / `.mati`) is loaded/saved through the reflection JSON codec
+// (`MaterialAssetData` / `MaterialInstanceSource`), not a bespoke parser; value rows edit typed
+// values (std::variant), texture rows open an AuroraTexture picker. Commits write the source and
+// re-cook.
 //
 
 #pragma once
 
+#include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/resource/Material.h>
 #include <core/util/Uuid.h>
 #include <ui/UIElement.h>
@@ -34,10 +36,9 @@ namespace sky::aurora::editor {
 
     // One editable row: a typed value, a texture Uuid, or a technique string field.
     struct MaterialEditorRow {
-        std::string          name;
-        MaterialPropertyType type = MaterialPropertyType::FLOAT;
-        std::vector<uint8_t> value;
-        Uuid                 texture;
+        std::string           name;
+        MaterialPropertyType  type = MaterialPropertyType::FLOAT;
+        MaterialPropertyValue value;
 
         // String rows (technique shader path / tag / render-state text).
         std::string text;
@@ -51,11 +52,7 @@ namespace sky::aurora::editor {
 
     class MaterialEditorView : public sky::ui::UIElement {
     public:
-        MaterialEditorView(sky::ui::UITextSystem         *textSystem,
-                           const Uuid                    &asset,
-                           std::string                    title,
-                           std::vector<MaterialEditorRow> propertyRows,
-                           bool                           enableTechniques = false);
+        MaterialEditorView(sky::ui::UITextSystem *textSystem, const Uuid &asset, std::string title, bool isInstance, bool enableTechniques = false);
         ~MaterialEditorView() override;
 
         const char *GetTypeName() const override
@@ -97,7 +94,9 @@ namespace sky::aurora::editor {
         sky::ui::UITextSystem         *text = nullptr;
         Uuid                           asset;
         std::string                    title;
-        std::vector<MaterialEditorRow> propertyRows;              // cached property rows
+        bool                           isInstance = false;
+        MaterialAssetData              materialSource;            // reflected `.mat` source (material)
+        MaterialInstanceSource         instanceSource;            // reflected `.mati` source (instance)
         std::vector<MaterialEditorRow> rows;                      // techniques (grouped) + properties
         sky::ui::StackPanel           *rowsPanel       = nullptr; // owns the vertical row layout
         bool                           allowTechniques = false;

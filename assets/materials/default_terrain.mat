@@ -2,32 +2,50 @@
     "techniques": [
         {
             "tag": "ForwardColor",
-            "shader": "terrain/terrain.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "terrain/terrain.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         },
         {
             "tag": "DepthOnly",
-            "shader": "terrain/terrain_depth.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "terrain/terrain_depth.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         },
         {
             "tag": "Shadow",
-            "shader": "terrain/terrain_depth.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "terrain/terrain_depth.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         }
     ]

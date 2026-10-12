@@ -2,96 +2,194 @@
     "techniques": [
         {
             "tag": "Transparent",
-            "shader": "standard_pbr.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "standard_pbr.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": false,
-                "cullMode": "back",
-                "blend": [
-                    {
-                        "blendEnable": true,
-                        "srcColor": "SRC_ALPHA",
-                        "dstColor": "ONE_MINUS_SRC_ALPHA",
-                        "srcAlpha": "ONE",
-                        "dstAlpha": "ONE_MINUS_SRC_ALPHA"
-                    }
-                ]
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": false
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         },
         {
             "tag": "DepthOnly",
-            "shader": "depth_only.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "depth_only.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         },
         {
             "tag": "Shadow",
-            "shader": "depth_only.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "depth_only.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         }
     ],
-    "properties": {
-        "Metallic": 0.5,
-        "Roughness": 0.5,
-        "AlphaCutoff": 1.0,
-        "TransmissionFactor": 0.0,
-        "Albedo": [
-            1.0,
-            1.0,
-            1.0,
-            1.0
-        ],
-        "AoMap": "textures/black.png",
-        "EmissiveMap": "textures/black.png",
-        "AlbedoMap": "textures/white.png",
-        "MetallicRoughnessMap": "textures/black.png",
-        "NormalMap": "textures/black.png",
-        "TransmissionMap": "textures/white.png",
-        "AoSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+    "properties": [
+        {
+            "name": "Metallic",
+            "type": 0,
+            "value": {
+                "index": 0,
+                "value": 0.5
+            }
         },
-        "EmissiveSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+        {
+            "name": "Roughness",
+            "type": 0,
+            "value": {
+                "index": 0,
+                "value": 0.5
+            }
         },
-        "AlbedoSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+        {
+            "name": "AlphaCutoff",
+            "type": 0,
+            "value": {
+                "index": 0,
+                "value": 1.0
+            }
         },
-        "MetallicRoughnessSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+        {
+            "name": "TransmissionFactor",
+            "type": 0,
+            "value": {
+                "index": 0,
+                "value": 0.0
+            }
         },
-        "NormalSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+        {
+            "name": "Albedo",
+            "type": 3,
+            "value": {
+                "index": 3,
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
         },
-        "TransmissionSampler": {
-            "MagFilter": "linear",
-            "MinFilter": "linear",
-            "MipMode": "linear"
+        {
+            "name": "AoMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "DB5A712E-DD1D-4285-A172-F213D30CEEC8"
+            }
         },
-        "ENABLE_ALPHA_MASK": false,
-        "ENABLE_NORMAL_MAP": false,
-        "ENABLE_AO_MAP": false,
-        "ENABLE_EMISSIVE_MAP": false,
-        "ENABLE_MR_MAP": false,
-        "ENABLE_TRANSMISSION": false
-    }
+        {
+            "name": "EmissiveMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "DB5A712E-DD1D-4285-A172-F213D30CEEC8"
+            }
+        },
+        {
+            "name": "AlbedoMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "7937331C-D6C8-46E6-90DA-9FA800983D84"
+            }
+        },
+        {
+            "name": "MetallicRoughnessMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "DB5A712E-DD1D-4285-A172-F213D30CEEC8"
+            }
+        },
+        {
+            "name": "NormalMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "DB5A712E-DD1D-4285-A172-F213D30CEEC8"
+            }
+        },
+        {
+            "name": "TransmissionMap",
+            "type": 5,
+            "value": {
+                "index": 8,
+                "value": "7937331C-D6C8-46E6-90DA-9FA800983D84"
+            }
+        },
+        {
+            "name": "ENABLE_ALPHA_MASK",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        },
+        {
+            "name": "ENABLE_NORMAL_MAP",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        },
+        {
+            "name": "ENABLE_AO_MAP",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        },
+        {
+            "name": "ENABLE_EMISSIVE_MAP",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        },
+        {
+            "name": "ENABLE_MR_MAP",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        },
+        {
+            "name": "ENABLE_TRANSMISSION",
+            "type": 10,
+            "value": {
+                "index": 7,
+                "value": false
+            }
+        }
+    ]
 }

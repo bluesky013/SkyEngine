@@ -21,20 +21,24 @@ namespace sky::aurora {
     class Device;
 
     struct MaterialInstanceValueOverride {
-        std::string          name;
-        MaterialPropertyType type = MaterialPropertyType::FLOAT;
-        std::vector<uint8_t> value;
+        std::string           name;
+        MaterialPropertyType  type = MaterialPropertyType::FLOAT;
+        MaterialPropertyValue value;
 
         void Save(BinaryOutputArchive &ar) const
         {
-            detail::SaveTypedValue(ar, name, static_cast<uint32_t>(type), value);
+            ar.SaveValue(name);
+            ar.SaveValue(static_cast<uint32_t>(type));
+            detail::SavePropertyValue(ar, value);
         }
 
         void Load(BinaryInputArchive &ar)
         {
             uint32_t typeValue = 0;
-            detail::LoadTypedValue(ar, name, typeValue, value);
+            ar.LoadValue(name);
+            ar.LoadValue(typeValue);
             type = static_cast<MaterialPropertyType>(typeValue);
+            detail::LoadPropertyValue(ar, value);
         }
     };
 
@@ -53,6 +57,13 @@ namespace sky::aurora {
             ar.LoadValue(name);
             ar.LoadValue(texture);
         }
+    };
+
+    // Authored `.mati` source: parent material + typed property values (same property schema as a
+    // material). The builder bakes it into the value / texture override payloads.
+    struct MaterialInstanceSource {
+        Uuid                              material;
+        std::vector<MaterialPropertyData> properties;
     };
 
     struct MaterialInstanceAssetData {

@@ -8,6 +8,7 @@
 #include <aurora/adaptor/assets/LodGroupAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/adaptor/assets/MaterialReflection.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
@@ -166,9 +167,7 @@ namespace sky {
                 .BinLoad<&sky::aurora::SkeletonAssetData::Load>()
                 .BinSave<&sky::aurora::SkeletonAssetData::Save>();
 
-            context->Register<sky::aurora::MaterialAssetData>("MaterialAssetData")
-                .BinLoad<&sky::aurora::MaterialAssetData::Load>()
-                .BinSave<&sky::aurora::MaterialAssetData::Save>();
+            sky::aurora::RegisterMaterialReflection(context);
 
             context->Register<sky::aurora::MaterialInstanceAssetData>("MaterialInstanceAssetData")
                 .BinLoad<&sky::aurora::MaterialInstanceAssetData::Load>()

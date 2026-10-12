@@ -2,12 +2,18 @@
     "techniques": [
         {
             "tag": "SkyBox",
-            "shader": "skybox.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "skybox.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": false,
-                "cullMode": "none"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": false
+                },
+                "rasterState": {
+                    "cullMode": 0
+                }
             }
         }
     ]

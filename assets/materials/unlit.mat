@@ -2,12 +2,18 @@
     "techniques": [
         {
             "tag": "ForwardColor",
-            "shader": "unlit.hlsl",
-            "entry": "FSMain",
+            "shader": {
+                "relativePath": "unlit.hlsl",
+                "entry": "FSMain"
+            },
             "renderState": {
-                "depthTest": true,
-                "depthWrite": true,
-                "cullMode": "back"
+                "depthStencil": {
+                    "depthTest": true,
+                    "depthWrite": true
+                },
+                "rasterState": {
+                    "cullMode": 2
+                }
             }
         }
     ]

@@ -4,9 +4,12 @@
 
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/adaptor/assets/MaterialReflection.h>
 
 #include <core/archive/MemoryStreamArchive.h>
 #include <framework/serialization/BinaryArchive.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 #include <cstring>
 
@@ -55,21 +58,24 @@ namespace {
         aurora::MaterialPropertyData color;
         color.name = "baseColor";
         color.type = aurora::MaterialPropertyType::FLOAT4;
-        color.value.resize(sizeof(float) * 4);
-        const float rgba[4] = {1.f, 0.f, 0.f, 1.f};
-        std::memcpy(color.value.data(), rgba, sizeof(rgba));
+        sky::Vector4 rgba{};
+        rgba.v[0]   = 1.f;
+        rgba.v[1]   = 0.f;
+        rgba.v[2]   = 0.f;
+        rgba.v[3]   = 1.f;
+        color.value = rgba;
         data.properties.push_back(color);
 
         aurora::MaterialPropertyData flag;
         flag.name  = "useNormalMap";
         flag.type  = aurora::MaterialPropertyType::BOOL;
-        flag.value = {1};
+        flag.value = true;
         data.properties.push_back(flag);
 
         aurora::MaterialPropertyData albedo;
-        albedo.name    = "albedo";
-        albedo.type    = aurora::MaterialPropertyType::TEXTURE2D;
-        albedo.texture = Uuid::CreateWithSeed(7);
+        albedo.name  = "albedo";
+        albedo.type  = aurora::MaterialPropertyType::TEXTURE2D;
+        albedo.value = Uuid::CreateWithSeed(7);
         data.properties.push_back(albedo);
 
         return data;
@@ -96,8 +102,8 @@ TEST(MaterialAssetTest, MaterialRoundTrip)
     ASSERT_EQ(out.properties.size(), in.properties.size());
     EXPECT_EQ(out.properties[0].name, "baseColor");
     EXPECT_EQ(out.properties[0].type, aurora::MaterialPropertyType::FLOAT4);
-    EXPECT_EQ(out.properties[0].value, in.properties[0].value);
-    EXPECT_EQ(out.properties[2].texture, in.properties[2].texture);
+    EXPECT_TRUE(std::holds_alternative<sky::Vector4>(out.properties[0].value));
+    EXPECT_EQ(std::get<Uuid>(out.properties[2].value), std::get<Uuid>(in.properties[2].value));
 }
 
 TEST(MaterialAssetTest, MaterialVersionMismatchRejected)
@@ -118,11 +124,9 @@ TEST(MaterialAssetTest, InstanceRoundTrip)
     in.material = Uuid::CreateWithSeed(3);
 
     aurora::MaterialInstanceValueOverride value;
-    value.name = "roughness";
-    value.type = aurora::MaterialPropertyType::FLOAT;
-    value.value.resize(sizeof(float));
-    const float rough = 0.25f;
-    std::memcpy(value.value.data(), &rough, sizeof(rough));
+    value.name  = "roughness";
+    value.type  = aurora::MaterialPropertyType::FLOAT;
+    value.value = 0.25f;
     in.valueOverrides.push_back(value);
 
     aurora::MaterialInstanceTextureOverride texture;
@@ -137,7 +141,7 @@ TEST(MaterialAssetTest, InstanceRoundTrip)
     EXPECT_EQ(out.material, in.material);
     ASSERT_EQ(out.valueOverrides.size(), 1u);
     EXPECT_EQ(out.valueOverrides[0].name, "roughness");
-    EXPECT_EQ(out.valueOverrides[0].value, in.valueOverrides[0].value);
+    EXPECT_EQ(std::get<float>(out.valueOverrides[0].value), std::get<float>(in.valueOverrides[0].value));
     ASSERT_EQ(out.textureOverrides.size(), 1u);
     EXPECT_EQ(out.textureOverrides[0].texture, in.textureOverrides[0].texture);
 }
@@ -154,4 +158,19 @@ TEST(MaterialAssetTest, InstanceVersionMismatchRejected)
     EXPECT_FALSE(static_cast<bool>(out.material));
     EXPECT_TRUE(out.valueOverrides.empty());
     EXPECT_TRUE(out.textureOverrides.empty());
+}
+
+TEST(MaterialAssetTest, SourceJsonCodec)
+{
+    aurora::RegisterMaterialReflection(SerializationContext::Get());
+    const char *json =
+        R"({"techniques":[{"tag":"T","shader":{"relativePath":"a.hlsl","entry":"FSMain"},"renderState":{"depthStencil":{"depthTest":true},"rasterState":{"cullMode":2}}}],"properties":[{"name":"Metallic","type":0,"value":{"index":0,"value":0.5}},{"name":"Albedo","type":3,"value":{"index":3,"value":[1.0,1.0,1.0,1.0]}}]})";
+    IMemoryArchive            mem(json, std::strlen(json));
+    JsonInputArchive          ar(mem);
+    aurora::MaterialAssetData data;
+    ar.LoadValueObject(data);
+    EXPECT_EQ(data.techniques.size(), 1u);
+    ASSERT_EQ(data.properties.size(), 2u);
+    EXPECT_EQ(std::get<float>(data.properties[0].value), 0.5f);
+    EXPECT_TRUE(std::holds_alternative<Vector4>(data.properties[1].value));
 }

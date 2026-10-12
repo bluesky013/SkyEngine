@@ -43,30 +43,17 @@ namespace sky::aurora {
             material.SetTexture(name, texture);
         }
 
-        template <typename T>
-        void SetOverrideIf(MaterialInstance &instance, const Name &name, const std::vector<uint8_t> &bytes)
-        {
-            if (bytes.size() == sizeof(T)) {
-                T value;
-                std::memcpy(&value, bytes.data(), sizeof(T));
-                instance.SetValue(name, value);
-            }
-        }
-
         void ApplyValueOverride(MaterialInstance &instance, const MaterialInstanceValueOverride &override)
         {
             const Name name(override.name.c_str());
-            switch (override.type) {
-            case MaterialPropertyType::FLOAT: SetOverrideIf<float>(instance, name, override.value); break;
-            case MaterialPropertyType::FLOAT2: SetOverrideIf<Vector2>(instance, name, override.value); break;
-            case MaterialPropertyType::FLOAT3: SetOverrideIf<Vector3>(instance, name, override.value); break;
-            case MaterialPropertyType::FLOAT4: SetOverrideIf<Vector4>(instance, name, override.value); break;
-            case MaterialPropertyType::MAT4: SetOverrideIf<Matrix4>(instance, name, override.value); break;
-            case MaterialPropertyType::INT: SetOverrideIf<int32_t>(instance, name, override.value); break;
-            case MaterialPropertyType::UINT: SetOverrideIf<uint32_t>(instance, name, override.value); break;
-            case MaterialPropertyType::BOOL: SetOverrideIf<bool>(instance, name, override.value); break;
-            default: break;
-            }
+            std::visit(
+                [&](const auto &v) {
+                    using T = std::decay_t<decltype(v)>;
+                    if constexpr (!std::is_same_v<T, Uuid>) {
+                        instance.SetValue(name, v);
+                    }
+                },
+                override.value);
         }
 
     } // namespace
@@ -97,9 +84,11 @@ namespace sky::aurora {
             const Name name(src.name.c_str());
             if (IsTextureProperty(src.type)) {
                 material->AddTexture(name, src.type);
-                ResolveTexture(device, *material, name, src.texture);
+                if (const Uuid *texture = std::get_if<Uuid>(&src.value); texture != nullptr) {
+                    ResolveTexture(device, *material, name, *texture);
+                }
             } else {
-                material->AddValue(name, src.type, src.value.empty() ? nullptr : src.value.data());
+                std::visit([&](const auto &v) { material->AddValue(name, src.type, &v); }, src.value);
             }
         }
 
