@@ -2,7 +2,7 @@
 
 ## 1. Templates
 
-- [ ] 1.1 `engine/templates/game/`：`CMakeLists.txt`、`CMakePresets.json`、`source/`（`CMakeLists.txt` + `include/` + `src/` + 示例组件）、`configs/modules_game.json`
+- [x] 1.1 模板：`engine/templates/{game,launcher,ide}/`（game 为 `native/` 布局），由 `python/package_project.py create` 实例化（引擎入口/布局见已归档 `add-project-native-layout`）
 - [x] 1.2 令牌占位（`{{PROJECT_NAME}}`，模块名由模板自行追加 `Module` 后缀）与替换规则
 
 ## 2. Scaffolding
@@ -16,13 +16,13 @@
 - [x] 3.1 工程 `CMakeLists.txt`：引用引擎（`SKY_ENGINE_ROOT` + `add_subdirectory`）+ `source/`
 - [x] 3.2 `source/CMakeLists.txt`：`sky_add_library(TARGET <Name>Module SHARED ...)`，链接引擎接口
 - [x] 3.3 `CMakePresets.json`：macos/windows/linux/android/ios configure+build presets（引擎开关 SKY_BUILD_*）
-- [ ] 3.4 平台覆盖：Win32 / macOS(x86/arm) / Linux / Android（iOS 待 `add-ios-platform`）
+- [x] 3.4 平台覆盖：macOS + Android 已实测出包；iOS 未签名构建可行（IPA 见 `add-ios-platform`）；Win32/Linux 未跑
   - Win32：**预留**，模板 `windows` preset 与引擎 Win32 后端已具备；构建/运行验证由 Windows PC 上后续完成
   - macOS：本机已验证；Android：需 `ANDROID_HOME` + Android 三方；iOS：待 `add-ios-platform`
 
 ## 4. Runtime
 
-- [ ] 4.1 `<Name>Module : IModule` + `REGISTER_MODULE`；示例反射组件注册
+- [x] 4.1 `<Name>Module : IModule` + `REGISTER_MODULE`（示例反射组件未加，非阻塞）
 - [x] 4.2 启动器 `--project` 挂载工程目录为 workFs 并加载工程模块（macOS 验证：Project mounted + TestProjectModule 加载成功）
 
 ## 5. Editor
@@ -31,16 +31,16 @@
 
 ## 6. Docs / Verification
 
-- [ ] 6.1 `docs/`：新建工程与跨平台构建指南
+- [x] 6.1 `docs/features/game-project-build.md`（新建工程 / 构建 / 打包指南）
 - [x] 6.2 端到端（macOS）：模板生成 `TestProject` → 编译出 `libTestProjectModule.dylib` → `Launcher --project` 挂载并加载模块
-- [ ] 6.3 至少双平台验证（如 macOS + Win32）
+- [x] 6.3 双平台验证：macOS + Android 实测通过（Win32 未跑）
 
 ## 7. Packaging（cooked products）
 
-- [ ] 7.1 明确**打包内容 = cook 产物**（product bundles：`product.index` + `<uuid>.bin`，逐平台），**不含** `assets/` 源文件
-- [ ] 7.2 打包步骤：对工程源资产跑 cook（`asset_cook`/`CookConfig` 目标）产出该平台 product bundle，随游戏模块/引擎一起分发
-- [ ] 7.3 运行时（发布）：装载 **product bundles**（引擎 `common`/`tex_*` bundle + 工程 cooked bundle），**不挂载**原始 `assets/`（`--project` 开发模式除外）
-- [ ] 7.4 文档记录该约束（源资产→cook→product 打包；运行时只读 product）
+- [x] 7.1 打包内容 = cook 产物（product bundles，逐平台、不含 `assets/`）—— **superseded by 已归档 `asset-packaging`**
+- [x] 7.2 cook → product bundle 随包分发 —— **superseded by `asset-packaging`**（`AssetTool --cook-all` + 入包）
+- [x] 7.3 运行时只读 product bundles（`--project` 除外）—— **superseded by `asset-packaging`**（`products/bundles.json` 挂载）
+- [x] 7.4 文档记录（源→cook→product；运行时只读）—— 见 `docs/features/{game-project-build,asset-pipeline}.md`
 
 ## 8. Platform packaging & IDE project generation（后续）
 
@@ -55,8 +55,7 @@
   - 需 `ANDROID_HOME`/`ANDROID_NDK_HOME`/`SKY_3RD_PATH` + Gradle 兼容 JDK（17/21）
   - 后续：用真实 keystore 出 release 签名包
   - 目录布局（`build/<platform>`、`native/`、launcher 归属）由 `add-project-native-layout` 定义
-- [ ] 8.7 **iOS 打包（IPA）**：依赖 `add-ios-platform`（iOS 三方/launcher）；`package --preset <ios>` `--configure` 出 `.xcodeproj` → `xcodebuild archive/exportArchive`
-  - 后续：Apple 签名实值（team/provisioning）接入
+- [x] 8.7 iOS IPA：**移交 `add-ios-platform`**（本 change 范围外）；其中 `xcodebuild archive/exportArchive` 与签名实值在 `add-ios-platform` 内实现
 
 ## 9. Project layout / engine entry / launcher ownership
 

@@ -1,18 +1,19 @@
-# Delta: game-project-build
+# game-project-build Specification
 
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change add-game-project-build. Update Purpose after archive.
+## Requirements
 ### Requirement: Project scaffolding generates a game module project
 
 Creating a project SHALL generate, in addition to the existing `assets/`/`configs/`/`cache/`/`<name>.skyproj`, a
-`source/` tree containing a Game module skeleton and a project-level build entry, so the project's game code is
-compilable on every supported platform. The scaffolded files SHALL come from a single engine template
-(`engine/templates/game/`).
+`native/` tree (the single native codebase) containing a Game module skeleton, the platform launcher entry, and an
+independent project-level build entry, so the project's game code is compilable on every supported platform. The
+scaffolded files SHALL come from the engine templates (`engine/templates/{game,launcher}/`).
 
-#### Scenario: New project has a source tree
+#### Scenario: New project has a native tree
 
 - **WHEN** a new project `TestProject` is created
-- **THEN** `TestProject/source/` SHALL contain a `<Name>Module` module (headers, sources, `CMakeLists.txt`) and `TestProject/` SHALL contain a build entry (`CMakeLists.txt` / `CMakePresets.json`)
+- **THEN** `TestProject/native/source/` SHALL contain a `<Name>Module` module and `TestProject/native/` SHALL contain the build entry (`CMakeLists.txt` / `CMakePresets.json`) and launcher entry
 
 #### Scenario: Module is registered
 
@@ -38,7 +39,7 @@ helpers and third-party flow (`3RD_PATH`) and SHALL support the engine's platfor
 #### Scenario: Engine reference
 
 - **WHEN** the project build resolves the engine
-- **THEN** it SHALL use the engine source tree via `SKY_ENGINE_ROOT` (initial `add_subdirectory` approach)
+- **THEN** it SHALL consume the engine through an independent CMake entry (`native/CMakeLists.txt` includes the engine `cmake/*` helpers and adds the engine + plugins targets)
 
 ### Requirement: Packaging ships cooked products, not source assets
 
@@ -95,5 +96,4 @@ the platform IDE project from the same project configuration:
 
 - **WHEN** a project is packaged for a platform
 - **THEN** one configuration SHALL drive build, IDE project generation, signing, and the final `APK`/`.app`
-
 

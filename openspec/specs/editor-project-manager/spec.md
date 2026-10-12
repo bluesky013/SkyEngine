@@ -19,22 +19,19 @@ editor bound to that project when `--project <path>` is given.
 - **THEN** it SHALL read the project descriptor and open the editor bound to it
 
 ### Requirement: Project descriptor
-
 The project descriptor (`<name>.skyproj`) SHALL be the single source of project identity and settings. Creating a
 project SHALL produce the directory layout **and** a compilable game source tree: `assets/`, `configs/`, `cache/`,
-`<name>.skyproj`, plus `native/` (game module skeleton, platform launcher entry, independent build entry), with the
-game module registered in `<name>.skyproj` `modules` and the project module list. Project creation SHALL be
-implemented by the packaging CLI (`python/package_project.py create`); the editor SHALL invoke that CLI rather than
-re-implementing scaffolding.
+`<name>.skyproj`, plus `source/` (a game module skeleton) and a project build entry, with the game module
+registered in `<name>.skyproj` `modules` and the project module list.
 
 #### Scenario: Create a project
 
-- **WHEN** a new project is requested (from the editor or the CLI)
-- **THEN** a directory with `assets/`, `configs/`, `cache/`, `native/` (module + launcher + build entry), and `<name>.skyproj` SHALL be created, and the descriptor SHALL list the game module
+- **WHEN** a new project is requested
+- **THEN** a directory with `assets/`, `configs/`, `cache/`, `source/`, a build entry, and `<name>.skyproj` SHALL be created, and the descriptor SHALL list the game module
 
 #### Scenario: Existing projects still load
 
-- **WHEN** an existing project without `native/` is opened
+- **WHEN** an existing project without `source/` is opened
 - **THEN** it SHALL still open (the scaffold is only added on creation; migration is not required)
 
 ### Requirement: Project Manager hub actions
