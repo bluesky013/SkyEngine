@@ -92,8 +92,10 @@ LOADED/FAILED. `BlockUntilLoaded` must not be called from the executor's loader 
 
 `CookConfig` resolves the effective target for an asset:
 
-- Project-level `configs/asset_cook.jsonc` (JSONC): `platforms` (platform -> target) and `targets`
-  (target -> bundle + per-kind settings).
+- Project-level `configs/asset_cook.jsonc` (JSONC): `platforms` (platform -> target), `targets`
+  (target -> bundle + per-kind settings), and `distributions` (export-preset name -> bundles) for packaging.
+  Quality tiers use **distinct bundle names** (e.g. `tex_low` vs `tex_hd`) so a shipped package never mixes tiers
+  under one asset uuid (the runtime resolves an asset from the first bundle that has it).
 - Asset-level `cook` block in `assets.jsonl`: `targets`, per-kind overrides and a free-form `user` block.
 - Effective target = asset override x project preset x current platform, defaulting to the primary bundle `common`.
 
@@ -175,9 +177,15 @@ from product bundles only. Packaging therefore runs the cook for the project's s
 `CookConfig` target and ships the resulting bundle. Running from a project directory (`--project <dir>`) reads
 `assets/` and cooks on demand in the editor — that is a development convenience, not the shipping layout.
 
+A package ships only the **distribution's** selected bundles (export preset `bundles`, else the cook config's
+`distributions` entry): `python/package_project.py` runs the headless cook (`AssetTool --cook-all --platform <p>`),
+stages the bundles under `products/` (Android → APK `assets/products/`; desktop/iOS → next to the launcher), and
+writes a `products/bundles.json` manifest. The runtime reads that manifest (`GameApplication`) and mounts exactly
+the listed bundles, falling back to `common` when it is absent.
+
 ## Limitations
 
 - `assets.db` is rebuilt by scanning every mount for builder-known extensions plus `.world`; engine assets
   without a committed manifest fall back to path-derived identity.
 - Out-of-process cooking is wired (the `AssetTool` background worker) and the asset-browser frontend triggers cooks,
-  including batch (`Cook All Sources`). Single-file packaging remains a follow-up.
+  including batch (`Cook All Sources`). The packaging tool also runs a headless batch cook (`AssetTool --cook-all`).

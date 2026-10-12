@@ -1,0 +1,26 @@
+{
+  // Cook / packaging config for this project (see docs/features/asset-pipeline.md).
+  // `bundles` lists every product bundle the project can produce.
+  // `presets` maps a platform to the bundles it cooks.
+  // `distributions` maps an export preset (export_presets.json name) to the bundles
+  // that package includes; quality tiers use DISTINCT bundle names (e.g. tex_low vs
+  // tex_hd) so a shipped package never mixes tiers under the same asset uuid.
+  "bundles": ["common"],
+
+  "presets": {
+    "windows": ["common"],
+    "macos": ["common"],
+    "linux": ["common"],
+    "android": ["common"],
+    "ios": ["common"]
+  },
+
+  "distributions": {
+    "{{PROJECT_NAME}}-android": ["common"],
+    "{{PROJECT_NAME}}-ios": ["common"],
+    "{{PROJECT_NAME}}-macos": ["common"]
+
+    // Quality example: give a distribution its own bundle name, e.g.
+    // "{{PROJECT_NAME}}-hd": ["common", "tex_hd"]
+  }
+}

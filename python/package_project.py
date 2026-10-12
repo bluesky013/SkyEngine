@@ -284,9 +284,46 @@ def run_cook(engine, project_dir, platform):
     return result.returncode == 0
 
 
-def select_bundles(preset):
-    """Bundles to package: the preset's explicit list, else [common]."""
-    return list(preset.get('bundles') or ['common'])
+def strip_jsonc(text):
+    """Remove // and /* */ comments so a .jsonc cook config parses as JSON."""
+    import re
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+    text = re.sub(r'(^|[^:])//[^\n]*', r'\1', text)
+    return text
+
+
+def load_distribution_bundles(project_dir, distribution):
+    """Bundles for `distribution` from the project's cook config (single source)."""
+    for name in ('asset_cook.jsonc', 'asset_build_presets.json'):
+        cfg = project_dir / 'configs' / name
+        if not cfg.is_file():
+            continue
+        try:
+            data = json.loads(strip_jsonc(cfg.read_text(encoding='utf-8')))
+        except ValueError:
+            continue
+        dists = data.get('distributions') or {}
+        if distribution in dists:
+            return [str(b) for b in dists[distribution]]
+    return None
+
+
+def select_bundles(project_dir, preset):
+    """Bundles to package: preset `bundles`, else the cook config distribution, else [common]."""
+    if preset.get('bundles'):
+        return list(preset['bundles'])
+    from_dist = load_distribution_bundles(project_dir, preset.get('name', ''))
+    if from_dist:
+        return from_dist
+    return ['common']
+
+
+def check_bundle_conflicts(bundles):
+    seen = set()
+    for name in bundles:
+        if name in seen:
+            raise SystemExit('bundle 列表重复: {}'.format(name))
+        seen.add(name)
 
 
 def stage_bundles(project_dir, preset, dest_products_dir):
@@ -295,7 +332,8 @@ def stage_bundles(project_dir, preset, dest_products_dir):
     Cooked bundles are read from <Project>/products/<bundle> (cook output);
     bundles without cooked output are still listed (the runtime falls back).
     """
-    bundles = select_bundles(preset)
+    bundles = select_bundles(project_dir, preset)
+    check_bundle_conflicts(bundles)
     dest_products_dir.mkdir(parents=True, exist_ok=True)
     for name in bundles:
         src = project_dir / 'products' / name
