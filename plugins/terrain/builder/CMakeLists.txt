@@ -25,4 +25,4 @@ sky_add_library(TARGET SkyTerrain.Builder SHARED
         TerrainBuilder.Static
 )
 
-sky_add_dependency(TARGET SkyTerrain.Builder DEPENDENCIES Launcher)
+sky_add_dependency(TARGET SkyTerrain.Builder DEPENDENCIES Launcher SandboxEditor AssetTool)

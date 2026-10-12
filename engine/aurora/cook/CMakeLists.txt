@@ -39,7 +39,7 @@ sky_add_library(TARGET Aurora.Cook SHARED
     LINK_LIBS
         AuroraCook.Static
     )
-sky_add_dependency(TARGET Aurora.Cook DEPENDENCIES Launcher Editor SandboxEditor)
+sky_add_dependency(TARGET Aurora.Cook DEPENDENCIES Launcher Editor SandboxEditor AssetTool)
 
 if (SKY_BUILD_TEST)
     file(GLOB_RECURSE TEST_FILES test/*)

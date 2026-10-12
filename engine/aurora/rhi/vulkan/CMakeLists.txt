@@ -51,4 +51,4 @@ if(ANDROID)
     target_compile_definitions(Aurora.Vulkan PUBLIC -DVMA_VULKAN_VERSION=1002000)
 endif()
 
-sky_add_dependency(TARGET Aurora.Vulkan DEPENDENCIES Launcher Editor AuroraTest)
+sky_add_dependency(TARGET Aurora.Vulkan DEPENDENCIES Launcher Editor AuroraTest SandboxEditor)

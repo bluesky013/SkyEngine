@@ -26,4 +26,4 @@ sky_add_library(TARGET Content.Builder.Module SHARED
         Content.Adaptor
         Framework
 )
-sky_add_dependency(TARGET Content.Builder.Module DEPENDENCIES Launcher)
+sky_add_dependency(TARGET Content.Builder.Module DEPENDENCIES Launcher SandboxEditor AssetTool)

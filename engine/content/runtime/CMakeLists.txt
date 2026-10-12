@@ -9,4 +9,4 @@ sky_add_library(TARGET Content.Module SHARED
         Content.Adaptor
         Framework
 )
-sky_add_dependency(TARGET Content.Module DEPENDENCIES Launcher)
+sky_add_dependency(TARGET Content.Module DEPENDENCIES Launcher SandboxEditor)

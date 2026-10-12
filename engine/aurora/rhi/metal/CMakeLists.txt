@@ -32,4 +32,4 @@ sky_add_library(TARGET Aurora.Metal SHARED
         ${METAL_EXT_LIBS}
 )
 
-sky_add_dependency(TARGET Aurora.Metal DEPENDENCIES Launcher Editor AuroraTest)
+sky_add_dependency(TARGET Aurora.Metal DEPENDENCIES Launcher Editor AuroraTest SandboxEditor)

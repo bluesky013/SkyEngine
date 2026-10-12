@@ -76,9 +76,10 @@ namespace {
                 // Builder modules register the concrete AssetBuilders; missing DLLs are
                 // skipped by ModuleManager and cooks then fail observably.
                 moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {}});
-                moduleManager->RegisterModule(ModuleInfo{"SkyRender.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
+                moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
+                moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {}});
             }
             return true;
         }

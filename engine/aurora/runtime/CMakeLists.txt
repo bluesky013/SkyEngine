@@ -20,4 +20,4 @@ if (TARGET Aurora.Metal)
 endif()
 
 # build Aurora.Render before the launcher so its dll lands next to the exe
-sky_add_dependency(TARGET Aurora.Render DEPENDENCIES Launcher)
+sky_add_dependency(TARGET Aurora.Render DEPENDENCIES Launcher SandboxEditor)

@@ -423,17 +423,26 @@ def _resolve(project_arg, preset_name):
     return project_dir, preset, tokens, credentials
 
 
-def _generate(engine, project_dir, preset, tokens, credentials):
+def _prepare(engine, project_dir, preset, tokens, credentials, build):
+    """Generate the platform project, cook, and stage the selected bundles.
+
+    With `build`, also run the platform build (gradle assemble / cmake build) and
+    collect the artifact.
+    """
     platform = preset['platform']
     if platform == 'android':
         out_dir = project_dir / 'build' / 'android'
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
         run_cook(engine, project_dir, 'android')
         stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
+        if build:
+            package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
     elif platform in ('ios', 'macos'):
-        run_cmake_preset(engine, project_dir, platform, build=False,
+        run_cmake_preset(engine, project_dir, platform, build=build,
                          extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
                          extra_build=preset.get('extraBuildArgs') or [])
+        run_cook(engine, project_dir, platform)
+        stage_bundles(project_dir, preset, project_dir / 'build' / platform / 'bin' / 'products')
     else:
         raise SystemExit('不支持的平台: {}'.format(platform))
 
@@ -441,30 +450,14 @@ def _generate(engine, project_dir, preset, tokens, credentials):
 def cmd_generate(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
-    _generate(engine, project_dir, preset, tokens, credentials)
+    _prepare(engine, project_dir, preset, tokens, credentials, build=False)
     return 0
 
 
 def cmd_package(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
-    platform = preset['platform']
-    variant = preset.get('variant', 'debug')
-
-    if platform == 'android':
-        out_dir = project_dir / 'build' / 'android'
-        instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
-        run_cook(engine, project_dir, 'android')
-        stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
-        package_android(out_dir, project_dir, tokens, variant)
-    elif platform in ('ios', 'macos'):
-        run_cmake_preset(engine, project_dir, platform, build=True,
-                         extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
-                         extra_build=preset.get('extraBuildArgs') or [])
-        run_cook(engine, project_dir, platform)
-        stage_bundles(project_dir, preset, project_dir / 'build' / platform / 'bin' / 'products')
-    else:
-        raise SystemExit('不支持的平台: {}'.format(platform))
+    _prepare(engine, project_dir, preset, tokens, credentials, build=True)
     return 0
 
 

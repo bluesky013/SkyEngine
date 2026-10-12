@@ -27,4 +27,4 @@ sky_add_library(TARGET SkyAudio.Builder SHARED
     LINK_LIBS
         AudioBuilder.Static
 )
-sky_add_dependency(TARGET SkyAudio.Builder DEPENDENCIES Launcher)
+sky_add_dependency(TARGET SkyAudio.Builder DEPENDENCIES Launcher SandboxEditor AssetTool)
