@@ -21,6 +21,14 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/World.h>
 
+#if defined(SKY_MODULE_STATIC)
+namespace sky {
+    class ModuleManager;
+}
+// Provided by the generated RegisterStaticModules.cpp (static module packaging).
+extern "C" void SkyEngineRegisterStaticModules(sky::ModuleManager &manager);
+#endif
+
 static const char *TAG = "Application";
 
 namespace sky {
@@ -90,9 +98,12 @@ namespace sky {
             return false;
         }
 
-        // load dynamic modules
+        // load modules (static bundling registers compiled-in modules first)
         if (moduleManager) {
             LOG_I(TAG, "Load Engine Module...");
+#if defined(SKY_MODULE_STATIC)
+            SkyEngineRegisterStaticModules(*moduleManager);
+#endif
             moduleManager->TopoSort();
             moduleManager->LoadModules(arguments);
             moduleManager->StartModules();

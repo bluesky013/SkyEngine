@@ -30,7 +30,7 @@ android {
         externalNativeBuild {
             cmake {
                 abiFilters '{{ANDROID_ABI}}'
-                arguments "-D3RD_PATH=${System.getenv('SKY_3RD_PATH')}", '-DSKY_BUILD_EDITOR=OFF', '-DANDROID_TOOLCHAIN=clang', '-DANDROID_STL=c++_static'
+                , '-DSKY_MODULE_PACKAGING={{MODULE_PACKAGING}}'
             }
         }
     }

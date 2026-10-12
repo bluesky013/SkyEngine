@@ -67,3 +67,15 @@ set(SKY_BUNDLE_ID "com.skyengine.launcher" CACHE STRING "Launcher bundle/applica
 set(SKY_APPLE_TEAM_ID "" CACHE STRING "Apple DEVELOPMENT_TEAM for code signing")
 set(SKY_APPLE_SIGNING_IDENTITY "" CACHE STRING "Apple code signing identity")
 set(SKY_APPLE_PROVISIONING_PROFILE "" CACHE STRING "Apple provisioning profile")
+
+# Runtime module packaging: `dynamic` (one shared library per module, dlopen) or
+# `static` (modules compiled into the host + a registration cpp generated from the
+# plugin config). Default dynamic = no behavior change. See the
+# `add-static-module-bundling` change.
+set(SKY_MODULE_PACKAGING "dynamic" CACHE STRING "Runtime module packaging: dynamic | static")
+
+# Static packaging defines SKY_MODULE_STATIC process-wide so the framework's
+# registration hook and every module's tagged factory compile consistently.
+if (SKY_MODULE_PACKAGING STREQUAL "static")
+    add_compile_definitions(SKY_MODULE_STATIC)
+endif()

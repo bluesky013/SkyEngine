@@ -5,7 +5,7 @@ include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
 sky_find_3rd(TARGET bullet3 DIR bullet3)
 
-sky_add_library(TARGET BulletPhysicsModule SHARED
+sky_add_module(TARGET BulletPhysicsModule
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -21,7 +21,7 @@ sky_add_library(TARGET BulletPhysicsModule SHARED
 
 # Render bridge module: registers the physics mesh provider with a render-mesh converter.
 # Lives in the bullet plugin so the physics core stays interface-only and legacy render is not used.
-sky_add_library(TARGET BulletPhysicsRenderModule SHARED
+sky_add_module(TARGET BulletPhysicsRenderModule
     SOURCES
         render/BulletPhysicsRenderModule.cpp
     LINK_LIBS

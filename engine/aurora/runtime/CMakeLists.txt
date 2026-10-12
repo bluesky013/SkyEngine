@@ -1,6 +1,6 @@
 # Runtime render module (launcher-facing dynamic module), symmetric with
 # engine/aurora/editor. Links the static bridge and registers AuroraModule.
-sky_add_library(TARGET Aurora.Render SHARED
+sky_add_module(TARGET Aurora.Render
     SOURCES
         src/AuroraRegistry.cpp
     LINK_LIBS

@@ -33,7 +33,7 @@ sky_add_library(TARGET Aurora.ShaderCompiler.Static STATIC
 
 # Optional framework module: registers the compiler into ShaderCompilerFactory.
 # Apps that omit it fall back to cache-only shader resolution.
-sky_add_library(TARGET Aurora.ShaderCompiler SHARED
+sky_add_module(TARGET Aurora.ShaderCompiler
     SOURCES
         module/AuroraShaderCompilerModule.cpp
     LINK_LIBS

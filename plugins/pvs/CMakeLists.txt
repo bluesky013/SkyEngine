@@ -49,7 +49,7 @@ sky_add_library(TARGET PVS.Render STATIC
         RenderCore
 )
 
-sky_add_library(TARGET PVS SHARED
+sky_add_module(TARGET PVS
     SOURCES
         runtime/Registry.cpp
     LINK_LIBS

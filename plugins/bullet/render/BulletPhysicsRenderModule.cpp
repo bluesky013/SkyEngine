@@ -71,4 +71,4 @@ namespace sky::phy {
     };
 
 } // namespace sky::phy
-REGISTER_MODULE(sky::phy::BulletPhysicsRenderModule)
+REGISTER_MODULE_TAGGED(BulletPhysicsRenderModule, sky::phy::BulletPhysicsRenderModule)

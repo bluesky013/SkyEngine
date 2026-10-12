@@ -26,7 +26,7 @@ sky_add_library(TARGET XRModule.Static STATIC
         3rdParty::OpenXR
 )
 
-sky_add_library(TARGET XRModule SHARED
+sky_add_module(TARGET XRModule
     SOURCES
         XRModule.cpp
     PRIVATE_INC

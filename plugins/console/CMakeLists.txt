@@ -11,7 +11,7 @@ endif()
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
-sky_add_library(TARGET ConsoleModule SHARED
+sky_add_module(TARGET ConsoleModule
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

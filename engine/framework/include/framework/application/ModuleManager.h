@@ -26,6 +26,11 @@ namespace sky {
 
         void RegisterModule(const ModuleInfo &info);
 
+        // Register a module that is compiled into the host (static bundling); it is
+        // loaded/started alongside dynamic modules but never dlopen'd. `id` is the
+        // module's target name (the same name used in the module configs).
+        void AddStaticModule(const std::string &id, std::unique_ptr<IModule> module);
+
         void TopoSort();
 
         template <typename F, typename C>

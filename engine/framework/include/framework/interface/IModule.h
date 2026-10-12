@@ -45,3 +45,22 @@ namespace sky {
     {                                                                                                                                                \
         sky::Environment::Detach();                                                                                                                  \
     }
+
+// Module registration for static bundling. When the module is compiled into the
+// host (`SKY_MODULE_STATIC`), it exposes a uniquely-named factory (tag = the
+// module's target/module id) instead of the `StartModule` dlopen shim, so several
+// modules can be linked together without symbol clashes. A generated registration
+// cpp (from the plugin config) calls `sky_module_create_<tag>()` for each.
+#if defined(SKY_MODULE_STATIC)
+#define REGISTER_MODULE_TAGGED(tag, name)                                                                                                            \
+    extern "C" SKY_EXPORT sky::IModule *sky_module_create_##tag()                                                                                    \
+    {                                                                                                                                                \
+        return new name();                                                                                                                           \
+    }                                                                                                                                                \
+    extern "C" SKY_EXPORT void sky_module_destroy_##tag(sky::IModule *module)                                                                        \
+    {                                                                                                                                                \
+        delete module;                                                                                                                               \
+    }
+#else
+#define REGISTER_MODULE_TAGGED(tag, name) REGISTER_MODULE(name)
+#endif

@@ -2,7 +2,7 @@ set(CURRENT_FOLDER Engine)
 
 file(GLOB_RECURSE MODULE_SRC module/*)
 
-sky_add_library(TARGET Content.Module SHARED
+sky_add_module(TARGET Content.Module
     SOURCES
         ${MODULE_SRC}
     LINK_LIBS

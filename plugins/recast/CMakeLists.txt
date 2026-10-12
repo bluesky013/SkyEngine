@@ -5,7 +5,7 @@ include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
 sky_find_3rd(TARGET recast DIR recast)
 
-sky_add_library(TARGET RecastNavigation SHARED
+sky_add_module(TARGET RecastNavigation
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

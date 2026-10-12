@@ -38,6 +38,7 @@ TOKEN_KEYS = [
     '{{TARGET_SDK}}',
     '{{NDK_VERSION}}',
     '{{ANDROID_ABI}}',
+    '{{MODULE_PACKAGING}}',
     '{{ANDROID_KEYSTORE_PATH}}',
     '{{ANDROID_KEYSTORE_ALIAS}}',
     '{{ANDROID_STORE_PASSWORD}}',
@@ -172,6 +173,7 @@ def base_tokens(descriptor):
         '{{TARGET_SDK}}': '33',
         '{{NDK_VERSION}}': '28.1.13356709',
         '{{ANDROID_ABI}}': 'arm64-v8a',
+        '{{MODULE_PACKAGING}}': 'dynamic',
         '{{APPLICATION_ID}}': namespace,
         '{{ANDROID_KEYSTORE_PATH}}': '',
         '{{ANDROID_KEYSTORE_ALIAS}}': '',
@@ -193,6 +195,7 @@ def build_tokens(descriptor, preset, credentials):
     tokens['{{TARGET_SDK}}'] = str(preset.get('targetSdk', 33))
     tokens['{{NDK_VERSION}}'] = str(preset.get('ndkVersion', '28.1.13356709'))
     tokens['{{ANDROID_ABI}}'] = (preset.get('abis') or ['arm64-v8a'])[0]
+    tokens['{{MODULE_PACKAGING}}'] = str(preset.get('packing', 'dynamic'))
 
     if preset.get('platform') == 'android':
         android = android_credentials(credentials, preset.get('keystore', 'release'))
@@ -235,6 +238,7 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
         args.append('-DSKY_BUNDLE_ID=' + str(bundle_id))
     if preset.get('platform') == 'macos' and preset.get('bundle'):
         args.append('-DSKY_MACOS_BUNDLE=ON')
+    args.append('-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic')))
 
     apple = apple_credentials(credentials)
     team = preset.get('team') or apple['teamId']

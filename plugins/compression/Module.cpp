@@ -23,4 +23,4 @@ namespace sky {
         }
     };
 } // namespace sky
-REGISTER_MODULE(sky::CompressionModule)
+REGISTER_MODULE_TAGGED(CompressionModule, sky::CompressionModule)

@@ -20,7 +20,7 @@ sky_add_library(TARGET AudioBackend.Static STATIC
         3rdParty::miniaudio
 )
 
-sky_add_library(TARGET AudioModule SHARED
+sky_add_module(TARGET AudioModule
     SOURCES
         AudioModule.cpp
     PRIVATE_INC

@@ -61,4 +61,4 @@ namespace sky {
     };
 
 } // namespace sky
-REGISTER_MODULE(sky::AudioModule)
+REGISTER_MODULE_TAGGED(AudioModule, sky::AudioModule)

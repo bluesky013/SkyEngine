@@ -80,6 +80,14 @@ namespace sky {
 
     std::string MacosPlatform::GetBundlePath() const
     {
+        // Directory containing the executable. For a plain executable this is the
+        // containing folder; for a `.app` it is `<App>.app/Contents/MacOS`, matching
+        // the `$<TARGET_FILE_DIR>` deploy convention (configs/assets are copied next
+        // to the executable, not to the bundle root `bundlePath`).
+        NSString *exe = [[NSBundle mainBundle] executablePath];
+        if (exe != nil) {
+            return std::filesystem::path([exe UTF8String]).parent_path().string();
+        }
         auto *path = [[NSBundle mainBundle] bundlePath];
         return [path UTF8String];
     }

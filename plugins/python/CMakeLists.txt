@@ -19,7 +19,7 @@ endif ()
 
 sky_find_3rd(TARGET cpython DIR cpython)
 
-sky_add_library(TARGET PythonModule SHARED
+sky_add_module(TARGET PythonModule
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

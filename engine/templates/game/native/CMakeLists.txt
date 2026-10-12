@@ -79,6 +79,18 @@ add_subdirectory(source)
 # Bind every `DEPENDENCIES Launcher` registration (engine, plugins) to this launcher.
 sky_set_dependency(TARGET Launcher)
 
+# Static module packaging: generate the registration cpp from the statically built
+# modules and link them into the launcher (their code is compiled in, not dlopen'd).
+if (SKY_MODULE_PACKAGING STREQUAL "static")
+    set(_sky_static_reg "${CMAKE_CURRENT_BINARY_DIR}/RegisterStaticModules.cpp")
+    sky_generate_static_modules("${_sky_static_reg}")
+    target_sources(Launcher PRIVATE "${_sky_static_reg}")
+    get_property(_sky_static_targets GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS)
+    if (_sky_static_targets)
+        target_link_libraries(Launcher ${_sky_static_targets})
+    endif ()
+endif ()
+
 # Deploy the engine builtin configs first, then the project configs (project wins).
 # A custom target is used because `Launcher` is defined in a subdirectory.
 add_custom_target({{PROJECT_NAME}}Deploy ALL

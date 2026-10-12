@@ -35,4 +35,4 @@ namespace sky::net {
 
 } // namespace sky::net
 
-REGISTER_MODULE(sky::net::EnetNetworkModule)
+REGISTER_MODULE_TAGGED(EnetNetwork, sky::net::EnetNetworkModule)

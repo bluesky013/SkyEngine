@@ -11,7 +11,7 @@ endif ()
 
 sky_find_3rd(TARGET enet DIR enet)
 
-sky_add_library(TARGET EnetNetwork SHARED
+sky_add_module(TARGET EnetNetwork
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

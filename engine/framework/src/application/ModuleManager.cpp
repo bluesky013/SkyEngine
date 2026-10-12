@@ -69,9 +69,31 @@ namespace sky {
         }, sortedContainer);
     }
 
+    void ModuleManager::AddStaticModule(const std::string &id, std::unique_ptr<IModule> module)
+    {
+        // Duplicate static registration (e.g. the same module registered by two
+        // entries): keep the first deterministically and report it.
+        if (modules.find(id) != modules.end()) {
+            LOG_W(TAG, "Static module '%s' already registered; ignoring duplicate", id.c_str());
+            return;
+        }
+        // Ensure the id participates in the load/start order (same graph as dynamic).
+        RegisterModule(ModuleInfo{id, {}});
+        modules.emplace(id, std::move(module));
+    }
+
     void ModuleManager::LoadModules(const StartArguments &args)
     {
         WalkModules([this, &args](const std::string &moduleName) {
+            // Statically bundled (compiled-in registration): no dlopen, just Init.
+            if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
+                LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
+                if (!staticIt->second->Init(args)) {
+                    LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
+                }
+                return;
+            }
+
             auto dynModule = std::make_unique<DynamicModule>(moduleName);
             LOG_I(TAG, "Load Module : %s", moduleName.c_str());
             if (dynModule->Load()) {
@@ -89,7 +111,15 @@ namespace sky {
                 dynLibs.emplace(moduleName, std::move(dynModule));
                 LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
             } else {
+#if defined(SKY_MODULE_STATIC)
+                // Static packaging: a missing module means it was not compiled in.
+                LOG_E(TAG,
+                      "Load Module : '%s' Failed, [%s] - not statically registered (declare its target via "
+                      "sky_add_module + REGISTER_MODULE_TAGGED and list it in the runtime module config)",
+                      moduleName.c_str(), dynModule->GetLastError().c_str());
+#else
                 LOG_E(TAG, "Load Module : %s Failed, [%s]", moduleName.c_str(), dynModule->GetLastError().c_str());
+#endif
             }
         }, sortedContainer);
     }

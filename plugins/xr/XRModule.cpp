@@ -84,4 +84,4 @@ namespace sky {
     {
     }
 }
-REGISTER_MODULE(sky::XRModule)
+REGISTER_MODULE_TAGGED(XRModule, sky::XRModule)

@@ -38,6 +38,10 @@ namespace sky {
         int                      minSdk     = 29;
         int                      targetSdk  = 33;
         std::string              ndkVersion = "28.1.13356709";
+
+        // Runtime module packaging: dynamic | static (static compiles selected
+        // modules into the host via a generated registration).
+        std::string packing = "dynamic";
     };
 
     struct ExportPresets {

@@ -119,6 +119,7 @@ namespace sky {
             preset.minSdk              = ReadInt(entry, "minSdk", 29);
             preset.targetSdk           = ReadInt(entry, "targetSdk", 33);
             preset.ndkVersion          = ReadString(entry, "ndkVersion", "28.1.13356709");
+            preset.packing             = ReadString(entry, "packing", "dynamic");
             if (entry.HasMember("bundles")) {
                 preset.bundles = ReadArray(entry["bundles"]);
             }
@@ -154,6 +155,7 @@ namespace sky {
             json += ", \"minSdk\": " + std::to_string(p.minSdk);
             json += ", \"targetSdk\": " + std::to_string(p.targetSdk);
             json += ", \"ndkVersion\": " + Quote(p.ndkVersion);
+            json += ", \"packing\": " + Quote(p.packing);
             json += " }";
             json += (i + 1 == presets.size()) ? "\n" : ",\n";
         }
@@ -243,6 +245,12 @@ namespace sky {
                 .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Android")))
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(44))
             .Member<&ExportPreset::ndkVersion>("ndkVersion")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("NDK Version")))
+                .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Android")))
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(45))
+            .Member<&ExportPreset::packing>("packing")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Module Packing (dynamic|static)")))
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(50))
                 .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("NDK Version")))
                 .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Android")))
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(45));

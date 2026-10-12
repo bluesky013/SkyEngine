@@ -5,7 +5,7 @@ include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
 sky_find_3rd(TARGET lz4 DIR lz4)
 
-sky_add_library(TARGET CompressionModule SHARED
+sky_add_module(TARGET CompressionModule
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

@@ -59,6 +59,36 @@ The packaging options reuse the `add-game-project-build` preset schema: a `packi
 Some platforms restrict loading unsigned code (iOS): a project targeting them may require static bundling. The mode
 is a packaging choice, not a hard platform switch, but the design must allow a platform preset to default to static.
 
+### D6. Revised mechanism: tagged factory + plugin-config-driven generated registration
+
+Implementation refines D1/D2/D4 (no `<Name>.Dynamic` shim split, no hand `SKY_STATIC_MODULES` list):
+
+- **One macro**: `REGISTER_MODULE_TAGGED(tag, name)` (`IModule.h`). `SKY_MODULE_STATIC` defined → a uniquely named
+  factory `sky_module_create_<tag>()` (tag = the module's target/module id); otherwise it falls back to the existing
+  `REGISTER_MODULE` dlopen shim. So a module is compiled SHARED (dynamic) or STATIC (tagged) from the same source.
+- **Source of the static set = the plugin config**: `plugins/plugins.json` (`enabled`) + each `plugins/<x>/plugin.json`
+  `targets` tagged with `kind` (`runtime`/`render`/`editor`), plus an engine-side `engine/runtime_modules.json` for
+  non-plugin runtime modules. This reuses the existing "which plugins are built" source of truth (D2) with no new list.
+- **Generated registration cpp** (configure-time, only when `SKY_MODULE_PACKAGING=static`): reads that config and emits
+  `RegisterStaticModules.cpp` declaring `sky_module_create_<tag>()` and calling `ModuleManager::AddStaticModule("<id>", …)`.
+- **Option**: `SKY_MODULE_PACKAGING=dynamic|static` (`cmake/options.cmake`), default `dynamic` (no behavior change).
+- **Runtime**: `ModuleManager::AddStaticModule` registers compiled-in modules; `LoadModules` skips dlopen for them and
+  still calls `Init`. Static modules share the host process `Environment` (no `Attach`/`Detach`).
+
+### D7. Resolution diagnostics
+
+`ModuleManager` reports module-resolution problems explicitly (needed for both shapes):
+
+- **Missing static registration** (`SKY_MODULE_STATIC` build): an id that is neither statically registered nor
+  loadable dynamically logs an error stating it must be compiled in (`sky_add_module` + `REGISTER_MODULE_TAGGED`) and
+  listed in the runtime module config.
+- **Dynamic load failure**: the loader's error string (`DynamicModule::GetLastError`) is included in the log.
+- **Duplicate static registration**: `AddStaticModule` on an existing id logs a warning and keeps the first
+  registration (deterministic; no double `Init`).
+- **Editor layering (2.6) is by construction**: only runtime modules declare `sky_add_module`, so editor/`requires_editor`
+  modules stay dynamic and never enter a runtime static bundle (convention + docs; a `kind`-based filter is only
+  needed if selection becomes plugin-config-driven).
+
 ## Risks / Trade-offs
 
 - [Duplicate symbols] -> statically linking many modules can collide (especially third-party). Mitigation: bundle as

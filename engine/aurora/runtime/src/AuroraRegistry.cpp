@@ -4,4 +4,4 @@
 
 #include <aurora/adaptor/AuroraModule.h>
 
-REGISTER_MODULE(sky::aurora::AuroraModule)
+REGISTER_MODULE_TAGGED(Aurora_Render, sky::aurora::AuroraModule)

@@ -108,6 +108,21 @@ Android build prerequisites (from the environment):
 - `JAVA_HOME` with a Gradle-compatible JDK (Gradle 8.10.2 supports up to Java 22; JDK 17/21 recommended). Some
   IDE-bundled runtimes are too new (e.g. a Java 25 JBR fails with `Unsupported class file major version 69`).
 
+### Module packaging (dynamic / static)
+
+Runtime modules are built and loaded two ways, selected by an option / export preset:
+
+- **dynamic** (default): each module is a shared library (`REGISTER_MODULE`), loaded by `ModuleManager` via dlopen.
+- **static** (`SKY_MODULE_PACKAGING=static`, preset `packing`): modules are compiled into the host. Each uses
+  `REGISTER_MODULE_TAGGED(tag, name)` producing a unique `sky_module_create_<tag>()` factory (tag = target name with
+  `.`/`-` -> `_`). At configure time `sky_generate_static_modules()` emits `RegisterStaticModules.cpp` from the
+  modules declared via `sky_add_module()`; the project launcher links those static modules plus the generated cpp,
+  and `Application` calls `SkyEngineRegisterStaticModules(ModuleManager&)` before `LoadModules`. Static bundling also
+  applies on platforms where dlopen of module code is restricted (e.g. iOS).
+
+Modules opt in by declaring their target with `sky_add_module(...)` (instead of `sky_add_library(... SHARED)`) and
+using `REGISTER_MODULE_TAGGED`.
+
 ### Packaging ships cooked products
 
 A shipped project packages the target platform's **cooked product bundles** (`product.index` plus `<uuid>.bin`
