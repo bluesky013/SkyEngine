@@ -69,6 +69,10 @@ namespace sky {
         // Bundles for a platform preset (empty when the preset is unknown).
         std::vector<std::string> GetPresetBundles(const std::string &platform) const;
 
+        // Bundles for a distribution (export-preset name). A distribution may share
+        // a platform but select a different bundle set (e.g. normal vs HD).
+        std::vector<std::string> GetDistributionBundles(const std::string &distribution) const;
+
         // Cook execution mode (D5). Defaults to in-process.
         CookMode GetMode() const
         {
@@ -97,6 +101,7 @@ namespace sky {
         std::unordered_map<std::string, CookTarget>               targets;         // target name -> definition
         std::vector<std::string>                                  bundles;         // all product bundles
         std::unordered_map<std::string, std::vector<std::string>> presets;         // platform -> bundles
+        std::unordered_map<std::string, std::vector<std::string>> distributions;   // distribution -> bundles
 
         CookMode    mode = CookMode::InProcess;
         std::string workerPath;

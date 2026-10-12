@@ -117,3 +117,17 @@ project's cooked bundle) and requires no source catalog.
 
 The project launcher's `--project <dir>` is a **development** mode: it mounts the project tree (including `assets/`)
 and relies on on-demand cook in the editor. It is a convenience, not the shipping layout.
+
+### Product bundles in a package
+
+A package ships only the bundles a **distribution** needs (an export preset), so a platform can ship several packages
+without cross-tier UUID conflicts (quality tiers use distinct bundle names, e.g. `tex_low` vs `tex_hd`):
+
+- Bundles are staged under `products/<bundle>/`:
+  - **Android** → the APK's `assets/products/<bundle>/` (read at runtime via the APK asset filesystem).
+  - **desktop / iOS** → `products/<bundle>/` next to the launcher (`.app` → `Contents/Resources/products/`).
+- `package_project.py` copies `<Project>/products/<bundle>` for each selected bundle and writes
+  **`products/bundles.json`** (`{ platform, distribution, bundles: [...] }`). Selection comes from the preset's
+  `bundles` list, else the cook config's distribution.
+- `GameApplication` reads `products/bundles.json` and mounts **exactly** those bundles (no filesystem enumeration);
+  when the manifest is absent it falls back to `common`. `--project` dev mode skips product bundles.

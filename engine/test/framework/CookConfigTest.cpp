@@ -47,18 +47,28 @@ TEST(CookConfigTest, BundlesAndPresets)
     CookConfig config;
 
     const std::string json = R"({
-        "bundles": ["common", "tex_pc", "tex_mobile"],
-        "presets": { "windows": ["common", "tex_pc"], "ios": ["common", "tex_mobile"] }
+        "bundles": ["common", "tex_pc", "tex_mobile", "tex_low", "tex_hd"],
+        "presets": { "windows": ["common", "tex_pc"], "ios": ["common", "tex_mobile"] },
+        "distributions": { "game-normal": ["common", "tex_low"], "game-hd": ["common", "tex_hd"] }
     })";
 
     ASSERT_TRUE(config.Parse(json));
-    EXPECT_EQ(config.GetBundles().size(), 3U);
+    EXPECT_EQ(config.GetBundles().size(), 5U);
 
     const auto win = config.GetPresetBundles("windows");
     ASSERT_EQ(win.size(), 2U);
     EXPECT_EQ(win[1], "tex_pc");
 
     EXPECT_TRUE(config.GetPresetBundles("linux").empty());
+
+    // Two distributions on the same platform pick different bundles (normal vs HD).
+    const auto normal = config.GetDistributionBundles("game-normal");
+    ASSERT_EQ(normal.size(), 2U);
+    EXPECT_EQ(normal[1], "tex_low");
+    const auto hd = config.GetDistributionBundles("game-hd");
+    ASSERT_EQ(hd.size(), 2U);
+    EXPECT_EQ(hd[1], "tex_hd");
+    EXPECT_TRUE(config.GetDistributionBundles("unknown").empty());
 }
 
 TEST(CookConfigTest, AssetTargetSettingsOverride)

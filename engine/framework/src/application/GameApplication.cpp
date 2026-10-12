@@ -17,29 +17,79 @@
 
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetProductBundle.h>
 #include <framework/platform/PlatformBase.h>
+
+#include <vector>
 
 static const char *TAG = "Application";
 static const char *CONFIG_PATH = "configs/modules_game.json";
 
 namespace sky {
 
+    namespace {
+        // Product bundles are packaged under `products/<bundle>/` with a
+        // `products/bundles.json` manifest (see the add-packaged-asset-bundles
+        // change). Mount exactly the listed bundles; fall back to `common` when the
+        // manifest is absent (e.g. a dev/source run).
+        void MountProductBundles(const FileSystemPtr &root)
+        {
+            std::vector<std::string> bundles;
+            if (FilePtr manifest = root->OpenFile("products/bundles.json")) {
+                std::string text;
+                if (manifest->ReadString(text)) {
+                    rapidjson::Document document;
+                    document.Parse(text.c_str());
+                    if (!document.HasParseError() && document.HasMember("bundles") && document["bundles"].IsArray()) {
+                        for (const auto &entry : document["bundles"].GetArray()) {
+                            if (entry.IsString()) {
+                                bundles.emplace_back(entry.GetString());
+                            }
+                        }
+                    }
+                }
+            }
+            if (bundles.empty()) {
+                bundles.emplace_back("common");
+            }
+            for (const auto &key : bundles) {
+                auto bundleFs = root->CreateSubSystem("products/" + key, false);
+                AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, key));
+                LOG_I(TAG, "mounted product bundle '%s'", key.c_str());
+            }
+        }
+
+        bool HasProjectArg(int argc, char **argv)
+        {
+            for (int i = 1; i < argc; ++i) {
+                if (std::string(argv[i]) == "--project") {
+                    return true;
+                }
+            }
+            return false;
+        }
+    } // namespace
+
     bool GameApplication::Init(int argc, char **argv)
     {
+        // Product bundles are a packaged-build concern; `--project` dev mode mounts
+        // the project tree (source assets) later in ParseStartArgs.
+        const bool mountBundles = !HasProjectArg(argc, argv);
 #if __ANDROID__
-        workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());//Platform::Get()->GetBundleFileSystem();
-//        workFs = std::make_shared<NativeFileSystem>(Platform::Get()->GetInternalPath());
-//        AssetManager::Get()->SetWorkPath(workFs);
-
-        std::string bundleKey = "common";
-        auto bundleFs = workFs->CreateSubSystem(bundleKey, false);
-        AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey));
-
+        // Work fs stays the writable internal path (configs); bundles live inside
+        // the APK under assets/products/ and are read via the bundle (asset) fs.
+        workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());
+        if (mountBundles) {
+            MountProductBundles(Platform::Get()->GetBundleFileSystem());
+        }
 #else
         // No project argument outside editor mode: use the bundle path so the
         // builtin configs/assets deployed next to the executable are found.
         workFs = new NativeFileSystem(Platform::Get()->GetBundlePath());
         AssetManager::Get()->SetWorkFileSystem(workFs);
+        if (mountBundles) {
+            MountProductBundles(workFs);
+        }
 #endif
         if (!Application::Init(argc, argv)) {
             return false;

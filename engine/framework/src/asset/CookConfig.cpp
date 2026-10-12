@@ -147,6 +147,19 @@ namespace sky {
                 }
             }
         }
+        if (doc.HasMember("distributions") && doc["distributions"].IsObject()) {
+            for (auto iter = doc["distributions"].MemberBegin(); iter != doc["distributions"].MemberEnd(); ++iter) {
+                if (!iter->value.IsArray()) {
+                    continue;
+                }
+                auto &list = distributions[iter->name.GetString()];
+                for (const auto &bundle : iter->value.GetArray()) {
+                    if (bundle.IsString()) {
+                        list.emplace_back(bundle.GetString());
+                    }
+                }
+            }
+        }
         return true;
     }
 
@@ -154,6 +167,12 @@ namespace sky {
     {
         auto iter = presets.find(platform);
         return iter != presets.end() ? iter->second : std::vector<std::string>{};
+    }
+
+    std::vector<std::string> CookConfig::GetDistributionBundles(const std::string &distribution) const
+    {
+        auto iter = distributions.find(distribution);
+        return iter != distributions.end() ? iter->second : std::vector<std::string>{};
     }
 
     std::string CookConfig::ResolveTargetForPlatform(const std::string &platform) const
