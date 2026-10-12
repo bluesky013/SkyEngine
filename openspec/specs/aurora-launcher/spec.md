@@ -61,11 +61,12 @@ TBD - created by archiving change aurora-launcher-integration. Update Purpose af
 
 ### Requirement: launcher 只加载 AuroraRender（移除 legacy render）
 
-`GameApplication` SHALL 只注册并加载 `AuroraRender` 作为渲染模块，SHALL NOT 再加载 legacy `SkyRender`；`Launcher` SHALL NOT 链接 legacy `RenderAdaptor`。启动参数 SHALL NOT 需要渲染模块选择开关。
+`GameApplication` SHALL 只注册并加载 `AuroraRender` 作为渲染模块，SHALL NOT 再加载 legacy `SkyRender`；the runtime
+host SHALL NOT link legacy `RenderAdaptor`. 启动参数 SHALL NOT 需要渲染模块选择开关。
 
 #### Scenario: 启动即加载 aurora
 
-- **WHEN** launcher 启动（无渲染选择参数）
+- **WHEN** the runtime host starts（无渲染选择参数）
 - **THEN** `ModuleManager` 加载 `AuroraRender`，不加载 `SkyRender`
 
 ### Requirement: 窗口 handle 由宿主提供
@@ -85,19 +86,6 @@ TBD - created by archiving change aurora-launcher-integration. Update Purpose af
 
 - **WHEN** 直接运行 launcher 且无 `-p` 工程（或工程无 configs）
 - **THEN** 从可执行文件旁的内置 `configs/modules_game.json` 加载模块配置
-
-### Requirement: Launcher 编辑器模式
-
-The launcher SHALL support an editor application mode selected by a start argument (`--app editor`) that runs the
-editor host, in addition to its game and XR modes.
-
-#### Scenario: Start the editor
-- **WHEN** the launcher is started with `--app editor`
-- **THEN** it SHALL run the editor host and open the editor window
-
-#### Scenario: Default remains the game mode
-- **WHEN** the launcher is started without `--app editor`
-- **THEN** it SHALL run the game (or XR) application as before
 
 ### Requirement: Launcher 游戏模式从部署的 configs 启动
 

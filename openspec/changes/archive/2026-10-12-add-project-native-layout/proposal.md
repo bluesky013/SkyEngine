@@ -31,7 +31,6 @@ codebase** and produce per-platform build projects from a clean engine-library e
   (engine launcher removal), artifact naming, `build/<platform>` outputs, and CLI-authoritative creation.
 
 ### Modified Capabilities
-- `game-project-build`: the project scaffolding requirement (now `native/`) and the engine-reference requirement (now an independent CMake entry).
 - `editor-project-manager`: the project-descriptor requirement (creation scaffolds `native/` via the CLI).
 - `aurora-launcher`: the "launcher loads only AuroraRender" requirement drops the engine-`Launcher` link clause; the `Launcher --app editor` requirement is removed.
 - `editor-application`: the editor host is `SandboxEditor` only (no `--app editor`).

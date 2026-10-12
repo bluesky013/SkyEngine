@@ -126,9 +126,9 @@ the project's `modules_game.json` must list the platform's runtime module set.
 
 ## Migration Plan
 
-- **Prerequisite**: this change MODIFIES requirements of `game-project-build` and `editor-project-manager`, so
-  `add-game-project-build` SHOULD be archived before (or together with) this one; otherwise the MODIFIED deltas have
-  no base spec to apply to.
+- **Prerequisite**: this change MODIFIES `editor-project-manager` (base exists). The `game-project-build` layout
+  wording is carried by the new `project-native-layout` capability instead of a MODIFIED delta, to be reconciled when
+  `add-game-project-build` is archived.
 - No released projects (`*.skyproj`) exist yet, so the layout change is applied in place.
 - Engine-only dev builds lose their runnable launcher; use `SandboxEditor` or build a project.
 - Rollback: revert the engine-entry/template changes.
