@@ -17,4 +17,4 @@ sky_add_library(TARGET Content.Views SHARED
         Framework
         Core
 )
-sky_add_dependency(TARGET Content.Views DEPENDENCIES Launcher)
+sky_add_dependency(TARGET Content.Views DEPENDENCIES Launcher SandboxEditor)

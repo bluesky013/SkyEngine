@@ -40,7 +40,7 @@ sky_add_library(TARGET Aurora.ShaderCompiler SHARED
         Aurora.ShaderCompiler.Static
         Framework
 )
-sky_add_dependency(TARGET Aurora.ShaderCompiler DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET Aurora.ShaderCompiler DEPENDENCIES Launcher Editor SandboxEditor)
 
 # ---- offline shader codegen (host-only tools) ----
 #

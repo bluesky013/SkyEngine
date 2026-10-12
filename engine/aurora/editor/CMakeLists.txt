@@ -17,3 +17,5 @@ sky_add_library(TARGET Aurora.Render.Editor SHARED
         Framework
         Core
 )
+
+sky_add_dependency(TARGET Aurora.Render.Editor DEPENDENCIES Launcher Editor SandboxEditor)
