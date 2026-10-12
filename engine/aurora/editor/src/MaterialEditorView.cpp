@@ -14,8 +14,8 @@
 #include <core/logger/Logger.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
-#include <editor/shell/AssetViewProvider.h>
-#include <editor/shell/UiDraw.h>
+#include <editor/ui/AssetViewProvider.h>
+#include <editor/ui/UiDraw.h>
 
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
@@ -413,7 +413,7 @@ namespace sky::aurora::editor {
             }
             PersistProperty(static_cast<int>(i));
         }
-        sky::editor::AssetCookService::Get()->TriggerCook(asset);
+        sky::editor::AssetCookService::Get()->RequestCook(asset);
         dirty = false;
         MarkPaintDirty();
         return true;

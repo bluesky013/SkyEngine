@@ -86,6 +86,7 @@ namespace sky::aurora::editor {
         sky::ui::UIRect RowRect(size_t index) const;
         void            CommitValue(int index);
         void            CommitTexture(int index, const Uuid &id);
+        bool            PersistProperty(int index);
         void            OpenPicker(int index, const sky::ui::UIRect &row);
         void            ReloadTechniques();
         void            AddTechnique();
