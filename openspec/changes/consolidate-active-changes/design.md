@@ -1,11 +1,12 @@
 ## Context
 
-`openspec/changes/` currently holds 20 active change directories on top of a large archive (200+ entries).
-Reading the active set shows four problems:
+`openspec/changes/` currently holds **23 active** change directories on top of a large archive (151 entries).
+Reading the active set shows five problems:
 
 1. **Prerequisites are already archived but the dependent change is still listed as ordinary backlog**
    (e.g. `add-network-prediction` sits on archived `add-network-core`/`add-network-replication`;
-   `aurora-scene-bridge` sits on archived `harden-framework-components`).
+   `aurora-scene-bridge` sits on archived `harden-framework-components`; `add-static-module-bundling` sits on
+   archived `add-project-native-layout`).
 2. **Frozen / debt records are mixed in with scheduled work** (`lazy-transform-update` is explicitly frozen;
    `aurora-cook-schema-layering`, `aurora-metal-bindless-descriptor-heap`, `legacy-render-thirdparty-cleanup`
    declare themselves "proposal (unimplemented)").
@@ -13,13 +14,15 @@ Reading the active set shows four problems:
    changes).
 4. **Dangling references** to changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`,
    `navigation-path-query`, `aurora-material-pso`).
-5. **Live drift during this change**: `add-static-python-embedding` was archived mid-flight (its dependents are
-   now unblocked) and task counts moved, confirming the snapshot must be re-derived, not treated as frozen truth.
+5. **Live drift**: the snapshot must be re-derived, not treated as frozen truth. Since the first snapshot the set
+   changed materially: `asset-pipeline` and `add-static-python-embedding` were archived; `export-preset-schema-source`
+   was created and archived; and `add-game-project-build`, `add-static-module-bundling`, `add-ios-platform`,
+   `add-ios-uikit-backend` joined the active set.
 
 Constraints: `AGENTS.md` requires explicit user confirmation before archiving, and requires spec and code for a
 change to ship together. This change records the snapshot and the cleanup checklist; the non-destructive cleanup
 items (C1 parking labels, C3 reference rewording, C4 superseded-row trimming, C5-C7 decision records) have been
-applied with user approval. No change directory was archived.
+applied with user approval. No change directory was archived by this change.
 
 ## Goals / Non-Goals
 
@@ -51,7 +54,7 @@ Each active change is classified as one of:
 Alternatives considered: a free-form prose summary (rejected: not checkable), or a single "keep/delete" flag
 (rejected: loses the frozen-vs-debt distinction that drives the cleanup action).
 
-### Decision: Eight workstreams
+### Decision: Nine workstreams
 
 | ID | Workstream | Members |
 |----|------------|---------|
@@ -60,9 +63,10 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 | WS-WORLD | Terrain / vegetation render + editor tools | `terrain-aurora-render`, `terrain-editor-tools`, `vegetation-aurora-render`, `vegetation-editor-tools`, `navigation-terrain-build-tests` |
 | WS-AUDIO | Audio / animation | `animation-events`, `audio-animation-bridge`, `audio-world-integration` |
 | WS-NET | Network | `add-network-prediction` |
-| WS-ASSET | Asset pipeline | `asset-pipeline` |
+| WS-BUILD | Packaging / platform / build | `add-game-project-build`, `add-static-module-bundling`, `add-ios-platform`, `add-ios-uikit-backend` |
 | WS-RHI | Aurora RHI backlog | `aurora-metal-bindless-descriptor-heap` |
 | WS-DEBT | Framework / build debt (parked) | `lazy-transform-update`, `legacy-render-thirdparty-cleanup`, `aurora-cook-schema-layering` |
+| WS-META | Backlog hygiene | `consolidate-active-changes` |
 
 ### Decision: Classification snapshot
 
@@ -75,27 +79,33 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 | `audio-world-integration` | blocked-on-prereq | on `aurora-renderer` (world/scene attach path) |
 | `aurora-renderer` | active (needs completion) | proposal-only; no `tasks.md`/`design.md`/`specs/` |
 | `aurora-scene-bridge` | blocked-on-prereq | on `aurora-renderer`; seam overlap to resolve |
+| `aurora-navigation-integration` | blocked-on-prereq | on `aurora-renderer`; missing spec/design |
 | `aurora-metal-bindless-descriptor-heap` | debt-record | long-horizon; upstream slang dependency |
 | `aurora-cook-schema-layering` | debt-record | layering debt; no spec delta |
 | `legacy-render-thirdparty-cleanup` | debt-record | blocked on legacy render retirement; no tasks/specs |
 | `lazy-transform-update` | frozen | explicit "Frozen (not scheduled)" |
-| `asset-pipeline` | active (superseded rows trimmed) | 51/59; IPC task rows delivered by archived `asset-cook-ipc` |
 | `navigation-terrain-build-tests` | active | test-only; prereq `terrain-navigation-integration` archived |
 | `terrain-aurora-render` | blocked-on-prereq | on `aurora-renderer` |
 | `terrain-editor-tools` | blocked-on-prereq | on aurora sandbox editor + `terrain-aurora-render` |
 | `vegetation-aurora-render` | blocked-on-prereq | on `aurora-renderer` |
 | `vegetation-editor-tools` | blocked-on-prereq | on aurora sandbox editor + `vegetation-aurora-render` |
 | `add-network-prediction` | active | prereqs archived; needs rebase decision vs `network-lockstep` |
-| `aurora-navigation-integration` | blocked-on-prereq | on `aurora-renderer`; missing spec/design |
+| `add-game-project-build` | active | 17/27; in progress |
+| `add-static-module-bundling` | active | 0/16; prereq `add-project-native-layout` archived |
+| `add-ios-platform` | active | 0/10 |
+| `add-ios-uikit-backend` | active | 8/13 |
+| `consolidate-active-changes` | active (meta) | this change |
 
 ### Decision: Prerequisite graph
 
-- `add-static-python-embedding` (ARCHIVED) -> `add-android-python-runtime` -> `add-python-ssl` (both now active)
+- `add-static-python-embedding` (ARCHIVED) -> `add-android-python-runtime` -> `add-python-ssl`
 - `aurora-renderer` -> `aurora-scene-bridge`, `terrain-aurora-render`, `vegetation-aurora-render`,
   `audio-world-integration`, `aurora-navigation-integration`
 - `terrain-aurora-render` -> `terrain-editor-tools`
 - `vegetation-aurora-render` -> `vegetation-editor-tools`
 - `animation-events` -> `audio-animation-bridge`
+- `add-project-native-layout` (ARCHIVED) -> `add-static-module-bundling`
+- `add-packaged-asset-bundles` (ARCHIVED) -> `add-game-project-build` packaging path
 
 The single highest-leverage prerequisite is `aurora-renderer`: it gates the whole WS-WORLD workstream plus the
 audio-world and navigation-integration attach paths. It is proposal-only, so making it actionable is the primary
@@ -106,10 +116,12 @@ unblocking action.
 - **C1 — Park frozen/debt (decided): labeled "not scheduled", no archive.**
 - **C2 — Proposal-only: `aurora-renderer` needs design/specs/tasks (owner: user).**
 - **C3 — Dangling refs (done): 3 active ones reworded to "not yet a change"; `aurora-renderer` ref owner: user.**
-- **C4 — Superseded rows (done): `asset-pipeline` 10.4/10.5/10.6c/14.4/14.5 marked delivered by archived `asset-cook-ipc`; deferrals marked "no tracking change yet".**
+- **C4 — Superseded rows (done): delivered rows marked; deferrals marked "no tracking change yet".**
 - **C5 — Network (decided): `add-network-prediction` coexists with archived `network-lockstep`; prediction is the active model.**
 - **C6 — Scene seam (decided): `aurora-renderer` owns `RenderSceneProxy`; `aurora-scene-bridge` transfers data only.**
 - **C7 — Follow-ups (decided): no new tracking changes; missing items stay as "not yet a change" notes.**
+- **C8 — Snapshot re-derivation (done): re-derived to the current 23 active changes after mid-flight archives and
+  additions (see Context #5); `export-preset-schema-source` landed and archived cleanly.**
 
 ### Decision: End-state criterion
 
@@ -124,7 +136,7 @@ labeled as not scheduled (or archived); and no active change references a nonexi
 - [Physical merge of directories is risky and loses history] -> Mitigation: explicitly deferred; this change
   only classifies and lists.
 - [The snapshot goes stale quickly] -> Mitigation: treat the checklist as tasks that are re-validated when
-  executed, not a frozen truth.
+  executed, not a frozen truth (C8 re-derived it once already).
 - [Unresolved `aurora-renderer` overlap blocks the largest workstream] -> Mitigation: make completing
   `aurora-renderer` and resolving C6 the top-priority unblocking tasks.
 

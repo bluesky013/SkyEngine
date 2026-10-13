@@ -15,11 +15,12 @@ The codebase is organized around a small set of core engine modules and optional
 | --- | --- | --- |
 | Core runtime | `engine/core` | Math, memory, file system, logging, async utilities |
 | Application framework | `engine/framework` | Windowing, input, assets, world/application services |
-| Rendering | `engine/render` | RHI backends, shader compiler, render core, adaptors, ImGui rendering |
+| Rendering | `engine/aurora` | Aurora RHI, render graph (RDG), shader compiler, scene/ECS |
 | Animation | `engine/animation` | Animation runtime and related systems |
 | Physics abstraction | `engine/physics` | Physics-facing engine interfaces |
 | Navigation abstraction | `engine/navigation` | Navigation-facing engine interfaces |
-| Editor | `engine/editor` | Qt-based editor runtime and tooling |
+| Editor | `engine/sandbox` | Sandbox editor (engine-drawn UI) and its shell/module |
+| Legacy render (deprecated) | `engine/render`, `engine/shader` | Pre-aurora render/shader stack; opt in with `-DSKY_BUILD_LEGACY_RENDER=ON` |
 | Launcher | `<Project>/native` | Game/runtime executable entry point; the engine no longer ships a launcher |
 | Plugins | `plugins` | Optional modules such as Bullet, Recast, FreeType, Terrain, Console, Python, XR |
 | Assets | `assets` | Shaders, materials, textures, splash data, techniques |
@@ -33,7 +34,7 @@ SkyEngine/
 ├── build_3rd/       # Generated third-party output and cache
 ├── cmake/           # Shared CMake configuration and helpers
 ├── configs/         # Runtime module manifests and presets
-├── engine/          # Core engine modules, renderer, editor, launcher, tests
+├── engine/          # Core engine modules, aurora renderer, sandbox editor, tests
 ├── openspec/        # Change proposals, specs, archived design work
 ├── plugins/         # Optional engine plugins controlled by CMake switches
 ├── python/          # Third-party bootstrap and Python utilities
@@ -57,9 +58,11 @@ Install the repository Python dependencies before using the helper scripts:
 python3 -m pip install -r python/requirements.txt
 ```
 
-### Editor-specific dependencies
+### Editor build
 
-The editor is only built when `SKY_BUILD_EDITOR=ON` and Qt5 Widgets is available.
+The editor is the **sandbox editor** (`SandboxEditor` + `SandboxModule`), built with `-DSKY_BUILD_SANDBOX=ON`. It
+uses the engine's own UI stack, not Qt. `-DSKY_BUILD_EDITOR=ON` builds the deprecated legacy Qt editor and is off
+by default.
 
 ## Build Workflow
 
@@ -147,17 +150,23 @@ Common CMake switches:
 
 | Option | Description |
 | --- | --- |
-| `-DSKY_BUILD_EDITOR=ON` | Build the Qt editor |
+| `-DSKY_BUILD_SANDBOX=ON` | Build the sandbox editor and its shell/module |
 | `-DSKY_BUILD_TEST=ON` | Enable test targets and `ctest` |
-| `-DSKY_BUILD_TOOL=ON` | Enable render/tool-related build targets |
+| `-DSKY_BUILD_TOOL=ON` | Build `tools/` developer targets |
+| `-DSKY_BUILD_LEGACY_RENDER=ON` | Build the deprecated pre-aurora render/shader stack (desktop only) |
+| `-DSKY_BUILD_EDITOR=ON` | Build the deprecated legacy Qt editor (off by default) |
 | `-DSKY_BUILD_BULLET=ON/OFF` | Toggle Bullet plugin |
 | `-DSKY_BUILD_RECAST=ON/OFF` | Toggle Recast plugin |
+| `-DSKY_BUILD_TERRAIN=ON/OFF` | Toggle Terrain plugin |
+| `-DSKY_BUILD_VEGETATION=ON/OFF` | Toggle Vegetation plugin |
+| `-DSKY_BUILD_COMPRESSION=ON/OFF` | Toggle Compression plugin |
+| `-DSKY_BUILD_PVS=ON/OFF` | Toggle PVS plugin |
+| `-DSKY_BUILD_AUDIO=ON/OFF` | Toggle Audio plugin |
+| `-DSKY_BUILD_CONSOLE=ON/OFF` | Toggle Console plugin |
+| `-DSKY_BUILD_NETWORK_ENET=ON/OFF` | Toggle ENet network plugin |
 | `-DSKY_BUILD_PYTHON=ON/OFF` | Toggle Python plugin |
 | `-DSKY_BUILD_XR=ON/OFF` | Toggle XR plugin |
-| `-DSKY_BUILD_FREETYPE=ON/OFF` | Toggle FreeType plugin |
-| `-DSKY_BUILD_TERRAIN=ON/OFF` | Toggle Terrain plugin |
-| `-DSKY_BUILD_PVS=ON/OFF` | Toggle PVS plugin |
-| `-DSKY_BUILD_GUIZMO=ON/OFF` | Toggle ImGuizmo plugin, only meaningful with editor mode |
+| `-DSKY_BUILD_FREETYPE=ON/OFF` | Toggle the FreeType UI font provider |
 | `-DSKY_USE_TRACY=ON` | Enable Tracy profiling hooks |
 | `-DSKY_MATH_SIMD=ON` | Enable SIMD math optimizations |
 
@@ -168,7 +177,7 @@ Platform examples:
 cmake -S . -B build-macos-arm \
   -G Xcode \
   -D3RD_PATH=$PWD/build_3rd/MacOS-arm \
-  -DSKY_BUILD_EDITOR=ON
+  -DSKY_BUILD_SANDBOX=ON
 ```
 
 ```cmd
@@ -176,7 +185,7 @@ cmake -S . -B build-macos-arm \
 cmake -S . -B build-win32 ^
   -G "Visual Studio 17 2022" ^
   -D3RD_PATH=%cd%\build_3rd\Win32 ^
-  -DSKY_BUILD_EDITOR=ON
+  -DSKY_BUILD_SANDBOX=ON
 ```
 
 ### 3. Build targets
@@ -201,18 +210,19 @@ ctest --test-dir <build_dir> -C Release --output-on-failure
 
 Compile-time plugin selection is driven by `plugins/plugins.json`. Each entry defines the plugin directory, the controlling CMake variable, and whether the plugin requires editor mode.
 
-Current repository defaults include:
+Current repository defaults (see `plugins/plugins.json`):
 
-- `SKY_BUILD_GUIZMO=ON` with editor-only gating
-- `SKY_BUILD_PYTHON=OFF`
-- `SKY_BUILD_XR=OFF`
 - `SKY_BUILD_BULLET=ON`
 - `SKY_BUILD_RECAST=ON`
-- `SKY_BUILD_FREETYPE=ON`
 - `SKY_BUILD_TERRAIN=ON`
+- `SKY_BUILD_VEGETATION=ON`
 - `SKY_BUILD_COMPRESSION=ON`
 - `SKY_BUILD_PVS=ON`
+- `SKY_BUILD_AUDIO=ON`
 - `SKY_BUILD_CONSOLE=ON`
+- `SKY_BUILD_NETWORK_ENET=ON`
+- `SKY_BUILD_PYTHON=OFF`
+- `SKY_BUILD_XR=OFF`
 
 This compile-time selection is separate from runtime module loading.
 
@@ -227,14 +237,14 @@ The top-level build commonly produces the following targets:
 
 | Target | Purpose |
 | --- | --- |
-| `Launcher` | Main runtime executable |
-| `Editor` | Qt-based editor executable when editor mode is enabled |
-| `ShaderCompiler` / `ShaderCompiler.Static` | Shader compilation libraries |
-| `ShaderTool` | Command-line shader tool target in the render shader module |
-| `SkyRender` | Main render module |
-| `SkyRender.Editor` | Editor render module when editor mode is enabled |
+| `SandboxEditor` | Sandbox editor executable (engine-drawn UI, non-Qt) |
+| `SandboxModule` | Editor shell/module loaded at runtime by `SandboxEditor`; rebuild it when changing editor UI code |
+| `Aurora.Render` | Aurora render module |
+| `Aurora.DX12` / `Aurora.Vulkan` | Aurora RHI backends |
+| `Aurora.ShaderCompiler` | Aurora shader compiler |
+| `AssetTool` | Command-line asset cooking / packaging tool |
 
-Some extra tools exist in the repository but are not all wired into the default top-level build path yet, so prefer the targets above unless you are extending the build graph yourself.
+The runtime host is project-owned (generated under `<Project>/native`); the engine no longer ships a runtime launcher executable. Some extra tools exist in the repository but are not all wired into the default top-level build path yet, so prefer the targets above unless you are extending the build graph yourself.
 
 ## Running
 
@@ -253,10 +263,10 @@ The editor is a separate host built as `SandboxEditor`.
 
 ### Editor
 
-When built with `SKY_BUILD_SANDBOX=ON` (or `SKY_BUILD_EDITOR=ON` and Qt5 available):
+When built with `SKY_BUILD_SANDBOX=ON`:
 
 ```bash
-./output/bin/SandboxEditor
+./output/bin/<Config>/SandboxEditor
 ```
 
 ## Assets And Shaders
@@ -272,8 +282,8 @@ Shader compilation support is provided by the `ShaderCompiler` libraries and `Sh
 
 ## Notes
 
-- `SKY_BUILD_EDITOR=ON` automatically enables `SKY_EDITOR=ON`
+- The editor is the sandbox editor (`-DSKY_BUILD_SANDBOX=ON`); `-DSKY_BUILD_EDITOR=ON` builds only the deprecated legacy Qt editor
 - The runtime launcher is project-owned (generated under `<Project>/native` + `<Project>/build/<platform>`); the engine ships launcher **templates** under `engine/templates/launcher/`
-- The top-level `tools/` directory contains additional experiments and tooling targets, but the default build currently focuses on engine, plugins, and render-related tool targets
+- The top-level `tools/` directory contains additional experiments and tooling targets, but the default build currently focuses on engine, plugins, and aurora render tooling
 
 ![SkyEngine screenshot](https://user-images.githubusercontent.com/35895395/195400282-ca50e99a-090b-4c52-a84c-d7e31a489e2f.png)

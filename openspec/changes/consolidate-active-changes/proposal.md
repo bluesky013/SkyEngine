@@ -1,6 +1,6 @@
 ## Why
 
-`openspec/changes/` has accumulated **20 active changes** that no longer describe a coherent backlog. Several
+`openspec/changes/` has accumulated **23 active changes** that no longer describe a coherent backlog. Several
 hard-depend on work already archived (so their prerequisite is done but they sit at 0 tasks), several are explicit
 **frozen** or **unimplemented debt records** that will never be scheduled as written, some overlap each other
 (two different framework→aurora scene seams; taskflow/boost removal split across three changes), and several
@@ -17,9 +17,9 @@ approval; no change directory was archived, and no engine or third-party code is
 
 - Record a single **current-state snapshot**: each active change classified as `active`, `blocked-on-prereq`,
   `frozen`, `debt-record`, or `superseded`, with task counts and the prerequisites it actually depends on.
-- Group the active changes into **workstreams** (Python runtime, audio/animation, aurora render migration,
-  terrain, vegetation, network, asset pipeline, framework debt) and state the real prerequisite ordering between
-  them (e.g. the aurora render loop gates terrain/vegetation render).
+- Group the active changes into **workstreams** (Python runtime, aurora render migration, terrain/vegetation,
+  audio/animation, network, packaging/platform/build, RHI debt, framework debt, backlog hygiene) and state the
+  real prerequisite ordering between them (e.g. the aurora render loop gates terrain/vegetation render).
 - Record a **cleanup checklist** with an explicit disposition per item, marking applied ones:
   - archive or keep-as-frozen the frozen / debt-record changes;
   - flesh out or fold the proposal-only changes that have no `tasks.md`/`specs/`;
@@ -47,6 +47,6 @@ archiving. Only non-destructive doc edits to other changes (references, supersed
 
 ## Impact
 
-- `openspec/` only: this change's own artifacts plus the classification of the 20 existing active changes.
+- `openspec/` only: this change's own artifacts plus the classification of the 23 existing active changes.
 - No engine, plugin, CMake, or third-party impact. No runtime behavior change.
 - Downstream: any remaining cleanup (archiving, if ever) stays a separate, user-confirmed maintenance operation.
