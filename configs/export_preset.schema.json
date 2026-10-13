@@ -1,0 +1,29 @@
+{
+  "$comment": "Single source of truth for the export preset field keys. Guarded against sky::ExportPreset's reflected members by engine/test/framework/ExportPresetTest.cpp and against python/package_project.py by python/tests/test_export_preset_schema.py. Add a field by registering it in RegisterExportPresetReflection and adding its key here.",
+  "keys": [
+    "name",
+    "platform",
+    "variant",
+    "bundleId",
+    "versionName",
+    "versionCode",
+    "signing",
+    "bundle",
+    "team",
+    "signingIdentity",
+    "provisioningProfile",
+    "bundles",
+    "abis",
+    "keystore",
+    "compileSdk",
+    "minSdk",
+    "targetSdk",
+    "ndkVersion",
+    "packing",
+    "cacheVariables",
+    "compileDefinitions",
+    "compileFlags",
+    "extraConfigureArgs",
+    "extraBuildArgs"
+  ]
+}

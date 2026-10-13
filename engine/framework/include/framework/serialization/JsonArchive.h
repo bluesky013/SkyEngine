@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include <rapidjson/rapidjson.h>
+#include <core/archive/StreamArchive.h>
+#include <core/platform/Platform.h>
+#include <framework/serialization/Any.h>
+#include <iostream>
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
-#include <framework/serialization/Any.h>
-#include <core/platform/Platform.h>
-#include <core/archive/StreamArchive.h>
-#include <iostream>
+#include <rapidjson/rapidjson.h>
 #include <vector>
 
 namespace sky {
@@ -44,10 +44,24 @@ namespace sky {
                 return static_cast<size_t>(stream.Tell());
             }
 
-            Ch *PutBegin()      { SKY_ASSERT(false); return nullptr; } // NOLINT
-            void Put(Ch)        { SKY_ASSERT(false); } // NOLINT
-            void Flush()        { SKY_ASSERT(false); } // NOLINT
-            size_t PutEnd(Ch *) { SKY_ASSERT(false); return 0; } // NOLINT
+            Ch *PutBegin()
+            {
+                SKY_ASSERT(false);
+                return nullptr;
+            } // NOLINT
+            void Put(Ch)
+            {
+                SKY_ASSERT(false);
+            } // NOLINT
+            void Flush()
+            {
+                SKY_ASSERT(false);
+            } // NOLINT
+            size_t PutEnd(Ch *)
+            {
+                SKY_ASSERT(false);
+                return 0;
+            } // NOLINT
 
         private:
             IInputArchive &stream;
@@ -60,7 +74,7 @@ namespace sky {
             {
             }
 
-            OutputStreamWrapper(const OutputStreamWrapper &) = delete;
+            OutputStreamWrapper(const OutputStreamWrapper &)            = delete;
             OutputStreamWrapper &operator=(const OutputStreamWrapper &) = delete;
 
             void Put(Ch c)
@@ -76,11 +90,11 @@ namespace sky {
         private:
             IOutputArchive &stream;
         };
-    }
+    } // namespace impl
 
     class JsonInputArchive {
     public:
-        using Value = rapidjson::GenericValue<rapidjson::UTF8<>>;
+        using Value  = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using Stream = impl::InputStreamWrapper;
 
         explicit JsonInputArchive(IInputArchive &archive) : stream(archive)
@@ -94,7 +108,7 @@ namespace sky {
         bool Start(const std::string &name)
         {
             const auto &parent = *stack.back();
-            auto iter = parent.FindMember(name.c_str());
+            auto        iter   = parent.FindMember(name.c_str());
             if (iter == parent.MemberEnd()) {
                 return false;
             }
@@ -109,7 +123,7 @@ namespace sky {
         uint32_t StartArray(const std::string &name)
         {
             const auto &parent = *stack.back();
-            auto iter = parent.FindMember(name.c_str());
+            auto        iter   = parent.FindMember(name.c_str());
             if (iter != parent.MemberEnd() && iter->value.IsArray()) {
                 auto array = iter->value.GetArray();
                 stack.emplace_back(array.begin());
@@ -118,12 +132,37 @@ namespace sky {
             return 0;
         }
 
-        template<class Func>
+        // True when the current object has `name` (used to distinguish "absent" from an
+        // empty array, which StartArray cannot: both return 0).
+        bool HasMember(const std::string &name) const
+        {
+            const auto &parent = *stack.back();
+            return parent.IsObject() && parent.HasMember(name.c_str());
+        }
+
+        // Root-level array support (a bare `[ ... ]` document, which StartArray cannot
+        // reach since it resolves a named member).
+        bool IsRootArray() const
+        {
+            return !stack.empty() && stack.back()->IsArray();
+        }
+
+        uint32_t StartRootArray()
+        {
+            const auto &root = *stack.back();
+            if (!root.IsArray()) {
+                return 0;
+            }
+            auto array = root.GetArray();
+            stack.emplace_back(array.begin());
+            return array.Size();
+        }
+
+        template <class Func>
         void ForEachMember(Func &&func)
         {
             const auto &parent = *stack.back();
-            for (auto iter = parent.MemberBegin(); iter != parent.MemberEnd(); ++iter)
-            {
+            for (auto iter = parent.MemberBegin(); iter != parent.MemberEnd(); ++iter) {
                 const auto &member = *iter;
 
                 if constexpr (std::is_invocable_v<Func, const std::string>) {
@@ -141,12 +180,12 @@ namespace sky {
             }
         }
 
-        bool LoadBool();
-        int32_t LoadInt();
-        uint32_t LoadUint();
-        int64_t LoadInt64();
-        uint64_t LoadUint64();
-        double LoadDouble();
+        bool        LoadBool();
+        int32_t     LoadInt();
+        uint32_t    LoadUint();
+        int64_t     LoadInt64();
+        uint64_t    LoadUint64();
+        double      LoadDouble();
         std::string LoadString();
 
         template <typename T>
@@ -161,7 +200,7 @@ namespace sky {
             stack.back()++;
         }
 
-        Any LoadValueById(const Uuid & typeId);
+        Any  LoadValueById(const Uuid &typeId);
         void LoadValueById(void *ptr, const Uuid &typeId);
 
         template <typename T>
@@ -176,7 +215,7 @@ namespace sky {
             Start(name);
             if constexpr (std::is_enum_v<T>) {
                 using UType = std::underlying_type_t<T>;
-                UType v = 0;
+                UType v     = 0;
                 LoadValueObject(v);
                 value = static_cast<T>(v);
             } else {
@@ -187,24 +226,38 @@ namespace sky {
         }
 
     private:
-        Stream stream;
-        rapidjson::Document document;
-        std::vector<const Value*> stack;
+        Stream                     stream;
+        rapidjson::Document        document;
+        std::vector<const Value *> stack;
     };
 
     class JsonOutputArchive {
     public:
-        using Stream = impl::OutputStreamWrapper;
+        using Stream  = impl::OutputStreamWrapper;
         using Writter = rapidjson::PrettyWriter<Stream>;
 
-        explicit JsonOutputArchive(IOutputArchive &s) : stream(s), writer(stream) {}
+        explicit JsonOutputArchive(IOutputArchive &s) : stream(s), writer(stream)
+        {
+        }
         ~JsonOutputArchive() = default;
 
-        void StartObject() { writer.StartObject(); }
-        void EndObject()   { writer.EndObject(); };
+        void StartObject()
+        {
+            writer.StartObject();
+        }
+        void EndObject()
+        {
+            writer.EndObject();
+        };
 
-        void StartArray()  { writer.StartArray(); }
-        void EndArray()    { writer.EndArray(); }
+        void StartArray()
+        {
+            writer.StartArray();
+        }
+        void EndArray()
+        {
+            writer.EndArray();
+        }
 
         template <typename T>
         void SaveEnum(const T &v)
@@ -213,28 +266,58 @@ namespace sky {
             SaveValue(static_cast<std::underlying_type_t<T>>(v));
         }
 
-        void SaveValue(bool v)       { writer.Bool(v); }
-        void SaveValue(uint32_t v)   { writer.Uint(v); }
-        void SaveValue(int32_t v)    { writer.Int(v); }
-        void SaveValue(int64_t i64)  { writer.Int64(i64); }
-        void SaveValue(uint64_t u64) { writer.Uint64(u64); }
-        void SaveValue(double v)     { writer.Double(v); }
+        void SaveValue(bool v)
+        {
+            writer.Bool(v);
+        }
+        void SaveValue(uint32_t v)
+        {
+            writer.Uint(v);
+        }
+        void SaveValue(int32_t v)
+        {
+            writer.Int(v);
+        }
+        void SaveValue(int64_t i64)
+        {
+            writer.Int64(i64);
+        }
+        void SaveValue(uint64_t u64)
+        {
+            writer.Uint64(u64);
+        }
+        void SaveValue(double v)
+        {
+            writer.Double(v);
+        }
 
-        void SaveValue(std::string const & s) { writer.String(s.c_str(), static_cast<rapidjson::SizeType>(s.size())); }
-        void SaveValue(std::string_view const & s) { writer.String(s.data(), static_cast<rapidjson::SizeType>(s.size())); }
-        void SaveValue(char const * s)        { writer.String(s); }
-        void SaveValue(std::nullptr_t)        { writer.Null(); }
+        void SaveValue(std::string const &s)
+        {
+            writer.String(s.c_str(), static_cast<rapidjson::SizeType>(s.size()));
+        }
+        void SaveValue(std::string_view const &s)
+        {
+            writer.String(s.data(), static_cast<rapidjson::SizeType>(s.size()));
+        }
+        void SaveValue(char const *s)
+        {
+            writer.String(s);
+        }
+        void SaveValue(std::nullptr_t)
+        {
+            writer.Null();
+        }
 
         void SaveValueObject(const Any &any);
         void SaveValueObject(const void *ptr, const Uuid &id);
         template <typename T, typename = std::enable_if<!std::is_same_v<T, Any>, void>>
-        void SaveValueObject(const T& value)
+        void SaveValueObject(const T &value)
         {
             SaveValueObject(&value, TypeInfo<T>::RegisteredId());
         }
 
         template <typename T>
-        void SaveValueObject(const std::string &key, const T&value)
+        void SaveValueObject(const std::string &key, const T &value)
         {
             Key(key.c_str());
             if constexpr (std::is_enum_v<T>) {
@@ -242,13 +325,15 @@ namespace sky {
             } else {
                 SaveValueObject(value);
             }
-
         }
 
-        void Key(const char* key) { writer.Key(key); }
+        void Key(const char *key)
+        {
+            writer.Key(key);
+        }
 
     protected:
-        Stream stream;
+        Stream  stream;
         Writter writer;
     };
 

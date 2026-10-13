@@ -9,9 +9,18 @@
 
 namespace sky {
 
+    // One CMake cache entry of an export preset (`cacheVariables`). Modelled as an
+    // ordered key/value pair so the reflected form (which has no map widget) can
+    // edit it as a sequence; on disk it stays a JSON object.
+    struct ExportPresetCacheVariable {
+        std::string key;
+        std::string value;
+    };
+
     // One packaging distribution (an entry of `export_presets.json`). The same
     // schema is consumed by python/package_project.py and edited in the editor
-    // through the generic reflection panel.
+    // through the generic reflection panel. The field set is defined by
+    // configs/export_preset.schema.json (single source of truth).
     struct ExportPreset {
         std::string name;
         std::string platform; // android | ios | macos | windows | linux
@@ -42,6 +51,14 @@ namespace sky {
         // Runtime module packaging: dynamic | static (static compiles selected
         // modules into the host via a generated registration).
         std::string packing = "dynamic";
+
+        // CMake build escape hatches (configure-time). `cacheVariables` is a JSON
+        // object on disk, an ordered sequence in memory (see ExportPresetCacheVariable).
+        std::vector<ExportPresetCacheVariable> cacheVariables;
+        std::vector<std::string>               compileDefinitions;
+        std::vector<std::string>               compileFlags;
+        std::vector<std::string>               extraConfigureArgs;
+        std::vector<std::string>               extraBuildArgs;
     };
 
     struct ExportPresets {
