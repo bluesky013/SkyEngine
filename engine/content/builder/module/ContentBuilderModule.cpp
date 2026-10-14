@@ -17,10 +17,14 @@ namespace sky::builder {
         ContentBuilderModule()           = default;
         ~ContentBuilderModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             ContentReflection(SerializationContext::Get());
             AssetBuilderManager::Get()->RegisterBuilder(new AnimationBuilder());
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 

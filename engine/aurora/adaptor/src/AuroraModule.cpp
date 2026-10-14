@@ -64,15 +64,19 @@ namespace sky::aurora {
         }
     }
 
-    bool AuroraModule::Init(const StartArguments &args)
+    void AuroraModule::RegisterMeta()
     {
-        ProcessArgs(args);
-
-        // Register aurora types / asset handlers / components with the
-        // framework before the first tick (idempotent).
+        // Register aurora types / asset handlers / components with the framework. Process-once
+        // (ModuleManager), so a module reload never re-registers. AuroraReflection is also
+        // Once-guarded for the cook/editor modules that share it.
         if (auto *context = SerializationContext::Get()) {
             AuroraReflection(context);
         }
+    }
+
+    bool AuroraModule::Init(const StartArguments &args)
+    {
+        ProcessArgs(args);
 
         Instance::Descriptor desc = {};
         desc.appName              = "SkyGame";
@@ -175,9 +179,9 @@ namespace sky::aurora {
 
         mCommandBuffer->Begin();
         {
-            BarrierInfo   barrier{};
-            barrier.srcStage    = PipelineStageBit::TOP;
-            barrier.dstStage    = PipelineStageBit::COLOR_OUTPUT;
+            BarrierInfo barrier{};
+            barrier.srcStage = PipelineStageBit::TOP;
+            barrier.dstStage = PipelineStageBit::COLOR_OUTPUT;
             ImageBarrierInfo ib{};
             ib.image     = backbuffer;
             ib.subRange  = ImageSubRange{};
@@ -189,10 +193,10 @@ namespace sky::aurora {
             mCommandBuffer->PipelineBarrier(barrier);
         }
         {
-            auto encoder = mCommandBuffer->CreateGraphicsEncoder();
-            RenderingInfo info  = {};
-            info.renderArea     = {{0, 0}, extent};
-            info.numColors      = 1;
+            auto          encoder     = mCommandBuffer->CreateGraphicsEncoder();
+            RenderingInfo info        = {};
+            info.renderArea           = {{0, 0}, extent};
+            info.numColors            = 1;
             info.colors[0].image      = backbuffer;
             info.colors[0].loadOp     = LoadOp::CLEAR;
             info.colors[0].storeOp    = StoreOp::STORE;
@@ -201,9 +205,9 @@ namespace sky::aurora {
             encoder->EndRendering();
         }
         {
-            BarrierInfo   barrier{};
-            barrier.srcStage    = PipelineStageBit::COLOR_OUTPUT;
-            barrier.dstStage    = PipelineStageBit::BOTTOM;
+            BarrierInfo barrier{};
+            barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
+            barrier.dstStage = PipelineStageBit::BOTTOM;
             ImageBarrierInfo ib{};
             ib.image     = backbuffer;
             ib.subRange  = ImageSubRange{};

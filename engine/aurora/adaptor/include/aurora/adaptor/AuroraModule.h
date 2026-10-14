@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include <framework/interface/IModule.h>
 #include <aurora/rdg/ClientViewport.h>
 #include <aurora/rdg/RenderDeviceExclusive.h>
 #include <aurora/rhi/CommandBuffer.h>
-#include <aurora/rhi/Instance.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/Instance.h>
+#include <framework/interface/IModule.h>
 
 #include <memory>
 
@@ -27,6 +27,7 @@ namespace sky::aurora {
         AuroraModule() = default;
         ~AuroraModule() override;
 
+        void RegisterMeta() override;
         bool Init(const sky::StartArguments &args) override;
         void Start() override;
         void Tick(float delta) override;
@@ -35,8 +36,8 @@ namespace sky::aurora {
     private:
         void ProcessArgs(const sky::StartArguments &args);
 
-        API         mApi    = API::DEFAULT;
-        Device     *mDevice = nullptr;
+        API     mApi    = API::DEFAULT;
+        Device *mDevice = nullptr;
 
         std::unique_ptr<DeviceFrameContext> mFrameContext;
         std::unique_ptr<CommandPool>        mCommandPool;

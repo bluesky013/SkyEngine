@@ -15,16 +15,21 @@ namespace sky::terrain {
         TerrainModule()           = default;
         ~TerrainModule() override = default;
 
-        bool Init(const StartArguments &args) override { return true; }
-
-        void Start() override
+        void RegisterMeta() override
         {
             auto *context = SerializationContext::Get();
             TerrainComponent::Reflect(context);
             RegisterTerrainAssetType();
         }
 
-        void Shutdown() override {}
+        bool Init(const StartArguments &args) override
+        {
+            return true;
+        }
+
+        void Shutdown() override
+        {
+        }
     };
 
 } // namespace sky::terrain

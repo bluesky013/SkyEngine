@@ -34,6 +34,16 @@ namespace sky {
         AudioModule()           = default;
         ~AudioModule() override = default;
 
+        void RegisterMeta() override
+        {
+            auto *context = SerializationContext::Get();
+            AudioRegistry::Reflect(context);
+            AudioSourceComponent::Reflect(context);
+            AudioListenerComponent::Reflect(context);
+
+            AssetManager::Get()->RegisterAssetHandler<AudioClip>();
+        }
+
         bool Init(const StartArguments &args) override
         {
             return true;
@@ -45,13 +55,6 @@ namespace sky {
             if (!AudioRegistry::Get()->CreateEngine()) {
                 LOG_W(TAG, "Audio engine unavailable, audio runs in silent mode.");
             }
-
-            auto *context = SerializationContext::Get();
-            AudioRegistry::Reflect(context);
-            AudioSourceComponent::Reflect(context);
-            AudioListenerComponent::Reflect(context);
-
-            AssetManager::Get()->RegisterAssetHandler<AudioClip>();
         }
 
         void Shutdown() override

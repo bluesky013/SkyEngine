@@ -14,13 +14,19 @@ namespace sky::builder {
         AudioBuilderModule()           = default;
         ~AudioBuilderModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             AssetBuilderManager::Get()->RegisterBuilder(new AudioBuilder());
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 
-        void Tick(float delta) override {}
+        void Tick(float delta) override
+        {
+        }
     };
 
 } // namespace sky::builder

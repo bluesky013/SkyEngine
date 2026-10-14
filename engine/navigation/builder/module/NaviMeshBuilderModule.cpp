@@ -17,14 +17,20 @@ namespace sky::builder {
         NaviMeshBuilderModule()           = default;
         ~NaviMeshBuilderModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             ai::NaviMeshSourceData::Reflect(SerializationContext::Get());
             AssetBuilderManager::Get()->RegisterBuilder(new NaviMeshBuilder());
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 
-        void Tick(float delta) override {}
+        void Tick(float delta) override
+        {
+        }
     };
 
 } // namespace sky::builder

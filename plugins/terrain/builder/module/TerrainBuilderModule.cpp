@@ -18,14 +18,20 @@ namespace sky::builder {
         TerrainBuilderModule()           = default;
         ~TerrainBuilderModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             terrain::TerrainSourceData::Reflect(SerializationContext::Get());
             AssetBuilderManager::Get()->RegisterBuilder(new TerrainBuilder());
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 
-        void Tick(float delta) override {}
+        void Tick(float delta) override
+        {
+        }
     };
 
 } // namespace sky::builder

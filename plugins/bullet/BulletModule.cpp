@@ -26,6 +26,12 @@ namespace sky::phy {
         BulletPhysicsModule()           = default;
         ~BulletPhysicsModule() override = default;
 
+        void RegisterMeta() override
+        {
+            PhysicsBodyComponent::Reflect(SerializationContext::Get());
+            PhysicsSubSystemConfig::Reflect(SerializationContext::Get());
+        }
+
         bool Init(const StartArguments &args) override
         {
             return true;
@@ -35,9 +41,6 @@ namespace sky::phy {
         {
             PhysicsBackendRegistry::Get().Register(std::make_unique<BulletBackend>());
             PhysicsBackendRegistry::Get().SetWorldAttacher([](World &world) -> IWorldSubSystem * { return AttachPhysicsSystem(world); });
-
-            PhysicsBodyComponent::Reflect(SerializationContext::Get());
-            PhysicsSubSystemConfig::Reflect(SerializationContext::Get());
 
             // Declarative world subsystem: create a PhysicsSystem from the config.
             WorldSubSystemRegistry::Get().Register(Name(PhysicsSystem::NAME.data()),

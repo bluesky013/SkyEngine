@@ -4,6 +4,7 @@
 
 #include <framework/application/ModuleManager.h>
 
+#include <core/environment/Once.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "ModuleManager";
@@ -36,7 +37,6 @@ namespace sky {
         return vtx;
     }
 
-
     void ModuleManager::TopoSort()
     {
         sortedContainer = dependencyGraph.TopologicalSort();
@@ -48,25 +48,42 @@ namespace sky {
         return iter == modules.end() ? nullptr : iter->second.get();
     }
 
+    // Reflection/asset-type registration is process-global and persists across unload, so it must
+    // run at most once per process per module - never once per load (that is what caused duplicate
+    // registrations on reload / across module DLLs).
+    static void RegisterMetaOnce(IModule &module, const std::string &name)
+    {
+        const std::string key = "ModuleMeta:" + name;
+        if (Once::Get()->Run(key.c_str())) {
+            module.RegisterMeta();
+        }
+    }
+
     void ModuleManager::Tick(float time)
     {
-        WalkModules([this, time](const std::string &moduleName) {
-            if (auto *module = FindModule(modules, moduleName)) {
-                module->PreTick(time);
-            }
-        }, sortedContainer);
+        WalkModules(
+            [this, time](const std::string &moduleName) {
+                if (auto *module = FindModule(modules, moduleName)) {
+                    module->PreTick(time);
+                }
+            },
+            sortedContainer);
 
-        WalkModules([this, time](const std::string &moduleName) {
-            if (auto *module = FindModule(modules, moduleName)) {
-                module->Tick(time);
-            }
-        }, sortedContainer);
+        WalkModules(
+            [this, time](const std::string &moduleName) {
+                if (auto *module = FindModule(modules, moduleName)) {
+                    module->Tick(time);
+                }
+            },
+            sortedContainer);
 
-        WalkModules([this, time](const std::string &moduleName) {
-            if (auto *module = FindModule(modules, moduleName)) {
-                module->PostTick(time);
-            }
-        }, sortedContainer);
+        WalkModules(
+            [this, time](const std::string &moduleName) {
+                if (auto *module = FindModule(modules, moduleName)) {
+                    module->PostTick(time);
+                }
+            },
+            sortedContainer);
     }
 
     void ModuleManager::AddStaticModule(const std::string &id, std::unique_ptr<IModule> module)
@@ -84,44 +101,51 @@ namespace sky {
 
     void ModuleManager::LoadModules(const StartArguments &args)
     {
-        WalkModules([this, &args](const std::string &moduleName) {
-            // Statically bundled (compiled-in registration): no dlopen, just Init.
-            if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
-                LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
-                if (!staticIt->second->Init(args)) {
-                    LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
-                }
-                return;
-            }
-
-            auto dynModule = std::make_unique<DynamicModule>(moduleName);
-            LOG_I(TAG, "Load Module : %s", moduleName.c_str());
-            if (dynModule->Load()) {
-                auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
-                if (startFn == nullptr) {
-                    LOG_E(TAG, "Load Module : %s failed", moduleName.c_str());
-                    return;
-                }
-                auto *module = startFn(Environment::Get());
-                if (module == nullptr || !module->Init(args)) {
+        WalkModules(
+            [this, &args](const std::string &moduleName) {
+                // Statically bundled (compiled-in registration): no dlopen, just Init.
+                if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
+                    LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
+                    RegisterMetaOnce(*staticIt->second, moduleName);
+                    if (!staticIt->second->Init(args)) {
+                        LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
+                    }
                     return;
                 }
 
-                modules.emplace(moduleName, std::unique_ptr<IModule>(module));
-                dynLibs.emplace(moduleName, std::move(dynModule));
-                LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
-            } else {
+                auto dynModule = std::make_unique<DynamicModule>(moduleName);
+                LOG_I(TAG, "Load Module : %s", moduleName.c_str());
+                if (dynModule->Load()) {
+                    auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
+                    if (startFn == nullptr) {
+                        LOG_E(TAG, "Load Module : %s failed", moduleName.c_str());
+                        return;
+                    }
+                    auto *module = startFn(Environment::Get());
+                    if (module == nullptr) {
+                        return;
+                    }
+                    RegisterMetaOnce(*module, moduleName);
+                    if (!module->Init(args)) {
+                        return;
+                    }
+
+                    modules.emplace(moduleName, std::unique_ptr<IModule>(module));
+                    dynLibs.emplace(moduleName, std::move(dynModule));
+                    LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
+                } else {
 #if defined(SKY_MODULE_STATIC)
-                // Static packaging: a missing module means it was not compiled in.
-                LOG_E(TAG,
-                      "Load Module : '%s' Failed, [%s] - not statically registered (declare its target via "
-                      "sky_add_module + REGISTER_MODULE_TAGGED and list it in the runtime module config)",
-                      moduleName.c_str(), dynModule->GetLastError().c_str());
+                    // Static packaging: a missing module means it was not compiled in.
+                    LOG_E(TAG,
+                          "Load Module : '%s' Failed, [%s] - not statically registered (declare its target via "
+                          "sky_add_module + REGISTER_MODULE_TAGGED and list it in the runtime module config)",
+                          moduleName.c_str(), dynModule->GetLastError().c_str());
 #else
-                LOG_E(TAG, "Load Module : %s Failed, [%s]", moduleName.c_str(), dynModule->GetLastError().c_str());
+                    LOG_E(TAG, "Load Module : %s Failed, [%s]", moduleName.c_str(), dynModule->GetLastError().c_str());
 #endif
-            }
-        }, sortedContainer);
+                }
+            },
+            sortedContainer);
     }
 
     void ModuleManager::StartModules()
@@ -140,11 +164,13 @@ namespace sky {
         }
         std::vector<vertex_descriptor> container(sortedContainer.rbegin(), sortedContainer.rend());
 
-        WalkModules([this](const std::string &moduleName) {
-            if (auto *module = FindModule(modules, moduleName)) {
-                module->Shutdown();
-            }
-        }, container);
+        WalkModules(
+            [this](const std::string &moduleName) {
+                if (auto *module = FindModule(modules, moduleName)) {
+                    module->Shutdown();
+                }
+            },
+            container);
         modules.clear();
 
         for (auto &[key, lib] : dynLibs) {

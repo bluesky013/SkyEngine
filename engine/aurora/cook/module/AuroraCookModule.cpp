@@ -21,13 +21,14 @@ namespace sky::aurora {
         AuroraCookModule()           = default;
         ~AuroraCookModule() override = default;
 
+        void RegisterMeta() override;
         bool Init(const StartArguments &args) override;
         void Tick(float delta) override
         {
         }
     };
 
-    bool AuroraCookModule::Init(const StartArguments &args)
+    void AuroraCookModule::RegisterMeta()
     {
         // Idempotent: guarantees the aurora asset handlers exist for SaveAsset.
         AuroraReflection(SerializationContext::Get());
@@ -38,6 +39,10 @@ namespace sky::aurora {
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraMaterialInstanceBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraLodGroupBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraSkeletonBuilder());
+    }
+
+    bool AuroraCookModule::Init(const StartArguments &args)
+    {
         return true;
     }
 

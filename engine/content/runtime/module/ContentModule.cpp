@@ -14,9 +14,13 @@ namespace sky::content {
         ContentModule()           = default;
         ~ContentModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             ContentReflection(SerializationContext::Get());
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 

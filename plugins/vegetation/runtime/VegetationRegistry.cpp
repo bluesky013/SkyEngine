@@ -15,16 +15,21 @@ namespace sky::vegetation {
         VegetationModule()           = default;
         ~VegetationModule() override = default;
 
-        bool Init(const StartArguments &args) override { return true; }
-
-        void Start() override
+        void RegisterMeta() override
         {
             auto *context = SerializationContext::Get();
             VegetationComponent::Reflect(context);
             RegisterVegetationAssetType();
         }
 
-        void Shutdown() override {}
+        bool Init(const StartArguments &args) override
+        {
+            return true;
+        }
+
+        void Shutdown() override
+        {
+        }
     };
 
 } // namespace sky::vegetation

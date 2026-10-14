@@ -46,11 +46,15 @@ namespace sky::ai {
         RecastModule()           = default;
         ~RecastModule() override = default;
 
-        bool Init(const StartArguments &args) override
+        void RegisterMeta() override
         {
             NaviMeshData::Reflect(SerializationContext::Get());
             NavigationSubSystemConfig::Reflect(SerializationContext::Get());
             AssetManager::Get()->RegisterAssetHandler<NaviMesh>();
+        }
+
+        bool Init(const StartArguments &args) override
+        {
             return true;
         }
 
