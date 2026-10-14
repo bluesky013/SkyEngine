@@ -17,12 +17,16 @@
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ProjectManagerView.h>
 #include <framework/interface/IModule.h>
+#include <framework/platform/Process.h>
 #include <framework/project/ExportPreset.h>
 #include <framework/project/ProjectDescriptor.h>
 #include <framework/project/ProjectLock.h>
 #include <framework/window/IWindowEvent.h>
 #include <ui/UIContext.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <memory>
 
 namespace sky::editor {
@@ -52,6 +56,21 @@ namespace sky::editor {
         void OnTextInput(sky::WindowID winID, const char *text) override;
 
     private:
+        friend class SandboxProjectTestAccess;
+
+        struct ProjectCreationState {
+            std::atomic_bool cancel{false};
+            std::atomic_uint stage{0};
+        };
+        struct ProjectCreationResult {
+            std::string path;
+            std::string error;
+            std::string output;
+        };
+        void StartProjectCreation(sky::ProcessDesc desc, std::string path, std::chrono::milliseconds timeout = std::chrono::seconds(30));
+        void PollProjectCreation();
+        void CancelProjectCreation();
+
         bool BuildHub();
         bool BuildEditor();
         void OpenProject(const std::string &skyprojPath);
@@ -135,6 +154,9 @@ namespace sky::editor {
         FileBrowserDialog                  *browser = nullptr;
         ProjectDescriptor                   project;
         sky::ProjectLock                    projectLock;
+        std::future<ProjectCreationResult>    projectCreation;
+        std::shared_ptr<ProjectCreationState> projectCreationState;
+        std::chrono::steady_clock::time_point projectCreationStarted;
 
         sky::EventBinder<sky::IMouseEvent>    mouseBinder;
         sky::EventBinder<sky::IKeyboardEvent> keyBinder;

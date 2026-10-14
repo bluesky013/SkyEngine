@@ -317,13 +317,14 @@ namespace sky::editor {
             if (parts.top[static_cast<std::size_t>(index)] != nullptr) {
                 const auto rect = parts.top[static_cast<std::size_t>(index)]->GetBounds();
                 if (HasArea(rect)) {
-                    skin.DrawToolItem(context, rect, TopLabels[index], index == hoverTop, true, true);
+                    const bool enabled = !busy || index == 2;
+                    skin.DrawToolItem(context, rect, TopLabels[index], enabled && index == hoverTop, enabled, true);
                 }
             }
         }
         const auto actions = parts.actions->GetBounds();
         uc::Fill(context, actions, theme.colors.section);
-        const bool hasSelection = selected >= 0 && selected < static_cast<int>(recent.size());
+        const bool hasSelection = !busy && selected >= 0 && selected < static_cast<int>(recent.size());
         for (int index = 0; index < 3; ++index) {
             if (parts.action[static_cast<std::size_t>(index)] != nullptr) {
                 const auto rect = parts.action[static_cast<std::size_t>(index)]->GetBounds();
@@ -385,6 +386,9 @@ namespace sky::editor {
             return sky::ui::UIEventResult::UNHANDLED;
         }
         const int top = TopButtonAt(event.x, event.y);
+        if (busy && top != 2) {
+            return sky::ui::UIEventResult::HANDLED;
+        }
         if (top >= 0) {
             auto callback = top == 0 ? onAdd : top == 1 ? onNew : onQuit;
             if (callback) {

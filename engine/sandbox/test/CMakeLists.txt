@@ -114,3 +114,21 @@ if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
     )
     add_dependencies(EditorWidgetsTest EditorWidgetsProbeA EditorWidgetsProbeB)
 endif ()
+
+if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    sky_add_test(TARGET SandboxProjectTest
+        SOURCES
+            SandboxProjectTest.cpp
+            ../module/src/SandboxModule.cpp
+            ../module/src/UiIconBuilder.cpp
+            main.cpp
+        WORKING_DIR ${CMAKE_SOURCE_DIR}
+        LIBS EditorRender EditorShell EditorCore Framework Core 3rdParty::nanosvg 3rdParty::googletest
+    )
+    target_include_directories(SandboxProjectTest PRIVATE ../module/include)
+    target_compile_definitions(SandboxProjectTest PRIVATE
+        SKY_TEST_ENGINE_ROOT="${CMAKE_SOURCE_DIR}"
+        SKY_TEST_PYTHON="${Python3_EXECUTABLE}"
+    )
+endif ()

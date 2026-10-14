@@ -54,6 +54,7 @@
 
 #if defined(_WIN32)
     #include <windows.h>
+    #undef CreateProcess
 #endif
 
 static const char *TAG = "SandboxModule";
@@ -274,7 +275,10 @@ namespace sky::editor {
     }
 
     SandboxModule::SandboxModule()  = default;
-    SandboxModule::~SandboxModule() = default;
+    SandboxModule::~SandboxModule()
+    {
+        CancelProjectCreation();
+    }
 
     bool SandboxModule::Init(const sky::StartArguments &args)
     {
@@ -1004,6 +1008,9 @@ namespace sky::editor {
 
     void SandboxModule::OpenProject(const std::string &skyprojPath)
     {
+        if (projectCreation.valid()) {
+            return;
+        }
         if (!project.Read(skyprojPath)) {
             if (hubView != nullptr) {
                 hubView->SetStatus("Failed to open: " + skyprojPath);
@@ -1035,7 +1042,7 @@ namespace sky::editor {
 
     void SandboxModule::AddProject()
     {
-        if (browser == nullptr) {
+        if (browser == nullptr || projectCreation.valid()) {
             return;
         }
         FileBrowserRequest request;
@@ -1051,7 +1058,7 @@ namespace sky::editor {
 
     void SandboxModule::OnFileBrowserResult(const FileBrowserResult &result)
     {
-        if (!result.accepted || hubView == nullptr) {
+        if (!result.accepted || hubView == nullptr || projectCreation.valid()) {
             return;
         }
         if (result.directory) {
@@ -1100,6 +1107,9 @@ namespace sky::editor {
 
     void SandboxModule::CreateProjectFromResult(const FileBrowserResult &result)
     {
+        if (hubView == nullptr || projectCreation.valid()) {
+            return;
+        }
         const std::filesystem::path target(result.path);
         const std::string           name   = target.filename().string();
         const std::string           parent = target.parent_path().string();
@@ -1118,23 +1128,173 @@ namespace sky::editor {
             hubView->SetStatus("Cannot locate python/package_project.py (set SKY_ENGINE_ROOT)");
             return;
         }
-        const char       *python  = FindPythonCommand();
-        const std::string command = std::string("\"") + python + "\" \"" + script + "\" create --dir \"" + parent + "\" --name \"" + name + "\"";
-        LOG_I(TAG, "create project: %s", command.c_str());
-        if (std::system(command.c_str()) != 0) {
-            hubView->SetStatus("Project creation failed (python CLI)");
-            return;
-        }
+        // Process argv is UTF-8; the file browser's filesystem paths use the native encoding.
+        const auto utf8Argument = [](const std::filesystem::path &path) {
+            const auto utf8 = path.u8string();
+            return std::string(utf8.begin(), utf8.end());
+        };
+        sky::ProcessDesc desc;
+        desc.args = {utf8Argument(FindPythonCommand()),
+                     "-u",
+                     "-X",
+                     "utf8",
+                     utf8Argument(script),
+                     "create",
+                     "--dir",
+                     utf8Argument(target.parent_path()),
+                     "--name",
+                     utf8Argument(target.filename()),
+                     "--progress"};
+        StartProjectCreation(std::move(desc), (target / (name + ".skyproj")).string());
+    }
 
-        const std::filesystem::path skyproj = target / (name + ".skyproj");
-        if (!std::filesystem::exists(skyproj)) {
-            hubView->SetStatus("Creation ran but descriptor missing: " + skyproj.string());
+    void SandboxModule::StartProjectCreation(sky::ProcessDesc desc, std::string path, std::chrono::milliseconds timeout)
+    {
+        if (projectCreation.valid()) {
             return;
         }
-        ProjectRegistry::Get()->Add(skyproj.string());
+        projectCreationState   = std::make_shared<ProjectCreationState>();
+        projectCreationStarted = std::chrono::steady_clock::now();
+        hubView->SetBusy(true);
+        hubView->SetStatus("Creating project: starting Python (0s)");
+        try {
+            // The worker owns the process; UI and registry changes stay on the main thread.
+            projectCreation =
+                std::async(std::launch::async, [desc = std::move(desc), path = std::move(path), state = projectCreationState, timeout]() {
+                    ProjectCreationResult result{path, {}, {}};
+                    auto                  process = sky::CreateProcess();
+                    if (state->cancel.load()) {
+                        result.error = "Project creation cancelled";
+                        return result;
+                    }
+                    if (!process || !process->Start(desc)) {
+                        result.error = "Cannot start Python (check SKY_PYTHON and PATH)";
+                        return result;
+                    }
+                    const auto  deadline = std::chrono::steady_clock::now() + timeout;
+                    std::string pendingLine;
+                    bool        stdoutEof  = false;
+                    bool        stderrEof  = false;
+                    const auto  readOutput = [&](bool stderrStream) {
+                        uint8_t buffer[4096];
+                        bool   &eof = stderrStream ? stderrEof : stdoutEof;
+                        if (eof) {
+                            return;
+                        }
+                        const size_t size =
+                            stderrStream ? process->ReadStderr(buffer, sizeof(buffer), eof) : process->ReadStdout(buffer, sizeof(buffer), eof);
+                        const std::string chunk(reinterpret_cast<const char *>(buffer), size);
+                        result.output += chunk;
+                        if (result.output.size() > 8192) {
+                            result.output.erase(0, result.output.size() - 8192);
+                        }
+                        if (!stderrStream) {
+                            pendingLine += chunk;
+                            size_t end;
+                            while ((end = pendingLine.find('\n')) != std::string::npos) {
+                                const auto  line     = pendingLine.substr(0, end);
+                                const char *stages[] = {"templates", "launchers", "directories", "descriptor"};
+                                for (unsigned i = 0; i < 4; ++i) {
+                                    if (line == std::string("[sky-create] ") + stages[i] || line == std::string("[sky-create] ") + stages[i] + "\r") {
+                                        state->stage.store(i + 1);
+                                    }
+                                }
+                                pendingLine.erase(0, end + 1);
+                            }
+                            if (pendingLine.size() > 8192) {
+                                pendingLine.clear();
+                            }
+                        }
+                    };
+                    int exitCode = -1;
+                    for (;;) {
+                        if (state->cancel.load() || std::chrono::steady_clock::now() >= deadline) {
+                            result.error = state->cancel.load() ? "Project creation cancelled" : "Project creation timed out";
+                            process->Kill();
+                            process->WaitFor(1000, exitCode);
+                            break;
+                        }
+                        // Drain both pipes to avoid a child blocked on a full stdout/stderr buffer.
+                        readOutput(false);
+                        readOutput(true);
+                        if (process->WaitFor(10, exitCode)) {
+                            if (exitCode != 0) {
+                                result.error = "Project creation failed (exit " + std::to_string(exitCode) + ")";
+                            }
+                            break;
+                        }
+                    }
+                    const auto drainDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
+                    while ((!stdoutEof || !stderrEof) && std::chrono::steady_clock::now() < drainDeadline) {
+                        readOutput(false);
+                        readOutput(true);
+                    }
+                    return result;
+                });
+        }
+        catch (const std::exception &error) {
+            projectCreationState.reset();
+            hubView->SetBusy(false);
+            hubView->SetStatus(std::string("Cannot start project creation: ") + error.what());
+        }
+    }
+
+    void SandboxModule::PollProjectCreation()
+    {
+        if (!projectCreation.valid()) {
+            return;
+        }
+        if (projectCreation.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            const char *stages[] = {"starting Python", "copying game template", "creating platform launchers", "creating asset directories",
+                                    "writing project descriptor"};
+            const auto  seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - projectCreationStarted).count();
+            hubView->SetStatus(std::string("Creating project: ") + stages[projectCreationState->stage.load()] + " (" + std::to_string(seconds) +
+                               "s)");
+            return;
+        }
+        ProjectCreationResult result;
+        try {
+            result = projectCreation.get();
+        }
+        catch (const std::exception &error) {
+            result.error = std::string("Project creation failed: ") + error.what();
+        }
+        projectCreationState.reset();
+        hubView->SetBusy(false);
+        if (!result.output.empty()) {
+            const auto tail = result.output.substr(result.output.size() > 768 ? result.output.size() - 768 : 0);
+            LOG_I(TAG, "project creation output (tail): %s", tail.c_str());
+        }
+        ProjectDescriptor descriptor;
+        if (result.error.empty() && (!descriptor.Read(result.path) || descriptor.name.empty())) {
+            result.error = "Creation finished but project descriptor is missing or invalid: " + result.path;
+        }
+        std::string message;
+        if (result.error.empty() && !ValidateProject(descriptor, message)) {
+            result.error = message;
+        }
+        if (!result.error.empty()) {
+            LOG_E(TAG, "%s", result.error.c_str());
+            auto detail = result.output.substr(result.output.size() > 240 ? result.output.size() - 240 : 0);
+            std::replace(detail.begin(), detail.end(), '\n', ' ');
+            std::replace(detail.begin(), detail.end(), '\r', ' ');
+            hubView->SetStatus(result.error + (detail.empty() ? "" : ": " + detail));
+            return;
+        }
+        ProjectRegistry::Get()->Add(result.path);
         RefreshHubRecent();
-        hubView->SetStatus("Created " + skyproj.string());
-        LOG_I(TAG, "created project '%s'", skyproj.string().c_str());
+        hubView->SetStatus("Created " + descriptor.name + " - select it and click Open");
+        LOG_I(TAG, "created project '%s'", result.path.c_str());
+    }
+
+    void SandboxModule::CancelProjectCreation()
+    {
+        if (projectCreation.valid()) {
+            projectCreationState->cancel.store(true);
+            projectCreation.wait();
+            projectCreation = {};
+        }
+        projectCreationState.reset();
     }
 
     void SandboxModule::AddProjectFromResult(const FileBrowserResult &result)
@@ -1178,7 +1338,7 @@ namespace sky::editor {
 
     void SandboxModule::NewProject()
     {
-        if (browser == nullptr) {
+        if (browser == nullptr || projectCreation.valid()) {
             return;
         }
         const std::string projectsDir = DefaultProjectsDirectory();
@@ -1226,6 +1386,7 @@ namespace sky::editor {
         if (!initialized) {
             return;
         }
+        PollProjectCreation();
         if (!hubMode) {
             // Run deferred cook requests (main thread) before rendering, then coalesce any build
             // completions into a single catalog rescan this frame.
@@ -1434,6 +1595,7 @@ namespace sky::editor {
 
     void SandboxModule::Shutdown()
     {
+        CancelProjectCreation();
         // Flush any pending layout edit before teardown.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {
             LayoutPersistence::Save(layoutModel, layoutPath);

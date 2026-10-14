@@ -458,6 +458,10 @@ def run_cmake_preset(engine, project_dir, platform, build, extra, extra_build):
 
 
 def cmd_create(args):
+    def progress(stage):
+        if getattr(args, 'progress', False):
+            print('[sky-create] ' + stage, flush=True)
+
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project_dir = Path(args.dir).resolve() / args.name
     if project_dir.exists() and any(project_dir.iterdir()):
@@ -468,14 +472,17 @@ def cmd_create(args):
     tokens = base_tokens(descriptor)
 
     # game skeleton (native/ CMake entry + source module)
+    progress('templates')
     instantiate_template(engine / 'engine' / 'templates' / 'game', project_dir, tokens)
     # platform launcher entries -> native/<platform>/
+    progress('launchers')
     launcher_root = engine / 'engine' / 'templates' / 'launcher'
     for platform in LAUNCHER_PLATFORMS:
         platform_dir = launcher_root / platform
         if platform_dir.is_dir():
             instantiate_template(platform_dir, project_dir / 'native' / platform, tokens)
 
+    progress('directories')
     for sub in ('assets', 'configs', 'cache'):
         (project_dir / sub).mkdir(parents=True, exist_ok=True)
 
@@ -494,6 +501,7 @@ def cmd_create(args):
         'modules': [identifier + 'Module'],
         'plugins': [],
     }
+    progress('descriptor')
     with (project_dir / (args.name + '.skyproj')).open('w', encoding='utf-8') as handle:
         json.dump(skyproj, handle, indent=2)
     print('工程: {}'.format(project_dir))
@@ -566,6 +574,7 @@ def main():
     p_create = sub.add_parser('create', help='从模板创建工程')
     p_create.add_argument('--dir', required=True, help='父目录')
     p_create.add_argument('--name', required=True, help='工程名')
+    p_create.add_argument('--progress', action='store_true', help='输出工程创建阶段，供编辑器展示进度')
     p_create.add_argument('--engine', type=str, help='引擎目录（默认仓库根）')
     p_create.add_argument('--force', action='store_true', default=False, help='目标非空时覆盖')
     p_create.set_defaults(func=cmd_create)

@@ -30,8 +30,26 @@ namespace sky::editor {
         void SetRecent(std::vector<std::string> paths);
         void SetStatus(std::string text)
         {
+            if (status == text) {
+                return;
+            }
             status = std::move(text);
             MarkPaintDirty();
+        }
+        const std::string &GetStatus() const
+        {
+            return status;
+        }
+        void SetBusy(bool value)
+        {
+            busy          = value;
+            confirmDelete = false;
+            lastClickMs   = 0;
+            MarkPaintDirty();
+        }
+        bool IsBusy() const
+        {
+            return busy;
         }
 
         std::function<void(const std::string &)> onOpen;
@@ -80,6 +98,7 @@ namespace sky::editor {
         int                      hoverTop      = -1;
         int                      hoverAction   = -1;
         bool                     confirmDelete = false;
+        bool                     busy          = false;
         long long                lastClickMs   = 0;
         uint64_t                 themeRevision = 0;
         bool                     layoutBusy    = false;
