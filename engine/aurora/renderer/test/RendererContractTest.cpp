@@ -1,0 +1,41 @@
+// Linking implementation libraries would invalidate this public-contract boundary test.
+#include <aurora/rdg/IDeviceFrameExecution.h>
+#include <aurora/renderer/IRenderFeature.h>
+#include <aurora/renderer/IRenderer.h>
+#include <core/async/Completion.h>
+#include <type_traits>
+
+using namespace sky::aurora;
+
+static_assert(!std::is_convertible_v<ViewId, ViewportId>);
+static_assert(!std::is_convertible_v<SceneId, RenderEntityId>);
+static_assert(!std::is_copy_constructible_v<FramePacket>);
+static_assert(std::is_nothrow_move_constructible_v<FramePacket>);
+static_assert(!std::is_copy_constructible_v<FrameCompileResult>);
+static_assert(!std::is_copy_constructible_v<FrameCollectResult>);
+static_assert(std::is_abstract_v<IRenderer>);
+static_assert(std::is_abstract_v<IRendererProvider>);
+static_assert(std::is_abstract_v<IDeviceFrameExecution>);
+static_assert(std::is_abstract_v<IFrameGraphCompiler>);
+static_assert(std::is_abstract_v<sky::ICompletion>);
+
+PacketSubmitResult SubmitPacket(IRenderer &renderer, std::unique_ptr<FramePacket> &packet)
+{
+    return renderer.TrySubmit(packet);
+}
+
+FrameCompileResult CompileGraph(IDeviceFrameExecution &context, const DeviceFrameLease &lease, std::shared_ptr<const FrozenFrameGraph> graph)
+{
+    return context.Compile(lease, std::move(graph));
+}
+
+int main()
+{
+    FramePacket          packet;
+    PreparedFrame        prepared;
+    FrameBuildInputs     inputs;
+    RendererCreateResult create;
+    FrameCompileResult   compile;
+    FrameCollectResult   collect;
+    return 0;
+}

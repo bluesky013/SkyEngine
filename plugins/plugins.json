@@ -1,6 +1,12 @@
 {
     "plugins": [
         {
+            "name": "aurora-renderer",
+            "dir": "aurora",
+            "cmake_var": "SKY_BUILD_AURORA_RENDERER",
+            "enabled": true
+        },
+        {
             "name": "python",
             "dir": "python",
             "cmake_var": "SKY_BUILD_PYTHON",

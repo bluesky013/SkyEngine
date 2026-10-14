@@ -6,57 +6,13 @@
 
 #include "core/platform/Platform.h"
 
-#include <core/async/ThreadPool.h>
+#include <aurora/rdg/DeviceFrameContext.h>
 #include <core/environment/Singleton.h>
-#include <core/memory/FrameAllocator.h>
-#include <aurora/rhi/Fence.h>
-
-#include <vector>
 
 namespace sky::aurora {
 
     class Device;
     class RenderViewport;
-
-    struct DeviceFrameContextInitInfo {
-        uint32_t inflightNum = 2;
-        uint32_t parallelNum = 1;
-    };
-
-    class DeviceFrameContext {
-    public:
-        DeviceFrameContext()          = default;
-        virtual ~DeviceFrameContext() = default;
-
-        virtual void BeginFrame() noexcept;
-        virtual void EndFrame() noexcept;
-
-        ThreadPool *GetParallelContext() const
-        {
-            return mThreadPool.get();
-        }
-
-        FrameAllocator &GetFrameAllocator() noexcept
-        {
-            return mFrameAllocator;
-        }
-
-        // The current in-flight frame's fence (shared across all viewports of
-        // this frame). Wired into SubmitInfo::fence by the frame driver.
-        Fence *GetFrameFence() const noexcept;
-
-    protected:
-        // Create mInflightNum signaled fences. Called by backend subclasses once
-        // mInflightNum is assigned.
-        void InitFences(Device *device);
-
-        uint32_t                    mFrameIndex  = 0;
-        uint32_t                    mInflightNum = 0;
-        uint32_t                    mParallelNum = 0;
-        std::unique_ptr<ThreadPool> mThreadPool;
-        FrameAllocator              mFrameAllocator;
-        std::vector<FencePtr>       mFences;
-    };
 
     class RenderDeviceExclusive : public Singleton<RenderDeviceExclusive> {
     public:
