@@ -37,4 +37,4 @@ namespace sky {
 
 } // namespace sky
 
-REGISTER_MODULE(sky::{{PROJECT_NAME}}Module)
+REGISTER_MODULE_TAGGED(sky::{{PROJECT_NAME}}Module)

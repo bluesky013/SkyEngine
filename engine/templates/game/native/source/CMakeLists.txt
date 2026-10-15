@@ -1,11 +1,10 @@
 # {{PROJECT_NAME}} game module.
 #
-# Built as a SHARED library exporting StartModule/StopModule (REGISTER_MODULE),
-# loaded by the launcher/editor ModuleManager.
+# Uses the engine's dynamic/static module packaging and registration contract.
 file(GLOB_RECURSE GAME_SRC src/*.cpp)
 file(GLOB_RECURSE GAME_INC include/*.h)
 
-sky_add_library(TARGET {{PROJECT_NAME}}Module SHARED
+sky_add_module(TARGET {{PROJECT_NAME}}Module
     SOURCES
         ${GAME_SRC}
         ${GAME_INC}

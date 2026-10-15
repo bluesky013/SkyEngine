@@ -15,30 +15,40 @@ namespace sky {
     // main window's CAMetalLayer (the RHI surface handle on macOS).
     class MacosPlatform : public PlatformBase {
     public:
-        MacosPlatform()           = default;
+        MacosPlatform() = default;
         ~MacosPlatform() override;
 
-        bool Init(const PlatformInfo &info) override;
-        uint64_t GetPerformanceFrequency() const override;
-        uint64_t GetPerformanceCounter() const override;
+        bool        Init(const PlatformInfo &info) override;
+        uint64_t    GetPerformanceFrequency() const override;
+        uint64_t    GetPerformanceCounter() const override;
         std::string GetInternalPath() const override;
         std::string GetBundlePath() const override;
         std::string GetUserConfigPath() const override;
-        void *GetMainWinHandle() const override { return mainWindow; }
-        std::string GetEnvVariable(const std::string &env) const override;
-        bool RunCmd(const std::string &str, std::string &out) const override;
-        PlatformType GetType() const override { return PlatformType::MacOS; }
+        void       *GetMainWinHandle() const override
+        {
+            return mainWindow;
+        }
+        std::string  GetEnvVariable(const std::string &env) const override;
+        bool         RunCmd(const std::string &str, std::string &out) const override;
+        PlatformType GetType() const override
+        {
+            return PlatformType::MacOS;
+        }
 
-        char* GetClipBoardText() override;
-        void FreeClipBoardText(char* text) override;
-        void SetClipBoardText(const std::string &text) override;
+        char *GetClipBoardText() override;
+        void  FreeClipBoardText(char *text) override;
+        void  SetClipBoardText(const std::string &text) override;
 
-        void PollEvent(bool &exit) override;
+        void          PollEvent(bool &exit) override;
+        bool          IsFrameActive() const override;
+        FileSystemPtr GetBundleFileSystem() override;
+        void          RevealInFileExplorer(const std::string &path) override;
+        void          StartTextInput() override;
+        void          StopTextInput() override;
+        void          SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
-        bool ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title,
-                                const std::string &filter) override;
-        bool ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title,
-                                const std::string &filter) override;
+        bool ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) override;
+        bool ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) override;
 
         // Records the first created window's layer as the main surface (used by
         // the RHI when a host does not pass a handle explicitly).
@@ -57,10 +67,23 @@ namespace sky {
             }
         }
 
+        void RequestExit()
+        {
+            exitRequested = true;
+        }
+
+        void NotifyWindowDestroyed(void *handle)
+        {
+            if (handle == mainWindow) {
+                mainWindow = nullptr;
+            }
+        }
+
     private:
-        void *mainWindow    = nullptr; // CAMetalLayer of the main window
-        void *framePool     = nullptr; // NSAutoreleasePool, drained once per frame
-        bool  exitRequested = false;
+        void *mainWindow          = nullptr; // CAMetalLayer of the main window
+        void *framePool           = nullptr; // NSAutoreleasePool, drained once per frame
+        void *applicationDelegate = nullptr; // owned when this backend supplies the app delegate
+        bool  exitRequested       = false;
     };
 
 } // namespace sky

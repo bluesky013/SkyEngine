@@ -1,3 +1,5 @@
 add_subdirectory(adaptor)
-add_subdirectory(builder)
+if (SKY_DEVELOP AND NOT SKY_MOBILE)
+    add_subdirectory(builder)
+endif ()
 add_subdirectory(runtime)

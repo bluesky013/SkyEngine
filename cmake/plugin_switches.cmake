@@ -12,9 +12,15 @@ set(_SKY_PLUGINS_SWITCHES_HASH_PREV "" CACHE INTERNAL
 
 if (NOT "${_SKY_PLUGINS_SWITCHES_HASH}" STREQUAL "${_SKY_PLUGINS_SWITCHES_HASH_PREV}")
     message(STATUS "[SkyEngine] plugins/plugins.json changed - refreshing plugin switches")
+    # The first configure may already contain explicit -D/preset overrides.
+    # Only refresh an existing cache after a previously loaded manifest changes.
+    if (_SKY_PLUGINS_SWITCHES_HASH_PREV STREQUAL "")
+        set(_SKY_PLUGIN_SWITCHES_CHANGED FALSE)
+    else()
+        set(_SKY_PLUGIN_SWITCHES_CHANGED TRUE)
+    endif()
     set(_SKY_PLUGINS_SWITCHES_HASH_PREV "${_SKY_PLUGINS_SWITCHES_HASH}"
         CACHE INTERNAL "MD5 of plugins/plugins.json on last configure" FORCE)
-    set(_SKY_PLUGIN_SWITCHES_CHANGED TRUE)
 else()
     set(_SKY_PLUGIN_SWITCHES_CHANGED FALSE)
 endif()

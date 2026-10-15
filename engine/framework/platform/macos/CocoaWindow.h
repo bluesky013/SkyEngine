@@ -21,19 +21,33 @@ namespace sky {
         CocoaWindow() = default;
         ~CocoaWindow() override;
 
-        bool Init(const Descriptor &desc) override;
+        bool  Init(const Descriptor &desc) override;
         void *GetNativeHandle() const override;
+        bool  GetPosition(int32_t &x, int32_t &y) const override;
+        void  SetPosition(int32_t x, int32_t y) override;
+        void  SetPointerCapture(bool capture) override;
+        bool  GetGlobalCursorPosition(int32_t &x, int32_t &y) const override;
+        void  SetCursor(StandardCursor cursor) override;
+        void  SetTitle(const std::string &title) override;
+        bool  IsMainWindow() const override;
+
+        // The shared window contract uses client framebuffer pixels.
+        void NotifyResized(uint32_t width, uint32_t height);
 
         // Device pixels / point; queried live from the window so it tracks moves
         // between displays with different backing scale factors.
         float GetDpiScale() const override;
 
-        void *GetNSWindow() const { return window; }
+        void *GetNSWindow() const
+        {
+            return window;
+        }
 
     private:
-        void *window     = nullptr; // NSWindow, owned
-        void *delegate   = nullptr; // SkyCocoaWindowDelegate, owned
-        void *metalLayer = nullptr; // CAMetalLayer of the content view, not owned
+        void *window         = nullptr; // NSWindow, owned
+        void *delegate       = nullptr; // SkyCocoaWindowDelegate, owned
+        void *metalLayer     = nullptr; // CAMetalLayer of the content view, not owned
+        void *captureMonitor = nullptr; // local AppKit event monitor, owned
     };
 
 } // namespace sky

@@ -26,7 +26,11 @@ namespace sky::aurora {
         }
 
         std::string nameMap[] = {
+#ifdef __APPLE__
+            "Aurora.Metal",
+#else
             "Aurora.Vulkan",
+#endif
             "Aurora.Vulkan",
             "Aurora.Metal",
             "Aurora.DX12",

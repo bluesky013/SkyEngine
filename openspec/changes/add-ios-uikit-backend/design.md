@@ -1,3 +1,9 @@
+> Historical design: application-wide activity notifications, global-screen geometry and implied drawable
+> recovery below are not the current implementation contract. The single-scene lifecycle, stable window
+> identity and actual coverage are documented in
+> [complete-native-platform-services](../archive/2026-10-16-complete-native-platform-services/validation.md).
+> GPU surface recovery is still outside that implementation. Original tasks/archive state is unchanged.
+
 ## Context
 
 iOS and macOS share the Apple toolchain but not the UI framework: macOS uses AppKit (`NSApplication`,

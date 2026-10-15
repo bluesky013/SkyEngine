@@ -9,6 +9,10 @@
 #else
     #include <dlfcn.h>
 #endif
+#ifdef __APPLE__
+    #include <TargetConditionals.h>
+    #include <mach-o/dyld.h>
+#endif
 
 #ifdef _WIN32
 static const std::string DYN_PREFIX = "";
@@ -22,6 +26,30 @@ static const std::string DYN_SUFFIX = ".so";
 #endif
 
 namespace sky {
+
+#ifdef __APPLE__
+    static std::string GetEmbeddedModulePath(const std::string &name, const std::string &libraryName)
+    {
+        uint32_t pathSize = 0;
+        _NSGetExecutablePath(nullptr, &pathSize);
+        std::vector<char> executablePath(pathSize);
+        if (pathSize == 0 || _NSGetExecutablePath(executablePath.data(), &pathSize) != 0) {
+            return {};
+        }
+
+        const std::string path(executablePath.data());
+        const auto        separator = path.find_last_of('/');
+        if (separator == std::string::npos) {
+            return {};
+        }
+        const std::string executableDirectory = path.substr(0, separator + 1);
+    #if TARGET_OS_IPHONE
+        return executableDirectory + "Frameworks/" + name + ".framework/" + name;
+    #else
+        return executableDirectory + libraryName;
+    #endif
+    }
+#endif
 
     DynamicModule::DynamicModule(const std::string &str) : name(str), handle(nullptr)
     {
@@ -37,6 +65,16 @@ namespace sky {
         std::string libName = DYN_PREFIX + name + DYN_SUFFIX;
 #ifdef _WIN32
         handle = ::LoadLibraryExA(libName.c_str(), nullptr, 0);
+#elif defined(__APPLE__)
+        const std::string embeddedPath = GetEmbeddedModulePath(name, libName);
+        if (!embeddedPath.empty()) {
+            handle = dlopen(embeddedPath.c_str(), RTLD_LOCAL | RTLD_LAZY);
+        }
+    #if !TARGET_OS_IPHONE
+        if (handle == nullptr) {
+            handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+        }
+    #endif
 #else
         handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
@@ -81,9 +119,13 @@ namespace sky {
         case ERROR_MOD_NOT_FOUND: res = "Not Found"; break;
         case ERROR_BAD_EXE_FORMAT: res = "Arch Not Match"; break;
         case ERROR_ACCESS_DENIED: res = "Access Denied"; break;
-        default:
-            res = "Unknown";
-            break;
+        default: res = "Unknown"; break;
+        }
+#endif
+#ifndef _WIN32
+        const char *error = dlerror();
+        if (error != nullptr) {
+            res = error;
         }
 #endif
         return res;

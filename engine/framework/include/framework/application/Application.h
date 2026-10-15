@@ -4,12 +4,13 @@
 
 #pragma once
 
+#include <framework/application/FrameClock.h>
+#include <framework/application/ModuleManager.h>
+#include <framework/application/SettingRegistry.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/application/SettingRegistry.h>
-#include <framework/application/ModuleManager.h>
-#include <memory>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace sky {
@@ -26,7 +27,9 @@ namespace sky {
 
         virtual bool Init(int argc, char **argv);
 
-        virtual void PreTick() {}
+        virtual void PreTick()
+        {
+        }
 
         void Mainloop();
 
@@ -34,10 +37,19 @@ namespace sky {
 
         // When true, Mainloop() is a no-op: the platform host drives frames
         // itself (e.g. iOS via CADisplayLink), calling Loop() each frame.
-        void SetExternalFrameLoop(bool value) { externalFrameLoop = value; }
-        bool UsesExternalFrameLoop() const { return externalFrameLoop; }
+        void SetExternalFrameLoop(bool value)
+        {
+            externalFrameLoop = value;
+        }
+        bool UsesExternalFrameLoop() const
+        {
+            return externalFrameLoop;
+        }
 
-        bool IsExit() const { return exit; }
+        bool IsExit() const
+        {
+            return exit;
+        }
         void SetExit() override;
 
         template <typename T>
@@ -49,19 +61,33 @@ namespace sky {
     protected:
         void SaveArgs(int argc, char **argv);
 
-        ModuleManager* GetModuleManager() const override { return moduleManager.get(); }
+        ModuleManager *GetModuleManager() const override
+        {
+            return moduleManager.get();
+        }
 
-        Environment                    *env;
-        std::unique_ptr<ModuleManager>  moduleManager;
-        StartArguments                  arguments;
-        std::function<void(float)>      tickFn;
-        bool                            exit              = false;
-        bool                            externalFrameLoop = false;
+        Environment                   *env;
+        std::unique_ptr<ModuleManager> moduleManager;
+        StartArguments                 arguments;
+        std::function<void(float)>     tickFn;
+        bool                           exit              = false;
+        bool                           externalFrameLoop = false;
+        FrameClock                     frameClock;
 
-        virtual void ParseStartArgs() {}
-        virtual bool LoadConfigs() { return true; }
-        virtual bool PreInit() { return true; }
-        virtual void PostInit() {}
+        virtual void ParseStartArgs()
+        {
+        }
+        virtual bool LoadConfigs()
+        {
+            return true;
+        }
+        virtual bool PreInit()
+        {
+            return true;
+        }
+        virtual void PostInit()
+        {
+        }
     };
 
 } // namespace sky

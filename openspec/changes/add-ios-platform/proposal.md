@@ -1,6 +1,9 @@
 # Change: add-ios-platform
 
-> 状态：proposal（未实现）。为 iOS 增加运行时平台支持（窗口/事件后端 + 启动器 + 三方集）。
+> 历史提案，保留未归档。下文现状描述属于提案时点，不代表当前仓库。
+> UIKit 平台、launcher、UIScene 和 unsigned IPA 的后续实现/验证见
+> [complete-native-platform-services](../archive/2026-10-16-complete-native-platform-services/validation.md)。
+> 本提案的 GPU 真机、完整分发等范围不能由该结果推定完成；原 tasks 未自动勾选，未执行 archive。
 
 ## Why
 

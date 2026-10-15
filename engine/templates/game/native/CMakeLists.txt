@@ -7,6 +7,19 @@ cmake_minimum_required(VERSION 3.20)
 
 project({{PROJECT_NAME}} LANGUAGES C CXX)
 
+if (APPLE)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+
+    # Packaged modules/backends resolve each other inside the app, independently
+    # of the machine or build directory that produced them.
+    set(CMAKE_MACOSX_RPATH ON)
+    set(CMAKE_INSTALL_NAME_DIR "@rpath")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+    set(CMAKE_INSTALL_RPATH "@loader_path")
+endif ()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -103,3 +116,114 @@ add_custom_target({{PROJECT_NAME}}Deploy ALL
     DEPENDS Launcher
     COMMENT "Deploying engine + project configs"
 )
+
+function(_sky_collect_imported_runtimes directory result)
+    get_property(_imported DIRECTORY "${directory}" PROPERTY IMPORTED_TARGETS)
+    set(_runtime_files "")
+    set(_linked_files "")
+    foreach (_target IN LISTS _imported)
+        # Directory inventories can include non-global imports invisible here.
+        if (NOT TARGET "${_target}")
+            continue()
+        endif ()
+        get_target_property(_type "${_target}" TYPE)
+        if (_type STREQUAL "SHARED_LIBRARY" OR _type STREQUAL "MODULE_LIBRARY")
+            list(APPEND _runtime_files "$<TARGET_FILE:${_target}>")
+            list(APPEND _linked_files "$<TARGET_FILE:${_target}>")
+        endif ()
+        get_target_property(_companions "${_target}" INTERFACE_DYN_LIBS)
+        if (_companions)
+            list(APPEND _runtime_files ${_companions})
+        endif ()
+    endforeach ()
+    get_property(_subdirectories DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+    foreach (_subdirectory IN LISTS _subdirectories)
+        _sky_collect_imported_runtimes("${_subdirectory}" _child_files _child_linked_files)
+        list(APPEND _runtime_files ${_child_files})
+        list(APPEND _linked_files ${_child_linked_files})
+    endforeach ()
+    set(${result} "${_runtime_files}" PARENT_SCOPE)
+    if (ARGC GREATER 2)
+        set(${ARGV2} "${_linked_files}" PARENT_SCOPE)
+    endif ()
+endfunction()
+
+# Runtime modules and RHI backends are loaded dynamically. Target dependencies
+# alone build them but do not place them inside the app's executable directory.
+get_target_property(_sky_launcher_bundle Launcher MACOSX_BUNDLE)
+if (APPLE AND _sky_launcher_bundle)
+    function(_sky_collect_runtime_libraries directory result)
+        get_property(_targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
+        set(_runtime_targets "")
+        foreach (_target IN LISTS _targets)
+            get_target_property(_type "${_target}" TYPE)
+            if (_type STREQUAL "SHARED_LIBRARY" OR _type STREQUAL "MODULE_LIBRARY")
+                list(APPEND _runtime_targets "${_target}")
+            endif ()
+        endforeach ()
+        get_property(_subdirectories DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+        foreach (_subdirectory IN LISTS _subdirectories)
+            _sky_collect_runtime_libraries("${_subdirectory}" _child_targets)
+            list(APPEND _runtime_targets ${_child_targets})
+        endforeach ()
+        set(${result} "${_runtime_targets}" PARENT_SCOPE)
+    endfunction()
+
+    _sky_collect_runtime_libraries("${CMAKE_CURRENT_SOURCE_DIR}" _sky_runtime_targets)
+    foreach (_target IN LISTS _sky_runtime_targets)
+        add_dependencies({{PROJECT_NAME}}Deploy "${_target}")
+        get_target_property(_is_framework "${_target}" FRAMEWORK)
+        if (CMAKE_SYSTEM_NAME STREQUAL "iOS" AND _is_framework)
+            # Let Xcode embed and (for signed exports) sign the complete bundle.
+            set_property(TARGET Launcher APPEND PROPERTY XCODE_EMBED_FRAMEWORKS "${_target}")
+            set_target_properties(Launcher PROPERTIES
+                XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY TRUE
+                XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY TRUE
+            )
+        elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+            message(FATAL_ERROR "iOS runtime target ${_target} must be an embedded framework or a static module.")
+        else ()
+            add_custom_command(TARGET {{PROJECT_NAME}}Deploy POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:${_target}>"
+                    "$<TARGET_FILE_DIR:Launcher>/$<TARGET_FILE_NAME:${_target}>"
+                VERBATIM
+            )
+        endif ()
+    endforeach ()
+
+    if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        # Imported runtimes are not build targets and may not relink when the
+        # app is rebuilt. Stage them in Deploy on every invocation, including
+        # runtime-loaded companions and the real filenames behind symlinks.
+        _sky_collect_imported_runtimes("${CMAKE_CURRENT_SOURCE_DIR}" _sky_imported_files)
+        set(_sky_copy_runtime_script "${CMAKE_CURRENT_BINARY_DIR}/CopyImportedRuntimes-$<CONFIG>.cmake")
+        file(GENERATE OUTPUT "${_sky_copy_runtime_script}" CONTENT
+"set(_runtime_files \"${_sky_imported_files}\")
+file(MAKE_DIRECTORY \"$<TARGET_FILE_DIR:Launcher>\")
+foreach(_runtime IN LISTS _runtime_files)
+    if(NOT EXISTS \"\${_runtime}\")
+        message(FATAL_ERROR \"Imported runtime is missing: \${_runtime}\")
+    endif()
+    file(COPY \"\${_runtime}\" DESTINATION \"$<TARGET_FILE_DIR:Launcher>\" FOLLOW_SYMLINK_CHAIN)
+endforeach()
+")
+        add_custom_command(TARGET {{PROJECT_NAME}}Deploy POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -P "${_sky_copy_runtime_script}"
+            VERBATIM
+        )
+    endif ()
+endif ()
+
+# AGP discovers linked imported libraries itself. This manifest also lists the
+# runtime-loaded companions so Gradle can stage just those into generated jniLibs.
+if (ANDROID)
+    _sky_collect_imported_runtimes("${CMAKE_CURRENT_SOURCE_DIR}" _sky_imported_files _sky_linked_files)
+    set(_sky_runtime_manifest "${CMAKE_CURRENT_SOURCE_DIR}/../build/android/runtime-libraries/$<CONFIG>/${CMAKE_ANDROID_ARCH_ABI}/manifest.json")
+    file(GENERATE OUTPUT "${_sky_runtime_manifest}" CONTENT
+"{
+    \"libraries\": [\"$<JOIN:${_sky_imported_files},\",\">\"],
+    \"linkedLibraries\": [\"$<JOIN:${_sky_linked_files},\",\">\"]
+}
+")
+endif ()

@@ -10,14 +10,14 @@
 #include <chrono>
 
 #include <core/environment/Environment.h>
-#include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
+#include <core/logger/Logger.h>
 
 #include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetManager.h>
-//#include <framework/database/DBManager.h>
-#include <framework/platform/PlatformBase.h>
+// #include <framework/database/DBManager.h>
 #include <core/thread/ThreadDispatcher.h>
+#include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/World.h>
 
@@ -39,20 +39,29 @@ namespace sky {
 
     Application::~Application()
     {
+        Platform::Get()->StopFrameLoop();
+        if (Platform::Get()->GetImpl() != nullptr) {
+            Platform::Get()->SetFrameCallback({});
+        }
+
+        // Workers can still call code/registries owned by loaded modules.
+        // Complete their work before any module shuts down or detaches.
+        AssetExecutor::Get()->WaitForAll();
+        ThreadDispatcher::Get()->Clear();
         if (moduleManager) {
             moduleManager->UnLoadModules();
         }
 
         Interface<ISystemNotify>::Get()->UnRegister();
 
-        // Join in-flight asset workers BEFORE tearing down the managers they touch, then drop any
-        // queued cross-thread callbacks so no posted callback runs against half-destroyed state.
+        // Also drain work and callbacks produced during module shutdown before
+        // destroying the asset managers.
         AssetExecutor::Get()->WaitForAll();
         ThreadDispatcher::Get()->Clear();
 
         AssetManager::Destroy();
 
-        sky::Platform* platform = sky::Platform::Get();
+        sky::Platform *platform = sky::Platform::Get();
         platform->Shutdown();
     }
 
@@ -130,6 +139,12 @@ namespace sky {
         // A quit request (e.g. the main window closed) must stop the frame
         // before rendering: the window may already be destroyed.
         if (exit) {
+            Platform::Get()->StopFrameLoop();
+            return;
+        }
+
+        if (!Platform::Get()->IsFrameActive()) {
+            frameClock.Reset();
             return;
         }
 
@@ -141,12 +156,9 @@ namespace sky {
             PreTick();
         }
 
-
-        uint64_t        frequency      = Platform::Get()->GetPerformanceFrequency();
-        uint64_t        currentCounter = Platform::Get()->GetPerformanceCounter();
-        static uint64_t current        = 0;
-        float           delta = current > 0 ? static_cast<float>(static_cast<float>(currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
-        current               = currentCounter;
+        const uint64_t frequency      = Platform::Get()->GetPerformanceFrequency();
+        const uint64_t currentCounter = Platform::Get()->GetPerformanceCounter();
+        const float    delta          = frameClock.Sample(currentCounter, frequency, Platform::Get()->GetFrameEpoch());
 
         if (tickFn) {
             SKY_PROFILE_NAME("World Tick")

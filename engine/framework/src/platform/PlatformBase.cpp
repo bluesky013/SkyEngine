@@ -6,6 +6,12 @@
 
 namespace sky {
 
+    FileSystemPtr PlatformBase::GetBundleFileSystem()
+    {
+        const auto path = GetBundlePath();
+        return path.empty() ? FileSystemPtr{} : FileSystemPtr(new NativeFileSystem(path));
+    }
+
     std::string Platform::GetPlatformNameByType(PlatformType type)
     {
         switch (type) {
@@ -155,6 +161,16 @@ namespace sky {
         platform->PollEvent(exit);
     }
 
+    bool Platform::IsFrameActive() const
+    {
+        return platform != nullptr && platform->IsFrameActive();
+    }
+
+    uint64_t Platform::GetFrameEpoch() const
+    {
+        return platform != nullptr ? platform->GetFrameEpoch() : 0;
+    }
+
     void Platform::SetFrameCallback(std::function<void()> callback)
     {
         platform->SetFrameCallback(std::move(callback));
@@ -163,5 +179,12 @@ namespace sky {
     void Platform::StartFrameLoop()
     {
         platform->StartFrameLoop();
+    }
+
+    void Platform::StopFrameLoop()
+    {
+        if (platform != nullptr) {
+            platform->StopFrameLoop();
+        }
     }
 } // namespace sky

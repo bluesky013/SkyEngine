@@ -1,3 +1,9 @@
+import groovy.json.JsonSlurper
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.provider.ListProperty
+import javax.inject.Inject
+
 plugins {
     id 'com.android.application'
 }
@@ -30,7 +36,7 @@ android {
         externalNativeBuild {
             cmake {
                 abiFilters '{{ANDROID_ABI}}'
-                , '-DSKY_MODULE_PACKAGING={{MODULE_PACKAGING}}'
+                arguments {{ANDROID_CMAKE_ARGUMENTS}}
             }
         }
     }
@@ -66,8 +72,80 @@ android {
     }
 }
 
+// Native imported targets describe runtime-loaded companions in a CMake
+// manifest. Keep them separate from libraries already packaged by AGP.
+abstract class StageSkyRuntimeLibraries extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getManifestDirectory()
+
+    @Input
+    abstract ListProperty<String> getAbis()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @Inject
+    abstract FileSystemOperations getFileSystemOperations()
+
+    private Map<String, List<File>> runtimeLayout() {
+        def result = [:]
+        abis.get().each { abi ->
+            def manifest = new File(manifestDirectory.get().asFile, "${abi}/manifest.json")
+            if (manifest.isFile()) {
+                def metadata = new JsonSlurper().parse(manifest)
+                def linked = metadata.linkedLibraries.findAll { it }.collect { new File(it).canonicalPath }.toSet()
+                result[abi] = metadata.libraries.findAll { it }.collect { new File(it) }.findAll {
+                    it.name.endsWith('.so') && !linked.contains(it.canonicalPath)
+                }.unique { it.absolutePath }
+            }
+        }
+        return result
+    }
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.NONE)
+    List<File> getRuntimeLibraryFiles() {
+        return runtimeLayout().values().flatten()
+    }
+
+    @TaskAction
+    void stageLibraries() {
+        def layout = runtimeLayout()
+        if (layout.keySet() != abis.get().toSet()) {
+            throw new GradleException("Missing native runtime manifest under ${manifestDirectory.get().asFile}")
+        }
+        fileSystemOperations.sync { spec ->
+            spec.into(outputDirectory)
+            spec.duplicatesStrategy = DuplicatesStrategy.FAIL
+            layout.each { abi, libraries ->
+                libraries.each { library ->
+                    if (!library.isFile()) {
+                        throw new GradleException("Missing native runtime companion: ${library}")
+                    }
+                }
+                spec.from(libraries) { into(abi) }
+            }
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def variantTaskName = variant.name.capitalize()
+        def nativeConfig = variant.buildType == 'debug' ? 'Debug' : 'Release'
+        def stageRuntime = tasks.register("stage${variantTaskName}SkyRuntimeLibraries", StageSkyRuntimeLibraries) {
+            dependsOn("externalNativeBuild${variantTaskName}")
+            manifestDirectory.set(layout.projectDirectory.dir("../../../build/android/runtime-libraries/${nativeConfig}"))
+            abis.set(android.defaultConfig.externalNativeBuild.cmake.abiFilters.toList().sort())
+            outputDirectory.set(layout.buildDirectory.dir("generated/skyRuntimeLibraries/${variant.name}"))
+        }
+        variant.sources.jniLibs.addGeneratedSourceDirectory(stageRuntime, { task -> task.outputDirectory })
+    }
+}
+
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.3.0'
     implementation 'com.google.android.material:material:1.4.0'
-    implementation 'androidx.games:games-activity:1.1.0'
+    implementation 'androidx.games:games-activity:1.2.2'
 }

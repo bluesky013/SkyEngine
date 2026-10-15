@@ -47,7 +47,7 @@ namespace sky {
         WindowID winID;
         int32_t  x;     // cursor position (client space)
         int32_t  y;     // cursor position (client space)
-        int32_t  delta; // wheel delta (positive = away from the user / scroll up)
+        float    delta; // positive scroll up; 120 per wheel notch, precise trackpad deltas retain fractions
     };
 
     class IMouseEvent : public EventTraits {
@@ -237,6 +237,11 @@ namespace sky {
         // Broadcast when a window receives a close request (before it is
         // destroyed), so owners can stop presenting to it / drop its viewport.
         virtual void OnWindowClose(const NativeWindow *window)
+        {
+        }
+        // The native surface was lost or replaced; query window->GetNativeHandle().
+        // A null handle means unavailable. Window identity survives mobile recreation.
+        virtual void OnSurfaceChanged(const NativeWindow *window)
         {
         }
     };

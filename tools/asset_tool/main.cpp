@@ -5,14 +5,18 @@
 #include "CookWorkerHost.h"
 
 #include <core/cmdline/CmdParser.h>
+#include <core/file/MultiFileSystem.h>
 #include <core/logger/Logger.h>
 #include <framework/application/Application.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
 
+#include <chrono>
 #include <cstdio>
+#include <future>
 #include <string>
 
 using namespace sky;
@@ -48,10 +52,10 @@ namespace {
             CmdOptions options("AssetTool", "SkyEngine asset cook worker");
             options.allow_unrecognised_options();
             options.add_options()("p,project", "Project Directory", CmdValue<std::string>())("e,engine", "Engine Directory", CmdValue<std::string>())(
-                "i,intermediate", "Intermediate Directory", CmdValue<std::string>())(
-                "m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")(
-                "cook-all", "One-shot: cook all project sources for --platform, then exit")("platform", "Target platform for --cook-all", CmdValue<std::string>())(
-                "h,help", "Print usage");
+                "i,intermediate", "Intermediate Directory",
+                CmdValue<std::string>())("m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")(
+                "cook-all", "One-shot: cook all project sources for --platform, then exit")("platform", "Target platform for --cook-all",
+                                                                                            CmdValue<std::string>())("h,help", "Print usage");
 
             auto result = options.parse(static_cast<int32_t>(arguments.args.size()), arguments.args.data());
             if (result.count("project") != 0u) {
@@ -93,8 +97,8 @@ namespace {
 
             const std::string intermediate = intermediatePath.empty() ? (projectPath + "/Intermediate") : intermediatePath;
 
-            auto workFs   = new NativeFileSystem(projectPath);
-            auto engineFs = new NativeFileSystem(enginePath);
+            const NativeFileSystemPtr workFs   = new NativeFileSystem(projectPath);
+            const NativeFileSystemPtr engineFs = new NativeFileSystem(enginePath);
 
             AssetManager::Get()->SetWorkFileSystem(workFs);
             AssetDataBase::Get()->SetEngineFs(engineFs);
@@ -111,6 +115,17 @@ namespace {
 
             AssetManager::Get()->SetCookRunner(nullptr);
             return true;
+        }
+
+        void PostInit() override
+        {
+            // Builders are registered by the modules after PreInit. Load their
+            // settings now, with project files overriding deployed engine defaults.
+            auto                       *builders = AssetBuilderManager::Get();
+            CounterPtr<MultiFileSystem> configs  = new MultiFileSystem();
+            configs->AddFileSystem(builders->GetWorkSpaceFs()->CreateSubSystem("configs", false));
+            configs->AddFileSystem(builders->GetEngineFs()->CreateSubSystem("configs", false));
+            builders->LoadBuildConfigs(configs);
         }
 
     private:
@@ -161,15 +176,30 @@ int main(int argc, char **argv)
         const std::string activePlatform = builderMgr->GetCookConfig().GetActivePlatform();
 
         uint32_t cooked = 0;
+        uint32_t failed = 0;
         AssetDataBase::Get()->ForEachSource([&](const AssetSourcePtr &src) {
             const std::string cookJson = AssetDataBase::Get()->GetCookJson(src->uuid);
             for (const auto &target : builderMgr->GetCookConfig().GetTargets(cookJson, activePlatform)) {
-                builderMgr->BuildRequestSync(src->uuid, target);
+                std::promise<AssetBuildResult> completion;
+                auto                           result = completion.get_future();
+                builderMgr->BuildRequest(src->uuid, target, [&completion](const AssetBuildResult &value) { completion.set_value(value); });
+                AssetExecutor::Get()->WaitForAll();
+                if (result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+                    LOG_E(TAG, "cook-all: no build result for '%s' target '%s'", src->path.GetStr().c_str(), target.c_str());
+                    ++failed;
+                    continue;
+                }
+                const auto build = result.get();
+                if (build.retCode != AssetBuildRetCode::SUCCESS) {
+                    LOG_E(TAG, "cook-all: failed '%s' target '%s': %s", src->path.GetStr().c_str(), target.c_str(), build.error.c_str());
+                    ++failed;
+                    continue;
+                }
                 ++cooked;
             }
         });
-        LOG_I(TAG, "cook-all: %u product(s) for platform '%s'", cooked, activePlatform.c_str());
-        return 0;
+        LOG_I(TAG, "cook-all: %u product(s), %u failed for platform '%s'", cooked, failed, activePlatform.c_str());
+        return failed == 0 ? 0 : 1;
     }
 
     CookWorkerHost host;

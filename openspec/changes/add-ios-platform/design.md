@@ -1,3 +1,8 @@
+> Historical design context: the platform/launcher baseline below predates the implementation and
+> UIScene/package follow-up in [complete-native-platform-services](../archive/2026-10-16-complete-native-platform-services/validation.md).
+> Use that record for current behavior and executed evidence. GPU/device/distribution acceptance remains
+> separate; this note does not complete tasks or archive the change.
+
 ## Context
 
 iOS shares the Apple toolchain with macOS but not the UI framework: macOS uses AppKit (`NSApplication`,

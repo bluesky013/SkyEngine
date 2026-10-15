@@ -18,8 +18,10 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -39,6 +41,7 @@ TOKEN_KEYS = [
     '{{NDK_VERSION}}',
     '{{ANDROID_ABI}}',
     '{{MODULE_PACKAGING}}',
+    '{{ANDROID_CMAKE_ARGUMENTS}}',
     '{{ANDROID_KEYSTORE_PATH}}',
     '{{ANDROID_KEYSTORE_ALIAS}}',
     '{{ANDROID_STORE_PASSWORD}}',
@@ -98,7 +101,7 @@ def instantiate_template(template_dir, out_dir, tokens):
         # 二进制安全：模板可能包含 gradle-wrapper.jar。
         data = src.read_bytes()
         for key in TOKEN_KEYS:
-            data = data.replace(key.encode('ascii'), tokens[key].encode('ascii'))
+            data = data.replace(key.encode('ascii'), tokens[key].encode('utf-8'))
         dst.write_bytes(data)
         if dst.name == 'gradlew':
             dst.chmod(dst.stat().st_mode | 0o111)
@@ -174,6 +177,7 @@ def base_tokens(descriptor):
         '{{NDK_VERSION}}': '28.1.13356709',
         '{{ANDROID_ABI}}': 'arm64-v8a',
         '{{MODULE_PACKAGING}}': 'dynamic',
+        '{{ANDROID_CMAKE_ARGUMENTS}}': "'-DSKY_MODULE_PACKAGING=dynamic'",
         '{{APPLICATION_ID}}': namespace,
         '{{ANDROID_KEYSTORE_PATH}}': '',
         '{{ANDROID_KEYSTORE_ALIAS}}': '',
@@ -230,6 +234,30 @@ def package_android(out_dir, project_dir, tokens, variant):
     return dest
 
 
+def preset_cmake_args(preset):
+    args = []
+    for key, value in (preset.get('cacheVariables') or {}).items():
+        if isinstance(value, bool):
+            value = 'ON' if value else 'OFF'
+        args.append('-D{}={}'.format(key, value))
+    for field, variable in (('compileDefinitions', 'SKY_EXTRA_CXX_DEFINITIONS'),
+                            ('compileFlags', 'SKY_EXTRA_CXX_FLAGS')):
+        values = preset.get(field) or []
+        if values:
+            args.append('-D{}={}'.format(variable, ';'.join(values)))
+    return args + list(preset.get('extraConfigureArgs') or [])
+
+
+def android_cmake_args(engine, preset):
+    args = ['-DSKY_ENGINE_ROOT=' + str(engine),
+            '-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic'))]
+    args += preset_cmake_args(preset)
+    if os.environ.get('SKY_3RD_PATH'):
+        args.append('-D3RD_PATH=' + os.environ['SKY_3RD_PATH'])
+    # Groovy single-quoted strings preserve dollar signs in paths/definitions.
+    return ', '.join("'" + arg.replace('\\', '\\\\').replace("'", "\\'") + "'" for arg in args)
+
+
 def apple_cmake_args(preset, credentials, default_bundle_id):
     """Preset -> cmake cache args (bundle id, macOS .app, signing, extra options)."""
     args = []
@@ -255,16 +283,56 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
         args += ['-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO', '-DCODE_SIGNING_REQUIRED=NO',
                  '-DCODE_SIGNING_ALLOWED=NO']
 
-    for key, value in (preset.get('cacheVariables') or {}).items():
-        args.append('-D{}={}'.format(key, value))
-    definitions = preset.get('compileDefinitions') or []
-    if definitions:
-        args.append('-DSKY_EXTRA_CXX_DEFINITIONS=' + ';'.join(definitions))
-    flags = preset.get('compileFlags') or []
-    if flags:
-        args.append('-DSKY_EXTRA_CXX_FLAGS=' + ';'.join(flags))
-    args += preset.get('extraConfigureArgs') or []
-    return args
+    return args + preset_cmake_args(preset)
+
+
+def find_apple_app(project_dir, platform, name, required=True):
+    # Build presets select Release, but honor Debug/custom output configurations.
+    candidates = sorted((project_dir / 'build' / platform / 'bin').glob('*/' + name + '.app'))
+    candidates += sorted((project_dir / 'build' / platform / 'bin').glob(name + '.app'))
+    if not candidates and not required:
+        return None
+    if len(candidates) != 1:
+        raise SystemExit('需要唯一的 .app 产物，找到 {} 个: {}'.format(len(candidates), candidates))
+    return candidates[0]
+
+
+def zip_bundle(app, archive, prefix):
+    """Preserve Mach-O executable bits and framework symlinks in Apple archives."""
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as output:
+        for source in [app] + sorted(app.rglob('*')):
+            relative = Path(prefix) / app.name / source.relative_to(app)
+            info = zipfile.ZipInfo.from_file(source, str(relative)) if not source.is_symlink() else \
+                zipfile.ZipInfo(str(relative))
+            info.create_system = 3
+            info.external_attr = source.lstat().st_mode << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            if source.is_symlink():
+                output.writestr(info, os.readlink(source))
+            elif source.is_dir():
+                output.writestr(info, b'')
+            else:
+                output.writestr(info, source.read_bytes())
+
+
+def collect_apple_package(engine, project_dir, preset, name):
+    platform = preset['platform']
+    app = find_apple_app(project_dir, platform, name)
+    resource_root = app / 'Contents' / 'MacOS' if platform == 'macos' else app
+    executable = resource_root / name
+    plist = app / 'Contents' / 'Info.plist' if platform == 'macos' else app / 'Info.plist'
+    if not plist.is_file() or not executable.is_file() or not executable.stat().st_mode & stat.S_IXUSR:
+        raise SystemExit('不完整的 Apple 应用包: {}'.format(app))
+    stage_configs(engine, project_dir, resource_root / 'configs')
+    stage_bundles(project_dir, preset, resource_root / 'products')
+    suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
+    archive = project_dir / 'build' / platform / (name + suffix)
+    zip_bundle(app, archive, 'Payload' if platform == 'ios' else '')
+    print('应用: {}'.format(app))
+    print('产物: {}'.format(archive))
+    if platform == 'ios':
+        print('  未签名 IPA，仅用于检查打包内容；真机安装需要有效签名及描述文件。')
+    return archive
 
 
 def find_asset_tool(engine):
@@ -285,7 +353,9 @@ def run_cook(engine, project_dir, platform):
     cmd = [str(tool), '--project', str(project_dir), '--engine', str(tool.parent), '--cook-all', '--platform', platform]
     print('cook: {}'.format(' '.join(cmd)))
     result = subprocess.run(cmd, cwd=str(tool.parent))
-    return result.returncode == 0
+    if result.returncode != 0:
+        raise SystemExit('AssetTool cook 失败 (exit {})'.format(result.returncode))
+    return True
 
 
 def strip_jsonc(text):
@@ -338,6 +408,8 @@ def stage_bundles(project_dir, preset, dest_products_dir):
     """
     bundles = select_bundles(project_dir, preset)
     check_bundle_conflicts(bundles)
+    if dest_products_dir.exists():
+        shutil.rmtree(dest_products_dir)
     dest_products_dir.mkdir(parents=True, exist_ok=True)
     for name in bundles:
         src = project_dir / 'products' / name
@@ -355,10 +427,20 @@ def stage_bundles(project_dir, preset, dest_products_dir):
     return bundles
 
 
+def stage_configs(engine, project_dir, dest_configs_dir):
+    """Ship startup configuration in the read-only package; project files win."""
+    if dest_configs_dir.exists():
+        shutil.rmtree(dest_configs_dir)
+    dest_configs_dir.mkdir(parents=True, exist_ok=True)
+    for source in (engine / 'configs', project_dir / 'configs'):
+        if source.is_dir():
+            shutil.copytree(source, dest_configs_dir, dirs_exist_ok=True)
+
+
 def run_cmake_preset(engine, project_dir, platform, build, extra, extra_build):
     native_dir = project_dir / 'native'
     env = os.environ.copy()
-    env.setdefault('SKY_ENGINE_ROOT', str(engine))
+    env['SKY_ENGINE_ROOT'] = str(engine)
     args = list(extra)
     if env.get('SKY_3RD_PATH'):
         args.append('-D3RD_PATH=' + env['SKY_3RD_PATH'])
@@ -436,17 +518,29 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
     platform = preset['platform']
     if platform == 'android':
         out_dir = project_dir / 'build' / 'android'
+        tokens = dict(tokens)
+        tokens['{{ANDROID_CMAKE_ARGUMENTS}}'] = android_cmake_args(engine, preset)
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
+        stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs')
         run_cook(engine, project_dir, 'android')
         stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
         if build:
             package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
     elif platform in ('ios', 'macos'):
+        if build and preset.get('signing', 'auto') != 'off':
+            raise SystemExit('Apple 包内资源收集目前要求 signing=off；签名分发请使用 Xcode archive/export。')
+        if build:
+            old_app = find_apple_app(project_dir, platform, tokens['{{PROJECT_NAME}}'], required=False)
+            if old_app is not None:
+                # Reuse compiled objects, but never ship libraries/resources left
+                # by a previous preset or disabled plugin.
+                shutil.rmtree(old_app)
         run_cmake_preset(engine, project_dir, platform, build=build,
                          extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
                          extra_build=preset.get('extraBuildArgs') or [])
         run_cook(engine, project_dir, platform)
-        stage_bundles(project_dir, preset, project_dir / 'build' / platform / 'bin' / 'products')
+        if build:
+            collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}'])
     else:
         raise SystemExit('不支持的平台: {}'.format(platform))
 

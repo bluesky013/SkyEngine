@@ -9,14 +9,17 @@ namespace sky {
         void SetCurrentThreadName(const std::string_view &name);
     }
 
-    NamedThread::NamedThread(const Name &name)
-        : pool(std::make_unique<ThreadPool>(1))
-        , semaphore(1)
+    NamedThread::NamedThread(const Name &name) : pool(std::make_unique<ThreadPool>(1)), semaphore(1)
     {
         Dispatch([name]() { impl::SetCurrentThreadName(name.GetStr()); });
     }
 
-    NamedThread::~NamedThread() = default;
+    NamedThread::~NamedThread()
+    {
+        // Queued Signal closures use the semaphore, whose member destructor
+        // otherwise runs before the pool joins its worker.
+        pool.reset();
+    }
 
     void NamedThread::Sync()
     {

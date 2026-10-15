@@ -1,6 +1,9 @@
 # Change: add-ios-uikit-backend
 
-> 状态：proposal（未实现）。聚焦 iOS 的 **UIKit 窗口/事件后端**实现；是 `add-ios-platform`（伞形：后端 + 启动器 + 三方 + 验证）的后端细节补充。
+> 历史提案，保留未归档。下文无后端/基于全局 UIApplication、UIScreen 的描述属于早期方案。
+> 当前 UIKit、单 UIScene、窗口身份/输入和验证边界见
+> [complete-native-platform-services](../archive/2026-10-16-complete-native-platform-services/validation.md)。
+> 未自动完成原 tasks 或 archive；GPU surface 恢复、真机及签名分发仍需独立验收。
 
 ## Why
 

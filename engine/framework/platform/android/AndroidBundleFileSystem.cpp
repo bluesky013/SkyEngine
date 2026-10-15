@@ -4,96 +4,119 @@
 
 #include "AndroidBundleFileSystem.h"
 #include "AndroidAssetArchive.h"
+#include "AndroidAssetUtils.h"
 
+#include <android/asset_manager.h>
+#include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
+#include <limits>
+#include <memory>
+
+static const char *TAG = "AndroidAsset";
 
 namespace sky {
 
-    std::string ReplaceBackslashToSlash(std::string path)
-    {
-        std::replace(path.begin(), path.end(), '\\', '/');
-        return path;
-    }
+    namespace {
+        struct AssetCloser {
+            void operator()(AAsset *asset) const
+            {
+                if (asset != nullptr) {
+                    AAsset_close(asset);
+                }
+            }
+        };
+        using AssetHandle = std::unique_ptr<AAsset, AssetCloser>;
 
-    AndroidBundleFileSystem::AndroidBundleFileSystem(const std::string& path)
+        AssetHandle OpenAsset(const std::string &path, int mode)
+        {
+            auto       *platform = Platform::Get()->GetImpl();
+            const auto *app      = platform != nullptr ? static_cast<android_app *>(platform->GetNativeApp()) : nullptr;
+            if (app == nullptr || app->activity == nullptr || app->activity->assetManager == nullptr || path.empty()) {
+                return {};
+            }
+            return AssetHandle(AAssetManager_open(app->activity->assetManager, path.c_str(), mode));
+        }
+
+        bool ReadAsset(AAsset *asset, char *out, size_t size)
+        {
+            return ReadAndroidAssetBytes([asset](char *buffer, size_t count) { return AAsset_read(asset, buffer, count); }, out, size);
+        }
+    } // namespace
+
+    AndroidBundleFileSystem::AndroidBundleFileSystem(const std::string &path)
     {
-        if (!path.empty()) {
-            basePath = path + "/";
+        valid = NormalizeAndroidAssetPath(path, basePath);
+        if (valid && !basePath.empty()) {
+            basePath += '/';
         }
     }
 
     bool AndroidBundleFileSystem::FileExist(const FilePath &path) const
     {
-        auto filePath = basePath + path.GetStr();
-
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, filePath.c_str(), AASSET_MODE_UNKNOWN);
-        if (assetFile == nullptr) {
+        std::string normalized;
+        if (!valid || !NormalizeAndroidAssetPath(basePath + path.GetStr(), normalized)) {
             return false;
         }
-        AAsset_close(assetFile);
-        return true;
+        return static_cast<bool>(OpenAsset(normalized, AASSET_MODE_UNKNOWN));
     }
-
-//    IArchivePtr AndroidBundleFileSystem::ReadAsArchive(const std::string &path)
-//    {
-//        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-//        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-//        if (assetFile != nullptr) {
-//            return std::make_shared<AndroidAssetArchive>(assetFile);
-//        }
-//        return {};
-//    }
-//
-//    OArchivePtr AndroidBundleFileSystem::WriteAsArchive(const std::string &path)
-//    {
-//        return {};
-//    }
 
     FilePtr AndroidBundleFileSystem::OpenFile(const FilePath &name)
     {
-        return new AndroidAssetFile(basePath + name.GetStr());
+        std::string normalized;
+        if (!valid || !NormalizeAndroidAssetPath(basePath + name.GetStr(), normalized) || !OpenAsset(normalized, AASSET_MODE_UNKNOWN)) {
+            return {};
+        }
+        return new AndroidAssetFile(normalized);
     }
 
     FilePtr AndroidBundleFileSystem::CreateOrOpenFile(const FilePath &name)
     {
-        SKY_ASSERT(false && "Not Support");
-        return {};
+        (void)name;
+        return {}; // Packaged APK assets are read-only.
     }
 
     FileSystemPtr AndroidBundleFileSystem::CreateSubSystem(const std::string &path, bool createDir)
     {
-        return new AndroidBundleFileSystem(basePath + path);
+        if (!valid || createDir) {
+            return {};
+        }
+        std::string normalized;
+        if (!NormalizeAndroidAssetPath(basePath + path, normalized)) {
+            return {};
+        }
+        return new AndroidBundleFileSystem(normalized);
+    }
+
+    AndroidAssetFile::AndroidAssetFile(const FilePath &name)
+    {
+        valid = NormalizeAndroidAssetPath(name.GetStr(), path);
     }
 
     void AndroidAssetFile::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_RANDOM);
-        if (assetFile == nullptr) {
+        const auto asset = valid ? OpenAsset(path, AASSET_MODE_RANDOM) : AssetHandle{};
+        if (!asset || (size != 0 && out == nullptr) || size > std::numeric_limits<size_t>::max()) {
             return;
         }
-
-        size_t assetLength = AAsset_getLength(assetFile);
-        if (offset + size <= assetLength) {
-            AAsset_seek64(assetFile, offset, SEEK_SET);
-            AAsset_read(assetFile, out, size);
+        const auto length = AAsset_getLength64(asset.get());
+        if (length < 0 || offset > static_cast<uint64_t>(length) || size > static_cast<uint64_t>(length) - offset ||
+            AAsset_seek64(asset.get(), static_cast<off64_t>(offset), SEEK_SET) < 0) {
+            return;
         }
-        AAsset_close(assetFile);
+        if (!ReadAsset(asset.get(), reinterpret_cast<char *>(out), static_cast<size_t>(size))) {
+            LOG_E(TAG, "Short read from APK asset '%s'", path.c_str());
+        }
     }
 
     IStreamArchivePtr AndroidAssetFile::ReadAsArchive()
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-
-        auto loadPath = ReplaceBackslashToSlash(path);
-        AAsset* assetFile = AAssetManager_open(am, loadPath.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile != nullptr) {
-            // TODO
-            return new AndroidAssetArchive(assetFile);
+        auto asset = valid ? OpenAsset(path, AASSET_MODE_STREAMING) : AssetHandle{};
+        if (!asset) {
+            return {};
         }
-        return {};
+        const CounterPtr<AndroidAssetArchive> archive = new AndroidAssetArchive(asset.release());
+        return archive->IsValid() ? IStreamArchivePtr(archive) : IStreamArchivePtr{};
     }
 
     OStreamArchivePtr AndroidAssetFile::WriteAsArchive()
@@ -103,48 +126,53 @@ namespace sky {
 
     bool AndroidAssetFile::ReadBin(std::vector<uint8_t> &out)
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile == nullptr) {
+        out.clear();
+        const auto asset = valid ? OpenAsset(path, AASSET_MODE_STREAMING) : AssetHandle{};
+        if (!asset) {
             return false;
         }
-
-        size_t assetLength = AAsset_getLength(assetFile);
-        out.resize(assetLength);
-        AAsset_read(assetFile, out.data(), assetLength);
-        AAsset_close(assetFile);
+        const auto length = AAsset_getLength64(asset.get());
+        if (length < 0 || static_cast<uint64_t>(length) > out.max_size()) {
+            return false;
+        }
+        out.resize(static_cast<size_t>(length));
+        if (!ReadAsset(asset.get(), reinterpret_cast<char *>(out.data()), out.size())) {
+            out.clear();
+            return false;
+        }
         return true;
     }
 
     BinaryDataPtr AndroidAssetFile::ReadBin()
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile == nullptr) {
-            return nullptr;
+        const auto asset = valid ? OpenAsset(path, AASSET_MODE_STREAMING) : AssetHandle{};
+        if (!asset) {
+            return {};
         }
-
-        auto assetLength = static_cast<uint32_t>(AAsset_getLength(assetFile));
-        auto data = new BinaryData(assetLength);
-        if (assetLength != 0) {
-            AAsset_read(assetFile, data->Data(), assetLength);
+        const auto length = AAsset_getLength64(asset.get());
+        if (length < 0 || static_cast<uint64_t>(length) > std::numeric_limits<uint32_t>::max()) {
+            return {};
         }
-        AAsset_close(assetFile);
-        return data;
+        const BinaryDataPtr data = new BinaryData(static_cast<uint32_t>(length));
+        return ReadAsset(asset.get(), reinterpret_cast<char *>(data->Data()), data->Size()) ? data : BinaryDataPtr{};
     }
 
     bool AndroidAssetFile::ReadString(std::string &out)
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile == nullptr) {
+        out.clear();
+        const auto asset = valid ? OpenAsset(path, AASSET_MODE_STREAMING) : AssetHandle{};
+        if (!asset) {
             return false;
         }
-
-        size_t assetLength = AAsset_getLength(assetFile);
-        out.resize(assetLength);
-        AAsset_read(assetFile, out.data(), assetLength);
-        AAsset_close(assetFile);
+        const auto length = AAsset_getLength64(asset.get());
+        if (length < 0 || static_cast<uint64_t>(length) > out.max_size()) {
+            return false;
+        }
+        out.resize(static_cast<size_t>(length));
+        if (!ReadAsset(asset.get(), out.data(), out.size())) {
+            out.clear();
+            return false;
+        }
         return true;
     }
 

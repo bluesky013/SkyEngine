@@ -16,7 +16,9 @@ sky_add_library(TARGET Navigation STATIC
         Framework
 )
 
-add_subdirectory(builder)
+if (SKY_DEVELOP AND NOT SKY_MOBILE)
+    add_subdirectory(builder)
+endif ()
 add_subdirectory(terrain)
 
 if (SKY_BUILD_TEST)

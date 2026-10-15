@@ -7,25 +7,38 @@
 #include <core/cmdline/CmdParser.h>
 #include <string>
 
-#include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
 #include <core/file/FileSystem.h>
+#include <core/file/MultiFileSystem.h>
+#include <core/logger/Logger.h>
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 
 #include <filesystem>
 
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/platform/PlatformBase.h>
 
 #include <vector>
 
-static const char *TAG = "Application";
+static const char *TAG         = "Application";
 static const char *CONFIG_PATH = "configs/modules_game.json";
 
 namespace sky {
+
+    FilePtr OpenGameConfig(const FileSystemPtr &workFs, const FileSystemPtr &bundleFs)
+    {
+        MultiFileSystem configs;
+        if (workFs != nullptr) {
+            configs.AddFileSystem(workFs);
+        }
+        if (bundleFs != nullptr) {
+            configs.AddFileSystem(bundleFs);
+        }
+        return configs.OpenFile(CONFIG_PATH);
+    }
 
     namespace {
         // Product bundles are packaged under `products/<bundle>/` with a
@@ -75,10 +88,11 @@ namespace sky {
         // Product bundles are a packaged-build concern; `--project` dev mode mounts
         // the project tree (source assets) later in ParseStartArgs.
         const bool mountBundles = !HasProjectArg(argc, argv);
-#if __ANDROID__
-        // Work fs stays the writable internal path (configs); bundles live inside
-        // the APK under assets/products/ and are read via the bundle (asset) fs.
+#if defined(SKY_PLATFORM_ANDROID) || defined(SKY_PLATFORM_IOS)
+        // Mobile work files stay in the writable app data directory; packaged
+        // configs/products are read separately through the bundle filesystem.
         workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());
+        AssetManager::Get()->SetWorkFileSystem(workFs);
         if (mountBundles) {
             MountProductBundles(Platform::Get()->GetBundleFileSystem());
         }
@@ -112,7 +126,7 @@ namespace sky {
                 break;
             }
             // Accept either the .skyproj file or the project directory.
-            std::string path = *next;
+            std::string     path = *next;
             std::error_code error;
             if (std::filesystem::is_directory(path, error)) {
                 for (const auto &entry : std::filesystem::directory_iterator(path, error)) {
@@ -172,22 +186,8 @@ namespace sky {
             }
         }
 
-        std::string json;
-        FilePtr file;
-        if (workFs != nullptr) {
-            file = workFs->OpenFile(CONFIG_PATH);
-        }
-        if (!file) {
-            // Fall back to the engine builtin configs shipped next to the
-            // executable (configs/ -> <exe>/configs).
-            FileSystemPtr builtinFs = new NativeFileSystem(Platform::Get()->GetBundlePath());
-            if (builtinFs != nullptr) {
-                file = builtinFs->OpenFile(CONFIG_PATH);
-                if (file) {
-                    workFs = builtinFs;
-                }
-            }
-        }
+        std::string   json;
+        const FilePtr file = OpenGameConfig(workFs, Platform::Get()->GetBundleFileSystem());
         if (!file || !file->ReadString(json)) {
             LOG_E(TAG, "Load Config Failed: %s", CONFIG_PATH);
             return false;
@@ -196,7 +196,8 @@ namespace sky {
         rapidjson::Document document;
         document.Parse(json.c_str());
         if (document.HasParseError()) {
-            LOG_E(TAG, "Parse Config Failed: %s (%u)", rapidjson::GetParseError_En(document.GetParseError()), static_cast<uint32_t>(document.GetErrorOffset()));
+            LOG_E(TAG, "Parse Config Failed: %s (%u)", rapidjson::GetParseError_En(document.GetParseError()),
+                  static_cast<uint32_t>(document.GetErrorOffset()));
             return false;
         }
 
@@ -286,4 +287,4 @@ namespace sky {
     {
         return nativeWindow != nullptr ? nativeWindow->GetNativeHandle() : nullptr;
     }
-}
+} // namespace sky

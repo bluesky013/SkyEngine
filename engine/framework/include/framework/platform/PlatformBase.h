@@ -54,17 +54,14 @@ namespace sky {
         }
         virtual bool RunCmd(const std::string &str, std::string &out) const
         {
-            return true;
+            return false;
         }
         virtual PlatformType GetType() const
         {
             return PlatformType::UNDEFINED;
         }
-        virtual FileSystemPtr GetBundleFileSystem()
-        {
-            return nullptr;
-        }
-        virtual char *GetClipBoardText()
+        virtual FileSystemPtr GetBundleFileSystem();
+        virtual char         *GetClipBoardText()
         {
             return nullptr;
         }
@@ -77,6 +74,18 @@ namespace sky {
         virtual void PollEvent(bool &exit)
         {
         }
+        // Mobile hosts return false while inactive or without a native surface.
+        // Event pumping continues, but application ticks are suspended.
+        virtual bool IsFrameActive() const
+        {
+            return true;
+        }
+        // Changes when a native loop suspends, even if no frame callback runs
+        // while inactive. Hosts discard their previous timing sample on change.
+        virtual uint64_t GetFrameEpoch() const
+        {
+            return 0;
+        }
         // Frame loop ownership. Platforms that own the run loop (iOS via
         // CADisplayLink) let the host register a frame callback and start the
         // loop; others are no-ops and the host uses Application::Mainloop().
@@ -85,6 +94,9 @@ namespace sky {
             (void)callback;
         }
         virtual void StartFrameLoop()
+        {
+        }
+        virtual void StopFrameLoop()
         {
         }
         // Native shell services. Defaults fail / do nothing; backends override.
@@ -152,10 +164,13 @@ namespace sky {
         bool         RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;
 
-        void PoolEvent(bool &exit);
+        void     PoolEvent(bool &exit);
+        bool     IsFrameActive() const;
+        uint64_t GetFrameEpoch() const;
 
         void SetFrameCallback(std::function<void()> callback);
         void StartFrameLoop();
+        void StopFrameLoop();
 
         template <typename T>
         void setLaunchCallback(T &&cb)

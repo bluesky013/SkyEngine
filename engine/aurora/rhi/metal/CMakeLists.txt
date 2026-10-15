@@ -32,4 +32,18 @@ sky_add_library(TARGET Aurora.Metal SHARED
         ${METAL_EXT_LIBS}
 )
 
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # iOS accepts embedded frameworks, not standalone third-party dylibs.
+    set_target_properties(Aurora.Metal PROPERTIES
+        FRAMEWORK TRUE
+        MACOSX_FRAMEWORK_IDENTIFIER "com.skyengine.aurora.metal"
+        MACOSX_FRAMEWORK_BUNDLE_NAME "Aurora.Metal"
+        MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
+        MACOSX_FRAMEWORK_SHORT_VERSION_STRING "1.0"
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_NAME_DIR "@rpath"
+        INSTALL_RPATH "@loader_path/.."
+    )
+endif ()
+
 sky_add_dependency(TARGET Aurora.Metal DEPENDENCIES Launcher Editor AuroraTest SandboxEditor)

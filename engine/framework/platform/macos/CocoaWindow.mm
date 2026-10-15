@@ -7,11 +7,14 @@
 #include "CocoaWindow.h"
 #include "MacosPlatform.h"
 
+#include <core/environment/Once.h>
 #include <core/event/Event.h>
 #include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/window/IWindowEvent.h>
 #include <framework/window/NativeWindowManager.h>
+
+#include <cmath>
 
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -25,10 +28,11 @@ namespace sky {
     {
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-        [NSApp finishLaunching];
+        if (Once::Get()->Run("CocoaApplicationLaunch")) {
+            [NSApp finishLaunching];
+        }
 
-        static bool menuInstalled = false;
-        if (!menuInstalled) {
+        if ([NSApp mainMenu] == nil) {
             // minimal app menu so Cmd+Q terminates the app
             auto *menuBar = [[NSMenu alloc] init];
             auto *appItem = [[NSMenuItem alloc] init];
@@ -40,12 +44,48 @@ namespace sky {
             [appMenu release];
             [appItem release];
             [menuBar release];
-            menuInstalled = true;
         }
         return true;
     }
 
     namespace {
+
+        MacosPlatform *GetMacosPlatform()
+        {
+            auto *impl = Platform::Get()->GetImpl();
+            return impl != nullptr && impl->GetType() == PlatformType::MacOS ? static_cast<MacosPlatform *>(impl) : nullptr;
+        }
+
+        // A single primary-display scale defines a reversible desktop coordinate
+        // plane, including mixed-DPI displays. Client coordinates use each view's
+        // own backing conversion instead.
+        NSPoint DesktopPointToPixels(NSPoint point)
+        {
+            NSScreen     *primary = [[NSScreen screens] firstObject];
+            const CGFloat factor  = primary != nil ? primary.backingScaleFactor : 1.0;
+            const NSRect  frame   = primary != nil ? primary.frame : NSZeroRect;
+            return NSMakePoint((point.x - NSMinX(frame)) * factor, (NSMaxY(frame) - point.y) * factor);
+        }
+
+        NSPoint DesktopPixelsToPoint(int32_t x, int32_t y)
+        {
+            NSScreen     *primary = [[NSScreen screens] firstObject];
+            const CGFloat factor  = primary != nil ? primary.backingScaleFactor : 1.0;
+            const NSRect  frame   = primary != nil ? primary.frame : NSZeroRect;
+            return NSMakePoint(NSMinX(frame) + x / factor, NSMaxY(frame) - y / factor);
+        }
+
+        NSCursor *CursorFor(StandardCursor cursor)
+        {
+            switch (cursor) {
+            case StandardCursor::ResizeHorizontal: return [NSCursor resizeLeftRightCursor];
+            case StandardCursor::ResizeVertical: return [NSCursor resizeUpDownCursor];
+            case StandardCursor::ResizeAll: return [NSCursor closedHandCursor];
+            case StandardCursor::Text: return [NSCursor IBeamCursor];
+            case StandardCursor::Hand: return [NSCursor pointingHandCursor];
+            default: return [NSCursor arrowCursor];
+            }
+        }
 
         // macOS virtual key codes (Carbon-style, US ANSI layout) -> ScanCode
         ScanCode FromMacKeyCode(uint16_t keyCode)
@@ -184,6 +224,13 @@ namespace sky {
     NSString *_markedText; // in-flight IME composition (preedit)
 }
 @property (nonatomic, assign) sky::CocoaWindow *owner;
+@property (nonatomic, retain) NSCursor         *requestedCursor;
+@property (nonatomic, assign) NSRect            textInputRect;
+@property (nonatomic, assign) BOOL              hasTextInputRect;
+@property (nonatomic, assign) BOOL              textInputDisabled;
+- (void)broadcastResize;
+- (void)dispatchMotion:(NSEvent *)event;
+- (void)detachOwner;
 @end
 
 @implementation SkyCocoaView
@@ -197,9 +244,21 @@ namespace sky {
     return YES;
 }
 
+- (void)detachOwner
+{
+    // Deactivation may synchronously finish composition. Make the native view
+    // inert first, since it can outlive the C++ owner through AppKit/IME retains.
+    _owner             = nullptr;
+    _textInputDisabled = YES;
+    [self unmarkText];
+    [self.inputContext discardMarkedText];
+    [self.inputContext deactivate];
+}
+
 - (void)dealloc
 {
     [_markedText release];
+    [_requestedCursor release];
     [super dealloc];
 }
 
@@ -227,19 +286,37 @@ namespace sky {
     [area release];
 }
 
+- (void)resetCursorRects
+{
+    [super resetCursorRects];
+    [self addCursorRect:self.bounds cursor:_requestedCursor != nil ? _requestedCursor : [NSCursor arrowCursor]];
+}
+
 - (NSPoint)flippedViewPoint:(NSEvent *)event
 {
-    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil];
+    NSPoint location = [event locationInWindow];
+    if (event.window != nil && event.window != self.window) {
+        location = [self.window convertPointFromScreen:[event.window convertPointToScreen:location]];
+    }
+    NSPoint p = [self convertPoint:location fromView:nil];
     p.y       = self.bounds.size.height - p.y; // engine convention: top-left origin
-    return p;
+    return [self convertPointToBacking:p];
 }
 
 - (void)broadcastResize
 {
+    if (_owner == nullptr) {
+        return;
+    }
     const NSSize   backing = [self convertRectToBacking:self.bounds].size;
     const uint32_t w       = static_cast<uint32_t>(backing.width);
     const uint32_t h       = static_cast<uint32_t>(backing.height);
     if (w == 0 || h == 0) {
+        return;
+    }
+    [self metalLayer].drawableSize = backing;
+    _owner->NotifyResized(w, h);
+    if (_owner->GetWinId() == sky::INVALID_WIN_ID) {
         return;
     }
     sky::WindowResizeEvent event = {};
@@ -265,6 +342,10 @@ namespace sky {
 
 - (void)keyDown:(NSEvent *)event
 {
+    [[self retain] autorelease];
+    if (_owner == nullptr) {
+        return;
+    }
     sky::KeyboardEvent keyEvent = {};
     keyEvent.winID              = _owner->GetWinId();
     keyEvent.scanCode           = sky::FromMacKeyCode(event.keyCode);
@@ -274,11 +355,16 @@ namespace sky {
     // Route through the text system so plain text arrives via insertText: and
     // CJK/IME composition works (NSTextInputClient). Command chords are handled
     // by the menu / doCommandBySelector and must not produce text.
-    [self interpretKeyEvents:@[ event ]];
+    if (_owner != nullptr && !_textInputDisabled) {
+        [self interpretKeyEvents:@[ event ]];
+    }
 }
 
 - (void)keyUp:(NSEvent *)event
 {
+    if (_owner == nullptr) {
+        return;
+    }
     sky::KeyboardEvent keyEvent = {};
     keyEvent.winID              = _owner->GetWinId();
     keyEvent.scanCode           = sky::FromMacKeyCode(event.keyCode);
@@ -305,6 +391,9 @@ namespace sky {
 
 - (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange
 {
+    if (_owner == nullptr || _textInputDisabled) {
+        return;
+    }
     NSString *text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
     [_markedText release];
     _markedText = [text copy];
@@ -328,6 +417,9 @@ namespace sky {
 
 - (void)insertText:(id)string replacementRange:(NSRange)replacementRange
 {
+    if (_owner == nullptr || _textInputDisabled) {
+        return;
+    }
     [self unmarkText];
 
     NSString *text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
@@ -348,13 +440,12 @@ namespace sky {
     return NSNotFound;
 }
 
-// Candidate-window anchor: the current mouse location (the engine has no text
-// caret), converted to screen coordinates.
+// The engine caret is expressed in top-left client framebuffer pixels.
 - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actualRange
 {
-    NSPoint p          = [self convertPoint:[self.window mouseLocationOutsideOfEventStream] fromView:nil];
-    NSRect  caret      = NSMakeRect(p.x, p.y - 18.0, 2.0, 18.0);
-    NSRect  windowRect = [self convertRect:caret toView:nil];
+    NSRect caret            = _hasTextInputRect ? [self convertRectFromBacking:_textInputRect] : NSZeroRect;
+    caret.origin.y          = NSHeight(self.bounds) - NSMaxY(caret);
+    const NSRect windowRect = [self convertRect:caret toView:nil];
     if (actualRange != nullptr) {
         *actualRange = range;
     }
@@ -363,6 +454,9 @@ namespace sky {
 
 - (void)dispatchButton:(NSEvent *)event type:(sky::MouseButtonType)button down:(BOOL)down
 {
+    if (_owner == nullptr) {
+        return;
+    }
     const NSPoint         p          = [self flippedViewPoint:event];
     sky::MouseButtonEvent mouseEvent = {};
     mouseEvent.winID                 = _owner->GetWinId();
@@ -379,13 +473,17 @@ namespace sky {
 
 - (void)dispatchMotion:(NSEvent *)event
 {
+    if (_owner == nullptr) {
+        return;
+    }
     const NSPoint         p           = [self flippedViewPoint:event];
     sky::MouseMotionEvent motionEvent = {};
     motionEvent.winID                 = _owner->GetWinId();
     motionEvent.x                     = static_cast<int32_t>(p.x);
     motionEvent.y                     = static_cast<int32_t>(p.y);
-    motionEvent.relX                  = static_cast<int32_t>(event.deltaX);
-    motionEvent.relY                  = static_cast<int32_t>(-event.deltaY);
+    const NSSize delta                = [self convertSizeToBacking:NSMakeSize(event.deltaX, -event.deltaY)];
+    motionEvent.relX                  = static_cast<int32_t>(std::lround(delta.width));
+    motionEvent.relY                  = static_cast<int32_t>(std::lround(delta.height));
     sky::Event<sky::IMouseEvent>::BroadCast(&sky::IMouseEvent::OnMouseMotion, motionEvent);
 }
 
@@ -433,9 +531,18 @@ namespace sky {
 
 - (void)scrollWheel:(NSEvent *)event
 {
+    if (_owner == nullptr) {
+        return;
+    }
     sky::MouseWheelEvent wheelEvent = {};
     wheelEvent.winID                = _owner->GetWinId();
-    wheelEvent.y                    = static_cast<int32_t>(event.scrollingDeltaY);
+    const NSPoint cursor            = [self flippedViewPoint:event];
+    wheelEvent.x                    = static_cast<int32_t>(cursor.x);
+    wheelEvent.y                    = static_cast<int32_t>(cursor.y);
+    // Precise trackpad deltas are points; conventional wheel detents use the
+    // same 120-unit convention as Win32. Preserve fractional movement.
+    const CGFloat factor = event.hasPreciseScrollingDeltas ? _owner->GetDpiScale() : 120.0;
+    wheelEvent.delta     = static_cast<float>(event.scrollingDeltaY * factor);
     sky::Event<sky::IMouseEvent>::BroadCast(&sky::IMouseEvent::OnMouseWheel, wheelEvent);
 }
 
@@ -443,6 +550,7 @@ namespace sky {
 
 @interface                                      SkyCocoaWindowDelegate : NSObject <NSWindowDelegate>
 @property (nonatomic, assign) sky::CocoaWindow *owner;
+@property (nonatomic, assign) BOOL              closing;
 @end
 
 @implementation SkyCocoaWindowDelegate
@@ -465,12 +573,45 @@ namespace sky {
     sky::Event<sky::IWindowEvent>::BroadCast(_owner, &sky::IWindowEvent::OnFocusChanged, false);
 }
 
+- (void)notifyClosing:(NSWindow *)nativeWindow
+{
+    if (_closing || _owner == nullptr) {
+        return;
+    }
+    _closing = YES;
+    // A listener may destroy the C++ owner and release its window/delegate.
+    // Hold the Objective-C objects through AppKit's current event dispatch and
+    // do not access the owner after the broadcast.
+    [[self retain] autorelease];
+    [[nativeWindow retain] autorelease];
+    auto *owner = _owner;
+    if (auto *platform = sky::GetMacosPlatform()) {
+        platform->NotifyWindowClosed(owner->GetNativeHandle());
+    }
+    sky::Event<sky::IWindowEvent>::BroadCast(owner, &sky::IWindowEvent::OnWindowClose, static_cast<const sky::NativeWindow *>(owner));
+}
+
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+    [self notifyClosing:sender];
+    return YES;
+}
+
 - (void)windowWillClose:(NSNotification *)notification
 {
-    // closing the main window requests loop exit (mirrors WM_QUIT on Win32)
-    if (auto *macPlatform = dynamic_cast<sky::MacosPlatform *>(sky::Platform::Get()->GetImpl())) {
-        macPlatform->NotifyWindowClosed(_owner->GetNativeHandle());
+    [self notifyClosing:[notification object]];
+}
+
+- (void)windowDidMove:(NSNotification *)notification
+{
+    (void)notification;
+    if (_owner == nullptr) {
+        return;
     }
+    sky::WindowMoveEvent event = {};
+    event.winID                = _owner->GetWinId();
+    _owner->GetPosition(event.x, event.y);
+    sky::Event<sky::IWindowEvent>::BroadCast(_owner, &sky::IWindowEvent::OnWindowMove, event);
 }
 
 @end
@@ -482,16 +623,16 @@ namespace sky {
         EnsureNSApplication();
         descriptor = desc;
 
-        auto *view = [[SkyCocoaView alloc] initWithFrame:NSMakeRect(0, 0, desc.width, desc.height)];
-        view.owner = this;
+        NSScreen     *screen      = [NSScreen mainScreen];
+        const CGFloat factor      = screen != nil ? screen.backingScaleFactor : 1.0;
+        const NSRect  contentRect = NSMakeRect(0, 0, desc.width / factor, desc.height / factor);
+        auto         *view        = [[SkyCocoaView alloc] initWithFrame:contentRect];
+        view.owner                = this;
         [view setWantsLayer:YES]; // makes makeBackingLayer provide the CAMetalLayer
 
         const NSWindowStyleMask style =
             NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
-        auto *nsWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, desc.width, desc.height)
-                                                     styleMask:style
-                                                       backing:NSBackingStoreBuffered
-                                                         defer:NO];
+        auto *nsWindow = [[NSWindow alloc] initWithContentRect:contentRect styleMask:style backing:NSBackingStoreBuffered defer:NO];
         [nsWindow setReleasedWhenClosed:NO]; // lifetime owned by this object
         [nsWindow setTitle:[NSString stringWithUTF8String:desc.titleName.c_str()]];
         [nsWindow setContentView:view];
@@ -513,21 +654,28 @@ namespace sky {
         SetID(static_cast<WindowID>([nsWindow windowNumber]));
         NativeWindowManager::Get()->Register(this);
 
-        if (auto *macPlatform = dynamic_cast<MacosPlatform *>(Platform::Get()->GetImpl())) {
+        if (auto *macPlatform = GetMacosPlatform()) {
             macPlatform->SetMainWindow(metalLayer);
         }
 
         [nsWindow makeKeyAndOrderFront:nil];
         [nsWindow makeFirstResponder:view];
         [NSApp activateIgnoringOtherApps:YES];
+        [view broadcastResize];
         return true;
     }
 
     CocoaWindow::~CocoaWindow()
     {
+        SetPointerCapture(false);
         if (window != nullptr) {
             NativeWindowManager::Get()->UnRegister(this);
             auto *nsWindow = static_cast<NSWindow *>(window);
+            [(SkyCocoaView *)nsWindow.contentView detachOwner];
+            [(SkyCocoaWindowDelegate *)delegate setOwner:nullptr];
+            if (auto *platform = GetMacosPlatform()) {
+                platform->NotifyWindowDestroyed(metalLayer);
+            }
             [nsWindow setDelegate:nil];
             [nsWindow close];
             [nsWindow release];
@@ -550,6 +698,97 @@ namespace sky {
             return scale;
         }
         return static_cast<float>([static_cast<NSWindow *>(window) backingScaleFactor]);
+    }
+
+    void CocoaWindow::NotifyResized(uint32_t width, uint32_t height)
+    {
+        descriptor.width  = width;
+        descriptor.height = height;
+    }
+
+    bool CocoaWindow::GetPosition(int32_t &x, int32_t &y) const
+    {
+        if (window == nullptr) {
+            return false;
+        }
+        const NSRect  frame    = static_cast<NSWindow *>(window).frame;
+        const NSPoint position = DesktopPointToPixels(NSMakePoint(NSMinX(frame), NSMaxY(frame)));
+        x                      = static_cast<int32_t>(std::lround(position.x));
+        y                      = static_cast<int32_t>(std::lround(position.y));
+        return true;
+    }
+
+    void CocoaWindow::SetPosition(int32_t x, int32_t y)
+    {
+        if (window != nullptr) {
+            [static_cast<NSWindow *>(window) setFrameTopLeftPoint:DesktopPixelsToPoint(x, y)];
+        }
+    }
+
+    bool CocoaWindow::GetGlobalCursorPosition(int32_t &x, int32_t &y) const
+    {
+        const NSPoint position = DesktopPointToPixels([NSEvent mouseLocation]);
+        x                      = static_cast<int32_t>(std::lround(position.x));
+        y                      = static_cast<int32_t>(std::lround(position.y));
+        return true;
+    }
+
+    void CocoaWindow::SetPointerCapture(bool capture)
+    {
+        if (captureMonitor != nullptr) {
+            [NSEvent removeMonitor:static_cast<id>(captureMonitor)];
+            [static_cast<id>(captureMonitor) release];
+            captureMonitor = nullptr;
+        }
+        if (!capture || window == nullptr) {
+            return;
+        }
+        auto *view = static_cast<SkyCocoaView *>(static_cast<NSWindow *>(window).contentView);
+        // AppKit already tracks native drags outside the originating window.
+        // The local monitor additionally routes events crossing another engine
+        // window without requiring accessibility permission or a global grab.
+        const NSEventMask mask = NSEventMaskMouseMoved | NSEventMaskLeftMouseDragged | NSEventMaskRightMouseDragged | NSEventMaskOtherMouseDragged |
+                                 NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp | NSEventMaskOtherMouseUp;
+        id monitor     = [NSEvent addLocalMonitorForEventsMatchingMask:mask
+                                                           handler:^NSEvent *(NSEvent *event) {
+                                                               if (view.owner == nullptr || event.window == view.window) {
+                                                                   return event;
+                                                               }
+                                                               [[view retain] autorelease];
+                                                               switch (event.type) {
+                                                               case NSEventTypeLeftMouseUp: [view mouseUp:event]; break;
+                                                               case NSEventTypeRightMouseUp: [view rightMouseUp:event]; break;
+                                                               case NSEventTypeOtherMouseUp: [view otherMouseUp:event]; break;
+                                                               default: [view dispatchMotion:event]; break;
+                                                               }
+                                                               return nil;
+                                                           }];
+        captureMonitor = [monitor retain];
+    }
+
+    void CocoaWindow::SetCursor(StandardCursor cursor)
+    {
+        if (window != nullptr) {
+            auto *nsWindow       = static_cast<NSWindow *>(window);
+            auto *view           = static_cast<SkyCocoaView *>(nsWindow.contentView);
+            view.requestedCursor = CursorFor(cursor);
+            [nsWindow invalidateCursorRectsForView:view];
+            [view.requestedCursor set];
+        }
+    }
+
+    void CocoaWindow::SetTitle(const std::string &title)
+    {
+        descriptor.titleName = title;
+        if (window != nullptr) {
+            [static_cast<NSWindow *>(window) setTitle:[NSString stringWithUTF8String:title.c_str()]];
+        }
+    }
+
+    bool CocoaWindow::IsMainWindow() const
+    {
+        auto *platform = GetMacosPlatform();
+        return platform != nullptr && metalLayer != nullptr && platform->GetMainWinHandle() == metalLayer;
     }
 
     NativeWindow *NativeWindow::Create(const Descriptor &des)

@@ -24,9 +24,11 @@ the same asset UUID (which would make first-match resolution ambiguous).
 - **THEN** each package SHALL contain exactly one of those bundles
 
 ### Requirement: Cooked bundles are placed at the platform runtime location
-Packaging SHALL place each selected bundle at the location the runtime reads:
-- Android: inside the APK under `assets/products/<bundle>/`
-- desktop / iOS: `products/<bundle>/` next to the launcher (inside a `.app`, `Contents/Resources/products/`)
+Packaging SHALL place each selected bundle at the location the runtime bundle filesystem reads:
+- Android: inside the APK under `assets/products/<bundle>/`.
+- iOS: inside `<name>.app/products/<bundle>/`, alongside the app executable.
+- macOS app bundles: inside `<name>.app/Contents/MacOS/products/<bundle>/`.
+- Non-bundled desktop launchers: under `products/<bundle>/` next to the executable.
 
 #### Scenario: Android bundle in the APK
 - **WHEN** an Android package is produced
@@ -34,7 +36,7 @@ Packaging SHALL place each selected bundle at the location the runtime reads:
 
 #### Scenario: Desktop bundle next to the launcher
 - **WHEN** a desktop/iOS package is produced
-- **THEN** the selected bundles SHALL exist under `products/<bundle>/` reachable from the launcher's bundle path
+- **THEN** the selected bundles SHALL exist under `products/<bundle>/` relative to the runtime bundle filesystem root: the iOS app root, macOS `Contents/MacOS`, or the non-bundled desktop executable directory
 
 ### Requirement: Package ships a bundles manifest
 A package SHALL contain a `products/bundles.json` manifest, written by packaging, listing the included bundles (and

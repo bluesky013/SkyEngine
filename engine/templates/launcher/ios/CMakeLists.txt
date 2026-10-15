@@ -1,4 +1,6 @@
 # Project-owned iOS launcher.
+set_source_files_properties(main.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+
 sky_add_exe(TARGET Launcher MACOSX_BUNDLE
     SOURCES
         main.mm
@@ -11,6 +13,8 @@ set_target_properties(Launcher PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
     XCODE_ATTRIBUTE_PRODUCT_NAME "{{PROJECT_NAME}}"
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${SKY_BUNDLE_ID}"
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "@executable_path/Frameworks"
 )
 if (NOT SKY_APPLE_TEAM_ID STREQUAL "")
     set_target_properties(Launcher PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${SKY_APPLE_TEAM_ID}")

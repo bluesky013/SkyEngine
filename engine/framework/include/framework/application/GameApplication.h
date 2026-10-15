@@ -4,18 +4,21 @@
 
 #pragma once
 
-#include <framework/application/Application.h>
-#include <framework/window/NativeWindow.h>
-#include <framework/project/ProjectDescriptor.h>
 #include <core/file/FileSystem.h>
+#include <framework/application/Application.h>
+#include <framework/project/ProjectDescriptor.h>
+#include <framework/window/NativeWindow.h>
 
 #include <string>
 
 namespace sky {
 
+    // Writable/project config takes precedence over read-only packaged config.
+    FilePtr OpenGameConfig(const FileSystemPtr &workFs, const FileSystemPtr &bundleFs);
+
     class GameApplication : public Application {
     public:
-        GameApplication() = default;
+        GameApplication()           = default;
         ~GameApplication() override = default;
 
         bool Init(int argc, char **argv) override;
@@ -24,7 +27,10 @@ namespace sky {
 
         void PreTick() override;
 
-        NativeWindow* GetWindow() const { return nativeWindow.get(); }
+        NativeWindow *GetWindow() const
+        {
+            return nativeWindow.get();
+        }
 
         void *GetMainWindowHandle() const override;
 
@@ -37,12 +43,12 @@ namespace sky {
         bool LoadConfigs() override;
 
         std::unique_ptr<NativeWindow> nativeWindow;
-        uint32_t width = 1024;
-        uint32_t height = 1024;
+        uint32_t                      width  = 1024;
+        uint32_t                      height = 1024;
 
         FileSystemPtr     workFs;
         ProjectDescriptor project;
         bool              hasProject = false;
     };
 
-}
+} // namespace sky

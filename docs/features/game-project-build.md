@@ -1,15 +1,16 @@
 ---
 title: "Game Project Build & Packaging"
 description: "Creating a game project, building its launcher/module, generating platform IDE projects, and the product-bundle packaging model."
-updated: "2026-10-12"
+updated: "2026-10-15"
 ---
 
 ## Game Project Build & Packaging
 
 A SkyEngine project is a directory holding the descriptor (`<name>.skyproj`), the source assets (`assets/`),
 configuration (`configs/`), a cache (`cache/`), and a single native codebase under `native/`. The game logic ships
-as a runtime **module**: a shared library exporting `StartModule`/`StopModule` (macro `REGISTER_MODULE`), loaded by
-`ModuleManager`. The runtime host (`Launcher`) is **project-owned** — the engine no longer ships a launcher; it ships
+as a runtime **module**: a shared library loaded by `ModuleManager`, or a tagged static factory linked into the
+host. Generated modules use `sky_add_module` / `REGISTER_MODULE_TAGGED` for both modes. The runtime host (`Launcher`)
+is **project-owned** — the engine no longer ships a launcher; it ships
 **templates**.
 
 ### Creating a project
@@ -67,7 +68,7 @@ Per-platform options live in **`export_presets.json`** (committed); secrets live
 // export_presets.json (committed)
 [ { "name": "Game-android", "platform": "android", "variant": "release", "bundleId": "com.acme.game",
     "abis": ["arm64-v8a"], "keystore": "release", "compileSdk": 34, "minSdk": 29, "targetSdk": 33 },
-  { "name": "Game-ios",     "platform": "ios",   "variant": "release", "signing": "auto" },
+  { "name": "Game-ios",     "platform": "ios",   "variant": "release", "packing": "static", "signing": "off" },
   { "name": "Game-macos",   "platform": "macos", "variant": "release", "bundle": true, "signing": "off" } ]
 
 // export_credentials.json (not committed)
@@ -85,6 +86,11 @@ Preset fields: `bundleId` (defaults to the project app id), `versionName`/`versi
 Env overrides: `SKY_ANDROID_KEYSTORE`, `SKY_ANDROID_STORE_PASSWORD`, `SKY_ANDROID_KEY_ALIAS`,
 `SKY_ANDROID_KEY_PASSWORD`, `SKY_APPLE_TEAM_ID`, `SKY_APPLE_SIGNING_IDENTITY`, `SKY_APPLE_PROVISIONING_PROFILE`.
 
+Apple signing fields are forwarded when generating/configuring the Xcode project. The current Python
+`package` resource collector requires `signing=off`: changing bundle contents after signing would invalidate
+the signature. Signed iOS archive/export and macOS signing/notarization need a separate distribution workflow.
+The unsigned IPA below is a package-structure artifact, not an ordinary-device installation result.
+
 ### Generating platform projects and packaging
 
 ```bash
@@ -100,6 +106,9 @@ python3 python/package_project.py package  --project <p>.skyproj --preset <name>
 - **iOS / macOS**: `cmake --preset <platform>` in `native/` produces the `.xcodeproj` under `<Project>/build/<platform>`;
   the project launcher consumes `SKY_BUNDLE_ID` / `SKY_APPLE_TEAM_ID` / `SKY_APPLE_SIGNING_IDENTITY` /
   `SKY_APPLE_PROVISIONING_PROFILE`.
+  `package` builds the app, cooks/stages resources into the runtime bundle root and collects
+  `<Project>/build/ios/<Name>-unsigned.ipa` or `<Project>/build/macos/<Name>-macos.zip`.
+  The macOS `.app` itself remains under `bin/<Config>/`. Archives preserve executable modes and symlinks.
 
 Android build prerequisites (from the environment):
 
@@ -122,6 +131,10 @@ Runtime modules are built and loaded two ways, selected by an option / export pr
 
 Modules opt in by declaring their target with `sky_add_module(...)` (instead of `sky_add_library(... SHARED)`) and
 using `REGISTER_MODULE_TAGGED`.
+
+The generated iOS preset selects static runtime modules. Its dynamically loaded Metal backend is an embedded
+`Frameworks/Aurora.Metal.framework`, with a bundle-relative loader path and RPATH. macOS deploys modules beside
+the executable under `Contents/MacOS`. Apple DEFAULT selects Metal; explicit backend/project preferences remain effective.
 
 ### Packaging ships cooked products
 
@@ -153,11 +166,28 @@ without cross-tier UUID conflicts (quality tiers use distinct bundle names, e.g.
 
 - Bundles are staged under `products/<bundle>/`:
   - **Android** → the APK's `assets/products/<bundle>/` (read at runtime via the APK asset filesystem).
-  - **desktop / iOS** → `products/<bundle>/` next to the launcher (`.app` → `Contents/Resources/products/`).
-- `package`/`generate` first run the headless cook worker (`tools/asset_tool` -> `AssetTool
-  --project <dir> --engine <bundle> --cook-all --platform <p>`) to cook `<Project>/assets/` into `<Project>/products/`.
+  - **iOS** → `<Name>.app/products/<bundle>/`.
+  - **macOS** → `<Name>.app/Contents/MacOS/products/<bundle>/`.
+  - **non-bundle desktop** → `products/<bundle>/` beside the launcher.
+- `package`/`generate` invoke the headless worker (`tools/asset_tool` -> `AssetTool
+  --project <dir> --engine <bundle> --cook-all --platform <p>`) to cook into `<Project>/products/`.
+  Android stages before Gradle packaging; Apple `package` stages into the built app before collecting its archive.
 - `package_project.py` copies `<Project>/products/<bundle>` for each selected bundle and writes
   **`products/bundles.json`** (`{ platform, distribution, bundles: [...] }`). Selection comes from the preset's
   `bundles` list, else the cook config's distribution.
 - `GameApplication` reads `products/bundles.json` and mounts **exactly** those bundles (no filesystem enumeration);
   when the manifest is absent it falls back to `common`. `--project` dev mode skips product bundles.
+
+An available AssetTool returning failure stops the command. If AssetTool is absent, the existing workflow
+permits pre-cooked products with a warning. Each package rebuilds configuration/product staging; Apple also
+rebuilds the app directory while reusing compiled objects, avoiding stale disabled-module binaries.
+
+### Reproducible cross-platform smoke test
+
+`python3 python/tests/create_package_smoke.py --dir <parent>` creates one lean game and prints Android/iOS/macOS
+package commands. `python3 python/tests/run_asset_tool_package_tests.py` exercises valid/rejected image cooks
+against the built AssetTool. Set `SKY_3RD_PATH` for each platform and use a compatible JDK for Android.
+
+See the [resolved-issue ledger](../../openspec/changes/archive/2026-10-16-complete-native-platform-services/validation.md#修复与补齐问题总表)
+and [actual package acceptance](../../openspec/changes/archive/2026-10-16-complete-native-platform-services/package-validation.md)
+for executed checks, exact versions, artifact hashes and the untested device/signing/GPU cases.

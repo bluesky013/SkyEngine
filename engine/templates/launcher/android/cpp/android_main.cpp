@@ -9,39 +9,39 @@
 
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
-// Glue from GameActivity to android_main(): the .c is compiled into this TU.
-extern "C" {
-#include <game-activity/native_app_glue/android_native_app_glue.c>
-}
-
 void android_main(struct android_app *app)
 {
     sky::Platform *platform = sky::Platform::Get();
-    platform->Init({app});
+    if (!platform->Init({app})) {
+        if (app != nullptr && app->activity != nullptr) {
+            GameActivity_finish(app->activity);
+        }
+        return;
+    }
 
+    // Destroy the application (modules/windows) before its platform callbacks.
     sky::GameApplication application;
-    bool                started = false;
+    bool                 started = false;
+    bool                 failed  = false;
 
-    platform->setLaunchCallback([&application, &started]() {
-        application.Init(0, nullptr);
-        started = true;
+    platform->setLaunchCallback([&application, &started, &failed, app]() {
+        started = application.Init(0, nullptr);
+        failed  = !started;
+        if (failed) {
+            GameActivity_finish(app->activity);
+        }
     });
 
-    do {
-        int                         events = 0;
-        struct android_poll_source *source = nullptr;
-        int                         result = 0;
-        do {
-            result = ALooper_pollOnce(0, nullptr, &events, reinterpret_cast<void **>(&source));
-            if (source != nullptr) {
-                source->process(app, source);
-            }
-        } while (result == ALOOPER_POLL_CALLBACK);
-
+    bool quit = false;
+    while (!quit && app->destroyRequested == 0 && !failed) {
         if (started) {
             application.Loop();
+            quit = application.IsExit();
+        } else {
+            platform->PoolEvent(quit);
         }
-    } while (app->destroyRequested == 0);
-
-    platform->Shutdown();
+    }
+    if (app->destroyRequested == 0 && !failed) {
+        GameActivity_finish(app->activity);
+    }
 }

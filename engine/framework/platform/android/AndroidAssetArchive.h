@@ -5,24 +5,23 @@
 #pragma once
 
 #include <core/archive/StreamArchive.h>
-#include <core/archive/MemoryArchive.h>
-#include <core/template/ReferenceObject.h>
-#include <string>
 #include <sstream>
-#include <android/asset_manager.h>
+
+struct AAsset;
 
 namespace sky {
-
 
     class AndroidAssetArchive : public IStreamArchive {
     public:
         explicit AndroidAssetArchive(AAsset *asset);
         ~AndroidAssetArchive() override;
 
-        bool LoadRaw(char *data, size_t size) override;
+        bool IsValid() const;
+
     private:
-        AAsset *assetFile;
+        AAsset           *assetFile;
         std::stringstream ss;
+        bool              valid = false;
     };
 
-}
+} // namespace sky
