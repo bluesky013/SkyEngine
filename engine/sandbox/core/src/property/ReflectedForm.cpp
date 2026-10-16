@@ -13,12 +13,37 @@ namespace sky::editor {
 
     namespace {
 
-        void FixParents(PropertyField &node)
+        std::pair<int, bool> EffectiveOrder(const serialize::TypeMemberNode &member, const MemberAppearance *appearance)
         {
-            for (auto &child : node.children) {
-                child.parent = &node;
-                FixParents(child);
+            if (appearance != nullptr && appearance->hasOrder) {
+                return {appearance->order, true};
             }
+            const auto attributes = ReadPropertyAttributes(member);
+            return {attributes.order, attributes.hasOrder};
+        }
+
+        // Sort reflection metadata before constructing fields. Moving/sorting a
+        // built field also moves an inline Any, invalidating child descriptors
+        // bound to that Any's old address even if parent pointers are repaired.
+        std::vector<const serialize::MemberMap::value_type *>
+        OrderedMembers(const TypeNode &node, const PropertyEditorRegistry &registry, bool visibleOnly)
+        {
+            std::vector<const serialize::MemberMap::value_type *> members;
+            members.reserve(node.members.size());
+            for (const auto &entry : node.members) {
+                if (!visibleOnly || ReadPropertyAttributes(entry.second).visible) {
+                    members.push_back(&entry);
+                }
+            }
+            const Uuid ownerTypeId = node.info != nullptr ? node.info->registeredId : Uuid{};
+            const auto order       = [&](const auto *entry) {
+                const auto *appearance = registry.GetMemberAppearance(ownerTypeId, std::string(entry->first));
+                return EffectiveOrder(entry->second, appearance).first;
+            };
+            // Equal/default order retains reflection iteration order (currently
+            // MemberMap's lexical order), not registration call order.
+            std::stable_sort(members.begin(), members.end(), [&](const auto *a, const auto *b) { return order(a) < order(b); });
+            return members;
         }
 
         bool AnyBytesEqual(const Any &a, const Any &b)
@@ -47,6 +72,7 @@ namespace sky::editor {
 
     void ReflectedForm::Build(const PropertyObject &object, const PropertyEditorRegistry &inRegistry, const PropertyObject *baseline)
     {
+        bindingGeneration.reset();
         root     = object;
         registry = &inRegistry;
         defaults.clear();
@@ -80,38 +106,32 @@ namespace sky::editor {
 
     void ReflectedForm::Rebuild()
     {
+        bindingGeneration = std::make_shared<int>(0);
         sections.clear();
         if (!IsValid() || registry == nullptr) {
             return;
         }
 
-        FormSection section;
+        sections.emplace_back();
+        FormSection &section = sections.back();
         if (root.type->info != nullptr) {
             section.title = std::string(root.type->info->name);
         }
 
         const Uuid ownerTypeId = (root.type->info != nullptr) ? root.type->info->registeredId : Uuid{};
-        for (const auto &entry : root.type->members) {
-            if (!ReadPropertyAttributes(entry.second).visible) {
-                continue;
-            }
-            PropertyDescriptor descriptor(root.object, &entry.second, std::string(entry.first), section.title);
-            PropertyField      field;
-            BuildField(std::move(descriptor), *registry, std::string(entry.first), field);
-            ApplyAppearance(field, ownerTypeId, std::string(entry.first));
-            section.fields.push_back(std::move(field));
+        const auto members     = OrderedMembers(*root.type, *registry, true);
+        section.fields.reserve(members.size());
+        for (const auto *entry : members) {
+            PropertyDescriptor descriptor(root.object, &entry->second, std::string(entry->first), section.title);
+            section.fields.emplace_back();
+            PropertyField &field = section.fields.back();
+            BuildField(std::move(descriptor), *registry, std::string(entry->first), field);
+            ApplyAppearance(field, ownerTypeId, std::string(entry->first));
         }
-        std::stable_sort(section.fields.begin(), section.fields.end(), [](const PropertyField &a, const PropertyField &b) {
-            const int ka = a.hasOrder ? a.order : 0;
-            const int kb = b.hasOrder ? b.order : 0;
-            return ka < kb;
-        });
 
         for (auto &field : section.fields) {
-            FixParents(field);
             AssignDefaults(field);
         }
-        sections.push_back(std::move(section));
     }
 
     void
@@ -128,10 +148,12 @@ namespace sky::editor {
             out.ownedValue = out.descriptor.GetValue();
             std::vector<PropertyDescriptor> elements;
             out.descriptor.BuildSequenceChildren(elements);
+            out.children.reserve(elements.size());
             for (size_t i = 0; i < elements.size(); ++i) {
-                PropertyField child;
+                out.children.emplace_back();
+                PropertyField &child = out.children.back();
+                child.parent         = &out;
                 BuildField(std::move(elements[i]), inRegistry, path + "[" + std::to_string(i) + "]", child);
-                out.children.push_back(std::move(child));
             }
             return;
         }
@@ -141,18 +163,16 @@ namespace sky::editor {
             out.ownedValue = out.descriptor.GetValue();
             if (const TypeNode *node = out.descriptor.GetStructType(); node != nullptr) {
                 const Uuid ownerTypeId = (node->info != nullptr) ? node->info->registeredId : Uuid{};
-                for (const auto &entry : node->members) {
-                    PropertyDescriptor child(out.ownedValue.Data(), &entry.second, std::string(entry.first), out.descriptor.GetCategory());
-                    PropertyField      childField;
-                    BuildField(std::move(child), inRegistry, path + "." + std::string(entry.first), childField);
-                    ApplyAppearance(childField, ownerTypeId, std::string(entry.first));
-                    out.children.push_back(std::move(childField));
+                const auto members     = OrderedMembers(*node, inRegistry, true);
+                out.children.reserve(members.size());
+                for (const auto *entry : members) {
+                    PropertyDescriptor child(out.ownedValue.Data(), &entry->second, std::string(entry->first), out.descriptor.GetCategory());
+                    out.children.emplace_back();
+                    PropertyField &childField = out.children.back();
+                    childField.parent         = &out;
+                    BuildField(std::move(child), inRegistry, path + "." + std::string(entry->first), childField);
+                    ApplyAppearance(childField, ownerTypeId, std::string(entry->first));
                 }
-                std::stable_sort(out.children.begin(), out.children.end(), [](const PropertyField &a, const PropertyField &b) {
-                    const int ka = a.hasOrder ? a.order : 0;
-                    const int kb = b.hasOrder ? b.order : 0;
-                    return ka < kb;
-                });
             }
         }
     }
@@ -162,12 +182,14 @@ namespace sky::editor {
         if (registry == nullptr) {
             return;
         }
-        if (const MemberAppearance *appearance = registry->GetMemberAppearance(ownerTypeId, memberName)) {
+        const auto *appearance = registry->GetMemberAppearance(ownerTypeId, memberName);
+        const auto  order      = EffectiveOrder(*field.descriptor.GetMember(), appearance);
+        field.order            = order.first;
+        field.hasOrder         = order.second;
+        if (appearance != nullptr) {
             if (!appearance->label.empty()) {
                 field.label = appearance->label;
             }
-            field.order    = appearance->order;
-            field.hasOrder = appearance->hasOrder;
         }
     }
 
@@ -203,11 +225,59 @@ namespace sky::editor {
         return Edit(field, field.defaultValue, commands);
     }
 
+    bool ReflectedForm::AddSequenceElement(PropertyField &field, CommandService &commands)
+    {
+        if (!field.descriptor.CanEdit() || !field.descriptor.IsSequence()) {
+            return false;
+        }
+        Any         value    = field.descriptor.GetValue();
+        const auto *type     = field.descriptor.GetType();
+        auto       *sequence = type != nullptr && type->containerInfo != nullptr ? type->containerInfo->sequenceView : nullptr;
+        if (!value || sequence == nullptr) {
+            return false;
+        }
+        sequence->Emplace(value.Data());
+        return Edit(field, std::move(value), commands);
+    }
+
+    bool ReflectedForm::RemoveSequenceElement(PropertyField &field, uint32_t index, CommandService &commands)
+    {
+        if (!field.descriptor.CanEdit() || !field.descriptor.IsSequence() || index >= field.descriptor.GetSequenceCount()) {
+            return false;
+        }
+        Any         value    = field.descriptor.GetValue();
+        const auto *type     = field.descriptor.GetType();
+        auto       *sequence = type != nullptr && type->containerInfo != nullptr ? type->containerInfo->sequenceView : nullptr;
+        if (!value || sequence == nullptr) {
+            return false;
+        }
+        sequence->EraseByIndex(value.Data(), index);
+        return Edit(field, std::move(value), commands);
+    }
+
     bool ReflectedForm::Edit(PropertyField &field, Any value, CommandService &commands)
     {
         if (!field.descriptor.IsValid()) {
             return false;
         }
+
+        // All state used after callbacks is copied before dispatch. The active
+        // counter survives independently when an observer destroys this form;
+        // the weak generation deliberately does not keep its binding alive.
+        const auto                factory    = editCommands;
+        const auto                changed    = onChanged;
+        const std::weak_ptr<void> generation = bindingGeneration;
+        struct EditScope {
+            explicit EditScope(std::shared_ptr<ActiveEdits> inState) : state(std::move(inState))
+            {
+                ++state->depth;
+            }
+            ~EditScope()
+            {
+                --state->depth;
+            }
+            std::shared_ptr<ActiveEdits> state;
+        } scope(activeEdits);
 
         PropertyField *rootField    = &field;
         Any            newRootValue = std::move(value);
@@ -224,13 +294,14 @@ namespace sky::editor {
             newRootValue = rootField->ownedValue;
         }
 
-        UndoCommandPtr command = rootField->descriptor.MakeEditCommand(std::move(newRootValue));
+        UndoCommandPtr command =
+            factory ? factory(rootField->descriptor, std::move(newRootValue)) : rootField->descriptor.MakeEditCommand(std::move(newRootValue));
         if (!command) {
             return false;
         }
         commands.Execute(std::move(command));
-        if (onChanged) {
-            onChanged();
+        if (!generation.expired() && changed) {
+            changed();
         }
         return true;
     }

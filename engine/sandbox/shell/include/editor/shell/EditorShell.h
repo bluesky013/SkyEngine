@@ -43,6 +43,7 @@ namespace sky::editor {
     class FileBrowserDialog;
     class PreferencesDialog;
     class PreferencePageRegistry;
+    class PreferencesPersistence;
     class WorldDocument;
     class NewWorldDialog;
     class EditorAssetCatalog;
@@ -109,11 +110,13 @@ namespace sky::editor {
         // Preferences: the shell hosts one dialog over the registered reflected settings pages.
         // `onApplied` is invoked after a commit so the host can persist.
         void SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied);
+        void SetPreferencesPersistence(std::shared_ptr<PreferencesPersistence> persistence);
         void OpenPreferences();
         bool IsPreferencesOpen() const;
 
         // Project-level world configuration. The shell hosts the dialog over the
         // supplied world document.
+        // Repeating the same pointer also notifies in-place document reloads.
         void SetWorldDocument(WorldDocument *document);
 
         // Project export presets (`export_presets.json`), edited by the reflected
@@ -124,7 +127,7 @@ namespace sky::editor {
         // EditorActionRegistry entries by id (there are no per-command handlers).
         // Returns true when the id resolved (invoked or disabled-and-consumed).
         bool InvokeAction(const std::string &id);
-        // Refreshes the toolbar items' enabled state + icons from the registry.
+        // Refreshes menu/toolbar state in place; rebuilds entries only when scope/registration changes.
         void RefreshActions();
 
         // Icon registry (name -> UI texture), used to draw toolbar action icons.
@@ -137,8 +140,11 @@ namespace sky::editor {
         // world file path.
         void OpenNewWorldDialog(const std::string &location, const std::string &name, std::function<void(const std::string &)> onCreate);
 
-        // DPI/UI scale: layout stays logical, painting scales to physical pixels.
-        void SetUiScale(float scale);
+        // Main-window device DPI. User zoom is applied independently to every
+        // surface, including windows whose device DPI differs from the main one.
+        void  SetUiScale(float scale);
+        void  SetUserUiScale(float scale);
+        float GetSurfaceUiScale(uint32_t surfaceId = 0) const;
 
         // Status-bar values resolved by the host (project/engine/RHI/mode/fps).
         void SetStatusInfo(const std::string &project, const std::string &rhi, const std::string &mode);
@@ -259,17 +265,19 @@ namespace sky::editor {
             std::unique_ptr<sky::ui::UIContext>     context;
             std::unique_ptr<sky::ui::UIEventRouter> router;
             std::string                             panelId;
-            sky::ui::UIElement                     *view = nullptr;
+            sky::ui::UIElement                     *view          = nullptr;
+            uint64_t                                themeRevision = 0;
         };
 
         // Event router for a floating surface (>0). Null if unknown; surface 0
         // uses the main router through the public Dispatch* methods.
         sky::ui::UIEventRouter *SurfaceRouter(uint32_t surfaceId);
+        bool                    PrepareSurfaceInput(uint32_t surfaceId);
         // Creates a surface's UI context + router and moves the panel view into
         // it. Shared by float (tear-out) and startup restore.
         uint32_t CreateSurfaceContext(const std::string &panelId, uint32_t surfaceId);
 
-        void                                ApplyTheme();
+        void                                ApplyTheme(sky::ui::UIContext *target = nullptr);
         void                                CreateNode(LayoutNode *node, const sky::ui::UIRect &rect);
         void                                ApplyNode(LayoutNode *node, const sky::ui::UIRect &rect, size_t &panelCursor);
         sky::ui::UIElement                 *CreatePanelView(const std::string &panelId);
@@ -300,6 +308,8 @@ namespace sky::editor {
         PropertyModel                                        *inspectorModel    = nullptr;
         IEditorPropertySource                                *propertySource    = nullptr;
         float                                                 uiScale           = 1.0f;
+        float                                                 deviceUiScale     = 1.0f;
+        float                                                 userUiScale       = 1.0f;
 
         EditorAssetCatalog                                           *assetCatalog = nullptr;
         AssetBrowserPanel                                            *assetPanel   = nullptr;
@@ -317,7 +327,7 @@ namespace sky::editor {
         std::unordered_map<uint32_t, Surface>     surfaces;        // surfaceId -> floating UI
         std::unordered_map<std::string, uint32_t> panelSurfaceIds; // panelId -> surfaceId
         std::unordered_map<uint32_t, float>       surfaceScales;   // surfaceId -> DPI scale
-        float                                     lastThemeScale = -1.0f;
+        uint64_t                                  mainThemeRevision = 0;
 
         std::vector<Slot>                              slots; // per-tab, matching tree traversal order
         std::vector<sky::ui::UIElement *>              splitterHandles;
@@ -338,15 +348,25 @@ namespace sky::editor {
         FileBrowserRequest                             browserRequest;
         bool                                           browserOpen = false;
 
+        // Registry actions/snapshots may outlive their creating shell. Only the
+        // shell owns this signal; callbacks hold weak references and become inert
+        // at the start of destruction without removing another shell's actions.
+        std::shared_ptr<void> actionLifetime       = std::make_shared<int>(0);
+        uint64_t              actionChromeRevision = 0;
+        uint64_t              chromeGeneration     = 0;
+        std::string           actionChromeScope;
+        bool                  refreshingActions = false;
+
         AssetViewerWidget *assetViewerElement = nullptr;
         Uuid               assetViewerAsset;
         bool               assetViewerOpen  = false;
         bool               assetViewerScope = false; // scope stack holds "assetViewer"
 
-        PreferencesDialog      *preferencesElement = nullptr;
-        PreferencePageRegistry *preferenceRegistry = nullptr;
-        std::function<void()>   preferencesApplied;
-        bool                    preferencesOpen = false;
+        PreferencesDialog                      *preferencesElement = nullptr;
+        PreferencePageRegistry                 *preferenceRegistry = nullptr;
+        std::function<void()>                   preferencesApplied;
+        std::shared_ptr<PreferencesPersistence> preferencesPersistence;
+        bool                                    preferencesOpen = false;
 
         WorldDocument                           *worldDocument   = nullptr;
         PlayState                                playState       = PlayState::Editing;

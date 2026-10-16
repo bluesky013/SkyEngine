@@ -2,8 +2,8 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/core/property/PropertyEditor.h>
 #include <core/type/TypeInfo.h>
+#include <editor/core/property/PropertyEditor.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -110,25 +110,26 @@ namespace sky::editor {
 
         int32_t order = 0;
         if (ReadInt(member, CommonPropertyKey::ORDER, order)) {
-            attrs.order = order;
+            attrs.order    = order;
+            attrs.hasOrder = true;
         }
 
         int32_t kind = 0;
         if (ReadInt(member, CommonPropertyKey::EDITOR_KIND, kind)) {
             attrs.hasKindOverride = true;
-            attrs.kindOverride = static_cast<PropertyEditorKind>(kind);
+            attrs.kindOverride    = static_cast<PropertyEditorKind>(kind);
         }
 
-        double minValue = 0.0;
-        double maxValue = 0.0;
-        double stepValue = 0.0;
-        const bool hasMin = ReadDouble(member, CommonPropertyKey::RANGE_MIN, minValue);
-        const bool hasMax = ReadDouble(member, CommonPropertyKey::RANGE_MAX, maxValue);
-        const bool hasStep = ReadDouble(member, CommonPropertyKey::RANGE_STEP, stepValue);
+        double     minValue  = 0.0;
+        double     maxValue  = 0.0;
+        double     stepValue = 0.0;
+        const bool hasMin    = ReadDouble(member, CommonPropertyKey::RANGE_MIN, minValue);
+        const bool hasMax    = ReadDouble(member, CommonPropertyKey::RANGE_MAX, maxValue);
+        const bool hasStep   = ReadDouble(member, CommonPropertyKey::RANGE_STEP, stepValue);
         if (hasMin || hasMax || hasStep) {
-            attrs.hasRange = true;
-            attrs.rangeMin = minValue;
-            attrs.rangeMax = hasMax ? maxValue : 1.0;
+            attrs.hasRange  = true;
+            attrs.rangeMin  = minValue;
+            attrs.rangeMax  = hasMax ? maxValue : 1.0;
             attrs.rangeStep = stepValue;
         }
 
@@ -145,14 +146,12 @@ namespace sky::editor {
         return typeKinds.find(typeId) != typeKinds.end();
     }
 
-    void PropertyEditorRegistry::RegisterMemberAppearance(const Uuid &typeId, const std::string &memberName,
-                                                          const MemberAppearance &appearance)
+    void PropertyEditorRegistry::RegisterMemberAppearance(const Uuid &typeId, const std::string &memberName, const MemberAppearance &appearance)
     {
         memberAppearances[typeId][memberName] = appearance;
     }
 
-    const MemberAppearance *PropertyEditorRegistry::GetMemberAppearance(const Uuid &typeId,
-                                                                        const std::string &memberName) const
+    const MemberAppearance *PropertyEditorRegistry::GetMemberAppearance(const Uuid &typeId, const std::string &memberName) const
     {
         const auto typeIter = memberAppearances.find(typeId);
         if (typeIter == memberAppearances.end()) {
@@ -170,17 +169,17 @@ namespace sky::editor {
         }
 
         const serialize::TypeMemberNode *member = descriptor.GetMember();
-        const PropertyAttributes attrs = ReadPropertyAttributes(*member);
+        const PropertyAttributes         attrs  = ReadPropertyAttributes(*member);
 
-        control.readOnly = attrs.readOnly;
-        control.multiline = attrs.multiline;
-        control.hasRange = attrs.hasRange;
-        control.rangeMin = attrs.rangeMin;
-        control.rangeMax = attrs.rangeMax;
-        control.rangeStep = attrs.rangeStep;
+        control.readOnly   = attrs.readOnly;
+        control.multiline  = attrs.multiline;
+        control.hasRange   = attrs.hasRange;
+        control.rangeMin   = attrs.rangeMin;
+        control.rangeMax   = attrs.rangeMax;
+        control.rangeStep  = attrs.rangeStep;
         control.editorHint = attrs.editorHint;
-        control.assetType = attrs.assetType;
-        control.label = attrs.label;
+        control.assetType  = attrs.assetType;
+        control.label      = attrs.label;
 
         if (attrs.hasKindOverride) {
             control.kind = attrs.kindOverride;
@@ -188,7 +187,7 @@ namespace sky::editor {
             control.kind = PropertyEditorKind::Asset;
         } else {
             const TypeInfoRT *type = descriptor.GetType();
-            const auto iter = (type != nullptr) ? typeKinds.find(type->registeredId) : typeKinds.end();
+            const auto        iter = (type != nullptr) ? typeKinds.find(type->registeredId) : typeKinds.end();
             if (iter != typeKinds.end()) {
                 control.kind = iter->second;
             } else {

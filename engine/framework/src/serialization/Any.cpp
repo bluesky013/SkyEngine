@@ -2,8 +2,11 @@
 // Created by Zach Lee on 2021/12/9.
 //
 
-#include <framework/serialization/Any.h>
+#include <cstdlib>
 #include <cstring>
+#include <framework/serialization/Any.h>
+#include <memory>
+#include <new>
 
 namespace sky {
 
@@ -59,17 +62,32 @@ namespace sky {
     Any Any::Create(const TypeInfoRT *info, const void *value)
     {
         Any any;
-        any.info = info;
         if (info == nullptr || value == nullptr) {
+            any.info = info;
             return any;
         }
 
-        any.CheckMemory();
-        if (info->copy != nullptr) {
-            info->copy(value, any.Data());
-        } else if (info->staticInfo != nullptr && info->staticInfo->isTrivial) {
-            std::memcpy(any.Data(), value, info->staticInfo->size);
+        const bool                                  heapAllocated = info->staticInfo->size > BLOCK_SIZE;
+        std::unique_ptr<void, decltype(&std::free)> allocation(nullptr, &std::free);
+        void                                       *storage = any.data;
+        if (heapAllocated) {
+            allocation.reset(std::malloc(info->staticInfo->size));
+            if (allocation == nullptr) {
+                throw std::bad_alloc();
+            }
+            storage = allocation.get();
         }
+        if (info->copy != nullptr) {
+            info->copy(value, storage);
+        } else if (info->staticInfo != nullptr && info->staticInfo->isTrivial) {
+            std::memcpy(storage, value, info->staticInfo->size);
+        }
+        // Publish the type only after construction. On a throwing placement
+        // copy the local owner frees raw storage without destroying an object.
+        if (heapAllocated) {
+            any.ptr = allocation.release();
+        }
+        any.info = info;
         return any;
     }
 

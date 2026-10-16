@@ -1,16 +1,20 @@
 ---
 title: "Editor Toolbar"
 description: "Design for a quick-action toolbar (Open/Save/Undo/Redo) in the Sandbox editor, with a UE/JetBrains/VS Code/Unity comparison."
-updated: "2026-10-07"
+updated: "2026-10-16"
 ---
 
-## Goal
+This document retains the original 2026-10-07 proposal as history. The current implementation is
+described under **Status**; current rules and reviewed follow-ups live in `ui-standards.md` and
+`ui-layout-and-chrome-plan.md`.
+
+## Original goal (2026-10-07)
 
 A **quick-action toolbar** in the Sandbox editor: first cut = **Open, Save, Undo, Redo** (handlers already
 exist for open/save; undo/redo is in `EditorCore::GetCommandService`). Keep it small and consistent with the
 existing engine-drawn chrome; extend later with tool modes / play controls.
 
-## Current state (facts)
+## Historical baseline (2026-10-07)
 
 - Chrome: **menu bar** at the top (`headerHeight` = 24), **status bar** at the bottom (`footerHeight` = 22),
   the **dock area** between. No toolbar.
@@ -23,7 +27,7 @@ existing engine-drawn chrome; extend later with tool modes / play controls.
   menu item is currently a **no-op**.
 - Handlers: `EditorShell` already exposes `SetOpenWorldHandler`, `SetSaveWorldHandler` (wired by the module).
 
-## Comparison
+## Historical comparison
 
 | Editor | Toolbar model | Placement | Notes |
 |---|---|---|---|
@@ -39,7 +43,7 @@ existing engine-drawn chrome; extend later with tool modes / play controls.
 - **Icons matter** for compactness (UE/JetBrains), but we lack a UI icon draw path today.
 - Play/transform controls (Unity/UE) are a *different* group than file/undo — keep them out of this first cut.
 
-## Recommendation
+## Original recommendation
 
 Adopt a **slim left-aligned top toolbar**, directly under the menu bar, **text-first** (consistent with the
 current chrome), with **icons as a follow-up**. Items for v1:
@@ -56,10 +60,10 @@ current chrome), with **icons as a follow-up**. Items for v1:
 - **Icons later**: once a UI icon draw path exists, switch each item to `icon + optional label`, sourcing
   SVGs through the existing `UiIconBuilder`/DDC and registering a small UI icon set.
 
-## Design
+## Original design
 
 ### Component
-- New `editor/shell/widgets/ToolBar.h/.cpp` (mirrors `MenuBar`/`StatusBar`):
+- New `editor/widgets/ToolBar.h/.cpp` (mirrors `MenuBar`/`StatusBar`):
   - `struct Item { std::string label; std::string tooltip; std::function<void()> action; bool enabled; }`.
   - `SetItems(...)`; `SetUndoRedo(bool canUndo, bool canRedo)`; hit-testing + hover; `OnPaint`/`OnPointerEvent`.
   - Paints with `UiSkin::DrawToolItem` (dim when `!enabled`); separators as a thin `uc::VLine`.
@@ -78,40 +82,51 @@ current chrome), with **icons as a follow-up**. Items for v1:
   (and `Ctrl+Shift+Z`) to `EditorShell::DispatchKey`.
 
 ### Sizing / scaling
-Everything from the theme per `ui-sizing-and-scaling.md`: `metrics.toolbarHeight`, `metricses.itemSpacing`,
+Everything from the theme per `ui-sizing-and-scaling.md`: `metrics.toolbarHeight`, `metrics.itemSpacing`,
 `padX`, `controlPad`, `iconButtonWidth`, `fonts.label`. No layout literals.
 
-## Non-goals (this cut)
+## Original non-goals
 
 - UI SVG icons in the toolbar (needs a `PaintContext` texture/icon draw + an icon registry).
 - Transform-tool modes, Play/Pause/Step (`F5` already exists), mode switchers.
 - User-customizable / hideable toolbar, overflow menu.
 
-## Testing
+## Original test plan
 
 - `EditorShellTest`: toolbar item hit-testing + click → handler called once; disabled items don't fire;
   `SetUndoRedoState` toggles enabled; the dock area's top equals `headerHeight + toolbarHeight` after layout.
 
 ## Status (implemented)
 
-- `editor/shell/widgets/ToolBar` hosted by `EditorShell` between the menu bar and the dock area.
+- `editor/widgets/ToolBar` hosted by `EditorShell` between the menu bar and the dock area.
 - **Extension point**: `editor/core/extension/EditorActionRegistry` — a toolkit-agnostic, cross-DLL
-  `Singleton` of `EditorAction{id,label,icon,group,order,enabled,invoke}`. Plugins contribute through their
-  `EditorExtension::Register()`. The shell builds the toolbar from it (grouped + separators) and refreshes
-  enabled state each tick (`EditorShell::RefreshActions`).
+  `Singleton` of actions with group/menu enums, scope, accelerator, enabled predicate, and invocation.
+  Plugins contribute through their `EditorExtension::Register()`. ActionBarBuilder builds shared chrome
+  from it (grouped + separators), and the shell refreshes
+  enabled/visible/checked state for toolbar and menus (`EditorShell::RefreshActions`); asset-viewer
+  chrome uses the same state path. Ordinary state refresh preserves the currently open menu.
 - **Built-in actions** (registered by the module): Open / Save (file), Undo / Redo (history, enabled from
   `CommandService::CanUndo/CanRedo`), Play / Pause / Stop (play, enabled from `PlaySession` state).
 - **Icons**: SVG icons (`engine/sandbox/resources/icons/*.svg`) are rasterized (nanosvg) into RGBA and
-  registered as UI textures (`IUITextureRegistry`); `EditorShell::SetIcon` maps name → texture and the toolbar
-  draws them via `AddTexturedQuad`. Items are **icon-only** (label reserved for a hover tooltip); items without
+  registered through the shared CPU texture catalog for attached surfaces; `EditorShell::SetIcon` maps name → texture and the toolbar
+  draws them through `UiSkin::DrawIcon`. Items are **icon-only** (label reserved for a hover tooltip); items without
   an icon fall back to text.
-- **Unified actions**: menus are built from the same registry (`EditorAction.menu` / `menuOrder` /
-  `submenu`), and keyboard shortcuts invoke actions by id (`EditorShell::InvokeAction`). No per-command shell
-  handlers remain — toolbar, menus, and shortcuts (Ctrl+S/W/Z/Y, F5/Shift+F5) all resolve through
-  `EditorActionRegistry`. Host-only entries (Preferences) and dynamic panel toggles (View > Windows) are
+- **Unified actions**: ActionBarBuilder builds menus from the same registry (`EditorAction.menu` /
+  `order` / `submenu`) and matches declared accelerators in the active scope. Shortcuts invoke actions
+  by id (`EditorShell::InvokeAction`); F5 retains special stateful Play/Pause/Stop routing.
+  Host-only entries (Preferences) and dynamic panel toggles (View > Windows) are
   injected by the shell.
 - **Hover tooltip**: icon-only toolbar items reveal their label in a small panel below the bar.
+- **History and lifetime**: asset-viewer chrome uses its session-owned CommandService. Every
+  Undo/Redo entry cancels active previews through the service's before-history subscribers.
+  Shell-owned asset callbacks carry a weak owner lifetime, including copied toolbar/menu actions.
+- **State and dispatch**: action snapshots include scope and registration generation. Registry
+  invocation rechecks current enabled/visible state and rejects stale controls after replacement.
+  Hidden entries do not paint, take a hit slot or match a shortcut; disabled shortcuts are consumed
+  without invocation. Preferences modal keys reach its own history before global accelerators.
 
 ## Follow-ups
 
+- See the task status in `ui-layout-and-chrome-plan.md`, especially floating-surface icon/GPU
+  acceptance (UI-02/UI-08) and remaining scope/registration ownership (T10-B).
 - Tool modes / Play as a combined control, user-customizable / hideable toolbar.

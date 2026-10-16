@@ -2,24 +2,25 @@
 // Created on 2026/09/19.
 //
 
-#include <ui/widgets/EditBox.h>
-#include <ui/text/UITextLayout.h>
-#include <ui/text/UITextSystem.h>
 #include <ui/UIPaintContext.h>
 #include <ui/UIStyle.h>
+#include <ui/text/UITextLayout.h>
+#include <ui/text/UITextSystem.h>
+#include <ui/widgets/EditBox.h>
 
 namespace sky::ui {
 
     namespace {
 
         constexpr uint32_t KEY_BACKSPACE = 0x08;
-        constexpr uint32_t KEY_LEFT = 0x25;
-        constexpr uint32_t KEY_RIGHT = 0x27;
+        constexpr uint32_t KEY_LEFT      = 0x25;
+        constexpr uint32_t KEY_RIGHT     = 0x27;
 
     } // namespace
 
     EditBox::EditBox()
     {
+        SetLayoutVolatile(false);
         SetFocusable(true);
     }
 
@@ -91,8 +92,7 @@ namespace sky::ui {
                 MarkPaintDirty();
             }
             return UIEventResult::HANDLED;
-        default:
-            return UIEventResult::UNHANDLED;
+        default: return UIEventResult::UNHANDLED;
         }
     }
 
@@ -110,14 +110,14 @@ namespace sky::ui {
 
     void EditBox::Measure(float &outWidth, float &outHeight)
     {
-        outWidth = 0.0f;
+        outWidth  = 0.0f;
         outHeight = 0.0f;
         if (textSystem == nullptr) {
             return;
         }
         const UITextExtent extent = UITextLayout::Measure(text, fontSize, textSystem->GetAtlas());
-        outWidth = extent.width;
-        outHeight = extent.height;
+        outWidth                  = extent.width;
+        outHeight                 = extent.height;
     }
 
     void EditBox::OnPaint(UIPaintContext &context)

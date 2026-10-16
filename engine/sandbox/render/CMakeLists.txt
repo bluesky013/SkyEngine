@@ -3,6 +3,11 @@ set(CURRENT_FOLDER Sandbox/Render)
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
+set(EDITOR_UI_FONT_LIBS)
+if (SKY_BUILD_FREETYPE)
+    list(APPEND EDITOR_UI_FONT_LIBS UI.FreeType)
+endif ()
+
 # Editor-owned renderer: records its own passes on the Aurora device and
 # presents to the editor swapchain (the GUI pipeline + UI pass). It is
 # independent of the engine scene pipeline, and links Aurora + UI, so it is kept
@@ -21,6 +26,7 @@ sky_add_library(TARGET EditorRender STATIC
         EditorCore
         UI
         UIRender
+        ${EDITOR_UI_FONT_LIBS}
         Aurora.RHI.Static
         Aurora.Pipeline.Static
 )

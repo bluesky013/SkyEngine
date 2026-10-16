@@ -21,43 +21,78 @@ namespace sky::ui {
             RIGHT,
         };
 
-        Text() = default;
+        Text()
+        {
+            SetLayoutVolatile(false);
+        }
         ~Text() override = default;
 
-        const char *GetTypeName() const override { return "Text"; }
+        const char *GetTypeName() const override
+        {
+            return "Text";
+        }
 
-        void SetTextSystem(UITextSystem *value);
-        UITextSystem *GetTextSystem() const { return textSystem; }
+        void          SetTextSystem(UITextSystem *value);
+        UITextSystem *GetTextSystem() const
+        {
+            return textSystem;
+        }
 
-        void SetContent(const std::string &value);
-        const std::string &GetContent() const { return content; }
+        void               SetContent(const std::string &value);
+        const std::string &GetContent() const
+        {
+            return content;
+        }
 
         // Localization key; when set it is resolved at measure/paint time.
-        void SetTextKey(const std::string &value);
-        const std::string &GetTextKey() const { return textKey; }
+        void               SetTextKey(const std::string &value);
+        const std::string &GetTextKey() const
+        {
+            return textKey;
+        }
         std::string GetResolvedText() const;
 
-        void SetFontSize(uint32_t value);
-        uint32_t GetFontSize() const { return fontSize; }
+        void     SetFontSize(uint32_t value);
+        uint32_t GetFontSize() const
+        {
+            return fontSize;
+        }
 
-        void SetTextColor(uint32_t value);
-        uint32_t GetTextColor() const { return textColor; }
+        void     SetTextColor(uint32_t value);
+        uint32_t GetTextColor() const
+        {
+            return textColor;
+        }
 
-        void SetAlign(Align value);
-        Align GetAlign() const { return align; }
+        void  SetAlign(Align value);
+        Align GetAlign() const
+        {
+            return align;
+        }
 
-        // AUTO sizing comes from the measured text bounds.
-        void Measure(float &outWidth, float &outHeight) override;
+        void SetWrap(bool value);
+        bool GetWrap() const
+        {
+            return wrap;
+        }
+
+        // Legacy query wrapper. Subclasses customize OnMeasure so both query
+        // entry points use the same hook and constraint/cache contract.
+        void Measure(float &outWidth, float &outHeight) final;
         void OnPaint(UIPaintContext &context) override;
         bool SetProperty(const std::string &path, const UIPropertyValue &value) override;
 
+    protected:
+        UISize OnMeasure(const UIConstraints &constraints) override;
+
     private:
         UITextSystem *textSystem = nullptr;
-        std::string content;
-        std::string textKey;
-        uint32_t fontSize = 16;
-        uint32_t textColor = 0xFF000000;
-        Align align = Align::LEFT;
+        std::string   content;
+        std::string   textKey;
+        uint32_t      fontSize  = 16;
+        uint32_t      textColor = 0xFF000000;
+        Align         align     = Align::LEFT;
+        bool          wrap      = false;
     };
 
 } // namespace sky::ui

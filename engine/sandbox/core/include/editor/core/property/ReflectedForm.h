@@ -7,6 +7,7 @@
 #include <editor/core/command/CommandService.h>
 #include <editor/core/property/PropertyEditor.h>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,6 +15,9 @@
 namespace sky::editor {
 
     // One reflected member in a form, recursive over structs and sequences.
+    // Built trees use final reserved storage: children bind into ownedValue and
+    // must not be structurally moved/reordered by consumers. Views may change
+    // expansion/presentation state; Rebuild owns structural changes.
     struct PropertyField {
         PropertyDescriptor         descriptor;
         PropertyEditorKind         kind = PropertyEditorKind::Unknown;
@@ -40,8 +44,17 @@ namespace sky::editor {
     // Layout-neutral reflection-driven form: sections of recursive fields.
     class ReflectedForm {
     public:
-        ReflectedForm()  = default;
-        ~ReflectedForm() = default;
+        ReflectedForm()                                 = default;
+        ~ReflectedForm()                                = default;
+        ReflectedForm(const ReflectedForm &)            = delete;
+        ReflectedForm &operator=(const ReflectedForm &) = delete;
+
+        // Hosts may defer model/tree replacement until committed edits return.
+        // The edit scope owns a separate counter state, never the form itself.
+        bool IsEditing() const
+        {
+            return activeEdits->depth != 0;
+        }
 
         // Binds to `object` and captures its reset baseline from the type's
         // default-constructed value (UE/Godot-style "reset to default"), so the
@@ -52,7 +65,18 @@ namespace sky::editor {
         void Build(const PropertyObject &object, const PropertyEditorRegistry &registry, const PropertyObject *baseline = nullptr);
         void Rebuild();
 
+        // Hosts may create domain commands from the top-level property value.
+        // The factory is called only during editing; stored commands must own
+        // their identity/data and never retain this descriptor or form fields.
+        using EditCommandFactory = std::function<UndoCommandPtr(const PropertyDescriptor &, Any)>;
+        void SetEditCommandFactory(EditCommandFactory factory)
+        {
+            editCommands = std::move(factory);
+        }
+
         bool Edit(PropertyField &field, Any value, CommandService &commands);
+        bool AddSequenceElement(PropertyField &field, CommandService &commands);
+        bool RemoveSequenceElement(PropertyField &field, uint32_t index, CommandService &commands);
 
         // Invoked after a committed edit (e.g. so the owner can mark a document
         // dirty). ResetToDefault routes through Edit and fires it too.
@@ -60,12 +84,13 @@ namespace sky::editor {
         {
             onChanged = std::move(callback);
         }
-        // Fires onChanged directly (for mutations not routed through Edit, e.g.
-        // sequence add/remove in the view).
+        // Fires onChanged directly for a host mutation outside Edit. Domain
+        // persistence must live in the command, rather than this notification.
         void NotifyChanged() const
         {
-            if (onChanged) {
-                onChanged();
+            const auto changed = onChanged;
+            if (changed) {
+                changed();
             }
         }
 
@@ -92,11 +117,20 @@ namespace sky::editor {
         void ApplyAppearance(PropertyField &field, const Uuid &ownerTypeId, const std::string &memberName);
         void AssignDefaults(PropertyField &node);
 
+        struct ActiveEdits {
+            uint32_t depth = 0;
+        };
+
         PropertyObject                       root;
         const PropertyEditorRegistry        *registry = nullptr;
         std::vector<FormSection>             sections;
         std::unordered_map<std::string, Any> defaults; // path -> type default
         std::function<void()>                onChanged;
+        EditCommandFactory                   editCommands;
+        std::shared_ptr<ActiveEdits>         activeEdits = std::make_shared<ActiveEdits>();
+        // Never lock/retain this token across a command: observers may rebind
+        // or destroy the form synchronously during domain persistence.
+        std::shared_ptr<void> bindingGeneration = std::make_shared<int>(0);
     };
 
 } // namespace sky::editor

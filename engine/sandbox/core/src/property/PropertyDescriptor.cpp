@@ -2,28 +2,41 @@
 // Created on 2026/09/21.
 //
 
-#include <editor/core/property/PropertyDescriptor.h>
 #include <core/type/TypeInfo.h>
 #include <editor/core/command/PropertyEditCommand.h>
+#include <editor/core/property/PropertyDescriptor.h>
 #include <framework/serialization/SerializationContext.h>
 #include <utility>
 
 namespace sky::editor {
 
-    PropertyDescriptor::PropertyDescriptor(void *object, const serialize::TypeMemberNode *member, std::string name,
-                                           std::string category)
-        : object(object), member(member), type(member != nullptr ? member->info : nullptr), elementIndex(-1),
-          name(std::move(name)), displayName(this->name), category(std::move(category))
+    PropertyDescriptor::PropertyDescriptor(void *object, const serialize::TypeMemberNode *member, std::string name, std::string category)
+        : object(object)
+        , member(member)
+        , type(member != nullptr ? member->info : nullptr)
+        , elementIndex(-1)
+        , name(std::move(name))
+        , displayName(this->name)
+        , category(std::move(category))
     {
         displayName = this->name;
     }
 
-    PropertyDescriptor::PropertyDescriptor(void *object, const serialize::TypeMemberNode *member, int32_t elementIndex,
-                                           std::string name, std::string category)
-        : object(object), member(member), type(member != nullptr ? member->info : nullptr), elementIndex(elementIndex),
-          name(std::move(name)), displayName(this->name), category(std::move(category))
+    PropertyDescriptor::PropertyDescriptor(
+        void *object, const serialize::TypeMemberNode *member, int32_t elementIndex, std::string name, std::string category)
+        : object(object)
+        , member(member)
+        , type(member != nullptr ? member->info : nullptr)
+        , elementIndex(elementIndex)
+        , name(std::move(name))
+        , displayName(this->name)
+        , category(std::move(category))
     {
         displayName = this->name;
+        // The member describes the container; editors need the selected
+        // element's value type when choosing its read-only row control.
+        const TypeNode *elementType = GetElementType();
+        type                        = elementType != nullptr ? elementType->info : nullptr;
     }
 
     Any PropertyDescriptor::GetRawValue() const
@@ -59,8 +72,8 @@ namespace sky::editor {
         }
 
         if (IsSequenceElement()) {
-            Any container = GetRawValue();
-            void *elementPtr = GetSequenceElementPtr(container, static_cast<uint32_t>(elementIndex));
+            Any             container   = GetRawValue();
+            void           *elementPtr  = GetSequenceElementPtr(container, static_cast<uint32_t>(elementIndex));
             const TypeNode *elementType = GetElementType();
             if (elementPtr == nullptr || elementType == nullptr || elementType->info == nullptr) {
                 return {};
@@ -87,11 +100,10 @@ namespace sky::editor {
 
     bool PropertyDescriptor::IsSequence() const
     {
-        if (member == nullptr || member->info == nullptr || member->info->containerInfo == nullptr) {
+        if (IsSequenceElement() || member == nullptr || member->info == nullptr || member->info->containerInfo == nullptr) {
             return false;
         }
-        return member->info->containerInfo->sequenceView != nullptr &&
-               member->info->containerInfo->valueType != TypeInfo<char>::RegisteredId();
+        return member->info->containerInfo->sequenceView != nullptr && member->info->containerInfo->valueType != TypeInfo<char>::RegisteredId();
     }
 
     uint32_t PropertyDescriptor::GetSequenceCount() const
@@ -120,8 +132,7 @@ namespace sky::editor {
         const uint32_t count = GetSequenceCount();
         out.reserve(out.size() + count);
         for (uint32_t i = 0; i < count; ++i) {
-            out.emplace_back(
-                PropertyDescriptor(object, member, static_cast<int32_t>(i), name + "[" + std::to_string(i) + "]", category));
+            out.emplace_back(PropertyDescriptor(object, member, static_cast<int32_t>(i), name + "[" + std::to_string(i) + "]", category));
         }
     }
 
@@ -155,8 +166,8 @@ namespace sky::editor {
         if (!CanEdit() || !IsSequence()) {
             return nullptr;
         }
-        Any container = GetRawValue();
-        auto *seq = member->info->containerInfo->sequenceView;
+        Any   container = GetRawValue();
+        auto *seq       = member->info->containerInfo->sequenceView;
         if (seq == nullptr) {
             return nullptr;
         }
@@ -169,8 +180,8 @@ namespace sky::editor {
         if (!CanEdit() || !IsSequence() || index >= GetSequenceCount()) {
             return nullptr;
         }
-        Any container = GetRawValue();
-        auto *seq = member->info->containerInfo->sequenceView;
+        Any   container = GetRawValue();
+        auto *seq       = member->info->containerInfo->sequenceView;
         if (seq == nullptr) {
             return nullptr;
         }

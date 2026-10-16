@@ -6,13 +6,14 @@
 
 #include <editor/core/text/TextEditState.h>
 #include <editor/shell/ModalDialog.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
 
 #include <functional>
+#include <memory>
 #include <string>
 
 namespace sky::ui {
@@ -27,7 +28,7 @@ namespace sky::editor {
     class NewWorldDialog : public ModalDialog {
     public:
         explicit NewWorldDialog(sky::ui::UITextSystem *text);
-        ~NewWorldDialog() override = default;
+        ~NewWorldDialog() override;
 
         const char *GetTypeName() const override
         {
@@ -42,6 +43,7 @@ namespace sky::editor {
 
         void Open(const std::string &location, const std::string &name);
         void Close();
+        void SynchronizeLayout();
 
         sky::ui::UIRect PanelRect() const;
         sky::ui::UIRect NameFieldRect() const;
@@ -54,7 +56,14 @@ namespace sky::editor {
         sky::ui::UIEventResult OnKeyEvent(const sky::ui::UIKeyEvent &event) override;
         sky::ui::UIEventResult OnTextInput(const sky::ui::UITextInputEvent &event) override;
 
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &content) override;
+
     private:
+        struct Layout;
+        std::unique_ptr<Layout>                  layout;
+        uint64_t                                 themeRevision = 0;
+        bool                                     layoutBusy    = false;
         void                                     Accept();
         TextEditState                           *Focused();
         sky::ui::UITextSystem                   *textSystem = nullptr;

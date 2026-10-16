@@ -13,6 +13,7 @@ sky_add_library(TARGET Aurora.Render.Editor SHARED
         Aurora.Adaptor.Static
         EditorCore
         EditorUi
+        EditorWidgets
         UI
         Framework
         Core

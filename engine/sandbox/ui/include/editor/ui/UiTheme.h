@@ -7,6 +7,10 @@
 #include <cstdint>
 #include <string>
 
+namespace sky::ui {
+    class UIElement;
+}
+
 namespace sky::editor {
 
     // Color palette (ABGR packed, matching the UI vertex format).
@@ -161,6 +165,11 @@ namespace sky::editor {
     // Process-wide default theme; panels use it unless a custom one is supplied.
     const UiTheme &GetDefaultUiTheme();
     void           SetDefaultUiTheme(const UiTheme &theme);
+    // Shared with the theme across statically linked editor modules.
+    uint64_t GetDefaultUiThemeRevision();
+    // Call before incremental layout. Theme metrics are an external input to
+    // every affected node, including cached children with unchanged rectangles.
+    bool SynchronizeDefaultUiTheme(sky::ui::UIElement &root, uint64_t &appliedRevision);
 
     // Applied DPI/UI scale of the default theme (the analogue of
     // ImGui::GetFontScale). Views should normally read pre-scaled `metrics`/`fonts`

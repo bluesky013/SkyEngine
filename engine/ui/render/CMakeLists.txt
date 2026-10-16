@@ -12,8 +12,7 @@ sky_add_library(TARGET UIRender STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        UI
-        Aurora.Pipeline.Static
+        UI.Interface
         Aurora.RHI.Static
         Aurora.ShaderCompiler.Static
 )

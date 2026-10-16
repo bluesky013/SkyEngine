@@ -20,6 +20,7 @@
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorExtensionRegistry.h>
 #include <editor/core/layout/LayoutPersistence.h>
+#include <editor/core/preferences/FilePreferenceStorage.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/ui/UiTheme.h>
@@ -31,7 +32,6 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
-#include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/window/NativeWindowManager.h>
 
@@ -337,7 +337,8 @@ namespace sky::editor {
             return false;
         }
 
-        renderer.SetGuiSource([this](uint32_t /*surfaceId*/, sky::ui::UIPaintContext &context, uint32_t w, uint32_t h) { PaintGui(context, w, h); });
+        renderer.SetGuiSource(
+            [this](uint32_t surfaceId, sky::ui::UIPaintContext &context, uint32_t w, uint32_t h) { PaintGui(surfaceId, context, w, h); });
 
         mouseBinder.Bind(this);
         keyBinder.Bind(this);
@@ -347,6 +348,10 @@ namespace sky::editor {
     bool SandboxModule::BuildHub()
     {
         ProjectRegistry::Get()->Load();
+        if (!RegisterPreferencePages()) {
+            return false;
+        }
+        LoadPreferences();
 
         // The hub has no EditorShell, so apply the DPI/UI scale to the default
         // theme directly (the hub built its views at 1.0 before).
@@ -402,8 +407,7 @@ namespace sky::editor {
 
     float SandboxModule::EffectiveUiScale() const
     {
-        const float scale = systemUiScale * editorSettings.uiScale;
-        return scale < 0.5f ? 0.5f : (scale > 4.0f ? 4.0f : scale);
+        return ComputeEditorUiScale(systemUiScale, editorSettings.uiScale);
     }
 
     void SandboxModule::NewWorld()
@@ -516,26 +520,20 @@ namespace sky::editor {
         shell.SetDocumentInfo(name, dirty);
     }
 
-    void SandboxModule::RegisterPreferencePages()
+    bool SandboxModule::RegisterPreferencePages()
     {
-        // Register the reflected settings types (metadata drives the UI) and expose the pages.
-        // Dynamic list of pages; each page's fields are a fixed reflected type.
-        RegisterEditorSettings(sky::SerializationContext::Get());
-
-        auto *pages = PreferencePageRegistry::Get();
-        pages->Clear();
-
-        auto addPage = [pages](const char *id, const char *title, void *object, const sky::Uuid &typeId) {
-            PreferencePage page;
-            page.id     = id;
-            page.title  = title;
-            page.object = object;
-            page.type   = sky::GetTypeNode(typeId);
-            pages->Add(std::move(page));
-        };
-        addPage("general", "General", &generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
-        addPage("editor", "Editor", &editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
-        addPage("rendering", "Rendering", &renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
+        if (!preferencePages) {
+            preferencePages = std::make_unique<BuiltinPreferencePages>(*PreferencePageRegistry::Get());
+        }
+        const auto result = preferencePages->Bind(generalSettings, editorSettings, renderingSettings, [this] {
+            uiScale = EffectiveUiScale();
+            shell.SetUserUiScale(editorSettings.uiScale);
+            return PreferenceResult{};
+        });
+        if (!result.Succeeded()) {
+            LOG_E(TAG, "could not register preference page %s: %s", result.pageId.c_str(), result.message.c_str());
+        }
+        return result.Succeeded();
     }
 
     std::string SandboxModule::PreferencePath() const
@@ -550,53 +548,15 @@ namespace sky::editor {
 
     void SandboxModule::LoadPreferences()
     {
-        const std::string path = PreferencePath();
-        if (path.empty()) {
+        preferencePersistence =
+            std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(std::filesystem::u8path(PreferencePath())));
+        const auto result = preferencePersistence->Load(*PreferencePageRegistry::Get());
+        if (result.code == PreferenceCode::NotFound) {
             return;
         }
-        const sky::FilePath filePath(path);
-        sky::NativeFile     file(filePath);
-        auto                archive = file.ReadAsArchive();
-        if (!archive || !archive->IsOpen()) {
-            return;
+        if (!result.Succeeded()) {
+            LOG_E(TAG, "could not load preferences %s/%s: %s", result.pageId.c_str(), result.path.c_str(), result.message.c_str());
         }
-        sky::JsonInputArchive json(*archive);
-        if (json.Start("general")) {
-            json.LoadValueById(&generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
-            json.End();
-        }
-        if (json.Start("editor")) {
-            json.LoadValueById(&editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
-            json.End();
-        }
-        if (json.Start("rendering")) {
-            json.LoadValueById(&renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
-            json.End();
-        }
-        LOG_I(TAG, "loaded preferences from %s", path.c_str());
-    }
-
-    void SandboxModule::SavePreferences()
-    {
-        const std::string path = PreferencePath();
-        if (path.empty()) {
-            return;
-        }
-        const sky::FilePath filePath(path);
-        sky::NativeFile     file(filePath);
-        auto                archive = file.WriteAsArchive();
-        if (!archive || !archive->IsOpen()) {
-            return;
-        }
-        sky::JsonOutputArchive json(*archive);
-        json.StartObject();
-        json.Key("general");
-        json.SaveValueObject(&generalSettings, sky::TypeInfo<GeneralSettings>::RegisteredId());
-        json.Key("editor");
-        json.SaveValueObject(&editorSettings, sky::TypeInfo<EditorViewSettings>::RegisteredId());
-        json.Key("rendering");
-        json.SaveValueObject(&renderingSettings, sky::TypeInfo<RenderingSettings>::RegisteredId());
-        json.EndObject();
     }
 
     bool SandboxModule::BuildEditor()
@@ -629,7 +589,7 @@ namespace sky::editor {
 
             // Project export presets (`export_presets.json`), edited by the reflected panel.
             const std::filesystem::path presetsPath = std::filesystem::path(project.Dir()) / "export_presets.json";
-            exportPresets = std::make_unique<sky::ExportPresets>();
+            exportPresets                           = std::make_unique<sky::ExportPresets>();
             if (exportPresets->Load(presetsPath.string())) {
                 shell.SetExportPresets(exportPresets.get(), presetsPath.string());
             } else {
@@ -641,6 +601,11 @@ namespace sky::editor {
         // layout. Plugin editor modules staged their extensions during Init; drain them first.
         // Clear the action registry BEFORE extensions register so actions they add from
         // EditorExtension::Register() are not wiped by the host's built-in action setup below.
+        // Register host pages without clearing contributions staged by plugins.
+        // Load below, after every extension has contributed its pages.
+        if (!RegisterPreferencePages()) {
+            return false;
+        }
         EditorActionRegistry::Get()->Clear();
         for (auto &extension : EditorExtensionRegistry::Get()->TakeAll()) {
             extensionHost.Add(std::move(extension));
@@ -700,7 +665,7 @@ namespace sky::editor {
         // root plus every root an editor extension declares via GetIconDirectories(), rasterizing
         // each `*.svg` and keying it by file stem.
         if (sky::ui::UITextSystem *text = renderer.GetTextSystem()) {
-            if (sky::ui::IUITextureRegistry *registry = text->GetRegistry()) {
+            if (sky::ui::IUITextureRegistry *registry = text->GetSharedRegistry()) {
                 std::vector<std::string> iconDirs;
                 for (const auto &extension : extensionHost.GetExtensions()) {
                     const std::vector<std::string> declared = extension->GetIconDirectories();
@@ -766,11 +731,12 @@ namespace sky::editor {
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
 
-        RegisterPreferencePages();
+        shell.SetUiScale(systemUiScale);
         LoadPreferences();
         uiScale = EffectiveUiScale();
-        shell.SetUiScale(uiScale);
-        shell.SetPreferences(PreferencePageRegistry::Get(), [this]() { SavePreferences(); });
+        shell.SetUserUiScale(editorSettings.uiScale);
+        shell.SetPreferencesPersistence(preferencePersistence);
+        shell.SetPreferences(PreferencePageRegistry::Get(), {});
         // Play-In-Editor: the session duplicates the edit world and ticks it.
         playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
 
@@ -1152,9 +1118,8 @@ namespace sky::editor {
             hubView->SetStatus("Cannot locate python/package_project.py (set SKY_ENGINE_ROOT)");
             return;
         }
-        const char *python = FindPythonCommand();
-        const std::string command =
-            std::string("\"") + python + "\" \"" + script + "\" create --dir \"" + parent + "\" --name \"" + name + "\"";
+        const char       *python  = FindPythonCommand();
+        const std::string command = std::string("\"") + python + "\" \"" + script + "\" create --dir \"" + parent + "\" --name \"" + name + "\"";
         LOG_I(TAG, "create project: %s", command.c_str());
         if (std::system(command.c_str()) != 0) {
             hubView->SetStatus("Project creation failed (python CLI)");
@@ -1238,7 +1203,7 @@ namespace sky::editor {
         }
     }
 
-    void SandboxModule::PaintGui(sky::ui::UIPaintContext &context, uint32_t width, uint32_t height)
+    void SandboxModule::PaintGui(uint32_t surfaceId, sky::ui::UIPaintContext &context, uint32_t width, uint32_t height)
     {
         if (hubMode && hubContext != nullptr) {
             hubContext->SetContentSize(static_cast<float>(width), static_cast<float>(height));
@@ -1246,8 +1211,7 @@ namespace sky::editor {
             hubContext->Paint(context);
             return;
         }
-        shell.Layout(static_cast<float>(width), static_cast<float>(height));
-        shell.Paint(context);
+        shell.PaintSurface(surfaceId, context, static_cast<float>(width), static_cast<float>(height));
     }
 
     void SandboxModule::Start()
@@ -1304,10 +1268,19 @@ namespace sky::editor {
         if (winID == 0) {
             return true; // id-less event: fall back to the active target
         }
+        if (FloatingSurfaceForWindow(winID) != 0) {
+            return false;
+        }
         if (primaryWindowId == 0) {
-            primaryWindowId = winID; // learn the main window from the first event
+            primaryWindowId = winID; // restored floating windows may receive input first
         }
         return winID == primaryWindowId;
+    }
+
+    uint32_t SandboxModule::FloatingSurfaceForWindow(sky::WindowID winID) const
+    {
+        auto *window = winID != 0 ? sky::NativeWindowManager::Get()->GetWindowByID(winID) : nullptr;
+        return window != nullptr ? renderer.SurfaceIdForWindow(window) : 0;
     }
 
     void SandboxModule::RoutePointer(const sky::ui::UIPointerEvent &pointer, sky::WindowID winID)
@@ -1325,11 +1298,7 @@ namespace sky::editor {
 
     bool SandboxModule::RouteFloatingPointer(sky::WindowID winID, const sky::ui::UIPointerEvent &pointer)
     {
-        auto *window = sky::NativeWindowManager::Get()->GetWindowByID(winID);
-        if (window == nullptr) {
-            return false;
-        }
-        const uint32_t surfaceId = renderer.SurfaceIdForWindow(window);
+        const uint32_t surfaceId = FloatingSurfaceForWindow(winID);
         if (surfaceId == 0) {
             return false;
         }
@@ -1402,29 +1371,30 @@ namespace sky::editor {
 
     void SandboxModule::OnKeyDown(const sky::KeyboardEvent &event)
     {
-        if (!AcceptWindowEvent(event.winID)) {
-            return;
-        }
         sky::ui::UIKeyEvent key;
         key.keyCode   = ScanCodeToVirtualKey(event.scanCode);
         key.action    = sky::ui::UIKeyAction::DOWN;
         key.modifiers = static_cast<uint32_t>(event.mod);
-        if (hubMode && browser != nullptr && browser->IsOpen()) {
-            browser->OnKeyEvent(key);
-        } else if (auto *target = ActiveTarget()) {
-            target->OnKey(key);
-        }
+        RouteKey(key, event.winID);
     }
 
     void SandboxModule::OnKeyUp(const sky::KeyboardEvent &event)
     {
-        if (!AcceptWindowEvent(event.winID)) {
-            return;
-        }
         sky::ui::UIKeyEvent key;
         key.keyCode   = ScanCodeToVirtualKey(event.scanCode);
         key.action    = sky::ui::UIKeyAction::UP;
         key.modifiers = static_cast<uint32_t>(event.mod);
+        RouteKey(key, event.winID);
+    }
+
+    void SandboxModule::RouteKey(const sky::ui::UIKeyEvent &key, sky::WindowID winID)
+    {
+        if (!AcceptWindowEvent(winID)) {
+            if (const uint32_t surfaceId = FloatingSurfaceForWindow(winID); surfaceId != 0) {
+                shell.DispatchKeyToSurface(surfaceId, key);
+            }
+            return;
+        }
         if (hubMode && browser != nullptr && browser->IsOpen()) {
             browser->OnKeyEvent(key);
         } else if (auto *target = ActiveTarget()) {
@@ -1434,7 +1404,7 @@ namespace sky::editor {
 
     void SandboxModule::OnTextInput(sky::WindowID winID, const char *text)
     {
-        if (text == nullptr || !AcceptWindowEvent(winID)) {
+        if (text == nullptr) {
             return;
         }
         // TranslateMessage emits WM_CHAR control codes for Backspace/Enter/Tab/Esc
@@ -1447,6 +1417,12 @@ namespace sky::editor {
             }
         }
         if (input.text.empty()) {
+            return;
+        }
+        if (!AcceptWindowEvent(winID)) {
+            if (const uint32_t surfaceId = FloatingSurfaceForWindow(winID); surfaceId != 0) {
+                shell.DispatchTextToSurface(surfaceId, input);
+            }
             return;
         }
         if (hubMode && browser != nullptr && browser->IsOpen()) {
@@ -1468,6 +1444,10 @@ namespace sky::editor {
         hubView = nullptr;
         browser = nullptr;
         hubContext.reset();
+        shell.SetPreferences(nullptr, {});
+        shell.SetPreferencesPersistence(nullptr);
+        preferencePersistence.reset();
+        preferencePages.reset();
         if (!hubMode) {
             extensionHost.UnregisterAll();
             logService.Uninstall();

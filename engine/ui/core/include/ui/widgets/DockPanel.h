@@ -8,7 +8,7 @@
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
 
-#include <vector>
+#include <unordered_map>
 
 namespace sky::ui {
 
@@ -28,7 +28,10 @@ namespace sky::ui {
 
     class DockPanel : public UIElement {
     public:
-        DockPanel()           = default;
+        DockPanel()
+        {
+            SetLayoutVolatile(false);
+        }
         ~DockPanel() override = default;
 
         const char *GetTypeName() const override
@@ -37,26 +40,32 @@ namespace sky::ui {
         }
 
         UIElement *Add(std::unique_ptr<UIElement> child, const DockSlot &slot = {});
+        // Update a live child's allocation when host metrics change.
+        bool SetSlot(UIElement *child, const DockSlot &slot);
 
-        void          Measure(float &outWidth, float &outHeight) override;
-        void          OnPaint(UIPaintContext &context) override;
+        void          Measure(float &outWidth, float &outHeight) final;
         UIEventResult RoutePointer(const UIPointerEvent &event);
-        // Force layout now (so a parent can read child bounds before painting them).
+        void          OnPointerCancel(uint32_t pointerId) override;
+        using UIElement::Layout;
+        // Compatibility for hosts that already assigned this panel's bounds.
         void Layout()
         {
-            Arrange();
+            Arrange(GetBounds(), GetArrangedSize());
         }
 
+    protected:
+        UISize OnMeasure(const UIConstraints &constraints) override;
+        void   ArrangeChildren(const UIRect &content) override;
+        void   OnChildrenChanged() override;
+        void   CollectDetachedInput(UIElement *directChild, std::vector<InputCancellation> &out) override;
+
     private:
-        struct Item {
-            UIElement *element = nullptr;
-            DockSlot   slot;
-        };
+        DockSlot GetSlot(const UIElement &child) const;
 
-        void Arrange();
-
-        std::vector<Item> items;
-        UIElement        *captured = nullptr;
+        // Inherited AddChild uses a default slot; live child order owns layout.
+        std::unordered_map<const UIElement *, DockSlot> slots;
+        UIElement                                      *captured          = nullptr;
+        uint32_t                                        capturedPointerId = 0;
     };
 
 } // namespace sky::ui

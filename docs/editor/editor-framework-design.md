@@ -68,6 +68,18 @@ Current implementation state, build/run, gotchas and handoff live in **`editor-f
 
 ## Entry & startup boundary (decided)
 
+- **Shared editor framework:** `engine/sandbox/widgets` builds `EditorWidgets`, with reusable
+  `editor/widgets/UiSkin.h`, `ReflectedFormView.h`, property controls, and action-driven
+  `ToolBar.h`/`MenuBar.h`/`ActionBarBuilder.h`. It depends on `EditorUi`, `EditorCore`, `UI`, Core,
+  and required Framework reflection interfaces; feature editor modules link it without linking
+  Shell. `EditorUi` remains the Core/UI-only theme, draw, and extension-provider layer;
+  `EditorCore` remains toolkit-independent. `EditorShell` keeps window, docking, modal-dialog,
+  and concrete panel/viewer composition.
+- **Form context ownership:** each form owns its `Widgets()` registry and interaction state.
+  Its default services and theme are shared across DLLs; a host can pass `ReflectedFormContext`
+  to use document-owned command history, property metadata, change notification, and theme.
+  Referenced context objects must outlive the form. Sharing the framework does not make document
+  state process-global.
 - **Two binaries, separated by build target** (UE-style):
   - **`SandboxEditor`** — the **only editor entry**. Hosts the **Project Manager (hub)** plus the
     editor: `SandboxEditor` (no `--project`) → hub; `SandboxEditor --project <path>` → editor bound
@@ -547,13 +559,15 @@ widgets (`EditBox`, `ReflectedFormView`, `FileBrowserDialog`) expect **virtual-k
 every consumer sees consistent keys. Widgets must not reinterpret key codes individually.
 
 Both modal dialogs share a `ModalDialog` base (backdrop, centered panel, open state) and paint through
-`UiSkin`/`UiTheme`, so the file browser and Preferences render identically to the reflected panels.
+the shared `editor/widgets/UiSkin.h` and `EditorUi` theme, so the file browser and Preferences render
+identically to the reflected panels. `ModalDialog` stays in Shell as host composition.
 
 **Preferences** are reflection-driven: settings are reflected structs (one per page) registered with
 metadata (label/range/enum), and modules contribute `PreferencePage`s (`{ id, title, object, TypeNode }`)
 into the cross-DLL `PreferencePageRegistry`. `PreferencesDialog` renders the selected page with a
-`ReflectedFormView` (undoable edits; OK/Apply commit + persist, Cancel restores the open snapshot, Reset
-restores type defaults) and the host persists the structs as reflection JSON. No per-type controls live in
+`ReflectedFormView` (`editor/widgets/ReflectedFormView.h`; undoable edits; OK/Apply commit + persist,
+Cancel restores the open snapshot, Reset restores type defaults) and the host persists the structs as
+reflection JSON. No per-type controls live in
 the dialog. See `docs/editor/preferences-and-settings.md`.
 
 ### 3.11 Persistence (per-user editor state)

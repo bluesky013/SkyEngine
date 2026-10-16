@@ -1,74 +1,47 @@
 //
-// Created on 2026/09/19.
+// Constraint-aware linear layout; child UILayoutParams retain ownership of sizing rules.
 //
 
+#include <detail/LayoutMeasurement.h>
 #include <ui/widgets/VBox.h>
-
-#include <algorithm>
 
 namespace sky::ui {
 
-    namespace {
-
-        void ChildExtent(UIElement *child, float &width, float &height)
-        {
-            child->Measure(width, height);
-            const UILayoutParams &params = child->GetLayout();
-            if (params.width.mode == UISizeMode::FIXED) {
-                width = params.width.value;
-            }
-            if (params.height.mode == UISizeMode::FIXED) {
-                height = params.height.value;
-            }
-        }
-
-    } // namespace
-
     void VBox::SetSpacing(float value)
     {
+        if (spacing == value) {
+            return;
+        }
         spacing = value;
         MarkLayoutDirty();
     }
 
     void VBox::Measure(float &outWidth, float &outHeight)
     {
-        const UILayoutParams &params = GetLayout();
-        float total = 0.0f;
-        float maxWidth = 0.0f;
-        int count = 0;
+        const UISize desired = MeasureDesired();
+        outWidth             = desired.width;
+        outHeight            = desired.height;
+    }
 
-        for (const auto &child : GetChildren()) {
-            float childWidth = 0.0f;
-            float childHeight = 0.0f;
-            ChildExtent(child.get(), childWidth, childHeight);
-            total += childHeight;
-            maxWidth = std::max(maxWidth, childWidth);
-            count++;
-        }
-        if (count > 1) {
-            total += spacing * static_cast<float>(count - 1);
-        }
-
-        outWidth = maxWidth + params.paddingLeft + params.paddingRight;
-        outHeight = total + params.paddingTop + params.paddingBottom;
+    UISize VBox::OnMeasure(const UIConstraints &constraints)
+    {
+        const UILayoutParams layout = detail::Padding(GetLayout());
+        UIConstraints content = detail::Loose(constraints.Deflate(layout.paddingLeft, layout.paddingTop, layout.paddingRight, layout.paddingBottom));
+        const auto    preliminary  = detail::MeasureLinear(GetChildren(), content, spacing, false);
+        const float   paddingWidth = layout.paddingLeft + layout.paddingRight;
+        const float   width        = constraints.Constrain({preliminary.desired.width + paddingWidth, 0.0f}).width;
+        content.maxSize.width      = layout.ContentSize({width, 0.0f}).width;
+        const auto measured        = detail::MeasureLinear(GetChildren(), content, spacing, false);
+        return {width, measured.desired.height + layout.paddingTop + layout.paddingBottom};
     }
 
     void VBox::ArrangeChildren(const UIRect &content)
     {
-        float y = content.top;
-        for (const auto &child : GetChildren()) {
-            float childWidth = 0.0f;
-            float childHeight = 0.0f;
-            ChildExtent(child.get(), childWidth, childHeight);
-
-            UIRect slot;
-            slot.left = content.left;
-            slot.top = y;
-            slot.right = content.right;
-            slot.bottom = content.bottom;
-            child->Layout(slot);
-
-            y += childHeight + spacing;
+        const UISize size     = GetContentSize();
+        const auto   measured = detail::MeasureLinear(GetChildren(), detail::Available(size.width, size.height), spacing, false);
+        const auto  &children = GetChildren();
+        for (size_t index = 0; index < children.size(); ++index) {
+            detail::ArrangeAt(*children[index], measured.bounds[index], content, measured.sizes[index]);
         }
     }
 

@@ -17,6 +17,7 @@ namespace sky::ui {
         // Resets draw data and seeds the clip stack with the surface rect.
         void Begin(const UIRect &surfaceRect);
 
+        // Input is in layout coordinates; active clips are surface-space AABBs.
         void PushClip(const UIRect &rect);
         void PopClip();
 

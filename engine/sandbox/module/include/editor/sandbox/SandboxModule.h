@@ -7,8 +7,10 @@
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorExtensionHost.h>
 #include <editor/core/play/PlaySession.h>
+#include <editor/core/preferences/BuiltinPreferencePages.h>
 #include <editor/core/preferences/EditorSettings.h>
 #include <editor/core/preferences/PreferencePageRegistry.h>
+#include <editor/core/preferences/PreferencesPersistence.h>
 #include <editor/render/EditorRenderer.h>
 #include <editor/sandbox/UiTarget.h>
 #include <editor/shell/EditorShell.h>
@@ -69,19 +71,19 @@ namespace sky::editor {
         void        OnFileBrowserResult(const FileBrowserResult &result);
         void        CreateProjectFromResult(const FileBrowserResult &result);
         void        AddProjectFromResult(const FileBrowserResult &result);
-        void        RegisterPreferencePages();
+        bool        RegisterPreferencePages();
         void        LoadPreferences();
-        void        SavePreferences();
         std::string PreferencePath() const;
         void        RemoveFromList(const std::string &skyprojPath);
         void        DeleteProjectFolder(const std::string &skyprojPath);
         void        RefreshHubRecent();
         bool        ValidateProject(const ProjectDescriptor &descriptor, std::string &message);
-        void        PaintGui(sky::ui::UIPaintContext &context, uint32_t width, uint32_t height);
+        void        PaintGui(uint32_t surfaceId, sky::ui::UIPaintContext &context, uint32_t width, uint32_t height);
 
-        // Per-window input routing: records the primary (main) window id on first
-        // event and accepts only events for it (or id-less ones as a fallback).
-        bool AcceptWindowEvent(sky::WindowID winID);
+        // Per-window input routing: records the primary (main) window id on the
+        // first non-floating event (or accepts id-less events as a fallback).
+        bool     AcceptWindowEvent(sky::WindowID winID);
+        uint32_t FloatingSurfaceForWindow(sky::WindowID winID) const;
 
         // Active UI input sink (hub view or editor shell) for the current mode.
         IUiTarget *ActiveTarget() const
@@ -93,6 +95,7 @@ namespace sky::editor {
         // floating window, to that surface.
         void RoutePointer(const sky::ui::UIPointerEvent &pointer, sky::WindowID winID);
         bool RouteFloatingPointer(sky::WindowID winID, const sky::ui::UIPointerEvent &pointer);
+        void RouteKey(const sky::ui::UIKeyEvent &key, sky::WindowID winID);
 
         EditorRenderer renderer;
 
@@ -106,15 +109,17 @@ namespace sky::editor {
 
         // Reflected editor settings (one struct per Preferences page); registered with reflection
         // and exposed to the dialog through PreferencePageRegistry.
-        GeneralSettings                generalSettings;
-        EditorViewSettings             editorSettings;
-        RenderingSettings              renderingSettings;
-        std::unique_ptr<WorldDocument> worldDocument;
-        std::unique_ptr<sky::ExportPresets> exportPresets; // project export_presets.json (editor)
-        PlaySession                    playSession;
-        WorldDocument                 *lastDocPtr     = nullptr; // detects document switches
-        bool                           lastDocDirty   = false;
-        bool                           docInfoApplied = false; // forces the first title/status push
+        GeneralSettings                         generalSettings;
+        EditorViewSettings                      editorSettings;
+        RenderingSettings                       renderingSettings;
+        std::unique_ptr<BuiltinPreferencePages> preferencePages;
+        std::shared_ptr<PreferencesPersistence> preferencePersistence;
+        std::unique_ptr<WorldDocument>          worldDocument;
+        std::unique_ptr<sky::ExportPresets>     exportPresets; // project export_presets.json (editor)
+        PlaySession                             playSession;
+        WorldDocument                          *lastDocPtr     = nullptr; // detects document switches
+        bool                                    lastDocDirty   = false;
+        bool                                    docInfoApplied = false; // forces the first title/status push
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;

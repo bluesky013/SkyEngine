@@ -56,7 +56,7 @@ option(SKY_MATH_SIMD   "enable simd math"     OFF)
 option(SKY_DETERMINISTIC_FP "deterministic floating point (no FMA contraction)" OFF)
 option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
 
-# FreeType UI font provider (engine/ui/core + sandbox). Decoupled from the
+# FreeType UI font adaptor (engine/ui/freetype + sandbox). Decoupled from the
 # removed legacy freetype render plugin; on by default.
 option(SKY_BUILD_FREETYPE "enable the FreeType UI font provider" ON)
 

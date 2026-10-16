@@ -21,34 +21,57 @@ namespace sky::ui {
         ListView();
         ~ListView() override = default;
 
-        const char *GetTypeName() const override { return "ListView"; }
+        const char *GetTypeName() const override
+        {
+            return "ListView";
+        }
 
-        void SetItemCount(size_t count);
-        size_t GetItemCount() const { return itemCount; }
+        void   SetItemCount(size_t count);
+        size_t GetItemCount() const
+        {
+            return itemCount;
+        }
 
-        void SetItemHeight(float value);
-        float GetItemHeight() const { return itemHeight; }
+        void  SetItemHeight(float value);
+        float GetItemHeight() const
+        {
+            return itemHeight;
+        }
 
-        void SetItemFactory(ItemFactory value) { factory = std::move(value); }
+        // Replacing the factory discards live rows; the next arrangement
+        // rebuilds the visible range through the new factory.
+        void SetItemFactory(ItemFactory value);
 
-        void SetScrollY(float value);
-        void ScrollBy(float dy);
-        float GetScrollY() const { return scrollY; }
+        void  SetScrollY(float value);
+        void  ScrollBy(float dy);
+        float GetScrollY() const
+        {
+            return scrollY;
+        }
+        float GetContentHeight() const;
 
-        size_t GetLiveItemCount() const { return items.size(); }
-        bool IsItemLive(size_t index) const { return items.find(index) != items.end(); }
+        size_t GetLiveItemCount() const
+        {
+            return items.size();
+        }
+        bool IsItemLive(size_t index) const
+        {
+            return items.find(index) != items.end();
+        }
 
         UIEventResult OnPointerEvent(const UIPointerEvent &event) override;
-        void Measure(float &outWidth, float &outHeight) override;
+        void          Measure(float &outWidth, float &outHeight) final;
 
     protected:
-        void ArrangeChildren(const UIRect &view) override;
+        UISize OnMeasure(const UIConstraints &constraints) override;
+        void   ArrangeChildren(const UIRect &view) override;
+        void   OnChildrenChanged() override;
 
     private:
-        size_t itemCount = 0;
-        float itemHeight = 0.0f;
-        float scrollY = 0.0f;
-        ItemFactory factory;
+        size_t                                  itemCount  = 0;
+        float                                   itemHeight = 0.0f;
+        float                                   scrollY    = 0.0f;
+        ItemFactory                             factory;
         std::unordered_map<size_t, UIElement *> items;
     };
 

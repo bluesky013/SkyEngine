@@ -3,6 +3,7 @@
 //
 
 #include <ui/UIPaintContext.h>
+#include <ui/UIGeometry.h>
 
 namespace sky::ui {
 
@@ -48,7 +49,7 @@ namespace sky::ui {
 
     void UIPaintContext::PushClip(const UIRect &rect)
     {
-        clipStack.push_back(UIRect::Intersect(clipStack.back(), rect));
+        clipStack.push_back(UIRect::Intersect(clipStack.back(), TransformRect(rect, transform)));
     }
 
     void UIPaintContext::PopClip()
@@ -73,7 +74,6 @@ namespace sky::ui {
         AddQuad(rect, UIRect{}, UI_INVALID_TEXTURE, color, radius);
     }
 
-    
     uint32_t UIPaintContext::ApplyOpacity(uint32_t color) const
     {
         if (opacity >= 1.0f) {
@@ -87,7 +87,7 @@ namespace sky::ui {
     void UIPaintContext::AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius)
     {
         const UIRect &clip = clipStack.back();
-        if (UIRect::Intersect(rect, clip).IsEmpty()) {
+        if (UIRect::Intersect(TransformRect(rect, transform), clip).IsEmpty()) {
             return;
         }
 
@@ -100,6 +100,9 @@ namespace sky::ui {
         const float centerY = (rect.top + rect.bottom) * 0.5f;
         const float halfX = (rect.right - rect.left) * 0.5f;
         const float halfY = (rect.bottom - rect.top) * 0.5f;
+        // Shape shaders use untransformed layout coordinates for their SDF;
+        // textured draws retain their normalized texture coordinates.
+        const UIRect &drawUv = shape ? rect : uv;
 
         float x0 = rect.left;
         float y0 = rect.top;
@@ -128,10 +131,10 @@ namespace sky::ui {
             vert.roundRadius = radius < 0.0f ? 0.0f : radius;
             return vert;
         };
-        drawData.vertices.push_back(makeVertex(x0, y0, uv.left, uv.top));
-        drawData.vertices.push_back(makeVertex(x1, y1, uv.right, uv.top));
-        drawData.vertices.push_back(makeVertex(x2, y2, uv.right, uv.bottom));
-        drawData.vertices.push_back(makeVertex(x3, y3, uv.left, uv.bottom));
+        drawData.vertices.push_back(makeVertex(x0, y0, drawUv.left, drawUv.top));
+        drawData.vertices.push_back(makeVertex(x1, y1, drawUv.right, drawUv.top));
+        drawData.vertices.push_back(makeVertex(x2, y2, drawUv.right, drawUv.bottom));
+        drawData.vertices.push_back(makeVertex(x3, y3, drawUv.left, drawUv.bottom));
 
         drawData.indices.push_back(base + 0);
         drawData.indices.push_back(base + 1);

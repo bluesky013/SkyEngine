@@ -1,0 +1,92 @@
+//
+// Created on 2026/10/04.
+//
+
+#pragma once
+
+#include <cstdint>
+#include <editor/ui/UiTheme.h>
+#include <string>
+#include <ui/UIRect.h>
+
+namespace sky::ui {
+    class UIPaintContext;
+    class UITextSystem;
+} // namespace sky::ui
+
+namespace sky::editor {
+
+    enum class RowState { Normal, Alt, Hover, Selected };
+
+    // Theme-driven component painter. Panels hold a skin and draw widgets with it
+    // so the whole editor shares one look; supply a custom UiTheme to restyle.
+    class UiSkin {
+    public:
+        UiSkin(const UiTheme &theme, sky::ui::UITextSystem *text) : theme(&theme), textSystem(text)
+        {
+        }
+
+        const UiTheme &Theme() const
+        {
+            return *theme;
+        }
+        sky::ui::UITextSystem *Text() const
+        {
+            return textSystem;
+        }
+
+        // Shared by layout and painting so child placement does not depend on drawing.
+        sky::ui::UIRect PanelContentRect(const sky::ui::UIRect &bounds, bool showTitle = true) const;
+
+        // Panel frame with a gradient header and accent underline; returns the
+        // content rect below the header.
+        // Draws a panel; when showTitle is false no header row is drawn (the shell
+        // supplies a tab header instead) and the full bounds are returned.
+        sky::ui::UIRect
+        DrawPanel(sky::ui::UIPaintContext &context, const sky::ui::UIRect &bounds, const std::string &title, bool showTitle = true) const;
+
+        // Shared flat/rounded panel header (used by panels and form views).
+        void DrawPanelHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &header) const;
+
+        void DrawSectionHeader(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &title) const;
+
+        void DrawRow(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, RowState state) const;
+
+        void DrawField(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, bool focused, bool invalid) const;
+
+        void DrawCheckbox(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, bool checked, bool hovered) const;
+
+        void DrawSlider(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, float value, float minValue, float maxValue) const;
+
+        void DrawColorSwatch(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, uint32_t argb) const;
+
+        // `track` is the reserved scrollbar rectangle, whose height is the viewport height.
+        // Draws a theme-sized thumb entirely inside it; no thumb when the content fits.
+        void DrawScrollbar(sky::ui::UIPaintContext &context, const sky::ui::UIRect &track, float contentHeight, float scrollTop) const;
+
+        void DrawPopup(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect) const;
+
+        void DrawPopupItem(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, bool hovered, bool selected) const;
+
+        void
+        DrawTab(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, const std::string &title, bool active, bool hovered = false) const;
+
+        void DrawToolItem(sky::ui::UIPaintContext &context,
+                          const sky::ui::UIRect   &rect,
+                          const std::string       &label,
+                          bool                     hovered,
+                          bool                     enabled = true,
+                          bool                     checked = false) const;
+
+        // Draws a tinted icon texture centered/fitted in `rect` (no-op for an invalid id).
+        void DrawIcon(sky::ui::UIPaintContext &context, const sky::ui::UIRect &rect, uint32_t textureId, uint32_t tint) const;
+
+        void DrawTriangle(sky::ui::UIPaintContext &context, float x, float cy, bool down, uint32_t color) const;
+        void DrawCheck(sky::ui::UIPaintContext &context, const sky::ui::UIRect &box, uint32_t color) const;
+
+    private:
+        const UiTheme         *theme      = nullptr;
+        sky::ui::UITextSystem *textSystem = nullptr;
+    };
+
+} // namespace sky::editor

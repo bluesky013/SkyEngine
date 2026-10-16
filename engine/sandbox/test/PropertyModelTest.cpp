@@ -2,12 +2,12 @@
 // Created on 2026/09/21.
 //
 
+#include "TestTypes.h"
+#include <core/type/TypeInfo.h>
 #include <editor/core/property/PropertyModel.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/SerializationContext.h>
-#include <core/type/TypeInfo.h>
 #include <gtest/gtest.h>
-#include "TestTypes.h"
 
 namespace sky::editor {
     namespace {
@@ -38,7 +38,7 @@ namespace sky::editor {
         test::TestObject object;
         object.value = 1.f;
 
-        PropertyModel model(&object, type);
+        PropertyModel             model(&object, type);
         const PropertyDescriptor *value = Find(model, "value");
         ASSERT_NE(value, nullptr);
 
@@ -62,8 +62,8 @@ namespace sky::editor {
         const TypeNode *type = GetTestType();
         ASSERT_NE(type, nullptr);
 
-        test::TestObject object;
-        PropertyModel model(&object, type);
+        test::TestObject          object;
+        PropertyModel             model(&object, type);
         const PropertyDescriptor *items = Find(model, "items");
         ASSERT_NE(items, nullptr);
 
@@ -77,6 +77,16 @@ namespace sky::editor {
         commands.Execute(items->MakeAddSequenceElementCommand());
         EXPECT_EQ(object.items.size(), 2u);
         EXPECT_EQ(items->GetSequenceCount(), 2u);
+
+        std::vector<PropertyDescriptor> elements;
+        items->BuildSequenceChildren(elements);
+        ASSERT_EQ(elements.size(), 2u);
+        EXPECT_TRUE(elements.front().IsSequenceElement());
+        EXPECT_FALSE(elements.front().IsSequence());
+        ASSERT_NE(elements.front().GetType(), nullptr);
+        EXPECT_EQ(elements.front().GetType()->registeredId, TypeInfo<float>::RegisteredId());
+        EXPECT_NE(elements.front().GetValue().GetAsConst<float>(), nullptr);
+        EXPECT_EQ(elements.front().MakeAddSequenceElementCommand(), nullptr);
 
         EXPECT_TRUE(commands.Undo());
         EXPECT_EQ(object.items.size(), 1u);

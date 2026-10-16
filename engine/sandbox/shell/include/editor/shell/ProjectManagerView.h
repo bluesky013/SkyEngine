@@ -7,6 +7,7 @@
 #include <ui/UIElement.h>
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,8 +22,11 @@ namespace sky::editor {
     // shown by the editor binary when no project is specified.
     class ProjectManagerView : public sky::ui::UIElement {
     public:
-        void SetTextSystem(sky::ui::UITextSystem *text) { textSystem = text; }
-        void SetEngineVersion(std::string version) { engineVersion = std::move(version); }
+        ProjectManagerView();
+        ~ProjectManagerView() override;
+
+        void SetTextSystem(sky::ui::UITextSystem *text);
+        void SetEngineVersion(std::string version);
         void SetRecent(std::vector<std::string> paths);
         void SetStatus(std::string text)
         {
@@ -37,30 +41,48 @@ namespace sky::editor {
         std::function<void()>                    onNew;
         std::function<void()>                    onQuit;
 
-        const char *GetTypeName() const override { return "ProjectManagerView"; }
+        const char *GetTypeName() const override
+        {
+            return "ProjectManagerView";
+        }
 
-        void OnPaint(sky::ui::UIPaintContext &context) override;
+        void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
+
+        // Prepare owned container slots before layout/input or a geometry query.
+        void            SynchronizeLayout();
+        sky::ui::UIRect BannerRect() const;
+        sky::ui::UIRect ListViewportRect() const;
+        sky::ui::UIRect StatusRect() const;
 
         // 0 = Add, 1 = New, 2 = Quit  |  0 = Open, 1 = Remove, 2 = Delete
         sky::ui::UIRect TopButtonRect(int index) const;
         sky::ui::UIRect ActionRect(int index) const;
         sky::ui::UIRect RowRect(int index) const;
-        int              TopButtonAt(float x, float y) const;
-        int              ActionAt(float x, float y) const;
-        int              RowAt(float x, float y) const;
+        int             TopButtonAt(float x, float y) const;
+        int             ActionAt(float x, float y) const;
+        int             RowAt(float x, float y) const;
+
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &content) override;
 
     private:
+        struct Composition;
+        std::unique_ptr<Composition> composition;
+        sky::ui::UIRect              RecentRowBounds(int index) const;
+
         sky::ui::UITextSystem   *textSystem = nullptr;
         std::vector<std::string> recent;
         std::string              status;
         std::string              engineVersion;
-        int                      selected = -1;
-        int                      hoverRow = -1;
-        int                      hoverTop = -1;
-        int                      hoverAction = -1;
+        int                      selected      = -1;
+        int                      hoverRow      = -1;
+        int                      hoverTop      = -1;
+        int                      hoverAction   = -1;
         bool                     confirmDelete = false;
-        long long                lastClickMs = 0;
+        long long                lastClickMs   = 0;
+        uint64_t                 themeRevision = 0;
+        bool                     layoutBusy    = false;
     };
 
 } // namespace sky::editor

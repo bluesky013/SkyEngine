@@ -11,6 +11,10 @@ if (SKY_BUILD_SANDBOX)
     # modules so they can provide custom `UIElement` views without linking the shell.
     add_subdirectory(ui)
 
+    # Reusable reflected controls and editor chrome. Feature extensions can
+    # link these without depending on the shell's host/window composition.
+    add_subdirectory(widgets)
+
     # UI-linked shell: composes EditorCore into a sky::ui tree.
     add_subdirectory(shell)
 

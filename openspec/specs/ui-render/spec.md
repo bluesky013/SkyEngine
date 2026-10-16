@@ -4,16 +4,27 @@
 TBD - created by archiving change engine-ui-system. Update Purpose after archive.
 ## Requirements
 ### Requirement: Aurora-backed UI render module
-The UI render module SHALL live in `engine/ui/render`, SHALL use the `sky::aurora` namespace for Aurora
-types, and SHALL depend on `UI` plus `Aurora.Pipeline` / `Aurora.RHI` / `Aurora.Shader`.
+The UI render implementation SHALL live in `engine/ui/render`, SHALL retain the `UIRender` target and `ui/render/...` public include paths, and SHALL use the `sky::aurora` namespace for Aurora types. It SHALL consume `UIDrawData` and `IUITextureRegistry` through `UI.Interface` and SHALL link `UI.Interface`, `Aurora.RHI.Static`, and `Aurora.ShaderCompiler.Static`, without requiring the `UI` widget runtime or `Aurora.Pipeline.Static`. Neither `UI` nor `UI.Interface` SHALL link or include the Aurora UI renderer implementation. This restructuring SHALL preserve the existing Aurora graphics-encoder integration; implementing a PipelinePass or RDG integration SHALL NOT be required by this change.
 
 #### Scenario: Render module links Aurora
 - **WHEN** the `UIRender` target is built
-- **THEN** it SHALL link the UI core target and Aurora pipeline/RHI targets
+- **THEN** it SHALL link `UI.Interface` and the Aurora RHI/shader-compiler targets without a `UI` runtime or Aurora pipeline-module dependency
 
 #### Scenario: Core does not depend on render module
 - **WHEN** the dependency direction between `UI` and `UIRender` is inspected
 - **THEN** `UI` SHALL NOT link or include `UIRender`
+
+#### Scenario: Engine contract excludes the renderer
+- **WHEN** `UI.Interface` is configured or its public headers are inspected
+- **THEN** it SHALL NOT link Aurora UI implementation targets or expose renderer implementation headers
+
+#### Scenario: Existing render integration remains available
+- **WHEN** a caller links `UIRender` and includes `ui/render/UIRenderer.h` after the move
+- **THEN** the existing renderer integration SHALL remain available from the adaptor target
+
+#### Scenario: Draw data is independent of widget construction
+- **WHEN** a caller supplies `UIDrawData` directly to the renderer without constructing a widget tree
+- **THEN** it SHALL be able to link `UIRender` without linking the `UI` widget runtime
 
 ### Requirement: UI pass builds through the Aurora pipeline
 The render module SHALL expose a UI pass derived from `sky::aurora::PipelinePass` and SHALL record its work
@@ -104,3 +115,17 @@ frame while the main thread produces the next, consistent with `DeviceFrameConte
 - **WHEN** the main thread writes the next frame's UI data while the previous frame's GPU work is in flight
 - **THEN** the in-flight frame's buffers SHALL NOT be overwritten
 
+### Requirement: Rounded shapes evaluate layout-space distance
+The Aurora UI renderer's rounded-shape path SHALL evaluate its signed-distance function using interpolated original layout coordinates carried in the shape quad's UV, together with the authored layout-space center, half-size, and radius, rather than comparing framebuffer position with layout-space shape data. Transformed shape vertices SHALL retain consistent shape-local distance calculations. Ordinary textured quads SHALL retain their existing texture UV semantics. The actual shader source used by runtime compilation SHALL also be consumable by offline compilation validation without a separately copied test shader.
+
+#### Scenario: Transformed rounded shape uses coherent coordinates
+- **WHEN** a rounded shape is translated, rotated, or scaled through UI geometry
+- **THEN** its shader SHALL evaluate the shape distance using the corresponding interpolated layout position and authored layout-space radius/extent
+
+#### Scenario: Texture UVs remain texture coordinates
+- **WHEN** an ordinary textured quad is emitted
+- **THEN** its UV values SHALL continue to sample the requested texture region rather than be interpreted as a shape-layout position
+
+#### Scenario: Offline validation compiles runtime source
+- **WHEN** the available shader compiler validates the UI shader offline
+- **THEN** it SHALL compile the actual source artifact consumed by the runtime renderer, including the rounded-shape entry point

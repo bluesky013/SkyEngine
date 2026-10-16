@@ -9,6 +9,7 @@
 #include <editor/core/extension/IconRegistry.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DockInteraction.h>
+#include <editor/core/preferences/BuiltinPreferencePages.h>
 #include <editor/core/shell/ShellModels.h>
 #include <editor/shell/AssetViewerWidget.h>
 #include <editor/shell/EditorShell.h>
@@ -18,22 +19,22 @@
 #include <editor/shell/PreferencesDialog.h>
 
 #include <editor/shell/AssetViewFlags.h>
+#include <editor/shell/PresetEditorPanel.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <editor/shell/ReflectionDemoPanel.h>
-#include <editor/ui/UiDraw.h>
-#include <editor/shell/UiSkin.h>
-#include <editor/ui/UiTheme.h>
-#include <editor/shell/PresetEditorPanel.h>
 #include <editor/shell/WorldConfigPanel.h>
+#include <editor/ui/UiDraw.h>
+#include <editor/ui/UiTheme.h>
+#include <editor/widgets/UiSkin.h>
 
-#include <framework/project/ExportPreset.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/shell/panels/ServicePanels.h>
-#include <editor/shell/widgets/ActionBarBuilder.h>
 #include <editor/shell/widgets/DockWidgets.h>
-#include <editor/shell/widgets/MenuBar.h>
-#include <editor/shell/widgets/StatusBar.h>
-#include <editor/shell/widgets/ToolBar.h>
+#include <editor/widgets/ActionBarBuilder.h>
+#include <editor/widgets/MenuBar.h>
+#include <editor/widgets/StatusBar.h>
+#include <editor/widgets/ToolBar.h>
+#include <framework/project/ExportPreset.h>
 
 #include <ui/UIContext.h>
 #include <ui/UIElement.h>
@@ -44,6 +45,7 @@
 #include <ui/text/UITextSystem.h>
 
 #include <algorithm>
+#include <cmath>
 #include <core/logger/Logger.h>
 #include <cstdio>
 #include <functional>
@@ -55,6 +57,17 @@ namespace sky::editor {
     namespace {
 
         namespace uc = uidraw;
+
+        void SynchronizePanelLayout(sky::ui::UIElement *element)
+        {
+            if (auto *panel = dynamic_cast<WorldConfigPanel *>(element)) {
+                panel->SynchronizeLayout();
+            } else if (auto *viewer = dynamic_cast<AssetViewerWidget *>(element)) {
+                viewer->SynchronizeLayout();
+            } else if (auto *form = dynamic_cast<ReflectedFormView *>(element)) {
+                form->SynchronizeLayout();
+            }
+        }
 
         // Child rectangles of a split, via the shared core geometry helper.
         std::vector<sky::ui::UIRect> SplitRect(LayoutNode *node, const sky::ui::UIRect &rect)
@@ -76,11 +89,14 @@ namespace sky::editor {
         ApplyTheme();
     }
 
-    EditorShell::~EditorShell() = default;
-
-    void EditorShell::ApplyTheme()
+    EditorShell::~EditorShell()
     {
-        sky::ui::UITheme &theme = context->GetTheme();
+        actionLifetime.reset();
+    }
+
+    void EditorShell::ApplyTheme(sky::ui::UIContext *target)
+    {
+        sky::ui::UITheme &theme = (target != nullptr ? target : context.get())->GetTheme();
 
         const UiTheme &ui = GetDefaultUiTheme();
 
@@ -168,16 +184,37 @@ namespace sky::editor {
 
     void EditorShell::SetUiScale(float scale)
     {
-        // Scale the theme metrics/fonts by the DPI ratio so the UI is drawn at
-        // physical size 1:1 (crisp) instead of upscaling a logical layout.
-        uiScale = scale;
-        SetDefaultUiTheme(MakeDarkTheme(scale));
-        lastThemeScale = scale;
+        deviceUiScale       = ComputeEditorUiScale(scale, 1.0f);
+        const UiTheme theme = MakeDarkTheme(GetSurfaceUiScale());
+        uiScale             = theme.scale;
+        SetDefaultUiTheme(theme);
+    }
+
+    void EditorShell::SetUserUiScale(float scale)
+    {
+        userUiScale = std::isfinite(scale) ? std::clamp(scale, 0.5f, 2.0f) : 1.0f;
+        uiScale     = GetSurfaceUiScale();
+        SetDefaultUiTheme(MakeDarkTheme(uiScale));
+    }
+
+    float EditorShell::GetSurfaceUiScale(uint32_t surfaceId) const
+    {
+        float device = deviceUiScale;
+        if (surfaceId != 0) {
+            if (const auto it = surfaceScales.find(surfaceId); it != surfaceScales.end()) {
+                device = it->second;
+            }
+        }
+        return ComputeEditorUiScale(device, userUiScale);
     }
 
     void EditorShell::SetSurfaceScale(uint32_t surfaceId, float scale)
     {
-        surfaceScales[surfaceId] = scale;
+        if (surfaceId == 0) {
+            SetUiScale(scale);
+            return;
+        }
+        surfaceScales[surfaceId] = ComputeEditorUiScale(scale, 1.0f);
     }
 
     void EditorShell::RegisterPanelView(const std::string &panelId, PanelViewFactory factory)
@@ -205,8 +242,9 @@ namespace sky::editor {
             return std::unique_ptr<sky::ui::UIElement>(new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
         });
         RegisterPanelView("config", [this, t = titleOf("config", "Config")]() {
-            return std::unique_ptr<sky::ui::UIElement>(new WorldConfigPanel(
-                textSystem, [this]() { return worldDocument; }, t));
+            auto panel = std::make_unique<WorldConfigPanel>(textSystem, WorldConfigPanel::DocumentProvider{}, t);
+            panel->SetDocument(worldDocument);
+            return panel;
         });
         RegisterPanelView("export-presets", [this, t = titleOf("export-presets", "Export Presets")]() {
             return std::unique_ptr<sky::ui::UIElement>(new PresetEditorPanel(
@@ -267,6 +305,10 @@ namespace sky::editor {
         if (element == nullptr) {
             return nullptr;
         }
+        // Detached views may have missed theme changes or come from another
+        // DPI surface. Their nested caches must follow the new owner, too.
+        uint64_t adoptedThemeRevision = 0;
+        SynchronizeDefaultUiTheme(*element, adoptedThemeRevision);
         sky::ui::UIElement *raw = context->AddChild(std::move(element));
         attachedViews[panelId]  = raw;
         return raw;
@@ -372,7 +414,9 @@ namespace sky::editor {
             view = MakePanelView(panelId);
         }
         surface.view = surface.context->AddChild(std::move(view));
-        surface.view->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        SynchronizeDefaultUiTheme(*surface.context->GetRoot(), surface.themeRevision);
+        SynchronizePanelLayout(surface.view);
+        surface.view->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
 
         surfaces.emplace(surfaceId, std::move(surface));
         panelSurfaceIds[panelId] = surfaceId;
@@ -426,19 +470,16 @@ namespace sky::editor {
     {
         // Each window has its own DPI scale; widgets read the global default
         // theme, so switch it to the surface's scale before painting.
-        float scale = uiScale;
-        if (surfaceId != 0) {
-            if (const auto it = surfaceScales.find(surfaceId); it != surfaceScales.end()) {
-                scale = it->second;
-            }
-        }
-        if (scale != lastThemeScale) {
+        const float scale = GetSurfaceUiScale(surfaceId);
+        if (scale != GetDefaultUiTheme().scale) {
             SetDefaultUiTheme(MakeDarkTheme(scale));
-            lastThemeScale = scale;
         }
 
         if (surfaceId == 0) {
+            const std::weak_ptr<void> alive = actionLifetime;
             Layout(inWidth, inHeight);
+            if (alive.expired())
+                return;
             Paint(paintContext);
             return;
         }
@@ -447,9 +488,13 @@ namespace sky::editor {
             return;
         }
         Surface &surface = it->second;
+        if (SynchronizeDefaultUiTheme(*surface.context->GetRoot(), surface.themeRevision)) {
+            ApplyTheme(surface.context.get());
+        }
         surface.context->SetContentSize(inWidth, inHeight);
         if (surface.view != nullptr) {
-            surface.view->SetBounds(sky::ui::UIRect{0.0f, 0.0f, inWidth, inHeight});
+            SynchronizePanelLayout(surface.view);
+            surface.view->ArrangeIfNeeded(sky::ui::UIRect{0.0f, 0.0f, inWidth, inHeight});
         }
         surface.context->Paint(paintContext);
     }
@@ -460,20 +505,72 @@ namespace sky::editor {
         return it != surfaces.end() ? it->second.router.get() : nullptr;
     }
 
+    bool EditorShell::PrepareSurfaceInput(uint32_t surfaceId)
+    {
+        const std::weak_ptr<void> alive = actionLifetime;
+        const float               scale = GetSurfaceUiScale(surfaceId);
+        if (surfaceId != 0 && surfaces.find(surfaceId) == surfaces.end()) {
+            return false;
+        }
+        if (GetDefaultUiTheme().scale != scale) {
+            SetDefaultUiTheme(MakeDarkTheme(scale));
+        }
+        if (surfaceId == 0) {
+            // A tab press can queue a tree rebuild while its drag still owns
+            // capture. Input must not consume that deferred rebuild mid-gesture.
+            if (built && !pendingRebuild && mainThemeRevision != GetDefaultUiThemeRevision()) {
+                Layout(width, height);
+            }
+            return !alive.expired();
+        }
+        const auto found         = surfaces.find(surfaceId);
+        auto      *target        = found->second.context.get();
+        auto      *view          = found->second.view;
+        const auto rootReference = target->GetRoot()->GetInputReference();
+        const auto viewReference = view != nullptr ? view->GetInputReference() : sky::ui::UIElement::InputReference{};
+        if (SynchronizeDefaultUiTheme(*target->GetRoot(), found->second.themeRevision)) {
+            ApplyTheme(target);
+        }
+        if (view != nullptr) {
+            SynchronizePanelLayout(view);
+        }
+        if (alive.expired() || rootReference.Get() == nullptr || (view != nullptr && viewReference.Get() == nullptr)) {
+            return false;
+        }
+        // Floating views receive a host-owned full-window slot, just as in
+        // PaintSurface. Root AUTO layout must not replace it with Measure().
+        if (view != nullptr) {
+            view->ArrangeIfNeeded(target->GetRoot()->GetBounds());
+        }
+        return !alive.expired() && rootReference.Get() != nullptr && (view == nullptr || viewReference.Get() != nullptr);
+    }
+
     bool EditorShell::DispatchPointerToSurface(uint32_t surfaceId, const sky::ui::UIPointerEvent &event)
     {
+        if (surfaceId == 0)
+            return DispatchPointer(event);
+        if (!PrepareSurfaceInput(surfaceId))
+            return false;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
     }
 
     bool EditorShell::DispatchKeyToSurface(uint32_t surfaceId, const sky::ui::UIKeyEvent &event)
     {
+        if (surfaceId == 0)
+            return DispatchKey(event);
+        if (!PrepareSurfaceInput(surfaceId))
+            return false;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchKey(event) == sky::ui::UIEventResult::HANDLED;
     }
 
     bool EditorShell::DispatchTextToSurface(uint32_t surfaceId, const sky::ui::UITextInputEvent &event)
     {
+        if (surfaceId == 0)
+            return DispatchText(event);
+        if (!PrepareSurfaceInput(surfaceId))
+            return false;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchText(event) == sky::ui::UIEventResult::HANDLED;
     }
@@ -519,19 +616,7 @@ namespace sky::editor {
 
     bool EditorShell::InvokeAction(const std::string &id)
     {
-        const EditorAction *action = EditorActionRegistry::Get()->Find(id);
-        if (action == nullptr) {
-            return false;
-        }
-        if (action->enabled && !action->enabled()) {
-            return true; // registered but disabled -> consume, do nothing
-        }
-        // Copy: an invoked action may unregister itself (e.g. a dialog tearing down its scope).
-        const std::function<void()> invoke = action->invoke;
-        if (invoke) {
-            invoke();
-        }
-        return true;
+        return EditorActionRegistry::Get()->Invoke(id);
     }
 
     void EditorShell::ResetLayout()
@@ -545,14 +630,91 @@ namespace sky::editor {
 
     void EditorShell::RefreshActions()
     {
-        auto *toolBar = dynamic_cast<ToolBar *>(toolBarElement);
-        if (toolBar == nullptr) {
+        if (refreshingActions)
             return;
+        const std::weak_ptr<void> alive      = actionLifetime;
+        const uint64_t            generation = chromeGeneration;
+        const auto                current    = [this, alive, generation]() { return !alive.expired() && generation == chromeGeneration; };
+        refreshingActions                    = true;
+        struct RefreshGuard {
+            std::weak_ptr<void> alive;
+            bool               *busy;
+            ~RefreshGuard()
+            {
+                if (!alive.expired())
+                    *busy = false;
+            }
+        } guard{alive, &refreshingActions};
+        auto             *registry = EditorActionRegistry::Get();
+        const uint64_t    revision = registry->GetRevision();
+        const std::string scope    = EditorScopeStack::Get()->Active();
+        if (actionChromeRevision != revision || actionChromeScope != scope) {
+            const auto invoke = [this, alive](const std::string &id) {
+                if (!alive.expired())
+                    InvokeAction(id);
+            };
+            // Menus come from the action registry (via ActionBarBuilder) for the active scope:
+            // actions are grouped by `menu` and may nest under a `submenu`. The host-only entries
+            // (Preferences, and the dynamic panel toggles) are injected here.
+            std::vector<MenuBar::Menu> menus = ActionBarBuilder::BuildMenus(invoke);
+            if (!current())
+                return;
+
+            auto fileMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "File"; });
+            if (fileMenu != menus.end()) {
+                fileMenu->items.insert(fileMenu->items.begin(), {"Preferences...", [this]() { OpenPreferences(); }});
+            }
+
+            // Dynamic View > Windows panel toggles (panels are not registry actions); checkable rows.
+            MenuBar::Item windowsItem;
+            windowsItem.label = "Windows";
+            if (layoutModel != nullptr && panelRegistry != nullptr) {
+                for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
+                    const std::string panelId = entry.panelId;
+                    const bool        shown   = entry.shown;
+                    MenuBar::Item     toggle;
+                    toggle.label     = entry.title;
+                    toggle.checkable = true;
+                    toggle.checked   = shown;
+                    toggle.action    = [this, panelId, shown]() { SetPanelVisible(panelId, !shown); };
+                    windowsItem.children.push_back(std::move(toggle));
+                }
+            }
+            auto viewMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "View"; });
+            if (viewMenu == menus.end()) {
+                MenuBar::Menu view;
+                view.label = "View";
+                view.items.push_back(std::move(windowsItem));
+                menus.push_back(std::move(view));
+            } else {
+                viewMenu->items.insert(viewMenu->items.begin(), std::move(windowsItem));
+            }
+
+            if (!current())
+                return;
+            const auto items = ActionBarBuilder::BuildToolBarItems(invoke);
+            if (!current())
+                return;
+            if (auto *bar = dynamic_cast<MenuBar *>(menuBarElement)) {
+                bar->SetMenus(std::move(menus), true);
+                if (!current())
+                    return;
+            }
+            if (auto *bar = dynamic_cast<ToolBar *>(toolBarElement))
+                bar->SetItems(items);
+            actionChromeRevision = revision;
+            actionChromeScope    = scope;
         }
-        for (const EditorAction &action : EditorActionRegistry::Get()->GetToolbarActions()) {
-            toolBar->SetItemEnabled(action.id, action.enabled ? action.enabled() : true);
-            if (!action.icon.empty()) {
-                toolBar->SetItemIcon(action.id, ResolveIcon(action.icon));
+        if (auto *bar = dynamic_cast<MenuBar *>(menuBarElement)) {
+            if (!bar->RefreshActionStates() || !current())
+                return;
+        }
+        if (auto *bar = dynamic_cast<ToolBar *>(toolBarElement)) {
+            if (!bar->RefreshActionStates() || !current())
+                return;
+            for (const auto &action : registry->GetToolbarActions()) {
+                if (!action.icon.empty())
+                    bar->SetItemIcon(action.id, ResolveIcon(action.icon));
             }
         }
     }
@@ -608,7 +770,7 @@ namespace sky::editor {
         for (size_t i = 0; i < bands.size(); ++i) {
             if (auto *handle = dynamic_cast<SplitterHandle *>(splitterHandles[i])) {
                 handle->SetBand(bands[i]);
-                handle->SetBounds(sky::ui::UIRect{bands[i].rect.left, bands[i].rect.top, bands[i].rect.right, bands[i].rect.bottom});
+                handle->Arrange(sky::ui::UIRect{bands[i].rect.left, bands[i].rect.top, bands[i].rect.right, bands[i].rect.bottom});
             }
         }
     }
@@ -657,7 +819,7 @@ namespace sky::editor {
                 ghost->SetText(dragGhostText);
             }
             const float ghostWidth = std::max(60.0f, uc::TextWidth(dragGhostText, 12, textSystem) + 20.0f);
-            dragGhost->SetBounds(sky::ui::UIRect{x + 12.0f, y + 12.0f, x + 12.0f + ghostWidth, y + 12.0f + 24.0f});
+            dragGhost->Arrange(sky::ui::UIRect{x + 12.0f, y + 12.0f, x + 12.0f + ghostWidth, y + 12.0f + 24.0f});
             dragGhost->SetVisible(true);
             dragGhost->MarkPaintDirty();
         }
@@ -688,7 +850,7 @@ namespace sky::editor {
             default: break;
             }
         }
-        dropHighlight->SetBounds(zone);
+        dropHighlight->Arrange(zone);
         dropHighlight->SetVisible(true);
     }
 
@@ -873,11 +1035,12 @@ namespace sky::editor {
             if (slot.header != nullptr) {
                 sky::ui::UIRect headerRect = inner;
                 headerRect.bottom          = inner.top + kTabHeaderH;
-                slot.header->SetBounds(headerRect);
+                slot.header->Arrange(headerRect);
                 bodyRect.top = headerRect.bottom;
             }
             if (slot.body != nullptr) {
-                slot.body->SetBounds(bodyRect);
+                SynchronizePanelLayout(slot.body);
+                slot.body->ArrangeIfNeeded(bodyRect);
             }
             return;
         }
@@ -895,12 +1058,17 @@ namespace sky::editor {
 
     void EditorShell::Rebuild()
     {
-        headerHeight = GetDefaultUiTheme().metrics.menuBarHeight;
-        footerHeight = GetDefaultUiTheme().metrics.statusBarHeight;
+        const std::weak_ptr<void> alive      = actionLifetime;
+        const uint64_t            generation = ++chromeGeneration;
+        headerHeight                         = GetDefaultUiTheme().metrics.menuBarHeight;
+        footerHeight                         = GetDefaultUiTheme().metrics.statusBarHeight;
         // Drop focus/hover/capture first: rebuilding destroys the chrome and
         // would leave the router holding dangling pointers.
         eventRouter->Reset();
         HarvestViews();
+        // Scoped action callbacks remain registered while chrome is rebuilt.
+        // Drop their current viewer target before its owning tree is destroyed.
+        assetViewerElement = nullptr;
         context->GetRoot()->ClearChildren();
         menuBarElement   = nullptr;
         toolBarElement   = nullptr;
@@ -908,41 +1076,6 @@ namespace sky::editor {
         slots.clear();
         built          = false;
         pendingRebuild = false;
-
-        // Menus come from the action registry (via ActionBarBuilder) for the active scope:
-        // actions are grouped by `menu` and may nest under a `submenu`. The host-only entries
-        // (Preferences, and the dynamic panel toggles) are injected here.
-        std::vector<MenuBar::Menu> menus = ActionBarBuilder::BuildMenus([this](const std::string &id) { InvokeAction(id); });
-
-        auto fileMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "File"; });
-        if (fileMenu != menus.end()) {
-            fileMenu->items.insert(fileMenu->items.begin(), {"Preferences...", [this]() { OpenPreferences(); }});
-        }
-
-        // Dynamic View > Windows panel toggles (panels are not registry actions); checkable rows.
-        MenuBar::Item windowsItem;
-        windowsItem.label = "Windows";
-        if (layoutModel != nullptr && panelRegistry != nullptr) {
-            for (const ViewMenuItem &entry : BuildViewMenuItems(*panelRegistry, *layoutModel)) {
-                const std::string panelId = entry.panelId;
-                const bool        shown   = entry.shown;
-                MenuBar::Item     toggle;
-                toggle.label     = entry.title;
-                toggle.checkable = true;
-                toggle.checked   = shown;
-                toggle.action    = [this, panelId, shown]() { SetPanelVisible(panelId, !shown); };
-                windowsItem.children.push_back(std::move(toggle));
-            }
-        }
-        auto viewMenu = std::find_if(menus.begin(), menus.end(), [](const MenuBar::Menu &m) { return m.label == "View"; });
-        if (viewMenu == menus.end()) {
-            MenuBar::Menu view;
-            view.label = "View";
-            view.items.push_back(std::move(windowsItem));
-            menus.push_back(std::move(view));
-        } else {
-            viewMenu->items.insert(viewMenu->items.begin(), std::move(windowsItem));
-        }
 
         statusBarElement = context->AddChild(std::make_unique<StatusBar>(textSystem));
 
@@ -958,15 +1091,15 @@ namespace sky::editor {
 
         // Quick-action toolbar, built from the process-wide action registry (via
         // ActionBarBuilder) so plugins/extensions contribute entries (see editor-toolbar.md).
-        auto toolBar = std::make_unique<ToolBar>(textSystem);
-        toolBar->SetItems(ActionBarBuilder::BuildToolBarItems([this](const std::string &id) { InvokeAction(id); }));
+        auto toolBar   = std::make_unique<ToolBar>(textSystem);
         toolBarElement = context->AddChild(std::move(toolBar));
 
         // Menu bar is added LAST so it (and its popup) paints on top of the dock
         // content; otherwise panels cover the open menu.
-        auto menuBar = std::make_unique<MenuBar>(std::move(menus), textSystem);
+        auto menuBar = std::make_unique<MenuBar>(std::vector<MenuBar::Menu>{}, textSystem);
         menuBar->SetBarHeight(headerHeight);
         menuBarElement = context->AddChild(std::move(menuBar));
+        actionChromeScope.clear();
 
         // File browser overlay is added last so it paints above everything. It is
         // re-created on rebuild; if one was open, restore it.
@@ -1000,11 +1133,14 @@ namespace sky::editor {
         context->AddChild(std::move(viewer));
         if (assetViewerOpen) {
             assetViewerElement->Open(assetViewerAsset);
+            if (alive.expired() || generation != chromeGeneration)
+                return;
         }
 
         auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
         preferencesElement = preferences.get();
         preferences->SetModel(preferenceRegistry);
+        preferences->SetPersistence(preferencesPersistence);
         preferences->SetOnApplied([this]() {
             auto callback = preferencesApplied;
             if (callback) {
@@ -1029,6 +1165,7 @@ namespace sky::editor {
 
         built = true;
         LOG_I(TAG, "editor shell built (%zu panels)", attachedViews.size());
+        RefreshActions();
     }
 
     void EditorShell::SetPanelVisible(const std::string &panelId, bool visible)
@@ -1059,6 +1196,12 @@ namespace sky::editor {
 
     void EditorShell::Layout(float inWidth, float inHeight)
     {
+        const std::weak_ptr<void> alive = actionLifetime;
+        // Main-window callers also use Layout + Paint directly after floating
+        // windows have temporarily selected their own DPI theme.
+        if (GetDefaultUiTheme().scale != uiScale) {
+            SetDefaultUiTheme(MakeDarkTheme(uiScale));
+        }
         width        = inWidth > 0.0f ? inWidth : 1.0f;
         height       = inHeight > 0.0f ? inHeight : 1.0f;
         headerHeight = GetDefaultUiTheme().metrics.menuBarHeight;
@@ -1067,23 +1210,35 @@ namespace sky::editor {
 
         if (pendingRebuild) {
             Rebuild();
+            if (alive.expired())
+                return;
         }
+        if (SynchronizeDefaultUiTheme(*context->GetRoot(), mainThemeRevision)) {
+            ApplyTheme();
+        }
+
+        RefreshActions();
+        if (alive.expired())
+            return;
 
         if (menuBarElement != nullptr) {
             float barBottom = headerHeight;
-            if (auto *menuBar = dynamic_cast<MenuBar *>(menuBarElement); menuBar != nullptr && menuBar->IsOpen()) {
-                barBottom += menuBar->PopupHeight();
+            if (auto *menuBar = dynamic_cast<MenuBar *>(menuBarElement)) {
+                menuBar->SetBarHeight(headerHeight);
+                if (menuBar->IsOpen()) {
+                    barBottom += menuBar->PopupHeight();
+                }
             }
-            menuBarElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, barBottom});
+            menuBarElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, barBottom});
         }
 
         const float toolBarHeight = GetDefaultUiTheme().metrics.toolbarHeight;
         if (toolBarElement != nullptr) {
-            toolBarElement->SetBounds(sky::ui::UIRect{0.0f, headerHeight, width, headerHeight + toolBarHeight});
+            toolBarElement->Arrange(sky::ui::UIRect{0.0f, headerHeight, width, headerHeight + toolBarHeight});
         }
 
         if (statusBarElement != nullptr) {
-            statusBarElement->SetBounds(sky::ui::UIRect{0.0f, height - footerHeight, width, height});
+            statusBarElement->Arrange(sky::ui::UIRect{0.0f, height - footerHeight, width, height});
             if (auto *statusBar = dynamic_cast<StatusBar *>(statusBarElement)) {
                 const std::size_t selectionCount = selection != nullptr ? selection->GetSelection().size() : 0;
                 statusBar->SetText(FormatStatusBar(documentName, documentDirty, statusProject, statusMode, statusRhi, selectionCount, statusFps));
@@ -1098,16 +1253,20 @@ namespace sky::editor {
         UpdateSplitters(dockRect);
 
         if (fileBrowserElement != nullptr) {
-            fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            fileBrowserElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
         if (preferencesElement != nullptr) {
-            preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            preferencesElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
         if (newWorldElement != nullptr) {
-            newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            newWorldElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
         if (assetViewerElement != nullptr) {
-            assetViewerElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            auto *viewer = assetViewerElement;
+            viewer->SynchronizeLayout();
+            if (alive.expired() || viewer != assetViewerElement)
+                return;
+            viewer->ArrangeIfNeeded(sky::ui::UIRect{0.0f, 0.0f, width, height});
         }
     }
 
@@ -1120,14 +1279,33 @@ namespace sky::editor {
         newWorldLocation = location;
         newWorldName     = name;
         newWorldCreate   = onCreate;
-        newWorldElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        newWorldElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
         newWorldElement->SetOnCreate(newWorldCreate);
         newWorldElement->Open(location, name);
+        newWorldElement->Arrange({0.0f, 0.0f, width, height});
     }
 
     void EditorShell::SetWorldDocument(WorldDocument *document)
     {
-        worldDocument = document;
+        const bool sameDocument = worldDocument == document;
+        worldDocument           = document;
+        const auto notify       = [document, sameDocument](sky::ui::UIElement *element) {
+            if (auto *panel = dynamic_cast<WorldConfigPanel *>(element)) {
+                panel->SetDocument(document);
+                if (sameDocument) {
+                    panel->RefreshDocument();
+                }
+            }
+        };
+        for (const auto &entry : attachedViews) {
+            notify(entry.second);
+        }
+        for (const auto &entry : detachedViews) {
+            notify(entry.second.get());
+        }
+        for (const auto &entry : surfaces) {
+            notify(entry.second.view);
+        }
     }
 
     void EditorShell::SetExportPresets(sky::ExportPresets *presets, std::string path)
@@ -1145,15 +1323,37 @@ namespace sky::editor {
         }
     }
 
+    void EditorShell::SetPreferencesPersistence(std::shared_ptr<PreferencesPersistence> persistence)
+    {
+        preferencesPersistence = std::move(persistence);
+        if (preferencesElement != nullptr) {
+            preferencesElement->SetPersistence(preferencesPersistence);
+        }
+    }
+
     void EditorShell::OpenPreferences()
     {
         if (preferencesElement == nullptr) {
             return;
         }
+        const std::weak_ptr<void> alive      = actionLifetime;
+        auto                     *dialog     = preferencesElement;
+        const auto                reference  = dialog->GetInputReference();
+        const auto                generation = chromeGeneration;
+        const auto                current    = [this, alive, dialog, reference, generation] {
+            return !alive.expired() && reference.Get() == dialog && chromeGeneration == generation && preferencesElement == dialog;
+        };
         preferencesOpen = true;
-        preferencesElement->SetModel(preferenceRegistry);
-        preferencesElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
-        preferencesElement->Open();
+        dialog->SetModel(preferenceRegistry);
+        if (!current())
+            return;
+        dialog->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        if (!current())
+            return;
+        dialog->Open();
+        if (!current())
+            return;
+        dialog->Arrange({0.0f, 0.0f, width, height});
     }
 
     bool EditorShell::IsPreferencesOpen() const
@@ -1167,13 +1367,14 @@ namespace sky::editor {
         browserCallback = std::move(callback);
         browserOpen     = true;
         if (fileBrowserElement != nullptr) {
-            fileBrowserElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            fileBrowserElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
             fileBrowserElement->Open(browserRequest);
         }
     }
 
     void EditorShell::OpenAssetViewer(const Uuid &asset)
     {
+        const std::weak_ptr<void> alive = actionLifetime;
         if (assetCatalog != nullptr) {
             EditorAssetItem item;
             if (assetCatalog->Find(asset, item) && !item.type.empty()) {
@@ -1197,76 +1398,95 @@ namespace sky::editor {
         }
         if (assetViewerElement != nullptr) {
             assetViewerElement->SetActionHandler([this](const std::string &id) { return InvokeAction(id); });
-            assetViewerElement->SetBounds(sky::ui::UIRect{0.0f, 0.0f, width, height});
-            assetViewerElement->Open(asset);
+            assetViewerElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
+            auto *viewer = assetViewerElement;
+            viewer->Open(asset);
+            if (alive.expired() || viewer != assetViewerElement)
+                return;
+            viewer->Arrange({0.0f, 0.0f, width, height});
         }
     }
 
     void EditorShell::RegisterAssetViewerActions()
     {
-        auto             *actions = EditorActionRegistry::Get();
-        const std::string scope   = "assetViewer";
+        auto                     *actions    = EditorActionRegistry::Get();
+        const std::string         scope      = "assetViewer";
+        const std::weak_ptr<void> lifetime   = actionLifetime;
+        const auto                ownerAlive = [lifetime]() { return !lifetime.expired(); };
 
-        actions->Add({.id    = "assetViewer.open",
-                      .label = "Open",
-                      .icon  = "open",
-                      .menu  = EditorMenu::File,
-                      .order = 0,
+        actions->Add({.id      = "assetViewer.open",
+                      .label   = "Open",
+                      .icon    = "open",
+                      .menu    = EditorMenu::File,
+                      .order   = 0,
+                      .enabled = ownerAlive,
                       .invoke =
-                          [this]() {
-                              if (assetViewerElement != nullptr) {
+                          [this, lifetime]() {
+                              if (!lifetime.expired() && assetViewerElement != nullptr) {
                                   assetViewerElement->OpenAsset();
                               }
                           },
                       .scope       = scope,
                       .accelerator = "Ctrl+O"});
-        actions->Add({.id    = "assetViewer.save",
-                      .label = "Save",
-                      .icon  = "save",
-                      .group = EditorGroup::File,
-                      .menu  = EditorMenu::File,
-                      .order = 1,
+        actions->Add({.id      = "assetViewer.save",
+                      .label   = "Save",
+                      .icon    = "save",
+                      .group   = EditorGroup::File,
+                      .menu    = EditorMenu::File,
+                      .order   = 1,
+                      .enabled = ownerAlive,
                       .invoke =
-                          [this]() {
-                              if (assetViewerElement != nullptr) {
+                          [this, lifetime]() {
+                              if (!lifetime.expired() && assetViewerElement != nullptr) {
                                   assetViewerElement->SaveAsset();
                               }
                           },
                       .scope       = scope,
                       .accelerator = "Ctrl+S"});
-        actions->Add({.id    = "assetViewer.close",
-                      .label = "Close",
-                      .menu  = EditorMenu::File,
-                      .order = 2,
+        actions->Add({.id      = "assetViewer.close",
+                      .label   = "Close",
+                      .menu    = EditorMenu::File,
+                      .order   = 2,
+                      .enabled = ownerAlive,
                       .invoke =
-                          [this]() {
+                          [this, lifetime]() {
                               // Close must NOT save+cook: cooking is heavy work and running it inside
                               // the pointer/key dispatch blocks the UI (see coding rule 9). Saving is
                               // explicit (Save button / Ctrl+S).
-                              if (assetViewerElement != nullptr) {
+                              if (!lifetime.expired() && assetViewerElement != nullptr) {
                                   assetViewerElement->Close();
                               }
                           },
                       .scope       = scope,
                       .accelerator = "Esc"});
-        actions->Add({.id          = "assetViewer.undo",
-                      .label       = "Undo",
-                      .icon        = "undo",
-                      .group       = EditorGroup::History,
-                      .menu        = EditorMenu::Edit,
-                      .order       = 0,
-                      .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
-                      .invoke      = []() { EditorCore::GetCommandService().Undo(); },
+        actions->Add({.id      = "assetViewer.undo",
+                      .label   = "Undo",
+                      .icon    = "undo",
+                      .group   = EditorGroup::History,
+                      .menu    = EditorMenu::Edit,
+                      .order   = 0,
+                      .enabled = [this, lifetime]() { return !lifetime.expired() && assetViewerElement != nullptr && assetViewerElement->CanUndo(); },
+                      .invoke =
+                          [this, lifetime]() {
+                              if (!lifetime.expired() && assetViewerElement != nullptr) {
+                                  assetViewerElement->Undo();
+                              }
+                          },
                       .scope       = scope,
                       .accelerator = "Ctrl+Z"});
-        actions->Add({.id          = "assetViewer.redo",
-                      .label       = "Redo",
-                      .icon        = "redo",
-                      .group       = EditorGroup::History,
-                      .menu        = EditorMenu::Edit,
-                      .order       = 1,
-                      .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
-                      .invoke      = []() { EditorCore::GetCommandService().Redo(); },
+        actions->Add({.id      = "assetViewer.redo",
+                      .label   = "Redo",
+                      .icon    = "redo",
+                      .group   = EditorGroup::History,
+                      .menu    = EditorMenu::Edit,
+                      .order   = 1,
+                      .enabled = [this, lifetime]() { return !lifetime.expired() && assetViewerElement != nullptr && assetViewerElement->CanRedo(); },
+                      .invoke =
+                          [this, lifetime]() {
+                              if (!lifetime.expired() && assetViewerElement != nullptr) {
+                                  assetViewerElement->Redo();
+                              }
+                          },
                       .scope       = scope,
                       .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
     }
@@ -1305,6 +1525,8 @@ namespace sky::editor {
 
     bool EditorShell::DispatchPointer(const sky::ui::UIPointerEvent &event)
     {
+        if (!PrepareSurfaceInput(0))
+            return true;
         if (sky::ui::UIElement *modal = ActiveModal()) {
             modal->OnPointerEvent(event);
             return true;
@@ -1319,10 +1541,21 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
+        if (!PrepareSurfaceInput(0))
+            return true;
+        const std::weak_ptr<void> alive = actionLifetime;
+        // Preferences owns an isolated editing session. Its history and modal
+        // keys must reach that session before global actions and play shortcuts.
+        if (preferencesElement != nullptr && preferencesElement->IsVisible()) {
+            preferencesElement->OnKeyEvent(event);
+            return true;
+        }
         // Data-driven accelerators for the active scope (a dialog scope wins over global):
         // the same registry entries that drive the toolbar/menus are resolved here by `accelerator`.
         if (event.action == sky::ui::UIKeyAction::DOWN) {
             const std::string id = ActionBarBuilder::MatchAccelerator(event);
+            if (alive.expired())
+                return true;
             if (!id.empty()) {
                 InvokeAction(id);
                 return true;
@@ -1355,6 +1588,8 @@ namespace sky::editor {
 
     bool EditorShell::DispatchText(const sky::ui::UITextInputEvent &event)
     {
+        if (!PrepareSurfaceInput(0))
+            return true;
         if (sky::ui::UIElement *modal = ActiveModal()) {
             modal->OnTextInput(event);
             return true;

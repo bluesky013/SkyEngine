@@ -3,6 +3,7 @@
 //
 
 #include <ui/UIContext.h>
+#include <ui/UIEventRouter.h>
 #include <ui/UIPaintContext.h>
 #include <ui/animation/UIAnimation.h>
 
@@ -13,10 +14,34 @@ namespace sky::ui {
     UIContext::UIContext()
     {
         root = std::make_unique<UIElement>();
+        root->SetLayoutVolatile(false);
         root->SetName("Root");
+        root->inputContext    = this;
+        root->contextLifetime = inputLifetime;
     }
 
-    UIContext::~UIContext() = default;
+    UIContext::~UIContext()
+    {
+        std::vector<UIElement::InputCancellation> pending;
+        root->RenewInputAttachment();
+        root->CollectSubtreeInput(pending);
+        CollectDetachedInput(root.get(), pending);
+        UIElement::QueueDetachedInput(pending);
+        inputRouters.clear();
+        inputLifetime.reset();
+        root->inputContext = nullptr;
+        UIElement::CancelDetachedInput(pending);
+    }
+
+    void UIContext::CollectDetachedInput(UIElement *subtree, std::vector<UIElement::InputCancellation> &pending)
+    {
+        // No callbacks until every router has forgotten the removed subtree.
+        for (const auto &entry : inputRouters) {
+            if (!entry.lifetime.expired()) {
+                entry.router->CollectDetachedInput(subtree, pending);
+            }
+        }
+    }
 
     UIElement *UIContext::AddChild(UIElementPtr child)
     {
@@ -96,7 +121,7 @@ namespace sky::ui {
 
     void UIContext::SetContentSize(float width, float height)
     {
-        logicalWidth = width;
+        logicalWidth  = width;
         logicalHeight = height;
         ApplyContentSize();
     }
@@ -110,9 +135,9 @@ namespace sky::ui {
     void UIContext::ApplyContentSize()
     {
         UIRect content;
-        content.left = 0.0f;
-        content.top = 0.0f;
-        content.right = logicalWidth * dpiScale;
+        content.left   = 0.0f;
+        content.top    = 0.0f;
+        content.right  = logicalWidth * dpiScale;
         content.bottom = logicalHeight * dpiScale;
         root->SetBounds(content);
     }
@@ -123,11 +148,7 @@ namespace sky::ui {
             return;
         }
 
-        const UIRect content = root->GetBounds();
-        for (const auto &child : root->GetChildren()) {
-            child->Layout(content);
-        }
-        root->ClearLayoutDirty();
+        root->ArrangeIfNeeded(root->GetBounds());
     }
 
     UIAnimation *UIContext::AddAnimation(std::unique_ptr<UIAnimation> animation)
@@ -150,23 +171,30 @@ namespace sky::ui {
 
     void UIContext::Paint(UIPaintContext &context)
     {
-        Paint(context, UI2DTransform::Identity());
-    }
-
-    void UIContext::Paint(UIPaintContext &context, const UI2DTransform &rootTransform)
-    {
         if (root == nullptr) {
             return;
         }
 
         context.Begin(root->GetBounds());
         context.SetTheme(&theme);
-        // Applied after Begin (which resets the transform) so it is not lost.
-        context.PushTransform(rootTransform);
-        for (const auto &child : root->GetChildren()) {
-            child->Paint(context);
-        }
-        context.PopTransform();
+        root->Paint(context);
+    }
+
+    void UIContext::SetSurfaceTransform(const UI2DTransform &value)
+    {
+        root->surfaceTransform = value;
+        root->MarkPaintDirty();
+    }
+
+    const UI2DTransform &UIContext::GetSurfaceTransform() const
+    {
+        return root->surfaceTransform;
+    }
+
+    void UIContext::Paint(UIPaintContext &context, const UI2DTransform &rootTransform)
+    {
+        SetSurfaceTransform(rootTransform);
+        Paint(context);
     }
 
 } // namespace sky::ui

@@ -43,24 +43,29 @@ namespace sky::editor {
         if (action.scope.empty()) {
             action.scope = EditorScopeStack::GlobalScope();
         }
-        actions[ActionKey(action.scope, action.id)] = std::move(action);
+        const std::string key = ActionKey(action.scope, action.id);
+        actions[key]          = Entry{std::move(action), ++revision};
     }
 
     void EditorActionRegistry::Remove(const std::string &scope, const std::string &id)
     {
-        actions.erase(ActionKey(scope, id));
+        if (actions.erase(ActionKey(scope.empty() ? EditorScopeStack::GlobalScope() : scope, id)) != 0) {
+            ++revision;
+        }
     }
 
     void EditorActionRegistry::Clear()
     {
         actions.clear();
+        ++revision;
     }
 
     std::vector<EditorAction> EditorActionRegistry::GetActions() const
     {
         const std::string         active = EditorScopeStack::Get()->Active();
         std::vector<EditorAction> out;
-        for (const auto &[key, action] : actions) {
+        for (const auto &[key, entry] : actions) {
+            const auto &action = entry.action;
             if (ScopeOf(action) == active) {
                 out.push_back(action);
             }
@@ -117,14 +122,97 @@ namespace sky::editor {
     {
         const std::string active = EditorScopeStack::Get()->Active();
         if (const auto it = actions.find(ActionKey(active, id)); it != actions.end()) {
-            return &it->second;
+            return &it->second.action;
         }
         if (active != EditorScopeStack::GlobalScope()) {
             if (const auto it = actions.find(ActionKey(EditorScopeStack::GlobalScope(), id)); it != actions.end()) {
-                return &it->second;
+                return &it->second.action;
             }
         }
         return nullptr;
+    }
+
+    EditorActionSnapshot EditorActionRegistry::GetSnapshot(const std::string &id) const
+    {
+        const EditorAction *action = Find(id);
+        if (action == nullptr) {
+            return {};
+        }
+        const auto it = actions.find(ActionKey(ScopeOf(*action), id));
+        return {it->second.action, it->second.generation, EditorScopeStack::Get()->Active()};
+    }
+
+    std::vector<EditorActionSnapshot> EditorActionRegistry::GetActionSnapshots() const
+    {
+        const std::string                 active = EditorScopeStack::Get()->Active();
+        std::vector<EditorActionSnapshot> out;
+        for (const auto &[key, entry] : actions) {
+            if (ScopeOf(entry.action) == active) {
+                out.push_back({entry.action, entry.generation, active});
+            }
+        }
+        std::sort(out.begin(), out.end(), [](const auto &a, const auto &b) { return a.action.id < b.action.id; });
+        return out;
+    }
+
+    bool EditorActionRegistry::IsCurrent(const EditorActionSnapshot &snapshot) const
+    {
+        if (snapshot.generation == 0 || snapshot.activeScope != EditorScopeStack::Get()->Active()) {
+            return false;
+        }
+        const auto it = actions.find(ActionKey(ScopeOf(snapshot.action), snapshot.action.id));
+        if (it == actions.end() || it->second.generation != snapshot.generation) {
+            return false;
+        }
+        // Preserve Find's existing global fallback, while rejecting chrome from another scope.
+        const auto *resolved = Find(snapshot.action.id);
+        return resolved != nullptr && ScopeOf(*resolved) == ScopeOf(snapshot.action);
+    }
+
+    EditorActionState EditorActionRegistry::ResolveState(const EditorActionSnapshot &snapshot) const
+    {
+        const EditorActionSnapshot current = snapshot;
+        const auto                 stale   = []() { return EditorActionState{false, false, false, false}; };
+        if (!IsCurrent(current)) {
+            return stale();
+        }
+        // Copy before calling user code: it may remove or replace the registration (or its owner).
+        const EditorAction &action = current.action;
+        EditorActionState   state;
+        state.checkable = action.checkable;
+        state.visible   = !action.visible || action.visible();
+        if (!IsCurrent(current) || !state.visible) {
+            return stale();
+        }
+        state.enabled = !action.enabled || action.enabled();
+        if (!IsCurrent(current)) {
+            return stale();
+        }
+        state.checked = state.checkable && action.checked && action.checked();
+        return IsCurrent(current) ? state : stale();
+    }
+
+    bool EditorActionRegistry::Invoke(const EditorActionSnapshot &snapshot, const std::function<void()> &dispatcher) const
+    {
+        const EditorActionSnapshot  current  = snapshot;
+        const std::function<void()> dispatch = dispatcher;
+        const EditorActionState     state    = ResolveState(current);
+        if (!state.visible || !IsCurrent(current)) {
+            return false;
+        }
+        if (!state.enabled) {
+            return true;
+        }
+        const std::function<void()> invoke = dispatch ? dispatch : current.action.invoke;
+        if (invoke) {
+            invoke();
+        }
+        return true;
+    }
+
+    bool EditorActionRegistry::Invoke(const std::string &id) const
+    {
+        return Invoke(GetSnapshot(id));
     }
 
 } // namespace sky::editor

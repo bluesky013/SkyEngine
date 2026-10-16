@@ -19,10 +19,16 @@ sky_add_test(TARGET EditorCoreTest
         FileBrowserModelTest.cpp
         TextEditStateTest.cpp
         EditorSettingsTest.cpp
+        BuiltinPreferencePagesTest.cpp
+        FilePreferenceStorageTest.cpp
+        PreferencesPersistenceTest.cpp
+        PreferencesApplyResultTest.cpp
+        PreferencesCopyLifetimeTest.cpp
         WorldDocumentTest.cpp
         PlaySessionTest.cpp
         ReflectedFormTest.cpp
         EditorAssetCatalogTest.cpp
+        AssetSettingsHistoryTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}
@@ -34,9 +40,37 @@ sky_add_test(TARGET EditorCoreTest
 )
 
 # Headless shell-level test: view registry and gesture hit-testing math.
+if (SKY_BUILD_SANDBOX)
+sky_add_test(TARGET EditorRenderTest
+    SOURCES
+        EditorWindowEventBindingTest.cpp
+        EditorFrameSubmissionTest.cpp
+        main.cpp
+    INCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/../render/src
+    WORKING_DIR
+        ${CMAKE_SOURCE_DIR}
+    LIBS
+        Framework
+        Core
+        Aurora.RHI.Static
+        3rdParty::googletest
+)
+
 sky_add_test(TARGET EditorShellTest
     SOURCES
         EditorShellTest.cpp
+        EditorLayoutDependencyTest.cpp
+        EditorHistoryRoutingTest.cpp
+        PreferencesSessionTest.cpp
+        PreferencesLayoutTest.cpp
+        PreferencesPersistenceShellTest.cpp
+        EditorActionStateTest.cpp
+        EditorPortableIntegrationTest.cpp
+        EditorPreferenceIntegrationTest.cpp
+        EditorSmallPanelLayoutTest.cpp
+        FileBrowserLayoutTest.cpp
+        ProjectManagerLayoutTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}
@@ -47,3 +81,36 @@ sky_add_test(TARGET EditorShellTest
         Core
         3rdParty::googletest
 )
+endif ()
+
+if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
+    # Two separately linked modules exercise process-shared editor services
+    # across a real DLL boundary, independently of the editor shell.
+    foreach (probe EditorWidgetsProbeA EditorWidgetsProbeB)
+        sky_add_library(TARGET ${probe} SHARED
+            SOURCES
+                EditorWidgetsProbe.cpp
+            LINK_LIBS
+                EditorWidgets
+                Core
+        )
+    endforeach ()
+
+    sky_add_test(TARGET EditorWidgetsTest
+        SOURCES
+            EditorWidgetsTest.cpp
+            EditorScrollbarTest.cpp
+            ReflectedFormWidgetsTest.cpp
+            main.cpp
+        WORKING_DIR
+            ${CMAKE_SOURCE_DIR}
+        LIBS
+            EditorWidgets
+            3rdParty::googletest
+    )
+    target_compile_definitions(EditorWidgetsTest PRIVATE
+        "EDITOR_WIDGETS_PROBE_A_PATH=\"$<TARGET_FILE:EditorWidgetsProbeA>\""
+        "EDITOR_WIDGETS_PROBE_B_PATH=\"$<TARGET_FILE:EditorWidgetsProbeB>\""
+    )
+    add_dependencies(EditorWidgetsTest EditorWidgetsProbeA EditorWidgetsProbeB)
+endif ()

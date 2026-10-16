@@ -19,24 +19,37 @@ namespace sky::ui {
             Disabled,
         };
 
-        Button() = default;
+        Button()
+        {
+            SetLayoutVolatile(false);
+        }
         ~Button() override = default;
 
-        const char *GetTypeName() const override { return "Button"; }
+        const char *GetTypeName() const override
+        {
+            return "Button";
+        }
 
-        void SetOnClick(std::function<void()> callback) { onClick = std::move(callback); }
+        void SetOnClick(std::function<void()> callback)
+        {
+            onClick = std::move(callback);
+        }
 
         // Reflects the last interaction; returns Disabled whenever the element is disabled.
-        State GetState() const { return IsEnabled() ? state : State::Disabled; }
+        State GetState() const
+        {
+            return IsEnabled() ? state : State::Disabled;
+        }
 
         UIEventResult OnPointerEvent(const UIPointerEvent &event) override;
-        void OnPaint(UIPaintContext &context) override;
-        bool SetProperty(const std::string &path, const UIPropertyValue &value) override;
+        void          OnPointerCancel(uint32_t pointerId) override;
+        void          OnPaint(UIPaintContext &context) override;
+        bool          SetProperty(const std::string &path, const UIPropertyValue &value) override;
 
     private:
         std::function<void()> onClick;
-        State state = State::Normal;
-        bool pressed = false;
+        State                 state   = State::Normal;
+        bool                  pressed = false;
     };
 
 } // namespace sky::ui

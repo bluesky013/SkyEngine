@@ -10,7 +10,7 @@
 #include <editor/core/selection/SelectionService.h>
 #include <editor/shell/PanelView.h>
 #include <editor/ui/UiDraw.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/UiSkin.h>
 #include <editor/ui/UiTheme.h>
 
 #include <ui/UIElement.h>

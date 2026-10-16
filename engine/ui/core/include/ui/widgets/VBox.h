@@ -11,18 +11,28 @@ namespace sky::ui {
     // Arranges children top to bottom with fixed spacing.
     class VBox : public UIElement {
     public:
-        VBox() = default;
+        VBox()
+        {
+            SetLayoutVolatile(false);
+        }
         ~VBox() override = default;
 
-        const char *GetTypeName() const override { return "VBox"; }
+        const char *GetTypeName() const override
+        {
+            return "VBox";
+        }
 
-        void SetSpacing(float value);
-        float GetSpacing() const { return spacing; }
+        void  SetSpacing(float value);
+        float GetSpacing() const
+        {
+            return spacing;
+        }
 
-        void Measure(float &outWidth, float &outHeight) override;
+        void Measure(float &outWidth, float &outHeight) final;
 
     protected:
-        void ArrangeChildren(const UIRect &content) override;
+        UISize OnMeasure(const UIConstraints &constraints) override;
+        void   ArrangeChildren(const UIRect &content) override;
 
     private:
         float spacing = 0.0f;

@@ -6,7 +6,7 @@
 
 #include <editor/core/layout/DockInteraction.h>
 #include <editor/ui/UiDraw.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/UiSkin.h>
 #include <editor/ui/UiTheme.h>
 
 #include <ui/UIElement.h>

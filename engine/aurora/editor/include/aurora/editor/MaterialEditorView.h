@@ -11,6 +11,7 @@
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/resource/Material.h>
 #include <core/util/Uuid.h>
+#include <editor/widgets/UiSkin.h>
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
@@ -22,7 +23,7 @@
 namespace sky::ui {
     class UIPaintContext;
     class UITextSystem;
-    class StackPanel;
+    class GridPanel;
 } // namespace sky::ui
 
 namespace sky::aurora::editor {
@@ -61,6 +62,7 @@ namespace sky::aurora::editor {
         }
 
         void                   Measure(float &outWidth, float &outHeight) override;
+        void                   ArrangeChildren(const sky::ui::UIRect &content) override;
         void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
         sky::ui::UIEventResult OnKeyEvent(const sky::ui::UIKeyEvent &event) override;
@@ -81,8 +83,13 @@ namespace sky::aurora::editor {
             std::string name;
         };
 
-        void            RebuildRowSlots();
-        void            LayoutRows();
+        void                        RebuildRowSlots();
+        const sky::editor::UiTheme &Theme() const
+        {
+            return skin.Theme();
+        }
+        float           LabelWidth() const;
+        sky::ui::UIRect PickerNoneRect() const;
         sky::ui::UIRect RowRect(size_t index) const;
         void            CommitValue(int index);
         void            CommitTexture(int index, const Uuid &id);
@@ -93,13 +100,14 @@ namespace sky::aurora::editor {
         void            DeleteTechnique(int techniqueIndex);
 
         sky::ui::UITextSystem         *text = nullptr;
+        sky::editor::UiSkin            skin;
         Uuid                           asset;
         std::string                    title;
         bool                           isInstance = false;
         MaterialAssetData              materialSource;            // reflected `.mat` source (material)
         MaterialInstanceSource         instanceSource;            // reflected `.mati` source (instance)
         std::vector<MaterialEditorRow> rows;                      // techniques (grouped) + properties
-        sky::ui::StackPanel           *rowsPanel       = nullptr; // owns the vertical row layout
+        sky::ui::GridPanel            *rowsPanel       = nullptr; // owns the themed row layout
         bool                           allowTechniques = false;
         bool                           dirty           = false;
 

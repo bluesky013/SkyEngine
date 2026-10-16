@@ -9,7 +9,7 @@
 #include <editor/core/selection/SelectionService.h>
 #include <editor/core/text/TextEditState.h>
 #include <editor/shell/PanelView.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>

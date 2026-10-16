@@ -1,4 +1,4 @@
-# Editor UI Standards (Sandbox Shell)
+# Editor UI Standards (Sandbox Framework)
 
 Single source of truth for editor chrome (toolbars, menus, buttons, panels). If you add
 editable UI, follow this so the editor does not end up "east one, west one".
@@ -17,8 +17,8 @@ EditorAction a;
 a.id = "asset.save";          // stable id: toolbar + menu + shortcut all key off this
 a.label = "Save";
 a.icon = "save";              // icon id (see §3); omit for text-only
-a.group = "File";             // toolbar group (empty = not on the toolbar)
-a.menu = "File"; a.menuOrder = 0;
+a.group = EditorGroup::File;  // toolbar group (None = not on the toolbar)
+a.menu = EditorMenu::File;
 a.order = 30;
 a.accelerator = "Ctrl+S";     // data-driven shortcut (comma-separates alternatives)
 a.scope = "global";           // "" / "global" = main window; a dialog pushes its own scope
@@ -42,14 +42,25 @@ register them by id and invoke them from the owning panel's **context menu** (se
 
 ## 2. Use the shared widgets (mandatory)
 
-- Toolbar → `editor/shell/widgets/ToolBar` (reads `GetToolbarActions()`, icon-only + tooltip).
-- Menu bar → `editor/shell/widgets/MenuBar` (reads `GetMenuActions()`; two levels max today).
+Reusable controls live in `engine/sandbox/widgets` as **`EditorWidgets`**, with flat
+`editor/widgets/<Name>.h` includes. Editor feature modules link this target without linking
+`EditorShell`. `EditorWidgets` depends on `EditorUi`, `EditorCore`, `UI`, `Core`, and the required
+Framework reflection interfaces; it does not depend on Shell or Aurora. Shell keeps window,
+docking, modal-dialog, and concrete panel/viewer composition.
+
+- Toolbar → `editor/widgets/ToolBar.h` (items from `ActionBarBuilder`, icon-only + tooltip).
+- Menu bar → `editor/widgets/MenuBar.h` (menus from `ActionBarBuilder`; two levels max today).
 - Panels/dialogs → `UiSkin` painters (`DrawPanel`, `DrawSectionHeader`, `DrawRow`, `DrawField`,
   `DrawToolItem`, `DrawCheckbox`, `DrawSlider`, `DrawPopup`, `DrawTab`, ...). No ad-hoc draws.
 - Buttons: `UiSkin::DrawToolItem` (labeled) + the interaction state machine `sky::ui::Button`
   (Normal/Hover/Pressed/Disabled). Do not hand-draw button hover/pressed.
 - Editable values → `ReflectedFormView` (see `reflection-widget-framework.md`); edits go through
   `CommandService` (undoable). See AGENTS.md "编辑器配置/设置 UI".
+
+Each form owns its interaction widgets; extend that form through `view.Widgets().Register(...)`.
+The default form constructor uses the process-shared editor services. Pass `ReflectedFormContext`
+to select a document's command history, property metadata, change notifier, and theme; those
+referenced objects must outlive the form. Popup, drag, and text-edit state remain local to the form.
 
 ### Rule for dialogs / viewers (asset viewer, preferences-like, etc.)
 
@@ -75,35 +86,34 @@ scope (`EditorScopeStack`) while it is open; the chrome then resolves to that sc
 
 ## 4. Theme / sizing
 
-- All colors from `UiColors`, all dimensions from `UiMetrics` on the process-wide `UiTheme`
-  (`GetDefaultUiTheme()`, `MakeDarkTheme(scale)`). **No pixel literals** in widgets.
+- All colors from `UiColors`, all dimensions from `UiMetrics` on the active `UiTheme`.
+  `GetDefaultUiTheme()` is shared across DLLs; an explicit `ReflectedFormContext` can supply a
+  host-owned theme instead. Use `MakeDarkTheme(scale)` for scaling. **No pixel literals** in widgets.
 - See `docs/editor/ui-sizing-and-scaling.md`. Read it before any UI work.
 
-## 5. Known gaps to close (unification backlog)
+## 5. Current status and follow-ups
 
-1. **Icon registry**: *done* — `editor/core/extension/IconRegistry` (cross-DLL name→`UITextureId`);
-   `EditorShell::SetIcon` populates it; `UiSkin::DrawIcon` + `ToolItemButton::SetIcon`. Icons are
-   loaded by scanning extension-declared roots (`EditorExtension::GetIconDirectories()`) instead of
-   a hard-coded name list.
-2. **Menu model**: *partly done* — `MenuBar::Item` supports `icon`, `shortcut`, `separator`.
-   Remaining: `checkable/checked`.
-3. **Action model**: *partly done* — `accelerator` (data-driven shortcuts) + `scope` landed;
-   dialogs register scoped actions (`assetViewer.*`) and push `EditorScopeStack`. Remaining:
-   replace magic `menuOrder` ints / group strings with shared enums.
-4. **One chrome builder**: *done* — `ActionBarBuilder` builds the toolbar + menus (+ accelerator
-   lookup) for the active scope; `EditorShell` and the asset viewer both use it.
-5. **Extension seam**: *done* — plugin editor modules stage `EditorExtension`s through
-   `EditorExtensionRegistry`; the host drains them (`EditorExtensionHost`) and reads their icon
-   roots (`GetIconDirectories()`). Aurora/Content are live consumers.
+Shared IconRegistry, UiSkin::DrawIcon, extension icon-root scanning, ActionBarBuilder, scoped
+actions/accelerators, and EditorMenu/EditorGroup enums are implemented. MenuBar::Item supports
+icon, shortcut, separator, and checkable/checked display. EditorAction now supplies enabled,
+visible, checkable and checked state through registration snapshots and guarded registry invocation.
+Shell/Viewer refresh menu and toolbar state in place; hidden entries have no paint/hit slots or
+accelerator, while disabled accelerators are consumed without invocation. Retained controls cannot
+invoke replaced registrations. Per-owner scope identity and plugin unload cleanup remain **T10-B**
+in [the reviewed backlog](ui-layout-and-chrome-plan.md#9-reviewed-backlog-2026-10-16).
 
 Layout containers (`ui::StackPanel/DockPanel/GridPanel/Overlay`) exist; the asset-viewer top
-chrome and the material-editor row list now lay out through them. Remaining: the preferences
-dialog still uses hand-computed rects.
+chrome and material-editor rows use them. PreferencesDialog still uses hand-computed rects
+(**UI-11**). Paired font-registry detach, explicit cancel/abandon binding semantics, asset-session
+history/persistence, and service-wide preview cancellation now have dedicated repairs and regressions
+(**UI-01/UI-03–UI-07**). Shared texture replay and deferred surface/resource release are implemented;
+their real floating-window GPU/visual gates remain open (**UI-02/UI-08**). See the task board for
+executed checks and remaining Win32/native acceptance.
 
 ## 6. Quick checklist for a new editor view/dialog
 
 - [ ] Commands registered as `EditorAction` (id/label/icon/group/menu/order/enabled/invoke).
-- [ ] Toolbar via `widgets/ToolBar`; menu via `widgets/MenuBar` — not hand-drawn.
+- [ ] Link `EditorWidgets`; toolbar/menu via `editor/widgets/ToolBar.h` / `MenuBar.h`.
 - [ ] Icon SVG under a scanned root (`resources/icons/` or an extension-declared root); name = file stem.
 - [ ] Widgets painted via `UiSkin`; sizes/colors from `UiTheme` only.
 - [ ] Editable values via `ReflectedFormView`; edits via `CommandService` (undoable).

@@ -12,7 +12,10 @@ namespace sky::ui {
 
     class Overlay : public UIElement {
     public:
-        Overlay()           = default;
+        Overlay()
+        {
+            SetLayoutVolatile(false);
+        }
         ~Overlay() override = default;
 
         const char *GetTypeName() const override
@@ -20,11 +23,19 @@ namespace sky::ui {
             return "Overlay";
         }
 
-        void          OnPaint(UIPaintContext &context) override;
+        void          Measure(float &outWidth, float &outHeight) final;
         UIEventResult RoutePointer(const UIPointerEvent &event);
+        void          OnPointerCancel(uint32_t pointerId) override;
+
+    protected:
+        UISize OnMeasure(const UIConstraints &constraints) override;
+        void   ArrangeChildren(const UIRect &content) override;
+        void   OnChildrenChanged() override;
+        void   CollectDetachedInput(UIElement *directChild, std::vector<InputCancellation> &out) override;
 
     private:
-        UIElement *captured = nullptr;
+        UIElement *captured          = nullptr;
+        uint32_t   capturedPointerId = 0;
     };
 
 } // namespace sky::ui

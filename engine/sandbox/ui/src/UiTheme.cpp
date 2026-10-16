@@ -2,10 +2,10 @@
 // Created on 2026/10/04.
 //
 
+#include <core/environment/Singleton.h>
 #include <editor/ui/UiDraw.h>
 #include <editor/ui/UiTheme.h>
-
-#include <algorithm>
+#include <ui/UIElement.h>
 
 #include <algorithm>
 
@@ -145,24 +145,51 @@ namespace sky::editor {
         s(hubActionWidth);
     }
 
-    namespace {
+    // Kept at a stable address so existing UiSkin instances observe updates
+    // made by any editor module linked against the static EditorUi library.
+    class DefaultUiTheme : public sky::Singleton<DefaultUiTheme> {
+        friend class sky::Singleton<DefaultUiTheme>;
 
-        UiTheme &MutableDefaultTheme()
-        {
-            static UiTheme theme = MakeDarkTheme();
-            return theme;
-        }
-
-    } // namespace
+    public:
+        UiTheme  value    = MakeDarkTheme();
+        uint64_t revision = 1;
+    };
 
     const UiTheme &GetDefaultUiTheme()
     {
-        return MutableDefaultTheme();
+        return DefaultUiTheme::Get()->value;
     }
 
     void SetDefaultUiTheme(const UiTheme &theme)
     {
-        MutableDefaultTheme() = theme;
+        DefaultUiTheme::Get()->value = theme;
+        ++DefaultUiTheme::Get()->revision;
+    }
+
+    uint64_t GetDefaultUiThemeRevision()
+    {
+        return DefaultUiTheme::Get()->revision;
+    }
+
+    namespace {
+        void InvalidateThemeTree(sky::ui::UIElement &element)
+        {
+            element.MarkLayoutDirty();
+            for (const auto &child : element.GetChildren()) {
+                InvalidateThemeTree(*child);
+            }
+        }
+    } // namespace
+
+    bool SynchronizeDefaultUiTheme(sky::ui::UIElement &root, uint64_t &appliedRevision)
+    {
+        const uint64_t revision = GetDefaultUiThemeRevision();
+        if (appliedRevision == revision) {
+            return false;
+        }
+        InvalidateThemeTree(root);
+        appliedRevision = revision;
+        return true;
     }
 
     float GetThemeScale()

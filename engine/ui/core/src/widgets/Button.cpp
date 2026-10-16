@@ -43,6 +43,14 @@ namespace sky::ui {
         }
     }
 
+    void Button::OnPointerCancel(uint32_t pointerId)
+    {
+        (void)pointerId;
+        pressed = false;
+        state = State::Normal;
+        MarkPaintDirty();
+    }
+
     bool Button::SetProperty(const std::string &path, const UIPropertyValue &value)
     {
         if (path == "button.interactable" && value.type == UIPropertyValue::Type::BOOL) {

@@ -3,6 +3,7 @@
 //
 
 #include <editor/core/asset/EditorAssetCatalog.h>
+#include <editor/core/property/PropertyDescriptor.h>
 
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetCommon.h>
@@ -95,6 +96,41 @@ namespace sky::editor {
                 doc.SetObject();
             }
         }
+
+        class AssetCookSettingsCommand final : public UndoCommand {
+        public:
+            AssetCookSettingsCommand(EditorAssetCatalog        &inCatalog,
+                                     Uuid                       inAsset,
+                                     std::string                inTarget,
+                                     Uuid                       inSchema,
+                                     sky::BuildSettingsOverride inBefore,
+                                     sky::BuildSettingsOverride inAfter)
+                : UndoCommand("Cook settings: " + inTarget)
+                , catalog(inCatalog)
+                , asset(inAsset)
+                , target(std::move(inTarget))
+                , schema(inSchema)
+                , before(std::move(inBefore))
+                , after(std::move(inAfter))
+            {
+            }
+            void Do() override
+            {
+                catalog.ApplyCookSettingsOverride(asset, target, after, schema);
+            }
+            void Undo() override
+            {
+                catalog.ApplyCookSettingsOverride(asset, target, before, schema);
+            }
+
+        private:
+            EditorAssetCatalog        &catalog;
+            Uuid                       asset;
+            std::string                target;
+            Uuid                       schema;
+            sky::BuildSettingsOverride before;
+            sky::BuildSettingsOverride after;
+        };
 
     } // namespace
 
@@ -606,20 +642,89 @@ namespace sky::editor {
         return out;
     }
 
-    bool EditorAssetCatalog::ApplyCookSettings(const Uuid &uuid, const std::string &target, const Any &edited)
+    bool EditorAssetCatalog::ResolveEditableCookSettings(const Uuid &uuid, const std::string &target, Uuid &schema) const
     {
-        auto *db = sky::AssetDataBase::Get();
-        if (db == nullptr) {
-            return false;
-        }
-        auto source = db->FindAsset(uuid);
+        auto *db     = sky::AssetDataBase::Get();
+        auto  source = db != nullptr ? db->FindAsset(uuid) : sky::AssetSourcePtr{};
         if (!source || source->ext.empty()) {
             return false;
         }
+        const auto mount =
+            std::find_if(db->GetMounts().begin(), db->GetMounts().end(), [&source](const auto &entry) { return entry.id == source->mount; });
+        if (mount == db->GetMounts().end() || !mount->writable) {
+            return false;
+        }
+        const auto targets = ResolveTargets(*source);
+        if (std::find(targets.begin(), targets.end(), target) == targets.end()) {
+            return false;
+        }
+        const auto *type = sky::AssetBuilderManager::Get()->GetBuilderSettingsType(source->ext);
+        if (type == nullptr) {
+            return false;
+        }
+        schema = type->registeredId;
+        return true;
+    }
 
-        const auto &cookCfg  = sky::AssetBuilderManager::Get()->GetCookConfig();
-        const auto  bundle   = cookCfg.ResolveBundleForTarget(target);
-        const auto  override = sky::AssetBuilderManager::Get()->DiffBuilderSettings(source->ext, bundle, edited);
+    UndoCommandPtr
+    EditorAssetCatalog::MakeCookSettingsPropertyEditCommand(const Uuid &uuid, const std::string &target, const std::string &property, Any value)
+    {
+        auto settings = GetCookSettings(uuid, target);
+        if (!settings.IsValid() || !value || value.Info() == nullptr) {
+            return nullptr;
+        }
+        const auto member = settings.type->members.find(property);
+        if (member == settings.type->members.end() || member->second.info == nullptr ||
+            !(member->second.info->registeredId == value.Info()->registeredId)) {
+            return nullptr;
+        }
+        PropertyDescriptor descriptor(settings.object.Data(), &member->second, property, "");
+        if (!descriptor.SetValue(value)) {
+            return nullptr;
+        }
+        return MakeCookSettingsEditCommand(uuid, target, settings.object);
+    }
+
+    UndoCommandPtr EditorAssetCatalog::MakeCookSettingsEditCommand(const Uuid &uuid, const std::string &target, const Any &edited)
+    {
+        Uuid schema;
+        if (!edited || edited.Info() == nullptr || !ResolveEditableCookSettings(uuid, target, schema) || !(schema == edited.Info()->registeredId)) {
+            return nullptr;
+        }
+        auto       *db         = sky::AssetDataBase::Get();
+        const auto  source     = db->FindAsset(uuid);
+        const auto &cookConfig = sky::AssetBuilderManager::Get()->GetCookConfig();
+        auto        before     = cookConfig.GetTargetSettings(db->GetCookJson(uuid), target);
+        auto        after      = sky::AssetBuilderManager::Get()->DiffBuilderSettings(source->ext, cookConfig.ResolveBundleForTarget(target), edited);
+        if (before == after) {
+            return nullptr;
+        }
+        return std::make_unique<AssetCookSettingsCommand>(*this, uuid, target, schema, std::move(before), std::move(after));
+    }
+
+    bool EditorAssetCatalog::ApplyCookSettings(const Uuid &uuid, const std::string &target, const Any &edited)
+    {
+        Uuid schema;
+        if (!edited || edited.Info() == nullptr || !ResolveEditableCookSettings(uuid, target, schema) || !(schema == edited.Info()->registeredId)) {
+            return false;
+        }
+        auto       *db         = sky::AssetDataBase::Get();
+        const auto  source     = db->FindAsset(uuid);
+        const auto &cookConfig = sky::AssetBuilderManager::Get()->GetCookConfig();
+        const auto  settings   = sky::AssetBuilderManager::Get()->DiffBuilderSettings(source->ext, cookConfig.ResolveBundleForTarget(target), edited);
+        return ApplyCookSettingsOverride(uuid, target, settings, schema);
+    }
+
+    bool EditorAssetCatalog::ApplyCookSettingsOverride(const Uuid                       &uuid,
+                                                       const std::string                &target,
+                                                       const sky::BuildSettingsOverride &override,
+                                                       const Uuid                       &expectedSchema)
+    {
+        Uuid currentSchema;
+        if (!ResolveEditableCookSettings(uuid, target, currentSchema) || !(currentSchema == expectedSchema)) {
+            return false; // missing/read-only asset, removed target, or replaced schema: stale commands are inert
+        }
+        auto *db = sky::AssetDataBase::Get();
 
         rapidjson::Document cook;
         ParseCook(db->GetCookJson(uuid), cook);
@@ -742,21 +847,22 @@ namespace sky::editor {
         refreshPending.store(true, std::memory_order_relaxed);
     }
 
-    namespace {
-        IEditorAssetCatalog *g_catalogOverride = nullptr;
-    } // namespace
+    class EditorAssetCatalogBinding : public sky::Singleton<EditorAssetCatalogBinding> {
+    public:
+        IEditorAssetCatalog *catalog = nullptr;
+    };
 
     IEditorAssetCatalog *GetEditorAssetCatalog()
     {
-        if (g_catalogOverride != nullptr) {
-            return g_catalogOverride;
+        if (auto *catalog = EditorAssetCatalogBinding::Get()->catalog; catalog != nullptr) {
+            return catalog;
         }
         return EditorAssetCatalog::Get();
     }
 
     void SetEditorAssetCatalog(IEditorAssetCatalog *catalog)
     {
-        g_catalogOverride = catalog;
+        EditorAssetCatalogBinding::Get()->catalog = catalog;
     }
 
 } // namespace sky::editor

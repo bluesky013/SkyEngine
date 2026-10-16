@@ -4,8 +4,7 @@
 TBD - created by archiving change engine-ui-system. Update Purpose after archive.
 ## Requirements
 ### Requirement: Render-agnostic core module
-The UI core SHALL live in `engine/ui/core` and SHALL compile without including any render or Aurora header
-(`render/*`, `aurora/*`). It SHALL depend only on `Core` and `Framework`.
+The UI implementation core SHALL live in `engine/ui/core` as target `UI` under the explicit UI foundation exception and SHALL compile without including any render or Aurora header (`render/*`, `aurora/*`). It SHALL depend only on `UI.Interface`, `Core`, and the document parser, and SHALL NOT depend on editor, FreeType, Framework, or Aurora implementation targets. The root `UI.Interface` target SHALL expose UI provider contracts, their data, and pure utilities. Existing runtime `ui/...` public include paths SHALL remain valid through the appropriate target.
 
 #### Scenario: Core compiles without render headers
 - **WHEN** the `UI` target is built with render and Aurora include paths absent
@@ -14,6 +13,14 @@ The UI core SHALL live in `engine/ui/core` and SHALL compile without including a
 #### Scenario: Render dependencies are not leaked
 - **WHEN** any public header under `engine/ui/core` is inspected
 - **THEN** it SHALL NOT include `aurora/...` or `render/...` headers
+
+#### Scenario: Runtime core excludes optional implementation modules
+- **WHEN** `UI` is configured without the document editor, FreeType adaptor, or Aurora adaptor being linked by its caller
+- **THEN** its dependency graph SHALL NOT require those implementations
+
+#### Scenario: Existing runtime includes remain valid
+- **WHEN** a runtime toolkit consumer links `UI` from the foundation's separated runtime target
+- **THEN** its existing `ui/...` includes SHALL continue to resolve
 
 ### Requirement: Retained element tree
 The core SHALL provide a `UIElement` base node and a `UIContext` that owns a single root element. Elements
@@ -32,28 +39,50 @@ SHALL support adding and removing children, parenting, and traversal in paint or
 - **THEN** all of them SHALL be parented to the context's single root element
 
 ### Requirement: Visibility and dirty propagation
-Elements SHALL support a visibility flag. Changing visibility, bounds, or tree structure SHALL mark the
-affected subtree dirty for layout and/or paint, and a clean subtree SHALL NOT be re-laid-out.
+Elements SHALL support visibility and separate desired-size, arrangement, and paint invalidation. Layout invalidation SHALL propagate toward ancestors rather than recursively dirtying descendants. The explicit incremental layout entries SHALL skip only clean controlled branches with unchanged allocation inputs; volatile branches SHALL remain eligible for layout. Existing external forced layout calls SHALL remain supported. Visibility SHALL continue to suppress hidden elements and their descendants during paint.
 
 #### Scenario: Hidden element is not painted
 - **WHEN** an element's visibility is set to false
 - **THEN** that element and its descendants SHALL emit no draw data
 
-#### Scenario: Dirty subtree only
-- **WHEN** one element's bounds are changed
-- **THEN** only that element's subtree SHALL be marked for layout, and sibling subtrees SHALL remain clean
+#### Scenario: Changed leaf invalidates its consumers
+- **WHEN** a leaf changes its desired size
+- **THEN** the leaf and ancestor allocation consumers SHALL become dirty while unrelated sibling branches SHALL not be recursively marked dirty
+
+#### Scenario: Bounds changes update descendants during arrangement
+- **WHEN** a host changes an element's bounds and requests layout
+- **THEN** its descendant allocations SHALL update through arrangement while unrelated sibling branches remain eligible for reuse
+
+#### Scenario: Clean controlled subtree skips incremental work
+- **WHEN** an incremental pass reaches an unchanged controlled subtree with no pending layout work
+- **THEN** that subtree SHALL NOT be re-laid-out solely because a new frame begins
 
 ### Requirement: Layout system
-The core SHALL provide a two-pass measure/arrange layout system supporting anchor and box-size rules, and
-SHALL expose each element's resolved bounds after layout.
+The core SHALL provide measure and arrange stages supporting anchor and box-size rules, and SHALL expose each element's resolved bounds after layout. Its non-virtual MeasureDesired entry SHALL enforce normalized constraints through OnMeasure, and MeasureForLayout/Layout SHALL resolve known own-rule axes before measuring. Layout(parentRect) SHALL compute the requested rectangle from the same rule budget and enter Arrange(finalRect). A parent that already owns a child's final rectangle SHALL measure/arrange that allocation without applying the child's anchor/size rules again. Descendants SHALL be arranged before return, and absolute layout-surface coordinates SHALL remain unchanged. Legacy Measure(float&, float&) SHALL remain supported through the one-way bridge.
 
 #### Scenario: Arrange computes bounds
-- **WHEN** layout runs for an element with a fixed size inside a parent
-- **THEN** the element's resolved bounds size SHALL equal the requested size
+- **WHEN** ordinary layout runs for an element with a fixed size inside a parent
+- **THEN** its resolved bounds SHALL equal the requested fixed size, including an explicit size larger than the parent's available extent
 
 #### Scenario: Layout respects parent shrink
-- **WHEN** a child is laid out inside a parent with a fixed content box
-- **THEN** the child's bounds SHALL be positioned within the parent's content box
+- **WHEN** a child with a non-overflowing AUTO/FILL request is laid out inside a fixed parent content box
+- **THEN** its resolved allocation SHALL respect that content budget
+
+#### Scenario: Parent allocation is final
+- **WHEN** a slot container allocates a child rectangle and calls the child's Arrange
+- **THEN** the child's resolved bounds SHALL equal that rectangle without a second anchor or box-size resolution
+
+#### Scenario: Nested container geometry exists before paint
+- **WHEN** a container containing another slot container is arranged
+- **THEN** the nested container and its descendants SHALL have resolved bounds before any paint call
+
+#### Scenario: Parent resize updates descendants
+- **WHEN** an arranged container is arranged again with a different final rectangle
+- **THEN** its descendant slot allocations SHALL reflect the new rectangle before paint
+
+#### Scenario: Known width constrains desired height
+- **WHEN** an element's width is resolved before measuring width-dependent content
+- **THEN** OnMeasure SHALL receive that resolved width budget before producing desired height
 
 ### Requirement: Style and theme separation
 Widget appearance SHALL be resolved from a `UIStyle`/theme value structure rather than being hard-coded in
@@ -64,30 +93,34 @@ widget logic. The theme SHALL be replaceable at runtime.
 - **THEN** panel draw data SHALL use the new color
 
 ### Requirement: Draw data emission
-Core paint SHALL emit a render-agnostic `UIDrawData` containing a batched triangle list (position, uv,
-color), indices, and draw commands with index range, clip rect, and an opaque texture handle. Core SHALL NOT
-emit Aurora or backend types.
+Core paint SHALL emit a render-agnostic UIDrawData containing a batched triangle list with position, UV, and color, indices, and draw commands with index range, clip rectangle, and an opaque texture handle. Vertex positions and draw clip rectangles SHALL be expressed in rendered-surface coordinates. Active layout clips SHALL be transformed to conservative surface AABBs before intersection. Core SHALL NOT emit Aurora or backend types. Each paint call SHALL rebuild complete visible output even when layout and paint flags were already clean; dirty state SHALL NOT be used to omit draw emission without a retained rendering system.
 
 #### Scenario: Draw commands carry clip and texture
 - **WHEN** an element with a texture is painted inside a clipping container
-- **THEN** the resulting draw command SHALL reference the element's texture handle and a clip rect equal to the intersection of active clips
+- **THEN** its draw command SHALL reference the texture handle and a clip rectangle equal to the intersection of active transformed surface clip AABBs
 
 #### Scenario: No GPU types in draw data
-- **WHEN** the `UIDrawData` type and its members are inspected
+- **WHEN** the UIDrawData type and its members are inspected
 - **THEN** no Aurora, RHI, or backend type SHALL appear
 
+#### Scenario: Unchanged frames retain full output
+- **WHEN** a visible tree is painted twice with unchanged state and clean dirty flags
+- **THEN** both frames SHALL contain complete equivalent draw output rather than an empty second frame
+
 ### Requirement: Input event routing and hit-testing
-The core SHALL accept an input state (pointer position, buttons, wheel, keyboard) and route events by
-hit-testing the element tree in reverse paint order, clip-aware, so the topmost visible element under the
-pointer receives the event.
+The core SHALL accept input whose pointer positions are in rendered-surface coordinates and SHALL hit-test the element tree in reverse stable paint/z order, using effective transformed surface clip AABBs and inverse accumulated geometry. The topmost visible hit element SHALL receive the event. A non-invertible element and its subtree SHALL NOT be hit or receive pointer dispatch with undefined coordinates.
 
 #### Scenario: Topmost element receives pointer
 - **WHEN** two overlapping elements are hit by a pointer event
 - **THEN** the element painted last SHALL receive the event
 
 #### Scenario: Clipped element is not hit
-- **WHEN** a pointer is outside a container's clip rect but inside a child's unclipped bounds
+- **WHEN** a pointer is outside a container's transformed surface clip AABB but inside a child's unclipped transformed bounds
 - **THEN** the child SHALL NOT be hit
+
+#### Scenario: Non-invertible subtree is excluded
+- **WHEN** an element or its ancestor has a singular accumulated transform
+- **THEN** neither that element nor its descendants SHALL be selected as a pointer hit target
 
 ### Requirement: Event consumption result
 Pointer and keyboard handlers SHALL return a result indicating whether the event was handled, so the router
@@ -154,8 +187,7 @@ Elements SHALL carry a `z` value; painting SHALL draw children in ascending `z` 
 - **THEN** the higher-`z` child SHALL be painted after the lower one and SHALL be hit first
 
 ### Requirement: Linear layout containers
-The UI system SHALL provide `HBox` and `VBox` containers that arrange their children sequentially along the
-main axis with spacing, respecting container padding, and that size themselves to their content when AUTO.
+The UI system SHALL provide HBox and VBox containers that arrange their children sequentially along the main axis with spacing and padding and size themselves to their content when AUTO. They SHALL query child layout rules with available constraints, reserve consumed Fixed/Auto extents and spacing, and allocate Fill only from the nonnegative remaining main-axis budget. Their final child allocations SHALL NOT overlap because a Fill child receives the original full parent extent again.
 
 #### Scenario: HBox places children in a row
 - **WHEN** an HBox with spacing contains two fixed-size children
@@ -163,7 +195,11 @@ main axis with spacing, respecting container padding, and that size themselves t
 
 #### Scenario: VBox content height
 - **WHEN** a VBox has AUTO height and two stacked children
-- **THEN** its measured height SHALL cover both children plus spacing and padding
+- **THEN** its measured height SHALL cover both children plus spacing and padding, subject to the caller's hard constraints
+
+#### Scenario: Fill follows an already allocated sibling
+- **WHEN** a finite HBox or VBox has a non-Fill child followed by Fill content
+- **THEN** the Fill child's allocated extent SHALL be the remaining main-axis share rather than the full parent extent
 
 ### Requirement: Pointer enter and leave
 The event router SHALL track the hovered element and notify the previous element with a leave and the new
@@ -198,8 +234,7 @@ over enabled, effectively-visible, focusable elements with wrap-around, in trave
 - **THEN** the first focusable element SHALL be returned
 
 ### Requirement: Element transform
-Elements SHALL support a 2D transform (translation, rotation, scale, pivot) that is applied to emitted vertex
-positions, and transforms SHALL compose down the element tree (a parent transform affects its subtree).
+Elements SHALL support a 2D transform (translation, rotation, scale, pivot) that is applied to emitted vertex positions, and transforms SHALL compose down the element tree with the context surface transform. Paint, geometry queries, clipping, and hit-testing SHALL use that same composition. GetBounds/Arrange SHALL retain absolute layout-surface rectangles and the current transform/pivot convention; render transforms SHALL NOT implicitly move their origin into parent-local coordinates.
 
 #### Scenario: Translation moves geometry
 - **WHEN** an element with a translation transform is painted
@@ -208,6 +243,10 @@ positions, and transforms SHALL compose down the element tree (a parent transfor
 #### Scenario: Parent transform affects children
 - **WHEN** a parent with a transform contains a child that emits geometry
 - **THEN** the child's vertices SHALL be transformed by the parent transform as well
+
+#### Scenario: Hit geometry matches paint geometry
+- **WHEN** a child under nested transforms is painted and hit-tested
+- **THEN** both operations SHALL use the same accumulated layout-to-surface matrix
 
 ### Requirement: Hierarchical opacity
 Elements SHALL carry an opacity in the range 0 to 1 that multiplies into emitted vertex alpha, and a parent's
@@ -245,3 +284,17 @@ while edges and center stretch.
 - **WHEN** an image has zero slice insets
 - **THEN** it SHALL emit a single quad
 
+### Requirement: Slot containers arrange outside paint
+StackPanel, GridPanel, DockPanel, and Overlay SHALL allocate their child rectangles through the common arrangement stage. `UIElement::Paint` and these containers' paint callbacks SHALL consume resolved bounds and SHALL NOT perform layout as a side effect. Migrated Sandbox and material-editor compositions SHALL arrange their slot-container content before reading child bounds for input or rendering.
+
+#### Scenario: First input uses arranged geometry
+- **WHEN** a slot-container composition is arranged and receives pointer input before its first paint
+- **THEN** child hit-testing SHALL use the rectangles resolved during arrangement
+
+#### Scenario: Paint preserves child bounds
+- **WHEN** an arranged slot-container subtree is painted twice without a layout change
+- **THEN** both paints SHALL preserve its resolved child bounds and SHALL NOT invoke child arrangement
+
+#### Scenario: Layout helper uses the common path
+- **WHEN** a slot container's retained convenience layout helper is invoked
+- **THEN** it SHALL complete the same recursive arrangement path used by `UIElement::Arrange`

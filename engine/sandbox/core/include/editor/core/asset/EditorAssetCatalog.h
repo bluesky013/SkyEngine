@@ -6,6 +6,8 @@
 
 #include <core/environment/Singleton.h>
 #include <core/util/Uuid.h>
+#include <editor/core/command/UndoCommand.h>
+#include <framework/asset/AssetBuilder.h>
 #include <framework/serialization/Any.h>
 
 #include <atomic>
@@ -150,6 +152,15 @@ namespace sky::editor {
         EditorCookSettings GetCookSettings(const Uuid &uuid, const std::string &target) const;
         // Persist a reflected-form edit: compute the sparse override vs the bundle preset and write it.
         bool ApplyCookSettings(const Uuid &uuid, const std::string &target, const Any &edited);
+        // Target-only snapshots preserve other cook settings/targets. The catalog
+        // service must outlive commands created from it; commands retain no UI,
+        // reflected model storage, or schema node pointers.
+        UndoCommandPtr MakeCookSettingsEditCommand(const Uuid &uuid, const std::string &target, const Any &edited);
+        UndoCommandPtr MakeCookSettingsPropertyEditCommand(const Uuid &uuid, const std::string &target, const std::string &property, Any value);
+        bool           ApplyCookSettingsOverride(const Uuid                       &uuid,
+                                                 const std::string                &target,
+                                                 const sky::BuildSettingsOverride &settings,
+                                                 const Uuid                       &expectedSchema);
 
         // The full virtual-path tree (root folder), built in a single pass. A view flattens it.
         EditorAssetFolder GetTree() const;
@@ -194,6 +205,7 @@ namespace sky::editor {
 
         static AssetCookState AggregateState(const CookStateMap &states);
 
+        bool ResolveEditableCookSettings(const Uuid &uuid, const std::string &target, Uuid &schema) const;
         void NotifyObservers();
         // Revision-keyed snapshot of the registered sources (structure + metadata + cook state).
         // Rebuilt only when the revision advances (mutation, build event, refresh).

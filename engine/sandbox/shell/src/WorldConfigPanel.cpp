@@ -11,7 +11,9 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 
+#include <algorithm>
 #include <string>
+#include <ui/widgets/DockPanel.h>
 #include <utility>
 #include <vector>
 
@@ -26,52 +28,168 @@ namespace sky::editor {
         }
     } // namespace
 
+    struct WorldConfigPanel::Layout {
+        sky::ui::DockPanel *panel  = nullptr;
+        sky::ui::UIElement *header = nullptr;
+        sky::ui::DockPanel *body   = nullptr;
+        sky::ui::UIElement *list   = nullptr;
+    };
+
     WorldConfigPanel::WorldConfigPanel(sky::ui::UITextSystem *text, DocumentProvider provider, std::string inTitle)
-        : textSystem(text), skin(GetDefaultUiTheme(), text), documentProvider(std::move(provider)), title(std::move(inTitle))
+        : layout(std::make_unique<Layout>())
+        , textSystem(text)
+        , skin(GetDefaultUiTheme(), text)
+        , documentProvider(std::move(provider))
+        , title(std::move(inTitle))
     {
         // Create the reflected-form view once, here (never during OnPaint) so the
         // element tree is not mutated while painting.
-        formView = static_cast<ReflectedFormView *>(AddChild(std::make_unique<ReflectedFormView>(text, "")));
+        using namespace sky::ui;
+        layout->panel = static_cast<DockPanel *>(AddChild(std::make_unique<DockPanel>()));
+        auto header   = std::make_unique<UIElement>();
+        header->SetLayoutVolatile(false);
+        layout->header = layout->panel->Add(std::move(header), {DockSide::Top});
+        layout->body   = static_cast<DockPanel *>(layout->panel->Add(std::make_unique<DockPanel>()));
+        auto list      = std::make_unique<UIElement>();
+        list->SetLayoutVolatile(false);
+        layout->list = layout->body->Add(std::move(list), {DockSide::Left});
+        formView     = static_cast<ReflectedFormView *>(layout->body->Add(std::make_unique<ReflectedFormView>(text, "")));
         // Edits to a subsystem's config mark the world document dirty so the
         // title/status show the unsaved marker and Save persists them.
         formView->SetOnEdited([this]() {
-            if (WorldDocument *doc = documentProvider ? documentProvider() : nullptr) {
-                doc->MarkDirty();
+            if (lastDocument != nullptr) {
+                lastDocument->MarkDirty();
             }
         });
-        Rebind();
+        SynchronizeDocument();
+    }
+
+    WorldConfigPanel::~WorldConfigPanel() = default;
+
+    void WorldConfigPanel::UpdateComposition(bool arranging)
+    {
+        const auto  size   = GetArrangedSize();
+        const auto &m      = skin.Theme().metrics;
+        const float header = titleVisible ? std::min(std::max(0.0f, m.panelHeaderHeight), size.height) : 0.0f;
+        layout->panel->SetSlot(layout->header, {sky::ui::DockSide::Top, header});
+        layout->body->SetSlot(layout->list, {sky::ui::DockSide::Left, std::min(std::max(0.0f, m.listColumnWidth), size.width * 0.5f)});
+        if (arranging) {
+            // Slot changes above are inputs consumed by this allocation. Clear
+            // them before arranging children, so a child that invalidates the
+            // panel during its own arrangement still schedules another pass.
+            ClearLayoutDirty();
+        }
+        layout->panel->ArrangeIfNeeded(GetBounds(), size);
     }
 
     void WorldConfigPanel::SetTitleBarVisible(bool visible)
     {
+        if (titleVisible == visible) {
+            return;
+        }
         titleVisible = visible;
+        MarkLayoutDirty();
         MarkPaintDirty();
+    }
+
+    void WorldConfigPanel::SetDocument(WorldDocument *document)
+    {
+        const bool changed = providerMode || lastDocument != document;
+        providerMode       = false;
+        SetLayoutVolatile(false);
+        if (formView != nullptr) {
+            formView->SetLayoutVolatile(false);
+        }
+        if (!changed) {
+            return;
+        }
+        lastDocument = document;
+        selected     = 0;
+        RefreshDocument();
+    }
+
+    void WorldConfigPanel::RefreshDocument()
+    {
+        // Reload may already have replaced storage inside the same document.
+        // Drop old callbacks before resolving or default-creating fresh config.
+        if (formView != nullptr) {
+            formView->Unbind();
+        }
+        Rebind();
+        MarkLayoutDirty();
+    }
+
+    void WorldConfigPanel::SynchronizeLayout()
+    {
+        SynchronizeLayout(false);
+    }
+
+    void WorldConfigPanel::SynchronizeLayout(bool arranging)
+    {
+        if (layoutBusy)
+            return;
+        layoutBusy = true;
+        SynchronizeDefaultUiTheme(*this, themeRevision);
+        SynchronizeDocument();
+        if (formView != nullptr) {
+            formView->SynchronizeLayout();
+        }
+        UpdateComposition(arranging);
+        layoutBusy = false;
+    }
+
+    void WorldConfigPanel::SynchronizeDocument()
+    {
+        if (!providerMode) {
+            return;
+        }
+        WorldDocument *document = documentProvider ? documentProvider() : nullptr;
+        if (lastDocument != document) {
+            lastDocument = document;
+            selected     = 0;
+            RefreshDocument();
+        } else if (document == nullptr && formView != nullptr) {
+            formView->SetVisible(false);
+        }
     }
 
     sky::ui::UIRect WorldConfigPanel::ListRect() const
     {
-        const sky::ui::UIRect &b = GetBounds();
-        const UiMetrics       &m = skin.Theme().metrics;
-        return sky::ui::UIRect{b.left, b.top + m.headerHeight, b.left + m.listColumnWidth, b.bottom};
+        const_cast<WorldConfigPanel *>(this)->SynchronizeLayout();
+        return layout->list->GetBounds();
     }
 
     sky::ui::UIRect WorldConfigPanel::RowRect(int index) const
     {
-        const UiMetrics      &m     = skin.Theme().metrics;
-        const sky::ui::UIRect list  = ListRect();
-        const float           inset = m.controlPad * 0.5f;
-        const float           top   = list.top + static_cast<float>(index) * m.rowHeight;
-        return sky::ui::UIRect{list.left + inset, top, list.right - inset, top + m.rowHeight - m.checkboxPad};
+        const_cast<WorldConfigPanel *>(this)->SynchronizeLayout();
+        return ComputeRowRect(index);
+    }
+
+    sky::ui::UIRect WorldConfigPanel::ComputeRowRect(int index) const
+    {
+        if (index < 0)
+            return {};
+        const auto &m     = skin.Theme().metrics;
+        const auto  list  = layout->list->GetBounds();
+        const float inset = std::min(std::max(0.0f, m.controlPad) * 0.5f, list.Width() * 0.5f);
+        const float top   = list.top + static_cast<float>(index) * std::max(0.0f, m.rowHeight);
+        return {list.left + inset, top, list.right - inset, top + std::max(0.0f, m.rowHeight - m.checkboxPad)};
     }
 
     sky::ui::UIRect WorldConfigPanel::CheckRect(int index) const
     {
-        const UiMetrics      &m   = skin.Theme().metrics;
-        const sky::ui::UIRect row = RowRect(index);
-        const float           cy  = (row.top + row.bottom) * 0.5f;
-        const float           pad = m.checkboxPad;
-        const float           sz  = m.checkboxSize;
-        return sky::ui::UIRect{row.left + pad, cy - sz * 0.5f, row.left + pad + sz, cy + sz * 0.5f};
+        const_cast<WorldConfigPanel *>(this)->SynchronizeLayout();
+        return ComputeCheckRect(index);
+    }
+
+    sky::ui::UIRect WorldConfigPanel::ComputeCheckRect(int index) const
+    {
+        const auto &m    = skin.Theme().metrics;
+        const auto  row  = ComputeRowRect(index);
+        const float pad  = std::min(std::max(0.0f, m.checkboxPad), row.Width() * 0.5f);
+        const float size = std::min({std::max(0.0f, m.checkboxSize), std::max(0.0f, row.Width() - 2.0f * pad), row.Height()});
+        const float cy   = (row.top + row.bottom) * 0.5f;
+        return {row.left + pad, cy - size * 0.5f, row.left + pad + size, cy + size * 0.5f};
     }
 
     int WorldConfigPanel::RowAt(float x, float y) const
@@ -94,8 +212,13 @@ namespace sky::editor {
         if (index == selected) {
             return;
         }
+        // This selection path still owns a live config. Restore any preview
+        // before saving it and abandoning the old binding.
+        if (formView != nullptr) {
+            formView->CancelInteractions();
+        }
         // Persist edits made through the form before switching subsystem.
-        if (WorldDocument *doc = documentProvider ? documentProvider() : nullptr; doc != nullptr && doc->IsDirty()) {
+        if (WorldDocument *doc = lastDocument; doc != nullptr && doc->IsDirty()) {
             doc->Save();
         }
         selected = index;
@@ -105,7 +228,7 @@ namespace sky::editor {
 
     void WorldConfigPanel::ToggleEnabled(int index)
     {
-        WorldDocument *doc = documentProvider ? documentProvider() : nullptr;
+        WorldDocument *doc = lastDocument;
         if (doc == nullptr) {
             return;
         }
@@ -114,6 +237,13 @@ namespace sky::editor {
             return;
         }
         const std::string name(names[static_cast<std::size_t>(index)].GetStr());
+
+        // The current config is live here. Restore its preview and detach
+        // before appending subsystem storage can invalidate its address.
+        if (formView != nullptr) {
+            formView->CancelInteractions();
+            formView->Unbind();
+        }
 
         bool       flag   = false;
         const bool inDesc = doc->IsSubSystemEnabled(name, flag);
@@ -134,7 +264,8 @@ namespace sky::editor {
             return;
         }
         // No world open: the panel shows an empty state, never fabricated defaults.
-        WorldDocument *doc = documentProvider ? documentProvider() : nullptr;
+        WorldDocument *doc = lastDocument;
+        formView->SetVisible(doc != nullptr && !RegistryNames().empty());
         if (doc == nullptr) {
             formView->Bind(PropertyObject{});
             return;
@@ -165,52 +296,48 @@ namespace sky::editor {
         formView->Bind(PropertyObject{config->Data(), node});
     }
 
+    void WorldConfigPanel::ArrangeChildren(const sky::ui::UIRect &)
+    {
+        SynchronizeLayout(true);
+    }
+
     void WorldConfigPanel::OnPaint(sky::ui::UIPaintContext &context)
     {
-        const sky::ui::UIRect content = skin.DrawPanel(context, GetBounds(), title, titleVisible);
+        context.PushClip(GetBounds());
+        skin.DrawPanel(context, GetBounds(), title, titleVisible);
+        const sky::ui::UIRect content = layout->body->GetBounds();
         const UiTheme        &th      = skin.Theme();
-
-        // Open/close a world while the panel exists: rebind to the new document.
-        WorldDocument *doc = documentProvider ? documentProvider() : nullptr;
-        if (doc != lastDocument) {
-            lastDocument = doc;
-            selected     = 0;
-            Rebind();
-        }
-        if (formView == nullptr) {
-            return;
-        }
+        WorldDocument        *doc     = lastDocument;
 
         // Empty state before any world is opened: no fabricated config values.
         if (doc == nullptr) {
-            formView->SetVisible(false);
             uc::Text(context, "No world open", th.fonts.label, content, th.colors.textMuted, textSystem, uc::HAlign::Center, uc::VAlign::Middle,
                      false);
+            context.PopClip();
             return;
         }
 
-        const sky::ui::UIRect   list  = ListRect();
+        const sky::ui::UIRect list = layout->list->GetBounds();
+        context.PushClip(list);
         const std::vector<Name> names = RegistryNames();
 
         uc::Fill(context, list, th.colors.section);
         uc::HLine(context, list.right, list.right, list.bottom, th.colors.border);
 
         for (int i = 0; i < static_cast<int>(names.size()); ++i) {
-            const sky::ui::UIRect row = RowRect(i);
+            const sky::ui::UIRect row = ComputeRowRect(i);
             if (i == selected) {
                 uc::Fill(context, row, th.colors.rowSelected);
             }
             bool       flag   = false;
             const bool inDesc = doc->IsSubSystemEnabled(std::string(names[static_cast<std::size_t>(i)].GetStr()), flag);
-            skin.DrawCheckbox(context, CheckRect(i), !inDesc || flag, false);
+            skin.DrawCheckbox(context, ComputeCheckRect(i), !inDesc || flag, false);
             uc::Text(context, std::string(names[static_cast<std::size_t>(i)].GetStr()), th.fonts.label,
                      sky::ui::UIRect{row.left + th.metrics.listLabelIndent, row.top, row.right, row.bottom}, th.colors.text, textSystem,
                      uc::HAlign::Left, uc::VAlign::Middle, true);
         }
-
-        // The reflected-form child occupies the right pane.
-        formView->SetBounds(sky::ui::UIRect{content.left + th.metrics.listColumnWidth, content.top, content.right, content.bottom});
-        formView->SetVisible(!names.empty());
+        context.PopClip();
+        context.PopClip();
     }
 
     sky::ui::UIEventResult WorldConfigPanel::OnPointerEvent(const sky::ui::UIPointerEvent &event)
@@ -218,7 +345,8 @@ namespace sky::editor {
         if (event.action != sky::ui::UIPointerAction::DOWN) {
             return sky::ui::UIEventResult::UNHANDLED;
         }
-        WorldDocument *doc = documentProvider ? documentProvider() : nullptr;
+        SynchronizeLayout();
+        WorldDocument *doc = lastDocument;
         if (doc == nullptr) {
             return sky::ui::UIEventResult::UNHANDLED; // empty state: no interactive rows
         }

@@ -7,9 +7,9 @@
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/ShaderReflection.h>
 #include <core/template/ReferenceObject.h>
+#include <cstdint>
 #include <ui/IUITextureRegistry.h>
 #include <ui/UIDrawData.h>
-#include <cstdint>
 #include <unordered_map>
 #include <vector>
 
@@ -31,8 +31,8 @@ namespace sky::ui {
     // UI renderer: owns the GUI pipeline and records draws for `UIDrawData`.
     //
     // The shader is compiled at runtime through `Aurora.Shader` (SPIR-V); the
-    // pipeline samples a texture bound via a `ResourceGroup`. This is the engine-
-    // level home of the GUI pipeline; hosts (e.g. `SandboxModule`) only call
+    // pipeline samples a texture bound via a `ResourceGroup`. The UI Aurora
+    // adaptor owns the GUI pipeline; hosts (e.g. `SandboxModule`) only call
     // `UpdateDrawData` / `Render`.
     //
     // Conventions (renderer usage; the storage layout of `Matrix4` is row-major
@@ -57,30 +57,40 @@ namespace sky::ui {
         UIRenderer() = default;
         ~UIRenderer() override;
 
-        UIRenderer(const UIRenderer &) = delete;
+        UIRenderer(const UIRenderer &)            = delete;
         UIRenderer &operator=(const UIRenderer &) = delete;
 
         bool Init(aurora::Device *device, aurora::PixelFormat colorFormat);
         void Shutdown();
 
-        bool IsValid() const { return pipeline != nullptr; }
+        bool IsValid() const
+        {
+            return pipeline != nullptr;
+        }
 
         // Update the vertex/index buffers from the given draw data. Vertices are
         // pixel-space (from UIPaintContext); they are converted to NDC on upload.
         void UpdateDrawData(const UIDrawData &drawData, uint32_t surfaceWidth, uint32_t surfaceHeight);
 
+        // Call after the host has waited for ALL prior UI submissions. Current
+        // editor integration uses inflight=1 and its BeginFrame fence wait.
+        // Entries retired while recording this frame survive until the next
+        // such safe point. Shutdown additionally requires the host's idle wait.
+        void CollectRetiredTextures();
+
         // Upload built-in / pending textures on first use (records into cmd).
+        // CPU updates coalesce until this call, which creates a fresh GPU
+        // generation instead of mapping staging used by an earlier submission.
         void EnsureTextureReady(aurora::CommandBuffer *commandBuffer);
 
         // Record the draws for the given draw data (viewport + scissor + draws).
-        void Render(aurora::GraphicsEncoder *encoder, const UIDrawData &drawData, uint32_t surfaceWidth,
-                    uint32_t surfaceHeight);
+        void Render(aurora::GraphicsEncoder *encoder, const UIDrawData &drawData, uint32_t surfaceWidth, uint32_t surfaceHeight);
 
         // IUITextureRegistry: CPU images (icons / atlas pages).
         UITextureId RegisterTexture(const UIImageData &image) override;
         UITextureId RegisterTextureAs(UITextureId id, const UIImageData &image) override;
-        void UpdateTexture(UITextureId id, const UIImageData &image) override;
-        void ReleaseTexture(UITextureId id) override;
+        void        UpdateTexture(UITextureId id, const UIImageData &image) override;
+        void        ReleaseTexture(UITextureId id) override;
 
         // Register an existing GPU image (e.g. a viewport content target). The
         // image must be kept alive by the caller while registered.
@@ -92,43 +102,45 @@ namespace sky::ui {
             sky::CounterPtr<aurora::Buffer>        staging;
             sky::CounterPtr<aurora::ResourceGroup> group;
             std::vector<uint8_t>                   pendingPixels; // RGBA8, uploaded on first use
-            uint32_t                               width  = 0;
-            uint32_t                               height = 0;
+            uint32_t                               width    = 0;
+            uint32_t                               height   = 0;
             bool                                   uploaded = false;
         };
 
         UITextureId AddTexture(UITextureId id, const UIImageData &image);
+        bool        PrepareTexture(TextureEntry &entry);
+        void        RetireTexture(TextureEntry &&entry);
 
-        bool EnsureBuffers(uint64_t vertexBytes, uint64_t indexBytes);
-        aurora::ResourceGroup *CreateTextureGroup(aurora::Image *image);
-        aurora::ResourceGroup *FindGroup(UITextureId id) const;
-        aurora::GraphicsEncoder *BindPipeline(aurora::GraphicsEncoder *encoder, uint32_t surfaceWidth,
-                                              uint32_t surfaceHeight) const;
+        bool                     EnsureBuffers(uint64_t vertexBytes, uint64_t indexBytes);
+        aurora::ResourceGroup   *CreateTextureGroup(aurora::Image *image);
+        aurora::ResourceGroup   *FindGroup(UITextureId id) const;
+        aurora::GraphicsEncoder *BindPipeline(aurora::GraphicsEncoder *encoder, uint32_t surfaceWidth, uint32_t surfaceHeight) const;
 
-        aurora::Device                    *device = nullptr;
-        aurora::PixelFormat                colorFormat = aurora::PixelFormat::UNDEFINED;
-        aurora::ShaderReflection           reflection; // target-specific (backend register/binding)
+        aurora::Device          *device      = nullptr;
+        aurora::PixelFormat      colorFormat = aurora::PixelFormat::UNDEFINED;
+        aurora::ShaderReflection reflection; // target-specific (backend register/binding)
         // Bindings of the `tex`/`smp` resources, resolved from the target-specific
         // reflection: on Metal the categories are numbered independently (sampler
         // is 0), while Vulkan/DX12 keep the authored 0/1 register numbers.
-        uint32_t                           texBinding = 0;
-        uint32_t                           smpBinding = 1;
-        sky::CounterPtr<aurora::ShaderFunction>   vs;
-        sky::CounterPtr<aurora::ShaderFunction>   ps;
-        sky::CounterPtr<aurora::Shader>           shader;
-        sky::CounterPtr<aurora::GraphicsPipeline> pipeline;
-        aurora::ShaderReflection                  roundReflection;
-        sky::CounterPtr<aurora::ShaderFunction>   psRound;
-        sky::CounterPtr<aurora::Shader>           roundShader;
-        sky::CounterPtr<aurora::GraphicsPipeline> roundPipeline;
-        sky::CounterPtr<aurora::Buffer>           vertexBuffer;
-        sky::CounterPtr<aurora::Buffer>           indexBuffer;
-        sky::CounterPtr<aurora::Buffer>           staging;
-        sky::CounterPtr<aurora::Sampler>          sampler;
+        uint32_t                                      texBinding = 0;
+        uint32_t                                      smpBinding = 1;
+        sky::CounterPtr<aurora::ShaderFunction>       vs;
+        sky::CounterPtr<aurora::ShaderFunction>       ps;
+        sky::CounterPtr<aurora::Shader>               shader;
+        sky::CounterPtr<aurora::GraphicsPipeline>     pipeline;
+        aurora::ShaderReflection                      roundReflection;
+        sky::CounterPtr<aurora::ShaderFunction>       psRound;
+        sky::CounterPtr<aurora::Shader>               roundShader;
+        sky::CounterPtr<aurora::GraphicsPipeline>     roundPipeline;
+        sky::CounterPtr<aurora::Buffer>               vertexBuffer;
+        sky::CounterPtr<aurora::Buffer>               indexBuffer;
+        sky::CounterPtr<aurora::Buffer>               staging;
+        sky::CounterPtr<aurora::Sampler>              sampler;
         std::unordered_map<UITextureId, TextureEntry> textures;
-        UITextureId nextTextureId = 1;
-        uint64_t vertexCapacity = 0;
-        uint64_t indexCapacity  = 0;
+        std::vector<TextureEntry>                     retiredTextures;
+        UITextureId                                   nextTextureId  = 1;
+        uint64_t                                      vertexCapacity = 0;
+        uint64_t                                      indexCapacity  = 0;
     };
 
 } // namespace sky::ui

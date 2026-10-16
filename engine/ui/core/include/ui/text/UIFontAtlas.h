@@ -16,12 +16,12 @@ namespace sky::ui {
 
     struct UIGlyphEntry {
         UITextureId textureId = UI_INVALID_TEXTURE;
-        UIRect uv;
-        float width = 0.0f;
-        float height = 0.0f;
-        float bearingX = 0.0f;
-        float bearingY = 0.0f;
-        float advance = 0.0f;
+        UIRect      uv;
+        float       width    = 0.0f;
+        float       height   = 0.0f;
+        float       bearingX = 0.0f;
+        float       bearingY = 0.0f;
+        float       advance  = 0.0f;
     };
 
     // Caches rasterized glyphs by (size, codepoint), packs them into fixed-size
@@ -32,31 +32,44 @@ namespace sky::ui {
         UIFontAtlas(IUITextureRegistry *registry, uint32_t pageSize = 256);
 
         // Adds another registry (e.g. a second window's renderer). Existing pages
-        // are replayed into it so glyphs render everywhere.
+        // are replayed into it so glyphs render everywhere. Registries are borrowed;
+        // remove them before destruction. Adding the same registry is idempotent.
         void AddRegistry(IUITextureRegistry *registry);
+        // Stops future page registration/updates without releasing registry-owned
+        // textures. Removing an unknown/null registry is harmless.
+        void RemoveRegistry(IUITextureRegistry *registry);
 
-        void SetProvider(IUIFontProvider *value) { provider = value; }
-        IUIFontProvider *GetProvider() const { return provider; }
+        void SetProvider(IUIFontProvider *value)
+        {
+            provider = value;
+        }
+        IUIFontProvider *GetProvider() const
+        {
+            return provider;
+        }
 
         const UIGlyphEntry &GetGlyph(uint32_t codepoint, uint32_t size);
-        uint32_t GetPageCount() const { return static_cast<uint32_t>(pages.size()); }
+        uint32_t            GetPageCount() const
+        {
+            return static_cast<uint32_t>(pages.size());
+        }
 
     private:
         struct Page {
             UIImageData image;
             UITextureId textureId = UI_INVALID_TEXTURE;
-            uint32_t cursorX = 0;
-            uint32_t cursorY = 0;
-            uint32_t rowHeight = 0;
+            uint32_t    cursorX   = 0;
+            uint32_t    cursorY   = 0;
+            uint32_t    rowHeight = 0;
         };
 
         Page *AcquirePage(uint32_t width, uint32_t height);
 
-        std::vector<IUITextureRegistry *> registries;
-        IUIFontProvider *provider = nullptr;
-        uint32_t pageSize = 256;
-        UITextureId nextPageId = 0x40000000u; // high base: avoids colliding with auto-assigned ids
-        std::vector<Page> pages;
+        std::vector<IUITextureRegistry *>          registries;
+        IUIFontProvider                           *provider   = nullptr;
+        uint32_t                                   pageSize   = 256;
+        UITextureId                                nextPageId = 0x40000000u; // high base: avoids colliding with auto-assigned ids
+        std::vector<Page>                          pages;
         std::unordered_map<uint64_t, UIGlyphEntry> cache;
     };
 

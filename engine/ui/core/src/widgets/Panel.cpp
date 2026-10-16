@@ -2,14 +2,15 @@
 // Created on 2026/09/19.
 //
 
-#include <ui/widgets/Panel.h>
 #include <ui/UIPaintContext.h>
 #include <ui/UIStyle.h>
+#include <ui/widgets/Panel.h>
 
 namespace sky::ui {
 
     Panel::Panel()
     {
+        SetLayoutVolatile(false);
         SetClipsChildren(true);
     }
 

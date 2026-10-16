@@ -2,7 +2,7 @@
 // Reflected editor settings: one plain struct per Preferences page (see
 // docs/editor/preferences-and-settings.md). The Preferences dialog renders/edits these through
 // ReflectedFormView, driven by reflection metadata, so no per-type control is hardcoded. The
-// structs are kept trivially copyable so the dialog can edit a byte copy and commit on OK/Apply.
+// copy-constructible structs are edited through owned session values and committed on OK/Apply.
 //
 
 #pragma once

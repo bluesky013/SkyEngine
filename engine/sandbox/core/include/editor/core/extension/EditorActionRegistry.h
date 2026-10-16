@@ -56,6 +56,25 @@ namespace sky::editor {
         std::string scope;
         // Data-driven accelerator, e.g. "Ctrl+S", "Ctrl+Shift+Z"; comma-separates alternatives.
         std::string accelerator;
+        // Dynamic state shared by toolbar, menu and accelerator dispatch.
+        std::function<bool()> visible; // null => visible
+        bool                  checkable = false;
+        std::function<bool()> checked; // null => unchecked
+    };
+
+    struct EditorActionState {
+        bool enabled   = true;
+        bool visible   = true;
+        bool checkable = false;
+        bool checked   = false;
+    };
+
+    // A copied registration. A replacement with the same id has a different generation,
+    // so an old chrome callback cannot accidentally invoke its replacement.
+    struct EditorActionSnapshot {
+        EditorAction action;
+        uint64_t     generation = 0;
+        std::string  activeScope;
     };
 
     // Process-wide registry (cross-DLL Singleton) of editor actions, keyed by (scope, id). The
@@ -77,13 +96,30 @@ namespace sky::editor {
         // Active-scope menu actions (non-empty `menu`), sorted by (menuOrder, menu, order, id).
         std::vector<EditorAction> GetMenuActions() const;
         // Resolves by active scope first, then global.
-        const EditorAction *Find(const std::string &id) const;
+        const EditorAction               *Find(const std::string &id) const;
+        EditorActionSnapshot              GetSnapshot(const std::string &id) const;
+        std::vector<EditorActionSnapshot> GetActionSnapshots() const;
+        bool                              IsCurrent(const EditorActionSnapshot &snapshot) const;
+        EditorActionState                 ResolveState(const EditorActionSnapshot &snapshot) const;
+        // A disabled registered action is consumed; hidden/stale actions are not.
+        // The optional dispatcher routes an already validated chrome entry through its host.
+        bool     Invoke(const EditorActionSnapshot &snapshot, const std::function<void()> &dispatcher = {}) const;
+        bool     Invoke(const std::string &id) const;
+        uint64_t GetRevision() const
+        {
+            return revision;
+        }
 
         // The scope an action belongs to ("global" when unset).
         static std::string ScopeOf(const EditorAction &action);
 
     private:
-        std::unordered_map<std::string, EditorAction> actions; // key(scope, id) -> action
+        struct Entry {
+            EditorAction action;
+            uint64_t     generation = 0;
+        };
+        std::unordered_map<std::string, Entry> actions; // key(scope, id) -> action
+        uint64_t                               revision = 0;
     };
 
 } // namespace sky::editor

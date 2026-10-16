@@ -24,6 +24,10 @@ namespace sky::editor {
         // The editor-wide reflected property editor registry.
         static PropertyEditorRegistry &GetPropertyEditors();
 
+        // Adds built-in type/appearance defaults to any registry. Existing
+        // caller registrations win; independent document registries are valid.
+        static void RegisterDefaultPropertyEditors(PropertyEditorRegistry &registry);
+
         // Notifies views that reflected data changed outside the editor; views
         // poll the revision and rebuild when it advances.
         static PropertyChangeNotifier &GetPropertyChanges();

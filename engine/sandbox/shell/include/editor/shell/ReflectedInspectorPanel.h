@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <editor/shell/ReflectedFormView.h>
+#include <editor/widgets/ReflectedFormView.h>
 #include <editor/core/property/EditorPropertySource.h>
 
 #include <cstdint>

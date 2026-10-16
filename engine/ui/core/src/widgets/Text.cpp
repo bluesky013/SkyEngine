@@ -2,13 +2,32 @@
 // Created on 2026/09/19.
 //
 
-#include <ui/widgets/Text.h>
+#include <ui/UIPaintContext.h>
 #include <ui/localization/UILocalization.h>
 #include <ui/text/UITextLayout.h>
 #include <ui/text/UITextSystem.h>
-#include <ui/UIPaintContext.h>
+#include <ui/widgets/Text.h>
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace sky::ui {
+
+    namespace {
+
+        float Padding(float value)
+        {
+            return std::isfinite(value) ? std::max(0.0f, value) : 0.0f;
+        }
+
+        float OuterExtent(float content, float before, float after)
+        {
+            const double extent = static_cast<double>(content) + before + after;
+            return static_cast<float>(std::min(extent, static_cast<double>(std::numeric_limits<float>::max())));
+        }
+
+    } // namespace
 
     void Text::SetTextSystem(UITextSystem *value)
     {
@@ -27,6 +46,9 @@ namespace sky::ui {
     void Text::SetTextKey(const std::string &value)
     {
         textKey = value;
+        // Localization can change through the shared table without a widget
+        // setter. Keep keyed text live until that dependency has notifications.
+        SetLayoutVolatile(!textKey.empty());
         MarkLayoutDirty();
         MarkPaintDirty();
     }
@@ -60,15 +82,33 @@ namespace sky::ui {
 
     void Text::Measure(float &outWidth, float &outHeight)
     {
-        outWidth = 0.0f;
-        outHeight = 0.0f;
-        if (textSystem == nullptr) {
-            return;
-        }
+        const UISize desired = MeasureDesired();
+        outWidth             = desired.width;
+        outHeight            = desired.height;
+    }
 
-        const UITextExtent extent = UITextLayout::Measure(GetResolvedText(), fontSize, textSystem->GetAtlas());
-        outWidth = extent.width;
-        outHeight = extent.height;
+    void Text::SetWrap(bool value)
+    {
+        if (wrap != value) {
+            wrap = value;
+            MarkLayoutDirty();
+            MarkPaintDirty();
+        }
+    }
+
+    UISize Text::OnMeasure(const UIConstraints &constraints)
+    {
+        const UILayoutParams &layout             = GetLayout();
+        const float           left               = Padding(layout.paddingLeft);
+        const float           top                = Padding(layout.paddingTop);
+        const float           right              = Padding(layout.paddingRight);
+        const float           bottom             = Padding(layout.paddingBottom);
+        const UIConstraints   contentConstraints = constraints.Deflate(left, top, right, bottom);
+        UITextExtent          extent;
+        if (textSystem != nullptr) {
+            extent = UITextLayout::Build(GetResolvedText(), fontSize, textSystem->GetAtlas(), contentConstraints.maxSize.width, wrap).extent;
+        }
+        return {OuterExtent(extent.width, left, right), OuterExtent(extent.height, top, bottom)};
     }
 
     void Text::OnPaint(UIPaintContext &context)
@@ -78,15 +118,17 @@ namespace sky::ui {
             return;
         }
 
-        const UITextExtent extent = UITextLayout::Measure(resolved, fontSize, textSystem->GetAtlas());
-        float x = GetBounds().left;
+        const UIRect           contentRect  = GetLayout().ContentRect(GetBounds());
+        const float            contentWidth = GetContentSize().width;
+        const UITextLayoutData textLayout   = UITextLayout::Build(resolved, fontSize, textSystem->GetAtlas(), contentWidth, wrap);
+        UITextLineAlign        lineAlign    = UITextLineAlign::LEFT;
         if (align == Align::CENTER) {
-            x = GetBounds().left + (GetBounds().Width() - extent.width) * 0.5f;
+            lineAlign = UITextLineAlign::CENTER;
         } else if (align == Align::RIGHT) {
-            x = GetBounds().right - extent.width;
+            lineAlign = UITextLineAlign::RIGHT;
         }
 
-        UITextLayout::Emit(context, resolved, fontSize, x, GetBounds().top, textColor, textSystem->GetAtlas());
+        UITextLayout::Emit(context, textLayout, contentRect.left, contentRect.top, textColor, textSystem->GetAtlas(), contentWidth, lineAlign);
     }
 
     bool Text::SetProperty(const std::string &path, const UIPropertyValue &value)
@@ -101,6 +143,10 @@ namespace sky::ui {
         }
         if (path == "text.color" && value.type == UIPropertyValue::Type::INT) {
             SetTextColor(static_cast<uint32_t>(value.intValue));
+            return true;
+        }
+        if (path == "text.wrap" && value.type == UIPropertyValue::Type::BOOL) {
+            SetWrap(value.boolValue);
             return true;
         }
         return UIElement::SetProperty(path, value);

@@ -3,34 +3,15 @@ set(CURRENT_FOLDER Engine/UI/Core)
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-# The FreeType provider is only compiled when the freetype dependency is enabled.
-if (NOT SKY_BUILD_FREETYPE)
-    list(FILTER SRC_FILES EXCLUDE REGEX "/freetype/")
-    list(FILTER INC_FILES EXCLUDE REGEX "/freetype/")
-endif ()
-
-# Render-agnostic guard: UI core public headers must not include render/aurora headers.
+# Public runtime headers must remain independent of concrete render, font and
+# editor backends. Hosts explicitly opt into those separate adaptor targets.
 file(GLOB_RECURSE UI_PUBLIC_HEADERS include/ui/*.h)
 foreach (header ${UI_PUBLIC_HEADERS})
     file(READ ${header} UI_HEADER_CONTENT)
-    if (UI_HEADER_CONTENT MATCHES "#include *[<\"]aurora/")
-        message(FATAL_ERROR "UI core header must not include aurora: ${header}")
-    endif ()
-    if (UI_HEADER_CONTENT MATCHES "#include *[<\"]render/")
-        message(FATAL_ERROR "UI core header must not include render: ${header}")
+    if (UI_HEADER_CONTENT MATCHES "#include *[<\"](aurora/|render/|ui/render/|ui/freetype/|ui/editor/)")
+        message(FATAL_ERROR "UI core header must not include a backend or editor: ${header}")
     endif ()
 endforeach ()
-
-set(UI_LINK_LIBS
-    Core
-    Framework
-    3rdParty::rapidjson
-)
-
-if (SKY_BUILD_FREETYPE)
-    sky_find_3rd(TARGET freetype DIR freetype)
-    list(APPEND UI_LINK_LIBS 3rdParty::freetype)
-endif ()
 
 sky_add_library(TARGET UI STATIC
     SOURCES
@@ -41,10 +22,7 @@ sky_add_library(TARGET UI STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        ${UI_LINK_LIBS}
+        UI.Interface
+        Core
+        3rdParty::rapidjson
 )
-
-# Expose the FreeType availability to C++ so callers can pick the provider.
-if (SKY_BUILD_FREETYPE)
-    target_compile_definitions(UI PUBLIC SKY_BUILD_FREETYPE=1)
-endif ()

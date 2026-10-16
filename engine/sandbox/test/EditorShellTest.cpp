@@ -2,6 +2,7 @@
 // Created on 2026/10/06.
 //
 
+#include <algorithm>
 #include <core/type/TypeInfo.h>
 #include <core/type/TypeInfoObj.h>
 #include <cstdlib>
@@ -14,14 +15,17 @@
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
 #include <editor/core/preferences/PreferencePageRegistry.h>
+#include <editor/shell/AssetViewerWidget.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
-#include <editor/shell/ReflectedFormView.h>
-#include <editor/ui/UiTheme.h>
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
-#include <editor/shell/widgets/ActionBarBuilder.h>
-#include <editor/shell/widgets/ToolBar.h>
+#include <editor/ui/AssetViewProvider.h>
+#include <editor/ui/UiTheme.h>
+#include <editor/widgets/ActionBarBuilder.h>
+#include <editor/widgets/MenuBar.h>
+#include <editor/widgets/ReflectedFormView.h>
+#include <editor/widgets/ToolBar.h>
 #include <filesystem>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
@@ -34,6 +38,8 @@
 #include <string>
 #include <ui/UIElement.h>
 #include <ui/UIPaintContext.h>
+#include <ui/widgets/StackPanel.h>
+#include <vector>
 
 #include "TestTypes.h"
 
@@ -47,6 +53,33 @@ namespace {
         {
             return "TestPanel";
         }
+    };
+
+    class ArrangedPanel : public sky::ui::UIElement {
+    public:
+        ArrangedPanel()
+        {
+            auto               stack = std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Vertical);
+            sky::ui::StackSlot slot;
+            slot.width  = sky::ui::StackSize::Fill;
+            slot.height = sky::ui::StackSize::Fixed;
+            slot.fixedH = 24.0f;
+            leaf        = stack->Add(std::make_unique<sky::ui::UIElement>(), slot);
+            content     = AddChild(std::move(stack));
+        }
+
+        sky::ui::UIElement *leaf         = nullptr;
+        int                 arrangements = 0;
+
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &rect) override
+        {
+            ++arrangements;
+            content->Arrange(rect);
+        }
+
+    private:
+        sky::ui::UIElement *content = nullptr;
     };
 
     sky::ui::UIPointerEvent Pointer(sky::ui::UIPointerAction action, float x, float y)
@@ -119,6 +152,19 @@ namespace {
         shell.RegisterPanelView("b", []() { return std::make_unique<TestPanel>(); });
     }
 
+    ReflectedFormView *FindForm(sky::ui::UIElement &element)
+    {
+        if (auto *form = dynamic_cast<ReflectedFormView *>(&element)) {
+            return form;
+        }
+        for (const auto &child : element.GetChildren()) {
+            if (auto *form = FindForm(*child)) {
+                return form;
+            }
+        }
+        return nullptr;
+    }
+
 } // namespace
 
 TEST(EditorShellTest, ViewRegistrySurvivesRebuild)
@@ -150,6 +196,86 @@ TEST(EditorShellTest, ViewRegistrySurvivesRebuild)
     sky::ui::UIElement *second = shell.GetPanelView("a");
     EXPECT_EQ(first, second);
     EXPECT_EQ(factoryCalls, 1);
+}
+
+TEST(EditorShellTest, NestedPanelIsArrangedBeforeFirstPaint)
+{
+    LayoutModel layout;
+    layout.SetDefault({"a"});
+    PanelRegistry registry;
+    registry.Register(PanelInfo{"a", "A", 0.0f, 0.0f, nullptr});
+
+    EditorShell shell;
+    shell.SetLayout(&layout);
+    shell.SetPanelRegistry(&registry);
+    ArrangedPanel *panel = nullptr;
+    shell.RegisterPanelView("a", [&panel]() {
+        auto view = std::make_unique<ArrangedPanel>();
+        panel     = view.get();
+        return view;
+    });
+    shell.Rebuild();
+    shell.Layout(800.0f, 600.0f);
+
+    ASSERT_NE(panel, nullptr);
+    EXPECT_GT(panel->arrangements, 0);
+    EXPECT_FLOAT_EQ(panel->leaf->GetBounds().Width(), panel->GetBounds().Width());
+    EXPECT_FLOAT_EQ(panel->leaf->GetBounds().Height(), 24.0f);
+    EXPECT_FLOAT_EQ(panel->leaf->GetBounds().top, panel->GetBounds().top);
+
+    const int               arrangements = panel->arrangements;
+    sky::ui::UIPaintContext paint;
+    shell.Paint(paint);
+    EXPECT_EQ(panel->arrangements, arrangements);
+    EXPECT_FALSE(panel->leaf->IsLayoutDirty());
+}
+
+TEST(EditorShellTest, AssetViewerChromeIsArrangedBeforePaint)
+{
+    AssetViewerWidget viewer(nullptr);
+    viewer.Open(sky::Uuid::Create());
+    viewer.Arrange({0.0f, 0.0f, 1000.0f, 700.0f});
+
+    sky::ui::UIElement *dock = nullptr;
+    for (const auto &child : viewer.GetChildren()) {
+        if (std::string(child->GetTypeName()) == "DockPanel") {
+            dock = child.get();
+        }
+    }
+    ASSERT_NE(dock, nullptr);
+    ASSERT_EQ(dock->GetChildren().size(), 2u);
+    const auto &toolbar = dock->GetChildren()[0];
+    const auto &body    = dock->GetChildren()[1];
+    EXPECT_FLOAT_EQ(toolbar->GetBounds().Height(), GetDefaultUiTheme().metrics.toolbarHeight);
+    EXPECT_GT(body->GetBounds().Height(), 0.0f);
+    EXPECT_FLOAT_EQ(body->GetBounds().top, toolbar->GetBounds().bottom);
+
+    const sky::ui::UIRect   before = body->GetBounds();
+    sky::ui::UIPaintContext paint;
+    paint.Begin(viewer.GetBounds());
+    viewer.Paint(paint);
+    EXPECT_FLOAT_EQ(body->GetBounds().top, before.top);
+    EXPECT_FLOAT_EQ(body->GetBounds().bottom, before.bottom);
+    EXPECT_FALSE(body->IsLayoutDirty());
+}
+
+TEST(EditorShellTest, ConfigPanelArrangesFormWithoutPaintingHeader)
+{
+    WorldConfigPanel panel(nullptr, []() -> WorldDocument * { return nullptr; }, "Config");
+    panel.SetTitleBarVisible(false);
+    panel.Arrange({0.0f, 0.0f, 600.0f, 400.0f});
+
+    const auto *form = FindForm(panel);
+    ASSERT_NE(form, nullptr);
+    EXPECT_FLOAT_EQ(form->GetBounds().top, 0.0f);
+    EXPECT_FLOAT_EQ(form->GetBounds().left, GetDefaultUiTheme().metrics.listColumnWidth);
+    EXPECT_FALSE(form->IsVisible());
+
+    sky::ui::UIPaintContext paint;
+    paint.Begin(panel.GetBounds());
+    panel.Paint(paint);
+    EXPECT_FLOAT_EQ(form->GetBounds().top, 0.0f);
+    EXPECT_FALSE(form->IsLayoutDirty());
 }
 
 TEST(EditorShellTest, AssetsPanelRegistered)
@@ -464,8 +590,7 @@ TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
     std::filesystem::remove(path, ec);
 
     WorldDocument    document(path.string());
-    WorldConfigPanel panel(
-        nullptr, [&document]() { return &document; }, "Config");
+    WorldConfigPanel panel(nullptr, [&document]() { return &document; }, "Config");
     panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 300.0f, 400.0f});
 
     // Subsystems are enabled by default; clicking the row's checkbox disables it
@@ -504,16 +629,10 @@ TEST(EditorShellTest, ConfigPanelKeepsConfigValidAfterToggleRealloc)
     std::filesystem::remove(path, ec);
 
     WorldDocument    document(path.string());
-    WorldConfigPanel panel(
-        nullptr, [&document]() { return &document; }, "Config");
+    WorldConfigPanel panel(nullptr, [&document]() { return &document; }, "Config");
     panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 300.0f, 400.0f});
 
-    ReflectedFormView *form = nullptr;
-    for (const auto &child : panel.GetChildren()) {
-        if (auto *view = dynamic_cast<ReflectedFormView *>(child.get())) {
-            form = view;
-        }
-    }
+    ReflectedFormView *form = FindForm(panel);
     ASSERT_NE(form, nullptr);
     auto readGravity = [](ReflectedFormView *view) -> float {
         for (auto &section : view->Form().GetSections()) {
@@ -1061,7 +1180,282 @@ namespace {
         }
     };
 
+    class ResponsiveAssetContent : public sky::ui::UIElement {
+    public:
+        std::vector<float> measuredWidths;
+        float              heightScale  = 300000.0f;
+        int                arrangements = 0;
+
+    protected:
+        sky::ui::UISize OnMeasure(const sky::ui::UIConstraints &constraints) override
+        {
+            const float width = constraints.maxSize.width;
+            measuredWidths.push_back(width);
+            return {width, heightScale / std::max(1.0f, width)};
+        }
+        void ArrangeChildren(const sky::ui::UIRect &) override
+        {
+            ++arrangements;
+        }
+    };
+
+    class ResponsiveAssetViewProvider : public IAssetViewProvider {
+    public:
+        std::unique_ptr<sky::ui::UIElement> CreateContent(const sky::Uuid &, const std::string &, sky::ui::UITextSystem *) override
+        {
+            auto result = std::make_unique<ResponsiveAssetContent>();
+            if (retained) {
+                result->SetLayoutVolatile(false);
+            }
+            content = result.get();
+            return result;
+        }
+
+        ResponsiveAssetContent *content  = nullptr;
+        bool                    retained = false;
+    };
+
+    class CountingAssetViewer : public AssetViewerWidget {
+    public:
+        CountingAssetViewer() : AssetViewerWidget(nullptr)
+        {
+        }
+        int arrangements = 0;
+
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &rect) override
+        {
+            ++arrangements;
+            AssetViewerWidget::ArrangeChildren(rect);
+        }
+    };
+
+    struct ScopedAssetViewerEnvironment {
+        sky::AssetBuilderManager  *manager            = sky::AssetBuilderManager::Get();
+        sky::AssetDataBase        *database           = sky::AssetDataBase::Get();
+        EditorAssetCatalog        *catalog            = EditorAssetCatalog::Get();
+        AssetViewProviderRegistry *providers          = AssetViewProviderRegistry::Get();
+        sky::CookConfig            previousCookConfig = manager->GetCookConfig();
+        sky::FileSystemPtr         previousWorkspace  = database->GetWorkSpaceFs();
+        IAssetViewProvider        *previousProvider   = providers->Find("Text");
+        sky::AssetBuilder         *temporaryBuilder   = nullptr;
+        bool                       databaseChanged    = false;
+        std::filesystem::path      root = std::filesystem::temp_directory_path() / ("sky_asset_viewer_width_" + sky::Uuid::Create().ToString());
+
+        ~ScopedAssetViewerEnvironment()
+        {
+            if (previousProvider != nullptr) {
+                providers->Register("Text", previousProvider);
+            } else {
+                providers->Unregister("Text");
+            }
+            manager->SetCookConfig(std::move(previousCookConfig));
+            if (temporaryBuilder != nullptr) {
+                manager->UnRegisterBuilder(temporaryBuilder);
+            }
+            if (databaseChanged) {
+                database->Reset();
+                database->SetWorkSpaceFs(previousWorkspace);
+                database->RebuildCacheFromScan();
+                catalog->Refresh();
+            }
+            std::error_code ec;
+            std::filesystem::remove_all(root, ec);
+        }
+    };
+
 } // namespace
+
+TEST(EditorShellTest, AssetViewerMeasuresResponsiveContentAtItsFinalWidth)
+{
+    ResponsiveAssetViewProvider provider;
+    provider.retained = true;
+    ScopedAssetViewerEnvironment environment;
+    std::filesystem::create_directories(environment.root);
+    std::ofstream(environment.root / "a.txt") << "responsive content";
+
+    if (environment.manager->QueryBuilder(".txt") == nullptr) {
+        environment.temporaryBuilder = new ShellTextBuilder();
+        environment.manager->RegisterBuilder(environment.temporaryBuilder);
+    }
+    ASSERT_EQ(environment.manager->QueryBuilder(".txt")->QueryType(".txt"), "Text");
+    sky::CookConfig cookConfig;
+    ASSERT_TRUE(cookConfig.Parse(R"({"bundles":["common"],"presets":{"windows":["common"]}})"));
+    cookConfig.SetActivePlatform("windows");
+    environment.manager->SetCookConfig(std::move(cookConfig));
+
+    environment.databaseChanged = true;
+    environment.database->Reset();
+    environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
+    environment.database->RebuildCacheFromScan();
+    environment.catalog->Refresh();
+    environment.providers->Register("Text", &provider);
+
+    EditorAssetItem item;
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/a.txt", item));
+    CountingAssetViewer viewer;
+    viewer.SetCatalog(environment.catalog);
+    viewer.Open(item.uuid);
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded({0.0f, 0.0f, 1000.0f, 700.0f});
+
+    ResponsiveAssetContent *content = provider.content;
+    ASSERT_NE(content, nullptr);
+    ASSERT_NE(content->GetParent(), nullptr);
+    ASSERT_GE(content->measuredWidths.size(), 2u);
+    const sky::ui::UIRect wideBounds   = content->GetBounds();
+    const sky::ui::UIRect wideViewport = content->GetParent()->GetBounds();
+    EXPECT_GT(wideBounds.Width(), 0.0f);
+    EXPECT_FLOAT_EQ(content->measuredWidths.back(), wideBounds.Width());
+    EXPECT_NEAR(wideBounds.Height(), 300000.0f / wideBounds.Width(), 0.001f);
+    // The clipping viewport includes the scrollbar column, while custom
+    // content receives the narrower final column and therefore a taller size.
+    EXPECT_GT(wideViewport.Width(), wideBounds.Width());
+    EXPECT_GT(wideBounds.Height(), wideViewport.Height());
+    EXPECT_GT(content->measuredWidths.front(), content->measuredWidths.back());
+
+    const size_t idleMeasures     = content->measuredWidths.size();
+    const int    idleArrangements = content->arrangements;
+    viewer.arrangements           = 0;
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 0);
+    EXPECT_EQ(content->arrangements, idleArrangements);
+    EXPECT_EQ(content->measuredWidths.size(), idleMeasures);
+
+    sky::ui::UIPointerEvent wheel;
+    wheel.action     = sky::ui::UIPointerAction::WHEEL;
+    wheel.x          = wideBounds.left + 5.0f;
+    wheel.y          = wideBounds.top + 5.0f;
+    wheel.wheelDelta = -100.0f;
+    viewer.OnPointerEvent(wheel);
+    EXPECT_TRUE(viewer.IsLayoutDirty());
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 1);
+    EXPECT_LT(content->GetBounds().top, wideBounds.top);
+    EXPECT_EQ(content->measuredWidths.size(), idleMeasures);
+
+    const size_t wideMeasureCount = content->measuredWidths.size();
+    viewer.ArrangeIfNeeded({0.0f, 0.0f, 600.0f, 460.0f});
+    ASSERT_GT(content->measuredWidths.size(), wideMeasureCount);
+    const sky::ui::UIRect narrowBounds = content->GetBounds();
+    EXPECT_GT(narrowBounds.Width(), 0.0f);
+    EXPECT_LT(narrowBounds.Width(), wideBounds.Width());
+    EXPECT_GT(narrowBounds.Height(), wideBounds.Height());
+    EXPECT_FLOAT_EQ(content->measuredWidths.back(), narrowBounds.Width());
+    EXPECT_NEAR(narrowBounds.Height(), 300000.0f / narrowBounds.Width(), 0.001f);
+    EXPECT_GT(content->GetParent()->GetBounds().Width(), narrowBounds.Width());
+
+    const size_t            measureCountBeforePaint = content->measuredWidths.size();
+    sky::ui::UIPaintContext paint;
+    paint.Begin(viewer.GetBounds());
+    viewer.Paint(paint);
+    EXPECT_EQ(content->measuredWidths.size(), measureCountBeforePaint);
+    EXPECT_FLOAT_EQ(content->GetBounds().left, narrowBounds.left);
+    EXPECT_FLOAT_EQ(content->GetBounds().top, narrowBounds.top);
+    EXPECT_FLOAT_EQ(content->GetBounds().right, narrowBounds.right);
+    EXPECT_FLOAT_EQ(content->GetBounds().bottom, narrowBounds.bottom);
+
+    // Providers with unnotified state keep the conservative layout policy.
+    content->SetLayoutVolatile(true);
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    content->heightScale = 400000.0f;
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_NEAR(content->GetBounds().Height(), 400000.0f / content->GetBounds().Width(), 0.001f);
+
+    auto settings = environment.catalog->GetCookSettings(item.uuid, "common");
+    ASSERT_TRUE(settings.IsValid());
+    ASSERT_NE(settings.object.GetAs<ShellCookSettings>(), nullptr);
+    settings.object.GetAs<ShellCookSettings>()->maxSize = 512;
+    ASSERT_TRUE(environment.catalog->ApplyCookSettings(item.uuid, "common", settings.object));
+    viewer.Close();
+    viewer.Open(item.uuid);
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    ASSERT_NE(provider.content, nullptr);
+    EXPECT_NEAR(provider.content->GetBounds().Height(), 300000.0f / provider.content->GetBounds().Width(), 0.001f);
+    bool reloadedSettings = false;
+    for (const auto &child : provider.content->GetParent()->GetChildren()) {
+        if (auto *form = dynamic_cast<ReflectedFormView *>(child.get())) {
+            for (const auto &section : form->Form().GetSections()) {
+                for (const auto &field : section.fields) {
+                    if (field.path == "maxSize") {
+                        const auto  value = field.descriptor.GetValue();
+                        const auto *size  = value.GetAsConst<uint32_t>();
+                        reloadedSettings |= size != nullptr && *size == 512u;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(reloadedSettings); // refreshed before any Paint of the reopened viewer
+}
+
+TEST(EditorShellTest, AssetViewerRefreshesThemeChromeAndReopensWithoutWindowResize)
+{
+    const UiTheme previous = GetDefaultUiTheme();
+    struct RestoreTheme {
+        UiTheme theme;
+        ~RestoreTheme()
+        {
+            SetDefaultUiTheme(theme);
+        }
+    } restore{previous};
+    CountingAssetViewer viewer;
+    viewer.Open(sky::Uuid::Create());
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded({0.0f, 0.0f, 1000.0f, 700.0f});
+    ToolBar *toolbar = nullptr;
+    MenuBar *menu    = nullptr;
+    for (const auto &child : viewer.GetChildren()) {
+        if (auto *candidate = dynamic_cast<MenuBar *>(child.get())) {
+            menu = candidate;
+        }
+        for (const auto &nested : child->GetChildren()) {
+            if (auto *candidate = dynamic_cast<ToolBar *>(nested.get())) {
+                toolbar = candidate;
+            }
+        }
+    }
+    ASSERT_NE(toolbar, nullptr);
+    ASSERT_NE(menu, nullptr);
+    EXPECT_FLOAT_EQ(toolbar->GetBounds().Height(), previous.metrics.toolbarHeight);
+    viewer.arrangements = 0;
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 0);
+
+    UiTheme changed = previous;
+    changed.metrics.toolbarHeight += 9.0f;
+    changed.metrics.menuBarHeight += 3.0f;
+    SetDefaultUiTheme(changed);
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 1);
+    EXPECT_FLOAT_EQ(toolbar->GetBounds().Height(), changed.metrics.toolbarHeight);
+    EXPECT_FLOAT_EQ(menu->GetBounds().Height(), changed.metrics.menuBarHeight);
+
+    viewer.Close();
+    viewer.Open(sky::Uuid::Create());
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 2);
+    EXPECT_TRUE(viewer.IsOpen());
+
+    const float oldRight = toolbar->GetBounds().right;
+    const auto  dock     = viewer.GetChildren()[1]->GetBounds();
+    auto        down     = Pointer(sky::ui::UIPointerAction::DOWN, dock.right - 1.0f, dock.bottom - 1.0f);
+    viewer.OnPointerEvent(down);
+    viewer.OnPointerEvent(Pointer(sky::ui::UIPointerAction::MOVE, down.x - 50.0f, down.y - 30.0f));
+    EXPECT_TRUE(viewer.IsLayoutDirty());
+    viewer.SynchronizeLayout();
+    viewer.ArrangeIfNeeded(viewer.GetBounds());
+    EXPECT_EQ(viewer.arrangements, 3);
+    EXPECT_LT(toolbar->GetBounds().right, oldRight);
+}
 
 TEST(EditorShellTest, AssetBrowserEditsCookSetting)
 {

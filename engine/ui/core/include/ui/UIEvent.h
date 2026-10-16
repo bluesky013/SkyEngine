@@ -22,11 +22,13 @@ namespace sky::ui {
     };
 
     struct UIPointerEvent {
-        UIPointerAction action = UIPointerAction::MOVE;
-        uint32_t pointerId = 0;
-        uint32_t button = 0;
-        float x = 0.0f;
-        float y = 0.0f;
+        UIPointerAction action    = UIPointerAction::MOVE;
+        uint32_t        pointerId = 0;
+        uint32_t        button    = 0;
+        // Router input uses surface coordinates. A handler receives coordinates
+        // mapped into its untransformed layout space, matching GetBounds().
+        float x          = 0.0f;
+        float y          = 0.0f;
         float wheelDelta = 0.0f;
     };
 
@@ -37,9 +39,9 @@ namespace sky::ui {
     };
 
     struct UIKeyEvent {
-        uint32_t keyCode = 0;
-        UIKeyAction action = UIKeyAction::DOWN;
-        uint32_t modifiers = 0;
+        uint32_t    keyCode   = 0;
+        UIKeyAction action    = UIKeyAction::DOWN;
+        uint32_t    modifiers = 0;
     };
 
     struct UITextInputEvent {
@@ -48,10 +50,10 @@ namespace sky::ui {
 
     // Per-frame raw input snapshot fed by the framework input layer.
     struct UIInputState {
-        float pointerX = 0.0f;
-        float pointerY = 0.0f;
+        float    pointerX       = 0.0f;
+        float    pointerY       = 0.0f;
         uint32_t pointerButtons = 0;
-        float wheelDelta = 0.0f;
+        float    wheelDelta     = 0.0f;
     };
 
 } // namespace sky::ui

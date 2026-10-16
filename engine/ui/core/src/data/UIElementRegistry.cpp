@@ -8,6 +8,7 @@
 #include <ui/widgets/HBox.h>
 #include <ui/widgets/Image.h>
 #include <ui/widgets/Panel.h>
+#include <ui/widgets/ScrollView.h>
 #include <ui/widgets/Text.h>
 #include <ui/widgets/VBox.h>
 
@@ -44,6 +45,7 @@ namespace sky::ui {
         registry.Register("EditBox", []() { return std::make_unique<EditBox>(); });
         registry.Register("HBox", []() { return std::make_unique<HBox>(); });
         registry.Register("VBox", []() { return std::make_unique<VBox>(); });
+        registry.Register("ScrollView", []() { return std::make_unique<ScrollView>(); });
         return registry;
     }
 

@@ -130,19 +130,15 @@ editor kind.
 - **THEN** selection SHALL use the type-inferred editor kind
 
 ### Requirement: Control factory seam
-
-The shell SHALL define a control-factory seam that creates a UI control from a field's kind and metadata without
-`EditorCore` depending on the UI toolkit.
+EditorWidgets SHALL define the reflected control/view seam without EditorCore depending on the UI toolkit. Each ReflectedFormView SHALL own an extensible kind-to-widget registry and its stateful field widgets; registration SHALL be exposed through that form rather than a process-global ReflectedWidgetRegistry accessor.
 
 #### Scenario: Control chosen by kind
-
-- **WHEN** the view builds a field whose kind is `Bool`, `Integer`, `Float`, `String`, or `Enum`
-- **THEN** the control factory SHALL provide the matching default control
+- **WHEN** the view builds a field whose kind is Bool, Integer, Float, String, or Enum
+- **THEN** the form's registry SHALL provide the matching default widget
 
 #### Scenario: Custom control factory
-
-- **WHEN** a module registers a control factory for a kind it owns
-- **THEN** the view SHALL use that factory for fields of that kind
+- **WHEN** a module registers a custom widget for a kind on one form
+- **THEN** that form SHALL use it for fields of that kind without replacing another form's widget
 
 ### Requirement: Object provider seams
 
@@ -161,18 +157,13 @@ correctly when a provider is unset.
 - **THEN** the view SHALL show an empty state and SHALL NOT crash
 
 ### Requirement: Automatic form layout
-
-The shell SHALL render a form by laying out its sections, field rows, and nesting automatically — section
-headers, a label column and a control column per row, indentation per depth, expand/collapse for struct fields,
-and scrolling for overflow — without per-type layout code in the consumer panel.
+EditorWidgets SHALL render a form by laying out its sections, field rows, and nesting automatically: section headers, a label column and a control column per row, indentation per depth, expand/collapse for struct fields, and scrolling for overflow. A consumer panel SHALL NOT require per-type layout code or a dependency on EditorShell to use this form view.
 
 #### Scenario: Rows are laid out automatically
-
 - **WHEN** a form with sections, nested struct fields, and sequence fields is rendered
 - **THEN** the view SHALL place section headers, labels, controls, and nested rows without consumer layout code
 
 #### Scenario: Expand and collapse a struct
-
 - **WHEN** the user toggles a struct field
 - **THEN** its child rows SHALL be shown or hidden
 
@@ -296,3 +287,230 @@ SHALL NOT contain enum-specific drawing or popup logic.
 - **WHEN** the form view renders or hit-tests a field
 - **THEN** it SHALL delegate enum members to the widget registry rather than handling them inline
 
+### Requirement: Explicit reflected form context
+ReflectedFormView SHALL accept a ReflectedFormContext providing CommandService, PropertyEditorRegistry, PropertyChangeNotifier, and UiTheme references. Its existing text/title constructor SHALL remain available and SHALL use the process-shared default services/theme. Field resolution, edit/undo handling, external-change refresh, and presentation SHALL use the selected context. The form SHALL borrow these dependencies, whose owner SHALL keep them alive for the form's lifetime.
+
+#### Scenario: Form uses injected commands and metadata
+- **WHEN** a form is constructed with an explicit command service and property metadata registry
+- **THEN** its field resolution and accepted edits/undo SHALL use those objects rather than a later default-service lookup
+
+#### Scenario: Form uses injected notifier and theme
+- **WHEN** the explicit context's notifier changes or its theme values are used to render
+- **THEN** the form SHALL observe that notifier and use that theme independently of the default context
+
+#### Scenario: Existing construction uses shared defaults
+- **WHEN** a caller uses the existing text/title constructor from a feature DLL
+- **THEN** the form SHALL use the same default services/theme as a form created by the editor host
+
+### Requirement: Form interaction state is isolated
+Each reflected form SHALL own its widget registry and mutable widget interaction state, including popup targets, drag fields, capture, and local editor modes. Default widget initialization SHALL occur for every form. Registering defaults SHALL preserve existing custom property metadata, and no process-global mutable widget instance SHALL be required.
+
+#### Scenario: Popups are local to their form
+- **WHEN** one form opens a field popup while a second form exists
+- **THEN** only the first form SHALL report and route that popup's pointer capture
+
+#### Scenario: Drag does not affect another form
+- **WHEN** one form drags a field and a second form is painted or receives unrelated input
+- **THEN** the second form SHALL NOT reuse the first form's drag target, popup, or field pointers
+
+#### Scenario: Local widget registration remains local
+- **WHEN** one form replaces a kind's widget through its registry
+- **THEN** another form SHALL retain its own widget implementation and state
+
+### Requirement: Rebinding clears obsolete interactions
+Before Bind or explicit Refresh replaces reflected field storage, the form SHALL clear edit callbacks, active drag/capture/hover field references, and popup/widget interaction state that refer to old fields. It SHALL retain its context and form-local extension registrations. An old interaction SHALL NOT commit against the previous bound object after rebinding. External notifications received during an interaction SHALL remain deferred until the interaction ends.
+
+#### Scenario: Bind cancels an old popup or drag
+- **WHEN** a form with an open popup or active drag binds another reflected object
+- **THEN** it SHALL clear the old capture/interaction before building the new fields and SHALL NOT access the old field pointers
+
+#### Scenario: Bind cancels a pending inline edit
+- **WHEN** a form with an unfinished inline edit binds another object
+- **THEN** later key/text input SHALL NOT invoke the old field's commit callback
+
+#### Scenario: Refresh retains local extensions safely
+- **WHEN** the form is explicitly refreshed after a custom widget has been registered
+- **THEN** field interaction pointers SHALL be cleared before rebuild and the form's custom widget registration SHALL remain available
+
+#### Scenario: Deferred external refresh is delivered
+- **WHEN** an external change is notified during editing or dragging and the interaction subsequently ends
+- **THEN** the form SHALL apply the pending refresh without retaining invalid pointers into the replaced field storage
+
+### Requirement: History traversal cancels live previews first
+The form SHALL cancel uncommitted live previews before invoking Undo or Redo. A subsequent refresh/reset SHALL NOT overwrite the value restored by the command. Widget callback dispatch SHALL retain the callback and widget lifetime needed for a successful edit that synchronously refreshes its form.
+
+#### Scenario: Undo during a live color preview
+- **WHEN** a color field has undo history and the user invokes Undo while its picker is applying an uncommitted preview
+- **THEN** the form SHALL cancel the preview first and leave the field at the command's undone value with the matching history state
+
+#### Scenario: Redo during a live color preview
+- **WHEN** the user invokes Redo while a color picker is applying an uncommitted preview
+- **THEN** interaction reset SHALL occur before Redo and SHALL NOT restore the picker's opening value over the redone value
+
+#### Scenario: Successful commit refreshes synchronously
+- **WHEN** a widget's commit callback edits the form and synchronously rebuilds or resets it
+- **THEN** dispatch SHALL complete without using a destroyed callback or widget
+
+### Requirement: Active widgets survive local registry replacement
+The form SHALL retain shared ownership of the widget serving an active interaction, and event/popup dispatch SHALL keep its target alive across host callbacks. Replacing a kind's registry entry SHALL NOT invalidate a widget still being dispatched. Interaction reset SHALL include a retained active widget even when that widget is no longer the current registry entry.
+
+An inline edit callback SHALL retain its creating widget after pointer release and registry replacement. Commit, cancel, and rebinding SHALL release this ownership when the callback is no longer needed, while synchronous refresh during commit SHALL NOT destroy a callback's widget before that callback returns.
+
+#### Scenario: Replace a widget while inline editing
+- **WHEN** a widget starts an inline edit and its kind is replaced after pointer release
+- **THEN** the original widget SHALL remain alive until its edit callback completes or is canceled
+- **AND** the original widget SHALL be released after the edit ends when no other owner remains
+
+#### Scenario: Replace a captured widget
+- **WHEN** a form replaces a kind's widget while the old widget serves capture or an open popup
+- **THEN** later dispatch to the active interaction SHALL NOT dereference a destroyed widget
+
+#### Scenario: Reset a replaced active instance
+- **WHEN** a retained active widget has been replaced in the registry and the form binds or refreshes
+- **THEN** the old active widget's interaction SHALL be reset before its retained ownership is released
+
+### Requirement: Form preferred extent is valid before painting
+ReflectedFormView SHALL calculate natural content/preferred height from its current sections, expanded fields, widget row counts, header visibility, and theme metrics without requiring a previous Paint. Bind, Refresh, expansion/collapse, sequence membership, header visibility, and widget registration/replacement SHALL invalidate layout so a host can allocate the current extent before painting. A per-form registry change SHALL NOT require rebuilding fields or ending an active interaction solely to invalidate layout. Arbitrary state changes inside an already-registered custom widget SHALL require explicit Refresh or conservative volatility. Measurement/height queries SHALL NOT use the previously painted content extent as their sole source of truth.
+
+#### Scenario: First allocation follows binding
+- **WHEN** a host binds a nonempty reflected form and asks for preferred height before any Paint
+- **THEN** the returned height SHALL fit the current visible rows and header
+
+#### Scenario: Structural change affects the next allocation
+- **WHEN** an expanded field, sequence membership, header visibility, or registered widget implementation changes
+- **THEN** the form SHALL notify layout and the next pre-paint height query SHALL reflect the changed extent
+
+#### Scenario: Widget replacement preserves an active interaction
+- **WHEN** a form replaces a widget registration while a previous widget owns an active interaction
+- **THEN** layout SHALL be invalidated to reflect the new row count without destroying the active interaction's retained owner
+
+### Requirement: Form external dependencies synchronize safely before layout
+A form SHALL observe its injected PropertyChangeNotifier and CommandService changes, invalidate layout, and retain pending refresh until a safe public pre-layout synchronization step can consume it. Notification callbacks SHALL NOT synchronously rebuild active field/widget interaction state. Pending refresh SHALL survive an active interaction and SHALL be consumed when safe even if no later notification occurs. A destroyed view SHALL remove its subscriptions. Explicit Refresh remains required for arbitrary unnotified external model mutation.
+
+#### Scenario: Property notification changes row structure
+- **WHEN** bound data changes externally, its notifier publishes the change, and the host synchronizes before allocation
+- **THEN** the form's rows and preferred extent SHALL reflect the current data in that allocation pass without a preliminary Paint
+
+#### Scenario: Undo occurs in another host
+- **WHEN** another host sharing the injected command service performs undo or redo and the form synchronizes before layout
+- **THEN** the form SHALL refresh to the current bound data before its host allocates rows
+
+#### Scenario: Pending refresh outlives an interaction
+- **WHEN** an external change is notified while a text edit, drag, or popup interaction is active
+- **THEN** the form SHALL retain safe active interaction state and later consume the pending refresh once safe without requiring another notification
+
+#### Scenario: Destroyed view receives no service callback
+- **WHEN** a form is destroyed and its former notifier or command service later changes
+- **THEN** no remaining subscription SHALL call the destroyed view
+
+### Requirement: Binding replacement distinguishes cancellation from abandonment
+ReflectedFormView SHALL distinguish live-model cancellation from invalid-binding abandonment. CancelInteractions and Refresh SHALL require the current model to remain valid and SHALL restore uncommitted live previews before clearing interaction state. Bind, Unbind, and destruction SHALL abandon obsolete callbacks, popups, capture, drag, hover, and inline-edit targets without accessing the former model. Unbind SHALL leave no valid model for a later pending notification to rebuild. Form-local widget registrations and context dependencies SHALL remain unchanged by rebinding.
+
+#### Scenario: Bind after the old model has been released
+- **WHEN** a form has an active color preview and binds another object after its old model storage was released
+- **THEN** it SHALL clear the obsolete interaction without reading or writing the released model and subsequent input SHALL NOT commit against that binding
+
+#### Scenario: Host cancels before valid model replacement
+- **WHEN** a host calls CancelInteractions while the old model remains valid, then replaces its storage and binds the replacement
+- **THEN** the uncommitted preview SHALL be restored before release and the new binding SHALL have no old interaction state
+
+#### Scenario: Escape restores a live preview
+- **WHEN** Escape cancels an active preview whose model remains valid
+- **THEN** the model SHALL return to its opening value without adding a command
+
+#### Scenario: Unbind survives later notifications
+- **WHEN** a form unbinds after model release and receives property or command notifications
+- **THEN** later synchronization SHALL NOT rebuild the former binding or access its data
+
+#### Scenario: World config storage is replaced at the same document address
+- **WHEN** WorldConfigPanel refreshes after its document's config storage was replaced during an active preview
+- **THEN** it SHALL abandon the old binding before resolving the new config and display the new config without an old rollback
+
+### Requirement: Obsolete binding callbacks become inert
+A form SHALL expose a weak binding-generation lifetime distinct from its service subscription lifetime. Abandonment SHALL expire that generation before clearing widgets. Cancellation SHALL permit live rollback before expiring it. Built-in color and inline-edit callbacks SHALL reject an expired generation before accessing a field or host. Custom widgets SHALL drop obsolete target pointers for either reset mode and SHALL NOT access model data during Abandon.
+
+#### Scenario: Callback belongs to an old field generation
+- **WHEN** a retained callback is invoked after its binding was reset, rebound, unbound, or destroyed
+- **THEN** built-in binding callbacks SHALL perform no model or host access
+
+#### Scenario: Form destruction outlives the model
+- **WHEN** a form is destroyed after its borrowed model was already released
+- **THEN** teardown SHALL abandon interactions without rollback and remove notifier/command subscriptions without model access
+
+### Requirement: Forms support domain-owned edit commands
+ReflectedForm SHALL accept an optional UI-free edit-command factory receiving a transient top-level property descriptor and its staged new value. Scalar, nested, reset, sequence-add, and sequence-remove edits SHALL use that seam and emit the committed-change callback once. Without a factory the form SHALL retain generic descriptor-command behavior. A domain factory SHALL NOT retain the descriptor, field, form, or borrowed model as a historical target.
+
+#### Scenario: Disposable model uses a domain command
+- **WHEN** an asset form commits an edit using a registered domain factory and later replaces its materialized model
+- **THEN** the recorded command SHALL remain independent of the released model's storage
+
+#### Scenario: Sequence and reset respect the same factory
+- **WHEN** a domain-bound form adds/removes a sequence element or resets a property
+- **THEN** it SHALL create the edit through the same factory and notify its host once
+
+### Requirement: Synchronous domain observers cannot invoke obsolete form callbacks
+ReflectedForm SHALL snapshot its factory and changed callback before command dispatch and SHALL use a weak binding generation to suppress the changed callback after a synchronous observer destroys or rebinds the form. Dispatch SHALL NOT retain that generation or access form members after execution. An active-edit counter SHALL remain safe to release independently of the form's lifetime.
+
+#### Scenario: Persistence observer destroys the editing form
+- **WHEN** catalog persistence synchronously invokes an observer that destroys the ReflectedForm executing the domain edit
+- **THEN** Edit SHALL return without accessing that form and SHALL NOT invoke its obsolete changed callback
+
+#### Scenario: Persistence observer rebinds the same form
+- **WHEN** a synchronous observer rebuilds or clears the editing form's binding
+- **THEN** the former binding's changed callback SHALL NOT execute after command dispatch
+
+### Requirement: End interactions before shared history traversal
+
+Reflected forms SHALL subscribe to the command service supplied by their context and cancel live interactions before that service traverses history. Shell accelerators, shared toolbar/menu actions, and direct service calls SHALL use this ordering. Forms SHALL remove preparation subscriptions on destruction and guard copied callbacks against expired lifetime. Binding invalidation SHALL abandon invalid targets before they can receive a cancellation callback.
+
+#### Scenario: Shared entry points preserve history values
+- **WHEN** an asset or standalone form has committed A to B and is previewing C and Undo is invoked by a Shell accelerator, shared menu/toolbar action, or direct command-service call
+- **THEN** the preview SHALL end before Undo restores A
+- **AND** later Escape, pointer release, or layout synchronization SHALL preserve A and the advanced history cursor
+
+#### Scenario: Form removed during preparation
+- **WHEN** an earlier preparation observer destroys a form
+- **THEN** later callbacks SHALL NOT access that form or its old binding
+
+#### Scenario: Local history while inline editing
+- **WHEN** the form receives a key-down history shortcut during inline editing
+- **THEN** it SHALL route through the same service preparation boundary
+- **AND** the corresponding key-up SHALL NOT traverse history again
+
+### Requirement: Reflected field backing storage lifetime
+ReflectedForm SHALL construct descriptor-backed fields at stable final addresses for the lifetime of one built tree. Member presentation order SHALL be resolved before constructing fields; known sibling/element capacity SHALL be reserved before recursively binding owned values and descendants. A child descriptor pointing into a struct field's owned Any and each child parent pointer SHALL remain valid after the complete form is built, independent of inline versus heap Any storage. Default capture SHALL obey the same lifetime rule. Rebuild SHALL own structural replacement; view consumers MAY change presentation/expansion state but SHALL NOT relocate or structurally mutate built fields.
+
+#### Scenario: Inline nested structs remain readable
+- **WHEN** a reflected struct smaller than Any's inline block contains another reflected inline struct
+- **THEN** all descendant descriptors SHALL read from the final owning field values after construction returns
+
+#### Scenario: Sibling order does not relocate built values
+- **WHEN** multiple top-level and nested siblings have presentation order different from reflected member iteration order
+- **THEN** the completed tree SHALL expose that presentation order without moving already bound field backing or invalidating child descriptors
+
+#### Scenario: Parent links propagate a deep edit
+- **WHEN** a leaf inside multiple inline struct levels is edited or reset
+- **THEN** its final parent chain SHALL propagate the new value to the correct root member as one undoable command and SHALL preserve unrelated siblings
+
+#### Scenario: Nested sequence fields retain live containing storage
+- **WHEN** a sequence inside multiple reflected struct levels exposes many indexed children
+- **THEN** all children SHALL resolve the expected copied element values through live containing storage and preserve their existing read-only element contract
+
+#### Scenario: Scratch baseline fields do not escape their storage
+- **WHEN** a form captures type defaults or an explicit baseline using a temporary scratch form
+- **THEN** copied default values SHALL remain usable by the live tree without retaining scratch descriptors or addresses
+
+### Requirement: Reflected order metadata participates before field construction
+Effective form member order SHALL use explicit MemberAppearance.order when hasOrder is set, otherwise reflected CommonPropertyKey::ORDER when present, otherwise zero. Stable sorting SHALL preserve existing reflection iteration for ties; the current std::map fallback is key order rather than source registration order. The rule SHALL apply before constructing root and nested struct fields so inline owned-value/child-descriptor storage is not relocated by sorting built fields. This correction SHALL NOT require new Framework registration-order ABI or per-settings-page layout code.
+
+#### Scenario: Explicit appearance overrides reflection
+- **WHEN** a member declares reflected ORDER and an explicit appearance order
+- **THEN** the form SHALL use the explicit appearance value, including an explicit zero
+
+#### Scenario: Reflected order and stable ties
+- **WHEN** reflected members have ORDER values or no explicit order and some effective values tie
+- **THEN** fields SHALL follow effective order with stable existing reflection iteration for the tied members
+
+#### Scenario: Nested fields retain valid bindings
+- **WHEN** nested reflected members are ordered and later edited/reset/undone
+- **THEN** their descriptors SHALL remain bound to valid owned storage rather than addresses invalidated by sorting already-built fields

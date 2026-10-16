@@ -7,13 +7,14 @@
 #include <editor/core/filebrowser/FileBrowserModel.h>
 #include <editor/core/text/TextEditState.h>
 #include <editor/shell/ModalDialog.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -31,7 +32,7 @@ namespace sky::editor {
     class FileBrowserDialog : public ModalDialog {
     public:
         explicit FileBrowserDialog(sky::ui::UITextSystem *text);
-        ~FileBrowserDialog() override = default;
+        ~FileBrowserDialog() override;
 
         const char *GetTypeName() const override
         {
@@ -41,6 +42,8 @@ namespace sky::editor {
         void SetTextSystem(sky::ui::UITextSystem *text)
         {
             textSystem = text;
+            skin       = UiSkin(GetDefaultUiTheme(), text);
+            MarkLayoutDirty();
         }
 
         void Open(const FileBrowserRequest &request);
@@ -89,6 +92,7 @@ namespace sky::editor {
         sky::ui::UIRect FilterItemRect(int index) const; // 0 = "All", i+1 = filters[i]
         sky::ui::UIRect NameFieldRect() const;
         sky::ui::UIRect ButtonRect(int index) const; // 0 = OK, 1 = Cancel
+        void            SynchronizeLayout();
 
         sky::ui::UIRect ContextMenuRect() const;
         sky::ui::UIRect ContextItemRect(int index) const;
@@ -99,10 +103,16 @@ namespace sky::editor {
         int ButtonAt(float x, float y) const;
         int ContextItemAt(float x, float y) const;
 
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &content) override;
+
     private:
-        int  FilterItemCount() const;
-        void Accept();
-        void Cancel();
+        struct Layout;
+        std::unique_ptr<Layout> composition;
+        void                    UpdateComposition();
+        int                     FilterItemCount() const;
+        void                    Accept();
+        void                    Cancel();
 
         int   NameCaretFromX(float x) const;
         float NameCaretX() const;
@@ -146,6 +156,8 @@ namespace sky::editor {
         float     contextX         = 0.0f;
         float     contextY         = 0.0f;
         int       hoverContextItem = -1;
+        uint64_t  themeRevision    = 0;
+        bool      layoutBusy       = false;
     };
 
 } // namespace sky::editor

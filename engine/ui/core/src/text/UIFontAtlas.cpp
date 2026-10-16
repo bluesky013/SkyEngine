@@ -23,8 +23,7 @@ namespace sky::ui {
 
     } // namespace
 
-    UIFontAtlas::UIFontAtlas(IUITextureRegistry *registry, uint32_t pageSize)
-        : pageSize(std::max<uint32_t>(pageSize, 1))
+    UIFontAtlas::UIFontAtlas(IUITextureRegistry *registry, uint32_t pageSize) : pageSize(std::max<uint32_t>(pageSize, 1))
     {
         if (registry != nullptr) {
             registries.push_back(registry);
@@ -41,8 +40,15 @@ namespace sky::ui {
         for (const auto &page : pages) {
             if (page.textureId != UI_INVALID_TEXTURE) {
                 registry->RegisterTextureAs(page.textureId, page.image);
+                // A detached backend may retain this id with older pixels.
+                registry->UpdateTexture(page.textureId, page.image);
             }
         }
+    }
+
+    void UIFontAtlas::RemoveRegistry(IUITextureRegistry *registry)
+    {
+        registries.erase(std::remove(registries.begin(), registries.end(), registry), registries.end());
     }
 
     UIFontAtlas::Page *UIFontAtlas::AcquirePage(uint32_t width, uint32_t height)
@@ -66,7 +72,7 @@ namespace sky::ui {
         }
 
         Page page;
-        page.image.width = pageSize;
+        page.image.width  = pageSize;
         page.image.height = pageSize;
         page.image.pixels.assign(static_cast<size_t>(pageSize) * pageSize * 4, 0);
         page.textureId = nextPageId++;
@@ -83,8 +89,8 @@ namespace sky::ui {
             return EmptyEntry();
         }
 
-        const uint64_t key = MakeKey(size, codepoint);
-        const auto cached = cache.find(key);
+        const uint64_t key    = MakeKey(size, codepoint);
+        const auto     cached = cache.find(key);
         if (cached != cache.end()) {
             return cached->second;
         }
@@ -95,11 +101,11 @@ namespace sky::ui {
         }
 
         UIGlyphEntry entry;
-        entry.advance = glyph.advance;
+        entry.advance  = glyph.advance;
         entry.bearingX = glyph.bearingX;
         entry.bearingY = glyph.bearingY;
-        entry.width = static_cast<float>(glyph.width);
-        entry.height = static_cast<float>(glyph.height);
+        entry.width    = static_cast<float>(glyph.width);
+        entry.height   = static_cast<float>(glyph.height);
 
         if (glyph.width > 0 && glyph.height > 0) {
             Page *page = AcquirePage(glyph.width, glyph.height);
@@ -109,8 +115,8 @@ namespace sky::ui {
 
                 for (uint32_t row = 0; row < glyph.height; ++row) {
                     for (uint32_t col = 0; col < glyph.width; ++col) {
-                        const uint32_t coverage = glyph.pixels[static_cast<size_t>(row) * glyph.width + col];
-                        const size_t offset = (static_cast<size_t>(y + row) * pageSize + (x + col)) * 4;
+                        const uint32_t coverage        = glyph.pixels[static_cast<size_t>(row) * glyph.width + col];
+                        const size_t   offset          = (static_cast<size_t>(y + row) * pageSize + (x + col)) * 4;
                         page->image.pixels[offset + 0] = 255;
                         page->image.pixels[offset + 1] = 255;
                         page->image.pixels[offset + 2] = 255;
@@ -127,9 +133,9 @@ namespace sky::ui {
 
                 const float inv = 1.0f / static_cast<float>(pageSize);
                 entry.textureId = page->textureId;
-                entry.uv.left = static_cast<float>(x) * inv;
-                entry.uv.top = static_cast<float>(y) * inv;
-                entry.uv.right = static_cast<float>(x + glyph.width) * inv;
+                entry.uv.left   = static_cast<float>(x) * inv;
+                entry.uv.top    = static_cast<float>(y) * inv;
+                entry.uv.right  = static_cast<float>(x + glyph.width) * inv;
                 entry.uv.bottom = static_cast<float>(y + glyph.height) * inv;
             }
         }

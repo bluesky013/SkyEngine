@@ -9,10 +9,11 @@
 
 #include <editor/core/asset/AssetViewData.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
-#include <editor/ui/AssetViewProvider.h>
+#include <editor/core/command/CommandService.h>
 #include <editor/shell/AssetViewFlags.h>
 #include <editor/shell/ModalDialog.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/ui/AssetViewProvider.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
@@ -46,10 +47,8 @@ namespace sky::editor {
             return "AssetViewerWidget";
         }
 
-        void SetCatalog(EditorAssetCatalog *value)
-        {
-            catalog = value;
-        }
+        // The catalog is borrowed and must outlive the editing session.
+        void SetCatalog(EditorAssetCatalog *value);
 
         // Routes a chrome action id back to the host (EditorShell::InvokeAction).
         void SetActionHandler(std::function<bool(const std::string &)> handler)
@@ -57,7 +56,18 @@ namespace sky::editor {
             actionHandler = std::move(handler);
         }
 
-        void Open(const Uuid &uuid);
+        void            Open(const Uuid &uuid);
+        void            Close();
+        CommandService &History()
+        {
+            return assetCommands;
+        }
+        bool CanUndo() const;
+        bool CanRedo() const;
+        bool Undo();
+        bool Redo();
+        // Consume property/command/theme notifications before incremental layout.
+        void SynchronizeLayout();
 
         // Chrome command targets (driven by the scoped actions registered by the host).
         void OpenAsset();
@@ -68,6 +78,9 @@ namespace sky::editor {
         sky::ui::UIEventResult OnKeyEvent(const sky::ui::UIKeyEvent &event) override;
         sky::ui::UIEventResult OnTextInput(const sky::ui::UITextInputEvent &event) override;
 
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &content) override;
+
     private:
         // One reflected settings form per resolved cook target.
         struct TargetPanel {
@@ -77,7 +90,9 @@ namespace sky::editor {
             float              h    = 0.0f;
         };
 
-        void            RebuildChrome();
+        bool            HasEditingForms() const;
+        void            CancelFormInteractions();
+        bool            RefreshActions(bool force = false);
         void            RebuildTargetPanels();
         void            Reload();
         void            RebuildCustomContent();
@@ -93,8 +108,28 @@ namespace sky::editor {
         sky::ui::UITextSystem *textSystem = nullptr;
         EditorAssetCatalog    *catalog    = nullptr;
         UiSkin                 skin;
+        uint64_t               themeRevision        = 0;
+        std::shared_ptr<void>  actionLifetime       = std::make_shared<int>(0);
+        uint64_t               actionChromeRevision = 0;
+        std::string            actionChromeScope;
+        bool                   refreshingActions       = false;
+        uint64_t               actionSessionGeneration = 0;
+        bool                   arrangingContent        = false;
 
         std::function<bool(const std::string &)> actionHandler;
+
+        // Declared before the model/children references so the injected history
+        // remains live until their explicit cleanup in the destructor body.
+        CommandService             assetCommands;
+        CommandService::CallbackId commandChangedId      = 0;
+        bool                       pendingSettingsReload = false;
+        uint64_t                   catalogRevision       = 0;
+
+        enum class PendingSessionAction { None, Open, Close };
+        PendingSessionAction pendingSession = PendingSessionAction::None;
+        Uuid                 pendingAsset;
+        bool                 hasPendingCatalog = false;
+        EditorAssetCatalog  *pendingCatalog    = nullptr;
 
         std::vector<TargetPanel> panels;
         sky::ui::UIElement      *customContent   = nullptr; // provider content, when any

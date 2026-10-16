@@ -88,6 +88,24 @@ namespace sky::ui {
             element.SetLayout(params);
         }
 
+        void ApplyProperties(UIElement &element, const rapidjson::Value &value, const std::string &path)
+        {
+            if (value.IsObject()) {
+                for (const auto &member : value.GetObject()) {
+                    const std::string name(member.name.GetString(), member.name.GetStringLength());
+                    ApplyProperties(element, member.value, path.empty() ? name : path + "." + name);
+                }
+            } else if (value.IsBool()) {
+                element.SetProperty(path, UIPropertyValue::Bool(value.GetBool()));
+            } else if (value.IsInt64()) {
+                element.SetProperty(path, UIPropertyValue::Int(value.GetInt64()));
+            } else if (value.IsNumber()) {
+                element.SetProperty(path, UIPropertyValue::Float(value.GetFloat()));
+            } else if (value.IsString()) {
+                element.SetProperty(path, UIPropertyValue::String(std::string(value.GetString(), value.GetStringLength())));
+            }
+        }
+
         UIElementPtr ParseNode(const rapidjson::Value &node,
                                const std::string &path,
                                const UIElementRegistry &registry,
@@ -154,6 +172,14 @@ namespace sky::ui {
                     const auto &button = props["button"];
                     if (button.HasMember("interactable") && button["interactable"].IsBool()) {
                         element->SetProperty("button.interactable", UIPropertyValue::Bool(button["interactable"].GetBool()));
+                    }
+                }
+                for (const auto &member : props.GetObject()) {
+                    const std::string group(member.name.GetString(), member.name.GetStringLength());
+                    // These groups retain their specialized decoding, including
+                    // layout arrays, asset references, and hexadecimal colors.
+                    if (group != "layout" && group != "visual" && group != "button") {
+                        ApplyProperties(*element, member.value, group);
                     }
                 }
             }

@@ -24,7 +24,7 @@
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextLayout.h>
 #include <ui/text/UITextSystem.h>
-#include <ui/widgets/StackPanel.h>
+#include <ui/widgets/GridPanel.h>
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -43,13 +43,6 @@ namespace sky::aurora::editor {
     namespace uc = sky::editor::uidraw;
 
     namespace {
-
-        constexpr float    kRowH    = 22.0f;
-        constexpr float    kPad     = 8.0f;
-        constexpr float    kTitleH  = 22.0f;
-        constexpr float    kLabelW  = 190.0f;
-        constexpr float    kBrowseW = 26.0f;
-        constexpr uint32_t kTextSz  = 12;
 
         template <typename T>
         T ReadPod(const std::vector<uint8_t> &bytes, size_t offset = 0)
@@ -185,12 +178,15 @@ namespace sky::aurora::editor {
 
     MaterialEditorView::MaterialEditorView(
         sky::ui::UITextSystem *textSystem, const Uuid &uuid, std::string titleText, bool instance, bool enableTechniques)
-        : text(textSystem), asset(uuid), title(std::move(titleText)), isInstance(instance), allowTechniques(enableTechniques)
+        : text(textSystem)
+        , skin(sky::editor::GetDefaultUiTheme(), textSystem)
+        , asset(uuid)
+        , title(std::move(titleText))
+        , isInstance(instance)
+        , allowTechniques(enableTechniques)
     {
         SetFocusable(true);
-        rowsPanel = static_cast<sky::ui::StackPanel *>(AddChild(std::make_unique<sky::ui::StackPanel>(sky::ui::StackOrientation::Vertical)));
-        rowsPanel->SetGap(0.0f);
-        rowsPanel->SetPadding(0.0f);
+        rowsPanel = static_cast<sky::ui::GridPanel *>(AddChild(std::make_unique<sky::ui::GridPanel>()));
         if (isInstance) {
             LoadSourceJson(asset, instanceSource);
         } else {
@@ -421,8 +417,9 @@ namespace sky::aurora::editor {
 
     void MaterialEditorView::Measure(float &outWidth, float &outHeight)
     {
-        (void)outWidth;
-        outHeight = kPad + kTitleH + static_cast<float>(rows.size()) * kRowH + kPad;
+        outWidth      = 0.0f;
+        const auto &m = Theme().metrics;
+        outHeight     = m.panelHeaderHeight + static_cast<float>(rows.size()) * m.rowHeight + 2.0f * m.controlPad;
     }
 
     void MaterialEditorView::RebuildRowSlots()
@@ -430,28 +427,36 @@ namespace sky::aurora::editor {
         if (rowsPanel == nullptr) {
             return;
         }
-        // Each row is a fixed-height child of the vertical stack; the panel owns the geometry
-        // (the view paints the rows from the arranged child bounds in OnPaint).
+        // A uniform grid follows the current theme's row height on every arrangement.
         rowsPanel->ClearChildren();
+        rowsPanel->SetGrid(static_cast<int>(rows.size()), 1);
         for (size_t i = 0; i < rows.size(); ++i) {
-            sky::ui::StackSlot slot;
-            slot.width  = sky::ui::StackSize::Fill;
-            slot.height = sky::ui::StackSize::Fixed;
-            slot.fixedH = kRowH;
-            rowsPanel->Add(std::make_unique<sky::ui::UIElement>(), slot);
+            rowsPanel->Add(std::make_unique<sky::ui::UIElement>(), {static_cast<int>(i), 0});
         }
-        MarkPaintDirty();
+        MarkLayoutDirty();
     }
 
-    void MaterialEditorView::LayoutRows()
+    void MaterialEditorView::ArrangeChildren(const sky::ui::UIRect & /*content*/)
     {
         if (rowsPanel == nullptr) {
             return;
         }
-        const sky::ui::UIRect bounds = GetBounds();
-        const float           top    = bounds.top + kPad + kTitleH;
-        rowsPanel->SetBounds(sky::ui::UIRect{bounds.left, top, bounds.right, top + static_cast<float>(rows.size()) * kRowH});
-        rowsPanel->Layout();
+        const auto  content = skin.PanelContentRect(GetBounds());
+        const auto &m       = Theme().metrics;
+        const float top     = content.top + m.controlPad;
+        rowsPanel->Arrange({content.left, top, content.right, top + static_cast<float>(rows.size()) * m.rowHeight});
+    }
+
+    float MaterialEditorView::LabelWidth() const
+    {
+        return std::min(Theme().metrics.fieldWidth, std::max(0.0f, GetBounds().Width() * 0.4f));
+    }
+
+    sky::ui::UIRect MaterialEditorView::PickerNoneRect() const
+    {
+        const auto &m = Theme().metrics;
+        return {pickerRect.left + m.cellPadding, pickerRect.top + m.cellPadding, pickerRect.right - m.cellPadding,
+                pickerRect.top + m.cellPadding + m.popupItemHeight};
     }
 
     sky::ui::UIRect MaterialEditorView::RowRect(size_t index) const
@@ -464,88 +469,71 @@ namespace sky::aurora::editor {
 
     void MaterialEditorView::OnPaint(sky::ui::UIPaintContext &context)
     {
+        const auto           &th     = Theme();
+        const auto           &m      = th.metrics;
+        const float           pixel  = m.checkboxPad * 0.5f;
         const sky::ui::UIRect bounds = GetBounds();
-        uc::Fill(context, bounds, uc::color::Panel);
-        uc::Text(context, title, kTextSz, sky::ui::UIRect{bounds.left + kPad, bounds.top + kPad, bounds.right - kPad, bounds.top + kPad + kTitleH},
-                 uc::color::TextMuted, text);
-        uc::HLine(context, bounds.left + kPad, bounds.right - kPad, bounds.top + kPad + kTitleH, uc::color::BorderSoft);
+        skin.DrawPanel(context, bounds, title);
 
-        LayoutRows();
         for (size_t i = 0; i < rows.size(); ++i) {
             const MaterialEditorRow &prop = rows[i];
             const sky::ui::UIRect    row  = RowRect(i);
             if (row.bottom < bounds.top || row.top > bounds.bottom) {
                 continue;
             }
-            if (i % 2 == 1) {
-                uc::Fill(context, row, uc::color::RowOdd);
-            }
+            skin.DrawRow(context, row, i % 2 ? sky::editor::RowState::Alt : sky::editor::RowState::Normal);
 
             if (prop.kind == MaterialRowKind::TechniqueHeader) {
-                uc::Fill(context, row, uc::color::RowHover);
-                uc::Text(context, prop.name, kTextSz, sky::ui::UIRect{row.left + kPad, row.top, row.right - kPad - kBrowseW, row.bottom},
-                         uc::color::Text, text);
-                const bool            delHover = (hoverRow == static_cast<int>(i));
-                const sky::ui::UIRect del{row.right - kPad - kBrowseW, row.top + 1.0f, row.right - kPad, row.bottom - 1.0f};
-                uc::RoundedField(context, del, uc::color::FieldHover, delHover ? uc::color::Border : uc::color::BorderSoft, 3.0f);
-                uc::Text(context, "x", kTextSz, del, uc::color::Text, text, uc::HAlign::Center);
+                skin.DrawSectionHeader(context, row, prop.name);
+                const sky::ui::UIRect del{row.right - m.controlPad - m.frameHeight, row.top + pixel, row.right - m.controlPad, row.bottom - pixel};
+                skin.DrawToolItem(context, del, "x", hoverRow == static_cast<int>(i));
                 continue;
             }
             if (prop.kind == MaterialRowKind::AddTechnique) {
-                const bool addHover = (hoverRow == static_cast<int>(i));
-                if (addHover) {
-                    uc::Fill(context, row, uc::color::RowHover);
-                }
-                uc::Text(context, prop.name, kTextSz, sky::ui::UIRect{row.left + kPad, row.top, row.right - kPad, row.bottom},
-                         addHover ? uc::color::Text : uc::color::TextMuted, text, uc::HAlign::Center);
+                skin.DrawToolItem(context, row, prop.name, hoverRow == static_cast<int>(i));
                 continue;
             }
 
-            uc::Text(context, prop.name, kTextSz, sky::ui::UIRect{row.left + kPad, row.top, row.left + kPad + kLabelW, row.bottom}, uc::color::Text,
-                     text);
+            uc::Text(context, prop.name, th.fonts.label, {row.left + m.controlPad, row.top, row.left + m.controlPad + LabelWidth(), row.bottom},
+                     th.colors.text, text);
 
             const bool            isTexture = IsTextureProperty(prop.type);
-            const float           boxRight  = isTexture ? row.right - kPad - kBrowseW - 2.0f : row.right - kPad;
-            const sky::ui::UIRect box{row.left + kPad + kLabelW, row.top + 1.0f, boxRight, row.bottom - 1.0f};
+            const float           boxRight  = isTexture ? row.right - m.controlPad - m.frameHeight - m.checkboxPad : row.right - m.controlPad;
+            const sky::ui::UIRect box{row.left + m.controlPad + LabelWidth(), row.top + pixel, boxRight, row.bottom - pixel};
+            const bool            editing = editingRow == static_cast<int>(i);
+            skin.DrawField(context, box, editing, false);
 
             if (isTexture) {
-                uc::RoundedField(context, box, uc::color::Field, uc::color::BorderSoft, 3.0f);
                 const Uuid *texturePtr = std::get_if<Uuid>(&prop.value);
                 const bool  hasTexture = texturePtr != nullptr && static_cast<bool>(*texturePtr);
-                uc::Text(context, DisplayText(prop), kTextSz, sky::ui::UIRect{box.left + 5.0f, box.top, box.right - 5.0f, box.bottom},
-                         hasTexture ? uc::color::Text : uc::color::TextDisabled, text);
-                const sky::ui::UIRect browse{row.right - kPad - kBrowseW, row.top + 1.0f, row.right - kPad, row.bottom - 1.0f};
-                uc::RoundedField(context, browse, uc::color::FieldHover, uc::color::BorderSoft, 3.0f);
-                uc::Text(context, "...", kTextSz, browse, uc::color::Text, text, uc::HAlign::Center);
+                uc::Text(context, DisplayText(prop), th.fonts.value, {box.left + m.cellPadding, box.top, box.right - m.cellPadding, box.bottom},
+                         hasTexture ? th.colors.text : th.colors.textDisabled, text);
+                const sky::ui::UIRect browse{row.right - m.controlPad - m.frameHeight, row.top + pixel, row.right - m.controlPad, row.bottom - pixel};
+                skin.DrawToolItem(context, browse, "...", hoverRow == static_cast<int>(i));
             } else {
-                const bool editing = (editingRow == static_cast<int>(i));
-                uc::RoundedField(context, box, editing ? uc::color::FieldHover : uc::color::Field,
-                                 editing ? uc::color::Border : uc::color::BorderSoft, 3.0f);
                 const std::string shown = editing ? editText : DisplayText(prop);
-                const uint32_t    color = (prop.type == MaterialPropertyType::MAT4) ? uc::color::TextDisabled : uc::color::Text;
-                uc::Text(context, shown, kTextSz, sky::ui::UIRect{box.left + 5.0f, box.top, box.right - 5.0f, box.bottom}, color, text);
+                const uint32_t    color = prop.type == MaterialPropertyType::MAT4 ? th.colors.textDisabled : th.colors.text;
+                uc::Text(context, shown, th.fonts.value, {box.left + m.cellPadding, box.top, box.right - m.cellPadding, box.bottom}, color, text);
                 if (editing && text != nullptr) {
-                    const float caretX = box.left + 5.0f + sky::ui::UITextLayout::Measure(shown, kTextSz, text->GetAtlas()).width + 1.0f;
-                    uc::Fill(context, sky::ui::UIRect{caretX, box.top + 2.0f, caretX + 1.0f, box.bottom - 2.0f}, uc::color::Text);
+                    const float caretX =
+                        box.left + m.cellPadding + sky::ui::UITextLayout::Measure(shown, th.fonts.value, text->GetAtlas()).width + pixel;
+                    uc::Fill(context, {caretX, box.top + m.checkboxPad, caretX + pixel, box.bottom - m.checkboxPad}, th.colors.text);
                 }
             }
         }
 
         if (pickerRow >= 0) {
-            uc::SoftShadow(context, pickerRect, 4.0f);
-            uc::RoundedField(context, pickerRect, uc::color::Panel, uc::color::Border, 4.0f);
-            const sky::ui::UIRect noneRect{pickerRect.left + 4.0f, pickerRect.top + 4.0f, pickerRect.right - 4.0f, pickerRect.top + 4.0f + kRowH};
-            uc::RoundedField(context, noneRect, uc::color::RowHover, uc::color::BorderSoft, 3.0f);
-            uc::Text(context, "(none)", kTextSz, sky::ui::UIRect{noneRect.left + 6.0f, noneRect.top, noneRect.right - 6.0f, noneRect.bottom},
-                     uc::color::TextMuted, text);
+            skin.DrawPopup(context, pickerRect);
+            const auto noneRect = PickerNoneRect();
+            skin.DrawPopupItem(context, noneRect, false, true);
+            uc::Text(context, "(none)", th.fonts.label,
+                     {noneRect.left + m.cellPadding, noneRect.top, noneRect.right - m.cellPadding, noneRect.bottom}, th.colors.textMuted, text);
             for (size_t i = 0; i < pickerRects.size(); ++i) {
-                if (static_cast<int>(i) == pickerHover) {
-                    uc::Fill(context, pickerRects[i], uc::color::RowHover);
-                }
+                skin.DrawPopupItem(context, pickerRects[i], static_cast<int>(i) == pickerHover, false);
+                const auto        &rect  = pickerRects[i];
                 const std::string &label = pickerItems[i].name.empty() ? pickerItems[i].uuid.ToString() : pickerItems[i].name;
-                uc::Text(context, label, kTextSz,
-                         sky::ui::UIRect{pickerRects[i].left + 10.0f, pickerRects[i].top, pickerRects[i].right - 6.0f, pickerRects[i].bottom},
-                         uc::color::Text, text);
+                uc::Text(context, label, th.fonts.label, {rect.left + m.cellPadding, rect.top, rect.right - m.cellPadding, rect.bottom},
+                         th.colors.text, text);
             }
         }
     }
@@ -664,13 +652,15 @@ namespace sky::aurora::editor {
                 pickerItems.push_back(PickerItem{item.uuid, item.name});
             }
         }
-        const float top = row.bottom + 2.0f;
-        const float h   = 8.0f + kRowH + static_cast<float>(pickerItems.size()) * kRowH;
-        pickerRect      = sky::ui::UIRect{row.left + kPad + kLabelW, top, row.left + kPad + kLabelW + 220.0f, top + h};
+        const auto &m    = Theme().metrics;
+        const float top  = row.bottom + m.checkboxPad;
+        const float h    = 2.0f * m.cellPadding + static_cast<float>(pickerItems.size() + 1) * m.popupItemHeight;
+        const float left = row.left + m.controlPad + LabelWidth();
+        pickerRect       = {left, top, left + m.popupMinWidth, top + h};
         pickerRects.clear();
         for (size_t k = 0; k < pickerItems.size(); ++k) {
-            const float iy = pickerRect.top + 4.0f + kRowH + static_cast<float>(k) * kRowH;
-            pickerRects.push_back(sky::ui::UIRect{pickerRect.left + 4.0f, iy, pickerRect.right - 4.0f, iy + kRowH});
+            const float iy = pickerRect.top + m.cellPadding + static_cast<float>(k + 1) * m.popupItemHeight;
+            pickerRects.push_back({pickerRect.left + m.cellPadding, iy, pickerRect.right - m.cellPadding, iy + m.popupItemHeight});
         }
         MarkPaintDirty();
     }
@@ -693,7 +683,7 @@ namespace sky::aurora::editor {
                 return sky::ui::UIEventResult::HANDLED;
             }
             if (event.action == sky::ui::UIPointerAction::DOWN) {
-                const sky::ui::UIRect noneRect{pickerRect.left + 4.0f, pickerRect.top + 4.0f, pickerRect.right - 4.0f, pickerRect.top + 4.0f + kRowH};
+                const sky::ui::UIRect noneRect = PickerNoneRect();
                 if (noneRect.Contains(event.x, event.y)) {
                     const int row = pickerRow;
                     pickerRow     = -1;
@@ -718,7 +708,6 @@ namespace sky::aurora::editor {
 
         if (event.action == sky::ui::UIPointerAction::MOVE) {
             int hovered = -1;
-            LayoutRows();
             for (size_t i = 0; i < rows.size(); ++i) {
                 if (RowRect(i).Contains(event.x, event.y)) {
                     hovered = static_cast<int>(i);
@@ -739,14 +728,15 @@ namespace sky::aurora::editor {
             CommitValue(editingRow);
             editingRow = -1;
         }
-        LayoutRows();
         for (size_t i = 0; i < rows.size(); ++i) {
             const sky::ui::UIRect row = RowRect(i);
             if (!row.Contains(event.x, event.y)) {
                 continue;
             }
             if (rows[i].kind == MaterialRowKind::TechniqueHeader) {
-                const sky::ui::UIRect del{row.right - kPad - kBrowseW, row.top + 1.0f, row.right - kPad, row.bottom - 1.0f};
+                const sky::ui::UIRect del{row.right - Theme().metrics.controlPad - Theme().metrics.frameHeight,
+                                          row.top + Theme().metrics.checkboxPad * 0.5f, row.right - Theme().metrics.controlPad,
+                                          row.bottom - Theme().metrics.checkboxPad * 0.5f};
                 if (del.Contains(event.x, event.y)) {
                     DeleteTechnique(rows[i].techniqueIndex);
                 }
@@ -757,7 +747,8 @@ namespace sky::aurora::editor {
                 return sky::ui::UIEventResult::HANDLED;
             }
             if (IsTextureProperty(rows[i].type)) {
-                const sky::ui::UIRect browse{row.right - kPad - kBrowseW, row.top, row.right - kPad, row.bottom};
+                const sky::ui::UIRect browse{row.right - Theme().metrics.controlPad - Theme().metrics.frameHeight, row.top,
+                                             row.right - Theme().metrics.controlPad, row.bottom};
                 if (browse.Contains(event.x, event.y)) {
                     OpenPicker(static_cast<int>(i), row);
                 }

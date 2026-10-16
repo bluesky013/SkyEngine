@@ -6,8 +6,8 @@
 
 #include <editor/core/document/WorldDocument.h>
 #include <editor/shell/PanelView.h>
-#include <editor/shell/ReflectedFormView.h>
-#include <editor/shell/UiSkin.h>
+#include <editor/widgets/ReflectedFormView.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIEvent.h>
@@ -33,7 +33,7 @@ namespace sky::editor {
         using DocumentProvider = std::function<WorldDocument *()>;
 
         WorldConfigPanel(sky::ui::UITextSystem *text, DocumentProvider provider, std::string title);
-        ~WorldConfigPanel() override = default;
+        ~WorldConfigPanel() override;
 
         const char *GetTypeName() const override
         {
@@ -42,16 +42,40 @@ namespace sky::editor {
 
         void SetTitleBarVisible(bool visible) override;
 
-        void                   OnPaint(sky::ui::UIPaintContext &context) override;
-        sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
-
-    private:
+        // Hosts that own the document lifecycle can notify the panel directly.
+        // This opts out of provider polling and allows unchanged layouts to be
+        // retained. The document must outlive its binding (or be cleared first).
+        void SetDocument(WorldDocument *document);
+        // Rebind after an external mutation replaces or reallocates config data.
+        // Abandons the former binding without rollback; call before subsequent
+        // input/layout even when the WorldDocument pointer is unchanged.
+        void RefreshDocument();
+        // Synchronize external form revisions before an incremental layout pass.
+        // The legacy provider constructor continues to poll its document here.
+        void            SynchronizeLayout();
         sky::ui::UIRect ListRect() const;
         sky::ui::UIRect RowRect(int index) const;
         sky::ui::UIRect CheckRect(int index) const;
-        int             RowAt(float x, float y) const;
-        void            Select(int index);
-        void            Rebind();
+
+        void                   OnPaint(sky::ui::UIPaintContext &context) override;
+        sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
+
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &content) override;
+
+    private:
+        struct Layout;
+        std::unique_ptr<Layout> layout;
+        uint64_t                themeRevision = 0;
+        bool                    layoutBusy    = false;
+        void                    SynchronizeLayout(bool arranging);
+        void                    UpdateComposition(bool arranging);
+        sky::ui::UIRect         ComputeRowRect(int index) const;
+        sky::ui::UIRect         ComputeCheckRect(int index) const;
+        int                     RowAt(float x, float y) const;
+        void                    Select(int index);
+        void                    Rebind();
+        void                    SynchronizeDocument();
         // Toggles a subsystem's enabled flag (persisted + rebuilt immediately).
         void ToggleEnabled(int index);
 
@@ -62,7 +86,8 @@ namespace sky::editor {
         bool                   titleVisible = true;
 
         ReflectedFormView *formView     = nullptr; // owned by this panel via AddChild
-        WorldDocument     *lastDocument = nullptr; // detects open/close to rebind
+        WorldDocument     *lastDocument = nullptr; // document backing the form's current binding
+        bool               providerMode = true;
         int                selected     = 0;
     };
 

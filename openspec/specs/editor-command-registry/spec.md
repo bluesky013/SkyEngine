@@ -92,3 +92,73 @@ actions SHALL declare an enabled predicate that is false when the selection is e
 - **WHEN** an asset action is triggered from the toolbar, a menu, a shortcut, or the panel context menu
 - **THEN** the same registered action SHALL run
 
+### Requirement: Shared action chrome is independent of the shell
+ActionBarBuilder, ToolBar, and MenuBar SHALL be provided by EditorWidgets and SHALL be usable without linking EditorShell. They SHALL continue to consume EditorActionRegistry, scope, icon, and accelerator data and SHALL invoke actions through a host-supplied callback rather than a concrete Shell instance. Host-only menu entries and policy SHALL remain with their host.
+
+#### Scenario: Feature consumer builds scoped chrome
+- **WHEN** a consumer linked only to the shared editor framework builds toolbar/menu items for its active scope
+- **THEN** the builder SHALL use that scope's registered actions without requiring Shell
+
+#### Scenario: Action invocation reaches the supplied host
+- **WHEN** a shared toolbar/menu item is activated
+- **THEN** it SHALL pass the registered action id to the supplied invoker so the host can apply its normal policy
+
+#### Scenario: Accelerator resolution stays shared
+- **WHEN** a registered accelerator is resolved outside the Shell
+- **THEN** the shared builder SHALL return the same scoped action id used to build its toolbar/menu entries
+
+### Requirement: Host-bound actions reject expired owners
+EditorShell's asset-viewer action callbacks SHALL remain safe when process registry entries or copied EditorAction records outlive their creating shell. The shell SHALL invalidate its owner-lifetime signal before child/member teardown. Expired-owner enabled predicates SHALL return false and invoke handlers SHALL perform no shell/viewer access. Callback invocation SHALL NOT retain the owner signal in a way that makes an already-destroyed shell appear live during reentrant dispatch.
+
+#### Scenario: Independent viewer consumes actions after shell destruction
+- **WHEN** a shell is destroyed and another viewer builds toolbar/menu state from the retained registry entries
+- **THEN** enabled predicates SHALL not dereference the expired shell and its actions SHALL be inert
+
+#### Scenario: Copied action outlives its owner
+- **WHEN** a consumer retains an EditorAction copy after the creating shell is destroyed
+- **THEN** evaluating its enabled predicate or invoking it directly SHALL perform no access to the expired owner
+
+#### Scenario: Older owner dies after action replacement
+- **WHEN** another live shell replaces the same scoped action IDs before the former owner is destroyed
+- **THEN** former-owner teardown SHALL preserve the newer registrations and old callback copies SHALL become inert independently
+
+#### Scenario: Live shell rebuilds its viewer tree
+- **WHEN** a live shell rebuilds its owned viewer/chrome while its actions remain registered
+- **THEN** action predicates SHALL observe an absent target during destruction/reconstruction and SHALL NOT dereference the previous viewer
+
+### Requirement: Unified dynamic action state
+
+The editor action contract SHALL expose enabled, visible, checkable and checked state independently of UI and render implementations. Toolbar, menu and accelerator dispatch SHALL consume that same state. A hidden action SHALL occupy no chrome geometry and SHALL NOT invoke. A disabled action SHALL use disabled visual styling and SHALL NOT invoke; its registered accelerator SHALL retain consumed-input semantics.
+
+#### Scenario: Live state changes while a menu is open
+
+- **WHEN** an action's enabled, checked or visible predicate changes and the host refreshes its chrome
+- **THEN** toolbar and menu state update without reconstructing the widget tree
+- **AND** a still-visible open menu remains open and hidden rows are excluded from layout and hit testing
+
+#### Scenario: Checked and disabled drawing
+
+- **WHEN** a checkable action is checked or an action is disabled
+- **THEN** menu and toolbar CPU draw data represent the corresponding theme state
+- **AND** neither pointer nor accelerator dispatch runs a disabled handler
+
+### Requirement: Registration-safe state and dispatch
+
+Action state resolution and invocation SHALL use copied registration snapshots with registration generation and active scope. After each predicate, the registry SHALL verify the exact registration and scope remain current before evaluating another callback or invoking a handler. A retained chrome entry SHALL NOT invoke a removed, replaced or differently scoped registration.
+
+#### Scenario: Predicate replaces its own action
+
+- **WHEN** an enabled, visible or checked predicate removes or replaces its registration
+- **THEN** the current dispatch is rejected safely
+- **AND** neither the stale handler nor the replacement handler executes through that snapshot
+
+#### Scenario: Chrome callback outlives its registration
+
+- **WHEN** a retained toolbar or menu callback is triggered after its action is removed, replaced or its active scope changes
+- **THEN** the callback has no action effect
+
+#### Scenario: Reentrant chrome refresh
+
+- **WHEN** a state predicate replaces the chrome entries, recursively requests refresh or destroys its chrome owner
+- **THEN** the current refresh stops or skips the recursive request without reading invalid item storage
+- **AND** a surviving chrome remains refreshable on the next host boundary

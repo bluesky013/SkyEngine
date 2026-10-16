@@ -4,6 +4,8 @@
 
 #include <ui/render/UIRenderer.h>
 
+#include "UIShader.h"
+
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/DescriptorEncoder.h>
@@ -22,6 +24,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <limits>
 
 static const char *TAG = "UIRenderer";
 
@@ -30,6 +33,14 @@ namespace sky::ui {
     using namespace sky::aurora;
 
     namespace {
+
+        bool ValidImage(const UIImageData &image)
+        {
+            if (image.width == 0 || image.height == 0 || image.width > std::numeric_limits<size_t>::max() / 4 / image.height) {
+                return false;
+            }
+            return image.pixels.size() == static_cast<size_t>(image.width) * image.height * 4;
+        }
 
         // UI shader bytecode target must match the active RHI backend.
         ShaderTarget ToShaderTarget(API api)
@@ -42,36 +53,6 @@ namespace sky::ui {
             default: return ShaderTarget::SPIRV;
             }
         }
-
-        const char *kUiShader = R"(
-[[vk::binding(0, 0)]] Texture2D tex;
-[[vk::binding(1, 0)]] SamplerState smp;
-struct VSIn { float2 pos : POSITION; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 roundRect : TEXCOORD1; float radius : TEXCOORD2; };
-struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 roundRect : TEXCOORD1; float radius : TEXCOORD2; };
-[shader("vertex")]
-VSOut vs_main(VSIn i) {
-    VSOut o;
-    o.pos = float4(i.pos, 0.0, 1.0);
-    o.uv = i.uv;
-    o.color = i.color;
-    o.roundRect = i.roundRect;
-    o.radius = i.radius;
-    return o;
-}
-[shader("fragment")]
-float4 fs_main(VSOut i) : SV_Target {
-    return i.color * tex.Sample(smp, i.uv);
-}
-[shader("fragment")]
-float4 fs_round(VSOut i) : SV_Target {
-    float2 p = i.pos.xy - i.roundRect.xy;
-    float2 d = abs(p) - (i.roundRect.zw - i.radius);
-    float sd = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - i.radius;
-    float w = max(fwidth(sd), 1e-4);
-    float a = clamp(0.5 - sd / w, 0.0, 1.0);
-    return float4(i.color.rgb, i.color.a * a);
-}
-)";
 
     } // namespace
 
@@ -92,13 +73,12 @@ float4 fs_round(VSOut i) : SV_Target {
         // Use the compiler's target-specific reflection (Vulkan bindings vs DX12
         // register numbers) instead of a hand-written one, so the root signature
         // matches the shader for the active backend.
-        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage,
-                                ShaderReflection *reflectionOut) -> ShaderFunction * {
+        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage, ShaderReflection *reflectionOut) -> ShaderFunction * {
             ShaderCompileDesc compileDesc = {};
-            compileDesc.source = kUiShader;
-            compileDesc.entry  = entry;
-            compileDesc.stage  = stage;
-            compileDesc.target = ToShaderTarget(device->GetAPI());
+            compileDesc.source            = detail::UI_SHADER_SOURCE;
+            compileDesc.entry             = entry;
+            compileDesc.stage             = stage;
+            compileDesc.target            = ToShaderTarget(device->GetAPI());
 
             ShaderCompileResult result;
             if (!compiler.Compile(compileDesc, result)) {
@@ -108,17 +88,17 @@ float4 fs_round(VSOut i) : SV_Target {
             if (reflectionOut != nullptr) {
                 *reflectionOut = result.reflection;
             }
-            const uint32_t bytes = static_cast<uint32_t>(result.data.size() * sizeof(uint32_t));
-            auto binary = CounterPtr<BinaryData>(new BinaryData(bytes));
+            const uint32_t bytes  = static_cast<uint32_t>(result.data.size() * sizeof(uint32_t));
+            auto           binary = CounterPtr<BinaryData>(new BinaryData(bytes));
             std::memcpy(binary->Data(), result.data.data(), bytes);
 
-            auto *provider = new ShaderBinaryProvider();
+            auto *provider       = new ShaderBinaryProvider();
             provider->binaryData = binary;
 
             ShaderFunction::Descriptor fnDesc = {};
-            fnDesc.stage = stage;
-            fnDesc.data  = CounterPtr<ShaderDataProvider>(provider);
-            fnDesc.entry = entry;
+            fnDesc.stage                      = stage;
+            fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
+            fnDesc.entry                      = entry;
             return device->CreateShaderFunction(fnDesc);
         };
 
@@ -145,10 +125,10 @@ float4 fs_round(VSOut i) : SV_Target {
         }
 
         Shader::Descriptor shaderDesc = {};
-        shaderDesc.vs         = vs.Get();
-        shaderDesc.ps         = ps.Get();
-        shaderDesc.reflection = &reflection;
-        shader = device->CreateShader(shaderDesc);
+        shaderDesc.vs                 = vs.Get();
+        shaderDesc.ps                 = ps.Get();
+        shaderDesc.reflection         = &reflection;
+        shader                        = device->CreateShader(shaderDesc);
         if (shader == nullptr) {
             LOG_E(TAG, "UI shader creation failed");
             return false;
@@ -163,55 +143,54 @@ float4 fs_round(VSOut i) : SV_Target {
         state.blendStates[0].dstAlpha     = BlendFactor::ONE_MINUS_SRC_ALPHA;
         state.blendStates[0].colorBlendOp = BlendOp::ADD;
         state.blendStates[0].alphaBlendOp = BlendOp::ADD;
-        state.vertexBindings.push_back(
-            VertexBindingDesc{0, static_cast<uint32_t>(sizeof(UIVertex)), VertexInputRate::PER_VERTEX});
+        state.vertexBindings.push_back(VertexBindingDesc{0, static_cast<uint32_t>(sizeof(UIVertex)), VertexInputRate::PER_VERTEX});
 
-        VertexAttributeDesc attrPos = {};
-        attrPos.location = 0;
-        attrPos.binding  = 0;
-        attrPos.offset   = static_cast<uint32_t>(offsetof(UIVertex, x));
-        attrPos.format   = Format::F_RG32;
-        attrPos.semantic      = "POSITION";
-        attrPos.semanticIndex = 0;
-        VertexAttributeDesc attrUv = {};
-        attrUv.location = 1;
-        attrUv.binding  = 0;
-        attrUv.offset   = static_cast<uint32_t>(offsetof(UIVertex, u));
-        attrUv.format   = Format::F_RG32;
-        attrUv.semantic      = "TEXCOORD";
-        attrUv.semanticIndex = 0;
+        VertexAttributeDesc attrPos   = {};
+        attrPos.location              = 0;
+        attrPos.binding               = 0;
+        attrPos.offset                = static_cast<uint32_t>(offsetof(UIVertex, x));
+        attrPos.format                = Format::F_RG32;
+        attrPos.semantic              = "POSITION";
+        attrPos.semanticIndex         = 0;
+        VertexAttributeDesc attrUv    = {};
+        attrUv.location               = 1;
+        attrUv.binding                = 0;
+        attrUv.offset                 = static_cast<uint32_t>(offsetof(UIVertex, u));
+        attrUv.format                 = Format::F_RG32;
+        attrUv.semantic               = "TEXCOORD";
+        attrUv.semanticIndex          = 0;
         VertexAttributeDesc attrColor = {};
-        attrColor.location = 2;
-        attrColor.binding  = 0;
-        attrColor.offset   = static_cast<uint32_t>(offsetof(UIVertex, color));
-        attrColor.format   = Format::F_RGBA8;
-        attrColor.semantic      = "COLOR";
-        attrColor.semanticIndex = 0;
+        attrColor.location            = 2;
+        attrColor.binding             = 0;
+        attrColor.offset              = static_cast<uint32_t>(offsetof(UIVertex, color));
+        attrColor.format              = Format::F_RGBA8;
+        attrColor.semantic            = "COLOR";
+        attrColor.semanticIndex       = 0;
         VertexAttributeDesc attrRound = {};
-        attrRound.location = 3;
-        attrRound.binding  = 0;
-        attrRound.offset   = static_cast<uint32_t>(offsetof(UIVertex, roundCenterX));
-        attrRound.format   = Format::F_RGBA32;
-        attrRound.semantic = "TEXCOORD";
-        attrRound.semanticIndex = 1;
+        attrRound.location            = 3;
+        attrRound.binding             = 0;
+        attrRound.offset              = static_cast<uint32_t>(offsetof(UIVertex, roundCenterX));
+        attrRound.format              = Format::F_RGBA32;
+        attrRound.semantic            = "TEXCOORD";
+        attrRound.semanticIndex       = 1;
 
         VertexAttributeDesc attrRadius = {};
-        attrRadius.location = 4;
-        attrRadius.binding  = 0;
-        attrRadius.offset   = static_cast<uint32_t>(offsetof(UIVertex, roundRadius));
-        attrRadius.format   = Format::F_R32;
-        attrRadius.semantic = "TEXCOORD";
-        attrRadius.semanticIndex = 2;
+        attrRadius.location            = 4;
+        attrRadius.binding             = 0;
+        attrRadius.offset              = static_cast<uint32_t>(offsetof(UIVertex, roundRadius));
+        attrRadius.format              = Format::F_R32;
+        attrRadius.semantic            = "TEXCOORD";
+        attrRadius.semanticIndex       = 2;
 
         state.vertexAttributes = {attrPos, attrUv, attrColor, attrRound, attrRadius};
 
         GraphicsPipeline::Descriptor pipeDesc = {};
-        pipeDesc.state              = &state;
-        pipeDesc.shader             = shader.Get();
-        pipeDesc.format.colors[0]   = colorFormat;
-        pipeDesc.format.numColors   = 1;
-        pipeDesc.format.sampleCount = SampleCount::X1;
-        pipeline = device->CreatePipelineState(pipeDesc);
+        pipeDesc.state                        = &state;
+        pipeDesc.shader                       = shader.Get();
+        pipeDesc.format.colors[0]             = colorFormat;
+        pipeDesc.format.numColors             = 1;
+        pipeDesc.format.sampleCount           = SampleCount::X1;
+        pipeline                              = device->CreatePipelineState(pipeDesc);
         if (pipeline == nullptr) {
             LOG_E(TAG, "UI pipeline creation failed");
             return false;
@@ -222,59 +201,33 @@ float4 fs_round(VSOut i) : SV_Target {
         psRound = makeFunction("fs_round", ShaderStageFlagBit::FS, &roundReflection);
         if (psRound != nullptr) {
             Shader::Descriptor roundShaderDesc = {};
-            roundShaderDesc.vs         = vs.Get();
-            roundShaderDesc.ps         = psRound.Get();
-            roundShaderDesc.reflection = &roundReflection;
-            roundShader = device->CreateShader(roundShaderDesc);
+            roundShaderDesc.vs                 = vs.Get();
+            roundShaderDesc.ps                 = psRound.Get();
+            roundShaderDesc.reflection         = &roundReflection;
+            roundShader                        = device->CreateShader(roundShaderDesc);
             if (roundShader != nullptr) {
                 GraphicsPipeline::Descriptor roundPipeDesc = {};
-                roundPipeDesc.state  = &state;
-                roundPipeDesc.shader = roundShader.Get();
-                roundPipeDesc.format = pipeDesc.format;
-                roundPipeline = device->CreatePipelineState(roundPipeDesc);
+                roundPipeDesc.state                        = &state;
+                roundPipeDesc.shader                       = roundShader.Get();
+                roundPipeDesc.format                       = pipeDesc.format;
+                roundPipeline                              = device->CreatePipelineState(roundPipeDesc);
             }
         }
 
         Sampler::Descriptor samplerDesc = {};
-        samplerDesc.magFilter    = Filter::LINEAR;
-        samplerDesc.minFilter    = Filter::LINEAR;
-        samplerDesc.mipmapMode   = MipFilter::LINEAR;
-        samplerDesc.addressModeU = WrapMode::CLAMP_TO_EDGE;
-        samplerDesc.addressModeV = WrapMode::CLAMP_TO_EDGE;
-        samplerDesc.addressModeW = WrapMode::CLAMP_TO_EDGE;
-        sampler = device->CreateSampler(samplerDesc);
+        samplerDesc.magFilter           = Filter::LINEAR;
+        samplerDesc.minFilter           = Filter::LINEAR;
+        samplerDesc.mipmapMode          = MipFilter::LINEAR;
+        samplerDesc.addressModeU        = WrapMode::CLAMP_TO_EDGE;
+        samplerDesc.addressModeV        = WrapMode::CLAMP_TO_EDGE;
+        samplerDesc.addressModeW        = WrapMode::CLAMP_TO_EDGE;
+        sampler                         = device->CreateSampler(samplerDesc);
 
         // Built-in white 1x1 texture under UI_INVALID_TEXTURE.
         TextureEntry white;
-        white.width  = 1;
-        white.height = 1;
+        white.width         = 1;
+        white.height        = 1;
         white.pendingPixels = {0xFF, 0xFF, 0xFF, 0xFF};
-        Image::Descriptor whiteDesc = {};
-        whiteDesc.imageType   = ImageType::IMAGE_2D;
-        whiteDesc.format      = PixelFormat::RGBA8_UNORM;
-        whiteDesc.extent      = {1, 1, 1};
-        whiteDesc.mipLevels   = 1;
-        whiteDesc.arrayLayers = 1;
-        whiteDesc.samples     = SampleCount::X1;
-        whiteDesc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
-        whiteDesc.memory      = MemoryType::GPU_ONLY;
-        white.image = device->CreateImage(whiteDesc);
-
-        Buffer::Descriptor stageDesc = {};
-        stageDesc.size   = 4;
-        stageDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stageDesc.memory = MemoryType::CPU_TO_GPU;
-        white.staging = device->CreateBuffer(stageDesc);
-        if (white.staging != nullptr) {
-            if (uint8_t *mapped = white.staging->Map()) {
-                mapped[0] = 0xFF;
-                mapped[1] = 0xFF;
-                mapped[2] = 0xFF;
-                mapped[3] = 0xFF;
-            }
-            white.staging->UnMap();
-        }
-        white.group = CounterPtr<ResourceGroup>(CreateTextureGroup(white.image.Get()));
         textures.emplace(UI_INVALID_TEXTURE, std::move(white));
         return true;
     }
@@ -282,6 +235,7 @@ float4 fs_round(VSOut i) : SV_Target {
     void UIRenderer::Shutdown()
     {
         textures.clear();
+        retiredTextures.clear();
         staging.Reset(nullptr);
         sampler.Reset(nullptr);
         indexBuffer.Reset(nullptr);
@@ -290,10 +244,10 @@ float4 fs_round(VSOut i) : SV_Target {
         shader.Reset(nullptr);
         ps.Reset(nullptr);
         vs.Reset(nullptr);
-        device          = nullptr;
-        vertexCapacity  = 0;
-        indexCapacity   = 0;
-        nextTextureId   = 1;
+        device         = nullptr;
+        vertexCapacity = 0;
+        indexCapacity  = 0;
+        nextTextureId  = 1;
     }
 
     ResourceGroup *UIRenderer::CreateTextureGroup(Image *image)
@@ -302,9 +256,9 @@ float4 fs_round(VSOut i) : SV_Target {
             return nullptr;
         }
         ResourceGroup::Descriptor groupDesc = {};
-        groupDesc.shader = shader.Get();
-        groupDesc.set    = 0;
-        ResourceGroup *group = device->CreateResourceGroup(groupDesc);
+        groupDesc.shader                    = shader.Get();
+        groupDesc.set                       = 0;
+        ResourceGroup *group                = device->CreateResourceGroup(groupDesc);
         if (group != nullptr) {
             auto groupEncoder = group->CreateEncoder();
             groupEncoder->WriteImage(texBinding, image, ImageLayout::SHADER_READ_ONLY);
@@ -317,7 +271,7 @@ float4 fs_round(VSOut i) : SV_Target {
     ResourceGroup *UIRenderer::FindGroup(UITextureId id) const
     {
         auto it = textures.find(id);
-        if (it != textures.end()) {
+        if (it != textures.end() && it->second.group != nullptr) {
             return it->second.group.Get();
         }
         auto white = textures.find(UI_INVALID_TEXTURE);
@@ -326,12 +280,15 @@ float4 fs_round(VSOut i) : SV_Target {
 
     UITextureId UIRenderer::RegisterTexture(const UIImageData &image)
     {
-        if (device == nullptr || image.width == 0 || image.height == 0) {
+        if (device == nullptr || !ValidImage(image)) {
             return UI_INVALID_TEXTURE;
         }
         // Allocate an unused id (skip ids taken by RegisterImage / other pages).
-        while (textures.find(nextTextureId) != textures.end()) {
+        while (nextTextureId < 0x20000000u && textures.find(nextTextureId) != textures.end()) {
             ++nextTextureId;
+        }
+        if (nextTextureId >= 0x20000000u) {
+            return UI_INVALID_TEXTURE;
         }
         return AddTexture(nextTextureId++, image);
     }
@@ -346,43 +303,79 @@ float4 fs_round(VSOut i) : SV_Target {
 
     UITextureId UIRenderer::AddTexture(UITextureId id, const UIImageData &image)
     {
+        if (device == nullptr || !ValidImage(image)) {
+            return UI_INVALID_TEXTURE;
+        }
         TextureEntry entry;
-        entry.width  = image.width;
-        entry.height = image.height;
+        entry.width         = image.width;
+        entry.height        = image.height;
         entry.pendingPixels = image.pixels;
+        textures.emplace(id, std::move(entry));
+        return id;
+    }
 
+    void UIRenderer::RetireTexture(TextureEntry &&entry)
+    {
+        // CPU data is not referenced by commands; only GPU generation resources
+        // must survive until the next host-provided completion boundary.
+        entry.pendingPixels.clear();
+        if (entry.image != nullptr || entry.staging != nullptr || entry.group != nullptr) {
+            retiredTextures.push_back(std::move(entry));
+        }
+    }
+
+    void UIRenderer::CollectRetiredTextures()
+    {
+        retiredTextures.clear();
+    }
+
+    bool UIRenderer::PrepareTexture(TextureEntry &entry)
+    {
+        if (device == nullptr || entry.width == 0 || entry.height == 0 || entry.pendingPixels.empty()) {
+            return false;
+        }
+        TextureEntry next;
+        next.width             = entry.width;
+        next.height            = entry.height;
         Image::Descriptor desc = {};
-        desc.imageType   = ImageType::IMAGE_2D;
-        desc.format      = PixelFormat::RGBA8_UNORM;
-        desc.extent      = {image.width, image.height, 1};
-        desc.mipLevels   = 1;
-        desc.arrayLayers = 1;
-        desc.samples     = SampleCount::X1;
-        desc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
-        desc.memory      = MemoryType::GPU_ONLY;
-        entry.image = device->CreateImage(desc);
+        desc.imageType         = ImageType::IMAGE_2D;
+        desc.format            = PixelFormat::RGBA8_UNORM;
+        desc.extent            = {next.width, next.height, 1};
+        desc.mipLevels         = 1;
+        desc.arrayLayers       = 1;
+        desc.samples           = SampleCount::X1;
+        desc.usage             = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
+        desc.memory            = MemoryType::GPU_ONLY;
+        next.image             = device->CreateImage(desc);
 
         Buffer::Descriptor stageDesc = {};
-        stageDesc.size   = entry.pendingPixels.size();
-        stageDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stageDesc.memory = MemoryType::CPU_TO_GPU;
-        entry.staging = device->CreateBuffer(stageDesc);
-        if (entry.staging != nullptr && !entry.pendingPixels.empty()) {
-            if (uint8_t *mapped = entry.staging->Map()) {
-                std::memcpy(mapped, entry.pendingPixels.data(), entry.pendingPixels.size());
-            }
-            entry.staging->UnMap();
+        stageDesc.size               = entry.pendingPixels.size();
+        stageDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stageDesc.memory             = MemoryType::CPU_TO_GPU;
+        next.staging                 = device->CreateBuffer(stageDesc);
+        if (next.image == nullptr || next.staging == nullptr) {
+            return false;
         }
-        entry.group = CounterPtr<ResourceGroup>(CreateTextureGroup(entry.image.Get()));
-
-        textures[id] = std::move(entry);
-        return id;
+        uint8_t *mapped = next.staging->Map();
+        if (mapped == nullptr) {
+            return false;
+        }
+        std::memcpy(mapped, entry.pendingPixels.data(), entry.pendingPixels.size());
+        next.staging->UnMap();
+        next.group = CounterPtr<ResourceGroup>(CreateTextureGroup(next.image.Get()));
+        if (next.group == nullptr) {
+            return false;
+        }
+        next.pendingPixels = std::move(entry.pendingPixels);
+        RetireTexture(std::move(entry));
+        entry = std::move(next);
+        return true;
     }
 
     void UIRenderer::UpdateTexture(UITextureId id, const UIImageData &image)
     {
         auto it = textures.find(id);
-        if (it == textures.end()) {
+        if (it == textures.end() || !ValidImage(image)) {
             return;
         }
         TextureEntry &entry = it->second;
@@ -390,12 +383,8 @@ float4 fs_round(VSOut i) : SV_Target {
         entry.height        = image.height;
         entry.pendingPixels = image.pixels;
         entry.uploaded      = false;
-        if (entry.staging != nullptr && !entry.pendingPixels.empty()) {
-            if (uint8_t *mapped = entry.staging->Map()) {
-                std::memcpy(mapped, entry.pendingPixels.data(), entry.pendingPixels.size());
-            }
-            entry.staging->UnMap();
-        }
+        // Do not map or release the previous generation here: an attached
+        // renderer may still be referenced by the preceding/current frame.
     }
 
     void UIRenderer::ReleaseTexture(UITextureId id)
@@ -403,7 +392,11 @@ float4 fs_round(VSOut i) : SV_Target {
         if (id == UI_INVALID_TEXTURE) {
             return;
         }
-        textures.erase(id);
+        const auto it = textures.find(id);
+        if (it != textures.end()) {
+            RetireTexture(std::move(it->second));
+            textures.erase(it);
+        }
     }
 
     bool UIRenderer::RegisterImage(UITextureId id, Image *image)
@@ -418,7 +411,13 @@ float4 fs_round(VSOut i) : SV_Target {
         if (entry.group == nullptr) {
             return false;
         }
-        textures[id] = std::move(entry);
+        const auto existing = textures.find(id);
+        if (existing != textures.end()) {
+            RetireTexture(std::move(existing->second));
+            existing->second = std::move(entry);
+        } else {
+            textures.emplace(id, std::move(entry));
+        }
         return true;
     }
 
@@ -428,20 +427,20 @@ float4 fs_round(VSOut i) : SV_Target {
             return false;
         }
         if (vertexBuffer == nullptr || vertexBytes > vertexCapacity) {
-            vertexCapacity = vertexBytes == 0 ? 256 : vertexBytes;
+            vertexCapacity          = vertexBytes == 0 ? 256 : vertexBytes;
             Buffer::Descriptor desc = {};
-            desc.size   = vertexCapacity;
-            desc.usage  = BufferUsageFlagBit::VERTEX;
-            desc.memory = MemoryType::CPU_TO_GPU;
-            vertexBuffer = device->CreateBuffer(desc);
+            desc.size               = vertexCapacity;
+            desc.usage              = BufferUsageFlagBit::VERTEX;
+            desc.memory             = MemoryType::CPU_TO_GPU;
+            vertexBuffer            = device->CreateBuffer(desc);
         }
         if (indexBuffer == nullptr || indexBytes > indexCapacity) {
-            indexCapacity = indexBytes == 0 ? 64 : indexBytes;
+            indexCapacity           = indexBytes == 0 ? 64 : indexBytes;
             Buffer::Descriptor desc = {};
-            desc.size   = indexCapacity;
-            desc.usage  = BufferUsageFlagBit::INDEX;
-            desc.memory = MemoryType::CPU_TO_GPU;
-            indexBuffer = device->CreateBuffer(desc);
+            desc.size               = indexCapacity;
+            desc.usage              = BufferUsageFlagBit::INDEX;
+            desc.memory             = MemoryType::CPU_TO_GPU;
+            indexBuffer             = device->CreateBuffer(desc);
         }
         return vertexBuffer != nullptr && indexBuffer != nullptr;
     }
@@ -462,22 +461,20 @@ float4 fs_round(VSOut i) : SV_Target {
                 // backend: Vulkan NDC has +Y down, D3D12/Metal have +Y up. Pick the
                 // sign from the device so pixel y=0 lands at the framebuffer top on
                 // every backend.
-                const float w = static_cast<float>(surfaceWidth > 0 ? surfaceWidth : 1);
-                const float h = static_cast<float>(surfaceHeight > 0 ? surfaceHeight : 1);
-                const float ySign = device->GetCapability().clipSpaceYDown ? 1.0f : -1.0f;
-                const Matrix4 projection(Vector4(2.0f / w, 0.0f, 0.0f, 0.0f),
-                                         Vector4(0.0f, ySign * 2.0f / h, 0.0f, 0.0f),
-                                         Vector4(0.0f, 0.0f, 1.0f, 0.0f),
-                                         Vector4(-1.0f, -ySign, 0.0f, 1.0f));
+                const float   w     = static_cast<float>(surfaceWidth > 0 ? surfaceWidth : 1);
+                const float   h     = static_cast<float>(surfaceHeight > 0 ? surfaceHeight : 1);
+                const float   ySign = device->GetCapability().clipSpaceYDown ? 1.0f : -1.0f;
+                const Matrix4 projection(Vector4(2.0f / w, 0.0f, 0.0f, 0.0f), Vector4(0.0f, ySign * 2.0f / h, 0.0f, 0.0f),
+                                         Vector4(0.0f, 0.0f, 1.0f, 0.0f), Vector4(-1.0f, -ySign, 0.0f, 1.0f));
 
                 auto *dst = reinterpret_cast<UIVertex *>(mapped);
                 for (size_t i = 0; i < drawData.vertices.size(); ++i) {
-                    const UIVertex &src = drawData.vertices[i];
+                    const UIVertex &src  = drawData.vertices[i];
                     const Vector4   clip = projection * Vector4(src.x, src.y, 0.0f, 1.0f);
                     UIVertex       &out  = dst[i];
-                    out       = src;
-                    out.x     = clip.x;
-                    out.y     = clip.y;
+                    out                  = src;
+                    out.x                = clip.x;
+                    out.y                = clip.y;
                 }
                 vertexBuffer->UnMap();
             }
@@ -496,8 +493,7 @@ float4 fs_round(VSOut i) : SV_Target {
             return;
         }
         for (auto &[id, entry] : textures) {
-            if (entry.uploaded || entry.image == nullptr || entry.staging == nullptr ||
-                entry.pendingPixels.empty()) {
+            if (entry.uploaded || entry.pendingPixels.empty() || !PrepareTexture(entry)) {
                 continue;
             }
 
@@ -514,11 +510,11 @@ float4 fs_round(VSOut i) : SV_Target {
             commandBuffer->PipelineBarrier(toTransfer);
 
             {
-                auto blit = commandBuffer->CreateBlitEncoder();
+                auto            blit = commandBuffer->CreateBlitEncoder();
                 BufferImageCopy copy = {};
-                copy.subRange    = ImageSubRangeLayers{0, 0, 1, AspectFlags(AspectFlagBit::COLOR_BIT)};
-                copy.imageOffset = {0, 0, 0};
-                copy.imageExtent = {entry.width, entry.height, 1};
+                copy.subRange        = ImageSubRangeLayers{0, 0, 1, AspectFlags(AspectFlagBit::COLOR_BIT)};
+                copy.imageOffset     = {0, 0, 0};
+                copy.imageExtent     = {entry.width, entry.height, 1};
                 blit->CopyBufferToImage(entry.staging.Get(), entry.image.Get(), {copy});
             }
 
@@ -534,61 +530,59 @@ float4 fs_round(VSOut i) : SV_Target {
             toShaderRead.imageBarriers.push_back(readBarrier);
             commandBuffer->PipelineBarrier(toShaderRead);
 
-            entry.uploaded      = true;
+            entry.uploaded = true;
             entry.pendingPixels.clear();
             entry.pendingPixels.shrink_to_fit();
         }
     }
 
-    GraphicsEncoder *UIRenderer::BindPipeline(GraphicsEncoder *encoder, uint32_t surfaceWidth,
-                                              uint32_t surfaceHeight) const
+    GraphicsEncoder *UIRenderer::BindPipeline(GraphicsEncoder *encoder, uint32_t surfaceWidth, uint32_t surfaceHeight) const
     {
         encoder->BindPipeline(pipeline.Get());
         Viewport vp = {0.f, 0.f, static_cast<float>(surfaceWidth), static_cast<float>(surfaceHeight), 0.f, 1.f};
         encoder->SetViewport(1, &vp);
 
         BufferView vertexView = {};
-        vertexView.buffer = vertexBuffer.Get();
-        vertexView.offset = 0;
-        vertexView.range  = vertexBuffer->GetSize();
+        vertexView.buffer     = vertexBuffer.Get();
+        vertexView.offset     = 0;
+        vertexView.range      = vertexBuffer->GetSize();
         encoder->BindVertexBuffers(0, 1, &vertexView);
         encoder->BindIndexBuffer(indexBuffer.Get(), 0, IndexType::U32);
         return encoder;
     }
 
-    void UIRenderer::Render(GraphicsEncoder *encoder, const UIDrawData &drawData, uint32_t surfaceWidth,
-                            uint32_t surfaceHeight)
+    void UIRenderer::Render(GraphicsEncoder *encoder, const UIDrawData &drawData, uint32_t surfaceWidth, uint32_t surfaceHeight)
     {
         if (encoder == nullptr || pipeline == nullptr || vertexBuffer == nullptr || indexBuffer == nullptr) {
             return;
         }
         BindPipeline(encoder, surfaceWidth, surfaceHeight);
 
-        const GraphicsPipeline *boundPipeline = pipeline.Get();
-        UITextureId boundTexture = static_cast<UITextureId>(~0u);
+        const GraphicsPipeline *boundPipeline   = pipeline.Get();
+        UITextureId             boundTexture    = UI_INVALID_TEXTURE;
+        bool                    hasBoundTexture = false;
         for (const auto &command : drawData.commands) {
-            GraphicsPipeline *wantPipeline =
-                (command.shape && roundPipeline != nullptr) ? roundPipeline.Get() : pipeline.Get();
+            GraphicsPipeline *wantPipeline = (command.shape && roundPipeline != nullptr) ? roundPipeline.Get() : pipeline.Get();
             if (wantPipeline != boundPipeline) {
                 encoder->BindPipeline(wantPipeline);
                 boundPipeline = wantPipeline;
             }
-            if (command.textureId != boundTexture) {
+            if (!hasBoundTexture || command.textureId != boundTexture) {
                 if (ResourceGroup *group = FindGroup(command.textureId)) {
                     encoder->BindResourceGroup(0, group);
                 }
-                boundTexture = command.textureId;
+                boundTexture    = command.textureId;
+                hasBoundTexture = true;
             }
 
-            Rect2D scissor = {
-                {static_cast<int32_t>(command.clip.left), static_cast<int32_t>(command.clip.top)},
-                {static_cast<uint32_t>(command.clip.Width()), static_cast<uint32_t>(command.clip.Height())}};
+            Rect2D scissor = {{static_cast<int32_t>(command.clip.left), static_cast<int32_t>(command.clip.top)},
+                              {static_cast<uint32_t>(command.clip.Width()), static_cast<uint32_t>(command.clip.Height())}};
             encoder->SetScissor(1, &scissor);
 
             CmdDrawIndexed drawCmd = {};
-            drawCmd.indexCount    = command.indexCount;
-            drawCmd.instanceCount = 1;
-            drawCmd.firstIndex    = command.indexOffset;
+            drawCmd.indexCount     = command.indexCount;
+            drawCmd.instanceCount  = 1;
+            drawCmd.firstIndex     = command.indexOffset;
             encoder->DrawIndexed(drawCmd);
         }
     }
