@@ -50,9 +50,10 @@ namespace sky::aurora {
         MetalCommandPool(MetalDevice &device, void *queue);
         ~MetalCommandPool() override;
 
-        bool           Init() override;
-        void           Reset() override;
-        CommandBuffer *Allocate() override;
+        bool               Init() override;
+        void               Reset() override;
+        GpuOperationResult TryReset() noexcept override;
+        CommandBuffer     *Allocate() override;
 
     private:
         MetalDevice                      &device;

@@ -137,7 +137,7 @@ namespace sky::aurora {
         };
         bool CanChangeTracking() const noexcept
         {
-            if (terminal || protocol == Protocol::DIRECT || identity.backend == API::METAL)
+            if (terminal || protocol == Protocol::DIRECT)
                 return false;
             if (active == UINT32_MAX)
                 return true;
@@ -210,8 +210,6 @@ namespace sky::aurora {
             slot.fence = device->CreateFence({true});
             if (!slot.fence)
                 return false;
-            if (device->GetAPI() == API::METAL)
-                continue;
             slot.pool.reset(device->CreateCommandPool(QueueType::GRAPHICS));
             if (!slot.pool)
                 return false;
@@ -229,8 +227,6 @@ namespace sky::aurora {
 
     FrameOperationResult BackendFrameContext::TrackResource(FrameResource resource, FrameResourceBoundaryState initial)
     {
-        if (state->identity.backend == API::METAL)
-            return Error(FrameErrorCode::UNSUPPORTED);
         if (!state->CanChangeTracking())
             return Error(FrameErrorCode::INVALID_STATE);
         state->RetireOwnedResources();
@@ -271,8 +267,6 @@ namespace sky::aurora {
     }
     FrameResourceStateResult BackendFrameContext::GetResourceState(const FrameResource &resource) const
     {
-        if (state->identity.backend == API::METAL)
-            return Error(FrameErrorCode::UNSUPPORTED);
         if (state->terminal)
             return Error(FrameErrorCode::INVALID_STATE);
         const auto found = state->tracked.find(ResourceIdentity(resource));
@@ -282,8 +276,6 @@ namespace sky::aurora {
     }
     FrameOperationResult BackendFrameContext::UntrackResource(const FrameResource &resource)
     {
-        if (state->identity.backend == API::METAL)
-            return Error(FrameErrorCode::UNSUPPORTED);
         if (!state->CanChangeTracking())
             return Error(FrameErrorCode::INVALID_STATE);
         const auto found = state->tracked.find(ResourceIdentity(resource));
@@ -299,8 +291,6 @@ namespace sky::aurora {
 
     BeginSlotResult BackendFrameContext::TryBeginSlot() noexcept
     {
-        if (state->identity.backend == API::METAL)
-            return Error(FrameErrorCode::UNSUPPORTED);
         if (state->protocol == Protocol::DIRECT || state->terminal)
             return Error(FrameErrorCode::INVALID_STATE);
         state->protocol = Protocol::EXPLICIT;

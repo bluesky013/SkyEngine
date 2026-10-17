@@ -95,6 +95,28 @@ namespace sky::aurora {
         return ok;
     }
 
+    GpuOperationResult MetalFence::TryReset() noexcept
+    {
+        const auto state = Query();
+        if (state.status == FenceStatus::FAILED)
+            return {state.error};
+        if (state.status == FenceStatus::PENDING)
+            return {{GpuErrorCode::NATIVE_ERROR}};
+        // The next Submit advances the shared-event target again; skipping one
+        // value here is harmless and keeps reset from blocking the CPU.
+        TakeNextValue();
+        return {};
+    }
+
+    FenceQueryResult MetalFence::Query() noexcept
+    {
+        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
+        if (event != nil)
+            return {event.signaledValue >= pendingValue.load() ? FenceStatus::SIGNALED : FenceStatus::PENDING};
+        std::lock_guard<std::mutex> lock(mutex);
+        return {signaled ? FenceStatus::SIGNALED : FenceStatus::PENDING};
+    }
+
     uint64_t MetalFence::TakeNextValue()
     {
         const uint64_t v = ++nextValue;

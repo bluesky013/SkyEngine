@@ -22,6 +22,7 @@ namespace sky::aurora {
         ~MetalQueue() override;
 
         void      Submit(const SubmitInfo &info) override;
+        QueueSubmitResult TrySubmit(const SubmitInfo &info) noexcept override;
         void      WaitIdle() override;
         QueueType GetType() const override
         {

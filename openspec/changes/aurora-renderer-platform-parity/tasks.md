@@ -39,3 +39,15 @@ Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）�
 - [ ] 8.6 实现精确版本 pins、冻结前旧版本选择与延迟释放；验证新版本失败不覆写旧在途 descriptor/mesh，未匹配状态的 legacy transfer 资源不得直接使用（B05–B10 组件与 B12 公共热更新/逐帧 layouts/pins 已验；Metal P02）
 
 实施顺序：native probe → slot/提交 → compiler/encode → 资源/绘制 → 输出/宿主 → 故障与实机验收。
+- [x] 8.7 在 Metal/non-Windows 原生宿主 capability gate 通过后，把 `AuroraModule` 的 `Init/Start/Tick/Shutdown` 统一到 `RendererHost` + `IRendererProvider`；删除 `#if !defined(_WIN32)` 宿主分叉。
+- [x] 8.8 删除 `InitLegacy/StartLegacy/TickLegacy`、`legacy` 标志、`mDevice`/`mFrameContext`/`mCommandPool`/`mCommandBuffer`/`mViewport` 及仅 legacy 使用的 include；确认 `AuroraModule.h` 不再声明平台分叉成员。
+- [x] 8.9 增加非 Windows 宿主生命周期测试：初始化、提交、drain、shutdown 与 close deferral；记录真实 Cocoa/CAMetalLayer 窗口证据。resize/失败注入仍由 7.4 跟踪。
+- [x] 8.10 全量构建并跑相关测试，确认 `Aurora.Renderer.ModuleTest`/`StaticModuleTest` 在目标平台通过后再移除 legacy 分支。
+
+## Host unification verification
+
+- `AuroraModule` now uses `RendererHost` + `IRendererProvider` on every platform; the non-Windows `InitLegacy/StartLegacy/TickLegacy` path, `legacy` flag and direct device/viewport members were removed.
+- Added the Cocoa native host case to `RendererModuleTest.NativeLauncher...`: `Platform::Init`, real `CocoaWindow`/CAMetalLayer, module load, Start/Tick, frame completion, close deferral and module unload all passed on macOS.
+- `Aurora.Renderer.ModuleTest`: 5/5 passed on macOS (including the native host case).
+- `Aurora.RHITest`: 142/142 passed; full `ctest`: 49/49 passed on the clean run (`FrameworkTest` showed a pre-existing concurrent asset-load flake and passed alone).
+- Windows-specific `HWND`/`IsWindow` checks remain under `_WIN32`; iOS/Android real-device host validation remains tracked by their platform changes.

@@ -13,6 +13,7 @@ namespace sky::aurora {
 
     class MetalInstance;
     class MetalBlitHelper;
+    class FrameTransientPool;
 
     struct MetalThreadContext : ThreadContext {
         MetalThreadContext() = default;
@@ -75,6 +76,10 @@ namespace sky::aurora {
         {
             return blitHelper.get();
         }
+        FrameTransientPool &GetTransientPool() const
+        {
+            return *transientPool;
+        }
 
     private:
         bool        OnInit(const DeviceInit &init) override;
@@ -91,6 +96,7 @@ namespace sky::aurora {
 
         std::array<std::unique_ptr<MetalQueue>, 3> queues; // by QueueType
         std::unique_ptr<MetalBlitHelper>           blitHelper;
+        std::unique_ptr<FrameTransientPool>        transientPool;
     };
 
 } // namespace sky::aurora

@@ -97,6 +97,12 @@ namespace sky::aurora {
         }
     }
 
+    QueueSubmitResult MetalQueue::TrySubmit(const SubmitInfo &info) noexcept
+    {
+        Submit(info);
+        return {QueueSubmitStatus::ACCEPTED, {}};
+    }
+
     void MetalQueue::WaitIdle()
     {
         id<MTLCommandQueue>  mtlQueue = (__bridge id<MTLCommandQueue>)queue;

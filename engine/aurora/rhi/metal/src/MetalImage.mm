@@ -21,12 +21,38 @@ namespace sky::aurora {
         Reset();
     }
 
+    const Device *MetalImage::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
     void MetalImage::Reset()
     {
         if (texture != nullptr && owned) {
             (void)(__bridge_transfer id<MTLTexture>)texture;
         }
         texture = nullptr;
+    }
+
+    MetalImage *MetalImage::CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount)
+    {
+        if (texture == nullptr || !mipCount || !layerCount)
+            return nullptr;
+        id<MTLTexture> base = (__bridge id<MTLTexture>)texture;
+        const auto     type = layerCount == 1 ? MTLTextureType2D : base.textureType;
+        id<MTLTexture> view = [base newTextureViewWithPixelFormat:base.pixelFormat
+                                                     textureType:type
+                                                      levels:NSMakeRange(baseMip, mipCount)
+                                                      slices:NSMakeRange(baseLayer, layerCount)];
+        if (view == nil)
+            return nullptr;
+        auto *result        = new MetalImage(device);
+        result->pixelFormat = pixelFormat;
+        result->mipLevels   = mipCount;
+        result->arrayLayers = layerCount;
+        result->texture     = (__bridge_retained void *)view;
+        result->owned       = true;
+        return result;
     }
 
     void MetalImage::RebindBorrowed(void *nativeTexture)
@@ -45,6 +71,8 @@ namespace sky::aurora {
         }
 
         this->pixelFormat = desc.format;
+        this->mipLevels   = desc.mipLevels;
+        this->arrayLayers = desc.arrayLayers;
 
         const auto pixelFormat = ToMetalPixelFormat(desc.format);
         if (pixelFormat == MTLPixelFormatInvalid) {

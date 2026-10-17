@@ -7,7 +7,7 @@
 - B11 checked SwapChain 与旧直接协议互斥；Vulkan 需要 maintenance1、acquire fence 与独立 present fence，DX12 使用 DO_NOT_WAIT 和 Present 后 queue fence。资源可退休不等于屏幕已显示；正常 resize/close 不用全设备 WaitIdle，终态销毁另行安全 drain。
 - borrowed output 绑定 exact lease/owner，单 mip/layer/X1、UNDEFINED→PRESENT；不得包装成拥有型 ImagePtr。逐 cell 状态表也禁止普通资源声明 PRESENT。depth attachment layout 可能包含固定功能 resolve，Vulkan 同步需覆盖 COLOR_ATTACHMENT_OUTPUT/COLOR_ATTACHMENT_WRITE。
 - 当前 Vulkan/DX12 支持 typed buffer copy 冻结图；Vulkan 双 compiler 各自输出 encoder，context mode 固定，支持单 RGBA8 color 的 upload/raster/readback。RenderPass 仅合并连续同 attachment/view、前 STORE/后 LOAD 的 pass 为多 subpass；Dynamic Rendering 独立保留 scope/barrier。公共纯分析不构建 native 同步或命令。
-- 编译产物保留 logical/native 映射和模式对应 inheritance，Vulkan parallelNum>1 按实际 worker/slot/ordinal 录制 secondary，coordinator 在 TryCollect 收齐后按计划组装 primary；单 worker 仍 inline。DX12 已具备自己的单 color image/raster compiler/encoder、DIRECT list 并行与 native 故障验证；每片恢复图形状态，仅首片 clear，收齐后一次有序提交。Vulkan/DX12 descriptor/staging/UBO 已按同一 lease 分区并检查容量；B07 已支持多 float stream、U16/U32、D32、set 0/1/2 scalar UBO 与 dynamic offset；扩展 raster/bindings 和 Metal 新协议待实现。colorLocalRead 必须声明且使用 LOAD，两模式当前明确 Unsupported；不得把普通 LOAD/混合当作 shader local read。native 编译对象随 RecordedFrame 保活至 GPU 完成。
+- 编译产物保留 logical/native 映射和模式对应 inheritance，Vulkan parallelNum>1 按实际 worker/slot/ordinal 录制 secondary，coordinator 在 TryCollect 收齐后按计划组装 primary；单 worker 仍 inline。DX12 已具备自己的单 color image/raster compiler/encoder、DIRECT list 并行与 native 故障验证；每片恢复图形状态，仅首片 clear，收齐后一次有序提交。Vulkan/DX12 descriptor/staging/UBO 已按同一 lease 分区并检查容量；B07 已支持多 float stream、U16/U32、D32、set 0/1/2 scalar UBO 与 dynamic offset；扩展 raster/bindings 与 compute/custom 待实现；Metal 已接 offscreen clear/copy/raster draw、depth、MSAA resolve 与 mip/layer view 新协议。colorLocalRead 必须声明且使用 LOAD，两模式当前明确 Unsupported；不得把普通 LOAD/混合当作 shader local read。native 编译对象随 RecordedFrame 保活至 GPU 完成。
 - Vulkan/DX12 收齐时 DeviceLost 优先于可恢复错误，错误结果优先于取消；旧 ticket 不得影响新 session。teardown 先请求取消、收齐 CPU，再安全收尾 GPU，最后释放 worker pools；Instance/Device 与 backend module 必须持续存活。
 
 - DX12 紧密 image copy 由 compiler 用 footprint scratch 衔接，RTV/DSV/CBV/scratch 使用 slot 分区与预算，编译失败回滚本次游标；PSO 和计划引用随 compiled plan 保活；不得另起隐式 ring。Close 失败的 list 不能 Reset，须在安全 lease 中重建。原生 queue 操作开始后的失败按 Indeterminate，不能报告 Rejected 后允许重复提交。
@@ -43,7 +43,7 @@
 
 - B10 第十二子批 TrackResource/GetResourceState/UntrackResource 只管理同一 context/graphics queue 的边界（第十四子批支持逐 mip/layer）。资源必须由该 context 独占状态修改；纳管后不允许 legacy、其它 context/queue 或外部直接改写。强 pin 固定精确 backing 身份，默认最多 1024 条，手动 owner 在全部使用回执退休后显式移出；第十三子批的拥有租约条目由安全入口自动退休。
 - Compile 候选只来自裁剪后使用的非 transient bindings；initial 必须匹配 accepted 状态，native compiler 仍各自生成同步。Accepted 才发布 final/token，completed 按 serial 单调推进；旧 slot 未退休或计划借用存活时不允许移出/重登记。取消/失败/Rejected 不误发布，Indeterminate/完成错误关闭账本并保活至安全 teardown。
-- 状态账本不存储有效内容，不扩大 initialized 声明、不发布 Resident、不新增 GPU wait。ResourceUploader 自动纳管/退休已在第十三子批接通；单 context 已纳管资源不可走手动 AllocateCommand/FinishRecording，Metal 新入口明确 Unsupported。
+- 状态账本不存储有效内容，不扩大 initialized 声明、不发布 Resident、不新增 GPU wait。ResourceUploader 自动纳管/退休已在第十三子批接通；单 context 已纳管资源不可走手动 AllocateCommand/FinishRecording，Metal 新入口已接 slot/tracking；不支持的操作仍显式返回错误。
 
 - TrackOwnedResource 的返回租约不保存 context 指针，账本只弱引用 owner；最后 owner 释放不调用 GPU/context。Track/TryBeginSlot/DiscardUnsubmitted/PollCompleted 在协调线程确认 owner 过期、pending=0 且无计划借用后回收；终态只走安全 teardown。不可 Untrack 活跃的受管租约，不允许为腾容量驱逐 Resident/回退/冻结快照仍拥有的条目。
 - uploader backing 的租约随 Resident 版本转交；Compile 前须保留版本/租约，裸 native 指针图不自动持有此 owner。frame accepted 状态才是后续导入依据，backing.state 仅记录上传发布边界；CPU 内容有效性与账本状态仍分离。

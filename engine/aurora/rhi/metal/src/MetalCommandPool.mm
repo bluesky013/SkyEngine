@@ -178,6 +178,12 @@ namespace sky::aurora {
         freeList = allocatedBuffers;
     }
 
+    GpuOperationResult MetalCommandPool::TryReset() noexcept
+    {
+        Reset();
+        return {};
+    }
+
     CommandBuffer *MetalCommandPool::Allocate()
     {
         if (!freeList.empty()) {

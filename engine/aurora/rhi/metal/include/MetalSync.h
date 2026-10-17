@@ -25,6 +25,8 @@ namespace sky::aurora {
         void Reset() override;
         bool IsSignaled() override;
         bool WaitFor(uint64_t timeoutNs) override;
+        GpuOperationResult TryReset() noexcept override;
+        FenceQueryResult  Query() noexcept override;
 
         // Backend-only: queue calls this on the last cmdbuffer of a Submit so
         // the GPU's completion handler signals the host-visible state.

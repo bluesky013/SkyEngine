@@ -45,6 +45,7 @@ namespace sky::aurora {
         }
 
         buffer = (__bridge_retained void *)nativeBuffer;
+        size   = desc.size;
 
 #if SKY_ENABLE_RESOURCE_NAME
         if (desc.name != nullptr) {
@@ -53,6 +54,11 @@ namespace sky::aurora {
 #endif
 
         return true;
+    }
+
+    const Device *MetalBuffer::GetDevice() const noexcept
+    {
+        return &device;
     }
 
     uint8_t *MetalBuffer::Map()

@@ -20,6 +20,7 @@
 
 #include "MetalBlitHelper.h"
 #include "rdg/MetalRDGBackend.h"
+#include <common/FrameTransientPool.h>
 #include <rdg/MetalDeviceFrameContext.h>
 
 #import <Foundation/Foundation.h>
@@ -89,7 +90,7 @@ namespace sky::aurora {
         }
     }
 
-    MetalDevice::MetalDevice(MetalInstance &inst) : instance(inst)
+    MetalDevice::MetalDevice(MetalInstance &inst) : instance(inst), transientPool(std::make_unique<FrameTransientPool>(*this))
     {
     }
 

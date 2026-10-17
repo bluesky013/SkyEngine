@@ -1,17 +1,33 @@
 ## ADDED Requirements
 
-### Requirement: 平台整套协议验收
+### Requirement: All Aurora hosts use one RendererHost path
 
-新增迁移平台 SHALL 自行实现匹配的 compiler/encoder 和 FrameContext；只有受检提交、内容读回、资源预算与生命周期均通过实际平台验证后才声明支持。共享 Windows 参考算法或返回 Unsupported 不构成能力完成。
+After the platform capability gate passes, `AuroraModule` SHALL use `RendererHost` and `IRendererProvider` on every supported platform. It SHALL NOT retain a platform-specific legacy host loop, a `legacy` flag, or direct ownership of `Device`, `DeviceFrameContext`, `CommandPool`, `CommandBuffer`, or `ClientViewport` for non-Windows hosts.
 
-#### Scenario: Metal 内容与并行编码
-- **WHEN** 同一合法图在 Metal 串行与受支持的并行配置执行
-- **THEN** 实际 readback 内容一致，乱序任务不改变透明顺序，多个在途 slot 不互相 reset，所有 parent/child 和资源保活至完成
+#### Scenario: Non-Windows module init
+- **WHEN** the Aurora module initializes on macOS, Linux, or another non-Windows host that has passed the capability gate
+- **THEN** it SHALL create and drive the renderer through `RendererHost` like the Windows host, not through `InitLegacy`
 
-### Requirement: 原生宿主能力门
+#### Scenario: Legacy host code is absent
+- **WHEN** `engine/aurora/adaptor` is inspected after the unification
+- **THEN** `InitLegacy`, `StartLegacy`, `TickLegacy`, the `legacy` flag, and the guarded direct-device members SHALL NOT exist
 
-平台宿主迁移 SHALL 记录 surface/drawable 操作线程、可退出等待与 presentation 退休证明，并在真实原生窗口验证。移动设备 transform 验证 SHALL 包含物理旋转，不能仅用纯坐标函数测试替代。
+#### Scenario: No hidden platform split
+- **WHEN** the module lifecycle is reviewed
+- **THEN** `Init`, `Start`, `Tick`, and `Shutdown` SHALL NOT branch on `_WIN32` to choose a different host protocol
 
-#### Scenario: 关闭与不可用输出
-- **WHEN** 窗口最小化、resize、关闭或 acquire 失败
-- **THEN** 只隔离不可用输出，独立上传和离屏工作继续；原生窗口在借用、GPU 与 presentation 责任结束后才销毁
+### Requirement: Host unification requires platform evidence
+
+The legacy path SHALL be removed only after the corresponding platform passes the native capability gate with a real window or supported offscreen output, including drawable timeout, resize/close, and failure-exit behavior.
+
+#### Scenario: Capability gate blocks premature removal
+- **WHEN** a platform has not passed the native host gate
+- **THEN** the legacy path SHALL remain and the unification task SHALL stay blocked
+
+#### Scenario: macOS evidence
+- **WHEN** the macOS/Metal host is claimed complete
+- **THEN** records SHALL include real-window and offscreen host runs, not only a successful compile or Windows results
+
+#### Scenario: Non-Windows tests
+- **WHEN** the unified path is enabled on a non-Windows host
+- **THEN** host lifecycle tests SHALL cover init, submit, drain, shutdown, resize/close, and failure paths on that host

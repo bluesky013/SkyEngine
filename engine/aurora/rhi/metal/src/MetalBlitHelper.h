@@ -34,6 +34,10 @@ namespace sky::aurora {
         // resolve pass per region (MSAA src -> single-sampled dst via store action)
         void Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<ResolveInfo> &regions);
 
+        // depth resolve (MSAA D32 src -> single-sampled D32 dst) using the
+        // depth resolve filter; maximum selects MAX instead of MIN.
+        void ResolveDepth(void *commandBuffer, MetalImage *src, MetalImage *dst, bool maximum);
+
     private:
         // mtlFormat is MTLPixelFormat kept as uint32_t to hide Obj-C types
         void *GetBlitPipeline(uint32_t mtlFormat, uint32_t sampleCount);

@@ -15,11 +15,6 @@
 
 namespace sky::aurora {
 
-    class Device;
-    class DeviceFrameContext;
-    class CommandPool;
-    class CommandBuffer;
-    class ClientViewport;
     class IRendererProvider;
 
     class AuroraModule : public sky::IModule, public sky::IWindowEvent {
@@ -42,11 +37,6 @@ namespace sky::aurora {
 
     private:
         void ProcessArgs(const sky::StartArguments &args);
-#if !defined(_WIN32)
-        bool InitLegacy();
-        void StartLegacy();
-        void TickLegacy();
-#endif
         void PollEvents();
         void Fail(const RendererError &);
 
@@ -65,17 +55,9 @@ namespace sky::aurora {
 
         RendererVulkanMode vulkanMode = RendererVulkanMode::DYNAMIC_RENDERING;
 
-        API     mApi         = API::DEFAULT;
-        bool    providerOnly = false;
-#if !defined(_WIN32)
-        bool    legacy  = false;
-        Device *mDevice = nullptr;
+        API  mApi         = API::DEFAULT;
+        bool providerOnly = false;
 
-        std::unique_ptr<DeviceFrameContext> mFrameContext;
-        std::unique_ptr<CommandPool>        mCommandPool;
-        CommandBuffer                      *mCommandBuffer = nullptr;
-        std::unique_ptr<ClientViewport>     mViewport;
-#endif
         std::unique_ptr<IRendererProvider> provider;
     };
 

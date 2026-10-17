@@ -48,7 +48,7 @@ B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHo
 2. **`UpdateDeviceCaps()`** — 后端填 `capability.maxThreads` 等
 
 并行编码的 ThreadPool / ThreadContext 目标归 `DeviceFrameContext` 持有，`parallelNum` 只表示 GPU 编码并行度。
-当前 Vulkan/DX12 已实现 slot/coordinator command 资源、typed buffer copy 冻结图及各自串行 Compile/Dispatch；Vulkan 双 compiler/encoder 覆盖单 color image upload/raster/readback，并已验证同 attachment 连续 LOAD 的多 subpass、独立 dynamic scopes 和模式对应 inheritance 计划。shader local read 显式拒绝。Vulkan parallelNum>1 已按 slot/实际 worker/ordinal 录制 secondary，TryCollect 在 coordinator 收齐并稳定组装 primary；单 worker 不建 pool，仍走 inline。Vulkan native 故障/取消/teardown 已验证；错误汇总不得掩盖任一 DeviceLost。DX12 已由独立 compiler/encoder 生成单 color image/raster/copy 计划，按实际 worker/slot/ordinal 并行录制 DIRECT lists 并稳定提交；紧密行 copy 的 footprint scratch 随计划退休，Close 失败后丢弃 list 并安全重建。B04 已实现 Vulkan/DX12 的 descriptor/staging/UBO/scratch 显式 lease 分区和容量检查；B07 已补 scalar UBO、indexed/depth raster、ShaderResolver 前置解析及 scope 内 PSO 复用；B10 已补当前纹理/MSAA/resolve/cache 子集，B14 已切换 Windows 宿主；更多 bindings/compute 与 Metal 新协议仍待实施。CPU prepare 使用独立 pool，不从 context 取得 pool/arena。
+当前 Vulkan/DX12 已实现 slot/coordinator command 资源、typed buffer copy 冻结图及各自串行 Compile/Dispatch；Vulkan 双 compiler/encoder 覆盖单 color image upload/raster/readback，并已验证同 attachment 连续 LOAD 的多 subpass、独立 dynamic scopes 和模式对应 inheritance 计划。shader local read 显式拒绝。Vulkan parallelNum>1 已按 slot/实际 worker/ordinal 录制 secondary，TryCollect 在 coordinator 收齐并稳定组装 primary；单 worker 不建 pool，仍走 inline。Vulkan native 故障/取消/teardown 已验证；错误汇总不得掩盖任一 DeviceLost。DX12 已由独立 compiler/encoder 生成单 color image/raster/copy 计划，按实际 worker/slot/ordinal 并行录制 DIRECT lists 并稳定提交；紧密行 copy 的 footprint scratch 随计划退休，Close 失败后丢弃 list 并安全重建。B04 已实现 Vulkan/DX12 的 descriptor/staging/UBO/scratch 显式 lease 分区和容量检查；B07 已补 scalar UBO、indexed/depth raster、ShaderResolver 前置解析及 scope 内 PSO 复用；B10 已补当前纹理/MSAA/resolve/cache 子集，所有平台已切换 RendererHost；Metal 新协议已支持 slot/clear/copy/raster draw、D32 depth、RGBA8 MSAA resolve 与 mip/layer view；compute/custom 仍明确 `UNSUPPORTED`，待后续实现；iOS/Android 实机验收仍待实施。CPU prepare 使用独立 pool，不从 context 取得 pool/arena。
 
 B05 的 `ResourceCatalog` 位于 Aurora core 的 renderer/resource，只在 coordinator 修改；prepare 只消费冻结 CPU metadata，backing pins 留给 coordinator/submission。`usageVariant` 表示布局兼容族，回退必须成组选择同版本 metadata/backing。`ResourceUploader` 已接通 buffer/RGBA8 2D image 共用分块上传：必须核验全部 native RecordedFrame copy 回执、Accepted 和成功完成，才能经内部 `AdoptResident` 发布。uploader 独占该 context 的完成轮询并透传其它完成；取消和错误不替代 GPU drain。每版本仅一个未决块，Accepted/完成进度分离，完整内容才 InGraph/Resident；部分 backing 单独限额，销毁 owner 不保留可被新 backing 误用的完成前缀。两种资源共享 pending backing 的逻辑字节/数量预算；第十三子批已自动纳管 backing，tracking 租约随 Resident/冻结版本转交，最后 owner 和 GPU 使用退出后由 context 回收；第十四子批已接逐 mip/layer 边界与混合状态续传；其它格式和跨队列仍待后续。
 
@@ -282,12 +282,12 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 - NativeWindow deferred-close 保护 HWND：工具窗等 ViewportDestroyed 后销毁；整个宿主等 RendererStopped 后销毁 Renderer，再解除窗口保护。Game/Editor/XR 在窗口成员析构前 Shutdown，并在 drain 中保持平台事件泵。
 - feature 的 moduleLease 必须来自 ModuleManager::RetainModule，不能用 dummy owner 代替真实动态库。feature 对象先释放，代码 lease 后释放；loader 最后 lease 才 detach/unload，依赖库随消费者代码保活。静态模块代码常驻宿主，复用相同接口。
 - 模块 Init 失败先 Shutdown/销毁，依赖消费者不初始化，Application 返回失败。跨 DLL 服务仍用 Singleton，注册幂等仍用 Once。
-- Windows 旧 AuroraModule GPU loop 和旧 EditorRenderer 编译排除。未验证平台保留整套旧入口；Metal 的新编译/输出/宿主协议仍待 P02，不能借用新 Renderer 的设备另起旧 loop。
+- `AuroraModule` 在所有平台经 RendererHost 创建/驱动唯一 Renderer；旧 non-Windows GPU loop 已删除。Windows 旧 EditorRenderer 编译排除；Metal 新编译/输出/宿主已通过 Cocoa native host test，iOS/Android 实机验收仍待 P02。
 
 ## Image 边界状态
 
 - ImageBoundaryState 的显式表必须完整覆盖 layer*mipLevels+mip，统一 layout 与全等数组语义相同；final 不接受 UNDEFINED，已有 texel 不能位于 initial UNDEFINED 的 cell。状态布局不扩大内容资格。
-- FrameContext 从 Image::GetMipLayerCount 查询已确认归属的实际 backing cell 数；默认 trackedImageSubresources=65,536，和 backing 数分别限额，owner/GPU 安全退休才归还。混合快照有复制成本，仍由 coordinator 构建；跨队列、aspects/planes 与 Metal 新协议未开放。
+- FrameContext 从 Image::GetMipLayerCount 查询已确认归属的实际 backing cell 数；默认 trackedImageSubresources=65,536，和 backing 数分别限额，owner/GPU 安全退休才归还。混合快照有复制成本，仍由 coordinator 构建；跨队列、aspects/planes 仍未开放；compute/custom 仍 `UNSUPPORTED`；Metal depth resolve 已接。
 
 ## Raster attachment view
 

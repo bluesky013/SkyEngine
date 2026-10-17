@@ -109,7 +109,7 @@ The system SHALL support cooking in-process (the same process as the editor) or 
 
 ### Requirement: Concurrency safety for load and cook
 
-Loading and cooking SHALL not deadlock or lose state: an in-process cook MUST NOT occupy a loader worker while waiting, `product.index` writes SHALL be serialized per bundle, and a LOADING asset's wait handle SHALL be established before its cook is scheduled. On-demand coalescing SHALL be **atomic**: concurrent loads of the same UUID SHALL reuse the existing wait handle and MUST NOT overwrite it, exactly one cook SHALL be scheduled per in-flight UUID, and a scheduled cook SHALL NOT be dropped while a waiter depends on it. Reading the wait handle SHALL be synchronized (no unsynchronized read).
+Loading and cooking SHALL not deadlock or lose state: an in-process cook MUST NOT occupy a loader worker while waiting, `product.index` writes SHALL be serialized per bundle, and a LOADING asset's wait handle SHALL be established before its cook is scheduled. On-demand coalescing SHALL be **atomic**: concurrent loads of the same UUID SHALL reuse the existing wait handle and MUST NOT overwrite it, exactly one cook SHALL be scheduled per in-flight UUID, and a scheduled cook SHALL NOT be dropped while a waiter depends on it. Reading the wait handle SHALL be synchronized (no unsynchronized read). File-product loads SHALL also coalesce: concurrent calls for the same UUID SHALL perform at most one header read/schedule and return the same `LOADING` or `LOADED` asset; recursive dependency loads SHALL NOT deadlock.
 
 #### Scenario: No loader-pool starvation
 
@@ -136,3 +136,17 @@ Loading and cooking SHALL not deadlock or lose state: an in-process cook MUST NO
 - **WHEN** a caller requests an asset whose load has already completed (LOADED or FAILED)
 - **THEN** it SHALL NOT start a redundant second cook; a LOADED asset is returned as-is and a FAILED asset may be re-attempted
 
+#### Scenario: File product concurrent load
+
+- **WHEN** multiple threads load the same product UUID that already has a cooked product file
+- **THEN** only one thread SHALL read the header/schedule the load, every caller SHALL receive a non-null asset, and all blocking waits SHALL complete
+
+#### Scenario: File load already in flight
+
+- **WHEN** a caller observes a file-backed asset with status `LOADING`
+- **THEN** it SHALL return that asset without re-opening or re-reading the product
+
+#### Scenario: Recursive file dependency load
+
+- **WHEN** a file-product load recursively loads its dependencies
+- **THEN** the load orchestration lock SHALL be recursive and SHALL NOT deadlock

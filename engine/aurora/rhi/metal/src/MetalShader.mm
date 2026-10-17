@@ -88,6 +88,16 @@ namespace sky::aurora {
         return true;
     }
 
+    const Device *MetalShaderFunction::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    const Device *MetalShader::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
     MetalShader::MetalShader(MetalDevice &dev) : device(dev)
     {
     }

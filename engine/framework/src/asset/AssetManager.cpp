@@ -224,10 +224,13 @@ namespace sky {
 
     AssetPtr AssetManager::LoadAsset(const Uuid &uuid) // NOLINT
     {
+        std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
+
         auto asset = FindAsset(uuid);
 
-        // check loaded
-        if (asset && asset->IsLoaded()) {
+        // Another caller may already be loading this asset; reuse its wait handle
+        // instead of reading the product header concurrently.
+        if (asset && (asset->IsLoaded() || asset->GetStatus() == AssetBase::Status::LOADING)) {
             return asset;
         }
 

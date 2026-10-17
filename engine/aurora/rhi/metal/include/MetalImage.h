@@ -24,9 +24,18 @@ namespace sky::aurora {
         // Release any current texture reference (also drops borrowed wrappers).
         void Reset();
 
+        // Create an owned mip/layer view of the current texture. The caller
+        // owns the returned image; the base texture must outlive it.
+        MetalImage *CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount);
+
         void *GetNativeHandle() const
         {
             return texture;
+        }
+        const Device *GetDevice() const noexcept override;
+        uint64_t GetMipLayerCount() const noexcept override
+        {
+            return uint64_t(mipLevels) * arrayLayers;
         }
         PixelFormat GetPixelFormat() const
         {
@@ -38,6 +47,8 @@ namespace sky::aurora {
         void        *texture     = nullptr;
         bool         owned       = true;
         PixelFormat  pixelFormat = PixelFormat::UNDEFINED;
+        uint32_t     mipLevels   = 1;
+        uint32_t     arrayLayers = 1;
     };
 
 } // namespace sky::aurora

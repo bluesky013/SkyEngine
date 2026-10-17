@@ -207,6 +207,31 @@ fragment float4 blitFS(VSOut in [[stage_in]],
         return true;
     }
 
+    void MetalBlitHelper::ResolveDepth(void *commandBuffer, MetalImage *src, MetalImage *dst, bool maximum)
+    {
+        auto *cb     = (__bridge id<MTLCommandBuffer>)commandBuffer;
+        auto *srcTex = (__bridge id<MTLTexture>)src->GetNativeHandle();
+        auto *dstTex = (__bridge id<MTLTexture>)dst->GetNativeHandle();
+
+        auto *rpDesc                                  = [MTLRenderPassDescriptor renderPassDescriptor];
+        rpDesc.depthAttachment.texture                = srcTex;
+        rpDesc.depthAttachment.level                  = 0;
+        rpDesc.depthAttachment.slice                  = 0;
+        rpDesc.depthAttachment.loadAction             = MTLLoadActionLoad;
+        rpDesc.depthAttachment.storeAction             = MTLStoreActionMultisampleResolve;
+        rpDesc.depthAttachment.resolveTexture         = dstTex;
+        rpDesc.depthAttachment.resolveLevel           = 0;
+        rpDesc.depthAttachment.resolveSlice           = 0;
+        rpDesc.depthAttachment.depthResolveFilter     = maximum ? MTLMultisampleDepthResolveFilterMax : MTLMultisampleDepthResolveFilterMin;
+
+        id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rpDesc];
+        if (enc == nil) {
+            LOG_E(TAG, "depth resolve: failed to create render encoder");
+            return;
+        }
+        [enc endEncoding];
+    }
+
     void MetalBlitHelper::Resolve(void *commandBuffer, MetalImage *src, MetalImage *dst, const std::vector<ResolveInfo> &regions)
     {
         auto *cb     = (__bridge id<MTLCommandBuffer>)commandBuffer;

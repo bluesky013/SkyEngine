@@ -137,6 +137,9 @@ namespace sky {
         std::unordered_map<Uuid, PendingCook> pendingJobs;
 
         mutable std::recursive_mutex                       mutex;
+        // Serializes load orchestration; protects CreateAssetByHeader's header
+        // read and the LOADING transition against concurrent loads.
+        std::recursive_mutex                               loadMutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;
     };
 

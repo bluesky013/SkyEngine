@@ -2,9 +2,7 @@
 
 ## Purpose
 Aurora RHI Metal 后端：slang MSL 直发路径下的 shader 加载（源码/metallib）、直接绑定 ResourceGroup（含 dynamic offsets 与数组）、深度模板/光栅化状态、compute dispatch、push constant 约定、blit/resolve、顶点输入槽位分区、swapchain ring、命令缓冲池复用与格式/caps 映射。
-
 ## Requirements
-
 ### Requirement: Metal shader function 按 entry 名加载
 
 slang MSL 输出保留源码级 entry 名（如 `mainVS`）。`ShaderFunction::Descriptor.entry` SHALL 传递给 Metal 后端并用于 `newFunctionWithName`；entry 为空时 Metal SHALL 回退 `VSMain/FSMain/CSMain` 约定（兼容手写 MSL）。
@@ -187,3 +185,60 @@ Metal 每 stage 31 个 buffer 槽 SHALL 分区：shader buffer（含 push consta
 
 - **WHEN** 查询 `GetFeature()`
 - **THEN** `descriptorHeap==false` 且 `firstInstanceIndirect==true`
+
+### Requirement: Metal participates in the explicit frame-context protocol
+
+Metal `DeviceFrameContext` instances SHALL support `TryBeginSlot`, fence/pool reset, typed lease validation and `TryCollect` through the common `BackendFrameContext` protocol. The common layer SHALL NOT reject Metal solely because its backend is Metal; unsupported capability SHALL be reported by the Metal implementation or by a specific unsupported operation.
+
+#### Scenario: Metal slot begin
+- **WHEN** a Metal frame context with a valid device epoch calls `TryBeginSlot`
+- **THEN** it SHALL return a `DeviceFrameLease` or an explicit `FrameBusy`/`FrameError`, not an unconditional `UNSUPPORTED`
+
+#### Scenario: Metal fence and pool lifecycle
+- **WHEN** a Metal submission completes and its slot is reused
+- **THEN** the fence SHALL report `SIGNALED`, `TryReset` SHALL advance it, and the command pool SHALL be reusable
+
+### Requirement: Metal offscreen clear/copy/readback
+
+The Metal frame context SHALL compile and record an offscreen graph containing single-color raster passes with draws, optional D32 depth, RGBA8 MSAA resolve and selected mip/layer attachment views, plus buffer/image copy passes; it SHALL submit through the common slot protocol, poll completion, and expose readback contents.
+
+#### Scenario: Clear and read back
+- **WHEN** a graph clears an RGBA8 render-target image and copies it to a host-readable buffer
+- **THEN** the submitted frame completes and the readback contains the clear color
+
+#### Scenario: Fullscreen draw
+- **WHEN** a raster pass contains a valid draw, pipeline and graph bindings
+- **THEN** the compiled Metal plan SHALL encode the draw into the render pass and the readback SHALL contain the shader output
+
+#### Scenario: MSAA resolve
+- **WHEN** a raster pass renders to an RGBA8 multisample image and declares a resolve target
+- **THEN** the resolved target SHALL contain the rendered/cleared color
+
+#### Scenario: Depth attachment
+- **WHEN** a raster pass declares a D32 depth image
+- **THEN** the encoded render pass SHALL apply the requested depth load/store/clear
+
+#### Scenario: Selected mip/layer
+- **WHEN** a raster pass selects a non-zero mip/layer view
+- **THEN** only that cell SHALL be rendered and copied by the requested readback
+
+#### Scenario: Two slots in flight
+- **WHEN** two frames are submitted before completion is polled
+- **THEN** both slots SHALL complete independently and their readbacks SHALL match
+
+#### Scenario: Explicit unsupported subset
+- **WHEN** the graph contains compute, custom passes, or an unsupported attachment/view form
+- **THEN** compile SHALL return an explicit `FrameError` with an unsupported/invalid reason, not silently record an empty frame
+
+### Requirement: Metal transient resources use the shared frame pool
+
+The Metal device SHALL provide the same `FrameTransientPool` used by Vulkan and DX12 so transient graph buffers/images are allocated and retired with the frame lease.
+
+#### Scenario: Transient image allocation
+- **WHEN** a Metal graph declares a transient render-target image
+- **THEN** it SHALL be acquired through the device transient pool and remain pinned until the slot retires
+
+#### Scenario: Imported resource validation
+- **WHEN** an imported buffer/image belongs to another device or has an incompatible descriptor
+- **THEN** compile SHALL return `INVALID_ARGUMENT` without consuming the lease
+
