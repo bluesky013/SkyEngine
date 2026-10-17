@@ -78,7 +78,13 @@ function(sky_add_library)
                 get_target_property(tmpDlls ${dep} INTERFACE_DYN_LIBS)
                 if (tmpDlls)
                     foreach(dll ${tmpDlls})
-                        get_filename_component(dllName ${dll} NAME)
+                        # 条目可以含 $<$<CONFIG:x>:path> 生成器表达式（按配置区分动态库），
+                        # 取文件名时抽取其中第一个真实路径，拷贝命令保留 genex 按配置求值
+                        set(dllPath ${dll})
+                        if (dll MATCHES "\\$<\\$<CONFIG:[^>]+>:([^>]+)>")
+                            set(dllPath ${CMAKE_MATCH_1})
+                        endif ()
+                        get_filename_component(dllName ${dllPath} NAME)
                         add_custom_command(TARGET ${TMP_TARGET} POST_BUILD
                                 COMMAND ${CMAKE_COMMAND} -E copy
                                 ${dll}

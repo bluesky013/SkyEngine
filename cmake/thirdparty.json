@@ -344,6 +344,45 @@
 			}
 		},
 		{
+			"name": "tbb",
+			"url": "https://github.com/uxlfoundation/oneTBB.git",
+			"tag": "v2021.13.0",
+			"header_only": false,
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
+			"options": {
+				"TBB_TEST": "OFF",
+				"TBB_STRICT": "OFF",
+				"BUILD_SHARED_LIBS": "ON"
+			}
+		},
+		{
+			"name": "usd",
+			"url": "https://github.com/PixarAnimationStudios/OpenUSD.git",
+			"tag": "v26.08",
+			"header_only": false,
+			"deps": ["tbb"],
+			"extra_copy": {
+				"plugin": "plugin"
+			},
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
+			"options": {
+				"PXR_ENABLE_PYTHON_SUPPORT": "OFF",
+				"PXR_ENABLE_GL_SUPPORT": "OFF",
+				"PXR_BUILD_IMAGING": "OFF",
+				"PXR_BUILD_USDVIEW": "OFF",
+				"PXR_BUILD_USD_TOOLS": "OFF",
+				"PXR_BUILD_TESTS": "OFF",
+				"PXR_BUILD_EXAMPLES": "OFF",
+				"PXR_BUILD_TUTORIALS": "OFF",
+				"PXR_BUILD_MONOLITHIC": "ON",
+				"BUILD_SHARED_LIBS": "ON",
+				"PXR_ENABLE_MATERIALX_SUPPORT": "OFF",
+				"PXR_ENABLE_OPENVDB_SUPPORT": "OFF",
+				"PXR_ENABLE_PTEX_SUPPORT": "OFF",
+				"PXR_ENABLE_HDF5_SUPPORT": "OFF"
+			}
+		},
+		{
 			"name": "ispc_texcomp",
 			"url": "https://github.com/bluesky013/ISPCTextureCompressor.git",
 			"header_only": false,
