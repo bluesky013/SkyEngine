@@ -317,6 +317,12 @@ Keep a comment when removing it would force a reader to reverse-engineer intent:
 | Deliberate limitation / follow-up | "Linear packer never frees; a pooled allocator is a follow-up." |
 | API contract (threading, validity) | "Returns nullptr until the resource is created." |
 
+### Comment length
+
+- A non-diagram comment MUST be at most **two lines**. If the rationale needs more, put it in the change's
+  `design.md` or in `docs/`, not inline.
+- Diagrams / ASCII tables may exceed that; keep them only when a picture conveys the design faster than text.
+
 ### Guidance
 
 - Before writing a comment, ask: "Would removing this comment change how a reader understands the design?" If the answer is no, drop it.
@@ -325,7 +331,7 @@ Keep a comment when removing it would force a reader to reverse-engineer intent:
 
 ### Detection
 
-When reviewing or writing code, flag comments that only paraphrase the adjacent line. Keep only the comments that carry design intent, rationale, or a non-obvious contract.
+When reviewing or writing code, flag comments that only paraphrase the adjacent line, or that exceed two lines without being a diagram. Keep only the comments that carry design intent, rationale, or a non-obvious contract.
 
 ---
 
