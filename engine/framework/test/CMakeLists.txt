@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Engine/Foundation/Framework)
+
 file(GLOB TEST_SRC *.cpp *.h)
 file(GLOB PLATFORM_POLICY_TEST_SRC platform/android/*.cpp platform/ios/*.cpp)
 list(APPEND TEST_SRC ${PLATFORM_POLICY_TEST_SRC})
@@ -21,8 +23,10 @@ endif ()
 # Android input mapping is SDK-independent and is exercised on every host.
 # The native Android Framework already includes it through its platform glob.
 if (NOT ANDROID)
-    list(APPEND TEST_SRC ${ENGINE_ROOT}/engine/framework/platform/android/AndroidInput.cpp)
+    list(APPEND TEST_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../platform/android/AndroidInput.cpp)
 endif ()
+
+configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/test/EngineRoot.h)
 
 sky_add_test(TARGET FrameworkTest
     SOURCES
@@ -51,8 +55,19 @@ target_compile_definitions(FrameworkTest PRIVATE
     SKY_EXPORT_PRESET_SCHEMA="${CMAKE_SOURCE_DIR}/configs/export_preset.schema.json")
 
 target_include_directories(FrameworkTest PRIVATE
-    ${ENGINE_ROOT}/engine/framework/platform/android
-    ${ENGINE_ROOT}/engine/framework/platform/ios)
+    ${CMAKE_BINARY_DIR}/Gen
+    ${CMAKE_CURRENT_SOURCE_DIR}/../platform/android
+    ${CMAKE_CURRENT_SOURCE_DIR}/../platform/ios)
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    target_include_directories(FrameworkTest PRIVATE ${ENGINE_ROOT}/engine/framework/platform/macos)
+    target_include_directories(FrameworkTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../platform/macos)
 endif ()
+
+add_subdirectory(process_helper)
+add_subdirectory(cook_worker_stub)
+
+# FrameworkTest spawns these helpers as child processes (ProcessTest /
+# OutOfProcessCookRunnerTest); build them alongside it so they are deployed next
+# to the test binary.
+sky_add_dependency(TARGET ProcessHelper DEPENDENCIES FrameworkTest)
+sky_add_dependency(TARGET CookWorkerStub DEPENDENCIES FrameworkTest)
+sky_set_dependency(TARGET FrameworkTest)

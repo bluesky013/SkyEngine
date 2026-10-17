@@ -168,7 +168,7 @@ UI, the New Asset creator-picker flow, and the standalone builder-side `AssetToo
   extensions link without pulling `EditorShell`.
 - Module: `SandboxModule.cpp` (catalog + builder-manager wiring, asset actions, default layout).
 - Tests: `engine/sandbox/test/EditorAssetCatalogTest.cpp`, `EditorShellTest.cpp`,
-  `engine/test/framework/{AssetManagerTest,AssetCookOverrideTest,CookConfigTest}.cpp`,
+  `engine/framework/test/{AssetManagerTest,AssetCookOverrideTest,CookConfigTest}.cpp`,
   `engine/aurora/cook/test/CookPipelineTest.cpp`.
 - Prerequisite / follow-on: the `asset-pipeline-layering-refactor` change (this layering); the
   `per-asset-cook-settings` change (per-asset override).

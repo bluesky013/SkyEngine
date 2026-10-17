@@ -26,7 +26,7 @@ import uuid
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
-TEST_HOST_PLIST = REPOSITORY / "engine/test/framework/platform/ios/Info.plist"
+TEST_HOST_PLIST = REPOSITORY / "engine/framework/test/platform/ios/Info.plist"
 SOURCES = (
     "engine/framework/platform/ios/IOSPlatform.mm",
     "engine/framework/platform/ios/IOSWindow.mm",
@@ -42,9 +42,9 @@ SOURCES = (
     "engine/core/src/archive/BinaryData.cpp",
     "engine/core/src/memory/Allocator.cpp",
     "engine/core/src/util/String.cpp",
-    "engine/test/framework/platform/ios/IOSPlatformStateTest.cpp",
-    "engine/test/framework/platform/ios/IOSNativePlatformTest.mm",
-    "engine/test/framework/platform/ios/main.mm",
+    "engine/framework/test/platform/ios/IOSPlatformStateTest.cpp",
+    "engine/framework/test/platform/ios/IOSNativePlatformTest.mm",
+    "engine/framework/test/platform/ios/main.mm",
 )
 
 

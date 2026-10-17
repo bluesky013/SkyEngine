@@ -66,3 +66,7 @@ sky_add_library(TARGET Framework STATIC
     INSTALL_DIR
         include
     )
+
+if (SKY_BUILD_TEST)
+    add_subdirectory(test)
+endif ()

@@ -46,7 +46,3 @@ endif()
 if (SKY_BUILD_SANDBOX)
     sky_set_dependency(TARGET SandboxEditor)
 endif()
-
-if (SKY_BUILD_TEST)
-    add_subdirectory(test)
-endif()

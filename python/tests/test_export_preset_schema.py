@@ -2,7 +2,7 @@
 exist in the single-source manifest ``configs/export_preset.schema.json``.
 
 This is the Python half of the export-preset schema contract (the C++ half lives in
-``engine/test/framework/ExportPresetTest.cpp``). See
+``engine/framework/test/ExportPresetTest.cpp``). See
 ``openspec/changes/export-preset-schema-source``.
 
 Run with::

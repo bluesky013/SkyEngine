@@ -1,9 +1,11 @@
+set(CURRENT_FOLDER Engine/Foundation/Core)
+
 file(GLOB_RECURSE TEST_SRC ./*)
 
-sky_add_test(TARGET RenderTest
+sky_add_test(TARGET CoreTest
     SOURCES
         ${TEST_SRC}
     LIBS
-        RenderCore
+        Core
         3rdParty::googletest
     )

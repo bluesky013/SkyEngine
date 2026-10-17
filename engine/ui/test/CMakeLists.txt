@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Engine/UI/Test)
+
 sky_add_test(TARGET UICoreTest
     SOURCES
         UIAnimationTest.cpp
@@ -28,10 +30,10 @@ sky_add_test(TARGET UICoreTest
 if (TARGET Aurora.ShaderCompiler.Static)
     sky_add_test(TARGET UIShaderTest
         SOURCES
-            ${CMAKE_SOURCE_DIR}/engine/ui/render/test/UIShaderTest.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/../render/test/UIShaderTest.cpp
             main.cpp
         INCS
-            ${CMAKE_SOURCE_DIR}/engine/ui/render/src
+            ${CMAKE_CURRENT_SOURCE_DIR}/../render/src
         WORKING_DIR
             ${CMAKE_SOURCE_DIR}
         LIBS

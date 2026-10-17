@@ -15,11 +15,11 @@
 /build_release/
 /active_project
 /test/assets/assets.db
-/engine/test/assets.db
+/engine/framework/test/assets.db
 /test/products/
 # asset pipeline test artifacts
-/engine/test/products/
-/engine/test/assets/**/assets.jsonl
+/engine/framework/test/products/
+/engine/framework/test/assets/**/assets.jsonl
 # dev/build-side source cache (regenerable; never shipped)
 /assets.db
 /python/.idea
