@@ -540,7 +540,7 @@ These results close CPU gates without closing UI-02/UI-08 or increasing inflight
 - [ ] Material editor defaults/per-property reset, with a chosen schema format and add/delete for
   material-instance overrides; retain a deliberate transaction/Undo contract for dynamic rows.
 - [ ] Asset-view source write-back and re-cook (deferred from archived `editor-asset-views`).
-- [ ] Remove legacy `assets/techniques/*.tech` and preload entries only when engine/render consumers
+- [ ] Remove legacy `assets/techniques/*.tech` and preload entries now that the legacy render consumers are gone; audit before deletion
   no longer require them, paired with `docs/aurora/shader-design-and-migration.md`.
 - [ ] Verify the reported ShaderHeaderTool CWD/PATH/slang-DLL fix after a clean Windows reconfigure.
 

@@ -27,20 +27,20 @@ TBD - created by archiving change remove-boost. Update Purpose after archive.
 - **WHEN** `engine/framework` is built
 - **THEN** it SHALL NOT include Boost headers or link a Boost library
 
-### Requirement: Boost is isolated and header-only
+### Requirement: Boost is removed from the build
 
-After this change, Boost SHALL be used only by the legacy shader and legacy render modules, and the Boost
-third-party target SHALL be a header-only interface (no compiled Boost library).
+Boost SHALL NOT be discovered, linked, or required by the project; the legacy shader/render modules that used it
+have been removed.
 
-#### Scenario: Only legacy modules link Boost
+#### Scenario: No Boost target is discovered
 
 - **WHEN** the project is configured
-- **THEN** only the legacy shader and legacy render targets SHALL link the Boost target
+- **THEN** no Boost target SHALL be created or linked
 
 #### Scenario: No compiled Boost library required
 
-- **WHEN** the third-party bootstrap provides Boost
-- **THEN** no `boost::container` (or other compiled Boost) library SHALL be required to build the engine
+- **WHEN** the third-party bootstrap runs
+- **THEN** no Boost package SHALL be required to build the engine
 
 ### Requirement: The legacy compiler link on Aurora is removed
 

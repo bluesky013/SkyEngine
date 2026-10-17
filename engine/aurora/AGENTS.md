@@ -267,7 +267,7 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-renderer` | Windows 主流程与宿主已接入 | Vulkan 双 compiler / DX12；Metal 对等仍待 P02 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
 | `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
-| `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除 legacy `SkyRender`/`RenderAdaptor`；引擎内置 `configs/` |
+| `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除旧 `SkyRender`/`RenderAdaptor`；引擎内置 `configs/` |
 | `aurora-adaptor` | ✅ 已实施 | `engine/aurora/adaptor` 双 target：`AuroraRender`(SHARED) + `Aurora.Adaptor`(STATIC；`AuroraReflection` + assets + components)，对接 framework `SerializationContext`/`AssetManager`/`ComponentFactory` |
 
 详见 `openspec/changes/<name>/`。

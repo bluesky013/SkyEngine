@@ -65,7 +65,7 @@ culled.
 ### Requirement: Ownership and lifetime safety
 
 PVS runtime objects SHALL have unambiguous ownership: culling view data SHALL be returned as a reference-counted
-object owned by the caller (the render scene adopts it via `CounterPtr`).
+object owned by the caller; a future Aurora render integration may adopt it via `CounterPtr`.
 
 #### Scenario: Inactive culling is safe to query
 - **WHEN** the culling system has not been initialized (no loader) and a view is prepared
@@ -78,8 +78,7 @@ plugin directory, and SHALL keep its sources scope-balanced.
 
 #### Scenario: Only shipped targets are built
 - **WHEN** the project is configured with or without editor mode
-- **THEN** the plugin SHALL build its core / render / module targets and SHALL NOT register the removed legacy
-  editor target
+- **THEN** the plugin SHALL build only `PVS.Core` and `PVSTest`; no render, module, or visualizer target SHALL exist
 
 #### Scenario: No plugin-escaping includes
 - **WHEN** the PVS plugin sources are compiled
@@ -88,15 +87,11 @@ plugin directory, and SHALL keep its sources scope-balanced.
 ### Requirement: Render-independent core
 
 PVS grid/config, sector storage, streaming and the visibility query SHALL live in a build target that does not
-depend on the legacy render stack or the editor framework, so they can be built and tested independently.
+depend on any render or editor layer, so it can be built and tested independently.
 
-#### Scenario: Core built without the legacy render stack
+#### Scenario: Core built without render or editor
 - **WHEN** the render-independent PVS core target is built
-- **THEN** it SHALL link only the core framework libraries and SHALL NOT link `RenderCore` or any editor target
-
-#### Scenario: Legacy glue isolated
-- **WHEN** the legacy `IRenderSceneCulling` integration is compiled
-- **THEN** it SHALL live in a separate target that depends on the core, so removing it does not affect the core
+- **THEN** it SHALL link only the core framework libraries and SHALL NOT link Aurora RHI or any editor target
 
 ### Requirement: PVS data serialization owned by the core
 
@@ -115,15 +110,15 @@ save-then-load round trip SHALL reproduce the configuration and sector data.
 #### Scenario: Write sink abstraction
 - **WHEN** PVS data is written
 - **THEN** it SHALL go through a writer abstraction (`IPVSSectorWriter`) that the core provides, without depending
-  on the removed editor bake pipeline
+  on any editor bake pipeline
 
-### Requirement: Testable core without the legacy bake path
+### Requirement: Testable core without render or editor layers
 
-PVS grid, streaming, query and serialization logic SHALL be testable without loading or linking the legacy render
-bake pipeline.
+PVS grid, streaming, query and serialization logic SHALL be testable without loading or linking any render or
+editor layer.
 
 #### Scenario: Math, streaming, query and serialization tests
 - **WHEN** the PVS tests run
 - **THEN** they SHALL cover coordinate math, streaming hysteresis, neighbor-sector/missing-sector queries, query
-  fallback and serialization round-trips without requiring the legacy bake path to be exercised
+  fallback and serialization round-trips without requiring a render or editor layer
 

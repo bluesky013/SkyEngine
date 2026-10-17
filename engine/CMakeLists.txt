@@ -4,13 +4,6 @@ add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(animation)
 
-# Legacy render/shader stack (pre-aurora). Deprecated, desktop-only, and not used
-# by the aurora runtime or the sandbox editor. Opt in with -DSKY_BUILD_LEGACY_RENDER=ON.
-if (SKY_BUILD_LEGACY_RENDER AND NOT SKY_MOBILE)
-    add_subdirectory(shader)
-    add_subdirectory(render)
-endif ()
-
 add_subdirectory(content)
 add_subdirectory(audio)
 add_subdirectory(aurora)
@@ -26,12 +19,7 @@ add_subdirectory(vegetation)
 # `DEPENDENCIES Launcher`, which the project's native entry binds via
 # `sky_set_dependency(TARGET Launcher)`.
 
-if (SKY_BUILD_EDITOR)
-    add_subdirectory(editor)
-    sky_set_dependency(TARGET Editor)
-endif()
-
-# New non-Qt editor rebuild area (editor core + shell prototype + tests).
+# Non-Qt editor (editor core + shell + tests).
 if (SKY_BUILD_SANDBOX OR SKY_BUILD_TEST)
     add_subdirectory(sandbox)
 endif()

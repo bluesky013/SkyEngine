@@ -59,6 +59,3 @@ endif()
 
 
 # The runtime host (`Launcher`) is project-owned (see the `add-project-native-layout` change).
-if (SKY_BUILD_EDITOR)
-    sky_set_dependency(TARGET Editor)
-endif()

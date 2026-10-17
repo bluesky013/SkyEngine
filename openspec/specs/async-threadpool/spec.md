@@ -89,7 +89,7 @@ TBD - created by archiving change threadpool-tasknode-cache-friendly. Update Pur
 #### Scenario: core 源文件不依赖 taskflow
 
 - **WHEN** 编译 core 的 `Task` / `NamedThread`
-- **THEN** 其头/源不 `#include <taskflow/...>`，实现基于 `ThreadPool`（taskflow 依赖在 legacy shader/render 迁移完成前仍由 core 目标传递链接保留）
+- **THEN** 其头/源不 `#include <taskflow/...>`，实现基于 `ThreadPool`；legacy shader/render 已移除，core 目标不再链接 taskflow
 
 #### Scenario: NamedThread 基于单线程池
 

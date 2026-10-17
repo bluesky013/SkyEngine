@@ -10,7 +10,7 @@
 ## 2. Event delivery
 
 - [ ] 2.1 Ensure the emitter's world transform is current before broadcasting `ITransformEvent::OnTransformChanged`.
-- [ ] 2.2 Audit and migrate `engine/render/adaptor` consumers (`CameraComponent`, `LightComponent`, `PrefabComponent`, animation components) to query `GetWorldTransform()` for descendant transforms.
+- [ ] 2.2 Audit and migrate `engine/aurora/adaptor` consumers (`CameraComponent`, light components, `PrefabComponent`, animation components) to query `GetWorldTransform()` for descendant transforms.
 - [ ] 2.3 Add an optional `World` pre-update resolve pass only if profiling requires it (deferred).
 
 ## 3. Scale policy

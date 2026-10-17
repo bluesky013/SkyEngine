@@ -76,13 +76,12 @@ Material source `assets/materials/*.mat` (JSON, loaded/saved through the reflect
   `MaterialPropertyType = RgFieldType` (`RgBlockDesc.h`).
 - The technique `tag` buckets RDG scene-raster queues; material→PSO is deferred to `aurora-material-pso`.
 
-## 5. Legacy pipeline (to be removed)
+## 5. Legacy pipeline (removed)
 
-- HLSL sources: `assets/shaders/*.hlsl` (+ `.hlslh` includes), compiled by the legacy
-  `engine/shader` module (DXC/glslang) and consumed by `engine/render/core/src/resource/Shader.cpp`.
-- `.tech` descriptors: `assets/techniques/*.tech` (parser `engine/render/builder/render/src/TechniqueBuilder.cpp`).
-- `engine/render/**`, `engine/shader` are slated for deletion
-  (`openspec/changes/legacy-render-thirdparty-cleanup/`).
+- The legacy HLSL pipeline (`.hlsl`/`.hlslh` + `.tech`) and its DXC/glslang compiler were removed together with
+  `engine/render/**` and `engine/shader` by `openspec/changes/legacy-render-thirdparty-cleanup/`.
+- Any remaining `.hlsl`/`.tech` files under `assets/` are unconsumed data and may be deleted separately.
+- Aurora uses the Slang-based compiler in `engine/aurora/shader`.
 
 ## 6. Migration map (legacy → aurora)
 

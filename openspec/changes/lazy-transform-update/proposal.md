@@ -22,6 +22,6 @@
 
 ## Impact
 
-- Code: `engine/framework/include/framework/world/TransformComponent.h`, `engine/framework/src/world/TransformComponent.cpp`, `engine/core/include/core/math/Transform.h` (scale policy), and `ITransformEvent` consumers in `engine/render/adaptor` (light/camera/animation/prefab/skeletal).
+- Code: `engine/framework/include/framework/world/TransformComponent.h`, `engine/framework/src/world/TransformComponent.cpp`, `engine/core/include/core/math/Transform.h` (scale policy), and `ITransformEvent` consumers in `engine/aurora/adaptor/components` (light/camera/animation/prefab/skeletal).
 - Tests: `engine/framework/test/ComponentTest.cpp` (lazy resolution, coalescing), `engine/core/test/TransformTest.cpp` (scale composition).
 - Depends on `harden-framework-components` (correct eager propagation is the baseline this change makes lazy).

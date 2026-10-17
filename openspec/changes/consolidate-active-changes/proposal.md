@@ -3,7 +3,7 @@
 `openspec/changes/` has accumulated **23 active changes** that no longer describe a coherent backlog. Several
 hard-depend on work already archived (so their prerequisite is done but they sit at 0 tasks), several are explicit
 **frozen** or **unimplemented debt records** that will never be scheduled as written, some overlap each other
-(two different framework→aurora scene seams; taskflow/boost removal split across three changes), and several
+(two different framework→aurora scene seams; the legacy taskflow/boost/shader/render retirement has since been consolidated into `legacy-render-thirdparty-cleanup`), and several
 reference changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`, `navigation-path-query`,
 `aurora-material-pso`). The result is that the backlog cannot answer "what is actually next?" or "what is
 blocked on what?".

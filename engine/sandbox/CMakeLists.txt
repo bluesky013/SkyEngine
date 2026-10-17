@@ -1,9 +1,8 @@
 set(CURRENT_FOLDER Sandbox)
 
-# Non-Qt editor rebuild area. `core` is the toolkit- and render-independent
-# editor core; `render` is the editor renderer; `module` is the editor module
-# (loaded by ModuleManager); `app` is the non-Qt host. Nothing here depends on
-# the legacy Qt editor (engine/editor).
+# Non-Qt editor. `core` is the toolkit- and render-independent editor core;
+# `render` is the editor renderer; `module` is the editor module (loaded by
+# ModuleManager); `app` is the non-Qt host.
 add_subdirectory(core)
 
 if (SKY_BUILD_SANDBOX)

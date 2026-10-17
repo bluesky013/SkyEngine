@@ -44,7 +44,7 @@ design.
     content shipped by optional plugins (see §9).
   The asset browser browses **assets** (engine bundle + workspace + plugin roots), never application
   resources.
-- **Engine bundle** = the deployed engine/editor install beside the executable (`configs/`,
+- **Engine bundle** = the deployed engine and editor install beside the executable (`configs/`,
   `resources/`, `assets/`, `templates/`). **Workspace** = a project directory (`assets/`, `configs/`,
   `*.skyproj`).
 
@@ -180,7 +180,7 @@ MyProject/
   "settings": { "rhi": "vulkan" },
   // Manifest entries (Gem/Package style): id + version + type + dependencies + enabled.
   "modules": [
-    { "id": "MyGameModule", "version": "0.1.0", "type": "runtime", "enabled": true, "dependencies": ["RenderAdaptor"] },
+    { "id": "MyGameModule", "version": "0.1.0", "type": "runtime", "enabled": true, "dependencies": ["Aurora.Adaptor"] },
     { "id": "MyGameEditorModule", "version": "0.1.0", "type": "editor", "enabled": true }
   ],
   "plugins": [
@@ -704,8 +704,7 @@ was removed, so macOS/Linux need a native backend added. Parity is required at e
   prefix on Linux; `configs/`, `resources/`, `templates/` must resolve within that layout.
 - **RHI per platform**: Windows Vulkan/DX12; macOS **Metal** (`API::METAL`); Linux Vulkan — selection
   stays with the render side (`--rhi`).
-- **Metal toolchain**: macOS additionally needs the MSL shader path (slang/dxcompiler → SPIRV-Cross →
-  MSL) — a distinct cross-platform dependency, not just an `API::METAL` switch.
+- **Metal toolchain**: macOS additionally needs the MSL shader path (Slang → MSL) — a distinct cross-platform dependency, not just an `API::METAL` switch.
 - **Distribution form**: Windows exe; macOS `.app`; Linux binary + `.desktop`.
 - **Module suffix / loading**: `.dll` / `.dylib` / `.so` — the manifest resolver is suffix-agnostic.
 - **Paths**: `.skyproj` and manifest paths use `/`; Linux is case-sensitive; no backslashes; the

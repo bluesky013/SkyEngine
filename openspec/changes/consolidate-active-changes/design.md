@@ -8,8 +8,8 @@ Reading the active set shows five problems:
    `aurora-scene-bridge` sits on archived `harden-framework-components`; `add-static-module-bundling` sits on
    archived `add-project-native-layout`).
 2. **Frozen / debt records are mixed in with scheduled work** (`lazy-transform-update` is explicitly frozen;
-   `aurora-cook-schema-layering`, `aurora-metal-bindless-descriptor-heap`, `legacy-render-thirdparty-cleanup`
-   declare themselves "proposal (unimplemented)").
+   `aurora-cook-schema-layering` and `aurora-metal-bindless-descriptor-heap` declare themselves
+   "proposal (unimplemented)"; `legacy-render-thirdparty-cleanup` has since become a scheduled retirement change).
 3. **Overlaps and splits** (two framework-to-aurora scene seams; taskflow/boost removal spread over three
    changes).
 4. **Dangling references** to changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`,
@@ -65,7 +65,7 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 | WS-NET | Network | `add-network-prediction` |
 | WS-BUILD | Packaging / platform / build | `add-game-project-build`, `add-static-module-bundling`, `add-ios-platform`, `add-ios-uikit-backend` |
 | WS-RHI | Aurora RHI backlog | `aurora-metal-bindless-descriptor-heap` |
-| WS-DEBT | Framework / build debt (parked) | `lazy-transform-update`, `legacy-render-thirdparty-cleanup`, `aurora-cook-schema-layering` |
+| WS-DEBT | Framework / build debt (parked) | `lazy-transform-update`, `aurora-cook-schema-layering` |
 | WS-META | Backlog hygiene | `consolidate-active-changes` |
 
 ### Decision: Classification snapshot
@@ -82,7 +82,7 @@ Alternatives considered: a free-form prose summary (rejected: not checkable), or
 | `aurora-navigation-integration` | blocked-on-prereq | on `aurora-renderer`; missing spec/design |
 | `aurora-metal-bindless-descriptor-heap` | debt-record | long-horizon; upstream slang dependency |
 | `aurora-cook-schema-layering` | debt-record | layering debt; no spec delta |
-| `legacy-render-thirdparty-cleanup` | debt-record | blocked on legacy render retirement; no tasks/specs |
+| `legacy-render-thirdparty-cleanup` | active | scheduled legacy render/shader/editor + third-party retirement; 0/29 |
 | `lazy-transform-update` | frozen | explicit "Frozen (not scheduled)" |
 | `navigation-terrain-build-tests` | active | test-only; prereq `terrain-navigation-integration` archived |
 | `terrain-aurora-render` | blocked-on-prereq | on `aurora-renderer` |

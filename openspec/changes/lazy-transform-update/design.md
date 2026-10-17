@@ -8,7 +8,7 @@
 - `SetWorld*` sets `global`, derives `local`, then the same eager recursion.
 - `OnTransformChanged` broadcasts `ITransformEvent::OnTransformChanged(global, local)` to subtree listeners.
 
-Consumers in `engine/render/adaptor` (`CameraComponent`, `LightComponent`, `PrefabComponent`, animation components) implement `ITransformEvent` and read either the passed `global` or `GetWorldTransform()`.
+Consumers in `engine/aurora/adaptor/components` (`CameraComponent`, light components, `PrefabComponent`, animation components) implement `ITransformEvent` and read either the passed `global` or `GetWorldTransform()`.
 
 `Transform::operator*` (`engine/core/include/core/math/Transform.h`) composes `scale = scale * rhs.scale`, which is not valid for non-uniform scale under rotation.
 
@@ -51,7 +51,7 @@ Leaning restrict + warn for this change; correct composition tracked separately 
 
 ## Risks / Trade-offs
 
-- [Consumers relying on synchronously-passed descendant globals] → Migrate them to query `GetWorldTransform()` (which ensures) and audit each `ITransformEvent` implementation in `engine/render/adaptor`.
+- [Consumers relying on synchronously-passed descendant globals] → Migrate them to query `GetWorldTransform()` (which ensures) and audit each `ITransformEvent` implementation in `engine/aurora/adaptor`.
 - [Dirty-marking walk is still O(descendants) per write] → It is flag-only (no matrix math); coalescing wins come from avoiding recompute on repeated writes and repeated reads.
 - [Scale policy] → Document explicitly; add a test/assert so unsupported combinations do not silently produce wrong matrices.
 

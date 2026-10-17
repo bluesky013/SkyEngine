@@ -10,7 +10,7 @@
 ## 2. Third-party
 
 - [ ] 2.1 为运行期包补齐 `IOS` 平台（`cmake/thirdparty.json`），或记录经 Xcode 交叉构建的 `3RD_PATH`（`python/third_party.py -p IOS`）
-- [ ] 2.2 iOS 构建**关闭 editor/cook**（`SKY_BUILD_EDITOR=OFF` 且不构建 cook）：assimp/meshoptimizer/stb/nanosvg/astc/ispc_texcomp/ImGuizmo/GKlib/metis 等仅 Win/Mac 声明，运行期不需要
+- [ ] 2.2 iOS 构建**关闭 editor/cook**（`SKY_BUILD_SANDBOX=OFF` 且不构建 cook）：assimp/meshoptimizer/stb/nanosvg/astc/ispc_texcomp/GKlib/metis 等仅 Win/Mac 声明，运行期不需要
 
 ## 3. Launcher
 

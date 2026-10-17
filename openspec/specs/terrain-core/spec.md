@@ -15,7 +15,7 @@ The terrain core SHALL be provided as a standalone static module (target `Terrai
 #### Scenario: No render includes in core headers
 
 - **WHEN** the terrain core public headers are inspected
-- **THEN** they SHALL NOT include paths from `engine/render`, `engine/aurora` RHI, or `rhi/`
+- **THEN** they SHALL NOT include `engine/aurora` RHI paths
 
 ### Requirement: World-space tile addressing
 

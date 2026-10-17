@@ -20,9 +20,9 @@ Treat the current repository structure as the architectural baseline:
 
 - `engine/core` — math, memory, file system, logging, async utilities
 - `engine/framework` — windowing, input, assets, world/application services
-- `engine/render` — RHI backends, shader compiler, render core, adaptors, ImGui rendering
+- `engine/aurora` — Aurora RHI and backends, Slang shader compiler, RDG, scene/ECS
 - `engine/animation`, `engine/physics`, `engine/navigation` — domain-specific engine subsystems
-- `engine/editor` — Qt-based editor runtime and tooling
+- `engine/sandbox` — non-Qt (Aurora) editor: `EditorCore`, `EditorRender`, `SandboxModule`, `SandboxEditor`; launched through `Launcher`
 - project `native/` — runtime entry point (engine ships launcher templates in `engine/templates/launcher/`)
 - `plugins` — optional modules selected by CMake/plugin configuration
 
@@ -44,8 +44,8 @@ Key expectations:
 
 - Core/runtime utilities belong in `engine/core`.
 - Application services and world-facing orchestration belong in `engine/framework`.
-- Render state, RHI usage, shader integration, and render submission belong in `engine/render`.
-- Editor-only behavior belongs in `engine/editor` or editor-gated plugins.
+- Render state, RHI usage, shader integration, and render submission belong in `engine/aurora`.
+- Editor-only behavior belongs in `engine/sandbox` or editor-gated plugins.
 - Optional feature extensions belong in `plugins`, not by hard-wiring everything into core engine layers.
 
 Flag changes that:
@@ -71,7 +71,7 @@ Flag changes that:
 
 - assume building a plugin automatically loads it at runtime
 - add runtime module dependencies without matching compile-time support
-- introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_EDITOR`
+- introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_SANDBOX`
 
 ---
 
@@ -117,14 +117,13 @@ Flag changes that:
 
 The repository already encodes editor separation:
 
-- `SKY_BUILD_EDITOR=ON` implies `SKY_EDITOR=ON`
+- `SKY_BUILD_SANDBOX=ON` enables the sandbox editor
 - some plugins require editor mode
 - editor runtime/module loading differs from game runtime/module loading
 
 Flag changes that:
 
 - make editor dependencies unconditional in shared runtime code
-- assume editor rendering (`SkyRender.Editor`) exists in game/runtime flows
 - move editor tooling concerns into launcher/runtime paths
 
 ---

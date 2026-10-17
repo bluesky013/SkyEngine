@@ -20,7 +20,7 @@ the mapping belongs in a new bridge layer, mirroring how `render/adaptor` links 
 
 - Aurora animation bridge (not yet a change): map `animation::AnimPose` to `aurora::Skin::boneMatrices` in a
   bridge layer (aurora must not depend on `Animation`). Bone-socket audio positioning depends on this; the
-  legacy bridge lives in `engine/render/adaptor`.
+  Aurora adaptor is the only remaining render bridge.
 - Bone socket query: expose `AnimPose::GetBoneTransform(Name)`-style access (currently only `ToSkinRenderData`).
 
 ## Impact

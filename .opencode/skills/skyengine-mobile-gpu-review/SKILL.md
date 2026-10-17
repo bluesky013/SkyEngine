@@ -21,7 +21,7 @@ Relevant repository facts:
 
 - Android is a supported target with arm64-v8a tooling
 - iOS is a supported arm64 target
-- Vulkan is used on Android, Metal on Apple, and GLES is optional on Android via `SKY_BUILD_GLES`
+- Vulkan is used on Android and Metal on Apple; GLES is not supported
 - Mobile asset presets currently use `common + tex_mobile`
 - Mobile texture/build flow is separated from PC through ASTC-oriented `tex_mobile`
 - Capability-gated render paths already exist in repo design precedent

@@ -3,7 +3,6 @@
 //
 
 #include <core/memory/Allocator.h>
-// #include <mimalloc/mimalloc.h>
 #include "core/platform/Platform.h"
 
 #include <algorithm>

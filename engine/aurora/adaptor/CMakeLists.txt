@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-# Static aurora -> framework bridge (analog of legacy RenderAdaptor):
+# Static aurora -> framework bridge:
 # reflection + assets + components + the IModule implementation (AuroraModule).
 # The launcher/editor module entry points live in engine/aurora/{runtime,editor}.
 sky_add_library(TARGET Aurora.Adaptor.Static STATIC

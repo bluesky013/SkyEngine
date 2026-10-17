@@ -1,6 +1,6 @@
 //
 // Aurora cook module: registers the aurora asset builders with the framework
-// offline builder (mirrors the legacy SkyRender.Builder module).
+// offline builder (replaces the former SkyRender.Builder module).
 //
 
 #include <aurora/adaptor/AuroraReflection.h>

@@ -1,15 +1,14 @@
 ## Why
 
-`plugins/recast` still integrates with the legacy render path: it links `RenderAdaptor`, builds a legacy
-`RenderPrimitive`, and attaches through `RenderSceneProxy`. The engine is migrating to aurora, and navigation's
-debug view plus runtime wiring must move there too. This is deferred so `fix-navigation-recast` can correct the
-core first, and the recast runtime wiring is intentionally render-agnostic until then.
+`plugins/recast` is already render-agnostic: its legacy `RenderAdaptor`/`RenderPrimitive`/`RenderSceneProxy`
+integration was removed with the legacy render stack. Navigation's debug view plus runtime wiring now need to target
+Aurora.
 
 ## What Changes
 
-- Migrate navmesh debug drawing from the legacy `RenderPrimitive`/`RenderSceneProxy` path to aurora.
+- Add navmesh debug drawing on Aurora (no legacy path remains).
 - Consume the render-agnostic debug geometry already produced by `NaviMesh::BuildDebugGeometry(NaviDebugGeometry &)`
-  (added by `fix-navigation-recast`); the core is already free of render includes and the `RenderAdaptor` link.
+  (added by `fix-navigation-recast`); the core already has no render includes or render link.
 - Wire the game-runtime world to create a world, attach `NavigationSystem`, and trigger a nav mesh build.
 - Fix the editor `IWorldBuilderGather` timing (the "Build Navigation" action is gathered before modules load).
 
@@ -28,7 +27,7 @@ core first, and the recast runtime wiring is intentionally render-agnostic until
 
 - `plugins/recast` (debug draw, CMake link, includes), `engine/aurora` adaptor/scene (debug draw hook),
   `engine/framework/application` + launcher (world creation and nav build), editor document/menu.
-- Removes the legacy `RenderAdaptor` dependency from the navigation backend.
+- Navigation backend remains free of render dependencies; only the Aurora debug draw is added.
 
 ## Open Questions (expand later)
 

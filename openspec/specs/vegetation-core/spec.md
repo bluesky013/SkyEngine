@@ -15,7 +15,7 @@ The vegetation core SHALL be a standalone static module (`engine/vegetation`, ta
 #### Scenario: No render or terrain includes in core headers
 
 - **WHEN** the vegetation core public headers are inspected
-- **THEN** they SHALL NOT include paths from `engine/render`, aurora RHI, `rhi/`, or `engine/terrain`
+- **THEN** they SHALL NOT include aurora RHI or `engine/terrain` paths
 
 ### Requirement: Surface provider abstraction
 

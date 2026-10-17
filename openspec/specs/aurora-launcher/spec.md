@@ -5,7 +5,7 @@ TBD - created by archiving change aurora-launcher-integration. Update Purpose af
 ## Requirements
 ### Requirement: AuroraRender 是可被 launcher 加载的动态模块
 
-`engine/aurora/adaptor` SHALL 产出 `AuroraRender` SHARED 目标，SHALL 通过 `REGISTER_MODULE` 导出 `StartModule`/`StopModule` 并实现 `sky::IModule`。模块 SHALL 与 `SkyRender` 并存，SHALL NOT 改变 `SkyRender` 的默认行为。
+`engine/aurora/adaptor` SHALL 产出 `AuroraRender` SHARED 目标，SHALL 通过 `REGISTER_MODULE` 导出 `StartModule`/`StopModule` 并实现 `sky::IModule`。模块 SHALL 是唯一的渲染模块；legacy `SkyRender` 已随 `legacy-stack-retirement` 删除。
 
 #### Scenario: 模块被 ModuleManager 发现
 
@@ -66,13 +66,12 @@ AuroraModule::Tick SHALL 收集状态/命令并提交 FramePacket，由 Renderer
 
 ### Requirement: launcher 只加载 AuroraRender（移除 legacy render）
 
-`GameApplication` SHALL 只注册并加载 `AuroraRender` 作为渲染模块，SHALL NOT 再加载 legacy `SkyRender`；the runtime
-host SHALL NOT link legacy `RenderAdaptor`. 启动参数 SHALL NOT 需要渲染模块选择开关。
+`GameApplication` SHALL 只注册并加载 `AuroraRender` 作为渲染模块；the runtime host SHALL NOT link any legacy render target. 启动参数 SHALL NOT 需要渲染模块选择开关。
 
 #### Scenario: 启动即加载 aurora
 
 - **WHEN** the runtime host starts（无渲染选择参数）
-- **THEN** `ModuleManager` 加载 `AuroraRender`，不加载 `SkyRender`
+- **THEN** `ModuleManager` 加载 `AuroraRender`，且不存在 `SkyRender` 目标
 
 ### Requirement: 窗口 handle 由宿主提供
 

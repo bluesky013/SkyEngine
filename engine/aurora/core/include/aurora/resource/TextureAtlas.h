@@ -1,7 +1,6 @@
 //
-// TextureAtlas: a 2D texture plus an allocator-driven packer. Ports the old
-// engine/render TextureAtlasAllocator / TextureLinearAllocator / Texture2DAtlas
-// design onto the aurora resource layer.
+// TextureAtlas: a 2D texture plus an allocator-driven packer. Ports the former render TextureAtlasAllocator / TextureLinearAllocator /
+// Texture2DAtlas design onto the aurora resource layer.
 //
 
 #pragma once

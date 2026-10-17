@@ -21,7 +21,7 @@ game runtime currently produces no audio. This change closes that gap.
 
 ## Impact
 
-- `engine/aurora/adaptor` (component reflection), aurora scene/runtime world setup, `engine/editor` document path,
+- `engine/aurora/adaptor` (component reflection), aurora scene/runtime world setup, `engine/sandbox` document path,
   launcher/sample scene.
 - No new third-party dependencies.
 

@@ -103,7 +103,7 @@ Before finalizing a commit message, ask:
 
 - `feat: add OpenCode skills for SkyEngine docs`
 - `fix: restore macOS build flags`
-- `3rd: update glslang patch handling`
+- `3rd: update slang patch handling`
 - `build: simplify third-party configure flow`
 - `doc: add OpenCode skills README`
 

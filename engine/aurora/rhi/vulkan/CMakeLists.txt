@@ -44,10 +44,6 @@ elseif (ANDROID)
     target_compile_definitions(Aurora.Vulkan PUBLIC VK_USE_PLATFORM_ANDROID_KHR)
 endif()
 
-#if (SKY_BUILD_XR)
-#    target_compile_definitions(Aurora.Vulkan PUBLIC -DXR_USE_GRAPHICS_API_VULKAN)
-#endif ()
-
 if(ANDROID)
     target_compile_definitions(Aurora.Vulkan PUBLIC -DVMA_VULKAN_VERSION=1002000)
 endif()

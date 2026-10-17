@@ -5,8 +5,7 @@ TBD - created by archiving change editor-shell-redesign. Update Purpose after ar
 ## Requirements
 ### Requirement: Render- and toolkit-independent core module
 The editor core SHALL live in `engine/sandbox/core` and build the `EditorCore` target as a static library that
-links only `Core` and `Framework`. It SHALL build independently of the legacy Qt editor (`engine/editor`), which
-is not modified. No public header under `include/editor/core/` SHALL include an `aurora/`, `render/`, or `ui/`
+links only `Core` and `Framework`. It SHALL build independently of the Sandbox shell and the removed legacy Qt editor. No public header under `include/editor/core/` SHALL include an `aurora/`, `render/`, or `ui/`
 header, or any Qt header.
 
 #### Scenario: Core builds without Qt

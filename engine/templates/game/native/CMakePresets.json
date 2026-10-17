@@ -8,7 +8,6 @@
       "binaryDir": "${sourceDir}/../build/${presetName}",
       "cacheVariables": {
         "SKY_ENGINE_ROOT": "$env{SKY_ENGINE_ROOT}",
-        "SKY_BUILD_EDITOR": "OFF",
         "SKY_BUILD_TEST": "OFF",
         "SKY_BUILD_TOOL": "OFF"
       }

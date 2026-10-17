@@ -68,7 +68,7 @@ python3 python/third_party.py --list
 python3 python/third_party.py -o <out> -e <engine_root> -p MacOS-arm -j 8 -f
 
 # Build only one package
-python3 python/third_party.py -o <out> -e <engine_root> -p Linux -t taskflow
+python3 python/third_party.py -o <out> -e <engine_root> -p Linux -t recast
 
 # Build all packages for Win32 into an explicit output directory
 python3 python/third_party.py -p Win32 -o <out> -j 8
@@ -95,9 +95,9 @@ The generated cache maps `3RD_PATH` to the active platform subdirectory, so each
 Frequently useful switches:
 
 - `-DSKY_BUILD_TEST=ON` — enable `ctest`
-- `-DSKY_BUILD_EDITOR=ON` — build editor targets (Qt5 required)
+- `-DSKY_BUILD_SANDBOX=ON` — build the sandbox editor
 - `-DSKY_BUILD_TOOL=ON` — build tooling targets
-- plugin switches from `plugins/plugins.json`, such as `-DSKY_BUILD_BULLET=OFF`, `-DSKY_BUILD_PYTHON=ON`, `-DSKY_BUILD_GUIZMO=ON`
+- plugin switches from `plugins/plugins.json`, such as `-DSKY_BUILD_BULLET=OFF`, `-DSKY_BUILD_PYTHON=ON`, `-DSKY_BUILD_AUDIO=ON`
 - platform/toolchain flags for Android or iOS when needed
 
 ## Plugin build configuration rules
@@ -131,12 +131,10 @@ Working rules:
 
 Current plugin defaults from `plugins/plugins.json`:
 
-- `SKY_BUILD_GUIZMO=ON` with `requires_editor=true`
 - `SKY_BUILD_PYTHON=OFF`
-- `SKY_BUILD_XR=OFF`
 - `SKY_BUILD_BULLET=ON`
 - `SKY_BUILD_RECAST=ON`
-- `SKY_BUILD_FREETYPE=ON`
+- `SKY_BUILD_VEGETATION=ON`
 - `SKY_BUILD_TERRAIN=ON`
 - `SKY_BUILD_COMPRESSION=ON`
 - `SKY_BUILD_PVS=ON`
@@ -149,12 +147,12 @@ cmake -S <engine_root> -B <build_dir> \
   -G <generator> \
   -D3RD_PATH=<thirdparty_output_dir>
 
-# Enable editor-only plugins and Python support
+# Enable sandbox editor and Python support
 cmake -S <engine_root> -B <build_dir> \
   -G <generator> \
   -D3RD_PATH=<thirdparty_output_dir> \
-  -DSKY_BUILD_EDITOR=ON \
-  -DSKY_BUILD_GUIZMO=ON \
+  -DSKY_BUILD_SANDBOX=ON \
+  -DSKY_BUILD_AUDIO=ON \
   -DSKY_BUILD_PYTHON=ON
 
 # Disable optional runtime plugins for a leaner build
@@ -206,14 +204,13 @@ Environment prerequisites:
 - Python 3 available on `PATH`.
 - Python packages from `python/requirements.txt` installed when using the repository Python tooling. `python/third_party.py` imports `GitPython` directly.
 - Git available on `PATH` because the third-party bootstrap clones package repositories.
-- Qt5 with `Qt5::Widgets` available to CMake. `engine/editor/CMakeLists.txt` calls `find_package(Qt5 COMPONENTS Widgets)` before creating the `Editor` target.
 
 Current engine build flow summary on Win32:
 
 1. Build third-party dependencies with `python/third_party.py`
 2. Configure CMake with `3RD_PATH` pointing at the Win32 third-party output, either explicitly or through `build_3rd/thirdparty_cache.cmake`
-3. Enable editor mode with `-DSKY_BUILD_EDITOR=ON` when the goal is the editor environment
-4. Build later with `cmake --build`; the editor post-build step runs `windeployqt.exe` on Win32
+3. Enable editor mode with `-DSKY_BUILD_SANDBOX=ON` when the goal is the editor environment
+4. Build later with `cmake --build`; the sandbox editor is built as normal targets
 
 AI-ready editor bootstrap:
 
@@ -230,24 +227,20 @@ Expected third-party results:
 - `<out>/Win32/` exists and becomes the effective Win32 `3RD_PATH`
 - `<out>/thirdparty_cache.cmake` exists and caches the generated `3RD_PATH`
 
-Editor configure using that output:
+Sandbox editor configure using that output:
 
 ```bash
 cmake -S <engine_root> -B <build_dir> \
   -G "Visual Studio 17 2022" \
   -D3RD_PATH=<out>/Win32 \
-  -DSKY_BUILD_EDITOR=ON \
+  -DSKY_BUILD_SANDBOX=ON \
   -DSKY_BUILD_TEST=OFF
 ```
 
 Notes:
 
 - `cmake/options.cmake` auto-loads `build_3rd/thirdparty_cache.cmake` only when `3RD_PATH` is empty and that specific path exists; with an explicit `-o`, pass `-D3RD_PATH=<out>/<platform>` at configure time.
-- `cmake/options.cmake` maps `SKY_BUILD_EDITOR=ON` to `SKY_EDITOR=ON` automatically.
-- `cmake/thirdparty.cmake` adds editor-only third-party requirements when `SKY_BUILD_EDITOR=ON`: `assimp`, `meshoptimizer`, `stb`, `ispc_texcomp`, `GKlib`, `metis`, and `ImGuizmo`.
 - `cmake/thirdparty.cmake` also resolves Win32-only `dxcompiler` whenever `WIN32` is active.
-- `engine/editor/CMakeLists.txt` creates the `Editor` target only when `Qt5_FOUND` is true. If Qt5 is missing, configure may complete without a usable editor target.
-- After a later `cmake --build <build_dir> --config Release`, `engine/editor/CMakeLists.txt` runs `windeployqt.exe` as a post-build step for `Editor` on Win32.
 
 ### macOS (Intel)
 
@@ -375,7 +368,7 @@ Notes:
 
 Use these configure switches when the request needs more than the default launcher/runtime build:
 
-- `-DSKY_BUILD_EDITOR=ON` — editor targets (Qt5 required)
+- `-DSKY_BUILD_SANDBOX=ON` — sandbox editor targets
 - `-DSKY_BUILD_TOOL=ON` — tools such as asset/shader utilities
 - `-DSKY_BUILD_TEST=ON` — test targets plus `ctest`
 

@@ -294,7 +294,7 @@ Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`�
 #### Scenario: SPIRV 产物
 
 - **WHEN** 编译含 ParameterBlock 的 mini shader 目标 SPIRV
-- **THEN** 产物非空；SPIRV-Cross 反射出各 block 的 set/binding 与源码声明一致
+- **THEN** 产物非空；Slang program layout 反射出各 block 的 set/binding 与源码声明一致
 
 #### Scenario: MSL 产物直出
 
@@ -304,7 +304,7 @@ Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`�
 #### Scenario: 反射收敛
 
 - **WHEN** Slang 编译完成
-- **THEN** `ShaderBuildResult.reflection.resources` 含各资源的 set/binding/type/name，结构与 DXC 通道同构
+- **THEN** `ShaderBuildResult.reflection.resources` 含各资源的 set/binding/type/name
 
 #### Scenario: 虚拟 include
 

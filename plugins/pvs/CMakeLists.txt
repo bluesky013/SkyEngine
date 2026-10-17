@@ -1,22 +1,13 @@
 file(GLOB_RECURSE CORE_SRC_FILES runtime/core/src/*)
 file(GLOB_RECURSE CORE_INC_FILES runtime/core/include/*)
-
-file(GLOB_RECURSE RENDER_SRC_FILES runtime/render/src/*)
-file(GLOB_RECURSE RENDER_INC_FILES runtime/render/include/*)
-
 file(GLOB_RECURSE TEST_FILES test/*)
 
-include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
-
-# The PVS render side depends on the legacy render stack, which is not built on
-# mobile (iOS/Android use aurora). Skip the plugin there.
+# PVS is a render-independent visibility core: grid config, sector storage +
+# streaming, and the fail-safe visibility query.
 if (SKY_MOBILE)
     return()
 endif ()
 
-# Render-independent core: PVS grid config, sector storage + streaming, and the
-# fail-safe visibility query. No RenderCore / editor dependency, so it (and its
-# tests) build on any configuration.
 sky_add_library(TARGET PVS.Core STATIC
     SOURCES
         ${CORE_SRC_FILES}
@@ -29,36 +20,6 @@ sky_add_library(TARGET PVS.Core STATIC
         Core
         Framework
 )
-
-# Legacy-render glue depends on the deprecated legacy render stack (opt-in).
-if (SKY_BUILD_LEGACY_RENDER)
-
-# Legacy-render glue: the IRenderSceneCulling implementation, the runtime module
-# and the debug visualizer. Isolated from the core so the core does not depend on
-# the legacy render stack.
-sky_add_library(TARGET PVS.Render STATIC
-    SOURCES
-        ${RENDER_SRC_FILES}
-        ${RENDER_INC_FILES}
-    PRIVATE_INC
-        runtime/render/src
-    PUBLIC_INC
-        runtime/render/include
-    LINK_LIBS
-        PVS.Core
-        RenderCore
-)
-
-sky_add_module(TARGET PVS
-    SOURCES
-        runtime/Registry.cpp
-    LINK_LIBS
-        PVS.Render
-)
-
-sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
-
-endif ()
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET PVSTest

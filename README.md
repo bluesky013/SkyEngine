@@ -20,9 +20,8 @@ The codebase is organized around a small set of core engine modules and optional
 | Physics abstraction | `engine/physics` | Physics-facing engine interfaces |
 | Navigation abstraction | `engine/navigation` | Navigation-facing engine interfaces |
 | Editor | `engine/sandbox` | Sandbox editor (engine-drawn UI) and its shell/module |
-| Legacy render (deprecated) | `engine/render`, `engine/shader` | Pre-aurora render/shader stack; opt in with `-DSKY_BUILD_LEGACY_RENDER=ON` |
 | Launcher | `<Project>/native` | Game/runtime executable entry point; the engine no longer ships a launcher |
-| Plugins | `plugins` | Optional modules such as Bullet, Recast, FreeType, Terrain, Console, Python, XR |
+| Plugins | `plugins` | Optional modules such as Bullet, Recast, Terrain, Vegetation, Audio, Console, Python |
 | Assets | `assets` | Shaders, materials, textures, splash data, techniques |
 | Python tooling | `python` | Third-party bootstrap and project helper scripts |
 
@@ -61,8 +60,7 @@ python3 -m pip install -r python/requirements.txt
 ### Editor build
 
 The editor is the **sandbox editor** (`SandboxEditor` + `SandboxModule`), built with `-DSKY_BUILD_SANDBOX=ON`. It
-uses the engine's own UI stack, not Qt. `-DSKY_BUILD_EDITOR=ON` builds the deprecated legacy Qt editor and is off
-by default.
+uses the engine's own UI stack, not Qt.
 
 ## Build Workflow
 
@@ -153,8 +151,6 @@ Common CMake switches:
 | `-DSKY_BUILD_SANDBOX=ON` | Build the sandbox editor and its shell/module |
 | `-DSKY_BUILD_TEST=ON` | Enable test targets and `ctest` |
 | `-DSKY_BUILD_TOOL=ON` | Build `tools/` developer targets |
-| `-DSKY_BUILD_LEGACY_RENDER=ON` | Build the deprecated pre-aurora render/shader stack (desktop only) |
-| `-DSKY_BUILD_EDITOR=ON` | Build the deprecated legacy Qt editor (off by default) |
 | `-DSKY_BUILD_BULLET=ON/OFF` | Toggle Bullet plugin |
 | `-DSKY_BUILD_RECAST=ON/OFF` | Toggle Recast plugin |
 | `-DSKY_BUILD_TERRAIN=ON/OFF` | Toggle Terrain plugin |
@@ -165,7 +161,6 @@ Common CMake switches:
 | `-DSKY_BUILD_CONSOLE=ON/OFF` | Toggle Console plugin |
 | `-DSKY_BUILD_NETWORK_ENET=ON/OFF` | Toggle ENet network plugin |
 | `-DSKY_BUILD_PYTHON=ON/OFF` | Toggle Python plugin |
-| `-DSKY_BUILD_XR=ON/OFF` | Toggle XR plugin |
 | `-DSKY_BUILD_FREETYPE=ON/OFF` | Toggle the FreeType UI font provider |
 | `-DSKY_USE_TRACY=ON` | Enable Tracy profiling hooks |
 | `-DSKY_MATH_SIMD=ON` | Enable SIMD math optimizations |
@@ -222,7 +217,6 @@ Current repository defaults (see `plugins/plugins.json`):
 - `SKY_BUILD_CONSOLE=ON`
 - `SKY_BUILD_NETWORK_ENET=ON`
 - `SKY_BUILD_PYTHON=OFF`
-- `SKY_BUILD_XR=OFF`
 
 This compile-time selection is separate from runtime module loading.
 
@@ -278,11 +272,11 @@ The repository ships engine-side assets under `assets/`, including:
 - render techniques in `assets/techniques`
 - textures, fonts, and splash resources
 
-Shader compilation support is provided by the `ShaderCompiler` libraries and `ShaderTool` target. The old README command that referenced `assets/shaders/compileshaders.py` is no longer a valid documented workflow in this repository.
+Shader compilation is provided by the Aurora Slang-based shader compiler (`Aurora.ShaderCompiler.Static` and the `Aurora.ShaderCompiler` module). The old README command that referenced `assets/shaders/compileshaders.py` is no longer a valid documented workflow in this repository.
 
 ## Notes
 
-- The editor is the sandbox editor (`-DSKY_BUILD_SANDBOX=ON`); `-DSKY_BUILD_EDITOR=ON` builds only the deprecated legacy Qt editor
+- The editor is the sandbox editor (`-DSKY_BUILD_SANDBOX=ON`)
 - The runtime launcher is project-owned (generated under `<Project>/native` + `<Project>/build/<platform>`); the engine ships launcher **templates** under `engine/templates/launcher/`
 - The top-level `tools/` directory contains additional experiments and tooling targets, but the default build currently focuses on engine, plugins, and aurora render tooling
 

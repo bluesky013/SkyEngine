@@ -20,7 +20,7 @@ Catch regressions in desktop rendering cost while staying aligned with SkyEngine
 Relevant repository facts:
 
 - Desktop-oriented backends include Vulkan, DX12 (Win32), and Metal (Apple)
-- The render stack is centered in `engine/render`
+- The render stack is centered in `engine/aurora`
 - Shader sources live under `assets/shaders`
 - Materials and techniques live under `assets/materials` and `assets/techniques`
 - Desktop asset presets currently use `common + tex_pc`
@@ -106,7 +106,7 @@ Flag changes that:
 
 When reviewing runtime desktop GPU work:
 
-- prioritize runtime render cost in `engine/render`, runtime modules, and runtime-facing plugins
+- prioritize runtime render cost in `engine/aurora`, runtime modules, and runtime-facing plugins
 - treat build-time tools like `ShaderTool`, `ShaderCompiler`, and render builders as pipeline enablers, not runtime cost centers
 - avoid mixing editor-only convenience code into runtime render paths unless explicitly required
 

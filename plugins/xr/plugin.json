@@ -1,8 +1,0 @@
-{
-    "targets": [
-        {
-            "name": "XRModule",
-            "dependencies": ["Launcher"]
-        }
-    ]
-}

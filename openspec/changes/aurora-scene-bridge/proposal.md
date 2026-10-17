@@ -9,7 +9,7 @@ Framework components are the scene authoring model, while aurora renders from a 
 - Add a `RenderSceneBridge` that batches lifecycle and transform values into owned FramePackets through IRenderer; the render coordinator alone applies them to ECS.
 - Keep the transfer strictly one-way: framework → aurora; render state lives only in aurora.
 - Keep components render-free at the persistence layer: the bridge reads only `Uuid` + POD and the transform world matrix.
-- Scope to the new aurora path; the legacy `engine/render` renderer is not involved.
+- Scope to the Aurora path; the legacy renderer has been removed.
 
 ## Capabilities
 

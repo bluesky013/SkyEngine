@@ -82,7 +82,7 @@ Results are matched to in-flight requests by `id`; `uuid` and `target` are echoe
    fd with fd 1 redirected to stderr.
 2. `Platform::Init`, build the mount namespace (`--project`/`--engine`/`--intermediate`), set the source catalog and
    `AssetBuilderManager` filesystems (loading the cook config).
-3. Register and load the **builder modules** (`SkyRender.Builder`, `SkyAudio.Builder`, …); linking the framework alone
+3. Register and load the **builder modules** (`AuroraCook`, `SkyAudio.Builder`, …); linking the framework alone
    registers no builders. Missing module DLLs are skipped, and the affected cooks then fail observably.
 4. `AssetDataBase::Load()`, then serve `cook` frames via `CookWorker::CookBatch`, emitting `result` frames.
 

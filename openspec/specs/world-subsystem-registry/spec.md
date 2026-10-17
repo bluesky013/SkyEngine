@@ -66,7 +66,7 @@ configuration; the selection SHALL be stored in and serialized with the project/
 
 #### Scenario: Sandbox only
 - **WHEN** the world subsystem configuration is implemented
-- **THEN** it SHALL target the Sandbox editor; the deprecated Qt `engine/editor` SHALL NOT be modified
+- **THEN** it SHALL target the Sandbox editor; the deprecated Qt editor has been removed
 
 #### Scenario: Edit a subsystem's config
 - **WHEN** the user selects a subsystem that declares a config type

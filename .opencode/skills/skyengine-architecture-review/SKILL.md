@@ -21,10 +21,9 @@ Treat the current repository structure as the architectural baseline:
 
 - `engine/core` — math, memory, file system, logging, async utilities
 - `engine/framework` — windowing, input, assets, world/application services
-- `engine/render` — RHI backends, shader compiler, render core, adaptors, ImGui rendering
+- `engine/aurora` — Aurora RHI and backends, Slang shader compiler, RDG, scene/ECS
 - `engine/animation`, `engine/physics`, `engine/navigation` — domain-specific engine subsystems
-- `engine/editor` — **legacy** Qt-based editor runtime and tooling
-- `engine/sandbox` — non-Qt (aurora) editor: `EditorCore`, `EditorRender`, `SandboxModule`, `SandboxEditor`; launched through `Launcher`. New editor modules depend on this, not on legacy `engine/editor`
+- `engine/sandbox` — non-Qt (Aurora) editor: `EditorCore`, `EditorRender`, `SandboxModule`, `SandboxEditor`; launched through `Launcher`
 - project `native/` — runtime entry point (engine ships launcher templates in `engine/templates/launcher/`)
 - `plugins` — optional modules selected by CMake/plugin configuration
 
@@ -46,8 +45,8 @@ Key expectations:
 
 - Core/runtime utilities belong in `engine/core`.
 - Application services and world-facing orchestration belong in `engine/framework`.
-- Render state, RHI usage, shader integration, and render submission belong in `engine/render`.
-- Editor-only behavior belongs in `engine/editor` or editor-gated plugins.
+- Render state, RHI usage, shader integration, and render submission belong in `engine/aurora`.
+- Editor-only behavior belongs in `engine/sandbox` or editor-gated plugins.
 - Optional feature extensions belong in `plugins`, not by hard-wiring everything into core engine layers.
 
 Flag changes that:
@@ -73,8 +72,8 @@ Flag changes that:
 
 - assume building a plugin automatically loads it at runtime
 - add runtime module dependencies without matching compile-time support
-- introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_EDITOR`
-- make a plugin depend on the legacy `Editor` target: plugins depend only on `Launcher`, and editor runtime modules are selected through `configs/modules_editor.json`
+- introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_SANDBOX`
+- make a plugin depend on sandbox editor targets: plugins depend only on `Launcher`, and editor runtime modules are selected through `configs/modules_editor.json`
 
 ---
 
@@ -120,14 +119,13 @@ Flag changes that:
 
 The repository already encodes editor separation:
 
-- `SKY_BUILD_EDITOR=ON` implies `SKY_EDITOR=ON`
+- `SKY_BUILD_SANDBOX=ON` enables the sandbox editor
 - some plugins require editor mode
 - editor runtime/module loading differs from game runtime/module loading
 
 Flag changes that:
 
 - make editor dependencies unconditional in shared runtime code
-- assume editor rendering (`SkyRender.Editor`) exists in game/runtime flows
 - move editor tooling concerns into launcher/runtime paths
 
 ---
@@ -142,7 +140,7 @@ Repository baseline:
 - `AssetBuilder` base and `AssetBuilderManager` singleton live in `engine/framework`
   (`engine/framework/include/framework/asset/AssetBuilder.h`, `AssetBuilderManager.h`).
 - Persist the builder **implementation in the owning plugin**, never in `engine/*` (engine holds interfaces/data only):
-  - render: `engine/render/builder/module/BuilderModule.cpp` → target `SkyRender.Builder` (still engine-side; a candidate to move)
+  - render: `engine/aurora/cook/module/AuroraCookModule.cpp` → target `AuroraCook`
   - audio: `plugins/audio/builder/module/AudioBuilderModule.cpp` → target `SkyAudio.Builder` (moved out of `engine/audio`)
 - A builder module registers only builders of its own subsystem (or a subsystem it legitimately owns), and is
   loaded by the asset-build tooling/editor, not by the game runtime.
@@ -164,7 +162,7 @@ Every engine big module and every plugin splits into up to four target types, ea
 
 - **core logic** (`<feature>` / `<feature>.Static`): depends mostly on `Core` (plus engine interfaces / `Framework` interfaces). Must not depend on editor, adaptor, builder, or a concrete backend/renderer.
 - **editor** (`<feature>.Editor`): may depend on the Sandbox editor framework (e.g. `EditorCore`; planned `Sandbox.framework`). Must not be depended on by runtime or core logic.
-- **adaptor** (`<feature>.Adaptor`): may depend on `Framework`, `Aurora`, and `RenderAdaptor` when required.
+- **adaptor** (`<feature>.Adaptor`): may depend on `Framework`, `Aurora`, and `Aurora.Adaptor` when required.
 - **builder / cook / chef** (`<feature>.Builder` / `<feature>.Cook`): depends only on its own core module plus needed third-party libraries.
 
 Dependency direction (bottom-up): core logic ← adaptor / editor / builder. Reverse edges are violations.
@@ -172,14 +170,13 @@ Dependency direction (bottom-up): core logic ← adaptor / editor / builder. Rev
 Flag changes that:
 
 - make a core-logic module depend on editor / adaptor / builder or a concrete backend/renderer
-- let runtime or core logic depend on an editor module, or let an editor module bypass the Sandbox editor framework (e.g. link Qt directly)
+- let runtime or core logic depend on an editor module, or let an editor module bypass the Sandbox editor framework (e.g. bypass the sandbox shell)
 - make an adaptor depend on editor / builder, or a builder/cook/chef depend on runtime / adaptor / editor
 - collapse a feature into a single target that mixes core logic with editor/adaptor/builder concerns
 
 ## Known deferred items
 
-- **PVS editor module** (`plugins/pvs/editor`, `PVS.Editor`): still links the legacy `EditorFramework` and includes `editor/...`. It should migrate to the Sandbox editor framework (`EditorCore` / planned `Sandbox.framework`) once that API is stable; deferred because it is a source port, not a link change.
-- **`engine/render/builder`** (`SkyRender.Builder`): remains an engine-side builder-type target within the render module. Acceptable under the module-type rule; revisit only if builders must be plugin-owned.
+- **PVS runtime culling**: the legacy render integration was removed; re-integrating culling on Aurora is deferred to a follow-up change.
 
 ## Review output format
 

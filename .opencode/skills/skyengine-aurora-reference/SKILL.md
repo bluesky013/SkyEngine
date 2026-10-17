@@ -9,7 +9,7 @@ metadata:
 
 # Aurora 架构速查
 
-Aurora 是 SkyEngine 重写中的新 RHI 层（分支 `dev_refactor_rhi`，取代旧 `engine/rhi` + 旧 `engine/render`）。  
+Aurora 是 SkyEngine 重写中的新 RHI 层（分支 `dev_refactor_rhi`，取代旧 RHI/render 栈）。
 命名空间一律 **`sky::aurora`**（不新增 `aurora::rhi` 等别名——review 确认过的规则）。  
 后端以动态库编译，经 `Instance::Init({api})` 运行时 dlopen 选择。
 

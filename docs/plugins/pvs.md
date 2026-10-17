@@ -1,6 +1,6 @@
 ---
 title: "PVS Plugin"
-description: "Precomputed visibility (PVS): render-independent core, runtime culling glue, streaming, queries and serialization."
+description: "Precomputed visibility (PVS): render-independent core, streaming, queries and serialization."
 module: "pvs"
 updated: "2026-09-22"
 ---
@@ -12,8 +12,8 @@ sample points inside editor-authored volumes, read the id buffer back, and pack 
 per-sector files. At runtime the loader streams sectors around the viewer and answers per-object visibility
 queries.
 
-The plugin is split into a **render/editor-independent core** and an **isolated legacy-render runtime glue**. The
-legacy editor adaptation (bake pipeline, volume component) has been removed, not migrated.
+The plugin is a **render/editor-independent core**. The legacy render integration and editor bake pipeline have
+been removed; re-integrating runtime culling on Aurora is a follow-up change.
 
 | Build switch | Source | Default |
 |---|---|---|
@@ -24,18 +24,13 @@ legacy editor adaptation (bake pipeline, volume component) has been removed, not
 | Target | Type | Links | Contents |
 |---|---|---|---|
 | `PVS.Core` | STATIC | `Core`, `Framework` | grid config, sector storage, streaming loader, visibility query, serialization |
-| `PVS.Render` | STATIC | `PVS.Core`, `RenderCore` | legacy `IRenderSceneCulling` implementation, runtime module, debug visualizer |
-| `PVS` | SHARED | `PVS.Render` | runtime module entry (`runtime/Registry.cpp`) |
 
 ```mermaid
 graph LR
-    PVS_Core["PVS.Core<br/>(Core, Framework)"] --> PVS_Render["PVS.Render<br/>(+ RenderCore)"]
-    PVS_Core --> PVSTest["PVSTest<br/>(+ googletest)"]
-    PVS_Render --> PVS["PVS (shared)"]
+    PVS_Core["PVS.Core<br/>(Core, Framework)"] --> PVSTest["PVSTest<br/>(+ googletest)"]
 ```
 
-`PVSTest` links only `PVS.Core`, so the core logic is exercised without the legacy render stack or any editor
-dependency.
+`PVSTest` links only `PVS.Core`, so the core logic is exercised without any render or editor dependency.
 
 ## Data model
 
@@ -91,24 +86,11 @@ Both file-backed implementations use the workspace file system. Files are named 
 and `PVS_Sector_<x>_<y>.data` (per sector). Keeping reader and writer in the core lets a future bake or external
 tool serialize PVS data without re-implementing (and drifting from) the format.
 
-## Legacy runtime glue
+## Removed integrations
 
-`PVS.Render` isolates the legacy-render integration:
-
-- `PVSCulling` implements `IRenderSceneCulling` (legacy `render/RenderScene.h`), loads a PVS header/sector path,
-  and answers per-object visibility through `QueryPVSObjectVisible`.
-- `PVSModule` is the runtime entry registered through the module system.
-- `PVSVisualizer` draws debug geometry.
-
-The plugin is **not** listed in `configs/modules_game.json` or `configs/modules_editor.json`, so `PVS` does not
-load in the current launcher/editor path. Re-integrating the runtime culling on Aurora is tracked as a follow-up
-change.
-
-## Editor bake (removed)
-
-The editor-side bake pipeline (`PVSEditorModule`, `PVSWorldBuilder`, `PVSBakePipeline`, `PVSVolume`) and the
-`PVS.Editor` target were removed. They were bound to the legacy RDG and the legacy Qt editor, and had been
-unbuildable when the editor target was enabled. No bake replacement is provided here.
+The legacy render integration (`PVS.Render`, `PVSCulling`, `PVSModule`, `PVSVisualizer`) and the editor bake
+pipeline (`PVSEditorModule`, `PVSWorldBuilder`, `PVSBakePipeline`, `PVSVolume`) were removed with the legacy
+render/Qt-editor retirement. No bake replacement is provided here.
 
 ## Tests
 

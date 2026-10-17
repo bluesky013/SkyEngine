@@ -41,13 +41,13 @@ The colocation move SHALL preserve the existing test executable names: `CoreTest
 - **THEN** the same test executable SHALL exist after the move
 
 ### Requirement: Legacy render tests are removed
-The colocation change SHALL remove `RenderTest` and `VulkanTest`, which only exercise the deprecated legacy `RenderCore` and `VulkanRHI` stack. The remaining legacy render/shader sources SHALL stay behind their existing opt-in switch and existing retirement tracking.
+The colocation change SHALL remove `RenderTest` and `VulkanTest`, which only exercised the deprecated legacy `RenderCore`/`VulkanRHI` stack. The legacy render/shader sources and their opt-in switch SHALL also be removed by `legacy-stack-retirement`.
 
 #### Scenario: Default build has no legacy test targets
-- **WHEN** the project is configured with the default `SKY_BUILD_LEGACY_RENDER=OFF`
-- **THEN** no `RenderTest` or `VulkanTest` target SHALL be defined
+- **WHEN** the project is configured with the default options
+- **THEN** no `RenderTest`, `VulkanTest`, or `SKY_BUILD_LEGACY_RENDER` branch SHALL exist
 
-#### Scenario: Legacy stack retirement stays separate
-- **WHEN** the legacy render/shader source tree is inspected after this change
-- **THEN** it SHALL be unchanged except for removal of its test entries and test source directories
+#### Scenario: No legacy source tree remains
+- **WHEN** the repository is inspected after this change and `legacy-stack-retirement` lands
+- **THEN** no `engine/render`, `engine/shader`, `RenderTest`, or `VulkanTest` source SHALL remain
 
