@@ -5,6 +5,7 @@
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/PrefabBuilder.h>
+#include <builder/render/UsdBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/MeshBuilder.h>
 #include <builder/render/LodGroupBuilder.h>
@@ -15,6 +16,7 @@
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
+#include <render/adaptor/Reflection.h>
 #include <shader/ShaderCompiler.h>
 
 namespace sky::builder {
@@ -36,6 +38,9 @@ namespace sky::builder {
     bool BuilderModule::Init(const StartArguments &args)
     {
         auto* refCtx = SerializationContext::Get();
+        // builder 模块自身注册资产类型与 handler，使工具进程无需加载完整 SkyRender（RHI）模块
+        ReflectRenderAsset(refCtx);
+        ReflectRHI(refCtx);
         PrefabBuilder::Reflect(refCtx);
 
         auto *am = AssetBuilderManager::Get();
@@ -43,6 +48,7 @@ namespace sky::builder {
         am->RegisterBuilder(new MaterialBuilder());
         am->RegisterBuilder(new ImageBuilder());
         am->RegisterBuilder(new PrefabBuilder());
+        am->RegisterBuilder(new UsdBuilder());
         am->RegisterBuilder(new MeshBuilder());
         am->RegisterBuilder(new AnimationBuilder());
         am->RegisterBuilder(new SkeletonBuilder());

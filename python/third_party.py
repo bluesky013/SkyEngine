@@ -141,7 +141,7 @@ def fill_android_config(options):
     options['ANDROID_PLATFORM'] = 'android-31'
     options['CMAKE_TOOLCHAIN_FILE'] = toolchain
 
-def build_package_type(name, source_dir, build_type, options, cache, components):
+def build_package_type(name, source_dir, build_type, options, cache, components, extra_copy=None):
     build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
@@ -162,11 +162,25 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
     run_cmake(build_dir, source_dir, build_type, options, cache, components)
     copy_package(name, install_dir, build_type)
 
-def build_package(name, source_dir, options, cache, components):
+    # 额外的非标准目录拷贝（如 USD 的 plugin/ 插件资源），与 build_type 无关，只在 Release 后做一次
+    if extra_copy and build_type == 'Release':
+        for src_sub, dst_sub in extra_copy.items():
+            src_extra = Path(os.path.join(install_dir, src_sub))
+            if src_extra.exists():
+                dst_extra = Path(os.path.join(args.output, name, dst_sub))
+                dst_extra.mkdir(parents=True, exist_ok=True)
+                if dst_extra.exists():
+                    shutil.rmtree(dst_extra)
+                shutil.copytree(src_extra, dst_extra)
+
+def build_package(name, source_dir, options, cache, components, extra_copy=None):
     print("build package ...", name)
-    build_package_type(name, source_dir, 'Debug', options, cache, components)
-    build_package_type(name, source_dir, 'Release', options, cache, components)
+    build_package_type(name, source_dir, 'Debug', options, cache, components, extra_copy)
+    build_package_type(name, source_dir, 'Release', options, cache, components, extra_copy)
     print("build package done")
+
+all_packages = []
+processed_packages = set()
 
 def process_package(package):
     name = package.get('name')
@@ -182,13 +196,32 @@ def process_package(package):
     source = package.get('source')
     is_tool = package.get('is_tool')
     options = package.get('options', {})
+    deps = package.get('deps')
+    extra_copy = package.get('extra_copy')
     if len(name) == 0:
         return
+
+    if name in processed_packages:
+        return
+    processed_packages.add(name)
 
     print("build package ...", name)
 
     if platforms and args.platform not in platforms:
         return
+
+    # 先构建依赖项，并把依赖的 Release staging install 目录通过 CMAKE_PREFIX_PATH 暴露给本包
+    if deps:
+        prefix_paths = []
+        for dep_name in deps:
+            dep_pkgs = [p for p in all_packages if p.get('name') == dep_name]
+            if not dep_pkgs:
+                raise ValueError(f"dep '{dep_name}' not found in thirdparty.json")
+            process_package(dep_pkgs[0])
+            prefix_paths.append(os.path.join(args.intermediate, dep_name,
+                                             f"build_{args.platform}_Release", 'install'))
+        options = dict(options)
+        options['CMAKE_PREFIX_PATH'] = ';'.join(prefix_paths)
 
     clone_dir = os.path.join(args.intermediate, name)
     if not os.path.exists(clone_dir):
@@ -249,7 +282,7 @@ def process_package(package):
         source_dir = os.path.join(str(clone_dir), source)
 
     if is_tool is not True:
-        build_package(name, source_dir, options, cache, components)
+        build_package(name, source_dir, options, cache, components, extra_copy)
 
 def app_main():
     json_file = os.path.join(args.engine, 'cmake', 'thirdparty.json')
@@ -257,6 +290,7 @@ def app_main():
         data = json.load(file)
 
     packages = data.get('packages', [])
+    all_packages.extend(packages)
 
     filtered = list(filter(lambda pkg: pkg['name'] == args.target, packages))
 
