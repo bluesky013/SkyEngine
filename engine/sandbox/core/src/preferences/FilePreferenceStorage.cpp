@@ -46,6 +46,21 @@ namespace sky::editor {
                    path.native().find(fs::path::value_type{}) == fs::path::string_type::npos;
         }
 
+        // A missing leaf under a non-directory (e.g. `file/child`) is an invalid path, not
+        // absent storage; classify structurally because the OS errno differs across platforms.
+        bool LeafMissingUnderNonDirectory(const fs::path &path)
+        {
+            for (auto parent = path.parent_path(); !parent.empty(); parent = parent.parent_path()) {
+                std::error_code error;
+                const auto      status = fs::status(parent, error);
+                if (error || status.type() == fs::file_type::not_found) {
+                    continue;
+                }
+                return status.type() != fs::file_type::directory;
+            }
+            return false;
+        }
+
         struct TemporaryFile {
             fs::path path;
             FILE    *stream    = nullptr;
@@ -128,11 +143,21 @@ namespace sky::editor {
             return Failure(PreferenceCode::ReadFailed, "Invalid preferences file path");
         std::error_code error;
         const auto      status = fs::status(path, error);
-        if (error == std::errc::no_such_file_or_directory || (!error && status.type() == fs::file_type::not_found)) {
+        if (!error && status.type() == fs::file_type::not_found) {
+            if (LeafMissingUnderNonDirectory(path)) {
+                return Failure(PreferenceCode::ReadFailed, "Preferences path component is not a directory");
+            }
             return Failure(PreferenceCode::NotFound, "Preferences file does not exist");
         }
-        if (error)
+        if (error) {
+            if (LeafMissingUnderNonDirectory(path)) {
+                return Failure(PreferenceCode::ReadFailed, "Preferences path component is not a directory");
+            }
+            if (error == std::errc::no_such_file_or_directory) {
+                return Failure(PreferenceCode::NotFound, "Preferences file does not exist");
+            }
             return IoFailure(PreferenceCode::ReadFailed, "Could not inspect preferences file", error);
+        }
         if (!fs::is_regular_file(status))
             return Failure(PreferenceCode::ReadFailed, "Preferences path is not a regular file");
         errno = 0;
