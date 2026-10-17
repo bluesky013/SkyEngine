@@ -211,6 +211,17 @@ namespace sky::net {
         if (!ResolveAddress(desc.address, address)) {
             return nullptr;
         }
+
+#if defined(__APPLE__)
+        // ENet creates an IPv6 dual-stack socket and maps IPv4 literals to ::ffff:a.b.c.d.
+        // macOS does not complete ENet handshakes when that socket is bound to a specific
+        // IPv4 address, so bind non-IPv6 listeners to any interface. The requested port and
+        // address are still reported by GetAddress(); interface selection is advisory here.
+        if (desc.address.family != NetworkAddress::Family::IPv6) {
+            address.host = ENET_HOST_ANY;
+        }
+#endif
+
         ENetHost *host = enet_host_create(&address, 32, CHANNEL_COUNT, 0, 0);
         if (host == nullptr) {
             return nullptr;

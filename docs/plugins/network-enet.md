@@ -2,7 +2,7 @@
 title: "ENet Network Backend"
 description: "First real network transport backend: reliable/unreliable UDP channels over ENet."
 module: "network-enet"
-updated: "2026-10-01"
+updated: "2026-10-17"
 ---
 
 ## Overview
@@ -41,6 +41,19 @@ Its capability descriptor reports `reliable`, `unreliable`, `ordered`, client/se
 sender's packet sequence, so the reported sequence is synthesized on receive and must not be used for loss
 detection).
 
+## Listening and macOS IPv4 binding
+
+`EnetBackend::Listen` resolves `ListenDesc::address` and creates the ENet host on that port. ENet v2.7.0 uses an
+IPv6 dual-stack socket on POSIX and maps IPv4 literals to `::ffff:a.b.c.d`. On macOS, binding that socket to a
+specific IPv4 address (for example `127.0.0.1`) leaves it unable to complete ENet handshakes, even though the port
+is bound.
+
+To keep IPv4 loopback and dedicated-server flows working, macOS binds non-IPv6 listen addresses to
+`ENET_HOST_ANY` and keeps the requested port. The listener still reports the address passed to `Listen()` via
+`INetListener::GetAddress()`, but interface selection is advisory on macOS: an IPv4 listener accepts traffic on
+all IPv4 interfaces. Explicit IPv6 addresses (for example `[::1]`) keep their requested bind address. Windows is
+not affected and continues to bind the requested IPv4 address.
+
 ## Module registration
 
 `EnetNetworkModule` (registered with `REGISTER_MODULE`) registers an `EnetBackend` instance for the `Client` and
@@ -58,4 +71,4 @@ python3 python/third_party.py -p Win32 -o build_3rd -t enet
 ## Tests
 
 `EnetNetworkTest` runs the shared `RunBackendConformance` suite from `engine/network/test/Conformance.h` against
-the ENet backend over a real UDP loopback connection.
+the ENet backend over real UDP loopback connections, covering both `127.0.0.1` and `[::1]`.

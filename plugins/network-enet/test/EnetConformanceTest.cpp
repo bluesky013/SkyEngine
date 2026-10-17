@@ -19,3 +19,11 @@ TEST(EnetNetworkTest, ConformanceOverUdp)
         []() -> std::unique_ptr<INetBackend> { return std::make_unique<EnetBackend>(); },
         "127.0.0.1:39555");
 }
+
+TEST(EnetNetworkTest, ConformanceOverUdpIpv6Loopback)
+{
+    RunBackendConformance(
+        []() -> std::unique_ptr<INetBackend> { return std::make_unique<EnetBackend>(); },
+        []() -> std::unique_ptr<INetBackend> { return std::make_unique<EnetBackend>(); },
+        "[::1]:39556");
+}
