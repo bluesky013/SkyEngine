@@ -1,5 +1,6 @@
 #include "EditorFrameSubmission.h"
 
+#include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Semaphore.h>
 #include <gtest/gtest.h>
 
@@ -38,20 +39,64 @@ namespace sky::editor {
 
         class TestFrameContext final : public DeviceFrameContext {
         public:
-            TestFrameContext() : fence(new TestFence)
+            TestFrameContext() : fence(new TestFence) {}
+
+            FrameContextIdentity GetIdentity() const noexcept override
             {
-                mInflightNum = 1;
-                mFences.push_back(fence);
+                return {};
+            }
+            BeginSlotResult TryBeginSlot() noexcept override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            std::variant<FrameError, uint64_t> AvailableFrameBufferBytes(const DeviceFrameLease &, FrameBufferKind, uint64_t) const override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameBufferAllocation WriteFrameBuffer(const DeviceFrameLease &, FrameBufferKind, std::span<const std::byte>, uint64_t) override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameCompileResult Compile(const DeviceFrameLease &, std::shared_ptr<const FrozenFrameGraph>) override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameDispatchResult Dispatch(std::unique_ptr<BackendCompiledFrame> &) override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameCollectResult TryCollect(const EncodingTicket &) override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameOperationResult Cancel(const EncodingTicket &) override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            FrameSubmitResult Submit(std::unique_ptr<RecordedFrame> &) noexcept override
+            {
+                return SubmissionRejected{FrameError{FrameErrorCode::UNSUPPORTED}};
+            }
+            FrameOperationResult DiscardUnsubmitted(const DeviceFrameLease &) noexcept override
+            {
+                return FrameError{FrameErrorCode::UNSUPPORTED};
+            }
+            size_t PollCompleted(std::span<FrameCompletion>) noexcept override
+            {
+                return 0;
             }
             void BeginFrame() noexcept override
             {
                 ++begins;
-                DeviceFrameContext::BeginFrame();
+                fence->Reset();
             }
             void EndFrame() noexcept override
             {
                 ++ends;
-                DeviceFrameContext::EndFrame();
+            }
+            Fence *GetFrameFence() const noexcept override
+            {
+                return fence.Get();
             }
 
             CounterPtr<TestFence> fence;

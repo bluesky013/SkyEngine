@@ -242,7 +242,7 @@ namespace sky::aurora {
                 [&](const auto &cmd) -> bool {
                     using T = std::decay_t<decltype(cmd)>;
                     if constexpr (std::is_same_v<T, CreateScene>) {
-                        auto scene                 = std::make_unique<CpuSceneState>();
+                        std::unique_ptr<CpuSceneState> scene = std::make_unique<CpuSceneState>();
                         scene->id                  = cmd.id;
                         scene->desc                = cmd.desc;
                         scene->lastChangedSequence = sequence;
@@ -257,7 +257,7 @@ namespace sky::aurora {
                         scenes.erase(cmd.id.index);
                     } else if constexpr (std::is_same_v<T, CreateRenderEntity> || std::is_same_v<T, UpdateRenderEntity> ||
                                          std::is_same_v<T, DestroyRenderEntity>) {
-                        auto &scene = *scenes.at(cmd.id.scene.index);
+                        CpuSceneState &scene = *scenes.at(cmd.id.scene.index);
                         if constexpr (std::is_same_v<T, CreateRenderEntity>) {
                             const auto entity = scene.registry.CreateEntity();
                             if (!IsValidEntity(entity)) {

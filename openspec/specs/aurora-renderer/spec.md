@@ -2,7 +2,6 @@
 
 ## Purpose
 Specify the Aurora renderer interface, owned scene and viewport commands, parallel CPU preparation, exact resource versions, bounded GPU scheduling, frame composition and safe lifecycle behavior of supported hosts.
-
 ## Requirements
 ### Requirement: Renderer 对象与模块边界
 
@@ -594,3 +593,28 @@ FrameExtensionPayload SHALL 声明有界精确资源 key；Renderer SHALL 校验
 #### Scenario: 释放时旧帧仍在准备或上传
 - **WHEN** 新 packet 释放旧图像版本而旧帧仍有 CPU 候选或上传借用
 - **THEN** 保留必要版本至这些借用结束，已提交 GPU 图继续通过资源 pins 保活，不影响其它 pass 的提交
+
+### Requirement: Aurora renderer sources build under Clang and GCC
+
+Aurora renderer sources SHALL compile with Clang and GCC as well as MSVC. Member-template calls in dependent contexts SHALL use an explicit non-dependent type or the `template` disambiguator; relying on MSVC's permissive parsing SHALL NOT be treated as portable.
+
+#### Scenario: Clang full build
+
+- **WHEN** the full project is configured and built with AppleClang
+- **THEN** the Aurora renderer targets SHALL compile without dependent-template-name errors
+
+#### Scenario: Dependent read call
+
+- **WHEN** a view iterates rows and calls the `Read<T>` member template with a dependent type pack
+- **THEN** the call SHALL be written so Clang parses it as a template invocation
+
+#### Scenario: Dependent registry call
+
+- **WHEN** a render command applies component operations through a registry obtained inside a generic lambda
+- **THEN** `Add<T>`, `Get<T>`, and `Pool<T>` calls SHALL parse unambiguously under Clang and GCC
+
+#### Scenario: No behavior change
+
+- **WHEN** the portability fix is applied
+- **THEN** renderer behavior and public interfaces SHALL remain unchanged
+

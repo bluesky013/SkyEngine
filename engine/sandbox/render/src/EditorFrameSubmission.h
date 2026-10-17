@@ -1,6 +1,6 @@
 #pragma once
 
-#include <aurora/rdg/RenderDeviceExclusive.h>
+#include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/rdg/RenderViewport.h>
 #include <aurora/rhi/Queue.h>
 #include <aurora/rhi/SubmitInfo.h>

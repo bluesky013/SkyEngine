@@ -104,7 +104,7 @@ namespace sky::aurora {
             if (!binding || (scope && ((requireActive && !scope->Check()) || scope->FailedWhileActive())))
                 return false;
             for (size_t i = offset; i < offset + count; ++i) {
-                const auto &row = binding->rows[i];
+                const FrozenEntityRow &row = binding->rows[i];
                 fn(row.id, *row.Read<Ts>(binding->writeObject)...);
                 if (scope && scope->FailedWhileActive())
                     return false;
@@ -192,7 +192,7 @@ namespace sky::aurora {
             if (!binding || !scope || !scope->Check())
                 return false;
             for (size_t i = offset; i < offset + count; ++i) {
-                auto &row = binding->rows[i];
+                FrozenEntityRow &row = binding->rows[i];
                 if (!dirtyOnly || !row.object->valid || row.object->sourceRevision != row.revision || invalidated(row.id, *row.object)) {
                     auto value = row.staged.value;
                     fn(row.id, value, *row.Read<Reads>(binding->writeObject)...);
