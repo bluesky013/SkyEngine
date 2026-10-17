@@ -1,6 +1,10 @@
 {
   "modules": [
     {
+      "name": "Aurora.Render",
+      "dependencies": []
+    },
+    {
       "name": "Aurora.ShaderCompiler",
       "dependencies": []
     },
@@ -18,7 +22,12 @@
     },
     {
       "name": "SandboxModule",
-      "dependencies": []
+      "dependencies": [
+        "Aurora.Render",
+        "Aurora.ShaderCompiler",
+        "Aurora.Render.Editor",
+        "Content.Views"
+      ]
     },
     {
       "name": "BulletPhysicsModule",

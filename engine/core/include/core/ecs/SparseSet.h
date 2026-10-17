@@ -17,10 +17,10 @@ namespace sky {
     public:
         static constexpr uint32_t EMPTY = 0xFFFFFFFFu;
 
-        SparseSet() = default;
+        SparseSet()  = default;
         ~SparseSet() = default;
 
-        SparseSet(const SparseSet &) = delete;
+        SparseSet(const SparseSet &)            = delete;
         SparseSet &operator=(const SparseSet &) = delete;
 
         bool Contains(EntityId id) const
@@ -39,16 +39,26 @@ namespace sky {
             return Contains(id) ? &mData[mSparse[GetEntityIndex(id)]] : nullptr;
         }
 
-        T &Add(EntityId id, T value)
+        T *Add(EntityId id, T value)
         {
+            if (!IsValidEntity(id)) {
+                return nullptr;
+            }
             const uint32_t index = GetEntityIndex(id);
             if (index >= mSparse.size()) {
                 mSparse.resize(index + 1, EMPTY);
             }
-            mSparse[index] = static_cast<uint32_t>(mDense.size());
+            if (mSparse[index] != EMPTY) {
+                if (mDense[mSparse[index]] != id) {
+                    return nullptr;
+                }
+                mData[mSparse[index]] = std::move(value);
+                return &mData[mSparse[index]];
+            }
             mDense.push_back(id);
             mData.push_back(std::move(value));
-            return mData.back();
+            mSparse[index] = static_cast<uint32_t>(mData.size() - 1);
+            return &mData.back();
         }
 
         void Remove(EntityId id)
@@ -62,8 +72,8 @@ namespace sky {
 
             if (denseIdx != lastIdx) {
                 // swap-remove: move the last entity into the freed slot
-                mDense[denseIdx] = mDense[lastIdx];
-                mData[denseIdx]  = std::move(mData[lastIdx]);
+                mData[denseIdx]                           = std::move(mData[lastIdx]);
+                mDense[denseIdx]                          = mDense[lastIdx];
                 mSparse[GetEntityIndex(mDense[denseIdx])] = denseIdx;
             }
             mDense.pop_back();
@@ -79,16 +89,37 @@ namespace sky {
         }
 
         // ---- dense iteration ----
-        uint32_t Size() const { return static_cast<uint32_t>(mData.size()); }
-        bool Empty() const { return mData.empty(); }
+        uint32_t Size() const
+        {
+            return static_cast<uint32_t>(mData.size());
+        }
+        bool Empty() const
+        {
+            return mData.empty();
+        }
 
-        T &Data(uint32_t denseIndex) { return mData[denseIndex]; }
-        const T &Data(uint32_t denseIndex) const { return mData[denseIndex]; }
+        T &Data(uint32_t denseIndex)
+        {
+            return mData[denseIndex];
+        }
+        const T &Data(uint32_t denseIndex) const
+        {
+            return mData[denseIndex];
+        }
 
-        EntityId DenseEntity(uint32_t denseIndex) const { return mDense[denseIndex]; }
+        EntityId DenseEntity(uint32_t denseIndex) const
+        {
+            return mDense[denseIndex];
+        }
 
-        const std::vector<T> &DataArray() const { return mData; }
-        const std::vector<EntityId> &EntityArray() const { return mDense; }
+        const std::vector<T> &DataArray() const
+        {
+            return mData;
+        }
+        const std::vector<EntityId> &EntityArray() const
+        {
+            return mDense;
+        }
 
     private:
         std::vector<uint32_t> mSparse;

@@ -20,6 +20,11 @@ static const char *CONFIG_PATH = "/config/modules_game.json";
 
 namespace sky {
 
+    XRApplication::~XRApplication()
+    {
+        Shutdown();
+    }
+
     bool XRApplication::Init(int argc, char **argv)
     {
         if (!Application::Init(argc, argv)) {

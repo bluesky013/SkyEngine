@@ -2,8 +2,9 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalDevice.h"
-#include "MetalInstance.h"
+#include <MetalInstance.h>
+
+#include <MetalDevice.h>
 #include <core/logger/Logger.h>
 
 #import <Metal/Metal.h>

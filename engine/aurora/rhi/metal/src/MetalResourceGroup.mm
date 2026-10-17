@@ -2,13 +2,14 @@
 // Aurora Metal ResourceGroup.
 //
 
-#include "MetalBuffer.h"
+#include <MetalResourceGroup.h>
+
+#include <MetalBuffer.h>
 #include "MetalDescriptorEncoder.h"
-#include "MetalImage.h"
+#include <MetalImage.h>
 #include "MetalMSLSlots.h"
-#include "MetalResourceGroup.h"
-#include "MetalSampler.h"
-#include "MetalShader.h"
+#include <MetalSampler.h>
+#include <MetalShader.h>
 #include <core/logger/Logger.h>
 
 #include <algorithm>

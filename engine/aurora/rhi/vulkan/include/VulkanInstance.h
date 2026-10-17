@@ -24,6 +24,10 @@ namespace sky::aurora {
         VkInstance       GetNativeHandle() const { return instance; }
         VkPhysicalDevice GetActiveGpu() const { return activeGpu; }
         bool             IsDebugEnabled() const { return enableDebugLayer; }
+        bool             HasSurfaceMaintenance() const noexcept
+        {
+            return surfaceMaintenance;
+        }
 
         const VulkanGlobalFunctions   &GetGlobalFn() const { return globalFn; }
         const VulkanInstanceFunctions &GetInstanceFn() const { return instanceFn; }
@@ -42,6 +46,7 @@ namespace sky::aurora {
         std::vector<const char*>      enabledExtensions;
 
         bool enableDebugLayer = false;
+        bool surfaceMaintenance = false;
 
         VulkanGlobalFunctions   globalFn   = {};
         VulkanInstanceFunctions instanceFn = {};

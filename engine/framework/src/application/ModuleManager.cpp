@@ -16,7 +16,11 @@ namespace sky {
 
     void ModuleManager::RegisterModule(const ModuleInfo &info)
     {
-        auto src = RegisterModuleImpl(info.name);
+        auto  src      = RegisterModuleImpl(info.name);
+        auto &required = dependencies[info.name];
+        for (const auto &dep : info.dependencies)
+            if (std::find(required.begin(), required.end(), dep) == required.end())
+                required.push_back(dep);
         for (const auto &dep : info.dependencies) {
             auto dst = RegisterModuleImpl(dep);
             dependencyGraph.AddEdge(src, dst);
@@ -48,9 +52,7 @@ namespace sky {
         return iter == modules.end() ? nullptr : iter->second.get();
     }
 
-    // Reflection/asset-type registration is process-global and persists across unload, so it must
-    // run at most once per process per module - never once per load (that is what caused duplicate
-    // registrations on reload / across module DLLs).
+    // Metadata survives unload; reloading a module must not register its shared types again.
     static void RegisterMetaOnce(IModule &module, const std::string &name)
     {
         const std::string key = "ModuleMeta:" + name;
@@ -96,44 +98,88 @@ namespace sky {
         }
         // Ensure the id participates in the load/start order (same graph as dynamic).
         RegisterModule(ModuleInfo{id, {}});
+        staticLeases.emplace(id, std::make_shared<const std::string>(id));
         modules.emplace(id, std::move(module));
     }
 
-    void ModuleManager::LoadModules(const StartArguments &args)
+    std::shared_ptr<const void> ModuleManager::RetainModule(const std::string &name) const
     {
+        if (unloading)
+            return {};
+        if (const auto found = dynLibs.find(name); found != dynLibs.end())
+            return found->second;
+        const auto found = staticLeases.find(name);
+        return found == staticLeases.end() ? nullptr : found->second;
+    }
+    bool ModuleManager::LoadModules(const StartArguments &args)
+    {
+        unloading      = false;
+        bool succeeded = true;
         WalkModules(
-            [this, &args](const std::string &moduleName) {
+            [this, &args, &succeeded](const std::string &moduleName) {
+                std::vector<std::shared_ptr<const void>> required;
+                for (const auto &dependency : dependencies[moduleName]) {
+                    auto lease = RetainModule(dependency);
+                    if (!lease) {
+                        LOG_E(TAG, "Module '%s' requires loaded '%s'", moduleName.c_str(), dependency.c_str());
+                        succeeded = false;
+                        modules.erase(moduleName);
+                        staticLeases.erase(moduleName);
+                        return;
+                    }
+                    required.push_back(std::move(lease));
+                }
                 // Statically bundled (compiled-in registration): no dlopen, just Init.
                 if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
                     LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
                     RegisterMetaOnce(*staticIt->second, moduleName);
                     if (!staticIt->second->Init(args)) {
+                        succeeded = false;
                         LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
+                        staticIt->second->Shutdown();
+                        modules.erase(staticIt);
+                        staticLeases.erase(moduleName);
                     }
                     return;
                 }
 
-                auto dynModule = std::make_unique<DynamicModule>(moduleName);
+                auto attached = std::make_shared<bool>(false);
+                auto dynModule =
+                    std::shared_ptr<DynamicModule>(new DynamicModule(moduleName), [attached, required = std::move(required)](DynamicModule *library) {
+                        if (*attached)
+                            if (auto stop = library->GetAddress<ModuleStop>("StopModule"))
+                                stop();
+                        delete library;
+                    });
                 LOG_I(TAG, "Load Module : %s", moduleName.c_str());
                 if (dynModule->Load()) {
                     auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
                     if (startFn == nullptr) {
+                        succeeded = false;
                         LOG_E(TAG, "Load Module : %s failed", moduleName.c_str());
                         return;
                     }
-                    auto *module = startFn(Environment::Get());
-                    if (module == nullptr) {
-                        return;
-                    }
-                    RegisterMetaOnce(*module, moduleName);
-                    if (!module->Init(args)) {
+                    dynLibs[moduleName] = dynModule;
+                    auto module         = std::unique_ptr<IModule>(startFn(Environment::Get()));
+                    *attached           = true;
+                    if (module)
+                        RegisterMetaOnce(*module, moduleName);
+                    if (module == nullptr || !module->Init(args)) {
+                        succeeded = false;
+                        if (module) {
+                            module->Shutdown();
+                            module.reset();
+                        }
+                        dynLibs.erase(moduleName);
+                        LOG_E(TAG, "Load Module : %s initialization failed", moduleName.c_str());
                         return;
                     }
 
-                    modules.emplace(moduleName, std::unique_ptr<IModule>(module));
-                    dynLibs.emplace(moduleName, std::move(dynModule));
+                    modules.emplace(moduleName, std::move(module));
+
                     LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
                 } else {
+                    succeeded = false;
 #if defined(SKY_MODULE_STATIC)
                     // Static packaging: a missing module means it was not compiled in.
                     LOG_E(TAG,
@@ -146,6 +192,7 @@ namespace sky {
                 }
             },
             sortedContainer);
+        return succeeded;
     }
 
     void ModuleManager::StartModules()
@@ -173,12 +220,9 @@ namespace sky {
             container);
         modules.clear();
 
-        for (auto &[key, lib] : dynLibs) {
-            auto stopFn = lib->GetAddress<ModuleStop>("StopModule");
-            if (stopFn != nullptr) {
-                stopFn();
-            }
-        }
+        unloading = true;
+        staticLeases.clear();
+        // Libraries stay owned until application registries and external callback leases release them.
     }
 
 } // namespace sky

@@ -5,6 +5,7 @@
 #include <core/ecs/EntityRegistry.h>
 #include <core/ecs/View.h>
 #include <gtest/gtest.h>
+#include <memory>
 
 using namespace sky;
 
@@ -13,11 +14,15 @@ namespace test_types {
     struct EcsInt { int v = 0; };
     struct EcsFloat { float v = 0.f; };
     struct EcsVec { float x = 0.f, y = 0.f, z = 0.f; };
+    struct EcsOwner {
+        std::shared_ptr<int> value;
+    };
 } // namespace test_types
 
 SKY_TYPE_TAG(test_types::EcsInt, "sky.test.EcsInt")
 SKY_TYPE_TAG(test_types::EcsFloat, "sky.test.EcsFloat")
 SKY_TYPE_TAG(test_types::EcsVec, "sky.test.EcsVec")
+SKY_TYPE_TAG(test_types::EcsOwner, "sky.test.EcsOwner")
 
 TEST(EcsEntityIdTest, BitLayout)
 {
@@ -270,4 +275,93 @@ TEST(EcsViewTest, SinglePoolView)
     reg.View<test_types::EcsInt>().ForEach(
         [&](EntityId, test_types::EcsInt &a) { sum += a.v; });
     EXPECT_EQ(sum, 30);
+}
+
+TEST(EcsRegistryTest, DestroyRemovesEveryComponentAndExistingView)
+{
+    EntityRegistry reg;
+    const auto     first   = reg.CreateEntity();
+    const auto     removed = reg.CreateEntity();
+    const auto     last    = reg.CreateEntity();
+    for (EntityId id : {first, removed, last}) {
+        reg.Add<test_types::EcsInt>(id, {static_cast<int>(id)});
+        reg.Add<test_types::EcsFloat>(id, {1});
+    }
+    auto               owner = std::make_shared<int>(42);
+    std::weak_ptr<int> weak  = owner;
+    reg.Add<test_types::EcsOwner>(removed, {std::move(owner)});
+    auto view = reg.View<test_types::EcsInt, test_types::EcsFloat>();
+    reg.DestroyEntity(removed);
+    EXPECT_TRUE(weak.expired());
+    EXPECT_EQ(reg.Pool<test_types::EcsInt>().Size(), 2u);
+    EXPECT_EQ(reg.Pool<test_types::EcsFloat>().Size(), 2u);
+    EXPECT_TRUE(reg.Pool<test_types::EcsOwner>().Empty());
+    std::vector<EntityId> visited;
+    view.ForEach([&](EntityId id, auto &a, auto &) {
+        EXPECT_NE(id, removed);
+        EXPECT_EQ(a.v, static_cast<int>(id));
+        visited.push_back(id);
+    });
+    EXPECT_EQ(visited, (std::vector<EntityId>{first, last}));
+}
+
+TEST(EcsRegistryTest, DeadAndStaleUpdatesCannotResurrectOrMutateReplacement)
+{
+    EntityRegistry reg;
+    const auto     old = reg.CreateEntity();
+    reg.Add<test_types::EcsInt>(old, {1});
+    reg.DestroyEntity(old);
+    const auto future = MakeEntityId(GetEntityIndex(old), GetEntityGeneration(old) + 1);
+    EXPECT_FALSE(reg.IsAlive(future));
+    EXPECT_EQ(reg.Add<test_types::EcsInt>(old, {8}), nullptr);
+    EXPECT_EQ(reg.Add<test_types::EcsInt>(future, {8}), nullptr);
+    reg.DestroyEntity(old);
+    reg.DestroyEntity(future);
+    const auto replacement = reg.CreateEntity();
+    EXPECT_EQ(replacement, future);
+    reg.Add<test_types::EcsInt>(replacement, {9});
+    reg.DestroyEntity(old);
+    reg.Remove<test_types::EcsInt>(old);
+    EXPECT_EQ(reg.Add<test_types::EcsInt>(old, {8}), nullptr);
+    EXPECT_EQ(reg.Get<test_types::EcsInt>(replacement)->v, 9);
+    EXPECT_EQ(reg.Pool<test_types::EcsInt>().Size(), 1u);
+    EXPECT_FALSE(reg.IsAlive(INVALID_ENTITY));
+}
+
+TEST(EcsRegistryTest, ExhaustedGenerationRetiresSlotWithoutWrapping)
+{
+    EntityRegistry reg;
+    const auto     original = reg.CreateEntity();
+    auto           id       = original;
+    for (uint32_t generation = 0; generation <= ECS_GENERATION_MASK; ++generation) {
+        ASSERT_TRUE(reg.IsAlive(id));
+        EXPECT_EQ(GetEntityGeneration(id), generation);
+        EXPECT_EQ(GetEntityIndex(id), GetEntityIndex(original));
+        reg.DestroyEntity(id);
+        EXPECT_FALSE(reg.IsAlive(id));
+        if (generation < ECS_GENERATION_MASK) {
+            id = reg.CreateEntity();
+        }
+    }
+    const auto next = reg.CreateEntity();
+    EXPECT_NE(GetEntityIndex(next), GetEntityIndex(original));
+    EXPECT_TRUE(reg.IsAlive(next));
+    EXPECT_FALSE(reg.IsAlive(original));
+    EXPECT_FALSE(reg.IsAlive(id));
+}
+
+TEST(EcsSparseSetTest, DuplicateAddUpdatesOneDenseEntryAndRejectsGenerationAlias)
+{
+    SparseSet<int> set;
+    const auto     id = MakeEntityId(3, 0);
+    set.Add(id, 1);
+    set.Add(id, 2);
+    EXPECT_EQ(set.Size(), 1u);
+    EXPECT_EQ(*set.Get(id), 2);
+    EXPECT_EQ(set.Add(MakeEntityId(3, 1), 9), nullptr);
+    EXPECT_EQ(set.Add(INVALID_ENTITY, 9), nullptr);
+    EXPECT_EQ(set.Size(), 1u);
+    EXPECT_EQ(*set.Get(id), 2);
+    set.Remove(id);
+    EXPECT_TRUE(set.Empty());
 }

@@ -634,7 +634,8 @@ namespace sky::aurora {
     };
 
     struct BufferImageCopy {
-        uint64_t            bufferOffset      = 0;
+        uint64_t bufferOffset = 0;
+        // Pitch is in texels; zero uses imageExtent. Padding is not copied.
         uint32_t            bufferRowLength   = 0;
         uint32_t            bufferImageHeight = 0;
         ImageSubRangeLayers subRange;

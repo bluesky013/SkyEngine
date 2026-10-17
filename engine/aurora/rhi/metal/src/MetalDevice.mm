@@ -2,18 +2,19 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalBuffer.h"
-#include "MetalCommandPool.h"
+#include <MetalDevice.h>
+
+#include <MetalBuffer.h>
+#include <MetalCommandPool.h>
 #include "MetalDescriptorBatch.h"
-#include "MetalDevice.h"
-#include "MetalImage.h"
-#include "MetalInstance.h"
-#include "MetalPipelineState.h"
-#include "MetalResourceGroup.h"
-#include "MetalSampler.h"
-#include "MetalShader.h"
-#include "MetalSwapChain.h"
-#include "MetalSync.h"
+#include <MetalImage.h>
+#include <MetalInstance.h>
+#include <MetalPipelineState.h>
+#include <MetalResourceGroup.h>
+#include <MetalSampler.h>
+#include <MetalShader.h>
+#include <MetalSwapChain.h>
+#include <MetalSync.h>
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
@@ -323,7 +324,7 @@ namespace sky::aurora {
 
     DeviceFrameContext *MetalDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)
     {
-        return new MetalDeviceFrameContext(this, info);
+        return BackendFrameContext::Create<MetalDeviceFrameContext>(this, info);
     }
 
 } // namespace sky::aurora

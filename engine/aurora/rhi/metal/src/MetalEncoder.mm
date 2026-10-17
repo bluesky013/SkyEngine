@@ -4,14 +4,15 @@
 
 #import <Metal/Metal.h>
 
-#include "MetalBuffer.h"
-#include "MetalCommandPool.h"
-#include "MetalDevice.h"
-#include "MetalEncoder.h"
-#include "MetalImage.h"
-#include "MetalPipelineState.h"
-#include "MetalResourceGroup.h"
-#include "MetalShader.h"
+#include <MetalEncoder.h>
+
+#include <MetalBuffer.h>
+#include <MetalCommandPool.h>
+#include <MetalDevice.h>
+#include <MetalImage.h>
+#include <MetalPipelineState.h>
+#include <MetalResourceGroup.h>
+#include <MetalShader.h>
 #include "MetalUtils.h"
 #include <aurora/rhi/Core.h>
 #include <core/logger/Logger.h>

@@ -65,6 +65,17 @@ namespace sky {
                 }
             }
 
+            void Erase(const KeyType &key, Interface *listener)
+            {
+                std::lock_guard<MutexType> lock(mutex);
+                const auto                 found = listeners.find(key);
+                if (found == listeners.end())
+                    return;
+                std::erase(found->second, listener);
+                if (found->second.empty())
+                    listeners.erase(found);
+            }
+
             template <typename T, typename... Args>
             void BroadCast(const KeyType &key, T &&func, Args &&...args)
             {
@@ -100,6 +111,11 @@ namespace sky {
         static void DisConnect(Interface *listener)
         {
             Storage::Get()->Erase(listener);
+        }
+
+        static void DisConnect(const KeyType &key, Interface *listener)
+        {
+            Storage::Get()->Erase(key, listener);
         }
 
         template <typename T, typename... Args>

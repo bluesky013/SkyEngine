@@ -68,7 +68,7 @@ namespace sky::aurora::test {
                 }
             }
 
-            graph.Submit(pool).wait();
+            EXPECT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
             return layers * nodesPerLayer;
         }
 
@@ -93,10 +93,10 @@ namespace sky::aurora::test {
         }
 
         {
-            ThreadPool           pool(8);
+            ThreadPool            pool(8);
             DeviceFrameDispatcher graph;
-            auto                 t0    = Clock::now();
-            uint32_t             total = 0;
+            auto                  t0    = Clock::now();
+            uint32_t              total = 0;
             for (int it = 0; it < ITERS; ++it) {
                 total += RunDispatcherGraph(graph, pool, LAYERS, NODES);
                 graph.Clear();

@@ -2,9 +2,10 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalDevice.h"
+#include <MetalShader.h>
+
+#include <MetalDevice.h>
 #include "MetalMSLSlots.h"
-#include "MetalShader.h"
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 

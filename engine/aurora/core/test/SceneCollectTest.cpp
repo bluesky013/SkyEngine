@@ -60,7 +60,6 @@ TEST_F(AuroraVulkanTest, SceneBoundsPoolDense)
     EXPECT_EQ(pool.Size(), 3u);
 
     scene.DestroyEntity(e2);
-    pool.Remove(e2);
     EXPECT_EQ(pool.Size(), 2u);
     EXPECT_EQ(pool.Get(e2), nullptr);
     EXPECT_NE(pool.Get(e1), nullptr);

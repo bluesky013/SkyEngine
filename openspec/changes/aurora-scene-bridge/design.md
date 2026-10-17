@@ -1,6 +1,6 @@
 ## Context
 
-Two scene models coexist: framework `World`/`Actor`/`ComponentAdaptor<Data>` (OOP authoring) and aurora's data-oriented scene ECS in `engine/aurora/core`. Aurora adaptor components already hold `Uuid` + POD and asset holders. Missing: the transfer path into the scene ECS. This extends the existing `aurora-adaptor` capability.
+Two scene models coexist: framework `World`/`Actor`/`ComponentAdaptor<Data>` (OOP authoring) and the renderer-owned scene ECS. Aurora adaptor components already hold `Uuid` + POD and asset holders. This change supplies the producer of the owned FramePacket protocol defined by `aurora-renderer`, extending the existing `aurora-adaptor` capability.
 
 ## Goals / Non-Goals
 
@@ -20,11 +20,11 @@ Two scene models coexist: framework `World`/`Actor`/`ComponentAdaptor<Data>` (OO
 
 ### D1: `RenderSceneBridge` subscribes to lifecycle and transform
 
-Lives in `engine/aurora/adaptor`; subscribes to actor/component attach/detach and `TransformComponent` changes; creates/removes scene ECS entries and writes world transforms. Reuses the existing `Event<T>` mechanism and the corrected transform propagation.
+Lives in `engine/aurora/adaptor`; consumes Framework lifecycle/transform events and the engine `IRenderer` contract. It batches owned create/update/destroy commands on the host thread. Only the renderer coordinator applies them to its ECS; the bridge never includes SceneStore or borrows component/World pointers into a packet.
 
 ### D2: Strictly one-way
 
-Reads framework state, writes ECS state; never reads ECS back into components.
+Reads framework state and submits owned values through IRenderer; never directly accesses renderer ECS. Status/retirement events acknowledge lifetime and errors, not scene state write-back.
 
 ### D3: Persistence layer stays render-free
 
@@ -32,20 +32,32 @@ The bridge consumes only `Uuid` + POD members and the transform world matrix. No
 
 ### D4: Frame sync point
 
-Transfer per frame at a defined point after the framework update and before aurora build, plus event-driven create/remove on attach/detach.
+After World::Tick, seal lifecycle/transform changes into an owned FramePacket. Accepted consumes it; Busy/Rejected preserve ownership for bounded retry or explicit error handling. FIFO application occurs on the render coordinator before prepare. Destroy acknowledgement is required before reusing a generation-qualified entity ID.
+
+### D5: Stable identity and first coverage
+
+Use a bridge-owned side table keyed by World instance, Actor UUID, component identity and renderable part. Store generation-qualified Renderer IDs and binding revisions; do not derive identity from Actor addresses or assume one render entity per Actor. Submeshes can remain multiple draw packets of one renderable. Retain tombstones until the renderer acknowledges retirement, and reject late events for an old generation or binding revision.
+
+Initial extraction covers static mesh, light and camera values. World lifetime uses the RenderSceneProxy contract from aurora-renderer; component events use this bridge. Asset completion only publishes logical references or owned payload commands at the host sync point. Resource deduplication, InGraph/Resident and version leases remain renderer responsibilities.
+
+### D6: Independent contract verification
+
+S01/S02 use a recording fake IRenderer to verify owned values, ordering, Busy/Rejected and retirement events without depending on native rendering. S03 reuses the same cases against the production provider and verifies applied ECS/output behavior. Fake acceptance alone does not prove GPU readiness or retirement.
 
 ## Risks / Trade-offs
 
 - [Frame sync point ordering] → Define one point after `World::Tick` and before the aurora build.
-- [Asset readiness lag] → Defer the ECS entry until referenced assets load (reuse `IAssetReadyNotifier`).
+- [Asset readiness lag] → Publish logical resource references; asynchronous loading/upload readiness follows aurora-renderer's resource protocol, without blocking the host or borrowing asset pointers.
 - [Transform correctness] → Depends on the fixed propagation; test world matrices survive the transfer.
 
 ## Migration Plan
 
-- Additive adaptor; depends on `harden-framework-components`.
-- Rollback: remove the bridge.
+- Use the archived [framework component baseline](../archive/2026-10-06-harden-framework-components/proposal.md); it is a regression prerequisite, not a new pending implementation change.
+- Follow S01 → S02 → S03 in [tasks.md](tasks.md). Windows S03 has passed the aurora-renderer B12/B14 host gate and now waits only for S01/S02; see the renderer [batch plan](../archive/2026-10-17-aurora-renderer/batches.md).
+- Select one host scene producer at initialization. Do not submit duplicate lifecycle commands through both old direct paths and the bridge.
+- Disable by stopping new subscriptions, resolving retained packets and waiting for renderer retirement acknowledgements before releasing mappings or module code.
 
-## Open Questions
+## Implementation checks
 
-- First components covered (static mesh / light / camera).
-- Entity identity mapping (`Actor` uuid → aurora `EntityId`).
+- Confirm component identity and event ordering against the archived Framework contract while implementing S01; keep the side-table key stable across attach/detach.
+- Confirm light/camera payload support at S03 integration; missing renderer support is an explicit dependency failure, not permission to access renderer stores directly.

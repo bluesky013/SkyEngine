@@ -43,6 +43,7 @@ Write and edit C++ code so that it already matches the current repository `.clan
 - Put `catch` on the next line after the preceding closing brace.
 - When parameter lists wrap, do **not** bin-pack them; prefer one parameter per line.
 - Always break template declarations in the formatter-approved style instead of forcing compact one-line templates.
+- Follow [coding rules](../skyengine-coding-rules/SKILL.md#include-delimiters-and-paths) for include delimiters; clang-format does not enforce header visibility.
 - Preserve existing include block grouping (`IncludeBlocks: Preserve`); do not merge unrelated include groups just for cleanup.
 - Indent preprocessor directives before `#` within their scope (`IndentPPDirectives: BeforeHash`).
 
@@ -103,7 +104,7 @@ It also explicitly enables these focused checks:
 
 - Mark converting constructors `explicit` unless an implicit conversion is truly intended.
 - Avoid introducing new recursive code unless there is a strong, deliberate reason and the surrounding code already accepts it.
-- Throw exceptions by value and catch them by reference.
+- Root `AGENTS.md` prohibits `throw` and `try/catch`; the enabled exception-related check does not authorize either.
 - Avoid unusual assignment-operator behavior and unnecessary custom `new`/`delete` overloads.
 - Do not write `ptr.reset(ptr.release())`-style ownership churn with `std::unique_ptr`.
 - Prefer portable integer types where width matters instead of leaning on platform-sensitive integer spellings.

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <aurora/rhi/Queue.h>
+#include <VulkanFunctions.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/Fence.h>
-#include <VulkanFunctions.h>
+#include <aurora/rhi/Queue.h>
 
 #include <memory>
 #include <vector>
@@ -22,9 +22,13 @@ namespace sky::aurora {
         VulkanQueue(VulkanDevice &dev, QueueType type, VkQueue native, uint32_t familyIndex);
         ~VulkanQueue() override;
 
-        void      Submit(const SubmitInfo &info) override;
-        void      WaitIdle() override;
-        QueueType GetType() const override { return type; }
+        void              Submit(const SubmitInfo &info) override;
+        QueueSubmitResult TrySubmit(const SubmitInfo &info) noexcept override;
+        void              WaitIdle() override;
+        QueueType         GetType() const override
+        {
+            return type;
+        }
 
         TransferTaskHandle UploadBuffer(Buffer *buffer, const std::vector<BufferUploadRequest> &requests) override;
         TransferTaskHandle UploadImage(Image *image, const std::vector<ImageUploadRequest> &requests) override;
@@ -32,8 +36,14 @@ namespace sky::aurora {
         void Wait(TransferTaskHandle handle) override;
         bool HasComplete(TransferTaskHandle handle) const override;
 
-        VkQueue  GetNativeHandle() const { return queue; }
-        uint32_t GetFamilyIndex() const { return familyIndex; }
+        VkQueue GetNativeHandle() const
+        {
+            return queue;
+        }
+        uint32_t GetFamilyIndex() const
+        {
+            return familyIndex;
+        }
 
     private:
         struct PendingUpload {

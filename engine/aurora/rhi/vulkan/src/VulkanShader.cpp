@@ -1,10 +1,11 @@
-﻿//
+//
 // Created by Zach Lee on 2026/4/7.
 //
 
 #include <VulkanShader.h>
-#include <VulkanDevice.h>
+
 #include <VulkanConversion.h>
+#include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 
 #include <map>
@@ -13,11 +14,17 @@ static const char *TAG = "VulkanShader";
 
 namespace sky::aurora {
 
-    // -----------------------------------------------------------------------
-    // VulkanShaderFunction
-    // -----------------------------------------------------------------------
-    VulkanShaderFunction::VulkanShaderFunction(VulkanDevice &dev)
-        : device(dev)
+    const Device *VulkanShaderFunction::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    const Device *VulkanShader::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    VulkanShaderFunction::VulkanShaderFunction(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -35,21 +42,20 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto *binaryProvider = static_cast<const ShaderBinaryProvider *>(desc.data.Get());
-        if (binaryProvider->binaryData == nullptr) {
+        auto *binary = desc.data->GetBinaryData();
+        if (binary == nullptr) {
             LOG_E(TAG, "shader function missing binary payload");
             return false;
         }
 
-        const auto &binary = binaryProvider->binaryData;
         if (binary->Size() == 0 || binary->Size() % 4 != 0) {
             LOG_E(TAG, "invalid SPIR-V binary size: %zu", binary->Size());
             return false;
         }
 
         VkShaderModuleCreateInfo ci = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        ci.codeSize = binary->Size();
-        ci.pCode    = reinterpret_cast<const uint32_t *>(binary->Data());
+        ci.codeSize                 = binary->Size();
+        ci.pCode                    = reinterpret_cast<const uint32_t *>(binary->Data());
 
         const VkResult result = device.GetDeviceFn().vkCreateShaderModule(device.GetNativeHandle(), &ci, nullptr, &shaderModule);
         if (result != VK_SUCCESS) {
@@ -61,11 +67,7 @@ namespace sky::aurora {
         return true;
     }
 
-    // -----------------------------------------------------------------------
-    // VulkanShader
-    // -----------------------------------------------------------------------
-    VulkanShader::VulkanShader(VulkanDevice &dev)
-        : device(dev)
+    VulkanShader::VulkanShader(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -90,46 +92,49 @@ namespace sky::aurora {
 
         // group reflected bindings by set index; also accumulate update template
         // entries (slot offset into the packed DescriptorWriteInfo buffer)
-        std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> setBindings;
+        std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>    setBindings;
         std::map<uint32_t, std::vector<VkDescriptorUpdateTemplateEntry>> setTemplateEntries;
-        std::map<uint32_t, uint32_t> setSlotBase;
+        std::map<uint32_t, uint32_t>                                     setSlotBase;
         for (const auto &res : reflection.resources) {
             VkDescriptorSetLayoutBinding binding = {};
-            binding.binding         = res.binding;
-            binding.descriptorType  = FromShaderResourceType(res.type);
-            binding.descriptorCount = res.count;
-            binding.stageFlags      = VK_SHADER_STAGE_ALL;
-            binding.pImmutableSamplers = nullptr;
+            binding.binding                      = res.binding;
+            binding.descriptorType               = FromShaderResourceType(res.type);
+            binding.descriptorCount              = res.count;
+            binding.stageFlags                   = VK_SHADER_STAGE_ALL;
+            binding.pImmutableSamplers           = nullptr;
             setBindings[res.set].push_back(binding);
 
             VkDescriptorUpdateTemplateEntry entry = {};
-            entry.dstBinding      = res.binding;
-            entry.dstArrayElement = 0;
-            entry.descriptorCount = res.count;
-            entry.descriptorType  = FromShaderResourceType(res.type);
-            entry.offset          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * setSlotBase[res.set]);
-            entry.stride          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo));
+            entry.dstBinding                      = res.binding;
+            entry.dstArrayElement                 = 0;
+            entry.descriptorCount                 = res.count;
+            entry.descriptorType                  = FromShaderResourceType(res.type);
+            entry.offset                          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * setSlotBase[res.set]);
+            entry.stride                          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo));
             setTemplateEntries[res.set].push_back(entry);
             setSlotBase[res.set] += res.count;
         }
 
-        // create one VkDescriptorSetLayout per set (keyed by real set index)
+        // Pipeline layout positions are real set indices, including unused holes.
         descriptorSetLayouts.clear();
         std::vector<VkDescriptorSetLayout> setLayouts;
-        setLayouts.reserve(setBindings.size());
-        for (auto &entry : setBindings) {
-            VkDescriptorSetLayoutCreateInfo ci = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-            ci.bindingCount = static_cast<uint32_t>(entry.second.size());
-            ci.pBindings    = entry.second.data();
+        const uint32_t                     setCount = setBindings.empty() ? 0 : setBindings.rbegin()->first + 1;
+        if (!setBindings.empty() && setBindings.rbegin()->first >= device.GetLimits().maxBoundDescriptorSets)
+            return false;
+        setLayouts.reserve(setCount);
+        for (uint32_t set = 0; set < setCount; ++set) {
+            const auto                     &bindings = setBindings[set];
+            VkDescriptorSetLayoutCreateInfo ci       = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            ci.bindingCount                          = static_cast<uint32_t>(bindings.size());
+            ci.pBindings                             = bindings.data();
 
             VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
-            const VkResult r = device.GetDeviceFn().vkCreateDescriptorSetLayout(
-                device.GetNativeHandle(), &ci, nullptr, &setLayout);
+            const VkResult        r         = device.GetDeviceFn().vkCreateDescriptorSetLayout(device.GetNativeHandle(), &ci, nullptr, &setLayout);
             if (r != VK_SUCCESS) {
                 LOG_E(TAG, "vkCreateDescriptorSetLayout failed, VkResult=%d", static_cast<int>(r));
                 return false;
             }
-            descriptorSetLayouts[entry.first] = setLayout;
+            descriptorSetLayouts[set] = setLayout;
             setLayouts.push_back(setLayout);
         }
 
@@ -138,20 +143,19 @@ namespace sky::aurora {
         // falls back to vkUpdateDescriptorSets.
         descriptorUpdateTemplates.clear();
         for (auto &entry : setTemplateEntries) {
-            const uint32_t set = entry.first;
-            auto layoutIt = descriptorSetLayouts.find(set);
+            const uint32_t set      = entry.first;
+            auto           layoutIt = descriptorSetLayouts.find(set);
             if (layoutIt == descriptorSetLayouts.end() || entry.second.empty()) {
                 continue;
             }
             VkDescriptorUpdateTemplateCreateInfo tplInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO};
-            tplInfo.descriptorUpdateEntryCount = static_cast<uint32_t>(entry.second.size());
-            tplInfo.pDescriptorUpdateEntries   = entry.second.data();
-            tplInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
-            tplInfo.descriptorSetLayout        = layoutIt->second;
+            tplInfo.descriptorUpdateEntryCount           = static_cast<uint32_t>(entry.second.size());
+            tplInfo.pDescriptorUpdateEntries             = entry.second.data();
+            tplInfo.templateType                         = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
+            tplInfo.descriptorSetLayout                  = layoutIt->second;
 
             VkDescriptorUpdateTemplate tpl = VK_NULL_HANDLE;
-            const VkResult tr = device.GetDeviceFn().vkCreateDescriptorUpdateTemplate(
-                device.GetNativeHandle(), &tplInfo, nullptr, &tpl);
+            const VkResult             tr  = device.GetDeviceFn().vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &tplInfo, nullptr, &tpl);
             if (tr == VK_SUCCESS) {
                 descriptorUpdateTemplates[set] = tpl;
             } else {
@@ -164,20 +168,19 @@ namespace sky::aurora {
         pushRanges.reserve(reflection.pushConstants.size());
         for (const auto &pc : reflection.pushConstants) {
             VkPushConstantRange range = {};
-            range.stageFlags = FromShaderStageFlags(pc.stageFlags);
-            range.offset     = pc.offset;
-            range.size       = pc.size;
+            range.stageFlags          = FromShaderStageFlags(pc.stageFlags);
+            range.offset              = pc.offset;
+            range.size                = pc.size;
             pushRanges.push_back(range);
         }
 
         VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-        createInfo.setLayoutCount         = static_cast<uint32_t>(setLayouts.size());
-        createInfo.pSetLayouts            = setLayouts.empty() ? nullptr : setLayouts.data();
-        createInfo.pushConstantRangeCount = static_cast<uint32_t>(pushRanges.size());
-        createInfo.pPushConstantRanges    = pushRanges.empty() ? nullptr : pushRanges.data();
+        createInfo.setLayoutCount             = static_cast<uint32_t>(setLayouts.size());
+        createInfo.pSetLayouts                = setLayouts.empty() ? nullptr : setLayouts.data();
+        createInfo.pushConstantRangeCount     = static_cast<uint32_t>(pushRanges.size());
+        createInfo.pPushConstantRanges        = pushRanges.empty() ? nullptr : pushRanges.data();
 
-        const VkResult result = device.GetDeviceFn().vkCreatePipelineLayout(
-            device.GetNativeHandle(), &createInfo, nullptr, &layout);
+        const VkResult result = device.GetDeviceFn().vkCreatePipelineLayout(device.GetNativeHandle(), &createInfo, nullptr, &layout);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "vkCreatePipelineLayout failed, VkResult=%d", static_cast<int>(result));
             return false;
@@ -199,6 +202,8 @@ namespace sky::aurora {
 
     bool VulkanShader::Init(const Descriptor &desc)
     {
+        if ((desc.vs && desc.vs->GetDevice() != &device) || (desc.ps && desc.ps->GetDevice() != &device))
+            return false;
         if (desc.reflection == nullptr) {
             LOG_E(TAG, "shader requires a non-null reflection");
             return false;

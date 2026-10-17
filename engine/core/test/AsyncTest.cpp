@@ -107,4 +107,27 @@ TEST(AsyncTest, FrameTest)
         });
         thread.Signal();
     }
+
+    thread.Sync();
+}
+
+TEST(AsyncTest, DestructionDrainsPendingSignalBeforeClosingSemaphore)
+{
+    auto thread = std::make_unique<NamedThread>();
+    thread->Sync();
+    std::promise<void> entered;
+    std::promise<void> release;
+    auto               ready = entered.get_future();
+    const auto         gate  = release.get_future().share();
+    thread->Dispatch([gate, &entered] {
+        entered.set_value();
+        gate.wait_for(std::chrono::seconds(5));
+    });
+    thread->Signal();
+    EXPECT_EQ(ready.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    auto destroyed = std::async(std::launch::async, [owned = std::move(thread)]() mutable { owned.reset(); });
+    EXPECT_EQ(destroyed.wait_for(std::chrono::milliseconds(20)), std::future_status::timeout);
+    release.set_value();
+    EXPECT_EQ(destroyed.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    destroyed.get();
 }

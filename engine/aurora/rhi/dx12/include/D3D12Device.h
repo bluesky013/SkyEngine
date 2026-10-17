@@ -7,11 +7,13 @@
 #include <D3D12Buffer.h>
 #include <D3D12CommandPool.h>
 #include <D3D12DescriptorAllocator.h>
+#include <D3D12Functions.h>
 #include <D3D12Image.h>
 #include <D3D12Queue.h>
 #include <D3D12Sampler.h>
 
 #include <aurora/rhi/Device.h>
+#include <common/FrameObjectCache.h>
 
 #include <D3D12MemAlloc.h>
 #include <array>
@@ -24,6 +26,7 @@
 #include <wrl/client.h>
 
 namespace sky::aurora {
+    class FrameTransientPool;
 
     using Microsoft::WRL::ComPtr;
 
@@ -47,8 +50,7 @@ namespace sky::aurora {
         DISPATCH,
     };
 
-    class D3D12Device : public Device
-    {
+    class D3D12Device : public Device {
     public:
         explicit D3D12Device(D3D12Instance &inst);
         ~D3D12Device() override;
@@ -56,13 +58,13 @@ namespace sky::aurora {
         Fence     *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
-        Image               *CreateImage(const Image::Descriptor &desc) override;
-        Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
-        DescriptorBatch     *CreateDescriptorBatch() override;
-        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
-        SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override;
+        Buffer          *CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image           *CreateImage(const Image::Descriptor &desc) override;
+        Sampler         *CreateSampler(const Sampler::Descriptor &desc) override;
+        ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorBatch *CreateDescriptorBatch() override;
+        DescriptorHeap  *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
+        SwapChain       *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader           *CreateShader(const Shader::Descriptor &desc) override;
@@ -77,6 +79,10 @@ namespace sky::aurora {
         CommandPool *CreateCommandPool(QueueType type) override;
         RDGBackend  *CreateRDGBackend() override;
 
+        const D3D12Functions &GetFunctions() const noexcept
+        {
+            return functions;
+        }
         ID3D12Device *GetNativeHandle() const
         {
             return device.Get();
@@ -102,18 +108,33 @@ namespace sky::aurora {
         // Lazily-created built-in fullscreen blit pipeline (scaled BlitImage).
         D3D12BlitHelper *GetBlitHelper();
 
+        FrameTransientPool &GetTransientPool() noexcept
+        {
+            return *transientPool;
+        }
+        FramePipelineCache &GetFramePipelineCache() noexcept
+        {
+            return pipelineCache;
+        }
+
     private:
-        bool        OnInit(const DeviceInit &init) override;
-        void        UpdateDeviceCaps() override;
-        std::string GetDeviceInfo() const override;
-        API         GetAPI() const override { return API::DX12; }
-        void        WaitIdle() const override;
+        std::unique_ptr<FrameTransientPool> transientPool;
+        FramePipelineCache                  pipelineCache;
+        bool                                OnInit(const DeviceInit &init) override;
+        void                                UpdateDeviceCaps() override;
+        std::string                         GetDeviceInfo() const override;
+        API                                 GetAPI() const override
+        {
+            return API::DX12;
+        }
+        void WaitIdle() const override;
 
         bool                           CreateDevice();
         bool                           CreateAllocator();
         bool                           CreateCommandQueues();
         static D3D12_COMMAND_LIST_TYPE ToCommandListType(QueueType type);
 
+        D3D12Functions functions;
         D3D12Instance &instance;
 
         ComPtr<IDXGIAdapter1>      adapter;

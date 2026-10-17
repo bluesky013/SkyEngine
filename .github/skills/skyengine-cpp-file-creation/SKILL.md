@@ -153,6 +153,8 @@ namespace sky {
 
 ## Rule 4 - Match include and declaration conventions
 
+Follow [coding rules: include delimiters and paths](../skyengine-coding-rules/SKILL.md#include-delimiters-and-paths): public/system/third-party headers use `<...>`; implementation-private/test/generated headers use `"..."`. Include the matching header first using its canonical module path.
+
 ### Headers
 
 - Use `#pragma once`.

@@ -53,25 +53,6 @@ namespace sky::aurora {
             }
         }
 
-        ShaderResourceType FromSlangCategory(slang::ParameterCategory category, slang::TypeLayoutReflection *typeLayout)
-        {
-            if (category == slang::ParameterCategory::DescriptorTableSlot && typeLayout != nullptr) {
-                const auto kind = typeLayout->getType()->getKind();
-                switch (kind) {
-                case slang::TypeReflection::Kind::SamplerState: return ShaderResourceType::SAMPLER;
-                default: return ShaderResourceType::SAMPLED_IMAGE;
-                }
-            }
-            switch (category) {
-            case slang::ParameterCategory::SamplerState: return ShaderResourceType::SAMPLER;
-            case slang::ParameterCategory::ConstantBuffer:
-            case slang::ParameterCategory::PushConstantBuffer: return ShaderResourceType::UNIFORM_BUFFER;
-            case slang::ParameterCategory::ShaderResource: return ShaderResourceType::SAMPLED_IMAGE;
-            case slang::ParameterCategory::UnorderedAccess: return ShaderResourceType::STORAGE_IMAGE;
-            default: return ShaderResourceType::UNIFORM_BUFFER;
-            }
-        }
-
         ShaderScalarType MapScalarType(slang::TypeReflection::ScalarType type)
         {
             switch (type) {
@@ -80,6 +61,69 @@ namespace sky::aurora {
             case slang::TypeReflection::ScalarType::UInt32: return ShaderScalarType::UINT;
             case slang::TypeReflection::ScalarType::Bool: return ShaderScalarType::BOOL;
             default: return ShaderScalarType::UNKNOWN;
+            }
+        }
+
+        void ReflectResourceType(slang::TypeLayoutReflection *layout, ShaderResource &resource)
+        {
+            auto *type = layout ? layout->getType() : nullptr;
+            while (type && type->getKind() == slang::TypeReflection::Kind::Array) {
+                resource.descriptorArray = true;
+                const auto count         = type->getElementCount();
+                resource.count = resource.count && count && count <= UINT32_MAX / resource.count ? resource.count * static_cast<uint32_t>(count) : 0;
+                layout         = layout ? layout->getElementTypeLayout() : nullptr;
+                type           = type->getElementType();
+            }
+            if (!type) {
+                resource.count = 0;
+                return;
+            }
+            if (type->getKind() == slang::TypeReflection::Kind::SamplerState) {
+                resource.type          = ShaderResourceType::SAMPLER;
+                const std::string name = type->getName() ? type->getName() : "";
+                resource.sampler       = name == "SamplerState"             ? ShaderSamplerType::REGULAR
+                                         : name == "SamplerComparisonState" ? ShaderSamplerType::COMPARISON
+                                                                            : ShaderSamplerType::UNKNOWN;
+                return;
+            }
+            if (type->getKind() == slang::TypeReflection::Kind::ConstantBuffer || type->getKind() == slang::TypeReflection::Kind::ParameterBlock) {
+                resource.type = ShaderResourceType::UNIFORM_BUFFER;
+                auto *element = layout ? layout->getElementTypeLayout() : nullptr;
+                if (!element)
+                    resource.count = 0;
+                else
+                    for (uint32_t i = 0; i < element->getCategoryCount(); ++i) {
+                        const auto category = element->getCategoryByIndex(i);
+                        if (category != slang::ParameterCategory::Uniform && element->getSize(category))
+                            resource.count = 0;
+                    }
+                return;
+            }
+            const auto shape = type->getResourceShape();
+            const auto base  = shape & SLANG_RESOURCE_BASE_SHAPE_MASK;
+            resource.type =
+                type->getResourceAccess() == SLANG_RESOURCE_ACCESS_READ ? ShaderResourceType::SAMPLED_IMAGE : ShaderResourceType::STORAGE_IMAGE;
+            switch (base) {
+            case SLANG_TEXTURE_1D: resource.texture.dimension = ShaderTextureDimension::D1; break;
+            case SLANG_TEXTURE_2D: resource.texture.dimension = ShaderTextureDimension::D2; break;
+            case SLANG_TEXTURE_3D: resource.texture.dimension = ShaderTextureDimension::D3; break;
+            case SLANG_TEXTURE_CUBE: resource.texture.dimension = ShaderTextureDimension::CUBE; break;
+            case SLANG_TEXTURE_BUFFER:
+            case SLANG_STRUCTURED_BUFFER:
+            case SLANG_BYTE_ADDRESS_BUFFER:
+                resource.texture.dimension = ShaderTextureDimension::BUFFER;
+                resource.type              = ShaderResourceType::STORAGE_BUFFER;
+                break;
+            default: break;
+            }
+            resource.texture.arrayed      = (shape & SLANG_TEXTURE_ARRAY_FLAG) != 0;
+            resource.texture.multisampled = (shape & SLANG_TEXTURE_MULTISAMPLE_FLAG) != 0;
+            if (shape & (SLANG_TEXTURE_SHADOW_FLAG | SLANG_TEXTURE_COMBINED_FLAG | SLANG_TEXTURE_FEEDBACK_FLAG))
+                resource.texture.dimension = ShaderTextureDimension::UNKNOWN;
+            if (auto *result = type->getResourceResultType()) {
+                resource.texture.components =
+                    result->getKind() == slang::TypeReflection::Kind::Vector ? static_cast<uint32_t>(result->getElementCount()) : 1;
+                resource.texture.scalarType = MapScalarType(result->getScalarType());
             }
         }
 
@@ -161,10 +205,10 @@ namespace sky::aurora {
                     res.name    = var->getName() != nullptr ? var->getName() : "";
                     res.set     = set;
                     res.binding = 0;
-                    res.type    = ShaderResourceType::UNIFORM_BUFFER;
+                    ReflectResourceType(var->getTypeLayout(), res);
+                    if (res.count == 1 && !res.descriptorArray)
+                        ReflectBlockMembers(var, set, 0, reflection);
                     reflection.resources.push_back(std::move(res));
-
-                    ReflectBlockMembers(var, set, 0, reflection);
                     continue;
                 }
 
@@ -198,12 +242,10 @@ namespace sky::aurora {
                 res.name    = var->getName() != nullptr ? var->getName() : "";
                 res.set     = set;
                 res.binding = binding;
-                res.type    = FromSlangCategory(category, var->getTypeLayout());
-                reflection.resources.push_back(std::move(res));
-
-                if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
+                ReflectResourceType(var->getTypeLayout(), res);
+                if (res.type == ShaderResourceType::UNIFORM_BUFFER && res.count == 1 && !res.descriptorArray)
                     ReflectBlockMembers(var, set, binding, reflection);
-                }
+                reflection.resources.push_back(std::move(res));
             }
         }
     } // namespace

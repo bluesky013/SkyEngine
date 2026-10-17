@@ -141,6 +141,43 @@ TEST(ShaderCacheStoreTest, MultiRootOfflinePriority)
     EXPECT_EQ(loaded.data[0], 7u);
 }
 
+TEST(ShaderCacheStoreTest, ResourceTypeMetadataAndBlobVersion)
+{
+    ShaderCacheBlob blob;
+    blob.data = {0x12345678};
+    ShaderResource image{"image", ShaderResourceType::SAMPLED_IMAGE, 2, 3, 4};
+    image.texture         = {ShaderTextureDimension::D2, ShaderScalarType::UINT, 4, true, true};
+    image.descriptorArray = true;
+    ShaderResource sampler{"sampler", ShaderResourceType::SAMPLER, 2, 4, 1};
+    sampler.sampler           = ShaderSamplerType::COMPARISON;
+    blob.reflection.resources = {image, sampler};
+    const auto      bytes     = EncodeBlob(blob);
+    ShaderCacheBlob loaded;
+    ASSERT_TRUE(DecodeBlob(bytes, loaded));
+    ASSERT_EQ(loaded.reflection.resources.size(), 2u);
+    EXPECT_EQ(loaded.reflection.resources[0].texture, image.texture);
+    EXPECT_EQ(loaded.reflection.resources[0].count, 4u);
+    EXPECT_TRUE(loaded.reflection.resources[0].descriptorArray);
+    EXPECT_EQ(loaded.reflection.resources[1].sampler, ShaderSamplerType::COMPARISON);
+    for (uint32_t fault = 0; fault < 4; ++fault) {
+        auto invalid = bytes;
+        if (fault == 0)
+            invalid[4] = 1;
+        if (fault == 1)
+            invalid.erase(invalid.begin(), invalid.begin() + 8);
+        if (fault == 2)
+            invalid.pop_back();
+        if (fault == 3)
+            invalid.push_back(0);
+        EXPECT_FALSE(DecodeBlob(invalid, loaded)) << fault;
+        EXPECT_EQ(loaded.reflection.resources[0].texture, image.texture);
+    }
+    auto index = EncodeIndex(ShaderCacheIndex{});
+    index[0]   = 1;
+    ShaderCacheIndex old;
+    EXPECT_FALSE(DecodeIndex(index, old));
+}
+
 TEST(ShaderCacheStoreTest, PerTargetDirectories)
 {
     TempDir           dir("targets");

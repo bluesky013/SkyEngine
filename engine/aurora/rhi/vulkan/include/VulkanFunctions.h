@@ -36,6 +36,7 @@ namespace sky::aurora {
         PFN_vkGetPhysicalDeviceQueueFamilyProperties       vkGetPhysicalDeviceQueueFamilyProperties       = nullptr;
         PFN_vkGetPhysicalDeviceFeatures2                   vkGetPhysicalDeviceFeatures2                   = nullptr;
         PFN_vkGetPhysicalDeviceFormatProperties            vkGetPhysicalDeviceFormatProperties            = nullptr;
+        PFN_vkGetPhysicalDeviceImageFormatProperties       vkGetPhysicalDeviceImageFormatProperties       = nullptr;
         PFN_vkCreateDevice                                 vkCreateDevice                                 = nullptr;
         PFN_vkGetDeviceProcAddr                            vkGetDeviceProcAddr                            = nullptr;
 
@@ -142,12 +143,22 @@ namespace sky::aurora {
         PFN_vkGetSwapchainImagesKHR        vkGetSwapchainImagesKHR        = nullptr;
         PFN_vkAcquireNextImageKHR          vkAcquireNextImageKHR          = nullptr;
 
+        PFN_vkReleaseSwapchainImagesEXT vkReleaseSwapchainImagesEXT = nullptr;
+
         // dynamic rendering (Vulkan 1.3+)
         PFN_vkCmdBeginRendering            vkCmdBeginRendering            = nullptr;
         PFN_vkCmdEndRendering              vkCmdEndRendering              = nullptr;
+        PFN_vkCreateRenderPass2            vkCreateRenderPass2            = nullptr;
+        PFN_vkDestroyRenderPass            vkDestroyRenderPass            = nullptr;
+        PFN_vkCreateFramebuffer            vkCreateFramebuffer            = nullptr;
+        PFN_vkDestroyFramebuffer           vkDestroyFramebuffer           = nullptr;
+        PFN_vkCmdBeginRenderPass2          vkCmdBeginRenderPass2          = nullptr;
+        PFN_vkCmdNextSubpass2              vkCmdNextSubpass2              = nullptr;
+        PFN_vkCmdEndRenderPass2            vkCmdEndRenderPass2            = nullptr;
 
         // draw commands
         PFN_vkCmdDraw                      vkCmdDraw                      = nullptr;
+        PFN_vkCmdExecuteCommands           vkCmdExecuteCommands           = nullptr;
         PFN_vkCmdDrawIndexed               vkCmdDrawIndexed               = nullptr;
         PFN_vkCmdDrawIndirect              vkCmdDrawIndirect              = nullptr;
         PFN_vkCmdDrawIndexedIndirect       vkCmdDrawIndexedIndirect       = nullptr;

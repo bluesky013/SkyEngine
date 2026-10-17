@@ -2,12 +2,13 @@
 // Aurora D3D12 SwapChain (IDXGISwapChain3).
 //
 
-#include <D3D12SwapChain.h>
+#include <D3D12Conversion.h>
 #include <D3D12Device.h>
+#include <D3D12Fence.h>
 #include <D3D12Queue.h>
 #include <D3D12Semaphore.h>
-#include <D3D12Fence.h>
-#include <D3D12Conversion.h>
+#include <D3D12SwapChain.h>
+#include <algorithm>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraDX12";
@@ -21,6 +22,8 @@ namespace sky::aurora {
 
     D3D12SwapChain::~D3D12SwapChain()
     {
+        if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }))
+            device.GetQueue(QueueType::GRAPHICS)->WaitIdle();
         DestroySwapchain();
     }
 
@@ -42,6 +45,10 @@ namespace sky::aurora {
         dxgiFormat  = FromPixelFormat(desc.preferredFormat);
         pixelFormat = desc.preferredFormat;
         vsync       = (desc.preferredMode == PresentMode::VSYNC);
+        ComPtr<IDXGIFactory5> factory5;
+        BOOL                  tearing = FALSE;
+        allowTearing = !vsync && SUCCEEDED(factory->QueryInterface(IID_PPV_ARGS(&factory5))) &&
+                       SUCCEEDED(factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &tearing, sizeof(tearing))) && tearing;
 
         DXGI_SWAP_CHAIN_DESC1 scDesc = {};
         scDesc.Width       = std::max(desc.width, 1u);
@@ -54,7 +61,7 @@ namespace sky::aurora {
         scDesc.Scaling     = DXGI_SCALING_STRETCH;
         scDesc.SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         scDesc.AlphaMode   = DXGI_ALPHA_MODE_UNSPECIFIED;
-        scDesc.Flags       = vsync ? 0 : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+        scDesc.Flags                 = allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
         ComPtr<IDXGISwapChain1> sc1;
         HRESULT hr = factory->CreateSwapChainForHwnd(queue->GetNativeHandle(), hwnd, &scDesc,
@@ -88,6 +95,9 @@ namespace sky::aurora {
 
     uint32_t D3D12SwapChain::AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t /*timeoutNs*/)
     {
+        if (checkedProtocol)
+            return INVALID_INDEX;
+        directProtocol = true;
         if (!swapChain) {
             return INVALID_INDEX;
         }
@@ -117,6 +127,9 @@ namespace sky::aurora {
 
     void D3D12SwapChain::Present(uint32_t /*imageIndex*/, uint32_t numWaitSemas, Semaphore *const *waitSemas)
     {
+        if (checkedProtocol)
+            return;
+        directProtocol = true;
         if (!swapChain) {
             return;
         }
@@ -137,13 +150,15 @@ namespace sky::aurora {
 
     void D3D12SwapChain::Resize(uint32_t width, uint32_t height)
     {
+        if (checkedProtocol)
+            return;
+        directProtocol = true;
         if (!swapChain || width == 0 || height == 0) {
             return;
         }
 
         images.clear(); // release wrapped buffers before ResizeBuffers
-        const HRESULT hr = swapChain->ResizeBuffers(bufferCount, width, height, dxgiFormat,
-                                                    vsync ? 0 : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
+        const HRESULT hr = swapChain->ResizeBuffers(bufferCount, width, height, dxgiFormat, allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
         if (FAILED(hr)) {
             LOG_E(TAG, "ResizeBuffers failed: 0x%08x", hr);
             return;
@@ -200,4 +215,156 @@ namespace sky::aurora {
         swapChain.Reset();
     }
 
+    Device *D3D12SwapChain::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    SurfaceQueryResult D3D12SwapChain::QuerySurface() const noexcept
+    {
+        if (!swapChain || !IsWindow(hwnd))
+            return {{PresentationStatus::SURFACE_LOST}, {}};
+        const auto removed = device.GetFunctions().removed(device.GetNativeHandle());
+        if (FAILED(removed))
+            return {{PresentationStatus::FAILED, D3D12Error(removed)}, {}};
+        RECT rect{};
+        if (!GetClientRect(hwnd, &rect))
+            return {{PresentationStatus::FAILED, {GpuErrorCode::NATIVE_ERROR, GetLastError()}}, {}};
+        if (IsIconic(hwnd) || rect.right <= rect.left || rect.bottom <= rect.top)
+            return {{PresentationStatus::BUSY}, {}};
+        DXGI_SWAP_CHAIN_DESC1 descriptor{};
+        const auto            queried = swapChain->GetDesc1(&descriptor);
+        if (FAILED(queried))
+            return {{PresentationStatus::FAILED, D3D12Error(queried)}, {}};
+        if (descriptor.Format != dxgiFormat || descriptor.BufferCount != bufferCount)
+            return {{PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}}, {}};
+        SurfaceConfiguration configuration{{static_cast<uint32_t>(rect.right - rect.left), static_cast<uint32_t>(rect.bottom - rect.top)},
+                                           pixelFormat,
+                                           SurfaceTransform::IDENTITY,
+                                           surfaceRevision};
+        const bool           same =
+            configuration.extent.width == descriptor.Width && configuration.extent.height == descriptor.Height && images.size() == bufferCount;
+        return {{same ? PresentationStatus::READY : PresentationStatus::OUT_OF_DATE}, configuration};
+    }
+
+    SwapChainAcquireResult D3D12SwapChain::TryAcquireFrame(uint64_t timeoutNs) noexcept
+    {
+        if (directProtocol || timeoutNs > 1'000'000 || presentationSerial == UINT64_MAX)
+            return {{PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}}, {}};
+        checkedProtocol = true;
+        if (!swapChain || images.size() != bufferCount)
+            return {{PresentationStatus::SURFACE_LOST}, {}};
+        const auto queried = QuerySurface();
+        if (queried.status != PresentationStatus::READY)
+            return {{queried.status, queried.error}, {}};
+        const auto index = swapChain->GetCurrentBackBufferIndex();
+        if (std::any_of(presentationFrames.begin(), presentationFrames.end(),
+                        [index](const auto &frame) { return frame.serial && frame.imageIndex == index; }))
+            return {{PresentationStatus::BUSY}, {}};
+        auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return !frame.serial; });
+        if (found == presentationFrames.end()) {
+            if (presentationFrames.size() >= images.size())
+                return {{PresentationStatus::BUSY}, {}};
+            presentationFrames.emplace_back();
+            found = presentationFrames.end() - 1;
+        }
+        auto &frame = *found;
+        if (!frame.presentFence)
+            frame.presentFence = FencePtr(device.CreateFence({false}));
+        if (!frame.presentFence)
+            return {{PresentationStatus::FAILED, {GpuErrorCode::NATIVE_ERROR}}, {}};
+        const auto reset = frame.presentFence->TryReset();
+        if (!reset.Succeeded())
+            return {{PresentationStatus::FAILED, reset.error}, {}};
+        frame.serial     = ++presentationSerial;
+        frame.imageIndex = index;
+        frame.presented  = false;
+        frame.error      = {};
+        return {{PresentationStatus::READY}, {frame.serial, index}};
+    }
+
+    PresentationResult D3D12SwapChain::TryPresentFrame(uint64_t serial, bool gpuComplete) noexcept
+    {
+        const auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(),
+                                        [serial](const auto &frame) { return serial && frame.serial == serial; });
+        if (found == presentationFrames.end() || found->presented || found->imageIndex != swapChain->GetCurrentBackBufferIndex())
+            return {PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}};
+        if (!gpuComplete)
+            return {PresentationStatus::BUSY};
+        auto      &frame = *found;
+        const auto result =
+            device.GetFunctions().present(swapChain.Get(), vsync ? 1 : 0, DXGI_PRESENT_DO_NOT_WAIT | (allowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0));
+        if (result == DXGI_ERROR_WAS_STILL_DRAWING)
+            return {PresentationStatus::BUSY};
+        if (FAILED(result))
+            return {PresentationStatus::FAILED, D3D12Error(result)};
+        frame.presented   = true;
+        auto      *fence  = static_cast<D3D12Fence *>(frame.presentFence.Get());
+        const auto signal = device.GetFunctions().signal(static_cast<D3D12Queue *>(device.GetQueue(QueueType::GRAPHICS))->GetNativeHandle(),
+                                                         fence->GetNativeHandle(), fence->GetPendingValue());
+        if (FAILED(signal)) {
+            frame.error = D3D12Error(signal);
+            return {PresentationStatus::FAILED, frame.error};
+        }
+        return {PresentationStatus::READY};
+    }
+
+    FenceQueryResult D3D12SwapChain::RetireFrame(uint64_t serial, bool abandon) noexcept
+    {
+        const auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(),
+                                        [serial](const auto &frame) { return serial && frame.serial == serial; });
+        if (found == presentationFrames.end() || found->presented == abandon)
+            return {FenceStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}};
+        auto &frame = *found;
+        if (frame.error.code != GpuErrorCode::NONE)
+            return {FenceStatus::FAILED, frame.error};
+        const auto result = abandon ? FenceQueryResult{FenceStatus::SIGNALED} : frame.presentFence->Query();
+        if (result.status == FenceStatus::SIGNALED)
+            frame.serial = 0;
+        return result;
+    }
+
+    PresentationResult D3D12SwapChain::TryResize(uint32_t width, uint32_t height) noexcept
+    {
+        if (directProtocol || surfaceRevision == UINT64_MAX)
+            return {PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}};
+        checkedProtocol = true;
+        if (!swapChain)
+            return {PresentationStatus::SURFACE_LOST};
+        if (!width || !height || std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }))
+            return {PresentationStatus::BUSY};
+        images.clear();
+        const auto result = device.GetFunctions().resizeBuffers(swapChain.Get(), bufferCount, width, height, dxgiFormat,
+                                                                allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
+        if (SUCCEEDED(result))
+            extent = {width, height};
+        // Resize failure leaves the old native buffers alive; rewrap them before returning.
+        for (uint32_t i = 0; i < bufferCount; ++i) {
+            ComPtr<ID3D12Resource> resource;
+            const auto             buffer = swapChain->GetBuffer(i, IID_PPV_ARGS(&resource));
+            if (FAILED(buffer)) {
+                images.clear();
+                return {PresentationStatus::FAILED, D3D12Error(buffer)};
+            }
+            auto image = std::make_unique<D3D12Image>(device);
+            image->InitFromSwapChain(resource, dxgiFormat);
+            images.push_back(std::move(image));
+        }
+        if (FAILED(result))
+            return {PresentationStatus::FAILED, D3D12Error(result)};
+        ++surfaceRevision;
+        return {PresentationStatus::READY};
+    }
+
+    PresentationResult D3D12SwapChain::TryClose() noexcept
+    {
+        if (directProtocol)
+            return {PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}};
+        checkedProtocol = true;
+        if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }))
+            return {PresentationStatus::BUSY};
+        presentationFrames.clear();
+        DestroySwapchain();
+        return {PresentationStatus::READY};
+    }
 } // namespace sky::aurora

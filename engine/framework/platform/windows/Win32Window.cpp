@@ -306,6 +306,9 @@ namespace sky {
                     return TRUE;
                 }
                 HandleMessage(window, hwnd, msg, wparam, lparam);
+                if (msg == WM_CLOSE && window->IsCloseDeferred()) {
+                    return 0;
+                }
             }
             return ::DefWindowProcW(hwnd, msg, wparam, lparam);
         }

@@ -12,15 +12,42 @@
 - 提交前缀按改动性质取一个（`feat` / `fix` / `refactor` / `build` 等），不要因含 spec 就改写成 `doc`。
 - 仅纯规则/文档本身的修改（如本文件）可用 `doc`。
 
+## Review 与目录调整
+
+- **功能修改与既有目录搬迁分开 review**：除用户明确要求同批实施，不在功能 change 中混入大范围移动、目录重命名或纯结构整理；先保留原路径，让 diff 展示实际代码修改，结构调整后续单独起 change。
+- **Aurora 属于 foundation**：接口与实现均归 `engine/aurora`，不创建 `plugins/aurora`，不注册为业务 feature plugin。Renderer 实现复用现有 `engine/aurora/core`，Framework 对接归 `adaptor`，模块入口归 `runtime`；保留仅接口 target，不再建立 `renderer/{core,adaptor,runtime}` 子模块体系。新增或调整模块归属、target 和装载入口须先说明方案并取得用户确认；RHI 后端保留 `engine/aurora/rhi/{vulkan,dx12,metal,common}`。
+
+## 异常与错误处理规范
+
+- **禁止主动抛异常**：不得新增 `throw`（包括重新抛出 `throw;`），不得以异常作为业务或基础设施的错误返回方式。
+- 可恢复错误通过明确的 `Result` / `Status` / 错误码返回；可能失败的初始化使用 `Create` / `Init` 等显式返回结果的入口，不用构造器抛异常表达失败。
+- **不使用 `try/catch`**：当前不处理标准库异常，不为 `new`、容器、智能指针、线程或 future 等增加异常兜底；仍须检查业务和原生 API 的显式失败结果。
+- 遇到遗留代码、回调或第三方接口实际依赖异常时，先列出调用点、影响和改为显式错误返回的方案，**由用户确认后修复**；不得自行引入或保留异常捕获作为例外。修复必须保持资源清理、任务收齐和完成通知。
+- 断言仅用于程序不变量，不得用断言、终止进程或静默忽略来替代可恢复错误处理。本规则适用于新增代码及本次修改的错误路径；历史异常路径在触及时迁移，不要求无关模块一并重写。
+
+## 类型转换规范
+
+- **避免 `dynamic_cast`**：新增及本次修改的代码不使用 RTTI 下转型；优先虚接口、visitor、已有类型标识或明确的对象归属契约。
+- 只有具体类型已由契约保证时才使用 `static_cast`。外部对象须先验证 owner/type；未知归属或类型不匹配返回显式错误，禁止机械替换或用 `reinterpret_cast` 绕过检查。
+- 后端原生对象先验证 `GetDevice()` 与目标 device 一致；该 owner 契约须保证对象来自对应 device 的实现。不要增加与既有归属接口重复的 `BelongsTo`，也不要只凭 backend 枚举跨 device 转型。
+- 仅迁移本次涉及的调用链；不扩大到无关历史代码。完整规则见 `.opencode/skills/skyengine-coding-rules/SKILL.md`。
+
 ## 代码注释规范
 
 - **仅注释关键内容**：说明不易从代码直接看出的约束、原因或陷阱，例如所有权、生命周期、线程安全、关键不变量和错误处理边界；不复述命名、语法或显而易见的流程。
 - **非关键设计说明单处不得超过两行**，能省则省；不得拆成相邻注释块规避长度限制。关键契约也应保持精炼，只保留正确使用和维护代码所必需的信息。
 - 详细架构、设计推导、迁移计划和里程碑说明放入 `docs/` 或对应 OpenSpec change；代码中只保留必要约束，必要时附文档引用。本规则适用于新增及修改的源码、头文件、测试和构建脚本注释。
 
+## 头文件 include 规范
+
+- 标准库、系统/三方库及通过 target include 接口暴露的工程头使用 `<>`，保留领域路径（如 `<aurora/rdg/FrozenFrameGraph.h>`）；同 target 也遵循此规则。
+- 实现私有头、测试辅助头及私有生成头使用 `""`；加入 PRIVATE include 路径或供测试访问，不改变其私有性质。源文件优先包含对应头；不得用 `../` 绕过公开模块路径或依赖边界。
+- 完整规则见 [skyengine-coding-rules](.opencode/skills/skyengine-coding-rules/SKILL.md#include-delimiters-and-paths)；clang-format 仅负责排序/格式，不能代替可见性检查。
+
 ## 模块分层与跨模块交互规范
 
 ### 分层
+- 以下 `engine/<feature>` 接口 / `plugins/<feature>` 实现规则用于业务 feature，不适用于 Aurora foundation；Aurora 内部仍分离接口与实现 target，且不得反向依赖业务 plugin。动态库或模块注册本身不意味着 plugin 归属。
 - `engine/<feature>`：只放**接口** + **接口签名引用到的数据** + 对这批数据的纯函数；**不含实现**。
 - `plugins/<feature>`：**实现**（子系统、资产 schema/序列化/注册、组件、builder、module、渲染/编辑器对接）。
 - 依赖方向恒为 **plugin → engine**；`engine` 不得 include/link 任何 plugin。

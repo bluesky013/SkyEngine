@@ -3,9 +3,10 @@
 //
 
 #import <Metal/Metal.h>
-#include "MetalCommandPool.h"
-#include "MetalDevice.h"
-#include "MetalEncoder.h"
+#include <MetalCommandPool.h>
+
+#include <MetalDevice.h>
+#include <MetalEncoder.h>
 #include <aurora/rhi/Core.h>
 
 namespace sky::aurora {

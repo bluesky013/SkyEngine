@@ -89,6 +89,7 @@ namespace sky::aurora {
     uint64_t CompileHash(const ShaderCacheKey &key)
     {
         uint64_t hash = kFnv1aBasis;
+        hash          = HashMixU64(hash, ShaderCacheIndex::kFormatVersion);
         hash          = HashMixU64(hash, key.sourceHash);
         hash          = HashMixU64(hash, key.variantHash);
         hash          = HashMixU64(hash, key.layoutFp);

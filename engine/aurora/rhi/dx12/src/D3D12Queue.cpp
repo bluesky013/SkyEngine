@@ -2,24 +2,21 @@
 // Aurora D3D12 Queue.
 //
 
-#include <D3D12Queue.h>
-#include <D3D12Device.h>
 #include <D3D12CommandPool.h>
+#include <D3D12Device.h>
 #include <D3D12Fence.h>
+#include <D3D12Queue.h>
 #include <D3D12Semaphore.h>
+#include <algorithm>
 #include <aurora/rhi/SubmitInfo.h>
 #include <core/logger/Logger.h>
-#include <algorithm>
 #include <vector>
 
 static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
 
-    D3D12Queue::D3D12Queue(D3D12Device &dev, QueueType t, ComPtr<ID3D12CommandQueue> q)
-        : device(dev)
-        , type(t)
-        , queue(std::move(q))
+    D3D12Queue::D3D12Queue(D3D12Device &dev, QueueType t, ComPtr<ID3D12CommandQueue> q) : device(dev), type(t), queue(std::move(q))
     {
     }
 
@@ -44,51 +41,105 @@ namespace sky::aurora {
 
     void D3D12Queue::Submit(const SubmitInfo &info)
     {
-        // 1. Wait on input semaphores (queue-level Wait).
-        for (const auto &w : info.waitSemaphores) {
-            auto *sema = static_cast<D3D12Semaphore *>(w.semaphore);
-            if (sema == nullptr) continue;
-            const UINT64 value = (sema->GetType() == SemaphoreType::TIMELINE)
-                                     ? w.value
-                                     : sema->GetBinaryWaitValue();
-            queue->Wait(sema->GetNativeHandle(), value);
-        }
+        const auto result = TrySubmit(info);
+        if (result.status != QueueSubmitStatus::ACCEPTED)
+            LOG_E(TAG, "Queue submission failed: %lld", result.error.nativeCode);
+    }
 
-        // 2. Execute command lists.
-        if (!info.commandBuffers.empty()) {
-            std::vector<ID3D12CommandList*> lists;
-            lists.reserve(info.commandBuffers.size());
-            for (auto *cb : info.commandBuffers) {
-                lists.push_back(static_cast<D3D12CommandBuffer *>(cb)->GetNativeHandle());
+    QueueSubmitResult D3D12Queue::TrySubmit(const SubmitInfo &info) noexcept
+    {
+        bool attempted = false;
+
+        if (info.commandBuffers.size() > UINT32_MAX)
+            return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+        std::vector<ID3D12CommandList *> lists;
+        lists.reserve(info.commandBuffers.size());
+        for (auto *buffer : info.commandBuffers) {
+            if (!buffer || buffer->GetDevice() != &device)
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            auto *native = static_cast<D3D12CommandBuffer *>(buffer);
+            if (!native->GetNativeHandle())
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            lists.push_back(native->GetNativeHandle());
+        }
+        for (const auto *semaphores : {&info.waitSemaphores, &info.signalSemaphores}) {
+            for (const auto &entry : *semaphores) {
+                if (!entry.semaphore || entry.semaphore->GetDevice() != &device)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+                auto *native = static_cast<D3D12Semaphore *>(entry.semaphore);
+                if ((native->GetType() == SemaphoreType::TIMELINE && entry.value == UINT64_MAX) ||
+                    (native->GetType() == SemaphoreType::BINARY && native->GetBinaryWaitValue() >= UINT64_MAX - 1))
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
             }
-            queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), lists.data());
+        }
+        if (info.fence) {
+            if (info.fence->GetDevice() != &device)
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            auto *native = static_cast<D3D12Fence *>(info.fence);
+            if (native->GetPendingValue() >= UINT64_MAX - 1)
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+        }
+        const auto failure = [&](HRESULT hr) {
+            const auto lost = device.GetFunctions().removed(device.GetNativeHandle());
+            return QueueSubmitResult{attempted ? QueueSubmitStatus::INDETERMINATE : QueueSubmitStatus::REJECTED,
+                                     FAILED(lost) ? GpuError{GpuErrorCode::DEVICE_LOST, lost} : D3D12Error(hr)};
+        };
+        if (const auto lost = device.GetFunctions().removed(device.GetNativeHandle()); FAILED(lost))
+            return failure(lost);
+
+        // After the first native queue operation, any failure may leave partially enqueued work.
+        for (const auto &w : info.waitSemaphores) {
+            auto        *sema  = static_cast<D3D12Semaphore *>(w.semaphore);
+            const UINT64 value = (sema->GetType() == SemaphoreType::TIMELINE) ? w.value : sema->GetBinaryWaitValue();
+            attempted          = true;
+            const auto hr      = device.GetFunctions().wait(queue.Get(), sema->GetNativeHandle(), value);
+            if (FAILED(hr))
+                return failure(hr);
         }
 
-        // 3. Signal output semaphores.
+        if (!lists.empty()) {
+            attempted = true;
+            device.GetFunctions().execute(queue.Get(), static_cast<UINT>(lists.size()), lists.data());
+        }
+
         for (const auto &s : info.signalSemaphores) {
-            auto *sema = static_cast<D3D12Semaphore *>(s.semaphore);
-            if (sema == nullptr) continue;
-            const UINT64 value = (sema->GetType() == SemaphoreType::TIMELINE)
-                                     ? s.value
-                                     : sema->AdvanceBinarySignalValue();
-            queue->Signal(sema->GetNativeHandle(), value);
+            auto        *sema  = static_cast<D3D12Semaphore *>(s.semaphore);
+            const UINT64 value = (sema->GetType() == SemaphoreType::TIMELINE) ? s.value : sema->AdvanceBinarySignalValue();
+            attempted          = true;
+            const auto hr      = device.GetFunctions().signal(queue.Get(), sema->GetNativeHandle(), value);
+            if (FAILED(hr))
+                return failure(hr);
         }
 
-        // 4. Signal fence.
         if (info.fence != nullptr) {
-            auto *fence = static_cast<D3D12Fence *>(info.fence);
-            const UINT64 v = fence->BumpPendingValue();
-            queue->Signal(fence->GetNativeHandle(), v);
+            auto        *fence = static_cast<D3D12Fence *>(info.fence);
+            const UINT64 v     = fence->BumpPendingValue();
+            attempted          = true;
+            const auto hr      = device.GetFunctions().signal(queue.Get(), fence->GetNativeHandle(), v);
+            if (FAILED(hr))
+                return failure(hr);
         }
+        if (const auto lost = device.GetFunctions().removed(device.GetNativeHandle()); FAILED(lost))
+            return failure(lost);
+        return {QueueSubmitStatus::ACCEPTED};
     }
 
     void D3D12Queue::WaitIdle()
     {
         ++idleValue;
-        queue->Signal(idleFence.Get(), idleValue);
+        // A failed signal must not lead to an infinite wait for an unreachable fence value.
+        while (FAILED(device.GetFunctions().signal(queue.Get(), idleFence.Get(), idleValue))) {
+            if (FAILED(device.GetFunctions().removed(device.GetNativeHandle())))
+                return;
+            ::Sleep(1);
+        }
         if (idleFence->GetCompletedValue() < idleValue) {
-            idleFence->SetEventOnCompletion(idleValue, idleEvent);
-            ::WaitForSingleObject(idleEvent, INFINITE);
+            const auto eventResult = idleFence->SetEventOnCompletion(idleValue, idleEvent);
+            if (SUCCEEDED(eventResult))
+                ::WaitForSingleObject(idleEvent, INFINITE);
+            else
+                while (idleFence->GetCompletedValue() < idleValue)
+                    ::Sleep(1);
         }
     }
 
@@ -105,11 +156,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingDx = static_cast<D3D12Buffer *>(staging.Get());
+        auto     *stagingDx = static_cast<D3D12Buffer *>(staging.Get());
         if (stagingDx == nullptr) {
             LOG_E(TAG, "failed to create staging buffer for upload");
             return 0;
@@ -139,8 +190,8 @@ namespace sky::aurora {
         }
         cb->Begin();
         {
-            auto blit = cb->CreateBlitEncoder();
-            uint64_t src = 0;
+            auto     blit = cb->CreateBlitEncoder();
+            uint64_t src  = 0;
             for (const auto &req : requests) {
                 blit->CopyBuffer(stagingDx, dst, req.size, src, req.dstOffset);
                 src += req.size;
@@ -183,11 +234,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingDx = static_cast<D3D12Buffer *>(staging.Get());
+        auto     *stagingDx = static_cast<D3D12Buffer *>(staging.Get());
         if (stagingDx == nullptr) {
             LOG_E(TAG, "failed to create staging buffer for image upload");
             return 0;
@@ -222,28 +273,28 @@ namespace sky::aurora {
         barrier.srcStage = PipelineStageBit::TOP;
         barrier.dstStage = PipelineStageBit::TRANSFER;
         ImageBarrierInfo imageBarrier;
-        imageBarrier.image                = dst;
-        imageBarrier.subRange.baseLevel   = 0;
-        imageBarrier.subRange.levels      = maxLevel + 1;
-        imageBarrier.subRange.baseLayer   = 0;
-        imageBarrier.subRange.layers      = maxLayer + 1;
-        imageBarrier.srcAccess            = AccessFlagBit::NONE;
-        imageBarrier.dstAccess            = AccessFlagBit::COPY_DST;
-        imageBarrier.oldLayout            = ImageLayout::UNDEFINED;
-        imageBarrier.newLayout            = ImageLayout::TRANSFER_DST;
+        imageBarrier.image              = dst;
+        imageBarrier.subRange.baseLevel = 0;
+        imageBarrier.subRange.levels    = maxLevel + 1;
+        imageBarrier.subRange.baseLayer = 0;
+        imageBarrier.subRange.layers    = maxLayer + 1;
+        imageBarrier.srcAccess          = AccessFlagBit::NONE;
+        imageBarrier.dstAccess          = AccessFlagBit::COPY_DST;
+        imageBarrier.oldLayout          = ImageLayout::UNDEFINED;
+        imageBarrier.newLayout          = ImageLayout::TRANSFER_DST;
         barrier.imageBarriers.push_back(imageBarrier);
         cb->PipelineBarrier(barrier);
 
         {
-            auto blit = cb->CreateBlitEncoder();
+            auto                         blit = cb->CreateBlitEncoder();
             std::vector<BufferImageCopy> regions(requests.size());
-            uint64_t bufferOffset = 0;
+            uint64_t                     bufferOffset = 0;
             for (size_t i = 0; i < requests.size(); ++i) {
-                const auto &req    = requests[i];
-                auto       &region = regions[i];
-                region.bufferOffset      = bufferOffset;
-                region.bufferRowLength   = req.bufferRowLength;
-                region.bufferImageHeight = req.bufferImageHeight;
+                const auto &req           = requests[i];
+                auto       &region        = regions[i];
+                region.bufferOffset       = bufferOffset;
+                region.bufferRowLength    = req.bufferRowLength;
+                region.bufferImageHeight  = req.bufferImageHeight;
                 region.subRange.level     = req.mipLevel;
                 region.subRange.baseLayer = req.layer;
                 region.subRange.layers    = 1;

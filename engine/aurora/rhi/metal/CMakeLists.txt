@@ -29,6 +29,7 @@ sky_add_library(TARGET Aurora.Metal SHARED
     LINK_LIBS
         Core
         Aurora.RHI.Static
+        Aurora.FrameBackend.Static
         ${METAL_EXT_LIBS}
 )
 

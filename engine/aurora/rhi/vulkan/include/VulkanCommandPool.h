@@ -18,9 +18,10 @@ namespace sky::aurora {
         VulkanCommandBuffer(VulkanDevice &device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
         ~VulkanCommandBuffer() override;
 
-        void Begin() override;
-        void End() override;
-        void PipelineBarrier(const BarrierInfo &info) override;
+        void          Begin() override;
+        void          End() override;
+        const Device *GetDevice() const noexcept override;
+        void          PipelineBarrier(const BarrierInfo &info) override;
 
         std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
         std::unique_ptr<ComputeEncoder>  CreateComputeEncoder() override;
@@ -42,9 +43,10 @@ namespace sky::aurora {
         VulkanCommandPool(VulkanDevice &device, uint32_t queueFamilyIndex, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
         ~VulkanCommandPool() override;
 
-        bool           Init() override;
-        void           Reset() override;
-        CommandBuffer *Allocate() override;
+        bool               Init() override;
+        void               Reset() override;
+        GpuOperationResult TryReset() noexcept override;
+        CommandBuffer     *Allocate() override;
 
         VkCommandPool GetNativeHandle() const
         {

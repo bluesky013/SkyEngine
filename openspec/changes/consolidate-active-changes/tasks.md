@@ -1,5 +1,5 @@
 > Planning-first: this records the snapshot and cleanup decisions; the non-destructive cleanup has been applied
-> with user approval. No change directory was archived (AGENTS.md). `aurora-renderer` (C2, C3) is owned by the user.
+> with user approval. No change directory was archived (AGENTS.md). C2/C3 were resolved by aurora-renderer through B14; Aurora status is updated in the 2026-10-17 addendum to design.md.
 
 ## 1. Snapshot
 
@@ -11,7 +11,7 @@
 
 ## 2. Unblock the aurora render hub
 
-- [ ] 2.1 Complete `aurora-renderer`: add `design.md`/`specs/`/`tasks.md` (C2) - owner: user
+- [x] 2.1 Complete `aurora-renderer`: add `design.md`/`specs/`/`tasks.md` (C2) - owner: user
 - [x] 2.2 Scene-seam decision recorded: `aurora-renderer` owns the seam; `aurora-scene-bridge` transfers data only (C6)
 - [x] 2.3 Missing-spec changes left as-is; no new tracking changes (C7)
 
@@ -22,7 +22,7 @@
 ## 4. Fix references and trim superseded content
 
 - [x] 4.1 Reword 3 dangling refs to "not yet a change": `animation-events`, `audio-animation-bridge`, `aurora-navigation-integration` (C3)
-- [ ] 4.2 Resolve `aurora-renderer` ref to nonexistent `aurora-material-pso` (C3) - owner: user
+- [x] 4.2 Resolve `aurora-renderer` ref to nonexistent `aurora-material-pso` (C3) - owner: user
 - [x] 4.3 Mark `asset-pipeline` rows 10.4/10.5/10.6c/14.4/14.5 delivered by archived `asset-cook-ipc`; deferrals marked "(no tracking change yet)" (C4)
 
 ## 5. Reconcile network prediction
@@ -31,4 +31,4 @@
 
 ## 6. Verify the end state
 
-- [x] 6.1 Active set re-checked: all `active`/`blocked-on-prereq`; only residual dangling ref is `aurora-renderer` -> `aurora-material-pso` (owner: user)
+- [x] 6.1 Active set re-checked: all `active`/`blocked-on-prereq`; the historical aurora-material-pso reference is now explicitly identified as a non-goal without an existing change

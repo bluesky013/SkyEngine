@@ -26,15 +26,22 @@ namespace sky::aurora {
         explicit VulkanShaderFunction(VulkanDevice &dev);
         ~VulkanShaderFunction() override;
 
-        bool Init(const Descriptor &desc);
+        const Device *GetDevice() const noexcept override;
+        bool          Init(const Descriptor &desc);
 
-        VkShaderModule     GetNativeHandle() const { return shaderModule; }
-        ShaderStageFlagBit GetStage() const { return stage; }
+        VkShaderModule GetNativeHandle() const
+        {
+            return shaderModule;
+        }
+        ShaderStageFlagBit GetStage() const
+        {
+            return stage;
+        }
 
     private:
-        VulkanDevice       &device;
-        VkShaderModule      shaderModule = VK_NULL_HANDLE;
-        ShaderStageFlagBit  stage        = ShaderStageFlagBit::VS;
+        VulkanDevice      &device;
+        VkShaderModule     shaderModule = VK_NULL_HANDLE;
+        ShaderStageFlagBit stage        = ShaderStageFlagBit::VS;
     };
 
     class VulkanShader : public Shader {
@@ -44,12 +51,31 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        VulkanShaderFunction *GetVertexFunction() const { return vertexFunction.Get(); }
-        VulkanShaderFunction *GetFragmentFunction() const { return fragmentFunction.Get(); }
-        VulkanShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
-        VkPipelineLayout GetPipelineLayout() const { return layout; }
-        const ShaderSpecialization &GetSpecialization() const { return specialization; }
-        const ShaderReflection &GetReflection() const { return reflection; }
+        VulkanShaderFunction *GetVertexFunction() const
+        {
+            return vertexFunction.Get();
+        }
+        VulkanShaderFunction *GetFragmentFunction() const
+        {
+            return fragmentFunction.Get();
+        }
+        VulkanShaderFunction *GetComputeFunction() const
+        {
+            return computeFunction.Get();
+        }
+        VkPipelineLayout GetPipelineLayout() const
+        {
+            return layout;
+        }
+        const ShaderSpecialization &GetSpecialization() const
+        {
+            return specialization;
+        }
+        const ShaderReflection &GetReflection() const
+        {
+            return reflection;
+        }
+        const Device *GetDevice() const noexcept override;
 
         // Per-set descriptor set layout derived from reflection, queried by
         // real set index (may contain holes). Returns VK_NULL_HANDLE if absent.
@@ -62,15 +88,15 @@ namespace sky::aurora {
     private:
         bool CreatePipelineLayout();
 
-        VulkanDevice                       &device;
-        CounterPtr<VulkanShaderFunction>    vertexFunction;
-        CounterPtr<VulkanShaderFunction>    fragmentFunction;
-        CounterPtr<VulkanShaderFunction>    computeFunction;
-        ShaderReflection                    reflection;
-        ShaderSpecialization                specialization;
-        std::map<uint32_t, VkDescriptorSetLayout> descriptorSetLayouts;       // set index -> layout
+        VulkanDevice                                  &device;
+        CounterPtr<VulkanShaderFunction>               vertexFunction;
+        CounterPtr<VulkanShaderFunction>               fragmentFunction;
+        CounterPtr<VulkanShaderFunction>               computeFunction;
+        ShaderReflection                               reflection;
+        ShaderSpecialization                           specialization;
+        std::map<uint32_t, VkDescriptorSetLayout>      descriptorSetLayouts;      // set index -> layout
         std::map<uint32_t, VkDescriptorUpdateTemplate> descriptorUpdateTemplates; // set index -> template
-        VkPipelineLayout                    layout = VK_NULL_HANDLE;
+        VkPipelineLayout                               layout = VK_NULL_HANDLE;
     };
 
 } // namespace sky::aurora

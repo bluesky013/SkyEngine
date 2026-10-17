@@ -2,9 +2,10 @@
 // Created on 2026/04/02.
 //
 
-#include "D3D12Buffer.h"
-#include "D3D12Device.h"
-#include "D3D12Conversion.h"
+#include <D3D12Buffer.h>
+
+#include <D3D12Conversion.h>
+#include <D3D12Device.h>
 #include <core/logger/Logger.h>
 
 #include <vector>
@@ -12,9 +13,12 @@
 static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
+    const Device *D3D12Buffer::GetDevice() const noexcept
+    {
+        return &device;
+    }
 
-    D3D12Buffer::D3D12Buffer(D3D12Device &dev)
-        : device(dev)
+    D3D12Buffer::D3D12Buffer(D3D12Device &dev) : device(dev)
     {
     }
 
@@ -26,6 +30,10 @@ namespace sky::aurora {
 
     bool D3D12Buffer::Init(const Descriptor &desc)
     {
+        descriptor = desc;
+#if SKY_ENABLE_RESOURCE_NAME
+        descriptor.name = nullptr;
+#endif
         size = desc.size;
         if (size == 0) {
             LOG_E(TAG, "buffer size must be non-zero");
@@ -33,33 +41,27 @@ namespace sky::aurora {
         }
 
         D3D12MA::ALLOCATION_DESC allocDesc = {};
-        allocDesc.HeapType = FromMemoryType(desc.memory);
+        allocDesc.HeapType                 = FromMemoryType(desc.memory);
 
         D3D12_RESOURCE_DESC resDesc = {};
-        resDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        resDesc.Alignment        = 0;
-        resDesc.Width            = size;
-        resDesc.Height           = 1;
-        resDesc.DepthOrArraySize = 1;
-        resDesc.MipLevels        = 1;
-        resDesc.Format           = DXGI_FORMAT_UNKNOWN;
-        resDesc.SampleDesc       = {1, 0};
-        resDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        resDesc.Flags            = FromBufferUsageFlags(desc.usage);
+        resDesc.Dimension           = D3D12_RESOURCE_DIMENSION_BUFFER;
+        resDesc.Alignment           = 0;
+        resDesc.Width               = size;
+        resDesc.Height              = 1;
+        resDesc.DepthOrArraySize    = 1;
+        resDesc.MipLevels           = 1;
+        resDesc.Format              = DXGI_FORMAT_UNKNOWN;
+        resDesc.SampleDesc          = {1, 0};
+        resDesc.Layout              = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        resDesc.Flags               = FromBufferUsageFlags(desc.usage);
 
-        const D3D12_RESOURCE_STATES initState =
-            (allocDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD)   ? D3D12_RESOURCE_STATE_GENERIC_READ :
-            (allocDesc.HeapType == D3D12_HEAP_TYPE_READBACK)  ? D3D12_RESOURCE_STATE_COPY_DEST :
-            D3D12_RESOURCE_STATE_COMMON;
+        const D3D12_RESOURCE_STATES initState = (allocDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD)     ? D3D12_RESOURCE_STATE_GENERIC_READ
+                                                : (allocDesc.HeapType == D3D12_HEAP_TYPE_READBACK) ? D3D12_RESOURCE_STATE_COPY_DEST
+                                                                                                   : D3D12_RESOURCE_STATE_COMMON;
 
         D3D12MA::Allocation *pAlloc = nullptr;
-        const HRESULT hr = device.GetAllocator()->CreateResource(
-            &allocDesc,
-            &resDesc,
-            initState,
-            nullptr,
-            &pAlloc,
-            IID_PPV_ARGS(resource.GetAddressOf()));
+        const HRESULT        hr     = createResult =
+            device.GetAllocator()->CreateResource(&allocDesc, &resDesc, initState, nullptr, &pAlloc, IID_PPV_ARGS(resource.GetAddressOf()));
 
         if (FAILED(hr)) {
             LOG_E(TAG, "D3D12MA CreateResource (buffer) failed: 0x%08x", hr);
@@ -85,9 +87,9 @@ namespace sky::aurora {
         if (!resource) {
             return nullptr;
         }
-        void *data = nullptr;
+        void             *data      = nullptr;
         const D3D12_RANGE readRange = {0, 0}; // no CPU read
-        const HRESULT hr = resource->Map(0, &readRange, &data);
+        const HRESULT     hr = mapResult = resource->Map(0, &readRange, &data);
         if (FAILED(hr)) {
             LOG_E(TAG, "buffer Map failed: 0x%08x (device removed reason 0x%08x)", static_cast<unsigned>(hr),
                   static_cast<unsigned>(device.GetNativeHandle()->GetDeviceRemovedReason()));
@@ -106,9 +108,9 @@ namespace sky::aurora {
     void D3D12Buffer::CreateCBV(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint64_t offset, uint64_t range) const
     {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv = {};
-        cbv.BufferLocation                 = resource->GetGPUVirtualAddress() + offset;
-        cbv.SizeInBytes                    = static_cast<UINT>(range == 0 ? size : range);
-        cbv.SizeInBytes                    = (cbv.SizeInBytes + 255) & ~255u;
+        cbv.BufferLocation                  = resource->GetGPUVirtualAddress() + offset;
+        cbv.SizeInBytes                     = static_cast<UINT>(range == 0 ? size : range);
+        cbv.SizeInBytes                     = (cbv.SizeInBytes + 255) & ~255u;
         device.GetNativeHandle()->CreateConstantBufferView(&cbv, handle);
     }
 
@@ -128,13 +130,13 @@ namespace sky::aurora {
     void D3D12Buffer::CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
     {
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
-        uav.Format                          = DXGI_FORMAT_R32_TYPELESS;
-        uav.ViewDimension                   = D3D12_UAV_DIMENSION_BUFFER;
-        uav.Buffer.FirstElement             = 0;
-        uav.Buffer.NumElements              = static_cast<UINT>(size / 4);
-        uav.Buffer.StructureByteStride      = 0;
-        uav.Buffer.CounterOffsetInBytes     = 0;
-        uav.Buffer.Flags                    = D3D12_BUFFER_UAV_FLAG_RAW;
+        uav.Format                           = DXGI_FORMAT_R32_TYPELESS;
+        uav.ViewDimension                    = D3D12_UAV_DIMENSION_BUFFER;
+        uav.Buffer.FirstElement              = 0;
+        uav.Buffer.NumElements               = static_cast<UINT>(size / 4);
+        uav.Buffer.StructureByteStride       = 0;
+        uav.Buffer.CounterOffsetInBytes      = 0;
+        uav.Buffer.Flags                     = D3D12_BUFFER_UAV_FLAG_RAW;
         device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
     }
 

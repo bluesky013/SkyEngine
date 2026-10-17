@@ -38,7 +38,7 @@ namespace sky::aurora {
         }
 
         template <typename T>
-        T &Add(EntityId id, T value)
+        T *Add(EntityId id, T value)
         {
             return mRegistry.Add<T>(id, std::move(value));
         }

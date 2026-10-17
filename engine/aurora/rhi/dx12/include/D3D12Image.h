@@ -6,8 +6,8 @@
 
 #include <aurora/rhi/Image.h>
 
-#include <d3d12.h>
 #include <D3D12MemAlloc.h>
+#include <d3d12.h>
 #include <wrl/client.h>
 
 namespace sky::aurora {
@@ -18,18 +18,39 @@ namespace sky::aurora {
 
     class D3D12Image : public Image {
     public:
+        const Device *GetDevice() const noexcept override;
         explicit D3D12Image(D3D12Device &dev);
         ~D3D12Image() override;
 
-        bool Init(const Descriptor &desc);
+        bool     Init(const Descriptor &desc);
+        uint64_t GetMipLayerCount() const noexcept override
+        {
+            return uint64_t(descriptor.mipLevels) * descriptor.arrayLayers;
+        }
+        const Descriptor &GetDescriptor() const noexcept
+        {
+            return descriptor;
+        }
 
         // Adopt an externally-owned resource (e.g. swapchain back buffer).
         void InitFromSwapChain(ComPtr<ID3D12Resource> res, DXGI_FORMAT fmt);
 
-        ID3D12Resource *GetNativeHandle() const { return resource.Get(); }
-        DXGI_FORMAT     GetDxgiFormat() const { return dxgiFormat; }
-        PixelFormat     GetPixelFormat() const { return pixelFormat; }
-        uint32_t        GetMipLevels() const { return mipLevels; }
+        ID3D12Resource *GetNativeHandle() const
+        {
+            return resource.Get();
+        }
+        DXGI_FORMAT GetDxgiFormat() const
+        {
+            return dxgiFormat;
+        }
+        PixelFormat GetPixelFormat() const
+        {
+            return pixelFormat;
+        }
+        uint32_t GetMipLevels() const
+        {
+            return mipLevels;
+        }
 
         // Write a shader-resource / unordered-access view into a CPU descriptor.
         void CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
@@ -40,16 +61,17 @@ namespace sky::aurora {
         void CreateDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ImageSubRange &range) const;
 
     private:
-        D3D12Device            &device;
-        ComPtr<ID3D12Resource>  resource;
+        Descriptor                  descriptor;
+        D3D12Device                &device;
+        ComPtr<ID3D12Resource>      resource;
         ComPtr<D3D12MA::Allocation> allocation;
-        DXGI_FORMAT             dxgiFormat = DXGI_FORMAT_UNKNOWN;
-        PixelFormat             pixelFormat = PixelFormat::UNDEFINED;
-        uint32_t                mipLevels   = 1;
-        ImageType               imageType   = ImageType::IMAGE_2D;
-        uint32_t                arrayLayers = 1;
-        uint32_t                depth       = 1;
-        SampleCount             samples     = SampleCount::X1;
+        DXGI_FORMAT                 dxgiFormat  = DXGI_FORMAT_UNKNOWN;
+        PixelFormat                 pixelFormat = PixelFormat::UNDEFINED;
+        uint32_t                    mipLevels   = 1;
+        ImageType                   imageType   = ImageType::IMAGE_2D;
+        uint32_t                    arrayLayers = 1;
+        uint32_t                    depth       = 1;
+        SampleCount                 samples     = SampleCount::X1;
     };
 
 } // namespace sky::aurora

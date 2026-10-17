@@ -16,8 +16,7 @@ namespace sky {
 
     NamedThread::~NamedThread()
     {
-        // Queued Signal closures use the semaphore, whose member destructor
-        // otherwise runs before the pool joins its worker.
+        // Queued Signal callbacks borrow the semaphore, so the pool must drain before member destruction.
         pool.reset();
     }
 

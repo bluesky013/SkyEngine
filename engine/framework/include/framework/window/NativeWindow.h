@@ -100,6 +100,16 @@ namespace sky {
             return false;
         }
 
+        // The render host releases this hold only after native presentation has retired.
+        void SetCloseDeferred(bool value)
+        {
+            closeDeferred = value;
+        }
+        bool IsCloseDeferred() const
+        {
+            return closeDeferred;
+        }
+
     protected:
         friend class NativeWindowManager;
 
@@ -109,5 +119,6 @@ namespace sky {
         WindowID   winID     = INVALID_WIN_ID;
         float      scale     = 1.f;
         Descriptor descriptor;
+        bool closeDeferred = false;
     };
 } // namespace sky

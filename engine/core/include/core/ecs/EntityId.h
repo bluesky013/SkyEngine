@@ -14,11 +14,12 @@ namespace sky {
     constexpr uint32_t ECS_INDEX_BITS     = 24;
     constexpr uint32_t ECS_INDEX_MASK     = (1u << ECS_INDEX_BITS) - 1u;
     constexpr uint32_t ECS_GENERATION_BITS = 8;
+    constexpr uint32_t ECS_GENERATION_MASK = (1u << ECS_GENERATION_BITS) - 1u;
     constexpr EntityId INVALID_ENTITY     = 0xFFFFFFFFu;
 
     FORCEINLINE EntityId MakeEntityId(uint32_t index, uint32_t generation)
     {
-        return (index & ECS_INDEX_MASK) | ((generation & 0xFFu) << ECS_INDEX_BITS);
+        return (index & ECS_INDEX_MASK) | ((generation & ECS_GENERATION_MASK) << ECS_INDEX_BITS);
     }
 
     FORCEINLINE uint32_t GetEntityIndex(EntityId id)

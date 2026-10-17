@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by Zach Lee on 2026/4/1.
 //
 
@@ -11,11 +11,11 @@ namespace sky::aurora {
 
     class VulkanDevice;
 
-    // Additional info needed when creating a VkGraphicsPipeline against a
-    // traditional VkRenderPass (devices without VK_KHR_dynamic_rendering).
+    // Render-pass compatibility is selected before graphics pipeline creation.
     struct SubpassInfo {
-        VkRenderPass renderPass  = VK_NULL_HANDLE;
-        uint32_t     subpass     = 0;
+        VkRenderPass renderPass    = VK_NULL_HANDLE;
+        uint32_t     subpass       = 0;
+        uint64_t     cacheIdentity = 0;
     };
 
     class VulkanGraphicsPipeline : public GraphicsPipeline {
@@ -29,8 +29,18 @@ namespace sky::aurora {
         // Legacy render pass path
         bool Init(const Descriptor &desc, const SubpassInfo &subpassInfo);
 
-        VkPipeline       GetNativeHandle() const { return pipeline; }
-        VkPipelineLayout GetLayoutHandle() const { return layoutHandle; }
+        VkPipeline GetNativeHandle() const
+        {
+            return pipeline;
+        }
+        VkPipelineLayout GetLayoutHandle() const
+        {
+            return layoutHandle;
+        }
+        VkResult GetCreateResult() const noexcept
+        {
+            return createResult;
+        }
 
     private:
         bool BuildPipeline(const Descriptor &desc, const void *pNext, const SubpassInfo *subpassInfo);
@@ -38,6 +48,7 @@ namespace sky::aurora {
         VulkanDevice    &device;
         VkPipeline       pipeline     = VK_NULL_HANDLE;
         VkPipelineLayout layoutHandle = VK_NULL_HANDLE;
+        VkResult         createResult = VK_SUCCESS;
     };
 
     class VulkanComputePipeline : public ComputePipeline {
@@ -47,8 +58,14 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        VkPipeline       GetNativeHandle() const { return pipeline; }
-        VkPipelineLayout GetLayoutHandle() const { return layoutHandle; }
+        VkPipeline GetNativeHandle() const
+        {
+            return pipeline;
+        }
+        VkPipelineLayout GetLayoutHandle() const
+        {
+            return layoutHandle;
+        }
 
     private:
         VulkanDevice    &device;

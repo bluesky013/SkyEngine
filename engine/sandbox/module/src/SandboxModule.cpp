@@ -6,6 +6,7 @@
 //
 
 #include <editor/sandbox/SandboxModule.h>
+
 #include <editor/sandbox/UiIconBuilder.h>
 
 #include <core/cmdline/CmdParser.h>
@@ -39,6 +40,7 @@
 #include <ui/IUITextureRegistry.h>
 #include <ui/UILayout.h>
 #include <ui/text/UITextSystem.h>
+#include <ui/widgets/Image.h>
 
 #include <core/file/FileSystem.h>
 
@@ -304,7 +306,10 @@ namespace sky::editor {
         // The separate preview window is not created: the design makes the
         // preview a docked panel by default (floating/tear-out is reserved), and
         // docking is not implemented yet, so no standalone window is opened.
-        if (!renderer.Init("SandboxEditor", 1280, 720, api, /*withPreview*/ false)) {
+        const bool renderPass =
+            std::any_of(args.args.begin(), args.args.end(), [](const char *arg) { return std::string_view(arg) == "--aurora-vulkan-render-pass"; });
+        if (!renderer.Init("SandboxEditor", 1280, 720, api, false,
+                           renderPass ? sky::aurora::RendererVulkanMode::RENDER_PASS : sky::aurora::RendererVulkanMode::DYNAMIC_RENDERING)) {
             return false;
         }
         initialized = true;
@@ -974,6 +979,11 @@ namespace sky::editor {
                       .invoke  = [this]() { StopPlay(); }});
 
         shell.RegisterBuiltinPanelViews();
+        shell.RegisterPanelView("viewport", [texture = renderer.GetSceneTextureId()]() {
+            auto image = std::make_unique<sky::ui::Image>();
+            image->SetTexture(texture);
+            return image;
+        });
         shellTarget = MakeShellTarget(&shell);
         shell.Rebuild();
 

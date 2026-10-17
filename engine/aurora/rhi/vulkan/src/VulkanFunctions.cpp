@@ -2,7 +2,7 @@
 // Created on 2026/04/07.
 //
 
-#include "VulkanFunctions.h"
+#include <VulkanFunctions.h>
 
 #if defined(_WIN32)
     #ifndef WIN32_LEAN_AND_MEAN
@@ -96,6 +96,7 @@ namespace sky::aurora {
         LOAD_INSTANCE(vkGetPhysicalDeviceQueueFamilyProperties);
         LOAD_INSTANCE(vkGetPhysicalDeviceFeatures2);
         LOAD_INSTANCE(vkGetPhysicalDeviceFormatProperties);
+        LOAD_INSTANCE(vkGetPhysicalDeviceImageFormatProperties);
         LOAD_INSTANCE(vkCreateDevice);
         LOAD_INSTANCE(vkGetDeviceProcAddr);
 
@@ -192,13 +193,22 @@ namespace sky::aurora {
         LOAD_DEVICE(vkDestroySwapchainKHR);
         LOAD_DEVICE(vkGetSwapchainImagesKHR);
         LOAD_DEVICE(vkAcquireNextImageKHR);
+        LOAD_DEVICE(vkReleaseSwapchainImagesEXT);
 
         // dynamic rendering (Vulkan 1.3+)
         LOAD_DEVICE(vkCmdBeginRendering);
         LOAD_DEVICE(vkCmdEndRendering);
+        LOAD_DEVICE(vkCreateRenderPass2);
+        LOAD_DEVICE(vkDestroyRenderPass);
+        LOAD_DEVICE(vkCreateFramebuffer);
+        LOAD_DEVICE(vkDestroyFramebuffer);
+        LOAD_DEVICE(vkCmdBeginRenderPass2);
+        LOAD_DEVICE(vkCmdNextSubpass2);
+        LOAD_DEVICE(vkCmdEndRenderPass2);
 
         // draw commands
         LOAD_DEVICE(vkCmdDraw);
+        LOAD_DEVICE(vkCmdExecuteCommands);
         LOAD_DEVICE(vkCmdDrawIndexed);
         LOAD_DEVICE(vkCmdDrawIndirect);
         LOAD_DEVICE(vkCmdDrawIndexedIndirect);

@@ -1,11 +1,12 @@
-﻿//
+//
 // Created by Zach Lee on 2026/4/1.
 //
 
-#include "VulkanPipelineState.h"
-#include "VulkanConversion.h"
-#include "VulkanDevice.h"
-#include "VulkanShader.h"
+#include <VulkanPipelineState.h>
+
+#include <VulkanConversion.h>
+#include <VulkanDevice.h>
+#include <VulkanShader.h>
 #include <core/logger/Logger.h>
 
 namespace sky::aurora {
@@ -268,6 +269,7 @@ namespace sky::aurora {
 
         const VkResult result = device.GetDeviceFn().vkCreateGraphicsPipelines(
             device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
+        createResult = result;
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create graphics pipeline, VkResult=%d", static_cast<int>(result));
             return false;

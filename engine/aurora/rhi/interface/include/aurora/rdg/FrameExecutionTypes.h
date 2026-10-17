@@ -1,11 +1,13 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/SubmissionResult.h>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace sky::aurora {
 
@@ -60,6 +62,7 @@ namespace sky::aurora {
     struct FrameError {
         FrameErrorCode code = FrameErrorCode::INVALID_STATE;
         std::string    message;
+        GpuError       cause;
     };
 
     struct FrameBusy {};
@@ -75,17 +78,28 @@ namespace sky::aurora {
         virtual CompiledFrameIdentity GetIdentity() const noexcept = 0;
     };
 
+    class FrozenFrameGraph;
+    struct FrameGraphReceipt {
+        std::shared_ptr<const FrozenFrameGraph> graph;
+        std::vector<uint32_t>                   passes;
+    };
     class RecordedFrame {
     public:
         virtual ~RecordedFrame()                                   = default;
         virtual CompiledFrameIdentity GetIdentity() const noexcept = 0;
+        // Issued only after every live pass and final transition has been recorded successfully.
+        virtual const FrameGraphReceipt *GetGraphReceipt() const noexcept
+        {
+            return nullptr;
+        }
     };
 
-    using FrameCompileResult  = std::variant<FrameError, std::unique_ptr<BackendCompiledFrame>>;
+    struct FrameNoWork {};
+    using FrameCompileResult  = std::variant<FrameError, FrameNoWork, std::unique_ptr<BackendCompiledFrame>>;
     using FrameDispatchResult = std::variant<FrameError, EncodingTicket>;
     struct EncodingFailed {
         FrameError error;
-    };                           // all kernels/borrowers drained
+    }; // all kernels/borrowers drained
     struct EncodingCancelled {}; // all kernels/borrowers drained
     using FrameCollectResult = std::variant<FrameError, FramePending, EncodingFailed, EncodingCancelled, std::unique_ptr<RecordedFrame>>;
 

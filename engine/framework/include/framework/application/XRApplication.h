@@ -12,7 +12,7 @@ namespace sky {
     class XRApplication : public Application {
     public:
         XRApplication() = default;
-        ~XRApplication() override = default;
+        ~XRApplication() override;
 
         bool Init(int argc, char **argv) override;
     private:

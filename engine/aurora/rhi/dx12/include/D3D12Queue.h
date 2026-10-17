@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <aurora/rhi/Queue.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/Fence.h>
+#include <aurora/rhi/Queue.h>
 #include <d3d12.h>
 #include <wrl/client.h>
 
@@ -27,9 +27,13 @@ namespace sky::aurora {
 
         bool Init();
 
-        void      Submit(const SubmitInfo &info) override;
-        void      WaitIdle() override;
-        QueueType GetType() const override { return type; }
+        void              Submit(const SubmitInfo &info) override;
+        QueueSubmitResult TrySubmit(const SubmitInfo &info) noexcept override;
+        void              WaitIdle() override;
+        QueueType         GetType() const override
+        {
+            return type;
+        }
 
         TransferTaskHandle UploadBuffer(Buffer *buffer, const std::vector<BufferUploadRequest> &requests) override;
         TransferTaskHandle UploadImage(Image *image, const std::vector<ImageUploadRequest> &requests) override;
@@ -37,7 +41,10 @@ namespace sky::aurora {
         void Wait(TransferTaskHandle handle) override;
         bool HasComplete(TransferTaskHandle handle) const override;
 
-        ID3D12CommandQueue *GetNativeHandle() const { return queue.Get(); }
+        ID3D12CommandQueue *GetNativeHandle() const
+        {
+            return queue.Get();
+        }
 
     private:
         struct PendingUpload {
@@ -49,7 +56,7 @@ namespace sky::aurora {
         D3D12Device               &device;
         QueueType                  type;
         ComPtr<ID3D12CommandQueue> queue;
-        ComPtr<ID3D12Fence>        idleFence;       // internal fence used by WaitIdle
+        ComPtr<ID3D12Fence>        idleFence; // internal fence used by WaitIdle
         UINT64                     idleValue = 0;
         HANDLE                     idleEvent = nullptr;
 

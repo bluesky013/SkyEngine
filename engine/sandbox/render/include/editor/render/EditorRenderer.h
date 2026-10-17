@@ -4,10 +4,14 @@
 
 #pragma once
 
-#include <aurora/rhi/Instance.h>
+#include <aurora/rhi/Core.h>
 #include <framework/window/IWindowEvent.h>
 #include <ui/UIPaintContext.h>
-#include <ui/render/UIRenderer.h>
+#if !defined(_WIN32)
+    #include <ui/render/UIRenderer.h>
+#endif
+#include <aurora/adaptor/renderer/RenderSceneProxy.h>
+#include <aurora/adaptor/renderer/RendererHost.h>
 #include <ui/text/UIBuiltinFontProvider.h>
 #include <ui/text/UITextSystem.h>
 #if defined(SKY_BUILD_FREETYPE)
@@ -34,23 +38,14 @@ namespace sky::aurora {
 } // namespace sky::aurora
 
 namespace sky::editor {
+    class UiSnapshotProducer;
 
     class WindowEventBinding;
     class EditorFrameSubmission;
 
-    // Editor-owned renderer.
-    //
-    // Owns the editor frame on the Aurora device: device + frame context +
-    // command pool + the main-window `ClientViewport`, running the hardcoded
-    // frame (barrier -> scene pass -> UI pass -> present). The GUI pipeline
-    // itself lives in `sky::ui::UIRenderer`; this class only hosts the frame and
-    // feeds it draw data. `SandboxModule` delegates to it.
     class EditorRenderer : public sky::IWindowEvent {
     public:
-        // Fills the GUI paint context for a surface. `surfaceId` identifies the
-        // target window (0 = main; floating surfaces get their own id) so the
-        // shell can paint the matching UI context. The renderer never knows the
-        // shell type.
+        // Paint executes on the host thread; surface zero is the main window.
         using GuiPaintFn = std::function<void(uint32_t surfaceId, sky::ui::UIPaintContext &, uint32_t width, uint32_t height)>;
 
         EditorRenderer();
@@ -59,23 +54,40 @@ namespace sky::editor {
         EditorRenderer(const EditorRenderer &)            = delete;
         EditorRenderer &operator=(const EditorRenderer &) = delete;
 
-        bool
-        Init(const std::string &appName, uint32_t width, uint32_t height, sky::aurora::API api = sky::aurora::API::DEFAULT, bool withPreview = true);
-        // Creates the viewport from the main window handle (via ISystemNotify).
+        bool Init(const std::string         &appName,
+                  uint32_t                   width,
+                  uint32_t                   height,
+                  sky::aurora::API           api         = sky::aurora::API::DEFAULT,
+                  bool                       withPreview = true,
+                  aurora::RendererVulkanMode mode        = aurora::RendererVulkanMode::DYNAMIC_RENDERING);
         void Start();
         void Tick(float delta);
         void Shutdown();
 
-        // Window events and rendering are serialized on the editor thread.
-        // Close requests stop future recording; GPU resources retire outside an
-        // active frame after the device is idle.
+        // Native windows stay alive until their renderer retirement acknowledgement.
         void OnWindowClose(const sky::NativeWindow *window) override;
         void OnWindowMove(const sky::WindowMoveEvent &event) override;
         void OnWindowResize(const sky::WindowResizeEvent &event) override;
 
         bool IsInitialized() const
         {
+#if defined(_WIN32)
+            return host.Get() != nullptr;
+#else
             return device != nullptr;
+#endif
+        }
+#if defined(_WIN32)
+        using SceneSource = std::function<void(aurora::FramePacket &, aurora::SceneId)>;
+        void SetSceneSource(SceneSource source)
+        {
+            sceneSource = std::move(source);
+        }
+#endif
+
+        ui::UITextureId GetSceneTextureId() const
+        {
+            return 1;
         }
 
         // GUI content source (the editor shell). Set after Init, before Start.
@@ -89,8 +101,6 @@ namespace sky::editor {
             return textSystem.get();
         }
 
-        // Floating windows for teared-out panels (Win32 v1). Each surface owns its
-        // own swapchain + UI renderer and paints the shell's matching context.
         uint32_t CreateSurface(const std::string &panelId, int x, int y, uint32_t w, uint32_t h);
         // Queues retirement; a frame already being recorded retains the surface
         // through submit/present. Explicit destruction does not re-dock a panel.
@@ -109,6 +119,42 @@ namespace sky::editor {
         }
 
     private:
+#if defined(_WIN32)
+        struct Surface {
+            uint32_t                      id = 0;
+            std::string                   panelId;
+            std::unique_ptr<NativeWindow> owned;
+            NativeWindow                 *window = nullptr;
+            aurora::Extent2D              extent{}, submittedExtent{};
+            uint64_t                      revision = 0;
+            float                         dpiScale = 1;
+            bool                          created = false, closed = false, retiring = false;
+            ui::UIPaintContext            paint;
+        };
+        void                                        Poll();
+        void                                        Fail(const aurora::RendererError &);
+        bool                                        Submit();
+        aurora::RendererHost                        host;
+        aurora::RenderSceneProxy                    scene;
+        std::unique_ptr<aurora::FramePacket>        pending;
+        std::unique_ptr<UiSnapshotProducer>         textures;
+        std::shared_ptr<const void>                 moduleLease;
+        std::shared_ptr<aurora::IFrameGraphFeature> feature;
+        std::vector<std::unique_ptr<Surface>>       surfaces;
+        uint64_t                                    sequence      = 0;
+        uint32_t                                    nextSurfaceId = 1;
+        bool                                        started = false, withPreview = false;
+        GuiPaintFn                                  guiSource;
+        SceneSource                                 sceneSource;
+        ui::UIBuiltinFontProvider                   builtinFont;
+    #if defined(SKY_BUILD_FREETYPE)
+        ui::FreeTypeUIFontProvider freeTypeFont;
+    #endif
+        std::unique_ptr<ui::UITextSystem>                                    textSystem;
+        std::function<void(const std::string &)>                             surfaceClosed;
+        std::function<void(const std::string &, float, float, float, float)> surfaceGeometryChanged;
+#else
+
         void PaintUI(uint32_t surfaceId, uint32_t surfaceWidth, uint32_t surfaceHeight);
         void RenderFrame();
 
@@ -156,9 +202,9 @@ namespace sky::editor {
         // Text: built-in glyph provider + atlas; glyph pages register through the
         // UIRenderer's IUITextureRegistry.
         sky::ui::UIBuiltinFontProvider builtinFont;
-#if defined(SKY_BUILD_FREETYPE)
+    #if defined(SKY_BUILD_FREETYPE)
         sky::ui::FreeTypeUIFontProvider freeTypeFont;
-#endif
+    #endif
         std::unique_ptr<sky::ui::UITextSystem> textSystem;
         // Viewport content target (TEXTURE presentation): an offscreen image the
         // scene renderer will draw into; composited as a UI image for now.
@@ -179,6 +225,7 @@ namespace sky::editor {
         std::function<void(const std::string &, float, float, float, float)> surfaceGeometryChanged;
         uint32_t                                                             width  = 1280;
         uint32_t                                                             height = 720;
+#endif
     };
 
 } // namespace sky::editor

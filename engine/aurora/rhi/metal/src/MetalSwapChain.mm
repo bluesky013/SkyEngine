@@ -2,10 +2,11 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalDevice.h"
-#include "MetalImage.h"
-#include "MetalSwapChain.h"
-#include "MetalSync.h"
+#include <MetalSwapChain.h>
+
+#include <MetalDevice.h>
+#include <MetalImage.h>
+#include <MetalSync.h>
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 

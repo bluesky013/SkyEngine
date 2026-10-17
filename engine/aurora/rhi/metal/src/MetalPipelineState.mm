@@ -2,9 +2,10 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalDevice.h"
-#include "MetalPipelineState.h"
-#include "MetalShader.h"
+#include <MetalPipelineState.h>
+
+#include <MetalDevice.h>
+#include <MetalShader.h>
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>

@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <aurora/rhi/SwapChain.h>
 #include <D3D12Image.h>
+#include <aurora/rhi/Fence.h>
+#include <aurora/rhi/SwapChain.h>
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -27,6 +28,13 @@ namespace sky::aurora {
         ~D3D12SwapChain() override;
 
         bool Init(const Descriptor &desc);
+        Device                *GetDevice() const noexcept override;
+        SurfaceQueryResult     QuerySurface() const noexcept override;
+        SwapChainAcquireResult TryAcquireFrame(uint64_t timeoutNs) noexcept override;
+        PresentationResult     TryPresentFrame(uint64_t serial, bool gpuComplete) noexcept override;
+        FenceQueryResult       RetireFrame(uint64_t serial, bool abandon) noexcept override;
+        PresentationResult     TryResize(uint32_t width, uint32_t height) noexcept override;
+        PresentationResult     TryClose() noexcept override;
 
         uint32_t    AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t timeoutNs) override;
         void        Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas) override;
@@ -39,6 +47,17 @@ namespace sky::aurora {
         Extent2D    GetSurfaceSize() const override;
 
     private:
+        struct PresentationFrame {
+            uint64_t serial     = 0;
+            uint32_t imageIndex = INVALID_INDEX;
+            FencePtr presentFence;
+            bool     presented = false;
+            GpuError error;
+        };
+        std::vector<PresentationFrame> presentationFrames;
+        uint64_t                       presentationSerial = 0;
+        bool                           checkedProtocol    = false;
+        bool                           directProtocol     = false;
         void DestroySwapchain();
 
         D3D12Device              &device;
@@ -50,6 +69,8 @@ namespace sky::aurora {
         Extent2D                  extent      = {1, 1};
         uint32_t                  bufferCount = 3;
         bool                      vsync       = false;
+        bool                                     allowTearing = false;
+        uint64_t                                 surfaceRevision = 1;
     };
 
 } // namespace sky::aurora

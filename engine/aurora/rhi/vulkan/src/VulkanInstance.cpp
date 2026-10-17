@@ -126,6 +126,12 @@ namespace sky::aurora {
         }
 
         enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+        surfaceMaintenance = HasExtension(supportedExts, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) &&
+                             HasExtension(supportedExts, VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+        if (surfaceMaintenance) {
+            enabledExtensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+            enabledExtensions.push_back(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+        }
 #if SKY_PLATFORM_WINDOWS
         enabledExtensions.push_back("VK_KHR_win32_surface");
 #elif SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS

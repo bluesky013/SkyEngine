@@ -3,6 +3,7 @@
 //
 
 #include <VulkanSemaphore.h>
+
 #include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
@@ -11,8 +12,12 @@ static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
 
-    VulkanSemaphore::VulkanSemaphore(VulkanDevice &dev)
-        : device(dev)
+    const Device *VulkanSemaphore::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    VulkanSemaphore::VulkanSemaphore(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -28,15 +33,13 @@ namespace sky::aurora {
         type = desc.type;
 
         VkSemaphoreTypeCreateInfo typeInfo = {};
-        typeInfo.sType         = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-        typeInfo.semaphoreType = (type == SemaphoreType::TIMELINE)
-                                     ? VK_SEMAPHORE_TYPE_TIMELINE
-                                     : VK_SEMAPHORE_TYPE_BINARY;
-        typeInfo.initialValue  = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
+        typeInfo.sType                     = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+        typeInfo.semaphoreType             = (type == SemaphoreType::TIMELINE) ? VK_SEMAPHORE_TYPE_TIMELINE : VK_SEMAPHORE_TYPE_BINARY;
+        typeInfo.initialValue              = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
 
         VkSemaphoreCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        createInfo.pNext = &typeInfo;
+        createInfo.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        createInfo.pNext                 = &typeInfo;
 
         VkResult result = device.GetDeviceFn().vkCreateSemaphore(device.GetNativeHandle(), &createInfo, nullptr, &semaphore);
         if (result != VK_SUCCESS) {
@@ -58,10 +61,10 @@ namespace sky::aurora {
     {
         SKY_ASSERT(type == SemaphoreType::TIMELINE);
         VkSemaphoreWaitInfo waitInfo = {};
-        waitInfo.sType          = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-        waitInfo.semaphoreCount = 1;
-        waitInfo.pSemaphores    = &semaphore;
-        waitInfo.pValues        = &value;
+        waitInfo.sType               = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount      = 1;
+        waitInfo.pSemaphores         = &semaphore;
+        waitInfo.pValues             = &value;
 
         const VkResult res = device.GetDeviceFn().vkWaitSemaphores(device.GetNativeHandle(), &waitInfo, timeoutNs);
         return res == VK_SUCCESS;
@@ -71,9 +74,9 @@ namespace sky::aurora {
     {
         SKY_ASSERT(type == SemaphoreType::TIMELINE);
         VkSemaphoreSignalInfo signalInfo = {};
-        signalInfo.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
-        signalInfo.semaphore = semaphore;
-        signalInfo.value     = value;
+        signalInfo.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
+        signalInfo.semaphore             = semaphore;
+        signalInfo.value                 = value;
 
         device.GetDeviceFn().vkSignalSemaphore(device.GetNativeHandle(), &signalInfo);
     }

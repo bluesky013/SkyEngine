@@ -2,17 +2,20 @@
 // Created by blues on 2026/3/29.
 //
 
-#include "VulkanDevice.h"
-#include "VulkanCommandPool.h"
-#include "VulkanConversion.h"
-#include "VulkanDescriptorBatch.h"
-#include "VulkanFence.h"
-#include "VulkanInstance.h"
-#include "VulkanPipelineState.h"
-#include "VulkanResourceGroup.h"
-#include "VulkanSemaphore.h"
-#include "VulkanSwapChain.h"
+#include <VulkanDevice.h>
+#include <common/FrameTransientPool.h>
+
 #include "rdg/VulkanRDGBackend.h"
+#include "rdg/VulkanRenderPassCache.h"
+#include <VulkanCommandPool.h>
+#include <VulkanConversion.h>
+#include <VulkanDescriptorBatch.h>
+#include <VulkanFence.h>
+#include <VulkanInstance.h>
+#include <VulkanPipelineState.h>
+#include <VulkanResourceGroup.h>
+#include <VulkanSemaphore.h>
+#include <VulkanSwapChain.h>
 #include <core/logger/Logger.h>
 #include <cstring>
 #include <rdg/VulkanDeviceFrameContext.h>
@@ -33,12 +36,16 @@ namespace sky::aurora {
         return false;
     }
 
-    VulkanDevice::VulkanDevice(VulkanInstance &inst) : instance(inst)
+    VulkanDevice::VulkanDevice(VulkanInstance &inst)
+        : transientPool(std::make_unique<FrameTransientPool>(*this)), renderPassCache(std::make_unique<VulkanRenderPassCache>(*this)), instance(inst)
     {
     }
 
     VulkanDevice::~VulkanDevice()
     {
+        pipelineCache.Clear();
+        renderPassCache.reset();
+        transientPool.reset();
         for (auto &q : queues) {
             q.reset();
         }
@@ -213,6 +220,15 @@ namespace sky::aurora {
             LOG_I(TAG, "enabled device extension: %s", extension);
         }
 
+        VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+        if (instance.HasSurfaceMaintenance() && HasDeviceExtension(supportedExtensions, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+            VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+            queried.pNext = &maintenance;
+            instFn.vkGetPhysicalDeviceFeatures2(gpu, &queried);
+            swapchainMaintenance = maintenance.swapchainMaintenance1 == VK_TRUE;
+            if (swapchainMaintenance)
+                enabledExtensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+        }
         QueryDeviceFeatures();
 
         if (vkFeature13.dynamicRendering == VK_FALSE) {
@@ -242,6 +258,8 @@ namespace sky::aurora {
         enabledFeature11.pNext                = &enabledFeature12;
         enabledFeature12.pNext                = &enabledFeature13;
         enabledFeature13.pNext                = &enabledFeature14;
+        if (swapchainMaintenance)
+            enabledFeature14.pNext = &maintenance;
 
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -340,7 +358,7 @@ namespace sky::aurora {
 
     DeviceFrameContext *VulkanDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)
     {
-        return new VulkanDeviceFrameContext(this, info);
+        return BackendFrameContext::Create<VulkanDeviceFrameContext>(this, info);
     }
 
     Fence *VulkanDevice::CreateFence(const Fence::Descriptor &desc)

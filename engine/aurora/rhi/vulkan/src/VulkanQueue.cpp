@@ -3,14 +3,15 @@
 //
 
 #include <VulkanQueue.h>
-#include <VulkanDevice.h>
+
 #include <VulkanCommandPool.h>
+#include <VulkanConversion.h>
+#include <VulkanDevice.h>
 #include <VulkanFence.h>
 #include <VulkanSemaphore.h>
-#include <VulkanConversion.h>
+#include <algorithm>
 #include <aurora/rhi/SubmitInfo.h>
 #include <core/logger/Logger.h>
-#include <algorithm>
 #include <vector>
 
 static const char *TAG = "AuroraVulkan";
@@ -18,10 +19,7 @@ static const char *TAG = "AuroraVulkan";
 namespace sky::aurora {
 
     VulkanQueue::VulkanQueue(VulkanDevice &dev, QueueType t, VkQueue native, uint32_t family)
-        : device(dev)
-        , type(t)
-        , queue(native)
-        , familyIndex(family)
+        : device(dev), type(t), queue(native), familyIndex(family)
     {
     }
 
@@ -29,14 +27,36 @@ namespace sky::aurora {
 
     void VulkanQueue::Submit(const SubmitInfo &info)
     {
+        const auto result = TrySubmit(info);
+        if (result.status != QueueSubmitStatus::ACCEPTED)
+            LOG_E(TAG, "Queue submission failed: %lld", result.error.nativeCode);
+    }
+
+    QueueSubmitResult VulkanQueue::TrySubmit(const SubmitInfo &info) noexcept
+    {
+
+        if (info.commandBuffers.size() > UINT32_MAX || info.waitSemaphores.size() > UINT32_MAX || info.signalSemaphores.size() > UINT32_MAX)
+            return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+        for (auto *buffer : info.commandBuffers) {
+            if (!buffer || buffer->GetDevice() != &device)
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+        }
+        for (const auto *semaphores : {&info.waitSemaphores, &info.signalSemaphores}) {
+            for (const auto &entry : *semaphores) {
+                if (!entry.semaphore || entry.semaphore->GetDevice() != &device)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            }
+        }
+        if (info.fence && info.fence->GetDevice() != &device)
+            return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
         const auto &fn = device.GetDeviceFn();
 
         std::vector<VkCommandBufferSubmitInfo> cmdInfos;
         cmdInfos.reserve(info.commandBuffers.size());
         for (auto *cb : info.commandBuffers) {
             VkCommandBufferSubmitInfo ci = {};
-            ci.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-            ci.commandBuffer = static_cast<VulkanCommandBuffer *>(cb)->GetNativeHandle();
+            ci.sType                     = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+            ci.commandBuffer             = static_cast<VulkanCommandBuffer *>(cb)->GetNativeHandle();
             cmdInfos.push_back(ci);
         }
 
@@ -44,13 +64,13 @@ namespace sky::aurora {
             std::vector<VkSemaphoreSubmitInfo> out;
             out.reserve(src.size());
             for (const auto &s : src) {
-                auto *sema = static_cast<VulkanSemaphore *>(s.semaphore);
-                VkSemaphoreSubmitInfo si = {};
-                si.sType       = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-                si.semaphore   = sema != nullptr ? sema->GetNativeHandle() : VK_NULL_HANDLE;
-                si.value       = s.value;
-                si.stageMask   = static_cast<VkPipelineStageFlags2>(FromPipelineStageFlags(s.stageMask));
-                si.deviceIndex = 0;
+                auto                 *sema = static_cast<VulkanSemaphore *>(s.semaphore);
+                VkSemaphoreSubmitInfo si   = {};
+                si.sType                   = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+                si.semaphore               = sema != nullptr ? sema->GetNativeHandle() : VK_NULL_HANDLE;
+                si.value                   = s.value;
+                si.stageMask               = FromPipelineStageFlags2(s.stageMask);
+                si.deviceIndex             = 0;
                 out.push_back(si);
             }
             return out;
@@ -59,7 +79,7 @@ namespace sky::aurora {
         auto waitInfos   = buildSemaInfos(info.waitSemaphores);
         auto signalInfos = buildSemaInfos(info.signalSemaphores);
 
-        VkSubmitInfo2 submit = {};
+        VkSubmitInfo2 submit            = {};
         submit.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
         submit.waitSemaphoreInfoCount   = static_cast<uint32_t>(waitInfos.size());
         submit.pWaitSemaphoreInfos      = waitInfos.data();
@@ -74,9 +94,11 @@ namespace sky::aurora {
         }
 
         const VkResult result = fn.vkQueueSubmit2(queue, 1, &submit, fence);
-        if (result != VK_SUCCESS) {
-            LOG_E(TAG, "vkQueueSubmit2 failed: %d", result);
-        }
+        if (result == VK_SUCCESS)
+            return {QueueSubmitStatus::ACCEPTED};
+        if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+            return {QueueSubmitStatus::REJECTED, {GpuErrorCode::OUT_OF_MEMORY, result}};
+        return {QueueSubmitStatus::INDETERMINATE, {result == VK_ERROR_DEVICE_LOST ? GpuErrorCode::DEVICE_LOST : GpuErrorCode::NATIVE_ERROR, result}};
     }
 
     void VulkanQueue::WaitIdle()
@@ -97,11 +119,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingVk = static_cast<VulkanBuffer *>(staging.Get());
+        auto     *stagingVk = static_cast<VulkanBuffer *>(staging.Get());
         if (stagingVk == nullptr) {
             LOG_E(TAG, "failed to create staging buffer for upload");
             return 0;
@@ -132,8 +154,8 @@ namespace sky::aurora {
         }
         cb->Begin();
         {
-            auto blit = cb->CreateBlitEncoder();
-            uint64_t src = 0;
+            auto     blit = cb->CreateBlitEncoder();
+            uint64_t src  = 0;
             for (const auto &req : requests) {
                 blit->CopyBuffer(stagingVk, dst, req.size, src, req.dstOffset);
                 src += req.size;
@@ -176,11 +198,11 @@ namespace sky::aurora {
         }
 
         Buffer::Descriptor stagingDesc = {};
-        stagingDesc.size   = total;
-        stagingDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-        stagingDesc.memory = MemoryType::CPU_TO_GPU;
+        stagingDesc.size               = total;
+        stagingDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+        stagingDesc.memory             = MemoryType::CPU_TO_GPU;
         BufferPtr staging(device.CreateBuffer(stagingDesc));
-        auto *stagingVk = static_cast<VulkanBuffer *>(staging.Get());
+        auto     *stagingVk = static_cast<VulkanBuffer *>(staging.Get());
         if (stagingVk == nullptr) {
             LOG_E(TAG, "failed to create staging buffer for image upload");
             return 0;
@@ -215,28 +237,28 @@ namespace sky::aurora {
         barrier.srcStage = PipelineStageBit::TOP;
         barrier.dstStage = PipelineStageBit::TRANSFER;
         ImageBarrierInfo imageBarrier;
-        imageBarrier.image                = dst;
-        imageBarrier.subRange.baseLevel   = 0;
-        imageBarrier.subRange.levels      = maxLevel + 1;
-        imageBarrier.subRange.baseLayer   = 0;
-        imageBarrier.subRange.layers      = maxLayer + 1;
-        imageBarrier.srcAccess            = AccessFlagBit::NONE;
-        imageBarrier.dstAccess            = AccessFlagBit::COPY_DST;
-        imageBarrier.oldLayout            = ImageLayout::UNDEFINED;
-        imageBarrier.newLayout            = ImageLayout::TRANSFER_DST;
+        imageBarrier.image              = dst;
+        imageBarrier.subRange.baseLevel = 0;
+        imageBarrier.subRange.levels    = maxLevel + 1;
+        imageBarrier.subRange.baseLayer = 0;
+        imageBarrier.subRange.layers    = maxLayer + 1;
+        imageBarrier.srcAccess          = AccessFlagBit::NONE;
+        imageBarrier.dstAccess          = AccessFlagBit::COPY_DST;
+        imageBarrier.oldLayout          = ImageLayout::UNDEFINED;
+        imageBarrier.newLayout          = ImageLayout::TRANSFER_DST;
         barrier.imageBarriers.push_back(imageBarrier);
         cb->PipelineBarrier(barrier);
 
         {
-            auto blit = cb->CreateBlitEncoder();
+            auto                         blit = cb->CreateBlitEncoder();
             std::vector<BufferImageCopy> regions(requests.size());
-            uint64_t bufferOffset = 0;
+            uint64_t                     bufferOffset = 0;
             for (size_t i = 0; i < requests.size(); ++i) {
-                const auto &req    = requests[i];
-                auto       &region = regions[i];
-                region.bufferOffset      = bufferOffset;
-                region.bufferRowLength   = req.bufferRowLength;
-                region.bufferImageHeight = req.bufferImageHeight;
+                const auto &req           = requests[i];
+                auto       &region        = regions[i];
+                region.bufferOffset       = bufferOffset;
+                region.bufferRowLength    = req.bufferRowLength;
+                region.bufferImageHeight  = req.bufferImageHeight;
                 region.subRange.level     = req.mipLevel;
                 region.subRange.baseLayer = req.layer;
                 region.subRange.layers    = 1;

@@ -7,6 +7,12 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 后端以独立动态库形式编译（`AuroraVulkan` / `AuroraDX12` / `AuroraMetal`），
 通过 `Instance::Init({api = ...})` 在运行时 dlopen 选择。
 
+Aurora 属于 foundation，接口与实现均留在 `engine/aurora`，不得创建 Aurora plugin。Renderer 接口位于 `core/include/aurora/renderer`，实现位于 `core/src/renderer`，测试位于 `core/test/renderer`；实现并入 Aurora.Core.Static，Framework 注册归 Aurora.Adaptor.Static，沿用 Aurora.Render 模块入口。Aurora.Renderer.Interface 仅暴露接口依赖，不建立第二套 core/adaptor/runtime。原生后端保留 `engine/aurora/rhi/{vulkan,dx12,metal}`，`rhi/common` 共享 slot/提交生命周期、有界 buffer 分配和 device transient 池/借用绑定，不统一后端 compiler/executor。目录命名如需调整另行 review，不迁入 plugins。
+
+B11 的输出调度位于 `core/src/renderer/frame/FrameScheduler`，先 CPU prepare/可用 lease，再 timeout=0 acquire/复核，Compile 不获取窗口。输出借用、提交同步与 presentation 退休分别保活，完成只由现有 poll owner 转发；没有新 target 或第二个 ring。B12 已接生产 provider/主循环，B13 沿用单图合成前 acquire。
+
+B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHost 在既有 adaptor 中管理唯一服务与停止事件泵，SceneProxy 只追加 owned 生命周期命令。TrySubmit/PollEvents 归单一宿主 producer，不能让多个模块各用一套 sequence 或分抢事件。编辑器主线程完成所有窗口 UI 布局、字体/图标更新后生成 owned 快照，渲染端只解析精确资源和逻辑 ViewOutput；真实 loader lease 保活 feature 代码。Win32 窗口延迟 WM_CLOSE 的原生销毁，收到退休回执后才释放；拥有窗口的 Application 派生类须在窗口成员析构前调用幂等 Shutdown。Windows 旧 GPU loop 编译排除，非 Windows 保持原整套宿主路径；World 自动提取归独立 scene-bridge。
+
 ## 命名空间
 
 接口与所有后端一律使用 **`namespace sky::aurora`**。
@@ -41,9 +47,16 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 1. `OnInit(devInit)` — 后端创建 native device
 2. **`UpdateDeviceCaps()`** — 后端填 `capability.maxThreads` 等
 
-并行编码的 ThreadPool / ThreadContext 由 `DeviceFrameContext` 持有（见 `aurora-frame-context` change）：
-- `DeviceFrameContextInitInfo.parallelNum` 指定 worker 线程数
-- 后端 FrameContext 在 `parallelNum > 1` 时构造 ThreadPool，ThreadContext 在 FrameContext 内初始化并由 FrameContext 持有生命周期
+并行编码的 ThreadPool / ThreadContext 目标归 `DeviceFrameContext` 持有，`parallelNum` 只表示 GPU 编码并行度。
+当前 Vulkan/DX12 已实现 slot/coordinator command 资源、typed buffer copy 冻结图及各自串行 Compile/Dispatch；Vulkan 双 compiler/encoder 覆盖单 color image upload/raster/readback，并已验证同 attachment 连续 LOAD 的多 subpass、独立 dynamic scopes 和模式对应 inheritance 计划。shader local read 显式拒绝。Vulkan parallelNum>1 已按 slot/实际 worker/ordinal 录制 secondary，TryCollect 在 coordinator 收齐并稳定组装 primary；单 worker 不建 pool，仍走 inline。Vulkan native 故障/取消/teardown 已验证；错误汇总不得掩盖任一 DeviceLost。DX12 已由独立 compiler/encoder 生成单 color image/raster/copy 计划，按实际 worker/slot/ordinal 并行录制 DIRECT lists 并稳定提交；紧密行 copy 的 footprint scratch 随计划退休，Close 失败后丢弃 list 并安全重建。B04 已实现 Vulkan/DX12 的 descriptor/staging/UBO/scratch 显式 lease 分区和容量检查；B07 已补 scalar UBO、indexed/depth raster、ShaderResolver 前置解析及 scope 内 PSO 复用；B10 已补当前纹理/MSAA/resolve/cache 子集，B14 已切换 Windows 宿主；更多 bindings/compute 与 Metal 新协议仍待实施。CPU prepare 使用独立 pool，不从 context 取得 pool/arena。
+
+B05 的 `ResourceCatalog` 位于 Aurora core 的 renderer/resource，只在 coordinator 修改；prepare 只消费冻结 CPU metadata，backing pins 留给 coordinator/submission。`usageVariant` 表示布局兼容族，回退必须成组选择同版本 metadata/backing。`ResourceUploader` 已接通 buffer/RGBA8 2D image 共用分块上传：必须核验全部 native RecordedFrame copy 回执、Accepted 和成功完成，才能经内部 `AdoptResident` 发布。uploader 独占该 context 的完成轮询并透传其它完成；取消和错误不替代 GPU drain。每版本仅一个未决块，Accepted/完成进度分离，完整内容才 InGraph/Resident；部分 backing 单独限额，销毁 owner 不保留可被新 backing 误用的完成前缀。两种资源共享 pending backing 的逻辑字节/数量预算；第十三子批已自动纳管 backing，tracking 租约随 Resident/冻结版本转交，最后 owner 和 GPU 使用退出后由 context 回收；第十四子批已接逐 mip/layer 边界与混合状态续传；其它格式和跨队列仍待后续。
+
+B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本并写同一 lease 的 View/Material/Object UBO；失败不得偷偷换 mesh。当前为单 subMesh/距离 LOD/点光源 CPU 数据，生产 provider、完整 pipeline/光照仍待后续批次。
+
+B09 的 Core Completion/ContinuationExecutor 已接入 prepare：终态只在 kernels 收齐、内部归并/借用清理后发布，用户 continuation 在指定 executor 执行。串行回退为同一 prepare pool 的单任务，仍可取消。CancelRequested 不代表完成，外部 read views/continuation captures 另行阻挡下一 packet 和 CPU 存储释放。RequestShutdown 仍收齐已接受包；主动取消走 RequestCancelPrepare。当前 CPU coordinator 失败/取消后须完整重建，生产模块卸载与 arena/GPU 组合仍待 B12/B13。
+
+B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only transient、device pool/frame lease，以及同图整对象 alias。只将完整描述相同且存活区间严格不重叠的 transient 映射到同一 backing；逻辑内容独立，原生物理同步由各 compiler 生成。跨帧只复用已归还的同描述/epoch backing。第四子批已接通完整 RGBA8 2D image 上传/Resident：载荷按 layer 再 mip 紧密排列，整版本接纳，图内 handle 不等于全局就绪；ResourceBacking 的 buffer/image variant 防止类型混用。第五、六子批已接 Texture2D/Texture2DArray/sampler、类型反射、显式 mip/layer view 与三模式实际采样/双在途保活；只要求 view 暴露的内容已定义。cache v2 拒绝旧 blob，离线缓存须重建；第七子批已接部分 initializedRanges 导入与物理子资源状态，图初末 layout 仍统一；copy/view 按范围转换，alias 不继承内容，完整 export/Resident 要求不变。第八子批已支持局部矩形与显式 texel 行距，padding 不属于有效内容；第九子批已接 initializedRegions 跨图矩形内容声明；第十子批已接 RGBA8 image 分块、提交/完成进度及有界部分 backing；第十一子批已接 buffer 字节内容/分块，两者共用进度/退休/预算；第十二子批已接同 context/graphics queue 的显式资源状态账本，第十三子批已接自动 uploader 纳管/退休和 accepted 状态导入，第十四子批已接混合 mip/layer 图边界与账本，第十五子批已接 RGBA8/D32 显式单 mip/layer 附件 view，第十六子批已接 RGBA8 2/4/8× color MSAA/resolve，第十七子批已接匹配采样数的 D32 MSAA depth；depth resolve、更多格式/跨队列留后续。原生后端保留原 RHI 目录，目录 change 独立处理。
 
 如果你新增了 capability 字段，在 `UpdateDeviceCaps()` 里写它。
 
@@ -57,7 +70,7 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 
 ## DescriptorEncoder 批量写入
 
-descriptor 写入统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncoder.h`），`ResourceUpdateInfo` + `ResourceGroup::Update(vector)` 已移除：
+直接 RHI/旧宿主的 ResourceGroup 更新统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncoder.h`），`ResourceUpdateInfo` + `ResourceGroup::Update(vector)` 已移除。新 FrameContext 图路径由各 native compiler 在 Compile 内写入 lease-owned descriptor，worker 只消费冻结绑定，不重用旧宿主的隐式 ring：
 
 - 接口：`ResourceGroup::CreateEncoder()` 返回 `std::unique_ptr<DescriptorEncoder>`；`WriteBuffer(binding, buffer, offset, range, arrayElement=0)` / `WriteImage` / `WriteSampler` + `End()` 提交。
 - **Vulkan**：`VulkanResourceGroup` 持持久化 packed `mWriteInfos` + `mDirty`；`VulkanShader` 为每个 set 建 `VkDescriptorUpdateTemplate`（core 1.1，1.3 floor 下始终可用）。`End()` 仅 dirty 时 `vkUpdateDescriptorSetWithTemplate`；template 创建失败回退 `vkUpdateDescriptorSets`。DYNAMIC + `range==0` 仍 assert/warning（`aurora-dynamic-ubo-pack` 约定）。
@@ -115,6 +128,9 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 ### Queue::Submit 契约
 
+- 新 Renderer 接入使用 `Queue::TrySubmit`：Accepted 仅表示接受；Rejected 保证无入队；Indeterminate 必须保留引用并隔离到安全完成/teardown。Vulkan/DX12 已实现，Metal 新入口当前明确 Unsupported。
+- 新路径使用 `Fence::Query` 区分 Pending/Signaled/Failed、`TryReset` 读取 reset 错误。Reset 不产生 submission；拒绝后的 Pending 不能作为等待理由。旧 BeginFrame/EndFrame 尚未迁移为 slot lease，不允许空转复用未提交的 fence。
+
 - `Queue::Submit(SubmitInfo)`：`SubmitInfo` 含 `commandBuffers` / `waitSemaphores` / `signalSemaphores` / `fence`。
 - `SemaphoreSubmitInfo::stageMask` 表达 wait 前 / signal 后的 pipeline stage（sync2 语义）。
 
@@ -142,7 +158,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 - `RenderViewport`（`aurora/rdg/RenderViewport.h`）是表面基类：`Begin`/`Acquire`/`Release` + backbuffer/format/extent + acquire/render-done sema 访问器（不含 frame index/fence）。
 - `ClientViewport` 持 `SwapChain` + per-viewport 帧 ring sema（本地 `mFrameSlot` 计数，非 image index、非全局 frame index）。
-- inflight frame 全局化：`DeviceFrameContext` 持全局 `mFrameIndex` + N 个 fence + `GetFrameFence()`；多 viewport 一帧内共享，`SubmitInfo.fence` 用全局 fence。
+- inflight frame 全局化：`DeviceFrameContext` 是 slot ring 的唯一所有者；新路径经 lease、Submit/PollCompleted 驱动。直接宿主 Begin/End/GetFrameFence 与 lease 在一个 context 内禁止混用；多 viewport 共用同一 lease。
 - RDG 绑定 viewport：`RenderGraph::BindViewport(name, viewport)`（`ViewportImageTag`），prepare 阶段（`CullPasses` 开头）`Acquire` 解析裸 `Image*`（无 refcount，避开 swapchain image 的 `unique_ptr` 所有权冲突）。
 
 ## Barrier 用法
@@ -248,7 +264,7 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
 | `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12 + Metal 直接绑定，dynamic offset 三后端齐） |
 | `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
-| `aurora-renderer` | 未开 | top-level 渲染主循环 |
+| `aurora-renderer` | Windows 主流程与宿主已接入 | Vulkan 双 compiler / DX12；Metal 对等仍待 P02 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
 | `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
 | `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除 legacy `SkyRender`/`RenderAdaptor`；引擎内置 `configs/` |
@@ -256,17 +272,26 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 
 详见 `openspec/changes/<name>/`。
 
-## Launcher 对接（AuroraRender）+ 桥接（Aurora.Adaptor）
+## Windows 宿主与模块生命周期
 
-- 三个目录/ target（对齐 legacy `render/adaptor`(静态) + `SkyRender`/`SkyRender.Editor`(dll)）：
-  - `engine/aurora/adaptor` → `Aurora.Adaptor`（**STATIC**）= aurora→framework 桥接：`AuroraModule`(IModule 实现) + `AuroraReflection(SerializationContext*)` + assets + components。
-  - `engine/aurora/runtime` → `AuroraRender`（**SHARED**）= launcher 动态模块，仅 `AuroraRegistry.cpp` 的 `REGISTER_MODULE(sky::aurora::AuroraModule)`；链接 `Aurora.Adaptor`。后端 dll 依赖与 `Launcher` 部署依赖挂在此。
-  - `engine/aurora/editor` → `Aurora.Render.Editor`（**SHARED**）= 编辑器扩展模块；不建 device；`AuroraReflection` + `RegisterAuroraAssetViews`（反射 view data）+ 自定义材质/材质实例视图（`MaterialEditorView`，经 `EditorUi` 的 `IAssetViewProvider` seam）。链接 `Aurora.Adaptor.Static` + `EditorCore` + `EditorUi`（+`UI`），**不链 `EditorShell`**。
-- `AuroraReflection` 的幂等走 `sky::Once`（跨 DLL；函数内 `static bool` 是 per-DLL 的，见根 `AGENTS.md`）。`AuroraModule::Init`（game 侧 `AuroraRender`）调用它；editor 侧由 `Aurora.Cook` 与 `Aurora.Render.Editor` 各自保证已注册，`Once` 去重。
-- 桥接内容：`AssetTraits<aurora::Mesh/Material/Texture>` + asset data（Bin Save/Load）+ `AssetManager::RegisterAssetHandler`；组件在 `sky::aurora` 命名空间**不再加 `Aurora` 前缀**：`StaticMeshComponent`（Uuid mesh/material，`SET_ASSET_TYPE`）、`DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`（按光源类型拆分）、`CameraComponent`，注册到 `ComponentFactory` 组 `"Aurora"`。
-- 编辑器对接：走**编辑器扩展模块**（`engine/aurora/editor` → `Aurora.Render.Editor`，`AuroraEditorModule : IModule` + `REGISTER_MODULE`），由 `modules_editor.json` 加载，**不建 aurora device**（编辑器渲染由 `EditorRender` 宿主提供）；`Init` 做 `AuroraReflection` + `RegisterAuroraAssetViews`（每资产 view data 注册到 `editor/core/asset/AssetViewData.h` 的 `AssetViewDataRegistry`）+ 注册材质编辑器视图 provider（`editor/ui/AssetViewProvider.h` 的 `IAssetViewProvider`）。内容侧对应 `engine/content/editor` → `Content.Views`。UI 依赖经 `EditorUi`（`editor/ui/*`）获得，不依赖 `EditorShell`；`engine/content/editor`、`engine/aurora/editor` 作为编辑器扩展在 `sandbox` 之后配置（`engine/CMakeLists.txt`）。
-- 加载方：framework `GameApplication` → `ModuleManager`；`GameApplication` **只注册 `AuroraRender`**，不再加载 legacy `SkyRender`，`Launcher` 也不再链接 `RenderAdaptor`。
-- 窗口：宿主经 `ISystemNotify::GetMainWindowHandle()` 提供原生窗口 handle（`GameApplication` 用 `NativeWindow::GetNativeHandle()` 实现）；模块优先用它建 `ClientViewport`，不依赖 `Platform::GetMainWinHandle()`。
-- 生命周期：`Init`（`Instance::Init` + `CreateDevice` + `DeviceFrameContext`/`CommandPool`）→ `Start`（主窗口 handle → `ClientViewport`）→ `Tick`（acquire → barrier → clear → barrier → submit → present）→ `Shutdown`。
-- 内置配置：仓库根 `configs/`（构建时拷到 exe 旁 `configs/`）；`GameApplication` 在项目 workFs 缺 `configs/modules_game.json` 时回退到内置配置。
-- 首里程碑仅 clear/present；`Renderer` 主循环、RDG 场景后续接入 `Tick`。
+- Aurora 属于 foundation，继续使用 `Aurora.Adaptor.Static`、`Aurora.Render` 和 `Aurora.Render.Editor`，不新增 plugin 或重复 renderer 子模块。
+- Windows AuroraModule、EditorRenderer 均经 RendererHost 创建/发布唯一 `Interface<IRenderer>`。各宿主只有一个 packet producer/事件消费者；其他模块不能独立分配 sequence、提交或消费事件。SceneSource/RenderSceneProxy 只在主线程追加 owned 命令，World 提取归 scene-bridge。
+- EditorApplication 在模块加载前选择 provider-only；SandboxModule 显式依赖 Aurora.Render、shader compiler 和编辑器扩展，provider 先就绪、消费者先退出。编辑器主/工具窗口与离屏图共用一个 Renderer/Device/FrameContext。
+- UI 布局、字形、图标、输入和窗口操作留主线程。UiSnapshotProducer 只持 CPU 数据，全部窗口完成图集修改后才生成精确版本快照；UI texture 0 是白图，1 是场景离屏结果，其余为字体/图标。GPU 上传、SDF/采样、clip/alpha、图像依赖和 native 缓存由渲染端 feature 处理。
+- UI 数据与资源沿用现有有界资源上传和 slot allocator。旧 atlas 版本通过 releasedResources 释放，排队候选、未决 upload 和提交 pins 在安全退出前继续保活，禁止在主线程创建 GPU 纹理或另建上传 ring。
+- NativeWindow deferred-close 保护 HWND：工具窗等 ViewportDestroyed 后销毁；整个宿主等 RendererStopped 后销毁 Renderer，再解除窗口保护。Game/Editor/XR 在窗口成员析构前 Shutdown，并在 drain 中保持平台事件泵。
+- feature 的 moduleLease 必须来自 ModuleManager::RetainModule，不能用 dummy owner 代替真实动态库。feature 对象先释放，代码 lease 后释放；loader 最后 lease 才 detach/unload，依赖库随消费者代码保活。静态模块代码常驻宿主，复用相同接口。
+- 模块 Init 失败先 Shutdown/销毁，依赖消费者不初始化，Application 返回失败。跨 DLL 服务仍用 Singleton，注册幂等仍用 Once。
+- Windows 旧 AuroraModule GPU loop 和旧 EditorRenderer 编译排除。未验证平台保留整套旧入口；Metal 的新编译/输出/宿主协议仍待 P02，不能借用新 Renderer 的设备另起旧 loop。
+
+## Image 边界状态
+
+- ImageBoundaryState 的显式表必须完整覆盖 layer*mipLevels+mip，统一 layout 与全等数组语义相同；final 不接受 UNDEFINED，已有 texel 不能位于 initial UNDEFINED 的 cell。状态布局不扩大内容资格。
+- FrameContext 从 Image::GetMipLayerCount 查询已确认归属的实际 backing cell 数；默认 trackedImageSubresources=65,536，和 backing 数分别限额，owner/GPU 安全退休才归还。混合快照有复制成本，仍由 coordinator 构建；跨队列、aspects/planes 与 Metal 新协议未开放。
+
+## Raster attachment view
+
+- RasterAttachmentView 独立于采样 view，color/depth 各选一个 mip/layer，默认 0/0；LOAD/STORE/CLEAR 和内容依赖只影响该 cell，scissor 与 color/depth 匹配按所选 mip extent，整图 export 不扩大资格。
+- Vulkan/DX12 的 native view/RTV/DSV 在 Compile 构造并随计划/提交退休，workers 不创建；RenderPass 合并同时比较逻辑附件和两个 view。当前仅 2D；RGBA8 可用设备支持的 2/4/8× color MSAA/resolve，D32 支持匹配 color 采样数的单 sample 或 2/4/8× MSAA；同 pass attachment feedback 仍整 image 拒绝。
+
+- B10 第十六子批的 colorResolve 是 raster 内部独立写入；源 CLEAR/LOAD 保证全样本有效，源丢弃不影响 resolve 结果，目标可选非零 mip/layer。MSAA storage 限 GPU_ONLY/单 mip；RGBA8 仅 RENDER_TARGET，D32 仅 DEPTH_STENCIL，分别预检设备能力且 color/depth extent 与 samples 匹配；不开放 depth resolve、采样、buffer copy 或局部初始化。上传回执把 resolve target 计为额外写入。

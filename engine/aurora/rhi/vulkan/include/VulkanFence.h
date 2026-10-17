@@ -18,12 +18,18 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void Wait() override;
-        void Reset() override;
-        bool IsSignaled() override;
-        bool WaitFor(uint64_t timeoutNs) override;
+        void               Wait() override;
+        void               Reset() override;
+        bool               IsSignaled() override;
+        bool               WaitFor(uint64_t timeoutNs) override;
+        FenceQueryResult   Query() noexcept override;
+        GpuOperationResult TryReset() noexcept override;
+        const Device      *GetDevice() const noexcept override;
 
-        VkFence GetNativeHandle() const { return fence; }
+        VkFence GetNativeHandle() const
+        {
+            return fence;
+        }
 
     private:
         VulkanDevice &device;

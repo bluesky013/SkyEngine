@@ -1,19 +1,22 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/30.
 //
 
 #pragma once
 
-#include <core/template/ReferenceObject.h>
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/Resource.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky::aurora {
+    class Device;
 
-    class Sampler
-        : public RefObject
-        , public IDelayReleaseResource {
+    class Sampler : public RefObject, public IDelayReleaseResource {
     public:
+        virtual const Device *GetDevice() const noexcept
+        {
+            return nullptr;
+        }
         struct Descriptor {
             Filter    magFilter        = Filter::LINEAR;
             Filter    minFilter        = Filter::LINEAR;
@@ -27,7 +30,7 @@ namespace sky::aurora {
             bool      anisotropyEnable = false;
         };
 
-        Sampler() = default;
+        Sampler()           = default;
         ~Sampler() override = default;
     };
 

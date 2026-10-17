@@ -1,6 +1,7 @@
 file(GLOB_RECURSE TEST_FILES test/*)
 
 add_subdirectory(interface)
+add_subdirectory(common)
 
 if (WIN32)
     add_subdirectory(dx12)

@@ -2,8 +2,9 @@
 // Created on 2026/04/02.
 //
 
-#include "MetalBuffer.h"
-#include "MetalDevice.h"
+#include <MetalBuffer.h>
+
+#include <MetalDevice.h>
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 

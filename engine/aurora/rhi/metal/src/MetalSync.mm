@@ -4,9 +4,10 @@
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
-#include "MetalDevice.h"
+#include <MetalSync.h>
+
+#include <MetalDevice.h>
 #include "MetalSharedEvent.h"
-#include "MetalSync.h"
 
 namespace sky::aurora {
 

@@ -40,6 +40,11 @@ namespace sky {
         return configs.OpenFile(CONFIG_PATH);
     }
 
+    GameApplication::~GameApplication()
+    {
+        Shutdown();
+    }
+
     namespace {
         // Product bundles are packaged under `products/<bundle>/` with a
         // `products/bundles.json` manifest (see the add-packaged-asset-bundles

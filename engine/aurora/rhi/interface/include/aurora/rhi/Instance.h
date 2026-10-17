@@ -5,10 +5,13 @@
 #pragma once
 
 #include <aurora/rhi/Device.h>
+#include <aurora/rhi/SubmissionResult.h>
 #include <core/environment/Singleton.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <variant>
 
 namespace sky::aurora {
 
@@ -35,13 +38,35 @@ namespace sky::aurora {
 
         void Init(const Descriptor &);
 
+        class DeviceSession {
+        public:
+            ~DeviceSession();
+            Device  *GetDevice() const noexcept;
+            uint64_t GetEpoch() const noexcept;
+            DeviceSession(const DeviceSession &)            = delete;
+            DeviceSession &operator=(const DeviceSession &) = delete;
+
+        private:
+            friend class Instance;
+            DeviceSession(Instance &, uint64_t);
+            Instance &owner;
+            uint64_t  epoch;
+        };
+        // Exclusive against legacy Init and other sessions; destroy context/resources before releasing the session.
+        std::variant<GpuError, std::unique_ptr<DeviceSession>> Acquire(const Descriptor &);
+
         Device *GetDevice() const
         {
             return device;
         }
 
     private:
-        Device                        *device = nullptr;
+        bool                           Load(const Descriptor &);
+        void                           Reset();
+        std::mutex                     mutex;
+        uint64_t                       nextEpoch = 1;
+        bool                           claimed   = false;
+        Device                        *device    = nullptr;
         std::unique_ptr<Impl>          impl;
         std::unique_ptr<DynamicModule> dynModule;
     };

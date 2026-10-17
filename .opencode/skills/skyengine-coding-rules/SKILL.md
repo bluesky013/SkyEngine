@@ -47,6 +47,13 @@ Do **NOT** use `dynamic_cast` in any new or modified code.
 | Down-cast when the type must be **checked** at runtime | Use the engine's own RTTI / type-id system (e.g., type enums, `GetTypeId()`, or template-based safe casts provided by the framework) |
 | Branching on multiple subtypes | Prefer the visitor pattern or virtual dispatch |
 
+### Validate before downcasting
+
+- Prefer an existing virtual interface, visitor, type tag, or ownership contract; do not introduce a second type/owner API solely to avoid RTTI.
+- Use `static_cast` only after the concrete type is guaranteed. Validate externally supplied objects first, returning an explicit error for unknown owners or mismatched types.
+- Native backend objects use `GetDevice()` to verify the exact device before downcasting. This requires the owner contract to guarantee that objects come from that device's implementation; a backend enum alone cannot establish device identity.
+- Never mechanically replace `dynamic_cast` with `static_cast` or `reinterpret_cast`. Keep rejection behavior and cover the affected ownership boundary with meaningful negative cases.
+
 ### Detection
 
 If you encounter existing `dynamic_cast` during a task, flag it in your response but do **not** remove it unless the current task explicitly covers that code path.
@@ -95,6 +102,14 @@ When reviewing or writing code, if a variable received via `auto` is never modif
 ---
 
 ## Rule 3 — Prefer forward declarations over `#include`
+
+### Include delimiters and paths
+
+- Use `<...>` for standard/system/third-party headers and project headers exposed through a target's include interface, even within that target. Keep the declared module path, e.g. `<aurora/rdg/FrozenFrameGraph.h>` or `<graph/FrameGraphBuilder.h>`; existing backend include roots use `<VulkanDevice.h>`.
+- Use `"..."` for implementation-private headers, test helpers, and private generated headers, e.g. `"VulkanFrameCompiler.h"`, `"rdg/VulkanRDGBackend.h"`, or `"shaders/FrameGraphSPIRV.h"`. A private include directory or test access does not make a header public.
+- Include the source's matching header first, with the delimiter determined by its visibility. Keep existing include groups; clang-format sorts within groups but does not choose delimiters.
+- Use `/` in paths. Do not use `../` to bypass a module's public include path; existing private generated paths are allowed. Delimiters never grant access across a forbidden module boundary.
+- During review, check quoted public headers and angle-bracket private headers against CMake include roots; fix only the task's affected code. Do not replace every quoted include mechanically.
 
 ### Requirement
 

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "MetalQueue.h"
+#include <MetalQueue.h>
 #include <array>
 #include <aurora/rhi/Device.h>
 #include <memory>

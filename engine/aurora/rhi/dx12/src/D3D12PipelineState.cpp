@@ -1,14 +1,14 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/31.
 //
 
-#include "D3D12ShaderFunction.h"
-
-#include <D3D12Device.h>
 #include <D3D12PipelineState.h>
+#include <D3D12ShaderFunction.h>
+
+#include <D3D12Conversion.h>
+#include <D3D12Device.h>
 #include <D3D12RootSignature.h>
 #include <D3D12ShaderFunction.h>
-#include <D3D12Conversion.h>
 #include <core/logger/Logger.h>
 
 #include <algorithm>
@@ -19,8 +19,7 @@ namespace sky::aurora {
 
     // ---- D3D12GraphicsPipeline ----
 
-    D3D12GraphicsPipeline::D3D12GraphicsPipeline(D3D12Device &dev)
-        : device(dev)
+    D3D12GraphicsPipeline::D3D12GraphicsPipeline(D3D12Device &dev) : device(dev)
     {
     }
 
@@ -31,12 +30,12 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto &state = *desc.state;
-        auto *d3dShader = static_cast<D3D12Shader *>(desc.shader);
-        shader = d3dShader;
+        const auto &state     = *desc.state;
+        auto       *d3dShader = static_cast<D3D12Shader *>(desc.shader);
+        shader                = d3dShader;
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = d3dShader->GetRootSignature()->GetNativeHandle();
+        psoDesc.pRootSignature                     = d3dShader->GetRootSignature()->GetNativeHandle();
 
         // shader bytecode
         psoDesc.VS = d3dShader->GetVSByteCode();
@@ -47,13 +46,13 @@ namespace sky::aurora {
         inputElements.reserve(state.vertexAttributes.size());
         for (const auto &attr : state.vertexAttributes) {
             D3D12_INPUT_ELEMENT_DESC element = {};
-            element.SemanticName         = attr.semantic != nullptr ? attr.semantic : "TEXCOORD";
-            element.SemanticIndex        = attr.semanticIndex;
-            element.Format               = FromFormat(attr.format);
-            element.InputSlot            = attr.binding;
-            element.AlignedByteOffset    = attr.offset;
-            element.InputSlotClass       = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-            element.InstanceDataStepRate = 0;
+            element.SemanticName             = attr.semantic != nullptr ? attr.semantic : "TEXCOORD";
+            element.SemanticIndex            = attr.semanticIndex;
+            element.Format                   = FromFormat(attr.format);
+            element.InputSlot                = attr.binding;
+            element.AlignedByteOffset        = attr.offset;
+            element.InputSlotClass           = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            element.InstanceDataStepRate     = 0;
             for (const auto &binding : state.vertexBindings) {
                 if (binding.binding == attr.binding && binding.inputRate == VertexInputRate::PER_INSTANCE) {
                     element.InputSlotClass       = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
@@ -77,9 +76,9 @@ namespace sky::aurora {
         }
 
         // rasterizer
-        auto &rs = psoDesc.RasterizerState;
-        rs.FillMode            = FromPolygonMode(state.rasterState.polygonMode);
-        rs.CullMode            = FromCullMode(state.rasterState.cullMode);
+        auto &rs                 = psoDesc.RasterizerState;
+        rs.FillMode              = FromPolygonMode(state.rasterState.polygonMode);
+        rs.CullMode              = FromCullMode(state.rasterState.cullMode);
         rs.FrontCounterClockwise = state.rasterState.frontFace == FrontFace::CCW ? TRUE : FALSE;
         rs.DepthBias             = static_cast<INT>(state.rasterState.depthBiasConstantFactor);
         rs.DepthBiasClamp        = state.rasterState.depthBiasClamp;
@@ -91,22 +90,22 @@ namespace sky::aurora {
         rs.ConservativeRaster    = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
         // depth stencil
-        auto &ds = psoDesc.DepthStencilState;
-        ds.DepthEnable    = state.depthStencil.depthTest ? TRUE : FALSE;
-        ds.DepthWriteMask = state.depthStencil.depthWrite ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-        ds.DepthFunc      = FromCompareOp(state.depthStencil.compareOp);
-        ds.StencilEnable  = state.depthStencil.stencilTest ? TRUE : FALSE;
+        auto &ds            = psoDesc.DepthStencilState;
+        ds.DepthEnable      = state.depthStencil.depthTest ? TRUE : FALSE;
+        ds.DepthWriteMask   = state.depthStencil.depthWrite ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+        ds.DepthFunc        = FromCompareOp(state.depthStencil.compareOp);
+        ds.StencilEnable    = state.depthStencil.stencilTest ? TRUE : FALSE;
         ds.StencilReadMask  = static_cast<UINT8>(state.depthStencil.front.compareMask);
         ds.StencilWriteMask = static_cast<UINT8>(state.depthStencil.front.writeMask);
-        ds.FrontFace = FromStencilState(state.depthStencil.front);
-        ds.BackFace  = FromStencilState(state.depthStencil.back);
+        ds.FrontFace        = FromStencilState(state.depthStencil.front);
+        ds.BackFace         = FromStencilState(state.depthStencil.back);
 
         // blend state
-        auto &bs = psoDesc.BlendState;
+        auto &bs                  = psoDesc.BlendState;
         bs.AlphaToCoverageEnable  = state.multiSample.alphaToCoverage ? TRUE : FALSE;
         bs.IndependentBlendEnable = FALSE;
 
-        const auto &fmt = desc.format;
+        const auto &fmt          = desc.format;
         psoDesc.NumRenderTargets = fmt.numColors;
 
         for (UINT i = 0; i < fmt.numColors && i < 8; ++i) {
@@ -114,15 +113,15 @@ namespace sky::aurora {
 
             auto &rt = bs.RenderTarget[i];
             if (i < state.blendStates.size()) {
-                const auto &src     = state.blendStates[i];
-                rt.BlendEnable      = src.blendEn ? TRUE : FALSE;
-                rt.LogicOpEnable    = FALSE;
-                rt.SrcBlend         = FromBlendFactor(src.srcColor);
-                rt.DestBlend        = FromBlendFactor(src.dstColor);
-                rt.BlendOp          = FromBlendOp(src.colorBlendOp);
-                rt.SrcBlendAlpha    = FromBlendFactor(src.srcAlpha);
-                rt.DestBlendAlpha   = FromBlendFactor(src.dstAlpha);
-                rt.BlendOpAlpha     = FromBlendOp(src.alphaBlendOp);
+                const auto &src          = state.blendStates[i];
+                rt.BlendEnable           = src.blendEn ? TRUE : FALSE;
+                rt.LogicOpEnable         = FALSE;
+                rt.SrcBlend              = FromBlendFactor(src.srcColor);
+                rt.DestBlend             = FromBlendFactor(src.dstColor);
+                rt.BlendOp               = FromBlendOp(src.colorBlendOp);
+                rt.SrcBlendAlpha         = FromBlendFactor(src.srcAlpha);
+                rt.DestBlendAlpha        = FromBlendFactor(src.dstAlpha);
+                rt.BlendOpAlpha          = FromBlendOp(src.alphaBlendOp);
                 rt.RenderTargetWriteMask = src.writeMask;
             } else {
                 rt.BlendEnable           = FALSE;
@@ -137,7 +136,7 @@ namespace sky::aurora {
         topology                      = state.inputAssembly.topology;
 
         // multi-sample
-        psoDesc.SampleMask = 0xFFFFFFFFU;
+        psoDesc.SampleMask         = 0xFFFFFFFFU;
         psoDesc.SampleDesc.Count   = static_cast<UINT>(state.multiSample.sampleCount);
         psoDesc.SampleDesc.Quality = 0;
 
@@ -146,34 +145,32 @@ namespace sky::aurora {
         psoDesc.Flags    = D3D12_PIPELINE_STATE_FLAG_NONE;
 
         // D3D12 view instancing for multiview
-        D3D12_VIEW_INSTANCING_DESC viewInstancing = {};
+        D3D12_VIEW_INSTANCING_DESC                viewInstancing = {};
         std::vector<D3D12_VIEW_INSTANCE_LOCATION> viewLocations;
         if (fmt.viewMask != 0) {
             for (uint32_t bit = 0; bit < 32; ++bit) {
                 if (fmt.viewMask & (1u << bit)) {
                     D3D12_VIEW_INSTANCE_LOCATION loc = {};
-                    loc.ViewportArrayIndex     = bit;
-                    loc.RenderTargetArrayIndex = bit;
+                    loc.ViewportArrayIndex           = bit;
+                    loc.RenderTargetArrayIndex       = bit;
                     viewLocations.push_back(loc);
                 }
             }
-            viewInstancing.ViewInstanceCount = static_cast<UINT>(viewLocations.size());
+            viewInstancing.ViewInstanceCount      = static_cast<UINT>(viewLocations.size());
             viewInstancing.pViewInstanceLocations = viewLocations.data();
-            viewInstancing.Flags = D3D12_VIEW_INSTANCING_FLAG_NONE;
+            viewInstancing.Flags                  = D3D12_VIEW_INSTANCING_FLAG_NONE;
         }
 
-        const HRESULT hr = device.GetNativeHandle()->CreateGraphicsPipelineState(
-            &psoDesc, IID_PPV_ARGS(pso.GetAddressOf()));
+        const HRESULT hr = createResult = device.GetFunctions().createGraphicsPipeline(device.GetNativeHandle(), &psoDesc, pso.GetAddressOf());
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create graphics pipeline state, hr=0x%08X", static_cast<unsigned>(hr));
-            if (ComPtr<ID3D12InfoQueue> infoQueue;
-                SUCCEEDED(device.GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+            if (ComPtr<ID3D12InfoQueue> infoQueue; SUCCEEDED(device.GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
                 const UINT64 count = infoQueue->GetNumStoredMessages();
                 for (UINT64 i = 0; i < count; ++i) {
                     SIZE_T length = 0;
                     infoQueue->GetMessage(i, nullptr, &length);
                     std::vector<char> storage(length);
-                    auto *message = reinterpret_cast<D3D12_MESSAGE *>(storage.data());
+                    auto             *message = reinterpret_cast<D3D12_MESSAGE *>(storage.data());
                     if (SUCCEEDED(infoQueue->GetMessage(i, message, &length))) {
                         LOG_E(TAG, "d3d12 debug: %s", message->pDescription);
                     }
@@ -188,8 +185,7 @@ namespace sky::aurora {
 
     // ---- D3D12ComputePipeline ----
 
-    D3D12ComputePipeline::D3D12ComputePipeline(D3D12Device &dev)
-        : device(dev)
+    D3D12ComputePipeline::D3D12ComputePipeline(D3D12Device &dev) : device(dev)
     {
     }
 
@@ -201,20 +197,19 @@ namespace sky::aurora {
         }
 
         auto *d3dShader = static_cast<D3D12Shader *>(desc.cs);
-        shader = d3dShader;
+        shader          = d3dShader;
         if (d3dShader->GetRootSignature() == nullptr) {
             LOG_E(TAG, "compute pipeline missing root signature (shader has none)");
             return false;
         }
 
         D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = d3dShader->GetRootSignature()->GetNativeHandle();
-        psoDesc.CS             = d3dShader->GetCSByteCode();
-        psoDesc.NodeMask       = 0;
-        psoDesc.Flags          = D3D12_PIPELINE_STATE_FLAG_NONE;
+        psoDesc.pRootSignature                    = d3dShader->GetRootSignature()->GetNativeHandle();
+        psoDesc.CS                                = d3dShader->GetCSByteCode();
+        psoDesc.NodeMask                          = 0;
+        psoDesc.Flags                             = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-        const HRESULT hr = device.GetNativeHandle()->CreateComputePipelineState(
-            &psoDesc, IID_PPV_ARGS(pso.GetAddressOf()));
+        const HRESULT hr = device.GetNativeHandle()->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(pso.GetAddressOf()));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create compute pipeline state, hr=0x%08X", static_cast<unsigned>(hr));
             return false;

@@ -30,8 +30,11 @@ namespace sky::editor::sandbox {
     void EditorApplication::ParseStartArgs()
     {
         if (arguments.args.empty()) {
-            return;
+            arguments.values.emplace_back("SandboxEditor");
+            arguments.args.push_back(arguments.values.back().c_str());
         }
+        arguments.values.emplace_back("--aurora-provider-only");
+        arguments.args.push_back(arguments.values.back().c_str());
         CmdOptions options("SandboxEditor", "SkyEngine Editor");
         options.allow_unrecognised_options();
         options.add_options()("frames", "exit after N frames", CmdValue<std::string>());
@@ -85,6 +88,7 @@ namespace sky::editor::sandbox {
     EditorApplication::~EditorApplication()
     {
         SaveWindowGeometry();
+        Shutdown();
     }
 
     void EditorApplication::LoadWindowGeometry()
@@ -159,7 +163,7 @@ namespace sky::editor::sandbox {
         }
 
         LOG_W(TAG, "editor config '%s' not found; falling back to SandboxModule", EDITOR_CONFIG_PATH);
-        moduleManager->RegisterModule(ModuleInfo{"SandboxModule", {}});
+        moduleManager->RegisterModule(ModuleInfo{"SandboxModule", {"Aurora.Render", "Aurora.ShaderCompiler"}});
         return true;
     }
 

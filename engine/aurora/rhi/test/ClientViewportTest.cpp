@@ -8,7 +8,7 @@
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rdg/RenderViewport.h>
 #include <aurora/rdg/ClientViewport.h>
-#include <aurora/rdg/RenderDeviceExclusive.h>
+#include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/rhi/Image.h>
 #include <aurora/rhi/Semaphore.h>
 #include <core/name/Name.h>
@@ -144,19 +144,6 @@ TEST_F(AuroraVulkanTest, DeviceFrameContextFenceRing)
     Fence *f1 = ctx->GetFrameFence();
     ASSERT_NE(f1, nullptr);
     EXPECT_NE(f0, f1); // different slot for the next frame
-}
-
-TEST_F(AuroraVulkanTest, RenderDeviceExclusiveViewportBeginEnd)
-{
-    auto *re = RenderDeviceExclusive::Get();
-    ASSERT_NE(re, nullptr);
-
-    ImagePtr image = MakeTestImage(GetDevice());
-    FakeViewport viewport(image.Get());
-
-    re->BeginViewport(&viewport); // SKY_ASSERT(mCurrentViewport == nullptr) must not fire
-    re->EndViewport();
-    SUCCEED();
 }
 
 TEST_F(AuroraVulkanTest, ClientViewportUninitializedSafe)

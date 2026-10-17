@@ -2,8 +2,9 @@
 // Created by blues on 2026/3/29.
 //
 
-#include <VulkanBuffer.h>
 #include <VulkanCommandPool.h>
+
+#include <VulkanBuffer.h>
 #include <VulkanConversion.h>
 #include <VulkanDevice.h>
 #include <VulkanEncoder.h>
@@ -14,6 +15,11 @@
 static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
+
+    const Device *VulkanCommandBuffer::GetDevice() const noexcept
+    {
+        return &device;
+    }
 
     // ---- VulkanCommandBuffer ----
 
@@ -167,9 +173,20 @@ namespace sky::aurora {
 
     void VulkanCommandPool::Reset()
     {
-        if (pool != VK_NULL_HANDLE) {
-            device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
-        }
+        (void)TryReset();
+    }
+
+    GpuOperationResult VulkanCommandPool::TryReset() noexcept
+    {
+        if (pool == VK_NULL_HANDLE)
+            return {{GpuErrorCode::INVALID_ARGUMENT}};
+        const auto result = device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
+        if (result == VK_SUCCESS)
+            return {};
+        const auto code = result == VK_ERROR_DEVICE_LOST                                                     ? GpuErrorCode::DEVICE_LOST
+                          : result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY ? GpuErrorCode::OUT_OF_MEMORY
+                                                                                                             : GpuErrorCode::NATIVE_ERROR;
+        return {{code, static_cast<int64_t>(result)}};
     }
 
     CommandBuffer *VulkanCommandPool::Allocate()

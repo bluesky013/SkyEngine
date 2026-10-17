@@ -173,6 +173,13 @@ namespace sky::aurora {
                 w.U32(res.set);
                 w.U32(res.binding);
                 w.U32(res.count);
+                w.U32(static_cast<uint32_t>(res.texture.dimension));
+                w.U32(static_cast<uint32_t>(res.texture.scalarType));
+                w.U32(res.texture.components);
+                w.U8(res.texture.arrayed);
+                w.U8(res.texture.multisampled);
+                w.U32(static_cast<uint32_t>(res.sampler));
+                w.U8(res.descriptorArray);
             }
             w.U32(static_cast<uint32_t>(refl.blocks.size()));
             for (const auto &blk : refl.blocks) {
@@ -215,7 +222,20 @@ namespace sky::aurora {
                 if (!r.Str(res.name) || !r.U32(type) || !r.U32(res.set) || !r.U32(res.binding) || !r.U32(res.count)) {
                     return false;
                 }
-                res.type = static_cast<ShaderResourceType>(type);
+                uint32_t dimension = 0, scalar = 0, sampler = 0;
+                uint8_t  arrayed = 0, multisampled = 0, descriptorArray = 0;
+                if (!r.U32(dimension) || !r.U32(scalar) || !r.U32(res.texture.components) || !r.U8(arrayed) || !r.U8(multisampled) ||
+                    !r.U32(sampler) || !r.U8(descriptorArray) || type > static_cast<uint32_t>(ShaderResourceType::STORAGE_BUFFER_DYNAMIC) ||
+                    dimension > static_cast<uint32_t>(ShaderTextureDimension::BUFFER) || scalar > static_cast<uint32_t>(ShaderScalarType::BOOL) ||
+                    sampler > static_cast<uint32_t>(ShaderSamplerType::COMPARISON) || arrayed > 1 || multisampled > 1 || descriptorArray > 1)
+                    return false;
+                res.texture.dimension    = static_cast<ShaderTextureDimension>(dimension);
+                res.texture.scalarType   = static_cast<ShaderScalarType>(scalar);
+                res.texture.arrayed      = arrayed != 0;
+                res.texture.multisampled = multisampled != 0;
+                res.sampler              = static_cast<ShaderSamplerType>(sampler);
+                res.descriptorArray      = descriptorArray != 0;
+                res.type                 = static_cast<ShaderResourceType>(type);
                 refl.resources.push_back(std::move(res));
             }
             if (!r.U32(count)) {
@@ -343,6 +363,8 @@ namespace sky::aurora {
     std::vector<uint8_t> EncodeBlob(const ShaderCacheBlob &blob)
     {
         Writer w;
+        w.U32(0x53484232);
+        w.U32(ShaderCacheIndex::kFormatVersion);
         w.U32(blob.target);
         w.U64(blob.sourceHash);
         w.U64(blob.layoutFp);
@@ -357,6 +379,9 @@ namespace sky::aurora {
     {
         Reader          r{bytes.data(), bytes.size()};
         ShaderCacheBlob blob;
+        uint32_t        magic = 0, version = 0;
+        if (!r.U32(magic) || magic != 0x53484232 || !r.U32(version) || version != ShaderCacheIndex::kFormatVersion)
+            return false;
         if (!r.U32(blob.target) || !r.U64(blob.sourceHash) || !r.U64(blob.layoutFp) || !r.U64(blob.schemaFp)) {
             return false;
         }
@@ -364,11 +389,13 @@ namespace sky::aurora {
         if (!r.U32(dataCount)) {
             return false;
         }
+        if (dataCount > (r.n - r.pos) / sizeof(uint32_t))
+            return false;
         blob.data.resize(dataCount);
         if (dataCount > 0 && !r.Bytes(blob.data.data(), dataCount * sizeof(uint32_t))) {
             return false;
         }
-        if (!ReadReflection(r, blob.reflection)) {
+        if (!ReadReflection(r, blob.reflection) || r.pos != r.n) {
             return false;
         }
         out = std::move(blob);

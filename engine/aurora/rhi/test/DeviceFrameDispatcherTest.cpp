@@ -14,7 +14,7 @@ namespace sky::aurora::test {
 
     TEST(DeviceFrameDispatcherTest, LinearChain)
     {
-        ThreadPool           pool(4);
+        ThreadPool            pool(4);
         DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
@@ -30,7 +30,7 @@ namespace sky::aurora::test {
         graph.DependsOn(b, a);
         graph.DependsOn(c, b);
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
 
         ASSERT_LT(order[0].load(), order[1].load());
         ASSERT_LT(order[1].load(), order[2].load());
@@ -38,7 +38,7 @@ namespace sky::aurora::test {
 
     TEST(DeviceFrameDispatcherTest, DiamondDependency)
     {
-        ThreadPool           pool(4);
+        ThreadPool            pool(4);
         DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
@@ -54,7 +54,7 @@ namespace sky::aurora::test {
         graph.DependsOn(d, b);
         graph.DependsOn(d, c);
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
 
         ASSERT_LT(order[0].load(), order[1].load());
         ASSERT_LT(order[0].load(), order[2].load());
@@ -64,7 +64,7 @@ namespace sky::aurora::test {
 
     TEST(DeviceFrameDispatcherTest, MultipleRoots)
     {
-        ThreadPool           pool(4);
+        ThreadPool            pool(4);
         DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
@@ -77,7 +77,7 @@ namespace sky::aurora::test {
         graph.DependsOn(c, a);
         graph.DependsOn(c, b);
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
 
         ASSERT_LT(order[0].load(), order[2].load());
         ASSERT_LT(order[1].load(), order[2].load());
@@ -85,36 +85,36 @@ namespace sky::aurora::test {
 
     TEST(DeviceFrameDispatcherTest, SingleNodeNoDeps)
     {
-        ThreadPool           pool(2);
+        ThreadPool            pool(2);
         DeviceFrameDispatcher graph;
 
         std::atomic_int value{0};
 
         auto t = graph.CreateTask([&](ThreadContext &) { value.store(99, std::memory_order_relaxed); });
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
 
         ASSERT_EQ(value.load(), 99);
     }
 
     TEST(DeviceFrameDispatcherTest, EmptyBatch)
     {
-        ThreadPool           pool(2);
+        ThreadPool            pool(2);
         DeviceFrameDispatcher graph;
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
         ASSERT_EQ(graph.GetNodeCount(), 0u);
     }
 
     TEST(DeviceFrameDispatcherTest, ClearReuse)
     {
-        ThreadPool           pool(2);
+        ThreadPool            pool(2);
         DeviceFrameDispatcher graph;
 
         std::atomic_int first{0};
         {
             auto t = graph.CreateTask([&](ThreadContext &) { first.fetch_add(1); });
-            graph.Submit(pool).wait();
+            ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
         }
         ASSERT_EQ(first.load(), 1);
 
@@ -122,13 +122,13 @@ namespace sky::aurora::test {
 
         std::atomic_int second{0};
         auto            t2 = graph.CreateTask([&](ThreadContext &) { second.fetch_add(1); });
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
         ASSERT_EQ(second.load(), 1);
     }
 
     TEST(DeviceFrameDispatcherTest, PerNodeFuture)
     {
-        ThreadPool           pool(2);
+        ThreadPool            pool(2);
         DeviceFrameDispatcher graph;
 
         std::atomic_int value{0};
@@ -136,7 +136,7 @@ namespace sky::aurora::test {
         auto t = graph.CreateTask([&](ThreadContext &) { value.store(7, std::memory_order_relaxed); });
         auto f = graph.GetFuture(t);
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
         f.wait();
 
         ASSERT_EQ(value.load(), 7);
@@ -144,7 +144,7 @@ namespace sky::aurora::test {
 
     TEST(DeviceFrameDispatcherTest, BatchFuture)
     {
-        ThreadPool           pool(2);
+        ThreadPool            pool(2);
         DeviceFrameDispatcher graph;
 
         std::atomic_int counter{0};
@@ -153,7 +153,7 @@ namespace sky::aurora::test {
             graph.CreateTask([&](ThreadContext &) { counter.fetch_add(1); });
         }
 
-        graph.Submit(pool).wait();
+        ASSERT_EQ(graph.Submit(pool).completion.get(), DispatchState::SUCCEEDED);
 
         ASSERT_EQ(counter.load(), 100);
     }

@@ -27,6 +27,7 @@ sky_add_library(TARGET Aurora.Vulkan SHARED
     LINK_LIBS
         Core
         Aurora.RHI.Static
+        Aurora.FrameBackend.Static
         3rdParty::vulkan_headers
         3rdParty::vma
         ${MoltenVk}

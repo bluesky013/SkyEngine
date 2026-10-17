@@ -46,6 +46,81 @@ FSOutput mainFS(float2 uv : TEXCOORD0)
 
 } // namespace
 
+TEST(SlangSpikeTest, ResourceShapesArraysAndSamplerKinds)
+{
+    const char         *source = R"(
+        Texture2D<float4> color;
+        Texture2DArray<float4> layers;
+        Texture2D<uint4> integers;
+        Texture2D<float3> rgb;
+        Texture2DMS<float4> multisample;
+        Texture3D<float4> volume;
+        TextureCube<float4> cube;
+        Texture2D<float4> descriptors[2];
+        Texture2D<float4> oneDescriptor[1];
+        Texture2D<float4> unbounded[];
+        RWTexture2D<float4> storage;
+        StructuredBuffer<float4> buffer;
+        SamplerState regular;
+        SamplerComparisonState comparison;
+    )";
+    ShaderCompilerSlang compiler;
+    for (auto target : {ShaderTarget::SPIRV, ShaderTarget::DXIL, ShaderTarget::MSL}) {
+        ShaderReflection reflection;
+        std::string      error;
+        ASSERT_TRUE(compiler.ReflectBlocks(source, target, reflection, error)) << error;
+        ASSERT_EQ(reflection.resources.size(), 14u);
+        auto resource = [&](const char *name) -> ShaderResource {
+            for (const auto &value : reflection.resources)
+                if (value.name == name)
+                    return value;
+            ADD_FAILURE() << name;
+            return {};
+        };
+        EXPECT_EQ(resource("color").texture.dimension, ShaderTextureDimension::D2);
+        EXPECT_EQ(resource("color").texture.scalarType, ShaderScalarType::FLOAT);
+        EXPECT_EQ(resource("color").texture.components, 4u);
+        EXPECT_FALSE(resource("color").texture.arrayed);
+        EXPECT_TRUE(resource("layers").texture.arrayed);
+        EXPECT_EQ(resource("integers").texture.scalarType, ShaderScalarType::UINT);
+        EXPECT_EQ(resource("rgb").texture.components, 3u);
+        EXPECT_TRUE(resource("multisample").texture.multisampled);
+        EXPECT_EQ(resource("volume").texture.dimension, ShaderTextureDimension::D3);
+        EXPECT_EQ(resource("cube").texture.dimension, ShaderTextureDimension::CUBE);
+        EXPECT_EQ(resource("descriptors").count, 2u);
+        EXPECT_TRUE(resource("descriptors").descriptorArray);
+        EXPECT_EQ(resource("oneDescriptor").count, 1u);
+        EXPECT_TRUE(resource("oneDescriptor").descriptorArray);
+        EXPECT_EQ(resource("unbounded").count, 0u);
+        EXPECT_TRUE(resource("unbounded").descriptorArray);
+        EXPECT_EQ(resource("storage").type, ShaderResourceType::STORAGE_IMAGE);
+        EXPECT_EQ(resource("buffer").type, ShaderResourceType::STORAGE_BUFFER);
+        EXPECT_EQ(resource("regular").sampler, ShaderSamplerType::REGULAR);
+        EXPECT_EQ(resource("comparison").sampler, ShaderSamplerType::COMPARISON);
+    }
+}
+
+TEST(SlangSpikeTest, ConstantBufferArraysAndNestedBlocksAreNotScalarUniforms)
+{
+    ShaderCompilerSlang compiler;
+    for (auto target : {ShaderTarget::SPIRV, ShaderTarget::DXIL}) {
+        ShaderReflection reflection;
+        std::string      error;
+        ASSERT_TRUE(compiler.ReflectBlocks(R"(
+            struct Data { float4 value; };
+            struct Nested { float4 value; Texture2D<float4> image; SamplerState smp; };
+            ConstantBuffer<Data> blocks[2];
+            ParameterBlock<Nested> nested;
+        )",
+                                           target, reflection, error))
+            << error;
+        ASSERT_EQ(reflection.resources.size(), 2u);
+        EXPECT_TRUE(reflection.resources[0].descriptorArray);
+        EXPECT_EQ(reflection.resources[0].count, 2u);
+        EXPECT_EQ(reflection.resources[1].count, 0u);
+    }
+}
+
 TEST(SlangSpikeTest, CompileSpirvWithParameterBlocks)
 {
     ShaderCompilerSlang compiler;
@@ -64,9 +139,15 @@ TEST(SlangSpikeTest, CompileSpirvWithParameterBlocks)
     // its own descriptor set in declaration order (global=1, pass=2)
     bool foundGlobal = false, foundPass = false, foundTex = false;
     for (const auto &res : result.reflection.resources) {
-        if (res.set == 1 && res.binding == 0 && res.type == ShaderResourceType::UNIFORM_BUFFER) { foundGlobal = true; }
-        if (res.set == 2 && res.binding == 0 && res.type == ShaderResourceType::UNIFORM_BUFFER) { foundPass = true; }
-        if (res.set == 0 && res.binding == 0 && res.type == ShaderResourceType::SAMPLED_IMAGE)  { foundTex = true; }
+        if (res.set == 1 && res.binding == 0 && res.type == ShaderResourceType::UNIFORM_BUFFER) {
+            foundGlobal = true;
+        }
+        if (res.set == 2 && res.binding == 0 && res.type == ShaderResourceType::UNIFORM_BUFFER) {
+            foundPass = true;
+        }
+        if (res.set == 0 && res.binding == 0 && res.type == ShaderResourceType::SAMPLED_IMAGE) {
+            foundTex = true;
+        }
     }
     EXPECT_TRUE(foundGlobal);
     EXPECT_TRUE(foundPass);

@@ -3,7 +3,7 @@
 //
 
 #include "AuroraTestHelper.h"
-#include <aurora/rdg/RenderDeviceExclusive.h>
+#include <aurora/rdg/DeviceFrameContext.h>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -68,10 +68,13 @@ TEST_F(DeviceTestD3D12, CreateFrameContext)
     DeviceFrameContext *ctx = device->CreateFrameContext(info);
     ASSERT_NE(ctx, nullptr);
 
-    // rotate the descriptor ring a few frames; exercises the shader-visible
-    // descriptor heap ring rotation (BeginFrame -> allocator->BeginFrame)
+    // Legacy BeginFrame resets the fence, so each rotation requires a matching submission.
     for (int i = 0; i < 6; ++i) {
         ctx->BeginFrame();
+        SubmitInfo submit;
+        submit.fence = ctx->GetFrameFence();
+        ASSERT_EQ(device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submit).status, QueueSubmitStatus::ACCEPTED);
+        ASSERT_TRUE(submit.fence->WaitFor(5'000'000'000ULL));
         ctx->EndFrame();
     }
 

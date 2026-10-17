@@ -25,21 +25,25 @@ namespace sky::aurora {
         STORAGE_BUFFER_DYNAMIC = 7,
     };
 
+    enum class ShaderScalarType : uint32_t { UNKNOWN = 0, FLOAT, INT, UINT, BOOL };
+    enum class ShaderTextureDimension : uint32_t { UNKNOWN = 0, D1, D2, D3, CUBE, BUFFER };
+    enum class ShaderSamplerType : uint32_t { UNKNOWN = 0, REGULAR, COMPARISON };
+
+    struct ShaderTextureType {
+        ShaderTextureDimension dimension  = ShaderTextureDimension::UNKNOWN;
+        ShaderScalarType       scalarType = ShaderScalarType::UNKNOWN;
+        uint32_t               components = 0;
+        bool                   arrayed = false, multisampled = false;
+        bool                   operator==(const ShaderTextureType &) const = default;
+    };
     struct ShaderResource {
         std::string        name;
         ShaderResourceType type = ShaderResourceType::SAMPLER;
-        uint32_t           set     = 0;
-        uint32_t           binding = 0;
-        uint32_t           count   = 1;
-    };
-
-    // scalar type of a reflected field, used to reconstruct the C++ mirror
-    enum class ShaderScalarType : uint32_t {
-        UNKNOWN = 0,
-        FLOAT,
-        INT,
-        UINT,
-        BOOL,
+        uint32_t           set = 0, binding = 0, count = 1;
+        ShaderTextureType  texture;
+        ShaderSamplerType  sampler = ShaderSamplerType::UNKNOWN;
+        // A descriptor array of length one is still an array; zero count means unbounded/unknown.
+        bool descriptorArray = false;
     };
 
     // structural kind of a reflected field
@@ -80,7 +84,7 @@ namespace sky::aurora {
         // compute thread group size ([numthreads]); {0,0,0} when unknown or
         // non-compute. Targets that embed it in the binary (SPIRV/DXIL) may
         // ignore this; MSL does not carry it, so Metal needs it here.
-        uint32_t                       threadGroupSize[3] = {0, 0, 0};
+        uint32_t threadGroupSize[3] = {0, 0, 0};
     };
 
 } // namespace sky::aurora

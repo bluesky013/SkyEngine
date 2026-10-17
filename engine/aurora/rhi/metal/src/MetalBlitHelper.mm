@@ -5,8 +5,9 @@
 #import <Metal/Metal.h>
 
 #include "MetalBlitHelper.h"
-#include "MetalDevice.h"
-#include "MetalImage.h"
+
+#include <MetalDevice.h>
+#include <MetalImage.h>
 #include "MetalUtils.h"
 #include <core/logger/Logger.h>
 

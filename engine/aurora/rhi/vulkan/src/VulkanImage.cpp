@@ -2,53 +2,50 @@
 // Created on 2026/04/02.
 //
 
-#include "VulkanImage.h"
-#include "VulkanDevice.h"
-#include "VulkanConversion.h"
-#include "VulkanInstance.h"
+#include <VulkanImage.h>
+
+#include <VulkanConversion.h>
+#include <VulkanDevice.h>
+#include <VulkanInstance.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
 
+    const Device *VulkanImage::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
     static VkImageAspectFlags InferImageAspectFlags(VkFormat format)
     {
         switch (format) {
         case VK_FORMAT_D16_UNORM:
         case VK_FORMAT_X8_D24_UNORM_PACK32:
-        case VK_FORMAT_D32_SFLOAT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT;
-        case VK_FORMAT_S8_UINT:
-            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D32_SFLOAT: return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT: return VK_IMAGE_ASPECT_STENCIL_BIT;
         case VK_FORMAT_D24_UNORM_S8_UINT:
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-        default:
-            return VK_IMAGE_ASPECT_COLOR_BIT;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT: return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        default: return VK_IMAGE_ASPECT_COLOR_BIT;
         }
     }
 
     static VkImageViewType InferDefaultViewType(const Image::Descriptor &desc)
     {
         switch (desc.imageType) {
-        case ImageType::IMAGE_1D:
-            return desc.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
+        case ImageType::IMAGE_1D: return desc.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
         case ImageType::IMAGE_2D:
             if (desc.viewUsage & ImageViewUsageFlagBit::CUBE_MAP_COMPATIBLE) {
                 return desc.arrayLayers > 6 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE;
             }
             return desc.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
-        case ImageType::IMAGE_3D:
-            return VK_IMAGE_VIEW_TYPE_3D;
-        default:
-            return VK_IMAGE_VIEW_TYPE_2D;
+        case ImageType::IMAGE_3D: return VK_IMAGE_VIEW_TYPE_3D;
+        default: return VK_IMAGE_VIEW_TYPE_2D;
         }
     }
 
-    VulkanImage::VulkanImage(VulkanDevice &dev)
-        : device(dev)
-        , mId(dev.AllocResourceId())
+    VulkanImage::VulkanImage(VulkanDevice &dev) : device(dev), mId(dev.AllocResourceId())
     {
     }
 
@@ -66,6 +63,10 @@ namespace sky::aurora {
 
     bool VulkanImage::Init(const Descriptor &desc)
     {
+        descriptor = desc;
+#if SKY_ENABLE_RESOURCE_NAME
+        descriptor.name = nullptr;
+#endif
         pixelFormat = desc.format;
         vkFormat    = FromPixelFormat(desc.format);
         if (vkFormat == VK_FORMAT_UNDEFINED) {
@@ -74,26 +75,26 @@ namespace sky::aurora {
         }
 
         VkImageCreateInfo imageCI = {};
-        imageCI.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageCI.imageType     = FromImageType(desc.imageType);
-        imageCI.format        = vkFormat;
-        imageCI.extent.width  = desc.extent.width;
-        imageCI.extent.height = desc.extent.height;
-        imageCI.extent.depth  = desc.extent.depth;
-        imageCI.mipLevels     = desc.mipLevels;
-        imageCI.arrayLayers   = desc.arrayLayers;
-        imageCI.samples       = FromSampleCount(desc.samples);
-        imageCI.tiling        = VK_IMAGE_TILING_OPTIMAL;
-        imageCI.usage         = FromImageUsageFlags(desc.usage);
-        imageCI.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-        imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageCI.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageCI.imageType         = FromImageType(desc.imageType);
+        imageCI.format            = vkFormat;
+        imageCI.extent.width      = desc.extent.width;
+        imageCI.extent.height     = desc.extent.height;
+        imageCI.extent.depth      = desc.extent.depth;
+        imageCI.mipLevels         = desc.mipLevels;
+        imageCI.arrayLayers       = desc.arrayLayers;
+        imageCI.samples           = FromSampleCount(desc.samples);
+        imageCI.tiling            = VK_IMAGE_TILING_OPTIMAL;
+        imageCI.usage             = FromImageUsageFlags(desc.usage);
+        imageCI.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+        imageCI.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
 
         if (desc.viewUsage & ImageViewUsageFlagBit::CUBE_MAP_COMPATIBLE) {
             imageCI.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         }
 
         VmaAllocationCreateInfo allocCI = {};
-        allocCI.usage = FromMemoryType(desc.memory, desc.usage);
+        allocCI.usage                   = FromMemoryType(desc.memory, desc.usage);
 
         VkResult res = vmaCreateImage(device.GetAllocator(), &imageCI, &allocCI, &image, &allocation, nullptr);
         if (res != VK_SUCCESS) {
@@ -115,22 +116,28 @@ namespace sky::aurora {
             const auto &instanceFn = device.GetVulkanInstance().GetInstanceFn();
             if (instanceFn.vkSetDebugUtilsObjectNameEXT != nullptr) {
                 VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-                nameInfo.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-                nameInfo.objectType   = VK_OBJECT_TYPE_IMAGE;
-                nameInfo.objectHandle = reinterpret_cast<uint64_t>(image);
-                nameInfo.pObjectName  = desc.name;
+                nameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType                    = VK_OBJECT_TYPE_IMAGE;
+                nameInfo.objectHandle                  = reinterpret_cast<uint64_t>(image);
+                nameInfo.pObjectName                   = desc.name;
                 instanceFn.vkSetDebugUtilsObjectNameEXT(device.GetNativeHandle(), &nameInfo);
             }
         }
 #endif
 
-        owned = true;
+        owned                = true;
+        const auto viewUsage = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::STORAGE | ImageUsageFlagBit::RENDER_TARGET |
+                               ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT;
+        if (!(desc.usage & viewUsage))
+            return true;
         return CreateDefaultView(desc);
     }
 
     void VulkanImage::InitFromSwapChain(VkImage swapImage, VkFormat fmt, PixelFormat pixFmt, const Extent3D &ext)
     {
-        (void)ext;
+        descriptor.format = pixFmt;
+        descriptor.extent = ext;
+        descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_DST;
         image       = swapImage;
         vkFormat    = fmt;
         pixelFormat = pixFmt;
@@ -142,7 +149,7 @@ namespace sky::aurora {
 
     bool VulkanImage::CreateDefaultView(const Descriptor &desc)
     {
-        VkImageViewCreateInfo viewCI = {};
+        VkImageViewCreateInfo viewCI           = {};
         viewCI.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewCI.image                           = image;
         viewCI.viewType                        = InferDefaultViewType(desc);
@@ -163,7 +170,7 @@ namespace sky::aurora {
 
     bool VulkanImage::CreateSwapChainDefaultView()
     {
-        VkImageViewCreateInfo viewCI = {};
+        VkImageViewCreateInfo viewCI           = {};
         viewCI.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewCI.image                           = image;
         viewCI.viewType                        = VK_IMAGE_VIEW_TYPE_2D;

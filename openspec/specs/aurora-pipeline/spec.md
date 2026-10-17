@@ -114,20 +114,6 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 - **WHEN** primitive 的 worldBounds 完全在 view frustum 外
 - **THEN** `FrustumCulling(bounds)` 返回 false，该 primitive 被剔除
 
-### Requirement: RenderPrimitive（aurora）
-
-`RenderPrimitive` SHALL 持有 geometry（vb/ib/offsets/draw args）+ worldBounds + 按 technique tag 索引的 `TechniqueBinding`（`pso` + `batchResourceGroup`）映射，并提供 `GatherRenderItem(context)`：context.tag 命中持有的 tag 才 append `DrawItem`；context.tag 为空时不过滤（append 默认 binding）。
-
-primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
-
-#### Scenario: tag 过滤收集
-- **WHEN** primitive 持有 "opaque" 与 "shadow" 两份 binding，收集 context.tag = "opaque"
-- **THEN** 只 append opaque binding 对应的 DrawItem；shadow binding 不被收集
-
-#### Scenario: 空 tag 不过滤
-- **WHEN** 收集 context.tag 为空
-- **THEN** primitive append 其默认 binding（保持默认 queue 兼容）
-
 ### Requirement: RenderScene（aurora）
 
 `RenderScene` SHALL 内嵌 `EntityRegistry`，提供 entity 注册与 SoA 组件池能力（`CreateEntity` / `DestroyEntity` / `Add<T>` / `Get<T>` / `Pool<T>` / `View<Ts...>`）；views（SceneView）保留独立 registry 不进 ECS。
@@ -191,4 +177,28 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 #### Scenario: OpaquePass 构建 RDG
 - **WHEN** `opaquePass.BuildRDG(graph)`
 - **THEN** graph 中出现一个 SceneRasterPass（color+depth attachment），其 queues 包含名为 "opaque" 的 queue
+
+### Requirement: Renderer 逐 View 最小绘制管线
+
+新 Renderer 路径 SHALL 从冻结 Scene/View 数据提取 owned draw packets，按 View 独立执行相机常量、裁剪、LOD、tag 与稳定排序；coordinator SHALL 解析精确 mesh/material 版本并在单帧图中构建 raster 与合成。首版已支持的附件范围 SHALL 为 RGBA8 color 与可选 D32 depth；未支持的 HDR/格式 SHALL 返回明确错误。旧 ScenePass/PipelinePass 模板不构成新 Renderer 的执行入口。
+
+#### Scenario: 同 Scene 两个相机
+- **WHEN** 两个 View 读取相同 Scene 并使用不同 projection、extent 或 tag
+- **THEN** Scene prepare 只执行一次，逐 View draw 与常量相互独立，片段完成顺序不改变稳定结果
+
+#### Scenario: 精确版本与逐 View 常量
+- **WHEN** 本帧已冻结 mesh/material 版本，后续 packet 更新资源或相机
+- **THEN** 当前帧保留原 geometry、layout、backing 和常量，不能解析成更新版本或改写在途 descriptor
+
+### Requirement: Renderer 输出合成与统一 slot
+
+FrameScheduler SHALL 管理窗口与离屏输出，复用 DeviceFrameContext 的唯一 slot ring。BeginViewport SHALL 查询 surface 配置；CPU prepare 和 slot 就绪后才为输出 pass acquire，并复核配置。FrameComposer SHALL 用带 generation/revision 的 ViewOutput 在同一图组合场景、UI 和输出；成功 acquire 的同步与 presentation 责任 SHALL 独立保活至合法退休。
+
+#### Scenario: 不可用窗口保留其它工作
+- **WHEN** 一个或所有窗口无法 acquire，但存在共享上传或离屏绘制
+- **THEN** 只省略相应输出 pass，其余命令继续由同一 context 提交，不使用 fake backbuffer
+
+#### Scenario: 双窗口与离屏的有界分配
+- **WHEN** 多个 View 在同一 lease 请求常量、staging 或 descriptor
+- **THEN** 分配范围互不覆盖，超额显式失败，不能通过重置 slot 或借用其它在途分区掩盖容量不足
 

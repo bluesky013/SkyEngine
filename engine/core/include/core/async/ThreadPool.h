@@ -220,6 +220,10 @@ namespace sky {
         {
             return threadCount;
         }
+        static constexpr uint32_t GetLocalQueueCapacity()
+        {
+            return LOCAL_QUEUE_CAPACITY;
+        }
         ThreadContext *GetContext(uint32_t index) const;
 
     private:

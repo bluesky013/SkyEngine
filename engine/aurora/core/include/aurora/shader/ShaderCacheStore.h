@@ -41,7 +41,7 @@ namespace sky::aurora {
     };
 
     struct ShaderCacheIndex {
-        static constexpr uint32_t kFormatVersion = 1;
+        static constexpr uint32_t kFormatVersion = 2;
 
         uint32_t                                                  formatVersion = kFormatVersion;
         uint64_t                                                  toolchainFp   = 0;

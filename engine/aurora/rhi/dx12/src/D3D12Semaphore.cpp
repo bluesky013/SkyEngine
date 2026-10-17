@@ -2,16 +2,19 @@
 // Created on 2026/03/29.
 //
 
-#include <D3D12Semaphore.h>
 #include <D3D12Device.h>
+#include <D3D12Semaphore.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
+    const Device *D3D12Semaphore::GetDevice() const noexcept
+    {
+        return &device;
+    }
 
-    D3D12Semaphore::D3D12Semaphore(D3D12Device &dev)
-        : device(dev)
+    D3D12Semaphore::D3D12Semaphore(D3D12Device &dev) : device(dev)
     {
     }
 
@@ -24,11 +27,10 @@ namespace sky::aurora {
 
     bool D3D12Semaphore::Init(const Descriptor &desc)
     {
-        type = desc.type;
+        type                 = desc.type;
         const UINT64 initial = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
 
-        HRESULT hr = device.GetNativeHandle()->CreateFence(
-            initial, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
+        HRESULT hr = device.GetNativeHandle()->CreateFence(initial, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create ID3D12Fence for semaphore, HRESULT: 0x%08x", hr);
             return false;

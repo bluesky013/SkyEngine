@@ -39,18 +39,7 @@ namespace sky {
 
     Application::~Application()
     {
-        Platform::Get()->StopFrameLoop();
-        if (Platform::Get()->GetImpl() != nullptr) {
-            Platform::Get()->SetFrameCallback({});
-        }
-
-        // Workers can still call code/registries owned by loaded modules.
-        // Complete their work before any module shuts down or detaches.
-        AssetExecutor::Get()->WaitForAll();
-        ThreadDispatcher::Get()->Clear();
-        if (moduleManager) {
-            moduleManager->UnLoadModules();
-        }
+        Shutdown();
 
         Interface<ISystemNotify>::Get()->UnRegister();
 
@@ -63,6 +52,24 @@ namespace sky {
 
         sky::Platform *platform = sky::Platform::Get();
         platform->Shutdown();
+    }
+
+    void Application::Shutdown()
+    {
+        if (shutdown) {
+            return;
+        }
+        shutdown = true;
+        Platform::Get()->StopFrameLoop();
+        if (Platform::Get()->GetImpl() != nullptr) {
+            Platform::Get()->SetFrameCallback({});
+        }
+        // Workers may still use module code and registries while completing queued work.
+        AssetExecutor::Get()->WaitForAll();
+        ThreadDispatcher::Get()->Clear();
+        if (moduleManager) {
+            moduleManager->UnLoadModules();
+        }
     }
 
     void Application::SaveArgs(int argc, char **argv)
@@ -114,7 +121,11 @@ namespace sky {
             SkyEngineRegisterStaticModules(*moduleManager);
 #endif
             moduleManager->TopoSort();
-            moduleManager->LoadModules(arguments);
+            if (!moduleManager->LoadModules(arguments)) {
+                LOG_E(TAG, "Required module initialization failed");
+                Shutdown();
+                return false;
+            }
             moduleManager->StartModules();
         }
 

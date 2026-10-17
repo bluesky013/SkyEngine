@@ -12,6 +12,7 @@
 #include <VulkanSampler.h>
 #include <VulkanShader.h>
 #include <aurora/rhi/Device.h>
+#include <common/FrameObjectCache.h>
 
 #include <array>
 #include <atomic>
@@ -21,6 +22,8 @@
 #include <vk_mem_alloc.h>
 
 namespace sky::aurora {
+    class FrameTransientPool;
+    class VulkanRenderPassCache;
 
     class VulkanDevice;
     class VulkanInstance;
@@ -43,13 +46,13 @@ namespace sky::aurora {
         Fence     *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
-        Image               *CreateImage(const Image::Descriptor &desc) override;
-        Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
-        DescriptorBatch     *CreateDescriptorBatch() override;
-        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
-        SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc) override;
+        Buffer          *CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image           *CreateImage(const Image::Descriptor &desc) override;
+        Sampler         *CreateSampler(const Sampler::Descriptor &desc) override;
+        ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorBatch *CreateDescriptorBatch() override;
+        DescriptorHeap  *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
+        SwapChain       *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader           *CreateShader(const Shader::Descriptor &desc) override;
@@ -84,6 +87,10 @@ namespace sky::aurora {
         {
             return memoryProperties;
         }
+        const VkPhysicalDeviceLimits &GetLimits() const noexcept
+        {
+            return gpuProperties.properties.limits;
+        }
         VulkanInstance &GetVulkanInstance() const
         {
             return instance;
@@ -97,12 +104,37 @@ namespace sky::aurora {
             return mNextResourceId.fetch_add(1);
         }
 
+        FrameTransientPool &GetTransientPool() noexcept
+        {
+            return *transientPool;
+        }
+        FramePipelineCache &GetFramePipelineCache() noexcept
+        {
+            return pipelineCache;
+        }
+        VulkanRenderPassCache &GetRenderPassCache() noexcept
+        {
+            return *renderPassCache;
+        }
+
+        bool HasSwapchainMaintenance() const noexcept
+        {
+            return swapchainMaintenance;
+        }
+
     private:
-        bool        OnInit(const DeviceInit &init) override;
-        void        UpdateDeviceCaps() override;
-        std::string GetDeviceInfo() const override;
-        API         GetAPI() const override { return API::VULKAN; }
-        void        WaitIdle() const override;
+        bool                                   swapchainMaintenance = false;
+        std::unique_ptr<FrameTransientPool>    transientPool;
+        FramePipelineCache                     pipelineCache;
+        std::unique_ptr<VulkanRenderPassCache> renderPassCache;
+        bool                                   OnInit(const DeviceInit &init) override;
+        void                                   UpdateDeviceCaps() override;
+        std::string                            GetDeviceInfo() const override;
+        API                                    GetAPI() const override
+        {
+            return API::VULKAN;
+        }
+        void WaitIdle() const override;
 
         bool CreateDevice();
         bool CreateAllocator();

@@ -49,10 +49,11 @@ namespace sky {
 
         void Tick(float time);
 
-        void LoadModules(const StartArguments &args);
+        bool LoadModules(const StartArguments &args);
         void UnLoadModules();
 
-        void StartModules();
+        void                        StartModules();
+        std::shared_ptr<const void> RetainModule(const std::string &name) const;
 
         template <typename Func>
         Func GetFunctionFomModule(const std::string &module, const std::string &func)
@@ -62,11 +63,14 @@ namespace sky {
     private:
         vertex_descriptor RegisterModuleImpl(const std::string &path);
 
-        Graph dependencyGraph;
-        std::vector<std::string> names;
-        std::vector<vertex_descriptor> sortedContainer;
+        bool                                                         unloading = false;
+        std::unordered_map<std::string, std::vector<std::string>>    dependencies;
+        std::unordered_map<std::string, std::shared_ptr<const void>> staticLeases;
+        Graph                                                        dependencyGraph;
+        std::vector<std::string>                                     names;
+        std::vector<vertex_descriptor>                               sortedContainer;
 
-        std::unordered_map<std::string, std::unique_ptr<DynamicModule>> dynLibs;
-        std::unordered_map<std::string, std::unique_ptr<IModule>> modules;
+        std::unordered_map<std::string, std::shared_ptr<DynamicModule>> dynLibs;
+        std::unordered_map<std::string, std::unique_ptr<IModule>>       modules;
     };
 } // namespace sky

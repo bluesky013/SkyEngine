@@ -6,9 +6,10 @@
 
 #include <aurora/rhi/CommandBuffer.h>
 #include <d3d12.h>
-#include <wrl/client.h>
-#include <vector>
 #include <memory>
+#include <variant>
+#include <vector>
+#include <wrl/client.h>
 
 namespace sky::aurora {
 
@@ -18,7 +19,11 @@ namespace sky::aurora {
 
     class D3D12CommandBuffer : public CommandBuffer {
     public:
-        D3D12CommandBuffer(D3D12Device &device, ComPtr<ID3D12GraphicsCommandList> cmdList, ComPtr<ID3D12CommandAllocator> allocator);
+        const Device *GetDevice() const noexcept override;
+        D3D12CommandBuffer(D3D12Device                       &device,
+                           ComPtr<ID3D12GraphicsCommandList>  cmdList,
+                           ComPtr<ID3D12CommandAllocator>     allocator,
+                           ComPtr<ID3D12GraphicsCommandList1> extended = {});
         ~D3D12CommandBuffer() override;
 
         void Begin() override;
@@ -26,18 +31,31 @@ namespace sky::aurora {
         void PipelineBarrier(const BarrierInfo &info) override;
 
         std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
-        std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;
-        std::unique_ptr<BlitEncoder> CreateBlitEncoder() override;
+        std::unique_ptr<ComputeEncoder>  CreateComputeEncoder() override;
+        std::unique_ptr<BlitEncoder>     CreateBlitEncoder() override;
 
-        ID3D12GraphicsCommandList *GetNativeHandle() const { return cmdList.Get(); }
+        ID3D12GraphicsCommandList *GetNativeHandle() const
+        {
+            return cmdList.Get();
+        }
+        ID3D12GraphicsCommandList1 *GetNativeHandle1() const
+        {
+            return extended.Get();
+        }
 
         // Each command buffer owns its allocator; reset only this buffer's.
-        void ResetAllocator();
+        void               ResetAllocator();
+        GpuOperationResult TryResetAllocator() noexcept;
+        HRESULT            BeginAfterPoolReset(bool requireExtended = false) noexcept;
+        HRESULT            EndChecked() noexcept;
 
     private:
-        D3D12Device                      &device;
-        ComPtr<ID3D12GraphicsCommandList> cmdList;
-        ComPtr<ID3D12CommandAllocator>    allocator;
+        D3D12_COMMAND_LIST_TYPE            listType;
+        D3D12Device                       &device;
+        ComPtr<ID3D12GraphicsCommandList>  cmdList;
+        ComPtr<ID3D12GraphicsCommandList1> extended;
+        bool                               requiresExtended = false;
+        ComPtr<ID3D12CommandAllocator>     allocator;
     };
 
     class D3D12CommandPool : public CommandPool {
@@ -45,16 +63,17 @@ namespace sky::aurora {
         D3D12CommandPool(D3D12Device &device, D3D12_COMMAND_LIST_TYPE type);
         ~D3D12CommandPool() override;
 
-        bool Init() override;
-        void Reset() override;
-        CommandBuffer *Allocate() override;
+        bool                                         Init() override;
+        void                                         Reset() override;
+        GpuOperationResult                           TryReset() noexcept override;
+        CommandBuffer                               *Allocate() override;
+        std::variant<GpuError, D3D12CommandBuffer *> AllocateChecked(bool requireExtended = false);
 
     private:
-        D3D12Device             &device;
-        D3D12_COMMAND_LIST_TYPE  listType;
+        D3D12Device            &device;
+        D3D12_COMMAND_LIST_TYPE listType;
 
-        std::vector<D3D12CommandBuffer*> allocatedBuffers;
+        std::vector<D3D12CommandBuffer *> allocatedBuffers;
     };
 
 } // namespace sky::aurora
-

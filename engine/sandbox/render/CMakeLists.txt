@@ -8,10 +8,10 @@ if (SKY_BUILD_FREETYPE)
     list(APPEND EDITOR_UI_FONT_LIBS UI.FreeType)
 endif ()
 
-# Editor-owned renderer: records its own passes on the Aurora device and
-# presents to the editor swapchain (the GUI pipeline + UI pass). It is
-# independent of the engine scene pipeline, and links Aurora + UI, so it is kept
-# separate from the render-independent EditorCore.
+set(EDITOR_RENDER_LIBS Aurora.Adaptor.Static Aurora.ShaderCompiler.Static)
+if (NOT WIN32)
+    list(APPEND EDITOR_RENDER_LIBS UIRender Aurora.RHI.Static Aurora.Pipeline.Static)
+endif ()
 sky_add_library(TARGET EditorRender STATIC
     SOURCES
         ${SRC_FILES}
@@ -25,8 +25,7 @@ sky_add_library(TARGET EditorRender STATIC
         Framework
         EditorCore
         UI
-        UIRender
         ${EDITOR_UI_FONT_LIBS}
-        Aurora.RHI.Static
-        Aurora.Pipeline.Static
+        Aurora.Renderer.Interface
+        ${EDITOR_RENDER_LIBS}
 )

@@ -18,12 +18,19 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        SemaphoreType GetType() const override { return type; }
-        void          Signal(uint64_t value) override;
-        bool          Wait(uint64_t value, uint64_t timeoutNs) override;
-        uint64_t      GetCurrentValue() const override;
+        SemaphoreType GetType() const override
+        {
+            return type;
+        }
+        void     Signal(uint64_t value) override;
+        bool     Wait(uint64_t value, uint64_t timeoutNs) override;
+        uint64_t GetCurrentValue() const override;
 
-        VkSemaphore GetNativeHandle() const { return semaphore; }
+        VkSemaphore GetNativeHandle() const
+        {
+            return semaphore;
+        }
+        const Device *GetDevice() const noexcept override;
 
     private:
         VulkanDevice &device;

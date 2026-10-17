@@ -1,3 +1,4 @@
+#if !defined(_WIN32)
 //
 // Created on 2026/09/21.
 //
@@ -8,7 +9,7 @@
 //   UIRenderer draws UIDrawData) -> barrier -> Submit -> present -> EndFrame.
 //
 
-#include <editor/render/EditorRenderer.h>
+    #include <editor/render/EditorRenderer.h>
 
 #include "EditorFrameSubmission.h"
 #include "WindowEventBinding.h"
@@ -16,18 +17,19 @@
 #include <editor/core/resource/SandboxResources.h>
 #include <ui/text/UITextLayout.h>
 
-#include <aurora/rdg/ClientViewport.h>
-#include <aurora/rdg/RenderDeviceExclusive.h>
-#include <aurora/rhi/CommandBuffer.h>
-#include <aurora/rhi/Core.h>
-#include <aurora/rhi/Device.h>
-#include <aurora/rhi/Encoder.h>
-#include <aurora/rhi/Image.h>
-#include <aurora/rhi/Instance.h>
-#include <aurora/rhi/Queue.h>
-#include <aurora/rhi/Semaphore.h>
-#include <aurora/rhi/SubmitInfo.h>
-#include <aurora/rhi/SwapChain.h>
+    #include <aurora/rdg/ClientViewport.h>
+    #include <aurora/rdg/DeviceFrameContext.h>
+    #include <aurora/renderer/IRenderer.h>
+    #include <aurora/rhi/CommandBuffer.h>
+    #include <aurora/rhi/Core.h>
+    #include <aurora/rhi/Device.h>
+    #include <aurora/rhi/Encoder.h>
+    #include <aurora/rhi/Image.h>
+    #include <aurora/rhi/Instance.h>
+    #include <aurora/rhi/Queue.h>
+    #include <aurora/rhi/Semaphore.h>
+    #include <aurora/rhi/SubmitInfo.h>
+    #include <aurora/rhi/SwapChain.h>
 
 #include <algorithm>
 #include <core/logger/Logger.h>
@@ -58,11 +60,15 @@ namespace sky::editor {
         Shutdown();
     }
 
-    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api, bool withPreview)
+    bool EditorRenderer::Init(const std::string &appName, uint32_t inWidth, uint32_t inHeight, API api, bool withPreview, RendererVulkanMode)
     {
+        if (Interface<IRenderer>::Get()->GetApi()) {
+            LOG_E(TAG, "legacy editor host cannot share an active Renderer session");
+            return false;
+        }
         shutdownRequested = false;
-        width             = inWidth;
-        height            = inHeight;
+        width  = inWidth;
+        height = inHeight;
 
         // The standalone preview window is only created in editor mode; the hub
         // (Project Manager) has no preview surface.
@@ -731,3 +737,5 @@ namespace sky::editor {
     }
 
 } // namespace sky::editor
+
+#endif

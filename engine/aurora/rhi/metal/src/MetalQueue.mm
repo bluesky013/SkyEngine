@@ -5,12 +5,13 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
-#include "MetalBuffer.h"
-#include "MetalCommandPool.h"
-#include "MetalDevice.h"
-#include "MetalImage.h"
-#include "MetalQueue.h"
-#include "MetalSync.h"
+#include <MetalQueue.h>
+
+#include <MetalBuffer.h>
+#include <MetalCommandPool.h>
+#include <MetalDevice.h>
+#include <MetalImage.h>
+#include <MetalSync.h>
 #include <aurora/rhi/SubmitInfo.h>
 
 #include <algorithm>

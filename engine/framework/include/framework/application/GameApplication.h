@@ -18,8 +18,8 @@ namespace sky {
 
     class GameApplication : public Application {
     public:
-        GameApplication()           = default;
-        ~GameApplication() override = default;
+        GameApplication() = default;
+        ~GameApplication() override;
 
         bool Init(int argc, char **argv) override;
         bool PreInit() override;

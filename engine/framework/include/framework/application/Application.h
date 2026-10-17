@@ -27,6 +27,9 @@ namespace sky {
 
         virtual bool Init(int argc, char **argv);
 
+        // Window-owning derived hosts call this before destroying their native windows.
+        void Shutdown();
+
         virtual void PreTick()
         {
         }
@@ -73,6 +76,7 @@ namespace sky {
         bool                           exit              = false;
         bool                           externalFrameLoop = false;
         FrameClock                     frameClock;
+        bool                           shutdown          = false;
 
         virtual void ParseStartArgs()
         {

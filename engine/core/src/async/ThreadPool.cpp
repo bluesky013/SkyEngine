@@ -206,7 +206,9 @@ namespace sky {
 
     void ThreadPool::Schedule(ThreadTask &&task)
     {
-        const uint32_t target = enqueueCursor.fetch_add(1, std::memory_order_relaxed) % threadCount;
+        auto target = enqueueCursor.load(std::memory_order_relaxed);
+        while (!enqueueCursor.compare_exchange_weak(target, (target + 1) % threadCount, std::memory_order_relaxed)) {
+        }
         pendingTasks.fetch_add(1, std::memory_order_relaxed);
         while (!localQueues[target]->TryPush(std::move(task))) {
             std::this_thread::yield();

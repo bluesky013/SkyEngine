@@ -21,3 +21,24 @@ endif()
 
 # build Aurora.Render before the launcher so its dll lands next to the exe
 sky_add_dependency(TARGET Aurora.Render DEPENDENCIES Launcher SandboxEditor)
+
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET Aurora.Renderer.ModuleTest
+        SOURCES ../core/test/renderer/RendererModuleTest.cpp
+        LIBS Aurora.Adaptor.Static Framework 3rdParty::googletest
+        WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.ModuleTest>)
+    if (SKY_MODULE_PACKAGING STREQUAL "static")
+        target_compile_definitions(Aurora.Renderer.ModuleTest PRIVATE AURORA_RENDERER_PACKAGED_STATIC)
+        target_link_libraries(Aurora.Renderer.ModuleTest Aurora.Render)
+    else()
+        add_dependencies(Aurora.Renderer.ModuleTest Aurora.Render)
+    endif()
+
+    # Verify tagged static registration even when production modules are dynamic.
+    sky_add_test(TARGET Aurora.Renderer.StaticModuleTest
+        SOURCES ../core/test/renderer/RendererModuleTest.cpp src/AuroraRegistry.cpp
+        LIBS Aurora.Adaptor.Static Framework 3rdParty::googletest
+        WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.StaticModuleTest>)
+    target_compile_definitions(Aurora.Renderer.StaticModuleTest PRIVATE
+        AURORA_RENDERER_STATIC_FIXTURE SKY_MODULE_STATIC SKY_MODULE_TAG=Aurora_Render_Contract)
+endif()

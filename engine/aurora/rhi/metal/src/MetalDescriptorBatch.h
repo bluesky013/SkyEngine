@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "MetalBuffer.h"
-#include "MetalImage.h"
-#include "MetalResourceGroup.h"
-#include "MetalSampler.h"
+#include <MetalBuffer.h>
+#include <MetalImage.h>
+#include <MetalResourceGroup.h>
+#include <MetalSampler.h>
 #include <aurora/rhi/DescriptorBatch.h>
 
 namespace sky::aurora {

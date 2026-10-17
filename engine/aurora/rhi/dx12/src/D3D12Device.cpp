@@ -2,12 +2,14 @@
 // Created by blues on 2026/3/29.
 //
 
+#include <D3D12Device.h>
+
+#include "rdg/D3D12RDGBackend.h"
 #include <D3D12BlitHelper.h>
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
-#include <D3D12DescriptorHeap.h>
 #include <D3D12DescriptorBatch.h>
-#include <D3D12Device.h>
+#include <D3D12DescriptorHeap.h>
 #include <D3D12Fence.h>
 #include <D3D12Instance.h>
 #include <D3D12PipelineState.h>
@@ -16,21 +18,23 @@
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
 #include <D3D12SwapChain.h>
+#include <common/FrameTransientPool.h>
 #include <core/logger/Logger.h>
 #include <rdg/D3D12DeviceFrameContext.h>
-#include "rdg/D3D12RDGBackend.h"
 
 static const char    *TAG  = "AuroraDX12";
 static const wchar_t *TAGW = L"AuroraDX12";
 
 namespace sky::aurora {
 
-    D3D12Device::D3D12Device(D3D12Instance &inst) : instance(inst)
+    D3D12Device::D3D12Device(D3D12Instance &inst) : transientPool(std::make_unique<FrameTransientPool>(*this)), instance(inst)
     {
     }
 
     D3D12Device::~D3D12Device()
     {
+        pipelineCache.Clear();
+        transientPool.reset();
         for (auto &q : queues) {
             q.reset();
         }
@@ -90,7 +94,7 @@ namespace sky::aurora {
 
         // Directly-indexed ResourceDescriptorHeap needs Shader Model 6.6.
         D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = {};
-        shaderModel.HighestShaderModel = D3D_SHADER_MODEL_6_6;
+        shaderModel.HighestShaderModel              = D3D_SHADER_MODEL_6_6;
         feature.descriptorHeap = SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel))) &&
                                  shaderModel.HighestShaderModel >= D3D_SHADER_MODEL_6_6;
     }
@@ -218,7 +222,7 @@ namespace sky::aurora {
 
     DeviceFrameContext *D3D12Device::CreateFrameContext(const DeviceFrameContextInitInfo &info)
     {
-        return new D3D12DeviceFrameContext(this, info);
+        return BackendFrameContext::Create<D3D12DeviceFrameContext>(this, info);
     }
 
     Fence *D3D12Device::CreateFence(const Fence::Descriptor &desc)
@@ -258,7 +262,7 @@ namespace sky::aurora {
 
     ID3D12CommandSignature *D3D12Device::GetIndirectSignature(IndirectKind kind, uint32_t stride)
     {
-        const uint64_t key = (static_cast<uint64_t>(kind) << 32) | stride;
+        const uint64_t key  = (static_cast<uint64_t>(kind) << 32) | stride;
         auto           iter = indirectSignatures.find(key);
         if (iter != indirectSignatures.end()) {
             return iter->second.Get();
@@ -266,17 +270,10 @@ namespace sky::aurora {
 
         D3D12_INDIRECT_ARGUMENT_DESC argument = {};
         switch (kind) {
-        case IndirectKind::DRAW:
-            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-            break;
-        case IndirectKind::DRAW_INDEXED:
-            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-            break;
-        case IndirectKind::DISPATCH:
-            argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
-            break;
-        default:
-            return nullptr;
+        case IndirectKind::DRAW: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW; break;
+        case IndirectKind::DRAW_INDEXED: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED; break;
+        case IndirectKind::DISPATCH: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH; break;
+        default: return nullptr;
         }
 
         D3D12_COMMAND_SIGNATURE_DESC desc = {};
@@ -286,7 +283,7 @@ namespace sky::aurora {
         desc.NodeMask                     = 0;
 
         ComPtr<ID3D12CommandSignature> signature;
-        const HRESULT hr = device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
+        const HRESULT                  hr = device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create indirect command signature, hr=0x%08x", static_cast<unsigned>(hr));
             return nullptr;

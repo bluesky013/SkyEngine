@@ -4,14 +4,51 @@
 
 #pragma once
 
-#include <core/template/ReferenceObject.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/SubmissionResult.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky::aurora {
 
     class Image;
     class Semaphore;
     class Fence;
+    class Device;
+
+    enum class PresentationStatus : uint8_t { READY, BUSY, OUT_OF_DATE, SURFACE_LOST, FAILED };
+    struct PresentationResult {
+        PresentationStatus status = PresentationStatus::FAILED;
+        GpuError           error;
+    };
+    struct AcquiredSwapChainFrame {
+        uint64_t   serial     = 0;
+        uint32_t   imageIndex = INVALID_INDEX;
+        Semaphore *acquired   = nullptr;
+        Semaphore *rendered   = nullptr;
+    };
+    struct SwapChainAcquireResult : PresentationResult {
+        AcquiredSwapChainFrame frame;
+    };
+
+    enum class SurfaceTransform : uint8_t {
+        IDENTITY,
+        ROTATE_90,
+        ROTATE_180,
+        ROTATE_270,
+        MIRROR,
+        MIRROR_ROTATE_90,
+        MIRROR_ROTATE_180,
+        MIRROR_ROTATE_270
+    };
+    struct SurfaceConfiguration {
+        Extent2D         extent{};
+        PixelFormat      format    = PixelFormat::UNDEFINED;
+        SurfaceTransform transform = SurfaceTransform::IDENTITY;
+        uint64_t         revision  = 0;
+    };
+    struct SurfaceQueryResult : PresentationResult {
+        SurfaceConfiguration configuration;
+    };
 
     enum class SwapChainStatus : uint32_t {
         OK          = 0,
@@ -31,6 +68,38 @@ namespace sky::aurora {
 
         SwapChain() = default;
         ~SwapChain() override = default;
+
+        virtual Device *GetDevice() const noexcept
+        {
+            return nullptr;
+        }
+        // READY describes the applied configuration; OUT_OF_DATE describes the required replacement.
+        virtual SurfaceQueryResult QuerySurface() const noexcept
+        {
+            return {{PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}}, {}};
+        }
+        // Checked frames exclude the direct host protocol; caller serializes queue access. Timeout is at most 1 ms.
+        virtual SwapChainAcquireResult TryAcquireFrame(uint64_t) noexcept
+        {
+            return {{PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}}, {}};
+        }
+        virtual PresentationResult TryPresentFrame(uint64_t, bool) noexcept
+        {
+            return {PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};
+        }
+        // Call after GPU completion and CPU borrowers exit; abandon means no present was enqueued.
+        virtual FenceQueryResult RetireFrame(uint64_t, bool) noexcept
+        {
+            return {FenceStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};
+        }
+        virtual PresentationResult TryResize(uint32_t, uint32_t) noexcept
+        {
+            return {PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};
+        }
+        virtual PresentationResult TryClose() noexcept
+        {
+            return {PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};
+        }
 
         // Acquire the next backbuffer index. signalSema (binary) and/or fence are
         // signaled when the image is actually available.

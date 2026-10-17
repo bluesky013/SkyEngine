@@ -15,12 +15,19 @@ namespace sky::aurora {
     public:
         explicit VulkanSampler(VulkanDevice &dev);
         ~VulkanSampler() override;
+        const Device *GetDevice() const noexcept override;
 
         bool Init(const Descriptor &desc);
 
-        VkSampler GetNativeHandle() const { return sampler; }
+        VkSampler GetNativeHandle() const
+        {
+            return sampler;
+        }
 
-        uint64_t GetId() const { return mId; }
+        uint64_t GetId() const
+        {
+            return mId;
+        }
 
     private:
         VulkanDevice &device;

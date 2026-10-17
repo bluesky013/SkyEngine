@@ -147,3 +147,10 @@ labeled as not scheduled (or archived); and no active change references a nonexi
    confirmation before any archive).
 3. Re-derive the active list and confirm the end-state criterion holds. Rollback: no destructive operation is
    performed by this change, so reverting is a no-op.
+
+
+## Aurora 状态校正（2026-10-17）
+
+上文 23 项分类是历史快照。C2 的 design/specs/tasks 和 C3 的不存在材质 change 引用均已解决。aurora-renderer 的 Windows B01–B14/P01 已验收，待用户确认部分范围归档；aurora-renderer-layout 为 8/8。aurora-scene-bridge 现为 active，Windows 前置已解除；新增 aurora-renderer-platform-parity 为 blocked-on-prereq（Mac/原生设备），aurora-renderer-extensions 为 debt-record。新增记录仅为保留本次归档的实际余项，未将历史 C7 的其它设计缺口批量新建。
+
+terrain/vegetation 的 CPU/render-feature 接缝可基于现有主线设计，但它们要求的 compute/indirect/完整材质仍未实现；不能把基础 Renderer 完成视为这些 feature 已可完整交付。navigation 的 Renderer 基础门已解除，仍需本 change 的适配设计。audio-world 的 World 提取前置应看 aurora-scene-bridge，而不是重新等待 Renderer 主循环。

@@ -2,18 +2,21 @@
 // Created on 2026/04/02.
 //
 
-#include "VulkanSampler.h"
-#include "VulkanDevice.h"
-#include "VulkanConversion.h"
+#include <VulkanSampler.h>
+
+#include <VulkanConversion.h>
+#include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
+    const Device *VulkanSampler::GetDevice() const noexcept
+    {
+        return &device;
+    }
 
-    VulkanSampler::VulkanSampler(VulkanDevice &dev)
-        : device(dev)
-        , mId(dev.AllocResourceId())
+    VulkanSampler::VulkanSampler(VulkanDevice &dev) : device(dev), mId(dev.AllocResourceId())
     {
     }
 
@@ -28,22 +31,22 @@ namespace sky::aurora {
     {
         const bool anisotropyEnabled = desc.anisotropyEnable && device.GetCapability().anisotropyEnable;
 
-        VkSamplerCreateInfo samplerCI = {};
-        samplerCI.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerCI.magFilter        = FromFilter(desc.magFilter);
-        samplerCI.minFilter        = FromFilter(desc.minFilter);
-        samplerCI.mipmapMode       = FromMipFilter(desc.mipmapMode);
-        samplerCI.addressModeU     = FromWrapMode(desc.addressModeU);
-        samplerCI.addressModeV     = FromWrapMode(desc.addressModeV);
-        samplerCI.addressModeW     = FromWrapMode(desc.addressModeW);
-        samplerCI.mipLodBias       = 0.f;
-        samplerCI.anisotropyEnable = anisotropyEnabled ? VK_TRUE : VK_FALSE;
-        samplerCI.maxAnisotropy    = anisotropyEnabled ? desc.maxAnisotropy : 1.f;
-        samplerCI.compareEnable    = VK_FALSE;
-        samplerCI.compareOp        = VK_COMPARE_OP_NEVER;
-        samplerCI.minLod           = desc.minLod;
-        samplerCI.maxLod           = desc.maxLod;
-        samplerCI.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        VkSamplerCreateInfo samplerCI     = {};
+        samplerCI.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerCI.magFilter               = FromFilter(desc.magFilter);
+        samplerCI.minFilter               = FromFilter(desc.minFilter);
+        samplerCI.mipmapMode              = FromMipFilter(desc.mipmapMode);
+        samplerCI.addressModeU            = FromWrapMode(desc.addressModeU);
+        samplerCI.addressModeV            = FromWrapMode(desc.addressModeV);
+        samplerCI.addressModeW            = FromWrapMode(desc.addressModeW);
+        samplerCI.mipLodBias              = 0.f;
+        samplerCI.anisotropyEnable        = anisotropyEnabled ? VK_TRUE : VK_FALSE;
+        samplerCI.maxAnisotropy           = anisotropyEnabled ? desc.maxAnisotropy : 1.f;
+        samplerCI.compareEnable           = VK_FALSE;
+        samplerCI.compareOp               = VK_COMPARE_OP_NEVER;
+        samplerCI.minLod                  = desc.minLod;
+        samplerCI.maxLod                  = desc.maxLod;
+        samplerCI.borderColor             = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         samplerCI.unnormalizedCoordinates = VK_FALSE;
 
         if (desc.anisotropyEnable && !anisotropyEnabled) {

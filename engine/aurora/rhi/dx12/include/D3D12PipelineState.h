@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/31.
 //
 
@@ -7,8 +7,8 @@
 #include <D3D12ShaderFunction.h>
 #include <aurora/rhi/PipelineState.h>
 #include <d3d12.h>
-#include <wrl/client.h>
 #include <vector>
+#include <wrl/client.h>
 
 namespace sky::aurora {
 
@@ -24,17 +24,34 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
-        const D3D12RootSignature *GetRootSignature() const { return shader->GetRootSignature(); }
+        HRESULT GetCreateResult() const noexcept
+        {
+            return createResult;
+        }
+        ID3D12PipelineState *GetNativeHandle() const
+        {
+            return pso.Get();
+        }
+        const D3D12RootSignature *GetRootSignature() const
+        {
+            return shader->GetRootSignature();
+        }
 
         // Per-binding vertex stride, indexed by input slot (0 when unset).
-        const std::vector<uint32_t> &GetVertexStrides() const { return vertexStrides; }
+        const std::vector<uint32_t> &GetVertexStrides() const
+        {
+            return vertexStrides;
+        }
 
         // Command-list primitive topology (IASetPrimitiveTopology), from the state.
-        PrimitiveTopology GetPrimitiveTopology() const { return topology; }
+        PrimitiveTopology GetPrimitiveTopology() const
+        {
+            return topology;
+        }
 
     private:
-        D3D12Device &device;
+        HRESULT                     createResult = S_OK;
+        D3D12Device                &device;
         ComPtr<ID3D12PipelineState> pso;
         CounterPtr<D3D12Shader>     shader;
         std::vector<uint32_t>       vertexStrides;
@@ -48,11 +65,17 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
-        const D3D12RootSignature *GetRootSignature() const { return shader->GetRootSignature(); }
+        ID3D12PipelineState *GetNativeHandle() const
+        {
+            return pso.Get();
+        }
+        const D3D12RootSignature *GetRootSignature() const
+        {
+            return shader->GetRootSignature();
+        }
 
     private:
-        D3D12Device &device;
+        D3D12Device                &device;
         ComPtr<ID3D12PipelineState> pso;
         CounterPtr<D3D12Shader>     shader;
     };

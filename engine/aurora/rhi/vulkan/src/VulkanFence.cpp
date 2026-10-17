@@ -3,6 +3,7 @@
 //
 
 #include <VulkanFence.h>
+
 #include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 
@@ -10,8 +11,12 @@ static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
 
-    VulkanFence::VulkanFence(VulkanDevice &dev)
-        : device(dev)
+    const Device *VulkanFence::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
+    VulkanFence::VulkanFence(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -25,7 +30,7 @@ namespace sky::aurora {
     bool VulkanFence::Init(const Descriptor &desc)
     {
         VkFenceCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        createInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         if (desc.createSignaled) {
             createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         }
@@ -45,12 +50,32 @@ namespace sky::aurora {
 
     void VulkanFence::Reset()
     {
-        device.GetDeviceFn().vkResetFences(device.GetNativeHandle(), 1, &fence);
+        const auto result = TryReset();
+        if (!result.Succeeded())
+            LOG_E(TAG, "Fence reset failed: %lld", result.error.nativeCode);
     }
 
     bool VulkanFence::IsSignaled()
     {
-        return device.GetDeviceFn().vkGetFenceStatus(device.GetNativeHandle(), fence) == VK_SUCCESS;
+        return Query().status == FenceStatus::SIGNALED;
+    }
+
+    GpuOperationResult VulkanFence::TryReset() noexcept
+    {
+        const auto result = device.GetDeviceFn().vkResetFences(device.GetNativeHandle(), 1, &fence);
+        if (result == VK_SUCCESS)
+            return {};
+        return {{result == VK_ERROR_DEVICE_LOST ? GpuErrorCode::DEVICE_LOST : GpuErrorCode::NATIVE_ERROR, result}};
+    }
+
+    FenceQueryResult VulkanFence::Query() noexcept
+    {
+        const auto result = device.GetDeviceFn().vkGetFenceStatus(device.GetNativeHandle(), fence);
+        if (result == VK_SUCCESS)
+            return {FenceStatus::SIGNALED};
+        if (result == VK_NOT_READY)
+            return {FenceStatus::PENDING};
+        return {FenceStatus::FAILED, {result == VK_ERROR_DEVICE_LOST ? GpuErrorCode::DEVICE_LOST : GpuErrorCode::NATIVE_ERROR, result}};
     }
 
     bool VulkanFence::WaitFor(uint64_t timeoutNs)
