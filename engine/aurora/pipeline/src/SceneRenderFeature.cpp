@@ -4,17 +4,19 @@
 
 #include <aurora/pipeline/SceneRenderFeature.h>
 
+#include "GlobalBlock.h"
+#include "OpaquePass.h"
 #include "SceneBatch.h"
 #include "SceneEnvironmentPass.h"
 #include "SceneLightingPass.h"
-#include "ScenePass.h"
 #include "SceneSurfaceBatch.h"
 #include "ShadowPass.h"
 #include "ToneMapPass.h"
 #include <algorithm>
-#include <aurora/pipeline/PassResourceBindings.h>
-#include <aurora/pipeline/SceneMaterial.h>
+#include <aurora/renderer/PassResourceBindings.h>
 #include <aurora/rhi/Device.h>
+#include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderTechnique.h>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -40,17 +42,70 @@ namespace sky::aurora {
             return bindings.Uniform(slot, uniform.range, type, uniform.dynamicOffset);
         }
 
-        std::variant<FrameError, ShaderPtr> CreateSceneShader(FrameGraphBuildContext &context, API backend, const char *path)
+        FrameOperationResult BindGlobal(FrameGraphBuildContext &context, PassResourceBindings &bindings)
         {
-            ShaderFileSystem files;
-            RegisterSceneShaderSources(files);
-            ShaderRef reference;
-            reference.relativePath = path;
-            const auto compiled    = CompileSceneMaterial(files, backend, reference);
+            const auto                &frame = *context.GetInputs().prepared;
+            const shared::GlobalParams params{{static_cast<float>(frame.timeSeconds), frame.deltaSeconds, 0, 0}};
+            if (!std::isfinite(params.frameTime.x) || !std::isfinite(params.frameTime.y)) {
+                return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Frame time exceeds shader float range"};
+            }
+            return WriteParams(context, bindings, shared::GlobalBlockBindings::gGlobal, params);
+        }
+
+        ShaderReflection MaterialSchema(const ShaderReflection &shader, std::span<const RenderUniformData> uniforms)
+        {
+            ShaderReflection result;
+            for (const auto &uniform : uniforms) {
+                for (const auto &resource : shader.resources) {
+                    if (resource.set == 2 && resource.binding == uniform.binding) {
+                        result.resources.push_back(resource);
+                    }
+                }
+                for (const auto &block : shader.blocks) {
+                    if (block.set == 2 && block.binding == uniform.binding) {
+                        result.blocks.push_back(block);
+                    }
+                }
+            }
+            return result;
+        }
+        FrameOperationResult BindMaterial(FrameGraphBuildContext            &context,
+                                          std::span<const RenderUniformData> values,
+                                          const ShaderReflection            &schema,
+                                          PassResourceBindings              &bindings)
+        {
+            for (const auto &value : values) {
+                const auto resource =
+                    std::ranges::find_if(schema.resources, [&](const auto &item) { return item.set == 2 && item.binding == value.binding; });
+                if (resource == schema.resources.end()) {
+                    return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Material uniform has no active binding"};
+                }
+                const auto written = context.WriteUniform(2, value.binding, value.bytes, resource->type);
+                if (const auto *error = std::get_if<FrameError>(&written)) {
+                    return *error;
+                }
+                const auto &uniform = std::get<RasterUniformBinding>(written);
+                const auto  result  = bindings.Uniform({.set = 2, .binding = value.binding}, uniform.range, resource->type, uniform.dynamicOffset);
+                if (std::holds_alternative<FrameError>(result)) {
+                    return result;
+                }
+            }
+            return FrameOperationComplete{};
+        }
+
+        std::variant<FrameError, ShaderPtr>
+        CreateSceneShader(FrameGraphBuildContext &context, ShaderFileSystem *files, IFileSystem *products, API backend, const char *path)
+        {
+            if (files == nullptr) {
+                return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene feature has no shader source provider"};
+            }
+            const ShaderTechnique technique{.vertex   = {.relativePath = path, .entry = "VSMain"},
+                                            .fragment = {.relativePath = path, .entry = "FSMain"}};
+            const auto            compiled = CompileShaderTechnique(*files, backend, technique, products);
             if (const auto *error = std::get_if<RendererError>(&compiled)) {
                 return FrameError{.code = FrameErrorCode::COMPILE_FAILED, .message = error->message};
             }
-            return context.CreateShader(std::get<RenderMaterialData>(compiled));
+            return context.CreateShader(std::get<RenderTechniqueData>(compiled));
         }
 
         std::variant<FrameError, Matrix4> ShadowProjection(const PreparedViewData &view, Vector3 forward)
@@ -105,7 +160,8 @@ namespace sky::aurora {
 
         class SceneRenderFeature final : public IFrameGraphFeature {
         public:
-            explicit SceneRenderFeature(Name name) : name(name)
+            SceneRenderFeature(Name name, std::shared_ptr<ShaderFileSystem> sources, FileSystemPtr products)
+                : name(name), sources(sources ? std::move(sources) : std::make_shared<ShaderFileSystem>()), products(std::move(products))
             {
             }
             Name GetName() const override
@@ -157,7 +213,7 @@ namespace sky::aurora {
                 if (const auto error = ReadViewSettings(context, view.view.output, settings, environmentImages)) {
                     return *error;
                 }
-                auto resolved = context.ResolveDraws({.offset = {.x = 0, .y = 0}, .extent = target->output.extent});
+                auto resolved = context.ResolveDraws(Name("opaque"), {.offset = {.x = 0, .y = 0}, .extent = target->output.extent});
                 if (const auto *error = std::get_if<FrameError>(&resolved)) {
                     return *error;
                 }
@@ -167,7 +223,7 @@ namespace sky::aurora {
                 // Scene projections are Y-up; output mapping consumes top-left logical coordinates.
                 auto sceneToLogical = RenderIdentityMatrix();
                 sceneToLogical.v[5] = -1;
-                const shared::ScenePassParams params{
+                const shared::OpaquePassParams params{
                     .viewProjection = target->logicalToClip * sceneToLogical * view.view.projection * view.view.view,
                     .cameraPosition = {view.view.cameraPosition.x, view.view.cameraPosition.y, view.view.cameraPosition.z, 1}};
                 auto      &draws   = std::get<std::vector<ResolvedRasterDraw>>(resolved);
@@ -232,7 +288,6 @@ namespace sky::aurora {
 
             void OnRetired() override
             {
-                shadowShader.Reset(nullptr);
                 shadowSampler.Reset(nullptr);
                 toneMapShader.Reset(nullptr);
                 toneMapSampler.Reset(nullptr);
@@ -273,48 +328,53 @@ namespace sky::aurora {
                 return {};
             }
 
-            static FrameOperationResult BindDraws(FrameGraphBuildContext        &context,
-                                                  const shared::ScenePassParams &params,
-                                                  std::span<ResolvedRasterDraw>  draws,
-                                                  const PassResourceBindings    &lighting,
-                                                  const PassResourceBindings    &environment,
-                                                  std::vector<RasterDraw>       &boundDraws)
+            static FrameOperationResult BindDraws(FrameGraphBuildContext         &context,
+                                                  const shared::OpaquePassParams &params,
+                                                  std::span<ResolvedRasterDraw>   draws,
+                                                  const PassResourceBindings     &lighting,
+                                                  const PassResourceBindings     &environment,
+                                                  std::vector<RasterDraw>        &boundDraws)
             {
                 struct PassBindings {
-                    PassResourceBindings bindings{shared::GetScenePassReflection()};
+                    PassResourceBindings bindings{shared::GetOpaquePassReflection()};
                     bool                 ready = false;
                 };
                 std::array<PassBindings, 2> passes;
+                PassResourceBindings        global(shared::GetGlobalBlockReflection());
+                if (const auto result = BindGlobal(context, global); std::holds_alternative<FrameError>(result)) {
+                    return result;
+                }
                 boundDraws.reserve(draws.size());
                 for (auto &resolvedDraw : draws) {
-                    auto       &draw       = resolvedDraw.draw;
-                    const auto &reflection = draw.shader->GetReflection();
-                    if (resolvedDraw.material.size() != sizeof(shared::SceneBatchParams)) {
-                        return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene pass requires its shared batch payload"};
-                    }
-                    shared::SceneBatchParams batch;
-                    std::memcpy(&batch, resolvedDraw.material.data(), sizeof(batch));
-                    batch.world     = resolvedDraw.world;
-                    const auto find = [&](auto slot) {
+                    auto                          &draw       = resolvedDraw.draw;
+                    const auto                    &reflection = draw.shader->GetReflection();
+                    const shared::SceneBatchParams batch{.world = resolvedDraw.world};
+                    const auto                     find = [&](auto slot) {
                         return std::find_if(reflection.resources.begin(), reflection.resources.end(),
-                                            [&](const auto &resource) { return resource.set == slot.set && resource.binding == slot.binding; });
+                                                                [&](const auto &resource) { return resource.set == slot.set && resource.binding == slot.binding; });
                     };
-                    const auto batchResource = find(shared::SceneBatchBindings::gSceneBatch);
-                    if (batchResource == reflection.resources.end()) {
-                        return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene pass shader requires its batch binding"};
-                    }
+                    const auto           batchResource = find(shared::SceneBatchBindings::gSceneBatch);
                     PassResourceBindings batchBindings(shared::GetSceneBatchReflection());
-                    if (const auto result = WriteParams(context, batchBindings, shared::SceneBatchBindings::gSceneBatch, batch, batchResource->type);
+                    if (batchResource != reflection.resources.end()) {
+                        if (const auto result =
+                                WriteParams(context, batchBindings, shared::SceneBatchBindings::gSceneBatch, batch, batchResource->type);
+                            std::holds_alternative<FrameError>(result)) {
+                            return result;
+                        }
+                    }
+                    const auto           materialSchema = MaterialSchema(reflection, resolvedDraw.material);
+                    PassResourceBindings material(materialSchema);
+                    if (const auto result = BindMaterial(context, resolvedDraw.material, materialSchema, material);
                         std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
-                    const auto passResource = find(shared::ScenePassBindings::gScenePass);
+                    const auto passResource = find(shared::OpaquePassBindings::gOpaquePass);
                     const auto passIndex    = static_cast<size_t>(passResource != reflection.resources.end() &&
                                                                   passResource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
                     auto      &passBindings = passes[passIndex].bindings;
                     auto      &ready        = passes[passIndex].ready;
                     if (passResource != reflection.resources.end() && !ready) {
-                        const auto result = WriteParams(context, passBindings, shared::ScenePassBindings::gScenePass, params, passResource->type);
+                        const auto result = WriteParams(context, passBindings, shared::OpaquePassBindings::gOpaquePass, params, passResource->type);
                         if (std::holds_alternative<FrameError>(result)) {
                             return result;
                         }
@@ -323,14 +383,14 @@ namespace sky::aurora {
                     PassResourceBindings surface(shared::GetSceneSurfaceBatchReflection());
                     const auto           surfaceResource = find(shared::SceneSurfaceBatchBindings::gSceneSurface);
                     if (surfaceResource != reflection.resources.end()) {
-                        const shared::SceneSurfaceParams surfaceParams{{static_cast<float>(resolvedDraw.receiveShadow), .5f, 0, 0}};
+                        const shared::SceneSurfaceParams surfaceParams{{static_cast<float>(resolvedDraw.receiveShadow), 0, 0, 0}};
                         const auto                       result =
                             WriteParams(context, surface, shared::SceneSurfaceBatchBindings::gSceneSurface, surfaceParams, surfaceResource->type);
                         if (std::holds_alternative<FrameError>(result)) {
                             return result;
                         }
                     }
-                    const PassResourceBindings *groups[]{&passBindings, &batchBindings, &lighting, &surface, &environment};
+                    const PassResourceBindings *groups[]{&global, &passBindings, &batchBindings, &material, &lighting, &surface, &environment};
                     if (const auto result = PassResourceBindings::Apply(draw, groups); const auto *error = std::get_if<FrameError>(&result)) {
                         return FrameError{.code = error->code, .message = "Shader does not match the scene pass declarations: " + error->message};
                     }
@@ -397,7 +457,7 @@ namespace sky::aurora {
             ToneMap(FrameGraphBuildContext &context, const FrameRenderTarget &target, GraphImageHandle color, float exposure, API backend)
             {
                 if (!toneMapShader) {
-                    const auto created = CreateSceneShader(context, backend, "SceneToneMap.slang");
+                    const auto created = CreateSceneShader(context, sources.get(), products.Get(), backend, "aurora/pipeline/ToneMap.slang");
                     if (const auto *error = std::get_if<FrameError>(&created)) {
                         return *error;
                     }
@@ -443,6 +503,43 @@ namespace sky::aurora {
                 pass.color = target.color;
                 pass.draws.push_back(std::move(draw));
                 return context.Fullscreen(std::move(pass));
+            }
+            static FrameOperationResult BindShadowDraws(FrameGraphBuildContext       &context,
+                                                        std::span<ResolvedRasterDraw> casters,
+                                                        const Matrix4                &projection,
+                                                        std::vector<RasterDraw>      &draws)
+            {
+                PassResourceBindings pass(shared::GetShadowPassReflection());
+                PassResourceBindings global(shared::GetGlobalBlockReflection());
+                if (const auto result = BindGlobal(context, global); std::holds_alternative<FrameError>(result)) {
+                    return result;
+                }
+                const auto written = WriteParams(context, pass, shared::ShadowPassBindings::gShadowPass, shared::ShadowPassParams{projection});
+                if (std::holds_alternative<FrameError>(written)) {
+                    return written;
+                }
+                for (auto &caster : casters) {
+                    auto                &draw = caster.draw;
+                    PassResourceBindings batch(shared::GetSceneBatchReflection());
+                    const auto           result =
+                        WriteParams(context, batch, shared::SceneBatchBindings::gSceneBatch, shared::SceneBatchParams{.world = caster.world});
+                    if (std::holds_alternative<FrameError>(result)) {
+                        return result;
+                    }
+                    const auto           materialSchema = MaterialSchema(draw.shader->GetReflection(), caster.material);
+                    PassResourceBindings material(materialSchema);
+                    if (const auto result = BindMaterial(context, caster.material, materialSchema, material);
+                        std::holds_alternative<FrameError>(result)) {
+                        return result;
+                    }
+                    const PassResourceBindings *groups[]{&global, &pass, &batch, &material};
+                    const auto                  applied = PassResourceBindings::Apply(draw, groups);
+                    if (std::holds_alternative<FrameError>(applied)) {
+                        return applied;
+                    }
+                    draws.push_back(std::move(draw));
+                }
+                return FrameOperationComplete{};
             }
             FrameOperationResult
             BuildLighting(FrameGraphBuildContext &context, const PreparedViewData &view, API backend, PassResourceBindings &bindings)
@@ -498,41 +595,16 @@ namespace sky::aurora {
                 FrameRasterPass shadow;
                 shadow.depth = RasterDepthAttachment{.image = std::get<GraphImageHandle>(image)};
                 if (params.shadowControl.x != 0.0f) {
-                    if (!shadowShader) {
-                        const auto created = CreateSceneShader(context, backend, "SceneShadow.slang");
-                        if (const auto *error = std::get_if<FrameError>(&created)) {
-                            return *error;
-                        }
-                        shadowShader = std::get<ShaderPtr>(created);
-                    }
-                    auto resolved = context.ResolveDraws({.offset = {.x = 0, .y = 0}, .extent = {.width = resolution, .height = resolution}},
-                                                         PreparedDrawList::SHADOW_CASTERS);
+                    auto resolved =
+                        context.ResolveDraws(Name("shadow"), {.offset = {.x = 0, .y = 0}, .extent = {.width = resolution, .height = resolution}},
+                                             PreparedDrawList::SHADOW_CASTERS);
                     if (const auto *error = std::get_if<FrameError>(&resolved)) {
                         return *error;
                     }
-                    PassResourceBindings pass(shared::GetShadowPassReflection());
-                    const auto           written =
-                        WriteParams(context, pass, shared::ShadowPassBindings::gShadowPass, shared::ShadowPassParams{params.shadowViewProjection});
-                    if (std::holds_alternative<FrameError>(written)) {
-                        return written;
-                    }
-                    for (auto &caster : std::get<std::vector<ResolvedRasterDraw>>(resolved)) {
-                        auto &draw  = caster.draw;
-                        draw.shader = shadowShader;
-                        draw.blend  = {};
-                        draw.depth  = {.test = true, .write = true, .compare = CompareOp::LESS_OR_EQUAL};
-                        PassResourceBindings batch(shared::GetSceneBatchReflection());
-                        const auto           result = WriteParams(context, batch, shared::SceneBatchBindings::gSceneBatch,
-                                                                  shared::SceneBatchParams{.tint = {1, 1, 1, 1}, .world = caster.world});
-                        if (std::holds_alternative<FrameError>(result)) {
-                            return result;
-                        }
-                        const PassResourceBindings *groups[]{&pass, &batch};
-                        const auto                  applied = PassResourceBindings::Apply(draw, groups);
-                        if (std::holds_alternative<FrameError>(applied)) {
-                            return applied;
-                        }
-                        shadow.draws.push_back(std::move(draw));
+                    if (const auto result =
+                            BindShadowDraws(context, std::get<std::vector<ResolvedRasterDraw>>(resolved), params.shadowViewProjection, shadow.draws);
+                        std::holds_alternative<FrameError>(result)) {
+                        return result;
                     }
                 }
                 const auto raster = context.Raster(std::move(shadow));
@@ -559,18 +631,19 @@ namespace sky::aurora {
                 }
                 return bindings.Sampler(shared::SceneLightingPassBindings::gShadowSampler, shadowSampler);
             }
-            Name       name;
-            ShaderPtr  shadowShader;
-            SamplerPtr shadowSampler;
-            ShaderPtr  toneMapShader;
-            SamplerPtr toneMapSampler;
-            SamplerPtr environmentSampler, brdfSampler;
+            Name                              name;
+            std::shared_ptr<ShaderFileSystem> sources;
+            FileSystemPtr                     products;
+            SamplerPtr                        shadowSampler;
+            ShaderPtr                         toneMapShader;
+            SamplerPtr                        toneMapSampler;
+            SamplerPtr                        environmentSampler, brdfSampler;
         };
     } // namespace
 
-    std::shared_ptr<IFrameGraphFeature> CreateSceneRenderFeature(Name name)
+    std::shared_ptr<IFrameGraphFeature> CreateSceneRenderFeature(Name name, std::shared_ptr<ShaderFileSystem> sources, FileSystemPtr products)
     {
-        return std::make_shared<SceneRenderFeature>(name);
+        return std::make_shared<SceneRenderFeature>(name, std::move(sources), std::move(products));
     }
     FrameExtensionPayload
     SceneViewInput(Name feature, ViewportId output, const SceneViewSettings &settings, const SceneEnvironmentInputs &environment)

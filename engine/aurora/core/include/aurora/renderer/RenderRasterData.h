@@ -6,6 +6,7 @@
 
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/rhi/ShaderReflection.h>
+#include <core/name/Name.h>
 
 namespace sky::aurora {
     struct RenderMeshStream {
@@ -25,12 +26,25 @@ namespace sky::aurora {
         std::vector<RenderMeshLod>         lods;
     };
     // Owned compiled code and layout; native shader objects are created only by the coordinator.
-    struct RenderMaterialData {
+    struct RenderTechniqueData {
         API                  backend = API::DEFAULT;
-        std::vector<uint8_t> vertexCode, fragmentCode;
-        std::string          vertexEntry, fragmentEntry;
+        std::vector<uint8_t> vertexCode, fragmentCode, computeCode;
+        std::string          vertexEntry, fragmentEntry, computeEntry;
         ShaderReflection     reflection;
+        ShaderSpecialization specialization;
         BlendState           blend;
         RasterDepthState     depth;
+    };
+    struct RenderUniformData {
+        uint32_t               binding = 0;
+        std::vector<std::byte> bytes;
+    };
+    struct RenderMaterialTechnique {
+        Name                           tag;
+        RenderTechniqueData            program;
+        std::vector<RenderUniformData> uniforms;
+    };
+    struct RenderMaterialData {
+        std::vector<RenderMaterialTechnique> techniques;
     };
 } // namespace sky::aurora

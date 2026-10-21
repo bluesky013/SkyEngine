@@ -1,0 +1,10 @@
+// Generated from aurora/pipeline/SceneBatch.h; do not edit.
+// Inputs: 4b06207e23e4bb1d52dec579bf413ca03369a2f62404b47fbc715eb570eb4e2b; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SceneBatchParams
+{
+    column_major float4x4 world;
+};
+[[vk::binding(0, 2)]] ConstantBuffer<SceneBatchParams> gSceneBatch
+    : register(b0, space2);

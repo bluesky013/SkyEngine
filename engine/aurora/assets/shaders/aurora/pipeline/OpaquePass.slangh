@@ -1,0 +1,11 @@
+// Generated from aurora/pipeline/OpaquePass.h; do not edit.
+// Inputs: 5a39bc06273965c5005a840d5e0da343eadaf541d3950bbe812310ef1ef10a9a; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct OpaquePassParams
+{
+    column_major float4x4 viewProjection;
+    float4 cameraPosition;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<OpaquePassParams> gOpaquePass
+    : register(b0, space1);

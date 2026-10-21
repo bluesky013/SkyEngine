@@ -15,6 +15,7 @@ namespace sky::aurora {
     std::variant<RendererError, RenderResourcePayload> ConvertSceneImage(const Asset<Texture> &asset, RendererInfo info);
 
     // The loader returns owned assets; ResolveMesh polls status without waiting on asset workers.
-    std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>     files,
-                                                                 std::function<AssetPtr(const Uuid &)> loader = {});
+    // Sources are supplied by the host; an empty provider supports cooked-only or non-shader asset requests.
+    std::shared_ptr<ISceneResourceSource>
+    CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem> files, std::function<AssetPtr(const Uuid &)> loader = {}, FileSystemPtr products = {});
 } // namespace sky::aurora

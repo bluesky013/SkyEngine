@@ -2,10 +2,10 @@
 // Scene pass: HDR color + depth attachments, single "opaque" queue (front-to-back).
 //
 
-#include "ScenePass.h"
 #include <aurora/pipeline/ScenePass.h>
+
+#include "ScenePass.h"
 #include <aurora/rdg/RenderGraph.h>
-#include <aurora/rhi/Device.h>
 
 namespace sky::aurora {
 
@@ -17,17 +17,6 @@ namespace sky::aurora {
     {
         static const std::vector<RgBlockDesc> blocks{shared::GetScenePassParamsBlockDesc()};
         return blocks;
-    }
-
-    void ScenePass::OnSetup(Device *device)
-    {
-        SceneRasterPassTemplate::OnSetup(device);
-        // TODO: create persistent PSO once shader pipeline is wired in
-    }
-
-    void ScenePass::OnSceneChanged()
-    {
-        SceneRasterPassTemplate::OnSceneChanged();
     }
 
     void ScenePass::BuildRDG(RenderGraph &graph)

@@ -1,0 +1,19 @@
+{
+    "entries": [
+        "FSMain"
+    ],
+    "sources": [
+        {
+            "name": "material",
+            "width": 1
+        }
+    ],
+    "variants": [
+        {
+            "key": "TONE",
+            "source": "material",
+            "width": 1,
+            "default": 0
+        }
+    ]
+}

@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,18 +31,18 @@ namespace sky::aurora {
     class ShaderFileSystem;
 
     struct ShaderCompileTask {
-        ShaderCacheKey           key;
-        std::string              source;
-        std::string              entry;
-        ShaderStageFlagBit       stage   = ShaderStageFlagBit::FS;
-        ShaderTarget             target  = ShaderTarget::SPIRV;
-        const ShaderVariant     *variant = nullptr; // caller-owned material variant
-        ShaderVariantSchema      schema;            // owned
-        ShaderFileSystem        *fileSystem = nullptr;
-        std::string              relativePath;
-        std::vector<std::string> deps;
-        uint64_t                 schemaFp   = 0;
-        uint64_t                 sourceHash = 0;
+        ShaderCacheKey                    key;
+        std::string                       source;
+        std::string                       entry;
+        ShaderStageFlagBit                stage  = ShaderStageFlagBit::FS;
+        ShaderTarget                      target = ShaderTarget::SPIRV;
+        std::optional<ShaderVariant>      variant;
+        ShaderVariantSchema               schema; // owned
+        std::shared_ptr<ShaderFileSystem> fileSystem;
+        std::string                       relativePath;
+        std::vector<std::string>          deps;
+        uint64_t                          schemaFp   = 0;
+        uint64_t                          sourceHash = 0;
 
         ShaderCompileDesc MakeDesc() const
         {
@@ -50,8 +51,9 @@ namespace sky::aurora {
             desc.entry      = entry;
             desc.stage      = stage;
             desc.target     = target;
-            desc.fileSystem = fileSystem;
-            desc.variant    = variant;
+            desc.fileSystem = fileSystem.get();
+            desc.variant    = variant ? &*variant : nullptr;
+            desc.sourcePath = relativePath;
             desc.schema     = &schema;
             return desc;
         }

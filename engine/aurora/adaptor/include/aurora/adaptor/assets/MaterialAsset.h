@@ -1,7 +1,6 @@
 //
-// Aurora material asset: versioned CPU payload of a Material's techniques
-// (tag + ShaderRef + material render state) and typed property values
-// (uniform bytes / texture Uuid). Runtime-only load (no offline build).
+// Versioned material techniques with explicit stage entries and Batch mappings.
+// Runtime conversion packs typed properties using each program's reflected layout.
 //
 
 #pragma once
@@ -243,24 +242,63 @@ namespace sky::aurora {
     using MaterialPropertyValue = detail::MaterialPropertyValue;
 
     struct MaterialTechniqueData {
-        std::string         tag;
-        ShaderRef           shader;
-        MaterialRenderState renderState;
+        std::string                         tag;
+        ShaderTechnique                     program;
+        std::vector<MaterialUniformBinding> uniforms;
+        MaterialRenderState                 renderState;
 
         void Save(BinaryOutputArchive &ar) const
         {
             ar.SaveValue(tag);
-            ar.SaveValue(shader.relativePath);
-            ar.SaveValue(shader.entry);
+            for (const auto *ref : {&program.vertex, &program.fragment, &program.compute}) {
+                ar.SaveValue(ref->relativePath);
+                ar.SaveValue(ref->entry);
+            }
+            ar.SaveValue(static_cast<uint32_t>(program.variant.entries.size()));
+            for (const auto &entry : program.variant.entries) {
+                ar.SaveValue(std::string(entry.key.GetStr()));
+                ar.SaveValue(entry.value);
+            }
             detail::SaveRenderState(ar, renderState);
+            ar.SaveValue(static_cast<uint32_t>(uniforms.size()));
+            for (const auto &uniform : uniforms) {
+                ar.SaveValue(uniform.binding);
+                ar.SaveValue(static_cast<uint32_t>(uniform.fields.size()));
+                for (const auto &field : uniform.fields) {
+                    ar.SaveValue(field.property);
+                    ar.SaveValue(field.member);
+                }
+            }
         }
 
         void Load(BinaryInputArchive &ar)
         {
             ar.LoadValue(tag);
-            ar.LoadValue(shader.relativePath);
-            ar.LoadValue(shader.entry);
+            for (auto *ref : {&program.vertex, &program.fragment, &program.compute}) {
+                ar.LoadValue(ref->relativePath);
+                ar.LoadValue(ref->entry);
+            }
+            uint32_t count = 0;
+            ar.LoadValue(count);
+            program.variant.entries.resize(count);
+            for (auto &entry : program.variant.entries) {
+                std::string name;
+                ar.LoadValue(name);
+                entry.key = Name(name.c_str());
+                ar.LoadValue(entry.value);
+            }
             detail::LoadRenderState(ar, renderState);
+            ar.LoadValue(count);
+            uniforms.resize(count);
+            for (auto &uniform : uniforms) {
+                ar.LoadValue(uniform.binding);
+                ar.LoadValue(count);
+                uniform.fields.resize(count);
+                for (auto &field : uniform.fields) {
+                    ar.LoadValue(field.property);
+                    ar.LoadValue(field.member);
+                }
+            }
         }
     };
 
@@ -287,7 +325,7 @@ namespace sky::aurora {
     };
 
     struct MaterialAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 1;
+        static constexpr uint32_t CURRENT_VERSION = 2;
 
         uint32_t                           version = CURRENT_VERSION;
         std::vector<MaterialTechniqueData> techniques;

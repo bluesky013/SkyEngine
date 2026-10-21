@@ -39,6 +39,7 @@ namespace sky {
 
         // Bundles to package (empty => cook-config distribution default).
         std::vector<std::string> bundles;
+        std::vector<std::string> shaderTargets;
 
         // Android.
         std::vector<std::string> abis;

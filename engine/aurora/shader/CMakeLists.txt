@@ -80,6 +80,11 @@ if (SKY_BUILD_TEST)
     )
 
     # backends are dlopen'd at runtime; only need them built, not linked
+    target_include_directories(Aurora.ShaderTest PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../core/test")
+    target_compile_definitions(Aurora.ShaderTest PRIVATE
+        SHADER_TEST_BUNDLE_ROOT="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/test-assets/shaders")
+
     if (TARGET Aurora.Vulkan)
         add_dependencies(Aurora.ShaderTest Aurora.Vulkan)
     endif()

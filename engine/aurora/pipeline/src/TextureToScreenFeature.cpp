@@ -1,7 +1,7 @@
 #include <aurora/pipeline/TextureToScreenFeature.h>
 
 #include "TextureToScreenPass.h"
-#include <aurora/pipeline/PassResourceBindings.h>
+#include <aurora/renderer/PassResourceBindings.h>
 #include <cstring>
 
 namespace sky::aurora {
@@ -12,7 +12,7 @@ namespace sky::aurora {
         };
         class TextureToScreenFeature final : public IFrameGraphFeature {
         public:
-            TextureToScreenFeature(Name name, RenderMaterialData code) : name(name), code(std::move(code))
+            TextureToScreenFeature(Name name, RenderTechniqueData code) : name(name), code(std::move(code))
             {
             }
             Name GetName() const override
@@ -84,10 +84,10 @@ namespace sky::aurora {
             }
 
         private:
-            Name               name;
-            RenderMaterialData code;
-            ShaderPtr          shader;
-            SamplerPtr         sampler;
+            Name                name;
+            RenderTechniqueData code;
+            ShaderPtr           shader;
+            SamplerPtr          sampler;
         };
 
         FrameExtensionPayload Payload(Name feature, ViewportId output, Vector4 tint, uint64_t revision)
@@ -102,7 +102,7 @@ namespace sky::aurora {
         }
     } // namespace
 
-    std::shared_ptr<IFrameGraphFeature> CreateTextureToScreenFeature(Name name, RenderMaterialData shader)
+    std::shared_ptr<IFrameGraphFeature> CreateTextureToScreenFeature(Name name, RenderTechniqueData shader)
     {
         return std::make_shared<TextureToScreenFeature>(name, std::move(shader));
     }

@@ -71,7 +71,7 @@ namespace sky::aurora {
             std::vector<ViewportId>                            readbacks;
             std::map<uint32_t, std::shared_ptr<RuntimeOutput>> outputVersions;
             std::vector<PreparedMeshLayout>                    meshes;
-            std::vector<PreparedMaterialLayout>                materials;
+            std::vector<PreparedMaterialTechniques>            materials;
             std::vector<FrameFeatureUse>                       features;
         };
         struct PendingReadback {
@@ -169,7 +169,7 @@ namespace sky::aurora {
                         continue;
                     const auto &payload = ready->payload;
                     if (payload.resource.deviceEpoch != events->info.deviceEpoch || !payload.resource.product || !payload.resource.revision ||
-                        payload.format.Empty() || payload.bytes.empty() || payload.bytes.size() % 4 ||
+                        payload.format.Empty() || (!payload.material && payload.bytes.empty()) || payload.bytes.size() % 4 ||
                         !IsValidRenderResourceMetadata(payload.metadata) || (payload.mesh && payload.material) ||
                         (payload.metadata.image && (payload.mesh || payload.material)))
                         return RendererError{RendererErrorCode::INVALID_PACKET, "Invalid owned renderer resource payload"};
@@ -197,13 +197,29 @@ namespace sky::aurora {
                             if (!validRange(lod.offset, lod.size))
                                 return RendererError{RendererErrorCode::INVALID_PACKET, "Mesh LOD exceeds its owned bytes"};
                     }
-                    if (payload.material && (payload.material->backend != device->GetAPI() || payload.material->vertexCode.empty() ||
-                                             payload.material->fragmentCode.empty() || payload.material->vertexCode.size() > UINT32_MAX ||
-                                             payload.material->fragmentCode.size() > UINT32_MAX))
-                        return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires code for the selected backend"};
                     if (payload.material) {
-                        if (const auto error = ValidateFrameShader(*payload.material))
-                            return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
+                        if (payload.material->techniques.empty())
+                            return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires explicit techniques"};
+                        std::set<Name> tags;
+                        for (const auto &technique : payload.material->techniques) {
+                            const auto &program = technique.program;
+                            if (technique.tag.Empty() || !tags.insert(technique.tag).second || !program.computeCode.empty() ||
+                                program.backend != device->GetAPI() || program.vertexCode.empty() || program.fragmentCode.empty() ||
+                                program.vertexCode.size() > UINT32_MAX || program.fragmentCode.size() > UINT32_MAX)
+                                return RendererError{RendererErrorCode::INVALID_PACKET,
+                                                     "Material requires unique Tags and graphics code for the backend"};
+                            if (const auto error = ValidateFrameShader(program))
+                                return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
+                            std::set<uint32_t> bindings;
+                            for (const auto &uniform : technique.uniforms) {
+                                const auto block = std::find_if(program.reflection.blocks.begin(), program.reflection.blocks.end(),
+                                                                [&](const auto &item) { return item.set == 2 && item.binding == uniform.binding; });
+                                if (!bindings.insert(uniform.binding).second || block == program.reflection.blocks.end() ||
+                                    uniform.bytes.size() != block->size)
+                                    return RendererError{RendererErrorCode::INVALID_PACKET,
+                                                         "Material uniform requires a unique binding and exact reflected size"};
+                            }
+                        }
                     }
                 }
                 return {};
@@ -212,6 +228,8 @@ namespace sky::aurora {
             {
                 features.Apply(packet);
                 pendingExtensions = std::move(packet.extensions);
+                pendingTime       = packet.timeSeconds;
+                pendingDelta      = packet.deltaSeconds;
                 events->Push(PacketApplied{packet.sequence});
                 requestedReadbacks = packet.readbacks;
                 for (const auto changed : applied.changedScenes)
@@ -282,10 +300,15 @@ namespace sky::aurora {
                     tickets[Key(key)]  = request.ticket;
                     if (!request.needsCpuData)
                         continue;
+                    const bool material = payload.material.has_value();
                     if (auto error = CacheRaster(payload)) {
                         catalog->Fail(request.ticket, *error);
                     } else if (auto error = catalog->Supply(request.ticket, payload)) {
                         catalog->Fail(request.ticket, *error);
+                    } else if (material) {
+                        if (auto error =
+                                catalog->AdoptResident(request.ticket, key, std::make_shared<const ResourceBacking>(ResourceBufferBacking{})))
+                            catalog->Fail(request.ticket, *error);
                     }
                 }
                 std::erase_if(pausedScenes, [&](SceneId id) { return !store.FindScene(id); });
@@ -336,8 +359,10 @@ namespace sky::aurora {
                 auto built = BuildPreparedSceneProgram(frame, frozenResources.cpu, 1024, pausedScenes);
                 if (const auto *error = std::get_if<RendererError>(&built))
                     return *error;
-                program                   = std::move(std::get<PreparedSceneProgram>(built));
-                program->frame.extensions = std::move(pendingExtensions);
+                program                     = std::move(std::get<PreparedSceneProgram>(built));
+                program->frame.extensions   = std::move(pendingExtensions);
+                program->frame.timeSeconds  = pendingTime;
+                program->frame.deltaSeconds = pendingDelta;
                 return std::move(program->work);
             }
             bool RecoverPrepareFailure(const CpuPacketCompleted &result) override
@@ -622,18 +647,21 @@ namespace sky::aurora {
                     meshes[key] = {payload.resource, payload.mesh->streams, payload.mesh->attributes, payload.mesh->lods};
                 }
                 if (payload.material) {
-                    const auto &source  = *payload.material;
-                    auto        created = CreateFrameShader(*device, source);
-                    if (const auto *error = std::get_if<FrameError>(&created))
-                        return Error(*error);
-                    auto                   shader = std::move(std::get<ShaderPtr>(created));
-                    PreparedMaterialLayout material;
+                    PreparedMaterialTechniques material;
                     material.resource = payload.resource;
-                    material.shader   = std::move(shader);
-                    material.blend    = source.blend;
-                    material.depth    = source.depth;
-                    material.constants.resize(payload.bytes.size());
-                    std::memcpy(material.constants.data(), payload.bytes.data(), payload.bytes.size());
+                    for (const auto &technique : payload.material->techniques) {
+                        const auto &source  = technique.program;
+                        auto        created = CreateFrameShader(*device, source);
+                        if (const auto *error = std::get_if<FrameError>(&created))
+                            return Error(*error);
+                        PreparedMaterialLayout layout;
+                        layout.resource = payload.resource;
+                        layout.shader   = std::move(std::get<ShaderPtr>(created));
+                        layout.blend    = source.blend;
+                        layout.depth    = source.depth;
+                        layout.uniforms = technique.uniforms;
+                        material.techniques.emplace_back(technique.tag, std::move(layout));
+                    }
                     materials[key] = std::move(material);
                 }
                 return {};
@@ -746,9 +774,11 @@ namespace sky::aurora {
             std::map<ResourceKey, ResourceTicket>              tickets;
             std::map<ResourceKey, RenderResourceState>         resourceStates;
             std::map<ResourceKey, PreparedMeshLayout>          meshes;
-            std::map<ResourceKey, PreparedMaterialLayout>      materials;
+            std::map<ResourceKey, PreparedMaterialTechniques>  materials;
             FrameFeatureRegistry                               features;
             std::vector<FrameExtensionPayload>                 pendingExtensions;
+            double                                             pendingTime  = 0;
+            float                                              pendingDelta = 0;
             std::optional<PreparedSceneProgram>                program;
             std::vector<SceneId>                               pausedScenes;
             FrozenResourceCatalog                              frozenResources;

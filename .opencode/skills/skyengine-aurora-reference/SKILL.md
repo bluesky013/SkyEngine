@@ -1,152 +1,88 @@
 ---
 name: skyengine-aurora-reference
-description: Quick index of the Aurora RHI architecture — module layout, RDG pass model, resource tiers, ECS scene, slang shader backend, backend implementations, and per-module test targets. Use when answering aurora design/structure questions or locating a component.
+description: Quick index of Aurora module ownership, the production FrameGraph renderer, shared shader declarations, techniques, resource packaging and test targets.
 compatibility: opencode
 metadata:
-  source: aurora implementation + openspec changes (2026/03–2026/09)
+  source: aurora implementation (2026-10-22)
   audience: contributors
 ---
 
 # Aurora 架构速查
 
-Aurora 是 SkyEngine 重写中的新 RHI 层（分支 `dev_refactor_rhi`，取代旧 RHI/render 栈）。
-命名空间一律 **`sky::aurora`**（不新增 `aurora::rhi` 等别名——review 确认过的规则）。  
-后端以动态库编译，经 `Instance::Init({api})` 运行时 dlopen 选择。
+Aurora 属于 foundation，接口与实现均位于 `engine/aurora`。命名空间为 `sky::aurora`。
+先区分生产 FrameGraph 路径与仍有测试消费者的旧 RenderGraph 模板；历史 change 不是当前 API 清单。
 
-## 模块布局（engine/aurora/）
+## 模块与入口
 
-```
-engine/aurora/
-├── rhi/                    # RHI 接口 + 后端
-│   ├── interface/          # 接口层 target: Aurora.RHI
-│   │   └── include/aurora/
-│   │       ├── rhi/        # Device/Image/Buffer/Shader/Pipeline*/ResourceGroup/Encoder/Queue/SwapChain/Barrier
-│   │       └── rdg/        # RenderGraph/RenderGraphBuilder/CompiledGraph/RDG*/BatchAllocator/DeviceFrameDispatcher/RenderDeviceExclusive
-│   ├── vulkan/             # Vulkan 后端 (dlopen: AuroraVulkan)
-│   ├── dx12/               # DX12 后端 (AuroraDX12) —— PipelineLayout/ResourceGroup 仍是 stub（见 aurora-resource-group change）
-│   ├── metal/              # Metal 后端 (AuroraMetal, macOS only)
-│   └── test/               # target: AuroraRHITest
-├── shader/                 # target: Aurora.Shader（slang 编译 + 布局单一事实源）
-│   └── include/aurora/shader/
-│       ├── RgBlockDesc.h          # RgBlockDesc：set/binding/fields 单一事实源
-│       ├── gen/ShaderBlockGen.h   # → HLSL 文本 + ContentHash（离线 cache key）
-│       ├── ShaderCompilerSlang.h  # Slang 编译器（SPIRV/DXIL/MSL 直出）
-│       ├── ShaderReflection.h     # ShaderResource/ShaderBlockLayout（含 UBO 成员）
-│       └── test/                  # target: AuroraShaderTest
-├── core/                   # target: Aurora（scene ECS）
-│   └── include/aurora/scene/
-│       ├── SceneView.h     # frustum + view/viewProj 矩阵 + FrustumCulling + ViewSpaceDepth
-│       ├── RenderScene.h   # EntityRegistry 内嵌；views 独立 registry
-│       ├── SceneTypes.h    # Bounds/WorldInfo/Light/Skin（SKY_TYPE_TAG 注册）
-│       └── test/           # target: AuroraCoreTest
-└── pipeline/               # target: Aurora.Pipeline（pass template 层）
-    └── include/aurora/pipeline/
-        ├── PipelinePass.h             # OnSetup/BuildRDG/OnSceneChanged 三段式
-        ├── SceneRasterPassTemplate.h  # queue 声明 + Collect（cull→tag→sort）
-        ├── OpaquePass.h               # 示范 pass（color+depth + opaque queue）
-        ├── GlobalRenderResources.h    # Global tier（set 0）UBO/RG + UpdateView
-        ├── ReflectionValidation.h     # RgBlockDesc vs ShaderReflection 校验
-        └── test/                      # target: AuroraPipelineTest
-```
+| 目录 | 职责 |
+|---|---|
+| `rhi/interface` | RHI 接口、FrameGraph 声明/冻结/分析及旧 RenderGraph API |
+| `rhi/{vulkan,dx12,metal,common}` | 原生资源、后端 frame compiler/encoder 与共享提交生命周期 |
+| `core/include/aurora/renderer` | Renderer 公共协议；仅接口 target 为 `Aurora.Renderer.Interface` |
+| `core/src/renderer` | `Aurora.Core.Static` 中的 prepare、frame、resource、graph 实现 |
+| `core/include/aurora/shader` | 无 Slang 依赖的声明、technique、uniform、source inventory、resolver/cache |
+| `shader` | `Aurora.ShaderCompiler.Static`；Slang 输出 SPIR-V / DXIL / MSL |
+| `pipeline` | `Aurora.Pipeline.Static`；SceneRenderFeature、具体 Pass 共享声明与旧模板 |
+| `adaptor` | Framework/World/资产对接、RendererHost；单向依赖 Pipeline |
+| `runtime` | 既有 Aurora.Render 模块入口 |
+| `assets/shaders` | 统一的 Aurora shader 源、companion 与持久化 `.slangh` |
 
-依赖方向：`aurora/shader → aurora/rhi`（**单向**，rhi 不可调 shader）；`core/pipeline → rhi + shader`。
+Core 不依赖 Pipeline 或 shader compiler。Shader compiler 依赖 Core/RHI；RHI 不反向依赖 compiler。
+不创建第二套 renderer core/adaptor/runtime，也不创建 Aurora 业务 plugin。
 
----
+## 生产渲染路径
 
-## RDG（render graph，rhi/interface/rdg/）
+宿主通过 RendererHost 驱动唯一 Renderer producer。World/资产对接产生 owned packet；CPU prepare
+冻结场景/视图数据，coordinator 解析精确资源版本并用 FrameComposer 组合 feature 的 FrameGraph。
+后端编译、录制、提交与完成退休沿既有 DeviceFrameContext/FrameScheduler 协议进行。
+`RegisterScenePass` 显式注册场景 feature；没有注册时不存在隐式 scene raster fallback。
 
-三段式：**Setup（builder 声明）→ Compile（产出 CompiledGraph）→ Execute（只读 CompiledGraph）**。
+Scene 的 technique 由 queue Tag 匹配；无匹配省略 draw，重复/歧义显式失败。材质定义各 stage 的
+source/entry 和 uniform mapping，Feature 与 Material 明确分配 Batch binding 所有权。
+FullScreen/Compute 直接使用 technique，可省略 Batch；活跃反射输入缺失仍必须报错。
+`PreparedRaster` 处理几何、资源版本和 owned 数据，不决定通用材质布局。
 
-- `RenderGraph::Build(device, FrameAllocator&)`：所有 setup 容器走 `TransientVector`（`FrameAllocator::Arena()`）。
-- `RenderGraph::SetGlobalResourceGroup(ResourceGroup*)` → `CompiledGraph::globalResourceGroup`。
-- 6 种 pass：`AddSceneRasterPass / AddFullScreenPass / AddComputePass / AddCopyBlitPass / AddPresentPass / AddCustomPass`（Custom 是唯一保留 `std::function` 的逃生门，用于 MetalFX/DLSS 类扩展）。
-- `CompiledPass::payload` 是 `std::variant<SceneRasterPayload, FullScreenPayload, ComputePayload, CopyBlitPayload, PresentPayload, CustomPayload>`——无 std::function 热路径。
-- **SceneRaster queue**：pass 内多 queue，每 queue 有 `name / techniqueTag / items / queueResourceGroup / sortPolicy`（NONE/FRONT_TO_BACK/BACK_TO_FRONT，纯数据标记，RDG 不排序）；`AddDrawItem(item)` 无 queue 参数 → 默认 queue 0（懒创建 "default"）。
-- `DrawItem`：`pso / batchResourceGroup / batchDynamicOffset / vb/ib/offsets / CmdDrawIndexed`。
-- **culling 种子**：import 资源 + `MarkOfInterest` 资源的 lastWriter + **PRESENT access 的 pass**（否则 present 被误杀）。
-- barrier 扁平数组：每 pass 连续段 + `finalBarrierOffset` 帧末段。
-- executor（`Execute.cpp`）按 pass 类型 dispatch；`PRESENT` 无额外 encoder 操作（barrier 已在 per-pass 段）。
+`PipelinePass`、`SceneRasterPassTemplate`、`ScenePass`、`OpaquePass` 类仍供旧 RenderGraph 模板测试使用。
+默认 Collect 不产生 DrawItems；不能将它当作生产场景收集器。共享 Pass 声明头也被生产 feature 消费。
 
----
+## 共享声明和资源绑定
 
-## Transient 命名区分（易混，务必分清）
-
-- **`TransientBuffer`（渲染层，`aurora/resource`）**：每帧内使用的 buffer 类型，经 `TransientBufferPool` **每帧分配**，仅当前帧有效。
-- **`TransientPool`（RDG，`rhi/interface/src/rdg/TransientPool.h`）**：RDG 每帧**可复用的资源池**（`ObjectPool` 整对象 Acquire/Release，覆盖 Image + Buffer，按完整 descriptor 键控），跨帧复用。
-
-二者命名同源但职责完全不同：前者是「资源语义」，后者是「RDG 内部复用机制」，不得混用。
-
----
-
-## 三层 ResourceGroup（aurora-resource-tiers 已落地）
-
-| tier | set | 持有方 | 更新 |
-|---|---|---|---|
-| Global | 0 | `GlobalRenderResources`（pipeline） | 每帧 `UpdateView(SceneView, time)` 写 UBO + RG.Update；executor 每 pass 绑 set 0 |
-| Pass | 1 | `PipelinePass`（`GetPassBlocks()` → OnSetup 建 / OnSceneChanged 重建） | queue RG 优先于 pass RG |
-| Batch | 2 | `BatchAllocator`（rdg/，per-frame dynamic UBO，256 对齐） | `DrawItem::batchDynamicOffset`；executor `BindResourceGroup(2, rg, 1, &offset)` |
-
-**RgBlockDesc 单一事实源**：同一份 `{set, binding, blockName, fields[]}` 产出 RHI `ResourceGroupLayout` 与 HLSL header（std140 offset 表内置）；`ContentHash` 供离线 shader cache key（header 变更必须使 cache 失效）。
-
-**三平台映射约定**：VK 直接 set/binding；DX12 set→root parameter（每 set 一个 descriptor table，小 cbuffer 可 root CBV）；Metal set→argument buffer index（Metal 3+）。
-
----
-
-## Slang 编译通道（aurora/shader）
-
-- `ShaderCompilerSlang::Compile(ShaderCompileDesc) -> ShaderCompileResult`：SPIRV / DXIL / MSL 直出（**Metal 不经 SPIRV-Cross**）。
-- **ParameterBlock 布局**：普通资源（texture/sampler）→ set 0；每个 ParameterBlock 按声明序独占一个 set（gGlobal=1, gPass=2...）。MSL 侧 → `constant* T [[buffer(N)]]`。
-- **反射**：只用 slang 自己的 program layout（slang SPIRV 喂 SPIRV-Cross 会崩——按「各平台反射自己产物」原则）。收敛到 `ShaderReflection{resources, blocks}`；blocks 含 UBO 成员 name/offset/size。
-- `#line` 默认关闭（`TargetDesc.compilerOptionEntries` 设 `SLANG_LINE_DIRECTIVE_MODE_NONE`）。
-- ⚠️ slang COM teardown 顺序脆弱 → spike 阶段主动泄漏（代码注释标注，转正时处理）。
-- 3rd：slang v2026.9.2，选择性子模块 9 个，DXIL 走仓库自带 DXC 包供源（避网络下载）。
-
----
-
-## ECS（core/ecs + aurora/core/scene）
-
-- `EntityId`：24bit index + 8bit generation（防悬垂）。
-- `SparseSet<T>`：sparse 页表 + dense 双数组（swap-remove 保连续）。
-- `EntityRegistry`：free list + generation；type-erased `PoolHolder<T>` 懒建池。
-- **`TypeId<T>()` 显式 tag 制**：`SKY_TYPE_TAG(T, "sky.<module>.<TypeName>")`；未注册类型 `static_assert` 编译失败（无 fallback，防跨模块静态分裂）。
-- `EntityRegistry::View<Ts...>()`：多池交集迭代（运行时选最小池为主驱动，dense 扫 + 其余池 Contains）。
-- scene 组件（`SceneTypes.h`）：`Bounds` / `WorldInfo`（纯 world 矩阵）/ `Light`（含 point/spot 参数）/ `Skin`（占位）。
-- `RenderItem`（techniqueTag + DrawItem）**已按用户决定移出组件**；Collect 暂 cull-only（等 technique 分桶设计）。
-
----
-
-## 测试 target（总入口 ctest）
-
-| target | 模块 | 内容 |
+| 层级 | set | 内容 |
 |---|---|---|
-| `AuroraRHITest` | rhi/test | RDG/barrier/encoder/device/sync/submit/shader 对象 |
-| `AuroraShaderTest` | shader/test | SlangSpike（编译+反射）/ SlangVulkan/D3D12/Metal（共享 `SlangBackendTestCommon.h` 流程体）/ RgBlockDesc |
-| `AuroraCoreTest` | core/test | scene ECS / SceneView culling / entity 生命周期 |
-| `AuroraPipelineTest` | pipeline/test | OpaquePass / Global tier / BatchAllocator / ReflectionValidation |
+| Global | 0 | 跨 View 的帧数据；内置为 time/delta |
+| Pass | 1 | 具体 Pass 声明的输入，相机/View 可选 |
+| Batch | 2 | Scene 的 Material/Feature 输入；具体布局由消费者声明 |
 
-后端 dll 以 `add_dependencies` 挂到测试 target（只保证构建，运行时 dlopen），**不直接链接**。
+权威 `.h` 的字段/资源清单生成 C++ 类型、typed slots 和描述元数据。
+`python/shader_headers.py` 导出持久化 `.slangh`；实际 shader reflection 验证字段和资源布局。
+`RgBlockDesc` 用于布局元数据/校验，不生成 HLSL 或独立 ResourceGroupLayout。
+`aurora/renderer/PassResourceBindings.h` 校验实际 shader 使用与显式 dynamic policy；失败保持原绑定。
+Metal 的 native buffer/texture/sampler 映射取自对应后端反射，不从声明顺序或 set 编号猜测。
 
----
+## 模块资源与打包
 
-## 关键改动索引（openspec/changes/archive/）
+- Aurora：`engine/aurora/assets/shaders/aurora/...`；插件：`plugins/<owner>/assets/shaders/<owner>/...`。
+- `resources.json` 声明 roots、依赖、include roots、exports 和 programs；统一 inventory 校验重名和大小写冲突。
+- C++ 包含 `.h`，shader 包含 `.slangh`。`ShaderHeaders.Update/Check` 更新/检查持久化导出；C++ 编译不依赖 Slang 或导出执行。
+- `ShaderResources.Stage` 按 canonical 相对路径部署；项目 cook 聚合选中 owner 的产品，每个 target 一份 index。
+- `ShaderHeaderTool` 仅保留独立 variant schema 生成；`ShaderCookTool` 生成 shader cache。
+- 内置材质程序：`aurora/materials/{Unlit,Lit,Shadow}.slang`；ToneMap：`aurora/pipeline/ToneMap.slang`。
+- 材质 payload v2 显式记录 `program.vertex/fragment`；shader cache index v4。旧数据需迁移/重新 cook。
 
-| 主题 | change | 要点 |
-|---|---|---|
-| 帧 allocator | `core-frame-allocator` | bump + Mark/Rewind + 统计；RDG 全容器 TransientVector |
-| RDG variant | `aurora-rdg-compiledgraph-variant` | CompiledPass variant payload 替代 std::function |
-| pass builder | `aurora-rdg-pass-builder` | 6 pass 类型 + PRESENT culling 种子修正 |
-| executor | `aurora-rdg-compiled-executor` | executor 只读 CompiledGraph（finalBarrierOffset） |
-| pass template | `pipeline-pass-template` | PipelinePass 基类 + SceneRasterPassTemplate + OpaquePass + queue |
-| scene collect | `aurora-scene-collect` | SceneView/RenderScene + queue techniqueTag |
-| scene ECS | `aurora-scene-ecs` | scene 迁 aurora/core + ECS 化 |
-| TypeId | `core-ecs-type-id-hash` | SKY_TYPE_TAG 显式 tag，无 fallback |
-| View | `ecs-view-scene-components` | EntityRegistry::View + Light/WorldInfo |
-| 三层 RG | `aurora-resource-tiers` | RgBlockDesc 单一事实源 + Global/Pass/Batch + 反射校验 + 三平台映射 |
-| slang | `aurora-slang-spike` | Slang 三后端直出 + ParameterBlock/UBO 反射 + 模块测试拆分 |
+详见 `docs/features/shader-system.md` 与 `docs/aurora/shader-design-and-migration.md`。
 
-## 已知未完成（跟进项）
+## 验证入口与限制
 
-- `aurora-resource-group`：DX12/Metal/GLES 的 ResourceGroup/PipelineLayout 实质实现（DX12 现为 stub，pipeline 对象创建验证因此暂缓）
-- `aurora-queue-submit-present`：D3D12SwapChain、SwapChainTest（需 SDL 窗口）、跨平台验证
-- technique/材质系统：决定 RenderItem 的最终形态与 scene 分桶
-- slang COM teardown 稳定性（spike 期泄漏）
+| target | 内容 |
+|---|---|
+| `Aurora.RHITest` | RHI / 旧 RenderGraph / 后端资源与提交 |
+| `Aurora.CoreTest` | 场景、technique/uniform、资源 inventory、cache/product lookup |
+| `Aurora.ShaderTest` | Slang 编译/反射、后端 shader、source bundle |
+| `Aurora.PipelineTest` | 共享声明布局、Pass 资源绑定、旧模板 |
+| `Aurora.AdaptorTest` | 材质/World/资产对接 |
+| `Aurora.Renderer.GpuSubmissionTest` | FrameGraph 与 Windows Vulkan/DX12 原生渲染 |
+
+当前证据与待验收项在 `openspec/changes/refactor-aurora-pipeline-resource-ownership/tasks.md`。
+Windows MSL 编译/反射不代表原生 Metal 验收。独立 Core-only 产品消费者不链接 Slang；
+原生测试 exe 为其它用例仍链接 compiler，移除 Slang DLL 的 shipping host 验收尚待执行。
+自动材质纹理/sampler 传输、变形、完整 PBR/通用 PSO 系统仍不是当前能力。

@@ -6,8 +6,36 @@
 #
 # Usage: cmake -DSRC_DIR=<dir> -DDST_DIR=<dir> -P deploy_resources.cmake
 
+cmake_minimum_required(VERSION 3.19)
+
 if (NOT IS_DIRECTORY "${SRC_DIR}")
     message(FATAL_ERROR "editor resource source dir not found: ${SRC_DIR}")
+endif ()
+
+# Shader assets are staged independently from the module inventory.
+# Keep their container real so deployment never writes through a source-tree symlink.
+if (DEFINED EXCLUDE_CHILDREN)
+    if (IS_SYMLINK "${DST_DIR}")
+        file(REMOVE "${DST_DIR}")
+    endif ()
+    file(MAKE_DIRECTORY "${DST_DIR}")
+    file(GLOB _previous RELATIVE "${DST_DIR}" "${DST_DIR}/*")
+    foreach (_name IN LISTS _previous)
+        if (NOT _name IN_LIST EXCLUDE_CHILDREN)
+            if (IS_SYMLINK "${DST_DIR}/${_name}")
+                file(REMOVE "${DST_DIR}/${_name}")
+            else ()
+                file(REMOVE_RECURSE "${DST_DIR}/${_name}")
+            endif ()
+        endif ()
+    endforeach ()
+    file(GLOB _children RELATIVE "${SRC_DIR}" "${SRC_DIR}/*")
+    foreach (_name IN LISTS _children)
+        if (NOT _name IN_LIST EXCLUDE_CHILDREN)
+            file(COPY "${SRC_DIR}/${_name}" DESTINATION "${DST_DIR}")
+        endif ()
+    endforeach ()
+    return()
 endif ()
 
 # Drop any previous deployment (stale symlink or copied tree) first. Remove a

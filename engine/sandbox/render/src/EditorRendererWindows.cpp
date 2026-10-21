@@ -14,6 +14,7 @@
     #include <framework/application/ModuleManager.h>
     #include <framework/interface/ISystem.h>
     #include <framework/interface/Interface.h>
+    #include <framework/platform/PlatformBase.h>
     #include <framework/window/NativeWindowManager.h>
 
 namespace sky::editor {
@@ -28,7 +29,7 @@ namespace sky::editor {
         }
         std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CompileUi(API api)
         {
-            RenderMaterialData code;
+            RenderTechniqueData code;
             code.backend       = api;
             code.vertexEntry   = "VSMain";
             code.fragmentEntry = "FSMain";
@@ -93,11 +94,23 @@ namespace sky::editor {
             Shutdown();
             return false;
         }
-        feature  = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
-        auto files = std::make_shared<ShaderFileSystem>();
-        files->AddSearchPath(SandboxResources::Resolve("shaders"));
-        sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), CreateSceneAssetSource(std::move(files)));
-        textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
+        feature                = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
+        shaderFiles            = std::make_shared<ShaderFileSystem>();
+        auto        sourceRoot = Platform::Get()->GetBundleFileSystem()->CreateSubSystem("assets/shaders", false);
+        std::string bundleError;
+        if (!sourceRoot || !shaderFiles->LoadBundles(*sourceRoot, "", &bundleError)) {
+            Fail({.code = RendererErrorCode::INVALID_ARGUMENT, .message = std::move(bundleError)});
+            Shutdown();
+            return false;
+        }
+        auto sceneSource = CreateSceneAssetSource(shaderFiles);
+        if (!sceneSource) {
+            Fail({.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene asset source creation failed"});
+            Shutdown();
+            return false;
+        }
+        sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), std::move(sceneSource));
+        textures    = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
     #if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
             textSystem = std::make_unique<ui::UITextSystem>(&freeTypeFont, textures.get(), 256);
@@ -127,7 +140,7 @@ namespace sky::editor {
         pending           = std::make_unique<FramePacket>();
         pending->sequence = ++sequence;
         pending->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name(UI_FEATURE), moduleLease, feature});
-        if (const auto error = RegisterScenePass(*pending, {1, 1}, moduleLease)) {
+        if (const auto error = RegisterScenePass(*pending, {1, 1}, moduleLease, shaderFiles)) {
             Fail(*error);
             return;
         }
@@ -303,6 +316,7 @@ namespace sky::editor {
         pending.reset();
         host.Shutdown();
         sceneBridge.reset();
+        shaderFiles.reset();
         scene.OnRendererStopped();
         feature.reset();
         moduleLease.reset();

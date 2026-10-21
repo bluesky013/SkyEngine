@@ -1,52 +1,38 @@
 ---
 name: skyengine-aurora-shader
-description: Author and migrate SkyEngine Aurora shaders (Slang). Use when writing/porting shaders, wiring material techniques to shaders, or migrating legacy HLSL/.tech to the aurora slang pipeline.
+description: Author and migrate SkyEngine Aurora shaders, shared declarations and module resource registrations.
 ---
 
-# SkyEngine Aurora Shader (Slang)
+# SkyEngine Aurora Shader
 
-Authoritative design + migration map: `docs/aurora/shader-design-and-migration.md`.
-This skill is the quick standard; read the doc for full detail.
+Read `docs/features/shader-system.md` and the active resource-ownership change before editing.
 
-## Hard rules
+- C++ `.h` declarations are authoritative. C++ does not depend on Slang or generated C++ mirrors.
+- Export pure `.slangh` with `python/shader_headers.py` / `ShaderHeaders.Update`, then run `ShaderHeaders.Check`.
+  Persist and version the outputs with their declarations. Never make tracked exports CMake clean byproducts.
+- Aurora's only shader asset root is `engine/aurora/assets/shaders/`; includes use `aurora/...`.
+  Each plugin has `plugins/<name>/assets/shaders/`; includes use `<name>/...`, without `plugins/`.
+- Define exports, include roots, explicit resource dependencies and programs in one module resource description.
+  Reuse plugin.json registration and existing MultiFileSystem/ShaderFileSystem; no separate shader plugin loader.
+- Slang programs include the exported interfaces, never the C++ declaration `.h` or SharedShader.h.
+- Bindings are Global set 0 / Pass set 1 / Batch set 2. Use `[[vk::binding(binding, set)]]`.
+  Generated uniform declarations use flat ConstantBuffers; mat4 is column-major.
+- View inputs belong to their Pass. Scene techniques match queue Tags; fullscreen/compute select explicit techniques.
+  Batch can be absent when reflection has no active Batch resources. Material and Feature providers must not overwrite each other.
+- ShaderRef remains a canonical relative path/entry identity. Stage is explicit in compile requests.
+  Do not turn material shaders into a universal ScenePass shader or introduce implicit program fallbacks.
+- Companion `.slang.json` files define entries, schemas and dependencies. Program requirements and explicit variants feed project cook.
+- Use one distribution index per target, preserving every selected owner's paths. Shipping resolution receives product roots.
+  Native source compilation is a development mode; runtime packaging must work without sources or Slang.
+- Source registration is transactional. Validate inventories, case collisions, include ambiguity and dependency closure.
+  Preserve immutable compile snapshots and normal module/GPU retirement contracts.
+- Validate actual SPIR-V/DXIL/MSL reflection against C++ layouts, then affected native renderer tests.
+  MSL generation on Windows is not native Metal validation.
 
-- **Language is Slang (`.slang`).** Do not add HLSL under `engine/aurora/`. Legacy `assets/shaders/*.hlsl`
-  + `assets/techniques/*.tech` are deprecated (removed with `legacy-render-thirdparty-cleanup`).
-- **Bindings**: declare with `[[vk::binding(set, binding)]] ParameterBlock<T>`.
-  Sets: `0` = GlobalRenderResources, `1` = PipelinePass, `2` = per-draw batch dynamic UBO.
-  Single source of truth for set 0 is `engine/aurora/shader/assets/shaders/slang/global/GlobalBlock.slang`
-  (reflected to a C++ mirror by `ShaderHeaderTool`).
-- **Variants** are authored as a `@variant` comment block or in a sibling `<name>.slang.json`
-  (`sources`/`variants`/`vertex`/`entries`/`depends`). Strong variants fold at compile;
-  weak variants use native specialization. Do **not** use legacy `#pragma option({...})`.
-- **Includes** resolve through `ShaderFileSystem` (virtual); generated headers need not be on disk.
-- **Shader identity** is `ShaderRef { relativePath, entry }` — no Uuid, no `stages` field.
-  `stage` is a per-request input to `ShaderResolver`. Legacy multi-stage entries
-  (`vertex/task/mesh/fragment`) collapse to a single `entry`.
-- **Compile targets**: SPIRV (`spirv_1_5`), MSL (`metal`), DXIL (`sm_6_5`); target macros
-  `AURORA_TARGET_SPIRV` / `AURORA_TARGET_MSL` / `AURORA_TARGET_DXIL`.
-- **Resolve order**: offline cache → source compile → local cache. Cache is content-addressed
-  `<root>/<target>/{index.bin, blobs/<compileHash>}`.
-
-## Material technique → shader
-
-- Material `assets/materials/*.mat` `techniques[]` entries: `{ tag, shader:"<.slang path>", entry, renderState }`.
-- `renderState` keys (see `MaterialSourceParse.cpp`): `depthTest, depthWrite, stencilTest, depthCompare,
-  stencilFail, stencilPass, cullMode, frontFace, polygonMode, depthBias{constant,slope,clamp},
-  alphaToCoverage, blend`. `cullMode`/`frontFace`/`polygonMode` names are case-insensitive.
-- `tag` buckets RDG scene-raster queues. Material→PSO is `aurora-material-pso` (not this pipeline's concern yet).
-
-## Migration checklist (legacy → aurora)
-
-1. Port the `.hlsl` to a `.slang` module; port needed `.hlslh` includes to slang (or generated headers).
-2. Move `#pragma option({...})` macros → `.slang.json` `variants` (or `@variant`).
-3. Add `<name>.slang.json` when the shader has variants / vertex schema / multiple entries.
-4. Run `ShaderHeaderTool` to emit the C++ mirror / `RgBlockDesc` for block layouts.
-5. Update the material `.mat` `techniques[].shader` to the `.slang` relative path (keep `tag`/`entry`/`renderState`).
-6. Verify with `Aurora.ShaderTest` (slang compile/reflection + per-backend spike tests).
-7. Delete legacy `.hlsl`/`.hlslh`/`.tech` when no consumer remains.
-
-## Blockers (see doc §8)
-
-No production code mounts the aurora shader source root / builds a `ShaderResolver` yet; `ShaderRef`
-has no stages; technique/PSO cache unimplemented; no production `.slang` technique shaders exist yet.
+- Material payload version 2 uses `program.vertex/fragment` with explicit path and entry, variant values,
+  and `uniforms` member-to-property mappings. Reject legacy single-shader inference; recook cache version 4.
+- Pack material values using reflected field offsets. Keep material-owned and Feature-owned Batch bindings distinct;
+  combined blocks require one assembler. PreparedRaster does not select Tags or define uniform layouts.
+- Keep Global frame-wide and put camera inputs in each concrete Pass. Material CPU residency does not need a dummy GPU upload.
+- Check tasks.md for native platform limits and unsupported material texture/array/deformation transport.
+  Do not restore retired shader embedding and generated C++ mirror flows.

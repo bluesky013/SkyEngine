@@ -1,0 +1,10 @@
+// Generated from aurora/pipeline/GlobalBlock.h; do not edit.
+// Inputs: e5b77f9c5542857907f11e9782999ff9f5c9080ec9558cddc00e5ec9725d1a99; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct GlobalParams
+{
+    float4 frameTime;
+};
+[[vk::binding(0, 0)]] ConstantBuffer<GlobalParams> gGlobal
+    : register(b0, space0);

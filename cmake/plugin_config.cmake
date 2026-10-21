@@ -19,6 +19,8 @@ function(sky_plugin_apply_target_dependencies)
     endif()
 
     file(READ "${TMP_CONFIG}" _plugin_json)
+    include(${CMAKE_CURRENT_FUNCTION_LIST_DIR}/module_resources.cmake)
+    sky_register_module_resources(CONFIG "${TMP_CONFIG}")
     string(JSON _target_count LENGTH "${_plugin_json}" "targets")
 
     if (_target_count EQUAL 0)

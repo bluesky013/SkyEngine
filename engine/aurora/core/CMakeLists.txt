@@ -40,4 +40,6 @@ if (SKY_BUILD_TEST)
             Aurora.RHI.Static
             3rdParty::googletest
     )
+    target_compile_definitions(Aurora.CoreTest PRIVATE
+        SHADER_TEST_PACKAGE_ROOT="${PROJECT_BINARY_DIR}/shader-package-test/relocated/shaders")
 endif ()

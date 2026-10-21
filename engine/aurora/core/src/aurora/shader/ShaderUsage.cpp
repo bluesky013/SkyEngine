@@ -18,7 +18,8 @@ namespace sky::aurora {
 
         bool SameUsage(const ShaderUsageEntry &a, const ShaderUsageEntry &b)
         {
-            return a.relativePath == b.relativePath && a.entry == b.entry && a.target == b.target && a.variantHash == b.variantHash;
+            return a.relativePath == b.relativePath && a.entry == b.entry && a.stage == b.stage && a.target == b.target &&
+                   a.variantHash == b.variantHash;
         }
 
         void AppendEntry(rapidjson::Value &array, const ShaderUsageEntry &e, rapidjson::Document::AllocatorType &alloc)
@@ -33,12 +34,32 @@ namespace sky::aurora {
             obj.AddMember("variantWord1", e.variantKey[1], alloc);
             obj.AddMember("variantDump", rapidjson::StringRef(e.variantDump.c_str()), alloc);
             obj.AddMember("toolchainFp", e.toolchainFp, alloc);
+            rapidjson::Value variant(rapidjson::kObjectType);
+            for (const auto &entry : e.variant.entries) {
+                const auto       name = entry.key.GetStr();
+                rapidjson::Value key(name.data(), static_cast<rapidjson::SizeType>(name.size()), alloc);
+                variant.AddMember(key, entry.value, alloc);
+            }
+            obj.AddMember("variant", variant, alloc);
             array.PushBack(obj, alloc);
         }
 
         bool ParseEntry(const rapidjson::Value &v, ShaderUsageEntry &out)
         {
-            if (!v.IsObject() || !v.HasMember("path") || !v.HasMember("entry")) {
+            if (!v.IsObject() || !v.HasMember("path") || !v["path"].IsString() || !v.HasMember("entry") || !v["entry"].IsString()) {
+                return false;
+            }
+            for (const char *key : {"stage", "target"}) {
+                if (v.HasMember(key) && !v[key].IsUint()) {
+                    return false;
+                }
+            }
+            for (const char *key : {"variantHash", "variantWord0", "variantWord1", "toolchainFp"}) {
+                if (v.HasMember(key) && !v[key].IsUint64()) {
+                    return false;
+                }
+            }
+            if (v.HasMember("variantDump") && !v["variantDump"].IsString()) {
                 return false;
             }
             out.relativePath  = v["path"].GetString();
@@ -50,6 +71,24 @@ namespace sky::aurora {
             out.variantKey[1] = v.HasMember("variantWord1") ? v["variantWord1"].GetUint64() : 0;
             out.variantDump   = v.HasMember("variantDump") ? v["variantDump"].GetString() : "";
             out.toolchainFp   = v.HasMember("toolchainFp") ? v["toolchainFp"].GetUint64() : 0;
+            if (v.HasMember("variant")) {
+                if (!v["variant"].IsObject()) {
+                    return false;
+                }
+                for (const auto &member : v["variant"].GetObject()) {
+                    if (!member.value.IsUint()) {
+                        return false;
+                    }
+                    out.variant.entries.push_back({Name(member.name.GetString()), member.value.GetUint()});
+                }
+                if (!out.variant.entries.empty()) {
+                    const auto hash = out.variant.ContentHash();
+                    if (out.variantHash != 0 && out.variantHash != hash) {
+                        return false;
+                    }
+                    out.variantHash = hash;
+                }
+            }
             return true;
         }
 
@@ -82,12 +121,15 @@ namespace sky::aurora {
         if (doc.Parse(content.c_str()).HasParseError() || !doc.IsObject() || !doc.HasMember("entries") || !doc["entries"].IsArray()) {
             return false;
         }
+        std::vector<ShaderUsageEntry> staged;
         for (const auto &v : doc["entries"].GetArray()) {
             ShaderUsageEntry e;
-            if (ParseEntry(v, e)) {
-                out.push_back(std::move(e));
+            if (!ParseEntry(v, e)) {
+                return false;
             }
+            staged.push_back(std::move(e));
         }
+        out = std::move(staged);
         return true;
     }
 
@@ -164,13 +206,29 @@ namespace sky::aurora {
     {
         for (const auto &group : GroupShaderUsage(usage)) {
             for (const auto &e : group.entries) {
+                ShaderVariantSchema schema;
+                uint64_t            schemaFp = 0;
+                if (!resolver.ResolveSchema(e.relativePath, e.target, schema, schemaFp, error)) {
+                    return false;
+                }
+                for (const auto &value : e.variant.entries) {
+                    const auto *field = schema.FindEntry(value.key);
+                    if (field == nullptr || (field->bitWidth < 32 && value.value >= (1u << field->bitWidth))) {
+                        if (error != nullptr) {
+                            *error = "Invalid required shader variant: " + e.relativePath + ":" + std::string(value.key.GetStr());
+                        }
+                        return false;
+                    }
+                }
                 ShaderResolver::Request req;
                 req.relativePath = e.relativePath;
                 req.entry        = e.entry;
                 req.stage        = static_cast<ShaderStageFlagBit>(e.stage);
                 req.target       = e.target;
                 req.variantHash  = e.variantHash;
-                // schema is resolved internally per path
+                req.variant      = e.variant.entries.empty() ? nullptr : &e.variant;
+                req.schema       = &schema;
+                req.schemaFp     = schemaFp;
 
                 ShaderCompileResult result;
                 std::string         localError;

@@ -24,7 +24,7 @@ TEST(MaterialTest, Technique)
     Material          material;
     MaterialTechnique technique;
     technique.techniqueTag                = sky::Name("opaque");
-    technique.shader                      = ShaderRef{"shaders/opaque.slang", "main"};
+    technique.program.vertex              = ShaderRef{"shaders/opaque.slang", "main"};
     technique.renderState.alphaToCoverage = true;
     technique.renderState.blendStates.push_back(BlendState{});
     material.AddTechnique(technique);
@@ -32,8 +32,8 @@ TEST(MaterialTest, Technique)
     ASSERT_EQ(material.GetTechniques().size(), 1u);
     const MaterialTechnique *found = material.GetTechnique(sky::Name("opaque"));
     ASSERT_NE(found, nullptr);
-    EXPECT_EQ(found->shader.relativePath, "shaders/opaque.slang");
-    EXPECT_EQ(found->shader.entry, "main");
+    EXPECT_EQ(found->program.vertex.relativePath, "shaders/opaque.slang");
+    EXPECT_EQ(found->program.vertex.entry, "main");
     EXPECT_TRUE(found->renderState.alphaToCoverage);
     EXPECT_EQ(found->renderState.blendStates.size(), 1u);
     EXPECT_EQ(material.GetTechnique(sky::Name("missing")), nullptr);

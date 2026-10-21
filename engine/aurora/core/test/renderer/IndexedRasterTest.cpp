@@ -818,7 +818,7 @@ TEST_P(IndexedRaster, SparseShaderSetsKeepTheirActualSetNumbers)
 TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
 {
     const auto materialSource = HostMaterial({device->GetAPI(), epoch});
-    auto       resolved       = CreateFrameShader(*device, *materialSource.material);
+    auto       resolved       = CreateFrameShader(*device, materialSource.material->techniques.front().program);
     ASSERT_TRUE(std::holds_alternative<ShaderPtr>(resolved));
     const auto              shader = std::get<ShaderPtr>(resolved);
     const SceneId           scene{0, 1};
@@ -903,13 +903,13 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
     meshes[0] = {mesh, {{0, 32, 8}}, {{0, 0, 0, Format::F_RG32, "POSITION", 0}}, {{32, 12, IndexType::U16, {6}}, {48, 12, IndexType::U16, {6}}}};
     std::array<PreparedMaterialLayout, 2> materials;
     for (uint32_t i = 0; i != 2; ++i) {
-        auto &material                      = materials[i];
-        material.resource                   = i ? blue : red;
-        material.shader                     = shader;
-        const std::array<float, 4>     tint = i ? std::array<float, 4>{0, 0, 1, 1} : std::array<float, 4>{1, 0, 0, 1};
-        const shared::SceneBatchParams batch{{tint[0], tint[1], tint[2], tint[3]}, RenderIdentityMatrix()};
-        const auto                     bytes = std::as_bytes(std::span{&batch, 1});
-        material.constants.assign(bytes.begin(), bytes.end());
+        auto &material                         = materials[i];
+        material.resource                      = i ? blue : red;
+        material.shader                        = shader;
+        const std::array<float, 4>        tint = i ? std::array<float, 4>{0, 0, 1, 1} : std::array<float, 4>{1, 0, 0, 1};
+        const shared::MaterialBatchParams batch{{tint[0], tint[1], tint[2], tint[3]}, {.5f, 0, 0, 0}};
+        const auto                        bytes = std::as_bytes(std::span{&batch, 1});
+        material.uniforms.push_back({2, {bytes.begin(), bytes.end()}});
     }
     const auto        lease = Begin();
     FrameGraphBuilder builder;
@@ -941,12 +941,10 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         auto &item = retained->back().draws[0];
         EXPECT_EQ(item.draw.indexed->range.offset, i ? 48u : 32u);
         EXPECT_TRUE(item.draw.uniforms.empty());
-        const auto                   &view = prepared->views[i].view;
-        const shared::ScenePassParams params{view.projection * view.view, {view.cameraPosition.x, view.cameraPosition.y, view.cameraPosition.z, 1}};
-        shared::SceneBatchParams      batch;
-        ASSERT_EQ(item.material.size(), sizeof(batch));
-        std::memcpy(&batch, item.material.data(), sizeof(batch));
-        batch.world = item.world;
+        const auto                    &view = prepared->views[i].view;
+        const shared::OpaquePassParams params{view.projection * view.view, {view.cameraPosition.x, view.cameraPosition.y, view.cameraPosition.z, 1}};
+        const shared::SceneBatchParams batch{item.world};
+        ASSERT_EQ(item.material.size(), 1u);
         FrameBuildInputs inputs;
         inputs.lease = lease;
         FrameComposer composer(*device, *context, builder, inputs);
@@ -954,7 +952,10 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         auto          batchBinding = composer.WriteUniform(2, 0, std::as_bytes(std::span{&batch, 1}), ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
         ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(passBinding));
         ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(batchBinding));
-        item.draw.uniforms = {std::get<RasterUniformBinding>(passBinding), std::get<RasterUniformBinding>(batchBinding)};
+        auto materialBinding = composer.WriteUniform(2, 2, item.material.front().bytes, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
+        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(materialBinding));
+        item.draw.uniforms = {std::get<RasterUniformBinding>(passBinding), std::get<RasterUniformBinding>(batchBinding),
+                              std::get<RasterUniformBinding>(materialBinding)};
         pass.draws.push_back(std::move(item.draw));
     }
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));

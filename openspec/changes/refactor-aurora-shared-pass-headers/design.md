@@ -1,3 +1,7 @@
+> Stage history: source embedding and direct shader inclusion of `.h` below are superseded by
+> [persistent exports and unified module inventories](../refactor-aurora-pipeline-resource-ownership/design.md).
+> The authoritative C++ `.h` contract remains; this record describes the earlier implementation.
+
 ## Declaration ownership
 
 Global and each Pass/Batch own one shared `.h`. Field and resource lists are written once, including binding numbers and array counts. C++ expands them into native data plus expected schema; Slang expands them into shader declarations. C++ types and offsetof/sizeof describe the CPU layout, not a hand-written GPU packing algorithm. Compiled shader reflection must match before binding.

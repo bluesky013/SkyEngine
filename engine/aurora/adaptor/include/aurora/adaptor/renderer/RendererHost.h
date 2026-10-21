@@ -5,10 +5,16 @@
 #pragma once
 
 #include <aurora/renderer/IRenderer.h>
+#include <core/file/FileSystem.h>
 #include <optional>
 
 namespace sky::aurora {
-    std::optional<RendererError> RegisterScenePass(FramePacket &, RenderFeatureId, std::shared_ptr<const void> moduleLease);
+    class ShaderFileSystem;
+    std::optional<RendererError> RegisterScenePass(FramePacket &,
+                                                   RenderFeatureId,
+                                                   std::shared_ptr<const void>       moduleLease,
+                                                   std::shared_ptr<ShaderFileSystem> sources  = {},
+                                                   FileSystemPtr                     products = {});
     // One main-thread producer owns the published renderer until shutdown has drained.
     class RendererHost {
     public:

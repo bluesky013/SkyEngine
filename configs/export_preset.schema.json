@@ -13,6 +13,7 @@
     "signingIdentity",
     "provisioningProfile",
     "bundles",
+    "shaderTargets",
     "abis",
     "keystore",
     "compileSdk",

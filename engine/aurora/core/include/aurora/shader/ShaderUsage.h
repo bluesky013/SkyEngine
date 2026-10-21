@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <aurora/shader/ShaderVariant.h>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -20,14 +22,15 @@ namespace sky::aurora {
     class ShaderResolver;
 
     struct ShaderUsageEntry {
-        std::string relativePath;
-        std::string entry;
-        uint32_t    stage         = 0;
-        uint32_t    target        = 0;
-        uint64_t    variantHash   = 0;
-        uint64_t    variantKey[2] = {0, 0};
-        std::string variantDump; // human-readable key values
-        uint64_t    toolchainFp = 0;
+        std::string   relativePath;
+        std::string   entry;
+        uint32_t      stage         = 0;
+        uint32_t      target        = 0;
+        uint64_t      variantHash   = 0;
+        uint64_t      variantKey[2] = {0, 0};
+        std::string   variantDump; // human-readable key values
+        uint64_t      toolchainFp = 0;
+        ShaderVariant variant;
     };
 
     // In-memory dedup set; `Flush` union-merges into a JSON file.

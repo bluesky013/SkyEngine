@@ -39,6 +39,7 @@ add_custom_command(TARGET SandboxEditor POST_BUILD
     COMMAND ${CMAKE_COMMAND}
         "-DSRC_DIR=${CMAKE_SOURCE_DIR}/assets"
         "-DDST_DIR=$<TARGET_FILE_DIR:SandboxEditor>/assets"
+        "-DEXCLUDE_CHILDREN=shaders"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/deploy_resources.cmake
     COMMAND ${CMAKE_COMMAND}
         "-DSRC_DIR=${CMAKE_SOURCE_DIR}/configs"

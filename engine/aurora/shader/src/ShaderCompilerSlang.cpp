@@ -197,7 +197,7 @@ namespace sky::aurora {
             reflection.blocks.push_back(std::move(block));
         }
 
-        void CollectSlangResources(slang::ProgramLayout *layout, ShaderReflection &reflection)
+        void CollectSlangResources(slang::ProgramLayout *layout, ShaderReflection &reflection, slang::IMetadata *metadata = nullptr)
         {
             const uint32_t count = layout->getParameterCount();
             for (uint32_t i = 0; i < count; ++i) {
@@ -259,6 +259,10 @@ namespace sky::aurora {
                 if (set == SLANG_UNKNOWN_SIZE || binding == SLANG_UNKNOWN_SIZE) {
                     continue;
                 }
+                bool used = true;
+                if (metadata &&
+                    SLANG_SUCCEEDED(metadata->isParameterLocationUsed(static_cast<SlangParameterCategory>(category), set, binding, used)) && !used)
+                    continue;
 
                 ShaderResource res{};
                 res.name    = var->getName() != nullptr ? var->getName() : "";
@@ -353,12 +357,20 @@ namespace sky::aurora {
         sessionDesc.targets     = &targetDesc;
         sessionDesc.targetCount = 1;
         // Angle includes need an explicit root; ShaderFileSystem resolves logical paths.
-        const char                     *includeRoots[]{""};
+        const auto sourceSnapshot =
+            desc.fileSystem != nullptr && desc.fileSystem->IsBundlePath(desc.sourcePath) ? desc.fileSystem->Snapshot(desc.sourcePath) : nullptr;
+        std::vector<std::string>        includePaths;
+        std::vector<const char *>       includeRoots;
         Slang::ComPtr<ISlangFileSystem> slangFileSystem;
         if (desc.fileSystem != nullptr) {
-            slangFileSystem.attach(CreateSlangFileSystem(desc.fileSystem));
-            sessionDesc.searchPaths     = includeRoots;
-            sessionDesc.searchPathCount = 1;
+            auto *files  = sourceSnapshot ? sourceSnapshot.get() : desc.fileSystem;
+            includePaths = files->IncludeRoots();
+            for (const auto &path : includePaths) {
+                includeRoots.push_back(path.c_str());
+            }
+            slangFileSystem.attach(CreateSlangFileSystem(files));
+            sessionDesc.searchPaths     = includeRoots.data();
+            sessionDesc.searchPathCount = static_cast<SlangInt>(includeRoots.size());
         }
         sessionDesc.fileSystem = slangFileSystem.get();
         Slang::ComPtr<slang::ISession> session;
@@ -369,7 +381,8 @@ namespace sky::aurora {
 
         Slang::ComPtr<slang::IBlob>   diagnostics;
         Slang::ComPtr<slang::IModule> module;
-        module.attach(session->loadModuleFromSourceString("spike", "spike.slang", desc.source.c_str(), diagnostics.writeRef()));
+        const auto                   &sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
+        module.attach(session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef()));
         if (diagnostics != nullptr) {
             result.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
         }
@@ -427,7 +440,9 @@ namespace sky::aurora {
 
         // slang-side reflection (per-platform own reflection principle)
         if (auto *layout = linked->getLayout(0, diagnostics.writeRef())) {
-            CollectSlangResources(layout, result.reflection);
+            Slang::ComPtr<slang::IMetadata> metadata;
+            linked->getEntryPointMetadata(0, 0, metadata.writeRef());
+            CollectSlangResources(layout, result.reflection, metadata.get());
 
             // MSL does not carry numthreads; capture it for targets that need
             // the thread group size at dispatch time (Metal).

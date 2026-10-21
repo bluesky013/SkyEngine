@@ -12,7 +12,7 @@
     R(SAMPLER, REGULAR, gEnvironmentSampler, 1, 8)                                                                                                   \
     R(SAMPLER, REGULAR, gBrdfSampler, 1, 9)
 
-AURORA_SHADER_PASS(SceneEnvironmentPass, AURORA_SCENE_ENVIRONMENT_PASS_RESOURCES)
+AURORA_SHADER_PASS(sky::aurora::shared, SceneEnvironmentPass, AURORA_SCENE_ENVIRONMENT_PASS_RESOURCES)
 
 #undef AURORA_SCENE_ENVIRONMENT_PASS_RESOURCES
 #undef AURORA_SCENE_ENVIRONMENT_PASS_FIELDS

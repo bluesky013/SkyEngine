@@ -41,7 +41,8 @@ namespace sky::aurora {
     };
 
     struct ShaderCacheIndex {
-        static constexpr uint32_t kFormatVersion = 3;
+        // Version 4 records entry-point-active resources, excluding unused declarations.
+        static constexpr uint32_t kFormatVersion = 4;
 
         uint32_t                                                  formatVersion = kFormatVersion;
         uint64_t                                                  toolchainFp   = 0;

@@ -125,25 +125,33 @@ namespace sky::aurora {
             for (const auto &attribute : payload.mesh->attributes)
                 add(attribute.semantic.size());
         }
-        if (payload.material) {
-            const auto &material = *payload.material;
-            add(material.vertexCode.size());
-            add(material.fragmentCode.size());
-            add(material.vertexEntry.size());
-            add(material.fragmentEntry.size());
-            add(material.reflection.resources.size() * sizeof(ShaderResource));
-            add(material.reflection.blocks.size() * sizeof(ShaderBlockLayout));
-            add(material.reflection.pushConstants.size() * sizeof(PushConstantRange));
-            for (const auto &resource : material.reflection.resources)
-                add(resource.name.size());
-            for (const auto &block : material.reflection.blocks) {
-                add(block.name.size());
-                add(block.structName.size());
-                add(block.members.size() * sizeof(ShaderBlockMember));
-                for (const auto &member : block.members)
-                    add(member.name.size());
+        if (payload.material)
+            for (const auto &technique : payload.material->techniques) {
+                const auto &material = technique.program;
+                add(sizeof(technique));
+                add(technique.uniforms.size() * sizeof(RenderUniformData));
+                for (const auto &uniform : technique.uniforms)
+                    add(uniform.bytes.size());
+                add(material.specialization.entries.size() * sizeof(ShaderSpecializationEntry));
+                add(material.computeCode.size());
+                add(material.computeEntry.size());
+                add(material.vertexCode.size());
+                add(material.fragmentCode.size());
+                add(material.vertexEntry.size());
+                add(material.fragmentEntry.size());
+                add(material.reflection.resources.size() * sizeof(ShaderResource));
+                add(material.reflection.blocks.size() * sizeof(ShaderBlockLayout));
+                add(material.reflection.pushConstants.size() * sizeof(PushConstantRange));
+                for (const auto &resource : material.reflection.resources)
+                    add(resource.name.size());
+                for (const auto &block : material.reflection.blocks) {
+                    add(block.name.size());
+                    add(block.structName.size());
+                    add(block.members.size() * sizeof(ShaderBlockMember));
+                    for (const auto &member : block.members)
+                        add(member.name.size());
+                }
             }
-        }
         return size;
     }
 

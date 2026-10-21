@@ -1,0 +1,11 @@
+// Generated from aurora/pipeline/MaterialBatch.h; do not edit.
+// Inputs: a98cc18fed30ed8679d5e5fd39371f18c96b5bf6b6263b9de99a77ae160054ef; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct MaterialBatchParams
+{
+    float4 tint;
+    float4 surface;
+};
+[[vk::binding(2, 2)]] ConstantBuffer<MaterialBatchParams> gMaterial
+    : register(b2, space2);

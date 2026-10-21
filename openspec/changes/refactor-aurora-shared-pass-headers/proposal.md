@@ -1,3 +1,7 @@
+> Stage history: the authoritative `.h` contract remains. Source embedding and direct shader
+> inclusion of `.h` were superseded by persistent `.slangh` assets and unified module inventories in
+> [refactor-aurora-pipeline-resource-ownership](../refactor-aurora-pipeline-resource-ownership/design.md).
+
 ## Why
 
 Pass C++ compilation currently waits for ShaderHeaderTool and Slang reflection to produce its types and binding schema. Shared pass declarations should be compilable by C++ and shaders independently, with reflection validating their agreement rather than generating the C++ source.

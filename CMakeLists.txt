@@ -27,6 +27,22 @@ endif()
 add_subdirectory(engine)
 add_subdirectory(plugins)
 
+get_property(module_resource_configs GLOBAL PROPERTY SKY_MODULE_RESOURCE_CONFIGS)
+sky_stage_shader_resources(TARGET ShaderResources.Stage
+    DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders"
+    CONFIGS ${module_resource_configs}
+    CONSUMERS SandboxEditor Aurora.Render Aurora.PipelineTest Aurora.Renderer.GpuSubmissionTest)
+install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders/" DESTINATION assets/shaders)
+if(SKY_BUILD_TEST)
+    sky_stage_shader_resources(TARGET ShaderResources.TestFixtures
+        DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/test-assets/shaders"
+        CONFIGS "${ENGINE_ROOT}/engine/aurora/resources.json"
+            "${ENGINE_ROOT}/engine/aurora/core/test/plugins/first/plugin.json"
+            "${ENGINE_ROOT}/engine/aurora/core/test/plugins/second/plugin.json"
+            "${ENGINE_ROOT}/engine/aurora/pipeline/test/resources.json"
+        CONSUMERS Aurora.ShaderTest Aurora.PipelineTest)
+endif()
+
 # Runtime module configuration also orders targeted module builds.
 # Bind after plugins are configured, including only enabled targets.
 if (TARGET SandboxEditor)

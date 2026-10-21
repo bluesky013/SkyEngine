@@ -37,7 +37,7 @@ Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）�
 - [ ] 8.4 实现 slot-owned staging、UploadBatch 的字节/创建数量/在途预算及显式持久上传 roots，支持 upload-only submission（B06/B10/B12 Windows 组件与生产预算/后台分块已验；Metal P02）
 - [ ] 8.5 实现实际录制 receipts、提交接受后的状态登记、完成后的 Resident 发布和源 bytes/staging/GPU leases 分阶段释放（B06/B10/B12 Windows 组件与统一 Submit/Poll 已验；Metal P02）
 - [ ] 8.6 实现精确版本 pins、冻结前旧版本选择与延迟释放；验证新版本失败不覆写旧在途 descriptor/mesh，未匹配状态的 legacy transfer 资源不得直接使用（B05–B10 组件与 B12 公共热更新/逐帧 layouts/pins 已验；Metal P02）
-- [ ] 8.11 验证 `fix-aurora-pass-resource-contract` 的生成 Pass 接入：macOS 编译及 MSL 真实布局/字段偏移、Global/Pass/Batch 与 native buffer index 映射、有/无 View、不同 Pass 布局、两 View/双在途帧、实际 uniform 字节范围、显式场景注册及模块退休；iOS/Android 交叉编译使用指定 host ShaderHeaderTool 并做实机读回。Windows 结果不能代替本项，旧 8.9/8.10 的宿主证据也不覆盖此次 ABI 变更。
+- [ ] 8.11 按 `refactor-aurora-pipeline-resource-ownership` 验证共享 Pass 接入：macOS 编译及 MSL 真实布局/字段偏移、Global/Pass/Batch 与 native buffer index 映射、有/无 View、不同 Pass 布局、两 View/双在途帧、实际 uniform 字节范围、显式场景注册及模块退休；iOS/Android 交叉编译消费权威 `.h`，检查持久化 `.slangh` 与源同步、模块资源打包并做实机读回。C++ 编译不依赖 Slang 或 host ShaderHeaderTool；Windows 结果不能代替本项，旧 8.9/8.10 的宿主证据也不覆盖此次 ABI 变更。
 
 实施顺序：native probe → slot/提交 → compiler/encode → 资源/绘制 → 输出/宿主 → 故障与实机验收。
 - [x] 8.7 在 Metal/non-Windows 原生宿主 capability gate 通过后，把 `AuroraModule` 的 `Init/Start/Tick/Shutdown` 统一到 `RendererHost` + `IRendererProvider`；删除 `#if !defined(_WIN32)` 宿主分叉。

@@ -1,0 +1,22 @@
+// Generated from aurora/pipeline/SceneLightingPass.h; do not edit.
+// Inputs: 2c0fe7ccef70b5419ac4de0c22e36e7dfed2e8153d4c221a69c15e20965ef5a5; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SceneLightingParams
+{
+    float4 lightCount;
+    float4 positions[8];
+    float4 directions[8];
+    float4 colors[8];
+    float4 cones[8];
+    column_major float4x4 shadowViewProjection;
+    float4 shadowControl;
+};
+[[vk::binding(1, 1)]] ConstantBuffer<SceneLightingParams> gSceneLighting
+    : register(b1, space1);
+
+[[vk::binding(2, 1)]] Texture2D<float> gShadowImage
+    : register(t2, space1);
+
+[[vk::binding(3, 1)]] SamplerState gShadowSampler
+    : register(s3, space1);

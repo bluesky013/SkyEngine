@@ -7,7 +7,7 @@
 // without the compiler module.
 //
 // Usage:
-//   ShaderCookTool <usage.json> <sourceSearchPath> <cacheDir> [offlineCacheDir]
+//   ShaderCookTool <usage.json> <sourceRoot> <cacheDir> [offlineCacheDir]
 //
 
 #include <aurora/shader/ShaderCompilerSlang.h>
@@ -26,8 +26,8 @@ using namespace sky::aurora;
 
 int main(int argc, char **argv)
 {
-    if (argc < 4) {
-        std::cerr << "usage: ShaderCookTool <usage.json> <sourceSearchPath> <cacheDir> [offlineCacheDir]\n";
+    if (argc < 4 || argc > 5) {
+        std::cerr << "usage: ShaderCookTool <usage.json> <sourceRoot> <cacheDir> [offlineCacheDir]\n";
         return 1;
     }
 
@@ -46,29 +46,44 @@ int main(int argc, char **argv)
     }
     std::cout << "usage entries: " << usage.size() << "\n";
 
-    // source search path
     ShaderFileSystem source;
-    source.AddSearchPath(sourceDir);
+    NativeFileSystem sourceRoot{FilePath(sourceDir)};
+    std::string      error;
+    if (!source.LoadBundles(sourceRoot, "", &error)) {
+        std::cerr << error << "\n";
+        return 1;
+    }
 
     // local (writable) cache root
-    std::filesystem::create_directories(cacheDir);
-    NativeFileSystem *local = new NativeFileSystem(FilePath(cacheDir));
+    std::error_code directoryError;
+    std::filesystem::create_directories(cacheDir, directoryError);
+    if (directoryError) {
+        std::cerr << "cache directory unavailable: " << directoryError.message() << "\n";
+        return 1;
+    }
+    FileSystemPtr local = new NativeFileSystem(FilePath(cacheDir));
 
     // optional read-only offline root
-    NativeFileSystem *offline = nullptr;
-    if (argc >= 5) {
+    FileSystemPtr offline;
+    if (argc == 5) {
         offline = new NativeFileSystem(FilePath(std::string(argv[4])));
     }
 
     ShaderCompilerSlang compiler;
     ShaderCompilerFactory::Get().Register(&compiler);
 
-    ShaderResolver resolver(offline, local, source, 0, 0);
+    ShaderResolver resolver(offline.Get(), local.Get(), source, 0, 0);
 
-    std::string error;
-    const bool  ok = BuildUsageCache(resolver, usage, &error);
+    const bool ok = BuildUsageCache(resolver, usage, &error);
     if (!ok) {
         std::cerr << "cook failed: " << error << "\n";
+        return 1;
+    }
+
+    ShaderFileSystem emptySources;
+    ShaderResolver   published(local.Get(), nullptr, emptySources, 0, 0);
+    if (!BuildUsageCache(published, usage, &error)) {
+        std::cerr << "published shader products are incomplete: " << error << "\n";
         return 1;
     }
 

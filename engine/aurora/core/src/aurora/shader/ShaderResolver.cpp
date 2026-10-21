@@ -40,8 +40,12 @@ namespace sky::aurora {
             return true;
         }
 
-        bool
-        HashRec(ShaderFileSystem &fs, const std::string &path, std::unordered_set<std::string> &visited, uint64_t &hash, std::string *rootContent)
+        bool HashRec(ShaderFileSystem                &fs,
+                     const std::string               &path,
+                     std::unordered_set<std::string> &visited,
+                     uint64_t                        &hash,
+                     std::string                     *rootContent,
+                     ShaderFileSystem                &snapshot)
         {
             if (visited.count(path) != 0) {
                 return true;
@@ -51,6 +55,9 @@ namespace sky::aurora {
                 return false;
             }
             visited.insert(path);
+            if (!snapshot.IsBundlePath(path)) {
+                snapshot.AddVirtualFile(path, content);
+            }
             if (rootContent != nullptr) {
                 *rootContent = content;
             }
@@ -65,8 +72,9 @@ namespace sky::aurora {
                 bool              rootRelative = false;
                 // This conservative scan includes inactive branches; packaged shaders may omit C++-only headers.
                 if (ParseInclude(line, inc, rootRelative)) {
-                    if (rootRelative || !HashRec(fs, DirOf(path) + inc, visited, hash, nullptr)) {
-                        HashRec(fs, inc, visited, hash, nullptr);
+                    if ((rootRelative || !HashRec(fs, DirOf(path) + inc, visited, hash, nullptr, snapshot)) &&
+                        !HashRec(fs, inc, visited, hash, nullptr, snapshot)) {
+                        hash = HashMixBytes(hash, "unresolved:" + inc);
                     }
                 }
                 if (end == std::string::npos) {
@@ -77,6 +85,45 @@ namespace sky::aurora {
             return true;
         }
 
+        bool CaptureSources(ShaderFileSystem                  &sourceFs,
+                            const std::string                 &relativePath,
+                            const std::vector<std::string>    &extraDeps,
+                            uint64_t                          &outHash,
+                            std::string                       &outSource,
+                            std::shared_ptr<ShaderFileSystem> &snapshot)
+        {
+            snapshot = sourceFs.Snapshot(relativePath);
+            if (sourceFs.IsBundlePath(relativePath)) {
+                if (!snapshot->ReadFile(relativePath, outSource)) {
+                    return false;
+                }
+                // Whole-bundle hashing also covers macro includes and Slang imports without a second preprocessor.
+                outHash = HashMixBytes(snapshot->BundleFingerprint(), relativePath);
+                return true;
+            }
+            auto                           &fs = sourceFs;
+            std::unordered_set<std::string> visited;
+            std::string                     root;
+            uint64_t                        hash = kFnv1aBasis;
+            if (!HashRec(fs, relativePath, visited, hash, &root, *snapshot)) {
+                return false;
+            }
+            outSource = std::move(root);
+            // companion schema participates in the source hash
+            std::string companion;
+            if (fs.ReadFile(relativePath + ".json", companion)) {
+                hash = HashMixBytes(hash, companion);
+            }
+            for (const auto &dep : extraDeps) {
+                std::string content;
+                if (fs.ReadFile(dep, content)) {
+                    hash = HashMixBytes(hash, dep);
+                    hash = HashMixBytes(hash, content);
+                }
+            }
+            outHash = hash;
+            return true;
+        }
     } // namespace
 
     ShaderResolver::ShaderResolver(
@@ -88,27 +135,8 @@ namespace sky::aurora {
     bool ShaderResolver::HashSourceClosure(
         ShaderFileSystem &fs, const std::string &relativePath, const std::vector<std::string> &extraDeps, uint64_t &outHash, std::string &outSource)
     {
-        std::unordered_set<std::string> visited;
-        std::string                     root;
-        uint64_t                        hash = kFnv1aBasis;
-        if (!HashRec(fs, relativePath, visited, hash, &root)) {
-            return false;
-        }
-        outSource = std::move(root);
-        // companion schema participates in the source hash
-        std::string companion;
-        if (fs.ReadFile(relativePath + ".json", companion)) {
-            hash = HashMixBytes(hash, companion);
-        }
-        for (const auto &dep : extraDeps) {
-            std::string content;
-            if (fs.ReadFile(dep, content)) {
-                hash = HashMixBytes(hash, dep);
-                hash = HashMixBytes(hash, content);
-            }
-        }
-        outHash = hash;
-        return true;
+        std::shared_ptr<ShaderFileSystem> snapshot;
+        return CaptureSources(fs, relativePath, extraDeps, outHash, outSource, snapshot);
     }
     bool ShaderResolver::ResolveSchema(
         const std::string &relativePath, uint32_t target, ShaderVariantSchema &outSchema, uint64_t &outSchemaFp, std::string *error)
@@ -188,9 +216,10 @@ namespace sky::aurora {
             schema = &localSchema;
         }
 
-        uint64_t    sourceHash = 0;
-        std::string source;
-        const bool  haveSource = HashSourceClosure(mSourceFs, req.relativePath, req.depends, sourceHash, source);
+        uint64_t                          sourceHash = 0;
+        std::string                       source;
+        std::shared_ptr<ShaderFileSystem> snapshot;
+        const bool                        haveSource = CaptureSources(mSourceFs, req.relativePath, req.depends, sourceHash, source, snapshot);
 
         auto makeKey = [&](uint64_t effectiveSourceHash) {
             ShaderCacheKey k{};
@@ -220,15 +249,17 @@ namespace sky::aurora {
         //    decision here: inline render-parallel or async worker is up to caller)
         IShaderCompiler *compiler = ShaderCompilerFactory::Get().GetCompiler();
         if (haveSource && compiler != nullptr) {
-            outTask              = ShaderCompileTask{};
-            outTask.key          = makeKey(sourceHash);
-            outTask.source       = std::move(source);
-            outTask.entry        = req.entry;
-            outTask.stage        = req.stage;
-            outTask.target       = static_cast<ShaderTarget>(req.target);
-            outTask.variant      = req.variant;
+            outTask        = ShaderCompileTask{};
+            outTask.key    = makeKey(sourceHash);
+            outTask.source = std::move(source);
+            outTask.entry  = req.entry;
+            outTask.stage  = req.stage;
+            outTask.target = static_cast<ShaderTarget>(req.target);
+            if (req.variant != nullptr) {
+                outTask.variant = *req.variant;
+            }
             outTask.schema       = *schema;
-            outTask.fileSystem   = &mSourceFs;
+            outTask.fileSystem   = std::move(snapshot);
             outTask.relativePath = req.relativePath;
             outTask.deps         = req.depends;
             outTask.schemaFp     = schemaFp;
@@ -265,9 +296,14 @@ namespace sky::aurora {
         return ShaderResolveStatus::Failed;
     }
 
-    void ShaderResolver::CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result)
+    static void CommitArtifact(sky::IFileSystem          *local,
+                               ShaderCacheWriter         *writer,
+                               uint64_t                   layoutFp,
+                               uint64_t                   toolchainFp,
+                               const ShaderCompileTask   &task,
+                               const ShaderCompileResult &result)
     {
-        if (mWriter != nullptr) {
+        if (writer != nullptr) {
             ShaderCacheWriter::Pending pending;
             pending.key          = task.key;
             pending.result       = result;
@@ -276,15 +312,19 @@ namespace sky::aurora {
             pending.sourceHash   = task.sourceHash;
             pending.relativePath = task.relativePath;
             pending.deps         = task.deps;
-            mWriter->Submit(std::move(pending));
-        } else if (mLocal != nullptr) {
-            ShaderBlobStore store(mLocal, mLocal, mLayoutFp, mToolchainFp);
+            writer->Submit(std::move(pending));
+        } else if (local != nullptr) {
+            ShaderBlobStore store(local, local, layoutFp, toolchainFp);
             store.Store(task.key, result);
-            UpsertLocalArtifact(*mLocal, ShaderTargetDirName(task.key.target), task.relativePath, task.schema, task.schemaFp, task.key,
+            UpsertLocalArtifact(*local, ShaderTargetDirName(task.key.target), task.relativePath, task.schema, task.schemaFp, task.key,
                                 task.sourceHash, task.deps);
         }
     }
 
+    void ShaderResolver::CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result)
+    {
+        CommitArtifact(mLocal, mWriter, mLayoutFp, mToolchainFp, task, result);
+    }
     bool ShaderResolver::ResolveShader(const Request &req, ShaderCompileResult &out, std::string *error)
     {
         ShaderCompileTask         task;
@@ -315,10 +355,13 @@ namespace sky::aurora {
             return status;
         }
 
-        auto state       = std::make_shared<ShaderCompileFuture::State>();
-        state->task      = std::move(task);
-        state->compiler  = ShaderCompilerFactory::Get().GetCompiler();
-        state->commit    = [this](const ShaderCompileTask &t, const ShaderCompileResult &r) { CommitCompile(t, r); };
+        auto state      = std::make_shared<ShaderCompileFuture::State>();
+        state->task     = std::move(task);
+        state->compiler = ShaderCompilerFactory::Get().GetCompiler();
+        state->commit   = [local = mLocal, writer = mWriter, layout = mLayoutFp, toolchain = mToolchainFp](const ShaderCompileTask   &task,
+                                                                                                         const ShaderCompileResult &result) {
+            CommitArtifact(local, writer, layout, toolchain, task, result);
+        };
         outFuture.mState = std::move(state);
         return ShaderResolveStatus::Compile;
     }

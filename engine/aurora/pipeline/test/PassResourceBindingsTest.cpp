@@ -2,7 +2,7 @@
 #include "SceneBatch.h"
 #include "TextureToScreenPass.h"
 #include <algorithm>
-#include <aurora/pipeline/PassResourceBindings.h>
+#include <aurora/renderer/PassResourceBindings.h>
 #include <gtest/gtest.h>
 
 using namespace sky::aurora;

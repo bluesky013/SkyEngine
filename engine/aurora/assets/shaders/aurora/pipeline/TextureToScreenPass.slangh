@@ -1,0 +1,16 @@
+// Generated from aurora/pipeline/TextureToScreenPass.h; do not edit.
+// Inputs: 5d4a2087df86612ef0180a47c67226b66e5a04cb5c38081d8e1e65f20fe56bb6; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct TextureToScreenParams
+{
+    float4 Misc;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<TextureToScreenParams> gTextureToScreen
+    : register(b0, space1);
+
+[[vk::binding(1, 1)]] Texture2D<float4> gSourceTexture
+    : register(t1, space1);
+
+[[vk::binding(2, 1)]] SamplerState gSourceSampler
+    : register(s2, space1);

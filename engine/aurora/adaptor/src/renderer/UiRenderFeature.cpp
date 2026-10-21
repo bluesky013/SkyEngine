@@ -98,7 +98,7 @@ namespace sky::aurora {
         }
         class UiRenderFeature final : public IFrameGraphFeature {
         public:
-            UiRenderFeature(Name name, RenderMaterialData code) : name(name), code(std::move(code))
+            UiRenderFeature(Name name, RenderTechniqueData code) : name(name), code(std::move(code))
             {
             }
             Name GetName() const override
@@ -197,10 +197,10 @@ namespace sky::aurora {
             }
 
         private:
-            Name               name;
-            RenderMaterialData code;
-            ShaderPtr          shader;
-            SamplerPtr         sampler;
+            Name                name;
+            RenderTechniqueData code;
+            ShaderPtr           shader;
+            SamplerPtr          sampler;
         };
     } // namespace
     std::variant<RendererError, FrameExtensionPayload> EncodeRenderUiSnapshot(Name feature, const RenderUiSnapshot &snapshot)
@@ -263,7 +263,7 @@ namespace sky::aurora {
             }
         )";
     }
-    std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CreateUiRenderFeature(Name name, RenderMaterialData code)
+    std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CreateUiRenderFeature(Name name, RenderTechniqueData code)
     {
         if (name.Empty() || code.vertexCode.empty() || code.fragmentCode.empty() || code.vertexEntry.empty() || code.fragmentEntry.empty())
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI feature requires a name and compiled shader"};

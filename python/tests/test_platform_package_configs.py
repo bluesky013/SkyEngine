@@ -36,6 +36,7 @@ class PlatformPackageConfigTest(unittest.TestCase):
             (engine / "configs").mkdir(parents=True)
             (engine / "configs/modules_game.json").write_text('{"modules": []}', encoding="utf-8")
             with mock.patch.object(PACKAGE, "instantiate_template"), mock.patch.object(PACKAGE, "run_cook"), \
+                    mock.patch.object(PACKAGE, "prepare_shader_products", return_value=True), \
                     mock.patch.object(PACKAGE, "stage_bundles"), mock.patch.object(PACKAGE, "package_android") as build:
                 PACKAGE._prepare(engine, project, {"platform": "android"}, {}, {}, build=False)
             path = project / "build/android/app/src/main/assets/configs/modules_game.json"

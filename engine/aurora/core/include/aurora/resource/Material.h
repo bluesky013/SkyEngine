@@ -1,9 +1,6 @@
 //
-// Material: inline-technique material model. Material owns a list of
-// techniques (tag + shader + MaterialRenderState, i.e. the old "technique" is
-// inlined rather than a top-level resource) plus material-level properties
-// (values + textures). MaterialInstance shares a Material and overrides a
-// subset of its fields at runtime, holding its own copy of the value block.
+// Material owns tagged programs and authored properties; instances share
+// the definition while retaining their own property overrides.
 //
 
 #pragma once
@@ -11,7 +8,7 @@
 #include <aurora/resource/Texture.h>
 #include <aurora/rhi/Core.h>
 #include <aurora/shader/RgBlockDesc.h>
-#include <aurora/shader/ShaderRef.h>
+#include <aurora/shader/ShaderTechnique.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
@@ -65,14 +62,19 @@ namespace sky::aurora {
         bool                    alphaToCoverage = false;
     };
 
-    // One render technique of a material: a tag (for RDG queue bucketing), a
-    // shader and the material render state. Replaces the old top-level
-    // Technique + RenderTechniqueLibrary (the "state" and "techID" roles are
-    // inlined).
+    // A material owns whole set-2 bindings; property offsets never imply shader offsets.
+    struct MaterialUniformField {
+        std::string property, member;
+    };
+    struct MaterialUniformBinding {
+        uint32_t                          binding = 0;
+        std::vector<MaterialUniformField> fields;
+    };
     struct MaterialTechnique {
-        Name                techniqueTag;
-        ShaderRef           shader; // path + entry; resolved by the renderer's ShaderResolver
-        MaterialRenderState renderState;
+        Name                                techniqueTag;
+        ShaderTechnique                     program;
+        std::vector<MaterialUniformBinding> uniforms;
+        MaterialRenderState                 renderState;
     };
 
     struct MaterialPropertyEntry {

@@ -1,5 +1,8 @@
 set(CURRENT_FOLDER Engine/Aurora)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/module_resources.cmake)
+sky_register_module_resources(CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/resources.json")
+
 add_subdirectory(rhi)
 add_subdirectory(core)
 add_subdirectory(shader)

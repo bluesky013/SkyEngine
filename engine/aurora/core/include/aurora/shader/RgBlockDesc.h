@@ -1,21 +1,12 @@
 //
-// Legacy block description for RHI layout and ShaderBlockGen.
-// Production Pass field declarations come from their shared headers.
-//
-// Platform mapping convention:
-//   Vulkan : set -> VkDescriptorSetLayout, binding direct
-//   DX12   : set -> root parameter index (one descriptor table per set;
-//            small cbuffers may become root CBVs)
-//   Metal  : slang MSL output flattens resources into per-category sequential
-//            indices (buffer/texture/sampler each from 0, spaces ignored);
-//            binding must equal that category index (declaration order).
-//            Direct setBuffer/setTexture/setSampler binding, no argument buffer.
+// Shared declaration metadata and CPU field-layout validation.
+// Native resource mappings come from backend shader reflection.
 //
 
 #pragma once
 
-#include <core/name/Name.h>
 #include <aurora/rhi/Core.h>
+#include <core/name/Name.h>
 
 #include <string>
 #include <vector>
@@ -43,17 +34,17 @@ namespace sky::aurora {
     };
 
     enum class RgBlockKind : uint8_t {
-        CBUFFER = 0,      // uniform block with fields
-        CBUFFER_DYNAMIC,  // dynamic uniform block (dynamic offset)
-        RESOURCE,         // standalone texture/sampler (fields unused)
+        CBUFFER = 0,     // uniform block with fields
+        CBUFFER_DYNAMIC, // dynamic uniform block (dynamic offset)
+        RESOURCE,        // standalone texture/sampler (fields unused)
     };
 
     struct RgBlockDesc {
-        uint32_t           set     = 0;
-        uint32_t           binding = 0;
-        Name               blockName;
-        RgBlockKind        kind    = RgBlockKind::CBUFFER;
-        ShaderStageFlags   stages  = ShaderStageFlagBit::VS | ShaderStageFlagBit::FS | ShaderStageFlagBit::CS;
+        uint32_t             set     = 0;
+        uint32_t             binding = 0;
+        Name                 blockName;
+        RgBlockKind          kind   = RgBlockKind::CBUFFER;
+        ShaderStageFlags     stages = ShaderStageFlagBit::VS | ShaderStageFlagBit::FS | ShaderStageFlagBit::CS;
         std::vector<RgField> fields;
     };
 

@@ -39,14 +39,16 @@ namespace sky::aurora {
 
     // Geometry and material bytes are owned; the consuming pass supplies all shader bindings.
     struct ResolvedRasterDraw {
-        RasterDraw             draw;
-        Matrix4                world = RenderIdentityMatrix();
-        std::vector<std::byte> material;
-        bool                   receiveShadow = true;
+        RasterDraw                     draw;
+        Matrix4                        world = RenderIdentityMatrix();
+        std::vector<RenderUniformData> material;
+        bool                           receiveShadow = true;
     };
 
     struct PreparedFrame {
         uint64_t                                                    packetSequence = 0;
+        double                                                      timeSeconds    = 0;
+        float                                                       deltaSeconds   = 0;
         std::vector<PreparedViewData>                               views;
         std::vector<FrameExtensionPayload>                          extensions;
         std::shared_ptr<const std::vector<ResolvedResourceBinding>> resources;

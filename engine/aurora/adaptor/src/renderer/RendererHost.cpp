@@ -13,12 +13,17 @@
 #include <thread>
 
 namespace sky::aurora {
-    std::optional<RendererError> RegisterScenePass(FramePacket &packet, RenderFeatureId id, std::shared_ptr<const void> moduleLease)
+    std::optional<RendererError> RegisterScenePass(FramePacket                      &packet,
+                                                   RenderFeatureId                   id,
+                                                   std::shared_ptr<const void>       moduleLease,
+                                                   std::shared_ptr<ShaderFileSystem> sources,
+                                                   FileSystemPtr                     products)
     {
         if (!id.IsValid() || !moduleLease)
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Scene pass registration requires a feature ID and defining module lease"};
         const Name name("aurora.scene");
-        packet.featureCommands.push_back(RegisterRenderFeature{id, name, std::move(moduleLease), CreateSceneRenderFeature(name)});
+        packet.featureCommands.push_back(
+            RegisterRenderFeature{id, name, std::move(moduleLease), CreateSceneRenderFeature(name, std::move(sources), std::move(products))});
         return {};
     }
     RendererHost::RendererHost() = default;

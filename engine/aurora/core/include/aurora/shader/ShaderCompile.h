@@ -32,6 +32,7 @@ namespace sky::aurora {
         const ShaderVariant       *variant    = nullptr;
         const ShaderVariantSchema *schema     = nullptr;
         ShaderCache               *cache      = nullptr;
+        std::string                sourcePath;
     };
 
     struct ShaderCompileResult {

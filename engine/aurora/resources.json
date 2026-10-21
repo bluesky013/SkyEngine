@@ -1,0 +1,116 @@
+{
+    "resources": {
+        "owner": "aurora",
+        "roots": [
+            {
+                "kind": "shader",
+                "path": "assets/shaders",
+                "dependencies": [],
+                "declarationHelpers": [
+                    "core/include/aurora/shader/SharedShader.h",
+                    "core/include/aurora/shader/SharedShaderTypes.h"
+                ],
+                "exports": [
+                    {
+                        "source": "pipeline/shaders/GlobalBlock.h",
+                        "include": "aurora/pipeline/GlobalBlock.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/OpaquePass.h",
+                        "include": "aurora/pipeline/OpaquePass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/ScenePass.h",
+                        "include": "aurora/pipeline/ScenePass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SceneBatch.h",
+                        "include": "aurora/pipeline/SceneBatch.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SceneLightingPass.h",
+                        "include": "aurora/pipeline/SceneLightingPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SceneSurfaceBatch.h",
+                        "include": "aurora/pipeline/SceneSurfaceBatch.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SceneEnvironmentPass.h",
+                        "include": "aurora/pipeline/SceneEnvironmentPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/ShadowPass.h",
+                        "include": "aurora/pipeline/ShadowPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/TextureToScreenPass.h",
+                        "include": "aurora/pipeline/TextureToScreenPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/ToneMapPass.h",
+                        "include": "aurora/pipeline/ToneMapPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/MaterialBatch.h",
+                        "include": "aurora/pipeline/MaterialBatch.h"
+                    }
+                ],
+                "programs": [
+                    {
+                        "path": "aurora/materials/Unlit.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    },
+                    {
+                        "path": "aurora/materials/Lit.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    },
+                    {
+                        "path": "aurora/materials/Shadow.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    },
+                    {
+                        "path": "aurora/pipeline/ToneMap.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

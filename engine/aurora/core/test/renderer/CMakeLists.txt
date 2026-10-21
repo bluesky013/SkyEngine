@@ -56,6 +56,7 @@ if (SKY_BUILD_TEST AND WIN32)
         LIBS EditorRender Aurora.Core.Static Aurora.Adaptor.Static Aurora.RHI.Static Aurora.FrameBackend.Static Aurora.Vulkan Aurora.DX12 Aurora.ShaderCompiler.Static 3rdParty::googletest 3rdParty::vulkan_headers 3rdParty::vma 3rdParty::d3d12ma d3dcompiler
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.GpuSubmissionTest>)
     target_include_directories(Aurora.Renderer.GpuSubmissionTest PRIVATE
+        ${PROJECT_SOURCE_DIR}/engine/aurora/core/test
         ${PROJECT_SOURCE_DIR}/engine/aurora/pipeline/shaders
         ${PROJECT_SOURCE_DIR}/engine/aurora/rhi/vulkan/include
         ${PROJECT_SOURCE_DIR}/engine/aurora/rhi/vulkan/src
@@ -64,7 +65,8 @@ if (SKY_BUILD_TEST AND WIN32)
     target_compile_definitions(Aurora.Renderer.GpuSubmissionTest PRIVATE VK_NO_PROTOTYPES VK_USE_PLATFORM_WIN32_KHR)
     add_dependencies(Aurora.Renderer.GpuSubmissionTest Aurora.Vulkan Aurora.DX12)
     target_compile_definitions(Aurora.Renderer.GpuSubmissionTest PRIVATE
-        AURORA_SHARED_SHADER_DIR="${PROJECT_SOURCE_DIR}/engine/aurora/pipeline/shaders"
-        AURORA_SHADER_INCLUDE_DIR="${PROJECT_SOURCE_DIR}/engine/aurora/core/include")
+        SHADER_TEST_PACKAGE_ROOT="${PROJECT_BINARY_DIR}/shader-package-test/relocated/shaders"
+        SHADER_TEST_SOURCE_ROOT="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders"
+        AURORA_SHADER_ASSET_DIR="${PROJECT_SOURCE_DIR}/engine/aurora/assets/shaders")
     sky_set_dependency(TARGET Aurora.Renderer.GpuSubmissionTest)
 endif()

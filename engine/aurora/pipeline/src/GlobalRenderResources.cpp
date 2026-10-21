@@ -4,7 +4,7 @@
 
 #include <aurora/pipeline/GlobalRenderResources.h>
 #include <aurora/rhi/Device.h>
-#include <aurora/scene/SceneView.h>
+#include <cmath>
 
 #include "GlobalBlock.h"
 
@@ -19,6 +19,8 @@ namespace sky::aurora {
 
     bool GlobalRenderResources::Init(Device *device, Shader *globalShader)
     {
+        if (!device || !globalShader || globalShader->GetDevice() != device)
+            return false;
         mDevice = device;
 
         mUboSize = sizeof(shared::GlobalParams);
@@ -50,21 +52,15 @@ namespace sky::aurora {
         return true;
     }
 
-    void GlobalRenderResources::UpdateView(const SceneView &view, float time)
+    bool GlobalRenderResources::UpdateFrame(float time, float deltaTime)
     {
-        if (mUBO == nullptr) {
-            return;
-        }
-        shared::GlobalParams params{};
-        params.view      = view.GetViewMatrix();
-        params.proj      = Matrix4::Identity(); // projection matrix accessor lands with camera data
-        params.viewProj  = view.GetViewProjectMatrix();
-        params.cameraPos = Vector4(0.f, 0.f, 0.f, time); // camera position accessor lands later
-
-        uint8_t *mapped = mUBO->Map();
-        if (mapped != nullptr) {
-            std::memcpy(mapped, &params, mUboSize);
-        }
+        if (!mUBO || !std::isfinite(time) || !std::isfinite(deltaTime) || deltaTime < 0)
+            return false;
+        const shared::GlobalParams params{{time, deltaTime, 0, 0}};
+        auto                      *mapped = mUBO->Map();
+        if (!mapped)
+            return false;
+        std::memcpy(mapped, &params, sizeof(params));
+        return true;
     }
-
 } // namespace sky::aurora

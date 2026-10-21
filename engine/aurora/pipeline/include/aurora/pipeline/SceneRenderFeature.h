@@ -6,8 +6,10 @@
 
 #include <array>
 #include <aurora/renderer/IRenderFeature.h>
+#include <core/file/FileSystem.h>
 
 namespace sky::aurora {
+    class ShaderFileSystem;
     struct SceneViewSettings {
         uint32_t hdr                  = 0;
         float    exposure             = 0;
@@ -17,5 +19,6 @@ namespace sky::aurora {
     using SceneEnvironmentInputs = std::array<std::optional<RenderResourceKey>, 3>;
     FrameExtensionPayload
     SceneViewInput(Name feature, ViewportId output, const SceneViewSettings &settings, const SceneEnvironmentInputs &environment = {});
-    std::shared_ptr<IFrameGraphFeature> CreateSceneRenderFeature(Name name);
+    std::shared_ptr<IFrameGraphFeature>
+    CreateSceneRenderFeature(Name name, std::shared_ptr<ShaderFileSystem> sources = {}, FileSystemPtr products = {});
 } // namespace sky::aurora

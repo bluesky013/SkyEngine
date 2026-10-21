@@ -26,15 +26,15 @@ namespace {
     Shader *MakeGlobalShader(Device *device)
     {
         const char *src = R"(
-#include "GlobalBlock.h"
+#include <aurora/pipeline/GlobalBlock.slangh>
+RWStructuredBuffer<float4> values : register(u0, space1);
 [shader("compute")]
 [numthreads(1, 1, 1)]
-void mainCS() {}
+void mainCS() { values[0] = gGlobal.frameTime; }
 )";
 
         ShaderFileSystem files;
-        files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
-        files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
+        files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
         ShaderCompilerSlang compiler;
         ShaderCompileDesc   d{};
         d.fileSystem = &files;
@@ -98,8 +98,8 @@ void mainCS() {}
             return nullptr;
         }
 
-        set = 0;
-        binding = 0;
+        set       = 0;
+        binding   = 0;
         blockSize = 0;
         for (auto &res : r.reflection.resources) {
             if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
@@ -117,24 +117,24 @@ void mainCS() {}
             blockSize = 64; // sizeof(float4x4)
         }
 
-        const size_t bytes = r.data.size() * sizeof(uint32_t);
-        auto binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
+        const size_t bytes  = r.data.size() * sizeof(uint32_t);
+        auto         binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
         std::memcpy(binary->Data(), r.data.data(), bytes);
 
         auto *provider       = new ShaderBinaryProvider();
         provider->binaryData = binary;
 
         ShaderFunction::Descriptor fnDesc = {};
-        fnDesc.stage = ShaderStageFlagBit::CS;
-        fnDesc.data  = CounterPtr<ShaderDataProvider>(provider);
-        auto *cs = device->CreateShaderFunction(fnDesc);
+        fnDesc.stage                      = ShaderStageFlagBit::CS;
+        fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
+        auto *cs                          = device->CreateShaderFunction(fnDesc);
         if (cs == nullptr) {
             return nullptr;
         }
 
         Shader::Descriptor shaderDesc = {};
-        shaderDesc.cs         = cs;
-        shaderDesc.reflection = &r.reflection;
+        shaderDesc.cs                 = cs;
+        shaderDesc.reflection         = &r.reflection;
         return device->CreateShader(shaderDesc);
     }
 
@@ -155,17 +155,20 @@ TEST_F(AuroraVulkanTest, GlobalRenderResourcesInitAndUpdate)
     view.SetViewMatrix(Matrix4::Identity());
     view.SetProjectionMatrix(Matrix4::Identity());
 
-    global.UpdateView(view, 1.5f); // must not crash; writes mapped UBO
+    EXPECT_TRUE(global.UpdateFrame(1.5f, .016f));
 
     // wire into graph -> compiled graph carries the global RG
     FrameAllocator frameAlloc;
-    auto graph = RenderGraph::Build(device, frameAlloc);
+    auto           graph = RenderGraph::Build(device, frameAlloc);
     graph->SetGlobalResourceGroup(global.GetGlobalResourceGroup());
 
-    const auto tex = graph->CreateTexture(Name("color"),
-        [] { RDGTextureDesc d{}; d.extent = {16, 16, 1}; d.usage = ImageUsageFlagBit::RENDER_TARGET; return d; }());
-    graph->AddSceneRasterPass(Name("p"),
-        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); });
+    const auto tex = graph->CreateTexture(Name("color"), [] {
+        RDGTextureDesc d{};
+        d.extent = {16, 16, 1};
+        d.usage  = ImageUsageFlagBit::RENDER_TARGET;
+        return d;
+    }());
+    graph->AddSceneRasterPass(Name("p"), [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); });
     graph->MarkOfInterest(tex);
     graph->Compile();
 
@@ -235,8 +238,8 @@ TEST_F(AuroraVulkanTest, BatchPackWriterPackReturnsOffset)
     a.value[0] = 1.0f;
 
     BatchPackWriter writer(batch);
-    const uint32_t o0 = writer.Pack(a);
-    const uint32_t o1 = writer.Pack(a);
+    const uint32_t  o0 = writer.Pack(a);
+    const uint32_t  o1 = writer.Pack(a);
 
     EXPECT_EQ(o0, 0u);
     EXPECT_EQ(o1, device->GetCapability().minUniformBufferOffsetAlignment);
@@ -247,7 +250,7 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
     auto *device = GetDevice();
 
     uint32_t set = 0, binding = 0, blockSize = 0;
-    auto batchShader = CounterPtr<Shader>(MakeDynamicBatchShader(device, set, binding, blockSize));
+    auto     batchShader = CounterPtr<Shader>(MakeDynamicBatchShader(device, set, binding, blockSize));
     ASSERT_NE(batchShader.Get(), nullptr);
     ASSERT_GT(blockSize, 0u);
 
@@ -255,7 +258,7 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
     ResourceGroup::Descriptor rgDesc{};
     rgDesc.shader = batchShader.Get();
     rgDesc.set    = set;
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(rgDesc));
+    auto group    = CounterPtr<ResourceGroup>(device->CreateResourceGroup(rgDesc));
     ASSERT_NE(group.Get(), nullptr);
 
     // pack buffer (host-visible; one frame worth of packed blocks)
@@ -263,7 +266,7 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
     bufDesc.size   = blockSize * 4;
     bufDesc.usage  = BufferUsageFlagBit::UNIFORM;
     bufDesc.memory = MemoryType::CPU_TO_GPU;
-    auto buffer = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
+    auto buffer    = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
     ASSERT_NE(buffer.Get(), nullptr);
 
     // stable binding: offset=0, range=blockSize, written once per frame
@@ -281,28 +284,30 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
     auto *device = GetDevice();
 
     uint32_t set = 0, binding = 0, blockSize = 0;
-    auto batchShader = CounterPtr<Shader>(MakeDynamicBatchShader(device, set, binding, blockSize));
+    auto     batchShader = CounterPtr<Shader>(MakeDynamicBatchShader(device, set, binding, blockSize));
     ASSERT_NE(batchShader.Get(), nullptr);
 
     ResourceGroup::Descriptor rgDesc{};
     rgDesc.shader = batchShader.Get();
     rgDesc.set    = set;
-    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(rgDesc));
+    auto group    = CounterPtr<ResourceGroup>(device->CreateResourceGroup(rgDesc));
     ASSERT_NE(group.Get(), nullptr);
 
     Buffer::Descriptor bufDesc{};
     bufDesc.size   = 1024;
     bufDesc.usage  = BufferUsageFlagBit::UNIFORM;
     bufDesc.memory = MemoryType::CPU_TO_GPU;
-    auto buffer = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
+    auto buffer    = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
     ASSERT_NE(buffer.Get(), nullptr);
 
 #if defined(_DEBUG)
-    EXPECT_DEATH({
-        auto enc = group->CreateEncoder();
-        enc->WriteBuffer(binding, buffer.Get(), 0, 0); // bug: dynamic UBO requires an explicit range
-        enc->End();
-    }, "requires explicit bufferRange");
+    EXPECT_DEATH(
+        {
+            auto enc = group->CreateEncoder();
+            enc->WriteBuffer(binding, buffer.Get(), 0, 0); // bug: dynamic UBO requires an explicit range
+            enc->End();
+        },
+        "requires explicit bufferRange");
 #else
     auto enc = group->CreateEncoder();
     enc->WriteBuffer(binding, buffer.Get(), 0, 0);
@@ -312,22 +317,25 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
 
 TEST_F(AuroraVulkanTest, BatchDynamicOffsetPassThrough)
 {
-    auto *device = GetDevice();
+    auto          *device = GetDevice();
     FrameAllocator frameAlloc;
-    auto graph = RenderGraph::Build(device, frameAlloc);
+    auto           graph = RenderGraph::Build(device, frameAlloc);
 
-    const auto tex = graph->CreateTexture(Name("color"),
-        [] { RDGTextureDesc d{}; d.extent = {16, 16, 1}; d.usage = ImageUsageFlagBit::RENDER_TARGET; return d; }());
+    const auto tex = graph->CreateTexture(Name("color"), [] {
+        RDGTextureDesc d{};
+        d.extent = {16, 16, 1};
+        d.usage  = ImageUsageFlagBit::RENDER_TARGET;
+        return d;
+    }());
 
     DrawItem item{};
     item.batchDynamicOffset = 512;
-    item.args.indexCount = 6;
+    item.args.indexCount    = 6;
 
-    graph->AddSceneRasterPass(Name("p"),
-        [&](SceneRasterPassBuilder &b) {
-            b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE);
-            b.AddDrawItem(item);
-        });
+    graph->AddSceneRasterPass(Name("p"), [&](SceneRasterPassBuilder &b) {
+        b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE);
+        b.AddDrawItem(item);
+    });
     graph->MarkOfInterest(tex);
     graph->Compile();
 
@@ -351,7 +359,7 @@ TEST_F(AuroraVulkanTest, ReflectionValidationMatch)
     desc.fields    = {{RgFieldType::MAT4, Name("ViewProj")}};
 
     ShaderReflection refl{};
-    ShaderResource res{};
+    ShaderResource   res{};
     res.name    = "Global";
     res.set     = 0;
     res.binding = 0;
@@ -370,7 +378,7 @@ TEST_F(AuroraVulkanTest, ReflectionValidationMismatch)
     desc.kind      = RgBlockKind::CBUFFER;
 
     ShaderReflection refl{};
-    ShaderResource res{};
+    ShaderResource   res{};
     res.name    = "Global";
     res.set     = 0;
     res.binding = 0;
@@ -387,14 +395,13 @@ TEST_F(AuroraVulkanTest, ReflectionValidationMismatch)
 TEST_F(AuroraVulkanTest, SharedBlockDescMatchesReflection)
 {
     const char *shader = R"(
-#include "GlobalBlock.h"
+#include <aurora/pipeline/GlobalBlock.slangh>
 [shader("fragment")]
-float4 mainFS() : SV_Target { return gGlobal.cameraPos; }
+float4 mainFS() : SV_Target { return gGlobal.frameTime; }
 )";
 
     ShaderFileSystem files;
-    files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
-    files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
+    files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
     ShaderCompilerSlang compiler;
     ShaderCompileDesc   d{};
     d.source     = shader;

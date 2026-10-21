@@ -1,0 +1,26 @@
+// Generated from second/pipeline/ToonPass.h; do not edit.
+// Inputs: 4387807df3d47b22b689a02b15dc2badfb0edaa545c02a8bb615569a76ce562f; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct GlobalParams
+{
+    column_major float4x4 transform;
+};
+[[vk::binding(3, 0)]] ConstantBuffer<GlobalParams> gGlobal
+    : register(b3, space0);
+
+struct ToonParams
+{
+    column_major float4x4 viewProjection;
+    float4 color;
+};
+[[vk::binding(2, 1)]] ConstantBuffer<ToonParams> gPass
+    : register(b2, space1);
+
+struct BatchParams
+{
+    float4 color;
+    float4 surface;
+};
+[[vk::binding(1, 2)]] ConstantBuffer<BatchParams> gBatch
+    : register(b1, space2);

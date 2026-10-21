@@ -18,12 +18,13 @@ TEST(ProjectDescriptorTest, SettingsRoundTrip)
     const auto path = (root / "Test.skyproj").string();
 
     sky::ProjectDescriptor source;
-    source.id            = "abc";
-    source.name          = "Test";
-    source.engineVersion = sky::kEngineVersion;
-    source.applicationId = "com.acme.rocket";
-    source.versionName   = "3.4";
-    source.versionCode   = 12;
+    source.id              = "abc";
+    source.name            = "Test";
+    source.engineVersion   = sky::kEngineVersion;
+    source.applicationId   = "com.acme.rocket";
+    source.versionName     = "3.4";
+    source.versionCode     = 12;
+    source.resourceModules = {"modules/game/resources.json"};
     ASSERT_TRUE(source.Write(path));
 
     sky::ProjectDescriptor loaded;
@@ -31,6 +32,7 @@ TEST(ProjectDescriptorTest, SettingsRoundTrip)
     EXPECT_EQ(loaded.applicationId, "com.acme.rocket");
     EXPECT_EQ(loaded.versionName, "3.4");
     EXPECT_EQ(loaded.versionCode, 12);
+    EXPECT_EQ(loaded.resourceModules, source.resourceModules);
 
     std::filesystem::remove_all(root);
 }

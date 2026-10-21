@@ -41,7 +41,7 @@ namespace sky::aurora {
         if (list != PreparedDrawList::VISIBLE && list != PreparedDrawList::SHADOW_CASTERS)
             return Invalid("Unknown prepared draw list");
         const auto &packets = list == PreparedDrawList::VISIBLE ? view.draws : view.shadowCasters;
-        using ResourceKey = decltype(Key({}));
+        using ResourceKey   = decltype(Key({}));
         std::map<ResourceKey, std::shared_ptr<const ResourceVersionLease>> pins;
         std::map<ResourceKey, const PreparedMeshLayout *>                  meshLayouts;
         std::map<ResourceKey, const PreparedMaterialLayout *>              materialLayouts;
@@ -118,7 +118,7 @@ namespace sky::aurora {
             const auto &lod = mesh.lods[packet.lod];
             draw.indexed =
                 RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.sections.empty() ? lod.command : lod.sections[packet.subMesh]};
-            result.draws.push_back({std::move(draw), packet.world, material.constants, packet.receiveShadow});
+            result.draws.push_back({std::move(draw), packet.world, material.uniforms, packet.receiveShadow});
             for (const auto &key : {meshKey, materialKey})
                 if (retained.emplace(key, true).second)
                     result.pins.push_back(pins.at(key));

@@ -8,10 +8,8 @@
 
 namespace sky::aurora {
 
-    uint32_t SceneRasterPassTemplate::DeclareQueue(SceneRasterPassBuilder &builder,
-                                                   const Name &queueName,
-                                                   const Name &tag,
-                                                   QueueSortPolicy sortPolicy)
+    uint32_t
+    SceneRasterPassTemplate::DeclareQueue(SceneRasterPassBuilder &builder, const Name &queueName, const Name &tag, QueueSortPolicy sortPolicy)
     {
         const uint32_t index = builder.AddQueue(queueName, sortPolicy, tag);
         mQueueDecls.push_back(QueueDecl{queueName, tag, sortPolicy, index});
@@ -24,8 +22,7 @@ namespace sky::aurora {
             return;
         }
 
-        // v1: cull-only pass over the Bounds view; draw items are produced once
-        // the technique design lands (no RenderItem component for now)
+        // This legacy template does not submit draws; production collection belongs to SceneRenderFeature.
         auto view = mScene->GetRegistry().View<Bounds>();
 
         for (const auto &decl : mQueueDecls) {

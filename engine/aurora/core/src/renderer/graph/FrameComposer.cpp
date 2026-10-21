@@ -11,21 +11,37 @@
 #include <set>
 
 namespace sky::aurora {
-    std::optional<FrameError> ValidateFrameShader(const RenderMaterialData &source)
-    {
-        const auto invalid = [](const char *message) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, message}; };
-        if (source.vertexEntry.empty() || source.fragmentEntry.empty() || !source.reflection.pushConstants.empty())
-            return invalid("Raster shaders require entry points and supported parameter bindings");
-        std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
-        for (const auto &resource : source.reflection.resources) {
-            if (resource.set > 2 || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
-                return invalid("Raster resource declarations require unique scalar Global/Pass/Batch bindings");
-            switch (resource.type) {
+    namespace {
+        bool SupportedResource(ShaderResourceType type, bool compute)
+        {
+            switch (type) {
             case ShaderResourceType::UNIFORM_BUFFER:
             case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
             case ShaderResourceType::SAMPLED_IMAGE:
-            case ShaderResourceType::SAMPLER: break;
-            default: return invalid("Unsupported raster resource binding type");
+            case ShaderResourceType::SAMPLER: return true;
+            case ShaderResourceType::STORAGE_BUFFER:
+            case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
+            case ShaderResourceType::STORAGE_IMAGE: return compute;
+            default: return false;
+            }
+        }
+    } // namespace
+    std::optional<FrameError> ValidateFrameShader(const RenderTechniqueData &source)
+    {
+        const auto invalid = [](const char *message) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, message}; };
+        const bool compute = !source.computeEntry.empty() || !source.computeCode.empty();
+        if ((compute ? !source.vertexEntry.empty() || !source.fragmentEntry.empty() || !source.vertexCode.empty() || !source.fragmentCode.empty() ||
+                           source.computeEntry.empty()
+                     : source.vertexEntry.empty() || source.fragmentEntry.empty()) ||
+            !source.reflection.pushConstants.empty()) {
+            return invalid("Technique requires graphics or compute entries exclusively and supported parameter bindings");
+        }
+        std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
+        for (const auto &resource : source.reflection.resources) {
+            if (resource.set > 2 || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
+                return invalid("Technique resource declarations require unique scalar Global/Pass/Batch bindings");
+            if (!SupportedResource(resource.type, compute)) {
+                return invalid("Unsupported technique resource binding type");
             }
         }
         for (const auto &block : source.reflection.blocks) {
@@ -34,38 +50,49 @@ namespace sky::aurora {
             if (!block.size || resource == source.reflection.resources.end() ||
                 (resource->type != ShaderResourceType::UNIFORM_BUFFER && resource->type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) ||
                 !blocks.emplace(block.set, block.binding).second)
-                return invalid("Raster block has no matching uniform resource");
-            for (const auto &member : block.members)
-                if (!member.size || member.offset > block.size || member.size > block.size - member.offset)
-                    return invalid("Raster uniform member exceeds its reflected block");
+                return invalid("Technique block has no matching uniform resource");
+            if (std::ranges::any_of(block.members, [&](const auto &member) {
+                    return !member.size || member.offset > block.size || member.size > block.size - member.offset;
+                })) {
+                return invalid("Technique uniform member exceeds its reflected block");
+            }
         }
         for (const auto &resource : source.reflection.resources)
             if ((resource.type == ShaderResourceType::UNIFORM_BUFFER || resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) &&
                 !blocks.contains({resource.set, resource.binding}))
-                return invalid("Raster uniform resource requires a reflected block");
+                return invalid("Technique uniform resource requires a reflected block");
         return {};
     }
-    std::variant<FrameError, ShaderPtr> CreateFrameShader(Device &device, const RenderMaterialData &source)
+    std::variant<FrameError, ShaderPtr> CreateFrameShader(Device &device, const RenderTechniqueData &source)
     {
         if (const auto error = ValidateFrameShader(source))
             return *error;
-        if (source.backend != device.GetAPI() || source.vertexCode.empty() || source.fragmentCode.empty() || source.vertexCode.size() > UINT32_MAX ||
-            source.fragmentCode.size() > UINT32_MAX || source.vertexEntry.empty() || source.fragmentEntry.empty())
+        const bool compute = !source.computeEntry.empty();
+        if (source.backend != device.GetAPI() || source.vertexCode.size() > UINT32_MAX || source.fragmentCode.size() > UINT32_MAX ||
+            source.computeCode.size() > UINT32_MAX ||
+            (compute ? source.computeCode.empty() : source.vertexCode.empty() || source.fragmentCode.empty())) {
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader code does not match the active backend"};
+        }
         const auto function = [&](ShaderStageFlagBit stage, const std::vector<uint8_t> &bytes, const std::string &entry) {
             CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
             provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(bytes.size())));
             std::memcpy(provider->binaryData->Data(), bytes.data(), bytes.size());
             return ShaderFunctionPtr(device.CreateShaderFunction({stage, provider, entry}));
         };
-        const auto vs = function(ShaderStageFlagBit::VS, source.vertexCode, source.vertexEntry);
-        const auto fs = function(ShaderStageFlagBit::FS, source.fragmentCode, source.fragmentEntry);
-        if (!vs || !fs)
+        const auto vs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::VS, source.vertexCode, source.vertexEntry);
+        const auto fs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::FS, source.fragmentCode, source.fragmentEntry);
+        const auto cs = compute ? function(ShaderStageFlagBit::CS, source.computeCode, source.computeEntry) : ShaderFunctionPtr{};
+        if (compute ? !cs : !vs || !fs) {
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader function creation failed"};
+        }
         Shader::Descriptor desc{};
-        desc.vs         = vs.Get();
-        desc.ps         = fs.Get();
-        desc.reflection = &source.reflection;
+        desc.vs = vs.Get();
+        desc.ps = fs.Get();
+        if (compute) {
+            desc.cs = cs.Get();
+        }
+        desc.reflection     = &source.reflection;
+        desc.specialization = &source.specialization;
         ShaderPtr shader(device.CreateShader(desc));
         if (!shader)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader layout creation failed"};
@@ -110,7 +137,7 @@ namespace sky::aurora {
         });
         return found == outputs.end() ? std::optional<GraphImageHandle>{} : found->target.color;
     }
-    std::variant<FrameError, ShaderPtr> FrameComposer::CreateShader(const RenderMaterialData &source)
+    std::variant<FrameError, ShaderPtr> FrameComposer::CreateShader(const RenderTechniqueData &source)
     {
         return CreateFrameShader(device, source);
     }
@@ -165,11 +192,11 @@ namespace sky::aurora {
                                     {std::get<GraphBufferHandle>(imported), dynamic ? 0 : slice.offset, bytes.size()},
                                     dynamic ? static_cast<uint32_t>(slice.offset) : 0};
     }
-    void FrameComposer::SetPreparedView(const PreparedViewData                 *prepared,
-                                        const FrozenResourceCatalog            &catalog,
-                                        std::span<const PreparedMeshLayout>     meshLayouts,
-                                        std::span<const PreparedMaterialLayout> materialLayouts,
-                                        std::span<const PreparedGraphBuffer>    inGraph)
+    void FrameComposer::SetPreparedView(const PreparedViewData                     *prepared,
+                                        const FrozenResourceCatalog                &catalog,
+                                        std::span<const PreparedMeshLayout>         meshLayouts,
+                                        std::span<const PreparedMaterialTechniques> materialLayouts,
+                                        std::span<const PreparedGraphBuffer>        inGraph)
     {
         view         = prepared;
         resources    = &catalog;
@@ -177,12 +204,36 @@ namespace sky::aurora {
         materials    = materialLayouts;
         localBuffers = inGraph;
     }
-    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Rect2D scissor, PreparedDrawList list)
+    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list)
     {
         if (!view || !resources)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Prepared draws require an active BuildView snapshot"};
+        if (tag.Empty() || (list != PreparedDrawList::VISIBLE && list != PreparedDrawList::SHADOW_CASTERS)) {
+            return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene queue requires a Tag and a known draw list"};
+        }
+        PreparedViewData                    selected = *view;
+        auto                               &packets  = list == PreparedDrawList::VISIBLE ? selected.draws : selected.shadowCasters;
+        std::vector<PreparedMaterialLayout> layouts;
+        for (const auto &material : materials) {
+            const PreparedMaterialLayout *matched = nullptr;
+            for (const auto &[candidate, layout] : material.techniques) {
+                if (candidate != tag) {
+                    continue;
+                }
+                if (matched != nullptr) {
+                    return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Ambiguous material technique for scene queue Tag"};
+                }
+                matched = &layout;
+            }
+            if (matched != nullptr) {
+                layouts.push_back(*matched);
+            }
+        }
+        std::erase_if(packets, [&](const auto &packet) {
+            return std::none_of(layouts.begin(), layouts.end(), [&](const auto &layout) { return layout.resource == packet.material.resource; });
+        });
         auto resolved =
-            ResolvePreparedRaster(device, context, inputs.lease, builder, *view, *resources, meshes, materials, scissor, localBuffers, list);
+            ResolvePreparedRaster(device, context, inputs.lease, builder, selected, *resources, meshes, layouts, scissor, localBuffers, list);
         if (const auto *error = std::get_if<FrameError>(&resolved))
             return *error;
         return std::move(std::get<PreparedRasterView>(resolved).draws);
@@ -208,6 +259,10 @@ namespace sky::aurora {
     FrameOperationResult FrameComposer::Fullscreen(FrameRasterPass pass)
     {
         return AddRaster(std::move(pass), true);
+    }
+    FrameOperationResult FrameComposer::Compute(FrameComputePass pass)
+    {
+        return builder.Compute(std::move(pass));
     }
     FrameOperationResult FrameComposer::ExportOutputs()
     {

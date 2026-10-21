@@ -1,0 +1,16 @@
+// Generated from aurora/pipeline/ToneMapPass.h; do not edit.
+// Inputs: f36f6bd3bf0ae66bbd47e6345d7068e658cd980b80be32aea4131ce4b4514267; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct ToneMapParams
+{
+    float4 display;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<ToneMapParams> gToneMap
+    : register(b0, space1);
+
+[[vk::binding(1, 1)]] Texture2D<float4> gHdrColor
+    : register(t1, space1);
+
+[[vk::binding(2, 1)]] SamplerState gHdrSampler
+    : register(s2, space1);

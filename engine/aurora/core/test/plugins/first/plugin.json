@@ -1,0 +1,30 @@
+{
+    "resources": {
+        "owner": "first",
+        "roots": [
+            {
+                "kind": "shader",
+                "path": "assets/shaders",
+                "dependencies": [],
+                "exports": [
+                    {
+                        "source": "shaders/ToonPass.h",
+                        "include": "first/pipeline/ToonPass.h"
+                    }
+                ],
+                "programs": [
+                    {
+                        "path": "first/pipeline/ToonPass.slang",
+                        "entries": [
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "targets": []
+}

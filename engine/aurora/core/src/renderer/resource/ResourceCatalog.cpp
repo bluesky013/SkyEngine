@@ -300,7 +300,7 @@ namespace sky::aurora {
         const auto *image  = std::get_if<ResourceImageBacking>(backing.get());
         if (bool(image) != bool(entry->candidate->metadata.image))
             return Invalid();
-        // CPU-only probes may publish an empty backing before any upload.
+        // CPU-owned resources may publish an empty backing; native uploads require completion below.
         if (entry->status.state == RenderResourceState::CPU_READY &&
             (entry->status.upload.submittedBytes || entry->status.upload.completedBytes || (buffer && buffer->buffer)))
             return Invalid();

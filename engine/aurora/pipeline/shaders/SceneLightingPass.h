@@ -16,7 +16,7 @@
     R(TEXTURE, TEXTURE2D, FLOAT, gShadowImage, 1, 2)                                                                                                 \
     R(SAMPLER, REGULAR, gShadowSampler, 1, 3)
 
-AURORA_SHADER_PASS(SceneLightingPass, AURORA_SCENE_LIGHTING_PASS_RESOURCES)
+AURORA_SHADER_PASS(sky::aurora::shared, SceneLightingPass, AURORA_SCENE_LIGHTING_PASS_RESOURCES)
 
 #undef AURORA_SCENE_LIGHTING_PASS_RESOURCES
 #undef AURORA_SCENE_LIGHTING_PASS_FIELDS

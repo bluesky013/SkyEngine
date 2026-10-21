@@ -92,6 +92,13 @@ add_subdirectory(source)
 # Bind every `DEPENDENCIES Launcher` registration (engine, plugins) to this launcher.
 sky_set_dependency(TARGET Launcher)
 
+if(SKY_DEVELOP)
+    sky_stage_shader_resources(TARGET ShaderResources.Stage
+        DESTINATION "$<TARGET_FILE_DIR:Launcher>/assets/shaders"
+        PROJECT "${CMAKE_CURRENT_SOURCE_DIR}/.." ENGINE "${ENGINE_ROOT}"
+        CONSUMERS Launcher)
+endif()
+
 # Static module packaging: generate the registration cpp from the statically built
 # modules and link them into the launcher (their code is compiled in, not dlopen'd).
 if (SKY_MODULE_PACKAGING STREQUAL "static")

@@ -2,11 +2,13 @@
 // Created on 2026/10/17.
 //
 #pragma once
+#include "MaterialBatch.h"
+#include "OpaquePass.h"
 #include "SceneBatch.h"
-#include "ScenePass.h"
 #include <aurora/renderer/RenderCommands.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderTechnique.h>
 #include <cstring>
 #include <gtest/gtest.h>
 namespace sky::aurora {
@@ -22,16 +24,15 @@ namespace sky::aurora {
         payload.mesh            = RenderMeshData{{{0, 32, 8}}, {{0, 0, 0, Format::F_RG32, "POSITION", 0}}, {{32, 12, IndexType::U16, {6}}}};
         return payload;
     }
-    inline RenderMaterialData CompileHostRaster(RendererInfo info, const std::string &source)
+    inline RenderTechniqueData CompileHostRaster(RendererInfo info, const std::string &source)
     {
-        RenderMaterialData material;
+        RenderTechniqueData material;
         material.backend       = info.backend;
         material.vertexEntry   = "VSMain";
         material.fragmentEntry = "FSMain";
         ShaderCompilerSlang compiler;
         ShaderFileSystem    files;
-        files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
-        files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
+        files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
         for (const bool vertex : {true, false}) {
             ShaderCompileDesc desc;
             desc.source     = source;
@@ -57,24 +58,37 @@ namespace sky::aurora {
     }
     inline RenderResourcePayload HostMaterial(RendererInfo info, bool withView = true, bool dynamicPass = false, bool dynamicBatch = true)
     {
-        RenderResourcePayload          payload{RenderResourceKey{Uuid::CreateWithSeed(1202), 1, 1, info.deviceEpoch},
-                                      Name("runtime-material"),
-                                      std::vector<uint8_t>(sizeof(shared::SceneBatchParams)),
-                                               {}};
-        const shared::SceneBatchParams batch{{1, 0, 0, 1}, RenderIdentityMatrix()};
-        std::memcpy(payload.bytes.data(), &batch, sizeof(batch));
-        const std::string source = std::string("#include \"SceneBatch.h\"\n") + (withView ? "#include \"ScenePass.h\"\n" : "") +
+        RenderResourcePayload payload;
+        payload.resource         = {Uuid::CreateWithSeed(1202), 1, 1, info.deviceEpoch};
+        payload.format           = Name("runtime-material");
+        const std::string source = std::string("#include <aurora/pipeline/SceneBatch.slangh>\n#include <aurora/pipeline/MaterialBatch.slangh>\n") +
+                                   (withView ? "#include <aurora/pipeline/OpaquePass.slangh>\n" : "") +
                                    "float4 VSMain(float2 position : POSITION) : SV_Position { return " +
-                                   (withView ? "mul(gScenePass.viewProjection, mul(gSceneBatch.world, float4(position, 0, 1)))"
+                                   (withView ? "mul(gOpaquePass.viewProjection, mul(gSceneBatch.world, float4(position, 0, 1)))"
                                              : "mul(gSceneBatch.world, float4(position, 0, 1))") +
-                                   "; }\nfloat4 FSMain() : SV_Target { return gSceneBatch.tint; }";
-        auto &material = payload.material.emplace(CompileHostRaster(info, source));
+                                   "; }\nfloat4 FSMain() : SV_Target { return gMaterial.tint; }";
+        auto &technique = payload.material.emplace().techniques.emplace_back();
+        technique.tag   = Name("opaque");
+        auto &material  = technique.program;
+        material        = CompileHostRaster(info, source);
+        const shared::MaterialBatchParams tint{{1, 0, 0, 1}, {.5f, 0, 0, 0}};
+        const auto                        bytes = std::as_bytes(std::span{&tint, 1});
+        technique.uniforms.push_back({2, {bytes.begin(), bytes.end()}});
         for (auto &resource : material.reflection.resources) {
-            const bool dynamic = resource.set == shared::GetScenePassParamsLayout().set ? dynamicPass : dynamicBatch;
+            const bool dynamic = resource.set == shared::GetOpaquePassParamsLayout().set ? dynamicPass : dynamicBatch;
             if (dynamic && resource.type == ShaderResourceType::UNIFORM_BUFFER)
                 resource.type = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
         }
         return payload;
+    }
+
+    inline RenderMaterialData TestSceneMaterial(RenderTechniqueData program, const Vector4 &tint)
+    {
+        const shared::MaterialBatchParams parameters{tint, {.5f, 0, 0, 0}};
+        const auto                        bytes = std::as_bytes(std::span{&parameters, 1});
+        RenderMaterialData                material;
+        material.techniques.push_back({Name("opaque"), std::move(program), {{2, {bytes.begin(), bytes.end()}}}});
+        return material;
     }
 
     inline void AddHostMesh(FramePacket &packet, SceneId scene, RendererInfo info)

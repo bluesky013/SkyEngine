@@ -1,3 +1,7 @@
+> Current shader paths, material techniques and persistent header exports are defined by
+> [refactor-aurora-pipeline-resource-ownership](../refactor-aurora-pipeline-resource-ownership/design.md).
+> Lighting implementation milestones below remain historical evidence, not an alternative shader registration path.
+
 ## Context
 
 The approved order is pass resource declarations, World bridge, editing, Shadow, then IBL/HDR. The first two implementation changes preserve a single renderer producer and consume owned World snapshots. This change extends the scene pipeline after those gates pass.
@@ -14,7 +18,7 @@ Non-goals: cascaded/point/spot shadows, dynamic environment capture, skinning, c
 
 Lighting and shadow uniforms/textures/samplers are declared in their consuming Pass shared headers. Field/resource lists expand native C++ types and typed slots as well as shader declarations. Constant arrays/nested light structures are enabled only with verified size, alignment and stride; hand-written duplicate CPU ABI structs are not a fallback. Optional View remains a Pass choice.
 
-L02 enables bounded float4 arrays with reflected element count and 16-byte stride. Other array element types and nested structures remain rejected. Shader cache format 3 stores this metadata and rejects older blobs. SceneLightingPass owns eight light slots and one shadow image/sampler; ShadowPass owns its light projection, while SceneSurfaceBatch carries per-draw receive-shadow state. Existing SceneBatch and unlit SceneForward declarations remain compatible.
+L02 enabled bounded float4 arrays with reflected element count and 16-byte stride in cache format 3. The current format is 4, adding active-entry reflection; older caches require recook. Other array element types and nested structures remain rejected. SceneLightingPass owns eight light slots and one shadow image/sampler; ShadowPass owns its light projection, while SceneSurfaceBatch carries per-draw receive-shadow state. Material programs now live at `aurora/materials/{Unlit,Lit,Shadow}.slang` and include their consuming Pass headers.
 
 ### Depth and HDR graph capabilities
 
@@ -44,7 +48,7 @@ Missing, pending or unavailable image versions bind frame-owned initialized defa
 
 EnvironmentComponent stores only asset UUIDs, intensity, exposure and enabled/HDR flags, registered through existing reflection controls. A World accepts at most one environment component; duplicates or invalid settings produce bridge issues and omit the ambiguous settings. Missing/failed assets produce issues and use the documented defaults. The editor appends these inputs to its existing host packet and scene viewport. Changes release superseded logical keys after frozen frame retention. Asset-source caching freezes each loaded asset for its lifetime (revision 1); replacement by another UUID is supported, while live file hot reload is not claimed.
 
-New editor Cube/Plane objects explicitly select the reserved built-in SceneLit material. Existing empty/default material references continue using SceneForward. The existing Create action registry includes Environment; no per-field settings UI or new module target is introduced.
+New editor Cube/Plane objects explicitly select the reserved built-in lit material. Its techniques reference `aurora/materials/Lit.slang`; default material data uses `aurora/materials/Unlit.slang`. These are explicit material programs selected by queue Tag, not a shader owned by ScenePass. The existing Create action registry includes Environment; no per-field settings UI or new module target is introduced.
 
 ## Risks / Trade-offs
 

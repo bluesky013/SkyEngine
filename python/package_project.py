@@ -24,6 +24,10 @@ import sys
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shader_project import cook_project as cook_project_shaders, project_modules, stage_products as stage_shader_products
+from module_resources import stage as stage_module_sources
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 TOKEN_KEYS = [
@@ -417,6 +421,12 @@ def stage_bundles(project_dir, preset, dest_products_dir):
             shutil.copytree(src, dest_products_dir / name, dirs_exist_ok=True)
         else:
             print('  (bundle "{}" not cooked; skipped copy)'.format(name))
+    distribution = preset.get('name') or preset.get('platform', 'default')
+    if (project_dir / 'products/shaders' / distribution / 'distribution.json').is_file():
+        error = stage_shader_products(project_dir, distribution, dest_products_dir)
+        if error:
+            print(error, file=sys.stderr)
+            return None
     manifest = {
         'platform': preset.get('platform', ''),
         'distribution': preset.get('name', ''),
@@ -531,6 +541,8 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
         stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs')
         run_cook(engine, project_dir, 'android')
+        if not prepare_shader_products(engine, project_dir, preset):
+            return 1
         stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
         if build:
             package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
@@ -547,6 +559,8 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
                          extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
                          extra_build=preset.get('extraBuildArgs') or [])
         run_cook(engine, project_dir, platform)
+        if not prepare_shader_products(engine, project_dir, preset):
+            return 1
         if build:
             collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}'])
     else:
@@ -556,14 +570,55 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
 def cmd_generate(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
-    _prepare(engine, project_dir, preset, tokens, credentials, build=False)
-    return 0
+    return _prepare(engine, project_dir, preset, tokens, credentials, build=False) or 0
 
 
 def cmd_package(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
-    _prepare(engine, project_dir, preset, tokens, credentials, build=True)
+    return _prepare(engine, project_dir, preset, tokens, credentials, build=True) or 0
+
+
+def shader_cook_tool(engine):
+    name = 'ShaderCookTool.exe' if os.name == 'nt' else 'ShaderCookTool'
+    for configuration in ('Debug', 'Release', ''):
+        candidate = engine / 'output/bin' / configuration / name
+        if candidate.is_file():
+            return candidate
+    return engine / 'output/bin/Debug' / name
+
+
+def prepare_shader_products(engine, project_dir, preset):
+    _, descriptor = load_descriptor(project_dir)
+    platform = preset['platform']
+    targets = preset.get('shaderTargets') or (['metal'] if platform in ('ios', 'macos') else ['vulkan'])
+    error = cook_project_shaders(engine, project_dir, descriptor, preset.get('name') or platform,
+                                 targets, select_bundles(project_dir, preset), shader_cook_tool(engine))
+    if error:
+        print(error, file=sys.stderr)
+    return not error
+
+
+def cmd_cook_shaders(args):
+    engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
+    project, descriptor = load_descriptor(args.project)
+    error = cook_project_shaders(engine, project.parent, descriptor, args.distribution, args.target,
+                                 args.bundle or ['common'], Path(args.tool).resolve() if args.tool else shader_cook_tool(engine))
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_stage_shaders(args):
+    engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
+    project, descriptor = load_descriptor(args.project)
+    configs, error = project_modules(engine, project.parent, descriptor)
+    if not error:
+        error = stage_module_sources(configs, Path(args.destination))
+    if error:
+        print(error, file=sys.stderr)
+        return 1
     return 0
 
 
@@ -578,6 +633,21 @@ def main():
     p_create.add_argument('--engine', type=str, help='引擎目录（默认仓库根）')
     p_create.add_argument('--force', action='store_true', default=False, help='目标非空时覆盖')
     p_create.set_defaults(func=cmd_create)
+
+    p_shaders = sub.add_parser('cook-shaders', help='Cook one project shader distribution from registered module resources')
+    p_shaders.add_argument('-p', '--project', required=True)
+    p_shaders.add_argument('--distribution', default='default')
+    p_shaders.add_argument('--target', choices=['vulkan', 'metal', 'd3d12'], action='append', required=True)
+    p_shaders.add_argument('--bundle', action='append')
+    p_shaders.add_argument('--engine')
+    p_shaders.add_argument('--tool')
+    p_shaders.set_defaults(func=cmd_cook_shaders)
+
+    p_sources = sub.add_parser('stage-shaders', help='Stage the selected project shader source inventory')
+    p_sources.add_argument('-p', '--project', required=True)
+    p_sources.add_argument('--engine')
+    p_sources.add_argument('--destination', required=True)
+    p_sources.set_defaults(func=cmd_stage_shaders)
 
     for name, helptext in (('generate', '按预设生成平台工程'), ('package', '按预设打包')):
         p = sub.add_parser(name, help=helptext)

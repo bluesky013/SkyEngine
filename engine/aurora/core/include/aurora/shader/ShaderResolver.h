@@ -72,8 +72,7 @@ namespace sky::aurora {
         // Persist a finished compile via the writer queue, or inline otherwise.
         void CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result);
 
-        // Prepare + (on Compile) wrap the task in a future the caller runs via
-        // RunInline() or RunAsync(pool). On Ready fills `outResult`.
+        // Sources and variants are captured; compiler, cache roots and writer must outlive pending futures.
         ShaderResolveStatus
         ResolveShaderAsync(const Request &req, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error = nullptr);
 

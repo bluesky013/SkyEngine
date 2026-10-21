@@ -122,30 +122,69 @@ namespace sky::aurora {
             }
         }
 
-        void LoadTechniqueJson(const rapidjson::Value &v, MaterialTechniqueData &out)
+        bool LoadProgramJson(const rapidjson::Value &program, ShaderTechnique &out)
         {
-            if (v.HasMember("tag") && v["tag"].IsString()) {
-                out.tag = v["tag"].GetString();
-            }
-            if (v.HasMember("shader")) {
-                const rapidjson::Value &shader = v["shader"];
-                if (shader.IsString()) {
-                    out.shader.relativePath = shader.GetString();
-                } else if (shader.IsObject()) {
-                    if (shader.HasMember("relativePath") && shader["relativePath"].IsString()) {
-                        out.shader.relativePath = shader["relativePath"].GetString();
-                    }
-                    if (shader.HasMember("entry") && shader["entry"].IsString()) {
-                        out.shader.entry = shader["entry"].GetString();
-                    }
+            for (const auto &[name, ref] : {std::pair{"vertex", &out.vertex}, {"fragment", &out.fragment}, {"compute", &out.compute}}) {
+                if (!program.HasMember(name)) {
+                    continue;
                 }
+                const auto &stage = program[name];
+                if (!stage.IsObject() || !stage.HasMember("relativePath") || !stage["relativePath"].IsString() || !stage.HasMember("entry") ||
+                    !stage["entry"].IsString()) {
+                    return false;
+                }
+                ref->relativePath = stage["relativePath"].GetString();
+                ref->entry        = stage["entry"].GetString();
             }
-            if (v.HasMember("entry") && v["entry"].IsString()) {
-                out.shader.entry = v["entry"].GetString();
+            if (!program.HasMember("variant")) {
+                return true;
+            }
+            if (!program["variant"].IsObject()) {
+                return false;
+            }
+            for (auto entry = program["variant"].MemberBegin(); entry != program["variant"].MemberEnd(); ++entry) {
+                if (!entry->value.IsUint()) {
+                    return false;
+                }
+                out.variant.entries.push_back({.key = Name(entry->name.GetString()), .value = entry->value.GetUint()});
+            }
+            return true;
+        }
+        bool LoadUniformsJson(const rapidjson::Value &values, std::vector<MaterialUniformBinding> &out)
+        {
+            if (!values.IsArray()) {
+                return false;
+            }
+            for (const auto &value : values.GetArray()) {
+                if (!value.IsObject() || !value.HasMember("binding") || !value["binding"].IsUint() || !value.HasMember("fields") ||
+                    !value["fields"].IsObject()) {
+                    return false;
+                }
+                MaterialUniformBinding uniform;
+                uniform.binding = value["binding"].GetUint();
+                for (auto field = value["fields"].MemberBegin(); field != value["fields"].MemberEnd(); ++field) {
+                    if (!field->value.IsString()) {
+                        return false;
+                    }
+                    uniform.fields.push_back({.property = field->value.GetString(), .member = field->name.GetString()});
+                }
+                out.push_back(std::move(uniform));
+            }
+            return true;
+        }
+        bool LoadTechniqueJson(const rapidjson::Value &v, MaterialTechniqueData &out)
+        {
+            if (!v.HasMember("tag") || !v["tag"].IsString() || !v.HasMember("program") || !v["program"].IsObject()) {
+                return false;
+            }
+            out.tag = v["tag"].GetString();
+            if (!LoadProgramJson(v["program"], out.program)) {
+                return false;
             }
             if (v.HasMember("renderState") && v["renderState"].IsObject()) {
                 LoadRenderStateJson(v["renderState"], out.renderState);
             }
+            return !v.HasMember("uniforms") || LoadUniformsJson(v["uniforms"], out.uniforms);
         }
 
         std::string CompareOpText(CompareOp op)
@@ -239,15 +278,47 @@ namespace sky::aurora {
             ar.StartObject();
             ar.Key("tag");
             ar.SaveValue(t.tag);
-            ar.Key("shader");
+            ar.Key("program");
             ar.StartObject();
-            ar.Key("relativePath");
-            ar.SaveValue(t.shader.relativePath);
-            ar.Key("entry");
-            ar.SaveValue(t.shader.entry);
+            for (const auto &[name, ref] :
+                 {std::pair{"vertex", &t.program.vertex}, {"fragment", &t.program.fragment}, {"compute", &t.program.compute}}) {
+                if (ref->relativePath.empty() && ref->entry.empty()) {
+                    continue;
+                }
+                ar.Key(name);
+                ar.StartObject();
+                ar.Key("relativePath");
+                ar.SaveValue(ref->relativePath);
+                ar.Key("entry");
+                ar.SaveValue(ref->entry);
+                ar.EndObject();
+            }
+            ar.Key("variant");
+            ar.StartObject();
+            for (const auto &entry : t.program.variant.entries) {
+                ar.Key(std::string(entry.key.GetStr()).c_str());
+                ar.SaveValue(entry.value);
+            }
+            ar.EndObject();
             ar.EndObject();
             ar.Key("renderState");
             SaveRenderStateJson(ar, t.renderState);
+            ar.Key("uniforms");
+            ar.StartArray();
+            for (const auto &uniform : t.uniforms) {
+                ar.StartObject();
+                ar.Key("binding");
+                ar.SaveValue(uniform.binding);
+                ar.Key("fields");
+                ar.StartObject();
+                for (const auto &field : uniform.fields) {
+                    ar.Key(field.member.c_str());
+                    ar.SaveValue(field.property);
+                }
+                ar.EndObject();
+                ar.EndObject();
+            }
+            ar.EndArray();
             ar.EndObject();
         }
 
@@ -255,26 +326,35 @@ namespace sky::aurora {
 
     void JsonLoadMaterialAssetData(MaterialAssetData &value, sky::JsonInputArchive &archive)
     {
+        value.clear();
         value.version = MaterialAssetData::CURRENT_VERSION;
         archive.ForEachMember([&value](const std::string &name, const rapidjson::Value &member) {
-            if (name == "techniques" && member.IsArray()) {
-                for (const auto &t : member.GetArray()) {
-                    if (t.IsObject()) {
-                        MaterialTechniqueData technique;
-                        LoadTechniqueJson(t, technique);
-                        value.techniques.push_back(std::move(technique));
+            if (name != "techniques" && name != "properties") {
+                return;
+            }
+            if (!member.IsArray()) {
+                value.version = 0;
+                return;
+            }
+            for (const auto &item : member.GetArray()) {
+                if (!item.IsObject()) {
+                    value.version = 0;
+                } else if (name == "techniques") {
+                    MaterialTechniqueData technique;
+                    if (!LoadTechniqueJson(item, technique)) {
+                        value.version = 0;
                     }
-                }
-            } else if (name == "properties" && member.IsArray()) {
-                for (const auto &p : member.GetArray()) {
-                    if (p.IsObject()) {
-                        MaterialPropertyData property;
-                        LoadPropertyEntryJson(p, property);
-                        value.properties.push_back(std::move(property));
-                    }
+                    value.techniques.push_back(std::move(technique));
+                } else {
+                    MaterialPropertyData property;
+                    LoadPropertyEntryJson(item, property);
+                    value.properties.push_back(std::move(property));
                 }
             }
         });
+        if (value.version == 0) {
+            value.clear();
+        }
     }
 
     void JsonSaveMaterialAssetData(const MaterialAssetData &value, sky::JsonOutputArchive &archive)

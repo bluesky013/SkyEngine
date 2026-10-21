@@ -75,7 +75,8 @@ namespace sky::aurora {
         for (const auto &src : data.techniques) {
             MaterialTechnique technique;
             technique.techniqueTag = Name(src.tag.c_str());
-            technique.shader       = src.shader;
+            technique.program      = src.program;
+            technique.uniforms     = src.uniforms;
             technique.renderState  = src.renderState;
             material->AddTechnique(technique);
         }

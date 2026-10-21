@@ -236,21 +236,17 @@ presets:
   ios     → common + tex_mobile
 ```
 
-### 渲染预加载 (configs/render_preload_assets.json)
-- gui.tech, text.tech, post_processing.tech, depth.tech
-- depth_resolve.tech, depth_downsample.tech, debug.tech
-- skybox.tech, meshlet_debug.tech, brdf_lut.tech
+### Shader 资源
+- Aurora 根：`engine/aurora/assets/shaders/`；内置程序为 `aurora/materials/{Unlit,Lit,Shadow}.slang` 和 `aurora/pipeline/ToneMap.slang`。
+- 每个插件独立：`plugins/<owner>/assets/shaders/`；虚拟相对路径以 `<owner>/` 开头，跨模块唯一。
+- 模块资源描述统一提供 inventory、include roots、依赖和 exports；`engine/aurora/resources.json` 是内置示例。
+- C++ 直接包含权威 `.h`；`ShaderHeaders.Update` 导出并持久化 `.slangh`，`ShaderHeaders.Check` 检查同步。
+- 开发部署用 `ShaderResources.Stage`；项目打包经统一资源图 cook，并按目标聚合 shader product index。
 
-### Shader 列表 (assets/shaders/)
-```
-顶层: box, brdf_lut, debug, depth*, draw_id, error, skybox, standard_pbr
-子目录: color/, common/, depth/, layout/, lighting/, mesh/,
-       pipeline/, post_processing/, terrain/, ui/, vertex/
-```
-
-### 材质 (assets/materials/)
-- default_terrain.mat, skybox.mat, standard_pbr.mat
-- standard_transparent_pbr.mat, unlit.mat, volume_simple.mat
+### 材质
+- `.mat` 使用 version-2 数据模型：`techniques[].program.vertex/fragment` 各自显式指定 canonical source 和 entry。
+- Scene 按 queue Tag 选择 technique；材质与 Feature 的 Batch 输入显式分配 binding 所有权。
+- 旧 HLSL 材质、`.vtxlib` 和 `.tech` 预加载清单不再作为当前工作流。完整示例见 `docs/aurora/shader-design-and-migration.md`。
 
 ---
 

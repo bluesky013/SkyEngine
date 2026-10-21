@@ -1,19 +1,21 @@
 #include "GlobalBlock.h"
+#include "MaterialBatch.h"
 #include "OpaquePass.h"
 #include "SceneBatch.h"
 #include "SceneEnvironmentPass.h"
 #include "SceneLightingPass.h"
 #include "ScenePass.h"
 #include "SceneSurfaceBatch.h"
+#include "ShaderSourcesFixture.h"
 #include "ShadowPass.h"
 #include "SharedShaderFixture.h"
 #include "TextureToScreenPass.h"
 #include "ToneMapPass.h"
 #include <algorithm>
-#include <aurora/pipeline/SceneMaterial.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderResolver.h>
+#include <aurora/shader/ShaderTechnique.h>
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -68,12 +70,17 @@ namespace {
 TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape)
 {
     const Declaration declarations[]{
-        {.header = "GlobalBlock.h", .schema = shared::GetGlobalBlockReflection(), .expression = "mul(gGlobal.viewProj, gGlobal.cameraPos)"},
-        {.header = "OpaquePass.h", .schema = shared::GetOpaquePassReflection(), .expression = "gOpaquePass.Misc"},
+        {.header = "GlobalBlock.h", .schema = shared::GetGlobalBlockReflection(), .expression = "gGlobal.frameTime"},
+        {.header = "MaterialBatch.h", .schema = shared::GetMaterialBatchReflection(), .expression = "gMaterial.tint"},
+        {.header     = "OpaquePass.h",
+         .schema     = shared::GetOpaquePassReflection(),
+         .expression = "mul(gOpaquePass.viewProjection, gOpaquePass.cameraPosition)"},
         {.header     = "ScenePass.h",
          .schema     = shared::GetScenePassReflection(),
          .expression = "mul(gScenePass.viewProjection, gScenePass.cameraPosition)"},
-        {.header = "SceneBatch.h", .schema = shared::GetSceneBatchReflection(), .expression = "mul(gSceneBatch.world, gSceneBatch.tint)"},
+        {.header     = "SceneBatch.h",
+         .schema     = shared::GetSceneBatchReflection(),
+         .expression = "mul(gSceneBatch.world, mul(gSceneBatch.world, float4(1, 1, 1, 1)))"},
         {.header     = "TextureToScreenPass.h",
          .schema     = shared::GetTextureToScreenPassReflection(),
          .expression = "gSourceTexture.Sample(gSourceSampler, uv) * gTextureToScreen.Misc"},
@@ -93,13 +100,13 @@ TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape
          .expression = "gHdrColor.Sample(gHdrSampler, uv) * gToneMap.display"},
     };
     ShaderFileSystem files;
-    files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
-    files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
+    files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
     ShaderCompilerSlang compiler;
     for (const auto &declaration : declarations) {
         SCOPED_TRACE(declaration.header);
         ShaderCompileDesc desc;
-        desc.source = std::string("#include \"") + declaration.header + "\"\nfloat4 mainFS(float2 uv : TEXCOORD0) : SV_Target { return " +
+        const auto        exported = std::filesystem::path(declaration.header).replace_extension(".slangh").generic_string();
+        desc.source = std::string("#include <aurora/pipeline/") + exported + ">\nfloat4 mainFS(float2 uv : TEXCOORD0) : SV_Target { return " +
                       declaration.expression + "; }\n";
         desc.entry      = "mainFS";
         desc.stage      = ShaderStageFlagBit::FS;
@@ -114,14 +121,16 @@ TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape
 TEST_P(SharedPassHeaders, PackagedSourcesCompileWithoutFilesystemSearchPaths)
 {
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
+    ASSERT_TRUE(LoadTestShaderSources(files));
     ShaderCompilerSlang compiler;
-    for (const char *file : {"SceneForward.slang", "SceneLit.slang", "SceneShadow.slang", "SceneToneMap.slang"}) {
+    for (const char *file :
+         {"aurora/materials/Unlit.slang", "aurora/materials/Lit.slang", "aurora/materials/Shadow.slang", "aurora/pipeline/ToneMap.slang"}) {
         for (const bool vertex : {true, false}) {
             SCOPED_TRACE(file);
             SCOPED_TRACE(vertex);
             ShaderCompileDesc desc;
             ASSERT_TRUE(files.ReadFile(file, desc.source));
+            desc.sourcePath = file;
             desc.entry      = vertex ? "VSMain" : "FSMain";
             desc.stage      = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
             desc.target     = GetParam();
@@ -135,11 +144,10 @@ TEST_P(SharedPassHeaders, PackagedSourcesCompileWithoutFilesystemSearchPaths)
 TEST_P(SharedPassHeaders, FieldTypesAndResourceOnlyDeclarationsRetainTheirMetadata)
 {
     ShaderFileSystem files;
-    files.AddSearchPath(std::filesystem::path(__FILE__).parent_path().string());
-    files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
+    files.AddSearchPath(AURORA_TEST_SHADER_ASSET_DIR);
     ShaderCompileDesc desc;
     desc.source     = R"(
-        #include "SharedShaderFixture.h"
+        #include <pipeline_test/SharedShaderFixture.slangh>
         float4 mainFS(float2 uv : TEXCOORD0) : SV_Target {
             float4 value = gTest.directionWeight + gTest.values[uint(uv.x) % 2];
             value += float4(gTest.pairA, gTest.pairB) * (gTest.scalar + gTest.signedValue + gTest.unsignedValue);
@@ -162,20 +170,73 @@ TEST_P(SharedPassHeaders, FieldTypesAndResourceOnlyDeclarationsRetainTheirMetada
 TEST(SharedPassHeaderCache, SharedHelperChangesInvalidateTheSourceClosure)
 {
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
-    files.AddVirtualFile("nested/consumer.slang", "#include \"SceneLit.slang\"\n");
+    ASSERT_TRUE(LoadTestShaderSources(files));
+    files.AddVirtualFile("nested/consumer.slang", "#include <aurora/materials/Lit.slang>\n");
     uint64_t    before   = 0;
     uint64_t    after    = 0;
     uint64_t    repeated = 0;
     std::string source;
-    std::string helper;
     ASSERT_TRUE(ShaderResolver::HashSourceClosure(files, "nested/consumer.slang", {}, before, source));
-    ASSERT_TRUE(files.ReadFile("aurora/shader/SharedShader.h", helper));
-    files.AddVirtualFile("aurora/shader/SharedShader.h", helper + "\n#define SHARED_HEADER_REVISION 2\n");
+    std::string helper;
+    ASSERT_TRUE(files.ReadFile("aurora/pipeline/OpaquePass.slangh", helper));
+    EXPECT_FALSE(files.AddVirtualFile("aurora/pipeline/OpaquePass.slangh", helper + "// edit"));
+    ASSERT_TRUE(files.RemoveBundle("aurora"));
+    NativeFileSystem                root{FilePath(SHADER_TEST_SOURCE_ROOT)};
+    std::vector<ShaderSourceBundle> bundles;
+    ASSERT_TRUE(LoadShaderSourceBundles(root, "aurora", bundles));
+    auto &changed = bundles.front().files;
+    auto  found   = std::ranges::find(changed, "aurora/pipeline/OpaquePass.slangh", &ShaderSourceFile::path);
+    ASSERT_NE(found, changed.end());
+    found->content += "\n// declaration revision\n";
+    ASSERT_TRUE(files.AddBundles(bundles));
     ASSERT_TRUE(ShaderResolver::HashSourceClosure(files, "nested/consumer.slang", {}, after, source));
     EXPECT_NE(before, after);
     ASSERT_TRUE(ShaderResolver::HashSourceClosure(files, "nested/consumer.slang", {}, repeated, source));
     EXPECT_EQ(after, repeated);
+}
+
+TEST_P(SharedPassHeaders, ExplicitTechniquesHaveArbitraryEntriesAndUnusedHeadersNeedNoBatch)
+{
+    struct CompilerScope {
+        ShaderCompilerSlang compiler;
+        IShaderCompiler    *previous = ShaderCompilerFactory::Get().GetCompiler();
+        CompilerScope()
+        {
+            ShaderCompilerFactory::Get().Register(&compiler);
+        }
+        ~CompilerScope()
+        {
+            ShaderCompilerFactory::Get().Register(previous);
+        }
+    } scope;
+    ShaderFileSystem files;
+    files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
+    files.AddVirtualFile("custom/Program.slang", R"(
+        #include <aurora/pipeline/MaterialBatch.slangh>
+        float4 DrawTriangle(uint id : SV_VertexID) : SV_Position { return float4(id == 0 ? -1 : 1, id == 2 ? 1 : -1, 0, 1); }
+        float4 ShadeSurface() : SV_Target { return float4(0, 0, 1, 1); }
+        [numthreads(2, 3, 1)] void DispatchTiles(uint3 id : SV_DispatchThreadID) {}
+    )");
+    files.AddVirtualFile("custom/Program.slang.json", R"({"entries":["DrawTriangle","ShadeSurface","DispatchTiles"],"variants":[]})");
+    const auto      backend = GetParam() == ShaderTarget::SPIRV ? API::VULKAN : GetParam() == ShaderTarget::DXIL ? API::DX12 : API::METAL;
+    ShaderTechnique graphics{{"custom/Program.slang", "DrawTriangle"}, {"custom/Program.slang", "ShadeSurface"}};
+    const auto      raster = CompileShaderTechnique(files, backend, graphics);
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(raster)) << std::get<RendererError>(raster).message;
+    EXPECT_TRUE(std::get<RenderTechniqueData>(raster).reflection.resources.empty());
+    EXPECT_EQ(std::get<RenderTechniqueData>(raster).vertexEntry, "DrawTriangle");
+    ShaderTechnique compute;
+    compute.compute     = {"custom/Program.slang", "DispatchTiles"};
+    const auto dispatch = CompileShaderTechnique(files, backend, compute);
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(dispatch)) << std::get<RendererError>(dispatch).message;
+    const auto &code = std::get<RenderTechniqueData>(dispatch);
+    EXPECT_TRUE(code.reflection.resources.empty());
+    EXPECT_EQ(code.reflection.threadGroupSize[0], 2u);
+    EXPECT_EQ(code.reflection.threadGroupSize[1], 3u);
+    graphics.compute = compute.compute;
+    EXPECT_TRUE(std::holds_alternative<RendererError>(CompileShaderTechnique(files, backend, graphics)));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(CompileShaderTechnique(files, backend, {})));
+    compute.compute.entry.clear();
+    EXPECT_TRUE(std::holds_alternative<RendererError>(CompileShaderTechnique(files, backend, compute)));
 }
 
 #if defined(_WIN32)

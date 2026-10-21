@@ -2,8 +2,9 @@
 
 #include <algorithm>
 #include <aurora/adaptor/assets/MaterialAsset.h>
-#include <aurora/pipeline/SceneMaterial.h>
 #include <aurora/rhi/VertexSemantic.h>
+#include <aurora/shader/ShaderTechnique.h>
+#include <aurora/shader/ShaderUniform.h>
 #include <cmath>
 #include <cstring>
 #include <framework/asset/AssetManager.h>
@@ -138,10 +139,9 @@ namespace sky::aurora {
     namespace {
         class SceneAssetSource final : public ISceneResourceSource {
         public:
-            SceneAssetSource(std::shared_ptr<ShaderFileSystem> source, std::function<AssetPtr(const Uuid &)> load)
-                : files(std::move(source)), loader(std::move(load))
+            SceneAssetSource(std::shared_ptr<ShaderFileSystem> source, std::function<AssetPtr(const Uuid &)> load, FileSystemPtr products)
+                : files(std::move(source)), loader(std::move(load)), products(std::move(products))
             {
-                RegisterSceneShaderSources(*files);
             }
             SceneResourceResult ResolveMesh(const Uuid &id, const Uuid &overrideMaterial, RendererInfo info) override
             {
@@ -281,53 +281,131 @@ namespace sky::aurora {
                 }
                 return result;
             }
+            static std::variant<RendererError, ShaderUniformValue> UniformValue(const MaterialUniformField &field,
+                                                                                const MaterialPropertyData &property)
+            {
+                static constexpr RgFieldType types[] = {RgFieldType::FLOAT,  RgFieldType::FLOAT2, RgFieldType::FLOAT3,
+                                                        RgFieldType::FLOAT4, RgFieldType::MAT4,   RgFieldType::INT,
+                                                        RgFieldType::UINT,   RgFieldType::BOOL,   RgFieldType::TEXTURE2D};
+                static_assert(std::size(types) == std::variant_size_v<MaterialPropertyValue>);
+                const auto expected = types[property.value.index()];
+                if (expected != property.type || expected == RgFieldType::BOOL || expected == RgFieldType::TEXTURE2D) {
+                    return Invalid("Unsupported or mismatched material uniform property type");
+                }
+                const auto bytes = std::visit([](const auto &value) { return std::as_bytes(std::span{&value, 1}); }, property.value);
+                if (expected <= RgFieldType::MAT4) {
+                    for (size_t offset = 0; offset < bytes.size(); offset += sizeof(float)) {
+                        float value;
+                        std::memcpy(&value, bytes.data() + offset, sizeof(value));
+                        if (!std::isfinite(value)) {
+                            return Invalid("Material uniform property is not finite");
+                        }
+                    }
+                }
+                return ShaderUniformValue{.name = field.member, .type = property.type, .bytes = bytes};
+            }
+            static std::optional<RendererError> BindMaterialUniforms(std::span<const MaterialUniformBinding> uniforms,
+                                                                     std::span<const MaterialPropertyData>   properties,
+                                                                     RenderMaterialTechnique                &technique)
+            {
+                std::set<uint32_t> bindings;
+                const auto        &blocks = technique.program.reflection.blocks;
+                for (const auto &uniform : uniforms) {
+                    if (!bindings.insert(uniform.binding).second) {
+                        return Invalid("Material uniform binding has multiple providers");
+                    }
+                    const auto block =
+                        std::ranges::find_if(blocks, [&](const auto &item) { return item.set == 2 && item.binding == uniform.binding; });
+                    if (block == blocks.end()) {
+                        continue;
+                    }
+                    std::vector<ShaderUniformValue> values;
+                    for (const auto &field : uniform.fields) {
+                        const auto property = std::ranges::find(properties, field.property, &MaterialPropertyData::name);
+                        if (property == properties.end()) {
+                            return Invalid("Material uniform field has no property: " + field.property);
+                        }
+                        auto value = UniformValue(field, *property);
+                        if (const auto *error = std::get_if<RendererError>(&value)) {
+                            return *error;
+                        }
+                        values.push_back(std::get<ShaderUniformValue>(std::move(value)));
+                    }
+                    auto packed = PackShaderUniform(*block, values);
+                    if (const auto *error = std::get_if<std::string>(&packed)) {
+                        return Invalid(*error);
+                    }
+                    technique.uniforms.push_back({.binding = uniform.binding, .bytes = std::move(std::get<std::vector<std::byte>>(packed))});
+                }
+                return {};
+            }
             std::variant<RendererError, RenderResourcePayload> MaterialPayload(const Uuid &id, const MaterialAssetData *data, RendererInfo info)
             {
-                Vector4   tint{.65f, .72f, .82f, 1};
-                ShaderRef shader;
-                if (id == SceneLitMaterialId()) {
-                    shader.relativePath = "SceneLit.slang";
+                MaterialAssetData defaults;
+                if (data == nullptr) {
+                    const std::string     path = id == SceneLitMaterialId() ? "aurora/materials/Lit.slang" : "aurora/materials/Unlit.slang";
+                    MaterialTechniqueData opaque;
+                    opaque.tag      = "opaque";
+                    opaque.program  = {.vertex = {.relativePath = path, .entry = "VSMain"}, .fragment = {.relativePath = path, .entry = "FSMain"}};
+                    opaque.uniforms = {
+                        {.binding = 2, .fields = {{.property = "tint", .member = "tint"}, {.property = "surface", .member = "surface"}}}};
+                    opaque.renderState.depthStencil.depthTest = opaque.renderState.depthStencil.depthWrite = true;
+                    opaque.renderState.depthStencil.compareOp                                              = CompareOp::LESS_OR_EQUAL;
+                    auto shadow                                                                            = opaque;
+                    shadow.tag                                                                             = "shadow";
+                    shadow.program = {.vertex   = {.relativePath = "aurora/materials/Shadow.slang", .entry = "VSMain"},
+                                      .fragment = {.relativePath = "aurora/materials/Shadow.slang", .entry = "FSMain"}};
+                    shadow.uniforms.clear();
+                    defaults.techniques = {opaque, shadow};
+                    defaults.properties = {{.name = "tint", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.65f, .72f, .82f, 1}},
+                                           {.name = "surface", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.5f, 0, 0, 0}}};
+                    data                = &defaults;
                 }
-                if (data != nullptr) {
-                    if (data->version != MaterialAssetData::CURRENT_VERSION || data->techniques.size() > 1) {
-                        return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material requires one scene technique"};
-                    }
-                    if (!data->techniques.empty()) {
-                        shader = data->techniques.front().shader;
-                    }
-                    for (const auto &property : data->properties) {
-                        const auto *value = std::get_if<Vector4>(&property.value);
-                        if (property.name != "tint" || property.type != MaterialPropertyType::FLOAT4 || (value == nullptr)) {
-                            return RendererError{.code    = RendererErrorCode::UNSUPPORTED,
-                                                 .message = "Scene material property is not in SceneBatchParams"};
-                        }
-                        tint = *value;
-                    }
+                if (data->version != MaterialAssetData::CURRENT_VERSION || data->techniques.empty() || data->techniques.size() > 32) {
+                    return Invalid("Scene material requires version 2 and explicit techniques");
                 }
-                if (!std::isfinite(tint.x) || !std::isfinite(tint.y) || !std::isfinite(tint.z) || !std::isfinite(tint.w)) {
-                    return Invalid("Scene material tint is not finite");
-                }
-                auto compiled = CompileSceneMaterial(*files, info.backend, shader);
-                if (const auto *error = std::get_if<RendererError>(&compiled)) {
-                    return *error;
+                std::set<std::string> properties;
+                std::set<std::string> tags;
+                for (const auto &property : data->properties) {
+                    if (property.name.empty() || !properties.insert(property.name).second) {
+                        return Invalid("Material properties require unique names");
+                    }
                 }
                 RenderResourcePayload result;
-                result.format   = Name("runtime-material");
-                result.bytes    = SceneBatchBytes(tint);
-                result.material = std::move(std::get<RenderMaterialData>(compiled));
-                auto &material  = *result.material;
-                material.depth  = {.test = true, .write = true, .compare = CompareOp::LESS_OR_EQUAL};
-                if ((data != nullptr) && !data->techniques.empty()) {
-                    const auto &state = data->techniques.front().renderState;
-                    material.depth    = {.test    = bool(state.depthStencil.depthTest),
-                                         .write   = bool(state.depthStencil.depthWrite),
-                                         .compare = state.depthStencil.compareOp};
+                result.format  = Name("runtime-material");
+                auto &material = result.material.emplace();
+                for (const auto &authored : data->techniques) {
+                    if (authored.tag.empty() || !tags.insert(authored.tag).second || !authored.program.compute.relativePath.empty()) {
+                        return Invalid("Scene material requires unique Tags and graphics techniques");
+                    }
+                    auto compiled = CompileShaderTechnique(*files, info.backend, authored.program, products.Get());
+                    if (const auto *error = std::get_if<RendererError>(&compiled)) {
+                        return *error;
+                    }
+                    RenderMaterialTechnique technique{.tag     = Name(authored.tag.c_str()),
+                                                      .program = std::move(std::get<RenderTechniqueData>(compiled))};
+                    auto                   &program = technique.program;
+                    const auto             &state   = authored.renderState;
+                    const auto             &raster  = state.rasterState;
+                    if (state.alphaToCoverage || state.depthStencil.stencilTest || state.depthStencil.minDepth != 0 ||
+                        state.depthStencil.maxDepth != 1 || raster.depthClampEnable || raster.rasterizerDiscardEnable || raster.depthBiasEnable ||
+                        raster.depthClipEnable || raster.lineWidth != 1 || raster.cullMode != CullModeFlagBits::NONE ||
+                        raster.polygonMode != PolygonMode::FILL) {
+                        return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material raster/stencil state is unsupported"};
+                    }
+                    program.depth = {.test    = bool(state.depthStencil.depthTest),
+                                     .write   = bool(state.depthStencil.depthWrite),
+                                     .compare = state.depthStencil.compareOp};
                     if (state.blendStates.size() > 1) {
                         return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material has multiple blend targets"};
                     }
                     if (!state.blendStates.empty()) {
-                        material.blend = state.blendStates.front();
+                        program.blend = state.blendStates.front();
                     }
+                    if (const auto error = BindMaterialUniforms(authored.uniforms, data->properties, technique)) {
+                        return *error;
+                    }
+                    material.techniques.push_back(std::move(technique));
                 }
                 // This source freezes assets for its lifetime; revisions must be ordered, not content hashes.
                 result.resource = {.product = id, .revision = 1, .usageVariant = 1, .deviceEpoch = info.deviceEpoch};
@@ -339,10 +417,11 @@ namespace sky::aurora {
             std::map<std::tuple<Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneMeshResources>> cache;
             std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>          imageCache;
             uint64_t                                                                                   cachedBytes = 0;
+            FileSystemPtr                                                                              products;
         };
     } // namespace
-    std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>     files,
-                                                                 std::function<AssetPtr(const Uuid &)> loader)
+    std::shared_ptr<ISceneResourceSource>
+    CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem> files, std::function<AssetPtr(const Uuid &)> loader, FileSystemPtr products)
     {
         if (!files) {
             files = std::make_shared<ShaderFileSystem>();
@@ -350,6 +429,6 @@ namespace sky::aurora {
         if (!loader) {
             loader = [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id); };
         }
-        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader));
+        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader), std::move(products));
     }
 } // namespace sky::aurora

@@ -176,6 +176,18 @@ namespace sky {
                 }
             }
         }
+        resourceModules.clear();
+        if (document.HasMember("resourceModules")) {
+            if (!document["resourceModules"].IsArray()) {
+                return false;
+            }
+            for (const auto &module : document["resourceModules"].GetArray()) {
+                if (!module.IsString()) {
+                    return false;
+                }
+                resourceModules.emplace_back(module.GetString());
+            }
+        }
         return true;
     }
 
@@ -200,6 +212,10 @@ namespace sky {
         for (size_t i = 0; i < plugins.size(); ++i) {
             json += (i == 0 ? "" : ", ") + Quote(plugins[i]);
         }
+        json += "],\n  \"resourceModules\": [";
+        for (size_t i = 0; i < resourceModules.size(); ++i) {
+            json += (i == 0 ? "" : ", ") + Quote(resourceModules[i]);
+        }
         json += "]\n}\n";
         return WriteAll(skyprojPath, json);
     }
@@ -222,8 +238,7 @@ namespace sky {
         }
         rapidjson::Document document;
         document.Parse(json.c_str());
-        if (document.HasParseError() || !document.IsObject() || !document.HasMember("recent") ||
-            !document["recent"].IsArray()) {
+        if (document.HasParseError() || !document.IsObject() || !document.HasMember("recent") || !document["recent"].IsArray()) {
             return;
         }
         for (const auto &entry : document["recent"].GetArray()) {

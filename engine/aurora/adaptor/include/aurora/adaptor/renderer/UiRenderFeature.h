@@ -31,5 +31,5 @@ namespace sky::aurora {
     std::variant<RendererError, FrameExtensionPayload> EncodeRenderUiSnapshot(Name, const RenderUiSnapshot &);
     std::string_view                                   RenderUiShaderSource();
     // Compile the supplied source on the producer; the feature creates native objects on the coordinator.
-    std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CreateUiRenderFeature(Name, RenderMaterialData);
+    std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CreateUiRenderFeature(Name, RenderTechniqueData);
 } // namespace sky::aurora

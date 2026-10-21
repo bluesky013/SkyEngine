@@ -7,6 +7,7 @@
 #include <array>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/renderer/RendererProvider.h>
+#include <aurora/shader/ShaderFileSystem.h>
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <core/name/Name.h>
@@ -129,11 +130,20 @@ namespace sky::aurora {
         } else {
             window = nullptr;
         }
-        pending           = std::make_unique<FramePacket>();
-        pending->sequence = ++sequence;
-        auto *system      = Interface<ISystemNotify>::Get()->GetApi();
-        auto *modules     = system ? system->GetModuleManager() : nullptr;
-        if (const auto error = RegisterScenePass(*pending, {0, 1}, modules ? modules->RetainModule("Aurora.Render") : nullptr)) {
+        pending                = std::make_unique<FramePacket>();
+        pending->sequence      = ++sequence;
+        auto       *system     = Interface<ISystemNotify>::Get()->GetApi();
+        auto       *modules    = system ? system->GetModuleManager() : nullptr;
+        auto        sources    = std::make_shared<ShaderFileSystem>();
+        auto        products   = Platform::Get()->GetBundleFileSystem()->CreateSubSystem("products/shaders", false);
+        auto        sourceRoot = products ? FileSystemPtr{} : Platform::Get()->GetBundleFileSystem()->CreateSubSystem("assets/shaders", false);
+        std::string sourceError;
+        if (!products && (!sourceRoot || !sources->LoadBundles(*sourceRoot, "", &sourceError))) {
+            Fail({RendererErrorCode::INVALID_ARGUMENT, "Shader source registration failed: " + sourceError});
+            return;
+        }
+        if (const auto error = RegisterScenePass(*pending, {0, 1}, modules ? modules->RetainModule("Aurora.Render") : nullptr, std::move(sources),
+                                                 std::move(products))) {
             Fail(*error);
             return;
         }

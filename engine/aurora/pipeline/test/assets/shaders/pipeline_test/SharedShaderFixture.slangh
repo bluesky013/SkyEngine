@@ -1,0 +1,24 @@
+// Generated from pipeline_test/SharedShaderFixture.h; do not edit.
+// Inputs: c15a7c98ee0b3d476b4da4b2236fbfdbc340e16ad93d84fbb3cc47f95cab2a7b; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SharedTestParams
+{
+    float scalar;
+    int signedValue;
+    uint unsignedValue;
+    uint enabled;
+    float2 pairA;
+    float2 pairB;
+    float4 directionWeight;
+    column_major float4x4 transform;
+    float4 values[2];
+};
+[[vk::binding(0, 1)]] ConstantBuffer<SharedTestParams> gTest
+    : register(b0, space1);
+
+[[vk::binding(0, 2)]] Texture2D<float4> gLayer
+    : register(t0, space2);
+
+[[vk::binding(1, 2)]] SamplerState gSampling
+    : register(s1, space2);

@@ -99,8 +99,8 @@ namespace sky::aurora {
         }
 
     private:
-        std::array<RenderMaterialData, 2> codes;
-        std::array<ShaderPtr, 2>          shaders;
-        SamplerPtr                        sampler;
+        std::array<RenderTechniqueData, 2> codes;
+        std::array<ShaderPtr, 2>           shaders;
+        SamplerPtr                         sampler;
     };
 } // namespace sky::aurora

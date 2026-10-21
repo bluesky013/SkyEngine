@@ -1,0 +1,10 @@
+// Generated from aurora/pipeline/ShadowPass.h; do not edit.
+// Inputs: 8198f194b3aea7e1ef3b9cd27b09c2620c9ea28d84f3c5bba69400814993b30a; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct ShadowPassParams
+{
+    column_major float4x4 lightViewProjection;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<ShadowPassParams> gShadowPass
+    : register(b0, space1);

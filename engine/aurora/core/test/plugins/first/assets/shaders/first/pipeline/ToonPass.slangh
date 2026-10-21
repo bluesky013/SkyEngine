@@ -1,0 +1,24 @@
+// Generated from first/pipeline/ToonPass.h; do not edit.
+// Inputs: 2f641142b69d0ecabdfaf58e88a791dc0468de2e17f35244c09b6aa91315b236; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct GlobalParams
+{
+    float4 color;
+};
+[[vk::binding(0, 0)]] ConstantBuffer<GlobalParams> gGlobal
+    : register(b0, space0);
+
+struct ToonParams
+{
+    float4 color;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<ToonParams> gPass
+    : register(b0, space1);
+
+struct BatchParams
+{
+    float4 color;
+};
+[[vk::binding(0, 2)]] ConstantBuffer<BatchParams> gBatch
+    : register(b0, space2);

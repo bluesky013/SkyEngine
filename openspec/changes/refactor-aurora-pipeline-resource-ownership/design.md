@@ -1,89 +1,156 @@
-## Context and baseline
+## Status and confirmed direction
 
-`refactor-aurora-shared-pass-headers` supplies shared `.h` declarations and removes Slang from C++ type generation. Its built-in Scene bundle is embedded through `SCENE_SHADER_PATHS` and `RegisterSceneShaderSources`; those are concrete pipeline integration, not the ownership contract for every plugin.
+This change corrects the architecture after checkpoint `66a5463c`. Implementation covers persistent exports, module resources, project products, tagged techniques and resource tiers. Fresh validation and platform limits are recorded in tasks.md; historical results are not evidence for the corrected behavior.
 
-Current limitations are specific: `AURORA_SHADER_PASS` fixes `sky::aurora::shared`; virtual scene paths such as `ScenePass.h` are unqualified; `AddVirtualFile` replaces an existing path; native search roots use first-match priority; the cook CLI accepts a source directory rather than an owner/dependency description; generic `PassResourceBindings` is supplied by `Aurora.Pipeline.Static`. Existing `RegisterRenderFeature`, `IFrameGraphFeature`, `moduleLease`, `ShaderFileSystem`, `MultiFileSystem` and cache fingerprints are the reuse points.
+The user confirmed these decisions during review:
 
-## Ownership layers
+1. ScenePass matches material technique Tags into RenderQueues. FullScreenPass and ComputePass explicitly select a technique.
+2. Plugin registration declares shader import rules once, sharing resource-import metadata with assets where appropriate.
+3. Authoritative shared `.h` declarations export shader-only `.slangh` assets through CMake tooling. Exports persist in the source tree and version control under the module's `assets/shaders/` root; C++ compilation does not depend on Slang.
+4. ScenePass Batch data comes from materials and Features. FullScreenPass and ComputePass may omit Batch and use Pass resources.
+5. File inventories, unique paths and MultiFileSystem composition belong to the same registration rule as item 2. Aurora has one `engine/aurora/assets/shaders/` root; each plugin has its own `plugins/<plugin-id>/assets/shaders/` root.
+6. View shader data belongs to Pass. Global/Pass/Batch remain sets 0/1/2.
 
-| Layer | Owns | Depends on |
+The user approved the exact 13-file mapping in migration.md; those moves are implemented. Shared C++ declaration locations and production target ownership remain unchanged.
+
+## Technique selection and program ownership
+
+| Execution kind | Technique selection | Resource sources |
 |---|---|---|
-| Aurora foundation | Declaration helpers, compiler/resolver interfaces, generic binding validation, FrameGraph and backend execution | Existing Core/RHI dependencies; never user plugins or concrete pipeline declarations |
-| Built-in pipeline | Scene/Shadow/ToneMap implementation, Global/Pass/Batch declarations, shader bundle and assembly choices | Aurora foundation |
-| User pipeline plugin | Its Pass implementations, shared headers, shaders, bundle description and assembly choices | Aurora foundation plus explicitly declared interfaces/resource dependencies |
-| Host/adaptor | Selects and assembles enabled pipeline features; connects project/plugin resources and actual module leases | Consumer-facing interfaces and the selected implementations |
+| ScenePass | Each RenderQueue declares an accepted Tag; eligible scene items contribute the matching material technique | Global, Pass, material and Feature Batch contributions |
+| FullScreenPass | The Pass explicitly references its technique | Global/Pass as used; Batch only if explicitly declared and provided |
+| ComputePass | The Pass explicitly references its technique | Global/Pass as used; Batch only if explicitly declared and provided |
 
-Global/Pass/Batch are resource tiers (sets 0/1/2), not module or directory layers. Each pipeline defines the layouts it uses; View remains optional. A custom pipeline does not inherit built-in GlobalBlock/ScenePass/SceneBatch layouts, static/dynamic policy, or CompileSceneMaterial behavior. Cross-owner layout reuse is explicit.
+A ScenePass may declare multiple queues. Culling, Tag matching and queue sorting preserve the selected technique on each draw. No matching technique means the item does not participate in that queue. Multiple techniques matching the same queue need an explicit selection policy; the initial implementation reports ambiguity instead of relying on array order. A matching but invalid technique reports an error; it does not silently choose another shader. The same material can provide different opaque and shadow programs, including its own deformation or alpha testing.
 
-## Source and build layout
+For OpaquePass, the actual Unlit, PBR or user-defined shader includes the exported Global and OpaquePass interfaces, adds its required material/Feature interfaces, and supplies the entry functions. The Pass defines inputs, outputs and resource contracts; it does not own a universal complete scene shader. Remove the implicit `SceneForward.slang` selection for an empty ShaderRef. Any default material is chosen by an explicit host/material policy and follows the normal technique/binding/cook path.
 
-Illustrative external project layout, not a new engine target hierarchy:
+FullScreenPass and ComputePass do not need a scene, RenderQueue, matching Tag or dummy material. Reuse the existing technique description and shader resolution mechanisms, factoring shared value data only as needed; do not introduce a second technique library. Technique program descriptions must resolve explicit entry names and stages, including custom names, rather than infer a mandatory `VSMain/FSMain` or `entry + VS/FS` convention. Fullscreen validates graphics entries and output compatibility; compute validates compute-only execution. Dispatch dimensions belong to the Pass invocation, not the technique.
 
-```text
-<UserProject>/plugins/my_pipeline/adaptor/
-  CMakeLists.txt
-  src/MyPipeline.cpp
-  src/ToonPass.cpp
-  shaders/my_pipeline/ToonPass.h
-  shaders/my_pipeline/ToonPass.slang
-```
+## Resource tiers and View ownership
 
-The plugin target includes its shared headers directly through its private include roots; shared headers include Aurora's public declaration helper. The same source is included by Slang. Extend the existing macro with an explicit C++ namespace choice; exact macro spelling is an implementation detail. Two plugins may both define ToonPass/ToonParams in different namespaces and compile into the same consumer without an ODR conflict. The built-in namespace remains a deliberate choice of its own declarations.
+| Tier | Scope and supplier | Examples |
+|---|---|---|
+| Global, set 0 | Pipeline-selected data common to the frame across its views | Frame time and frame index, if used |
+| Pass, set 1 | Resources for one Pass invocation, assembled by the concrete Pass | Optional camera/view/projection, viewport, lighting, shadow map, IBL, fullscreen inputs or compute inputs/outputs |
+| Batch, set 2 | Resources for the selected draw or explicitly declared invocation | Material parameters/textures; Feature transforms, instance or deformation data |
 
-Each owner registers its own resource inputs using a reusable CMake helper integrated with the existing resource deployment/package workflow. The helper produces data describing stable owner ID, logical root, source-to-logical mappings and declared owner dependencies. It does not run Slang to produce C++ types. Packaging may copy source files, store them in an existing package filesystem or embed a text table, but all representations preserve the same logical identity and source contents. No generated shader mirror is required, and no outputs are written back into source trees.
+Merge View shader parameters into Pass, without a separate View binding tier or mandatory camera block. A Pass may reuse a common camera declaration fragment within its own header. Remove duplicated camera matrices/position from Global; Global must not secretly vary by active view. CPU-side SceneView/PreparedViewData and view scheduling remain useful and are not removed.
 
-An owner-local build staging directory may mirror its logical shader paths before deployment; user resources remain in the user's plugin artifact. A shared logical namespace does not imply a single physical directory or one central CMake source list.
+Every view/Pass invocation captures its own Pass values and resource versions. Main-camera, secondary-camera and shadow-camera passes cannot overwrite a common mutable camera buffer while another invocation uses it. Passes without camera data omit those fields and require no dummy View. Scope follows the resource's use, not the producer's name: a Feature can produce a shadow map, but the consuming Pass binds that shared input in set 1.
 
-## Logical paths and resolution
+### Batch composition
 
-Proposed logical examples:
+Material data supplies authored properties, textures, samplers and instance overrides. Features supply scene/draw data such as world transforms, instance inputs and supported deformation resources. The selected technique's interface identifies the required bindings and their providers; reflection validates the resulting layout but cannot infer who owns a value.
 
-```text
-aurora/shader/SharedShader.h             # foundation helper
-aurora/pipeline/ScenePass.h              # built-in owner
-plugins/my_pipeline/ToonPass.h           # external owner
-plugins/my_pipeline/ToonPass.slang
-```
+Prefer separate blocks/bindings within set 2 for material and Feature data. This is one Batch tier with multiple contributions, not additional fixed descriptor sets. Each binding has one declared provider; multiple Features may contribute distinct bindings. If a concrete interface intentionally packs both sources into one block, one explicit assembler owns that block and writes its declared fields. Do not merge overlapping byte payloads or use last-writer-wins behavior.
 
-Bundle registration validates canonical relative paths and owner identity before publishing the bundle. Different owners can reuse local basenames; duplicate fully qualified paths or conflicting owner registrations fail explicitly and leave the existing set unchanged. Absolute paths and traversal outside an allowed root are invalid. Do not use filesystem search order or AddVirtualFile replacement to select a pipeline or override another owner.
+Compose and validate all contributions before replacing draw bindings. Reject duplicate providers, missing active resources, unsupported resource kinds and type/layout mismatches. MaterialPropertyMap's CPU offsets are not shader uniform offsets: pack supported property types into the declared target layout and check actual reflection. Never assume `SceneBatchParams{tint, world}`, copy arbitrary material bytes into that struct, or require that layout in the generic renderer. Unused declarations do not require values.
 
-Quoted includes first resolve relative to the including logical file. Qualified includes resolve against the owner's bundle and explicitly declared dependencies, including the common Aurora helper. Missing/undeclared dependency errors identify the requested logical path. Preserve current supported include semantics and source-closure tracking; extend the existing filesystem resolution seam rather than building another independent VFS. Review both Slang include loading and ShaderResolver hashing so they resolve the same dependency contents.
+FullScreenPass and ComputePass omit Batch when their technique has no active set-2 resources. Their changing per-invocation data can all live in Pass. If an explicitly selected technique does require Batch, the caller must provide it; absent Batch is not permission to ignore reflected bindings. Reuse existing raster/compute validation and RDG resource/access declarations. The current raster helper's supported types do not imply automatic support for every compute/storage/array feature.
 
-## Runtime, cook and cache
+PreparedRaster continues to resolve geometry, resource versions and owned snapshots. Carry selected technique information and binding inputs through the existing resource/feature path; do not make PreparedRaster define material layouts or render-queue policy. Material and Feature snapshots retain their normal resource/module leases until accepted frame/GPU use completes.
 
-Runtime and ShaderCookTool consume the same build-produced bundle description and dependency graph. Cook reads resource metadata and source packages without loading the runtime pipeline DLL or the editor. Native directories, packages and embedded sources produce the same logical file identities and contents. Header edits participate in both build dependencies and source-closure fingerprints.
+## Shared declarations and shader header export
 
-Reuse existing variant/target/layout/toolchain/source cache keys. Qualified paths and dependency contents must prevent two owners with the same basename from aliasing in the cache. Migration of built-in unqualified paths is coordinated with ShaderRef/companion/usage references and cache invalidation; do not leave silent global aliases as a second permanent lookup path. A new binary cache format is not assumed unless implementation evidence requires it.
+The Pass owner authors a constrained shared `.h` declaration containing the resource/field lists, binding numbers and supported layout metadata. C++ includes that source directly. Host-side export tooling integrated with CMake produces a pure `.slangh` asset. Slang includes this persisted shader header. Only explicitly registered shared declarations are export inputs; an ordinary C++ Pass class header is not automatically translated.
 
-## Binding helper and pipeline assembly
+The exporter accepts the supported declaration grammar; it is not a general C++ parser or compiler. Unsupported constructs fail with source diagnostics. It does not invoke Slang or execute a target-platform binary. CMake tracks declaration/helper inputs, exporter version and output mappings, and exposes export/update and read-only verification operations. Unchanged inputs produce identical bytes without rewriting the output. C++-only targets do not wait for shader compilation or shader-header export.
 
-Propose relocating only generic PassResourceBindings into the existing Aurora Core renderer API/implementation, keeping its transactional validation and frame-borrowing contract. Candidate paths are `core/include/aurora/renderer/PassResourceBindings.h` and `core/src/renderer/graph/PassResourceBindings.cpp`; the existing Aurora.Core.Static and interface include roots suffice. Concrete Scene/Shadow/ToneMap declarations remain in Pipeline. Review this narrow ownership/include migration before implementation; do not create new targets or move unrelated directories.
+Generated `.slangh` files are persistent, version-controlled shader assets beside handwritten `.slang` and `.slangh` files under the module's `assets/shaders/` root. Export preserves the shared declaration's domain-relative include path, changing only `.h` to `.slangh`: `aurora/pipeline/OpaquePass.h` becomes `aurora/pipeline/OpaquePass.slangh`, physically at `engine/aurora/assets/shaders/aurora/pipeline/OpaquePass.slangh`. A plugin declaration `toon/pipeline/ToonPass.h` exports to `plugins/toon/assets/shaders/toon/pipeline/ToonPass.slangh`. Preserve source spelling; these examples do not authorize case renames or relocation of the C++ header itself.
 
-The host explicitly selects which pipeline features to register in its existing first packet. Built-in scene registration is one selection, not a prerequisite or an implicit fallback for every host. A user pipeline registers its IFrameGraphFeature implementations using existing IDs, feature commands and real module leases. Keep one Renderer/Device and one host packet producer; do not create per-plugin sequences, queues or event consumers. Reuse existing graph dependencies for composition, rather than infer pass order from resource search paths.
+The authoritative `.h` remains the only editable source for an exported declaration; its `.slangh` is committed with the corresponding change. Handwritten shader helpers are separately owned files and cannot share an export's output path. Generated headers carry deterministic source provenance without build-machine paths, timestamps or configuration-specific content. Build directories may hold temporary comparison files, never the sole consumable copy of an exported interface.
 
-## Lifetime and retirement
+Shader build/cook from a source checkout and CI verify exports against their registered declaration/helper inputs. Missing, stale or manually modified exports produce actionable errors rather than silently shipping mismatched layouts. Updating exports is an explicit development build operation; ordinary consumers and runtime loading do not rewrite source assets. Export verification does not require Slang. CMake clean must preserve tracked `.slangh` assets, and configuration/backend selection must not overwrite a shared asset with incompatible variants. Renames/removals update the registered output inventory and affected tracked exports together, without deleting handwritten helpers.
 
-Compilation captures a stable source/dependency view with ownership sufficient to finish or explicitly cancel the job. Registration changes affect future requests; they must not mutate or destroy a filesystem borrowed by an in-flight ShaderCompileTask. A retained filesystem/source snapshot owns the necessary backing data; source-provider code retains its defining module when required.
+No complete VS/FS/CS implementation is generated from a Pass declaration. Validate C++ expected layouts against actual SPIR-V/DXIL/MSL reflection for supported fields; the exporter does not replace backend layout validation.
 
-Retirement stops new feature/source work, collects compile tasks, and lets existing frame/GPU/presentation borrowers drain through the established protocol. Existing moduleLease and resource leases protect feature/provider code until the last use. Compile failures and discarded frames release their borrows through the same path. This change supplies lifecycle correctness at the existing seams, not a new automatic hot-reload scheduler.
+## Module ownership and unified resource registration
 
-## Alternatives and decisions
+Aurora remains foundation under existing `engine/aurora` targets. It owns generic declarations, binding validation, compiler/cache interfaces and frame execution. Concrete pipeline/plugin implementations own their Passes and shaders. Framework/build tooling collects module resources; existing Aurora adaptor integration converts collected shader rules to the generic filesystem/resolver inputs. Aurora Core does not depend on plugin descriptors, Framework discovery, runtime plugin DLLs or the built-in Pipeline target.
 
-- One global engine shader directory/list: rejected because it makes the engine enumerate external plugins and obscures ownership.
-- Require custom pipelines to reuse built-in SceneMaterial and layouts: rejected because those are concrete pipeline policies.
-- Generate `.slang` mirrors into source trees: rejected because shared headers already serve both languages and generated source would introduce another persistence contract.
-- Depend only on first-match search paths: rejected because two plugins can reuse names and cook/runtime mount order can differ.
-- New registries/compilers/resource systems: avoid; extend the existing CMake, filesystem, resolver and feature seams with owner metadata.
+Current `cmake/plugin_config.cmake` reads only target dependencies from `plugin.json`; `AssetDataBase::RebuildMounts` only creates workspace/engine mounts. There is no complete shared import registry to call today. Extend existing plugin/module metadata with a declarative resource contribution instead of adding unrelated shader registration lists. Resource collection is separate from runtime module activation; compiling a plugin alone does not select its resources for every project.
 
-## Implementation order and validation
+Each selected module owner registers one resource description; Aurora's internal targets contribute to Aurora's asset root, and a plugin's targets contribute to that plugin's asset root. Common asset/shader fields cover owner identity, physical source roots, logical namespace, file discovery/inventory, declared dependencies and distribution ownership. Shader-specific fields cover include exports, shared-header export mappings and shader program/variant requirements. Asset UUIDs, importer selection and product semantics remain asset-specific; ShaderRef remains path-based. Merging registration does not make shaders UUID assets or alter existing asset shadowing rules.
 
-1. Review exact module/include changes and host selection seam; inventory existing source/package/deployment helpers.
-2. Enable owner-scoped declarations and generic binding reuse, then establish bundle/path resolution contracts.
-3. Connect the same bundle input to runtime and cook; migrate built-in references and retire old unqualified registration assumptions.
-4. Add external-style fixtures and lifecycle coverage; run existing built-in regressions and document migration.
+The descriptor is available to build tools, project assembly and offline cook without loading a runtime rendering DLL. Aurora, project modules and static/native plugins use the same resource-description contract even when they do not have a business-plugin descriptor. The project selects enabled contributions and their declared resource dependencies; the compiler, asset tooling and packager consume this collected description rather than independently scanning unrelated roots. Resource dependencies are explicit and are not inferred solely from CMake link dependencies.
 
-Acceptance requires two plugin fixtures with the same local Pass/field/file names, one pipeline without a View block, and an external pipeline with no built-in Pipeline library dependency. Test duplicate registration rollback, undeclared/missing includes, shared dependency edits, resource representation equivalence, source removal while compilation is in flight, and retirement with queued/GPU work. Compile source/reflection for supported SPIR-V/DXIL/MSL targets; native Metal execution remains a separately reported macOS gate.
+Custom IFileSystem implementations provide an immutable file inventory plus their provider/lifetime handle through the same registration boundary. Existing IFileSystem has no enumeration API, so the integration cannot assume arbitrary mounts are discoverable. Native sources can generate inventories during collection, including persisted exports and their provenance; package providers use their manifest. Each export is inventoried once as a file in its module asset root, not mounted again from a generated directory. A custom provider used by offline cook must have an offline-accessible provider or staged equivalent, with equivalent canonical paths and content. No second VFS or shader-only plugin loader is proposed.
 
-## Stage boundary
+## Uniform roots, includes and path validation
 
-This change is proposal-only at the current shared-header checkpoint. Do not claim plugin packaging, namespaced mounts, generic helper relocation or custom host selection are already implemented. Main specifications are updated when this change is implemented and explicitly archived, not by drafting these deltas. Archive/commit require the repository's separate user confirmation.
+All shader-bearing modules collect handwritten `.slang`, handwritten helpers, companion metadata and persisted generated `.slangh` under `<module-root>/assets/shaders/`. A physical resource root is distinct from the domain-relative shader path inside it. Internal CMake targets do not create separate shader roots by default. Configured filesystem providers may supply equivalent contents while preserving those paths.
+
+| Owner | Registered source root | Paths inside the root |
+|---|---|---|
+| Aurora foundation | `engine/aurora/assets/shaders/` | `aurora/pipeline/OpaquePass.slangh`, `aurora/materials/Unlit.slang` |
+| Plugin `toon` | `plugins/toon/assets/shaders/` | `toon/pipeline/ToonPass.slangh`, `toon/materials/Toon.slang` |
+| Other plugin | `plugins/<plugin-id>/assets/shaders/` | `<plugin-namespace>/...` |
+| Project owner | `<project-root>/assets/shaders/` | `<project-namespace>/...` |
+
+The Aurora and per-plugin root policy and migration.md file mapping are confirmed and implemented. Root-relative paths are already canonical: includes and ShaderRef do not contain the physical `assets/shaders/` or repository `plugins/` prefixes. A plugin program `toon/materials/Toon.slang` can include `aurora/pipeline/GlobalBlock.slangh`, `aurora/pipeline/OpaquePass.slangh` and `toon/pipeline/ToonPass.slangh` when their interfaces are relevant and dependencies declared. Each plugin keeps its own root rather than contributing to a repository-wide `plugins/assets/shaders/` directory. Registered namespaces must remain unique across Aurora, plugins and the project.
+
+- ShaderRef, includes/imports, dependency records, cache keys and package entries share canonical relative paths.
+- Qualified includes resolve only within the owner and declared resource dependencies. A quoted local include resolves relative to the including logical directory and permitted include roots; ambiguous candidates fail rather than depend on search order.
+- Include-root aliases must map unambiguously to canonical paths. Basenames may repeat in separate owners; there is no cross-owner basename fallback.
+- Paths use `/`, reject absolute paths/traversal/invalid components and preserve one spelling. Case-only collisions fail for portable packaging without silently lowercasing ShaderRef identities.
+- Validate owner identity, complete inventories, persisted export ownership, include mappings and dependency closure before publishing. An export colliding with a handwritten asset fails before any overwrite. Conflicts identify both providers and leave existing registrations unchanged. Reuse a dependency registration instead of mounting it again.
+- Keep general-purpose MultiFileSystem's existing ordered behavior. The shader adapter validates contributions before composing it, so order cannot select between conflicting shader paths.
+- Select development or package providers explicitly for a logical resource; do not mount both copies and rely on priority. Accepted compilation retains immutable inventories/content and provider leases. Macro includes and Slang imports must be covered by compiler-observed dependencies or a conservative complete declared closure, not a literal-include-only scan.
+
+## Project cook, packaging and runtime loading
+
+Project assembly collects one validated resource graph from registered module `assets/shaders/` roots for development, cook and packaging. Persisted `.slangh` files are collected alongside `.slang` and companion files, with the same canonical paths and no separate build-tree export mount. Source-checkout cook checks export freshness before compilation. Normal project cook gathers material technique requests, explicit FullScreenPass/ComputePass requests and their variants/dependencies. Runtime usage recording can supplement this list but is not the sole source of shipping requirements.
+
+Reuse AssetTool/AssetBuilderManager, existing shader compiler/cache facilities and `package_project.py`. Compiled programs, reflection, schema and required variants enter the selected product distribution without manual per-plugin cook/copy commands. Preserve ShaderRef path identity; neither a second archive format nor a UUID for every include is required.
+
+The recommended packaging path aggregates the selected shader cache records into one distribution index per target, using existing index/blob formats and retaining all selected owners' records. Conflicting request identities/content fail explicitly. Do not stack each plugin's `<target>/index.bin` under MultiFileSystem and let its first match hide the other indices. Source exports remain persisted in version control; this does not require including them in every shipping runtime package. Source/SDK distributions collect `.slang` and `.slangh` from the same module asset roots without requiring each consumer to regenerate them. Runtime shipping can omit sources once all declared program requirements are satisfied.
+
+Production resolution receives the shipped product/cache roots. Development source compilation is an explicit mode; null cache roots plus embedded scene compilation are not the package contract. Acceptance runs a relocated package with source roots unavailable and runtime Slang absent.
+
+## Integration points and execution order
+
+| Area | Existing integration points | Required correction |
+|---|---|---|
+| Technique selection | Material, SceneAssetSource, RenderMaterialData, RendererRuntime, FrameComposer, SceneRenderFeature | Preserve techniques and actual entries; select by queue Tag; explicit fullscreen/compute selection |
+| Binding | SharedShader, PassResourceBindings, scene shared declarations, existing frame validation | Material/Feature Batch ownership; optional Batch; View in Pass; no fixed scene ABI |
+| Header export | CMake shader helper and owner declarations | Persistent version-controlled `.h` to `.slangh` exports, deterministic updates and read-only freshness checks |
+| Registration | plugin/module metadata, plugin_config.cmake, asset mounts, Aurora adaptor | One declarative resource contribution plus inventory; no Core-to-Framework/plugin dependency |
+| Distribution | Aurora material cook, shader cook/cache, AssetTool, package_project.py, runtime resolver | Unified request collection and selected-distribution index/product lookup |
+
+First implement the declaration exporter and resource-collection contract with small owner fixtures. Then correct technique selection and binding, including View migration; integrate normal project cook and source-free loading; remove superseded registration, fallback and deployment code after consumers migrate. Keep existing frame submission/retirement mechanisms and targets. Present concrete physical directory moves separately before executing them.
+
+Acceptance covers queue Tag matching and absent/ambiguous Tags; Unlit/PBR/custom and material-specific shadow programs; explicit arbitrary entry names; fullscreen/compute without scene or Batch; mixed material/Feature Batch with collision/missing/type errors; multiple views/shadow cameras with independent Pass values; deterministic persistent export, stale-output detection, clean-build preservation and layout reflection; custom provider inventories, local/macro includes/imports and path collisions; dependency invalidation and retirement; one relocated package containing multiple owners without source/compiler fallback.
+
+Validation is recorded by implementation stage in tasks.md. Native acceptance remains open; the change stays active until those platform checks are complete.
+
+## Implementation boundaries
+
+Material asset payload version 2 stores all tagged stage references, variants and explicit uniform mappings. Old binary payloads and the old single `shader` JSON form are rejected; re-author stage entries and recook products. The shader cache index version is 4 because compiled reflection now records active entry-point resources. Reflection-only declaration inspection still returns the full declaration.
+
+Built-in Scene Batch has separate world (binding 0), receive-shadow (binding 1) and material tint/surface (binding 2) inputs. These belong to the built-in interface. Core accepts arbitrary supported binding layouts. `PackShaderUniform` provides layout-checked assembly, including a combined block when one owner supplies all fields; `PassResourceBindings` rejects overlapping providers transactionally.
+
+Material versions retain shaders and CPU parameter snapshots. They become resident without a dummy GPU material upload; each accepted frame allocates its own uniform ranges. Queue selection occurs in FrameComposer above PreparedRaster. Frame time is common Global data, while opaque and shadow camera inputs are independent Pass snapshots.
+
+The current adapter implements scalar/vector/mat4/int/uint material uniforms. Automatic material texture/sampler asset transport, arrays, deformation and a general material PSO cache are outside this implementation. Existing Lit lighting/IBL tests exercise the lit material category; this change does not implement a complete PBR model. Unsupported active resources must fail explicitly.
+
+The editor's ordinary asset deployment excludes the shader child directory, leaving the module collector as its sole owner. The assets container remains a real directory, so staging cannot write through an engine-source symlink.
+
+## Superseded content cleanup
+
+The user requested obsolete data, documentation and code cleanup after migration. The
+unconsumed root `assets/shaders` tree (34 HLSL/helper/variant files), six legacy `.mat`
+files and `assets/vertex/vertex_library.vtxlib` are removed. They do not describe the
+current material format and have no active code consumers. Fonts, shapes, textures
+and current owner-scoped shader assets remain in place.
+
+`ShaderBlockGen` and its four text/hash tests are removed; persistent `.slangh` export
+is the declaration path. `RgBlockDesc` and its CPU layout test remain, as does the
+variant-only `ShaderHeaderTool`. Unused old shader include macros and redundant Pass
+lifecycle forwarders are removed. Existing RenderGraph templates retain their test
+consumers and are documented separately from the production FrameGraph path.
+
+Local obsolete `shader-bundles` staging trees and the generated `SceneShaderBundle.h`
+are removed. Current shader products and unrelated build caches are preserved.
+Current reference documents point to this contract; earlier change records are
+marked as superseded where appropriate and keep their dated validation evidence.

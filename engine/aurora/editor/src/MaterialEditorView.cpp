@@ -349,8 +349,10 @@ namespace sky::aurora::editor {
                     header.name           = "Technique " + std::to_string(i) + (t.tag.empty() ? "" : " [" + t.tag + "]");
                     rows.push_back(std::move(header));
                     AddRow(rows, "tag", t.tag, ti, 0);
-                    AddRow(rows, "shader", t.shader.relativePath, ti, 1);
-                    AddRow(rows, "entry", t.shader.entry, ti, 2);
+                    AddRow(rows, "vertex.source", t.program.vertex.relativePath, ti, 1);
+                    AddRow(rows, "vertex.entry", t.program.vertex.entry, ti, 2);
+                    AddRow(rows, "fragment.source", t.program.fragment.relativePath, ti, 3);
+                    AddRow(rows, "fragment.entry", t.program.fragment.entry, ti, 4);
                     const MaterialRenderState &rs = t.renderState;
                     auto addBool = [&](const char *key, bool v) { AddRow(rows, std::string("rs.") + key, v ? "true" : "false", ti, 10, key); };
                     auto addStr  = [&](const char *key, const std::string &v) { AddRow(rows, std::string("rs.") + key, v, ti, 10, key); };
@@ -380,7 +382,6 @@ namespace sky::aurora::editor {
     void MaterialEditorView::AddTechnique()
     {
         MaterialTechniqueData technique;
-        technique.shader.entry = "main";
         materialSource.techniques.push_back(std::move(technique));
         SaveSourceJson(asset, materialSource);
         ReloadTechniques();
@@ -619,9 +620,13 @@ namespace sky::aurora::editor {
             } else if (prop.techniqueField == 0) {
                 tech.tag = prop.text;
             } else if (prop.techniqueField == 1) {
-                tech.shader.relativePath = prop.text;
+                tech.program.vertex.relativePath = prop.text;
             } else if (prop.techniqueField == 2) {
-                tech.shader.entry = prop.text;
+                tech.program.vertex.entry = prop.text;
+            } else if (prop.techniqueField == 3) {
+                tech.program.fragment.relativePath = prop.text;
+            } else if (prop.techniqueField == 4) {
+                tech.program.fragment.entry = prop.text;
             }
         } else {
             std::vector<MaterialPropertyData> &props = isInstance ? instanceSource.properties : materialSource.properties;

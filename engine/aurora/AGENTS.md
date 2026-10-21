@@ -52,9 +52,9 @@ B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHo
 
 B05 的 `ResourceCatalog` 位于 Aurora core 的 renderer/resource，只在 coordinator 修改；prepare 只消费冻结 CPU metadata，backing pins 留给 coordinator/submission。`usageVariant` 表示布局兼容族，回退必须成组选择同版本 metadata/backing。`ResourceUploader` 已接通 buffer/RGBA8 2D image 共用分块上传：必须核验全部 native RecordedFrame copy 回执、Accepted 和成功完成，才能经内部 `AdoptResident` 发布。uploader 独占该 context 的完成轮询并透传其它完成；取消和错误不替代 GPU drain。每版本仅一个未决块，Accepted/完成进度分离，完整内容才 InGraph/Resident；部分 backing 单独限额，销毁 owner 不保留可被新 backing 误用的完成前缀。两种资源共享 pending backing 的逻辑字节/数量预算；第十三子批已自动纳管 backing，tracking 租约随 Resident/冻结版本转交，最后 owner 和 GPU 使用退出后由 context 回收；第十四子批已接逐 mip/layer 边界与混合状态续传；其它格式和跨队列仍待后续。
 
-B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本；失败不得偷偷换 mesh。原固定 View/Material/Object UBO 已由 `fix-aurora-pass-resource-contract` 移出通用层：Pipeline 的 SceneRenderFeature 消费共享的 ScenePass/SceneBatch 声明，宿主显式注册；其它 Pass 可使用不同布局或省略 View。
+B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本；失败不得偷偷换 mesh。原固定 View/Material/Object UBO 已由 `fix-aurora-pass-resource-contract` 移出通用层：Pipeline 的 SceneRenderFeature 消费 OpaquePass/ShadowPass 与各自 Batch 声明，宿主显式注册；其它 Pass 可使用不同布局或省略 View。
 
-资源层级保持 **Global（set 0）/ Pass（set 1，View 按需）/ Batch（set 2）**。具体 Pass 维护自己的共享 `.h` 声明源，C++ 与 shader 直接包含同一文件；C++ 编译不得依赖 Slang/ShaderHeaderTool 生成镜像，CMake 仅嵌入源码供虚拟 include，实际 shader 反射负责校验布局与资源；不得手写第二套结构/字段表或以固定 80/64 字节、Material=set 1 取代此契约。PreparedRaster/RendererRuntime 消费实际 Pass 声明，不决定所有 shader 的业务布局。不可变布局可共享，可变数据仍遵守 frame lease 与 GPU 退休。
+资源层级保持 **Global（set 0）/ Pass（set 1，View 按需）/ Batch（set 2）**。具体 Pass 维护权威 `.h` 声明源，C++ 直接包含它，shader 包含由声明导出的持久化 `.slangh`；导出位于模块 `assets/shaders/<owner>/...` 并入版本控制。C++ 编译不得依赖 Slang/ShaderHeaderTool 生成镜像；CMake 负责导出检查与统一资源清单部署，实际 shader 反射负责校验布局与资源；不得手写第二套结构/字段表或以固定 80/64 字节、Material=set 1 取代此契约。PreparedRaster/RendererRuntime 消费实际 Pass 声明，不决定所有 shader 的业务布局。不可变布局可共享，可变数据仍遵守 frame lease 与 GPU 退休。
 
 生产场景 Pass 由 `RegisterScenePass` 追加到宿主首个 packet；Adaptor 单向依赖 Pipeline，Core 不引用具体 Pass。缺少/禁用场景 feature 时没有隐式 Raster fallback。FrameGraphBuildContext 的 ResolveDraws 只借用当前 BuildView 快照，完整 catalog/feature owners 由协调器交给冻结图保活；WriteUniform 按显式类型分配并绑定实际 payload 长度，不把对齐 padding 计入可读参数范围。
 
@@ -299,3 +299,5 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 - Vulkan/DX12 的 native view/RTV/DSV 在 Compile 构造并随计划/提交退休，workers 不创建；RenderPass 合并同时比较逻辑附件和两个 view。当前仅 2D；RGBA8 可用设备支持的 2/4/8× color MSAA/resolve，D32 支持匹配 color 采样数的单 sample 或 2/4/8× MSAA；同 pass attachment feedback 仍整 image 拒绝。
 
 - B10 第十六子批的 colorResolve 是 raster 内部独立写入；源 CLEAR/LOAD 保证全样本有效，源丢弃不影响 resolve 结果，目标可选非零 mip/layer。MSAA storage 限 GPU_ONLY/单 mip；RGBA8 仅 RENDER_TARGET，D32 仅 DEPTH_STENCIL，分别预检设备能力且 color/depth extent 与 samples 匹配；不开放 depth resolve、采样、buffer copy 或局部初始化。上传回执把 resolve target 计为额外写入。
+
+场景材质使用 version 2 的显式 program.vertex/fragment 与 uniforms 映射，按 queue Tag 选择；不推导入口、不选首个 technique。Global 只承载跨 View 的帧数据，相机归 Pass。默认 Scene 的 Feature 和 Material 分别拥有 set 2 的不同 binding；通用层不固定其布局。旧单 shader 材质需迁移，shader cache index v4 需重新 cook。

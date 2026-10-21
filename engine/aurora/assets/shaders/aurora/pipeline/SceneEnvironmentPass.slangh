@@ -1,0 +1,25 @@
+// Generated from aurora/pipeline/SceneEnvironmentPass.h; do not edit.
+// Inputs: 6b1f32c6d9d762171da11153e8d5829f0c5c6a7b5db454373952891c8b965719; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SceneEnvironmentParams
+{
+    float4 environment;
+};
+[[vk::binding(4, 1)]] ConstantBuffer<SceneEnvironmentParams> gSceneEnvironment
+    : register(b4, space1);
+
+[[vk::binding(5, 1)]] Texture2D<float4> gDiffuseIrradiance
+    : register(t5, space1);
+
+[[vk::binding(6, 1)]] Texture2D<float4> gSpecularEnvironment
+    : register(t6, space1);
+
+[[vk::binding(7, 1)]] Texture2D<float4> gBrdfIntegration
+    : register(t7, space1);
+
+[[vk::binding(8, 1)]] SamplerState gEnvironmentSampler
+    : register(s8, space1);
+
+[[vk::binding(9, 1)]] SamplerState gBrdfSampler
+    : register(s9, space1);

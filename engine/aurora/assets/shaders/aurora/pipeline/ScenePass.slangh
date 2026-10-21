@@ -1,0 +1,11 @@
+// Generated from aurora/pipeline/ScenePass.h; do not edit.
+// Inputs: c98b29833d43ad4f0afebaa39a780fccdcebc201741a440bf58a8bcc752ee1c5; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct ScenePassParams
+{
+    column_major float4x4 viewProjection;
+    float4 cameraPosition;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<ScenePassParams> gScenePass
+    : register(b0, space1);

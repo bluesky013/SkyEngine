@@ -1,0 +1,11 @@
+{
+    "resources": {
+        "owner": "pipeline_test",
+        "roots": [{
+            "kind": "shader",
+            "path": "assets/shaders",
+            "dependencies": [],
+            "exports": [{"source": "SharedShaderFixture.h", "include": "pipeline_test/SharedShaderFixture.h"}]
+        }]
+    }
+}

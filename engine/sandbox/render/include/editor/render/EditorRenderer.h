@@ -151,6 +151,7 @@ namespace sky::editor {
         GuiPaintFn                                  guiSource;
         SceneSource                                 sceneSource;
         std::unique_ptr<aurora::RenderSceneBridge>  sceneBridge;
+        std::shared_ptr<aurora::ShaderFileSystem>   shaderFiles;
         aurora::Extent2D                            sceneExtent{640, 360}, submittedSceneExtent{640, 360};
         uint64_t                                    sceneRevision = 0, viewRevision = 0;
         std::string                                 sceneIssue;

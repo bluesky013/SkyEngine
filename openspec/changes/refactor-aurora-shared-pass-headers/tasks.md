@@ -1,3 +1,7 @@
+> Historical stage evidence. Source embedding/direct `.h` shader includes were replaced by
+> [refactor-aurora-pipeline-resource-ownership](../refactor-aurora-pipeline-resource-ownership/tasks.md).
+> Use that change for current build/export rules and remaining native acceptance.
+
 ## Implementation
 
 - [x] 1. Add shared C++/shader declaration helpers and migrate the ten declaration headers.

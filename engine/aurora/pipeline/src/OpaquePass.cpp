@@ -2,10 +2,10 @@
 // Opaque pass: color + depth attachments, single "opaque" queue (front-to-back).
 //
 
-#include "OpaquePass.h"
 #include <aurora/pipeline/OpaquePass.h>
+
+#include "OpaquePass.h"
 #include <aurora/rdg/RenderGraph.h>
-#include <aurora/rhi/Device.h>
 
 namespace sky::aurora {
 
@@ -17,17 +17,6 @@ namespace sky::aurora {
     {
         static const std::vector<RgBlockDesc> blocks{shared::GetOpaquePassParamsBlockDesc()};
         return blocks;
-    }
-
-    void OpaquePass::OnSetup(Device *device)
-    {
-        SceneRasterPassTemplate::OnSetup(device);
-        // TODO: create persistent PSO once shader pipeline is wired in
-    }
-
-    void OpaquePass::OnSceneChanged()
-    {
-        SceneRasterPassTemplate::OnSceneChanged();
     }
 
     void OpaquePass::BuildRDG(RenderGraph &graph)

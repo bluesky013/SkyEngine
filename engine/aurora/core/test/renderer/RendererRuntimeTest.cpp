@@ -1,3 +1,4 @@
+#include "ShaderSourcesFixture.h"
 //
 // Created on 2026/10/17.
 //
@@ -14,16 +15,17 @@
 #include <atomic>
 #include <aurora/adaptor/renderer/RendererHost.h>
 #include <aurora/adaptor/renderer/UiRenderFeature.h>
-#include <aurora/pipeline/SceneMaterial.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <aurora/pipeline/TextureToScreenFeature.h>
 #include <aurora/renderer/RendererProvider.h>
 #include <aurora/rhi/Instance.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/shader/ShaderTechnique.h>
 #include <chrono>
 #include <cstring>
 #include <d3d12sdklayers.h>
 #include <editor/render/UiSnapshotProducer.h>
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <limits>
 #include <thread>
@@ -35,9 +37,111 @@ using namespace sky::aurora;
 using namespace std::chrono_literals;
 
 namespace {
+    class ExplicitPassFeature final : public IFrameGraphFeature {
+    public:
+        ExplicitPassFeature(RenderTechniqueData compute, RenderTechniqueData fullscreen)
+            : compute(std::move(compute)), fullscreen(std::move(fullscreen))
+        {
+        }
+        Name GetName() const override
+        {
+            return Name("explicit.passes");
+        }
+        FrameOperationResult BuildFrame(FrameGraphBuildContext &context, const FrameExtensionPayload &payload) override
+        {
+            if (payload.outputs.size() != 1)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Expected one output"};
+            const auto output = context.GetOutput(payload.outputs.front());
+            if (!output)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing output"};
+            const auto cs = context.CreateShader(compute);
+            if (const auto *error = std::get_if<FrameError>(&cs))
+                return *error;
+            const auto raster = context.CreateShader(fullscreen);
+            if (const auto *error = std::get_if<FrameError>(&raster))
+                return *error;
+            Image::Descriptor desc;
+            desc.extent      = {output->output.extent.width, output->output.extent.height, 1};
+            desc.format      = PixelFormat::RGBA8_UNORM;
+            desc.usage       = ImageUsageFlagBit::STORAGE | ImageUsageFlagBit::SAMPLED;
+            const auto image = context.CreateImage(desc);
+            if (const auto *error = std::get_if<FrameError>(&image))
+                return *error;
+            const auto       target = std::get<GraphImageHandle>(image);
+            FrameComputePass dispatch;
+            dispatch.shader  = std::get<ShaderPtr>(cs);
+            dispatch.groupsX = desc.extent.width;
+            dispatch.groupsY = desc.extent.height;
+            dispatch.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
+            const auto executed = context.Compute(std::move(dispatch));
+            if (std::holds_alternative<FrameError>(executed))
+                return executed;
+            const auto sampler = context.CreateSampler({});
+            if (const auto *error = std::get_if<FrameError>(&sampler))
+                return *error;
+            RasterDraw draw;
+            draw.shader              = std::get<ShaderPtr>(raster);
+            draw.command.vertexCount = 3;
+            draw.scissor.extent      = output->output.extent;
+            draw.images.push_back({1, 0, target});
+            draw.samplers.push_back({1, 1, std::get<SamplerPtr>(sampler)});
+            FrameRasterPass pass;
+            pass.color = output->color;
+            pass.draws.push_back(std::move(draw));
+            return context.Fullscreen(std::move(pass));
+        }
+
+    private:
+        RenderTechniqueData compute, fullscreen;
+    };
+
+    std::shared_ptr<IFrameGraphFeature> ExplicitPasses(API backend, bool missingBatch, bool fullscreenBatch = false)
+    {
+        struct CompilerScope {
+            ShaderCompilerSlang compiler;
+            IShaderCompiler    *previous = ShaderCompilerFactory::Get().GetCompiler();
+            CompilerScope()
+            {
+                ShaderCompilerFactory::Get().Register(&compiler);
+            }
+            ~CompilerScope()
+            {
+                ShaderCompilerFactory::Get().Register(previous);
+            }
+        } scope;
+        ShaderFileSystem files;
+        files.AddVirtualFile("custom/Compute.slang", std::string("RWTexture2D<float4> image : register(u0, space1);\n") +
+                                                         (missingBatch ? "cbuffer Batch : register(b0, space2) { float4 color; }\n" : "") +
+                                                         "[numthreads(1, 1, 1)] void FillTarget(uint3 id : SV_DispatchThreadID) { image[id.xy] = " +
+                                                         (missingBatch ? "color" : "float4(0, 0, 1, 1)") + "; }");
+        files.AddVirtualFile("custom/Fullscreen.slang",
+                             std::string(fullscreenBatch ? "cbuffer Batch : register(b0, space2) { float4 color; }\n" : "") + R"(
+            Texture2D<float4> image : register(t0, space1);
+            SamplerState linearSampler : register(s1, space1);
+            struct Vertex { float4 position : SV_Position; float2 uv : TEXCOORD0; };
+            Vertex DrawQuad(uint id : SV_VertexID) {
+                float2 p = float2((id << 1) & 2, id & 2);
+                Vertex v; v.position = float4(p * 2 - 1, 0, 1); v.uv = p; return v;
+            }
+            float4 SampleTarget(Vertex v) : SV_Target { return image.Sample(linearSampler, v.uv)
+        )" + (fullscreenBatch ? " * color; }" : "; }"));
+        files.AddVirtualFile("custom/Compute.slang.json", R"({"entries":["FillTarget"],"variants":[]})");
+        files.AddVirtualFile("custom/Fullscreen.slang.json", R"({"entries":["DrawQuad","SampleTarget"],"variants":[]})");
+        ShaderTechnique cs;
+        cs.compute         = {"custom/Compute.slang", "FillTarget"};
+        const auto compute = CompileShaderTechnique(files, backend, cs);
+        const auto raster =
+            CompileShaderTechnique(files, backend, {{"custom/Fullscreen.slang", "DrawQuad"}, {"custom/Fullscreen.slang", "SampleTarget"}});
+        EXPECT_TRUE(std::holds_alternative<RenderTechniqueData>(compute)) << std::get<RendererError>(compute).message;
+        EXPECT_TRUE(std::holds_alternative<RenderTechniqueData>(raster)) << std::get<RendererError>(raster).message;
+        if (!std::holds_alternative<RenderTechniqueData>(compute) || !std::holds_alternative<RenderTechniqueData>(raster))
+            return {};
+        return std::make_shared<ExplicitPassFeature>(std::get<RenderTechniqueData>(compute), std::get<RenderTechniqueData>(raster));
+    }
+
     class HeaderColorFeature final : public IFrameGraphFeature {
     public:
-        HeaderColorFeature(RenderMaterialData code, bool shortRange) : code(std::move(code)), shortRange(shortRange)
+        HeaderColorFeature(RenderTechniqueData code, bool shortRange) : code(std::move(code)), shortRange(shortRange)
         {
         }
         Name GetName() const override
@@ -80,20 +184,20 @@ namespace {
         }
 
     private:
-        RenderMaterialData code;
-        bool               shortRange;
-        ShaderPtr          shader;
+        RenderTechniqueData code;
+        bool                shortRange;
+        ShaderPtr           shader;
     };
 
     std::shared_ptr<IFrameGraphFeature> HeaderColor(RendererInfo info, bool shortRange = false)
     {
         auto code = CompileHostRaster(info, R"(
-            #include "OpaquePass.h"
+            #include <aurora/pipeline/OpaquePass.slangh>
             float4 VSMain(uint id : SV_VertexID) : SV_Position {
                 float2 p = float2((id << 1) & 2, id & 2);
                 return float4(p * 2 - 1, 0, 1);
             }
-            float4 FSMain() : SV_Target { return gOpaquePass.Misc; }
+            float4 FSMain() : SV_Target { return gOpaquePass.cameraPosition; }
         )");
         for (auto &resource : code.reflection.resources)
             resource.type = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
@@ -105,7 +209,7 @@ namespace {
         FrameExtensionPayload payload;
         payload.feature = Name("header.color");
         payload.outputs = {output};
-        const shared::OpaquePassParams params{color};
+        const shared::OpaquePassParams params{RenderIdentityMatrix(), color};
         payload.bytes.resize(sizeof(params));
         std::memcpy(payload.bytes.data(), &params, sizeof(params));
         return payload;
@@ -114,7 +218,7 @@ namespace {
     std::shared_ptr<IFrameGraphFeature> SampledColor(RendererInfo info)
     {
         return CreateTextureToScreenFeature(Name("sampled.color"), CompileHostRaster(info, R"(
-            #include "TextureToScreenPass.h"
+            #include <aurora/pipeline/TextureToScreenPass.slangh>
             struct Vertex { float4 position : SV_Position; float2 uv : TEXCOORD0; };
             Vertex VSMain(uint id : SV_VertexID) {
                 float2 p = float2((id << 1) & 2, id & 2);
@@ -297,7 +401,7 @@ namespace {
             ViewportDesc output;
             output.extent = {8, 8};
             auto packet   = Packet({CreateScene{scene, {}}, CreateViewport{viewport, output}, CreateView{view, camera}});
-            EXPECT_FALSE(RegisterScenePass(*packet, {63, 1}, std::make_shared<int>(1)));
+            EXPECT_FALSE(RegisterScenePass(*packet, {63, 1}, std::make_shared<int>(1), TestShaderSources()));
             packet->readbacks.push_back(viewport);
             return packet;
         }
@@ -333,7 +437,7 @@ namespace {
         }
         std::shared_ptr<IFrameGraphFeature> Ui()
         {
-            RenderMaterialData code;
+            RenderTechniqueData code;
             code.backend       = info.backend;
             code.vertexEntry   = "VSMain";
             code.fragmentEntry = "FSMain";
@@ -435,7 +539,10 @@ TEST_P(RendererRuntimeTest, WorldBridgeProductionAssetsTransformAndRemovalReachP
     actor->AddComponent<StaticMeshComponent>()->SetMeshUuid(ScenePrimitiveId(ScenePrimitive::CUBE));
     auto *transform = actor->GetComponent<TransformComponent>();
     transform->SetLocalTranslation({0, 0, .5f});
-    auto              source = CreateSceneAssetSource(std::make_shared<ShaderFileSystem>());
+    auto files = std::make_shared<ShaderFileSystem>();
+    ASSERT_TRUE(LoadTestShaderSources(*files));
+    auto source = CreateSceneAssetSource(std::move(files));
+    ASSERT_NE(source, nullptr);
     RenderSceneBridge bridge(renderer->GetInfo(), source);
     bridge.SetWorld(world.Get());
     auto              packet = Scene();
@@ -499,6 +606,189 @@ TEST_P(RendererRuntimeTest, WorldBridgeProductionAssetsTransformAndRemovalReachP
     for (const auto &event : events)
         bridge.OnEvent(event);
     Pixel(4, viewport, 4, 4, {0, 0, 0});
+}
+
+TEST_P(RendererRuntimeTest, ExplicitComputeAndFullscreenRunWithoutSceneMaterialOrBatch)
+{
+    auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
+    const auto feature = ExplicitPasses(info.backend, false);
+    ASSERT_TRUE(feature);
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->extensions.push_back({feature->GetName(), {}, {viewport}});
+    packet->readbacks.push_back(viewport);
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {0, 0, 255});
+}
+
+TEST_P(RendererRuntimeTest, ExplicitComputeRejectsMissingActiveBatch)
+{
+    auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
+    const auto feature = ExplicitPasses(info.backend, true);
+    ASSERT_TRUE(feature);
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->extensions.push_back({feature->GetName(), {}, {viewport}});
+    packet->readbacks.push_back(viewport);
+    Submit(std::move(packet));
+    ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+    EXPECT_FALSE(Find<ViewportReadback>());
+}
+
+TEST_P(RendererRuntimeTest, ExplicitFullscreenRejectsMissingActiveBatch)
+{
+    auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
+    const auto feature = ExplicitPasses(info.backend, false, true);
+    ASSERT_TRUE(feature);
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->extensions.push_back({feature->GetName(), {}, {viewport}});
+    packet->readbacks.push_back(viewport);
+    Submit(std::move(packet));
+    ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+    EXPECT_FALSE(Find<ViewportReadback>());
+}
+
+TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
+{
+    struct CompilerScope {
+        ShaderCompilerSlang compiler;
+        IShaderCompiler    *previous = ShaderCompilerFactory::Get().GetCompiler();
+        CompilerScope()
+        {
+            ShaderCompilerFactory::Get().Register(&compiler);
+        }
+        ~CompilerScope()
+        {
+            ShaderCompilerFactory::Get().Register(previous);
+        }
+    } scope;
+    auto files  = TestShaderSources();
+    auto source = CreateSceneAssetSource(files);
+    auto unlit  = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
+    auto lit    = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), SceneLitMaterialId(), renderer->GetInfo());
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(unlit));
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(lit));
+    const auto first  = std::get<std::shared_ptr<const SceneMeshResources>>(unlit);
+    const auto second = std::get<std::shared_ptr<const SceneMeshResources>>(lit);
+    ASSERT_TRUE(first && second);
+    ASSERT_TRUE(files->AddVirtualFile("custom/Surface.slang", R"(
+        #include <aurora/pipeline/GlobalBlock.slangh>
+        #include <aurora/pipeline/OpaquePass.slangh>
+        #include <aurora/pipeline/SceneBatch.slangh>
+        float4 CustomPosition(float3 p : POSITION) : SV_Position { return mul(gOpaquePass.viewProjection, mul(gSceneBatch.world, float4(p, 1))); }
+        float4 CustomSurface() : SV_Target { return float4(0, 0, 1, 1); }
+    )"));
+    ASSERT_TRUE(files->AddVirtualFile("custom/Surface.slang.json", R"({"entries":["CustomPosition","CustomSurface"],"variants":[]})"));
+    auto code = CompileShaderTechnique(*files, info.backend, {{"custom/Surface.slang", "CustomPosition"}, {"custom/Surface.slang", "CustomSurface"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(code));
+    RenderResourcePayload custom;
+    custom.resource = Key(1260);
+    custom.format   = Name("runtime-material");
+    custom.material.emplace().techniques.push_back({Name("opaque"), std::get<RenderTechniqueData>(std::move(code))});
+    auto packet                                               = Scene();
+    std::get<CreateViewport>(packet->commands[1]).desc.extent = {24, 8};
+    for (const auto &payload : first->payloads)
+        packet->commands.push_back(ResourceCpuReady{payload});
+    for (const auto &payload : second->payloads)
+        if (payload.material)
+            packet->commands.push_back(ResourceCpuReady{payload});
+    const auto customKey = custom.resource;
+    packet->commands.push_back(ResourceCpuReady{std::move(custom)});
+    const std::array<RenderResourceBinding, 3> materials{first->parts.front().material, second->parts.front().material, {customKey, 1}};
+    for (uint32_t i = 0; i < 3; ++i) {
+        RenderEntityDesc entity;
+        entity.mesh       = first->parts.front().mesh;
+        entity.material   = materials[i];
+        entity.world.v[0] = entity.world.v[5] = entity.world.v[10] = .4f;
+        entity.world.v[12]                                         = (static_cast<float>(i) - 1) * (2.f / 3);
+        entity.world.v[14]                                         = .5f;
+        packet->commands.push_back(CreateRenderEntity{{scene, {i, 1}}, entity});
+    }
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {166, 184, 209});
+    Pixel(sequence, viewport, 12, 4, {5, 6, 6});
+    Pixel(sequence, viewport, 20, 4, {0, 0, 255});
+}
+
+TEST_P(RendererRuntimeTest, SceneQueueUsesTheMatchingTagInsteadOfTheFirstTechnique)
+{
+    auto packet = Scene();
+    AddMesh(*packet);
+    auto &techniques = std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques;
+    auto  shadow     = techniques.front();
+    shadow.tag       = Name("shadow");
+    const Vector4 blue{0, 0, 1, 1};
+    std::memcpy(shadow.uniforms.front().bytes.data(), &blue, sizeof(blue));
+    techniques.insert(techniques.begin(), std::move(shadow));
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {255, 0, 0});
+}
+
+TEST_P(RendererRuntimeTest, SceneQueueOmitsMaterialsWithoutItsTag)
+{
+    auto packet = Scene();
+    AddMesh(*packet);
+    std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques.front().tag = Name("shadow");
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {0, 0, 0});
+}
+
+TEST_P(RendererRuntimeTest, DuplicateTechniqueTagsFailBeforeRendering)
+{
+    auto packet = Scene();
+    AddMesh(*packet);
+    auto      &techniques = std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques;
+    const auto duplicate  = techniques.front();
+    techniques.push_back(duplicate);
+    Submit(std::move(packet));
+    ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+    EXPECT_EQ(Find<RendererFailure>()->error.code, RendererErrorCode::INVALID_PACKET);
+    EXPECT_FALSE(Find<ViewportReadback>());
+}
+
+TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler)
+{
+    const auto root = std::filesystem::path(SHADER_TEST_PACKAGE_ROOT);
+    if (!std::filesystem::is_regular_file(root / "requirements.json"))
+        GTEST_SKIP() << "Run run_shader_package_tests.py first";
+    struct NoCompiler {
+        IShaderCompiler *previous = ShaderCompilerFactory::Get().GetCompiler();
+        NoCompiler()
+        {
+            ShaderCompilerFactory::Get().Register(nullptr);
+        }
+        ~NoCompiler()
+        {
+            ShaderCompilerFactory::Get().Register(previous);
+        }
+    } noCompiler;
+    FileSystemPtr products(new NativeFileSystem(FilePath(root.string())));
+    auto          sources  = std::make_shared<ShaderFileSystem>();
+    auto          source   = CreateSceneAssetSource(sources, {}, products);
+    const auto    resolved = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(resolved));
+    const auto resources = std::get<std::shared_ptr<const SceneMeshResources>>(resolved);
+    ASSERT_TRUE(resources);
+    auto     packet = Packet({CreateScene{scene, {}}, CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
+    ViewDesc camera;
+    camera.scene  = scene;
+    camera.output = viewport;
+    packet->commands.push_back(CreateView{view, camera});
+    ASSERT_FALSE(RegisterScenePass(*packet, {63, 1}, std::make_shared<int>(1), sources, products));
+    RenderEntityDesc entity;
+    entity.mesh        = resources->parts.front().mesh;
+    entity.material    = resources->parts.front().material;
+    entity.world.v[14] = .5f;
+    packet->commands.push_back(CreateRenderEntity{{scene, {0, 1}}, entity});
+    for (const auto &payload : resources->payloads)
+        packet->commands.push_back(ResourceCpuReady{payload});
+    packet->readbacks.push_back(viewport);
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {166, 184, 209});
+    EXPECT_EQ(ShaderCompilerFactory::Get().GetCompiler(), nullptr);
 }
 
 TEST(FrameFeatureRegistryTest, DisableStopsBorrowersAndRetirementWaitsForTheFinalLease)
@@ -631,7 +921,7 @@ TEST_P(RendererRuntimeTest, B13TwoCamerasSecondSceneAndUiLoadUseSeparateConstant
     auto green     = Material();
     green.resource = Key(1203);
     const float tint[]{0, 1, 0, 1};
-    std::memcpy(green.bytes.data(), tint, sizeof(tint));
+    std::memcpy(green.material->techniques.front().uniforms.front().bytes.data(), tint, sizeof(tint));
     RenderEntityDesc entity;
     entity.mesh     = {Key(1201), 1};
     entity.material = {Key(1203), 1};
@@ -1195,14 +1485,17 @@ TEST_P(RendererRuntimeTest, HotUpdateUsesTheFrozenOldMaterialUntilTheNewVersionI
     auto updated              = Material();
     updated.resource.revision = 2;
     const float green[]       = {0, 1, 0, 1};
-    std::memcpy(updated.bytes.data(), green, sizeof(green));
+    std::memcpy(updated.material->techniques.front().uniforms.front().bytes.data(), green, sizeof(green));
     entity.material = {updated.resource, 2};
-    auto update     = Packet({UpdateRenderEntity{{scene, {0, 1}}, entity, 1}, ResourceCpuReady{std::move(updated)}});
+    auto update     = Packet({UpdateRenderEntity{{scene, {0, 1}}, entity, 1}});
     update->readbacks.push_back(viewport);
     Submit(std::move(update));
     Complete(sequence);
     ASSERT_TRUE(Find<ViewportReadback>());
     EXPECT_EQ(Find<ViewportReadback>()->bytes[(4 * 8 + 4) * 4], 255);
+    auto supplied = Packet({ResourceCpuReady{std::move(updated)}});
+    Submit(std::move(supplied));
+    Complete(sequence);
     ASSERT_TRUE(Until([&] {
         return std::any_of(events.begin(), events.end(), [](const auto &event) {
             const auto *resource = std::get_if<ResourceStateChanged>(&event);
@@ -1443,16 +1736,21 @@ TEST_P(RendererRuntimeTest, OffCameraCasterAndLightShadowFlagsChangeReceiverPixe
         }
     } compiler;
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
+    ASSERT_TRUE(LoadTestShaderSources(files));
     ShaderRef reference;
-    reference.relativePath = "SceneLit.slang";
-    const auto compiled    = CompileSceneMaterial(files, info.backend, reference);
-    ASSERT_TRUE(std::holds_alternative<RenderMaterialData>(compiled))
+    reference.relativePath = "aurora/materials/Lit.slang";
+    const auto compiled    = CompileShaderTechnique(files, info.backend, {{reference.relativePath, "VSMain"}, {reference.relativePath, "FSMain"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(compiled))
         << (std::get_if<RendererError>(&compiled) ? std::get<RendererError>(compiled).message : "");
     auto mesh = Mesh(), material = Material();
-    material.bytes           = SceneBatchBytes({1, 1, 1, 1});
-    material.material        = std::get<RenderMaterialData>(compiled);
-    material.material->depth = {true, true, CompareOp::LESS_OR_EQUAL};
+    material.material                                   = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {1, 1, 1, 1});
+    material.material->techniques.front().program.depth = {true, true, CompareOp::LESS_OR_EQUAL};
+    auto shadowProgram =
+        CompileShaderTechnique(files, info.backend, {{"aurora/materials/Shadow.slang", "VSMain"}, {"aurora/materials/Shadow.slang", "FSMain"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(shadowProgram));
+    auto shadowCode  = std::get<RenderTechniqueData>(std::move(shadowProgram));
+    shadowCode.depth = {true, true, CompareOp::LESS_OR_EQUAL};
+    material.material->techniques.push_back({Name("shadow"), std::move(shadowCode)});
     RenderEntityDesc receiver;
     receiver.mesh                     = {mesh.resource, 1};
     receiver.material                 = {material.resource, 1};
@@ -1502,6 +1800,25 @@ TEST_P(RendererRuntimeTest, OffCameraCasterAndLightShadowFlagsChangeReceiverPixe
     receiver.properties.receiveShadow = true;
     EXPECT_NEAR(sample({UpdateRenderEntity{{scene, {0, 1}}, receiver, 2}, DestroyRenderEntity{{scene, {1, 1}}}}), lit, 2);
     EXPECT_TRUE(Until([&] { return Find<EntityDestroyed>() != nullptr; }));
+    ASSERT_TRUE(files.AddVirtualFile("custom/Shadow.slang", R"(
+        #include <aurora/pipeline/GlobalBlock.slangh>
+        #include <aurora/pipeline/ShadowPass.slangh>
+        #include <aurora/pipeline/SceneBatch.slangh>
+        float4 ProjectCaster(float3 p : POSITION) : SV_Position { return mul(gShadowPass.lightViewProjection, mul(gSceneBatch.world, float4(p, 1))); }
+        void DiscardCaster() { if (gGlobal.frameTime.y >= 0) discard; }
+    )"));
+    ASSERT_TRUE(files.AddVirtualFile("custom/Shadow.slang.json", R"({"entries":["ProjectCaster","DiscardCaster"],"variants":[]})"));
+    const auto custom =
+        CompileShaderTechnique(files, info.backend, {{"custom/Shadow.slang", "ProjectCaster"}, {"custom/Shadow.slang", "DiscardCaster"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(custom));
+    auto transparent     = Material();
+    transparent.resource = Key(1490);
+    transparent.material = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {1, 1, 1, 1});
+    auto alphaShadow     = std::get<RenderTechniqueData>(custom);
+    alphaShadow.depth    = {true, true, CompareOp::LESS_OR_EQUAL};
+    transparent.material->techniques.push_back({Name("shadow"), std::move(alphaShadow)});
+    caster.material = {transparent.resource, 1};
+    EXPECT_NEAR(sample({ResourceCpuReady{std::move(transparent)}, CreateRenderEntity{{scene, {3, 1}}, caster}}), lit, 2);
     Stop();
 }
 
@@ -1520,12 +1837,12 @@ TEST_P(RendererRuntimeTest, ScenePositiveYStaysAboveCenterWithAndWithoutHdr)
         }
     } compiler;
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
-    const auto compiled = CompileSceneMaterial(files, info.backend, {});
-    ASSERT_TRUE(std::holds_alternative<RenderMaterialData>(compiled));
+    ASSERT_TRUE(LoadTestShaderSources(files));
+    const auto compiled =
+        CompileShaderTechnique(files, info.backend, {{"aurora/materials/Unlit.slang", "VSMain"}, {"aurora/materials/Unlit.slang", "FSMain"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(compiled));
     auto material            = Material();
-    material.material        = std::get<RenderMaterialData>(compiled);
-    material.bytes           = SceneBatchBytes({1, 0, 0, 1});
+    material.material        = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {1, 0, 0, 1});
     auto             initial = Scene();
     RenderEntityDesc entity;
     entity.mesh       = {Key(1201), 1};
@@ -1565,12 +1882,12 @@ TEST_P(RendererRuntimeTest, HdrExposureAndResizeKeepQueuedSceneValuesIndependent
         }
     } compiler;
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
-    const auto compiled = CompileSceneMaterial(files, info.backend, {});
-    ASSERT_TRUE(std::holds_alternative<RenderMaterialData>(compiled));
+    ASSERT_TRUE(LoadTestShaderSources(files));
+    const auto compiled =
+        CompileShaderTechnique(files, info.backend, {{"aurora/materials/Unlit.slang", "VSMain"}, {"aurora/materials/Unlit.slang", "FSMain"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(compiled));
     auto material            = Material();
-    material.material        = std::get<RenderMaterialData>(compiled);
-    material.bytes           = SceneBatchBytes({4, 1, .25f, 1});
+    material.material        = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {4, 1, .25f, 1});
     auto             initial = Scene();
     RenderEntityDesc entity;
     entity.mesh     = {Key(1201), 1};
@@ -1621,14 +1938,13 @@ TEST_P(RendererRuntimeTest, EnvironmentInputsUseNeutralDefaultsExactVersionsAndP
         }
     } compiler;
     ShaderFileSystem files;
-    RegisterSceneShaderSources(files);
+    ASSERT_TRUE(LoadTestShaderSources(files));
     ShaderRef reference;
-    reference.relativePath = "SceneLit.slang";
-    const auto compiled    = CompileSceneMaterial(files, info.backend, reference);
-    ASSERT_TRUE(std::holds_alternative<RenderMaterialData>(compiled));
+    reference.relativePath = "aurora/materials/Lit.slang";
+    const auto compiled    = CompileShaderTechnique(files, info.backend, {{reference.relativePath, "VSMain"}, {reference.relativePath, "FSMain"}});
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(compiled));
     auto material                                                  = Material();
-    material.material                                              = std::get<RenderMaterialData>(compiled);
-    material.bytes                                                 = SceneBatchBytes({1, 1, 1, 1});
+    material.material                                              = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {1, 1, 1, 1});
     auto initial                                                   = Scene();
     std::get<CreateView>(initial->commands[2]).desc.cameraPosition = {0, 0, -1};
     RenderEntityDesc entity;
@@ -1806,9 +2122,9 @@ TEST_P(RendererRuntimeTest, SharedBatchShaderCanOmitViewAndUseStaticBatchBinding
     packet->commands.push_back(CreateRenderEntity{{scene, {0, 1}}, entity});
     packet->commands.push_back(ResourceCpuReady{Mesh()});
     auto material = HostMaterial(renderer->GetInfo(), false, false, false);
-    ASSERT_EQ(material.material->reflection.resources.size(), 1u);
-    EXPECT_EQ(material.material->reflection.resources.front().set, 2u);
-    EXPECT_EQ(material.material->reflection.resources.front().type, ShaderResourceType::UNIFORM_BUFFER);
+    ASSERT_EQ(material.material->techniques.front().program.reflection.resources.size(), 2u);
+    EXPECT_EQ(material.material->techniques.front().program.reflection.resources.front().set, 2u);
+    EXPECT_EQ(material.material->techniques.front().program.reflection.resources.front().type, ShaderResourceType::UNIFORM_BUFFER);
     packet->commands.push_back(ResourceCpuReady{std::move(material)});
     Submit(std::move(packet));
     Complete(sequence);
@@ -1819,7 +2135,7 @@ TEST_P(RendererRuntimeTest, ScenePassRejectsWrongSharedLayoutAndDiscardsItsFrame
 {
     auto packet = Scene();
     AddMesh(*packet);
-    auto &material = *std::get<ResourceCpuReady>(packet->commands.back()).payload.material;
+    auto &material = std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques.front().program;
     ASSERT_FALSE(material.reflection.blocks.empty());
     ASSERT_FALSE(material.reflection.blocks.front().members.empty());
     material.reflection.blocks.front().members.front().name = "wrongField";
@@ -1857,18 +2173,21 @@ TEST_P(RendererRuntimeTest, MissingScenePassHasNoImplicitRasterFallback)
     ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
     EXPECT_NE(Find<RendererFailure>()->error.message.find("rendered RGBA8"), std::string::npos);
     EXPECT_FALSE(Find<ViewportReadback>());
+    ASSERT_TRUE(std::any_of(events.begin(), events.end(), [&](const auto &event) {
+        const auto *resource = std::get_if<ResourceStateChanged>(&event);
+        return resource && resource->resource == Key(1202) && resource->state == RenderResourceState::RESIDENT;
+    }));
     events.clear();
     auto next = Packet();
-    ASSERT_FALSE(RegisterScenePass(*next, {63, 1}, std::make_shared<int>(1)));
+    ASSERT_FALSE(RegisterScenePass(*next, {63, 1}, std::make_shared<int>(1), TestShaderSources()));
     next->readbacks = {viewport};
     Submit(std::move(next));
     Complete(sequence);
     ASSERT_TRUE(Until([&] {
         return std::count_if(events.begin(), events.end(), [&](const auto &event) {
                    const auto *resource = std::get_if<ResourceStateChanged>(&event);
-                   return resource && resource->state == RenderResourceState::RESIDENT &&
-                          (resource->resource == Key(1201) || resource->resource == Key(1202));
-               }) == 2;
+                   return resource && resource->state == RenderResourceState::RESIDENT && resource->resource == Key(1201);
+               }) == 1;
     }));
     auto resident       = Packet();
     resident->readbacks = {viewport};

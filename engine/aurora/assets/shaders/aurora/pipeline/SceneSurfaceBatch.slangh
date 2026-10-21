@@ -1,0 +1,10 @@
+// Generated from aurora/pipeline/SceneSurfaceBatch.h; do not edit.
+// Inputs: bcb95520e4a7601561eb327914300f1fa25591a2a67f10f6dd59899a9565ff82; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SceneSurfaceParams
+{
+    float4 surface;
+};
+[[vk::binding(1, 2)]] ConstantBuffer<SceneSurfaceParams> gSceneSurface
+    : register(b1, space2);

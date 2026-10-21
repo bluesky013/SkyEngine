@@ -14,9 +14,7 @@ namespace sky::aurora {
         ScenePass();
         ~ScenePass() override = default;
 
-        void OnSetup(Device *device) override;
         void BuildRDG(RenderGraph &graph) override;
-        void OnSceneChanged() override;
 
         void SetExtent(uint32_t width, uint32_t height)
         {
@@ -24,8 +22,14 @@ namespace sky::aurora {
             mHeight = height;
         }
 
-        RDGTextureHandle GetHDRColorHandle() const { return mHdrColor; }
-        RDGTextureHandle GetDepthHandle() const { return mDepth; }
+        RDGTextureHandle GetHDRColorHandle() const
+        {
+            return mHdrColor;
+        }
+        RDGTextureHandle GetDepthHandle() const
+        {
+            return mDepth;
+        }
 
     protected:
         const std::vector<RgBlockDesc> &GetPassBlocks() const override;
