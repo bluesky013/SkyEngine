@@ -5,6 +5,7 @@
 // Runs in hub mode (Project Manager) when no `--project` is given.
 //
 
+#include "WorldEditorState.h"
 #include <editor/sandbox/SandboxModule.h>
 
 #include <editor/sandbox/UiIconBuilder.h>
@@ -339,8 +340,13 @@ namespace sky::editor {
         if (hubMode) {
             ok = BuildHub();
         } else {
-            ProjectRegistry::Get()->Add(projectPath);
-            ok = BuildEditor();
+            std::string error;
+            ok = BuildEditor(error);
+            if (ok) {
+                ProjectRegistry::Get()->Add(projectPath);
+            } else {
+                LOG_E(TAG, "%s", error.c_str());
+            }
         }
         if (!ok) {
             return false;
@@ -427,7 +433,11 @@ namespace sky::editor {
             std::error_code ec;
             std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
 
+            if (worldEditor)
+                worldEditor->Bind(nullptr);
             worldDocument = std::make_unique<WorldDocument>(path);
+            if (worldEditor)
+                worldEditor->Bind(worldDocument.get());
             worldDocument->Save(); // write the initial world file so it exists on disk
             shell.SetWorldDocument(worldDocument.get());
             shell.SetPanelVisible("config", true);
@@ -455,7 +465,11 @@ namespace sky::editor {
                 LOG_W(TAG, "failed to load world '%s'", result.path.c_str());
                 return;
             }
+            if (worldEditor)
+                worldEditor->Bind(nullptr);
             worldDocument = std::move(document);
+            if (worldEditor)
+                worldEditor->Bind(worldDocument.get());
             shell.SetWorldDocument(worldDocument.get());
             shell.SetPanelVisible("config", true);
             RefreshDocumentInfo();
@@ -490,6 +504,8 @@ namespace sky::editor {
         // Detach from the shell before destroying so the config panel never sees
         // a dangling document pointer.
         shell.SetWorldDocument(nullptr);
+        if (worldEditor)
+            worldEditor->Bind(nullptr);
         worldDocument.reset();
         RefreshDocumentInfo();
         LOG_I(TAG, "closed world");
@@ -568,22 +584,29 @@ namespace sky::editor {
         }
     }
 
-    bool SandboxModule::BuildEditor()
+    bool SandboxModule::BuildEditor(std::string &error)
     {
+        if (!RegisterPreferencePages()) {
+            error = "Could not register editor preference pages";
+            return false;
+        }
         // Mount the project workspace (writable) + engine bundle (read-only) into
         // the authoring asset DB, mirroring the legacy editor. Paths are relative
         // to each side's `assets/` root.
         if (!project.Dir().empty()) {
-            auto *workFs   = new sky::NativeFileSystem(project.Dir());
-            auto *engineFs = new sky::NativeFileSystem(Platform::Get()->GetBundlePath());
+            sky::NativeFileSystemPtr workFs   = new sky::NativeFileSystem(project.Dir());
+            sky::NativeFileSystemPtr engineFs = new sky::NativeFileSystem(Platform::Get()->GetBundlePath());
             sky::AssetDataBase::Get()->SetEngineFs(engineFs);
             sky::AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
+            if (const auto failure = sky::AssetDataBase::Get()->Load()) {
+                error = "Failed to scan assets at " + failure->path.GetStr() + ": " + failure->code.message();
+                sky::AssetDataBase::Get()->Reset();
+                sky::AssetDataBase::Get()->SetWorkSpaceFs({});
+                sky::AssetDataBase::Get()->SetEngineFs({});
+                return false;
+            }
             sky::AssetManager::Get()->SetWorkFileSystem(workFs);
-            // The editor resolves source identity and triggers on-demand cooks through the source
-            // catalog (same loader as runtime; missing products cook instead of reading source).
             sky::AssetManager::Get()->SetSourceCatalog(sky::AssetDataBase::Get());
-            // Register the project's existing source assets so the browser reflects them.
-            sky::AssetDataBase::Get()->Load();
 
             // Cook setup: load the project's build presets and register its product bundles, then
             // select the host platform so cook targets resolve from the platform presets.
@@ -610,11 +633,6 @@ namespace sky::editor {
         // layout. Plugin editor modules staged their extensions during Init; drain them first.
         // Clear the action registry BEFORE extensions register so actions they add from
         // EditorExtension::Register() are not wiped by the host's built-in action setup below.
-        // Register host pages without clearing contributions staged by plugins.
-        // Load below, after every extension has contributed its pages.
-        if (!RegisterPreferencePages()) {
-            return false;
-        }
         EditorActionRegistry::Get()->Clear();
         for (auto &extension : EditorExtensionRegistry::Get()->TakeAll()) {
             extensionHost.Add(std::move(extension));
@@ -702,8 +720,8 @@ namespace sky::editor {
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
-        static RegisteredPropertySource propertySource;
-        shell.SetPropertySource(&propertySource);
+        worldEditor = std::make_unique<WorldEditorState>(selection);
+        shell.SetPropertySource(worldEditor.get());
 
         // Asset browser: the shell reads the (cross-DLL singleton) catalog and routes asset
         // actions back through the action registry.
@@ -786,6 +804,31 @@ namespace sky::editor {
                       .invoke      = [this]() { CloseWorld(); },
                       .accelerator = "Ctrl+W"});
         actions->Add({.id = "file.quit", .label = "Quit", .menu = EditorMenu::File, .order = 9, .invoke = [this]() { Quit(); }});
+        const std::pair<const char *, EditorSceneObject> objects[] = {{"Cube", EditorSceneObject::CUBE},
+                                                                      {"Plane", EditorSceneObject::PLANE},
+                                                                      {"Point Light", EditorSceneObject::POINT_LIGHT},
+                                                                      {"Directional Light", EditorSceneObject::DIRECTIONAL_LIGHT},
+                                                                      {"Camera", EditorSceneObject::CAMERA},
+                                                                      {"Environment", EditorSceneObject::ENVIRONMENT}};
+        for (const auto &[label, kind] : objects)
+            actions->Add({.id      = std::string("scene.create.") + label,
+                          .label   = label,
+                          .menu    = EditorMenu::Edit,
+                          .submenu = "Create",
+                          .order   = 20 + static_cast<int>(kind),
+                          .enabled = [this]() { return worldDocument && playSession.GetState() == PlayState::Editing; },
+                          .invoke  = [this, kind]() { worldEditor->Create(kind); }});
+        actions->Add({.id    = "scene.delete",
+                      .label = "Delete Scene Object",
+                      .menu  = EditorMenu::Edit,
+                      .order = 30,
+                      .enabled =
+                          [this]() {
+                              return worldDocument && !selection.IsEmpty() && selection.GetSelection().front().type == SelectionType::ENTITY &&
+                                     playSession.GetState() == PlayState::Editing;
+                          },
+                      .invoke      = [this]() { worldEditor->DeleteSelection(); },
+                      .accelerator = "Delete"});
         actions->Add({.id          = "edit.undo",
                       .label       = "Undo",
                       .icon        = "undo",
@@ -979,8 +1022,27 @@ namespace sky::editor {
                       .invoke  = [this]() { StopPlay(); }});
 
         shell.RegisterBuiltinPanelViews();
-        shell.RegisterPanelView("viewport", [texture = renderer.GetSceneTextureId()]() {
-            auto image = std::make_unique<sky::ui::Image>();
+        shell.RegisterPanelView("viewport", [this, texture = renderer.GetSceneTextureId()]() {
+            class SceneImage final : public sky::ui::Image {
+            public:
+                explicit SceneImage(EditorRenderer &renderer) : renderer(renderer)
+                {
+                }
+
+            protected:
+                void ArrangeChildren(const sky::ui::UIRect &content) override
+                {
+                    sky::ui::Image::ArrangeChildren(content);
+#if defined(_WIN32)
+                    renderer.SetSceneExtent({static_cast<uint32_t>(std::clamp(content.Width(), 1.f, 4096.f)),
+                                             static_cast<uint32_t>(std::clamp(content.Height(), 1.f, 4096.f))});
+#endif
+                }
+
+            private:
+                EditorRenderer &renderer;
+            };
+            auto image = std::make_unique<SceneImage>(renderer);
             image->SetTexture(texture);
             return image;
         });
@@ -1040,14 +1102,20 @@ namespace sky::editor {
             }
             return;
         }
+        if (!BuildEditor(message)) {
+            projectLock.Release();
+            if (hubView != nullptr) {
+                hubView->SetStatus(message);
+            }
+            LOG_E(TAG, "%s", message.c_str());
+            return;
+        }
         ProjectRegistry::Get()->Add(skyprojPath);
-
-        // v1: switch in-process from hub to the editor shell (re-exec is the
-        // target design; this keeps the first version simple and inspectable).
+        // Keep the hub and its error display alive until project initialization succeeds.
         hubView = nullptr;
+        browser = nullptr;
         hubContext.reset();
         hubMode = false;
-        BuildEditor();
     }
 
     void SandboxModule::AddProject()
@@ -1416,9 +1484,9 @@ namespace sky::editor {
                 }
             }
         }
-        renderer.Tick(delta);
-
         if (!hubMode) {
+            if (worldEditor)
+                worldEditor->Bind(worldDocument.get());
             // Play-In-Editor: advances the runtime world only while playing; the
             // edit world is never ticked.
             playSession.Tick(delta);
@@ -1427,6 +1495,10 @@ namespace sky::editor {
             // Refresh the toolbar items' enabled state (Undo/Redo/Play/...).
             shell.RefreshActions();
         }
+#if defined(_WIN32)
+        renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
+#endif
+        renderer.Tick(delta);
 
         // Coalesced end-of-frame auto-save: only after a committed layout edit.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {
@@ -1605,6 +1677,8 @@ namespace sky::editor {
 
     void SandboxModule::Shutdown()
     {
+        if (worldEditor)
+            worldEditor->Bind(nullptr);
         CancelProjectCreation();
         // Flush any pending layout edit before teardown.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {

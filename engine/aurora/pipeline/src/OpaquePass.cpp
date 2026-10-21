@@ -2,27 +2,12 @@
 // Opaque pass: color + depth attachments, single "opaque" queue (front-to-back).
 //
 
+#include "OpaquePass.h"
 #include <aurora/pipeline/OpaquePass.h>
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rhi/Device.h>
 
 namespace sky::aurora {
-
-    namespace {
-        std::vector<RgBlockDesc> MakeOpaquePassBlocks()
-        {
-            // pass tier (set 1): per-pass params cbuffer
-            RgBlockDesc block{};
-            block.set       = 1;
-            block.binding   = 0;
-            block.blockName = Name("OpaquePassParams");
-            block.kind      = RgBlockKind::CBUFFER;
-            block.fields    = {
-                {RgFieldType::FLOAT4, Name("Misc")}, // placeholder params
-            };
-            return {block};
-        }
-    } // namespace
 
     OpaquePass::OpaquePass() : SceneRasterPassTemplate(Name("OpaquePass"))
     {
@@ -30,7 +15,7 @@ namespace sky::aurora {
 
     const std::vector<RgBlockDesc> &OpaquePass::GetPassBlocks() const
     {
-        static const std::vector<RgBlockDesc> blocks = MakeOpaquePassBlocks();
+        static const std::vector<RgBlockDesc> blocks{shared::GetOpaquePassParamsBlockDesc()};
         return blocks;
     }
 
@@ -71,20 +56,18 @@ namespace sky::aurora {
         mDepth = graph.CreateTexture(Name("OpaqueDepth"), depthDesc);
 
         ResetQueues();
-        graph.AddSceneRasterPass(mName,
-            [this](SceneRasterPassBuilder &builder) {
-                builder.ColorAttachment(0, mColor, LoadOp::CLEAR, StoreOp::STORE);
-                builder.DepthStencilAttachment(mDepth, LoadOp::CLEAR, StoreOp::DONT_CARE,
-                                               LoadOp::DONT_CARE, StoreOp::DONT_CARE);
+        graph.AddSceneRasterPass(mName, [this](SceneRasterPassBuilder &builder) {
+            builder.ColorAttachment(0, mColor, LoadOp::CLEAR, StoreOp::STORE);
+            builder.DepthStencilAttachment(mDepth, LoadOp::CLEAR, StoreOp::DONT_CARE, LoadOp::DONT_CARE, StoreOp::DONT_CARE);
 
-                if (GetPassResourceGroup() != nullptr) {
-                    builder.SetPassResourceGroup(GetPassResourceGroup());
-                }
+            if (GetPassResourceGroup() != nullptr) {
+                builder.SetPassResourceGroup(GetPassResourceGroup());
+            }
 
-                DeclareQueue(builder, Name("opaque"), Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
+            DeclareQueue(builder, Name("opaque"), Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
 
-                Collect(builder);
-            });
+            Collect(builder);
+        });
 
         graph.MarkOfInterest(mColor);
     }

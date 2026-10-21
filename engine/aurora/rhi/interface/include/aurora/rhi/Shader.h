@@ -66,6 +66,12 @@ namespace sky::aurora {
         {
             return nullptr;
         }
+        // Whole-program layout used by graph analysis; backends return their frozen reflection.
+        virtual const ShaderReflection &GetReflection() const
+        {
+            static const ShaderReflection empty;
+            return empty;
+        }
 
         struct Descriptor {
             union {

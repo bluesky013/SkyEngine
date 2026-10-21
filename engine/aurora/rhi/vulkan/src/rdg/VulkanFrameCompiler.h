@@ -35,8 +35,8 @@ namespace sky::aurora {
         {
             VkCommandBufferInheritanceRenderingInfo info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO};
             info.viewMask                = viewMask;
-            info.colorAttachmentCount    = 1;
-            info.pColorAttachmentFormats = &colorFormat;
+            info.colorAttachmentCount    = colorFormat == VK_FORMAT_UNDEFINED ? 0 : 1;
+            info.pColorAttachmentFormats = info.colorAttachmentCount ? &colorFormat : nullptr;
             info.rasterizationSamples    = samples;
             info.depthAttachmentFormat   = depthFormat;
             return info;
@@ -61,10 +61,12 @@ namespace sky::aurora {
 
     class VulkanFrameEncoder {
     public:
-        virtual ~VulkanFrameEncoder()                                                                                        = default;
-        virtual void Encode(const VulkanDeviceFunctions &, VkCommandBuffer, std::span<const VkCommandBuffer>) const noexcept = 0;
+        virtual ~VulkanFrameEncoder() = default;
+        // Custom callbacks run on the coordinator and may fail while encoding.
+        virtual void Encode(const VulkanDeviceFunctions &, VkCommandBuffer, CommandBuffer &, std::span<const VkCommandBuffer>) noexcept = 0;
         virtual void
         EncodeFragment(const VulkanDeviceFunctions &, VkCommandBuffer, const VulkanRasterPassPlan &, const VulkanEncodeTask &) const noexcept = 0;
+        std::optional<FrameError> encodeError;
     };
     class VulkanCompiledFrame final : public BackendCompiledFrame {
     public:
@@ -78,8 +80,8 @@ namespace sky::aurora {
         std::vector<uint32_t>                   livePasses;
         std::vector<VulkanRasterPassPlan>       rasterPasses;
         // Bindings are frozen; fragment nodes are independent. The coordinator joins in encoder order.
-        std::vector<VulkanEncodeTask>             encodeTasks;
-        std::unique_ptr<const VulkanFrameEncoder> encoder;
+        std::vector<VulkanEncodeTask>       encodeTasks;
+        std::unique_ptr<VulkanFrameEncoder> encoder;
     };
     using VulkanCompileResult = std::variant<FrameError, FrameNoWork, std::unique_ptr<VulkanCompiledFrame>>;
 

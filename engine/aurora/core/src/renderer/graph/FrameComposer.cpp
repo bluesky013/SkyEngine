@@ -8,10 +8,47 @@
 #include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/rhi/Device.h>
 #include <cstring>
+#include <set>
 
 namespace sky::aurora {
+    std::optional<FrameError> ValidateFrameShader(const RenderMaterialData &source)
+    {
+        const auto invalid = [](const char *message) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, message}; };
+        if (source.vertexEntry.empty() || source.fragmentEntry.empty() || !source.reflection.pushConstants.empty())
+            return invalid("Raster shaders require entry points and supported parameter bindings");
+        std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
+        for (const auto &resource : source.reflection.resources) {
+            if (resource.set > 2 || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
+                return invalid("Raster resource declarations require unique scalar Global/Pass/Batch bindings");
+            switch (resource.type) {
+            case ShaderResourceType::UNIFORM_BUFFER:
+            case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
+            case ShaderResourceType::SAMPLED_IMAGE:
+            case ShaderResourceType::SAMPLER: break;
+            default: return invalid("Unsupported raster resource binding type");
+            }
+        }
+        for (const auto &block : source.reflection.blocks) {
+            const auto resource = std::find_if(source.reflection.resources.begin(), source.reflection.resources.end(),
+                                               [&](const auto &item) { return item.set == block.set && item.binding == block.binding; });
+            if (!block.size || resource == source.reflection.resources.end() ||
+                (resource->type != ShaderResourceType::UNIFORM_BUFFER && resource->type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) ||
+                !blocks.emplace(block.set, block.binding).second)
+                return invalid("Raster block has no matching uniform resource");
+            for (const auto &member : block.members)
+                if (!member.size || member.offset > block.size || member.size > block.size - member.offset)
+                    return invalid("Raster uniform member exceeds its reflected block");
+        }
+        for (const auto &resource : source.reflection.resources)
+            if ((resource.type == ShaderResourceType::UNIFORM_BUFFER || resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) &&
+                !blocks.contains({resource.set, resource.binding}))
+                return invalid("Raster uniform resource requires a reflected block");
+        return {};
+    }
     std::variant<FrameError, ShaderPtr> CreateFrameShader(Device &device, const RenderMaterialData &source)
     {
+        if (const auto error = ValidateFrameShader(source))
+            return *error;
         if (source.backend != device.GetAPI() || source.vertexCode.empty() || source.fragmentCode.empty() || source.vertexCode.size() > UINT32_MAX ||
             source.fragmentCode.size() > UINT32_MAX || source.vertexEntry.empty() || source.fragmentEntry.empty())
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader code does not match the active backend"};
@@ -50,7 +87,7 @@ namespace sky::aurora {
     void FrameComposer::AddOutput(FrameRenderTarget target, bool sampleable)
     {
         target.logicalToClip = ViewportMapping{target.output.extent, target.transform}.ClipTransform();
-        if (device.GetAPI() == API::DX12) {
+        if (device.GetAPI() == API::DX12 || device.GetAPI() == API::METAL) {
             target.logicalToClip.v[1] *= -1;
             target.logicalToClip.v[5] *= -1;
         }
@@ -108,16 +145,51 @@ namespace sky::aurora {
             return *error;
         return RasterBufferRange{handle, 0, slice.size};
     }
-    std::variant<FrameError, RasterUniformBinding> FrameComposer::WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte> bytes)
+    std::variant<FrameError, RasterUniformBinding>
+    FrameComposer::WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte> bytes, ShaderResourceType type)
     {
+        if (type != ShaderResourceType::UNIFORM_BUFFER && type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Uniform allocation requires an explicit uniform binding type"};
         auto written = context.WriteFrameBuffer(inputs.lease, FrameBufferKind::UNIFORM, bytes);
         if (const auto *error = std::get_if<FrameError>(&written))
             return *error;
-        const auto &slice    = std::get<FrameBufferSlice>(written);
-        auto        imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
+        const auto &slice   = std::get<FrameBufferSlice>(written);
+        const bool  dynamic = type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        if (dynamic && slice.offset > UINT32_MAX)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Uniform offset exceeds the dynamic offset range"};
+        auto imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
         if (const auto *error = std::get_if<FrameError>(&imported))
             return *error;
-        return RasterUniformBinding{set, binding, {std::get<GraphBufferHandle>(imported), slice.offset, slice.size}};
+        return RasterUniformBinding{set,
+                                    binding,
+                                    {std::get<GraphBufferHandle>(imported), dynamic ? 0 : slice.offset, bytes.size()},
+                                    dynamic ? static_cast<uint32_t>(slice.offset) : 0};
+    }
+    void FrameComposer::SetPreparedView(const PreparedViewData                 *prepared,
+                                        const FrozenResourceCatalog            &catalog,
+                                        std::span<const PreparedMeshLayout>     meshLayouts,
+                                        std::span<const PreparedMaterialLayout> materialLayouts,
+                                        std::span<const PreparedGraphBuffer>    inGraph)
+    {
+        view         = prepared;
+        resources    = &catalog;
+        meshes       = meshLayouts;
+        materials    = materialLayouts;
+        localBuffers = inGraph;
+    }
+    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Rect2D scissor, PreparedDrawList list)
+    {
+        if (!view || !resources)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Prepared draws require an active BuildView snapshot"};
+        auto resolved =
+            ResolvePreparedRaster(device, context, inputs.lease, builder, *view, *resources, meshes, materials, scissor, localBuffers, list);
+        if (const auto *error = std::get_if<FrameError>(&resolved))
+            return *error;
+        return std::move(std::get<PreparedRasterView>(resolved).draws);
+    }
+    std::variant<FrameError, GraphImageHandle> FrameComposer::CreateImage(const Image::Descriptor &desc)
+    {
+        return builder.CreateTransient(desc);
     }
     FrameOperationResult FrameComposer::AddRaster(FrameRasterPass pass, bool fullscreen)
     {

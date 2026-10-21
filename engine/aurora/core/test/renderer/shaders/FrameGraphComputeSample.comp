@@ -1,0 +1,9 @@
+#version 450
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform texture2D sourceImage;
+layout(set = 0, binding = 1) uniform sampler sourceSampler;
+layout(set = 1, binding = 0, std430) buffer Output { uint values[]; };
+void main()
+{
+    values[0] = uint(texture(sampler2D(sourceImage, sourceSampler), vec2(0.5)).g * 255.0);
+}

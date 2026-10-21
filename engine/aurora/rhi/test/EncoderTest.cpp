@@ -47,6 +47,11 @@ ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const Bi
 }
 
 // clang-format off
+// Equivalent vertex shader; no vertex inputs or resource bindings:
+// void main()
+// {
+//     gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+// }
 static const uint32_t SPIRV_VS[] = {
     0x07230203, 0x00010000, 0x00000000, 0x0000000B, 0x00000000,
     0x00020011, 0x00000001,
@@ -68,6 +73,12 @@ static const uint32_t SPIRV_VS[] = {
     0x00010038,
 };
 
+// Equivalent fragment shader; location 0 receives opaque red:
+// layout(location = 0) out vec4 outColor;
+// void main()
+// {
+//     outColor = vec4(1.0, 0.0, 0.0, 1.0);
+// }
 static const uint32_t SPIRV_FS[] = {
     0x07230203, 0x00010000, 0x00000000, 0x0000000C, 0x00000000,
     0x00020011, 0x00000001,

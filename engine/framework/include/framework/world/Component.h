@@ -29,6 +29,11 @@ namespace sky {
         virtual void LoadBin(BinaryInputArchive &archive) {}
 
         virtual const Uuid &GetTypeId() const = 0;
+        // The concrete macro returns the complete object address for its registered reflection type.
+        virtual void *GetReflectedObject()
+        {
+            return nullptr;
+        }
 
         virtual void OnAttachToWorld() {}
         virtual void OnDetachFromWorld() {}
@@ -63,8 +68,14 @@ namespace sky {
         Data data = {};
     };
 
-
-#define COMPONENT_RUNTIME_INFO(NAME) \
-    using MY_CLASS = NAME;           \
-    const Uuid &GetTypeId() const override { return TypeInfoObj<MY_CLASS>::Get()->RtInfo()->registeredId; }
+#define COMPONENT_RUNTIME_INFO(NAME)                                                                                                                 \
+    using MY_CLASS = NAME;                                                                                                                           \
+    void *GetReflectedObject() override                                                                                                              \
+    {                                                                                                                                                \
+        return this;                                                                                                                                 \
+    }                                                                                                                                                \
+    const Uuid &GetTypeId() const override                                                                                                           \
+    {                                                                                                                                                \
+        return TypeInfoObj<MY_CLASS>::Get()->RtInfo()->registeredId;                                                                                 \
+    }
 } // namespace sky

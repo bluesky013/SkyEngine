@@ -3,26 +3,10 @@
 // into a backbuffer color attachment.
 //
 
+#include "TextureToScreenPass.h"
 #include <aurora/pipeline/TextureToScreenPass.h>
 
 namespace sky::aurora {
-
-    namespace {
-        std::vector<RgBlockDesc> MakeTextureToScreenBlocks()
-        {
-            // pass tier (set 1): the input texture SRV descriptor is written
-            // per-frame once the transient backing image is resolved
-            RgBlockDesc block{};
-            block.set       = 1;
-            block.binding   = 0;
-            block.blockName = Name("TextureToScreenParams");
-            block.kind      = RgBlockKind::CBUFFER;
-            block.fields    = {
-                {RgFieldType::FLOAT4, Name("Misc")}, // placeholder params
-            };
-            return {block};
-        }
-    } // namespace
 
     TextureToScreenPass::TextureToScreenPass() : FullScreenPass(Name("TextureToScreenPass"))
     {
@@ -30,7 +14,7 @@ namespace sky::aurora {
 
     const std::vector<RgBlockDesc> &TextureToScreenPass::GetPassBlocks() const
     {
-        static const std::vector<RgBlockDesc> blocks = MakeTextureToScreenBlocks();
+        static const std::vector<RgBlockDesc> blocks{shared::GetTextureToScreenParamsBlockDesc()};
         return blocks;
     }
 

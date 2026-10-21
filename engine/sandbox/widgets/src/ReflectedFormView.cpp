@@ -203,6 +203,16 @@ namespace sky::editor {
         MarkLayoutDirty();
     }
 
+    void ReflectedFormView::BindGroups(std::span<const PropertyObject> objects)
+    {
+        ResetInteractions(ReflectedInteractionReset::Abandon);
+        form.BuildGroups(objects, *registry);
+        lastRevision           = propertyChanges->GetRevision();
+        pendingExternalRefresh = false;
+        scroll                 = 0;
+        MarkLayoutDirty();
+    }
+
     void ReflectedFormView::Unbind()
     {
         Bind(PropertyObject{});

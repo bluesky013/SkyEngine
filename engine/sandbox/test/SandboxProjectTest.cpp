@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/platform/PlatformBase.h>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -35,6 +37,18 @@ namespace sky::editor {
         static bool Pending(const SandboxModule &module)
         {
             return module.projectCreation.valid();
+        }
+        static void Open(SandboxModule &module, const std::string &path)
+        {
+            module.OpenProject(path);
+        }
+        static bool HasHub(const SandboxModule &module, const ProjectManagerView &view)
+        {
+            return module.hubMode && module.hubView == &view && !module.shell.IsBuilt();
+        }
+        static bool Locked(const SandboxModule &module)
+        {
+            return module.projectLock.IsLocked();
         }
     };
 } // namespace sky::editor
@@ -119,6 +133,39 @@ namespace {
         ScopedEnvironment              engineRoot{"SKY_ENGINE_ROOT", SKY_TEST_ENGINE_ROOT};
         ScopedEnvironment              python{"SKY_PYTHON", SKY_TEST_PYTHON};
     };
+
+#if defined(_WIN32)
+    TEST_F(SandboxProjectTest, ScanFailureKeepsHubAndReleasesProjectLockForRetry)
+    {
+        ASSERT_TRUE(sky::Platform::Get()->Init({}));
+        struct PlatformScope {
+            ~PlatformScope()
+            {
+                sky::Platform::Get()->Shutdown();
+            }
+        } platformScope;
+        const auto             path = root / "ScanFailure.skyproj";
+        sky::ProjectDescriptor descriptor;
+        descriptor.id            = "scan-failure";
+        descriptor.name          = "ScanFailure";
+        descriptor.engineVersion = sky::kEngineVersion;
+        ASSERT_TRUE(descriptor.Write(path.string()));
+        std::ofstream(root / "assets") << "not a directory";
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            SandboxProjectTestAccess::Open(*module, path.string());
+            EXPECT_TRUE(SandboxProjectTestAccess::HasHub(*module, view));
+            EXPECT_FALSE(SandboxProjectTestAccess::Locked(*module));
+            EXPECT_NE(view.GetStatus().find("Failed to scan assets at "), std::string::npos);
+            EXPECT_NE(view.GetStatus().find((root / "assets").string()), std::string::npos);
+            std::error_code error;
+            EXPECT_FALSE(fs::exists(root / "cache" / "editor.lock", error));
+            EXPECT_FALSE(error);
+            EXPECT_TRUE(sky::AssetDataBase::Get()->GetSources().empty());
+            EXPECT_TRUE(sky::AssetDataBase::Get()->GetMounts().empty());
+            EXPECT_TRUE(sky::ProjectRegistry::Get()->Recent().empty());
+        }
+    }
+#endif
 
     TEST_F(SandboxProjectTest, SlowChildReportsProgressWithoutBlockingAndGuardsHubActions)
     {

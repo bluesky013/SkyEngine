@@ -23,9 +23,13 @@ namespace sky::aurora {
         }
 
         const Device *GetDevice() const noexcept override;
-        uint64_t GetSize() const override
+        uint64_t      GetSize() const override
         {
-            return size;
+            return descriptor.size;
+        }
+        const Descriptor &GetDescriptor() const
+        {
+            return descriptor;
         }
 
         uint8_t *Map() override;
@@ -36,7 +40,7 @@ namespace sky::aurora {
     private:
         MetalDevice &device;
         void        *buffer = nullptr;
-        uint64_t     size   = 0;
+        Descriptor   descriptor;
     };
 
 } // namespace sky::aurora

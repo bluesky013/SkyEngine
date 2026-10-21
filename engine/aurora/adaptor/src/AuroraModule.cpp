@@ -4,12 +4,13 @@
 
 #include <aurora/adaptor/AuroraModule.h>
 
+#include <array>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/renderer/RendererProvider.h>
-#include <array>
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <core/name/Name.h>
+#include <framework/application/ModuleManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
@@ -130,6 +131,12 @@ namespace sky::aurora {
         }
         pending           = std::make_unique<FramePacket>();
         pending->sequence = ++sequence;
+        auto *system      = Interface<ISystemNotify>::Get()->GetApi();
+        auto *modules     = system ? system->GetModuleManager() : nullptr;
+        if (const auto error = RegisterScenePass(*pending, {0, 1}, modules ? modules->RetainModule("Aurora.Render") : nullptr)) {
+            Fail(*error);
+            return;
+        }
         if (const auto error = scene.Create(*pending, {0, 1}, {Name("main")})) {
             Fail(*error);
             return;

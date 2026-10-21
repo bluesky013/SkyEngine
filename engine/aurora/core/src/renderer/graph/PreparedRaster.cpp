@@ -22,24 +22,6 @@ namespace sky::aurora {
         {
             return {FrameErrorCode::INVALID_ARGUMENT, message};
         }
-        std::variant<FrameError, RasterUniformBinding> Uniform(
-            DeviceFrameContext &context, const DeviceFrameLease &lease, FrameGraphBuilder &builder, uint32_t set, std::span<const std::byte> bytes)
-        {
-            auto written = context.WriteFrameBuffer(lease, FrameBufferKind::UNIFORM, bytes);
-            if (auto *error = std::get_if<FrameError>(&written))
-                return *error;
-            const auto &slice = std::get<FrameBufferSlice>(written);
-            if (slice.offset > UINT32_MAX)
-                return Invalid("Uniform offset exceeds the dynamic offset range");
-            auto imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
-            if (auto *error = std::get_if<FrameError>(&imported))
-                return *error;
-            const bool dynamic = set != 1;
-            return RasterUniformBinding{set,
-                                        0,
-                                        {std::get<GraphBufferHandle>(imported), dynamic ? 0 : slice.offset, slice.size},
-                                        dynamic ? static_cast<uint32_t>(slice.offset) : 0};
-        }
     } // namespace
 
     std::variant<FrameError, PreparedRasterView> ResolvePreparedRaster(Device                                 &device,
@@ -51,10 +33,14 @@ namespace sky::aurora {
                                                                        std::span<const PreparedMeshLayout>     meshes,
                                                                        std::span<const PreparedMaterialLayout> materials,
                                                                        Rect2D                                  scissor,
-                                                                       std::span<const PreparedGraphBuffer>    inGraph)
+                                                                       std::span<const PreparedGraphBuffer>    inGraph,
+                                                                       PreparedDrawList                        list)
     {
         if (lease.context != context.GetIdentity() || lease.context.backend != device.GetAPI())
             return Invalid("Prepared raster requires the active device context lease");
+        if (list != PreparedDrawList::VISIBLE && list != PreparedDrawList::SHADOW_CASTERS)
+            return Invalid("Unknown prepared draw list");
+        const auto &packets = list == PreparedDrawList::VISIBLE ? view.draws : view.shadowCasters;
         using ResourceKey = decltype(Key({}));
         std::map<ResourceKey, std::shared_ptr<const ResourceVersionLease>> pins;
         std::map<ResourceKey, const PreparedMeshLayout *>                  meshLayouts;
@@ -69,34 +55,41 @@ namespace sky::aurora {
         for (const auto &material : materials)
             if (!materialLayouts.emplace(Key(material.resource), &material).second)
                 return Invalid("Duplicate material layout version");
-        for (const auto &draw : view.draws) {
+        for (const auto &draw : packets) {
             const auto m       = meshLayouts.find(Key(draw.mesh.resource));
             const auto p       = materialLayouts.find(Key(draw.material.resource));
             const auto meshPin = pins.find(Key(draw.mesh.resource)), materialPin = pins.find(Key(draw.material.resource));
             if (draw.mesh.resource.deviceEpoch != lease.context.deviceEpoch || draw.material.resource.deviceEpoch != lease.context.deviceEpoch ||
-                draw.entity.scene != view.view.scene || draw.subMesh != 0 || m == meshLayouts.end() || p == materialLayouts.end() ||
-                meshPin == pins.end() || materialPin == pins.end() || draw.lod >= m->second->lods.size())
+                draw.entity.scene != view.view.scene || m == meshLayouts.end() || p == materialLayouts.end() || meshPin == pins.end() ||
+                materialPin == pins.end() || draw.lod >= m->second->lods.size())
                 return Invalid("Draw requires its exact prepared mesh, material and LOD");
             const auto &backing = meshPin->second->backing;
             const auto *buffer  = backing ? std::get_if<ResourceBufferBacking>(backing.get()) : nullptr;
             if (!buffer || !buffer->buffer || buffer->buffer->GetDevice() != &device || !p->second->shader ||
-                p->second->shader->GetDevice() != &device || p->second->constants.empty())
+                p->second->shader->GetDevice() != &device)
                 return Invalid("Prepared raster backing or shader is unavailable on this device");
             if (m->second->lods.size() != meshPin->second->cpu->metadata.lodDistances.size() + 1)
                 return Invalid("Mesh layout and frozen LOD metadata disagree");
+            const auto size       = buffer->buffer->GetSize();
+            const auto validRange = [size](uint64_t offset, uint64_t range) { return range && offset <= size && range <= size - offset; };
+            for (const auto &stream : m->second->streams)
+                if (!stream.stride || !validRange(stream.offset, stream.size) || stream.size < stream.stride)
+                    return Invalid("Prepared vertex stream exceeds its backing");
+            const auto &lod = m->second->lods[draw.lod];
+            if ((lod.sections.empty() && draw.subMesh != 0) || (!lod.sections.empty() && draw.subMesh >= lod.sections.size()))
+                return Invalid("Draw requires a valid mesh section");
+            if (!validRange(lod.offset, lod.size))
+                return Invalid("Prepared index range exceeds its backing");
+            const auto    &command   = lod.sections.empty() ? lod.command : lod.sections[draw.subMesh];
+            const uint64_t indexSize = lod.type == IndexType::U16 ? 2 : 4;
+            if ((lod.type != IndexType::U16 && lod.type != IndexType::U32) || lod.offset % indexSize || !command.indexCount ||
+                !command.instanceCount || uint64_t(command.firstIndex) + command.indexCount > lod.size / indexSize)
+                return Invalid("Prepared mesh section exceeds its index range");
         }
-        PreparedRasterView result;
-        if (view.draws.empty())
-            return result;
-        const PreparedViewConstants constants{view.view.projection * view.view.view,
-                                              {view.view.cameraPosition.x, view.view.cameraPosition.y, view.view.cameraPosition.z, 1}};
-        auto                        global = Uniform(context, lease, builder, 0, std::as_bytes(std::span{&constants, 1}));
-        if (auto *error = std::get_if<FrameError>(&global))
-            return *error;
-        std::map<ResourceKey, RasterUniformBinding> materialUniforms;
-        std::map<ResourceKey, bool>                 retained;
-        result.draws.reserve(view.draws.size());
-        for (const auto &packet : view.draws) {
+        PreparedRasterView          result;
+        std::map<ResourceKey, bool> retained;
+        result.draws.reserve(packets.size());
+        for (const auto &packet : packets) {
             const auto  meshKey = Key(packet.mesh.resource), materialKey = Key(packet.material.resource);
             const auto &mesh     = *meshLayouts.at(meshKey);
             const auto &material = *materialLayouts.at(materialKey);
@@ -113,16 +106,6 @@ namespace sky::aurora {
                                                        : builder.Import(backing.buffer, initial, backing.state, true);
             if (auto *error = std::get_if<FrameError>(&buffer))
                 return *error;
-            if (!materialUniforms.contains(materialKey)) {
-                auto binding = Uniform(context, lease, builder, 1, material.constants);
-                if (auto *error = std::get_if<FrameError>(&binding))
-                    return *error;
-                materialUniforms.emplace(materialKey, std::get<RasterUniformBinding>(binding));
-            }
-            const PreparedObjectConstants object{packet.world};
-            auto                          binding = Uniform(context, lease, builder, 2, std::as_bytes(std::span{&object, 1}));
-            if (auto *error = std::get_if<FrameError>(&binding))
-                return *error;
             RasterDraw draw;
             draw.shader       = material.shader;
             draw.blend        = material.blend;
@@ -133,9 +116,9 @@ namespace sky::aurora {
             for (const auto &stream : mesh.streams)
                 draw.vertices.push_back({{handle, stream.offset, stream.size}, stream.stride, stream.rate});
             const auto &lod = mesh.lods[packet.lod];
-            draw.indexed    = RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.command};
-            draw.uniforms   = {std::get<RasterUniformBinding>(global), materialUniforms.at(materialKey), std::get<RasterUniformBinding>(binding)};
-            result.draws.push_back(std::move(draw));
+            draw.indexed =
+                RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.sections.empty() ? lod.command : lod.sections[packet.subMesh]};
+            result.draws.push_back({std::move(draw), packet.world, material.constants, packet.receiveShadow});
             for (const auto &key : {meshKey, materialKey})
                 if (retained.emplace(key, true).second)
                     result.pins.push_back(pins.at(key));

@@ -45,7 +45,7 @@ namespace sky::aurora {
         ResourceGroup *GetPassResourceGroup() const { return mPassResourceGroup.Get(); }
 
     protected:
-        // subclass declares pass-tier blocks (set 1); used by codegen, not RHI
+        // subclass declares pass-tier blocks (set 1); legacy block description, not a fixed renderer ABI
         virtual const std::vector<RgBlockDesc> &GetPassBlocks() const { return mEmptyBlocks; }
 
         // subclass provides the pass shader carrying the set 1 layout; null = no pass RG

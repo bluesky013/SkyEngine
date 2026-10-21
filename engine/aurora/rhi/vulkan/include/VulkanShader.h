@@ -71,7 +71,7 @@ namespace sky::aurora {
         {
             return specialization;
         }
-        const ShaderReflection &GetReflection() const
+        const ShaderReflection &GetReflection() const override
         {
             return reflection;
         }

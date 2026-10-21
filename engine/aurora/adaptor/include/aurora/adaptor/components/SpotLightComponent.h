@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include <aurora/adaptor/renderer/SceneComponentEvent.h>
 #include <core/math/Vector3.h>
-#include <framework/world/Component.h>
 
 namespace sky::aurora {
 
@@ -17,7 +17,7 @@ namespace sky::aurora {
         float   outerConeAngle = 0.785398f; // radians (~45 deg)
     };
 
-    class SpotLightComponent : public ComponentAdaptor<SpotLightData> {
+    class SpotLightComponent : public SceneComponentAdaptor<SpotLightData> {
     public:
         SpotLightComponent()           = default;
         ~SpotLightComponent() override = default;

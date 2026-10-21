@@ -236,7 +236,7 @@ namespace sky::editor {
         RegisterPanelView("viewport",
                           [this, t = titleOf("viewport", "Viewport")]() { return std::unique_ptr<sky::ui::UIElement>(new ShellPanel(t)); });
         RegisterPanelView("outliner", [this, t = titleOf("outliner", "Outliner")]() {
-            return std::unique_ptr<sky::ui::UIElement>(new OutlinerPanel(selection, textSystem, t));
+            return std::unique_ptr<sky::ui::UIElement>(new OutlinerPanel(selection, textSystem, t, propertySource));
         });
         RegisterPanelView("inspector", [this, t = titleOf("inspector", "Inspector")]() {
             return std::unique_ptr<sky::ui::UIElement>(new ReflectedInspectorPanel(textSystem, propertySource, selection, t));
@@ -1222,13 +1222,10 @@ namespace sky::editor {
             return;
 
         if (menuBarElement != nullptr) {
-            float barBottom = headerHeight;
-            if (auto *menuBar = dynamic_cast<MenuBar *>(menuBarElement)) {
-                menuBar->SetBarHeight(headerHeight);
-                if (menuBar->IsOpen()) {
-                    barBottom += menuBar->PopupHeight();
-                }
-            }
+            auto *menuBar = static_cast<MenuBar *>(menuBarElement);
+            menuBar->SetBarHeight(headerHeight);
+            // Open menus own surface input, including tall submenus and outside-click dismissal.
+            const float barBottom = menuBar->IsOpen() ? height : headerHeight;
             menuBarElement->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, barBottom});
         }
 

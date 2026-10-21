@@ -197,6 +197,8 @@ namespace sky::aurora {
                     w.U32(static_cast<uint32_t>(m.kind));
                     w.U32(m.rows);
                     w.U32(m.cols);
+                    w.U32(m.arrayCount);
+                    w.U32(m.arrayStride);
                 }
             }
             w.U32(static_cast<uint32_t>(refl.pushConstants.size()));
@@ -254,7 +256,8 @@ namespace sky::aurora {
                     ShaderBlockMember m;
                     uint32_t          scalar = 0;
                     uint32_t          kind   = 0;
-                    if (!r.Str(m.name) || !r.U32(m.offset) || !r.U32(m.size) || !r.U32(scalar) || !r.U32(kind) || !r.U32(m.rows) || !r.U32(m.cols)) {
+                    if (!r.Str(m.name) || !r.U32(m.offset) || !r.U32(m.size) || !r.U32(scalar) || !r.U32(kind) || !r.U32(m.rows) || !r.U32(m.cols) ||
+                        !r.U32(m.arrayCount) || !r.U32(m.arrayStride)) {
                         return false;
                     }
                     m.scalarType = static_cast<ShaderScalarType>(scalar);

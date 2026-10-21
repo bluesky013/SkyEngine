@@ -194,6 +194,50 @@ namespace {
 
 } // namespace
 
+TEST(ReflectedFormTest, GroupedRootsKeepNestedEditsAndDefaultsIndependent)
+{
+    FieldStorageObject first;
+    FieldStorageObject second;
+    first.alpha.left.value      = 20;
+    second.alpha.left.value     = 30;
+    const auto            *type = StorageType();
+    const PropertyObject   objects[]{{&first, type}, {&second, type}};
+    PropertyEditorRegistry registry;
+    CommandService         commands;
+    ReflectedForm          form;
+    form.BuildGroups(objects, registry);
+    ASSERT_EQ(form.GetSections().size(), 2u);
+    for (auto &section : form.GetSections()) {
+        for (auto &field : section.fields) {
+            CheckFieldParents(field);
+        }
+    }
+    auto *a = FindNestedField(form, "[0].alpha.left.value");
+    auto *b = FindNestedField(form, "[1].alpha.left.value");
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    ASSERT_TRUE(form.Edit(*a, sky::Any(int32_t{44}), commands));
+    EXPECT_EQ(first.alpha.left.value, 44);
+    EXPECT_EQ(second.alpha.left.value, 30);
+    ASSERT_TRUE(form.ResetToDefault(*b, commands));
+    EXPECT_EQ(second.alpha.left.value, 7);
+    EXPECT_EQ(first.alpha.left.value, 44);
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(second.alpha.left.value, 30);
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(first.alpha.left.value, 20);
+    form.Rebuild();
+    a = FindNestedField(form, "[0].alpha.left.value");
+    b = FindNestedField(form, "[1].alpha.left.value");
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(*a->descriptor.GetValue().GetAsConst<int32_t>(), 20);
+    EXPECT_EQ(*b->descriptor.GetValue().GetAsConst<int32_t>(), 30);
+    form.BuildGroups({}, registry);
+    EXPECT_FALSE(form.IsValid());
+    EXPECT_TRUE(form.GetSections().empty());
+}
+
 TEST(ReflectedFormTest, ResetBaselineIsTypeDefault)
 {
     const sky::TypeNode *type = TestType();

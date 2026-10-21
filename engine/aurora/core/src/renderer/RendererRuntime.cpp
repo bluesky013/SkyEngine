@@ -202,25 +202,8 @@ namespace sky::aurora {
                                              payload.material->fragmentCode.size() > UINT32_MAX))
                         return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires code for the selected backend"};
                     if (payload.material) {
-                        const auto         &material = *payload.material;
-                        std::array<bool, 3> resources{}, blocks{};
-                        if (material.vertexEntry.empty() || material.fragmentEntry.empty() || !material.reflection.pushConstants.empty())
-                            return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires the prepared raster uniform layout"};
-                        for (const auto &resource : material.reflection.resources) {
-                            const auto type = resource.set == 1 ? ShaderResourceType::UNIFORM_BUFFER : ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                            if (resource.set >= 3 || resource.binding || resource.count != 1 || resource.descriptorArray || resource.type != type ||
-                                resources[resource.set])
-                                return RendererError{RendererErrorCode::INVALID_PACKET, "Unsupported prepared material resource layout"};
-                            resources[resource.set] = true;
-                        }
-                        for (const auto &block : material.reflection.blocks) {
-                            const uint64_t expected = block.set == 0 ? 80 : block.set == 2 ? 64 : payload.bytes.size();
-                            if (block.set >= 3 || block.binding || block.size != expected || blocks[block.set])
-                                return RendererError{RendererErrorCode::INVALID_PACKET, "Prepared material uniform size mismatch"};
-                            blocks[block.set] = true;
-                        }
-                        if (resources != std::array{true, true, true} || blocks != resources)
-                            return RendererError{RendererErrorCode::INVALID_PACKET, "Prepared material requires View, Material and Object uniforms"};
+                        if (const auto error = ValidateFrameShader(*payload.material))
+                            return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
                     }
                 }
                 return {};
@@ -938,7 +921,7 @@ namespace sky::aurora {
                 const auto extent = target->output.extent;
                 if (target->transform != SurfaceTransform::IDENTITY)
                     view.view.projection = ViewportMapping{extent, target->transform}.ClipTransform() * view.view.projection;
-                std::erase_if(view.draws, [&](const auto &draw) {
+                const auto unavailable = [&](const auto &draw) {
                     const auto ready = [&](const RenderResourceKey &key) {
                         return std::any_of(frame.resources.pins.begin(), frame.resources.pins.end(),
                                            [&](const auto &pin) { return pin->cpu->resource == key && pin->backing; });
@@ -948,34 +931,10 @@ namespace sky::aurora {
                                         [&](const auto &layout) { return layout.resource == draw.mesh.resource; }) ||
                            std::none_of(frame.materials.begin(), frame.materials.end(),
                                         [&](const auto &layout) { return layout.resource == draw.material.resource; });
-                });
-                auto resolved = ResolvePreparedRaster(*device, *context, work.lease, builder, view, frame.resources, frame.meshes, frame.materials,
-                                                      {{0, 0}, extent}, localBuffers);
-                if (const auto *error = std::get_if<FrameError>(&resolved)) {
-                    fail(*error);
-                    return;
-                }
-                FrameRasterPass pass;
-                pass.color = target->color;
-                pass.load  = target->initialized ? LoadOp::LOAD : LoadOp::CLEAR;
-                pass.draws = std::move(std::get<PreparedRasterView>(resolved).draws);
-                if (std::any_of(pass.draws.begin(), pass.draws.end(), [](const auto &draw) { return draw.depth.test || draw.depth.write; })) {
-                    Image::Descriptor depth;
-                    depth.format       = PixelFormat::D32;
-                    depth.extent       = {extent.width, extent.height, 1};
-                    depth.usage        = ImageUsageFlagBit::DEPTH_STENCIL;
-                    const auto created = builder.CreateTransient(depth);
-                    if (const auto *error = std::get_if<FrameError>(&created)) {
-                        fail(*error);
-                        return;
-                    }
-                    pass.depth = RasterDepthAttachment{std::get<GraphImageHandle>(created)};
-                }
-                const auto raster = composer.Raster(std::move(pass));
-                if (const auto *error = std::get_if<FrameError>(&raster)) {
-                    fail(*error);
-                    return;
-                }
+                };
+                std::erase_if(view.draws, unavailable);
+                std::erase_if(view.shadowCasters, unavailable);
+                composer.SetPreparedView(&view, frame.resources, frame.meshes, frame.materials, localBuffers);
                 for (const auto &feature : frame.features) {
                     const auto built = feature.lease->registration.feature->BuildView(composer, view);
                     if (const auto *error = std::get_if<FrameError>(&built)) {
@@ -984,6 +943,7 @@ namespace sky::aurora {
                     }
                 }
             }
+            composer.SetPreparedView(nullptr, frame.resources, {}, {}, {});
             for (const auto &payload : frame.inputs.prepared->extensions) {
                 const auto feature = std::find_if(frame.features.begin(), frame.features.end(),
                                                   [&](const auto &entry) { return entry.lease->registration.name == payload.feature; });

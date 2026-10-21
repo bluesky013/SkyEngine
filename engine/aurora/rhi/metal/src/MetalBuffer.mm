@@ -4,8 +4,8 @@
 
 #include <MetalBuffer.h>
 
-#include <MetalDevice.h>
 #include "MetalUtils.h"
+#include <MetalDevice.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
@@ -44,8 +44,8 @@ namespace sky::aurora {
             return false;
         }
 
-        buffer = (__bridge_retained void *)nativeBuffer;
-        size   = desc.size;
+        buffer     = (__bridge_retained void *)nativeBuffer;
+        descriptor = desc;
 
 #if SKY_ENABLE_RESOURCE_NAME
         if (desc.name != nullptr) {

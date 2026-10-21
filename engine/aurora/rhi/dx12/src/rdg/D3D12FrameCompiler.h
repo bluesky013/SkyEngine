@@ -15,6 +15,7 @@
 namespace sky::aurora {
     class D3D12Device;
     class D3D12DeviceFrameContext;
+    class D3D12CommandBuffer;
     struct D3D12Functions;
     struct D3D12GraphDraw {
         CounterPtr<D3D12GraphicsPipeline>     pipeline;
@@ -72,18 +73,45 @@ namespace sky::aurora {
     struct D3D12DepthResolveStep : D3D12ColorResolveStep {
         D3D12_RESOLVE_MODE mode = D3D12_RESOLVE_MODE_MIN;
     };
+    struct D3D12DescriptorTable {
+        uint32_t                    root;
+        D3D12_GPU_DESCRIPTOR_HANDLE descriptor;
+    };
+    struct D3D12UniformAddress {
+        uint32_t                  root;
+        D3D12_GPU_VIRTUAL_ADDRESS address;
+    };
+    struct D3D12ComputeStep {
+        CounterPtr<D3D12ComputePipeline>  pipeline;
+        std::vector<D3D12DescriptorTable> tables;
+        std::vector<D3D12UniformAddress>  uniforms;
+        uint32_t                          groupsX = 1, groupsY = 1, groupsZ = 1;
+    };
+    struct D3D12CustomStep {
+        std::shared_ptr<const FrameCustomPassEncoder> encoder;
+        std::vector<Image *>                          images;
+        std::vector<Buffer *>                         buffers;
+    };
     struct D3D12EncodeTask {
         uint32_t                            logicalPass = 0;
         std::vector<D3D12_RESOURCE_BARRIER> before;
-        std::variant<std::monostate, D3D12BufferCopyStep, D3D12ImageCopyStep, D3D12RasterFragment, D3D12ColorResolveStep, D3D12DepthResolveStep>
+        std::variant<std::monostate,
+                     D3D12BufferCopyStep,
+                     D3D12ImageCopyStep,
+                     D3D12RasterFragment,
+                     D3D12ColorResolveStep,
+                     D3D12DepthResolveStep,
+                     D3D12ComputeStep,
+                     D3D12CustomStep>
                                               operation;
         std::vector<D3D12_RESOURCE_BARRIER>   after;
         std::optional<D3D12_RESOURCE_BARRIER> initializeImage;
     };
     class D3D12FrameEncoder final {
     public:
-        void Encode(const D3D12Functions &, ID3D12GraphicsCommandList *, uint32_t task, ID3D12GraphicsCommandList1 *extended) const;
-        bool requiresDepthResolve = false;
+        void Encode(const D3D12Functions &, D3D12CommandBuffer &, ID3D12GraphicsCommandList *, uint32_t task, ID3D12GraphicsCommandList1 *extended);
+        std::optional<FrameError>     encodeError;
+        bool                          requiresDepthResolve = false;
         std::vector<D3D12EncodeTask>  tasks;
         std::vector<D3D12RasterScope> scopes;
         ComPtr<ID3D12DescriptorHeap>  renderTargets;
@@ -102,6 +130,7 @@ namespace sky::aurora {
         std::shared_ptr<const FrozenFrameGraph> graph;
         std::vector<uint32_t>                   livePasses;
         std::unique_ptr<D3D12FrameEncoder>      encoder;
+        bool                                    coordinatorOnly = false;
     };
     using D3D12CompileResult = std::variant<FrameError, FrameNoWork, std::unique_ptr<D3D12CompiledFrame>>;
     class D3D12FrameCompiler final {

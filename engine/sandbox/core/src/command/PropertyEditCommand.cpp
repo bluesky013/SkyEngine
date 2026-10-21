@@ -13,6 +13,8 @@ namespace sky::editor {
     {
         if (object != nullptr && member != nullptr && member->getterFn != nullptr) {
             oldValue = member->getterFn(object);
+        } else if (object != nullptr && member != nullptr && member->getterConstFn != nullptr) {
+            oldValue = member->getterConstFn(object);
         }
     }
 

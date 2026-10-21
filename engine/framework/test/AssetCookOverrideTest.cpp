@@ -63,7 +63,7 @@ TEST(AssetCookOverrideTest, BuildRequestCarriesManifestOverride)
     auto         *db        = AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto src = db->FindAsset(FilePath("a.txt"));
     ASSERT_TRUE(src != nullptr);

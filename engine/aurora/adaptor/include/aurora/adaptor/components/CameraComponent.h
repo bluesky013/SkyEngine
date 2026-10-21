@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <framework/world/Component.h>
+#include <aurora/adaptor/renderer/SceneComponentEvent.h>
 
 namespace sky::aurora {
 
@@ -14,7 +14,7 @@ namespace sky::aurora {
         float farZ  = 1000.f;
     };
 
-    class CameraComponent : public ComponentAdaptor<CameraComponentData> {
+    class CameraComponent : public SceneComponentAdaptor<CameraComponentData> {
     public:
         CameraComponent()           = default;
         ~CameraComponent() override = default;

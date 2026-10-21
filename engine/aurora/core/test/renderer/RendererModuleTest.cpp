@@ -148,6 +148,11 @@ TEST(RendererModule, NativeLauncherDrainsBeforeLoadedModuleAndWindowAreReleased)
         {
             return window->GetNativeHandle();
         }
+        ModuleManager *GetModuleManager() const override
+        {
+            return modules;
+        }
+        ModuleManager                *modules = nullptr;
         std::unique_ptr<NativeWindow> window;
         bool                          failed = false;
     } host;
@@ -165,20 +170,21 @@ TEST(RendererModule, NativeLauncherDrainsBeforeLoadedModuleAndWindowAreReleased)
         LoadedProvider loaded;
         auto          *renderer = Interface<IRenderer>::Get()->GetApi();
         ASSERT_TRUE(renderer);
+        host.modules = &loaded.manager;
         loaded.manager.StartModules();
         EXPECT_TRUE(host.window->IsCloseDeferred());
         loaded.manager.Tick(1.f / 60);
-        bool       complete = false;
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        uint32_t hostTicks = 0;
+        bool       complete  = false;
+        const auto deadline  = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        uint32_t   hostTicks = 0;
         while (!complete && std::chrono::steady_clock::now() < deadline) {
-#if !defined(_WIN32)
+    #if !defined(_WIN32)
             // AuroraModule owns the renderer event sink on non-Windows; drive
             // the host loop so presentation/drain completes.
             loaded.manager.Tick(1.f / 60);
             if (++hostTicks >= 4)
                 break;
-#endif
+    #endif
             bool quit = false;
             Platform::Get()->PoolEvent(quit);
             std::array<RendererEvent, 16> events;
@@ -190,19 +196,20 @@ TEST(RendererModule, NativeLauncherDrainsBeforeLoadedModuleAndWindowAreReleased)
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-#if defined(_WIN32)
+    #if defined(_WIN32)
         EXPECT_TRUE(complete);
-#else
+    #else
         EXPECT_FALSE(host.failed);
-#endif
+    #endif
         // Leave an accepted frame for module shutdown to drain while the window still exists.
         loaded.manager.Tick(1.f / 60);
     }
+    host.modules = nullptr;
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
-#if defined(_WIN32)
+    #if defined(_WIN32)
     EXPECT_TRUE(IsWindow(static_cast<HWND>(handle)));
-#endif
+    #endif
     EXPECT_FALSE(host.window->IsCloseDeferred());
     EXPECT_FALSE(host.failed);
 }

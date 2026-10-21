@@ -8,6 +8,7 @@
 #include <editor/core/property/PropertyEditor.h>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -63,6 +64,8 @@ namespace sky::editor {
         // A non-null `baseline` overrides the reset baseline (e.g. a per-asset
         // cook preset), so "reset" restores that baseline rather than type default.
         void Build(const PropertyObject &object, const PropertyEditorRegistry &registry, const PropertyObject *baseline = nullptr);
+        // Each borrowed object becomes a section; field paths and reset baselines stay separate.
+        void BuildGroups(std::span<const PropertyObject> objects, const PropertyEditorRegistry &registry);
         void Rebuild();
 
         // Hosts may create domain commands from the top-level property value.
@@ -109,10 +112,11 @@ namespace sky::editor {
         }
         bool IsValid() const
         {
-            return root.object != nullptr && root.type != nullptr;
+            return !roots.empty();
         }
 
     private:
+        void AddRoot(const PropertyObject &object, const PropertyObject *baseline, std::string prefix);
         void BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &registry, const std::string &path, PropertyField &out);
         void ApplyAppearance(PropertyField &field, const Uuid &ownerTypeId, const std::string &memberName);
         void AssignDefaults(PropertyField &node);
@@ -121,7 +125,11 @@ namespace sky::editor {
             uint32_t depth = 0;
         };
 
-        PropertyObject                       root;
+        struct RootBinding {
+            PropertyObject object;
+            std::string    prefix;
+        };
+        std::vector<RootBinding>             roots;
         const PropertyEditorRegistry        *registry = nullptr;
         std::vector<FormSection>             sections;
         std::unordered_map<std::string, Any> defaults; // path -> type default

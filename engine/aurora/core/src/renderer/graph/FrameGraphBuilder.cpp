@@ -77,7 +77,7 @@ namespace sky::aurora {
         if (sealed)
             return FrameError{FrameErrorCode::INVALID_STATE};
         if (!buffer.buffer || buffer.transient || !buffer.size || buffer.size != buffer.buffer->GetSize() ||
-            buffer.initial > CopyBufferState::RASTER_READ || buffer.final > CopyBufferState::RASTER_READ)
+            !IsValidFrameBufferState(buffer.initial) || !IsValidFrameBufferState(buffer.final))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
         std::vector<BufferContentRange> contents;
         if (!buffer.initializedRanges.empty()) {

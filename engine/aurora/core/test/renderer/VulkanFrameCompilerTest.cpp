@@ -78,6 +78,26 @@ namespace {
         {
             EXPECT_EQ(std::this_thread::get_id(), active->coordinator);
             EXPECT_FALSE(active->insideScope);
+            if (active->inspectStorageStages) {
+                auto check = [&](VkAccessFlags2 access, VkPipelineStageFlags2 stages, uint32_t &count) {
+                    if (!(access & (VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT)))
+                        return;
+                    ++count;
+                    EXPECT_TRUE((stages & VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT) ||
+                                ((stages & VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT) &&
+                                 (stages & (VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT))));
+                };
+                for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; ++i) {
+                    const auto &barrier = info->pBufferMemoryBarriers[i];
+                    check(barrier.srcAccessMask, barrier.srcStageMask, active->storageSources);
+                    check(barrier.dstAccessMask, barrier.dstStageMask, active->storageDestinations);
+                }
+                for (uint32_t i = 0; i < info->imageMemoryBarrierCount; ++i) {
+                    const auto &barrier = info->pImageMemoryBarriers[i];
+                    check(barrier.srcAccessMask, barrier.srcStageMask, active->storageSources);
+                    check(barrier.dstAccessMask, barrier.dstStageMask, active->storageDestinations);
+                }
+            }
             active->saved.vkCmdPipelineBarrier2(command, info);
         }
         static VkResult VKAPI_PTR CreateRenderPass(VkDevice                       device,
@@ -164,7 +184,9 @@ namespace {
         uint32_t                                            dynamicBegins = 0, renderPassBegins = 0, dynamicPipelines = 0, renderPassPipelines = 0;
         uint32_t                                            pipelinesDestroyed = 0, renderPassesDestroyed = 0, framebuffersDestroyed = 0;
         VkResult                                            pipelineFailure = VK_SUCCESS, framebufferFailure = VK_SUCCESS;
-        bool                                                insideScope        = false;
+        bool                                                insideScope          = false;
+        bool                                                inspectStorageStages = false;
+        uint32_t                                            storageSources = 0, storageDestinations = 0;
         uint32_t                                            subpassTransitions = 0, pipelineAttempts = 0, failPipelineAttempt = 0;
         std::vector<uint32_t>                               subpassCounts, pipelineSubpasses;
         std::vector<VkAttachmentLoadOp>                     scopeLoads;
@@ -403,6 +425,19 @@ namespace {
         return result;
     }
 
+    class CustomComputeEncoder final : public FrameCustomPassEncoder {
+    public:
+        ComputePipeline     *pipeline = nullptr;
+        ResourceGroup       *group    = nullptr;
+        FrameOperationResult Encode(FrameCustomPassContext &context) const noexcept override
+        {
+            auto encoder = context.command.CreateComputeEncoder();
+            encoder->BindPipeline(pipeline);
+            encoder->BindResourceGroup(0, group);
+            encoder->Dispatch(4, 1, 1);
+            return FrameOperationComplete{};
+        }
+    };
     class VulkanFrameCompilerFixture : public testing::TestWithParam<VulkanFrameGraphMode> {
     protected:
         void SetUp() override
@@ -453,6 +488,85 @@ namespace {
             desc.memory = MemoryType::CPU_ONLY;
             desc.usage  = usage;
             return BufferPtr(device->CreateBuffer(desc));
+        }
+        BufferPtr StorageBufferOf()
+        {
+            Buffer::Descriptor desc;
+            desc.size   = 64;
+            desc.memory = MemoryType::GPU_ONLY;
+            desc.usage  = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_SRC;
+            return BufferPtr(device->CreateBuffer(desc));
+        }
+        ShaderPtr ComputeShaderOf()
+        {
+            auto             cs = Function(ShaderStageFlagBit::CS, FrameGraphCompute);
+            ShaderReflection reflection;
+            ShaderResource   resource;
+            resource.name    = "data";
+            resource.type    = ShaderResourceType::STORAGE_BUFFER;
+            resource.set     = 0;
+            resource.binding = 0;
+            resource.count   = 1;
+            reflection.resources.push_back(resource);
+            Shader::Descriptor desc{};
+            desc.cs         = cs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
+        }
+        FrameGraphImage StorageImageOf()
+        {
+            FrameGraphImage image;
+            image.descriptor.format = PixelFormat::RGBA8_UNORM;
+            image.descriptor.extent = {8, 8, 1};
+            image.descriptor.usage  = ImageUsageFlagBit::STORAGE | ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_SRC;
+            image.image             = ImagePtr(device->CreateImage(image.descriptor));
+            return image;
+        }
+        ShaderPtr ComputeImageShaderOf()
+        {
+            auto             cs = Function(ShaderStageFlagBit::CS, FrameGraphComputeImage);
+            ShaderReflection reflection;
+            ShaderResource   resource;
+            resource.name              = "outputImage";
+            resource.type              = ShaderResourceType::STORAGE_IMAGE;
+            resource.set               = 0;
+            resource.binding           = 0;
+            resource.count             = 1;
+            resource.texture.dimension = ShaderTextureDimension::D2;
+            reflection.resources.push_back(resource);
+            Shader::Descriptor desc{};
+            desc.cs         = cs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
+        }
+        ShaderPtr SampleShaderOf()
+        {
+            auto             vs = Function(ShaderStageFlagBit::VS, FrameGraphVS);
+            auto             fs = Function(ShaderStageFlagBit::FS, FrameGraphSampleFS);
+            ShaderReflection reflection;
+            ShaderResource   image;
+            image.name               = "sourceTex";
+            image.type               = ShaderResourceType::SAMPLED_IMAGE;
+            image.set                = 0;
+            image.binding            = 0;
+            image.count              = 1;
+            image.texture.dimension  = ShaderTextureDimension::D2;
+            image.texture.scalarType = ShaderScalarType::FLOAT;
+            image.texture.components = 4;
+            reflection.resources.push_back(image);
+            ShaderResource sampler;
+            sampler.name    = "sourceSampler";
+            sampler.type    = ShaderResourceType::SAMPLER;
+            sampler.set     = 0;
+            sampler.binding = 1;
+            sampler.count   = 1;
+            sampler.sampler = ShaderSamplerType::REGULAR;
+            reflection.resources.push_back(sampler);
+            Shader::Descriptor desc{};
+            desc.vs         = vs.Get();
+            desc.ps         = fs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
         }
         DeviceFrameLease Begin()
         {
@@ -562,6 +676,218 @@ TEST_P(VulkanFrameCompilerFixture, FullscreenGeneratedTriangleReadsBackThroughOw
         EXPECT_EQ(pixels[i * 4 + 2], 0);
         EXPECT_EQ(pixels[i * 4 + 3], 255);
     }
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputeUniformOffsetsAreIndependentOfDeclarationOrder)
+{
+    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeUniform);
+    ASSERT_TRUE(function);
+    for (const bool dynamic : {false, true}) {
+        const auto         reflection = ComputeUniformReflection(dynamic);
+        Shader::Descriptor descriptor{};
+        descriptor.cs         = function.Get();
+        descriptor.reflection = &reflection;
+        auto shader           = ShaderPtr(device->CreateShader(descriptor));
+        ASSERT_TRUE(shader);
+        auto [graph, readback] = ComputeUniformGraph(*device, std::move(shader), dynamic);
+        ASSERT_TRUE(graph);
+        Execute(graph);
+        const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], 81u + i);
+        readback->UnMap();
+    }
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelease)
+{
+    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeSample);
+    ASSERT_TRUE(function);
+    ShaderReflection reflection;
+    ShaderResource   imageResource;
+    imageResource.type               = ShaderResourceType::SAMPLED_IMAGE;
+    imageResource.texture.dimension  = ShaderTextureDimension::D2;
+    imageResource.texture.scalarType = ShaderScalarType::FLOAT;
+    imageResource.texture.components = 4;
+    reflection.resources.push_back(imageResource);
+    ShaderResource samplerResource;
+    samplerResource.type    = ShaderResourceType::SAMPLER;
+    samplerResource.binding = 1;
+    samplerResource.sampler = ShaderSamplerType::REGULAR;
+    reflection.resources.push_back(samplerResource);
+    ShaderResource outputResource;
+    outputResource.type = ShaderResourceType::STORAGE_BUFFER;
+    outputResource.set  = 1;
+    reflection.resources.push_back(outputResource);
+    Shader::Descriptor descriptor{};
+    descriptor.cs         = function.Get();
+    descriptor.reflection = &reflection;
+    auto shader           = ShaderPtr(device->CreateShader(descriptor));
+    ASSERT_TRUE(shader);
+    auto sampler = SamplerPtr(device->CreateSampler({}));
+    ASSERT_TRUE(sampler);
+    FrameGraphBuilder builder;
+    const auto        image = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
+    const auto storage      = std::get<GraphBufferHandle>(builder.Import(StorageBufferOf(), CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+    FrameComputePass fill;
+    fill.shader  = ComputeImageShaderOf();
+    fill.groupsX = fill.groupsY = 8;
+    fill.images.push_back({0, 0, image, {}, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(fill))));
+    FrameComputePass sample;
+    sample.shader = shader;
+    sample.images.push_back({0, 0, image, {}, FrameAccessMode::READ});
+    sample.samplers.push_back({0, 1, sampler});
+    sample.buffers.push_back({1, 0, {storage, 0, 4}, 0, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(sample))));
+    auto       readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+    const auto target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({storage, target, 0, 0, 4})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({target, 0, 4})));
+    auto                                  graph    = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    std::weak_ptr<const FrozenFrameGraph> weak     = graph;
+    auto                                  compiled = context->Compile(Begin(), graph);
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto plan = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    graph.reset();
+    auto dispatched = context->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    auto collected = AwaitEncoding(*context, std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+    auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+    ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+    EXPECT_TRUE(weak.expired());
+    EXPECT_GE(sampler->GetRef(), 2u);
+    EXPECT_GE(shader->GetRef(), 2u);
+    AwaitCompletions(1);
+    EXPECT_EQ(sampler->GetRef(), 1u);
+    EXPECT_EQ(shader->GetRef(), 1u);
+    const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+    ASSERT_TRUE(values);
+    EXPECT_EQ(values[0], 255u);
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputeStorageBufferWritesReadBack)
+{
+    FrameGraphBuilder builder;
+    auto              storage = StorageBufferOf();
+    const auto        source =
+        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+    auto             readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+    const auto       target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    FrameComputePass compute;
+    compute.shader  = ComputeShaderOf();
+    compute.groupsX = 4;
+    compute.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+    auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    Execute(graph);
+    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], i + 7);
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputeStorageImageIsSampledByRaster)
+{
+    FrameGraphBuilder builder;
+    const auto        source = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
+    const auto        output = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    FrameComputePass  compute;
+    compute.shader  = ComputeImageShaderOf();
+    compute.groupsX = 8;
+    compute.groupsY = 8;
+    compute.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+    FrameRasterPass raster;
+    raster.color = output;
+    RasterDraw draw;
+    draw.shader  = SampleShaderOf();
+    draw.command = {3, 1, 0, 0};
+    draw.images.push_back({0, 0, source, {}});
+    draw.samplers.push_back({0, 1, SamplerPtr(device->CreateSampler({}))});
+    raster.draws.push_back(std::move(draw));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
+    auto readback = Readback(builder, output);
+    auto graph    = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    Execute(graph);
+    auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    for (uint32_t i = 0; i < 64; ++i) {
+        EXPECT_EQ(pixels[i * 4], 0);
+        EXPECT_EQ(pixels[i * 4 + 1], 255);
+        EXPECT_EQ(pixels[i * 4 + 2], 0);
+        EXPECT_EQ(pixels[i * 4 + 3], 255);
+    }
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, CustomReadsStorageImageAndBuffer)
+{
+    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeStorageRead);
+    ASSERT_TRUE(function);
+    const auto         reflection = StorageReadReflection();
+    Shader::Descriptor desc{};
+    desc.cs           = function.Get();
+    desc.reflection   = &reflection;
+    const auto shader = ShaderPtr(device->CreateShader(desc));
+    ASSERT_TRUE(shader);
+    auto [graph, readback] = CustomStorageReadGraph(*device, ComputeImageShaderOf(), ComputeShaderOf(), shader);
+    ASSERT_TRUE(graph);
+    NativeProbe probe(*device);
+    probe.inspectStorageStages = true;
+    Execute(graph);
+    EXPECT_GT(probe.storageSources, 0u);
+    EXPECT_GT(probe.storageDestinations, 0u);
+    const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], 262u + i);
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, CustomComputeWritesDeclaredBufferReadBack)
+{
+    auto                        shader = ComputeShaderOf();
+    ComputePipeline::Descriptor pipelineDesc{};
+    pipelineDesc.cs = shader.Get();
+    CounterPtr<ComputePipeline> pipeline(device->CreatePipelineState(pipelineDesc));
+    ASSERT_TRUE(pipeline);
+    ResourceGroup::Descriptor groupDesc{shader.Get(), 0};
+    CounterPtr<ResourceGroup> group(device->CreateResourceGroup(groupDesc));
+    ASSERT_TRUE(group);
+    auto descriptor = group->CreateEncoder();
+    ASSERT_TRUE(descriptor);
+
+    FrameGraphBuilder builder;
+    auto              storage = StorageBufferOf();
+    const auto        declared =
+        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+    descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0);
+    descriptor->End();
+    auto callback            = std::make_shared<CustomComputeEncoder>();
+    callback->pipeline       = pipeline.Get();
+    callback->group          = group.Get();
+    auto            readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+    const auto      target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    FrameCustomPass custom{"custom compute"};
+    custom.encoder = callback;
+    custom.buffers.push_back({0, 0, {declared, 0, 64}, 0, FrameAccessMode::WRITE, FrameBufferBindingKind::STORAGE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Custom(std::move(custom))));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{declared, target, 0, 0, 64})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+    auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    Execute(graph);
+    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], i + 7);
     readback->UnMap();
 }
 
@@ -802,6 +1128,80 @@ TEST_P(VulkanFrameCompilerFixture, ParallelFailureAndCancellationDrainBeforeRele
         probe.failFirstEnd = false;
         Execute(ClearGraph());
     }
+}
+
+TEST_P(VulkanFrameCompilerFixture, CustomFailureStopsEncodingAndPreservesDeviceLoss)
+{
+    class Callback final : public FrameCustomPassEncoder {
+    public:
+        mutable uint32_t     calls = 0;
+        bool                 fail  = true;
+        FrameOperationResult Encode(FrameCustomPassContext &) const noexcept override
+        {
+            ++calls;
+            if (fail)
+                return FrameError{FrameErrorCode::ENCODE_FAILED, "Custom callback failed"};
+            return FrameOperationComplete{};
+        }
+    };
+    for (bool deviceLost : {false, true}) {
+        context.reset(device->CreateFrameContext({1, 1, 101, 16, GetParam()}));
+        ASSERT_TRUE(context);
+        RecordingProbe probe(*device);
+        Finally        cleanup{[&] { context.reset(); }};
+        if (deviceLost) {
+            probe.fault       = RecordingProbe::Fault::PRIMARY_END;
+            probe.faultResult = VK_ERROR_DEVICE_LOST;
+        }
+        auto first   = std::make_shared<Callback>();
+        auto second  = std::make_shared<Callback>();
+        second->fail = false;
+        FrameGraphBuilder builder;
+        for (const auto &callback : {first, second}) {
+            FrameCustomPass pass;
+            pass.encoder    = callback;
+            pass.sideEffect = true;
+            builder.Custom(std::move(pass));
+        }
+        const auto lease    = Begin();
+        auto       compiled = context->Compile(lease, std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        auto dispatched = context->Dispatch(plan);
+        ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+        const auto collected = AwaitEncoding(*context, std::get<EncodingTicket>(dispatched));
+        ASSERT_TRUE(std::holds_alternative<EncodingFailed>(collected));
+        const auto &error = std::get<EncodingFailed>(collected).error;
+        if (deviceLost)
+            EXPECT_EQ(error.cause.code, GpuErrorCode::DEVICE_LOST);
+        else
+            EXPECT_EQ(error.message, "Custom callback failed");
+        EXPECT_EQ(first->calls, 1u);
+        EXPECT_EQ(second->calls, 0u);
+        EXPECT_EQ(probe.submitCalls, 0u);
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    }
+}
+
+TEST_P(VulkanFrameCompilerFixture, ResourceFreeCustomExecutes)
+{
+    class Callback final : public FrameCustomPassEncoder {
+    public:
+        mutable uint32_t     calls = 0;
+        FrameOperationResult Encode(FrameCustomPassContext &) const noexcept override
+        {
+            ++calls;
+            return FrameOperationComplete{};
+        }
+    };
+    const auto        callback = std::make_shared<Callback>();
+    FrameGraphBuilder builder;
+    FrameCustomPass   pass;
+    pass.encoder    = callback;
+    pass.sideEffect = true;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Custom(std::move(pass))));
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+    EXPECT_EQ(callback->calls, 1u);
 }
 
 TEST_P(VulkanFrameCompilerFixture, DeviceLostInLaterFragmentCannotBeHiddenByEarlierFailure)

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -76,6 +77,8 @@ namespace sky::editor {
         // baseline defaults to the type's default value; pass `baseline` to make
         // reset restore a different baseline (see ReflectedForm::Build).
         void Bind(const PropertyObject &object, const PropertyObject *baseline = nullptr);
+        // Uses one section per object; all supplied objects must remain live until unbound.
+        void BindGroups(std::span<const PropertyObject> objects);
         // Invalidates the binding without accessing its former model. Safe
         // after replacement, and prevents later notifications from rebuilding it.
         void Unbind();

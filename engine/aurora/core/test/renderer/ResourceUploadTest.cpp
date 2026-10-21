@@ -336,7 +336,7 @@ namespace {
                             copy.region.subRange     = {mip, layer, 1, AspectFlagBit::COLOR_BIT};
                             copy.region.imageExtent  = {std::max(1u, layout.width >> mip), std::max(1u, layout.height >> mip), 1};
                             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(copy)));
-                            offset += uint64_t(copy.region.imageExtent.width) * copy.region.imageExtent.height * 4;
+                            offset += uint64_t(copy.region.imageExtent.width) * copy.region.imageExtent.height * RenderImageTexelBytes(layout.format);
                         }
                     }
                 }
@@ -1163,6 +1163,50 @@ TEST_P(ImageUploads, ChunksCrossRowsMipsAndLayersAndPublishOnlyCompleteBytes)
     EXPECT_EQ(std::get<ResourceImageBacking>(*frozen.pins.front()->backing).image.Get(), backing.Get());
 }
 
+TEST_P(ImageUploads, HalfFloatChunksPreserveMipLayerBytesAndTexelPrefixes)
+{
+    const RenderImageLayout layout{7, 3, 3, 2, RenderImageFormat::RGBA16_FLOAT};
+    const auto              request = std::get<ResourceRequest>(catalog->Request(store, Subscriber()));
+    RenderResourcePayload   payload{Key(), Name("image-half"), std::vector<uint8_t>(*RenderImageByteSize(layout)), {}};
+    payload.metadata.image = layout;
+    for (size_t i = 0; i < payload.bytes.size(); ++i)
+        payload.bytes[i] = static_cast<uint8_t>(i * 13 + i / 29);
+    const auto expected = payload.bytes;
+    ASSERT_FALSE(catalog->Supply(request.ticket, payload));
+    ResetUploader({28, 56, 1, 4});
+    BufferPtr readback;
+    for (uint64_t completed = 0; completed < expected.size();) {
+        const auto        lease = Begin();
+        FrameGraphBuilder builder;
+        const auto        batch = Prepare(lease, builder, {request.ticket});
+        ASSERT_EQ(batch.admitted.size(), 1u);
+        const auto bytes    = std::min<uint64_t>(24, expected.size() - completed);
+        const bool final    = completed + bytes == expected.size();
+        auto       resolved = uploader->ResolveInGraph(batch.id, request.ticket, builder);
+        if (final)
+            readback = Readback(builder, resolved, true, layout);
+        else
+            EXPECT_TRUE(std::holds_alternative<FrameError>(resolved));
+        auto graph = Freeze(builder);
+        ASSERT_TRUE(graph);
+        const auto contents = ResolveInitializedImageContents(graph->GetData().images.front());
+        ASSERT_TRUE(std::holds_alternative<ResolvedImageContents>(contents));
+        const auto prefix = completed ? std::vector<ImageContentSpan>{{0, completed / 8}} : std::vector<ImageContentSpan>{};
+        EXPECT_EQ(std::get<ResolvedImageContents>(contents).ranges, prefix);
+        auto recording = Record(lease, graph);
+        ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(uploader->Submit(batch.id, recording)));
+        Complete();
+        completed += bytes;
+        EXPECT_EQ(Status(request.ticket).upload.completedBytes, completed);
+        EXPECT_EQ(Status(request.ticket).state, final ? RenderResourceState::RESIDENT : RenderResourceState::CPU_READY);
+    }
+    ASSERT_TRUE(readback);
+    const auto *mapped = readback->Map();
+    ASSERT_TRUE(mapped);
+    EXPECT_TRUE(std::equal(expected.begin(), expected.end(), mapped));
+    readback->UnMap();
+}
+
 TEST_P(ChunkUploads, ChunkSizeUsesAlignedRemainingStagingSpace)
 {
     uploader.reset();
@@ -1903,6 +1947,8 @@ TEST_P(SampledRaster, DescriptorExhaustionRollsBackAndRetriesSameLease)
         auto              readback = Raster(builder, Target(builder), {draw});
         const auto        original = Freeze(builder);
         auto              data     = original->GetData();
+        // Distinct binding identity must still consume capacity after identical sets are shared.
+        draw.samplers.front().sampler = SamplerOf();
         std::get<FrameRasterPass>(data.passes[1]).draws.push_back(draw);
         const auto failed = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(original->GetId(), std::move(data)));
         ASSERT_TRUE(std::holds_alternative<FrameError>(failed));

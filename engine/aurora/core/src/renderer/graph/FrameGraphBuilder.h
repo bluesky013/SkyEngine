@@ -27,12 +27,13 @@ namespace sky::aurora {
         FrameOperationResult                        Copy(BufferImageCopyPass pass) noexcept;
         FrameOperationResult                        Raster(FrameRasterPass pass) noexcept;
         FrameOperationResult                        Fullscreen(FrameRasterPass pass) noexcept;
-        FrameOperationResult                        Compute(FrameComputePass pass) noexcept;
-        FrameOperationResult                        Custom(FrameCustomPass pass) noexcept;
-        FrameOperationResult                        Reset() noexcept;
-        FrameOperationResult                        Export(GraphBufferExport output) noexcept;
-        FrameOperationResult                        Export(GraphImageHandle output) noexcept;
-        FrameOperationResult                        KeepAlive(std::shared_ptr<const void> payload) noexcept;
+        // Compute/Custom declarations are validated by Compile; keep buffer/image order stable.
+        FrameOperationResult                                              Compute(FrameComputePass pass) noexcept;
+        FrameOperationResult                                              Custom(FrameCustomPass pass) noexcept;
+        FrameOperationResult                                              Reset() noexcept;
+        FrameOperationResult                                              Export(GraphBufferExport output) noexcept;
+        FrameOperationResult                                              Export(GraphImageHandle output) noexcept;
+        FrameOperationResult                                              KeepAlive(std::shared_ptr<const void> payload) noexcept;
         std::variant<FrameError, std::shared_ptr<const FrozenFrameGraph>> Freeze() noexcept;
 
     private:

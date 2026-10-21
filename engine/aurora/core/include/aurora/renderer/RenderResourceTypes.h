@@ -28,7 +28,15 @@ namespace sky::aurora {
         uint64_t          bindingRevision = 0;
     };
 
-    enum class RenderImageFormat : uint8_t { RGBA8_UNORM };
+    enum class RenderImageFormat : uint8_t { RGBA8_UNORM, RGBA16_FLOAT };
+    inline uint32_t RenderImageTexelBytes(RenderImageFormat format)
+    {
+        switch (format) {
+        case RenderImageFormat::RGBA8_UNORM: return 4;
+        case RenderImageFormat::RGBA16_FLOAT: return 8;
+        default: return 0;
+        }
+    }
     struct RenderImageLayout {
         uint32_t          width = 0, height = 0, mipLevels = 1, arrayLayers = 1;
         RenderImageFormat format = RenderImageFormat::RGBA8_UNORM;
@@ -36,15 +44,16 @@ namespace sky::aurora {
     // Complete 2D payloads are tightly packed, layer-major then mip-major, with no row padding.
     inline std::optional<uint64_t> RenderImageByteSize(const RenderImageLayout &image)
     {
+        const auto texelBytes = RenderImageTexelBytes(image.format);
         if (!image.width || !image.height || !image.arrayLayers || !image.mipLevels ||
-            image.mipLevels > std::bit_width(std::max(image.width, image.height)) || image.format != RenderImageFormat::RGBA8_UNORM)
+            image.mipLevels > std::bit_width(std::max(image.width, image.height)) || !texelBytes)
             return {};
         uint64_t bytes = 0;
         for (uint32_t mip = 0; mip < image.mipLevels; ++mip) {
             const uint64_t pixels = uint64_t(std::max(1u, image.width >> mip)) * std::max(1u, image.height >> mip);
-            if (pixels > (UINT64_MAX - bytes) / 4)
+            if (pixels > (UINT64_MAX - bytes) / texelBytes)
                 return {};
-            bytes += pixels * 4;
+            bytes += pixels * texelBytes;
         }
         if (bytes > UINT64_MAX / image.arrayLayers)
             return {};
@@ -110,6 +119,8 @@ namespace sky::aurora {
         if (payload.mesh) {
             add(payload.mesh->streams.size() * sizeof(RenderMeshStream));
             add(payload.mesh->lods.size() * sizeof(RenderMeshLod));
+            for (const auto &lod : payload.mesh->lods)
+                add(lod.sections.size() * sizeof(CmdDrawIndexed));
             add(payload.mesh->attributes.size() * sizeof(RasterVertexAttribute));
             for (const auto &attribute : payload.mesh->attributes)
                 add(attribute.semantic.size());

@@ -31,7 +31,7 @@ namespace sky::aurora {
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Raster push constants are not implemented"};
             for (const auto &resource : result->reflection.resources) {
                 if (!IsRasterResourceSupported(resource))
-                    return FrameError{FrameErrorCode::UNSUPPORTED, "Raster shader requires scalar UBO, float4 Texture2D/Array or regular sampler"};
+                    return FrameError{FrameErrorCode::UNSUPPORTED, "Raster shader requires a UBO, float/float4 Texture2D/Array or regular sampler"};
                 auto found = std::find_if(reflection.resources.begin(), reflection.resources.end(),
                                           [&](const auto &r) { return r.set == resource.set && r.binding == resource.binding; });
                 if (found == reflection.resources.end())
@@ -51,7 +51,7 @@ namespace sky::aurora {
                     for (size_t i = 0; i < block.members.size(); ++i) {
                         const auto &a = block.members[i], &b = found->members[i];
                         if (a.offset != b.offset || a.size != b.size || a.scalarType != b.scalarType || a.kind != b.kind || a.rows != b.rows ||
-                            a.cols != b.cols)
+                            a.cols != b.cols || a.arrayCount != b.arrayCount || a.arrayStride != b.arrayStride)
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Incompatible stage uniform fields"};
                     }
             }

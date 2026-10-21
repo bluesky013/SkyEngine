@@ -13,6 +13,7 @@
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
+#include <aurora/adaptor/components/EnvironmentComponent.h>
 #include <aurora/adaptor/components/LodGroupComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
@@ -31,6 +32,34 @@
 
 namespace sky {
 
+    void aurora::EnvironmentComponent::Reflect(SerializationContext *context)
+    {
+        context->Register<aurora::EnvironmentData>("EnvironmentData")
+            .Member<&aurora::EnvironmentData::diffuseIrradiance>("diffuseIrradiance")
+            .Member<&aurora::EnvironmentData::specularEnvironment>("specularEnvironment")
+            .Member<&aurora::EnvironmentData::brdfIntegration>("brdfIntegration")
+            .Member<&aurora::EnvironmentData::intensity>("intensity")
+            .Member<&aurora::EnvironmentData::exposure>("exposure")
+            .Member<&aurora::EnvironmentData::enabled>("enabled")
+            .Member<&aurora::EnvironmentData::hdr>("hdr");
+        context->Register<aurora::EnvironmentComponent>("EnvironmentComponent")
+            .Member<&aurora::EnvironmentComponent::SetDiffuseIrradiance, &aurora::EnvironmentComponent::GetDiffuseIrradiance>("diffuseIrradiance")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::Texture>::ASSET_TYPE))
+            .Member<&aurora::EnvironmentComponent::SetSpecularEnvironment, &aurora::EnvironmentComponent::GetSpecularEnvironment>(
+                "specularEnvironment")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::Texture>::ASSET_TYPE))
+            .Member<&aurora::EnvironmentComponent::SetBrdfIntegration, &aurora::EnvironmentComponent::GetBrdfIntegration>("brdfIntegration")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::Texture>::ASSET_TYPE))
+            .Member<&aurora::EnvironmentComponent::SetIntensity, &aurora::EnvironmentComponent::GetIntensity>("intensity")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.f))
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MAX), Any(64.f))
+            .Member<&aurora::EnvironmentComponent::SetExposure, &aurora::EnvironmentComponent::GetExposure>("exposure")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(-16.f))
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MAX), Any(16.f))
+            .Member<&aurora::EnvironmentComponent::SetEnabled, &aurora::EnvironmentComponent::GetEnabled>("enabled")
+            .Member<&aurora::EnvironmentComponent::SetHdr, &aurora::EnvironmentComponent::GetHdr>("hdr");
+    }
+
     void aurora::StaticMeshComponent::Reflect(SerializationContext *context)
     {
         context->Register<aurora::StaticMeshComponentData>("StaticMeshComponentData")
@@ -46,12 +75,6 @@ namespace sky {
             .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::Material>::ASSET_TYPE))
             .Member<&aurora::StaticMeshComponent::SetCastShadow, &aurora::StaticMeshComponent::GetCastShadow>("castShadow")
             .Member<&aurora::StaticMeshComponent::SetReceiveShadow, &aurora::StaticMeshComponent::GetReceiveShadow>("receiveShadow");
-    }
-
-    void aurora::StaticMeshComponent::OnAssetLoaded(const Uuid & /*uuid*/, const std::string_view & /*type*/)
-    {
-        // Device-side resource build (mesh renderer / material binding) is a
-        // follow-up; the component tracks the asset handles here.
     }
 
     void aurora::LodGroupComponent::Reflect(SerializationContext *context)
@@ -197,6 +220,7 @@ namespace sky {
             factory->RegisterComponent<sky::aurora::StaticMeshComponent>(group);
             factory->RegisterComponent<sky::aurora::LodGroupComponent>(group);
             factory->RegisterComponent<sky::aurora::DirectLightComponent>(group);
+            factory->RegisterComponent<sky::aurora::EnvironmentComponent>(group);
             factory->RegisterComponent<sky::aurora::PointLightComponent>(group);
             factory->RegisterComponent<sky::aurora::SpotLightComponent>(group);
             factory->RegisterComponent<sky::aurora::CameraComponent>(group);
@@ -217,6 +241,7 @@ namespace sky {
             sky::aurora::StaticMeshComponent::Reflect(context);
             sky::aurora::LodGroupComponent::Reflect(context);
             sky::aurora::DirectLightComponent::Reflect(context);
+            sky::aurora::EnvironmentComponent::Reflect(context);
             sky::aurora::PointLightComponent::Reflect(context);
             sky::aurora::SpotLightComponent::Reflect(context);
             sky::aurora::CameraComponent::Reflect(context);

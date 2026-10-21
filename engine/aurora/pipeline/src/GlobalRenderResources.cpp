@@ -3,10 +3,10 @@
 //
 
 #include <aurora/pipeline/GlobalRenderResources.h>
-#include <aurora/scene/SceneView.h>
 #include <aurora/rhi/Device.h>
+#include <aurora/scene/SceneView.h>
 
-#include <GlobalBlock.gen.h>
+#include "GlobalBlock.h"
 
 #include <cstring>
 
@@ -14,22 +14,20 @@ namespace sky::aurora {
 
     const RgBlockDesc &GlobalRenderResources::GetGlobalBlockDesc()
     {
-        return generated::GetGlobalParamsBlockDesc();
+        return shared::GetGlobalParamsBlockDesc();
     }
 
     bool GlobalRenderResources::Init(Device *device, Shader *globalShader)
     {
         mDevice = device;
 
-        uint32_t totalSize = 0;
-        ComputeFieldOffsets(GetGlobalBlockDesc(), totalSize);
-        mUboSize = totalSize;
+        mUboSize = sizeof(shared::GlobalParams);
 
         Buffer::Descriptor bufDesc{};
         bufDesc.size   = mUboSize;
         bufDesc.usage  = BufferUsageFlagBit::UNIFORM;
         bufDesc.memory = MemoryType::CPU_TO_GPU;
-        mUBO = mDevice->CreateBuffer(bufDesc);
+        mUBO           = mDevice->CreateBuffer(bufDesc);
         if (mUBO == nullptr) {
             return false;
         }
@@ -41,7 +39,7 @@ namespace sky::aurora {
         ResourceGroup::Descriptor groupDesc{};
         groupDesc.shader = globalShader;
         groupDesc.set    = 0;
-        mGroup = mDevice->CreateResourceGroup(groupDesc);
+        mGroup           = mDevice->CreateResourceGroup(groupDesc);
         if (mGroup == nullptr) {
             return false;
         }
@@ -57,10 +55,10 @@ namespace sky::aurora {
         if (mUBO == nullptr) {
             return;
         }
-        generated::GlobalParams params{};
-        params.view     = view.GetViewMatrix();
-        params.proj     = Matrix4::Identity(); // projection matrix accessor lands with camera data
-        params.viewProj = view.GetViewProjectMatrix();
+        shared::GlobalParams params{};
+        params.view      = view.GetViewMatrix();
+        params.proj      = Matrix4::Identity(); // projection matrix accessor lands with camera data
+        params.viewProj  = view.GetViewProjectMatrix();
         params.cameraPos = Vector4(0.f, 0.f, 0.f, time); // camera position accessor lands later
 
         uint8_t *mapped = mUBO->Map();

@@ -5,11 +5,8 @@
 
 #pragma once
 
-#include <aurora/adaptor/assets/MaterialAsset.h>
-#include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/renderer/SceneComponentEvent.h>
 #include <core/util/Uuid.h>
-#include <framework/asset/AssetHolder.h>
-#include <framework/world/Component.h>
 
 namespace sky::aurora {
 
@@ -23,7 +20,7 @@ namespace sky::aurora {
         bool receiveShadow = false;
     };
 
-    class StaticMeshComponent : public ComponentAdaptor<StaticMeshComponentData>, public IAssetReadyNotifier {
+    class StaticMeshComponent : public SceneComponentAdaptor<StaticMeshComponentData> {
     public:
         StaticMeshComponent()           = default;
         ~StaticMeshComponent() override = default;
@@ -35,7 +32,6 @@ namespace sky::aurora {
         void SetMeshUuid(const Uuid &uuid)
         {
             data.mesh = uuid;
-            meshHolder.SetAsset(uuid, this);
         }
         const Uuid &GetMeshUuid() const { return data.mesh; }
 
@@ -44,7 +40,6 @@ namespace sky::aurora {
         void SetMaterialUuid(const Uuid &uuid)
         {
             data.material = uuid;
-            materialHolder.SetAsset(uuid, this);
         }
         const Uuid &GetMaterialUuid() const { return data.material; }
 
@@ -53,18 +48,6 @@ namespace sky::aurora {
 
         void SetReceiveShadow(bool value) { data.receiveShadow = value; }
         bool GetReceiveShadow() const { return data.receiveShadow; }
-
-        // Loaded asset payloads (null until the async load completes).
-        Asset<sky::aurora::Mesh>     *GetMeshAsset() const { return meshHolder.GetAsset().get(); }
-        Asset<sky::aurora::Material> *GetMaterialAsset() const { return materialHolder.GetAsset().get(); }
-        bool                          IsMeshLoaded() const { return meshHolder.IsLoaded(); }
-        bool                          IsMaterialLoaded() const { return materialHolder.IsLoaded(); }
-
-        void OnAssetLoaded(const Uuid &uuid, const std::string_view &type) override;
-
-    private:
-        SingleAssetHolder<sky::aurora::Mesh>     meshHolder;
-        SingleAssetHolder<sky::aurora::Material> materialHolder;
     };
 
 } // namespace sky::aurora

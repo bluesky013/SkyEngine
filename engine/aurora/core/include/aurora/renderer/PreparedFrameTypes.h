@@ -17,6 +17,7 @@ namespace sky::aurora {
         uint32_t              lod     = 0;
         uint64_t              tags    = 1;
         std::optional<AABB>   worldBounds;
+        bool                  receiveShadow = true;
     };
 
     struct PreparedPointLight {
@@ -31,6 +32,17 @@ namespace sky::aurora {
         uint64_t                        sceneRevision = 0;
         std::vector<PreparedDrawPacket> draws;
         std::vector<PreparedPointLight> lights;
+        std::vector<PreparedDrawPacket> shadowCasters;
+    };
+
+    enum class PreparedDrawList : uint8_t { VISIBLE, SHADOW_CASTERS };
+
+    // Geometry and material bytes are owned; the consuming pass supplies all shader bindings.
+    struct ResolvedRasterDraw {
+        RasterDraw             draw;
+        Matrix4                world = RenderIdentityMatrix();
+        std::vector<std::byte> material;
+        bool                   receiveShadow = true;
     };
 
     struct PreparedFrame {

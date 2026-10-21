@@ -51,7 +51,7 @@ namespace sky::aurora {
         {
             return rootSignature.Get();
         }
-        const ShaderReflection &GetReflection() const
+        const ShaderReflection &GetReflection() const override
         {
             return reflection;
         }

@@ -14,9 +14,10 @@ namespace sky::aurora {
         VertexInputRate rate   = VertexInputRate::PER_VERTEX;
     };
     struct RenderMeshLod {
-        uint64_t       offset = 0, size = 0;
-        IndexType      type = IndexType::U32;
-        CmdDrawIndexed command;
+        uint64_t                    offset = 0, size = 0;
+        IndexType                   type = IndexType::U32;
+        CmdDrawIndexed              command;
+        std::vector<CmdDrawIndexed> sections;
     };
     struct RenderMeshData {
         std::vector<RenderMeshStream>      streams;

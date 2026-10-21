@@ -42,9 +42,10 @@ namespace sky::aurora {
         {
             FrameGraphImage image{backing.image, backing.descriptor, initial, ImageLayout::GENERAL, false};
             const auto     &desc       = backing.descriptor;
+            const uint32_t  texelBytes = desc.format == PixelFormat::RGBA16_SFLOAT ? 8 : 4;
             uint64_t        layerBytes = 0;
             for (uint32_t mip = 0; mip < desc.mipLevels; ++mip)
-                layerBytes += uint64_t(std::max(1u, desc.extent.width >> mip)) * std::max(1u, desc.extent.height >> mip) * 4;
+                layerBytes += uint64_t(std::max(1u, desc.extent.width >> mip)) * std::max(1u, desc.extent.height >> mip) * texelBytes;
             const auto layers = static_cast<uint32_t>(bytes / layerBytes);
             if (layers)
                 image.initializedRanges.push_back({0, desc.mipLevels, 0, layers, AspectFlagBit::COLOR_BIT});
@@ -53,10 +54,10 @@ namespace sky::aurora {
             for (; mip < desc.mipLevels && bytes; ++mip) {
                 const auto width  = std::max(1u, desc.extent.width >> mip);
                 const auto height = std::max(1u, desc.extent.height >> mip);
-                const auto size   = uint64_t(width) * height * 4;
+                const auto size   = uint64_t(width) * height * texelBytes;
                 if (bytes < size) {
-                    const auto rows = static_cast<uint32_t>(bytes / 4 / width);
-                    const auto tail = static_cast<uint32_t>(bytes / 4 % width);
+                    const auto rows = static_cast<uint32_t>(bytes / texelBytes / width);
+                    const auto tail = static_cast<uint32_t>(bytes / texelBytes % width);
                     if (rows)
                         image.initializedRegions.push_back({mip, layers, {{0, 0}, {width, rows}}});
                     if (tail)
@@ -73,21 +74,22 @@ namespace sky::aurora {
         {
             std::vector<BufferImageCopyPass> copies;
             uint64_t                         offset = 0;
+            const auto                       texelBytes = RenderImageTexelBytes(layout.format);
             for (uint32_t layer = 0; layer < layout.arrayLayers && offset < bytes && copies.size() < passBudget; ++layer) {
                 for (uint32_t mip = 0; mip < layout.mipLevels && offset < bytes && copies.size() < passBudget; ++mip) {
                     const auto width  = std::max(1u, layout.width >> mip);
                     const auto height = std::max(1u, layout.height >> mip);
-                    const auto size   = uint64_t(width) * height * 4;
+                    const auto size   = uint64_t(width) * height * texelBytes;
                     if (first >= size) {
                         first -= size;
                         continue;
                     }
-                    auto pixel = first / 4;
+                    auto pixel = first / texelBytes;
                     first      = 0;
-                    while (pixel < size / 4 && offset < bytes && copies.size() < passBudget) {
+                    while (pixel < size / texelBytes && offset < bytes && copies.size() < passBudget) {
                         const auto          x         = static_cast<uint32_t>(pixel % width);
                         const auto          y         = static_cast<uint32_t>(pixel / width);
-                        const auto          available = (bytes - offset) / 4;
+                        const auto          available = (bytes - offset) / texelBytes;
                         const auto          rows      = !x ? static_cast<uint32_t>(std::min<uint64_t>(height - y, available / width)) : 0;
                         const auto          columns   = rows ? width : static_cast<uint32_t>(std::min<uint64_t>(width - x, available));
                         BufferImageCopyPass copy;
@@ -99,7 +101,7 @@ namespace sky::aurora {
                         copies.push_back(copy);
                         const auto count = uint64_t(columns) * copy.region.imageExtent.height;
                         pixel += count;
-                        offset += count * 4;
+                        offset += count * texelBytes;
                     }
                 }
             }
@@ -228,10 +230,12 @@ namespace sky::aurora {
                             target.final != ImageLayout::GENERAL)
                             return false;
                         if (!i) {
+                            const uint32_t                      texelBytes = backing.descriptor.format == PixelFormat::RGBA16_SFLOAT ? 8 : 4;
                             const auto                          contents = ResolveInitializedImageContents(target);
                             const auto                         *resolved = std::get_if<ResolvedImageContents>(&contents);
                             const std::vector<ImageContentSpan> prefix =
-                                item.first ? std::vector<ImageContentSpan>{{0, item.first / 4}} : std::vector<ImageContentSpan>{};
+                                (item.first != 0u) ? std::vector<ImageContentSpan>{{.begin = 0, .end = item.first / texelBytes}}
+                                                   : std::vector<ImageContentSpan>{};
                             if (!resolved || resolved->ranges != prefix)
                                 return false;
                         }
@@ -256,10 +260,12 @@ namespace sky::aurora {
                                   (write->direction == ImageCopyDirection::BUFFER_TO_IMAGE && write->image == imageTarget)))
                         return false;
                     if (const auto *write = std::get_if<FrameRasterPass>(&data.passes[pass]);
-                        write && (write->color == imageTarget || (write->depth && write->depth->image == imageTarget) ||
-                                  (write->colorResolve && write->colorResolve->image == imageTarget) ||
-                                  (write->depth && write->depth->resolve && write->depth->resolve->image == imageTarget)))
+                        (write != nullptr) && imageTarget != GraphImageHandle{} &&
+                        (write->color == imageTarget || (write->depth && write->depth->image == imageTarget) ||
+                         (write->colorResolve && write->colorResolve->image == imageTarget) ||
+                         (write->depth && write->depth->resolve && write->depth->resolve->image == imageTarget))) {
                         return false;
+                    }
                 }
             }
             return true;
@@ -323,8 +329,10 @@ namespace sky::aurora {
             if (payload && payload->metadata.image) {
                 const auto &image = *payload->metadata.image;
                 if (RenderImageByteSize(image) != payload->bytes.size() || image.arrayLayers > UINT16_MAX ||
-                    uint64_t(image.mipLevels) * image.arrayLayers > 1024 || image.width > INT32_MAX / 4 || image.height > INT32_MAX)
+                    uint64_t(image.mipLevels) * image.arrayLayers > 1024 || image.width > INT32_MAX / RenderImageTexelBytes(image.format) ||
+                    image.height > INT32_MAX) {
                     return FrameError{FrameErrorCode::UNSUPPORTED, "Image upload exceeds the supported complete subresource layout"};
+                }
             }
         }
         state->PruneResources();
@@ -352,7 +360,7 @@ namespace sky::aurora {
             const auto                       creates           = state->budgetLease == lease ? state->frameCreates : 0;
             const auto                       frameRemaining    = state->limits.bytesPerFrame - spent;
             const auto                       inflightRemaining = state->limits.inflightBytes - state->reserved - batch.bytes;
-            constexpr uint64_t               minimum           = 4;
+            const uint64_t                   minimum           = image ? RenderImageTexelBytes(payload->metadata.image->format) : 4;
             std::optional<UploadDeferReason> deferred;
             if (minimum > frameRemaining)
                 deferred = UploadDeferReason::FRAME_BYTES;
@@ -368,7 +376,7 @@ namespace sky::aurora {
                 result.deferred.push_back({ticket, *deferred});
                 continue;
             }
-            const auto capacity = state->context->AvailableFrameBufferBytes(lease, FrameBufferKind::STAGING, 4);
+            const auto capacity = state->context->AvailableFrameBufferBytes(lease, FrameBufferKind::STAGING, minimum);
             if (const auto *error = std::get_if<FrameError>(&capacity)) {
                 rollback();
                 return *error;
@@ -378,7 +386,7 @@ namespace sky::aurora {
                 result.deferred.push_back({ticket, UploadDeferReason::STAGING});
                 continue;
             }
-            auto                             size = std::min({total - first, frameRemaining, inflightRemaining, available}) & ~uint64_t{3};
+            auto                             size = std::min({total - first, frameRemaining, inflightRemaining, available}) & ~(minimum - 1);
             std::vector<BufferImageCopyPass> imageCopies;
             if (image) {
                 imageCopies = PlanImageChunk(*payload->metadata.image, first, size, 1024 - builder.GetPassCount());
@@ -387,8 +395,8 @@ namespace sky::aurora {
                     return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Upload graph has no copy pass capacity"};
                 }
             }
-            auto staging =
-                state->context->WriteFrameBuffer(lease, FrameBufferKind::STAGING, std::as_bytes(std::span(payload->bytes).subspan(first, size)), 4);
+            auto staging = state->context->WriteFrameBuffer(lease, FrameBufferKind::STAGING,
+                                                            std::as_bytes(std::span(payload->bytes).subspan(first, size)), minimum);
             if (const auto *error = std::get_if<FrameError>(&staging)) {
                 if (error->code == FrameErrorCode::OUT_OF_MEMORY) {
                     result.deferred.push_back({ticket, UploadDeferReason::STAGING});
@@ -426,7 +434,7 @@ namespace sky::aurora {
                 desc.extent      = {layout.width, layout.height, 1};
                 desc.mipLevels   = layout.mipLevels;
                 desc.arrayLayers = layout.arrayLayers;
-                desc.format      = PixelFormat::RGBA8_UNORM;
+                desc.format      = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT : PixelFormat::RGBA8_UNORM;
                 desc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
                 ImagePtr target(state->device->CreateImage(desc));
                 if (!target) {

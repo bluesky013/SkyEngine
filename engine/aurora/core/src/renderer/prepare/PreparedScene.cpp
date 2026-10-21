@@ -20,7 +20,7 @@ namespace sky::aurora {
             return {entity.scene.index, entity.scene.generation, entity.entity.index, entity.entity.generation, slot};
         }
         using Bindings          = std::map<BindingKey, ResolvedResourceBinding>;
-        constexpr uint64_t DRAW = 1, LIGHT = 2;
+        constexpr uint64_t DRAW = 1, LIGHT = 2, SHADOW_CASTER = 3;
 
         bool Finite(const AABB &b)
         {
@@ -63,7 +63,7 @@ namespace sky::aurora {
                         object.selectedMesh     = Select(context, bindings, {scene, id}, ResourceBindingSlot::MESH, mesh.binding);
                         object.selectedMaterial = Select(context, bindings, {scene, id}, ResourceBindingSlot::MATERIAL, material.binding);
                         const auto &light       = properties.value.light;
-                        if (light.intensity > 0 && light.range > 0) {
+                        if (light.kind != RenderLightKind::DIRECTIONAL && light.intensity > 0 && light.range > 0) {
                             const Vector3 position{transform.world.v[12], transform.world.v[13], transform.world.v[14]};
                             object.lightBounds = AABB{position - Vector3(light.range), position + Vector3(light.range)};
                             if (!Finite(*object.lightBounds))
@@ -109,10 +109,9 @@ namespace sky::aurora {
                     return;
                 const Vector3 position{object.world.v[12], object.world.v[13], object.world.v[14]};
                 const auto   &light = object.properties.light;
-                if (object.lightBounds && Visible(*object.lightBounds, clip))
+                if ((light.kind == RenderLightKind::DIRECTIONAL && light.intensity > 0) || (object.lightBounds && Visible(*object.lightBounds, clip)))
                     Emit(context, LIGHT, PreparedPointLight{{view.scene, id}, position, light});
-                if (!object.selectedMesh || !object.selectedMaterial || !(object.properties.tags & view.drawTags) ||
-                    (object.worldBounds && !Visible(*object.worldBounds, clip)))
+                if (!object.selectedMesh || !object.selectedMaterial || !(object.properties.tags & view.drawTags))
                     return;
                 Vector3 center = position;
                 if (object.worldBounds)
@@ -127,8 +126,13 @@ namespace sky::aurora {
                                         {object.selectedMaterial->resource, object.material.bindingRevision}};
                 draw.lod         = static_cast<uint32_t>(std::upper_bound(lods.begin(), lods.end(), distance) - lods.begin());
                 draw.tags        = object.properties.tags;
+                draw.subMesh       = object.properties.subMesh;
                 draw.worldBounds = object.worldBounds;
-                Emit(context, DRAW, draw);
+                draw.receiveShadow = object.properties.receiveShadow;
+                if (object.properties.castShadow)
+                    Emit(context, SHADOW_CASTER, draw);
+                if (!object.worldBounds || Visible(*object.worldBounds, clip))
+                    Emit(context, DRAW, draw);
             });
         }
         auto ResourceOrder(const RenderResourceKey &key)
@@ -194,7 +198,7 @@ namespace sky::aurora {
             system.after    = {producers.at({view.desc.scene.index, view.desc.scene.generation})};
             program.work.systems.push_back(std::move(system));
             program.work.partitions.push_back({id, view.desc.scene, rowsPerChunk});
-            program.work.outputs.push_back({id, rowsPerChunk * 2, rowsPerChunk * (sizeof(PreparedDrawPacket) + sizeof(PreparedPointLight)), 0});
+            program.work.outputs.push_back({id, rowsPerChunk * 3, rowsPerChunk * (2 * sizeof(PreparedDrawPacket) + sizeof(PreparedPointLight)), 0});
             program.frame.views.push_back({view.id, view.desc, input.sceneRevision, {}});
             program.viewSystems.push_back(id);
             const auto clip = view.desc.projection * view.desc.view;
@@ -226,10 +230,10 @@ namespace sky::aurora {
                     return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Unknown view output producer"};
                 auto      &view  = frame->views[it - program.viewSystems.begin()];
                 const auto bytes = result.products->Read(record);
-                if (record.channel == DRAW && bytes.size() == sizeof(PreparedDrawPacket)) {
+                if ((record.channel == DRAW || record.channel == SHADOW_CASTER) && bytes.size() == sizeof(PreparedDrawPacket)) {
                     PreparedDrawPacket draw;
                     std::memcpy(&draw, bytes.data(), bytes.size());
-                    view.draws.push_back(draw);
+                    (record.channel == DRAW ? view.draws : view.shadowCasters).push_back(draw);
                 } else if (record.channel == LIGHT && bytes.size() == sizeof(PreparedPointLight)) {
                     PreparedPointLight light;
                     std::memcpy(&light, bytes.data(), bytes.size());
@@ -241,6 +245,7 @@ namespace sky::aurora {
         }
         for (auto &view : frame->views) {
             std::sort(view.draws.begin(), view.draws.end(), DrawLess);
+            std::sort(view.shadowCasters.begin(), view.shadowCasters.end(), DrawLess);
             std::sort(view.lights.begin(), view.lights.end(),
                       [](const auto &a, const auto &b) { return EntityOrder(a.entity) < EntityOrder(b.entity); });
         }

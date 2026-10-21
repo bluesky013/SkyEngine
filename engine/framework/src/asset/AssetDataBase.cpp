@@ -2,12 +2,13 @@
 // Created by blues on 2024/6/16.
 //
 
+#include <framework/asset/AssetDataBase.h>
+
 #include <core/file/FileUtil.h>
 #include <core/file/MultiFileSystem.h>
 #include <core/hash/Hash.h>
 #include <core/logger/Logger.h>
 #include <framework/asset/AssetBuilderManager.h>
-#include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetDependencyProvider.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
@@ -21,7 +22,7 @@ namespace sky {
 
     void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
-        engineFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
+        engineFs = fs ? CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true)) : NativeFileSystemPtr{};
         RebuildMounts();
     }
 
@@ -90,13 +91,14 @@ namespace sky {
         return Uuid::CreateWithSeed(hash);
     }
 
-    void AssetDataBase::MigrateLegacyIdentity()
+    std::optional<FileScanError> AssetDataBase::MigrateLegacyIdentity()
     {
         // Seed legacy `(bundle, path)` UUIDs into every source manifest. Existing entries and any
         // `assets.db` rows win (idempotent); only directories containing assets get a manifest.
         migrationMode = true;
-        RebuildCacheFromScan();
+        const auto error = RebuildCacheFromScan();
         migrationMode = false;
+        return error;
     }
 
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
@@ -445,66 +447,67 @@ namespace sky {
         iter->second->name = name;
     }
 
-    void AssetDataBase::Load()
+    std::optional<FileScanError> AssetDataBase::Load()
     {
         if (workSpaceFs == nullptr) {
-            return;
+            return {};
         }
 
+        const auto scanned = ScanSources();
+        if (const auto *error = std::get_if<FileScanError>(&scanned)) {
+            return *error;
+        }
         auto file = workSpaceFs->OpenFile("assets.db");
-        if (!file) {
-            // The cache is regenerable; rebuild it from the writable source mount.
-            RebuildCacheFromScan();
-            return;
-        }
+        if (file) {
+            auto             archive = file->ReadAsArchive();
+            JsonInputArchive json(*archive);
 
-        auto             archive = file->ReadAsArchive();
-        JsonInputArchive json(*archive);
+            {
+                uint32_t count = json.StartArray("assets");
+                for (uint32_t i = 0; i < count; ++i) {
+                    auto *pInfo = new AssetSourceInfo();
+                    auto &info  = *pInfo;
 
-        {
-            uint32_t count = json.StartArray("assets");
-            for (uint32_t i = 0; i < count; ++i) {
-                auto *pInfo = new AssetSourceInfo();
-                auto &info  = *pInfo;
+                    json.Start("uuid");
+                    info.uuid = Uuid::CreateFromString(json.LoadString());
+                    json.End();
 
-                json.Start("uuid");
-                info.uuid = Uuid::CreateFromString(json.LoadString());
-                json.End();
+                    json.Start("markedName");
+                    info.name = json.LoadString();
+                    json.End();
 
-                json.Start("markedName");
-                info.name = json.LoadString();
-                json.End();
+                    json.Start("ext");
+                    info.ext = json.LoadString();
+                    json.End();
 
-                json.Start("ext");
-                info.ext = json.LoadString();
-                json.End();
+                    json.Start("path");
+                    info.path = json.LoadString();
+                    json.End();
 
-                json.Start("path");
-                info.path = json.LoadString();
-                json.End();
+                    uint32_t depCount = json.StartArray("dependencies");
+                    for (uint32_t j = 0; j < depCount; ++j) {
+                        info.dependencies.emplace_back(Uuid::CreateFromString(json.LoadString()));
+                        json.NextArrayElement();
+                    }
+                    json.End();
 
-                uint32_t depCount = json.StartArray("dependencies");
-                for (uint32_t j = 0; j < depCount; ++j) {
-                    info.dependencies.emplace_back(Uuid::CreateFromString(json.LoadString()));
                     json.NextArrayElement();
+
+                    {
+                        std::lock_guard lock(assetMutex);
+                        pathMap.emplace(info.path, info.uuid);
+                        idMap.emplace(info.uuid, pInfo);
+                    }
                 }
+
                 json.End();
-
-                json.NextArrayElement();
-
-                {
-                    std::lock_guard lock(assetMutex);
-                    pathMap.emplace(info.path, info.uuid);
-                    idMap.emplace(info.uuid, pInfo);
-                }
             }
-
-            json.End();
         }
 
-        // Discover sources from every mount (the manifest provides stable identity; the db is only
-        // a legacy seed / cross-check). Ensures read-only engine assets appear too.
-        RebuildCacheFromScan();
+        for (const auto &relative : std::get<std::vector<FilePath>>(scanned)) {
+            RegisterAsset(relative, false);
+        }
+        return {};
     }
 
     void AssetDataBase::Save()
@@ -564,27 +567,37 @@ namespace sky {
         manifests.Clear();
     }
 
-    void AssetDataBase::RebuildCacheFromScan()
+    std::optional<FileScanError> AssetDataBase::RebuildCacheFromScan()
     {
-        // Discover sources across every mount in order (earlier mounts shadow later ones), with one
-        // recursive walk per mount testing builder-known extensions in the visitor. Read-only mounts
-        // keep path-derived identity and are not written to (except during the legacy migration, which
-        // seeds the committed engine manifests).
-        //
-        // World documents (`.world`) are source assets too: they have no builder (never cooked), but they
-        // get manifest identity like any other source so document/world references stay stable.
+        const auto scanned = ScanSources();
+        if (const auto *error = std::get_if<FileScanError>(&scanned)) {
+            return *error;
+        }
+        for (const auto &relative : std::get<std::vector<FilePath>>(scanned)) {
+            RegisterAsset(relative, false);
+        }
+        return {};
+    }
+
+    FileScanResult AssetDataBase::ScanSources() const
+    {
         auto extensions = AssetBuilderManager::Get()->GetExtensions();
         extensions.push_back(".world");
 
+        // Complete every mount before publishing assets or seeding manifests.
+        std::vector<FilePath> files;
         for (const auto &fs : mountFsList) {
             if (fs == nullptr) {
                 continue;
             }
-            const auto root = fs->GetPath();
-            for (const auto &relative : NativeFileSystem::FilterFiles(root, extensions)) {
-                RegisterAsset(FilePath{relative}, false);
+            auto scanned = NativeFileSystem::FilterFiles(fs->GetPath(), extensions);
+            if (const auto *error = std::get_if<FileScanError>(&scanned)) {
+                return *error;
             }
+            auto &paths = std::get<std::vector<FilePath>>(scanned);
+            files.insert(files.end(), std::make_move_iterator(paths.begin()), std::make_move_iterator(paths.end()));
         }
+        return files;
     }
 
     void AssetDataBase::BuildAllTargets(const Uuid &uuid)

@@ -11,14 +11,21 @@
 namespace sky::aurora {
     class IFrameGraphFeature;
 
+    enum class RenderLightKind : uint8_t { POINT, DIRECTIONAL, SPOT };
     struct RenderPointLight {
-        Vector3 color{1, 1, 1};
-        float   intensity = 0;
-        float   range     = 0;
+        Vector3         color{1, 1, 1};
+        float           intensity = 0;
+        float           range     = 0;
+        RenderLightKind kind      = RenderLightKind::POINT;
+        Vector3         direction{0, 0, -1};
+        float           innerConeAngle = 0, outerConeAngle = 0.785398f;
+        bool            castShadow = false;
     };
     struct RenderDrawProperties {
         uint64_t         tags = 1;
         RenderPointLight light;
+        uint32_t         subMesh    = 0;
+        bool             castShadow = false, receiveShadow = false;
     };
 
     struct RenderEntityDesc {
@@ -35,7 +42,10 @@ namespace sky::aurora {
         const auto &l = desc.properties.light;
         return std::all_of(std::begin(m.v), std::end(m.v), [](float v) { return std::isfinite(v); }) && m.v[3] == 0 && m.v[7] == 0 && m.v[11] == 0 &&
                m.v[15] == 1 && std::isfinite(l.color.x) && std::isfinite(l.color.y) && std::isfinite(l.color.z) && l.color.x >= 0 && l.color.y >= 0 &&
-               l.color.z >= 0 && std::isfinite(l.intensity) && l.intensity >= 0 && std::isfinite(l.range) && l.range >= 0;
+               l.color.z >= 0 && std::isfinite(l.intensity) && l.intensity >= 0 && std::isfinite(l.range) && l.range >= 0 &&
+               l.kind <= RenderLightKind::SPOT && std::isfinite(l.direction.x) && std::isfinite(l.direction.y) && std::isfinite(l.direction.z) &&
+               std::isfinite(l.innerConeAngle) && std::isfinite(l.outerConeAngle) && l.innerConeAngle >= 0 && l.innerConeAngle <= l.outerConeAngle &&
+               l.outerConeAngle < 1.5707964f;
     }
 
     struct CreateScene {

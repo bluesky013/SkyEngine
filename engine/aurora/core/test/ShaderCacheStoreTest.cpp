@@ -16,6 +16,26 @@
 using namespace sky;
 using namespace sky::aurora;
 
+TEST(ShaderCacheStoreTest, ArrayReflectionRoundTripsAndRejectsPreviousFormat)
+{
+    ShaderCacheBlob   blob;
+    ShaderBlockLayout block;
+    block.name       = "lighting";
+    block.structName = "LightingParams";
+    block.size       = 128;
+    block.members.push_back({"lights", 0, 128, ShaderScalarType::FLOAT, ShaderTypeKind::ARRAY, 1, 4, 8, 16});
+    blob.reflection.blocks.push_back(block);
+    auto            bytes = EncodeBlob(blob);
+    ShaderCacheBlob loaded;
+    ASSERT_TRUE(DecodeBlob(bytes, loaded));
+    ASSERT_EQ(loaded.reflection.blocks.size(), 1u);
+    EXPECT_EQ(loaded.reflection.blocks.front().members, block.members);
+    ASSERT_GT(bytes.size(), 7u);
+    bytes[4] = 2;
+    bytes[5] = bytes[6] = bytes[7] = 0;
+    EXPECT_FALSE(DecodeBlob(bytes, loaded));
+}
+
 namespace {
 
     struct TempDir {

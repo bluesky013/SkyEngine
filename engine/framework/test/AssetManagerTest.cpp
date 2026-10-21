@@ -20,6 +20,7 @@
 #include <framework/serialization/SerializationContext.h>
 #include <test/EngineRoot.h>
 
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -27,6 +28,90 @@
 #include <thread>
 
 using namespace sky;
+
+namespace {
+    class AssetScanTest : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            std::error_code error;
+            const auto      temp = std::filesystem::temp_directory_path(error);
+            ASSERT_FALSE(error);
+            root      = temp / ("sky-asset-scan-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+            workspace = root / "project" / "assets";
+            engine    = root / "engine" / "assets";
+            database.SetWorkSpaceFs(new NativeFileSystem(FilePath(workspace)));
+            database.SetEngineFs(new NativeFileSystem(FilePath(engine.parent_path())));
+            std::ofstream(workspace / "scene.world") << "{}";
+        }
+        void TearDown() override
+        {
+            if (!root.empty()) {
+                std::error_code error;
+                std::filesystem::remove_all(root, error);
+                EXPECT_FALSE(error);
+            }
+        }
+        AssetDataBase         database;
+        std::filesystem::path root, workspace, engine;
+    };
+
+    TEST_F(AssetScanTest, FailedMountDoesNotPublishEarlierMountAndRetrySucceeds)
+    {
+        std::error_code error;
+        ASSERT_TRUE(std::filesystem::remove(engine, error));
+        ASSERT_FALSE(error);
+        const auto failure = database.RebuildCacheFromScan();
+        ASSERT_TRUE(failure);
+        EXPECT_EQ(failure->path, FilePath(engine));
+        EXPECT_EQ(failure->code, std::errc::no_such_file_or_directory);
+        EXPECT_TRUE(database.GetSources().empty());
+        EXPECT_FALSE(std::filesystem::exists(workspace / "assets.jsonl", error));
+        ASSERT_TRUE(std::filesystem::create_directory(engine, error));
+        ASSERT_FALSE(error);
+        EXPECT_FALSE(database.RebuildCacheFromScan());
+        ASSERT_EQ(database.GetSources().size(), 1u);
+        EXPECT_NE(database.FindAsset(FilePath("scene.world")), nullptr);
+    }
+
+    TEST_F(AssetScanTest, FailedLoadDoesNotImportCacheAndRetryKeepsCachedIdentity)
+    {
+        const auto original = database.RegisterAsset("scene.world", false);
+        ASSERT_NE(original, nullptr);
+        const auto id = original->uuid;
+        database.Save();
+        database.Reset();
+        std::error_code error;
+        ASSERT_TRUE(std::filesystem::remove(engine, error));
+        ASSERT_FALSE(error);
+        const auto failure = database.Load();
+        ASSERT_TRUE(failure);
+        EXPECT_EQ(failure->path, FilePath(engine));
+        EXPECT_TRUE(database.GetSources().empty());
+        ASSERT_TRUE(std::filesystem::create_directory(engine, error));
+        ASSERT_FALSE(error);
+        EXPECT_FALSE(database.Load());
+        const auto restored = database.FindAsset(FilePath("scene.world"));
+        ASSERT_NE(restored, nullptr);
+        EXPECT_EQ(restored->uuid, id);
+    }
+
+    TEST_F(AssetScanTest, FailedMigrationRestoresOrdinaryReadOnlyMountBehavior)
+    {
+        std::error_code error;
+        ASSERT_TRUE(std::filesystem::remove(engine, error));
+        ASSERT_FALSE(error);
+        EXPECT_TRUE(database.MigrateLegacyIdentity());
+        EXPECT_TRUE(database.GetSources().empty());
+        ASSERT_TRUE(std::filesystem::create_directory(engine, error));
+        ASSERT_FALSE(error);
+        std::ofstream(engine / "engine.world") << "{}";
+        EXPECT_FALSE(database.RebuildCacheFromScan());
+        EXPECT_NE(database.FindAsset(FilePath("engine.world")), nullptr);
+        EXPECT_FALSE(std::filesystem::exists(engine / "assets.jsonl", error));
+        EXPECT_FALSE(error);
+    }
+} // namespace
 
 // Identity codec used to exercise the compressed product path without the CompressionModule.
 class DummyCompressor : public ICompressor {
@@ -357,7 +442,7 @@ public:
 TEST_F(AssetManagerTest, BuilderTest)
 {
     auto *db = AssetDataBase::Get();
-    db->Load();
+    EXPECT_FALSE(db->Load().has_value());
     auto src = db->RegisterAsset("framework/data/test_asset.t3");
     db->Save();
     db->Dump(std::cout);
@@ -437,7 +522,7 @@ TEST_F(AssetManagerTest, MountProvenanceTest)
     EXPECT_EQ(shared->mount, "workspace");
 
     // Read-only identity is stable across a rescan and no manifest is written for the engine mount.
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
     auto engAgain = db->RegisterAsset(FilePath("framework/data/eng_only.t3"), false);
     ASSERT_NE(engAgain, nullptr);
     EXPECT_EQ(engAgain->uuid, engUuid);
@@ -475,7 +560,7 @@ TEST_F(AssetManagerTest, MigrateLegacyIdentityTest)
     db->SetWorkSpaceFs((new NativeFileSystem(root.string()))->CreateSubSystem("assets", true));
 
     // Migration seeds the legacy (bundle, path) UUID reproduced via the mount->legacy bundle mapping.
-    db->MigrateLegacyIdentity();
+    EXPECT_FALSE(db->MigrateLegacyIdentity().has_value());
 
     auto src = db->FindAsset(FilePath("framework/data/m.t3"));
     ASSERT_NE(src, nullptr);
@@ -486,7 +571,7 @@ TEST_F(AssetManagerTest, MigrateLegacyIdentityTest)
     EXPECT_TRUE(src->uuid == Uuid::CreateWithSeed(hash));
 
     // Idempotent: re-running the migration keeps the same identity.
-    db->MigrateLegacyIdentity();
+    EXPECT_FALSE(db->MigrateLegacyIdentity().has_value());
     EXPECT_TRUE(db->FindAsset(FilePath("framework/data/m.t3"))->uuid == src->uuid);
 
     // Restore the suite fixture's mounts for the remaining tests.
@@ -719,7 +804,7 @@ TEST_F(AssetManagerTest, ScanRebuildTest)
     db->Reset();
 
     // Rebuild the dev cache by scanning the writable mount for builder-known extensions.
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     EXPECT_NE(db->FindAsset("framework/data/test_asset.t1"), nullptr);
     EXPECT_NE(db->FindAsset("framework/data/test_asset.t2"), nullptr);

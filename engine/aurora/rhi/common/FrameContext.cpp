@@ -236,7 +236,7 @@ namespace sky::aurora {
             return Error(FrameErrorCode::INVALID_ARGUMENT);
         uint32_t imageSubresources = 0;
         if (const auto *bufferState = std::get_if<CopyBufferState>(&initial)) {
-            if (*bufferState > CopyBufferState::RASTER_READ)
+            if (!IsValidFrameBufferState(*bufferState))
                 return Error(FrameErrorCode::INVALID_ARGUMENT);
         } else {
             const auto count = std::get<ImagePtr>(resource)->GetMipLayerCount();
@@ -516,10 +516,10 @@ namespace sky::aurora {
             return SubmissionRejected{Error(FrameErrorCode::SUBMIT_REJECTED, result.error)};
         }
         frame->synchronizationOwner = sync.owner;
-        slot.token     = {identity.lease, ++state->serial};
-        slot.retained  = std::move(recorded);
-        frame->receipt = {};
-        state->active  = UINT32_MAX;
+        slot.token                  = {identity.lease, ++state->serial};
+        slot.retained               = std::move(recorded);
+        frame->receipt              = {};
+        state->active               = UINT32_MAX;
         if (result.status == QueueSubmitStatus::INDETERMINATE) {
             slot.phase      = SlotPhase::QUARANTINED;
             state->terminal = true;

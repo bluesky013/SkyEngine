@@ -145,76 +145,69 @@ shader SHALL 是派生 native layout 的短命对象，创建完 pipeline 后即
 - **WHEN** 创建 pipeline 与 ResourceGroup 后释放调用方 shader 引用
 - **THEN** shader 生命周期由 pipeline 与 ResourceGroup 的引用共同决定，且无 delayed release 语义；ResourceGroup 存续期间 set layout 不悬空
 
-### Requirement: UBO 类型按 tier 约定（global/pass static，batch dynamic）
+### Requirement: UBO 类型按显式绑定声明
 
-`ShaderResourceType` SHALL 含 `UNIFORM_BUFFER_DYNAMIC` 与 `STORAGE_BUFFER_DYNAMIC` 变体。set 0（global）与 set 1（pass）的 UBO SHALL 为 static `UNIFORM_BUFFER`；set 2（batch）的 UBO SHALL 为 dynamic `UNIFORM_BUFFER_DYNAMIC`（配合 per-draw offset）。
+`ShaderResourceType` SHALL 含 `UNIFORM_BUFFER_DYNAMIC` 与 `STORAGE_BUFFER_DYNAMIC` 变体。Global/Pass/Batch 的静态或动态绑定 SHALL 由具体 Pass/材质契约显式选择，不得仅由 set 编号推导。
 
-DYNAMIC 变体非 SPIR-V 反射自然产物，SHALL 由上层 codegen 按 `RgBlockDesc.kind`（`CBUFFER_DYNAMIC`）在构建 reflection 时标记。
+DYNAMIC 变体非 shader 反射自然产物。共享声明 SHALL 描述基础 uniform 类型；调用方 SHALL 使实际 shader/layout 的动态类型、分配范围和绑定偏移保持一致。
 
-#### Scenario: batch 的 UBO 为 dynamic
+#### Scenario: 显式动态绑定
 
-- **WHEN** codegen 生成 batch block（`kind = CBUFFER_DYNAMIC`）的 reflection，其 set 2 的 resource 类型标记为 `UNIFORM_BUFFER_DYNAMIC`
+- **WHEN** 调用方将 batch resource 的类型显式选择为 `UNIFORM_BUFFER_DYNAMIC`
 - **THEN** ResourceGroup{shader, 2} 派生出的 layout 为 dynamic UBO，`BindResourceGroup(2, rg, 1, &offset)` 生效
 
-#### Scenario: global/pass 的 UBO 为 static
+#### Scenario: 静态绑定
 
 - **WHEN** global（set 0）/ pass（set 1）block 的 reflection resource 类型为 `UNIFORM_BUFFER`
 - **THEN** ResourceGroup{shader, 0} 与 {shader, 1} 的 UBO 为 static，无 dynamic offset
 
-### Requirement: 反射驱动 codegen
+### Requirement: Pass-owned shared header source
+Each Global/Pass/Batch declaration SHALL have one editable shared `.h` source consumed directly by C++ and Slang. Field/resource lists SHALL define native C++ types, typed binding slots, expected schema and shader declarations without duplicating fields or binding numbers. Global/Pass/Batch SHALL remain sets 0/1/2; View SHALL remain optional and owned by the consuming Pass.
 
-离线 codegen（host 工具）SHALL 以 `.slang` shader 反射为输入，对每个 resource block 产出两侧共享头：C++ 镜像 struct 与 `RgBlockDesc`。
+#### Scenario: Build C++ without shader code generation
+- **WHEN** Pipeline C++ consumers compile
+- **THEN** they include source headers directly and have no ShaderHeaders, ShaderHeaderTool or Slang execution prerequisite; CMake may embed source text for runtime shader includes
 
-生成的 C++ struct SHALL 逐字段使用 `alignas` 对齐 std140 布局，并携带 `static_assert(sizeof)` 与逐字段 `static_assert(offsetof)`；offset/size SHALL 来自 slang 反射，而非 C++ 侧重算。
+#### Scenario: Shared source changes
+- **WHEN** a shared declaration or common shader helper changes
+- **THEN** C++ consumers rebuild and CMake refreshes the embedded source; no mirrored ABI header in the source or build tree is consumed
 
-#### Scenario: 生成 C++ 镜像 struct
-
-- **WHEN** 对声明 `struct GlobalParams { float4x4 view; float4x4 proj; float4x4 viewProj; float4 cameraPos; }` 的 `.slang` 做 codegen
-- **THEN** 产出含 `Matrix4 view/proj/viewProj` 与 `Vector4 cameraPos` 的 C++ struct，且 `static_assert(offsetof(cameraPos) == 64)` 与 `static_assert(sizeof == 128)` 成立
-
-#### Scenario: 生成 RgBlockDesc
-
-- **WHEN** 对含 `[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal` 的 `.slang` 做 codegen
-- **THEN** 产出 `GetGlobalBlockDesc()` 返回 `RgBlockDesc{set=0, binding=0, blockName="Global", kind=CBUFFER}`，字段顺序与 struct 成员一致
+#### Scenario: Uniform layout across targets
+- **WHEN** a shared flat uniform block is compiled for SPIR-V, DXIL or MSL
+- **THEN** it uses explicit logical set/binding ConstantBuffer declarations and column-major matrices; expected C++ sizeof/offsetof and reflected target layout must agree
 
 ### Requirement: 虚拟 include
+`ShaderCompilerSlang` SHALL resolve quoted and angle includes through `ShaderFileSystem`, including packaged shared headers and their common helper, without requiring disk copies or native host header generators.
 
-`ShaderCompilerSlang` SHALL 支持虚拟 include：经 `ShaderFileSystem`（Slang 文件系统回调）解析 shader 中的 `#include`，命中内存中生成的共享头，无需落盘。
+#### Scenario: Packaged scene shaders
+- **WHEN** only the built-in scene virtual files are registered, without filesystem search paths
+- **THEN** SceneForward, SceneLit, SceneShadow and SceneToneMap compile for each supported target with their shared declaration includes
 
-#### Scenario: include 生成头
-
-- **WHEN** shader 源码含 `#include "Generated/GlobalBlock.slang"` 且该路径在 `ShaderFileSystem` 中有对应内存内容
-- **THEN** 编译成功；该路径无需存在于磁盘
+#### Scenario: Shared helper cache invalidation
+- **WHEN** a shared helper reached through an angle include changes
+- **THEN** the source closure hash changes and old cache entries are rejected; quoted includes search the including directory before the logical root
 
 ### Requirement: 类型映射
+Shared declaration helpers SHALL map float/int/uint, float2/float4 and column-major mat4 fields to native C++ types and Slang fields, and preserve bounded float4 array counts/strides. BOOL/FLOAT3 uniform fields (use UINT/FLOAT4), nested structures, storage-buffer declarations, descriptor arrays and unsupported uniform arrays SHALL fail explicitly instead of omitting fields. Resource-only declarations SHALL preserve resource shape and typed slots; describing a resource SHALL NOT imply backend binding support.
 
-`ShaderTypeMap` SHALL 把反射得到的 slang 类型映射到 C++ 类型（`float4x4`→`Matrix4`、`float4`→`Vector4`、`uint`→`uint32_t`、`bool`→`uint32_t` 等），定长数组与嵌套 struct 递归映射。
+#### Scenario: Bounded uniform arrays
+- **WHEN** a Pass declares a float4 array
+- **THEN** native sizeof/offsetof, array count and stride agree with each target's reflection
 
-未支持的 slang 类型 SHALL 使 codegen 失败并报错，而非静默降级。
-
-#### Scenario: 标量/向量/矩阵映射
-
-- **WHEN** 反射类型为 `float4x4`
-- **THEN** 生成 C++ 类型 `Matrix4`
-
-#### Scenario: 未支持类型报错
-
-- **WHEN** 反射到映射表未覆盖的 slang 类型
-- **THEN** codegen 返回错误，不产出缺字段的 struct
+#### Scenario: Resource-only declaration
+- **WHEN** a shared declaration contains textures or samplers without constants
+- **THEN** it exposes resource schema and typed slots without inventing a placeholder uniform block
 
 ### Requirement: 三方一致性校验
+Shared C++ types and their expected schema SHALL use native sizeof/offsetof. Target shader reflection SHALL validate resource shapes and actual uniform members, offsets, sizes and strides before binding; the legacy RgBlockDesc bridge SHALL remain derived from the same field list. Tests SHALL verify shared declarations against SPIR-V, DXIL and MSL independently. MSL source/reflection tests SHALL NOT replace native Metal execution validation.
 
-生成的 C++ struct 与 `RgBlockDesc` SHALL 与 shader 反射保持一致：编译期由 `static_assert` 把关布局，运行时由 `ReflectionValidation` 交叉比对 `RgBlockDesc` 与运行时 shader 反射（set/binding/字段顺序/类型/offset）。
+#### Scenario: Layout drift is rejected
+- **WHEN** compiled shader layout disagrees with the shared C++ schema
+- **THEN** binding returns an explicit error before modifying the draw or executing it on the GPU
 
-#### Scenario: 布局漂移编译失败
-
-- **WHEN** 生成的 struct 尺寸/offset 与反射不一致
-- **THEN** `static_assert` 触发，编译失败
-
-#### Scenario: 运行时校验
-
-- **WHEN** 运行时 `ValidateBlockAgainstReflection(desc, reflection)`
-- **THEN** 一致时返回空串；不一致时返回描述差异的错误信息
+#### Scenario: Cross compilation
+- **WHEN** a target platform C++ build consumes a Pass header
+- **THEN** no host shader generator is required to obtain its types; target layout and execution still require corresponding shader/platform validation
 
 ### Requirement: 统一变体模型
 
@@ -289,7 +282,7 @@ aurora.shader SHALL 提供统一 `Name→value` 变体模型，接口与 cache k
 
 Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`（`ShaderResource{set, binding, type, name}`）；`space` 映射 set。
 
-`ShaderCompilerSlang` SHALL 支持虚拟 include：经 `ShaderFileSystem` 解析 shader 中的 `#include`，命中内存中生成的共享头，无需落盘。
+`ShaderCompilerSlang` SHALL 支持虚拟 include：经 `ShaderFileSystem` 解析 shader 中的 `#include`，命中内存中的共享声明源，无需落盘。
 
 #### Scenario: SPIRV 产物
 

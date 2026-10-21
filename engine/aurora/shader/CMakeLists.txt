@@ -42,13 +42,7 @@ sky_add_module(TARGET Aurora.ShaderCompiler
 )
 sky_add_dependency(TARGET Aurora.ShaderCompiler DEPENDENCIES Launcher Editor SandboxEditor AssetTool)
 
-# ---- offline shader codegen (host-only tools) ----
-#
-# These tools run on the build host; they are skipped for cross builds
-# (iOS/Android). The generated header they produce is committed under
-# engine/aurora/pipeline/generated so cross builds need no host tool:
-#   output/bin/ShaderHeaderTool assets/shaders/slang/global/GlobalBlock.slang \
-#       engine/aurora/pipeline/generated/GlobalBlock.gen.h
+# Offline tools are independent of C++ pass declarations.
 if (NOT SKY_MOBILE)
     sky_add_exe(TARGET ShaderHeaderTool
         SOURCES
@@ -57,9 +51,8 @@ if (NOT SKY_MOBILE)
             include
             ${CMAKE_CURRENT_SOURCE_DIR}/include
         LIBS
-            Aurora.ShaderCompiler.Static
+            Aurora.Core.Static
             Core
-            3rdParty::slang
     )
 
     # offline shader cook: usage.json -> index/blobs
@@ -73,15 +66,6 @@ if (NOT SKY_MOBILE)
             Core
     )
 endif()
-
-# slang shader assets, organized by resource tier:
-#   assets/shaders/slang/global/    -> set 0 (GlobalRenderResources)
-#   assets/shaders/slang/pipeline/  -> set 1 (PipelinePass)
-#   assets/shaders/slang/batch/     -> set 2 (per-draw dynamic UBO)
-#
-# `GlobalBlock.gen.h` (derived from global/GlobalBlock.slang) is pre-generated on
-# a host machine and committed at engine/aurora/pipeline/generated; regenerate it
-# with ShaderHeaderTool when the slang block changes (no build-time codegen).
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET Aurora.ShaderTest

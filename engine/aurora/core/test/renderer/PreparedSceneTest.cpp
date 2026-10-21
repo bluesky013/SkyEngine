@@ -182,6 +182,39 @@ TEST_F(PreparedSceneTest, ViewOnlyChangeReusesObjectsButSelectsLodAndTags)
     EXPECT_EQ(frame->views[0].sceneRevision, prepared);
 }
 
+TEST_F(PreparedSceneTest, ShadowCastersSurviveCameraCullingAndKeepOwnedFlags)
+{
+    auto hidden                      = Entity(4);
+    hidden.properties.castShadow     = true;
+    hidden.properties.receiveShadow  = true;
+    hidden.properties.subMesh        = 3;
+    auto visible                     = Entity();
+    visible.properties.castShadow    = true;
+    visible.properties.receiveShadow = false;
+    auto masked                      = hidden;
+    masked.visibilityMask            = 0;
+    Apply({CreateRenderEntity{{a, {0, 1}}, hidden}, CreateRenderEntity{{a, {1, 1}}, visible}, CreateRenderEntity{{a, {2, 1}}, masked}});
+    for (uint32_t i = 0; i < 3; ++i)
+        Bind({a, {i, 1}});
+    const auto serial   = Run(1, 1, true);
+    const auto parallel = Run(3, 2, false, true);
+    ASSERT_TRUE(serial && parallel);
+    const auto &view = parallel->views[0];
+    ASSERT_EQ(view.draws.size(), 1u);
+    EXPECT_FALSE(view.draws[0].receiveShadow);
+    ASSERT_EQ(view.shadowCasters.size(), 2u);
+    ASSERT_EQ(serial->views[0].shadowCasters.size(), view.shadowCasters.size());
+    for (size_t i = 0; i < view.shadowCasters.size(); ++i)
+        EXPECT_EQ(view.shadowCasters[i].entity, serial->views[0].shadowCasters[i].entity);
+    const auto caster =
+        std::find_if(view.shadowCasters.begin(), view.shadowCasters.end(), [](const auto &draw) { return draw.entity.entity.index == 0; });
+    ASSERT_NE(caster, view.shadowCasters.end());
+    EXPECT_EQ(caster->subMesh, 3u);
+    EXPECT_TRUE(caster->receiveShadow);
+    EXPECT_FLOAT_EQ(caster->world.v[12], 4);
+    EXPECT_EQ(caster->mesh.resource, Resource(1));
+}
+
 TEST_F(PreparedSceneTest, SerialParallelAndShuffledChunksHaveIdenticalStablePackets)
 {
     std::vector<RenderCommand> commands;

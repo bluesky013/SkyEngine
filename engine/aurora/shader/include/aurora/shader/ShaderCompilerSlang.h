@@ -23,8 +23,7 @@ namespace sky::aurora {
 
         bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) override;
 
-        // Reflect the global-scope blocks (ParameterBlock / cbuffer) of a module.
-        // No entry point is required; used by the offline shader header codegen.
+        // Inspect module-level uniform layouts without requiring an entry point.
         bool ReflectBlocks(const std::string &source, ShaderTarget target, ShaderReflection &reflection, std::string &error);
 
     private:

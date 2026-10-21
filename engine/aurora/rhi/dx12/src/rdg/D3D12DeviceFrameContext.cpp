@@ -62,8 +62,8 @@ namespace sky::aurora {
                 partition.generation = lease.generation;
                 partition.issued     = 0;
             }
-            const auto &encoder = *batch.plan->encoder;
-            const auto  ordinal = partition.issued;
+            auto      &encoder = *batch.plan->encoder;
+            const auto ordinal = partition.issued;
             if (ordinal == partition.commands.size()) {
                 auto allocation = partition.pool->AllocateChecked(encoder.requiresDepthResolve);
                 if (const auto *error = std::get_if<GpuError>(&allocation))
@@ -77,10 +77,15 @@ namespace sky::aurora {
                 return fail(D3D12Error(begun));
             if (serial)
                 for (uint32_t i = 0; i < encoder.tasks.size(); ++i)
-                    encoder.Encode(device.GetFunctions(), command->GetNativeHandle(), i, command->GetNativeHandle1());
+                    encoder.Encode(device.GetFunctions(), *command, command->GetNativeHandle(), i, command->GetNativeHandle1());
             else
-                encoder.Encode(device.GetFunctions(), command->GetNativeHandle(), task, command->GetNativeHandle1());
+                encoder.Encode(device.GetFunctions(), *command, command->GetNativeHandle(), task, command->GetNativeHandle1());
             const auto ended = command->EndChecked();
+            if (encoder.encodeError && (SUCCEEDED(ended) || encoder.encodeError->code == FrameErrorCode::DEVICE_LOST ||
+                                        encoder.encodeError->cause.code == GpuErrorCode::DEVICE_LOST)) {
+                batch.errors[task] = *encoder.encodeError;
+                return false;
+            }
             if (FAILED(ended))
                 return fail(D3D12Error(ended));
             batch.fragments[task] = command;
@@ -241,17 +246,18 @@ namespace sky::aurora {
         batch->plan.reset(static_cast<D3D12CompiledFrame *>(compiled.release()));
         state->issuedPlan   = nullptr;
         const auto   ticket = batch->ticket;
-        const size_t count  = state->pool ? plan->encoder->tasks.size() : 1;
+        const bool   serial = !state->pool || plan->coordinatorOnly;
+        const size_t count  = serial ? 1 : plan->encoder->tasks.size();
         const auto   budget =
             state->pool ? std::min<uint64_t>(state->maxRecordings, uint64_t{state->pool->GetThreadCount()} * ThreadPool::GetLocalQueueCapacity())
-                        : state->maxRecordings;
+                          : state->maxRecordings;
         if (count > budget) {
             PublishEncoding(ticket, FrameError{FrameErrorCode::OUT_OF_MEMORY, "DX12 encode task/recording budget exceeded"});
             return ticket;
         }
         batch->fragments.resize(count);
         batch->errors.resize(count);
-        if (!state->pool) {
+        if (serial) {
             if (!state->Encode(*device, *batch, 0, 0, true))
                 PublishEncoding(ticket, std::move(*batch->errors[0]));
             else

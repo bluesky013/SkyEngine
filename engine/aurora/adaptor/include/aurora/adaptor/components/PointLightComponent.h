@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include <aurora/adaptor/renderer/SceneComponentEvent.h>
 #include <core/math/Vector3.h>
-#include <framework/world/Component.h>
 
 namespace sky::aurora {
 
@@ -15,7 +15,7 @@ namespace sky::aurora {
         float   range     = 10.f;
     };
 
-    class PointLightComponent : public ComponentAdaptor<PointLightData> {
+    class PointLightComponent : public SceneComponentAdaptor<PointLightData> {
     public:
         PointLightComponent()           = default;
         ~PointLightComponent() override = default;

@@ -28,16 +28,8 @@ namespace sky::aurora {
         RasterDepthState       depth;
         std::vector<std::byte> constants;
     };
-    // Column-major matrices: set 0/b0 View, set 1/b0 material bytes, set 2/b0 Object.
-    struct PreparedViewConstants {
-        Matrix4 viewProjection;
-        Vector4 cameraPosition;
-    };
-    struct PreparedObjectConstants {
-        Matrix4 world;
-    };
     struct PreparedRasterView {
-        std::vector<RasterDraw>                                  draws;
+        std::vector<ResolvedRasterDraw>                          draws;
         std::vector<std::shared_ptr<const ResourceVersionLease>> pins;
     };
     struct PreparedGraphBuffer {
@@ -55,5 +47,6 @@ namespace sky::aurora {
                                                                        std::span<const PreparedMeshLayout>,
                                                                        std::span<const PreparedMaterialLayout>,
                                                                        Rect2D                               scissor,
-                                                                       std::span<const PreparedGraphBuffer> inGraph = {});
+                                                                       std::span<const PreparedGraphBuffer> inGraph = {},
+                                                                       PreparedDrawList                     list    = PreparedDrawList::VISIBLE);
 } // namespace sky::aurora

@@ -30,6 +30,7 @@
 #include <memory>
 
 namespace sky::editor {
+    class WorldEditorState;
 
     // Editor module: a thin adapter over the engine application/module system.
     //
@@ -72,7 +73,7 @@ namespace sky::editor {
         void CancelProjectCreation();
 
         bool BuildHub();
-        bool BuildEditor();
+        bool BuildEditor(std::string &error);
         void OpenProject(const std::string &skyprojPath);
         void AddProject();
         void NewProject();
@@ -122,6 +123,7 @@ namespace sky::editor {
         PanelRegistry       panelRegistry;
         LayoutModel         layoutModel;
         SelectionService    selection;
+        std::unique_ptr<WorldEditorState> worldEditor;
         LogService          logService;
         CommandController   commandController;
         EditorExtensionHost extensionHost;

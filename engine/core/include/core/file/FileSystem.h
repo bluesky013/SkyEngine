@@ -12,6 +12,8 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <system_error>
+#include <variant>
 #include <vector>
 
 namespace sky {
@@ -62,6 +64,14 @@ namespace sky {
 
         std::filesystem::path filePath;
     };
+
+    struct FileScanError {
+        FilePath        path;
+        std::error_code code;
+    };
+
+    // A failed scan never exposes a partial file list.
+    using FileScanResult = std::variant<std::vector<FilePath>, FileScanError>;
 
     class IFile : public RefObject {
     public:
@@ -192,9 +202,9 @@ namespace sky {
         bool          IsSubDir(const std::string &path) const;
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 
-        static std::vector<FilePath> FilterFiles(const FilePath &path, const std::string &ext);
+        [[nodiscard]] static FileScanResult FilterFiles(const FilePath &path, const std::string &ext);
         // Single-pass variant: walks the tree once and keeps files matching any of `extensions`.
-        static std::vector<FilePath> FilterFiles(const FilePath &path, const std::vector<std::string> &extensions);
+        [[nodiscard]] static FileScanResult FilterFiles(const FilePath &path, const std::vector<std::string> &extensions);
 
     private:
         FilePath fsRoot;

@@ -294,6 +294,43 @@ namespace sky::editor::widget_test {
 
     } // namespace
 
+    TEST(ReflectedFormWidgetsTest, GroupedFormsKeepExpansionAndHistoryIndependent)
+    {
+        ObjectType();
+        const auto          *type = GetTypeNode(TypeInfo<LayoutObject>::RegisteredId());
+        LayoutObject         first;
+        LayoutObject         second;
+        Services             services;
+        ReflectedFormView    view(nullptr, "Inspector", services.Context());
+        const PropertyObject objects[]{{&first, type}, {&second, type}};
+        view.BindGroups(objects);
+        auto *a = Field(view, "[0].nested");
+        auto *b = Field(view, "[1].nested");
+        ASSERT_NE(a, nullptr);
+        ASSERT_NE(b, nullptr);
+        a->expanded = true;
+        b->expanded = false;
+        view.Refresh();
+        a = Field(view, "[0].nested");
+        b = Field(view, "[1].nested");
+        ASSERT_NE(a, nullptr);
+        ASSERT_NE(b, nullptr);
+        EXPECT_TRUE(a->expanded);
+        EXPECT_FALSE(b->expanded);
+        ASSERT_EQ(b->children.size(), 1u);
+        ASSERT_TRUE(view.Form().Edit(b->children[0], Any(true), services.commands));
+        EXPECT_FALSE(first.nested.enabled);
+        EXPECT_TRUE(second.nested.enabled);
+        ASSERT_TRUE(services.commands.Undo());
+        view.SynchronizeLayout();
+        EXPECT_FALSE(second.nested.enabled);
+        EXPECT_EQ(view.Form().GetSections().size(), 2u);
+        view.Unbind();
+        services.changes.Notify();
+        view.SynchronizeLayout();
+        EXPECT_TRUE(view.Form().GetSections().empty());
+    }
+
     TEST(ReflectedFormWidgetsTest, FormsOwnIndependentWidgetInteraction)
     {
         const TypeNode *type = ObjectType();

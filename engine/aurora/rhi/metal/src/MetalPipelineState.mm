@@ -4,9 +4,9 @@
 
 #include <MetalPipelineState.h>
 
+#include "MetalUtils.h"
 #include <MetalDevice.h>
 #include <MetalShader.h>
-#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 
@@ -33,10 +33,12 @@ namespace sky::aurora {
     }
 
     MetalGraphicsPipeline::~MetalGraphicsPipeline()
-    {if (depthStencilState != nullptr) {
+    {
+        if (depthStencilState != nullptr) {
             (void)(__bridge_transfer id<MTLDepthStencilState>)depthStencilState;
             depthStencilState = nullptr;
-        }if (pipeline != nullptr) {
+        }
+        if (pipeline != nullptr) {
             (void)(__bridge_transfer id<MTLRenderPipelineState>)pipeline;
             pipeline = nullptr;
         }
@@ -80,8 +82,8 @@ namespace sky::aurora {
         // MTLPixelFormatDepth24Unorm_Stencil8 is unavailable on iOS.
         const bool hasStencil = depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8;
 #else
-        const bool hasStencil = depthStencilFormat == MTLPixelFormatDepth24Unorm_Stencil8 ||
-                                depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8;
+        const bool hasStencil =
+            depthStencilFormat == MTLPixelFormatDepth24Unorm_Stencil8 || depthStencilFormat == MTLPixelFormatDepth32Float_Stencil8;
 #endif
         if (hasStencil) {
             pipelineDesc.depthAttachmentPixelFormat   = depthStencilFormat;
@@ -184,6 +186,8 @@ namespace sky::aurora {
 
     bool MetalComputePipeline::Init(const Descriptor &desc)
     {
+        if (!desc.cs || desc.cs->GetDevice() != &device)
+            return false;
         auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         auto *shader      = desc.cs != nullptr ? static_cast<MetalShader *>(desc.cs) : nullptr;
         if (metalDevice == nil || shader == nullptr || shader->GetComputeFunction() == nullptr) {
@@ -191,13 +195,28 @@ namespace sky::aurora {
             return false;
         }
 
-        NSError *error          = nil;
-        auto    *nativePipeline = [metalDevice newComputePipelineStateWithFunction:(__bridge id<MTLFunction>)shader->GetComputeFunction()->GetNativeHandle()
-                                                                          error:&error];
+        NSError                      *error      = nil;
+        MTLComputePipelineReflection *reflection = nil;
+        auto                         *nativePipeline =
+            [metalDevice newComputePipelineStateWithFunction:(__bridge id<MTLFunction>)shader->GetComputeFunction()->GetNativeHandle()
+                                                     options:MTLPipelineOptionArgumentInfo | MTLPipelineOptionBufferTypeInfo
+                                                  reflection:&reflection
+                                                       error:&error];
         if (nativePipeline == nil) {
             const char *message = error != nil ? [[error localizedDescription] UTF8String] : "unknown";
             LOG_E(TAG, "newComputePipelineStateWithFunction failed: %s", message);
             return false;
+        }
+
+        hasBufferReflection = reflection != nil;
+        for (MTLArgument *argument in reflection.arguments) {
+            if (argument.type != MTLArgumentTypeBuffer || !argument.active)
+                continue;
+            if (!argument.bufferAlignment)
+                hasBufferReflection = false;
+            if (argument.index >= bufferAlignments.size())
+                bufferAlignments.resize(argument.index + 1);
+            bufferAlignments[argument.index] = argument.bufferAlignment;
         }
 
         // MSL binaries do not carry numthreads; the shader compiler captures it

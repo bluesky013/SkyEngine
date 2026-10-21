@@ -8,6 +8,7 @@
 #include <optional>
 
 namespace sky::aurora {
+    std::optional<RendererError> RegisterScenePass(FramePacket &, RenderFeatureId, std::shared_ptr<const void> moduleLease);
     // One main-thread producer owns the published renderer until shutdown has drained.
     class RendererHost {
     public:

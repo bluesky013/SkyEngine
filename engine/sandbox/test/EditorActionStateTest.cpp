@@ -464,6 +464,45 @@ namespace sky::editor::action_state_test {
         EXPECT_EQ(calls, 1);
     }
 
+    TEST_F(EditorActionStateTest, ShellRoutesTallSubmenuRowsAndOutsideDismissal)
+    {
+        int calls = 0;
+        for (uint32_t row = 0; row < 6; ++row) {
+            auto action    = Action(calls);
+            action.id      = "submenu." + std::to_string(row);
+            action.submenu = "C";
+            action.order   = static_cast<int>(row);
+            EditorActionRegistry::Get()->Add(action);
+        }
+        EditorShell shell;
+        shell.Rebuild();
+        shell.Layout(800, 600);
+        const auto &m    = GetDefaultUiTheme().metrics;
+        const float x    = m.padX + m.controlPad;
+        auto       *menu = shell.HitTest(x, m.menuBarHeight * .5f);
+        ASSERT_NE(menu, nullptr);
+        ASSERT_STREQ(menu->GetTypeName(), "MenuBar");
+        const auto openSubmenu = [&]() {
+            shell.DispatchPointer(Down(x, m.menuBarHeight * .5f));
+            auto hover   = Down(x, m.menuBarHeight + m.panelGap + m.popupItemHeight * .5f);
+            hover.action = ui::UIPointerAction::MOVE;
+            shell.DispatchPointer(hover);
+            shell.Layout(800, 600);
+        };
+        openSubmenu();
+        const auto lastRow = Down(m.padX + m.controlButtonWidth + m.controlPad, m.menuBarHeight + 2 * m.panelGap + m.popupItemHeight * 5.5f);
+        ASSERT_EQ(shell.HitTest(lastRow.x, lastRow.y), menu);
+        EXPECT_TRUE(shell.DispatchPointer(lastRow));
+        EXPECT_EQ(calls, 1);
+        shell.Layout(800, 600);
+        EXPECT_NE(shell.HitTest(lastRow.x, lastRow.y), menu);
+        openSubmenu();
+        EXPECT_TRUE(shell.DispatchPointer(Down(700, 500)));
+        shell.Layout(800, 600);
+        EXPECT_EQ(calls, 1);
+        EXPECT_NE(shell.HitTest(lastRow.x, lastRow.y), menu);
+    }
+
     TEST_F(EditorActionStateTest, ViewerRefreshTracksHistoryStateWithoutRebuildingItsChrome)
     {
         int  calls   = 0;

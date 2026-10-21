@@ -5,13 +5,22 @@
 #include <aurora/rhi/Image.h>
 #include <aurora/rhi/Sampler.h>
 #include <aurora/rhi/Shader.h>
+#include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
 namespace sky::aurora {
 
-    enum class CopyBufferState : uint8_t { COMMON, HOST_WRITE, COPY_SOURCE, COPY_DESTINATION, HOST_READ, RASTER_READ };
+    class CommandBuffer;
+
+    // Values are append-only: existing copy/raster validation ranges stay stable.
+    enum class CopyBufferState : uint8_t { COMMON, HOST_WRITE, COPY_SOURCE, COPY_DESTINATION, HOST_READ, RASTER_READ, SHADER_READ, UNORDERED_ACCESS };
+    constexpr bool IsValidFrameBufferState(CopyBufferState state) noexcept
+    {
+        return state <= CopyBufferState::UNORDERED_ACCESS;
+    }
 
     struct GraphBufferHandle {
         uint64_t graph                                       = 0;
@@ -132,9 +141,9 @@ namespace sky::aurora {
 
     struct FrameGraphImage {
         FrameImageReference image;
-        Image::Descriptor  descriptor;
-        ImageBoundaryState initial = ImageLayout::UNDEFINED;
-        ImageBoundaryState final   = ImageLayout::TRANSFER_SRC;
+        Image::Descriptor   descriptor;
+        ImageBoundaryState  initial = ImageLayout::UNDEFINED;
+        ImageBoundaryState  final   = ImageLayout::TRANSFER_SRC;
         // Whole initialization excludes partial declarations; contents do not change the boundary layout.
         bool                            initialized = false;
         bool                            transient   = false;
@@ -239,6 +248,7 @@ namespace sky::aurora {
         RasterAttachmentView view;
     };
     struct FrameRasterPass {
+        // A default color handle declares a depth-only pass; depth is then required.
         GraphImageHandle        color;
         LoadOp                  load  = LoadOp::CLEAR;
         StoreOp                 store = StoreOp::STORE;
@@ -252,14 +262,55 @@ namespace sky::aurora {
         // Resolve preserves its result even when the multisampled color is discarded.
         std::optional<RasterColorResolve> colorResolve;
     };
+    enum class FrameAccessMode : uint8_t { READ, WRITE, READ_WRITE };
+    // REFLECTED is valid only for Compute; Custom declares the descriptor kind explicitly.
+    enum class FrameBufferBindingKind : uint8_t { REFLECTED, UNIFORM, STORAGE };
+    enum class FrameImageBindingKind : uint8_t { REFLECTED, SAMPLED, STORAGE };
+
+    struct FrameBufferBinding {
+        uint32_t               set = 0, binding = 0;
+        RasterBufferRange      range;
+        uint32_t               dynamicOffset = 0;
+        FrameAccessMode        access        = FrameAccessMode::READ;
+        FrameBufferBindingKind kind          = FrameBufferBindingKind::REFLECTED;
+    };
+    struct FrameImageBinding {
+        uint32_t              set = 0, binding = 0;
+        GraphImageHandle      image;
+        RasterImageView       view;
+        FrameAccessMode       access = FrameAccessMode::READ;
+        FrameImageBindingKind kind   = FrameImageBindingKind::REFLECTED;
+    };
+    // Declarations retain their order; native bindings are identified by set/binding.
     struct FrameComputePass {
         ShaderPtr shader;
-        uint32_t  groupsX = 1, groupsY = 1, groupsZ = 1;
-        bool      sideEffect = false;
+        // Zero dimensions are rejected: a no-op cannot define declared write contents.
+        uint32_t                          groupsX = 1, groupsY = 1, groupsZ = 1;
+        std::vector<FrameBufferBinding>   buffers;
+        std::vector<FrameImageBinding>    images;
+        std::vector<RasterSamplerBinding> samplers;
+        bool                              sideEffect = false;
+    };
+
+    class FrameCustomPassEncoder;
+    struct FrameCustomPassContext {
+        CommandBuffer           &command;
+        std::span<Image *const>  images;  // Same order as FrameCustomPass::images.
+        std::span<Buffer *const> buffers; // Same order as FrameCustomPass::buffers.
+    };
+    class FrameCustomPassEncoder {
+    public:
+        virtual ~FrameCustomPassEncoder() = default;
+        // Declared accesses are already synchronized; the callback must not issue barriers.
+        // Finish all encoders before returning; command/context references must not escape the callback.
+        virtual FrameOperationResult Encode(FrameCustomPassContext &) const noexcept = 0;
     };
     struct FrameCustomPass {
-        std::string name;
-        bool        sideEffect = false;
+        std::string                                   name;
+        std::shared_ptr<const FrameCustomPassEncoder> encoder;
+        std::vector<FrameBufferBinding>               buffers;
+        std::vector<FrameImageBinding>                images;
+        bool                                          sideEffect = false;
     };
     using FrameGraphPass = std::variant<BufferCopyPass, BufferImageCopyPass, FrameRasterPass, FrameComputePass, FrameCustomPass>;
 
@@ -304,6 +355,13 @@ namespace sky::aurora {
         std::vector<FrameResourceLifetime> imageLifetimes;
     };
     using FrameGraphAnalysisResult = std::variant<FrameError, FrameGraphAnalysis>;
+
+    // Effective byte ranges include dynamic offsets; storage descriptors expose exactly one mip.
+    std::variant<FrameError, RasterBufferRange> ResolveFrameBufferRange(const FrameBufferBinding &, uint64_t bufferSize) noexcept;
+    std::variant<FrameError, RasterImageView>
+    ResolveFrameImageView(const FrameImageBinding &, const Image::Descriptor &, bool storage = false) noexcept;
+    // Requires validated compute bindings; returns dynamic offsets in ascending binding order.
+    std::vector<uint32_t> ResolveComputeDynamicOffsets(const FrameComputePass &, uint32_t set);
 
     constexpr uint32_t                                        MAX_BUFFER_INITIAL_RANGES = 256;
     std::variant<FrameError, std::vector<BufferContentRange>> ResolveInitializedBufferContents(const FrameGraphBuffer &) noexcept;

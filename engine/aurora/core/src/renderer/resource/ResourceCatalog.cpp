@@ -307,9 +307,10 @@ namespace sky::aurora {
         if (image) {
             const auto &layout = *entry->candidate->metadata.image;
             const auto &desc   = image->descriptor;
+            const auto  format = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT : PixelFormat::RGBA8_UNORM;
             if (!image->image || !image->tracking || image->state != ImageLayout::GENERAL || desc.imageType != ImageType::IMAGE_2D ||
                 desc.extent.width != layout.width || desc.extent.height != layout.height || desc.extent.depth != 1 ||
-                desc.mipLevels != layout.mipLevels || desc.arrayLayers != layout.arrayLayers || desc.format != PixelFormat::RGBA8_UNORM ||
+                desc.mipLevels != layout.mipLevels || desc.arrayLayers != layout.arrayLayers || desc.format != format ||
                 desc.samples != SampleCount::X1 || entry->status.state != RenderResourceState::UPLOAD_SUBMITTED ||
                 image->initializedBy != entry->status.submission)
                 return Invalid();

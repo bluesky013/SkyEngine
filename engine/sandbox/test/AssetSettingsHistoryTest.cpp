@@ -114,7 +114,7 @@ namespace {
             manager->SetCookConfig(std::move(config));
             database->Reset();
             database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(root.string())));
-            database->RebuildCacheFromScan();
+            EXPECT_FALSE(database->RebuildCacheFromScan().has_value());
             catalog->Refresh();
             EditorAssetItem item;
             ASSERT_TRUE(catalog->FindByPath("Project/a.historylife", item));
@@ -126,7 +126,7 @@ namespace {
             manager->UnRegisterBuilder(builder);
             database->Reset();
             database->SetWorkSpaceFs(previousWorkspace);
-            database->RebuildCacheFromScan();
+            EXPECT_FALSE(database->RebuildCacheFromScan().has_value());
             catalog->Refresh();
             std::error_code error;
             std::filesystem::remove_all(root, error);

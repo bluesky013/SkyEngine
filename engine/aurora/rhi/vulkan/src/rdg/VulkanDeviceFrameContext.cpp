@@ -205,7 +205,9 @@ namespace sky::aurora {
         const auto &limits    = state->limits;
         if (resources > limits.resourceDescriptors - partition.resources || samplers > limits.samplerDescriptors - partition.samplers ||
             partition.sets == limits.descriptorSets)
-            return FrameError{FrameErrorCode::OUT_OF_MEMORY};
+            return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Vulkan descriptor budget exhausted (resources=" + std::to_string(partition.resources) +
+                                                                 ", samplers=" + std::to_string(partition.samplers) +
+                                                                 ", sets=" + std::to_string(partition.sets) + ")"};
         const auto &fn   = device->GetDeviceFn();
         auto        fail = [&](VkResult status) {
             auto error = VulkanFrameError(status, FrameErrorCode::COMPILE_FAILED);
@@ -302,19 +304,24 @@ namespace sky::aurora {
         auto  allocation = AllocatePlanCommand(plan.reservation, 0);
         if (auto *error = std::get_if<FrameError>(&allocation))
             return std::move(*error);
-        const auto               native = static_cast<VulkanCommandBuffer *>(std::get<CommandBuffer *>(allocation))->GetNativeHandle();
+        auto                    *rhi    = std::get<CommandBuffer *>(allocation);
+        const auto               native = static_cast<VulkanCommandBuffer *>(rhi)->GetNativeHandle();
         const auto              &fn     = device->GetDeviceFn();
         VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         begin.flags      = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         const auto begun = fn.vkBeginCommandBuffer(native, &begin);
         if (begun != VK_SUCCESS)
             return VulkanFrameError(begun, FrameErrorCode::ENCODE_FAILED);
-        plan.encoder->Encode(fn, native, session.fragments);
+        plan.encoder->Encode(fn, native, *rhi, session.fragments);
         const auto ended = fn.vkEndCommandBuffer(native);
+        if (ended == VK_ERROR_DEVICE_LOST)
+            return VulkanFrameError(ended, FrameErrorCode::ENCODE_FAILED);
+        if (plan.encoder->encodeError)
+            return std::move(*plan.encoder->encodeError);
         if (ended != VK_SUCCESS)
             return VulkanFrameError(ended, FrameErrorCode::ENCODE_FAILED);
         FrameRecordingInputs inputs;
-        inputs.payload = std::make_shared<FrameGpuPayload<const VulkanFrameEncoder>>(std::move(plan.resources), std::move(plan.encoder));
+        inputs.payload = std::make_shared<FrameGpuPayload<VulkanFrameEncoder>>(std::move(plan.resources), std::move(plan.encoder));
         inputs.receipt = {std::move(plan.graph), std::move(plan.livePasses)};
         return FinishPlanRecording(plan.reservation, std::move(inputs));
     }

@@ -29,6 +29,11 @@ namespace sky::aurora {
     enum class ShaderTextureDimension : uint32_t { UNKNOWN = 0, D1, D2, D3, CUBE, BUFFER };
     enum class ShaderSamplerType : uint32_t { UNKNOWN = 0, REGULAR, COMPARISON };
 
+    template <ShaderResourceType Type>
+    struct ShaderResourceSlot {
+        uint32_t set = 0, binding = 0;
+    };
+
     struct ShaderTextureType {
         ShaderTextureDimension dimension  = ShaderTextureDimension::UNKNOWN;
         ShaderScalarType       scalarType = ShaderScalarType::UNKNOWN;
@@ -59,12 +64,15 @@ namespace sky::aurora {
     // uniform block member (UBO field reflection)
     struct ShaderBlockMember {
         std::string      name;
-        uint32_t         offset     = 0;
-        uint32_t         size       = 0;
-        ShaderScalarType scalarType = ShaderScalarType::UNKNOWN;
-        ShaderTypeKind   kind       = ShaderTypeKind::UNKNOWN;
-        uint32_t         rows       = 1;
-        uint32_t         cols       = 1;
+        uint32_t         offset                                      = 0;
+        uint32_t         size                                        = 0;
+        ShaderScalarType scalarType                                  = ShaderScalarType::UNKNOWN;
+        ShaderTypeKind   kind                                        = ShaderTypeKind::UNKNOWN;
+        uint32_t         rows                                        = 1;
+        uint32_t         cols                                        = 1;
+        uint32_t         arrayCount                                  = 0;
+        uint32_t         arrayStride                                 = 0;
+        bool             operator==(const ShaderBlockMember &) const = default;
     };
 
     // uniform block (cbuffer / ParameterBlock) layout

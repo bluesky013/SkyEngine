@@ -5,6 +5,7 @@
     #include <editor/render/EditorRenderer.h>
 
     #include <array>
+    #include <aurora/adaptor/renderer/SceneAssetSource.h>
     #include <aurora/shader/ShaderCompilerSlang.h>
     #include <core/logger/Logger.h>
     #include <cstring>
@@ -93,6 +94,9 @@ namespace sky::editor {
             return false;
         }
         feature  = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
+        auto files = std::make_shared<ShaderFileSystem>();
+        files->AddSearchPath(SandboxResources::Resolve("shaders"));
+        sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), CreateSceneAssetSource(std::move(files)));
         textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
     #if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
@@ -123,11 +127,16 @@ namespace sky::editor {
         pending           = std::make_unique<FramePacket>();
         pending->sequence = ++sequence;
         pending->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name(UI_FEATURE), moduleLease, feature});
+        if (const auto error = RegisterScenePass(*pending, {1, 1}, moduleLease)) {
+            Fail(*error);
+            return;
+        }
         if (auto error = scene.Create(*pending, SCENE, {Name("editor")})) {
             Fail(*error);
             return;
         }
-        pending->commands.push_back(CreateViewport{CONTENT, {ViewportKind::OFFSCREEN, {320, 180}}});
+        pending->commands.push_back(CreateViewport{CONTENT, {ViewportKind::OFFSCREEN, sceneExtent}});
+        submittedSceneExtent = sceneExtent;
         ViewDesc view;
         view.scene  = SCENE;
         view.output = CONTENT;
@@ -152,6 +161,8 @@ namespace sky::editor {
         while ((count = host.Get()->PollEvents(events)) != 0) {
             for (const auto &event : std::span(events).first(count)) {
                 scene.OnEvent(event);
+                if (sceneBridge)
+                    sceneBridge->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
                     Fail(failure->error);
                 if (const auto *failure = std::get_if<ResourceStateChanged>(&event); failure && failure->state == RenderResourceState::FAILED)
@@ -178,6 +189,35 @@ namespace sky::editor {
         pending               = std::make_unique<FramePacket>();
         pending->sequence     = ++sequence;
         pending->deltaSeconds = delta;
+        if (sceneExtent.width != submittedSceneExtent.width || sceneExtent.height != submittedSceneExtent.height) {
+            pending->commands.push_back(ResizeViewport{CONTENT, sceneExtent, ++sceneRevision});
+            submittedSceneExtent = sceneExtent;
+        }
+        if (sceneBridge && !sceneSource) {
+            if (const auto error = sceneBridge->Append(*pending, SCENE, CONTENT)) {
+                Fail(*error);
+                return;
+            }
+            const auto &issues  = sceneBridge->GetIssues();
+            const auto  message = issues.empty() ? std::string{} : issues.front().message;
+            if (!message.empty() && message != sceneIssue)
+                LOG_W("EditorRender", "Scene input: %s", message.c_str());
+            sceneIssue = message;
+            ViewDesc view;
+            view.scene          = SCENE;
+            view.output         = CONTENT;
+            view.cameraPosition = {0, 0, 5};
+            view.view.v[14]     = -5;
+            std::fill(std::begin(view.projection.v), std::end(view.projection.v), 0.f);
+            view.projection.v[0]  = 2.4142136f * float(sceneExtent.height) / float(sceneExtent.width);
+            view.projection.v[5]  = 2.4142136f;
+            view.projection.v[10] = -1.0001f;
+            view.projection.v[11] = -1;
+            view.projection.v[14] = -.10001f;
+            if (auto camera = sceneBridge->Camera(SCENE, CONTENT, sceneExtent))
+                view = *camera;
+            pending->commands.push_back(UpdateView{{0, 1}, view, ++viewRevision});
+        }
         if (sceneSource)
             sceneSource(*pending, scene.GetSceneId());
         std::vector<std::string> closed;
@@ -214,7 +254,8 @@ namespace sky::editor {
         for (const auto &surface : surfaces) {
             if (surface->closed || !surface->extent.width || !surface->extent.height)
                 continue;
-            auto snapshot = textures->Snapshot(Name(UI_FEATURE), Output(surface->id), surface->extent, surface->paint.GetDrawData(), {CONTENT, 0});
+            auto snapshot =
+                textures->Snapshot(Name(UI_FEATURE), Output(surface->id), surface->extent, surface->paint.GetDrawData(), {CONTENT, sceneRevision});
             if (const auto *error = std::get_if<RendererError>(&snapshot)) {
                 Fail(*error);
                 return;
@@ -242,6 +283,16 @@ namespace sky::editor {
         if (auto *system = Interface<ISystemNotify>::Get()->GetApi())
             system->SetExit();
     }
+    void EditorRenderer::SetWorld(World *world)
+    {
+        if (sceneBridge)
+            sceneBridge->SetWorld(world);
+    }
+    void EditorRenderer::SetSceneExtent(Extent2D extent)
+    {
+        if (extent.width && extent.height && extent.width <= 4096 && extent.height <= 4096)
+            sceneExtent = extent;
+    }
     void EditorRenderer::Shutdown()
     {
         started = false;
@@ -251,6 +302,7 @@ namespace sky::editor {
         sceneSource = {};
         pending.reset();
         host.Shutdown();
+        sceneBridge.reset();
         scene.OnRendererStopped();
         feature.reset();
         moduleLease.reset();
@@ -261,6 +313,8 @@ namespace sky::editor {
         surfaces.clear();
         sequence      = 0;
         nextSurfaceId = 1;
+        sceneRevision = viewRevision = 0;
+        sceneIssue.clear();
     }
     uint32_t EditorRenderer::CreateSurface(const std::string &panel, int x, int y, uint32_t width, uint32_t height)
     {

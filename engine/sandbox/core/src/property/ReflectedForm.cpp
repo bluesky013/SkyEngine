@@ -73,15 +73,34 @@ namespace sky::editor {
     void ReflectedForm::Build(const PropertyObject &object, const PropertyEditorRegistry &inRegistry, const PropertyObject *baseline)
     {
         bindingGeneration.reset();
-        root     = object;
+        roots.clear();
         registry = &inRegistry;
         defaults.clear();
+        AddRoot(object, baseline, {});
+        Rebuild();
+    }
 
-        // Reset baseline: an explicit baseline object when provided, else a
-        // default-constructed instance of the bound type. The scratch form captures
-        // each field's default from it (keyed by path); the live build below then
-        // reuses those values. Falls back to a snapshot of the object's own values
-        // when neither is available.
+    void ReflectedForm::BuildGroups(std::span<const PropertyObject> objects, const PropertyEditorRegistry &inRegistry)
+    {
+        bindingGeneration.reset();
+        roots.clear();
+        roots.reserve(objects.size());
+        registry = &inRegistry;
+        defaults.clear();
+        for (size_t i = 0; i < objects.size(); ++i) {
+            AddRoot(objects[i], nullptr, "[" + std::to_string(i) + "].");
+        }
+        Rebuild();
+    }
+
+    void ReflectedForm::AddRoot(const PropertyObject &object, const PropertyObject *baseline, std::string prefix)
+    {
+        if (object.object == nullptr || object.type == nullptr) {
+            return;
+        }
+        roots.push_back({object, prefix});
+
+        // Capture defaults before constructing live fields, including nested inline Any values.
         PropertyObject base;
         Any            typeDefault;
         if (baseline != nullptr && baseline->object != nullptr && baseline->type != nullptr) {
@@ -96,12 +115,11 @@ namespace sky::editor {
 
         if (base.object != nullptr && base.object != object.object) {
             ReflectedForm scratch;
-            scratch.root     = base;
-            scratch.registry = &inRegistry;
+            scratch.roots.push_back({base, std::move(prefix)});
+            scratch.registry = registry;
             scratch.Rebuild();
-            defaults = std::move(scratch.defaults);
+            defaults.merge(scratch.defaults);
         }
-        Rebuild();
     }
 
     void ReflectedForm::Rebuild()
@@ -112,25 +130,29 @@ namespace sky::editor {
             return;
         }
 
-        sections.emplace_back();
-        FormSection &section = sections.back();
-        if (root.type->info != nullptr) {
-            section.title = std::string(root.type->info->name);
-        }
+        sections.reserve(roots.size());
+        for (const auto &binding : roots) {
+            const auto &root = binding.object;
+            sections.emplace_back();
+            FormSection &section = sections.back();
+            if (root.type->info != nullptr) {
+                section.title = std::string(root.type->info->name);
+            }
 
-        const Uuid ownerTypeId = (root.type->info != nullptr) ? root.type->info->registeredId : Uuid{};
-        const auto members     = OrderedMembers(*root.type, *registry, true);
-        section.fields.reserve(members.size());
-        for (const auto *entry : members) {
-            PropertyDescriptor descriptor(root.object, &entry->second, std::string(entry->first), section.title);
-            section.fields.emplace_back();
-            PropertyField &field = section.fields.back();
-            BuildField(std::move(descriptor), *registry, std::string(entry->first), field);
-            ApplyAppearance(field, ownerTypeId, std::string(entry->first));
-        }
+            const Uuid ownerTypeId = (root.type->info != nullptr) ? root.type->info->registeredId : Uuid{};
+            const auto members     = OrderedMembers(*root.type, *registry, true);
+            section.fields.reserve(members.size());
+            for (const auto *entry : members) {
+                PropertyDescriptor descriptor(root.object, &entry->second, std::string(entry->first), section.title);
+                section.fields.emplace_back();
+                PropertyField &field = section.fields.back();
+                BuildField(std::move(descriptor), *registry, binding.prefix + std::string(entry->first), field);
+                ApplyAppearance(field, ownerTypeId, std::string(entry->first));
+            }
 
-        for (auto &field : section.fields) {
-            AssignDefaults(field);
+            for (auto &field : section.fields) {
+                AssignDefaults(field);
+            }
         }
     }
 

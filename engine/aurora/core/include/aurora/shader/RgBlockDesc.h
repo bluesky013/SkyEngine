@@ -1,6 +1,6 @@
 //
-// RgBlockDesc: single source of truth for a resource block (set/binding/fields).
-// One description feeds both the RHI layout and the shader header generator.
+// Legacy block description for RHI layout and ShaderBlockGen.
+// Production Pass field declarations come from their shared headers.
 //
 // Platform mapping convention:
 //   Vulkan : set -> VkDescriptorSetLayout, binding direct
@@ -39,6 +39,7 @@ namespace sky::aurora {
     struct RgField {
         RgFieldType type;
         Name        name;
+        uint32_t    arrayCount = 0;
     };
 
     enum class RgBlockKind : uint8_t {

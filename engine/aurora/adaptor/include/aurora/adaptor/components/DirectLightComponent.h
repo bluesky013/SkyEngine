@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include <aurora/adaptor/renderer/SceneComponentEvent.h>
 #include <core/math/Vector3.h>
-#include <framework/world/Component.h>
 
 namespace sky::aurora {
 
@@ -15,7 +15,7 @@ namespace sky::aurora {
         bool    castShadow = true;
     };
 
-    class DirectLightComponent : public ComponentAdaptor<DirectLightData> {
+    class DirectLightComponent : public SceneComponentAdaptor<DirectLightData> {
     public:
         DirectLightComponent()           = default;
         ~DirectLightComponent() override = default;

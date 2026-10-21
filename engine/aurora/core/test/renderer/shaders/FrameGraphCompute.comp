@@ -1,0 +1,12 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer Data {
+    uint values[];
+} data;
+
+void main()
+{
+    data.values[gl_GlobalInvocationID.x] = gl_GlobalInvocationID.x + 7u;
+}

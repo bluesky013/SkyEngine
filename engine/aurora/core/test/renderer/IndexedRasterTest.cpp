@@ -3,6 +3,8 @@
 //
 
 #include "GpuTestSupport.h"
+#include "HostSceneFixture.h"
+#include "graph/FrameComposer.h"
 #include "shaders/FrameGraphSPIRV.h"
 
 #include "graph/FrameGraphBuilder.h"
@@ -142,7 +144,7 @@ namespace {
                     const D3D_SHADER_MACRO macros[] = {{"MATERIAL_BINDING", alternate ? "1" : "0"}, {nullptr, nullptr}};
                     ComPtr<ID3DBlob>       code, errors;
                     auto                   hr = D3DCompile(FrameGraphIndexedHLSL, sizeof(FrameGraphIndexedHLSL), nullptr, macros, nullptr, entry,
-                                                           stage == ShaderStageFlagBit::VS ? "vs_5_1" : "ps_5_1", 0, 0, &code, &errors);
+                                         stage == ShaderStageFlagBit::VS ? "vs_5_1" : "ps_5_1", 0, 0, &code, &errors);
                     EXPECT_TRUE(SUCCEEDED(hr)) << (errors ? static_cast<const char *>(errors->GetBufferPointer()) : "");
                     if (FAILED(hr))
                         return ShaderFunctionPtr{};
@@ -752,7 +754,7 @@ TEST_P(IndexedRaster, PipelinesAreSharedAndWorkersDoNotResolveBindings)
     afterCompile        = [&] {
         EXPECT_EQ(native.pipelines.load(), 2u);
         if (GetParam() != 2)
-            EXPECT_EQ(native.descriptors.load(), 210u);
+            EXPECT_EQ(native.descriptors.load(), 15u); // Five distinct binding combinations, each with three sets.
         native.frozen = true;
     };
     auto recording = Record(lease, probe);
@@ -815,32 +817,8 @@ TEST_P(IndexedRaster, SparseShaderSetsKeepTheirActualSetNumbers)
 
 TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
 {
-    ShaderCompilerSlang compiler;
-    auto               *previous = ShaderCompilerFactory::Get().GetCompiler();
-    ShaderCompilerFactory::Get().Register(&compiler);
-    Finally          restore{[&] { ShaderCompilerFactory::Get().Register(previous); }};
-    ShaderFileSystem source;
-    source.AddVirtualFile("Prepared.slang", R"(
-        cbuffer View : register(b0, space0) { column_major float4x4 viewProjection; float4 camera; }
-        cbuffer Material : register(b0, space1) { float4 tint; }
-        cbuffer Object : register(b0, space2) { column_major float4x4 world; }
-        float4 VSMain(float2 position : POSITION) : SV_Position { return mul(viewProjection, mul(world, float4(position, 0, 1))); }
-        float4 FSMain() : SV_Target { return float4(tint.rg, tint.b * camera.z * 0.25, tint.a); }
-    )");
-    ShaderResolver      resolver(nullptr, nullptr, source, 1, 1);
-    ShaderVariantSchema schema;
-    RasterShaderRequest request;
-    request.vertex.relativePath = "Prepared.slang";
-    request.vertex.entry        = "VSMain";
-    request.vertex.stage        = ShaderStageFlagBit::VS;
-    request.vertex.target       = static_cast<uint32_t>(GetParam() == 2 ? ShaderTarget::DXIL : ShaderTarget::SPIRV);
-    request.vertex.schema       = &schema;
-    request.vertex.schemaFp     = HashSchema(schema);
-    request.fragment            = request.vertex;
-    request.fragment.entry      = "FSMain";
-    request.fragment.stage      = ShaderStageFlagBit::FS;
-    request.dynamicUniforms     = {{0, 0}, {2, 0}};
-    auto resolved               = ResolveRasterShader(*device, resolver, request);
+    const auto materialSource = HostMaterial({device->GetAPI(), epoch});
+    auto       resolved       = CreateFrameShader(*device, *materialSource.material);
     ASSERT_TRUE(std::holds_alternative<ShaderPtr>(resolved));
     const auto              shader = std::get<ShaderPtr>(resolved);
     const SceneId           scene{0, 1};
@@ -925,11 +903,12 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
     meshes[0] = {mesh, {{0, 32, 8}}, {{0, 0, 0, Format::F_RG32, "POSITION", 0}}, {{32, 12, IndexType::U16, {6}}, {48, 12, IndexType::U16, {6}}}};
     std::array<PreparedMaterialLayout, 2> materials;
     for (uint32_t i = 0; i != 2; ++i) {
-        auto &material                   = materials[i];
-        material.resource                = i ? blue : red;
-        material.shader                  = shader;
-        const std::array<float, 4> tint  = i ? std::array<float, 4>{0, 0, 1, 1} : std::array<float, 4>{1, 0, 0, 1};
-        const auto                 bytes = std::as_bytes(std::span{tint});
+        auto &material                      = materials[i];
+        material.resource                   = i ? blue : red;
+        material.shader                     = shader;
+        const std::array<float, 4>     tint = i ? std::array<float, 4>{0, 0, 1, 1} : std::array<float, 4>{1, 0, 0, 1};
+        const shared::SceneBatchParams batch{{tint[0], tint[1], tint[2], tint[3]}, RenderIdentityMatrix()};
+        const auto                     bytes = std::as_bytes(std::span{&batch, 1});
         material.constants.assign(bytes.begin(), bytes.end());
     }
     const auto        lease = Begin();
@@ -942,6 +921,14 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
     wrongMeshes[0].resource.revision = 2;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
         ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
+    wrongMeshes                      = meshes;
+    wrongMeshes[0].streams[0].offset = UINT64_MAX;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(
+        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
+    wrongMeshes                 = meshes;
+    wrongMeshes[0].lods[0].size = UINT64_MAX;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(
+        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
     for (uint32_t i = 0; i != 2; ++i) {
         ASSERT_EQ(prepared->views[i].draws.size(), 1u);
         EXPECT_EQ(prepared->views[i].draws[0].mesh.resource, mesh);
@@ -951,8 +938,24 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         if (auto *error = std::get_if<FrameError>(&raster))
             FAIL() << error->message;
         retained->push_back(std::move(std::get<PreparedRasterView>(raster)));
-        EXPECT_EQ(retained->back().draws[0].indexed->range.offset, i ? 48u : 32u);
-        pass.draws.push_back(std::move(retained->back().draws[0]));
+        auto &item = retained->back().draws[0];
+        EXPECT_EQ(item.draw.indexed->range.offset, i ? 48u : 32u);
+        EXPECT_TRUE(item.draw.uniforms.empty());
+        const auto                   &view = prepared->views[i].view;
+        const shared::ScenePassParams params{view.projection * view.view, {view.cameraPosition.x, view.cameraPosition.y, view.cameraPosition.z, 1}};
+        shared::SceneBatchParams      batch;
+        ASSERT_EQ(item.material.size(), sizeof(batch));
+        std::memcpy(&batch, item.material.data(), sizeof(batch));
+        batch.world = item.world;
+        FrameBuildInputs inputs;
+        inputs.lease = lease;
+        FrameComposer composer(*device, *context, builder, inputs);
+        auto          passBinding  = composer.WriteUniform(1, 0, std::as_bytes(std::span{&params, 1}));
+        auto          batchBinding = composer.WriteUniform(2, 0, std::as_bytes(std::span{&batch, 1}), ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
+        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(passBinding));
+        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(batchBinding));
+        item.draw.uniforms = {std::get<RasterUniformBinding>(passBinding), std::get<RasterUniformBinding>(batchBinding)};
+        pass.draws.push_back(std::move(item.draw));
     }
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.KeepAlive(retained)));
@@ -1035,10 +1038,10 @@ TEST_P(IndexedRaster, MultisamplePipelineAndResolveFollowLastParallelFragment)
         for (const auto layers : {1u, 2u}) {
             info.parallelNum = workers;
             ResetContext();
-            const auto lease  = Begin();
-            auto       probe  = MakeGraph(lease, IndexType::U16, 70, false, true);
-            auto       data   = probe.graph->GetData();
-            auto      &source = data.images[0];
+            const auto lease              = Begin();
+            auto       probe              = MakeGraph(lease, IndexType::U16, 70, false, true);
+            auto       data               = probe.graph->GetData();
+            auto      &source             = data.images[0];
             source.image                  = {};
             source.transient              = true;
             source.descriptor.samples     = SampleCount::X4;
@@ -1124,7 +1127,7 @@ TEST_P(IndexedRaster, MultisampleDepthLoadAndLayerSelectionMatchSerialAndParalle
                     auto       probe = MakeGraph(lease, IndexType::U16, 70, false, true);
                     auto       data  = probe.graph->GetData();
                     for (uint32_t i = 0; i < 2; ++i) {
-                        auto &image = data.images[i];
+                        auto &image                  = data.images[i];
                         image.image                  = {};
                         image.transient              = true;
                         image.descriptor.samples     = samples;

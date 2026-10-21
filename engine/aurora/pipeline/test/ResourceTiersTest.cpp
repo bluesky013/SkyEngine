@@ -4,15 +4,16 @@
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/pipeline/GlobalRenderResources.h>
 #include <aurora/pipeline/BatchPackWriter.h>
-#include <aurora/rdg/BatchAllocator.h>
+#include <aurora/pipeline/GlobalRenderResources.h>
 #include <aurora/pipeline/ReflectionValidation.h>
-#include <aurora/scene/SceneView.h>
-#include <aurora/rdg/RenderGraph.h>
+#include <aurora/rdg/BatchAllocator.h>
 #include <aurora/rdg/CompiledGraph.h>
-#include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/rdg/RenderGraph.h>
 #include <aurora/rhi/Shader.h>
+#include <aurora/scene/SceneView.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/shader/ShaderFileSystem.h>
 #include <core/archive/BinaryData.h>
 #include <cstring>
 
@@ -22,54 +23,49 @@ using namespace sky::aurora::test;
 
 namespace {
 
-    // Compile a dummy global shader carrying the set 0 layout
-    // (ParameterBlock<GlobalParams> at [[vk::binding(0, 0)]]).
     Shader *MakeGlobalShader(Device *device)
     {
         const char *src = R"(
-struct GlobalParams {
-    float4x4 view;
-    float4x4 proj;
-    float4x4 viewProj;
-    float4 cameraPos;
-};
-[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal;
-
+#include "GlobalBlock.h"
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void mainCS() {}
 )";
 
+        ShaderFileSystem files;
+        files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
+        files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
         ShaderCompilerSlang compiler;
         ShaderCompileDesc   d{};
-        d.source = src;
-        d.entry  = "mainCS";
-        d.stage  = ShaderStageFlagBit::CS;
-        d.target = ShaderTarget::SPIRV;
+        d.fileSystem = &files;
+        d.source     = src;
+        d.entry      = "mainCS";
+        d.stage      = ShaderStageFlagBit::CS;
+        d.target     = ShaderTarget::SPIRV;
 
         ShaderCompileResult r{};
         if (!compiler.Compile(d, r)) {
             return nullptr;
         }
 
-        const size_t bytes = r.data.size() * sizeof(uint32_t);
-        auto binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
+        const size_t bytes  = r.data.size() * sizeof(uint32_t);
+        auto         binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
         std::memcpy(binary->Data(), r.data.data(), bytes);
 
         auto *provider       = new ShaderBinaryProvider();
         provider->binaryData = binary;
 
         ShaderFunction::Descriptor fnDesc = {};
-        fnDesc.stage = ShaderStageFlagBit::CS;
-        fnDesc.data  = CounterPtr<ShaderDataProvider>(provider);
-        auto *cs = device->CreateShaderFunction(fnDesc);
+        fnDesc.stage                      = ShaderStageFlagBit::CS;
+        fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
+        auto *cs                          = device->CreateShaderFunction(fnDesc);
         if (cs == nullptr) {
             return nullptr;
         }
 
         Shader::Descriptor shaderDesc = {};
-        shaderDesc.cs         = cs;
-        shaderDesc.reflection = &r.reflection;
+        shaderDesc.cs                 = cs;
+        shaderDesc.reflection         = &r.reflection;
         return device->CreateShader(shaderDesc);
     }
 
@@ -388,33 +384,29 @@ TEST_F(AuroraVulkanTest, ReflectionValidationMismatch)
     EXPECT_FALSE(ValidateBlockAgainstReflection(desc, empty).empty());
 }
 
-TEST_F(AuroraVulkanTest, GeneratedBlockDescMatchesReflection)
+TEST_F(AuroraVulkanTest, SharedBlockDescMatchesReflection)
 {
     const char *shader = R"(
-struct GlobalParams {
-    float4x4 view;
-    float4x4 proj;
-    float4x4 viewProj;
-    float4 cameraPos;
-};
-[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal;
-
+#include "GlobalBlock.h"
 [shader("fragment")]
 float4 mainFS() : SV_Target { return gGlobal.cameraPos; }
 )";
 
+    ShaderFileSystem files;
+    files.AddSearchPath(AURORA_SHARED_SHADER_DIR);
+    files.AddSearchPath(AURORA_SHADER_INCLUDE_DIR);
     ShaderCompilerSlang compiler;
-    ShaderCompileDesc d{};
-    d.source = shader;
-    d.entry  = "mainFS";
-    d.stage  = ShaderStageFlagBit::FS;
-    d.target = ShaderTarget::SPIRV;
+    ShaderCompileDesc   d{};
+    d.source     = shader;
+    d.entry      = "mainFS";
+    d.stage      = ShaderStageFlagBit::FS;
+    d.target     = ShaderTarget::SPIRV;
+    d.fileSystem = &files;
 
     ShaderCompileResult r{};
     ASSERT_TRUE(compiler.Compile(d, r)) << r.errorInfo;
 
-    // the generated RgBlockDesc (from GlobalBlock.slang) must match the
+    // the shared RgBlockDesc (from GlobalBlock.h) must match the
     // shader reflection of the same block
-    EXPECT_TRUE(ValidateBlockAgainstReflection(GlobalRenderResources::GetGlobalBlockDesc(),
-                                               r.reflection).empty());
+    EXPECT_TRUE(ValidateBlockAgainstReflection(GlobalRenderResources::GetGlobalBlockDesc(), r.reflection).empty());
 }

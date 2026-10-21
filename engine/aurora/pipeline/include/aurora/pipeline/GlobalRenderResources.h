@@ -23,8 +23,7 @@ namespace sky::aurora {
         GlobalRenderResources(const GlobalRenderResources &) = delete;
         GlobalRenderResources &operator=(const GlobalRenderResources &) = delete;
 
-        // globalShader: a shader carrying the set 0 layout (e.g. a dummy
-        // shader generated from GlobalBlock.slang reflection).
+        // globalShader carries the set 0 layout declared in the shared GlobalBlock.h.
         bool Init(Device *device, Shader *globalShader);
 
         // per-frame: write UBO from view + time, then RG.Update

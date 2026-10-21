@@ -19,17 +19,22 @@ namespace sky::aurora {
     // Coordinator-only borrowed context. It exposes declarations and lease allocations, never submission.
     class FrameGraphBuildContext {
     public:
-        virtual ~FrameGraphBuildContext()                                                                                               = default;
-        virtual const FrameBuildInputs                        &GetInputs() const                                                        = 0;
-        virtual std::optional<FrameRenderTarget>               GetOutput(ViewportId) const                                              = 0;
-        virtual std::optional<GraphImageHandle>                ResolveViewOutput(ViewOutputRef) const                                   = 0;
-        virtual std::optional<GraphImageHandle>                ResolveImage(const RenderResourceKey &) const                            = 0;
-        virtual std::variant<FrameError, ShaderPtr>            CreateShader(const RenderMaterialData &)                                 = 0;
-        virtual std::variant<FrameError, SamplerPtr>           CreateSampler(const Sampler::Descriptor &)                               = 0;
-        virtual std::variant<FrameError, RasterBufferRange>    Upload(std::span<const std::byte>, BufferUsageFlags)                     = 0;
-        virtual std::variant<FrameError, RasterUniformBinding> WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte>) = 0;
-        virtual FrameOperationResult                           Raster(FrameRasterPass)                                                  = 0;
-        virtual FrameOperationResult                           Fullscreen(FrameRasterPass)                                              = 0;
+        virtual ~FrameGraphBuildContext()                                                                        = default;
+        virtual const FrameBuildInputs                     &GetInputs() const                                    = 0;
+        virtual std::optional<FrameRenderTarget>            GetOutput(ViewportId) const                          = 0;
+        virtual std::optional<GraphImageHandle>             ResolveViewOutput(ViewOutputRef) const               = 0;
+        virtual std::optional<GraphImageHandle>             ResolveImage(const RenderResourceKey &) const        = 0;
+        virtual std::variant<FrameError, ShaderPtr>         CreateShader(const RenderMaterialData &)             = 0;
+        virtual std::variant<FrameError, SamplerPtr>        CreateSampler(const Sampler::Descriptor &)           = 0;
+        virtual std::variant<FrameError, RasterBufferRange> Upload(std::span<const std::byte>, BufferUsageFlags) = 0;
+        virtual std::variant<FrameError, RasterUniformBinding>
+        WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte>, ShaderResourceType type = ShaderResourceType::UNIFORM_BUFFER) = 0;
+        // Resolves only the current BuildView snapshot, retaining its exact resource versions.
+        virtual std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Rect2D           scissor,
+                                                                                       PreparedDrawList list = PreparedDrawList::VISIBLE) = 0;
+        virtual std::variant<FrameError, GraphImageHandle>                CreateImage(const Image::Descriptor &)                          = 0;
+        virtual FrameOperationResult                                      Raster(FrameRasterPass)                                         = 0;
+        virtual FrameOperationResult                                      Fullscreen(FrameRasterPass)                                     = 0;
     };
 
     class IScenePrepareFeature {

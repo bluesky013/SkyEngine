@@ -5,6 +5,8 @@
 #pragma once
 
 #include <aurora/rhi/PipelineState.h>
+#include <optional>
+#include <vector>
 
 namespace sky::aurora {
 
@@ -107,12 +109,21 @@ namespace sky::aurora {
             out[1] = threadGroupSize[1];
             out[2] = threadGroupSize[2];
         }
+        // nullopt means unavailable reflection; zero means an inactive/optimized-out binding.
+        std::optional<uint64_t> GetBufferAlignment(uint32_t slot) const
+        {
+            if (!hasBufferReflection)
+                return std::nullopt;
+            return slot < bufferAlignments.size() ? bufferAlignments[slot] : 0;
+        }
 
     private:
         MetalDevice            &device;
         CounterPtr<MetalShader> shader;
-        void                   *pipeline           = nullptr; // id<MTLComputePipelineState>
-        uint32_t                threadGroupSize[3] = {1, 1, 1};
+        void                   *pipeline            = nullptr; // id<MTLComputePipelineState>
+        uint32_t                threadGroupSize[3]  = {1, 1, 1};
+        bool                    hasBufferReflection = false;
+        std::vector<uint64_t>   bufferAlignments;
     };
 
 } // namespace sky::aurora

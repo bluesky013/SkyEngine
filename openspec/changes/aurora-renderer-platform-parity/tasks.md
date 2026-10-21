@@ -22,7 +22,7 @@ Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）�
 - [ ] 4.15 实现 Metal 编译/dispatch：native scope 描述、parallel parent/有序 children 生命周期、autorelease/强持有；不支持并行的 scope 明确安全回退，需 Mac 平台验证（P02）
 - [ ] 4.16 在各后端 FrameContext 适配 DeviceFrameDispatcher worker 子批次与 coordinator continuations；覆盖空图、单 worker、有界 fan-out、显式失败/取消 drain 和无 worker 阻塞等待（B02；P01/P02）
 - [ ] 4.19 扩展 raster recipe、bindings、depth/MSAA/resolve、subresources 与 PSO/scope cache，接入两套 encoder 的稳定并行组装；串行子集不等同于本项完成（B07/B10/B12 固定范围与 B13 UI sampled bindings 已验；完整资产材质不在最小范围，剩余平台归 P01/P02）
-- [ ] 4.20 明确新图 IR 的公开 pass kind 能力范围；受支持 Compute/FullScreen/Custom 发出真实命令并通过读回验证，不支持者显式 Unsupported，Custom 遵守声明访问和 coordinator 约束（B10 Windows：Fullscreen 已读回，Compute/Custom 显式 Unsupported；跨平台归 P01/P02）
+- [ ] 4.20 明确新图 IR 的公开 pass kind 能力范围；受支持 FullScreen 发出真实命令并通过读回验证，不支持者显式 Unsupported（B10 Windows：Fullscreen 已读回；Compute/Custom 的 IR、后端实现及 Windows 验收归 `aurora-compute-custom-passes` 的阶段交付。本项承接其未完成的 6.3/6.4/10.11：macOS 编译、能力错误码与真实设备读回，覆盖 buffer alignment reflection、动态偏移、线程组限制、storage view、只读 storage image/buffer、Custom 失败后的 discard/复用及 shader/sampler/callback 退休保活；验收记录回填 P02，并引用阶段归档）
 - [ ] 5.1 实现程序化 indexed mesh 和简单 Slang VS/FS，通过 owned packet 提交与上传（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
 - [ ] 5.2 接入最小 ShaderResolver/PSO cache，key 覆盖 program/layout/vertex/state/attachment（B07 前置解析与 pass/subpass 内缓存、B10 Windows device 跨帧缓存已验；完整平台/生产条件待收口）
 - [ ] 6.4 在平台 probe 中确定 Metal 线程和 drawable 协议；未通过时明确保持未迁移状态（P02）
@@ -37,6 +37,7 @@ Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）�
 - [ ] 8.4 实现 slot-owned staging、UploadBatch 的字节/创建数量/在途预算及显式持久上传 roots，支持 upload-only submission（B06/B10/B12 Windows 组件与生产预算/后台分块已验；Metal P02）
 - [ ] 8.5 实现实际录制 receipts、提交接受后的状态登记、完成后的 Resident 发布和源 bytes/staging/GPU leases 分阶段释放（B06/B10/B12 Windows 组件与统一 Submit/Poll 已验；Metal P02）
 - [ ] 8.6 实现精确版本 pins、冻结前旧版本选择与延迟释放；验证新版本失败不覆写旧在途 descriptor/mesh，未匹配状态的 legacy transfer 资源不得直接使用（B05–B10 组件与 B12 公共热更新/逐帧 layouts/pins 已验；Metal P02）
+- [ ] 8.11 验证 `fix-aurora-pass-resource-contract` 的生成 Pass 接入：macOS 编译及 MSL 真实布局/字段偏移、Global/Pass/Batch 与 native buffer index 映射、有/无 View、不同 Pass 布局、两 View/双在途帧、实际 uniform 字节范围、显式场景注册及模块退休；iOS/Android 交叉编译使用指定 host ShaderHeaderTool 并做实机读回。Windows 结果不能代替本项，旧 8.9/8.10 的宿主证据也不覆盖此次 ABI 变更。
 
 实施顺序：native probe → slot/提交 → compiler/encode → 资源/绘制 → 输出/宿主 → 故障与实机验收。
 - [x] 8.7 在 Metal/non-Windows 原生宿主 capability gate 通过后，把 `AuroraModule` 的 `Init/Start/Tick/Shutdown` 统一到 `RendererHost` + `IRendererProvider`；删除 `#if !defined(_WIN32)` 宿主分叉。

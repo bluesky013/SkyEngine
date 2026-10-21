@@ -50,6 +50,22 @@ namespace sky::aurora {
         std::vector<VulkanDescriptorSet>                   sets;
         std::vector<std::shared_ptr<VulkanGraphImageView>> views;
     };
+    struct VulkanComputeStep {
+        VulkanBarriers                                     before;
+        CounterPtr<VulkanComputePipeline>                  pipeline;
+        VkPipelineLayout                                   layout = VK_NULL_HANDLE;
+        std::vector<VulkanDescriptorSet>                   sets;
+        std::vector<std::shared_ptr<VulkanGraphImageView>> views;
+        uint32_t                                           groupsX = 1, groupsY = 1, groupsZ = 1;
+        void                                               Encode(const VulkanDeviceFunctions &, VkCommandBuffer) const noexcept;
+    };
+    struct VulkanCustomStep {
+        VulkanBarriers                                before;
+        std::shared_ptr<const FrameCustomPassEncoder> encoder;
+        std::vector<Image *>                          images;
+        std::vector<Buffer *>                         buffers;
+        FrameOperationResult                          Encode(const VulkanDeviceFunctions &, VkCommandBuffer, CommandBuffer &) const noexcept;
+    };
     class VulkanGraphResources;
     void EncodeVulkanDraws(const VulkanDeviceFunctions &, VkCommandBuffer, VkExtent2D, std::span<const VulkanDraw>) noexcept;
     std::variant<FrameError, std::vector<VulkanDraw>> ResolveVulkanDraws(VulkanDevice &,
@@ -60,7 +76,9 @@ namespace sky::aurora {
                                                                          VkExtent2D,
                                                                          PixelFormat,
                                                                          const SubpassInfo *);
-    FrameError                                        VulkanFrameError(VkResult, FrameErrorCode) noexcept;
+    std::variant<FrameError, VulkanComputeStep>
+    ResolveVulkanCompute(VulkanDevice &, VulkanDeviceFrameContext &, const DeviceFrameLease &, VulkanGraphResources &, const FrameComputePass &);
+    FrameError VulkanFrameError(VkResult, FrameErrorCode) noexcept;
 
     // Allocation helpers and access tracking; each compiler decides scopes, transitions and command order.
     class VulkanGraphResources {
@@ -71,8 +89,12 @@ namespace sky::aurora {
         std::optional<FrameError>                                       Resolve(const FrameGraphAnalysis &);
         std::variant<FrameError, VulkanTransferStep>                    Copy(const BufferCopyPass &);
         std::variant<FrameError, VulkanTransferStep>                    Copy(const BufferImageCopyPass &);
+        std::variant<FrameError, VulkanCustomStep>                      Custom(const FrameCustomPass &);
         std::optional<FrameError>                                       RasterInputs(const FrameRasterPass &, VulkanBarriers &);
         std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> SampledView(const RasterImageBinding &);
+        std::variant<FrameError, RasterImageView>                       ResolveDeclaredView(const FrameImageBinding &, bool storage = false) const;
+        // The range must already be normalized and validated against this image.
+        std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> ImageView(uint32_t, const RasterImageView &);
         std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> AttachmentView(GraphImageHandle, const RasterAttachmentView &);
         void        ImageBarrier(uint32_t, ImageLayout target, VulkanBarriers &, const ImageSubRange &range = {});
         void        BufferBarrier(uint32_t, CopyBufferState target, VulkanBarriers &);
@@ -90,12 +112,11 @@ namespace sky::aurora {
         std::vector<VulkanImage *>  images;
 
     private:
-        std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> ImageView(uint32_t, const RasterImageView &);
-        uint64_t                                                        epoch;
-        VulkanDevice                                                   &device;
-        const FrameGraphData                                           &data;
-        std::vector<CopyBufferState>                                    bufferStates;
-        std::vector<std::vector<ImageLayout>>                           imageStates;
+        uint64_t                              epoch;
+        VulkanDevice                         &device;
+        const FrameGraphData                 &data;
+        std::vector<CopyBufferState>          bufferStates;
+        std::vector<std::vector<ImageLayout>> imageStates;
         using ViewKey = std::tuple<uint32_t, ImageViewType, uint32_t, uint32_t, uint32_t, uint32_t>;
         std::map<ViewKey, std::shared_ptr<VulkanGraphImageView>> imageViews;
     };

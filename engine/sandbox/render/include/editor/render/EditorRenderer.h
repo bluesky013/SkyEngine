@@ -26,9 +26,11 @@
 
 namespace sky {
     class NativeWindow;
+    class World;
 } // namespace sky
 
 namespace sky::aurora {
+    class RenderSceneBridge;
     class ClientViewport;
     class CommandBuffer;
     class CommandPool;
@@ -79,6 +81,8 @@ namespace sky::editor {
         }
 #if defined(_WIN32)
         using SceneSource = std::function<void(aurora::FramePacket &, aurora::SceneId)>;
+        void SetWorld(World *world);
+        void SetSceneExtent(aurora::Extent2D extent);
         void SetSceneSource(SceneSource source)
         {
             sceneSource = std::move(source);
@@ -146,6 +150,10 @@ namespace sky::editor {
         bool                                        started = false, withPreview = false;
         GuiPaintFn                                  guiSource;
         SceneSource                                 sceneSource;
+        std::unique_ptr<aurora::RenderSceneBridge>  sceneBridge;
+        aurora::Extent2D                            sceneExtent{640, 360}, submittedSceneExtent{640, 360};
+        uint64_t                                    sceneRevision = 0, viewRevision = 0;
+        std::string                                 sceneIssue;
         ui::UIBuiltinFontProvider                   builtinFont;
     #if defined(SKY_BUILD_FREETYPE)
         ui::FreeTypeUIFontProvider freeTypeFont;

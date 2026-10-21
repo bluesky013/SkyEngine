@@ -48,11 +48,15 @@ B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHo
 2. **`UpdateDeviceCaps()`** — 后端填 `capability.maxThreads` 等
 
 并行编码的 ThreadPool / ThreadContext 目标归 `DeviceFrameContext` 持有，`parallelNum` 只表示 GPU 编码并行度。
-当前 Vulkan/DX12 已实现 slot/coordinator command 资源、typed buffer copy 冻结图及各自串行 Compile/Dispatch；Vulkan 双 compiler/encoder 覆盖单 color image upload/raster/readback，并已验证同 attachment 连续 LOAD 的多 subpass、独立 dynamic scopes 和模式对应 inheritance 计划。shader local read 显式拒绝。Vulkan parallelNum>1 已按 slot/实际 worker/ordinal 录制 secondary，TryCollect 在 coordinator 收齐并稳定组装 primary；单 worker 不建 pool，仍走 inline。Vulkan native 故障/取消/teardown 已验证；错误汇总不得掩盖任一 DeviceLost。DX12 已由独立 compiler/encoder 生成单 color image/raster/copy 计划，按实际 worker/slot/ordinal 并行录制 DIRECT lists 并稳定提交；紧密行 copy 的 footprint scratch 随计划退休，Close 失败后丢弃 list 并安全重建。B04 已实现 Vulkan/DX12 的 descriptor/staging/UBO/scratch 显式 lease 分区和容量检查；B07 已补 scalar UBO、indexed/depth raster、ShaderResolver 前置解析及 scope 内 PSO 复用；B10 已补当前纹理/MSAA/resolve/cache 子集，所有平台已切换 RendererHost；Metal 新协议已支持 slot/clear/copy/raster draw、D32 depth、RGBA8 MSAA resolve 与 mip/layer view；compute/custom 仍明确 `UNSUPPORTED`，待后续实现；iOS/Android 实机验收仍待实施。CPU prepare 使用独立 pool，不从 context 取得 pool/arena。
+当前 Vulkan/DX12 已实现 slot/coordinator command 资源、typed buffer copy 冻结图及各自串行 Compile/Dispatch；Vulkan 双 compiler/encoder 覆盖单 color image upload/raster/readback，并已验证同 attachment 连续 LOAD 的多 subpass、独立 dynamic scopes 和模式对应 inheritance 计划。shader local read 显式拒绝。Vulkan parallelNum>1 已按 slot/实际 worker/ordinal 录制 secondary，TryCollect 在 coordinator 收齐并稳定组装 primary；单 worker 不建 pool，仍走 inline。Vulkan native 故障/取消/teardown 已验证；错误汇总不得掩盖任一 DeviceLost。DX12 已由独立 compiler/encoder 生成单 color image/raster/copy 计划，按实际 worker/slot/ordinal 并行录制 DIRECT lists 并稳定提交；紧密行 copy 的 footprint scratch 随计划退休，Close 失败后丢弃 list 并安全重建。B04 已实现 Vulkan/DX12 的 descriptor/staging/UBO/scratch 显式 lease 分区和容量检查；B07 已补 scalar UBO、indexed/depth raster、ShaderResolver 前置解析及 scope 内 PSO 复用；B10 已补当前纹理/MSAA/resolve/cache 子集，所有平台已切换 RendererHost；Metal 新协议已支持 slot/clear/copy/raster draw、D32 depth、RGBA8 MSAA resolve 与 mip/layer view；compute/custom 已接声明访问、barrier/内容分析与后端编码（Metal 实机待 P02）；iOS/Android 实机验收仍待实施。CPU prepare 使用独立 pool，不从 context 取得 pool/arena。
 
 B05 的 `ResourceCatalog` 位于 Aurora core 的 renderer/resource，只在 coordinator 修改；prepare 只消费冻结 CPU metadata，backing pins 留给 coordinator/submission。`usageVariant` 表示布局兼容族，回退必须成组选择同版本 metadata/backing。`ResourceUploader` 已接通 buffer/RGBA8 2D image 共用分块上传：必须核验全部 native RecordedFrame copy 回执、Accepted 和成功完成，才能经内部 `AdoptResident` 发布。uploader 独占该 context 的完成轮询并透传其它完成；取消和错误不替代 GPU drain。每版本仅一个未决块，Accepted/完成进度分离，完整内容才 InGraph/Resident；部分 backing 单独限额，销毁 owner 不保留可被新 backing 误用的完成前缀。两种资源共享 pending backing 的逻辑字节/数量预算；第十三子批已自动纳管 backing，tracking 租约随 Resident/冻结版本转交，最后 owner 和 GPU 使用退出后由 context 回收；第十四子批已接逐 mip/layer 边界与混合状态续传；其它格式和跨队列仍待后续。
 
-B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本并写同一 lease 的 View/Material/Object UBO；失败不得偷偷换 mesh。当前为单 subMesh/距离 LOD/点光源 CPU 数据，生产 provider、完整 pipeline/光照仍待后续批次。
+B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本；失败不得偷偷换 mesh。原固定 View/Material/Object UBO 已由 `fix-aurora-pass-resource-contract` 移出通用层：Pipeline 的 SceneRenderFeature 消费共享的 ScenePass/SceneBatch 声明，宿主显式注册；其它 Pass 可使用不同布局或省略 View。
+
+资源层级保持 **Global（set 0）/ Pass（set 1，View 按需）/ Batch（set 2）**。具体 Pass 维护自己的共享 `.h` 声明源，C++ 与 shader 直接包含同一文件；C++ 编译不得依赖 Slang/ShaderHeaderTool 生成镜像，CMake 仅嵌入源码供虚拟 include，实际 shader 反射负责校验布局与资源；不得手写第二套结构/字段表或以固定 80/64 字节、Material=set 1 取代此契约。PreparedRaster/RendererRuntime 消费实际 Pass 声明，不决定所有 shader 的业务布局。不可变布局可共享，可变数据仍遵守 frame lease 与 GPU 退休。
+
+生产场景 Pass 由 `RegisterScenePass` 追加到宿主首个 packet；Adaptor 单向依赖 Pipeline，Core 不引用具体 Pass。缺少/禁用场景 feature 时没有隐式 Raster fallback。FrameGraphBuildContext 的 ResolveDraws 只借用当前 BuildView 快照，完整 catalog/feature owners 由协调器交给冻结图保活；WriteUniform 按显式类型分配并绑定实际 payload 长度，不把对齐 padding 计入可读参数范围。
 
 B09 的 Core Completion/ContinuationExecutor 已接入 prepare：终态只在 kernels 收齐、内部归并/借用清理后发布，用户 continuation 在指定 executor 执行。串行回退为同一 prepare pool 的单任务，仍可取消。CancelRequested 不代表完成，外部 read views/continuation captures 另行阻挡下一 packet 和 CPU 存储释放。RequestShutdown 仍收齐已接受包；主动取消走 RequestCancelPrepare。当前 CPU coordinator 失败/取消后须完整重建，生产模块卸载与 arena/GPU 组合仍待 B12/B13。
 
@@ -287,7 +291,7 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 ## Image 边界状态
 
 - ImageBoundaryState 的显式表必须完整覆盖 layer*mipLevels+mip，统一 layout 与全等数组语义相同；final 不接受 UNDEFINED，已有 texel 不能位于 initial UNDEFINED 的 cell。状态布局不扩大内容资格。
-- FrameContext 从 Image::GetMipLayerCount 查询已确认归属的实际 backing cell 数；默认 trackedImageSubresources=65,536，和 backing 数分别限额，owner/GPU 安全退休才归还。混合快照有复制成本，仍由 coordinator 构建；跨队列、aspects/planes 仍未开放；compute/custom 仍 `UNSUPPORTED`；Metal depth resolve 已接。
+- FrameContext 从 Image::GetMipLayerCount 查询已确认归属的实际 backing cell 数；默认 trackedImageSubresources=65,536，和 backing 数分别限额，owner/GPU 安全退休才归还。混合快照有复制成本，仍由 coordinator 构建；跨队列、aspects/planes 仍未开放；compute/custom 已接声明访问与后端编码（Metal 实机待 P02）；Metal depth resolve 已接。
 
 ## Raster attachment view
 

@@ -18,7 +18,7 @@ namespace sky::aurora {
         bool Init(const Descriptor &desc);
 
         const Device *GetDevice() const noexcept override;
-        void *GetNativeHandle() const
+        void         *GetNativeHandle() const
         {
             return function;
         }
@@ -41,7 +41,7 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        const Device *GetDevice() const noexcept override;
+        const Device        *GetDevice() const noexcept override;
         MetalShaderFunction *GetVertexFunction() const
         {
             return vertexFunction.Get();
@@ -55,7 +55,7 @@ namespace sky::aurora {
             return computeFunction.Get();
         }
 
-        const ShaderReflection &GetReflection() const
+        const ShaderReflection &GetReflection() const override
         {
             return reflection;
         }

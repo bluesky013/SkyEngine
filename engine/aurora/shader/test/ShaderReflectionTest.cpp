@@ -1,10 +1,9 @@
 //
-// ShaderCodeGen tests: reflected block -> C++ mirror header + virtual include.
+// Shader reflection and include resolution.
 //
 
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
-#include <aurora/shader/gen/ShaderCodeGen.h>
 
 #include <gtest/gtest.h>
 
@@ -27,7 +26,7 @@ struct GlobalParams {
 )";
 
     const char *kIncludeShader = R"(
-#include "global/GlobalBlock.slang"
+#include "fixture/ReflectionBlock.h"
 
 [shader("fragment")]
 float4 mainFS() : SV_Target
@@ -47,8 +46,7 @@ float4 mainFS() : SV_Target
     }
 
     // reflect the header-only GlobalBlock (no entry point)
-    const ShaderBlockLayout *ReflectGlobalBlock(ShaderCompilerSlang &compiler,
-                                                ShaderReflection &reflection)
+    const ShaderBlockLayout *ReflectGlobalBlock(ShaderCompilerSlang &compiler, ShaderReflection &reflection)
     {
         std::string error;
         if (!compiler.ReflectBlocks(kBlockHeader, ShaderTarget::SPIRV, reflection, error)) {
@@ -60,7 +58,7 @@ float4 mainFS() : SV_Target
     bool CompileWithFileSystem(ShaderFileSystem &fs, ShaderCompileResult &result)
     {
         ShaderCompilerSlang compiler;
-        ShaderCompileDesc desc{};
+        ShaderCompileDesc   desc{};
         desc.source     = kIncludeShader;
         desc.entry      = "mainFS";
         desc.stage      = ShaderStageFlagBit::FS;
@@ -71,10 +69,10 @@ float4 mainFS() : SV_Target
 
 } // namespace
 
-TEST(ShaderCodeGenTest, VirtualInclude)
+TEST(ShaderReflectionTest, VirtualInclude)
 {
     ShaderFileSystem fs;
-    fs.AddVirtualFile("global/GlobalBlock.slang", kBlockHeader);
+    fs.AddVirtualFile("fixture/ReflectionBlock.h", kBlockHeader);
 
     ShaderCompileResult result{};
     ASSERT_TRUE(CompileWithFileSystem(fs, result)) << result.errorInfo;
@@ -85,12 +83,12 @@ TEST(ShaderCodeGenTest, VirtualInclude)
     EXPECT_EQ(block->members.size(), 4u);
 }
 
-TEST(ShaderCodeGenTest, SearchPathInclude)
+TEST(ShaderReflectionTest, SearchPathInclude)
 {
     const auto temp = std::filesystem::temp_directory_path() / "aurora_shader_fs_test";
-    std::filesystem::create_directories(temp / "global");
+    std::filesystem::create_directories(temp / "fixture");
     {
-        std::ofstream out(temp / "global" / "GlobalBlock.slang", std::ios::binary);
+        std::ofstream out(temp / "fixture" / "ReflectionBlock.h", std::ios::binary);
         out << kBlockHeader;
     }
 
@@ -104,10 +102,10 @@ TEST(ShaderCodeGenTest, SearchPathInclude)
     std::filesystem::remove_all(temp);
 }
 
-TEST(ShaderCodeGenTest, ReflectTypeInfo)
+TEST(ShaderReflectionTest, ReflectTypeInfo)
 {
-    ShaderCompilerSlang compiler;
-    ShaderReflection reflection;
+    ShaderCompilerSlang      compiler;
+    ShaderReflection         reflection;
     const ShaderBlockLayout *block = ReflectGlobalBlock(compiler, reflection);
     ASSERT_NE(block, nullptr);
     ASSERT_EQ(block->members.size(), 4u);
@@ -125,42 +123,4 @@ TEST(ShaderCodeGenTest, ReflectTypeInfo)
     EXPECT_EQ(block->members[3].kind, ShaderTypeKind::VECTOR);
     EXPECT_EQ(block->members[3].cols, 4u);
     EXPECT_EQ(block->members[3].offset, 192u);
-}
-
-TEST(ShaderCodeGenTest, GenerateCppHeader)
-{
-    ShaderCompilerSlang compiler;
-    ShaderReflection reflection;
-    const ShaderBlockLayout *block = ReflectGlobalBlock(compiler, reflection);
-    ASSERT_NE(block, nullptr);
-
-    std::string header;
-    std::string error;
-    ASSERT_TRUE(ShaderCodeGen::GenerateCppHeader(*block, header, error)) << error;
-
-    EXPECT_NE(header.find("struct GlobalParams"), std::string::npos);
-    EXPECT_NE(header.find("alignas(16) Matrix4 view;"), std::string::npos);
-    EXPECT_NE(header.find("alignas(16) Vector4 cameraPos;"), std::string::npos);
-    EXPECT_NE(header.find("static_assert(sizeof(GlobalParams) == 208"), std::string::npos);
-    EXPECT_NE(header.find("static_assert(offsetof(GlobalParams, cameraPos) == 192"),
-              std::string::npos);
-    EXPECT_NE(header.find("GetGlobalParamsBlockDesc()"), std::string::npos);
-}
-
-TEST(ShaderCodeGenTest, BuildBlockDesc)
-{
-    ShaderCompilerSlang compiler;
-    ShaderReflection reflection;
-    const ShaderBlockLayout *block = ReflectGlobalBlock(compiler, reflection);
-    ASSERT_NE(block, nullptr);
-
-    RgBlockDesc blockDesc{};
-    std::string error;
-    ASSERT_TRUE(ShaderCodeGen::BuildBlockDesc(*block, blockDesc, error)) << error;
-
-    EXPECT_EQ(blockDesc.blockName, Name("GlobalParams"));
-    EXPECT_EQ(blockDesc.kind, RgBlockKind::CBUFFER);
-    ASSERT_EQ(blockDesc.fields.size(), 4u);
-    EXPECT_EQ(blockDesc.fields[0].type, RgFieldType::MAT4);
-    EXPECT_EQ(blockDesc.fields[3].type, RgFieldType::FLOAT4);
 }

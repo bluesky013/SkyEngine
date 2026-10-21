@@ -1,0 +1,11 @@
+#pragma once
+
+namespace sky::aurora::generated {
+    struct ShaderSource {
+        const char *path;
+        const char *text;
+    };
+
+    inline constexpr ShaderSource sceneShaderSources[]{
+@SCENE_SHADER_SOURCES@    };
+} // namespace sky::aurora::generated

@@ -5,6 +5,7 @@
 #include <aurora/adaptor/renderer/RendererHost.h>
 
 #include <array>
+#include <aurora/pipeline/SceneRenderFeature.h>
 #include <chrono>
 #include <core/logger/Logger.h>
 #include <framework/interface/Interface.h>
@@ -12,6 +13,14 @@
 #include <thread>
 
 namespace sky::aurora {
+    std::optional<RendererError> RegisterScenePass(FramePacket &packet, RenderFeatureId id, std::shared_ptr<const void> moduleLease)
+    {
+        if (!id.IsValid() || !moduleLease)
+            return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Scene pass registration requires a feature ID and defining module lease"};
+        const Name name("aurora.scene");
+        packet.featureCommands.push_back(RegisterRenderFeature{id, name, std::move(moduleLease), CreateSceneRenderFeature(name)});
+        return {};
+    }
     RendererHost::RendererHost() = default;
     RendererHost::~RendererHost()
     {

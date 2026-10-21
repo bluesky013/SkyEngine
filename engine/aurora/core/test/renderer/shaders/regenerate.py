@@ -18,11 +18,22 @@ for name, file, defines in [
         ("FrameGraphIndexedVS", "FrameGraphIndexed.vert", []),
         ("FrameGraphIndexedFS", "FrameGraphIndexed.frag", ["-DMATERIAL_BINDING=0"]),
         ("FrameGraphIndexedAlternateFS", "FrameGraphIndexed.frag", ["-DMATERIAL_BINDING=1"]),
+        ("FrameGraphCompute", "FrameGraphCompute.comp", []),
+        ("FrameGraphComputeImage", "FrameGraphComputeImage.comp", []),
+        ("FrameGraphComputeUniform", "FrameGraphComputeUniform.comp", []),
+        ("FrameGraphComputeSample", "FrameGraphComputeSample.comp", []),
+        ("FrameGraphComputeStorageRead", "FrameGraphComputeStorageRead.comp", []),
+        ("FrameGraphSampleFS", "FrameGraphSample.frag", []),
 ]:
     binary = directory / (name + ".spv")
     subprocess.run([args.glslang, "-V", "--target-env", "vulkan1.3", *defines, "-o", str(binary), str(source / file)], check=True)
     data = binary.read_bytes()
     words = struct.unpack("<" + "I" * (len(data) // 4), data)
+    reference = (source / file).read_text(encoding="utf-8").splitlines()
+    reference[1:1] = ["#define " + define.removeprefix("-D").replace("=", " ", 1) for define in defines]
+    lines.append("")
+    lines.append(f"// GLSL reference: {file} (entry point: main).")
+    lines.extend("// " + line if line else "//" for line in reference)
     lines.append(f"inline constexpr uint32_t {name}[] = {{")
     for i in range(0, len(words), 8):
         lines.append("    " + ", ".join(f"0x{word:08x}" for word in words[i:i + 8]) + ",")

@@ -28,17 +28,31 @@ namespace sky::aurora {
             std::unique_ptr<RenderPassObjects>   objects;
             VkExtent2D                           extent{};
             std::array<VkClearValue, 4>          clear{};
-            uint32_t                             attachmentCount = 1;
+            uint32_t                             attachmentCount = 0;
             std::vector<std::vector<VulkanDraw>> subpasses;
             std::vector<VulkanFragmentRange>     fragments;
         };
         class VulkanRenderPassEncoder final : public VulkanFrameEncoder {
         public:
-            void Encode(const VulkanDeviceFunctions &fn, VkCommandBuffer command, std::span<const VkCommandBuffer> fragments) const noexcept override
+            void Encode(const VulkanDeviceFunctions     &fn,
+                        VkCommandBuffer                  command,
+                        CommandBuffer                   &rhi,
+                        std::span<const VkCommandBuffer> fragments) noexcept override
             {
                 for (const auto &step : steps) {
                     if (const auto *copy = std::get_if<VulkanTransferStep>(&step)) {
                         copy->Encode(fn, command);
+                        continue;
+                    }
+                    if (const auto *compute = std::get_if<VulkanComputeStep>(&step)) {
+                        compute->Encode(fn, command);
+                        continue;
+                    }
+                    if (const auto *custom = std::get_if<VulkanCustomStep>(&step)) {
+                        if (auto result = custom->Encode(fn, command, rhi); auto *error = std::get_if<FrameError>(&result)) {
+                            encodeError = std::move(*error);
+                            return;
+                        }
                         continue;
                     }
                     const auto &raster = std::get<RenderPassStep>(step);
@@ -75,8 +89,8 @@ namespace sky::aurora {
                 EncodeVulkanDraws(fn, command, raster.extent,
                                   std::span<const VulkanDraw>(raster.subpasses[subpass]).subspan(task.firstDraw, task.drawCount));
             }
-            std::vector<std::variant<VulkanTransferStep, RenderPassStep>> steps;
-            VulkanBarriers                                                finalBarriers;
+            std::vector<std::variant<VulkanTransferStep, RenderPassStep, VulkanComputeStep, VulkanCustomStep>> steps;
+            VulkanBarriers                                                                                     finalBarriers;
         };
     } // namespace
     VulkanCompileResult VulkanRenderPassCompiler::Compile(std::shared_ptr<const FrozenFrameGraph> graph,
@@ -88,7 +102,7 @@ namespace sky::aurora {
         if (auto *error = std::get_if<FrameError>(&analysis))
             return std::move(*error);
         const auto &semantic = std::get<FrameGraphAnalysis>(analysis);
-        if (semantic.usedBuffers.empty() && semantic.usedImages.empty())
+        if (semantic.livePasses.empty() && semantic.usedBuffers.empty() && semantic.usedImages.empty())
             return FrameNoWork{};
         const auto &data = graph->GetData();
         for (auto index : semantic.livePasses)
@@ -114,8 +128,19 @@ namespace sky::aurora {
                 if (auto *error = std::get_if<FrameError>(&step))
                     return std::move(*error);
                 encoder->steps.emplace_back(std::move(std::get<VulkanTransferStep>(step)));
+            } else if (const auto *compute = std::get_if<FrameComputePass>(&pass)) {
+                auto step = ResolveVulkanCompute(device, context, lease, resources, *compute);
+                if (auto *error = std::get_if<FrameError>(&step))
+                    return std::move(*error);
+                encoder->steps.emplace_back(std::move(std::get<VulkanComputeStep>(step)));
+            } else if (const auto *custom = std::get_if<FrameCustomPass>(&pass)) {
+                auto step = resources.Custom(*custom);
+                if (auto *error = std::get_if<FrameError>(&step))
+                    return std::move(*error);
+                encoder->steps.emplace_back(std::move(std::get<VulkanCustomStep>(step)));
             } else {
                 const auto &raster = std::get<FrameRasterPass>(pass);
+                const bool  hasColor = raster.color != GraphImageHandle{};
                 const auto  first  = cursor - 1;
                 const auto *last   = &raster;
                 // Only contiguous uses of the same attachment view can omit intermediate stores/loads.
@@ -123,7 +148,7 @@ namespace sky::aurora {
                     const auto *next = std::get_if<FrameRasterPass>(&data.passes[semantic.livePasses[cursor]]);
                     if (!next || raster.colorResolve || next->colorResolve || (raster.depth && raster.depth->resolve) ||
                         (next->depth && next->depth->resolve) || next->color != raster.color || next->colorView != raster.colorView ||
-                        next->load != LoadOp::LOAD || last->store != StoreOp::STORE)
+                        (hasColor && (next->load != LoadOp::LOAD || last->store != StoreOp::STORE)))
                         break;
                     if (next->depth.has_value() != raster.depth.has_value() ||
                         (next->depth && (next->depth->image != raster.depth->image || next->depth->view != raster.depth->view ||
@@ -133,17 +158,21 @@ namespace sky::aurora {
                     ++cursor;
                 }
                 const auto  subpassCount = static_cast<uint32_t>(cursor - first);
-                auto       *image        = resources.images[raster.color.index];
+                auto       *image        = resources.images[hasColor ? raster.color.index : raster.depth->image.index];
                 const auto &desc         = image->GetDescriptor();
-                if (!desc.usage.TestBit(ImageUsageFlagBit::RENDER_TARGET))
+                if (hasColor && !desc.usage.TestBit(ImageUsageFlagBit::RENDER_TARGET))
                     return FrameError{FrameErrorCode::INVALID_ARGUMENT};
                 RenderPassStep step;
                 step.objects   = std::make_unique<RenderPassObjects>(device);
-                auto colorView = resources.AttachmentView(raster.color, raster.colorView);
-                if (auto *error = std::get_if<FrameError>(&colorView))
-                    return std::move(*error);
-                step.objects->colorView   = std::move(std::get<std::shared_ptr<VulkanGraphImageView>>(colorView));
-                const auto view           = std::get<ResolvedRasterAttachmentView>(ResolveRasterAttachmentView(raster.colorView, desc));
+                if (hasColor) {
+                    auto colorView = resources.AttachmentView(raster.color, raster.colorView);
+                    if (auto *error = std::get_if<FrameError>(&colorView))
+                        return std::move(*error);
+                    step.objects->colorView = std::move(std::get<std::shared_ptr<VulkanGraphImageView>>(colorView));
+                    step.attachmentCount    = 1;
+                }
+                const auto view =
+                    std::get<ResolvedRasterAttachmentView>(ResolveRasterAttachmentView(hasColor ? raster.colorView : raster.depth->view, desc));
                 step.extent               = {view.extent.width, view.extent.height};
                 uint32_t depthSubresource = 0;
                 for (uint32_t i = 0; i < 4; ++i)
@@ -153,34 +182,37 @@ namespace sky::aurora {
                                                                      {VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2},
                                                                      {VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2}}};
 
-                auto &attachment          = attachments[0];
-                attachment.format         = image->GetVkFormat();
-                attachment.samples        = FromSampleCount(desc.samples);
-                attachment.loadOp         = FromLoadOp(raster.load);
-                attachment.storeOp        = FromStoreOp(last->store);
-                attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-                attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                attachment.initialLayout  = FromImageLayout(resources.GetImageState(raster.color.index, view.subresource));
-                attachment.finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                std::array<VkImageView, 4> views{};
+                if (hasColor) {
+                    views[0]                  = step.objects->colorView->view;
+                    auto &attachment          = attachments[0];
+                    attachment.format         = image->GetVkFormat();
+                    attachment.samples        = FromSampleCount(desc.samples);
+                    attachment.loadOp         = FromLoadOp(raster.load);
+                    attachment.storeOp        = FromStoreOp(last->store);
+                    attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+                    attachment.initialLayout  = FromImageLayout(resources.GetImageState(raster.color.index, view.subresource));
+                    attachment.finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                }
                 VkAttachmentReference2 color{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2};
                 color.attachment = 0;
                 color.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 color.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                std::array<VkImageView, 4> views{step.objects->colorView->view};
                 VkAttachmentReference2     depthReference{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2};
                 if (raster.depth) {
                     auto *depth = resources.images[raster.depth->image.index];
                     if (!depth->GetDescriptor().usage.TestBit(ImageUsageFlagBit::DEPTH_STENCIL))
                         return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-                    step.attachmentCount = 2;
+                    const auto depthIndex      = step.attachmentCount++;
                     auto depthView       = resources.AttachmentView(raster.depth->image, raster.depth->view);
                     if (auto *error = std::get_if<FrameError>(&depthView))
                         return std::move(*error);
                     step.objects->depthView    = std::move(std::get<std::shared_ptr<VulkanGraphImageView>>(depthView));
                     depthSubresource           = raster.depth->view.layer * depth->GetDescriptor().mipLevels + raster.depth->view.mip;
-                    views[1]                   = step.objects->depthView->view;
-                    step.clear[1].depthStencil = {raster.depth->clear, 0};
-                    auto &description          = attachments[1];
+                    views[depthIndex]                   = step.objects->depthView->view;
+                    step.clear[depthIndex].depthStencil = {raster.depth->clear, 0};
+                    auto &description                   = attachments[depthIndex];
                     description.format         = depth->GetVkFormat();
                     description.samples        = FromSampleCount(depth->GetDescriptor().samples);
                     description.loadOp         = FromLoadOp(raster.depth->load);
@@ -189,7 +221,7 @@ namespace sky::aurora {
                     description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
                     description.initialLayout  = FromImageLayout(resources.GetImageState(raster.depth->image.index, depthSubresource));
                     description.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-                    depthReference.attachment  = 1;
+                    depthReference.attachment           = depthIndex;
                     depthReference.layout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                     depthReference.aspectMask  = VK_IMAGE_ASPECT_DEPTH_BIT;
                 }
@@ -250,8 +282,8 @@ namespace sky::aurora {
                 for (auto &subpass : subpasses) {
                     subpass.pNext                   = raster.depth && raster.depth->resolve ? &depthResolve : nullptr;
                     subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-                    subpass.colorAttachmentCount    = 1;
-                    subpass.pColorAttachments       = &color;
+                    subpass.colorAttachmentCount    = hasColor ? 1 : 0;
+                    subpass.pColorAttachments       = hasColor ? &color : nullptr;
                     subpass.pResolveAttachments     = raster.colorResolve ? &resolveReference : nullptr;
                     subpass.pDepthStencilAttachment = raster.depth ? &depthReference : nullptr;
                 }
@@ -319,7 +351,8 @@ namespace sky::aurora {
                     const auto &rasterPass = std::get<FrameRasterPass>(data.passes[logical]);
                     if (auto error = resources.RasterInputs(rasterPass, step.before))
                         return std::move(*error);
-                    auto draws = ResolveVulkanDraws(device, context, lease, resources, rasterPass, step.extent, desc.format, &scope);
+                    auto draws = ResolveVulkanDraws(device, context, lease, resources, rasterPass, step.extent,
+                                                    hasColor ? desc.format : PixelFormat::UNDEFINED, &scope);
                     if (auto *error = std::get_if<FrameError>(&draws))
                         return std::move(*error);
                     step.subpasses.push_back(std::move(std::get<std::vector<VulkanDraw>>(draws)));
@@ -335,7 +368,8 @@ namespace sky::aurora {
                     plan->rasterPasses.push_back({logical, static_cast<uint32_t>(encoder->steps.size()),
                                                   VulkanRenderPassInheritance{scope.renderPass, step.objects->framebuffer, i}});
                 }
-                resources.SetImageState(raster.color.index, view.subresource, ImageLayout::COLOR_ATTACHMENT);
+                if (hasColor)
+                    resources.SetImageState(raster.color.index, view.subresource, ImageLayout::COLOR_ATTACHMENT);
                 if (raster.colorResolve)
                     resources.SetImageState(raster.colorResolve->image.index, resolveSubresource, ImageLayout::COLOR_ATTACHMENT);
                 if (raster.depth)

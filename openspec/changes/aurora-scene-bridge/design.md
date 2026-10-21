@@ -59,5 +59,13 @@ S01/S02 use a recording fake IRenderer to verify owned values, ordering, Busy/Re
 
 ## Implementation checks
 
+### Concrete Windows implementation
+
+- `RenderSceneBridge::Append` appends to the host-owned packet, never submits or polls independently. Slots use actor/component/part identity; old World slots become tombstones and are reused only after exact generation-qualified retirement.
+- Aurora components publish attach/detach through an adaptor-local base. Transform subscriptions cache world matrices. Mesh assets are asynchronously requested and polled by `SceneAssetSource`; shader compilation occurs on first material conversion and is cached with its owned result.
+- Mesh parts share one vertex/index backing and select validated index sections. Pass declarations and default shader sources are embedded from their build inputs; generated C++ layouts remain the sole source for constants.
+- First material coverage is one scene technique, `tint` float4, float32 vertex attributes and static indexed geometry. Unsupported textures/properties/skin return explicit errors. Cache limits are 128 mesh/material combinations, 1024 assets and 256 MiB CPU payloads. Asset reload/invalidation is a later extension; loaded assets are immutable within this source lifetime.
+- Directional/spot values extend the existing owned light payload. Consumption by lighting/shadow passes belongs to the next stage. Editor component inspection and its small Framework reflection-address API addition are tracked separately in `aurora-world-editor`.
+
 - Confirm component identity and event ordering against the archived Framework contract while implementing S01; keep the side-table key stable across attach/detach.
 - Confirm light/camera payload support at S03 integration; missing renderer support is an explicit dependency failure, not permission to access renderer stores directly.

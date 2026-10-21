@@ -12,11 +12,11 @@
 
 namespace sky::editor {
 
-    ReflectedInspectorPanel::ReflectedInspectorPanel(sky::ui::UITextSystem *text, IEditorPropertySource *inSource,
-                                                     SelectionService *inSelection, std::string title)
-        : ReflectedFormView(text, std::move(title))
-        , source(inSource)
-        , selection(inSelection)
+    ReflectedInspectorPanel::ReflectedInspectorPanel(sky::ui::UITextSystem *text,
+                                                     IEditorPropertySource *inSource,
+                                                     SelectionService      *inSelection,
+                                                     std::string            title)
+        : ReflectedFormView(text, std::move(title)), source(inSource), selection(inSelection)
     {
         if (selection != nullptr) {
             callbackId = selection->AddChangedCallback([this]() { ResolveSelection(); });
@@ -33,6 +33,8 @@ namespace sky::editor {
 
     void ReflectedInspectorPanel::ResolveSelection()
     {
+        Form().SetEditCommandFactory({});
+        SetOnEdited({});
         if (source == nullptr || selection == nullptr || selection->IsEmpty()) {
             Bind(PropertyObject{});
             return;
@@ -40,7 +42,14 @@ namespace sky::editor {
         for (const SelectionItem &item : selection->GetSelection()) {
             const std::vector<PropertyObject> objects = source->Resolve(item.id);
             if (!objects.empty()) {
-                Bind(objects.front());
+                BindGroups(objects);
+                Form().SetEditCommandFactory([owner = source, id = item.id](const PropertyDescriptor &property, Any value) {
+                    return owner->MakeEditCommand(id, property, std::move(value));
+                });
+                SetOnEdited([this, id = item.id]() {
+                    if (source)
+                        source->OnEdited(id);
+                });
                 return;
             }
         }

@@ -34,12 +34,14 @@ namespace sky::aurora {
         texture = nullptr;
     }
 
-    MetalImage *MetalImage::CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount)
+    MetalImage *MetalImage::CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount, bool arrayView)
     {
-        if (texture == nullptr || !mipCount || !layerCount)
+        if (texture == nullptr || !mipCount || !layerCount || (!arrayView && layerCount != 1) || baseMip >= mipLevels ||
+            mipCount > mipLevels - baseMip || baseLayer >= arrayLayers || layerCount > arrayLayers - baseLayer)
             return nullptr;
         id<MTLTexture> base = (__bridge id<MTLTexture>)texture;
-        const auto     type = layerCount == 1 ? MTLTextureType2D : base.textureType;
+        const auto     type = base.sampleCount > 1 ? (arrayView ? MTLTextureType2DMultisampleArray : MTLTextureType2DMultisample)
+                                                   : (arrayView ? MTLTextureType2DArray : MTLTextureType2D);
         id<MTLTexture> view = [base newTextureViewWithPixelFormat:base.pixelFormat
                                                      textureType:type
                                                       levels:NSMakeRange(baseMip, mipCount)

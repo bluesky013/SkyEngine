@@ -7,6 +7,7 @@
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/rhi/Instance.h>
 #include <chrono>
+#include <framework/application/ModuleManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
@@ -31,6 +32,9 @@ namespace {
             window.reset(NativeWindow::Create({128, 96, "AuroraB14Host", "Aurora host test", nullptr}));
             ASSERT_TRUE(window);
             Interface<ISystemNotify>::Get()->Register(*this);
+            modules.AddStaticModule("Aurora.Render", std::make_unique<IModule>());
+            modules.TopoSort();
+            ASSERT_TRUE(modules.LoadModules({}));
             args.args = {"RendererHostNativeTest", "-r", GetParam() == 2 ? "dx12" : "vulkan"};
             if (GetParam() == 1)
                 args.args.push_back("--aurora-vulkan-render-pass");
@@ -46,6 +50,7 @@ namespace {
         void TearDown() override
         {
             module.Shutdown();
+            modules.UnLoadModules();
             EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
             EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
             CheckDebug();
@@ -76,6 +81,11 @@ namespace {
         {
             return window->GetNativeHandle();
         }
+        ModuleManager *GetModuleManager() const override
+        {
+            return const_cast<ModuleManager *>(&modules);
+        }
+        ModuleManager modules;
         template <typename Predicate>
         bool Until(Predicate predicate)
         {

@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace sky {
@@ -75,15 +76,15 @@ namespace sky {
         // Absolute OS path of a registered source's file (the framework owns the mount roots).
         bool GetAbsoluteSourcePath(const Uuid &id, std::string &out) const;
 
-        void Load();
+        [[nodiscard]] std::optional<FileScanError> Load();
         void Save();
         void Reset();
         // Rebuild the dev cache by scanning the writable source mount for builder-known extensions.
-        void RebuildCacheFromScan();
+        [[nodiscard]] std::optional<FileScanError> RebuildCacheFromScan();
         // One-time, idempotent migration: seed every source manifest with the legacy `(bundle, path)`
         // UUID so references written by earlier builds keep resolving. Existing manifest entries and
         // `assets.db` rows are cross-checks (never overwritten). Rollback: delete the manifests.
-        void MigrateLegacyIdentity();
+        [[nodiscard]] std::optional<FileScanError> MigrateLegacyIdentity();
         // Build one product per configured target for the given asset (multi-platform output).
         void BuildAllTargets(const Uuid &uuid);
 
@@ -104,6 +105,7 @@ namespace sky {
         bool GetSourcePath(const Uuid &id, std::string &out) const override;
 
     private:
+        FileScanResult ScanSources() const;
         static Uuid CalculateUuidByPath(const FilePath &path);
         // Legacy `(bundle, path)` UUID, reproduced via the mount -> legacy `SourceAssetBundle` role
         // (engine mount -> ENGINE, workspace/other -> WORKSPACE). Used only by the migration.

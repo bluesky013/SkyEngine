@@ -35,12 +35,20 @@ namespace sky::aurora {
 
         uint32_t offset = 0;
         for (const auto &field : desc.fields) {
-            const auto sa = SizeAlignOf(field.type);
+            auto sa = SizeAlignOf(field.type);
             if (sa.size == 0) {
                 layouts.push_back({0, 0});
                 continue;
             }
-            // align up
+            if (field.arrayCount) {
+                sa.align            = 16;
+                const uint64_t size = uint64_t((sa.size + 15u) / 16u * 16u) * field.arrayCount;
+                if (size > UINT32_MAX - 15u - offset) {
+                    totalSize = 0;
+                    return {};
+                }
+                sa.size = static_cast<uint32_t>(size);
+            }
             offset = (offset + sa.align - 1u) / sa.align * sa.align;
             layouts.push_back({offset, sa.size});
             offset += sa.size;

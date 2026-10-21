@@ -177,6 +177,19 @@ namespace sky::aurora {
                         member.scalarType = MapScalarType(type->getScalarType());
                         member.rows       = type->getRowCount();
                         member.cols       = type->getColumnCount();
+                        if (member.kind == ShaderTypeKind::ARRAY) {
+                            const auto count   = type->getElementCount();
+                            const auto stride  = fieldType->getElementStride(SLANG_PARAMETER_CATEGORY_UNIFORM);
+                            auto      *element = type->getElementType();
+                            if ((count != 0u) && count <= UINT32_MAX && (stride != 0u) && stride <= UINT32_MAX && (element != nullptr) &&
+                                element->getKind() == slang::TypeReflection::Kind::Vector) {
+                                member.arrayCount  = static_cast<uint32_t>(count);
+                                member.arrayStride = static_cast<uint32_t>(stride);
+                                member.scalarType  = MapScalarType(element->getScalarType());
+                                member.rows        = element->getRowCount();
+                                member.cols        = element->getColumnCount();
+                            }
+                        }
                     }
                 }
                 block.members.push_back(std::move(member));
@@ -193,7 +206,16 @@ namespace sky::aurora {
                     continue;
                 }
 
-                const auto category = var->getCategory();
+                auto category = var->getCategory();
+                // MSL exposes native register and logical descriptor categories together.
+                // Preserve the declared logical set/binding used by shared Pass slots.
+                if (category == slang::ParameterCategory::Mixed) {
+                    for (uint32_t c = 0; c < var->getCategoryCount(); ++c) {
+                        if (var->getCategoryByIndex(c) == slang::ParameterCategory::DescriptorTableSlot) {
+                            category = slang::ParameterCategory::DescriptorTableSlot;
+                        }
+                    }
+                }
 
                 // ParameterBlock occupies a whole register space (descriptor set);
                 // on SPIRV its getBindingIndex() is the descriptor set index it owns
@@ -232,8 +254,8 @@ namespace sky::aurora {
                     continue;
                 }
 
-                const uint32_t set     = static_cast<uint32_t>(var->getBindingSpace());
-                const uint32_t binding = static_cast<uint32_t>(var->getBindingIndex());
+                const auto set     = static_cast<uint32_t>(var->getBindingSpace(category));
+                const auto binding = static_cast<uint32_t>(var->getOffset(category));
                 if (set == SLANG_UNKNOWN_SIZE || binding == SLANG_UNKNOWN_SIZE) {
                     continue;
                 }
@@ -330,10 +352,13 @@ namespace sky::aurora {
 
         sessionDesc.targets     = &targetDesc;
         sessionDesc.targetCount = 1;
-        // virtual include: resolve #include against in-memory generated headers
+        // Angle includes need an explicit root; ShaderFileSystem resolves logical paths.
+        const char                     *includeRoots[]{""};
         Slang::ComPtr<ISlangFileSystem> slangFileSystem;
         if (desc.fileSystem != nullptr) {
             slangFileSystem.attach(CreateSlangFileSystem(desc.fileSystem));
+            sessionDesc.searchPaths     = includeRoots;
+            sessionDesc.searchPathCount = 1;
         }
         sessionDesc.fileSystem = slangFileSystem.get();
         Slang::ComPtr<slang::ISession> session;

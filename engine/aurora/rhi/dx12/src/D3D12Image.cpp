@@ -53,7 +53,8 @@ namespace sky::aurora {
         resDesc.Height              = desc.extent.height;
         resDesc.DepthOrArraySize    = static_cast<UINT16>(desc.imageType == ImageType::IMAGE_3D ? desc.extent.depth : desc.arrayLayers);
         resDesc.MipLevels           = static_cast<UINT16>(desc.mipLevels);
-        resDesc.Format              = dxgiFormat;
+        // Sampled depth needs compatible typed DSV and SRV views over the same storage.
+        resDesc.Format = desc.format == PixelFormat::D32 && desc.usage.TestBit(ImageUsageFlagBit::SAMPLED) ? DXGI_FORMAT_R32_TYPELESS : dxgiFormat;
         resDesc.SampleDesc          = {static_cast<UINT>(desc.samples), 0};
         resDesc.Layout              = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         resDesc.Flags               = FromImageUsageFlags(desc.usage);
@@ -118,7 +119,7 @@ namespace sky::aurora {
     void D3D12Image::CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
-        srv.Format                          = dxgiFormat;
+        srv.Format                          = pixelFormat == PixelFormat::D32 ? DXGI_FORMAT_R32_FLOAT : dxgiFormat;
         srv.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
         if (imageType == ImageType::IMAGE_1D) {

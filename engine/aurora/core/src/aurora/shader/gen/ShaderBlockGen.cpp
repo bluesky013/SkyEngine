@@ -66,8 +66,10 @@ namespace sky::aurora {
            << "cbuffer " << blockName << " : register(b" << desc.binding
            << ", space" << desc.set << ")\n{\n";
         for (const auto &field : desc.fields) {
-            ss << "    " << HlslTypeName(field.type) << " "
-               << field.name.GetStr().data() << ";\n";
+            ss << "    " << HlslTypeName(field.type) << " " << field.name.GetStr().data();
+            if (field.arrayCount)
+                ss << "[" << field.arrayCount << "]";
+            ss << ";\n";
         }
         ss << "};\n";
         return ss.str();

@@ -121,7 +121,7 @@ TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto *catalog = EditorAssetCatalog::Get();
     auto  roots   = catalog->GetRoots();
@@ -150,6 +150,7 @@ TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
 
     manager->UnRegisterBuilder(builder);
     db->Reset();
+    db->SetWorkSpaceFs({});
     fs::remove_all(root);
 }
 
@@ -274,7 +275,7 @@ TEST(EditorAssetCatalog, MutationPreservesIdentity)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto           *catalog = EditorAssetCatalog::Get();
     EditorAssetItem item;
@@ -302,6 +303,7 @@ TEST(EditorAssetCatalog, MutationPreservesIdentity)
 
     manager->UnRegisterBuilder(builder);
     db->Reset();
+    db->SetWorkSpaceFs({});
     fs::remove_all(root);
 }
 
@@ -330,7 +332,7 @@ TEST(EditorAssetCatalog, CookTargetsAndPerTargetState)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
@@ -365,6 +367,7 @@ TEST(EditorAssetCatalog, CookTargetsAndPerTargetState)
     manager->SetCookConfig(sky::CookConfig{});
     manager->UnRegisterBuilder(builder);
     db->Reset();
+    db->SetWorkSpaceFs({});
     fs::remove_all(root);
 }
 
@@ -454,7 +457,7 @@ TEST(EditorAssetCatalog, CookOverrideReadWrite)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
@@ -509,5 +512,6 @@ TEST(EditorAssetCatalog, CookOverrideReadWrite)
     manager->SetCookConfig(sky::CookConfig{});
     manager->UnRegisterBuilder(builder);
     db->Reset();
+    db->SetWorkSpaceFs({});
     fs::remove_all(root);
 }

@@ -1256,7 +1256,7 @@ namespace {
             if (databaseChanged) {
                 database->Reset();
                 database->SetWorkSpaceFs(previousWorkspace);
-                database->RebuildCacheFromScan();
+                EXPECT_FALSE(database->RebuildCacheFromScan().has_value());
                 catalog->Refresh();
             }
             std::error_code ec;
@@ -1287,7 +1287,7 @@ TEST(EditorShellTest, AssetViewerMeasuresResponsiveContentAtItsFinalWidth)
     environment.databaseChanged = true;
     environment.database->Reset();
     environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
-    environment.database->RebuildCacheFromScan();
+    EXPECT_FALSE(environment.database->RebuildCacheFromScan().has_value());
     environment.catalog->Refresh();
     environment.providers->Register("Text", &provider);
 
@@ -1479,7 +1479,7 @@ TEST(EditorShellTest, AssetBrowserEditsCookSetting)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    db->RebuildCacheFromScan();
+    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
@@ -1518,6 +1518,7 @@ TEST(EditorShellTest, AssetBrowserEditsCookSetting)
     manager->SetCookConfig(sky::CookConfig{});
     manager->UnRegisterBuilder(builder);
     db->Reset();
+    db->SetWorkSpaceFs({});
     fs::remove_all(root);
 }
 

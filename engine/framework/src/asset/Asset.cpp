@@ -5,6 +5,7 @@
 #include <framework/asset/Asset.h>
 
 #include <cstring>
+#include <limits>
 
 namespace sky {
 
@@ -18,12 +19,17 @@ namespace sky {
 
     std::vector<uint8_t> AssetBase::ReadBulk(uint64_t offset, uint64_t size) const
     {
-        if (productStream == nullptr || size == 0) {
+        if (productStream == nullptr || size == 0 || size > SIZE_MAX || offset > UINT64_MAX - bulkStart ||
+            bulkStart + offset > uint64_t(std::numeric_limits<std::streamoff>::max()) ||
+            size > uint64_t(std::numeric_limits<std::streamsize>::max())) {
             return {};
         }
         std::vector<uint8_t> out(static_cast<size_t>(size));
-        productStream->GetStream().seekg(static_cast<std::streamoff>(bulkStart + offset), std::ios::beg);
-        productStream->GetStream().read(reinterpret_cast<char *>(out.data()), static_cast<std::streamsize>(size));
+        auto                &stream = productStream->GetStream();
+        stream.clear();
+        stream.seekg(static_cast<std::streamoff>(bulkStart + offset), std::ios::beg);
+        if (!stream || !stream.read(reinterpret_cast<char *>(out.data()), static_cast<std::streamsize>(size)))
+            return {};
         return out;
     }
 

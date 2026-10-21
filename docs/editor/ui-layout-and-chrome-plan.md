@@ -542,7 +542,7 @@ These results close CPU gates without closing UI-02/UI-08 or increasing inflight
 - [ ] Asset-view source write-back and re-cook (deferred from archived `editor-asset-views`).
 - [ ] Remove legacy `assets/techniques/*.tech` and preload entries now that the legacy render consumers are gone; audit before deletion
   no longer require them, paired with `docs/aurora/shader-design-and-migration.md`.
-- [ ] Verify the reported ShaderHeaderTool CWD/PATH/slang-DLL fix after a clean Windows reconfigure.
+- [x] Retired: Pass mirror generation no longer invokes ShaderHeaderTool/Slang (shared-pass-headers); C++ build independence is verified in that change.
 
 ### 9.5 Documentation reconciliation completed in this review
 
@@ -737,7 +737,7 @@ implementation; open the implementation scope only after its decisions and accep
 | T13 Theme/layout performance | UI-14; measure after lifetime repairs | Profile alternating-DPI surfaces and clean/dirty frames; set a measured budget, then choose per-surface theme ownership and only justified caches. | Before/after work counts or timings plus theme/DPI invalidation regressions; full visible painting remains correct. |
 | T14 Advanced geometry and text | UI-15; text/input design first | Split exact rotated clipping and Unicode/composition into separate scopes. Define shaping/bidi/line-break requirements, then UI composition presentation/editing and platform integration, preserving macOS committed text. | Per-scope geometry or multilingual/IME acceptance cases; explicit platform support and fallback behavior. |
 
-The material defaults/reset, source write-back, legacy technique removal, and ShaderHeaderTool
+The material defaults/reset, source write-back, legacy technique removal, and the now-retired ShaderHeaderTool mirror chain
 verification in §9.4 retain their own feature/platform gates. They are not prerequisites for T01–T07.
 
 ## 11. Remaining execution queue
@@ -758,7 +758,7 @@ The suffixes below split the existing T08–T14 scopes without renumbering their
 
 | Task | Priority / prerequisite | Work and completion evidence |
 | --- | --- | --- |
-| T08-A · Win32/VS2022 + DXIL | Platform gate; Windows toolchain and third-party packages | Close the editor, configure and build affected targets including SandboxModule; run Core/Widgets/Shell/UI tests and the three DXIL cases skipped on macOS. Record commands, configuration and results. Covers T08.2; the separate ShaderHeaderTool environment check can share this session. |
+| T08-A · Win32/VS2022 + DXIL | Platform gate; Windows toolchain and third-party packages | Close the editor, configure and build affected targets including SandboxModule; run Core/Widgets/Shell/UI tests and the three DXIL cases skipped on macOS. Record commands, configuration and results. Covers T08.2; the obsolete ShaderHeaderTool mirror environment gate is retired. |
 | T08-B · Native surface/fence lifecycle | P1 gate; an environment that can create a real GPU device | Validate explicit/OS/preview close, multiple floating windows, pending-submit shutdown, main-window rendering after close, minimize/restore and out-of-date/acquire recovery. Exercise acquired-but-unusable image recovery where reproducible. Require GPU validation results without resource/synchronization errors. Closes T02.4 and skipped-frame-fence 3.3. |
 | T08-C · Shared resources and interaction | P2 gate; can share T08-B's environment/session | Verify actual floating icons/wheel, late image registration/update/removal, glyph/page growth, detach/reopen, cross-DPI movement and transformed clip/input. Closing one window must preserve the others. Record visible output and validation results; closes T07.4 and the remaining T08.3 cases. |
 | T08-D · Real cooked product | P2 integration; representative asset, builder and output inspection | Verify edit → Undo/Redo → Save/Cook changes the actual product according to current target settings, while preserving other targets. Check both Undo and Redo products. Covers T08.6; CPU snapshot and enqueue tests already pass. |
@@ -801,7 +801,7 @@ does not imply its proposed code has shipped.
 
 Independent feature pool: material defaults/per-property reset and override add/delete; asset-source
 write-back/re-cook; legacy technique removal after all consumers migrate; clean-Windows verification
-of ShaderHeaderTool CWD/PATH/slang-DLL behavior. These are separate from T08-D's acceptance of the
+of ShaderHeaderTool CWD/PATH/slang-DLL behavior (retired by shared-pass-headers). These are separate from T08-D's acceptance of the
 existing cook-settings path.
 
 ### 11.4 Delivery closeout
@@ -883,7 +883,7 @@ support design/CPU algorithms for them, but cannot close their complete product 
   EditorRenderTest, UICoreTest, UITextTest, UIEditorTest and enabled FreeType tests. Record actual
   counts after the next batch rather than assuming the macOS counts stay constant.
 - [ ] **WIN-04 · DXIL/tool invocation:** run UIShaderTest's vs_main/fs_main/fs_round DXIL cases;
-  verify ShaderHeaderTool from a clean reconfigure with the correct CWD/PATH and deployed Slang DLLs.
+  verify shared Pass headers compile without the retired ShaderHeaderTool mirror chain.
 - [ ] **WIN-05 · Real GPU acceptance:** with a usable selected backend and validation enabled,
   execute T08-B/C: close/reopen/re-dock, preview/multi-window shutdown, minimized/acquire recovery,
   shared resources, glyph/page growth, cross-DPI movement and transformed clip/input. Record backend,

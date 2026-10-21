@@ -2,11 +2,12 @@
 // Created by blues on 2024/4/1.
 //
 
+#include <core/file/FileSystem.h>
+
 #include <algorithm>
 #include <core/archive/FileArchive.h>
 #include <core/archive/MemoryStreamArchive.h>
 #include <core/file/FileIO.h>
-#include <core/file/FileSystem.h>
 #include <core/util/String.h>
 #include <filesystem>
 
@@ -258,39 +259,44 @@ namespace sky {
         return new NativeFileSystem(subDir);
     }
 
-    std::vector<FilePath> NativeFileSystem::FilterFiles(const FilePath &path, const std::string &ext)
+    FileScanResult NativeFileSystem::FilterFiles(const FilePath &path, const std::string &ext)
     {
-        std::vector<FilePath> result;
-
-        if (std::filesystem::exists(path.filePath)) {
-            for (const auto &entry : std::filesystem::recursive_directory_iterator{path.filePath}) {
-                if (entry.is_regular_file() && entry.path().extension() == ext) {
-                    result.emplace_back(FilePath(std::filesystem::relative(entry.path(), path.filePath)));
-                }
-            }
-        }
-
-        return result;
+        return FilterFiles(path, std::vector<std::string>{ext});
     }
 
-    std::vector<FilePath> NativeFileSystem::FilterFiles(const FilePath &path, const std::vector<std::string> &extensions)
+    FileScanResult NativeFileSystem::FilterFiles(const FilePath &path, const std::vector<std::string> &extensions)
     {
         std::vector<FilePath> result;
-
-        if (extensions.empty() || !std::filesystem::exists(path.filePath)) {
+        if (extensions.empty()) {
             return result;
         }
 
-        for (const auto &entry : std::filesystem::recursive_directory_iterator{path.filePath}) {
-            if (!entry.is_regular_file()) {
-                continue;
+        std::error_code                               error;
+        std::filesystem::recursive_directory_iterator iter(path.filePath, error), end;
+        if (error) {
+            return FileScanError{path, error};
+        }
+        while (iter != end) {
+            const auto entryPath = iter->path();
+            const bool regular   = iter->is_regular_file(error);
+            if (error) {
+                return FileScanError{FilePath(entryPath), error};
             }
-            const auto ext = entry.path().extension().string();
-            if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
-                result.emplace_back(FilePath(std::filesystem::relative(entry.path(), path.filePath)));
+            if (regular) {
+                const auto ext = entryPath.extension().string();
+                if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
+                    const auto relative = std::filesystem::relative(entryPath, path.filePath, error);
+                    if (error) {
+                        return FileScanError{FilePath(entryPath), error};
+                    }
+                    result.emplace_back(relative);
+                }
+            }
+            iter.increment(error);
+            if (error) {
+                return FileScanError{FilePath(entryPath), error};
             }
         }
-
         return result;
     }
 } // namespace sky

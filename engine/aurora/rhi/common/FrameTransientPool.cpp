@@ -52,14 +52,19 @@ namespace sky::aurora {
         if (!epoch)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
         FrameResourceBindings bindings;
-        bindings.payload = data.payload;
-        for (auto index : analysis.livePasses)
+        bindings.payload  = data.payload;
+        auto retainShader = [&](const ShaderPtr &shader, const std::vector<RasterSamplerBinding> &samplers) {
+            bindings.objects.emplace_back(shader.Get());
+            for (const auto &sampler : samplers)
+                bindings.objects.emplace_back(sampler.sampler.Get());
+        };
+        for (auto index : analysis.livePasses) {
             if (const auto *raster = std::get_if<FrameRasterPass>(&data.passes[index]))
-                for (const auto &draw : raster->draws) {
-                    bindings.objects.emplace_back(draw.shader.Get());
-                    for (const auto &sampler : draw.samplers)
-                        bindings.objects.emplace_back(sampler.sampler.Get());
-                }
+                for (const auto &draw : raster->draws)
+                    retainShader(draw.shader, draw.samplers);
+            if (const auto *compute = std::get_if<FrameComputePass>(&data.passes[index]))
+                retainShader(compute->shader, compute->samplers);
+        }
         bindings.buffers.resize(data.buffers.size());
         bindings.images.resize(data.images.size());
         bindings.bufferBacking = AssignBacking(analysis.usedBuffers, analysis.bufferLifetimes, data.buffers, [&](uint32_t a, uint32_t b) {
@@ -137,11 +142,12 @@ namespace sky::aurora {
             // Logical texel bytes bound this cache; native allocation padding is backend-dependent.
             uint64_t       bytes  = 0;
             const uint64_t copies = uint64_t(desc.arrayLayers) * static_cast<uint32_t>(desc.samples);
+            const uint32_t texelBytes = desc.format == PixelFormat::RGBA16_SFLOAT ? 8 : 4;
             for (uint32_t mip = 0; mip < desc.mipLevels; ++mip) {
-                const uint64_t level = uint64_t(std::max(1u, desc.extent.width >> mip)) * std::max(1u, desc.extent.height >> mip) * 4;
-                if (level > (limits.bytes - bytes) / copies)
+                const uint64_t texels = uint64_t(std::max(1u, desc.extent.width >> mip)) * std::max(1u, desc.extent.height >> mip);
+                if (texels > (limits.bytes - bytes) / copies / texelBytes)
                     return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Transient image exceeds pool budget"};
-                bytes += level * copies;
+                bytes += texels * texelBytes * copies;
             }
             if (!MakeRoom(bytes))
                 return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Transient pool budget exhausted"};

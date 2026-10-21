@@ -26,7 +26,7 @@ namespace sky::aurora {
 
         // Create an owned mip/layer view of the current texture. The caller
         // owns the returned image; the base texture must outlive it.
-        MetalImage *CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount);
+        MetalImage *CreateView(uint32_t baseMip, uint32_t mipCount, uint32_t baseLayer, uint32_t layerCount, bool arrayView = false);
 
         void *GetNativeHandle() const
         {

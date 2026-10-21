@@ -21,17 +21,18 @@ namespace sky::aurora {
             return pos == std::string::npos ? std::string() : path.substr(0, pos + 1);
         }
 
-        bool ParseInclude(const std::string &line, std::string &out)
+        bool ParseInclude(const std::string &line, std::string &out, bool &rootRelative)
         {
             const auto pos = line.find("#include");
             if (pos == std::string::npos) {
                 return false;
             }
-            const auto q1 = line.find('"', pos);
-            if (q1 == std::string::npos) {
+            const auto q1 = line.find_first_not_of(" \t", pos + 8);
+            if (q1 == std::string::npos || (line[q1] != '"' && line[q1] != '<')) {
                 return false;
             }
-            const auto q2 = line.find('"', q1 + 1);
+            rootRelative  = line[q1] == '<';
+            const auto q2 = line.find(rootRelative ? '>' : '"', q1 + 1);
             if (q2 == std::string::npos) {
                 return false;
             }
@@ -45,12 +46,11 @@ namespace sky::aurora {
             if (visited.count(path) != 0) {
                 return true;
             }
-            visited.insert(path);
-
             std::string content;
             if (!fs.ReadFile(path, content)) {
                 return false;
             }
+            visited.insert(path);
             if (rootContent != nullptr) {
                 *rootContent = content;
             }
@@ -62,9 +62,12 @@ namespace sky::aurora {
                 const auto        end  = content.find('\n', start);
                 const std::string line = content.substr(start, end == std::string::npos ? std::string::npos : end - start);
                 std::string       inc;
-                if (ParseInclude(line, inc)) {
-                    std::string dummy;
-                    HashRec(fs, DirOf(path) + inc, visited, hash, nullptr);
+                bool              rootRelative = false;
+                // This conservative scan includes inactive branches; packaged shaders may omit C++-only headers.
+                if (ParseInclude(line, inc, rootRelative)) {
+                    if (rootRelative || !HashRec(fs, DirOf(path) + inc, visited, hash, nullptr)) {
+                        HashRec(fs, inc, visited, hash, nullptr);
+                    }
                 }
                 if (end == std::string::npos) {
                     break;

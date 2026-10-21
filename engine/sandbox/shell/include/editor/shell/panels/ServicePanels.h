@@ -6,12 +6,13 @@
 
 #include <editor/core/console/CommandController.h>
 #include <editor/core/log/LogService.h>
+#include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
 #include <editor/shell/PanelView.h>
 #include <editor/ui/UiDraw.h>
-#include <editor/widgets/UiSkin.h>
 #include <editor/ui/UiTheme.h>
+#include <editor/widgets/UiSkin.h>
 
 #include <ui/UIElement.h>
 #include <ui/UIPaintContext.h>
@@ -102,15 +103,66 @@ namespace sky::editor {
 
     class OutlinerPanel : public ServicePanel {
     public:
-        OutlinerPanel(SelectionService *inSelection, sky::ui::UITextSystem *text, std::string inTitle)
-            : ServicePanel(std::move(inTitle), text)
-            , selection(inSelection)
+        OutlinerPanel(SelectionService *inSelection, sky::ui::UITextSystem *text, std::string inTitle, IEditorPropertySource *source = nullptr)
+            : ServicePanel(std::move(inTitle), text), selection(inSelection), source(source)
         {
+        }
+
+        sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override
+        {
+            if (!source || !selection)
+                return sky::ui::UIEventResult::UNHANDLED;
+            const auto  &theme = GetDefaultUiTheme();
+            const UiSkin skin(theme, textSystem);
+            const auto   body = skin.PanelContentRect(GetBounds(), titleVisible);
+            if (!body.Contains(event.x, event.y))
+                return sky::ui::UIEventResult::UNHANDLED;
+            const auto rows = source->Outline();
+            if (event.action == sky::ui::UIPointerAction::WHEEL) {
+                scroll = std::clamp(scroll - event.wheelDelta * theme.metrics.rowHeight, 0.f,
+                                    std::max(0.f, float(rows.size()) * theme.metrics.rowHeight - body.Height()));
+                MarkPaintDirty();
+                return sky::ui::UIEventResult::HANDLED;
+            }
+            if (event.action == sky::ui::UIPointerAction::DOWN && event.button == 0) {
+                const auto index = static_cast<size_t>((event.y - body.top + scroll) / theme.metrics.rowHeight);
+                if (index < rows.size())
+                    selection->SetSelection({{SelectionType::ENTITY, rows[index].id}});
+                else
+                    selection->Clear();
+                MarkPaintDirty();
+                return sky::ui::UIEventResult::HANDLED;
+            }
+            return sky::ui::UIEventResult::UNHANDLED;
         }
 
     protected:
         void DrawBody(sky::ui::UIPaintContext &context, const sky::ui::UIRect & /*bounds*/, float &y) override
         {
+            if (source) {
+                const auto  &theme = GetDefaultUiTheme();
+                const UiSkin skin(theme, textSystem);
+                const auto   body = skin.PanelContentRect(GetBounds(), titleVisible);
+                const auto   rows = source->Outline();
+                scroll            = std::clamp(scroll, 0.f, std::max(0.f, float(rows.size()) * theme.metrics.rowHeight - body.Height()));
+                context.PushClip(body);
+                float top = body.top - scroll;
+                for (const auto &item : rows) {
+                    sky::ui::UIRect row{body.left, top, body.right, top + theme.metrics.rowHeight};
+                    top = row.bottom;
+                    if (row.bottom <= body.top || row.top >= body.bottom)
+                        continue;
+                    const bool selected = selection && std::any_of(selection->GetSelection().begin(), selection->GetSelection().end(),
+                                                                   [&](const auto &value) { return value.id == item.id; });
+                    skin.DrawRow(context, row, selected ? RowState::Selected : RowState::Normal);
+                    row.left += theme.metrics.padX + item.depth * theme.metrics.indentX;
+                    uc::Text(context, item.label, theme.fonts.label, row, theme.colors.text, textSystem);
+                }
+                if (rows.empty())
+                    uc::Text(context, "No scene objects", theme.fonts.label, body, theme.colors.textDisabled, textSystem);
+                context.PopClip();
+                return;
+            }
             if (selection == nullptr) {
                 Line(context, y, "(selection service unavailable)");
                 return;
@@ -130,6 +182,8 @@ namespace sky::editor {
 
     private:
         SelectionService *selection = nullptr;
+        IEditorPropertySource *source    = nullptr;
+        float                  scroll    = 0;
     };
 
     class InspectorPanel : public ServicePanel {

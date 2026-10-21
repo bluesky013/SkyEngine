@@ -208,6 +208,19 @@ namespace {
         UINT64   queryValue = 0;
     };
 
+    class D3D12CustomComputeEncoder final : public FrameCustomPassEncoder {
+    public:
+        ComputePipeline     *pipeline = nullptr;
+        ResourceGroup       *group    = nullptr;
+        FrameOperationResult Encode(FrameCustomPassContext &context) const noexcept override
+        {
+            auto encoder = context.command.CreateComputeEncoder();
+            encoder->BindPipeline(pipeline);
+            encoder->BindResourceGroup(0, group);
+            encoder->Dispatch(4, 1, 1);
+            return FrameOperationComplete{};
+        }
+    };
     class D3D12FrameCompilerTest : public testing::Test {
     protected:
         void SetUp() override
@@ -280,6 +293,122 @@ namespace {
             desc.memory = upload ? MemoryType::CPU_TO_GPU : MemoryType::GPU_TO_CPU;
             desc.usage  = upload ? BufferUsageFlagBit::TRANSFER_SRC : BufferUsageFlagBit::TRANSFER_DST;
             return BufferPtr(device->CreateBuffer(desc));
+        }
+        BufferPtr StorageBufferOf()
+        {
+            Buffer::Descriptor desc;
+            desc.size   = 64;
+            desc.memory = MemoryType::GPU_ONLY;
+            desc.usage  = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_SRC;
+            return BufferPtr(device->CreateBuffer(desc));
+        }
+        ShaderPtr ComputeShaderOf(bool accumulate = false)
+        {
+            const char      *source = accumulate ? "RWStructuredBuffer<uint> data : register(u0);\n"
+                                                   "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ data[id.x]+=100; }"
+                                                 : "RWStructuredBuffer<uint> data : register(u0);\n"
+                                                   "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ data[id.x]=id.x+7; }";
+            ComPtr<ID3DBlob> code, errors;
+            const auto       result = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, "CSMain", "cs_5_0", 0, 0, &code, &errors);
+            EXPECT_TRUE(SUCCEEDED(result));
+            if (FAILED(result)) {
+                if (errors)
+                    ADD_FAILURE() << static_cast<const char *>(errors->GetBufferPointer());
+                return {};
+            }
+            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
+            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
+            std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
+            auto             cs = ShaderFunctionPtr(device->CreateShaderFunction({ShaderStageFlagBit::CS, provider, "CSMain"}));
+            ShaderReflection reflection;
+            ShaderResource   resource;
+            resource.name    = "data";
+            resource.type    = ShaderResourceType::STORAGE_BUFFER;
+            resource.set     = 0;
+            resource.binding = 0;
+            resource.count   = 1;
+            reflection.resources.push_back(resource);
+            Shader::Descriptor desc{};
+            desc.cs         = cs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
+        }
+        FrameGraphImage StorageImageOf()
+        {
+            FrameGraphImage image;
+            image.descriptor.format = PixelFormat::RGBA8_UNORM;
+            image.descriptor.extent = {8, 8, 1};
+            image.descriptor.usage  = ImageUsageFlagBit::STORAGE | ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_SRC;
+            image.image             = ImagePtr(device->CreateImage(image.descriptor));
+            return image;
+        }
+        ShaderFunctionPtr CompileFunction(const char *source, ShaderStageFlagBit stage, const char *entry, const char *profile)
+        {
+            ComPtr<ID3DBlob> code, errors;
+            const auto       result = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, entry, profile, 0, 0, &code, &errors);
+            EXPECT_TRUE(SUCCEEDED(result));
+            if (FAILED(result)) {
+                if (errors)
+                    ADD_FAILURE() << static_cast<const char *>(errors->GetBufferPointer());
+                return {};
+            }
+            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
+            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
+            std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
+            return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, entry}));
+        }
+        ShaderPtr ComputeImageShaderOf()
+        {
+            const char      *source = "RWTexture2D<float4> outputImage : register(u0);\n"
+                                      "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ outputImage[id.xy]=float4(0,1,0,1); }";
+            auto             cs     = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_0");
+            ShaderReflection reflection;
+            ShaderResource   resource;
+            resource.name              = "outputImage";
+            resource.type              = ShaderResourceType::STORAGE_IMAGE;
+            resource.set               = 0;
+            resource.binding           = 0;
+            resource.count             = 1;
+            resource.texture.dimension = ShaderTextureDimension::D2;
+            reflection.resources.push_back(resource);
+            Shader::Descriptor desc{};
+            desc.cs         = cs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
+        }
+        ShaderPtr SampleShaderOf()
+        {
+            const char      *source = "Texture2D<float4> sourceTex : register(t0);\n"
+                                      "SamplerState sourceSampler : register(s1);\n"
+                                      "float4 VSMain(uint i:SV_VertexID):SV_Position { float2 p[3]={float2(-1,-1),float2(-1,3),float2(3,-1)}; "
+                                      "return float4(p[i],0,1); }\n"
+                                      "float4 PSMain(float4 pos:SV_Position):SV_Target { return sourceTex.Sample(sourceSampler, pos.xy/8.0); }";
+            auto             vs     = CompileFunction(source, ShaderStageFlagBit::VS, "VSMain", "vs_5_0");
+            auto             fs     = CompileFunction(source, ShaderStageFlagBit::FS, "PSMain", "ps_5_0");
+            ShaderReflection reflection;
+            ShaderResource   image;
+            image.name               = "sourceTex";
+            image.type               = ShaderResourceType::SAMPLED_IMAGE;
+            image.set                = 0;
+            image.binding            = 0;
+            image.count              = 1;
+            image.texture.dimension  = ShaderTextureDimension::D2;
+            image.texture.scalarType = ShaderScalarType::FLOAT;
+            image.texture.components = 4;
+            reflection.resources.push_back(image);
+            ShaderResource sampler;
+            sampler.name    = "sourceSampler";
+            sampler.type    = ShaderResourceType::SAMPLER;
+            sampler.set     = 0;
+            sampler.binding = 1;
+            sampler.count   = 1;
+            sampler.sampler = ShaderSamplerType::REGULAR;
+            reflection.resources.push_back(sampler);
+            Shader::Descriptor desc{};
+            desc.vs         = vs.Get();
+            desc.ps         = fs.Get();
+            desc.reflection = &reflection;
+            return ShaderPtr(device->CreateShader(desc));
         }
         BufferPtr Readback(FrameGraphBuilder &builder, GraphImageHandle image)
         {
@@ -359,9 +488,16 @@ namespace {
             }
             EXPECT_EQ(completed, count);
         }
-        void Execute(std::shared_ptr<const FrozenFrameGraph> graph)
+        void Execute(std::shared_ptr<const FrozenFrameGraph> graph, const std::function<void(const D3D12CompiledFrame &)> &inspect = {})
         {
-            auto result = Collect(Dispatch(std::move(graph)));
+            auto compiled = context->Compile(Begin(), std::move(graph));
+            ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+            auto plan = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+            if (inspect)
+                inspect(*static_cast<const D3D12CompiledFrame *>(plan.get()));
+            auto dispatched = context->Dispatch(plan);
+            ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+            auto result = Collect(std::get<EncodingTicket>(dispatched));
             ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(result));
             auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(result));
             ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
@@ -392,6 +528,252 @@ TEST_F(D3D12FrameCompilerTest, FullscreenGeneratedTriangleReadsBackThroughOwnCom
         EXPECT_EQ(pixels[i * 4 + 3], 255);
     }
     readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputeStorageBufferWritesReadBack)
+{
+    FrameGraphBuilder builder;
+    auto              storage = StorageBufferOf();
+    const auto        source =
+        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+    auto             readback = BufferOf(false);
+    const auto       target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    FrameComputePass compute;
+    compute.shader  = ComputeShaderOf();
+    compute.groupsX = 4;
+    compute.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], i + 7);
+    readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
+{
+    FrameGraphBuilder builder;
+    const auto        source = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
+    const auto        output = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    FrameComputePass  compute;
+    compute.shader  = ComputeImageShaderOf();
+    compute.groupsX = 8;
+    compute.groupsY = 8;
+    compute.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+    FrameRasterPass raster;
+    raster.color = output;
+    RasterDraw draw;
+    draw.shader  = SampleShaderOf();
+    draw.command = {3, 1, 0, 0};
+    draw.images.push_back({0, 0, source, {}});
+    draw.samplers.push_back({0, 1, SamplerPtr(device->CreateSampler({}))});
+    raster.draws.push_back(std::move(draw));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
+    auto readback = Readback(builder, output);
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+    auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    for (uint32_t i = 0; i < 64; ++i) {
+        EXPECT_EQ(pixels[i * 4], 0);
+        EXPECT_EQ(pixels[i * 4 + 1], 255);
+        EXPECT_EQ(pixels[i * 4 + 2], 0);
+        EXPECT_EQ(pixels[i * 4 + 3], 255);
+    }
+    readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, CustomReadsStorageImageAndBuffer)
+{
+    const char *source =
+        "RWTexture2D<float4> image : register(u0); RWStructuredBuffer<uint> output : register(u1); RWStructuredBuffer<uint> input : register(u2);\n"
+        "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ output[id.x]=input[id.x]+uint(image[int2(0,0)].g*255); }";
+    const auto function = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_0");
+    ASSERT_TRUE(function);
+    const auto         reflection = StorageReadReflection();
+    Shader::Descriptor desc{};
+    desc.cs           = function.Get();
+    desc.reflection   = &reflection;
+    const auto shader = ShaderPtr(device->CreateShader(desc));
+    ASSERT_TRUE(shader);
+    auto [graph, readback] = CustomStorageReadGraph(*device, ComputeImageShaderOf(), ComputeShaderOf(), shader);
+    ASSERT_TRUE(graph);
+    Execute(graph);
+    const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], 262u + i);
+    readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, CustomComputeWritesDeclaredBufferReadBack)
+{
+    auto                        shader = ComputeShaderOf();
+    ComputePipeline::Descriptor pipelineDesc{};
+    pipelineDesc.cs = shader.Get();
+    CounterPtr<ComputePipeline> pipeline(device->CreatePipelineState(pipelineDesc));
+    ASSERT_TRUE(pipeline);
+    ResourceGroup::Descriptor groupDesc{shader.Get(), 0};
+    CounterPtr<ResourceGroup> group(device->CreateResourceGroup(groupDesc));
+    ASSERT_TRUE(group);
+    auto descriptor = group->CreateEncoder();
+    ASSERT_TRUE(descriptor);
+
+    FrameGraphBuilder builder;
+    auto              storage = StorageBufferOf();
+    const auto        declared =
+        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+    descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0);
+    descriptor->End();
+    auto callback            = std::make_shared<D3D12CustomComputeEncoder>();
+    callback->pipeline       = pipeline.Get();
+    callback->group          = group.Get();
+    auto            readback = BufferOf(false);
+    const auto      target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    FrameCustomPass custom{"custom compute"};
+    custom.encoder = callback;
+    custom.buffers.push_back({0, 0, {declared, 0, 64}, 0, FrameAccessMode::WRITE, FrameBufferBindingKind::STORAGE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Custom(std::move(custom))));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{declared, target, 0, 0, 64})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], i + 7);
+    readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputeGpuUniformsUseConstantStateAndValidRootParameters)
+{
+    const char *source   = "cbuffer First : register(b1) { uint first; };\n"
+                           "cbuffer Second : register(b3) { uint second; };\n"
+                           "RWStructuredBuffer<uint> values : register(u0, space1);\n"
+                           "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ values[id.x]=first+10*second+id.x; }";
+    const auto  function = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_1");
+    ASSERT_TRUE(function);
+    for (const bool dynamic : {false, true}) {
+        const auto         reflection = ComputeUniformReflection(dynamic);
+        Shader::Descriptor descriptor{};
+        descriptor.cs         = function.Get();
+        descriptor.reflection = &reflection;
+        auto shader           = ShaderPtr(device->CreateShader(descriptor));
+        ASSERT_TRUE(shader);
+        auto [graph, readback] = ComputeUniformGraph(*device, std::move(shader), dynamic);
+        ASSERT_TRUE(graph);
+        Execute(std::move(graph), [&](const D3D12CompiledFrame &plan) {
+            const auto &task    = plan.encoder->tasks[1];
+            const auto *compute = std::get_if<D3D12ComputeStep>(&task.operation);
+            ASSERT_TRUE(compute);
+            EXPECT_EQ(compute->tables.size(), dynamic ? 1u : 2u);
+            EXPECT_EQ(compute->uniforms.size(), dynamic ? 2u : 0u);
+            for (const auto &table : compute->tables)
+                EXPECT_NE(table.root, UINT32_MAX);
+            EXPECT_TRUE(std::any_of(task.before.begin(), task.before.end(), [](const auto &barrier) {
+                return barrier.Type == D3D12_RESOURCE_BARRIER_TYPE_TRANSITION &&
+                       barrier.Transition.StateAfter == D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+            }));
+        });
+        const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], 81u + i);
+        readback->UnMap();
+    }
+}
+
+TEST_F(D3D12FrameCompilerTest, ConsecutiveComputeUavAccessesSynchronizeBuffersAndImages)
+{
+    FrameGraphBuilder builder;
+    const auto storage = std::get<GraphBufferHandle>(builder.Import(StorageBufferOf(), CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+    const auto image   = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
+    for (const bool accumulate : {false, true}) {
+        FrameComputePass pass;
+        pass.shader  = ComputeShaderOf(accumulate);
+        pass.groupsX = 4;
+        pass.buffers.push_back({0, 0, {storage, 0, 16}, 0, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(pass))));
+        FrameComputePass fill;
+        fill.shader  = ComputeImageShaderOf();
+        fill.groupsX = fill.groupsY = 8;
+        fill.images.push_back({0, 0, image, {}, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(fill))));
+    }
+    auto       readback = BufferOf(false);
+    const auto target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({storage, target, 0, 0, 16})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({target, 0, 16})));
+    auto imageReadback = Readback(builder, image);
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), [](const D3D12CompiledFrame &plan) {
+        for (const auto index : {2u, 3u}) {
+            const auto &barriers = plan.encoder->tasks[index].before;
+            EXPECT_TRUE(std::any_of(barriers.begin(), barriers.end(),
+                                    [](const auto &barrier) { return barrier.Type == D3D12_RESOURCE_BARRIER_TYPE_UAV && barrier.UAV.pResource; }));
+        }
+    });
+    const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], 107u + i);
+    readback->UnMap();
+    const auto *pixels = imageReadback->Map();
+    ASSERT_TRUE(pixels);
+    EXPECT_EQ(pixels[1], 255u);
+    imageReadback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputeRasterInterleavingIsStableAcrossWorkerCounts)
+{
+    struct Result {
+        std::array<uint32_t, 4> values{};
+        std::array<uint8_t, 4>  pixel{};
+    };
+    auto run = [&](uint32_t workers) {
+        ResetContext(workers);
+        FrameGraphBuilder builder;
+        const auto        image = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+        FrameRasterPass   raster;
+        raster.color = image;
+        raster.draws.push_back({ShaderOf(), {}, {3, 1, 0, 0}, {}});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
+        auto       storage = StorageBufferOf();
+        const auto source =
+            std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+        FrameComputePass compute;
+        compute.shader  = ComputeShaderOf();
+        compute.groupsX = 4;
+        compute.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+        auto       imageReadback = Readback(builder, image);
+        auto       host          = BufferOf(false);
+        const auto target        = std::get<GraphBufferHandle>(builder.Import(host, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+        Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+        Result result;
+        auto  *values = static_cast<const uint32_t *>(static_cast<const void *>(host->Map()));
+        EXPECT_TRUE(values);
+        if (values)
+            std::copy_n(values, 4, result.values.begin());
+        host->UnMap();
+        auto *pixels = imageReadback->Map();
+        EXPECT_TRUE(pixels);
+        if (pixels)
+            std::copy_n(pixels, 4, result.pixel.begin());
+        imageReadback->UnMap();
+        return result;
+    };
+    const auto serial   = run(1);
+    const auto parallel = run(2);
+    EXPECT_EQ(serial.values, parallel.values);
+    EXPECT_EQ(serial.pixel, parallel.pixel);
+    EXPECT_EQ(serial.values[0], 7u);
+    EXPECT_EQ(serial.pixel[0], 255u);
+    EXPECT_EQ(serial.pixel[1], 0u);
+    EXPECT_EQ(serial.pixel[2], 0u);
 }
 
 TEST_F(D3D12FrameCompilerTest, SerialAndParallelProduceSameOrderedPixels)
@@ -775,6 +1157,39 @@ TEST_F(D3D12FrameCompilerTest, TeardownDrainsWorkersBeforeReleasingNativeStorage
     }
     EXPECT_EQ(teardown.wait_for(5s), std::future_status::ready);
     EXPECT_TRUE(weak.expired());
+}
+
+TEST_F(D3D12FrameCompilerTest, CustomDeviceLossSurvivesCommandCloseFailure)
+{
+    class Callback final : public FrameCustomPassEncoder {
+    public:
+        FrameOperationResult Encode(FrameCustomPassContext &) const noexcept override
+        {
+            return FrameError{FrameErrorCode::DEVICE_LOST, "Custom device loss"};
+        }
+    };
+    DxProbe probe(*device);
+    Finally cleanup{[&] { context.reset(); }};
+    probe.fault = DxProbe::Fault::END;
+    FrameGraphBuilder builder;
+    const auto      buffer = std::get<GraphBufferHandle>(builder.Import(StorageBufferOf(), CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+    FrameCustomPass pass;
+    pass.encoder = std::make_shared<Callback>();
+    pass.buffers.push_back({0, 0, {buffer, 0, 16}, 0, FrameAccessMode::WRITE, FrameBufferBindingKind::STORAGE});
+    pass.sideEffect = true;
+    builder.Custom(std::move(pass));
+    const auto lease    = Begin();
+    auto       compiled = context->Compile(lease, std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto dispatched = context->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    const auto collected = Collect(std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<EncodingFailed>(collected));
+    EXPECT_EQ(std::get<EncodingFailed>(collected).error.code, FrameErrorCode::DEVICE_LOST);
+    EXPECT_TRUE(probe.injected);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(context->TryBeginSlot()));
 }
 
 TEST_F(D3D12FrameCompilerTest, CompileFailuresPreserveNativeErrorsAndCloseLostDevice)
