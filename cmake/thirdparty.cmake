@@ -93,14 +93,24 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET recast        DIR recast)
     endif ()
 
-    if (SKY_BUILD_EDITOR)
+    if (SKY_BUILD_EDITOR OR SKY_BUILD_TOOL)
+        # RenderBuilder 链（import/cook 管线）需要的依赖
         sky_find_3rd(TARGET assimp        DIR assimp)
         sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
         sky_find_3rd(TARGET stb           DIR stb)
-        sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
         sky_find_3rd(TARGET GKlib         DIR GKlib)
         sky_find_3rd(TARGET metis         DIR metis)
+
+        # OpenUSD 为可选依赖：3rd/output/usd 存在才启用 UsdBuilder
+        if (EXISTS ${3RD_PATH}/usd)
+            sky_find_3rd(TARGET usd       DIR usd)
+            add_compile_definitions(SKY_WITH_USD)
+        endif ()
+    endif ()
+
+    if (SKY_BUILD_EDITOR)
+        sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
         sky_find_3rd(TARGET nodeeditor    DIR nodeeditor)
     endif ()

@@ -1,9 +1,13 @@
 #include <iostream>
+#include <fstream>
 #include <cxxopts.hpp>
 
 #include <framework/application/Application.h>
 #include <framework/application/ToolApplicationBase.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetExecutor.h>
 #include <framework/platform/PlatformBase.h>
 using namespace sky;
 
@@ -42,36 +46,46 @@ int main(int argc, char *argv[])
 
     std::string projectPath = result["project"].as<std::string>();
 
-    auto* am = AssetManager::Get();
-    std::vector<Uuid> importFileList;
     if (result.count("list") != 0u) {
-        const auto &idMap = am->GetIDMap();
-        printf("Asset List: (item %d)\n", static_cast<uint32_t>(idMap.size()));
-        for (const auto &[id, info] : idMap) {
-            printf("UUID: %s\t hash: %u,\t path: %s,\n", id.ToString().c_str(), info.hash, info.loadPath.c_str());
+        auto sources = AssetDataBase::Get()->Gather("");
+        printf("Asset List: (item %u)\n", static_cast<uint32_t>(sources.size()));
+        for (const auto &src : sources) {
+            printf("UUID: %s\t path: %s\n", src->uuid.ToString().c_str(), src->path.path.GetStr().c_str());
         }
-        goto EXIT;
+        return 0;
     }
 
+    std::vector<std::string> importList;
     if (result.count("imports") != 0U) {
         auto file = result["imports"].as<std::string>();
         std::ifstream f(projectPath + "/" + file);
-
         std::string line;
         while (std::getline(f, line)) {
-            am->ImportAndBuildAsset(line);
+            if (!line.empty()) {
+                importList.emplace_back(line);
+            }
         }
     }
-
     if (result.count("import") != 0U) {
         auto list = result["import"].as<std::vector<std::string>>();
-        for (const auto &path : list) {
-            am->ImportAndBuildAsset(path);
-        }
-        goto EXIT;
+        importList.insert(importList.end(), list.begin(), list.end());
     }
 
-EXIT:
-    app.Shutdown();
+    for (const auto &path : importList) {
+        FilePath srcPath(path);
+        if (!path.empty() && path.front() != '/') {
+            srcPath = FilePath(projectPath) / srcPath;
+        }
+        AssetImportRequest request = {};
+        request.filePath = srcPath;
+        request.savePath = srcPath;
+        AssetBuilderManager::Get()->ImportAsset(request);
+        printf("Import queued: %s\n", srcPath.GetStr().c_str());
+    }
+    AssetExecutor::Get()->WaitForAll();
+
+    // 落盘资产注册表，游戏运行时（AssetDataBase::Load）依赖它
+    AssetDataBase::Get()->Save();
+
     return 0;
 }
