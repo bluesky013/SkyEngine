@@ -15,7 +15,10 @@
 namespace {
     struct VulkanSurfaceProbe {
         explicit VulkanSurfaceProbe(VulkanDevice &device)
-            : functions(const_cast<VulkanInstanceFunctions &>(device.GetVulkanInstance().GetInstanceFn())), saved(functions)
+            : functions(const_cast<VulkanInstanceFunctions &>(device.GetVulkanInstance().GetInstanceFn()))
+            , saved(functions)
+            , deviceFunctions(const_cast<VulkanDeviceFunctions &>(device.GetDeviceFn()))
+            , savedDevice(deviceFunctions)
         {
             active                                              = this;
             functions.vkGetPhysicalDeviceSurfaceCapabilitiesKHR = [](VkPhysicalDevice gpu, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *caps) {
@@ -29,24 +32,71 @@ namespace {
             };
             functions.vkGetPhysicalDeviceSurfaceFormatsKHR = [](VkPhysicalDevice gpu, VkSurfaceKHR surface, uint32_t *count,
                                                                 VkSurfaceFormatKHR *formats) {
+                ++active->formatQueries;
+                if (active->formatResult != VK_SUCCESS)
+                    return active->formatResult;
                 const auto result = active->saved.vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, count, formats);
+                if (result == VK_SUCCESS && formats && active->formatIncomplete)
+                    return VK_INCOMPLETE;
                 if (result == VK_SUCCESS && formats && active->reverseFormats)
                     std::reverse(formats, formats + *count);
+                if (result == VK_SUCCESS && formats && active->changeFormats)
+                    active->changeFormats(*count, formats);
+                return result;
+            };
+            functions.vkGetPhysicalDeviceSurfacePresentModesKHR = [](VkPhysicalDevice gpu, VkSurfaceKHR surface, uint32_t *count,
+                                                                     VkPresentModeKHR *modes) {
+                ++active->modeQueries;
+                if (active->modeResult != VK_SUCCESS)
+                    return active->modeResult;
+                const auto result = active->saved.vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, count, modes);
+                if (result == VK_SUCCESS && modes && active->modeIncomplete)
+                    return VK_INCOMPLETE;
+                if (result == VK_SUCCESS && modes && active->changeModes)
+                    active->changeModes(*count, modes);
+                return result;
+            };
+            deviceFunctions.vkAcquireNextImageKHR = [](VkDevice device, VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore,
+                                                       VkFence fence, uint32_t *index) {
+                if (active->acquireOutOfDate)
+                    return VK_ERROR_OUT_OF_DATE_KHR;
+                const auto result = active->savedDevice.vkAcquireNextImageKHR(device, swapchain, timeout, semaphore, fence, index);
+                return result == VK_SUCCESS && active->acquireSuboptimal ? VK_SUBOPTIMAL_KHR : result;
+            };
+            deviceFunctions.vkQueuePresentKHR = [](VkQueue queue, const VkPresentInfoKHR *info) {
+                const auto result = active->savedDevice.vkQueuePresentKHR(queue, info);
+                return result == VK_SUCCESS && active->presentSuboptimal ? VK_SUBOPTIMAL_KHR : result;
+            };
+            deviceFunctions.vkCreateSwapchainKHR = [](VkDevice device, const VkSwapchainCreateInfoKHR *info, const VkAllocationCallbacks *allocator,
+                                                      VkSwapchainKHR *swapchain) {
+                const auto result = active->savedDevice.vkCreateSwapchainKHR(device, info, allocator, swapchain);
+                if (result == VK_SUCCESS)
+                    active->createdPresentMode = info->presentMode;
                 return result;
             };
         }
         ~VulkanSurfaceProbe()
         {
-            functions = saved;
-            active    = nullptr;
+            functions       = saved;
+            deviceFunctions = savedDevice;
+            active          = nullptr;
         }
-        VulkanInstanceFunctions                        &functions;
-        const VulkanInstanceFunctions                   saved;
-        VkResult                                        capsResult = VK_SUCCESS;
-        std::function<void(VkSurfaceCapabilitiesKHR &)> changeCaps;
-        bool                                            reverseFormats = false;
-        uint32_t                                        capsQueries    = 0;
-        static inline VulkanSurfaceProbe               *active         = nullptr;
+        VulkanInstanceFunctions                              &functions;
+        const VulkanInstanceFunctions                         saved;
+        VulkanDeviceFunctions                                &deviceFunctions;
+        const VulkanDeviceFunctions                           savedDevice;
+        VkResult                                              capsResult   = VK_SUCCESS;
+        VkResult                                              formatResult = VK_SUCCESS, modeResult = VK_SUCCESS;
+        std::function<void(VkSurfaceCapabilitiesKHR &)>       changeCaps;
+        std::function<void(uint32_t &, VkSurfaceFormatKHR *)> changeFormats;
+        std::function<void(uint32_t &, VkPresentModeKHR *)>   changeModes;
+        bool                                                  reverseFormats    = false;
+        bool                                                  acquireSuboptimal = false, presentSuboptimal = false, acquireOutOfDate = false;
+        bool                                                  formatIncomplete = false, modeIncomplete = false;
+        uint32_t                                              capsQueries   = 0;
+        uint32_t                                              formatQueries = 0, modeQueries = 0;
+        VkPresentModeKHR                                      createdPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
+        static inline VulkanSurfaceProbe                     *active             = nullptr;
     };
     void PumpWindows()
     {
@@ -742,7 +792,7 @@ TEST_P(FrameOutputs, ConsecutiveSurfaceChangesRebuildLatestExtentAfterRetirement
     EXPECT_EQ(Render({std::get<OutputSnapshot>(prepared)}), 1u);
 }
 
-TEST_P(FrameOutputs, VulkanQueriesConfigurationAtPrepareAndPostAcquireOnly)
+TEST_P(FrameOutputs, VulkanStableFrameQueriesCapabilitiesWithoutEnumeratingOptions)
 {
     if (GetParam() == 2)
         GTEST_SKIP() << "Vulkan surface capability queries";
@@ -754,6 +804,8 @@ TEST_P(FrameOutputs, VulkanQueriesConfigurationAtPrepareAndPostAcquireOnly)
     EXPECT_EQ(probe.capsQueries, 1u);
     EXPECT_EQ(Render({std::get<OutputSnapshot>(prepared)}), 1u);
     EXPECT_EQ(probe.capsQueries, 2u);
+    EXPECT_EQ(probe.formatQueries, 0u);
+    EXPECT_EQ(probe.modeQueries, 0u);
     ASSERT_TRUE(Until([&] { return completedCount == 1; }));
 }
 
@@ -780,7 +832,29 @@ TEST_P(FrameOutputs, VulkanSurfaceQueryPreservesErrorsAndRejectsUnsupportedConfi
     EXPECT_EQ(output->acquires, 0u);
 }
 
-TEST_P(FrameOutputs, VulkanSurfaceSelectionIgnoresEnumerationOrderAndTracksTransform)
+TEST_P(FrameOutputs, VulkanLegacyQueriesContinueToEnumerateOptions)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan legacy surface query";
+    windows.push_back(std::make_unique<OutputWindow>());
+    SwapChain::Descriptor descriptor;
+    descriptor.window = windows.back()->handle;
+    descriptor.width  = 96;
+    descriptor.height = 64;
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    SwapChainPtr       native(device->CreateSwapChain(descriptor));
+    ASSERT_TRUE(native);
+    EXPECT_EQ(probe.formatQueries, 2u);
+    native->Resize(96, 64);
+    EXPECT_EQ(probe.formatQueries, 4u);
+    for (uint32_t query = 0; query < 2; ++query) {
+        EXPECT_EQ(native->QuerySurface().status, PresentationStatus::READY);
+        EXPECT_EQ(probe.formatQueries, 6u + 2u * query);
+        EXPECT_EQ(probe.modeQueries, 6u + 2u * query);
+    }
+}
+
+TEST_P(FrameOutputs, VulkanCapabilitiesTrackTransformAndNativeExtent)
 {
     if (GetParam() == 2)
         GTEST_SKIP() << "Vulkan surface capability queries";
@@ -789,7 +863,6 @@ TEST_P(FrameOutputs, VulkanSurfaceSelectionIgnoresEnumerationOrderAndTracksTrans
     const auto original = output->native->QuerySurface();
     ASSERT_EQ(original.status, PresentationStatus::READY);
     VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
-    probe.reverseFormats = true;
     probe.changeCaps     = [](auto &caps) { caps.supportedTransforms |= VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR; };
     EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
     probe.changeCaps = [](auto &caps) {
@@ -816,23 +889,150 @@ TEST_P(FrameOutputs, VulkanSuboptimalKeepsImageAndDoesNotRebuildUnchangedConfigu
         GTEST_SKIP() << "Vulkan suboptimal acquisition";
     auto *output = Add({0, 1});
     ASSERT_TRUE(output);
-    auto                            &functions = const_cast<VulkanDeviceFunctions &>(static_cast<VulkanDevice *>(device)->GetDeviceFn());
-    const auto                       saved     = functions;
-    static PFN_vkAcquireNextImageKHR acquire   = nullptr;
-    acquire                                    = saved.vkAcquireNextImageKHR;
-    Finally restore{[&] { functions = saved; }};
-    functions.vkAcquireNextImageKHR = [](VkDevice native, VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore, VkFence fence,
-                                         uint32_t *index) {
-        const auto result = acquire(native, swapchain, timeout, semaphore, fence, index);
-        return result == VK_SUCCESS ? VK_SUBOPTIMAL_KHR : result;
-    };
-    const auto original = std::get<OutputSnapshot>(scheduler->BeginViewport({0, 1}));
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.acquireSuboptimal = true;
+    probe.reverseFormats    = true;
+    const auto original     = std::get<OutputSnapshot>(scheduler->BeginViewport({0, 1}));
     for (uint32_t frame = 1; frame <= 3; ++frame) {
         EXPECT_EQ(Render({std::get<OutputSnapshot>(scheduler->BeginViewport({0, 1}))}), 1u);
         ASSERT_TRUE(Until([&] { return completedCount == frame && output->presents >= frame; }));
     }
     EXPECT_EQ(output->resizes, 0u);
     EXPECT_EQ(std::get<OutputSnapshot>(scheduler->BeginViewport({0, 1})).revision, original.revision);
+    EXPECT_EQ(probe.formatQueries, 6u);
+    EXPECT_EQ(probe.modeQueries, 6u);
+}
+
+TEST_P(FrameOutputs, VulkanSuboptimalPresentInvalidatesOptionsOnce)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan presentation options";
+    auto *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.presentSuboptimal = true;
+    EXPECT_EQ(Render(scheduler->Snapshot()), 1u);
+    ASSERT_TRUE(Until([&] { return completedCount == 1 && output->presents == 1; }));
+    EXPECT_EQ(probe.formatQueries, 0u);
+    EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+    EXPECT_EQ(probe.formatQueries, 2u);
+    EXPECT_EQ(probe.modeQueries, 2u);
+    EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+    EXPECT_EQ(probe.formatQueries, 2u);
+    EXPECT_EQ(output->resizes, 0u);
+}
+
+TEST_P(FrameOutputs, VulkanChangedOptionsStayInvalidUntilRestoredAndAcquisitionCanRetire)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan presentation options";
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    auto              *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    probe.acquireSuboptimal = true;
+    const auto original     = output->native->QuerySurface();
+    for (uint32_t option = 0; option < 3; ++option) {
+        SwapChainAcquireResult acquired;
+        ASSERT_TRUE(Until([&] {
+            acquired = output->native->TryAcquireFrame(0);
+            return acquired.status != PresentationStatus::BUSY;
+        }));
+        ASSERT_EQ(acquired.status, PresentationStatus::READY);
+        ASSERT_NE(acquired.frame.serial, 0u);
+        if (option < 2) {
+            probe.changeFormats = [option, format = original.configuration.format](auto &count, auto *formats) {
+                count = 1;
+                if (option == 0)
+                    formats[0] = {format == PixelFormat::RGBA8_UNORM ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM,
+                                  VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+                else
+                    formats[0] = {format == PixelFormat::BGRA8_UNORM ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM,
+                                  VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT};
+            };
+        } else {
+            probe.changeModes = [](auto &count, auto *modes) {
+                count    = 1;
+                modes[0] = VK_PRESENT_MODE_FIFO_KHR;
+            };
+        }
+        for (uint32_t query = 0; query < 2; ++query) {
+            const auto changed = output->native->QuerySurface();
+            const auto expected =
+                option == 2 && probe.createdPresentMode == VK_PRESENT_MODE_FIFO_KHR ? PresentationStatus::READY : PresentationStatus::OUT_OF_DATE;
+            EXPECT_EQ(changed.status, expected);
+            EXPECT_EQ(changed.configuration.revision, original.configuration.revision);
+        }
+        EXPECT_EQ(output->native->TryResize(96, 64).status, PresentationStatus::BUSY);
+        probe.changeFormats = {};
+        probe.changeModes   = {};
+        EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+        const auto queries = probe.formatQueries;
+        EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+        EXPECT_EQ(probe.formatQueries, queries);
+        ASSERT_TRUE(Until([&] { return output->native->RetireFrame(acquired.frame.serial, true).status == FenceStatus::SIGNALED; }));
+    }
+}
+
+TEST_P(FrameOutputs, VulkanInvalidatedNegotiationRetriesErrorsAndIncomplete)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan presentation options";
+    auto *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.acquireSuboptimal = true;
+    SwapChainAcquireResult acquired;
+    ASSERT_TRUE(Until([&] {
+        acquired = output->native->TryAcquireFrame(0);
+        return acquired.status != PresentationStatus::BUSY;
+    }));
+    ASSERT_EQ(acquired.status, PresentationStatus::READY);
+    for (auto *result : {&probe.formatResult, &probe.modeResult}) {
+        for (const auto error : {VK_ERROR_OUT_OF_HOST_MEMORY, VK_ERROR_SURFACE_LOST_KHR, VK_ERROR_DEVICE_LOST}) {
+            *result            = error;
+            const auto queried = output->native->QuerySurface();
+            EXPECT_NE(queried.status, PresentationStatus::READY);
+            EXPECT_EQ(queried.error.nativeCode, error);
+            EXPECT_EQ(queried.configuration.extent.width, 0u);
+        }
+        *result = VK_SUCCESS;
+    }
+    for (auto *incomplete : {&probe.formatIncomplete, &probe.modeIncomplete}) {
+        *incomplete = true;
+        EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::BUSY);
+        *incomplete = false;
+    }
+    EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+    const auto queries = probe.formatQueries;
+    EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
+    EXPECT_EQ(probe.formatQueries, queries);
+    ASSERT_TRUE(Until([&] { return output->native->RetireFrame(acquired.frame.serial, true).status == FenceStatus::SIGNALED; }));
+}
+
+TEST_P(FrameOutputs, VulkanOutOfDateRecreatesWithFullNegotiationThenReturnsToCheapQueries)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan presentation options";
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    auto              *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    EXPECT_EQ(probe.formatQueries, 2u);
+    EXPECT_EQ(probe.modeQueries, 2u);
+    const auto original    = output->native->QuerySurface();
+    probe.acquireOutOfDate = true;
+    const auto acquired    = output->native->TryAcquireFrame(0);
+    EXPECT_EQ(acquired.status, PresentationStatus::OUT_OF_DATE);
+    EXPECT_EQ(acquired.frame.serial, 0u);
+    EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::OUT_OF_DATE);
+    EXPECT_EQ(probe.formatQueries, 4u);
+    probe.acquireOutOfDate = false;
+    EXPECT_EQ(output->native->TryResize(96, 64).status, PresentationStatus::READY);
+    EXPECT_EQ(probe.formatQueries, 6u);
+    EXPECT_EQ(probe.modeQueries, 6u);
+    const auto recreated = output->native->QuerySurface();
+    EXPECT_EQ(recreated.status, PresentationStatus::READY);
+    EXPECT_GT(recreated.configuration.revision, original.configuration.revision);
+    EXPECT_EQ(probe.formatQueries, 6u);
 }
 
 TEST_P(FrameOutputs, DelayedAcquireAndTwoOutputClose)

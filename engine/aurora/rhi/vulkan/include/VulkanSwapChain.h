@@ -54,11 +54,13 @@ namespace sky::aurora {
         bool                           checkedProtocol    = false;
         bool                           directProtocol     = false;
         VkResult                       creationResult     = VK_SUCCESS;
-        bool CreateSurface(void *window);
+        bool                           CreateSurface(void *window);
+        VkResult                       QueryCapabilities(uint32_t width, uint32_t height, VkSwapchainCreateInfoKHR &) const;
+        VkResult                       QueryPresentationOptions(VkSwapchainCreateInfoKHR &) const;
         VkResult                       QueryConfiguration(uint32_t width, uint32_t height, VkSwapchainCreateInfoKHR &) const;
         bool                           CreateSwapchain(uint32_t width, uint32_t height);
-        void DestroySwapchain();
-        void DestroySurface();
+        void                           DestroySwapchain();
+        void                           DestroySurface();
 
         VulkanDevice    &device;
         VkSurfaceKHR     surface     = VK_NULL_HANDLE;
@@ -73,6 +75,7 @@ namespace sky::aurora {
         PixelFormat              preferredFormat = PixelFormat::BGRA8_UNORM;
         VkSwapchainCreateInfoKHR applied{};
         uint64_t                 surfaceRevision = 0;
+        mutable bool             presentationOptionsDirty = false;
 
         std::vector<std::unique_ptr<VulkanImage>> images;
     };

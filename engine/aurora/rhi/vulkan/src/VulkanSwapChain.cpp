@@ -128,7 +128,7 @@ namespace sky::aurora {
         return true;
     }
 
-    VkResult VulkanSwapChain::QueryConfiguration(uint32_t width, uint32_t height, VkSwapchainCreateInfoKHR &ci) const
+    VkResult VulkanSwapChain::QueryCapabilities(uint32_t width, uint32_t height, VkSwapchainCreateInfoKHR &ci) const
     {
         if (!surface)
             return VK_ERROR_SURFACE_LOST_KHR;
@@ -166,8 +166,37 @@ namespace sky::aurora {
         }
         if (!ci.imageExtent.width || !ci.imageExtent.height)
             return VK_NOT_READY;
-        uint32_t count = 0;
-        result         = fn.vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &count, nullptr);
+        ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        if ((caps.supportedUsageFlags & ci.imageUsage) != ci.imageUsage)
+            return VK_ERROR_FORMAT_NOT_SUPPORTED;
+        const auto transform = static_cast<uint32_t>(caps.currentTransform);
+        if (!transform || (transform & (transform - 1)) || transform > VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR ||
+            !(caps.supportedTransforms & transform))
+            return VK_ERROR_FEATURE_NOT_PRESENT;
+        ci.preTransform = caps.currentTransform;
+        for (const auto alpha : {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+                                 VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR})
+            if (caps.supportedCompositeAlpha & alpha) {
+                ci.compositeAlpha = alpha;
+                break;
+            }
+        if (!ci.compositeAlpha || caps.minImageCount == UINT32_MAX)
+            return VK_ERROR_INITIALIZATION_FAILED;
+        ci.minImageCount = caps.minImageCount + 1;
+        if (caps.maxImageCount)
+            ci.minImageCount = std::min(ci.minImageCount, caps.maxImageCount);
+        ci.imageArrayLayers = 1;
+        ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        ci.clipped          = VK_TRUE;
+        return VK_SUCCESS;
+    }
+
+    VkResult VulkanSwapChain::QueryPresentationOptions(VkSwapchainCreateInfoKHR &ci) const
+    {
+        const auto &fn     = device.GetVulkanInstance().GetInstanceFn();
+        const auto  gpu    = device.GetGpuHandle();
+        uint32_t    count  = 0;
+        auto        result = fn.vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &count, nullptr);
         if (result != VK_SUCCESS)
             return result;
         if (!count || count > 1024)
@@ -208,29 +237,13 @@ namespace sky::aurora {
         ci.presentMode     = std::find(modes.begin(), modes.end(), desired) != modes.end() ? desired : VK_PRESENT_MODE_FIFO_KHR;
         if (std::find(modes.begin(), modes.end(), ci.presentMode) == modes.end())
             return VK_ERROR_INITIALIZATION_FAILED;
-        ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        if ((caps.supportedUsageFlags & ci.imageUsage) != ci.imageUsage)
-            return VK_ERROR_FORMAT_NOT_SUPPORTED;
-        const auto transform = static_cast<uint32_t>(caps.currentTransform);
-        if (!transform || (transform & (transform - 1)) || transform > VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR ||
-            !(caps.supportedTransforms & transform))
-            return VK_ERROR_FEATURE_NOT_PRESENT;
-        ci.preTransform = caps.currentTransform;
-        for (const auto alpha : {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-                                 VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR})
-            if (caps.supportedCompositeAlpha & alpha) {
-                ci.compositeAlpha = alpha;
-                break;
-            }
-        if (!ci.compositeAlpha || caps.minImageCount == UINT32_MAX)
-            return VK_ERROR_INITIALIZATION_FAILED;
-        ci.minImageCount = caps.minImageCount + 1;
-        if (caps.maxImageCount)
-            ci.minImageCount = std::min(ci.minImageCount, caps.maxImageCount);
-        ci.imageArrayLayers = 1;
-        ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        ci.clipped          = VK_TRUE;
         return VK_SUCCESS;
+    }
+
+    VkResult VulkanSwapChain::QueryConfiguration(uint32_t width, uint32_t height, VkSwapchainCreateInfoKHR &ci) const
+    {
+        const auto result = QueryCapabilities(width, height, ci);
+        return result == VK_SUCCESS ? QueryPresentationOptions(ci) : result;
     }
 
     bool VulkanSwapChain::CreateSwapchain(uint32_t width, uint32_t height)
@@ -248,8 +261,8 @@ namespace sky::aurora {
         extent            = ci.imageExtent;
         presentMode       = ci.presentMode;
         pixelFormat       = ToPixelFormat(ci.imageFormat);
-        const VkResult r = devFn.vkCreateSwapchainKHR(device.GetNativeHandle(), &ci, nullptr, &swapchain);
-        creationResult   = r;
+        const VkResult r  = devFn.vkCreateSwapchainKHR(device.GetNativeHandle(), &ci, nullptr, &swapchain);
+        creationResult    = r;
         if (r != VK_SUCCESS) {
             LOG_E(TAG, "vkCreateSwapchainKHR failed: %d", r);
             return false;
@@ -274,6 +287,7 @@ namespace sky::aurora {
         LOG_I(TAG, "swapchain created: %ux%u format=%d images=%u presentMode=%d",
               extent.width, extent.height, surfaceFormat.format, imageCount, presentMode);
         applied = ci;
+        presentationOptionsDirty = false;
         ++surfaceRevision;
         status = SwapChainStatus::OK;
         return true;
@@ -281,7 +295,7 @@ namespace sky::aurora {
 
     void VulkanSwapChain::DestroySwapchain()
     {
-        images.clear();   // release borrowed wrappers (do not vkDestroyImage)
+        images.clear(); // release borrowed wrappers (do not vkDestroyImage)
         if (swapchain != VK_NULL_HANDLE) {
             device.GetDeviceFn().vkDestroySwapchainKHR(device.GetNativeHandle(), swapchain, nullptr);
             swapchain = VK_NULL_HANDLE;
@@ -441,9 +455,20 @@ namespace sky::aurora {
         if (status == SwapChainStatus::LOST || !surface)
             return {{PresentationStatus::SURFACE_LOST}, {}};
         VkSwapchainCreateInfoKHR desired{};
-        const auto               result = QueryConfiguration(0, 0, desired);
+        auto                     result = QueryCapabilities(0, 0, desired);
         if (result != VK_SUCCESS)
             return {PresentationResultFromVk(result), {}};
+        desired.imageFormat     = applied.imageFormat;
+        desired.imageColorSpace = applied.imageColorSpace;
+        desired.presentMode     = applied.presentMode;
+        if (directProtocol || presentationOptionsDirty || status == SwapChainStatus::OUT_OF_DATE || !swapchain) {
+            result = QueryPresentationOptions(desired);
+            if (result != VK_SUCCESS)
+                return {PresentationResultFromVk(result), {}};
+            // Keep differing options dirty so later queries cannot silently fall back to the applied options.
+            presentationOptionsDirty = desired.imageFormat != applied.imageFormat || desired.imageColorSpace != applied.imageColorSpace ||
+                                       desired.presentMode != applied.presentMode;
+        }
         uint8_t rotation = 0;
         for (auto transform = static_cast<uint32_t>(desired.preTransform); transform > 1; transform >>= 1)
             ++rotation;
@@ -451,7 +476,7 @@ namespace sky::aurora {
                                            ToPixelFormat(desired.imageFormat),
                                            static_cast<SurfaceTransform>(rotation),
                                            surfaceRevision};
-        const bool same = swapchain && status == SwapChainStatus::OK && desired.surface == applied.surface &&
+        const bool           same = swapchain && status == SwapChainStatus::OK && desired.surface == applied.surface &&
                           desired.imageExtent.width == applied.imageExtent.width && desired.imageExtent.height == applied.imageExtent.height &&
                           desired.imageFormat == applied.imageFormat && desired.imageColorSpace == applied.imageColorSpace &&
                           desired.preTransform == applied.preTransform && desired.compositeAlpha == applied.compositeAlpha &&
@@ -471,8 +496,7 @@ namespace sky::aurora {
             return {{PresentationStatus::SURFACE_LOST}, {}};
         if (status == SwapChainStatus::OUT_OF_DATE)
             return {{PresentationStatus::OUT_OF_DATE}, {}};
-        // FrameScheduler checks the live configuration after acquisition, before exposing the image.
-        // Native acquire reports invalidation; do not enumerate the entire surface twice here.
+        // FrameScheduler validates live capabilities and invalidated options after acquisition, before exposing the image.
         auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return !frame.serial; });
         if (found == presentationFrames.end()) {
             if (presentationFrames.size() >= images.size())
@@ -499,6 +523,8 @@ namespace sky::aurora {
         const auto result = device.GetDeviceFn().vkAcquireNextImageKHR(
             device.GetNativeHandle(), swapchain, timeoutNs, static_cast<VulkanSemaphore *>(frame.acquired.Get())->GetNativeHandle(),
             static_cast<VulkanFence *>(frame.acquireFence.Get())->GetNativeHandle(), &frame.imageIndex);
+        if (result == VK_SUBOPTIMAL_KHR)
+            presentationOptionsDirty = true;
         const auto checked = PresentationResultFromVk(result);
         if (checked.status != PresentationStatus::READY) {
             if (checked.status == PresentationStatus::OUT_OF_DATE)
@@ -534,6 +560,8 @@ namespace sky::aurora {
         present.pWaitSemaphores    = &semaphore;
         const auto result =
             device.GetDeviceFn().vkQueuePresentKHR(static_cast<VulkanQueue *>(device.GetQueue(QueueType::GRAPHICS))->GetNativeHandle(), &present);
+        if (result == VK_SUBOPTIMAL_KHR)
+            presentationOptionsDirty = true;
         auto checked = PresentationResultFromVk(result);
         if (checked.error.code == GpuErrorCode::OUT_OF_MEMORY) {
             checked.status = PresentationStatus::BUSY;
