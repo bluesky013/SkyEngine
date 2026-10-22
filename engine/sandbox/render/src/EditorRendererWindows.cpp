@@ -2,6 +2,7 @@
 // Created on 2026/10/17.
 //
 #if defined(_WIN32)
+    #include "EditorFramePacer.h"
     #include <editor/render/EditorRenderer.h>
 
     #include <array>
@@ -60,7 +61,9 @@ namespace sky::editor {
             return CreateUiRenderFeature(Name(UI_FEATURE), std::move(code));
         }
     } // namespace
-    EditorRenderer::EditorRenderer() = default;
+    EditorRenderer::EditorRenderer() : framePacer(std::make_unique<EditorFramePacer>())
+    {
+    }
     EditorRenderer::~EditorRenderer()
     {
         Shutdown();
@@ -162,7 +165,7 @@ namespace sky::editor {
     {
         if (!pending)
             return true;
-        const auto result = host.Get()->TrySubmit(pending);
+        const auto result = framePacer->TrySubmit(*host.Get(), pending);
         if (result.status == PacketSubmitStatus::REJECTED)
             Fail(result.error);
         return result.status == PacketSubmitStatus::ACCEPTED;
@@ -173,6 +176,7 @@ namespace sky::editor {
         size_t                        count = 0;
         while ((count = host.Get()->PollEvents(events)) != 0) {
             for (const auto &event : std::span(events).first(count)) {
+                framePacer->OnEvent(event);
                 scene.OnEvent(event);
                 if (sceneBridge)
                     sceneBridge->OnEvent(event);
@@ -199,40 +203,11 @@ namespace sky::editor {
         Poll();
         if (host.Get()->GetState() != RendererState::RUNNING || !Submit())
             return;
+        if (!framePacer->CanBuild())
+            return;
         pending               = std::make_unique<FramePacket>();
         pending->sequence     = ++sequence;
         pending->deltaSeconds = delta;
-        if (sceneExtent.width != submittedSceneExtent.width || sceneExtent.height != submittedSceneExtent.height) {
-            pending->commands.push_back(ResizeViewport{CONTENT, sceneExtent, ++sceneRevision});
-            submittedSceneExtent = sceneExtent;
-        }
-        if (sceneBridge && !sceneSource) {
-            if (const auto error = sceneBridge->Append(*pending, SCENE, CONTENT)) {
-                Fail(*error);
-                return;
-            }
-            const auto &issues  = sceneBridge->GetIssues();
-            const auto  message = issues.empty() ? std::string{} : issues.front().message;
-            if (!message.empty() && message != sceneIssue)
-                LOG_W("EditorRender", "Scene input: %s", message.c_str());
-            sceneIssue = message;
-            ViewDesc view;
-            view.scene          = SCENE;
-            view.output         = CONTENT;
-            view.cameraPosition = {0, 0, 5};
-            view.view.v[14]     = -5;
-            std::fill(std::begin(view.projection.v), std::end(view.projection.v), 0.f);
-            view.projection.v[0]  = 2.4142136f * float(sceneExtent.height) / float(sceneExtent.width);
-            view.projection.v[5]  = 2.4142136f;
-            view.projection.v[10] = -1.0001f;
-            view.projection.v[11] = -1;
-            view.projection.v[14] = -.10001f;
-            if (auto camera = sceneBridge->Camera(SCENE, CONTENT, sceneExtent))
-                view = *camera;
-            pending->commands.push_back(UpdateView{{0, 1}, view, ++viewRevision});
-        }
-        if (sceneSource)
-            sceneSource(*pending, scene.GetSceneId());
         std::vector<std::string> closed;
         for (auto &surface : surfaces) {
             if (surface->retiring)
@@ -263,6 +238,43 @@ namespace sky::editor {
             else if (guiSource)
                 guiSource(surface->id, surface->paint, surface->extent.width, surface->extent.height);
         }
+        if (sceneExtent.width != submittedSceneExtent.width || sceneExtent.height != submittedSceneExtent.height) {
+            pending->commands.push_back(ResizeViewport{CONTENT, sceneExtent, ++sceneRevision});
+            submittedSceneExtent = sceneExtent;
+        }
+        if (sceneBridge && !sceneSource) {
+            if (const auto error = sceneBridge->Append(*pending, SCENE, CONTENT)) {
+                Fail(*error);
+                return;
+            }
+            const auto &issues  = sceneBridge->GetIssues();
+            const auto  message = issues.empty() ? std::string{} : issues.front().message;
+            if (!message.empty() && message != sceneIssue)
+                LOG_W("EditorRender", "Scene input: %s", message.c_str());
+            sceneIssue = message;
+            ViewDesc view;
+            view.scene          = SCENE;
+            view.output         = CONTENT;
+            view.cameraPosition = {0, 0, 5};
+            view.view.v[14]     = -5;
+            std::fill(std::begin(view.projection.v), std::end(view.projection.v), 0.f);
+            view.projection.v[0]  = 2.4142136f * float(sceneExtent.height) / float(sceneExtent.width);
+            view.projection.v[5]  = 2.4142136f;
+            view.projection.v[10] = -1.0001f;
+            view.projection.v[11] = -1;
+            view.projection.v[14] = -.10001f;
+            if (editorCamera) {
+                view.cameraPosition   = editorCamera->position;
+                const auto matrix     = editorCamera->View();
+                const auto projection = editorCamera->Projection(float(sceneExtent.width) / float(sceneExtent.height));
+                std::copy(std::begin(matrix.v), std::end(matrix.v), view.view.v);
+                std::copy(std::begin(projection.v), std::end(projection.v), view.projection.v);
+            } else if (auto camera = sceneBridge->Camera(SCENE, CONTENT, sceneExtent))
+                view = *camera;
+            pending->commands.push_back(UpdateView{{0, 1}, view, ++viewRevision});
+        }
+        if (sceneSource)
+            sceneSource(*pending, scene.GetSceneId());
         // All windows finish glyph generation before snapshots select the final atlas revision.
         for (const auto &surface : surfaces) {
             if (surface->closed || !surface->extent.width || !surface->extent.height)
@@ -315,6 +327,7 @@ namespace sky::editor {
         sceneSource = {};
         pending.reset();
         host.Shutdown();
+        framePacer->Reset();
         sceneBridge.reset();
         shaderFiles.reset();
         scene.OnRendererStopped();

@@ -152,8 +152,8 @@ namespace sky::ui {
         collect(focus, 0);
         collect(hovered, 0);
         for (auto it = captures.begin(); it != captures.end();) {
-            if (detached(it->second)) {
-                pending.push_back({it->second.GetAlive()->GetInputReference(), it->first});
+            if (detached(it->second.target)) {
+                pending.push_back({it->second.target.GetAlive()->GetInputReference(), it->first});
                 it      = captures.erase(it);
                 changed = true;
             } else {
@@ -241,7 +241,7 @@ namespace sky::ui {
     UIElement *UIEventRouter::GetCapture(uint32_t pointerId) const
     {
         const auto it = captures.find(pointerId);
-        return it != captures.end() ? Resolve(it->second) : nullptr;
+        return it != captures.end() ? Resolve(it->second.target) : nullptr;
     }
 
     UIEventResult UIEventRouter::DispatchPointer(const UIPointerEvent &event)
@@ -252,21 +252,25 @@ namespace sky::ui {
         const DispatchGuard guard{this, inputLifetime, contextLifetime, ++dispatchGeneration};
         const auto          isCurrent     = [&guard] { return guard.IsCurrent(); };
         UIElement          *activeCapture = GetCapture(event.pointerId);
-        if (activeCapture != nullptr && event.action != UIPointerAction::DOWN) {
+        if (activeCapture != nullptr) {
             UIPointerEvent mapped;
             if (!MapPointer(*activeCapture, event, mapped)) {
                 captures.erase(event.pointerId);
                 CancelPointer(activeCapture, event.pointerId, isCurrent);
                 return UIEventResult::UNHANDLED;
             }
+            if ((event.action == UIPointerAction::DOWN || event.action == UIPointerAction::UP) &&
+                event.button != captures.find(event.pointerId)->second.button) {
+                return UIEventResult::HANDLED;
+            }
         }
-        if (event.action == UIPointerAction::DOWN) {
+        if (event.action == UIPointerAction::DOWN && activeCapture == nullptr) {
             UIElement *hit = HitTest(event.x, event.y);
             SetFocusFrom(hit);
             if (hit == nullptr) {
                 return UIEventResult::UNHANDLED;
             }
-            captures[event.pointerId] = hit->GetInputReference();
+            captures[event.pointerId] = {hit->GetInputReference(), event.button};
             return BubblePointer(hit, event, isCurrent);
         }
         UIElement *target    = activeCapture != nullptr ? activeCapture : HitTest(event.x, event.y);

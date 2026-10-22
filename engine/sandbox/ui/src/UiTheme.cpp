@@ -53,6 +53,10 @@ namespace sky::editor {
         c.shadow       = 0x50000000;
         c.error        = uidraw::RGB(0xE0, 0x40, 0x40);
         c.white        = uidraw::RGB(0xFF, 0xFF, 0xFF);
+        c.gizmoX         = uidraw::RGB(235, 80, 80);
+        c.gizmoY         = uidraw::RGB(100, 220, 110);
+        c.gizmoZ         = uidraw::RGB(80, 150, 255);
+        c.gizmoHighlight = uidraw::RGB(255, 220, 80);
 
         theme.metrics.Scale(scale);
 
@@ -93,6 +97,9 @@ namespace sky::editor {
         s(hairline);
         s(frameHeight);
         s(iconSize);
+        s(gizmoLength);
+        s(gizmoWidth);
+        s(gizmoHitRadius);
 
         s(rowRadius);
         s(fieldRadius);

@@ -49,6 +49,7 @@ namespace sky::editor {
         uint32_t shadow       = 0;
         uint32_t error        = 0;
         uint32_t white        = 0;
+        uint32_t gizmoX = 0, gizmoY = 0, gizmoZ = 0, gizmoHighlight = 0;
     };
 
     // Layout metrics; the single source of UI dimensions. `Scale` multiplies every
@@ -78,6 +79,7 @@ namespace sky::editor {
         float hairline       = 3.0f;  // small inset / hairline spacing
         float frameHeight    = 26.0f; // control / field / button height
         float iconSize       = 16.0f; // toolbar icon edge length
+        float gizmoLength = 80.f, gizmoWidth = 2.f, gizmoHitRadius = 7.f;
 
         // Radii.
         float rowRadius      = 4.0f;

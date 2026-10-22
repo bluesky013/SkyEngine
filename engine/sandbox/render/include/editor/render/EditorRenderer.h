@@ -5,7 +5,9 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <editor/core/viewport/EditorCamera.h>
 #include <framework/window/IWindowEvent.h>
+#include <optional>
 #include <ui/UIPaintContext.h>
 #if !defined(_WIN32)
     #include <ui/render/UIRenderer.h>
@@ -44,6 +46,7 @@ namespace sky::editor {
 
     class WindowEventBinding;
     class EditorFrameSubmission;
+    class EditorFramePacer;
 
     class EditorRenderer : public sky::IWindowEvent {
     public:
@@ -70,6 +73,19 @@ namespace sky::editor {
         void OnWindowClose(const sky::NativeWindow *window) override;
         void OnWindowMove(const sky::WindowMoveEvent &event) override;
         void OnWindowResize(const sky::WindowResizeEvent &event) override;
+        void OnFocusChanged(bool focus) override
+        {
+            if (!focus && inputLost)
+                inputLost();
+        }
+        void SetInputLostCallback(std::function<void()> callback)
+        {
+            inputLost = std::move(callback);
+        }
+        void SetEditorCamera(std::optional<EditorCamera> camera)
+        {
+            editorCamera = std::move(camera);
+        }
 
         bool IsInitialized() const
         {
@@ -123,6 +139,8 @@ namespace sky::editor {
         }
 
     private:
+        std::optional<EditorCamera> editorCamera;
+        std::function<void()>       inputLost;
 #if defined(_WIN32)
         struct Surface {
             uint32_t                      id = 0;
@@ -141,6 +159,7 @@ namespace sky::editor {
         aurora::RendererHost                        host;
         aurora::RenderSceneProxy                    scene;
         std::unique_ptr<aurora::FramePacket>        pending;
+        std::unique_ptr<EditorFramePacer>           framePacer;
         std::unique_ptr<UiSnapshotProducer>         textures;
         std::shared_ptr<const void>                 moduleLease;
         std::shared_ptr<aurora::IFrameGraphFeature> feature;

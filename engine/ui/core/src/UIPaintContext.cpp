@@ -2,8 +2,12 @@
 // Created on 2026/09/19.
 //
 
-#include <ui/UIPaintContext.h>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <ui/UIGeometry.h>
+#include <ui/UIPaintContext.h>
+#include <utility>
 
 namespace sky::ui {
 
@@ -62,6 +66,77 @@ namespace sky::ui {
     void UIPaintContext::AddRect(const UIRect &rect, uint32_t color)
     {
         AddQuad(rect, UIRect{}, UI_INVALID_TEXTURE, color, -1.0f);
+    }
+
+    void UIPaintContext::AddTriangle(float x0, float y0, float x1, float y1, float x2, float y2, uint32_t color)
+    {
+        transform.Apply(x0, y0);
+        transform.Apply(x1, y1);
+        transform.Apply(x2, y2);
+        const auto &clip = clipStack.back();
+        if (clip.IsEmpty())
+            return;
+        using Point = std::array<double, 2>;
+        std::array<Point, 8> points{{{x0, y0}, {x1, y1}, {x2, y2}}};
+        size_t               count = 3;
+        // Scissors do not bound uploaded vertices. Clip in surface space before encoding the snapshot.
+        if (std::isfinite(x0) && std::isfinite(y0) && std::isfinite(x1) && std::isfinite(y1) && std::isfinite(x2) && std::isfinite(y2)) {
+            const std::array<double, 4> edges{clip.left, clip.right, clip.top, clip.bottom};
+            for (size_t edge = 0; edge < edges.size() && count; ++edge) {
+                std::array<Point, 8> clipped{};
+                size_t               nextCount      = 0;
+                const size_t         axis           = edge / 2;
+                const double         bound          = edges[edge];
+                const auto           inside         = [&](const Point &point) { return edge % 2 == 0 ? point[axis] >= bound : point[axis] <= bound; };
+                auto                 previous       = points[count - 1];
+                bool                 previousInside = inside(previous);
+                for (size_t i = 0; i < count; ++i) {
+                    const auto current       = points[i];
+                    const bool currentInside = inside(current);
+                    if (previousInside != currentInside) {
+                        const double t = (bound - previous[axis]) / (current[axis] - previous[axis]);
+                        Point        intersection{};
+                        intersection[axis]     = bound;
+                        intersection[1 - axis] = previous[1 - axis] + t * (current[1 - axis] - previous[1 - axis]);
+                        clipped[nextCount++]   = intersection;
+                    }
+                    if (currentInside)
+                        clipped[nextCount++] = current;
+                    previous       = current;
+                    previousInside = currentInside;
+                }
+                points = clipped;
+                count  = nextCount;
+            }
+        }
+        if (count < 3)
+            return;
+        const auto     base      = static_cast<uint32_t>(drawData.vertices.size());
+        const auto     indexBase = static_cast<uint32_t>(drawData.indices.size());
+        const uint32_t shaded    = ApplyOpacity(color);
+        for (size_t i = 0; i < count; ++i) {
+            UIVertex vertex{};
+            vertex.x     = static_cast<float>(points[i][0]);
+            vertex.y     = static_cast<float>(points[i][1]);
+            vertex.color = shaded;
+            drawData.vertices.push_back(vertex);
+        }
+        for (uint32_t i = 1; i + 1 < count; ++i)
+            drawData.indices.insert(drawData.indices.end(), {base, base + i, base + i + 1});
+        const auto indexCount = static_cast<uint32_t>((count - 2) * 3);
+        if (!drawData.commands.empty()) {
+            auto &last = drawData.commands.back();
+            if (!last.shape && last.textureId == UI_INVALID_TEXTURE && last.clip.left == clip.left && last.clip.top == clip.top &&
+                last.clip.right == clip.right && last.clip.bottom == clip.bottom) {
+                last.indexCount += indexCount;
+                return;
+            }
+        }
+        UIDrawCmd command{};
+        command.indexOffset = indexBase;
+        command.indexCount  = indexCount;
+        command.clip        = clip;
+        drawData.commands.push_back(command);
     }
 
     void UIPaintContext::AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color)

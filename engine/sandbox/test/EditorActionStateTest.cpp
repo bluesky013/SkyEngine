@@ -464,6 +464,31 @@ namespace sky::editor::action_state_test {
         EXPECT_EQ(calls, 1);
     }
 
+    TEST_F(EditorActionStateTest, ShellRefreshesLateAndReplacedToolbarIcons)
+    {
+        int calls = 0;
+        EditorActionRegistry::Get()->Add(Action(calls));
+        EditorShell shell;
+        shell.Rebuild();
+        shell.Layout(800, 600);
+        ui::UIPaintContext paint;
+        for (const auto texture : {233u, 234u, 234u}) {
+            shell.SetIcon("action-state-icon", texture);
+            paint.Begin({0, 0, 800, 600});
+            shell.PaintSurface(0, paint, 800, 600);
+            EXPECT_TRUE(HasTexture(paint.GetDrawData(), texture));
+            EXPECT_FALSE(HasTexture(paint.GetDrawData(), texture == 233 ? 234 : 233));
+        }
+        shell.SetIcon("replacement-icon", 235);
+        auto replacement = Action(calls);
+        replacement.icon = "replacement-icon";
+        EditorActionRegistry::Get()->Add(replacement);
+        paint.Begin({0, 0, 800, 600});
+        shell.PaintSurface(0, paint, 800, 600);
+        EXPECT_TRUE(HasTexture(paint.GetDrawData(), 235));
+        EXPECT_FALSE(HasTexture(paint.GetDrawData(), 234));
+    }
+
     TEST_F(EditorActionStateTest, ShellRoutesTallSubmenuRowsAndOutsideDismissal)
     {
         int calls = 0;

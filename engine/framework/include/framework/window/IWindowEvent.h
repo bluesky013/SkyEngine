@@ -33,6 +33,7 @@ namespace sky {
         uint32_t        clicks;
         int32_t         x;
         int32_t         y;
+        uint32_t        modifiers = 0; // KeyMod bits sampled with the pointer event, including after native menus.
     };
 
     struct MouseMotionEvent {

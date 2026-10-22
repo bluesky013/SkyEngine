@@ -59,8 +59,12 @@ namespace sky::ui {
         uint64_t                  dispatchGeneration = 0;
         UIElement::InputReference focus;
         UIElement::InputReference hovered;
-        // Capture is per pointer id so simultaneous pointers drag independently.
-        std::unordered_map<uint32_t, UIElement::InputReference> captures;
+        struct PointerCapture {
+            UIElement::InputReference target;
+            uint32_t                  button = 0;
+        };
+        // The initiating button owns capture; other button edges cannot steal or release it.
+        std::unordered_map<uint32_t, PointerCapture> captures;
     };
 
 } // namespace sky::ui

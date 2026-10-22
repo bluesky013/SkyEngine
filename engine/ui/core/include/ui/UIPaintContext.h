@@ -27,6 +27,7 @@ namespace sky::ui {
         void PopOpacity();
 
         void AddRect(const UIRect &rect, uint32_t color);
+        void AddTriangle(float x0, float y0, float x1, float y1, float x2, float y2, uint32_t color);
         void AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color);
         // Anti-aliased rounded box drawn analytically (fs_round).
         void AddRoundedRect(const UIRect &rect, uint32_t color, float radius);

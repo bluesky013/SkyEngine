@@ -469,9 +469,10 @@ namespace sky::aurora {
         checkedProtocol = true;
         if (status == SwapChainStatus::LOST || !surface || !swapchain)
             return {{PresentationStatus::SURFACE_LOST}, {}};
-        const auto queried = QuerySurface();
-        if (queried.status != PresentationStatus::READY)
-            return {{queried.status, queried.error}, {}};
+        if (status == SwapChainStatus::OUT_OF_DATE)
+            return {{PresentationStatus::OUT_OF_DATE}, {}};
+        // FrameScheduler checks the live configuration after acquisition, before exposing the image.
+        // Native acquire reports invalidation; do not enumerate the entire surface twice here.
         auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return !frame.serial; });
         if (found == presentationFrames.end()) {
             if (presentationFrames.size() >= images.size())

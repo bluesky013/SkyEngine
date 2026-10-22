@@ -5,6 +5,7 @@
 #include <editor/core/document/WorldDocument.h>
 
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 
 #include <filesystem>
@@ -47,7 +48,8 @@ TEST(WorldDocumentTest, CreatePlayWorldDuplicates)
     std::error_code             ec;
     std::filesystem::remove(path, ec);
 
-    sky::World::Reflect(sky::SerializationContext::Get());
+    if (!sky::TypeInfo<sky::TransformComponent>::RegisteredId())
+        sky::TransformComponent::Reflect(sky::SerializationContext::Get());
 
     WorldDocument document(path.string());
     sky::World   *edit = document.GetWorld();

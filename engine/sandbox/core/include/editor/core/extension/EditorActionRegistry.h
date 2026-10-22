@@ -31,6 +31,8 @@ namespace sky::editor {
         File,
         History,
         Play,
+        Viewport,
+        Navigation,
     };
 
     // Display label for a menu ("File", "Edit", ...); nullptr for EditorMenu::None.
@@ -60,6 +62,8 @@ namespace sky::editor {
         std::function<bool()> visible; // null => visible
         bool                  checkable = false;
         std::function<bool()> checked; // null => unchecked
+        // Eligibility is separate from enabled: ineligible shortcuts must reach focused text input.
+        std::function<bool()> acceleratorEligible;
     };
 
     struct EditorActionState {

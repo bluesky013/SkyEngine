@@ -11,6 +11,7 @@
 #include <editor/core/preferences/EditorSettings.h>
 #include <editor/core/preferences/PreferencePageRegistry.h>
 #include <editor/core/preferences/PreferencesPersistence.h>
+#include <editor/core/viewport/ViewportController.h>
 #include <editor/render/EditorRenderer.h>
 #include <editor/sandbox/UiTarget.h>
 #include <editor/shell/EditorShell.h>
@@ -46,6 +47,7 @@ namespace sky::editor {
         void Start() override;
         void Tick(float delta) override;
         void Shutdown() override;
+        void SetGizmoVisualProvider(std::shared_ptr<const IGizmoVisualProvider> provider);
 
         // Platform input (framework broadcasts these); forwarded to the shell/hub.
         void OnMouseButtonDown(const sky::MouseButtonEvent &event) override;
@@ -83,6 +85,9 @@ namespace sky::editor {
         void CloseWorld();
         void Quit();
         void StopPlay();
+        void RegisterViewportActions();
+        void RefreshViewportSpeedAction();
+        void BindWorldEditor(WorldDocument *document);
         void RefreshDocumentInfo();
         // Directory new/open world dialogs start in (project assets, else user config).
         std::string WorldBasePath() const;
@@ -124,6 +129,12 @@ namespace sky::editor {
         LayoutModel         layoutModel;
         SelectionService    selection;
         std::unique_ptr<WorldEditorState> worldEditor;
+        std::shared_ptr<ViewportController>         viewportController;
+        std::shared_ptr<const IGizmoVisualProvider> gizmoVisualProvider;
+        CommandService                              viewportSettingsCommands;
+        bool                                        viewportAlt            = false;
+        float                                       displayedViewportSpeed = 0;
+        std::string                                 viewportError;
         LogService          logService;
         CommandController   commandController;
         EditorExtensionHost extensionHost;

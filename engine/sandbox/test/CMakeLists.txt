@@ -16,6 +16,7 @@ sky_add_test(TARGET EditorCoreTest
         DefaultPanelsTest.cpp
         EditorExtensionTest.cpp
         ViewportTest.cpp
+        ViewportControlsTest.cpp
         FileBrowserModelTest.cpp
         TextEditStateTest.cpp
         EditorSettingsTest.cpp
@@ -54,12 +55,14 @@ sky_add_test(TARGET EditorRenderTest
         Framework
         Core
         Aurora.RHI.Static
+        Aurora.Renderer.Interface
         3rdParty::googletest
 )
 
 sky_add_test(TARGET EditorShellTest
     SOURCES
         EditorShellTest.cpp
+        SceneViewportTest.cpp
         EditorLayoutDependencyTest.cpp
         EditorHistoryRoutingTest.cpp
         PreferencesSessionTest.cpp

@@ -216,6 +216,7 @@ namespace sky {
             }
             case WM_SETFOCUS: Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnFocusChanged, true); break;
             case WM_KILLFOCUS: Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnFocusChanged, false); break;
+            case WM_SYSKEYDOWN:
             case WM_KEYDOWN: {
                 KeyboardEvent event = {};
                 event.winID         = winID;
@@ -224,6 +225,7 @@ namespace sky {
                 Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyDown, event);
                 break;
             }
+            case WM_SYSKEYUP:
             case WM_KEYUP: {
                 KeyboardEvent event = {};
                 event.winID         = winID;
@@ -258,6 +260,7 @@ namespace sky {
                 event.x                = GET_X_LPARAM(lparam);
                 event.y                = GET_Y_LPARAM(lparam);
                 event.clicks           = 1;
+                event.modifiers        = static_cast<uint32_t>(CurrentModifiers());
                 if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP) {
                     event.button = MouseButtonType::LEFT;
                 } else if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONUP) {

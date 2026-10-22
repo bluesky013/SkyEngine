@@ -464,6 +464,7 @@ namespace sky {
     mouseEvent.clicks                = static_cast<uint32_t>(event.clickCount);
     mouseEvent.x                     = static_cast<int32_t>(p.x);
     mouseEvent.y                     = static_cast<int32_t>(p.y);
+    mouseEvent.modifiers             = static_cast<uint32_t>(sky::CurrentModifiers(event.modifierFlags));
     if (down) {
         sky::Event<sky::IMouseEvent>::BroadCast(&sky::IMouseEvent::OnMouseButtonDown, mouseEvent);
     } else {

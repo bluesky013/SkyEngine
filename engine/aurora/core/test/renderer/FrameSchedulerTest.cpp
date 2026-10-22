@@ -19,6 +19,7 @@ namespace {
         {
             active                                              = this;
             functions.vkGetPhysicalDeviceSurfaceCapabilitiesKHR = [](VkPhysicalDevice gpu, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *caps) {
+                ++active->capsQueries;
                 if (active->capsResult != VK_SUCCESS)
                     return active->capsResult;
                 const auto result = active->saved.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, caps);
@@ -44,6 +45,7 @@ namespace {
         VkResult                                        capsResult = VK_SUCCESS;
         std::function<void(VkSurfaceCapabilitiesKHR &)> changeCaps;
         bool                                            reverseFormats = false;
+        uint32_t                                        capsQueries    = 0;
         static inline VulkanSurfaceProbe               *active         = nullptr;
     };
     void PumpWindows()
@@ -738,6 +740,21 @@ TEST_P(FrameOutputs, ConsecutiveSurfaceChangesRebuildLatestExtentAfterRetirement
     ASSERT_TRUE(std::holds_alternative<OutputSnapshot>(prepared));
     EXPECT_EQ(std::get<OutputSnapshot>(prepared).extent.width, 160u);
     EXPECT_EQ(Render({std::get<OutputSnapshot>(prepared)}), 1u);
+}
+
+TEST_P(FrameOutputs, VulkanQueriesConfigurationAtPrepareAndPostAcquireOnly)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan surface capability queries";
+    auto *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    const auto         prepared = scheduler->BeginViewport({0, 1});
+    ASSERT_TRUE(std::holds_alternative<OutputSnapshot>(prepared));
+    EXPECT_EQ(probe.capsQueries, 1u);
+    EXPECT_EQ(Render({std::get<OutputSnapshot>(prepared)}), 1u);
+    EXPECT_EQ(probe.capsQueries, 2u);
+    ASSERT_TRUE(Until([&] { return completedCount == 1; }));
 }
 
 TEST_P(FrameOutputs, VulkanSurfaceQueryPreservesErrorsAndRejectsUnsupportedConfiguration)

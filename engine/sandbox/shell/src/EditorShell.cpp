@@ -507,6 +507,7 @@ namespace sky::editor {
 
     bool EditorShell::PrepareSurfaceInput(uint32_t surfaceId)
     {
+        activeInputSurface              = surfaceId;
         const std::weak_ptr<void> alive = actionLifetime;
         const float               scale = GetSurfaceUiScale(surfaceId);
         if (surfaceId != 0 && surfaces.find(surfaceId) == surfaces.end()) {
@@ -547,20 +548,36 @@ namespace sky::editor {
 
     bool EditorShell::DispatchPointerToSurface(uint32_t surfaceId, const sky::ui::UIPointerEvent &event)
     {
+        const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchPointer(event);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        if (ActiveModal() != nullptr)
+            return true;
         auto *router = SurfaceRouter(surfaceId);
-        return router != nullptr && router->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
+        const bool handled = router != nullptr && router->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
+        if (!alive.expired())
+            UpdateCommandContext(surfaceId);
+        return handled;
     }
 
     bool EditorShell::DispatchKeyToSurface(uint32_t surfaceId, const sky::ui::UIKeyEvent &event)
     {
+        const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchKey(event);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        if (ActiveModal() != nullptr)
+            return true;
+        if (const auto id = ActionBarBuilder::MatchAccelerator(event); !id.empty()) {
+            if (!alive.expired())
+                InvokeAction(id);
+            return true;
+        }
+        if (alive.expired())
+            return true;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchKey(event) == sky::ui::UIEventResult::HANDLED;
     }
@@ -571,6 +588,8 @@ namespace sky::editor {
             return DispatchText(event);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        if (ActiveModal() != nullptr)
+            return true;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchText(event) == sky::ui::UIEventResult::HANDLED;
     }
@@ -610,6 +629,8 @@ namespace sky::editor {
 
     void EditorShell::SetIcon(const std::string &name, sky::ui::UITextureId texture)
     {
+        if (ResolveIcon(name) != texture)
+            actionIconsDirty = true;
         icons[name] = texture;
         IconRegistry::Get()->Set(name, texture);
     }
@@ -695,26 +716,30 @@ namespace sky::editor {
             const auto items = ActionBarBuilder::BuildToolBarItems(invoke);
             if (!current())
                 return;
-            if (auto *bar = dynamic_cast<MenuBar *>(menuBarElement)) {
+            if (auto *bar = static_cast<MenuBar *>(menuBarElement)) {
                 bar->SetMenus(std::move(menus), true);
                 if (!current())
                     return;
             }
-            if (auto *bar = dynamic_cast<ToolBar *>(toolBarElement))
+            if (auto *bar = static_cast<ToolBar *>(toolBarElement))
                 bar->SetItems(items);
             actionChromeRevision = revision;
             actionChromeScope    = scope;
+            actionIconsDirty     = true;
         }
-        if (auto *bar = dynamic_cast<MenuBar *>(menuBarElement)) {
+        if (auto *bar = static_cast<MenuBar *>(menuBarElement)) {
             if (!bar->RefreshActionStates() || !current())
                 return;
         }
-        if (auto *bar = dynamic_cast<ToolBar *>(toolBarElement)) {
+        if (auto *bar = static_cast<ToolBar *>(toolBarElement)) {
             if (!bar->RefreshActionStates() || !current())
                 return;
-            for (const auto &action : registry->GetToolbarActions()) {
-                if (!action.icon.empty())
-                    bar->SetItemIcon(action.id, ResolveIcon(action.icon));
+            if (actionIconsDirty) {
+                for (const auto &action : registry->GetToolbarActions()) {
+                    if (!action.icon.empty())
+                        bar->SetItemIcon(action.id, ResolveIcon(action.icon));
+                }
+                actionIconsDirty = false;
             }
         }
     }
@@ -1522,6 +1547,7 @@ namespace sky::editor {
 
     bool EditorShell::DispatchPointer(const sky::ui::UIPointerEvent &event)
     {
+        const std::weak_ptr<void> alive = actionLifetime;
         if (!PrepareSurfaceInput(0))
             return true;
         if (sky::ui::UIElement *modal = ActiveModal()) {
@@ -1533,7 +1559,10 @@ namespace sky::editor {
         }
         const bool overUI = eventRouter->HitTest(event.x, event.y) != nullptr;
         context->SetWantsInput(overUI || eventRouter->GetFocus() != nullptr);
-        return eventRouter->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
+        const bool handled = eventRouter->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
+        if (!alive.expired())
+            UpdateCommandContext(0);
+        return handled;
     }
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
@@ -1603,6 +1632,74 @@ namespace sky::editor {
             return true;
         }
         return context != nullptr && context->WantsInput();
+    }
+
+    bool EditorShell::IsPanelInputActive(const std::string &panelId) const
+    {
+        if (ActiveModal() != nullptr || (menuBarElement && static_cast<MenuBar *>(menuBarElement)->IsOpen()))
+            return false;
+        sky::ui::UIElement     *view   = nullptr;
+        sky::ui::UIEventRouter *router = nullptr;
+        if (activeInputSurface == 0) {
+            const auto found = attachedViews.find(panelId);
+            if (found != attachedViews.end())
+                view = found->second;
+            router = eventRouter.get();
+        } else {
+            const auto found = surfaces.find(activeInputSurface);
+            if (found != surfaces.end() && found->second.panelId == panelId) {
+                view   = found->second.view;
+                router = found->second.router.get();
+            }
+        }
+        for (auto *focus = router ? router->GetFocus() : nullptr; focus; focus = focus->GetParent()) {
+            if (focus == view)
+                return true;
+        }
+        return false;
+    }
+    void EditorShell::ResetInput()
+    {
+        if (eventRouter)
+            eventRouter->Reset();
+        for (auto &[id, surface] : surfaces) {
+            if (surface.router)
+                surface.router->Reset();
+        }
+    }
+    bool EditorShell::HasPointerCapture(uint32_t surfaceId) const
+    {
+        const auto  found  = surfaces.find(surfaceId);
+        const auto *router = surfaceId == 0 ? eventRouter.get() : found != surfaces.end() ? found->second.router.get() : nullptr;
+        return router != nullptr && router->GetCapture() != nullptr;
+    }
+    void EditorShell::SetPanelCommands(const std::string &panelId, CommandService *commands)
+    {
+        if (commands)
+            panelCommands[panelId] = commands;
+        else
+            panelCommands.erase(panelId);
+    }
+    void EditorShell::UpdateCommandContext(uint32_t surfaceId)
+    {
+        const auto *router = surfaceId == 0 ? eventRouter.get() : SurfaceRouter(surfaceId);
+        if (!router || !router->GetFocus() || ActiveModal())
+            return;
+        activeCommandPanel.clear();
+        for (const auto &[panelId, commands] : panelCommands) {
+            if (IsPanelInputActive(panelId)) {
+                activeCommandPanel = panelId;
+                return;
+            }
+        }
+    }
+    CommandService &EditorShell::ActiveCommands() const
+    {
+        const auto found = panelCommands.find(activeCommandPanel);
+        const bool attached =
+            attachedViews.find(activeCommandPanel) != attachedViews.end() ||
+            std::any_of(surfaces.begin(), surfaces.end(), [this](const auto &entry) { return entry.second.panelId == activeCommandPanel; });
+        return found == panelCommands.end() || !attached ? EditorCore::GetCommandService() : *found->second;
     }
 
     bool EditorShell::HasPanel(const std::string &panelId) const

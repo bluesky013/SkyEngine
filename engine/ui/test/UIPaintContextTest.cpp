@@ -5,9 +5,88 @@
 #include <gtest/gtest.h>
 #include <ui/UIPaintContext.h>
 
+#include <cmath>
+#include <limits>
 #include <vector>
 
 using namespace sky::ui;
+
+TEST(UIPaintContextTest, TriangleClipsGeometryAndPreservesCoverage)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 200, 200});
+    paint.PushClip({20, 30, 120, 130});
+    paint.AddTriangle(-100000, -100000, 100000, -100000, 0, 100000, 0xFFFFFFFF);
+    const auto &data = paint.GetDrawData();
+    ASSERT_FALSE(data.vertices.empty());
+    double area = 0;
+    for (const auto &vertex : data.vertices) {
+        ASSERT_GE(vertex.x, 20);
+        ASSERT_LE(vertex.x, 120);
+        ASSERT_GE(vertex.y, 30);
+        ASSERT_LE(vertex.y, 130);
+    }
+    for (size_t i = 0; i < data.indices.size(); i += 3) {
+        const auto &a = data.vertices[data.indices[i]];
+        const auto &b = data.vertices[data.indices[i + 1]];
+        const auto &c = data.vertices[data.indices[i + 2]];
+        area += std::abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) * .5;
+    }
+    EXPECT_NEAR(area, 10000, .01);
+    ASSERT_EQ(data.commands.size(), 1u);
+    EXPECT_EQ(data.commands.front().indexCount, data.indices.size());
+}
+
+TEST(UIPaintContextTest, TriangleClipUsesTransformedSurfaceAndBatchesCorrectly)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 200, 200});
+    UI2DTransform transform;
+    transform.m00 = 2;
+    transform.m11 = 2;
+    transform.m02 = 20;
+    transform.m12 = 30;
+    paint.PushTransform(transform);
+    paint.PushClip({0, 0, 50, 50});
+    paint.PushOpacity(.5f);
+    paint.AddTriangle(-100, -100, 200, -100, 0, 200, 0xFFFFFFFF);
+    const auto firstIndices = paint.GetDrawData().indices.size();
+    paint.AddTriangle(1, 1, 10, 1, 1, 10, 0xFFFFFFFF);
+    const auto &data = paint.GetDrawData();
+    ASSERT_EQ(data.commands.size(), 1u);
+    EXPECT_EQ(data.commands.front().indexCount, firstIndices + 3);
+    for (const auto &vertex : data.vertices) {
+        EXPECT_GE(vertex.x, 20);
+        EXPECT_LE(vertex.x, 120);
+        EXPECT_GE(vertex.y, 30);
+        EXPECT_LE(vertex.y, 130);
+        EXPECT_EQ(vertex.color, 0x80FFFFFFu);
+    }
+    paint.AddTexturedQuad({1, 1, 10, 10}, {0, 0, 1, 1}, 9, 0xFFFFFFFF);
+    ASSERT_EQ(data.commands.size(), 2u);
+    EXPECT_EQ(data.commands.back().indexOffset, firstIndices + 3);
+}
+
+TEST(UIPaintContextTest, OffscreenAndEmptyClipTrianglesProduceNoVertices)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 100, 100});
+    paint.AddTriangle(10000, 10000, 20000, 10000, 10000, 20000, 0xFFFFFFFF);
+    paint.PushClip({200, 200, 300, 300});
+    paint.AddTriangle(0, 0, 100, 0, 0, 100, 0xFFFFFFFF);
+    EXPECT_TRUE(paint.GetDrawData().vertices.empty());
+    EXPECT_TRUE(paint.GetDrawData().indices.empty());
+    EXPECT_TRUE(paint.GetDrawData().commands.empty());
+}
+
+TEST(UIPaintContextTest, InvalidTriangleStillReachesSnapshotValidation)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 100, 100});
+    paint.AddTriangle(std::numeric_limits<float>::quiet_NaN(), 0, 10, 0, 0, 10, 0xFFFFFFFF);
+    ASSERT_EQ(paint.GetDrawData().vertices.size(), 3u);
+    EXPECT_FALSE(std::isfinite(paint.GetDrawData().vertices.front().x));
+}
 
 TEST(UIPaintContextTest, SingleRectEmitsOneCommand)
 {

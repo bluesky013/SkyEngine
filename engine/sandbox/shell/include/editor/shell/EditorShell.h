@@ -195,7 +195,12 @@ namespace sky::editor {
         sky::ui::UIElement *HitTest(float x, float y) const;
 
         // Whether the UI wants input (used to gate viewport input).
-        bool WantsInput() const;
+        bool            WantsInput() const;
+        bool            IsPanelInputActive(const std::string &panelId) const;
+        void            ResetInput();
+        bool            HasPointerCapture(uint32_t surfaceId = 0) const;
+        void            SetPanelCommands(const std::string &panelId, CommandService *commands);
+        CommandService &ActiveCommands() const;
 
         size_t GetPanelCount() const
         {
@@ -273,6 +278,7 @@ namespace sky::editor {
         // uses the main router through the public Dispatch* methods.
         sky::ui::UIEventRouter *SurfaceRouter(uint32_t surfaceId);
         bool                    PrepareSurfaceInput(uint32_t surfaceId);
+        void                    UpdateCommandContext(uint32_t surfaceId);
         // Creates a surface's UI context + router and moves the panel view into
         // it. Shared by float (tear-out) and startup restore.
         uint32_t CreateSurfaceContext(const std::string &panelId, uint32_t surfaceId);
@@ -327,6 +333,9 @@ namespace sky::editor {
         std::unordered_map<uint32_t, Surface>     surfaces;        // surfaceId -> floating UI
         std::unordered_map<std::string, uint32_t> panelSurfaceIds; // panelId -> surfaceId
         std::unordered_map<uint32_t, float>       surfaceScales;   // surfaceId -> DPI scale
+        uint32_t                                          activeInputSurface = 0;
+        std::string                                       activeCommandPanel;
+        std::unordered_map<std::string, CommandService *> panelCommands;
         uint64_t                                  mainThemeRevision = 0;
 
         std::vector<Slot>                              slots; // per-tab, matching tree traversal order
@@ -356,6 +365,7 @@ namespace sky::editor {
         uint64_t              chromeGeneration     = 0;
         std::string           actionChromeScope;
         bool                  refreshingActions = false;
+        bool                  actionIconsDirty  = true;
 
         AssetViewerWidget *assetViewerElement = nullptr;
         Uuid               assetViewerAsset;

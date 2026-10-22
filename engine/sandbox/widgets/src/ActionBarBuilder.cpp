@@ -253,6 +253,8 @@ namespace sky::editor {
         for (const auto &snapshot : EditorActionRegistry::Get()->GetActionSnapshots()) {
             const EditorAction &action = snapshot.action;
             if (!action.accelerator.empty() && MatchesAccelerator(action.accelerator, event)) {
+                if (action.acceleratorEligible && !action.acceleratorEligible())
+                    continue;
                 const auto state = EditorActionRegistry::Get()->ResolveState(snapshot);
                 if (state.visible)
                     return action.id;

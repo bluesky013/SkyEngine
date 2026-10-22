@@ -162,6 +162,48 @@ namespace sky::ui {
         EXPECT_EQ(second->enterCount, 1);
     }
 
+    TEST(UIEventTest, CaptureButtonCannotBeStolenByAnotherButton)
+    {
+        UIContext context;
+        context.SetContentSize(100.f, 100.f);
+        auto  firstHolder  = std::make_unique<TestElement>();
+        auto  secondHolder = std::make_unique<TestElement>();
+        auto *first        = firstHolder.get();
+        auto *second       = secondHolder.get();
+        context.AddChild(std::move(firstHolder));
+        context.AddChild(std::move(secondHolder));
+        first->SetBounds({0, 0, 50, 100});
+        second->SetBounds({50, 0, 100, 100});
+        first->SetFocusable(true);
+        second->SetFocusable(true);
+        UIEventRouter  router(context);
+        UIPointerEvent event;
+        event.action = UIPointerAction::DOWN;
+        event.button = 1;
+        event.x      = 10;
+        event.y      = 10;
+        router.DispatchPointer(event);
+        event.x      = 90;
+        event.button = 0;
+        router.DispatchPointer(event);
+        event.action = UIPointerAction::UP;
+        router.DispatchPointer(event);
+        EXPECT_EQ(router.GetCapture(), first);
+        EXPECT_EQ(router.GetFocus(), first);
+        EXPECT_EQ(second->pointerCount, 0);
+        event.pointerId = 1;
+        event.action    = UIPointerAction::DOWN;
+        router.DispatchPointer(event);
+        EXPECT_EQ(router.GetCapture(1), second);
+        event.pointerId = 0;
+        event.button    = 1;
+        event.action    = UIPointerAction::UP;
+        router.DispatchPointer(event);
+        EXPECT_EQ(router.GetCapture(), nullptr);
+        EXPECT_EQ(router.GetCapture(1), second);
+        EXPECT_EQ(first->pointerCount, 2);
+    }
+
     TEST(UIEventTest, UnhandledBubblesToParent)
     {
         UIContext context;

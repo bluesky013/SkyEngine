@@ -7,6 +7,8 @@
 
 #include "WorldEditorState.h"
 #include <editor/sandbox/SandboxModule.h>
+#include <editor/shell/SceneViewport.h>
+#include <editor/widgets/ReflectedFormView.h>
 
 #include <editor/sandbox/UiIconBuilder.h>
 
@@ -280,6 +282,8 @@ namespace sky::editor {
     SandboxModule::SandboxModule()  = default;
     SandboxModule::~SandboxModule()
     {
+        BindWorldEditor(nullptr);
+        renderer.SetInputLostCallback({});
         CancelProjectCreation();
     }
 
@@ -433,11 +437,9 @@ namespace sky::editor {
             std::error_code ec;
             std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
 
-            if (worldEditor)
-                worldEditor->Bind(nullptr);
+            BindWorldEditor(nullptr);
             worldDocument = std::make_unique<WorldDocument>(path);
-            if (worldEditor)
-                worldEditor->Bind(worldDocument.get());
+            BindWorldEditor(worldDocument.get());
             worldDocument->Save(); // write the initial world file so it exists on disk
             shell.SetWorldDocument(worldDocument.get());
             shell.SetPanelVisible("config", true);
@@ -465,11 +467,9 @@ namespace sky::editor {
                 LOG_W(TAG, "failed to load world '%s'", result.path.c_str());
                 return;
             }
-            if (worldEditor)
-                worldEditor->Bind(nullptr);
+            BindWorldEditor(nullptr);
             worldDocument = std::move(document);
-            if (worldEditor)
-                worldEditor->Bind(worldDocument.get());
+            BindWorldEditor(worldDocument.get());
             shell.SetWorldDocument(worldDocument.get());
             shell.SetPanelVisible("config", true);
             RefreshDocumentInfo();
@@ -479,6 +479,8 @@ namespace sky::editor {
 
     void SandboxModule::SaveWorld()
     {
+        if (viewportController)
+            viewportController->Cancel();
         if (worldDocument == nullptr) {
             LOG_W(TAG, "save: no world open");
             return;
@@ -491,8 +493,131 @@ namespace sky::editor {
         }
     }
 
+    void SandboxModule::BindWorldEditor(WorldDocument *document)
+    {
+        if (viewportController)
+            viewportController->Bind(document);
+        if (worldEditor)
+            worldEditor->Bind(document);
+    }
+
+    void SandboxModule::SetGizmoVisualProvider(std::shared_ptr<const IGizmoVisualProvider> provider)
+    {
+        gizmoVisualProvider = std::move(provider);
+        if (viewportController)
+            viewportController->SetVisualProvider(gizmoVisualProvider);
+    }
+
+    void SandboxModule::RefreshViewportSpeedAction()
+    {
+        viewportController->settings.Normalize();
+        displayedViewportSpeed = viewportController->settings.speed;
+        EditorAction action;
+        action.id     = "viewport.settings";
+        action.label  = "Camera speed: " + std::to_string(viewportController->settings.speed) + " units/s - Controls";
+        action.icon   = "camera-speed";
+        action.group  = EditorGroup::Navigation;
+        action.menu   = EditorMenu::View;
+        action.order  = 41;
+        action.invoke = [this]() {
+            viewportController->Cancel();
+            shell.SetPanelVisible("viewport.controls", true);
+        };
+        EditorActionRegistry::Get()->Add(std::move(action));
+    }
+
+    void SandboxModule::RegisterViewportActions()
+    {
+        const auto eligible = [this]() {
+            return viewportController->IsEditing() && shell.IsPanelInputActive("viewport") && !viewportController->HasGesture();
+        };
+        const auto add = [this, eligible](const char *id, const char *label, const char *icon, const char *key, int order,
+                                          std::function<void()> invoke, std::function<bool()> checked = {}) {
+            EditorAction action;
+            action.id                  = id;
+            action.label               = label;
+            action.icon                = icon;
+            action.group               = EditorGroup::Viewport;
+            action.menu                = EditorMenu::View;
+            action.submenu             = "Viewport";
+            action.order               = order;
+            action.enabled             = [this]() { return viewportController->IsEditing(); };
+            action.invoke              = std::move(invoke);
+            action.accelerator         = key;
+            action.checkable           = static_cast<bool>(checked);
+            action.checked             = std::move(checked);
+            action.acceleratorEligible = eligible;
+            EditorActionRegistry::Get()->Add(std::move(action));
+        };
+        struct ToolAction {
+            const char *id, *label, *icon, *key;
+            GizmoTool   tool;
+        };
+        for (const auto &entry : {ToolAction{"viewport.select", "Select (Q)", "select", "Q", GizmoTool::SELECT},
+                                  ToolAction{"viewport.translate", "Translate (W)", "translate", "W", GizmoTool::TRANSLATE},
+                                  ToolAction{"viewport.rotate", "Rotate (E)", "rotate", "E", GizmoTool::ROTATE},
+                                  ToolAction{"viewport.scale", "Scale (R)", "scale", "R", GizmoTool::SCALE}}) {
+            const auto tool = entry.tool;
+            add(
+                entry.id, entry.label, entry.icon, entry.key, 20 + static_cast<int>(tool), [this, tool]() { viewportController->SetTool(tool); },
+                [this, tool]() { return viewportController->GetTool() == tool; });
+        }
+        add(
+            "viewport.space", "Local coordinates (X)", "coordinates", "X", 25, [this]() { viewportController->ToggleSpace(); },
+            [this]() { return viewportController->IsLocal(); });
+        auto space    = *EditorActionRegistry::Get()->Find("viewport.space");
+        space.enabled = [this]() { return viewportController->IsEditing() && viewportController->GetTool() != GizmoTool::SCALE; };
+        EditorActionRegistry::Get()->Add(std::move(space));
+        add(
+            "viewport.snap", "Snap (G)", "snap", "G", 26, [this]() { viewportController->ToggleSnap(); },
+            [this]() { return viewportController->IsSnapping(); });
+        EditorAction focus;
+        focus.id                  = "viewport.focus";
+        focus.label               = "Focus selection (F)";
+        focus.icon                = "focus";
+        focus.group               = EditorGroup::Viewport;
+        focus.order               = 27;
+        focus.enabled             = [this]() { return viewportController->CanTransform(); };
+        focus.invoke              = [this]() { viewportController->FocusSelection(); };
+        focus.accelerator         = "F";
+        focus.acceleratorEligible = eligible;
+        EditorActionRegistry::Get()->Add(std::move(focus));
+        EditorAction cancel;
+        cancel.id                  = "viewport.cancel";
+        cancel.label               = "Cancel viewport gesture";
+        cancel.enabled             = [this]() { return viewportController->HasGesture(); };
+        cancel.invoke              = [this]() { viewportController->Cancel(); };
+        cancel.accelerator         = "Esc";
+        cancel.acceleratorEligible = [this]() { return shell.IsPanelInputActive("viewport") && viewportController->HasGesture(); };
+        EditorActionRegistry::Get()->Add(std::move(cancel));
+        for (const bool faster : {false, true}) {
+            EditorAction speed;
+            speed.id     = faster ? "viewport.faster" : "viewport.slower";
+            speed.label  = faster ? "Increase camera speed" : "Decrease camera speed";
+            speed.icon   = faster ? "speed-up" : "speed-down";
+            speed.group  = EditorGroup::Navigation;
+            speed.order  = faster ? 42 : 40;
+            speed.invoke = [this, faster]() {
+                const float   value = std::clamp(viewportController->settings.speed * (faster ? 2.f : .5f), .01f, 1000.f);
+                PropertyModel model({&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
+                for (const auto &property : model.GetDescriptors()) {
+                    if (property.GetName() == "speed") {
+                        viewportSettingsCommands.Execute(property.MakeEditCommand(Any(value)));
+                        break;
+                    }
+                }
+                RefreshViewportSpeedAction();
+                EditorCore::GetPropertyChanges().Notify();
+            };
+            EditorActionRegistry::Get()->Add(std::move(speed));
+        }
+        RefreshViewportSpeedAction();
+    }
+
     void SandboxModule::CloseWorld()
     {
+        if (viewportController)
+            viewportController->Cancel();
         if (worldDocument == nullptr) {
             LOG_W(TAG, "close: no world open");
             return;
@@ -504,8 +629,7 @@ namespace sky::editor {
         // Detach from the shell before destroying so the config panel never sees
         // a dangling document pointer.
         shell.SetWorldDocument(nullptr);
-        if (worldEditor)
-            worldEditor->Bind(nullptr);
+        BindWorldEditor(nullptr);
         worldDocument.reset();
         RefreshDocumentInfo();
         LOG_I(TAG, "closed world");
@@ -513,6 +637,8 @@ namespace sky::editor {
 
     void SandboxModule::Quit()
     {
+        if (viewportController)
+            viewportController->Cancel();
         StopPlay();
         if (worldDocument != nullptr && worldDocument->IsDirty()) {
             worldDocument->Save();
@@ -721,6 +847,14 @@ namespace sky::editor {
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
         worldEditor = std::make_unique<WorldEditorState>(selection);
+        viewportController = std::make_shared<ViewportController>(selection, EditorCore::GetCommandService(), EditorCore::GetPropertyChanges());
+        viewportController->SetVisualProvider(gizmoVisualProvider);
+        ViewportControlSettings::Reflect();
+        renderer.SetInputLostCallback([this]() {
+            viewportAlt = false;
+            viewportController->Cancel();
+            shell.ResetInput();
+        });
         shell.SetPropertySource(worldEditor.get());
 
         // Asset browser: the shell reads the (cross-DLL singleton) catalog and routes asset
@@ -827,7 +961,11 @@ namespace sky::editor {
                               return worldDocument && !selection.IsEmpty() && selection.GetSelection().front().type == SelectionType::ENTITY &&
                                      playSession.GetState() == PlayState::Editing;
                           },
-                      .invoke      = [this]() { worldEditor->DeleteSelection(); },
+                      .invoke =
+                          [this]() {
+                              viewportController->Cancel();
+                              worldEditor->DeleteSelection();
+                          },
                       .accelerator = "Delete"});
         actions->Add({.id          = "edit.undo",
                       .label       = "Undo",
@@ -835,8 +973,8 @@ namespace sky::editor {
                       .group       = EditorGroup::History,
                       .menu        = EditorMenu::Edit,
                       .order       = 0,
-                      .enabled     = []() { return EditorCore::GetCommandService().CanUndo(); },
-                      .invoke      = []() { EditorCore::GetCommandService().Undo(); },
+                      .enabled     = [this]() { return shell.ActiveCommands().CanUndo() || viewportController->HasGesture(); },
+                      .invoke      = [this]() { shell.ActiveCommands().Undo(); },
                       .accelerator = "Ctrl+Z"});
         actions->Add({.id          = "edit.redo",
                       .label       = "Redo",
@@ -844,8 +982,8 @@ namespace sky::editor {
                       .group       = EditorGroup::History,
                       .menu        = EditorMenu::Edit,
                       .order       = 1,
-                      .enabled     = []() { return EditorCore::GetCommandService().CanRedo(); },
-                      .invoke      = []() { EditorCore::GetCommandService().Redo(); },
+                      .enabled     = [this]() { return shell.ActiveCommands().CanRedo() || viewportController->HasGesture(); },
+                      .invoke      = [this]() { shell.ActiveCommands().Redo(); },
                       .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
         actions->Add(
             {.id = "view.reset", .label = "Reset Layout", .menu = EditorMenu::View, .order = 5, .invoke = [this]() { shell.ResetLayout(); }});
@@ -997,6 +1135,7 @@ namespace sky::editor {
                       .enabled = [this]() { return playSession.GetState() != PlayState::Playing; },
                       .invoke =
                           [this]() {
+                              viewportController->Cancel();
                               if (playSession.Play()) {
                                   LOG_I(TAG, "PIE play");
                               }
@@ -1022,27 +1161,29 @@ namespace sky::editor {
                       .invoke  = [this]() { StopPlay(); }});
 
         shell.RegisterBuiltinPanelViews();
+        RegisterViewportActions();
+        panelRegistry.Register({"viewport.controls", "Viewport Controls"});
+        shell.SetPanelCommands("viewport.controls", &viewportSettingsCommands);
+        shell.RegisterPanelView("viewport.controls", [this]() {
+            auto form = std::make_unique<ReflectedFormView>(renderer.GetTextSystem(), "Viewport Controls",
+                                                            ReflectedFormContext{viewportSettingsCommands, EditorCore::GetPropertyEditors(),
+                                                                                 EditorCore::GetPropertyChanges(), GetDefaultUiTheme()});
+            form->Bind({&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
+            form->SetOnEdited([this]() {
+                viewportController->settings.Normalize();
+                RefreshViewportSpeedAction();
+            });
+            return form;
+        });
         shell.RegisterPanelView("viewport", [this, texture = renderer.GetSceneTextureId()]() {
-            class SceneImage final : public sky::ui::Image {
-            public:
-                explicit SceneImage(EditorRenderer &renderer) : renderer(renderer)
-                {
-                }
-
-            protected:
-                void ArrangeChildren(const sky::ui::UIRect &content) override
-                {
-                    sky::ui::Image::ArrangeChildren(content);
+            auto image           = std::make_unique<SceneViewport>(viewportController);
+            image->extentChanged = [this](Vector2 extent) {
 #if defined(_WIN32)
-                    renderer.SetSceneExtent({static_cast<uint32_t>(std::clamp(content.Width(), 1.f, 4096.f)),
-                                             static_cast<uint32_t>(std::clamp(content.Height(), 1.f, 4096.f))});
+                renderer.SetSceneExtent(
+                    {static_cast<uint32_t>(std::clamp(extent.x, 1.f, 4096.f)), static_cast<uint32_t>(std::clamp(extent.y, 1.f, 4096.f))});
 #endif
-                }
-
-            private:
-                EditorRenderer &renderer;
             };
-            auto image = std::make_unique<SceneImage>(renderer);
+            image->orbitHeld = [this]() { return viewportAlt; };
             image->SetTexture(texture);
             return image;
         });
@@ -1485,15 +1626,25 @@ namespace sky::editor {
             }
         }
         if (!hubMode) {
-            if (worldEditor)
-                worldEditor->Bind(worldDocument.get());
+            BindWorldEditor(worldDocument.get());
             // Play-In-Editor: advances the runtime world only while playing; the
             // edit world is never ticked.
             playSession.Tick(delta);
+            if (viewportController) {
+                viewportController->SetEditing(playSession.GetState() == PlayState::Editing);
+                if (!shell.IsPanelInputActive("viewport"))
+                    viewportController->Cancel();
+                viewportController->Tick(delta);
+                if (displayedViewportSpeed != viewportController->settings.speed)
+                    RefreshViewportSpeedAction();
+                renderer.SetEditorCamera(viewportController->IsEditing() ? std::optional{viewportController->camera} : std::nullopt);
+                if (!viewportController->Error().empty() && viewportController->Error() != viewportError) {
+                    viewportError = viewportController->Error();
+                    LOG_W(TAG, "%s", viewportError.c_str());
+                }
+            }
             // Reflect document edits (-> title/status dirty marker).
             RefreshDocumentInfo();
-            // Refresh the toolbar items' enabled state (Undo/Redo/Play/...).
-            shell.RefreshActions();
         }
 #if defined(_WIN32)
         renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
@@ -1537,6 +1688,8 @@ namespace sky::editor {
         } else {
             RouteFloatingPointer(winID, pointer);
         }
+        if (viewportController && !shell.IsPanelInputActive("viewport"))
+            viewportController->Cancel();
     }
 
     bool SandboxModule::RouteFloatingPointer(sky::WindowID winID, const sky::ui::UIPointerEvent &pointer)
@@ -1551,12 +1704,15 @@ namespace sky::editor {
 
     void SandboxModule::OnMouseButtonDown(const sky::MouseButtonEvent &event)
     {
+        viewportAlt = (event.modifiers & static_cast<uint32_t>(KeyMod::ALT)) != 0;
         sky::ui::UIPointerEvent pointer;
         pointer.action = sky::ui::UIPointerAction::DOWN;
         pointer.button = static_cast<uint32_t>(event.button);
         pointer.x      = static_cast<float>(event.x);
         pointer.y      = static_cast<float>(event.y);
         RoutePointer(pointer, event.winID);
+        if (viewportController)
+            viewportController->NavigationKey(0x10, (event.modifiers & static_cast<uint32_t>(KeyMod::SHIFT)) != 0);
         if (!hubMode) {
             // Begin a drag: take OS pointer capture so motion keeps arriving even
             // when the cursor leaves the window (main and floating alike).
@@ -1576,7 +1732,7 @@ namespace sky::editor {
         RoutePointer(pointer, event.winID);
         if (!hubMode) {
             if (auto *window = sky::NativeWindowManager::Get()->GetWindowByID(event.winID)) {
-                window->SetPointerCapture(false);
+                window->SetPointerCapture(shell.HasPointerCapture(renderer.SurfaceIdForWindow(window)));
             }
         }
     }
@@ -1632,6 +1788,9 @@ namespace sky::editor {
 
     void SandboxModule::RouteKey(const sky::ui::UIKeyEvent &key, sky::WindowID winID)
     {
+        viewportAlt = (key.modifiers & static_cast<uint32_t>(KeyMod::ALT)) != 0;
+        if (viewportController)
+            viewportController->NavigationKey(0x10, (key.modifiers & static_cast<uint32_t>(KeyMod::SHIFT)) != 0);
         if (!AcceptWindowEvent(winID)) {
             if (const uint32_t surfaceId = FloatingSurfaceForWindow(winID); surfaceId != 0) {
                 shell.DispatchKeyToSurface(surfaceId, key);
@@ -1677,8 +1836,9 @@ namespace sky::editor {
 
     void SandboxModule::Shutdown()
     {
-        if (worldEditor)
-            worldEditor->Bind(nullptr);
+        BindWorldEditor(nullptr);
+        renderer.SetInputLostCallback({});
+        renderer.SetEditorCamera(std::nullopt);
         CancelProjectCreation();
         // Flush any pending layout edit before teardown.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {

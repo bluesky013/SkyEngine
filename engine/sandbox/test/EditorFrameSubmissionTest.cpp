@@ -1,10 +1,99 @@
 #include "EditorFrameSubmission.h"
+#include "EditorFramePacer.h"
 
 #include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Semaphore.h>
 #include <gtest/gtest.h>
 
 namespace sky::editor {
+    namespace {
+        class PacketReceiver final : public aurora::IRenderer {
+        public:
+            aurora::PacketSubmitStatus                        status = aurora::PacketSubmitStatus::ACCEPTED;
+            std::vector<std::unique_ptr<aurora::FramePacket>> accepted;
+            aurora::PacketSubmitResult                        TrySubmit(std::unique_ptr<aurora::FramePacket> &packet) override
+            {
+                if (status == aurora::PacketSubmitStatus::ACCEPTED)
+                    accepted.push_back(std::move(packet));
+                return {status};
+            }
+            size_t PollEvents(std::span<aurora::RendererEvent>) override
+            {
+                return 0;
+            }
+            aurora::RendererState GetState() const override
+            {
+                return aurora::RendererState::RUNNING;
+            }
+            aurora::RendererInfo GetInfo() const override
+            {
+                return {};
+            }
+            void RequestShutdown() override
+            {
+            }
+        };
+    } // namespace
+
+    TEST(EditorFramePacerTest, CompletionBoundsFramesWithoutDroppingControlCommands)
+    {
+        EditorFramePacer pacer;
+        PacketReceiver   renderer;
+        auto             packet = std::make_unique<aurora::FramePacket>();
+        packet->sequence        = 1;
+        packet->commands.push_back(aurora::DestroyViewport{{7, 1}});
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        EXPECT_TRUE(pacer.CanBuild());
+        packet           = std::make_unique<aurora::FramePacket>();
+        packet->sequence = 2;
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        EXPECT_FALSE(pacer.CanBuild());
+        pacer.OnEvent(aurora::PacketApplied{2});
+        pacer.OnEvent(aurora::FrameCompleted{99, 1});
+        EXPECT_FALSE(pacer.CanBuild());
+        packet           = std::make_unique<aurora::FramePacket>();
+        packet->sequence = 3;
+        packet->commands.push_back(aurora::DestroyViewport{{8, 1}});
+        const auto *pending = packet.get();
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::BUSY);
+        EXPECT_EQ(packet.get(), pending);
+        ASSERT_EQ(renderer.accepted.size(), 2u);
+        EXPECT_TRUE(std::holds_alternative<aurora::DestroyViewport>(renderer.accepted[0]->commands[0]));
+        pacer.OnEvent(aurora::FrameCompleted{2, 0});
+        EXPECT_TRUE(pacer.CanBuild());
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        pacer.OnEvent(aurora::FrameCompleted{2, 0});
+        EXPECT_FALSE(pacer.CanBuild());
+        pacer.OnEvent(aurora::FrameCompleted{1, 10});
+        EXPECT_TRUE(pacer.CanBuild());
+        ASSERT_EQ(renderer.accepted.size(), 3u);
+        EXPECT_TRUE(std::holds_alternative<aurora::DestroyViewport>(renderer.accepted[2]->commands[0]));
+    }
+
+    TEST(EditorFramePacerTest, BusyAndRejectedPreservePacketAndShutdownResetsCredits)
+    {
+        EditorFramePacer pacer;
+        PacketReceiver   renderer;
+        auto             packet = std::make_unique<aurora::FramePacket>();
+        packet->sequence        = 1;
+        const auto *pending     = packet.get();
+        for (const auto result : {aurora::PacketSubmitStatus::BUSY, aurora::PacketSubmitStatus::REJECTED}) {
+            renderer.status = result;
+            EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, result);
+            EXPECT_EQ(packet.get(), pending);
+            EXPECT_EQ(packet->sequence, 1u);
+            EXPECT_TRUE(pacer.CanBuild());
+        }
+        renderer.status = aurora::PacketSubmitStatus::ACCEPTED;
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        packet           = std::make_unique<aurora::FramePacket>();
+        packet->sequence = 2;
+        EXPECT_EQ(pacer.TrySubmit(renderer, packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        EXPECT_FALSE(pacer.CanBuild());
+        pacer.Reset();
+        EXPECT_TRUE(pacer.CanBuild());
+    }
+
     namespace {
         using namespace sky::aurora;
 
