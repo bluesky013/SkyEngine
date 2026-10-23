@@ -6,6 +6,7 @@
 
 #include <aurora/rhi/Core.h>
 #include <editor/core/viewport/EditorCamera.h>
+#include <editor/render/CpuViewportPicker.h>
 #include <framework/window/IWindowEvent.h>
 #include <optional>
 #include <ui/UIPaintContext.h>
@@ -33,6 +34,7 @@ namespace sky {
 
 namespace sky::aurora {
     class RenderSceneBridge;
+    class ISceneResourceSource;
     class ClientViewport;
     class CommandBuffer;
     class CommandPool;
@@ -87,6 +89,28 @@ namespace sky::editor {
             editorCamera = std::move(camera);
         }
 
+        std::shared_ptr<IViewportPicker> GetViewportPicker() const
+        {
+#if defined(_WIN32)
+            return viewportPicker;
+#else
+            return {};
+#endif
+        }
+        // Observation runs on the host after its event consumers; observers must not reenter the renderer.
+        void SetRendererEventObserver(std::function<void(const aurora::RendererEvent &)> observer)
+        {
+            rendererEventObserver = std::move(observer);
+        }
+        void SetPickContext(ViewportPickContext context)
+        {
+            pickContext = context;
+        }
+        void SetSelection(std::vector<Uuid> actors, ViewportSelectionStyle style)
+        {
+            selectedActors = std::move(actors);
+            selectionStyle = style;
+        }
         bool IsInitialized() const
         {
 #if defined(_WIN32)
@@ -97,6 +121,8 @@ namespace sky::editor {
         }
 #if defined(_WIN32)
         using SceneSource = std::function<void(aurora::FramePacket &, aurora::SceneId)>;
+        // Configure the owned resource source before binding a World or starting frame production.
+        bool SetSceneResources(std::shared_ptr<aurora::ISceneResourceSource> source);
         void SetWorld(World *world);
         void SetSceneExtent(aurora::Extent2D extent);
         void SetSceneSource(SceneSource source)
@@ -139,8 +165,13 @@ namespace sky::editor {
         }
 
     private:
-        std::optional<EditorCamera> editorCamera;
-        std::function<void()>       inputLost;
+        std::vector<Uuid>                                  selectedActors;
+        ViewportSelectionStyle                             selectionStyle;
+        std::optional<EditorCamera>                        editorCamera;
+        std::shared_ptr<CpuViewportPicker>                 viewportPicker = std::make_shared<CpuViewportPicker>();
+        ViewportPickContext                                pickContext;
+        std::function<void(const aurora::RendererEvent &)> rendererEventObserver;
+        std::function<void()>                              inputLost;
 #if defined(_WIN32)
         struct Surface {
             uint32_t                      id = 0;
@@ -168,6 +199,7 @@ namespace sky::editor {
         uint32_t                                    nextSurfaceId = 1;
         bool                                        started = false, withPreview = false;
         GuiPaintFn                                  guiSource;
+        bool                                        sceneWorldBound = false;
         SceneSource                                 sceneSource;
         std::unique_ptr<aurora::RenderSceneBridge>  sceneBridge;
         std::shared_ptr<aurora::ShaderFileSystem>   shaderFiles;

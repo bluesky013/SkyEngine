@@ -19,6 +19,7 @@ namespace sky::editor {
         ui::UIEventResult            OnPointerEvent(const ui::UIPointerEvent &event) override;
         ui::UIEventResult            OnKeyEvent(const ui::UIKeyEvent &event) override;
         void                         OnPointerCancel(uint32_t pointerId) override;
+        void                         OnPointerButtonConflict(uint32_t pointerId) override;
         bool                         WantsPointerCapture() const override;
         std::function<void(Vector2)> extentChanged;
         std::function<bool()>        orbitHeld;
@@ -27,10 +28,15 @@ namespace sky::editor {
         void ArrangeChildren(const ui::UIRect &content) override;
 
     private:
+        void                                SyncPickScale();
+        float                               pickScale = 0;
         GizmoStyle                          Style() const;
         std::shared_ptr<ViewportController> controller;
         ui::UIRect                          contentRect;
-        GizmoHandle                         hover     = GizmoHandle::NONE;
+        Vector2                             clickStart;
+        float                               clickThreshold = 0;
+        bool                                clickExceeded  = false;
+        GizmoHandle                         hover          = GizmoHandle::NONE;
         uint32_t                            pointerId = 0, button = 0;
     };
 } // namespace sky::editor

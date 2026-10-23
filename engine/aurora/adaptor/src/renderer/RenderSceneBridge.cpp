@@ -55,7 +55,7 @@ namespace sky::aurora {
             bool             occupied = false, retiring = false, destroyQueued = false;
         };
         struct TransformWatch final : ITransformEvent {
-            explicit TransformWatch(Actor *actor) : actor(actor)
+            explicit TransformWatch(Actor *actor, uint64_t &revision) : actor(actor), revision(revision)
             {
                 TransformEvent::Connect(actor, this);
             }
@@ -66,6 +66,7 @@ namespace sky::aurora {
             void OnTransformChanged(const Transform &, const Transform &) override
             {
                 dirty = true;
+                ++revision;
             }
             const Matrix4 &Read()
             {
@@ -75,9 +76,10 @@ namespace sky::aurora {
                 }
                 return matrix;
             }
-            Actor  *actor;
-            bool    dirty = true;
-            Matrix4 matrix;
+            uint64_t &revision;
+            Actor    *actor;
+            bool      dirty = true;
+            Matrix4   matrix;
         };
         Impl(RendererInfo value, std::shared_ptr<ISceneResourceSource> source) : info(value), resources(std::move(source))
         {
@@ -89,6 +91,8 @@ namespace sky::aurora {
 
         void Remove(const Uuid &actor, const Uuid *component = nullptr)
         {
+            ++geometryRevision;
+            instanceGenerations.erase(actor);
             std::erase_if(active, [&](const auto &item) {
                 if (std::get<0>(item.first) != actor || (component && std::get<1>(item.first) != *component)) {
                     return false;
@@ -99,8 +103,9 @@ namespace sky::aurora {
         }
         void OnActorAttached(Actor *actor) override
         {
+            ++geometryRevision;
             if (!watches.contains(actor->GetUuid())) {
-                watches.emplace(actor->GetUuid(), std::make_unique<TransformWatch>(actor));
+                watches.emplace(actor->GetUuid(), std::make_unique<TransformWatch>(actor, geometryRevision));
             }
         }
         void OnActorDetached(Actor *actor) override
@@ -110,6 +115,7 @@ namespace sky::aurora {
         }
         void OnSceneComponentChanged(ComponentBase &component, bool attached) override
         {
+            ++geometryRevision;
             if (!attached && (component.GetActor() != nullptr)) {
                 Remove(component.GetActor()->GetUuid(), &component.GetTypeId());
             }
@@ -123,6 +129,10 @@ namespace sky::aurora {
                 WorldEvent::DisConnect(world.Get(), this);
                 Event<ISceneComponentEvent>::DisConnect(world.Get(), this);
             }
+            snapshot.reset();
+            snapshotIndex.clear();
+            instanceGenerations.clear();
+            ++geometryRevision;
             watches.clear();
             for (const auto &[key, index] : active) {
                 slots[index].retiring = true;
@@ -187,14 +197,17 @@ namespace sky::aurora {
             if (boundScene.IsValid() && boundScene != scene) {
                 return RendererError{.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene bridge cannot change renderer scene while alive"};
             }
-            boundScene = scene;
+            auto geometry = snapshotsEnabled ? std::make_shared<SceneGeometrySnapshot>() : nullptr;
+            boundScene    = scene;
             std::set<Key>                                          seen;
             std::map<decltype(ResourceKey({})), RenderResourceKey> used;
             const auto                                             add = [&](const Key &key, RenderEntityDesc desc) {
                 seen.insert(key);
                 if (const auto error = Upsert(packet, scene, key, desc)) {
                     issues.push_back(*error);
+                    return false;
                 }
+                return true;
             };
             if (world) {
                 for (const auto &actor : world->GetActors()) {
@@ -206,14 +219,38 @@ namespace sky::aurora {
                             if (!data.mesh) {
                                 continue;
                             }
+                            SceneGeometryInstance *instance = nullptr;
+                            if (geometry) {
+                                instance            = &geometry->instances.emplace_back();
+                                instance->actor     = actor->GetUuid();
+                                instance->component = type;
+                                auto identity       = instanceGenerations.find(instance->actor);
+                                if (identity == instanceGenerations.end())
+                                    identity = instanceGenerations.emplace(instance->actor, ++nextInstanceGeneration).first;
+                                instance->generation = identity->second;
+                                instance->mesh       = data.mesh;
+                                instance->material   = data.material;
+                                instance->world      = matrix;
+                            }
                             const auto result = resources->ResolveMesh(data.mesh, data.material, info);
+                            if (instance)
+                                instance->bounds = resources->MeshBounds(data.mesh);
                             if (const auto *error = std::get_if<RendererError>(&result)) {
                                 issues.push_back(*error);
+                                if (instance) {
+                                    instance->state =
+                                        error->code == RendererErrorCode::UNSUPPORTED ? SceneGeometryState::UNSUPPORTED : SceneGeometryState::ERROR;
+                                    instance->message = error->message;
+                                }
                                 continue;
                             }
                             const auto *ready = std::get_if<std::shared_ptr<const SceneMeshResources>>(&result);
                             if ((ready == nullptr) || !*ready) {
                                 continue;
+                            }
+                            if (instance) {
+                                instance->state   = SceneGeometryState::ERROR;
+                                instance->message = "Scene resources failed validation";
                             }
                             if ((*ready)->parts.size() > 8192 || (*ready)->payloads.size() > 8193) {
                                 issues.push_back({.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene mesh part budget exceeded"});
@@ -230,6 +267,11 @@ namespace sky::aurora {
                                                   .message = "Scene source returned missing or stale resource versions"});
                                 continue;
                             }
+                            if (instance) {
+                                instance->state     = SceneGeometryState::READY;
+                                instance->resources = *ready;
+                                instance->message.clear();
+                            }
                             for (const auto &payload : (*ready)->payloads) {
                                 used.emplace(ResourceKey(payload.resource), payload.resource);
                                 if (published.emplace(ResourceKey(payload.resource), payload.resource).second) {
@@ -244,7 +286,10 @@ namespace sky::aurora {
                                 desc.properties.subMesh       = part.part;
                                 desc.properties.castShadow    = data.castShadow;
                                 desc.properties.receiveShadow = data.receiveShadow;
-                                add({actor->GetUuid(), type, part.part}, desc);
+                                if (!add({actor->GetUuid(), type, part.part}, desc) && instance) {
+                                    instance->state   = SceneGeometryState::ERROR;
+                                    instance->message = issues.back().message;
+                                }
                             }
                         } else {
                             RenderEntityDesc desc;
@@ -277,6 +322,65 @@ namespace sky::aurora {
                             add({actor->GetUuid(), type, 0}, desc);
                         }
                     }
+                }
+            }
+            if (geometry) {
+                const auto               sourceRevision  = resources->Revision();
+                bool                     semanticChanged = !snapshot || sourceRevision != resourceRevision;
+                std::map<Uuid, uint32_t> nextIndex;
+                for (uint32_t i = 0; i < geometry->instances.size(); ++i) {
+                    auto &current = geometry->instances[i];
+                    nextIndex.emplace(current.actor, i);
+                    const auto found = snapshotIndex.find(current.actor);
+                    if (!snapshot || found == snapshotIndex.end()) {
+                        geometry->changed.push_back(i);
+                        semanticChanged = true;
+                        continue;
+                    }
+                    const auto &previous   = snapshot->instances[found->second];
+                    const bool  transform  = !std::equal(std::begin(current.world.v), std::end(current.world.v), std::begin(previous.world.v));
+                    bool        mesh       = current.mesh != previous.mesh || current.generation != previous.generation;
+                    bool        capability = current.material != previous.material || current.visibilityMask != previous.visibilityMask;
+                    if (previous.resources && current.resources) {
+                        mesh |= previous.resources->parts.size() != current.resources->parts.size();
+                        capability |= previous.resources->parts.size() != current.resources->parts.size();
+                        for (size_t j = 0; j < std::min(previous.resources->parts.size(), current.resources->parts.size()); ++j) {
+                            const auto &x = previous.resources->parts[j], &y = current.resources->parts[j];
+                            mesh |= x.part != y.part || x.mesh.resource != y.mesh.resource;
+                            capability |= x.surface != y.surface || x.material.resource != y.material.resource;
+                        }
+                    }
+                    // Equal resource keys promise immutable bytes; a producer may return a fresh shared owner each extraction.
+                    if (!mesh && !capability && current.state == SceneGeometryState::READY && previous.state == SceneGeometryState::READY)
+                        current.resources = previous.resources;
+                    const bool bounds = current.bounds.has_value() != previous.bounds.has_value() ||
+                                        (current.bounds && previous.bounds &&
+                                         (current.bounds->min != previous.bounds->min || current.bounds->max != previous.bounds->max));
+                    const bool ready =
+                        current.state != previous.state || current.resources != previous.resources || bounds || current.message != previous.message;
+                    current.transformRevision  = previous.transformRevision + uint64_t(transform);
+                    current.geometryRevision   = previous.geometryRevision + uint64_t(mesh);
+                    current.capabilityRevision = previous.capabilityRevision + uint64_t(capability);
+                    current.readinessRevision  = previous.readinessRevision + uint64_t(ready);
+                    if (transform || mesh || capability || ready)
+                        geometry->changed.push_back(i);
+                    semanticChanged |= transform || mesh || capability;
+                }
+                for (const auto &[actor, index] : snapshotIndex)
+                    if (!nextIndex.contains(actor)) {
+                        geometry->removed.push_back(actor);
+                        semanticChanged = true;
+                    }
+                if (semanticChanged)
+                    ++geometryRevision;
+                resourceRevision   = sourceRevision;
+                geometry->revision = geometryRevision;
+                if (!snapshot || semanticChanged || !geometry->changed.empty() || !geometry->removed.empty() ||
+                    snapshot->revision != geometryRevision) {
+                    geometry->baseVersion = snapshot ? snapshot->version : 0;
+                    geometry->version     = ++snapshotVersion;
+                    snapshot              = std::move(geometry);
+                    snapshotIndex         = std::move(nextIndex);
                 }
             }
             if (world && output.IsValid()) {
@@ -358,6 +462,12 @@ namespace sky::aurora {
         RendererInfo                                           info;
         std::shared_ptr<ISceneResourceSource>                  resources;
         WorldPtr                                               world;
+        bool                                                   snapshotsEnabled = false;
+        uint64_t                                               geometryRevision = 0, resourceRevision = 0;
+        std::shared_ptr<const SceneGeometrySnapshot>           snapshot;
+        std::map<Uuid, uint32_t>                               snapshotIndex;
+        std::map<Uuid, uint64_t>                               instanceGenerations;
+        uint64_t                                               snapshotVersion = 0, nextInstanceGeneration = 0;
         SceneId                                                boundScene;
         std::map<Uuid, std::unique_ptr<TransformWatch>>        watches;
         std::map<Key, uint32_t>                                active;
@@ -374,6 +484,48 @@ namespace sky::aurora {
     void RenderSceneBridge::SetWorld(World *world)
     {
         impl->Bind(world);
+    }
+    void RenderSceneBridge::EnableGeometrySnapshots(bool enabled)
+    {
+        impl->snapshotsEnabled = enabled;
+        impl->snapshot.reset();
+    }
+    std::shared_ptr<const SceneGeometrySnapshot> RenderSceneBridge::GeometrySnapshot() const
+    {
+        return impl->snapshot;
+    }
+    std::vector<RenderEntityRef> RenderSceneBridge::Entities(std::span<const Uuid> actors, bool staticOpaqueOnly) const
+    {
+        std::vector<RenderEntityRef> result;
+        for (const auto &actor : actors) {
+            const SceneGeometryInstance *geometry = nullptr;
+            if (staticOpaqueOnly) {
+                const auto found = impl->snapshotIndex.find(actor);
+                if (!impl->snapshot || found == impl->snapshotIndex.end())
+                    continue;
+                geometry = &impl->snapshot->instances[found->second];
+                if (geometry->state != SceneGeometryState::READY || !geometry->resources)
+                    continue;
+            }
+            auto it = impl->active.lower_bound(Key{actor, {}, 0});
+            for (; it != impl->active.end() && std::get<0>(it->first) == actor; ++it) {
+                const auto &slot = impl->slots[it->second];
+                if (!slot.occupied || slot.retiring || slot.destroyQueued)
+                    continue;
+                if (geometry) {
+                    if (std::get<1>(it->first) != geometry->component)
+                        continue;
+                    const auto part = std::ranges::find_if(geometry->resources->parts, [&](const auto &part) {
+                        return part.part == std::get<2>(it->first) && SupportsSceneHighlight(*geometry->resources, part);
+                    });
+                    if (part == geometry->resources->parts.end())
+                        continue;
+                }
+                if (std::ranges::find(result, slot.id) == result.end())
+                    result.push_back(slot.id);
+            }
+        }
+        return result;
     }
     std::optional<RendererError> RenderSceneBridge::Append(FramePacket &packet, SceneId scene, ViewportId output)
     {

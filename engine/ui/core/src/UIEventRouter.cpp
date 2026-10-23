@@ -261,6 +261,8 @@ namespace sky::ui {
             }
             if ((event.action == UIPointerAction::DOWN || event.action == UIPointerAction::UP) &&
                 event.button != captures.find(event.pointerId)->second.button) {
+                if (event.action == UIPointerAction::DOWN)
+                    activeCapture->OnPointerButtonConflict(event.pointerId);
                 return UIEventResult::HANDLED;
             }
         }

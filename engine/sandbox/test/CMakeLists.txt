@@ -46,6 +46,7 @@ sky_add_test(TARGET EditorRenderTest
     SOURCES
         EditorWindowEventBindingTest.cpp
         EditorFrameSubmissionTest.cpp
+        CpuViewportPickerTest.cpp
         main.cpp
     INCS
         ${CMAKE_CURRENT_SOURCE_DIR}/../render/src
@@ -56,6 +57,7 @@ sky_add_test(TARGET EditorRenderTest
         Core
         Aurora.RHI.Static
         Aurora.Renderer.Interface
+        EditorRender
         3rdParty::googletest
 )
 

@@ -77,10 +77,11 @@ namespace sky::editor {
     }
     void ViewportController::Bind(WorldDocument *value)
     {
-        if (value == document)
+        if (value == document && (!value || world.Get() == value->GetWorld()))
             return;
         Cancel();
         commands.Clear();
+        ++pickContext.document;
         document = value;
         world    = value ? value->GetWorld() : nullptr;
         camera   = {};
@@ -239,6 +240,12 @@ namespace sky::editor {
     }
     void ViewportController::Cancel()
     {
+        clickCandidate = false;
+        if (pendingPick && picker)
+            picker->Cancel(pendingPick->context);
+        pendingPick.reset();
+        pickSubmitted = false;
+        pickError.clear();
         const bool wasDragging = dragging;
         dragging               = false;
         active                 = GizmoHandle::NONE;
@@ -253,7 +260,7 @@ namespace sky::editor {
     }
     bool ViewportController::HasGesture() const
     {
-        return dragging || IsNavigating();
+        return dragging || IsNavigating() || clickCandidate || pendingPick.has_value();
     }
     bool ViewportController::IsNavigating() const
     {
@@ -309,8 +316,185 @@ namespace sky::editor {
         }
         return false;
     }
+    std::vector<Uuid> ViewportController::SelectedActors() const
+    {
+        std::vector<Uuid> result;
+        if (!IsEditing())
+            return result;
+        for (const auto &item : selection.GetSelection())
+            if (item.type == SelectionType::ENTITY && world->GetActorByUuid(item.id) && std::ranges::find(result, item.id) == result.end())
+                result.push_back(item.id);
+        return result;
+    }
+    void ViewportController::BuildSelectionGeometry(Vector2 extent, const ViewportSelectionStyle &style, GizmoGeometry &output) const
+    {
+        for (const auto &id : SelectedActors()) {
+            const auto feedback = picker ? picker->SelectionBounds(id) : ViewportSelectionBounds{};
+            if (feedback.surface)
+                continue;
+            if (feedback.bounds) {
+                std::array<Vector3, 8> corners;
+                const auto            &bounds = *feedback.bounds;
+                for (uint32_t i = 0; i < 8; ++i)
+                    corners[i] = {i & 1 ? bounds.max.x : bounds.min.x, i & 2 ? bounds.max.y : bounds.min.y, i & 4 ? bounds.max.z : bounds.min.z};
+                for (uint32_t i = 0; i < 8; ++i)
+                    for (uint32_t bit = 1; bit <= 4; bit *= 2) {
+                        if (i & bit)
+                            continue;
+                        ViewportPickProxy proxy;
+                        proxy.shape = ViewportSegmentProxy{corners[i], corners[i | bit], style.width};
+                        proxy.color = style.visible;
+                        ViewportProxyLayout layout;
+                        if (ProjectViewportPickProxy(proxy, camera, extent, layout))
+                            output.push_back(
+                                {.points = {layout.points.begin(), layout.points.begin() + layout.count}, .color = style.visible, .filled = true});
+                    }
+            } else {
+                auto *const actor     = world->GetActorByUuid(id);
+                const auto *transform = actor ? actor->GetComponent<TransformComponent>() : nullptr;
+                Vector2     center;
+                if (transform && camera.Project(transform->GetWorldTransform().translation, extent, center)) {
+                    const float r = style.markerRadius;
+                    output.push_back(
+                        {.points = {{center.x, center.y - r}, {center.x + r, center.y}, {center.x, center.y + r}, {center.x - r, center.y}},
+                         .color  = style.visible,
+                         .width  = style.width,
+                         .closed = true});
+                }
+            }
+        }
+    }
+    void ViewportController::SetPicker(std::shared_ptr<IViewportPicker> value)
+    {
+        Cancel();
+        picker = std::move(value);
+    }
+    void ViewportController::SyncPickCamera()
+    {
+        const std::array<float, 8> current{camera.position.x, camera.position.y,  camera.position.z, camera.yaw,
+                                           camera.pitch,      camera.verticalFov, camera.nearPlane,  camera.farPlane};
+        if (current != pickCamera) {
+            clickCandidate = false;
+            if (pendingPick && picker)
+                picker->Cancel(pendingPick->context);
+            pendingPick.reset();
+            pickSubmitted = false;
+            pickCamera    = current;
+            ++pickContext.camera;
+        }
+    }
+    ViewportPickContext ViewportController::PickContext()
+    {
+        SyncPickCamera();
+        return pickContext;
+    }
+    void ViewportController::SetPickSurface(uint64_t surface)
+    {
+        if (surface != pickContext.surface) {
+            Cancel();
+            pickContext.surface = surface;
+        }
+    }
+    void ViewportController::InvalidatePickLayout()
+    {
+        Cancel();
+        ++pickContext.layout;
+    }
+    void ViewportController::BeginClick()
+    {
+        Cancel();
+        SyncPickCamera();
+        if (IsEditing()) {
+            clickCandidate = true;
+            ++pickContext.request;
+        }
+    }
+    bool ViewportController::IsClickCandidate() const
+    {
+        return clickCandidate;
+    }
+    bool ViewportController::HasPendingPick() const
+    {
+        return pendingPick.has_value();
+    }
+    void ViewportController::FinishClick(Vector2 point, Vector2 extent)
+    {
+        SyncPickCamera();
+        if (!clickCandidate || !IsEditing())
+            return;
+        clickCandidate = false;
+        if (!picker) {
+            pickError = "Viewport picking is unavailable on this renderer";
+            return;
+        }
+        if (extent.x <= 0 || extent.y <= 0)
+            return;
+        ViewportPickRequest request;
+        if (!MakeViewportPickRequest(camera, point, extent, pickImageWidth ? pickImageWidth : uint32_t(extent.x),
+                                     pickImageHeight ? pickImageHeight : uint32_t(extent.y), pickContext, request))
+            return;
+        const auto prepared = picker->Context();
+        if (prepared.document == pickContext.document && prepared.camera == pickContext.camera)
+            request.context.scene = prepared.scene;
+        request.context.providers = prepared.providers;
+        pendingPick               = request;
+        pickSerial                = picker->PreparationSerial();
+        pickError                 = "Picking: preparing scene geometry";
+    }
+    void ViewportController::SetPickImageExtent(uint32_t width, uint32_t height)
+    {
+        if (pickImageWidth != width || pickImageHeight != height) {
+            InvalidatePickLayout();
+            pickImageWidth  = width;
+            pickImageHeight = height;
+        }
+    }
+    std::vector<ViewportProxyLayout> ViewportController::PickOverlay(Vector2 extent) const
+    {
+        return picker && IsEditing() ? picker->Overlay(camera, extent) : std::vector<ViewportProxyLayout>{};
+    }
+    void ViewportController::ProcessPicking()
+    {
+        SyncPickCamera();
+        if (!pendingPick || !picker || !IsEditing() || pickSerial == picker->PreparationSerial())
+            return;
+        pickSerial         = picker->PreparationSerial();
+        const auto context = picker->Context();
+        if (context.document != pickContext.document || context.camera != pickContext.camera)
+            return;
+        if (!pendingPick->context.scene)
+            pendingPick->context.scene = context.scene;
+        if (pendingPick->context.scene != context.scene || (pickSubmitted && pendingPick->context.providers != context.providers)) {
+            Cancel();
+            return;
+        }
+        ViewportPickResult result;
+        if (!pickSubmitted) {
+            pendingPick->context.providers = context.providers;
+            result                         = picker->Submit(*pendingPick);
+            pickSubmitted                  = result.status == ViewportPickStatus::PENDING;
+        }
+        if (pickSubmitted)
+            result = picker->Poll(pendingPick->context);
+        if (result.context != pendingPick->context) {
+            Cancel();
+            return;
+        }
+        pickError = result.message;
+        if (result.status == ViewportPickStatus::PENDING)
+            return;
+        picker->Cancel(pendingPick->context);
+        pendingPick.reset();
+        pickSubmitted = false;
+        if (result.status == ViewportPickStatus::HIT) {
+            if (world->GetActorByUuid(result.actor))
+                selection.SetSelection({{SelectionType::ENTITY, result.actor}});
+        } else if (result.status == ViewportPickStatus::MISS)
+            selection.Clear();
+        pickError = result.message;
+    }
     const std::string &ViewportController::Error() const
     {
-        return error;
+        return pickError.empty() ? error : pickError;
     }
 } // namespace sky::editor

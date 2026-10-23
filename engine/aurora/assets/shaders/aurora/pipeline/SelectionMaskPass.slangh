@@ -1,0 +1,13 @@
+// Generated from aurora/pipeline/SelectionMaskPass.h; do not edit.
+// Inputs: 3723465ffef9ef89bb5b7415966806f56a601c4e1581bb7fcb774bf50985dcac; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SelectionMaskParams
+{
+    column_major float4x4 viewProjection;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<SelectionMaskParams> gSelectionMask
+    : register(b0, space1);
+
+[[vk::binding(1, 1)]] Texture2D<float> gSceneDepth
+    : register(t1, space1);

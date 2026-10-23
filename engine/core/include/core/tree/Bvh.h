@@ -1,31 +1,37 @@
-﻿//
+//
 // Created by Zach Lee on 2026/2/24.
 //
 
 #pragma once
 
-#include <vector>
 #include <algorithm>
-#include <numeric>
-#include <functional>
-#include <limits>
-#include <cstdint>
-#include <core/math/Vector3.h>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <core/math/MathUtil.h>
+#include <core/math/Vector3.h>
 #include <core/shapes/AABB.h>
 #include <core/shapes/Shapes.h>
+#include <cstdint>
+#include <functional>
+#include <limits>
+#include <numeric>
+#include <vector>
 
 namespace sky {
 
     static constexpr uint32_t BVH_NULL = ~(0U);
 
     struct BvhNode {
-        AABB bounds;
-        uint32_t left = BVH_NULL;   // left child or first element index (for leaf)
-        uint32_t right = BVH_NULL;  // right child (BVH_NULL for leaf)
-        uint32_t count = 0;         // element count, 0 for internal nodes
+        AABB     bounds;
+        uint32_t left  = BVH_NULL; // left child or first element index (for leaf)
+        uint32_t right = BVH_NULL; // right child (BVH_NULL for leaf)
+        uint32_t count = 0;        // element count, 0 for internal nodes
 
-        bool IsLeaf() const { return count > 0; }
+        bool IsLeaf() const
+        {
+            return count > 0;
+        }
     };
 
     /**
@@ -49,15 +55,35 @@ namespace sky {
     template <typename T>
     class Bvh {
     public:
+        struct RayCursor {
+            std::array<uint32_t, 64> stack{};
+            uint32_t                 size = 0, element = 0, end = 0;
+            bool                     started = false;
+        };
+        // A cursor belongs to this immutable tree; rebuilding invalidates it.
+        template <typename Func>
+        bool QueryRayStep(const Vector3 &origin, const Vector3 &dir, float tMax, RayCursor &cursor, uint32_t &work, const Func &func) const;
+        struct BuildStatistics {
+            double copyMilliseconds = 0, boundsMilliseconds = 0, partitionMilliseconds = 0;
+            size_t scratchBytes = 0;
+        };
+        const BuildStatistics &GetBuildStatistics() const
+        {
+            return buildStatistics;
+        }
+        static constexpr size_t BuildScratchBytes(size_t count)
+        {
+            return count * (sizeof(AABB) + sizeof(Vector3));
+        }
         static constexpr uint32_t MAX_LEAF_SIZE = 4;
 
-        Bvh() = default;
+        Bvh()  = default;
         ~Bvh() = default;
 
         /**
          * @brief Build the BVH from a collection of elements.
          */
-        void Build(const std::vector<T> &elements);
+        void Build(const std::vector<T> &elements, const std::atomic<bool> *cancelled = nullptr);
 
         /**
          * @brief Query all elements whose bounds overlap the given AABB.
@@ -82,36 +108,59 @@ namespace sky {
         /**
          * @brief Check if the BVH is empty (no elements).
          */
-        bool Empty() const { return elements_.empty(); }
+        bool Empty() const
+        {
+            return elements_.empty();
+        }
 
         /**
          * @brief Get the number of elements in the BVH.
          */
-        uint32_t GetElementCount() const { return static_cast<uint32_t>(elements_.size()); }
+        uint32_t GetElementCount() const
+        {
+            return static_cast<uint32_t>(elements_.size());
+        }
 
         /**
          * @brief Get the number of nodes in the BVH.
          */
-        uint32_t GetNodeCount() const { return static_cast<uint32_t>(nodes_.size()); }
+        uint32_t GetNodeCount() const
+        {
+            return static_cast<uint32_t>(nodes_.size());
+        }
+
+        size_t GetMemoryUsage() const
+        {
+            return nodes_.capacity() * sizeof(BvhNode) + elements_.capacity() * sizeof(T);
+        }
 
         /**
          * @brief Get the root bounding box.
          */
-        const AABB &GetRootBounds() const { return nodes_.empty() ? emptyBounds_ : nodes_[0].bounds; }
+        const AABB &GetRootBounds() const
+        {
+            return nodes_.empty() ? emptyBounds_ : nodes_[0].bounds;
+        }
 
     private:
         uint32_t AllocNode();
 
-        void BuildRecursive(uint32_t nodeIdx, uint32_t begin, uint32_t end);
+        void BuildRecursive(uint32_t nodeIdx, uint32_t begin, uint32_t end, uint32_t depth, const std::atomic<bool> *cancelled);
 
         AABB ComputeBounds(uint32_t begin, uint32_t end) const;
 
         static float SurfaceArea(const AABB &box);
 
-        static bool RayAABBIntersect(const Vector3 &origin, const Vector3 &invDir, const AABB &box, float tMax);
+        static bool RayAABBIntersect(const Vector3 &origin, const Vector3 &dir, const AABB &box, float tMax);
 
-        std::vector<BvhNode> nodes_;
-        std::vector<T> elements_;
+        BuildStatistics buildStatistics;
+        struct BuildBounds {
+            AABB    bounds;
+            Vector3 centroid;
+        };
+        std::vector<BuildBounds> buildBounds;
+        std::vector<BvhNode>     nodes_;
+        std::vector<T>           elements_;
 
         static inline const AABB emptyBounds_ = AABB(VEC3_ZERO, VEC3_ZERO);
     };
@@ -129,18 +178,41 @@ namespace sky {
     }
 
     template <typename T>
-    void Bvh<T>::Build(const std::vector<T> &elements)
+    void Bvh<T>::Build(const std::vector<T> &elements, const std::atomic<bool> *cancelled)
     {
         Clear();
-        if (elements.empty()) {
+        buildStatistics    = {};
+        using Clock        = std::chrono::steady_clock;
+        auto       start   = Clock::now();
+        const auto elapsed = [&] { return std::chrono::duration<double, std::milli>(Clock::now() - start).count(); };
+        if (elements.empty() || (cancelled && cancelled->load(std::memory_order_relaxed))) {
             return;
         }
 
         elements_ = elements;
         nodes_.reserve(elements_.size() * 2);
+        buildStatistics.copyMilliseconds = elapsed();
+        start                            = Clock::now();
 
-        uint32_t root = AllocNode();
-        BuildRecursive(root, 0, static_cast<uint32_t>(elements_.size()));
+        buildBounds.resize(elements_.size());
+        buildStatistics.scratchBytes = buildBounds.capacity() * sizeof(BuildBounds);
+        for (size_t i = 0; i < elements_.size(); ++i) {
+            if (cancelled && cancelled->load(std::memory_order_relaxed)) {
+                Clear();
+                std::vector<BuildBounds>().swap(buildBounds);
+                return;
+            }
+            const auto bounds = BvhTraits<T>::GetBounds(elements_[i]);
+            buildBounds[i]    = {bounds, bounds.min * .5f + bounds.max * .5f};
+        }
+        uint32_t root                      = AllocNode();
+        buildStatistics.boundsMilliseconds = elapsed();
+        start                              = Clock::now();
+        BuildRecursive(root, 0, static_cast<uint32_t>(elements_.size()), 0, cancelled);
+        buildStatistics.partitionMilliseconds = elapsed();
+        std::vector<BuildBounds>().swap(buildBounds);
+        if (cancelled && cancelled->load(std::memory_order_relaxed))
+            Clear();
     }
 
     template <typename T>
@@ -154,13 +226,13 @@ namespace sky {
     AABB Bvh<T>::ComputeBounds(uint32_t begin, uint32_t end) const
     {
         AABB result;
-        result.min = Vector3( std::numeric_limits<float>::max());
+        result.min = Vector3(std::numeric_limits<float>::max());
         result.max = Vector3(-std::numeric_limits<float>::max());
 
         for (uint32_t i = begin; i < end; ++i) {
             const AABB &b = BvhTraits<T>::GetBounds(elements_[i]);
-            result.min = Min(result.min, b.min);
-            result.max = Max(result.max, b.max);
+            result.min    = Min(result.min, b.min);
+            result.max    = Max(result.max, b.max);
         }
         return result;
     }
@@ -173,118 +245,108 @@ namespace sky {
     }
 
     template <typename T>
-    void Bvh<T>::BuildRecursive(uint32_t nodeIdx, uint32_t begin, uint32_t end)
+    void Bvh<T>::BuildRecursive(uint32_t nodeIdx, uint32_t begin, uint32_t end, uint32_t depth, const std::atomic<bool> *cancelled)
     {
-        auto &node = nodes_[nodeIdx];
-        node.bounds = ComputeBounds(begin, end);
-
-        uint32_t count = end - begin;
-        if (count <= MAX_LEAF_SIZE) {
-            node.left = begin;
-            node.right = BVH_NULL;
-            node.count = count;
+        if (cancelled && cancelled->load(std::memory_order_relaxed))
+            return;
+        const uint32_t count = end - begin;
+        const AABB     empty{Vector3{std::numeric_limits<float>::max()}, Vector3{-std::numeric_limits<float>::max()}};
+        AABB           bounds = empty, centers = empty;
+        const auto     merge = [](AABB &a, const AABB &b) {
+            a.min = Min(a.min, b.min);
+            a.max = Max(a.max, b.max);
+        };
+        for (uint32_t i = begin; i < end; ++i) {
+            if ((i & 1023u) == 0 && cancelled && cancelled->load(std::memory_order_relaxed))
+                return;
+            merge(bounds, buildBounds[i].bounds);
+            centers.min = Min(centers.min, buildBounds[i].centroid);
+            centers.max = Max(centers.max, buildBounds[i].centroid);
+        }
+        nodes_[nodeIdx].bounds = bounds;
+        if (count <= MAX_LEAF_SIZE || depth >= 48) {
+            nodes_[nodeIdx].left  = begin;
+            nodes_[nodeIdx].count = count;
             return;
         }
-
-        // Find the best split using SAH over the 3 axes
-        float bestCost = std::numeric_limits<float>::max();
-        int bestAxis = -1;
-        uint32_t bestSplit = begin;
-
-        float parentArea = SurfaceArea(node.bounds);
-        if (parentArea < 1e-12f) {
-            // Degenerate bounds — make a leaf
-            node.left = begin;
-            node.right = BVH_NULL;
-            node.count = count;
-            return;
-        }
-
+        constexpr uint32_t BIN_COUNT = 16;
+        struct Bin {
+            AABB     bounds;
+            uint32_t count = 0;
+        };
+        float      bestCost = std::numeric_limits<float>::max();
+        int        bestAxis = -1;
+        uint32_t   bestBin  = 0;
+        const auto binFor   = [&](uint32_t i, int axis) {
+            const double span     = double(centers.max[axis]) - centers.min[axis];
+            const double relative = (double(buildBounds[i].centroid[axis]) - centers.min[axis]) / span;
+            return static_cast<uint32_t>(std::clamp(relative * BIN_COUNT, 0.0, double(BIN_COUNT - 1)));
+        };
         for (int axis = 0; axis < 3; ++axis) {
-            // Sort elements along this axis by their centroid
-            std::sort(elements_.begin() + begin, elements_.begin() + end,
-                [axis](const T &a, const T &b) {
-                    const AABB &ba = BvhTraits<T>::GetBounds(a);
-                    const AABB &bb = BvhTraits<T>::GetBounds(b);
-                    float ca = (ba.min[axis] + ba.max[axis]) * 0.5f;
-                    float cb = (bb.min[axis] + bb.max[axis]) * 0.5f;
-                    return ca < cb;
-                });
-
-            // Sweep to find the best split position
-            // Precompute right-side surface areas
-            std::vector<float> rightAreas(count);
-            {
-                AABB rightBox;
-                rightBox.min = Vector3( std::numeric_limits<float>::max());
-                rightBox.max = Vector3(-std::numeric_limits<float>::max());
-                for (uint32_t i = count; i > 0; --i) {
-                    const AABB &b = BvhTraits<T>::GetBounds(elements_[begin + i - 1]);
-                    rightBox.min = Min(rightBox.min, b.min);
-                    rightBox.max = Max(rightBox.max, b.max);
-                    rightAreas[i - 1] = SurfaceArea(rightBox);
-                }
+            if (!(centers.max[axis] > centers.min[axis]))
+                continue;
+            std::array<Bin, BIN_COUNT> bins;
+            for (auto &bin : bins)
+                bin.bounds = empty;
+            for (uint32_t i = begin; i < end; ++i) {
+                if ((i & 1023u) == 0 && cancelled && cancelled->load(std::memory_order_relaxed))
+                    return;
+                auto &bin = bins[binFor(i, axis)];
+                merge(bin.bounds, buildBounds[i].bounds);
+                ++bin.count;
             }
-
-            // Sweep from left to evaluate SAH
-            {
-                AABB leftBox;
-                leftBox.min = Vector3( std::numeric_limits<float>::max());
-                leftBox.max = Vector3(-std::numeric_limits<float>::max());
-                for (uint32_t i = 0; i < count - 1; ++i) {
-                    const AABB &b = BvhTraits<T>::GetBounds(elements_[begin + i]);
-                    leftBox.min = Min(leftBox.min, b.min);
-                    leftBox.max = Max(leftBox.max, b.max);
-
-                    float leftArea = SurfaceArea(leftBox);
-                    float rArea = rightAreas[i + 1];
-
-                    uint32_t leftCount = i + 1;
-                    uint32_t rightCount = count - leftCount;
-
-                    float cost = (leftArea * static_cast<float>(leftCount) +
-                                  rArea * static_cast<float>(rightCount)) / parentArea;
-
-                    if (cost < bestCost) {
-                        bestCost = cost;
-                        bestAxis = axis;
-                        bestSplit = begin + leftCount;
-                    }
+            std::array<float, BIN_COUNT> rightCosts{};
+            AABB                         right      = empty;
+            uint32_t                     rightCount = 0;
+            for (uint32_t i = BIN_COUNT; i-- > 0;) {
+                if (bins[i].count)
+                    merge(right, bins[i].bounds);
+                rightCount += bins[i].count;
+                rightCosts[i] = rightCount ? SurfaceArea(right) * rightCount : 0;
+            }
+            AABB     left      = empty;
+            uint32_t leftCount = 0;
+            for (uint32_t i = 0; i + 1 < BIN_COUNT; ++i) {
+                if (bins[i].count)
+                    merge(left, bins[i].bounds);
+                leftCount += bins[i].count;
+                if (!leftCount || leftCount == count)
+                    continue;
+                const float cost = SurfaceArea(left) * leftCount + rightCosts[i + 1];
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    bestAxis = axis;
+                    bestBin  = i;
                 }
             }
         }
-
-        // If no good split was found, create a leaf
-        if (bestAxis < 0 || bestSplit == begin || bestSplit == end) {
-            node.left = begin;
-            node.right = BVH_NULL;
-            node.count = count;
+        if (bestAxis >= 0 && bestCost >= SurfaceArea(bounds) * count) {
+            nodes_[nodeIdx].left  = begin;
+            nodes_[nodeIdx].count = count;
             return;
         }
-
-        // Re-sort along the best axis if it wasn't the last axis sorted
-        if (bestAxis != 2) {
-            std::sort(elements_.begin() + begin, elements_.begin() + end,
-                [bestAxis](const T &a, const T &b) {
-                    const AABB &ba = BvhTraits<T>::GetBounds(a);
-                    const AABB &bb = BvhTraits<T>::GetBounds(b);
-                    float ca = (ba.min[bestAxis] + ba.max[bestAxis]) * 0.5f;
-                    float cb = (bb.min[bestAxis] + bb.max[bestAxis]) * 0.5f;
-                    return ca < cb;
-                });
+        uint32_t split = begin + count / 2;
+        if (bestAxis >= 0) {
+            uint32_t lo = begin, hi = end;
+            while (lo < hi) {
+                if ((lo & 1023u) == 0 && cancelled && cancelled->load(std::memory_order_relaxed))
+                    return;
+                if (binFor(lo, bestAxis) <= bestBin) {
+                    ++lo;
+                } else {
+                    --hi;
+                    std::swap(elements_[lo], elements_[hi]);
+                    std::swap(buildBounds[lo], buildBounds[hi]);
+                }
+            }
+            if (lo > begin && lo < end)
+                split = lo;
         }
-
-        // Create child nodes
-        uint32_t leftChild = AllocNode();
-        uint32_t rightChild = AllocNode();
-
-        // Re-fetch node reference as AllocNode may have invalidated it
-        nodes_[nodeIdx].left = leftChild;
-        nodes_[nodeIdx].right = rightChild;
-        nodes_[nodeIdx].count = 0;
-
-        BuildRecursive(leftChild, begin, bestSplit);
-        BuildRecursive(rightChild, bestSplit, end);
+        const uint32_t left = AllocNode(), right = AllocNode();
+        nodes_[nodeIdx].left  = left;
+        nodes_[nodeIdx].right = right;
+        BuildRecursive(left, begin, split, depth + 1, cancelled);
+        BuildRecursive(right, split, end, depth + 1, cancelled);
     }
 
     template <typename T>
@@ -323,66 +385,65 @@ namespace sky {
     }
 
     template <typename T>
-    bool Bvh<T>::RayAABBIntersect(const Vector3 &origin, const Vector3 &invDir, const AABB &box, float tMax)
+    bool Bvh<T>::RayAABBIntersect(const Vector3 &origin, const Vector3 &dir, const AABB &box, float tMax)
     {
-        float t1 = (box.min.x - origin.x) * invDir.x;
-        float t2 = (box.max.x - origin.x) * invDir.x;
-        float tNear = std::fmin(t1, t2);
-        float tFar  = std::fmax(t1, t2);
+        double near = 0, far = tMax;
+        for (int axis = 0; axis < 3; ++axis) {
+            if (dir[axis] == 0) {
+                if (origin[axis] < box.min[axis] || origin[axis] > box.max[axis])
+                    return false;
+                continue;
+            }
+            const double a = (double(box.min[axis]) - origin[axis]) / dir[axis];
+            const double b = (double(box.max[axis]) - origin[axis]) / dir[axis];
+            near           = std::max(near, std::min(a, b));
+            far            = std::min(far, std::max(a, b));
+            if (near > far)
+                return false;
+        }
+        return true;
+    }
 
-        t1 = (box.min.y - origin.y) * invDir.y;
-        t2 = (box.max.y - origin.y) * invDir.y;
-        tNear = std::fmax(tNear, std::fmin(t1, t2));
-        tFar  = std::fmin(tFar,  std::fmax(t1, t2));
-
-        t1 = (box.min.z - origin.z) * invDir.z;
-        t2 = (box.max.z - origin.z) * invDir.z;
-        tNear = std::fmax(tNear, std::fmin(t1, t2));
-        tFar  = std::fmin(tFar,  std::fmax(t1, t2));
-
-        return tNear <= tFar && tFar >= 0.0f && tNear <= tMax;
+    template <typename T>
+    template <typename Func>
+    bool Bvh<T>::QueryRayStep(const Vector3 &origin, const Vector3 &dir, float tMax, RayCursor &cursor, uint32_t &work, const Func &func) const
+    {
+        if (!cursor.started) {
+            cursor.started = true;
+            if (!nodes_.empty())
+                cursor.stack[cursor.size++] = 0;
+        }
+        while (work && (cursor.size || cursor.element < cursor.end)) {
+            --work;
+            if (cursor.element < cursor.end) {
+                const auto &element = elements_[cursor.element++];
+                if (RayAABBIntersect(origin, dir, BvhTraits<T>::GetBounds(element), tMax))
+                    func(element);
+                continue;
+            }
+            const auto &node = nodes_[cursor.stack[--cursor.size]];
+            if (!RayAABBIntersect(origin, dir, node.bounds, tMax)) {
+                continue;
+            }
+            if (node.IsLeaf()) {
+                cursor.element = node.left;
+                cursor.end     = node.left + node.count;
+            } else {
+                cursor.stack[cursor.size++] = node.left;
+                cursor.stack[cursor.size++] = node.right;
+            }
+        }
+        return !cursor.size && cursor.element == cursor.end;
     }
 
     template <typename T>
     template <typename Func>
     void Bvh<T>::QueryRay(const Vector3 &origin, const Vector3 &dir, float tMax, const Func &func) const
     {
-        if (nodes_.empty()) {
-            return;
-        }
-
-        // Compute inverse direction, handling near-zero components
-        constexpr float EPS = 1e-8f;
-        Vector3 invDir(
-            std::fabs(dir.x) > EPS ? 1.0f / dir.x : (dir.x >= 0.0f ?  1.0f / EPS : -1.0f / EPS),
-            std::fabs(dir.y) > EPS ? 1.0f / dir.y : (dir.y >= 0.0f ?  1.0f / EPS : -1.0f / EPS),
-            std::fabs(dir.z) > EPS ? 1.0f / dir.z : (dir.z >= 0.0f ?  1.0f / EPS : -1.0f / EPS)
-        );
-
-        std::vector<uint32_t> stack;
-        stack.reserve(64);
-        stack.push_back(0);
-
-        while (!stack.empty()) {
-            uint32_t idx = stack.back();
-            stack.pop_back();
-
-            const auto &node = nodes_[idx];
-            if (!RayAABBIntersect(origin, invDir, node.bounds, tMax)) {
-                continue;
-            }
-
-            if (node.IsLeaf()) {
-                for (uint32_t i = node.left; i < node.left + node.count; ++i) {
-                    if (RayAABBIntersect(origin, invDir, BvhTraits<T>::GetBounds(elements_[i]), tMax)) {
-                        func(elements_[i]);
-                    }
-                }
-            } else {
-                stack.push_back(node.left);
-                stack.push_back(node.right);
-            }
-        }
+        RayCursor cursor;
+        uint32_t  work = UINT32_MAX;
+        while (!QueryRayStep(origin, dir, tMax, cursor, work, func))
+            work = UINT32_MAX;
     }
 
 } // namespace sky

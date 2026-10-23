@@ -8,6 +8,7 @@
 #include "OpaquePass.h"
 #include "SceneBatch.h"
 #include "SceneEnvironmentPass.h"
+#include "SceneHighlightRenderer.h"
 #include "SceneLightingPass.h"
 #include "SceneSurfaceBatch.h"
 #include "ShadowPass.h"
@@ -20,6 +21,8 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <set>
+#include <tuple>
 
 namespace sky::aurora {
     namespace {
@@ -170,6 +173,8 @@ namespace sky::aurora {
             }
             std::optional<RendererError> Validate(const FrameExtensionPayload &payload) const override
             {
+                if (IsSceneHighlightInput(payload))
+                    return ValidateSceneHighlightInput(payload);
                 if (payload.outputs.size() != 1 || payload.resources.size() > 3 || payload.bytes.size() != sizeof(SceneInput)) {
                     return RendererError{.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene view settings require one output"};
                 }
@@ -226,7 +231,23 @@ namespace sky::aurora {
                 const shared::OpaquePassParams params{
                     .viewProjection = target->logicalToClip * sceneToLogical * view.view.projection * view.view.view,
                     .cameraPosition = {view.view.cameraPosition.x, view.view.cameraPosition.y, view.view.cameraPosition.z, 1}};
-                auto      &draws   = std::get<std::vector<ResolvedRasterDraw>>(resolved);
+                auto      &draws          = std::get<std::vector<ResolvedRasterDraw>>(resolved);
+                const auto highlightInput = ReadSceneHighlightInput(context, name, view.view.output);
+                if (const auto *error = std::get_if<FrameError>(&highlightInput))
+                    return *error;
+                const auto                     &highlight = std::get<SceneHighlightData>(highlightInput);
+                std::vector<ResolvedRasterDraw> selected;
+                if (!highlight.entities.empty()) {
+                    const auto key = [](const RenderEntityRef &id) {
+                        return std::tuple{id.scene.index, id.scene.generation, id.entity.index, id.entity.generation};
+                    };
+                    std::set<decltype(key(RenderEntityRef{}))> selectedIds;
+                    for (const auto &id : highlight.entities)
+                        selectedIds.insert(key(id));
+                    for (const auto &draw : draws)
+                        if (selectedIds.contains(key(draw.entity)))
+                            selected.push_back(draw);
+                }
                 const bool hdr     = (settings.hdr != 0u) && !draws.empty();
                 const auto backend = draws.empty() ? API::VULKAN : draws.front().draw.shader->GetDevice()->GetAPI();
                 if (hdr) {
@@ -267,27 +288,36 @@ namespace sky::aurora {
                 if (std::holds_alternative<FrameError>(bound)) {
                     return bound;
                 }
-                if (std::ranges::any_of(pass.draws, [](const auto &draw) { return draw.depth.test || draw.depth.write; })) {
+                if (!selected.empty() || std::ranges::any_of(pass.draws, [](const auto &draw) { return draw.depth.test || draw.depth.write; })) {
                     Image::Descriptor depth;
-                    depth.format     = PixelFormat::D32;
-                    depth.extent     = {.width = target->output.extent.width, .height = target->output.extent.height, .depth = 1};
-                    depth.usage      = ImageUsageFlagBit::DEPTH_STENCIL;
+                    depth.format = PixelFormat::D32;
+                    depth.extent = {.width = target->output.extent.width, .height = target->output.extent.height, .depth = 1};
+                    depth.usage  = ImageUsageFlagBit::DEPTH_STENCIL;
+                    if (!selected.empty())
+                        depth.usage |= ImageUsageFlagBit::SAMPLED;
                     const auto image = context.CreateImage(depth);
                     if (const auto *error = std::get_if<FrameError>(&image)) {
                         return *error;
                     }
                     pass.depth = RasterDepthAttachment{.image = std::get<GraphImageHandle>(image)};
                 }
-                const auto color    = pass.color;
-                auto       rendered = context.Raster(std::move(pass));
-                if (std::holds_alternative<FrameError>(rendered) || !hdr) {
+                const auto color      = pass.color;
+                const auto sceneDepth = pass.depth ? pass.depth->image : GraphImageHandle{};
+                auto       rendered   = context.Raster(std::move(pass));
+                if (std::holds_alternative<FrameError>(rendered)) {
                     return rendered;
                 }
-                return ToneMap(context, *target, color, settings.exposure, backend);
+                if (hdr) {
+                    rendered = ToneMap(context, *target, color, settings.exposure, backend);
+                    if (std::holds_alternative<FrameError>(rendered))
+                        return rendered;
+                }
+                return highlights.Render(context, *target, params.viewProjection, sceneDepth, highlight.style, selected, *sources, products.Get());
             }
 
             void OnRetired() override
             {
+                highlights.Reset();
                 shadowSampler.Reset(nullptr);
                 toneMapShader.Reset(nullptr);
                 toneMapSampler.Reset(nullptr);
@@ -306,6 +336,8 @@ namespace sky::aurora {
                     if (input.feature != name) {
                         continue;
                     }
+                    if (IsSceneHighlightInput(input))
+                        continue;
                     if (const auto error = Validate(input)) {
                         return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = error->message};
                     }
@@ -638,6 +670,7 @@ namespace sky::aurora {
             ShaderPtr                         toneMapShader;
             SamplerPtr                        toneMapSampler;
             SamplerPtr                        environmentSampler, brdfSampler;
+            SceneHighlightRenderer            highlights;
         };
     } // namespace
 

@@ -9,8 +9,10 @@
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/property/PropertyChangeNotifier.h>
 #include <editor/core/selection/SelectionService.h>
+#include <editor/core/viewport/IViewportPicker.h>
 #include <editor/core/viewport/TransformGizmo.h>
 #include <memory>
+#include <optional>
 
 namespace sky {
     class TransformComponent;
@@ -21,34 +23,57 @@ namespace sky::editor {
     public:
         ViewportController(SelectionService &selection, CommandService &commands, PropertyChangeNotifier &changes);
         ~ViewportController();
-        void                    Bind(WorldDocument *document);
-        void                    SetEditing(bool value);
-        bool                    IsEditing() const;
-        bool                    CanTransform() const;
-        void                    SetTool(GizmoTool value);
-        GizmoTool               GetTool() const;
-        void                    ToggleSpace();
-        bool                    IsLocal() const;
-        void                    ToggleSnap();
-        bool                    IsSnapping() const;
-        void                    SetVisualProvider(std::shared_ptr<const IGizmoVisualProvider> provider);
-        bool                    BuildGeometry(Vector2 extent, const GizmoStyle &style, GizmoGeometry &geometry);
-        bool                    BeginDrag(GizmoHandle handle, Vector2 pointer, Vector2 extent, const GizmoStyle &style);
-        void                    MovePointer(Vector2 point);
-        void                    Release();
-        void                    Cancel();
-        bool                    HasGesture() const;
-        bool                    IsNavigating() const;
-        GizmoHandle             ActiveHandle() const;
-        void                    BeginNavigation(ViewportNavigation kind, Vector2 point, float height);
-        bool                    NavigationKey(uint32_t key, bool down);
-        void                    Tick(float seconds);
-        bool                    FocusSelection();
-        const std::string      &Error() const;
-        EditorCamera            camera;
-        ViewportControlSettings settings;
+        void                             Bind(WorldDocument *document);
+        void                             SetEditing(bool value);
+        bool                             IsEditing() const;
+        bool                             CanTransform() const;
+        void                             SetTool(GizmoTool value);
+        GizmoTool                        GetTool() const;
+        void                             ToggleSpace();
+        bool                             IsLocal() const;
+        void                             ToggleSnap();
+        bool                             IsSnapping() const;
+        void                             SetVisualProvider(std::shared_ptr<const IGizmoVisualProvider> provider);
+        bool                             BuildGeometry(Vector2 extent, const GizmoStyle &style, GizmoGeometry &geometry);
+        bool                             BeginDrag(GizmoHandle handle, Vector2 pointer, Vector2 extent, const GizmoStyle &style);
+        void                             MovePointer(Vector2 point);
+        void                             Release();
+        void                             Cancel();
+        bool                             HasGesture() const;
+        bool                             IsNavigating() const;
+        GizmoHandle                      ActiveHandle() const;
+        void                             BeginNavigation(ViewportNavigation kind, Vector2 point, float height);
+        bool                             NavigationKey(uint32_t key, bool down);
+        void                             Tick(float seconds);
+        bool                             FocusSelection();
+        void                             SetPicker(std::shared_ptr<IViewportPicker> value);
+        ViewportPickContext              PickContext();
+        void                             SetPickSurface(uint64_t surface);
+        void                             InvalidatePickLayout();
+        void                             BeginClick();
+        bool                             IsClickCandidate() const;
+        bool                             HasPendingPick() const;
+        void                             FinishClick(Vector2 point, Vector2 extent);
+        void                             SetPickImageExtent(uint32_t width, uint32_t height);
+        std::vector<ViewportProxyLayout> PickOverlay(Vector2 extent) const;
+        std::vector<Uuid>                SelectedActors() const;
+        void                             BuildSelectionGeometry(Vector2 extent, const ViewportSelectionStyle &, GizmoGeometry &) const;
+        void                             ProcessPicking();
+        const std::string               &Error() const;
+        EditorCamera                     camera;
+        ViewportControlSettings          settings;
 
     private:
+        void                                        SyncPickCamera();
+        std::shared_ptr<IViewportPicker>            picker;
+        std::optional<ViewportPickRequest>          pendingPick;
+        ViewportPickContext                         pickContext;
+        std::array<float, 8>                        pickCamera{};
+        uint64_t                                    pickSerial     = 0;
+        bool                                        clickCandidate = false;
+        bool                                        pickSubmitted  = false;
+        uint32_t                                    pickImageWidth = 0, pickImageHeight = 0;
+        std::string                                 pickError;
         TransformComponent                         *Selected() const;
         TransformComponent                         *DragTarget() const;
         bool                                        DragValid() const;

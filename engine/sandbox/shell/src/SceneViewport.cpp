@@ -4,6 +4,7 @@
 
 #include <editor/shell/SceneViewport.h>
 
+#include <algorithm>
 #include <cmath>
 #include <editor/ui/UiTheme.h>
 #include <ui/UIPaintContext.h>
@@ -33,18 +34,36 @@ namespace sky::editor {
         Image::ArrangeChildren(content);
         if (content.left != contentRect.left || content.top != contentRect.top || content.right != contentRect.right ||
             content.bottom != contentRect.bottom)
-            controller->Cancel();
+            controller->InvalidatePickLayout();
         contentRect = content;
         if (extentChanged)
             extentChanged({content.Width(), content.Height()});
     }
     void SceneViewport::OnPaint(ui::UIPaintContext &paint)
     {
+        SyncPickScale();
         Image::OnPaint(paint);
+        const Vector2 proxyOrigin{contentRect.left, contentRect.top};
+        const auto   &theme    = GetDefaultUiTheme();
+        const auto    selected = controller->SelectedActors();
+        paint.PushClip(contentRect);
+        for (const auto &layout : controller->PickOverlay({contentRect.Width(), contentRect.Height()})) {
+            const auto color = std::ranges::find(selected, layout.actor) != selected.end() ? theme.colors.selectionOutline : layout.color;
+            for (uint32_t i = 1; i + 1 < layout.count; ++i) {
+                const auto a = layout.points[0] + proxyOrigin, b = layout.points[i] + proxyOrigin, c = layout.points[i + 1] + proxyOrigin;
+                paint.AddTriangle(a.x, a.y, b.x, b.y, c.x, c.y, color);
+            }
+        }
+        paint.PopClip();
         GizmoGeometry geometry;
         const auto    style = Style();
-        if (!controller->BuildGeometry({contentRect.Width(), contentRect.Height()}, style, geometry))
-            return;
+        controller->BuildSelectionGeometry(
+            {contentRect.Width(), contentRect.Height()},
+            {theme.colors.selectionOutline, theme.colors.selectionOccluded, theme.metrics.selectionWidth, theme.metrics.selectionMarkerRadius},
+            geometry);
+        GizmoGeometry transform;
+        if (controller->BuildGeometry({contentRect.Width(), contentRect.Height()}, style, transform))
+            geometry.insert(geometry.end(), transform.begin(), transform.end());
         const Vector2 origin{contentRect.left, contentRect.top};
         paint.PushClip(contentRect);
         const auto triangle = [&](Vector2 a, Vector2 b, Vector2 c, uint32_t color) {
@@ -77,13 +96,32 @@ namespace sky::editor {
     }
     ui::UIEventResult SceneViewport::OnPointerEvent(const ui::UIPointerEvent &event)
     {
+        SyncPickScale();
         using ui::UIEventResult;
         using ui::UIPointerAction;
         if (!controller->IsEditing())
             return UIEventResult::UNHANDLED;
         const Vector2 point{event.x - contentRect.left, event.y - contentRect.top};
         const Vector2 extent{contentRect.Width(), contentRect.Height()};
-        if (controller->HasGesture()) {
+        const float   threshold = GetDefaultUiTheme().metrics.viewportClickDistance;
+        if (controller->IsClickCandidate()) {
+            if (event.pointerId != pointerId)
+                return UIEventResult::UNHANDLED;
+            if (threshold != clickThreshold || event.action == UIPointerAction::WHEEL ||
+                (event.action == UIPointerAction::DOWN && event.button != button)) {
+                controller->Cancel();
+                return UIEventResult::HANDLED;
+            }
+            clickExceeded |= (point - clickStart).Length() > clickThreshold;
+            if (event.action == UIPointerAction::UP && event.button == button) {
+                if (!clickExceeded && contentRect.Contains(event.x, event.y))
+                    controller->FinishClick(point, extent);
+                else
+                    controller->Cancel();
+            }
+            return UIEventResult::HANDLED;
+        }
+        if (controller->IsNavigating() || controller->ActiveHandle() != GizmoHandle::NONE) {
             if (event.pointerId != pointerId)
                 return UIEventResult::UNHANDLED;
             if (event.action == UIPointerAction::MOVE)
@@ -98,6 +136,7 @@ namespace sky::editor {
         if (!contentRect.Contains(event.x, event.y))
             return UIEventResult::UNHANDLED;
         if (event.action == UIPointerAction::WHEEL) {
+            controller->Cancel();
             controller->settings.Normalize();
             controller->camera.Dolly(event.wheelDelta / 120.f * controller->settings.speed * .1f);
             return UIEventResult::HANDLED;
@@ -117,6 +156,12 @@ namespace sky::editor {
                 controller->BeginNavigation(ViewportNavigation::ORBIT, point, extent.y);
             else if (event.button == 0 && hover != GizmoHandle::NONE)
                 controller->BeginDrag(hover, point, extent, style);
+            else if (event.button == 0) {
+                clickStart     = point;
+                clickThreshold = threshold;
+                clickExceeded  = false;
+                controller->BeginClick();
+            }
             return UIEventResult::HANDLED;
         }
         MarkPaintDirty();
@@ -132,8 +177,20 @@ namespace sky::editor {
         if (id == pointerId)
             controller->Cancel();
     }
+    void SceneViewport::SyncPickScale()
+    {
+        const float scale = GetDefaultUiTheme().scale;
+        if (pickScale != 0 && pickScale != scale)
+            controller->InvalidatePickLayout();
+        pickScale = scale;
+    }
+    void SceneViewport::OnPointerButtonConflict(uint32_t id)
+    {
+        if (id == pointerId && controller->IsClickCandidate())
+            controller->Cancel();
+    }
     bool SceneViewport::WantsPointerCapture() const
     {
-        return controller->HasGesture();
+        return controller->IsClickCandidate() || controller->IsNavigating() || controller->ActiveHandle() != GizmoHandle::NONE;
     }
 } // namespace sky::editor

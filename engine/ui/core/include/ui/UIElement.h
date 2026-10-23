@@ -254,6 +254,10 @@ namespace sky::ui {
         {
             (void)pointerId;
         }
+        virtual void OnPointerButtonConflict(uint32_t pointerId)
+        {
+            (void)pointerId;
+        }
         virtual UIEventResult OnKeyEvent(const UIKeyEvent &event)
         {
             (void)event;

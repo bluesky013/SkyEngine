@@ -3,6 +3,7 @@
 //
 #if defined(_WIN32)
     #include "EditorFramePacer.h"
+    #include <aurora/pipeline/SceneHighlight.h>
     #include <editor/render/EditorRenderer.h>
 
     #include <array>
@@ -113,7 +114,8 @@ namespace sky::editor {
             return false;
         }
         sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), std::move(sceneSource));
-        textures    = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
+        sceneBridge->EnableGeometrySnapshots(true);
+        textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
     #if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
             textSystem = std::make_unique<ui::UITextSystem>(&freeTypeFont, textures.get(), 256);
@@ -122,6 +124,15 @@ namespace sky::editor {
             textSystem = std::make_unique<ui::UITextSystem>(&builtinFont, textures.get(), 128);
         withPreview = preview;
         LOG_I("EditorRender", "Single renderer initialized; UI production stays on the host thread");
+        return true;
+    }
+    bool EditorRenderer::SetSceneResources(std::shared_ptr<aurora::ISceneResourceSource> source)
+    {
+        if (started || sceneWorldBound || !host.Get() || !source)
+            return false;
+        viewportPicker->Reset();
+        sceneBridge = std::make_unique<aurora::RenderSceneBridge>(host.Get()->GetInfo(), std::move(source));
+        sceneBridge->EnableGeometrySnapshots(true);
         return true;
     }
     void EditorRenderer::Start()
@@ -193,6 +204,8 @@ namespace sky::editor {
                         return true;
                     });
                 }
+                if (rendererEventObserver)
+                    rendererEventObserver(event);
             }
         }
     }
@@ -246,6 +259,19 @@ namespace sky::editor {
             if (const auto error = sceneBridge->Append(*pending, SCENE, CONTENT)) {
                 Fail(*error);
                 return;
+            }
+            viewportPicker->Prepare(sceneBridge->GeometrySnapshot(), pickContext);
+            if (!selectedActors.empty()) {
+                const auto entities = sceneBridge->Entities(selectedActors, true);
+                if (!entities.empty()) {
+                    const auto color = [](uint32_t value) {
+                        return Vector4{float(value & 255) / 255.f, float((value >> 8) & 255) / 255.f, float((value >> 16) & 255) / 255.f,
+                                       float(value >> 24) / 255.f};
+                    };
+                    pending->extensions.push_back(SceneHighlightInput(
+                        Name("aurora.scene"), CONTENT, entities,
+                        {color(selectionStyle.visible), color(selectionStyle.occluded), std::clamp(selectionStyle.width, 1.f, 4.f)}));
+                }
             }
             const auto &issues  = sceneBridge->GetIssues();
             const auto  message = issues.empty() ? std::string{} : issues.front().message;
@@ -310,8 +336,10 @@ namespace sky::editor {
     }
     void EditorRenderer::SetWorld(World *world)
     {
-        if (sceneBridge)
+        if (sceneBridge) {
+            sceneWorldBound = world != nullptr;
             sceneBridge->SetWorld(world);
+        }
     }
     void EditorRenderer::SetSceneExtent(Extent2D extent)
     {
@@ -320,7 +348,8 @@ namespace sky::editor {
     }
     void EditorRenderer::Shutdown()
     {
-        started = false;
+        started               = false;
+        rendererEventObserver = {};
         for (const auto &surface : surfaces)
             Event<IWindowEvent>::DisConnect(surface->window, this);
         guiSource   = {};
@@ -328,7 +357,9 @@ namespace sky::editor {
         pending.reset();
         host.Shutdown();
         framePacer->Reset();
+        viewportPicker->Reset();
         sceneBridge.reset();
+        sceneWorldBound = false;
         shaderFiles.reset();
         scene.OnRendererStopped();
         feature.reset();

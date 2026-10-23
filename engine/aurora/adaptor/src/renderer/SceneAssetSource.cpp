@@ -1,12 +1,14 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 
 #include <algorithm>
+#include <atomic>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/rhi/VertexSemantic.h>
 #include <aurora/shader/ShaderTechnique.h>
 #include <aurora/shader/ShaderUniform.h>
 #include <cmath>
 #include <cstring>
+#include <framework/asset/AssetEvent.h>
 #include <framework/asset/AssetManager.h>
 #include <map>
 #include <set>
@@ -62,15 +64,17 @@ namespace sky::aurora {
     }
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info)
     {
-        const auto    &data      = asset.Data();
+        const auto &data = asset.Data();
+        if (data.skinSize || data.skeleton)
+            return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Static scene conversion does not support skin data"};
         const auto     indexType = static_cast<IndexType>(data.indexType);
         const uint32_t indexSize = indexType == IndexType::U16 ? 2 : 4;
         if (!asset.GetUuid() || (info.deviceEpoch == 0u) || data.version != MeshAssetData::CURRENT_VERSION || (data.vertexCount == 0u) ||
             (data.vertexStride == 0u) || (data.indexCount == 0u) || data.vertexSize > MAX_MESH_BYTES || data.indexSize > MAX_MESH_BYTES ||
             data.vertexSize + data.indexSize > MAX_MESH_BYTES || data.vertexSize != uint64_t(data.vertexCount) * data.vertexStride ||
             (indexType != IndexType::U16 && indexType != IndexType::U32) || data.indexSize != uint64_t(data.indexCount) * indexSize ||
-            data.attributes.empty() || data.attributes.size() > 16 || data.subMeshes.size() > 8192 || (data.skinSize != 0u) || data.skeleton) {
-            return Invalid("Static scene mesh has invalid ranges or unsupported skin data");
+            data.attributes.empty() || data.attributes.size() > 16 || data.subMeshes.size() > 8192) {
+            return Invalid("Static scene mesh has invalid ranges");
         }
         auto vertices = data.vertexData.empty() ? asset.ReadBulk(data.vertexOffset, data.vertexSize) : data.vertexData;
         auto indices  = data.indexData.empty() ? asset.ReadBulk(data.indexOffset, data.indexSize) : data.indexData;
@@ -138,13 +142,69 @@ namespace sky::aurora {
 
     namespace {
         class SceneAssetSource final : public ISceneResourceSource {
+            struct AssetWatch final : IAssetEvent {
+                AssetWatch(Uuid id, SceneAssetSource &source) : id(id), source(source)
+                {
+                    AsseEvent::Connect(id, this);
+                }
+                ~AssetWatch()
+                {
+                    AsseEvent::DisConnect(id, this);
+                }
+                void OnAssetReload() override
+                {
+                    ++assetRevision;
+                    ++source.revision;
+                }
+                void OnAssetReset() override
+                {
+                    ++assetRevision;
+                    ++source.revision;
+                }
+                std::atomic<uint64_t> assetRevision{1};
+                Uuid                  id;
+                SceneAssetSource     &source;
+            };
+
         public:
-            SceneAssetSource(std::shared_ptr<ShaderFileSystem> source, std::function<AssetPtr(const Uuid &)> load, FileSystemPtr products)
-                : files(std::move(source)), loader(std::move(load)), products(std::move(products))
+            uint64_t Revision() const override
+            {
+                return revision.load();
+            }
+            bool Invalidate(const Uuid &id) override
+            {
+                if (const auto found = watches.find(id); found != watches.end())
+                    ++found->second->assetRevision;
+                ++revision;
+                return true;
+            }
+            std::optional<AABB> MeshBounds(const Uuid &id) const override
+            {
+                const auto found = bounds.find(id);
+                return found == bounds.end() ? std::optional<AABB>{} : found->second;
+            }
+            void Refresh()
+            {
+                const auto current = Revision();
+                if (current == loadedRevision)
+                    return;
+                cache.clear();
+                imageCache.clear();
+                assets.clear();
+                bounds.clear();
+                cachedBytes    = 0;
+                loadedRevision = current;
+            }
+            SceneAssetSource(std::shared_ptr<ShaderFileSystem>                    source,
+                             std::function<AssetPtr(const Uuid &)>                load,
+                             FileSystemPtr                                        products,
+                             std::shared_ptr<const SceneMaterialCapabilitySource> capabilities)
+                : files(std::move(source)), loader(std::move(load)), products(std::move(products)), capabilities(std::move(capabilities))
             {
             }
             SceneResourceResult ResolveMesh(const Uuid &id, const Uuid &overrideMaterial, RendererInfo info) override
             {
+                Refresh();
                 const auto key = std::tuple{id, overrideMaterial, info.backend, info.deviceEpoch};
                 if (const auto found = cache.find(key); found != cache.end()) {
                     return found->second;
@@ -167,16 +227,19 @@ namespace sky::aurora {
                     return {};
                 }
                 const auto meshAsset = std::static_pointer_cast<Asset<Mesh>>(asset);
-                auto       converted = ConvertSceneMesh(*meshAsset, info);
+                bounds[id]           = meshAsset->Data().bounds.ToAABB();
+                auto converted       = ConvertSceneMesh(*meshAsset, info);
                 if (const auto *error = std::get_if<RendererError>(&converted)) {
                     return *error;
                 }
-                auto result = std::make_shared<SceneMeshResources>();
+                auto result                                                  = std::make_shared<SceneMeshResources>();
+                std::get<RenderResourcePayload>(converted).resource.revision = watches.at(id)->assetRevision.load();
                 result->payloads.push_back(std::move(std::get<RenderResourcePayload>(converted)));
                 const auto                        meshKey = result->payloads.front().resource;
                 const auto                       &data    = meshAsset->Data();
                 const size_t                      count   = std::max(size_t{1}, data.subMeshes.size());
                 std::map<Uuid, RenderResourceKey> materials;
+                std::map<Uuid, SceneSurfaceFacts> surfaces;
                 for (uint32_t part = 0; part < count; ++part) {
                     const auto slot = data.subMeshes.empty() ? 0 : data.subMeshes[part].materialIndex;
                     if (!data.materials.empty() && slot >= data.materials.size()) {
@@ -210,11 +273,28 @@ namespace sky::aurora {
                         }
                         auto payload = std::move(std::get<RenderResourcePayload>(ready));
                         materials.emplace(materialId, payload.resource);
+                        surfaces[materialId] =
+                            !material ? SceneSurfaceFacts::StaticOpaque(loadedRevision)
+                                      : (capabilities && capabilities->resolve ? capabilities->resolve(materialId, *material, loadedRevision)
+                                                                               : SceneSurfaceFacts{});
+                        if (material) {
+                            const auto opaque = std::find_if(material->techniques.begin(), material->techniques.end(),
+                                                             [](const auto &technique) { return technique.tag == "opaque"; });
+                            if (opaque == material->techniques.end() || !opaque->renderState.depthStencil.depthTest ||
+                                !opaque->renderState.depthStencil.depthWrite ||
+                                (opaque->renderState.depthStencil.compareOp != CompareOp::LESS &&
+                                 opaque->renderState.depthStencil.compareOp != CompareOp::LESS_OR_EQUAL) ||
+                                std::any_of(opaque->renderState.blendStates.begin(), opaque->renderState.blendStates.end(),
+                                            [](const auto &blend) { return bool(blend.blendEn); }) ||
+                                surfaces[materialId].cull != SceneSurfaceCull::NONE)
+                                surfaces[materialId] = {};
+                        }
                         result->payloads.push_back(std::move(payload));
                     }
                     result->parts.push_back({.part     = part,
                                              .mesh     = {.resource = meshKey, .bindingRevision = 1},
-                                             .material = {.resource = materials.at(materialId), .bindingRevision = 1}});
+                                             .material = {.resource = materials.at(materialId), .bindingRevision = 1},
+                                             .surface  = surfaces.at(materialId)});
                 }
                 uint64_t bytes = 0;
                 for (const auto &payload : result->payloads) {
@@ -229,6 +309,7 @@ namespace sky::aurora {
             }
             SceneImageResult ResolveImage(const Uuid &id, RendererInfo info) override
             {
+                Refresh();
                 const auto key = std::pair{id, info.deviceEpoch};
                 if (const auto found = imageCache.find(key); found != imageCache.end()) {
                     return found->second;
@@ -250,6 +331,7 @@ namespace sky::aurora {
                 if (const auto *error = std::get_if<RendererError>(&converted)) {
                     return *error;
                 }
+                std::get<RenderResourcePayload>(converted).resource.revision = loadedRevision;
                 auto       result = std::make_shared<const RenderResourcePayload>(std::move(std::get<RenderResourcePayload>(converted)));
                 const auto bytes  = RenderResourceCpuBytes(*result);
                 if (bytes > 256ull * 1024 * 1024 - cachedBytes) {
@@ -266,6 +348,8 @@ namespace sky::aurora {
                 if (const auto found = assets.find(id); found != assets.end()) {
                     return found->second;
                 }
+                if (!watches.contains(id) && watches.size() >= 1024)
+                    return {};
                 AssetPtr result;
                 if (id == ScenePrimitiveId(ScenePrimitive::CUBE) || id == ScenePrimitiveId(ScenePrimitive::PLANE)) {
                     auto mesh = std::make_shared<Asset<Mesh>>();
@@ -278,6 +362,8 @@ namespace sky::aurora {
                 }
                 if (result) {
                     assets.emplace(id, result);
+                    if (!watches.contains(id))
+                        watches.emplace(id, std::make_unique<AssetWatch>(id, *this));
                 }
                 return result;
             }
@@ -407,8 +493,7 @@ namespace sky::aurora {
                     }
                     material.techniques.push_back(std::move(technique));
                 }
-                // This source freezes assets for its lifetime; revisions must be ordered, not content hashes.
-                result.resource = {.product = id, .revision = 1, .usageVariant = 1, .deviceEpoch = info.deviceEpoch};
+                result.resource = {.product = id, .revision = loadedRevision, .usageVariant = 1, .deviceEpoch = info.deviceEpoch};
                 return result;
             }
             std::shared_ptr<ShaderFileSystem>                                                          files;
@@ -416,12 +501,19 @@ namespace sky::aurora {
             std::map<Uuid, AssetPtr>                                                                   assets;
             std::map<std::tuple<Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneMeshResources>> cache;
             std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>          imageCache;
+            std::atomic<uint64_t>                                                                      revision{1};
+            uint64_t                                                                                   loadedRevision = 1;
+            std::map<Uuid, std::optional<AABB>>                                                        bounds;
+            std::map<Uuid, std::unique_ptr<AssetWatch>>                                                watches;
             uint64_t                                                                                   cachedBytes = 0;
             FileSystemPtr                                                                              products;
+            std::shared_ptr<const SceneMaterialCapabilitySource>                                       capabilities;
         };
     } // namespace
-    std::shared_ptr<ISceneResourceSource>
-    CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem> files, std::function<AssetPtr(const Uuid &)> loader, FileSystemPtr products)
+    std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>                    files,
+                                                                 std::function<AssetPtr(const Uuid &)>                loader,
+                                                                 FileSystemPtr                                        products,
+                                                                 std::shared_ptr<const SceneMaterialCapabilitySource> capabilities)
     {
         if (!files) {
             files = std::make_shared<ShaderFileSystem>();
@@ -429,6 +521,6 @@ namespace sky::aurora {
         if (!loader) {
             loader = [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id); };
         }
-        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader), std::move(products));
+        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader), std::move(products), std::move(capabilities));
     }
 } // namespace sky::aurora

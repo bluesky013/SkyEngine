@@ -6,6 +6,8 @@
 #include "SceneLightingPass.h"
 #include "ScenePass.h"
 #include "SceneSurfaceBatch.h"
+#include "SelectionMaskPass.h"
+#include "SelectionOutlinePass.h"
 #include "ShaderSourcesFixture.h"
 #include "ShadowPass.h"
 #include "SharedShaderFixture.h"
@@ -98,6 +100,12 @@ TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape
         {.header     = "ToneMapPass.h",
          .schema     = shared::GetToneMapPassReflection(),
          .expression = "gHdrColor.Sample(gHdrSampler, uv) * gToneMap.display"},
+        {.header     = "SelectionMaskPass.h",
+         .schema     = shared::GetSelectionMaskPassReflection(),
+         .expression = "mul(gSelectionMask.viewProjection, float4(uv, 0, 1)) * gSceneDepth.Load(int3(0, 0, 0))"},
+        {.header     = "SelectionOutlinePass.h",
+         .schema     = shared::GetSelectionOutlinePassReflection(),
+         .expression = "gSelectionOutline.visible + gSelectionOutline.occluded + gSelectionOutline.metrics + gSelectionImage.Load(int3(0, 0, 0))"},
     };
     ShaderFileSystem files;
     files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
@@ -123,8 +131,8 @@ TEST_P(SharedPassHeaders, PackagedSourcesCompileWithoutFilesystemSearchPaths)
     ShaderFileSystem files;
     ASSERT_TRUE(LoadTestShaderSources(files));
     ShaderCompilerSlang compiler;
-    for (const char *file :
-         {"aurora/materials/Unlit.slang", "aurora/materials/Lit.slang", "aurora/materials/Shadow.slang", "aurora/pipeline/ToneMap.slang"}) {
+    for (const char *file : {"aurora/materials/Unlit.slang", "aurora/materials/Lit.slang", "aurora/materials/Shadow.slang",
+                             "aurora/pipeline/ToneMap.slang", "aurora/pipeline/SelectionMask.slang", "aurora/pipeline/SelectionOutline.slang"}) {
         for (const bool vertex : {true, false}) {
             SCOPED_TRACE(file);
             SCOPED_TRACE(vertex);

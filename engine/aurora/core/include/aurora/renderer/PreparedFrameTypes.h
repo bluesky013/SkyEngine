@@ -43,6 +43,7 @@ namespace sky::aurora {
         Matrix4                        world = RenderIdentityMatrix();
         std::vector<RenderUniformData> material;
         bool                           receiveShadow = true;
+        RenderEntityRef                entity;
     };
 
     struct PreparedFrame {

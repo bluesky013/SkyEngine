@@ -54,6 +54,14 @@
                     {
                         "source": "pipeline/shaders/MaterialBatch.h",
                         "include": "aurora/pipeline/MaterialBatch.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SelectionMaskPass.h",
+                        "include": "aurora/pipeline/SelectionMaskPass.h"
+                    },
+                    {
+                        "source": "pipeline/shaders/SelectionOutlinePass.h",
+                        "include": "aurora/pipeline/SelectionOutlinePass.h"
                     }
                 ],
                 "programs": [
@@ -98,6 +106,32 @@
                     },
                     {
                         "path": "aurora/pipeline/ToneMap.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    },
+                    {
+                        "path": "aurora/pipeline/SelectionMask.slang",
+                        "entries": [
+                            {
+                                "stage": "vertex",
+                                "name": "VSMain"
+                            },
+                            {
+                                "stage": "fragment",
+                                "name": "FSMain"
+                            }
+                        ]
+                    },
+                    {
+                        "path": "aurora/pipeline/SelectionOutline.slang",
                         "entries": [
                             {
                                 "stage": "vertex",

@@ -118,7 +118,7 @@ namespace sky::aurora {
             const auto &lod = mesh.lods[packet.lod];
             draw.indexed =
                 RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.sections.empty() ? lod.command : lod.sections[packet.subMesh]};
-            result.draws.push_back({std::move(draw), packet.world, material.uniforms, packet.receiveShadow});
+            result.draws.push_back({std::move(draw), packet.world, material.uniforms, packet.receiveShadow, packet.entity});
             for (const auto &key : {meshKey, materialKey})
                 if (retained.emplace(key, true).second)
                     result.pins.push_back(pins.at(key));

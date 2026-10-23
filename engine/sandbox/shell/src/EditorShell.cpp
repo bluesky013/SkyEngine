@@ -344,6 +344,10 @@ namespace sky::editor {
 
     sky::ui::UIElement *EditorShell::GetPanelView(const std::string &panelId)
     {
+        if (const auto floating = panelSurfaceIds.find(panelId); floating != panelSurfaceIds.end()) {
+            if (const auto surface = surfaces.find(floating->second); surface != surfaces.end())
+                return surface->second.view;
+        }
         if (const auto it = attachedViews.find(panelId); it != attachedViews.end()) {
             return it->second;
         }
@@ -555,7 +559,7 @@ namespace sky::editor {
             return false;
         if (ActiveModal() != nullptr)
             return true;
-        auto *router = SurfaceRouter(surfaceId);
+        auto      *router  = SurfaceRouter(surfaceId);
         const bool handled = router != nullptr && router->DispatchPointer(event) == sky::ui::UIEventResult::HANDLED;
         if (!alive.expired())
             UpdateCommandContext(surfaceId);
@@ -1261,9 +1265,11 @@ namespace sky::editor {
 
         if (statusBarElement != nullptr) {
             statusBarElement->Arrange(sky::ui::UIRect{0.0f, height - footerHeight, width, height});
-            if (auto *statusBar = dynamic_cast<StatusBar *>(statusBarElement)) {
+            if (auto *statusBar = static_cast<StatusBar *>(statusBarElement)) {
                 const std::size_t selectionCount = selection != nullptr ? selection->GetSelection().size() : 0;
-                statusBar->SetText(FormatStatusBar(documentName, documentDirty, statusProject, statusMode, statusRhi, selectionCount, statusFps));
+                statusBar->SetText(interactionStatus.empty()
+                                       ? FormatStatusBar(documentName, documentDirty, statusProject, statusMode, statusRhi, selectionCount, statusFps)
+                                       : interactionStatus);
             }
         }
 

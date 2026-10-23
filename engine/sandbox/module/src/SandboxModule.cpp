@@ -279,7 +279,7 @@ namespace sky::editor {
         return std::make_unique<ShellTarget>(shell);
     }
 
-    SandboxModule::SandboxModule()  = default;
+    SandboxModule::SandboxModule() = default;
     SandboxModule::~SandboxModule()
     {
         BindWorldEditor(nullptr);
@@ -529,7 +529,8 @@ namespace sky::editor {
     void SandboxModule::RegisterViewportActions()
     {
         const auto eligible = [this]() {
-            return viewportController->IsEditing() && shell.IsPanelInputActive("viewport") && !viewportController->HasGesture();
+            return viewportController->IsEditing() && shell.IsPanelInputActive("viewport") &&
+                   (!viewportController->HasGesture() || viewportController->HasPendingPick());
         };
         const auto add = [this, eligible](const char *id, const char *label, const char *icon, const char *key, int order,
                                           std::function<void()> invoke, std::function<bool()> checked = {}) {
@@ -846,8 +847,9 @@ namespace sky::editor {
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
-        worldEditor = std::make_unique<WorldEditorState>(selection);
+        worldEditor        = std::make_unique<WorldEditorState>(selection);
         viewportController = std::make_shared<ViewportController>(selection, EditorCore::GetCommandService(), EditorCore::GetPropertyChanges());
+        viewportController->SetPicker(renderer.GetViewportPicker());
         viewportController->SetVisualProvider(gizmoVisualProvider);
         ViewportControlSettings::Reflect();
         renderer.SetInputLostCallback([this]() {
@@ -1179,8 +1181,10 @@ namespace sky::editor {
             auto image           = std::make_unique<SceneViewport>(viewportController);
             image->extentChanged = [this](Vector2 extent) {
 #if defined(_WIN32)
-                renderer.SetSceneExtent(
-                    {static_cast<uint32_t>(std::clamp(extent.x, 1.f, 4096.f)), static_cast<uint32_t>(std::clamp(extent.y, 1.f, 4096.f))});
+                const uint32_t width  = static_cast<uint32_t>(std::clamp(extent.x, 1.f, 4096.f));
+                const uint32_t height = static_cast<uint32_t>(std::clamp(extent.y, 1.f, 4096.f));
+                viewportController->SetPickImageExtent(width, height);
+                renderer.SetSceneExtent({width, height});
 #endif
             };
             image->orbitHeld = [this]() { return viewportAlt; };
@@ -1637,6 +1641,10 @@ namespace sky::editor {
                 viewportController->Tick(delta);
                 if (displayedViewportSpeed != viewportController->settings.speed)
                     RefreshViewportSpeedAction();
+                renderer.SetPickContext(viewportController->PickContext());
+                const auto &theme = GetDefaultUiTheme();
+                renderer.SetSelection(viewportController->SelectedActors(), {theme.colors.selectionOutline, theme.colors.selectionOccluded,
+                                                                             theme.metrics.selectionWidth, theme.metrics.selectionMarkerRadius});
                 renderer.SetEditorCamera(viewportController->IsEditing() ? std::optional{viewportController->camera} : std::nullopt);
                 if (!viewportController->Error().empty() && viewportController->Error() != viewportError) {
                     viewportError = viewportController->Error();
@@ -1650,6 +1658,10 @@ namespace sky::editor {
         renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
 #endif
         renderer.Tick(delta);
+        if (viewportController) {
+            viewportController->ProcessPicking();
+            shell.SetInteractionStatus(viewportController->Error());
+        }
 
         // Coalesced end-of-frame auto-save: only after a committed layout edit.
         if (!hubMode && shell.IsBuilt() && shell.ConsumeLayoutDirty() && !layoutPath.empty()) {
@@ -1679,6 +1691,8 @@ namespace sky::editor {
 
     void SandboxModule::RoutePointer(const sky::ui::UIPointerEvent &pointer, sky::WindowID winID)
     {
+        if (viewportController)
+            viewportController->SetPickSurface(FloatingSurfaceForWindow(winID));
         if (AcceptWindowEvent(winID)) {
             if (hubMode && browser != nullptr && browser->IsOpen()) {
                 browser->OnPointerEvent(pointer);

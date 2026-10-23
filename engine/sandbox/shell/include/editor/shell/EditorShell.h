@@ -149,6 +149,10 @@ namespace sky::editor {
         // Status-bar values resolved by the host (project/engine/RHI/mode/fps).
         void SetStatusInfo(const std::string &project, const std::string &rhi, const std::string &mode);
         void SetFrameStats(float fps);
+        void SetInteractionStatus(std::string message)
+        {
+            interactionStatus = std::move(message);
+        }
 
         // The open document's display name + dirty flag; shown in the status bar
         // and pushed to `titleHandler` (the host applies it to the OS window
@@ -330,13 +334,13 @@ namespace sky::editor {
         std::unordered_map<std::string, std::unique_ptr<sky::ui::UIElement>> detachedViews;
         std::unordered_map<std::string, sky::ui::UIElement *>                attachedViews;
 
-        std::unordered_map<uint32_t, Surface>     surfaces;        // surfaceId -> floating UI
-        std::unordered_map<std::string, uint32_t> panelSurfaceIds; // panelId -> surfaceId
-        std::unordered_map<uint32_t, float>       surfaceScales;   // surfaceId -> DPI scale
+        std::unordered_map<uint32_t, Surface>             surfaces;        // surfaceId -> floating UI
+        std::unordered_map<std::string, uint32_t>         panelSurfaceIds; // panelId -> surfaceId
+        std::unordered_map<uint32_t, float>               surfaceScales;   // surfaceId -> DPI scale
         uint32_t                                          activeInputSurface = 0;
         std::string                                       activeCommandPanel;
         std::unordered_map<std::string, CommandService *> panelCommands;
-        uint64_t                                  mainThemeRevision = 0;
+        uint64_t                                          mainThemeRevision = 0;
 
         std::vector<Slot>                              slots; // per-tab, matching tree traversal order
         std::vector<sky::ui::UIElement *>              splitterHandles;
@@ -393,6 +397,7 @@ namespace sky::editor {
         sky::ExportPresets *exportPresets = nullptr;
         std::string         exportPresetsPath;
 
+        std::string interactionStatus;
         std::string statusProject = "SkyEngine";
         std::string statusRhi     = "-";
         std::string statusMode    = "Edit";

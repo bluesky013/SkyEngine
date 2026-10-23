@@ -8,6 +8,7 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <aurora/renderer/IRenderer.h>
+#include <framework/asset/AssetEvent.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <gtest/gtest.h>
@@ -17,7 +18,8 @@ using namespace sky::aurora;
 namespace {
     constexpr SceneId SCENE{0, 1};
     struct Source : ISceneResourceSource {
-        bool             pending = false;
+        bool             pending      = false;
+        bool             staticOpaque = false;
         SceneImageResult ResolveImage(const Uuid &id, RendererInfo info) override
         {
             if (pending)
@@ -36,8 +38,13 @@ namespace {
             auto              data = std::make_shared<SceneMeshResources>();
             RenderResourceKey mesh{id, 1, 1, info.deviceEpoch}, material{Uuid::CreateWithSeed(901), 1, 1, info.deviceEpoch};
             data->parts.push_back({0, {mesh, 1}, {material, 1}});
+            if (staticOpaque)
+                data->parts.back().surface = SceneSurfaceFacts::StaticOpaque();
             data->payloads.push_back({mesh, Name("mesh"), {1, 2, 3, 4}});
             data->payloads.push_back({material, Name("material"), {5, 6, 7, 8}});
+            if (staticOpaque)
+                data->payloads.front().mesh =
+                    RenderMeshData{{{0, 36, 12}}, {{0, 0, 0, Format::F_RGB32, "POSITION", 0}}, {{36, 6, IndexType::U16, {3}}}};
             return std::shared_ptr<const SceneMeshResources>(data);
         }
     };
@@ -269,4 +276,102 @@ TEST(SceneMeshConversion, PendingAndWrongTypeAssetsReturnExplicitly)
     wrong->SetType(Name(AssetTraits<Material>::ASSET_TYPE.data()));
     source = CreateSceneAssetSource({}, [wrong](const Uuid &) { return wrong; });
     EXPECT_TRUE(std::holds_alternative<RendererError>(source->ResolveMesh(Uuid::CreateWithSeed(111), {}, {API::VULKAN, 1})));
+}
+
+TEST_F(SceneBridgeTest, OwnedGeometrySnapshotTracksParentsAndSurvivesWorldRetirement)
+{
+    auto *parent = world->CreateActor();
+    auto *actor  = MeshActor();
+    actor->GetComponent<TransformComponent>()->SetParentPreserveLocal(parent->GetComponent<TransformComponent>());
+    bridge.EnableGeometrySnapshots(true);
+    bridge.SetWorld(world.Get());
+    Sync();
+    const auto first = bridge.GeometrySnapshot();
+    ASSERT_TRUE(first);
+    ASSERT_EQ(first->instances.size(), 1u);
+    EXPECT_EQ(first->instances[0].actor, actor->GetUuid());
+    EXPECT_EQ(first->instances[0].state, SceneGeometryState::READY);
+    ASSERT_TRUE(first->instances[0].resources);
+    Sync();
+    EXPECT_EQ(bridge.GeometrySnapshot()->revision, first->revision);
+    EXPECT_EQ(bridge.GeometrySnapshot(), first);
+    parent->GetComponent<TransformComponent>()->SetLocalTranslation({2, 3, 4});
+    Sync();
+    EXPECT_GT(bridge.GeometrySnapshot()->revision, first->revision);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].world.v[12], 2);
+    EXPECT_EQ(bridge.GeometrySnapshot()->baseVersion, first->version);
+    EXPECT_EQ(bridge.GeometrySnapshot()->changed.size(), 1u);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].generation, first->instances[0].generation);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].geometryRevision, first->instances[0].geometryRevision);
+    EXPECT_GT(bridge.GeometrySnapshot()->instances[0].transformRevision, first->instances[0].transformRevision);
+    EXPECT_EQ(first->instances[0].world.v[12], 0);
+    bridge.SetWorld(nullptr);
+    world.Reset(nullptr);
+    EXPECT_FALSE(bridge.GeometrySnapshot());
+    EXPECT_EQ(first->instances[0].resources->payloads[0].bytes.size(), 4u);
+}
+
+TEST_F(SceneBridgeTest, PendingReadinessDoesNotInvalidateUnchangedClickContext)
+{
+    MeshActor();
+    source->pending = true;
+    bridge.EnableGeometrySnapshots(true);
+    bridge.SetWorld(world.Get());
+    Sync();
+    const auto pending = bridge.GeometrySnapshot();
+    ASSERT_EQ(pending->instances.size(), 1u);
+    EXPECT_EQ(pending->instances[0].state, SceneGeometryState::PENDING);
+    source->pending = false;
+    Sync();
+    EXPECT_EQ(bridge.GeometrySnapshot()->revision, pending->revision);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].state, SceneGeometryState::READY);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].geometryRevision, pending->instances[0].geometryRevision);
+    EXPECT_GT(bridge.GeometrySnapshot()->instances[0].readinessRevision, pending->instances[0].readinessRevision);
+}
+
+TEST(SceneMeshConversion, ExplicitInvalidationReloadsOwnedAssetSource)
+{
+    int  loads   = 0;
+    auto pending = std::make_shared<Asset<Mesh>>();
+    pending->SetType(Name(AssetTraits<Mesh>::ASSET_TYPE.data()));
+    auto       source = CreateSceneAssetSource({}, [&](const Uuid &) {
+        ++loads;
+        return pending;
+    });
+    const auto id     = Uuid::CreateWithSeed(700);
+    source->ResolveMesh(id, {}, {API::VULKAN, 1});
+    source->ResolveMesh(id, {}, {API::VULKAN, 1});
+    EXPECT_EQ(loads, 1);
+    const auto revision = source->Revision();
+    EXPECT_TRUE(source->Invalidate(id));
+    EXPECT_GT(source->Revision(), revision);
+    source->ResolveMesh(id, {}, {API::VULKAN, 1});
+    EXPECT_EQ(loads, 2);
+    AsseEvent::BroadCast(id, &IAssetEvent::OnAssetReload);
+    source->ResolveMesh(id, {}, {API::VULKAN, 1});
+    EXPECT_EQ(loads, 3);
+}
+
+TEST_F(SceneBridgeTest, HighlightMappingUsesLiveIdentityAndSurfaceContract)
+{
+    source->staticOpaque          = true;
+    auto                   *actor = MeshActor();
+    const std::vector<Uuid> ids{actor->GetUuid()};
+    bridge.SetWorld(world.Get());
+    bridge.EnableGeometrySnapshots(true);
+    const auto packet  = Sync();
+    const auto created = Commands<CreateRenderEntity>(packet);
+    ASSERT_EQ(created.size(), 1u);
+    EXPECT_EQ(bridge.Entities(ids, true), (std::vector<RenderEntityRef>{created.front().id}));
+    source->staticOpaque = false;
+    Sync();
+    EXPECT_TRUE(bridge.Entities(ids, true).empty());
+    EXPECT_EQ(bridge.Entities(ids).size(), 1u);
+    actor->AddComponent<DirectLightComponent>();
+    source->staticOpaque = true;
+    Sync();
+    EXPECT_EQ(bridge.Entities(ids).size(), 2u);
+    EXPECT_EQ(bridge.Entities(ids, true), (std::vector<RenderEntityRef>{created.front().id}));
+    bridge.SetWorld(nullptr);
+    EXPECT_TRUE(bridge.Entities(ids).empty());
 }

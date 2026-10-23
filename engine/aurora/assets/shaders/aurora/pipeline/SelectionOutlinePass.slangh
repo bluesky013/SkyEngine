@@ -1,0 +1,15 @@
+// Generated from aurora/pipeline/SelectionOutlinePass.h; do not edit.
+// Inputs: b267a14a8a225da8094006cf4a125c53b9fdfca853aa5d58d6472a0179351de7; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+#pragma once
+
+struct SelectionOutlineParams
+{
+    float4 visible;
+    float4 occluded;
+    float4 metrics;
+};
+[[vk::binding(0, 1)]] ConstantBuffer<SelectionOutlineParams> gSelectionOutline
+    : register(b0, space1);
+
+[[vk::binding(1, 1)]] Texture2D<float4> gSelectionImage
+    : register(t1, space1);
