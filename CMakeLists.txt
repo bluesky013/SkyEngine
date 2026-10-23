@@ -18,6 +18,8 @@ include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 if (NOT ANDROID)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEVELOP ${ENGINE_ROOT}/output/bin/Develop)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEVELOP ${ENGINE_ROOT}/output/bin/Develop)
 endif()
 
 if (SKY_BUILD_TEST)

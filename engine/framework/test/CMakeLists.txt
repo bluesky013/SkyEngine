@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Engine/Foundation/Framework)
+set(CURRENT_FOLDER Engine/Foundation/Tests/Framework)
 
 file(GLOB TEST_SRC *.cpp *.h)
 file(GLOB PLATFORM_POLICY_TEST_SRC platform/android/*.cpp platform/ios/*.cpp)

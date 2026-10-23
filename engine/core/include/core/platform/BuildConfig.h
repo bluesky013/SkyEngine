@@ -4,20 +4,36 @@
 
 #pragma once
 
-// SKY_DEVELOP marks a "develop" build intent (editor/tooling), orthogonal to
-// _DEBUG which only describes the compiler configuration. Developer-facing
-// facilities (resource names, extra validation, debug UI) gate on SKY_DEVELOP.
+// Developer facilities are independent of compiler configuration and CRT selection.
 #ifndef SKY_DEVELOP
-#define SKY_DEVELOP 0
+    #define SKY_DEVELOP 0
 #endif
 
-// Set debug names on backend GPU resources (VkBuffer/VkImage, etc.) so
-// debuggers (RenderDoc/NSight/Xcode) can show readable names. Gated on
-// SKY_DEVELOP to keep release builds free of this cost.
-#ifndef SKY_ENABLE_RESOURCE_NAME
-#if SKY_DEVELOP
-#define SKY_ENABLE_RESOURCE_NAME 1
-#else
-#define SKY_ENABLE_RESOURCE_NAME 0
+#ifndef SKY_BUILD_DEVELOP
+    #define SKY_BUILD_DEVELOP 0
 #endif
+
+#ifndef SKY_ENABLE_ASSERT
+    #if defined(_DEBUG) || SKY_BUILD_DEVELOP
+        #define SKY_ENABLE_ASSERT 1
+    #else
+        #define SKY_ENABLE_ASSERT 0
+    #endif
+#endif
+
+#ifndef SKY_ENABLE_GPU_VALIDATION
+    #if defined(_DEBUG)
+        #define SKY_ENABLE_GPU_VALIDATION 1
+    #else
+        #define SKY_ENABLE_GPU_VALIDATION 0
+    #endif
+#endif
+
+// Resource names follow the facilities intent unless explicitly overridden.
+#ifndef SKY_ENABLE_RESOURCE_NAME
+    #if SKY_DEVELOP
+        #define SKY_ENABLE_RESOURCE_NAME 1
+    #else
+        #define SKY_ENABLE_RESOURCE_NAME 0
+    #endif
 #endif

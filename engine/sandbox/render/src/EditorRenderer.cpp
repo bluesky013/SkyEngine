@@ -85,7 +85,7 @@ namespace sky::editor {
         Instance::Descriptor desc = {};
         desc.appName              = appName.c_str();
         desc.engineName           = "SkyEngine";
-#if defined(_DEBUG)
+#if SKY_ENABLE_GPU_VALIDATION
         desc.enableDebugLayer = true;
 #else
         desc.enableDebugLayer = false;

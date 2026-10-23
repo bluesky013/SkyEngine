@@ -10,7 +10,7 @@ if (WIN32)
         ${${LIB_NAME}_PATH}/lib/Release/slang${CMAKE_STATIC_LIBRARY_SUFFIX})
     set(${LIB_NAME}_LIBRARY
         "$<$<CONFIG:Debug>:${${LIB_NAME}_LIBRARY_DEBUG}>"
-        "$<$<CONFIG:Release>:${${LIB_NAME}_LIBRARY_RELEASE}>")
+        "$<$<NOT:$<CONFIG:Debug>>:${${LIB_NAME}_LIBRARY_RELEASE}>")
 
     # slang.dll loads its sibling modules at runtime; copy them all
     file(GLOB ${LIB_NAME}_DLLS ${${LIB_NAME}_PATH}/bin/*.dll)
@@ -22,9 +22,13 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     # slang-compiler, ...).
     file(GLOB ${LIB_NAME}_STATIC_LIBS_DEBUG ${${LIB_NAME}_PATH}/lib/Debug/*.a)
     file(GLOB ${LIB_NAME}_STATIC_LIBS_RELEASE ${${LIB_NAME}_PATH}/lib/Release/*.a)
-    set(${LIB_NAME}_LIBRARY
-        "$<$<CONFIG:Debug>:${${LIB_NAME}_STATIC_LIBS_DEBUG}>"
-        "$<$<CONFIG:Release>:${${LIB_NAME}_STATIC_LIBS_RELEASE}>")
+    set(${LIB_NAME}_LIBRARY)
+    foreach (_library IN LISTS ${LIB_NAME}_STATIC_LIBS_DEBUG)
+        list(APPEND ${LIB_NAME}_LIBRARY "$<$<CONFIG:Debug>:${_library}>")
+    endforeach ()
+    foreach (_library IN LISTS ${LIB_NAME}_STATIC_LIBS_RELEASE)
+        list(APPEND ${LIB_NAME}_LIBRARY "$<$<NOT:$<CONFIG:Debug>>:${_library}>")
+    endforeach ()
     set(${LIB_NAME}_DYNAMIC_LIBRARY)
 else ()
     # The compatibility alias libslang has the compiler library's SONAME.
@@ -51,6 +55,7 @@ else ()
         IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
         IMPORTED_LOCATION_DEBUG "${${LIB_NAME}_LIBRARY_DEBUG}"
         IMPORTED_LOCATION_RELEASE "${${LIB_NAME}_LIBRARY_RELEASE}"
+        MAP_IMPORTED_CONFIG_DEVELOP Release
         MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
         MAP_IMPORTED_CONFIG_MINSIZEREL Release
         INTERFACE_INCLUDE_DIRECTORIES "${${LIB_NAME}_INCLUDE_DIR}"

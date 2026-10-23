@@ -4,19 +4,27 @@
 
 #pragma once
 
-#include "BuildConfig.h"
+#include <core/platform/BuildConfig.h>
 
-#ifdef _DEBUG
-#include <cassert>
-#define SKY_ASSERT(val) assert(val);
-#else
-#define SKY_ASSERT(val) (val);
-#endif
+#if SKY_ENABLE_ASSERT
+    #include <cassert>
+    #include <cstdio>
+    #include <cstdlib>
 
-#ifdef _DEBUG
-#define SKY_UNEXPECTED assert(false && "unexpected code")
+namespace sky::detail {
+    [[noreturn]] inline void AssertionFailed(const char *expression, const char *file, int line)
+    {
+        std::fprintf(stderr, "Assertion failed: %s (%s:%d)\n", expression, file, line);
+        std::fflush(stderr);
+        std::abort();
+    }
+} // namespace sky::detail
+
+    #define SKY_ASSERT(val) ((val) ? static_cast<void>(0) : ::sky::detail::AssertionFailed(#val, __FILE__, __LINE__));
+    #define SKY_UNEXPECTED  ::sky::detail::AssertionFailed("unexpected", __FILE__, __LINE__)
 #else
-#define SKY_UNEXPECTED
+    #define SKY_ASSERT(val) static_cast<void>(val);
+    #define SKY_UNEXPECTED
 #endif
 
 #ifdef _MSC_VER
@@ -31,7 +39,7 @@
     #define SKY_PLATFORM_WINDOWS 1
 #elif defined(__APPLE__)
 
-#include "TargetConditionals.h"
+    #include "TargetConditionals.h"
     #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
         #define SKY_PLATFORM_IOS 1
     #elif TARGET_OS_MAC

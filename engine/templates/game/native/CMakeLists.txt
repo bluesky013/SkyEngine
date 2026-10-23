@@ -49,7 +49,7 @@ if (NOT ANDROID)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${_sky_bin}")
     # Keep the $<CONFIG> subdir consistent with the engine's deploy path
     # (cmake/functions.cmake copies to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>).
-    foreach (_cfg Debug Release RelWithDebInfo MinSizeRel)
+    foreach (_cfg Debug Develop Release RelWithDebInfo MinSizeRel)
         string(TOUPPER "${_cfg}" _cfgU)
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_cfgU} "${_sky_bin}/${_cfg}")
         set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${_cfgU} "${_sky_bin}/${_cfg}")

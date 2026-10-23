@@ -34,7 +34,7 @@ endif ()
 
 option(SKY_BUILD_TOOL "build tools/ code only" OFF)
 option(SKY_BUILD_SANDBOX "build the sandbox editor" OFF)
-option(SKY_DEVELOP "develop mode" OFF)
+option(SKY_DEVELOP "enable developer facilities, independent of build configuration" OFF)
 
 if (SKY_BUILD_SANDBOX OR SKY_BUILD_TOOL)
     set(SKY_DEVELOP ON)

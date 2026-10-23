@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Engine/Foundation/Core)
+set(CURRENT_FOLDER Engine/Foundation/Tests/Core)
 
 file(GLOB_RECURSE TEST_SRC ./*)
 

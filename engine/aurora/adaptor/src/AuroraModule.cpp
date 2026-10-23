@@ -94,7 +94,7 @@ namespace sky::aurora {
         RendererInitInfo info;
         info.backend    = mApi;
         info.vulkanMode = vulkanMode;
-#if defined(_DEBUG)
+#if SKY_ENABLE_GPU_VALIDATION
         info.enableValidation = true;
 #endif
         if (const auto error = host.Init(*provider, info)) {

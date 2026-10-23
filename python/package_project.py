@@ -341,7 +341,7 @@ def collect_apple_package(engine, project_dir, preset, name):
 
 def find_asset_tool(engine):
     name = 'AssetTool.exe' if os.name == 'nt' else 'AssetTool'
-    for sub in ('Debug', 'Release', ''):
+    for sub in ('Develop', 'Debug', 'Release', 'RelWithDebInfo', ''):
         candidate = engine / 'output' / 'bin' / sub / name if sub else engine / 'output' / 'bin' / name
         if candidate.is_file():
             return candidate
@@ -581,11 +581,11 @@ def cmd_package(args):
 
 def shader_cook_tool(engine):
     name = 'ShaderCookTool.exe' if os.name == 'nt' else 'ShaderCookTool'
-    for configuration in ('Debug', 'Release', ''):
+    for configuration in ('Develop', 'Debug', 'Release', 'RelWithDebInfo', ''):
         candidate = engine / 'output/bin' / configuration / name
         if candidate.is_file():
             return candidate
-    return engine / 'output/bin/Debug' / name
+    return engine / 'output/bin/Develop' / name
 
 
 def prepare_shader_products(engine, project_dir, preset):

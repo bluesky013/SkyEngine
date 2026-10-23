@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
   "configurePresets": [
     {
       "name": "base",
@@ -56,13 +56,23 @@
         "CMAKE_OSX_SYSROOT": "iphoneos",
         "CMAKE_OSX_ARCHITECTURES": "arm64"
       }
-    }
+    },
+    { "name": "windows-develop", "inherits": "windows", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
+    { "name": "linux-develop", "inherits": "linux", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
+    { "name": "macos-develop", "inherits": "macos", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
+    { "name": "ios-develop", "inherits": "ios", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
+    { "name": "android-develop", "inherits": "android", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } }
   ],
   "buildPresets": [
     { "name": "macos", "configurePreset": "macos", "configuration": "Release" },
     { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
     { "name": "linux", "configurePreset": "linux" },
     { "name": "android", "configurePreset": "android" },
-    { "name": "ios", "configurePreset": "ios", "configuration": "Release" }
+    { "name": "ios", "configurePreset": "ios", "configuration": "Release" },
+    { "name": "windows-develop", "configurePreset": "windows-develop", "configuration": "Develop" },
+    { "name": "linux-develop", "configurePreset": "linux-develop", "configuration": "Develop" },
+    { "name": "macos-develop", "configurePreset": "macos-develop", "configuration": "Develop" },
+    { "name": "ios-develop", "configurePreset": "ios-develop", "configuration": "Develop" },
+    { "name": "android-develop", "configurePreset": "android-develop", "configuration": "Develop" }
   ]
 }

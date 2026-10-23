@@ -30,11 +30,15 @@ if (MSVC)
     endif()
 
     set(${LIB_NAME}_LIBRARY
-            "$<$<CONFIG:release>:${${LIB_NAME}_STATIC_RELEASE}>"
+            "$<$<NOT:$<CONFIG:Debug>>:${${LIB_NAME}_STATIC_RELEASE}>"
             "$<$<CONFIG:debug>:${${LIB_NAME}_STATIC_DEBUG}>")
-    set(${LIB_NAME}_MODULE_LIBS
-            "$<$<CONFIG:release>:${${LIB_NAME}_MODULE_LIBS_RELEASE}>"
-            "$<$<CONFIG:debug>:${${LIB_NAME}_MODULE_LIBS_DEBUG}>")
+    set(${LIB_NAME}_MODULE_LIBS)
+    foreach (_library IN LISTS ${LIB_NAME}_MODULE_LIBS_DEBUG)
+        list(APPEND ${LIB_NAME}_MODULE_LIBS "$<$<CONFIG:Debug>:${_library}>")
+    endforeach ()
+    foreach (_library IN LISTS ${LIB_NAME}_MODULE_LIBS_RELEASE)
+        list(APPEND ${LIB_NAME}_MODULE_LIBS "$<$<NOT:$<CONFIG:Debug>>:${_library}>")
+    endforeach ()
     set(${LIB_NAME}_SYSTEM_LIBS ws2_32 crypt32 rpcrt4 advapi32 user32 shell32 ole32 oleaut32 version pathcch bcrypt iphlpapi)
 else ()
     set(${LIB_NAME}_STATIC_LIBRARY ${${LIB_NAME}_PATH}/lib/libpython${CPYTHON_VERSION}.a)
@@ -66,7 +70,7 @@ target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE
         ${${LIB_NAME}_MODULE_LIBS}
         ${${LIB_NAME}_SYSTEM_LIBS})
 # The CPython objects are built with /GL on Windows, so the final link needs /LTCG there.
-target_link_options(${TARGET_WITH_NAMESPACE} INTERFACE "$<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>>:/LTCG>")
+target_link_options(${TARGET_WITH_NAMESPACE} INTERFACE "$<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:MSVC>>:/LTCG>")
 
 set_target_properties(${TARGET_WITH_NAMESPACE} PROPERTIES INTERFACE_DYN_LIBS "")
 

@@ -83,7 +83,7 @@ namespace sky::editor {
         RendererInitInfo init;
         init.backend    = api;
         init.vulkanMode = mode;
-    #if defined(_DEBUG)
+    #if SKY_ENABLE_GPU_VALIDATION
         init.enableValidation = true;
     #endif
         if (auto error = host.Init(*provider, init)) {

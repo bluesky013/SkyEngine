@@ -85,7 +85,7 @@ function(sky_3rd_static LIB_NAME)
         list(APPEND LIBRARY "$<$<CONFIG:Debug>:${lib}>")
     endforeach()
     foreach(lib ${RELEASE_LIBS})
-        list(APPEND LIBRARY "$<$<CONFIG:Release>:${lib}>")
+        list(APPEND LIBRARY "$<$<NOT:$<CONFIG:Debug>>:${lib}>")
     endforeach()
 
     add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)

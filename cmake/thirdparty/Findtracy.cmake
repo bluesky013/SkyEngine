@@ -21,7 +21,7 @@ set(${LIB_NAME}_DYN_LIBRARY_RELEASE
         ${${LIB_NAME}_BIN_DIR}/TracyClient.dll)
 
 set(${LIB_NAME}_LIBRARY
-        "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
+        "$<$<NOT:$<CONFIG:Debug>>:${${LIB_NAME}_LIBRARY_RELEASE}>"
         "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
 
 add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)

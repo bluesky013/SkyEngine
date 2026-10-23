@@ -49,7 +49,7 @@ class SlangRuntimeImportTest(unittest.TestCase):
             root = Path(temp).resolve()
             self.make_package(root, ".so")
             for config, runtime_config in (("Debug", "Debug"), ("Release", "Release"),
-                                           ("RelWithDebInfo", "Release"), ("MinSizeRel", "Release")):
+                                           ("Develop", "Release"), ("RelWithDebInfo", "Release"), ("MinSizeRel", "Release")):
                 with self.subTest(config=config):
                     run, output = self.configure(root, ".so", config)
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)

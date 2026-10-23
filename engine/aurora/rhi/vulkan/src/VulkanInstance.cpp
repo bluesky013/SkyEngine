@@ -146,14 +146,17 @@ namespace sky::aurora {
         enabledExtensions.push_back("VK_KHR_android_surface");
 #endif
 
-        if (enableDebugLayer) {
-            if (HasExtension(supportedExts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+        const bool enableDebugUtils =
+            (enableDebugLayer || SKY_ENABLE_RESOURCE_NAME) && HasExtension(supportedExts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        if (enableDebugLayer || SKY_ENABLE_RESOURCE_NAME) {
+            if (enableDebugUtils) {
                 enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             } else {
-                LOG_W(TAG, "instance extension %s is not available; debug messenger disabled",
-                      VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                LOG_W(TAG, "instance extension %s is not available; debug utilities disabled", VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             }
+        }
 
+        if (enableDebugLayer) {
             for (const char *layerName : VALIDATION_LAYERS) {
                 if (HasLayer(supportedLayers, layerName)) {
                     enabledLayers.push_back(layerName);
@@ -199,13 +202,11 @@ namespace sky::aurora {
 #endif
 
         VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
-        if (enableDebugLayer) {
+        if (enableDebugLayer && enableDebugUtils) {
             debugCreateInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-            debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                                              VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-            debugCreateInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                              VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            debugCreateInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             debugCreateInfo.pfnUserCallback = DebugCallback;
             createInfo.pNext                = &debugCreateInfo;
         }

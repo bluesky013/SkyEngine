@@ -1,3 +1,5 @@
+include(${CMAKE_CURRENT_LIST_DIR}/build_configurations.cmake)
+
 # Mobile platforms (iOS/Android) build a runtime subset: no legacy render/shader
 # stack, no desktop-only plugins or host codegen tools. Defined once here so
 # gating conditions across engine/plugins stay in sync.

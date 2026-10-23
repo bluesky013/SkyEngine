@@ -49,6 +49,8 @@ identifier** (`<Name>.exe` / `<Name>` / `<Name>.app`) and the game module is `<N
 Point `SKY_ENGINE_ROOT` at the engine repository and bootstrap third-party with `python/third_party.py -p <platform>`.
 On Win32 the preset is provided but build/run verification is expected on a Windows host.
 
+For optimized editing with symbols and engine assertions, use the new `<platform>-develop` presets; see [Develop builds](develop-build.md). Original publishing presets continue to select Release.
+
 ### Application identity, export presets, and signing
 
 The descriptor's `settings` holds the **default identity** only (nothing secret):

@@ -1,0 +1,44 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-develop",
+      "displayName": "Windows Develop editor",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/cmake-build-debug",
+      "cacheVariables": {
+        "SKY_BUILD_SANDBOX": "ON",
+        "SKY_BUILD_TEST": "ON"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux-develop",
+      "displayName": "Linux Develop editor",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-develop",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Develop",
+        "SKY_BUILD_SANDBOX": "ON",
+        "SKY_BUILD_TEST": "ON"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "macos-develop",
+      "displayName": "macOS Develop editor",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/cmake-build-develop",
+      "cacheVariables": { "SKY_BUILD_SANDBOX": "ON", "SKY_BUILD_TEST": "ON" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-develop", "configurePreset": "windows-develop", "configuration": "Develop" },
+    { "name": "windows-debug", "configurePreset": "windows-develop", "configuration": "Debug" },
+    { "name": "windows-release", "configurePreset": "windows-develop", "configuration": "Release" },
+    { "name": "linux-develop", "configurePreset": "linux-develop" },
+    { "name": "macos-develop", "configurePreset": "macos-develop", "configuration": "Develop" }
+  ]
+}
