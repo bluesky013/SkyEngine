@@ -17,6 +17,7 @@
 #include <ui/UIRect.h>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,10 @@ namespace sky::ui {
     class UITextSystem;
     class GridPanel;
 } // namespace sky::ui
+
+namespace sky::editor {
+    class ReflectedFormView;
+}
 
 namespace sky::aurora::editor {
 
@@ -96,20 +101,24 @@ namespace sky::aurora::editor {
         bool            PersistProperty(int index);
         void            OpenPicker(int index, const sky::ui::UIRect &row);
         void            ReloadTechniques();
+        void            ClearSamplerForms();
+        void            RebuildSamplerForms();
         void            AddTechnique();
         void            DeleteTechnique(int techniqueIndex);
 
-        sky::ui::UITextSystem         *text = nullptr;
-        sky::editor::UiSkin            skin;
-        Uuid                           asset;
-        std::string                    title;
-        bool                           isInstance = false;
-        MaterialAssetData              materialSource;            // reflected `.mat` source (material)
-        MaterialInstanceSource         instanceSource;            // reflected `.mati` source (instance)
-        std::vector<MaterialEditorRow> rows;                      // techniques (grouped) + properties
-        sky::ui::GridPanel            *rowsPanel       = nullptr; // owns the themed row layout
-        bool                           allowTechniques = false;
-        bool                           dirty           = false;
+        sky::ui::UITextSystem                        *text = nullptr;
+        sky::editor::UiSkin                           skin;
+        Uuid                                          asset;
+        std::string                                   title;
+        bool                                          isInstance = false;
+        MaterialAssetData                             materialSource;      // reflected `.mat` source (material)
+        MaterialInstanceSource                        instanceSource;      // reflected `.mati` source (instance)
+        std::vector<MaterialEditorRow>                rows;                // techniques (grouped) + properties
+        sky::ui::GridPanel                           *rowsPanel = nullptr; // owns the themed row layout
+        std::vector<sky::editor::ReflectedFormView *> samplerForms;
+        std::shared_ptr<void>                         samplerGeneration = std::make_shared<int>(0);
+        bool                                          allowTechniques   = false;
+        bool                                          dirty             = false;
 
         int         editingRow = -1;
         std::string editText;

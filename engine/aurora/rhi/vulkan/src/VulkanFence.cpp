@@ -52,7 +52,7 @@ namespace sky::aurora {
     {
         const auto result = TryReset();
         if (!result.Succeeded())
-            LOG_E(TAG, "Fence reset failed: %lld", result.error.nativeCode);
+            LOG_E(TAG, "Fence reset failed: %lld", static_cast<long long>(result.error.nativeCode));
     }
 
     bool VulkanFence::IsSignaled()

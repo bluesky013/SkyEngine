@@ -47,6 +47,11 @@ namespace sky::aurora {
         {
             return 0;
         }
+        virtual const Descriptor &GetDescriptor() const
+        {
+            static const Descriptor unknown;
+            return unknown;
+        }
     };
     using BufferPtr = CounterPtr<Buffer>;
 } // namespace sky::aurora

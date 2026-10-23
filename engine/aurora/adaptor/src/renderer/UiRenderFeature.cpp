@@ -169,7 +169,8 @@ namespace sky::aurora {
                 for (const auto &command : snapshot.draws) {
                     const auto a = transform(command.clip[0], command.clip[1]), b = transform(command.clip[2], command.clip[3]);
                     const auto pixelY = [&](float y) {
-                        return context.GetInputs().lease.context.backend == API::DX12 ? (1 - y) * .5f : (y + 1) * .5f;
+                        const auto backend = context.GetInputs().lease.context.backend;
+                        return backend == API::DX12 || backend == API::METAL ? (1 - y) * .5f : (y + 1) * .5f;
                     };
                     const auto minX = static_cast<int32_t>(std::floor((std::min(a[0], b[0]) + 1) * .5f * output->output.extent.width));
                     const auto minY = static_cast<int32_t>(std::floor(std::min(pixelY(a[1]), pixelY(b[1])) * output->output.extent.height));
@@ -244,7 +245,11 @@ namespace sky::aurora {
     std::string_view RenderUiShaderSource()
     {
         return R"(
+            [__AttributeUsage(_AttributeTargets.Var)]
+            struct AuroraResourceAttribute { int set; int binding; string owner; }
+            [AuroraResource(0, 0, "aurora/adaptor/Ui")]
             Texture2D<float4> image : register(t0, space0);
+            [AuroraResource(0, 1, "aurora/adaptor/Ui")]
             SamplerState imageSampler : register(s1, space0);
             struct Varying { float4 position : SV_Position; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 shape : TEXCOORD1; float radius : TEXCOORD2; };
             Varying VSMain(float2 position : POSITION, float2 uv : TEXCOORD0, float4 color : COLOR0, float4 shape : TEXCOORD1, float radius : TEXCOORD2) {
@@ -265,10 +270,10 @@ namespace sky::aurora {
     }
     std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CreateUiRenderFeature(Name name, RenderTechniqueData code)
     {
-        if (name.Empty() || code.vertexCode.empty() || code.fragmentCode.empty() || code.vertexEntry.empty() || code.fragmentEntry.empty())
+        if (name.Empty() || !code.vertex || !code.fragment || code.compute)
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI feature requires a name and compiled shader"};
         const auto &resources = code.reflection.resources;
-        if (code.vertexCode.size() > 16 * 1024 * 1024 || code.fragmentCode.size() > 16 * 1024 * 1024 || resources.size() != 2 ||
+        if (code.vertex->data.size() > 16 * 1024 * 1024 || code.fragment->data.size() > 16 * 1024 * 1024 || resources.size() != 2 ||
             !code.reflection.blocks.empty() || !code.reflection.pushConstants.empty())
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI shader exceeds its code or binding budget"};
         bool image = false, sampler = false;

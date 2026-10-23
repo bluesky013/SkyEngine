@@ -13,6 +13,48 @@ from shader_headers import logical_path
 TARGETS = {'vulkan': 0, 'metal': 1, 'd3d12': 2}
 STAGES = {'vertex': 1, 'fragment': 2, 'compute': 4}
 
+PLATFORMS = {'windows': 1, 'macos': 2, 'ios': 3, 'android': 4, 'linux': 5}
+PLATFORM_TARGETS = {'windows': {'vulkan', 'd3d12'}, 'macos': {'metal', 'vulkan'},
+                    'ios': {'metal'}, 'android': {'vulkan'}, 'linux': {'vulkan'}}
+USAGE_FORMAT = 2
+
+
+def target_environments(platform, targets, overrides=None):
+    if platform not in PLATFORMS or not targets or any(target not in PLATFORM_TARGETS[platform] for target in targets):
+        return None, 'Explicit shader platform and compatible targets are required'
+    if overrides is None:
+        overrides = {}
+    if not isinstance(overrides, dict) or any(target not in targets for target in overrides):
+        return None, 'Shader environment overrides must name selected targets'
+    environments = {}
+    for target in targets:
+        environment = {'target': TARGETS[target], 'platform': PLATFORMS[platform],
+                       'codeFormat': {'vulkan': 1, 'metal': 2, 'd3d12': 3}[target],
+                       'profile': {'vulkan': 'spirv_1_5', 'metal': 'metallib_2_3', 'd3d12': 'sm_6_5'}[target],
+                       'minimumVersion': {'vulkan': 10500, 'metal': 20300, 'd3d12': 60500}[target], 'requiredCapabilities': 0, 'matrixLayout': 0, 'options': []}
+        custom = overrides.get(target, {})
+        allowed = {'codeFormat', 'profile', 'minimumVersion', 'requiredCapabilities', 'matrixLayout', 'options'}
+        if not isinstance(custom, dict) or set(custom) - allowed:
+            return None, 'Invalid shader target environment override: ' + target
+        environment.update(custom)
+        for name, maximum in [('codeFormat', 4), ('minimumVersion', 0xffffffff),
+                              ('requiredCapabilities', 0xffffffffffffffff), ('matrixLayout', 1)]:
+            value = environment[name]
+            if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= maximum:
+                return None, 'Invalid shader environment field: ' + name
+        if environment['minimumVersion'] == 0:
+            environment['minimumVersion'] = {'vulkan': 10500, 'metal': 20300, 'd3d12': 60500}[target]
+        if environment['codeFormat'] not in {'vulkan': {1}, 'metal': {2, 4}, 'd3d12': {3}}[target]:
+            return None, 'Shader code format disagrees with target: ' + target
+        if not isinstance(environment['profile'], str) or not environment['profile'] or '\x00' in environment['profile']:
+            return None, 'Shader profile must be explicit'
+        options = environment['options']
+        if not isinstance(options, list) or any(not isinstance(option, str) or not option or '\x00' in option for option in options):
+            return None, 'Shader target options must be nonempty strings'
+        environment['options'] = sorted(set(options))
+        environments[target] = environment
+    return environments, ''
+
 
 def project_modules(engine, project, descriptor):
     configs = [engine / 'engine/aurora/resources.json']
@@ -65,7 +107,7 @@ def project_modules(engine, project, descriptor):
     return configs, ''
 
 
-def append_program(program, targets, available, entries):
+def append_program(program, targets, available, entries, environments):
     if not isinstance(program, dict):
         return 'Shader program requirement must be an object'
     path = program.get('path', '')
@@ -85,13 +127,13 @@ def append_program(program, targets, available, entries):
         for target in targets:
             for variant in variants:
                 request = {'path': path, 'entry': entry['name'], 'stage': STAGES[entry['stage']],
-                           'target': TARGETS[target], 'variant': variant}
-                key = (path, entry['name'], request['stage'], request['target'], tuple(sorted(variant.items())))
+                           'target': TARGETS[target], 'variant': variant, 'environment': environments[target]}
+                key = (path, entry['name'], request['stage'], request['target'], json.dumps(environments[target], sort_keys=True), tuple(sorted(variant.items())))
                 entries[key] = request
     return ''
 
 
-def project_requirements(project, configs, targets, bundles, available):
+def project_requirements(project, configs, targets, bundles, available, environments):
     entries = {}
     for config in configs:
         resources = json.loads(config.read_text(encoding='utf-8'))['resources']
@@ -103,7 +145,7 @@ def project_requirements(project, configs, targets, bundles, available):
                     return None, f'Invalid shader program requirement: {config}'
                 if program.get('bundle', root.get('bundle', 'common')) not in bundles:
                     continue
-                error = append_program(program, targets, available, entries)
+                error = append_program(program, targets, available, entries, environments)
                 if error:
                     return None, error
     requirements = project / 'configs/shader_requirements.json'
@@ -111,7 +153,7 @@ def project_requirements(project, configs, targets, bundles, available):
         data = json.loads(requirements.read_text(encoding='utf-8'))
         for program in data.get('programs', []):
             if program.get('bundle', 'common') in bundles:
-                error = append_program(program, targets, available, entries)
+                error = append_program(program, targets, available, entries, environments)
                 if error:
                     return None, error
     # Material sources are authored JSON; their technique requests do not require loading runtime modules.
@@ -129,22 +171,25 @@ def project_requirements(project, configs, targets, bundles, available):
                     return None, f'Invalid material shader reference: {path}'
                 request = {'path': shader.get('relativePath', ''), 'entries': [
                     {'stage': stage, 'name': shader.get('entry', '')}], 'variants': [program.get('variant', {})]}
-                error = append_program(request, targets, available, entries)
+                error = append_program(request, targets, available, entries, environments)
                 if error:
                     return None, f'{path}: {error}'
-    return {'entries': [entries[key] for key in sorted(entries)]}, ''
+    return {'formatVersion': USAGE_FORMAT, 'entries': [entries[key] for key in sorted(entries)]}, ''
 
 
-def cook_project(engine, project, descriptor, distribution, targets, bundles, tool):
+def cook_project(engine, project, descriptor, distribution, targets, bundles, tool, platform, environment_overrides=None):
     if not logical_path(distribution) or '/' in distribution or not targets or any(target not in TARGETS for target in targets):
         return 'Invalid shader distribution or target list'
+    environments, error = target_environments(platform, targets, environment_overrides)
+    if error:
+        return error
     configs, error = project_modules(engine, project, descriptor)
     if error:
         return error
     _, available, error = collect(configs)
     if error:
         return error
-    requirements, error = project_requirements(project, configs, targets, bundles, available)
+    requirements, error = project_requirements(project, configs, targets, bundles, available, environments)
     if error:
         return error
     if not tool.is_file():
@@ -166,7 +211,7 @@ def cook_project(engine, project, descriptor, distribution, targets, bundles, to
             return f'Project shader cook failed ({result.returncode}); see {build / (distribution + ".log")}'
         write_changed(products / 'requirements.json', usage.read_bytes())
         write_changed(products / 'distribution.json', (json.dumps({'distribution': distribution, 'targets': targets,
-                      'bundles': bundles}, indent=2) + '\n').encode('utf-8'))
+                      'bundles': bundles, 'formatVersion': USAGE_FORMAT, 'platform': platform, 'environments': environments}, indent=2) + '\n').encode('utf-8'))
         destination = (project / 'products/shaders' / distribution).resolve()
         if not destination.is_relative_to((project / 'products/shaders').resolve()):
             return 'Shader product destination escapes project products'
@@ -177,9 +222,28 @@ def cook_project(engine, project, descriptor, distribution, targets, bundles, to
     return ''
 
 
-def stage_products(project, distribution, destination):
+def stage_products(project, distribution, destination, platform):
     source = project / 'products/shaders' / distribution
     if not logical_path(distribution) or '/' in distribution or not (source / 'distribution.json').is_file():
         return f'Shader distribution has not been cooked: {distribution}'
+    manifest = json.loads((source / 'distribution.json').read_text(encoding='utf-8'))
+    targets = manifest.get('targets', [])
+    if manifest.get('formatVersion') != USAGE_FORMAT or manifest.get('platform') != platform:
+        return 'Shader products have an incompatible platform or protocol; recook: ' + distribution
+    environments, error = target_environments(platform, targets)
+    if error:
+        return error
+    declared = manifest.get('environments')
+    if not isinstance(declared, dict) or set(declared) != set(environments):
+        return 'Shader products have no complete target environments; recook: ' + distribution
+    for target, environment in declared.items():
+        if not isinstance(environment, dict) or set(environment) != set(environments[target]):
+            return 'Incomplete shader product environment; recook: ' + distribution
+        overrides = {key: value for key, value in environment.items() if key not in ('target', 'platform')}
+        normalized, error = target_environments(platform, [target], {target: overrides})
+        if error or normalized[target] != environment:
+            return 'Shader product target environment is invalid; recook: ' + distribution
+        if not (source / target / 'index.bin').is_file():
+            return 'Shader product index is missing; recook: ' + target
     shutil.copytree(source, destination / 'shaders', dirs_exist_ok=True)
     return ''

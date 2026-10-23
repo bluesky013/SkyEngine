@@ -4,10 +4,13 @@
 
 #pragma once
 
+#include <aurora/rdg/FrameExecutionTypes.h>
 #include <aurora/rhi/Buffer.h>
+#include <aurora/rhi/ShaderReflection.h>
 
 #include <D3D12MemAlloc.h>
 #include <d3d12.h>
+#include <optional>
 #include <wrl/client.h>
 
 namespace sky::aurora {
@@ -44,15 +47,15 @@ namespace sky::aurora {
         {
             return size;
         }
-        const Descriptor &GetDescriptor() const noexcept
+        const Descriptor &GetDescriptor() const noexcept override
         {
             return descriptor;
         }
 
-        // Write a CBV / raw SRV / raw UAV into a CPU descriptor.
-        void CreateCBV(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint64_t offset, uint64_t range) const;
-        void CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
-        void CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+        // Native storage views preserve the reflected access, element stride and exact byte range.
+        void                      CreateCBV(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint64_t offset, uint64_t range) const;
+        std::optional<FrameError> CheckStorageRange(const ShaderResource &, uint64_t offset, uint64_t range) const;
+        std::optional<FrameError> CreateStorageView(D3D12_CPU_DESCRIPTOR_HANDLE, const ShaderResource &, uint64_t offset, uint64_t range) const;
 
     private:
         HRESULT                     mapResult    = S_OK;

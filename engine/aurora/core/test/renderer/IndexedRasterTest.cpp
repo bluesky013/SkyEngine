@@ -5,7 +5,7 @@
 #include "GpuTestSupport.h"
 #include "HostSceneFixture.h"
 #include "graph/FrameComposer.h"
-#include "shaders/FrameGraphSPIRV.h"
+#include <aurora/renderer/PassResourceBindings.h>
 
 #include "graph/FrameGraphBuilder.h"
 #include "graph/PreparedRaster.h"
@@ -18,7 +18,6 @@
 #include <aurora/shader/ShaderFileSystem.h>
 #include <common/FrameTransientPool.h>
 #include <d3d12sdklayers.h>
-#include <d3dcompiler.h>
 
 namespace {
     constexpr uint64_t epoch                           = 127;
@@ -137,40 +136,16 @@ namespace {
         }
         ShaderPtr ShaderOf(bool alternate)
         {
-            auto function = [&](ShaderStageFlagBit stage) {
-                CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-                const char                      *entry = stage == ShaderStageFlagBit::VS ? "VSMain" : "FSMain";
-                if (GetParam() == 2) {
-                    const D3D_SHADER_MACRO macros[] = {{"MATERIAL_BINDING", alternate ? "1" : "0"}, {nullptr, nullptr}};
-                    ComPtr<ID3DBlob>       code, errors;
-                    auto                   hr = D3DCompile(FrameGraphIndexedHLSL, sizeof(FrameGraphIndexedHLSL), nullptr, macros, nullptr, entry,
-                                         stage == ShaderStageFlagBit::VS ? "vs_5_1" : "ps_5_1", 0, 0, &code, &errors);
-                    EXPECT_TRUE(SUCCEEDED(hr)) << (errors ? static_cast<const char *>(errors->GetBufferPointer()) : "");
-                    if (FAILED(hr))
-                        return ShaderFunctionPtr{};
-                    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
-                    std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
-                } else {
-                    std::span<const uint32_t> words = stage == ShaderStageFlagBit::VS ? std::span<const uint32_t>(FrameGraphIndexedVS)
-                                                      : alternate                     ? std::span<const uint32_t>(FrameGraphIndexedAlternateFS)
-                                                                                      : std::span<const uint32_t>(FrameGraphIndexedFS);
-                    provider->binaryData            = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(words.size_bytes())));
-                    std::memcpy(provider->binaryData->Data(), words.data(), words.size_bytes());
-                    entry = "main";
-                }
-                return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, entry}));
-            };
-            auto             vs = function(ShaderStageFlagBit::VS), fs = function(ShaderStageFlagBit::FS);
-            ShaderReflection reflection;
-            reflection.resources = {{"View", ShaderResourceType::UNIFORM_BUFFER_DYNAMIC, 0, 0, 1},
-                                    {"Material", ShaderResourceType::UNIFORM_BUFFER, 1, alternate ? 1u : 0u, 1},
-                                    {"Object", ShaderResourceType::UNIFORM_BUFFER_DYNAMIC, 2, 0, 1}};
-            reflection.blocks    = {{"View", "", 0, 0, 16}, {"Material", "", 1, alternate ? 1u : 0u, 16}, {"Object", "", 2, 0, 16}};
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = fs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto source = std::string(alternate ? "#define MATERIAL_BINDING 1\n" : "#define MATERIAL_BINDING 0\n") + kGpuIndexedSource;
+            const auto vs     = CompileGpuFunction(*device, source, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs     = CompileGpuFunction(*device, source, ShaderStageFlagBit::FS, "FSMain");
+            if (!vs || !fs)
+                return {};
+            Shader::Descriptor descriptor{};
+            descriptor.vs              = vs.Get();
+            descriptor.ps              = fs.Get();
+            descriptor.bindingPolicies = {{0, 0}, {2, 0}};
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         DeviceFrameLease Begin()
         {
@@ -715,7 +690,7 @@ TEST_P(IndexedRaster, SlangResolverBuildsProgramBeforeGraphFreeze)
     ShaderCompilerFactory::Get().Register(&compiler);
     Finally          restore{[&] { ShaderCompilerFactory::Get().Register(previous); }};
     ShaderFileSystem source;
-    source.AddVirtualFile("Indexed.slang", std::string("#define MATERIAL_BINDING 0\n") + FrameGraphIndexedHLSL);
+    source.AddVirtualFile("Indexed.slang", std::string(kGpuResourceAttributes) + "#define MATERIAL_BINDING 0\n" + kGpuIndexedSource);
     ShaderResolver      resolver(nullptr, nullptr, source, 1, 1);
     ShaderVariantSchema schema;
     RasterShaderRequest request;
@@ -774,13 +749,14 @@ TEST_P(IndexedRaster, SparseShaderSetsKeepTheirActualSetNumbers)
     ShaderCompilerFactory::Get().Register(&compiler);
     Finally          restore{[&] { ShaderCompilerFactory::Get().Register(previous); }};
     ShaderFileSystem source;
-    source.AddVirtualFile("Sparse.slang", R"(
-        cbuffer Material : register(b0, space2) { float4 tint; }
+    source.AddVirtualFile("Sparse.slang", std::string(kGpuResourceAttributes) + R"(
+        struct Params { [AuroraField("tint")] float4 tint; };
+        [AuroraResource(2,0,"fixture/sparse")] [[vk::binding(0,2)]] ConstantBuffer<Params> material : register(b0, space2);
         struct Varying { float4 position : SV_Position; float4 color : COLOR; };
         Varying VSMain(float2 position : POSITION, float4 color : COLOR) {
             Varying v; v.position = float4(position, 0, 1); v.color = color; return v;
         }
-        float4 FSMain(Varying v) : SV_Target { return v.color * tint; }
+        float4 FSMain(Varying v) : SV_Target { return v.color * material.tint; }
     )");
     ShaderResolver      resolver(nullptr, nullptr, source, 1, 1);
     ShaderVariantSchema schema;
@@ -908,8 +884,8 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         material.shader                        = shader;
         const std::array<float, 4>        tint = i ? std::array<float, 4>{0, 0, 1, 1} : std::array<float, 4>{1, 0, 0, 1};
         const shared::MaterialBatchParams batch{{tint[0], tint[1], tint[2], tint[3]}, {.5f, 0, 0, 0}};
-        const auto                        bytes = std::as_bytes(std::span{&batch, 1});
-        material.uniforms.push_back({2, {bytes.begin(), bytes.end()}});
+        material.parameters.values = {{Name("gMaterial.tint"), MakeShaderData(batch.tint)},
+                                      {Name("gMaterial.surface"), MakeShaderData(batch.surface)}};
     }
     const auto        lease = Begin();
     FrameGraphBuilder builder;
@@ -944,18 +920,21 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         const auto                    &view = prepared->views[i].view;
         const shared::OpaquePassParams params{view.projection * view.view, {view.cameraPosition.x, view.cameraPosition.y, view.cameraPosition.z, 1}};
         const shared::SceneBatchParams batch{item.world};
-        ASSERT_EQ(item.material.size(), 1u);
+        ASSERT_EQ(item.material.values.size(), 2u);
         FrameBuildInputs inputs;
         inputs.lease = lease;
-        FrameComposer composer(*device, *context, builder, inputs);
-        auto          passBinding  = composer.WriteUniform(1, 0, std::as_bytes(std::span{&params, 1}));
-        auto          batchBinding = composer.WriteUniform(2, 0, std::as_bytes(std::span{&batch, 1}), ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
-        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(passBinding));
-        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(batchBinding));
-        auto materialBinding = composer.WriteUniform(2, 2, item.material.front().bytes, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
-        ASSERT_TRUE(std::holds_alternative<RasterUniformBinding>(materialBinding));
-        item.draw.uniforms = {std::get<RasterUniformBinding>(passBinding), std::get<RasterUniformBinding>(batchBinding),
-                              std::get<RasterUniformBinding>(materialBinding)};
+        FrameComposer        composer(*device, *context, builder, inputs);
+        PassResourceBindings passValues(shared::GetOpaquePassReflection());
+        PassResourceBindings batchValues(shared::GetSceneBatchReflection());
+        PassResourceBindings materialValues(shared::GetMaterialBatchReflection());
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(passValues.UniformData(shared::OpaquePassBindings::gOpaquePass, params)));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
+            batchValues.UniformData(shared::SceneBatchBindings::gSceneBatch, batch, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)));
+        for (const auto &value : item.material.values)
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(materialValues.Data(value.name, value.value)));
+        const PassResourceBindings *groups[]{&passValues, &batchValues, &materialValues};
+        const auto                  applied = PassResourceBindings::Apply(composer, item.draw, groups);
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(applied));
         pass.draws.push_back(std::move(item.draw));
     }
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));

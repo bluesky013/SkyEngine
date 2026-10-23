@@ -23,7 +23,11 @@ namespace sky::aurora {
             return false;
         mDevice = device;
 
-        mUboSize = sizeof(shared::GlobalParams);
+        std::string error;
+        mUploadPlan = globalShader->GetUniformPlan(0, 0, shared::GlobalParams::Schema(), error);
+        if (!mUploadPlan)
+            return false;
+        mUboSize = mUploadPlan->targetSize;
 
         Buffer::Descriptor bufDesc{};
         bufDesc.size   = mUboSize;
@@ -47,9 +51,7 @@ namespace sky::aurora {
         }
 
         auto encoder = mGroup->CreateEncoder();
-        encoder->WriteBuffer(0, mUBO.Get(), 0, mUboSize);
-        encoder->End();
-        return true;
+        return encoder && encoder->WriteBuffer(0, mUBO.Get(), 0, mUboSize) && encoder->End();
     }
 
     bool GlobalRenderResources::UpdateFrame(float time, float deltaTime)
@@ -57,10 +59,15 @@ namespace sky::aurora {
         if (!mUBO || !std::isfinite(time) || !std::isfinite(deltaTime) || deltaTime < 0)
             return false;
         const shared::GlobalParams params{{time, deltaTime, 0, 0}};
-        auto                      *mapped = mUBO->Map();
+        std::vector<std::byte>     bytes;
+        std::string                error;
+        if (!mUploadPlan || !EncodeShaderUniform(*mUploadPlan, std::as_bytes(std::span{&params, 1}), bytes, error))
+            return false;
+        auto *mapped = mUBO->Map();
         if (!mapped)
             return false;
-        std::memcpy(mapped, &params, sizeof(params));
+        std::memcpy(mapped, bytes.data(), bytes.size());
+        mUBO->UnMap();
         return true;
     }
 } // namespace sky::aurora

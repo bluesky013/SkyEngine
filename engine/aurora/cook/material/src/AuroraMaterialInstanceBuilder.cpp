@@ -51,6 +51,12 @@ namespace sky::aurora {
             AddAssetDependency(asset, request, source.material);
         }
 
+        for (const auto &property : source.properties)
+            if (!MaterialPropertyValueMatches(property.type, property.value)) {
+                result.error = "Material instance property has an incompatible semantic value type";
+                return;
+            }
+
         for (auto &property : source.properties) {
             const Uuid *texture = std::get_if<Uuid>(&property.value);
             if (IsTextureProperty(property.type) && texture != nullptr) {

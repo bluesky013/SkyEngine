@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/31.
 //
 
@@ -7,9 +7,11 @@
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/ShaderReflection.h>
 #include <d3d12.h>
-#include <wrl/client.h>
+#include <optional>
+#include <span>
 #include <utility>
 #include <vector>
+#include <wrl/client.h>
 
 namespace sky::aurora {
 
@@ -18,10 +20,13 @@ namespace sky::aurora {
     class D3D12Device;
 
     struct RootSignatureDescriptorRange {
-        ShaderResourceType type    = ShaderResourceType::UNIFORM_BUFFER;
-        uint32_t           binding = 0;
-        uint32_t           count   = 1;
-        ShaderStageFlags   visibility;
+        ShaderResourceType   type    = ShaderResourceType::UNIFORM_BUFFER;
+        uint32_t             binding = 0;
+        uint32_t             count   = 1;
+        ShaderStageFlags     visibility;
+        ShaderResourceAccess access         = ShaderResourceAccess::READ_ONLY;
+        ShaderNativeCategory category       = ShaderNativeCategory::UNKNOWN;
+        uint32_t             nativeRegister = 0, nativeSpace = 0, descriptorOffset = 0;
     };
 
     struct RootSignatureDescriptorSet {
@@ -30,8 +35,17 @@ namespace sky::aurora {
 
     struct RootSignatureDescriptor {
         std::vector<RootSignatureDescriptorSet> sets;
-        std::vector<uint32_t>                  setIndices;   // original set index per sets[i]
-        std::vector<PushConstantRange>         pushConstants;
+        std::vector<uint32_t>                   setIndices; // original set index per sets[i]
+        std::vector<PushConstantRange>          pushConstants;
+    };
+
+    struct D3D12RootTableBinding {
+        uint32_t root    = 0;
+        bool     sampler = false;
+    };
+    struct D3D12DynamicRootBinding {
+        uint32_t             binding = 0, root = 0;
+        ShaderNativeCategory category = ShaderNativeCategory::UNKNOWN;
     };
 
     class D3D12RootSignature : public RefObject {
@@ -41,25 +55,24 @@ namespace sky::aurora {
 
         bool Init(const RootSignatureDescriptor &desc);
 
-        ID3D12RootSignature *GetNativeHandle() const { return rootSignature.Get(); }
+        ID3D12RootSignature *GetNativeHandle() const
+        {
+            return rootSignature.Get();
+        }
 
-        // Root param index of the CBV/SRV/UAV descriptor table for `set`,
-        // or INVALID_INDEX when the set has no non-sampler bindings.
-        uint32_t GetCbvSrvUavRootParam(uint32_t set) const;
-        // Root param index of the sampler descriptor table for `set`,
-        // or INVALID_INDEX when the set has no sampler bindings.
-        uint32_t GetSamplerRootParam(uint32_t set) const;
-        // Root param index of the root CBV / root UAV for a dynamic binding,
-        // or INVALID_INDEX when the set has no such binding.
-        uint32_t GetDynamicRootParam(uint32_t set, uint32_t binding) const;
+        std::span<const D3D12RootTableBinding>   GetDescriptorTables(uint32_t set) const;
+        std::span<const D3D12DynamicRootBinding> GetDynamicBindings(uint32_t set) const;
         // Root param index of the first push-constant root param.
-        uint32_t GetPushConstantRootParam() const { return pushConstantRootParam; }
+        uint32_t GetPushConstantRootParam() const
+        {
+            return pushConstantRootParam;
+        }
 
     private:
-        static D3D12_SHADER_VISIBILITY ToShaderVisibility(ShaderStageFlags flags);
-        static D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(ShaderResourceType type);
+        static D3D12_SHADER_VISIBILITY                    ToShaderVisibility(ShaderStageFlags flags);
+        static std::optional<D3D12_DESCRIPTOR_RANGE_TYPE> ToRangeType(ShaderNativeCategory category);
 
-        D3D12Device &device;
+        D3D12Device                &device;
         ComPtr<ID3D12RootSignature> rootSignature;
 
         // keep alive for the lifetime of the root signature
@@ -67,10 +80,8 @@ namespace sky::aurora {
         std::vector<D3D12_ROOT_PARAMETER>                parameters;
 
         struct SetRootParams {
-            uint32_t cbvSrvUav = INVALID_INDEX;
-            uint32_t sampler   = INVALID_INDEX;
-            // dynamic bindings -> root CBV / root UAV param (binding, rootParam)
-            std::vector<std::pair<uint32_t, uint32_t>> dynamicRootParams;
+            std::vector<D3D12RootTableBinding>   tables;
+            std::vector<D3D12DynamicRootBinding> dynamicRootParams;
         };
         std::vector<SetRootParams> setParams; // indexed by set index
         uint32_t                   pushConstantRootParam = INVALID_INDEX;

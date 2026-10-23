@@ -6,9 +6,24 @@
 
 #include <aurora/rhi/Shader.h>
 
+#include <array>
+#include <unordered_map>
+#include <vector>
+
 namespace sky::aurora {
 
     class MetalDevice;
+
+    struct MetalMSLSetSlots {
+        std::unordered_map<uint32_t, uint32_t> buffer;
+        std::unordered_map<uint32_t, uint32_t> texture;
+        std::unordered_map<uint32_t, uint32_t> sampler;
+    };
+
+    struct MetalResourceSetPlan {
+        std::array<MetalMSLSetSlots, 3> stages;
+        std::vector<uint32_t>           dynamicBindings;
+    };
 
     class MetalShaderFunction : public ShaderFunction {
     public:
@@ -28,6 +43,9 @@ namespace sky::aurora {
         }
 
     private:
+        friend class MetalShader;
+        bool InitSpecialization(const MetalShaderFunction &source, const ShaderSpecialization &values);
+
         MetalDevice       &device;
         void              *library  = nullptr;
         void              *function = nullptr;
@@ -59,14 +77,18 @@ namespace sky::aurora {
         {
             return reflection;
         }
+        const MetalResourceSetPlan *GetResourceSetPlan(uint32_t set) const
+        {
+            const auto found = resourceSetPlans.find(set);
+            return found == resourceSetPlans.end() ? nullptr : &found->second;
+        }
         // slang MSL lowers push constants to a plain constant buffer at the
         // highest [[buffer(N)]] slot (declare-last convention)
         uint32_t GetPushConstantSlot() const
         {
             return pushConstantSlot;
         }
-        // one past the highest [[buffer(N)]] slot used by the shader (incl.
-        // push constants); must stay below METAL_VERTEX_BUFFER_SLOT_BASE
+        // Vertex-stage extent protects the reserved vertex input slots; compute uses its own extent.
         uint32_t GetBufferSlotCount() const
         {
             return bufferSlotCount;
@@ -78,14 +100,17 @@ namespace sky::aurora {
         }
 
     private:
-        MetalDevice                    &device;
-        CounterPtr<MetalShaderFunction> vertexFunction;
-        CounterPtr<MetalShaderFunction> fragmentFunction;
-        CounterPtr<MetalShaderFunction> computeFunction;
-        ShaderReflection                reflection;
-        uint32_t                        pushConstantSlot = 0;
-        uint32_t                        bufferSlotCount  = 0;
-        uint32_t                        pushConstantSize = 0;
+        bool SpecializeFunctions();
+
+        MetalDevice                                       &device;
+        CounterPtr<MetalShaderFunction>                    vertexFunction;
+        CounterPtr<MetalShaderFunction>                    fragmentFunction;
+        CounterPtr<MetalShaderFunction>                    computeFunction;
+        ShaderReflection                                   reflection;
+        std::unordered_map<uint32_t, MetalResourceSetPlan> resourceSetPlans;
+        uint32_t                                           pushConstantSlot = 0;
+        uint32_t                                           bufferSlotCount  = 0;
+        uint32_t                                           pushConstantSize = 0;
     };
 
 } // namespace sky::aurora

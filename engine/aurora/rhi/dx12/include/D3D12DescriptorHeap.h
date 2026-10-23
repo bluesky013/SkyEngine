@@ -21,37 +21,41 @@ namespace sky::aurora {
     class D3D12Device;
     class D3D12DescriptorHeap;
 
-    // DescriptorEncoder bound to a DescriptorHeap allocation. `binding` is the
-    // per-type index offset inside the allocation; untyped writes default to
-    // SRV (use the typed WriteBufferUAV helpers for storage resources).
+    // Heap bindings are allocation-relative indices; untyped buffer writes are raw SRVs.
     class D3D12HeapDescriptorEncoder : public DescriptorEncoder {
     public:
-        D3D12HeapDescriptorEncoder(D3D12Device &device, ID3D12DescriptorHeap *resourceHeap,
-                                   ID3D12DescriptorHeap *samplerHeap,
-                                   uint32_t resourceIncrement, uint32_t samplerIncrement,
+        D3D12HeapDescriptorEncoder(D3D12Device                      &device,
+                                   ID3D12DescriptorHeap             *resourceHeap,
+                                   ID3D12DescriptorHeap             *samplerHeap,
+                                   uint32_t                          resourceIncrement,
+                                   uint32_t                          samplerIncrement,
                                    const DescriptorHeap::Allocation &allocation);
 
-        void WriteBuffer(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range,
-                         uint32_t arrayElement = 0) override;
-        void WriteImage(uint32_t index, Image *image, ImageLayout layout,
-                        uint32_t arrayElement = 0) override;
-        void WriteSampler(uint32_t index, Sampler *sampler, uint32_t arrayElement = 0) override;
-        void End() override {}
+        bool WriteBuffer(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
+        bool WriteImage(uint32_t index, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
+        bool WriteSampler(uint32_t index, Sampler *sampler, uint32_t arrayElement = 0) override;
+        bool End() override
+        {
+            return !failed;
+        }
 
-        void WriteBufferCBV(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0);
-        void WriteBufferUAV(uint32_t index, Buffer *buffer, uint32_t arrayElement = 0);
-        void WriteImageUAV(uint32_t index, Image *image, uint32_t arrayElement = 0);
+        bool WriteBufferCBV(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0);
+        bool WriteBufferUAV(uint32_t index, Buffer *buffer, uint32_t arrayElement = 0);
+        bool WriteImageUAV(uint32_t index, Image *image, uint32_t arrayElement = 0);
 
     private:
+        bool                        Fail(const char *message);
+        bool                        failed = false;
         D3D12_CPU_DESCRIPTOR_HANDLE ResourceHandle(uint32_t index) const;
         D3D12_CPU_DESCRIPTOR_HANDLE SamplerHandle(uint32_t index) const;
 
-        ID3D12Device               *native         = nullptr;
-        ID3D12DescriptorHeap       *resourceHeap   = nullptr;
-        ID3D12DescriptorHeap       *samplerHeap    = nullptr;
-        uint32_t                    resourceIncrement = 0;
-        uint32_t                    samplerIncrement  = 0;
-        DescriptorHeap::Allocation  allocation;
+        ID3D12Device              *native            = nullptr;
+        D3D12Device               *owner             = nullptr;
+        ID3D12DescriptorHeap      *resourceHeap      = nullptr;
+        ID3D12DescriptorHeap      *samplerHeap       = nullptr;
+        uint32_t                   resourceIncrement = 0;
+        uint32_t                   samplerIncrement  = 0;
+        DescriptorHeap::Allocation allocation;
     };
 
     class D3D12DescriptorHeap : public DescriptorHeap {
@@ -66,8 +70,14 @@ namespace sky::aurora {
 
         std::unique_ptr<DescriptorEncoder> CreateHeapEncoder(const Allocation &allocation);
 
-        ID3D12DescriptorHeap *GetResourceHeap() const { return resourceHeap.Get(); }
-        ID3D12DescriptorHeap *GetSamplerHeap() const { return samplerHeap.Get(); }
+        ID3D12DescriptorHeap *GetResourceHeap() const
+        {
+            return resourceHeap.Get();
+        }
+        ID3D12DescriptorHeap *GetSamplerHeap() const
+        {
+            return samplerHeap.Get();
+        }
 
     private:
         struct FreeRange {

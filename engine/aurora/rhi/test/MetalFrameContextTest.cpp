@@ -1,9 +1,13 @@
 #include "AuroraTestHelper.h"
+#include "ShaderArtifactTestHelper.h"
 
 #include <array>
 #include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/rdg/FrozenFrameGraph.h>
+#include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/Shader.h>
+#include <aurora/rhi/SubmitInfo.h>
+#include <bit>
 #include <chrono>
 #include <core/archive/BinaryData.h>
 #include <cstring>
@@ -55,6 +59,85 @@ namespace {
         return std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
     }
 
+    ShaderPtr MakeMetalFixtureShader(Device *device, const char *source, ShaderReflection reflection, bool graphics)
+    {
+        std::vector<ShaderBindingPolicy> policies;
+        for (auto &resource : reflection.resources) {
+            resource.declarationOwner = "rhi-test/metal-frame-context";
+            if (resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || resource.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                policies.push_back({resource.set, resource.binding, resource.type});
+                resource.type = resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC ? ShaderResourceType::UNIFORM_BUFFER
+                                                                                            : ShaderResourceType::STORAGE_BUFFER;
+            }
+        }
+        reflection.declarations   = reflection.resources;
+        reflection.declaredBlocks = reflection.blocks;
+        auto makeFunction         = [&](ShaderStageFlagBit stage, const char *entry) {
+            auto target = reflection;
+            std::erase_if(target.resources, [&](const auto &resource) { return !resource.stages.TestBit(stage); });
+            for (auto &resource : target.resources)
+                resource.stages = stage;
+            std::erase_if(target.blocks, [&](const auto &block) {
+                return std::none_of(target.resources.begin(), target.resources.end(),
+                                            [&](const auto &resource) { return resource.set == block.set && resource.binding == block.binding; });
+            });
+            std::erase_if(target.nativeBindings, [&](const auto &binding) { return binding.stage != stage; });
+            const auto *bytes    = reinterpret_cast<const uint8_t *>(source);
+            auto        artifact = MakeTestShaderArtifact(ShaderTarget::MSL, stage, {bytes, std::strlen(source)}, entry, std::move(target));
+            if (!artifact)
+                return ShaderFunctionPtr{};
+            ShaderFunction::Descriptor descriptor{};
+            descriptor.stage    = stage;
+            descriptor.artifact = std::move(artifact);
+            return ShaderFunctionPtr(device->CreateShaderFunction(descriptor));
+        };
+        auto first    = makeFunction(graphics ? ShaderStageFlagBit::VS : ShaderStageFlagBit::CS, graphics ? "VSMain" : "CSMain");
+        auto fragment = graphics ? makeFunction(ShaderStageFlagBit::FS, "FSMain") : ShaderFunctionPtr{};
+        if (!first || (graphics && !fragment))
+            return {};
+        ShaderReflection program;
+        std::string      error;
+        if (!MergeShaderReflections(first->GetArtifact()->reflection, program, error) ||
+            (fragment && !MergeShaderReflections(fragment->GetArtifact()->reflection, program, error)))
+            return {};
+        for (const auto &policy : policies) {
+            const auto found = std::find_if(program.resources.begin(), program.resources.end(),
+                                            [&](const auto &resource) { return resource.set == policy.set && resource.binding == policy.binding; });
+            if (found == program.resources.end())
+                return {};
+            found->type = policy.type;
+        }
+        Shader::Descriptor descriptor{};
+        if (graphics) {
+            descriptor.vs = first.Get();
+            descriptor.ps = fragment.Get();
+        } else
+            descriptor.cs = first.Get();
+        descriptor.reflection      = &program;
+        descriptor.bindingPolicies = std::move(policies);
+        return ShaderPtr(device->CreateShader(descriptor));
+    }
+
+    ShaderBlockLayout FixtureUniformBlock(uint32_t set, uint32_t binding, const char *name, bool vector)
+    {
+        ShaderBlockLayout block;
+        block.name       = name;
+        block.structName = vector ? "float4" : "Params";
+        block.set        = set;
+        block.binding    = binding;
+        block.size       = vector ? 16 : 4;
+        block.alignment  = vector ? 16 : 4;
+        ShaderBlockMember member;
+        member.name       = vector ? "color" : "value";
+        member.size       = block.size;
+        member.alignment  = block.alignment;
+        member.scalarType = vector ? ShaderScalarType::FLOAT : ShaderScalarType::UINT;
+        member.kind       = vector ? ShaderTypeKind::VECTOR : ShaderTypeKind::SCALAR;
+        member.cols       = vector ? 4 : 1;
+        block.members.push_back(member);
+        return block;
+    }
+
     ShaderPtr MakeFullscreenShader(Device *device, const char *fragmentSource = nullptr, const ShaderReflection *reflectionOverride = nullptr)
     {
         const char *source = R"MSL(
@@ -74,27 +157,7 @@ fragment float4 FSMain(VOut in [[stage_in]]) {
         if (fragmentSource != nullptr)
             source = fragmentSource;
 
-        auto makeFunction = [&](ShaderStageFlagBit stage) {
-            auto data = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(std::strlen(source))));
-            std::memcpy(data->Data(), source, std::strlen(source));
-            auto provider        = CounterPtr<ShaderBinaryProvider>(new ShaderBinaryProvider);
-            provider->binaryData = data;
-            ShaderFunction::Descriptor desc{stage, provider, {}};
-            return ShaderFunctionPtr(device->CreateShaderFunction(desc));
-        };
-
-        auto vs = makeFunction(ShaderStageFlagBit::VS);
-        auto fs = makeFunction(ShaderStageFlagBit::FS);
-        if (!vs || !fs)
-            return {};
-        ShaderReflection reflection;
-        if (reflectionOverride != nullptr)
-            reflection = *reflectionOverride;
-        Shader::Descriptor desc{};
-        desc.vs         = vs.Get();
-        desc.ps         = fs.Get();
-        desc.reflection = &reflection;
-        return ShaderPtr(device->CreateShader(desc));
+        return MakeMetalFixtureShader(device, source, reflectionOverride ? *reflectionOverride : ShaderReflection{}, true);
     }
 
     bool WaitForCompletion(DeviceFrameContext &context)
@@ -108,6 +171,235 @@ fragment float4 FSMain(VOut in [[stage_in]]) {
         return false;
     }
 } // namespace
+
+TEST_F(AuroraMetalTest, SamplerRejectsUnavailableAddressModes)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    for (const auto mode : {WrapMode::CLAMP_TO_BORDER, WrapMode::MIRROR_CLAMP_TO_EDGE}) {
+        bool supported = false;
+        if (mode == WrapMode::CLAMP_TO_BORDER) {
+            if (__builtin_available(macOS 10.12, iOS 14.0, *))
+                supported = true;
+        } else if (__builtin_available(macOS 10.11, iOS 14.0, *))
+            supported = true;
+        Sampler::Descriptor desc;
+        desc.addressModeU = mode;
+        SamplerPtr sampler(device->CreateSampler(desc));
+        if (!supported)
+            EXPECT_FALSE(sampler);
+        if (sampler)
+            EXPECT_EQ(sampler->GetDevice(), device);
+    }
+    Sampler::Descriptor invalid;
+    invalid.addressModeU = static_cast<WrapMode>(UINT32_MAX);
+    SamplerPtr sampler(device->CreateSampler(invalid));
+    EXPECT_FALSE(sampler);
+}
+
+TEST_F(AuroraMetalTest, QueueRejectsUnknownCommandsWithoutSubmittingFence)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    struct UnknownCommand final : CommandBuffer {
+        void Begin() override
+        {
+        }
+        void End() override
+        {
+        }
+        void PipelineBarrier(const BarrierInfo &) override
+        {
+        }
+        std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override
+        {
+            return {};
+        }
+        std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override
+        {
+            return {};
+        }
+        std::unique_ptr<BlitEncoder> CreateBlitEncoder() override
+        {
+            return {};
+        }
+    } unknown;
+    auto fence = MakeFence(device, true);
+    ASSERT_TRUE(fence);
+    EXPECT_EQ(fence->GetDevice(), device);
+    ASSERT_TRUE(fence->TryReset().Succeeded());
+    SubmitInfo submission;
+    submission.commandBuffers = {&unknown};
+    submission.fence          = fence.Get();
+    auto *queue               = device->GetQueue(QueueType::GRAPHICS);
+    EXPECT_EQ(queue->TrySubmit(submission).status, QueueSubmitStatus::REJECTED);
+    EXPECT_EQ(fence->Query().status, FenceStatus::PENDING);
+    std::unique_ptr<CommandPool> pool(device->CreateCommandPool(QueueType::GRAPHICS));
+    ASSERT_TRUE(pool);
+    auto *command = pool->Allocate();
+    ASSERT_TRUE(command);
+    command->Begin();
+    command->End();
+    submission.commandBuffers = {command, command};
+    EXPECT_EQ(queue->TrySubmit(submission).status, QueueSubmitStatus::REJECTED);
+    EXPECT_EQ(fence->Query().status, FenceStatus::PENDING);
+    submission.commandBuffers = {command};
+    EXPECT_TRUE(fence->TryReset().Succeeded());
+    ASSERT_EQ(queue->TrySubmit(submission).status, QueueSubmitStatus::ACCEPTED);
+    EXPECT_TRUE(fence->WaitFor(2'000'000'000));
+    EXPECT_EQ(fence->Query().status, FenceStatus::SIGNALED);
+    EXPECT_EQ(queue->TrySubmit(submission).status, QueueSubmitStatus::REJECTED);
+}
+
+TEST_F(AuroraMetalTest, RenderBarrierUsesAvailabilityAndRejectsBeforeSubmission)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    Image::Descriptor descriptor;
+    descriptor.format = PixelFormat::RGBA8_UNORM;
+    descriptor.extent = {kSize, kSize, 1};
+    descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET;
+    ImagePtr image(device->CreateImage(descriptor));
+    ASSERT_TRUE(image);
+    auto fence  = MakeFence(device);
+    auto signal = MakeTimelineSema(device);
+    ASSERT_TRUE(fence && signal);
+    std::unique_ptr<CommandPool> pool(device->CreateCommandPool(QueueType::GRAPHICS));
+    ASSERT_TRUE(pool);
+    auto *command = pool->Allocate();
+    ASSERT_TRUE(command);
+    BarrierInfo barrier;
+    barrier.srcStage = PipelineStageBit::FRAGMENT_SHADER;
+    barrier.dstStage = PipelineStageBit::FRAGMENT_SHADER;
+    barrier.memoryBarriers.push_back({AccessFlagBit::UAV, AccessFlagBit::SRV});
+    SubmitInfo submission;
+    submission.commandBuffers   = {command};
+    submission.fence            = fence.Get();
+    submission.signalSemaphores = {{signal.Get(), 7}};
+    bool supported              = false;
+    if (__builtin_available(macOS 10.14, iOS 16.0, *))
+        supported = true;
+
+    for (const bool deferred : {false, true}) {
+        submission.signalSemaphores[0].value = deferred ? 8 : 7;
+        ASSERT_TRUE(fence->TryReset().Succeeded());
+        command->Begin();
+        if (deferred)
+            command->PipelineBarrier(barrier);
+        {
+            auto encoder = command->CreateGraphicsEncoder();
+            ASSERT_TRUE(encoder);
+            RenderingInfo info;
+            info.renderArea        = {{0, 0}, {kSize, kSize}};
+            info.numColors         = 1;
+            info.colors[0].image   = image.Get();
+            info.colors[0].loadOp  = LoadOp::CLEAR;
+            info.colors[0].storeOp = StoreOp::STORE;
+            encoder->BeginRendering(info);
+            if (!deferred) {
+                command->PipelineBarrier(barrier);
+                command->PipelineBarrier(barrier);
+            }
+            encoder->EndRendering();
+        }
+        command->End();
+        const auto result = device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submission);
+        if (supported) {
+            ASSERT_EQ(result.status, QueueSubmitStatus::ACCEPTED);
+            EXPECT_TRUE(fence->WaitFor(2'000'000'000));
+            EXPECT_EQ(signal->GetCurrentValue(), submission.signalSemaphores[0].value);
+        } else {
+            EXPECT_EQ(result.status, QueueSubmitStatus::REJECTED);
+            EXPECT_EQ(result.error.code, GpuErrorCode::UNSUPPORTED);
+            EXPECT_EQ(fence->Query().status, FenceStatus::PENDING);
+            EXPECT_EQ(signal->GetCurrentValue(), 0);
+        }
+    }
+    command->Begin();
+    command->End();
+    submission.signalSemaphores[0].value = 9;
+    ASSERT_TRUE(fence->TryReset().Succeeded());
+    ASSERT_EQ(device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submission).status, QueueSubmitStatus::ACCEPTED);
+    EXPECT_TRUE(fence->WaitFor(2'000'000'000));
+    EXPECT_EQ(signal->GetCurrentValue(), 9);
+}
+
+TEST_F(AuroraMetalTest, QueueWaitPrecedesAlreadyRecordedCopy)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    Buffer::Descriptor desc;
+    desc.size   = 16;
+    desc.memory = MemoryType::CPU_TO_GPU;
+    desc.usage  = BufferUsageFlagBit::TRANSFER_SRC | BufferUsageFlagBit::TRANSFER_DST;
+    BufferPtr source(device->CreateBuffer(desc)), target(device->CreateBuffer(desc));
+    ASSERT_TRUE(source && target);
+    auto *sourceBytes = source->Map();
+    auto *targetBytes = target->Map();
+    ASSERT_TRUE(sourceBytes && targetBytes);
+    std::memset(sourceBytes, 0x5a, 16);
+    std::memset(targetBytes, 0, 16);
+    source->UnMap();
+    target->UnMap();
+    auto gate  = MakeTimelineSema(device);
+    auto fence = MakeFence(device);
+    ASSERT_TRUE(gate && fence);
+    EXPECT_EQ(gate->GetDevice(), device);
+    std::unique_ptr<CommandPool> pool(device->CreateCommandPool(QueueType::GRAPHICS));
+    ASSERT_TRUE(pool);
+    auto *command = pool->Allocate();
+    ASSERT_TRUE(command);
+    command->Begin();
+    {
+        auto copy = command->CreateBlitEncoder();
+        copy->CopyBuffer(source.Get(), target.Get(), 16, 0, 0);
+    }
+    command->End();
+    SubmitInfo submission;
+    submission.commandBuffers = {command};
+    submission.waitSemaphores = {{gate.Get(), 1, PipelineStageBit::TRANSFER}};
+    submission.fence          = fence.Get();
+    const auto submitted      = device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submission);
+    // Release the gate even after a failed check so test teardown cannot strand GPU work.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    const auto              beforeSignal = fence->Query();
+    std::array<uint8_t, 16> before{};
+    std::memcpy(before.data(), targetBytes, 16);
+    gate->Signal(1);
+    ASSERT_EQ(submitted.status, QueueSubmitStatus::ACCEPTED);
+    EXPECT_EQ(beforeSignal.status, FenceStatus::PENDING);
+    EXPECT_EQ(before, (std::array<uint8_t, 16>{}));
+    ASSERT_TRUE(fence->WaitFor(2'000'000'000));
+    for (uint32_t i = 0; i < 16; ++i)
+        EXPECT_EQ(targetBytes[i], 0x5a);
+}
+
+TEST_F(AuroraMetalTest, FenceCannotBeRearmedAcrossQueuesWhileSubmitted)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    auto gate  = MakeTimelineSema(device);
+    auto fence = MakeFence(device);
+    ASSERT_TRUE(gate && fence);
+    SubmitInfo first;
+    first.waitSemaphores = {{gate.Get(), 1, PipelineStageBit::TOP}};
+    first.fence          = fence.Get();
+    const auto submitted = device->GetQueue(QueueType::GRAPHICS)->TrySubmit(first);
+    SubmitInfo second;
+    second.fence      = fence.Get();
+    const auto reused = device->GetQueue(QueueType::TRANSFER)->TrySubmit(second);
+    const auto reset  = fence->TryReset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    const auto beforeSignal = fence->Query();
+    gate->Signal(1);
+    ASSERT_EQ(submitted.status, QueueSubmitStatus::ACCEPTED);
+    EXPECT_EQ(reused.status, QueueSubmitStatus::REJECTED);
+    EXPECT_FALSE(reset.Succeeded());
+    EXPECT_EQ(beforeSignal.status, FenceStatus::PENDING);
+    ASSERT_TRUE(fence->WaitFor(2'000'000'000));
+    ASSERT_EQ(device->GetQueue(QueueType::TRANSFER)->TrySubmit(second).status, QueueSubmitStatus::ACCEPTED);
+    EXPECT_TRUE(fence->WaitFor(2'000'000'000));
+}
 
 TEST_F(AuroraMetalTest, FrameContextClearAndReadback)
 {
@@ -166,6 +458,109 @@ TEST_F(AuroraMetalTest, FrameContextClearAndReadback)
         EXPECT_NE(pixels[i * 4 + 2], 0);
         EXPECT_EQ(pixels[i * 4 + 3], 255);
     }
+    readback->UnMap();
+}
+
+TEST_F(AuroraMetalTest, RasterDynamicUniformOffsetsRemainDistinctAcrossDraws)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    const uint32_t     stride = std::max(256u, device->GetCapability().minUniformBufferOffsetAlignment);
+    Buffer::Descriptor uniformDesc;
+    uniformDesc.size   = uint64_t(stride) * 4;
+    uniformDesc.usage  = BufferUsageFlagBit::UNIFORM;
+    uniformDesc.memory = MemoryType::CPU_TO_GPU;
+    BufferPtr uniform(device->CreateBuffer(uniformDesc));
+    ASSERT_TRUE(uniform);
+    auto *mapped = uniform->Map();
+    ASSERT_TRUE(mapped);
+    std::memset(mapped, 0, uniformDesc.size);
+    const std::array<float, 4> values[] = {{.2f, 0, 0, 0}, {0, .8f, 0, 0}, {.6f, .3f, 0, 0}};
+    for (uint32_t i = 0; i < 3; ++i)
+        std::memcpy(mapped + uint64_t(i + 1) * stride, values[i].data(), sizeof(values[i]));
+    uniform->UnMap();
+    ShaderReflection reflection;
+    for (const uint32_t binding : {3u, 1u}) {
+        ShaderResource resource;
+        resource.type    = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        resource.name    = binding == 3 ? "a" : "b";
+        resource.set     = 1;
+        resource.binding = binding;
+        resource.stages  = binding == 3 ? ShaderStageFlagBit::VS | ShaderStageFlagBit::FS : ShaderStageFlags(ShaderStageFlagBit::FS);
+        reflection.resources.push_back(resource);
+        reflection.blocks.push_back(FixtureUniformBlock(1, binding, resource.name.c_str(), true));
+    }
+    reflection.nativeBindings = {{1, 3, ShaderStageFlagBit::VS, 2, ShaderNativeCategory::METAL_BUFFER},
+                                 {1, 3, ShaderStageFlagBit::FS, 5, ShaderNativeCategory::METAL_BUFFER},
+                                 {1, 1, ShaderStageFlagBit::FS, 9, ShaderNativeCategory::METAL_BUFFER}};
+    auto shader               = MakeFullscreenShader(device, R"MSL(
+#include <metal_stdlib>
+using namespace metal;
+struct VOut { float4 position [[position]]; float red; };
+vertex VOut VSMain(uint id [[vertex_id]], constant float4 &a [[buffer(2)]]) {
+    const float2 positions[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
+    VOut result; result.position = float4(positions[id], 0, 1); result.red = a.r; return result;
+}
+fragment float4 FSMain(VOut input [[stage_in]], constant float4 &a [[buffer(5)]], constant float4 &b [[buffer(9)]]) {
+    return float4(input.red, b.g, a.r, 1);
+}
+)MSL",
+                                                     &reflection);
+    ASSERT_TRUE(shader);
+    Image::Descriptor imageDesc;
+    imageDesc.format = PixelFormat::RGBA8_UNORM;
+    imageDesc.extent = {kSize, kSize, 1};
+    imageDesc.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+    ImagePtr image(device->CreateImage(imageDesc));
+    ASSERT_TRUE(image);
+    Buffer::Descriptor readbackDesc;
+    readbackDesc.size   = kSize * kSize * 4;
+    readbackDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
+    readbackDesc.memory = MemoryType::GPU_TO_CPU;
+    BufferPtr readback(device->CreateBuffer(readbackDesc));
+    ASSERT_TRUE(readback);
+    auto             data = BuildClearReadbackGraph(image, imageDesc, readback)->GetData();
+    FrameGraphBuffer constants;
+    constants.buffer      = uniform;
+    constants.size        = uniformDesc.size;
+    constants.initial     = CopyBufferState::HOST_WRITE;
+    constants.final       = CopyBufferState::SHADER_READ;
+    constants.initialized = true;
+    data.buffers.push_back(constants);
+    FrameRasterPass pass;
+    pass.color = {kGraphId, 0};
+    pass.load  = LoadOp::LOAD;
+    for (uint32_t i = 0; i < 2; ++i) {
+        RasterDraw draw;
+        draw.shader              = shader;
+        draw.command.vertexCount = 3;
+        draw.scissor             = {{static_cast<int32_t>(i * 4), 0}, {4, kSize}};
+        draw.uniforms.push_back({1, 3, {{kGraphId, 1}, 0, 16}, (i ? 3u : 1u) * stride});
+        draw.uniforms.push_back({1, 1, {{kGraphId, 1}, 0, 16}, (i ? 3u : 2u) * stride});
+        pass.draws.push_back(std::move(draw));
+    }
+    data.passes.insert(data.passes.begin() + 1, std::move(pass));
+    auto                                graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
+    std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+    ASSERT_TRUE(context);
+    const auto begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto       plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    const auto dispatched = context->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+    auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+    ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+    ASSERT_TRUE(WaitForCompletion(*context));
+    auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    const std::array<int, 3> expected[] = {{51, 204, 51}, {153, 77, 153}};
+    for (uint32_t i = 0; i < 2; ++i)
+        for (uint32_t channel = 0; channel < 3; ++channel)
+            EXPECT_NEAR(pixels[(4 * kSize + 2 + i * 4) * 4 + channel], expected[i][channel], 2);
     readback->UnMap();
 }
 
@@ -254,11 +649,191 @@ TEST_F(AuroraMetalTest, FrameContextDrawsFullscreenTriangle)
     readback->UnMap();
 }
 
+namespace {
+    ShaderFunctionPtr MetalConstantFunction(Device *device, const char *source, ShaderStageFlagBit stage)
+    {
+        ShaderFunction::Descriptor desc{};
+        desc.stage        = stage;
+        const auto *bytes = reinterpret_cast<const uint8_t *>(source);
+        desc.artifact =
+            MakeTestShaderArtifact(ShaderTarget::MSL, stage, {bytes, std::strlen(source)}, stage == ShaderStageFlagBit::VS ? "VSMain" : "FSMain");
+        return desc.artifact ? ShaderFunctionPtr(device->CreateShaderFunction(desc)) : ShaderFunctionPtr{};
+    }
+    ShaderPtr MetalConstantProgram(Device                     *device,
+                                   const ShaderFunctionPtr    &vertex,
+                                   const ShaderFunctionPtr    &fragment,
+                                   const ShaderSpecialization *values = nullptr)
+    {
+        if (!vertex || !fragment)
+            return {};
+        ShaderReflection reflection;
+        std::string      error;
+        if (!MergeShaderReflections(vertex->GetArtifact()->reflection, reflection, error) ||
+            !MergeShaderReflections(fragment->GetArtifact()->reflection, reflection, error))
+            return {};
+        Shader::Descriptor desc{};
+        desc.vs             = vertex.Get();
+        desc.ps             = fragment.Get();
+        desc.reflection     = &reflection;
+        desc.specialization = values;
+        return ShaderPtr(device->CreateShader(desc));
+    }
+    constexpr const char *MetalConstantVertex   = R"MSL(
+        #include <metal_stdlib>
+        using namespace metal;
+        constant bool flip [[function_constant(1)]];
+        struct Vertex { float4 position [[position]]; };
+        vertex Vertex VSMain(uint id [[vertex_id]]) {
+            const float2 positions[3] = {float2(-1,-1), float2(3,-1), float2(-1,3)};
+            Vertex v;
+            v.position = float4(positions[id], 0, 1);
+            if (is_function_constant_defined(flip) && flip)
+                v.position.y = -v.position.y;
+            return v;
+        }
+    )MSL";
+    constexpr const char *MetalConstantFragment = R"MSL(
+        #include <metal_stdlib>
+        using namespace metal;
+        constant int signedValue [[function_constant(0)]];
+        constant bool enabled [[function_constant(1)]];
+        constant uint unsignedValue [[function_constant(2)]];
+        constant float multiplier [[function_constant(3)]];
+        fragment float4 FSMain() {
+            const int i = is_function_constant_defined(signedValue) ? signedValue : 1;
+            const bool b = is_function_constant_defined(enabled) ? enabled : false;
+            const uint u = is_function_constant_defined(unsignedValue) ? unsignedValue : 2;
+            const float f = is_function_constant_defined(multiplier) ? multiplier : 0.5f;
+            return float4(float(i) * 0.1f, b ? 0.8f : 0.2f, float(u) * f * 0.1f, 1);
+        }
+    )MSL";
+} // namespace
+
+TEST_F(AuroraMetalTest, SpecializationValuesProducePrivateFunctionsAndPreserveSharedDefaults)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    const auto vertex   = MetalConstantFunction(device, MetalConstantVertex, ShaderStageFlagBit::VS);
+    const auto fragment = MetalConstantFunction(device, MetalConstantFragment, ShaderStageFlagBit::FS);
+    ASSERT_TRUE(vertex && fragment);
+    ShaderSpecialization first, second;
+    first.entries  = {{0, 3}, {1, 1}, {2, 4}, {3, std::bit_cast<uint32_t>(.5f)}};
+    second.entries = {{0, 7}, {1, 0}, {2, 2}, {3, std::bit_cast<uint32_t>(1.f)}};
+    const std::array shaders{MetalConstantProgram(device, vertex, fragment), MetalConstantProgram(device, vertex, fragment, &first),
+                             MetalConstantProgram(device, vertex, fragment, &second), MetalConstantProgram(device, vertex, fragment)};
+    for (const auto &shader : shaders)
+        ASSERT_TRUE(shader);
+    Image::Descriptor imageDesc;
+    imageDesc.format = PixelFormat::RGBA8_UNORM;
+    imageDesc.extent = {kSize * 4, kSize, 1};
+    imageDesc.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+    ImagePtr image(device->CreateImage(imageDesc));
+    ASSERT_TRUE(image);
+    Buffer::Descriptor bufferDesc;
+    bufferDesc.size   = uint64_t(imageDesc.extent.width) * imageDesc.extent.height * 4;
+    bufferDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
+    bufferDesc.memory = MemoryType::CPU_TO_GPU;
+    BufferPtr readback(device->CreateBuffer(bufferDesc));
+    ASSERT_TRUE(readback);
+    FrameGraphData data;
+    data.buffers.push_back({readback, bufferDesc.size, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
+    FrameGraphImage target;
+    target.image      = FrameImageReference(image);
+    target.descriptor = imageDesc;
+    target.initial    = ImageLayout::UNDEFINED;
+    target.final      = ImageLayout::TRANSFER_SRC;
+    data.images.push_back(target);
+    FrameRasterPass pass;
+    pass.color = {kGraphId, 0};
+    for (uint32_t index = 0; index < shaders.size(); ++index) {
+        RasterDraw draw;
+        draw.shader              = shaders[index];
+        draw.command.vertexCount = 3;
+        draw.scissor             = {{static_cast<int32_t>(index * kSize), 0}, {kSize, kSize}};
+        pass.draws.push_back(std::move(draw));
+    }
+    data.passes.emplace_back(std::move(pass));
+    BufferImageCopyPass copy;
+    copy.buffer                 = {kGraphId, 0};
+    copy.image                  = {kGraphId, 0};
+    copy.direction              = ImageCopyDirection::IMAGE_TO_BUFFER;
+    copy.region.imageExtent     = imageDesc.extent;
+    copy.region.subRange.layers = 1;
+    data.passes.emplace_back(copy);
+    data.exports.push_back({{kGraphId, 0}, 0, bufferDesc.size});
+    const auto                          graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
+    std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+    ASSERT_TRUE(context);
+    const auto begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto       plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    const auto dispatched = context->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+    auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+    ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+    ASSERT_TRUE(WaitForCompletion(*context));
+    const auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    const std::array colors{std::array{25.5f, 51.f, 25.5f}, std::array{76.5f, 204.f, 51.f}, std::array{178.5f, 51.f, 51.f},
+                            std::array{25.5f, 51.f, 25.5f}};
+    for (uint32_t index = 0; index < colors.size(); ++index) {
+        const auto offset = (kSize / 2 * imageDesc.extent.width + index * kSize + kSize / 2) * 4;
+        for (uint32_t channel = 0; channel < 3; ++channel)
+            EXPECT_NEAR(pixels[offset + channel], colors[index][channel], 1) << "shader " << index << " channel " << channel;
+        EXPECT_EQ(pixels[offset + 3], 255u);
+    }
+    readback->UnMap();
+}
+
+TEST_F(AuroraMetalTest, SpecializationRejectsUnknownDuplicateBoolAndConflictingStageTypes)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    const auto vertex   = MetalConstantFunction(device, MetalConstantVertex, ShaderStageFlagBit::VS);
+    const auto fragment = MetalConstantFunction(device, MetalConstantFragment, ShaderStageFlagBit::FS);
+    ASSERT_TRUE(vertex && fragment);
+    for (const auto &entries : {std::vector<ShaderSpecializationEntry>{{99, 1}}, std::vector<ShaderSpecializationEntry>{{0, 1}, {0, 2}},
+                                std::vector<ShaderSpecializationEntry>{{1, 2}}}) {
+        const ShaderSpecialization values{entries};
+        EXPECT_FALSE(MetalConstantProgram(device, vertex, fragment, &values));
+    }
+    const auto conflicting = MetalConstantFunction(device, R"MSL(
+        #include <metal_stdlib>
+        using namespace metal;
+        constant uint enabled [[function_constant(1)]];
+        fragment float4 FSMain() {
+            const uint value = is_function_constant_defined(enabled) ? enabled : 1;
+            return float4(float(value), 0, 0, 1);
+        }
+    )MSL",
+                                                   ShaderStageFlagBit::FS);
+    ASSERT_TRUE(conflicting);
+    const ShaderSpecialization conflict{{{1, 1}}};
+    EXPECT_FALSE(MetalConstantProgram(device, vertex, conflicting, &conflict));
+    const auto unsupported = MetalConstantFunction(device, R"MSL(
+        #include <metal_stdlib>
+        using namespace metal;
+        constant half halfValue [[function_constant(8)]];
+        fragment float4 FSMain() {
+            const half value = is_function_constant_defined(halfValue) ? halfValue : half(1);
+            return float4(float(value), 0, 0, 1);
+        }
+    )MSL",
+                                                   ShaderStageFlagBit::FS);
+    ASSERT_TRUE(unsupported);
+    const ShaderSpecialization halfValue{{{8, 1}}};
+    EXPECT_FALSE(MetalConstantProgram(device, vertex, unsupported, &halfValue));
+}
+
 TEST_F(AuroraMetalTest, FrameContextComputeUsesDynamicOffsetsInBindingOrder)
 {
     auto *device = GetDevice();
     ASSERT_TRUE(device);
-    const char                      *source = R"MSL(
+    const char      *source = R"MSL(
 #include <metal_stdlib>
 using namespace metal;
 struct Params { uint value; };
@@ -267,27 +842,29 @@ kernel void CSMain(constant Params &first [[buffer(0)]], constant Params &second
     output[id] = first.value + 10 * second.value + id;
 }
 )MSL";
-    CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(std::strlen(source))));
-    std::memcpy(provider->binaryData->Data(), source, std::strlen(source));
-    const auto function = ShaderFunctionPtr(device->CreateShaderFunction({ShaderStageFlagBit::CS, provider, "CSMain"}));
-    ASSERT_TRUE(function);
     ShaderReflection reflection;
     for (const auto binding : {1u, 3u}) {
         ShaderResource uniform;
         uniform.type    = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        uniform.name    = binding == 1 ? "first" : "second";
         uniform.binding = binding;
+        uniform.stages  = ShaderStageFlagBit::CS;
         reflection.resources.push_back(uniform);
+        reflection.blocks.push_back(FixtureUniformBlock(0, binding, uniform.name.c_str(), false));
+        reflection.nativeBindings.push_back({0, binding, ShaderStageFlagBit::CS, binding == 1 ? 0u : 1u, ShaderNativeCategory::METAL_BUFFER});
     }
     ShaderResource storage;
-    storage.type = ShaderResourceType::STORAGE_BUFFER;
-    storage.set  = 1;
+    storage.name          = "output";
+    storage.type          = ShaderResourceType::STORAGE_BUFFER;
+    storage.set           = 1;
+    storage.access        = ShaderResourceAccess::READ_WRITE;
+    storage.bufferKind    = ShaderBufferKind::STRUCTURED;
+    storage.elementStride = 4;
+    storage.stages        = ShaderStageFlagBit::CS;
     reflection.resources.push_back(storage);
+    reflection.nativeBindings.push_back({1, 0, ShaderStageFlagBit::CS, 2, ShaderNativeCategory::METAL_BUFFER});
     reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
-    Shader::Descriptor shaderDesc{};
-    shaderDesc.cs         = function.Get();
-    shaderDesc.reflection = &reflection;
-    auto shader           = ShaderPtr(device->CreateShader(shaderDesc));
+    auto shader = MakeMetalFixtureShader(device, source, reflection, false);
     ASSERT_TRUE(shader);
     Buffer::Descriptor bufferDesc;
     bufferDesc.size   = 1024;
@@ -445,30 +1022,35 @@ TEST_F(AuroraMetalTest, ComputeInputValidationPreservesLease)
 {
     auto *device = GetDevice();
     ASSERT_TRUE(device);
-    const char                      *source = R"MSL(
+    const char                         *source = R"MSL(
 #include <metal_stdlib>
 using namespace metal;
 kernel void CSMain(constant uint &input [[buffer(0)]], device uint *output [[buffer(1)]], uint id [[thread_position_in_grid]]) {
     output[id] = input + id;
 }
 )MSL";
-    CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(std::strlen(source))));
-    std::memcpy(provider->binaryData->Data(), source, std::strlen(source));
-    const auto function = ShaderFunctionPtr(device->CreateShaderFunction({ShaderStageFlagBit::CS, provider, "CSMain"}));
-    ASSERT_TRUE(function);
     std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
     ASSERT_TRUE(context);
     for (uint32_t fault = 0; fault < 10; ++fault) {
         SCOPED_TRACE(fault);
         ShaderReflection reflection;
         ShaderResource   uniform;
-        uniform.type = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        uniform.name   = "input";
+        uniform.type   = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        uniform.stages = ShaderStageFlagBit::CS;
         reflection.resources.push_back(uniform);
+        reflection.blocks.push_back(FixtureUniformBlock(0, 0, "input", false));
+        reflection.nativeBindings.push_back({0, 0, ShaderStageFlagBit::CS, 0, ShaderNativeCategory::METAL_BUFFER});
         ShaderResource storage;
-        storage.type    = ShaderResourceType::STORAGE_BUFFER;
-        storage.binding = 1;
+        storage.name          = "output";
+        storage.type          = ShaderResourceType::STORAGE_BUFFER;
+        storage.binding       = 1;
+        storage.access        = ShaderResourceAccess::READ_WRITE;
+        storage.bufferKind    = ShaderBufferKind::STRUCTURED;
+        storage.elementStride = 4;
+        storage.stages        = ShaderStageFlagBit::CS;
         reflection.resources.push_back(storage);
+        reflection.nativeBindings.push_back({0, 1, ShaderStageFlagBit::CS, 1, ShaderNativeCategory::METAL_BUFFER});
         reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
         if (fault == 6)
             reflection.threadGroupSize[0] = 0;
@@ -476,10 +1058,26 @@ kernel void CSMain(constant uint &input [[buffer(0)]], device uint *output [[buf
             reflection.threadGroupSize[0] = UINT32_MAX;
         if (fault == 9)
             reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = 1024;
-        Shader::Descriptor shaderDesc{};
-        shaderDesc.cs         = function.Get();
-        shaderDesc.reflection = &reflection;
-        auto shader           = fault == 0 ? MakeFullscreenShader(device, nullptr, &reflection) : ShaderPtr(device->CreateShader(shaderDesc));
+        ShaderPtr shader;
+        if (fault == 0) {
+            reflection.resources[0].stages     = ShaderStageFlagBit::VS;
+            reflection.resources[1].stages     = ShaderStageFlagBit::FS;
+            reflection.nativeBindings[0].stage = ShaderStageFlagBit::VS;
+            reflection.nativeBindings[1].stage = ShaderStageFlagBit::FS;
+            shader                             = MakeMetalFixtureShader(device, R"MSL(
+#include <metal_stdlib>
+using namespace metal;
+vertex float4 VSMain(uint id [[vertex_id]], constant uint &input [[buffer(0)]]) {
+    return float4(float(id) + float(input), 0, 0, 1);
+}
+fragment float4 FSMain(device uint *output [[buffer(1)]]) {
+    output[0] = 1; return float4(1);
+}
+)MSL",
+                                                                        reflection, true);
+        } else {
+            shader = MakeMetalFixtureShader(device, source, reflection, false);
+        }
         ASSERT_TRUE(shader);
         Buffer::Descriptor desc;
         desc.size   = 512;
@@ -506,7 +1104,8 @@ kernel void CSMain(constant uint &input [[buffer(0)]], device uint *output [[buf
         const auto lease    = std::get<DeviceFrameLease>(begun);
         const auto compiled = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
         ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
-        EXPECT_EQ(std::get<FrameError>(compiled).code, fault == 6 ? FrameErrorCode::UNSUPPORTED : FrameErrorCode::INVALID_ARGUMENT);
+        EXPECT_EQ(std::get<FrameError>(compiled).code, fault == 6 ? FrameErrorCode::UNSUPPORTED : FrameErrorCode::INVALID_ARGUMENT)
+            << std::get<FrameError>(compiled).message;
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
     }
 }
@@ -515,30 +1114,34 @@ TEST_F(AuroraMetalTest, StorageDynamicOffsetsUseNativeTypeAlignment)
 {
     auto *device = GetDevice();
     ASSERT_TRUE(device);
-    const char                      *source = R"MSL(
+    const char      *source = R"MSL(
 #include <metal_stdlib>
 using namespace metal;
 kernel void CSMain(device const uint *input [[buffer(0)]], device uint *output [[buffer(1)]]) {
     output[0] = input[0];
 }
 )MSL";
-    CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(std::strlen(source))));
-    std::memcpy(provider->binaryData->Data(), source, std::strlen(source));
-    const auto function = ShaderFunctionPtr(device->CreateShaderFunction({ShaderStageFlagBit::CS, provider, "CSMain"}));
-    ASSERT_TRUE(function);
     ShaderReflection reflection;
     ShaderResource   inputResource;
-    inputResource.type = ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
+    inputResource.name          = "input";
+    inputResource.type          = ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
+    inputResource.access        = ShaderResourceAccess::READ_ONLY;
+    inputResource.bufferKind    = ShaderBufferKind::STRUCTURED;
+    inputResource.elementStride = 4;
+    inputResource.stages        = ShaderStageFlagBit::CS;
     ShaderResource outputResource;
+    outputResource.name           = "output";
+    outputResource.access         = ShaderResourceAccess::READ_WRITE;
+    outputResource.bufferKind     = ShaderBufferKind::STRUCTURED;
+    outputResource.elementStride  = 4;
+    outputResource.stages         = ShaderStageFlagBit::CS;
     outputResource.type           = ShaderResourceType::STORAGE_BUFFER;
     outputResource.binding        = 1;
     reflection.resources          = {inputResource, outputResource};
+    reflection.nativeBindings     = {{0, 0, ShaderStageFlagBit::CS, 0, ShaderNativeCategory::METAL_BUFFER},
+                                     {0, 1, ShaderStageFlagBit::CS, 1, ShaderNativeCategory::METAL_BUFFER}};
     reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
-    Shader::Descriptor shaderDesc{};
-    shaderDesc.cs         = function.Get();
-    shaderDesc.reflection = &reflection;
-    const auto shader     = ShaderPtr(device->CreateShader(shaderDesc));
+    const auto shader = MakeMetalFixtureShader(device, source, reflection, false);
     ASSERT_TRUE(shader);
     Buffer::Descriptor desc;
     desc.size        = 16;
@@ -571,7 +1174,8 @@ kernel void CSMain(device const uint *input [[buffer(0)]], device uint *output [
         auto       compiled = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
         if (offset == 1) {
             ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
-            EXPECT_EQ(std::get<FrameError>(compiled).code, FrameErrorCode::INVALID_ARGUMENT);
+            EXPECT_EQ(std::get<FrameError>(compiled).code, FrameErrorCode::COMPILE_FAILED);
+            EXPECT_EQ(std::get<FrameError>(compiled).message, "Compute storage buffer range does not match the shader storage shape");
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
             continue;
         }
@@ -1334,6 +1938,10 @@ fragment float4 FSMain(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]]
     samplerResource.count   = 1;
     samplerResource.sampler = ShaderSamplerType::REGULAR;
     samplingReflection.resources.push_back(samplerResource);
+    for (auto &resource : samplingReflection.resources)
+        resource.stages = ShaderStageFlagBit::FS;
+    samplingReflection.nativeBindings = {{0, 0, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_TEXTURE},
+                                         {0, 1, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_SAMPLER}};
 
     auto shader = MakeFullscreenShader(device, samplingFragment, &samplingReflection);
     ASSERT_NE(shader, nullptr);
@@ -1384,6 +1992,122 @@ fragment float4 FSMain(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]]
     EXPECT_EQ(pixels[3], 255);
     readback->UnMap();
 }
+TEST_F(AuroraMetalTest, RasterCompileRejectsFloatSamplerWithUintImageWithoutSubmitting)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    Image::Descriptor sourceDesc;
+    sourceDesc.format = PixelFormat::RGBA32_UINT;
+    sourceDesc.extent = {kSize, kSize, 1};
+    sourceDesc.usage  = ImageUsageFlagBit::SAMPLED;
+    ImagePtr source(device->CreateImage(sourceDesc));
+    ASSERT_TRUE(source);
+    auto colorDesc   = sourceDesc;
+    colorDesc.format = PixelFormat::RGBA8_UNORM;
+    colorDesc.usage  = ImageUsageFlagBit::RENDER_TARGET;
+    ImagePtr   color(device->CreateImage(colorDesc));
+    SamplerPtr sampler(device->CreateSampler({}));
+    ASSERT_TRUE(color && sampler);
+
+    ShaderReflection reflection;
+    ShaderResource   texture;
+    texture.name    = "tex";
+    texture.type    = ShaderResourceType::SAMPLED_IMAGE;
+    texture.texture = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
+    texture.stages  = ShaderStageFlagBit::FS;
+    reflection.resources.push_back(texture);
+    ShaderResource sampled;
+    sampled.name    = "sam";
+    sampled.type    = ShaderResourceType::SAMPLER;
+    sampled.binding = 1;
+    sampled.sampler = ShaderSamplerType::REGULAR;
+    sampled.stages  = ShaderStageFlagBit::FS;
+    reflection.resources.push_back(sampled);
+    reflection.nativeBindings = {{0, 0, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_TEXTURE},
+                                 {0, 1, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_SAMPLER}};
+    auto shader               = MakeFullscreenShader(device, R"MSL(
+#include <metal_stdlib>
+using namespace metal;
+struct VOut { float4 position [[position]]; };
+vertex VOut VSMain(uint vertexId [[vertex_id]]) {
+    const float2 positions[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
+    return {float4(positions[vertexId], 0, 1)};
+}
+fragment float4 FSMain(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler sam [[sampler(0)]]) {
+    return tex.sample(sam, float2(0.5));
+}
+)MSL",
+                                                     &reflection);
+    ASSERT_TRUE(shader);
+    FrameGraphData  data;
+    FrameGraphImage input;
+    input.image       = FrameImageReference(source);
+    input.descriptor  = sourceDesc;
+    input.initial     = ImageLayout::SHADER_READ_ONLY;
+    input.final       = ImageLayout::SHADER_READ_ONLY;
+    input.initialized = true;
+    data.images.push_back(input);
+    FrameGraphImage output;
+    output.image      = FrameImageReference(color);
+    output.descriptor = colorDesc;
+    output.final      = ImageLayout::COLOR_ATTACHMENT;
+    data.images.push_back(output);
+    FrameRasterPass raster;
+    raster.color      = {kGraphId, 1};
+    raster.sideEffect = true;
+    raster.load       = LoadOp::CLEAR;
+    RasterDraw draw;
+    draw.shader  = shader;
+    draw.command = {3, 1, 0, 0};
+    draw.images.push_back({0, 0, {kGraphId, 0}, {}});
+    draw.samplers.push_back({0, 1, sampler});
+    raster.draws.push_back(std::move(draw));
+    data.passes.push_back(std::move(raster));
+
+    auto context = device->CreateFrameContext({1, 1, 1});
+    ASSERT_TRUE(context);
+    auto begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    const auto lease    = std::get<DeviceFrameLease>(begun);
+    const auto compiled = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
+    EXPECT_FALSE(std::get<FrameError>(compiled).message.empty());
+    std::array<FrameCompletion, 1> completed;
+    EXPECT_EQ(context->PollCompleted(completed), 0u);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    const auto next = std::get<DeviceFrameLease>(begun);
+    EXPECT_EQ(next.slot, lease.slot);
+    EXPECT_GT(next.generation, lease.generation);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(next)));
+}
+
+TEST_F(AuroraMetalTest, ImageCreationHonorsCompressedAndMultisampleCapabilities)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    Image::Descriptor desc;
+    desc.extent = {4, 4, 1};
+    desc.usage  = ImageUsageFlagBit::SAMPLED;
+    for (const auto format : {PixelFormat::BC1_RGBA_UNORM_BLOCK, PixelFormat::BC7_UNORM_BLOCK}) {
+        desc.format         = format;
+        const auto features = device->GetFormatFeatureFlags(format);
+        ImagePtr   image(device->CreateImage(desc));
+        EXPECT_EQ(image != nullptr, features.TestBit(PixelFormatFeatureFlagBit::SAMPLE));
+        EXPECT_FALSE(features.TestBit(PixelFormatFeatureFlagBit::COLOR));
+        desc.samples = SampleCount::X4;
+        EXPECT_EQ(device->CreateImage(desc), nullptr);
+        desc.samples = SampleCount::X1;
+    }
+    desc.format      = PixelFormat::RGBA8_UNORM;
+    desc.samples     = SampleCount::X4;
+    desc.mipLevels   = 2;
+    desc.arrayLayers = 2;
+    desc.usage       = ImageUsageFlagBit::RENDER_TARGET;
+    EXPECT_EQ(device->CreateImage(desc), nullptr);
+}
+
 TEST_F(AuroraMetalTest, DepthOnlyArraySliceIsSampledAfterLoad)
 {
     auto *device = GetDevice();
@@ -1428,6 +2152,8 @@ fragment void FSMain() {}
     load.draws.clear();
     ShaderReflection reflection;
     ShaderResource   image;
+    image.name    = "depth";
+    image.stages  = ShaderStageFlagBit::FS;
     image.type    = ShaderResourceType::SAMPLED_IMAGE;
     image.texture = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 1, true, false};
     reflection.resources.push_back(image);
@@ -1435,8 +2161,12 @@ fragment void FSMain() {}
     samplerResource.type    = ShaderResourceType::SAMPLER;
     samplerResource.binding = 1;
     samplerResource.sampler = ShaderSamplerType::REGULAR;
+    samplerResource.name    = "sam";
+    samplerResource.stages  = ShaderStageFlagBit::FS;
     reflection.resources.push_back(samplerResource);
-    auto sampleShader = MakeFullscreenShader(device, R"MSL(
+    reflection.nativeBindings = {{0, 0, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_TEXTURE},
+                                 {0, 1, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_SAMPLER}};
+    auto sampleShader         = MakeFullscreenShader(device, R"MSL(
 #include <metal_stdlib>
 using namespace metal;
 vertex float4 VSMain(uint id [[vertex_id]]) {
@@ -1448,7 +2178,7 @@ fragment float4 FSMain(float4 p [[position]], depth2d_array<float> depth [[textu
     return float4(d, d, d, 1);
 }
 )MSL",
-                                             &reflection);
+                                                     &reflection);
     ASSERT_NE(sampleShader, nullptr);
     Sampler::Descriptor samplerDesc;
     samplerDesc.minFilter = samplerDesc.magFilter = Filter::NEAREST;
@@ -1481,6 +2211,8 @@ fragment float4 FSMain(float4 p [[position]], depth2d_array<float> depth [[textu
     ASSERT_NE(pixels, nullptr);
     EXPECT_NEAR(pixels[(3 * 8 + 1) * 4], 64, 1);
     EXPECT_EQ(pixels[(3 * 8 + 6) * 4], 255);
+    EXPECT_EQ(pixels[(3 * 8 + 1) * 4 + 3], 255);
+    EXPECT_EQ(pixels[(3 * 8 + 6) * 4 + 3], 255);
     readback->UnMap();
 }
 #endif

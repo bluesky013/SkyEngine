@@ -2,16 +2,18 @@
 // Created on 2026/04/07.
 //
 
+#include <D3D12Encoder.h>
+
 #include <D3D12BlitHelper.h>
 #include <D3D12Buffer.h>
 #include <D3D12Conversion.h>
 #include <D3D12DescriptorHeap.h>
 #include <D3D12Device.h>
-#include <D3D12Encoder.h>
 #include <D3D12Image.h>
 #include <D3D12PipelineState.h>
 #include <D3D12ResourceGroup.h>
 #include <D3D12RootSignature.h>
+#include <D3D12ShaderFunction.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 
@@ -51,8 +53,8 @@ namespace sky::aurora {
         const ImageSubRange fullRange{};
 
         D3D12_CPU_DESCRIPTOR_HANDLE rtvs[MAX_COLOR_ATTACHMENTS] = {};
-        const uint32_t              numColors = info.numColors < MAX_COLOR_ATTACHMENTS ? info.numColors : MAX_COLOR_ATTACHMENTS;
-        uint32_t                    rtvFirst  = 0;
+        const uint32_t              numColors                   = info.numColors < MAX_COLOR_ATTACHMENTS ? info.numColors : MAX_COLOR_ATTACHMENTS;
+        uint32_t                    rtvFirst                    = 0;
         if (numColors > 0 && allocator->AllocateRtv(numColors, rtvFirst)) {
             for (uint32_t i = 0; i < numColors; ++i) {
                 rtvs[i] = allocator->GetRtvCpuHandle(rtvFirst + i);
@@ -85,7 +87,7 @@ namespace sky::aurora {
             }
         }
         if (hasDsv) {
-            const auto &ds = info.depthStencil;
+            const auto       &ds    = info.depthStencil;
             D3D12_CLEAR_FLAGS flags = {};
             if (ds.depthLoadOp == LoadOp::CLEAR) {
                 flags |= D3D12_CLEAR_FLAG_DEPTH;
@@ -107,7 +109,7 @@ namespace sky::aurora {
 
     void D3D12GraphicsEncoder::BindPipeline(GraphicsPipeline *pso)
     {
-        auto *d3dPso = static_cast<D3D12GraphicsPipeline *>(pso);
+        auto *d3dPso         = static_cast<D3D12GraphicsPipeline *>(pso);
         currentRootSignature = d3dPso->GetRootSignature();
         currentVertexStrides = d3dPso->GetVertexStrides();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
@@ -120,15 +122,17 @@ namespace sky::aurora {
         cmdList->IASetPrimitiveTopology(FromPrimitiveTopologyValue(d3dPso->GetPrimitiveTopology()));
     }
 
-    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t set,
-                                                 ResourceGroup *group,
-                                                 uint32_t numDynamicOffsets,
-                                                 const uint32_t *dynamicOffsets)
+    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        if (currentRootSignature == nullptr || group == nullptr) {
+        if (currentRootSignature == nullptr || group == nullptr || group->GetDevice() != &device) {
             return;
         }
         auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
+        if (group->GetSet() != set || !group->GetShader() ||
+            static_cast<D3D12Shader *>(group->GetShader())->GetRootSignature() != currentRootSignature) {
+            LOG_E(TAG, "ResourceGroup does not match the bound shader/set");
+            return;
+        }
 
         // copy staging -> current frame's shader-visible heap before binding
         d3dGroup->EnsureFrameCopy();
@@ -140,34 +144,50 @@ namespace sky::aurora {
         ID3D12DescriptorHeap *heaps[2] = {allocator->GetCbvSrvUavHeap(), allocator->GetSamplerHeap()};
         cmdList->SetDescriptorHeaps(2, heaps);
 
-        const uint32_t cbvSrvUavParam = currentRootSignature->GetCbvSrvUavRootParam(set);
-        if (cbvSrvUavParam != INVALID_INDEX) {
-            cmdList->SetGraphicsRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
+        for (const auto &table : currentRootSignature->GetDescriptorTables(set)) {
+            cmdList->SetGraphicsRootDescriptorTable(table.root, table.sampler ? d3dGroup->GetSamplerGpuHandle() : d3dGroup->GetCbvSrvUavGpuHandle());
         }
 
-        const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
-        if (samplerParam != INVALID_INDEX) {
-            cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
-        }
-
-        // dynamic bindings -> root CBV / root UAV with per-draw offset
+        // Each logical dynamic buffer may occupy distinct native roots across stages.
         const auto &dynamics = d3dGroup->GetDynamicBindings();
         for (size_t i = 0; i < dynamics.size(); ++i) {
             const auto &d = dynamics[i];
             if (d.buffer == nullptr) {
                 continue;
             }
-            const uint32_t rootParam = currentRootSignature->GetDynamicRootParam(set, d.binding);
-            if (rootParam == INVALID_INDEX) {
-                continue;
+            if ((numDynamicOffsets && !dynamicOffsets) || d.buffer->GetDevice() != &device) {
+                LOG_E("AuroraDX12", "Dynamic buffer offsets or owner are invalid");
+                return;
             }
             const uint32_t offset = i < numDynamicOffsets ? dynamicOffsets[i] : 0;
-            const D3D12_GPU_VIRTUAL_ADDRESS addr =
-                d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + d.baseOffset + offset;
-            if (d.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                cmdList->SetGraphicsRootUnorderedAccessView(rootParam, addr);
+            const auto     size   = d.buffer->GetSize();
+            if (d.baseOffset >= size || offset > size - d.baseOffset || !d.range || d.range > size - d.baseOffset - offset) {
+                LOG_E("AuroraDX12", "Dynamic buffer range exceeds its backing");
+                return;
+            }
+            const auto                      effectiveOffset = d.baseOffset + offset;
+            const D3D12_GPU_VIRTUAL_ADDRESS addr            = d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + effectiveOffset;
+            if (d.resource.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                if (const auto error = d.buffer->CheckStorageRange(d.resource, effectiveOffset, d.range)) {
+                    LOG_E("AuroraDX12", "%s", error->message.c_str());
+                    return;
+                }
+
             } else {
-                cmdList->SetGraphicsRootConstantBufferView(rootParam, addr);
+                if (effectiveOffset % 256 || ((d.range + 255) & ~uint64_t{255}) > size - effectiveOffset) {
+                    LOG_E("AuroraDX12", "Dynamic uniform buffer alignment or backing is invalid");
+                    return;
+                }
+            }
+            for (const auto &mapping : currentRootSignature->GetDynamicBindings(set)) {
+                if (mapping.binding != d.binding)
+                    continue;
+                switch (mapping.category) {
+                case ShaderNativeCategory::CBV: cmdList->SetGraphicsRootConstantBufferView(mapping.root, addr); break;
+                case ShaderNativeCategory::SRV: cmdList->SetGraphicsRootShaderResourceView(mapping.root, addr); break;
+                case ShaderNativeCategory::UAV: cmdList->SetGraphicsRootUnorderedAccessView(mapping.root, addr); break;
+                default: LOG_E(TAG, "Invalid dynamic native category"); return;
+                }
             }
         }
     }
@@ -179,7 +199,7 @@ namespace sky::aurora {
             return;
         }
         ID3D12DescriptorHeap *heaps[2] = {};
-        uint32_t               count    = 0;
+        uint32_t              count    = 0;
         if (d3dHeap->GetResourceHeap() != nullptr) {
             heaps[count++] = d3dHeap->GetResourceHeap();
         }
@@ -221,12 +241,11 @@ namespace sky::aurora {
             }
             vbViews[i].BufferLocation = buf->GetNativeHandle()->GetGPUVirtualAddress() + views[i].offset;
             // BufferView::range == 0 means "rest of the buffer".
-            const uint64_t totalSize  = buf->GetSize();
-            vbViews[i].SizeInBytes    = static_cast<UINT>(views[i].range != 0
-                                                               ? views[i].range
-                                                               : (totalSize > views[i].offset ? totalSize - views[i].offset : 0));
-            const uint32_t slot       = firstBinding + i;
-            vbViews[i].StrideInBytes  = slot < currentVertexStrides.size() ? currentVertexStrides[slot] : 0;
+            const uint64_t totalSize = buf->GetSize();
+            vbViews[i].SizeInBytes =
+                static_cast<UINT>(views[i].range != 0 ? views[i].range : (totalSize > views[i].offset ? totalSize - views[i].offset : 0));
+            const uint32_t slot      = firstBinding + i;
+            vbViews[i].StrideInBytes = slot < currentVertexStrides.size() ? currentVertexStrides[slot] : 0;
         }
         cmdList->IASetVertexBuffers(firstBinding, count, vbViews);
     }
@@ -312,7 +331,7 @@ namespace sky::aurora {
 
     void D3D12ComputeEncoder::BindPipeline(ComputePipeline *pso)
     {
-        auto *d3dPso = static_cast<D3D12ComputePipeline *>(pso);
+        auto *d3dPso         = static_cast<D3D12ComputePipeline *>(pso);
         currentRootSignature = d3dPso->GetRootSignature();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
         if (currentRootSignature != nullptr) {
@@ -320,15 +339,17 @@ namespace sky::aurora {
         }
     }
 
-    void D3D12ComputeEncoder::BindResourceGroup(uint32_t set,
-                                                ResourceGroup *group,
-                                                uint32_t numDynamicOffsets,
-                                                const uint32_t *dynamicOffsets)
+    void D3D12ComputeEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        if (currentRootSignature == nullptr || group == nullptr) {
+        if (currentRootSignature == nullptr || group == nullptr || group->GetDevice() != &device) {
             return;
         }
         auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
+        if (group->GetSet() != set || !group->GetShader() ||
+            static_cast<D3D12Shader *>(group->GetShader())->GetRootSignature() != currentRootSignature) {
+            LOG_E(TAG, "ResourceGroup does not match the bound shader/set");
+            return;
+        }
 
         // copy staging -> current frame's shader-visible heap before binding
         d3dGroup->EnsureFrameCopy();
@@ -340,34 +361,50 @@ namespace sky::aurora {
         ID3D12DescriptorHeap *heaps[2] = {allocator->GetCbvSrvUavHeap(), allocator->GetSamplerHeap()};
         cmdList->SetDescriptorHeaps(2, heaps);
 
-        const uint32_t cbvSrvUavParam = currentRootSignature->GetCbvSrvUavRootParam(set);
-        if (cbvSrvUavParam != INVALID_INDEX) {
-            cmdList->SetComputeRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
+        for (const auto &table : currentRootSignature->GetDescriptorTables(set)) {
+            cmdList->SetComputeRootDescriptorTable(table.root, table.sampler ? d3dGroup->GetSamplerGpuHandle() : d3dGroup->GetCbvSrvUavGpuHandle());
         }
 
-        const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
-        if (samplerParam != INVALID_INDEX) {
-            cmdList->SetComputeRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
-        }
-
-        // dynamic bindings -> root CBV / root UAV with per-draw offset
+        // Each logical dynamic buffer may occupy distinct native roots across stages.
         const auto &dynamics = d3dGroup->GetDynamicBindings();
         for (size_t i = 0; i < dynamics.size(); ++i) {
             const auto &d = dynamics[i];
             if (d.buffer == nullptr) {
                 continue;
             }
-            const uint32_t rootParam = currentRootSignature->GetDynamicRootParam(set, d.binding);
-            if (rootParam == INVALID_INDEX) {
-                continue;
+            if ((numDynamicOffsets && !dynamicOffsets) || d.buffer->GetDevice() != &device) {
+                LOG_E("AuroraDX12", "Dynamic buffer offsets or owner are invalid");
+                return;
             }
             const uint32_t offset = i < numDynamicOffsets ? dynamicOffsets[i] : 0;
-            const D3D12_GPU_VIRTUAL_ADDRESS addr =
-                d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + d.baseOffset + offset;
-            if (d.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                cmdList->SetComputeRootUnorderedAccessView(rootParam, addr);
+            const auto     size   = d.buffer->GetSize();
+            if (d.baseOffset >= size || offset > size - d.baseOffset || !d.range || d.range > size - d.baseOffset - offset) {
+                LOG_E("AuroraDX12", "Dynamic buffer range exceeds its backing");
+                return;
+            }
+            const auto                      effectiveOffset = d.baseOffset + offset;
+            const D3D12_GPU_VIRTUAL_ADDRESS addr            = d.buffer->GetNativeHandle()->GetGPUVirtualAddress() + effectiveOffset;
+            if (d.resource.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                if (const auto error = d.buffer->CheckStorageRange(d.resource, effectiveOffset, d.range)) {
+                    LOG_E("AuroraDX12", "%s", error->message.c_str());
+                    return;
+                }
+
             } else {
-                cmdList->SetComputeRootConstantBufferView(rootParam, addr);
+                if (effectiveOffset % 256 || ((d.range + 255) & ~uint64_t{255}) > size - effectiveOffset) {
+                    LOG_E("AuroraDX12", "Dynamic uniform buffer alignment or backing is invalid");
+                    return;
+                }
+            }
+            for (const auto &mapping : currentRootSignature->GetDynamicBindings(set)) {
+                if (mapping.binding != d.binding)
+                    continue;
+                switch (mapping.category) {
+                case ShaderNativeCategory::CBV: cmdList->SetComputeRootConstantBufferView(mapping.root, addr); break;
+                case ShaderNativeCategory::SRV: cmdList->SetComputeRootShaderResourceView(mapping.root, addr); break;
+                case ShaderNativeCategory::UAV: cmdList->SetComputeRootUnorderedAccessView(mapping.root, addr); break;
+                default: LOG_E(TAG, "Invalid dynamic native category"); return;
+                }
             }
         }
     }
@@ -379,7 +416,7 @@ namespace sky::aurora {
             return;
         }
         ID3D12DescriptorHeap *heaps[2] = {};
-        uint32_t               count    = 0;
+        uint32_t              count    = 0;
         if (d3dHeap->GetResourceHeap() != nullptr) {
             heaps[count++] = d3dHeap->GetResourceHeap();
         }
@@ -419,8 +456,7 @@ namespace sky::aurora {
         if (buffer == nullptr) {
             return;
         }
-        ID3D12CommandSignature *signature =
-            device.GetIndirectSignature(IndirectKind::DISPATCH, sizeof(D3D12_DISPATCH_ARGUMENTS));
+        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DISPATCH, sizeof(D3D12_DISPATCH_ARGUMENTS));
         if (signature == nullptr) {
             return;
         }
@@ -519,32 +555,30 @@ namespace sky::aurora {
         const bool sameFormat = srcImg->GetDxgiFormat() == dstImg->GetDxgiFormat();
 
         for (const auto &region : regions) {
-            const bool sameExtent =
-                (region.srcOffsets[1].x - region.srcOffsets[0].x) == (region.dstOffsets[1].x - region.dstOffsets[0].x) &&
-                (region.srcOffsets[1].y - region.srcOffsets[0].y) == (region.dstOffsets[1].y - region.dstOffsets[0].y) &&
-                (region.srcOffsets[1].z - region.srcOffsets[0].z) == (region.dstOffsets[1].z - region.dstOffsets[0].z);
+            const bool sameExtent = (region.srcOffsets[1].x - region.srcOffsets[0].x) == (region.dstOffsets[1].x - region.dstOffsets[0].x) &&
+                                    (region.srcOffsets[1].y - region.srcOffsets[0].y) == (region.dstOffsets[1].y - region.dstOffsets[0].y) &&
+                                    (region.srcOffsets[1].z - region.srcOffsets[0].z) == (region.dstOffsets[1].z - region.dstOffsets[0].z);
 
             if (sameExtent && sameFormat) {
                 D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-                srcLoc.pResource        = srcImg->GetNativeHandle();
-                srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-                srcLoc.SubresourceIndex = region.srcRange.level + region.srcRange.baseLayer * srcImg->GetMipLevels();
+                srcLoc.pResource                   = srcImg->GetNativeHandle();
+                srcLoc.Type                        = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                srcLoc.SubresourceIndex            = region.srcRange.level + region.srcRange.baseLayer * srcImg->GetMipLevels();
 
                 D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-                dstLoc.pResource        = dstImg->GetNativeHandle();
-                dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-                dstLoc.SubresourceIndex = region.dstRange.level + region.dstRange.baseLayer * dstImg->GetMipLevels();
+                dstLoc.pResource                   = dstImg->GetNativeHandle();
+                dstLoc.Type                        = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                dstLoc.SubresourceIndex            = region.dstRange.level + region.dstRange.baseLayer * dstImg->GetMipLevels();
 
                 D3D12_BOX srcBox = {};
-                srcBox.left   = static_cast<UINT>(region.srcOffsets[0].x);
-                srcBox.top    = static_cast<UINT>(region.srcOffsets[0].y);
-                srcBox.front  = static_cast<UINT>(region.srcOffsets[0].z);
-                srcBox.right  = static_cast<UINT>(region.srcOffsets[1].x);
-                srcBox.bottom = static_cast<UINT>(region.srcOffsets[1].y);
-                srcBox.back   = static_cast<UINT>(region.srcOffsets[1].z);
+                srcBox.left      = static_cast<UINT>(region.srcOffsets[0].x);
+                srcBox.top       = static_cast<UINT>(region.srcOffsets[0].y);
+                srcBox.front     = static_cast<UINT>(region.srcOffsets[0].z);
+                srcBox.right     = static_cast<UINT>(region.srcOffsets[1].x);
+                srcBox.bottom    = static_cast<UINT>(region.srcOffsets[1].y);
+                srcBox.back      = static_cast<UINT>(region.srcOffsets[1].z);
 
-                cmdList->CopyTextureRegion(&dstLoc, static_cast<UINT>(region.dstOffsets[0].x),
-                                           static_cast<UINT>(region.dstOffsets[0].y),
+                cmdList->CopyTextureRegion(&dstLoc, static_cast<UINT>(region.dstOffsets[0].x), static_cast<UINT>(region.dstOffsets[0].y),
                                            static_cast<UINT>(region.dstOffsets[0].z), &srcLoc, &srcBox);
             } else {
                 D3D12BlitHelper *helper = device.GetBlitHelper();

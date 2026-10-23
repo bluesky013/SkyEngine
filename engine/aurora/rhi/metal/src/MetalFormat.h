@@ -7,11 +7,41 @@
 #import <Metal/Metal.h>
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/Image.h>
 
 namespace sky::aurora {
 
+    inline bool IsMetalBCFormat(PixelFormat format)
+    {
+        return format >= PixelFormat::BC1_RGB_UNORM_BLOCK && format <= PixelFormat::BC7_SRGB_BLOCK;
+    }
+
     inline MTLPixelFormat ToMetalPixelFormat(PixelFormat format)
     {
+        if (IsMetalBCFormat(format)) {
+            if (@available(macOS 11.0, iOS 16.4, *)) {
+                switch (format) {
+                case PixelFormat::BC1_RGB_UNORM_BLOCK:
+                case PixelFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
+                case PixelFormat::BC1_RGB_SRGB_BLOCK:
+                case PixelFormat::BC1_RGBA_SRGB_BLOCK: return MTLPixelFormatBC1_RGBA_sRGB;
+                case PixelFormat::BC2_UNORM_BLOCK: return MTLPixelFormatBC2_RGBA;
+                case PixelFormat::BC2_SRGB_BLOCK: return MTLPixelFormatBC2_RGBA_sRGB;
+                case PixelFormat::BC3_UNORM_BLOCK: return MTLPixelFormatBC3_RGBA;
+                case PixelFormat::BC3_SRGB_BLOCK: return MTLPixelFormatBC3_RGBA_sRGB;
+                case PixelFormat::BC4_UNORM_BLOCK: return MTLPixelFormatBC4_RUnorm;
+                case PixelFormat::BC4_SNORM_BLOCK: return MTLPixelFormatBC4_RSnorm;
+                case PixelFormat::BC5_UNORM_BLOCK: return MTLPixelFormatBC5_RGUnorm;
+                case PixelFormat::BC5_SNORM_BLOCK: return MTLPixelFormatBC5_RGSnorm;
+                case PixelFormat::BC6H_UFLOAT_BLOCK: return MTLPixelFormatBC6H_RGBUfloat;
+                case PixelFormat::BC6H_SFLOAT_BLOCK: return MTLPixelFormatBC6H_RGBFloat;
+                case PixelFormat::BC7_UNORM_BLOCK: return MTLPixelFormatBC7_RGBAUnorm;
+                case PixelFormat::BC7_SRGB_BLOCK: return MTLPixelFormatBC7_RGBAUnorm_sRGB;
+                default: return MTLPixelFormatInvalid;
+                }
+            }
+            return MTLPixelFormatInvalid;
+        }
         switch (format) {
         case PixelFormat::R8_UINT: return MTLPixelFormatR8Uint;
         case PixelFormat::R8_UNORM: return MTLPixelFormatR8Unorm;
@@ -35,23 +65,6 @@ namespace sky::aurora {
         case PixelFormat::D32: return MTLPixelFormatDepth32Float;
         case PixelFormat::D24_S8: return MTLPixelFormatDepth32Float_Stencil8;
         case PixelFormat::D32_S8: return MTLPixelFormatDepth32Float_Stencil8;
-        // BCn: desktop GPUs only (macOS); unsupported on Apple-family GPUs
-        case PixelFormat::BC1_RGB_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
-        case PixelFormat::BC1_RGB_SRGB_BLOCK: return MTLPixelFormatBC1_RGBA_sRGB;
-        case PixelFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
-        case PixelFormat::BC1_RGBA_SRGB_BLOCK: return MTLPixelFormatBC1_RGBA_sRGB;
-        case PixelFormat::BC2_UNORM_BLOCK: return MTLPixelFormatBC2_RGBA;
-        case PixelFormat::BC2_SRGB_BLOCK: return MTLPixelFormatBC2_RGBA_sRGB;
-        case PixelFormat::BC3_UNORM_BLOCK: return MTLPixelFormatBC3_RGBA;
-        case PixelFormat::BC3_SRGB_BLOCK: return MTLPixelFormatBC3_RGBA_sRGB;
-        case PixelFormat::BC4_UNORM_BLOCK: return MTLPixelFormatBC4_RUnorm;
-        case PixelFormat::BC4_SNORM_BLOCK: return MTLPixelFormatBC4_RSnorm;
-        case PixelFormat::BC5_UNORM_BLOCK: return MTLPixelFormatBC5_RGUnorm;
-        case PixelFormat::BC5_SNORM_BLOCK: return MTLPixelFormatBC5_RGSnorm;
-        case PixelFormat::BC6H_UFLOAT_BLOCK: return MTLPixelFormatBC6H_RGBUfloat;
-        case PixelFormat::BC6H_SFLOAT_BLOCK: return MTLPixelFormatBC6H_RGBFloat;
-        case PixelFormat::BC7_UNORM_BLOCK: return MTLPixelFormatBC7_RGBAUnorm;
-        case PixelFormat::BC7_SRGB_BLOCK: return MTLPixelFormatBC7_RGBAUnorm_sRGB;
         // ASTC: Apple-family GPUs (A8+/M1+)
         case PixelFormat::ASTC_4x4_UNORM_BLOCK: return MTLPixelFormatASTC_4x4_LDR;
         case PixelFormat::ASTC_4x4_SRGB_BLOCK: return MTLPixelFormatASTC_4x4_sRGB;
@@ -66,6 +79,40 @@ namespace sky::aurora {
         // ETC2 has no Metal equivalent
         default: return MTLPixelFormatInvalid;
         }
+    }
+
+    inline bool SupportsMetalPixelFormat(id<MTLDevice> device, PixelFormat format)
+    {
+        if (device == nil || ToMetalPixelFormat(format) == MTLPixelFormatInvalid)
+            return false;
+        if (IsMetalBCFormat(format)) {
+            if (@available(macOS 11.0, iOS 16.4, *))
+                return device.supportsBCTextureCompression;
+            return false;
+        }
+        return true;
+    }
+
+    inline bool SupportsMetalFamily7OrMac2(id<MTLDevice> device)
+    {
+        if (@available(macOS 10.15, iOS 14.0, *)) {
+            if ([device supportsFamily:MTLGPUFamilyMac2])
+                return true;
+            if (@available(macOS 11.0, iOS 14.0, *))
+                return [device supportsFamily:MTLGPUFamilyApple7];
+        }
+        return false;
+    }
+
+    inline constexpr MTLTextureType METAL_TEXTURE_TYPE_UNSUPPORTED = static_cast<MTLTextureType>(NSUIntegerMax);
+
+    inline MTLTextureType ToMetalMultisampleType(bool array)
+    {
+        if (!array)
+            return MTLTextureType2DMultisample;
+        if (@available(macOS 10.14, iOS 14.0, *))
+            return MTLTextureType2DMultisampleArray;
+        return METAL_TEXTURE_TYPE_UNSUPPORTED;
     }
 
     // aurora vertex attribute Format -> MTLVertexFormat (mirrors the Vulkan
@@ -114,7 +161,7 @@ namespace sky::aurora {
         case ImageType::IMAGE_2D:
         default:
             if (desc.samples != SampleCount::X1) {
-                return desc.arrayLayers > 1 ? MTLTextureType2DMultisampleArray : MTLTextureType2DMultisample;
+                return ToMetalMultisampleType(desc.arrayLayers > 1);
             }
             return desc.arrayLayers > 1 ? MTLTextureType2DArray : MTLTextureType2D;
         }

@@ -1,4 +1,4 @@
-Checked items are backed by the current validation record below. Native Metal and a stripped native shipping-host run remain platform/packaging validation limits, not implied by Windows reflection or resolver tests.
+Checked items are backed by the dated validation records below. Native Metal shipping, editor integration and this change's platform regression checks pass; historical Windows results retain their original scope. Mobile device acceptance remains tracked separately.
 
 ## 1. Review and ownership
 
@@ -51,8 +51,16 @@ Checked items are backed by the current validation record below. Native Metal an
 
 ## 7. Remaining native acceptance
 
-- [ ] 7.1. Run a stripped native shipping host with source directories and the Slang DLL physically absent; audit its module selection as well as resolver behavior. The existing native test has no registered compiler, but still links compiler code for other cases.
-- [ ] 7.2. Run native Metal scene/compute/fullscreen and package validation on macOS.
+- [x] 7.1. Run a stripped native shipping host with source directories and the Slang DLL physically absent; audit its module selection as well as resolver behavior.
+- [x] 7.2. Run native Metal scene/compute/fullscreen and package validation on macOS.
+
+## 7a. Cross-platform corrections found during native acceptance
+
+- [x] 7.3. Correct root/native shader staging for Android, single-configuration desktop builds and Apple IDE builds; connect Android development resources to APK assets.
+- [x] 7.4. Select runtime shader sources/products by validated contents rather than non-null filesystem wrappers; cover absent and malformed product distributions.
+- [x] 7.5. Make the relocation driver portable, audit shipping module/runtime selection and exercise scene plus explicit compute/fullscreen with sources and Slang physically absent.
+- [x] 7.6. Consume the existing RendererHost/scene bridge in the macOS editor and compile its UI shader for the resolved backend, retaining the current targets and source paths.
+- [x] 7.7. Rebuild affected targets, run host/package and regression checks, and record iOS/Android cross-compilation separately from device acceptance.
 
 ## 8. Obsolete content cleanup
 
@@ -64,9 +72,9 @@ Checked items are backed by the current validation record below. Native Metal an
 
 ## Implementation status
 
-2026-10-22: approved 13-file migration, corrected technique/resource architecture and obsolete-content cleanup are implemented. Shared C++ declaration locations and production targets are preserved. This checkpoint is ready for macOS validation; the remaining native acceptance items above stay open.
+2026-10-22: the earlier approved migration, corrected technique/resource architecture, obsolete-content cleanup and cross-platform corrections are implemented. Shared C++ declaration locations and production targets are preserved. macOS stripped shipping, editor integration and relevant regressions pass; iOS/Android cross-compilation is verified separately from pending device acceptance. No commit or archive has been performed.
 
-## Current validation (2026-10-22)
+## Historical Windows checkpoint (2026-10-22)
 
 - Affected Debug targets build: Core, Pipeline, ShaderCompiler, Adaptor, Renderer GPU tests, ShaderCookTool, SandboxModule and SandboxEditor. The editor asset deploy now preserves the collector-owned shader directory; its regression checks that ordinary assets refresh without deleting the shader inventory or copying legacy shader files.
 - CoreTest: 80/80; PipelineTest: 42/42; ShaderTest: 53/53; AdaptorTest: 33/33. Framework project/preset checks: 6/6. Export/inventory/project/schema Python suite: 25/25.
@@ -77,7 +85,7 @@ Checked items are backed by the current validation record below. Native Metal an
 - SandboxEditor opened the existing B14Review project, initialized the swapchain, ran eight bounded frames and exited 0 under desktop permissions. No renderer/validation error was logged. This startup probe is not a full manual material-editor acceptance test.
 - Persisted export checks, changed-C++ ASCII/clang-format checks, git diff whitespace checks and strict OpenSpec validation pass. New technique compile, uniform packing and material mapping functions were split to keep validation steps focused; scoped clang-tidy reports no diagnostics in the changed lines of ShaderTechnique, ShaderUniform, FrameComposer, SceneAssetSource, MaterialReflection and SceneRenderFeature. This is not a globally warning-free repository claim.
 
-## Cleanup validation (2026-10-22)
+## Historical Windows cleanup checkpoint (2026-10-22)
 
 - Reconfigured the existing Debug build after source deletion. CoreTest, PipelineTest,
   ShaderTest, AdaptorTest, ShaderHeaderTool, SandboxModule and SandboxEditor build successfully.
@@ -92,11 +100,39 @@ Checked items are backed by the current validation record below. Native Metal an
 - This cleanup does not rerun the full renderer GPU suite or close native acceptance
   tasks 7.1/7.2; the earlier GPU evidence above retains its original scope.
 
+## Cross-platform resource validation (2026-10-22)
+
+- Root resource staging uses the runtime output directory, adds the configuration only for multi-configuration generators, and uses the build tree's `runtime-resources` directory when Android has no runtime output override. Shader/Pipeline/GPU test inputs use the actual consumer executable directory. A real temporary CMake regression covers unset runtime output, single-configuration Release and Ninja Multi-Config; all resource tests pass (10/10).
+- Native projects reuse their existing Deploy target as a Launcher dependency, so an IDE build of Launcher alone stages the selected cooked distribution before the app is linked. A native macOS bundle regression builds only Launcher and confirms the shader index remains inside the new bundle. Android development sources stage under the APK asset root, with mergeAssets ordered after native staging.
+- Development explicitly loads the source inventory. Product mode reads `distribution.json`, verifies the resolved backend is declared, and decodes a nonempty current-version index; a non-null child filesystem does not prove a directory or product exists. The two Core selection regressions cover source/product isolation, absent/corrupt products and a missing target. The final Core run passes 84/84 with the freshly cooked v5 distribution fixture available.
+- Shipping startup configs and static-module registration omit Aurora.ShaderCompiler/Aurora.Cook. Apple runtime copying and Android packaging exclude compiler runtimes. Reusing a development app for shipping retires generated shader sources and compiler libraries without deleting unrelated libraries or traversing aliased runtime directories. Package regressions pass (17/17, including the native macOS bundle test); Android runtime-manifest and preset-schema checks pass (3/3).
+- The portable driver accepts build/bin/config/tool/target arguments. On macOS it cooked 14 Metal requests from three owners, removed the temporary project sources, then copied only CoreTest, ModuleTest, Aurora.Render and Aurora.Metal into the stripped host directory. The actual dyld trace loaded only those project files and no Slang runtime. The compiler-free Core resolver passed all 14 requests.
+- The first Metal shipping runs exposed duplicate physical buffer indices, lost logical keys and a mixed-category compute image omitted from reflection. Cache v5 now preserves each stage's native mapping; a layout-only SPIRV target supplies logical keys while Metal owns packing, physical indices and active-resource queries. Recooking with the corrected compiler closes these failures.
+
+## Current macOS validation (2026-10-22)
+
+- Release builds of the affected existing targets pass. CoreTest 84/84, ShaderTest 44/44, PipelineTest 38/38, AdaptorTest 40/40 and Renderer.StateTest 14/14 pass. After the final compiler explicit-error checks, the 13 affected SlangSpike/ShaderBundles cases pass again. The focused cache/provider/native-binding merge subset also passes 19/19.
+- `Aurora.Renderer.ModuleTest` passes 6/6 under native desktop permissions, including checked drawable retirement before resize/close and the real Cocoa/CAMetalLayer host drain before module/window release. This is separate from the earlier four-tick smoke.
+- RHI passes 154/154, including actual restricted depth-array readback, sparse per-stage uniform slots/dynamic offsets, sampler/image capability checks and queue/fence failures. StaticModuleTest passes its seven ordinary cases; its two product-fixture cases also pass when rerun with the cooked Metal distribution.
+- SandboxEditor initializes the unified Metal host, runs eight bounded frames in Project Manager mode and exits 0 without renderer errors (`/tmp/sky-sandbox-metal-final.log`). This validates startup/UI integration rather than a manual project/material-editor session.
+- The complete Python suite passes 55/55, including independent temporary CMake resource/package builds. The official third-party check passes all 25 packages with zero missing/stale outputs; Slang `v2026.9.2` is current with the repository patch preserved.
+- Android Framework/Aurora.Render/Vulkan and shader compiler cross-builds pass for AArch64; resources stage under `build_android/runtime-resources/assets/shaders`, with no erroneous `/Release/assets/shaders`. Android Slang Debug/Release were actually rebuilt; its dependency check passes 15/15 with no stale/missing outputs. iOS Framework/Adaptor/Core/static shader compiler, all Metal objects and the RHI test syntax check pass for arm64/iPhoneOS deployment 13; this chain has no API-availability warnings. No iOS framework was linked over macOS outputs.
+- No Android device is attached; Xcode lists the saved iPad as unavailable. Rotation, background/surface transitions and mobile GPU readback still require available devices.
+- `python3 python/tests/run_shader_package_tests.py --build-dir build --bin-dir output/bin --target metal` exits 0 after fresh v5 cooking. The relocated Core resolver passes 1/1; `ShippedProductsRenderSceneWithoutCompiler` and `ShippedProductsComputeAndFullscreenWithoutCompiler` pass 2/2 with real scene and compute-to-fullscreen pixel readbacks. Temporary project sources are deleted before consumers run. The stripped host contains only CoreTest, ModuleTest, Aurora.Render and Aurora.Metal; static dependencies and the actual dyld trace contain no Slang runtime.
+- Logs: `/tmp/sky-core-tests-final.log`, `/tmp/sky-shader-tests-final.log`, `/tmp/sky-pipeline-tests-final.log`, `/tmp/sky-adaptor-tests-final.log`, `/tmp/sky-state-tests-final.log`, `/tmp/sky-renderer-module-final.log`, `/tmp/sky-python-platform-resource-tests.log`, `/tmp/sky-slang-refresh-check.log`, `/tmp/sky-shader-schema-final.log` and `/tmp/sky-shader-shipping-final.log`.
+- Items 7.6/7.7 pass with the editor and regression evidence above. Android/iOS cross-compilation is recorded independently from unavailable device, rotation and background acceptance; this checkpoint does not complete all platform-parity tasks.
+- All 59 changed C++/Objective-C++ files pass clang-format and ASCII checks; added lines contain no throw/try/catch/dynamic_cast. Whitespace and strict validation of both changes pass. OpenSpec reports 43/43 tasks complete for this resource-ownership change; no archive was executed.
+- Scoped compiler clang-tidy completes with only the unchanged adjacent-parameter warning in ReflectBlockMembers. The bundled LLVM 22 clang-tidy cannot parse the Xcode 17 SIMD intrinsic headers for Metal, so no Metal tidy pass is claimed. The matching Xcode native analyzer checks MetalDeviceFrameContext with the actual build flags and reports no diagnostics (`/tmp/sky-metal-frame-native-analyzer.log`); native builds and GPU regressions use the normal SIMD configuration.
+
 ## Limits and migration notes
 
-- MSL generation/reflection passed on Windows; native Metal execution and macOS/iOS packaging remain unverified. The existing Apple/POSIX package tests rely on platform path/mode/symlink behavior and were not treated as Windows acceptance.
+- Native Metal scene/compute/fullscreen shipping and macOS bundle staging pass in the current record. iOS/Android device packaging, rotation and background acceptance remain unverified. Apple/POSIX package tests rely on platform path/mode/symlink behavior and are not Windows acceptance.
 - The adapter currently implements material uniform properties, not automatic material texture/sampler asset transport, arrays, deformation or a full PBR/PSO system. Existing Lit lighting/IBL is the lit-material acceptance case. Unsupported active resources fail instead of receiving dummy bindings.
 - The current frame IR supports material depth and blend state. Unsupported raster/stencil/alpha-to-coverage requests are rejected rather than silently discarded.
-- Old material binaries and the single `shader` source form need explicit stage/mapping migration. Shader cache index v4 records active-entry reflection and requires recook. Following the user's cleanup request, the unconsumed repository HLSL/material/vertex examples have been removed; external legacy content still requires migration.
+- Old material binaries and the single `shader` source form need explicit stage/mapping migration. Shader cache index/blob v5 adds per-stage native mappings to active-entry reflection and requires recooking older products. Following the user's cleanup request, the unconsumed repository HLSL/material/vertex examples have been removed; external legacy content still requires migration.
 - A pre-existing output `assets` symlink must be removed before shader staging; shader staging refuses an aliased root/container so it cannot write into engine source assets. The editor now deploys into a real assets container.
-- The change remains active for native acceptance. Archive requires separate user confirmation under AGENTS.md.
+- Implementation and this change's acceptance tasks are complete; the change remains unarchived for user review. Archive requires separate user confirmation under AGENTS.md.
+
+## Target shader artifact continuation — 2026-10-23
+
+`refactor-aurora-target-shader-artifacts` now owns the successor shader ABI, Name parameter and material-image work. It removes the auxiliary SPIR-V identity bridge, upgrades cache to v6 and usage/distribution to v2, and introduces Material v3 / MaterialInstance v2. Current implementation and native/cross-build evidence are in that change's `implementation.md` and `tasks.md`; the historical results above keep their original scope. Mobile cross-compilation and product generation do not close device acceptance. No archive or commit was performed.

@@ -1,10 +1,22 @@
 // Generated from aurora/pipeline/ShadowPass.h; do not edit.
-// Inputs: 8198f194b3aea7e1ef3b9cd27b09c2620c9ea28d84f3c5bba69400814993b30a; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 3be7e9258281ff58b729cd11e366f77262526e0859b122566b12f0af55621ffa; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct ShadowPassParams
 {
-    column_major float4x4 lightViewProjection;
+    [AuroraField("lightViewProjection")] column_major float4x4 lightViewProjection;
 };
+[AuroraResource(1, 0, "aurora/pipeline/ShadowPass.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<ShadowPassParams> gShadowPass
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;

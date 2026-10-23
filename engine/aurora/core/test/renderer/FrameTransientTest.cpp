@@ -5,14 +5,12 @@
 #include "GpuTestSupport.h"
 #include "rdg/D3D12FrameCompiler.h"
 #include "rdg/VulkanFrameCompiler.h"
-#include "shaders/FrameGraphSPIRV.h"
 
 #include "graph/FrameGraphBuilder.h"
 #include <D3D12Device.h>
 #include <aurora/rdg/DeviceFrameContext.h>
 #include <common/FrameTransientPool.h>
 #include <d3d12sdklayers.h>
-#include <d3dcompiler.h>
 
 namespace {
     class BufferAliasBarrierProbe {
@@ -147,40 +145,14 @@ namespace {
         }
         ShaderPtr ShaderOf(bool green)
         {
-            auto function = [&](ShaderStageFlagBit stage) {
-                CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-                const char                      *entry = "main";
-                if (GetParam() == 2) {
-                    const char *source =
-                        "float4 VS(uint i:SV_VertexID):SV_Position {float2 p[3]={float2(-1,-1),float2(-1,3),float2(3,-1)};return float4(p[i],0,1);}\n"
-                        "float4 Red():SV_Target{return float4(1,0,0,1);}\nfloat4 Green():SV_Target{return float4(0,1,0,1);}";
-                    entry = stage == ShaderStageFlagBit::VS ? "VS" : green ? "Green" : "Red";
-                    ComPtr<ID3DBlob> code, errors;
-                    const auto       status = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, entry,
-                                                         stage == ShaderStageFlagBit::VS ? "vs_5_0" : "ps_5_0", 0, 0, &code, &errors);
-                    EXPECT_TRUE(SUCCEEDED(status));
-                    if (FAILED(status))
-                        return ShaderFunctionPtr{};
-                    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
-                    std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
-                } else {
-                    const auto words     = stage == ShaderStageFlagBit::VS ? std::span<const uint32_t>(FrameGraphVS)
-                                           : green                         ? std::span<const uint32_t>(FrameGraphGreenFS)
-                                                                           : std::span<const uint32_t>(FrameGraphRedFS);
-                    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(words.size_bytes())));
-                    std::memcpy(provider->binaryData->Data(), words.data(), words.size_bytes());
-                }
-                return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, entry}));
-            };
-            auto vs = function(ShaderStageFlagBit::VS), fs = function(ShaderStageFlagBit::FS);
+            const auto vs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::FS, green ? "Green" : "Red");
             if (!vs || !fs)
                 return {};
-            ShaderReflection   reflection;
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = fs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            Shader::Descriptor descriptor{};
+            descriptor.vs = vs.Get();
+            descriptor.ps = fs.Get();
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         DeviceFrameLease Begin(DeviceFrameContext &ctx)
         {

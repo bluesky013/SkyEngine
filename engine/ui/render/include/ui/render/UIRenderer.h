@@ -111,17 +111,15 @@ namespace sky::ui {
         bool        PrepareTexture(TextureEntry &entry);
         void        RetireTexture(TextureEntry &&entry);
 
-        bool                     EnsureBuffers(uint64_t vertexBytes, uint64_t indexBytes);
-        aurora::ResourceGroup   *CreateTextureGroup(aurora::Image *image);
-        aurora::ResourceGroup   *FindGroup(UITextureId id) const;
-        aurora::GraphicsEncoder *BindPipeline(aurora::GraphicsEncoder *encoder, uint32_t surfaceWidth, uint32_t surfaceHeight) const;
+        bool                              EnsureBuffers(uint64_t vertexBytes, uint64_t indexBytes);
+        CounterPtr<aurora::ResourceGroup> CreateTextureGroup(aurora::Image *image);
+        aurora::ResourceGroup            *FindGroup(UITextureId id) const;
+        aurora::GraphicsEncoder          *BindPipeline(aurora::GraphicsEncoder *encoder, uint32_t surfaceWidth, uint32_t surfaceHeight) const;
 
         aurora::Device          *device      = nullptr;
         aurora::PixelFormat      colorFormat = aurora::PixelFormat::UNDEFINED;
-        aurora::ShaderReflection reflection; // target-specific (backend register/binding)
-        // Bindings of the `tex`/`smp` resources, resolved from the target-specific
-        // reflection: on Metal the categories are numbered independently (sampler
-        // is 0), while Vulkan/DX12 keep the authored 0/1 register numbers.
+        aurora::ShaderReflection reflection;
+        // Logical keys are authored in UIShader; the shader owns their native mapping.
         uint32_t                                      texBinding = 0;
         uint32_t                                      smpBinding = 1;
         sky::CounterPtr<aurora::ShaderFunction>       vs;

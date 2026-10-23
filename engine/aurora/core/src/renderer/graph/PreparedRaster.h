@@ -22,11 +22,11 @@ namespace sky::aurora {
         std::vector<PreparedMeshLod>       lods;
     };
     struct PreparedMaterialLayout {
-        RenderResourceKey              resource;
-        ShaderPtr                      shader;
-        BlendState                     blend;
-        RasterDepthState               depth;
-        std::vector<RenderUniformData> uniforms;
+        RenderResourceKey        resource;
+        ShaderPtr                shader;
+        BlendState               blend;
+        RasterDepthState         depth;
+        RenderMaterialParameters parameters;
     };
     struct PreparedRasterView {
         std::vector<ResolvedRasterDraw>                          draws;

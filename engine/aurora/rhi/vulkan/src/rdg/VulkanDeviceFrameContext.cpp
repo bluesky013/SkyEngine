@@ -197,10 +197,12 @@ namespace sky::aurora {
         const auto  layout = native.GetDescriptorSetLayout(set);
         if (!layout)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-        uint64_t resources = 0, samplers = 0;
-        for (const auto &binding : native.GetReflection().resources)
-            if (binding.set == set)
-                (binding.type == ShaderResourceType::SAMPLER ? samplers : resources) += binding.count;
+        uint64_t   resources = 0, samplers = 0;
+        const auto found = native.GetBindingPlan().sets.find(set);
+        if (found == native.GetBindingPlan().sets.end())
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Physical descriptor set is absent from target binding plan"};
+        for (const auto &binding : found->second.bindings)
+            (binding.type == ShaderResourceType::SAMPLER ? samplers : resources) += binding.count;
         auto       &partition = state->descriptors[lease.slot];
         const auto &limits    = state->limits;
         if (resources > limits.resourceDescriptors - partition.resources || samplers > limits.samplerDescriptors - partition.samplers ||
@@ -260,8 +262,8 @@ namespace sky::aurora {
         auto       rollback = [&]() -> std::optional<FrameError> {
             if (partition.allocated.size() > cursor) {
                 const auto status = device->GetDeviceFn().vkFreeDescriptorSets(device->GetNativeHandle(), partition.pool,
-                                                                               static_cast<uint32_t>(partition.allocated.size() - cursor),
-                                                                               partition.allocated.data() + cursor);
+                                                                                     static_cast<uint32_t>(partition.allocated.size() - cursor),
+                                                                                     partition.allocated.data() + cursor);
                 if (status != VK_SUCCESS) {
                     auto error = VulkanFrameError(status, FrameErrorCode::COMPILE_FAILED);
                     ObserveFailure(error);

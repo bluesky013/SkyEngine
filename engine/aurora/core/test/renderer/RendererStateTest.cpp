@@ -299,6 +299,26 @@ TEST(CpuSceneStore, ViewAndOutputRetirementAreIndependentAndGenerationChecked)
     EXPECT_EQ(store.FindView(viewB), nullptr);
 }
 
+TEST(CpuSceneStore, MissingSurfaceKeepsSceneAndViewAliveUntilAcknowledgedOutputRebinding)
+{
+    CpuSceneStore store;
+    ASSERT_TRUE(store.Apply(InitialPacket()).Succeeded());
+    const auto removed = store.Apply(Packet(2, {DestroyViewport{outputA}}));
+    ASSERT_TRUE(removed.Succeeded());
+    ASSERT_EQ(removed.retirements.size(), 1u);
+    ASSERT_TRUE(store.FindView(viewA));
+    EXPECT_TRUE(store.FindScene(scene));
+    EXPECT_EQ(store.SelectPrepareInputs().views, (std::vector<ViewId>{viewB}));
+    auto rebound         = store.FindView(viewA)->desc;
+    rebound.output       = {outputA.index, outputA.generation + 1};
+    const auto premature = store.Apply(Packet(3, {CreateViewport{rebound.output, {}}}));
+    ExpectSkipped(premature, 0, CommandSkipReason::RETIREMENT_PENDING);
+    ASSERT_TRUE(store.AcknowledgeRetirement(removed.retirements.front()));
+    ASSERT_TRUE(store.Apply(Packet(4, {CreateViewport{rebound.output, {}}, UpdateView{viewA, rebound, 1}})).Succeeded());
+    EXPECT_EQ(store.SelectPrepareInputs().views, (std::vector<ViewId>{viewA, viewB}));
+    EXPECT_EQ(store.FindView(viewA)->desc.output, rebound.output);
+}
+
 TEST(CpuSceneStore, PreflightRejectsEntireMalformedPacketWithoutApplyingEarlierCommands)
 {
     CpuSceneStore store;

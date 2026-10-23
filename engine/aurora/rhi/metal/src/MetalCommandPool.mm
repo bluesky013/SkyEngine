@@ -2,12 +2,13 @@
 // Created on 2026/04/07.
 //
 
-#import <Metal/Metal.h>
 #include <MetalCommandPool.h>
 
+#import <Metal/Metal.h>
 #include <MetalDevice.h>
 #include <MetalEncoder.h>
 #include <aurora/rhi/Core.h>
+#include <core/logger/Logger.h>
 
 namespace sky::aurora {
 
@@ -60,8 +61,17 @@ namespace sky::aurora {
         }
     }
 
+    const Device *MetalCommandBuffer::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
     void MetalCommandBuffer::Begin()
     {
+        activeEncoder = nullptr;
+        activeKind    = ActiveEncoderKind::None;
+        pendingBarriers.clear();
+        recordingError = {};
         if (cmdBuffer != nullptr) {
             id<MTLCommandBuffer> old = (__bridge_transfer id<MTLCommandBuffer>)cmdBuffer;
             old                      = nil;
@@ -79,6 +89,8 @@ namespace sky::aurora {
 
     void MetalCommandBuffer::PipelineBarrier(const BarrierInfo &info)
     {
+        if (recordingError.code != GpuErrorCode::NONE)
+            return;
         // No-op fast path: empty BarrierInfo.
         if (info.imageBarriers.empty() && info.bufferBarriers.empty() && info.memoryBarriers.empty()) {
             return;
@@ -96,10 +108,16 @@ namespace sky::aurora {
 
         switch (activeKind) {
         case ActiveEncoderKind::Render: {
-            id<MTLRenderCommandEncoder> e      = (__bridge id<MTLRenderCommandEncoder>)activeEncoder;
-            const MTLRenderStages       after  = StagesForRender(info.srcStage);
-            const MTLRenderStages       before = StagesForRender(info.dstStage);
-            [e memoryBarrierWithScope:scope afterStages:after beforeStages:before];
+            if (@available(macOS 10.14, iOS 16.0, *)) {
+                id<MTLRenderCommandEncoder> e      = (__bridge id<MTLRenderCommandEncoder>)activeEncoder;
+                const MTLRenderStages       after  = StagesForRender(info.srcStage);
+                const MTLRenderStages       before = StagesForRender(info.dstStage);
+                [e memoryBarrierWithScope:scope afterStages:after beforeStages:before];
+            } else {
+                // Splitting requires attachment preservation and encoder state replay, which this recorder cannot provide.
+                recordingError = {GpuErrorCode::UNSUPPORTED};
+                LOG_E("AuroraMetal", "render encoder memory barriers require iOS 16 or macOS 10.14; submission will be rejected");
+            }
             break;
         }
         case ActiveEncoderKind::Compute: {

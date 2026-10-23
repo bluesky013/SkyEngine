@@ -5,10 +5,14 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from shader_project import append_program, project_requirements, project_modules
+from shader_project import append_program, project_requirements, project_modules, target_environments, stage_products
 
 
 class ShaderProjectTest(unittest.TestCase):
+    def setUp(self):
+        self.environments, error = target_environments('macos', ['vulkan', 'metal'])
+        self.assertEqual(error, '')
+
     def test_selected_plugin_collects_resource_dependencies(self):
         with tempfile.TemporaryDirectory() as temporary:
             engine, project = Path(temporary) / 'engine', Path(temporary) / 'project'
@@ -29,17 +33,17 @@ class ShaderProjectTest(unittest.TestCase):
         entries = {}
         program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'DispatchCustom'}],
                    'variants': [{'MODE': 0}, {'MODE': 1}]}
-        self.assertEqual(append_program(program, ['vulkan', 'metal'], {'toon/Main.slang': b''}, entries), '')
+        self.assertEqual(append_program(program, ['vulkan', 'metal'], {'toon/Main.slang': b''}, entries, self.environments), '')
         self.assertEqual(len(entries), 4)
-        self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries), '')
+        self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments), '')
         self.assertEqual(len(entries), 4)
         self.assertEqual({entry['variant']['MODE'] for entry in entries.values()}, {0, 1})
 
     def test_invalid_program_and_variant_fail_without_a_default_shader(self):
         entries = {}
-        self.assertIn('Missing shader', append_program({'path': ''}, ['vulkan'], {}, entries))
+        self.assertIn('Missing shader', append_program({'path': ''}, ['vulkan'], {}, entries, self.environments))
         program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}], 'variants': [{'MODE': -1}]}
-        self.assertIn('Invalid shader variant', append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries))
+        self.assertIn('Invalid shader variant', append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments))
         self.assertEqual(entries, {})
 
     def test_material_requests_and_selected_distribution_are_collected(self):
@@ -52,10 +56,61 @@ class ShaderProjectTest(unittest.TestCase):
             config = project / 'resources.json'
             config.write_text(json.dumps({'resources': {'owner': 'toon', 'roots': [{'kind': 'shader',
                 'bundle': 'editor', 'programs': [{'path': 'toon/Editor.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}]}]}]}}), encoding='utf-8')
-            usage, error = project_requirements(project, [config], ['vulkan'], ['common'], {'toon/Custom.slang': b''})
+            usage, error = project_requirements(project, [config], ['vulkan'], ['common'], {'toon/Custom.slang': b''}, self.environments)
             self.assertEqual(error, '')
             self.assertEqual({entry['entry'] for entry in usage['entries']}, {'CustomVertex', 'CustomFragment'})
             self.assertEqual(len(usage['entries']), 2)
+
+    def test_platform_is_required_and_target_combinations_are_checked(self):
+        for platform, targets in [(None, ['metal']), ('ios', ['vulkan']), ('android', ['metal']), ('linux', ['d3d12'])]:
+            environments, error = target_environments(platform, targets)
+            self.assertIsNone(environments)
+            self.assertTrue(error)
+        macos, error = target_environments('macos', ['metal'])
+        self.assertEqual(error, '')
+        ios, error = target_environments('ios', ['metal'])
+        self.assertEqual(error, '')
+        self.assertNotEqual(macos['metal'], ios['metal'])
+        self.assertEqual(set(ios['metal']), {'target', 'platform', 'codeFormat', 'profile', 'minimumVersion',
+                                          'requiredCapabilities', 'matrixLayout', 'options'})
+
+    def test_target_options_and_version_are_explicit_and_canonical(self):
+        environments, error = target_environments('ios', ['metal'], {'metal': {
+            'minimumVersion': 20300, 'requiredCapabilities': 9, 'matrixLayout': 1, 'options': ['b', 'a', 'a']}})
+        self.assertEqual(error, '')
+        self.assertEqual(environments['metal']['options'], ['a', 'b'])
+        self.assertEqual(environments['metal']['minimumVersion'], 20300)
+        self.assertEqual(environments['metal']['requiredCapabilities'], 9)
+        for overrides in [{'metal': {'platform': 2}}, {'metal': {'matrixLayout': 2}}, {'metal': {'codeFormat': 1}}]:
+            self.assertTrue(target_environments('ios', ['metal'], overrides)[1])
+
+    def test_same_metal_program_on_two_platforms_keeps_separate_requests(self):
+        program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}]}
+        entries = {}
+        for platform in ['macos', 'ios']:
+            environments, error = target_environments(platform, ['metal'])
+            self.assertEqual(error, '')
+            self.assertEqual(append_program(program, ['metal'], {'toon/Main.slang': b''}, entries, environments), '')
+        self.assertEqual(len(entries), 2)
+        self.assertEqual({entry['environment']['platform'] for entry in entries.values()}, {2, 3})
+
+    def test_staging_rejects_previous_or_other_platform_products(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            source = project / 'products/shaders/shipping'
+            (source / 'metal').mkdir(parents=True)
+            (source / 'metal/index.bin').write_bytes(b'index')
+            manifest = {'targets': ['metal']}
+            (source / 'distribution.json').write_text(json.dumps(manifest), encoding='utf-8')
+            self.assertIn('recook', stage_products(project, 'shipping', project / 'stage', 'ios'))
+            environments, error = target_environments('ios', ['metal'])
+            self.assertEqual(error, '')
+            manifest.update(formatVersion=2, platform='ios', environments=environments)
+            (source / 'distribution.json').write_text(json.dumps(manifest), encoding='utf-8')
+            self.assertIn('platform', stage_products(project, 'shipping', project / 'stage', 'macos'))
+            self.assertFalse((project / 'stage').exists())
+            self.assertEqual(stage_products(project, 'shipping', project / 'stage', 'ios'), '')
+            self.assertEqual((project / 'stage/shaders/metal/index.bin').read_bytes(), b'index')
 
 
 if __name__ == '__main__':

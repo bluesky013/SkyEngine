@@ -1,16 +1,36 @@
 // Generated from aurora/pipeline/TextureToScreenPass.h; do not edit.
-// Inputs: 5d4a2087df86612ef0180a47c67226b66e5a04cb5c38081d8e1e65f20fe56bb6; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 36f31dc07f70b8f28a9bf6f2dd806537d732124c44d133c47df42d7d08127b50; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct TextureToScreenParams
 {
-    float4 Misc;
+    [AuroraField("Misc")] float4 Misc;
 };
+[AuroraResource(1, 0, "aurora/pipeline/TextureToScreenPass.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<TextureToScreenParams> gTextureToScreen
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;
 
+[AuroraResource(1, 1, "aurora/pipeline/TextureToScreenPass.h")]
 [[vk::binding(1, 1)]] Texture2D<float4> gSourceTexture
-    : register(t1, space1);
+#if !AURORA_TARGET_MSL
+    : register(t1, space1)
+#endif
+;
 
+[AuroraResource(1, 2, "aurora/pipeline/TextureToScreenPass.h")]
 [[vk::binding(2, 1)]] SamplerState gSourceSampler
-    : register(s2, space1);
+#if !AURORA_TARGET_MSL
+    : register(s2, space1)
+#endif
+;

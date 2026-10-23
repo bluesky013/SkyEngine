@@ -38,5 +38,5 @@ if (SKY_BUILD_TEST)
     target_compile_definitions(Aurora.PipelineTest PRIVATE
         AURORA_SHADER_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../assets/shaders"
         AURORA_TEST_SHADER_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/assets/shaders"
-        SHADER_TEST_SOURCE_ROOT="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders")
+        SHADER_TEST_SOURCE_ROOT="$<TARGET_FILE_DIR:Aurora.PipelineTest>/assets/shaders")
 endif ()

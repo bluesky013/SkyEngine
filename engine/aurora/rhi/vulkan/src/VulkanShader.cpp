@@ -8,6 +8,7 @@
 #include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 
+#include <cstring>
 #include <map>
 
 static const char *TAG = "VulkanShader";
@@ -37,25 +38,17 @@ namespace sky::aurora {
 
     bool VulkanShaderFunction::Init(const Descriptor &desc)
     {
-        if (desc.data == nullptr) {
-            LOG_E(TAG, "shader function requires shader data");
+        std::string message;
+        if (!InitArtifact(desc, API::VULKAN, message)) {
+            LOG_E(TAG, "%s", message.c_str());
             return false;
         }
-
-        auto *binary = desc.data->GetBinaryData();
-        if (binary == nullptr) {
-            LOG_E(TAG, "shader function missing binary payload");
-            return false;
-        }
-
-        if (binary->Size() == 0 || binary->Size() % 4 != 0) {
-            LOG_E(TAG, "invalid SPIR-V binary size: %zu", binary->Size());
-            return false;
-        }
-
-        VkShaderModuleCreateInfo ci = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        ci.codeSize                 = binary->Size();
-        ci.pCode                    = reinterpret_cast<const uint32_t *>(binary->Data());
+        const auto              &bytes = artifact->data;
+        VkShaderModuleCreateInfo ci    = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        ci.codeSize                    = bytes.size();
+        std::vector<uint32_t> words(bytes.size() / sizeof(uint32_t));
+        std::memcpy(words.data(), bytes.data(), bytes.size());
+        ci.pCode = words.data();
 
         const VkResult result = device.GetDeviceFn().vkCreateShaderModule(device.GetNativeHandle(), &ci, nullptr, &shaderModule);
         if (result != VK_SUCCESS) {
@@ -90,29 +83,32 @@ namespace sky::aurora {
             return true;
         }
 
-        // group reflected bindings by set index; also accumulate update template
-        // entries (slot offset into the packed DescriptorWriteInfo buffer)
+        std::string error;
+        if (!BuildVulkanBindingPlan(reflection, device.GetLimits().maxBoundDescriptorSets, bindingPlan, error)) {
+            LOG_E(TAG, "%s", error.c_str());
+            return false;
+        }
         std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>    setBindings;
         std::map<uint32_t, std::vector<VkDescriptorUpdateTemplateEntry>> setTemplateEntries;
-        std::map<uint32_t, uint32_t>                                     setSlotBase;
-        for (const auto &res : reflection.resources) {
-            VkDescriptorSetLayoutBinding binding = {};
-            binding.binding                      = res.binding;
-            binding.descriptorType               = FromShaderResourceType(res.type);
-            binding.descriptorCount              = res.count;
-            binding.stageFlags                   = VK_SHADER_STAGE_ALL;
-            binding.pImmutableSamplers           = nullptr;
-            setBindings[res.set].push_back(binding);
-
-            VkDescriptorUpdateTemplateEntry entry = {};
-            entry.dstBinding                      = res.binding;
-            entry.dstArrayElement                 = 0;
-            entry.descriptorCount                 = res.count;
-            entry.descriptorType                  = FromShaderResourceType(res.type);
-            entry.offset                          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * setSlotBase[res.set]);
-            entry.stride                          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo));
-            setTemplateEntries[res.set].push_back(entry);
-            setSlotBase[res.set] += res.count;
+        for (const auto &[set, plan] : bindingPlan.sets) {
+            for (const auto &resource : plan.bindings) {
+                VkDescriptorSetLayoutBinding binding{};
+                binding.binding         = resource.physicalBinding;
+                binding.descriptorType  = FromShaderResourceType(resource.type);
+                binding.descriptorCount = resource.count;
+                binding.stageFlags      = FromShaderStageFlags(resource.stages);
+                if (binding.descriptorType == VK_DESCRIPTOR_TYPE_MAX_ENUM || !binding.stageFlags) {
+                    return false;
+                }
+                setBindings[set].push_back(binding);
+                VkDescriptorUpdateTemplateEntry entry{};
+                entry.dstBinding      = resource.physicalBinding;
+                entry.descriptorCount = resource.count;
+                entry.descriptorType  = binding.descriptorType;
+                entry.offset          = sizeof(DescriptorWriteInfo) * resource.slotBase;
+                entry.stride          = sizeof(DescriptorWriteInfo);
+                setTemplateEntries[set].push_back(entry);
+            }
         }
 
         // Pipeline layout positions are real set indices, including unused holes.
@@ -202,13 +198,15 @@ namespace sky::aurora {
 
     bool VulkanShader::Init(const Descriptor &desc)
     {
-        if ((desc.vs && desc.vs->GetDevice() != &device) || (desc.ps && desc.ps->GetDevice() != &device))
-            return false;
-        if (desc.reflection == nullptr) {
-            LOG_E(TAG, "shader requires a non-null reflection");
+        std::string message;
+        if (!BuildShaderProgramReflection(desc, device, reflection, message)) {
+            LOG_E(TAG, "%s", message.c_str());
             return false;
         }
-        reflection = *desc.reflection;
+        if (!InitParameterTable(desc, message)) {
+            LOG_E(TAG, "%s", message.c_str());
+            return false;
+        }
         if (desc.specialization != nullptr) {
             specialization = *desc.specialization;
         }

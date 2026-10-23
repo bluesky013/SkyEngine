@@ -1,10 +1,22 @@
 // Generated from aurora/pipeline/SceneBatch.h; do not edit.
-// Inputs: 4b06207e23e4bb1d52dec579bf413ca03369a2f62404b47fbc715eb570eb4e2b; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 55da0e978ce2ca001c96f4974bc617f26a52014a6f04eaba44e164465c052a1b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct SceneBatchParams
 {
-    column_major float4x4 world;
+    [AuroraField("world")] column_major float4x4 world;
 };
+[AuroraResource(2, 0, "aurora/pipeline/SceneBatch.h")]
 [[vk::binding(0, 2)]] ConstantBuffer<SceneBatchParams> gSceneBatch
-    : register(b0, space2);
+#if !AURORA_TARGET_MSL
+    : register(b0, space2)
+#endif
+;

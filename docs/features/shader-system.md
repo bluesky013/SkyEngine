@@ -2,13 +2,13 @@
 title: "Shader System"
 description: "Pass declarations, persistent shader exports and module resource inventories."
 module: "aurora"
-updated: "2026-10-22"
+updated: "2026-10-23"
 ---
 
 ## Declaration source and asset paths
 
 C++ consumes the authoritative shared `.h` directly. `SharedShader.h` expands its
-field/resource lists into native types, typed binding slots and expected reflection.
+field/resource lists into native types, typed binding slots and an independent CPU schema.
 `python/shader_headers.py` exports those same lists to pure, version-controlled
 `.slangh` assets. Slang includes `.slangh`; it no longer includes the C++ declarations.
 
@@ -26,8 +26,21 @@ root, `plugins/` include prefix, or second mount for generated files.
 The shared declaration grammar supports flat float/int/uint, float2/float4, column-major
 mat4 and bounded float4 arrays, plus supported texture/sampler declarations. BOOL/FLOAT3
 uniform fields, nested structures, storage-buffer declarations and descriptor arrays
-are rejected. SPIR-V/DXIL/MSL reflection must agree with native C++ metadata; exporting
-text does not prove target ABI compatibility. Multiple declarations in one header are allowed.
+are rejected by the shared authoring grammar. Target layouts may differ from C++ offsets,
+size, array stride and matrix major. `UniformUploadPlan` validates semantic compatibility and
+encodes each actual target ABI. Multiple declarations in one header are allowed.
+
+Exports carry `AuroraResource(set,binding,owner)` and `AuroraField(path)` user attributes.
+Handwritten Slang resources must supply the same attributes; register numbers and short-name
+matching do not establish logical identity. The compiler reads only the requested target's
+layout and usage metadata. MSL has no auxiliary SPIR-V identity target. Native slot/category,
+stage, read-only/read-write access and raw/structured stride are part of the artifact.
+CPU helper layout changes do not alter the generated shader declaration fingerprint.
+
+Keep HLSL `register(..., space...)` annotations target-specific with `AURORA_TARGET_DXIL`.
+Slang 2026.9.2 can map distinct register spaces to the same Metal direct argument index;
+this is explicitly Unsupported. For MSL, let the target allocate addresses and consume its
+actual reflection. Vulkan continues to use explicit `vk::binding` addresses.
 
 ## One module resource description
 
@@ -106,15 +119,40 @@ project module descriptors with `resourceModules`. Export presets expose `shader
 through the existing reflected settings panel; empty means the platform default.
 
 ```text
-python python/package_project.py cook-shaders --project <project> --distribution shipping --target vulkan --target d3d12
+python python/package_project.py cook-shaders --project <project> --distribution shipping --platform windows --target vulkan --target d3d12
 ShaderCookTool <requirements.json> <sourceRoot> <cacheDir> [offlineCacheDir]
 ```
 
-One cook invocation aggregates all selected owners into each target's existing
-`index.bin`/blob format. Products live in `<project>/products/shaders/<distribution>/`
+Usage JSON format 2 persists an explicit canonical target environment. It contains target,
+platform, code format, profile, target-language minimum version, capability requirements,
+matrix convention and compiler options. Minimum versions encode major × 10000 + minor × 100
++ patch. The current baselines are SPIR-V 1.5, shader model 6.5 and Metal 2.3. Metal 2.3
+requires macOS 11 / iOS 14; the iOS deployment target can still be cross-built for 13, but
+that does not qualify these artifacts for execution on iOS 13. Unsupported capabilities or
+language/profile combinations fail explicitly.
+
+One cook invocation aggregates all selected owners into each target's
+`index.bin`/blob format 6. Products live in `<project>/products/shaders/<distribution>/`
 and packaging copies the selected distribution to `products/shaders/`. The tool verifies
 that every requested artifact can be read back with no source filesystem. It does not
 stack independently generated owner indices in MultiFileSystem.
+
+A compile key includes actual compiler build identity, adapter/reflection versions, source
+closure, canonical variants and target environment. ArtifactID binds exact code bytes,
+source/native entries, stage, producer, runtime ABI 1 and full reflection protocol 1.
+There is no word-count rounding. Blob validation/publication precedes index publication;
+atomic replacement failures preserve the old index. Old artifacts require recook.
+
+Producer identity is target-specific. Windows DXIL also hashes the deployed `dxcompiler.dll`
+and `dxil.dll`, pins those files and loads from their verified directory. Missing libraries
+fail development resolution before cache lookup; their machine paths do not enter the key.
+
+`DEVELOPMENT` resolution requires sources and the current compiler identity. `PRODUCTS`
+resolution reads published request → ArtifactID without accessing sources or a compiler.
+The selected distribution environment supplies omitted runtime request options; explicit
+request environments must match. Products from another installed compiler remain consumable
+when their runtime ABI and device requirements are compatible. Source-free MSL products are
+MSL source compiled by Apple's native Metal API, not precompiled metallib products.
 
 The launcher passes the product root into the existing resolver. A source-only development
 launch uses the staged source inventory. Scene asset sources and features accept their
@@ -149,21 +187,67 @@ Bindings remain Global set 0 / Pass set 1 / Batch set 2:
 | Tint / surface parameters | Material-owned Batch binding 2 |
 
 These Batch slots are the built-in material interface, not a generic renderer ABI. Custom
-interfaces declare their own bindings. Material source version 2 specifies whole uniform
-bindings and member-to-property mappings. `PackShaderUniform` packs values at actual reflected
-offsets; it never copies the CPU property map as a GPU block. A combined block requires one
-explicit assembler supplying all fields. Duplicate owners, missing active inputs and layout
-mismatches fail transactionally through `PassResourceBindings`. Unused shared declarations
-need no bindings; fullscreen/compute may have no Batch at all.
+interfaces declare their own bindings. Material source version 3 and instance version 2
+persist semantic properties, typed samplers and explicit property-to-canonical-name aliases.
+Asset dependencies include ordinary 2D textures. Linear data and sRGB color formats remain
+separate through cook, CPU transport and native upload. Unsupported texture shapes fail
+explicitly instead of being interpreted as environment radiance.
 
-Material versions own compiled shaders and CPU uniform snapshots. Uniform storage is allocated
-for the accepted frame and retained until GPU retirement; making a material resident does not
-upload a dummy material buffer. `PreparedRaster` resolves geometry, exact resource versions
-and owned snapshots; it neither chooses Tags nor defines material layouts.
+Material/instance snapshots retain Name + typed CPU values, exact image revisions and sampler
+descriptors. They do not contain target uniform bytes. Prepared draws resolve image eligibility
+and declare graph reads before named binding. Material and Feature providers must remain
+distinct; combined blocks need one explicit assembler. Missing active inputs and overlapping
+providers fail before replacing the draw. Inactive declared parameters need no native binding.
 
-The current material adapter supports scalar/vector/mat4/int/uint uniform properties. Automatic
-material texture/sampler asset binding, arrays, skinning and a general material PSO cache are
-separate capabilities; absent active resources produce an error. Built-in Lit provides the
-current lighting/IBL path, not a complete PBR material system. See the
-[change validation record](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/tasks.md)
-for platform coverage and remaining limits.
+`ShaderFunction` retains a sealed immutable stage artifact. Shader linking merges its actual
+stage artifacts and rejects unrelated reflection or incompatible stages/environments. Dynamic
+UBO policy is explicit. A logical UBO with incompatible byte layouts across stages is currently
+unsupported. Metal consumes explicit direct-argument plans, including sparse per-stage slots;
+there is no empty-metadata ordinal fallback. Vulkan supports stage address fan-out and existing
+arrays, but two independently updated logical groups cannot share one native descriptor set.
+DX12 preserves SRV/UAV access class, raw/structured form, stride and checked view ranges.
+
+## Unified named parameter transactions
+
+`ResourceGroup::CreateEncoder(updateContext)` provides the same typed entry for data and
+resources. The RHI-neutral context supplies device/lease validation, uniform allocation and
+retention; it has no assets, UUIDs or graph handles. Canonical fields are `block.field` and
+resource names come from declarations. Aliases must be explicit and unambiguous. Lookup
+handles carry an interface generation and cannot be persisted or reused with another version.
+
+```cpp
+auto update = group->CreateEncoder(updateContext);
+if (!update->WriteData(Name("gMaterial.tint"), tint) ||
+    !update->WriteImage(Name("baseColorTexture"), imageView, ImageLayout::SHADER_READ_ONLY) ||
+    !update->WriteSampler(Name("baseColorSampler"), sampler) || !update->End()) {
+    return ReportParameterError(update->GetError());
+}
+auto nextGroup = update->GetResult();
+```
+
+`WriteBlock` takes an explicit CPU schema; `WriteData` carries semantic type and shape.
+Same-sized FLOAT/INT/UINT values are not interchangeable. `WriteBuffer` validates storage
+form, owner and range. Known inactive writes return a distinct `INACTIVE` status; unknown,
+ambiguous, stale, duplicate or overlapping writes poison the transaction. End returns false
+after any error, even when an individual result was ignored. Cancel/destruction publishes
+nothing. End creates no queue or GPU submission.
+
+The first successful version must supply all active required fields/resources. Later updates
+inherit omitted values and return a new immutable group. Draws retain previous snapshots and
+allocation leases until retirement. ResourceGroup and the frame graph adapter both delegate to the same RHI
+`ShaderParameterTransaction`. It freezes encoded uniform bytes and opaque resource tokens;
+separate materializers retain native resources or declare graph accesses under the existing
+lease. Each block is encoded and uploaded once. The numeric descriptor operations remain
+internal native execution primitives; backends do not search names.
+
+Uniform plans are cached per shader version and CPU schema fingerprint. They encode native
+offsets, matrix major/stride and float4 array stride, clear target padding and never read CPU
+padding. A whole-block copy is allowed only when semantic compatibility and complete byte
+coverage prove it contains no padding. Typed Pass slots retain CPU values until the draw's
+actual shader selects the plan. Material fields use the same typed schema/plan rules.
+
+Built-in Lit provides the current lighting/IBL path, not a complete PBR material system.
+Descriptor arrays in Metal direct arguments, nested uniforms, FLOAT3/BOOL/half packing,
+typed/counter storage buffers and material deformation remain unsupported. Native execution
+coverage is recorded in the [target artifact change](../../openspec/changes/refactor-aurora-target-shader-artifacts/tasks.md);
+platform builds and native-device results are tracked separately.

@@ -3,6 +3,7 @@
 //
 
 #include "AuroraTestHelper.h"
+#include "SceneBatch.h"
 
 #include <aurora/pipeline/BatchPackWriter.h>
 #include <aurora/pipeline/GlobalRenderResources.h>
@@ -14,8 +15,6 @@
 #include <aurora/scene/SceneView.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
-#include <core/archive/BinaryData.h>
-#include <cstring>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -27,6 +26,7 @@ namespace {
     {
         const char *src = R"(
 #include <aurora/pipeline/GlobalBlock.slangh>
+[AuroraResource(1, 0, "test/ResourceTiers")]
 RWStructuredBuffer<float4> values : register(u0, space1);
 [shader("compute")]
 [numthreads(1, 1, 1)]
@@ -48,50 +48,39 @@ void mainCS() { values[0] = gGlobal.frameTime; }
             return nullptr;
         }
 
-        const size_t bytes  = r.data.size() * sizeof(uint32_t);
-        auto         binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
-        std::memcpy(binary->Data(), r.data.data(), bytes);
-
-        auto *provider       = new ShaderBinaryProvider();
-        provider->binaryData = binary;
-
-        ShaderFunction::Descriptor fnDesc = {};
-        fnDesc.stage                      = ShaderStageFlagBit::CS;
-        fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
-        auto *cs                          = device->CreateShaderFunction(fnDesc);
+        ShaderFunction::Descriptor fnDesc{};
+        fnDesc.stage    = ShaderStageFlagBit::CS;
+        fnDesc.artifact = std::make_shared<const ShaderStageArtifact>(r);
+        auto *cs        = device->CreateShaderFunction(fnDesc);
         if (cs == nullptr) {
             return nullptr;
         }
 
         Shader::Descriptor shaderDesc = {};
         shaderDesc.cs                 = cs;
-        shaderDesc.reflection         = &r.reflection;
         return device->CreateShader(shaderDesc);
     }
 
-    // Compile a shader carrying a ParameterBlock, then mark its uniform block
-    // as UNIFORM_BUFFER_DYNAMIC in the reflection (Vulkan SPIR-V is identical
-    // for static and dynamic UBOs; the static/dynamic distinction is descriptor
-    // set layout side). Returns the created Shader and fills set/binding/blockSize.
     Shader *MakeDynamicBatchShader(Device *device, uint32_t &set, uint32_t &binding, uint32_t &blockSize)
     {
         const char *src = R"(
-struct BatchParams {
-    float4x4 model;
-};
-ParameterBlock<BatchParams> gBatch;
-
+#include <aurora/pipeline/SceneBatch.slangh>
+[AuroraResource(1, 0, "test/ResourceTiers")]
+RWStructuredBuffer<float4> values : register(u0, space1);
 [shader("compute")]
 [numthreads(1, 1, 1)]
-void mainCS() {}
+void mainCS() { values[0] = gSceneBatch.world[0]; }
 )";
 
+        ShaderFileSystem files;
+        files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
         ShaderCompilerSlang compiler;
         ShaderCompileDesc   d{};
-        d.source = src;
-        d.entry  = "mainCS";
-        d.stage  = ShaderStageFlagBit::CS;
-        d.target = ShaderTarget::SPIRV;
+        d.fileSystem = &files;
+        d.source     = src;
+        d.entry      = "mainCS";
+        d.stage      = ShaderStageFlagBit::CS;
+        d.target     = ShaderTarget::SPIRV;
 
         ShaderCompileResult r{};
         if (!compiler.Compile(d, r)) {
@@ -101,11 +90,10 @@ void mainCS() {}
         set       = 0;
         binding   = 0;
         blockSize = 0;
-        for (auto &res : r.reflection.resources) {
+        for (const auto &res : r.reflection.resources) {
             if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
-                res.type = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                set      = res.set;
-                binding  = res.binding;
+                set     = res.set;
+                binding = res.binding;
             }
         }
         for (const auto &block : r.reflection.blocks) {
@@ -113,28 +101,20 @@ void mainCS() {}
                 blockSize = block.size;
             }
         }
-        if (blockSize == 0) {
-            blockSize = 64; // sizeof(float4x4)
-        }
+        if (blockSize == 0)
+            return nullptr;
 
-        const size_t bytes  = r.data.size() * sizeof(uint32_t);
-        auto         binary = CounterPtr<BinaryData>(new BinaryData(static_cast<uint32_t>(bytes)));
-        std::memcpy(binary->Data(), r.data.data(), bytes);
-
-        auto *provider       = new ShaderBinaryProvider();
-        provider->binaryData = binary;
-
-        ShaderFunction::Descriptor fnDesc = {};
-        fnDesc.stage                      = ShaderStageFlagBit::CS;
-        fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
-        auto *cs                          = device->CreateShaderFunction(fnDesc);
+        ShaderFunction::Descriptor fnDesc{};
+        fnDesc.stage    = ShaderStageFlagBit::CS;
+        fnDesc.artifact = std::make_shared<const ShaderStageArtifact>(r);
+        auto *cs        = device->CreateShaderFunction(fnDesc);
         if (cs == nullptr) {
             return nullptr;
         }
 
         Shader::Descriptor shaderDesc = {};
         shaderDesc.cs                 = cs;
-        shaderDesc.reflection         = &r.reflection;
+        shaderDesc.bindingPolicies.push_back({set, binding, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC});
         return device->CreateShader(shaderDesc);
     }
 
@@ -231,15 +211,14 @@ TEST_F(AuroraVulkanTest, BatchPackWriterPackReturnsOffset)
     BatchAllocator batch;
     ASSERT_TRUE(batch.Init(device, 4096));
 
-    struct PerObject {
-        float value[4];
-    };
-    PerObject a{};
-    a.value[0] = 1.0f;
-
-    BatchPackWriter writer(batch);
-    const uint32_t  o0 = writer.Pack(a);
-    const uint32_t  o1 = writer.Pack(a);
+    uint32_t  set = 0, binding = 0, blockSize = 0;
+    ShaderPtr shader(MakeDynamicBatchShader(device, set, binding, blockSize));
+    ASSERT_TRUE(shader);
+    const shared::SceneBatchParams value{.world = Matrix4::Identity()};
+    BatchPackWriter                writer(batch);
+    std::string                    error;
+    const auto                     o0 = writer.Pack(*shader, shared::SceneBatchBindings::gSceneBatch, value, error);
+    const auto                     o1 = writer.Pack(*shader, shared::SceneBatchBindings::gSceneBatch, value, error);
 
     EXPECT_EQ(o0, 0u);
     EXPECT_EQ(o1, device->GetCapability().minUniformBufferOffsetAlignment);
@@ -271,8 +250,8 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
 
     // stable binding: offset=0, range=blockSize, written once per frame
     auto encoder = group->CreateEncoder();
-    encoder->WriteBuffer(binding, buffer.Get(), 0, blockSize);
-    encoder->End(); // must not assert
+    ASSERT_TRUE(encoder->WriteBuffer(binding, buffer.Get(), 0, blockSize));
+    ASSERT_TRUE(encoder->End());
 
     auto encoder2 = group->CreateEncoder();
     encoder2->WriteBuffer(binding, buffer.Get(), 0, blockSize);

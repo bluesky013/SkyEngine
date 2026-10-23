@@ -1,153 +1,115 @@
-//
-// ShaderUsage tests: collection dedup, JSON union flush, grouping, offline build.
-//
-
 #include <aurora/shader/ShaderUsage.h>
 
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderResolver.h>
 
-#include <core/file/FileSystem.h>
+#include "ShaderArtifactTest.h"
 
 #include <gtest/gtest.h>
 
-#include <filesystem>
-#include <string>
-
 using namespace sky;
 using namespace sky::aurora;
+using namespace sky::aurora::test;
 
 namespace {
-
-    struct TempDir {
-        std::string path;
-        explicit TempDir(const std::string &name)
-        {
-            path = (std::filesystem::temp_directory_path() / ("sky_shaderusage_" + name + "_" + std::to_string(::rand()))).string();
-            std::filesystem::create_directories(path);
-        }
-        ~TempDir()
-        {
-            std::error_code ec;
-            std::filesystem::remove_all(path, ec);
-        }
-    };
-
-    NativeFileSystem *MakeFs(const std::string &dir)
+    ShaderUsageEntry UsageEntry(const char *entry = "mainFS", ShaderStageFlagBit stage = ShaderStageFlagBit::FS)
     {
-        std::filesystem::create_directories(dir);
-        return new NativeFileSystem(FilePath(dir));
+        ShaderUsageEntry value;
+        value.relativePath = "s.slang";
+        value.entry        = entry;
+        value.stage        = static_cast<uint32_t>(stage);
+        value.environment  = DefaultShaderEnvironment(ShaderTarget::SPIRV, ShaderPlatform::MACOS);
+        return value;
     }
-
-    class FakeCompiler : public IShaderCompiler {
-    public:
-        int  count = 0;
-        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
-        {
-            ++count;
-            out.data       = {static_cast<uint32_t>(desc.source.size())};
-            out.reflection = ShaderReflection{};
-            return true;
-        }
-    };
-
-    const char *kCompanion = R"({
-        "sources": [{"name": "material", "width": 8}],
-        "variants": [{"key": "USE_SHADOWS", "source": "material", "width": 1, "default": 0}]
-    })";
-
-    ShaderUsageEntry MakeEntry(const char *entry, uint32_t stage)
-    {
-        ShaderUsageEntry e;
-        e.relativePath = "s.slang";
-        e.entry        = entry;
-        e.stage        = stage;
-        e.target       = 0;
-        e.variantHash  = 7;
-        return e;
-    }
-
 } // namespace
-
-TEST(ShaderUsageTest, DedupAndToggle)
+TEST(ShaderUsageTest, DedupIncludesFullTargetEnvironment)
 {
     ShaderUsageCollector collector;
-    collector.Record(MakeEntry("mainFS", 0x02));
-    EXPECT_EQ(collector.Size(), 0u); // disabled
-
+    ASSERT_TRUE(collector.Record(UsageEntry()));
+    EXPECT_EQ(collector.Size(), 0u);
     collector.SetEnabled(true);
-    collector.Record(MakeEntry("mainFS", 0x02));
-    collector.Record(MakeEntry("mainFS", 0x02)); // duplicate
-    collector.Record(MakeEntry("mainVS", 0x01));
-    EXPECT_EQ(collector.Size(), 2u);
+    ASSERT_TRUE(collector.Record(UsageEntry()));
+    ASSERT_TRUE(collector.Record(UsageEntry()));
+    auto other                 = UsageEntry();
+    other.environment.platform = ShaderPlatform::IOS;
+    ASSERT_TRUE(collector.Record(other));
+    other                          = UsageEntry();
+    other.environment.matrixLayout = ShaderMatrixLayout::ROW_MAJOR;
+    ASSERT_TRUE(collector.Record(other));
+    EXPECT_EQ(collector.Size(), 3u);
+    other                      = UsageEntry();
+    other.environment.platform = ShaderPlatform::UNKNOWN;
+    EXPECT_FALSE(collector.Record(other));
 }
-
-TEST(ShaderUsageTest, Grouping)
+TEST(ShaderUsageTest, GroupingKeepsPlatformAndOptionsSeparate)
 {
-    std::vector<ShaderUsageEntry> usage  = {MakeEntry("mainVS", 0x01), MakeEntry("mainFS", 0x02)};
-    auto                          groups = GroupShaderUsage(usage);
-    ASSERT_EQ(groups.size(), 1u);
+    std::vector<ShaderUsageEntry> usage{UsageEntry("mainVS", ShaderStageFlagBit::VS), UsageEntry()};
+    auto                          other = UsageEntry();
+    other.environment.platform          = ShaderPlatform::IOS;
+    usage.push_back(other);
+    other                     = UsageEntry();
+    other.environment.options = {"different-option"};
+    usage.push_back(other);
+    const auto groups = GroupShaderUsage(usage);
+    ASSERT_EQ(groups.size(), 3u);
     EXPECT_EQ(groups[0].entries.size(), 2u);
 }
-
-TEST(ShaderUsageTest, FlushUnionMerge)
+TEST(ShaderUsageTest, FlushMergesAndPreservesCompleteEnvironment)
 {
-    TempDir           dir("flush");
-    NativeFileSystem *fs = MakeFs(dir.path);
-
-    ShaderUsageCollector a;
-    a.SetEnabled(true);
-    a.Record(MakeEntry("mainVS", 0x01));
-    ASSERT_TRUE(a.Flush(*fs, "shader_usage.json"));
-
-    ShaderUsageCollector b;
-    b.SetEnabled(true);
-    b.Record(MakeEntry("mainFS", 0x02));
-    ASSERT_TRUE(b.Flush(*fs, "shader_usage.json"));
-
-    std::vector<ShaderUsageEntry> merged;
-    ASSERT_TRUE(ShaderUsageCollector::Load(*fs, "shader_usage.json", merged));
-    EXPECT_EQ(merged.size(), 2u);
+    ShaderCacheDirectory directory("usage");
+    ShaderUsageCollector first, second;
+    first.SetEnabled(true);
+    second.SetEnabled(true);
+    auto vertex                             = UsageEntry("mainVS", ShaderStageFlagBit::VS);
+    vertex.environment.minimumVersion       = 20300;
+    vertex.environment.requiredCapabilities = 9;
+    vertex.environment.options              = {"b", "a"};
+    ASSERT_TRUE(first.Record(vertex));
+    std::string error;
+    ASSERT_TRUE(first.Flush(*directory.fs, "usage.json", &error)) << error;
+    ASSERT_TRUE(second.Record(UsageEntry()));
+    ASSERT_TRUE(second.Flush(*directory.fs, "usage.json", &error)) << error;
+    std::vector<ShaderUsageEntry> loaded;
+    ASSERT_TRUE(ShaderUsageCollector::Load(*directory.fs, "usage.json", loaded, &error)) << error;
+    ASSERT_EQ(loaded.size(), 2u);
+    EXPECT_EQ(loaded[0].environment.minimumVersion, 20300u);
+    EXPECT_EQ(loaded[0].environment.requiredCapabilities, 9u);
+    EXPECT_EQ(loaded[0].environment.options, (std::vector<std::string>{"a", "b"}));
 }
-
-TEST(ShaderUsageTest, OfflineBuild)
+TEST(ShaderUsageTest, PreviousUsageNeedsExplicitRecollection)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
-    source.AddVirtualFile("s.slang.json", kCompanion);
-
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    std::vector<ShaderUsageEntry> usage = {MakeEntry("mainVS", 0x01), MakeEntry("mainFS", 0x02)};
-
-    {
-        ShaderResolver resolver(offline, local, source, 1, 2);
-        std::string    error;
-        ASSERT_TRUE(BuildUsageCache(resolver, usage, &error)) << error;
-    }
-    EXPECT_EQ(compiler.count, 2);
-
-    // cached: resolve with a read-only local root and no source, no recompile
-    ShaderFileSystem emptySource;
-    ShaderResolver   cached(local, local, emptySource, 1, 2);
-    for (const auto &e : usage) {
-        ShaderResolver::Request req;
-        req.relativePath = e.relativePath;
-        req.entry        = e.entry;
-        req.stage        = static_cast<ShaderStageFlagBit>(e.stage);
-        req.target       = e.target;
-        req.variantHash  = e.variantHash;
-        ShaderCompileResult out;
-        std::string         error;
-        ASSERT_TRUE(cached.ResolveShader(req, out, &error)) << error;
-    }
-    EXPECT_EQ(compiler.count, 2);
-
+    ShaderCacheDirectory directory("oldusage");
+    const std::string    old = R"({"entries":[{"path":"s.slang","entry":"mainFS","stage":2,"target":0}]})";
+    ASSERT_TRUE(WriteFileAtomic(*directory.fs, "usage.json", {old.begin(), old.end()}));
+    std::vector<ShaderUsageEntry> output{UsageEntry()};
+    std::string                   error;
+    EXPECT_FALSE(ShaderUsageCollector::Load(*directory.fs, "usage.json", output, &error));
+    EXPECT_NE(error.find("recollect"), std::string::npos);
+    EXPECT_EQ(output.size(), 1u);
+    ShaderUsageCollector collector;
+    collector.SetEnabled(true);
+    ASSERT_TRUE(collector.Record(UsageEntry()));
+    EXPECT_FALSE(collector.Flush(*directory.fs, "usage.json", &error));
+    std::string preserved;
+    ASSERT_TRUE(directory.fs->OpenFile(FilePath("usage.json"))->ReadString(preserved));
+    EXPECT_EQ(preserved, old);
+}
+TEST(ShaderUsageTest, CookAndCompilerFreePublishedVerification)
+{
+    ShaderCacheDirectory directory("usagecook");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    sources.AddVirtualFile("s.slang.json", R"({"sources":[],"variants":[]})");
+    TestShaderCompiler                  compiler;
+    const CompilerRegistration          registration(&compiler);
+    const std::vector<ShaderUsageEntry> usage{UsageEntry("mainVS", ShaderStageFlagBit::VS), UsageEntry()};
+    ShaderResolver                      development(nullptr, directory.fs.Get(), sources, 0, 0);
+    std::string                         error;
+    ASSERT_TRUE(BuildUsageCache(development, usage, &error)) << error;
+    EXPECT_EQ(compiler.count, 2u);
     ShaderCompilerFactory::Get().Register(nullptr);
+    ShaderFileSystem empty;
+    ShaderResolver   products(directory.fs.Get(), nullptr, empty, 0, UINT64_MAX, ShaderResolveMode::PRODUCTS);
+    ASSERT_TRUE(BuildUsageCache(products, usage, &error)) << error;
+    EXPECT_EQ(compiler.count, 2u);
 }

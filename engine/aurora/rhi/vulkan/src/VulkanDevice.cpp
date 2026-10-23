@@ -308,6 +308,10 @@ namespace sky::aurora {
         allocatorCI.instance               = instance.GetNativeHandle();
         allocatorCI.pVulkanFunctions       = &vulkanFunctions;
         allocatorCI.vulkanApiVersion       = gpuProperties.properties.apiVersion;
+#if SKY_PLATFORM_ANDROID
+        // Android's allocator uses the same 1.3 contract as Aurora's required device features.
+        allocatorCI.vulkanApiVersion = std::min(allocatorCI.vulkanApiVersion, VK_API_VERSION_1_3);
+#endif
 
         const VkResult res = vmaCreateAllocator(&allocatorCI, &allocator);
         if (res != VK_SUCCESS) {

@@ -7,9 +7,9 @@
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/shader/ShaderCompilerSlang.h>
-#include <aurora/rhi/Shader.h>
 #include <aurora/rhi/PipelineState.h>
+#include <aurora/rhi/Shader.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
 #include <core/archive/BinaryData.h>
 
 #include <cstring>
@@ -49,11 +49,15 @@ FSOutput mainFS(float2 uv : TEXCOORD0)
 )";
 
     inline const char *kSlangComputeCs = R"(
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
 struct Params {
-    float4x4 viewProj;
-    float4   color;
+    [AuroraField("viewProj")] float4x4 viewProj;
+    [AuroraField("color")] float4 color;
 };
-ParameterBlock<Params> gParams;
+[AuroraResource(1,0,"fixture/compute")] [[vk::binding(0,1)]] ConstantBuffer<Params> gParams;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
@@ -63,19 +67,11 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
 }
 )";
 
-    inline ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const std::vector<uint32_t> &blob,
-                                                         const char *entry = "")
+    inline ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const ShaderCompileResult &compiled)
     {
-        auto *provider       = new ShaderBinaryProvider();
-        provider->binaryData = CounterPtr<BinaryData>(
-            new BinaryData(static_cast<uint32_t>(blob.size() * sizeof(uint32_t))));
-        std::memcpy(provider->binaryData->Data(), blob.data(),
-                    blob.size() * sizeof(uint32_t));
-
         ShaderFunction::Descriptor desc{};
-        desc.stage = stage;
-        desc.data  = CounterPtr<ShaderDataProvider>(provider);
-        desc.entry = entry;
+        desc.stage    = stage;
+        desc.artifact = std::make_shared<const ShaderStageArtifact>(compiled);
         return desc;
     }
 
@@ -102,18 +98,14 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ASSERT_TRUE(compiler.Compile(fsDesc, fsResult)) << fsResult.errorInfo;
         ASSERT_FALSE(fsResult.data.empty());
 
-        CounterPtr<ShaderFunction> vs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::VS, vsResult.data, "mainVS")));
-        CounterPtr<ShaderFunction> fs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::FS, fsResult.data, "mainFS")));
+        CounterPtr<ShaderFunction> vs(device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::VS, vsResult)));
+        CounterPtr<ShaderFunction> fs(device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::FS, fsResult)));
         ASSERT_NE(vs.Get(), nullptr);
         ASSERT_NE(fs.Get(), nullptr);
 
-        ShaderReflection refl{}; // fullscreen vs/fs have no resources
         Shader::Descriptor shaderDesc{};
-        shaderDesc.vs         = vs.Get();
-        shaderDesc.ps         = fs.Get();
-        shaderDesc.reflection = &refl;
+        shaderDesc.vs = vs.Get();
+        shaderDesc.ps = fs.Get();
         CounterPtr<Shader> shader(device->CreateShader(shaderDesc));
         ASSERT_NE(shader.Get(), nullptr);
     }
@@ -133,13 +125,11 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
         ASSERT_TRUE(compiler.Compile(csDesc, csResult)) << csResult.errorInfo;
         ASSERT_FALSE(csResult.data.empty());
 
-        CounterPtr<ShaderFunction> cs(
-            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult.data, "mainCS")));
+        CounterPtr<ShaderFunction> cs(device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult)));
         ASSERT_NE(cs.Get(), nullptr);
 
         Shader::Descriptor shaderDesc{};
-        shaderDesc.cs         = cs.Get();
-        shaderDesc.reflection = &csResult.reflection;
+        shaderDesc.cs = cs.Get();
         CounterPtr<Shader> shader(device->CreateShader(shaderDesc));
         ASSERT_NE(shader.Get(), nullptr);
 

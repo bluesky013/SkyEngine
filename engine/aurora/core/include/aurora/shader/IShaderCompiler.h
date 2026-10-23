@@ -18,7 +18,12 @@ namespace sky::aurora {
     public:
         virtual ~IShaderCompiler() = default;
 
-        virtual bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) = 0;
+        virtual bool                   Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) = 0;
+        virtual ShaderProducerIdentity GetProducerIdentity() const                                         = 0;
+        virtual ShaderProducerIdentity GetProducerIdentity(ShaderTarget) const
+        {
+            return GetProducerIdentity();
+        }
     };
 
     // Process-wide (cross-DLL) registry: Aurora.Core is a static lib linked into several module DLLs,

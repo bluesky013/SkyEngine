@@ -3,7 +3,6 @@
 //
 
 #include "GpuTestSupport.h"
-#include "shaders/FrameGraphSPIRV.h"
 
 #include "graph/FrameGraphBuilder.h"
 #include <D3D12Device.h>
@@ -40,21 +39,13 @@ namespace {
                 ASSERT_TRUE(SUCCEEDED(static_cast<D3D12Device *>(device)->GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&debug))));
                 debug->ClearStoredMessages();
             } else {
-                auto function = [&](ShaderStageFlagBit stage, std::span<const uint32_t> words) {
-                    CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-                    provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(words.size_bytes())));
-                    std::memcpy(provider->binaryData->Data(), words.data(), words.size_bytes());
-                    return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, {}}));
-                };
-                auto             vs = function(ShaderStageFlagBit::VS, FrameGraphVS);
-                auto             fs = function(ShaderStageFlagBit::FS, FrameGraphRedFS);
-                ShaderReflection reflection;
-                reflection.resources = {{"view", ShaderResourceType::UNIFORM_BUFFER, 0, 0, 1}, {"sampler", ShaderResourceType::SAMPLER, 1, 0, 1}};
-                Shader::Descriptor desc{};
-                desc.vs         = vs.Get();
-                desc.ps         = fs.Get();
-                desc.reflection = &reflection;
-                shader          = device->CreateShader(desc);
+                const auto vs = CompileGpuFunction(*device, kGpuAllocationSource, ShaderStageFlagBit::VS, "VSMain");
+                const auto fs = CompileGpuFunction(*device, kGpuAllocationSource, ShaderStageFlagBit::FS, "PSMain");
+                ASSERT_TRUE(vs && fs);
+                Shader::Descriptor descriptor{};
+                descriptor.vs = vs.Get();
+                descriptor.ps = fs.Get();
+                shader        = device->CreateShader(descriptor);
                 ASSERT_TRUE(shader);
             }
             info.parallelNum                     = 2;

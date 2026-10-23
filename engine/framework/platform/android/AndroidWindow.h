@@ -18,6 +18,8 @@ namespace sky {
         AndroidWindow() = default;
         ~AndroidWindow() override;
 
+        std::shared_ptr<const void> RetainNativeHandle() const override;
+
         // The OS window handle may be (re)created on resume; keep the engine
         // window bound to the live ANativeWindow.
         void SetWinHandle(void *handle);

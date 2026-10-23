@@ -12,7 +12,9 @@ namespace sky::aurora {
     Uuid                                               SceneLitMaterialId();
     MeshAssetData                                      ScenePrimitiveMesh(ScenePrimitive primitive);
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info);
-    std::variant<RendererError, RenderResourcePayload> ConvertSceneImage(const Asset<Texture> &asset, RendererInfo info);
+    enum class SceneImageUsage { ENVIRONMENT, MATERIAL };
+    std::variant<RendererError, RenderResourcePayload>
+    ConvertSceneImage(const Asset<Texture> &asset, RendererInfo info, SceneImageUsage usage = SceneImageUsage::ENVIRONMENT);
 
     // The loader returns owned assets; ResolveMesh polls status without waiting on asset workers.
     // Sources are supplied by the host; an empty provider supports cooked-only or non-shader asset requests.

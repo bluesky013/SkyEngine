@@ -1,24 +1,44 @@
 // Generated from first/pipeline/ToonPass.h; do not edit.
-// Inputs: 2f641142b69d0ecabdfaf58e88a791dc0468de2e17f35244c09b6aa91315b236; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 49f000a6674e4f37e821b5e60628d83dee8dcb879a0936dcfeaef55c82136bca; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct GlobalParams
 {
-    float4 color;
+    [AuroraField("color")] float4 color;
 };
+[AuroraResource(0, 0, "first/pipeline/ToonPass.h")]
 [[vk::binding(0, 0)]] ConstantBuffer<GlobalParams> gGlobal
-    : register(b0, space0);
+#if !AURORA_TARGET_MSL
+    : register(b0, space0)
+#endif
+;
 
 struct ToonParams
 {
-    float4 color;
+    [AuroraField("color")] float4 color;
 };
+[AuroraResource(1, 0, "first/pipeline/ToonPass.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<ToonParams> gPass
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;
 
 struct BatchParams
 {
-    float4 color;
+    [AuroraField("color")] float4 color;
 };
+[AuroraResource(2, 0, "first/pipeline/ToonPass.h")]
 [[vk::binding(0, 2)]] ConstantBuffer<BatchParams> gBatch
-    : register(b0, space2);
+#if !AURORA_TARGET_MSL
+    : register(b0, space2)
+#endif
+;

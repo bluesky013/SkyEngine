@@ -109,22 +109,25 @@ namespace {
                 ShaderCompilerFactory::Get().Register(previous);
             }
         } scope;
-        ShaderFileSystem files;
-        files.AddVirtualFile("custom/Compute.slang", std::string("RWTexture2D<float4> image : register(u0, space1);\n") +
-                                                         (missingBatch ? "cbuffer Batch : register(b0, space2) { float4 color; }\n" : "") +
-                                                         "[numthreads(1, 1, 1)] void FillTarget(uint3 id : SV_DispatchThreadID) { image[id.xy] = " +
-                                                         (missingBatch ? "color" : "float4(0, 0, 1, 1)") + "; }");
-        files.AddVirtualFile("custom/Fullscreen.slang",
-                             std::string(fullscreenBatch ? "cbuffer Batch : register(b0, space2) { float4 color; }\n" : "") + R"(
-            Texture2D<float4> image : register(t0, space1);
-            SamplerState linearSampler : register(s1, space1);
+        ShaderFileSystem  files;
+        const std::string batch = R"(
+            struct Batch { [AuroraField("color")] float4 color; };
+            [AuroraResource(2,0,"fixture/Batch")] [[vk::binding(0,2)]] ConstantBuffer<Batch> batch : register(b0, space2);
+        )";
+        files.AddVirtualFile("custom/Compute.slang", std::string(HostShaderAttributes) + R"(
+            [AuroraResource(1,0,"fixture/Compute")] [[vk::binding(0,1)]] RWTexture2D<float4> image : register(u0, space1);
+        )" + (missingBatch ? batch : "") + "[numthreads(1, 1, 1)] void FillTarget(uint3 id : SV_DispatchThreadID) { image[id.xy] = " +
+                                                         (missingBatch ? "batch.color" : "float4(0, 0, 1, 1)") + "; }");
+        files.AddVirtualFile("custom/Fullscreen.slang", std::string(HostShaderAttributes) + (fullscreenBatch ? batch : "") + R"(
+            [AuroraResource(1,0,"fixture/Fullscreen")] [[vk::binding(0,1)]] Texture2D<float4> image : register(t0, space1);
+            [AuroraResource(1,1,"fixture/Fullscreen")] [[vk::binding(1,1)]] SamplerState linearSampler : register(s1, space1);
             struct Vertex { float4 position : SV_Position; float2 uv : TEXCOORD0; };
             Vertex DrawQuad(uint id : SV_VertexID) {
                 float2 p = float2((id << 1) & 2, id & 2);
                 Vertex v; v.position = float4(p * 2 - 1, 0, 1); v.uv = p; return v;
             }
             float4 SampleTarget(Vertex v) : SV_Target { return image.Sample(linearSampler, v.uv)
-        )" + (fullscreenBatch ? " * color; }" : "; }"));
+        )" + (fullscreenBatch ? " * batch.color; }" : "; }"));
         files.AddVirtualFile("custom/Compute.slang.json", R"({"entries":["FillTarget"],"variants":[]})");
         files.AddVirtualFile("custom/Fullscreen.slang.json", R"({"entries":["DrawQuad","SampleTarget"],"variants":[]})");
         ShaderTechnique cs;
@@ -199,8 +202,10 @@ namespace {
             }
             float4 FSMain() : SV_Target { return gOpaquePass.cameraPosition; }
         )");
-        for (auto &resource : code.reflection.resources)
+        for (auto &resource : code.reflection.resources) {
+            code.bindingPolicies.push_back({resource.set, resource.binding, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC});
             resource.type = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+        }
         return std::make_shared<HeaderColorFeature>(std::move(code), shortRange);
     }
 
@@ -437,34 +442,13 @@ namespace {
         }
         std::shared_ptr<IFrameGraphFeature> Ui()
         {
-            RenderTechniqueData code;
-            code.backend       = info.backend;
-            code.vertexEntry   = "VSMain";
-            code.fragmentEntry = "FSMain";
-            ShaderCompilerSlang compiler;
-            for (const bool vertex : {true, false}) {
-                ShaderCompileDesc desc;
-                desc.source = std::string(RenderUiShaderSource());
-                desc.entry  = vertex ? "VSMain" : "FSMain";
-                desc.stage  = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
-                desc.target = info.backend == API::DX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
-                ShaderCompileResult compiled;
-                EXPECT_TRUE(compiler.Compile(desc, compiled)) << compiled.errorInfo;
-                auto &bytes = vertex ? code.vertexCode : code.fragmentCode;
-                bytes.resize(compiled.data.size() * sizeof(uint32_t));
-                std::memcpy(bytes.data(), compiled.data.data(), bytes.size());
-            }
-            ShaderResource image{"image", ShaderResourceType::SAMPLED_IMAGE, 0, 0, 1};
-            image.texture = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
-            ShaderResource sampler{"imageSampler", ShaderResourceType::SAMPLER, 0, 1, 1};
-            sampler.sampler           = ShaderSamplerType::REGULAR;
-            code.reflection.resources = {image, sampler};
-            code.blend.blendEn        = true;
-            code.blend.srcColor       = BlendFactor::SRC_ALPHA;
-            code.blend.dstColor       = BlendFactor::ONE_MINUS_SRC_ALPHA;
-            code.blend.srcAlpha       = BlendFactor::ONE;
-            code.blend.dstAlpha       = BlendFactor::ONE_MINUS_SRC_ALPHA;
-            auto created              = CreateUiRenderFeature(Name("ui"), std::move(code));
+            auto code           = CompileHostRaster(info, std::string(RenderUiShaderSource()));
+            code.blend.blendEn  = true;
+            code.blend.srcColor = BlendFactor::SRC_ALPHA;
+            code.blend.dstColor = BlendFactor::ONE_MINUS_SRC_ALPHA;
+            code.blend.srcAlpha = BlendFactor::ONE;
+            code.blend.dstAlpha = BlendFactor::ONE_MINUS_SRC_ALPHA;
+            auto created        = CreateUiRenderFeature(Name("ui"), std::move(code));
             EXPECT_TRUE(std::holds_alternative<std::shared_ptr<IFrameGraphFeature>>(created));
             return std::get<std::shared_ptr<IFrameGraphFeature>>(created);
         }
@@ -718,7 +702,7 @@ TEST_P(RendererRuntimeTest, SceneQueueUsesTheMatchingTagInsteadOfTheFirstTechniq
     auto  shadow     = techniques.front();
     shadow.tag       = Name("shadow");
     const Vector4 blue{0, 0, 1, 1};
-    std::memcpy(shadow.uniforms.front().bytes.data(), &blue, sizeof(blue));
+    shadow.parameters.values.front().value = MakeShaderData(blue);
     techniques.insert(techniques.begin(), std::move(shadow));
     Submit(std::move(packet));
     Complete(sequence);
@@ -921,7 +905,7 @@ TEST_P(RendererRuntimeTest, B13TwoCamerasSecondSceneAndUiLoadUseSeparateConstant
     auto green     = Material();
     green.resource = Key(1203);
     const float tint[]{0, 1, 0, 1};
-    std::memcpy(green.material->techniques.front().uniforms.front().bytes.data(), tint, sizeof(tint));
+    green.material->techniques.front().parameters.values.front().value = MakeShaderData(Vector4{tint[0], tint[1], tint[2], tint[3]});
     RenderEntityDesc entity;
     entity.mesh     = {Key(1201), 1};
     entity.material = {Key(1203), 1};
@@ -1482,12 +1466,12 @@ TEST_P(RendererRuntimeTest, HotUpdateUsesTheFrozenOldMaterialUntilTheNewVersionI
     Submit(std::move(packet));
     Complete(sequence);
     events.clear();
-    auto updated              = Material();
-    updated.resource.revision = 2;
-    const float green[]       = {0, 1, 0, 1};
-    std::memcpy(updated.material->techniques.front().uniforms.front().bytes.data(), green, sizeof(green));
-    entity.material = {updated.resource, 2};
-    auto update     = Packet({UpdateRenderEntity{{scene, {0, 1}}, entity, 1}});
+    auto updated                                                         = Material();
+    updated.resource.revision                                            = 2;
+    const float green[]                                                  = {0, 1, 0, 1};
+    updated.material->techniques.front().parameters.values.front().value = MakeShaderData(Vector4{green[0], green[1], green[2], green[3]});
+    entity.material                                                      = {updated.resource, 2};
+    auto update                                                          = Packet({UpdateRenderEntity{{scene, {0, 1}}, entity, 1}});
     update->readbacks.push_back(viewport);
     Submit(std::move(update));
     Complete(sequence);

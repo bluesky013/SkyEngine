@@ -50,7 +50,7 @@ namespace {
         technique.program.vertex                      = aurora::ShaderRef{"shaders/opaque.slang", "main"};
         technique.program.fragment                    = {"custom/Shader.slang", "SurfaceCustom"};
         technique.program.variant.entries             = {{Name("MODE"), 1}};
-        technique.uniforms                            = {{3, {{"baseColor", "color"}}}};
+        technique.aliases                             = {{"baseColor", "gMaterial.color"}};
         technique.renderState.alphaToCoverage         = true;
         technique.renderState.depthStencil.depthTest  = true;
         technique.renderState.depthStencil.depthWrite = true;
@@ -101,9 +101,9 @@ TEST(MaterialAssetTest, MaterialRoundTrip)
     EXPECT_EQ(out.techniques[0].program.fragment.entry, "SurfaceCustom");
     ASSERT_EQ(out.techniques[0].program.variant.entries.size(), 1u);
     EXPECT_EQ(out.techniques[0].program.variant.entries.front().value, 1u);
-    ASSERT_EQ(out.techniques[0].uniforms.size(), 1u);
-    EXPECT_EQ(out.techniques[0].uniforms.front().fields.front().property, "baseColor");
-    EXPECT_EQ(out.techniques[0].uniforms.front().binding, 3u);
+    ASSERT_EQ(out.techniques[0].aliases.size(), 1u);
+    EXPECT_EQ(out.techniques[0].aliases.front().alias, "baseColor");
+    EXPECT_EQ(out.techniques[0].aliases.front().target, "gMaterial.color");
     EXPECT_TRUE(out.techniques[0].renderState.alphaToCoverage);
     EXPECT_TRUE(out.techniques[0].renderState.depthStencil.depthTest);
     EXPECT_EQ(out.techniques[0].renderState.blendStates.size(), 1u);
@@ -173,14 +173,14 @@ TEST(MaterialAssetTest, SourceJsonCodec)
 {
     aurora::RegisterMaterialReflection(SerializationContext::Get());
     const char *json =
-        R"({"techniques":[{"tag":"T","program":{"vertex":{"relativePath":"custom/a.slang","entry":"Vertex"},"fragment":{"relativePath":"custom/a.slang","entry":"Surface"}},"uniforms":[{"binding":3,"fields":{"albedo":"Albedo"}}],"renderState":{"depthStencil":{"depthTest":true},"rasterState":{"cullMode":2}}}],"properties":[{"name":"Metallic","type":0,"value":{"index":0,"value":0.5}},{"name":"Albedo","type":3,"value":{"index":3,"value":[1.0,1.0,1.0,1.0]}}]})";
+        R"({"techniques":[{"tag":"T","program":{"vertex":{"relativePath":"custom/a.slang","entry":"Vertex"},"fragment":{"relativePath":"custom/a.slang","entry":"Surface"}},"aliases":[{"alias":"Albedo","target":"gMaterial.albedo"}],"renderState":{"depthStencil":{"depthTest":true},"rasterState":{"cullMode":2}}}],"properties":[{"name":"Metallic","type":0,"value":{"index":0,"value":0.5}},{"name":"Albedo","type":3,"value":{"index":3,"value":[1.0,1.0,1.0,1.0]}}]})";
     IMemoryArchive            mem(json, std::strlen(json));
     JsonInputArchive          ar(mem);
     aurora::MaterialAssetData data;
     ar.LoadValueObject(data);
     ASSERT_EQ(data.techniques.size(), 1u);
     EXPECT_EQ(data.techniques[0].program.fragment.entry, "Surface");
-    ASSERT_EQ(data.techniques[0].uniforms.size(), 1u);
+    ASSERT_EQ(data.techniques[0].aliases.size(), 1u);
     ASSERT_EQ(data.properties.size(), 2u);
     EXPECT_EQ(std::get<float>(data.properties[0].value), 0.5f);
     EXPECT_TRUE(std::holds_alternative<Vector4>(data.properties[1].value));
@@ -201,4 +201,87 @@ TEST(MaterialAssetTest, MalformedTechniqueCannotSilentlyUseDefaults)
         EXPECT_TRUE(data.techniques.empty());
         EXPECT_TRUE(data.properties.empty());
     }
+}
+
+TEST(MaterialAssetTest, TypedSamplerAndAliasesRoundTripAndRejectSemanticConflicts)
+{
+    auto                        in = MakeMaterialData();
+    aurora::Sampler::Descriptor sampler;
+    sampler.minFilter    = aurora::Filter::NEAREST;
+    sampler.addressModeU = aurora::WrapMode::CLAMP_TO_EDGE;
+    in.properties.push_back({"filter", aurora::MaterialPropertyType::SAMPLER, sampler});
+    in.techniques.front().aliases.push_back({"filter", "gImageSampler"});
+    aurora::MaterialAssetData out;
+    RoundTripMaterial(in, out);
+    std::string error;
+    ASSERT_TRUE(aurora::ValidateMaterialAssetData(out, error)) << error;
+    ASSERT_TRUE(std::holds_alternative<aurora::Sampler::Descriptor>(out.properties.back().value));
+    const auto &actual = std::get<aurora::Sampler::Descriptor>(out.properties.back().value);
+    EXPECT_EQ(actual.minFilter, aurora::Filter::NEAREST);
+    EXPECT_EQ(actual.addressModeU, aurora::WrapMode::CLAMP_TO_EDGE);
+    EXPECT_EQ(out.techniques.front().aliases.back().alias, "filter");
+    EXPECT_EQ(out.techniques.front().aliases.back().target, "gImageSampler");
+
+    auto wrong                     = out;
+    wrong.properties.front().value = uint32_t{7};
+    EXPECT_FALSE(aurora::ValidateMaterialAssetData(wrong, error));
+    wrong = out;
+    wrong.techniques.front().aliases.push_back({"albedo", "gImageSampler"});
+    EXPECT_FALSE(aurora::ValidateMaterialAssetData(wrong, error));
+    wrong = out;
+    wrong.techniques.front().aliases.push_back({"missing", "gUnused"});
+    EXPECT_FALSE(aurora::ValidateMaterialAssetData(wrong, error));
+}
+
+TEST(MaterialAssetTest, SamplerReflectionSupportsGenericTypedEditsAndKeepsAliases)
+{
+    aurora::RegisterMaterialReflection(SerializationContext::Get());
+    const auto *node = GetTypeNode(TypeInfo<aurora::Sampler::Descriptor>::RegisteredId());
+    ASSERT_NE(node, nullptr);
+    ASSERT_EQ(node->members.size(), 10u);
+    for (const auto &[name, member] : node->members) {
+        SCOPED_TRACE(name);
+        EXPECT_NE(member.setterFn, nullptr);
+        EXPECT_NE(member.getterConstFn, nullptr);
+    }
+    const auto *filterType = GetTypeNode(TypeInfo<aurora::Filter>::RegisteredId());
+    const auto *mipType    = GetTypeNode(TypeInfo<aurora::MipFilter>::RegisteredId());
+    const auto *wrapType   = GetTypeNode(TypeInfo<aurora::WrapMode>::RegisteredId());
+    ASSERT_NE(filterType, nullptr);
+    ASSERT_NE(mipType, nullptr);
+    ASSERT_NE(wrapType, nullptr);
+    EXPECT_EQ(filterType->enums.size(), 2u);
+    EXPECT_EQ(mipType->enums.size(), 2u);
+    EXPECT_EQ(wrapType->enums.size(), 5u);
+
+    aurora::Sampler::Descriptor sampler;
+    const auto                 *filter = GetTypeMember("minFilter", TypeInfo<aurora::Sampler::Descriptor>::RegisteredId());
+    const auto                 *lod    = GetTypeMember("maxLod", TypeInfo<aurora::Sampler::Descriptor>::RegisteredId());
+    ASSERT_NE(filter, nullptr);
+    ASSERT_NE(lod, nullptr);
+    const auto  nearest = aurora::Filter::NEAREST;
+    const float maxLod  = 4.f;
+    ASSERT_TRUE(filter->setterFn(&sampler, &nearest));
+    ASSERT_TRUE(lod->setterFn(&sampler, &maxLod));
+    EXPECT_EQ(sampler.minFilter, aurora::Filter::NEAREST);
+    EXPECT_FLOAT_EQ(sampler.maxLod, maxLod);
+
+    auto in = MakeMaterialData();
+    in.properties.push_back({"filter", aurora::MaterialPropertyType::SAMPLER, sampler});
+    in.techniques.front().aliases.push_back({"filter", "gImageSampler"});
+    OMemoryArchive    memory;
+    JsonOutputArchive writer(memory);
+    writer.SaveValueObject(in);
+    IMemoryArchive            source(memory.Data(), memory.Size());
+    JsonInputArchive          reader(source);
+    aurora::MaterialAssetData out;
+    reader.LoadValueObject(out);
+    ASSERT_EQ(out.techniques.size(), 1u);
+    ASSERT_EQ(out.properties.size(), in.properties.size());
+    ASSERT_EQ(out.techniques.front().aliases.size(), 2u);
+    EXPECT_EQ(out.techniques.front().aliases.back().target, "gImageSampler");
+    ASSERT_TRUE(std::holds_alternative<aurora::Sampler::Descriptor>(out.properties.back().value));
+    const auto &actual = std::get<aurora::Sampler::Descriptor>(out.properties.back().value);
+    EXPECT_EQ(actual.minFilter, aurora::Filter::NEAREST);
+    EXPECT_FLOAT_EQ(actual.maxLod, maxLod);
 }

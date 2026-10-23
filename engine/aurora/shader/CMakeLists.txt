@@ -12,6 +12,9 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         sky_find_3rd(TARGET dxcompiler DIR dxcompiler)
     endif ()
     list(APPEND AuroraShaderExtLibs 3rdParty::dxcompiler)
+    if (TARGET Aurora.RHITest)
+        target_link_libraries(Aurora.RHITest PRIVATE 3rdParty::dxcompiler)
+    endif ()
 endif ()
 
 # Slang compiler implementation. Depends on aurora/core (ShaderRef / variants /
@@ -83,7 +86,7 @@ if (SKY_BUILD_TEST)
     target_include_directories(Aurora.ShaderTest PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../core/test")
     target_compile_definitions(Aurora.ShaderTest PRIVATE
-        SHADER_TEST_BUNDLE_ROOT="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/test-assets/shaders")
+        SHADER_TEST_BUNDLE_ROOT="$<TARGET_FILE_DIR:Aurora.ShaderTest>/test-assets/shaders")
 
     if (TARGET Aurora.Vulkan)
         add_dependencies(Aurora.ShaderTest Aurora.Vulkan)

@@ -14,6 +14,7 @@
     "provisioningProfile",
     "bundles",
     "shaderTargets",
+    "shaderEnvironments",
     "abis",
     "keystore",
     "compileSdk",

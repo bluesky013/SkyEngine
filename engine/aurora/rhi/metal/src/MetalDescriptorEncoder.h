@@ -1,7 +1,3 @@
-//
-// Created on 2026/09/14.
-//
-
 #pragma once
 
 #include <MetalBuffer.h>
@@ -11,34 +7,34 @@
 #include <aurora/rhi/DescriptorEncoder.h>
 
 namespace sky::aurora {
-
-    // Metal descriptor writes are immediate table updates on the target
-    // ResourceGroup (direct binding model, no native descriptor objects).
     class MetalDescriptorEncoder : public DescriptorEncoder {
     public:
-        explicit MetalDescriptorEncoder(MetalResourceGroup &group) : group(&group)
-        {
-        }
+        explicit MetalDescriptorEncoder(MetalResourceGroup &group);
         ~MetalDescriptorEncoder() override = default;
-
-        void WriteBuffer(uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t /*range*/, uint32_t arrayElement = 0) override
+        bool               WriteBuffer(uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
+        bool               WriteImage(uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
+        bool               WriteSampler(uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
+        bool               End() override;
+        const std::string &GetError() const override
         {
-            group->WriteBuffer(binding, static_cast<MetalBuffer *>(buffer), offset, arrayElement);
+            return error;
         }
-        void WriteImage(uint32_t binding, Image *image, ImageLayout /*layout*/, uint32_t arrayElement = 0) override
+        void Cancel() override
         {
-            group->WriteImage(binding, static_cast<MetalImage *>(image), arrayElement);
-        }
-        void WriteSampler(uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override
-        {
-            group->WriteSampler(binding, static_cast<MetalSampler *>(sampler), arrayElement);
-        }
-        void End() override
-        {
+            ended = true;
         }
 
     private:
-        MetalResourceGroup *group;
+        friend class MetalDescriptorBatch;
+        const ShaderResource                                           *Find(uint32_t binding, uint32_t arrayElement);
+        bool                                                            Fail(const char *message);
+        bool                                                            Ready();
+        void                                                            Commit();
+        CounterPtr<MetalResourceGroup>                                  group;
+        std::unordered_map<uint32_t, MetalResourceGroup::BufferBinding> buffers;
+        std::unordered_map<uint32_t, CounterPtr<MetalImage>>            textures;
+        std::unordered_map<uint32_t, CounterPtr<MetalSampler>>          samplers;
+        std::string                                                     error;
+        bool                                                            ended = false;
     };
-
 } // namespace sky::aurora

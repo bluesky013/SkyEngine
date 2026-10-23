@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <VulkanBindingPlan.h>
 #include <aurora/rhi/Shader.h>
 #include <vulkan/vulkan.h>
 
@@ -75,7 +76,11 @@ namespace sky::aurora {
         {
             return reflection;
         }
-        const Device *GetDevice() const noexcept override;
+        const Device            *GetDevice() const noexcept override;
+        const VulkanBindingPlan &GetBindingPlan() const
+        {
+            return bindingPlan;
+        }
 
         // Per-set descriptor set layout derived from reflection, queried by
         // real set index (may contain holes). Returns VK_NULL_HANDLE if absent.
@@ -86,7 +91,8 @@ namespace sky::aurora {
         VkDescriptorUpdateTemplate GetDescriptorUpdateTemplate(uint32_t set) const;
 
     private:
-        bool CreatePipelineLayout();
+        bool              CreatePipelineLayout();
+        VulkanBindingPlan bindingPlan;
 
         VulkanDevice                                  &device;
         CounterPtr<VulkanShaderFunction>               vertexFunction;

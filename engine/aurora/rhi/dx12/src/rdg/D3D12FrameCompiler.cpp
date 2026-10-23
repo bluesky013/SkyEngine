@@ -121,7 +121,10 @@ namespace sky::aurora {
                     auto &range       = std::get<D3D12FrameDescriptors>(allocated);
                     encoder.resources = range.heap;
                     descriptor        = range.cpu;
-                    step.tables.push_back({root->GetCbvSrvUavRootParam(set), range.gpu});
+                    for (const auto &table : root->GetDescriptorTables(set)) {
+                        if (table.sampler == false)
+                            step.tables.push_back({table.root, range.gpu});
+                    }
                 }
                 D3D12_CPU_DESCRIPTOR_HANDLE samplerDescriptor{};
                 if (samplerCount) {
@@ -131,7 +134,10 @@ namespace sky::aurora {
                     auto &range       = std::get<D3D12FrameDescriptors>(allocated);
                     encoder.samplers  = range.heap;
                     samplerDescriptor = range.cpu;
-                    step.tables.push_back({root->GetSamplerRootParam(set), range.gpu});
+                    for (const auto &table : root->GetDescriptorTables(set)) {
+                        if (table.sampler == true)
+                            step.tables.push_back({table.root, range.gpu});
+                    }
                 }
                 for (const auto &resource : shader->GetReflection().resources) {
                     if (resource.set != set)
@@ -206,29 +212,53 @@ namespace sky::aurora {
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute UBO usage/alignment/range/heap"};
                         const auto address = buffer->GetNativeHandle()->GetGPUVirtualAddress() + offset;
                         if (resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
-                            const auto parameter = root->GetDynamicRootParam(set, resource.binding);
-                            if (parameter == UINT32_MAX)
+                            bool mapped = false;
+                            for (const auto &mapping : root->GetDynamicBindings(set)) {
+                                if (mapping.binding != resource.binding)
+                                    continue;
+                                if (mapping.category != ShaderNativeCategory::CBV)
+                                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute root CBV category"};
+                                step.uniforms.push_back({mapping.root, address, mapping.category});
+                                mapped = true;
+                            }
+                            if (!mapped)
                                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute root CBV"};
-                            step.uniforms.push_back({parameter, address});
                         } else {
                             const D3D12_CONSTANT_BUFFER_VIEW_DESC cbv{address, static_cast<UINT>(padded)};
                             device.GetNativeHandle()->CreateConstantBufferView(&cbv, descriptor);
                             descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
                         }
-                    } else if (resource.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                        return FrameError{FrameErrorCode::UNSUPPORTED, "Dynamic storage buffers are not implemented"};
                     } else {
-                        if (!buffer->GetDescriptor().usage.TestBit(BufferUsageFlagBit::STORAGE) ||
-                            buffer->GetDescriptor().memory != MemoryType::GPU_ONLY || binding->range.offset % 4 || binding->range.size % 4 ||
-                            binding->range.size / 4 > UINT32_MAX)
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute storage buffer usage/range/heap"};
-                        D3D12_UNORDERED_ACCESS_VIEW_DESC uav{};
-                        uav.ViewDimension              = D3D12_UAV_DIMENSION_BUFFER;
-                        uav.Buffer.FirstElement        = binding->range.offset / 4;
-                        uav.Buffer.NumElements         = static_cast<UINT>(binding->range.size / 4);
-                        uav.Buffer.StructureByteStride = 4;
-                        device.GetNativeHandle()->CreateUnorderedAccessView(buffer->GetNativeHandle(), nullptr, &uav, descriptor);
-                        descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                        if (resource.type != ShaderResourceType::STORAGE_BUFFER && resource.type != ShaderResourceType::STORAGE_BUFFER_DYNAMIC)
+                            return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported compute buffer resource"};
+                        if (resource.access == ShaderResourceAccess::READ_ONLY && binding->access != FrameAccessMode::READ)
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Read-only storage buffer requires read access"};
+                        const auto resolved = ResolveFrameBufferRange(*binding, buffer->GetSize());
+                        if (const auto *error = std::get_if<FrameError>(&resolved))
+                            return *error;
+                        const auto &range = std::get<RasterBufferRange>(resolved);
+                        if (const auto error = buffer->CheckStorageRange(resource, range.offset, range.size))
+                            return *error;
+                        if (resource.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                            bool mapped = false;
+                            for (const auto &mapping : root->GetDynamicBindings(set)) {
+                                if (mapping.binding != resource.binding)
+                                    continue;
+                                const auto expected =
+                                    resource.access == ShaderResourceAccess::READ_ONLY ? ShaderNativeCategory::SRV : ShaderNativeCategory::UAV;
+                                if (mapping.category != expected)
+                                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute root storage category"};
+                                step.uniforms.push_back(
+                                    {mapping.root, buffer->GetNativeHandle()->GetGPUVirtualAddress() + range.offset, mapping.category});
+                                mapped = true;
+                            }
+                            if (!mapped)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute root storage binding"};
+                        } else {
+                            if (const auto error = buffer->CreateStorageView(descriptor, resource, range.offset, range.size))
+                                return *error;
+                            descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                        }
                     }
                 }
             }
@@ -586,7 +616,10 @@ namespace sky::aurora {
                     const bool uniform =
                         resource->type == ShaderResourceType::UNIFORM_BUFFER || resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
                     BufferBarrier(binding.range.buffer.index,
-                                  uniform ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER : D3D12_RESOURCE_STATE_UNORDERED_ACCESS, task.before);
+                                  uniform                                               ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+                                  : resource->access == ShaderResourceAccess::READ_ONLY ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+                                                                                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                  task.before);
                 }
                 for (const auto &binding : compute.images) {
                     const auto *resource = reflection.Find(binding.set, binding.binding);
@@ -618,8 +651,27 @@ namespace sky::aurora {
                         (uniform ? heaps[binding.range.buffer.index] == D3D12_HEAP_TYPE_READBACK
                                  : heaps[binding.range.buffer.index] != D3D12_HEAP_TYPE_DEFAULT))
                         return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Custom buffer kind does not match usage/heap"};
+                    if (!uniform) {
+                        if (binding.resourceAccess == ShaderResourceAccess::READ_ONLY && binding.access != FrameAccessMode::READ)
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Read-only custom buffer requires read access"};
+                        ShaderResource resource;
+                        resource.type          = ShaderResourceType::STORAGE_BUFFER;
+                        resource.access        = binding.resourceAccess;
+                        resource.bufferKind    = binding.bufferKind;
+                        resource.elementStride = binding.elementStride;
+                        const auto resolved    = ResolveFrameBufferRange(binding, buffer->GetSize());
+                        if (const auto *error = std::get_if<FrameError>(&resolved))
+                            return *error;
+                        const auto &range = std::get<RasterBufferRange>(resolved);
+                        if (const auto error = buffer->CheckStorageRange(resource, range.offset, range.size))
+                            return *error;
+                    }
                     BufferBarrier(binding.range.buffer.index,
-                                  uniform ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER : D3D12_RESOURCE_STATE_UNORDERED_ACCESS, task.before);
+                                  uniform ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+                                  : binding.resourceAccess == ShaderResourceAccess::READ_ONLY
+                                      ? D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+                                      : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                  task.before);
                     step.buffers.push_back(buffers[binding.range.buffer.index]);
                 }
                 for (const auto &binding : custom.images) {
@@ -736,7 +788,10 @@ namespace sky::aurora {
                         auto &range        = std::get<D3D12FrameDescriptors>(allocated);
                         encoder->resources = range.heap;
                         descriptor         = range.cpu;
-                        native.tables.push_back({shader->GetRootSignature()->GetCbvSrvUavRootParam(set), range.gpu});
+                        for (const auto &table : shader->GetRootSignature()->GetDescriptorTables(set)) {
+                            if (table.sampler == false)
+                                native.tables.push_back({table.root, range.gpu});
+                        }
                     }
                     const auto samplerCount = static_cast<uint32_t>(
                         std::count_if(draw.samplers.begin(), draw.samplers.end(), [&](const auto &binding) { return binding.set == set; }));
@@ -748,7 +803,10 @@ namespace sky::aurora {
                         auto &range       = std::get<D3D12FrameDescriptors>(allocated);
                         encoder->samplers = range.heap;
                         samplerDescriptor = range.cpu;
-                        native.tables.push_back({shader->GetRootSignature()->GetSamplerRootParam(set), range.gpu});
+                        for (const auto &table : shader->GetRootSignature()->GetDescriptorTables(set)) {
+                            if (table.sampler == true)
+                                native.tables.push_back({table.root, range.gpu});
+                        }
                     }
                     for (const auto &resource : reflection.resources) {
                         if (resource.set != set)
@@ -807,9 +865,19 @@ namespace sky::aurora {
                             binding->dynamicOffset % 256 || padded > buffer->GetSize() - offset)
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid DX12 UBO alignment/range/heap"};
                         const auto address = buffer->GetNativeHandle()->GetGPUVirtualAddress() + offset;
-                        if (resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)
-                            native.uniforms.push_back({shader->GetRootSignature()->GetDynamicRootParam(set, resource.binding), address});
-                        else {
+                        if (resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
+                            bool mapped = false;
+                            for (const auto &mapping : shader->GetRootSignature()->GetDynamicBindings(set)) {
+                                if (mapping.binding != resource.binding)
+                                    continue;
+                                if (mapping.category != ShaderNativeCategory::CBV)
+                                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid raster root CBV category"};
+                                native.uniforms.push_back({mapping.root, address});
+                                mapped = true;
+                            }
+                            if (!mapped)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster root CBV"};
+                        } else {
                             const D3D12_CONSTANT_BUFFER_VIEW_DESC cbv{address, static_cast<UINT>(padded)};
                             device.GetNativeHandle()->CreateConstantBufferView(&cbv, descriptor);
                             descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1085,8 +1153,14 @@ namespace sky::aurora {
             command->SetComputeRootSignature(compute->pipeline->GetRootSignature()->GetNativeHandle());
             for (const auto &table : compute->tables)
                 command->SetComputeRootDescriptorTable(table.root, table.descriptor);
-            for (const auto &uniform : compute->uniforms)
-                command->SetComputeRootConstantBufferView(uniform.root, uniform.address);
+            for (const auto &binding : compute->uniforms) {
+                if (binding.category == ShaderNativeCategory::SRV)
+                    command->SetComputeRootShaderResourceView(binding.root, binding.address);
+                else if (binding.category == ShaderNativeCategory::UAV)
+                    command->SetComputeRootUnorderedAccessView(binding.root, binding.address);
+                else
+                    command->SetComputeRootConstantBufferView(binding.root, binding.address);
+            }
             command->Dispatch(compute->groupsX, compute->groupsY, compute->groupsZ);
         } else if (const auto *custom = std::get_if<D3D12CustomStep>(&task.operation)) {
             FrameCustomPassContext context{rhi, std::span<Image *const>(custom->images), std::span<Buffer *const>(custom->buffers)};

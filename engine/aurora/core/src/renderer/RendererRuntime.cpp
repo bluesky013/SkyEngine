@@ -111,8 +111,6 @@ namespace sky::aurora {
             }
             std::optional<RendererError> Initialize() override
             {
-                if (init.backend == API::METAL)
-                    return RendererError{RendererErrorCode::UNSUPPORTED, "Metal renderer frame protocol is not available"};
                 auto acquired = instance.Acquire({"Aurora Renderer", "SkyEngine", init.enableValidation, init.backend});
                 if (const auto *error = std::get_if<GpuError>(&acquired))
                     return RendererError{error->code == GpuErrorCode::INVALID_ARGUMENT ? RendererErrorCode::NOT_READY
@@ -203,22 +201,15 @@ namespace sky::aurora {
                         std::set<Name> tags;
                         for (const auto &technique : payload.material->techniques) {
                             const auto &program = technique.program;
-                            if (technique.tag.Empty() || !tags.insert(technique.tag).second || !program.computeCode.empty() ||
-                                program.backend != device->GetAPI() || program.vertexCode.empty() || program.fragmentCode.empty() ||
-                                program.vertexCode.size() > UINT32_MAX || program.fragmentCode.size() > UINT32_MAX)
+                            if (technique.tag.Empty() || !tags.insert(technique.tag).second || program.compute != nullptr ||
+                                program.backend != device->GetAPI() || !program.vertex || !program.fragment)
                                 return RendererError{RendererErrorCode::INVALID_PACKET,
                                                      "Material requires unique Tags and graphics code for the backend"};
                             if (const auto error = ValidateFrameShader(program))
                                 return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
-                            std::set<uint32_t> bindings;
-                            for (const auto &uniform : technique.uniforms) {
-                                const auto block = std::find_if(program.reflection.blocks.begin(), program.reflection.blocks.end(),
-                                                                [&](const auto &item) { return item.set == 2 && item.binding == uniform.binding; });
-                                if (!bindings.insert(uniform.binding).second || block == program.reflection.blocks.end() ||
-                                    uniform.bytes.size() != block->size)
-                                    return RendererError{RendererErrorCode::INVALID_PACKET,
-                                                         "Material uniform requires a unique binding and exact reflected size"};
-                            }
+                            std::string error;
+                            if (!ValidateRenderMaterialParameters(program, technique.parameters, payload.resource.deviceEpoch, error))
+                                return RendererError{RendererErrorCode::INVALID_PACKET, std::move(error)};
                         }
                     }
                 }
@@ -315,11 +306,27 @@ namespace sky::aurora {
                 std::vector<RenderResourceKey> external;
                 for (const auto &payload : pendingExtensions)
                     external.insert(external.end(), payload.resources.begin(), payload.resources.end());
-                frozenResources = catalog->Freeze(store, true, external);
+                frozenResources          = catalog->Freeze(store, true, external);
+                const auto originalCount = external.size();
+                for (const auto &pin : frozenResources.pins) {
+                    const auto material = materials.find(Key(pin->cpu->resource));
+                    if (material == materials.end())
+                        continue;
+                    for (const auto &[tag, technique] : material->second.techniques)
+                        for (const auto &image : technique.parameters.images) {
+                            ShaderParameterHandle handle;
+                            if (technique.shader->GetParameterTable().Resolve(image.name, 2, handle) == ShaderParameterLookup::READY &&
+                                std::find(external.begin(), external.end(), image.resource) == external.end())
+                                external.push_back(image.resource);
+                        }
+                }
+                if (external.size() != originalCount)
+                    frozenResources = catalog->Freeze(store, true, external);
+                externalDependencies = std::move(external);
                 for (const auto &key : packet.releasedResources)
                     catalog->Release(key);
                 PublishResources();
-                if (catalog->Prune(store))
+                if (catalog->Prune(store, externalDependencies))
                     PublishResources();
                 snapshots.clear();
                 for (const auto view : store.SelectPrepareInputs().views) {
@@ -498,7 +505,7 @@ namespace sky::aurora {
                     it = encoding.erase(it);
                 }
                 PublishResources();
-                if (catalog->Prune(store))
+                if (catalog->Prune(store, externalDependencies))
                     PublishResources();
                 if (terminal)
                     return terminal;
@@ -594,9 +601,11 @@ namespace sky::aurora {
             {
                 if (progress.kind != OutputProgressKind::FAILED)
                     return;
-                RendererError error{progress.error.code == GpuErrorCode::DEVICE_LOST ? RendererErrorCode::DEVICE_LOST : RendererErrorCode::NOT_READY,
-                                    "Viewport is unavailable (native=" + std::to_string(progress.error.nativeCode) + ")"};
-                const auto reported = failedOutputs.find(progress.viewport.index);
+                const auto    code = progress.error.code == GpuErrorCode::DEVICE_LOST   ? RendererErrorCode::DEVICE_LOST
+                                     : progress.error.code == GpuErrorCode::UNSUPPORTED ? RendererErrorCode::UNSUPPORTED
+                                                                                        : RendererErrorCode::NOT_READY;
+                RendererError error{code, "Viewport is unavailable (native=" + std::to_string(progress.error.nativeCode) + ")"};
+                const auto    reported = failedOutputs.find(progress.viewport.index);
                 if (reported == failedOutputs.end() || reported->second != progress.disposition) {
                     events->Push(ViewportFailed{progress.viewport, error, progress.disposition == OutputFailureDisposition::REPLACE});
                     failedOutputs[progress.viewport.index] = progress.disposition;
@@ -655,11 +664,11 @@ namespace sky::aurora {
                         if (const auto *error = std::get_if<FrameError>(&created))
                             return Error(*error);
                         PreparedMaterialLayout layout;
-                        layout.resource = payload.resource;
-                        layout.shader   = std::move(std::get<ShaderPtr>(created));
-                        layout.blend    = source.blend;
-                        layout.depth    = source.depth;
-                        layout.uniforms = technique.uniforms;
+                        layout.resource   = payload.resource;
+                        layout.shader     = std::move(std::get<ShaderPtr>(created));
+                        layout.blend      = source.blend;
+                        layout.depth      = source.depth;
+                        layout.parameters = technique.parameters;
                         material.techniques.emplace_back(technique.tag, std::move(layout));
                     }
                     materials[key] = std::move(material);
@@ -782,6 +791,7 @@ namespace sky::aurora {
             std::optional<PreparedSceneProgram>                program;
             std::vector<SceneId>                               pausedScenes;
             FrozenResourceCatalog                              frozenResources;
+            std::vector<RenderResourceKey>                     externalDependencies;
             std::vector<OutputSnapshot>                        snapshots;
             std::vector<ViewportId>                            requestedReadbacks;
             std::deque<FrameBuildContext>                      pending;
@@ -956,11 +966,20 @@ namespace sky::aurora {
                         return std::any_of(frame.resources.pins.begin(), frame.resources.pins.end(),
                                            [&](const auto &pin) { return pin->cpu->resource == key && pin->backing; });
                     };
+                    const auto material = std::find_if(frame.materials.begin(), frame.materials.end(),
+                                                       [&](const auto &layout) { return layout.resource == draw.material.resource; });
+                    if (material == frame.materials.end())
+                        return true;
+                    for (const auto &[tag, technique] : material->techniques)
+                        for (const auto &image : technique.parameters.images) {
+                            ShaderParameterHandle handle;
+                            if (technique.shader->GetParameterTable().Resolve(image.name, 2, handle) == ShaderParameterLookup::READY &&
+                                !ready(image.resource))
+                                return true;
+                        }
                     return !ready(draw.mesh.resource) || !ready(draw.material.resource) ||
                            std::none_of(frame.meshes.begin(), frame.meshes.end(),
-                                        [&](const auto &layout) { return layout.resource == draw.mesh.resource; }) ||
-                           std::none_of(frame.materials.begin(), frame.materials.end(),
-                                        [&](const auto &layout) { return layout.resource == draw.material.resource; });
+                                        [&](const auto &layout) { return layout.resource == draw.mesh.resource; });
                 };
                 std::erase_if(view.draws, unavailable);
                 std::erase_if(view.shadowCasters, unavailable);

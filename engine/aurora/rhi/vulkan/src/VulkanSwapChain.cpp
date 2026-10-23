@@ -2,13 +2,13 @@
 // Aurora Vulkan SwapChain.
 //
 
-#include <VulkanSwapChain.h>
+#include <VulkanConversion.h>
 #include <VulkanDevice.h>
+#include <VulkanFence.h>
 #include <VulkanInstance.h>
 #include <VulkanQueue.h>
-#include <VulkanFence.h>
 #include <VulkanSemaphore.h>
-#include <VulkanConversion.h>
+#include <VulkanSwapChain.h>
 #include <core/logger/Logger.h>
 
 #include <algorithm>
@@ -31,16 +31,15 @@ namespace sky::aurora {
     static PixelFormat ToPixelFormat(VkFormat fmt)
     {
         switch (fmt) {
-        case VK_FORMAT_R8G8B8A8_UNORM:    return PixelFormat::RGBA8_UNORM;
-        case VK_FORMAT_R8G8B8A8_SRGB:     return PixelFormat::RGBA8_SRGB;
-        case VK_FORMAT_B8G8R8A8_UNORM:    return PixelFormat::BGRA8_UNORM;
-        case VK_FORMAT_B8G8R8A8_SRGB:     return PixelFormat::BGRA8_SRGB;
-        default:                          return PixelFormat::UNDEFINED;
+        case VK_FORMAT_R8G8B8A8_UNORM: return PixelFormat::RGBA8_UNORM;
+        case VK_FORMAT_R8G8B8A8_SRGB: return PixelFormat::RGBA8_SRGB;
+        case VK_FORMAT_B8G8R8A8_UNORM: return PixelFormat::BGRA8_UNORM;
+        case VK_FORMAT_B8G8R8A8_SRGB: return PixelFormat::BGRA8_SRGB;
+        default: return PixelFormat::UNDEFINED;
         }
     }
 
-    VulkanSwapChain::VulkanSwapChain(VulkanDevice &dev)
-        : device(dev)
+    VulkanSwapChain::VulkanSwapChain(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -73,14 +72,14 @@ namespace sky::aurora {
 
     bool VulkanSwapChain::CreateSurface(void *window)
     {
-        VulkanInstance &inst = device.GetVulkanInstance();
-        const auto &instFn   = inst.GetInstanceFn();
-        VkInstance vkInstance = inst.GetNativeHandle();
+        VulkanInstance &inst       = device.GetVulkanInstance();
+        const auto     &instFn     = inst.GetInstanceFn();
+        VkInstance      vkInstance = inst.GetNativeHandle();
 
 #if defined(VK_USE_PLATFORM_METAL_EXT)
         VkMetalSurfaceCreateInfoEXT info = {};
-        info.sType  = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
-        info.pLayer = static_cast<const CAMetalLayer *>(window);
+        info.sType                       = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+        info.pLayer                      = static_cast<const CAMetalLayer *>(window);
         if (instFn.vkCreateMetalSurfaceEXT == nullptr) {
             LOG_E(TAG, "vkCreateMetalSurfaceEXT not loaded");
             return false;
@@ -92,19 +91,19 @@ namespace sky::aurora {
         }
 #elif defined(VK_USE_PLATFORM_WIN32_KHR)
         VkWin32SurfaceCreateInfoKHR info = {};
-        info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-        info.hinstance = GetModuleHandleW(nullptr);
-        info.hwnd      = static_cast<HWND>(window);
-        const VkResult r = instFn.vkCreateWin32SurfaceKHR(vkInstance, &info, nullptr, &surface);
+        info.sType                       = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+        info.hinstance                   = GetModuleHandleW(nullptr);
+        info.hwnd                        = static_cast<HWND>(window);
+        const VkResult r                 = instFn.vkCreateWin32SurfaceKHR(vkInstance, &info, nullptr, &surface);
         if (r != VK_SUCCESS) {
             LOG_E(TAG, "vkCreateWin32SurfaceKHR failed: %d", r);
             return false;
         }
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
         VkAndroidSurfaceCreateInfoKHR info = {};
-        info.sType  = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
-        info.window = static_cast<ANativeWindow *>(window);
-        const VkResult r = instFn.vkCreateAndroidSurfaceKHR(vkInstance, &info, nullptr, &surface);
+        info.sType                         = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+        info.window                        = static_cast<ANativeWindow *>(window);
+        const VkResult r                   = instFn.vkCreateAndroidSurfaceKHR(vkInstance, &info, nullptr, &surface);
         if (r != VK_SUCCESS) {
             LOG_E(TAG, "vkCreateAndroidSurfaceKHR failed: %d", r);
             return false;
@@ -119,8 +118,7 @@ namespace sky::aurora {
 
         // Sanity-check that the graphics queue family supports presentation.
         VkBool32 supported = VK_FALSE;
-        instFn.vkGetPhysicalDeviceSurfaceSupportKHR(device.GetGpuHandle(),
-            device.GetQueueFamilyIndex(QueueType::GRAPHICS), surface, &supported);
+        instFn.vkGetPhysicalDeviceSurfaceSupportKHR(device.GetGpuHandle(), device.GetQueueFamilyIndex(QueueType::GRAPHICS), surface, &supported);
         if (!supported) {
             LOG_E(TAG, "graphics queue family does not support presentation on this surface");
             return false;
@@ -279,13 +277,12 @@ namespace sky::aurora {
         images.reserve(imageCount);
         for (uint32_t i = 0; i < imageCount; ++i) {
             auto img = std::make_unique<VulkanImage>(device);
-            img->InitFromSwapChain(swapImages[i], surfaceFormat.format, pixelFormat,
-                                   {extent.width, extent.height, 1});
+            img->InitFromSwapChain(swapImages[i], surfaceFormat.format, pixelFormat, {extent.width, extent.height, 1});
             images.push_back(std::move(img));
         }
 
-        LOG_I(TAG, "swapchain created: %ux%u format=%d images=%u presentMode=%d",
-              extent.width, extent.height, surfaceFormat.format, imageCount, presentMode);
+        LOG_I(TAG, "swapchain created: %ux%u format=%d images=%u presentMode=%d", extent.width, extent.height, surfaceFormat.format, imageCount,
+              presentMode);
         applied = ci;
         presentationOptionsDirty = false;
         ++surfaceRevision;
@@ -305,8 +302,7 @@ namespace sky::aurora {
     void VulkanSwapChain::DestroySurface()
     {
         if (surface != VK_NULL_HANDLE) {
-            device.GetVulkanInstance().GetInstanceFn().vkDestroySurfaceKHR(
-                device.GetVulkanInstance().GetNativeHandle(), surface, nullptr);
+            device.GetVulkanInstance().GetInstanceFn().vkDestroySurfaceKHR(device.GetVulkanInstance().GetNativeHandle(), surface, nullptr);
             surface = VK_NULL_HANDLE;
         }
     }
@@ -325,9 +321,8 @@ namespace sky::aurora {
             vkFence = static_cast<VulkanFence *>(fence)->GetNativeHandle();
         }
 
-        uint32_t index = 0;
-        const VkResult r = device.GetDeviceFn().vkAcquireNextImageKHR(device.GetNativeHandle(),
-            swapchain, timeoutNs, vkSema, vkFence, &index);
+        uint32_t       index = 0;
+        const VkResult r     = device.GetDeviceFn().vkAcquireNextImageKHR(device.GetNativeHandle(), swapchain, timeoutNs, vkSema, vkFence, &index);
         if (r == VK_ERROR_OUT_OF_DATE_KHR) {
             status = SwapChainStatus::OUT_OF_DATE;
             return INVALID_INDEX;
@@ -361,7 +356,7 @@ namespace sky::aurora {
             }
         }
 
-        VkPresentInfoKHR info = {};
+        VkPresentInfoKHR info   = {};
         info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         info.waitSemaphoreCount = static_cast<uint32_t>(waits.size());
         info.pWaitSemaphores    = waits.data();
@@ -369,9 +364,8 @@ namespace sky::aurora {
         info.pSwapchains        = &swapchain;
         info.pImageIndices      = &imageIndex;
 
-        VkQueue vkQueue = static_cast<VulkanQueue *>(
-            device.GetQueue(QueueType::GRAPHICS))->GetNativeHandle();
-        const VkResult r = device.GetDeviceFn().vkQueuePresentKHR(vkQueue, &info);
+        VkQueue        vkQueue = static_cast<VulkanQueue *>(device.GetQueue(QueueType::GRAPHICS))->GetNativeHandle();
+        const VkResult r       = device.GetDeviceFn().vkQueuePresentKHR(vkQueue, &info);
         if (r == VK_ERROR_SURFACE_LOST_KHR) {
             status = SwapChainStatus::LOST;
         } else if (r == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -395,8 +389,8 @@ namespace sky::aurora {
 
     Extent2D VulkanSwapChain::GetSurfaceSize() const
     {
-        VulkanInstance &inst = device.GetVulkanInstance();
-        const auto &instFn   = inst.GetInstanceFn();
+        VulkanInstance &inst   = device.GetVulkanInstance();
+        const auto     &instFn = inst.GetInstanceFn();
 
         VkSurfaceCapabilitiesKHR caps = {};
         instFn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.GetGpuHandle(), surface, &caps);
@@ -452,6 +446,8 @@ namespace sky::aurora {
 
     SurfaceQueryResult VulkanSwapChain::QuerySurface() const noexcept
     {
+        if (!device.HasSwapchainMaintenance() || !device.GetDeviceFn().vkReleaseSwapchainImagesEXT)
+            return {{PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}}, {}};
         if (status == SwapChainStatus::LOST || !surface)
             return {{PresentationStatus::SURFACE_LOST}, {}};
         VkSwapchainCreateInfoKHR desired{};

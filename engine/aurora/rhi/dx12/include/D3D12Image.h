@@ -27,7 +27,7 @@ namespace sky::aurora {
         {
             return uint64_t(descriptor.mipLevels) * descriptor.arrayLayers;
         }
-        const Descriptor &GetDescriptor() const noexcept
+        const Descriptor &GetDescriptor() const noexcept override
         {
             return descriptor;
         }

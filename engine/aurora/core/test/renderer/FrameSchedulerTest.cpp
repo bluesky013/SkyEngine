@@ -809,6 +809,22 @@ TEST_P(FrameOutputs, VulkanStableFrameQueriesCapabilitiesWithoutEnumeratingOptio
     ASSERT_TRUE(Until([&] { return completedCount == 1; }));
 }
 
+TEST_P(FrameOutputs, VulkanCheckedSurfaceRejectsMissingRetirementCapabilityBeforeAcquire)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan presentation capability";
+    auto *output = Add({0, 1});
+    ASSERT_TRUE(output);
+    auto      &functions                  = const_cast<VulkanDeviceFunctions &>(static_cast<VulkanDevice *>(device)->GetDeviceFn());
+    const auto release                    = functions.vkReleaseSwapchainImagesEXT;
+    functions.vkReleaseSwapchainImagesEXT = nullptr;
+    const auto queried                    = output->QuerySurface();
+    EXPECT_EQ(queried.status, PresentationStatus::FAILED);
+    EXPECT_EQ(queried.error.code, GpuErrorCode::UNSUPPORTED);
+    EXPECT_EQ(output->acquires, 0u);
+    functions.vkReleaseSwapchainImagesEXT = release;
+}
+
 TEST_P(FrameOutputs, VulkanSurfaceQueryPreservesErrorsAndRejectsUnsupportedConfiguration)
 {
     if (GetParam() == 2)
@@ -863,7 +879,7 @@ TEST_P(FrameOutputs, VulkanCapabilitiesTrackTransformAndNativeExtent)
     const auto original = output->native->QuerySurface();
     ASSERT_EQ(original.status, PresentationStatus::READY);
     VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
-    probe.changeCaps     = [](auto &caps) { caps.supportedTransforms |= VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR; };
+    probe.changeCaps = [](auto &caps) { caps.supportedTransforms |= VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR; };
     EXPECT_EQ(output->native->QuerySurface().status, PresentationStatus::READY);
     probe.changeCaps = [](auto &caps) {
         caps.supportedTransforms |= VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR;

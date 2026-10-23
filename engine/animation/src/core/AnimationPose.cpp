@@ -68,7 +68,7 @@ namespace sky {
     void AnimPose::BlendPose(const AnimPose & src, AnimPose & dst, float weight, PoseBlendMode mode)
     {
         if (src.transforms.size() != dst.transforms.size()) {
-            LOG_E(TAG, "Invalid Blend Pose size not match src[%llu], dst[%llu]", src.transforms.size(), dst.transforms.size());
+            LOG_E(TAG, "Invalid Blend Pose size not match src[%zu], dst[%zu]", src.transforms.size(), dst.transforms.size());
             return;
         }
 

@@ -68,6 +68,20 @@ namespace sky::aurora {
             if (!buffer || !buffer->buffer || buffer->buffer->GetDevice() != &device || !p->second->shader ||
                 p->second->shader->GetDevice() != &device)
                 return Invalid("Prepared raster backing or shader is unavailable on this device");
+            for (const auto &image : p->second->parameters.images) {
+                ShaderParameterHandle handle;
+                if (p->second->shader->GetParameterTable().Resolve(image.name, 2, handle) == ShaderParameterLookup::INACTIVE)
+                    continue;
+                const auto  imagePin     = pins.find(Key(image.resource));
+                const auto *imageBacking = imagePin != pins.end() && imagePin->second->backing
+                                               ? std::get_if<ResourceImageBacking>(imagePin->second->backing.get())
+                                               : nullptr;
+                if (image.resource.deviceEpoch != lease.context.deviceEpoch || !imageBacking || !imageBacking->image ||
+                    imageBacking->image->GetDevice() != &device || imageBacking->descriptor.imageType != ImageType::IMAGE_2D ||
+                    imageBacking->descriptor.arrayLayers != 1 || imageBacking->descriptor.samples != SampleCount::X1 ||
+                    !imageBacking->descriptor.usage.TestBit(ImageUsageFlagBit::SAMPLED))
+                    return Invalid("Material requires its exact ordinary 2D sampled image backing on this device");
+            }
             if (m->second->lods.size() != meshPin->second->cpu->metadata.lodDistances.size() + 1)
                 return Invalid("Mesh layout and frozen LOD metadata disagree");
             const auto size       = buffer->buffer->GetSize();
@@ -118,7 +132,12 @@ namespace sky::aurora {
             const auto &lod = mesh.lods[packet.lod];
             draw.indexed =
                 RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.sections.empty() ? lod.command : lod.sections[packet.subMesh]};
-            result.draws.push_back({std::move(draw), packet.world, material.uniforms, packet.receiveShadow});
+            result.draws.push_back({std::move(draw), packet.world, material.parameters, packet.receiveShadow});
+            for (const auto &image : material.parameters.images) {
+                const auto key = Key(image.resource);
+                if (pins.contains(key) && retained.emplace(key, true).second)
+                    result.pins.push_back(pins.at(key));
+            }
             for (const auto &key : {meshKey, materialKey})
                 if (retained.emplace(key, true).second)
                     result.pins.push_back(pins.at(key));

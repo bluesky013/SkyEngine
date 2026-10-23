@@ -122,3 +122,91 @@ TEST(MaterialTest, InstanceWithoutMaterial)
     EXPECT_EQ(instance.GetTexture(sky::Name("y")), nullptr);
     EXPECT_FALSE(instance.IsOverridden(sky::Name("x")));
 }
+
+TEST(MaterialTest, SameSizedValuesRequireTheDeclaredSemanticType)
+{
+    Material    material;
+    const float value = .5f;
+    ASSERT_TRUE(material.AddValue(sky::Name("roughness"), MaterialPropertyType::FLOAT, &value));
+    EXPECT_FALSE(material.AddValue(sky::Name("badDefault"), MaterialPropertyType::FLOAT, static_cast<const uint32_t *>(nullptr)));
+    EXPECT_FALSE(material.AddValue(sky::Name("roughness"), MaterialPropertyType::FLOAT, &value));
+    EXPECT_FALSE(material.SetValue(sky::Name("roughness"), int32_t{7}));
+    EXPECT_FALSE(material.SetValue(sky::Name("roughness"), uint32_t{7}));
+    uint32_t wrongRead = 99;
+    EXPECT_FALSE(material.GetValue(sky::Name("roughness"), wrongRead));
+    EXPECT_EQ(wrongRead, 99u);
+    float read = 0;
+    ASSERT_TRUE(material.GetValue(sky::Name("roughness"), read));
+    EXPECT_EQ(read, value);
+
+    auto shared = sky::CounterPtr<Material>(new Material());
+    ASSERT_TRUE(shared->AddValue(sky::Name("roughness"), MaterialPropertyType::FLOAT, &value));
+    MaterialInstance instance;
+    instance.SetMaterial(shared);
+    EXPECT_FALSE(instance.SetValue(sky::Name("roughness"), uint32_t{9}));
+    EXPECT_FALSE(instance.IsOverridden(sky::Name("roughness")));
+    ASSERT_TRUE(instance.SetValue(sky::Name("roughness"), .75f));
+    ASSERT_TRUE(instance.GetValue(sky::Name("roughness"), read));
+    EXPECT_EQ(read, .75f);
+    EXPECT_FALSE(instance.SetValue(sky::Name("roughness"), int32_t{3}));
+    ASSERT_TRUE(instance.GetValue(sky::Name("roughness"), read));
+    EXPECT_EQ(read, .75f);
+}
+
+TEST(MaterialTest, SamplerOverridesAreTypedAndFailurePreservesThePreviousValue)
+{
+    auto                material = sky::CounterPtr<Material>(new Material());
+    Sampler::Descriptor initial;
+    initial.minFilter = Filter::NEAREST;
+    ASSERT_TRUE(material->AddSampler(sky::Name("filter"), initial));
+    EXPECT_FALSE(material->SetValue(sky::Name("filter"), uint32_t{1}));
+    MaterialInstance instance;
+    instance.SetMaterial(material);
+    Sampler::Descriptor value;
+    ASSERT_TRUE(instance.GetSampler(sky::Name("filter"), value));
+    EXPECT_EQ(value.minFilter, Filter::NEAREST);
+    value.minFilter = Filter::LINEAR;
+    ASSERT_TRUE(instance.SetSampler(sky::Name("filter"), value));
+    EXPECT_TRUE(instance.IsOverridden(sky::Name("filter")));
+    auto invalid         = value;
+    invalid.addressModeU = static_cast<WrapMode>(UINT32_MAX);
+    EXPECT_FALSE(instance.SetSampler(sky::Name("filter"), invalid));
+    ASSERT_TRUE(instance.GetSampler(sky::Name("filter"), value));
+    EXPECT_EQ(value.minFilter, Filter::LINEAR);
+    EXPECT_EQ(value.addressModeU, WrapMode::REPEAT);
+    ASSERT_TRUE(material->GetSampler(sky::Name("filter"), value));
+    EXPECT_EQ(value.minFilter, Filter::NEAREST);
+}
+
+TEST(MaterialTest, TypedSnapshotsPreservePartialOverridesWhenBaseValuesChange)
+{
+    auto        material = sky::CounterPtr<Material>(new Material());
+    const float first = .1f, second = .2f;
+    ASSERT_TRUE(material->AddValue(sky::Name("first"), MaterialPropertyType::FLOAT, &first));
+    ASSERT_TRUE(material->AddValue(sky::Name("second"), MaterialPropertyType::FLOAT, &second));
+    MaterialInstance instance;
+    instance.SetMaterial(material);
+    ASSERT_TRUE(instance.SetValue(sky::Name("first"), .7f));
+    ASSERT_TRUE(material->SetValue(sky::Name("second"), .8f));
+    float read = 0;
+    ASSERT_TRUE(instance.GetValue(sky::Name("second"), read));
+    EXPECT_EQ(read, .8f);
+    EXPECT_FALSE(instance.IsOverridden(sky::Name("second")));
+    ShaderDataValue snapshot;
+    ASSERT_TRUE(instance.GetData(sky::Name("first"), snapshot));
+    EXPECT_EQ(snapshot.type, ShaderDataType::FLOAT);
+    ASSERT_EQ(snapshot.bytes.size(), sizeof(float));
+    std::memcpy(&read, snapshot.bytes.data(), sizeof(read));
+    EXPECT_EQ(read, .7f);
+    const float third = .3f;
+    ASSERT_TRUE(material->AddValue(sky::Name("third"), MaterialPropertyType::FLOAT, &third));
+    ASSERT_TRUE(instance.GetValue(sky::Name("third"), read));
+    EXPECT_EQ(read, .3f);
+    ASSERT_TRUE(instance.SetValue(sky::Name("third"), .9f));
+    ASSERT_TRUE(instance.GetValue(sky::Name("first"), read));
+    EXPECT_EQ(read, .7f);
+    const auto previous = snapshot;
+    EXPECT_FALSE(instance.GetData(sky::Name("missing"), snapshot));
+    EXPECT_EQ(snapshot.type, previous.type);
+    EXPECT_EQ(snapshot.bytes, previous.bytes);
+}

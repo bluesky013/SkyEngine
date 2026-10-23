@@ -10,7 +10,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <d3d12sdklayers.h>
-#include <d3dcompiler.h>
 #include <future>
 #include <map>
 #include <set>
@@ -254,28 +253,14 @@ namespace {
         }
         ShaderPtr ShaderOf(bool green = false)
         {
-            const char *source =
-                "float4 VSMain(uint i:SV_VertexID):SV_Position { float2 p[3]={float2(-1,-1),float2(-1,3),float2(3,-1)}; return float4(p[i],0,1); }\n"
-                "float4 Red():SV_Target {return float4(1,0,0,1);}\nfloat4 Green():SV_Target {return float4(0,1,0,1);}";
-            auto function = [&](ShaderStageFlagBit stage, const char *entry, const char *profile) {
-                ComPtr<ID3DBlob> code, errors;
-                const auto       result = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, entry, profile, 0, 0, &code, &errors);
-                EXPECT_TRUE(SUCCEEDED(result));
-                if (FAILED(result))
-                    return ShaderFunctionPtr{};
-                CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-                provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
-                std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
-                return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, entry}));
-            };
-            auto               vs = function(ShaderStageFlagBit::VS, "VSMain", "vs_5_0");
-            auto               ps = function(ShaderStageFlagBit::FS, green ? "Green" : "Red", "ps_5_0");
-            ShaderReflection   reflection;
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = ps.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto vs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::FS, green ? "Green" : "Red");
+            if (!vs || !fs)
+                return {};
+            Shader::Descriptor descriptor{};
+            descriptor.vs = vs.Get();
+            descriptor.ps = fs.Get();
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         FrameGraphImage ImageOf()
         {
@@ -304,34 +289,10 @@ namespace {
         }
         ShaderPtr ComputeShaderOf(bool accumulate = false)
         {
-            const char      *source = accumulate ? "RWStructuredBuffer<uint> data : register(u0);\n"
-                                                   "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ data[id.x]+=100; }"
-                                                 : "RWStructuredBuffer<uint> data : register(u0);\n"
-                                                   "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ data[id.x]=id.x+7; }";
-            ComPtr<ID3DBlob> code, errors;
-            const auto       result = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, "CSMain", "cs_5_0", 0, 0, &code, &errors);
-            EXPECT_TRUE(SUCCEEDED(result));
-            if (FAILED(result)) {
-                if (errors)
-                    ADD_FAILURE() << static_cast<const char *>(errors->GetBufferPointer());
-                return {};
-            }
-            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
-            std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
-            auto             cs = ShaderFunctionPtr(device->CreateShaderFunction({ShaderStageFlagBit::CS, provider, "CSMain"}));
-            ShaderReflection reflection;
-            ShaderResource   resource;
-            resource.name    = "data";
-            resource.type    = ShaderResourceType::STORAGE_BUFFER;
-            resource.set     = 0;
-            resource.binding = 0;
-            resource.count   = 1;
-            reflection.resources.push_back(resource);
-            Shader::Descriptor desc{};
-            desc.cs         = cs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto         cs = CompileGpuFunction(*device, kGpuComputeSource, ShaderStageFlagBit::CS, accumulate ? "Accumulate" : "CSMain");
+            Shader::Descriptor descriptor{};
+            descriptor.cs = cs.Get();
+            return cs ? ShaderPtr(device->CreateShader(descriptor)) : ShaderPtr{};
         }
         FrameGraphImage StorageImageOf()
         {
@@ -342,73 +303,23 @@ namespace {
             image.image             = ImagePtr(device->CreateImage(image.descriptor));
             return image;
         }
-        ShaderFunctionPtr CompileFunction(const char *source, ShaderStageFlagBit stage, const char *entry, const char *profile)
-        {
-            ComPtr<ID3DBlob> code, errors;
-            const auto       result = D3DCompile(source, std::strlen(source), nullptr, nullptr, nullptr, entry, profile, 0, 0, &code, &errors);
-            EXPECT_TRUE(SUCCEEDED(result));
-            if (FAILED(result)) {
-                if (errors)
-                    ADD_FAILURE() << static_cast<const char *>(errors->GetBufferPointer());
-                return {};
-            }
-            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(code->GetBufferSize())));
-            std::memcpy(provider->binaryData->Data(), code->GetBufferPointer(), code->GetBufferSize());
-            return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, entry}));
-        }
         ShaderPtr ComputeImageShaderOf()
         {
-            const char      *source = "RWTexture2D<float4> outputImage : register(u0);\n"
-                                      "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ outputImage[id.xy]=float4(0,1,0,1); }";
-            auto             cs     = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_0");
-            ShaderReflection reflection;
-            ShaderResource   resource;
-            resource.name              = "outputImage";
-            resource.type              = ShaderResourceType::STORAGE_IMAGE;
-            resource.set               = 0;
-            resource.binding           = 0;
-            resource.count             = 1;
-            resource.texture.dimension = ShaderTextureDimension::D2;
-            reflection.resources.push_back(resource);
-            Shader::Descriptor desc{};
-            desc.cs         = cs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto         cs = CompileGpuFunction(*device, kGpuComputeImageSource, ShaderStageFlagBit::CS, "CSMain");
+            Shader::Descriptor descriptor{};
+            descriptor.cs = cs.Get();
+            return cs ? ShaderPtr(device->CreateShader(descriptor)) : ShaderPtr{};
         }
         ShaderPtr SampleShaderOf()
         {
-            const char      *source = "Texture2D<float4> sourceTex : register(t0);\n"
-                                      "SamplerState sourceSampler : register(s1);\n"
-                                      "float4 VSMain(uint i:SV_VertexID):SV_Position { float2 p[3]={float2(-1,-1),float2(-1,3),float2(3,-1)}; "
-                                      "return float4(p[i],0,1); }\n"
-                                      "float4 PSMain(float4 pos:SV_Position):SV_Target { return sourceTex.Sample(sourceSampler, pos.xy/8.0); }";
-            auto             vs     = CompileFunction(source, ShaderStageFlagBit::VS, "VSMain", "vs_5_0");
-            auto             fs     = CompileFunction(source, ShaderStageFlagBit::FS, "PSMain", "ps_5_0");
-            ShaderReflection reflection;
-            ShaderResource   image;
-            image.name               = "sourceTex";
-            image.type               = ShaderResourceType::SAMPLED_IMAGE;
-            image.set                = 0;
-            image.binding            = 0;
-            image.count              = 1;
-            image.texture.dimension  = ShaderTextureDimension::D2;
-            image.texture.scalarType = ShaderScalarType::FLOAT;
-            image.texture.components = 4;
-            reflection.resources.push_back(image);
-            ShaderResource sampler;
-            sampler.name    = "sourceSampler";
-            sampler.type    = ShaderResourceType::SAMPLER;
-            sampler.set     = 0;
-            sampler.binding = 1;
-            sampler.count   = 1;
-            sampler.sampler = ShaderSamplerType::REGULAR;
-            reflection.resources.push_back(sampler);
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = fs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto vs = CompileGpuFunction(*device, kGpuSampleSource, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs = CompileGpuFunction(*device, kGpuSampleSource, ShaderStageFlagBit::FS, "PSMain");
+            if (!vs || !fs)
+                return {};
+            Shader::Descriptor descriptor{};
+            descriptor.vs = vs.Get();
+            descriptor.ps = fs.Get();
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         BufferPtr Readback(FrameGraphBuilder &builder, GraphImageHandle image)
         {
@@ -588,15 +499,10 @@ TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
 
 TEST_F(D3D12FrameCompilerTest, CustomReadsStorageImageAndBuffer)
 {
-    const char *source =
-        "RWTexture2D<float4> image : register(u0); RWStructuredBuffer<uint> output : register(u1); RWStructuredBuffer<uint> input : register(u2);\n"
-        "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ output[id.x]=input[id.x]+uint(image[int2(0,0)].g*255); }";
-    const auto function = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_0");
+    const auto function = CompileGpuFunction(*device, kGpuStorageReadSource, ShaderStageFlagBit::CS, "CSMain");
     ASSERT_TRUE(function);
-    const auto         reflection = StorageReadReflection();
     Shader::Descriptor desc{};
     desc.cs           = function.Get();
-    desc.reflection   = &reflection;
     const auto shader = ShaderPtr(device->CreateShader(desc));
     ASSERT_TRUE(shader);
     auto [graph, readback] = CustomStorageReadGraph(*device, ComputeImageShaderOf(), ComputeShaderOf(), shader);
@@ -626,8 +532,8 @@ TEST_F(D3D12FrameCompilerTest, CustomComputeWritesDeclaredBufferReadBack)
     auto              storage = StorageBufferOf();
     const auto        declared =
         std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
-    descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0);
-    descriptor->End();
+    ASSERT_TRUE(descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0));
+    ASSERT_TRUE(descriptor->End());
     auto callback            = std::make_shared<D3D12CustomComputeEncoder>();
     callback->pipeline       = pipeline.Get();
     callback->group          = group.Get();
@@ -649,18 +555,13 @@ TEST_F(D3D12FrameCompilerTest, CustomComputeWritesDeclaredBufferReadBack)
 
 TEST_F(D3D12FrameCompilerTest, ComputeGpuUniformsUseConstantStateAndValidRootParameters)
 {
-    const char *source   = "cbuffer First : register(b1) { uint first; };\n"
-                           "cbuffer Second : register(b3) { uint second; };\n"
-                           "RWStructuredBuffer<uint> values : register(u0, space1);\n"
-                           "[numthreads(1,1,1)] void CSMain(uint3 id:SV_DispatchThreadID){ values[id.x]=first+10*second+id.x; }";
-    const auto  function = CompileFunction(source, ShaderStageFlagBit::CS, "CSMain", "cs_5_1");
+    const auto function = CompileGpuFunction(*device, kGpuComputeUniformSource, ShaderStageFlagBit::CS, "CSMain");
     ASSERT_TRUE(function);
     for (const bool dynamic : {false, true}) {
-        const auto         reflection = ComputeUniformReflection(dynamic);
         Shader::Descriptor descriptor{};
-        descriptor.cs         = function.Get();
-        descriptor.reflection = &reflection;
-        auto shader           = ShaderPtr(device->CreateShader(descriptor));
+        descriptor.cs              = function.Get();
+        descriptor.bindingPolicies = ComputeUniformPolicies(dynamic);
+        auto shader                = ShaderPtr(device->CreateShader(descriptor));
         ASSERT_TRUE(shader);
         auto [graph, readback] = ComputeUniformGraph(*device, std::move(shader), dynamic);
         ASSERT_TRUE(graph);

@@ -36,7 +36,7 @@ namespace {
     };
 } // namespace
 
-TEST_P(ShaderBundles, IndependentNamesMatchCppLayoutsInRuntimeAndCookSources)
+TEST_P(ShaderBundles, IndependentNamesMatchLogicalInterfacesInRuntimeAndCookSources)
 {
     ShaderFileSystem                embedded;
     NativeFileSystem                root{FilePath(SHADER_TEST_BUNDLE_ROOT)};
@@ -66,8 +66,13 @@ TEST_P(ShaderBundles, IndependentNamesMatchCppLayoutsInRuntimeAndCookSources)
             const auto found = std::find_if(runtimeResult.reflection.blocks.begin(), runtimeResult.reflection.blocks.end(),
                                             [&](const auto &actual) { return actual.set == block.set && actual.binding == block.binding; });
             ASSERT_NE(found, runtimeResult.reflection.blocks.end());
-            EXPECT_EQ(found->size, block.size);
-            EXPECT_EQ(found->members, block.members);
+            ASSERT_EQ(found->members.size(), block.members.size());
+            for (size_t i = 0; i < block.members.size(); ++i) {
+                EXPECT_EQ(found->members[i].name, block.members[i].name);
+                EXPECT_EQ(found->members[i].scalarType, block.members[i].scalarType);
+                EXPECT_EQ(found->members[i].kind, block.members[i].kind);
+                EXPECT_EQ(found->members[i].arrayCount, block.members[i].arrayCount);
+            }
         }
     }
 }

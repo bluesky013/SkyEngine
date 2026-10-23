@@ -308,6 +308,67 @@ namespace {
         [native release];
     }
 
+    TEST_F(CocoaPlatformTest, DeferredMainCloseWaitsForRetirementAndNotifiesOnlyOnce)
+    {
+        WindowRecorder recorder(window.get());
+        [Native() makeKeyAndOrderFront:nil];
+        sky::NativeWindow *base = window.get();
+        base->SetCloseDeferred(true);
+        [Native() performClose:nil];
+        [Native() performClose:nil];
+        EXPECT_EQ(recorder.closeCount, 1);
+        EXPECT_TRUE(recorder.hadLiveHandleAtClose);
+        EXPECT_TRUE([Native() isVisible]);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_FALSE(exit);
+        EXPECT_EQ(sky::NativeWindowManager::Get()->GetMainWindow(), window.get());
+        base->SetCloseDeferred(false);
+        EXPECT_FALSE([Native() isVisible]);
+        EXPECT_EQ(recorder.closeCount, 1);
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_TRUE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, DeferredSecondaryCloseKeepsMainLoopRunning)
+    {
+        auto secondary = std::make_unique<sky::CocoaWindow>();
+        ASSERT_TRUE(secondary->Init({200, 160, "DeferredSecondary", "Deferred Secondary", nullptr}));
+        WindowRecorder     recorder(secondary.get());
+        NSWindow          *native = static_cast<NSWindow *>(secondary->GetNSWindow());
+        sky::NativeWindow *base   = secondary.get();
+        base->SetCloseDeferred(true);
+        [native performClose:nil];
+        [native performClose:nil];
+        EXPECT_EQ(recorder.closeCount, 1);
+        EXPECT_TRUE([native isVisible]);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_FALSE(exit);
+        base->SetCloseDeferred(false);
+        EXPECT_FALSE([native isVisible]);
+        EXPECT_EQ(recorder.closeCount, 1);
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_FALSE(exit);
+        secondary.reset();
+        EXPECT_EQ(sky::NativeWindowManager::Get()->GetMainWindow(), window.get());
+    }
+
+    TEST_F(CocoaPlatformTest, DestroyingRetiredDeferredMainWindowRequestsExit)
+    {
+        WindowRecorder recorder(window.get());
+        window->SetCloseDeferred(true);
+        [Native() performClose:nil];
+        EXPECT_EQ(recorder.closeCount, 1);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_FALSE(exit);
+        window.reset();
+        EXPECT_EQ(recorder.closeCount, 1);
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_TRUE(exit);
+    }
+
     TEST_F(CocoaPlatformTest, SecondaryCloseDoesNotQuitMainWindow)
     {
         auto secondary = std::make_unique<sky::CocoaWindow>();
@@ -332,6 +393,26 @@ namespace {
         EXPECT_EQ([delegate applicationShouldTerminate:NSApp], NSTerminateCancel);
         EXPECT_EQ(recorder.closeCount, 1);
         bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_TRUE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, AppQuitWaitsForDeferredMainWindowRetirement)
+    {
+        WindowRecorder recorder(window.get());
+        [Native() makeKeyAndOrderFront:nil];
+        window->SetCloseDeferred(true);
+        id<NSApplicationDelegate> delegate = [NSApp delegate];
+        ASSERT_TRUE([delegate respondsToSelector:@selector(applicationShouldTerminate:)]);
+        EXPECT_EQ([delegate applicationShouldTerminate:NSApp], NSTerminateCancel);
+        EXPECT_EQ(recorder.closeCount, 1);
+        EXPECT_TRUE([Native() isVisible]);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit);
+        EXPECT_FALSE(exit);
+        window->SetCloseDeferred(false);
+        EXPECT_FALSE([Native() isVisible]);
+        EXPECT_EQ(recorder.closeCount, 1);
         sky::Platform::Get()->PoolEvent(exit);
         EXPECT_TRUE(exit);
     }

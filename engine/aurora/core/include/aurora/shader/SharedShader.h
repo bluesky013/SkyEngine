@@ -3,6 +3,7 @@
 // A pass supplies one field/resource list; C++ layout is checked against compiled shader reflection.
 #define AURORA_EXPAND(...) __VA_ARGS__
 
+#include <aurora/rhi/ShaderParameters.h>
 #include <aurora/shader/SharedShaderTypes.h>
 
 #define AURORA_CPP_FIELD(owner, type, name)                                                                                                          \
@@ -17,7 +18,7 @@
 
 #define AURORA_DECLARE_UNIFORM(params, variable, setIndex, bindingIndex, fieldList)                                                                  \
     struct params {                                                                                                                                  \
-        fieldList(AURORA_CPP_FIELD, AURORA_CPP_ARRAY, params)                                                                                        \
+        fieldList(AURORA_CPP_FIELD, AURORA_CPP_ARRAY, params) static const ::sky::aurora::ShaderCpuSchema &Schema();                                 \
     };                                                                                                                                               \
     static_assert(std::is_standard_layout_v<params>);                                                                                                \
     inline const ::sky::aurora::ShaderBlockLayout &Get##params##Layout()                                                                             \
@@ -33,12 +34,22 @@
                                                       .blockName = ::sky::Name(#params),                                                             \
                                                       .fields    = {fieldList(AURORA_CPP_RG_FIELD, AURORA_CPP_RG_ARRAY, params)}};                      \
         return block;                                                                                                                                \
+    }                                                                                                                                                \
+    inline const ::sky::aurora::ShaderCpuSchema &Get##params##CpuSchema()                                                                            \
+    {                                                                                                                                                \
+        static const ::sky::aurora::ShaderCpuSchema schema{sizeof(params), alignof(params), Get##params##Layout().members};                          \
+        return schema;                                                                                                                               \
+    }                                                                                                                                                \
+    inline const ::sky::aurora::ShaderCpuSchema &params::Schema()                                                                                    \
+    {                                                                                                                                                \
+        return Get##params##CpuSchema();                                                                                                             \
     }
+
 #define AURORA_DECLARE_TEXTURE(...)
 #define AURORA_DECLARE_SAMPLER(...)
 
 #define AURORA_SLOT_UNIFORM(params, variable, setIndex, bindingIndex, fieldList)                                                                     \
-    static constexpr ::sky::aurora::ShaderResourceSlot<::sky::aurora::ShaderResourceType::UNIFORM_BUFFER> variable{setIndex, bindingIndex};
+    static constexpr ::sky::aurora::ShaderUniformSlot<params> variable{{setIndex, bindingIndex}};
 #define AURORA_SLOT_TEXTURE(shape, type, variable, setIndex, bindingIndex)                                                                           \
     static constexpr ::sky::aurora::ShaderResourceSlot<AURORA_RESOURCE_TYPE_##shape> variable{setIndex, bindingIndex};
 #define AURORA_SLOT_SAMPLER(kind, variable, setIndex, bindingIndex)                                                                                  \

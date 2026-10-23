@@ -51,12 +51,9 @@ namespace sky::aurora {
                         return *error;
                     sampler = std::get<SamplerPtr>(created);
                 }
-                const auto slot    = shared::TextureToScreenPassBindings::gTextureToScreen;
-                const auto written = context.WriteUniform(slot.set, slot.binding, std::as_bytes(std::span{&input.params, 1}));
-                if (const auto *error = std::get_if<FrameError>(&written))
-                    return *error;
+                const auto           slot = shared::TextureToScreenPassBindings::gTextureToScreen;
                 PassResourceBindings bindings(shared::GetTextureToScreenPassReflection());
-                const auto           uniform = bindings.Uniform(slot, std::get<RasterUniformBinding>(written).range);
+                const auto           uniform = bindings.UniformData(slot, input.params);
                 if (std::holds_alternative<FrameError>(uniform))
                     return uniform;
                 const auto sampled = bindings.Image(shared::TextureToScreenPassBindings::gSourceTexture, *image);
@@ -70,7 +67,7 @@ namespace sky::aurora {
                 draw.command.vertexCount = 3;
                 draw.scissor.extent      = output->output.extent;
                 const PassResourceBindings *groups[]{&bindings};
-                if (const auto result = PassResourceBindings::Apply(draw, groups); std::holds_alternative<FrameError>(result))
+                if (const auto result = PassResourceBindings::Apply(context, draw, groups); std::holds_alternative<FrameError>(result))
                     return result;
                 FrameRasterPass pass;
                 pass.color = output->color;

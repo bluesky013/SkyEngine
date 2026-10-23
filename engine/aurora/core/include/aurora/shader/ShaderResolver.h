@@ -1,10 +1,4 @@
-//
-// ShaderResolver: turns a ShaderRef + variant into a compiled result, honoring
-// the cache layering: companion > cache, and offline > source-compile > local.
-//
-// Compilation is exposed as a self-contained ShaderCompileTask so the caller can
-// run it inline (render parallel, current frame) or async (worker, skippable).
-//
+// Resolves exact development inputs or published target artifacts without a compiler.
 
 #pragma once
 
@@ -33,10 +27,16 @@ namespace sky::aurora {
         Failed,  // no cache and no way to compile
     };
 
+    enum class ShaderResolveMode : uint8_t { DEVELOPMENT, PRODUCTS };
+
     class ShaderResolver {
     public:
-        ShaderResolver(
-            sky::IFileSystem *offlineRoot, sky::IFileSystem *localRoot, ShaderFileSystem &sourceFs, uint64_t layoutFp, uint64_t toolchainFp);
+        ShaderResolver(sky::IFileSystem *offlineRoot,
+                       sky::IFileSystem *localRoot,
+                       ShaderFileSystem &sourceFs,
+                       uint64_t          layoutFp,
+                       uint64_t          toolchainFp,
+                       ShaderResolveMode mode = ShaderResolveMode::DEVELOPMENT);
 
         // When set, local index/cache writes go through the dedicated writer
         // thread (async, serialized) instead of inline synchronous writes.
@@ -55,6 +55,7 @@ namespace sky::aurora {
             const ShaderVariantSchema *schema      = nullptr; // nullptr -> resolve
             uint64_t                   schemaFp    = 0;
             std::vector<std::string>   depends; // extra companion deps
+            ShaderTargetEnvironment    environment;
         };
 
         // schema priority: source companion > offline index > local index
@@ -70,7 +71,7 @@ namespace sky::aurora {
         PrepareShader(const Request &req, ShaderCompileResult &outResult, ShaderCompileTask &outTask, std::string *error = nullptr);
 
         // Persist a finished compile via the writer queue, or inline otherwise.
-        void CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result);
+        bool CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error = nullptr);
 
         // Sources and variants are captured; compiler, cache roots and writer must outlive pending futures.
         ShaderResolveStatus
@@ -84,17 +85,12 @@ namespace sky::aurora {
                                       std::string                    &outSource);
 
     private:
-        // Returns the artifact's stored sourceHash via `outSourceHash` (used to
-        // reconstruct the compile key when the source is unavailable).
-        bool
-        CacheUsable(sky::IFileSystem &root, const Request &req, uint64_t schemaFp, bool haveSource, uint64_t sourceHash, uint64_t &outSourceHash);
-
         sky::IFileSystem  *mOffline;
         sky::IFileSystem  *mLocal;
         ShaderFileSystem  &mSourceFs;
         ShaderCacheWriter *mWriter = nullptr;
         uint64_t           mLayoutFp;
-        uint64_t           mToolchainFp;
+        ShaderResolveMode  mMode;
     };
 
 } // namespace sky::aurora

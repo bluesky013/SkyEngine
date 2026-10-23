@@ -13,10 +13,7 @@ namespace sky::aurora {
     class MetalDevice;
     class MetalImage;
 
-    // CAMetalLayer hands out drawables from an internal pool (capped by
-    // maximumDrawableCount); AcquireNextImage rotates through IMAGE_COUNT
-    // slots so backbuffers stay valid until presented, matching the
-    // multi-image ring semantics of the other backends.
+    // Checked frames retain each drawable until GPU and presentation retirement.
     class MetalSwapChain : public SwapChain {
     public:
         static constexpr uint32_t IMAGE_COUNT = 3;
@@ -25,6 +22,14 @@ namespace sky::aurora {
         ~MetalSwapChain() override;
 
         bool Init(const Descriptor &desc);
+
+        Device                *GetDevice() const noexcept override;
+        SurfaceQueryResult     QuerySurface() const noexcept override;
+        SwapChainAcquireResult TryAcquireFrame(uint64_t timeoutNs) noexcept override;
+        PresentationResult     TryPresentFrame(uint64_t serial, bool gpuComplete) noexcept override;
+        FenceQueryResult       RetireFrame(uint64_t serial, bool abandon) noexcept override;
+        PresentationResult     TryResize(uint32_t width, uint32_t height) noexcept override;
+        PresentationResult     TryClose() noexcept override;
 
         uint32_t AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t timeoutNs) override;
         void     Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas) override;
@@ -52,18 +57,28 @@ namespace sky::aurora {
 
     private:
         struct Slot {
-            void                       *drawable = nullptr; // id<CAMetalDrawable>, owned
-            std::unique_ptr<MetalImage> image;              // wraps the drawable's texture
+            void                       *drawable     = nullptr;
+            void                       *presentation = nullptr; // owned id<MTLCommandBuffer>
+            std::unique_ptr<MetalImage> image;
+            uint64_t                    serial = 0;
         };
+        struct DrawableRequest;
 
         void ReleaseSlot(Slot &slot);
+        bool HasFrames() const noexcept;
 
-        MetalDevice                  &device;
-        void                         *layer = nullptr; // CAMetalLayer
-        std::array<Slot, IMAGE_COUNT> slots;
-        uint32_t                      acquireCursor = 0;
-        PixelFormat                   format        = PixelFormat::BGRA8_UNORM;
-        Extent2D                      extent        = {1, 1};
+        MetalDevice                     &device;
+        void                            *layer = nullptr; // CAMetalLayer
+        std::array<Slot, IMAGE_COUNT>    slots;
+        uint32_t                         acquireCursor = 0;
+        PixelFormat                      format        = PixelFormat::BGRA8_UNORM;
+        Extent2D                         extent        = {1, 1};
+        std::unique_ptr<DrawableRequest> request;
+        uint64_t                         presentationSerial = 0;
+        uint64_t                         surfaceRevision    = 1;
+        bool                             checkedProtocol    = false;
+        bool                             directProtocol     = false;
+        bool                             closed             = false;
     };
 
 } // namespace sky::aurora

@@ -23,14 +23,12 @@ namespace sky::aurora {
     public:
         virtual ~DescriptorBatch() = default;
 
-        virtual void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer,
-                                 uint64_t offset, uint64_t range, uint32_t arrayElement = 0) = 0;
-        virtual void WriteImage(ResourceGroup *group, uint32_t binding, Image *image,
-                                ImageLayout layout, uint32_t arrayElement = 0) = 0;
-        virtual void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler,
-                                  uint32_t arrayElement = 0) = 0;
+        virtual bool
+        WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) = 0;
+        virtual bool WriteImage(ResourceGroup *group, uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0)    = 0;
+        virtual bool WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0)                  = 0;
 
-        virtual void Flush() = 0;
+        virtual bool Flush() = 0;
         virtual void Reset() = 0;
     };
 

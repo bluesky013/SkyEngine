@@ -173,7 +173,8 @@ namespace sky::aurora {
             }
         }
         if (!image.initializedRegions.empty() &&
-            (desc.imageType != ImageType::IMAGE_2D || (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA16_SFLOAT) ||
+            (desc.imageType != ImageType::IMAGE_2D ||
+             (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA8_SRGB && desc.format != PixelFormat::RGBA16_SFLOAT) ||
              desc.extent.depth != 1 || desc.samples != SampleCount::X1))
             return FrameError{FrameErrorCode::UNSUPPORTED, "Partial image contents require single-sample RGBA8/RGBA16_FLOAT 2D images"};
         for (const auto &region : image.initializedRegions) {
@@ -224,6 +225,15 @@ namespace sky::aurora {
         range.offset += binding.dynamicOffset;
         if (range.size > bufferSize - range.offset)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Declared buffer range exceeds storage"};
+        if (binding.kind == FrameBufferBindingKind::STORAGE) {
+            const auto stride = binding.bufferKind == ShaderBufferKind::RAW ? 4u : binding.elementStride;
+            if ((binding.resourceAccess != ShaderResourceAccess::READ_ONLY && binding.resourceAccess != ShaderResourceAccess::READ_WRITE) ||
+                (binding.resourceAccess == ShaderResourceAccess::READ_ONLY && binding.access != FrameAccessMode::READ) ||
+                (binding.bufferKind != ShaderBufferKind::RAW && binding.bufferKind != ShaderBufferKind::STRUCTURED) ||
+                (binding.bufferKind == ShaderBufferKind::RAW && binding.elementStride) || !stride || stride % 4 || range.offset % stride ||
+                range.size % stride)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid explicit storage buffer view or read-only access"};
+        }
         return range;
     }
 
@@ -357,7 +367,8 @@ namespace sky::aurora {
                 }
                 case ShaderResourceType::STORAGE_IMAGE: {
                     const auto *found = images.Find(resource.set, resource.binding);
-                    if (!found || resource.texture.dimension != ShaderTextureDimension::D2 || resource.texture.multisampled ||
+                    if (!found || (resource.access == ShaderResourceAccess::READ_ONLY && found->access != FrameAccessMode::READ) ||
+                        resource.texture.dimension != ShaderTextureDimension::D2 || resource.texture.multisampled ||
                         (found->kind != FrameImageBindingKind::REFLECTED && found->kind != FrameImageBindingKind::STORAGE) ||
                         resource.texture.arrayed != (found->view.type == ImageViewType::VIEW_2D_ARRAY))
                         return Invalid("Invalid compute storage image binding");
@@ -376,8 +387,15 @@ namespace sky::aurora {
                 case ShaderResourceType::STORAGE_BUFFER_DYNAMIC: {
                     const auto *found = buffers.Find(resource.set, resource.binding);
                     if (!found || (found->kind != FrameBufferBindingKind::REFLECTED && found->kind != FrameBufferBindingKind::STORAGE) ||
-                        (resource.type == ShaderResourceType::STORAGE_BUFFER && found->dynamicOffset))
+                        (resource.type == ShaderResourceType::STORAGE_BUFFER && found->dynamicOffset) ||
+                        (resource.access == ShaderResourceAccess::READ_ONLY && found->access != FrameAccessMode::READ) ||
+                        (resource.access != ShaderResourceAccess::READ_ONLY && resource.access != ShaderResourceAccess::READ_WRITE))
                         return Invalid("Invalid compute storage buffer binding");
+                    const auto stride = resource.bufferKind == ShaderBufferKind::RAW ? 4u : resource.elementStride;
+                    if ((resource.bufferKind != ShaderBufferKind::RAW && resource.bufferKind != ShaderBufferKind::STRUCTURED) ||
+                        (resource.bufferKind == ShaderBufferKind::RAW && resource.elementStride) || !stride || stride % 4 ||
+                        found->range.offset % stride || found->dynamicOffset % stride || found->range.size % stride)
+                        return Invalid("Compute storage buffer range does not match the shader storage shape");
                     break;
                 }
                 default: return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported compute resource type"};
@@ -510,8 +528,8 @@ namespace sky::aurora {
                     }
                     if (desc.imageType != ImageType::IMAGE_2D ||
                         (image.image.IsBorrowed() ? !ColorFormat(desc.format)
-                                                  : (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA16_SFLOAT &&
-                                                     desc.format != PixelFormat::D32)) ||
+                                                  : (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA8_SRGB &&
+                                                     desc.format != PixelFormat::RGBA16_SFLOAT && desc.format != PixelFormat::D32)) ||
                         desc.extent.depth != 1)
                         return FrameError{FrameErrorCode::UNSUPPORTED, "Only RGBA8/RGBA16_FLOAT/D32 2D images are supported"};
                     if (desc.samples != SampleCount::X1 &&
@@ -720,7 +738,9 @@ namespace sky::aurora {
                     uint32_t(region.imageOffset.y) >= height || region.imageExtent.width > width - region.imageOffset.x ||
                     region.imageExtent.height > height - region.imageOffset.y)
                     return Invalid("Invalid image copy extent/offset");
-                if (desc.samples != SampleCount::X1 || (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA16_SFLOAT) ||
+                if (desc.samples != SampleCount::X1 ||
+                    (desc.format != PixelFormat::RGBA8_UNORM && desc.format != PixelFormat::RGBA8_SRGB &&
+                     desc.format != PixelFormat::RGBA16_SFLOAT) ||
                     subresource.layers != 1 || (subresource.aspectMask && subresource.aspectMask != AspectFlagBit::COLOR_BIT))
                     return FrameError{FrameErrorCode::UNSUPPORTED, "Image copies require one RGBA8/RGBA16_FLOAT color mip/layer"};
                 if ((region.bufferRowLength && region.bufferRowLength < region.imageExtent.width) ||
@@ -1045,7 +1065,8 @@ namespace sky::aurora {
     std::variant<FrameError, RasterImageView> ResolveRasterImageView(const RasterImageView &input, const Image::Descriptor &image) noexcept
     {
         if ((input.type != ImageViewType::VIEW_2D && input.type != ImageViewType::VIEW_2D_ARRAY) || image.imageType != ImageType::IMAGE_2D ||
-            (image.format != PixelFormat::RGBA8_UNORM && image.format != PixelFormat::RGBA16_SFLOAT && image.format != PixelFormat::D32) ||
+            (image.format != PixelFormat::RGBA8_UNORM && image.format != PixelFormat::RGBA8_SRGB && image.format != PixelFormat::RGBA16_SFLOAT &&
+             image.format != PixelFormat::D32) ||
             image.samples != SampleCount::X1 || !image.usage.TestBit(ImageUsageFlagBit::SAMPLED))
             return FrameError{FrameErrorCode::UNSUPPORTED, "Raster sampling requires RGBA8/RGBA16_FLOAT/D32 2D/2D-array views"};
         return NormalizeImageView(input, image, "Invalid sampled image view range");

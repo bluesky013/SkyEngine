@@ -270,9 +270,12 @@ namespace sky::aurora {
     struct FrameBufferBinding {
         uint32_t               set = 0, binding = 0;
         RasterBufferRange      range;
-        uint32_t               dynamicOffset = 0;
-        FrameAccessMode        access        = FrameAccessMode::READ;
-        FrameBufferBindingKind kind          = FrameBufferBindingKind::REFLECTED;
+        uint32_t               dynamicOffset  = 0;
+        FrameAccessMode        access         = FrameAccessMode::READ;
+        FrameBufferBindingKind kind           = FrameBufferBindingKind::REFLECTED;
+        ShaderResourceAccess   resourceAccess = ShaderResourceAccess::READ_WRITE;
+        ShaderBufferKind       bufferKind     = ShaderBufferKind::RAW;
+        uint32_t               elementStride  = 0;
     };
     struct FrameImageBinding {
         uint32_t              set = 0, binding = 0;

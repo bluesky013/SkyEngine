@@ -114,30 +114,61 @@ namespace sky::aurora {
         device.GetNativeHandle()->CreateConstantBufferView(&cbv, handle);
     }
 
-    void D3D12Buffer::CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    std::optional<FrameError> D3D12Buffer::CheckStorageRange(const ShaderResource &binding, uint64_t offset, uint64_t range) const
     {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
-        srv.Format                          = DXGI_FORMAT_R32_TYPELESS;
-        srv.ViewDimension                   = D3D12_SRV_DIMENSION_BUFFER;
-        srv.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srv.Buffer.FirstElement             = 0;
-        srv.Buffer.NumElements              = static_cast<UINT>(size / 4);
-        srv.Buffer.StructureByteStride      = 0;
-        srv.Buffer.Flags                    = D3D12_BUFFER_SRV_FLAG_RAW;
-        device.GetNativeHandle()->CreateShaderResourceView(resource.Get(), &srv, handle);
+        if (!resource || !descriptor.usage.TestBit(BufferUsageFlagBit::STORAGE) || descriptor.memory != MemoryType::GPU_ONLY || offset >= size ||
+            !range || range > size - offset)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage buffer view exceeds its backing or usage/heap"};
+        if (binding.access != ShaderResourceAccess::READ_ONLY && binding.access != ShaderResourceAccess::READ_WRITE)
+            return FrameError{FrameErrorCode::UNSUPPORTED, "Unknown storage buffer access"};
+        uint32_t stride = 0;
+        if (binding.bufferKind == ShaderBufferKind::RAW) {
+            if (binding.elementStride || offset % D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Raw buffer views require no stride and a 16-byte aligned address"};
+            stride = sizeof(uint32_t);
+        } else if (binding.bufferKind == ShaderBufferKind::STRUCTURED) {
+            if (!binding.elementStride || binding.elementStride % 4 || binding.elementStride > D3D12_REQ_MULTI_ELEMENT_STRUCTURE_SIZE_IN_BYTES)
+                return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported structured buffer stride"};
+            stride = binding.elementStride;
+        } else {
+            return FrameError{FrameErrorCode::UNSUPPORTED, "Only raw and structured buffer views are supported"};
+        }
+        if (offset % stride || range % stride || range / stride > UINT32_MAX)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage buffer range is not a bounded complete element range"};
+        return {};
     }
 
-    void D3D12Buffer::CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    std::optional<FrameError>
+    D3D12Buffer::CreateStorageView(D3D12_CPU_DESCRIPTOR_HANDLE handle, const ShaderResource &binding, uint64_t offset, uint64_t range) const
     {
-        D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
-        uav.Format                           = DXGI_FORMAT_R32_TYPELESS;
-        uav.ViewDimension                    = D3D12_UAV_DIMENSION_BUFFER;
-        uav.Buffer.FirstElement              = 0;
-        uav.Buffer.NumElements               = static_cast<UINT>(size / 4);
-        uav.Buffer.StructureByteStride       = 0;
-        uav.Buffer.CounterOffsetInBytes      = 0;
-        uav.Buffer.Flags                     = D3D12_BUFFER_UAV_FLAG_RAW;
-        device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
+        if (!handle.ptr)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage buffer descriptor is missing"};
+        if (const auto error = CheckStorageRange(binding, offset, range))
+            return error;
+        const bool raw   = binding.bufferKind == ShaderBufferKind::RAW;
+        const auto unit  = raw ? sizeof(uint32_t) : binding.elementStride;
+        const auto count = static_cast<UINT>(range / unit);
+        if (binding.access == ShaderResourceAccess::READ_ONLY) {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
+            srv.Format                     = raw ? DXGI_FORMAT_R32_TYPELESS : DXGI_FORMAT_UNKNOWN;
+            srv.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+            srv.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Buffer.FirstElement        = offset / unit;
+            srv.Buffer.NumElements         = count;
+            srv.Buffer.StructureByteStride = raw ? 0 : binding.elementStride;
+            srv.Buffer.Flags               = raw ? D3D12_BUFFER_SRV_FLAG_RAW : D3D12_BUFFER_SRV_FLAG_NONE;
+            device.GetNativeHandle()->CreateShaderResourceView(resource.Get(), &srv, handle);
+        } else {
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uav{};
+            uav.Format                     = raw ? DXGI_FORMAT_R32_TYPELESS : DXGI_FORMAT_UNKNOWN;
+            uav.ViewDimension              = D3D12_UAV_DIMENSION_BUFFER;
+            uav.Buffer.FirstElement        = offset / unit;
+            uav.Buffer.NumElements         = count;
+            uav.Buffer.StructureByteStride = raw ? 0 : binding.elementStride;
+            uav.Buffer.Flags               = raw ? D3D12_BUFFER_UAV_FLAG_RAW : D3D12_BUFFER_UAV_FLAG_NONE;
+            device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
+        }
+        return {};
     }
 
 } // namespace sky::aurora

@@ -17,7 +17,6 @@
 #include <aurora/rhi/Sampler.h>
 #include <aurora/rhi/Shader.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
-#include <core/archive/BinaryData.h>
 #include <core/logger/Logger.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector4.h>
@@ -25,6 +24,7 @@
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <memory>
 
 static const char *TAG = "UIRenderer";
 
@@ -70,12 +70,10 @@ namespace sky::ui {
         }
 
         ShaderCompilerSlang compiler;
-        // Use the compiler's target-specific reflection (Vulkan bindings vs DX12
-        // register numbers) instead of a hand-written one, so the root signature
-        // matches the shader for the active backend.
-        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage, ShaderReflection *reflectionOut) -> ShaderFunction * {
+        auto                makeFunction = [&](const char *entry, ShaderStageFlagBit stage) -> ShaderFunction                *{
             ShaderCompileDesc compileDesc = {};
             compileDesc.source            = detail::UI_SHADER_SOURCE;
+            compileDesc.sourcePath        = "ui/UIShader.slang";
             compileDesc.entry             = entry;
             compileDesc.stage             = stage;
             compileDesc.target            = ToShaderTarget(device->GetAPI());
@@ -85,43 +83,38 @@ namespace sky::ui {
                 LOG_E(TAG, "UI shader compile failed: %s", result.errorInfo.c_str());
                 return nullptr;
             }
-            if (reflectionOut != nullptr) {
-                *reflectionOut = result.reflection;
-            }
-            const uint32_t bytes  = static_cast<uint32_t>(result.data.size() * sizeof(uint32_t));
-            auto           binary = CounterPtr<BinaryData>(new BinaryData(bytes));
-            std::memcpy(binary->Data(), result.data.data(), bytes);
-
-            auto *provider       = new ShaderBinaryProvider();
-            provider->binaryData = binary;
-
             ShaderFunction::Descriptor fnDesc = {};
             fnDesc.stage                      = stage;
-            fnDesc.data                       = CounterPtr<ShaderDataProvider>(provider);
-            fnDesc.entry                      = entry;
+            fnDesc.entry                      = result.identity.nativeEntry;
+            fnDesc.artifact                   = std::make_shared<const ShaderStageArtifact>(std::move(result));
             return device->CreateShaderFunction(fnDesc);
         };
 
-        vs = makeFunction("vs_main", ShaderStageFlagBit::VS, nullptr);
-        ps = makeFunction("fs_main", ShaderStageFlagBit::FS, &reflection);
+        vs = makeFunction("vs_main", ShaderStageFlagBit::VS);
+        ps = makeFunction("fs_main", ShaderStageFlagBit::FS);
         if (vs == nullptr || ps == nullptr) {
             return false;
         }
 
-        // Resolve the authored `tex`/`smp` bindings from the target-specific
-        // reflection instead of hardcoding 0/1: Metal numbers each resource
-        // category independently (sampler is 0), Vulkan/DX12 keep 0/1. Falls back
-        // to the first resource of each category if names are mangled.
+        std::string error;
+        reflection = {};
+        if (!MergeShaderReflections(vs->GetArtifact()->reflection, reflection, error) ||
+            !MergeShaderReflections(ps->GetArtifact()->reflection, reflection, error)) {
+            LOG_E(TAG, "UI shader reflection link failed: %s", error.c_str());
+            return false;
+        }
+
         bool sawTex = false;
         bool sawSmp = false;
         for (const auto &res : reflection.resources) {
-            if (res.name == "tex" || (!sawTex && res.type == ShaderResourceType::SAMPLED_IMAGE)) {
-                texBinding = res.binding;
-                sawTex     = true;
-            } else if (res.name == "smp" || (!sawSmp && res.type == ShaderResourceType::SAMPLER)) {
-                smpBinding = res.binding;
-                sawSmp     = true;
-            }
+            sawTex |= res.name == "tex" && res.declarationOwner == "ui/UIShader" && res.set == 0 && res.binding == texBinding &&
+                      res.type == ShaderResourceType::SAMPLED_IMAGE && res.count == 1 && !res.descriptorArray;
+            sawSmp |= res.name == "smp" && res.declarationOwner == "ui/UIShader" && res.set == 0 && res.binding == smpBinding &&
+                      res.type == ShaderResourceType::SAMPLER && res.count == 1 && !res.descriptorArray;
+        }
+        if (!sawTex || !sawSmp || reflection.resources.size() != 2) {
+            LOG_E(TAG, "UI shader requires its declared texture and sampler bindings");
+            return false;
         }
 
         Shader::Descriptor shaderDesc = {};
@@ -196,10 +189,15 @@ namespace sky::ui {
             return false;
         }
 
-        // Rounded-box SDF pipeline (fs_round). Optional: if it fails, shape
-        // commands fall back to the flat pipeline.
-        psRound = makeFunction("fs_round", ShaderStageFlagBit::FS, &roundReflection);
+        // Rounded-box SDF compilation failure retains the flat shape fallback.
+        psRound = makeFunction("fs_round", ShaderStageFlagBit::FS);
         if (psRound != nullptr) {
+            roundReflection = {};
+            if (!MergeShaderReflections(vs->GetArtifact()->reflection, roundReflection, error) ||
+                !MergeShaderReflections(psRound->GetArtifact()->reflection, roundReflection, error)) {
+                LOG_E(TAG, "UI round shader reflection link failed: %s", error.c_str());
+                return false;
+            }
             Shader::Descriptor roundShaderDesc = {};
             roundShaderDesc.vs                 = vs.Get();
             roundShaderDesc.ps                 = psRound.Get();
@@ -240,8 +238,11 @@ namespace sky::ui {
         sampler.Reset(nullptr);
         indexBuffer.Reset(nullptr);
         vertexBuffer.Reset(nullptr);
+        roundPipeline.Reset(nullptr);
         pipeline.Reset(nullptr);
+        roundShader.Reset(nullptr);
         shader.Reset(nullptr);
+        psRound.Reset(nullptr);
         ps.Reset(nullptr);
         vs.Reset(nullptr);
         device         = nullptr;
@@ -250,20 +251,21 @@ namespace sky::ui {
         nextTextureId  = 1;
     }
 
-    ResourceGroup *UIRenderer::CreateTextureGroup(Image *image)
+    CounterPtr<ResourceGroup> UIRenderer::CreateTextureGroup(Image *image)
     {
-        if (device == nullptr || shader == nullptr || image == nullptr) {
+        if (device == nullptr || shader == nullptr || image == nullptr || sampler == nullptr || image->GetDevice() != device) {
             return nullptr;
         }
         ResourceGroup::Descriptor groupDesc = {};
         groupDesc.shader                    = shader.Get();
         groupDesc.set                       = 0;
-        ResourceGroup *group                = device->CreateResourceGroup(groupDesc);
+        CounterPtr<ResourceGroup> group     = device->CreateResourceGroup(groupDesc);
         if (group != nullptr) {
             auto groupEncoder = group->CreateEncoder();
-            groupEncoder->WriteImage(texBinding, image, ImageLayout::SHADER_READ_ONLY);
-            groupEncoder->WriteSampler(smpBinding, sampler.Get());
-            groupEncoder->End();
+            if (!groupEncoder || !groupEncoder->WriteImage(texBinding, image, ImageLayout::SHADER_READ_ONLY) ||
+                !groupEncoder->WriteSampler(smpBinding, sampler.Get()) || !groupEncoder->End()) {
+                return nullptr;
+            }
         }
         return group;
     }
@@ -362,7 +364,7 @@ namespace sky::ui {
         }
         std::memcpy(mapped, entry.pendingPixels.data(), entry.pendingPixels.size());
         next.staging->UnMap();
-        next.group = CounterPtr<ResourceGroup>(CreateTextureGroup(next.image.Get()));
+        next.group = CreateTextureGroup(next.image.Get());
         if (next.group == nullptr) {
             return false;
         }
@@ -407,7 +409,7 @@ namespace sky::ui {
         TextureEntry entry;
         entry.image    = CounterPtr<Image>(image);
         entry.uploaded = true; // GPU-provided; no CPU upload
-        entry.group    = CounterPtr<ResourceGroup>(CreateTextureGroup(image));
+        entry.group    = CreateTextureGroup(image);
         if (entry.group == nullptr) {
             return false;
         }
@@ -562,15 +564,21 @@ namespace sky::ui {
         UITextureId             boundTexture    = UI_INVALID_TEXTURE;
         bool                    hasBoundTexture = false;
         for (const auto &command : drawData.commands) {
-            GraphicsPipeline *wantPipeline = (command.shape && roundPipeline != nullptr) ? roundPipeline.Get() : pipeline.Get();
+            const bool              useRound     = command.shape && roundPipeline != nullptr;
+            GraphicsPipeline *const wantPipeline = useRound ? roundPipeline.Get() : pipeline.Get();
             if (wantPipeline != boundPipeline) {
                 encoder->BindPipeline(wantPipeline);
-                boundPipeline = wantPipeline;
+                boundPipeline   = wantPipeline;
+                hasBoundTexture = false;
             }
-            if (!hasBoundTexture || command.textureId != boundTexture) {
-                if (ResourceGroup *group = FindGroup(command.textureId)) {
-                    encoder->BindResourceGroup(0, group);
+            if (!useRound && (!hasBoundTexture || command.textureId != boundTexture)) {
+                ResourceGroup *const group = FindGroup(command.textureId);
+                if (group == nullptr) {
+                    hasBoundTexture = false;
+                    LOG_W(TAG, "UI draw has no available texture or white fallback");
+                    continue;
                 }
+                encoder->BindResourceGroup(0, group);
                 boundTexture    = command.textureId;
                 hasBoundTexture = true;
             }

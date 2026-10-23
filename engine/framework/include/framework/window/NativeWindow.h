@@ -7,6 +7,7 @@
 #include <framework/window/Cursor.h>
 #include <framework/window/IWindow.h>
 #include <framework/window/IWindowEvent.h>
+#include <memory>
 #include <string>
 
 namespace sky {
@@ -28,6 +29,13 @@ namespace sky {
         static NativeWindow *Create(const Descriptor &);
 
         void *GetNativeHandle() const override;
+
+        // Retain the exact surface independently of later window replacement.
+        // Desktop windows use close deferral and may return an empty lease.
+        virtual std::shared_ptr<const void> RetainNativeHandle() const
+        {
+            return {};
+        }
 
         virtual bool Init(const Descriptor &desc)
         {
@@ -101,7 +109,7 @@ namespace sky {
         }
 
         // The render host releases this hold only after native presentation has retired.
-        void SetCloseDeferred(bool value)
+        virtual void SetCloseDeferred(bool value)
         {
             closeDeferred = value;
         }
@@ -119,6 +127,6 @@ namespace sky {
         WindowID   winID     = INVALID_WIN_ID;
         float      scale     = 1.f;
         Descriptor descriptor;
-        bool closeDeferred = false;
+        bool       closeDeferred = false;
     };
 } // namespace sky

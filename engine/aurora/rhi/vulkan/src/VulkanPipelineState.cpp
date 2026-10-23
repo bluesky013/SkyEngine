@@ -36,18 +36,17 @@ namespace sky::aurora {
                 out.mapEntries.push_back(mapEntry);
                 out.data.push_back(entry.value);
             }
-            out.info.mapEntryCount  = static_cast<uint32_t>(out.mapEntries.size());
-            out.info.pMapEntries    = out.mapEntries.data();
-            out.info.dataSize       = out.data.size() * sizeof(uint32_t);
-            out.info.pData          = out.data.data();
+            out.info.mapEntryCount = static_cast<uint32_t>(out.mapEntries.size());
+            out.info.pMapEntries   = out.mapEntries.data();
+            out.info.dataSize      = out.data.size() * sizeof(uint32_t);
+            out.info.pData         = out.data.data();
             return true;
         }
     } // namespace
 
     // ---- VulkanGraphicsPipeline ----
 
-    VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice &dev)
-        : device(dev)
+    VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -68,17 +67,15 @@ namespace sky::aurora {
             colorFormats[i] = FromPixelFormat(fmt.colors[i]);
         }
 
-        const VkFormat dsFormat = FromPixelFormat(fmt.depthStencil);
-        const bool hasStencil =
-            fmt.depthStencil == PixelFormat::D24_S8 ||
-            fmt.depthStencil == PixelFormat::D32_S8;
+        const VkFormat dsFormat   = FromPixelFormat(fmt.depthStencil);
+        const bool     hasStencil = fmt.depthStencil == PixelFormat::D24_S8 || fmt.depthStencil == PixelFormat::D32_S8;
 
         VkPipelineRenderingCreateInfo renderingInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-        renderingInfo.viewMask                = fmt.viewMask;
-        renderingInfo.colorAttachmentCount    = fmt.numColors;
-        renderingInfo.pColorAttachmentFormats = colorFormats;
-        renderingInfo.depthAttachmentFormat   = dsFormat;
-        renderingInfo.stencilAttachmentFormat = hasStencil ? dsFormat : VK_FORMAT_UNDEFINED;
+        renderingInfo.viewMask                      = fmt.viewMask;
+        renderingInfo.colorAttachmentCount          = fmt.numColors;
+        renderingInfo.pColorAttachmentFormats       = colorFormats;
+        renderingInfo.depthAttachmentFormat         = dsFormat;
+        renderingInfo.stencilAttachmentFormat       = hasStencil ? dsFormat : VK_FORMAT_UNDEFINED;
 
         return BuildPipeline(desc, &renderingInfo, nullptr);
     }
@@ -95,8 +92,8 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto &state = *desc.state;
-        const auto &fmt   = desc.format;
+        const auto &state    = *desc.state;
+        const auto &fmt      = desc.format;
         const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
         if (vkShader == nullptr) {
             LOG_E(TAG, "graphics pipeline descriptor missing shader");
@@ -111,26 +108,26 @@ namespace sky::aurora {
 
         // ---- specialization constants (weak variants) ----
         SpecializationData specData;
-        const bool hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+        const bool         hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
 
         // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-        const auto *vs = vkShader->GetVertexFunction();
+        const auto                                  *vs = vkShader->GetVertexFunction();
         if (vs != nullptr) {
             VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-            stageCI.stage  = FromShaderStage(vs->GetStage());
-            stageCI.module = vs->GetNativeHandle();
-            stageCI.pName  = "main";
-            stageCI.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
+            stageCI.stage                           = FromShaderStage(vs->GetStage());
+            stageCI.module                          = vs->GetNativeHandle();
+            stageCI.pName                           = vs->GetNativeEntry().c_str();
+            stageCI.pSpecializationInfo             = hasSpec ? &specData.info : nullptr;
             shaderStages.push_back(stageCI);
         }
         const auto *fs = vkShader->GetFragmentFunction();
         if (fs != nullptr) {
             VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-            stageCI.stage  = FromShaderStage(fs->GetStage());
-            stageCI.module = fs->GetNativeHandle();
-            stageCI.pName  = "main";
-            stageCI.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
+            stageCI.stage                           = FromShaderStage(fs->GetStage());
+            stageCI.module                          = fs->GetNativeHandle();
+            stageCI.pName                           = fs->GetNativeEntry().c_str();
+            stageCI.pSpecializationInfo             = hasSpec ? &specData.info : nullptr;
             shaderStages.push_back(stageCI);
         }
 
@@ -140,79 +137,77 @@ namespace sky::aurora {
         vertexBindings.reserve(state.vertexBindings.size());
         for (const auto &binding : state.vertexBindings) {
             VkVertexInputBindingDescription b = {};
-            b.binding   = binding.binding;
-            b.stride    = binding.stride;
-            b.inputRate = binding.inputRate == VertexInputRate::PER_INSTANCE
-                              ? VK_VERTEX_INPUT_RATE_INSTANCE
-                              : VK_VERTEX_INPUT_RATE_VERTEX;
+            b.binding                         = binding.binding;
+            b.stride                          = binding.stride;
+            b.inputRate = binding.inputRate == VertexInputRate::PER_INSTANCE ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
             vertexBindings.push_back(b);
         }
         vertexAttributes.reserve(state.vertexAttributes.size());
         for (const auto &attr : state.vertexAttributes) {
             VkVertexInputAttributeDescription a = {};
-            a.location = attr.location;
-            a.binding  = attr.binding;
-            a.format   = FromFormat(attr.format);
-            a.offset   = attr.offset;
+            a.location                          = attr.location;
+            a.binding                           = attr.binding;
+            a.format                            = FromFormat(attr.format);
+            a.offset                            = attr.offset;
             vertexAttributes.push_back(a);
         }
 
         VkPipelineVertexInputStateCreateInfo vertexInput = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-        vertexInput.vertexBindingDescriptionCount   = static_cast<uint32_t>(vertexBindings.size());
-        vertexInput.pVertexBindingDescriptions      = vertexBindings.empty() ? nullptr : vertexBindings.data();
-        vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributes.size());
-        vertexInput.pVertexAttributeDescriptions    = vertexAttributes.empty() ? nullptr : vertexAttributes.data();
+        vertexInput.vertexBindingDescriptionCount        = static_cast<uint32_t>(vertexBindings.size());
+        vertexInput.pVertexBindingDescriptions           = vertexBindings.empty() ? nullptr : vertexBindings.data();
+        vertexInput.vertexAttributeDescriptionCount      = static_cast<uint32_t>(vertexAttributes.size());
+        vertexInput.pVertexAttributeDescriptions         = vertexAttributes.empty() ? nullptr : vertexAttributes.data();
 
         // ---- input assembly ----
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-        inputAssembly.topology               = FromPrimitiveTopology(state.inputAssembly.topology);
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
+        inputAssembly.topology                               = FromPrimitiveTopology(state.inputAssembly.topology);
+        inputAssembly.primitiveRestartEnable                 = VK_FALSE;
 
         // ---- viewport (dynamic) ----
         VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-        viewportState.viewportCount = 1;
-        viewportState.scissorCount  = 1;
+        viewportState.viewportCount                     = 1;
+        viewportState.scissorCount                      = 1;
 
         // ---- rasterizer ----
         VkPipelineRasterizationStateCreateInfo rasterizer = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-        rasterizer.depthClampEnable        = static_cast<VkBool32>(state.rasterState.depthClampEnable);
-        rasterizer.rasterizerDiscardEnable = static_cast<VkBool32>(state.rasterState.rasterizerDiscardEnable);
-        rasterizer.polygonMode             = FromPolygonMode(state.rasterState.polygonMode);
-        rasterizer.cullMode                = FromCullMode(state.rasterState.cullMode);
-        rasterizer.frontFace               = FromFrontFace(state.rasterState.frontFace);
-        rasterizer.depthBiasEnable         = static_cast<VkBool32>(state.rasterState.depthBiasEnable);
-        rasterizer.depthBiasConstantFactor = state.rasterState.depthBiasConstantFactor;
-        rasterizer.depthBiasClamp          = state.rasterState.depthBiasClamp;
-        rasterizer.depthBiasSlopeFactor    = state.rasterState.depthBiasSlopeFactor;
-        rasterizer.lineWidth               = state.rasterState.lineWidth;
+        rasterizer.depthClampEnable                       = static_cast<VkBool32>(state.rasterState.depthClampEnable);
+        rasterizer.rasterizerDiscardEnable                = static_cast<VkBool32>(state.rasterState.rasterizerDiscardEnable);
+        rasterizer.polygonMode                            = FromPolygonMode(state.rasterState.polygonMode);
+        rasterizer.cullMode                               = FromCullMode(state.rasterState.cullMode);
+        rasterizer.frontFace                              = FromFrontFace(state.rasterState.frontFace);
+        rasterizer.depthBiasEnable                        = static_cast<VkBool32>(state.rasterState.depthBiasEnable);
+        rasterizer.depthBiasConstantFactor                = state.rasterState.depthBiasConstantFactor;
+        rasterizer.depthBiasClamp                         = state.rasterState.depthBiasClamp;
+        rasterizer.depthBiasSlopeFactor                   = state.rasterState.depthBiasSlopeFactor;
+        rasterizer.lineWidth                              = state.rasterState.lineWidth;
 
         // ---- multisample ----
         VkPipelineMultisampleStateCreateInfo multisample = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-        multisample.rasterizationSamples  = FromSampleCount(fmt.sampleCount);
-        multisample.sampleShadingEnable   = VK_FALSE;
-        multisample.minSampleShading      = 0.f;
-        multisample.pSampleMask           = nullptr;
-        multisample.alphaToCoverageEnable = static_cast<VkBool32>(state.multiSample.alphaToCoverage);
-        multisample.alphaToOneEnable      = VK_FALSE;
+        multisample.rasterizationSamples                 = FromSampleCount(fmt.sampleCount);
+        multisample.sampleShadingEnable                  = VK_FALSE;
+        multisample.minSampleShading                     = 0.f;
+        multisample.pSampleMask                          = nullptr;
+        multisample.alphaToCoverageEnable                = static_cast<VkBool32>(state.multiSample.alphaToCoverage);
+        multisample.alphaToOneEnable                     = VK_FALSE;
 
         // ---- depth stencil ----
         VkPipelineDepthStencilStateCreateInfo depthStencil = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        depthStencil.depthTestEnable       = static_cast<VkBool32>(state.depthStencil.depthTest);
-        depthStencil.depthWriteEnable      = static_cast<VkBool32>(state.depthStencil.depthWrite);
-        depthStencil.depthCompareOp        = FromCompareOp(state.depthStencil.compareOp);
-        depthStencil.depthBoundsTestEnable = VK_FALSE;
-        depthStencil.stencilTestEnable     = static_cast<VkBool32>(state.depthStencil.stencilTest);
-        depthStencil.front                 = FromStencilState(state.depthStencil.front);
-        depthStencil.back                  = FromStencilState(state.depthStencil.back);
-        depthStencil.minDepthBounds        = state.depthStencil.minDepth;
-        depthStencil.maxDepthBounds        = state.depthStencil.maxDepth;
+        depthStencil.depthTestEnable                       = static_cast<VkBool32>(state.depthStencil.depthTest);
+        depthStencil.depthWriteEnable                      = static_cast<VkBool32>(state.depthStencil.depthWrite);
+        depthStencil.depthCompareOp                        = FromCompareOp(state.depthStencil.compareOp);
+        depthStencil.depthBoundsTestEnable                 = VK_FALSE;
+        depthStencil.stencilTestEnable                     = static_cast<VkBool32>(state.depthStencil.stencilTest);
+        depthStencil.front                                 = FromStencilState(state.depthStencil.front);
+        depthStencil.back                                  = FromStencilState(state.depthStencil.back);
+        depthStencil.minDepthBounds                        = state.depthStencil.minDepth;
+        depthStencil.maxDepthBounds                        = state.depthStencil.maxDepth;
 
         // ---- color blend ----
         std::vector<VkPipelineColorBlendAttachmentState> colorAttachments(fmt.numColors);
         for (uint32_t i = 0; i < fmt.numColors; ++i) {
             auto &att = colorAttachments[i];
             if (i < state.blendStates.size()) {
-                const auto &src  = state.blendStates[i];
+                const auto &src         = state.blendStates[i];
                 att.blendEnable         = static_cast<VkBool32>(src.blendEn);
                 att.srcColorBlendFactor = FromBlendFactor(src.srcColor);
                 att.dstColorBlendFactor = FromBlendFactor(src.dstColor);
@@ -223,38 +218,37 @@ namespace sky::aurora {
                 att.colorWriteMask      = src.writeMask;
             } else {
                 att.blendEnable    = VK_FALSE;
-                att.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                     VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                att.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
             }
         }
 
         VkPipelineColorBlendStateCreateInfo colorBlend = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-        colorBlend.logicOpEnable   = VK_FALSE;
-        colorBlend.logicOp         = VK_LOGIC_OP_CLEAR;
-        colorBlend.attachmentCount = static_cast<uint32_t>(colorAttachments.size());
-        colorBlend.pAttachments    = colorAttachments.data();
+        colorBlend.logicOpEnable                       = VK_FALSE;
+        colorBlend.logicOp                             = VK_LOGIC_OP_CLEAR;
+        colorBlend.attachmentCount                     = static_cast<uint32_t>(colorAttachments.size());
+        colorBlend.pAttachments                        = colorAttachments.data();
 
         // ---- dynamic state ----
-        const VkDynamicState dynStatesData[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-        VkPipelineDynamicStateCreateInfo dynState = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-        dynState.dynamicStateCount = static_cast<uint32_t>(sizeof(dynStatesData) / sizeof(dynStatesData[0]));
-        dynState.pDynamicStates    = dynStatesData;
+        const VkDynamicState             dynStatesData[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        VkPipelineDynamicStateCreateInfo dynState        = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        dynState.dynamicStateCount                       = static_cast<uint32_t>(sizeof(dynStatesData) / sizeof(dynStatesData[0]));
+        dynState.pDynamicStates                          = dynStatesData;
 
         // ---- assemble create info ----
         VkGraphicsPipelineCreateInfo ci = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-        ci.stageCount          = static_cast<uint32_t>(shaderStages.size());
-        ci.pStages             = shaderStages.data();
-        ci.pVertexInputState   = &vertexInput;
-        ci.pInputAssemblyState = &inputAssembly;
-        ci.pViewportState      = &viewportState;
-        ci.pRasterizationState = &rasterizer;
-        ci.pMultisampleState   = &multisample;
-        ci.pDepthStencilState  = &depthStencil;
-        ci.pColorBlendState    = &colorBlend;
-        ci.pDynamicState       = &dynState;
-        ci.layout              = layoutHandle;
-        ci.basePipelineHandle  = VK_NULL_HANDLE;
-        ci.basePipelineIndex   = -1;
+        ci.stageCount                   = static_cast<uint32_t>(shaderStages.size());
+        ci.pStages                      = shaderStages.data();
+        ci.pVertexInputState            = &vertexInput;
+        ci.pInputAssemblyState          = &inputAssembly;
+        ci.pViewportState               = &viewportState;
+        ci.pRasterizationState          = &rasterizer;
+        ci.pMultisampleState            = &multisample;
+        ci.pDepthStencilState           = &depthStencil;
+        ci.pColorBlendState             = &colorBlend;
+        ci.pDynamicState                = &dynState;
+        ci.layout                       = layoutHandle;
+        ci.basePipelineHandle           = VK_NULL_HANDLE;
+        ci.basePipelineIndex            = -1;
 
         // Determine path: dynamic rendering vs legacy render pass
         if (subpassInfo != nullptr && subpassInfo->renderPass != VK_NULL_HANDLE) {
@@ -267,9 +261,8 @@ namespace sky::aurora {
             ci.pNext      = pNext;
         }
 
-        const VkResult result = device.GetDeviceFn().vkCreateGraphicsPipelines(
-            device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
-        createResult = result;
+        const VkResult result = device.GetDeviceFn().vkCreateGraphicsPipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
+        createResult          = result;
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create graphics pipeline, VkResult=%d", static_cast<int>(result));
             return false;
@@ -280,8 +273,7 @@ namespace sky::aurora {
 
     // ---- VulkanComputePipeline ----
 
-    VulkanComputePipeline::VulkanComputePipeline(VulkanDevice &dev)
-        : device(dev)
+    VulkanComputePipeline::VulkanComputePipeline(VulkanDevice &dev) : device(dev)
     {
     }
 
@@ -307,7 +299,7 @@ namespace sky::aurora {
         }
 
         VkComputePipelineCreateInfo ci = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        ci.layout = layoutHandle;
+        ci.layout                      = layoutHandle;
 
         ci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         ci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -315,17 +307,16 @@ namespace sky::aurora {
             const auto *cs = vkShader->GetComputeFunction();
             if (cs != nullptr) {
                 ci.stage.module = cs->GetNativeHandle();
-                ci.stage.pName  = "main";
+                ci.stage.pName  = cs->GetNativeEntry().c_str();
             }
         }
 
         // specialization constants (weak variants)
         SpecializationData specData;
-        const bool hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+        const bool         hasSpec   = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
         ci.stage.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
 
-        const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(
-            device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
+        const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create compute pipeline, VkResult=%d", static_cast<int>(result));
             return false;

@@ -1,6 +1,6 @@
 //
 // Versioned material techniques with explicit stage entries and Batch mappings.
-// Runtime conversion packs typed properties using each program's reflected layout.
+// Runtime conversion retains typed properties and explicit aliases until binding.
 //
 
 #pragma once
@@ -16,6 +16,7 @@
 #include <framework/serialization/BinaryArchive.h>
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -171,7 +172,41 @@ namespace sky::aurora {
 
         // Typed property value (memory-lean: one alternative active). Textures use the Uuid
         // alternative; the property's MaterialPropertyType tells which alternative / texture kind.
-        using MaterialPropertyValue = std::variant<float, Vector2, Vector3, Vector4, Matrix4, int32_t, uint32_t, bool, Uuid>;
+        using MaterialPropertyValue = std::variant<float, Vector2, Vector3, Vector4, Matrix4, int32_t, uint32_t, bool, Uuid, Sampler::Descriptor>;
+
+        inline void SaveSampler(BinaryOutputArchive &ar, const Sampler::Descriptor &value)
+        {
+            ar.SaveValue(static_cast<uint32_t>(value.magFilter));
+            ar.SaveValue(static_cast<uint32_t>(value.minFilter));
+            ar.SaveValue(static_cast<uint32_t>(value.mipmapMode));
+            ar.SaveValue(static_cast<uint32_t>(value.addressModeU));
+            ar.SaveValue(static_cast<uint32_t>(value.addressModeV));
+            ar.SaveValue(static_cast<uint32_t>(value.addressModeW));
+            ar.SaveValue(value.minLod);
+            ar.SaveValue(value.maxLod);
+            ar.SaveValue(value.maxAnisotropy);
+            ar.SaveValue(value.anisotropyEnable);
+        }
+        inline void LoadSampler(BinaryInputArchive &ar, Sampler::Descriptor &value)
+        {
+            uint32_t mag = 0, min = 0, mip = 0, u = 0, v = 0, w = 0;
+            ar.LoadValue(mag);
+            ar.LoadValue(min);
+            ar.LoadValue(mip);
+            ar.LoadValue(u);
+            ar.LoadValue(v);
+            ar.LoadValue(w);
+            value.magFilter    = static_cast<Filter>(mag);
+            value.minFilter    = static_cast<Filter>(min);
+            value.mipmapMode   = static_cast<MipFilter>(mip);
+            value.addressModeU = static_cast<WrapMode>(u);
+            value.addressModeV = static_cast<WrapMode>(v);
+            value.addressModeW = static_cast<WrapMode>(w);
+            ar.LoadValue(value.minLod);
+            ar.LoadValue(value.maxLod);
+            ar.LoadValue(value.maxAnisotropy);
+            ar.LoadValue(value.anisotropyEnable);
+        }
 
         inline void SavePropertyValue(BinaryOutputArchive &ar, const MaterialPropertyValue &value)
         {
@@ -189,6 +224,8 @@ namespace sky::aurora {
                         ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 4);
                     } else if constexpr (std::is_same_v<T, Matrix4>) {
                         ar.SaveValue(reinterpret_cast<const char *>(v.v), sizeof(float) * 16);
+                    } else if constexpr (std::is_same_v<T, Sampler::Descriptor>) {
+                        SaveSampler(ar, v);
                     } else if constexpr (std::is_same_v<T, Uuid>) {
                         ar.SaveValue(v);
                     } else {
@@ -211,6 +248,8 @@ namespace sky::aurora {
                 ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 4);
             } else if constexpr (std::is_same_v<T, Matrix4>) {
                 ar.LoadValue(reinterpret_cast<char *>(v.v), sizeof(float) * 16);
+            } else if constexpr (std::is_same_v<T, Sampler::Descriptor>) {
+                LoadSampler(ar, v);
             } else {
                 ar.LoadValue(v);
             }
@@ -242,10 +281,10 @@ namespace sky::aurora {
     using MaterialPropertyValue = detail::MaterialPropertyValue;
 
     struct MaterialTechniqueData {
-        std::string                         tag;
-        ShaderTechnique                     program;
-        std::vector<MaterialUniformBinding> uniforms;
-        MaterialRenderState                 renderState;
+        std::string                       tag;
+        ShaderTechnique                   program;
+        std::vector<ShaderParameterAlias> aliases;
+        MaterialRenderState               renderState;
 
         void Save(BinaryOutputArchive &ar) const
         {
@@ -260,14 +299,10 @@ namespace sky::aurora {
                 ar.SaveValue(entry.value);
             }
             detail::SaveRenderState(ar, renderState);
-            ar.SaveValue(static_cast<uint32_t>(uniforms.size()));
-            for (const auto &uniform : uniforms) {
-                ar.SaveValue(uniform.binding);
-                ar.SaveValue(static_cast<uint32_t>(uniform.fields.size()));
-                for (const auto &field : uniform.fields) {
-                    ar.SaveValue(field.property);
-                    ar.SaveValue(field.member);
-                }
+            ar.SaveValue(static_cast<uint32_t>(aliases.size()));
+            for (const auto &alias : aliases) {
+                ar.SaveValue(alias.alias);
+                ar.SaveValue(alias.target);
             }
         }
 
@@ -289,15 +324,14 @@ namespace sky::aurora {
             }
             detail::LoadRenderState(ar, renderState);
             ar.LoadValue(count);
-            uniforms.resize(count);
-            for (auto &uniform : uniforms) {
-                ar.LoadValue(uniform.binding);
-                ar.LoadValue(count);
-                uniform.fields.resize(count);
-                for (auto &field : uniform.fields) {
-                    ar.LoadValue(field.property);
-                    ar.LoadValue(field.member);
-                }
+            if (count > 1024) {
+                tag.clear();
+                return;
+            }
+            aliases.resize(count);
+            for (auto &alias : aliases) {
+                ar.LoadValue(alias.alias);
+                ar.LoadValue(alias.target);
             }
         }
     };
@@ -325,7 +359,7 @@ namespace sky::aurora {
     };
 
     struct MaterialAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 2;
+        static constexpr uint32_t CURRENT_VERSION = 3;
 
         uint32_t                           version = CURRENT_VERSION;
         std::vector<MaterialTechniqueData> techniques;
@@ -371,6 +405,52 @@ namespace sky::aurora {
             properties.clear();
         }
     };
+
+    inline bool MaterialPropertyValueMatches(MaterialPropertyType type, const MaterialPropertyValue &value)
+    {
+        return std::visit(
+            [&](const auto &typed) {
+                using T = std::decay_t<decltype(typed)>;
+                if constexpr (std::is_same_v<T, Uuid>)
+                    return IsTextureProperty(type);
+                else if constexpr (std::is_same_v<T, Sampler::Descriptor>)
+                    return type == MaterialPropertyType::SAMPLER && IsValidMaterialSampler(typed);
+                else
+                    return MaterialPropertyTypeOf<T>() == type;
+            },
+            value);
+    }
+
+    inline bool ValidateMaterialAssetData(const MaterialAssetData &data, std::string &error)
+    {
+        if (data.version != MaterialAssetData::CURRENT_VERSION || data.techniques.empty() || data.techniques.size() > 32 ||
+            data.properties.size() > 1024) {
+            error = "Material requires the current schema and bounded explicit techniques/properties";
+            return false;
+        }
+        std::set<std::string> properties, tags;
+        for (const auto &property : data.properties)
+            if (property.name.empty() || !properties.insert(property.name).second || !MaterialPropertyValueMatches(property.type, property.value)) {
+                error = "Material property names or semantic value types are invalid";
+                return false;
+            }
+        for (const auto &technique : data.techniques) {
+            if (technique.tag.empty() || !tags.insert(technique.tag).second || technique.program.vertex.relativePath.empty() ||
+                technique.program.fragment.relativePath.empty() || !technique.program.compute.relativePath.empty() ||
+                technique.aliases.size() > 1024) {
+                error = "Material requires unique graphics techniques";
+                return false;
+            }
+            std::set<std::string> aliases, targets;
+            for (const auto &alias : technique.aliases)
+                if (!properties.contains(alias.alias) || alias.target.empty() || !aliases.insert(alias.alias).second ||
+                    !targets.insert(alias.target).second) {
+                    error = "Material aliases require unique declared properties and canonical targets";
+                    return false;
+                }
+        }
+        return true;
+    }
 
     // Runtime-only build: maps the asset onto a Material (techniques with
     // ShaderRef + render state, and typed property defaults). Textures are

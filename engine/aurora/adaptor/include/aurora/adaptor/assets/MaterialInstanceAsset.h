@@ -67,7 +67,7 @@ namespace sky::aurora {
     };
 
     struct MaterialInstanceAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 1;
+        static constexpr uint32_t CURRENT_VERSION = 2;
 
         uint32_t                                     version = CURRENT_VERSION;
         Uuid                                         material;

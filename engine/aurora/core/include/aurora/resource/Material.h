@@ -7,8 +7,11 @@
 
 #include <aurora/resource/Texture.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/Sampler.h>
+#include <aurora/rhi/ShaderParameters.h>
 #include <aurora/shader/RgBlockDesc.h>
 #include <aurora/shader/ShaderTechnique.h>
+#include <cmath>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
@@ -16,10 +19,13 @@
 #include <core/name/Name.h>
 #include <core/platform/Platform.h>
 #include <core/template/ReferenceObject.h>
+#include <type_traits>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -31,7 +37,7 @@ namespace sky::aurora {
 
     constexpr bool IsTextureProperty(MaterialPropertyType type)
     {
-        return type == MaterialPropertyType::TEXTURE2D || type == MaterialPropertyType::TEXTURE_CUBE || type == MaterialPropertyType::SAMPLER;
+        return type == MaterialPropertyType::TEXTURE2D || type == MaterialPropertyType::TEXTURE_CUBE;
     }
 
     // Byte size implied by a property type (packed CPU layout); callers never
@@ -62,19 +68,34 @@ namespace sky::aurora {
         bool                    alphaToCoverage = false;
     };
 
-    // A material owns whole set-2 bindings; property offsets never imply shader offsets.
-    struct MaterialUniformField {
-        std::string property, member;
-    };
-    struct MaterialUniformBinding {
-        uint32_t                          binding = 0;
-        std::vector<MaterialUniformField> fields;
-    };
+    template <class T>
+    constexpr MaterialPropertyType MaterialPropertyTypeOf()
+    {
+        if constexpr (std::is_same_v<T, float>)
+            return MaterialPropertyType::FLOAT;
+        else if constexpr (std::is_same_v<T, Vector2>)
+            return MaterialPropertyType::FLOAT2;
+        else if constexpr (std::is_same_v<T, Vector3>)
+            return MaterialPropertyType::FLOAT3;
+        else if constexpr (std::is_same_v<T, Vector4>)
+            return MaterialPropertyType::FLOAT4;
+        else if constexpr (std::is_same_v<T, Matrix4>)
+            return MaterialPropertyType::MAT4;
+        else if constexpr (std::is_same_v<T, int32_t>)
+            return MaterialPropertyType::INT;
+        else if constexpr (std::is_same_v<T, uint32_t>)
+            return MaterialPropertyType::UINT;
+        else if constexpr (std::is_same_v<T, bool>)
+            return MaterialPropertyType::BOOL;
+        else
+            return static_cast<MaterialPropertyType>(UINT8_MAX);
+    }
+
     struct MaterialTechnique {
-        Name                                techniqueTag;
-        ShaderTechnique                     program;
-        std::vector<MaterialUniformBinding> uniforms;
-        MaterialRenderState                 renderState;
+        Name                              techniqueTag;
+        ShaderTechnique                   program;
+        std::vector<ShaderParameterAlias> aliases;
+        MaterialRenderState               renderState;
     };
 
     struct MaterialPropertyEntry {
@@ -93,9 +114,12 @@ namespace sky::aurora {
         Material &operator=(const Material &) = delete;
 
         // ---- techniques (inlined) ----
-        void AddTechnique(const MaterialTechnique &technique)
+        bool AddTechnique(const MaterialTechnique &technique)
         {
+            if (technique.techniqueTag.Empty() || GetTechnique(technique.techniqueTag))
+                return false;
             techniques.push_back(technique);
+            return true;
         }
 
         const std::vector<MaterialTechnique> &GetTechniques() const
@@ -114,28 +138,30 @@ namespace sky::aurora {
         }
 
         // ---- property layout ----
-        void AddValue(const Name &name, MaterialPropertyType type, const void *defaultValue)
+        bool AddValue(const Name &name, MaterialPropertyType type, std::nullptr_t = nullptr)
         {
-            SKY_ASSERT(!IsTextureProperty(type));
-            const uint32_t        size = SizeOfPropertyType(type);
-            MaterialPropertyEntry entry;
-            entry.type   = type;
-            entry.offset = static_cast<uint32_t>(storage.size());
-            storage.resize(storage.size() + size, 0);
-            if (defaultValue != nullptr) {
-                std::memcpy(storage.data() + entry.offset, defaultValue, size);
-            }
-            properties[name] = entry;
+            return AddValueStorage(name, type, nullptr);
         }
-
-        void AddTexture(const Name &name, MaterialPropertyType type = MaterialPropertyType::TEXTURE2D)
+        template <class T>
+        bool AddValue(const Name &name, MaterialPropertyType type, const T *value)
         {
-            SKY_ASSERT(IsTextureProperty(type));
-            MaterialPropertyEntry entry;
-            entry.type   = type;
-            entry.offset = static_cast<uint32_t>(textures.size());
+            return MaterialPropertyTypeOf<T>() == type && AddValueStorage(name, type, value);
+        }
+        bool AddTexture(const Name &name, MaterialPropertyType type = MaterialPropertyType::TEXTURE2D)
+        {
+            if (name.Empty() || properties.contains(name) || !IsTextureProperty(type) || textures.size() >= UINT32_MAX)
+                return false;
+            properties.emplace(name, MaterialPropertyEntry{type, static_cast<uint32_t>(textures.size())});
             textures.emplace_back();
-            properties[name] = entry;
+            return true;
+        }
+        bool AddSampler(const Name &name, const Sampler::Descriptor &value = {})
+        {
+            if (name.Empty() || properties.contains(name) || !IsValidMaterialSampler(value) || samplers.size() >= UINT32_MAX)
+                return false;
+            properties.emplace(name, MaterialPropertyEntry{MaterialPropertyType::SAMPLER, static_cast<uint32_t>(samplers.size())});
+            samplers.push_back(value);
+            return true;
         }
 
         const MaterialPropertyMap &GetPropertyMap() const
@@ -143,22 +169,20 @@ namespace sky::aurora {
             return properties;
         }
 
-        // ---- property values ----
-        // Type is validated by size against the declared property: a value whose
-        // sizeof does not match the declared type is rejected.
         template <typename T>
-        void SetValue(const Name &name, const T &value)
+        bool SetValue(const Name &name, const T &value)
         {
-            const MaterialPropertyEntry *entry = FindValue(name, sizeof(T));
-            if (entry != nullptr) {
-                std::memcpy(storage.data() + entry->offset, &value, sizeof(T));
-            }
+            const auto *entry = FindValue(name, MaterialPropertyTypeOf<T>());
+            if (!entry)
+                return false;
+            std::memcpy(storage.data() + entry->offset, &value, sizeof(T));
+            return true;
         }
 
         template <typename T>
         bool GetValue(const Name &name, T &out) const
         {
-            const MaterialPropertyEntry *entry = FindValue(name, sizeof(T));
+            const MaterialPropertyEntry *entry = FindValue(name, MaterialPropertyTypeOf<T>());
             if (entry == nullptr) {
                 return false;
             }
@@ -166,12 +190,35 @@ namespace sky::aurora {
             return true;
         }
 
-        void SetTexture(const Name &name, CounterPtr<Texture> texture)
+        bool GetData(const Name &name, ShaderDataValue &out) const
         {
-            const MaterialPropertyEntry *entry = FindTexture(name);
-            if (entry != nullptr) {
-                textures[entry->offset] = std::move(texture);
-            }
+            const auto *entry = Find(name);
+            return entry && ReadShaderData(*entry, storage.data(), out);
+        }
+
+        bool SetTexture(const Name &name, CounterPtr<Texture> texture)
+        {
+            const auto *entry = FindTexture(name);
+            if (!entry || !TextureMatches(entry->type, texture.Get()))
+                return false;
+            textures[entry->offset] = std::move(texture);
+            return true;
+        }
+        bool SetSampler(const Name &name, const Sampler::Descriptor &value)
+        {
+            const auto *entry = Find(name);
+            if (!entry || entry->type != MaterialPropertyType::SAMPLER || !IsValidMaterialSampler(value))
+                return false;
+            samplers[entry->offset] = value;
+            return true;
+        }
+        bool GetSampler(const Name &name, Sampler::Descriptor &out) const
+        {
+            const auto *entry = Find(name);
+            if (!entry || entry->type != MaterialPropertyType::SAMPLER)
+                return false;
+            out = samplers[entry->offset];
+            return true;
         }
 
         Texture *GetTexture(const Name &name) const
@@ -183,16 +230,54 @@ namespace sky::aurora {
     private:
         friend class MaterialInstance;
 
+        static bool ReadShaderData(const MaterialPropertyEntry &entry, const uint8_t *source, ShaderDataValue &out)
+        {
+            const auto read = [&]<class T>() {
+                T value;
+                std::memcpy(&value, source + entry.offset, sizeof(T));
+                out = MakeShaderData(value);
+                return true;
+            };
+            switch (entry.type) {
+            case MaterialPropertyType::FLOAT: return read.template operator()<float>();
+            case MaterialPropertyType::FLOAT2: return read.template operator()<Vector2>();
+            case MaterialPropertyType::FLOAT4: return read.template operator()<Vector4>();
+            case MaterialPropertyType::MAT4: return read.template operator()<Matrix4>();
+            case MaterialPropertyType::INT: return read.template operator()<int32_t>();
+            case MaterialPropertyType::UINT: return read.template operator()<uint32_t>();
+            default: return false;
+            }
+        }
+
+        bool AddValueStorage(const Name &name, MaterialPropertyType type, const void *value)
+        {
+            const auto size = SizeOfPropertyType(type);
+            if (name.Empty() || properties.contains(name) || !size || storage.size() > UINT32_MAX - size)
+                return false;
+            const auto offset = static_cast<uint32_t>(storage.size());
+            storage.resize(storage.size() + size, 0);
+            if (value)
+                std::memcpy(storage.data() + offset, value, size);
+            properties.emplace(name, MaterialPropertyEntry{type, offset});
+            return true;
+        }
+        static bool TextureMatches(MaterialPropertyType type, const Texture *texture)
+        {
+            if (!texture)
+                return true;
+            const auto &desc = texture->GetDescriptor();
+            return desc.imageType == ImageType::IMAGE_2D && (type == MaterialPropertyType::TEXTURE2D ? desc.arrayLayers == 1 : desc.arrayLayers == 6);
+        }
         const MaterialPropertyEntry *Find(const Name &name) const
         {
             auto iter = properties.find(name);
             return iter == properties.end() ? nullptr : &iter->second;
         }
 
-        const MaterialPropertyEntry *FindValue(const Name &name, uint32_t size) const
+        const MaterialPropertyEntry *FindValue(const Name &name, MaterialPropertyType type) const
         {
             const MaterialPropertyEntry *entry = Find(name);
-            if (entry == nullptr || IsTextureProperty(entry->type) || SizeOfPropertyType(entry->type) != size) {
+            if (entry == nullptr || !SizeOfPropertyType(type) || entry->type != type) {
                 return nullptr;
             }
             return entry;
@@ -208,6 +293,7 @@ namespace sky::aurora {
         std::vector<uint8_t>             storage;
         MaterialPropertyMap              properties;
         std::vector<CounterPtr<Texture>> textures;
+        std::vector<Sampler::Descriptor> samplers;
     };
 
     // Shares a Material and overrides a subset of its fields at runtime. Value
@@ -225,7 +311,9 @@ namespace sky::aurora {
         {
             material = std::move(inMaterial);
             storage.clear();
+            valueOverrides.clear();
             textureOverrides.clear();
+            samplerOverrides.clear();
         }
 
         Material *GetMaterial() const
@@ -234,17 +322,19 @@ namespace sky::aurora {
         }
 
         template <typename T>
-        void SetValue(const Name &name, const T &value)
+        bool SetValue(const Name &name, const T &value)
         {
             if (material == nullptr) {
-                return;
+                return false;
             }
-            const MaterialPropertyEntry *entry = material->FindValue(name, sizeof(T));
+            const MaterialPropertyEntry *entry = material->FindValue(name, MaterialPropertyTypeOf<T>());
             if (entry == nullptr) {
-                return;
+                return false;
             }
             EnsureStorage();
             std::memcpy(storage.data() + entry->offset, &value, sizeof(T));
+            valueOverrides.insert(name);
+            return true;
         }
 
         template <typename T>
@@ -253,21 +343,46 @@ namespace sky::aurora {
             if (material == nullptr) {
                 return false;
             }
-            const MaterialPropertyEntry *entry = material->FindValue(name, sizeof(T));
+            const MaterialPropertyEntry *entry = material->FindValue(name, MaterialPropertyTypeOf<T>());
             if (entry == nullptr) {
                 return false;
             }
-            const uint8_t *src = storage.empty() ? material->storage.data() : storage.data();
+            const uint8_t *src = valueOverrides.contains(name) ? storage.data() : material->storage.data();
             std::memcpy(&out, src + entry->offset, sizeof(T));
             return true;
         }
 
-        void SetTexture(const Name &name, CounterPtr<Texture> texture)
+        bool GetData(const Name &name, ShaderDataValue &out) const
         {
-            if (material == nullptr || material->FindTexture(name) == nullptr) {
-                return;
-            }
+            const auto *entry  = material ? material->Find(name) : nullptr;
+            const auto *source = valueOverrides.contains(name) ? storage.data() : material ? material->storage.data() : nullptr;
+            return entry && Material::ReadShaderData(*entry, source, out);
+        }
+
+        bool SetTexture(const Name &name, CounterPtr<Texture> texture)
+        {
+            const auto *entry = material ? material->FindTexture(name) : nullptr;
+            if (!entry || !Material::TextureMatches(entry->type, texture.Get()))
+                return false;
             textureOverrides[name] = std::move(texture);
+            return true;
+        }
+        bool SetSampler(const Name &name, const Sampler::Descriptor &value)
+        {
+            const auto *entry = material ? material->Find(name) : nullptr;
+            if (!entry || entry->type != MaterialPropertyType::SAMPLER || !IsValidMaterialSampler(value))
+                return false;
+            samplerOverrides[name] = value;
+            return true;
+        }
+        bool GetSampler(const Name &name, Sampler::Descriptor &out) const
+        {
+            const auto found = samplerOverrides.find(name);
+            if (found != samplerOverrides.end()) {
+                out = found->second;
+                return true;
+            }
+            return material && material->GetSampler(name, out);
         }
 
         Texture *GetTexture(const Name &name) const
@@ -279,34 +394,26 @@ namespace sky::aurora {
             return material != nullptr ? material->GetTexture(name) : nullptr;
         }
 
-        // A field is overridden when it differs from the material default.
         bool IsOverridden(const Name &name) const
         {
-            if (material == nullptr) {
-                return false;
-            }
-            if (textureOverrides.find(name) != textureOverrides.end()) {
-                return true;
-            }
-            const MaterialPropertyEntry *entry = material->Find(name);
-            if (entry == nullptr || IsTextureProperty(entry->type) || storage.empty()) {
-                return false;
-            }
-            const uint32_t size = SizeOfPropertyType(entry->type);
-            return std::memcmp(storage.data() + entry->offset, material->storage.data() + entry->offset, size) != 0;
+            return material && (valueOverrides.contains(name) || textureOverrides.contains(name) || samplerOverrides.contains(name));
         }
 
     private:
         void EnsureStorage()
         {
             if (storage.size() != material->storage.size()) {
-                storage = material->storage;
+                auto extended = material->storage;
+                std::copy(storage.begin(), storage.end(), extended.begin());
+                storage = std::move(extended);
             }
         }
 
+        std::unordered_set<Name>                      valueOverrides;
         CounterPtr<Material>                          material;
         std::vector<uint8_t>                          storage;
         std::unordered_map<Name, CounterPtr<Texture>> textureOverrides;
+        std::unordered_map<Name, Sampler::Descriptor> samplerOverrides;
     };
 
 } // namespace sky::aurora

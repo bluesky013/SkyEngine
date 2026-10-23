@@ -38,7 +38,7 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
 )";
 
     ShaderCompilerSlang compiler;
-    ShaderCompileDesc csDesc{};
+    ShaderCompileDesc   csDesc{};
     csDesc.source = source;
     csDesc.entry  = "mainCS";
     csDesc.stage  = ShaderStageFlagBit::CS;
@@ -46,8 +46,7 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
     ShaderCompileResult csResult{};
     ASSERT_TRUE(compiler.Compile(csDesc, csResult)) << csResult.errorInfo;
 
-    CounterPtr<ShaderFunction> cs(
-        GetDevice()->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult.data)));
+    CounterPtr<ShaderFunction> cs(GetDevice()->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult)));
     ASSERT_NE(cs.Get(), nullptr);
 
     ShaderSpecialization spec;
@@ -55,7 +54,6 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
 
     Shader::Descriptor shaderDesc{};
     shaderDesc.cs             = cs.Get();
-    shaderDesc.reflection     = &csResult.reflection;
     shaderDesc.specialization = &spec;
     CounterPtr<Shader> shader(GetDevice()->CreateShader(shaderDesc));
     ASSERT_NE(shader.Get(), nullptr);

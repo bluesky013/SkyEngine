@@ -1,10 +1,22 @@
 // Generated from aurora/pipeline/SceneSurfaceBatch.h; do not edit.
-// Inputs: bcb95520e4a7601561eb327914300f1fa25591a2a67f10f6dd59899a9565ff82; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: f714b07e8418e9130d0a26fa07991348b3805df03d5010a9b2f0353b9bff78f9; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct SceneSurfaceParams
 {
-    float4 surface;
+    [AuroraField("surface")] float4 surface;
 };
+[AuroraResource(2, 1, "aurora/pipeline/SceneSurfaceBatch.h")]
 [[vk::binding(1, 2)]] ConstantBuffer<SceneSurfaceParams> gSceneSurface
-    : register(b1, space2);
+#if !AURORA_TARGET_MSL
+    : register(b1, space2)
+#endif
+;

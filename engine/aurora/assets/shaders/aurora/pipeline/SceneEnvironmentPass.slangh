@@ -1,25 +1,57 @@
 // Generated from aurora/pipeline/SceneEnvironmentPass.h; do not edit.
-// Inputs: 6b1f32c6d9d762171da11153e8d5829f0c5c6a7b5db454373952891c8b965719; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: df9afda264a80558712bb7c4224a85ecb1f461e0558a44455969aec5438a92fb; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct SceneEnvironmentParams
 {
-    float4 environment;
+    [AuroraField("environment")] float4 environment;
 };
+[AuroraResource(1, 4, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(4, 1)]] ConstantBuffer<SceneEnvironmentParams> gSceneEnvironment
-    : register(b4, space1);
+#if !AURORA_TARGET_MSL
+    : register(b4, space1)
+#endif
+;
 
+[AuroraResource(1, 5, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(5, 1)]] Texture2D<float4> gDiffuseIrradiance
-    : register(t5, space1);
+#if !AURORA_TARGET_MSL
+    : register(t5, space1)
+#endif
+;
 
+[AuroraResource(1, 6, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(6, 1)]] Texture2D<float4> gSpecularEnvironment
-    : register(t6, space1);
+#if !AURORA_TARGET_MSL
+    : register(t6, space1)
+#endif
+;
 
+[AuroraResource(1, 7, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(7, 1)]] Texture2D<float4> gBrdfIntegration
-    : register(t7, space1);
+#if !AURORA_TARGET_MSL
+    : register(t7, space1)
+#endif
+;
 
+[AuroraResource(1, 8, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(8, 1)]] SamplerState gEnvironmentSampler
-    : register(s8, space1);
+#if !AURORA_TARGET_MSL
+    : register(s8, space1)
+#endif
+;
 
+[AuroraResource(1, 9, "aurora/pipeline/SceneEnvironmentPass.h")]
 [[vk::binding(9, 1)]] SamplerState gBrdfSampler
-    : register(s9, space1);
+#if !AURORA_TARGET_MSL
+    : register(s9, space1)
+#endif
+;

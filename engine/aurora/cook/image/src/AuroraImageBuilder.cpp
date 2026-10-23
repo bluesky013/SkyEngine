@@ -289,6 +289,9 @@ namespace sky::aurora {
             } else {
                 LOG_I(TAG, "  emit uncompressed: format=%u mips=%u", static_cast<uint32_t>(pixelFormat), static_cast<uint32_t>(image->mips.size()));
                 cook::WriteImageAsset(*image, assetType, out);
+                if ((image->format == PixelFormat::RGBA8_UNORM || image->format == PixelFormat::RGBA8_SRGB) &&
+                    (pixelFormat == PixelFormat::RGBA8_UNORM || pixelFormat == PixelFormat::RGBA8_SRGB))
+                    out.format = pixelFormat;
             }
         }
 

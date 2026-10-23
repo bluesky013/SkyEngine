@@ -59,7 +59,8 @@ namespace sky::aurora {
             const auto                    count = renderer->PollEvents(events);
             for (const auto &event : std::span(events).first(count))
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
-                    LOG_E("RendererHost", "shutdown frame %llu: %s", failure->packetSequence, failure->error.message.c_str());
+                    LOG_E("RendererHost", "shutdown frame %llu: %s", static_cast<unsigned long long>(failure->packetSequence),
+                          failure->error.message.c_str());
             if (Platform::Get()->GetImpl()) {
                 bool exit = false;
                 Platform::Get()->PoolEvent(exit);

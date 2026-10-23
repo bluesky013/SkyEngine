@@ -16,6 +16,7 @@ namespace sky::aurora {
     public:
         MetalCommandBuffer(MetalDevice &device, void *queue);
         ~MetalCommandBuffer() override;
+        const Device *GetDevice() const noexcept override;
 
         void Begin() override;
         void End() override;
@@ -30,6 +31,11 @@ namespace sky::aurora {
             return cmdBuffer;
         } // id<MTLCommandBuffer>
 
+        GpuError GetRecordingError() const noexcept
+        {
+            return recordingError;
+        }
+
         // Backend-only: encoders call these on construction/destruction so the
         // command buffer can route in-encoder barriers and flush pending ones.
         enum class ActiveEncoderKind { None, Render, Compute, Blit };
@@ -43,6 +49,7 @@ namespace sky::aurora {
         void                    *activeEncoder = nullptr; // typed Obj-C encoder (render/compute/blit)
         ActiveEncoderKind        activeKind    = ActiveEncoderKind::None;
         std::vector<BarrierInfo> pendingBarriers; // queued until next encoder begins
+        GpuError                 recordingError;
     };
 
     class MetalCommandPool : public CommandPool {

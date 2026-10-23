@@ -1,24 +1,44 @@
 // Generated from pipeline_test/SharedShaderFixture.h; do not edit.
-// Inputs: c15a7c98ee0b3d476b4da4b2236fbfdbc340e16ad93d84fbb3cc47f95cab2a7b; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 7769c557b214889626c6053d7df36f5f720f7d59386dccfd6cf0fcab1c59276b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct SharedTestParams
 {
-    float scalar;
-    int signedValue;
-    uint unsignedValue;
-    uint enabled;
-    float2 pairA;
-    float2 pairB;
-    float4 directionWeight;
-    column_major float4x4 transform;
-    float4 values[2];
+    [AuroraField("scalar")] float scalar;
+    [AuroraField("signedValue")] int signedValue;
+    [AuroraField("unsignedValue")] uint unsignedValue;
+    [AuroraField("enabled")] uint enabled;
+    [AuroraField("pairA")] float2 pairA;
+    [AuroraField("pairB")] float2 pairB;
+    [AuroraField("directionWeight")] float4 directionWeight;
+    [AuroraField("transform")] column_major float4x4 transform;
+    [AuroraField("values")] float4 values[2];
 };
+[AuroraResource(1, 0, "pipeline_test/SharedShaderFixture.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<SharedTestParams> gTest
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;
 
+[AuroraResource(2, 0, "pipeline_test/SharedShaderFixture.h")]
 [[vk::binding(0, 2)]] Texture2D<float4> gLayer
-    : register(t0, space2);
+#if !AURORA_TARGET_MSL
+    : register(t0, space2)
+#endif
+;
 
+[AuroraResource(2, 1, "pipeline_test/SharedShaderFixture.h")]
 [[vk::binding(1, 2)]] SamplerState gSampling
-    : register(s1, space2);
+#if !AURORA_TARGET_MSL
+    : register(s1, space2)
+#endif
+;

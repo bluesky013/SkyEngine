@@ -279,7 +279,7 @@ namespace sky::editor {
         return std::make_unique<ShellTarget>(shell);
     }
 
-    SandboxModule::SandboxModule()  = default;
+    SandboxModule::SandboxModule() = default;
     SandboxModule::~SandboxModule()
     {
         BindWorldEditor(nullptr);
@@ -599,7 +599,7 @@ namespace sky::editor {
             speed.order  = faster ? 42 : 40;
             speed.invoke = [this, faster]() {
                 const float   value = std::clamp(viewportController->settings.speed * (faster ? 2.f : .5f), .01f, 1000.f);
-                PropertyModel model({&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
+                PropertyModel model(PropertyObject{&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
                 for (const auto &property : model.GetDescriptors()) {
                     if (property.GetName() == "speed") {
                         viewportSettingsCommands.Execute(property.MakeEditCommand(Any(value)));
@@ -846,7 +846,7 @@ namespace sky::editor {
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
-        worldEditor = std::make_unique<WorldEditorState>(selection);
+        worldEditor        = std::make_unique<WorldEditorState>(selection);
         viewportController = std::make_shared<ViewportController>(selection, EditorCore::GetCommandService(), EditorCore::GetPropertyChanges());
         viewportController->SetVisualProvider(gizmoVisualProvider);
         ViewportControlSettings::Reflect();
@@ -1178,10 +1178,8 @@ namespace sky::editor {
         shell.RegisterPanelView("viewport", [this, texture = renderer.GetSceneTextureId()]() {
             auto image           = std::make_unique<SceneViewport>(viewportController);
             image->extentChanged = [this](Vector2 extent) {
-#if defined(_WIN32)
                 renderer.SetSceneExtent(
                     {static_cast<uint32_t>(std::clamp(extent.x, 1.f, 4096.f)), static_cast<uint32_t>(std::clamp(extent.y, 1.f, 4096.f))});
-#endif
             };
             image->orbitHeld = [this]() { return viewportAlt; };
             image->SetTexture(texture);
@@ -1646,9 +1644,7 @@ namespace sky::editor {
             // Reflect document edits (-> title/status dirty marker).
             RefreshDocumentInfo();
         }
-#if defined(_WIN32)
         renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
-#endif
         renderer.Tick(delta);
 
         // Coalesced end-of-frame auto-save: only after a committed layout edit.

@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <set>
 
 namespace sky::aurora {
     namespace {
@@ -28,18 +29,14 @@ namespace sky::aurora {
             std::array<uint32_t, 3> images{};
         };
         template <typename T>
-        FrameOperationResult WriteParams(FrameGraphBuildContext                                &context,
-                                         PassResourceBindings                                  &bindings,
-                                         ShaderResourceSlot<ShaderResourceType::UNIFORM_BUFFER> slot,
-                                         const T                                               &value,
-                                         ShaderResourceType                                     type = ShaderResourceType::UNIFORM_BUFFER)
+        FrameOperationResult WriteParams(FrameGraphBuildContext &context,
+                                         PassResourceBindings   &bindings,
+                                         ShaderUniformSlot<T>    slot,
+                                         const T                &value,
+                                         ShaderResourceType      type = ShaderResourceType::UNIFORM_BUFFER)
         {
-            const auto written = context.WriteUniform(slot.set, slot.binding, std::as_bytes(std::span{&value, 1}), type);
-            if (const auto *error = std::get_if<FrameError>(&written)) {
-                return *error;
-            }
-            const auto &uniform = std::get<RasterUniformBinding>(written);
-            return bindings.Uniform(slot, uniform.range, type, uniform.dynamicOffset);
+            (void)context;
+            return bindings.UniformData(slot, value, type);
         }
 
         FrameOperationResult BindGlobal(FrameGraphBuildContext &context, PassResourceBindings &bindings)
@@ -52,43 +49,69 @@ namespace sky::aurora {
             return WriteParams(context, bindings, shared::GlobalBlockBindings::gGlobal, params);
         }
 
-        ShaderReflection MaterialSchema(const ShaderReflection &shader, std::span<const RenderUniformData> uniforms)
+        std::variant<FrameError, ShaderReflection> MaterialSchema(const Shader &shader, const RenderMaterialParameters &parameters)
         {
-            ShaderReflection result;
-            for (const auto &uniform : uniforms) {
-                for (const auto &resource : shader.resources) {
-                    if (resource.set == 2 && resource.binding == uniform.binding) {
-                        result.resources.push_back(resource);
-                    }
-                }
-                for (const auto &block : shader.blocks) {
-                    if (block.set == 2 && block.binding == uniform.binding) {
-                        result.blocks.push_back(block);
-                    }
-                }
-            }
+            ShaderReflection                        result;
+            std::set<std::pair<uint32_t, uint32_t>> keys;
+            const auto                              add = [&](Name name) -> std::optional<FrameError> {
+                ShaderParameterHandle handle;
+                const auto            status = shader.GetParameterTable().Resolve(name, 2, handle);
+                if (status != ShaderParameterLookup::READY && status != ShaderParameterLookup::INACTIVE)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter is unknown or ambiguous"};
+                const ShaderParameterEntry *entry = nullptr;
+                shader.GetParameterTable().Resolve(handle, entry);
+                if (!entry)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter handle is stale"};
+                if (!keys.emplace(entry->set, entry->binding).second)
+                    return {};
+                const auto  matches = [&](const auto &value) { return value.set == entry->set && value.binding == entry->binding; };
+                const auto &reflection = shader.GetReflection();
+                const auto  active     = std::find_if(reflection.resources.begin(), reflection.resources.end(), matches);
+                const auto  declared = std::find_if(reflection.declarations.begin(), reflection.declarations.end(), matches);
+                if (active != reflection.resources.end())
+                    result.resources.push_back(*active);
+                else if (declared != reflection.declarations.end())
+                    result.resources.push_back(*declared);
+                else
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter has no logical resource declaration"};
+                const auto block = std::find_if(reflection.blocks.begin(), reflection.blocks.end(), matches);
+                const auto declaration = std::find_if(reflection.declaredBlocks.begin(), reflection.declaredBlocks.end(), matches);
+                if (block != reflection.blocks.end())
+                    result.blocks.push_back(*block);
+                else if (declaration != reflection.declaredBlocks.end())
+                    result.blocks.push_back(*declaration);
+                return {};
+            };
+            for (const auto &value : parameters.values)
+                if (const auto error = add(value.name))
+                    return *error;
+            for (const auto &image : parameters.images)
+                if (const auto error = add(image.name))
+                    return *error;
+            for (const auto &sampler : parameters.samplers)
+                if (const auto error = add(sampler.name))
+                    return *error;
             return result;
         }
-        FrameOperationResult BindMaterial(FrameGraphBuildContext            &context,
-                                          std::span<const RenderUniformData> values,
-                                          const ShaderReflection            &schema,
-                                          PassResourceBindings              &bindings)
+        FrameOperationResult BindMaterial(FrameGraphBuildContext &context, const RenderMaterialParameters &parameters, PassResourceBindings &bindings)
         {
-            for (const auto &value : values) {
-                const auto resource =
-                    std::ranges::find_if(schema.resources, [&](const auto &item) { return item.set == 2 && item.binding == value.binding; });
-                if (resource == schema.resources.end()) {
-                    return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Material uniform has no active binding"};
-                }
-                const auto written = context.WriteUniform(2, value.binding, value.bytes, resource->type);
-                if (const auto *error = std::get_if<FrameError>(&written)) {
-                    return *error;
-                }
-                const auto &uniform = std::get<RasterUniformBinding>(written);
-                const auto  result  = bindings.Uniform({.set = 2, .binding = value.binding}, uniform.range, resource->type, uniform.dynamicOffset);
-                if (std::holds_alternative<FrameError>(result)) {
+            for (const auto &value : parameters.values)
+                if (const auto result = bindings.Data(value.name, value.value); std::holds_alternative<FrameError>(result))
                     return result;
-                }
+            for (const auto &value : parameters.images) {
+                const auto image = context.ResolveImage(value.resource);
+                if (!image)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material image version is not available in this graph"};
+                if (const auto result = bindings.Image(value.name, *image); std::holds_alternative<FrameError>(result))
+                    return result;
+            }
+            for (const auto &value : parameters.samplers) {
+                auto sampler = context.CreateSampler(value.descriptor);
+                if (const auto *error = std::get_if<FrameError>(&sampler))
+                    return *error;
+                if (const auto result = bindings.Sampler(value.name, std::get<SamplerPtr>(std::move(sampler)));
+                    std::holds_alternative<FrameError>(result))
+                    return result;
             }
             return FrameOperationComplete{};
         }
@@ -362,10 +385,11 @@ namespace sky::aurora {
                             return result;
                         }
                     }
-                    const auto           materialSchema = MaterialSchema(reflection, resolvedDraw.material);
-                    PassResourceBindings material(materialSchema);
-                    if (const auto result = BindMaterial(context, resolvedDraw.material, materialSchema, material);
-                        std::holds_alternative<FrameError>(result)) {
+                    const auto materialSchema = MaterialSchema(*draw.shader, resolvedDraw.material);
+                    if (const auto *error = std::get_if<FrameError>(&materialSchema))
+                        return *error;
+                    PassResourceBindings material(std::get<ShaderReflection>(materialSchema));
+                    if (const auto result = BindMaterial(context, resolvedDraw.material, material); std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
                     const auto passResource = find(shared::OpaquePassBindings::gOpaquePass);
@@ -391,7 +415,8 @@ namespace sky::aurora {
                         }
                     }
                     const PassResourceBindings *groups[]{&global, &passBindings, &batchBindings, &material, &lighting, &surface, &environment};
-                    if (const auto result = PassResourceBindings::Apply(draw, groups); const auto *error = std::get_if<FrameError>(&result)) {
+                    if (const auto  result = PassResourceBindings::Apply(context, draw, groups);
+                        const auto *error  = std::get_if<FrameError>(&result)) {
                         return FrameError{.code = error->code, .message = "Shader does not match the scene pass declarations: " + error->message};
                     }
                     boundDraws.push_back(std::move(draw));
@@ -495,7 +520,7 @@ namespace sky::aurora {
                 draw.command.vertexCount = 3;
                 draw.scissor.extent      = target.output.extent;
                 const PassResourceBindings *groups[]{&bindings};
-                result = PassResourceBindings::Apply(draw, groups);
+                result = PassResourceBindings::Apply(context, draw, groups);
                 if (std::holds_alternative<FrameError>(result)) {
                     return result;
                 }
@@ -526,14 +551,15 @@ namespace sky::aurora {
                     if (std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
-                    const auto           materialSchema = MaterialSchema(draw.shader->GetReflection(), caster.material);
-                    PassResourceBindings material(materialSchema);
-                    if (const auto result = BindMaterial(context, caster.material, materialSchema, material);
-                        std::holds_alternative<FrameError>(result)) {
+                    const auto materialSchema = MaterialSchema(*draw.shader, caster.material);
+                    if (const auto *error = std::get_if<FrameError>(&materialSchema))
+                        return *error;
+                    PassResourceBindings material(std::get<ShaderReflection>(materialSchema));
+                    if (const auto result = BindMaterial(context, caster.material, material); std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
                     const PassResourceBindings *groups[]{&global, &pass, &batch, &material};
-                    const auto                  applied = PassResourceBindings::Apply(draw, groups);
+                    const auto                  applied = PassResourceBindings::Apply(context, draw, groups);
                     if (std::holds_alternative<FrameError>(applied)) {
                         return applied;
                     }

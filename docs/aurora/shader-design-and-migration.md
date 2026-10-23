@@ -1,6 +1,8 @@
 # Aurora Shader Design & Legacy Migration
 
-Status: current authoring and migration record. The [resource-ownership change](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Batch ownership. Its tasks record fresh validation and platform limits.
+Status: current authoring and migration record. The [target artifact change](../../openspec/changes/refactor-aurora-target-shader-artifacts/design.md)
+continues this design with immutable target artifacts, per-target reflection, named parameter transactions
+and CPU-to-target upload plans. Cache format 6 / usage format 2 and material version 3 require recook. The [resource-ownership change](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Batch ownership. Its tasks record fresh validation and platform limits.
 
 ## 1. Language & modules
 
@@ -10,7 +12,7 @@ Aurora shader implementations are authored in **Slang** (`.slang`). C++ consumes
 |---|---|---|---|
 | `Aurora.Core.Static` | STATIC | `engine/aurora/core` | slang-free shader definition/parse/cache/variant/`RgBlockDesc`/resolver |
 | `Aurora.ShaderCompiler.Static` | STATIC | `engine/aurora/shader` | Slang compiler impl (`ShaderCompilerSlang`) |
-| `AuroraShaderCompiler` | SHARED (module) | `engine/aurora/shader` | registers the compiler into `ShaderCompilerFactory` |
+| `Aurora.ShaderCompiler` | SHARED (module) | `engine/aurora/shader` | registers the compiler into `ShaderCompilerFactory` |
 | `ShaderHeaderTool` / `ShaderCookTool` | EXE | `engine/aurora/shader/tool` | variant schema generation / usage-cache precompile |
 | `Aurora.Pipeline.Static` | STATIC | `engine/aurora/pipeline` | pass templates, global resources (`pipeline/src/ReflectionValidation.cpp`) |
 
@@ -77,54 +79,44 @@ allocation padding.
 
 ## 3. Identity, resolve, cache
 
-- Each technique stage references a shader via **`ShaderRef { relativePath, entry }`**
-  (`engine/aurora/core/include/aurora/shader/ShaderRef.h`). There is **no `stages` field**;
-  `stage` is a per-request input to `ShaderResolver`.
-- Resolve priority: **offline cache → source compile → local cache** (`ShaderResolver`).
-- Cache: content-addressed `<root>/<target>/{index.bin, blobs/<compileHash>}`,
-  `target ∈ {vulkan, metal, d3d12}` (`ShaderCacheStore.h`).
-- `ShaderUsageCollector` → `shader_usage.json` → `ShaderCookTool` precompiles the shipped cache.
+`ShaderRef {relativePath,entry}` remains the logical source identity; stage is explicit.
+Each sealed stage artifact owns exact code bytes, the actual native entry, complete logical
+declarations and target reflection. ShaderFunction retains it; Shader links matching stage
+artifacts and derives its layouts. There is no independent code/reflection pairing.
 
-## 4. Material technique model (version 2)
+Development resolution captures source closure and actual compiler identity before checking
+its compile key. Products resolution reads the selected canonical environment and resolves
+published request → ArtifactID without a compiler or sources. The ArtifactID binds every
+identity field, producer/runtime ABI and code/reflection payload. Index/blob format 6 and
+usage format 2 require recook; Name handles and machine paths are not persistent identities.
 
-Material `.mat` JSON is loaded/saved by MaterialReflection; its binary payload is version 2.
-Explicit stage references replace the old single `shader` field. Uniform mappings name the
-shader member first and the authored material property second:
+SPIR-V, DXIL and MSL each produce their own native reflection. AuroraResource/AuroraField
+attributes preserve logical identities. The current MSL profile is metallib_2_3, emitting
+MSL source; native compilation explicitly uses language 2.3 on macOS 11 / iOS 14 or later.
+See [Shader System](../features/shader-system.md) for environment and Unsupported boundaries.
 
-```json
-{
-  "techniques": [{
-    "tag": "opaque",
-    "program": {
-      "vertex": {"relativePath": "aurora/materials/Unlit.slang", "entry": "VSMain"},
-      "fragment": {"relativePath": "aurora/materials/Unlit.slang", "entry": "FSMain"}
-    },
-    "uniforms": [{"binding": 2, "fields": {"tint": "baseColor", "surface": "surface"}}],
-    "renderState": {"depthStencil": {"depthTest": true, "depthWrite": true}}
-  }],
-  "properties": [
-    {"name": "baseColor", "type": 3, "value": {"index": 3, "value": [1, 0, 0, 1]}},
-    {"name": "surface", "type": 3, "value": {"index": 3, "value": [0.5, 0, 0, 0]}}
-  ]
-}
-```
+## 4. Material technique model (version 3)
 
-- `program.variant` optionally maps schema keys to unsigned values. Each stage has an explicit
-  canonical source and entry; arbitrary entry names work. Every source has a `.slang.json`
-  companion, even when its variant schema is empty.
-- SceneAssetSource preserves every technique and packs mapped properties using reflection.
-  Duplicate Tags are rejected. FrameComposer selects `opaque` / `shadow` techniques by Tag;
-  no match omits the draw. PreparedRaster resolves the selected geometry and resources.
-- The built-in world/receive-shadow Batch blocks come from the Feature. The material owns its
-  tint/surface block. These are separate set-2 bindings, not a generic fixed material layout.
-  Other interfaces may use different layouts or one explicit combined-block assembler.
-- Fullscreen and compute use ShaderTechnique directly, without a material, Tag or scene.
-  Camera inputs live in concrete Pass declarations; Global contains common frame time.
-- `value.index` selects float / float2 / float3 / float4 / mat4 / int / uint / bool / texture
-  property storage. Current scene uniform assembly supports the first seven alternatives;
-  material texture binding and bool/array GPU layouts are not implemented by this adapter.
-- Editor technique rows expose separate vertex and fragment source/entry fields. Uniform
-  mappings and variant values can be authored in JSON and are preserved during roundtrip.
+Material payload 3 and instance payload 2 contain explicit stage references, semantic properties,
+property-to-canonical-name aliases, ordinary 2D texture references and typed sampler settings.
+A technique can map `baseColor` to `gMaterialBatch.tint` with
+`aliases: [{"alias":"baseColor","target":"gMaterialBatch.tint"}]`.
+Each stage still needs its own canonical source/entry and companion variant schema.
+
+SceneAssetSource preserves tagged techniques and named CPU snapshots; it does not pack GPU
+uniform bytes. The selected Shader's Name table and cached UniformUploadPlan determine actual
+target encoding. Texture references become exact catalog versions and explicit graph reads.
+Missing, stale or unsupported resources fail explicitly. Instances inherit unoverridden values;
+new parameter/texture snapshots leave old in-flight frames intact.
+
+Feature-owned world/receive-shadow Batch blocks and material-owned tint/surface blocks remain
+separate providers. A combined block needs one explicit assembler. Fullscreen/compute can omit
+scene, material, Tag and Batch altogether; camera data belongs to the consuming Pass.
+
+ResourceGroup uses a Name-first typed transaction with an injected RHI-neutral update context.
+Data, blocks, buffers, images and samplers share name/type/owner validation. End returns a new
+immutable snapshot, preserves prior bindings on failure and never submits GPU work. Typed Pass
+slots retain their exact CPU schema until the actual Shader selects a native upload plan.
 
 ## 5. Legacy pipeline (removed)
 
@@ -132,7 +124,7 @@ shader member first and the authored material property second:
   `engine/render/**` and `engine/shader` by `openspec/changes/legacy-render-thirdparty-cleanup/`.
 - The unconsumed repository `assets/shaders` HLSL files, six legacy `.mat` files and
   `assets/vertex/vertex_library.vtxlib` have been removed. Their old references are
-  not supported material examples; use the version-2 model above.
+  not supported material examples; use the version-3 model above.
 - Runtime `ShaderBlockGen` HLSL generation has been removed. Shared `.h` declarations
   export persistent `.slangh`; `RgBlockDesc` remains layout metadata/validation.
 - Aurora uses the Slang-based compiler in `engine/aurora/shader`.
@@ -162,20 +154,20 @@ material features have runtime equivalents.
    alongside the source. C++ includes `.h`; shaders include `.slangh`.
 4. Replace material `shader` fields with explicit `program.vertex/fragment`, preserve Tags,
    and map material uniform members to typed properties. Empty sources/entries are errors.
-5. Recook material version 2 and shader cache index version 4. Project packaging aggregates
+5. Recook material version 3 / instance version 2 and shader cache index version 6. Project packaging aggregates
    selected owners into one index per target; runtime receives the products root.
 6. Run export checks, layout reflection and affected native rendering tests. Remove obsolete
    sources only under the reviewed migration inventory.
 
 ## 8. Validation limits
 
-Module roots, persistent exports, source staging, selected project cook and relocated product
-lookup are implemented. Native tests cover tagged Unlit/Lit/custom programs, material shadow
-selection, independent Pass snapshots and explicit compute/fullscreen without Batch.
-The Core-only product consumer has no Slang link; native scene tests use empty sources and
-an unregistered compiler, but their test executable still links the compiler library.
+Current implementation and device evidence are tracked in
+`openspec/changes/refactor-aurora-target-shader-artifacts/tasks.md`; earlier resource-ownership
+results remain historical evidence for that change. Cross-builds, compiler reflection checks
+and native GPU execution are separate gates. Source-free MSL still invokes Apple's native
+compiler and is not a precompiled metallib distribution.
 
-Remaining capabilities include automatic material texture/sampler binding, deformation,
-full PBR shading and a general technique PSO cache. Existing lit/IBL behavior is preserved.
-MSL compilation/reflection on Windows does not establish native Metal execution. See the
-active change's tasks.md for current counts and platform-specific evidence.
+Nested/FLOAT3/BOOL/half uniform packing, Metal descriptor arrays/argument buffers, typed/counter
+storage buffers, material deformation, full PBR shading and a general PSO cache remain outside
+this change. Linux/Windows/Android/iOS native tests require their actual available hosts/devices;
+a successful macOS test or iOS 13 cross-build cannot substitute for them.

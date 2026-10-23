@@ -4,7 +4,9 @@
 /.vscode/
 /build/
 /build-release/
-/build_3rd/
+/build_3rd/*
+/build_android/*
+/build_ios/*
 /buildR/
 /output/
 /glTF-Sample-Models-master/

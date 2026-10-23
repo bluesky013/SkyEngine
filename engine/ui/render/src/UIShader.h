@@ -7,8 +7,12 @@ namespace sky::ui::detail {
     // Shape draws carry untransformed layout position in uv, so their SDF
     // remains correct when the quad is translated, scaled, rotated or mirrored.
     inline constexpr char UI_SHADER_SOURCE[] = R"UI_SHADER(
-[[vk::binding(0, 0)]] Texture2D tex;
-[[vk::binding(1, 0)]] SamplerState smp;
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int set; int binding; string owner; }
+[AuroraResource(0, 0, "ui/UIShader")]
+Texture2D<float4> tex : register(t0, space0);
+[AuroraResource(0, 1, "ui/UIShader")]
+SamplerState smp : register(s1, space0);
 struct VSIn { float2 pos : POSITION; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 roundRect : TEXCOORD1; float radius : TEXCOORD2; };
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 roundRect : TEXCOORD1; float radius : TEXCOORD2; };
 [shader("vertex")]

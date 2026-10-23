@@ -87,6 +87,41 @@ file(WRITE "${CMAKE_BINARY_DIR}/flags.txt" "${CMAKE_CXX_FLAGS_DEVELOP}")
                 self.assertIn(definition, output)
             self.assertEqual((root / 'build/flags.txt').read_text(), '-O2 -g -DNDEBUG')
 
+    @unittest.skipUnless(any(shutil.which(name) for name in ('cc', 'clang', 'gcc', 'cl')) and
+                         any(shutil.which(name) for name in ('c++', 'clang++', 'g++', 'cl')),
+                         'C and C++ compilers are required')
+    def test_enabled_languages_initialize_develop_flags_and_preserve_overrides(self):
+        overrides = {'C': '-DSKY_TEST_C_OVERRIDE=1', 'CXX': '-DSKY_TEST_CXX_OVERRIDE=1'}
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                source = root / 'source'
+                source.mkdir()
+                (source / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.21)
+project(LanguagePolicy LANGUAGES C CXX)
+include("@ROOT@/cmake/build_configurations.cmake")
+foreach(language C CXX)
+    file(WRITE "${CMAKE_BINARY_DIR}/${language}.txt" "${CMAKE_${language}_FLAGS_DEVELOP}")
+endforeach()
+file(WRITE "${CMAKE_BINARY_DIR}/compiler.txt" "${CMAKE_CXX_COMPILER_ID}")
+'''.replace('@ROOT@', ROOT.as_posix()), encoding='utf-8')
+                command = ['cmake', '-S', str(source), '-B', str(root / 'build'), '-G', 'Ninja',
+                           '-DCMAKE_BUILD_TYPE=Develop']
+                if explicit:
+                    command.extend('-DCMAKE_' + language + '_FLAGS_DEVELOP=' + flags
+                                   for language, flags in overrides.items())
+                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                compiler = (root / 'build/compiler.txt').read_text()
+                for language, override in overrides.items():
+                    flags = (root / 'build' / (language + '.txt')).read_text()
+                    if explicit:
+                        self.assertEqual(flags, override)
+                    else:
+                        for expected in (('/O2', '/Zi', '/DNDEBUG') if compiler == 'MSVC'
+                                         else ('-O2', '-g', '-DNDEBUG')):
+                            self.assertIn(expected, flags)
+
     def test_invalid_diagnostic_is_rejected(self):
         for option in ('SKY_ASSERTIONS', 'SKY_GPU_VALIDATION', 'SKY_RESOURCE_NAMES'):
             with self.subTest(option=option), tempfile.TemporaryDirectory() as temp:

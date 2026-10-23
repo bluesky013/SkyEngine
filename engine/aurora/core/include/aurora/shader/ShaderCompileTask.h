@@ -10,6 +10,7 @@
 #pragma once
 
 #include <aurora/shader/IShaderCompiler.h>
+#include <aurora/shader/ShaderCacheStore.h>
 #include <aurora/shader/ShaderCompile.h>
 #include <aurora/shader/ShaderVariant.h>
 
@@ -47,20 +48,33 @@ namespace sky::aurora {
         ShaderCompileDesc MakeDesc() const
         {
             ShaderCompileDesc desc;
-            desc.source     = source;
-            desc.entry      = entry;
-            desc.stage      = stage;
-            desc.target     = target;
-            desc.fileSystem = fileSystem.get();
-            desc.variant    = variant ? &*variant : nullptr;
-            desc.sourcePath = relativePath;
-            desc.schema     = &schema;
+            desc.source      = source;
+            desc.entry       = entry;
+            desc.stage       = stage;
+            desc.target      = target;
+            desc.fileSystem  = fileSystem.get();
+            desc.variant     = variant ? &*variant : nullptr;
+            desc.sourcePath  = relativePath;
+            desc.schema      = &schema;
+            desc.environment = key.environment;
+            desc.sourceHash  = key.sourceHash;
+            desc.variantHash = key.variantHash;
+            desc.layoutFp    = key.layoutFp;
+            desc.schemaFp    = key.schemaFp;
             return desc;
         }
 
         bool Run(IShaderCompiler &compiler, ShaderCompileResult &out, std::string *error = nullptr) const
         {
             if (!compiler.Compile(MakeDesc(), out)) {
+                if (error != nullptr) {
+                    *error = out.errorInfo;
+                }
+                return false;
+            }
+            std::string validation;
+            if (!ValidateShaderArtifact(out, validation) || !ArtifactMatchesKey(out, key)) {
+                out.errorInfo = validation.empty() ? "compiler returned a mismatched shader artifact" : validation;
                 if (error != nullptr) {
                     *error = out.errorInfo;
                 }
@@ -103,12 +117,12 @@ namespace sky::aurora {
         friend class ShaderResolver;
 
         struct State {
-            ShaderCompileTask                                                           task;
-            IShaderCompiler                                                            *compiler = nullptr;
-            std::function<void(const ShaderCompileTask &, const ShaderCompileResult &)> commit;
-            std::atomic<bool>                                                           done{false};
-            bool                                                                        ok = false;
-            ShaderCompileResult                                                         result;
+            ShaderCompileTask                                                                          task;
+            IShaderCompiler                                                                           *compiler = nullptr;
+            std::function<bool(const ShaderCompileTask &, const ShaderCompileResult &, std::string *)> commit;
+            std::atomic<bool>                                                                          done{false};
+            bool                                                                                       ok = false;
+            ShaderCompileResult                                                                        result;
         };
 
         void Run()
@@ -116,7 +130,7 @@ namespace sky::aurora {
             const auto state = mState;
             state->ok        = state->task.Run(*state->compiler, state->result);
             if (state->ok && state->commit) {
-                state->commit(state->task, state->result);
+                state->ok = state->commit(state->task, state->result, &state->result.errorInfo);
             }
             state->done.store(true, std::memory_order_release);
         }
