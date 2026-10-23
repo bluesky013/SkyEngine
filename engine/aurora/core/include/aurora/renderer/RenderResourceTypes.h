@@ -15,24 +15,17 @@
 
 namespace sky::aurora {
 
-    struct RenderResourceKey {
-        Uuid     product;
-        uint64_t revision                                    = 0;
-        uint64_t usageVariant                                = 0;
-        uint64_t deviceEpoch                                 = 0;
-        bool     operator==(const RenderResourceKey &) const = default;
-    };
-
     struct RenderResourceBinding {
         RenderResourceKey resource;
         uint64_t          bindingRevision = 0;
     };
 
-    enum class RenderImageFormat : uint8_t { RGBA8_UNORM, RGBA16_FLOAT };
+    enum class RenderImageFormat : uint8_t { RGBA8_UNORM, RGBA16_FLOAT, RGBA8_SRGB };
     inline uint32_t RenderImageTexelBytes(RenderImageFormat format)
     {
         switch (format) {
-        case RenderImageFormat::RGBA8_UNORM: return 4;
+        case RenderImageFormat::RGBA8_UNORM:
+        case RenderImageFormat::RGBA8_SRGB: return 4;
         case RenderImageFormat::RGBA16_FLOAT: return 8;
         default: return 0;
         }
@@ -129,17 +122,25 @@ namespace sky::aurora {
             for (const auto &technique : payload.material->techniques) {
                 const auto &material = technique.program;
                 add(sizeof(technique));
-                add(technique.uniforms.size() * sizeof(RenderUniformData));
-                for (const auto &uniform : technique.uniforms)
-                    add(uniform.bytes.size());
+                add(technique.parameters.values.size() * sizeof(RenderMaterialValue));
+                for (const auto &value : technique.parameters.values)
+                    add(value.value.bytes.size());
+                add(technique.parameters.images.size() * sizeof(RenderMaterialImage));
+                add(technique.parameters.samplers.size() * sizeof(RenderMaterialSampler));
+                for (const auto &alias : material.parameterAliases)
+                    add(alias.alias.size() + alias.target.size());
                 add(material.specialization.entries.size() * sizeof(ShaderSpecializationEntry));
-                add(material.computeCode.size());
-                add(material.computeEntry.size());
-                add(material.vertexCode.size());
-                add(material.fragmentCode.size());
-                add(material.vertexEntry.size());
-                add(material.fragmentEntry.size());
+                for (const auto &artifact : {material.vertex, material.fragment, material.compute}) {
+                    if (artifact) {
+                        add(sizeof(ShaderStageArtifact));
+                        add(artifact->data.size());
+                        add(artifact->identity.sourcePath.size());
+                        add(artifact->identity.sourceEntry.size());
+                        add(artifact->identity.nativeEntry.size());
+                    }
+                }
                 add(material.reflection.resources.size() * sizeof(ShaderResource));
+                add(material.reflection.nativeBindings.size() * sizeof(ShaderNativeBinding));
                 add(material.reflection.blocks.size() * sizeof(ShaderBlockLayout));
                 add(material.reflection.pushConstants.size() * sizeof(PushConstantRange));
                 for (const auto &resource : material.reflection.resources)

@@ -5,8 +5,7 @@
 
 #pragma once
 
-#include <aurora/rhi/Core.h>
-#include <aurora/rhi/ShaderReflection.h>
+#include <aurora/rhi/ShaderArtifact.h>
 #include <aurora/shader/ShaderVariant.h>
 
 #include <cstdint>
@@ -16,12 +15,6 @@
 namespace sky::aurora {
 
     class ShaderFileSystem;
-
-    enum class ShaderTarget : uint32_t {
-        SPIRV = 0,
-        MSL,
-        DXIL,
-    };
 
     struct ShaderCompileDesc {
         std::string                source;
@@ -33,12 +26,15 @@ namespace sky::aurora {
         const ShaderVariantSchema *schema     = nullptr;
         ShaderCache               *cache      = nullptr;
         std::string                sourcePath;
+        ShaderTargetEnvironment    environment;
+        uint64_t                   sourceHash  = 0;
+        uint64_t                   variantHash = 0;
+        uint64_t                   layoutFp    = 0;
+        uint64_t                   schemaFp    = 0;
     };
 
-    struct ShaderCompileResult {
-        std::vector<uint32_t> data; // SPIRV words; MSL text packed into words
-        ShaderReflection      reflection;
-        std::string           errorInfo;
+    struct ShaderCompileResult : ShaderStageArtifact {
+        std::string errorInfo;
     };
 
 } // namespace sky::aurora

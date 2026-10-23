@@ -1,6 +1,6 @@
 # 平台对等待办
 
-Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）。每项保留 aurora-renderer 的原编号；已有 Windows 子集不重复计为这里的完成。
+Status: active（macOS 原生验证进行中；iOS/Android 设备验收仍待可用设备）。每项保留 aurora-renderer 的原编号；已有 Windows 子集不重复计为这里的完成。
 
 - [ ] 2.2 修正 RDG executor 的 PSO/RG 顺序与布局切换重绑；覆盖 DX12 和 Vulkan 真正的 descriptor 使用（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
 - [ ] 2.3 重构 frame fence 状态；覆盖零输出、全部 acquire 失败、恢复和提交失败（B11/B12 Windows 组件与生产服务已验；B14 Windows 宿主已验；P02 待验收）
@@ -43,12 +43,41 @@ Status: blocked-on-prereq（缺少 Mac/原生设备验收环境；未排期）�
 - [x] 8.7 在 Metal/non-Windows 原生宿主 capability gate 通过后，把 `AuroraModule` 的 `Init/Start/Tick/Shutdown` 统一到 `RendererHost` + `IRendererProvider`；删除 `#if !defined(_WIN32)` 宿主分叉。
 - [x] 8.8 删除 `InitLegacy/StartLegacy/TickLegacy`、`legacy` 标志、`mDevice`/`mFrameContext`/`mCommandPool`/`mCommandBuffer`/`mViewport` 及仅 legacy 使用的 include；确认 `AuroraModule.h` 不再声明平台分叉成员。
 - [x] 8.9 增加非 Windows 宿主生命周期测试：初始化、提交、drain、shutdown 与 close deferral；记录真实 Cocoa/CAMetalLayer 窗口证据。resize/失败注入仍由 7.4 跟踪。
-- [x] 8.10 全量构建并跑相关测试，确认 `Aurora.Renderer.ModuleTest`/`StaticModuleTest` 在目标平台通过后再移除 legacy 分支。
+- [x] 8.10 构建并跑本轮 macOS 相关测试，确认 `Aurora.Renderer.ModuleTest`/`StaticModuleTest` 通过；历史已移除的 legacy 分支不再以旧 smoke 结果作为当前验收依据。其它平台原生验收仍按各自任务跟踪。
 
-## Host unification verification
+## Superseded host checkpoint
+
+The records in this section describe the earlier implementation checkpoint. Its four-tick NativeLauncher smoke and 142/49 suite counts are superseded by the corrected acceptance work below; they do not validate the current checked presentation protocol or shader ABI.
 
 - `AuroraModule` now uses `RendererHost` + `IRendererProvider` on every platform; the non-Windows `InitLegacy/StartLegacy/TickLegacy` path, `legacy` flag and direct device/viewport members were removed.
-- Added the Cocoa native host case to `RendererModuleTest.NativeLauncher...`: `Platform::Init`, real `CocoaWindow`/CAMetalLayer, module load, Start/Tick, frame completion, close deferral and module unload all passed on macOS.
-- `Aurora.Renderer.ModuleTest`: 5/5 passed on macOS (including the native host case).
-- `Aurora.RHITest`: 142/142 passed; full `ctest`: 49/49 passed on the clean run (`FrameworkTest` showed a pre-existing concurrent asset-load flake and passed alone).
+- The earlier `RendererModuleTest.NativeLauncher...` initialized `Platform`, a real `CocoaWindow`/CAMetalLayer and the module, then ran four host ticks. It did not require a completed GPU frame and therefore did not prove presentation or drain completion.
+- Historical `Aurora.Renderer.ModuleTest`: 5/5 passed, including that limited smoke.
+- Historical `Aurora.RHITest`: 142/142 and full `ctest`: 49/49 passed on that checkout (`FrameworkTest` showed a pre-existing concurrent asset-load flake and passed alone). These counts are not the final current-build result.
 - Windows-specific `HWND`/`IsWindow` checks remain under `_WIN32`; iOS/Android real-device host validation remains tracked by their platform changes.
+
+## Native acceptance corrections (2026-10-22)
+
+The earlier four-tick Cocoa smoke did not require GPU completion. The corrected tests now establish the scoped native host evidence for 8.9; 8.10 remains open for the final RHI/build gate. Items 8.7/8.8 describe the existing host-code unification.
+
+- [x] 9.1. Repair Metal header completeness and explicit Metal backend initialization.
+- [x] 9.2. Implement checked Metal surface query/acquire/present/retirement/resize/close with exact device ownership, direct-protocol exclusion and safe drawable lifetime.
+- [x] 9.3. Require actual native-window frame completion and exercise failure/retirement; do not substitute a bounded number of host ticks for presentation evidence.
+- [x] 9.4. Recreate mobile outputs on native surface replacement only after exact old-generation retirement; retain the native handle through queued and GPU use.
+- [x] 9.5. Preserve unsupported Vulkan presentation capability errors in the host and align Android VMA's compiled API contract with allocator initialization.
+- [x] 9.6. Record macOS native execution and iOS/Android compile results independently; keep unavailable device/rotation/background acceptance open.
+- [x] 9.7. Preserve logical shader bindings separately from each stage's actual Metal argument indices, serialize cache v5 and verify sparse per-stage slots with dynamic offsets.
+- [x] 9.8. Repair restricted sampled depth-array views with ordered GPU copies and reject unsupported compressed formats, multisample arrays and sampler modes before native API calls.
+
+## Current macOS checkpoint (2026-10-22)
+
+- `Aurora.Renderer.ModuleTest` passes 6/6 under native desktop permissions. `MetalCheckedDrawableRetiresBeforeResizeAndClose` verifies the checked drawable path; `NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreReleased` uses a real Cocoa/CAMetalLayer host, waits for actual frame completion and verifies drain before module/window release. `/tmp/sky-renderer-module-final.log` records these results.
+- Cocoa close-deferral and lifetime regressions pass 14/14, including deferred application quit and a retained view after owner destruction (`/tmp/sky-cocoa-deferred-tests.log`). Drawable requests retain their layer through cancellation/join, and pending fences cannot be rearmed across queues; prefix and main command-buffer failures remain observable.
+- Mobile surface replacement now drains the exact old output generation before replacing it, keeps the native handle alive and preserves scene state while no output is available. Android Framework/Aurora.Render/Vulkan cross-compilation passes. This implementation and compile evidence does not establish device rotation/background behavior.
+- Resource-ownership acceptance independently passes a stripped native Metal shipping host: relocated Core resolution 1/1 and real scene plus compute-to-fullscreen pixel readbacks 2/2, with no source directories or Slang runtime (`/tmp/sky-shader-shipping-final.log`). It validates the current v5 native-binding ABI rather than relying on the historical smoke.
+- RHI now passes 154/154, including depth-array copy/sample/readback and capability gates. StaticModuleTest's seven ordinary cases and two separately configured product-fixture cases pass. SandboxEditor initializes the unified Metal host, runs eight bounded Project Manager frames and exits 0 with no renderer errors. Logs: `/tmp/sky-rhi-tests-final.log`, `/tmp/sky-static-module-final.log`, `/tmp/sky-static-module-shipping-final.log`, `/tmp/sky-sandbox-metal-final.log`.
+- iOS Framework/Adaptor/Core/static shader compiler plus all Metal objects and RHI test syntax pass for arm64/deployment 13, without availability warnings in this chain. Android Framework/Render/Vulkan and ShaderCompiler pass for AArch64, including fresh Slang libraries; dependency checks pass. These are cross-compilation results, not mobile GPU execution.
+- Android has no attached device and the saved iPad is unavailable. The broader platform tasks above, including real-device rotation/background and GPU acceptance, remain open; the old 142/49 counts are not reused to close them.
+
+## Target shader artifact continuation — 2026-10-23
+
+`refactor-aurora-target-shader-artifacts` now owns the successor shader ABI, Name parameter and material-image work. It removes the auxiliary SPIR-V identity bridge, upgrades cache to v6 and usage/distribution to v2, and introduces Material v3 / MaterialInstance v2. Current implementation and native/cross-build evidence are in that change's `implementation.md` and `tasks.md`; the historical results above keep their original scope. Mobile cross-compilation and product generation do not close device acceptance. No archive or commit was performed.

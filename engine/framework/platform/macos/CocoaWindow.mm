@@ -552,6 +552,7 @@ namespace sky {
 @interface                                      SkyCocoaWindowDelegate : NSObject <NSWindowDelegate>
 @property (nonatomic, assign) sky::CocoaWindow *owner;
 @property (nonatomic, assign) BOOL              closing;
+@property (nonatomic, assign) BOOL              closed;
 @end
 
 @implementation SkyCocoaWindowDelegate
@@ -580,26 +581,30 @@ namespace sky {
         return;
     }
     _closing = YES;
-    // A listener may destroy the C++ owner and release its window/delegate.
-    // Hold the Objective-C objects through AppKit's current event dispatch and
-    // do not access the owner after the broadcast.
+    // Listeners may destroy the owner; keep native event receivers alive through dispatch.
     [[self retain] autorelease];
     [[nativeWindow retain] autorelease];
     auto *owner = _owner;
-    if (auto *platform = sky::GetMacosPlatform()) {
-        platform->NotifyWindowClosed(owner->GetNativeHandle());
-    }
     sky::Event<sky::IWindowEvent>::BroadCast(owner, &sky::IWindowEvent::OnWindowClose, static_cast<const sky::NativeWindow *>(owner));
 }
 
 - (BOOL)windowShouldClose:(NSWindow *)sender
 {
     [self notifyClosing:sender];
-    return YES;
+    return _owner != nullptr && !_owner->IsCloseDeferred();
 }
 
 - (void)windowWillClose:(NSNotification *)notification
 {
+    if (_closed)
+        return;
+    _closed = YES;
+    [[self retain] autorelease];
+    [[[notification object] retain] autorelease];
+    if (_owner != nullptr) {
+        if (auto *platform = sky::GetMacosPlatform())
+            platform->NotifyWindowClosed(_owner->GetNativeHandle());
+    }
     [self notifyClosing:[notification object]];
 }
 
@@ -675,6 +680,8 @@ namespace sky {
             [(SkyCocoaView *)nsWindow.contentView detachOwner];
             [(SkyCocoaWindowDelegate *)delegate setOwner:nullptr];
             if (auto *platform = GetMacosPlatform()) {
+                if ([(SkyCocoaWindowDelegate *)delegate closing])
+                    platform->NotifyWindowClosed(metalLayer);
                 platform->NotifyWindowDestroyed(metalLayer);
             }
             [nsWindow setDelegate:nil];
@@ -691,6 +698,14 @@ namespace sky {
     void *CocoaWindow::GetNativeHandle() const
     {
         return metalLayer;
+    }
+
+    void CocoaWindow::SetCloseDeferred(bool value)
+    {
+        NativeWindow::SetCloseDeferred(value);
+        auto *windowDelegate = static_cast<SkyCocoaWindowDelegate *>(delegate);
+        if (!value && window && windowDelegate.closing && !windowDelegate.closed)
+            [static_cast<NSWindow *>(window) close];
     }
 
     float CocoaWindow::GetDpiScale() const

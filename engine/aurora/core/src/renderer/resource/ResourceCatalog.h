@@ -85,9 +85,10 @@ namespace sky::aurora {
         FrozenResourceCatalog Freeze(const CpuSceneStore &, bool includeCandidates = false, std::span<const RenderResourceKey> external = {});
         void                  Release(const RenderResourceKey &);
         std::shared_ptr<const ResourceVersionLease> ResolveResident(const RenderResourceKey &) const;
-        size_t                                      Prune(const CpuSceneStore &);
-        uint64_t                                    CpuBytes() const noexcept;
-        uint64_t                                    DeviceEpoch() const noexcept;
+        // Live external dependencies must be retained independently of transient frame pins.
+        size_t   Prune(const CpuSceneStore &, std::span<const RenderResourceKey> external = {});
+        uint64_t CpuBytes() const noexcept;
+        uint64_t DeviceEpoch() const noexcept;
 
     private:
         friend class ResourceUploader;

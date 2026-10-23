@@ -1,13 +1,29 @@
 // Generated from aurora/pipeline/SelectionMaskPass.h; do not edit.
-// Inputs: 3723465ffef9ef89bb5b7415966806f56a601c4e1581bb7fcb774bf50985dcac; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 4864b99fc863aa17a1b2c5e3d079577b3e892a22e5deb1e9852e36d863af0e85; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct SelectionMaskParams
 {
-    column_major float4x4 viewProjection;
+    [AuroraField("viewProjection")] column_major float4x4 viewProjection;
 };
+[AuroraResource(1, 0, "aurora/pipeline/SelectionMaskPass.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<SelectionMaskParams> gSelectionMask
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;
 
+[AuroraResource(1, 1, "aurora/pipeline/SelectionMaskPass.h")]
 [[vk::binding(1, 1)]] Texture2D<float> gSceneDepth
-    : register(t1, space1);
+#if !AURORA_TARGET_MSL
+    : register(t1, space1)
+#endif
+;

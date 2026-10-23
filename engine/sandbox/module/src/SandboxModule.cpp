@@ -600,7 +600,7 @@ namespace sky::editor {
             speed.order  = faster ? 42 : 40;
             speed.invoke = [this, faster]() {
                 const float   value = std::clamp(viewportController->settings.speed * (faster ? 2.f : .5f), .01f, 1000.f);
-                PropertyModel model({&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
+                PropertyModel model(PropertyObject{&viewportController->settings, GetTypeNode(TypeInfo<ViewportControlSettings>::RegisteredId())});
                 for (const auto &property : model.GetDescriptors()) {
                     if (property.GetName() == "speed") {
                         viewportSettingsCommands.Execute(property.MakeEditCommand(Any(value)));
@@ -1180,12 +1180,10 @@ namespace sky::editor {
         shell.RegisterPanelView("viewport", [this, texture = renderer.GetSceneTextureId()]() {
             auto image           = std::make_unique<SceneViewport>(viewportController);
             image->extentChanged = [this](Vector2 extent) {
-#if defined(_WIN32)
                 const uint32_t width  = static_cast<uint32_t>(std::clamp(extent.x, 1.f, 4096.f));
                 const uint32_t height = static_cast<uint32_t>(std::clamp(extent.y, 1.f, 4096.f));
                 viewportController->SetPickImageExtent(width, height);
                 renderer.SetSceneExtent({width, height});
-#endif
             };
             image->orbitHeld = [this]() { return viewportAlt; };
             image->SetTexture(texture);
@@ -1654,9 +1652,7 @@ namespace sky::editor {
             // Reflect document edits (-> title/status dirty marker).
             RefreshDocumentInfo();
         }
-#if defined(_WIN32)
         renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
-#endif
         renderer.Tick(delta);
         if (viewportController) {
             viewportController->ProcessPicking();

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <aurora/rhi/ShaderArtifact.h>
 #include <aurora/rhi/VertexSemantic.h>
 #include <core/name/Name.h>
 
@@ -79,6 +80,13 @@ namespace sky::aurora {
         uint16_t      EntryAbsoluteOffset(const Entry &entry) const;
     };
 
+    bool     CanonicalShaderVariants(const ShaderVariant             *variant,
+                                     const ShaderVariantSchema       &schema,
+                                     ShaderTarget                     target,
+                                     std::vector<ShaderVariantValue> &out,
+                                     std::string                     *error = nullptr);
+    uint64_t HashShaderVariants(const std::vector<ShaderVariantValue> &variants);
+
     // ---- 128-bit bitmask key ----
     class ShaderVariantKey {
     public:
@@ -118,21 +126,28 @@ namespace sky::aurora {
 
     // ---- unified cache key + reserved cache interface ----
     struct ShaderCacheKey {
-        uint64_t sourceHash  = 0;
-        uint64_t variantHash = 0;
-        uint64_t layoutFp    = 0; // GlobalVariantLayout fingerprint
-        uint64_t schemaFp    = 0; // per-shader schema fingerprint
-        uint64_t toolchainFp = 0; // compiler/toolchain fingerprint
-        uint64_t entryHash   = 0; // hash of the entry point name (entry-level v1)
-        uint32_t target      = 0; // static_cast<uint32_t>(ShaderTarget)
-        uint32_t stage       = 0; // static_cast<uint32_t>(ShaderStageFlagBit)
+        uint64_t                        sourceHash  = 0;
+        uint64_t                        variantHash = 0;
+        uint64_t                        layoutFp    = 0; // GlobalVariantLayout fingerprint
+        uint64_t                        schemaFp    = 0; // per-shader schema fingerprint
+        uint64_t                        toolchainFp = 0; // compiler/toolchain fingerprint
+        uint64_t                        entryHash   = 0; // hash of the entry point name (entry-level v1)
+        uint32_t                        target      = 0; // static_cast<uint32_t>(ShaderTarget)
+        uint32_t                        stage       = 0; // static_cast<uint32_t>(ShaderStageFlagBit)
+        std::string                     sourcePath;
+        std::string                     sourceEntry;
+        std::vector<ShaderVariantValue> variants;
+        ShaderTargetEnvironment         environment;
+        ShaderProducerIdentity          producer;
+
+        bool operator==(const ShaderCacheKey &) const = default;
     };
 
     class ShaderCache {
     public:
         virtual ~ShaderCache()                                                           = default;
         virtual bool Load(const ShaderCacheKey &key, ShaderCompileResult &out)           = 0;
-        virtual void Store(const ShaderCacheKey &key, const ShaderCompileResult &result) = 0;
+        virtual bool Store(const ShaderCacheKey &key, const ShaderCompileResult &result) = 0;
     };
 
 } // namespace sky::aurora

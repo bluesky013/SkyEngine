@@ -4,8 +4,8 @@
 
 #include <MetalImage.h>
 
-#include <MetalDevice.h>
 #include "MetalUtils.h"
+#include <MetalDevice.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
@@ -40,20 +40,26 @@ namespace sky::aurora {
             mipCount > mipLevels - baseMip || baseLayer >= arrayLayers || layerCount > arrayLayers - baseLayer)
             return nullptr;
         id<MTLTexture> base = (__bridge id<MTLTexture>)texture;
-        const auto     type = base.sampleCount > 1 ? (arrayView ? MTLTextureType2DMultisampleArray : MTLTextureType2DMultisample)
-                                                   : (arrayView ? MTLTextureType2DArray : MTLTextureType2D);
+        if (base.sampleCount > 1 && arrayView && !SupportsMetalFamily7OrMac2(base.device))
+            return nullptr;
+        const auto     type = base.sampleCount > 1 ? ToMetalMultisampleType(arrayView) : (arrayView ? MTLTextureType2DArray : MTLTextureType2D);
         id<MTLTexture> view = [base newTextureViewWithPixelFormat:base.pixelFormat
-                                                     textureType:type
-                                                      levels:NSMakeRange(baseMip, mipCount)
-                                                      slices:NSMakeRange(baseLayer, layerCount)];
+                                                      textureType:type
+                                                           levels:NSMakeRange(baseMip, mipCount)
+                                                           slices:NSMakeRange(baseLayer, layerCount)];
         if (view == nil)
             return nullptr;
-        auto *result        = new MetalImage(device);
-        result->pixelFormat = pixelFormat;
-        result->mipLevels   = mipCount;
-        result->arrayLayers = layerCount;
-        result->texture     = (__bridge_retained void *)view;
-        result->owned       = true;
+        auto *result                     = new MetalImage(device);
+        result->descriptor               = descriptor;
+        result->descriptor.mipLevels     = mipCount;
+        result->descriptor.arrayLayers   = layerCount;
+        result->descriptor.extent.width  = std::max(1u, descriptor.extent.width >> baseMip);
+        result->descriptor.extent.height = std::max(1u, descriptor.extent.height >> baseMip);
+        result->pixelFormat              = pixelFormat;
+        result->mipLevels                = mipCount;
+        result->arrayLayers              = layerCount;
+        result->texture                  = (__bridge_retained void *)view;
+        result->owned                    = true;
         return result;
     }
 
@@ -64,7 +70,7 @@ namespace sky::aurora {
         owned   = false;
     }
 
-    bool MetalImage::Init(const Descriptor &desc)
+    bool MetalImage::Init(const Descriptor &desc, bool forceArray)
     {
         auto *metalDevice = (__bridge id<MTLDevice>)device.GetNativeDevice();
         if (metalDevice == nil) {
@@ -72,12 +78,13 @@ namespace sky::aurora {
             return false;
         }
 
+        descriptor        = desc;
         this->pixelFormat = desc.format;
         this->mipLevels   = desc.mipLevels;
         this->arrayLayers = desc.arrayLayers;
 
         const auto pixelFormat = ToMetalPixelFormat(desc.format);
-        if (pixelFormat == MTLPixelFormatInvalid) {
+        if (!SupportsMetalPixelFormat(metalDevice, desc.format)) {
             LOG_E(TAG, "unsupported Metal pixel format: %u", static_cast<uint32_t>(desc.format));
             return false;
         }
@@ -85,9 +92,24 @@ namespace sky::aurora {
             LOG_E(TAG, "invalid image extent: %u x %u x %u", desc.extent.width, desc.extent.height, desc.extent.depth);
             return false;
         }
+        const auto &formatInfo = GetImageFormatInfo(desc.format);
+        if (formatInfo.isCompressed &&
+            (desc.samples != SampleCount::X1 ||
+             (desc.usage & (ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::STORAGE)))) {
+            LOG_E(TAG, "compressed Metal images require single-sample read-only storage");
+            return false;
+        }
+        if ((forceArray && desc.imageType != ImageType::IMAGE_2D) ||
+            (desc.samples != SampleCount::X1 && (desc.imageType != ImageType::IMAGE_2D || desc.extent.depth != 1 || desc.mipLevels != 1 ||
+                                                 ![metalDevice supportsTextureSampleCount:ToMetalSampleCount(desc.samples)] ||
+                                                 ((desc.arrayLayers > 1 || forceArray) && !SupportsMetalFamily7OrMac2(metalDevice))))) {
+            LOG_E(TAG, "unsupported Metal multisample image descriptor");
+            return false;
+        }
 
-        auto *textureDesc            = [[MTLTextureDescriptor alloc] init];
-        textureDesc.textureType      = ToMetalTextureType(desc);
+        auto *textureDesc = [[MTLTextureDescriptor alloc] init];
+        textureDesc.textureType =
+            forceArray ? (desc.samples == SampleCount::X1 ? MTLTextureType2DArray : ToMetalMultisampleType(true)) : ToMetalTextureType(desc);
         textureDesc.pixelFormat      = pixelFormat;
         textureDesc.width            = desc.extent.width;
         textureDesc.height           = desc.extent.height;

@@ -1,167 +1,128 @@
-//
-// ShaderCacheWriter tests: async serialized writes, no lost updates under
-// concurrent Submit, and resolver integration.
-//
-
 #include <aurora/shader/ShaderCacheWriter.h>
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderResolver.h>
 
-#include <core/file/FileSystem.h>
+#include "ShaderArtifactTest.h"
 
 #include <gtest/gtest.h>
 
-#include <atomic>
-#include <filesystem>
-#include <string>
 #include <thread>
-#include <vector>
 
 using namespace sky;
 using namespace sky::aurora;
+using namespace sky::aurora::test;
 
 namespace {
-
-    struct TempDir {
-        std::string path;
-        explicit TempDir(const std::string &name)
-        {
-            path = (std::filesystem::temp_directory_path() / ("sky_shaderwriter_" + name + "_" + std::to_string(::rand()))).string();
-            std::filesystem::create_directories(path);
-        }
-        ~TempDir()
-        {
-            std::error_code ec;
-            std::filesystem::remove_all(path, ec);
-        }
-    };
-
-    NativeFileSystem *MakeFs(const std::string &dir)
+    ShaderCacheWriter::Pending TestPending(uint32_t entry)
     {
-        std::filesystem::create_directories(dir);
-        return new NativeFileSystem(FilePath(dir));
+        ShaderCacheWriter::Pending pending;
+        pending.key          = TestCacheKey({}, "s" + std::to_string(entry) + ".slang");
+        pending.result       = TestArtifact(pending.key);
+        pending.relativePath = pending.key.sourcePath;
+        pending.schemaFp     = pending.key.schemaFp;
+        pending.sourceHash   = pending.key.sourceHash;
+        return pending;
     }
-
-    class FakeCompiler : public IShaderCompiler {
+    class RejectIndexFileSystem : public NativeFileSystem {
     public:
-        std::atomic<int> count{0};
-        bool             Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
+        explicit RejectIndexFileSystem(const FilePath &root) : NativeFileSystem(root)
         {
-            ++count;
-            out.data       = {static_cast<uint32_t>(desc.source.size())};
-            out.reflection = ShaderReflection{};
-            return true;
+        }
+        bool Rename(const FilePath &from, const FilePath &to) const override
+        {
+            return to.FileName() != "index.bin" && NativeFileSystem::Rename(from, to);
         }
     };
-
-    const char *kCompanion = R"({
-        "sources": [{"name": "material", "width": 8}],
-        "variants": [{"key": "USE_SHADOWS", "source": "material", "width": 1, "default": 0}]
-    })";
-
 } // namespace
 
-TEST(ShaderCacheWriterTest, ConcurrentSubmitNoLoss)
+TEST(ShaderCacheWriterTest, ConcurrentSubmitAndStopDoNotLoseAcceptedWrites)
 {
-    TempDir           dir("writer");
-    NativeFileSystem *local = MakeFs(dir.path);
-
-    ShaderCacheWriter writer(local);
-    writer.Start();
-
-    constexpr int kThreads   = 4;
-    constexpr int kPerThread = 32;
-
-    std::vector<std::thread> threads;
-    for (int t = 0; t < kThreads; ++t) {
-        threads.emplace_back([&, t] {
-            for (int i = 0; i < kPerThread; ++i) {
-                ShaderCacheWriter::Pending p;
-                p.key.target       = 0;
-                p.key.variantHash  = static_cast<uint64_t>(t * kPerThread + i);
-                p.key.stage        = 1;
-                p.key.entryHash    = static_cast<uint64_t>(i);
-                p.key.layoutFp     = 1;
-                p.key.toolchainFp  = 2;
-                p.key.schemaFp     = 3;
-                p.key.sourceHash   = 4;
-                p.result.data      = {static_cast<uint32_t>(i)};
-                p.schema.totalBits = 8;
-                p.schemaFp         = 3;
-                p.sourceHash       = 4;
-                p.relativePath     = "s" + std::to_string(t) + ".slang";
-                writer.Submit(std::move(p));
+    ShaderCacheDirectory directory("writerconcurrent");
+    ShaderCacheWriter    writer(directory.fs.Get());
+    ASSERT_TRUE(writer.Start());
+    constexpr uint32_t       count = 24;
+    std::vector<std::thread> workers;
+    for (uint32_t worker = 0; worker < 4; ++worker) {
+        workers.emplace_back([&writer, worker] {
+            for (uint32_t item = 0; item < 6; ++item) {
+                EXPECT_TRUE(writer.Submit(TestPending(worker * 6 + item)));
             }
         });
     }
-    for (auto &th : threads) {
-        th.join();
+    for (auto &worker : workers) {
+        worker.join();
     }
-    writer.Flush();
-
-    for (int t = 0; t < kThreads; ++t) {
-        for (int i = 0; i < kPerThread; ++i) {
-            ShaderCacheArtifact art;
-            ASSERT_TRUE(writer.LookupArtifact(0, "s" + std::to_string(t) + ".slang", 3, static_cast<uint64_t>(t * kPerThread + i), 1,
-                                              static_cast<uint64_t>(i), art))
-                << "lost artifact t=" << t << " i=" << i;
-        }
+    std::string error;
+    ASSERT_TRUE(writer.Flush(&error)) << error;
+    ASSERT_TRUE(writer.Stop(&error)) << error;
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto          pending = TestPending(i);
+        ShaderCacheArtifact record;
+        ASSERT_TRUE(writer.LookupArtifact(pending.key, record)) << i;
+        ShaderCompileResult result;
+        EXPECT_TRUE(ShaderBlobStore(directory.fs.Get(), nullptr).LoadArtifact(record, result));
     }
-
-    writer.Stop();
+    EXPECT_FALSE(writer.Submit(TestPending(count), &error));
+    EXPECT_FALSE(error.empty());
 }
 
-TEST(ShaderCacheWriterTest, ResolverAsyncStoreAndHit)
+TEST(ShaderCacheWriterTest, FailedIndexIsReportedAndNeverPublishedToSnapshot)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
+    ShaderCacheDirectory directory("writerfailure");
+    FileSystemPtr        failing = new RejectIndexFileSystem(FilePath(directory.path));
+    ShaderCacheWriter    writer(failing.Get());
+    ASSERT_TRUE(writer.Start());
+    const auto pending = TestPending(0);
+    ASSERT_TRUE(writer.Submit(pending));
+    std::string error;
+    EXPECT_FALSE(writer.Flush(&error));
+    EXPECT_NE(error.find("index publication failed"), std::string::npos);
+    ShaderCacheArtifact record;
+    EXPECT_FALSE(writer.LookupArtifact(pending.key, record));
+    EXPECT_FALSE(failing->FileExist(FilePath("vulkan/index.bin")));
+    EXPECT_FALSE(writer.Submit(TestPending(1), &error));
+    EXPECT_FALSE(writer.Stop(&error));
+}
 
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
-    source.AddVirtualFile("s.slang.json", kCompanion);
+TEST(ShaderCacheWriterTest, ResolverReadsOnlyDurableSnapshots)
+{
+    ShaderCacheDirectory directory("writerresolver");
+    ShaderCacheWriter    writer(directory.fs.Get());
+    ASSERT_TRUE(writer.Start());
+    ShaderFileSystem sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    const ShaderVariantSchema schema;
+    ShaderResolver::Request   request;
+    request.relativePath = "s.slang";
+    request.entry        = "mainFS";
+    request.schema       = &schema;
+    request.environment  = DefaultShaderEnvironment(ShaderTarget::SPIRV, ShaderPlatform::MACOS);
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             resolver(nullptr, directory.fs.Get(), sources, 0, 0);
+    resolver.SetCacheWriter(&writer);
+    ShaderCompileResult first, second;
+    std::string         error;
+    ASSERT_TRUE(resolver.ResolveShader(request, first, &error)) << error;
+    ASSERT_TRUE(writer.Flush(&error)) << error;
+    ASSERT_TRUE(resolver.ResolveShader(request, second, &error)) << error;
+    EXPECT_EQ(compiler.count, 1u);
+    EXPECT_EQ(first.artifactId, second.artifactId);
+    ASSERT_TRUE(writer.Stop());
+}
 
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    ShaderCacheWriter writer(local);
-    writer.Start();
-
-    ShaderResolver::Request vs;
-    vs.relativePath = "s.slang";
-    vs.entry        = "mainVS";
-    vs.stage        = ShaderStageFlagBit::VS;
-    vs.target       = 0;
-    vs.variantHash  = 5;
-
-    ShaderResolver::Request fs = vs;
-    fs.entry                   = "mainFS";
-    fs.stage                   = ShaderStageFlagBit::FS;
-
-    {
-        ShaderResolver resolver(offline, local, source, 1, 2);
-        resolver.SetCacheWriter(&writer);
-        ShaderCompileResult a;
-        ShaderCompileResult b;
-        ASSERT_TRUE(resolver.ResolveShader(vs, a, nullptr));
-        ASSERT_TRUE(resolver.ResolveShader(fs, b, nullptr));
-    }
-    writer.Flush();
-    EXPECT_EQ(compiler.count.load(), 2);
-
-    // second pass with no source: reads the writer snapshot -> no recompile
-    ShaderFileSystem emptySource;
-    {
-        ShaderResolver resolver(offline, local, emptySource, 1, 2);
-        resolver.SetCacheWriter(&writer);
-        ShaderCompileResult a;
-        ShaderCompileResult b;
-        ASSERT_TRUE(resolver.ResolveShader(vs, a, nullptr));
-        ASSERT_TRUE(resolver.ResolveShader(fs, b, nullptr));
-    }
-    EXPECT_EQ(compiler.count.load(), 2);
-
-    writer.Stop();
-    ShaderCompilerFactory::Get().Register(nullptr);
+TEST(ShaderCacheWriterTest, InvalidArtifactCannotPublishIndex)
+{
+    ShaderCacheDirectory directory("writerinvalid");
+    ShaderCacheWriter    writer(directory.fs.Get());
+    ASSERT_TRUE(writer.Start());
+    auto pending = TestPending(0);
+    pending.result.data.back() ^= 1;
+    ASSERT_TRUE(writer.Submit(pending));
+    std::string error;
+    EXPECT_FALSE(writer.Flush(&error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_FALSE(directory.fs->FileExist(FilePath("vulkan/index.bin")));
+    ShaderCacheArtifact record;
+    EXPECT_FALSE(writer.LookupArtifact(pending.key, record));
 }

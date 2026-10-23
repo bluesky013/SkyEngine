@@ -2,7 +2,6 @@
 #include "GpuTestSupport.h"
 #include "graph/FrameGraphBuilder.h"
 #include "rdg/VulkanRenderPassCache.h"
-#include "shaders/FrameGraphSPIRV.h"
 #include <algorithm>
 #include <atomic>
 #include <aurora/rdg/DeviceFrameContext.h>
@@ -453,24 +452,16 @@ namespace {
             context.reset();
             Instance::Destroy();
         }
-        ShaderFunctionPtr Function(ShaderStageFlagBit stage, std::span<const uint32_t> words)
-        {
-            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(words.size_bytes())));
-            std::memcpy(provider->binaryData->Data(), words.data(), words.size_bytes());
-            return ShaderFunctionPtr(device->CreateShaderFunction({stage, provider, {}}));
-        }
         ShaderPtr ShaderOf(bool green = false)
         {
-            auto vs = Function(ShaderStageFlagBit::VS, FrameGraphVS);
-            auto fs =
-                Function(ShaderStageFlagBit::FS, green ? std::span<const uint32_t>(FrameGraphGreenFS) : std::span<const uint32_t>(FrameGraphRedFS));
-            ShaderReflection   reflection;
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = fs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto vs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs = CompileGpuFunction(*device, kGpuFullscreenSource, ShaderStageFlagBit::FS, green ? "Green" : "Red");
+            if (!vs || !fs)
+                return {};
+            Shader::Descriptor descriptor{};
+            descriptor.vs = vs.Get();
+            descriptor.ps = fs.Get();
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         FrameGraphImage ImageOf()
         {
@@ -499,19 +490,10 @@ namespace {
         }
         ShaderPtr ComputeShaderOf()
         {
-            auto             cs = Function(ShaderStageFlagBit::CS, FrameGraphCompute);
-            ShaderReflection reflection;
-            ShaderResource   resource;
-            resource.name    = "data";
-            resource.type    = ShaderResourceType::STORAGE_BUFFER;
-            resource.set     = 0;
-            resource.binding = 0;
-            resource.count   = 1;
-            reflection.resources.push_back(resource);
-            Shader::Descriptor desc{};
-            desc.cs         = cs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto         cs = CompileGpuFunction(*device, kGpuComputeSource, ShaderStageFlagBit::CS, "CSMain");
+            Shader::Descriptor descriptor{};
+            descriptor.cs = cs.Get();
+            return cs ? ShaderPtr(device->CreateShader(descriptor)) : ShaderPtr{};
         }
         FrameGraphImage StorageImageOf()
         {
@@ -524,49 +506,21 @@ namespace {
         }
         ShaderPtr ComputeImageShaderOf()
         {
-            auto             cs = Function(ShaderStageFlagBit::CS, FrameGraphComputeImage);
-            ShaderReflection reflection;
-            ShaderResource   resource;
-            resource.name              = "outputImage";
-            resource.type              = ShaderResourceType::STORAGE_IMAGE;
-            resource.set               = 0;
-            resource.binding           = 0;
-            resource.count             = 1;
-            resource.texture.dimension = ShaderTextureDimension::D2;
-            reflection.resources.push_back(resource);
-            Shader::Descriptor desc{};
-            desc.cs         = cs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto         cs = CompileGpuFunction(*device, kGpuComputeImageSource, ShaderStageFlagBit::CS, "CSMain");
+            Shader::Descriptor descriptor{};
+            descriptor.cs = cs.Get();
+            return cs ? ShaderPtr(device->CreateShader(descriptor)) : ShaderPtr{};
         }
         ShaderPtr SampleShaderOf()
         {
-            auto             vs = Function(ShaderStageFlagBit::VS, FrameGraphVS);
-            auto             fs = Function(ShaderStageFlagBit::FS, FrameGraphSampleFS);
-            ShaderReflection reflection;
-            ShaderResource   image;
-            image.name               = "sourceTex";
-            image.type               = ShaderResourceType::SAMPLED_IMAGE;
-            image.set                = 0;
-            image.binding            = 0;
-            image.count              = 1;
-            image.texture.dimension  = ShaderTextureDimension::D2;
-            image.texture.scalarType = ShaderScalarType::FLOAT;
-            image.texture.components = 4;
-            reflection.resources.push_back(image);
-            ShaderResource sampler;
-            sampler.name    = "sourceSampler";
-            sampler.type    = ShaderResourceType::SAMPLER;
-            sampler.set     = 0;
-            sampler.binding = 1;
-            sampler.count   = 1;
-            sampler.sampler = ShaderSamplerType::REGULAR;
-            reflection.resources.push_back(sampler);
-            Shader::Descriptor desc{};
-            desc.vs         = vs.Get();
-            desc.ps         = fs.Get();
-            desc.reflection = &reflection;
-            return ShaderPtr(device->CreateShader(desc));
+            const auto vs = CompileGpuFunction(*device, kGpuSampleSource, ShaderStageFlagBit::VS, "VSMain");
+            const auto fs = CompileGpuFunction(*device, kGpuSampleSource, ShaderStageFlagBit::FS, "PSMain");
+            if (!vs || !fs)
+                return {};
+            Shader::Descriptor descriptor{};
+            descriptor.vs = vs.Get();
+            descriptor.ps = fs.Get();
+            return ShaderPtr(device->CreateShader(descriptor));
         }
         DeviceFrameLease Begin()
         {
@@ -681,14 +635,13 @@ TEST_P(VulkanFrameCompilerFixture, FullscreenGeneratedTriangleReadsBackThroughOw
 
 TEST_P(VulkanFrameCompilerFixture, ComputeUniformOffsetsAreIndependentOfDeclarationOrder)
 {
-    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeUniform);
+    const auto function = CompileGpuFunction(*device, kGpuComputeUniformSource, ShaderStageFlagBit::CS, "CSMain");
     ASSERT_TRUE(function);
     for (const bool dynamic : {false, true}) {
-        const auto         reflection = ComputeUniformReflection(dynamic);
         Shader::Descriptor descriptor{};
-        descriptor.cs         = function.Get();
-        descriptor.reflection = &reflection;
-        auto shader           = ShaderPtr(device->CreateShader(descriptor));
+        descriptor.cs              = function.Get();
+        descriptor.bindingPolicies = ComputeUniformPolicies(dynamic);
+        auto shader                = ShaderPtr(device->CreateShader(descriptor));
         ASSERT_TRUE(shader);
         auto [graph, readback] = ComputeUniformGraph(*device, std::move(shader), dynamic);
         ASSERT_TRUE(graph);
@@ -703,28 +656,11 @@ TEST_P(VulkanFrameCompilerFixture, ComputeUniformOffsetsAreIndependentOfDeclarat
 
 TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelease)
 {
-    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeSample);
+    const auto function = CompileGpuFunction(*device, kGpuComputeSampleSource, ShaderStageFlagBit::CS, "CSMain");
     ASSERT_TRUE(function);
-    ShaderReflection reflection;
-    ShaderResource   imageResource;
-    imageResource.type               = ShaderResourceType::SAMPLED_IMAGE;
-    imageResource.texture.dimension  = ShaderTextureDimension::D2;
-    imageResource.texture.scalarType = ShaderScalarType::FLOAT;
-    imageResource.texture.components = 4;
-    reflection.resources.push_back(imageResource);
-    ShaderResource samplerResource;
-    samplerResource.type    = ShaderResourceType::SAMPLER;
-    samplerResource.binding = 1;
-    samplerResource.sampler = ShaderSamplerType::REGULAR;
-    reflection.resources.push_back(samplerResource);
-    ShaderResource outputResource;
-    outputResource.type = ShaderResourceType::STORAGE_BUFFER;
-    outputResource.set  = 1;
-    reflection.resources.push_back(outputResource);
     Shader::Descriptor descriptor{};
-    descriptor.cs         = function.Get();
-    descriptor.reflection = &reflection;
-    auto shader           = ShaderPtr(device->CreateShader(descriptor));
+    descriptor.cs = function.Get();
+    auto shader   = ShaderPtr(device->CreateShader(descriptor));
     ASSERT_TRUE(shader);
     auto sampler = SamplerPtr(device->CreateSampler({}));
     ASSERT_TRUE(sampler);
@@ -830,12 +766,10 @@ TEST_P(VulkanFrameCompilerFixture, ComputeStorageImageIsSampledByRaster)
 
 TEST_P(VulkanFrameCompilerFixture, CustomReadsStorageImageAndBuffer)
 {
-    const auto function = Function(ShaderStageFlagBit::CS, FrameGraphComputeStorageRead);
+    const auto function = CompileGpuFunction(*device, kGpuStorageReadSource, ShaderStageFlagBit::CS, "CSMain");
     ASSERT_TRUE(function);
-    const auto         reflection = StorageReadReflection();
     Shader::Descriptor desc{};
     desc.cs           = function.Get();
-    desc.reflection   = &reflection;
     const auto shader = ShaderPtr(device->CreateShader(desc));
     ASSERT_TRUE(shader);
     auto [graph, readback] = CustomStorageReadGraph(*device, ComputeImageShaderOf(), ComputeShaderOf(), shader);
@@ -869,8 +803,8 @@ TEST_P(VulkanFrameCompilerFixture, CustomComputeWritesDeclaredBufferReadBack)
     auto              storage = StorageBufferOf();
     const auto        declared =
         std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
-    descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0);
-    descriptor->End();
+    ASSERT_TRUE(descriptor->WriteBuffer(0, storage.Get(), 0, 64, 0));
+    ASSERT_TRUE(descriptor->End());
     auto callback            = std::make_shared<CustomComputeEncoder>();
     callback->pipeline       = pipeline.Get();
     callback->group          = group.Get();

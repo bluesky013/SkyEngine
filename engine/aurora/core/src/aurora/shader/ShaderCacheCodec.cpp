@@ -1,408 +1,501 @@
-//
-// ShaderCacheCodec: binary (de)serialization for the shader cache index/blob.
-//
-
 #include <aurora/shader/ShaderCacheStore.h>
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
+#include <string_view>
+#include <unordered_set>
 
 namespace sky::aurora {
-
     namespace {
-
-        // ---- little-endian byte writer/reader ----
-
+        constexpr uint32_t kBlobMagic    = 0x53484136;
+        constexpr uint32_t kMaximumCount = 1u << 20;
         struct Writer {
-            std::vector<uint8_t> buf;
-
-            void U8(uint8_t v)
+            std::vector<uint8_t> bytes;
+            void                 U32(uint32_t value)
             {
-                buf.push_back(v);
-            }
-            void U32(uint32_t v)
-            {
-                for (int i = 0; i < 4; ++i) {
-                    buf.push_back(static_cast<uint8_t>((v >> (i * 8)) & 0xFFu));
+                for (uint32_t i = 0; i < 4; ++i) {
+                    bytes.push_back(static_cast<uint8_t>(value >> (i * 8)));
                 }
             }
-            void U64(uint64_t v)
+            void U64(uint64_t value)
             {
-                for (int i = 0; i < 8; ++i) {
-                    buf.push_back(static_cast<uint8_t>((v >> (i * 8)) & 0xFFu));
+                for (uint32_t i = 0; i < 8; ++i) {
+                    bytes.push_back(static_cast<uint8_t>(value >> (i * 8)));
                 }
             }
-            void Bytes(const void *data, size_t size)
+            void Str(std::string_view value)
             {
-                const auto *p = static_cast<const uint8_t *>(data);
-                buf.insert(buf.end(), p, p + size);
+                U32(static_cast<uint32_t>(value.size()));
+                bytes.insert(bytes.end(), value.begin(), value.end());
             }
-            void Str(const std::string &s)
+            template <class T>
+            void Enum(T value)
             {
-                U32(static_cast<uint32_t>(s.size()));
-                Bytes(s.data(), s.size());
+                U32(static_cast<uint32_t>(value));
             }
         };
-
         struct Reader {
-            const uint8_t *p   = nullptr;
-            size_t         n   = 0;
-            size_t         pos = 0;
-            bool           ok  = true;
-
-            bool U8(uint8_t &v)
+            const std::vector<uint8_t> &bytes;
+            size_t                      position = 0;
+            bool                        U32(uint32_t &value)
             {
-                if (!ok || pos + 1 > n) {
-                    ok = false;
+                if (bytes.size() - position < 4) {
                     return false;
                 }
-                v = p[pos++];
-                return true;
-            }
-            bool U32(uint32_t &v)
-            {
-                if (!ok || pos + 4 > n) {
-                    ok = false;
-                    return false;
-                }
-                v = 0;
-                for (int i = 0; i < 4; ++i) {
-                    v |= static_cast<uint32_t>(p[pos++]) << (i * 8);
+                value = 0;
+                for (uint32_t i = 0; i < 4; ++i) {
+                    value |= uint32_t(bytes[position++]) << (i * 8);
                 }
                 return true;
             }
-            bool U64(uint64_t &v)
+            bool U64(uint64_t &value)
             {
-                if (!ok || pos + 8 > n) {
-                    ok = false;
+                if (bytes.size() - position < 8) {
                     return false;
                 }
-                v = 0;
-                for (int i = 0; i < 8; ++i) {
-                    v |= static_cast<uint64_t>(p[pos++]) << (i * 8);
+                value = 0;
+                for (uint32_t i = 0; i < 8; ++i) {
+                    value |= uint64_t(bytes[position++]) << (i * 8);
                 }
                 return true;
             }
-            bool Bytes(void *out, size_t size)
+            bool Count(uint32_t &count, size_t minimum = 4)
             {
-                if (!ok || pos + size > n) {
-                    ok = false;
-                    return false;
-                }
-                std::memcpy(out, p + pos, size);
-                pos += size;
-                return true;
+                return U32(count) && count <= kMaximumCount && count <= (bytes.size() - position) / minimum;
             }
-            bool Str(std::string &s)
+            bool Str(std::string &value)
             {
                 uint32_t size = 0;
-                if (!U32(size) || !ok || pos + size > n) {
-                    ok = false;
+                if (!U32(size) || size > (1u << 24) || size > bytes.size() - position) {
                     return false;
                 }
-                s.assign(reinterpret_cast<const char *>(p + pos), size);
-                pos += size;
+                value.assign(reinterpret_cast<const char *>(bytes.data() + position), size);
+                position += size;
+                return value.find('\0') == std::string::npos;
+            }
+            template <class T>
+            bool Enum(T &value, T maximum)
+            {
+                uint32_t number = 0;
+                if (!U32(number) || number > static_cast<uint32_t>(maximum)) {
+                    return false;
+                }
+                value = static_cast<T>(number);
+                return true;
+            }
+            bool Bool(bool &value)
+            {
+                uint32_t number = 0;
+                if (!U32(number) || number > 1) {
+                    return false;
+                }
+                value = number != 0;
                 return true;
             }
         };
-
-        void WriteSchema(Writer &w, const ShaderVariantSchema &schema)
+        template <class T, class F>
+        void WriteList(Writer &writer, const std::vector<T> &list, F write)
         {
-            w.U32(static_cast<uint32_t>(schema.sources.size()));
-            for (const auto &s : schema.sources) {
-                w.Str(std::string(s.name.GetStr()));
+            writer.U32(static_cast<uint32_t>(list.size()));
+            for (const auto &item : list) {
+                write(writer, item);
+            }
+        }
+        template <class T, class F>
+        bool ReadList(Reader &reader, std::vector<T> &list, F read)
+        {
+            uint32_t count = 0;
+            if (!reader.Count(count)) {
+                return false;
+            }
+            for (uint32_t i = 0; i < count; ++i) {
+                T item{};
+                if (!read(reader, item)) {
+                    return false;
+                }
+                list.push_back(std::move(item));
+            }
+            return true;
+        }
+        void WriteString(Writer &w, const std::string &s)
+        {
+            w.Str(s);
+        }
+        bool ReadString(Reader &r, std::string &s)
+        {
+            return r.Str(s);
+        }
+        void WriteVariant(Writer &w, const ShaderVariantValue &v)
+        {
+            w.Str(v.name);
+            w.U32(v.value);
+        }
+        bool ReadVariant(Reader &r, ShaderVariantValue &v)
+        {
+            return r.Str(v.name) && r.U32(v.value);
+        }
+        void WriteEnvironment(Writer &w, const ShaderTargetEnvironment &v)
+        {
+            w.Enum(v.target);
+            w.Enum(v.platform);
+            w.Enum(v.codeFormat);
+            w.Str(v.profile);
+            w.U32(v.minimumVersion);
+            w.U64(v.requiredCapabilities);
+            w.Enum(v.matrixLayout);
+            WriteList(w, v.options, WriteString);
+        }
+        bool ReadEnvironment(Reader &r, ShaderTargetEnvironment &v)
+        {
+            if (!r.Enum(v.target, ShaderTarget::DXIL) || !r.Enum(v.platform, ShaderPlatform::LINUX) ||
+                !r.Enum(v.codeFormat, ShaderCodeFormat::METALLIB) || !r.Str(v.profile) || !r.U32(v.minimumVersion) ||
+                !r.U64(v.requiredCapabilities) || !r.Enum(v.matrixLayout, ShaderMatrixLayout::ROW_MAJOR) || !ReadList(r, v.options, ReadString)) {
+                return false;
+            }
+            auto        normalized = v;
+            std::string error;
+            return NormalizeShaderEnvironment(normalized, error) && normalized == v;
+        }
+        void WriteProducer(Writer &w, const ShaderProducerIdentity &v)
+        {
+            w.Str(v.compiler);
+            w.Str(v.version);
+            w.U32(v.adapterVersion);
+            w.U32(v.reflectionVersion);
+            w.U64(v.configuration);
+        }
+        bool ReadProducer(Reader &r, ShaderProducerIdentity &v)
+        {
+            return r.Str(v.compiler) && r.Str(v.version) && r.U32(v.adapterVersion) && r.U32(v.reflectionVersion) && r.U64(v.configuration);
+        }
+        void WriteIdentity(Writer &w, const ShaderStageIdentity &v)
+        {
+            w.Str(v.sourcePath);
+            w.Str(v.sourceEntry);
+            w.Str(v.nativeEntry);
+            w.Enum(v.stage);
+            w.U64(v.sourceHash);
+            w.U64(v.variantHash);
+            w.U64(v.layoutFp);
+            w.U64(v.schemaFp);
+            w.U64(v.interfaceFp);
+            WriteList(w, v.variants, WriteVariant);
+            WriteEnvironment(w, v.environment);
+            WriteProducer(w, v.producer);
+        }
+        bool ReadStage(Reader &r, ShaderStageFlagBit &stage)
+        {
+            uint32_t value = 0;
+            if (!r.U32(value)) {
+                return false;
+            }
+            switch (static_cast<ShaderStageFlagBit>(value)) {
+            case ShaderStageFlagBit::VS:
+            case ShaderStageFlagBit::FS:
+            case ShaderStageFlagBit::CS:
+            case ShaderStageFlagBit::TAS:
+            case ShaderStageFlagBit::MS: stage = static_cast<ShaderStageFlagBit>(value); return true;
+            default: return false;
+            }
+        }
+        bool ReadIdentity(Reader &r, ShaderStageIdentity &v)
+        {
+            return r.Str(v.sourcePath) && r.Str(v.sourceEntry) && r.Str(v.nativeEntry) && ReadStage(r, v.stage) && r.U64(v.sourceHash) &&
+                   r.U64(v.variantHash) && r.U64(v.layoutFp) && r.U64(v.schemaFp) && r.U64(v.interfaceFp) && ReadList(r, v.variants, ReadVariant) &&
+                   ReadEnvironment(r, v.environment) && ReadProducer(r, v.producer);
+        }
+        void WriteKey(Writer &w, const ShaderCacheKey &v)
+        {
+            w.U64(v.sourceHash);
+            w.U64(v.variantHash);
+            w.U64(v.layoutFp);
+            w.U64(v.schemaFp);
+            w.U64(v.toolchainFp);
+            w.U64(v.entryHash);
+            w.U32(v.target);
+            w.U32(v.stage);
+            w.Str(v.sourcePath);
+            w.Str(v.sourceEntry);
+            WriteList(w, v.variants, WriteVariant);
+            WriteEnvironment(w, v.environment);
+            WriteProducer(w, v.producer);
+        }
+        bool ReadKey(Reader &r, ShaderCacheKey &v)
+        {
+            return r.U64(v.sourceHash) && r.U64(v.variantHash) && r.U64(v.layoutFp) && r.U64(v.schemaFp) && r.U64(v.toolchainFp) &&
+                   r.U64(v.entryHash) && r.U32(v.target) && r.U32(v.stage) && r.Str(v.sourcePath) && r.Str(v.sourceEntry) &&
+                   ReadList(r, v.variants, ReadVariant) && ReadEnvironment(r, v.environment) && ReadProducer(r, v.producer);
+        }
+        void WriteSchema(Writer &w, const ShaderVariantSchema &v)
+        {
+            WriteList(w, v.sources, [](Writer &w, const ShaderVariantSchema::Source &s) {
+                w.Str(s.name.GetStr());
                 w.U32(s.bitOffset);
                 w.U32(s.bitWidth);
-            }
-            w.U32(static_cast<uint32_t>(schema.entries.size()));
-            for (const auto &e : schema.entries) {
-                w.Str(std::string(e.key.GetStr()));
-                w.Str(std::string(e.source.GetStr()));
+            });
+            WriteList(w, v.entries, [](Writer &w, const ShaderVariantSchema::Entry &e) {
+                w.Str(e.key.GetStr());
+                w.Str(e.source.GetStr());
                 w.U32(e.bitOffset);
                 w.U32(e.bitWidth);
                 w.U32(e.defaultValue);
-                w.U8(e.isSpec ? 1 : 0);
+                w.U32(e.isSpec);
                 w.U32(e.specId);
-            }
-            w.U32(schema.totalBits);
+            });
+            w.U32(v.totalBits);
         }
-
-        bool ReadSchema(Reader &r, ShaderVariantSchema &schema)
+        bool ReadSchema(Reader &r, ShaderVariantSchema &v)
         {
-            uint32_t count = 0;
-            if (!r.U32(count)) {
+            if (!ReadList(r, v.sources,
+                          [](Reader &r, ShaderVariantSchema::Source &s) {
+                              std::string name;
+                              uint32_t    offset = 0, width = 0;
+                              if (!r.Str(name) || !r.U32(offset) || !r.U32(width) || offset > UINT16_MAX || width > UINT8_MAX) {
+                                  return false;
+                              }
+                              s = {Name(name.c_str()), static_cast<uint16_t>(offset), static_cast<uint8_t>(width)};
+                              return true;
+                          }) ||
+                !ReadList(r, v.entries,
+                          [](Reader &r, ShaderVariantSchema::Entry &e) {
+                              std::string key, source;
+                              uint32_t    offset = 0, width = 0;
+                              if (!r.Str(key) || !r.Str(source) || !r.U32(offset) || !r.U32(width) || !r.U32(e.defaultValue) || !r.Bool(e.isSpec) ||
+                                  !r.U32(e.specId) || offset > UINT16_MAX || width > UINT8_MAX) {
+                                  return false;
+                              }
+                              e.key       = Name(key.c_str());
+                              e.source    = Name(source.c_str());
+                              e.bitOffset = static_cast<uint16_t>(offset);
+                              e.bitWidth  = static_cast<uint8_t>(width);
+                              return true;
+                          }) ||
+                !r.U32(v.totalBits)) {
                 return false;
             }
-            for (uint32_t i = 0; i < count; ++i) {
-                std::string name;
-                uint32_t    offset = 0;
-                uint32_t    width  = 0;
-                if (!r.Str(name) || !r.U32(offset) || !r.U32(width)) {
-                    return false;
-                }
-                schema.sources.push_back({Name(name.c_str()), static_cast<uint16_t>(offset), static_cast<uint8_t>(width)});
-            }
-            if (!r.U32(count)) {
-                return false;
-            }
-            for (uint32_t i = 0; i < count; ++i) {
-                std::string                key;
-                std::string                source;
-                ShaderVariantSchema::Entry e{};
-                uint32_t                   offset = 0;
-                uint32_t                   width  = 0;
-                uint8_t                    isSpec = 0;
-                if (!r.Str(key) || !r.Str(source) || !r.U32(offset) || !r.U32(width) || !r.U32(e.defaultValue) || !r.U8(isSpec) || !r.U32(e.specId)) {
-                    return false;
-                }
-                e.key       = Name(key.c_str());
-                e.source    = Name(source.c_str());
-                e.bitOffset = static_cast<uint16_t>(offset);
-                e.bitWidth  = static_cast<uint8_t>(width);
-                e.isSpec    = isSpec != 0;
-                schema.entries.push_back(e);
-            }
-            return r.U32(schema.totalBits);
+            return v.Validate();
         }
-
-        void WriteReflection(Writer &w, const ShaderReflection &refl)
+        void WriteResource(Writer &w, const ShaderResource &v)
         {
-            w.U32(static_cast<uint32_t>(refl.resources.size()));
-            for (const auto &res : refl.resources) {
-                w.Str(res.name);
-                w.U32(static_cast<uint32_t>(res.type));
-                w.U32(res.set);
-                w.U32(res.binding);
-                w.U32(res.count);
-                w.U32(static_cast<uint32_t>(res.texture.dimension));
-                w.U32(static_cast<uint32_t>(res.texture.scalarType));
-                w.U32(res.texture.components);
-                w.U8(res.texture.arrayed);
-                w.U8(res.texture.multisampled);
-                w.U32(static_cast<uint32_t>(res.sampler));
-                w.U8(res.descriptorArray);
-            }
-            w.U32(static_cast<uint32_t>(refl.blocks.size()));
-            for (const auto &blk : refl.blocks) {
-                w.Str(blk.name);
-                w.Str(blk.structName);
-                w.U32(blk.set);
-                w.U32(blk.binding);
-                w.U32(blk.size);
-                w.U32(static_cast<uint32_t>(blk.members.size()));
-                for (const auto &m : blk.members) {
-                    w.Str(m.name);
-                    w.U32(m.offset);
-                    w.U32(m.size);
-                    w.U32(static_cast<uint32_t>(m.scalarType));
-                    w.U32(static_cast<uint32_t>(m.kind));
-                    w.U32(m.rows);
-                    w.U32(m.cols);
-                    w.U32(m.arrayCount);
-                    w.U32(m.arrayStride);
-                }
-            }
-            w.U32(static_cast<uint32_t>(refl.pushConstants.size()));
-            for (const auto &pc : refl.pushConstants) {
-                w.U32(static_cast<uint32_t>(pc.stageFlags.value));
-                w.U32(pc.offset);
-                w.U32(pc.size);
-            }
-            w.U32(refl.threadGroupSize[0]);
-            w.U32(refl.threadGroupSize[1]);
-            w.U32(refl.threadGroupSize[2]);
+            w.Str(v.name);
+            w.Enum(v.type);
+            w.U32(v.set);
+            w.U32(v.binding);
+            w.U32(v.count);
+            w.Enum(v.texture.dimension);
+            w.Enum(v.texture.scalarType);
+            w.U32(v.texture.components);
+            w.U32(v.texture.arrayed);
+            w.U32(v.texture.multisampled);
+            w.Enum(v.sampler);
+            w.U32(v.descriptorArray);
+            w.Enum(v.access);
+            w.Enum(v.bufferKind);
+            w.U32(v.elementStride);
+            w.U32(v.stages.value);
+            w.Str(v.declarationOwner);
         }
-
-        bool ReadReflection(Reader &r, ShaderReflection &refl)
+        bool ReadResource(Reader &r, ShaderResource &v)
         {
-            uint32_t count = 0;
-            if (!r.U32(count)) {
+            uint32_t stages = 0;
+            if (!r.Str(v.name) || !r.Enum(v.type, ShaderResourceType::STORAGE_BUFFER_DYNAMIC) || !r.U32(v.set) || !r.U32(v.binding) ||
+                !r.U32(v.count) || !r.Enum(v.texture.dimension, ShaderTextureDimension::BUFFER) ||
+                !r.Enum(v.texture.scalarType, ShaderScalarType::BOOL) || !r.U32(v.texture.components) || !r.Bool(v.texture.arrayed) ||
+                !r.Bool(v.texture.multisampled) || !r.Enum(v.sampler, ShaderSamplerType::COMPARISON) || !r.Bool(v.descriptorArray) ||
+                !r.Enum(v.access, ShaderResourceAccess::READ_WRITE) || !r.Enum(v.bufferKind, ShaderBufferKind::STRUCTURED) ||
+                !r.U32(v.elementStride) || !r.U32(stages) || !r.Str(v.declarationOwner)) {
                 return false;
             }
-            for (uint32_t i = 0; i < count; ++i) {
-                ShaderResource res;
-                uint32_t       type = 0;
-                if (!r.Str(res.name) || !r.U32(type) || !r.U32(res.set) || !r.U32(res.binding) || !r.U32(res.count)) {
-                    return false;
-                }
-                uint32_t dimension = 0, scalar = 0, sampler = 0;
-                uint8_t  arrayed = 0, multisampled = 0, descriptorArray = 0;
-                if (!r.U32(dimension) || !r.U32(scalar) || !r.U32(res.texture.components) || !r.U8(arrayed) || !r.U8(multisampled) ||
-                    !r.U32(sampler) || !r.U8(descriptorArray) || type > static_cast<uint32_t>(ShaderResourceType::STORAGE_BUFFER_DYNAMIC) ||
-                    dimension > static_cast<uint32_t>(ShaderTextureDimension::BUFFER) || scalar > static_cast<uint32_t>(ShaderScalarType::BOOL) ||
-                    sampler > static_cast<uint32_t>(ShaderSamplerType::COMPARISON) || arrayed > 1 || multisampled > 1 || descriptorArray > 1)
-                    return false;
-                res.texture.dimension    = static_cast<ShaderTextureDimension>(dimension);
-                res.texture.scalarType   = static_cast<ShaderScalarType>(scalar);
-                res.texture.arrayed      = arrayed != 0;
-                res.texture.multisampled = multisampled != 0;
-                res.sampler              = static_cast<ShaderSamplerType>(sampler);
-                res.descriptorArray      = descriptorArray != 0;
-                res.type                 = static_cast<ShaderResourceType>(type);
-                refl.resources.push_back(std::move(res));
+            v.stages = ShaderStageFlags(stages);
+            return true;
+        }
+        void WriteBlock(Writer &w, const ShaderBlockLayout &v)
+        {
+            w.Str(v.name);
+            w.Str(v.structName);
+            w.U32(v.set);
+            w.U32(v.binding);
+            w.U32(v.size);
+            w.U32(v.alignment);
+            WriteList(w, v.members, [](Writer &w, const ShaderBlockMember &m) {
+                w.Str(m.name);
+                w.U32(m.offset);
+                w.U32(m.size);
+                w.Enum(m.scalarType);
+                w.Enum(m.kind);
+                w.U32(m.rows);
+                w.U32(m.cols);
+                w.U32(m.arrayCount);
+                w.U32(m.arrayStride);
+                w.U32(m.alignment);
+                w.U32(m.scalarBytes);
+                w.U32(m.matrixStride);
+                w.Enum(m.matrixLayout);
+            });
+        }
+        bool ReadBlock(Reader &r, ShaderBlockLayout &v)
+        {
+            return r.Str(v.name) && r.Str(v.structName) && r.U32(v.set) && r.U32(v.binding) && r.U32(v.size) && r.U32(v.alignment) &&
+                   ReadList(r, v.members, [](Reader &r, ShaderBlockMember &m) {
+                       return r.Str(m.name) && r.U32(m.offset) && r.U32(m.size) && r.Enum(m.scalarType, ShaderScalarType::BOOL) &&
+                              r.Enum(m.kind, ShaderTypeKind::STRUCT) && r.U32(m.rows) && r.U32(m.cols) && r.U32(m.arrayCount) &&
+                              r.U32(m.arrayStride) && r.U32(m.alignment) && r.U32(m.scalarBytes) && r.U32(m.matrixStride) &&
+                              r.Enum(m.matrixLayout, ShaderMatrixLayout::ROW_MAJOR);
+                   });
+        }
+        void WriteReflection(Writer &w, const ShaderReflection &v)
+        {
+            w.U32(v.protocolVersion);
+            w.Enum(v.kind);
+            w.Enum(v.bindingModel);
+            w.Enum(v.usage);
+            w.U32(v.stages.value);
+            w.U32(v.complete);
+            WriteList(w, v.resources, WriteResource);
+            WriteList(w, v.declarations, WriteResource);
+            WriteList(w, v.blocks, WriteBlock);
+            WriteList(w, v.declaredBlocks, WriteBlock);
+            WriteList(w, v.nativeBindings, [](Writer &w, const ShaderNativeBinding &b) {
+                w.U32(b.set);
+                w.U32(b.binding);
+                w.Enum(b.stage);
+                w.U32(b.index);
+                w.Enum(b.category);
+                w.U32(b.space);
+                w.U32(b.count);
+            });
+            WriteList(w, v.pushConstants, [](Writer &w, const PushConstantRange &p) {
+                w.U32(p.stageFlags.value);
+                w.U32(p.offset);
+                w.U32(p.size);
+            });
+            for (const auto size : v.threadGroupSize) {
+                w.U32(size);
             }
-            if (!r.U32(count)) {
-                return false;
-            }
-            for (uint32_t i = 0; i < count; ++i) {
-                ShaderBlockLayout blk;
-                if (!r.Str(blk.name) || !r.Str(blk.structName) || !r.U32(blk.set) || !r.U32(blk.binding) || !r.U32(blk.size)) {
-                    return false;
-                }
-                uint32_t mcount = 0;
-                if (!r.U32(mcount)) {
-                    return false;
-                }
-                for (uint32_t j = 0; j < mcount; ++j) {
-                    ShaderBlockMember m;
-                    uint32_t          scalar = 0;
-                    uint32_t          kind   = 0;
-                    if (!r.Str(m.name) || !r.U32(m.offset) || !r.U32(m.size) || !r.U32(scalar) || !r.U32(kind) || !r.U32(m.rows) || !r.U32(m.cols) ||
-                        !r.U32(m.arrayCount) || !r.U32(m.arrayStride)) {
+        }
+        bool ReadReflection(Reader &r, ShaderReflection &v)
+        {
+            uint32_t stages = 0;
+            if (!r.U32(v.protocolVersion) || !r.Enum(v.kind, ShaderReflectionKind::PROGRAM) ||
+                !r.Enum(v.bindingModel, ShaderBindingModel::METAL_DIRECT_ARGUMENTS) || !r.Enum(v.usage, ShaderUsageAnalysis::CONSERVATIVE) ||
+                !r.U32(stages) || !r.Bool(v.complete) || !ReadList(r, v.resources, ReadResource) || !ReadList(r, v.declarations, ReadResource) ||
+                !ReadList(r, v.blocks, ReadBlock) || !ReadList(r, v.declaredBlocks, ReadBlock) ||
+                !ReadList(r, v.nativeBindings,
+                          [](Reader &r, ShaderNativeBinding &b) {
+                              return r.U32(b.set) && r.U32(b.binding) && ReadStage(r, b.stage) && r.U32(b.index) &&
+                                     r.Enum(b.category, ShaderNativeCategory::METAL_SAMPLER) && r.U32(b.space) && r.U32(b.count);
+                          }) ||
+                !ReadList(r, v.pushConstants, [](Reader &r, PushConstantRange &p) {
+                    uint32_t stages = 0;
+                    if (!r.U32(stages) || !r.U32(p.offset) || !r.U32(p.size)) {
                         return false;
                     }
-                    m.scalarType = static_cast<ShaderScalarType>(scalar);
-                    m.kind       = static_cast<ShaderTypeKind>(kind);
-                    blk.members.push_back(m);
-                }
-                refl.blocks.push_back(std::move(blk));
-            }
-            if (!r.U32(count)) {
+                    p.stageFlags = ShaderStageFlags(stages);
+                    return true;
+                })) {
                 return false;
             }
-            for (uint32_t i = 0; i < count; ++i) {
-                PushConstantRange pc{};
-                uint32_t          stageFlags = 0;
-                if (!r.U32(stageFlags) || !r.U32(pc.offset) || !r.U32(pc.size)) {
+            v.stages = ShaderStageFlags(stages);
+            for (auto &size : v.threadGroupSize) {
+                if (!r.U32(size)) {
                     return false;
                 }
-                pc.stageFlags = ShaderStageFlags(stageFlags);
-                refl.pushConstants.push_back(pc);
             }
-            return r.U32(refl.threadGroupSize[0]) && r.U32(refl.threadGroupSize[1]) && r.U32(refl.threadGroupSize[2]);
+            std::string error;
+            return ValidateShaderReflection(v, error);
         }
-
     } // namespace
-
     std::vector<uint8_t> EncodeIndex(const ShaderCacheIndex &index)
     {
         Writer w;
         w.U32(index.formatVersion);
-        w.U64(index.toolchainFp);
-        w.U64(index.layoutFp);
-        w.U32(static_cast<uint32_t>(index.paths.size()));
-        for (const auto &p : index.paths) {
+        WriteList(w, index.paths, [](Writer &w, const auto &p) {
             w.Str(p.first);
             w.U64(p.second.schemaFp);
             WriteSchema(w, p.second.schema);
-            w.U32(static_cast<uint32_t>(p.second.artifacts.size()));
-            for (const auto &a : p.second.artifacts) {
+            WriteList(w, p.second.artifacts, [](Writer &w, const auto &a) {
                 w.U64(a.first);
                 w.U64(a.second.compileHash);
-                w.U64(a.second.sourceHash);
-                w.U32(static_cast<uint32_t>(a.second.sourceDeps.size()));
-                for (const auto &d : a.second.sourceDeps) {
-                    w.Str(d);
-                }
-            }
-        }
-        return w.buf;
+                w.U64(a.second.artifactId);
+                WriteKey(w, a.second.key);
+                WriteIdentity(w, a.second.identity);
+                WriteList(w, a.second.sourceDeps, WriteString);
+            });
+        });
+        return std::move(w.bytes);
     }
-
     bool DecodeIndex(const std::vector<uint8_t> &bytes, ShaderCacheIndex &out)
     {
-        Reader           r{bytes.data(), bytes.size()};
+        Reader           r{bytes};
         ShaderCacheIndex index;
-        if (!r.U32(index.formatVersion)) {
+        if (!r.U32(index.formatVersion) || index.formatVersion != ShaderCacheIndex::kFormatVersion ||
+            !ReadList(r, index.paths,
+                      [](Reader &r, auto &p) {
+                          if (!r.Str(p.first) || !r.U64(p.second.schemaFp) || !ReadSchema(r, p.second.schema) ||
+                              p.second.schemaFp != HashSchema(p.second.schema)) {
+                              return false;
+                          }
+                          return ReadList(r, p.second.artifacts, [](Reader &r, auto &a) {
+                              std::string error;
+                              return r.U64(a.first) && r.U64(a.second.compileHash) && r.U64(a.second.artifactId) && ReadKey(r, a.second.key) &&
+                                     ReadIdentity(r, a.second.identity) && ReadList(r, a.second.sourceDeps, ReadString) &&
+                                     a.first == ArtifactKey(PublishedRequest(a.second.key)) && ValidateCacheRecord(a.second, error);
+                          });
+                      }) ||
+            r.position != bytes.size()) {
             return false;
         }
-        if (index.formatVersion != ShaderCacheIndex::kFormatVersion) {
-            return false;
-        }
-        if (!r.U64(index.toolchainFp) || !r.U64(index.layoutFp)) {
-            return false;
-        }
-
-        uint32_t pathCount = 0;
-        if (!r.U32(pathCount)) {
-            return false;
-        }
-        index.paths.reserve(pathCount);
-        for (uint32_t i = 0; i < pathCount; ++i) {
-            std::string          path;
-            ShaderCachePathEntry entry;
-            if (!r.Str(path) || !r.U64(entry.schemaFp) || !ReadSchema(r, entry.schema)) {
+        std::unordered_set<std::string> paths;
+        for (const auto &path : index.paths) {
+            if (!paths.insert(path.first).second) {
                 return false;
             }
-
-            uint32_t artCount = 0;
-            if (!r.U32(artCount)) {
-                return false;
-            }
-            for (uint32_t j = 0; j < artCount; ++j) {
-                uint64_t            key = 0;
-                ShaderCacheArtifact art;
-                if (!r.U64(key) || !r.U64(art.compileHash) || !r.U64(art.sourceHash)) {
+            for (size_t i = 0; i < path.second.artifacts.size(); ++i) {
+                const auto &record = path.second.artifacts[i].second;
+                if (record.key.sourcePath != path.first || record.key.schemaFp != path.second.schemaFp) {
                     return false;
                 }
-                uint32_t depCount = 0;
-                if (!r.U32(depCount)) {
-                    return false;
-                }
-                for (uint32_t k = 0; k < depCount; ++k) {
-                    std::string dep;
-                    if (!r.Str(dep)) {
+                for (size_t j = 0; j < i; ++j) {
+                    if (PublishedRequest(path.second.artifacts[j].second.key) == PublishedRequest(record.key)) {
                         return false;
                     }
-                    art.sourceDeps.push_back(std::move(dep));
                 }
-                entry.artifacts.emplace_back(key, std::move(art));
             }
-            index.paths.emplace_back(std::move(path), std::move(entry));
         }
         out = std::move(index);
         return true;
     }
-
     std::vector<uint8_t> EncodeBlob(const ShaderCacheBlob &blob)
     {
         Writer w;
-        w.U32(0x53484232);
+        w.U32(kBlobMagic);
         w.U32(ShaderCacheIndex::kFormatVersion);
-        w.U32(blob.target);
-        w.U64(blob.sourceHash);
-        w.U64(blob.layoutFp);
-        w.U64(blob.schemaFp);
-        w.U32(static_cast<uint32_t>(blob.data.size()));
-        w.Bytes(blob.data.data(), blob.data.size() * sizeof(uint32_t));
+        w.U32(blob.runtimeAbiVersion);
+        w.U64(blob.artifactId);
+        WriteIdentity(w, blob.identity);
         WriteReflection(w, blob.reflection);
-        return w.buf;
+        w.U64(blob.data.size());
+        w.bytes.insert(w.bytes.end(), blob.data.begin(), blob.data.end());
+        return std::move(w.bytes);
     }
-
     bool DecodeBlob(const std::vector<uint8_t> &bytes, ShaderCacheBlob &out)
     {
-        Reader          r{bytes.data(), bytes.size()};
+        Reader          r{bytes};
         ShaderCacheBlob blob;
         uint32_t        magic = 0, version = 0;
-        if (!r.U32(magic) || magic != 0x53484232 || !r.U32(version) || version != ShaderCacheIndex::kFormatVersion)
-            return false;
-        if (!r.U32(blob.target) || !r.U64(blob.sourceHash) || !r.U64(blob.layoutFp) || !r.U64(blob.schemaFp)) {
-            return false;
-        }
-        uint32_t dataCount = 0;
-        if (!r.U32(dataCount)) {
+        uint64_t        size = 0;
+        if (!r.U32(magic) || magic != kBlobMagic || !r.U32(version) || version != ShaderCacheIndex::kFormatVersion ||
+            !r.U32(blob.runtimeAbiVersion) || !r.U64(blob.artifactId) || !ReadIdentity(r, blob.identity) || !ReadReflection(r, blob.reflection) ||
+            !r.U64(size) || size > 64u * 1024u * 1024u || size != bytes.size() - r.position) {
             return false;
         }
-        if (dataCount > (r.n - r.pos) / sizeof(uint32_t))
-            return false;
-        blob.data.resize(dataCount);
-        if (dataCount > 0 && !r.Bytes(blob.data.data(), dataCount * sizeof(uint32_t))) {
-            return false;
-        }
-        if (!ReadReflection(r, blob.reflection) || r.pos != r.n) {
+        blob.data.assign(bytes.begin() + static_cast<std::ptrdiff_t>(r.position), bytes.end());
+        std::string error;
+        if (!ValidateShaderArtifact(blob, error)) {
             return false;
         }
         out = std::move(blob);
         return true;
     }
-
 } // namespace sky::aurora

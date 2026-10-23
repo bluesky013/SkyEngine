@@ -3,12 +3,15 @@
 // output mapping and build-preset bundle resolution.
 //
 
+#include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
 #include <aurora/cook/image/ImageAssetWriter.h>
 #include <aurora/cook/image/ImageBuildConfig.h>
 #include <aurora/cook/image/ImageCompressor.h>
 #include <aurora/cook/image/ImageCookSettings.h>
 #include <aurora/cook/image/ImageSource.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/serialization/SerializationContext.h>
 
 #include <core/archive/MemoryStreamArchive.h>
 #include <core/file/FileSystem.h>
@@ -443,4 +446,76 @@ TEST(CookConfigTest, OverrideBeatsPresetAndPerBundleFormats)
     EXPECT_EQ(mobile->encode, ImageEncode::ASTC);
 
     fs::remove_all(dir);
+}
+
+TEST(CookAssetWriterTest, BuilderKeepsColorSpaceForUncompressedProductsAndPreservesHdrFormat)
+{
+    const auto directory = std::filesystem::temp_directory_path() / ("sky_image_color_marker_" + Uuid::Create().ToString());
+    std::filesystem::create_directories(directory);
+    struct Cleanup {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } cleanup{directory};
+    NativeFileSystemPtr files = new NativeFileSystem(FilePath(directory));
+    {
+        std::ofstream config(directory / "image_build_presets.json");
+        config << R"({"defaultBundle":"color_marker","bundles":{"color_marker":{"encode":"NONE","srgb":true,"generateMip":false}}})";
+    }
+    auto source = MakeKtx1();
+    {
+        std::ofstream output(directory / "source.ktx", std::ios::binary);
+        output.write(reinterpret_cast<const char *>(source.data()), source.size());
+    }
+    AuroraReflection(SerializationContext::Get());
+    auto *manager = AssetManager::Get();
+    manager->RegisterAssetHandler<Texture>();
+    manager->AddAssetProductBundle(new HashedAssetBundle(files, "color_marker"));
+    AuroraImageBuilder builder;
+    builder.LoadConfig(files);
+    uint32_t seed = 88010;
+    for (const bool mip : {false, true})
+        for (const bool srgb : {false, true}) {
+            AssetBuildRequest request;
+            request.file            = files->OpenFile("source.ktx");
+            request.assetInfo       = new AssetSourceInfo();
+            request.assetInfo->uuid = Uuid::CreateWithSeed(seed++);
+            request.assetInfo->path = FilePath("source.ktx");
+            request.assetInfo->ext  = ".ktx";
+            request.target          = "color_marker";
+            request.settings        = {{"srgb", srgb ? "true" : "false"}, {"generateMip", mip ? "true" : "false"}};
+            AssetBuildResult result;
+            builder.Request(request, result);
+            ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
+            const auto cooked = manager->LoadAsset<Texture>(request.assetInfo->uuid);
+            ASSERT_TRUE(cooked);
+            cooked->BlockUntilLoaded();
+            ASSERT_TRUE(cooked->IsLoaded());
+            EXPECT_EQ(cooked->Data().format, srgb ? PixelFormat::RGBA8_SRGB : PixelFormat::RGBA8_UNORM);
+            EXPECT_EQ(cooked->Data().mipLevels, mip ? 2u : 1u);
+        }
+    {
+        std::ofstream hdr(directory / "source.hdr", std::ios::binary);
+        hdr << "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n";
+        const char pixel[]{char(128), char(64), char(32), char(129)};
+        hdr.write(pixel, 4);
+    }
+    AssetBuildRequest request;
+    request.file            = files->OpenFile("source.hdr");
+    request.assetInfo       = new AssetSourceInfo();
+    request.assetInfo->uuid = Uuid::CreateWithSeed(seed);
+    request.assetInfo->path = FilePath("source.hdr");
+    request.assetInfo->ext  = ".hdr";
+    request.target          = "color_marker";
+    AssetBuildResult result;
+    builder.Request(request, result);
+    ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
+    const auto hdr = manager->LoadAsset<Texture>(request.assetInfo->uuid);
+    ASSERT_TRUE(hdr);
+    hdr->BlockUntilLoaded();
+    ASSERT_TRUE(hdr->IsLoaded());
+    EXPECT_EQ(hdr->Data().format, PixelFormat::RGBA32_SFLOAT);
 }

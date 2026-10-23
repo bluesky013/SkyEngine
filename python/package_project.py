@@ -46,6 +46,7 @@ TOKEN_KEYS = [
     '{{ANDROID_ABI}}',
     '{{MODULE_PACKAGING}}',
     '{{ANDROID_CMAKE_ARGUMENTS}}',
+    '{{DEVELOP_MODE}}',
     '{{ANDROID_KEYSTORE_PATH}}',
     '{{ANDROID_KEYSTORE_ALIAS}}',
     '{{ANDROID_STORE_PASSWORD}}',
@@ -182,6 +183,7 @@ def base_tokens(descriptor):
         '{{ANDROID_ABI}}': 'arm64-v8a',
         '{{MODULE_PACKAGING}}': 'dynamic',
         '{{ANDROID_CMAKE_ARGUMENTS}}': "'-DSKY_MODULE_PACKAGING=dynamic'",
+        '{{DEVELOP_MODE}}': 'false',
         '{{APPLICATION_ID}}': namespace,
         '{{ANDROID_KEYSTORE_PATH}}': '',
         '{{ANDROID_KEYSTORE_ALIAS}}': '',
@@ -204,6 +206,7 @@ def build_tokens(descriptor, preset, credentials):
     tokens['{{NDK_VERSION}}'] = str(preset.get('ndkVersion', '28.1.13356709'))
     tokens['{{ANDROID_ABI}}'] = (preset.get('abis') or ['arm64-v8a'])[0]
     tokens['{{MODULE_PACKAGING}}'] = str(preset.get('packing', 'dynamic'))
+    tokens['{{DEVELOP_MODE}}'] = str(development_preset(preset)).lower()
 
     if preset.get('platform') == 'android':
         android = android_credentials(credentials, preset.get('keystore', 'release'))
@@ -252,9 +255,20 @@ def preset_cmake_args(preset):
     return args + list(preset.get('extraConfigureArgs') or [])
 
 
+def development_preset(preset):
+    variables = dict(preset.get('cacheVariables') or {})
+    for argument in preset.get('extraConfigureArgs') or []:
+        if argument.startswith('-D') and '=' in argument:
+            name, value = argument[2:].split('=', 1)
+            variables[name.split(':', 1)[0]] = value
+    return any(str(variables.get(key, '')).upper() in ('1', 'ON', 'TRUE', 'YES')
+               for key in ('SKY_DEVELOP', 'SKY_BUILD_TOOL', 'SKY_BUILD_SANDBOX'))
+
+
 def android_cmake_args(engine, preset):
     args = ['-DSKY_ENGINE_ROOT=' + str(engine),
-            '-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic'))]
+            '-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic')),
+            '-DSKY_SHADER_DISTRIBUTION=' + str(preset.get('name') or preset.get('platform', 'android'))]
     args += preset_cmake_args(preset)
     if os.environ.get('SKY_3RD_PATH'):
         args.append('-D3RD_PATH=' + os.environ['SKY_3RD_PATH'])
@@ -271,6 +285,7 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
     if preset.get('platform') == 'macos' and preset.get('bundle'):
         args.append('-DSKY_MACOS_BUNDLE=ON')
     args.append('-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic')))
+    args.append('-DSKY_SHADER_DISTRIBUTION=' + str(preset.get('name') or preset.get('platform', 'macos')))
 
     apple = apple_credentials(credentials)
     team = preset.get('team') or apple['teamId']
@@ -327,7 +342,9 @@ def collect_apple_package(engine, project_dir, preset, name):
     plist = app / 'Contents' / 'Info.plist' if platform == 'macos' else app / 'Info.plist'
     if not plist.is_file() or not executable.is_file() or not executable.stat().st_mode & stat.S_IXUSR:
         raise SystemExit('不完整的 Apple 应用包: {}'.format(app))
-    stage_configs(engine, project_dir, resource_root / 'configs')
+    if not development_preset(preset):
+        strip_development_resources(resource_root)
+    stage_configs(engine, project_dir, resource_root / 'configs', development=development_preset(preset))
     stage_bundles(project_dir, preset, resource_root / 'products')
     suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
     archive = project_dir / 'build' / platform / (name + suffix)
@@ -423,7 +440,7 @@ def stage_bundles(project_dir, preset, dest_products_dir):
             print('  (bundle "{}" not cooked; skipped copy)'.format(name))
     distribution = preset.get('name') or preset.get('platform', 'default')
     if (project_dir / 'products/shaders' / distribution / 'distribution.json').is_file():
-        error = stage_shader_products(project_dir, distribution, dest_products_dir)
+        error = stage_shader_products(project_dir, distribution, dest_products_dir, preset.get('platform'))
         if error:
             print(error, file=sys.stderr)
             return None
@@ -437,7 +454,7 @@ def stage_bundles(project_dir, preset, dest_products_dir):
     return bundles
 
 
-def stage_configs(engine, project_dir, dest_configs_dir):
+def stage_configs(engine, project_dir, dest_configs_dir, development=True):
     """Ship startup configuration in the read-only package; project files win."""
     if dest_configs_dir.exists():
         shutil.rmtree(dest_configs_dir)
@@ -445,6 +462,39 @@ def stage_configs(engine, project_dir, dest_configs_dir):
     for source in (engine / 'configs', project_dir / 'configs'):
         if source.is_dir():
             shutil.copytree(source, dest_configs_dir, dirs_exist_ok=True)
+    startup = dest_configs_dir / 'modules_game.json'
+    if not development and startup.is_file():
+        data = load_json(startup, {})
+        excluded = {'Aurora.ShaderCompiler', 'Aurora.Cook'}
+        data['modules'] = [module for module in data.get('modules', []) if module.get('name') not in excluded]
+        for module in data['modules']:
+            module['dependencies'] = [name for name in module.get('dependencies', []) if name not in excluded]
+        startup.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+
+
+def strip_development_resources(destination):
+    """Retire generated development files when reusing a shipping app/assets directory."""
+    sources = destination / 'assets/shaders'
+    if sources.exists() or sources.is_symlink():
+        if not sources.parent.resolve().is_relative_to(destination.resolve()):
+            raise SystemExit('Refusing to retire shader sources through an aliased assets directory: ' + str(sources))
+        if sources.is_symlink():
+            sources.unlink()
+        else:
+            shutil.rmtree(sources)
+    for directory in (destination, destination / 'Frameworks'):
+        if not directory.is_dir():
+            continue
+        if not directory.resolve().is_relative_to(destination.resolve()):
+            raise SystemExit('Refusing to retire compiler files through an aliased runtime directory: ' + str(directory))
+        for library in directory.iterdir():
+            name = library.name.lower().removeprefix('lib')
+            if name.startswith(('slang', 'aurora.shadercompiler.')) and any(
+                    suffix in name for suffix in ('.dylib', '.so', '.dll', '.framework')):
+                if library.is_dir() and not library.is_symlink():
+                    shutil.rmtree(library)
+                else:
+                    library.unlink()
 
 
 def run_cmake_preset(engine, project_dir, platform, build, extra, extra_build):
@@ -539,7 +589,10 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
         tokens = dict(tokens)
         tokens['{{ANDROID_CMAKE_ARGUMENTS}}'] = android_cmake_args(engine, preset)
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
-        stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs')
+        if not development_preset(preset):
+            strip_development_resources(out_dir / 'app' / 'src' / 'main' / 'assets')
+        stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs',
+                      development=development_preset(preset))
         run_cook(engine, project_dir, 'android')
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
@@ -555,12 +608,12 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
                 # Reuse compiled objects, but never ship libraries/resources left
                 # by a previous preset or disabled plugin.
                 shutil.rmtree(old_app)
-        run_cmake_preset(engine, project_dir, platform, build=build,
-                         extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
-                         extra_build=preset.get('extraBuildArgs') or [])
         run_cook(engine, project_dir, platform)
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
+        run_cmake_preset(engine, project_dir, platform, build=build,
+                         extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
+                         extra_build=preset.get('extraBuildArgs') or [])
         if build:
             collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}'])
     else:
@@ -593,7 +646,7 @@ def prepare_shader_products(engine, project_dir, preset):
     platform = preset['platform']
     targets = preset.get('shaderTargets') or (['metal'] if platform in ('ios', 'macos') else ['vulkan'])
     error = cook_project_shaders(engine, project_dir, descriptor, preset.get('name') or platform,
-                                 targets, select_bundles(project_dir, preset), shader_cook_tool(engine))
+                                 targets, select_bundles(project_dir, preset), shader_cook_tool(engine), platform, preset.get('shaderEnvironments'))
     if error:
         print(error, file=sys.stderr)
     return not error
@@ -603,7 +656,7 @@ def cmd_cook_shaders(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project, descriptor = load_descriptor(args.project)
     error = cook_project_shaders(engine, project.parent, descriptor, args.distribution, args.target,
-                                 args.bundle or ['common'], Path(args.tool).resolve() if args.tool else shader_cook_tool(engine))
+                                 args.bundle or ['common'], Path(args.tool).resolve() if args.tool else shader_cook_tool(engine), args.platform)
     if error:
         print(error, file=sys.stderr)
         return 1
@@ -622,6 +675,24 @@ def cmd_stage_shaders(args):
     return 0
 
 
+def cmd_stage_runtime(args):
+    engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
+    project, _ = load_descriptor(args.project)
+    project_dir = project.parent
+    destination = Path(args.destination)
+    if args.development:
+        stage_configs(engine, project_dir, destination / 'configs')
+        return 0
+    preset = find_preset(project_dir, args.distribution)
+    manifest = project_dir / 'products/shaders' / args.distribution / 'distribution.json'
+    if not manifest.is_file():
+        print('Shader distribution has not been cooked: ' + args.distribution, file=sys.stderr)
+        return 1
+    strip_development_resources(destination)
+    stage_configs(engine, project_dir, destination / 'configs', development=False)
+    return 0 if stage_bundles(project_dir, preset, destination / 'products') else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description='SkyEngine 工程工具')
     sub = parser.add_subparsers(dest='command', required=True)
@@ -637,6 +708,7 @@ def main():
     p_shaders = sub.add_parser('cook-shaders', help='Cook one project shader distribution from registered module resources')
     p_shaders.add_argument('-p', '--project', required=True)
     p_shaders.add_argument('--distribution', default='default')
+    p_shaders.add_argument('--platform', choices=['windows', 'macos', 'ios', 'android', 'linux'], required=True)
     p_shaders.add_argument('--target', choices=['vulkan', 'metal', 'd3d12'], action='append', required=True)
     p_shaders.add_argument('--bundle', action='append')
     p_shaders.add_argument('--engine')
@@ -648,6 +720,14 @@ def main():
     p_sources.add_argument('--engine')
     p_sources.add_argument('--destination', required=True)
     p_sources.set_defaults(func=cmd_stage_shaders)
+
+    p_runtime = sub.add_parser('stage-runtime', help='Deploy selected runtime products/configs during native builds')
+    p_runtime.add_argument('-p', '--project', required=True)
+    p_runtime.add_argument('--engine')
+    p_runtime.add_argument('--distribution', required=True)
+    p_runtime.add_argument('--destination', required=True)
+    p_runtime.add_argument('--development', action='store_true')
+    p_runtime.set_defaults(func=cmd_stage_runtime)
 
     for name, helptext in (('generate', '按预设生成平台工程'), ('package', '按预设打包')):
         p = sub.add_parser(name, help=helptext)

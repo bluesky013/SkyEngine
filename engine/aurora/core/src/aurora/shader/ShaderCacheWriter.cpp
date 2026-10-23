@@ -1,183 +1,172 @@
-//
-// ShaderCacheWriter implementation.
-//
-
 #include <aurora/shader/ShaderCacheWriter.h>
 
 #include <core/file/FileSystem.h>
 
 namespace sky::aurora {
-
-    namespace {
-
-        uint32_t TargetSlot(uint32_t target)
-        {
-            return target < ShaderCacheWriter::kTargetCount ? target : 0;
-        }
-
-    } // namespace
-
     ShaderCacheWriter::ShaderCacheWriter(sky::IFileSystem *localRoot) : mLocal(localRoot)
     {
     }
-
     ShaderCacheWriter::~ShaderCacheWriter()
     {
         Stop();
     }
-
-    void ShaderCacheWriter::Start()
+    bool ShaderCacheWriter::Status(std::string *error) const
     {
-        if (mLocal == nullptr) {
-            return;
+        if (error != nullptr) {
+            *error = mError;
         }
-        for (uint32_t t = 0; t < kTargetCount; ++t) {
+        return mError.empty();
+    }
+    bool ShaderCacheWriter::Start(std::string *error)
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (mRunning) {
+            return Status(error);
+        }
+        if (mLocal == nullptr || mThread.joinable()) {
+            mError = "shader writer has no root or is stopping";
+            return Status(error);
+        }
+        mError.clear();
+        mSubmitted = mCompleted = 0;
+        for (uint32_t target = 0; target < kTargetCount; ++target) {
             ShaderCacheIndex index;
-            if (LoadIndex(*mLocal, ShaderTargetDirName(t), index)) {
-                mLocalIndex[t] = std::move(index);
+            const auto       directory = std::string(ShaderTargetDirName(target));
+            if (mLocal->FileExist(sky::FilePath(directory + "/index.bin")) && !LoadIndex(*mLocal, directory, index)) {
+                mError = "shader writer index is corrupt or requires recook: " + directory;
+                return Status(error);
             }
-            Publish(t);
+            mSnapshot[target] = std::make_shared<const ShaderCacheIndex>(std::move(index));
         }
         mRunning = true;
         mThread  = std::thread([this] { ThreadMain(); });
+        return true;
     }
-
-    void ShaderCacheWriter::Stop()
+    bool ShaderCacheWriter::Stop(std::string *error)
     {
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            if (!mRunning) {
-                return;
-            }
             mRunning = false;
         }
         mCv.notify_all();
         if (mThread.joinable()) {
             mThread.join();
         }
+        std::lock_guard<std::mutex> lock(mMutex);
+        return Status(error);
     }
-
-    void ShaderCacheWriter::Submit(Pending pending)
+    bool ShaderCacheWriter::Submit(Pending pending, std::string *error)
     {
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            mQueue.push_back(std::move(pending));
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mRunning || !mError.empty()) {
+            if (error != nullptr) {
+                *error = mError.empty() ? "shader writer is stopped" : mError;
+            }
+            return false;
         }
+        if (pending.key.target >= kTargetCount) {
+            if (error != nullptr) {
+                *error = "shader writer target is invalid";
+            }
+            return false;
+        }
+        mQueue.push_back(std::move(pending));
+        ++mSubmitted;
         mCv.notify_one();
+        return true;
     }
-
-    void ShaderCacheWriter::Flush()
+    bool ShaderCacheWriter::Flush(std::string *error)
     {
         std::unique_lock<std::mutex> lock(mMutex);
-        if (!mRunning) {
-            return;
-        }
-        mFlushRequested = true;
-        mCv.notify_all();
-        mCv.wait(lock, [this] { return !mFlushRequested; });
+        const auto                   submitted = mSubmitted;
+        mCv.wait(lock, [this, submitted] { return mCompleted >= submitted; });
+        return Status(error);
     }
-
     void ShaderCacheWriter::ThreadMain()
     {
         for (;;) {
-            std::vector<Pending> batch;
-            bool                 doFlush = false;
+            Pending pending;
             {
                 std::unique_lock<std::mutex> lock(mMutex);
-                mCv.wait(lock, [this] { return !mRunning || !mQueue.empty() || mFlushRequested; });
-                if (!mRunning && mQueue.empty()) {
+                mCv.wait(lock, [this] { return !mRunning || !mQueue.empty(); });
+                if (mQueue.empty()) {
                     break;
                 }
-                batch.assign(std::make_move_iterator(mQueue.begin()), std::make_move_iterator(mQueue.end()));
-                mQueue.clear();
-                doFlush = mFlushRequested;
+                pending = std::move(mQueue.front());
+                mQueue.pop_front();
             }
-
-            ApplyBatch(batch);
-
-            if (doFlush) {
+            std::string error;
+            const bool  succeeded = Apply(pending, error);
+            {
                 std::lock_guard<std::mutex> lock(mMutex);
-                mFlushRequested = false;
-                mCv.notify_all();
+                if (!succeeded && mError.empty()) {
+                    mError = error;
+                }
+                ++mCompleted;
             }
+            mCv.notify_all();
         }
     }
-
-    void ShaderCacheWriter::ApplyBatch(const std::vector<Pending> &batch)
+    bool ShaderCacheWriter::Apply(const Pending &pending, std::string &error)
     {
-        if (mLocal == nullptr || batch.empty()) {
-            return;
-        }
-        ShaderBlobStore store(mLocal, mLocal, 0, 0);
-
-        bool dirty[kTargetCount] = {};
-        for (const auto &p : batch) {
-            store.Store(p.key, p.result);
-            const uint32_t slot = TargetSlot(p.key.target);
-            UpsertArtifact(mLocalIndex[slot], p.relativePath, p.schema, p.schemaFp, p.key, p.sourceHash, p.deps);
-            dirty[slot] = true;
-        }
-        for (uint32_t t = 0; t < kTargetCount; ++t) {
-            if (dirty[t]) {
-                SaveIndex(*mLocal, ShaderTargetDirName(t), mLocalIndex[t]);
-                Publish(t);
-            }
-        }
-    }
-
-    void ShaderCacheWriter::Publish(uint32_t target)
-    {
-        const uint32_t              slot = TargetSlot(target);
-        auto                        snap = std::make_shared<const ShaderCacheIndex>(mLocalIndex[slot]);
-        std::lock_guard<std::mutex> lock(mMutex);
-        mSnapshot[slot] = std::move(snap);
-    }
-
-    bool ShaderCacheWriter::LookupArtifact(uint32_t             target,
-                                           const std::string   &path,
-                                           uint64_t             schemaFp,
-                                           uint64_t             variantHash,
-                                           uint32_t             stage,
-                                           uint64_t             entryHash,
-                                           ShaderCacheArtifact &out) const
-    {
-        std::shared_ptr<const ShaderCacheIndex> snap;
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            snap = mSnapshot[TargetSlot(target)];
-        }
-        if (snap == nullptr) {
+        ShaderBlobStore store(mLocal, mLocal);
+        if (!store.Store(pending.key, pending.result)) {
+            error = store.LastError();
             return false;
         }
-        const ShaderCachePathEntry *pe = FindPathEntry(*snap, path);
-        if (pe == nullptr || pe->schemaFp != schemaFp) {
+        const auto directory = std::string(ShaderTargetDirName(pending.key.target));
+        if (!UpsertLocalArtifact(*mLocal, directory, pending.relativePath, pending.schema, pending.schemaFp, pending.key, pending.result,
+                                 pending.deps, &error)) {
             return false;
         }
-        const ShaderCacheArtifact *art = FindArtifact(*pe, variantHash, target, stage, entryHash);
-        if (art == nullptr) {
+        ShaderCacheIndex index;
+        if (!LoadIndex(*mLocal, directory, index)) {
+            error = "published shader index cannot be read";
             return false;
         }
-        out = *art;
+        Publish(pending.key.target, std::move(index));
         return true;
     }
-
+    void ShaderCacheWriter::Publish(uint32_t target, ShaderCacheIndex index)
+    {
+        const auto                  snapshot = std::make_shared<const ShaderCacheIndex>(std::move(index));
+        std::lock_guard<std::mutex> lock(mMutex);
+        mSnapshot[target] = snapshot;
+    }
+    bool ShaderCacheWriter::LookupArtifact(const ShaderCacheKey &key, ShaderCacheArtifact &out) const
+    {
+        if (key.target >= kTargetCount) {
+            return false;
+        }
+        std::shared_ptr<const ShaderCacheIndex> snapshot;
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            snapshot = mSnapshot[key.target];
+        }
+        const auto *entry  = snapshot != nullptr ? FindPathEntry(*snapshot, key.sourcePath) : nullptr;
+        const auto *record = entry != nullptr ? FindArtifact(*entry, key) : nullptr;
+        if (record == nullptr) {
+            return false;
+        }
+        out = *record;
+        return true;
+    }
     bool ShaderCacheWriter::LookupSchema(uint32_t target, const std::string &path, ShaderVariantSchema &outSchema, uint64_t &outSchemaFp) const
     {
-        std::shared_ptr<const ShaderCacheIndex> snap;
+        if (target >= kTargetCount) {
+            return false;
+        }
+        std::shared_ptr<const ShaderCacheIndex> snapshot;
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            snap = mSnapshot[TargetSlot(target)];
+            snapshot = mSnapshot[target];
         }
-        if (snap == nullptr) {
+        const auto *entry = snapshot != nullptr ? FindPathEntry(*snapshot, path) : nullptr;
+        if (entry == nullptr) {
             return false;
         }
-        const ShaderCachePathEntry *pe = FindPathEntry(*snap, path);
-        if (pe == nullptr || pe->schemaFp == 0) {
-            return false;
-        }
-        outSchema   = pe->schema;
-        outSchemaFp = pe->schemaFp;
+        outSchema   = entry->schema;
+        outSchemaFp = entry->schemaFp;
         return true;
     }
-
 } // namespace sky::aurora

@@ -18,13 +18,14 @@ static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
 
-    D3D12HeapDescriptorEncoder::D3D12HeapDescriptorEncoder(D3D12Device &device,
-                                                           ID3D12DescriptorHeap *inResourceHeap,
-                                                           ID3D12DescriptorHeap *inSamplerHeap,
-                                                           uint32_t inResourceIncrement,
-                                                           uint32_t inSamplerIncrement,
+    D3D12HeapDescriptorEncoder::D3D12HeapDescriptorEncoder(D3D12Device                      &device,
+                                                           ID3D12DescriptorHeap             *inResourceHeap,
+                                                           ID3D12DescriptorHeap             *inSamplerHeap,
+                                                           uint32_t                          inResourceIncrement,
+                                                           uint32_t                          inSamplerIncrement,
                                                            const DescriptorHeap::Allocation &inAllocation)
         : native(device.GetNativeHandle())
+        , owner(&device)
         , resourceHeap(inResourceHeap)
         , samplerHeap(inSamplerHeap)
         , resourceIncrement(inResourceIncrement)
@@ -47,80 +48,125 @@ namespace sky::aurora {
         return handle;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteBuffer(uint32_t index, Buffer *buffer, uint64_t /*offset*/, uint64_t /*range*/,
-                                                 uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::Fail(const char *message)
     {
-        auto *buf = static_cast<D3D12Buffer *>(buffer);
-        if (buf == nullptr) {
-            return;
-        }
-        buf->CreateSRV(ResourceHandle(allocation.bufFirst + index + arrayElement));
+        LOG_E(TAG, "%s", message);
+        failed = true;
+        return false;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteBufferCBV(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range,
-                                                    uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::WriteBuffer(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement)
     {
+        if (failed)
+            return false;
+        if (!resourceHeap || !buffer || buffer->GetDevice() != owner || index >= allocation.bufCount || arrayElement >= allocation.bufCount - index)
+            return Fail("Raw SRV heap write has an invalid owner or slot");
         auto *buf = static_cast<D3D12Buffer *>(buffer);
-        if (buf == nullptr) {
-            return;
-        }
+        if (offset >= buf->GetSize())
+            return Fail("Raw SRV heap offset exceeds the buffer");
+        if (!range)
+            range = buf->GetSize() - offset;
+        ShaderResource binding;
+        binding.type       = ShaderResourceType::STORAGE_BUFFER;
+        binding.access     = ShaderResourceAccess::READ_ONLY;
+        binding.bufferKind = ShaderBufferKind::RAW;
+        if (const auto error = buf->CreateStorageView(ResourceHandle(allocation.bufFirst + index + arrayElement), binding, offset, range))
+            return Fail(error->message.c_str());
+        return true;
+    }
+
+    bool D3D12HeapDescriptorEncoder::WriteBufferCBV(uint32_t index, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement)
+    {
+        if (failed)
+            return false;
+        if (!resourceHeap || !buffer || buffer->GetDevice() != owner || index >= allocation.bufCount || arrayElement >= allocation.bufCount - index)
+            return Fail("CBV heap write has an invalid owner or slot");
+        auto *buf = static_cast<D3D12Buffer *>(buffer);
+        if (offset >= buf->GetSize())
+            return Fail("CBV heap offset exceeds the buffer");
+        if (!range)
+            range = buf->GetSize() - offset;
+        if (!buf->GetDescriptor().usage.TestBit(BufferUsageFlagBit::UNIFORM) || buf->GetDescriptor().memory == MemoryType::GPU_TO_CPU ||
+            offset >= buf->GetSize() || !range || range > 65536 || offset % 256 || ((range + 255) & ~uint64_t{255}) > buf->GetSize() - offset)
+            return Fail("CBV heap write has an invalid usage/alignment/range");
         buf->CreateCBV(ResourceHandle(allocation.bufFirst + index + arrayElement), offset, range);
+        return true;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteBufferUAV(uint32_t index, Buffer *buffer, uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::WriteBufferUAV(uint32_t index, Buffer *buffer, uint32_t arrayElement)
     {
-        auto *buf = static_cast<D3D12Buffer *>(buffer);
-        if (buf == nullptr) {
-            return;
-        }
-        buf->CreateUAV(ResourceHandle(allocation.bufFirst + index + arrayElement));
+        if (failed)
+            return false;
+        if (!resourceHeap || !buffer || buffer->GetDevice() != owner || index >= allocation.bufCount || arrayElement >= allocation.bufCount - index)
+            return Fail("Raw UAV heap write has an invalid owner or slot");
+        auto          *buf = static_cast<D3D12Buffer *>(buffer);
+        ShaderResource binding;
+        binding.type       = ShaderResourceType::STORAGE_BUFFER;
+        binding.access     = ShaderResourceAccess::READ_WRITE;
+        binding.bufferKind = ShaderBufferKind::RAW;
+        if (const auto error = buf->CreateStorageView(ResourceHandle(allocation.bufFirst + index + arrayElement), binding, 0, buf->GetSize()))
+            return Fail(error->message.c_str());
+        return true;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteImage(uint32_t index, Image *image, ImageLayout /*layout*/,
-                                                uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::WriteImage(uint32_t index, Image *image, ImageLayout layout, uint32_t arrayElement)
     {
+        if (failed)
+            return false;
+        if (!resourceHeap || !image || image->GetDevice() != owner || index >= allocation.texCount || arrayElement >= allocation.texCount - index)
+            return Fail("Image SRV heap write has an invalid owner or slot");
         auto *img = static_cast<D3D12Image *>(image);
-        if (img == nullptr) {
-            return;
-        }
+        if (!img->GetDescriptor().usage.TestBit(ImageUsageFlagBit::SAMPLED) ||
+            (layout != ImageLayout::SHADER_READ_ONLY && layout != ImageLayout::GENERAL))
+            return Fail("Image SRV heap write has an invalid usage/layout");
         img->CreateSRV(ResourceHandle(allocation.texFirst + index + arrayElement));
+        return true;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteImageUAV(uint32_t index, Image *image, uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::WriteImageUAV(uint32_t index, Image *image, uint32_t arrayElement)
     {
-        auto *img = static_cast<D3D12Image *>(image);
-        if (img == nullptr) {
-            return;
-        }
+        if (failed)
+            return false;
+        if (!resourceHeap || !image || image->GetDevice() != owner || index >= allocation.texCount || arrayElement >= allocation.texCount - index)
+            return Fail("Image UAV heap write has an invalid owner or slot");
+        auto       *img  = static_cast<D3D12Image *>(image);
+        const auto &desc = img->GetDescriptor();
+        if (!desc.usage.TestBit(ImageUsageFlagBit::STORAGE) || desc.arrayLayers != 1 || desc.samples != SampleCount::X1)
+            return Fail("Image UAV heap view is unsupported");
         img->CreateUAV(ResourceHandle(allocation.texFirst + index + arrayElement));
+        return true;
     }
 
-    void D3D12HeapDescriptorEncoder::WriteSampler(uint32_t index, Sampler *sampler, uint32_t arrayElement)
+    bool D3D12HeapDescriptorEncoder::WriteSampler(uint32_t index, Sampler *sampler, uint32_t arrayElement)
     {
+        if (failed)
+            return false;
+        if (!samplerHeap || !sampler || sampler->GetDevice() != owner || index >= allocation.smpCount || arrayElement >= allocation.smpCount - index)
+            return Fail("Sampler heap write has an invalid owner or slot");
         auto *smp = static_cast<D3D12Sampler *>(sampler);
-        if (smp == nullptr) {
-            return;
-        }
         native->CreateSampler(&smp->GetNativeDesc(), SamplerHandle(allocation.smpFirst + index + arrayElement));
+        return true;
     }
 
     // ---- D3D12DescriptorHeap ----
 
     bool D3D12DescriptorHeap::Init(D3D12Device &inDevice, const Descriptor &desc)
     {
-        device         = &inDevice;
-        maxTextures    = desc.maxTextures;
-        maxBuffers     = desc.maxBuffers;
+        device      = &inDevice;
+        maxTextures = desc.maxTextures;
+        maxBuffers  = desc.maxBuffers;
+        if (desc.maxBuffers > UINT32_MAX - desc.maxTextures)
+            return false;
         const uint32_t resourceCount = desc.maxTextures + desc.maxBuffers;
 
         auto *native = device->GetNativeHandle();
 
         if (resourceCount > 0) {
             D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-            heapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-            heapDesc.NumDescriptors = resourceCount;
-            heapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-            const HRESULT hr = native->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(resourceHeap.GetAddressOf()));
+            heapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            heapDesc.NumDescriptors             = resourceCount;
+            heapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+            const HRESULT hr                    = native->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(resourceHeap.GetAddressOf()));
             if (FAILED(hr)) {
                 LOG_E(TAG, "descriptor heap (resource) creation failed: 0x%08x", static_cast<unsigned>(hr));
                 return false;
@@ -131,10 +177,10 @@ namespace sky::aurora {
 
         if (desc.maxSamplers > 0) {
             D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-            heapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-            heapDesc.NumDescriptors = desc.maxSamplers;
-            heapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-            const HRESULT hr = native->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(samplerHeap.GetAddressOf()));
+            heapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+            heapDesc.NumDescriptors             = desc.maxSamplers;
+            heapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+            const HRESULT hr                    = native->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(samplerHeap.GetAddressOf()));
             if (FAILED(hr)) {
                 LOG_E(TAG, "descriptor heap (sampler) creation failed: 0x%08x", static_cast<unsigned>(hr));
                 return false;
@@ -173,9 +219,7 @@ namespace sky::aurora {
             return;
         }
         freeList.push_back({first, count});
-        std::sort(freeList.begin(), freeList.end(), [](const FreeRange &a, const FreeRange &b) {
-            return a.first < b.first;
-        });
+        std::sort(freeList.begin(), freeList.end(), [](const FreeRange &a, const FreeRange &b) { return a.first < b.first; });
         std::vector<FreeRange> merged;
         merged.reserve(freeList.size());
         for (const auto &range : freeList) {
@@ -223,8 +267,14 @@ namespace sky::aurora {
 
     std::unique_ptr<DescriptorEncoder> D3D12DescriptorHeap::CreateHeapEncoder(const Allocation &allocation)
     {
-        return std::make_unique<D3D12HeapDescriptorEncoder>(*device, resourceHeap.Get(), samplerHeap.Get(),
-                                                            resourceIncrement, samplerIncrement, allocation);
+        if (!device || allocation.texFirst > maxTextures || allocation.texCount > maxTextures - allocation.texFirst ||
+            (allocation.bufCount && (allocation.bufFirst < maxTextures || allocation.bufFirst - maxTextures > maxBuffers ||
+                                     allocation.bufCount > maxBuffers - (allocation.bufFirst - maxTextures))) ||
+            (allocation.smpCount && (!samplerHeap || allocation.smpFirst > samplerHeap->GetDesc().NumDescriptors ||
+                                     allocation.smpCount > samplerHeap->GetDesc().NumDescriptors - allocation.smpFirst)))
+            return {};
+        return std::make_unique<D3D12HeapDescriptorEncoder>(*device, resourceHeap.Get(), samplerHeap.Get(), resourceIncrement, samplerIncrement,
+                                                            allocation);
     }
 
 } // namespace sky::aurora

@@ -29,13 +29,27 @@ namespace sky::aurora {
     std::optional<FrameError> ValidateFrameShader(const RenderTechniqueData &source)
     {
         const auto invalid = [](const char *message) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, message}; };
-        const bool compute = !source.computeEntry.empty() || !source.computeCode.empty();
-        if ((compute ? !source.vertexEntry.empty() || !source.fragmentEntry.empty() || !source.vertexCode.empty() || !source.fragmentCode.empty() ||
-                           source.computeEntry.empty()
-                     : source.vertexEntry.empty() || source.fragmentEntry.empty()) ||
-            !source.reflection.pushConstants.empty()) {
-            return invalid("Technique requires graphics or compute entries exclusively and supported parameter bindings");
+        const bool compute = source.compute != nullptr;
+        if ((compute ? source.vertex || source.fragment : !source.vertex || !source.fragment) || !source.reflection.pushConstants.empty()) {
+            return invalid("Technique requires complete graphics or compute artifacts exclusively");
         }
+        ShaderReflection linked;
+        std::string      message;
+        for (const auto &artifact : {source.vertex, source.fragment, source.compute}) {
+            if (artifact && (!ValidateShaderArtifact(*artifact, message) || !MergeShaderReflections(artifact->reflection, linked, message))) {
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, std::move(message)};
+            }
+        }
+        for (const auto &policy : source.bindingPolicies) {
+            auto found = std::find_if(linked.resources.begin(), linked.resources.end(),
+                                      [&](const auto &resource) { return resource.set == policy.set && resource.binding == policy.binding; });
+            if (found == linked.resources.end() || found->type != ShaderResourceType::UNIFORM_BUFFER ||
+                policy.type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)
+                return invalid("Invalid technique binding policy");
+            found->type = policy.type;
+        }
+        if (ShaderReflectionFingerprint(linked) != ShaderReflectionFingerprint(source.reflection))
+            return invalid("Technique reflection does not match its stage artifacts");
         std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
         for (const auto &resource : source.reflection.resources) {
             if (resource.set > 2 || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
@@ -67,21 +81,19 @@ namespace sky::aurora {
     {
         if (const auto error = ValidateFrameShader(source))
             return *error;
-        const bool compute = !source.computeEntry.empty();
-        if (source.backend != device.GetAPI() || source.vertexCode.size() > UINT32_MAX || source.fragmentCode.size() > UINT32_MAX ||
-            source.computeCode.size() > UINT32_MAX ||
-            (compute ? source.computeCode.empty() : source.vertexCode.empty() || source.fragmentCode.empty())) {
-            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader code does not match the active backend"};
+        const bool compute = source.compute != nullptr;
+        if (source.backend != device.GetAPI()) {
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader artifact backend does not match the active device"};
         }
-        const auto function = [&](ShaderStageFlagBit stage, const std::vector<uint8_t> &bytes, const std::string &entry) {
-            CounterPtr<ShaderBinaryProvider> provider(new ShaderBinaryProvider());
-            provider->binaryData = BinaryDataPtr(new BinaryData(static_cast<uint32_t>(bytes.size())));
-            std::memcpy(provider->binaryData->Data(), bytes.data(), bytes.size());
-            return ShaderFunctionPtr(device.CreateShaderFunction({stage, provider, entry}));
+        const auto function = [&](ShaderStageFlagBit stage, const ShaderStageArtifactPtr &artifact) {
+            ShaderFunction::Descriptor desc{};
+            desc.stage    = stage;
+            desc.artifact = artifact;
+            return ShaderFunctionPtr(device.CreateShaderFunction(desc));
         };
-        const auto vs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::VS, source.vertexCode, source.vertexEntry);
-        const auto fs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::FS, source.fragmentCode, source.fragmentEntry);
-        const auto cs = compute ? function(ShaderStageFlagBit::CS, source.computeCode, source.computeEntry) : ShaderFunctionPtr{};
+        const auto vs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::VS, source.vertex);
+        const auto fs = compute ? ShaderFunctionPtr{} : function(ShaderStageFlagBit::FS, source.fragment);
+        const auto cs = compute ? function(ShaderStageFlagBit::CS, source.compute) : ShaderFunctionPtr{};
         if (compute ? !cs : !vs || !fs) {
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader function creation failed"};
         }
@@ -91,8 +103,10 @@ namespace sky::aurora {
         if (compute) {
             desc.cs = cs.Get();
         }
-        desc.reflection     = &source.reflection;
-        desc.specialization = &source.specialization;
+        desc.reflection       = &source.reflection;
+        desc.bindingPolicies  = source.bindingPolicies;
+        desc.parameterAliases = source.parameterAliases;
+        desc.specialization   = &source.specialization;
         ShaderPtr shader(device.CreateShader(desc));
         if (!shader)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader layout creation failed"};

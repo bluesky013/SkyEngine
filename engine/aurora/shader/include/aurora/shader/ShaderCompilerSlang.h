@@ -21,13 +21,15 @@ namespace sky::aurora {
         ShaderCompilerSlang(const ShaderCompilerSlang &)            = delete;
         ShaderCompilerSlang &operator=(const ShaderCompilerSlang &) = delete;
 
-        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) override;
+        bool                   Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) override;
+        ShaderProducerIdentity GetProducerIdentity() const override;
+        ShaderProducerIdentity GetProducerIdentity(ShaderTarget target) const override;
 
         // Inspect module-level uniform layouts without requiring an entry point.
         bool ReflectBlocks(const std::string &source, ShaderTarget target, ShaderReflection &reflection, std::string &error);
 
     private:
-        bool InitGlobalSession();
+        static bool InitGlobalSession();
     };
 
 } // namespace sky::aurora

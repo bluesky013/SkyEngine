@@ -2,8 +2,9 @@
 // Created by Zach Lee on 2026/3/31.
 //
 
-#include <D3D12Device.h>
 #include <D3D12ShaderFunction.h>
+
+#include <D3D12Device.h>
 #include <core/logger/Logger.h>
 
 #include <map>
@@ -27,24 +28,29 @@ namespace sky::aurora {
 
     bool D3D12ShaderFunction::Init(const Descriptor &desc)
     {
-        if (desc.data == nullptr || !desc.data->GetBinaryData() || !desc.data->GetBinaryData()->Size()) {
-            LOG_E(TAG, "shader function missing data provider");
+        std::string message;
+        if (!InitArtifact(desc, API::DX12, message)) {
+            LOG_E(TAG, "%s", message.c_str());
             return false;
         }
-        stage        = desc.stage;
-        dataProvider = desc.data;
+        D3D12_FEATURE_DATA_SHADER_MODEL model{D3D_SHADER_MODEL_6_5};
+        auto                           *native = device.GetNativeHandle();
+        if (!native || FAILED(native->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &model, sizeof(model))) ||
+            model.HighestShaderModel < D3D_SHADER_MODEL_6_5) {
+            LOG_E(TAG, "DXIL baseline requires device Shader Model 6.5 support");
+            return false;
+        }
+        stage = desc.stage;
         return true;
     }
 
     D3D12_SHADER_BYTECODE D3D12ShaderFunction::GetByteCode() const
     {
-        auto *binData = dataProvider ? dataProvider->GetBinaryData() : nullptr;
-        if (!binData) {
+        if (!artifact)
             return {};
-        }
         D3D12_SHADER_BYTECODE bytecode = {};
-        bytecode.pShaderBytecode       = binData->Data();
-        bytecode.BytecodeLength        = binData->Size();
+        bytecode.pShaderBytecode       = artifact->data.data();
+        bytecode.BytecodeLength        = artifact->data.size();
         return bytecode;
     }
 
@@ -54,32 +60,82 @@ namespace sky::aurora {
 
     bool D3D12Shader::Init(const Descriptor &desc)
     {
-        if ((desc.vs && desc.vs->GetDevice() != &device) || (desc.ps && desc.ps->GetDevice() != &device))
-            return false;
-        if (desc.vs == nullptr && desc.ps == nullptr && desc.cs == nullptr) {
-            LOG_E(TAG, "shader missing all shader stages");
+        std::string message;
+        if (!BuildShaderProgramReflection(desc, device, reflection, message)) {
+            LOG_E(TAG, "%s", message.c_str());
             return false;
         }
-        vs = desc.vs;
-        // ps and cs are mutually exclusive; cs aliases vs in the descriptor union
+        if (!reflection.pushConstants.empty()) {
+            LOG_E(TAG, "DX12 push constants require an explicit native address and are currently unsupported");
+            return false;
+        }
+        if (!InitParameterTable(desc, message)) {
+            LOG_E(TAG, "%s", message.c_str());
+            return false;
+        }
+        vs     = desc.vs;
         psOrCs = desc.ps != nullptr ? desc.ps : desc.cs;
-
-        if (desc.reflection == nullptr) {
-            LOG_E(TAG, "shader requires a non-null reflection");
-            return false;
-        }
-        reflection = *desc.reflection;
-
-        // build root signature directly from shader reflection
-        RootSignatureDescriptor                        rsDesc{};
-        std::map<uint32_t, RootSignatureDescriptorSet> sets;
+        RootSignatureDescriptor                           rsDesc{};
+        std::map<uint32_t, RootSignatureDescriptorSet>    sets;
+        std::map<uint32_t, std::pair<uint32_t, uint32_t>> offsets;
         for (const auto &res : reflection.resources) {
-            RootSignatureDescriptorRange range{};
-            range.type       = res.type;
-            range.binding    = res.binding;
-            range.count      = res.count;
-            range.visibility = ShaderStageFlagBit::GFX;
-            sets[res.set].ranges.push_back(range);
+            ShaderNativeCategory expected = ShaderNativeCategory::UNKNOWN;
+            switch (res.type) {
+            case ShaderResourceType::UNIFORM_BUFFER:
+            case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC: expected = ShaderNativeCategory::CBV; break;
+            case ShaderResourceType::SAMPLED_IMAGE: expected = ShaderNativeCategory::SRV; break;
+            case ShaderResourceType::STORAGE_IMAGE: expected = ShaderNativeCategory::UAV; break;
+            case ShaderResourceType::SAMPLER: expected = ShaderNativeCategory::SAMPLER; break;
+            case ShaderResourceType::STORAGE_BUFFER:
+            case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
+                if (res.access == ShaderResourceAccess::READ_ONLY)
+                    expected = ShaderNativeCategory::SRV;
+                else if (res.access == ShaderResourceAccess::READ_WRITE)
+                    expected = ShaderNativeCategory::UAV;
+                break;
+            default: break;
+            }
+            if (expected == ShaderNativeCategory::UNKNOWN || !res.count) {
+                LOG_E(TAG, "Unsupported DX12 resource metadata");
+                return false;
+            }
+            const bool dynamic = res.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || res.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
+            if (dynamic && (res.descriptorArray || res.count != 1)) {
+                LOG_E(TAG, "DX12 root descriptors cannot represent descriptor arrays");
+                return false;
+            }
+            auto      &offset           = expected == ShaderNativeCategory::SAMPLER ? offsets[res.set].second : offsets[res.set].first;
+            const auto descriptorOffset = offset;
+            if (!dynamic) {
+                if (res.count > UINT32_MAX - offset)
+                    return false;
+                offset += res.count;
+            }
+            ShaderStageFlags covered;
+            for (const auto &native : reflection.nativeBindings) {
+                if (native.set != res.set || native.binding != res.binding)
+                    continue;
+                if (native.category != expected || native.count != res.count || !res.stages.TestBit(native.stage) || covered.TestBit(native.stage)) {
+                    LOG_E(TAG, "Invalid or duplicate DX12 stage binding");
+                    return false;
+                }
+                RootSignatureDescriptorRange range{};
+                range.type             = res.type;
+                range.binding          = res.binding;
+                range.count            = res.count;
+                range.visibility       = native.stage;
+                range.access           = res.access;
+                range.category         = native.category;
+                range.nativeRegister   = native.index;
+                range.nativeSpace      = native.space;
+                range.descriptorOffset = descriptorOffset;
+                sets[res.set].ranges.push_back(range);
+                covered |= native.stage;
+            }
+            if (covered != res.stages || !covered.value) {
+                LOG_E(TAG, "DX12 resource is missing its exact native stage mapping");
+                return false;
+            }
         }
         for (auto &entry : sets) {
             rsDesc.setIndices.push_back(entry.first);

@@ -19,32 +19,32 @@ namespace sky::aurora {
         explicit MetalFence(MetalDevice &dev);
         ~MetalFence() override;
 
-        bool Init(const Descriptor &desc);
+        bool          Init(const Descriptor &desc);
+        const Device *GetDevice() const noexcept override;
 
-        void Wait() override;
-        void Reset() override;
-        bool IsSignaled() override;
-        bool WaitFor(uint64_t timeoutNs) override;
+        void               Wait() override;
+        void               Reset() override;
+        bool               IsSignaled() override;
+        bool               WaitFor(uint64_t timeoutNs) override;
         GpuOperationResult TryReset() noexcept override;
-        FenceQueryResult  Query() noexcept override;
+        FenceQueryResult   Query() noexcept override;
 
-        // Backend-only: queue calls this on the last cmdbuffer of a Submit so
-        // the GPU's completion handler signals the host-visible state.
+        // Queue arming and reset reserve values independently of submission completion.
         void *GetSharedEvent() const
         {
             return sharedEvent;
         }
-        uint64_t TakeNextValue();
+        uint64_t           TakeNextValue();
+        GpuOperationResult ArmSubmission(void *commands, uint64_t &value);
 
     private:
+        FenceQueryResult      QuerySubmitted() const;
         MetalDevice          &device;
-        void                 *sharedEvent = nullptr; // id<MTLSharedEvent>
+        void                 *sharedEvent      = nullptr; // id<MTLSharedEvent>
+        void                 *submittedCommand = nullptr; // owned NSArray<id<MTLCommandBuffer>>
         std::mutex            mutex;
-        bool                  signaled = true;
         std::atomic<uint64_t> nextValue{0};
-        // GPU value the host is currently waiting on (set by TakeNextValue at
-        // Submit). Waiting uses MTLSharedEvent::waitUntilSignaledValue directly
-        // so the wait does not depend on a listener object's lifetime.
+        // The native command batch must complete successfully before its event value can retire.
         std::atomic<uint64_t> pendingValue{0};
     };
 
@@ -53,7 +53,8 @@ namespace sky::aurora {
         explicit MetalSemaphore(MetalDevice &dev);
         ~MetalSemaphore() override;
 
-        bool Init(const Descriptor &desc);
+        bool          Init(const Descriptor &desc);
+        const Device *GetDevice() const noexcept override;
 
         SemaphoreType GetType() const override
         {

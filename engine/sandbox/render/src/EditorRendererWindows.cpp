@@ -1,74 +1,63 @@
 //
 // Created on 2026/10/17.
 //
-#if defined(_WIN32)
-    #include "EditorFramePacer.h"
-    #include <aurora/pipeline/SceneHighlight.h>
-    #include <editor/render/EditorRenderer.h>
+#include <editor/render/EditorRenderer.h>
 
-    #include <array>
-    #include <aurora/adaptor/renderer/SceneAssetSource.h>
-    #include <aurora/shader/ShaderCompilerSlang.h>
-    #include <core/logger/Logger.h>
-    #include <cstring>
-    #include <editor/core/resource/SandboxResources.h>
-    #include <editor/render/UiSnapshotProducer.h>
-    #include <framework/application/ModuleManager.h>
-    #include <framework/interface/ISystem.h>
-    #include <framework/interface/Interface.h>
-    #include <framework/platform/PlatformBase.h>
-    #include <framework/window/NativeWindowManager.h>
+#include "EditorFramePacer.h"
+#include "EditorViewportState.h"
+
+#include <array>
+#include <aurora/adaptor/renderer/SceneAssetSource.h>
+#include <aurora/pipeline/SceneHighlight.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
+#include <core/logger/Logger.h>
+#include <editor/core/resource/SandboxResources.h>
+#include <editor/render/UiSnapshotProducer.h>
+#include <framework/application/ModuleManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/platform/PlatformBase.h>
+#include <framework/window/NativeWindowManager.h>
 
 namespace sky::editor {
     using namespace aurora;
     namespace {
-        constexpr const char *UI_FEATURE = "editor.ui";
-        constexpr ViewportId  CONTENT{0, 1};
-        constexpr SceneId     SCENE{0, 1};
-        ViewportId            Output(uint32_t surface)
-        {
-            return {surface + 1, 1};
-        }
+        constexpr const char                                            *UI_FEATURE = "editor.ui";
+        constexpr ViewportId                                             CONTENT{0, 1};
+        constexpr SceneId                                                SCENE{0, 1};
         std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CompileUi(API api)
         {
             RenderTechniqueData code;
-            code.backend       = api;
-            code.vertexEntry   = "VSMain";
-            code.fragmentEntry = "FSMain";
+            code.backend = api;
             ShaderCompilerSlang compiler;
             for (const bool vertex : {true, false}) {
                 ShaderCompileDesc desc;
-                desc.source = std::string(RenderUiShaderSource());
-                desc.entry  = vertex ? "VSMain" : "FSMain";
-                desc.stage  = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
-                desc.target = api == API::DX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
+                desc.source     = std::string(RenderUiShaderSource());
+                desc.sourcePath = "aurora/adaptor/Ui.slang";
+                desc.entry      = vertex ? "VSMain" : "FSMain";
+                desc.stage      = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
+                desc.target     = api == API::DX12 ? ShaderTarget::DXIL : api == API::METAL ? ShaderTarget::MSL : ShaderTarget::SPIRV;
                 ShaderCompileResult compiled;
                 if (!compiler.Compile(desc, compiled))
                     return RendererError{RendererErrorCode::INVALID_ARGUMENT, compiled.errorInfo};
-                auto &bytes = vertex ? code.vertexCode : code.fragmentCode;
-                bytes.resize(compiled.data.size() * sizeof(uint32_t));
-                std::memcpy(bytes.data(), compiled.data.data(), bytes.size());
+                std::string error;
+                if (!MergeShaderReflections(compiled.reflection, code.reflection, error))
+                    return RendererError{RendererErrorCode::INVALID_ARGUMENT, std::move(error)};
+                auto &artifact = vertex ? code.vertex : code.fragment;
+                artifact       = std::make_shared<const ShaderStageArtifact>(std::move(compiled));
             }
-            ShaderResource image{"image", ShaderResourceType::SAMPLED_IMAGE, 0, 0, 1};
-            image.texture = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
-            ShaderResource sampler{"imageSampler", ShaderResourceType::SAMPLER, 0, 1, 1};
-            sampler.sampler           = ShaderSamplerType::REGULAR;
-            code.reflection.resources = {image, sampler};
-            code.blend.blendEn        = true;
-            code.blend.srcColor       = BlendFactor::SRC_ALPHA;
-            code.blend.dstColor       = BlendFactor::ONE_MINUS_SRC_ALPHA;
-            code.blend.srcAlpha       = BlendFactor::ONE;
-            code.blend.dstAlpha       = BlendFactor::ONE_MINUS_SRC_ALPHA;
+            code.blend.blendEn  = true;
+            code.blend.srcColor = BlendFactor::SRC_ALPHA;
+            code.blend.dstColor = BlendFactor::ONE_MINUS_SRC_ALPHA;
+            code.blend.srcAlpha = BlendFactor::ONE;
+            code.blend.dstAlpha = BlendFactor::ONE_MINUS_SRC_ALPHA;
             return CreateUiRenderFeature(Name(UI_FEATURE), std::move(code));
         }
     } // namespace
-    EditorRenderer::EditorRenderer() : framePacer(std::make_unique<EditorFramePacer>())
+    EditorRenderer::Surface::Surface(uint32_t id) : id(id), output(std::make_unique<EditorViewportState>(id + 1))
     {
     }
-    EditorRenderer::~EditorRenderer()
-    {
-        Shutdown();
-    }
+    EditorRenderer::Surface::~Surface() = default;
     bool EditorRenderer::Init(const std::string &, uint32_t, uint32_t, API api, bool preview, RendererVulkanMode mode)
     {
         if (host.Get())
@@ -84,9 +73,9 @@ namespace sky::editor {
         RendererInitInfo init;
         init.backend    = api;
         init.vulkanMode = mode;
-    #if SKY_ENABLE_GPU_VALIDATION
+#if SKY_ENABLE_GPU_VALIDATION
         init.enableValidation = true;
-    #endif
+#endif
         if (auto error = host.Init(*provider, init)) {
             Fail(*error);
             Shutdown();
@@ -98,15 +87,20 @@ namespace sky::editor {
             Shutdown();
             return false;
         }
-        feature                = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
-        shaderFiles            = std::make_shared<ShaderFileSystem>();
-        auto        sourceRoot = Platform::Get()->GetBundleFileSystem()->CreateSubSystem("assets/shaders", false);
-        std::string bundleError;
-        if (!sourceRoot || !shaderFiles->LoadBundles(*sourceRoot, "", &bundleError)) {
-            Fail({.code = RendererErrorCode::INVALID_ARGUMENT, .message = std::move(bundleError)});
+        feature           = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
+        const auto bundle = Platform::Get()->GetBundleFileSystem();
+        if (!bundle) {
+            Fail({RendererErrorCode::NOT_READY, "Editor shader bundle is unavailable"});
             Shutdown();
             return false;
         }
+        auto resources = LoadShaderResources(*bundle, host.Get()->GetInfo().backend, ShaderResourceMode::DEVELOPMENT);
+        if (const auto *error = std::get_if<std::string>(&resources)) {
+            Fail({RendererErrorCode::INVALID_ARGUMENT, *error});
+            Shutdown();
+            return false;
+        }
+        shaderFiles      = std::move(std::get<ShaderResources>(resources).sources);
         auto sceneSource = CreateSceneAssetSource(shaderFiles);
         if (!sceneSource) {
             Fail({.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene asset source creation failed"});
@@ -116,11 +110,11 @@ namespace sky::editor {
         sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), std::move(sceneSource));
         sceneBridge->EnableGeometrySnapshots(true);
         textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
-    #if defined(SKY_BUILD_FREETYPE)
+#if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
             textSystem = std::make_unique<ui::UITextSystem>(&freeTypeFont, textures.get(), 256);
         else
-    #endif
+#endif
             textSystem = std::make_unique<ui::UITextSystem>(&builtinFont, textures.get(), 128);
         withPreview = preview;
         LOG_I("EditorRender", "Single renderer initialized; UI production stays on the host thread");
@@ -144,7 +138,7 @@ namespace sky::editor {
             Fail({RendererErrorCode::NOT_READY, "Editor main window is unavailable"});
             return;
         }
-        auto surface      = std::make_unique<Surface>();
+        auto surface      = std::make_unique<Surface>(0);
         surface->window   = window;
         surface->extent   = {window->GetWidth(), window->GetHeight()};
         surface->dpiScale = window->GetDpiScale();
@@ -185,6 +179,7 @@ namespace sky::editor {
     {
         std::array<RendererEvent, 64> events;
         size_t                        count = 0;
+        std::vector<std::string>      closed;
         while ((count = host.Get()->PollEvents(events)) != 0) {
             for (const auto &event : std::span(events).first(count)) {
                 framePacer->OnEvent(event);
@@ -193,12 +188,22 @@ namespace sky::editor {
                     sceneBridge->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
                     Fail(failure->error);
+                if (const auto *failure = std::get_if<ViewportFailed>(&event))
+                    for (const auto &surface : surfaces)
+                        if (surface->output->OnFailure(*failure))
+                            LOG_W("EditorRender", "Viewport %u unavailable: %s", failure->viewport.index, failure->error.message.c_str());
                 if (const auto *failure = std::get_if<ResourceStateChanged>(&event); failure && failure->state == RenderResourceState::FAILED)
                     LOG_W("EditorRender", "Resource unavailable: %s", failure->error.message.c_str());
                 if (const auto *destroyed = std::get_if<ViewportDestroyed>(&event)) {
                     std::erase_if(surfaces, [&](const auto &surface) {
-                        if (!surface->retiring || Output(surface->id) != destroyed->viewport)
+                        if (!surface->output->IsRetiring() || surface->output->Output() != destroyed->viewport)
                             return false;
+                        if (const auto error = surface->output->OnDestroyed(*destroyed, surface->closed))
+                            Fail(*error);
+                        if (!surface->closed)
+                            return false;
+                        if (!surface->closeNotified && !surface->panelId.empty())
+                            closed.push_back(surface->panelId);
                         Event<IWindowEvent>::DisConnect(surface->window, this);
                         surface->window->SetCloseDeferred(false);
                         return true;
@@ -208,6 +213,9 @@ namespace sky::editor {
                     rendererEventObserver(event);
             }
         }
+        for (const auto &panel : closed)
+            if (surfaceClosed)
+                surfaceClosed(panel);
     }
     void EditorRenderer::Tick(float delta)
     {
@@ -223,24 +231,20 @@ namespace sky::editor {
         pending->deltaSeconds = delta;
         std::vector<std::string> closed;
         for (auto &surface : surfaces) {
-            if (surface->retiring)
-                continue;
-            const auto output = Output(surface->id);
-            if (surface->closed) {
-                if (surface->created)
-                    pending->commands.push_back(DestroyViewport{output});
-                surface->retiring = true;
+            if (surface->closed && !surface->closeNotified) {
+                surface->closeNotified = true;
                 closed.push_back(surface->panelId);
-                continue;
             }
-            if (!surface->created) {
-                ViewportDesc desc{ViewportKind::NATIVE_WINDOW, surface->extent, PixelFormat::BGRA8_UNORM,
-                                  reinterpret_cast<uintptr_t>(surface->window->GetNativeHandle())};
-                pending->commands.push_back(CreateViewport{output, desc});
-                surface->created         = true;
+            const bool   created = surface->output->IsCreated();
+            ViewportDesc desc{ViewportKind::NATIVE_WINDOW, surface->extent, PixelFormat::BGRA8_UNORM,
+                              reinterpret_cast<uintptr_t>(surface->window->GetNativeHandle())};
+            if (!surface->output->Prepare(*pending, desc, surface->closed, surface->window->RetainNativeHandle()))
+                continue;
+            if (!created) {
+                surface->revision        = 0;
                 surface->submittedExtent = surface->extent;
             } else if (surface->extent.width != surface->submittedExtent.width || surface->extent.height != surface->submittedExtent.height) {
-                pending->commands.push_back(ResizeViewport{output, surface->extent, ++surface->revision});
+                pending->commands.push_back(ResizeViewport{surface->output->Output(), surface->extent, ++surface->revision});
                 surface->submittedExtent = surface->extent;
             }
             if (!surface->extent.width || !surface->extent.height)
@@ -303,10 +307,10 @@ namespace sky::editor {
             sceneSource(*pending, scene.GetSceneId());
         // All windows finish glyph generation before snapshots select the final atlas revision.
         for (const auto &surface : surfaces) {
-            if (surface->closed || !surface->extent.width || !surface->extent.height)
+            if (surface->closed || surface->output->IsRetiring() || !surface->extent.width || !surface->extent.height)
                 continue;
-            auto snapshot =
-                textures->Snapshot(Name(UI_FEATURE), Output(surface->id), surface->extent, surface->paint.GetDrawData(), {CONTENT, sceneRevision});
+            auto snapshot = textures->Snapshot(Name(UI_FEATURE), surface->output->Output(), surface->extent, surface->paint.GetDrawData(),
+                                               {CONTENT, sceneRevision});
             if (const auto *error = std::get_if<RendererError>(&snapshot)) {
                 Fail(*error);
                 return;
@@ -316,7 +320,7 @@ namespace sky::editor {
         textures->Flush(*pending);
         Submit();
         std::erase_if(surfaces, [&](const auto &surface) {
-            if (!surface->closed || surface->created)
+            if (!surface->closed || surface->output->IsCreated())
                 return false;
             Event<IWindowEvent>::DisConnect(surface->window, this);
             surface->window->SetCloseDeferred(false);
@@ -378,8 +382,7 @@ namespace sky::editor {
     {
         if (!host.Get() || !width || !height || surfaces.size() >= 63 || nextSurfaceId == UINT32_MAX - 1)
             return 0;
-        auto surface     = std::make_unique<Surface>();
-        surface->id      = nextSurfaceId++;
+        auto surface     = std::make_unique<Surface>(nextSurfaceId++);
         surface->panelId = panel;
         const auto name  = "SkyEnginePanel" + std::to_string(surface->id);
         surface->owned.reset(NativeWindow::Create({width, height, name.c_str(), panel.c_str(), nullptr}));
@@ -440,4 +443,3 @@ namespace sky::editor {
             }
     }
 } // namespace sky::editor
-#endif

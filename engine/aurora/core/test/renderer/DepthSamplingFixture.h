@@ -17,8 +17,8 @@ namespace sky::aurora {
                 void FSMain() {}
             )");
             codes[1] = CompileHostRaster(info, R"(
-                Texture2DArray<float> depthImage : register(t0, space1);
-                SamplerState depthSampler : register(s1, space1);
+                [AuroraResource(1,0,"fixture/DepthSampling")] [[vk::binding(0,1)]] Texture2DArray<float> depthImage : register(t0, space1);
+                [AuroraResource(1,1,"fixture/DepthSampling")] [[vk::binding(1,1)]] SamplerState depthSampler : register(s1, space1);
                 float4 VSMain(uint id : SV_VertexID) : SV_Position {
                     float2 p = float2((id << 1) & 2, id & 2);
                     return float4(p * 2 - 1, 0, 1);

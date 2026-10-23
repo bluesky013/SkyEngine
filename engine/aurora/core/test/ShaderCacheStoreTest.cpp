@@ -1,244 +1,185 @@
-//
-// ShaderCacheStore tests: index/blob codec round-trip, content-addressed blob
-// store, multi-root resolution, and key invalidation.
-//
-
 #include <aurora/shader/ShaderCacheStore.h>
 
-#include <core/file/FileSystem.h>
+#include "ShaderArtifactTest.h"
+
+#include <algorithm>
 #include <core/file/MultiFileSystem.h>
-
 #include <gtest/gtest.h>
-
-#include <filesystem>
-#include <string>
 
 using namespace sky;
 using namespace sky::aurora;
+using namespace sky::aurora::test;
 
-TEST(ShaderCacheStoreTest, ArrayReflectionRoundTripsAndRejectsPreviousFormat)
+TEST(ShaderCacheStoreTest, CompleteArtifactAndIndexRoundTrip)
 {
-    ShaderCacheBlob   blob;
+    const auto        key      = TestCacheKey();
+    auto              artifact = TestArtifact(key);
     ShaderBlockLayout block;
-    block.name       = "lighting";
-    block.structName = "LightingParams";
-    block.size       = 128;
-    block.members.push_back({"lights", 0, 128, ShaderScalarType::FLOAT, ShaderTypeKind::ARRAY, 1, 4, 8, 16});
-    blob.reflection.blocks.push_back(block);
-    auto            bytes = EncodeBlob(blob);
-    ShaderCacheBlob loaded;
-    ASSERT_TRUE(DecodeBlob(bytes, loaded));
-    ASSERT_EQ(loaded.reflection.blocks.size(), 1u);
-    EXPECT_EQ(loaded.reflection.blocks.front().members, block.members);
-    ASSERT_GT(bytes.size(), 7u);
-    bytes[4] = 2;
-    bytes[5] = bytes[6] = bytes[7] = 0;
-    EXPECT_FALSE(DecodeBlob(bytes, loaded));
-}
-
-namespace {
-
-    struct TempDir {
-        std::string path;
-        explicit TempDir(const std::string &name)
-        {
-            path = (std::filesystem::temp_directory_path() / ("sky_shadercache_" + name + "_" + std::to_string(::rand()))).string();
-            std::filesystem::create_directories(path);
-        }
-        ~TempDir()
-        {
-            std::error_code ec;
-            std::filesystem::remove_all(path, ec);
-        }
-    };
-
-    NativeFileSystem *MakeFs(const std::string &dir)
-    {
-        std::filesystem::create_directories(dir);
-        return new NativeFileSystem(FilePath(dir));
-    }
-
-} // namespace
-
-TEST(ShaderCacheStoreTest, IndexRoundTrip)
-{
-    TempDir       dir("index");
-    FileSystemPtr local = MakeFs(dir.path);
-
-    ShaderVariantSchema schema;
-    schema.sources.push_back({Name("material"), 0, 8});
-    schema.entries.push_back({Name("USE_SHADOWS"), Name("material"), 0, 1, 0});
-    schema.totalBits = 8;
-
+    block.name       = "parameters";
+    block.structName = "Parameters";
+    block.size       = 192;
+    block.alignment  = 16;
+    ShaderBlockMember matrix{"transform", 0, 64, ShaderScalarType::FLOAT, ShaderTypeKind::MATRIX, 4, 4};
+    matrix.alignment    = 16;
+    matrix.matrixStride = 16;
+    matrix.matrixLayout = ShaderMatrixLayout::ROW_MAJOR;
+    ShaderBlockMember array{"lights", 64, 128, ShaderScalarType::FLOAT, ShaderTypeKind::ARRAY, 1, 4, 8, 16};
+    array.alignment = 16;
+    block.members   = {matrix, array};
+    ShaderResource resource{"parameters", ShaderResourceType::UNIFORM_BUFFER, 0, 0, 1};
+    resource.stages                                = ShaderStageFlags(ShaderStageFlagBit::FS);
+    resource.declarationOwner                      = "engine/test.slangh";
+    artifact.reflection.resources                  = {resource};
+    artifact.reflection.declarations               = {resource};
+    artifact.reflection.blocks                     = {block};
+    artifact.reflection.declaredBlocks             = {block};
+    artifact.reflection.nativeBindings             = {{0, 0, ShaderStageFlagBit::FS, 2}};
+    artifact.reflection.nativeBindings[0].category = ShaderNativeCategory::DESCRIPTOR;
+    std::string error;
+    ASSERT_TRUE(SealShaderArtifact(artifact, error)) << error;
+    ShaderCacheBlob decoded;
+    ASSERT_TRUE(DecodeBlob(EncodeBlob(artifact), decoded));
+    EXPECT_EQ(decoded.identity, artifact.identity);
+    EXPECT_EQ(decoded.artifactId, artifact.artifactId);
+    EXPECT_EQ(decoded.data, artifact.data);
+    ASSERT_EQ(decoded.reflection.blocks.size(), 1u);
+    EXPECT_EQ(decoded.reflection.blocks[0].members, block.members);
+    EXPECT_EQ(decoded.reflection.blocks[0].alignment, 16u);
+    EXPECT_EQ(decoded.reflection.nativeBindings, artifact.reflection.nativeBindings);
+    EXPECT_EQ(decoded.reflection.declarations[0].declarationOwner, resource.declarationOwner);
     ShaderCacheIndex index;
-    index.layoutFp    = 7;
-    index.toolchainFp = 9;
-
-    ShaderCachePathEntry entry;
-    entry.schemaFp = HashSchema(schema);
-    entry.schema   = schema;
-    entry.artifacts.emplace_back(ArtifactKey(42, 1, 2, HashEntryName("FSMain")), ShaderCacheArtifact{1234, 99, {"common.slang"}});
-    index.paths.emplace_back("material/lit.slang", entry);
-
-    ASSERT_TRUE(SaveIndex(*local, "", index));
-
-    ShaderCacheIndex loaded;
-    ASSERT_TRUE(LoadIndex(*local, "", loaded));
-    EXPECT_EQ(loaded.layoutFp, 7u);
-    EXPECT_EQ(loaded.toolchainFp, 9u);
-
-    const ShaderCachePathEntry *pe = FindPathEntry(loaded, "material/lit.slang");
-    ASSERT_NE(pe, nullptr);
-    EXPECT_EQ(pe->schemaFp, entry.schemaFp);
-    const ShaderCacheArtifact *art = FindArtifact(*pe, 42, 1, 2, HashEntryName("FSMain"));
-    ASSERT_NE(art, nullptr);
-    EXPECT_EQ(art->compileHash, 1234u);
-    EXPECT_EQ(art->sourceDeps.size(), 1u);
+    ASSERT_TRUE(UpsertArtifact(index, key.sourcePath, {}, key.schemaFp, key, artifact, {"shared.slangh"}, &error)) << error;
+    ShaderCacheIndex restored;
+    ASSERT_TRUE(DecodeIndex(EncodeIndex(index), restored));
+    const auto *record = FindArtifact(*FindPathEntry(restored, key.sourcePath), key);
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->artifactId, artifact.artifactId);
+    EXPECT_EQ(record->identity, artifact.identity);
+    EXPECT_EQ(record->sourceDeps, std::vector<std::string>{"shared.slangh"});
 }
 
-TEST(ShaderCacheStoreTest, BlobRoundTrip)
+TEST(ShaderCacheStoreTest, CorruptOrPreviousArtifactsNeverReplaceOutput)
 {
-    TempDir           dir("blob");
-    NativeFileSystem *localRaw = MakeFs(dir.path);
-
-    ShaderCacheKey key{};
-    key.sourceHash  = 1;
-    key.variantHash = 2;
-    key.layoutFp    = 3;
-    key.schemaFp    = 4;
-    key.toolchainFp = 5;
-    key.target      = 1;
-
-    ShaderCompileResult result;
-    result.data = {0xdeadbeefu, 0x12345678u};
-    ShaderResource res;
-    res.name    = "gGlobal";
-    res.type    = ShaderResourceType::UNIFORM_BUFFER;
-    res.set     = 0;
-    res.binding = 1;
-    result.reflection.resources.push_back(res);
-    result.reflection.threadGroupSize[0] = 8;
-
-    ShaderBlobStore store(localRaw, localRaw, 3, 5);
-    store.Store(key, result);
-
-    ShaderCompileResult loaded;
-    ASSERT_TRUE(store.Load(key, loaded));
-    ASSERT_EQ(loaded.data.size(), 2u);
-    EXPECT_EQ(loaded.data[0], 0xdeadbeefu);
-    ASSERT_EQ(loaded.reflection.resources.size(), 1u);
-    EXPECT_EQ(loaded.reflection.resources[0].name, "gGlobal");
-    EXPECT_EQ(loaded.reflection.threadGroupSize[0], 8u);
-}
-
-TEST(ShaderCacheStoreTest, MultiRootOfflinePriority)
-{
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-
-    ShaderCacheKey key{};
-    key.sourceHash  = 11;
-    key.variantHash = 22;
-    key.layoutFp    = 1;
-    key.schemaFp    = 2;
-    key.toolchainFp = 3;
-    key.target      = 0;
-
-    ShaderCompileResult result;
-    result.data = {7u, 8u};
-    ShaderBlobStore(offline, offline, 1, 3).Store(key, result);
-
-    MultiFileSystem mfs;
-    mfs.AddFileSystem(offline);
-    mfs.AddFileSystem(local);
-
-    ShaderBlobStore     store(&mfs, local, 1, 3);
-    ShaderCompileResult loaded;
-    ASSERT_TRUE(store.Load(key, loaded));
-    ASSERT_EQ(loaded.data.size(), 2u);
-    EXPECT_EQ(loaded.data[0], 7u);
-}
-
-TEST(ShaderCacheStoreTest, ResourceTypeMetadataAndBlobVersion)
-{
-    ShaderCacheBlob blob;
-    blob.data = {0x12345678};
-    ShaderResource image{"image", ShaderResourceType::SAMPLED_IMAGE, 2, 3, 4};
-    image.texture         = {ShaderTextureDimension::D2, ShaderScalarType::UINT, 4, true, true};
-    image.descriptorArray = true;
-    ShaderResource sampler{"sampler", ShaderResourceType::SAMPLER, 2, 4, 1};
-    sampler.sampler           = ShaderSamplerType::COMPARISON;
-    blob.reflection.resources = {image, sampler};
-    const auto      bytes     = EncodeBlob(blob);
-    ShaderCacheBlob loaded;
-    ASSERT_TRUE(DecodeBlob(bytes, loaded));
-    ASSERT_EQ(loaded.reflection.resources.size(), 2u);
-    EXPECT_EQ(loaded.reflection.resources[0].texture, image.texture);
-    EXPECT_EQ(loaded.reflection.resources[0].count, 4u);
-    EXPECT_TRUE(loaded.reflection.resources[0].descriptorArray);
-    EXPECT_EQ(loaded.reflection.resources[1].sampler, ShaderSamplerType::COMPARISON);
-    for (uint32_t fault = 0; fault < 4; ++fault) {
-        auto invalid = bytes;
-        if (fault == 0)
-            invalid[4] = 1;
-        if (fault == 1)
-            invalid.erase(invalid.begin(), invalid.begin() + 8);
-        if (fault == 2)
-            invalid.pop_back();
-        if (fault == 3)
-            invalid.push_back(0);
-        EXPECT_FALSE(DecodeBlob(invalid, loaded)) << fault;
-        EXPECT_EQ(loaded.reflection.resources[0].texture, image.texture);
+    const auto      artifact = TestArtifact(TestCacheKey());
+    const auto      bytes    = EncodeBlob(artifact);
+    ShaderCacheBlob output   = artifact;
+    for (size_t size = 0; size < bytes.size(); ++size) {
+        EXPECT_FALSE(DecodeBlob({bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(size)}, output)) << size;
+        EXPECT_EQ(output.artifactId, artifact.artifactId);
     }
-    auto index = EncodeIndex(ShaderCacheIndex{});
-    index[0]   = 1;
-    ShaderCacheIndex old;
-    EXPECT_FALSE(DecodeIndex(index, old));
+    auto corrupt = bytes;
+    corrupt.back() ^= 1;
+    EXPECT_FALSE(DecodeBlob(corrupt, output));
+    corrupt    = bytes;
+    corrupt[4] = 5;
+    EXPECT_FALSE(DecodeBlob(corrupt, output));
+    corrupt = bytes;
+    corrupt.push_back(0);
+    EXPECT_FALSE(DecodeBlob(corrupt, output));
+    auto invalid           = artifact;
+    invalid.identity.stage = static_cast<ShaderStageFlagBit>(UINT32_MAX);
+    EXPECT_FALSE(DecodeBlob(EncodeBlob(invalid), output));
+    invalid                           = artifact;
+    invalid.reflection.nativeBindings = {{0, 0, ShaderStageFlagBit::FS, 0}};
+    EXPECT_FALSE(DecodeBlob(EncodeBlob(invalid), output));
 }
 
-TEST(ShaderCacheStoreTest, PerTargetDirectories)
+TEST(ShaderCacheStoreTest, IndexRejectsCorruptionOversizedCountsAndOldFormat)
 {
-    TempDir           dir("targets");
-    NativeFileSystem *local = MakeFs(dir.path);
-
-    ShaderCompileResult result;
-    result.data = {1u};
-
-    ShaderCacheKey vulkan{};
-    vulkan.target = static_cast<uint32_t>(ShaderTarget::SPIRV);
-    ShaderBlobStore(local, local, 0, 0).Store(vulkan, result);
-
-    ShaderCacheKey metal{};
-    metal.target = static_cast<uint32_t>(ShaderTarget::MSL);
-    ShaderBlobStore(local, local, 0, 0).Store(metal, result);
-
-    ShaderCacheKey d3d12{};
-    d3d12.target = static_cast<uint32_t>(ShaderTarget::DXIL);
-    ShaderBlobStore(local, local, 0, 0).Store(d3d12, result);
-
-    EXPECT_TRUE(std::filesystem::exists(std::filesystem::path(dir.path) / "vulkan" / "blobs"));
-    EXPECT_TRUE(std::filesystem::exists(std::filesystem::path(dir.path) / "metal" / "blobs"));
-    EXPECT_TRUE(std::filesystem::exists(std::filesystem::path(dir.path) / "d3d12" / "blobs"));
+    const auto       key = TestCacheKey();
+    ShaderCacheIndex index;
+    ASSERT_TRUE(UpsertArtifact(index, key.sourcePath, {}, key.schemaFp, key, TestArtifact(key), {}));
+    auto             bytes  = EncodeIndex(index);
+    ShaderCacheIndex output = index;
+    bytes.push_back(0);
+    EXPECT_FALSE(DecodeIndex(bytes, output));
+    bytes    = EncodeIndex(index);
+    bytes[0] = 5;
+    EXPECT_FALSE(DecodeIndex(bytes, output));
+    bytes = EncodeIndex(index);
+    std::fill(bytes.begin() + 4, bytes.begin() + 8, 255);
+    EXPECT_FALSE(DecodeIndex(bytes, output));
+    index.paths[0].second.artifacts[0].second.key.producer.version = "tampered";
+    EXPECT_FALSE(DecodeIndex(EncodeIndex(index), output));
+    EXPECT_EQ(output.paths[0].second.artifacts[0].second.key, key);
 }
 
-TEST(ShaderCacheStoreTest, KeyInvalidation)
+TEST(ShaderCacheStoreTest, BlobIsPublishedByArtifactIdBeforeIndex)
 {
-    ShaderCacheKey a{};
-    a.layoutFp       = 1;
-    ShaderCacheKey b = a;
-    b.layoutFp       = 2;
-    EXPECT_NE(CompileHash(a), CompileHash(b));
+    ShaderCacheDirectory directory("store");
+    const auto           key      = TestCacheKey();
+    const auto           artifact = TestArtifact(key);
+    ShaderBlobStore      store(directory.fs.Get(), directory.fs.Get());
+    ASSERT_TRUE(store.Store(key, artifact)) << store.LastError();
+    ShaderCompileResult output;
+    EXPECT_FALSE(store.Load(key, output));
+    ASSERT_TRUE(UpsertLocalArtifact(*directory.fs, "vulkan", key.sourcePath, {}, key.schemaFp, key, artifact, {}));
+    ASSERT_TRUE(store.Load(key, output)) << store.LastError();
+    EXPECT_EQ(output.artifactId, artifact.artifactId);
+    auto changed             = key;
+    changed.producer.version = "new";
+    changed.toolchainFp      = ShaderProducerFingerprint(changed.producer);
+    EXPECT_FALSE(store.Load(changed, output));
+    auto record = ShaderCacheArtifact{CompileHash(key), artifact.artifactId, key, artifact.identity, {}};
+    record.artifactId ^= 1;
+    EXPECT_FALSE(store.LoadArtifact(record, output));
+    EXPECT_EQ(output.artifactId, artifact.artifactId);
+}
 
-    ShaderCacheKey c = a;
-    c.schemaFp       = 9;
-    EXPECT_NE(CompileHash(a), CompileHash(c));
+TEST(ShaderCacheStoreTest, BackendPlatformAndProducerAreRecordScoped)
+{
+    ShaderCacheDirectory directory("targets");
+    ShaderCacheIndex     metalIndex;
+    for (const auto platform : {ShaderPlatform::MACOS, ShaderPlatform::IOS}) {
+        const auto key      = TestCacheKey({}, "s.slang", ShaderTarget::MSL, platform);
+        const auto artifact = TestArtifact(key);
+        ASSERT_TRUE(ShaderBlobStore(directory.fs.Get(), directory.fs.Get()).Store(key, artifact));
+        ASSERT_TRUE(UpsertArtifact(metalIndex, key.sourcePath, {}, key.schemaFp, key, artifact, {}));
+    }
+    ASSERT_EQ(metalIndex.paths[0].second.artifacts.size(), 2u);
+    ASSERT_TRUE(SaveIndex(*directory.fs, "metal", metalIndex));
+    for (const auto platform : {ShaderPlatform::MACOS, ShaderPlatform::IOS}) {
+        const auto          key = TestCacheKey({}, "s.slang", ShaderTarget::MSL, platform);
+        ShaderCompileResult result;
+        ASSERT_TRUE(ShaderBlobStore(directory.fs.Get(), nullptr).Load(key, result));
+        EXPECT_EQ(result.identity.environment.platform, platform);
+    }
+}
 
-    ShaderVariantSchema s1;
-    s1.sources.push_back({Name("material"), 0, 8});
-    s1.totalBits           = 8;
-    ShaderVariantSchema s2 = s1;
-    s2.totalBits           = 16;
-    EXPECT_NE(HashSchema(s1), HashSchema(s2));
+TEST(ShaderCacheStoreTest, FullIdentityIsCheckedAfterHashMatch)
+{
+    const auto       key = TestCacheKey();
+    ShaderCacheIndex index;
+    ASSERT_TRUE(UpsertArtifact(index, key.sourcePath, {}, key.schemaFp, key, TestArtifact(key), {}));
+    auto &record           = index.paths[0].second.artifacts[0].second;
+    record.key.sourceEntry = "different";
+    record.compileHash     = CompileHash(key);
+    EXPECT_EQ(FindArtifact(index.paths[0].second, key), nullptr);
+}
+
+TEST(ShaderCacheStoreTest, StableNamesAndCanonicalSpecializationInputs)
+{
+    ShaderVariantSchema schema;
+    schema.sources   = {{Name("material"), 0, 8}};
+    schema.entries   = {{Name("Z_MACRO"), Name("material"), 0, 1, 1}, {Name("A_SPEC"), Name("material"), 1, 1, 0, true, 3}};
+    schema.totalBits = 8;
+    ShaderVariant variant;
+    variant.entries = {{Name("A_SPEC"), 1}, {Name("Z_MACRO"), 0}};
+    std::vector<ShaderVariantValue> macros;
+    ASSERT_TRUE(CanonicalShaderVariants(&variant, schema, ShaderTarget::MSL, macros));
+    EXPECT_EQ(macros, (std::vector<ShaderVariantValue>{{"Z_MACRO", 0}}));
+    auto same = variant;
+    std::reverse(same.entries.begin(), same.entries.end());
+    EXPECT_EQ(variant.ContentHash(), same.ContentHash());
+    ASSERT_TRUE(CanonicalShaderVariants(&variant, schema, ShaderTarget::DXIL, macros));
+    EXPECT_EQ(macros, (std::vector<ShaderVariantValue>{{"A_SPEC", 1}, {"Z_MACRO", 0}}));
+    same.entries.push_back(same.entries[0]);
+    EXPECT_FALSE(CanonicalShaderVariants(&same, schema, ShaderTarget::MSL, macros));
+    auto key                         = TestCacheKey(schema);
+    auto changed                     = key;
+    changed.environment.matrixLayout = ShaderMatrixLayout::ROW_MAJOR;
+    EXPECT_NE(CompileHash(key), CompileHash(changed));
+    changed                        = key;
+    changed.producer.configuration = 1;
+    EXPECT_NE(CompileHash(key), CompileHash(changed));
 }

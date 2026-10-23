@@ -27,6 +27,8 @@ if (SKY_BUILD_TEST)
             3rdParty::googletest
     )
 
+    target_include_directories(Aurora.RHITest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vulkan/include)
+
     # backends are dlopen'd at runtime; only need them built, not linked
     if (TARGET Aurora.Vulkan)
         add_dependencies(Aurora.RHITest Aurora.Vulkan)

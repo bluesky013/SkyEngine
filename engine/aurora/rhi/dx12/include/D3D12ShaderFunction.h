@@ -30,9 +30,8 @@ namespace sky::aurora {
         }
 
     private:
-        D3D12Device                   &device;
-        CounterPtr<ShaderDataProvider> dataProvider;
-        ShaderStageFlagBit             stage{};
+        D3D12Device       &device;
+        ShaderStageFlagBit stage{};
     };
 
     class D3D12Shader : public Shader {

@@ -2,12 +2,15 @@
 // Created on 2026/04/02.
 //
 
-#import <Foundation/Foundation.h>
-#import <Metal/Metal.h>
 #include <MetalSync.h>
 
-#include <MetalDevice.h>
 #include "MetalSharedEvent.h"
+#import <Foundation/Foundation.h>
+#import <Metal/Metal.h>
+#include <MetalDevice.h>
+#include <chrono>
+#include <core/logger/Logger.h>
+#include <thread>
 
 namespace sky::aurora {
 
@@ -41,58 +44,52 @@ namespace sky::aurora {
 
     MetalFence::~MetalFence()
     {
+        if (submittedCommand)
+            (void)(__bridge_transfer NSArray *)submittedCommand;
         ReleaseMetalSharedEvent(sharedEvent);
+    }
+
+    const Device *MetalFence::GetDevice() const noexcept
+    {
+        return &device;
     }
 
     bool MetalFence::Init(const Descriptor &desc)
     {
-        signaled     = desc.createSignaled;
         pendingValue = desc.createSignaled ? 0 : 1;
         return CreateMetalSharedEvent(device, 0, sharedEvent);
     }
 
     void MetalFence::Wait()
     {
-        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        if (event == nil) {
-            return;
-        }
-        // Block on the GPU value directly; robust across autorelease-pool drains
-        // (no listener object that could be deallocated before it fires).
-        [event waitUntilSignaledValue:pendingValue.load() timeoutMS:UINT64_MAX];
-
-        std::lock_guard<std::mutex> lock(mutex);
-        signaled = true;
+        WaitFor(UINT64_MAX);
     }
 
     void MetalFence::Reset()
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        signaled = false;
+        const auto result = TryReset();
+        if (!result.Succeeded())
+            LOG_E("AuroraMetal", "cannot reset a submitted fence");
     }
 
     bool MetalFence::IsSignaled()
     {
-        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        if (event != nil) {
-            return event.signaledValue >= pendingValue.load();
-        }
-        std::lock_guard<std::mutex> lock(mutex);
-        return signaled;
+        return Query().status == FenceStatus::SIGNALED;
     }
 
     bool MetalFence::WaitFor(uint64_t timeoutNs)
     {
-        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        if (event == nil) {
-            return signaled;
+        const auto start = std::chrono::steady_clock::now();
+        for (;;) {
+            const auto result = Query();
+            if (result.status != FenceStatus::PENDING)
+                return result.status == FenceStatus::SIGNALED;
+            if (timeoutNs != UINT64_MAX &&
+                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count()) >=
+                    timeoutNs)
+                return false;
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
-        const bool ok = [event waitUntilSignaledValue:pendingValue.load() timeoutMS:timeoutNs / 1'000'000ULL] == YES;
-        if (ok) {
-            std::lock_guard<std::mutex> lock(mutex);
-            signaled = true;
-        }
-        return ok;
     }
 
     GpuOperationResult MetalFence::TryReset() noexcept
@@ -100,33 +97,59 @@ namespace sky::aurora {
         const auto state = Query();
         if (state.status == FenceStatus::FAILED)
             return {state.error};
-        if (state.status == FenceStatus::PENDING)
-            return {{GpuErrorCode::NATIVE_ERROR}};
-        // The next Submit advances the shared-event target again; skipping one
-        // value here is harmless and keeps reset from blocking the CPU.
-        TakeNextValue();
-        return {};
+        return TakeNextValue() ? GpuOperationResult{} : GpuOperationResult{{GpuErrorCode::INVALID_ARGUMENT}};
     }
 
+    FenceQueryResult MetalFence::QuerySubmitted() const
+    {
+        bool pending = false;
+        if (submittedCommand)
+            for (id<MTLCommandBuffer> command in (__bridge NSArray *)submittedCommand) {
+                if (command.status == MTLCommandBufferStatusError)
+                    return {FenceStatus::FAILED, {GpuErrorCode::NATIVE_ERROR, command.error ? command.error.code : 0}};
+                pending |= command.status != MTLCommandBufferStatusCompleted;
+            }
+        return {pending ? FenceStatus::PENDING : FenceStatus::SIGNALED};
+    }
     FenceQueryResult MetalFence::Query() noexcept
     {
-        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        if (event != nil)
-            return {event.signaledValue >= pendingValue.load() ? FenceStatus::SIGNALED : FenceStatus::PENDING};
         std::lock_guard<std::mutex> lock(mutex);
-        return {signaled ? FenceStatus::SIGNALED : FenceStatus::PENDING};
+        const auto                  submitted = QuerySubmitted();
+        if (submitted.status != FenceStatus::SIGNALED)
+            return submitted;
+        id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
+        if (event)
+            return {event.signaledValue >= pendingValue.load() ? FenceStatus::SIGNALED : FenceStatus::PENDING};
+        return {FenceStatus::FAILED, {GpuErrorCode::NATIVE_ERROR}};
+    }
+
+    GpuOperationResult MetalFence::ArmSubmission(void *commands, uint64_t &value)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        const auto                  submitted = QuerySubmitted();
+        if (submitted.status == FenceStatus::FAILED)
+            return {submitted.error};
+        if (!commands || submitted.status == FenceStatus::PENDING || nextValue == UINT64_MAX)
+            return {{GpuErrorCode::INVALID_ARGUMENT}};
+        if (submittedCommand)
+            (void)(__bridge_transfer NSArray *)submittedCommand;
+        submittedCommand = (__bridge_retained void *)(__bridge NSArray *)commands;
+        value            = ++nextValue;
+        pendingValue     = value;
+        return {};
     }
 
     uint64_t MetalFence::TakeNextValue()
     {
-        const uint64_t v = ++nextValue;
-
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            signaled = false;
+        std::lock_guard<std::mutex> lock(mutex);
+        if (QuerySubmitted().status != FenceStatus::SIGNALED || nextValue == UINT64_MAX)
+            return 0;
+        if (submittedCommand) {
+            (void)(__bridge_transfer NSArray *)submittedCommand;
+            submittedCommand = nullptr;
         }
-        pendingValue = v;
-        return v;
+        pendingValue = ++nextValue;
+        return pendingValue;
     }
 
     // ---- MetalSemaphore ---------------------------------------------------------
@@ -140,9 +163,14 @@ namespace sky::aurora {
         ReleaseMetalSharedEvent(sharedEvent);
     }
 
+    const Device *MetalSemaphore::GetDevice() const noexcept
+    {
+        return &device;
+    }
+
     bool MetalSemaphore::Init(const Descriptor &desc)
     {
-        type               = desc.type;
+        type                = desc.type;
         const uint64_t init = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
         return CreateMetalSharedEvent(device, init, sharedEvent);
     }
@@ -165,7 +193,17 @@ namespace sky::aurora {
             return false;
         }
         id<MTLSharedEvent> event = (__bridge id<MTLSharedEvent>)sharedEvent;
-        return [event waitUntilSignaledValue:value timeoutMS:timeoutNs / 1'000'000ULL] == YES;
+        if (event == nil)
+            return false;
+        const auto start = std::chrono::steady_clock::now();
+        while (event.signaledValue < value) {
+            if (timeoutNs != UINT64_MAX &&
+                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count()) >=
+                    timeoutNs)
+                return false;
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+        }
+        return true;
     }
 
     uint64_t MetalSemaphore::GetCurrentValue() const

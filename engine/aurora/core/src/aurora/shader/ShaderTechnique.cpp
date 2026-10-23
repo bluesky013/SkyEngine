@@ -60,37 +60,10 @@ namespace sky::aurora {
             }
             return {};
         }
-        std::optional<RendererError> MergeReflection(const ShaderReflection &stage, ShaderReflection &merged)
-        {
-            if (!stage.pushConstants.empty()) {
-                return Invalid("Technique push constants are not supported");
-            }
-            for (const auto &resource : stage.resources) {
-                const auto found = std::ranges::find_if(
-                    merged.resources, [&](const auto &item) { return item.set == resource.set && item.binding == resource.binding; });
-                if (found == merged.resources.end()) {
-                    merged.resources.push_back(resource);
-                } else if (found->type != resource.type || found->count != resource.count || found->descriptorArray != resource.descriptorArray ||
-                           found->texture != resource.texture || found->sampler != resource.sampler) {
-                    return Invalid("Technique stages disagree on resource bindings");
-                }
-            }
-            for (const auto &block : stage.blocks) {
-                const auto found =
-                    std::ranges::find_if(merged.blocks, [&](const auto &item) { return item.set == block.set && item.binding == block.binding; });
-                if (found == merged.blocks.end()) {
-                    merged.blocks.push_back(block);
-                } else if (found->size != block.size || found->members != block.members) {
-                    return Invalid("Technique stages disagree on uniform layout");
-                }
-            }
-            return {};
-        }
         struct StageOutput {
-            ShaderStageFlagBit    stage;
-            const ShaderRef      &source;
-            std::vector<uint8_t> &code;
-            std::string          &entry;
+            ShaderStageFlagBit      stage;
+            const ShaderRef        &source;
+            ShaderStageArtifactPtr &artifact;
         };
         std::optional<RendererError> CompileStage(
             ShaderResolver &resolver, ShaderTarget target, const ShaderVariant &variant, const StageOutput &output, RenderTechniqueData &result)
@@ -118,13 +91,12 @@ namespace sky::aurora {
             if (!resolver.ResolveShader(request, compiled, &error)) {
                 return Invalid("Technique compile failed: " + error);
             }
-            output.entry = output.source.entry;
-            output.code.resize(compiled.data.size() * sizeof(uint32_t));
-            std::memcpy(output.code.data(), compiled.data.data(), output.code.size());
-            if (output.stage == ShaderStageFlagBit::CS) {
-                std::ranges::copy(compiled.reflection.threadGroupSize, result.reflection.threadGroupSize);
-            }
-            return MergeReflection(compiled.reflection, result.reflection);
+            if (!compiled.reflection.pushConstants.empty())
+                return Invalid("Technique push constants are not supported");
+            if (!MergeShaderReflections(compiled.reflection, result.reflection, error))
+                return Invalid(error);
+            output.artifact = std::make_shared<const ShaderStageArtifact>(std::move(compiled));
+            return {};
         }
     } // namespace
 
@@ -140,11 +112,10 @@ namespace sky::aurora {
         }
         RenderTechniqueData result;
         result.backend = backend;
-        ShaderResolver    resolver(products, nullptr, files, 0, 0);
-        const StageOutput stages[] = {
-            {.stage = ShaderStageFlagBit::VS, .source = technique.vertex, .code = result.vertexCode, .entry = result.vertexEntry},
-            {.stage = ShaderStageFlagBit::FS, .source = technique.fragment, .code = result.fragmentCode, .entry = result.fragmentEntry},
-            {.stage = ShaderStageFlagBit::CS, .source = technique.compute, .code = result.computeCode, .entry = result.computeEntry}};
+        ShaderResolver    resolver(products, nullptr, files, 0, 0, products ? ShaderResolveMode::PRODUCTS : ShaderResolveMode::DEVELOPMENT);
+        const StageOutput stages[] = {{.stage = ShaderStageFlagBit::VS, .source = technique.vertex, .artifact = result.vertex},
+                                      {.stage = ShaderStageFlagBit::FS, .source = technique.fragment, .artifact = result.fragment},
+                                      {.stage = ShaderStageFlagBit::CS, .source = technique.compute, .artifact = result.compute}};
         for (const auto &stage : stages) {
             if (Present(stage.source)) {
                 if (const auto error = CompileStage(resolver, *target, technique.variant, stage, result)) {

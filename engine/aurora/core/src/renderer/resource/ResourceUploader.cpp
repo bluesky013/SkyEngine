@@ -73,7 +73,7 @@ namespace sky::aurora {
         std::vector<BufferImageCopyPass> PlanImageChunk(const RenderImageLayout &layout, uint64_t first, uint64_t &bytes, uint32_t passBudget)
         {
             std::vector<BufferImageCopyPass> copies;
-            uint64_t                         offset = 0;
+            uint64_t                         offset     = 0;
             const auto                       texelBytes = RenderImageTexelBytes(layout.format);
             for (uint32_t layer = 0; layer < layout.arrayLayers && offset < bytes && copies.size() < passBudget; ++layer) {
                 for (uint32_t mip = 0; mip < layout.mipLevels && offset < bytes && copies.size() < passBudget; ++mip) {
@@ -231,8 +231,8 @@ namespace sky::aurora {
                             return false;
                         if (!i) {
                             const uint32_t                      texelBytes = backing.descriptor.format == PixelFormat::RGBA16_SFLOAT ? 8 : 4;
-                            const auto                          contents = ResolveInitializedImageContents(target);
-                            const auto                         *resolved = std::get_if<ResolvedImageContents>(&contents);
+                            const auto                          contents   = ResolveInitializedImageContents(target);
+                            const auto                         *resolved   = std::get_if<ResolvedImageContents>(&contents);
                             const std::vector<ImageContentSpan> prefix =
                                 (item.first != 0u) ? std::vector<ImageContentSpan>{{.begin = 0, .end = item.first / texelBytes}}
                                                    : std::vector<ImageContentSpan>{};
@@ -434,7 +434,9 @@ namespace sky::aurora {
                 desc.extent      = {layout.width, layout.height, 1};
                 desc.mipLevels   = layout.mipLevels;
                 desc.arrayLayers = layout.arrayLayers;
-                desc.format      = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT : PixelFormat::RGBA8_UNORM;
+                desc.format      = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT
+                                   : layout.format == RenderImageFormat::RGBA8_SRGB ? PixelFormat::RGBA8_SRGB
+                                                                                    : PixelFormat::RGBA8_UNORM;
                 desc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
                 ImagePtr target(state->device->CreateImage(desc));
                 if (!target) {

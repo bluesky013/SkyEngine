@@ -1,14 +1,4 @@
-//
-// ShaderCookTool: offline shader precompilation.
-//
-// Reads a `shader_usage.json` (produced by runtime collection), resolves
-// schemas + compiles each used (path, entry, stage, target, variant), and writes
-// `index.bin` / `blobs` into the local cache root so the shipped build can run
-// without the compiler module.
-//
-// Usage:
-//   ShaderCookTool <usage.json> <sourceRoot> <cacheDir> [offlineCacheDir]
-//
+// Target-specific shader usage and offline product verification.
 
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
@@ -39,16 +29,16 @@ int main(int argc, char **argv)
     FileSystemPtr     usageFs   = FileSystemPtr(new NativeFileSystem(FilePath(std::filesystem::path(usagePath).parent_path().string())));
     const std::string usageName = std::filesystem::path(usagePath).filename().string();
 
+    std::string                   error;
     std::vector<ShaderUsageEntry> usage;
-    if (!ShaderUsageCollector::Load(*usageFs, usageName, usage)) {
-        std::cerr << "failed to load usage: " << usagePath << "\n";
+    if (!ShaderUsageCollector::Load(*usageFs, usageName, usage, &error)) {
+        std::cerr << "failed to load usage: " << usagePath << ": " << error << "\n";
         return 1;
     }
     std::cout << "usage entries: " << usage.size() << "\n";
 
     ShaderFileSystem source;
     NativeFileSystem sourceRoot{FilePath(sourceDir)};
-    std::string      error;
     if (!source.LoadBundles(sourceRoot, "", &error)) {
         std::cerr << error << "\n";
         return 1;
@@ -81,7 +71,7 @@ int main(int argc, char **argv)
     }
 
     ShaderFileSystem emptySources;
-    ShaderResolver   published(local.Get(), nullptr, emptySources, 0, 0);
+    ShaderResolver   published(local.Get(), nullptr, emptySources, 0, 0, ShaderResolveMode::PRODUCTS);
     if (!BuildUsageCache(published, usage, &error)) {
         std::cerr << "published shader products are incomplete: " << error << "\n";
         return 1;

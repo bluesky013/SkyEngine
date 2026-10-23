@@ -1,16 +1,36 @@
 // Generated from aurora/pipeline/ToneMapPass.h; do not edit.
-// Inputs: f36f6bd3bf0ae66bbd47e6345d7068e658cd980b80be32aea4131ce4b4514267; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 59cc901eabc4705af4be4a9af89c3696b7257c8c4fc8bb7f2dca2a37e6d46b3b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct ToneMapParams
 {
-    float4 display;
+    [AuroraField("display")] float4 display;
 };
+[AuroraResource(1, 0, "aurora/pipeline/ToneMapPass.h")]
 [[vk::binding(0, 1)]] ConstantBuffer<ToneMapParams> gToneMap
-    : register(b0, space1);
+#if !AURORA_TARGET_MSL
+    : register(b0, space1)
+#endif
+;
 
+[AuroraResource(1, 1, "aurora/pipeline/ToneMapPass.h")]
 [[vk::binding(1, 1)]] Texture2D<float4> gHdrColor
-    : register(t1, space1);
+#if !AURORA_TARGET_MSL
+    : register(t1, space1)
+#endif
+;
 
+[AuroraResource(1, 2, "aurora/pipeline/ToneMapPass.h")]
 [[vk::binding(2, 1)]] SamplerState gHdrSampler
-    : register(s2, space1);
+#if !AURORA_TARGET_MSL
+    : register(s2, space1)
+#endif
+;

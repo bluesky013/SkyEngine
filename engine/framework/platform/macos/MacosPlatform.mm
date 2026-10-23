@@ -37,10 +37,10 @@
     // The engine owns the loop. Cmd+Q requests its normal teardown rather than
     // letting NSApplication terminate the process before modules can shut down.
     if (_owner != nullptr) {
-        _owner->RequestExit();
         if (auto *window = sky::NativeWindowManager::Get()->GetMainWindow()) {
             [static_cast<NSWindow *>(static_cast<sky::CocoaWindow *>(window)->GetNSWindow()) performClose:nil];
-        }
+        } else
+            _owner->RequestExit();
     }
     return NSTerminateCancel;
 }

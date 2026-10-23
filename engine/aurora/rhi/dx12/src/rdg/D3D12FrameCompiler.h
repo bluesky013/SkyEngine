@@ -80,6 +80,7 @@ namespace sky::aurora {
     struct D3D12UniformAddress {
         uint32_t                  root;
         D3D12_GPU_VIRTUAL_ADDRESS address;
+        ShaderNativeCategory      category = ShaderNativeCategory::CBV;
     };
     struct D3D12ComputeStep {
         CounterPtr<D3D12ComputePipeline>  pipeline;

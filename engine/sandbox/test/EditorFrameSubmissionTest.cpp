@@ -1,5 +1,6 @@
 #include "EditorFrameSubmission.h"
 #include "EditorFramePacer.h"
+#include "EditorViewportState.h"
 
 #include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Semaphore.h>
@@ -94,6 +95,91 @@ namespace sky::editor {
         EXPECT_TRUE(pacer.CanBuild());
     }
 
+    TEST(EditorViewportStateTest, RetryLeavesTheOutputAndNativeBorrowAlive)
+    {
+        EditorViewportState        output(7);
+        aurora::FramePacket        packet;
+        auto                       native = std::make_shared<int>(1);
+        std::weak_ptr<const void>  borrow = native;
+        const aurora::ViewportDesc descriptor{
+            aurora::ViewportKind::NATIVE_WINDOW, {64, 64}, aurora::PixelFormat::BGRA8_UNORM, reinterpret_cast<uintptr_t>(native.get())};
+        ASSERT_TRUE(output.Prepare(packet, descriptor, false, native));
+        native.reset();
+        EXPECT_TRUE(output.OnFailure({{7, 1}, {aurora::RendererErrorCode::NOT_READY, "retry output query"}, false}));
+        EXPECT_FALSE(output.OnFailure({{8, 1}, {aurora::RendererErrorCode::NOT_READY, "another output"}, true}));
+        aurora::FramePacket next;
+        EXPECT_TRUE(output.Prepare(next, descriptor, false, {}));
+        EXPECT_TRUE(next.commands.empty());
+        EXPECT_FALSE(output.IsRetiring());
+        EXPECT_FALSE(borrow.expired());
+        EXPECT_EQ(output.Output(), (aurora::ViewportId{7, 1}));
+    }
+
+    TEST(EditorViewportStateTest, ReplacementWaitsForExactRetirementAndRebindsUiAfterBackpressure)
+    {
+        EditorViewportState        output(7), other(8);
+        PacketReceiver             renderer;
+        auto                       packet = std::make_unique<aurora::FramePacket>();
+        auto                       native = std::make_shared<int>(1);
+        std::weak_ptr<const void>  borrow = native;
+        const aurora::ViewportDesc descriptor{
+            aurora::ViewportKind::NATIVE_WINDOW, {64, 64}, aurora::PixelFormat::BGRA8_UNORM, reinterpret_cast<uintptr_t>(native.get())};
+        ASSERT_TRUE(output.Prepare(*packet, descriptor, false, native));
+        ASSERT_TRUE(other.Prepare(*packet, descriptor, false, native));
+        ASSERT_EQ(renderer.TrySubmit(packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        ASSERT_TRUE(output.OnFailure({{7, 1}, {aurora::RendererErrorCode::NOT_READY, "surface lost"}, true}));
+        packet = std::make_unique<aurora::FramePacket>();
+        EXPECT_FALSE(output.Prepare(*packet, descriptor, false, {}));
+        ASSERT_EQ(packet->commands.size(), 1u);
+        EXPECT_EQ(std::get<aurora::DestroyViewport>(packet->commands.front()).id, (aurora::ViewportId{7, 1}));
+        renderer.status = aurora::PacketSubmitStatus::BUSY;
+        EXPECT_EQ(renderer.TrySubmit(packet).status, aurora::PacketSubmitStatus::BUSY);
+        native.reset();
+        EXPECT_FALSE(borrow.expired());
+        aurora::FramePacket waiting;
+        EXPECT_FALSE(output.Prepare(waiting, descriptor, false, {}));
+        EXPECT_TRUE(waiting.commands.empty());
+        EXPECT_TRUE(other.Prepare(waiting, descriptor, false, {}));
+        EXPECT_FALSE(output.OnDestroyed({{7, 2}}, false));
+        EXPECT_EQ(output.Output(), (aurora::ViewportId{7, 1}));
+        renderer.status = aurora::PacketSubmitStatus::ACCEPTED;
+        ASSERT_EQ(renderer.TrySubmit(packet).status, aurora::PacketSubmitStatus::ACCEPTED);
+        EXPECT_FALSE(output.OnDestroyed({{7, 1}}, false));
+        EXPECT_EQ(output.Output(), (aurora::ViewportId{7, 2}));
+        auto replacement     = std::make_shared<int>(2);
+        auto updated         = descriptor;
+        updated.nativeWindow = reinterpret_cast<uintptr_t>(replacement.get());
+        aurora::FramePacket rebuilt;
+        ASSERT_TRUE(output.Prepare(rebuilt, updated, false, replacement));
+        const auto &created = std::get<aurora::CreateViewport>(rebuilt.commands.front());
+        EXPECT_EQ(created.id, (aurora::ViewportId{7, 2}));
+        EXPECT_EQ(created.desc.nativeWindow, updated.nativeWindow);
+        rebuilt.extensions.push_back({.outputs = {output.Output()}});
+        EXPECT_EQ(rebuilt.extensions.front().outputs, (std::vector<aurora::ViewportId>{{7, 2}}));
+        EXPECT_EQ(other.Output(), (aurora::ViewportId{8, 1}));
+    }
+
+    TEST(EditorViewportStateTest, CloseDuringReplacementCannotRecreateOrReleaseTheBorrowEarly)
+    {
+        EditorViewportState       output(7);
+        aurora::FramePacket       packet;
+        auto                      native = std::make_shared<int>(1);
+        std::weak_ptr<const void> borrow = native;
+        ASSERT_TRUE(output.Prepare(packet, {}, false, native));
+        native.reset();
+        EXPECT_TRUE(output.OnFailure({{7, 1}, {aurora::RendererErrorCode::NOT_READY, "surface lost"}, true}));
+        EXPECT_FALSE(output.Prepare(packet, {}, false, {}));
+        EXPECT_FALSE(output.Prepare(packet, {}, true, {}));
+        EXPECT_FALSE(borrow.expired());
+        ASSERT_EQ(packet.commands.size(), 2u);
+        EXPECT_FALSE(output.OnDestroyed({{7, 1}}, true));
+        EXPECT_TRUE(borrow.expired());
+        EXPECT_FALSE(output.IsCreated());
+        EXPECT_FALSE(output.IsRetiring());
+        EXPECT_FALSE(output.Prepare(packet, {}, true, std::make_shared<int>(2)));
+        EXPECT_EQ(packet.commands.size(), 2u);
+    }
+
     namespace {
         using namespace sky::aurora;
 
@@ -128,7 +214,9 @@ namespace sky::editor {
 
         class TestFrameContext final : public DeviceFrameContext {
         public:
-            TestFrameContext() : fence(new TestFence) {}
+            TestFrameContext() : fence(new TestFence)
+            {
+            }
 
             FrameContextIdentity GetIdentity() const noexcept override
             {

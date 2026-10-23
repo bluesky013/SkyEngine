@@ -4,13 +4,104 @@
 //
 
 #include <aurora/shader/ShaderFileSystem.h>
+
+#include "ShaderEnvironmentJson.h"
+#include <aurora/shader/ShaderCacheStore.h>
 #include <aurora/shader/ShaderHash.h>
 
 #include <algorithm>
+#include <rapidjson/document.h>
 #include <unordered_set>
 #include <utility>
 
 namespace sky::aurora {
+
+    bool LoadShaderProductEnvironment(IFileSystem &products, ShaderTarget target, ShaderTargetEnvironment &out, std::string &error)
+    {
+        const auto fail = [&error](const char *message) {
+            error = message;
+            return false;
+        };
+        const auto  manifest = products.OpenFile("distribution.json");
+        std::string text;
+        if (!manifest || !manifest->ReadString(text)) {
+            return fail("Shader product distribution is missing");
+        }
+        rapidjson::Document description;
+        description.Parse(text.c_str());
+        if (description.HasParseError() || !description.IsObject() || !description.HasMember("formatVersion") ||
+            !description["formatVersion"].IsUint() || description["formatVersion"].GetUint() != 2 || !description.HasMember("platform") ||
+            !description["platform"].IsString() || !description.HasMember("targets") || !description["targets"].IsArray() ||
+            !description.HasMember("environments") || !description["environments"].IsObject()) {
+            return fail("Shader product distribution protocol is incompatible; recook products");
+        }
+        const std::string               targetName = ShaderTargetDirName(static_cast<uint32_t>(target));
+        std::unordered_set<std::string> targets;
+        ShaderTargetEnvironment         selected;
+        bool                            found = false;
+        for (const auto &entry : description["targets"].GetArray()) {
+            if (!entry.IsString() || !targets.emplace(entry.GetString(), entry.GetStringLength()).second ||
+                !description["environments"].HasMember(entry.GetString())) {
+                return fail("Shader product distribution has missing or repeated target environments");
+            }
+            ShaderTargetEnvironment environment;
+            if (!ReadShaderEnvironmentJson(description["environments"][entry.GetString()], environment) ||
+                std::string_view(entry.GetString(), entry.GetStringLength()) != ShaderTargetDirName(static_cast<uint32_t>(environment.target)) ||
+                std::string_view(description["platform"].GetString(), description["platform"].GetStringLength()) !=
+                    ShaderPlatformJsonName(environment.platform) ||
+                environment.platform != CurrentShaderPlatform()) {
+                return fail("Shader product environment is invalid or belongs to another platform; recook products");
+            }
+            if (targetName == entry.GetString()) {
+                selected = std::move(environment);
+                found    = true;
+            }
+        }
+        if (description["environments"].MemberCount() != targets.size() || !found) {
+            return fail("Shader product backend is not declared");
+        }
+        out = std::move(selected);
+        return true;
+    }
+
+    std::variant<std::string, ShaderResources> LoadShaderResources(IFileSystem &bundle, API backend, ShaderResourceMode mode)
+    {
+        ShaderResources result{.sources = std::make_shared<ShaderFileSystem>()};
+        if (mode == ShaderResourceMode::DEVELOPMENT) {
+            auto        root = bundle.CreateSubSystem("assets/shaders", false);
+            std::string error;
+            if (!root || !result.sources->LoadBundles(*root, "", &error)) {
+                return "Shader source registration failed: " + error;
+            }
+            return result;
+        }
+        uint32_t target = 0;
+        switch (backend) {
+        case API::VULKAN: target = static_cast<uint32_t>(ShaderTarget::SPIRV); break;
+        case API::METAL: target = static_cast<uint32_t>(ShaderTarget::MSL); break;
+        case API::DX12: target = static_cast<uint32_t>(ShaderTarget::DXIL); break;
+        default: return std::string("Shader products require a resolved backend");
+        }
+        auto                    products = bundle.CreateSubSystem("products/shaders", false);
+        ShaderTargetEnvironment environment;
+        std::string             error;
+        if (!products || !LoadShaderProductEnvironment(*products, static_cast<ShaderTarget>(target), environment, error)) {
+            return error.empty() ? std::string("Shader product distribution is missing") : error;
+        }
+        const std::string targetName = ShaderTargetDirName(target);
+        ShaderCacheIndex  index;
+        if (!LoadIndex(*products, targetName, index) || index.formatVersion != ShaderCacheIndex::kFormatVersion || index.paths.empty()) {
+            return "Shader product index is missing or incompatible for " + targetName;
+        }
+        const bool usable = std::ranges::any_of(index.paths, [&](const auto &path) {
+            return std::ranges::any_of(path.second.artifacts, [&](const auto &record) { return record.second.identity.environment == environment; });
+        });
+        if (!usable) {
+            return std::string("Shader product index has no artifact for its declared environment; recook products");
+        }
+        result.products = std::move(products);
+        return result;
+    }
 
     ShaderFileSystem::~ShaderFileSystem() = default;
 

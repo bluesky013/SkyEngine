@@ -9,13 +9,17 @@ using namespace sky::aurora;
 
 TEST(ShaderUniform, CombinedAssemblerUsesTargetOffsetsAndRejectsIncompleteOrConflictingFields)
 {
-    ShaderBlockLayout               block{"combined",
+    ShaderBlockLayout block{"combined",
                             "Combined",
                             2,
                             5,
                             96,
-                                          {{"world", 0, 64, ShaderScalarType::FLOAT, ShaderTypeKind::MATRIX, 4, 4},
-                                           {"tint", 80, 16, ShaderScalarType::FLOAT, ShaderTypeKind::VECTOR, 1, 4}}};
+                            {{"world", 0, 64, ShaderScalarType::FLOAT, ShaderTypeKind::MATRIX, 4, 4},
+                             {"tint", 80, 16, ShaderScalarType::FLOAT, ShaderTypeKind::VECTOR, 1, 4}}};
+    block.alignment                       = 16;
+    block.members[0].alignment            = 16;
+    block.members[0].matrixStride         = 16;
+    block.members[1].alignment            = 16;
     const Matrix4                   world = Matrix4::Identity();
     const Vector4                   tint{.2f, .4f, .6f, 1};
     std::vector<ShaderUniformValue> values{{"tint", RgFieldType::FLOAT4, std::as_bytes(std::span{&tint, 1})},

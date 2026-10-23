@@ -36,15 +36,17 @@ namespace sky::aurora::shared {
         constexpr auto count = std::extent_v<Member>;
         static_assert(Type != RgFieldType::FLOAT3, "Use FLOAT4 for portable uniforms; Metal float3 has a different size");
         static_assert(count == 0 || (Type == RgFieldType::FLOAT4 && count <= 4096), "Only bounded float4 uniform arrays are supported");
-        return {.name        = name,
-                .offset      = offset,
-                .size        = sizeof(Member),
-                .scalarType  = Traits::scalarType,
-                .kind        = count ? ShaderTypeKind::ARRAY : Traits::kind,
-                .rows        = Traits::rows,
-                .cols        = Traits::cols,
-                .arrayCount  = count,
-                .arrayStride = count ? sizeof(typename Traits::Type) : 0};
+        return {.name         = name,
+                .offset       = offset,
+                .size         = sizeof(Member),
+                .scalarType   = Traits::scalarType,
+                .kind         = count ? ShaderTypeKind::ARRAY : Traits::kind,
+                .rows         = Traits::rows,
+                .cols         = Traits::cols,
+                .arrayCount   = count,
+                .arrayStride  = count ? sizeof(typename Traits::Type) : 0,
+                .alignment    = Traits::align,
+                .matrixStride = Type == RgFieldType::MAT4 ? 16u : 0u};
     }
 
     template <RgFieldType Type>

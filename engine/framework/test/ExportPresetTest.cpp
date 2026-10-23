@@ -201,3 +201,101 @@ TEST(ExportPresetTest, CliFixtureRoundTrip)
 
     std::filesystem::remove_all(root);
 }
+
+TEST(ExportPresetTest, ShaderEnvironmentsRoundTripTypedOverridesAndCliObjectShape)
+{
+    const auto root = std::filesystem::temp_directory_path() / ("sky_shader_environments_" + sky::Uuid::Create().ToString());
+    std::filesystem::create_directories(root);
+    const auto input  = (root / "in.json").string();
+    const auto output = (root / "out.json").string();
+    {
+        std::ofstream file(input);
+        file << R"([
+            {"name":"windows","platform":"windows","shaderTargets":["vulkan","d3d12"],"shaderEnvironments":{
+                "vulkan":{"codeFormat":1,"profile":"spirv_1_5","minimumVersion":10500,
+                          "requiredCapabilities":18446744073709551615,"matrixLayout":1,"options":["second","first"]},
+                "d3d12":{"codeFormat":3,"profile":"sm_6_5","minimumVersion":60500,"options":[]}}},
+            {"name":"apple","platform":"macos","shaderTargets":["metal"],"shaderEnvironments":{
+                "metal":{"codeFormat":2,"profile":"metallib_2_3","minimumVersion":20300,"options":[]}}},
+            {"name":"defaults","platform":"ios","shaderEnvironments":{"metal":{}}},
+            {"name":"null-defaults","platform":"ios","shaderEnvironments":null}
+        ])";
+    }
+    sky::ExportPresets presets;
+    ASSERT_TRUE(presets.Load(input));
+    ASSERT_EQ(presets.presets.size(), 4u);
+    const auto &windows = presets.presets[0].shaderEnvironments;
+    ASSERT_EQ(windows.size(), 2u);
+    EXPECT_EQ(windows[0].target, "vulkan");
+    EXPECT_EQ(windows[0].codeFormat, 1u);
+    EXPECT_EQ(windows[0].profile, "spirv_1_5");
+    EXPECT_EQ(windows[0].minimumVersion, 10500u);
+    EXPECT_EQ(windows[0].requiredCapabilities, UINT64_MAX);
+    EXPECT_EQ(windows[0].matrixLayout, 1u);
+    EXPECT_EQ(windows[0].options, (std::vector<std::string>{"second", "first"}));
+    EXPECT_EQ(windows[1].target, "d3d12");
+    ASSERT_EQ(presets.presets[1].shaderEnvironments.size(), 1u);
+    EXPECT_EQ(presets.presets[1].shaderEnvironments[0].profile, "metallib_2_3");
+    EXPECT_EQ(presets.presets[2].shaderEnvironments[0].codeFormat, 0u);
+    EXPECT_TRUE(presets.presets[3].shaderEnvironments.empty());
+    ASSERT_TRUE(presets.Save(output));
+    {
+        std::ifstream       file(output);
+        const std::string   text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        rapidjson::Document document;
+        document.Parse(text.c_str());
+        ASSERT_FALSE(document.HasParseError());
+        ASSERT_TRUE(document.IsArray());
+        ASSERT_TRUE(document[0]["shaderEnvironments"].IsObject());
+        const auto &environment = document[0]["shaderEnvironments"]["vulkan"];
+        EXPECT_EQ(environment["requiredCapabilities"].GetUint64(), UINT64_MAX);
+        EXPECT_EQ(environment["codeFormat"].GetUint(), 1u);
+        EXPECT_TRUE(environment["options"].IsArray());
+        EXPECT_FALSE(environment.HasMember("target"));
+        EXPECT_FALSE(environment.HasMember("classId"));
+        const auto &defaults = document[2]["shaderEnvironments"]["metal"];
+        EXPECT_FALSE(defaults.HasMember("codeFormat"));
+        EXPECT_FALSE(defaults.HasMember("profile"));
+    }
+    sky::ExportPresets reloaded;
+    ASSERT_TRUE(reloaded.Load(output));
+    ASSERT_EQ(reloaded.presets.size(), presets.presets.size());
+    for (size_t i = 0; i < presets.presets.size(); ++i)
+        EXPECT_EQ(reloaded.presets[i].shaderEnvironments, presets.presets[i].shaderEnvironments);
+    sky::RegisterExportPresetReflection();
+    const auto *node = sky::GetTypeNode(sky::TypeInfo<sky::ExportPresetShaderEnvironment>::RegisteredId());
+    ASSERT_TRUE(node);
+    EXPECT_EQ(node->members.size(), 7u);
+    EXPECT_TRUE(node->members.contains("options"));
+    EXPECT_TRUE(node->members.contains("requiredCapabilities"));
+    std::filesystem::remove_all(root);
+}
+
+TEST(ExportPresetTest, InvalidShaderEnvironmentsFailWithoutReplacingLoadedPresets)
+{
+    const auto root = std::filesystem::temp_directory_path() / ("sky_invalid_shader_environments_" + sky::Uuid::Create().ToString());
+    std::filesystem::create_directories(root);
+    const auto         input = (root / "in.json").string();
+    sky::ExportPresets presets;
+    sky::ExportPreset  original;
+    original.name     = "keep";
+    original.platform = "ios";
+    presets.presets   = {original};
+    for (const auto *invalid : {R"([])", R"({"vulkan":{}})", R"({"metal":{},"metal":{}})", R"({"metal":{"unknown":1}})",
+                                R"({"metal":{"codeFormat":0}})", R"({"metal":{"codeFormat":3}})", R"({"metal":{"profile":""}})",
+                                R"({"metal":{"minimumVersion":true}})", R"({"metal":{"requiredCapabilities":-1}})", R"({"metal":{"matrixLayout":2}})",
+                                R"({"metal":{"options":"bad"}})", R"({"metal":{"options":[""]}})"}) {
+        {
+            std::ofstream file(input);
+            file << "[{\"name\":\"invalid\",\"platform\":\"ios\",\"shaderEnvironments\":" << invalid << "}]";
+        }
+        EXPECT_FALSE(presets.Load(input)) << invalid;
+        ASSERT_EQ(presets.presets.size(), 1u);
+        EXPECT_EQ(presets.presets.front().name, "keep");
+    }
+    original.shaderEnvironments = {{.target = "metal", .matrixLayout = 2}};
+    presets.presets             = {original};
+    EXPECT_FALSE(presets.Save((root / "invalid.json").string()));
+    EXPECT_FALSE(std::filesystem::exists(root / "invalid.json"));
+    std::filesystem::remove_all(root);
+}

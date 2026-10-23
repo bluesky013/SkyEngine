@@ -1,111 +1,152 @@
-//
-// Aurora Vulkan ResourceGroup.
-//
-
 #include <VulkanResourceGroup.h>
+
+#include <VulkanConversion.h>
 #include <VulkanDescriptorEncoder.h>
 #include <VulkanDevice.h>
-#include <VulkanConversion.h>
 #include <core/logger/Logger.h>
-#include <unordered_map>
-#include <vector>
 
-static const char *TAG = "AuroraVulkan";
+#include <map>
 
 namespace sky::aurora {
-
-    VulkanResourceGroup::VulkanResourceGroup(VulkanDevice &dev)
-        : device(&dev)
+    VulkanResourceGroup::VulkanResourceGroup(VulkanDevice &dev) : device(&dev)
     {
     }
-
     VulkanResourceGroup::~VulkanResourceGroup()
     {
         if (pool != VK_NULL_HANDLE) {
             device->GetDeviceFn().vkDestroyDescriptorPool(device->GetNativeHandle(), pool, nullptr);
-            pool = VK_NULL_HANDLE;
-            set  = VK_NULL_HANDLE;
         }
     }
-
+    const Device *VulkanResourceGroup::GetDevice() const noexcept
+    {
+        return device;
+    }
     bool VulkanResourceGroup::Init(const Descriptor &desc)
     {
-        if (desc.shader == nullptr) {
-            LOG_E(TAG, "ResourceGroup requires a non-null shader");
+        if (desc.shader == nullptr || desc.shader->GetDevice() != device) {
+            LOG_E("AuroraVulkan", "ResourceGroup shader has an unknown or different device");
             return false;
         }
-        shader    = static_cast<VulkanShader *>(desc.shader);
-        mSetIndex = desc.set;
-
-        // snapshot this set's bindings + packed slot layout (same reflection
-        // order as the shader's set layout / update template)
-        mBindings.clear();
-        uint32_t slotBase = 0;
-        for (const auto &res : shader->GetReflection().resources) {
-            if (res.set != desc.set) {
+        if (!InitParameterLayout(desc)) {
+            return false;
+        }
+        shader            = static_cast<VulkanShader *>(desc.shader);
+        mSetIndex         = desc.set;
+        const auto &plan  = shader->GetBindingPlan();
+        const auto  found = plan.logicalBindings.find(desc.set);
+        if (found == plan.logicalBindings.end()) {
+            return true;
+        }
+        mBindings        = found->second;
+        const auto count = plan.logicalSlotCounts.at(desc.set);
+        mWriteInfos.resize(count);
+        mAssigned.resize(count, false);
+        mBuffers.resize(count);
+        mImages.resize(count);
+        mSamplers.resize(count);
+        std::vector<VkDescriptorSetLayout>   layouts;
+        std::map<VkDescriptorType, uint32_t> counts;
+        for (const auto &[set, native] : plan.sets) {
+            if (native.logicalSet != desc.set) {
                 continue;
             }
-            BindingInfo info{};
-            info.binding  = res.binding;
-            info.count    = res.count;
-            info.slotBase = slotBase;
-            info.type     = FromShaderResourceType(res.type);
-            mBindings.push_back(info);
-            slotBase += res.count;
+            const auto layout = shader->GetDescriptorSetLayout(set);
+            if (layout == VK_NULL_HANDLE) {
+                return false;
+            }
+            mSets.push_back({set, VK_NULL_HANDLE});
+            layouts.push_back(layout);
+            for (const auto &binding : native.bindings) {
+                const auto type = FromShaderResourceType(binding.type);
+                if (type == VK_DESCRIPTOR_TYPE_MAX_ENUM || binding.count > UINT32_MAX - counts[type]) {
+                    return false;
+                }
+                counts[type] += binding.count;
+            }
         }
-        mWriteInfos.resize(slotBase);
-
-        // build a tight descriptor pool sized exactly for this set.
-        std::unordered_map<VkDescriptorType, uint32_t> counts;
-        for (const auto &b : mBindings) {
-            counts[b.type] += b.count;
+        if (mSets.empty()) {
+            return false;
         }
         std::vector<VkDescriptorPoolSize> sizes;
-        sizes.reserve(counts.size());
-        for (const auto &kv : counts) {
-            sizes.push_back({kv.first, kv.second});
+        for (const auto &[type, size] : counts) {
+            sizes.push_back({type, size});
         }
-        if (sizes.empty()) {
-            sizes.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1});
-        }
-
-        VkDescriptorPoolCreateInfo poolCI = {};
-        poolCI.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolCI.maxSets       = 1;
-        poolCI.poolSizeCount = static_cast<uint32_t>(sizes.size());
-        poolCI.pPoolSizes    = sizes.data();
-
-        const auto &fn = device->GetDeviceFn();
-        VkResult r = fn.vkCreateDescriptorPool(device->GetNativeHandle(), &poolCI, nullptr, &pool);
-        if (r != VK_SUCCESS) {
-            LOG_E(TAG, "vkCreateDescriptorPool failed: %d", r);
+        VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        info.maxSets       = static_cast<uint32_t>(mSets.size());
+        info.poolSizeCount = static_cast<uint32_t>(sizes.size());
+        info.pPoolSizes    = sizes.data();
+        const auto &fn     = device->GetDeviceFn();
+        auto        status = fn.vkCreateDescriptorPool(device->GetNativeHandle(), &info, nullptr, &pool);
+        if (status != VK_SUCCESS) {
+            LOG_E("AuroraVulkan", "vkCreateDescriptorPool failed: %d", status);
             return false;
         }
-
-        VkDescriptorSetLayout setLayout = shader->GetDescriptorSetLayout(desc.set);
-        if (setLayout == VK_NULL_HANDLE) {
-            LOG_E(TAG, "shader has no descriptor set layout for set %u", desc.set);
+        std::vector<VkDescriptorSet> handles(layouts.size());
+        VkDescriptorSetAllocateInfo  allocation{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        allocation.descriptorPool     = pool;
+        allocation.descriptorSetCount = static_cast<uint32_t>(layouts.size());
+        allocation.pSetLayouts        = layouts.data();
+        status                        = fn.vkAllocateDescriptorSets(device->GetNativeHandle(), &allocation, handles.data());
+        if (status != VK_SUCCESS) {
+            LOG_E("AuroraVulkan", "vkAllocateDescriptorSets failed: %d", status);
             return false;
         }
-
-        VkDescriptorSetAllocateInfo allocInfo = {};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = pool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts        = &setLayout;
-
-        r = fn.vkAllocateDescriptorSets(device->GetNativeHandle(), &allocInfo, &set);
-        if (r != VK_SUCCESS) {
-            LOG_E(TAG, "vkAllocateDescriptorSets failed: %d", r);
-            return false;
+        for (size_t i = 0; i < handles.size(); ++i) {
+            mSets[i].handle = handles[i];
         }
-
         return true;
     }
-
     std::unique_ptr<DescriptorEncoder> VulkanResourceGroup::CreateEncoder()
     {
+        if (IsParameterSnapshot()) {
+            return nullptr;
+        }
         return std::make_unique<VulkanDescriptorEncoder>(*this);
     }
-
+    bool VulkanResourceGroup::Bind(VkCommandBuffer     command,
+                                   VkPipelineBindPoint point,
+                                   VkPipelineLayout    layout,
+                                   uint32_t            logicalSet,
+                                   uint32_t            offsetCount,
+                                   const uint32_t     *offsets) const
+    {
+        const auto    &plan     = shader->GetBindingPlan();
+        const auto     found    = plan.logicalDynamicCounts.find(mSetIndex);
+        const uint32_t expected = found == plan.logicalDynamicCounts.end() ? 0 : found->second;
+        if (logicalSet != mSetIndex || layout != shader->GetPipelineLayout() || offsetCount != expected || (offsetCount && offsets == nullptr)) {
+            return false;
+        }
+        for (const auto assigned : mAssigned) {
+            if (!assigned) {
+                return false;
+            }
+        }
+        for (const auto &binding : mBindings) {
+            const bool uniform = binding.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+            if (!uniform && binding.type != ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                continue;
+            }
+            const auto alignment =
+                uniform ? device->GetLimits().minUniformBufferOffsetAlignment : device->GetLimits().minStorageBufferOffsetAlignment;
+            for (uint32_t element = 0; element < binding.count; ++element) {
+                const auto  slot    = binding.slotBase + element;
+                const auto  dynamic = offsets[binding.dynamicBase + element];
+                const auto &range   = mWriteInfos[slot].buffer;
+                const auto  size    = mBuffers[slot]->GetSize();
+                if ((alignment && dynamic % alignment) || range.offset > size || dynamic > size - range.offset ||
+                    range.range > size - range.offset - dynamic) {
+                    return false;
+                }
+            }
+        }
+        for (const auto &set : mSets) {
+            std::vector<uint32_t> nativeOffsets;
+            for (const auto index : plan.sets.at(set.index).dynamicOffsets) {
+                nativeOffsets.push_back(offsets[index]);
+            }
+            device->GetDeviceFn().vkCmdBindDescriptorSets(command, point, layout, set.index, 1, &set.handle,
+                                                          static_cast<uint32_t>(nativeOffsets.size()), nativeOffsets.data());
+        }
+        return true;
+    }
 } // namespace sky::aurora

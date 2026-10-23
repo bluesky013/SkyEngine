@@ -389,8 +389,7 @@ namespace sky::aurora {
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT};
             if (auto error = ValidateRasterBindings(draw, shader->GetReflection()))
                 return std::move(*error);
-            const FrameBindingLookup<ShaderResource> reflection(shader->GetReflection().resources);
-            const auto                              &blend = draw.blend;
+            const auto &blend = draw.blend;
             if (blend.srcColor >= BlendFactor::SRC1_COLOR || blend.dstColor >= BlendFactor::SRC1_COLOR || blend.srcAlpha >= BlendFactor::SRC1_COLOR ||
                 blend.dstAlpha >= BlendFactor::SRC1_COLOR)
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Dual-source blending is not implemented"};
@@ -447,68 +446,73 @@ namespace sky::aurora {
                 native.views         = previous.views;
                 continue;
             }
-            for (uint32_t set = 0; set < 3; ++set) {
-                std::vector<const RasterUniformBinding *> bindings;
-                for (const auto &binding : draw.uniforms)
-                    if (binding.set == set)
-                        bindings.push_back(&binding);
-                if (bindings.empty() && std::none_of(draw.images.begin(), draw.images.end(), [&](const auto &b) { return b.set == set; }) &&
-                    std::none_of(draw.samplers.begin(), draw.samplers.end(), [&](const auto &b) { return b.set == set; }))
-                    continue;
-                std::sort(bindings.begin(), bindings.end(), [](auto a, auto b) { return a->binding < b->binding; });
-                auto allocated = context.AllocateDescriptorSet(lease, *shader, set);
-                if (auto *error = std::get_if<FrameError>(&allocated))
+            for (const auto &[physicalSet, setPlan] : shader->GetBindingPlan().sets) {
+                auto allocated = context.AllocateDescriptorSet(lease, *shader, physicalSet);
+                if (auto *error = std::get_if<FrameError>(&allocated)) {
                     return std::move(*error);
-                VulkanDescriptorSet resolved{set, std::get<VkDescriptorSet>(allocated)};
-                for (const auto *binding : bindings) {
-                    const auto alignment = std::max(1u, device.GetCapability().minUniformBufferOffsetAlignment);
-                    if (binding->range.offset % alignment || binding->dynamicOffset % alignment ||
-                        binding->range.size > device.GetLimits().maxUniformBufferRange)
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan UBO alignment/range"};
-                    const auto *resource = reflection.Find(set, binding->binding);
-                    if (!resource)
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster uniform reflection"};
-                    const bool             dynamic = resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                    VkDescriptorBufferInfo buffer{resources.buffers[binding->range.buffer.index]->GetNativeHandle(), binding->range.offset,
-                                                  binding->range.size};
-                    VkWriteDescriptorSet   write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-                    write.dstSet          = resolved.descriptor;
-                    write.dstBinding      = binding->binding;
-                    write.descriptorCount = 1;
-                    write.descriptorType  = dynamic ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                    write.pBufferInfo     = &buffer;
-                    device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-                    if (dynamic)
-                        resolved.offsets.push_back(binding->dynamicOffset);
                 }
-                auto writeImage = [&](uint32_t binding, VkDescriptorType type, const VkDescriptorImageInfo &image) {
+                VulkanDescriptorSet resolved{physicalSet, std::get<VkDescriptorSet>(allocated)};
+                for (const auto &planned : setPlan.bindings) {
+                    if (planned.count != 1) {
+                        return FrameError{FrameErrorCode::UNSUPPORTED, "Graph Vulkan descriptor arrays are not supported by this pass contract"};
+                    }
                     VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
                     write.dstSet          = resolved.descriptor;
-                    write.dstBinding      = binding;
+                    write.dstBinding      = planned.physicalBinding;
                     write.descriptorCount = 1;
-                    write.descriptorType  = type;
-                    write.pImageInfo      = &image;
-                    device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-                };
-                for (const auto &binding : draw.images)
-                    if (binding.set == set) {
-                        auto resolvedView = resources.SampledView(binding);
-                        if (auto *error = std::get_if<FrameError>(&resolvedView))
+                    write.descriptorType  = FromShaderResourceType(planned.type);
+                    VkDescriptorBufferInfo buffer{};
+                    VkDescriptorImageInfo  image{};
+                    if (planned.type == ShaderResourceType::UNIFORM_BUFFER || planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
+                        const auto binding = std::find_if(draw.uniforms.begin(), draw.uniforms.end(), [&](const auto &value) {
+                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                        });
+                        if (binding == draw.uniforms.end()) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster uniform binding"};
+                        }
+                        const auto alignment = std::max(1u, device.GetCapability().minUniformBufferOffsetAlignment);
+                        if (binding->range.offset % alignment || binding->dynamicOffset % alignment ||
+                            binding->range.size > device.GetLimits().maxUniformBufferRange) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan UBO alignment/range"};
+                        }
+                        buffer = {resources.buffers[binding->range.buffer.index]->GetNativeHandle(), binding->range.offset, binding->range.size};
+                        write.pBufferInfo = &buffer;
+                        if (planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
+                            resolved.offsets.push_back(binding->dynamicOffset);
+                        }
+                    } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE) {
+                        const auto binding = std::find_if(draw.images.begin(), draw.images.end(), [&](const auto &value) {
+                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                        });
+                        if (binding == draw.images.end()) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster image binding"};
+                        }
+                        auto view = resources.SampledView(*binding);
+                        if (auto *error = std::get_if<FrameError>(&view)) {
                             return std::move(*error);
-                        auto view = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(resolvedView));
-                        writeImage(binding.binding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                                   {VK_NULL_HANDLE, view->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-                        native.views.push_back(std::move(view));
-                    }
-                for (const auto &binding : draw.samplers)
-                    if (binding.set == set) {
-                        if (binding.sampler->GetDevice() != &device)
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Sampler belongs to another or unknown device"};
-                        auto sampler = static_cast<const VulkanSampler *>(binding.sampler.Get())->GetNativeHandle();
-                        if (!sampler)
+                        }
+                        auto retained    = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
+                        image            = {VK_NULL_HANDLE, retained->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                        write.pImageInfo = &image;
+                        native.views.push_back(std::move(retained));
+                    } else if (planned.type == ShaderResourceType::SAMPLER) {
+                        const auto binding = std::find_if(draw.samplers.begin(), draw.samplers.end(), [&](const auto &value) {
+                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                        });
+                        if (binding == draw.samplers.end() || !binding->sampler || binding->sampler->GetDevice() != &device) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing or foreign logical raster sampler"};
+                        }
+                        const auto sampler = static_cast<const VulkanSampler *>(binding->sampler.Get())->GetNativeHandle();
+                        if (!sampler) {
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan sampler"};
-                        writeImage(binding.binding, VK_DESCRIPTOR_TYPE_SAMPLER, {sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED});
+                        }
+                        image            = {sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+                        write.pImageInfo = &image;
+                    } else {
+                        return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported Vulkan raster descriptor kind"};
                     }
+                    device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
+                }
                 native.sets.push_back(std::move(resolved));
             }
         }
@@ -539,92 +543,87 @@ namespace sky::aurora {
             return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
         step.pipeline = std::move(pipeline);
 
-        const FrameBindingLookup<ShaderResource> reflection(shader->GetReflection().resources);
-        for (uint32_t set = 0; set < 3; ++set) {
-            if (!reflection.HasSet(set))
-                continue;
-            auto allocated = context.AllocateDescriptorSet(lease, *shader, set);
-            if (auto *error = std::get_if<FrameError>(&allocated))
+        for (const auto &[physicalSet, setPlan] : shader->GetBindingPlan().sets) {
+            auto allocated = context.AllocateDescriptorSet(lease, *shader, physicalSet);
+            if (auto *error = std::get_if<FrameError>(&allocated)) {
                 return std::move(*error);
-            VulkanDescriptorSet resolved{set, std::get<VkDescriptorSet>(allocated)};
-            resolved.offsets = ResolveComputeDynamicOffsets(pass, set);
-            for (const auto &binding : pass.buffers) {
-                if (binding.set != set)
-                    continue;
-                const auto *ref = reflection.Find(set, binding.binding);
-                if (!ref)
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute buffer reflection"};
-                VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-                switch (ref->type) {
-                case ShaderResourceType::UNIFORM_BUFFER: type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; break;
-                case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC: type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC; break;
-                case ShaderResourceType::STORAGE_BUFFER_DYNAMIC: type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC; break;
-                case ShaderResourceType::STORAGE_BUFFER: break;
-                default: return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute buffer binding type mismatch"};
+            }
+            VulkanDescriptorSet resolved{physicalSet, std::get<VkDescriptorSet>(allocated)};
+            for (const auto &planned : setPlan.bindings) {
+                if (planned.count != 1) {
+                    return FrameError{FrameErrorCode::UNSUPPORTED, "Graph Vulkan descriptor arrays are not supported by this pass contract"};
                 }
-                const bool uniform = type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER || type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-                const auto alignment =
-                    std::max<VkDeviceSize>(1, uniform ? limits.minUniformBufferOffsetAlignment : limits.minStorageBufferOffsetAlignment);
-                const auto  maximum = uniform ? limits.maxUniformBufferRange : limits.maxStorageBufferRange;
-                const auto *buffer  = resources.buffers[binding.range.buffer.index];
-                if (!buffer->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE) ||
-                    binding.range.offset % alignment || binding.dynamicOffset % alignment || binding.range.size > maximum)
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute buffer usage/alignment/range"};
-                VkDescriptorBufferInfo info{resources.buffers[binding.range.buffer.index]->GetNativeHandle(), binding.range.offset,
-                                            binding.range.size};
-                VkWriteDescriptorSet   write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+                VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
                 write.dstSet          = resolved.descriptor;
-                write.dstBinding      = binding.binding;
+                write.dstBinding      = planned.physicalBinding;
                 write.descriptorCount = 1;
-                write.descriptorType  = type;
-                write.pBufferInfo     = &info;
-                device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-                resources.BufferBarrier(binding.range.buffer.index, uniform ? CopyBufferState::SHADER_READ : CopyBufferState::UNORDERED_ACCESS,
-                                        step.before);
-            }
-            for (const auto &binding : pass.images) {
-                if (binding.set != set)
-                    continue;
-                const auto *ref = reflection.Find(set, binding.binding);
-                if (!ref || (ref->type != ShaderResourceType::SAMPLED_IMAGE && ref->type != ShaderResourceType::STORAGE_IMAGE))
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute image reflection"};
-                const bool storage    = ref->type == ShaderResourceType::STORAGE_IMAGE;
-                auto       normalized = resources.ResolveDeclaredView(binding, storage);
-                if (auto *error = std::get_if<FrameError>(&normalized))
-                    return std::move(*error);
-                const auto &resolvedView = std::get<RasterImageView>(normalized);
-                auto        view         = resources.ImageView(binding.image.index, resolvedView);
-                if (auto *error = std::get_if<FrameError>(&view))
-                    return std::move(*error);
-                auto                  viewPtr = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
-                VkDescriptorImageInfo info{VK_NULL_HANDLE, viewPtr->view,
-                                           storage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-                VkWriteDescriptorSet  write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-                write.dstSet          = resolved.descriptor;
-                write.dstBinding      = binding.binding;
-                write.descriptorCount = 1;
-                write.descriptorType  = storage ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-                write.pImageInfo      = &info;
-                device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-                resources.ImageBarrier(binding.image.index, storage ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY, step.before,
-                                       {resolvedView.baseMip, resolvedView.mipCount, resolvedView.baseLayer, resolvedView.layerCount});
-                step.views.push_back(std::move(viewPtr));
-            }
-            for (const auto &binding : pass.samplers) {
-                if (binding.set != set)
-                    continue;
-                if (binding.sampler->GetDevice() != &device)
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute sampler belongs to another device"};
-                const auto sampler = static_cast<const VulkanSampler *>(binding.sampler.Get())->GetNativeHandle();
-                if (!sampler)
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute sampler"};
-                VkDescriptorImageInfo info{sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
-                VkWriteDescriptorSet  write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-                write.dstSet          = resolved.descriptor;
-                write.dstBinding      = binding.binding;
-                write.descriptorCount = 1;
-                write.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
-                write.pImageInfo      = &info;
+                write.descriptorType  = FromShaderResourceType(planned.type);
+                VkDescriptorBufferInfo buffer{};
+                VkDescriptorImageInfo  image{};
+                const bool uniform = planned.type == ShaderResourceType::UNIFORM_BUFFER || planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+                const bool storageBuffer =
+                    planned.type == ShaderResourceType::STORAGE_BUFFER || planned.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
+                if (uniform || storageBuffer) {
+                    const auto binding = std::find_if(pass.buffers.begin(), pass.buffers.end(), [&](const auto &value) {
+                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                    });
+                    if (binding == pass.buffers.end()) {
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical compute buffer"};
+                    }
+                    const auto alignment =
+                        std::max<VkDeviceSize>(1, uniform ? limits.minUniformBufferOffsetAlignment : limits.minStorageBufferOffsetAlignment);
+                    const auto  maximum  = uniform ? limits.maxUniformBufferRange : limits.maxStorageBufferRange;
+                    const auto *resource = resources.buffers[binding->range.buffer.index];
+                    if (!resource->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE) ||
+                        binding->range.offset % alignment || binding->dynamicOffset % alignment || binding->range.size > maximum) {
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute buffer usage/alignment/range"};
+                    }
+                    buffer            = {resource->GetNativeHandle(), binding->range.offset, binding->range.size};
+                    write.pBufferInfo = &buffer;
+                    if (planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || planned.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                        resolved.offsets.push_back(binding->dynamicOffset);
+                    }
+                    resources.BufferBarrier(binding->range.buffer.index, uniform ? CopyBufferState::SHADER_READ : CopyBufferState::UNORDERED_ACCESS,
+                                            step.before);
+                } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE || planned.type == ShaderResourceType::STORAGE_IMAGE) {
+                    const auto binding = std::find_if(pass.images.begin(), pass.images.end(), [&](const auto &value) {
+                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                    });
+                    if (binding == pass.images.end()) {
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical compute image"};
+                    }
+                    const bool storage    = planned.type == ShaderResourceType::STORAGE_IMAGE;
+                    auto       normalized = resources.ResolveDeclaredView(*binding, storage);
+                    if (auto *error = std::get_if<FrameError>(&normalized)) {
+                        return std::move(*error);
+                    }
+                    const auto &resolvedView = std::get<RasterImageView>(normalized);
+                    auto        view         = resources.ImageView(binding->image.index, resolvedView);
+                    if (auto *error = std::get_if<FrameError>(&view)) {
+                        return std::move(*error);
+                    }
+                    auto retained    = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
+                    image            = {VK_NULL_HANDLE, retained->view, storage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                    write.pImageInfo = &image;
+                    resources.ImageBarrier(binding->image.index, storage ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY, step.before,
+                                           {resolvedView.baseMip, resolvedView.mipCount, resolvedView.baseLayer, resolvedView.layerCount});
+                    step.views.push_back(std::move(retained));
+                } else if (planned.type == ShaderResourceType::SAMPLER) {
+                    const auto binding = std::find_if(pass.samplers.begin(), pass.samplers.end(), [&](const auto &value) {
+                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                    });
+                    if (binding == pass.samplers.end() || !binding->sampler || binding->sampler->GetDevice() != &device) {
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing or foreign logical compute sampler"};
+                    }
+                    const auto sampler = static_cast<const VulkanSampler *>(binding->sampler.Get())->GetNativeHandle();
+                    if (!sampler) {
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan sampler"};
+                    }
+                    image            = {sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+                    write.pImageInfo = &image;
+                } else {
+                    return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported Vulkan compute descriptor kind"};
+                }
                 device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
             }
             step.sets.push_back(std::move(resolved));

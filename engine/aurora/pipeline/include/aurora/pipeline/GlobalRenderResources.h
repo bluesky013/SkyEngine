@@ -36,10 +36,11 @@ namespace sky::aurora {
         static const RgBlockDesc &GetGlobalBlockDesc();
 
     private:
-        Device          *mDevice = nullptr;
-        BufferPtr        mUBO;
-        ResourceGroupPtr mGroup;
-        uint32_t         mUboSize = 0;
+        Device                                  *mDevice = nullptr;
+        BufferPtr                                mUBO;
+        ResourceGroupPtr                         mGroup;
+        uint32_t                                 mUboSize = 0;
+        std::shared_ptr<const UniformUploadPlan> mUploadPlan;
     };
 
 } // namespace sky::aurora

@@ -34,6 +34,11 @@ namespace sky::aurora {
             const char *name = nullptr;
 #endif
         };
+        virtual const Descriptor &GetDescriptor() const noexcept
+        {
+            static const Descriptor unknown;
+            return unknown;
+        }
 
         // Mip/layer cells only; zero means unknown storage. Aspects remain a separate declaration.
         virtual uint64_t GetMipLayerCount() const noexcept

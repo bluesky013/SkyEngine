@@ -231,7 +231,8 @@ TEST_P(SharedPassHeaders, ExplicitTechniquesHaveArbitraryEntriesAndUnusedHeaders
     const auto      raster = CompileShaderTechnique(files, backend, graphics);
     ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(raster)) << std::get<RendererError>(raster).message;
     EXPECT_TRUE(std::get<RenderTechniqueData>(raster).reflection.resources.empty());
-    EXPECT_EQ(std::get<RenderTechniqueData>(raster).vertexEntry, "DrawTriangle");
+    ASSERT_TRUE(std::get<RenderTechniqueData>(raster).vertex);
+    EXPECT_EQ(std::get<RenderTechniqueData>(raster).vertex->identity.sourceEntry, "DrawTriangle");
     ShaderTechnique compute;
     compute.compute     = {"custom/Program.slang", "DispatchTiles"};
     const auto dispatch = CompileShaderTechnique(files, backend, compute);

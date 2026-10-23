@@ -16,10 +16,11 @@
 #include <editor/core/asset/EditorAssetCatalog.h>
 #include <editor/ui/AssetViewProvider.h>
 #include <editor/ui/UiDraw.h>
+#include <editor/widgets/ReflectedFormView.h>
 
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
-#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextLayout.h>
@@ -79,7 +80,9 @@ namespace sky::aurora::editor {
                         return {}; // textures use DisplayText
                     } else if constexpr (std::is_same_v<T, Matrix4>) {
                         return "(matrix)";
-                    } else {
+                    } else if constexpr (std::is_same_v<T, Sampler::Descriptor>) {
+                        return "(sampler settings below)";
+                    } else if constexpr (std::is_same_v<T, Vector2> || std::is_same_v<T, Vector3> || std::is_same_v<T, Vector4>) {
                         std::string           s;
                         constexpr std::size_t n = sizeof(v.v) / sizeof(float);
                         for (std::size_t i = 0; i < n; ++i) {
@@ -89,6 +92,8 @@ namespace sky::aurora::editor {
                             s += FloatToString(v.v[i]);
                         }
                         return s;
+                    } else {
+                        return "(unsupported value)";
                     }
                 },
                 r.value);
@@ -96,6 +101,9 @@ namespace sky::aurora::editor {
 
         std::string DisplayText(const MaterialEditorRow &r)
         {
+            if (!r.isString && !MaterialPropertyValueMatches(r.type, r.value)) {
+                return "(invalid value type)";
+            }
             if (IsTextureProperty(r.type)) {
                 const Uuid *texture = std::get_if<Uuid>(&r.value);
                 if (texture == nullptr || !*texture) {
@@ -171,8 +179,38 @@ namespace sky::aurora::editor {
                 return false;
             }
             out.write(static_cast<const char *>(memory.Data()), static_cast<std::streamsize>(memory.Size()));
-            return true;
+            return out.good();
         }
+
+        // History owns values; a closed or rebound view invalidates every command's weak generation.
+        class SamplerEditCommand final : public sky::editor::UndoCommand {
+        public:
+            SamplerEditCommand(std::weak_ptr<void>                              generation,
+                               Sampler::Descriptor                              before,
+                               Sampler::Descriptor                              after,
+                               std::function<void(const Sampler::Descriptor &)> apply)
+                : UndoCommand("Edit material sampler"), generation(std::move(generation)), before(before), after(after), apply(std::move(apply))
+            {
+            }
+            void Do() override
+            {
+                if (!generation.expired()) {
+                    apply(after);
+                }
+            }
+            void Undo() override
+            {
+                if (!generation.expired()) {
+                    apply(before);
+                }
+            }
+
+        private:
+            std::weak_ptr<void>                              generation;
+            Sampler::Descriptor                              before;
+            Sampler::Descriptor                              after;
+            std::function<void(const Sampler::Descriptor &)> apply;
+        };
 
     } // namespace
 
@@ -195,7 +233,10 @@ namespace sky::aurora::editor {
         ReloadTechniques();
     }
 
-    MaterialEditorView::~MaterialEditorView() = default;
+    MaterialEditorView::~MaterialEditorView()
+    {
+        ClearSamplerForms();
+    }
 
     namespace {
 
@@ -327,6 +368,7 @@ namespace sky::aurora::editor {
 
     void MaterialEditorView::ReloadTechniques()
     {
+        ClearSamplerForms();
         rows.clear();
 
         auto appendProperties = [&](const std::vector<MaterialPropertyData> &props) {
@@ -376,7 +418,61 @@ namespace sky::aurora::editor {
         }
 
         RebuildRowSlots();
+        RebuildSamplerForms();
         MarkPaintDirty();
+    }
+
+    void MaterialEditorView::ClearSamplerForms()
+    {
+        for (auto *form : samplerForms) {
+            form->CancelInteractions();
+            form->Unbind();
+            RemoveChild(form);
+        }
+        samplerForms.clear();
+        samplerGeneration = std::make_shared<int>(0);
+    }
+
+    void MaterialEditorView::RebuildSamplerForms()
+    {
+        RegisterMaterialReflection(SerializationContext::Get());
+        for (size_t index = 0; index < rows.size(); ++index) {
+            auto *value = std::get_if<Sampler::Descriptor>(&rows[index].value);
+            if (rows[index].isString || rows[index].type != MaterialPropertyType::SAMPLER || value == nullptr) {
+                continue;
+            }
+            auto form = std::make_unique<sky::editor::ReflectedFormView>(text, rows[index].name);
+            form->Bind({value, GetTypeNode(TypeInfo<Sampler::Descriptor>::RegisteredId())});
+            const std::weak_ptr<void> generation = samplerGeneration;
+            form->Form().SetEditCommandFactory([this, index, generation](const sky::editor::PropertyDescriptor &field, Any next) {
+                if (generation.expired()) {
+                    return sky::editor::UndoCommandPtr{};
+                }
+                const auto *current = std::get_if<Sampler::Descriptor>(&rows[index].value);
+                if (current == nullptr) {
+                    return sky::editor::UndoCommandPtr{};
+                }
+                const auto                            before = *current;
+                auto                                  after  = before;
+                const sky::editor::PropertyDescriptor candidate{&after, field.GetMember(), field.GetName(), field.GetCategory()};
+                if (!candidate.SetValue(next) || !IsValidMaterialSampler(after)) {
+                    return sky::editor::UndoCommandPtr{};
+                }
+                auto apply = [this, index](const Sampler::Descriptor &value) {
+                    rows[index].value = value;
+                    dirty             = true;
+                    PersistProperty(static_cast<int>(index));
+                };
+                return sky::editor::UndoCommandPtr(std::make_unique<SamplerEditCommand>(generation, before, after, std::move(apply)));
+            });
+            form->SetOnEdited([this, generation]() {
+                if (!generation.expired()) {
+                    dirty = true;
+                    MarkPaintDirty();
+                }
+            });
+            samplerForms.push_back(static_cast<sky::editor::ReflectedFormView *>(AddChild(std::move(form))));
+        }
     }
 
     void MaterialEditorView::AddTechnique()
@@ -408,7 +504,9 @@ namespace sky::aurora::editor {
             if (rows[i].kind != MaterialRowKind::Field) {
                 continue;
             }
-            PersistProperty(static_cast<int>(i));
+            if (!PersistProperty(static_cast<int>(i))) {
+                return false;
+            }
         }
         sky::editor::AssetCookService::Get()->RequestCook(asset);
         dirty = false;
@@ -421,6 +519,10 @@ namespace sky::aurora::editor {
         outWidth      = 0.0f;
         const auto &m = Theme().metrics;
         outHeight     = m.panelHeaderHeight + static_cast<float>(rows.size()) * m.rowHeight + 2.0f * m.controlPad;
+        for (auto *form : samplerForms) {
+            form->SynchronizeLayout();
+            outHeight += form->GetPreferredHeight() + m.controlPad;
+        }
     }
 
     void MaterialEditorView::RebuildRowSlots()
@@ -445,7 +547,15 @@ namespace sky::aurora::editor {
         const auto  content = skin.PanelContentRect(GetBounds());
         const auto &m       = Theme().metrics;
         const float top     = content.top + m.controlPad;
-        rowsPanel->Arrange({content.left, top, content.right, top + static_cast<float>(rows.size()) * m.rowHeight});
+        float       bottom  = top + static_cast<float>(rows.size()) * m.rowHeight;
+        rowsPanel->Arrange({content.left, top, content.right, bottom});
+        for (auto *form : samplerForms) {
+            form->SynchronizeLayout();
+            const float height = form->GetPreferredHeight();
+            bottom += m.controlPad;
+            form->Arrange({content.left, bottom, content.right, bottom + height});
+            bottom += height;
+        }
     }
 
     float MaterialEditorView::LabelWidth() const
@@ -513,7 +623,8 @@ namespace sky::aurora::editor {
                 skin.DrawToolItem(context, browse, "...", hoverRow == static_cast<int>(i));
             } else {
                 const std::string shown = editing ? editText : DisplayText(prop);
-                const uint32_t    color = prop.type == MaterialPropertyType::MAT4 ? th.colors.textDisabled : th.colors.text;
+                const uint32_t    color =
+                    prop.type == MaterialPropertyType::MAT4 || prop.type == MaterialPropertyType::SAMPLER ? th.colors.textDisabled : th.colors.text;
                 uc::Text(context, shown, th.fonts.value, {box.left + m.cellPadding, box.top, box.right - m.cellPadding, box.bottom}, color, text);
                 if (editing && text != nullptr) {
                     const float caretX =
@@ -629,6 +740,10 @@ namespace sky::aurora::editor {
                 tech.program.fragment.entry = prop.text;
             }
         } else {
+            if (!MaterialPropertyValueMatches(prop.type, prop.value)) {
+                LOG_W(TAG, "cannot persist a material property with a mismatched semantic value type");
+                return false;
+            }
             std::vector<MaterialPropertyData> &props = isInstance ? instanceSource.properties : materialSource.properties;
             for (auto &p : props) {
                 if (p.name == prop.name) {
@@ -639,6 +754,7 @@ namespace sky::aurora::editor {
             }
         }
 
+        dirty         = true;
         const bool ok = isInstance ? SaveSourceJson(asset, instanceSource) : SaveSourceJson(asset, materialSource);
         if (!ok) {
             LOG_W(TAG, "cannot write source for %s", asset.ToString().c_str());
@@ -757,7 +873,7 @@ namespace sky::aurora::editor {
                 if (browse.Contains(event.x, event.y)) {
                     OpenPicker(static_cast<int>(i), row);
                 }
-            } else if (rows[i].type != MaterialPropertyType::MAT4) {
+            } else if (rows[i].type != MaterialPropertyType::MAT4 && rows[i].type != MaterialPropertyType::SAMPLER) {
                 editingRow = static_cast<int>(i);
                 editText   = EditableText(rows[i]);
                 MarkPaintDirty();

@@ -10,6 +10,9 @@
 #include <core/file/FileIO.h>
 #include <core/util/String.h>
 #include <filesystem>
+#if defined(SKY_PLATFORM_WINDOWS)
+    #include <windows.h>
+#endif
 
 namespace sky {
 
@@ -215,10 +218,13 @@ namespace sky {
         auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
         auto toPath   = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
 
+#if defined(SKY_PLATFORM_WINDOWS)
+        return MoveFileExW(fromPath.c_str(), toPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+#else
         std::error_code ec;
-        std::filesystem::remove(toPath, ec); // replace existing target (best-effort)
         std::filesystem::rename(fromPath, toPath, ec);
         return !ec;
+#endif
     }
 
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)

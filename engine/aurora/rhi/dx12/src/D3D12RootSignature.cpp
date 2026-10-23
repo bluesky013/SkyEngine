@@ -1,17 +1,19 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/31.
 //
 
 #include <D3D12RootSignature.h>
+
 #include <D3D12Device.h>
 #include <core/logger/Logger.h>
+
+#include <map>
 
 namespace sky::aurora {
 
     static const char *TAG = "D3D12RootSignature";
 
-    D3D12RootSignature::D3D12RootSignature(D3D12Device &dev)
-        : device(dev)
+    D3D12RootSignature::D3D12RootSignature(D3D12Device &dev) : device(dev)
     {
     }
 
@@ -23,129 +25,112 @@ namespace sky::aurora {
         if (flags == ShaderStageFlagBit::FS) {
             return D3D12_SHADER_VISIBILITY_PIXEL;
         }
+        if (flags == ShaderStageFlagBit::TAS)
+            return D3D12_SHADER_VISIBILITY_AMPLIFICATION;
+        if (flags == ShaderStageFlagBit::MS)
+            return D3D12_SHADER_VISIBILITY_MESH;
         return D3D12_SHADER_VISIBILITY_ALL;
     }
 
-    D3D12_DESCRIPTOR_RANGE_TYPE D3D12RootSignature::ToRangeType(ShaderResourceType type)
+    std::optional<D3D12_DESCRIPTOR_RANGE_TYPE> D3D12RootSignature::ToRangeType(ShaderNativeCategory category)
     {
-        switch (type) {
-        case ShaderResourceType::SAMPLER:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-        case ShaderResourceType::SAMPLED_IMAGE:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        case ShaderResourceType::STORAGE_IMAGE:
-        case ShaderResourceType::STORAGE_BUFFER:
-        case ShaderResourceType::STORAGE_BUFFER_DYNAMIC:
-            return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        case ShaderResourceType::UNIFORM_BUFFER:
-        case ShaderResourceType::UNIFORM_BUFFER_DYNAMIC:
-            // DYNAMIC types are handled as root CBV / root UAV in Init and
-            // never reach this mapping; the fallthrough keeps static UBO as CBV.
-            return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-        case ShaderResourceType::INPUT_ATTACHMENT:
-        default:
-            // D3D12 has no direct input attachment; treat as SRV.
-            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        switch (category) {
+        case ShaderNativeCategory::CBV: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+        case ShaderNativeCategory::SRV: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        case ShaderNativeCategory::UAV: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+        case ShaderNativeCategory::SAMPLER: return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+        default: return {};
         }
     }
 
     bool D3D12RootSignature::Init(const RootSignatureDescriptor &desc)
     {
-        rangeSets.reserve(desc.sets.size() * 2);
-        parameters.reserve(desc.sets.size() * 2 + desc.pushConstants.size());
-
+        if (rootSignature || desc.sets.size() != desc.setIndices.size() || !desc.pushConstants.empty())
+            return false;
+        rangeSets.clear();
+        parameters.clear();
+        setParams.clear();
+        uint32_t rootCost = 0;
         for (size_t i = 0; i < desc.sets.size(); ++i) {
-            const uint32_t setIndex = i < desc.setIndices.size() ? desc.setIndices[i] : static_cast<uint32_t>(i);
-            const auto    &set      = desc.sets[i];
-
-            if (setParams.size() <= setIndex) {
+            const auto setIndex = desc.setIndices[i];
+            if (setIndex >= 64) {
+                LOG_E(TAG, "Logical set exceeds the DX12 root plan budget");
+                return false;
+            }
+            if (setParams.size() <= setIndex)
                 setParams.resize(setIndex + 1);
-            }
-
-            auto &cbvRanges = rangeSets.emplace_back();
-            auto &smpRanges = rangeSets.emplace_back();
-            cbvRanges.reserve(set.ranges.size());
-            smpRanges.reserve(set.ranges.size());
-
+            const auto                                                                                           &set = desc.sets[i];
+            std::map<std::pair<D3D12_SHADER_VISIBILITY, bool>, std::vector<const RootSignatureDescriptorRange *>> tables;
             for (const auto &range : set.ranges) {
-                if (range.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC ||
-                    range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                    // Dynamic binding -> root CBV / root UAV. The root param
-                    // holds a GPU virtual address; the per-draw offset is
-                    // applied at bind time via SetGraphicsRoot*View.
-                    D3D12_ROOT_PARAMETER param = {};
-                    param.ParameterType             = range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC
-                                                          ? D3D12_ROOT_PARAMETER_TYPE_UAV
-                                                          : D3D12_ROOT_PARAMETER_TYPE_CBV;
-                    param.Descriptor.ShaderRegister = range.binding;
-                    param.Descriptor.RegisterSpace  = setIndex;
-                    param.ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
-                    setParams[setIndex].dynamicRootParams.emplace_back(range.binding, static_cast<uint32_t>(parameters.size()));
-                    parameters.emplace_back(param);
-                    continue;
+                const auto nativeType = ToRangeType(range.category);
+                if (!nativeType || !range.count || range.count > UINT32_MAX - range.nativeRegister ||
+                    ((range.type == ShaderResourceType::STORAGE_BUFFER || range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) &&
+                     range.access != ShaderResourceAccess::READ_ONLY && range.access != ShaderResourceAccess::READ_WRITE)) {
+                    LOG_E(TAG, "Unknown or invalid DX12 native resource range");
+                    return false;
                 }
-
-                D3D12_DESCRIPTOR_RANGE d3dRange = {};
-                d3dRange.RangeType                         = ToRangeType(range.type);
-                d3dRange.NumDescriptors                    = range.count;
-                d3dRange.BaseShaderRegister                = range.binding;
-                d3dRange.RegisterSpace                     = setIndex;
-                d3dRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-                if (range.type == ShaderResourceType::SAMPLER) {
-                    smpRanges.push_back(d3dRange);
+                const auto visibility = ToShaderVisibility(range.visibility);
+                if (range.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || range.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
+                    if (range.count != 1 || range.category == ShaderNativeCategory::SAMPLER || rootCost > 62) {
+                        LOG_E(TAG, "Unsupported dynamic root descriptor or root budget exceeded");
+                        return false;
+                    }
+                    D3D12_ROOT_PARAMETER param{};
+                    param.ParameterType             = range.category == ShaderNativeCategory::CBV   ? D3D12_ROOT_PARAMETER_TYPE_CBV
+                                                      : range.category == ShaderNativeCategory::SRV ? D3D12_ROOT_PARAMETER_TYPE_SRV
+                                                                                                    : D3D12_ROOT_PARAMETER_TYPE_UAV;
+                    param.Descriptor.ShaderRegister = range.nativeRegister;
+                    param.Descriptor.RegisterSpace  = range.nativeSpace;
+                    param.ShaderVisibility          = visibility;
+                    setParams[setIndex].dynamicRootParams.push_back({range.binding, static_cast<uint32_t>(parameters.size()), range.category});
+                    parameters.push_back(param);
+                    rootCost += 2;
                 } else {
-                    cbvRanges.push_back(d3dRange);
+                    if (range.count > UINT32_MAX - range.descriptorOffset)
+                        return false;
+                    tables[{visibility, range.category == ShaderNativeCategory::SAMPLER}].push_back(&range);
                 }
             }
-
-            if (!cbvRanges.empty()) {
-                D3D12_ROOT_PARAMETER param = {};
+            for (const auto &[key, entries] : tables) {
+                if (rootCost >= 64) {
+                    LOG_E(TAG, "DX12 root descriptor table budget exceeded");
+                    return false;
+                }
+                auto &ranges = rangeSets.emplace_back();
+                ranges.reserve(entries.size());
+                for (const auto *range : entries) {
+                    D3D12_DESCRIPTOR_RANGE native{};
+                    native.RangeType          = *ToRangeType(range->category);
+                    native.NumDescriptors     = range->count;
+                    native.BaseShaderRegister = range->nativeRegister;
+                    native.RegisterSpace      = range->nativeSpace;
+                    // Stage tables share the logical descriptor snapshot while using distinct native addresses.
+                    native.OffsetInDescriptorsFromTableStart = range->descriptorOffset;
+                    ranges.push_back(native);
+                }
+                D3D12_ROOT_PARAMETER param{};
                 param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-                param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(cbvRanges.size());
-                param.DescriptorTable.pDescriptorRanges   = cbvRanges.data();
-                param.ShaderVisibility                    = D3D12_SHADER_VISIBILITY_ALL;
-                setParams[setIndex].cbvSrvUav             = static_cast<uint32_t>(parameters.size());
-                parameters.emplace_back(param);
+                param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(ranges.size());
+                param.DescriptorTable.pDescriptorRanges   = ranges.data();
+                param.ShaderVisibility                    = key.first;
+                const auto root                           = static_cast<uint32_t>(parameters.size());
+                auto      &mapping                        = setParams[setIndex];
+                mapping.tables.push_back({root, key.second});
+                parameters.push_back(param);
+                ++rootCost;
             }
-
-            if (!smpRanges.empty()) {
-                D3D12_ROOT_PARAMETER param = {};
-                param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-                param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(smpRanges.size());
-                param.DescriptorTable.pDescriptorRanges   = smpRanges.data();
-                param.ShaderVisibility                    = D3D12_SHADER_VISIBILITY_ALL;
-                setParams[setIndex].sampler               = static_cast<uint32_t>(parameters.size());
-                parameters.emplace_back(param);
-            }
-        }
-
-        // root constants (push constants)
-        pushConstantRootParam = desc.pushConstants.empty() ? INVALID_INDEX : static_cast<uint32_t>(parameters.size());
-        for (const auto &pc : desc.pushConstants) {
-            D3D12_ROOT_PARAMETER param = {};
-            param.ParameterType            = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-            param.Constants.ShaderRegister = 0;
-            param.Constants.RegisterSpace  = 0;
-            param.Constants.Num32BitValues = pc.size / 4;
-            param.ShaderVisibility         = ToShaderVisibility(pc.stageFlags);
-            parameters.emplace_back(param);
         }
 
         D3D12_ROOT_SIGNATURE_DESC signatureDesc = {};
-        signatureDesc.NumParameters     = static_cast<UINT>(parameters.size());
-        signatureDesc.pParameters       = parameters.data();
-        signatureDesc.NumStaticSamplers = 0;
-        signatureDesc.pStaticSamplers   = nullptr;
-        signatureDesc.Flags             = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        signatureDesc.NumParameters             = static_cast<UINT>(parameters.size());
+        signatureDesc.pParameters               = parameters.data();
+        signatureDesc.NumStaticSamplers         = 0;
+        signatureDesc.pStaticSamplers           = nullptr;
+        signatureDesc.Flags                     = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
         ComPtr<ID3DBlob> signature;
         ComPtr<ID3DBlob> error;
-        HRESULT hr = D3D12SerializeRootSignature(
-            &signatureDesc,
-            D3D_ROOT_SIGNATURE_VERSION_1,
-            signature.GetAddressOf(),
-            error.GetAddressOf());
+        HRESULT hr = D3D12SerializeRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), error.GetAddressOf());
 
         if (FAILED(hr)) {
             if (error) {
@@ -154,11 +139,8 @@ namespace sky::aurora {
             return false;
         }
 
-        hr = device.GetNativeHandle()->CreateRootSignature(
-            0,
-            signature->GetBufferPointer(),
-            signature->GetBufferSize(),
-            IID_PPV_ARGS(rootSignature.GetAddressOf()));
+        hr = device.GetNativeHandle()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(),
+                                                           IID_PPV_ARGS(rootSignature.GetAddressOf()));
 
         if (FAILED(hr)) {
             LOG_E(TAG, "create root signature failed");
@@ -168,32 +150,15 @@ namespace sky::aurora {
         return true;
     }
 
-    uint32_t D3D12RootSignature::GetCbvSrvUavRootParam(uint32_t set) const
+    std::span<const D3D12RootTableBinding> D3D12RootSignature::GetDescriptorTables(uint32_t set) const
     {
-        if (set < setParams.size()) {
-            return setParams[set].cbvSrvUav;
-        }
-        return INVALID_INDEX;
+        return set < setParams.size() ? std::span<const D3D12RootTableBinding>(setParams[set].tables) : std::span<const D3D12RootTableBinding>{};
     }
 
-    uint32_t D3D12RootSignature::GetSamplerRootParam(uint32_t set) const
+    std::span<const D3D12DynamicRootBinding> D3D12RootSignature::GetDynamicBindings(uint32_t set) const
     {
-        if (set < setParams.size()) {
-            return setParams[set].sampler;
-        }
-        return INVALID_INDEX;
-    }
-
-    uint32_t D3D12RootSignature::GetDynamicRootParam(uint32_t set, uint32_t binding) const
-    {
-        if (set < setParams.size()) {
-            for (const auto &kv : setParams[set].dynamicRootParams) {
-                if (kv.first == binding) {
-                    return kv.second;
-                }
-            }
-        }
-        return INVALID_INDEX;
+        return set < setParams.size() ? std::span<const D3D12DynamicRootBinding>(setParams[set].dynamicRootParams)
+                                      : std::span<const D3D12DynamicRootBinding>{};
     }
 
 } // namespace sky::aurora

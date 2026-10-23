@@ -3,6 +3,7 @@
 //
 
 #include "AuroraTestHelper.h"
+#include "ShaderArtifactTestHelper.h"
 
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/DescriptorHeap.h>
@@ -21,32 +22,47 @@ using namespace sky::aurora::test;
 // ---------------------------------------------------------------------------
 namespace {
 
-std::unique_ptr<CommandPool> CreatePoolFromDevice(Device *device)
-{
-    auto *pool = device->CreateCommandPool(QueueType::GRAPHICS);
-    if (!pool) return nullptr;
-    return std::unique_ptr<CommandPool>(pool);
-}
+    std::unique_ptr<CommandPool> CreatePoolFromDevice(Device *device)
+    {
+        auto *pool = device->CreateCommandPool(QueueType::GRAPHICS);
+        if (!pool)
+            return nullptr;
+        return std::unique_ptr<CommandPool>(pool);
+    }
 
-BinaryDataPtr MakeBinaryFromData(const void *data, uint32_t size)
-{
-    auto bin = CounterPtr<BinaryData>(new BinaryData(size));
-    std::memcpy(bin->Data(), data, size);
-    return bin;
-}
+    BinaryDataPtr MakeBinaryFromData(const void *data, uint32_t size)
+    {
+        auto bin = CounterPtr<BinaryData>(new BinaryData(size));
+        std::memcpy(bin->Data(), data, size);
+        return bin;
+    }
 
-ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const BinaryDataPtr &binary)
-{
-    auto *provider       = new ShaderBinaryProvider();
-    provider->binaryData = binary;
+    ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const BinaryDataPtr &binary)
+    {
+        auto *provider       = new ShaderBinaryProvider();
+        provider->binaryData = binary;
 
-    ShaderFunction::Descriptor desc = {};
-    desc.stage = stage;
-    desc.data  = CounterPtr<ShaderDataProvider>(provider);
-    return desc;
-}
+        ShaderFunction::Descriptor desc = {};
+        desc.stage                      = stage;
+        desc.data                       = CounterPtr<ShaderDataProvider>(provider);
+        if (binary && binary->Size()) {
+            const auto      *bytes  = static_cast<const uint8_t *>(binary->Data());
+            const auto       target = binary->Size() >= 4 && bytes[0] == 3 && bytes[1] == 2 && bytes[2] == 35 && bytes[3] == 7 ? ShaderTarget::SPIRV
+                                      : binary->Size() >= 4 && bytes[0] == 'D' && bytes[1] == 'X' && bytes[2] == 'B' && bytes[3] == 'C' ? ShaderTarget::DXIL
+                                                                                                                                        : ShaderTarget::MSL;
+            const auto       entry  = target != ShaderTarget::MSL       ? "main"
+                                      : stage == ShaderStageFlagBit::VS ? "VSMain"
+                                      : stage == ShaderStageFlagBit::FS ? "FSMain"
+                                                                        : "CSMain";
+            ShaderReflection reflection;
+            if (stage == ShaderStageFlagBit::CS)
+                reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
+            desc.artifact = MakeTestShaderArtifact(target, stage, {bytes, binary->Size()}, entry, std::move(reflection));
+        }
+        return desc;
+    }
 
-// clang-format off
+    // clang-format off
 // Equivalent vertex shader; no vertex inputs or resource bindings:
 // void main()
 // {
@@ -101,54 +117,58 @@ static const uint32_t SPIRV_FS[] = {
     0x000100FD,
     0x00010038,
 };
-// clang-format on
+    // clang-format on
 
-struct VulkanGraphicsPipelineBundle {
-    CounterPtr<ShaderFunction>  vs;
-    CounterPtr<ShaderFunction>  fs;
-    CounterPtr<Shader>          shader;
-    CounterPtr<GraphicsPipeline> pipeline;
-};
+    struct VulkanGraphicsPipelineBundle {
+        CounterPtr<ShaderFunction>   vs;
+        CounterPtr<ShaderFunction>   fs;
+        CounterPtr<Shader>           shader;
+        CounterPtr<GraphicsPipeline> pipeline;
+    };
 
-VulkanGraphicsPipelineBundle CreateMinimalVulkanGraphicsPipeline(Device *device, PixelFormat colorFormat)
-{
-    VulkanGraphicsPipelineBundle bundle;
+    VulkanGraphicsPipelineBundle CreateMinimalVulkanGraphicsPipeline(Device *device, PixelFormat colorFormat)
+    {
+        VulkanGraphicsPipelineBundle bundle;
 
-    const auto vsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::VS, MakeBinaryFromData(SPIRV_VS, sizeof(SPIRV_VS)));
-    bundle.vs = CounterPtr<ShaderFunction>(device->CreateShaderFunction(vsDesc));
-    if (!bundle.vs) {
-        return {};
+        const auto vsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::VS, MakeBinaryFromData(SPIRV_VS, sizeof(SPIRV_VS)));
+        bundle.vs         = CounterPtr<ShaderFunction>(device->CreateShaderFunction(vsDesc));
+        if (!bundle.vs) {
+            return {};
+        }
+
+        const auto fsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::FS, MakeBinaryFromData(SPIRV_FS, sizeof(SPIRV_FS)));
+        bundle.fs         = CounterPtr<ShaderFunction>(device->CreateShaderFunction(fsDesc));
+        if (!bundle.fs) {
+            return {};
+        }
+
+        ShaderReflection refl{};
+        std::string      error;
+        if (!MergeShaderReflections(bundle.vs->GetArtifact()->reflection, refl, error) ||
+            !MergeShaderReflections(bundle.fs->GetArtifact()->reflection, refl, error))
+            return {};
+        Shader::Descriptor shaderDesc = {};
+        shaderDesc.vs                 = bundle.vs.Get();
+        shaderDesc.ps                 = bundle.fs.Get();
+        shaderDesc.reflection         = &refl;
+        bundle.shader                 = CounterPtr<Shader>(device->CreateShader(shaderDesc));
+        if (!bundle.shader) {
+            return {};
+        }
+
+        PipelineState state = {};
+        state.blendStates.resize(1);
+
+        GraphicsPipeline::Descriptor pipelineDesc = {};
+        pipelineDesc.state                        = &state;
+        pipelineDesc.shader                       = bundle.shader.Get();
+        pipelineDesc.format.colors[0]             = colorFormat;
+        pipelineDesc.format.numColors             = 1;
+        pipelineDesc.format.sampleCount           = SampleCount::X1;
+
+        bundle.pipeline = CounterPtr<GraphicsPipeline>(device->CreatePipelineState(pipelineDesc));
+        return bundle;
     }
-
-    const auto fsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::FS, MakeBinaryFromData(SPIRV_FS, sizeof(SPIRV_FS)));
-    bundle.fs = CounterPtr<ShaderFunction>(device->CreateShaderFunction(fsDesc));
-    if (!bundle.fs) {
-        return {};
-    }
-
-    ShaderReflection refl{};
-    Shader::Descriptor shaderDesc = {};
-    shaderDesc.vs         = bundle.vs.Get();
-    shaderDesc.ps         = bundle.fs.Get();
-    shaderDesc.reflection = &refl;
-    bundle.shader = CounterPtr<Shader>(device->CreateShader(shaderDesc));
-    if (!bundle.shader) {
-        return {};
-    }
-
-    PipelineState state = {};
-    state.blendStates.resize(1);
-
-    GraphicsPipeline::Descriptor pipelineDesc = {};
-    pipelineDesc.state           = &state;
-    pipelineDesc.shader          = bundle.shader.Get();
-    pipelineDesc.format.colors[0] = colorFormat;
-    pipelineDesc.format.numColors = 1;
-    pipelineDesc.format.sampleCount = SampleCount::X1;
-
-    bundle.pipeline = CounterPtr<GraphicsPipeline>(device->CreatePipelineState(pipelineDesc));
-    return bundle;
-}
 
 } // anonymous namespace
 
@@ -193,14 +213,14 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPass)
     ASSERT_NE(pipelineBundle.pipeline.Get(), nullptr);
 
     Image::Descriptor imgDesc = {};
-    imgDesc.imageType   = ImageType::IMAGE_2D;
-    imgDesc.format      = PixelFormat::RGBA8_UNORM;
-    imgDesc.extent      = {64, 64, 1};
-    imgDesc.mipLevels   = 1;
-    imgDesc.arrayLayers = 1;
-    imgDesc.samples     = SampleCount::X1;
-    imgDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
-    imgDesc.memory      = MemoryType::GPU_ONLY;
+    imgDesc.imageType         = ImageType::IMAGE_2D;
+    imgDesc.format            = PixelFormat::RGBA8_UNORM;
+    imgDesc.extent            = {64, 64, 1};
+    imgDesc.mipLevels         = 1;
+    imgDesc.arrayLayers       = 1;
+    imgDesc.samples           = SampleCount::X1;
+    imgDesc.usage             = ImageUsageFlagBit::RENDER_TARGET;
+    imgDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *colorImage = device->CreateImage(imgDesc);
     ASSERT_NE(colorImage, nullptr);
@@ -217,9 +237,9 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPass)
         auto encoder = cmdBuf->CreateGraphicsEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        RenderingInfo info = {};
-        info.renderArea = {{0, 0}, {64, 64}};
-        info.numColors  = 1;
+        RenderingInfo info     = {};
+        info.renderArea        = {{0, 0}, {64, 64}};
+        info.numColors         = 1;
         info.colors[0].image   = colorImage;
         info.colors[0].loadOp  = LoadOp::CLEAR;
         info.colors[0].storeOp = StoreOp::STORE;
@@ -252,28 +272,28 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPassWithStencil)
     ASSERT_NE(device, nullptr);
 
     Image::Descriptor colorDesc = {};
-    colorDesc.imageType   = ImageType::IMAGE_2D;
-    colorDesc.format      = PixelFormat::RGBA8_UNORM;
-    colorDesc.extent      = {64, 64, 1};
-    colorDesc.mipLevels   = 1;
-    colorDesc.arrayLayers = 1;
-    colorDesc.samples     = SampleCount::X1;
-    colorDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
-    colorDesc.memory      = MemoryType::GPU_ONLY;
+    colorDesc.imageType         = ImageType::IMAGE_2D;
+    colorDesc.format            = PixelFormat::RGBA8_UNORM;
+    colorDesc.extent            = {64, 64, 1};
+    colorDesc.mipLevels         = 1;
+    colorDesc.arrayLayers       = 1;
+    colorDesc.samples           = SampleCount::X1;
+    colorDesc.usage             = ImageUsageFlagBit::RENDER_TARGET;
+    colorDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *colorImage = device->CreateImage(colorDesc);
     ASSERT_NE(colorImage, nullptr);
     CounterPtr<Image> colorGuard(colorImage);
 
     Image::Descriptor depthDesc = {};
-    depthDesc.imageType   = ImageType::IMAGE_2D;
-    depthDesc.format      = PixelFormat::D32_S8;
-    depthDesc.extent      = {64, 64, 1};
-    depthDesc.mipLevels   = 1;
-    depthDesc.arrayLayers = 1;
-    depthDesc.samples     = SampleCount::X1;
-    depthDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
-    depthDesc.memory      = MemoryType::GPU_ONLY;
+    depthDesc.imageType         = ImageType::IMAGE_2D;
+    depthDesc.format            = PixelFormat::D32_S8;
+    depthDesc.extent            = {64, 64, 1};
+    depthDesc.mipLevels         = 1;
+    depthDesc.arrayLayers       = 1;
+    depthDesc.samples           = SampleCount::X1;
+    depthDesc.usage             = ImageUsageFlagBit::DEPTH_STENCIL;
+    depthDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *depthImage = device->CreateImage(depthDesc);
     ASSERT_NE(depthImage, nullptr);
@@ -290,9 +310,9 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPassWithStencil)
         auto encoder = cmdBuf->CreateGraphicsEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        RenderingInfo info = {};
-        info.renderArea = {{0, 0}, {64, 64}};
-        info.numColors  = 1;
+        RenderingInfo info     = {};
+        info.renderArea        = {{0, 0}, {64, 64}};
+        info.numColors         = 1;
         info.colors[0].image   = colorImage;
         info.colors[0].loadOp  = LoadOp::CLEAR;
         info.colors[0].storeOp = StoreOp::STORE;
@@ -321,32 +341,32 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
     ASSERT_NE(pipelineBundle.pipeline.Get(), nullptr);
 
     Buffer::Descriptor vbDesc = {};
-    vbDesc.size   = 256;
-    vbDesc.usage  = BufferUsageFlagBit::VERTEX;
-    vbDesc.memory = MemoryType::GPU_ONLY;
+    vbDesc.size               = 256;
+    vbDesc.usage              = BufferUsageFlagBit::VERTEX;
+    vbDesc.memory             = MemoryType::GPU_ONLY;
 
     auto *vertexBuffer = device->CreateBuffer(vbDesc);
     ASSERT_NE(vertexBuffer, nullptr);
     CounterPtr<Buffer> vbGuard(vertexBuffer);
 
     Buffer::Descriptor ibDesc = {};
-    ibDesc.size   = 128;
-    ibDesc.usage  = BufferUsageFlagBit::INDEX;
-    ibDesc.memory = MemoryType::GPU_ONLY;
+    ibDesc.size               = 128;
+    ibDesc.usage              = BufferUsageFlagBit::INDEX;
+    ibDesc.memory             = MemoryType::GPU_ONLY;
 
     auto *indexBuffer = device->CreateBuffer(ibDesc);
     ASSERT_NE(indexBuffer, nullptr);
     CounterPtr<Buffer> ibGuard(indexBuffer);
 
     Image::Descriptor imgDesc = {};
-    imgDesc.imageType   = ImageType::IMAGE_2D;
-    imgDesc.format      = PixelFormat::RGBA8_UNORM;
-    imgDesc.extent      = {64, 64, 1};
-    imgDesc.mipLevels   = 1;
-    imgDesc.arrayLayers = 1;
-    imgDesc.samples     = SampleCount::X1;
-    imgDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
-    imgDesc.memory      = MemoryType::GPU_ONLY;
+    imgDesc.imageType         = ImageType::IMAGE_2D;
+    imgDesc.format            = PixelFormat::RGBA8_UNORM;
+    imgDesc.extent            = {64, 64, 1};
+    imgDesc.mipLevels         = 1;
+    imgDesc.arrayLayers       = 1;
+    imgDesc.samples           = SampleCount::X1;
+    imgDesc.usage             = ImageUsageFlagBit::RENDER_TARGET;
+    imgDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *colorImage = device->CreateImage(imgDesc);
     ASSERT_NE(colorImage, nullptr);
@@ -363,9 +383,9 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
         auto encoder = cmdBuf->CreateGraphicsEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        RenderingInfo info = {};
-        info.renderArea = {{0, 0}, {64, 64}};
-        info.numColors  = 1;
+        RenderingInfo info     = {};
+        info.renderArea        = {{0, 0}, {64, 64}};
+        info.numColors         = 1;
         info.colors[0].image   = colorImage;
         info.colors[0].loadOp  = LoadOp::CLEAR;
         info.colors[0].storeOp = StoreOp::STORE;
@@ -381,16 +401,16 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
         encoder->SetScissor(1, &scissor);
 
         BufferView views[1] = {};
-        views[0].buffer = vertexBuffer;
-        views[0].offset = 0;
-        views[0].range  = 256;
+        views[0].buffer     = vertexBuffer;
+        views[0].offset     = 0;
+        views[0].range      = 256;
         encoder->BindVertexBuffers(0, 1, views);
 
         encoder->BindIndexBuffer(indexBuffer, 0, IndexType::U16);
 
         CmdDrawIndexed drawCmd = {};
-        drawCmd.indexCount    = 6;
-        drawCmd.instanceCount = 1;
+        drawCmd.indexCount     = 6;
+        drawCmd.instanceCount  = 1;
         encoder->DrawIndexed(drawCmd);
 
         encoder->EndRendering();
@@ -427,18 +447,18 @@ TEST_F(EncoderTestVulkan, BlitEncoderCopyBuffer)
     ASSERT_NE(device, nullptr);
 
     Buffer::Descriptor srcDesc = {};
-    srcDesc.size   = 512;
-    srcDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-    srcDesc.memory = MemoryType::CPU_TO_GPU;
+    srcDesc.size               = 512;
+    srcDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+    srcDesc.memory             = MemoryType::CPU_TO_GPU;
 
     auto *srcBuffer = device->CreateBuffer(srcDesc);
     ASSERT_NE(srcBuffer, nullptr);
     CounterPtr<Buffer> srcGuard(srcBuffer);
 
     Buffer::Descriptor dstDesc = {};
-    dstDesc.size   = 512;
-    dstDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
-    dstDesc.memory = MemoryType::GPU_ONLY;
+    dstDesc.size               = 512;
+    dstDesc.usage              = BufferUsageFlagBit::TRANSFER_DST;
+    dstDesc.memory             = MemoryType::GPU_ONLY;
 
     auto *dstBuffer = device->CreateBuffer(dstDesc);
     ASSERT_NE(dstBuffer, nullptr);
@@ -467,23 +487,23 @@ TEST_F(EncoderTestVulkan, BlitEncoderCopyBufferToImage)
     ASSERT_NE(device, nullptr);
 
     Buffer::Descriptor bufDesc = {};
-    bufDesc.size   = 64 * 64 * 4;
-    bufDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-    bufDesc.memory = MemoryType::CPU_TO_GPU;
+    bufDesc.size               = 64 * 64 * 4;
+    bufDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+    bufDesc.memory             = MemoryType::CPU_TO_GPU;
 
     auto *stagingBuffer = device->CreateBuffer(bufDesc);
     ASSERT_NE(stagingBuffer, nullptr);
     CounterPtr<Buffer> bufGuard(stagingBuffer);
 
     Image::Descriptor imgDesc = {};
-    imgDesc.imageType   = ImageType::IMAGE_2D;
-    imgDesc.format      = PixelFormat::RGBA8_UNORM;
-    imgDesc.extent      = {64, 64, 1};
-    imgDesc.mipLevels   = 1;
-    imgDesc.arrayLayers = 1;
-    imgDesc.samples     = SampleCount::X1;
-    imgDesc.usage       = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
-    imgDesc.memory      = MemoryType::GPU_ONLY;
+    imgDesc.imageType         = ImageType::IMAGE_2D;
+    imgDesc.format            = PixelFormat::RGBA8_UNORM;
+    imgDesc.extent            = {64, 64, 1};
+    imgDesc.mipLevels         = 1;
+    imgDesc.arrayLayers       = 1;
+    imgDesc.samples           = SampleCount::X1;
+    imgDesc.usage             = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
+    imgDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *image = device->CreateImage(imgDesc);
     ASSERT_NE(image, nullptr);
@@ -500,15 +520,15 @@ TEST_F(EncoderTestVulkan, BlitEncoderCopyBufferToImage)
         auto encoder = cmdBuf->CreateBlitEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        BufferImageCopy region = {};
-        region.bufferOffset      = 0;
-        region.bufferRowLength   = 0;
-        region.bufferImageHeight = 0;
+        BufferImageCopy region    = {};
+        region.bufferOffset       = 0;
+        region.bufferRowLength    = 0;
+        region.bufferImageHeight  = 0;
         region.subRange.level     = 0;
         region.subRange.baseLayer = 0;
         region.subRange.layers    = 1;
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {64, 64, 1};
+        region.imageOffset        = {0, 0, 0};
+        region.imageExtent        = {64, 64, 1};
 
         encoder->CopyBufferToImage(stagingBuffer, image, {region});
     }
@@ -556,28 +576,28 @@ TEST_F(EncoderTestD3D12, GraphicsEncoderRenderPass)
     ASSERT_NE(device, nullptr);
 
     Image::Descriptor colorDesc = {};
-    colorDesc.imageType   = ImageType::IMAGE_2D;
-    colorDesc.format      = PixelFormat::RGBA8_UNORM;
-    colorDesc.extent      = {64, 64, 1};
-    colorDesc.mipLevels   = 1;
-    colorDesc.arrayLayers = 1;
-    colorDesc.samples     = SampleCount::X1;
-    colorDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
-    colorDesc.memory      = MemoryType::GPU_ONLY;
+    colorDesc.imageType         = ImageType::IMAGE_2D;
+    colorDesc.format            = PixelFormat::RGBA8_UNORM;
+    colorDesc.extent            = {64, 64, 1};
+    colorDesc.mipLevels         = 1;
+    colorDesc.arrayLayers       = 1;
+    colorDesc.samples           = SampleCount::X1;
+    colorDesc.usage             = ImageUsageFlagBit::RENDER_TARGET;
+    colorDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *colorImage = device->CreateImage(colorDesc);
     ASSERT_NE(colorImage, nullptr);
     CounterPtr<Image> colorGuard(colorImage);
 
     Image::Descriptor depthDesc = {};
-    depthDesc.imageType   = ImageType::IMAGE_2D;
-    depthDesc.format      = PixelFormat::D32_S8;
-    depthDesc.extent      = {64, 64, 1};
-    depthDesc.mipLevels   = 1;
-    depthDesc.arrayLayers = 1;
-    depthDesc.samples     = SampleCount::X1;
-    depthDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
-    depthDesc.memory      = MemoryType::GPU_ONLY;
+    depthDesc.imageType         = ImageType::IMAGE_2D;
+    depthDesc.format            = PixelFormat::D32_S8;
+    depthDesc.extent            = {64, 64, 1};
+    depthDesc.mipLevels         = 1;
+    depthDesc.arrayLayers       = 1;
+    depthDesc.samples           = SampleCount::X1;
+    depthDesc.usage             = ImageUsageFlagBit::DEPTH_STENCIL;
+    depthDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *depthImage = device->CreateImage(depthDesc);
     ASSERT_NE(depthImage, nullptr);
@@ -594,13 +614,13 @@ TEST_F(EncoderTestD3D12, GraphicsEncoderRenderPass)
         auto encoder = cmdBuf->CreateGraphicsEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        RenderingInfo info = {};
-        info.renderArea = {{0, 0}, {64, 64}};
-        info.numColors  = 1;
-        info.colors[0].image       = colorImage;
-        info.colors[0].loadOp      = LoadOp::CLEAR;
-        info.colors[0].storeOp     = StoreOp::STORE;
-        info.colors[0].clearValue  = ClearValue(0.f, 0.f, 0.f, 1.f);
+        RenderingInfo info        = {};
+        info.renderArea           = {{0, 0}, {64, 64}};
+        info.numColors            = 1;
+        info.colors[0].image      = colorImage;
+        info.colors[0].loadOp     = LoadOp::CLEAR;
+        info.colors[0].storeOp    = StoreOp::STORE;
+        info.colors[0].clearValue = ClearValue(0.f, 0.f, 0.f, 1.f);
 
         info.depthStencil.image          = depthImage;
         info.depthStencil.depthLoadOp    = LoadOp::CLEAR;
@@ -623,21 +643,21 @@ TEST_F(EncoderTestD3D12, BlitImageSameSizeCopy)
     ASSERT_NE(device, nullptr);
 
     Image::Descriptor srcDesc = {};
-    srcDesc.imageType   = ImageType::IMAGE_2D;
-    srcDesc.format      = PixelFormat::RGBA8_UNORM;
-    srcDesc.extent      = {32, 32, 1};
-    srcDesc.mipLevels   = 1;
-    srcDesc.arrayLayers = 1;
-    srcDesc.samples     = SampleCount::X1;
-    srcDesc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
-    srcDesc.memory      = MemoryType::GPU_ONLY;
+    srcDesc.imageType         = ImageType::IMAGE_2D;
+    srcDesc.format            = PixelFormat::RGBA8_UNORM;
+    srcDesc.extent            = {32, 32, 1};
+    srcDesc.mipLevels         = 1;
+    srcDesc.arrayLayers       = 1;
+    srcDesc.samples           = SampleCount::X1;
+    srcDesc.usage             = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
+    srcDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *srcImage = device->CreateImage(srcDesc);
     ASSERT_NE(srcImage, nullptr);
     CounterPtr<Image> srcGuard(srcImage);
 
     Image::Descriptor dstDesc = srcDesc;
-    dstDesc.usage = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::RENDER_TARGET;
+    dstDesc.usage             = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::RENDER_TARGET;
 
     auto *dstImage = device->CreateImage(dstDesc);
     ASSERT_NE(dstImage, nullptr);
@@ -654,7 +674,7 @@ TEST_F(EncoderTestD3D12, BlitImageSameSizeCopy)
         auto encoder = cmdBuf->CreateBlitEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        BlitInfo region = {};
+        BlitInfo region      = {};
         region.srcOffsets[0] = {0, 0, 0};
         region.srcOffsets[1] = {32, 32, 1};
         region.dstOffsets[0] = {0, 0, 0};
@@ -673,23 +693,23 @@ TEST_F(EncoderTestD3D12, BlitImageScaled)
     ASSERT_NE(device, nullptr);
 
     Image::Descriptor srcDesc = {};
-    srcDesc.imageType   = ImageType::IMAGE_2D;
-    srcDesc.format      = PixelFormat::RGBA8_UNORM;
-    srcDesc.extent      = {16, 16, 1};
-    srcDesc.mipLevels   = 1;
-    srcDesc.arrayLayers = 1;
-    srcDesc.samples     = SampleCount::X1;
-    srcDesc.usage       = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
-    srcDesc.memory      = MemoryType::GPU_ONLY;
+    srcDesc.imageType         = ImageType::IMAGE_2D;
+    srcDesc.format            = PixelFormat::RGBA8_UNORM;
+    srcDesc.extent            = {16, 16, 1};
+    srcDesc.mipLevels         = 1;
+    srcDesc.arrayLayers       = 1;
+    srcDesc.samples           = SampleCount::X1;
+    srcDesc.usage             = ImageUsageFlagBit::TRANSFER_SRC | ImageUsageFlagBit::SAMPLED;
+    srcDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *srcImage = device->CreateImage(srcDesc);
     ASSERT_NE(srcImage, nullptr);
     CounterPtr<Image> srcGuard(srcImage);
 
     Image::Descriptor dstDesc = srcDesc;
-    dstDesc.format = PixelFormat::RGBA8_UNORM;
-    dstDesc.extent = {64, 64, 1};
-    dstDesc.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+    dstDesc.format            = PixelFormat::RGBA8_UNORM;
+    dstDesc.extent            = {64, 64, 1};
+    dstDesc.usage             = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
 
     auto *dstImage = device->CreateImage(dstDesc);
     ASSERT_NE(dstImage, nullptr);
@@ -706,7 +726,7 @@ TEST_F(EncoderTestD3D12, BlitImageScaled)
         auto encoder = cmdBuf->CreateBlitEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        BlitInfo region = {};
+        BlitInfo region      = {};
         region.srcOffsets[0] = {0, 0, 0};
         region.srcOffsets[1] = {16, 16, 1};
         region.dstOffsets[0] = {0, 0, 0};
@@ -725,9 +745,9 @@ TEST_F(EncoderTestD3D12, DescriptorHeapAllocateFree)
     ASSERT_NE(device, nullptr);
 
     DescriptorHeap::Descriptor heapDesc = {};
-    heapDesc.maxTextures = 8;
-    heapDesc.maxBuffers  = 8;
-    heapDesc.maxSamplers = 4;
+    heapDesc.maxTextures                = 8;
+    heapDesc.maxBuffers                 = 8;
+    heapDesc.maxSamplers                = 4;
 
     auto *heap = device->CreateDescriptorHeap(heapDesc);
     if (heap == nullptr) {
@@ -736,9 +756,9 @@ TEST_F(EncoderTestD3D12, DescriptorHeapAllocateFree)
     CounterPtr<DescriptorHeap> heapGuard(heap);
 
     DescriptorHeap::Descriptor allocDesc = {};
-    allocDesc.maxTextures = 2;
-    allocDesc.maxBuffers  = 1;
-    allocDesc.maxSamplers = 1;
+    allocDesc.maxTextures                = 2;
+    allocDesc.maxBuffers                 = 1;
+    allocDesc.maxSamplers                = 1;
 
     const auto allocation = heap->Allocate(allocDesc);
     EXPECT_EQ(allocation.texCount, 2u);
@@ -778,18 +798,18 @@ TEST_F(EncoderTestD3D12, BlitEncoderCopyBuffer)
     ASSERT_NE(device, nullptr);
 
     Buffer::Descriptor srcDesc = {};
-    srcDesc.size   = 512;
-    srcDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-    srcDesc.memory = MemoryType::CPU_TO_GPU;
+    srcDesc.size               = 512;
+    srcDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+    srcDesc.memory             = MemoryType::CPU_TO_GPU;
 
     auto *srcBuffer = device->CreateBuffer(srcDesc);
     ASSERT_NE(srcBuffer, nullptr);
     CounterPtr<Buffer> srcGuard(srcBuffer);
 
     Buffer::Descriptor dstDesc = {};
-    dstDesc.size   = 512;
-    dstDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
-    dstDesc.memory = MemoryType::GPU_ONLY;
+    dstDesc.size               = 512;
+    dstDesc.usage              = BufferUsageFlagBit::TRANSFER_DST;
+    dstDesc.memory             = MemoryType::GPU_ONLY;
 
     auto *dstBuffer = device->CreateBuffer(dstDesc);
     ASSERT_NE(dstBuffer, nullptr);
@@ -818,23 +838,23 @@ TEST_F(EncoderTestD3D12, BlitEncoderCopyBufferToImage)
     ASSERT_NE(device, nullptr);
 
     Buffer::Descriptor bufDesc = {};
-    bufDesc.size   = 64 * 64 * 4;
-    bufDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
-    bufDesc.memory = MemoryType::CPU_TO_GPU;
+    bufDesc.size               = 64 * 64 * 4;
+    bufDesc.usage              = BufferUsageFlagBit::TRANSFER_SRC;
+    bufDesc.memory             = MemoryType::CPU_TO_GPU;
 
     auto *stagingBuffer = device->CreateBuffer(bufDesc);
     ASSERT_NE(stagingBuffer, nullptr);
     CounterPtr<Buffer> bufGuard(stagingBuffer);
 
     Image::Descriptor imgDesc = {};
-    imgDesc.imageType   = ImageType::IMAGE_2D;
-    imgDesc.format      = PixelFormat::RGBA8_UNORM;
-    imgDesc.extent      = {64, 64, 1};
-    imgDesc.mipLevels   = 1;
-    imgDesc.arrayLayers = 1;
-    imgDesc.samples     = SampleCount::X1;
-    imgDesc.usage       = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
-    imgDesc.memory      = MemoryType::GPU_ONLY;
+    imgDesc.imageType         = ImageType::IMAGE_2D;
+    imgDesc.format            = PixelFormat::RGBA8_UNORM;
+    imgDesc.extent            = {64, 64, 1};
+    imgDesc.mipLevels         = 1;
+    imgDesc.arrayLayers       = 1;
+    imgDesc.samples           = SampleCount::X1;
+    imgDesc.usage             = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
+    imgDesc.memory            = MemoryType::GPU_ONLY;
 
     auto *image = device->CreateImage(imgDesc);
     ASSERT_NE(image, nullptr);
@@ -851,15 +871,15 @@ TEST_F(EncoderTestD3D12, BlitEncoderCopyBufferToImage)
         auto encoder = cmdBuf->CreateBlitEncoder();
         ASSERT_NE(encoder, nullptr);
 
-        BufferImageCopy region = {};
-        region.bufferOffset      = 0;
-        region.bufferRowLength   = 0;
-        region.bufferImageHeight = 0;
+        BufferImageCopy region    = {};
+        region.bufferOffset       = 0;
+        region.bufferRowLength    = 0;
+        region.bufferImageHeight  = 0;
         region.subRange.level     = 0;
         region.subRange.baseLayer = 0;
         region.subRange.layers    = 1;
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {64, 64, 1};
+        region.imageOffset        = {0, 0, 0};
+        region.imageExtent        = {64, 64, 1};
 
         encoder->CopyBufferToImage(stagingBuffer, image, {region});
     }

@@ -30,6 +30,7 @@ namespace sky {
         void  SetCursor(StandardCursor cursor) override;
         void  SetTitle(const std::string &title) override;
         bool  IsMainWindow() const override;
+        void  SetCloseDeferred(bool value) override;
 
         // The shared window contract uses client framebuffer pixels.
         void NotifyResized(uint32_t width, uint32_t height);

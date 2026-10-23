@@ -37,4 +37,4 @@ SharedShader/export tooling, shader CMake helpers, plugin/module resource metada
 
 ## Status
 
-2026-10-22: the six reviewed decisions, approved 13-file migration and obsolete-content cleanup are implemented, with Windows validation recorded in tasks.md. This checkpoint is ready for macOS validation; a stripped native shipping host and native Metal/macOS acceptance remain open. The change remains active and unarchived.
+2026-10-22: the reviewed migration, resource architecture, cleanup and cross-platform corrections are implemented and validated in tasks.md. The stripped native Metal shipping host passes scene and compute/fullscreen readbacks with sources and Slang absent; the unified editor and relevant regressions pass. iOS/Android cross-compilation is verified separately from device acceptance. The change remains uncommitted and unarchived pending the user's review.

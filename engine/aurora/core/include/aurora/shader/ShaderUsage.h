@@ -1,9 +1,4 @@
-//
-// ShaderUsage: runtime shader-use collection for offline precompilation.
-//
-// The resolver records every resolved (path, entry, stage, target, variant) so
-// a host tool can precompile exactly the used set into the shipped cache.
-//
+// Target-specific shader usage and offline product verification.
 
 #pragma once
 
@@ -22,15 +17,16 @@ namespace sky::aurora {
     class ShaderResolver;
 
     struct ShaderUsageEntry {
-        std::string   relativePath;
-        std::string   entry;
-        uint32_t      stage         = 0;
-        uint32_t      target        = 0;
-        uint64_t      variantHash   = 0;
-        uint64_t      variantKey[2] = {0, 0};
-        std::string   variantDump; // human-readable key values
-        uint64_t      toolchainFp = 0;
-        ShaderVariant variant;
+        std::string             relativePath;
+        std::string             entry;
+        uint32_t                stage         = 0;
+        uint32_t                target        = 0;
+        uint64_t                variantHash   = 0;
+        uint64_t                variantKey[2] = {0, 0};
+        std::string             variantDump; // human-readable key values
+        uint64_t                toolchainFp = 0;
+        ShaderVariant           variant;
+        ShaderTargetEnvironment environment;
     };
 
     // In-memory dedup set; `Flush` union-merges into a JSON file.
@@ -45,8 +41,8 @@ namespace sky::aurora {
             mEnabled = enabled;
         }
 
-        // Dedup by (relativePath, entry, target, variantHash).
-        void Record(const ShaderUsageEntry &entry);
+        // Dedup compares full environment and variant values, including specialization.
+        bool Record(const ShaderUsageEntry &entry, std::string *error = nullptr);
 
         size_t Size() const
         {
@@ -58,20 +54,22 @@ namespace sky::aurora {
         }
 
         // Union-merge the in-memory set with the JSON already at `path`.
-        bool Flush(sky::IFileSystem &fs, const std::string &path);
+        bool Flush(sky::IFileSystem &fs, const std::string &path, std::string *error = nullptr);
 
-        static bool Load(sky::IFileSystem &fs, const std::string &path, std::vector<ShaderUsageEntry> &out);
+        static constexpr uint32_t kFormatVersion = 2;
+        static bool Load(sky::IFileSystem &fs, const std::string &path, std::vector<ShaderUsageEntry> &out, std::string *error = nullptr);
 
     private:
         bool                          mEnabled = false;
         std::vector<ShaderUsageEntry> mEntries;
     };
 
-    // Group usage by (relativePath, target, variantHash) -> entry union.
+    // Group by path, target environment and full variant values.
     struct ShaderUsageGroup {
         std::string                   relativePath;
         uint32_t                      target      = 0;
         uint64_t                      variantHash = 0;
+        ShaderTargetEnvironment       environment;
         std::vector<ShaderUsageEntry> entries; // per-entry (dedup by entry/stage)
     };
     std::vector<ShaderUsageGroup> GroupShaderUsage(const std::vector<ShaderUsageEntry> &usage);

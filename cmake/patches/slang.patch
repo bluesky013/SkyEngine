@@ -37,6 +37,23 @@ index 1b78c407f..5650a1bd6 100644
  endif()
  
  add_subdirectory(external)
+diff --git a/cmake/SlangTarget.cmake b/cmake/SlangTarget.cmake
+index 492c6fdb1..69aa1a8c3 100644
+--- a/cmake/SlangTarget.cmake
++++ b/cmake/SlangTarget.cmake
+@@ -136,6 +136,12 @@ function(slang_add_target dir type)
+     # Find the source for this target
+     #
+     if(ARG_NO_SOURCE)
++        if(CMAKE_GENERATOR STREQUAL "Xcode")
++            # Xcode omits the link step for a library with no compiled sources.
++            set(xcode_link_source "${CMAKE_CURRENT_BINARY_DIR}/${target}-xcode-link.cpp")
++            file(GENERATE OUTPUT "${xcode_link_source}" CONTENT "// Xcode library link anchor.\n")
++            list(APPEND source "${xcode_link_source}")
++        endif()
+     elseif(ARG_EXPLICIT_SOURCE)
+         list(APPEND source ${ARG_EXPLICIT_SOURCE})
+     else()
 diff --git a/source/slang-glsl-module/CMakeLists.txt b/source/slang-glsl-module/CMakeLists.txt
 index 74aed35d6..72452a7b7 100644
 --- a/source/slang-glsl-module/CMakeLists.txt

@@ -355,6 +355,15 @@ namespace sky {
         }
     }
 
+    std::shared_ptr<const void> IOSWindow::RetainNativeHandle() const
+    {
+        if (!winHandle)
+            return {};
+        const auto handle = static_cast<CFTypeRef>(winHandle);
+        CFRetain(handle);
+        return {handle, [](const void *value) { CFRelease(value); }};
+    }
+
     void IOSWindow::ReleaseSurface()
     {
         RemoveFocusObservers();

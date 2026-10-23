@@ -43,7 +43,8 @@ namespace sky::aurora {
         asset->ResetDependencies();
         MaterialAssetData data;
         archive.LoadValueObject(data);
-        data.version  = MaterialAssetData::CURRENT_VERSION;
+        if (!ValidateMaterialAssetData(data, result.error))
+            return;
         asset->Data() = std::move(data);
 
         for (auto &property : asset->Data().properties) {

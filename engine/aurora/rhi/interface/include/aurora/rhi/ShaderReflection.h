@@ -28,6 +28,13 @@ namespace sky::aurora {
     enum class ShaderScalarType : uint32_t { UNKNOWN = 0, FLOAT, INT, UINT, BOOL };
     enum class ShaderTextureDimension : uint32_t { UNKNOWN = 0, D1, D2, D3, CUBE, BUFFER };
     enum class ShaderSamplerType : uint32_t { UNKNOWN = 0, REGULAR, COMPARISON };
+    enum class ShaderResourceAccess : uint32_t { UNKNOWN = 0, READ_ONLY, READ_WRITE };
+    enum class ShaderBufferKind : uint32_t { NONE = 0, RAW, STRUCTURED };
+    enum class ShaderMatrixLayout : uint32_t { COLUMN_MAJOR = 0, ROW_MAJOR };
+    enum class ShaderReflectionKind : uint32_t { DECLARATION = 0, STAGE, PROGRAM };
+    enum class ShaderBindingModel : uint32_t { UNKNOWN = 0, VULKAN_DESCRIPTORS, D3D12_REGISTERS, METAL_DIRECT_ARGUMENTS };
+    enum class ShaderUsageAnalysis : uint32_t { EXACT = 0, CONSERVATIVE };
+    enum class ShaderNativeCategory : uint32_t { UNKNOWN = 0, DESCRIPTOR, CBV, SRV, UAV, SAMPLER, METAL_BUFFER, METAL_TEXTURE, METAL_SAMPLER };
 
     template <ShaderResourceType Type>
     struct ShaderResourceSlot {
@@ -48,7 +55,12 @@ namespace sky::aurora {
         ShaderTextureType  texture;
         ShaderSamplerType  sampler = ShaderSamplerType::UNKNOWN;
         // A descriptor array of length one is still an array; zero count means unbounded/unknown.
-        bool descriptorArray = false;
+        bool                 descriptorArray = false;
+        ShaderResourceAccess access          = ShaderResourceAccess::READ_ONLY;
+        ShaderBufferKind     bufferKind      = ShaderBufferKind::NONE;
+        uint32_t             elementStride   = 0;
+        ShaderStageFlags     stages;
+        std::string          declarationOwner;
     };
 
     // structural kind of a reflected field
@@ -63,16 +75,20 @@ namespace sky::aurora {
 
     // uniform block member (UBO field reflection)
     struct ShaderBlockMember {
-        std::string      name;
-        uint32_t         offset                                      = 0;
-        uint32_t         size                                        = 0;
-        ShaderScalarType scalarType                                  = ShaderScalarType::UNKNOWN;
-        ShaderTypeKind   kind                                        = ShaderTypeKind::UNKNOWN;
-        uint32_t         rows                                        = 1;
-        uint32_t         cols                                        = 1;
-        uint32_t         arrayCount                                  = 0;
-        uint32_t         arrayStride                                 = 0;
-        bool             operator==(const ShaderBlockMember &) const = default;
+        std::string        name;
+        uint32_t           offset                                      = 0;
+        uint32_t           size                                        = 0;
+        ShaderScalarType   scalarType                                  = ShaderScalarType::UNKNOWN;
+        ShaderTypeKind     kind                                        = ShaderTypeKind::UNKNOWN;
+        uint32_t           rows                                        = 1;
+        uint32_t           cols                                        = 1;
+        uint32_t           arrayCount                                  = 0;
+        uint32_t           arrayStride                                 = 0;
+        bool               operator==(const ShaderBlockMember &) const = default;
+        uint32_t           alignment                                   = 1;
+        uint32_t           scalarBytes                                 = 4;
+        uint32_t           matrixStride                                = 0;
+        ShaderMatrixLayout matrixLayout                                = ShaderMatrixLayout::COLUMN_MAJOR;
     };
 
     // uniform block (cbuffer / ParameterBlock) layout
@@ -83,16 +99,38 @@ namespace sky::aurora {
         uint32_t                       binding = 0;
         uint32_t                       size    = 0;
         std::vector<ShaderBlockMember> members;
+        uint32_t                       alignment = 1;
+    };
+
+    // Logical descriptor keys stay stable while native argument indices may differ between stages.
+    struct ShaderNativeBinding {
+        uint32_t             set = 0, binding = 0;
+        ShaderStageFlagBit   stage                                         = ShaderStageFlagBit::VS;
+        uint32_t             index                                         = 0;
+        bool                 operator==(const ShaderNativeBinding &) const = default;
+        ShaderNativeCategory category                                      = ShaderNativeCategory::UNKNOWN;
+        uint32_t             space                                         = 0;
+        uint32_t             count                                         = 1;
     };
 
     struct ShaderReflection {
-        std::vector<ShaderResource>    resources;
-        std::vector<ShaderBlockLayout> blocks;
-        std::vector<PushConstantRange> pushConstants;
+        std::vector<ShaderResource>      resources;
+        std::vector<ShaderNativeBinding> nativeBindings;
+        std::vector<ShaderBlockLayout>   blocks;
+        std::vector<PushConstantRange>   pushConstants;
         // compute thread group size ([numthreads]); {0,0,0} when unknown or
         // non-compute. Targets that embed it in the binary (SPIRV/DXIL) may
         // ignore this; MSL does not carry it, so Metal needs it here.
-        uint32_t threadGroupSize[3] = {0, 0, 0};
+        uint32_t                       threadGroupSize[3] = {0, 0, 0};
+        static constexpr uint32_t      kProtocolVersion   = 1;
+        uint32_t                       protocolVersion    = kProtocolVersion;
+        ShaderReflectionKind           kind               = ShaderReflectionKind::DECLARATION;
+        ShaderBindingModel             bindingModel       = ShaderBindingModel::UNKNOWN;
+        ShaderUsageAnalysis            usage              = ShaderUsageAnalysis::EXACT;
+        ShaderStageFlags               stages;
+        bool                           complete = false;
+        std::vector<ShaderResource>    declarations;
+        std::vector<ShaderBlockLayout> declaredBlocks;
     };
 
 } // namespace sky::aurora

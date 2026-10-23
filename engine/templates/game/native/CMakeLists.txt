@@ -93,8 +93,13 @@ add_subdirectory(source)
 sky_set_dependency(TARGET Launcher)
 
 if(SKY_DEVELOP)
+    if(ANDROID)
+        set(_sky_shader_source_destination "${CMAKE_CURRENT_SOURCE_DIR}/../build/android/app/src/main/assets/assets/shaders")
+    else()
+        set(_sky_shader_source_destination "$<TARGET_FILE_DIR:Launcher>/assets/shaders")
+    endif()
     sky_stage_shader_resources(TARGET ShaderResources.Stage
-        DESTINATION "$<TARGET_FILE_DIR:Launcher>/assets/shaders"
+        DESTINATION "${_sky_shader_source_destination}"
         PROJECT "${CMAKE_CURRENT_SOURCE_DIR}/.." ENGINE "${ENGINE_ROOT}"
         CONSUMERS Launcher)
 endif()
@@ -102,33 +107,49 @@ endif()
 # Static module packaging: generate the registration cpp from the statically built
 # modules and link them into the launcher (their code is compiled in, not dlopen'd).
 if (SKY_MODULE_PACKAGING STREQUAL "static")
+    get_property(_sky_all_static_targets GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS)
+    set(_sky_static_targets ${_sky_all_static_targets})
+    if(NOT SKY_DEVELOP)
+        list(REMOVE_ITEM _sky_static_targets Aurora.ShaderCompiler Aurora.Cook)
+    endif()
+    set_property(GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS "${_sky_static_targets}")
     set(_sky_static_reg "${CMAKE_CURRENT_BINARY_DIR}/RegisterStaticModules.cpp")
     sky_generate_static_modules("${_sky_static_reg}")
+    set_property(GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS "${_sky_all_static_targets}")
     target_sources(Launcher PRIVATE "${_sky_static_reg}")
-    get_property(_sky_static_targets GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS)
     if (_sky_static_targets)
         target_link_libraries(Launcher ${_sky_static_targets})
     endif ()
 endif ()
 
-# Deploy the engine builtin configs first, then the project configs (project wins).
-# A custom target is used because `Launcher` is defined in a subdirectory.
+# The same deployment runs from Xcode/IDE builds and the packaging entrypoint.
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(SKY_SHADER_DISTRIBUTION "${PROJECT_NAME}-${SKY_PLATFORM}" CACHE STRING "Selected shader product distribution")
+set(_sky_runtime_stage_arguments "")
+set(_sky_runtime_destination "$<TARGET_FILE_DIR:Launcher>")
+if(ANDROID)
+    set(_sky_runtime_destination "${CMAKE_CURRENT_SOURCE_DIR}/../build/android/app/src/main/assets")
+endif()
+if(SKY_DEVELOP)
+    list(APPEND _sky_runtime_stage_arguments --development)
+endif()
 add_custom_target({{PROJECT_NAME}}Deploy ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ENGINE_ROOT}/configs"
-        "$<TARGET_FILE_DIR:Launcher>/configs"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../configs"
-        "$<TARGET_FILE_DIR:Launcher>/configs"
-    DEPENDS Launcher
+    COMMAND "${Python3_EXECUTABLE}" "${ENGINE_ROOT}/python/package_project.py" stage-runtime
+        --project "${CMAKE_CURRENT_SOURCE_DIR}/.." --engine "${ENGINE_ROOT}"
+        --distribution "${SKY_SHADER_DISTRIBUTION}" --destination "${_sky_runtime_destination}"
+        ${_sky_runtime_stage_arguments}
     COMMENT "Deploying engine + project configs"
 )
+add_dependencies(Launcher {{PROJECT_NAME}}Deploy)
 
 function(_sky_collect_imported_runtimes directory result)
     get_property(_imported DIRECTORY "${directory}" PROPERTY IMPORTED_TARGETS)
     set(_runtime_files "")
     set(_linked_files "")
     foreach (_target IN LISTS _imported)
+        if(NOT SKY_DEVELOP AND _target STREQUAL "3rdParty::slang")
+            continue()
+        endif()
         # Directory inventories can include non-global imports invisible here.
         if (NOT TARGET "${_target}")
             continue()
@@ -163,6 +184,9 @@ if (APPLE AND _sky_launcher_bundle)
         get_property(_targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
         set(_runtime_targets "")
         foreach (_target IN LISTS _targets)
+            if(NOT SKY_DEVELOP AND _target STREQUAL "Aurora.ShaderCompiler")
+                continue()
+            endif()
             get_target_property(_type "${_target}" TYPE)
             if (_type STREQUAL "SHARED_LIBRARY" OR _type STREQUAL "MODULE_LIBRARY")
                 list(APPEND _runtime_targets "${_target}")

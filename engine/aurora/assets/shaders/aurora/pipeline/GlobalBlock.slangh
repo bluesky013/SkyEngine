@@ -1,10 +1,22 @@
 // Generated from aurora/pipeline/GlobalBlock.h; do not edit.
-// Inputs: e5b77f9c5542857907f11e9782999ff9f5c9080ec9558cddc00e5ec9725d1a99; exporter: ed27450933626b059e4cab2404f0cdbfa74997eba0ec16ed5381f2eb9de30038
+// Inputs: 7bdf84b3f28cc9e35c2d7944740906b49c770419bf59c95e7232c133b1d0f3bf; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
 #pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
 
 struct GlobalParams
 {
-    float4 frameTime;
+    [AuroraField("frameTime")] float4 frameTime;
 };
+[AuroraResource(0, 0, "aurora/pipeline/GlobalBlock.h")]
 [[vk::binding(0, 0)]] ConstantBuffer<GlobalParams> gGlobal
-    : register(b0, space0);
+#if !AURORA_TARGET_MSL
+    : register(b0, space0)
+#endif
+;

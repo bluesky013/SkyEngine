@@ -307,7 +307,9 @@ namespace sky::aurora {
         if (image) {
             const auto &layout = *entry->candidate->metadata.image;
             const auto &desc   = image->descriptor;
-            const auto  format = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT : PixelFormat::RGBA8_UNORM;
+            const auto  format = layout.format == RenderImageFormat::RGBA16_FLOAT ? PixelFormat::RGBA16_SFLOAT
+                                 : layout.format == RenderImageFormat::RGBA8_SRGB ? PixelFormat::RGBA8_SRGB
+                                                                                  : PixelFormat::RGBA8_UNORM;
             if (!image->image || !image->tracking || image->state != ImageLayout::GENERAL || desc.imageType != ImageType::IMAGE_2D ||
                 desc.extent.width != layout.width || desc.extent.height != layout.height || desc.extent.depth != 1 ||
                 desc.mipLevels != layout.mipLevels || desc.arrayLayers != layout.arrayLayers || desc.format != format ||
@@ -372,10 +374,10 @@ namespace sky::aurora {
             found->second.released   = true;
         }
     }
-    size_t ResourceCatalog::Prune(const CpuSceneStore &store)
+    size_t ResourceCatalog::Prune(const CpuSceneStore &store, std::span<const RenderResourceKey> external)
     {
         state->Refresh(store);
-        std::set<RenderResourceKey, KeyLess> keep;
+        std::set<RenderResourceKey, KeyLess> keep(external.begin(), external.end());
         for (const auto &[slot, subscription] : state->subscriptions) {
             if (!subscription.active)
                 continue;

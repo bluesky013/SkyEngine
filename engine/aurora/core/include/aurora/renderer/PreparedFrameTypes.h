@@ -37,13 +37,13 @@ namespace sky::aurora {
 
     enum class PreparedDrawList : uint8_t { VISIBLE, SHADOW_CASTERS };
 
-    // Geometry and material bytes are owned; the consuming pass supplies all shader bindings.
+    // Geometry and typed material values are owned until the frame retires.
     struct ResolvedRasterDraw {
-        RasterDraw                     draw;
-        Matrix4                        world = RenderIdentityMatrix();
-        std::vector<RenderUniformData> material;
-        bool                           receiveShadow = true;
-        RenderEntityRef                entity;
+        RasterDraw               draw;
+        Matrix4                  world = RenderIdentityMatrix();
+        RenderMaterialParameters material;
+        bool                     receiveShadow = true;
+        RenderEntityRef          entity;
     };
 
     struct PreparedFrame {

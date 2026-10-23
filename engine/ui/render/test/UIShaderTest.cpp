@@ -6,14 +6,16 @@
 #include <core/platform/Platform.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <string>
+#include <string_view>
 
 namespace sky::ui {
 
     namespace {
 
         struct UIShaderEntry {
-            const char *name;
+            const char                *name;
             aurora::ShaderStageFlagBit stage;
         };
 
@@ -23,21 +25,30 @@ namespace sky::ui {
             {
                 SCOPED_TRACE(GetParam().name);
                 aurora::ShaderCompilerSlang compiler;
-                aurora::ShaderCompileDesc request{};
-                request.source = detail::UI_SHADER_SOURCE;
-                request.entry = GetParam().name;
-                request.stage = GetParam().stage;
-                request.target = target;
+                aurora::ShaderCompileDesc   request{};
+                request.source     = detail::UI_SHADER_SOURCE;
+                request.sourcePath = "ui/UIShader.slang";
+                request.entry      = GetParam().name;
+                request.stage      = GetParam().stage;
+                request.target     = target;
 
                 aurora::ShaderCompileResult result;
                 ASSERT_TRUE(compiler.Compile(request, result)) << result.errorInfo;
                 ASSERT_FALSE(result.data.empty());
+                std::string error;
+                EXPECT_TRUE(aurora::ValidateShaderArtifact(result, error)) << error;
+                EXPECT_EQ(result.reflection.resources.size(), std::string_view(GetParam().name) == "fs_main" ? 2u : 0u);
+                EXPECT_EQ(result.reflection.declarations.size(), 2u);
                 if (target == aurora::ShaderTarget::SPIRV) {
-                    EXPECT_EQ(result.data[0], 0x07230203u);
+                    ASSERT_GE(result.data.size(), sizeof(uint32_t));
+                    uint32_t magic = 0;
+                    std::memcpy(&magic, result.data.data(), sizeof(magic));
+                    EXPECT_EQ(magic, 0x07230203u);
                 } else if (target == aurora::ShaderTarget::MSL) {
-                    const std::string source(reinterpret_cast<const char *>(result.data.data()), result.data.size() * sizeof(uint32_t));
+                    const std::string source(reinterpret_cast<const char *>(result.data.data()), result.data.size());
                     EXPECT_NE(source.find("metal_stdlib"), std::string::npos);
                 } else {
+                    ASSERT_GE(result.data.size(), 4u);
                     const char *bytes = reinterpret_cast<const char *>(result.data.data());
                     EXPECT_EQ(std::string(bytes, 4), "DXBC");
                 }
@@ -63,11 +74,12 @@ namespace sky::ui {
 #endif
         }
 
-        INSTANTIATE_TEST_SUITE_P(Entries, UIShaderTest,
-                                testing::Values(UIShaderEntry{"vs_main", aurora::ShaderStageFlagBit::VS},
-                                                UIShaderEntry{"fs_main", aurora::ShaderStageFlagBit::FS},
-                                                UIShaderEntry{"fs_round", aurora::ShaderStageFlagBit::FS}),
-                                [](const testing::TestParamInfo<UIShaderEntry> &info) { return info.param.name; });
+        INSTANTIATE_TEST_SUITE_P(Entries,
+                                 UIShaderTest,
+                                 testing::Values(UIShaderEntry{"vs_main", aurora::ShaderStageFlagBit::VS},
+                                                 UIShaderEntry{"fs_main", aurora::ShaderStageFlagBit::FS},
+                                                 UIShaderEntry{"fs_round", aurora::ShaderStageFlagBit::FS}),
+                                 [](const testing::TestParamInfo<UIShaderEntry> &info) { return info.param.name; });
 
     } // namespace
 

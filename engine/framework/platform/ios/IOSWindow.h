@@ -15,12 +15,13 @@ namespace sky {
         IOSWindow() = default;
         ~IOSWindow() override;
 
-        bool  Init(const Descriptor &desc) override;
-        void *GetNativeHandle() const override;
-        float GetDpiScale() const override;
-        void  SetTitle(const std::string &title) override;
-        bool  IsMainWindow() const override;
-        void *GetWindowScene() const;
+        bool                        Init(const Descriptor &desc) override;
+        void                       *GetNativeHandle() const override;
+        std::shared_ptr<const void> RetainNativeHandle() const override;
+        float                       GetDpiScale() const override;
+        void                        SetTitle(const std::string &title) override;
+        bool                        IsMainWindow() const override;
+        void                       *GetWindowScene() const;
 
         // A disconnected scene drops only the UIKit surface. The registered
         // engine window and its ID survive until Close() or destruction.

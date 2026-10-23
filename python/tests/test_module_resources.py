@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import sys
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -114,6 +115,46 @@ class ModuleResourcesTest(unittest.TestCase):
         self.assertEqual((destination / 'mesh.bin').read_bytes(), b'mesh')
         self.assertFalse((destination / 'stale.bin').exists())
         self.assertFalse((destination / 'shaders/obsolete.slang').exists())
+
+    def test_root_staging_handles_android_and_single_configuration_output_directories(self):
+        repository = Path(__file__).resolve().parents[2]
+        root_cmake = (repository / 'CMakeLists.txt').read_text()
+        block = root_cmake[root_cmake.index('get_property(module_resource_configs'):root_cmake.index('if(SKY_BUILD_TEST)',
+                            root_cmake.index('get_property(module_resource_configs'))]
+        cases = [('', None, False), ('Release', None, False), ('Develop', None, True)]
+        if shutil.which('ninja'):
+            cases += [('Release', 'Ninja Multi-Config', False), ('Develop', 'Ninja Multi-Config', True)]
+        for configuration, generator, custom_develop_output in cases:
+            with self.subTest(configuration=configuration, generator=generator):
+                source = self.root / ('cmake-' + (configuration or 'default') + ('-multi' if generator else ''))
+                source.mkdir()
+                output = source / 'native-libraries' if configuration else source / 'build/runtime-resources'
+                develop_output = source / 'explicit-develop-output'
+                (source / 'CMakeLists.txt').write_text(
+                    'cmake_minimum_required(VERSION 3.20)\nproject(Stage NONE)\n'
+                    'set(ANDROID TRUE)\n'
+                    + ('set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "' + output.as_posix() + '")\n' if configuration else '')
+                    + ('set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEVELOP "' + develop_output.as_posix() + '")\n'
+                       if custom_develop_output else '')
+                    + 'include("' + (repository / 'cmake/build_configurations.cmake').as_posix() + '")\n'
+                    + 'include("' + (repository / 'cmake/module_resources.cmake').as_posix() + '")\n'
+                    'sky_register_module_resources(CONFIG "' + (repository / 'engine/aurora/resources.json').as_posix() + '")\n'
+                    'add_library(Aurora.Render SHARED IMPORTED GLOBAL)\n'
+                    'set_target_properties(Aurora.Render PROPERTIES IMPORTED_LOCATION "' + (output / 'libAurora.Render.so').as_posix() + '")\n'
+                    + block, encoding='utf-8')
+                configure = ['cmake', '-S', str(source), '-B', str(source / 'build'), '-DCMAKE_BUILD_TYPE=' + configuration]
+                if generator:
+                    configure += ['-G', generator]
+                subprocess.run(configure, check=True, capture_output=True, text=True)
+                result = subprocess.run(['cmake', '--build', str(source / 'build'), '--config', configuration or 'Debug',
+                                         '--target', 'ShaderResources.Stage'], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                if custom_develop_output:
+                    output = develop_output
+                elif generator:
+                    output /= configuration
+                self.assertTrue((output / 'assets/shaders' / MANIFEST).is_file())
+                self.assertFalse((output / configuration / 'assets/shaders' / MANIFEST).is_file() if configuration else False)
 
 
 if __name__ == '__main__':

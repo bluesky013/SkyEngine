@@ -30,6 +30,8 @@ class AndroidRuntimeManifestTest(unittest.TestCase):
                 "project(RuntimeManifest NONE)\n"
                 "set(ANDROID TRUE)\n"
                 "set(CMAKE_ANDROID_ARCH_ABI arm64-v8a)\n"
+                "add_library(3rdParty::slang SHARED IMPORTED GLOBAL)\n"
+                "set_target_properties(3rdParty::slang PROPERTIES IMPORTED_LOCATION /runtime/libslang-compiler.so)\n"
                 "add_library(RuntimeCompiler SHARED IMPORTED GLOBAL)\n"
                 "set_target_properties(RuntimeCompiler PROPERTIES\n"
                 "  IMPORTED_CONFIGURATIONS \"DEBUG;RELEASE\"\n"

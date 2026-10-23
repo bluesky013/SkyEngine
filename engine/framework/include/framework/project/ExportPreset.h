@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,18 @@ namespace sky {
     struct ExportPresetCacheVariable {
         std::string key;
         std::string value;
+    };
+
+    // Edited as typed entries; serialized as the target-keyed object consumed by the shader cooker.
+    struct ExportPresetShaderEnvironment {
+        std::string              target;
+        uint32_t                 codeFormat = 0; // Zero omits the override and selects the target default.
+        std::string              profile;
+        uint32_t                 minimumVersion       = 0;
+        uint64_t                 requiredCapabilities = 0;
+        uint32_t                 matrixLayout         = 0;
+        std::vector<std::string> options;
+        bool                     operator==(const ExportPresetShaderEnvironment &) const = default;
     };
 
     // One packaging distribution (an entry of `export_presets.json`). The same
@@ -38,8 +51,9 @@ namespace sky {
         std::string provisioningProfile;
 
         // Bundles to package (empty => cook-config distribution default).
-        std::vector<std::string> bundles;
-        std::vector<std::string> shaderTargets;
+        std::vector<std::string>                   bundles;
+        std::vector<std::string>                   shaderTargets;
+        std::vector<ExportPresetShaderEnvironment> shaderEnvironments;
 
         // Android.
         std::vector<std::string> abis;

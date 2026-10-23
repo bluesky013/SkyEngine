@@ -4,8 +4,8 @@
 
 #include <MetalSampler.h>
 
-#include <MetalDevice.h>
 #include "MetalUtils.h"
+#include <MetalDevice.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraMetal";
@@ -14,6 +14,11 @@ namespace sky::aurora {
 
     MetalSampler::MetalSampler(MetalDevice &dev) : device(dev)
     {
+    }
+
+    const Device *MetalSampler::GetDevice() const noexcept
+    {
+        return &device;
     }
 
     MetalSampler::~MetalSampler()
@@ -31,6 +36,14 @@ namespace sky::aurora {
             LOG_E(TAG, "invalid Metal device for sampler creation");
             return false;
         }
+        const bool extendedModes = SupportsMetalFamily7OrMac2(metalDevice);
+        const auto addressU      = ToMetalAddressMode(desc.addressModeU, extendedModes);
+        const auto addressV      = ToMetalAddressMode(desc.addressModeV, extendedModes);
+        const auto addressW      = ToMetalAddressMode(desc.addressModeW, extendedModes);
+        if (!addressU || !addressV || !addressW) {
+            LOG_E(TAG, "unsupported Metal sampler address mode");
+            return false;
+        }
 
         const bool anisotropyEnabled = desc.anisotropyEnable && device.GetCapability().anisotropyEnable;
         if (desc.anisotropyEnable && !anisotropyEnabled) {
@@ -41,9 +54,9 @@ namespace sky::aurora {
         samplerDesc.minFilter     = ToMetalFilter(desc.minFilter);
         samplerDesc.magFilter     = ToMetalFilter(desc.magFilter);
         samplerDesc.mipFilter     = ToMetalMipFilter(desc.mipmapMode);
-        samplerDesc.sAddressMode  = ToMetalAddressMode(desc.addressModeU);
-        samplerDesc.tAddressMode  = ToMetalAddressMode(desc.addressModeV);
-        samplerDesc.rAddressMode  = ToMetalAddressMode(desc.addressModeW);
+        samplerDesc.sAddressMode  = *addressU;
+        samplerDesc.tAddressMode  = *addressV;
+        samplerDesc.rAddressMode  = *addressW;
         samplerDesc.lodMinClamp   = desc.minLod;
         samplerDesc.lodMaxClamp   = desc.maxLod;
         samplerDesc.maxAnisotropy = anisotropyEnabled ? static_cast<NSUInteger>(desc.maxAnisotropy) : 1U;

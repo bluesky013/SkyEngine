@@ -4,9 +4,10 @@
 
 #include <MetalDevice.h>
 
+#include "MetalDescriptorBatch.h"
+#include "MetalUtils.h"
 #include <MetalBuffer.h>
 #include <MetalCommandPool.h>
-#include "MetalDescriptorBatch.h"
 #include <MetalImage.h>
 #include <MetalInstance.h>
 #include <MetalPipelineState.h>
@@ -15,7 +16,6 @@
 #include <MetalShader.h>
 #include <MetalSwapChain.h>
 #include <MetalSync.h>
-#include "MetalUtils.h"
 #include <core/logger/Logger.h>
 
 #include "MetalBlitHelper.h"
@@ -42,21 +42,23 @@ namespace sky::aurora {
         template <typename T, typename D>
         T *CreateAndInit(MetalDevice &device, const D &desc)
         {
-            auto *object = new T(device);
-            if (!object->Init(desc)) {
-                delete object;
-                return nullptr;
+            @autoreleasepool {
+                auto *object = new T(device);
+                if (!object->Init(desc)) {
+                    delete object;
+                    return nullptr;
+                }
+                return object;
             }
-            return object;
         }
 
         // MTL pixel formats that support shader-write (storage / UAV) usage.
         bool IsStorageCapableFormat(MTLPixelFormat format)
         {
             static const MTLPixelFormat capable[] = {
-                MTLPixelFormatR8Unorm,      MTLPixelFormatR8Uint,        MTLPixelFormatR16Float,     MTLPixelFormatRG16Float,
-                MTLPixelFormatRGBA16Float,  MTLPixelFormatR32Float,      MTLPixelFormatRG32Float,    MTLPixelFormatRGBA32Float,
-                MTLPixelFormatR32Uint,      MTLPixelFormatRG32Uint,      MTLPixelFormatRGBA32Uint,   MTLPixelFormatRGBA8Unorm,
+                MTLPixelFormatR8Unorm,     MTLPixelFormatR8Uint,   MTLPixelFormatR16Float,   MTLPixelFormatRG16Float,
+                MTLPixelFormatRGBA16Float, MTLPixelFormatR32Float, MTLPixelFormatRG32Float,  MTLPixelFormatRGBA32Float,
+                MTLPixelFormatR32Uint,     MTLPixelFormatRG32Uint, MTLPixelFormatRGBA32Uint, MTLPixelFormatRGBA8Unorm,
             };
             for (MTLPixelFormat candidate : capable) {
                 if (candidate == format) {
@@ -238,7 +240,7 @@ namespace sky::aurora {
 
     DescriptorBatch *MetalDevice::CreateDescriptorBatch()
     {
-        return new MetalDescriptorBatch();
+        return new MetalDescriptorBatch(*this);
     }
 
     SwapChain *MetalDevice::CreateSwapChain(const SwapChain::Descriptor &desc)
@@ -269,7 +271,7 @@ namespace sky::aurora {
     PixelFormatFeatureFlags MetalDevice::GetFormatFeatureFlags(PixelFormat format) const
     {
         const MTLPixelFormat mtlFormat = ToMetalPixelFormat(format);
-        if (mtlFormat == MTLPixelFormatInvalid) {
+        if (!SupportsMetalPixelFormat((__bridge id<MTLDevice>)metalDevice, format)) {
             return {};
         }
 

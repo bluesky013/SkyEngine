@@ -3,6 +3,8 @@
 // async worker run of the extracted compile payload.
 //
 
+#include "ShaderArtifactTest.h"
+
 #include <aurora/shader/ShaderCacheWriter.h>
 #include <aurora/shader/ShaderCompileTask.h>
 #include <aurora/shader/ShaderFileSystem.h>
@@ -44,13 +46,15 @@ namespace {
 
     class FakeCompiler : public IShaderCompiler {
     public:
-        std::atomic<int> count{0};
-        bool             Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
+        std::atomic<int>       count{0};
+        ShaderProducerIdentity GetProducerIdentity() const override
+        {
+            return test::TestProducer();
+        }
+        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
         {
             ++count;
-            out.data       = {static_cast<uint32_t>(desc.source.size())};
-            out.reflection = ShaderReflection{};
-            return true;
+            return test::TestCompile(desc, GetProducerIdentity(), out);
         }
     };
 
@@ -138,9 +142,8 @@ TEST(ShaderCompileTaskTest, RunAsyncAndCacheHit)
 
     writer.Flush();
 
-    // second resolve with no source hits the writer snapshot, no recompile
-    ShaderFileSystem emptySource;
-    ShaderResolver   cached(offline, local, emptySource, 1, 2);
+    // Development hits require the same source closure and producer identity.
+    ShaderResolver cached(offline, local, source, 1, 2);
     cached.SetCacheWriter(&writer);
     ShaderCompileResult out;
     ASSERT_TRUE(cached.ResolveShader(MakeRequest(), out, nullptr));

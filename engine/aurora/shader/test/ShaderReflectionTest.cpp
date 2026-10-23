@@ -16,13 +16,17 @@ using namespace sky::aurora;
 namespace {
 
     const char *kBlockHeader = R"(
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
 struct GlobalParams {
-    float4x4 view;
-    float4x4 proj;
-    float4x4 viewProj;
-    float4 cameraPos;
+    [AuroraField("view")] float4x4 view;
+    [AuroraField("proj")] float4x4 proj;
+    [AuroraField("viewProj")] float4x4 viewProj;
+    [AuroraField("cameraPos")] float4 cameraPos;
 };
-[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal;
+[AuroraResource(0,0,"fixture/ReflectionBlock.h")] [[vk::binding(0,0)]] ConstantBuffer<GlobalParams> gGlobal;
 )";
 
     const char *kIncludeShader = R"(
@@ -52,7 +56,10 @@ float4 mainFS() : SV_Target
         if (!compiler.ReflectBlocks(kBlockHeader, ShaderTarget::SPIRV, reflection, error)) {
             return nullptr;
         }
-        return FindGlobalBlock(reflection);
+        for (const auto &block : reflection.declaredBlocks)
+            if (block.structName == "GlobalParams")
+                return &block;
+        return nullptr;
     }
 
     bool CompileWithFileSystem(ShaderFileSystem &fs, ShaderCompileResult &result)

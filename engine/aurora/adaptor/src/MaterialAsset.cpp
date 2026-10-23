@@ -24,34 +24,37 @@ namespace sky::aurora {
 
     namespace {
 
-        void ResolveTexture(Device *device, Material &material, const Name &name, const Uuid &uuid)
+        bool ResolveTexture(Device *device, Material &material, const Name &name, const Uuid &uuid)
         {
-            if (!uuid) {
-                return;
-            }
+            if (!uuid)
+                return true;
             auto *manager = AssetManager::Get();
-            if (manager == nullptr) {
-                return;
-            }
+            if (manager == nullptr)
+                return false;
             auto textureAsset = manager->LoadAsset<Texture>(uuid);
             if (!textureAsset) {
                 LOG_W(TAG, "material texture asset not resolved: %s", std::string(uuid.ToString()).c_str());
-                return;
+                return false;
             }
             const CounterPtr<Texture> &texture =
                 textureAsset->GetOrCreateResource([device](Asset<Texture> &asset) { return CreateTextureFromAsset(device, asset); });
-            material.SetTexture(name, texture);
+            return texture && material.SetTexture(name, texture);
         }
 
-        void ApplyValueOverride(MaterialInstance &instance, const MaterialInstanceValueOverride &override)
+        bool ApplyValueOverride(MaterialInstance &instance, const MaterialInstanceValueOverride &override)
         {
+            if (!MaterialPropertyValueMatches(override.type, override.value))
+                return false;
             const Name name(override.name.c_str());
-            std::visit(
-                [&](const auto &v) {
-                    using T = std::decay_t<decltype(v)>;
-                    if constexpr (!std::is_same_v<T, Uuid>) {
-                        instance.SetValue(name, v);
-                    }
+            return std::visit(
+                [&](const auto &value) {
+                    using T = std::decay_t<decltype(value)>;
+                    if constexpr (std::is_same_v<T, Uuid>)
+                        return false;
+                    else if constexpr (std::is_same_v<T, Sampler::Descriptor>)
+                        return instance.SetSampler(name, value);
+                    else
+                        return instance.SetValue(name, value);
                 },
                 override.value);
         }
@@ -70,27 +73,38 @@ namespace sky::aurora {
             return {};
         }
 
+        std::string error;
+        if (!ValidateMaterialAssetData(data, error)) {
+            LOG_E(TAG, "%s", error.c_str());
+            return {};
+        }
         CounterPtr<Material> material = new Material();
 
         for (const auto &src : data.techniques) {
             MaterialTechnique technique;
             technique.techniqueTag = Name(src.tag.c_str());
             technique.program      = src.program;
-            technique.uniforms     = src.uniforms;
+            technique.aliases      = src.aliases;
             technique.renderState  = src.renderState;
-            material->AddTechnique(technique);
+            if (!material->AddTechnique(technique))
+                return {};
         }
 
         for (const auto &src : data.properties) {
             const Name name(src.name.c_str());
-            if (IsTextureProperty(src.type)) {
-                material->AddTexture(name, src.type);
-                if (const Uuid *texture = std::get_if<Uuid>(&src.value); texture != nullptr) {
-                    ResolveTexture(device, *material, name, *texture);
-                }
-            } else {
-                std::visit([&](const auto &v) { material->AddValue(name, src.type, &v); }, src.value);
-            }
+            const bool success = std::visit(
+                [&](const auto &value) {
+                    using T = std::decay_t<decltype(value)>;
+                    if constexpr (std::is_same_v<T, Uuid>)
+                        return material->AddTexture(name, src.type) && ResolveTexture(device, *material, name, value);
+                    else if constexpr (std::is_same_v<T, Sampler::Descriptor>)
+                        return material->AddSampler(name, value);
+                    else
+                        return material->AddValue(name, src.type, &value);
+                },
+                src.value);
+            if (!success)
+                return {};
         }
 
         return material;
@@ -127,7 +141,8 @@ namespace sky::aurora {
         instance->SetMaterial(material);
 
         for (const auto &override : data.valueOverrides) {
-            ApplyValueOverride(*instance, override);
+            if (!ApplyValueOverride(*instance, override))
+                return {};
         }
         for (const auto &override : data.textureOverrides) {
             if (!override.texture) {
@@ -139,7 +154,8 @@ namespace sky::aurora {
             }
             const CounterPtr<Texture> &texture =
                 textureAsset->GetOrCreateResource([device](Asset<Texture> &value) { return CreateTextureFromAsset(device, value); });
-            instance->SetTexture(Name(override.name.c_str()), texture);
+            if (!texture || !instance->SetTexture(Name(override.name.c_str()), texture))
+                return {};
         }
 
         return instance;

@@ -27,7 +27,7 @@ namespace sky::aurora {
         {
             return descriptor.size;
         }
-        const Descriptor &GetDescriptor() const
+        const Descriptor &GetDescriptor() const override
         {
             return descriptor;
         }

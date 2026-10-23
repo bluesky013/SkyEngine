@@ -194,7 +194,7 @@ TEST_P(EditorHostNativeTest, SelectionOutlineUsesSceneDepthAndClearsWithoutChang
                 "float4 VSMain(float3 p:POSITION):SV_Position { return mul(gOpaquePass.viewProjection,mul(gSceneBatch.world,float4(p,1))); }\n"
                 "float4 FSMain():SV_Target { return float4(.1,.1,.1,1); }");
             material.material->techniques.front().program.depth = {.test = true, .write = true};
-            material.material->techniques.front().uniforms.clear();
+            material.material->techniques.front().parameters    = {};
             RenderEntityDesc selected;
             selected.mesh        = {mesh.resource, 1};
             selected.material    = {material.resource, 1};
@@ -312,7 +312,7 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
                                                     .fragment = {.relativePath = "aurora/materials/Unlit.slang", .entry = "FSMain"}};
     technique.renderState.depthStencil.depthTest = technique.renderState.depthStencil.depthWrite = true;
     technique.renderState.depthStencil.compareOp                                                 = CompareOp::LESS_OR_EQUAL;
-    technique.uniforms          = {{.binding = 2, .fields = {{.property = "tint", .member = "tint"}, {.property = "surface", .member = "surface"}}}};
+    technique.aliases           = {{"tint", "gMaterial.tint"}, {"surface", "gMaterial.surface"}};
     authored->Data().techniques = {technique};
     authored->Data().properties = {{.name = "tint", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.2f, .6f, .9f, 1}},
                                    {.name = "surface", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.5f, 0, 0, 0}}};

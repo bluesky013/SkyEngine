@@ -29,7 +29,7 @@ namespace sky::aurora {
     {
         const auto result = TrySubmit(info);
         if (result.status != QueueSubmitStatus::ACCEPTED)
-            LOG_E(TAG, "Queue submission failed: %lld", result.error.nativeCode);
+            LOG_E(TAG, "Queue submission failed: %lld", static_cast<long long>(result.error.nativeCode));
     }
 
     QueueSubmitResult VulkanQueue::TrySubmit(const SubmitInfo &info) noexcept

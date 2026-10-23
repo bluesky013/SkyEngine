@@ -127,11 +127,10 @@ namespace sky::aurora {
     } // namespace
 
     ShaderResolver::ShaderResolver(
-        sky::IFileSystem *offlineRoot, sky::IFileSystem *localRoot, ShaderFileSystem &sourceFs, uint64_t layoutFp, uint64_t toolchainFp)
-        : mOffline(offlineRoot), mLocal(localRoot), mSourceFs(sourceFs), mLayoutFp(layoutFp), mToolchainFp(toolchainFp)
+        sky::IFileSystem *offlineRoot, sky::IFileSystem *localRoot, ShaderFileSystem &sourceFs, uint64_t layoutFp, uint64_t, ShaderResolveMode mode)
+        : mOffline(offlineRoot), mLocal(localRoot), mSourceFs(sourceFs), mLayoutFp(layoutFp), mMode(mode)
     {
     }
-
     bool ShaderResolver::HashSourceClosure(
         ShaderFileSystem &fs, const std::string &relativePath, const std::vector<std::string> &extraDeps, uint64_t &outHash, std::string &outSource)
     {
@@ -141,15 +140,15 @@ namespace sky::aurora {
     bool ShaderResolver::ResolveSchema(
         const std::string &relativePath, uint32_t target, ShaderVariantSchema &outSchema, uint64_t &outSchemaFp, std::string *error)
     {
-        ShaderCompanion companion;
-        if (LoadShaderCompanion(mSourceFs, relativePath, companion, nullptr)) {
-            outSchema   = companion.schema;
-            outSchemaFp = companion.fingerprint;
-            return true;
+        if (mMode == ShaderResolveMode::DEVELOPMENT) {
+            ShaderCompanion companion;
+            if (LoadShaderCompanion(mSourceFs, relativePath, companion, nullptr)) {
+                outSchema   = companion.schema;
+                outSchemaFp = HashSchema(companion.schema);
+                return true;
+            }
         }
-
-        const std::string subDir = ShaderTargetDirName(target);
-        for (sky::IFileSystem *root : {mOffline, mLocal}) {
+        for (auto *root : {mOffline, mMode == ShaderResolveMode::DEVELOPMENT ? mLocal : nullptr}) {
             if (root == nullptr) {
                 continue;
             }
@@ -160,148 +159,151 @@ namespace sky::aurora {
                 continue;
             }
             ShaderCacheIndex index;
-            if (!LoadIndex(*root, subDir, index)) {
+            if (!LoadIndex(*root, ShaderTargetDirName(target), index)) {
                 continue;
             }
-            if (index.formatVersion != ShaderCacheIndex::kFormatVersion || index.toolchainFp != mToolchainFp || index.layoutFp != mLayoutFp) {
-                continue;
-            }
-            const ShaderCachePathEntry *pe = FindPathEntry(index, relativePath);
-            if (pe != nullptr && pe->schemaFp != 0) {
-                outSchema   = pe->schema;
-                outSchemaFp = pe->schemaFp;
+            const auto *entry = FindPathEntry(index, relativePath);
+            if (entry != nullptr) {
+                outSchema   = entry->schema;
+                outSchemaFp = entry->schemaFp;
                 return true;
             }
         }
-
         if (error != nullptr) {
-            *error = "schema not found: " + relativePath;
+            *error = "shader schema absent or requires recook: " + relativePath;
         }
         return false;
     }
-    bool ShaderResolver::CacheUsable(
-        sky::IFileSystem &root, const Request &req, uint64_t schemaFp, bool haveSource, uint64_t sourceHash, uint64_t &outSourceHash)
-    {
-        ShaderCacheIndex index;
-        if (!LoadIndex(root, ShaderTargetDirName(req.target), index)) {
-            return false;
-        }
-        if (index.formatVersion != ShaderCacheIndex::kFormatVersion || index.toolchainFp != mToolchainFp || index.layoutFp != mLayoutFp) {
-            return false;
-        }
-        const ShaderCachePathEntry *pe = FindPathEntry(index, req.relativePath);
-        if (pe == nullptr || pe->schemaFp != schemaFp) {
-            return false;
-        }
-        const ShaderCacheArtifact *art = FindArtifact(*pe, req.variantHash, req.target, static_cast<uint32_t>(req.stage), HashEntryName(req.entry));
-        if (art == nullptr) {
-            return false;
-        }
-        if (haveSource && art->sourceHash != sourceHash) {
-            return false;
-        }
-        outSourceHash = art->sourceHash;
-        return true;
-    }
     ShaderResolveStatus
-    ShaderResolver::PrepareShader(const Request &req, ShaderCompileResult &outResult, ShaderCompileTask &outTask, std::string *error)
+    ShaderResolver::PrepareShader(const Request &request, ShaderCompileResult &outResult, ShaderCompileTask &outTask, std::string *error)
     {
-        ShaderVariantSchema        localSchema;
-        uint64_t                   schemaFp = req.schemaFp;
-        const ShaderVariantSchema *schema   = req.schema;
+        auto fail = [error](const std::string &message) {
+            if (error != nullptr) {
+                *error = message;
+            }
+            return ShaderResolveStatus::Failed;
+        };
+        if (request.target > static_cast<uint32_t>(ShaderTarget::DXIL) || request.relativePath.empty() || request.entry.empty()) {
+            return fail("invalid shader request");
+        }
+        ShaderVariantSchema localSchema;
+        const auto         *schema   = request.schema;
+        uint64_t            schemaFp = request.schemaFp;
         if (schema == nullptr) {
-            if (!ResolveSchema(req.relativePath, req.target, localSchema, schemaFp, error)) {
+            if (!ResolveSchema(request.relativePath, request.target, localSchema, schemaFp, error)) {
                 return ShaderResolveStatus::Failed;
             }
             schema = &localSchema;
         }
-
+        std::string validation;
+        if (!schema->Validate(&validation)) {
+            return fail(validation);
+        }
+        const auto actualSchemaFp = HashSchema(*schema);
+        if (schemaFp != 0 && schemaFp != actualSchemaFp) {
+            return fail("shader schema fingerprint mismatch");
+        }
+        schemaFp         = actualSchemaFp;
+        auto environment = request.environment;
+        if (environment == ShaderTargetEnvironment{}) {
+            if (mMode == ShaderResolveMode::PRODUCTS) {
+                if (mOffline == nullptr ||
+                    !LoadShaderProductEnvironment(*mOffline, static_cast<ShaderTarget>(request.target), environment, validation)) {
+                    return fail(validation.empty() ? "PRODUCTS shader resolver has no published root" : validation);
+                }
+            } else {
+                environment = DefaultShaderEnvironment(static_cast<ShaderTarget>(request.target));
+            }
+        }
+        if (environment.target != static_cast<ShaderTarget>(request.target) || !NormalizeShaderEnvironment(environment, validation)) {
+            return fail(validation.empty() ? "shader request target/environment mismatch" : validation);
+        }
+        ShaderCacheKey key;
+        key.layoutFp    = mLayoutFp;
+        key.schemaFp    = schemaFp;
+        key.target      = request.target;
+        key.stage       = static_cast<uint32_t>(request.stage);
+        key.entryHash   = HashEntryName(request.entry);
+        key.sourcePath  = request.relativePath;
+        key.sourceEntry = request.entry;
+        key.environment = environment;
+        if (!CanonicalShaderVariants(request.variant, *schema, environment.target, key.variants, error)) {
+            return ShaderResolveStatus::Failed;
+        }
+        key.variantHash = HashShaderVariants(key.variants);
+        if (mMode == ShaderResolveMode::PRODUCTS) {
+            if (mOffline == nullptr) {
+                return fail("PRODUCTS shader resolver has no published root");
+            }
+            ShaderCacheIndex index;
+            if (!LoadIndex(*mOffline, ShaderTargetDirName(request.target), index)) {
+                return fail("published shader index absent, corrupt or requires recook");
+            }
+            const auto *entry  = FindPathEntry(index, request.relativePath);
+            const auto *record = entry != nullptr ? FindPublishedArtifact(*entry, PublishedRequest(key)) : nullptr;
+            if (record == nullptr) {
+                return fail("published shader request/environment not found: " + request.relativePath + ":" + request.entry);
+            }
+            ShaderBlobStore store(mOffline, nullptr);
+            if (!store.LoadArtifact(*record, outResult)) {
+                return fail(store.LastError());
+            }
+            return ShaderResolveStatus::Ready;
+        }
         uint64_t                          sourceHash = 0;
         std::string                       source;
         std::shared_ptr<ShaderFileSystem> snapshot;
-        const bool                        haveSource = CaptureSources(mSourceFs, req.relativePath, req.depends, sourceHash, source, snapshot);
-
-        auto makeKey = [&](uint64_t effectiveSourceHash) {
-            ShaderCacheKey k{};
-            k.sourceHash  = effectiveSourceHash;
-            k.variantHash = req.variantHash;
-            k.layoutFp    = mLayoutFp;
-            k.schemaFp    = schemaFp;
-            k.toolchainFp = mToolchainFp;
-            k.target      = req.target;
-            k.entryHash   = HashEntryName(req.entry);
-            k.stage       = static_cast<uint32_t>(req.stage);
-            return k;
-        };
-
-        // 1) offline cache
-        if (mOffline != nullptr) {
-            uint64_t effectiveSourceHash = sourceHash;
-            if (CacheUsable(*mOffline, req, schemaFp, haveSource, sourceHash, effectiveSourceHash)) {
-                ShaderBlobStore store(mOffline, mLocal, mLayoutFp, mToolchainFp);
-                if (store.Load(makeKey(effectiveSourceHash), outResult)) {
+        if (!CaptureSources(mSourceFs, request.relativePath, request.depends, sourceHash, source, snapshot)) {
+            return fail("DEVELOPMENT shader source not found: " + request.relativePath);
+        }
+        auto *compiler = ShaderCompilerFactory::Get().GetCompiler();
+        if (compiler == nullptr) {
+            return fail("DEVELOPMENT shader resolution requires a compiler producer identity");
+        }
+        key.sourceHash = sourceHash;
+        key.producer   = compiler->GetProducerIdentity(static_cast<ShaderTarget>(request.target));
+        if (key.producer.compiler.empty() || key.producer.version.empty() || !key.producer.adapterVersion ||
+            key.producer.reflectionVersion != ShaderReflection::kProtocolVersion) {
+            return fail("DEVELOPMENT shader target has no valid compiler producer identity");
+        }
+        key.toolchainFp = ShaderProducerFingerprint(key.producer);
+        for (auto *root : {mOffline, mLocal}) {
+            if (root == nullptr) {
+                continue;
+            }
+            ShaderBlobStore store(root, nullptr);
+            if (root == mLocal && mWriter != nullptr) {
+                ShaderCacheArtifact record;
+                if (mWriter->LookupArtifact(key, record) && store.LoadArtifact(record, outResult)) {
                     return ShaderResolveStatus::Ready;
                 }
+            } else if (store.Load(key, outResult)) {
+                return ShaderResolveStatus::Ready;
             }
         }
-
-        // 2) source compile -> hand the caller a self-contained task (no threading
-        //    decision here: inline render-parallel or async worker is up to caller)
-        IShaderCompiler *compiler = ShaderCompilerFactory::Get().GetCompiler();
-        if (haveSource && compiler != nullptr) {
-            outTask        = ShaderCompileTask{};
-            outTask.key    = makeKey(sourceHash);
-            outTask.source = std::move(source);
-            outTask.entry  = req.entry;
-            outTask.stage  = req.stage;
-            outTask.target = static_cast<ShaderTarget>(req.target);
-            if (req.variant != nullptr) {
-                outTask.variant = *req.variant;
-            }
-            outTask.schema       = *schema;
-            outTask.fileSystem   = std::move(snapshot);
-            outTask.relativePath = req.relativePath;
-            outTask.deps         = req.depends;
-            outTask.schemaFp     = schemaFp;
-            outTask.sourceHash   = sourceHash;
-            return ShaderResolveStatus::Compile;
+        ShaderCompileTask task;
+        task.key          = std::move(key);
+        task.source       = std::move(source);
+        task.entry        = request.entry;
+        task.stage        = request.stage;
+        task.target       = static_cast<ShaderTarget>(request.target);
+        task.schema       = *schema;
+        task.fileSystem   = std::move(snapshot);
+        task.relativePath = request.relativePath;
+        task.deps         = request.depends;
+        task.schemaFp     = schemaFp;
+        task.sourceHash   = sourceHash;
+        // The compiler receives effective macro values; runtime specialization is applied by the pipeline.
+        ShaderVariant compileVariant;
+        for (const auto &entry : task.key.variants) {
+            compileVariant.entries.push_back({Name(entry.name.c_str()), entry.value});
         }
-
-        // 3) local cache
-        if (mLocal != nullptr) {
-            uint64_t effectiveSourceHash = sourceHash;
-            bool     usable              = false;
-            if (mWriter != nullptr) {
-                ShaderCacheArtifact art;
-                if (mWriter->LookupArtifact(req.target, req.relativePath, schemaFp, req.variantHash, static_cast<uint32_t>(req.stage),
-                                            HashEntryName(req.entry), art) &&
-                    (!haveSource || art.sourceHash == sourceHash)) {
-                    effectiveSourceHash = art.sourceHash;
-                    usable              = true;
-                }
-            } else {
-                usable = CacheUsable(*mLocal, req, schemaFp, haveSource, sourceHash, effectiveSourceHash);
-            }
-            if (usable) {
-                ShaderBlobStore store(mLocal, mLocal, mLayoutFp, mToolchainFp);
-                if (store.Load(makeKey(effectiveSourceHash), outResult)) {
-                    return ShaderResolveStatus::Ready;
-                }
-            }
-        }
-
-        if (error != nullptr && error->empty()) {
-            *error = (haveSource && compiler == nullptr) ? "no compiler registered (cache miss)" : "shader missing";
-        }
-        return ShaderResolveStatus::Failed;
+        task.variant = std::move(compileVariant);
+        outTask      = std::move(task);
+        return ShaderResolveStatus::Compile;
     }
-
-    static void CommitArtifact(sky::IFileSystem          *local,
-                               ShaderCacheWriter         *writer,
-                               uint64_t                   layoutFp,
-                               uint64_t                   toolchainFp,
-                               const ShaderCompileTask   &task,
-                               const ShaderCompileResult &result)
+    static bool CommitArtifact(
+        sky::IFileSystem *local, ShaderCacheWriter *writer, const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error)
     {
         if (writer != nullptr) {
             ShaderCacheWriter::Pending pending;
@@ -312,58 +314,61 @@ namespace sky::aurora {
             pending.sourceHash   = task.sourceHash;
             pending.relativePath = task.relativePath;
             pending.deps         = task.deps;
-            writer->Submit(std::move(pending));
-        } else if (local != nullptr) {
-            ShaderBlobStore store(local, local, layoutFp, toolchainFp);
-            store.Store(task.key, result);
-            UpsertLocalArtifact(*local, ShaderTargetDirName(task.key.target), task.relativePath, task.schema, task.schemaFp, task.key,
-                                task.sourceHash, task.deps);
+            return writer->Submit(std::move(pending), error);
         }
-    }
-
-    void ShaderResolver::CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result)
-    {
-        CommitArtifact(mLocal, mWriter, mLayoutFp, mToolchainFp, task, result);
-    }
-    bool ShaderResolver::ResolveShader(const Request &req, ShaderCompileResult &out, std::string *error)
-    {
-        ShaderCompileTask         task;
-        const ShaderResolveStatus status = PrepareShader(req, out, task, error);
-        if (status == ShaderResolveStatus::Ready) {
+        if (local == nullptr) {
             return true;
         }
-        if (status == ShaderResolveStatus::Failed) {
+        ShaderBlobStore store(local, local);
+        if (!store.Store(task.key, result)) {
+            if (error != nullptr) {
+                *error = store.LastError();
+            }
             return false;
         }
-
-        IShaderCompiler    *compiler = ShaderCompilerFactory::Get().GetCompiler();
+        return UpsertLocalArtifact(*local, ShaderTargetDirName(task.key.target), task.relativePath, task.schema, task.schemaFp, task.key, result,
+                                   task.deps, error);
+    }
+    bool ShaderResolver::CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error)
+    {
+        if (mMode == ShaderResolveMode::PRODUCTS) {
+            if (error != nullptr) {
+                *error = "PRODUCTS shader resolver cannot publish compiles";
+            }
+            return false;
+        }
+        return CommitArtifact(mLocal, mWriter, task, result, error);
+    }
+    bool ShaderResolver::ResolveShader(const Request &request, ShaderCompileResult &out, std::string *error)
+    {
+        ShaderCompileTask task;
+        const auto        status = PrepareShader(request, out, task, error);
+        if (status != ShaderResolveStatus::Compile) {
+            return status == ShaderResolveStatus::Ready;
+        }
+        auto               *compiler = ShaderCompilerFactory::Get().GetCompiler();
         ShaderCompileResult result;
-        if (!task.Run(*compiler, result, error)) {
+        if (compiler == nullptr || !task.Run(*compiler, result, error) || !CommitCompile(task, result, error)) {
             return false;
         }
-        CommitCompile(task, result);
         out = std::move(result);
         return true;
     }
-
     ShaderResolveStatus
-    ShaderResolver::ResolveShaderAsync(const Request &req, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error)
+    ShaderResolver::ResolveShaderAsync(const Request &request, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error)
     {
-        ShaderCompileTask         task;
-        const ShaderResolveStatus status = PrepareShader(req, outResult, task, error);
+        ShaderCompileTask task;
+        const auto        status = PrepareShader(request, outResult, task, error);
         if (status != ShaderResolveStatus::Compile) {
             return status;
         }
-
         auto state      = std::make_shared<ShaderCompileFuture::State>();
         state->task     = std::move(task);
         state->compiler = ShaderCompilerFactory::Get().GetCompiler();
-        state->commit   = [local = mLocal, writer = mWriter, layout = mLayoutFp, toolchain = mToolchainFp](const ShaderCompileTask   &task,
-                                                                                                         const ShaderCompileResult &result) {
-            CommitArtifact(local, writer, layout, toolchain, task, result);
+        state->commit   = [local = mLocal, writer = mWriter](const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error) {
+            return CommitArtifact(local, writer, task, result, error);
         };
         outFuture.mState = std::move(state);
         return ShaderResolveStatus::Compile;
     }
-
 } // namespace sky::aurora

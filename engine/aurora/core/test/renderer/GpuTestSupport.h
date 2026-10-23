@@ -7,6 +7,7 @@
 #include <array>
 #include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/Instance.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
 #include <chrono>
 #include <cstring>
 #include <functional>
@@ -18,22 +19,120 @@ using namespace sky::aurora;
 using namespace std::chrono_literals;
 
 namespace {
-    ShaderReflection StorageReadReflection()
+    constexpr const char *kGpuResourceAttributes   = R"(
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+)";
+    constexpr const char *kGpuFullscreenSource     = R"(
+float4 VSMain(uint i : SV_VertexID) : SV_Position {
+    float2 positions[3] = {float2(-1,-1), float2(-1,3), float2(3,-1)};
+    return float4(positions[i], 0, 1);
+}
+float4 Red() : SV_Target { return float4(1,0,0,1); }
+float4 Green() : SV_Target { return float4(0,1,0,1); }
+)";
+    constexpr const char *kGpuComputeSource        = R"(
+[AuroraResource(0,0,"fixture/compute")] [[vk::binding(0,0)]] RWStructuredBuffer<uint> data : register(u0);
+[numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) { data[id.x] = id.x + 7; }
+[numthreads(1,1,1)] void Accumulate(uint3 id : SV_DispatchThreadID) { data[id.x] += 100; }
+)";
+    constexpr const char *kGpuComputeImageSource   = R"(
+[AuroraResource(0,0,"fixture/image")] [[vk::binding(0,0)]] RWTexture2D<float4> outputImage : register(u0);
+[numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) { outputImage[id.xy] = float4(0,1,0,1); }
+)";
+    constexpr const char *kGpuSampleSource         = R"(
+[AuroraResource(0,0,"fixture/sample")] [[vk::binding(0,0)]] Texture2D<float4> sourceTex : register(t0);
+[AuroraResource(0,1,"fixture/sample")] [[vk::binding(1,0)]] SamplerState sourceSampler : register(s1);
+float4 VSMain(uint i : SV_VertexID) : SV_Position {
+    float2 positions[3] = {float2(-1,-1), float2(-1,3), float2(3,-1)};
+    return float4(positions[i], 0, 1);
+}
+float4 PSMain(float4 position : SV_Position) : SV_Target { return sourceTex.Sample(sourceSampler, position.xy / 8.0); }
+)";
+    constexpr const char *kGpuComputeSampleSource  = R"(
+[AuroraResource(0,0,"fixture/compute-sample")] [[vk::binding(0,0)]] Texture2D<float4> sourceImage : register(t0);
+[AuroraResource(0,1,"fixture/compute-sample")] [[vk::binding(1,0)]] SamplerState sourceSampler : register(s1);
+[AuroraResource(1,0,"fixture/compute-sample")] [[vk::binding(0,1)]] RWStructuredBuffer<uint> values : register(u0, space1);
+[numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) {
+    values[0] = uint(sourceImage.SampleLevel(sourceSampler, float2(0.5), 0).g * 255);
+}
+)";
+    constexpr const char *kGpuStorageReadSource    = R"(
+[AuroraResource(0,0,"fixture/storage-read")] [[vk::binding(0,0)]] RWTexture2D<float4> image : register(u0);
+[AuroraResource(0,1,"fixture/storage-read")] [[vk::binding(1,0)]] RWStructuredBuffer<uint> outputData : register(u1);
+[AuroraResource(0,2,"fixture/storage-read")] [[vk::binding(2,0)]] StructuredBuffer<uint> inputData : register(t2);
+[numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) {
+    outputData[id.x] = inputData[id.x] + uint(image[int2(0,0)].g * 255);
+}
+)";
+    constexpr const char *kGpuComputeUniformSource = R"(
+struct First { [AuroraField("first")] uint first; };
+struct Second { [AuroraField("second")] uint second; };
+[AuroraResource(0,1,"fixture/uniform")] [[vk::binding(1,0)]] ConstantBuffer<First> first : register(b1);
+[AuroraResource(0,3,"fixture/uniform")] [[vk::binding(3,0)]] ConstantBuffer<Second> second : register(b3);
+[AuroraResource(1,0,"fixture/uniform")] [[vk::binding(0,1)]] RWStructuredBuffer<uint> values : register(u0, space1);
+[numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) {
+    values[id.x] = first.first + 10 * second.second + id.x;
+}
+)";
+    constexpr const char *kGpuAllocationSource     = R"(
+[AuroraResource(0,0,"fixture/allocation")] [[vk::binding(0,0)]] Texture2D<float4> image;
+[AuroraResource(1,0,"fixture/allocation")] [[vk::binding(0,1)]] SamplerState sampler;
+float4 VSMain(uint i : SV_VertexID) : SV_Position {
+    float2 positions[3] = {float2(-1,-1), float2(-1,3), float2(3,-1)};
+    return float4(positions[i], 0, 1);
+}
+float4 PSMain(float4 position : SV_Position) : SV_Target { return image.Sample(sampler, position.xy / 8.0); }
+)";
+    constexpr const char *kGpuIndexedSource        = R"(
+#if AURORA_TARGET_DXIL
+#define INDEXED_REGISTER(slot, space) : register(slot, space)
+#else
+#define INDEXED_REGISTER(slot, space)
+#endif
+struct ViewParams { [AuroraField("offsetDepth")] float4 offsetDepth; };
+struct MaterialParams { [AuroraField("tint")] float4 tint; };
+struct ObjectParams { [AuroraField("scale")] float4 scale; };
+[AuroraResource(0,0,"fixture/indexed")] [[vk::binding(0,0)]] ConstantBuffer<ViewParams> view INDEXED_REGISTER(b0, space0);
+#if MATERIAL_BINDING == 0
+[AuroraResource(1,0,"fixture/indexed")] [[vk::binding(0,1)]] ConstantBuffer<MaterialParams> material INDEXED_REGISTER(b0, space1);
+#else
+[AuroraResource(1,1,"fixture/indexed")] [[vk::binding(1,1)]] ConstantBuffer<MaterialParams> material INDEXED_REGISTER(b1, space1);
+#endif
+[AuroraResource(2,0,"fixture/indexed")] [[vk::binding(0,2)]] ConstantBuffer<ObjectParams> object INDEXED_REGISTER(b0, space2);
+struct Vertex { float2 position : POSITION; float4 color : COLOR; };
+struct Varying { float4 position : SV_Position; float4 color : COLOR; };
+Varying VSMain(Vertex input) {
+    Varying output;
+    output.position = float4(input.position * object.scale.xy + view.offsetDepth.xy, view.offsetDepth.z, 1);
+    output.color = input.color;
+    return output;
+}
+float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
+)";
+    ShaderFunctionPtr     CompileGpuFunction(Device &device, const std::string &source, ShaderStageFlagBit stage, const char *entry)
     {
-        ShaderReflection reflection;
-        ShaderResource   image;
-        image.type              = ShaderResourceType::STORAGE_IMAGE;
-        image.texture.dimension = ShaderTextureDimension::D2;
-        reflection.resources.push_back(image);
-        ShaderResource output;
-        output.type    = ShaderResourceType::STORAGE_BUFFER;
-        output.binding = 1;
-        reflection.resources.push_back(output);
-        ShaderResource input;
-        input.type    = ShaderResourceType::STORAGE_BUFFER;
-        input.binding = 2;
-        reflection.resources.push_back(input);
-        return reflection;
+        ShaderCompilerSlang compiler;
+        ShaderCompileDesc   descriptor{};
+        descriptor.source = kGpuResourceAttributes + source;
+        descriptor.entry  = entry;
+        descriptor.stage  = stage;
+        descriptor.target = device.GetAPI() == API::DX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
+        ShaderCompileResult result;
+        if (!compiler.Compile(descriptor, result)) {
+            ADD_FAILURE() << result.errorInfo;
+            return {};
+        }
+        ShaderFunction::Descriptor function{};
+        function.stage    = stage;
+        function.artifact = std::make_shared<const ShaderStageArtifact>(std::move(result));
+        return ShaderFunctionPtr(device.CreateShaderFunction(function));
+    }
+    std::vector<ShaderBindingPolicy> ComputeUniformPolicies(bool dynamic)
+    {
+        return dynamic ? std::vector<ShaderBindingPolicy>{{0, 1}, {0, 3}} : std::vector<ShaderBindingPolicy>{};
     }
     std::pair<std::shared_ptr<const FrozenFrameGraph>, BufferPtr>
     CustomStorageReadGraph(Device &device, ShaderPtr writer, ShaderPtr bufferWriter, const ShaderPtr &reader)
@@ -73,10 +172,11 @@ namespace {
             return {};
         }
         auto descriptor = callback->group->CreateEncoder();
-        descriptor->WriteImage(0, image.image.Get(), ImageLayout::GENERAL, 0);
-        descriptor->WriteBuffer(1, output.Get(), 0, 16, 0);
-        descriptor->WriteBuffer(2, input.Get(), 0, 16, 0);
-        descriptor->End();
+        if (!descriptor || !descriptor->WriteImage(0, image.image.Get(), ImageLayout::GENERAL, 0) ||
+            !descriptor->WriteBuffer(1, output.Get(), 0, 16, 0) || !descriptor->WriteBuffer(2, input.Get(), 0, 16, 0) || !descriptor->End()) {
+            ADD_FAILURE() << "Custom storage-read descriptor encoding failed";
+            return {};
+        }
         FrameGraphBuilder builder;
         const auto        source  = std::get<GraphImageHandle>(builder.Import(std::move(image)));
         const auto        storage = std::get<GraphBufferHandle>(builder.Import(output, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
@@ -101,25 +201,6 @@ namespace {
         builder.Copy(BufferCopyPass{storage, target, 0, 0, 16});
         builder.Export({target, 0, 16});
         return {std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), readback};
-    }
-    ShaderReflection ComputeUniformReflection(bool dynamic)
-    {
-        ShaderReflection reflection;
-        for (const auto binding : {1u, 3u}) {
-            ShaderResource resource;
-            resource.type    = dynamic ? ShaderResourceType::UNIFORM_BUFFER_DYNAMIC : ShaderResourceType::UNIFORM_BUFFER;
-            resource.binding = binding;
-            reflection.resources.push_back(resource);
-            ShaderBlockLayout block;
-            block.binding = binding;
-            block.size    = 16;
-            reflection.blocks.push_back(block);
-        }
-        ShaderResource output;
-        output.type = ShaderResourceType::STORAGE_BUFFER;
-        output.set  = 1;
-        reflection.resources.push_back(output);
-        return reflection;
     }
     std::pair<std::shared_ptr<const FrozenFrameGraph>, BufferPtr> ComputeUniformGraph(Device &device, ShaderPtr shader, bool dynamic)
     {

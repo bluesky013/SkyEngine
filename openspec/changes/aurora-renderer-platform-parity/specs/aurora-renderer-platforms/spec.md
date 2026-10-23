@@ -18,11 +18,11 @@ After the platform capability gate passes, `AuroraModule` SHALL use `RendererHos
 
 ### Requirement: Host unification requires platform evidence
 
-The legacy path SHALL be removed only after the corresponding platform passes the native capability gate with a real window or supported offscreen output, including drawable timeout, resize/close, and failure-exit behavior.
+The unified host SHALL expose explicit unsupported capability failures. A platform SHALL be claimed validated only after its native capability gate passes with a real window or supported offscreen output, including drawable timeout, resize/close, and failure-exit behavior.
 
 #### Scenario: Capability gate blocks premature removal
 - **WHEN** a platform has not passed the native host gate
-- **THEN** the legacy path SHALL remain and the unification task SHALL stay blocked
+- **THEN** native acceptance SHALL remain open and compilation or a bounded number of host ticks SHALL NOT substitute for the missing evidence
 
 #### Scenario: macOS evidence
 - **WHEN** the macOS/Metal host is claimed complete
@@ -31,3 +31,34 @@ The legacy path SHALL be removed only after the corresponding platform passes th
 #### Scenario: Non-Windows tests
 - **WHEN** the unified path is enabled on a non-Windows host
 - **THEN** host lifecycle tests SHALL cover init, submit, drain, shutdown, resize/close, and failure paths on that host
+
+### Requirement: Checked native outputs retain exact surface lifetimes
+
+A checked output SHALL retain its exact native surface through acquisition, queued/GPU use and presentation retirement. Acquire SHALL remain bounded and distinguish busy, unsupported and lost surfaces; direct and checked protocols SHALL NOT be mixed on one swapchain.
+
+#### Scenario: Metal drawable acquisition is pending
+- **WHEN** a native drawable request has not completed
+- **THEN** checked acquire SHALL report busy without blocking the renderer coordinator
+- **AND** resize, close and teardown SHALL retain the layer and request until safe collection
+
+#### Scenario: Mobile native surface is replaced
+- **WHEN** Android replaces its ANativeWindow or iOS disconnects and reconnects a CAMetalLayer
+- **THEN** the host SHALL retire the old viewport generation before creating an output for the newest surface
+- **AND** it SHALL preserve scene state and continue control/resource progress while the surface is absent
+
+#### Scenario: Presentation capability is unavailable
+- **WHEN** an output requires an unsupported checked-presentation capability
+- **THEN** the host SHALL expose an explicit unsupported error instead of repeatedly logging a black output
+
+### Requirement: Metal resources respect native capabilities and view contents
+
+Metal SHALL reject unsupported image formats, multisample array configurations and sampler modes before passing invalid descriptors to native APIs. Advertised image format features SHALL agree with creation support. Sampled subresource views SHALL expose the declared mip and layer contents and retain any backend copy resources until GPU retirement.
+
+#### Scenario: Older iOS lacks an image or sampler capability
+- **WHEN** the OS or GPU does not support a requested compressed format, multisample array or sampler address mode
+- **THEN** resource creation SHALL fail explicitly without relying on a native validation assertion
+
+#### Scenario: Restricted depth array view is sampled
+- **WHEN** a raster pass samples a selected depth array mip and layer after an earlier pass writes it
+- **THEN** it SHALL observe that selected content
+- **AND** any backend copy workaround SHALL execute after the producer and before sampling, with resources retained through completion

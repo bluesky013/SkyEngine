@@ -1,42 +1,25 @@
-//
-// Created on 2026/09/14.
-//
-
 #pragma once
 
+#include <VulkanDescriptorEncoder.h>
 #include <aurora/rhi/DescriptorBatch.h>
-#include <vulkan/vulkan.h>
 
-#include <deque>
-#include <vector>
+#include <map>
 
 namespace sky::aurora {
-
-    class VulkanDevice;
-
-    // Frame-scoped cross-set descriptor write accumulator. Write* appends
-    // VkWriteDescriptorSet entries targeting each group's current set; Flush()
-    // issues a single vkUpdateDescriptorSets; Reset() clears for reuse.
     class VulkanDescriptorBatch : public DescriptorBatch {
     public:
-        explicit VulkanDescriptorBatch(VulkanDevice &dev);
+        explicit VulkanDescriptorBatch(VulkanDevice &device);
         ~VulkanDescriptorBatch() override = default;
-
-        void WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
-        void WriteImage(ResourceGroup *group, uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
-        void WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
-
-        void Flush() override;
+        bool WriteBuffer(ResourceGroup *group, uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0) override;
+        bool WriteImage(ResourceGroup *group, uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
+        bool WriteSampler(ResourceGroup *group, uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
+        bool Flush() override;
         void Reset() override;
 
     private:
-        VulkanDevice *device = nullptr;
-
-        std::vector<VkWriteDescriptorSet> mWrites;
-        // deque: element addresses stay stable across growth, so the
-        // pBufferInfo / pImageInfo pointers stored in mWrites remain valid.
-        std::deque<VkDescriptorBufferInfo> mBufInfos;
-        std::deque<VkDescriptorImageInfo>  mImgInfos;
+        VulkanDescriptorEncoder                                                  *Find(ResourceGroup *group);
+        VulkanDevice                                                             *device = nullptr;
+        std::map<VulkanResourceGroup *, std::unique_ptr<VulkanDescriptorEncoder>> encoders;
+        bool                                                                      failed = false;
     };
-
 } // namespace sky::aurora

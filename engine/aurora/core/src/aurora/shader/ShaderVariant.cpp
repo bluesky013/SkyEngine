@@ -2,8 +2,9 @@
 // ShaderVariant implementation: bitmask key, schema validation, and hash.
 //
 
-#include <aurora/shader/ShaderVariant.h>
 #include <aurora/rhi/Shader.h>
+#include <aurora/shader/ShaderHash.h>
+#include <aurora/shader/ShaderVariant.h>
 #include <core/hash/Fnv1a.h>
 
 #include <algorithm>
@@ -24,21 +25,102 @@ namespace sky::aurora {
     uint32_t ShaderVariant::ContentHash() const
     {
         std::vector<ShaderVariantEntry> sorted = entries;
-        std::sort(sorted.begin(), sorted.end(),
-                  [](const ShaderVariantEntry &a, const ShaderVariantEntry &b) {
-                      return a.key.GetHandle() < b.key.GetHandle();
-                  });
+        std::sort(sorted.begin(), sorted.end(), [](const ShaderVariantEntry &a, const ShaderVariantEntry &b) {
+            return std::string_view(a.key.GetStr()) < std::string_view(b.key.GetStr());
+        });
 
         uint32_t hash = FNVOffsetBias32;
         for (const auto &e : sorted) {
-            hash = Fnv1aCombine(hash, e.key.GetHandle());
+            const std::string_view name(e.key.GetStr());
+            hash = Fnv1aCombine(hash, static_cast<uint32_t>(name.size()));
+            for (const char c : name) {
+                hash ^= static_cast<uint8_t>(c);
+                hash *= FNVPrime32;
+            }
             hash = Fnv1aCombine(hash, e.value);
         }
         return hash;
     }
 
-    void ShaderVariant::BuildSpecialization(const ShaderVariantSchema &schema,
-                                            ShaderSpecialization &out) const
+    uint64_t HashShaderVariants(const std::vector<ShaderVariantValue> &variants)
+    {
+        auto hash = HashMixU64(kFnv1aBasis, variants.size());
+        for (const auto &entry : variants) {
+            hash = HashMixBytes(HashMixU64(hash, entry.name.size()), entry.name);
+            hash = HashMixU64(hash, entry.value);
+        }
+        return hash;
+    }
+
+    bool CanonicalShaderVariants(const ShaderVariant             *variant,
+                                 const ShaderVariantSchema       &schema,
+                                 ShaderTarget                     target,
+                                 std::vector<ShaderVariantValue> &out,
+                                 std::string                     *error)
+    {
+        if (!schema.Validate(error)) {
+            return false;
+        }
+        for (size_t i = 0; i < schema.entries.size(); ++i) {
+            const auto &entry = schema.entries[i];
+            if (entry.key.GetStr().empty() || !entry.bitWidth || entry.bitWidth > 32 ||
+                (entry.bitWidth < 32 && entry.defaultValue >= (uint32_t{1} << entry.bitWidth))) {
+                if (error != nullptr) {
+                    *error = "invalid shader variant declaration";
+                }
+                return false;
+            }
+            for (size_t j = 0; j < i; ++j) {
+                if (schema.entries[j].key == entry.key || (entry.isSpec && schema.entries[j].isSpec && schema.entries[j].specId == entry.specId)) {
+                    if (error != nullptr) {
+                        *error = "duplicate shader variant key or specialization ID";
+                    }
+                    return false;
+                }
+            }
+        }
+        if (variant != nullptr) {
+            for (size_t i = 0; i < variant->entries.size(); ++i) {
+                const auto &entry      = variant->entries[i];
+                const auto *definition = schema.FindEntry(entry.key);
+                if (definition == nullptr || (definition->bitWidth < 32 && entry.value >= (uint32_t{1} << definition->bitWidth))) {
+                    if (error != nullptr) {
+                        *error = "unknown or out-of-range shader variant: " + std::string(entry.key.GetStr());
+                    }
+                    return false;
+                }
+                for (size_t j = 0; j < i; ++j) {
+                    if (variant->entries[j].key == entry.key) {
+                        if (error != nullptr) {
+                            *error = "duplicate shader variant: " + std::string(entry.key.GetStr());
+                        }
+                        return false;
+                    }
+                }
+            }
+        }
+        std::vector<ShaderVariantValue> values;
+        for (const auto &entry : schema.entries) {
+            if (entry.isSpec && target != ShaderTarget::DXIL) {
+                continue;
+            }
+            auto value = entry.defaultValue;
+            if (variant != nullptr) {
+                for (const auto &input : variant->entries) {
+                    if (input.key == entry.key) {
+                        value = input.value;
+                        break;
+                    }
+                }
+            }
+            values.push_back({std::string(entry.key.GetStr()), value});
+        }
+        std::sort(values.begin(), values.end(), [](const auto &a, const auto &b) { return a.name < b.name; });
+        out = std::move(values);
+        return true;
+    }
+
+    void ShaderVariant::BuildSpecialization(const ShaderVariantSchema &schema, ShaderSpecialization &out) const
     {
         out.entries.clear();
         for (const auto &entry : entries) {
@@ -49,8 +131,7 @@ namespace sky::aurora {
         }
     }
 
-    void BuildVertexVariant(const std::vector<VertexVariantDef> &defs,
-                            const VertexSemanticMask &mask, ShaderVariant &out)
+    void BuildVertexVariant(const std::vector<VertexVariantDef> &defs, const VertexSemanticMask &mask, ShaderVariant &out)
     {
         for (const auto &def : defs) {
             bool on = true;
@@ -81,8 +162,7 @@ namespace sky::aurora {
         return ToString(schema, 0);
     }
 
-    std::string ShaderVariantKey::ToString(const ShaderVariantSchema &schema,
-                                           uint16_t baseOffset) const
+    std::string ShaderVariantKey::ToString(const ShaderVariantSchema &schema, uint16_t baseOffset) const
     {
         std::string s;
         for (const auto &entry : schema.entries) {
@@ -116,8 +196,8 @@ namespace sky::aurora {
                 }
                 return false;
             }
-            const uint32_t abs    = static_cast<uint32_t>(source->bitOffset) + entry.bitOffset;
-            const uint32_t end    = abs + entry.bitWidth;
+            const uint32_t abs = static_cast<uint32_t>(source->bitOffset) + entry.bitOffset;
+            const uint32_t end = abs + entry.bitWidth;
             if (end > totalBits) {
                 if (error != nullptr) {
                     *error = "variant entry exceeds schema total bits";
@@ -162,13 +242,12 @@ namespace sky::aurora {
     uint16_t ShaderVariantSchema::EntryAbsoluteOffset(const Entry &entry) const
     {
         const Source *source = FindSource(entry.source);
-        return static_cast<uint16_t>(
-            (source != nullptr ? source->bitOffset : 0) + entry.bitOffset);
+        return static_cast<uint16_t>((source != nullptr ? source->bitOffset : 0) + entry.bitOffset);
     }
 
     void ShaderVariantKey::Set(const ShaderVariantSchema &schema, Name key, uint32_t value)
     {
-        totalBits = schema.totalBits;
+        totalBits                               = schema.totalBits;
         const ShaderVariantSchema::Entry *entry = schema.FindEntry(key);
         if (entry == nullptr) {
             return;

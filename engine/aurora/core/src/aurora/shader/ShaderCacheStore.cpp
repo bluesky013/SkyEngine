@@ -1,79 +1,89 @@
-//
-// ShaderCacheStore: blob store + index IO + atomic write helpers.
-// Binary (de)serialization lives in ShaderCacheCodec.cpp.
-//
-
 #include <aurora/shader/ShaderCacheStore.h>
 
 #include <core/archive/StreamArchive.h>
 #include <core/file/FileSystem.h>
 
+#include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <filesystem>
-#include <mutex>
 #include <thread>
 
 namespace sky::aurora {
-
     namespace {
-
-        std::string Hex64(uint64_t v)
+        std::string Hex64(uint64_t value)
         {
-            static const char *digits = "0123456789abcdef";
-            std::string        s(16, '0');
+            constexpr char digits[] = "0123456789abcdef";
+            std::string    result(16, '0');
             for (int i = 15; i >= 0; --i) {
-                s[i] = digits[v & 0xFu];
-                v >>= 4;
+                result[i] = digits[value & 15];
+                value >>= 4;
             }
-            return s;
+            return result;
         }
 
-        // Serializes writes within a process (recursive: UpsertLocalArtifact
-        // holds it across LoadIndex + SaveIndex, which locks again).
-        std::recursive_mutex &WriteMutex()
-        {
-            static std::recursive_mutex mutex;
-            return mutex;
-        }
-
-        // Best-effort cross-process directory lock (atomic directory create).
         class ScopedDirLock {
         public:
             explicit ScopedDirLock(sky::IFileSystem &fs)
             {
-                const std::string root = fs.GetPath().GetStr();
+                const auto root = fs.GetPath().GetStr();
                 if (root.empty()) {
-                    return; // non-path filesystem: in-process mutex only
+                    return;
                 }
-                mLockPath = std::filesystem::path(root) / ".shadercache.lock";
-                for (int i = 0; i < 200; ++i) {
-                    std::error_code ec;
-                    if (std::filesystem::create_directory(mLockPath, ec)) {
-                        mHeld = true;
+                std::error_code ec;
+                std::filesystem::create_directories(root, ec);
+                if (ec) {
+                    return;
+                }
+                lockPath = std::filesystem::path(root) / ".shadercache.lock";
+                for (uint32_t i = 0; i < 200; ++i) {
+                    ec.clear();
+                    if (std::filesystem::create_directory(lockPath, ec)) {
+                        held = true;
+                        return;
+                    }
+                    if (ec && ec != std::errc::file_exists) {
                         return;
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
-                // timeout: proceed (last-writer-wins) rather than fail the build
             }
-
             ~ScopedDirLock()
             {
-                if (mHeld) {
+                if (held) {
                     std::error_code ec;
-                    std::filesystem::remove(mLockPath, ec);
+                    std::filesystem::remove(lockPath, ec);
                 }
             }
-
-            ScopedDirLock(const ScopedDirLock &)            = delete;
-            ScopedDirLock &operator=(const ScopedDirLock &) = delete;
+            bool Held() const
+            {
+                return held;
+            }
 
         private:
-            std::filesystem::path mLockPath;
-            bool                  mHeld = false;
+            std::filesystem::path lockPath;
+            bool                  held = false;
         };
 
+        uint64_t MixString(uint64_t hash, const std::string &value)
+        {
+            return HashMixBytes(HashMixU64(hash, value.size()), value);
+        }
+        uint64_t MixVariants(uint64_t hash, const std::vector<ShaderVariantValue> &variants)
+        {
+            hash = HashMixU64(hash, variants.size());
+            for (const auto &variant : variants) {
+                hash = MixString(hash, variant.name);
+                hash = HashMixU64(hash, variant.value);
+            }
+            return hash;
+        }
+        bool Fail(std::string *error, const std::string &message)
+        {
+            if (error != nullptr) {
+                *error = message;
+            }
+            return false;
+        }
     } // namespace
 
     const char *ShaderTargetDirName(uint32_t target)
@@ -88,225 +98,273 @@ namespace sky::aurora {
 
     uint64_t CompileHash(const ShaderCacheKey &key)
     {
-        uint64_t hash = kFnv1aBasis;
-        hash          = HashMixU64(hash, ShaderCacheIndex::kFormatVersion);
-        hash          = HashMixU64(hash, key.sourceHash);
-        hash          = HashMixU64(hash, key.variantHash);
-        hash          = HashMixU64(hash, key.layoutFp);
-        hash          = HashMixU64(hash, key.schemaFp);
-        hash          = HashMixU64(hash, key.toolchainFp);
-        hash          = HashMixU64(hash, key.entryHash);
-        hash          = HashMixU64(hash, key.target);
-        hash          = HashMixU64(hash, key.stage);
-        return hash;
+        auto hash = HashMixU64(kFnv1aBasis, ShaderCacheIndex::kFormatVersion);
+        hash      = HashMixU64(hash, key.sourceHash);
+        hash      = HashMixU64(hash, key.variantHash);
+        hash      = HashMixU64(hash, key.layoutFp);
+        hash      = HashMixU64(hash, key.schemaFp);
+        hash      = HashMixU64(hash, key.toolchainFp);
+        hash      = HashMixU64(hash, key.entryHash);
+        hash      = HashMixU64(hash, key.target);
+        hash      = HashMixU64(hash, key.stage);
+        hash      = MixString(hash, key.sourcePath);
+        hash      = MixString(hash, key.sourceEntry);
+        hash      = MixVariants(hash, key.variants);
+        hash      = HashMixU64(hash, ShaderEnvironmentFingerprint(key.environment));
+        return HashMixU64(hash, ShaderProducerFingerprint(key.producer));
     }
-
-    uint64_t ArtifactKey(uint64_t variantHash, uint32_t target, uint32_t stage, uint64_t entryHash)
+    ShaderPublishedRequest PublishedRequest(const ShaderCacheKey &key)
     {
-        uint64_t hash = kFnv1aBasis;
-        hash          = HashMixU64(hash, variantHash);
-        hash          = HashMixU64(hash, target);
-        hash          = HashMixU64(hash, stage);
-        hash          = HashMixU64(hash, entryHash);
-        return hash;
+        return {key.sourceEntry, static_cast<ShaderStageFlagBit>(key.stage), key.variantHash, key.layoutFp, key.schemaFp, key.variants,
+                key.environment};
     }
-
+    uint64_t ArtifactKey(const ShaderPublishedRequest &request)
+    {
+        auto hash = MixString(kFnv1aBasis, request.sourceEntry);
+        hash      = HashMixU64(hash, static_cast<uint32_t>(request.stage));
+        hash      = HashMixU64(hash, request.variantHash);
+        hash      = HashMixU64(hash, request.layoutFp);
+        hash      = HashMixU64(hash, request.schemaFp);
+        hash      = MixVariants(hash, request.variants);
+        return HashMixU64(hash, ShaderEnvironmentFingerprint(request.environment));
+    }
+    bool ArtifactMatchesKey(const ShaderStageArtifact &artifact, const ShaderCacheKey &key)
+    {
+        const auto &id = artifact.identity;
+        return id.sourcePath == key.sourcePath && id.sourceEntry == key.sourceEntry && id.stage == static_cast<ShaderStageFlagBit>(key.stage) &&
+               id.sourceHash == key.sourceHash && id.variantHash == key.variantHash && id.layoutFp == key.layoutFp && id.schemaFp == key.schemaFp &&
+               id.variants == key.variants && id.environment == key.environment && id.producer == key.producer &&
+               key.target == static_cast<uint32_t>(id.environment.target) && key.entryHash == HashEntryName(id.sourceEntry) &&
+               key.toolchainFp == ShaderProducerFingerprint(id.producer);
+    }
+    bool ValidateCacheRecord(const ShaderCacheArtifact &record, std::string &error)
+    {
+        ShaderStageArtifact artifact;
+        artifact.identity = record.identity;
+        auto environment  = record.key.environment;
+        if (record.artifactId == 0 || record.compileHash != CompileHash(record.key) || !ArtifactMatchesKey(artifact, record.key) ||
+            !NormalizeShaderEnvironment(environment, error) || environment != record.key.environment) {
+            if (error.empty()) {
+                error = "invalid shader cache record identity";
+            }
+            return false;
+        }
+        if (record.key.variantHash != HashShaderVariants(record.key.variants)) {
+            error = "shader cache variant fingerprint mismatch";
+            return false;
+        }
+        for (size_t i = 0; i < record.key.variants.size(); ++i) {
+            if (record.key.variants[i].name.empty() || (i && record.key.variants[i - 1].name >= record.key.variants[i].name)) {
+                error = "shader cache variants are not canonical";
+                return false;
+            }
+        }
+        return true;
+    }
     ShaderCachePathEntry *FindPathEntry(ShaderCacheIndex &index, const std::string &path)
     {
-        for (auto &p : index.paths) {
-            if (p.first == path) {
-                return &p.second;
+        for (auto &entry : index.paths) {
+            if (entry.first == path) {
+                return &entry.second;
             }
         }
         return nullptr;
     }
-
     const ShaderCachePathEntry *FindPathEntry(const ShaderCacheIndex &index, const std::string &path)
     {
-        for (const auto &p : index.paths) {
-            if (p.first == path) {
-                return &p.second;
+        for (const auto &entry : index.paths) {
+            if (entry.first == path) {
+                return &entry.second;
             }
         }
         return nullptr;
     }
-
-    ShaderCacheArtifact *FindArtifact(ShaderCachePathEntry &entry, uint64_t variantHash, uint32_t target, uint32_t stage, uint64_t entryHash)
+    const ShaderCacheArtifact *FindArtifact(const ShaderCachePathEntry &entry, const ShaderCacheKey &key)
     {
-        const uint64_t key = ArtifactKey(variantHash, target, stage, entryHash);
-        for (auto &a : entry.artifacts) {
-            if (a.first == key) {
-                return &a.second;
+        const auto hash = CompileHash(key);
+        for (const auto &artifact : entry.artifacts) {
+            if (artifact.second.compileHash == hash && artifact.second.key == key) {
+                return &artifact.second;
             }
         }
         return nullptr;
     }
-
-    const ShaderCacheArtifact *
-    FindArtifact(const ShaderCachePathEntry &entry, uint64_t variantHash, uint32_t target, uint32_t stage, uint64_t entryHash)
+    const ShaderCacheArtifact *FindPublishedArtifact(const ShaderCachePathEntry &entry, const ShaderPublishedRequest &request)
     {
-        const uint64_t key = ArtifactKey(variantHash, target, stage, entryHash);
-        for (const auto &a : entry.artifacts) {
-            if (a.first == key) {
-                return &a.second;
+        const auto hash = ArtifactKey(request);
+        for (const auto &artifact : entry.artifacts) {
+            if (artifact.first == hash && PublishedRequest(artifact.second.key) == request) {
+                return &artifact.second;
             }
         }
         return nullptr;
     }
-
     bool WriteFileAtomic(sky::IFileSystem &root, const std::string &path, const std::vector<uint8_t> &bytes)
     {
-        auto writeDirect = [&](const std::string &p) {
-            sky::FilePtr file = root.CreateOrOpenFile(sky::FilePath(p));
+        const std::string temporary = path + ".tmp";
+        {
+            const auto file = root.CreateOrOpenFile(sky::FilePath(temporary));
             if (file == nullptr) {
                 return false;
             }
             const auto archive = file->WriteAsArchive();
-            if (archive == nullptr) {
+            if (archive == nullptr || !archive->SaveRaw(reinterpret_cast<const char *>(bytes.data()), bytes.size())) {
                 return false;
             }
-            return archive->SaveRaw(reinterpret_cast<const char *>(bytes.data()), bytes.size());
-        };
-
-        const std::string tmp = path + ".tmp";
-        if (writeDirect(tmp) && root.Rename(sky::FilePath(tmp), sky::FilePath(path))) {
-            return true;
         }
-        return writeDirect(path); // filesystem without rename: direct overwrite
+        return root.Rename(sky::FilePath(temporary), sky::FilePath(path));
     }
-
     bool LoadIndex(sky::IFileSystem &root, const std::string &subDir, ShaderCacheIndex &out)
     {
-        const std::string path = subDir.empty() ? "index.bin" : subDir + "/index.bin";
-        sky::FilePtr      file = root.OpenFile(sky::FilePath(path));
-        if (file == nullptr) {
-            return false;
-        }
+        const auto           file = root.OpenFile(sky::FilePath(subDir.empty() ? "index.bin" : subDir + "/index.bin"));
         std::vector<uint8_t> bytes;
-        if (!file->ReadBin(bytes)) {
-            return false;
-        }
-        return DecodeIndex(bytes, out);
+        return file != nullptr && file->ReadBin(bytes) && DecodeIndex(bytes, out);
     }
-
     bool SaveIndex(sky::IFileSystem &root, const std::string &subDir, const ShaderCacheIndex &index)
     {
-        std::lock_guard<std::recursive_mutex> guard(WriteMutex());
-        ScopedDirLock                         lock(root);
-
-        const std::string path = subDir.empty() ? "index.bin" : subDir + "/index.bin";
-        if (!subDir.empty()) {
-            root.MakeDir(sky::FilePath(subDir));
+        const auto       bytes = EncodeIndex(index);
+        ShaderCacheIndex validated;
+        if (!DecodeIndex(bytes, validated)) {
+            return false;
         }
-        return WriteFileAtomic(root, path, EncodeIndex(index));
+        const ScopedDirLock lock(root);
+        if (!lock.Held()) {
+            return false;
+        }
+        root.MakeDir(sky::FilePath(subDir));
+        return WriteFileAtomic(root, subDir.empty() ? "index.bin" : subDir + "/index.bin", bytes);
     }
-
-    void UpsertArtifact(ShaderCacheIndex               &index,
+    bool UpsertArtifact(ShaderCacheIndex               &index,
                         const std::string              &path,
                         const ShaderVariantSchema      &schema,
                         uint64_t                        schemaFp,
                         const ShaderCacheKey           &key,
-                        uint64_t                        sourceHash,
-                        const std::vector<std::string> &deps)
+                        const ShaderCompileResult      &result,
+                        const std::vector<std::string> &deps,
+                        std::string                    *error)
     {
-        index.formatVersion = ShaderCacheIndex::kFormatVersion;
-        index.layoutFp      = key.layoutFp;
-        index.toolchainFp   = key.toolchainFp;
-
-        ShaderCachePathEntry *pe = FindPathEntry(index, path);
-        if (pe == nullptr) {
+        std::string validation;
+        if (!ValidateShaderArtifact(result, validation) || !ArtifactMatchesKey(result, key) || path != key.sourcePath || schemaFp != key.schemaFp ||
+            schemaFp != HashSchema(schema) || !schema.Validate(&validation)) {
+            return Fail(error, validation.empty() ? "artifact does not match cache key/schema" : validation);
+        }
+        auto *entry = FindPathEntry(index, path);
+        if (entry == nullptr) {
             index.paths.emplace_back(path, ShaderCachePathEntry{});
-            pe = &index.paths.back().second;
+            entry = &index.paths.back().second;
         }
-        pe->schemaFp = schemaFp;
-        pe->schema   = schema;
-
-        ShaderCacheArtifact *art = FindArtifact(*pe, key.variantHash, key.target, key.stage, key.entryHash);
-        if (art == nullptr) {
-            pe->artifacts.emplace_back(ArtifactKey(key.variantHash, key.target, key.stage, key.entryHash), ShaderCacheArtifact{});
-            art = &pe->artifacts.back().second;
+        if (entry->schemaFp != schemaFp) {
+            entry->artifacts.clear();
         }
-        art->compileHash = CompileHash(key);
-        art->sourceHash  = sourceHash;
-        art->sourceDeps  = deps;
+        entry->schema   = schema;
+        entry->schemaFp = schemaFp;
+        ShaderCacheArtifact record{CompileHash(key), result.artifactId, key, result.identity, deps};
+        const auto          request = PublishedRequest(key);
+        for (auto &artifact : entry->artifacts) {
+            if (PublishedRequest(artifact.second.key) == request) {
+                artifact = {ArtifactKey(request), std::move(record)};
+                return true;
+            }
+        }
+        entry->artifacts.emplace_back(ArtifactKey(request), std::move(record));
+        return true;
     }
-
-    void UpsertLocalArtifact(sky::IFileSystem               &local,
+    bool UpsertLocalArtifact(sky::IFileSystem               &local,
                              const std::string              &subDir,
                              const std::string              &path,
                              const ShaderVariantSchema      &schema,
                              uint64_t                        schemaFp,
                              const ShaderCacheKey           &key,
-                             uint64_t                        sourceHash,
-                             const std::vector<std::string> &deps)
+                             const ShaderCompileResult      &result,
+                             const std::vector<std::string> &deps,
+                             std::string                    *error)
     {
-        std::lock_guard<std::recursive_mutex> guard(WriteMutex());
-        ShaderCacheIndex                      index;
-        LoadIndex(local, subDir, index);
-        UpsertArtifact(index, path, schema, schemaFp, key, sourceHash, deps);
-        SaveIndex(local, subDir, index);
-    }
-
-    ShaderBlobStore::ShaderBlobStore(sky::IFileSystem *readRoot, sky::IFileSystem *writeRoot, uint64_t layoutFp, uint64_t toolchainFp)
-        : mReadRoot(readRoot), mWriteRoot(writeRoot), mLayoutFp(layoutFp), mToolchainFp(toolchainFp)
-    {
-    }
-
-    std::string ShaderBlobStore::BlobPath(uint64_t compileHash, uint32_t target) const
-    {
-        return std::string(ShaderTargetDirName(target)) + "/blobs/" + Hex64(compileHash) + ".bin";
-    }
-
-    bool ShaderBlobStore::Load(const ShaderCacheKey &key, ShaderCompileResult &out)
-    {
-        if (mReadRoot == nullptr) {
-            mLastError = "no read root";
+        const ScopedDirLock lock(local);
+        if (!lock.Held()) {
+            return Fail(error, "shader index lock unavailable");
+        }
+        ShaderCacheIndex index;
+        if (local.FileExist(sky::FilePath(subDir + "/index.bin")) && !LoadIndex(local, subDir, index)) {
+            return Fail(error, "shader index is corrupt or requires recook");
+        }
+        if (!UpsertArtifact(index, path, schema, schemaFp, key, result, deps, error)) {
             return false;
         }
-        const std::string path = BlobPath(CompileHash(key), key.target);
-        sky::FilePtr      file = mReadRoot->OpenFile(sky::FilePath(path));
-        if (file == nullptr) {
-            mLastError = "blob not found";
-            return false;
+        local.MakeDir(sky::FilePath(subDir));
+        if (!WriteFileAtomic(local, subDir + "/index.bin", EncodeIndex(index))) {
+            return Fail(error, "shader index publication failed");
         }
-        std::vector<uint8_t> bytes;
-        if (!file->ReadBin(bytes)) {
-            mLastError = "blob read failed";
-            return false;
-        }
-        ShaderCacheBlob blob;
-        if (!DecodeBlob(bytes, blob)) {
-            mLastError = "blob decode failed";
-            return false;
-        }
-        out.data       = std::move(blob.data);
-        out.reflection = std::move(blob.reflection);
-        out.errorInfo.clear();
         return true;
     }
-
-    void ShaderBlobStore::Store(const ShaderCacheKey &key, const ShaderCompileResult &result)
+    ShaderBlobStore::ShaderBlobStore(sky::IFileSystem *readRoot, sky::IFileSystem *writeRoot, uint64_t, uint64_t)
+        : mReadRoot(readRoot), mWriteRoot(writeRoot)
     {
-        if (mWriteRoot == nullptr) {
-            mLastError = "no write root";
-            return;
-        }
-        std::lock_guard<std::recursive_mutex> guard(WriteMutex());
-        ScopedDirLock                         lock(*mWriteRoot);
-
-        ShaderCacheBlob blob;
-        blob.target     = key.target;
-        blob.sourceHash = key.sourceHash;
-        blob.layoutFp   = key.layoutFp;
-        blob.schemaFp   = key.schemaFp;
-        blob.data       = result.data;
-        blob.reflection = result.reflection;
-
-        const std::string targetDir = ShaderTargetDirName(key.target);
-        const std::string path      = BlobPath(CompileHash(key), key.target);
-        mWriteRoot->MakeDir(sky::FilePath(targetDir));
-        mWriteRoot->MakeDir(sky::FilePath(targetDir + "/blobs"));
-        WriteFileAtomic(*mWriteRoot, path, EncodeBlob(blob));
     }
-
+    std::string ShaderBlobStore::BlobPath(uint64_t artifactId, uint32_t target) const
+    {
+        return std::string(ShaderTargetDirName(target)) + "/blobs/" + Hex64(artifactId) + ".bin";
+    }
+    bool ShaderBlobStore::Load(const ShaderCacheKey &key, ShaderCompileResult &out)
+    {
+        ShaderCacheIndex index;
+        if (mReadRoot == nullptr || !LoadIndex(*mReadRoot, ShaderTargetDirName(key.target), index)) {
+            mLastError = "shader index absent, corrupt or requires recook";
+            return false;
+        }
+        const auto *entry  = FindPathEntry(index, key.sourcePath);
+        const auto *record = entry != nullptr ? FindArtifact(*entry, key) : nullptr;
+        if (record == nullptr) {
+            mLastError = "compile key not found";
+            return false;
+        }
+        return LoadArtifact(*record, out);
+    }
+    bool ShaderBlobStore::LoadArtifact(const ShaderCacheArtifact &record, ShaderCompileResult &out)
+    {
+        mLastError.clear();
+        if (mReadRoot == nullptr || !ValidateCacheRecord(record, mLastError)) {
+            return false;
+        }
+        const auto           file = mReadRoot->OpenFile(sky::FilePath(BlobPath(record.artifactId, record.key.target)));
+        std::vector<uint8_t> bytes;
+        ShaderCacheBlob      blob;
+        if (file == nullptr || !file->ReadBin(bytes) || !DecodeBlob(bytes, blob)) {
+            mLastError = "shader artifact absent or corrupt";
+            return false;
+        }
+        if (blob.artifactId != record.artifactId || blob.identity != record.identity || !ArtifactMatchesKey(blob, record.key)) {
+            mLastError = "shader index/artifact identity mismatch";
+            return false;
+        }
+        ShaderCompileResult result;
+        static_cast<ShaderStageArtifact &>(result) = std::move(blob);
+        out                                        = std::move(result);
+        return true;
+    }
+    bool ShaderBlobStore::Store(const ShaderCacheKey &key, const ShaderCompileResult &result)
+    {
+        mLastError.clear();
+        if (mWriteRoot == nullptr) {
+            mLastError = "no writable shader cache";
+            return false;
+        }
+        if (!ValidateShaderArtifact(result, mLastError) || !ArtifactMatchesKey(result, key)) {
+            if (mLastError.empty()) {
+                mLastError = "compiled artifact/key identity mismatch";
+            }
+            return false;
+        }
+        const ScopedDirLock lock(*mWriteRoot);
+        if (!lock.Held()) {
+            mLastError = "shader blob lock unavailable";
+            return false;
+        }
+        const auto directory = std::string(ShaderTargetDirName(key.target));
+        mWriteRoot->MakeDir(sky::FilePath(directory + "/blobs"));
+        if (!WriteFileAtomic(*mWriteRoot, BlobPath(result.artifactId, key.target), EncodeBlob(result))) {
+            mLastError = "shader blob publication failed";
+            return false;
+        }
+        return true;
+    }
 } // namespace sky::aurora

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <aurora/rhi/Core.h>
+#include <aurora/rhi/ShaderArtifact.h>
 #include <aurora/shader/ShaderSourceBundle.h>
 #include <core/file/MultiFileSystem.h>
 
@@ -7,6 +9,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <variant>
 
 namespace sky::aurora {
 
@@ -43,5 +46,17 @@ namespace sky::aurora {
         std::unordered_map<std::string, std::string>                               mFiles;
         std::unordered_map<std::string, std::shared_ptr<const ShaderSourceBundle>> bundles;
     };
+
+    enum class ShaderResourceMode : uint8_t { DEVELOPMENT, PRODUCTS };
+
+    struct ShaderResources {
+        std::shared_ptr<ShaderFileSystem> sources;
+        FileSystemPtr                     products;
+    };
+
+    bool LoadShaderProductEnvironment(IFileSystem &products, ShaderTarget target, ShaderTargetEnvironment &out, std::string &error);
+
+    // Select one provider explicitly; opening a child filesystem does not prove its contents exist.
+    std::variant<std::string, ShaderResources> LoadShaderResources(IFileSystem &bundle, API backend, ShaderResourceMode mode);
 
 } // namespace sky::aurora

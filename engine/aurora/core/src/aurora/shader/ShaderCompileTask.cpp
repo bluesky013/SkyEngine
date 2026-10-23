@@ -13,7 +13,7 @@ namespace sky::aurora {
         pool.Schedule(sky::ThreadTask([state = mState](sky::ThreadContext &) {
             state->ok = state->task.Run(*state->compiler, state->result);
             if (state->ok && state->commit) {
-                state->commit(state->task, state->result);
+                state->ok = state->commit(state->task, state->result, &state->result.errorInfo);
             }
             state->done.store(true, std::memory_order_release);
         }));

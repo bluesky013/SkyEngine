@@ -23,18 +23,6 @@ namespace sky::aurora {
             uint32_t            magic = MAGIC, count = 0;
             SceneHighlightStyle style;
         };
-        template <typename T>
-        FrameOperationResult Uniform(FrameGraphBuildContext                                &context,
-                                     PassResourceBindings                                  &bindings,
-                                     ShaderResourceSlot<ShaderResourceType::UNIFORM_BUFFER> slot,
-                                     const T                                               &value)
-        {
-            const auto result = context.WriteUniform(slot.set, slot.binding, std::as_bytes(std::span{&value, 1}));
-            if (const auto *error = std::get_if<FrameError>(&result))
-                return *error;
-            const auto &uniform = std::get<RasterUniformBinding>(result);
-            return bindings.Uniform(slot, uniform.range);
-        }
         FrameOperationResult
         Compile(FrameGraphBuildContext &context, ShaderFileSystem &sources, IFileSystem *products, API backend, const char *path, ShaderPtr &shader)
         {
@@ -151,7 +139,7 @@ namespace sky::aurora {
         if (const auto *error = std::get_if<FrameError>(&depth))
             return *error;
         PassResourceBindings passBindings(shared::GetSelectionMaskPassReflection());
-        auto result = Uniform(context, passBindings, shared::SelectionMaskPassBindings::gSelectionMask, shared::SelectionMaskParams{projection});
+        auto result = passBindings.UniformData(shared::SelectionMaskPassBindings::gSelectionMask, shared::SelectionMaskParams{projection});
         if (const auto *error = std::get_if<FrameError>(&result))
             return *error;
         result = passBindings.Image(shared::SelectionMaskPassBindings::gSceneDepth, sceneDepth);
@@ -177,11 +165,11 @@ namespace sky::aurora {
             attribute.location = 0;
             draw.attributes    = {std::move(attribute)};
             PassResourceBindings batch(shared::GetSceneBatchReflection());
-            result = Uniform(context, batch, shared::SceneBatchBindings::gSceneBatch, shared::SceneBatchParams{source.world});
+            result = batch.UniformData(shared::SceneBatchBindings::gSceneBatch, shared::SceneBatchParams{source.world});
             if (const auto *error = std::get_if<FrameError>(&result))
                 return *error;
             const PassResourceBindings *groups[]{&passBindings, &batch};
-            result = PassResourceBindings::Apply(draw, groups);
+            result = PassResourceBindings::Apply(context, draw, groups);
             if (const auto *error = std::get_if<FrameError>(&result))
                 return *error;
             mask.draws.push_back(std::move(draw));
@@ -192,7 +180,7 @@ namespace sky::aurora {
         PassResourceBindings                 outline(shared::GetSelectionOutlinePassReflection());
         const shared::SelectionOutlineParams params{
             style.visible, style.occluded, {float(target.output.extent.width), float(target.output.extent.height), style.width, 0}};
-        result = Uniform(context, outline, shared::SelectionOutlinePassBindings::gSelectionOutline, params);
+        result = outline.UniformData(shared::SelectionOutlinePassBindings::gSelectionOutline, params);
         if (const auto *error = std::get_if<FrameError>(&result))
             return *error;
         result = outline.Image(shared::SelectionOutlinePassBindings::gSelectionImage, std::get<GraphImageHandle>(image));
@@ -208,7 +196,7 @@ namespace sky::aurora {
                                     .srcAlpha = BlendFactor::ZERO,
                                     .dstAlpha = BlendFactor::ONE};
         const PassResourceBindings *groups[]{&outline};
-        result = PassResourceBindings::Apply(draw, groups);
+        result = PassResourceBindings::Apply(context, draw, groups);
         if (const auto *error = std::get_if<FrameError>(&result))
             return *error;
         FrameRasterPass composite;

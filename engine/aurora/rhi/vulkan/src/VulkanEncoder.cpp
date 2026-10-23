@@ -9,6 +9,7 @@
 #include <VulkanImage.h>
 #include <VulkanPipelineState.h>
 #include <VulkanResourceGroup.h>
+#include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 
 namespace sky::aurora {
@@ -35,7 +36,7 @@ namespace sky::aurora {
 
     // ---- VulkanGraphicsEncoder ----
 
-    VulkanGraphicsEncoder::VulkanGraphicsEncoder(VulkanDevice &device, VkCommandBuffer cmd) : fn(device.GetDeviceFn()), cmd(cmd)
+    VulkanGraphicsEncoder::VulkanGraphicsEncoder(VulkanDevice &device, VkCommandBuffer cmd) : owner(device), fn(device.GetDeviceFn()), cmd(cmd)
     {
     }
 
@@ -115,11 +116,14 @@ namespace sky::aurora {
 
     void VulkanGraphicsEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
+        if (currentLayout == VK_NULL_HANDLE || group == nullptr || group->GetDevice() != &owner) {
+            LOG_E("AuroraVulkan", "Invalid resource group device or missing pipeline");
             return;
         }
-        VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
-        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentLayout, set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+        if (!static_cast<VulkanResourceGroup *>(group)->Bind(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentLayout, set, numDynamicOffsets,
+                                                             dynamicOffsets)) {
+            LOG_E("AuroraVulkan", "Resource group physical plan, dynamic offsets or descriptor contents are incompatible");
+        }
     }
 
     void VulkanGraphicsEncoder::BindDescriptorHeap(DescriptorHeap *heap)
@@ -205,7 +209,7 @@ namespace sky::aurora {
 
     // ---- VulkanComputeEncoder ----
 
-    VulkanComputeEncoder::VulkanComputeEncoder(VulkanDevice &device, VkCommandBuffer cmd) : fn(device.GetDeviceFn()), cmd(cmd)
+    VulkanComputeEncoder::VulkanComputeEncoder(VulkanDevice &device, VkCommandBuffer cmd) : owner(device), fn(device.GetDeviceFn()), cmd(cmd)
     {
     }
 
@@ -218,11 +222,14 @@ namespace sky::aurora {
 
     void VulkanComputeEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
+        if (currentLayout == VK_NULL_HANDLE || group == nullptr || group->GetDevice() != &owner) {
+            LOG_E("AuroraVulkan", "Invalid resource group device or missing pipeline");
             return;
         }
-        VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
-        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentLayout, set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+        if (!static_cast<VulkanResourceGroup *>(group)->Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentLayout, set, numDynamicOffsets,
+                                                             dynamicOffsets)) {
+            LOG_E("AuroraVulkan", "Resource group physical plan, dynamic offsets or descriptor contents are incompatible");
+        }
     }
 
     void VulkanComputeEncoder::BindDescriptorHeap(DescriptorHeap *heap)

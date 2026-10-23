@@ -9,8 +9,10 @@
 
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <core/environment/Once.h>
+#include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <type_traits>
@@ -22,40 +24,83 @@ namespace sky::aurora {
 
         void LoadPropertyValueJson(MaterialPropertyValue &out, uint32_t index, const rapidjson::Value &v)
         {
-            if (index == 0) {
+            Sampler::Descriptor invalid;
+            invalid.minFilter  = static_cast<Filter>(UINT32_MAX);
+            out                = invalid;
+            const auto numbers = [&](rapidjson::SizeType count) {
+                return v.IsArray() && v.Size() == count && std::all_of(v.Begin(), v.End(), [](const auto &item) { return item.IsNumber(); });
+            };
+            if (index == 0 && v.IsNumber()) {
                 out = v.IsNumber() ? static_cast<float>(v.GetDouble()) : 0.0f;
-            } else if (index == 1 && v.IsArray() && v.Size() >= 2) {
+            } else if (index == 1 && numbers(2)) {
                 Vector2 x{};
                 for (int i = 0; i < 2; ++i) {
                     x.v[i] = static_cast<float>(v[static_cast<rapidjson::SizeType>(i)].GetDouble());
                 }
                 out = x;
-            } else if (index == 2 && v.IsArray() && v.Size() >= 3) {
+            } else if (index == 2 && numbers(3)) {
                 Vector3 x{};
                 for (int i = 0; i < 3; ++i) {
                     x.v[i] = static_cast<float>(v[static_cast<rapidjson::SizeType>(i)].GetDouble());
                 }
                 out = x;
-            } else if (index == 3 && v.IsArray() && v.Size() >= 4) {
+            } else if (index == 3 && numbers(4)) {
                 Vector4 x{};
                 for (int i = 0; i < 4; ++i) {
                     x.v[i] = static_cast<float>(v[static_cast<rapidjson::SizeType>(i)].GetDouble());
                 }
                 out = x;
-            } else if (index == 4 && v.IsArray() && v.Size() >= 16) {
+            } else if (index == 4 && numbers(16)) {
                 Matrix4 x{};
                 for (int i = 0; i < 16; ++i) {
                     x.v[i] = static_cast<float>(v[static_cast<rapidjson::SizeType>(i)].GetDouble());
                 }
                 out = x;
-            } else if (index == 5) {
+            } else if (index == 5 && v.IsInt()) {
                 out = v.IsInt() ? v.GetInt() : 0;
-            } else if (index == 6) {
+            } else if (index == 6 && v.IsUint()) {
                 out = v.IsUint() ? v.GetUint() : 0u;
-            } else if (index == 7) {
+            } else if (index == 7 && v.IsBool()) {
                 out = v.IsBool() ? v.GetBool() : false;
-            } else if (index == 8) {
+            } else if (index == 8 && v.IsString()) {
                 out = v.IsString() ? Uuid::CreateFromString(v.GetString()) : Uuid{};
+            } else if (index == 9) {
+                Sampler::Descriptor sampler;
+                bool                valid = v.IsObject();
+                if (valid) {
+                    const auto integer = [&](const char *key, auto &field) {
+                        if (!v.HasMember(key))
+                            return;
+                        if (!v[key].IsUint()) {
+                            valid = false;
+                            return;
+                        }
+                        field = static_cast<std::decay_t<decltype(field)>>(v[key].GetUint());
+                    };
+                    integer("magFilter", sampler.magFilter);
+                    integer("minFilter", sampler.minFilter);
+                    integer("mipmapMode", sampler.mipmapMode);
+                    integer("addressModeU", sampler.addressModeU);
+                    integer("addressModeV", sampler.addressModeV);
+                    integer("addressModeW", sampler.addressModeW);
+                    for (const auto &[name, field] :
+                         {std::pair{"minLod", &sampler.minLod}, {"maxLod", &sampler.maxLod}, {"maxAnisotropy", &sampler.maxAnisotropy}})
+                        if (v.HasMember(name)) {
+                            if (v[name].IsNumber())
+                                *field = static_cast<float>(v[name].GetDouble());
+                            else
+                                valid = false;
+                        }
+                    if (v.HasMember("anisotropyEnable")) {
+                        if (v["anisotropyEnable"].IsBool())
+                            sampler.anisotropyEnable = v["anisotropyEnable"].GetBool();
+                        else
+                            valid = false;
+                    }
+                }
+                if (!valid)
+                    sampler.minFilter = static_cast<Filter>(UINT32_MAX);
+                out = sampler;
             }
         }
 
@@ -150,25 +195,15 @@ namespace sky::aurora {
             }
             return true;
         }
-        bool LoadUniformsJson(const rapidjson::Value &values, std::vector<MaterialUniformBinding> &out)
+        bool LoadAliasesJson(const rapidjson::Value &values, std::vector<ShaderParameterAlias> &out)
         {
-            if (!values.IsArray()) {
+            if (!values.IsArray() || values.Size() > 1024)
                 return false;
-            }
             for (const auto &value : values.GetArray()) {
-                if (!value.IsObject() || !value.HasMember("binding") || !value["binding"].IsUint() || !value.HasMember("fields") ||
-                    !value["fields"].IsObject()) {
+                if (!value.IsObject() || !value.HasMember("alias") || !value["alias"].IsString() || !value.HasMember("target") ||
+                    !value["target"].IsString())
                     return false;
-                }
-                MaterialUniformBinding uniform;
-                uniform.binding = value["binding"].GetUint();
-                for (auto field = value["fields"].MemberBegin(); field != value["fields"].MemberEnd(); ++field) {
-                    if (!field->value.IsString()) {
-                        return false;
-                    }
-                    uniform.fields.push_back({.property = field->value.GetString(), .member = field->name.GetString()});
-                }
-                out.push_back(std::move(uniform));
+                out.push_back({value["alias"].GetString(), value["target"].GetString()});
             }
             return true;
         }
@@ -184,7 +219,7 @@ namespace sky::aurora {
             if (v.HasMember("renderState") && v["renderState"].IsObject()) {
                 LoadRenderStateJson(v["renderState"], out.renderState);
             }
-            return !v.HasMember("uniforms") || LoadUniformsJson(v["uniforms"], out.uniforms);
+            return !v.HasMember("uniforms") && (!v.HasMember("aliases") || LoadAliasesJson(v["aliases"], out.aliases));
         }
 
         std::string CompareOpText(CompareOp op)
@@ -220,6 +255,29 @@ namespace sky::aurora {
                         ar.SaveValue(v);
                     } else if constexpr (std::is_same_v<T, Uuid>) {
                         ar.SaveValue(v.ToString());
+                    } else if constexpr (std::is_same_v<T, Sampler::Descriptor>) {
+                        ar.StartObject();
+                        ar.Key("magFilter");
+                        ar.SaveValue(static_cast<uint32_t>(v.magFilter));
+                        ar.Key("minFilter");
+                        ar.SaveValue(static_cast<uint32_t>(v.minFilter));
+                        ar.Key("mipmapMode");
+                        ar.SaveValue(static_cast<uint32_t>(v.mipmapMode));
+                        ar.Key("addressModeU");
+                        ar.SaveValue(static_cast<uint32_t>(v.addressModeU));
+                        ar.Key("addressModeV");
+                        ar.SaveValue(static_cast<uint32_t>(v.addressModeV));
+                        ar.Key("addressModeW");
+                        ar.SaveValue(static_cast<uint32_t>(v.addressModeW));
+                        ar.Key("minLod");
+                        ar.SaveValue(v.minLod);
+                        ar.Key("maxLod");
+                        ar.SaveValue(v.maxLod);
+                        ar.Key("maxAnisotropy");
+                        ar.SaveValue(v.maxAnisotropy);
+                        ar.Key("anisotropyEnable");
+                        ar.SaveValue(v.anisotropyEnable);
+                        ar.EndObject();
                     } else {
                         constexpr std::size_t n = sizeof(v.v) / sizeof(float);
                         ar.StartArray();
@@ -303,19 +361,14 @@ namespace sky::aurora {
             ar.EndObject();
             ar.Key("renderState");
             SaveRenderStateJson(ar, t.renderState);
-            ar.Key("uniforms");
+            ar.Key("aliases");
             ar.StartArray();
-            for (const auto &uniform : t.uniforms) {
+            for (const auto &alias : t.aliases) {
                 ar.StartObject();
-                ar.Key("binding");
-                ar.SaveValue(uniform.binding);
-                ar.Key("fields");
-                ar.StartObject();
-                for (const auto &field : uniform.fields) {
-                    ar.Key(field.member.c_str());
-                    ar.SaveValue(field.property);
-                }
-                ar.EndObject();
+                ar.Key("alias");
+                ar.SaveValue(alias.alias);
+                ar.Key("target");
+                ar.SaveValue(alias.target);
                 ar.EndObject();
             }
             ar.EndArray();
@@ -412,6 +465,29 @@ namespace sky::aurora {
         if (context == nullptr || !sky::Once::Get()->Run("AuroraMaterialReflection")) {
             return;
         }
+
+        context->Register<Filter>("AuroraSamplerFilter").Enum(Filter::NEAREST, "Nearest").Enum(Filter::LINEAR, "Linear");
+        context->Register<MipFilter>("AuroraSamplerMipFilter").Enum(MipFilter::NEAREST, "Nearest").Enum(MipFilter::LINEAR, "Linear");
+        context->Register<WrapMode>("AuroraSamplerWrapMode")
+            .Enum(WrapMode::REPEAT, "Repeat")
+            .Enum(WrapMode::MIRRORED_REPEAT, "Mirrored Repeat")
+            .Enum(WrapMode::CLAMP_TO_EDGE, "Clamp To Edge")
+            .Enum(WrapMode::CLAMP_TO_BORDER, "Clamp To Border")
+            .Enum(WrapMode::MIRROR_CLAMP_TO_EDGE, "Mirror Clamp To Edge");
+        context->Register<Sampler::Descriptor>("AuroraSamplerDescriptor")
+            .Member<&Sampler::Descriptor::magFilter>("magFilter")
+            .Member<&Sampler::Descriptor::minFilter>("minFilter")
+            .Member<&Sampler::Descriptor::mipmapMode>("mipmapMode")
+            .Member<&Sampler::Descriptor::addressModeU>("addressModeU")
+            .Member<&Sampler::Descriptor::addressModeV>("addressModeV")
+            .Member<&Sampler::Descriptor::addressModeW>("addressModeW")
+            .Member<&Sampler::Descriptor::minLod>("minLod")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.f))
+            .Member<&Sampler::Descriptor::maxLod>("maxLod")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.f))
+            .Member<&Sampler::Descriptor::maxAnisotropy>("maxAnisotropy")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(1.f))
+            .Member<&Sampler::Descriptor::anisotropyEnable>("anisotropyEnable");
 
         context->Register<MaterialAssetData>("MaterialAssetData")
             .BinLoad<&MaterialAssetData::Load>()

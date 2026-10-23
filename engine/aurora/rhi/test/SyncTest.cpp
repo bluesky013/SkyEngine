@@ -4,6 +4,9 @@
 
 #include "AuroraTestHelper.h"
 
+#include <chrono>
+#include <thread>
+
 using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
@@ -26,7 +29,7 @@ TEST_F(SyncTestVulkan, CreateFenceSignaled)
     ASSERT_NE(device, nullptr);
 
     Fence::Descriptor desc = {};
-    desc.createSignaled = true;
+    desc.createSignaled    = true;
 
     auto *fence = device->CreateFence(desc);
     ASSERT_NE(fence, nullptr);
@@ -43,7 +46,7 @@ TEST_F(SyncTestVulkan, CreateFenceUnsignaled)
     ASSERT_NE(device, nullptr);
 
     Fence::Descriptor desc = {};
-    desc.createSignaled = false;
+    desc.createSignaled    = false;
 
     auto *fence = device->CreateFence(desc);
     ASSERT_NE(fence, nullptr);
@@ -56,7 +59,7 @@ TEST_F(SyncTestVulkan, CreateSemaphore)
     ASSERT_NE(device, nullptr);
 
     aurora::Semaphore::Descriptor desc = {};
-    desc.initialValue = 0;
+    desc.initialValue                  = 0;
 
     auto *sema = device->CreateSema(desc);
     ASSERT_NE(sema, nullptr);
@@ -73,7 +76,7 @@ TEST_F(SyncTestD3D12, CreateFenceSignaled)
     ASSERT_NE(device, nullptr);
 
     Fence::Descriptor desc = {};
-    desc.createSignaled = true;
+    desc.createSignaled    = true;
 
     auto *fence = device->CreateFence(desc);
     ASSERT_NE(fence, nullptr);
@@ -89,7 +92,7 @@ TEST_F(SyncTestD3D12, CreateSemaphore)
     ASSERT_NE(device, nullptr);
 
     aurora::Semaphore::Descriptor desc = {};
-    desc.initialValue = 0;
+    desc.initialValue                  = 0;
 
     auto *sema = device->CreateSema(desc);
     ASSERT_NE(sema, nullptr);
@@ -104,7 +107,7 @@ TEST_F(SyncTestMetal, CreateFenceSignaled)
     ASSERT_NE(device, nullptr);
 
     Fence::Descriptor desc = {};
-    desc.createSignaled = true;
+    desc.createSignaled    = true;
 
     auto *fence = device->CreateFence(desc);
     ASSERT_NE(fence, nullptr);
@@ -120,7 +123,7 @@ TEST_F(SyncTestMetal, CreateFenceUnsignaled)
     ASSERT_NE(device, nullptr);
 
     Fence::Descriptor desc = {};
-    desc.createSignaled = false;
+    desc.createSignaled    = false;
 
     auto *fence = device->CreateFence(desc);
     ASSERT_NE(fence, nullptr);
@@ -133,10 +136,35 @@ TEST_F(SyncTestMetal, CreateSemaphore)
     ASSERT_NE(device, nullptr);
 
     aurora::Semaphore::Descriptor desc = {};
-    desc.initialValue = 0;
+    desc.initialValue                  = 0;
 
     auto *sema = device->CreateSema(desc);
     ASSERT_NE(sema, nullptr);
     CounterPtr<aurora::Semaphore> guard(sema);
+}
+
+TEST_F(SyncTestMetal, TimelineWaitChecksValueAndNanosecondTimeout)
+{
+    auto semaphore = MakeTimelineSema(GetDevice(), 2);
+    ASSERT_TRUE(semaphore);
+    EXPECT_TRUE(semaphore->Wait(2, 0));
+    EXPECT_FALSE(semaphore->Wait(3, 0));
+    EXPECT_FALSE(semaphore->Wait(3, 1));
+
+    std::thread signal([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        semaphore->Signal(3);
+    });
+    const auto  signaled = semaphore->Wait(3, UINT64_MAX);
+    signal.join();
+    EXPECT_TRUE(signaled);
+    EXPECT_EQ(semaphore->GetCurrentValue(), 3);
+}
+
+TEST_F(SyncTestMetal, BinarySemaphoreRejectsHostWait)
+{
+    auto semaphore = MakeBinarySema(GetDevice());
+    ASSERT_TRUE(semaphore);
+    EXPECT_FALSE(semaphore->Wait(0, 0));
 }
 #endif

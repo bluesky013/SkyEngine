@@ -122,11 +122,11 @@ First implement the declaration exporter and resource-collection contract with s
 
 Acceptance covers queue Tag matching and absent/ambiguous Tags; Unlit/PBR/custom and material-specific shadow programs; explicit arbitrary entry names; fullscreen/compute without scene or Batch; mixed material/Feature Batch with collision/missing/type errors; multiple views/shadow cameras with independent Pass values; deterministic persistent export, stale-output detection, clean-build preservation and layout reflection; custom provider inventories, local/macro includes/imports and path collisions; dependency invalidation and retirement; one relocated package containing multiple owners without source/compiler fallback.
 
-Validation is recorded by implementation stage in tasks.md. Native acceptance remains open; the change stays active until those platform checks are complete.
+Validation is recorded by implementation stage in tasks.md. This change's macOS native acceptance and cross-compilation tasks pass; mobile device acceptance remains in platform-parity. Commit and archive still require the user's confirmation.
 
 ## Implementation boundaries
 
-Material asset payload version 2 stores all tagged stage references, variants and explicit uniform mappings. Old binary payloads and the old single `shader` JSON form are rejected; re-author stage entries and recook products. The shader cache index version is 4 because compiled reflection now records active entry-point resources. Reflection-only declaration inspection still returns the full declaration.
+Material asset payload version 2 stores all tagged stage references, variants and explicit uniform mappings. Old binary payloads and the old single `shader` JSON form are rejected; re-author stage entries and recook products. Shader cache index/blob version 5 adds stage-specific native resource bindings to the active-entry reflection introduced by version 4. Previous products must be recooked. Reflection-only declaration inspection still returns the full declaration.
 
 Built-in Scene Batch has separate world (binding 0), receive-shadow (binding 1) and material tint/surface (binding 2) inputs. These belong to the built-in interface. Core accepts arbitrary supported binding layouts. `PackShaderUniform` provides layout-checked assembly, including a combined block when one owner supplies all fields; `PassResourceBindings` rejects overlapping providers transactionally.
 
@@ -154,3 +154,22 @@ Local obsolete `shader-bundles` staging trees and the generated `SceneShaderBund
 are removed. Current shader products and unrelated build caches are preserved.
 Current reference documents point to this contract; earlier change records are
 marked as superseded where appropriate and keep their dated validation evidence.
+
+## Metal physical binding correction
+
+Logical `(set, binding)` keys do not establish unique Metal argument indices, and an active-resource query must use the native category/index namespace expected by the compiler metadata. A binding can occupy a different native index in VS and FS after stage optimization. Neither collapsing register spaces nor counting resources in merged declaration order is a valid mapping rule.
+
+An MSL session includes a second, layout-only SPIRV target over the same source and preprocessor configuration. Matching parameters by name obtains authored logical keys from that declaration layout, including resources whose Metal layout reports mixed native categories. No SPIRV bytecode is generated. Metal layout remains the sole source of block offsets and sizes, physical argument indices and active-resource metadata; SPIRV packing is not used for Metal data.
+
+Keep authored logical keys unchanged. Each compiled stage carries `ShaderReflection.nativeBindings`, whose `ShaderNativeBinding` records `set`, `binding`, one shader `stage` and the physical `index`; the matching logical resource supplies the buffer/texture/sampler category. Metal code generation and native encoder binding consume the same mapping, with collision and capacity errors reported explicitly. A native metadata query must not silently discard a live resource because it was given a logical descriptor key.
+
+Technique and raster resolution preserve independent stage mappings, deduplicate identical `(set, binding, stage, index)` records and reject conflicting indices for the same logical stage key. Cache version 5 serializes these records; decoding rejects invalid stage values, truncated records and oversized counts. Packet resource accounting includes the additional owned records. The stripped scene/compute/fullscreen readbacks must pass before native acceptance is complete; codec or reflection checks alone do not establish that result.
+
+## Planned shader ABI follow-up
+
+The 2026-10-22 design review is tracked by `refactor-aurora-target-shader-artifacts`.
+That proposed change replaces the auxiliary SPIR-V/name bridge above, makes native
+reflection completeness and artifact identity explicit, and separates CPU parameter
+layout from target ABI through UniformUploadPlan. It retains this change's resource
+ownership, exports, registration, technique and packaging baseline. These corrections
+are planned rather than delivered by the completed tasks recorded here.

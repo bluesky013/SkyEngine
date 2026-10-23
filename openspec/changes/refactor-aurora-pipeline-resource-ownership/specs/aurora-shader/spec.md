@@ -40,6 +40,22 @@ Shared declarations SHALL use one authoritative C++ `.h` source with owner-selec
 - **WHEN** a material shader targets OpaquePass
 - **THEN** it can include the exported Global and OpaquePass shader headers without including C++ headers or acquiring a generated complete material program
 
+### Requirement: Logical bindings remain independent of native argument slots
+
+Compiled reflection and shipped products SHALL retain authored logical set/binding identities separately from native resource indices for each shader stage. Uniform sizes and member offsets SHALL come from the selected target's layout. Backends SHALL bind the recorded native indices rather than infer them from merged resource order. Unsupported or inconsistent mappings SHALL fail explicitly.
+
+#### Scenario: Metal flattens register spaces
+- **WHEN** two active uniform buffers use binding zero in different logical sets
+- **THEN** they retain both logical identities and receive distinct Metal buffer arguments
+
+#### Scenario: Stages use different native indices
+- **WHEN** a logical resource has different native indices in vertex and fragment stages
+- **THEN** the backend binds that resource at each stage's recorded index, including its draw-specific dynamic offset
+
+#### Scenario: Storage image has mixed reflection categories
+- **WHEN** an active storage image has multiple native reflection categories
+- **THEN** its logical binding and actual native texture index survive compilation, cook and source-free runtime lookup
+
 ### Requirement: Unified module resource registration
 
 Plugin/module registration SHALL declare shader import rules once in a resource description available to project assembly and offline tools without loading rendering runtime DLLs. Common owner, source-root, namespace, inventory, dependency and distribution metadata SHALL be shared with asset-resource registration where applicable. Shader include/header exports and path identities SHALL retain their own semantics; sharing registration SHALL NOT require converting ShaderRef into a UUID asset. Aurora foundation and project modules SHALL use the same contribution contract without becoming business plugins.
@@ -131,6 +147,16 @@ Development compilation and offline cook SHALL consume the same collected resour
 #### Scenario: Relocated package without shader sources
 - **WHEN** a packaged project runs after relocation with development source roots unavailable and runtime Slang absent
 - **THEN** required scene, fullscreen and compute requests resolve from shipped products without embedded-source compilation fallback
+
+#### Scenario: Runtime selects existing product contents
+- **WHEN** a filesystem can create a valid child wrapper for an absent product directory
+- **THEN** the host SHALL validate the shader distribution contents before selecting products
+- **AND** development mode SHALL register declared source resources, while product mode SHALL report absent or malformed selected products explicitly
+
+#### Scenario: Native build and package deploy the same selected resources
+- **WHEN** a project is built through Android Studio, Apple IDE generation or a single-configuration desktop generator
+- **THEN** its selected shader resources SHALL be staged into the actual runtime resource root using the same collected graph as packaging
+- **AND** staging SHALL NOT derive an absolute system-root destination from an unset runtime output directory
 
 ### Requirement: Compilation retains its source snapshot
 

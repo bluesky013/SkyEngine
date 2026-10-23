@@ -31,13 +31,13 @@ namespace sky::aurora {
         uint64_t fp = kFnv1aBasis;
         fp          = HashMixU64(fp, reservedBits);
         for (const auto &source : schema.sources) {
-            fp = HashMixU64(fp, source.name.GetHandle());
+            fp = HashMixU64(fp, HashString(source.name.GetStr()));
             fp = HashMixU64(fp, source.bitOffset);
             fp = HashMixU64(fp, source.bitWidth);
         }
         for (const auto &entry : schema.entries) {
-            fp = HashMixU64(fp, entry.key.GetHandle());
-            fp = HashMixU64(fp, entry.source.GetHandle());
+            fp = HashMixU64(fp, HashString(entry.key.GetStr()));
+            fp = HashMixU64(fp, HashString(entry.source.GetStr()));
             fp = HashMixU64(fp, entry.bitOffset);
             fp = HashMixU64(fp, entry.bitWidth);
             fp = HashMixU64(fp, entry.defaultValue);

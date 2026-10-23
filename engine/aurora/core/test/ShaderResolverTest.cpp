@@ -1,270 +1,255 @@
-//
-// ShaderResolver tests: offline hit, source-change recompile, source-absent
-// local cache, and no-compiler miss.
-//
-
 #include <aurora/shader/ShaderResolver.h>
 
 #include <aurora/shader/ShaderFileSystem.h>
 
-#include <core/file/FileSystem.h>
+#include "ShaderArtifactTest.h"
 
 #include <gtest/gtest.h>
 
-#include <filesystem>
-#include <string>
-
 using namespace sky;
 using namespace sky::aurora;
+using namespace sky::aurora::test;
 
 namespace {
-
-    struct TempDir {
-        std::string path;
-        explicit TempDir(const std::string &name)
-        {
-            path = (std::filesystem::temp_directory_path() / ("sky_shaderresolver_" + name + "_" + std::to_string(::rand()))).string();
-            std::filesystem::create_directories(path);
-            blobsPath = (std::filesystem::path(path) / "blobs").string();
-            std::filesystem::create_directories(blobsPath);
-        }
-        ~TempDir()
-        {
-            std::error_code ec;
-            std::filesystem::remove_all(path, ec);
-        }
-        std::string blobsPath;
-    };
-
-    NativeFileSystem *MakeFs(const std::string &dir)
+    ShaderResolver::Request TestRequest(const ShaderVariantSchema &schema)
     {
-        std::filesystem::create_directories(dir);
-        return new NativeFileSystem(FilePath(dir));
+        ShaderResolver::Request request;
+        request.relativePath = "s.slang";
+        request.entry        = "mainFS";
+        request.schema       = &schema;
+        request.schemaFp     = HashSchema(schema);
+        request.environment  = DefaultShaderEnvironment(ShaderTarget::SPIRV, ShaderPlatform::MACOS);
+        return request;
     }
-
-    class FakeCompiler : public IShaderCompiler {
-    public:
-        int  count = 0;
-        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
-        {
-            ++count;
-            out.data       = {static_cast<uint32_t>(desc.source.size())};
-            out.reflection = ShaderReflection{};
-            return true;
-        }
-    };
-
-    ShaderVariantSchema MakeSchema()
-    {
-        ShaderVariantSchema schema;
-        schema.sources.push_back({Name("material"), 0, 8});
-        schema.entries.push_back({Name("USE_SHADOWS"), Name("material"), 0, 1, 0});
-        schema.totalBits = 8;
-        return schema;
-    }
-
 } // namespace
 
-TEST(ShaderResolverTest, OfflineHitAfterCompile)
+TEST(ShaderResolverTest, DevelopmentUsesExactInputsBeforeCompiling)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    TempDir           otherDir("other");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-    NativeFileSystem *other   = MakeFs(otherDir.path);
-
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
-
-    ShaderVariantSchema schema   = MakeSchema();
-    const uint64_t      schemaFp = HashSchema(schema);
-
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    ShaderResolver::Request req;
-    req.relativePath = "s.slang";
-    req.entry        = "FSMain";
-    req.stage        = ShaderStageFlagBit::FS;
-    req.target       = 0;
-    req.variantHash  = 42;
-    req.schema       = &schema;
-    req.schemaFp     = schemaFp;
-
-    // first resolve: no cache -> compiles, writes local
-    {
-        ShaderResolver      resolver(offline, local, source, 1, 2);
-        ShaderCompileResult out;
-        std::string         error;
-        ASSERT_TRUE(resolver.ResolveShader(req, out, &error)) << error;
-    }
-    EXPECT_EQ(compiler.count, 1);
-
-    // second resolve with the produced cache as the (read-only) offline root ->
-    // offline hit, no compile.
-    {
-        ShaderResolver      resolver(local, other, source, 1, 2);
-        ShaderCompileResult out;
-        std::string         error;
-        ASSERT_TRUE(resolver.ResolveShader(req, out, &error)) << error;
-    }
-    EXPECT_EQ(compiler.count, 1);
-
-    ShaderCompilerFactory::Get().Register(nullptr);
+    ShaderCacheDirectory directory("resolver");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// initial source");
+    const ShaderVariantSchema  schema;
+    const auto                 request = TestRequest(schema);
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             resolver(nullptr, directory.fs.Get(), sources, 1, 999);
+    ShaderCompileResult        first, same, changed;
+    std::string                error;
+    ASSERT_TRUE(resolver.ResolveShader(request, first, &error)) << error;
+    ASSERT_TRUE(resolver.ResolveShader(request, same, &error)) << error;
+    EXPECT_EQ(compiler.count, 1u);
+    EXPECT_EQ(first.artifactId, same.artifactId);
+    sources.AddVirtualFile("s.slang", "// changed source");
+    ASSERT_TRUE(resolver.ResolveShader(request, changed, &error)) << error;
+    EXPECT_EQ(compiler.count, 2u);
+    EXPECT_NE(first.artifactId, changed.artifactId);
+    compiler.producer.version = "new-version";
+    ASSERT_TRUE(resolver.ResolveShader(request, changed, &error)) << error;
+    EXPECT_EQ(compiler.count, 3u);
+    EXPECT_EQ(changed.identity.producer.version, "new-version");
 }
 
-TEST(ShaderResolverTest, SourceChangeRecompiles)
+TEST(ShaderResolverTest, ProductsDoNotNeedCurrentCompilerOrSources)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
-
-    ShaderVariantSchema schema   = MakeSchema();
-    const uint64_t      schemaFp = HashSchema(schema);
-
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    ShaderResolver::Request req;
-    req.relativePath = "s.slang";
-    req.entry        = "FSMain";
-    req.stage        = ShaderStageFlagBit::FS;
-    req.variantHash  = 1;
-    req.schema       = &schema;
-    req.schemaFp     = schemaFp;
-
-    ShaderResolver      resolver(offline, local, source, 1, 2);
-    ShaderCompileResult out;
-    ASSERT_TRUE(resolver.ResolveShader(req, out, nullptr));
-    EXPECT_EQ(compiler.count, 1);
-
-    // change source -> sourceHash changes -> offline miss + local stale -> recompile
-    source.AddVirtualFile("s.slang", "// v2 changed");
-    ASSERT_TRUE(resolver.ResolveShader(req, out, nullptr));
-    EXPECT_EQ(compiler.count, 2);
-
+    ShaderCacheDirectory directory("products");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    const ShaderVariantSchema  schema;
+    auto                       request = TestRequest(schema);
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderCompileResult        cooked;
+    ShaderResolver             development(nullptr, directory.fs.Get(), sources, 7, 11);
+    std::string                error;
+    ASSERT_TRUE(development.ResolveShader(request, cooked, &error)) << error;
     ShaderCompilerFactory::Get().Register(nullptr);
+    ShaderFileSystem empty;
+    request.schema   = nullptr;
+    request.schemaFp = 0;
+    ShaderResolver      products(directory.fs.Get(), nullptr, empty, 7, UINT64_MAX, ShaderResolveMode::PRODUCTS);
+    ShaderCompileResult shipped;
+    ASSERT_TRUE(products.ResolveShader(request, shipped, &error)) << error;
+    EXPECT_EQ(shipped.artifactId, cooked.artifactId);
+    EXPECT_EQ(shipped.identity.producer, compiler.producer);
+    // A stray source companion cannot redirect PRODUCTS resolution.
+    empty.AddVirtualFile("s.slang.json", "invalid companion");
+    empty.AddVirtualFile("s.slang", "changed source");
+    ASSERT_TRUE(products.ResolveShader(request, shipped, &error)) << error;
+    EXPECT_EQ(shipped.artifactId, cooked.artifactId);
 }
 
-TEST(ShaderResolverTest, SourceAbsentUsesLocalCache)
+TEST(ShaderResolverTest, DownstreamProducerChangesOnlyInvalidateTheirTarget)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
-
-    ShaderVariantSchema schema   = MakeSchema();
-    const uint64_t      schemaFp = HashSchema(schema);
-
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    ShaderResolver::Request req;
-    req.relativePath = "s.slang";
-    req.entry        = "FSMain";
-    req.stage        = ShaderStageFlagBit::FS;
-    req.variantHash  = 5;
-    req.schema       = &schema;
-    req.schemaFp     = schemaFp;
-
-    {
-        ShaderResolver      resolver(offline, local, source, 1, 2);
-        ShaderCompileResult out;
-        ASSERT_TRUE(resolver.ResolveShader(req, out, nullptr));
-    }
-    EXPECT_EQ(compiler.count, 1);
-
-    // no source available -> local cache is used
-    ShaderFileSystem    emptySource;
-    ShaderResolver      resolver(offline, local, emptySource, 1, 2);
-    ShaderCompileResult out;
-    std::string         error;
-    ASSERT_TRUE(resolver.ResolveShader(req, out, &error)) << error;
-    EXPECT_EQ(compiler.count, 1);
-
-    ShaderCompilerFactory::Get().Register(nullptr);
+    class TargetCompiler : public IShaderCompiler {
+    public:
+        uint64_t               downstream = 1;
+        uint32_t               count      = 0;
+        bool                   available  = true;
+        ShaderProducerIdentity GetProducerIdentity() const override
+        {
+            return TestProducer();
+        }
+        ShaderProducerIdentity GetProducerIdentity(ShaderTarget target) const override
+        {
+            if (target == ShaderTarget::DXIL && !available)
+                return {};
+            auto identity = GetProducerIdentity();
+            if (target == ShaderTarget::DXIL)
+                identity.configuration = downstream;
+            return identity;
+        }
+        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) override
+        {
+            ++count;
+            return TestCompile(desc, GetProducerIdentity(desc.target), result);
+        }
+    };
+    ShaderCacheDirectory directory("targetproducer");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// unchanged source");
+    const ShaderVariantSchema schema;
+    auto                      spirv = TestRequest(schema);
+    auto                      dxil  = spirv;
+    dxil.target                     = static_cast<uint32_t>(ShaderTarget::DXIL);
+    dxil.environment                = DefaultShaderEnvironment(ShaderTarget::DXIL, ShaderPlatform::WINDOWS);
+    TargetCompiler             compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             resolver(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult        spirvFirst, dxilFirst, current;
+    std::string                error;
+    ASSERT_TRUE(resolver.ResolveShader(spirv, spirvFirst, &error)) << error;
+    ASSERT_TRUE(resolver.ResolveShader(dxil, dxilFirst, &error)) << error;
+    ASSERT_EQ(compiler.count, 2u);
+    compiler.available = false;
+    EXPECT_FALSE(resolver.ResolveShader(dxil, current, &error));
+    EXPECT_NE(error.find("producer identity"), std::string::npos);
+    EXPECT_EQ(compiler.count, 2u);
+    compiler.available = true;
+    ++compiler.downstream;
+    ASSERT_TRUE(resolver.ResolveShader(spirv, current, &error)) << error;
+    EXPECT_EQ(current.artifactId, spirvFirst.artifactId);
+    EXPECT_EQ(compiler.count, 2u);
+    ASSERT_TRUE(resolver.ResolveShader(dxil, current, &error)) << error;
+    EXPECT_EQ(compiler.count, 3u);
+    EXPECT_NE(current.artifactId, dxilFirst.artifactId);
+    EXPECT_EQ(current.identity.producer, compiler.GetProducerIdentity(ShaderTarget::DXIL));
+    const auto publishedId = current.artifactId;
+    ++compiler.downstream;
+    ShaderFileSystem empty;
+    ShaderResolver   products(directory.fs.Get(), nullptr, empty, 0, 0, ShaderResolveMode::PRODUCTS);
+    ASSERT_TRUE(products.ResolveShader(dxil, current, &error)) << error;
+    EXPECT_EQ(current.artifactId, publishedId);
+    EXPECT_EQ(compiler.count, 3u);
 }
 
-TEST(ShaderResolverTest, EntryLevelKeysDoNotCollide)
+TEST(ShaderResolverTest, DevelopmentDoesNotBecomeImplicitProductsMode)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
-
-    ShaderFileSystem source;
-    source.AddVirtualFile("lit.slang", "// shared vs/fs");
-
-    ShaderVariantSchema schema   = MakeSchema();
-    const uint64_t      schemaFp = HashSchema(schema);
-
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
-
-    ShaderResolver resolver(offline, local, source, 1, 2);
-
-    ShaderResolver::Request vs;
-    vs.relativePath = "lit.slang";
-    vs.entry        = "mainVS";
-    vs.stage        = ShaderStageFlagBit::VS;
-    vs.variantHash  = 100;
-    vs.schema       = &schema;
-    vs.schemaFp     = schemaFp;
-
-    ShaderResolver::Request fs = vs;
-    fs.entry                   = "mainFS";
-    fs.stage                   = ShaderStageFlagBit::FS;
-
-    ShaderCompileResult vsOut;
-    ShaderCompileResult fsOut;
-    ASSERT_TRUE(resolver.ResolveShader(vs, vsOut, nullptr));
-    ASSERT_TRUE(resolver.ResolveShader(fs, fsOut, nullptr));
-    EXPECT_EQ(compiler.count, 2); // distinct keys -> both compiled, neither overwrote
-
-    // both are cached and loadable with the cache as the read-only root
-    ShaderResolver      cached(local, local, source, 1, 2);
-    ShaderCompileResult vsCached;
-    ShaderCompileResult fsCached;
-    ASSERT_TRUE(cached.ResolveShader(vs, vsCached, nullptr));
-    ASSERT_TRUE(cached.ResolveShader(fs, fsCached, nullptr));
-    EXPECT_EQ(compiler.count, 2);
-
+    const ShaderVariantSchema schema;
+    auto                      request = TestRequest(schema);
+    ShaderCacheDirectory      directory("explicitmode");
+    ShaderFileSystem          sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             resolver(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult        result;
+    ASSERT_TRUE(resolver.ResolveShader(request, result));
+    ShaderFileSystem empty;
+    ShaderResolver   noSource(directory.fs.Get(), nullptr, empty, 0, 0);
+    std::string      error;
+    EXPECT_FALSE(noSource.ResolveShader(request, result, &error));
+    EXPECT_NE(error.find("DEVELOPMENT"), std::string::npos);
     ShaderCompilerFactory::Get().Register(nullptr);
+    EXPECT_FALSE(resolver.ResolveShader(request, result, &error));
+    EXPECT_NE(error.find("producer identity"), std::string::npos);
 }
 
-TEST(ShaderResolverTest, NoCompilerMissFails)
+TEST(ShaderResolverTest, PublishedEnvironmentAndEntryMustMatch)
 {
-    TempDir           offlineDir("offline");
-    TempDir           localDir("local");
-    NativeFileSystem *offline = MakeFs(offlineDir.path);
-    NativeFileSystem *local   = MakeFs(localDir.path);
+    ShaderCacheDirectory directory("isolation");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    const ShaderVariantSchema schema;
+    auto                      request = TestRequest(schema);
+    request.target                    = static_cast<uint32_t>(ShaderTarget::MSL);
+    request.environment               = DefaultShaderEnvironment(ShaderTarget::MSL, ShaderPlatform::MACOS);
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             development(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult        result;
+    ASSERT_TRUE(development.ResolveShader(request, result));
+    ShaderFileSystem empty;
+    ShaderResolver   products(directory.fs.Get(), directory.fs.Get(), empty, 0, 0, ShaderResolveMode::PRODUCTS);
+    request.environment.platform = ShaderPlatform::IOS;
+    std::string error;
+    EXPECT_FALSE(products.ResolveShader(request, result, &error));
+    EXPECT_NE(error.find("environment"), std::string::npos);
+    request.environment.platform = ShaderPlatform::MACOS;
+    request.entry                = "otherFS";
+    EXPECT_FALSE(products.ResolveShader(request, result, &error));
+    request.entry = "mainFS";
+    request.stage = ShaderStageFlagBit::VS;
+    EXPECT_FALSE(products.ResolveShader(request, result, &error));
+}
 
-    ShaderFileSystem source;
-    source.AddVirtualFile("s.slang", "// v1");
+TEST(ShaderResolverTest, SpecializationOnlySplitsD3D12Artifacts)
+{
+    ShaderCacheDirectory directory("specialization");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    ShaderVariantSchema schema;
+    schema.sources        = {{Name("material"), 0, 8}};
+    schema.entries        = {{Name("MODE"), Name("material"), 0, 1, 0, true, 3}};
+    schema.totalBits      = 8;
+    auto          request = TestRequest(schema);
+    ShaderVariant variant;
+    variant.entries = {{Name("MODE"), 0}};
+    request.variant = &variant;
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             resolver(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult        zero, one;
+    ASSERT_TRUE(resolver.ResolveShader(request, zero));
+    variant.entries[0].value = 1;
+    ASSERT_TRUE(resolver.ResolveShader(request, one));
+    EXPECT_EQ(zero.artifactId, one.artifactId);
+    EXPECT_EQ(compiler.count, 1u);
+    request.target           = static_cast<uint32_t>(ShaderTarget::DXIL);
+    request.environment      = DefaultShaderEnvironment(ShaderTarget::DXIL, ShaderPlatform::WINDOWS);
+    variant.entries[0].value = 0;
+    ASSERT_TRUE(resolver.ResolveShader(request, zero));
+    variant.entries[0].value = 1;
+    ASSERT_TRUE(resolver.ResolveShader(request, one));
+    EXPECT_NE(zero.artifactId, one.artifactId);
+    EXPECT_EQ(compiler.count, 3u);
+}
 
-    ShaderVariantSchema schema = MakeSchema();
-
-    ShaderResolver::Request req;
-    req.relativePath = "s.slang";
-    req.entry        = "FSMain";
-    req.stage        = ShaderStageFlagBit::FS;
-    req.variantHash  = 9;
-    req.schema       = &schema;
-    req.schemaFp     = HashSchema(schema);
-
+TEST(ShaderResolverTest, ProductsSelectManifestOptionsWithoutAnExplicitEnvironment)
+{
+    ShaderCacheDirectory directory("manifestoptions");
+    ShaderFileSystem     sources;
+    sources.AddVirtualFile("s.slang", "// source");
+    const ShaderVariantSchema schema;
+    auto                      request = TestRequest(schema);
+    request.environment               = DefaultShaderEnvironment(ShaderTarget::SPIRV);
+    request.environment.options       = {"optimization=0"};
+    TestShaderCompiler         compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver             development(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult        cooked;
+    std::string                error;
+    ASSERT_TRUE(development.ResolveShader(request, cooked, &error)) << error;
+    const auto manifest = TestProductManifest(request.environment);
+    ASSERT_TRUE(WriteFileAtomic(*directory.fs, "distribution.json", {manifest.begin(), manifest.end()}));
     ShaderCompilerFactory::Get().Register(nullptr);
-
-    ShaderResolver      resolver(offline, local, source, 1, 2);
-    ShaderCompileResult out;
-    std::string         error;
-    EXPECT_FALSE(resolver.ResolveShader(req, out, &error));
-    EXPECT_FALSE(error.empty());
+    ShaderFileSystem empty;
+    ShaderResolver   products(directory.fs.Get(), nullptr, empty, 0, 0, ShaderResolveMode::PRODUCTS);
+    request.environment = {};
+    ShaderCompileResult shipped;
+    ASSERT_TRUE(products.ResolveShader(request, shipped, &error)) << error;
+    EXPECT_EQ(shipped.artifactId, cooked.artifactId);
+    EXPECT_EQ(shipped.identity.environment.options, (std::vector<std::string>{"optimization=0"}));
+    request.environment = DefaultShaderEnvironment(ShaderTarget::SPIRV);
+    EXPECT_FALSE(products.ResolveShader(request, shipped, &error));
+    EXPECT_NE(error.find("environment"), std::string::npos);
 }

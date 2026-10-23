@@ -13,6 +13,7 @@
 #include <MetalImage.h>
 #include <MetalSync.h>
 #include <aurora/rhi/SubmitInfo.h>
+#include <core/logger/Logger.h>
 
 #include <algorithm>
 
@@ -33,74 +34,92 @@ namespace sky::aurora {
 
     void MetalQueue::Submit(const SubmitInfo &info)
     {
-        if (info.commandBuffers.empty() && info.signalSemaphores.empty() && info.fence == nullptr) {
-            return;
-        }
-
-        id<MTLCommandQueue> mtlQueue = (__bridge id<MTLCommandQueue>)queue;
-
-        // Acquire underlying MTLCommandBuffer for each user CommandBuffer; if the
-        // batch is empty but signals/fence requested, create one no-op cmdbuffer.
-        std::vector<id<MTLCommandBuffer>> mtlCmdBufs;
-        mtlCmdBufs.reserve(info.commandBuffers.empty() ? 1 : info.commandBuffers.size());
-
-        for (auto *cb : info.commandBuffers) {
-            auto                *metalCB = static_cast<MetalCommandBuffer *>(cb);
-            id<MTLCommandBuffer> raw     = (__bridge id<MTLCommandBuffer>)metalCB->GetNativeHandle();
-            if (raw != nil) {
-                mtlCmdBufs.push_back(raw);
-            }
-        }
-
-        if (mtlCmdBufs.empty()) {
-            id<MTLCommandBuffer> empty = [mtlQueue commandBuffer];
-            mtlCmdBufs.push_back(empty);
-        }
-
-        // Encode wait events on the FIRST cmdbuffer.
-        if (!info.waitSemaphores.empty()) {
-            id<MTLCommandBuffer> first = mtlCmdBufs.front();
-            for (const auto &w : info.waitSemaphores) {
-                auto *sema = static_cast<MetalSemaphore *>(w.semaphore);
-                if (sema == nullptr)
-                    continue;
-                id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-                const uint64_t     value = (sema->GetType() == SemaphoreType::TIMELINE) ? w.value : sema->GetBinaryWaitValue();
-                [first encodeWaitForEvent:ev value:value];
-            }
-        }
-
-        // Encode signal events on the LAST cmdbuffer.
-        if (!info.signalSemaphores.empty()) {
-            id<MTLCommandBuffer> last = mtlCmdBufs.back();
-            for (const auto &s : info.signalSemaphores) {
-                auto *sema = static_cast<MetalSemaphore *>(s.semaphore);
-                if (sema == nullptr)
-                    continue;
-                id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)sema->GetSharedEvent();
-                const uint64_t     value = (sema->GetType() == SemaphoreType::TIMELINE) ? s.value : sema->AdvanceBinarySignalValue();
-                [last encodeSignalEvent:ev value:value];
-            }
-        }
-
-        // Fence completion: encode a signal on a private MTLSharedEvent that the
-        // fence's listener flips to host-visible "signaled".
-        if (info.fence != nullptr) {
-            auto              *fence = static_cast<MetalFence *>(info.fence);
-            const uint64_t     v     = fence->TakeNextValue();
-            id<MTLSharedEvent> ev    = (__bridge id<MTLSharedEvent>)fence->GetSharedEvent();
-            [mtlCmdBufs.back() encodeSignalEvent:ev value:v];
-        }
-
-        for (id<MTLCommandBuffer> cb : mtlCmdBufs) {
-            [cb commit];
-        }
+        const auto result = TrySubmit(info);
+        if (result.status != QueueSubmitStatus::ACCEPTED)
+            LOG_E("AuroraMetal", "queue submission failed: %u (%lld)", static_cast<unsigned>(result.error.code), result.error.nativeCode);
     }
 
     QueueSubmitResult MetalQueue::TrySubmit(const SubmitInfo &info) noexcept
     {
-        Submit(info);
-        return {QueueSubmitStatus::ACCEPTED, {}};
+        @autoreleasepool {
+            auto nativeQueue = (__bridge id<MTLCommandQueue>)queue;
+            if (!nativeQueue || (info.fence && info.fence->GetDevice() != &device))
+                return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            for (const auto &wait : info.waitSemaphores)
+                if (!wait.semaphore || wait.semaphore->GetDevice() != &device)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            for (const auto &signal : info.signalSemaphores)
+                if (!signal.semaphore || signal.semaphore->GetDevice() != &device)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+            std::vector<id<MTLCommandBuffer>> commands;
+            for (auto *command : info.commandBuffers) {
+                if (!command || command->GetDevice() != &device)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+                const auto *metalCommand   = static_cast<MetalCommandBuffer *>(command);
+                const auto  recordingError = metalCommand->GetRecordingError();
+                if (recordingError.code != GpuErrorCode::NONE)
+                    return {QueueSubmitStatus::REJECTED, recordingError};
+                auto native = (__bridge id<MTLCommandBuffer>)metalCommand->GetNativeHandle();
+                if (!native || native.commandQueue != nativeQueue || native.status != MTLCommandBufferStatusNotEnqueued)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+                if (std::find(commands.begin(), commands.end(), native) != commands.end())
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
+                commands.push_back(native);
+            }
+            id<MTLCommandBuffer> waits = nil;
+            if (!info.waitSemaphores.empty()) {
+                // Waits precede recorded work; appending them to an already encoded buffer would wait too late.
+                waits = [nativeQueue commandBuffer];
+                if (!waits)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::OUT_OF_MEMORY}};
+            }
+            if (commands.empty()) {
+                auto empty = [nativeQueue commandBuffer];
+                if (!empty)
+                    return {QueueSubmitStatus::REJECTED, {GpuErrorCode::OUT_OF_MEMORY}};
+                commands.push_back(empty);
+            }
+            auto last = commands.back();
+            if (info.fence) {
+                auto           *fence    = static_cast<MetalFence *>(info.fence);
+                NSMutableArray *retained = [NSMutableArray arrayWithCapacity:commands.size() + (waits ? 1 : 0)];
+                if (waits)
+                    [retained addObject:waits];
+                for (auto command : commands)
+                    [retained addObject:command];
+                uint64_t   value = 0;
+                const auto armed = fence->ArmSubmission((__bridge void *)retained, value);
+                if (!armed.Succeeded())
+                    return {QueueSubmitStatus::REJECTED, armed.error};
+                [last encodeSignalEvent:(__bridge id<MTLSharedEvent>)fence->GetSharedEvent() value:value];
+            }
+            for (const auto &wait : info.waitSemaphores) {
+                auto *semaphore = static_cast<MetalSemaphore *>(wait.semaphore);
+                auto  event     = (__bridge id<MTLSharedEvent>)semaphore->GetSharedEvent();
+                [waits encodeWaitForEvent:event value:semaphore->GetType() == SemaphoreType::TIMELINE ? wait.value : semaphore->GetBinaryWaitValue()];
+            }
+            for (const auto &signal : info.signalSemaphores) {
+                auto *semaphore = static_cast<MetalSemaphore *>(signal.semaphore);
+                auto  event     = (__bridge id<MTLSharedEvent>)semaphore->GetSharedEvent();
+                [last encodeSignalEvent:event
+                                  value:semaphore->GetType() == SemaphoreType::TIMELINE ? signal.value : semaphore->AdvanceBinarySignalValue()];
+            }
+            if (waits) {
+                [waits commit];
+                if (waits.status == MTLCommandBufferStatusError) {
+                    // No commands are retried after native queue work begins.
+                    for (auto command : commands)
+                        [command commit];
+                    return {QueueSubmitStatus::INDETERMINATE, {GpuErrorCode::NATIVE_ERROR, waits.error ? waits.error.code : 0}};
+                }
+            }
+            for (auto command : commands)
+                [command commit];
+            for (auto command : commands)
+                if (command.status == MTLCommandBufferStatusError)
+                    return {QueueSubmitStatus::INDETERMINATE, {GpuErrorCode::NATIVE_ERROR, command.error ? command.error.code : 0}};
+            return {QueueSubmitStatus::ACCEPTED, {}};
+        }
     }
 
     void MetalQueue::WaitIdle()

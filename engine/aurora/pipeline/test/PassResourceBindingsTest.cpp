@@ -2,9 +2,11 @@
 #include "SceneBatch.h"
 #include "TextureToScreenPass.h"
 #include <algorithm>
+#include <aurora/renderer/IRenderFeature.h>
 #include <aurora/renderer/PassResourceBindings.h>
 #include <gtest/gtest.h>
 
+using namespace sky;
 using namespace sky::aurora;
 
 namespace {
@@ -17,7 +19,95 @@ namespace {
         {
             return reflection;
         }
+        bool EnableNames()
+        {
+            reflection.kind         = ShaderReflectionKind::PROGRAM;
+            reflection.bindingModel = ShaderBindingModel::VULKAN_DESCRIPTORS;
+            reflection.complete     = true;
+            reflection.stages       = ShaderStageFlagBit::FS;
+            for (auto &resource : reflection.resources) {
+                resource.stages           = ShaderStageFlagBit::FS;
+                resource.declarationOwner = "test/pass-transaction";
+                reflection.nativeBindings.push_back({resource.set, resource.binding, ShaderStageFlagBit::FS, resource.binding,
+                                                     ShaderNativeCategory::DESCRIPTOR, resource.set, resource.count});
+            }
+            if (reflection.declarations.empty())
+                reflection.declarations = reflection.resources;
+            if (reflection.declaredBlocks.empty())
+                reflection.declaredBlocks = reflection.blocks;
+            for (auto &resource : reflection.declarations)
+                resource.declarationOwner = "test/pass-transaction";
+            const ShaderParameterAlias alias{"colorAlias", "gTextureToScreen.Misc"};
+            return BuildShaderParameterTable(reflection, 123, std::span{&alias, 1}, parameters, error);
+        }
         ShaderReflection reflection;
+        std::string      error;
+    };
+    class ParameterFrameContext final : public FrameGraphBuildContext {
+    public:
+        const FrameBuildInputs &GetInputs() const override
+        {
+            return inputs;
+        }
+        std::optional<FrameRenderTarget> GetOutput(ViewportId) const override
+        {
+            return {};
+        }
+        std::optional<GraphImageHandle> ResolveViewOutput(ViewOutputRef) const override
+        {
+            return {};
+        }
+        std::optional<GraphImageHandle> ResolveImage(const RenderResourceKey &) const override
+        {
+            return {};
+        }
+        std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, SamplerPtr> CreateSampler(const Sampler::Descriptor &) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, RasterBufferRange> Upload(std::span<const std::byte>, BufferUsageFlags) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, RasterUniformBinding>
+        WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte> bytes, ShaderResourceType) override
+        {
+            if (failUpload)
+                return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Test upload rejected"};
+            uploads.emplace_back(bytes.begin(), bytes.end());
+            return RasterUniformBinding{set, binding, {{1, 0}, 0, bytes.size()}, 0};
+        }
+        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Raster(FrameRasterPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Fullscreen(FrameRasterPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Compute(FrameComputePass) override
+        {
+            return Unsupported();
+        }
+        static FrameError Unsupported()
+        {
+            return {FrameErrorCode::UNSUPPORTED, "Unused test operation"};
+        }
+        FrameBuildInputs                    inputs;
+        bool                                failUpload = false;
+        std::vector<std::vector<std::byte>> uploads;
     };
     using Slots = shared::TextureToScreenPassBindings;
     RasterBufferRange UniformRange()
@@ -128,9 +218,17 @@ TEST(PassResourceBindings, RejectsWrongSlotsDuplicatesAndInvalidRanges)
     EXPECT_TRUE(std::holds_alternative<FrameError>(bindings.Uniform(Slots::gTextureToScreen, range)));
     EXPECT_TRUE(
         std::holds_alternative<FrameError>(bindings.Uniform(Slots::gTextureToScreen, UniformRange(), ShaderResourceType::UNIFORM_BUFFER, 16)));
-    BindAll(bindings);
-    EXPECT_TRUE(std::holds_alternative<FrameError>(bindings.Image(Slots::gSourceTexture, {1, 2})));
     EXPECT_TRUE(std::holds_alternative<FrameError>(bindings.Uniform(Slots::gTextureToScreen, UniformRange())));
+    RasterDraw draw;
+    draw.shader = new ReflectedShader(shared::GetTextureToScreenPassReflection());
+    draw.images.push_back({8, 9, {7, 6}, {}});
+    EXPECT_TRUE(std::holds_alternative<FrameError>(Apply(draw, bindings)));
+    ASSERT_EQ(draw.images.size(), 1u);
+    EXPECT_EQ(draw.images.front().binding, 9u);
+    PassResourceBindings valid(shared::GetTextureToScreenPassReflection());
+    BindAll(valid);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(valid.Image(Slots::gSourceTexture, {1, 2})));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(valid.Uniform(Slots::gTextureToScreen, UniformRange())));
 }
 
 TEST(PassResourceBindings, RejectsShaderShapeLayoutAndDynamicPolicyConflicts)
@@ -192,4 +290,67 @@ TEST(PassResourceBindings, DescribedButUnsupportedResourcesFailExplicitly)
     const auto result = Apply(draw, bindings);
     ASSERT_TRUE(std::holds_alternative<FrameError>(result));
     EXPECT_EQ(std::get<FrameError>(result).code, FrameErrorCode::UNSUPPORTED);
+}
+
+TEST(PassResourceBindings, NamedGraphAdapterUsesTheSharedTransactionAndUploadsOnce)
+{
+    CounterPtr<ReflectedShader> shader(new ReflectedShader(shared::GetTextureToScreenPassReflection()));
+    ASSERT_TRUE(shader->EnableNames()) << shader->error;
+    const auto                 color = MakeShaderData(Vector4{1, 2, 3, 4});
+    ShaderParameterTransaction transaction(*shader, 1);
+    ASSERT_TRUE(transaction.WriteData(Name("colorAlias"), color));
+    ASSERT_TRUE(transaction.WriteResource(Name("gSourceTexture"), ShaderResourceType::SAMPLED_IMAGE, 0));
+    ASSERT_TRUE(transaction.WriteResource(Name("gSourceSampler"), ShaderResourceType::SAMPLER, 1));
+    std::shared_ptr<const ShaderParameterPacket> packet;
+    ASSERT_TRUE(transaction.Finalize(packet)) << transaction.GetError();
+    ASSERT_EQ(packet->uniforms.size(), 1u);
+    PassResourceBindings values(shared::GetTextureToScreenPassReflection());
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Data(Name("colorAlias"), color)));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Image(Name("gSourceTexture"), {1, 1})));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Sampler(Name("gSourceSampler"), SamplerPtr(new Sampler))));
+    RasterDraw draw;
+    draw.shader = shader;
+    ParameterFrameContext context;
+    PassResourceBindings  unusedGlobal(shared::GetGlobalBlockReflection());
+    ASSERT_TRUE(
+        std::holds_alternative<FrameOperationComplete>(unusedGlobal.UniformData(shared::GlobalBlockBindings::gGlobal, shared::GlobalParams{})));
+    const PassResourceBindings *groups[]{&values, &unusedGlobal};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(context, draw, groups)));
+    ASSERT_EQ(context.uploads.size(), 1u);
+    EXPECT_EQ(context.uploads.front(), packet->uniforms.front().bytes);
+    ASSERT_EQ(draw.images.size(), 1u);
+    EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+    context.failUpload = true;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
+    EXPECT_EQ(context.uploads.size(), 1u);
+    ASSERT_EQ(draw.images.size(), 1u);
+    EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+}
+
+TEST(PassResourceBindings, SharedTransactionRejectsWrongTypesAndOverlappingProvidersBeforeUpload)
+{
+    CounterPtr<ReflectedShader> shader(new ReflectedShader(shared::GetTextureToScreenPassReflection()));
+    ASSERT_TRUE(shader->EnableNames()) << shader->error;
+    for (int failure = 0; failure < 3; ++failure) {
+        SCOPED_TRACE(failure);
+        PassResourceBindings values(shared::GetTextureToScreenPassReflection());
+        const auto           color = MakeShaderData(Vector4{1, 2, 3, 4});
+        ASSERT_TRUE(
+            std::holds_alternative<FrameOperationComplete>(values.Data(Name("colorAlias"), failure == 0 ? MakeShaderData(uint32_t(1)) : color)));
+        if (failure == 1)
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Data(Name("gTextureToScreen.Misc"), color)));
+        if (failure == 2)
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.UniformData(Slots::gTextureToScreen, shared::TextureToScreenParams{})));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Image(Name("gSourceTexture"), {1, 1})));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Sampler(Name("gSourceSampler"), SamplerPtr(new Sampler))));
+        RasterDraw draw;
+        draw.shader = shader;
+        draw.images.push_back({8, 9, {7, 6}, {}});
+        ParameterFrameContext       context;
+        const PassResourceBindings *groups[]{&values};
+        EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
+        EXPECT_TRUE(context.uploads.empty());
+        ASSERT_EQ(draw.images.size(), 1u);
+        EXPECT_EQ(draw.images.front().binding, 9u);
+    }
 }

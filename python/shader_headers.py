@@ -94,7 +94,7 @@ def uniform_fields(macros, name):
             return None, f'Only bounded FLOAT4 arrays are supported: {name}.{field}'
         names.add(field)
         suffix = '[' + args[3] + ']' if array else ''
-        lines.append(f'    {TYPES[kind]} {field}{suffix};')
+        lines.append(f'    [AuroraField("{field}")] {TYPES[kind]} {field}{suffix};')
     return lines, ''
 
 
@@ -143,14 +143,22 @@ def render_declaration(source, logical, helper_bytes=b''):
             return None, f'Invalid or duplicate resource binding: {variable}'
         names.add(variable)
         slots.add((int(space), int(binding)))
-        lines.extend([f'[[vk::binding({binding}, {space})]] {resource_type} {variable}',
-                      f'    : register({register}{binding}, space{space});', ''])
+        lines.extend([f'[AuroraResource({space}, {binding}, "{logical}")]',
+                      f'[[vk::binding({binding}, {space})]] {resource_type} {variable}',
+                      '#if !AURORA_TARGET_MSL',
+                      f'    : register({register}{binding}, space{space})',
+                      '#endif', ';', ''])
     if used != set(macros):
         return None, 'Unused or unsupported declaration macros'
-    fingerprint = hashlib.sha256(source.encode('utf-8') + b'\0' + helper_bytes).hexdigest()
+    fingerprint = hashlib.sha256((logical + '\n' + '\n'.join(lines)).encode('utf-8')).hexdigest()
     exporter = hashlib.sha256(Path(__file__).read_bytes().replace(b'\r\n', b'\n')).hexdigest()
     header = [f'// Generated from {logical}; do not edit.',
-              f'// Inputs: {fingerprint}; exporter: {exporter}', '#pragma once', '']
+              f'// Inputs: {fingerprint}; exporter: {exporter}', '#pragma once', '',
+              '#ifndef AURORA_DECLARATION_ATTRIBUTES', '#define AURORA_DECLARATION_ATTRIBUTES',
+              '[__AttributeUsage(_AttributeTargets.Var)]',
+              'struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };',
+              '[__AttributeUsage(_AttributeTargets.Var)]',
+              'struct AuroraFieldAttribute { string path; };', '#endif', '']
     return '\n'.join(header + lines), ''
 
 

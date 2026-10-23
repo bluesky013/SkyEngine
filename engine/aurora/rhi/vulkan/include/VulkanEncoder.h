@@ -36,6 +36,7 @@ namespace sky::aurora {
         void DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride) override;
 
     private:
+        VulkanDevice                &owner;
         const VulkanDeviceFunctions &fn;
         VkCommandBuffer              cmd           = VK_NULL_HANDLE;
         VkPipelineLayout             currentLayout = VK_NULL_HANDLE;
@@ -54,6 +55,7 @@ namespace sky::aurora {
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 
     private:
+        VulkanDevice                &owner;
         const VulkanDeviceFunctions &fn;
         VkCommandBuffer              cmd           = VK_NULL_HANDLE;
         VkPipelineLayout             currentLayout = VK_NULL_HANDLE;

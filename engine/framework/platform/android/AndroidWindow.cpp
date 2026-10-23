@@ -38,6 +38,15 @@ namespace sky {
         return true;
     }
 
+    std::shared_ptr<const void> AndroidWindow::RetainNativeHandle() const
+    {
+        auto *handle = static_cast<ANativeWindow *>(winHandle);
+        if (!handle)
+            return {};
+        ANativeWindow_acquire(handle);
+        return {handle, [](const void *value) { ANativeWindow_release(static_cast<ANativeWindow *>(const_cast<void *>(value))); }};
+    }
+
     void AndroidWindow::SetWinHandle(void *handle)
     {
         if (handle == nullptr) {

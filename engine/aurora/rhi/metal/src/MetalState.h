@@ -7,6 +7,7 @@
 #import <Metal/Metal.h>
 
 #include <aurora/rhi/Core.h>
+#include <optional>
 
 namespace sky::aurora {
 
@@ -29,16 +30,23 @@ namespace sky::aurora {
         return type == IndexType::U32 ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
     }
 
-    inline MTLSamplerAddressMode ToMetalAddressMode(WrapMode mode)
+    inline std::optional<MTLSamplerAddressMode> ToMetalAddressMode(WrapMode mode, bool extendedModes)
     {
         switch (mode) {
         case WrapMode::REPEAT: return MTLSamplerAddressModeRepeat;
         case WrapMode::MIRRORED_REPEAT: return MTLSamplerAddressModeMirrorRepeat;
-        case WrapMode::CLAMP_TO_BORDER: return MTLSamplerAddressModeClampToBorderColor;
-        case WrapMode::MIRROR_CLAMP_TO_EDGE: return MTLSamplerAddressModeMirrorClampToEdge;
-        case WrapMode::CLAMP_TO_EDGE:
-        default:
-            return MTLSamplerAddressModeClampToEdge;
+        case WrapMode::CLAMP_TO_BORDER:
+            if (@available(macOS 10.12, iOS 14.0, *))
+                if (extendedModes)
+                    return MTLSamplerAddressModeClampToBorderColor;
+            return {};
+        case WrapMode::MIRROR_CLAMP_TO_EDGE:
+            if (@available(macOS 10.11, iOS 14.0, *))
+                if (extendedModes)
+                    return MTLSamplerAddressModeMirrorClampToEdge;
+            return {};
+        case WrapMode::CLAMP_TO_EDGE: return MTLSamplerAddressModeClampToEdge;
+        default: return {};
         }
     }
 
@@ -63,8 +71,7 @@ namespace sky::aurora {
         case CompareOp::NOT_EQUAL: return MTLCompareFunctionNotEqual;
         case CompareOp::GREATER_OR_EQUAL: return MTLCompareFunctionGreaterEqual;
         case CompareOp::ALWAYS:
-        default:
-            return MTLCompareFunctionAlways;
+        default: return MTLCompareFunctionAlways;
         }
     }
 
@@ -79,8 +86,7 @@ namespace sky::aurora {
         case StencilOp::INCREMENT_AND_WRAP: return MTLStencilOperationIncrementWrap;
         case StencilOp::DECREMENT_AND_WRAP: return MTLStencilOperationDecrementWrap;
         case StencilOp::KEEP:
-        default:
-            return MTLStencilOperationKeep;
+        default: return MTLStencilOperationKeep;
         }
     }
 
@@ -101,8 +107,7 @@ namespace sky::aurora {
         case BlendFactor::ONE_MINUS_SRC1_COLOR: return MTLBlendFactorOneMinusSource1Color;
         case BlendFactor::SRC1_ALPHA: return MTLBlendFactorSource1Alpha;
         case BlendFactor::ONE_MINUS_SRC1_ALPHA: return MTLBlendFactorOneMinusSource1Alpha;
-        default:
-            return MTLBlendFactorOne;
+        default: return MTLBlendFactorOne;
         }
     }
 
@@ -140,8 +145,7 @@ namespace sky::aurora {
         case PrimitiveTopology::LINE_STRIP: return MTLPrimitiveTypeLineStrip;
         case PrimitiveTopology::TRIANGLE_STRIP: return MTLPrimitiveTypeTriangleStrip;
         case PrimitiveTopology::TRIANGLE_LIST:
-        default:
-            return MTLPrimitiveTypeTriangle;
+        default: return MTLPrimitiveTypeTriangle;
         }
     }
 
@@ -150,13 +154,11 @@ namespace sky::aurora {
         switch (topology) {
         case PrimitiveTopology::POINT_LIST: return MTLPrimitiveTopologyClassPoint;
         case PrimitiveTopology::LINE_LIST:
-        case PrimitiveTopology::LINE_STRIP:
-            return MTLPrimitiveTopologyClassLine;
+        case PrimitiveTopology::LINE_STRIP: return MTLPrimitiveTopologyClassLine;
         case PrimitiveTopology::TRIANGLE_LIST:
         case PrimitiveTopology::TRIANGLE_STRIP:
         case PrimitiveTopology::TRIANGLE_FAN:
-        default:
-            return MTLPrimitiveTopologyClassTriangle;
+        default: return MTLPrimitiveTopologyClassTriangle;
         }
     }
 
@@ -184,8 +186,7 @@ namespace sky::aurora {
         case ShaderStageFlagBit::FS: return @"FSMain";
         case ShaderStageFlagBit::CS: return @"CSMain";
         case ShaderStageFlagBit::VS:
-        default:
-            return @"VSMain";
+        default: return @"VSMain";
         }
     }
 

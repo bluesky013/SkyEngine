@@ -8,6 +8,7 @@
 #include "scene/CpuSceneStore.h"
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
 #include <future>
 #include <limits>
@@ -559,4 +560,27 @@ TEST_F(ResourceCatalogTest, B14ReleasedExternalCandidateSurvivesOnlyItsQueuedBor
     EXPECT_EQ(catalog->Prune(store), 1u);
     EXPECT_EQ(catalog->CpuBytes(), 0u);
     EXPECT_TRUE(std::holds_alternative<RendererError>(catalog->GetStatus(request.ticket)));
+}
+
+TEST_F(ResourceCatalogTest, ReleasedExternalImageDependencyKeepsOnlyItsExactVersionUntilUnsubscribed)
+{
+    RenderResourceKey first{Uuid::CreateWithSeed(7140), 1, 3, epoch};
+    auto              second = first;
+    second.revision          = 2;
+    std::array<ResourceTicket, 2> tickets;
+    size_t                        index = 0;
+    for (const auto &key : {first, second}) {
+        const auto requested = catalog->Request(key);
+        ASSERT_TRUE(std::holds_alternative<ResourceRequest>(requested));
+        tickets[index++] = std::get<ResourceRequest>(requested).ticket;
+        RenderResourcePayload payload{key, Name("material-image"), std::vector<uint8_t>(16, 128)};
+        payload.metadata.image = RenderImageLayout{2, 2};
+        ASSERT_FALSE(catalog->Supply(tickets[index - 1], payload));
+        catalog->Release(key);
+    }
+    EXPECT_EQ(catalog->Prune(store, std::span(&first, 1)), 1u);
+    EXPECT_EQ(Status(tickets[0]).state, RenderResourceState::CPU_READY);
+    EXPECT_TRUE(std::holds_alternative<RendererError>(catalog->GetStatus(tickets[1])));
+    EXPECT_EQ(catalog->Prune(store), 1u);
+    EXPECT_TRUE(std::holds_alternative<RendererError>(catalog->GetStatus(tickets[0])));
 }

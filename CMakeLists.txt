@@ -16,10 +16,18 @@ include(${ENGINE_ROOT}/cmake/configuration.cmake)
 include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 
 if (NOT ANDROID)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEVELOP ${ENGINE_ROOT}/output/bin/Develop)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEVELOP ${ENGINE_ROOT}/output/bin/Develop)
+    if (NOT DEFINED CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
+    endif()
+    if (NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
+    endif()
+    if (NOT DEFINED CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEVELOP)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEVELOP ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Develop)
+    endif()
+    if (NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEVELOP)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEVELOP ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Develop)
+    endif()
 endif()
 
 if (SKY_BUILD_TEST)
@@ -30,14 +38,16 @@ add_subdirectory(engine)
 add_subdirectory(plugins)
 
 get_property(module_resource_configs GLOBAL PROPERTY SKY_MODULE_RESOURCE_CONFIGS)
+sky_runtime_resource_directory(runtime_resource_directory)
+set(shader_resource_directory "${runtime_resource_directory}/assets/shaders")
 sky_stage_shader_resources(TARGET ShaderResources.Stage
-    DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders"
+    DESTINATION "${shader_resource_directory}"
     CONFIGS ${module_resource_configs}
     CONSUMERS SandboxEditor Aurora.Render Aurora.PipelineTest Aurora.Renderer.GpuSubmissionTest)
-install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders/" DESTINATION assets/shaders)
+install(DIRECTORY "${shader_resource_directory}/" DESTINATION assets/shaders)
 if(SKY_BUILD_TEST)
     sky_stage_shader_resources(TARGET ShaderResources.TestFixtures
-        DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/test-assets/shaders"
+        DESTINATION "${runtime_resource_directory}/test-assets/shaders"
         CONFIGS "${ENGINE_ROOT}/engine/aurora/resources.json"
             "${ENGINE_ROOT}/engine/aurora/core/test/plugins/first/plugin.json"
             "${ENGINE_ROOT}/engine/aurora/core/test/plugins/second/plugin.json"

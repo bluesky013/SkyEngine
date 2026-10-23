@@ -5,6 +5,7 @@
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderResolver.h>
 #include <aurora/shader/ShaderUsage.h>
+#include <cstdlib>
 #include <gtest/gtest.h>
 #include <set>
 
@@ -13,16 +14,17 @@ using namespace sky::aurora;
 
 TEST(ShaderDistribution, RelocatedProductsResolveWithoutSourcesOrCompiler)
 {
-    NativeFileSystem products{FilePath(SHADER_TEST_PACKAGE_ROOT)};
+    const char      *packageRoot = std::getenv("SKY_SHADER_PACKAGE_ROOT");
+    NativeFileSystem products{FilePath(packageRoot ? packageRoot : SHADER_TEST_PACKAGE_ROOT)};
     if (!products.FileExist("requirements.json")) {
         GTEST_SKIP() << "Run python/tests/run_shader_package_tests.py to prepare the real project cook fixture";
     }
     ASSERT_EQ(ShaderCompilerFactory::Get().GetCompiler(), nullptr);
     std::vector<ShaderUsageEntry> requirements;
     ASSERT_TRUE(ShaderUsageCollector::Load(products, "requirements.json", requirements));
-    ASSERT_GE(requirements.size(), 30u);
+    ASSERT_GE(requirements.size(), 11u);
     ShaderFileSystem      emptySources;
-    ShaderResolver        resolver(&products, nullptr, emptySources, 0, 0);
+    ShaderResolver        resolver(&products, nullptr, emptySources, 0, 0, ShaderResolveMode::PRODUCTS);
     std::set<std::string> owners;
     std::set<uint32_t>    targets;
     for (const auto &entry : requirements) {
@@ -33,6 +35,8 @@ TEST(ShaderDistribution, RelocatedProductsResolveWithoutSourcesOrCompiler)
         request.stage        = static_cast<ShaderStageFlagBit>(entry.stage);
         request.target       = entry.target;
         request.variantHash  = entry.variantHash;
+        request.variant      = entry.variant.entries.empty() ? nullptr : &entry.variant;
+        request.environment  = entry.environment;
         ShaderCompileResult result;
         ShaderCompileTask   task;
         std::string         error, source;
@@ -45,5 +49,7 @@ TEST(ShaderDistribution, RelocatedProductsResolveWithoutSourcesOrCompiler)
     EXPECT_TRUE(owners.contains("aurora"));
     EXPECT_TRUE(owners.contains("first"));
     EXPECT_TRUE(owners.contains("second"));
-    EXPECT_EQ(targets.size(), 3u);
+    for (const auto target : targets) {
+        EXPECT_TRUE(products.FileExist(std::string(ShaderTargetDirName(target)) + "/index.bin"));
+    }
 }

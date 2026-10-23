@@ -15,7 +15,7 @@ namespace sky::aurora {
         explicit MetalImage(MetalDevice &dev);
         ~MetalImage() override;
 
-        bool Init(const Descriptor &desc);
+        bool Init(const Descriptor &desc, bool forceArray = false);
 
         // Wrap an externally-owned MTLTexture (e.g. from a CAMetalDrawable).
         // Caller is responsible for keeping it alive until Reset() / destruction.
@@ -33,9 +33,13 @@ namespace sky::aurora {
             return texture;
         }
         const Device *GetDevice() const noexcept override;
-        uint64_t GetMipLayerCount() const noexcept override
+        uint64_t      GetMipLayerCount() const noexcept override
         {
             return uint64_t(mipLevels) * arrayLayers;
+        }
+        const Descriptor &GetDescriptor() const noexcept override
+        {
+            return descriptor;
         }
         PixelFormat GetPixelFormat() const
         {
@@ -43,6 +47,7 @@ namespace sky::aurora {
         }
 
     private:
+        Descriptor   descriptor;
         MetalDevice &device;
         void        *texture     = nullptr;
         bool         owned       = true;
