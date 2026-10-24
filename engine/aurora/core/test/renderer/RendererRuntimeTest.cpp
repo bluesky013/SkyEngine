@@ -442,7 +442,7 @@ namespace {
         }
         std::shared_ptr<IFrameGraphFeature> Ui()
         {
-            auto code           = CompileHostRaster(info, std::string(RenderUiShaderSource()));
+            auto code           = CompileHostRaster(renderer->GetInfo(), std::string(RenderUiShaderSource()));
             code.blend.blendEn  = true;
             code.blend.srcColor = BlendFactor::SRC_ALPHA;
             code.blend.dstColor = BlendFactor::ONE_MINUS_SRC_ALPHA;

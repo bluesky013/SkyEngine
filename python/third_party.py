@@ -186,29 +186,47 @@ def run_stream(cmd, log_file=None):
     if process.returncode != 0:
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
-def install_slang_ios_libs(build_dir, build_type):
-    # On iOS slang builds the main static lib into <build>/<Config>/lib but the
-    # install component does not place it; copy it into install/lib so
-    # copy_package picks it up (engine links libslang-compiler.a on iOS).
+def install_slang_static_libs(build_dir, build_type, platform):
+    # Copy static archives into install/lib so copy_package publishes
+    # lib/<Config>/{*.a,*.lib}; both Xcode and Ninja use a config subdirectory.
+    ext = '.lib' if platform == 'Win32' else '.a'
     src = os.path.join(build_dir, build_type, 'lib')
+    if not os.path.isdir(src):
+        src = os.path.join(build_dir, 'lib')
     dst = os.path.join(build_dir, 'install', 'lib')
     if not os.path.isdir(src):
         return
     os.makedirs(dst, exist_ok=True)
+
+    def is_stale_compiler_library(entry):
+        # A static rebuild can sit next to shared libraries from an older package
+        # in a reused build directory. Do not publish those.
+        for suffix in ('.dylib', '.so', '.dll'):
+            if entry.endswith(suffix):
+                stem = entry[:-len(suffix)]
+                return stem in ('libslang', 'slang', 'libslang-compiler', 'slang-compiler') or stem.startswith('libslang-compiler.')
+        return False
+
+    for directory in {src, dst}:
+        for entry in os.listdir(directory):
+            if is_stale_compiler_library(entry):
+                os.remove(os.path.join(directory, entry))
+
     for entry in os.listdir(src):
-        if entry.endswith('.a'):
+        if entry.endswith(ext):
             shutil.copy2(os.path.join(src, entry), os.path.join(dst, entry))
-            print(f"  [slang-ios] installed {entry}")
-    # slang's static libs reference its bundled third-party archives (lz4 /
+            print(f"  [slang-static] installed {entry}")
+    # Slang's static archives reference bundled third-party archives (lz4 /
     # miniz / cmark), which live under external/*/ build dirs, not lib/.
     for root, _dirs, files in os.walk(build_dir):
         for entry in files:
-            if entry.endswith('.a') and (entry.startswith('liblz4') or entry.startswith('libminiz')
-                                         or entry.startswith('libcmark')):
+            if entry.endswith(ext) and (entry.startswith('lz4') or entry.startswith('liblz4') or
+                                        entry.startswith('miniz') or entry.startswith('libminiz') or
+                                        entry.startswith('cmark') or entry.startswith('libcmark')):
                 target = os.path.join(dst, entry)
                 if not os.path.exists(target):
                     shutil.copy2(os.path.join(root, entry), target)
-                    print(f"  [slang-ios] installed {entry}")
+                    print(f"  [slang-static] installed {entry}")
 
 
 def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, str] | None = None, cache: str | None = None,
@@ -259,13 +277,18 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
             for component in components:
                 install_cmd.extend(["--component", component])
 
+        # A reused build tree keeps old runtime libraries in install/lib; a
+        # static package must not publish them.
+        if log_name == 'slang' and str(options.get('SLANG_LIB_TYPE', '')).upper() == 'STATIC':
+            shutil.rmtree(os.path.join(build_dir, 'install', 'lib'), ignore_errors=True)
+
         print(f"  [install] {build_type}")
         if log_file:
             log_file.write(f"=== install ===\n")
         run_stream(install_cmd, log_file)
 
-        if log_name == 'slang' and args.platform == 'IOS':
-            install_slang_ios_libs(build_dir, build_type)
+        if log_name == 'slang' and str(options.get('SLANG_LIB_TYPE', '')).upper() == 'STATIC':
+            install_slang_static_libs(build_dir, build_type, args.platform)
 
         print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:
@@ -333,13 +356,9 @@ def fill_ios_config(options):
     # are not app bundles, and several install(TARGETS ...) calls omit a BUNDLE
     # DESTINATION, so building them as bundles fails. Keep them plain.
     options['CMAKE_MACOSX_BUNDLE'] = 'OFF'
-    # slang builds its main compiler lib as a NO_SOURCE aggregation target when
-    # the core module is embedded (SLANG_EMBED_CORE_MODULE, default ON); that
-    # target produces no library under iOS/Xcode. Disabling it makes the main lib
-    # carry sources and link normally on iOS. slang's SHARED lib is also not
-    # produced under iOS/Xcode, so build it statically on iOS.
-    options['SLANG_EMBED_CORE_MODULE'] = 'OFF'
-    options['SLANG_LIB_TYPE'] = 'STATIC'
+    # Slang's NO_SOURCE main compiler target is kept linkable on Xcode by the
+    # link anchor in cmake/patches/slang.patch, so iOS keeps the same embedded
+    # core module configuration as the other platforms.
 
 def resolve_android_ndk():
     for name in ['ANDROID_NDK_HOME', 'ANDROID_NDK_ROOT']:
@@ -392,11 +411,31 @@ def fill_common_options(options, build_type, install_dir):
     elif args.platform == 'IOS':
         fill_ios_config(options)
 
+def slang_build_identity(source_dir, options):
+    try:
+        revision = subprocess.check_output(["git", "-C", source_dir, "rev-parse", "HEAD"], text=True).strip()
+    except subprocess.CalledProcessError:
+        revision = ''
+    payload = revision + '\n' + json.dumps(options, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 def build_package_type(name, source_dir, build_type, options, cache, components, header_only=False):
     build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
     fill_common_options(options, build_type, install_dir)
+
+    # Reusing Slang's build tree across a tag/option change can keep generated
+    # modules from the previous version; rebuild from scratch when it changes.
+    identity = slang_build_identity(source_dir, options) if name == 'slang' else None
+    identity_file = os.path.join(build_dir, 'sky_build_identity')
+    if identity is not None and os.path.isdir(build_dir):
+        cached_identity = ''
+        if os.path.exists(identity_file):
+            cached_identity = Path(identity_file).read_text(encoding='utf-8').strip()
+        if cached_identity != identity:
+            shutil.rmtree(build_dir)
 
     if header_only:
         # header-only: configure + install only, skip build
@@ -421,6 +460,8 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
         run_cmake(build_dir, source_dir, build_type, options, cache, components, log_name=name)
 
     copy_package(name, install_dir, build_type)
+    if identity is not None:
+        Path(identity_file).write_text(identity + '\n', encoding='utf-8')
 
 def build_slang_host_generators(source_dir, options):
     # slang's code generators (slang-embed, slang-fiddle, ...) must run on the
@@ -429,6 +470,11 @@ def build_slang_host_generators(source_dir, options):
     # target build tries to run target-arch generators (and installs them as
     # MACOSX_BUNDLE on iOS, which fails).
     host_build = os.path.join(source_dir, 'build_host_generators')
+    revision = subprocess.check_output(["git", "-C", source_dir, "rev-parse", "HEAD"], text=True).strip()
+    version = options.get('SLANG_VERSION_NUMERIC', '')
+    embed_core = options.get('SLANG_EMBED_CORE_MODULE', '')
+    host_identity = f'{revision}|{version}|{embed_core}'
+    revision_file = os.path.join(host_build, 'source-revision.txt')
 
     def find_generators_dir():
         # slang emits generators under generators/<config>/bin; locate by the
@@ -439,8 +485,15 @@ def build_slang_host_generators(source_dir, options):
         return None
 
     existing = find_generators_dir()
-    if existing:
+    cached_revision = ''
+    if os.path.exists(revision_file):
+        cached_revision = Path(revision_file).read_text(encoding='utf-8').strip()
+    # Generators are version-coupled to the Slang sources; a tag bump must not
+    # reuse the previous checkout's host tools.
+    if existing and cached_revision == host_identity:
         return existing
+    if os.path.isdir(host_build):
+        shutil.rmtree(host_build)
 
     print("  [slang] building host generators")
     # Ninja (single-config) for a deterministic host tools build.
@@ -451,6 +504,7 @@ def build_slang_host_generators(source_dir, options):
     run_stream(cmake_cmd)
     run_stream(["cmake", "--build", host_build, "--target", "all-generators",
                 "--parallel", str(os.cpu_count() or 4)])
+    Path(revision_file).write_text(host_identity + '\n', encoding='utf-8')
     return find_generators_dir()
 
 
@@ -458,6 +512,19 @@ def build_slang_host_generators(source_dir, options):
 
 def build_package(name, source_dir, options, cache, components, header_only=False):
     print("build package ...", name)
+    if name == 'slang':
+        # GitVersion caches SLANG_VERSION_* in CMakeCache.txt, so a reused build
+        # directory would keep reporting the previous tag's version.
+        try:
+            described = subprocess.check_output(
+                ["git", "-C", source_dir, "describe", "--tags", "--match", "v20[2-9][0-9].[0-9]*"],
+                text=True, stderr=subprocess.DEVNULL).strip()
+        except subprocess.CalledProcessError:
+            described = ''
+        match = re.match(r'^v(\d+(?:\.\d+)*)', described)
+        if match:
+            options['SLANG_VERSION_NUMERIC'] = match.group(1)
+            options['SLANG_VERSION_FULL'] = described[1:]
     if name == 'slang' and args.platform in ('IOS', 'Android'):
         generators = build_slang_host_generators(source_dir, options)
         if generators:

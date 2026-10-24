@@ -1,7 +1,6 @@
-"""Check the CMake runtime model used by Android and Apple packagers."""
+"""Check the static Slang import model used by the engine on every platform."""
 
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -10,81 +9,68 @@ import unittest
 
 
 FINDER = Path(__file__).resolve().parents[2] / "cmake/thirdparty/FindSlang.cmake"
+ARCHIVES = ("slang-compiler", "compiler-core", "slang-cpp-parser", "core", "cmark-gfm", "lz4", "miniz", "unexpected")
 
 
-@unittest.skipUnless(shutil.which("cmake"), "CMake is required to inspect imported runtime targets")
-class SlangRuntimeImportTest(unittest.TestCase):
-    def configure(self, root, suffix, config):
-        source = root / "source"
-        source.mkdir(exist_ok=True)
-        (source / "CMakeLists.txt").write_text(
-            'cmake_minimum_required(VERSION 3.20)\n'
-            'project(SlangRuntimeCheck LANGUAGES NONE)\n'
-            'set(WIN32 FALSE)\n' +
-            ('set(ANDROID TRUE)\n' if suffix == '.so' else '') +
-            f'set(CMAKE_SHARED_LIBRARY_SUFFIX "{suffix}")\n'
-            f'set(slang_PATH "{(root / "slang").as_posix()}")\n'
-            f'include("{FINDER.as_posix()}")\n'
-            'get_target_property(runtime_files 3rdParty::slang INTERFACE_DYN_LIBS)\n'
-            'file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/runtime.json" CONTENT\n'
-            ' "{\\"type\\":\\"$<TARGET_PROPERTY:3rdParty::slang,TYPE>\\",'
-            '\\"compiler\\":\\"$<TARGET_FILE:3rdParty::slang>\\",'
-            '\\"files\\":\\"${runtime_files}\\"}")\n', encoding="utf-8")
-        build = root / ("build-" + config)
-        run = subprocess.run(["cmake", "-S", str(source), "-B", str(build),
-                              "-DCMAKE_BUILD_TYPE=" + config], capture_output=True, text=True)
-        return run, build / "runtime.json"
-
-    def make_package(self, root, suffix):
+@unittest.skipUnless(shutil.which("cmake"), "CMake is required to inspect imported targets")
+class SlangStaticImportTest(unittest.TestCase):
+    def make_package(self, root, suffix, lib_prefix):
         (root / "slang/include").mkdir(parents=True)
         for config in ("Debug", "Release"):
             directory = root / "slang/lib" / config
             directory.mkdir(parents=True)
-            (directory / ("libslang-compiler" + suffix)).write_text(config, encoding="utf-8")
-            (directory / ("libslang" + suffix)).write_text(config, encoding="utf-8")
-            (directory / ("libslang-glsl-module-test" + suffix)).write_text(config, encoding="utf-8")
+            for name in ARCHIVES:
+                (directory / (lib_prefix + name + suffix)).write_text(config, encoding="utf-8")
+            # Stale shared libraries from an older package must not be linked.
+            (directory / (lib_prefix + "slang-compiler.so")).write_text(config, encoding="utf-8")
+            (directory / (lib_prefix + "slang-compiler.dylib")).write_text(config, encoding="utf-8")
 
-    def test_android_model_uses_soname_and_matching_runtime_configuration(self):
+    def configure(self, root, suffix, lib_prefix, windows, config):
+        source = root / "source"
+        source.mkdir(exist_ok=True)
+        (source / "CMakeLists.txt").write_text(
+            'cmake_minimum_required(VERSION 3.20)\n'
+            'project(SlangStaticCheck LANGUAGES CXX)\n'
+            f'set(WIN32 {"TRUE" if windows else "FALSE"})\n'
+            f'set(CMAKE_STATIC_LIBRARY_SUFFIX "{suffix}")\n'
+            f'set(slang_PATH "{(root / "slang").as_posix()}")\n'
+            f'include("{FINDER.as_posix()}")\n'
+            'get_target_property(type 3rdParty::slang TYPE)\n'
+            'get_target_property(dyn 3rdParty::slang INTERFACE_DYN_LIBS)\n'
+            'file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/link.json" CONTENT\n'
+            ' "{\\"type\\":\\"${type}\\",\\"dyn\\":\\"${dyn}\\",'
+            '\\"libs\\":\\"$<JOIN:$<TARGET_GENEX_EVAL:3rdParty::slang,'
+            '$<TARGET_PROPERTY:3rdParty::slang,INTERFACE_LINK_LIBRARIES>>,|>\\"}")\n',
+            encoding="utf-8")
+        build = root / ("build-" + config)
+        run = subprocess.run(["cmake", "-S", str(source), "-B", str(build),
+                              "-DCMAKE_BUILD_TYPE=" + config], capture_output=True, text=True)
+        return run, build / "link.json"
+
+    def check(self, suffix, lib_prefix, windows):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
-            self.make_package(root, ".so")
-            for config, runtime_config in (("Debug", "Debug"), ("Release", "Release"),
-                                           ("Develop", "Release"), ("RelWithDebInfo", "Release"), ("MinSizeRel", "Release")):
+            self.make_package(root, suffix, lib_prefix)
+            expected = [lib_prefix + name + suffix for name in ARCHIVES]
+            for config in ("Debug", "Release", "Develop", "RelWithDebInfo", "MinSizeRel"):
                 with self.subTest(config=config):
-                    run, output = self.configure(root, ".so", config)
+                    run, output = self.configure(root, suffix, lib_prefix, windows, config)
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
                     model = json.loads(output.read_text(encoding="utf-8"))
-                    self.assertEqual(model["type"], "SHARED_LIBRARY")
-                    self.assertEqual(Path(model["compiler"]),
-                                     root / "slang/lib" / runtime_config / "libslang-compiler.so")
-                    files = [Path(path) for path in model["files"].split(";")]
-                    self.assertIn(root / "slang/lib" / runtime_config / "libslang-glsl-module-test.so", files)
-                    self.assertNotIn(root / "slang/lib" / runtime_config / "libslang.so", files)
-                    self.assertTrue(all(path.parent.name == runtime_config for path in files))
+                    self.assertEqual(model["type"], "INTERFACE_LIBRARY")
+                    self.assertEqual(model["dyn"], "")
+                    libs = [Path(path) for path in model["libs"].split("|") if path]
+                    runtime_config = "Debug" if config == "Debug" else "Release"
+                    config_dir = root / "slang/lib" / runtime_config
+                    archive_paths = [path for path in libs if path.suffix == suffix]
+                    self.assertEqual([path.name for path in archive_paths], expected)
+                    self.assertTrue(all(path.parent == config_dir for path in archive_paths))
 
-    @unittest.skipIf(os.name == "nt", "Creating symlinks requires extra Windows privileges")
-    def test_apple_model_resolves_versioned_compiler_symlink(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve()
-            self.make_package(root, ".dylib")
-            directory = root / "slang/lib/Release"
-            compiler = directory / "libslang-compiler.dylib"
-            versioned = directory / "libslang-compiler.0.test.dylib"
-            compiler.rename(versioned)
-            compiler.symlink_to(versioned.name)
-            run, output = self.configure(root, ".dylib", "Release")
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            model = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(Path(model["compiler"]), versioned)
+    def test_unix_like_packages_link_ordered_static_archives(self):
+        self.check(".a", "lib", windows=False)
 
-    def test_compatibility_alias_alone_cannot_hide_missing_compiler_runtime(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve()
-            self.make_package(root, ".so")
-            (root / "slang/lib/Release/libslang-compiler.so").unlink()
-            run, _ = self.configure(root, ".so", "Release")
-            self.assertNotEqual(run.returncode, 0)
-            self.assertIn("Slang compiler runtime is missing:", run.stdout + run.stderr)
+    def test_windows_packages_link_ordered_static_archives(self):
+        self.check(".lib", "", windows=True)
 
 
 if __name__ == "__main__":

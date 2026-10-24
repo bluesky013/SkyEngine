@@ -6,6 +6,7 @@
 
 #include <aurora/adaptor/renderer/RenderSceneProxy.h>
 #include <aurora/adaptor/renderer/RendererHost.h>
+#include <aurora/renderer/RenderCommands.h>
 #include <aurora/rhi/Core.h>
 #include <editor/core/viewport/EditorCamera.h>
 #include <editor/render/CpuViewportPicker.h>
@@ -141,6 +142,12 @@ namespace sky::editor {
         {
             surfaceGeometryChanged = std::move(callback);
         }
+        // Readbacks are delivered by the editor's single event consumer; callers
+        // must not poll the renderer host directly or frame pacing will starve.
+        void SetReadbackCallback(std::function<void(const aurora::ViewportReadback &)> callback)
+        {
+            readback = std::move(callback);
+        }
 
     private:
         std::vector<Uuid>                                  selectedActors;
@@ -193,6 +200,7 @@ namespace sky::editor {
         std::unique_ptr<ui::UITextSystem>                                    textSystem;
         std::function<void(const std::string &)>                             surfaceClosed;
         std::function<void(const std::string &, float, float, float, float)> surfaceGeometryChanged;
+        std::function<void(const aurora::ViewportReadback &)>                  readback;
     };
 
 } // namespace sky::editor

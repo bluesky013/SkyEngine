@@ -360,8 +360,19 @@ namespace sky::aurora {
                 }
                 if (member.scalarType == ShaderScalarType::UNKNOWN)
                     return Fail(error, "Unsupported uniform scalar storage type");
+                // Canonical CPU-facing alignment. Slang reports HLSL cbuffer packing
+                // (float4 alignment 4) for DXIL, which must not leak into the shared layout.
+                switch (member.kind) {
+                case ShaderTypeKind::SCALAR: member.alignment = 4; break;
+                case ShaderTypeKind::VECTOR: member.alignment = member.cols == 2 ? 8 : 16; break;
+                case ShaderTypeKind::MATRIX:
+                case ShaderTypeKind::ARRAY: member.alignment = 16; break;
+                default: break;
+                }
                 block.members.push_back(std::move(member));
             }
+            for (const auto &member : block.members)
+                block.alignment = std::max(block.alignment, member.alignment);
             return true;
         }
 
@@ -664,10 +675,12 @@ namespace sky::aurora {
                 return false;
             }
 
-            Slang::ComPtr<slang::IBlob>   diagnostics;
-            Slang::ComPtr<slang::IModule> module;
-            const auto                   &sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
-            module.attach(session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef()));
+            Slang::ComPtr<slang::IBlob> diagnostics;
+            const std::string           sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
+            // The session's module cache owns the returned module; a ComPtr would
+            // release a cache reference and corrupt session teardown.
+            slang::IModule *module =
+                session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef());
             if (diagnostics != nullptr) {
                 candidate.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
             }
@@ -684,7 +697,7 @@ namespace sky::aurora {
                 return false;
             }
 
-            std::array<slang::IComponentType *, 2> components = {module.get(), entryPoint.get()};
+            std::array<slang::IComponentType *, 2> components = {module, entryPoint.get()};
             Slang::ComPtr<slang::IComponentType>   composed;
             if (!SLANG_SUCCEEDED(
                     session->createCompositeComponentType(components.data(), components.size(), composed.writeRef(), diagnostics.writeRef()))) {
@@ -829,9 +842,9 @@ namespace sky::aurora {
         Slang::ComPtr<slang::ISession> session;
         if (SLANG_FAILED(gGlobalSession->createSession(sessionDesc, session.writeRef())))
             return Fail(error, "createSession failed");
-        Slang::ComPtr<slang::IBlob>   diagnostics;
-        Slang::ComPtr<slang::IModule> module;
-        module.attach(session->loadModuleFromSourceString("declarations", "declarations.slang", source.c_str(), diagnostics.writeRef()));
+        Slang::ComPtr<slang::IBlob> diagnostics;
+        // Borrowed from the session module cache; see Compile.
+        slang::IModule *module = session->loadModuleFromSourceString("declarations", "declarations.slang", source.c_str(), diagnostics.writeRef());
         if (!module) {
             error = diagnostics ? static_cast<const char *>(diagnostics->getBufferPointer()) : "Declaration module load failed";
             return false;

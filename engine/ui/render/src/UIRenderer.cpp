@@ -16,7 +16,7 @@
 #include <aurora/rhi/ResourceGroup.h>
 #include <aurora/rhi/Sampler.h>
 #include <aurora/rhi/Shader.h>
-#include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/shader/IShaderCompiler.h>
 #include <core/logger/Logger.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector4.h>
@@ -69,8 +69,12 @@ namespace sky::ui {
             return false;
         }
 
-        ShaderCompilerSlang compiler;
-        auto                makeFunction = [&](const char *entry, ShaderStageFlagBit stage) -> ShaderFunction                *{
+        IShaderCompiler *compiler = ShaderCompilerFactory::Get().GetCompiler();
+        if (compiler == nullptr) {
+            LOG_E(TAG, "UI shader compiler module is not loaded");
+            return false;
+        }
+        auto makeFunction = [&](const char *entry, ShaderStageFlagBit stage) -> ShaderFunction *{
             ShaderCompileDesc compileDesc = {};
             compileDesc.source            = detail::UI_SHADER_SOURCE;
             compileDesc.sourcePath        = "ui/UIShader.slang";
@@ -79,7 +83,7 @@ namespace sky::ui {
             compileDesc.target            = ToShaderTarget(device->GetAPI());
 
             ShaderCompileResult result;
-            if (!compiler.Compile(compileDesc, result)) {
+            if (!compiler->Compile(compileDesc, result)) {
                 LOG_E(TAG, "UI shader compile failed: %s", result.errorInfo.c_str());
                 return nullptr;
             }

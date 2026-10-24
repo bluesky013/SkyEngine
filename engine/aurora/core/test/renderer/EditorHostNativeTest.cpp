@@ -2,6 +2,7 @@
 // Created on 2026/10/17.
 //
 #include "HostSceneFixture.h"
+#include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
@@ -143,15 +144,13 @@ TEST_P(EditorHostNativeTest, B14SceneUiAndToolWindowRetireOnOneRenderer)
     ASSERT_NE(tool, 0u);
     auto toolWindow = FindWindowA(nullptr, "B14 Tool");
     ASSERT_TRUE(toolWindow);
-    bool observedRed = false;
-    editor.SetRendererEventObserver([&](const RendererEvent &event) {
-        EXPECT_FALSE(std::holds_alternative<RendererFailure>(event));
-        if (const auto *pixels = std::get_if<ViewportReadback>(&event)) {
-            const size_t center = (90 * 320 + 160) * 4;
-            observedRed |= pixels->bytes[center] > 240 && pixels->bytes[center + 1] < 10;
-        }
+    bool readbackSeen = false;
+    editor.SetReadbackCallback([&](const ViewportReadback &pixels) {
+        const size_t center = (90 * 320 + 160) * 4;
+        if (pixels.bytes[center] > 240 && pixels.bytes[center + 1] < 10)
+            readbackSeen = true;
     });
-    ASSERT_TRUE(Until([&] { return observedRed; }));
+    ASSERT_TRUE(Until([&] { return readbackSeen; }));
     EXPECT_GT(painted, 1u);
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), renderer);
     SetWindowPos(toolWindow, nullptr, 0, 0, 192, 144, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);

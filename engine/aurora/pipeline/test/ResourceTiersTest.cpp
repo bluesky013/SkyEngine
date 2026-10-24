@@ -279,19 +279,10 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
     auto buffer    = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
     ASSERT_NE(buffer.Get(), nullptr);
 
-#if defined(_DEBUG)
-    EXPECT_DEATH(
-        {
-            auto enc = group->CreateEncoder();
-            enc->WriteBuffer(binding, buffer.Get(), 0, 0); // bug: dynamic UBO requires an explicit range
-            enc->End();
-        },
-        "requires explicit bufferRange");
-#else
     auto enc = group->CreateEncoder();
-    enc->WriteBuffer(binding, buffer.Get(), 0, 0);
-    enc->End(); // release: logs an error, must not crash
-#endif
+    EXPECT_FALSE(enc->WriteBuffer(binding, buffer.Get(), 0, 0)); // dynamic UBO requires an explicit range
+    EXPECT_FALSE(enc->End());
+    EXPECT_NE(enc->GetError().find("Invalid buffer descriptor"), std::string::npos);
 }
 
 TEST_F(AuroraVulkanTest, BatchDynamicOffsetPassThrough)
