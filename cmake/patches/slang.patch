@@ -1,14 +1,14 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1b78c407f..5650a1bd6 100644
+index 6cb480038..b4c2e410b 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -44,6 +44,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+@@ -66,6 +66,13 @@ endif()
  #
  enable_language(C CXX)
  
 +# Treat source files as UTF-8 so MSVC does not emit C4819 (and turn it into a
 +# hard error via C2220 under /WX) when building on a non-UTF-8 system code page
-+# (e.g. GBK/936 on Chinese Windows).
++# (e.g., GBK/936 on Chinese Windows).
 +if(MSVC)
 +    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/utf-8>)
 +endif()
@@ -16,7 +16,7 @@ index 1b78c407f..5650a1bd6 100644
  include(FindPackageHandleStandardArgs)
  include(CMakeDependentOption)
  include(GNUInstallDirs)
-@@ -551,7 +558,19 @@ if(${SLANG_USE_SYSTEM_GLSLANG})
+@@ -657,7 +664,19 @@ if(${SLANG_USE_SYSTEM_GLSLANG})
  endif()
  
  if(SLANG_ENABLE_DXIL)
@@ -38,36 +38,37 @@ index 1b78c407f..5650a1bd6 100644
  
  add_subdirectory(external)
 diff --git a/cmake/SlangTarget.cmake b/cmake/SlangTarget.cmake
-index 492c6fdb1..69aa1a8c3 100644
+index 6a2e9a85d..705a97f5c 100644
 --- a/cmake/SlangTarget.cmake
 +++ b/cmake/SlangTarget.cmake
-@@ -136,6 +136,12 @@ function(slang_add_target dir type)
+@@ -137,6 +137,13 @@ function(slang_add_target dir type)
      # Find the source for this target
      #
      if(ARG_NO_SOURCE)
 +        if(CMAKE_GENERATOR STREQUAL "Xcode")
 +            # Xcode omits the link step for a library with no compiled sources.
 +            set(xcode_link_source "${CMAKE_CURRENT_BINARY_DIR}/${target}-xcode-link.cpp")
-+            file(GENERATE OUTPUT "${xcode_link_source}" CONTENT "// Xcode library link anchor.\n")
++            file(GENERATE OUTPUT "${xcode_link_source}" CONTENT "// Xcode library link anchor.
++")
 +            list(APPEND source "${xcode_link_source}")
 +        endif()
      elseif(ARG_EXPLICIT_SOURCE)
          list(APPEND source ${ARG_EXPLICIT_SOURCE})
      else()
 diff --git a/source/slang-glsl-module/CMakeLists.txt b/source/slang-glsl-module/CMakeLists.txt
-index 74aed35d6..72452a7b7 100644
+index a90ae8dae..74a0beb8a 100644
 --- a/source/slang-glsl-module/CMakeLists.txt
 +++ b/source/slang-glsl-module/CMakeLists.txt
-@@ -20,7 +20,6 @@ slang_add_target(
+@@ -19,7 +19,6 @@ slang_add_target(
          ./slang-embedded-glsl-module.cpp
          ${glsl_module_generated_header}
-     REQUIRES generate_core_module_headers
+     REQUIRES generate_glsl_module_header
 -    EXCLUDE_FROM_ALL
      EXTRA_COMPILE_DEFINITIONS_PRIVATE SLANG_SHARED_LIBRARY_TOOL
      EXPORT_SET_NAME SlangTargets
      INCLUDE_DIRECTORIES_PRIVATE
 diff --git a/source/slang/CMakeLists.txt b/source/slang/CMakeLists.txt
-index 2a275202f..88f4f954a 100644
+index 342eb0f41..be58d0c95 100644
 --- a/source/slang/CMakeLists.txt
 +++ b/source/slang/CMakeLists.txt
 @@ -72,16 +72,19 @@ target_include_directories(
@@ -100,7 +101,7 @@ index 2a275202f..88f4f954a 100644
  set_source_files_properties(
      slang-rich-diagnostics.cpp
      PROPERTIES
-@@ -356,8 +359,6 @@ endif()
+@@ -375,8 +378,6 @@ endif()
  set_target_properties(
      slang
      PROPERTIES

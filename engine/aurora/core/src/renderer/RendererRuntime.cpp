@@ -562,6 +562,8 @@ namespace sky::aurora {
                         if (frame.sequence)
                             events->Push(RendererFailure{frame.sequence, *terminal});
                 }
+                if (device)
+                    device->WaitIdle();
                 pending.clear();
                 encoding.clear();
                 submissions.clear();

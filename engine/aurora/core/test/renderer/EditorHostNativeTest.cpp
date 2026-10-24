@@ -2,6 +2,7 @@
 // Created on 2026/10/17.
 //
 #include "HostSceneFixture.h"
+#include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/rhi/Instance.h>
 #include <chrono>
@@ -25,6 +26,8 @@ namespace {
     protected:
         void SetUp() override
         {
+            previousCompiler = ShaderCompilerFactory::Get().GetCompiler();
+            ShaderCompilerFactory::Get().Register(&compiler);
             ASSERT_TRUE(Platform::Get()->Init({}));
             window.reset(NativeWindow::Create({160, 120, "B14EditorHost", "Editor host test", nullptr}));
             ASSERT_TRUE(window);
@@ -67,6 +70,7 @@ namespace {
             window.reset();
             Platform::Get()->Shutdown();
             Instance::Destroy();
+            ShaderCompilerFactory::Get().Register(previousCompiler);
         }
         ModuleManager *GetModuleManager() const override
         {
@@ -95,6 +99,8 @@ namespace {
             return false;
         }
         ModuleManager                           modules;
+        ShaderCompilerSlang                     compiler;
+        IShaderCompiler                        *previousCompiler = nullptr;
         AuroraModule                            provider;
         editor::EditorRenderer                  editor;
         std::unique_ptr<NativeWindow>           window;
@@ -125,19 +131,13 @@ TEST_P(EditorHostNativeTest, B14SceneUiAndToolWindowRetireOnOneRenderer)
     ASSERT_NE(tool, 0u);
     auto toolWindow = FindWindowA(nullptr, "B14 Tool");
     ASSERT_TRUE(toolWindow);
-    ASSERT_TRUE(Until([&] {
-        std::array<RendererEvent, 32> events;
-        const auto                    count = renderer->PollEvents(events);
-        for (const auto &event : std::span(events).first(count)) {
-            EXPECT_FALSE(std::holds_alternative<RendererFailure>(event));
-            if (const auto *pixels = std::get_if<ViewportReadback>(&event)) {
-                const size_t center = (90 * 320 + 160) * 4;
-                if (pixels->bytes[center] > 240 && pixels->bytes[center + 1] < 10)
-                    return true;
-            }
-        }
-        return false;
-    }));
+    bool readbackSeen = false;
+    editor.SetReadbackCallback([&](const ViewportReadback &pixels) {
+        const size_t center = (90 * 320 + 160) * 4;
+        if (pixels.bytes[center] > 240 && pixels.bytes[center + 1] < 10)
+            readbackSeen = true;
+    });
+    ASSERT_TRUE(Until([&] { return readbackSeen; }));
     EXPECT_GT(painted, 1u);
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), renderer);
     SetWindowPos(toolWindow, nullptr, 0, 0, 192, 144, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);

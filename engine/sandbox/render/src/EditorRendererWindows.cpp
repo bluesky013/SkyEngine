@@ -8,7 +8,7 @@
 
 #include <array>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
-#include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/shader/IShaderCompiler.h>
 #include <core/logger/Logger.h>
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/render/UiSnapshotProducer.h>
@@ -28,7 +28,10 @@ namespace sky::editor {
         {
             RenderTechniqueData code;
             code.backend = api;
-            ShaderCompilerSlang compiler;
+            IShaderCompiler *compiler = ShaderCompilerFactory::Get().GetCompiler();
+            if (compiler == nullptr) {
+                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Shader compiler module is not loaded"};
+            }
             for (const bool vertex : {true, false}) {
                 ShaderCompileDesc desc;
                 desc.source     = std::string(RenderUiShaderSource());
@@ -37,7 +40,7 @@ namespace sky::editor {
                 desc.stage      = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
                 desc.target     = api == API::DX12 ? ShaderTarget::DXIL : api == API::METAL ? ShaderTarget::MSL : ShaderTarget::SPIRV;
                 ShaderCompileResult compiled;
-                if (!compiler.Compile(desc, compiled))
+                if (!compiler->Compile(desc, compiled))
                     return RendererError{RendererErrorCode::INVALID_ARGUMENT, compiled.errorInfo};
                 std::string error;
                 if (!MergeShaderReflections(compiled.reflection, code.reflection, error))
@@ -177,6 +180,8 @@ namespace sky::editor {
                     sceneBridge->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
                     Fail(failure->error);
+                if (const auto *pixels = std::get_if<ViewportReadback>(&event); pixels && readback)
+                    readback(*pixels);
                 if (const auto *failure = std::get_if<ViewportFailed>(&event))
                     for (const auto &surface : surfaces)
                         if (surface->output->OnFailure(*failure))

@@ -13,7 +13,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     endif ()
     list(APPEND AuroraShaderExtLibs 3rdParty::dxcompiler)
     if (TARGET Aurora.RHITest)
-        target_link_libraries(Aurora.RHITest PRIVATE 3rdParty::dxcompiler)
+        target_link_libraries(Aurora.RHITest 3rdParty::dxcompiler)
     endif ()
 endif ()
 
@@ -27,6 +27,8 @@ sky_add_library(TARGET Aurora.ShaderCompiler.Static STATIC
         src
     PUBLIC_INC
         include
+    PRIVATE_DEFS
+        SLANG_STATIC
     LINK_LIBS
         Core
         Aurora.Core.Static

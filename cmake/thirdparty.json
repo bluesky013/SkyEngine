@@ -275,7 +275,7 @@
 		{
 			"name": "slang",
 			"url": "https://github.com/shader-slang/slang.git",
-			"tag": "v2026.9.2",
+			"tag": "v2026.19",
 			"header_only": false,
 			"options": {
 				"SLANG_ENABLE_TESTS": "OFF",
@@ -290,7 +290,9 @@
 				"SLANG_ENABLE_SLANGRT": "OFF",
 				"SLANG_ENABLE_REPLAYER": "OFF",
 				"SLANG_ENABLE_SLANG_GLSLANG": "OFF",
-				"SLANG_ENABLE_SPLIT_DEBUG_INFO": "OFF"
+				"SLANG_ENABLE_SPLIT_DEBUG_INFO": "OFF",
+				"SLANG_LIB_TYPE": "STATIC",
+				"SLANG_EMBED_CORE_MODULE": "ON"
 			},
 			"submodules": [
 				"external/spirv-headers",
@@ -299,7 +301,9 @@
 				"external/lz4",
 				"external/cmark",
 				"external/vulkan",
-				"external/lua"
+				"external/lua",
+				"external/mimalloc",
+				"external/fast_float"
 			]
 		},
 		{

@@ -8,7 +8,7 @@ if (SKY_BUILD_FREETYPE)
     list(APPEND EDITOR_UI_FONT_LIBS UI.FreeType)
 endif ()
 
-set(EDITOR_RENDER_LIBS Aurora.Adaptor.Static Aurora.ShaderCompiler.Static)
+set(EDITOR_RENDER_LIBS Aurora.Adaptor.Static Aurora.Core.Static)
 if (NOT WIN32)
     list(APPEND EDITOR_RENDER_LIBS UIRender Aurora.RHI.Static Aurora.Pipeline.Static)
 endif ()

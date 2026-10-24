@@ -452,7 +452,8 @@ TEST(SlangSpikeTest, CompleteStageArtifactsPreserveIdentityThroughStageMacroAndO
                         EXPECT_EQ(native.stage, stage);
                         EXPECT_NE(native.category, ShaderNativeCategory::UNKNOWN);
                         EXPECT_EQ(native.count, 1u);
-                        EXPECT_EQ(native.space, target == ShaderTarget::MSL ? 0u : native.set);
+                        // DXIL and Metal use their own native address spaces; Vulkan keeps the logical set.
+                        EXPECT_EQ(native.space, target == ShaderTarget::DXIL || target == ShaderTarget::MSL ? 0u : native.set);
                     }
                     auto corrupted = result;
                     corrupted.data.back() ^= 1;

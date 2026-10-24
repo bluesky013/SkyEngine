@@ -360,8 +360,19 @@ namespace sky::aurora {
                 }
                 if (member.scalarType == ShaderScalarType::UNKNOWN)
                     return Fail(error, "Unsupported uniform scalar storage type");
+                // Canonical CPU-facing alignment. Slang reports HLSL cbuffer packing
+                // (float4 alignment 4) for DXIL, which must not leak into the shared layout.
+                switch (member.kind) {
+                case ShaderTypeKind::SCALAR: member.alignment = 4; break;
+                case ShaderTypeKind::VECTOR: member.alignment = member.cols == 2 ? 8 : 16; break;
+                case ShaderTypeKind::MATRIX:
+                case ShaderTypeKind::ARRAY: member.alignment = 16; break;
+                default: break;
+                }
                 block.members.push_back(std::move(member));
             }
+            for (const auto &member : block.members)
+                block.alignment = std::max(block.alignment, member.alignment);
             return true;
         }
 
@@ -666,7 +677,7 @@ namespace sky::aurora {
 
             Slang::ComPtr<slang::IBlob>   diagnostics;
             Slang::ComPtr<slang::IModule> module;
-            const auto                   &sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
+            const std::string             sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
             module.attach(session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef()));
             if (diagnostics != nullptr) {
                 candidate.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());

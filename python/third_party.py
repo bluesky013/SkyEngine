@@ -186,29 +186,31 @@ def run_stream(cmd, log_file=None):
     if process.returncode != 0:
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
-def install_slang_ios_libs(build_dir, build_type):
-    # On iOS slang builds the main static lib into <build>/<Config>/lib but the
-    # install component does not place it; copy it into install/lib so
-    # copy_package picks it up (engine links libslang-compiler.a on iOS).
+def install_slang_static_libs(build_dir, build_type, platform):
+    # Static Slang leaves its archives in <build>/<Config>/lib; the install
+    # component does not always place them. Copy them into install/lib so
+    # copy_package publishes lib/<Config>/{*.a,*.lib} for FindSlang.
+    ext = '.lib' if platform == 'Win32' else '.a'
     src = os.path.join(build_dir, build_type, 'lib')
     dst = os.path.join(build_dir, 'install', 'lib')
     if not os.path.isdir(src):
         return
     os.makedirs(dst, exist_ok=True)
     for entry in os.listdir(src):
-        if entry.endswith('.a'):
+        if entry.endswith(ext):
             shutil.copy2(os.path.join(src, entry), os.path.join(dst, entry))
-            print(f"  [slang-ios] installed {entry}")
-    # slang's static libs reference its bundled third-party archives (lz4 /
+            print(f"  [slang-static] installed {entry}")
+    # Slang's static archives reference bundled third-party archives (lz4 /
     # miniz / cmark), which live under external/*/ build dirs, not lib/.
     for root, _dirs, files in os.walk(build_dir):
         for entry in files:
-            if entry.endswith('.a') and (entry.startswith('liblz4') or entry.startswith('libminiz')
-                                         or entry.startswith('libcmark')):
+            if entry.endswith(ext) and (entry.startswith('lz4') or entry.startswith('liblz4') or
+                                        entry.startswith('miniz') or entry.startswith('libminiz') or
+                                        entry.startswith('cmark') or entry.startswith('libcmark')):
                 target = os.path.join(dst, entry)
                 if not os.path.exists(target):
                     shutil.copy2(os.path.join(root, entry), target)
-                    print(f"  [slang-ios] installed {entry}")
+                    print(f"  [slang-static] installed {entry}")
 
 
 def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, str] | None = None, cache: str | None = None,
@@ -264,8 +266,8 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
             log_file.write(f"=== install ===\n")
         run_stream(install_cmd, log_file)
 
-        if log_name == 'slang' and args.platform == 'IOS':
-            install_slang_ios_libs(build_dir, build_type)
+        if log_name == 'slang' and (args.platform == 'IOS' or options.get('SLANG_LIB_TYPE') == 'STATIC'):
+            install_slang_static_libs(build_dir, build_type, args.platform)
 
         print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:

@@ -615,6 +615,8 @@ namespace sky::aurora {
             return {PresentationStatus::BUSY};
         if (status == SwapChainStatus::LOST)
             return {PresentationStatus::SURFACE_LOST};
+        // Retired CPU-side frames can still leave present semaphores in flight.
+        device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle());
         presentationFrames.clear();
         DestroySwapchain();
         if (!CreateSwapchain(width, height))
@@ -629,6 +631,9 @@ namespace sky::aurora {
         checkedProtocol = true;
         if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }))
             return {PresentationStatus::BUSY};
+        // Semaphores may still be referenced by a submitted present even when
+        // every CPU-side frame has retired; wait before destroying the swapchain.
+        device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle());
         presentationFrames.clear();
         DestroySwapchain();
         DestroySurface();

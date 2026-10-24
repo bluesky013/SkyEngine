@@ -43,6 +43,7 @@ namespace sky::aurora {
 
     VulkanDevice::~VulkanDevice()
     {
+        WaitIdle();
         pipelineCache.Clear();
         renderPassCache.reset();
         transientPool.reset();
