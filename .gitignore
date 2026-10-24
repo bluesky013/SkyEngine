@@ -43,5 +43,6 @@ __pycache__/
 # Windows NUL device redirect artifact
 /nul
 
-# user-local third-party build GUI config
+# user-local build configuration
 /third_party_build.ini
+/CMakeUserPresets.json

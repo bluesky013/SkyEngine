@@ -30,7 +30,6 @@ The codebase is organized around a small set of core engine modules and optional
 ```text
 SkyEngine/
 ├── assets/          # Shaders, materials, textures, techniques
-├── build_3rd/       # Generated third-party output and cache
 ├── cmake/           # Shared CMake configuration and helpers
 ├── configs/         # Runtime module manifests and presets
 ├── engine/          # Core engine modules, aurora renderer, sandbox editor, tests
@@ -76,7 +75,7 @@ If the third-party stage is skipped, CMake will not be able to resolve required 
 Canonical command:
 
 ```bash
-python3 python/third_party.py -p <platform> -j <jobs>
+python3 python/third_party.py -p <platform> -o <thirdparty_root> -j <jobs>
 ```
 
 Supported platform values:
@@ -94,8 +93,8 @@ Useful options:
 
 | Option | Description |
 | --- | --- |
-| `-i`, `--intermediate` | Download/build workspace, defaults to `build_3rd/intermediate` |
-| `-o`, `--output` | Third-party output root, defaults to `build_3rd` |
+| `-i`, `--intermediate` | Download/build workspace, defaults to `<output>/intermediate` |
+| `-o`, `--output` | Required third-party output root, preferably outside the engine checkout |
 | `-e`, `--engine` | Engine root, defaults to the current repository root |
 | `-p`, `--platform` | Target platform |
 | `-j`, `--jobs` | Parallel build jobs, `0` means auto |
@@ -104,11 +103,12 @@ Useful options:
 | `-f`, `--force` | Force rebuild even when cached metadata says up to date |
 | `-c`, `--clean` | Clean package work trees |
 
-Default output layout:
+Shared output layout (only built platforms are present):
 
 ```text
-build_3rd/
-├── thirdparty_cache.cmake
+sky_3rd/
+├── intermediate/                    # Source checkouts and regenerable build trees
+├── thirdparty_cache_Win32.cmake     # Generated cache for each built platform
 ├── Win32/
 ├── MacOS-x86/
 ├── MacOS-arm/
@@ -117,19 +117,22 @@ build_3rd/
 └── Linux/
 ```
 
-When the default layout is used, the effective `3RD_PATH` becomes the platform-specific subdirectory such as `build_3rd/MacOS-arm` or `build_3rd/Win32`. After a successful bootstrap, `build_3rd/thirdparty_cache.cmake` is regenerated, and the top-level CMake configure step can auto-load it when `3RD_PATH` is not set manually.
+`3RD_PATH` points to a platform subdirectory, such as `D:/Code/Engine/sky_3rd/Win32`; `-o` points to its parent. Multiple engine checkouts can consume the same installed packages when their dependency versions, build options and toolchains are compatible. Use a separate output root for incompatible versions, and do not run concurrent third-party builds into the same root. Metadata checks compare package declarations; they do not verify toolchain compatibility or file integrity.
 
 Examples:
 
 ```bash
 # Build all third-party packages for Apple Silicon macOS
-python3 python/third_party.py -p MacOS-arm -j 8
+python3 python/third_party.py -p MacOS-arm -o ../sky_3rd -j 8
 
 # Build all third-party packages for Windows
-python3 python/third_party.py -p Win32 -j 8
+python3 python/third_party.py -p Win32 -o D:/Code/Engine/sky_3rd -j 8
 
 # Build one package into a custom output root
-python3 python/third_party.py -p Linux -o <thirdparty_root> -t taskflow
+python3 python/third_party.py -p Linux -o <thirdparty_root> -t sfmt
+
+# Check a shared Windows installation against this checkout's dependency list
+python3 python/third_party.py -p Win32 -o D:/Code/Engine/sky_3rd --check --strict
 ```
 
 ### 2. Configure CMake
@@ -142,7 +145,7 @@ cmake -S . -B <build_dir> \
   -D3RD_PATH=<thirdparty_platform_dir>
 ```
 
-If `build_3rd/thirdparty_cache.cmake` exists, you can also omit `-D3RD_PATH=...` and let the repository load the cached value automatically.
+For an external shared root, pass `-D3RD_PATH=D:/Code/Engine/sky_3rd/Win32` explicitly or put that cache variable in an ignored `CMakeUserPresets.json` preset. Existing build trees remember it. Legacy in-repository `build_3rd/thirdparty_cache_<platform>.cmake` (or `thirdparty_cache.cmake`) is still auto-loaded when `3RD_PATH` is empty.
 
 Common CMake switches:
 
@@ -171,7 +174,7 @@ Platform examples:
 # macOS Apple Silicon
 cmake -S . -B build-macos-arm \
   -G Xcode \
-  -D3RD_PATH=$PWD/build_3rd/MacOS-arm \
+  -D3RD_PATH=$PWD/../sky_3rd/MacOS-arm \
   -DSKY_BUILD_SANDBOX=ON
 ```
 
@@ -179,7 +182,7 @@ cmake -S . -B build-macos-arm \
 :: Windows
 cmake -S . -B build-win32 ^
   -G "Visual Studio 17 2022" ^
-  -D3RD_PATH=%cd%\build_3rd\Win32 ^
+  -D3RD_PATH=D:/Code/Engine/sky_3rd/Win32 ^
   -DSKY_BUILD_SANDBOX=ON
 ```
 

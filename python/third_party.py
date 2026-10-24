@@ -611,10 +611,12 @@ def process_package(package):
     if custom and custom_engine:
         custom = os.path.join(args.engine, custom)
     if custom:
+        custom_cmd = [sys.executable, custom]
         if custom_need_platform is True:
-            subprocess.run([sys.executable, custom, '-p', args.platform], cwd=str(clone_dir), check=True)
-        else:
-            subprocess.run([sys.executable, custom], cwd=str(clone_dir), check=True)
+            custom_cmd.extend(['-p', args.platform])
+        if custom_engine:
+            custom_cmd.extend(['-o', normalize_cmake_path(args.output)])
+        subprocess.run(custom_cmd, cwd=str(clone_dir), check=True)
 
     # init submodule
     if submodule is True:

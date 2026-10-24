@@ -271,8 +271,8 @@ presets:
 # 列出所有包
 python python/third_party.py -p Win32 --list
 
-# 全量编译 (Win32，默认 engine=当前仓库根目录，intermediate=./build_3rd/intermediate，3RD_PATH=./build_3rd/Win32)
-python python/third_party.py -p Win32
+# 全量编译到共享目录（中间目录默认位于输出根目录下）
+python python/third_party.py -p Win32 -o ../sky_3rd
 
 # 指定三方输出目录
 python python/third_party.py -i <intermediate> -o <output> -e . -p Win32
@@ -285,10 +285,10 @@ python python/third_party.py -i <intermediate> -o <output> -e . -p Win32 -f
 ```
 
 - 未指定 `-e/--engine` 时，默认使用当前引擎根目录
-- 未指定 `-i/--intermediate` 时，默认使用 `build_3rd/intermediate/`
-- 未指定 `-o/--output` 时，三方输出根目录默认是 `build_3rd/`，当前平台完整 `3RD_PATH` 为 `build_3rd/<platform>/`
-- 每次成功构建后会刷新 `build_3rd/thirdparty_cache.cmake`
-- 当 `3RD_PATH` 为空且该文件存在时，仓库 CMake 会自动包含这个 cache 文件
+- `-o/--output` 必须显式指定；`-i/--intermediate` 默认使用 `<output>/intermediate/`
+- 当前平台完整 `3RD_PATH` 为 `<output>/<platform>/`；兼容的引擎 checkout 可共享仓库外的输出根目录
+- 每次成功构建后会刷新 `<output>/thirdparty_cache_<platform>.cmake`
+- 外部输出通过 `-D3RD_PATH=<output>/<platform>` 或本地 CMake preset 接入；仅旧 `build_3rd` 路径保留自动加载兼容
 
 ---
 

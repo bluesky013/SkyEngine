@@ -31,12 +31,12 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Build CPython for SkyEngine")
 parser.add_argument("-p", "--platform", required=True, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"])
-parser.add_argument("-o", "--output", default=None, help="third-party output root (defaults to <engine>/build_3rd)")
+parser.add_argument("-o", "--output", required=True, help="third-party output root")
 args = parser.parse_args()
 
 SCRIPT_PATH = Path(__file__).resolve()
 ENGINE_ROOT = SCRIPT_PATH.parent.parent
-OUTPUT_ROOT = Path(args.output).resolve() if args.output else ENGINE_ROOT / "build_3rd"
+OUTPUT_ROOT = Path(args.output).resolve()
 INSTALL_DIR = OUTPUT_ROOT / args.platform / "cpython"
 SOURCE_DIR = Path.cwd()
 
