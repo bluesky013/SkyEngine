@@ -19,7 +19,6 @@
 #include <core/logger/Logger.h>
 
 #include "MetalBlitHelper.h"
-#include "rdg/MetalRDGBackend.h"
 #include <common/FrameTransientPool.h>
 #include <rdg/MetalDeviceFrameContext.h>
 
@@ -201,11 +200,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
-    }
-
-    RDGBackend *MetalDevice::CreateRDGBackend()
-    {
-        return new MetalRDGBackend();
     }
 
     Fence *MetalDevice::CreateFence(const Fence::Descriptor &desc)

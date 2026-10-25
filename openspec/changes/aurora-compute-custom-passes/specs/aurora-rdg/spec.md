@@ -100,12 +100,12 @@ Vulkan RenderPass 和 Dynamic Rendering 两套 compiler SHALL 各自生成对应
 
 ## MODIFIED Requirements
 
-### Requirement: SceneRaster pass execute 由 DrawItem 驱动
+### Requirement: Raster pass execute 由冻结 draw 驱动
 
-AddSceneRasterPass SHALL 只接收 setup，execute SHALL 由 DrawItems 驱动。DrawItem SHALL 携带 PSO、几何 streams、index type/offset、draw args、batch RG 和 dynamic offset。executor SHALL 先绑定 Pipeline，再绑定兼容的 set 0/1/2；切换 layout 后 SHALL 重新绑定所需 sets。batch RG 非空时 SHALL 应用 batchDynamicOffset。几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
+FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index type/offset、draw args 与 set/binding 资源。后端 SHALL 在 Compile 生成匹配的 pipeline 和不可变 bindings；编码时先绑定 Pipeline，再绑定实际活跃的 set 0/1/2（Global/Pass/Batch）。切换 layout 后 SHALL 重新绑定所需 sets。动态偏移 SHALL 来自对应声明；几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
 
-#### Scenario: SceneRaster items 驱动绘制
-- **WHEN** 收集的 item 具有有效 PSO 与 batch RG
+#### Scenario: Raster draws 驱动绘制
+- **WHEN** 冻结 draw 具有有效 shader 与 Batch bindings
 - **THEN** Pipeline 先于所需 ResourceGroups 绑定，应用 dynamic offset 后发出该 item 的绘制
 
 #### Scenario: 多 stream 与 U16 index
@@ -160,9 +160,9 @@ AddSceneRasterPass SHALL 只接收 setup，execute SHALL 由 DrawItems 驱动。
 - **WHEN** 后续帧使用相同 immutable pipeline/scope 签名，但 attachment 对象或动态绑定改变
 - **THEN** 可复用设备缓存；epoch、shader/layout、vertex/fixed state、附件格式/sample、传统 scope/subpass 不同不得误命中。native scope key 包含 resolve/load/store/layout/dependency，framebuffer/views 仍由当前帧保活；LRU 淘汰只释放 cache owner，失败不入缓存，worker 不查询或修改缓存
 
-#### Scenario: Compute 与 Custom 按声明访问执行
-- **WHEN** 新 IR 包含带合法声明的 FrameComputePass 或 FrameCustomPass，且其写入被后续消费或 sideEffect=true
-- **THEN** Compile 保留该 pass，按声明推导 barrier、内容与 lifetime 并交给受支持后端编码；无声明或非法声明失败，不执行任意回调，也不将其作为空图成功；Fullscreen 的 generated triangle 仍通过既有 raster encoder 绘制和读回
+#### Scenario: Compute 与 Custom 的声明执行
+- **WHEN** 冻结图包含 FrameComputePass 或 FrameCustomPass
+- **THEN** 受支持的声明进入后端编译和编码，缺失 encoder、资源访问不合法或超出设备能力时明确失败；不得空分支伪报成功
 
 #### Scenario: shader 生成顶点
 - **WHEN** program 的 vertex input 为空，item 使用 shader 生成顶点且 draw args 有效

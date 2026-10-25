@@ -297,37 +297,31 @@ C++ 侧 UBO 写入与 shader 声明 SHALL 使用同一 offset 表（offset 来�
 
 ### Requirement: Global tier 数据流
 
-`GlobalRenderResources`（aurora/pipeline）SHALL 持有 global UBO 与 global RG，提供 `UpdateView(const SceneView&, float time)`（每帧写 UBO + RG.Update）。
+Global set 0 SHALL contain only values shared across the pipeline's views for the frame. View/camera values SHALL belong to the consuming Pass in set 1. Global uniform values SHALL use the selected shader artifact and UniformUploadPlan for checked target encoding, without inferring GPU layout from CPU sizeof. Production FrameGraph invocations SHALL retain frame-safe immutable values through the existing lease protocol.
 
-`RenderGraph::SetGlobalResourceGroup(ResourceGroup*)` SHALL 把 global RG 写入 `CompiledGraph::globalResourceGroup`；executor SHALL 在每个 raster/compute pass 开始前 `BindResourceGroup(0, globalRG)`。
-
-#### Scenario: 每帧更新
-- **WHEN** `UpdateView(view, time)` 后 `Compile` + `Execute`
-- **THEN** executor 在每 pass 前绑定 global RG 到 set 0
+#### Scenario: Multiple views
+- **WHEN** main and shadow views use different cameras in one frame
+- **THEN** they share frame-global values while retaining independent Pass camera snapshots
 
 ### Requirement: Pass tier 生命周期
 
-`PipelinePass` SHALL 支持声明 pass 级 `RgBlockDesc`；`OnSetup` 由其创建 layout + RG（持久），`OnSceneChanged` 重建；`BuildRDG` 经 builder 传入（现有 SetPassResourceGroup/SetQueueResourceGroup wiring 不变）。
+Pass feature SHALL 从权威共享声明取得 CPU schema，并通过实际 shader 的 UniformUploadPlan 写入当前 lease 的 set 1 输入。不可变 shader/layout 可以共享；逐 View 数据与 native descriptors SHALL 在编译时冻结并保活至安全退休。不得依赖旧 OnSetup/OnSceneChanged 的单实例可变 RG。
 
-#### Scenario: pass RG 持久复用
-- **WHEN** pass 连续多帧 BuildRDG 且未 OnSceneChanged
-- **THEN** pass RG 复用同一实例
+#### Scenario: 同一 feature 两个 View
+- **WHEN** 同一 shader/layout 为不同 View 构图
+- **THEN** 共享不可变定义，各自 uniform 与 descriptor 保持独立，不互相覆写
 
 ### Requirement: Batch tier dynamic UBO
 
-`BatchAllocator` SHALL 管理 batch tier（set 2）的 dynamic UBO：纯线性分配器，`Allocate(size) -> offset` 按 `DeviceCapability::minUniformBufferOffsetAlignment` 对齐分配，`Write(offset, data, size)` 写入，`Reset()` 清 cursor；不感知帧，in-flight 安全由 `DeviceFrameContext` 维护 per-inflight-frame 的 pack buffer。
+Batch set 2 SHALL 使用当前 lease 拥有的参数数据。仅 shader binding policy 显式选择 dynamic UBO 时，声明才提供对应 dynamicOffset；普通 uniform binding 不强制改为动态类型。后端 SHALL 保留声明的 base offset、逻辑 range 与 dynamicOffset，并在 Pipeline 绑定后按真实 set/binding 应用。
 
-batch RG 的 dynamic UBO descriptor SHALL 以 `offset=0, range=blockSize` 绑定（每帧一次，帧内不变）。`DrawItem` SHALL 含 `batchDynamicOffset`（其值为 allocator 产出的 pack offset）；executor 绑 set 2 SHALL 传 dynamicOffsets。
+#### Scenario: 两个 draw 的动态窗口
+- **WHEN** 两个 draws 使用相同 pack buffer 和逻辑 range，但 dynamicOffset 不同
+- **THEN** 编码分别读取对应范围，顺序遵循 binding policy
 
-#### Scenario: 两个 draw 共用 RG 不同 offset
-
-- **WHEN** 两个 DrawItem 同 batchRG、不同 `batchDynamicOffset`
-- **THEN** executor 两次 `BindResourceGroup(2, rg, 1, &offset)` 分别使用各自 offset
-
-#### Scenario: per-inflight-frame 不覆盖
-
-- **WHEN** FrameContext 维护多个 pack buffer，连续帧各自分配写入并提交
-- **THEN** 当前帧写入的 buffer 与仍在 GPU 读取的帧 buffer 不同，不覆盖
+#### Scenario: per-lease 不覆盖
+- **WHEN** 连续帧提交不同 Batch 数据
+- **THEN** 当前写入不覆盖仍在 GPU 读取的帧范围
 
 ### Requirement: dynamic UBO stable binding 契约
 
@@ -345,37 +339,11 @@ Batch tier 的 dynamic UBO descriptor SHALL 以 `offset=0, range=blockSize` 绑�
 - **WHEN** 对 `UNIFORM_BUFFER_DYNAMIC` binding 写入 `bufferRange=0`
 - **THEN** Vulkan 后端 debug 断言 / 打 warning；release 不静默用 `VK_WHOLE_SIZE`
 
-### Requirement: BatchAllocator 线性分配器，in-flight 由 FrameContext 维护
-
-`BatchAllocator` SHALL 是纯线性分配器：`Init(device, capacity)` 创建单 host-visible buffer，`Allocate(size) -> offset` 在当前 buffer 内按 `DeviceCapability::minUniformBufferOffsetAlignment` 对齐分配，耗尽返回 `UINT32_MAX`；`Write(offset, data, size)` 写入映射区；`Reset()` 清 cursor。
-
-`BatchAllocator` SHALL 不感知帧：无 `inflightNum`、无 `BeginFrame(frameIndex)`。in-flight 安全 SHALL 由 `DeviceFrameContext` 维护 `inflightNum` 个 pack buffer（每 in-flight frame 一个），帧完成后回收并 `Reset()` 复用。
-
-#### Scenario: 线性分配
-
-- **WHEN** 对单 buffer 连续 `Allocate(64)` 两次
-- **THEN** 第二次 offset = 首次 offset + 对齐后的 64（偏移按 `minUniformBufferOffsetAlignment` 对齐）
-
-#### Scenario: 分配耗尽
-
-- **WHEN** buffer 剩余空间小于请求 size
-- **THEN** `Allocate` 返回 `UINT32_MAX`
-
-#### Scenario: Reset 复用
-
-- **WHEN** `Reset()` 后再次 `Allocate`
-- **THEN** 从 buffer 起始重新分配
-
-#### Scenario: in-flight 由 FrameContext 维护
-
-- **WHEN** FrameContext 持有 `inflightNum` 个 allocator，帧完成回收后 `Reset` 复用
-- **THEN** 复用不覆盖仍在 GPU 读取的帧数据（回收由 frame fence 驱动）
-
 ### Requirement: offset 对齐取自 device capability
 
 `DeviceCapability` SHALL 含 `minUniformBufferOffsetAlignment`（默认 256）。Vulkan / DX12 / Metal 后端 SHALL 在 `UpdateDeviceCaps()` 中从原生 limits 填真实值（Vulkan `minUniformBufferOffsetAlignment`、DX12 `D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT`、Metal `minConstantBufferAlignmentBytes`）。
 
-`BatchAllocator` SHALL 用 `device->GetCapability().minUniformBufferOffsetAlignment` 对齐分配，MUST 不硬编码 256。
+FrameContext 的 uniform 分配 SHALL 满足 `device->GetCapability().minUniformBufferOffsetAlignment` 与 native view 对齐，MUST 不以写死的常量替代能力查询。
 
 #### Scenario: 对齐由 caps 决定
 
@@ -440,3 +408,14 @@ pack writer SHALL 用 `RgBlockDesc`/codegen struct 的 block size 校验（`stat
 - **WHEN** 设备最高 Shader Model < 6.6
 - **THEN** `CreateDescriptorHeap` 返回 `nullptr`
 
+### Requirement: FrameContext 参数分配与退休
+
+生产 uniform 写入 SHALL 使用 DeviceFrameContext::WriteFrameBuffer 和有效 DeviceFrameLease。分配按 device 能力和请求对齐，返回 FrameBufferSlice 或显式 FrameError；预算不足不得重置已分配范围。编译计划借用或提交在途时 SHALL 禁止覆写；复用由既有 slot/lease 退休协议决定。
+
+#### Scenario: 容量不足
+- **WHEN** 同一 lease 的剩余容量不足以完成目标 ABI 写入
+- **THEN** 返回明确错误，已返回 slice 的内容与偏移保持稳定
+
+#### Scenario: 安全复用
+- **WHEN** 编码、提交及引用尚未满足退休条件
+- **THEN** 相应 backing 不交给新帧写入，不提供独立 Reset 旁路

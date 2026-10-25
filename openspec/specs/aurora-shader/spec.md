@@ -237,7 +237,7 @@ aurora.shader SHALL 提供统一 `Name→value` 变体模型，接口与 cache k
 
 ### Requirement: 全局 pipeline 位预留
 
-`GlobalVariantLayout` SHALL 定义引擎级 pipeline 位预留区（固定 bit 位置），所有 shader schema 的 per-shader 位 SHALL 排在预留区之后；PipelinePass SHALL 只用 `GlobalVariantLayout` 设 pipeline 位，不依赖具体 shader schema。
+`GlobalVariantLayout` SHALL 定义引擎级 pipeline 位预留区（固定 bit 位置），所有 shader schema 的 per-shader 位 SHALL 排在预留区之后；Pipeline 的变体组装 SHALL 只用 `GlobalVariantLayout` 设 pipeline 位，不依赖具体 shader schema。
 
 #### Scenario: pipeline 位跨 shader 一致
 
@@ -303,4 +303,3 @@ Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`�
 
 - **WHEN** shader 源码含 `#include "Generated/GlobalBlock.slang"`
 - **THEN** 编译器经 `ShaderFileSystem` 解析该路径为内存内容并成功编译；该路径不存在于磁盘
-

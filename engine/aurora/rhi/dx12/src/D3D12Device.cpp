@@ -4,7 +4,6 @@
 
 #include <D3D12Device.h>
 
-#include "rdg/D3D12RDGBackend.h"
 #include <D3D12BlitHelper.h>
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
@@ -213,11 +212,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
-    }
-
-    RDGBackend *D3D12Device::CreateRDGBackend()
-    {
-        return new D3D12RDGBackend();
     }
 
     DeviceFrameContext *D3D12Device::CreateFrameContext(const DeviceFrameContextInitInfo &info)

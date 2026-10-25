@@ -8,16 +8,16 @@ The working tree already contains compute/custom, scene rendering and editor cha
 2. Keep reads, writes and defines distinct. Validate declarations before culling, then validate content only for surviving passes and exports. Preserve logical pass ordering and inclusive alias lifetimes.
 3. Reuse pure binding lookup and range normalization, including existing raster/compute policies. Preserve Custom resource array order, sparse descriptor sets, and base versus dynamic offsets. Do not add permanent normalized copies to FrozenFrameGraph.
 4. Backend helpers own their native state and allocation rules. Keep Vulkan rendering modes separate, DX12 metadata initialization and scratch barriers intact, and Metal pipeline-specific limits intact. Compilation failure still rolls back within the same lease with device-loss priority.
-5. Keep the current public IR and generated Global/Pass/Batch source contract. Header partitioning and legacy RDG removal are follow-ups; no broad renames or module changes are needed here.
+5. Keep the current public IR and generated Global/Pass/Batch source contract. Header partitioning remains a follow-up; legacy RDG removal is tracked by `remove-unused-legacy-rendergraph`; no broad renames or module changes are needed here.
 
 ## Legacy migration inventory
 
-RenderGraph.cpp, Compile.cpp and Execute.cpp implement the older setup/execute path. ScenePass, OpaquePass, FullScreenPass, SceneRasterPassTemplate and PipelinePass expose that API; ResourceTiersTest, PipelineTemplateTest, RDGTest and ClientViewportTest exercise it. The production renderer uses FrameComposer/FrameGraphBuilder and FrozenFrameGraph. Removing the older API requires a separate caller and compatibility review, including what existing Pipeline templates should become.
+The original inventory found only the old templates and dedicated tests consuming RenderGraph. The 2026-10-26 caller review confirmed no production callers and removed that closed dependency chain under `remove-unused-legacy-rendergraph`. Production remains FrameComposer/FrameGraphBuilder and FrozenFrameGraph. The mixed resource/viewport tests retain their independent RHI coverage.
 
 ## Implementation boundaries
 
 - `FrameGraphAnalyzer` keeps resource validation, typed access collection, exports, backward culling and forward content/lifetime validation in named stages. Its temporary state exists only during analysis.
-- `FrameBindingLookup` borrows declarations into the existing three-set, 32-binding limit. It preserves the first match and leaves duplicate/limit diagnostics to the existing validators. It neither sorts declarations nor owns shader resources.
+- `FrameBindingLookup` borrows declarations into the existing four-set, 32-binding limit. It preserves the first match and leaves duplicate/limit diagnostics to the existing validators. It neither sorts declarations nor owns shader resources.
 - `D3D12CompileState` owns compilation-local native state. Capability checks, allocation, typed pass preparation and final transitions remain sequential. Raster attachment setup, draw preparation and descriptor writes have separate helpers. Descriptor reuse remains scoped to one raster pass; compiled draws retain their pipelines and the compiled frame retains native resources.
 - `MetalPassCompiler` handles each pass alternative after resource-owner validation. Reservation, dispatch, command-buffer cleanup and GPU retirement remain in `MetalDeviceFrameContext`.
 - Vulkan retains its existing compiler/resource split. Compute descriptor writes and barriers now reuse one normalized image-view range.

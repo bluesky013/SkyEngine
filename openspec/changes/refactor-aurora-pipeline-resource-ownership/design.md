@@ -147,8 +147,8 @@ and current owner-scoped shader assets remain in place.
 `ShaderBlockGen` and its four text/hash tests are removed; persistent `.slangh` export
 is the declaration path. `RgBlockDesc` and its CPU layout test remain, as does the
 variant-only `ShaderHeaderTool`. Unused old shader include macros and redundant Pass
-lifecycle forwarders are removed. Existing RenderGraph templates retain their test
-consumers and are documented separately from the production FrameGraph path.
+lifecycle forwarders are removed. The later legacy graph removal retires its test-only template consumers while preserving
+shared shader declarations and the production FrameGraph path.
 
 Local obsolete `shader-bundles` staging trees and the generated `SceneShaderBundle.h`
 are removed. Current shader products and unrelated build caches are preserved.

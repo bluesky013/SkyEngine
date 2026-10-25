@@ -14,7 +14,7 @@ Aurora shader implementations are authored in **Slang** (`.slang`). C++ consumes
 | `Aurora.ShaderCompiler.Static` | STATIC | `engine/aurora/shader` | Slang compiler impl (`ShaderCompilerSlang`) |
 | `Aurora.ShaderCompiler` | SHARED (module) | `engine/aurora/shader` | registers the compiler into `ShaderCompilerFactory` |
 | `ShaderHeaderTool` / `ShaderCookTool` | EXE | `engine/aurora/shader/tool` | variant schema generation / usage-cache precompile |
-| `Aurora.Pipeline.Static` | STATIC | `engine/aurora/pipeline` | pass templates, global resources (`pipeline/src/ReflectionValidation.cpp`) |
+| `Aurora.Pipeline.Static` | STATIC | `engine/aurora/pipeline` | scene/fullscreen frame features, variant assembly and reflection validation |
 
 Resource tiers: set 0 = Global, set 1 = Pass, set 2 = Batch.
 Dynamic offsets follow explicit binding types.
@@ -32,10 +32,11 @@ versions and owned material uniform snapshots; it does not choose parameter layo
 The change and platform validation are tracked by
 `openspec/changes/refactor-aurora-pipeline-resource-ownership`.
 
-`ScenePass` / `OpaquePass` classes and `SceneRasterPassTemplate` remain legacy
-RenderGraph templates with test consumers. Their default collection does not emit
-draws. Production scene collection and technique selection use `SceneRenderFeature`
-and `FrameComposer`; the shared Pass declaration headers serve both paths.
+The unused RenderGraph and mutable pass template classes were removed on 2026-10-26.
+Scene collection and technique selection use `SceneRenderFeature` and `FrameComposer`;
+fullscreen composition uses `TextureToScreenFeature`. Shared Pass declaration headers
+and their persistent shader exports remain available. See
+[the removal change](../../openspec/changes/remove-unused-legacy-rendergraph/design.md).
 
 Built-in Global and Pass/Batch declarations live in `engine/aurora/pipeline/shaders/*.h`;
 user pipelines retain their headers and shader sources inside their own targets.

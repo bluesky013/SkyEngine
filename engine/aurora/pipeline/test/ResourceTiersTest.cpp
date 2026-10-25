@@ -1,18 +1,12 @@
 //
-// Resource tiers tests: global resources, batch allocator, reflection validation.
+// Resource binding and shared declaration reflection validation.
 //
 
 #include "AuroraTestHelper.h"
-#include "SceneBatch.h"
+#include "GlobalBlock.h"
 
-#include <aurora/pipeline/BatchPackWriter.h>
-#include <aurora/pipeline/GlobalRenderResources.h>
 #include <aurora/pipeline/ReflectionValidation.h>
-#include <aurora/rdg/BatchAllocator.h>
-#include <aurora/rdg/CompiledGraph.h>
-#include <aurora/rdg/RenderGraph.h>
 #include <aurora/rhi/Shader.h>
-#include <aurora/scene/SceneView.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
 
@@ -21,45 +15,6 @@ using namespace sky::aurora;
 using namespace sky::aurora::test;
 
 namespace {
-
-    Shader *MakeGlobalShader(Device *device)
-    {
-        const char *src = R"(
-#include <aurora/pipeline/GlobalBlock.slangh>
-[AuroraResource(1, 0, "test/ResourceTiers")]
-RWStructuredBuffer<float4> values : register(u0, space1);
-[shader("compute")]
-[numthreads(1, 1, 1)]
-void mainCS() { values[0] = gGlobal.frameTime; }
-)";
-
-        ShaderFileSystem files;
-        files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
-        ShaderCompilerSlang compiler;
-        ShaderCompileDesc   d{};
-        d.fileSystem = &files;
-        d.source     = src;
-        d.entry      = "mainCS";
-        d.stage      = ShaderStageFlagBit::CS;
-        d.target     = ShaderTarget::SPIRV;
-
-        ShaderCompileResult r{};
-        if (!compiler.Compile(d, r)) {
-            return nullptr;
-        }
-
-        ShaderFunction::Descriptor fnDesc{};
-        fnDesc.stage    = ShaderStageFlagBit::CS;
-        fnDesc.artifact = std::make_shared<const ShaderStageArtifact>(r);
-        auto *cs        = device->CreateShaderFunction(fnDesc);
-        if (cs == nullptr) {
-            return nullptr;
-        }
-
-        Shader::Descriptor shaderDesc = {};
-        shaderDesc.cs                 = cs;
-        return device->CreateShader(shaderDesc);
-    }
 
     Shader *MakeDynamicBatchShader(Device *device, uint32_t &set, uint32_t &binding, uint32_t &blockSize)
     {
@@ -120,110 +75,6 @@ void mainCS() { values[0] = gSceneBatch.world[0]; }
 
 } // namespace
 
-TEST_F(AuroraVulkanTest, GlobalRenderResourcesInitAndUpdate)
-{
-    auto *device = GetDevice();
-
-    auto globalShader = CounterPtr<Shader>(MakeGlobalShader(device));
-    ASSERT_NE(globalShader.Get(), nullptr);
-
-    GlobalRenderResources global;
-    ASSERT_TRUE(global.Init(device, globalShader.Get()));
-    ASSERT_NE(global.GetGlobalResourceGroup(), nullptr);
-
-    SceneView view;
-    view.SetViewMatrix(Matrix4::Identity());
-    view.SetProjectionMatrix(Matrix4::Identity());
-
-    EXPECT_TRUE(global.UpdateFrame(1.5f, .016f));
-
-    // wire into graph -> compiled graph carries the global RG
-    FrameAllocator frameAlloc;
-    auto           graph = RenderGraph::Build(device, frameAlloc);
-    graph->SetGlobalResourceGroup(global.GetGlobalResourceGroup());
-
-    const auto tex = graph->CreateTexture(Name("color"), [] {
-        RDGTextureDesc d{};
-        d.extent = {16, 16, 1};
-        d.usage  = ImageUsageFlagBit::RENDER_TARGET;
-        return d;
-    }());
-    graph->AddSceneRasterPass(Name("p"), [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); });
-    graph->MarkOfInterest(tex);
-    graph->Compile();
-
-    const auto *cg = graph->GetCompiledGraph();
-    ASSERT_NE(cg, nullptr);
-    EXPECT_EQ(cg->globalResourceGroup, global.GetGlobalResourceGroup());
-}
-
-TEST_F(AuroraVulkanTest, BatchAllocatorAllocWriteReset)
-{
-    auto *device = GetDevice();
-
-    const uint32_t align = device->GetCapability().minUniformBufferOffsetAlignment;
-    ASSERT_GE(align, 1u);
-
-    BatchAllocator batch;
-    ASSERT_TRUE(batch.Init(device, 4096));
-
-    const uint32_t o0 = batch.Allocate(64);
-    EXPECT_EQ(o0, 0u);
-
-    const uint32_t o1 = batch.Allocate(64);
-    EXPECT_EQ(o1, align); // aligned to device minUniformBufferOffsetAlignment
-
-    const float value = 7.5f;
-    batch.Write(o1, &value, sizeof(value));
-    EXPECT_EQ(batch.GetUsedBytes(), align + 64u);
-
-    // exhaustion
-    EXPECT_EQ(batch.Allocate(8192), UINT32_MAX);
-
-    batch.Reset();
-    EXPECT_EQ(batch.GetUsedBytes(), 0u);
-    EXPECT_EQ(batch.Allocate(64), 0u);
-}
-
-TEST_F(AuroraVulkanTest, BatchAllocatorAlignmentFromCaps)
-{
-    auto *device = GetDevice();
-
-    const uint32_t align = device->GetCapability().minUniformBufferOffsetAlignment;
-    ASSERT_GT(align, 0u);
-
-    BatchAllocator batch;
-    ASSERT_TRUE(batch.Init(device, 4096));
-
-    // consecutive allocations must be multiples of the reported alignment,
-    // with the gap equal to that alignment (not a hardcoded 256)
-    const uint32_t o0 = batch.Allocate(1);
-    const uint32_t o1 = batch.Allocate(1);
-    EXPECT_EQ(o0 % align, 0u);
-    EXPECT_EQ(o1 % align, 0u);
-    EXPECT_EQ(o1 - o0, align);
-}
-
-TEST_F(AuroraVulkanTest, BatchPackWriterPackReturnsOffset)
-{
-    auto *device = GetDevice();
-
-    BatchAllocator batch;
-    ASSERT_TRUE(batch.Init(device, 4096));
-
-    uint32_t  set = 0, binding = 0, blockSize = 0;
-    ShaderPtr shader(MakeDynamicBatchShader(device, set, binding, blockSize));
-    ASSERT_TRUE(shader);
-    const shared::SceneBatchParams value{.world = Matrix4::Identity()};
-    BatchPackWriter                writer(batch);
-    std::string                    error;
-    const auto                     o0 = writer.Pack(*shader, shared::SceneBatchBindings::gSceneBatch, value, error);
-    const auto                     o1 = writer.Pack(*shader, shared::SceneBatchBindings::gSceneBatch, value, error);
-
-    EXPECT_EQ(o0, 0u);
-    EXPECT_EQ(o1, device->GetCapability().minUniformBufferOffsetAlignment);
-}
-
 TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
 {
     auto *device = GetDevice();
@@ -283,40 +134,6 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
     EXPECT_FALSE(enc->WriteBuffer(binding, buffer.Get(), 0, 0)); // dynamic UBO requires an explicit range
     EXPECT_FALSE(enc->End());
     EXPECT_NE(enc->GetError().find("Invalid buffer descriptor"), std::string::npos);
-}
-
-TEST_F(AuroraVulkanTest, BatchDynamicOffsetPassThrough)
-{
-    auto          *device = GetDevice();
-    FrameAllocator frameAlloc;
-    auto           graph = RenderGraph::Build(device, frameAlloc);
-
-    const auto tex = graph->CreateTexture(Name("color"), [] {
-        RDGTextureDesc d{};
-        d.extent = {16, 16, 1};
-        d.usage  = ImageUsageFlagBit::RENDER_TARGET;
-        return d;
-    }());
-
-    DrawItem item{};
-    item.batchDynamicOffset = 512;
-    item.args.indexCount    = 6;
-
-    graph->AddSceneRasterPass(Name("p"), [&](SceneRasterPassBuilder &b) {
-        b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE);
-        b.AddDrawItem(item);
-    });
-    graph->MarkOfInterest(tex);
-    graph->Compile();
-
-    const auto *cg = graph->GetCompiledGraph();
-    ASSERT_NE(cg, nullptr);
-    ASSERT_EQ(cg->passes.size(), 1u);
-
-    const auto &p = std::get<SceneRasterPayload>(cg->passes[0].payload);
-    ASSERT_EQ(p.queues.size(), 1u);
-    ASSERT_EQ(p.queues[0].items.size(), 1u);
-    EXPECT_EQ(p.queues[0].items[0].batchDynamicOffset, 512u);
 }
 
 TEST_F(AuroraVulkanTest, ReflectionValidationMatch)
@@ -385,5 +202,5 @@ float4 mainFS() : SV_Target { return gGlobal.frameTime; }
 
     // the shared RgBlockDesc (from GlobalBlock.h) must match the
     // shader reflection of the same block
-    EXPECT_TRUE(ValidateBlockAgainstReflection(GlobalRenderResources::GetGlobalBlockDesc(), r.reflection).empty());
+    EXPECT_TRUE(ValidateBlockAgainstReflection(shared::GetGlobalParamsBlockDesc(), r.reflection).empty());
 }

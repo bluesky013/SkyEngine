@@ -1,25 +1,5 @@
 ## MODIFIED Requirements
 
-### Requirement: ScenePass (HDR)
-
-ScenePass SHALL 从显式 ViewRenderContext 获取 scene/view、frame slot、extent 和 bindings，为该 View 声明 HDR color（RGBA16_SFLOAT，含 RENDER_TARGET、SAMPLED 及所需 transfer usage）和 D32 depth。attachments SHALL 以 CLEAR load，并建立 FRONT_TO_BACK 的 opaque queue。输出 handles SHALL 通过当帧结果传递，不得保存后用于另一 graph；不同 View 不得通过修改同一个 pass 的共享 extent 切换状态。
-
-#### Scenario: ScenePass 构建 HDR RDG 节点
-- **WHEN** 用实际 extent 为 1280x720 的 ViewRenderContext 建图
-- **THEN** 生成对应尺寸的 HDR/depth attachments 与 opaque queue，返回仅属于当前图的 handles
-
-### Requirement: TextureToScreenPass
-
-TextureToScreenPass SHALL 从显式当帧上下文取得 input/output handles，声明输入 HDR 的 SRV read 和输出 color attachment（DONT_CARE、STORE，全屏覆盖）。PSO SHALL 匹配输出格式，descriptor SHALL 在 backing 解析后就绪；不得跨 View 共用可变输入绑定。
-
-#### Scenario: TextureToScreen 构建 fullscreen 节点
-- **WHEN** 提供有效 input HDR 与 output handle 建图
-- **THEN** 产生 FULLSCREEN pass，输出 attachment 为指定 output，且包含 HDR SRV read 依赖
-
-#### Scenario: 输入 HDR texture 从 RTV 转 SRV
-- **WHEN** ScenePass 的 HDR 结果被 TextureToScreenPass 读取
-- **THEN** RDG 推导先写后读依赖和 RTV 到 SRV 的 barrier
-
 ### Requirement: RenderViewport 三阶段生命周期契约
 
 RenderViewport SHALL 由 FrameScheduler 驱动 Begin（状态/重建）、Acquire（取得输出）、Release（安全呈现）三阶段，暴露成功获取的 image、extent、format、名称和提交所需同步信息；全局 frame slot/fence SHALL 由 scheduler 管理。失败 SHALL 只取消该输出。成功 acquire 后 SHALL 显式完成正常提交或错误收尾，Release 不得等待尚未安排 signal 的同步对象。
@@ -95,47 +75,3 @@ RenderScene SHALL 使用 EntityRegistry 与 SoA 组件池，提供 CreateEntity/
 #### Scenario: WorldInfo 与光参数
 - **WHEN** 更新完整 world 矩阵及 point/spot 的 range/cone
 - **THEN** 矩阵和光参数可正确读取，光位置/方向从同一 entity 的矩阵派生
-
-### Requirement: pass 收集链路
-
-逐 View CPU Collector SHALL 在 SceneReady 后以冻结的 Bounds dense 数据驱动，通过只读 sparse 查询获取有效 entity 的 WorldInfo、MeshBinding、MaterialBinding 与 flags，按当前 View 裁剪、LOD、technique tag 和排序产生私有 draw packets。其访问 SHALL 纳入 CPU prepare DAG；分块结果 SHALL 稳定归并。SceneRasterPassTemplate SHALL 在 coordinator 建图时将已准备的数据解析为 DrawItems 并加入 builder，worker 不得并发修改 builder 或 GPU cache。未就绪 binding SHALL 跳过并可诊断；空 tag SHALL 使用默认 binding。DrawItems SHALL 不作为持久 ECS 组件保存。
-
-#### Scenario: dense 遍历收集
-- **WHEN** Collect 遍历场景
-- **THEN** 连续扫描 Bounds，通过 entity 索引查询其它组件，仅收集当前 View 可见且资源就绪的 items
-
-#### Scenario: tag 与排序
-- **WHEN** 收集 tag 为 opaque 的 queue
-- **THEN** 仅收集匹配 binding，并按当前 View 的深度做 FRONT_TO_BACK 排序
-
-#### Scenario: 并行 View 提取与串行建图
-- **WHEN** 两个 View 同时读取同一 Scene 并各自分块提取
-- **THEN** worker 只写本任务结果，稳定归并后由 coordinator 添加到各自 pass，不发生共享 builder/vector 写入
-
-#### Scenario: 分块完成次序与产品生命周期
-- **WHEN** 同一冻结 Scene/View 的 chunk 完成顺序改变，或合并后的产品被保留到场景删除之后
-- **THEN** 可见实体/LOD 和稳定顺序一致，矩阵/bounds/light 按声明容差一致；owned 产品保持有效且不延长 ECS 冻结
-
-#### Scenario: 精确 CPU packet 解析为实际 geometry 和常量
-- **WHEN** coordinator 使用已准备的精确 mesh/material 版本解析 indexed draw
-- **THEN** stream、index type/LOD 范围和 shader 对应该版本；每 View 的 projection/view/camera、每对象 world 使用当前 lease 的独立常量范围，找不到该版本时明确拒绝而非换成更新版本
-
-### Requirement: PipelinePass 模板基类
-
-PipelinePass SHALL 将设备级不可变 pipeline 定义/PSO 与逐 View 可变状态分离。BuildRDG SHALL 显式接收 ViewRenderContext；不得轮流修改共享 mScene/mView/extent 以生成多个 View。SceneRasterPassTemplate SHALL 基于上下文提供默认 Collect。持久 PSO SHALL 通过 device cache 复用；变化的 RG/UBO SHALL 按 View/FrameSlot 分配；RDG handles SHALL 不跨帧存储。
-
-#### Scenario: 场景不变时持久资源复用
-- **WHEN** 两个 View 使用相同 program、layout、几何及 attachment 配置
-- **THEN** 可以命中同一 PSO，仍使用各自独立的 camera bindings
-
-#### Scenario: pass 使用显式场景与视图
-- **WHEN** 使用 View A 的上下文构图后再使用 View B 的上下文构图
-- **THEN** 各自 items、attachments 和 bindings 保留对应上下文，不因后一次构图被覆盖
-
-### Requirement: OpaquePass
-
-OpaquePass SHALL 继承 SceneRasterPassTemplate，声明 color/depth attachments 和名为 opaque 的 FRONT_TO_BACK queue，并收集资源就绪的实体生成真实绘制。
-
-#### Scenario: OpaquePass 构建 RDG
-- **WHEN** 可见的程序化网格具有有效 geometry、program 和 material binding
-- **THEN** 构建含该网格 DrawItem 的 SceneRasterPass，并在 Execute 中发出实际 draw

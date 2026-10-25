@@ -181,3 +181,11 @@ UniformUploadPlan SHALL 校验共享语义、CPU 可读范围和目标 block ABI
 #### Scenario: ResourceGroup 与图装配共用事务
 - **WHEN** 相同 shader/interface 的 typed 参数分别经 ResourceGroup 和图装配更新
 - **THEN** 两者直接复用相同的事务状态机和编码计划，得到相同目标 uniform 字节；各 materializer 只分配和发布一次，失败不改变既有版本
+
+### Requirement: Global tier 数据流
+
+Global set 0 SHALL contain only values shared across the pipeline's views for the frame. View/camera values SHALL belong to the consuming Pass in set 1. Global uniform values SHALL use the selected shader artifact and UniformUploadPlan for checked target encoding, without inferring GPU layout from CPU sizeof. Production FrameGraph invocations SHALL retain frame-safe immutable values through the existing lease protocol.
+
+#### Scenario: Multiple views
+- **WHEN** main and shadow views use different cameras in one frame
+- **THEN** they share frame-global values while retaining independent Pass camera snapshots

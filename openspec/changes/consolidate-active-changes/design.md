@@ -1,3 +1,5 @@
+> 2026-10-26：旧 RenderGraph 及其 PipelinePass 模板已退役；相关旧模板目标不再实施，参见 `remove-unused-legacy-rendergraph`。其余目标维持原验收状态。
+
 ## Context
 
 `openspec/changes/` currently holds **23 active** change directories on top of a large archive (151 entries).

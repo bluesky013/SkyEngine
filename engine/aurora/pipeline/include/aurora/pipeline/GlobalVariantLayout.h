@@ -1,8 +1,6 @@
 //
 // GlobalVariantLayout: the global pipeline variant layout, shared across all
-// shaders. Mirrors GlobalRenderResources for the variant space: the pipeline
-// module loads it from the pipeline variant .slang (data-driven) and validates
-// that the keys fit within the reserved bit region.
+// shaders. Pipeline keys use the shared definition and reserved bit region.
 //
 
 #pragma once

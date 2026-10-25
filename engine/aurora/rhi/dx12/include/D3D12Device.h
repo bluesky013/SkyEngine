@@ -77,7 +77,6 @@ namespace sky::aurora {
 
         Queue       *GetQueue(QueueType type) override;
         CommandPool *CreateCommandPool(QueueType type) override;
-        RDGBackend  *CreateRDGBackend() override;
 
         const D3D12Functions &GetFunctions() const noexcept
         {

@@ -94,13 +94,11 @@ B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only
 
 ## Dynamic UBO pack（batch tier / set 2）
 
-Batch tier（set 2）用 dynamic UBO 承载 per-object uniform 数据，契约如下：
+Batch set 2 的数据由当前 DeviceFrameLease 保活。只有 shader binding policy 显式选择时才使用 dynamic UBO；不得直接修改目标反射来切换类型。
 
-- **stable binding**：batch RG 的 dynamic UBO descriptor 每帧以 `offset=0, range=blockSize` 绑定一次（`blockSize` 为该 RG 对应 shader block 的固定大小）；帧内每 draw 只改 dynamic offset（`DrawItem::batchDynamicOffset`），不重写 descriptor。Vulkan 后端对 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC` + `bufferRange==0` 会 assert/warning，不得静默退化为 `VK_WHOLE_SIZE`。
-- **`BatchAllocator` 是纯线性分配器**（`aurora/rdg/BatchAllocator.h`）：`Allocate/Write/Reset`，offset 对齐取自 `DeviceCapability::minUniformBufferOffsetAlignment`；**不感知帧**（无 frame index / slot）。
-- **in-flight 安全由 `DeviceFrameContext` 维护**：每个 in-flight frame 一个 pack buffer（packed pool），帧 fence 完成后回收并 `Reset` 复用；随 `aurora-renderer` 落地，allocator 本身不实现回收/扩容。
-- **batch RG 由各特性创建**（如「材质→shader」），不在 RHI/allocator 层；pipeline 层 `BatchPackWriter`（`aurora/pipeline/BatchPackWriter.h`）负责「结构体写入 → 返回 dynamic offset」。
-- **注意**：`ShaderResourceType::UNIFORM_BUFFER_DYNAMIC` 当前**不**由 slang 反射产出（`ShaderCompilerSlang` 把 ParameterBlock 都映射为静态 `UNIFORM_BUFFER`）；DYNAMIC 标记由调用方 / 后续 compiler change 提供，测试中用「手工改 reflection 类型」验证 RG 语义。
+- CPU 参数通过实际 shader 的 `UniformUploadPlan` 编码，再用 `DeviceFrameContext::WriteFrameBuffer` 分配；目标逻辑 range 与分配 padding 分开。
+- dynamic binding 保留 base offset、range 与 dynamicOffset，按真实 set/binding 编码；零 range、越界、对齐错误显式失败。
+- backend compiler 在 Compile 冻结 descriptors，worker 不修改；GPU 完成或安全 teardown 前不可复用 backing。不得恢复独立 Reset 的旧 batch allocator。
 
 ## Vulkan dynamic rendering 与 stencil
 
@@ -120,7 +118,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 ## Metal 后端实现约定（ARC / 句柄 / 线程池 / MSL 槽位）
 
-- **ARC**：`Aurora.Metal` 的 `.mm` 单独开启 `-fobjc-arc`（`metal/CMakeLists.txt` 对 `src/*.mm` 设 `set_source_files_properties(... "-fobjc-arc")`）。**不得**混用手工 `retain/release/dealloc`（ARC 下编译报错）。不要给整个后端加 `-fobjc-arc` 到 `.cpp`（`MetalRDGBackend.cpp` 是纯 C++）。
+- **ARC**：`Aurora.Metal` 的 `.mm` 单独开启 `-fobjc-arc`（`metal/CMakeLists.txt` 对 `src/*.mm` 设 `set_source_files_properties(... "-fobjc-arc")`）。**不得**混用手工 `retain/release/dealloc`（ARC 下编译报错）。不要给整个后端加 `-fobjc-arc` 到 `.cpp`（普通 `.cpp` 不处理 Obj-C）。
 - **native 句柄**：Obj-C 类型不进头文件，句柄一律 `void*`。跨越 `id` ↔ `void*` 必须用 bridge cast：存句柄 `(__bridge_retained void *)obj`（+1，脱离 ARC），读句柄 `(__bridge id<MTLXxx>)handle`（借用），释放 `(void)(__bridge_transfer id<MTLXxx>)handle`（+1 交还 ARC）。**每个 `__bridge_retained` 必须恰有一个配对的 `__bridge_transfer`**（否则泄漏；MRC 下这些 cast 是 no-op，正是历史泄漏根因）。
 - **Device 工厂**：统一走 `MetalDevice.mm` 内部模板 `CreateAndInit<T>(device, desc)`（`new T` + `Init` + 失败 `delete`），不逐方法复制样板。
 - **MSL 槽位**：`src/MetalMSLSlots.h` 的 `BuildMetalMSLSlotLayout(reflection, set)` 是**唯一**来源——slang MSL 按类别（buffer/texture/sampler）各自从 0 顺序编号，忽略 `[[vk::binding]]`；`MetalShader`（push constant 槽 + buffer 预算）与 `MetalResourceGroup`（类别绑定槽映射）共用它。
@@ -163,7 +161,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 - `RenderViewport`（`aurora/rdg/RenderViewport.h`）是表面基类：`Begin`/`Acquire`/`Release` + backbuffer/format/extent + acquire/render-done sema 访问器（不含 frame index/fence）。
 - `ClientViewport` 持 `SwapChain` + per-viewport 帧 ring sema（本地 `mFrameSlot` 计数，非 image index、非全局 frame index）。
 - inflight frame 全局化：`DeviceFrameContext` 是 slot ring 的唯一所有者；新路径经 lease、Submit/PollCompleted 驱动。直接宿主 Begin/End/GetFrameFence 与 lease 在一个 context 内禁止混用；多 viewport 共用同一 lease。
-- RDG 绑定 viewport：`RenderGraph::BindViewport(name, viewport)`（`ViewportImageTag`），prepare 阶段（`CullPasses` 开头）`Acquire` 解析裸 `Image*`（无 refcount，避开 swapchain image 的 `unique_ptr` 所有权冲突）。
+- 输出导入：FrameScheduler 取得有效输出 lease 后由 FrameComposer 导入图；Compile 不 acquire/present，borrowed swapchain image 不构造拥有删除权的 CounterPtr。
 
 ## Barrier 用法
 
@@ -212,34 +210,17 @@ Vulkan validation 严格检查 stage ↔ access。stage 由调用方显式填 `B
 | DX12 | `ID3D12GraphicsCommandList::ResourceBarrier` 直接落 cmdlist；UAV barrier 用 null pResource |
 | Metal | `MetalCommandBuffer` 内部记账 active encoder：调用时若有 → `[encoder memoryBarrierWithScope:]`；若无 → 缓存到下一次 CreateXxxEncoder 入口 flush。Layout transition 在 Metal 上 noop。Blit encoder 不暴露 memoryBarrier API（依赖 encoder 边界隐式同步） |
 
-## RDG 用法
+## FrameGraph 用法
 
-RDG 是 **RHI 接口的扩展**：接口层（`aurora/rhi/interface/include/aurora/rdg/` + `src/rdg/`）持有
-graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命周期 / culling / transient 池），
-**每个后端通过 `RDGBackend` 接口自己实现 barrier 编译器与 executor**（`CompileBarriers` / `Execute`）：
+生产图由 `core/src/renderer/graph/FrameComposer` 与 `FrameGraphBuilder` 构建，通过 `FrameGraphBuildContext` 调用已注册 feature，Freeze 后成为不可变 `FrozenFrameGraph`。公共 IR 与纯分析留在 `rhi/interface`。
 
-| 后端 | 实现 |
-|---|---|
-| Vulkan | `vulkan/src/rdg/VulkanRDGBackend.{h,cpp}` |
-| DX12 | `dx12/src/rdg/D3D12RDGBackend.{h,cpp}` |
-| Metal | `metal/src/rdg/MetalRDGBackend.{h,cpp}` |
+1. 声明资源、typed copy/raster/compute/custom passes 和 exports；handle 包含 graph identity，跨图或越界返回显式错误。
+2. 使用有效 DeviceFrameLease 调用活动后端 `DeviceFrameContext::Compile`，校验内容/依赖并生成 native plan、barriers 与冻结 bindings。
+3. Dispatch/收齐编码结果，再显式 Submit；GPU、CPU borrow 与 presentation 按各自退休条件保活。
 
-创建入口：`RenderGraph::Build(device)`（`RenderGraph` 是具体类，构造时经 `Device::CreateRDGBackend()` 取后端，不搞多态图继承）。
+Vulkan 的两套 compiler、DX12 frame compiler 与 Metal frame context 保留各自 native 编译策略；共享 `FrameTransientPool` 只管理 device backing/lease，不统一 encoder。Custom 仅访问声明资源，不自行插入 barrier。
 
-三段式 lifecycle：
-
-1. **Setup**：`RenderGraph::Build(device)` → `CreateTexture/CreateBuffer/Import` → `AddRasterPass/AddComputePass/AddCopyPass`（setup callback 内通过 builder 声明 `Read/Write/ColorAttachment/DepthStencilAttachment/Src/Dst`）
-2. **Compile**：`Compile()` 做共享分析（依赖边 / 拓扑 / 生命周期 / culling / transient），再回调后端的 `CompileBarriers()` 做 barrier 推导
-3. **Execute**：`Execute(cmdBuf)` 回调后端的 `ExecuteImpl()`（默认走共享的 `ExecutePasses` 按拓扑序 emit barrier + encoder + pass body，v1 单一 CommandBuffer）
-
-要点：
-
-- **handle 强类型**：`RDGTextureHandle` / `RDGBufferHandle` 是 opaque ID，不可混用；仅在所属 graph 生命周期内有效
-- **execute lambda 不得手写 barrier**：所有 barrier 由 RDG 提供，execute lambda 内调用 `cmdBuf->PipelineBarrier` 是未定义行为
-- **execute lambda 的 capture 生命周期**：必须在 `Execute()` 返回前保持所有 captured 引用有效
-- **barrier 推导辅助在接口层**：`InferLayoutForAccess` / `InferStageForAccess`（`aurora/rhi/Barrier.h`），后端 barrier 编译器复用或覆盖
-- **transient 池**：对象池（v1，按完整 desc 复用整 Image）+ 堆池（v2 预留，memory heap aliasing）
-- 低复杂度场景（demo / tool）直接用 Encoder + 手写 `PipelineBarrier` 仍是合法路径
+旧 RenderGraph/CompiledGraph、RDGBackend/CreateRDGBackend 和 PipelinePass 模板已退役，不新增兼容注册入口。直接 RHI encoder、RenderViewport/ClientViewport 仍可用于受控宿主，不能与同一 context 的 lease 协议混用。共享 Pass shader 声明与 SceneRenderFeature/TextureToScreenFeature 保留。
 
 ## 骨架 / 蒙皮（animation 独立，aurora 无 Skeleton）
 
@@ -264,13 +245,13 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-quick-fixes` | ✅ 已实施 | 本文档所述默认值/命名 |
 | `aurora-queue-submit-present` | ✅ 已实施 | Queue / Submit / SwapChain Present（3 后端） |
 | `aurora-renderpass` | ✅ 已实施 | `FullScreenPass` 基类 + `ScenePass`(HDR) + `TextureToScreenPass`（renderpass begin/end 契约） |
-| `aurora-client-viewport` | ✅ 已实施 | `RenderViewport` 表面 + `ClientViewport` + `RenderGraph::BindViewport` + inflight frame 全局化 |
+| `aurora-client-viewport` | ✅ 已实施 | `RenderViewport` / `ClientViewport`；生产输出现由 scheduler lease 导入图 |
 | `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
 | `aurora-resource-group` | ✅ 已实施 | ResourceGroup / 描述符绑定（Vulkan + DX12 + Metal 直接绑定，dynamic offset 三后端齐） |
 | `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
 | `aurora-renderer` | Windows 主流程与宿主已接入 | Vulkan 双 compiler / DX12；Metal 对等仍待 P02 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
-| `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
+| `aurora-dynamic-ubo-pack` | ✅ 已实施 | dynamic UBO stable binding 保留；旧 allocator/writer 已由 FrameContext lease 写入替代 |
 | `aurora-launcher-integration` | ✅ 已实施（最小闭环） | `AuroraRender` 动态模块（`IModule` + `REGISTER_MODULE`）+ 窗口/swapchain/clear/present 闭环；launcher 只加载 aurora，移除旧 `SkyRender`/`RenderAdaptor`；引擎内置 `configs/` |
 | `aurora-adaptor` | ✅ 已实施 | `engine/aurora/adaptor` 双 target：`AuroraRender`(SHARED) + `Aurora.Adaptor`(STATIC；`AuroraReflection` + assets + components)，对接 framework `SerializationContext`/`AssetManager`/`ComponentFactory` |
 

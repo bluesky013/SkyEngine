@@ -66,7 +66,7 @@ Checked items are backed by the dated validation records below. Native Metal shi
 
 - [x] 8.1. Confirm no active code consumers and remove 34 legacy shader/helper/variant files, six old material assets, the vertex library and the retired shader-root placeholder.
 - [x] 8.2. Remove ShaderBlockGen and its four obsolete tests, unused include macros and redundant Pass lifecycle forwarding; preserve CPU layout validation and the variant-only tool.
-- [x] 8.3. Reconcile current authoring/reference/editor docs and superseded change records; distinguish legacy RenderGraph templates from the production FrameGraph pipeline.
+- [x] 8.3. Reconcile current authoring/reference/editor docs and superseded change records; distinguish the production FrameGraph pipeline from legacy templates (subsequently removed by `remove-unused-legacy-rendergraph`).
 - [x] 8.4. Remove verified obsolete local shader-bundles staging trees and generated source embedding without deleting current shader products.
 - [x] 8.5. Reconfigure/rebuild affected targets, run related tests and persistent-export checks, verify editor startup and record results.
 

@@ -5,7 +5,6 @@
 #include <VulkanDevice.h>
 #include <common/FrameTransientPool.h>
 
-#include "rdg/VulkanRDGBackend.h"
 #include "rdg/VulkanRenderPassCache.h"
 #include <VulkanCommandPool.h>
 #include <VulkanConversion.h>
@@ -354,11 +353,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
-    }
-
-    RDGBackend *VulkanDevice::CreateRDGBackend()
-    {
-        return new VulkanRDGBackend();
     }
 
     DeviceFrameContext *VulkanDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)

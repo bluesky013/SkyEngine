@@ -22,7 +22,7 @@
 
 - B10 首批支持 2D RGBA8 指定单个完整 mip/layer 的紧密 copy；内容分析逐 mip/layer，initialized=true/整图 export 覆盖全部子资源；initializedRanges 可声明部分完整 mip/layer 有效，与 initialized=true 互斥，UNDEFINED/transient 禁止已有内容。Vulkan/DX12 按物理 backing 的子资源转换，图初末 layout 仍统一，转换不能扩大内容定义范围。第八子批补局部矩形/显式行距；多 layer 单次 copy 仍未支持；第十五子批的 raster 可从多 mip/layer image 选择单 cell；第四子批的 renderer uploader 复用这些 copy 上传完整 image，核验全部回执并成功完成后发布 Resident，后端不负责目录发布。
 
-- B10 第二子批的 transient pool 由 Device 唯一持有，Compile 裁剪后分配完整描述/epoch 匹配的空闲 backing；每个计划共享一个 lease，随编码、录制和提交保活。Rejected/Indeterminate/查询错误不能提前归还，只有未提交安全丢弃、成功完成或安全 teardown 才能复用。固定边界 buffer COMMON→COMMON、image UNDEFINED→GENERAL（DX12 COMMON），不得把缓存旧内容当已初始化。池不构建 barrier/encode 计划，旧 ObjectPool 即时 Release 不得用于新路径。
+- B10 第二子批的 transient pool 由 Device 唯一持有，Compile 裁剪后分配完整描述/epoch 匹配的空闲 backing；每个计划共享一个 lease，随编码、录制和提交保活。Rejected/Indeterminate/查询错误不能提前归还，只有未提交安全丢弃、成功完成或安全 teardown 才能复用。固定边界 buffer COMMON→COMMON、image UNDEFINED→GENERAL（DX12 COMMON），不得把缓存旧内容当已初始化。池不构建 barrier/encode 计划，跨图复用必须等待 lease 安全退休，不得按 CPU 图析构立即归还。
 - B10 第三子批按 live pass 的闭区间分配同图整对象 alias，export 延长到图末；同 pass、区间重叠、描述不同或导入资源不得 alias。各 compiler 按物理 backing 追踪状态，同状态写仍需依赖，final transition 每 backing 一组，按各子资源实际旧状态汇合；RenderPass 合并按逻辑 attachment 身份及其 mip/layer view 判断。当前 GPU 顺序保持 logical pass 顺序；后续重排/跨队列必须重新验证 happens-before，不能照搬这些区间。
 
 - B10 采样绑定支持 RGBA8 单 sample 的 Texture2D/Texture2DArray 显式 mip/layer view 与普通 sampler；只读取暴露的内容，不能在 encoder 暗取 image。array image 的单层切片也要求 array view；同 pass attachment feedback 整对象拒绝。类型反射在 native shader 创建前拒绝未支持声明，Compile 复核 view 形态；未知元数据/descriptor 数组（含长度一）不得按 scalar 接纳。

@@ -7,7 +7,7 @@
 - 单目标 Slang 编译：`AuroraResource(set,binding,owner)` / `AuroraField(path)` 作为唯一正式声明身份通道，Metal 不再借辅助 SPIR-V layout 或短名字关联。
 - Stage artifact 绑定精确代码字节、source/native entry、stage、规范化目标环境、实际 Slang build tag、adapter/反射规则版本、完整声明/活跃集合与内容摘要。DXIL producer 另外绑定部署的实际 dxcompiler/dxil 库内容摘要，固定加载目录并持读句柄保护同一库；路径不进入持久身份。缺失或加载失败在开发缓存查找前拒绝，失败可重试。ShaderFunction 持有不可变 artifact，Shader 合并匹配产物并建立 BindingPlan。
 - 各平台产物独立：Vulkan/SPIR-V 1.5、DXIL/SM6.5、Metal/MSL2.3；macOS/iOS 的平台身份不可互换。`minimumVersion` 表达目标语言版本；MSL2.3 原生运行另要求 macOS11/iOS14。Metal 按显式 codeFormat 选择 source/metallib 并核对 payload，不猜测或降级格式。
-- CPU schema 与 GPU ABI 分离；Shader 缓存 UniformUploadPlan，处理支持的 scalar/vector、MAT4 major/stride、FLOAT4 array stride、padding 与完整覆盖快路。Pass、材质、BatchPackWriter 和 GlobalRenderResources 使用相同计划规则。
+- CPU schema 与 GPU ABI 分离；Shader 缓存 UniformUploadPlan，处理支持的 scalar/vector、MAT4 major/stride、FLOAT4 array stride、padding 与完整覆盖快路。Pass、材质与 FrameContext 参数写入使用相同计划规则；随后 `remove-unused-legacy-rendergraph` 移除了仅旧模板使用的 batch/global helper。
 - **统一 Name 事务**：`ShaderParameterTransaction` 是 ResourceGroup Name encoder 与生产 PassResourceBindings 的共同前端，统一 alias/handle、类型/count、重复/重叠、inactive、必需参数、失败锁存与打包。它冻结 uniform bytes 和 adapter 资源 token。原生 materializer 经注入上下文发布新 group；图 materializer 声明 image 读取并在现有 lease 下上传/替换 draw。每 block 编码、上传各一次，RHI 不认识资产或图句柄。
 - Material v3 / MaterialInstance v2：显式参数 alias、typed 值/sampler、稀疏实例覆盖、普通2D贴图的精确资源版本与 sRGB/线性语义。活跃材质引用保护已释放独立订阅的旧图片版本；缺失图片抑制绘制，不能偷偷取最新版本。inactive 仍验证声明类型、形状与原生资源类别。
 - READ_ONLY / READ_WRITE、RAW / STRUCTURED、stride 全链路保留；DX12 选择 SRV/UAV 与 register space，Vulkan 保留 native set/binding 和已有 descriptor template/数组能力，Metal 使用链接时冻结的逐 stage 稀疏 direct plan。

@@ -49,9 +49,7 @@ namespace sky::aurora {
     void BuildVertexVariant(const std::vector<VertexVariantDef> &defs, const VertexSemanticMask &mask, ShaderVariant &out);
 
     // ---- global reserved pipeline bits ----
-    // NOTE: the pipeline variant keys live in aurora/pipeline/GlobalVariantLayout
-    // (defined by PipelinePass, mirroring GlobalRenderResources). The shader
-    // module only reserves the region; per-shader keys start after it.
+    // GlobalVariantLayout owns pipeline keys; per-shader keys follow its reserved region.
 
     // ---- data-driven schema ----
     struct ShaderVariantSchema {

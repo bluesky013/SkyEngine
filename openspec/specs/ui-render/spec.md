@@ -4,7 +4,7 @@
 TBD - created by archiving change engine-ui-system. Update Purpose after archive.
 ## Requirements
 ### Requirement: Aurora-backed UI render module
-The UI render implementation SHALL live in `engine/ui/render`, SHALL retain the `UIRender` target and `ui/render/...` public include paths, and SHALL use the `sky::aurora` namespace for Aurora types. It SHALL consume `UIDrawData` and `IUITextureRegistry` through `UI.Interface` and SHALL link `UI.Interface`, `Aurora.RHI.Static`, and `Aurora.ShaderCompiler.Static`, without requiring the `UI` widget runtime or `Aurora.Pipeline.Static`. Neither `UI` nor `UI.Interface` SHALL link or include the Aurora UI renderer implementation. This restructuring SHALL preserve the existing Aurora graphics-encoder integration; implementing a PipelinePass or RDG integration SHALL NOT be required by this change.
+The UI render implementation SHALL live in `engine/ui/render`, SHALL retain the `UIRender` target and `ui/render/...` public include paths, and SHALL use the `sky::aurora` namespace for Aurora types. It SHALL consume `UIDrawData` and `IUITextureRegistry` through `UI.Interface` and SHALL link `UI.Interface`, `Aurora.RHI.Static`, and `Aurora.ShaderCompiler.Static`, without requiring the `UI` widget runtime or `Aurora.Pipeline.Static`. Neither `UI` nor `UI.Interface` SHALL link or include the Aurora UI renderer implementation. This restructuring SHALL preserve the existing Aurora graphics-encoder integration; the direct graphics-encoder integration SHALL remain available independently of frame graph features.
 
 #### Scenario: Render module links Aurora
 - **WHEN** the `UIRender` target is built
@@ -26,18 +26,6 @@ The UI render implementation SHALL live in `engine/ui/render`, SHALL retain the 
 - **WHEN** a caller supplies `UIDrawData` directly to the renderer without constructing a widget tree
 - **THEN** it SHALL be able to link `UIRender` without linking the `UI` widget runtime
 
-### Requirement: UI pass builds through the Aurora pipeline
-The render module SHALL expose a UI pass derived from `sky::aurora::PipelinePass` and SHALL record its work
-through the Aurora render graph, using a raster pass and `DrawItem`s rather than hand-written backend calls.
-
-#### Scenario: Pass records draw items
-- **WHEN** the UI pass builds its render graph for a frame with draw commands
-- **THEN** it SHALL push a `DrawItem` for each batch into a UI queue
-
-#### Scenario: No direct backend calls
-- **WHEN** the UI pass source is inspected
-- **THEN** it SHALL NOT call Vulkan, DX12, or Metal APIs directly
-
 ### Requirement: Draw-data translation
 The render module SHALL translate core `UIDrawData` into GPU work by uploading vertex/index data and issuing
 one draw per contiguous batch, switching pipeline/descriptor state when the referenced texture changes.
@@ -58,23 +46,16 @@ The render module SHALL apply each draw command's clip rect as a scissor rectang
 - **THEN** the scissor rectangle for that draw SHALL equal the clip rect
 
 ### Requirement: Uniform blocks scoped to pass and batch tiers
-The UI render module SHALL declare its uniform data through `RgBlockDesc` as the single source of truth,
-mapping screen-space/pass data to set 1 and per-draw data to the batch tier (set 2) written via
-`BatchPackWriter` and consumed as `DrawItem::batchDynamicOffset`. The UI system SHALL NOT require a Global
-(set 0) block; whether the UI pass binds a global resource group is defined by a separate UI pass integration
-design.
 
-#### Scenario: UI block set declares no global block
-- **WHEN** the UI render module's uniform blocks are inspected
-- **THEN** all declared blocks SHALL use set 1 or set 2, and none SHALL use set 0
+The current UI renderer SHALL project pixel coordinates on the CPU and bind per-batch textures/samplers in set 2. It SHALL NOT require an unused Global/Pass/Material cbuffer or the removed BatchPackWriter. Future uniform inputs SHALL use the shared declaration and target UniformUploadPlan contract, with Global 0 / Pass 1 / Batch 2 ownership.
 
-#### Scenario: Batch data uses dynamic offset
-- **WHEN** multiple UI draws are recorded in one frame
-- **THEN** per-draw constants SHALL be written into the batch tier and referenced by dynamic offset rather than distinct descriptor sets
+#### Scenario: CPU projection
+- **WHEN** draw vertices are uploaded for a surface size and backend clip-space convention
+- **THEN** positions are transformed consistently without an implicit Global uniform block
 
-#### Scenario: Layout and HLSL stay in sync
-- **WHEN** a field is added to a UI uniform block
-- **THEN** the RHI resource-group layout and the generated HLSL header SHALL both derive from the same `RgBlockDesc`
+#### Scenario: Texture batch
+- **WHEN** the texture changes between UI draw commands
+- **THEN** the renderer binds the matching Batch set 2 image/sampler after the required pipeline
 
 ### Requirement: Textures and samplers via resource groups
 The render module SHALL bind UI textures and samplers through Aurora resource groups and descriptor writes,
@@ -129,3 +110,15 @@ The Aurora UI renderer's rounded-shape path SHALL evaluate its signed-distance f
 #### Scenario: Offline validation compiles runtime source
 - **WHEN** the available shader compiler validates the UI shader offline
 - **THEN** it SHALL compile the actual source artifact consumed by the runtime renderer, including the rounded-shape entry point
+
+### Requirement: UI 通过 Aurora encoder 与宿主图集成
+
+UIRenderer SHALL translate UIDrawData through Aurora GraphicsEncoder and ResourceGroup interfaces. Production host composition MAY provide a registered FrameCustomPassEncoder with declared resources; the UI module SHALL NOT depend on the removed PipelinePass, RenderGraph or DrawItem API. Native Vulkan/DX12/Metal commands SHALL remain behind Aurora backends.
+
+#### Scenario: Direct renderer remains usable
+- **WHEN** a host supplies a valid graphics encoder and UIDrawData
+- **THEN** UIRenderer records the indexed batches without constructing a legacy graph
+
+#### Scenario: Host graph integration
+- **WHEN** a host composes UI with scene output in a FrozenFrameGraph
+- **THEN** the host owns graph declarations and frame retirement; UIRenderer does not construct a second graph

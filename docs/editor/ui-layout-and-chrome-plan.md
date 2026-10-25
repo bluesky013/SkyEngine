@@ -449,12 +449,11 @@ from executed reproductions.
   **Resolution:** T09-A1 subtree/input lifetime is complete with portable CPU/ASan evidence in §15.
   The remaining ownership, Core Event, module/DLL and renderer decisions retain their separate scope.
 
-- [ ] **UI-10 · P2 · renderer specification decision.** `openspec/specs/ui-render/spec.md` requires
-  PipelinePass/RDG/DrawItem/RgBlockDesc and double/triple-frame resources. Current UIRenderer uses
-  a direct encoder and one VB/IB set; EditorRenderer sets inflight=1. The foundations design records
-  this limitation. Choose a separately scoped RDG integration or an explicit specification amendment.
-  Before increasing inflight, implement frame-owned buffers and texture retirement and validate them.
-  Do not infer a current multi-frame buffer failure from the single-frame implementation alone.
+- [ ] **UI-10 · P2 · multi-frame renderer lifetime.** The 2026-10-26 legacy graph cleanup amended
+  `ui-render` to describe the direct Aurora encoder and host-owned graph integration. Current
+  UIRenderer still uses one VB/IB set and EditorRenderer sets inflight=1. Before increasing inflight,
+  implement frame-owned buffers and texture retirement and validate them. This remains separate
+  from removing the unused graph API; no current multi-frame safety claim is made.
 
 - [x] **UI-11 · P2 session correctness / P3 layout · finish Preferences and frozen screen migration.**
   Preferences data/reflection registration already lives in EditorCore and fields already use

@@ -1,13 +1,15 @@
 ## Context
 
+以下是本 change 启动时的基线；当前 Compute/Custom 声明与后端编码已实现，平台验收以 tasks 为准。旧 RenderGraph 已由 `remove-unused-legacy-rendergraph` 删除，不再作为依赖。
+
 新 frame IR（`FrozenFrameGraph`）把 pass 分成 copy、raster、fullscreen、compute、custom。copy/raster 的读取范围、内容定义和 attachment 状态都来自图声明，因此各后端能用自己的资源状态跟踪器推导 barrier。`FrameComputePass` 目前只有 shader/groups，`FrameCustomPass` 只有 name/sideEffect；两者没有任何 buffer/image 声明，`AnalyzeFrameGraph` 在分配和编译前直接返回 Unsupported（`FrameGraphAnalysis.cpp:208`）。
 
 老 RDG 已有可复用的模型：`ComputePassBuilder::Read/Write`、`CustomPassBuilder::Read/Write`，`RenderGraph::DeriveBarriers` 按声明统一推导 front barriers。新 IR 缺的不是算法，而是声明入口。本 change 把声明补回新 IR，并让各后端编译器把 compute/custom 接到已有的状态跟踪上，而不是让 pass 回调自己发 barrier。
 
 约束：
 - 新 IR 的 buffer 状态是粗粒度 `CopyBufferState`，image 状态是 `ImageLayout`；现有后端对 buffer 做整资源 barrier，对 image 按 mip/layer 子资源跟踪。
-- 规范要求 execute 回调不得调用 `PipelineBarrier`（`openspec/specs/aurora-rdg/spec.md:429`），Custom 只能使用声明访问和获准 executor（`:220`）。
-- 新 IR 要求各后端自行组织完整 Compile 和同步（`:575`），公共代码只做声明校验与纯分析。
+- 规范要求 execute 回调不得调用 `PipelineBarrier`，Custom 只能使用声明访问和获准 executor。
+- 新 IR 要求各后端自行组织完整 Compile 和同步，公共代码只做声明校验与纯分析。
 - Metal 已有最小 offscreen serial frame context；真实设备验收受 `aurora-renderer-platform-parity` 的 P02 环境约束。
 
 ## Goals / Non-Goals
@@ -23,7 +25,7 @@
 - 不支持 async compute、跨队列同步或 compute 与 graphics 并行提交。
 - 不支持后端专属的 custom 二进制契约（如 DLSS SDK 直接接管原生 encoder）；Custom 只承诺 RHI 级命令。
 - 不把 compute 编码并行化到 worker；本 change 中 compute/custom 都在 coordinator 串行编码，后续需要时再单独优化。
-- 不改老 RDG 的 `RenderGraph`/`DeriveBarriers` 行为；只迁新 IR。
+- 此 change 只实现 FrozenFrameGraph 的 Compute/Custom；旧图退役由独立 cleanup 承接。
 - 不增加 storage 格式、跨队列 ownership transfer 或新的 image 格式。
 
 ## Decisions

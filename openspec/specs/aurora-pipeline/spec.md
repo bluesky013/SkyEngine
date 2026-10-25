@@ -5,35 +5,11 @@ TBD - consolidated from: aurora-renderpass aurora-render-viewport aurora-scene-c
 ## Requirements
 ### Requirement: Render pass begin/end 声明契约
 
-Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store + clear）与 depth/stencil attachment（handle + depth/stencil load/store + clear）以及 render area 声明 render target，**不**手写 `BeginRendering`/`EndRendering`。RDG executor SHALL 在编译后为 SCENE_RASTER 与 FULLSCREEN pass 统一生成 `BeginRendering(RenderingInfo)` 与 `EndRendering()`。
+Pipeline feature SHALL 通过 FrameGraphBuildContext 声明 raster attachments、load/store、clear、view 和 draws；对应后端 Compile SHALL 生成合法 native rendering scope，Dispatch 按已编译计划编码。feature 不继承旧 PipelinePass，不手写后端 begin/end。
 
-#### Scenario: SceneRasterPass 生成 begin/end
-
-- **WHEN** 一个 `SceneRasterPassTemplate` 子类的 `BuildRDG` 声明了 color + depth attachment 并 `Compile()` + `Execute()` 后
-- **THEN** executor 在遍历该 pass 的 queue items 之前调用 `BeginRendering`，在之后调用 `EndRendering`，且 `RenderingInfo` 的 attachment 数量、load/store 与声明一致
-
-### Requirement: ScenePass (HDR)
-
-`ScenePass` SHALL 继承 `SceneRasterPassTemplate`，在 `BuildRDG` 中声明一个 HDR color target（`RGBA16_SFLOAT`，`RENDER_TARGET | TRANSFER_SRC` usage）+ depth target（`D32`，`DEPTH_STENCIL` usage），color 与 depth 均以 `CLEAR` load，并声明一个名为 `opaque` 的 queue（`FRONT_TO_BACK`）。`ScenePass` SHALL 暴露 `GetHDRColorHandle()` 与 `GetDepthHandle()`，并提供 `SetExtent(width, height)`。
-
-#### Scenario: ScenePass 构建 HDR RDG 节点
-
-- **WHEN** `scenePass.SetExtent(1280, 720); scenePass.BuildRDG(graph); graph->Compile()`
-- **THEN** compiled graph 中存在一个 `SCENE_RASTER` pass，其 color attachment 为 HDR 格式且 loadOp 为 `CLEAR`，depth attachment loadOp 为 `CLEAR`，且 queues 含名为 `opaque` 的 queue（`FRONT_TO_BACK`）
-
-### Requirement: TextureToScreenPass
-
-`TextureToScreenPass` SHALL 继承 `PipelinePass`，在 `BuildRDG` 中声明一个 FullScreenPass：以 `SetInputSRV(inputHandle)` 建立对输入 HDR texture 的 SRV read 依赖，以 `SetTarget(outputHandle, DONT_CARE, STORE)` 声明输出 color attachment（全屏覆盖）。`TextureToScreenPass` SHALL 暴露 `SetInput(RDGTextureHandle)` 与 `SetOutput(RDGTextureHandle)`。
-
-#### Scenario: TextureToScreen 构建 fullscreen 节点
-
-- **WHEN** `pass.SetInput(hdr); pass.SetOutput(backbuffer); pass.BuildRDG(graph); graph->Compile()`
-- **THEN** compiled graph 中存在一个 `FULLSCREEN` pass，其 color attachment 指向 output 且 loadOp 为 `DONT_CARE`，并且输入 HDR texture 与该 pass 存在 SRV read 依赖（供 barrier/culling 推导）
-
-#### Scenario: 输入 HDR texture 从 RTV 转 SRV
-
-- **WHEN** `ScenePass` 写出 HDR color 后由 `TextureToScreenPass` 以 SRV 读取，且 RDG `Compile()` 完成
-- **THEN** 两 pass 之间对 HDR texture 产生从 RTV 到 SRV 的 barrier（由 `SetInputSRV` 的 read 依赖驱动），保证先写后读
+#### Scenario: 声明生成 native scope
+- **WHEN** feature 为当前 View 声明 color/depth attachments 和 draws
+- **THEN** 后端编码的 attachment、load/store、render area 与声明一致，并维持编译后的绘制顺序
 
 ### Requirement: RenderViewport 三阶段生命周期契约
 
@@ -83,14 +59,11 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 
 ### Requirement: 全局 inflight frame 共享
 
-`DeviceFrameContext` SHALL 持有全局 `mFrameIndex` + `mInflightNum` 个 fence + `FrameAllocator`。`BeginFrame()` SHALL `Wait` 并 `Reset` `fence[mFrameIndex % N]` 后自增 `mFrameIndex`；共享 dynamic buffer（`BatchAllocator`/`GlobalRenderResources`/`TransientBufferPool`）SHALL 按 `mFrameIndex % N` 分配。
+FrameScheduler SHALL 复用 DeviceFrameContext 唯一 slot ring，通过 DeviceFrameLease 编排生产图的分配、编译和提交。同一帧的多个 View/viewport 使用同一 lease，各自可变 uniform 与 descriptor 范围 SHALL 不重叠；slot 只有在既有退休协议允许后才复用。直接 RHI 宿主的 BeginFrame/EndFrame 接口 SHALL 不与同一 context 的 lease 协议混用。
 
-同一帧内多个 viewport SHALL 共享同一 `mFrameIndex`；各 viewport 的 `SubmitInfo.fence` SHALL 使用全局 `fence[mFrameIndex % N]`。`GetFrameFence()` SHALL 返回当前帧 fence。
-
-#### Scenario: 多 viewport 同帧共享 dynamic buffer 稳定
-
-- **WHEN** 一帧内主窗 + 编辑器小窗两个 viewport 各自 Acquire/Render/Release，共享的 dynamic buffer 按同一 `mFrameIndex` 分配
-- **THEN** 两 viewport 读写同一帧的 dynamic buffer 不互相覆盖（fence 保证 N 帧前的 GPU 工作完成）
+#### Scenario: 多 View 常量隔离
+- **WHEN** 两个 View 在同一 lease 写入不同相机和 Batch 值
+- **THEN** 各自读到独立范围，后建图或下一帧不能覆写仍在途数据
 
 ### Requirement: 各后端 present 映射
 
@@ -131,10 +104,10 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 - **WHEN** `scene.CreateEntity()` 后 `scene.Add<Light>(id, {...})`
 - **THEN** Light 存入对应 SoA 池；`scene.DestroyEntity(id)` 后移除
 
-#### Scenario: 收集链路不受影响
+#### Scenario: 场景组件独立可用
 
-- **WHEN** pass BuildRDG 触发 Collect
-- **THEN** 仍遍历 `Bounds`（经 `View<Bounds>`），frustum cull 语义与现状一致
+- **WHEN** 调用方通过 `View<Bounds>` 读取 scene registry
+- **THEN** 仍可读取其 CPU bounds；这不构成生产 Renderer 的隐式收集入口
 
 #### Scenario: point/spot 参数
 
@@ -146,41 +119,9 @@ Pipeline 层 pass SHALL 通过 color attachment（槽位 + handle + load/store +
 - **WHEN** `scene.Add<WorldInfo>(id, {matrix})` 后 `scene.Get<WorldInfo>(id)`
 - **THEN** 读回的 world 矩阵与写入一致
 
-### Requirement: pass 收集链路
-
-`SceneRasterPassTemplate::Collect` SHALL 以 `Bounds` 池的 dense 数组为主驱动遍历（连续扫描），按 entity 查询 `RenderItem`（sparse 索引，无哈希）；tag 过滤、frustum cull、排序语义不变。
-
-#### Scenario: dense 遍历收集
-- **WHEN** Collect 遍历场景
-- **THEN** bounds 数组连续扫描（无指针跳转）；RenderItem 按 entity 下标索引（int 索引，无 Name 哈希）
-
-### Requirement: PipelinePass 模板基类
-
-`PipelinePass` SHALL 提供三段式生命周期：`OnSetup(Device*)`（一次性创建持久 PSO/ResourceGroup）/ `BuildRDG(RenderGraph&)`（每帧构建 RDG 节点）/ `OnSceneChanged()`（显式重建持久资源）。
-
-持久资源（PSO、ResourceGroup）由 pass 以成员持有；RDG 层不缓存、不管理其生命周期。
-
-`SceneRasterPassTemplate` SHALL 额外提供 `SetScene(RenderScene*)` / `SetView(SceneView*)` 与 `Collect(builder)` 默认实现（tag 过滤 + frustum cull + 排序，见 `aurora-scene-collect` capability）。
-
-#### Scenario: 场景不变时持久资源复用
-- **WHEN** pass 连续多帧 `BuildRDG` 且未调 `OnSceneChanged`
-- **THEN** 每帧 RDG 节点重建，但 PSO / ResourceGroup 复用同一实例
-
-#### Scenario: pass 绑定场景与视图
-- **WHEN** `pass.SetScene(scene); pass.SetView(view); pass.BuildRDG(graph)`
-- **THEN** Collect 使用绑定的 scene/view 收集该 pass 的 queue items
-
-### Requirement: OpaquePass
-
-`OpaquePass` SHALL 继承 `SceneRasterPassTemplate`，声明 color + depth attachment 与一个 `opaque` queue（`FRONT_TO_BACK` 排序标记）。v1 无 scene 集成（Collect 为空钩子）。
-
-#### Scenario: OpaquePass 构建 RDG
-- **WHEN** `opaquePass.BuildRDG(graph)`
-- **THEN** graph 中出现一个 SceneRasterPass（color+depth attachment），其 queues 包含名为 "opaque" 的 queue
-
 ### Requirement: Renderer 逐 View 最小绘制管线
 
-新 Renderer 路径 SHALL 从冻结 Scene/View 数据提取 owned draw packets，按 View 独立执行相机常量、裁剪、LOD、tag 与稳定排序；coordinator SHALL 解析精确 mesh/material 版本并在单帧图中构建 raster 与合成。首版已支持的附件范围 SHALL 为 RGBA8 color 与可选 D32 depth；未支持的 HDR/格式 SHALL 返回明确错误。旧 ScenePass/PipelinePass 模板不构成新 Renderer 的执行入口。
+新 Renderer 路径 SHALL 从冻结 Scene/View 数据提取 owned draw packets，按 View 独立执行相机常量、裁剪、LOD、tag 与稳定排序；coordinator SHALL 解析精确 mesh/material 版本并在单帧图中构建 raster 与合成。首版已支持的附件范围 SHALL 为 RGBA8 color 与可选 D32 depth；未支持的 HDR/格式 SHALL 返回明确错误。旧可变 pass 模板已移除；场景和 fullscreen 由注册的 FrameGraph feature 构建。
 
 #### Scenario: 同 Scene 两个相机
 - **WHEN** 两个 View 读取相同 Scene 并使用不同 projection、extent 或 tag
@@ -202,3 +143,14 @@ FrameScheduler SHALL 管理窗口与离屏输出，复用 DeviceFrameContext 的
 - **WHEN** 多个 View 在同一 lease 请求常量、staging 或 descriptor
 - **THEN** 分配范围互不覆盖，超额显式失败，不能通过重置 slot 或借用其它在途分区掩盖容量不足
 
+### Requirement: 单一生产图入口与旧 API 退役
+
+Aurora SHALL 通过 FrameComposer/FrameGraphBuildContext、FrozenFrameGraph 和 DeviceFrameContext 编排图渲染。旧 RenderGraph、CompiledGraph、RDGBackend/CreateRDGBackend、PipelinePass 模板及其专属 GlobalRenderResources/BatchAllocator/BatchPackWriter SHALL 不再构建或暴露。共享 shader 声明、RgBlockDesc/UniformUploadPlan、SceneRenderFeature、TextureToScreenFeature、FrameTransientPool 和直接 RHI/viewport 接口 SHALL 保持可用。
+
+#### Scenario: 无兼容执行旁路
+- **WHEN** 构建 RHI、Pipeline、三个后端和宿主
+- **THEN** 不引用或导出旧图接口，生产图仍由各 backend 的 frame compiler 编译
+
+#### Scenario: 共享声明保留
+- **WHEN** C++ 与 shader 使用 OpaquePass/ScenePass/TextureToScreenPass 的共享声明文件
+- **THEN** 原有资源接口与导出路径保持有效，删除同名旧 C++ pass 类不删除声明源

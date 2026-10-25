@@ -1,3 +1,5 @@
+> 2026-10-26：旧 RenderGraph 及其 PipelinePass 模板已退役；相关旧模板目标不再实施，参见 `remove-unused-legacy-rendergraph`。其余目标维持原验收状态。
+
 ## Why
 
 Status: debt-record（未排期）。当前 Renderer 已完成 Windows RGBA8/D32 最小绘制与 UI；动态 CPU prepare 注册、旧 pipeline 模板迁移和 HDR 是尚未交付的目标设计。归档主 change 时必须保留这些待办，不能把目标条款同步成已完成行为。
