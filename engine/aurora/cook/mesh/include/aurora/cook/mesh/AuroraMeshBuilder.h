@@ -1,7 +1,6 @@
 //
 // Aurora mesh builder: AssetBuilder implementation cooking mesh sources
-// (gltf/glb/fbx/obj) into AuroraMesh (+ AuroraSkeleton for skinned sources;
-// skin data is absorbed into the mesh bulk). Mirrors AuroraImageBuilder.
+// (gltf/glb/fbx/obj) into an atomic Mesh/Skin/Skeleton product group.
 //
 
 #pragma once

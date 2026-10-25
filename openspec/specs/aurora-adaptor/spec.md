@@ -113,38 +113,31 @@ SHALL 提供 `CounterPtr<Texture> CreateTextureFromAsset(Device *device, const A
 - **THEN** 返回空 `CounterPtr`，不崩溃
 
 ### Requirement: Mesh 资产材质槽引用与版本
-
-`MeshAssetData`（`aurora/adaptor/assets/MeshAsset.h`）SHALL 携带 `version`（`CURRENT_VERSION`）与材质槽表 `std::vector<Uuid> materials`；`MeshSubMeshData.materialIndex` SHALL 作为该表的索引解析为材质资产 `Uuid`。`Save`/`Load` SHALL 序列化并反序列化 `version`、`materials`（`Uuid` 以字符串存取）与蒙皮/骨架引用 `Uuid skin` / `Uuid skeleton`，SHALL 提供 `const Uuid *GetMaterialUuid(uint32_t materialIndex)` 解析访问器。`Load` SHALL 在 `version != CURRENT_VERSION` 时拒绝加载（保持空数据并记录），SHALL NOT 静默按新布局解析旧数据。
+MeshAssetData SHALL 保留 version、materials UUID 槽表与 GetMaterialUuid(materialIndex)，子网格 materialIndex SHALL 按表解析。新产品 SHALL 序列化独立 Mesh 的几何及输入槽契约，SHALL NOT 序列化选定 Skin/Skeleton UUID 或 inverse bind bulk。版本不匹配 SHALL 显式拒绝，SHALL NOT 按新布局读取旧产品。材质槽行为 SHALL 保持兼容。
 
 #### Scenario: 材质槽与版本往返
-
-- **WHEN** 以非空 `materials` 与 `version = CURRENT_VERSION` 序列化再反序列化 `MeshAssetData`
-- **THEN** `version` 与 `materials`（含顺序）一致
+- **WHEN** 新版 MeshAssetData 带 materials 完成 Save/Load
+- **THEN** version 和 materials 顺序 SHALL 一致
 
 #### Scenario: 解析材质索引
-
-- **WHEN** 某个 `MeshSubMeshData.materialIndex` 小于 `materials.size()`
-- **THEN** `GetMaterialUuid(materialIndex)` 返回 `materials[materialIndex]`
+- **WHEN** materialIndex 小于 materials.size()
+- **THEN** GetMaterialUuid SHALL 返回对应槽 UUID
 
 #### Scenario: 越界索引回退
-
-- **WHEN** 在非空槽表下某 `materialIndex >= materials.size()`
-- **THEN** 解析回退到槽 0，并记录警告，不导致加载失败
+- **WHEN** 非空槽表的 materialIndex 越界
+- **THEN** SHALL 保持既有槽 0 回退并报告警告
 
 #### Scenario: 空槽表
+- **WHEN** materials 为空
+- **THEN** 子网格 SHALL 解析为无绑定材质且不崩溃
 
-- **WHEN** `materials` 为空
-- **THEN** 所有子网格解析为无绑定材质（按槽 0 处理），不崩溃
-
-#### Scenario: skin / skeleton 引用往返
-
-- **WHEN** 以非空 `skin` / `skeleton` 与 `version = CURRENT_VERSION` 序列化再反序列化 `MeshAssetData`
-- **THEN** `skin` 与 `skeleton` 一致；未蒙皮时二者为空
+#### Scenario: 实例绑定不进入 Mesh 产品
+- **WHEN** 两个组件为相同 Mesh 选择不同 Skin/Skeleton 后保存资产和 World
+- **THEN** 各绑定 SHALL 保存在对应组件，Mesh 产品 SHALL 无 Skin/Skeleton 引用
 
 #### Scenario: 版本不匹配
-
-- **WHEN** 加载 `version != CURRENT_VERSION` 的 `MeshAssetData`
-- **THEN** 拒绝加载（不产生错误索引/材质的资源），并记录错误
+- **WHEN** loader 读取旧 Mesh 产品版本
+- **THEN** SHALL 返回 recook 诊断且不产生错误索引或材质资源
 
 ### Requirement: StaticMeshComponent 材质槽 0 覆盖
 
@@ -270,7 +263,7 @@ Aurora adaptor SHALL 提供主线程 RenderSceneProxy，将宿主 scene 生命�
 
 ### Requirement: Provider 注册与卸载顺序
 
-宿主 SHALL 经 engine 接口的显式注入或服务注册取得 Renderer。provider SHALL 先于消费者就绪，消费者 SHALL 先停止提交再关闭 provider；模块卸载 SHALL 等待渲染线程退出与资源退休。跨 DLL 共享注册 SHALL 使用 sky::Singleton，共享幂等守卫 SHALL 使用 sky::Once；静态模块构建 SHALL 提供相同服务解析行为。
+宿主 SHALL 经 engine 接口的显式注入或服务注册取得 Renderer。provider SHALL 先于消费者就绪，消费者 SHALL 先停止提交再关闭 provider；模块卸载 SHALL 等待渲染线程退出与资源退休。跨 DLL 共享状态 SHALL 使用 sky::Singleton；每份反射数据 SHALL 由唯一 metadata owner 在进程 definition 创建时注册一次，SHALL NOT 使用 Once、once_flag、static 标志或查表跳过掩盖重复入口；静态模块构建 SHALL 提供相同服务解析行为。
 
 #### Scenario: 多模块消费同一服务
 - **WHEN** runtime 与 editor 扩展在一个宿主进程解析 Renderer
@@ -311,4 +304,3 @@ UI texture registry SHALL 仅持有有界 CPU 数据与逻辑版本。主线程 
 #### Scenario: Provider 初始化失败
 - **WHEN** provider 初始化失败或声明的依赖未能加载
 - **THEN** 不初始化依赖它的消费者，宿主返回明确启动失败并清理已初始化模块
-

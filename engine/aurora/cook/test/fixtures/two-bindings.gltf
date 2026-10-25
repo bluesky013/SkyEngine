@@ -1,0 +1,265 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "SkyEngine skeletal workflow fixture"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Scene",
+      "children": [
+        1,
+        4,
+        7,
+        8
+      ]
+    },
+    {
+      "name": "RigA",
+      "children": [
+        2
+      ]
+    },
+    {
+      "name": "Helper",
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "children": [
+        3
+      ]
+    },
+    {
+      "name": "TipA",
+      "translation": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RigB",
+      "translation": [
+        0,
+        4,
+        0
+      ],
+      "children": [
+        5
+      ]
+    },
+    {
+      "name": "Helper",
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "children": [
+        6
+      ]
+    },
+    {
+      "name": "TipB",
+      "translation": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "MeshA",
+      "mesh": 0,
+      "skin": 0,
+      "translation": [
+        4,
+        0,
+        0
+      ],
+      "scale": [
+        -2,
+        3,
+        1
+      ]
+    },
+    {
+      "name": "MeshB",
+      "mesh": 0,
+      "skin": 1,
+      "translation": [
+        4,
+        0,
+        0
+      ],
+      "scale": [
+        -2,
+        3,
+        1
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Triangle",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TANGENT": 2,
+            "TEXCOORD_0": 3,
+            "JOINTS_0": 4,
+            "WEIGHTS_0": 5
+          },
+          "indices": 6
+        }
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "name": "SkinA",
+      "joints": [
+        1,
+        3
+      ],
+      "inverseBindMatrices": 7
+    },
+    {
+      "name": "SkinB",
+      "joints": [
+        4,
+        6
+      ],
+      "inverseBindMatrices": 8
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAACAPgAAQD8AAAAAAAAAAAAAgD4AAEA/AAAAAAAAAAAAAIA+AABAPwAAAAAAAAAAAAABAAIAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAIBAAAAAAAAAAAAAAIA/AAAAwAAAAAAAAAAAAAAAAAAAAAAAAEBAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAACAQAAAAMAAAAAAAACAPwAAAMAAAAAAAAAAAAAAAAAAAAAAAABAQAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAgEAAAIDAAAAAAAAAgD8AAADAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAIBAAADAwAAAAAAAAIA/",
+      "byteLength": 480
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 36,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 72,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 120,
+      "byteLength": 24
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 144,
+      "byteLength": 24
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 168,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 216,
+      "byteLength": 6
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 224,
+      "byteLength": 128
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 352,
+      "byteLength": 128
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3",
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5123,
+      "count": 3,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5123,
+      "count": 3,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 2,
+      "type": "MAT4"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 2,
+      "type": "MAT4"
+    }
+  ]
+}

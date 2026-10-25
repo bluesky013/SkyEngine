@@ -123,11 +123,13 @@ namespace sky::aurora {
             const auto mesh = meshLayouts.find(Key(draw.mesh.resource));
             if (mesh == meshLayouts.end())
                 return nullptr;
-            return FindMaterialVariant(materials, draw.material.resource, false, pipelineValues,
+            return FindMaterialVariant(materials, draw.material.resource, draw.skinning != UINT32_MAX, pipelineValues,
                                        RenderVertexMask(mesh->second->streams, mesh->second->attributes).mask);
         };
         for (const auto &draw : packets) {
-
+            if (draw.skinning != UINT32_MAX && (!view.skinning || draw.skinning >= view.skinning->size() || !(*view.skinning)[draw.skinning])) {
+                return Invalid("Prepared draw has an invalid skinning snapshot index");
+            }
             const auto  m          = meshLayouts.find(Key(draw.mesh.resource));
             const auto *material    = selectMaterial(draw);
             const auto  meshPin     = pins.find(Key(draw.mesh.resource)), materialPin = pins.find(Key(draw.material.resource));
@@ -210,7 +212,9 @@ namespace sky::aurora {
             draw.indexed =
                 RasterIndexedDraw{{handle, lod.offset, lod.size}, lod.type, lod.sections.empty() ? lod.command : lod.sections[packet.subMesh]};
             result.draws.push_back({std::move(draw), packet.world, material->parameters, packet.receiveShadow, packet.entity});
-
+            if (packet.skinning != UINT32_MAX) {
+                result.draws.back().skinning = (*view.skinning)[packet.skinning];
+            }
             for (const auto &image : material->parameters.images) {
                 const auto key = Key(image.resource);
                 if (pins.contains(key) && retained.emplace(key, true).second)

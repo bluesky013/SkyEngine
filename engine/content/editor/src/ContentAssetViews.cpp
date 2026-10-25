@@ -46,31 +46,7 @@ namespace sky::content::editor {
             }
         };
 
-        struct AnimationGraphView {
-            uint32_t version = 0;
-        };
-
-        class GraphViewProvider : public sky::editor::IAssetViewDataProvider {
-        public:
-            sky::editor::AssetViewData Build(const Uuid &uuid, const std::string &) override
-            {
-                auto asset = AssetManager::Get()->LoadAsset<Animation>(uuid);
-                if (asset == nullptr) {
-                    return {};
-                }
-                asset->BlockUntilLoaded();
-
-                AnimationGraphView view;
-                view.version = asset->Data().version;
-
-                sky::Any any(view);
-                auto     node = sky::GetTypeNode(any);
-                return sky::editor::AssetViewData{std::move(any), node};
-            }
-        };
-
         ClipViewProvider  g_clipView;
-        GraphViewProvider g_graphView;
 
     } // namespace
 
@@ -87,21 +63,18 @@ namespace sky::content::editor {
             .Property(kReadOnly, Any(true))
             .Member<&AnimationClipView::skeletonBound>("skeletonBound")
             .Property(kReadOnly, Any(true));
-        context->Register<AnimationGraphView>("AnimationGraphView").Member<&AnimationGraphView::version>("version").Property(kReadOnly, Any(true));
     }
 
     void RegisterContentAssetViews(std::shared_ptr<const void> lease)
     {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
         registry->Register(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView, lease);
-        registry->Register(std::string(AssetTraits<Animation>::ASSET_TYPE), &g_graphView, lease);
     }
 
     void UnregisterContentAssetViews()
     {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
         registry->Unregister(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView);
-        registry->Unregister(std::string(AssetTraits<Animation>::ASSET_TYPE), &g_graphView);
     }
 
 } // namespace sky::content::editor

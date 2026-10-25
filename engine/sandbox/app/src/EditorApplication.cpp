@@ -61,6 +61,15 @@ namespace sky::editor::sandbox {
                 if (!module.IsObject() || !module.HasMember("name") || !module["name"].IsString()) {
                     continue;
                 }
+                if (module.HasMember("buildOption")) {
+                    if (!module["buildOption"].IsString())
+                        return false;
+                    const auto enabled = ModuleManager::GetBuildOption(module["buildOption"].GetString());
+                    if (!enabled)
+                        return false;
+                    if (!*enabled)
+                        continue;
+                }
                 ModuleInfo info;
                 info.name = module["name"].GetString();
                 if (module.HasMember("dependencies") && module["dependencies"].IsArray()) {
@@ -154,7 +163,11 @@ namespace sky::editor::sandbox {
 
         std::string             json;
         std::vector<ModuleInfo> modules;
-        if (ReadString(configPath, json) && ReadModules(json, modules) && !modules.empty()) {
+        if (ReadString(configPath, json)) {
+            if (!ReadModules(json, modules) || modules.empty()) {
+                LOG_E(TAG, "Invalid editor module configuration or unknown buildOption: %s", configPath.c_str());
+                return false;
+            }
             for (auto &info : modules) {
                 moduleManager->RegisterModule(info);
             }

@@ -86,6 +86,8 @@ namespace sky {
         ComponentBase *GetComponent(const Uuid &typeId);
         ComponentBase *AddComponent(const Uuid &typeId);
         void           RemoveComponent(const Uuid &typeId);
+        ComponentPtr   DetachComponent(const Uuid &typeId);
+        bool           AttachComponent(ComponentPtr &component);
 
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);

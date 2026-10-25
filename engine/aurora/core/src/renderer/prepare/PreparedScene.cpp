@@ -69,7 +69,19 @@ namespace sky::aurora {
                             if (!Finite(*object.lightBounds))
                                 context.Fail("Point light bounds overflowed");
                         }
-                        if (object.selectedMesh && object.selectedMesh->metadata.bounds) {
+                        if (properties.value.skinning) {
+                            // Skinning never falls back independently of the exact mesh used for its palette and bounds.
+                            if (object.selectedMesh && object.selectedMesh->resource != mesh.binding.resource) {
+                                object.selectedMesh.reset();
+                            }
+                            if (object.selectedMaterial && object.selectedMaterial->resource != material.binding.resource) {
+                                object.selectedMaterial.reset();
+                            }
+                            object.worldBounds = AABB::Transform(properties.value.skinning->bounds, transform.world);
+                            if (!Finite(*object.worldBounds)) {
+                                context.Fail("Transformed skinned bounds overflowed");
+                            }
+                        } else if (object.selectedMesh && object.selectedMesh->metadata.bounds) {
                             object.worldBounds = AABB::Transform(*object.selectedMesh->metadata.bounds, transform.world);
                             if (!Finite(*object.worldBounds))
                                 context.Fail("Transformed object bounds overflowed");
@@ -97,7 +109,10 @@ namespace sky::aurora {
             static_assert(std::is_trivially_copyable_v<T>);
             context.Emit(channel, std::as_bytes(std::span{&value, 1}));
         }
-        void ExtractView(const FrozenPrepareContext &context, const ViewDesc &view, const Matrix4 &clip)
+        void ExtractView(const FrozenPrepareContext                           &context,
+                         const ViewDesc                                       &view,
+                         const Matrix4                                        &clip,
+                         const std::map<const RenderSkinningData *, uint32_t> &skinning)
         {
             context.Read<RenderObjectData>(view.scene).ForEach([&](RenderEntityId id, const RenderObjectData &data) {
                 if (!data.valid) {
@@ -124,11 +139,19 @@ namespace sky::aurora {
                                         object.world,
                                         {object.selectedMesh->resource, object.mesh.bindingRevision},
                                         {object.selectedMaterial->resource, object.material.bindingRevision}};
-                draw.lod         = static_cast<uint32_t>(std::upper_bound(lods.begin(), lods.end(), distance) - lods.begin());
-                draw.tags        = object.properties.tags;
+                draw.lod           = static_cast<uint32_t>(std::upper_bound(lods.begin(), lods.end(), distance) - lods.begin());
+                draw.tags          = object.properties.tags;
                 draw.subMesh       = object.properties.subMesh;
-                draw.worldBounds = object.worldBounds;
+                draw.worldBounds   = object.worldBounds;
                 draw.receiveShadow = object.properties.receiveShadow;
+                if (object.properties.skinning) {
+                    const auto found = skinning.find(object.properties.skinning.get());
+                    if (found == skinning.end()) {
+                        context.Fail("Skinning snapshot is not owned by the prepared frame");
+                        return;
+                    }
+                    draw.skinning = found->second;
+                }
                 if (object.properties.castShadow)
                     Emit(context, SHADOW_CASTER, draw);
                 if (!object.worldBounds || Visible(*object.worldBounds, clip))
@@ -175,7 +198,13 @@ namespace sky::aurora {
             std::optional<ViewDesc> view;
             Matrix4                 clip;
         };
-        std::vector<Work>                                 work;
+        std::vector<Work>                              work;
+        std::map<const RenderSkinningData *, uint32_t> skinning;
+        if (frame.Skinning()) {
+            for (uint32_t i = 0; i < frame.Skinning()->size(); ++i) {
+                skinning.emplace((*frame.Skinning())[i].get(), i);
+            }
+        }
         std::map<std::pair<uint32_t, uint32_t>, SystemId> producers;
         for (SceneId scene : frame.Scenes()) {
             if (std::find(paused.begin(), paused.end(), scene) != paused.end())
@@ -200,16 +229,18 @@ namespace sky::aurora {
             program.work.partitions.push_back({id, view.desc.scene, rowsPerChunk});
             program.work.outputs.push_back({id, rowsPerChunk * 3, rowsPerChunk * (2 * sizeof(PreparedDrawPacket) + sizeof(PreparedPointLight)), 0});
             program.frame.views.push_back({view.id, view.desc, input.sceneRevision, {}});
+            program.frame.views.back().skinning = frame.Skinning();
             program.viewSystems.push_back(id);
             const auto clip = view.desc.projection * view.desc.view;
             if (!std::all_of(std::begin(clip.v), std::end(clip.v), [](float v) { return std::isfinite(v); }))
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "View projection overflows"};
             work.push_back({view.desc.scene, view.desc, clip});
         }
-        program.work.kernel = [work = std::move(work), bindings = std::move(bindings)](const FrozenPrepareContext &context) {
+        program.work.kernel = [work = std::move(work), bindings = std::move(bindings),
+                               skinning = std::move(skinning)](const FrozenPrepareContext &context) {
             const auto &item = work[context.Id() - 1];
             if (item.view)
-                ExtractView(context, *item.view, item.clip);
+                ExtractView(context, *item.view, item.clip, skinning);
             else
                 PrepareScene(context, item.scene, *bindings);
         };

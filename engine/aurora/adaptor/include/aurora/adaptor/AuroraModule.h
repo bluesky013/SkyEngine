@@ -13,6 +13,10 @@
 #include <functional>
 #include <memory>
 
+namespace sky {
+    class IAnimationSkeletonSource;
+}
+
 namespace sky::aurora {
 
     class IRendererProvider;
@@ -72,10 +76,12 @@ namespace sky::aurora {
 
         RendererVulkanMode vulkanMode = RendererVulkanMode::DYNAMIC_RENDERING;
 
-        API  mApi         = API::DEFAULT;
-        bool providerOnly = false;
+        API         mApi         = API::DEFAULT;
+        bool        providerOnly = false;
+        std::string shaderUsagePath;
 
-        std::unique_ptr<IRendererProvider> provider;
+        std::unique_ptr<IRendererProvider>        provider;
+        std::unique_ptr<IAnimationSkeletonSource> skeletonSource;
     };
 
 } // namespace sky::aurora

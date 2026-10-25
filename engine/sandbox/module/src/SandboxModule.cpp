@@ -39,6 +39,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/window/NativeWindowManager.h>
+#include <framework/world/ComponentFactory.h>
 
 #include <core/archive/StreamArchive.h>
 #include <ui/IUITextureRegistry.h>
@@ -971,7 +972,8 @@ namespace sky::editor {
                                                                       {"Point Light", EditorSceneObject::POINT_LIGHT},
                                                                       {"Directional Light", EditorSceneObject::DIRECTIONAL_LIGHT},
                                                                       {"Camera", EditorSceneObject::CAMERA},
-                                                                      {"Environment", EditorSceneObject::ENVIRONMENT}};
+                                                                      {"Environment", EditorSceneObject::ENVIRONMENT},
+                                                                      {"Empty Object", EditorSceneObject::EMPTY}};
         for (const auto &[label, kind] : objects)
             actions->Add({.id      = std::string("scene.create.") + label,
                           .label   = label,
@@ -980,6 +982,18 @@ namespace sky::editor {
                           .order   = 20 + static_cast<int>(kind),
                           .enabled = [this]() { return worldDocument && playSession.GetState() == PlayState::Editing; },
                           .invoke  = [this, kind]() { worldEditor->Create(kind); }});
+        for (const auto &[group, types] : ComponentFactory::Get()->GetTypes()) {
+            for (const auto &component : types) {
+                const auto type = component.typeId;
+                actions->Add({.id = "scene.component.add." + type.ToString(),
+                              .label = std::string(component.name),
+                              .menu = EditorMenu::Edit,
+                              .submenu = "Add Component",
+                              .order = 29,
+                              .enabled = [this, type]() { return playSession.GetState() == PlayState::Editing && worldEditor->CanAddComponent(type); },
+                              .invoke = [this, type]() { worldEditor->RequestAddComponent(type); }});
+            }
+        }
         actions->Add({.id    = "scene.delete",
                       .label = "Delete Scene Object",
                       .menu  = EditorMenu::Edit,
@@ -1662,6 +1676,8 @@ namespace sky::editor {
         }
         if (!hubMode) {
             BindWorldEditor(worldDocument.get());
+            if (playSession.GetState() == PlayState::Editing)
+                worldEditor->Tick();
             shell.TickAssetViews(delta);
             if (quitAfterAssetClose) {
                 if (!shell.IsAssetViewerOpen()) Quit();

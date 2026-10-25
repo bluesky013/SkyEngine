@@ -11,6 +11,7 @@
 #include <aurora/adaptor/assets/MaterialReflection.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
+#include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/EnvironmentComponent.h>
@@ -18,7 +19,9 @@
 #include <aurora/adaptor/components/PointLightComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/scene/SceneTypes.h>
+#include <aurora/adaptor/renderer/SceneAssetSource.h>
 
 #include <core/shapes/Bounds.h>
 #include <framework/asset/AssetManager.h>
@@ -30,6 +33,24 @@
 #include <string>
 
 namespace sky {
+
+    void aurora::StaticMeshComponent::CollectAssetReferences(std::vector<ComponentAssetReference> &out) const
+    {
+        std::vector<ComponentAssetReference> references;
+        ComponentBase::CollectAssetReferences(references);
+        for (auto &reference : references)
+            if (!IsBuiltinSceneAsset(reference.uuid, reference.type))
+                out.push_back(std::move(reference));
+    }
+
+    void aurora::SkeletalMeshComponent::CollectAssetReferences(std::vector<ComponentAssetReference> &out) const
+    {
+        std::vector<ComponentAssetReference> references;
+        ComponentBase::CollectAssetReferences(references);
+        for (auto &reference : references)
+            if (reference.type != "AuroraMaterial" || !IsBuiltinSceneAsset(reference.uuid, reference.type))
+                out.push_back(std::move(reference));
+    }
 
     void aurora::EnvironmentComponent::Reflect(SerializationContext *context)
     {
@@ -57,6 +78,34 @@ namespace sky {
             .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MAX), Any(16.f))
             .Member<&aurora::EnvironmentComponent::SetEnabled, &aurora::EnvironmentComponent::GetEnabled>("enabled")
             .Member<&aurora::EnvironmentComponent::SetHdr, &aurora::EnvironmentComponent::GetHdr>("hdr");
+    }
+
+    void aurora::SkeletalMeshComponent::Reflect(SerializationContext *context)
+    {
+        using namespace aurora;
+        context->Register<SkeletalPoseMode>("SkeletalPoseMode")
+            .Enum(SkeletalPoseMode::ReferencePose, "ReferencePose")
+            .Enum(SkeletalPoseMode::SameActorAnimation, "SameActorAnimation");
+        context->Register<SkeletalMeshComponentData>("SkeletalMeshComponentData")
+            .Member<&SkeletalMeshComponentData::mesh>("mesh")
+            .Member<&SkeletalMeshComponentData::skin>("skin")
+            .Member<&SkeletalMeshComponentData::skeleton>("skeleton")
+            .Member<&SkeletalMeshComponentData::material>("material")
+            .Member<&SkeletalMeshComponentData::pose>("pose")
+            .Member<&SkeletalMeshComponentData::castShadow>("castShadow")
+            .Member<&SkeletalMeshComponentData::receiveShadow>("receiveShadow");
+        context->Register<SkeletalMeshComponent>("SkeletalMeshComponent")
+            .Member<&SkeletalMeshComponent::SetMeshUuid, &SkeletalMeshComponent::GetMeshUuid>("mesh")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
+            .Member<&SkeletalMeshComponent::SetSkinUuid, &SkeletalMeshComponent::GetSkinUuid>("skin")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Skin>::ASSET_TYPE))
+            .Member<&SkeletalMeshComponent::SetSkeletonUuid, &SkeletalMeshComponent::GetSkeletonUuid>("skeleton")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Skeleton>::ASSET_TYPE))
+            .Member<&SkeletalMeshComponent::SetMaterialUuid, &SkeletalMeshComponent::GetMaterialUuid>("material")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Material>::ASSET_TYPE))
+            .Member<&SkeletalMeshComponent::SetPoseMode, &SkeletalMeshComponent::GetPoseMode>("pose")
+            .Member<&SkeletalMeshComponent::SetCastShadow, &SkeletalMeshComponent::GetCastShadow>("castShadow")
+            .Member<&SkeletalMeshComponent::SetReceiveShadow, &SkeletalMeshComponent::GetReceiveShadow>("receiveShadow");
     }
 
     void aurora::StaticMeshComponent::Reflect(SerializationContext *context)
@@ -189,6 +238,10 @@ namespace sky {
                 .BinLoad<&sky::aurora::SkeletonAssetData::Load>()
                 .BinSave<&sky::aurora::SkeletonAssetData::Save>();
 
+            context->Register<sky::aurora::SkinAssetData>("SkinAssetData")
+                .BinLoad<&sky::aurora::SkinAssetData::Load>()
+                .BinSave<&sky::aurora::SkinAssetData::Save>();
+
             sky::aurora::RegisterMaterialReflection(context);
 
             context->Register<sky::aurora::MaterialInstanceAssetData>("MaterialInstanceAssetData")
@@ -206,6 +259,7 @@ namespace sky {
             auto *manager = AssetManager::Get();
             manager->RegisterAssetHandler<sky::aurora::Mesh>();
             manager->RegisterAssetHandler<sky::Skeleton>();
+            manager->RegisterAssetHandler<sky::aurora::Skin>();
             manager->RegisterAssetHandler<sky::aurora::Material>();
             manager->RegisterAssetHandler<sky::aurora::MaterialInstance>();
             manager->RegisterAssetHandler<sky::aurora::Texture>();
@@ -217,6 +271,7 @@ namespace sky {
             auto             *factory = ComponentFactory::Get();
             const std::string group   = "Aurora";
             factory->RegisterComponent<sky::aurora::StaticMeshComponent>(group);
+            factory->RegisterComponent<sky::aurora::SkeletalMeshComponent>(group);
             factory->RegisterComponent<sky::aurora::LodGroupComponent>(group);
             factory->RegisterComponent<sky::aurora::DirectLightComponent>(group);
             factory->RegisterComponent<sky::aurora::EnvironmentComponent>(group);
@@ -227,12 +282,11 @@ namespace sky {
 
         void AuroraReflection(sky::SerializationContext *context)
         {
-
-
             ReflectSceneTypes(context);
             ReflectAssetTypes(context);
 
             sky::aurora::StaticMeshComponent::Reflect(context);
+            sky::aurora::SkeletalMeshComponent::Reflect(context);
             sky::aurora::LodGroupComponent::Reflect(context);
             sky::aurora::DirectLightComponent::Reflect(context);
             sky::aurora::EnvironmentComponent::Reflect(context);

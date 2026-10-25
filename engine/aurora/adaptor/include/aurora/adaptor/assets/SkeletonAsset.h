@@ -1,10 +1,4 @@
-//
-// Aurora skeleton asset (bridge): wraps the animation module's SkeletonData.
-// aurora/core does NOT define a Skeleton; this adaptor-level asset is the
-// bridge that links `Animation` and turns a SkeletonData payload into a runtime
-// Skeleton. Cooked from `.skeleton` sources (or emitted by the mesh cook when a
-// source is skinned).
-//
+// The adaptor owns the asset bridge; Skeleton remains renderer-independent.
 
 #pragma once
 
@@ -23,7 +17,12 @@ namespace sky::aurora {
     struct SkeletonAssetData : public SkeletonData {
         static constexpr uint32_t CURRENT_VERSION = 1;
 
-        uint32_t version = CURRENT_VERSION;
+        uint32_t        version = CURRENT_VERSION;
+        AnimationStatus validation;
+        bool            IsLoadValid() const
+        {
+            return static_cast<bool>(validation);
+        }
 
         void Save(BinaryOutputArchive &ar) const
         {
@@ -41,31 +40,54 @@ namespace sky::aurora {
 
         void Load(BinaryInputArchive &ar)
         {
+            clear();
             ar.LoadValue(version);
             if (version != CURRENT_VERSION) {
-                clear();
+                validation = {AnimationError::UnsupportedVersion, "unsupported skeleton product version; recook the source"};
                 return;
             }
             uint32_t count = 0;
             ar.LoadValue(count);
+            if (count == 0 || count > ANIM_MAX_BONE || !ar.IsValid()) {
+                validation = {AnimationError::InvalidSkeleton, "skeleton requires 1..256 bones"};
+                return;
+            }
             boneData.resize(count);
             for (auto &bone : boneData) {
                 std::string name;
-                ar.LoadValue(name);
+                uint32_t    length = 0;
+                ar.LoadValue(length);
+                if (length == 0 || length > 4096 || !ar.IsValid()) {
+                    validation = {AnimationError::InvalidSkeleton, "invalid skeleton bone name length"};
+                    return;
+                }
+                name.resize(length);
+                ar.LoadValue(name.data(), length);
+                if (name.find('\0') != std::string::npos) {
+                    validation = {AnimationError::InvalidSkeleton, "bone name contains a null byte"};
+                    return;
+                }
                 bone.name = Name(name.c_str());
                 ar.LoadValue(bone.parentIndex);
             }
             ar.LoadValue(count);
+            if (count != boneData.size() || !ar.IsValid()) {
+                validation = {AnimationError::InvalidSkeleton, "skeleton reference transform count mismatch"};
+                return;
+            }
             refPos.resize(count);
             for (auto &transform : refPos) {
                 ar.LoadValue(reinterpret_cast<char *>(&transform), sizeof(Transform));
             }
+            validation = ar.IsValid() ? Skeleton::Validate(*this)
+                                      : AnimationStatus{AnimationError::InvalidSkeleton, "truncated skeleton reference transforms"};
         }
 
         void clear()
         {
             boneData.clear();
             refPos.clear();
+            validation = {};
         }
     };
 
@@ -86,12 +108,24 @@ namespace sky {
 namespace sky::aurora {
 
     // Build (or reuse) the runtime Skeleton for an asset.
-    inline SkeletonPtr FetchOrCreateSkeletonByAsset(const std::shared_ptr<Asset<Skeleton>> &asset)
+    inline SkeletonPtr FetchOrCreateSkeletonByAsset(const std::shared_ptr<Asset<Skeleton>> &asset, AnimationStatus *status = nullptr)
     {
         if (asset == nullptr) {
+            if (status != nullptr) {
+                *status = {AnimationError::InvalidAsset, "skeleton asset is missing"};
+            }
             return {};
         }
-        return asset->GetOrCreateResource([](Asset<Skeleton> &value) { return Skeleton::BuildSkeleton(value.Data()); });
+        const auto validation = asset->Data().version != SkeletonAssetData::CURRENT_VERSION
+                                    ? AnimationStatus{AnimationError::UnsupportedVersion, "unsupported skeleton product version; recook the source"}
+                                    : asset->Data().validation;
+        if (status != nullptr) {
+            *status = validation;
+        }
+        if (!validation) {
+            return {};
+        }
+        return asset->GetOrCreateResource([status](Asset<Skeleton> &value) { return Skeleton::BuildSkeleton(value.Data(), status); });
     }
 
 } // namespace sky::aurora

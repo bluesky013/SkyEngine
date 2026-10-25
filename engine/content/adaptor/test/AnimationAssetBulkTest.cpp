@@ -33,7 +33,7 @@ namespace {
         OMemoryArchive      out;
         BinaryOutputArchive ar(out);
 
-        ar.SaveValue(AnimationClipAssetData::CURRENT_VERSION);
+        ar.SaveValue(AnimationClipAssetData::LEGACY_SOURCE_VERSION);
         ar.SaveValue(std::string("walk"));
         ar.SaveValue(1.f);
         ar.SaveValue(Uuid{});

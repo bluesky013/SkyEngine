@@ -13,6 +13,7 @@
 #include "SceneLightingPass.h"
 #include "SceneSurfaceBatch.h"
 #include "ShadowPass.h"
+#include "SkinningBatch.h"
 #include "ToneMapPass.h"
 #include <algorithm>
 #include <aurora/pipeline/GlobalVariantLayout.h>
@@ -53,7 +54,24 @@ namespace sky::aurora {
             return WriteParams(context, bindings, shared::GlobalBlockBindings::gGlobal, params);
         }
 
-
+        FrameOperationResult BindSkinning(FrameGraphBuildContext &context, const ResolvedRasterDraw &draw, PassResourceBindings &bindings)
+        {
+            const auto  slot      = shared::SkinningBatchBindings::gSkinningPalette;
+            const auto &resources = draw.draw.shader->GetReflection().resources;
+            const auto  declared =
+                std::ranges::find_if(resources, [&](const auto &value) { return value.set == slot.set && value.binding == slot.binding; });
+            if (bool(draw.skinning) != (declared != resources.end())) {
+                return FrameError{FrameErrorCode::UNSUPPORTED, "Scene material skin input does not match its skeletal instance"};
+            }
+            if (!draw.skinning) {
+                return FrameOperationComplete{};
+            }
+            auto uploaded = context.Upload(std::as_bytes(std::span{draw.skinning->matrices}), BufferUsageFlagBit::STORAGE);
+            if (const auto *error = std::get_if<FrameError>(&uploaded)) {
+                return *error;
+            }
+            return bindings.Storage(slot, std::get<RasterBufferRange>(uploaded));
+        }
 
         std::variant<FrameError, ShaderReflection> MaterialSchema(const Shader &shader, const RenderMaterialParameters &parameters)
         {
@@ -480,9 +498,12 @@ namespace sky::aurora {
                             return result;
                         }
                     }
-
+                    PassResourceBindings skinning(shared::GetSkinningBatchReflection());
+                    if (const auto result = BindSkinning(context, resolvedDraw, skinning); std::holds_alternative<FrameError>(result)) {
+                        return result;
+                    }
                     const PassResourceBindings *groups[]{&global,   &passBindings, &batchBindings, &material,
-                                                         &lighting, &surface,      &environment};
+                                                         &lighting, &surface,      &environment,   &skinning};
                     if (const auto  result = PassResourceBindings::Apply(context, draw, groups);
                         const auto *error  = std::get_if<FrameError>(&result)) {
                         return FrameError{.code = error->code, .message = "Shader does not match the scene pass declarations: " + error->message};
@@ -620,8 +641,11 @@ namespace sky::aurora {
                     if (const auto result = BindMaterial(context, caster.material, material); std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
-
-                    const PassResourceBindings *groups[]{&global, &pass, &batch, &material};
+                    PassResourceBindings skinning(shared::GetSkinningBatchReflection());
+                    if (const auto result = BindSkinning(context, caster, skinning); std::holds_alternative<FrameError>(result)) {
+                        return result;
+                    }
+                    const PassResourceBindings *groups[]{&global, &pass, &batch, &material, &skinning};
                     const auto                  applied = PassResourceBindings::Apply(context, draw, groups);
                     if (std::holds_alternative<FrameError>(applied)) {
                         return applied;

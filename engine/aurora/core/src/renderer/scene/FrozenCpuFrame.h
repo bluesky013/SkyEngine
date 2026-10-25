@@ -228,19 +228,24 @@ namespace sky::aurora {
         {
             return views;
         }
+        const std::shared_ptr<const std::vector<std::shared_ptr<const RenderSkinningData>>> &Skinning() const
+        {
+            return skinning;
+        }
         FrozenBindResult Bind(const SystemDesc &system) const;
 
     private:
         friend class CpuSceneStore;
         friend class FrozenPrepareExecutor;
         FrozenCpuFrame() = default;
-        CpuSceneState               *FindScene(SceneId id) const;
-        uint64_t                     sequence = 0;
-        CpuPrepareSelection          selection;
-        std::vector<FrozenViewInput> views;
-        std::vector<CpuSceneState *> scenes;
-        std::shared_ptr<void>        lease;
-        mutable std::atomic_bool     prepareStarted = false;
+        CpuSceneState                                                                *FindScene(SceneId id) const;
+        uint64_t                                                                      sequence = 0;
+        CpuPrepareSelection                                                           selection;
+        std::vector<FrozenViewInput>                                                  views;
+        std::vector<CpuSceneState *>                                                  scenes;
+        std::shared_ptr<const std::vector<std::shared_ptr<const RenderSkinningData>>> skinning;
+        std::shared_ptr<void>                                                         lease;
+        mutable std::atomic_bool                                                      prepareStarted = false;
     };
 
     // References cannot escape ForEach. Derived views work only on their kernel's thread, during that invocation.

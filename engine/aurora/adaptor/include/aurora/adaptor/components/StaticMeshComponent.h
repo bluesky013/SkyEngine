@@ -28,6 +28,7 @@ namespace sky::aurora {
         COMPONENT_RUNTIME_INFO(StaticMeshComponent)
 
         static void Reflect(SerializationContext *context);
+        void CollectAssetReferences(std::vector<ComponentAssetReference> &out) const override;
 
         void SetMeshUuid(const Uuid &uuid)
         {

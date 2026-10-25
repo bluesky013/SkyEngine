@@ -6,7 +6,7 @@
 
 namespace sky::aurora::cook {
 
-    void WriteMeshAsset(const CookedMesh &mesh, const CookSkin &skin, const Uuid &skeleton, MeshAssetData &out)
+    void WriteMeshAsset(const CookedMesh &mesh, MeshAssetData &out)
     {
         out.clear();
         out.version = MeshAssetData::CURRENT_VERSION;
@@ -22,29 +22,12 @@ namespace sky::aurora::cook {
         out.subMeshes  = mesh.subMeshes;
         out.bounds     = BoundingBoxSphere(mesh.bounds);
 
-        // Skin is absorbed into the mesh: fixed-size arrays go to the bulk,
-        // bone names stay in the (resident) header.
-        out.skinBoneNames    = skin.boneNames;
-        out.skinBoneCount    = static_cast<uint32_t>(skin.inverseBindMatrices.size());
-        out.skinMappingCount = static_cast<uint32_t>(skin.boneMapping.size());
-        if (!skin.inverseBindMatrices.empty()) {
-            const auto *bytes = reinterpret_cast<const uint8_t *>(skin.inverseBindMatrices.data());
-            out.skinData.insert(out.skinData.end(), bytes, bytes + skin.inverseBindMatrices.size() * sizeof(Matrix4));
-        }
-        if (!skin.boneMapping.empty()) {
-            const auto *bytes = reinterpret_cast<const uint8_t *>(skin.boneMapping.data());
-            out.skinData.insert(out.skinData.end(), bytes, bytes + skin.boneMapping.size() * sizeof(uint32_t));
-        }
-
-        // Section layout within the product bulk: vertex -> index -> skin.
+        out.skinInput    = mesh.skinInput;
+        out.slotBounds   = mesh.slotBounds;
         out.vertexOffset = 0;
         out.vertexSize   = out.vertexData.size();
         out.indexOffset  = out.vertexSize;
         out.indexSize    = out.indexData.size();
-        out.skinOffset   = out.indexOffset + out.indexSize;
-        out.skinSize     = out.skinData.size();
-
-        out.skeleton = skeleton;
     }
 
     void WriteSkeletonAsset(const CookMeshSource &source, SkeletonAssetData &out)

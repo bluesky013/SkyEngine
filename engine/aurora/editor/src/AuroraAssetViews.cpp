@@ -12,6 +12,7 @@
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
+#include <aurora/adaptor/assets/SkinAsset.h>
 
 #include <core/math/Vector3.h>
 #include <editor/core/asset/AssetViewData.h>
@@ -56,7 +57,13 @@ namespace sky::aurora::editor {
             uint32_t boneCount = 0;
         };
 
-
+        struct SkinView {
+            Uuid        sourceOwner;
+            std::string bindingMode;
+            uint32_t    slotCount             = 0;
+            uint64_t    modelSpaceSignature   = 0;
+            uint64_t    targetLayoutSignature = 0;
+        };
 
         struct LodGroupView {
             uint32_t levelCount = 0;
@@ -110,7 +117,7 @@ namespace sky::aurora::editor {
                 view.indexType     = data.indexType;
                 view.subMeshCount  = static_cast<uint32_t>(data.subMeshes.size());
                 view.materialCount = static_cast<uint32_t>(data.materials.size());
-                view.skinBoneCount = data.skinBoneCount;
+                view.skinBoneCount = static_cast<uint32_t>(data.skinInput.slots.size());
                 view.boundsCenter  = data.bounds.center;
                 view.boundsExtent  = data.bounds.extent;
                 view.boundsRadius  = data.bounds.radius;
@@ -159,11 +166,30 @@ namespace sky::aurora::editor {
             }
         };
 
-
+        class SkinViewProvider : public sky::editor::IAssetViewDataProvider {
+        public:
+            sky::editor::AssetViewData Build(const Uuid &uuid, const std::string &) override
+            {
+                const auto asset = AssetManager::Get()->LoadAsset<Skin>(uuid);
+                if (!asset)
+                    return {};
+                asset->BlockUntilLoaded();
+                if (!asset->IsLoaded() || !asset->Data().IsLoadValid())
+                    return {};
+                const auto &data = asset->Data();
+                SkinView    view{data.sourceOwner, data.binding.mode == SkinBindingMode::Named ? "Named" : "Indexed",
+                              static_cast<uint32_t>(data.binding.binds.size()), data.binding.input.modelSpaceSignature,
+                              data.binding.targetLayoutSignature};
+                sky::Any    any(view);
+                const auto *node = sky::GetTypeNode(any);
+                return {std::move(any), node};
+            }
+        };
 
         ImageViewProvider    g_imageView;
         MeshViewProvider     g_meshView;
         SkeletonViewProvider g_skeletonView;
+        SkinViewProvider     g_skinView;
         LodGroupViewProvider g_lodGroupView;
 
     } // namespace
@@ -219,7 +245,17 @@ namespace sky::aurora::editor {
 
         context->Register<SkeletonView>("SkeletonView").Member<&SkeletonView::boneCount>("boneCount").Property(kReadOnly, Any(true));
 
-
+        context->Register<SkinView>("SkinView")
+            .Member<&SkinView::sourceOwner>("sourceOwner")
+            .Property(kReadOnly, Any(true))
+            .Member<&SkinView::bindingMode>("bindingMode")
+            .Property(kReadOnly, Any(true))
+            .Member<&SkinView::slotCount>("slotCount")
+            .Property(kReadOnly, Any(true))
+            .Member<&SkinView::modelSpaceSignature>("modelSpaceSignature")
+            .Property(kReadOnly, Any(true))
+            .Member<&SkinView::targetLayoutSignature>("targetLayoutSignature")
+            .Property(kReadOnly, Any(true));
 
         context->Register<LodGroupView>("LodGroupView").Member<&LodGroupView::levelCount>("levelCount").Property(kReadOnly, Any(true));
     }
@@ -230,6 +266,7 @@ namespace sky::aurora::editor {
         registry->Register(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView, lease);
         registry->Register(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView, lease);
         registry->Register(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView, lease);
+        registry->Register(std::string(AssetTraits<Skin>::ASSET_TYPE), &g_skinView, lease);
         registry->Register(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView, lease);
 
         // Material / MaterialInstance are heterogeneous (typed property lists) -> custom editor providers.
@@ -242,6 +279,7 @@ namespace sky::aurora::editor {
         registry->Unregister(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView);
         registry->Unregister(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView);
         registry->Unregister(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView);
+        registry->Unregister(std::string(AssetTraits<Skin>::ASSET_TYPE), &g_skinView);
         registry->Unregister(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView);
         UnregisterMaterialEditorProvider();
     }

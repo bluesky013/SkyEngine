@@ -545,3 +545,41 @@ TEST_F(PreparedSceneTest, RepresentativeWorkloadReportsBuildDispatchWaitAndMerge
         }
     }
 }
+
+
+TEST_F(PreparedSceneTest, SkinningSnapshotsDriveBoundsAndOutliveSceneMutation)
+{
+    auto desc = Entity(5.f);
+    auto skin = std::make_shared<RenderSkinningData>();
+    skin->binding = {desc.mesh.resource.product, Uuid::Create(), Uuid::Create(), 1, 1, 1, 123, Uuid::Create(), Uuid::Create(), Uuid::Create()};
+    skin->worldEpoch = Uuid::Create();
+    skin->instanceGeneration = Uuid::Create();
+    skin->poseRevision = 1;
+    skin->matrices = {Matrix4::Identity(), Matrix4::Identity()};
+    skin->matrices[0][3].x = -5.f;
+    skin->bounds = {{-5.1f, -.1f, -.1f}, {-4.9f, .1f, .1f}};
+    desc.properties.skinning = skin;
+    desc.properties.castShadow = true;
+    Apply({CreateRenderEntity{{a, {0, 1}}, desc}});
+    Bind({a, {0, 1}});
+    const auto first = Run();
+    ASSERT_NE(first, nullptr);
+    ASSERT_EQ(first->views[0].draws.size(), 1u);
+    const auto &draw = first->views[0].draws[0];
+    ASSERT_NE(draw.skinning, UINT32_MAX);
+    ASSERT_NE(first->views[0].skinning, nullptr);
+    EXPECT_EQ((*first->views[0].skinning)[draw.skinning], skin);
+    EXPECT_NEAR(draw.worldBounds->min.x, -.1f, 1e-5f);
+    EXPECT_EQ(first->views[0].shadowCasters[0].skinning, draw.skinning);
+    auto next = std::make_shared<RenderSkinningData>(*skin);
+    next->poseRevision = 2;
+    next->bounds = {{-.1f, -.1f, -.1f}, {.1f, .1f, .1f}};
+    next->matrices[0][3].x = 0.f;
+    desc.properties.skinning = next;
+    Apply({UpdateRenderEntity{{a, {0, 1}}, desc, 1}});
+    const auto second = Run();
+    ASSERT_NE(second, nullptr);
+    EXPECT_TRUE(second->views[0].draws.empty());
+    Apply({DestroyRenderEntity{{a, {0, 1}}}});
+    EXPECT_FLOAT_EQ((*first->views[0].skinning)[draw.skinning]->matrices[0][3].x, -5.f);
+}

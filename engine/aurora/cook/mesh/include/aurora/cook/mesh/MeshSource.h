@@ -11,9 +11,8 @@
 
 namespace sky::aurora::cook {
 
-    // Imports a mesh source file (gltf/glb/fbx/obj) from memory. All primitives
-    // are extracted with baked node transforms; skinning (bones) is collected
-    // into out.skin and per-vertex joints/weights attributes.
-    bool LoadMeshSource(const std::vector<uint8_t> &bytes, const std::string &ext, CookMeshSource &out);
+    // Import retains one entry per original binding. Static primitives share one entry.
+    MeshCookStatus LoadMeshSources(const std::vector<uint8_t> &bytes, const std::string &ext, std::vector<CookMeshSource> &out);
+    bool           LoadMeshSource(const std::vector<uint8_t> &bytes, const std::string &ext, CookMeshSource &out);
 
 } // namespace sky::aurora::cook

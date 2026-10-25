@@ -154,25 +154,31 @@ AuroraMaterialInstanceBuilder SHALL read a typed MaterialInstanceSource, retain 
 - **THEN** 产出 `LodGroupAssetData`；`levels[i].mesh` 为对应 mesh 资产 `Uuid` 且登记依赖
 
 ### Requirement: Skeleton builder（.skeleton）
-
-`AuroraSkeletonBuilder : AssetBuilder` SHALL 声明扩展名 `.skeleton`，`QueryType` SHALL 返回 `AssetTraits<sky::Skeleton>::ASSET_TYPE`（`"AuroraSkeleton"`）。`Request` SHALL 解析 `.skeleton` JSON 产出 `SkeletonAssetData`（`version = CURRENT_VERSION`）：`bones` 数组每项 `{ name, parent(索引, -1 为根), translation[3], rotation[4] (x,y,z,w), scale[3] }` → `boneData`(`Name` + `parentIndex`) 与 `refPos`(`Transform`)。
+`AuroraSkeletonBuilder : AssetBuilder` SHALL 声明扩展名 `.skeleton`，QueryType SHALL 返回 `AssetTraits<sky::Skeleton>::ASSET_TYPE`（`AuroraSkeleton`）。Request SHALL 解析版本化 JSON bones（name、parent、translation、scale、xyzw rotation）并产出逐骨层级与参考姿势。发布前 SHALL 校验数量、唯一身份、父索引/无环、TRS 有限且可用；错误 SHALL 返回诊断，不构建依赖断言兜底的运行骨架。产品 SHALL 携带布局签名。
 
 #### Scenario: .skeleton 产出骨架
+- **WHEN** 构建含有效多级 bones 的 .skeleton
+- **THEN** 产物 boneData/name/parentIndex/refPos SHALL 对应源定义并具有可重现布局签名
 
-- **WHEN** 构建含多级 `bones` 的 `.skeleton`
-- **THEN** 产出 `SkeletonAssetData`，`boneData[i].name`/`parentIndex` 与 `refPos[i]` 与 JSON 一致
+#### Scenario: 无效骨架
+- **WHEN** bones 含环、重复身份、非法父索引、缺失参考姿势或非有限数据
+- **THEN** 构建 SHALL 失败并报告具体骨骼，不发布新成功产品
 
 ### Requirement: Mesh builder 产出 skeleton
-
-`AuroraMeshBuilder` SHALL 在源为蒙皮（`config->skinning && source.Skinned()`）时，除 `Skin` 资产外**再产出一个 `Skeleton` 资产**（骨骼层级 + 参考姿势，由 mesh 源的节点层级推导，索引与 `SkinAssetData::boneNames` 对齐），并把其 `Uuid` 写入 `MeshAssetData::skeleton` 且登记依赖。非蒙皮源 SHALL 令 `MeshAssetData::skeleton` 为空。
+AuroraMeshBuilder SHALL 在启用 skinning 且源有蒙皮时，生成相互独立的 Mesh、AuroraSkin 和 AuroraSkeleton 产品。Mesh SHALL 保存 JOINTS / WEIGHTS、输入槽契约与 mesh-space 槽 bounds，不保存 inverse bind 或 Skin / Skeleton UUID；导入元数据 SHALL 提供默认 mesh/skin/skeleton 组合。Skin SHALL 保存输入槽、inverse bind 和骨标识，不固定 Skeleton UUID。骨架 SHALL 保留祖先闭包 / helper，rig 索引与 skin 槽 SHALL 独立。每份原始绑定 SHALL 先转换到约定模型空间并验证，SHALL NOT 全局按骨名吞掉后续 offsetMatrix。非蒙皮源 SHALL 不生成 Skin / Skeleton 组合。
 
 #### Scenario: 蒙皮网格引用 skeleton
-
-- **WHEN** 构建蒙皮源
-- **THEN** 生成 `AuroraSkin` 与 `AuroraSkeleton` 两个资产；`MeshAssetData.skin` 与 `MeshAssetData.skeleton` 均非空且登记为依赖
+- **WHEN** 构建有效蒙皮源
+- **THEN** SHALL 生成独立 mesh/skin/skeleton 产品及稳定默认组合，组件可按组合写入三项显式 UUID
 
 #### Scenario: 非蒙皮网格无 skeleton
-
 - **WHEN** 构建非蒙皮源
-- **THEN** `MeshAssetData.skeleton` 为空
+- **THEN** Mesh SHALL 不包含 skin bulk 或骨架引用，导入元数据 SHALL 无蒙皮组合
 
+#### Scenario: Helper 节点和节点空间
+- **WHEN** mesh 节点与关节之间存在非单位变换或非 deform helper 祖先
+- **THEN** 输出 SHALL 保留正确层级/空间，参考姿势蒙皮 SHALL 重现烘焙顶点
+
+#### Scenario: Multiple bindings preserve shared geometry
+- **WHEN** source bindings use identical geometry, weights, input slot contract and model space but different rigs/inverse binds
+- **THEN** cook SHALL retain separate Skin/Skeleton combinations and MAY share the identical Mesh product; unrecoverable source binding associations SHALL fail explicitly

@@ -1,15 +1,8 @@
-//
-// Mesh: high-level mesh resource. Wraps a RenderGeometry (vertex streams +
-// index + bounds) with sub-meshes (multi-material sections), blend shapes
-// (morph targets) and an optional Skin (mesh-side skinning binding). Pure
-// wrapper: the geometry owns the GPU buffers, the mesh adds segmentation +
-// animation data. Animation's Skeleton is mapped into Skin by the bridge layer.
-//
+// Mesh owns geometry and segmentation. Instances select independent Skin bindings.
 
 #pragma once
 
 #include <aurora/resource/RenderGeometry.h>
-#include <aurora/resource/Skin.h>
 #include <core/math/Vector3.h>
 #include <core/name/Name.h>
 #include <core/shapes/Bounds.h>
@@ -31,7 +24,7 @@ namespace sky::aurora {
         BoundingBoxSphere bounds{};
     };
 
-    // Delta-increment morph target: final = base + Σ weightᵢ · deltaᵢ.
+    // Delta-increment morph target: final = base + sum(weight[i] * delta[i]).
     // positionDeltas is required; normal/tangent deltas may be empty (= zero).
     struct BlendShape {
         Name                 name;
@@ -91,23 +84,6 @@ namespace sky::aurora {
             return static_cast<uint32_t>(blendShapes.size());
         }
 
-        // Mesh-side skinning binding (inverse bind matrices + bone palette).
-        // Self-contained: animation's Skeleton is mapped into this Skin by the
-        // bridge/adaptor layer, not referenced from aurora.
-        void SetSkin(CounterPtr<Skin> inSkin)
-        {
-            skin = std::move(inSkin);
-        }
-
-        CounterPtr<Skin> GetSkin() const
-        {
-            return skin;
-        }
-        bool HasSkin() const
-        {
-            return skin != nullptr;
-        }
-
         const Name &GetName() const
         {
             return name;
@@ -118,7 +94,6 @@ namespace sky::aurora {
         CounterPtr<RenderGeometry> geometry;
         std::vector<SubMesh>       subMeshes;
         std::vector<BlendShape>    blendShapes;
-        CounterPtr<Skin>           skin;
     };
 
 } // namespace sky::aurora

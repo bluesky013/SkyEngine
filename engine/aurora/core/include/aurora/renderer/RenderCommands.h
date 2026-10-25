@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <aurora/renderer/RenderResourceTypes.h>
 #include <aurora/renderer/RendererTypes.h>
+#include <aurora/resource/Skin.h>
 #include <cmath>
 #include <memory>
 #include <variant>
@@ -21,11 +22,21 @@ namespace sky::aurora {
         float           innerConeAngle = 0, outerConeAngle = 0.785398f;
         bool            castShadow = false;
     };
+    struct RenderSkinningData {
+        SkinBindingKey binding;
+        Uuid           worldEpoch;
+        Uuid           instanceGeneration;
+        uint64_t       poseRevision = 0;
+        // Each slot stores its transform followed by its inverse transpose.
+        std::vector<Matrix4> matrices;
+        AABB                 bounds;
+    };
     struct RenderDrawProperties {
-        uint64_t         tags = 1;
-        RenderPointLight light;
-        uint32_t         subMesh    = 0;
-        bool             castShadow = false, receiveShadow = false;
+        uint64_t                                  tags = 1;
+        RenderPointLight                          light;
+        uint32_t                                  subMesh    = 0;
+        bool                                      castShadow = false, receiveShadow = false;
+        std::shared_ptr<const RenderSkinningData> skinning;
     };
 
     struct RenderEntityDesc {
@@ -38,6 +49,20 @@ namespace sky::aurora {
 
     inline bool IsValidRenderEntityDesc(const RenderEntityDesc &desc)
     {
+        if (const auto &skin = desc.properties.skinning) {
+            const auto &key = skin->binding;
+            if (desc.mesh.resource.product != key.mesh || !key.mesh || !key.skin || !key.skeleton || !key.meshRevision || !key.skinRevision ||
+                !key.skeletonRevision || !key.skeletonLayout || !key.meshGeneration || !key.skinGeneration || !key.skeletonGeneration ||
+                !skin->worldEpoch || !skin->instanceGeneration || !skin->poseRevision || skin->matrices.empty() || skin->matrices.size() > 512 ||
+                skin->matrices.size() % 2 || !IsValidRenderResourceMetadata({.bounds = skin->bounds})) {
+                return false;
+            }
+            for (const auto &matrix : skin->matrices) {
+                if (!std::all_of(std::begin(matrix.v), std::end(matrix.v), [](float value) { return std::isfinite(value); })) {
+                    return false;
+                }
+            }
+        }
         const auto &m = desc.world;
         const auto &l = desc.properties.light;
         return std::all_of(std::begin(m.v), std::end(m.v), [](float v) { return std::isfinite(v); }) && m.v[3] == 0 && m.v[7] == 0 && m.v[11] == 0 &&

@@ -8,6 +8,7 @@
 #include <core/std/Graph.h>
 #include <framework/interface/IModule.h>
 #include <unordered_map>
+#include <optional>
 
 namespace sky {
 
@@ -25,6 +26,7 @@ namespace sky {
         using vertex_descriptor = Graph::Vertex;
 
         void RegisterModule(const ModuleInfo &info);
+        static std::optional<bool> GetBuildOption(std::string_view option);
 
         // Register a module that is compiled into the host (static bundling); it is
         // loaded/started alongside dynamic modules but never dlopen'd. `id` is the

@@ -1,17 +1,127 @@
 #include "WorldEditorState.h"
 
+#include <animation/IAnimationInstanceControl.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/EnvironmentComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
+#include <aurora/renderer/ImportedSkinBinding.h>
+#include <core/logger/Logger.h>
 #include <editor/core/EditorCore.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/interface/Interface.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/world/WorldSubSystemRegistry.h>
+#include <optional>
 #include <unordered_map>
 
 namespace sky::editor {
     namespace {
+        bool RegisteredComponent(const Uuid &id)
+        {
+            for (const auto &[group, types] : ComponentFactory::Get()->GetTypes())
+                for (const auto &type : types)
+                    if (type.typeId == id)
+                        return true;
+            return false;
+        }
+
+        bool SetComponentSkeleton(ComponentBase &component, const Uuid &skeleton)
+        {
+            const auto *node = GetTypeNode(component.GetTypeId());
+            if (!node || !component.GetReflectedObject())
+                return false;
+            const auto member = node->members.find("skeleton");
+            return member != node->members.end() &&
+                   PropertyDescriptor(component.GetReflectedObject(), &member->second, "skeleton", "").SetValue(Any(skeleton));
+        }
+
+        class AddComponentCommand final : public UndoCommand {
+        public:
+            AddComponentCommand(Actor                         &actor,
+                                Uuid                           type,
+                                aurora::SkeletalMeshComponent *skeletal,
+                                WorldDocument                 &document,
+                                std::string                    system,
+                                std::function<void()>          changed)
+                : UndoCommand("Add component")
+                , actor(actor)
+                , type(type)
+                , skeletal(skeletal)
+                , document(document)
+                , system(std::move(system))
+                , changed(std::move(changed))
+            {
+                if (skeletal)
+                    previousPose = skeletal->GetPoseMode();
+                bool enabled = false;
+                if (!this->system.empty() && document.IsSubSystemEnabled(this->system, enabled))
+                    previousSystemEnabled = enabled;
+            }
+            void Do() override
+            {
+                if (detached && !actor.AttachComponent(detached)) {
+                    LOG_E("WorldEditor", "Cannot restore component: actor already has this component type");
+                    return;
+                }
+                if (skeletal)
+                    skeletal->SetPoseMode(aurora::SkeletalPoseMode::SameActorAnimation);
+                if (!system.empty())
+                    document.SetSubSystemEnabled(system, true);
+                changed();
+            }
+            void Undo() override
+            {
+                detached = actor.DetachComponent(type);
+                if (skeletal)
+                    skeletal->SetPoseMode(previousPose);
+                if (!system.empty()) {
+                    if (previousSystemEnabled)
+                        document.SetSubSystemEnabled(system, *previousSystemEnabled);
+                    else
+                        std::erase_if(document.GetWorld()->GetMutableWorldDesc()->subSystems,
+                                      [this](const auto &entry) { return entry.name == system.c_str(); });
+                }
+                changed();
+            }
+
+        private:
+            Actor                         &actor;
+            Uuid                           type;
+            Actor::ComponentPtr            detached;
+            aurora::SkeletalMeshComponent *skeletal;
+            aurora::SkeletalPoseMode       previousPose = aurora::SkeletalPoseMode::ReferencePose;
+            WorldDocument                 &document;
+            std::string                    system;
+            std::optional<bool>            previousSystemEnabled;
+            std::function<void()>          changed;
+        };
+
+        class SkeletalBindingCommand final : public UndoCommand {
+        public:
+            SkeletalBindingCommand(aurora::SkeletalMeshComponent &component, aurora::SkeletalMeshComponentData after)
+                : UndoCommand("Select skeletal mesh"), component(component), before(component.GetData()), after(std::move(after))
+            {
+            }
+            void Do() override
+            {
+                component.SetConfig(after);
+            }
+            void Undo() override
+            {
+                component.SetConfig(before);
+            }
+
+        private:
+            aurora::SkeletalMeshComponent    &component;
+            aurora::SkeletalMeshComponentData before;
+            aurora::SkeletalMeshComponentData after;
+        };
+
         class WorldPropertyCommand final : public UndoCommand {
         public:
             WorldPropertyCommand(UndoCommandPtr edit, WorldDocument &document)
@@ -80,6 +190,8 @@ namespace sky::editor {
         if (next == document)
             return;
         selection.Clear();
+        pendingComponents.clear();
+        refreshSelection = false;
         EditorCore::GetCommandService().Clear();
         if (world)
             WorldEvent::DisConnect(world.Get(), this);
@@ -155,8 +267,31 @@ namespace sky::editor {
         if (document)
             document->MarkDirty();
     }
-    UndoCommandPtr WorldEditorState::MakeEditCommand(const Uuid &, const PropertyDescriptor &property, Any value)
+    UndoCommandPtr WorldEditorState::MakeEditCommand(const Uuid &owner, const PropertyDescriptor &property, Any value)
     {
+        if (!document || !world)
+            return {};
+        auto       *actor     = world->GetActorByUuid(owner);
+        auto       *component = actor ? actor->GetComponent<aurora::SkeletalMeshComponent>() : nullptr;
+        const auto *type      = component ? GetTypeNode(component->GetTypeId()) : nullptr;
+        const auto *mesh      = value.GetAsConst<Uuid>();
+        if (component && type && mesh && property.IsBoundTo(component->GetReflectedObject()) && property.CanEdit() &&
+            type->members.contains("mesh") && property.GetMember() == &type->members.at("mesh")) {
+            auto after = component->GetData();
+            after.mesh = *mesh;
+            if (!after.skin && !after.skeleton) {
+                Uuid                        source;
+                std::map<std::string, Uuid> defaults;
+                aurora::ImportedSkinBinding binding;
+                auto                       *database = AssetDataBase::Get();
+                if (database->GetOwner(*mesh, source) && database->GetGeneratedDefaults(source, defaults) &&
+                    aurora::ResolveImportedSkinBinding(*mesh, defaults, binding) == aurora::ImportedSkinBindingStatus::Ready) {
+                    after.skin     = binding.skin;
+                    after.skeleton = binding.skeleton;
+                }
+            }
+            return std::make_unique<WorldPropertyCommand>(std::make_unique<SkeletalBindingCommand>(*component, std::move(after)), *document);
+        }
         auto edit = property.MakeEditCommand(std::move(value));
         if (!document || !edit)
             return {};
@@ -171,6 +306,7 @@ namespace sky::editor {
         auto *transform = actor->AddComponent<TransformComponent>();
         using namespace aurora;
         switch (kind) {
+        case EditorSceneObject::EMPTY: actor->SetName("Actor"); break;
         case EditorSceneObject::CUBE:
         case EditorSceneObject::PLANE: {
             const bool cube = kind == EditorSceneObject::CUBE;
@@ -218,5 +354,65 @@ namespace sky::editor {
             return;
         auto detached = world->DetachFromWorld(actor);
         EditorCore::GetCommandService().Execute(std::make_unique<ActorCommand>(world, std::move(detached), false, [this]() { OnEdited({}); }));
+    }
+
+    bool WorldEditorState::CanAddComponent(const Uuid &type) const
+    {
+        if (!world || !document || selection.GetSelection().size() != 1 || selection.GetSelection().front().type != SelectionType::ENTITY ||
+            !RegisteredComponent(type))
+            return false;
+        const auto id    = selection.GetSelection().front().id;
+        auto      *actor = world->GetActorByUuid(id);
+        return actor && !actor->GetComponent(type);
+    }
+
+    bool WorldEditorState::RequestAddComponent(const Uuid &type)
+    {
+        if (!CanAddComponent(type) || pendingComponents.size() >= 16)
+            return false;
+        pendingComponents.emplace_back(selection.GetSelection().front().id, type);
+        return true;
+    }
+
+    void WorldEditorState::Tick()
+    {
+        const auto requests = std::move(pendingComponents);
+        pendingComponents.clear();
+        for (const auto &[id, type] : requests) {
+            auto *actor = world ? world->GetActorByUuid(id) : nullptr;
+            if (!actor || actor->GetComponent(type) || !RegisteredComponent(type))
+                continue;
+            auto *component = actor->AddComponent(type);
+            if (!component) {
+                LOG_E("WorldEditor", "Registered component could not be constructed");
+                continue;
+            }
+            auto             *control   = Interface<IAnimationInstanceControl>::Get()->GetApi();
+            const bool        animation = control && control->GetComponentType() == type;
+            const std::string system    = animation ? std::string(control->GetWorldSystemName()) : std::string{};
+            if (!system.empty() && !WorldSubSystemRegistry::Get().IsRegistered(Name(system.c_str()))) {
+                actor->RemoveComponent(type);
+                LOG_E("WorldEditor", "Animation authoring subsystem is unavailable");
+                continue;
+            }
+            auto *skeletal = animation ? actor->GetComponent<aurora::SkeletalMeshComponent>() : nullptr;
+            if (skeletal) {
+                if (!SetComponentSkeleton(*component, skeletal->GetSkeletonUuid())) {
+                    actor->RemoveComponent(type);
+                    LOG_E("WorldEditor", "Animation authoring component lacks a writable Skeleton UUID");
+                    continue;
+                }
+            }
+            EditorCore::GetCommandService().Execute(std::make_unique<AddComponentCommand>(*actor, type, skeletal, *document, system, [this]() {
+                OnEdited({});
+                refreshSelection = true;
+            }));
+        }
+        if (refreshSelection) {
+            refreshSelection    = false;
+            const auto selected = selection.GetSelection();
+            selection.Clear();
+            selection.SetSelection(selected);
+        }
     }
 } // namespace sky::editor

@@ -4,6 +4,11 @@
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/EnvironmentComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
+#include <aurora/rhi/VertexSemantic.h>
+#include <cstring>
+#include <limits>
+#include <sstream>
 #include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
@@ -18,6 +23,11 @@ using namespace sky::aurora;
 namespace {
     constexpr SceneId SCENE{0, 1};
     struct Source : ISceneResourceSource {
+        std::shared_ptr<const SceneSkeletalResources> skeletal;
+        SceneSkeletalResult ResolveSkeletal(const Uuid &, const Uuid &, const Uuid &, const Uuid &, RendererInfo) override
+        {
+            return pending ? SceneSkeletalResult{} : SceneSkeletalResult{skeletal};
+        }
         bool             pending      = false;
         bool             staticOpaque = false;
         SceneImageResult ResolveImage(const Uuid &id, RendererInfo info) override
@@ -59,10 +69,6 @@ namespace {
     }
     class SceneBridgeTest : public testing::Test {
     protected:
-        static void SetUpTestSuite()
-        {
-            auto *context = SerializationContext::Get();
-        }
         WorldPtr                world  = World::CreateWorld();
         std::shared_ptr<Source> source = std::make_shared<Source>();
         RenderSceneBridge       bridge{{API::VULKAN, 7}, source};
@@ -371,4 +377,95 @@ TEST_F(SceneBridgeTest, HighlightMappingUsesLiveIdentityAndSurfaceContract)
     EXPECT_EQ(bridge.Entities(ids, true), (std::vector<RenderEntityRef>{created.front().id}));
     bridge.SetWorld(nullptr);
     EXPECT_TRUE(bridge.Entities(ids).empty());
+}
+
+
+TEST(SceneMeshConversion, SkinInputsValidateIntegerSlotsWeightsAndBounds)
+{
+    Asset<Mesh> asset;
+    asset.SetUuid(Uuid::Create());
+    auto &data = asset.Data();
+    data = ScenePrimitiveMesh(ScenePrimitive::CUBE);
+    const auto positions = data.vertexData;
+    data.skinInput = {123, {"root"}};
+    data.slotBounds = {{true, data.bounds.ToAABB()}};
+    data.vertexStride = 32;
+    data.vertexSize = size_t(data.vertexCount) * data.vertexStride;
+    data.vertexData.resize(data.vertexSize);
+    data.attributes.push_back({uint8_t(VertexSemantic::JOINTS), 0, 0, uint32_t(Format::U_RGBA8), 12});
+    data.attributes.push_back({uint8_t(VertexSemantic::WEIGHTS), 0, 0, uint32_t(Format::F_RGBA32), 16});
+    for (uint32_t i = 0; i < data.vertexCount; ++i) {
+        auto *vertex = data.vertexData.data() + size_t(i) * data.vertexStride;
+        std::memset(vertex, 0, data.vertexStride);
+        std::memcpy(vertex, positions.data() + size_t(i) * sizeof(Vector3), sizeof(Vector3));
+        const float weight = 1.f;
+        std::memcpy(vertex + 16, &weight, sizeof(weight));
+    }
+    const auto good = ConvertSceneMesh(asset, {API::VULKAN, 9});
+    ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(good));
+    const auto &payload = std::get<RenderResourcePayload>(good);
+    EXPECT_EQ(payload.mesh->attributes[1].format, Format::U_RGBA8);
+    data.vertexData[12] = 1;
+    EXPECT_TRUE(std::holds_alternative<RendererError>(ConvertSceneMesh(asset, {API::VULKAN, 9})));
+    data.vertexData[12] = 0;
+    float weight = -1.f;
+    std::memcpy(data.vertexData.data() + 16, &weight, sizeof(weight));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(ConvertSceneMesh(asset, {API::VULKAN, 9})));
+    weight = 1.f;
+    std::memcpy(data.vertexData.data() + 16, &weight, sizeof(weight));
+    data.slotBounds[0].bounds = {{0, 0, 0}, {0, 0, 0}};
+    EXPECT_TRUE(std::holds_alternative<RendererError>(ConvertSceneMesh(asset, {API::VULKAN, 9})));
+    EXPECT_EQ(payload.bytes[12], 0);
+}
+
+TEST_F(SceneBridgeTest, SkeletalReferencePoseOwnsTupleAndFailedReloadFreezesIt)
+{
+    auto *actor = world->CreateActor();
+    auto *component = actor->AddComponent<SkeletalMeshComponent>();
+    const SkeletalMeshComponentData config{Uuid::Create(), Uuid::Create(), Uuid::Create()};
+    component->SetConfig(config);
+    auto ready = std::make_shared<SceneSkeletalResources>();
+    ready->geometry = std::get<std::shared_ptr<const SceneMeshResources>>(source->ResolveMesh(config.mesh, {}, {API::VULKAN, 7}));
+    auto binding = std::make_shared<ResolvedSkinBinding>();
+    binding->key = {config.mesh, config.skin, config.skeleton, 1, 1, 1, 123, Uuid::Create(), Uuid::Create(), Uuid::Create()};
+    binding->targetBoneCount = 1;
+    binding->slotToBone = {0};
+    binding->inverseBindMatrices = {Matrix4::Identity()};
+    ready->binding = binding;
+    ready->skeleton = {config.skeleton, binding->key.skeletonGeneration, 1, 123};
+    ready->referenceModels = {Matrix4::Identity()};
+    ready->slotBounds = {{true, {{-1, -1, -1}, {1, 1, 1}}}};
+    source->skeletal = ready;
+    bridge.SetWorld(world.Get());
+    bridge.EnableGeometrySnapshots(true);
+    const auto first = Sync();
+    const auto created = Commands<CreateRenderEntity>(first);
+    ASSERT_EQ(created.size(), 1u);
+    const auto retained = created[0].desc.properties.skinning;
+    ASSERT_NE(retained, nullptr);
+    ASSERT_EQ(retained->matrices.size(), 2u);
+    EXPECT_EQ(retained->binding, binding->key);
+    const auto snapshot = bridge.GeometrySnapshot();
+    ASSERT_EQ(snapshot->instances.size(), 1u);
+    EXPECT_EQ(snapshot->instances[0].state, SceneGeometryState::UNSUPPORTED);
+    EXPECT_TRUE(bridge.Entities(std::array{actor->GetUuid()}, true).empty());
+    EXPECT_TRUE(Sync().commands.empty());
+    source->pending = true;
+    actor->GetComponent<TransformComponent>()->SetLocalTranslation({5, 0, 0});
+    const auto pending = Sync();
+    EXPECT_TRUE(Commands<UpdateRenderEntity>(pending).empty());
+    EXPECT_FALSE(bridge.GetIssues().empty());
+    EXPECT_FLOAT_EQ(bridge.GeometrySnapshot()->instances[0].world[3].x, 0.f);
+    component->SetSkinUuid(Uuid::Create());
+    const auto changed = Sync();
+    EXPECT_EQ(Commands<DestroyRenderEntity>(changed).size(), 1u);
+    EXPECT_TRUE(Commands<CreateRenderEntity>(changed).empty());
+    EXPECT_EQ(retained->binding.skin, config.skin);
+    std::stringstream stream;
+    StreamArchive storage(stream);
+    { JsonOutputArchive output(storage); component->SaveJson(output); }
+    SkeletalMeshComponent restored;
+    JsonInputArchive input(storage);
+    restored.LoadJson(input);
+    EXPECT_EQ(restored.GetData(), component->GetData());
 }

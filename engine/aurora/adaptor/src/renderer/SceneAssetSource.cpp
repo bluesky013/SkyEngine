@@ -6,6 +6,8 @@
 #include <atomic>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/adaptor/assets/SkeletonAsset.h>
+#include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/pipeline/GlobalVariantLayout.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <aurora/pipeline/ShaderVariantAssembler.h>
@@ -79,8 +81,12 @@ namespace sky::aurora {
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info)
     {
         const auto &data = asset.Data();
-        if (data.skinSize || data.skeleton)
-            return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Static scene conversion does not support skin data"};
+        if (data.HasSkinInputs()) {
+            const auto status = data.Validate();
+            if (!status) {
+                return Invalid(status.message);
+            }
+        }
         const auto     indexType = static_cast<IndexType>(data.indexType);
         const uint32_t indexSize = indexType == IndexType::U16 ? 2 : 4;
         if (!asset.GetUuid() || (info.deviceEpoch == 0u) || data.version != MeshAssetData::CURRENT_VERSION || (data.vertexCount == 0u) ||
@@ -114,6 +120,7 @@ namespace sky::aurora {
             case Format::F_RG32: size = 8; break;
             case Format::F_RGB32: size = 12; break;
             case Format::F_RGBA32: size = 16; break;
+            case Format::U_RGBA8: size = 4; break;
             default: return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene mesh vertex format is unsupported"};
             }
             if (attribute.semantic >= kVertexSemanticCount || attribute.offset > data.vertexStride || size > data.vertexStride - attribute.offset ||
@@ -132,6 +139,60 @@ namespace sky::aurora {
         if (!position) {
             return Invalid("Scene mesh requires float3 POSITION");
         }
+        if (data.HasSkinInputs()) {
+            const auto joints    = std::ranges::find(data.attributes, uint8_t(VertexSemantic::JOINTS), &MeshVertexAttributeData::semantic);
+            const auto weights   = std::ranges::find(data.attributes, uint8_t(VertexSemantic::WEIGHTS), &MeshVertexAttributeData::semantic);
+            const auto positions = std::ranges::find(data.attributes, uint8_t(VertexSemantic::POSITION), &MeshVertexAttributeData::semantic);
+            if (joints->semanticIndex || weights->semanticIndex || positions->semanticIndex) {
+                return Invalid("Skin vertex inputs require semantic index zero");
+            }
+            for (uint32_t v = 0; v < data.vertexCount; ++v) {
+                const auto *vertex = vertices.data() + size_t(v) * data.vertexStride;
+                for (const auto &attribute : data.attributes) {
+                    if (attribute.format == uint32_t(Format::U_RGBA8))
+                        continue;
+                    const auto components = attribute.format;
+                    for (uint32_t component = 0; component < components; ++component) {
+                        float value;
+                        std::memcpy(&value, vertex + attribute.offset + component * sizeof(float), sizeof(value));
+                        if (!std::isfinite(value))
+                            return Invalid("Skin vertex attribute is not finite");
+                    }
+                }
+                float   sum = 0;
+                Vector3 point;
+                std::memcpy(&point, vertex + positions->offset, sizeof(point));
+                for (uint32_t axis = 0; axis < 3; ++axis) {
+                    if (!std::isfinite(point[axis])) {
+                        return Invalid("Skin position is not finite");
+                    }
+                }
+                for (uint32_t influence = 0; influence < 4; ++influence) {
+                    float weight;
+                    std::memcpy(&weight, vertex + weights->offset + influence * sizeof(float), sizeof(float));
+                    const uint8_t slot = vertex[joints->offset + influence];
+                    if (!std::isfinite(weight) || weight < 0 || slot >= data.skinInput.slots.size()) {
+                        return Invalid("Skin influence has invalid weight or slot");
+                    }
+                    if (weight > 0) {
+                        const auto &bounds = data.slotBounds[slot];
+                        if (!bounds.occupied) {
+                            return Invalid("Skin positive influence has no slot bounds");
+                        }
+                        for (uint32_t axis = 0; axis < 3; ++axis) {
+                            const float tolerance = 1e-5f * std::max(1.f, std::abs(point[axis]));
+                            if (point[axis] < bounds.bounds.min[axis] - tolerance || point[axis] > bounds.bounds.max[axis] + tolerance) {
+                                return Invalid("Skin slot bounds do not contain the influenced vertex");
+                            }
+                        }
+                    }
+                    sum += weight;
+                }
+                if (!std::isfinite(sum) || std::abs(sum - 1.f) > 1e-4f) {
+                    return Invalid("Skin weights must be normalized");
+                }
+            }
+        }
         for (uint32_t i = 0; i < data.indexCount; ++i) {
             uint32_t index = 0;
             std::memcpy(&index, indices.data() + (uint64_t(i) * indexSize), indexSize);
@@ -143,6 +204,8 @@ namespace sky::aurora {
         result.bytes           = std::move(vertices);
         result.bytes.resize(indexOffset);
         result.bytes.insert(result.bytes.end(), indices.begin(), indices.end());
+        // Buffer uploads require four-byte size alignment, including odd U16 index counts.
+        result.bytes.resize((result.bytes.size() + 3ull) & ~3ull);
         RenderMeshLod lod{.offset = indexOffset, .size = data.indexSize, .type = indexType, .command = {.indexCount = data.indexCount}};
         for (const auto &section : data.subMeshes) {
             if ((section.indexCount == 0u) || section.indexOffset > data.indexCount || section.indexCount > data.indexCount - section.indexOffset) {
@@ -203,6 +266,8 @@ namespace sky::aurora {
                 if (current == loadedRevision)
                     return;
                 cache.clear();
+                skeletalCache.clear();
+                skinBindings.PruneExpired();
                 imageCache.clear();
                 assets.clear();
                 bounds.clear();
@@ -218,8 +283,94 @@ namespace sky::aurora {
             }
             SceneResourceResult ResolveMesh(const Uuid &id, const Uuid &overrideMaterial, RendererInfo info) override
             {
+                return ResolveGeometry(id, overrideMaterial, info, false);
+            }
+            SceneSkeletalResult
+            ResolveSkeletal(const Uuid &id, const Uuid &material, const Uuid &skinId, const Uuid &rigId, RendererInfo info) override
+            {
                 Refresh();
-                const auto key = std::tuple{id, overrideMaterial, info.backend, info.deviceEpoch};
+                const auto key = std::tuple{id, material, skinId, rigId, info.backend, info.deviceEpoch};
+                if (const auto found = skeletalCache.find(key); found != skeletalCache.end()) {
+                    return found->second;
+                }
+                if (skeletalCache.size() >= 128) {
+                    return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene skeletal binding budget exceeded"};
+                }
+                const auto geometry = ResolveGeometry(id, material, info, true);
+                if (const auto *error = std::get_if<RendererError>(&geometry)) {
+                    return *error;
+                }
+                const auto *ready = std::get_if<std::shared_ptr<const SceneMeshResources>>(&geometry);
+                if (!ready || !*ready) {
+                    return {};
+                }
+                const auto skinAsset = Load(skinId);
+                const auto rigAsset  = Load(rigId);
+                if (!skinAsset || !rigAsset || skinAsset->GetType() != Name("AuroraSkin") || rigAsset->GetType() != Name("AuroraSkeleton")) {
+                    return Invalid("Skeletal mesh requires explicit Skin and Skeleton assets of the correct type");
+                }
+                if (skinAsset->GetStatus() == AssetBase::Status::FAILED || rigAsset->GetStatus() == AssetBase::Status::FAILED) {
+                    return Invalid("Skeletal mesh Skin or Skeleton failed to load");
+                }
+                if (!skinAsset->IsLoaded() || !rigAsset->IsLoaded()) {
+                    return {};
+                }
+                const auto                    mesh = std::static_pointer_cast<Asset<Mesh>>(assets.at(id));
+                const std::array<AssetPtr, 3> tuple{mesh, skinAsset, rigAsset};
+                for (size_t a = 0; a < tuple.size(); ++a) {
+                    for (size_t b = a + 1; b < tuple.size(); ++b) {
+                        const auto &first  = tuple[a]->GetProductGroup();
+                        const auto &second = tuple[b]->GetProductGroup();
+                        if (first && second && first->owner == second->owner && first->generation != second->generation) {
+                            ++revision;
+                            return {};
+                        }
+                    }
+                }
+                SkinStatus skinStatus;
+                const auto skin = FetchOrCreateSkinByAsset(std::static_pointer_cast<Asset<Skin>>(skinAsset), &skinStatus);
+                if (!skin) {
+                    return Invalid(skinStatus.message);
+                }
+                AnimationStatus rigStatus;
+                const auto      rig = FetchOrCreateSkeletonByAsset(std::static_pointer_cast<Asset<Skeleton>>(rigAsset), &rigStatus);
+                if (!rig) {
+                    return Invalid(rigStatus.message);
+                }
+                SkinTargetLayout target;
+                skinStatus = MakeSkinTargetLayout(*rig, target);
+                if (!skinStatus) {
+                    return Invalid(skinStatus.message);
+                }
+                const auto    &data   = mesh->Data();
+                auto           result = std::make_shared<SceneSkeletalResources>();
+                SkinBindingKey bindingKey{id,
+                                          skinId,
+                                          rigId,
+                                          mesh->GetSnapshotRevision(),
+                                          skinAsset->GetSnapshotRevision(),
+                                          rigAsset->GetSnapshotRevision(),
+                                          target.signature,
+                                          mesh->GetSnapshotGeneration(),
+                                          skinAsset->GetSnapshotGeneration(),
+                                          rigAsset->GetSnapshotGeneration()};
+                skinStatus = skinBindings.Resolve(data.skinInput, *skin, target, bindingKey, result->binding);
+                if (!skinStatus) {
+                    return Invalid(skinStatus.message);
+                }
+                result->geometry        = *ready;
+                result->skeleton        = {rigId, bindingKey.skeletonGeneration, bindingKey.skeletonRevision, target.signature};
+                result->referenceModels = std::move(target.referenceModels);
+                result->slotBounds      = data.slotBounds;
+                if (Revision() != loadedRevision)
+                    return {};
+                skeletalCache.emplace(key, result);
+                return std::shared_ptr<const SceneSkeletalResources>(std::move(result));
+            }
+            SceneResourceResult ResolveGeometry(const Uuid &id, const Uuid &overrideMaterial, RendererInfo info, bool skeletal)
+            {
+                Refresh();
+                const auto key = std::tuple{id, overrideMaterial, info.backend, info.deviceEpoch, skeletal};
                 if (const auto found = cache.find(key); found != cache.end()) {
                     return found->second;
                 }
@@ -241,7 +392,9 @@ namespace sky::aurora {
                     return {};
                 }
                 const auto meshAsset = std::static_pointer_cast<Asset<Mesh>>(asset);
-
+                if (meshAsset->Data().HasSkinInputs() != skeletal) {
+                    return RendererError{RendererErrorCode::UNSUPPORTED, "Mesh influence layout does not match the component pose mode"};
+                }
                 bounds[id]     = meshAsset->Data().bounds.ToAABB();
                 auto converted = ConvertSceneMesh(*meshAsset, info);
                 if (const auto *error = std::get_if<RendererError>(&converted)) {
@@ -315,7 +468,7 @@ namespace sky::aurora {
                         std::vector<RenderResourcePayload> images;
                         bool                               pending = false;
                         auto                               ready   = MaterialPayload(
-                            materialId, material, info, false,
+                            materialId, material, info, skeletal,
                             RenderVertexMask(result->payloads.front().mesh->streams, result->payloads.front().mesh->attributes), images, pending);
                         if (pending)
                             return {};
@@ -784,7 +937,9 @@ namespace sky::aurora {
             std::shared_ptr<ShaderFileSystem>                                                                          files;
             std::function<AssetPtr(const Uuid &)>                                                                      loader;
             std::map<Uuid, AssetPtr>                                                                                   assets;
-            std::map<std::tuple<Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneMeshResources>>           cache;
+            std::map<std::tuple<Uuid, Uuid, API, uint64_t, bool>, std::shared_ptr<const SceneMeshResources>>           cache;
+            std::map<std::tuple<Uuid, Uuid, Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneSkeletalResources>> skeletalCache;
+            SkinBindingCache                                                                                           skinBindings;
             std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>                          imageCache;
             std::atomic<uint64_t>                                                                                      revision{1};
             uint64_t                                                                                                   loadedRevision = 1;

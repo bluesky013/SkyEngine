@@ -7,6 +7,12 @@
       ]
     },
     {
+      "name": "Content.Module",
+      "dependencies": [
+        "Content.Metadata"
+      ]
+    },
+    {
       "name": "Aurora.ShaderCompiler",
       "dependencies": []
     },
@@ -33,6 +39,15 @@
     {
       "name": "VegetationRender",
       "dependencies": []
+    },
+    {
+      "name": "Animation.World",
+      "buildOption": "SKY_BUILD_ANIMATION",
+      "dependencies": [
+        "Animation.GraphAssets",
+        "Content.Module",
+        "Aurora.Render"
+      ]
     }
   ]
 }

@@ -1,23 +1,261 @@
-#include "ReflectionTestEnvironment.h"
 #include "WorldEditorState.h"
+#include "ReflectionTestEnvironment.h"
 
+#include <animation/IAnimationInstanceControl.h>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/components/EnvironmentComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <filesystem>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/GeneratedAssetCatalog.h>
+#include <framework/interface/Interface.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/world/WorldSubSystemRegistry.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
 using namespace sky::editor;
+
 namespace {
-    const auto *auroraMetadata = sky::editor::test::AddReflectionEnvironment([] {
-        aurora::AuroraReflection(SerializationContext::Get());
+    struct AuthoringAnimationData {
+        Uuid skeleton;
+    };
+    class AuthoringAnimationComponent final : public ComponentAdaptor<AuthoringAnimationData> {
+    public:
+        COMPONENT_RUNTIME_INFO(AuthoringAnimationComponent)
+        void SetSkeleton(const Uuid &id)
+        {
+            data.skeleton = id;
+        }
+        const Uuid &GetSkeleton() const
+        {
+            return data.skeleton;
+        }
+    };
+    struct AuthoringAnimationControl final : IAnimationInstanceControl {
+        AuthoringAnimationControl()
+        {
+            WorldSubSystemRegistration registration;
+            registration.factory = [](World &, const Any &) { return std::make_unique<IWorldSubSystem>(); };
+            EXPECT_TRUE(WorldSubSystemRegistry::Get().Register(Name("TestAnimation"), std::move(registration)));
+            Interface<IAnimationInstanceControl>::Get()->Register(*this);
+        }
+        ~AuthoringAnimationControl() override
+        {
+            WorldSubSystemRegistry::Get().Unregister(Name("TestAnimation"));
+            Interface<IAnimationInstanceControl>::Get()->UnRegister();
+        }
+        Uuid GetComponentType() const override
+        {
+            return TypeInfo<AuthoringAnimationComponent>::RegisteredId();
+        }
+        std::string_view GetWorldSystemName() const override
+        {
+            return "TestAnimation";
+        }
+        AnimationInstanceStatus Find(const World *, const Uuid &) const override
+        {
+            return {};
+        }
+        AnimationStatus Control(const AnimationInstanceHandle &, AnimationControlOp, float) override
+        {
+            return {};
+        }
+        AnimationStatus SetParameter(const AnimationInstanceHandle &, const Uuid &, const AnimationParam &) override
+        {
+            return {};
+        }
+    };
+    const auto *worldMetadata = sky::editor::test::AddReflectionEnvironment([] {
+        auto *context = SerializationContext::Get();
+        aurora::AuroraReflection(context);
+        context->Register<AuthoringAnimationData>("AuthoringAnimationData").Member<&AuthoringAnimationData::skeleton>("skeleton");
+        context->Register<AuthoringAnimationComponent>("AuthoringAnimationComponent")
+            .Member<&AuthoringAnimationComponent::SetSkeleton, &AuthoringAnimationComponent::GetSkeleton>("skeleton");
+        ComponentFactory::Get()->RegisterComponent<AuthoringAnimationComponent>("Test");
     });
+
+    class WorldSkinDefaultsTest : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            auto *context = SerializationContext::Get();
+            EditorCore::Init();
+            root       = std::filesystem::temp_directory_path() / ("sky-world-skin-defaults-" + Uuid::Create().ToString());
+            filesystem = new NativeFileSystem(FilePath(root));
+            AssetDataBase::Get()->Reset();
+            AssetDataBase::Get()->SetWorkSpaceFs(filesystem);
+        }
+        void TearDown() override
+        {
+            EditorCore::Shutdown();
+            AssetDataBase::Get()->Reset();
+            AssetDataBase::Get()->SetWorkSpaceFs({});
+            filesystem.Reset(nullptr);
+            std::error_code error;
+            std::filesystem::remove_all(root, error);
+            EXPECT_FALSE(error);
+        }
+        std::filesystem::path root;
+        NativeFileSystemPtr   filesystem;
+    };
+} // namespace
+
+TEST_F(WorldSkinDefaultsTest, DeferredComponentCreationRestoresObjectIdentityAndBindingAcrossUndoAndReopen)
+{
+    auto *context = SerializationContext::Get();
+
+    AuthoringAnimationControl control;
+    WorldDocument             document((root / "components.world").string());
+    SelectionService          selection;
+    WorldEditorState          editor(selection);
+    editor.Bind(&document);
+    editor.Create(EditorSceneObject::EMPTY);
+    auto      *actor       = document.GetWorld()->GetActors().front().get();
+    const auto actorId     = actor->GetUuid();
+    const auto skeletalId  = TypeInfo<aurora::SkeletalMeshComponent>::RegisteredId();
+    const auto animationId = control.GetComponentType();
+    EXPECT_FALSE(editor.RequestAddComponent(Uuid::Create()));
+    ASSERT_TRUE(editor.RequestAddComponent(skeletalId));
+    EXPECT_FALSE(actor->GetComponent(skeletalId));
+    {
+        ReflectedInspectorPanel inspector(nullptr, &editor, &selection, "Inspector");
+        EXPECT_EQ(inspector.Form().GetSections().size(), 1u);
+        editor.Tick();
+        EXPECT_EQ(inspector.Form().GetSections().size(), 2u);
+        auto *skeletal = actor->GetComponent<aurora::SkeletalMeshComponent>();
+        ASSERT_TRUE(skeletal);
+        const auto rig = Uuid::Create();
+        skeletal->SetSkeletonUuid(rig);
+        EXPECT_FALSE(editor.RequestAddComponent(skeletalId));
+        ASSERT_TRUE(editor.RequestAddComponent(animationId));
+        selection.Clear();
+        editor.Tick();
+        auto *animation = actor->GetComponent<AuthoringAnimationComponent>();
+        ASSERT_TRUE(animation);
+        EXPECT_EQ(animation->GetSkeleton(), rig);
+        EXPECT_EQ(skeletal->GetPoseMode(), aurora::SkeletalPoseMode::SameActorAnimation);
+        bool enabled = false;
+        ASSERT_TRUE(document.IsSubSystemEnabled("TestAnimation", enabled));
+        EXPECT_TRUE(enabled);
+        selection.SetSelection({{SelectionType::ENTITY, actorId}});
+        ASSERT_EQ(inspector.Form().GetSections().size(), 3u);
+        PropertyModel model({animation->GetReflectedObject(), GetTypeNode(animationId)});
+        const auto    changedRig = Uuid::Create();
+        auto         &commands   = EditorCore::GetCommandService();
+        commands.Execute(editor.MakeEditCommand(actorId, model.GetDescriptors().front(), Any(changedRig)));
+        EXPECT_EQ(animation->GetSkeleton(), changedRig);
+        ASSERT_TRUE(commands.Undo());
+        ASSERT_TRUE(commands.Undo());
+        editor.Tick();
+        EXPECT_FALSE(actor->GetComponent(animationId));
+        EXPECT_EQ(inspector.Form().GetSections().size(), 2u);
+        EXPECT_EQ(skeletal->GetPoseMode(), aurora::SkeletalPoseMode::ReferencePose);
+        EXPECT_FALSE(document.IsSubSystemEnabled("TestAnimation", enabled));
+        ASSERT_TRUE(commands.Redo());
+        editor.Tick();
+        EXPECT_EQ(actor->GetComponent(animationId), animation);
+        ASSERT_TRUE(document.IsSubSystemEnabled("TestAnimation", enabled));
+        EXPECT_TRUE(enabled);
+        EXPECT_EQ(inspector.Form().GetSections().size(), 3u);
+        ASSERT_TRUE(commands.Redo());
+        EXPECT_EQ(animation->GetSkeleton(), changedRig);
+        editor.DeleteSelection();
+        ASSERT_TRUE(commands.Undo());
+        EXPECT_EQ(document.GetWorld()->GetActorByUuid(actorId), actor);
+        ASSERT_TRUE(document.Save());
+        WorldDocument reopened((root / "components.world").string());
+        ASSERT_TRUE(reopened.Load());
+        auto *restored = reopened.GetWorld()->GetActorByUuid(actorId);
+        ASSERT_TRUE(restored);
+        EXPECT_EQ(restored->GetComponent<AuthoringAnimationComponent>()->GetSkeleton(), changedRig);
+        EXPECT_EQ(restored->GetComponent<aurora::SkeletalMeshComponent>()->GetPoseMode(), aurora::SkeletalPoseMode::SameActorAnimation);
+        auto play = reopened.CreatePlayWorld();
+        EXPECT_NE(play->GetSubSystem(Name("TestAnimation")), nullptr);
+        editor.Bind(nullptr);
+    }
+}
+
+TEST_F(WorldSkinDefaultsTest, MeshSelectionIsOneUndoableExplicitBindingAndAmbiguousImportsStayUnbound)
+{
+    ASSERT_TRUE(filesystem->WriteFileExclusive("character.model", std::array<uint8_t, 1>{1}));
+    auto      *database = AssetDataBase::Get();
+    const auto source   = database->RegisterAsset("character.model", false);
+    ASSERT_TRUE(source);
+    const std::array<GeneratedAssetDescriptor, 4> children{
+        {{"skin:a", "AuroraSkin"}, {"rig:a", "AuroraSkeleton"}, {"skin:b", "AuroraSkin"}, {"rig:b", "AuroraSkeleton"}}};
+    GeneratedAssetManifest             generated;
+    std::map<std::string, std::string> defaults{{"binding:a:mesh", "$source"}, {"binding:a:skin", "skin:a"}, {"binding:a:skeleton", "rig:a"}};
+    ASSERT_TRUE(database->UpdateGeneratedProducts(source->uuid, children, defaults, generated));
+    std::map<std::string, Uuid> ids;
+    ASSERT_TRUE(database->GetGeneratedDefaults(source->uuid, ids));
+    WorldDocument    document((root / "character.world").string());
+    SelectionService selection;
+    WorldEditorState editor(selection);
+    editor.Bind(&document);
+    auto         *actor     = document.GetWorld()->CreateActor("Character");
+    auto         *component = actor->AddComponent<aurora::SkeletalMeshComponent>();
+    const auto    id        = actor->GetUuid();
+    PropertyModel model(PropertyObject{component->GetReflectedObject(), GetTypeNode(component->GetTypeId())});
+    const auto   &fields = model.GetDescriptors();
+    const auto    mesh   = std::find_if(fields.begin(), fields.end(), [](const auto &field) { return field.GetName() == "mesh"; });
+    ASSERT_NE(mesh, fields.end());
+    auto &commands = EditorCore::GetCommandService();
+    commands.Execute(editor.MakeEditCommand(id, *mesh, Any(source->uuid)));
+    EXPECT_EQ(component->GetSkinUuid(), ids.at("binding:a:skin"));
+    EXPECT_EQ(component->GetSkeletonUuid(), ids.at("binding:a:skeleton"));
+    EXPECT_EQ(component->GetPoseMode(), aurora::SkeletalPoseMode::ReferencePose);
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_FALSE(component->GetMeshUuid());
+    EXPECT_FALSE(component->GetSkinUuid());
+    EXPECT_FALSE(component->GetSkeletonUuid());
+    ASSERT_TRUE(commands.Redo());
+    selection.SetSelection({{SelectionType::ENTITY, id}});
+    editor.DeleteSelection();
+    EXPECT_FALSE(document.GetWorld()->GetActorByUuid(id));
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(document.GetWorld()->GetActorByUuid(id)->GetComponent<aurora::SkeletalMeshComponent>(), component);
+    ASSERT_TRUE(document.Save());
+    WorldDocument reopened((root / "character.world").string());
+    std::string   saved;
+    ASSERT_TRUE(filesystem->OpenFile("character.world")->ReadString(saved));
+    rapidjson::Document savedDocument;
+    savedDocument.Parse(saved.c_str());
+    ASSERT_TRUE(savedDocument.HasMember("assetRoots"));
+    ASSERT_EQ(savedDocument["assetRoots"].Size(), 3u);
+    std::map<std::string, std::string> roots;
+    for (const auto &reference : savedDocument["assetRoots"].GetArray())
+        roots[reference["type"].GetString()] = reference["uuid"].GetString();
+    EXPECT_EQ(roots.at("AuroraMesh"), source->uuid.ToString());
+    EXPECT_EQ(roots.at("AuroraSkin"), component->GetSkinUuid().ToString());
+    EXPECT_EQ(roots.at("AuroraSkeleton"), component->GetSkeletonUuid().ToString());
+    ASSERT_TRUE(reopened.Load());
+    const auto *restored = reopened.GetWorld()->GetActorByUuid(id)->GetComponent<aurora::SkeletalMeshComponent>();
+    ASSERT_TRUE(restored);
+    EXPECT_EQ(restored->GetData(), component->GetData());
+    const auto explicitBinding = component->GetData();
+    commands.Execute(editor.MakeEditCommand(id, *mesh, Any(Uuid::Create())));
+    EXPECT_EQ(component->GetSkinUuid(), explicitBinding.skin);
+    EXPECT_EQ(component->GetSkeletonUuid(), explicitBinding.skeleton);
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(component->GetData(), explicitBinding);
+    commands.Clear();
+    component->SetConfig({});
+    defaults.insert({{"binding:b:mesh", "$source"}, {"binding:b:skin", "skin:b"}, {"binding:b:skeleton", "rig:b"}});
+    ASSERT_TRUE(database->UpdateGeneratedProducts(source->uuid, children, defaults, generated));
+    commands.Execute(editor.MakeEditCommand(id, *mesh, Any(source->uuid)));
+    EXPECT_EQ(component->GetMeshUuid(), source->uuid);
+    EXPECT_FALSE(component->GetSkinUuid());
+    EXPECT_FALSE(component->GetSkeletonUuid());
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_FALSE(component->GetMeshUuid());
+    editor.Bind(nullptr);
 }
 TEST(WorldEditorState, CreateEditUndoDeleteAndReopenKeepLogicalSceneData)
 {

@@ -7,6 +7,21 @@
       ]
     },
     {
+      "name": "Content.Module",
+      "dependencies": [
+        "Content.Metadata"
+      ]
+    },
+    {
+      "name": "Animation.World",
+      "buildOption": "SKY_BUILD_ANIMATION",
+      "dependencies": [
+        "Animation.GraphAssets",
+        "Content.Module",
+        "Aurora.Render"
+      ]
+    },
+    {
       "name": "Aurora.ShaderCompiler",
       "dependencies": []
     },

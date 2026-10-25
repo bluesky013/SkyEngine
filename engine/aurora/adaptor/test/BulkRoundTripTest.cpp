@@ -6,6 +6,8 @@
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/rhi/VertexSemantic.h>
+#include <aurora/adaptor/assets/SkinAsset.h>
 
 #include <core/math/Matrix4.h>
 #include <framework/asset/AssetManager.h>
@@ -36,12 +38,7 @@ namespace {
 
 } // namespace
 
-class AuroraAssetBulkTest : public ::testing::Test {
-public:
-    static void SetUpTestSuite()
-    {
-    }
-};
+class AuroraAssetBulkTest : public ::testing::Test {};
 
 TEST_F(AuroraAssetBulkTest, ImageBulkRoundTrip)
 {
@@ -83,42 +80,41 @@ TEST_F(AuroraAssetBulkTest, ImageBulkRoundTrip)
     loaded.reset();
 }
 
-TEST_F(AuroraAssetBulkTest, MeshBulkAndSkinRoundTrip)
+TEST_F(AuroraAssetBulkTest, MeshBulkAndIndependentSkinRoundTrip)
 {
     MakeBundle("meshbulk", "sky_aurora_mesh_bulk");
 
     const Uuid                 id  = Uuid::Create();
     const std::vector<uint8_t> vtx = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    const std::vector<uint8_t> idx = {0, 1, 2};
+    const std::vector<uint8_t> idx = {0, 0, 0, 0, 0, 0};
 
-    const std::vector<Matrix4>  bindMatrices = {Matrix4::Identity(), Matrix4::Identity()};
-    const std::vector<uint32_t> boneMapping  = {0, 1};
+    const Uuid skinId = Uuid::Create();
 
     {
         auto asset = AssetManager::Get()->FindOrCreateAsset<aurora::Mesh>(id);
         ASSERT_NE(asset, nullptr);
-        auto &data            = asset->Data();
-        data.vertexStride     = vtx.size();
-        data.vertexCount      = 1;
-        data.vertexOffset     = 0;
-        data.vertexSize       = vtx.size();
-        data.indexOffset      = vtx.size();
-        data.indexSize        = idx.size();
-        data.indexCount       = 3;
-        data.indexType        = 0;
-        data.skinBoneNames    = {"root", "spine"};
-        data.skinBoneCount    = static_cast<uint32_t>(bindMatrices.size());
-        data.skinMappingCount = static_cast<uint32_t>(boneMapping.size());
-        data.skinOffset       = data.indexOffset + data.indexSize;
-        data.skinData.resize(data.skinBoneCount * sizeof(Matrix4) + data.skinMappingCount * sizeof(uint32_t));
-        std::memcpy(data.skinData.data(), bindMatrices.data(), bindMatrices.size() * sizeof(Matrix4));
-        std::memcpy(data.skinData.data() + data.skinBoneCount * sizeof(Matrix4), boneMapping.data(), boneMapping.size() * sizeof(uint32_t));
-        data.skinSize = data.skinData.size();
+        auto &data        = asset->Data();
+        data.vertexStride = vtx.size();
+        data.vertexCount  = 1;
+        data.vertexOffset = 0;
+        data.vertexSize   = vtx.size();
+        data.indexOffset  = vtx.size();
+        data.indexSize    = idx.size();
+        data.indexCount   = 3;
+        data.indexType    = static_cast<uint32_t>(aurora::IndexType::U16);
+        data.attributes.push_back({static_cast<uint8_t>(aurora::VertexSemantic::POSITION), 0, 0, static_cast<uint32_t>(aurora::Format::F_RGB32), 0});
+        data.subMeshes.push_back({0, 3, 0});
 
         asset->AddBulk(vtx.data(), vtx.size());
         asset->AddBulk(idx.data(), idx.size());
-        asset->AddBulk(data.skinData.data(), data.skinData.size());
         AssetManager::Get()->SaveAsset(asset, "meshbulk");
+
+        auto  skinAsset        = AssetManager::Get()->FindOrCreateAsset<aurora::Skin>(skinId);
+        auto &skinData         = skinAsset->Data();
+        skinData.sourceOwner   = id;
+        skinData.binding.input = {42, {"slot0", "slot1"}};
+        skinData.binding.binds = {{Matrix4::Identity(), "root", 0}, {Matrix4::Identity(), "spine", 0}};
+        AssetManager::Get()->SaveAsset(skinAsset, "meshbulk");
     }
 
     auto loaded = AssetManager::Get()->LoadAsset<aurora::Mesh>(id);
@@ -129,11 +125,15 @@ TEST_F(AuroraAssetBulkTest, MeshBulkAndSkinRoundTrip)
     EXPECT_EQ(loaded->ReadBulk(loaded->Data().vertexOffset, loaded->Data().vertexSize), vtx);
     EXPECT_EQ(loaded->ReadBulk(loaded->Data().indexOffset, loaded->Data().indexSize), idx);
 
-    auto skin = aurora::CreateSkinFromMeshAsset(*loaded);
+    auto skinAsset = AssetManager::Get()->LoadAsset<aurora::Skin>(skinId);
+    ASSERT_NE(skinAsset, nullptr);
+    skinAsset->BlockUntilLoaded();
+    ASSERT_TRUE(skinAsset->IsLoaded());
+    const auto skin = aurora::FetchOrCreateSkinByAsset(skinAsset);
     ASSERT_NE(skin, nullptr);
-    EXPECT_EQ(skin->GetInverseBindMatrices().size(), 2u);
-    ASSERT_EQ(skin->GetBoneMapping().size(), 2u);
-    EXPECT_EQ(skin->GetBoneMapping()[1], 1u);
+    EXPECT_EQ(skin->GetData().binds.size(), 2U);
+    EXPECT_EQ(skin->GetData().binds[1].targetBone, "spine");
+    EXPECT_EQ(skinAsset->Data().sourceOwner, id);
 
     loaded.reset();
 }

@@ -47,6 +47,13 @@ TEST(ModuleManagerStaticTest, StaticModuleLoadsWithoutDlopen)
     EXPECT_TRUE(raw->started);
 }
 
+TEST(ModuleManagerStaticTest, RuntimeBuildOptionsAreKnownAndUnknownOptionsStayDistinctFromDisabled)
+{
+    EXPECT_TRUE(sky::ModuleManager::GetBuildOption("SKY_BUILD_ANIMATION").has_value());
+    EXPECT_TRUE(sky::ModuleManager::GetBuildOption("SKY_BUILD_PYTHON").has_value());
+    EXPECT_FALSE(sky::ModuleManager::GetBuildOption("SKY_BUILD_UNKNOWN_FEATURE").has_value());
+}
+
 TEST(ModuleManagerStaticTest, FailedInitializationShutsDownBeforeDestroyAndNeverStartsOrTicks)
 {
     struct Counts {

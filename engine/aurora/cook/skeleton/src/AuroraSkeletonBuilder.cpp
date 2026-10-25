@@ -4,12 +4,15 @@
 
 #include <aurora/cook/skeleton/AuroraSkeletonBuilder.h>
 
+#include <array>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
+#include <framework/asset/AssetManager.h>
 
 #include <core/logger/Logger.h>
 #include <core/math/Quaternion.h>
 #include <core/math/Vector3.h>
 
+#include <cmath>
 #include <string>
 
 static const char *TAG = "AuroraSkeletonBuilder";
@@ -24,25 +27,64 @@ namespace sky::aurora {
     void AuroraSkeletonBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         result.retCode = AssetBuildRetCode::FAILED;
+        result.error.clear();
+        if (!request.assetInfo || !request.file) {
+            result.error = "skeleton cook request has no source";
+            return;
+        }
+        auto                     *manager = AssetManager::Get();
+        const auto                bundle  = request.bundle.empty() ? request.target : request.bundle;
+        ProductGroupTransaction   transaction;
+        const std::array<Uuid, 1> members{request.assetInfo->uuid};
+        if (const auto status = manager->BeginProductGroup(request.assetInfo->uuid, bundle, members, transaction); !status) {
+            result.error = status.message;
+            return;
+        }
         rapidjson::Document document;
         if (!LoadJsonDocument(request, result, document)) {
             return;
         }
 
-        auto asset = CreateProduct<sky::Skeleton>(request, result);
-        if (!asset) {
+        const auto product = manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<sky::Skeleton>::ASSET_TYPE.data()));
+        if (!product) {
+            result.error = "Skeleton handler is unavailable";
             return;
         }
+        const auto asset = std::static_pointer_cast<Asset<sky::Skeleton>>(product);
 
         asset->ResetDependencies();
         auto &data = asset->Data();
         data.clear();
         data.version = SkeletonAssetData::CURRENT_VERSION;
 
-        if (document.HasMember("bones") && document["bones"].IsArray()) {
+        if (!document.IsObject() || !document.HasMember("bones") || !document["bones"].IsArray() || document["bones"].Empty() ||
+            document["bones"].Size() > ANIM_MAX_BONE) {
+            result.error = "skeleton source requires an array of 1..256 bones";
+            return;
+        }
+        const auto validArray = [](const rapidjson::Value &bone, const char *key, uint32_t count) {
+            if (!bone.HasMember(key)) {
+                return true;
+            }
+            const auto &array = bone[key];
+            if (!array.IsArray() || array.Size() != count) {
+                return false;
+            }
+            for (const auto &value : array.GetArray()) {
+                if (!value.IsNumber() || !std::isfinite(value.GetFloat())) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        {
             for (const auto &bone : document["bones"].GetArray()) {
-                if (!bone.IsObject()) {
-                    continue;
+                if (!bone.IsObject() || !bone.HasMember("name") || !bone["name"].IsString() ||
+                    (bone.HasMember("parent") && (!bone["parent"].IsInt() || bone["parent"].GetInt() < -1 ||
+                                                  bone["parent"].GetInt() >= static_cast<int>(document["bones"].Size()))) ||
+                    !validArray(bone, "translation", 3) || !validArray(bone, "scale", 3) || !validArray(bone, "rotation", 4)) {
+                    result.error = "invalid skeleton bone identity, parent or TRS array";
+                    return;
                 }
                 BoneData boneData;
                 if (bone.HasMember("name") && bone["name"].IsString()) {
@@ -78,7 +120,17 @@ namespace sky::aurora {
             }
         }
 
-        FinishProduct(asset, request, result);
+        const auto status = Skeleton::Validate(data);
+        if (!status) {
+            result.error = status.message;
+            return;
+        }
+        ProductGroupSnapshotPtr published;
+        if (const auto saved = manager->SaveProductGroup(transaction, bundle, std::array<AssetPtr, 1>{asset}, published); !saved) {
+            result.error = saved.message;
+            return;
+        }
+        result.retCode = AssetBuildRetCode::SUCCESS;
         LOG_I(TAG, "built skeleton '%s' (%u bones)", request.assetInfo->path.GetStr().c_str(), static_cast<uint32_t>(data.boneData.size()));
     }
 

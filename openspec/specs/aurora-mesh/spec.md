@@ -46,28 +46,13 @@ TBD - created by archiving change aurora-mesh. Update Purpose after archive.
 - **WHEN** 阅读 `aurora/resource/Mesh.h`
 - **THEN** 无 morph buffer、无 shader 混合代码（blend shape 仅数据结构）
 
-### Requirement: 蒙皮（Skeleton + JOINTS/WEIGHTS 语义）
-
-`VertexSemantic` SHALL 新增 `JOINTS`（4 骨骼索引）与 `WEIGHTS`（4 权重）两个语义，`kVertexSemanticCount` SHALL 从 13 变为 15；蒙皮顶点数据 SHALL 是带这两个语义的 vertex stream（落在 `RenderGeometry`），不引入新类型。
-
-`Skeleton` SHALL 继承 `RefObject`，持有骨骼列表（`Bone{name, parent, inverseBind}`，`parent` 为父骨骼索引，-1 表 root），提供 `GetBones`/`GetBoneCount`。
-
-`Mesh` SHALL 提供 `SetSkeleton(CounterPtr<Skeleton>)` / `GetSkeleton()` / `HasSkin()`（`skeleton != nullptr`）。骨架被多个 Mesh 共享（`CounterPtr`）。
-
-本能力 SHALL 只落「语义 + 骨架 + 引用」；GPU 蒙皮执行（skinning buffer + vertex shader）SHALL NOT 在本能力内实现。
+### Requirement: 蒙皮输入槽与独立实例绑定
+VertexSemantic SHALL 保留 JOINTS / WEIGHTS 及名称解析。JOINTS SHALL 表示四个 Skin 输入槽索引，WEIGHTS SHALL 表示对应权重，数据留在 RenderGeometry 顶点流。Mesh SHALL 不定义或引用 Aurora Skeleton，不持有选定 Skin，不暴露 SetSkeleton/GetSkeleton/HasSkin 或 SetSkin/GetSkin。Skin 与实例绑定、palette 和 GPU 执行 SHALL 遵守 aurora-skinning capability；本类型不直接管理 GPU 蒙皮任务。
 
 #### Scenario: 蒙皮顶点语义
+- **WHEN** 读取含 JOINTS / WEIGHTS 的顶点布局
+- **THEN** 语义名称 SHALL 能解析，JOINTS SHALL 按绑定槽解释而非直接索引 Skeleton
 
-- **WHEN** 阅读 `VertexSemantic.h`
-- **THEN** 含 `JOINTS` / `WEIGHTS` 枚举，`kVertexSemanticCount == 15`；`VertexSemanticName`/`ParseVertexSemantic` 支持两者
-
-#### Scenario: 挂接骨架
-
-- **WHEN** `mesh.SetSkeleton(skel)` 后
-- **THEN** `mesh.HasSkin() == true`、`mesh.GetSkeleton() == skel`
-
-#### Scenario: GPU 蒙皮不在本能力
-
-- **WHEN** 阅读 `aurora/resource/Mesh.h`
-- **THEN** 无 skinning buffer、无 shader 蒙皮代码（蒙皮仅语义 + 骨架引用）
-
+#### Scenario: 共享 mesh 的实例绑定隔离
+- **WHEN** 两个实例对同一 Mesh 选择不同 Skin
+- **THEN** 几何资源 SHALL 保持不变，所选绑定 SHALL 由各实例保存

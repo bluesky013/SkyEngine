@@ -21,6 +21,8 @@ namespace sky {
 
     bool Actor::EmplaceComponent(const Uuid &typeId, ComponentBase *component)
     {
+        if (!component || component->GetTypeId() != typeId || storage.contains(typeId))
+            return false;
         component->actor = this;
         auto res         = storage.emplace(typeId, component);
         if (!res.second) {
@@ -51,15 +53,35 @@ namespace sky {
 
     void Actor::RemoveComponent(const Uuid &typeId)
     {
+        DetachComponent(typeId);
+    }
+
+    Actor::ComponentPtr Actor::DetachComponent(const Uuid &typeId)
+    {
         auto iter = storage.find(typeId);
         if (iter == storage.end()) {
-            return;
+            return {};
         }
 
         if (world != nullptr) {
             iter->second->OnDetachFromWorld();
         }
+        auto component = std::move(iter->second);
         storage.erase(iter);
+        component->actor = nullptr;
+        return component;
+    }
+
+    bool Actor::AttachComponent(ComponentPtr &component)
+    {
+        if (!component || component->GetActor() || storage.contains(component->GetTypeId()))
+            return false;
+        auto *raw = component.get();
+        storage.emplace(raw->GetTypeId(), std::move(component));
+        raw->actor = this;
+        if (world)
+            raw->OnAttachToWorld();
+        return true;
     }
 
     void Actor::SaveJson(JsonOutputArchive &archive)

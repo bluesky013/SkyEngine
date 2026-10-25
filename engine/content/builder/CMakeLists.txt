@@ -27,3 +27,10 @@ sky_add_library(TARGET Content.Builder.Module SHARED
         Framework
 )
 sky_add_dependency(TARGET Content.Builder.Module DEPENDENCIES Launcher SandboxEditor AssetTool)
+
+if (SKY_BUILD_TEST)
+    file(GLOB TEST_FILES test/*.cpp)
+    sky_add_test(TARGET Content.BuilderTest
+        SOURCES ${TEST_FILES}
+        LIBS Content.Builder.Static 3rdParty::googletest)
+endif ()

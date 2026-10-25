@@ -1,6 +1,8 @@
 #pragma once
 
+#include <aurora/renderer/ISkeletalPoseSource.h>
 #include <aurora/renderer/RenderCommands.h>
+#include <aurora/resource/Skin.h>
 #include <memory>
 #include <span>
 
@@ -35,6 +37,14 @@ namespace sky::aurora {
         std::vector<SceneResourcePart>     parts;
         std::vector<RenderResourcePayload> payloads;
     };
+    struct SceneSkeletalResources {
+        std::shared_ptr<const SceneMeshResources> geometry;
+        ResolvedSkinBindingPtr                    binding;
+        SkeletalRigVersion                        skeleton;
+        std::vector<Matrix4>                      referenceModels;
+        std::vector<SkinSlotBounds>               slotBounds;
+    };
+    using SceneSkeletalResult = std::variant<std::monostate, RendererError, std::shared_ptr<const SceneSkeletalResources>>;
     inline bool SupportsSceneHighlight(const SceneMeshResources &resources, const SceneResourcePart &part)
     {
         if (!part.surface.SupportsGeometry())
@@ -83,6 +93,10 @@ namespace sky::aurora {
         virtual ~ISceneResourceSource() = default;
         // Pending is explicit; successful results own all CPU data and exact versions.
         virtual SceneResourceResult ResolveMesh(const Uuid &mesh, const Uuid &material, RendererInfo info) = 0;
+        virtual SceneSkeletalResult ResolveSkeletal(const Uuid &, const Uuid &, const Uuid &, const Uuid &, RendererInfo)
+        {
+            return RendererError{RendererErrorCode::UNSUPPORTED, "Scene source does not provide skeletal resources"};
+        }
         // Semantic changes advance this revision; initial asynchronous readiness does not.
         virtual uint64_t Revision() const
         {

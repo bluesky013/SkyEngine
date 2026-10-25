@@ -117,6 +117,22 @@ namespace sky {
     {
         archive.StartObject();
 
+        std::vector<ComponentAssetReference> assets;
+        for (const auto &actor : actors)
+            for (const auto &[type, component] : actor->GetComponents())
+                component->CollectAssetReferences(assets);
+        archive.Key("assetRoots");
+        archive.StartArray();
+        for (const auto &asset : assets) {
+            archive.StartObject();
+            archive.Key("uuid");
+            archive.SaveValue(asset.uuid.ToString());
+            archive.Key("type");
+            archive.SaveValue(asset.type);
+            archive.EndObject();
+        }
+        archive.EndArray();
+
         archive.Key("actors");
         archive.StartArray();
 
@@ -280,6 +296,7 @@ namespace sky {
 
     void World::Reset()
     {
+        runtimeId = Uuid::Create();
         for (auto &actor : actors) {
             actor->DetachFromWorld();
         }

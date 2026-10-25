@@ -57,6 +57,7 @@ sky_add_library(TARGET Framework STATIC
         ${APP_INC}
     PRIVATE_INC
         src
+        "${CMAKE_BINARY_DIR}/generated/framework"
     PUBLIC_INC
         include
     LINK_LIBS

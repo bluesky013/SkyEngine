@@ -105,6 +105,7 @@ if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
     sky_add_test(TARGET EditorWidgetsTest
         SOURCES
             EditorWidgetsTest.cpp
+            GraphCanvasTest.cpp
             EditorScrollbarTest.cpp
             ReflectedFormWidgetsTest.cpp
             main.cpp

@@ -10,7 +10,7 @@
 
 namespace sky::aurora::cook {
 
-    void WriteMeshAsset(const CookedMesh &mesh, const CookSkin &skin, const Uuid &skeleton, MeshAssetData &out);
+    void WriteMeshAsset(const CookedMesh &mesh, MeshAssetData &out);
     void WriteSkeletonAsset(const CookMeshSource &source, SkeletonAssetData &out);
 
 } // namespace sky::aurora::cook

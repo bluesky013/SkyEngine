@@ -16,7 +16,7 @@ namespace sky::aurora::cook {
     struct MeshBuildConfig {
         bool tangents = true; // keep tangent attribute when the source has one
         bool optimize = true; // meshopt vertex cache / overdraw / vertex fetch
-        bool skinning = true; // absorb skin into the mesh (+ emit the skeleton asset) for skinned sources
+        bool skinning = true; // emit independent Skin and Skeleton products for skinned sources
     };
 
     struct MeshBuildPresets {

@@ -1,5 +1,5 @@
 //
-// Mesh tests: CPU data interface + Mesh structure + RenderGeometry/Skin attach.
+// Mesh tests: CPU data interface, independent geometry and vertex semantics.
 //
 
 #include <aurora/resource/Mesh.h>
@@ -82,24 +82,6 @@ TEST(MeshResourceTest, MeshStructure)
     EXPECT_EQ(mesh.GetBlendShapes()[0].positionDeltas.size(), 24u);
 
     EXPECT_EQ(mesh.GetName(), sky::Name("cube"));
-    EXPECT_FALSE(mesh.HasSkin());
-}
-
-TEST(MeshResourceTest, SkinAttach)
-{
-    Mesh mesh(sky::Name("skinned"));
-
-    auto skin = sky::CounterPtr<Skin>(new Skin());
-    skin->SetInverseBindMatrices({sky::Matrix4::Identity(), sky::Matrix4::Identity()});
-    skin->SetBoneMatrices({sky::Matrix4::Identity(), sky::Matrix4::Identity()});
-    skin->SetBoneMapping({0, 1});
-
-    mesh.SetSkin(skin);
-    EXPECT_TRUE(mesh.HasSkin());
-    ASSERT_NE(mesh.GetSkin(), nullptr);
-    EXPECT_EQ(mesh.GetSkin()->GetInverseBindMatrices().size(), 2u);
-    EXPECT_EQ(mesh.GetSkin()->GetBoneMatrices().size(), 2u);
-    EXPECT_EQ(mesh.GetSkin()->GetBoneMapping().size(), 2u);
 }
 
 TEST(MeshResourceTest, VertexSemanticSkin)

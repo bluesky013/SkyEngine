@@ -7,8 +7,10 @@
 #include <content/adaptor/assets/AnimationAsset.h>
 
 #include <core/logger/Logger.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/serialization/BinaryArchive.h>
 
+#include <array>
 #include <string>
 
 static const char *TAG = "ContentAnimationBuilder";
@@ -19,9 +21,6 @@ namespace sky::builder {
     {
         if (ext == ".clip") {
             return AssetTraits<AnimationClip>::ASSET_TYPE;
-        }
-        if (ext == ".graph") {
-            return AssetTraits<Animation>::ASSET_TYPE;
         }
         return {};
     }
@@ -35,25 +34,42 @@ namespace sky::builder {
             return;
         }
 
-        auto asset = CreateProduct<AnimationClip>(request, result);
+        auto                   *manager = AssetManager::Get();
+        ProductGroupTransaction transaction;
+        const auto              beginStatus =
+            manager->BeginProductGroup(request.assetInfo->uuid, request.bundle, std::array<Uuid, 1>{request.assetInfo->uuid}, transaction);
+        if (!beginStatus) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            result.error   = beginStatus.message;
+            return;
+        }
+        auto asset = std::static_pointer_cast<Asset<AnimationClip>>(
+            manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<AnimationClip>::ASSET_TYPE.data())));
         if (!asset) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            result.error   = "animation clip handler is unavailable";
             return;
         }
 
         auto               archive = request.file->ReadAsArchive();
         BinaryInputArchive bin(*archive);
 
-        auto &data = asset->Data();
-        data.LoadSource(bin);
-        if (data.version != AnimationClipAssetData::CURRENT_VERSION) {
+        auto      &data   = asset->Data();
+        const auto status = data.LoadSource(bin);
+        if (!status) {
             result.retCode = AssetBuildRetCode::FAILED;
-            result.error   = "unsupported clip version";
-            LOG_E(TAG, "unsupported clip version in %s", request.assetInfo->path.GetStr().c_str());
+            result.error   = status.message;
+            LOG_E(TAG, "%s: %s", request.assetInfo->path.GetStr().c_str(), status.message.c_str());
             return;
         }
 
         for (auto &channel : data.nodeChannels) {
-            channel.Compress();
+            const auto compressionStatus = channel.Compress();
+            if (!compressionStatus) {
+                result.error   = compressionStatus.message;
+                result.retCode = AssetBuildRetCode::FAILED;
+                return;
+            }
         }
 
         // Lay the compressed channels out into the channel table + product bulk.
@@ -65,28 +81,16 @@ namespace sky::builder {
             AddAssetDependency(asset, request, data.skeleton);
         }
 
-        FinishProduct(asset, request, result);
+        ProductGroupSnapshotPtr published;
+        const auto              saved = manager->SaveProductGroup(transaction, request.bundle, std::array<AssetPtr, 1>{asset}, published);
+        if (!saved) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            result.error   = saved.message;
+            return;
+        }
+        result.retCode = AssetBuildRetCode::SUCCESS;
         LOG_I(TAG, "built animation clip '%s' (%u channels)", request.assetInfo->path.GetStr().c_str(),
               static_cast<uint32_t>(data.nodeChannels.size()));
-    }
-
-    void AnimationBuilder::RequestGraph(const AssetBuildRequest &request, AssetBuildResult &result)
-    {
-        rapidjson::Document document;
-        if (!LoadJsonDocument(request, result, document)) {
-            return;
-        }
-
-        auto asset = CreateProduct<Animation>(request, result);
-        if (!asset) {
-            return;
-        }
-
-        auto &data   = asset->Data();
-        data.version = AnimationAssetData::CURRENT_VERSION;
-
-        FinishProduct(asset, request, result);
-        LOG_I(TAG, "built animation graph '%s'", request.assetInfo->path.GetStr().c_str());
     }
 
     void AnimationBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
@@ -95,8 +99,7 @@ namespace sky::builder {
 
         if (request.assetInfo->ext == ".clip") {
             RequestClip(request, result);
-        } else if (request.assetInfo->ext == ".graph") {
-            RequestGraph(request, result);
+
         }
     }
 

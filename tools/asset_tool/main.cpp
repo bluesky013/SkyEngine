@@ -3,6 +3,7 @@
 //
 
 #include "CookWorkerHost.h"
+#include "ProductAudit.h"
 
 #include <core/cmdline/CmdParser.h>
 #include <core/file/MultiFileSystem.h>
@@ -18,6 +19,7 @@
 #include <cstdio>
 #include <future>
 #include <string>
+#include <vector>
 
 using namespace sky;
 
@@ -45,19 +47,31 @@ namespace {
         {
             return platform;
         }
+        const std::string &AuditManifest() const
+        {
+            return auditManifest;
+        }
 
     protected:
         void ParseStartArgs() override
         {
             CmdOptions options("AssetTool", "SkyEngine asset cook worker");
             options.allow_unrecognised_options();
+            options.add_options()("audit-products", "Verify a staged package asset-roots.json without source access or cook",
+                                  CmdValue<std::string>());
             options.add_options()("p,project", "Project Directory", CmdValue<std::string>())("e,engine", "Engine Directory", CmdValue<std::string>())(
                 "i,intermediate", "Intermediate Directory",
                 CmdValue<std::string>())("m,migrate", "One-shot: seed legacy (bundle, path) UUIDs into every source manifest, then exit")(
                 "cook-all", "One-shot: cook all project sources for --platform, then exit")("platform", "Target platform for --cook-all",
                                                                                             CmdValue<std::string>())("h,help", "Print usage");
 
-            auto result = options.parse(static_cast<int32_t>(arguments.args.size()), arguments.args.data());
+            // Scripts invoke this application with argv[1..] only; cxxopts still
+            // expects a program name in slot 0.
+            std::vector<const char *> argv(arguments.args.begin(), arguments.args.end());
+            if (argv.empty() || (argv.front() != nullptr && argv.front()[0] == '-')) {
+                argv.insert(argv.begin(), "AssetTool");
+            }
+            auto result = options.parse(static_cast<int32_t>(argv.size()), argv.data());
             if (result.count("project") != 0u) {
                 projectPath = result["project"].as<std::string>();
             }
@@ -72,10 +86,17 @@ namespace {
             }
             migrate = result.count("migrate") != 0u;
             cookAll = result.count("cook-all") != 0u;
+            if (result.count("audit-products") != 0u)
+                auditManifest = result["audit-products"].as<std::string>();
         }
 
         bool LoadConfigs() override
         {
+            if (!auditManifest.empty()) {
+                if (moduleManager && ModuleManager::GetBuildOption("SKY_BUILD_COMPRESSION").value_or(false))
+                    moduleManager->RegisterModule(ModuleInfo{"CompressionModule", {}});
+                return true;
+            }
             if (moduleManager) {
                 // Builder modules register the concrete AssetBuilders; missing DLLs are
                 // skipped by ModuleManager and cooks then fail observably.
@@ -84,12 +105,17 @@ namespace {
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});
+#if SKY_HAS_ANIMATION_BUILDER
+                moduleManager->RegisterModule(ModuleInfo{"Animation.Builder", {"Animation.GraphAssets"}});
+#endif
             }
             return true;
         }
 
         bool PreInit() override
         {
+            if (!auditManifest.empty())
+                return true;
             if (projectPath.empty() || enginePath.empty()) {
                 LOG_E(TAG, "worker requires --project and --engine");
                 return false;
@@ -119,6 +145,8 @@ namespace {
 
         void PostInit() override
         {
+            if (!auditManifest.empty())
+                return;
             // Builders are registered by the modules after PreInit. Load their
             // settings now, with project files overriding deployed engine defaults.
             auto                       *builders = AssetBuilderManager::Get();
@@ -133,6 +161,7 @@ namespace {
         std::string enginePath;
         std::string intermediatePath;
         std::string platform;
+        std::string auditManifest;
         bool        migrate = false;
         bool        cookAll = false;
     };
@@ -152,6 +181,15 @@ int main(int argc, char **argv)
     WorkerApplication app;
     if (!app.Init(argc, argv)) {
         return -1;
+    }
+
+    if (!app.AuditManifest().empty()) {
+        const auto status = AuditPackagedProducts(app.AuditManifest());
+        if (!status)
+            LOG_E(TAG, "package audit failed: %s", status.message.c_str());
+        else
+            LOG_I(TAG, "package dependency closure verified without source access");
+        return status ? 0 : 1;
     }
 
     // Populate the source catalog (needs builders registered by the modules above).

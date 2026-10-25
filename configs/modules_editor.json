@@ -1,6 +1,18 @@
 {
   "modules": [
     {
+      "name": "Content.Module",
+      "dependencies": [
+        "Content.Metadata"
+      ]
+    },
+    {
+      "name": "Content.Builder.Module",
+      "dependencies": [
+        "Content.Metadata"
+      ]
+    },
+    {
       "name": "Aurora.Render",
       "dependencies": [
         "Aurora.Metadata"
@@ -34,7 +46,8 @@
         "Aurora.Render",
         "Aurora.ShaderCompiler",
         "Aurora.Render.Editor",
-        "Content.Views"
+        "Content.Views",
+        "Content.Builder.Module"
       ]
     },
     {
@@ -44,6 +57,32 @@
     {
       "name": "RecastNavigation",
       "dependencies": []
+    },
+    {
+      "name": "Animation.World",
+      "buildOption": "SKY_BUILD_ANIMATION",
+      "dependencies": [
+        "Animation.GraphAssets",
+        "Content.Module",
+        "Aurora.Render"
+      ]
+    },
+    {
+      "name": "Animation.Builder",
+      "buildOption": "SKY_BUILD_ANIMATION",
+      "dependencies": [
+        "Animation.GraphAssets"
+      ]
+    },
+    {
+      "name": "Animation.Editor",
+      "buildOption": "SKY_BUILD_ANIMATION",
+      "dependencies": [
+        "Animation.GraphAssets",
+        "Animation.World",
+        "Aurora.Render.Editor",
+        "Content.Views"
+      ]
     }
   ]
 }

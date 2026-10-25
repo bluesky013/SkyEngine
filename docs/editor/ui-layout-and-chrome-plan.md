@@ -1420,7 +1420,7 @@ rebuild/run; renderer/RHI/RDG/Cocoa/Core Event behavior changes remain outside t
 
 ### 20.4 Separate follow-ups found during diagnosis
 
-- ModuleManager currently calls RegisterMeta before Init. If Init returns false, the local dynamic
+- Historical finding (resolved by `refactor-process-owned-reflection` on 2026-10-25): ModuleManager called RegisterMeta before Init. If Init returns false, the local dynamic
   library owner can unload while registered metadata remains, and the raw module instance leaks.
   The stale Recast module could expose that failure path. A separate lifecycle fix needs RAII
   instance ownership and a library/metadata cleanup or residency contract; rebuilding modules

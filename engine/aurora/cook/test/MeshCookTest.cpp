@@ -180,9 +180,9 @@ TEST(MeshCookWriterTest, MeshAssetRoundTrip)
 
     Uuid          skeleton; // no skeleton
     MeshAssetData data;
-    WriteMeshAsset(mesh, CookSkin{}, skeleton, data);
+    WriteMeshAsset(mesh, data);
     EXPECT_EQ(data.version, MeshAssetData::CURRENT_VERSION);
-    EXPECT_FALSE(data.HasSkin());
+    EXPECT_FALSE(data.HasSkinInputs());
     EXPECT_EQ(data.vertexSize, mesh.vertexData.size());
     EXPECT_EQ(data.indexSize, mesh.indexData.size());
 
@@ -206,38 +206,13 @@ TEST(MeshCookWriterTest, VersionMismatchRejected)
 {
     MeshAssetData data;
     CookedMesh    mesh = CookQuad();
-    WriteMeshAsset(mesh, CookSkin{}, Uuid{}, data);
+    WriteMeshAsset(mesh, data);
     data.version = 1; // v1 payloads must be rejected by the current loader
 
     MeshAssetData loaded;
     RoundTrip(data, loaded);
     EXPECT_EQ(loaded.vertexSize, 0u);
     EXPECT_TRUE(loaded.attributes.empty());
-}
-
-TEST(MeshCookWriterTest, MeshSkinAbsorbedIntoHeader)
-{
-    CookedMesh mesh = CookQuad();
-
-    CookSkin skin;
-    skin.inverseBindMatrices = {Matrix4::Identity(), Matrix4::Identity()};
-    skin.boneNames           = {"root", "spine"};
-    skin.boneMapping         = {0, 1};
-
-    MeshAssetData data;
-    WriteMeshAsset(mesh, skin, Uuid{}, data);
-    EXPECT_TRUE(data.HasSkin());
-    EXPECT_EQ(data.skinBoneCount, 2u);
-    EXPECT_EQ(data.skinMappingCount, 2u);
-    EXPECT_EQ(data.skinSize, 2u * sizeof(Matrix4) + 2u * sizeof(uint32_t));
-
-    MeshAssetData loaded;
-    RoundTrip(data, loaded);
-    EXPECT_EQ(loaded.skinBoneCount, 2u);
-    EXPECT_EQ(loaded.skinMappingCount, 2u);
-    EXPECT_EQ(loaded.skinSize, data.skinSize);
-    ASSERT_EQ(loaded.skinBoneNames.size(), 2u);
-    EXPECT_EQ(loaded.skinBoneNames[1], "spine");
 }
 
 TEST(MeshCookConfigTest, LoadJsonAndResolve)

@@ -243,9 +243,9 @@ namespace sky::aurora {
                     using T = std::decay_t<decltype(cmd)>;
                     if constexpr (std::is_same_v<T, CreateScene>) {
                         std::unique_ptr<CpuSceneState> scene = std::make_unique<CpuSceneState>();
-                        scene->id                  = cmd.id;
-                        scene->desc                = cmd.desc;
-                        scene->lastChangedSequence = sequence;
+                        scene->id                            = cmd.id;
+                        scene->desc                          = cmd.desc;
+                        scene->lastChangedSequence           = sequence;
                         scene->registry.Pool<RenderTransform>();
                         scene->registry.Pool<RenderMeshBinding>();
                         scene->registry.Pool<RenderMaterialBinding>();
@@ -489,9 +489,18 @@ namespace sky::aurora {
         auto frame       = std::shared_ptr<FrozenCpuFrame>(new FrozenCpuFrame());
         frame->sequence  = storage->lastAppliedSequence;
         frame->selection = SelectPrepareInputs();
+        auto skinning    = std::make_shared<std::vector<std::shared_ptr<const RenderSkinningData>>>();
         for (const auto &[index, scene] : storage->scenes) {
             frame->scenes.push_back(scene.get());
+            for (const auto &[entityIndex, entity] : scene->entities) {
+                const auto *properties = scene->registry.Get<RenderProperties>(entity.entity);
+                if (properties && properties->value.skinning &&
+                    std::find(skinning->begin(), skinning->end(), properties->value.skinning) == skinning->end()) {
+                    skinning->push_back(properties->value.skinning);
+                }
+            }
         }
+        frame->skinning = std::move(skinning);
         for (auto id : frame->selection.views) {
             const auto &view     = *FindView(id);
             const auto &output   = *FindViewport(view.desc.output);

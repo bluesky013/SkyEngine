@@ -48,7 +48,6 @@ TEST(WorldDocumentTest, CreatePlayWorldDuplicates)
     std::error_code             ec;
     std::filesystem::remove(path, ec);
 
-
     WorldDocument document(path.string());
     sky::World   *edit = document.GetWorld();
     ASSERT_NE(edit, nullptr);

@@ -107,8 +107,8 @@ Tests SHALL initialize each production or fixture type through an executable or 
 
 ### Requirement: Shared metadata module consumers
 
-Aurora.Metadata and Content.Metadata SHALL own their existing shared reflection and persistent asset handlers. Runtime, builder and editor modules SHALL declare dependencies on the matching owner and SHALL NOT call shared reflection. Builder registration SHALL have one process definition owner and retain its callback code; runtime sessions SHALL NOT repeat registration. Asset-domain changes and new domain-specific owners SHALL migrate their consumers together with their implementation.
+Aurora.Metadata, Content.Metadata and Animation.GraphAssets SHALL own their shared reflection and persistent asset handlers. Runtime, builder and editor modules SHALL declare dependencies on the matching owner. Content.Module SHALL publish the Clip source service through Init/Shutdown and SHALL NOT call ContentReflection. Builder registration SHALL have one process definition owner and retain its callback code; runtime sessions SHALL NOT repeat registration.
 
 #### Scenario: Content runtime and cook coexist
 - **WHEN** Content.Module and Content.Builder.Module load in one process
-- **THEN** Content.Metadata registers the existing Content schemas and handlers once, while the builder module registers its builder once through RegisterMeta
+- **THEN** Content.Metadata registers the shared Clip schema and handler once, while the builder module registers its builder once through RegisterMeta

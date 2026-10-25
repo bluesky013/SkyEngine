@@ -84,6 +84,8 @@ namespace sky {
         {
             persistID = inID;
         }
+        const Uuid &GetRuntimeId() const { return runtimeId; }
+
         const Uuid &GetPersistID() const
         {
             return persistID;
@@ -126,6 +128,7 @@ namespace sky {
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         Uuid persistID;
+        Uuid runtimeId = Uuid::Create();
 
         std::unique_ptr<WorldDesc> worldDesc;
     };

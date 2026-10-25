@@ -345,7 +345,8 @@ def collect_apple_package(engine, project_dir, preset, name):
     if not development_preset(preset):
         strip_development_resources(resource_root)
     stage_configs(engine, project_dir, resource_root / 'configs', development=development_preset(preset))
-    stage_bundles(project_dir, preset, resource_root / 'products')
+    if stage_bundles(project_dir, preset, resource_root / 'products', engine) is None:
+        return None
     suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
     archive = project_dir / 'build' / platform / (name + suffix)
     zip_bundle(app, archive, 'Payload' if platform == 'ios' else '')
@@ -421,7 +422,27 @@ def check_bundle_conflicts(bundles):
         seen.add(name)
 
 
-def stage_bundles(project_dir, preset, dest_products_dir):
+def collect_world_asset_roots(project_dir, preset):
+    assets = (project_dir / 'assets').resolve()
+    worlds = ([assets / path for path in preset['worlds']] if preset.get('worlds')
+              else sorted(assets.rglob('*.world')))
+    roots = []
+    for world in worlds:
+        world = world.resolve()
+        if not world.is_relative_to(assets) or not world.is_file():
+            return None, 'World must be a project asset: {}'.format(world)
+        document = load_json(world)
+        if not isinstance(document, dict) or not isinstance(document.get('assetRoots'), list):
+            return None, 'Re-save World in the editor to collect explicit asset roots: {}'.format(world)
+        for reference in document['assetRoots']:
+            if (not isinstance(reference, dict) or not isinstance(reference.get('uuid'), str)
+                    or not isinstance(reference.get('type'), str)):
+                return None, 'Malformed asset root in {}'.format(world)
+            roots.append(dict(reference, world=world.relative_to(assets).as_posix()))
+    return roots, None
+
+
+def stage_bundles(project_dir, preset, dest_products_dir, engine=None):
     """Copy the selected cooked bundles and write products/bundles.json.
 
     Cooked bundles are read from <Project>/products/<bundle> (cook output);
@@ -429,6 +450,22 @@ def stage_bundles(project_dir, preset, dest_products_dir):
     """
     bundles = select_bundles(project_dir, preset)
     check_bundle_conflicts(bundles)
+    if any(not isinstance(name, str) or not name or name in ('.', '..') or any(c in name for c in '/\\:') for name in bundles):
+        print('Invalid package bundle name', file=sys.stderr)
+        return None
+    destination = dest_products_dir.resolve()
+    project = project_dir.resolve()
+    if destination == project or destination in project.parents or destination.is_relative_to(project / 'products'):
+        print('Package destination must not replace project files or cooked products', file=sys.stderr)
+        return None
+    roots, error = collect_world_asset_roots(project_dir, preset)
+    if error:
+        print(error, file=sys.stderr)
+        return None
+    tool = find_asset_tool(engine or REPO_ROOT) if roots else None
+    if roots and tool is None:
+        print('Build AssetTool to verify World product dependencies before packaging', file=sys.stderr)
+        return None
     if dest_products_dir.exists():
         shutil.rmtree(dest_products_dir)
     dest_products_dir.mkdir(parents=True, exist_ok=True)
@@ -450,6 +487,13 @@ def stage_bundles(project_dir, preset, dest_products_dir):
         'bundles': bundles,
     }
     (dest_products_dir / 'bundles.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    roots_path = dest_products_dir / 'asset-roots.json'
+    roots_path.write_text(json.dumps({'bundles': bundles, 'roots': roots}, indent=2) + '\n', encoding='utf-8')
+    if roots:
+        result = subprocess.run([str(tool.resolve()), '--audit-products', str(roots_path.resolve())], cwd=tool.parent)
+        if result.returncode != 0:
+            print('World product dependency verification failed', file=sys.stderr)
+            return None
     print('bundles.json: {}'.format(dest_products_dir / 'bundles.json'))
     return bundles
 
@@ -596,7 +640,8 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
         run_cook(engine, project_dir, 'android')
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
-        stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products')
+        if stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products', engine) is None:
+            return 1
         if build:
             package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
     elif platform in ('ios', 'macos'):
@@ -615,7 +660,8 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
                          extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
                          extra_build=preset.get('extraBuildArgs') or [])
         if build:
-            collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}'])
+            if collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}']) is None:
+                return 1
     else:
         raise SystemExit('不支持的平台: {}'.format(platform))
 

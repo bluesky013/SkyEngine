@@ -18,8 +18,10 @@ namespace sky::aurora::cook {
             CookedMesh            *out    = nullptr;
         };
 
-        explicit MeshAssembler(const Payload &pd) : payload(pd) {}
-        void DoWork() override;
+        explicit MeshAssembler(const Payload &pd) : payload(pd)
+        {
+        }
+        MeshCookStatus DoWork() override;
 
     private:
         Payload payload;

@@ -4,6 +4,7 @@
 
 #include <framework/application/ModuleManager.h>
 
+#include "BuildPluginOptions.h"
 #include <core/environment/Singleton.h>
 #include <core/logger/Logger.h>
 #include <framework/serialization/SerializationContext.h>
@@ -67,7 +68,13 @@ namespace sky {
         return CurrentManager::Get()->value;
     }
 
-
+    std::optional<bool> ModuleManager::GetBuildOption(std::string_view option)
+    {
+        for (const auto &[name, enabled] : build::PLUGIN_OPTIONS)
+            if (name == option)
+                return enabled;
+        return std::nullopt;
+    }
 
     using ModuleStart = IModule *(*)(Environment *);
     using ModuleStop  = void (*)();

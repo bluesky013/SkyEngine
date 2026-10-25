@@ -5,37 +5,96 @@
 #include <content/adaptor/assets/AnimationAsset.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 
 namespace sky {
 
+    namespace {
+        bool CanRead(BinaryInputArchive &ar, uint64_t bytes)
+        {
+            auto &stream = ar.GetStream().GetStream();
+            if (!ar.IsValid() || !stream) {
+                return false;
+            }
+            const auto position = stream.tellg();
+            stream.seekg(0, std::ios::end);
+            const auto end = stream.tellg();
+            stream.seekg(position);
+            return stream && position >= 0 && end >= position && bytes <= static_cast<uint64_t>(end - position);
+        }
+
+        bool ReadString(BinaryInputArchive &ar, std::string &value)
+        {
+            uint32_t bytes = 0;
+            ar.LoadValue(bytes);
+            if (bytes > 4096 || !CanRead(ar, bytes)) {
+                return false;
+            }
+            value.resize(bytes);
+            ar.LoadValue(value.data(), bytes);
+            return ar.IsValid() && value.find('\0') == std::string::npos;
+        }
+
+        template <typename T>
+        bool ReadArray(BinaryInputArchive &ar, std::vector<T> &values)
+        {
+            uint32_t bytes = 0;
+            ar.LoadValue(bytes);
+            if (bytes % sizeof(T) != 0 || !CanRead(ar, bytes)) {
+                return false;
+            }
+            values.resize(bytes / sizeof(T));
+            if (bytes != 0) {
+                ar.LoadValue(reinterpret_cast<char *>(values.data()), bytes);
+            }
+            return ar.IsValid();
+        }
+    } // namespace
+
     void AnimationClipAssetData::clear()
     {
         name.clear();
-        frameRate = 0.f;
-        skeleton  = Uuid{};
+        frameRate        = 0.f;
+        sourceFrameCount = 0;
+        skeleton         = Uuid{};
         channels.clear();
         nodeChannels.clear();
+        validation = {};
     }
 
     void AnimationClipAssetData::Load(BinaryInputArchive &ar)
     {
+        clear();
         ar.LoadValue(version);
         if (version != CURRENT_VERSION) {
-            clear();
+            validation = {AnimationError::UnsupportedVersion, "clip product version is obsolete; recook the source"};
             return;
         }
-        ar.LoadValue(name);
+        if (!ReadString(ar, name)) {
+            validation = {AnimationError::InvalidAsset, "invalid clip header name"};
+            return;
+        }
         ar.LoadValue(frameRate);
         ar.LoadValue(skeleton);
+        ar.LoadValue(sourceFrameCount);
 
         uint32_t count = 0;
         ar.LoadValue(count);
+        if (!std::isfinite(frameRate) || frameRate < 0.f || count > ANIM_MAX_BONE || !ar.IsValid()) {
+            validation = {AnimationError::InvalidAsset, "invalid clip header rate or channel count"};
+            return;
+        }
         channels.resize(count);
         for (auto &channel : channels) {
-            ar.LoadValue(channel.name);
+            if (!ReadString(ar, channel.name)) {
+                validation = {AnimationError::InvalidAsset, "invalid clip channel name"};
+                return;
+            }
             ar.LoadValue(channel.positionTimes.offset);
             ar.LoadValue(channel.positionTimes.size);
             ar.LoadValue(channel.positionKeys.offset);
@@ -49,6 +108,9 @@ namespace sky {
             ar.LoadValue(channel.rotationKeys.offset);
             ar.LoadValue(channel.rotationKeys.size);
         }
+        if (!ar.IsValid()) {
+            validation = {AnimationError::InvalidAsset, "truncated clip header"};
+        }
     }
 
     void AnimationClipAssetData::Save(BinaryOutputArchive &ar) const
@@ -57,6 +119,7 @@ namespace sky {
         ar.SaveValue(name);
         ar.SaveValue(frameRate);
         ar.SaveValue(skeleton);
+        ar.SaveValue(sourceFrameCount);
 
         ar.SaveValue(static_cast<uint32_t>(channels.size()));
         for (const auto &channel : channels) {
@@ -76,55 +139,107 @@ namespace sky {
         }
     }
 
-    void AnimationClipAssetData::LoadSource(BinaryInputArchive &ar)
+    AnimationStatus AnimationClipAssetData::LoadSource(BinaryInputArchive &ar)
     {
+        clear();
         ar.LoadValue(version);
-        if (version != CURRENT_VERSION) {
-            clear();
-            return;
+        if (version != CURRENT_VERSION && version != LEGACY_SOURCE_VERSION) {
+            validation = {AnimationError::UnsupportedVersion, "unsupported clip source version"};
+            return validation;
         }
-        ar.LoadValue(name);
+        if (!ReadString(ar, name)) {
+            validation = {AnimationError::InvalidAsset, "invalid clip source name"};
+            return validation;
+        }
         ar.LoadValue(frameRate);
         ar.LoadValue(skeleton);
+        if (version == CURRENT_VERSION) {
+            ar.LoadValue(sourceFrameCount);
+        }
 
         uint32_t count = 0;
         ar.LoadValue(count);
+        if (count > ANIM_MAX_BONE || !ar.IsValid()) {
+            validation = {AnimationError::InvalidAsset, "invalid clip source channel count"};
+            return validation;
+        }
         nodeChannels.resize(count);
         for (auto &channel : nodeChannels) {
-            ar.LoadValue(channel.name);
-
-            uint32_t bytes = 0;
-            ar.LoadValue(bytes);
-            channel.position.times.resize(bytes / sizeof(AnimTimeKey));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.position.times.data()), bytes);
-            }
-            ar.LoadValue(bytes);
-            channel.position.keys.resize(bytes / sizeof(Vector3));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.position.keys.data()), bytes);
-            }
-            ar.LoadValue(bytes);
-            channel.scale.times.resize(bytes / sizeof(AnimTimeKey));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.scale.times.data()), bytes);
-            }
-            ar.LoadValue(bytes);
-            channel.scale.keys.resize(bytes / sizeof(Vector3));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.scale.keys.data()), bytes);
-            }
-            ar.LoadValue(bytes);
-            channel.rotation.times.resize(bytes / sizeof(AnimTimeKey));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.rotation.times.data()), bytes);
-            }
-            ar.LoadValue(bytes);
-            channel.rotation.keys.resize(bytes / sizeof(Quaternion));
-            if (bytes != 0) {
-                ar.LoadValue(reinterpret_cast<char *>(channel.rotation.keys.data()), bytes);
+            if (!ReadString(ar, channel.name) || !ReadArray(ar, channel.position.times) || !ReadArray(ar, channel.position.keys) ||
+                !ReadArray(ar, channel.scale.times) || !ReadArray(ar, channel.scale.keys) || !ReadArray(ar, channel.rotation.times) ||
+                !ReadArray(ar, channel.rotation.keys)) {
+                validation = {AnimationError::InvalidAsset, "truncated or misaligned clip source channel"};
+                return validation;
             }
         }
+        version = CURRENT_VERSION;
+        return PrepareSource();
+    }
+
+    AnimationStatus AnimationClipAssetData::SaveSource(BinaryOutputArchive &ar)
+    {
+        const auto status = PrepareSource();
+        if (!status) {
+            return status;
+        }
+        ar.SaveValue(CURRENT_VERSION);
+        ar.SaveValue(name);
+        ar.SaveValue(frameRate);
+        ar.SaveValue(skeleton);
+        ar.SaveValue(sourceFrameCount);
+        ar.SaveValue(static_cast<uint32_t>(nodeChannels.size()));
+        const auto write = [&ar](const auto &values) {
+            const auto size = values.size() * sizeof(typename std::decay_t<decltype(values)>::value_type);
+            if (size > UINT32_MAX) {
+                return false;
+            }
+            ar.SaveValue(static_cast<uint32_t>(size));
+            if (size != 0) {
+                ar.SaveValue(reinterpret_cast<const char *>(values.data()), size);
+            }
+            return ar.IsValid();
+        };
+        for (const auto &channel : nodeChannels) {
+            ar.SaveValue(channel.name);
+            if (!write(channel.position.times) || !write(channel.position.keys) || !write(channel.scale.times) || !write(channel.scale.keys) ||
+                !write(channel.rotation.times) || !write(channel.rotation.keys)) {
+                return {AnimationError::InvalidAsset, "clip source write failed or track exceeds format size limit"};
+            }
+        }
+        return ar.IsValid() ? AnimationStatus{} : AnimationStatus{AnimationError::InvalidAsset, "clip source write failed"};
+    }
+
+    AnimationStatus AnimationClipAssetData::PrepareSource()
+    {
+        validation = {};
+        if (!std::isfinite(frameRate) || frameRate < 0.f || nodeChannels.size() > ANIM_MAX_BONE) {
+            validation = {AnimationError::InvalidDuration, "invalid clip frame rate or channel count"};
+            return validation;
+        }
+        uint32_t                        frameCount = 0;
+        std::unordered_set<std::string> names;
+        for (const auto &channel : nodeChannels) {
+            validation = channel.Validate();
+            if (!validation) {
+                return validation;
+            }
+            if (!names.emplace(channel.name).second) {
+                validation = {AnimationError::InvalidChannel, "duplicate clip source channel"};
+                return validation;
+            }
+            frameCount = std::max(frameCount, channel.GetFrameCount());
+        }
+        if (sourceFrameCount != 0 && sourceFrameCount < frameCount) {
+            validation = {AnimationError::InvalidDuration, "source frame count does not cover all keys"};
+            return validation;
+        }
+        if (sourceFrameCount == 0) {
+            sourceFrameCount = frameCount;
+        }
+        if (frameRate > 0.f && !std::isfinite(static_cast<float>(sourceFrameCount) / frameRate)) {
+            validation = {AnimationError::InvalidDuration, "clip duration is not finite"};
+        }
+        return validation;
     }
 
     std::vector<uint8_t> AnimationClipAssetData::BuildBulk()
@@ -158,14 +273,23 @@ namespace sky {
         return bulk;
     }
 
-    AnimClipPtr CreateAnimationClipFromAsset(const AnimationClipAssetPtr &asset)
+    AnimClipPtr CreateAnimationClipFromAsset(const AnimationClipAssetPtr &asset, AnimationStatus *status)
     {
-        if (asset == nullptr) {
+        const auto fail = [status](AnimationStatus error) -> AnimClipPtr {
+            if (status != nullptr) {
+                *status = std::move(error);
+            }
             return {};
+        };
+        if (asset == nullptr) {
+            return fail({AnimationError::InvalidAsset, "clip asset is missing"});
         }
         const auto &data = asset->Data();
         if (data.version != AnimationClipAssetData::CURRENT_VERSION) {
-            return {};
+            return fail({AnimationError::UnsupportedVersion, "clip product version is obsolete; recook the source"});
+        }
+        if (!data.validation) {
+            return fail(data.validation);
         }
 
         AnimClipPtr clip = new AnimationClip(Name(data.name.c_str()));
@@ -173,52 +297,52 @@ namespace sky {
             AnimNodeChannelData node;
             node.name = header.name;
 
-            const auto loadTrack = [&asset](const AnimTrackHeader &times, const AnimTrackHeader &keys, auto &out) {
+            const auto loadTrack = [&asset, &data](const AnimTrackHeader &times, const AnimTrackHeader &keys, auto &out) {
                 using KeyType = typename std::decay_t<decltype(out.keys)>::value_type;
-
+                if (times.size % sizeof(AnimTimeKey) != 0 || keys.size % sizeof(KeyType) != 0 ||
+                    times.size / sizeof(AnimTimeKey) != keys.size / sizeof(KeyType) || times.size / sizeof(AnimTimeKey) > data.sourceFrameCount ||
+                    times.offset > UINT64_MAX - times.size || keys.offset > UINT64_MAX - keys.size) {
+                    return false;
+                }
                 auto timesBytes = asset->ReadBulk(times.offset, times.size);
+                if (timesBytes.size() != times.size) {
+                    return false;
+                }
                 out.times.resize(timesBytes.size() / sizeof(AnimTimeKey));
                 if (!timesBytes.empty()) {
                     std::memcpy(out.times.data(), timesBytes.data(), timesBytes.size());
                 }
 
                 auto keysBytes = asset->ReadBulk(keys.offset, keys.size);
+                if (keysBytes.size() != keys.size) {
+                    return false;
+                }
                 out.keys.resize(keysBytes.size() / sizeof(KeyType));
                 if (!keysBytes.empty()) {
                     std::memcpy(out.keys.data(), keysBytes.data(), keysBytes.size());
                 }
+                return true;
             };
 
-            loadTrack(header.positionTimes, header.positionKeys, node.position);
-            loadTrack(header.scaleTimes, header.scaleKeys, node.scale);
-            loadTrack(header.rotationTimes, header.rotationKeys, node.rotation);
-
-            if (!clip->AddChannel(new AnimationNodeChannel(node))) {
-                return {};
+            if (!loadTrack(header.positionTimes, header.positionKeys, node.position) || !loadTrack(header.scaleTimes, header.scaleKeys, node.scale) ||
+                !loadTrack(header.rotationTimes, header.rotationKeys, node.rotation)) {
+                return fail({AnimationError::InvalidAsset, "invalid clip bulk range or time/value count"});
+            }
+            const auto channelStatus = clip->AddChannel(new AnimationNodeChannel(node));
+            if (!channelStatus) {
+                return fail(channelStatus);
             }
         }
         clip->SetFrameRate(data.frameRate);
-        if (!clip->Validate()) {
-            return {};
+        clip->SetNumFrame(data.sourceFrameCount);
+        const auto clipStatus = clip->Validate();
+        if (!clipStatus) {
+            return fail(clipStatus);
+        }
+        if (status != nullptr) {
+            *status = {};
         }
         return clip;
-    }
-
-    void AnimationAssetData::clear()
-    {
-    }
-
-    void AnimationAssetData::Load(BinaryInputArchive &ar)
-    {
-        ar.LoadValue(version);
-        if (version != CURRENT_VERSION) {
-            clear();
-        }
-    }
-
-    void AnimationAssetData::Save(BinaryOutputArchive &ar) const
-    {
-        ar.SaveValue(version);
     }
 
 } // namespace sky

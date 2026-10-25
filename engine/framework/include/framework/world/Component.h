@@ -15,6 +15,11 @@ namespace sky {
     class JsonOutputArchive;
     class JsonInputArchive;
 
+    struct ComponentAssetReference {
+        Uuid uuid;
+        std::string type;
+    };
+
     class ComponentBase {
     public:
         ComponentBase()          = default;
@@ -24,6 +29,7 @@ namespace sky {
 
         virtual void SaveJson(JsonOutputArchive &archive) const;
         virtual void LoadJson(JsonInputArchive &archive);
+        virtual void CollectAssetReferences(std::vector<ComponentAssetReference> &out) const;
 
         virtual void SaveBin(BinaryOutputArchive &archive) const {}
         virtual void LoadBin(BinaryInputArchive &archive) {}

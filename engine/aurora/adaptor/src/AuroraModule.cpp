@@ -5,9 +5,10 @@
 #include <aurora/adaptor/AuroraModule.h>
 
 #include <array>
-#include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/AnimationSkeletonSource.h>
 #include <aurora/renderer/RendererProvider.h>
 #include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderUsage.h>
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <core/name/Name.h>
@@ -51,14 +52,16 @@ namespace sky::aurora {
 
     void AuroraModule::ProcessArgs(const StartArguments &args)
     {
-        mApi         = API::DEFAULT;
-        providerOnly = false;
-        vulkanMode   = RendererVulkanMode::DYNAMIC_RENDERING;
+        mApi            = API::DEFAULT;
+        providerOnly    = false;
+        vulkanMode      = RendererVulkanMode::DYNAMIC_RENDERING;
+        shaderUsagePath = {};
         CmdOptions options("Aurora Render Module", "Aurora Render Module");
         options.allow_unrecognised_options();
         options.add_options()("r,rhi", "RHI Type", CmdValue<std::string>());
         options.add_options()("aurora-provider-only", "Register the Renderer provider without creating a host");
         options.add_options()("aurora-vulkan-render-pass", "Use the Vulkan render-pass compiler");
+        options.add_options()("aurora-shader-usage", "Write collected shader variants to this JSON path", CmdValue<std::string>());
 
         if (args.args.empty()) {
             return;
@@ -70,9 +73,10 @@ namespace sky::aurora {
         if (result.count("rhi") != 0u) {
             mApi = ParseApi(result["rhi"].as<std::string>());
         }
+        if (result.count("aurora-shader-usage") != 0u) {
+            shaderUsagePath = result["aurora-shader-usage"].as<std::string>();
+        }
     }
-
-
 
     bool AuroraModule::Init(const StartArguments &args)
     {
@@ -81,9 +85,26 @@ namespace sky::aurora {
             return service->GetApi() == provider.get();
         }
         ProcessArgs(args);
+        if (!shaderUsagePath.empty()) {
+            ShaderUsageStore::Clear();
+            ShaderUsageStore::SetEnabled(true);
+        }
 
         if (!provider)
             provider = CreateRendererProvider();
+        auto       *skeletonService = Interface<IAnimationSkeletonSource>::Get();
+        const auto *system          = Interface<ISystemNotify>::Get()->GetApi();
+        auto       *modules         = system ? system->GetModuleManager() : ModuleManager::Current();
+        if (skeletonService->GetApi()) {
+            provider.reset();
+            return false;
+        }
+        skeletonSource = CreateAnimationSkeletonSource(modules ? modules->RetainModule("Aurora.Render") : nullptr);
+        if (!skeletonSource) {
+            provider.reset();
+            return false;
+        }
+        skeletonService->Register(*skeletonSource);
         if (providerOnly) {
             service->Register(*provider);
             return true;
@@ -342,6 +363,11 @@ namespace sky::aurora {
 
     void AuroraModule::Shutdown()
     {
+        auto *skeletonService = Interface<IAnimationSkeletonSource>::Get();
+        if (skeletonSource && skeletonService->GetApi() == skeletonSource.get()) {
+            skeletonService->UnRegister();
+        }
+        skeletonSource.reset();
         const bool active = provider || host.Get();
         Event<IWindowEvent>::DisConnect(this);
         pending.reset();
@@ -367,6 +393,14 @@ namespace sky::aurora {
         viewRevision                = 0;
         viewDescription             = {};
         sequence = revision = 0;
+        if (!shaderUsagePath.empty()) {
+            if (!ShaderUsageStore::Flush(shaderUsagePath)) {
+                LOG_E(TAG, "Failed to write shader usage: %s", shaderUsagePath.c_str());
+            }
+            ShaderUsageStore::SetEnabled(false);
+            ShaderUsageStore::Clear();
+            shaderUsagePath.clear();
+        }
         if (active)
             LOG_I(TAG, "Renderer host stopped");
     }

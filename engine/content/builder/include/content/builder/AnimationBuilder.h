@@ -1,5 +1,5 @@
 //
-// Content builder: cooks `.clip` / `.graph` animation sources into their
+// Content builder: cooks `.clip` animation sources into their
 // asset data. Owned by the content adaptor, not by any renderer.
 //
 
@@ -27,9 +27,8 @@ namespace sky::builder {
 
     private:
         void RequestClip(const AssetBuildRequest &request, AssetBuildResult &result);
-        void RequestGraph(const AssetBuildRequest &request, AssetBuildResult &result);
 
-        std::vector<std::string> extensions = {".clip", ".graph"};
+        std::vector<std::string> extensions = {".clip"};
     };
 
 } // namespace sky::builder

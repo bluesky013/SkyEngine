@@ -105,6 +105,28 @@ LOADED/FAILED. `BlockUntilLoaded` must not be called from the executor's loader 
 iteration. `AssetDependencyGraph` is the concrete store. Forward edges come from product headers at runtime and from
 `AssetSourceInfo::dependencies` in the editor; dependencies are not stored in `assets.jsonl` or `product.index`.
 
+## World asset roots and package audit
+
+A World lists its shipped asset roots explicitly in `assetRoots`:
+
+```json
+{"actors": [], "assetRoots": [
+  {"uuid": "...", "type": "AuroraMesh"},
+  {"uuid": "...", "type": "AuroraSkin"},
+  {"uuid": "...", "type": "AuroraSkeleton"},
+  {"uuid": "...", "type": "AnimationGraph"}
+]}
+```
+
+- `package_project.py` collects these roots (plus ordinary asset references) and writes
+  `products/asset-roots.json` next to the bundles. A World without `assetRoots` is a legacy format: re-save it
+  instead of inferring Mesh -> Skin/Skeleton edges.
+- `AssetTool --audit-products <asset-roots.json>` loads only the staged products and verifies the full dependency
+  closure (mesh, skin, skeleton, clip, graph, material, image) without sources or a cook. Type mismatches, corrupt
+  product payloads, missing dependencies and unknown bundles fail the audit.
+- The audit and cook invocations accept script-style arguments (`--group value`, no program name); `AssetTool`
+  pads the cxxopts program slot when the first argument already starts with `-`.
+
 ## Generated products and atomic publication
 
 The source catalog records generated products with stable source-local keys, UUIDs, types and their owner source.

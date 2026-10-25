@@ -5,10 +5,12 @@
 #include <aurora/adaptor/components/DirectLightComponent.h>
 #include <aurora/adaptor/components/EnvironmentComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <cmath>
+#include <framework/interface/Interface.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <map>
@@ -30,9 +32,9 @@ namespace sky::aurora {
             return std::equal(std::begin(a.world.v), std::end(a.world.v), std::begin(b.world.v)) && a.mesh.resource == b.mesh.resource &&
                    a.material.resource == b.material.resource && a.visibilityMask == b.visibilityMask && a.properties.tags == b.properties.tags &&
                    a.properties.subMesh == b.properties.subMesh && a.properties.castShadow == b.properties.castShadow &&
-                   a.properties.receiveShadow == b.properties.receiveShadow && x.color == y.color && x.intensity == y.intensity &&
-                   x.range == y.range && x.kind == y.kind && x.direction == y.direction && x.innerConeAngle == y.innerConeAngle &&
-                   x.outerConeAngle == y.outerConeAngle && x.castShadow == y.castShadow;
+                   a.properties.receiveShadow == b.properties.receiveShadow && a.properties.skinning == b.properties.skinning && x.color == y.color &&
+                   x.intensity == y.intensity && x.range == y.range && x.kind == y.kind && x.direction == y.direction &&
+                   x.innerConeAngle == y.innerConeAngle && x.outerConeAngle == y.outerConeAngle && x.castShadow == y.castShadow;
         }
         Matrix4 WorldMatrix(Actor &actor)
         {
@@ -48,6 +50,14 @@ namespace sky::aurora {
     } // namespace
 
     struct RenderSceneBridge::Impl final : IWorldEvent, ISceneComponentEvent {
+        struct SkeletalInstance {
+            SkeletalMeshComponentData                     config;
+            Uuid                                          generation = Uuid::Create();
+            std::shared_ptr<const SceneSkeletalResources> resources;
+            std::shared_ptr<const RenderSkinningData>     skinning;
+            Matrix4                                       world = RenderIdentityMatrix();
+        };
+        std::map<std::pair<Uuid, Uuid>, SkeletalInstance> skeletal;
         struct Slot {
             RenderEntityRef  id;
             RenderEntityDesc desc;
@@ -93,6 +103,7 @@ namespace sky::aurora {
         {
             ++geometryRevision;
             instanceGenerations.erase(actor);
+            std::erase_if(skeletal, [&](const auto &item) { return item.first.first == actor && (!component || item.first.second == *component); });
             std::erase_if(active, [&](const auto &item) {
                 if (std::get<0>(item.first) != actor || (component && std::get<1>(item.first) != *component)) {
                     return false;
@@ -130,6 +141,7 @@ namespace sky::aurora {
                 Event<ISceneComponentEvent>::DisConnect(world.Get(), this);
             }
             snapshot.reset();
+            skeletal.clear();
             snapshotIndex.clear();
             instanceGenerations.clear();
             ++geometryRevision;
@@ -187,6 +199,110 @@ namespace sky::aurora {
             packet.commands.emplace_back(CreateRenderEntity{.id = slot.id, .desc = desc});
             return {};
         }
+        std::shared_ptr<const SceneMeshResources>
+        ResolveSkeletal(Actor &actor, const Uuid &type, const SkeletalMeshComponentData &config, const Matrix4 &matrix, RenderEntityDesc &desc)
+        {
+            auto &instance = skeletal[{actor.GetUuid(), type}];
+            if (instance.config != config) {
+                instance        = SkeletalInstance{};
+                instance.config = config;
+            }
+            const auto resolved = resources->ResolveSkeletal(config.mesh, config.material, config.skin, config.skeleton, info);
+            bool       retained = true;
+            if (const auto *error = std::get_if<RendererError>(&resolved)) {
+                issues.push_back(*error);
+            } else if (const auto *ready = std::get_if<std::shared_ptr<const SceneSkeletalResources>>(&resolved); ready && *ready) {
+                const auto          &candidate = **ready;
+                std::vector<Matrix4> models;
+                Uuid                 poseGeneration = instance.generation;
+                uint64_t             poseRevision   = 1;
+                bool                 valid          = candidate.binding && candidate.geometry && candidate.skeleton.asset == config.skeleton &&
+                             candidate.binding->key.mesh == config.mesh && candidate.binding->key.skin == config.skin &&
+                             candidate.binding->key.skeleton == config.skeleton &&
+                             candidate.binding->key.skeletonGeneration == candidate.skeleton.generation &&
+                             candidate.binding->key.skeletonRevision == candidate.skeleton.revision &&
+                             candidate.binding->key.skeletonLayout == candidate.skeleton.layout;
+                if (!valid) {
+                    issues.push_back({RendererErrorCode::INVALID_ARGUMENT, "Skeletal source returned an incompatible resource tuple"});
+                } else if (config.pose == SkeletalPoseMode::ReferencePose) {
+                    models = candidate.referenceModels;
+                } else if (config.pose == SkeletalPoseMode::SameActorAnimation) {
+                    const auto *source = Interface<ISkeletalPoseSource>::Get()->GetApi();
+                    if (!source) {
+                        issues.push_back({RendererErrorCode::UNSUPPORTED, "SameActorAnimation requires an animation pose provider"});
+                        valid = false;
+                    } else {
+                        const auto found = source->Describe(world.Get(), actor.GetUuid());
+                        auto       pose  = source->Query(found.instance, candidate.skeleton);
+                        valid = pose.state == SkeletalPoseState::Ready && pose.skeleton == candidate.skeleton && pose.instance.world == world.Get() &&
+                                pose.instance.worldEpoch == world->GetRuntimeId() && pose.instance.actor == actor.GetUuid() &&
+                                pose.instance.generation && pose.revision;
+                        if (valid) {
+                            models         = std::move(pose.models);
+                            poseGeneration = pose.instance.generation;
+                            poseRevision   = pose.revision;
+                            if (pose.retainedVersion) {
+                                issues.push_back(
+                                    {RendererErrorCode::INVALID_ARGUMENT, "Animation retains an older complete version: " + pose.diagnostic});
+                            }
+                        } else {
+                            issues.push_back({RendererErrorCode::INVALID_ARGUMENT,
+                                              "Animation pose is pending or incompatible with the render rig: " + pose.diagnostic});
+                        }
+                    }
+                } else {
+                    valid = false;
+                    issues.push_back({RendererErrorCode::INVALID_ARGUMENT, "Unknown skeletal pose mode"});
+                }
+                if (valid) {
+                    if (instance.resources != *ready || !instance.skinning || instance.skinning->instanceGeneration != poseGeneration ||
+                        instance.skinning->poseRevision != poseRevision) {
+                        auto next                = std::make_shared<RenderSkinningData>();
+                        next->binding            = candidate.binding->key;
+                        next->worldEpoch         = world->GetRuntimeId();
+                        next->instanceGeneration = poseGeneration;
+                        next->poseRevision       = poseRevision;
+                        std::vector<Matrix4> palette;
+                        auto                 status = BuildSkinningPalette(*candidate.binding, models, palette);
+                        if (status) {
+                            status = BuildSkinnedBounds(candidate.slotBounds, palette, next->bounds);
+                        }
+                        if (status) {
+                            next->matrices.reserve(palette.size() * 2);
+                            for (const auto &value : palette) {
+                                const auto normal = value.InverseTranspose();
+                                if (!std::all_of(std::begin(normal.v), std::end(normal.v), [](float v) { return std::isfinite(v); })) {
+                                    status = {SkinError::InvalidData, "Skin normal transform overflowed"};
+                                    break;
+                                }
+                                next->matrices.push_back(value);
+                                next->matrices.push_back(normal);
+                            }
+                        }
+                        if (status) {
+                            instance.resources = *ready;
+                            instance.skinning  = std::move(next);
+                        } else {
+                            valid = false;
+                            issues.push_back({RendererErrorCode::INVALID_ARGUMENT, status.message});
+                        }
+                    }
+                    if (valid) {
+                        instance.world = matrix;
+                        retained       = false;
+                    }
+                }
+            }
+            if (!instance.resources || !instance.skinning) {
+                return {};
+            }
+            if (retained) {
+                issues.push_back({RendererErrorCode::INVALID_ARGUMENT, "Skeletal instance retains its previous complete resource and pose tuple"});
+            }
+            desc.world               = instance.world;
+            desc.properties.skinning = instance.skinning;
+            return instance.resources->geometry;
+        }
         std::optional<RendererError> Append(FramePacket &packet, SceneId scene, ViewportId output)
         {
             issues.clear();
@@ -214,8 +330,16 @@ namespace sky::aurora {
                     const auto watch  = watches.find(actor->GetUuid());
                     const auto matrix = watch != watches.end() ? watch->second->Read() : WorldMatrix(*actor);
                     for (const auto &[type, component] : actor->GetComponents()) {
-                        if (type == TypeInfo<StaticMeshComponent>::RegisteredId()) {
-                            const auto &data = static_cast<const StaticMeshComponent &>(*component).GetData();
+                        if (type == TypeInfo<StaticMeshComponent>::RegisteredId() || type == TypeInfo<SkeletalMeshComponent>::RegisteredId()) {
+                            const bool                       skinned = type == TypeInfo<SkeletalMeshComponent>::RegisteredId();
+                            StaticMeshComponentData          data;
+                            const SkeletalMeshComponentData *skinConfig = nullptr;
+                            if (skinned) {
+                                skinConfig = &static_cast<const SkeletalMeshComponent &>(*component).GetData();
+                                data       = {skinConfig->mesh, skinConfig->material, skinConfig->castShadow, skinConfig->receiveShadow};
+                            } else {
+                                data = static_cast<const StaticMeshComponent &>(*component).GetData();
+                            }
                             if (!data.mesh) {
                                 continue;
                             }
@@ -232,9 +356,25 @@ namespace sky::aurora {
                                 instance->material   = data.material;
                                 instance->world      = matrix;
                             }
-                            const auto result = resources->ResolveMesh(data.mesh, data.material, info);
-                            if (instance)
-                                instance->bounds = resources->MeshBounds(data.mesh);
+                            RenderEntityDesc    skeletalDesc;
+                            SceneResourceResult result;
+                            if (skinned) {
+                                result = ResolveSkeletal(*actor, type, *skinConfig, matrix, skeletalDesc);
+                            } else {
+                                result = resources->ResolveMesh(data.mesh, data.material, info);
+                            }
+                            if (instance) {
+                                instance->bounds = skinned && skeletalDesc.properties.skinning
+                                                       ? std::optional<AABB>{skeletalDesc.properties.skinning->bounds}
+                                                       : resources->MeshBounds(data.mesh);
+                                if (skinned) {
+                                    instance->state      = SceneGeometryState::UNSUPPORTED;
+                                    instance->message    = "Skeletal geometry supports bounds only; exact picking and highlight are unsupported";
+                                    instance->selectable = false;
+                                    instance->occluder   = false;
+                                    instance->world      = skeletalDesc.world;
+                                }
+                            }
                             if (const auto *error = std::get_if<RendererError>(&result)) {
                                 issues.push_back(*error);
                                 if (instance) {
@@ -268,9 +408,13 @@ namespace sky::aurora {
                                 continue;
                             }
                             if (instance) {
-                                instance->state     = SceneGeometryState::READY;
+                                instance->state     = skinned ? SceneGeometryState::UNSUPPORTED : SceneGeometryState::READY;
                                 instance->resources = *ready;
-                                instance->message.clear();
+                                if (!skinned) {
+                                    instance->message.clear();
+                                } else {
+                                    instance->message = "Skeletal geometry supports bounds only; exact picking and highlight are unsupported";
+                                }
                             }
                             for (const auto &payload : (*ready)->payloads) {
                                 used.emplace(ResourceKey(payload.resource), payload.resource);
@@ -279,8 +423,10 @@ namespace sky::aurora {
                                 }
                             }
                             for (const auto &part : (*ready)->parts) {
-                                RenderEntityDesc desc;
-                                desc.world                    = matrix;
+                                RenderEntityDesc desc = skinned ? skeletalDesc : RenderEntityDesc{};
+                                if (!skinned) {
+                                    desc.world = matrix;
+                                }
                                 desc.mesh                     = part.mesh;
                                 desc.material                 = part.material;
                                 desc.properties.subMesh       = part.part;

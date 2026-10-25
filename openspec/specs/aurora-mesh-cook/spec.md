@@ -1,37 +1,39 @@
 # aurora-mesh-cook Specification
 
 ## Purpose
-aurora mesh cook 管线:assimp 源导入、交错顶点流组装、meshopt 优化/可选 meshlet、AuroraMesh(v2)+ 独立 AuroraSkin 资产产物、builder 注册与 presets 配置。
+aurora mesh cook 管线:assimp 源导入、交错顶点流组装、meshopt 优化/可选 meshlet、AuroraMesh(v6)+ 独立 AuroraSkin(v2) 资产产物、builder 注册与 presets 配置。
 
 ## Requirements
 
 ### Requirement: mesh 源导入
-
-cook SHALL 通过 assimp 从内存导入 `.gltf`/`.glb`/`.fbx`/`.obj`，处理链沿用 legacy 标志集（Triangulate/GenSmoothNormals/FlipUVs/CalcTangentSpace/LimitBoneWeights/OptimizeGraph/OptimizeMeshes/PopulateArmatureData)。每个 aiMesh 生成一个 primitive（烘焙节点变换），材质按名去重为槽位表，骨骼收集为全局骨表（boneNames + inverseBindMatrices）与逐顶点 joints/weights。
+Cook SHALL 通过现有 Assimp importer 读取受支持的 gltf/glb/fbx/obj 数据，保留原始节点身份、每 mesh-binding 的 offset matrices、rig 关联和 influence。蒙皮导入 SHALL 在限制权重或优化节点/mesh 之前验证原始输入，SHALL NOT 用 LimitBoneWeights 静默截断或以全局骨名表吞掉不同绑定。转换空间与共享判定 SHALL 遵守 aurora-cook；不能可靠恢复的绑定关联 SHALL 返回 Unsupported。静态三角化、法线/UV/切线生成仍使用现有管线。
 
 #### Scenario: OBJ quad 导入
-
-- **WHEN** 内存导入含 pos/uv/normal 的 OBJ quad
-- **THEN** 产出 1 个 primitive，索引为三角形列表，法线/uv/tangent（CalcTangentSpace）齐全，材质名进槽位表
+- **WHEN** 导入有效的带 pos/uv/normal 的 OBJ quad
+- **THEN** SHALL 产出三角形 primitive、有效属性与材质槽
 
 #### Scenario: 无效源拒绝
+- **WHEN** 导入无法解析的字节或无法区分的骨架绑定
+- **THEN** SHALL 返回具体失败，不发布错误或不完整产品
 
-- **WHEN** 导入无法解析的字节
-- **THEN** 返回失败且不产出 primitive
+#### Scenario: 原始权重超限
+- **WHEN** 原始顶点包含超过四个不同的正权重骨骼
+- **THEN** SHALL 在任何裁剪前报错，不把 Assimp 已裁剪结果当作合法原始输入
 
 ### Requirement: 交错顶点流组装
-
-cook SHALL 把 primitive 合并为单条交错顶点流：属性按固定顺序（POSITION/NORMAL/TANGENT/UV1/COLOR/JOINTS/WEIGHTS）依配置与源可用性取舍，格式 POSITION/NORMAL=F_RGB32、TANGENT/COLOR/WEIGHTS=F_RGBA32、UV1=F_RG32、JOINTS=U_RGBA8；法线/切线经 inverse-transpose 变换；index 类型按顶点数自动选 U16/U32；bounds 从烘焙后位置计算。
+Cook SHALL 按 POSITION/NORMAL/TANGENT/UV1/COLOR/JOINTS/WEIGHTS 的既有顺序与格式组装每个可合并几何组，JOINTS 使用 U_RGBA8 槽索引。位置 SHALL 烘焙 mesh 节点变换，法线 SHALL 使用 inverse-transpose，切线 SHALL 使用线性变换再相对变换后的法线正交化；镜像变换 SHALL 同步修正切线 handedness 与三角形绕序。index 类型 SHALL 按顶点数选择 U16/U32，几何 bounds 与 mesh-space 槽 bounds SHALL 从最终顶点流构造。
 
 #### Scenario: 属性表与 stride
-
 - **WHEN** 组装含 pos/normal/tangent/uv 的源
-- **THEN** 属性表紧凑排列（offset 累加等于 stride=48),vertexData/indexData 尺寸与计数一致
+- **THEN** 属性 SHALL 紧凑排列且 stride 为 48，vertex/index 尺寸与计数一致
 
 #### Scenario: tangent 可关
+- **WHEN** 配置 tangents=false
+- **THEN** 属性表 SHALL 不含 TANGENT
 
-- **WHEN** 配置 `tangents=false`
-- **THEN** 属性表不含 TANGENT
+#### Scenario: 非均匀与镜像变换
+- **WHEN** mesh 节点有可逆非均匀缩放或镜像
+- **THEN** 烘焙后的法线/切线 SHALL 正交且绕序/handedness 与变换一致
 
 ### Requirement: meshopt 优化与 meshlet
 
@@ -47,24 +49,20 @@ cook SHALL 把 primitive 合并为单条交错顶点流：属性按固定顺序�
 - **WHEN** 开启 meshlets cook 一个 quad
 - **THEN** 产出 1 个 meshlet，vertices/triangles/bounds 三段与 meshlet 计数一致
 
-### Requirement: MeshAssetData v2 与 Skin 资产
+### Requirement: Mesh 几何产品与独立 Skin 产品
+新版 MeshAssetData SHALL 保存版本、属性/计数/stride/indexType、材质引用、几何 bulk、输入槽布局/模型空间契约与槽 bounds；SHALL 移除 v5 skin bulk 和 Skeleton 引用，不恢复旧 v2 skin UUID 或已删除 meshlet 字段。Skin SHALL 作为版本化 AuroraSkin 子产品，组件组合与稳定身份 SHALL 遵守 aurora-cook 和 asset-source-identity。旧产品 SHALL 返回 recook 诊断。
 
-`MeshAssetData` SHALL 携带顶点属性表、vertexStride、vertexCount/indexCount、indexType、可选 skin uuid 与可选 meshlet 段；`CURRENT_VERSION` 为 2，版本不匹配 SHALL 拒绝并清空。蒙皮 SHALL 产出独立 `AuroraSkin` 资产（inverseBindMatrices + boneNames + boneMapping),mesh 资产 SHALL 存其 uuid 并 `AddDependencies`。
+#### Scenario: 新几何产品往返
+- **WHEN** 新版 Mesh 产品完成 Save/Load
+- **THEN** 几何、材质与输入槽契约 SHALL 保持一致，SHALL 不包含选定 Skin/Skeleton
 
-#### Scenario: v2 往返
+#### Scenario: 旧产品拒绝
+- **WHEN** 加载旧 v2 或 v5 Mesh 产品
+- **THEN** SHALL 返回版本/recook 诊断，不按新布局解析
 
-- **WHEN** writer 填充的 v2 资产经 Save/Load
-- **THEN** 全部字段（属性表/计数/meshlet 段/bounds）一致
-
-#### Scenario: v1 拒绝
-
-- **WHEN** Load 版本为 1 的产物
-- **THEN** 数据清空并记录错误日志
-
-#### Scenario: 蒙皮依赖
-
-- **WHEN** cook 蒙皮网格且 `skinning=true`
-- **THEN** 产出独立 Skin 资产，mesh 资产 skin uuid 有效且依赖表含该 uuid
+#### Scenario: 蒙皮产品组合
+- **WHEN** cook 有效蒙皮模型且 skinning=true
+- **THEN** SHALL 发布独立 Mesh/Skin/Skeleton 产品，默认组合存入导入元数据而非 Mesh 依赖表
 
 ### Requirement: builder 注册与 presets
 

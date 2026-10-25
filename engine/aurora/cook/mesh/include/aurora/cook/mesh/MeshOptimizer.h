@@ -16,8 +16,10 @@ namespace sky::aurora::cook {
             CookedMesh *mesh = nullptr;
         };
 
-        explicit MeshOptimizer(const Payload &pd) : payload(pd) {}
-        void DoWork() override;
+        explicit MeshOptimizer(const Payload &pd) : payload(pd)
+        {
+        }
+        MeshCookStatus DoWork() override;
 
     private:
         Payload payload;

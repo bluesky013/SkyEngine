@@ -27,7 +27,7 @@ namespace sky::aurora::cook {
         std::vector<Vector4> tangents; // w = bitangent sign
         std::vector<Vector2> uvs;      // UV1
         std::vector<Vector4> colors;   // vertex color 0
-        std::vector<Vector4> joints;   // global bone indices (as float for simplicity pre-pack)
+        std::vector<Vector4> joints;   // ordered Skin slots, packed only after validation
         std::vector<Vector4> weights;
 
         std::vector<uint32_t> indices;           // local to this primitive
@@ -35,29 +35,32 @@ namespace sky::aurora::cook {
         Matrix4               transform;         // baked node transform
     };
 
-    // One bone of the source hierarchy (index-aligned with CookSkin::boneNames).
-    struct CookBone {
-        std::string name;
-        uint16_t    parentIndex = 0xFFFF; // 0xFFFF -> root
-        Transform   refTransform;
+    enum class MeshCookError : uint8_t { None, InvalidData, Unsupported };
+    struct MeshCookStatus {
+        MeshCookError error = MeshCookError::None;
+        std::string   message;
+        explicit      operator bool() const
+        {
+            return error == MeshCookError::None;
+        }
     };
 
-    // Bind-pose skinning payload absorbed into the mesh asset's bulk.
-    struct CookSkin {
-        std::vector<Matrix4>     inverseBindMatrices;
-        std::vector<std::string> boneNames;   // index-aligned with inverseBindMatrices
-        std::vector<uint32_t>    boneMapping; // optional vertex-bone-slot -> bone index
+    struct CookBone {
+        std::string name;
+        uint16_t    parentIndex = 0xFFFF;
+        Transform   refTransform;
     };
 
     struct CookMeshSource {
         std::vector<MeshSourcePrimitive> primitives;
         std::vector<std::string>         materialNames; // slot table (uuid wiring lands with material cook)
-        CookSkin                         skin;          // inverseBindMatrices + boneNames; empty when not skinned
-        std::vector<CookBone>            bones;         // bone hierarchy; empty when not skinned
+        std::string                      key;
+        SkinData                         skin;
+        std::vector<CookBone>            bones;
 
         bool Skinned() const
         {
-            return !skin.boneNames.empty();
+            return !skin.binds.empty();
         }
         bool Valid() const
         {
@@ -83,14 +86,20 @@ namespace sky::aurora::cook {
         std::vector<uint8_t>                 indexData;
         std::vector<MeshSubMeshData>         subMeshes;
         AABB                                 bounds;
+        SkinInputLayout                      skinInput;
+        std::vector<MeshSkinSlotBounds>      slotBounds;
     };
+
+    MeshCookStatus ValidateMeshSource(const CookMeshSource &source);
+    MeshCookStatus ValidateCookedMesh(const CookedMesh &mesh);
+    MeshCookStatus RefreshMeshBounds(CookedMesh &mesh);
 
     class MeshProcess {
     public:
         MeshProcess()          = default;
         virtual ~MeshProcess() = default;
 
-        virtual void DoWork() = 0;
+        virtual MeshCookStatus DoWork() = 0;
     };
 
 } // namespace sky::aurora::cook

@@ -5,46 +5,42 @@ TBD - created by archiving change aurora-cook-builders. Update Purpose after arc
 ## Requirements
 ### Requirement: Content 模块与 adaptor / builder 分层
 
-Content SHALL retain its existing adaptor, offline builder and runtime targets. Content.Metadata SHALL own ContentReflection and persistent handlers for existing Content asset schemas once per process definition. Content.Builder.Module SHALL depend on metadata and register its builders through RegisterMeta; it SHALL NOT require the runtime service for reflection. Content.Module and Content.Views SHALL depend on metadata and SHALL NOT invoke ContentReflection. New asset schemas, providers or ownership transfers SHALL be delivered with their feature implementation.
+Content SHALL retain its existing adaptor, offline builder and runtime targets. Content.Adaptor SHALL provide Clip schema/conversion and the Clip source implementation using Animation and Framework interfaces. Content.Metadata SHALL own ContentReflection and persistent Clip handlers once per process definition. Content.Builder.Module SHALL depend on metadata and register Clip builders through RegisterMeta; it SHALL NOT depend on the runtime service. Content.Module SHALL depend on metadata and publish/revoke IAnimationClipSource in Init/Shutdown without registering reflection again. Graph schema/handlers/builders SHALL belong to the animation plugin. Animation core SHALL remain independent of rendering and Framework implementation.
 
 #### Scenario: Offline cook without runtime service
 - **WHEN** Content.Metadata and Content.Builder.Module load without Content.Module
-- **THEN** the existing asset schemas, handlers and builders are available without starting Content runtime services
+- **THEN** Clip schema, handler and builder are available without starting a runtime Clip provider
 
 #### Scenario: Runtime session restart
 - **WHEN** Content.Module shuts down and initializes again
-- **THEN** the same shared metadata definition remains registered without re-running ContentReflection
+- **THEN** its service is revoked and republished while the same metadata definition remains registered
 
 ### Requirement: 动画资产（AnimationClip / Animation graph）
-
-`engine/content/adaptor` SHALL 提供：
-
-- `AnimationClipAssetData`（`version = CURRENT_VERSION`；`name`、`frameRate`、`skeleton` Uuid、`nodeChannels`）与 `AssetTraits<AnimationClip>`（`DataType = AnimationClipAssetData`，`BIN`）；`Save`/`Load` 逐通道（`position`/`scale`/`rotation` 的 `times`/`keys`）序列化；`Load` 在版本不匹配时拒绝。
-- `AnimationAssetData`（`version = CURRENT_VERSION`）与 `AssetTraits<Animation>`（`BIN`）。
-- `CreateAnimationClipFromAsset(asset)` → `AnimationClip`（含通道与帧率/帧数）。
-
-`ContentReflection` SHALL 注册 `AnimationClipAssetData` / `AnimationAssetData` 与 `RegisterAssetHandler<AnimationClip>()` / `<Animation>()`（幂等）。
+Content Adaptor SHALL 保留 AnimationClipAssetData、AssetTraits<AnimationClip>、Clip handler、反射和 CreateAnimationClipFromAsset。Clip 产品 SHALL 保存版本、name/frameRate、权威 sourceFrameCount、Skeleton UUID、通道 header/bulk，并校验格式与通道。ContentReflection SHALL 只注册其拥有的 Clip 资产，不再注册空 AnimationAssetData 或 AnimationGraph handler。Graph 的 schema/handler/反射 SHALL 唯一归 animation plugin；原资产类型字符串 AnimationGraph 与源 UUID SHALL 保持。
 
 #### Scenario: 动画资产往返
-
-- **WHEN** 序列化再反序列化含通道的 `AnimationClipAssetData`
-- **THEN** `version` / `name` / `frameRate` / `skeleton` / 各通道 `times` 与 `keys` 一致
+- **WHEN** 一个有效新版本 Clip 产品完成 Save/Load
+- **THEN** name/frameRate/sourceFrameCount/Skeleton UUID 与通道数据 SHALL 保持一致，压缩 SHALL 不改变源时长
 
 #### Scenario: 版本不匹配
+- **WHEN** 加载不支持的 Clip 产品版本
+- **THEN** loader SHALL 返回格式/recook 诊断，SHALL NOT 按新布局读取旧 payload
 
-- **WHEN** 加载 `version != CURRENT_VERSION` 的 `AnimationClipAssetData`
-- **THEN** 拒绝加载（清空并记录）
+#### Scenario: Graph owner 唯一
+- **WHEN** Content.Module 与 Animation.World 加载
+- **THEN** Content SHALL 仅提供 Clip handler，AnimationGraph SHALL 由 animation plugin 唯一注册
 
 ### Requirement: Animation builder（.clip / .graph）
-
-`AnimationBuilder : AssetBuilder`（`engine/content/builder`）SHALL 声明扩展名 `.clip` / `.graph`；`QueryType` SHALL 对 `.clip` 返回 `AssetTraits<AnimationClip>::ASSET_TYPE`、对 `.graph` 返回 `AssetTraits<Animation>::ASSET_TYPE`。`Request` SHALL 对 `.clip` 以二进制读入 `AnimationClipAssetData`、压缩通道、按 `skeleton`(`Uuid`) 写 product 依赖（是已注册源时兼登 source 依赖）并写回；对 `.graph` 以 JSON 读入 `AnimationAssetData` 并写回。资产引用统一用 `Uuid`。`Content.Builder.Module` SHALL 在 `Init` 调 `ContentReflection` 并注册 `AnimationBuilder`；`Content.Module`（运行时）SHALL 只调 `ContentReflection`。
+Content 的 AnimationBuilder SHALL 仅声明 .clip，QueryType SHALL 返回 AnimationClip 资产类型。Request SHALL 读取支持的 Clip 源版本，验证压缩前长度/原始通道、压缩后保持 sourceFrameCount，并登记 Skeleton 产品 UUID 与其真实 owner source 依赖。产品发布 SHALL 使用显式结果，失败 SHALL 不被 FinishProduct 报告为成功。Content.Builder.Module SHALL 注册 Clip builder；.graph SHALL 唯一由 Animation.Builder 提供。Content.Module SHALL 不注册任何 builder。
 
 #### Scenario: .clip 产出 AnimationClip
-
-- **WHEN** 构建一个 `.clip` 源
-- **THEN** 产出 `AnimationClipAssetData`；通道被压缩；`skeleton` 非空时登记 product 依赖（是已注册源时兼登 source 依赖）
+- **WHEN** 构建有效 .clip 源
+- **THEN** SHALL 输出保持原始长度的压缩 Clip 并登记 Skeleton 依赖，包括 generated Skeleton 的 owner source
 
 #### Scenario: 注册 builder
+- **WHEN** Content.Builder.Module 初始化但 Animation.Builder 未加载
+- **THEN** .clip SHALL 可构建，Content SHALL 不提供 .graph 的占位成功路径
 
-- **WHEN** `Content.Builder.Module` 模块 `Init` 完成
-- **THEN** `AssetBuilderManager` 对 `.clip` / `.graph` 返回非空 builder，且 `AssetManager` 已注册 `AnimationClip` / `Animation` 处理器
+#### Scenario: Graph plugin 接管
+- **WHEN** Animation.Builder 随工具模块加载
+- **THEN** .graph SHALL 由其唯一处理，卸载或缺失时 SHALL 明确不可用而非退回旧空 Graph

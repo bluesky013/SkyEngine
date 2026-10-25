@@ -227,6 +227,20 @@ namespace sky {
                     continue;
                 }
 
+                if (module.HasMember("buildOption")) {
+                    if (!module["buildOption"].IsString()) {
+                        LOG_E(TAG, "Module buildOption must be a known build option string");
+                        return false;
+                    }
+                    const auto enabled = ModuleManager::GetBuildOption(module["buildOption"].GetString());
+                    if (!enabled) {
+                        LOG_E(TAG, "Unknown module buildOption: %s", module["buildOption"].GetString());
+                        return false;
+                    }
+                    if (!*enabled)
+                        continue;
+                }
+
                 ModuleInfo info;
                 info.name = module["name"].GetString();
 

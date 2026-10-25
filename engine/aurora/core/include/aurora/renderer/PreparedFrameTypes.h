@@ -18,6 +18,7 @@ namespace sky::aurora {
         uint64_t              tags    = 1;
         std::optional<AABB>   worldBounds;
         bool                  receiveShadow = true;
+        uint32_t              skinning      = UINT32_MAX;
     };
 
     struct PreparedPointLight {
@@ -27,23 +28,25 @@ namespace sky::aurora {
     };
 
     struct PreparedViewData {
-        ViewId                          id;
-        ViewDesc                        view;
-        uint64_t                        sceneRevision = 0;
-        std::vector<PreparedDrawPacket> draws;
-        std::vector<PreparedPointLight> lights;
-        std::vector<PreparedDrawPacket> shadowCasters;
+        ViewId                                                                        id;
+        ViewDesc                                                                      view;
+        uint64_t                                                                      sceneRevision = 0;
+        std::vector<PreparedDrawPacket>                                               draws;
+        std::vector<PreparedPointLight>                                               lights;
+        std::vector<PreparedDrawPacket>                                               shadowCasters;
+        std::shared_ptr<const std::vector<std::shared_ptr<const RenderSkinningData>>> skinning;
     };
 
     enum class PreparedDrawList : uint8_t { VISIBLE, SHADOW_CASTERS };
 
     // Geometry and typed material values are owned until the frame retires.
     struct ResolvedRasterDraw {
-        RasterDraw               draw;
-        Matrix4                  world = RenderIdentityMatrix();
-        RenderMaterialParameters material;
-        bool                     receiveShadow = true;
-        RenderEntityRef          entity;
+        RasterDraw                               draw;
+        Matrix4                                  world = RenderIdentityMatrix();
+        RenderMaterialParameters                 material;
+        bool                                     receiveShadow = true;
+        RenderEntityRef                          entity;
+        std::shared_ptr<const RenderSkinningData> skinning;
     };
 
     struct PreparedFrame {

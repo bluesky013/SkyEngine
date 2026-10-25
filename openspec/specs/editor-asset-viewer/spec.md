@@ -27,22 +27,20 @@ The editor SHALL provide a reusable **asset viewer widget** that opens for a sel
 - **WHEN** the viewer is open and Escape is pressed
 - **THEN** it closes without applying further edits
 
-### Requirement: Reserved preview seam
-
-The editor core SHALL expose an `IAssetPreviewProvider` seam (uuid + asset type) with a cross-DLL
-`AssetPreviewProviderRegistry`, mirroring the thumbnail seam. The viewer SHALL query the provider for the
-preview region and, when no provider is registered (or it has nothing), draw a placeholder. No preview
-rendering SHALL be implemented by this change.
+### Requirement: Asset preview sessions
+EditorCore SHALL extend its consumer-owned asset preview seam from a boolean query to explicit session creation, update/resize and close/status operations, with owned session identity and generation. Registry state SHALL be cross-DLL shared and provider registrations SHALL be revoked only after sessions drain. The shell SHALL host preview outputs through the existing shared renderer; animation semantics SHALL remain in Animation.Editor. Unsupported asset types or absent providers SHALL retain the placeholder. Sessions SHALL NOT own a second Device or producer.
 
 #### Scenario: No provider draws a placeholder
+- **WHEN** no provider supports an asset type
+- **THEN** the preview region SHALL show its placeholder without claiming a live preview
 
-- **WHEN** the viewer wants the preview and no provider is registered
-- **THEN** it draws an empty placeholder region (no error)
+#### Scenario: Multiple independent sessions
+- **WHEN** the same asset is opened in two preview windows
+- **THEN** each SHALL have a distinct session/time/output and closing one SHALL NOT destroy the other
 
-#### Scenario: Provider consulted
-
-- **WHEN** a provider is registered and the viewer wants the preview
-- **THEN** the provider is consulted with the asset uuid and type
+#### Scenario: Provider unload with active output
+- **WHEN** an extension is unloaded while a preview output is in flight
+- **THEN** it SHALL stop session updates, drain CPU work and output retirement, and only then release provider code
 
 ### Requirement: Resizable viewer
 
@@ -113,13 +111,15 @@ The `DATA` section SHALL be a reflection-driven form (`ReflectedFormView`) bound
 - **THEN** the `DATA` section uses the material provider (typed property list), not the generic reflected form
 
 ### Requirement: Hidden assets do not open the asset viewer
+The asset-open handler SHALL NOT open a viewer for a type whose resolved AssetViewFlags is HIDDEN. AuroraSkin SHALL have a registered read-only reflected DATA summary in the Aurora editor extension, showing its owner source, slot/mapping mode and format/revision. Generated Skin editing SHALL occur by owner reimport, not by writing cooked matrices directly.
 
-The asset open path (`SandboxModule`'s asset-open handler) SHALL NOT open the asset viewer for a type whose `AssetViewFlags` is `HIDDEN`.
+#### Scenario: Unregistered internal type is not opened
+- **WHEN** a type has no settings or data provider and resolves to HIDDEN
+- **THEN** the viewer SHALL not open
 
-#### Scenario: Skin is not opened
-
-- **WHEN** the user opens a skin asset
-- **THEN** the asset viewer does not open
+#### Scenario: Skin opens a reflected summary
+- **WHEN** the user opens a generated Skin with its Aurora DATA provider registered
+- **THEN** the viewer SHALL show its read-only summary and owner-source identity
 
 ### Requirement: Asset viewer notifies incremental composition changes
 The viewer SHALL synchronize its owned reflected forms before calculating stacked content extent, scrollbar reservation, scroll clamp, and final child rectangles. Its audited owned composition SHALL support incremental arrangement with notified open/reload/rebuilt-content, panel-size, and scroll changes. Reopening at unchanged outer bounds SHALL still allocate the new content before paint. Unknown provider content SHALL retain its own runtime volatility policy and SHALL NOT be forced stable by the viewer. Custom content SHALL continue to be measured and arranged at its actual content-column width.
