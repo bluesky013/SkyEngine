@@ -24,6 +24,10 @@ namespace sky::aurora {
     struct PreparedMaterialLayout {
         RenderResourceKey        resource;
         ShaderPtr                shader;
+        ShaderVariant            pipeline; // non-default pipeline-owned values
+        bool                     skinned          = false;
+        bool                     pipelineAgnostic = false; // legacy single-program material
+        uint16_t                 vertexMask       = 0;
         BlendState               blend;
         RasterDepthState         depth;
         RenderMaterialParameters parameters;
@@ -37,6 +41,17 @@ namespace sky::aurora {
         GraphBufferHandle handle;
     };
 
+    std::variant<FrameError, std::vector<RasterVertexAttribute>>
+    ResolveVertexInputs(std::span<const RasterVertexAttribute>, const ShaderReflection &);
+
+    // Exact P|V selection for one draw. Legacy single-program materials are
+    // pipeline-agnostic but still vertex-specific.
+    const PreparedMaterialLayout *FindMaterialVariant(std::span<const PreparedMaterialLayout>,
+                                                      const RenderResourceKey &,
+                                                      bool                 skinned,
+                                                      const ShaderVariant &pipelineValues,
+                                                      uint16_t             vertexMask = 0);
+
     // Coordinator-only; on failure discard this graph and its unsubmitted lease before rebuilding.
     std::variant<FrameError, PreparedRasterView> ResolvePreparedRaster(Device &,
                                                                        DeviceFrameContext &,
@@ -47,6 +62,7 @@ namespace sky::aurora {
                                                                        std::span<const PreparedMeshLayout>,
                                                                        std::span<const PreparedMaterialLayout>,
                                                                        Rect2D                               scissor,
-                                                                       std::span<const PreparedGraphBuffer> inGraph = {},
-                                                                       PreparedDrawList                     list    = PreparedDrawList::VISIBLE);
+                                                                       std::span<const PreparedGraphBuffer> inGraph        = {},
+                                                                       PreparedDrawList                     list           = PreparedDrawList::VISIBLE,
+                                                                       const ShaderVariant                 &pipelineValues = {});
 } // namespace sky::aurora

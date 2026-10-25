@@ -21,19 +21,19 @@ namespace sky::editor {
         friend class sky::Singleton<EditorExtensionRegistry>;
 
     public:
-        void Add(EditorExtensionPtr extension)
+        void Add(EditorExtensionPtr extension, std::shared_ptr<const void> lease = {})
         {
-            pending.push_back(std::move(extension));
+            if (extension) pending.emplace_back(std::move(lease), std::move(extension));
         }
 
         // Transfers ownership of all staged extensions to the caller (the host).
-        std::vector<EditorExtensionPtr> TakeAll()
+        std::vector<EditorExtensionRegistration> TakeAll()
         {
             return std::move(pending);
         }
 
     private:
-        std::vector<EditorExtensionPtr> pending;
+        std::vector<EditorExtensionRegistration> pending;
     };
 
 } // namespace sky::editor

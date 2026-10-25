@@ -16,6 +16,7 @@ namespace sky::aurora {
     enum class ScenePrimitive { CUBE, PLANE };
     Uuid                                               ScenePrimitiveId(ScenePrimitive primitive);
     Uuid                                               SceneLitMaterialId();
+    bool IsBuiltinSceneAsset(const Uuid &id, std::string_view type);
     MeshAssetData                                      ScenePrimitiveMesh(ScenePrimitive primitive);
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info);
     enum class SceneImageUsage { ENVIRONMENT, MATERIAL };

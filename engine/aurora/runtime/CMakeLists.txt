@@ -1,5 +1,10 @@
-# Runtime render module (launcher-facing dynamic module), symmetric with
-# engine/aurora/editor. Links the static bridge and registers AuroraModule.
+# Process metadata and runtime renderer entries reuse the existing adaptor implementation.
+sky_add_module(TARGET Aurora.Metadata
+    SOURCES src/AuroraMetadata.cpp
+    LINK_LIBS Aurora.Adaptor.Static Framework
+)
+sky_add_dependency(TARGET Aurora.Metadata DEPENDENCIES Launcher SandboxEditor AssetTool)
+
 sky_add_module(TARGET Aurora.Render
     SOURCES
         src/AuroraRegistry.cpp
@@ -29,9 +34,9 @@ if (SKY_BUILD_TEST)
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.ModuleTest>)
     if (SKY_MODULE_PACKAGING STREQUAL "static")
         target_compile_definitions(Aurora.Renderer.ModuleTest PRIVATE AURORA_RENDERER_PACKAGED_STATIC)
-        target_link_libraries(Aurora.Renderer.ModuleTest Aurora.Render)
+        target_link_libraries(Aurora.Renderer.ModuleTest Aurora.Render Aurora.Metadata)
     else()
-        add_dependencies(Aurora.Renderer.ModuleTest Aurora.Render)
+        add_dependencies(Aurora.Renderer.ModuleTest Aurora.Render Aurora.Metadata)
     endif()
 
     # Verify tagged static registration even when production modules are dynamic.

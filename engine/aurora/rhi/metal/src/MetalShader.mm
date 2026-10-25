@@ -113,6 +113,8 @@ namespace sky::aurora {
                 types.emplace(static_cast<uint32_t>(constant.index), constant.type);
             auto *constants = [[MTLFunctionConstantValues alloc] init];
             for (const auto &entry : values.entries) {
+                if (entry.stage != source.GetArtifact()->identity.stage)
+                    continue;
                 const auto type = types.find(entry.id);
                 if (type == types.end())
                     continue;
@@ -131,12 +133,6 @@ namespace sky::aurora {
                 case MTLDataTypeUInt: {
                     const uint32_t value = entry.value;
                     [constants setConstantValue:&value type:MTLDataTypeUInt atIndex:entry.id];
-                    break;
-                }
-                case MTLDataTypeFloat: {
-                    float value;
-                    std::memcpy(&value, &entry.value, sizeof(value));
-                    [constants setConstantValue:&value type:MTLDataTypeFloat atIndex:entry.id];
                     break;
                 }
                 default: return false;
@@ -160,40 +156,24 @@ namespace sky::aurora {
     bool MetalShader::SpecializeFunctions()
     {
         @autoreleasepool {
-            std::map<uint32_t, MTLDataType> types;
-            for (const auto *source : {vertexFunction.Get(), fragmentFunction.Get(), computeFunction.Get()}) {
-                if (!source)
-                    continue;
-                const auto native = (__bridge id<MTLFunction>)source->GetNativeHandle();
-                for (MTLFunctionConstant *constant in native.functionConstantsDictionary.allValues) {
-                    if (constant.index > UINT32_MAX) {
-                        LOG_E(TAG, "Metal function constant index exceeds the specialization protocol");
-                        return false;
-                    }
-                    const auto [found, inserted] = types.emplace(static_cast<uint32_t>(constant.index), constant.type);
-                    if (!inserted && found->second != constant.type) {
-                        LOG_E(TAG, "Metal function constant has incompatible types across stages");
-                        return false;
-                    }
-                }
-            }
-            std::set<uint32_t> supplied;
-            for (const auto &entry : specialization.entries) {
-                const auto type = types.find(entry.id);
-                if (!supplied.insert(entry.id).second || type == types.end()) {
-                    LOG_E(TAG, "Unknown or duplicate Metal specialization constant");
-                    return false;
-                }
-                if ((type->second == MTLDataTypeBool && entry.value > 1) || (type->second != MTLDataTypeBool && type->second != MTLDataTypeInt &&
-                                                                             type->second != MTLDataTypeUInt && type->second != MTLDataTypeFloat)) {
-                    LOG_E(TAG, "Unsupported Metal specialization constant type or value");
-                    return false;
-                }
-            }
             const auto specialize = [&](CounterPtr<MetalShaderFunction> &source) {
                 if (!source)
                     return true;
                 const auto native = (__bridge id<MTLFunction>)source->GetNativeHandle();
+                for (const auto &entry : specialization.entries) {
+                    if (entry.stage != source->GetArtifact()->identity.stage)
+                        continue;
+                    for (MTLFunctionConstant *constant in native.functionConstantsDictionary.allValues) {
+                        if (constant.index != entry.id)
+                            continue;
+                        const auto expected = entry.type == ShaderVariantType::BOOL ? MTLDataTypeBool :
+                                              entry.type == ShaderVariantType::INT32 ? MTLDataTypeInt : MTLDataTypeUInt;
+                        if (constant.type != expected) {
+                            LOG_E(TAG, "Metal function constant type differs from the stage artifact");
+                            return false;
+                        }
+                    }
+                }
                 if (native.functionConstantsDictionary.count == 0)
                     return true;
                 CounterPtr<MetalShaderFunction> prepared = new MetalShaderFunction(device);

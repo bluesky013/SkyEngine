@@ -446,6 +446,27 @@ TEST_F(ResourceCatalogTest, BudgetsRejectWithoutConsumingPayloadOrReplacingSubsc
     EXPECT_TRUE(Request(Subscriber(entityA, 2, 2)).needsCpuData);
 }
 
+TEST_F(ResourceCatalogTest, MaterialVariantsChargeArtifactsAndDeclarationsBeforeAdmission)
+{
+    auto       payload   = Payload();
+    auto      &technique = payload.material.emplace().techniques.emplace_back();
+    const auto before    = RenderResourceCpuBytes(payload);
+    auto       artifact  = std::make_shared<ShaderStageArtifact>();
+    artifact->data.resize(1024 * 1024);
+    artifact->reflection.declarations.push_back({.name = std::string(512, 'x')});
+    technique.variants.emplace_back().program.vertex = artifact;
+    const auto required                              = RenderResourceCpuBytes(payload);
+    EXPECT_GE(required - before, artifact->data.size() + 512u);
+    Init({epoch, required - 1});
+    const auto requested = Request();
+    const auto rejected  = catalog->Supply(requested.ticket, payload);
+    ASSERT_TRUE(rejected);
+    EXPECT_EQ(rejected->code, RendererErrorCode::OUT_OF_MEMORY);
+    EXPECT_EQ(catalog->CpuBytes(), 0u);
+    ASSERT_TRUE(payload.material);
+    EXPECT_EQ(payload.material->techniques.front().variants.front().program.vertex, artifact);
+}
+
 TEST_F(ResourceCatalogTest, InvalidMetadataAndBackingNeverBecomeResident)
 {
     EXPECT_TRUE(std::holds_alternative<RendererError>(ResourceCatalog::Create({})));

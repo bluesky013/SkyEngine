@@ -19,6 +19,7 @@ extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
 #include <editor/core/asset/AssetPreviewProvider.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorScopeStack.h>
+#include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/AssetViewFlags.h>
 #include <editor/ui/AssetViewProvider.h>
 #include <editor/ui/UiDraw.h>
@@ -27,12 +28,14 @@ extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
 #include <editor/widgets/MenuBar.h>
 #include <editor/widgets/ReflectedFormView.h>
 #include <editor/widgets/ToolBar.h>
+#include <editor/widgets/ToolItemButton.h>
 
 #include <ui/UIPaintContext.h>
 #include <ui/text/UITextSystem.h>
 #include <ui/widgets/DockPanel.h>
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <memory>
 
@@ -64,6 +67,112 @@ namespace sky::editor {
 
     } // namespace
 
+    class AssetViewerWidget::ClosePrompt final : public ModalDialog {
+    public:
+        explicit ClosePrompt(AssetViewerWidget &owner) : owner(owner)
+        {
+            SetLayoutVolatile(false);
+            SetVisible(false);
+        }
+        const char *GetTypeName() const override
+        {
+            return "AssetClosePrompt";
+        }
+        void Show()
+        {
+            if (!IsOpen()) {
+                contentElements.clear();
+                capturedElement = nullptr;
+                ClearChildren();
+                selected       = 2;
+                auto *registry = EditorActionRegistry::Get();
+                for (size_t i = 0; i < actions.size(); ++i) {
+                    const auto snapshot = registry->GetSnapshot(actions[i]);
+                    buttons[i]          = AddChild(std::make_unique<ToolItemButton>(&owner.skin, snapshot.action.label,
+                                                                                    [snapshot] { EditorActionRegistry::Get()->Invoke(snapshot); }));
+                    buttons[i]->SetLayoutVolatile(false);
+                    AddContentElement(buttons[i]);
+                }
+                Open();
+            }
+            for (size_t i = 0; i < buttons.size(); ++i) {
+                buttons[i]->SetEnabled(owner.CanResolveClose(static_cast<CloseDecision>(i)));
+            }
+            MarkPaintDirty();
+        }
+        void OnPaint(sky::ui::UIPaintContext &context) override
+        {
+            PaintBackdrop(context);
+            const auto &theme   = owner.skin.Theme();
+            const auto &m       = theme.metrics;
+            const auto  content = owner.skin.DrawPanel(context, panel, "Save changes before closing?");
+            context.PushClip(content);
+            uc::Text(context, owner.assetName, theme.fonts.label,
+                     {content.left + m.controlPad, content.top, content.right - m.controlPad, content.top + m.rowHeight}, theme.colors.text,
+                     owner.textSystem);
+            const auto message = owner.viewDocument.document->IsSavePending() ? "Saving changes..."
+                                 : owner.HasEditingForms()                    ? "An edit is active. Cancel to finish it, or discard changes."
+                                 : owner.documentCloseSaveFailed              ? "Save failed. Retry, discard changes, or cancel closing."
+                                                                              : "Your changes have not been saved.";
+            uc::Text(context, message, theme.fonts.label,
+                     {content.left + m.controlPad, content.top + m.rowHeight, content.right - m.controlPad, content.top + 3 * m.rowHeight},
+                     owner.documentCloseSaveFailed ? theme.colors.error : theme.colors.textMuted, owner.textSystem);
+            owner.skin.DrawField(context, buttons[selected]->GetBounds(), true, false);
+            context.PopClip();
+        }
+        sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override
+        {
+            if (event.action == sky::ui::UIPointerAction::DOWN) {
+                for (size_t i = 0; i < buttons.size(); ++i) {
+                    if (buttons[i]->IsEnabled() && buttons[i]->GetBounds().Contains(event.x, event.y))
+                        selected = i;
+                }
+            }
+            RouteContentPointer(event);
+            return sky::ui::UIEventResult::HANDLED;
+        }
+        sky::ui::UIEventResult OnKeyEvent(const sky::ui::UIKeyEvent &event) override
+        {
+            if (event.action == sky::ui::UIKeyAction::DOWN) {
+                if (event.keyCode == 0x1B)
+                    EditorActionRegistry::Get()->Invoke(actions[2]);
+                else if (event.keyCode == 0x09) {
+                    do {
+                        selected = (selected + ((event.modifiers & kModShift) ? 2 : 1)) % buttons.size();
+                    } while (!owner.CanResolveClose(static_cast<CloseDecision>(selected)));
+                    MarkPaintDirty();
+                } else if (event.keyCode == 0x0D || event.keyCode == 0x20)
+                    EditorActionRegistry::Get()->Invoke(actions[selected]);
+            }
+            return sky::ui::UIEventResult::HANDLED;
+        }
+
+    protected:
+        void ArrangeChildren(const sky::ui::UIRect &) override
+        {
+            const auto &m           = owner.skin.Theme().metrics;
+            const auto  bounds      = GetBounds();
+            const float width       = std::min(m.fieldWidth * 3, std::max(0.f, bounds.Width() - 2 * m.dialogMargin));
+            const float height      = std::min(m.panelHeaderHeight + 5 * m.rowHeight + 2 * m.controlPad, bounds.Height());
+            const float left        = bounds.left + (bounds.Width() - width) * .5f;
+            const float top         = bounds.top + (bounds.Height() - height) * .5f;
+            panel                   = {left, top, left + width, top + height};
+            const float buttonWidth = std::max(0.f, (width - 4 * m.controlPad) / buttons.size());
+            for (size_t i = 0; i < buttons.size(); ++i) {
+                const float x = left + m.controlPad + i * (buttonWidth + m.controlPad);
+                if (buttons[i])
+                    buttons[i]->Arrange({x, panel.bottom - m.controlPad - m.frameHeight, x + buttonWidth, panel.bottom - m.controlPad});
+            }
+        }
+
+    private:
+        AssetViewerWidget                  &owner;
+        std::array<sky::ui::UIElement *, 3> buttons{};
+        const std::array<const char *, 3>   actions{"assetViewer.saveClose", "assetViewer.discardClose", "assetViewer.cancelClose"};
+        sky::ui::UIRect                     panel;
+        size_t                              selected = 2;
+    };
+
     AssetViewerWidget::AssetViewerWidget(sky::ui::UITextSystem *text) : textSystem(text), skin(GetDefaultUiTheme(), text)
     {
         SetLayoutVolatile(false);
@@ -74,10 +183,8 @@ namespace sky::editor {
         contentViewport->SetLayoutVolatile(false);
         contentViewport->SetClipsChildren(true);
 
-        // Toolbar + body docked with DockPanel (no hand offsets); heights come from the theme
-        // metrics so they DPI-scale. The menu bar is a DIRECT child added LAST so its open popup
-        // paints above the toolbar/body (same reason the main shell adds the menu bar after the
-        // toolbar). Items are filled from the active-scope actions when the viewer opens.
+        // Menu popups paint above the toolbar/body; the close prompt paints above both.
+        // Scoped actions populate the chrome when the viewer opens.
         const UiMetrics &m = GetDefaultUiTheme().metrics;
         topDock            = static_cast<sky::ui::DockPanel *>(AddChild(std::make_unique<sky::ui::DockPanel>()));
         toolBar = static_cast<ToolBar *>(topDock->Add(std::make_unique<ToolBar>(text), sky::ui::DockSlot{sky::ui::DockSide::Top, m.toolbarHeight}));
@@ -88,6 +195,7 @@ namespace sky::editor {
         menuBar = static_cast<MenuBar *>(AddChild(std::make_unique<MenuBar>(std::vector<MenuBar::Menu>{}, text)));
         menuBar->SetBarHeight(m.menuBarHeight);
         menuBar->SetLayoutVolatile(false);
+        closePrompt      = static_cast<ClosePrompt *>(AddChild(std::make_unique<ClosePrompt>(*this)));
         commandChangedId = assetCommands.AddChangeCallback([this]() {
             pendingSettingsReload = true;
             MarkLayoutDirty();
@@ -103,6 +211,7 @@ namespace sky::editor {
         assetCommands.RemoveChangeCallback(commandChangedId);
         contentElements.clear();
         capturedElement = nullptr;
+        ReleaseCustomContent();
         ClearChildren();
     }
 
@@ -133,12 +242,12 @@ namespace sky::editor {
 
     bool AssetViewerWidget::CanUndo() const
     {
-        return IsOpen() && assetCommands.CanUndo();
+        return IsOpen() && (viewDocument.document ? viewDocument.document->History().CanUndo() : assetCommands.CanUndo());
     }
 
     bool AssetViewerWidget::CanRedo() const
     {
-        return IsOpen() && assetCommands.CanRedo();
+        return IsOpen() && (viewDocument.document ? viewDocument.document->History().CanRedo() : assetCommands.CanRedo());
     }
 
     bool AssetViewerWidget::Undo()
@@ -146,7 +255,7 @@ namespace sky::editor {
         if (!IsOpen()) {
             return false;
         }
-        const bool result = assetCommands.Undo();
+        const bool result = History().Undo();
         if (pendingSettingsReload) {
             Reload();
         }
@@ -158,7 +267,7 @@ namespace sky::editor {
         if (!IsOpen()) {
             return false;
         }
-        const bool result = assetCommands.Redo();
+        const bool result = History().Redo();
         if (pendingSettingsReload) {
             Reload();
         }
@@ -167,6 +276,8 @@ namespace sky::editor {
 
     bool AssetViewerWidget::HasEditingForms() const
     {
+        if (viewDocument.document && viewDocument.document->IsEditing())
+            return true;
         if (dataView != nullptr && dataView->Form().IsEditing()) {
             return true;
         }
@@ -180,6 +291,8 @@ namespace sky::editor {
 
     void AssetViewerWidget::CancelFormInteractions()
     {
+        if (viewDocument.document)
+            viewDocument.document->CancelInteractions();
         if (dataView != nullptr) {
             dataView->CancelInteractions();
         }
@@ -192,6 +305,12 @@ namespace sky::editor {
 
     void AssetViewerWidget::Close()
     {
+        if (viewDocument.document) {
+            documentCloseRequested = true;
+            documentNextAsset = {};
+            MarkPaintDirty();
+            return;
+        }
         if (HasEditingForms()) {
             pendingSession = PendingSessionAction::Close;
             MarkLayoutDirty();
@@ -203,6 +322,58 @@ namespace sky::editor {
         assetCommands.Clear();
         pendingSettingsReload = false;
         ModalDialog::Close();
+    }
+
+    bool AssetViewerWidget::NeedsCloseDecision() const
+    {
+        return documentCloseRequested && viewDocument.document && (viewDocument.document->IsDirty() || HasEditingForms());
+    }
+    bool AssetViewerWidget::CanResolveClose(CloseDecision decision) const
+    {
+        return NeedsCloseDecision() && (decision == CloseDecision::Cancel ||
+                                        (!viewDocument.document->IsSavePending() && (decision != CloseDecision::Save || !HasEditingForms())));
+    }
+    void AssetViewerWidget::ResolveClose(CloseDecision decision)
+    {
+        if (!CanResolveClose(decision))
+            return;
+        if (decision == CloseDecision::Cancel) {
+            documentCloseRequested = documentSaveAndClose = documentDiscard = false;
+            documentCloseSaveFailed                                         = false;
+            documentNextAsset = {};
+        } else if (decision == CloseDecision::Save) {
+            SaveAsset();
+            documentSaveAndClose = true;
+            documentCloseSaveFailed = false;
+        } else {
+            documentDiscard = true;
+        }
+        MarkPaintDirty();
+    }
+    void AssetViewerWidget::Tick(float delta)
+    {
+        if (!viewDocument.document)
+            return;
+        viewDocument.document->Tick(delta);
+        if (documentSaveAndClose && !viewDocument.document->IsSavePending()) {
+            documentSaveAndClose = false;
+            documentCloseSaveFailed = viewDocument.document->IsDirty();
+        }
+        if (documentCloseRequested &&
+            (documentDiscard || (!HasEditingForms() && !viewDocument.document->IsDirty() && !viewDocument.document->IsSavePending()))) {
+            const auto next = documentNextAsset;
+            CancelFormInteractions();
+            ReleaseCustomContent();
+            if (next)
+                Open(next);
+            else
+                Close();
+        }
+        if (NeedsCloseDecision())
+            closePrompt->Show();
+        else
+            closePrompt->Close();
+        MarkLayoutDirty();
     }
 
     void AssetViewerWidget::SynchronizeLayout()
@@ -309,6 +480,14 @@ namespace sky::editor {
 
     void AssetViewerWidget::Open(const Uuid &uuid)
     {
+        if (IsOpen() && viewDocument.document) {
+            if (uuid != asset) {
+                documentCloseRequested = true;
+                documentNextAsset = uuid;
+                MarkPaintDirty();
+            }
+            return;
+        }
         if (HasEditingForms()) {
             pendingAsset   = uuid;
             pendingSession = PendingSessionAction::Open;
@@ -355,10 +534,7 @@ namespace sky::editor {
     {
         contentElements.clear();
         capturedElement = nullptr;
-        if (customContent != nullptr) {
-            contentViewport->RemoveChild(customContent);
-            customContent = nullptr;
-        }
+        ReleaseCustomContent();
 
         if (!HasAssetViewFlag(viewFlags, AssetViewFlags::DATA)) {
             return;
@@ -368,10 +544,47 @@ namespace sky::editor {
         if (provider == nullptr) {
             return;
         }
+        customContentLease = AssetViewProviderRegistry::Get()->Retain(assetType);
+        auto opened = provider->OpenDocument(asset, assetType);
+        if (opened.document && opened.moduleLease) {
+            viewDocument = std::move(opened);
+            viewDocument.document->SetActionScope(actionScope);
+            if (auto content = viewDocument.document->CreateContent(textSystem)) {
+                customContent = contentViewport->AddChild(std::move(content));
+                AddContentElement(customContent);
+                if (auto preview = viewDocument.document->CreatePreview(textSystem)) {
+                    customPreview = bodyArea->AddChild(std::move(preview));
+                    AddContentElement(customPreview);
+                }
+                return;
+            }
+            viewDocument.document.reset();
+            viewDocument.moduleLease.reset();
+        }
         if (auto content = provider->CreateContent(asset, assetType, textSystem)) {
             customContent = contentViewport->AddChild(std::move(content));
             AddContentElement(customContent);
         }
+    }
+    void AssetViewerWidget::ReleaseCustomContent()
+    {
+        contentElements.clear();
+        capturedElement = nullptr;
+        if (customContent != nullptr) {
+            contentViewport->RemoveChild(customContent);
+            customContent = nullptr;
+        }
+        if (customPreview != nullptr) {
+            bodyArea->RemoveChild(customPreview);
+            customPreview = nullptr;
+        }
+        viewDocument.document.reset();
+        viewDocument.moduleLease.reset();
+        customContentLease.reset();
+        documentCloseRequested = documentSaveAndClose = documentDiscard = false;
+        documentCloseSaveFailed                                         = false;
+        closePrompt->Close();
+        documentNextAsset = {};
     }
 
     void AssetViewerWidget::RebuildDataView()
@@ -464,6 +677,8 @@ namespace sky::editor {
             if (customContent != nullptr) {
                 AddContentElement(customContent);
             }
+            if (customPreview != nullptr)
+                AddContentElement(customPreview);
             if (dataView != nullptr) {
                 AddContentElement(dataView);
             }
@@ -508,7 +723,19 @@ namespace sky::editor {
 
     sky::ui::UIRect AssetViewerWidget::PanelRect() const
     {
-        return CenteredPanel(panelW, panelH, kMinW, kMinH);
+        return standalone ? GetBounds() : CenteredPanel(panelW, panelH, kMinW, kMinH);
+    }
+    bool AssetViewerWidget::WantsPointerCapture() const
+    {
+        return resizing || dragScroll || capturedElement ||
+            std::ranges::any_of(contentElements, [](const auto *element) { return element && element->WantsPointerCapture(); });
+    }
+    void AssetViewerWidget::OnPointerCancel(uint32_t pointer)
+    {
+        if (capturedElement) capturedElement->OnPointerCancel(pointer);
+        capturedElement = nullptr;
+        resizing = dragScroll = false;
+        CancelFormInteractions();
     }
 
     sky::ui::UIRect AssetViewerWidget::ContentRect(const sky::ui::UIRect &panel) const
@@ -530,6 +757,11 @@ namespace sky::editor {
 
     void AssetViewerWidget::SaveAsset()
     {
+        if (viewDocument.document) {
+            viewDocument.document->CancelInteractions();
+            viewDocument.document->RequestSave();
+            return;
+        }
         const std::weak_ptr<void> alive   = actionLifetime;
         const uint64_t            session = actionSessionGeneration;
         CancelFormInteractions();
@@ -590,6 +822,7 @@ namespace sky::editor {
         if (!IsOpen()) {
             return;
         }
+        closePrompt->Arrange(GetBounds());
         const std::weak_ptr<void> alive = actionLifetime;
         arrangingContent                = true;
         SynchronizeLayout();
@@ -600,11 +833,15 @@ namespace sky::editor {
             return;
         const sky::ui::UIRect content = skin.PanelContentRect(PanelRect());
 
-        // Menu bar (top, a direct child added last so its popup paints above the toolbar) and the
+        // Menu bar (a direct child above the toolbar, below the close prompt) and the
         // toolbar+body dock below it.
         const float menuH = skin.Theme().metrics.menuBarHeight;
         menuBar->Arrange({content.left, content.top, content.right, content.top + menuH});
         topDock->Arrange({content.left, content.top + menuH, content.right, content.bottom});
+        if (customPreview) {
+            const auto body = bodyArea->GetBounds();
+            customPreview->Arrange({body.left + kPad, body.top + kPad, body.left + body.Width() * .38f, body.bottom - kPad});
+        }
         const sky::ui::UIRect right   = RightRect(bodyArea->GetBounds());
         const float           viewTop = right.top + 2.0f * kRowHeight + 4.0f;
         const float           viewH   = std::max(0.0f, right.bottom - viewTop);
@@ -625,7 +862,9 @@ namespace sky::editor {
                 return dataView->GetPreferredHeight();
             }
             if (customContent != nullptr) {
-                const auto desired = customContent->MeasureDesired({{}, {std::max(0.0f, width), std::numeric_limits<float>::infinity()}});
+                const float height  = viewDocument.document && viewDocument.document->FitsContentToViewport() ? std::max(0.f, viewH - kPanelGap)
+                                                                                                              : std::numeric_limits<float>::infinity();
+                const auto  desired = customContent->MeasureDesired({{}, {std::max(0.0f, width), height}});
                 return std::max(desired.height, kRowHeight);
             }
             return 0.0f;
@@ -693,15 +932,18 @@ namespace sky::editor {
         const sky::ui::UIRect preview{body.left + kPad, body.top + kPad, body.left + previewW, body.bottom - kPad};
         const sky::ui::UIRect right = RightRect(body);
 
-        uc::RoundedField(context, preview, uc::color::Section, uc::color::BorderSoft, 4.0f);
-        IAssetPreviewProvider *provider   = AssetPreviewProviderRegistry::Get()->GetProvider();
-        const bool             hasPreview = provider != nullptr && provider->GetPreview(asset, assetType);
-        uc::Text(context, hasPreview ? "preview (reserved)" : "no preview", kTextSize, preview, uc::color::TextDisabled, textSystem,
-                 uc::HAlign::Center, uc::VAlign::Middle);
+        if (!customPreview) {
+            uc::RoundedField(context, preview, uc::color::Section, uc::color::BorderSoft, 4.0f);
+            IAssetPreviewProvider *provider   = AssetPreviewProviderRegistry::Get()->GetProvider();
+            const bool             hasPreview = provider != nullptr && provider->GetPreview(asset, assetType);
+            uc::Text(context, hasPreview ? "preview (reserved)" : "no preview", kTextSize, preview, uc::color::TextDisabled, textSystem,
+                     uc::HAlign::Center, uc::VAlign::Middle);
+        }
 
         uc::Text(context, assetName + "  [" + assetType + "]", kTextSize, {right.left, right.top, right.right, right.top + kRowHeight},
                  uc::color::Text, textSystem);
-        uc::Text(context, assetPath, kTextSize, {right.left, right.top + kRowHeight, right.right, right.top + 2.0f * kRowHeight},
+        auto status = viewDocument.document ? viewDocument.document->Status() : assetPath;
+        uc::Text(context, status, kTextSize, {right.left, right.top + kRowHeight, right.right, right.top + 2.0f * kRowHeight},
                  uc::color::TextMuted, textSystem);
 
         const float         viewTop      = right.top + 2.0f * kRowHeight + 4.0f;
@@ -735,7 +977,7 @@ namespace sky::editor {
 
         const sky::ui::UIRect grip      = ResizeRect(panel);
         const auto            gripColor = (hoverResize || resizing) ? uc::color::Text : uc::color::TextDisabled;
-        uc::Text(context, "//", kTextSize, grip, gripColor, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
+        if (!standalone) uc::Text(context, "//", kTextSize, grip, gripColor, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
     }
 
     sky::ui::UIEventResult AssetViewerWidget::OnPointerEvent(const sky::ui::UIPointerEvent &event)
@@ -743,6 +985,11 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (!IsOpen()) {
             return sky::ui::UIEventResult::UNHANDLED;
+        }
+        if (NeedsCloseDecision()) {
+            if (closePrompt->IsOpen())
+                closePrompt->OnPointerEvent(event);
+            return sky::ui::UIEventResult::HANDLED;
         }
         if (!RefreshActions())
             return sky::ui::UIEventResult::UNHANDLED;
@@ -783,7 +1030,7 @@ namespace sky::editor {
                 return sky::ui::UIEventResult::HANDLED;
             }
             hoverClose  = CloseRect(panel).Contains(event.x, event.y);
-            hoverResize = ResizeRect(panel).Contains(event.x, event.y);
+            hoverResize = !standalone && ResizeRect(panel).Contains(event.x, event.y);
             hoverScroll = contentTotal > contentViewH && ScrollTrackRect().Contains(event.x, event.y);
             MarkPaintDirty();
         } else if (event.action == sky::ui::UIPointerAction::DOWN) {
@@ -791,7 +1038,7 @@ namespace sky::editor {
                 Close();
                 return sky::ui::UIEventResult::HANDLED;
             }
-            if (ResizeRect(panel).Contains(event.x, event.y)) {
+            if (!standalone && ResizeRect(panel).Contains(event.x, event.y)) {
                 resizing     = true;
                 resizeStartX = event.x;
                 resizeStartY = event.y;
@@ -828,6 +1075,8 @@ namespace sky::editor {
 
     sky::ui::UIEventResult AssetViewerWidget::OnKeyEvent(const sky::ui::UIKeyEvent &event)
     {
+        if (NeedsCloseDecision())
+            return closePrompt->OnKeyEvent(event);
         // Shortcuts (Ctrl+S/O/Z/Y, Esc) are resolved by EditorShell from the scoped actions'
         // accelerators before this is reached; only content editing keys land here.
         return RouteContentKey(event);
@@ -835,6 +1084,8 @@ namespace sky::editor {
 
     sky::ui::UIEventResult AssetViewerWidget::OnTextInput(const sky::ui::UITextInputEvent &event)
     {
+        if (NeedsCloseDecision())
+            return sky::ui::UIEventResult::HANDLED;
         return RouteContentText(event);
     }
 

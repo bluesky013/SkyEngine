@@ -6,18 +6,19 @@
 
 #include <core/environment/Singleton.h>
 #include <core/util/Uuid.h>
+#include <algorithm>
 #include <framework/world/Component.h>
 #include <vector>
 
 namespace sky {
     class ComponentFactory : public Singleton<ComponentFactory> {
     public:
-        ComponentFactory()  = default;
+        ComponentFactory()           = default;
         ~ComponentFactory() override = default;
 
         struct ComponentInfo {
-            Uuid typeId;
-            std::string_view name;
+            Uuid        typeId;
+            std::string name;
         };
 
         template <typename T>
@@ -30,12 +31,17 @@ namespace sky {
             RegisterComponent(info->registeredId, info->name, group);
         }
 
-        const std::unordered_map<std::string, std::vector<ComponentInfo>> &GetTypes() const { return componentTypes; }
+        const std::unordered_map<std::string, std::vector<ComponentInfo>> &GetTypes() const
+        {
+            return componentTypes;
+        }
 
     private:
         void RegisterComponent(const Uuid &uuid, const std::string_view &name, const std::string &group)
         {
-            componentTypes[group].emplace_back(ComponentInfo{uuid, name});
+            auto &types = componentTypes[group];
+            SKY_ASSERT(std::none_of(types.begin(), types.end(), [&](const ComponentInfo &info) { return info.typeId == uuid; }))
+            types.emplace_back(ComponentInfo{uuid, std::string(name)});
         }
 
         std::unordered_map<std::string, std::vector<ComponentInfo>> componentTypes;

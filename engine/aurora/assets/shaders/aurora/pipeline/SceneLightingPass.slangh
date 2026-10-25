@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/SceneLightingPass.h; do not edit.
-// Inputs: 9f344beb8761587e1df3c000e58399ee5ab8d16dff1e1ce639f2a643115b98b0; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 9f344beb8761587e1df3c000e58399ee5ab8d16dff1e1ce639f2a643115b98b0; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

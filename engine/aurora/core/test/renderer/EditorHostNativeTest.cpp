@@ -44,6 +44,7 @@ namespace {
             ASSERT_TRUE(window);
             Interface<ISystemNotify>::Get()->Register(*this);
             modules.AddStaticModule("SandboxModule", std::make_unique<IModule>());
+            modules.AddStaticModule("Aurora.Render", std::make_unique<IModule>());
             modules.TopoSort();
             modules.LoadModules({});
             StartArguments args;
@@ -98,9 +99,9 @@ namespace {
             failed = true;
         }
         template <typename Predicate>
-        bool Until(Predicate done)
+        bool Until(Predicate done, std::chrono::seconds timeout = 10s)
         {
-            const auto end = std::chrono::steady_clock::now() + 10s;
+            const auto end = std::chrono::steady_clock::now() + timeout;
             do {
                 bool quit = false;
                 Platform::Get()->PoolEvent(quit);
@@ -109,7 +110,8 @@ namespace {
                 editor.Tick(1.f / 60);
                 std::this_thread::sleep_for(2ms);
             } while (std::chrono::steady_clock::now() < end);
-            return false;
+            // Cold shader compilation can finish the condition during the final Tick.
+            return done();
         }
         ShaderCompilerSlang                     compiler;
         IShaderCompiler                        *previousCompiler = nullptr;
@@ -265,10 +267,6 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
 {
     using namespace sky::editor;
     SetWindowPos(static_cast<HWND>(window->GetNativeHandle()), nullptr, 0, 0, 1000, 800, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    auto *reflection = SerializationContext::Get();
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(reflection);
-    AuroraReflection(reflection);
     WorldDocument          document("");
     SelectionService       selection;
     CommandService         commands;
@@ -369,7 +367,9 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
     });
     editor.Start();
     const auto picker = editor.GetViewportPicker();
-    ASSERT_TRUE(Until([&] { return picker->PreparationSerial() > 3 && shell.GetPanelView("viewport")->GetBounds().Width() > 600; }));
+    // Cold scene creation compiles the material/vertex/pipeline combinations before the first frames.
+    ASSERT_TRUE(Until([&] { return picker->PreparationSerial() > 3 && shell.GetPanelView("viewport")->GetBounds().Width() > 600; }, 60s))
+        << "prepare=" << picker->PreparationSerial() << ", width=" << shell.GetPanelView("viewport")->GetBounds().Width() << ", failed=" << failed;
     auto                clickStart = std::chrono::steady_clock::now();
     std::vector<double> clickTimes;
     const auto          click = [&](uint32_t surface, float horizontal, float vertical = .5f) {
@@ -479,7 +479,9 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
     *supportedSurface            = false;
     const auto supportedRevision = picker->Context().scene;
     resources->Invalidate(authoredId);
-    ASSERT_TRUE(Until([&] { return picker->Context().scene != supportedRevision; }));
+    ASSERT_TRUE(Until([&] { return picker->Context().scene != supportedRevision; }))
+        << "before=" << supportedRevision << ", after=" << picker->Context().scene << ", source=" << resources->Revision()
+        << ", prepare=" << picker->PreparationSerial() << ", failed=" << failed;
     click(tool, .5f);
     ASSERT_TRUE(resolve());
     ASSERT_EQ(selection.GetSelection().size(), 1u);

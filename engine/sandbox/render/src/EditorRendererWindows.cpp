@@ -4,6 +4,7 @@
 #include <editor/render/EditorRenderer.h>
 
 #include "EditorFramePacer.h"
+#include "EditorPreviewSessions.h"
 #include "EditorViewportState.h"
 
 #include <array>
@@ -14,6 +15,7 @@
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/render/UiSnapshotProducer.h>
 #include <framework/application/ModuleManager.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
@@ -113,6 +115,20 @@ namespace sky::editor {
         sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), std::move(sceneSource));
         sceneBridge->EnableGeometrySnapshots(true);
         textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
+        if (AssetPreviewProviderRegistry::Get()->GetProvider()) {
+            Fail({RendererErrorCode::NOT_READY, "An editor preview host is already registered"});
+            Shutdown();
+            return false;
+        }
+        auto previewSource = CreateSceneAssetSource(shaderFiles, [](const Uuid &id) {
+            return AssetManager::Get()->LoadAsset(id, AssetLoadPolicy::ProductsOnly);
+        });
+        previewSessions = std::make_unique<EditorPreviewSessions>(host.Get()->GetInfo(), std::move(previewSource), *textures, [this] {
+            if (nextViewportId == UINT32_MAX || surfaces.size() + previewSessions->Count() >= 63)
+                return ViewportId{};
+            return ViewportId{nextViewportId++, 1};
+        });
+        AssetPreviewProviderRegistry::Get()->SetProvider(previewSessions.get());
 #if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
             textSystem = std::make_unique<ui::UITextSystem>(&freeTypeFont, textures.get(), 256);
@@ -125,7 +141,7 @@ namespace sky::editor {
     }
     bool EditorRenderer::SetSceneResources(std::shared_ptr<aurora::ISceneResourceSource> source)
     {
-        if (started || sceneWorldBound || !host.Get() || !source)
+        if (started || sceneWorldBound || !host.Get() || !source || !previewSessions || !previewSessions->SetResources(source))
             return false;
         viewportPicker->Reset();
         sceneBridge = std::make_unique<aurora::RenderSceneBridge>(host.Get()->GetInfo(), std::move(source));
@@ -189,6 +205,8 @@ namespace sky::editor {
                 scene.OnEvent(event);
                 if (sceneBridge)
                     sceneBridge->OnEvent(event);
+                if (previewSessions)
+                    previewSessions->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
                     Fail(failure->error);
                 if (const auto *pixels = std::get_if<ViewportReadback>(&event); pixels && readback)
@@ -310,6 +328,12 @@ namespace sky::editor {
         }
         if (sceneSource)
             sceneSource(*pending, scene.GetSceneId());
+        if (previewSessions) {
+            if (const auto error = previewSessions->Append(*pending)) {
+                Fail(*error);
+                return;
+            }
+        }
         // All windows finish glyph generation before snapshots select the final atlas revision.
         for (const auto &surface : surfaces) {
             if (surface->closed || surface->output->IsRetiring() || !surface->extent.width || !surface->extent.height)
@@ -365,6 +389,12 @@ namespace sky::editor {
         sceneSource = {};
         pending.reset();
         host.Shutdown();
+        if (previewSessions) {
+            if (AssetPreviewProviderRegistry::Get()->GetProvider() == previewSessions.get())
+                AssetPreviewProviderRegistry::Get()->SetProvider(nullptr);
+            previewSessions->OnRendererStopped();
+            previewSessions.reset();
+        }
         framePacer->Reset();
         viewportPicker->Reset();
         sceneBridge.reset();
@@ -378,14 +408,16 @@ namespace sky::editor {
         for (auto &surface : surfaces)
             surface->window->SetCloseDeferred(false);
         surfaces.clear();
-        sequence      = 0;
-        nextSurfaceId = 1;
+        sequence       = 0;
+        nextSurfaceId  = 1;
+        nextViewportId = 1024;
         sceneRevision = viewRevision = 0;
         sceneIssue.clear();
     }
     uint32_t EditorRenderer::CreateSurface(const std::string &panel, int x, int y, uint32_t width, uint32_t height)
     {
-        if (!host.Get() || !width || !height || surfaces.size() >= 63 || nextSurfaceId == UINT32_MAX - 1)
+        if (!host.Get() || !width || !height || surfaces.size() + (previewSessions ? previewSessions->Count() : 0) >= 63 ||
+            nextSurfaceId == UINT32_MAX - 1)
             return 0;
         auto surface     = std::make_unique<Surface>(nextSurfaceId++);
         surface->panelId = panel;
@@ -426,7 +458,7 @@ namespace sky::editor {
     void EditorRenderer::OnWindowClose(const NativeWindow *window)
     {
         for (auto &surface : surfaces)
-            if (surface->window == window)
+            if (surface->window == window && (!surfaceCloseGuard || surfaceCloseGuard(surface->id)))
                 surface->closed = true;
     }
     void EditorRenderer::OnWindowMove(const WindowMoveEvent &event)

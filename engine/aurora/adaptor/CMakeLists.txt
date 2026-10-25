@@ -10,6 +10,8 @@ sky_add_library(TARGET Aurora.Adaptor.Static STATIC
         ${INC_FILES}
     PUBLIC_INC
         include
+    PRIVATE_INC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../pipeline/shaders
     LINK_LIBS
         Aurora.Core.Static
         Aurora.Pipeline.Static
@@ -24,13 +26,16 @@ if (SKY_BUILD_TEST)
     sky_add_test(TARGET Aurora.AdaptorTest
         SOURCES
             ${TEST_FILES}
-            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
+            ${CMAKE_CURRENT_SOURCE_DIR}/../core/test
         LIBS
             Aurora.Adaptor.Static
             Aurora.RHI.Static
+            Aurora.ShaderCompiler.Static
             Core
             3rdParty::googletest
     )
+    target_compile_definitions(Aurora.AdaptorTest PRIVATE
+        SHADER_TEST_SOURCE_ROOT="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets/shaders")
 endif ()

@@ -1,1 +1,1 @@
-{"entries":["VSMain","FSMain"],"sources":[],"variants":[]}
+{"entries":["VSMain","FSMain"],"sources":[{"name":"feature","width":1}],"variants":[{"key":"SKINNED","source":"feature","width":1,"default":0}],"vertex":[{"name":"SKINNED","semantics":["JOINTS","WEIGHTS"]}]}

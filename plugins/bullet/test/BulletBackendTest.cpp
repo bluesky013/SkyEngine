@@ -253,9 +253,6 @@ TEST(BulletBackendTest, OptionsAreConfigurable)
 
 TEST(PhysicsComponentTest, AttachDetachAndReattach)
 {
-    PhysicsBodyComponent::Reflect(SerializationContext::Get());
-    World::Reflect(SerializationContext::Get());
-
     auto &registry = PhysicsBackendRegistry::Get();
     ASSERT_TRUE(registry.Register(std::make_unique<BulletBackend>()));
 

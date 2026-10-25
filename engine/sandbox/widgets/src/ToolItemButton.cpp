@@ -49,10 +49,10 @@ namespace sky::editor {
             return;
         }
         if (!hasIcon) {
-            skin->DrawToolItem(context, GetBounds(), label, hovered);
+            skin->DrawToolItem(context, GetBounds(), label, hovered && IsEnabled(), IsEnabled());
             return;
         }
-        if (hovered) {
+        if (hovered && IsEnabled()) {
             skin->DrawToolItem(context, GetBounds(), "", true);
         }
         const sky::ui::UIRect bounds   = GetBounds();
@@ -60,7 +60,7 @@ namespace sky::editor {
         const float           cx       = (bounds.left + bounds.right) * 0.5f;
         const float           cy       = (bounds.top + bounds.bottom) * 0.5f;
         const sky::ui::UIRect iconRect{cx - iconSize * 0.5f, cy - iconSize * 0.5f, cx + iconSize * 0.5f, cy + iconSize * 0.5f};
-        skin->DrawIcon(context, iconRect, icon, skin->Theme().colors.text);
+        skin->DrawIcon(context, iconRect, icon, IsEnabled() ? skin->Theme().colors.text : skin->Theme().colors.textMuted);
     }
 
     void ToolItemButton::OnPointerCancel(uint32_t pointerId)
@@ -73,6 +73,10 @@ namespace sky::editor {
 
     sky::ui::UIEventResult ToolItemButton::OnPointerEvent(const sky::ui::UIPointerEvent &event)
     {
+        if (!IsEnabled()) {
+            OnPointerCancel(event.pointerId);
+            return sky::ui::UIEventResult::HANDLED;
+        }
         switch (event.action) {
         case sky::ui::UIPointerAction::DOWN:
             pressed = true;

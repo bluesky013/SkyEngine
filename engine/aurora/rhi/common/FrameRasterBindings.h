@@ -20,6 +20,11 @@ namespace sky::aurora {
                 if (key(a->uniforms[i]) != key(b->uniforms[i]))
                     return key(a->uniforms[i]) < key(b->uniforms[i]);
             }
+            if (a->storage.size() != b->storage.size()) { return a->storage.size() < b->storage.size(); }
+            for (size_t i = 0; i < a->storage.size(); ++i) {
+                const auto key = [](const RasterUniformBinding &v) { return std::tie(v.set, v.binding, v.range.buffer.graph, v.range.buffer.index, v.range.offset, v.range.size, v.dynamicOffset); };
+                if (key(a->storage[i]) != key(b->storage[i])) { return key(a->storage[i]) < key(b->storage[i]); }
+            }
             if (a->images.size() != b->images.size())
                 return a->images.size() < b->images.size();
             for (size_t i = 0; i < a->images.size(); ++i) {

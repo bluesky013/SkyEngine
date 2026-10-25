@@ -130,6 +130,11 @@ def render_declaration(source, logical, helper_bytes=b''):
                 return None, f'Unsupported texture: {shape}<{value}>'
             texture, register = TEXTURES[shape]
             resource_type = f'{texture}<{TYPES[value]}>'
+        elif kind == 'STRUCTURED' and len(args) == 5:
+            value, variable, space, binding = args[1:]
+            if value not in TYPES:
+                return None, f'Unsupported structured buffer element: {value}'
+            resource_type, register = f'StructuredBuffer<{TYPES[value]}>', 't'
         elif kind == 'SAMPLER' and len(args) == 5:
             sampler, variable, space, binding = args[1:]
             if sampler not in SAMPLERS:
@@ -137,7 +142,7 @@ def render_declaration(source, logical, helper_bytes=b''):
             resource_type, register = SAMPLERS[sampler], 's'
         else:
             return None, f'Unsupported resource kind or arguments: {kind}'
-        if not uint(space) or int(space) > 2 or not uint(binding):
+        if not uint(space) or int(space) > 3 or not uint(binding):
             return None, 'Invalid Global/Pass/Batch binding slot'
         if not re.fullmatch(IDENTIFIER, variable) or variable in names or (int(space), int(binding)) in slots:
             return None, f'Invalid or duplicate resource binding: {variable}'

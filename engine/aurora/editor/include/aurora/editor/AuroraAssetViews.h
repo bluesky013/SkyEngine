@@ -5,6 +5,7 @@
 //
 
 #pragma once
+#include <memory>
 
 namespace sky {
     class SerializationContext;
@@ -12,7 +13,8 @@ namespace sky {
 
 namespace sky::aurora::editor {
 
-    // Idempotent: registers the aurora view structs + AssetViewDataRegistry providers.
-    void RegisterAuroraAssetViews(sky::SerializationContext *context);
+    void ReflectAuroraAssetViews(sky::SerializationContext *context);
+    void RegisterAuroraAssetViews(std::shared_ptr<const void> lease = {});
+    void UnregisterAuroraAssetViews();
 
 } // namespace sky::aurora::editor

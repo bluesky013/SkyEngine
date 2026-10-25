@@ -1,11 +1,3 @@
-//
-// ShaderVariantAssembler: composes the 128-bit shader variant key from the
-// pipeline layout, vertex semantics, and the per-shader schema (material
-// overrides / defaults), producing the variant key + specialization + hash.
-//
-// Region layout (see GlobalVariantLayout): [pipeline P | vertex V | shader S].
-//
-
 #pragma once
 
 #include <aurora/pipeline/GlobalVariantLayout.h>
@@ -20,6 +12,9 @@ namespace sky::aurora {
 
     struct ShaderVariantInfo {
         ShaderVariantKey     key;
+        bool hasPackedKey = false;
+        ShaderVariantSelection selection;
+        ShaderVariant        values; // Complete normalized V/P/S values.
         ShaderSpecialization spec;
         uint64_t             variantHash = 0;
     };
@@ -29,11 +24,12 @@ namespace sky::aurora {
         const ShaderVariantSchema           *schema     = nullptr; // per-shader
         const std::vector<VertexVariantDef> *vertexDefs = nullptr;
         VertexSemanticMask                   vertexMask{};
-        const ShaderVariant                 *overrides = nullptr; // material Name->value
+        // Pipeline-owned values (P region). Only keys declared by `global`.
+        const ShaderVariant *pipelineValues = nullptr;
+        // Shader-local values supplied by Material, Batch, Fullscreen or Compute.
+        const ShaderVariant *shaderValues = nullptr;
     };
 
-    // Assemble the variant key + specialization + hash. v1 folds spec values into
-    // variantHash (no moduleKey / psoKey split yet).
     bool BuildShaderVariant(const ShaderVariantInputs &inputs, ShaderVariantInfo &out, std::string *error = nullptr);
 
 } // namespace sky::aurora

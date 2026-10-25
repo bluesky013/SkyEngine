@@ -87,26 +87,73 @@ TEST(ShaderCompileTaskTest, RunInline)
     source.AddVirtualFile("s.slang", "// v1");
     source.AddVirtualFile("s.slang.json", kCompanion);
 
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
+    auto compiler = std::make_shared<FakeCompiler>();
+    ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler));
 
-    ShaderCacheWriter writer(local);
-    writer.Start();
+    auto writer = std::make_shared<ShaderCacheWriter>(local);
+    ASSERT_TRUE(writer->Start());
 
     ShaderResolver resolver(offline, local, source, 1, 2);
-    resolver.SetCacheWriter(&writer);
+    ASSERT_TRUE(resolver.SetAsyncCacheOwners(FileSystemPtr(local), writer));
 
     ShaderCompileResult immediate;
     ShaderCompileFuture future;
     ASSERT_EQ(resolver.ResolveShaderAsync(MakeRequest(), immediate, future, nullptr), ShaderResolveStatus::Compile);
     future.RunInline();
+    future.RunInline();
     ASSERT_TRUE(future.Ready());
     ASSERT_TRUE(future.Succeeded());
-    EXPECT_EQ(compiler.count.load(), 1);
+    EXPECT_EQ(compiler->count.load(), 1);
 
-    writer.Flush();
-    writer.Stop();
+    writer->Flush();
+    writer->Stop();
     ShaderCompilerFactory::Get().Register(nullptr);
+}
+
+TEST(ShaderCompileTaskTest, FutureRetainsCompilerModuleAfterResolverAndRegistrationAreGone)
+{
+    test::ShaderCacheDirectory       products("future-owners");
+    ShaderCompileFuture              future;
+    std::weak_ptr<FakeCompiler>      weakCompiler;
+    std::weak_ptr<int>               weakModule;
+    std::weak_ptr<ShaderCacheWriter> weakWriter;
+    {
+        auto compiler = std::make_shared<FakeCompiler>();
+        auto module   = std::make_shared<int>(1);
+        weakCompiler  = compiler;
+        weakModule    = module;
+        ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler, module));
+        ShaderFileSystem source;
+        source.AddVirtualFile("s.slang", "// captured source");
+        source.AddVirtualFile("s.slang.json", kCompanion);
+        auto writer = std::make_shared<ShaderCacheWriter>(products.fs.Get());
+        weakWriter  = writer;
+        ASSERT_TRUE(writer->Start());
+        ShaderResolver resolver(nullptr, products.fs.Get(), source, 0, 0);
+        ASSERT_TRUE(resolver.SetAsyncCacheOwners(products.fs, writer));
+        ShaderCompileResult result;
+        ASSERT_EQ(resolver.ResolveShaderAsync(MakeRequest(), result, future), ShaderResolveStatus::Compile);
+        ShaderCompilerFactory::Get().Unregister(compiler.get());
+    }
+    products.fs = nullptr;
+    EXPECT_FALSE(weakCompiler.expired());
+    EXPECT_FALSE(weakModule.expired());
+    EXPECT_FALSE(weakWriter.expired());
+    ThreadPool pool(2);
+    future.RunAsync(pool);
+    future.RunInline();
+    future.RunAsync(pool);
+    pool.WaitIdle();
+    ASSERT_TRUE(future.Succeeded()) << future.Result().errorInfo;
+    EXPECT_EQ(weakCompiler.lock()->count.load(), 1);
+    ASSERT_TRUE(weakWriter.lock()->Flush());
+    future = {};
+    EXPECT_TRUE(weakCompiler.expired());
+    EXPECT_TRUE(weakModule.expired());
+    EXPECT_TRUE(weakWriter.expired());
+    NativeFileSystem verify{FilePath(products.path)};
+    ShaderCacheIndex index;
+    EXPECT_TRUE(LoadIndex(verify, ShaderTargetDirName(0), index));
 }
 
 TEST(ShaderCompileTaskTest, RunAsyncAndCacheHit)
@@ -120,14 +167,14 @@ TEST(ShaderCompileTaskTest, RunAsyncAndCacheHit)
     source.AddVirtualFile("s.slang", "// v1");
     source.AddVirtualFile("s.slang.json", kCompanion);
 
-    FakeCompiler compiler;
-    ShaderCompilerFactory::Get().Register(&compiler);
+    auto compiler = std::make_shared<FakeCompiler>();
+    ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler));
 
-    ShaderCacheWriter writer(local);
-    writer.Start();
+    auto writer = std::make_shared<ShaderCacheWriter>(local);
+    ASSERT_TRUE(writer->Start());
 
     ShaderResolver resolver(offline, local, source, 1, 2);
-    resolver.SetCacheWriter(&writer);
+    ASSERT_TRUE(resolver.SetAsyncCacheOwners(FileSystemPtr(local), writer));
 
     ShaderCompileResult immediate;
     ShaderCompileFuture future;
@@ -135,20 +182,22 @@ TEST(ShaderCompileTaskTest, RunAsyncAndCacheHit)
 
     ThreadPool pool(2);
     future.RunAsync(pool);
+    future.RunAsync(pool);
+    future.RunInline();
     pool.WaitIdle();
     ASSERT_TRUE(future.Ready());
     ASSERT_TRUE(future.Succeeded());
-    EXPECT_EQ(compiler.count.load(), 1);
+    EXPECT_EQ(compiler->count.load(), 1);
 
-    writer.Flush();
+    writer->Flush();
 
     // Development hits require the same source closure and producer identity.
     ShaderResolver cached(offline, local, source, 1, 2);
-    cached.SetCacheWriter(&writer);
+    cached.SetCacheWriter(writer.get());
     ShaderCompileResult out;
     ASSERT_TRUE(cached.ResolveShader(MakeRequest(), out, nullptr));
-    EXPECT_EQ(compiler.count.load(), 1);
+    EXPECT_EQ(compiler->count.load(), 1);
 
-    writer.Stop();
+    writer->Stop();
     ShaderCompilerFactory::Get().Register(nullptr);
 }

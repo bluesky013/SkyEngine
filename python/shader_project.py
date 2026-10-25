@@ -16,7 +16,8 @@ STAGES = {'vertex': 1, 'fragment': 2, 'compute': 4}
 PLATFORMS = {'windows': 1, 'macos': 2, 'ios': 3, 'android': 4, 'linux': 5}
 PLATFORM_TARGETS = {'windows': {'vulkan', 'd3d12'}, 'macos': {'metal', 'vulkan'},
                     'ios': {'metal'}, 'android': {'vulkan'}, 'linux': {'vulkan'}}
-USAGE_FORMAT = 2
+USAGE_FORMAT = 3
+PRODUCT_FORMAT = 2
 
 
 def target_environments(platform, targets, overrides=None):
@@ -115,10 +116,24 @@ def append_program(program, targets, available, entries, environments):
     variants = program.get('variants', [{}])
     if not isinstance(variants, list) or not variants or any(not isinstance(variant, dict) for variant in variants):
         return f'Invalid shader variant requirements: {path}'
+    normalized = []
     for variant in variants:
-        if any(not isinstance(name, str) or not name.isidentifier() or not isinstance(value, int) or isinstance(value, bool)
-               or value < 0 or value > 0xffffffff for name, value in variant.items()):
-            return f'Invalid shader variant value: {path}'
+        values = {}
+        for name, value in variant.items():
+            if not isinstance(name, str) or not name.isidentifier():
+                return f'Invalid shader variant key: {path}'
+            if isinstance(value, bool):
+                value = {'type': 2, 'value': int(value)}
+            elif isinstance(value, int) and -0x80000000 <= value <= 0xffffffff:
+                value = {'type': 1 if value < 0 else 0, 'value': value & 0xffffffff}
+            if (not isinstance(value, dict) or set(value) != {'type', 'value'} or
+                    type(value['type']) is not int or value['type'] not in (0, 1, 2) or
+                    type(value['value']) is not int or not 0 <= value['value'] <= 0xffffffff or
+                    (value['type'] == 2 and value['value'] > 1)):
+                return f'Invalid shader variant value: {path}'
+            values[name] = value
+        normalized.append(values)
+    variants = normalized
     if path not in available or not path.endswith('.slang') or not isinstance(stages, list) or not stages:
         return f'Missing shader program or entries: {path}'
     for entry in stages:
@@ -128,7 +143,7 @@ def append_program(program, targets, available, entries, environments):
             for variant in variants:
                 request = {'path': path, 'entry': entry['name'], 'stage': STAGES[entry['stage']],
                            'target': TARGETS[target], 'variant': variant, 'environment': environments[target]}
-                key = (path, entry['name'], request['stage'], request['target'], json.dumps(environments[target], sort_keys=True), tuple(sorted(variant.items())))
+                key = (path, entry['name'], request['stage'], request['target'], json.dumps(environments[target], sort_keys=True), json.dumps(variant, sort_keys=True))
                 entries[key] = request
     return ''
 
@@ -165,12 +180,52 @@ def project_requirements(project, configs, targets, bundles, available, environm
             program = technique.get('program', {})
             if not isinstance(program, dict) or 'vertex' not in program or 'fragment' not in program or 'compute' in program:
                 return None, f'Invalid material technique; explicit vertex/fragment program required: {path}'
+            variant_keys = set()
+            complete_schema = True
             for stage in ('vertex', 'fragment'):
                 shader = program[stage]
                 if not isinstance(shader, dict):
                     return None, f'Invalid material shader reference: {path}'
+                raw = available.get(shader.get('relativePath', '') + '.json')
+                complete_schema = complete_schema and bool(raw)
+                if raw:
+                    metadata = json.loads(raw)
+                    vertex_keys = {entry['name'] for entry in metadata.get('vertex', [])}
+                    variant_keys.update(entry['key'] for entry in metadata.get('variants', [])
+                                        if entry.get('domain', 'shader') == 'shader' and entry['key'] not in vertex_keys)
+            if complete_schema and set(program.get('variant', {})) - variant_keys:
+                return None, f'{path}: Material program contains an unknown or non-Shader option'
+            for stage in ('vertex', 'fragment'):
+                shader = program[stage]
+                if not isinstance(shader, dict):
+                    return None, f'Invalid material shader reference: {path}'
+                variant = dict(program.get('variant', {}))
+                companion_bytes = available.get(shader.get('relativePath', '') + '.json')
+                if companion_bytes:
+                    companion = json.loads(companion_bytes)
+                    vertex_keys = {entry['name'] for entry in companion.get('vertex', [])}
+                    declarations = {entry['key']: entry for entry in companion.get('variants', [])
+                                    if entry.get('domain', 'shader') == 'shader' and entry['key'] not in vertex_keys}
+                    variant = {name: value for name, value in variant.items() if name in declarations}
+                    for prop in material.get('properties', []):
+                        name = prop.get('name')
+                        if name not in declarations:
+                            continue
+                        if name in variant:
+                            return None, f'{path}: duplicate Material option {name}'
+                        value = prop.get('value', {})
+                        scalar_type = {'bool': 2, 'int32': 1, 'uint32': 0}.get(declarations[name].get('type', 'uint32'))
+                        expected_index = {0: 6, 1: 5, 2: 7}.get(scalar_type)
+                        if not isinstance(value, dict) or value.get('index') != expected_index or 'value' not in value:
+                            return None, f'{path}: Material option has an incompatible value type: {name}'
+                        raw = value['value']
+                        if ((scalar_type == 2 and type(raw) is not bool) or
+                                (scalar_type != 2 and (type(raw) is not int or
+                                 not (-0x80000000 if scalar_type == 1 else 0) <= raw <= (0x7fffffff if scalar_type == 1 else 0xffffffff)))):
+                            return None, f'{path}: Material option is out of range: {name}'
+                        variant[name] = {'type': scalar_type, 'value': int(raw) & 0xffffffff}
                 request = {'path': shader.get('relativePath', ''), 'entries': [
-                    {'stage': stage, 'name': shader.get('entry', '')}], 'variants': [program.get('variant', {})]}
+                    {'stage': stage, 'name': shader.get('entry', '')}], 'variants': [variant]}
                 error = append_program(request, targets, available, entries, environments)
                 if error:
                     return None, f'{path}: {error}'
@@ -211,7 +266,7 @@ def cook_project(engine, project, descriptor, distribution, targets, bundles, to
             return f'Project shader cook failed ({result.returncode}); see {build / (distribution + ".log")}'
         write_changed(products / 'requirements.json', usage.read_bytes())
         write_changed(products / 'distribution.json', (json.dumps({'distribution': distribution, 'targets': targets,
-                      'bundles': bundles, 'formatVersion': USAGE_FORMAT, 'platform': platform, 'environments': environments}, indent=2) + '\n').encode('utf-8'))
+                      'bundles': bundles, 'formatVersion': PRODUCT_FORMAT, 'platform': platform, 'environments': environments}, indent=2) + '\n').encode('utf-8'))
         destination = (project / 'products/shaders' / distribution).resolve()
         if not destination.is_relative_to((project / 'products/shaders').resolve()):
             return 'Shader product destination escapes project products'
@@ -228,7 +283,7 @@ def stage_products(project, distribution, destination, platform):
         return f'Shader distribution has not been cooked: {distribution}'
     manifest = json.loads((source / 'distribution.json').read_text(encoding='utf-8'))
     targets = manifest.get('targets', [])
-    if manifest.get('formatVersion') != USAGE_FORMAT or manifest.get('platform') != platform:
+    if manifest.get('formatVersion') != PRODUCT_FORMAT or manifest.get('platform') != platform:
         return 'Shader products have an incompatible platform or protocol; recook: ' + distribution
     environments, error = target_environments(platform, targets)
     if error:

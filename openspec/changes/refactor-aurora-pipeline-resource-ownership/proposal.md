@@ -2,7 +2,7 @@
 
 The shared-header refactor removed C++'s dependency on shader compilation. Subsequent work added owner namespaces and source bundles, but the scene path still flattens material techniques into fixed programs and Batch data. Standalone shader deployment is not integrated with project resource registration or packaging. Prior tests validate those mechanics, not the requested architecture.
 
-ScenePass must match technique Tags into RenderQueues; FullScreenPass and ComputePass select techniques explicitly. Global/Pass/Batch remain the resource tiers, View data belongs to Pass, and materials plus Features supply ScenePass Batch inputs. Each module registers its resource rules once for development, cook and packaging.
+ScenePass must match technique Tags into RenderQueues; FullScreenPass and ComputePass select techniques explicitly. The current resource tiers are Global/Pass/Material/Batch (0/1/2/3); View belongs to Pass, Material supplies set 2 and Features supply set 3. The original combined Batch tier has been superseded by the target-artifact change. Each module registers its resource rules once for development, cook and packaging.
 
 ## What Changes
 

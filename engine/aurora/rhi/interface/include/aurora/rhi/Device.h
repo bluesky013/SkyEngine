@@ -41,6 +41,7 @@ namespace sky::aurora {
         uint32_t maxThreads = 1;
 
         uint32_t minUniformBufferOffsetAlignment = 256;
+        uint32_t minStorageBufferOffsetAlignment = 4;
 
         bool anisotropyEnable = false;
         bool isUMA            = false;

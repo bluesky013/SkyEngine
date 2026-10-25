@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <core/util/Uuid.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/extension/EditorActionRegistry.h>
@@ -60,6 +60,13 @@ namespace sky::editor::editor_preference_integration_test {
                     return found;
             return nullptr;
         }
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()
+                ->Register<PluginSettings>("EditorPreferenceIntegrationPlugin")
+                .Member<&PluginSettings::value>("value")
+                .Member<&PluginSettings::label>("label");
+        });
+
         class EditorPreferenceIntegrationTest : public testing::Test {
         protected:
             void SetUp() override
@@ -70,12 +77,6 @@ namespace sky::editor::editor_preference_integration_test {
                 pages->Clear();
                 EditorActionRegistry::Get()->Clear();
                 EditorCore::GetCommandService().Clear();
-                if (Once::Get()->Run("EditorPreferenceIntegrationTest.Plugin")) {
-                    SerializationContext::Get()
-                        ->Register<PluginSettings>("EditorPreferenceIntegrationPlugin")
-                        .Member<&PluginSettings::value>("value")
-                        .Member<&PluginSettings::label>("label");
-                }
                 root = std::filesystem::temp_directory_path() / ("sky-editor-preferences-" + Uuid::Create().ToString());
                 std::filesystem::create_directories(root);
             }

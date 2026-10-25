@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- 将共享声明的逻辑接口、CPU 数据描述、目标 ABI 分开；保留 Global / Pass / Batch、Pass 内可选 View 和现有资源归属。
+- 将共享声明的逻辑接口、CPU 数据描述、目标 ABI 分开；资源归属为 Global / Pass / Material / Batch，Pass 内的 View 输入可选。
 - 每个目标独立产出代码、活跃资源、原生定位与字节布局；共享声明提供稳定逻辑资源键，移除 Metal 的辅助 SPIR-V layout 和跨目标名字拼接。
 - **BREAKING**：引入带完整身份的 stage artifact，统一 code format、精确代码长度、entry/stage、TargetEnvironment、生产者指纹、逻辑接口、目标反射及内容校验；迁移现有 index/blob，旧产品需重新 cook。
 - 禁止从空反射、资源顺序或缺失 stage 记录猜测 native binding；显式提供无资源反射，手写后端 shader 同样提交受检的完整映射。

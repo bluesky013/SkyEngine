@@ -19,7 +19,7 @@
 |---|---|---|
 | `refactor-aurora-pipeline-resource-ownership` | 持久 `.slangh`、owner/inventory、technique、资源注册、cook/package、逐 stage logical/native 分离 | 接替 design 的 Metal physical binding correction 中辅助 SPIR-V/name 桥；保留已完成任务及历史证据 |
 | `refactor-aurora-shared-pass-headers` | 权威 `.h`、类型化槽位、C++ 无 shader 编译前置 | 解除 CPU sizeof/offsetof 必须等于所有目标的 ABI 约束 |
-| `fix-aurora-pass-resource-contract` | Global/Pass/Batch、可选 View、原子装配、PreparedRaster 职责和帧隔离 | 将布局一致改为语义兼容且上传结果符合目标 ABI |
+| `fix-aurora-pass-resource-contract` | 可选 View、原子装配、PreparedRaster 职责和帧隔离；原三层已由本 change 扩展为四层 | 将布局一致改为语义兼容且上传结果符合目标 ABI |
 | `aurora-renderer-platform-parity` | 宿主、窗口/surface、平台生命周期和整体验收 | 消费本 change 的 shader 结果；本次新增 shader 读回仍由本 change 负责记录 |
 | `aurora-metal-bindless-descriptor-heap` | 尚未实施的 bindless/heap 方向 | 本次保持 DirectArguments，不抢占其设计 seam |
 
@@ -38,7 +38,7 @@
 
 **Non-Goals:**
 
-- 不改 Global=0 / Pass=1 / Batch=2、View 归属、动态绑定的显式策略或 frame/module/GPU lease。
+- 当前采用 Global=0 / Pass=1 / Material=2 / Batch=3；View 仍归 Pass，动态绑定仍显式选择，沿用 frame/module/GPU lease。原三层限制已撤销。
 - 不增加 Aurora target、模块入口、注册表、插件 loader、独立 PipelineLayout API 或目录体系；实现继续归现有 core、shader、adaptor 与 rhi 后端。
 - 不在本期启用 descriptor arrays、argument buffers、bindless、嵌套 uniform、BOOL/FLOAT3/half 等新字段；不会删除其他路径已经验证的能力。
 - 不扩展 typed/counter/append/consume buffer；不能表达的形态显式 Unsupported。
@@ -223,7 +223,7 @@ ResourceGroup 的命名 encoder 与 Core 图绑定桥直接委托同一个 RHI `
 
 MaterialPropertyMap 继续表达 CPU 属性，MaterialInstance 继续持默认值加实例覆盖；其类型校验按语义类型而非仅 sizeof，失败有明确结果。材质的 `baseColor -> material.baseColor`、`albedo -> albedoTexture` 等是按 technique/interface 校验的显式 alias，不能成为第二套 shader 字段声明或另一个 packer。shader 实现、Pass、材质不依赖平台 slot/offset。
 
-MaterialAsset 的字段/资源映射改以 logical Name 作为目的地，统一传递数据、纹理和 sampler；需要时递增资产 schema 并要求迁移/recook。SceneAssetSource/RenderMaterialTechnique/PreparedDraw 不再提前固化目标 uniform 字节或仅携带数字 binding，而是冻结 typed named 值、显式 alias 和资源依赖。最终装配使用与 ResourceGroup 共用的 RHI 更新事务前端、UniformUploadPlan 与 BindingPlan；Feature 的 set-2 参数仍由其原 provider 贡献，联合 block 仍由一个显式 assembler 拥有。
+MaterialAsset 的字段/资源映射改以 logical Name 作为目的地，统一传递数据、纹理和 sampler；需要时递增资产 schema 并要求迁移/recook。SceneAssetSource/RenderMaterialTechnique/PreparedDraw 不再提前固化目标 uniform 字节或仅携带数字 binding，而是冻结 typed named 值、显式 alias 和资源依赖。最终装配使用与 ResourceGroup 共用的 RHI 更新事务前端、UniformUploadPlan 与 BindingPlan；Material 拥有 set 2，Feature 的 Batch 参数位于 set 3 并由其原 provider 贡献，每个 block 仍由一个显式 assembler 拥有；Material 与 Feature 不跨 set 合并 block。
 
 普通 2D 材质贴图的资产 UUID 与加载留在 adaptor，沿既有 AssetManager/cook、ResourceCatalog/uploader 与资源图发布图片 payload。材质快照携带完整的 RenderResourceKey/所选依赖版本和 typed sampler/view 信息；协调器取得已完成 Resident 或已有受检 InGraph 资格后解析 GraphImageHandle，声明读依赖并保活精确版本。不能在编码时查询“最新纹理”、在主线程创建 GPU 图片，或直接复用旧 MaterialAsset 的 GPU 直连路径冒充新闭环。
 
@@ -276,5 +276,15 @@ MaterialAsset 的字段/资源映射改以 logical Name 作为目的地，统一
 所有原生用例检查 GPU 实际结果。非 macOS 的 MSL 生成不等于 Metal 验收；移动构建成功不等于真机验收。方案阶段只运行 OpenSpec 与文档一致性检查，以上测试作为实施任务保持未勾选。
 
 ## Open Questions
+
+### 2026-10-25 审计修复补充
+
+本轮保留既有 target、模块入口及显式 technique 作者格式。index/blob 升级 v9，schema 持久化三域归属、Vertex 语义条件和 Pipeline 预留位；无源码场景从 index 恢复选择规则，缺失/冲突返回 recook 错误。VS/FS 声明先验证兼容并集，再按各自 schema 与 Pipeline 域规范化请求；specialization 保留命名有效值用于 DXIL 宏降级。
+
+Vertex 由实际 mesh 属性与实例流推导，保留 SKINNED 的 palette 契约；完整 mask 进入选择键与材质兼容族。Material provider 提供完整 set 2，SceneSurface/palette/UI 逐 draw 参数归 set 3。带 context 的事务同时处理 storage，并在失败时保留原 draw。Material 声明跨变体保持一致，所有执行变体都在 packet 应用前校验并计费；共享 artifact 按 owner 保守计数。
+
+异步编译的 factory registration、future 与 cache endpoints 改用显式 owner。注册表分开持有 compiler/module；消费侧分配 lease 控制块，先销毁 compiler/deleter 再释放模块，避免 DLL 控制块卸载自身。future 保留真实模块租约及 compiler，输出保留 root/writer，执行只接受一次；注销后拒绝新请求，旧 future 可安全执行并延迟模块退休。同步借用接口继续要求调用方保证生命周期，不把借用对象伪装成异步所有权。此修复不新增调度器或线程池。
+
+Windows 验证与 Metal 原生 gate 分开记录。Metal graph raster 补齐 storage，compute 遍历 MAX_SHADER_SETS；本机的 MSL 生成/反射结果不能替代原生 Metal 读回。
 
 无待用户补充的架构范围问题。M1 的固定 SDK 身份通道验证和各目标矩阵反射归一化是有明确验收条件的实现 gate，结果须回填；若两种身份通道均不能满足唯一性，应保留该 gate 未完成并修订方案，不能带回隐式跨目标桥。

@@ -1,8 +1,8 @@
+#include "ReflectionTestEnvironment.h"
 //
 // Created on 2026/10/07.
 //
 
-#include <core/environment/Once.h>
 #include <core/type/TypeInfo.h>
 #include <editor/core/property/ReflectedForm.h>
 #include <framework/serialization/SerializationContext.h>
@@ -44,8 +44,6 @@ namespace {
 
     void RegisterMetadataOrderTypes()
     {
-        if (!sky::Once::Get()->Run("ReflectedFormTest.MetadataOrderTypes"))
-            return;
         auto *context = sky::SerializationContext::Get();
         context->Register<MetadataOrderFields>("ReflectedMetadataOrderFields")
             .Member<&MetadataOrderFields::zeta>("zeta")
@@ -77,6 +75,8 @@ namespace {
             .Member<&MetadataOrderContainer::values>("values")
             .Property(sky::CommonPropertyKey::ORDER, sky::Any(int32_t{-10}));
     }
+
+    const auto *orderMetadata = sky::editor::test::AddReflectionEnvironment(&RegisterMetadataOrderTypes);
 
     std::vector<std::string> FieldPaths(const std::vector<PropertyField> &fields)
     {
@@ -113,31 +113,32 @@ namespace {
         FieldSequenceHolder sequences;
     };
 
+    const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+        auto *context = sky::SerializationContext::Get();
+        context->Register<InlineFieldLeaf>("ReflectedFieldInlineLeaf")
+            .Member<&InlineFieldLeaf::value>("value")
+            .Member<&InlineFieldLeaf::enabled>("enabled");
+        context->Register<InlineFieldBranch>("ReflectedFieldInlineBranch")
+            .Member<&InlineFieldBranch::left>("left")
+            .Member<&InlineFieldBranch::right>("right");
+        context->Register<FieldSequenceBranch>("ReflectedFieldSequenceBranch")
+            .Member<&FieldSequenceBranch::items>("items")
+            .Member<&FieldSequenceBranch::nested>("nested");
+        context->Register<FieldSequenceHolder>("ReflectedFieldSequenceHolder")
+            .Member<&FieldSequenceHolder::deeper>("deeper")
+            .Member<&FieldSequenceHolder::sibling>("sibling");
+        context->Register<FieldStorageObject>("ReflectedFieldStorageObject")
+            .Member<&FieldStorageObject::alpha>("alpha")
+            .Member<&FieldStorageObject::beta>("beta")
+            .Member<&FieldStorageObject::gamma>("gamma")
+            .Member<&FieldStorageObject::delta>("delta")
+            .Member<&FieldStorageObject::epsilon>("epsilon")
+            .Member<&FieldStorageObject::zeta>("zeta")
+            .Member<&FieldStorageObject::sequences>("sequences");
+    });
+
     const sky::TypeNode *StorageType()
     {
-        if (sky::Once::Get()->Run("EditorCoreTest.ReflectedFieldStorageTypes")) {
-            auto *context = sky::SerializationContext::Get();
-            context->Register<InlineFieldLeaf>("ReflectedFieldInlineLeaf")
-                .Member<&InlineFieldLeaf::value>("value")
-                .Member<&InlineFieldLeaf::enabled>("enabled");
-            context->Register<InlineFieldBranch>("ReflectedFieldInlineBranch")
-                .Member<&InlineFieldBranch::left>("left")
-                .Member<&InlineFieldBranch::right>("right");
-            context->Register<FieldSequenceBranch>("ReflectedFieldSequenceBranch")
-                .Member<&FieldSequenceBranch::items>("items")
-                .Member<&FieldSequenceBranch::nested>("nested");
-            context->Register<FieldSequenceHolder>("ReflectedFieldSequenceHolder")
-                .Member<&FieldSequenceHolder::deeper>("deeper")
-                .Member<&FieldSequenceHolder::sibling>("sibling");
-            context->Register<FieldStorageObject>("ReflectedFieldStorageObject")
-                .Member<&FieldStorageObject::alpha>("alpha")
-                .Member<&FieldStorageObject::beta>("beta")
-                .Member<&FieldStorageObject::gamma>("gamma")
-                .Member<&FieldStorageObject::delta>("delta")
-                .Member<&FieldStorageObject::epsilon>("epsilon")
-                .Member<&FieldStorageObject::zeta>("zeta")
-                .Member<&FieldStorageObject::sequences>("sequences");
-        }
         return sky::GetTypeNode(sky::TypeInfo<FieldStorageObject>::RegisteredId());
     }
 
@@ -176,7 +177,6 @@ namespace {
 
     const sky::TypeNode *TestType()
     {
-        test::RegisterTestTypes();
         return sky::GetTypeNode(sky::TypeInfo<test::TestObject>::RegisteredId());
     }
 
@@ -280,7 +280,6 @@ TEST(ReflectedFormTest, ResetToDefaultWritesTypeDefault)
 
 TEST(ReflectedFormTest, ResetRestoresEachConfigField)
 {
-    test::RegisterTestTypes();
     const sky::TypeNode *type = sky::GetTypeNode(sky::TypeInfo<test::TestConfig>::RegisteredId());
     ASSERT_NE(type, nullptr);
 
@@ -400,7 +399,6 @@ TEST(ReflectedFormTest, InlineNestedEditAndResetPropagateThroughStableParents)
 
 TEST(ReflectedFormTest, MetadataOrderUsesStableReflectionTiesAndDistinguishesExplicitZero)
 {
-    RegisterMetadataOrderTypes();
     MetadataOrderFields    object;
     PropertyEditorRegistry registry;
     ReflectedForm          form;
@@ -420,7 +418,6 @@ TEST(ReflectedFormTest, MetadataOrderUsesStableReflectionTiesAndDistinguishesExp
 
 TEST(ReflectedFormTest, ExplicitAppearanceOrderOverridesMetadataWhileLabelOnlyKeepsIt)
 {
-    RegisterMetadataOrderTypes();
     MetadataOrderFields    object;
     PropertyEditorRegistry registry;
     const auto             typeId = sky::TypeInfo<MetadataOrderFields>::RegisteredId();
@@ -439,7 +436,6 @@ TEST(ReflectedFormTest, ExplicitAppearanceOrderOverridesMetadataWhileLabelOnlyKe
 
 TEST(ReflectedFormTest, MetadataOrderingKeepsNestedStorageHiddenFieldsAndSequenceEditsSafe)
 {
-    RegisterMetadataOrderTypes();
     MetadataOrderContainer object;
     object.beta.first  = 83;
     object.beta.second = 93;
@@ -506,7 +502,7 @@ TEST(ReflectedFormTest, MultilevelSequenceDescriptorsAndDefaultsSurviveFinalStor
         const auto &child = sequence->children[i];
         EXPECT_EQ(child.parent, sequence);
         EXPECT_TRUE(child.descriptor.IsSequenceElement());
-        EXPECT_FALSE(child.descriptor.CanEdit());
+        EXPECT_TRUE(child.descriptor.CanEdit());
         const sky::Any value = child.descriptor.GetValue();
         ASSERT_NE(value.GetAsConst<int32_t>(), nullptr);
         EXPECT_EQ(*value.GetAsConst<int32_t>(), object.sequences.deeper.items[i]);
@@ -528,4 +524,56 @@ TEST(ReflectedFormTest, MultilevelSequenceDescriptorsAndDefaultsSurviveFinalStor
     ASSERT_TRUE(commands.Undo());
     EXPECT_EQ(object.sequences.deeper.items.size(), 23u);
     EXPECT_EQ(object.sequences.deeper.items[1], 4);
+}
+
+namespace {
+    struct SequenceEntry {
+        std::string label = "initial";
+        std::vector<int32_t> numbers{2, 4};
+    };
+    struct SequenceDocument {
+        std::vector<SequenceEntry> entries{SequenceEntry{}};
+        std::vector<SequenceEntry> locked{SequenceEntry{}};
+    };
+}
+TEST(ReflectedFormTest, StructSequenceMembersAndNestedListsCommitWholeRootWithoutBorrowingElementHistory)
+{
+    auto *context = sky::SerializationContext::Get();
+    context->Register<SequenceEntry>("SequenceEntryTest")
+        .Member<&SequenceEntry::label>("label").Member<&SequenceEntry::numbers>("numbers");
+    context->Register<SequenceDocument>("SequenceDocumentTest")
+        .Member<&SequenceDocument::entries>("entries")
+        .Member<&SequenceDocument::locked>("locked").Property(sky::CommonPropertyKey::READONLY, sky::Any(true));
+    SequenceDocument document;
+    ReflectedForm form;
+    PropertyEditorRegistry registry;
+    CommandService commands;
+    const auto bind = [&] { form.Build({&document, sky::GetTypeNode(sky::TypeInfo<SequenceDocument>::RegisteredId())}, registry); };
+    bind();
+    auto *label = FindNestedField(form, "entries[0].label");
+    auto *number = FindNestedField(form, "entries[0].numbers[1]");
+    auto *locked = FindNestedField(form, "locked[0].numbers[1]");
+    ASSERT_NE(label, nullptr);
+    ASSERT_NE(number, nullptr);
+    ASSERT_NE(locked, nullptr);
+    EXPECT_TRUE(locked->control.readOnly);
+    EXPECT_FALSE(form.Edit(*locked, sky::Any(int32_t{99}), commands));
+    ASSERT_TRUE(form.Edit(*label, sky::Any(std::string("updated")), commands));
+    ASSERT_EQ(document.entries[0].label, "updated");
+    bind();
+    number = FindNestedField(form, "entries[0].numbers[1]");
+    ASSERT_TRUE(form.Edit(*number, sky::Any(int32_t{8}), commands));
+    EXPECT_EQ(document.entries[0].numbers[1], 8);
+    document.entries.reserve(64);
+    bind();
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(document.entries[0].numbers[1], 4);
+    EXPECT_EQ(document.entries[0].label, "updated");
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(document.entries[0].label, "initial");
+    ASSERT_TRUE(commands.Redo());
+    ASSERT_TRUE(commands.Redo());
+    EXPECT_EQ(document.entries[0].label, "updated");
+    EXPECT_EQ(document.entries[0].numbers[1], 8);
+    EXPECT_EQ(document.locked[0].numbers[1], 4);
 }

@@ -17,7 +17,6 @@ namespace sky::editor {
                                          std::string            title)
         : ReflectedFormView(text, std::move(title)), provider(std::move(inProvider))
     {
-        sky::RegisterExportPresetReflection();
         Rebind();
         SetOnEdited(std::move(onEdited));
     }

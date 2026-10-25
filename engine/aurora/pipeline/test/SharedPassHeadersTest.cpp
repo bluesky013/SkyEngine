@@ -1,11 +1,12 @@
 #include "GlobalBlock.h"
-#include "MaterialBatch.h"
+#include "MaterialBlock.h"
 #include "OpaquePass.h"
 #include "SceneBatch.h"
 #include "SceneEnvironmentPass.h"
 #include "SceneLightingPass.h"
 #include "ScenePass.h"
 #include "SceneSurfaceBatch.h"
+#include "SkinningBatch.h"
 #include "SelectionMaskPass.h"
 #include "SelectionOutlinePass.h"
 #include "ShaderSourcesFixture.h"
@@ -37,8 +38,12 @@ namespace {
         EXPECT_EQ(actual.type, expected.type);
         EXPECT_EQ(actual.count, expected.count);
         EXPECT_EQ(actual.descriptorArray, expected.descriptorArray);
-        EXPECT_EQ(actual.texture, expected.texture);
+        if (expected.type == ShaderResourceType::SAMPLED_IMAGE || expected.type == ShaderResourceType::STORAGE_IMAGE)
+            EXPECT_EQ(actual.texture, expected.texture);
         EXPECT_EQ(actual.sampler, expected.sampler);
+        EXPECT_EQ(actual.bufferKind, expected.bufferKind);
+        EXPECT_EQ(actual.elementStride, expected.elementStride);
+        EXPECT_EQ(actual.access, expected.access);
     }
 
     void CheckBlock(const ShaderBlockLayout &expected, const ShaderBlockLayout &actual)
@@ -73,7 +78,7 @@ TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape
 {
     const Declaration declarations[]{
         {.header = "GlobalBlock.h", .schema = shared::GetGlobalBlockReflection(), .expression = "gGlobal.frameTime"},
-        {.header = "MaterialBatch.h", .schema = shared::GetMaterialBatchReflection(), .expression = "gMaterial.tint"},
+        {.header = "MaterialBlock.h", .schema = shared::GetMaterialBlockReflection(), .expression = "gMaterial.tint"},
         {.header     = "OpaquePass.h",
          .schema     = shared::GetOpaquePassReflection(),
          .expression = "mul(gOpaquePass.viewProjection, gOpaquePass.cameraPosition)"},
@@ -94,6 +99,7 @@ TEST_P(SharedPassHeaders, EveryDeclarationMatchesNativeCppLayoutAndResourceShape
          .expression = "gSceneEnvironment.environment + gDiffuseIrradiance.Sample(gEnvironmentSampler, uv) + "
                        "gSpecularEnvironment.Sample(gEnvironmentSampler, uv) + gBrdfIntegration.Sample(gBrdfSampler, uv)"},
         {.header = "SceneSurfaceBatch.h", .schema = shared::GetSceneSurfaceBatchReflection(), .expression = "gSceneSurface.surface"},
+        {.header = "SkinningBatch.h", .schema = shared::GetSkinningBatchReflection(), .expression = "gSkinningPalette[uint(uv.x) % 8]"},
         {.header     = "ShadowPass.h",
          .schema     = shared::GetShadowPassReflection(),
          .expression = "mul(gShadowPass.lightViewProjection, float4(uv, 0, 1))"},
@@ -131,20 +137,39 @@ TEST_P(SharedPassHeaders, PackagedSourcesCompileWithoutFilesystemSearchPaths)
     ShaderFileSystem files;
     ASSERT_TRUE(LoadTestShaderSources(files));
     ShaderCompilerSlang compiler;
-    for (const char *file : {"aurora/materials/Unlit.slang", "aurora/materials/Lit.slang", "aurora/materials/Shadow.slang",
-                             "aurora/pipeline/ToneMap.slang", "aurora/pipeline/SelectionMask.slang", "aurora/pipeline/SelectionOutline.slang"}) {
+    for (const char *file : {"aurora/materials/Unlit.slang", "aurora/materials/Lit.slang", "aurora/materials/Shadow.slang", "aurora/pipeline/ToneMap.slang",
+                             "aurora/pipeline/SelectionMask.slang", "aurora/pipeline/SelectionOutline.slang"}) {
+        const bool material = std::string_view(file).starts_with("aurora/materials/");
         for (const bool vertex : {true, false}) {
-            SCOPED_TRACE(file);
-            SCOPED_TRACE(vertex);
-            ShaderCompileDesc desc;
-            ASSERT_TRUE(files.ReadFile(file, desc.source));
-            desc.sourcePath = file;
-            desc.entry      = vertex ? "VSMain" : "FSMain";
-            desc.stage      = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
-            desc.target     = GetParam();
-            desc.fileSystem = &files;
-            ShaderCompileResult result;
-            ASSERT_TRUE(compiler.Compile(desc, result)) << result.errorInfo;
+            for (const bool skinned : {false, true}) {
+                if (!material && skinned)
+                    continue;
+                SCOPED_TRACE(file);
+                SCOPED_TRACE(vertex);
+                SCOPED_TRACE(skinned);
+                ShaderCompileDesc desc;
+                ASSERT_TRUE(files.ReadFile(file, desc.source));
+                ShaderVariant variant;
+                if (skinned)
+                    variant.entries.push_back({Name("SKINNED"), 1});
+                desc.sourcePath = file;
+                desc.entry      = vertex ? "VSMain" : "FSMain";
+                desc.stage      = vertex ? ShaderStageFlagBit::VS : ShaderStageFlagBit::FS;
+                desc.target     = GetParam();
+                desc.fileSystem = &files;
+                desc.variant    = variant.entries.empty() ? nullptr : &variant;
+                ShaderCompileResult result;
+                ASSERT_TRUE(compiler.Compile(desc, result)) << result.errorInfo;
+                if (vertex && skinned) {
+                    const auto &inputs = result.reflection.vertexInputs;
+                    const bool lit     = std::string_view(file).ends_with("Lit.slang");
+                    ASSERT_EQ(inputs.size(), lit ? 4u : 3u);
+                    EXPECT_EQ(inputs[0], (ShaderVertexInput{"POSITION", 0, 0, ShaderScalarType::FLOAT, 3}));
+                    const auto joint = lit ? 2u : 1u;
+                    EXPECT_EQ(inputs[joint], (ShaderVertexInput{"JOINTS", 0, joint, ShaderScalarType::UINT, 4}));
+                    EXPECT_EQ(inputs[joint + 1], (ShaderVertexInput{"WEIGHTS", 0, joint + 1, ShaderScalarType::FLOAT, 4}));
+                }
+            }
         }
     }
 }
@@ -220,7 +245,7 @@ TEST_P(SharedPassHeaders, ExplicitTechniquesHaveArbitraryEntriesAndUnusedHeaders
     ShaderFileSystem files;
     files.AddSearchPath(AURORA_SHADER_ASSET_DIR);
     files.AddVirtualFile("custom/Program.slang", R"(
-        #include <aurora/pipeline/MaterialBatch.slangh>
+        #include <aurora/pipeline/MaterialBlock.slangh>
         float4 DrawTriangle(uint id : SV_VertexID) : SV_Position { return float4(id == 0 ? -1 : 1, id == 2 ? 1 : -1, 0, 1); }
         float4 ShadeSurface() : SV_Target { return float4(0, 0, 1, 1); }
         [numthreads(2, 3, 1)] void DispatchTiles(uint3 id : SV_DispatchThreadID) {}
@@ -246,6 +271,30 @@ TEST_P(SharedPassHeaders, ExplicitTechniquesHaveArbitraryEntriesAndUnusedHeaders
     EXPECT_TRUE(std::holds_alternative<RendererError>(CompileShaderTechnique(files, backend, {})));
     compute.compute.entry.clear();
     EXPECT_TRUE(std::holds_alternative<RendererError>(CompileShaderTechnique(files, backend, compute)));
+    files.AddVirtualFile("custom/Vertex.slang", R"(
+        #ifdef FRAGMENT_ONLY
+        #error Fragment values leaked into the vertex stage
+        #endif
+        float4 Position(uint id : SV_VertexID) : SV_Position { return float4(id, 0, 0, 1); }
+    )");
+    files.AddVirtualFile("custom/Fragment.slang", R"(
+        #if FRAGMENT_ONLY != 1
+        #error Fragment schema default was lost
+        #endif
+        float4 Surface() : SV_Target { return float4(0, 1, 0, 1); }
+    )");
+    files.AddVirtualFile("custom/Vertex.slang.json", R"({"variants":[]})");
+    files.AddVirtualFile("custom/Fragment.slang.json", R"({"sources":[{"name":"material","width":1}],
+        "variants":[{"key":"FRAGMENT_ONLY","source":"material","default":1}]})");
+    ShaderTechniqueVariant selected;
+    ShaderResolver         resolver(nullptr, nullptr, files, 0, 0);
+    uint64_t               fingerprint = 0;
+    std::string            error;
+    ASSERT_TRUE(resolver.ResolveSchema("custom/Fragment.slang", static_cast<uint32_t>(GetParam()), selected.schema, fingerprint, &error));
+    selected.macros.entries.push_back({Name("FRAGMENT_ONLY"), 1});
+    ShaderTechnique separate{{"custom/Vertex.slang", "Position"}, {"custom/Fragment.slang", "Surface"}};
+    const auto      stages = CompileShaderTechnique(files, backend, separate, nullptr, &selected);
+    ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(stages)) << std::get<RendererError>(stages).message;
 }
 
 #if defined(_WIN32)

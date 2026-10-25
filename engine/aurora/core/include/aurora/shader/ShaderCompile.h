@@ -35,6 +35,7 @@ namespace sky::aurora {
 
     struct ShaderCompileResult : ShaderStageArtifact {
         std::string errorInfo;
+        std::vector<ShaderVariantValue> selection;
     };
 
 } // namespace sky::aurora

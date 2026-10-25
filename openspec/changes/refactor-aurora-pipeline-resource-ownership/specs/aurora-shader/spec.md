@@ -2,7 +2,7 @@
 
 ### Requirement: Owner-scoped shared declarations
 
-Shared declarations SHALL use one authoritative C++ `.h` source with owner-selectable namespaces. C++ consumers SHALL include that source without requiring Slang compilation or shader-header export. CMake tooling SHALL provide deterministic export/update and read-only verification of shader-only `.slangh` assets. Exports SHALL persist in the module's source-tree `assets/shaders/` root, be tracked in version control, and preserve the declaration's domain-relative path with only the extension changed. Generated headers SHALL NOT be independently editable sources or complete shader programs. Global/Pass/Batch SHALL remain sets 0/1/2, with optional View data inside Pass.
+Shared declarations SHALL use one authoritative C++ `.h` source with owner-selectable namespaces. C++ consumers SHALL include that source without requiring Slang compilation or shader-header export. CMake tooling SHALL provide deterministic export/update and read-only verification of shader-only `.slangh` assets. Exports SHALL persist in the module's source-tree `assets/shaders/` root, be tracked in version control, and preserve the declaration's domain-relative path with only the extension changed. Generated headers SHALL NOT be independently editable sources or complete shader programs. Global/Pass/Material/Batch SHALL use sets 0/1/2/3, with optional View data inside Pass.
 
 #### Scenario: Two plugins reuse local names
 - **WHEN** independently built plugins declare ToonPass and ToonParams in separate namespaces

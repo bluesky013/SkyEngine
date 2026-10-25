@@ -1,28 +1,25 @@
 # aurora-resource-binding Specification
 
 ## Purpose
-TBD - consolidated.
+Define logical resource groups, checked parameter transactions, target-specific binding and uniform encoding, and the lifetime of published resource snapshots.
 ## Requirements
 ### Requirement: 跨后端 binding 索引一致性约定
 
-Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后端表现一致：
+Aurora SHALL 保证逻辑 ResourceKey 与资源语义跨后端一致；物理地址 SHALL 来自所选目标反射并允许不同。Vulkan SHALL 保留 descriptor set/binding，DX12 SHALL 保留 register class/space/register，Metal DirectArguments SHALL 保留 stage/category/index。logical set SHALL NOT 被强制解释为 Metal argument-buffer slot。调用方按逻辑键提供资源，由 Shader 派生的 BindingPlan 完成映射。
 
-- Vulkan：直接 `layout(set=N, binding=M)`
-- DX12：通过 root signature 的 register space + register 映射（space=N, register=M）
-- Metal：argument buffer slot=N，buffer/texture index 由 layout 表内部分配
+#### Scenario: 同一逻辑接口跨后端
+- **WHEN** 同一语义接口使用各自目标产物绘制
+- **THEN** shader 读取相同语义资源，即使各平台物理编号或 uniform 字节布局不同
 
-调用方写一份 layout，多后端 binding 行为一致；shader 编译产物可不同（每后端单独编译），但 layout 描述统一。
-
-#### Scenario: 同一 layout 跨后端
-
-- **WHEN** 用同一 layout（set 0：binding 0=UB, binding 1=COMBINED）+ 各自后端编译的 shader 创建 pipeline
-- **THEN** 各后端中 BindResourceGroup + Draw 行为一致（采到同一纹理、读到同一 UB 数据）
+#### Scenario: 同资源不同 stage 地址
+- **WHEN** 一个逻辑 binding 在 Metal VS 与 FS 使用不同 index
+- **THEN** 计划分别绑定两个原生地址，不重新按合并顺序编号
 
 ### Requirement: Device::CreateResourceGroup 创建 group 实例
 
 `Device::CreateResourceGroup(const ResourceGroup::Descriptor &)` SHALL 按 `Descriptor::{shader, set}` 分配一个新的 ResourceGroup 实例。
 
-`shader` MUST 非空；`set` SHALL 是 shader reflection 中存在的 descriptor set。返回的 ResourceGroup 在创建后所有 binding 均为"未写入"状态，必须先 `Update` 才能在 BindResourceGroup 后被采样。ResourceGroup 的 binding 布局 SHALL 等于 shader reflection 中该 set 的完整资源集。
+`shader` MUST 非空；`set` SHALL 是 shader reflection 中存在的 descriptor set。返回的 ResourceGroup 在创建后所有 binding 均为"未写入"状态，必须先成功完成受检 DescriptorEncoder 事务才能被执行消费。ResourceGroup 的 binding 布局 SHALL 等于 shader reflection 中该 set 的完整资源集。
 
 #### Scenario: 创建 group
 
@@ -36,21 +33,15 @@ Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后�
 
 ### Requirement: ResourceGroup::Update 批量写入资源
 
-`ResourceGroup` SHALL 通过 `CreateEncoder()` 返回的 `DescriptorEncoder` 写入资源：调用 `WriteBuffer` / `WriteImage` / `WriteSampler` 按 (binding, arrayElement) 积累写入，`End()` 一次性提交到 descriptor set。
+ResourceGroup SHALL 经同一 Name-first DescriptorEncoder 事务写入数据与资源，名称由 interface/set 参数表解析，并按计划校验类型、array element、资源类别、访问方式、device owner 与范围。错误 SHALL 通过受检结果显式报告，不能用断言、未定义行为或静默忽略表达可恢复错误。批量写入 SHALL 在全部验证与编码成功后发布不可变版本；失败 SHALL 保持先前有效绑定。多次成功事务 SHALL 允许部分更新，未覆盖的值继承先前版本，不修改仍被 GPU 使用的 descriptor/uniform。
 
-写入的 (binding, kind) 组合 MUST 与 shader reflection 中该 binding 的 `ShaderResourceType` 兼容；不兼容时 debug build assert，release build 行为未定义。
+#### Scenario: 写入 uniform 与 sampled image
+- **WHEN** 对合法 uniform/image/sampler logical slots 批量提供同 device 的匹配资源
+- **THEN** 发布后的绑定按计划在 native shader 中读取正确值
 
-`End()` 可被多次调用（每次一组新写入）；新写入覆盖旧写入；未被覆盖的 binding 保留先前值。
-
-#### Scenario: 写入 uniform + sampled image
-
-- **WHEN** 对 set 含 binding 0=uniform buffer、binding 1=sampled image、binding 2=sampler 的 group，用 encoder `WriteBuffer(0, ubuf, 0, 64)` + `WriteImage(1, tex, SHADER_READ_ONLY)` + `WriteSampler(2, smp)` 后 `End()`
-- **THEN** `End()` 不报错；后续 BindResourceGroup + Draw 可正确采样到 tex 与 ubuf 数据
-
-#### Scenario: 写入类型不匹配 binding type
-
-- **WHEN** 对 binding=0（uniform buffer）调用 `WriteImage`
-- **THEN** Debug build assert；Release build 行为未定义但 MUST 不静默成功
+#### Scenario: 类型或 owner 不匹配
+- **WHEN** 写入资源类型、访问方式或 GetDevice 与目标契约不匹配
+- **THEN** 返回明确错误，原有有效绑定不变，不进入错误原生对象转换
 
 ### Requirement: Encoder::BindResourceGroup 真正生效，支持动态偏移
 
@@ -58,7 +49,7 @@ Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后�
 
 `set` SHALL 对应当前 pipeline 经 shader 反射派生出的某个 descriptor set。
 
-`BindResourceGroup` SHALL 绑定该 group 的**当前帧 set 视图**：transient 模式（Global/Pass）下是本次更新刚申请的 set；cached 模式（Batch）下是持久 set。绑定前 SHALL 完成该 group 的写入提交（Vulkan `vkUpdateDescriptorSetWithTemplate` / `vkUpdateDescriptorSets`；DX12 的 staging→shader-visible copy）。
+`BindResourceGroup` SHALL 绑定该 group 的当前有效不可变版本；transient/cached 策略 SHALL 由具体分配和生命周期契约选择，不从 Global/Pass/Material/Batch 名称推导。绑定前 SHALL 完成该 group 的写入提交（Vulkan `vkUpdateDescriptorSetWithTemplate` / `vkUpdateDescriptorSets`；DX12 的 staging→shader-visible copy）。
 
 `numDynamicOffsets` MUST 等于该 group 的 layout 中 `*_DYNAMIC` 类型 binding 的总数；offsets 顺序与 binding 索引顺序一致。
 
@@ -90,55 +81,59 @@ Aurora SHALL 保证：在 layout 中声明的 (set, binding) 索引在所有后�
 
 ### Requirement: Array binding 支持 count > 1
 
-ResourceGroupLayout 中 `count > 1` 的 binding（如纹理数组）MUST 支持通过 `Update` 按 `arrayElement` 索引写入；BindResourceGroup 后 shader 可以索引 `arr[i]`。
+已经声明支持 descriptor arrays 的后端/执行路径 SHALL 按 `(binding,arrayElement)` 保存和编码元素，不能把 `binding+element` 当作另一个 logical binding。count SHALL 是受检的有界数量；未实现的数组/model SHALL 明确 Unsupported，不能把零/未知 count 降为 1。uniform 字段数组及 Texture2DArray 单资源 SHALL 与 descriptor arrays 区分，本 change SHALL 保留原有受支持能力。
 
-#### Scenario: 8 元素 sampled image 数组
+#### Scenario: 已支持的 sampled image descriptor 数组
+- **WHEN** 支持该能力的路径向 count=8 的 binding 写入 element 0..7
+- **THEN** shader 的元素 3 读取第三号元素所写纹理，且不覆盖相邻 logical binding
 
-- **WHEN** layout binding=0、type=COMBINED_IMAGE_SAMPLER、count=8；Update 8 次（arrayElement 0..7）；Draw shader 读 arr[3]
-- **THEN** 采样到 arrayElement=3 写入的纹理
+#### Scenario: Metal DirectArguments 未支持数组
+- **WHEN** 本期 Metal 通用 Pass 路径收到 descriptor array 或未知 count
+- **THEN** 在发布计划前明确 Unsupported；合法 FLOAT4 uniform 数组和 Texture2DArray 单资源不因此被拒绝
 
 ### Requirement: DescriptorEncoder 接口
 
-`DescriptorEncoder` SHALL 是接口层抽象类，提供 `WriteBuffer` / `WriteImage` / `WriteSampler` 三个写入方法与 `End()` 提交方法：
+DescriptorEncoder SHALL 在现有接口中统一提供受检的 Name-first WriteData、WriteBlock、WriteBuffer、WriteImage、WriteSampler 与 End。WriteData SHALL 携带中性的语义类型/shape，WriteBlock SHALL 携带 CPU schema；SHALL NOT 仅凭裸字节数推断类型。名字解析后的内部操作 SHALL 复用 BindingPlan/UniformUploadPlan，各后端 SHALL NOT 各自搜索名字。 ResourceGroup 与 Core 图装配 SHALL 直接委托同一 RHI 中性参数事务前端，统一名字、类型、重复/重叠、inactive、必需参数与原子冻结；仅原生资源和图资源的 materializer 分离。图 materializer SHALL 保留显式访问声明与现有 lease，SHALL NOT 为复用事务而提前创建尚未分配的原生图资源。接口 SHALL NOT 恢复旧 ResourceUpdateInfo，SHALL NOT include Framework、MaterialPropertyValue、Aurora.Core 图或资产类型；本次事务暂存 SHALL 使用受检的类型化数据与所有权。
 
-- `WriteBuffer(uint32_t binding, Buffer *buffer, uint64_t offset, uint64_t range, uint32_t arrayElement = 0)`
-- `WriteImage(uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0)`
-- `WriteSampler(uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0)`
-- `End()` 把积累的写入 flush 到目标 descriptor set
+#### Scenario: 混合命名批量写入
+- **WHEN** 一个事务按 Name 写入材质字段、纹理和 sampler 后 End
+- **THEN** 同一逻辑参数表完成类型/归属检查并原子发布，GPU 同时读到本次值与资源
 
-`DescriptorEncoder` SHALL 不暴露 `ResourceUpdateInfo` 或任何通用中间结构；写入由后端直接积累为 native 结构。
-
-#### Scenario: 链式批量写入
-
-- **WHEN** 依次调用 `WriteBuffer` / `WriteImage` / `WriteSampler` 后调用 `End()`
-- **THEN** 所有写入一次性提交到 descriptor set，后续 `BindResourceGroup` + Draw 可采样到对应资源
+#### Scenario: 同大小异类型
+- **WHEN** 将 uint32_t 写入声明为 FLOAT 的名字，即使两者大小相同
+- **THEN** 明确类型错误，不能 memcpy 成功
 
 ### Requirement: ResourceGroup::CreateEncoder 返回后端 encoder
 
-`ResourceGroup` SHALL 提供 `CreateEncoder()`，返回绑定到该 group 的 descriptor set 的后端 `DescriptorEncoder*`。encoder SHALL 只作用于创建它的那个 group（Vulkan 目标 `VkDescriptorSet`；DX12 目标 root 参数）。
+ResourceGroup SHALL 从其 Shader/interface/set 创建唯一作用域的 Name-first 更新事务，并显式接受所需 RHI 中性 updateContext。上下文 SHALL 由既有帧分配/编码路径提供 uniform range 与保活能力，不暴露 AssetManager、UUID 或 GraphImageHandle。缺少必需上下文或其 lease/device epoch 失效 SHALL 明确失败。任一写入失败 SHALL 使整个事务失效，即使忽略单项结果，End 也 SHALL 返回失败，不发布合法子集。End SHALL 验证并发布参数版本而非 queue Submit；未 End 的事务销毁 SHALL 取消暂存更新。
 
-#### Scenario: 从 group 创建 encoder
+#### Scenario: 作用域受限
+- **WHEN** 向 group 的事务写入另一个 set 或接口的参数句柄
+- **THEN** 返回明确错误，不跨作用域搜索或推导 slot
 
-- **WHEN** 调用 `group->CreateEncoder()`
-- **THEN** 返回非空 `DescriptorEncoder*`，其 `End()` 写入该 group 的 descriptor set
+#### Scenario: 更新不提交 GPU
+- **WHEN** Name 数据事务成功 End
+- **THEN** 仅经注入上下文形成可冻结版本，不创建 queue、等待 fence 或独立 Submit
+
+#### Scenario: 忽略单项错误
+- **WHEN** 一个 Name 写入失败后调用方仍执行其它合法写入并 End
+- **THEN** End 返回失败，原版本不变，不能发布后续合法子集
 
 ### Requirement: 后端原生实现
 
-Vulkan 后端 SHALL 提供 `VulkanDescriptorEncoder`：`Write*` 写入 RG 的持久化 packed buffer 并置 dirty，`End()` SHALL 在 dirty 时调用 `vkUpdateDescriptorSetWithTemplate`。`VulkanShader` SHALL 为每个 set 建 `VkDescriptorUpdateTemplate`（core 1.1，Aurora 要求 1.3 故始终可用）；template 创建失败时 `End()` 回退 `vkUpdateDescriptorSets`。
-
-DX12 后端 SHALL 提供 `D3D12DescriptorEncoder`：按 reflection 类型分发——静态绑定写 descriptor table 的 CPU handle，动态绑定（`UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC`）记录 buffer + baseOffset + range（bind 时由 root CBV/UAV 带 offset 重绑）。
-
-Metal 后端 SHALL 提供 `MetalDescriptorEncoder`（接口就位，argument buffer 写入随 `aurora-resource-group Metal phase` 落地，暂为空实现 + TODO）。
+各后端 DescriptorEncoder SHALL 消费 Shader 派生的 BindingPlan。Vulkan SHALL 保留既有持久 packed descriptor、dirty 更新与 update-template/显式写入路径；DX12 SHALL 按计划选择 descriptor table 或动态 root 参数，并保留只读/可写 buffer 的 SRV/UAV 区别；Metal DirectArguments SHALL 保存受检资源并按各 stage 的原生地址编码。未实现的 argument-buffer/model SHALL 明确失败，不以空实现成功返回。
 
 #### Scenario: Vulkan 批量提交
+- **WHEN** VulkanDescriptorEncoder 完成多个合法 Write 操作并提交
+- **THEN** dirty 时通过同源 template 或已验证的显式更新发布全部描述符，非 dirty 时不重复写入
 
-- **WHEN** `VulkanDescriptorEncoder` 多个 `Write*` 后 `End()`
-- **THEN** dirty 时调用一次 `vkUpdateDescriptorSetWithTemplate` 写入全部 binding；非 dirty 时跳过（无 flush）
+#### Scenario: DX12 动态绑定
+- **WHEN** 动态 uniform 或 storage buffer 写入并绑定
+- **THEN** 计划明确其 CBV/SRV/UAV root 类别以及 base/range/dynamic offset，不只凭 STORAGE_BUFFER 推断 UAV
 
-#### Scenario: DX12 动态绑定分发
-
-- **WHEN** 对 `UNIFORM_BUFFER_DYNAMIC` binding 调用 `WriteBuffer`
-- **THEN** `D3D12DescriptorEncoder` 记录 buffer + baseOffset + range，不写 descriptor（bind 时走 root CBV）
+#### Scenario: Metal 直接参数
+- **WHEN** 一个 ResourceGroup 被用于 graphics 或 compute
+- **THEN** 只在所属活跃 stage/category/index 绑定资源，不猜 logical set 对应的物理位置
 
 ### Requirement: DX12 shader-visible descriptor ring
 
@@ -277,23 +272,15 @@ resource 层（`aurora-render-buffers`）的 `RenderResource` SHALL 仅在 `SKY_
 
 ### Requirement: RgBlockDesc 单一事实源
 
-`RgBlockDesc` SHALL 描述一个 resource block：`{ set, binding, blockName, fields[] }`。其 `set/binding/kind/fields` SHALL 由 `.slang` shader 反射生成（而非手写），同一份 desc SHALL 可产出：
+RgBlockDesc 等保留的桥接描述 SHALL 从权威共享 `.h` 的字段/资源列表派生逻辑语义，不能成为第二个可编辑 schema，也不能恢复 Slang-to-C++ 镜像生成。CPU schema SHALL 描述 C++ 表示，目标反射 SHALL 描述 GPU ABI；两侧通过 UniformUploadPlan 连接，不要求使用同一 offset 表。
 
-- RHI `ResourceGroupLayout::Descriptor`（cbuffer → `UNIFORM_BUFFER`/`UNIFORM_BUFFER_DYNAMIC`；texture/sampler → 对应 `DescriptorType`）
-- 供 shader `#include` 的 Slang 共享头（struct + `ParameterBlock` + `[[vk::binding]]`）
-- C++ 镜像 struct（与 shader 布局一致，带 `static_assert` 校验）
+#### Scenario: 同源桥接
+- **WHEN** 一个共享声明同时被 C++、shader 导出与保留桥接接口消费
+- **THEN** 字段与资源逻辑身份一致，原生 byte offset 仍分别由 CPU schema 与目标反射描述
 
-C++ 侧 UBO 写入与 shader 声明 SHALL 使用同一 offset 表（offset 来自 slang 反射）。
-
-#### Scenario: 反射派生 desc
-
-- **WHEN** 对含 `[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal` 的 `.slang` 做 codegen
-- **THEN** 生成 `RgBlockDesc{set=0, binding=0, blockName="Global", kind=CBUFFER}`，字段与 `GlobalParams` 成员一致
-
-#### Scenario: 一致性
-
-- **WHEN** 同一 `.slang` 反射分别产出 layout、shader 头、C++ struct
-- **THEN** binding 编号、字段顺序、类型、offset 在两侧一致
+#### Scenario: C++ layout 变化
+- **WHEN** CPU padding/offset 改变而逻辑接口未变
+- **THEN** CPU schema fingerprint 与旧 UniformUploadPlan 失效，不要求伪造目标 shader offset 或恢复镜像生成
 
 ### Requirement: Global tier 数据流
 
@@ -313,7 +300,7 @@ Pass feature SHALL 从权威共享声明取得 CPU schema，并通过实际 shad
 
 ### Requirement: Batch tier dynamic UBO
 
-Batch set 2 SHALL 使用当前 lease 拥有的参数数据。仅 shader binding policy 显式选择 dynamic UBO 时，声明才提供对应 dynamicOffset；普通 uniform binding 不强制改为动态类型。后端 SHALL 保留声明的 base offset、逻辑 range 与 dynamicOffset，并在 Pipeline 绑定后按真实 set/binding 应用。
+Batch set 3 SHALL 使用当前 lease 拥有的参数数据。仅 shader binding policy 显式选择 dynamic UBO 时，声明才提供对应 dynamicOffset；普通 uniform binding 不强制改为动态类型。后端 SHALL 保留声明的 base offset、逻辑 range 与 dynamicOffset，并在 Pipeline 绑定后按真实 set/binding 应用。
 
 #### Scenario: 两个 draw 的动态窗口
 - **WHEN** 两个 draws 使用相同 pack buffer 和逻辑 range，但 dynamicOffset 不同
@@ -325,19 +312,27 @@ Batch set 2 SHALL 使用当前 lease 拥有的参数数据。仅 shader binding 
 
 ### Requirement: dynamic UBO stable binding 契约
 
-Batch tier 的 dynamic UBO descriptor SHALL 以 `offset=0, range=blockSize` 绑定（`blockSize` 为该 RG 对应 shader block 的固定大小，std140 后 16B 对齐），每帧绑定一次（非 per-object）；帧内每 draw 仅通过 dynamic offset 选择 pack buffer 内的数据窗口。
+显式选择 dynamic UBO 的路径 SHALL 使用目标 block ABI 的固定逻辑范围，并使用 device capability 满足分配偏移及后端原生 view 对齐。该范围 SHALL NOT 统一按 std140 或 CPU sizeof 推导；原生 view 所需 padding SHALL 有足够 backing，且不能掩盖不足的逻辑范围。合法 pack buffer/布局版本不变时 SHALL 复用稳定 descriptor，逐 draw 以 dynamic offset 选择数据窗口，不要求逐对象改写 descriptor。零 range、越界或对齐错误 SHALL 显式失败，不使用断言/警告后继续或降为 whole-buffer range。
 
-`ResourceUpdateInfo::bufferRange` SHALL 在 DYNAMIC 类型绑定中为 `blockSize`（MUST 非 0）；Vulkan 后端对 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC` + `range==0` MUST 在 debug 断言 / 打 warning（不得静默退化为 `VK_WHOLE_SIZE`）。
-
-#### Scenario: 帧内只写一次 descriptor
-
-- **WHEN** batch RG 对本帧 pack buffer `Update({binding=0, BUFFER, buffer=packBuffer, offset=0, range=blockSize})` 一次，帧内多次 draw 用不同 dynamic offset
-- **THEN** 帧内 descriptor set 无需再次 `Update`；每次 draw 只改 dynamic offset 即可正确采样到各自数据窗口
+#### Scenario: 帧内稳定 descriptor
+- **WHEN** 同一 pack buffer/布局版本提供多个合法 dynamic offsets
+- **THEN** 各 draw 复用该版本 descriptor 并读取对应目标字节，范围与对齐来自实际目标和 device
 
 #### Scenario: DYNAMIC 类型 range 为 0 拒绝
+- **WHEN** dynamic uniform binding 提供零逻辑范围
+- **THEN** 受检路径明确失败，先前有效绑定不变，不静默变成 whole-buffer view
 
-- **WHEN** 对 `UNIFORM_BUFFER_DYNAMIC` binding 写入 `bufferRange=0`
-- **THEN** Vulkan 后端 debug 断言 / 打 warning；release 不静默用 `VK_WHOLE_SIZE`
+### Requirement: FrameContext 参数分配与退休
+
+生产 uniform/storage 写入 SHALL 使用 DeviceFrameContext::WriteFrameBuffer 和有效 DeviceFrameLease。分配按 device 能力和请求对齐，返回 FrameBufferSlice 或显式 FrameError；预算不足不得重置已分配范围。编译计划借用或提交在途时 SHALL 禁止覆写；复用由既有 slot/lease 退休协议决定。
+
+#### Scenario: 容量不足
+- **WHEN** 同一 lease 的剩余容量不足以完成目标 ABI 写入
+- **THEN** 返回明确错误，已返回 slice 的内容与偏移保持稳定
+
+#### Scenario: 安全复用
+- **WHEN** 编码、提交及引用尚未满足退休条件
+- **THEN** 相应 backing 不交给新帧写入，不提供独立 Reset 旁路
 
 ### Requirement: offset 对齐取自 device capability
 
@@ -352,19 +347,15 @@ FrameContext 的 uniform 分配 SHALL 满足 `device->GetCapability().minUniform
 
 ### Requirement: pack writer 返回 dynamic offset
 
-pipeline 层 SHALL 提供 pack writer，把 per-object 结构体写入已分配 block 并返回该 block 的 pack offset；返回的 offset SHALL 可直接作为 `DrawItem::batchDynamicOffset` 传给 executor。
+pipeline 的 typed uniform 写入 SHALL 先按实际 Shader 和 CPU schema 取得 UniformUploadPlan，再分配足够的目标 block 大小、编码目标字节并返回合法绑定偏移。分配对齐 SHALL 来自 device capability；逻辑绑定范围 SHALL 为实际目标范围而非 CPU sizeof 或分配 padding，native view 的额外对齐范围 SHALL 有足够 backing 且不能掩盖逻辑范围不足。动态策略 SHALL 显式选择，返回偏移 SHALL 通过既有绑定/执行路径使用。
 
-pack writer SHALL 用 `RgBlockDesc`/codegen struct 的 block size 校验（`static_assert(sizeof)`），MUST 不感知 rhi 层字节分配的内部实现。
+#### Scenario: CPU 与目标大小不同
+- **WHEN** 写入的 CPU 类型大小为 64 而合法目标 block 需要 80 字节
+- **THEN** 分配并绑定目标所需范围，写入经计划转换的 80 字节，不复制或绑定越界
 
-#### Scenario: 写入并返回 offset
-
-- **WHEN** 调用 pack writer 写入结构体 `T`（`sizeof(T)=64`）
-- **THEN** 返回值为该帧 allocator 分配的、按 caps 对齐的绝对 offset，且该 offset 处的映射内存已写入 `T` 的内容
-
-#### Scenario: offset 直通 executor
-
-- **WHEN** pack writer 返回的 offset 写入 `DrawItem.batchDynamicOffset` 后 `Compile`+`Execute`
-- **THEN** executor `BindResourceGroup(2, rg, 1, &offset)` 使用该 offset 作为 dynamic offset
+#### Scenario: Offset 直通执行
+- **WHEN** 动态 uniform writer 返回的偏移被提交执行
+- **THEN** executor 在相应逻辑 binding 的各原生 stage 地址使用该偏移，并校验顺序、对齐和范围
 
 ### Requirement: D3D12 tier2 bindless DescriptorHeap
 
@@ -408,14 +399,30 @@ pack writer SHALL 用 `RgBlockDesc`/codegen struct 的 block size 校验（`stat
 - **WHEN** 设备最高 Shader Model < 6.6
 - **THEN** `CreateDescriptorHeap` 返回 `nullptr`
 
-### Requirement: FrameContext 参数分配与退休
+### Requirement: 四层绑定与图 storage 事务完整
 
-生产 uniform 写入 SHALL 使用 DeviceFrameContext::WriteFrameBuffer 和有效 DeviceFrameLease。分配按 device 能力和请求对齐，返回 FrameBufferSlice 或显式 FrameError；预算不足不得重置已分配范围。编译计划借用或提交在途时 SHALL 禁止覆写；复用由既有 slot/lease 退休协议决定。
+资源 SHALL 使用 Global 0、Pass 1、Material 2、Batch 3。逐 draw 的 SceneSurface、palette、UI 图片和 sampler SHALL 归 Batch。带 frame context 的图事务 SHALL 保留 storage 的精确 range 和显式 provider，失败 SHALL 不改变原 draw；Metal SHALL 处理全部四个 set 与 raster storage。
 
-#### Scenario: 容量不足
-- **WHEN** 同一 lease 的剩余容量不足以完成目标 ABI 写入
-- **THEN** 返回明确错误，已返回 slice 的内容与偏移保持稳定
+#### Scenario: 骨骼 palette 通过生产事务
+- **WHEN** 双在途骨骼 draw 经带 context 的 Apply 绑定只读结构化 palette
+- **THEN** 每个 draw 使用自己的精确范围和姿态，错误 stride 或缺失资源明确拒绝并保留原绑定
 
-#### Scenario: 安全复用
-- **WHEN** 编码、提交及引用尚未满足退休条件
-- **THEN** 相应 backing 不交给新帧写入，不提供独立 Reset 旁路
+#### Scenario: 第四组与 UI
+- **WHEN** raster 或 compute 使用 Batch set 3，包括 UI 逐 draw 纹理
+- **THEN** 原生 materializer 保留该 set 的资源，不截断为三组，也不将逐 draw 参数放入 Global/Material
+
+### Requirement: Uniform upload plans encode target layout
+
+UniformUploadPlan SHALL 校验共享语义、CPU 可读范围和目标 block ABI，并编码本期受支持的 scalar/vector/MAT4/FLOAT4 数组。计划 SHALL 处理 offset、size、array stride、matrix major/stride，清零目标 padding，不读取源 padding 或修改源对象。缺失/重复/未知字段、语义冲突、越界、重叠及算术溢出 SHALL 在发布前失败。仅当完整复制契约逐字段成立、复制范围的源与目标全部由声明值字节覆盖且不含 padding 时 SHALL 使用整块复制快路；其他情况 SHALL 分段编码并清零 padding。
+
+#### Scenario: 不同 offset 和 stride
+- **WHEN** CPU 字段与目标字段位置或数组 stride 不同
+- **THEN** 按目标位置编码，目标 padding 为零，源对象和边界哨兵保持不变
+
+#### Scenario: 非对称矩阵
+- **WHEN** CPU MAT4 与目标矩阵表示不同
+- **THEN** 编码后 shader 对非对称矩阵的实际运算与 CPU 语义一致，不以 identity matrix 作为唯一证据
+
+#### Scenario: 快路与通用路径等价
+- **WHEN** 两条路径均适用于同一兼容 ABI 和输入值
+- **THEN** 得到相同有效目标字节；总大小相同但成员布局不同不启用整块复制

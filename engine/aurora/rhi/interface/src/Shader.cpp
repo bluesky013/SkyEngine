@@ -110,6 +110,23 @@ namespace sky::aurora {
             if (!MergeShaderReflections(artifact.reflection, merged, error))
                 return false;
         }
+        std::set<std::pair<ShaderStageFlagBit, uint32_t>> specializationIds;
+        if (desc.specialization)
+            for (const auto &value : desc.specialization->entries) {
+                const ShaderVariantBinding *binding = nullptr;
+                for (const auto *function : functions) {
+                    if (!function || function->GetArtifact()->identity.stage != value.stage)
+                        continue;
+                    for (const auto &candidate : function->GetArtifact()->variantBindings)
+                        if (candidate.lowering == ShaderVariantLowering::NATIVE && candidate.nativeId == value.id)
+                            binding = &candidate;
+                }
+                if (!binding || !specializationIds.emplace(value.stage, value.id).second || binding->type != value.type ||
+                    binding->key != value.key || (value.type == ShaderVariantType::BOOL && value.value > 1)) {
+                    error = "Specialization value does not match a unique typed stage declaration";
+                    return false;
+                }
+            }
         std::set<std::pair<uint32_t, uint32_t>> policies;
         for (const auto &policy : desc.bindingPolicies) {
             auto found = std::find_if(merged.resources.begin(), merged.resources.end(),

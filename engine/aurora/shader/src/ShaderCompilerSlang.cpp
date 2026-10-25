@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstring>
 #include <filesystem>
 #include <memory>
@@ -168,7 +169,7 @@ namespace sky::aurora {
             }
         }
 
-        bool Fail(std::string &error, const char *message)
+        bool Fail(std::string &error, const std::string &message)
         {
             error = message;
             return false;
@@ -426,6 +427,41 @@ namespace sky::aurora {
             return true;
         }
 
+        bool ReflectVertexInput(slang::VariableLayoutReflection *variable, uint32_t parentLocation, ShaderReflection &reflection)
+        {
+            auto *layout = variable ? variable->getTypeLayout() : nullptr;
+            if (!layout || !layout->getSize(slang::ParameterCategory::VaryingInput))
+                return true;
+            const auto offset = variable->getOffset(slang::ParameterCategory::VaryingInput);
+            if (offset > UINT32_MAX - parentLocation)
+                return false;
+            const auto location = parentLocation + static_cast<uint32_t>(offset);
+            if (layout->getKind() == slang::TypeReflection::Kind::Struct) {
+                for (uint32_t i = 0; i < layout->getFieldCount(); ++i)
+                    if (!ReflectVertexInput(layout->getFieldByIndex(i), location, reflection))
+                        return false;
+                return true;
+            }
+            const auto *semantic = variable->getSemanticName();
+            if (!semantic)
+                return false;
+            std::string name(semantic);
+            std::ranges::transform(name, name.begin(), [](unsigned char value) { return static_cast<char>(std::toupper(value)); });
+            if (name.starts_with("SV_"))
+                return true;
+            auto      *type       = layout->getType();
+            const auto kind       = type->getKind();
+            const auto components = kind == slang::TypeReflection::Kind::Scalar ? 1u : type->getColumnCount();
+            const auto scalar     = MapScalarType(type->getScalarType());
+            if ((kind != slang::TypeReflection::Kind::Scalar && kind != slang::TypeReflection::Kind::Vector) || !components || components > 4 ||
+                scalar == ShaderScalarType::UNKNOWN || scalar == ShaderScalarType::BOOL || variable->getSemanticIndex() > UINT32_MAX ||
+                reflection.vertexInputs.size() >= 16)
+                return false;
+            reflection.vertexInputs.push_back(
+                {std::move(name), static_cast<uint32_t>(variable->getSemanticIndex()), location, scalar, static_cast<uint32_t>(components)});
+            return true;
+        }
+
         bool CollectSlangResources(slang::ProgramLayout *layout,
                                    ShaderReflection     &reflection,
                                    ShaderTarget          target,
@@ -458,8 +494,10 @@ namespace sky::aurora {
                 slang::Attribute *identity = nullptr;
                 if (!ReadAttribute(var->getVariable(), "AuroraResource", identity, error))
                     return false;
-                if (!identity)
-                    return Fail(error, "Resource requires AuroraResource logical identity");
+                if (!identity) {
+                    error = std::string("Resource requires AuroraResource logical identity: ") + (var->getName() ? var->getName() : "?");
+                    return false;
+                }
                 int set = -1, binding = -1;
                 if (identity->getArgumentCount() != 3 || SLANG_FAILED(identity->getArgumentValueInt(0, &set)) ||
                     SLANG_FAILED(identity->getArgumentValueInt(1, &binding)) || set < 0 || binding < 0 ||
@@ -570,11 +608,81 @@ namespace sky::aurora {
         return true;
     }
 
+    bool ShaderCompilerSlang::InspectVariants(const ShaderCompileDesc &desc, std::vector<ShaderVariantBinding> &bindings, std::string &error)
+    {
+        ShaderCompileResult inspected;
+        if (!CompileImpl(desc, inspected, nullptr, true)) {
+            error = inspected.errorInfo;
+            return false;
+        }
+        bindings = std::move(inspected.variantBindings);
+        return true;
+    }
+
     bool ShaderCompilerSlang::Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result)
     {
         result = {};
+        std::vector<ShaderVariantBinding> bindings;
+        if (desc.schema && !desc.schema->entries.empty() && !InspectVariants(desc, bindings, result.errorInfo))
+            return false;
         ShaderCompileResult candidate;
-        const bool          success = [&]() {
+        if (!CompileImpl(desc, candidate, &bindings, false)) {
+            result.errorInfo = std::move(candidate.errorInfo);
+            return false;
+        }
+        const auto materialBufferCount = std::ranges::count_if(candidate.reflection.declarations, [](const auto &resource) {
+            return resource.set == 2 &&
+                   (resource.type == ShaderResourceType::UNIFORM_BUFFER || resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
+        });
+        if (materialBufferCount > 1) {
+            result.errorInfo = "Material Group 2 permits at most one logical cbuffer";
+            return false;
+        }
+        bool probe = false;
+        if (desc.schema && desc.variant)
+            for (const auto &value : desc.variant->entries) {
+                const auto *entry   = desc.schema->FindEntry(value.key);
+                const auto  mapping = std::ranges::find(bindings, value.key.GetStr(), &ShaderVariantBinding::key);
+                probe               = probe || (entry && value.value != entry->defaultValue &&
+                                  (mapping == bindings.end() || mapping->lowering == ShaderVariantLowering::COMPILE));
+            }
+        if (probe) {
+            auto baselineDesc        = desc;
+            baselineDesc.variant     = nullptr;
+            baselineDesc.variantHash = 0;
+            ShaderCompileResult baseline;
+            if (!CompileImpl(baselineDesc, baseline, &bindings, false)) {
+                result.errorInfo = "Variant baseline declarations are invalid: " + baseline.errorInfo;
+                return false;
+            }
+            const auto materialInterface = [](const ShaderReflection &reflection) {
+                ShaderReflection material;
+                for (const auto &resource : reflection.declarations)
+                    if (resource.set == 2)
+                        material.declarations.push_back(resource);
+                for (const auto &block : reflection.declaredBlocks)
+                    if (block.set == 2)
+                        material.declaredBlocks.push_back(block);
+                return ShaderInterfaceFingerprint(material);
+            };
+            if (materialInterface(candidate.reflection) != materialInterface(baseline.reflection)) {
+                result.errorInfo = "Material Group 2 declarations or ABI change with the selected variant; keep declarations stable";
+                return false;
+            }
+        }
+        result = std::move(candidate);
+        return true;
+    }
+
+    bool ShaderCompilerSlang::CompileImpl(const ShaderCompileDesc                 &desc,
+                                          ShaderCompileResult                     &result,
+                                          const std::vector<ShaderVariantBinding> *bindings,
+                                          bool                                     inspect)
+    {
+        result = {};
+        ShaderCompileResult         candidate;
+        Slang::ComPtr<slang::IBlob> lastDiagnostics;
+        const bool                  success = [&]() {
             if (!InitGlobalSession()) {
                 return false;
             }
@@ -603,7 +711,16 @@ namespace sky::aurora {
 
             std::vector<ShaderVariantValue> variants;
             if (desc.schema) {
-                if (!CanonicalShaderVariants(desc.variant, *desc.schema, desc.target, variants, &candidate.errorInfo))
+                auto          effectiveSchema = *desc.schema;
+                ShaderVariant effectiveValues = desc.variant ? *desc.variant : ShaderVariant{};
+                for (auto &entry : effectiveSchema.entries) {
+                    if (inspect && !entry.symbol.Empty()) {
+                        std::erase_if(effectiveValues.entries, [&](const auto &v) { return v.key == entry.key; });
+                        effectiveValues.entries.push_back({entry.key, entry.defaultValue, entry.type});
+                    }
+                }
+                if (!CanonicalShaderVariants(&effectiveValues, effectiveSchema, desc.target, variants, &candidate.errorInfo,
+                                             inspect ? nullptr : bindings))
                     return false;
             } else if (desc.variant) {
                 std::set<std::string> names;
@@ -611,12 +728,12 @@ namespace sky::aurora {
                     std::string name(entry.key.GetStr());
                     if (name.empty() || !names.insert(name).second)
                         return Fail(candidate.errorInfo, "Duplicate or empty shader macro name");
-                    variants.push_back({std::move(name), entry.value});
+                    variants.push_back({std::move(name), entry.value, entry.type});
                 }
                 std::sort(variants.begin(), variants.end(), [](const auto &left, const auto &right) { return left.name < right.name; });
             }
             const auto variantHash = HashShaderVariants(variants);
-            if (desc.variantHash && desc.variantHash != variantHash)
+            if (!inspect && desc.variantHash && desc.variantHash != variantHash)
                 return Fail(candidate.errorInfo, "Compile variant fingerprint does not match effective macros");
             std::vector<std::string>                  macroValues;
             std::vector<slang::PreprocessorMacroDesc> macros;
@@ -625,7 +742,8 @@ namespace sky::aurora {
             macros.push_back({"AURORA_TARGET_DXIL", desc.target == ShaderTarget::DXIL ? "1" : "0"});
             macroValues.reserve(variants.size());
             for (const auto &entry : variants) {
-                macroValues.push_back(std::to_string(entry.value));
+                macroValues.push_back(entry.type == ShaderVariantType::INT32 ? std::to_string(std::bit_cast<int32_t>(entry.value))
+                                                                                              : std::to_string(entry.value));
                 macros.push_back({entry.name.c_str(), macroValues.back().c_str()});
             }
             sessionDesc.preprocessorMacros     = macros.empty() ? nullptr : macros.data();
@@ -675,17 +793,114 @@ namespace sky::aurora {
                 return false;
             }
 
-            Slang::ComPtr<slang::IBlob> diagnostics;
-            const std::string           sourcePath = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
+            auto             &diagnostics = lastDiagnostics;
+            const std::string sourcePath  = desc.sourcePath.empty() ? std::string("spike.slang") : desc.sourcePath;
             // The session's module cache owns the returned module; a ComPtr would
             // release a cache reference and corrupt session teardown.
-            slang::IModule *module =
-                session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef());
+            slang::IModule *module = session->loadModuleFromSourceString("shader", sourcePath.c_str(), desc.source.c_str(), diagnostics.writeRef());
             if (diagnostics != nullptr) {
                 candidate.errorInfo = static_cast<const char *>(diagnostics->getBufferPointer());
             }
             if (module == nullptr) {
                 return false;
+            }
+
+            if (inspect) {
+                auto *declarations = module->getModuleReflection();
+                auto *moduleLayout = module->getLayout(0, diagnostics.writeRef());
+                if (!declarations || !moduleLayout)
+                    return Fail(candidate.errorInfo, "Variant declaration reflection is unavailable");
+                std::set<uint32_t>    nativeIds;
+                std::set<std::string> symbols;
+                if (desc.schema)
+                    for (const auto &entry : desc.schema->entries) {
+                        ShaderVariantBinding binding{std::string(entry.key.GetStr()),
+                                                     std::string(entry.symbol.GetStr()),
+                                                     entry.type,
+                                                     ShaderVariantLowering::COMPILE,
+                                                     0,
+                                                     entry.defaultValue};
+                        const auto           invalid = [&](const char *reason) {
+                            return Fail(candidate.errorInfo, "Variant " + binding.key + " / " + desc.entry + " / " +
+                                                                                            std::to_string(static_cast<uint32_t>(desc.target)) + ": " + reason);
+                        };
+                        if (binding.symbol.empty()) {
+                            candidate.variantBindings.push_back(binding);
+                            continue;
+                        }
+                        if (!symbols.insert(binding.symbol).second || binding.symbol == binding.key)
+                            return invalid("source symbol must be unique and distinct from its preprocessor key");
+                        slang::VariableReflection *variable = nullptr;
+                        for (auto *child : declarations->getChildren()) {
+                            auto *declared = child->asVariable();
+                            if (declared && declared->getName() && binding.symbol == declared->getName()) {
+                                if (variable)
+                                    return invalid("ambiguous source symbol");
+                                variable = declared;
+                            }
+                        }
+                        if (!variable)
+                            return invalid("source symbol is not a stable top-level declaration");
+                        const auto expectedType = entry.type == ShaderVariantType::BOOL    ? slang::TypeReflection::ScalarType::Bool
+                                                                   : entry.type == ShaderVariantType::INT32 ? slang::TypeReflection::ScalarType::Int32
+                                                                                                            : slang::TypeReflection::ScalarType::UInt32;
+                        if (!variable->getType() || variable->getType()->getKind() != slang::TypeReflection::Kind::Scalar ||
+                            variable->getType()->getScalarType() != expectedType)
+                            return invalid("source type differs from bool/int32/uint32 logical type");
+                        Slang::ComPtr<slang::IBlob> defaultValue;
+                        if (SLANG_FAILED(variable->getDefaultValueBlob(defaultValue.writeRef())) || !defaultValue ||
+                            defaultValue->getBufferSize() != sizeof(uint32_t))
+                            return invalid("source default is missing or cannot be represented");
+                        uint32_t bits = 0;
+                        std::memcpy(&bits, defaultValue->getBufferPointer(), sizeof(bits));
+                        if (bits != entry.defaultValue)
+                            return invalid("source default disagrees with logical default");
+                        for (unsigned i = 0; i < moduleLayout->getParameterCount(); ++i) {
+                            auto *parameter = moduleLayout->getParameterByIndex(i);
+                            if (!parameter->getName() || binding.symbol != parameter->getName())
+                                continue;
+                            if (parameter->getCategory() != slang::ParameterCategory::SpecializationConstant || desc.target == ShaderTarget::DXIL)
+                                return invalid("target declaration must be a native constant or an explicit static compile-time value");
+                            const auto id = parameter->getOffset(slang::ParameterCategory::SpecializationConstant);
+                            if (id > UINT32_MAX || !nativeIds.insert(static_cast<uint32_t>(id)).second)
+                                return invalid("native ID is invalid or duplicated within the stage");
+                            binding.lowering = ShaderVariantLowering::NATIVE;
+                            binding.nativeId = static_cast<uint32_t>(id);
+                        }
+                        if (!variable->findModifier(slang::Modifier::Const) ||
+                            (binding.lowering == ShaderVariantLowering::COMPILE && !variable->findModifier(slang::Modifier::Static)))
+                            return invalid("compile-time fallback must be an explicit static const declaration");
+                        candidate.variantBindings.push_back(std::move(binding));
+                    }
+                std::sort(candidate.variantBindings.begin(), candidate.variantBindings.end(),
+                                           [](const auto &a, const auto &b) { return a.key < b.key; });
+                return true;
+            }
+            if (bindings) {
+                candidate.variantBindings = *bindings;
+                for (const auto &binding : *bindings) {
+                    if (binding.symbol.empty())
+                        continue;
+                    uint32_t expected = binding.defaultValue;
+                    if (binding.lowering == ShaderVariantLowering::COMPILE && desc.variant)
+                        for (const auto &value : desc.variant->entries)
+                            if (value.key.GetStr() == binding.key)
+                                expected = value.value;
+                    bool verified = false;
+                    for (auto *child : module->getModuleReflection()->getChildren()) {
+                        auto *variable = child->asVariable();
+                        if (!variable || !variable->getName() || binding.symbol != variable->getName())
+                            continue;
+                        Slang::ComPtr<slang::IBlob> value;
+                        uint32_t                    bits = 0;
+                        if (SLANG_FAILED(variable->getDefaultValueBlob(value.writeRef())) || !value || value->getBufferSize() != sizeof(bits))
+                            return Fail(candidate.errorInfo, "Selected variant cannot be reflected: " + binding.key);
+                        std::memcpy(&bits, value->getBufferPointer(), sizeof(bits));
+                        verified = bits == expected;
+                    }
+                    if (!verified)
+                        return Fail(candidate.errorInfo, "Selected variant is not represented by its source declaration: " + binding.key);
+                }
             }
 
             Slang::ComPtr<slang::IEntryPoint> entryPoint;
@@ -739,6 +954,13 @@ namespace sky::aurora {
             if (!CollectSlangResources(layout, candidate.reflection, desc.target, desc.stage, metadata.get(), candidate.errorInfo))
                 return false;
             auto *entryLayout = layout->getEntryPointByIndex(0);
+            if (!entryLayout)
+                return Fail(candidate.errorInfo, "Missing or ambiguous target entry reflection");
+            if (desc.stage == ShaderStageFlagBit::VS) {
+                for (uint32_t i = 0; i < entryLayout->getParameterCount(); ++i)
+                    if (!ReflectVertexInput(entryLayout->getParameterByIndex(i), 0, candidate.reflection))
+                        return Fail(candidate.errorInfo, "Vertex inputs require bounded scalar/vector semantics");
+            }
             if (desc.stage == ShaderStageFlagBit::CS) {
                 SlangUInt sizes[3]{};
                 entryLayout->getComputeThreadGroupSize(3, sizes);
@@ -748,6 +970,8 @@ namespace sky::aurora {
                     candidate.reflection.threadGroupSize[i] = static_cast<uint32_t>(sizes[i]);
                 }
             }
+            if (desc.schema && !CanonicalShaderVariants(desc.variant, *desc.schema, desc.target, candidate.selection, &candidate.errorInfo))
+                return false;
             candidate.identity.sourcePath  = desc.sourcePath.empty() ? "inline.slang" : desc.sourcePath;
             candidate.identity.sourceEntry = desc.entry;
             candidate.identity.stage       = desc.stage;
@@ -773,6 +997,8 @@ namespace sky::aurora {
             return true;
         }();
         if (!success) {
+            if (candidate.errorInfo.empty() && lastDiagnostics != nullptr)
+                candidate.errorInfo = static_cast<const char *>(lastDiagnostics->getBufferPointer());
             result.errorInfo = candidate.errorInfo.empty() ? "Slang compilation failed" : std::move(candidate.errorInfo);
             return false;
         }
@@ -804,9 +1030,9 @@ namespace sky::aurora {
         identity.compiler       = "Slang";
         const char *version     = gGlobalSession->getBuildTagString();
         identity.version        = version ? version : "";
-        identity.adapterVersion = 2;
-        identity.configuration =
-            HashString("AuroraResource-v1;AuroraField-v1;single-target;direct-arguments;exact-metadata;native-mat4-stride;line-none");
+        identity.adapterVersion = 3;
+        identity.configuration  = HashString(
+            "AuroraResource-v1;AuroraField-v1;single-target;direct-arguments;exact-metadata;native-mat4-stride;line-none;typed-variant-symbol-v1");
 #if defined(SKY_PLATFORM_WINDOWS)
         if (target == ShaderTarget::DXIL)
             identity.configuration = HashMixU64(identity.configuration, gDxcLibraries->fingerprint);

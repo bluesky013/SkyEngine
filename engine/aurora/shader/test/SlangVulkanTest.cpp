@@ -39,6 +39,13 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
 
     ShaderCompilerSlang compiler;
     ShaderCompileDesc   csDesc{};
+    ShaderVariantSchema schema;
+    schema.sources = {{Name("shader"), 0, 5}};
+    schema.entries = {{Name("NUM_LIGHTS"), Name("shader"), 0, 5, 4}};
+    schema.entries[0].type = ShaderVariantType::INT32;
+    schema.entries[0].symbol = Name("kNumLights");
+    schema.totalBits = 5;
+    csDesc.schema = &schema;
     csDesc.source = source;
     csDesc.entry  = "mainCS";
     csDesc.stage  = ShaderStageFlagBit::CS;
@@ -50,7 +57,7 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
     ASSERT_NE(cs.Get(), nullptr);
 
     ShaderSpecialization spec;
-    spec.entries.push_back({0, 8}); // NUM_LIGHTS = 8 via spec constant id 0
+    spec.entries.push_back({0, 8, ShaderStageFlagBit::CS, ShaderVariantType::INT32, "NUM_LIGHTS"});
 
     Shader::Descriptor shaderDesc{};
     shaderDesc.cs             = cs.Get();
@@ -62,4 +69,9 @@ void mainCS(uint3 tid : SV_DispatchThreadID)
     psDesc.cs = shader.Get();
     CounterPtr<ComputePipeline> pipeline(GetDevice()->CreatePipelineState(psDesc));
     ASSERT_NE(pipeline.Get(), nullptr);
+}
+
+TEST_F(AuroraVulkanTest, StageVariantValuesRemainIndependentOnGpu)
+{
+    RunStageVariantReadback(GetDevice(), ShaderTarget::SPIRV);
 }

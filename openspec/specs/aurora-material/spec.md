@@ -5,103 +5,92 @@ TBD - created by archiving change aurora-material. Update Purpose after archive.
 ## Requirements
 ### Requirement: Material 内部按 technique 维护
 
-`Material`（`RefObject`）SHALL 内部持有 `std::vector<MaterialTechnique>`，每个 `MaterialTechnique { Name techniqueTag; ShaderRef shader; MaterialRenderState renderState; }`。SHALL 提供 `AddTechnique` / `GetTechniques` / `GetTechnique(const Name &tag)`（按 tag 查，未找到返回 `nullptr`）。
+Material SHALL own tagged MaterialTechnique records containing an explicit ShaderTechnique program (stage/source/entry), checked legacy aliases and material render state. Scene queues SHALL select matching tags; fullscreen and compute SHALL select programs explicitly without requiring Material. Empty or duplicate Material technique tags SHALL fail. MaterialRenderState SHALL contain depth/stencil, raster, blend and alpha-to-coverage state, excluding mesh vertex layout/topology and Pass sample count. Shader resolution SHALL retain the selected program rather than substitute an implicit built-in shader.
 
-`MaterialTechnique` SHALL 以 `ShaderRef`（路径 + entry，见 `aurora-shader`）引用 shader，SHALL NOT 持有具体 `CounterPtr<Shader>`；解析成具体 shader 由渲染层的 `ShaderResolver` 负责。
+#### Scenario: Tagged stage programs
+- **WHEN** opaque and shadow techniques reference different explicit stage programs
+- **THEN** each queue uses its matching program and material state
 
-`MaterialRenderState` SHALL 只包含材质自有的固定功能状态：`{ DepthStencil depthStencil; RasterState rasterState; std::vector<BlendState> blendStates; bool alphaToCoverage; }`；SHALL NOT 包含 mesh 自有的顶点输入 / 拓扑（`vertexBindings` / `vertexAttributes` / `inputAssembly`）或 pass 自有的 `multiSample`（采样数）。
-
-`blendStates` SHALL 按 color target 索引；一个 technique 对应一个 pass，需要不同 pass / blend SHALL 另起 technique。
-
-`Material` SHALL NOT 引入顶层 `Technique` 资源类，SHALL NOT 依赖 `RenderTechniqueLibrary` 之类查表库。
-
-#### Scenario: 添加并按 tag 查 technique
-
-- **WHEN** `material.AddTechnique({Name("opaque"), ShaderRef{"shaders/opaque.slang","main"}, renderState})`
-- **THEN** `GetTechniques().size() == 1`；`GetTechnique(Name("opaque"))->shader.relativePath == "shaders/opaque.slang"`；`GetTechnique(Name("missing")) == nullptr`
-
-#### Scenario: shader 以 ShaderRef 引用
-
-- **WHEN** 阅读 `MaterialTechnique`
-- **THEN** `shader` 类型为 `ShaderRef`（路径 + entry），非 `CounterPtr<Shader>`
-
-#### Scenario: technique 只含材质自有渲染状态
-
-- **WHEN** 阅读 `MaterialTechnique` / `MaterialRenderState`
-- **THEN** `MaterialTechnique` 持 `MaterialRenderState`（`depthStencil` / `rasterState` / `blendStates` / `alphaToCoverage`）；不含 `vertexBindings` / `vertexAttributes` / `inputAssembly` / `multiSample`
-
-#### Scenario: 无顶层 Technique 资源
-
-- **WHEN** 阅读 `aurora/resource/Material.h`
-- **THEN** 无顶层 `Technique` 类 / `RenderTechniqueLibrary`；technique 为 material 内部结构
+#### Scenario: Invalid tag
+- **WHEN** a technique has an empty or duplicate tag
+- **THEN** adding it fails without changing the existing techniques
 
 ### Requirement: Material 属性系统（material 级，值 + 纹理）
 
-`Material` SHALL 提供 material 级属性（跨 technique 共享）：
+Material SHALL 提供跨 technique 共享的 Name 属性，属性类型继续复用 RgFieldType 的词汇，不建立另一套材质字段类型枚举。CPU 值按其声明语义存储，字节大小由类型派生；MaterialPropertyMap SHALL 只描述 CPU 属性位置，不表示 GPU offset。SetValue/GetValue SHALL 校验 T 的语义类型/shape，SHALL NOT 仅凭 sizeof 通过校验；未知名或不匹配 SHALL 返回明确结果且不写入。
 
-- `MaterialPropertyType` SHALL 复用 shader 的字段类型 `RgFieldType`（`using MaterialPropertyType = RgFieldType`）：值类型 `FLOAT / FLOAT2 / FLOAT3 / FLOAT4 / MAT4 / INT / UINT / BOOL`，纹理类型 `TEXTURE2D / TEXTURE_CUBE / SAMPLER`；SHALL NOT 再造一个仅 material 的类型枚举。
-- `AddValue(Name, MaterialPropertyType type, const void *defaultValue)` / `AddTexture(Name, MaterialPropertyType type = TEXTURE2D)` 声明布局；`MaterialPropertyEntry` SHALL 为 `{ type, offset }`（value 为 storage 字节偏移、texture 为 textures 索引）。
-- SHALL NOT 存储 `size`；字节大小 SHALL 由 `constexpr SizeOfPropertyType(type)` 派生。
-- `SetValue<T>(Name, const T &)` / `GetValue<T>(Name, T &out)` SHALL 按 `sizeof(T)` 是否等于派生大小来校验声明类型；不匹配或未声明时 SHALL NOT 写 / `GetValue` 返回 false。
-- `SetTexture(Name, CounterPtr<Texture>)` / `GetTexture(Name) -> Texture *`。
-- `GetPropertyMap()` 返回 `MaterialPropertyMap`（`Name → {type, offset}`）。
-
-`Material` SHALL 以 `CounterPtr<Texture>` 持有纹理（引用计数，`RenderResource` 继承 `RefObject`，见 `aurora-resource` spec）。
+纹理 SHALL 按 Name 持有合法的 Texture 引用/逻辑资源身份，sampler SHALL 使用独立的类型化设置/引用，不能作为 Texture 伪装。新资产的参数 Key SHALL 来自完整 Material group 声明、唯一 cbuffer 字段与 Shader-local 选项，按 canonical Name 映射；显式 aliases SHALL 仅作为旧数据的受检迁移输入，最终进入ResourceGroup 共用的同一个 RHI 命名事务前端及布局计划，不暴露平台 slot/offset。CPU 属性可保留既有类型词汇，但执行路径不支持的字段/资源 SHALL 在受检绑定前明确 Unsupported；本次不自动扩大 shader 字段支持集合。
 
 #### Scenario: 按类型声明并读写
+- **WHEN** 声明 FLOAT4 的 baseColor 并按 Name 写入 Vector4
+- **THEN** 可读回对应 CPU 值，GetPropertyMap 保留该 CPU 属性的类型与位置
 
-- **WHEN** `AddValue(Name("baseColor"), MaterialPropertyType::FLOAT4, &white)` 后 `SetValue(Name("baseColor"), Vector4(1,0,0,1))` 再 `GetValue`
-- **THEN** 读回 `Vector4(1,0,0,1)`；`GetPropertyMap().at("baseColor") == {FLOAT4, 0}`；未声明的 key `GetValue` 返回 false
+#### Scenario: 相同大小不能替代类型
+- **WHEN** 对 FLOAT 属性按 Name 写入 uint32_t
+- **THEN** 明确类型错误且原值不变，即使二者同为四字节
 
-#### Scenario: size 不匹配不写
+#### Scenario: Size 由 type 派生
+- **WHEN** 读取 material CPU 属性元数据
+- **THEN** 值大小由声明语义类型派生，不重复存储另一份可漂移 size，也不当作 GPU block offset
 
-- **WHEN** `AddValue(Name("baseColor"), MaterialPropertyType::FLOAT4, &white)` 后 `SetValue(Name("baseColor"), 1.5f)`
-- **THEN** 底层值不变（`sizeof(float) != SizeOfPropertyType(FLOAT4)`）
+#### Scenario: 类型词汇共用
+- **WHEN** material 描述已有 scalar/vector/matrix 或资源属性
+- **THEN** 复用共享字段词汇，执行能力由实际支持表校验
 
-#### Scenario: size 由 type 派生
-
-- **WHEN** 阅读 `MaterialPropertyEntry`
-- **THEN** 无 `size` 字段；字节大小经 `SizeOfPropertyType(type)` 获得（如 `FLOAT4 == 16`、`MAT4 == 64`）
-
-#### Scenario: 类型词汇与 shader 共用
-
-- **WHEN** 阅读 `aurora/resource/Material.h`
-- **THEN** `MaterialPropertyType` 是 `RgFieldType` 的别名，material 不再定义自己的 `{ VALUE, TEXTURE }` 枚举
-
-#### Scenario: 纹理挂接
-
-- **WHEN** `AddTexture(Name("albedo"))` 后 `SetTexture(Name("albedo"), tex)`
-- **THEN** `GetTexture(Name("albedo")) == tex.Get()`
+#### Scenario: 纹理与 sampler 挂接
+- **WHEN** 按 Name 分别设置合法纹理与 sampler
+- **THEN** 各自进入匹配逻辑资源，类型不兼容时明确失败，sampler 不以 Texture 容器表示
 
 ### Requirement: MaterialInstance 部分字段 runtime 稀疏覆盖
 
-`MaterialInstance`（`RefObject`）SHALL 持 `CounterPtr<Material>` + **覆盖**（只对被改写的字段生效）。
+MaterialInstance SHALL 持有共享 Material 与实例覆盖。值覆盖 SHALL 延续单个连续 CPU 存储、首次写入惰性复制的表示，不逐字段分配容器；纹理/资源覆盖 SHALL 保持稀疏表示。Name 查找与语义类型校验 SHALL 与 Material 相同，失败返回明确结果且保留旧值。未覆盖项 SHALL 继承 Material 默认值，实例更新 SHALL 不污染共享 Material。
 
-- 值覆盖 SHALL 存于单个连续存储（`material` 值块的一份拷贝，首次写入时惰性拷贝）；SHALL NOT 为每个被覆盖字段单独分配容器。
-- `SetValue<T>(Name, const T &)` 经 `material->FindValue` 解析 entry（同 `Material` 的 `sizeof` 校验），在拷贝中原地写 `entry.offset`。
-- `GetValue<T>` SHALL 读本拷贝；未发生拷贝时回退 material 默认值。
-- `SetTexture(Name, CounterPtr<Texture>)` 以稀疏 map 记录覆盖纹理；`GetTexture` 优先覆盖，否则回退 material。
-- `IsOverridden(Name)` SHALL 对值字段返回「本拷贝与 material 默认是否不同」，对纹理字段返回是否在覆盖 map 中。
-- `SetMaterial` SHALL 清空覆盖（拷贝与纹理覆盖）。
-- 未设 material 时 `SetValue/SetTexture` SHALL be no-op，`GetValue` 返回 false。
+SetMaterial SHALL 清空该实例旧覆盖；IsOverridden SHALL 表达显式覆盖是否存在，包括显式写入与默认值相同的值。未设置 Material 的写入 SHALL 返回明确错误而非静默成功，读取返回缺失。实例最终参数 SHALL 按 technique/interface 的 canonical Name 进入与 ResourceGroup 共用的 RHI 更新事务前端，并冻结对应值/资源版本供帧使用。
 
-#### Scenario: 部分覆盖 + 继承
-
-- **WHEN** `instance.SetMaterial(mat)` 后只 `instance.SetValue(Name("baseColor"), red)`
-- **THEN** `instance.GetValue("baseColor")` 为 red；`instance.GetValue("roughness")` 回退为 mat 的默认值；`IsOverridden("baseColor") == true`、`IsOverridden("roughness") == false`
+#### Scenario: 部分覆盖与继承
+- **WHEN** 实例只按 Name 覆盖 baseColor
+- **THEN** baseColor 使用实例值，其它属性继承默认值，覆盖状态可查询
 
 #### Scenario: 覆盖不污染共享 Material
+- **WHEN** 实例更新值、纹理或 sampler
+- **THEN** 共享 Material 及其它实例保持原值
 
-- **WHEN** `instance.SetValue(Name("baseColor"), red)` 后读 `mat.GetValue("baseColor")`
-- **THEN** mat 的默认值不变
+#### Scenario: 值覆盖保持连续存储
+- **WHEN** 一个实例只覆盖一个 scalar 字段
+- **THEN** 值仍存于实例的单块连续存储，不逐字段创建独立容器
 
-#### Scenario: 值覆盖为单块连续存储
+#### Scenario: 未设置 Material
+- **WHEN** 未关联 Material 的实例执行写入或读取
+- **THEN** 写入返回明确错误，读取返回缺失，不崩溃也不伪装成功
 
-- **WHEN** 一个 `MaterialInstance` 只覆盖一个 `float` 字段
-- **THEN** 值存于该实例的单块连续存储中，不存在每个覆盖字段各自的容器分配
+#### Scenario: 更新与在途帧隔离
+- **WHEN** 旧帧未退休时实例替换贴图或改变数值
+- **THEN** 新帧使用新快照，旧帧继续读取旧值与精确图片版本
 
-#### Scenario: 未设 material
+### Requirement: Generated Material parameter keys
 
-- **WHEN** 未 `SetMaterial` 的 `MaterialInstance` 调 `SetValue`/`GetValue`
-- **THEN** 不崩溃（`SetValue` no-op、`GetValue` 返回 false）
+Material logical keys SHALL be generated from the stable Group 2 declaration union of its techniques and Shader-local option schemas. Keys SHALL distinguish fields, textures, samplers and options, retain semantic types and avoid persisting target byte offsets as authoring schema. Cross-technique shared keys SHALL agree on semantics/type/shape. Display names SHALL NOT create implicit aliases. Existing aliases SHALL migrate values explicitly and incompatible mappings SHALL fail diagnostically.
 
+#### Scenario: Technique subset
+- **WHEN** one technique uses only part of the Material's logical key table
+- **THEN** other known keys remain stored without requiring active bindings for that technique
+
+### Requirement: One logical Material cbuffer
+
+A linked program family SHALL declare zero or one logical Group 2 cbuffer after merging stages. Repeated references to the same block SHALL count once; distinct blocks SHALL fail even if only one is active in a particular choice. Target stage ABI for the shared block SHALL be compatible. Pass/Batch groups SHALL retain their own resource contracts.
+
+#### Scenario: Two material blocks
+- **WHEN** Group 2 declares two distinct buffers
+- **THEN** schema validation rejects the program before publication
+
+### Requirement: Inactive Material values remain valid
+
+Known inactive keys SHALL retain values and skip only current target writes. Unknown keys, semantic type errors and missing required active values/resources SHALL fail. Required resources SHALL be determined by the actual target contract, not inferred from a false option. Texture residency SHALL NOT implicitly change static options. MaterialInstance SHALL keep value/texture/sampler overrides without new static-option overrides.
+
+#### Scenario: Disabled texture option
+- **WHEN** a texture option is false but the native artifact still requires the texture
+- **THEN** binding supplies a valid resource or explicit default, or reports missing-resource
+
+#### Scenario: Inactive wrong type
+- **WHEN** an inactive known field receives the wrong semantic type
+- **THEN** validation still rejects it

@@ -41,7 +41,6 @@ namespace sky::editor {
                 return {PreferenceCode::Conflict, page.id, "", "A built-in preference page id is already registered."};
             }
         }
-        RegisterEditorSettings(SerializationContext::Get());
         Reset();
         const auto add = [this](PreferencePage page) {
             registry.Add(std::move(page));

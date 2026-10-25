@@ -54,6 +54,8 @@ namespace sky::aurora {
         resDesc.SampleDesc          = {1, 0};
         resDesc.Layout              = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         resDesc.Flags               = FromBufferUsageFlags(desc.usage);
+        // Upload storage is read-only SRV data; upload heaps cannot carry UAV flags.
+        if (allocDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD) { resDesc.Flags = D3D12_RESOURCE_FLAG_NONE; }
 
         const D3D12_RESOURCE_STATES initState = (allocDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD)     ? D3D12_RESOURCE_STATE_GENERIC_READ
                                                 : (allocDesc.HeapType == D3D12_HEAP_TYPE_READBACK) ? D3D12_RESOURCE_STATE_COPY_DEST

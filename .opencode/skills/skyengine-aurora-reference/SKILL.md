@@ -38,7 +38,7 @@ Core 不依赖 Pipeline 或 shader compiler。Shader compiler 依赖 Core/RHI；
 `RegisterScenePass` 显式注册场景 feature；没有注册时不存在隐式 scene raster fallback。
 
 Scene 的 technique 由 queue Tag 匹配；无匹配省略 draw，重复/歧义显式失败。材质定义各 stage 的
-source/entry 和 uniform mapping，Feature 与 Material 明确分配 Batch binding 所有权。
+source/entry 与生成 schema 的 canonical Key/Value；aliases 仅作旧数据迁移输入；Material 拥有 set 2，Feature 的 Batch 输入属于 set 3。
 FullScreen/Compute 直接使用 technique，可省略 Batch；活跃反射输入缺失仍必须报错。
 `PreparedRaster` 处理几何、资源版本和 owned 数据，不决定通用材质布局。
 
@@ -51,7 +51,8 @@ FullScreen/Compute 直接使用 technique，可省略 Batch；活跃反射输入
 |---|---|---|
 | Global | 0 | 跨 View 的帧数据；内置为 time/delta |
 | Pass | 1 | 具体 Pass 声明的输入，相机/View 可选 |
-| Batch | 2 | Scene 的 Material/Feature 输入；具体布局由消费者声明 |
+| Material | 2 | 材质常量、纹理与 sampler；包含整个材质接口 |
+| Batch | 3 | 逐 draw 的 Feature 输入，包含变换、surface 与 skin palette |
 
 权威 `.h` 的字段/资源清单生成 C++ 类型、typed slots 和描述元数据。
 `python/shader_headers.py` 导出持久化 `.slangh`；实际 shader reflection 验证字段和资源布局。
@@ -67,7 +68,7 @@ Metal 的 native buffer/texture/sampler 映射取自对应后端反射，不从�
 - `ShaderResources.Stage` 按 canonical 相对路径部署；项目 cook 聚合选中 owner 的产品，每个 target 一份 index。
 - `ShaderHeaderTool` 仅保留独立 variant schema 生成；`ShaderCookTool` 生成 shader cache。
 - 内置材质程序：`aurora/materials/{Unlit,Lit,Shadow}.slang`；ToneMap：`aurora/pipeline/ToneMap.slang`。
-- 材质 payload v2 显式记录 `program.vertex/fragment`；shader cache index v4。旧数据需迁移/重新 cook。
+- 材质 payload v4 / instance v2 记录显式 stages、canonical typed values；schema 来自完整 Group 2 声明和 S 开关。shader cache v10 / usage v3 保留 V/P/S、逐 stage lowering 与完整选择白名单。旧产品需重新 cook。
 
 详见 `docs/features/shader-system.md` 与 `docs/aurora/shader-design-and-migration.md`。
 
@@ -82,7 +83,13 @@ Metal 的 native buffer/texture/sampler 映射取自对应后端反射，不从�
 | `Aurora.AdaptorTest` | 材质/World/资产对接 |
 | `Aurora.Renderer.GpuSubmissionTest` | FrameGraph 与 Windows Vulkan/DX12 原生渲染 |
 
-当前证据与待验收项在 `openspec/changes/refactor-aurora-pipeline-resource-ownership/tasks.md`。
+当前证据与待验收项在 `openspec/changes/refactor-aurora-shader-source-techniques/tasks.md`。
 Windows MSL 编译/反射不代表原生 Metal 验收。独立 Core-only 产品消费者不链接 Slang；
-原生测试 exe 为其它用例仍链接 compiler，移除 Slang DLL 的 shipping host 验收尚待执行。
-自动材质纹理/sampler 传输、变形、完整 PBR/通用 PSO 系统仍不是当前能力。
+原生测试 exe 为其它用例仍链接 compiler；无源/无编译器验收使用独立 stripped host，并按日期及平台记录。
+普通 2D 材质纹理/sampler 与骨骼 palette 已接入；不据此宣称支持全部变形、完整 PBR 或通用 PSO 系统。
+
+
+变体补充（2026-10-25）：Core 统一归一化 Vertex / Pipeline / Shader 三域；Material、Batch、fullscreen、compute 是 S 的不同提供者。
+业务 API 只传 bool/int32/uint32 Key/Value，JSON 关联 source symbol；compile/native lowering 与 native ID 由对应 target 的源码声明反射决定。
+完整选择、stage code、executable 身份分离，native ID 按 stage 独立；产品必须显式发布完整选择。Group 2 零或一个 cbuffer，已知 inactive 值保留并验证类型。
+Scene Prepare 在 graph 声明前完成附加程序准备；Scene Pipeline 的四个 SHADOWS/IBL 请求是显式策略，不自动遍历所有选项组合。

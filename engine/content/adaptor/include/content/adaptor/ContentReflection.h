@@ -1,6 +1,6 @@
 //
 // Content adaptor reflection: registers animation asset data types + handlers
-// with the framework. Idempotent.
+// with the framework. Owned by Content.Metadata.
 //
 
 #pragma once

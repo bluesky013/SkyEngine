@@ -57,7 +57,6 @@ namespace {
 
 TEST(AnimationAssetBulkTest, ClipBulkRoundTrip)
 {
-    ContentReflection(SerializationContext::Get());
 
     const auto bundleRoot = std::filesystem::temp_directory_path() / "sky_content_clip_bulk";
     std::filesystem::remove_all(bundleRoot);

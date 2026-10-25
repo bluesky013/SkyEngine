@@ -41,7 +41,7 @@ def add_native_programs(project):
             [AuroraField("tint")] float4 tint;
             [AuroraField("gain")] float4 gain;
         };
-        [AuroraResource(2, 2, "fixture/material")] ConstantBuffer<MaterialValues> materialValues;
+        [AuroraResource(2, 2, "fixture/material")] ConstantBuffer<MaterialValues> shaderValues;
         [AuroraResource(2, 3, "fixture/material")] Texture2D<float4> materialColor;
         [AuroraResource(2, 4, "fixture/material")] SamplerState materialSampler;
         struct Vertex { float4 position : SV_Position; float2 uv : TEXCOORD0; };
@@ -52,25 +52,34 @@ def add_native_programs(project):
             return v;
         }
         float4 FSMain(Vertex v) : SV_Target {
-            return materialColor.Sample(materialSampler, v.uv) * materialValues.tint * materialValues.gain;
+            return materialColor.Sample(materialSampler, v.uv) * shaderValues.tint * shaderValues.gain;
         }
     """))
+    variant_declaration = ('#ifndef PACKAGE_VALUE\n#define PACKAGE_VALUE 0\n#endif\n'
+                           '#if AURORA_TARGET_DXIL\nstatic const uint kPackageValue = PACKAGE_VALUE;\n'
+                           '#else\n[SpecializationConstant] [[vk::constant_id(5)]] const uint kPackageValue = PACKAGE_VALUE;\n#endif\n')
+    programs = [(name, entries, variant_declaration + source.replace('float4(0, 0, 1, 1)', 'float4(0, 0, float(kPackageValue), 1)')
+                 .replace('return image.Sample(linearSampler, input.uv);', 'return image.Sample(linearSampler, input.uv) * float(kPackageValue);'))
+                if name != 'PackageMaterial.slang' else (name, entries, source) for name, entries, source in programs]
     config = root / 'plugin.json'
     description = json.loads(config.read_text(encoding='utf-8'))
     description['resources']['roots'][0]['dependencies'].append('aurora')
     inventory = description['resources']['roots'][0]['programs']
     for filename, entries, source in programs:
         (sources / filename).write_text(source, encoding='utf-8')
+        variant = filename != 'PackageMaterial.slang'
         (sources / (filename + '.json')).write_text(json.dumps({'entries': [entry['name'] for entry in entries],
-                                                               'sources': [], 'variants': []}), encoding='utf-8')
-        inventory.append({'path': 'first/pipeline/' + filename, 'entries': entries})
+            'sources': [{'name': 'shader', 'width': 1}] if variant else [],
+            'variants': [{'key': 'PACKAGE_VALUE', 'source': 'shader', 'width': 1, 'default': 0, 'symbol': 'kPackageValue'}] if variant else []}), encoding='utf-8')
+        inventory.append({'path': 'first/pipeline/' + filename, 'entries': entries,
+                          'variants': [{'PACKAGE_VALUE': 1}] if variant else [{}]})
     config.write_text(json.dumps(description, indent=2), encoding='utf-8')
 
 
 def copy_consumer(binary, destination, backend=None):
     destination.mkdir(parents=True, exist_ok=True)
     shutil.copy2(binary, destination / binary.name)
-    modules = ['Aurora.Render', 'Aurora.' + {'metal': 'Metal', 'vulkan': 'Vulkan', 'd3d12': 'DX12'}[backend]] if backend else []
+    modules = ['Aurora.Metadata', 'Aurora.Render', 'Aurora.' + {'metal': 'Metal', 'vulkan': 'Vulkan', 'd3d12': 'DX12'}[backend]] if backend else []
     extension = '.dll' if os.name == 'nt' else '.dylib' if sys.platform == 'darwin' else '.so'
     for module in modules:
         library = binary.parent / (('' if os.name == 'nt' else 'lib') + module + extension)

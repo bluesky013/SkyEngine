@@ -26,6 +26,7 @@
 #include <editor/core/layout/LayoutPersistence.h>
 #include <editor/core/preferences/FilePreferenceStorage.h>
 #include <editor/core/property/EditorPropertySource.h>
+#include <editor/core/property/ReflectionDemoTypes.h>
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/ui/UiTheme.h>
 
@@ -285,6 +286,13 @@ namespace sky::editor {
         BindWorldEditor(nullptr);
         renderer.SetInputLostCallback({});
         CancelProjectCreation();
+    }
+
+    void SandboxModule::RegisterMeta()
+    {
+        RegisterEditorSettings(SerializationContext::Get());
+        ViewportControlSettings::Reflect();
+        refldemo::RegisterTypes(SerializationContext::Get());
     }
 
     bool SandboxModule::Init(const sky::StartArguments &args)
@@ -638,6 +646,12 @@ namespace sky::editor {
 
     void SandboxModule::Quit()
     {
+        if (shell.IsAssetViewerOpen()) {
+            quitAfterAssetClose = true;
+            shell.RequestCloseAssetViews();
+            return;
+        }
+        quitAfterAssetClose = false;
         if (viewportController)
             viewportController->Cancel();
         StopPlay();
@@ -851,7 +865,6 @@ namespace sky::editor {
         viewportController = std::make_shared<ViewportController>(selection, EditorCore::GetCommandService(), EditorCore::GetPropertyChanges());
         viewportController->SetPicker(renderer.GetViewportPicker());
         viewportController->SetVisualProvider(gizmoVisualProvider);
-        ViewportControlSettings::Reflect();
         renderer.SetInputLostCallback([this]() {
             viewportAlt = false;
             viewportController->Cancel();
@@ -886,6 +899,19 @@ namespace sky::editor {
         shell.SetStatusInfo(project.name, rhiName, "Edit");
         // A closed floating window re-docks its panel into the main window.
         renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
+        renderer.SetSurfaceCloseGuard([this](uint32_t surface) {
+            if (shell.RequestCloseAssetTool(surface)) return false;
+            if (surface != 0) return true;
+            Quit();
+            return false;
+        });
+        shell.SetAssetToolHost([this](const std::string &title) {
+            const auto &metrics = GetDefaultUiTheme().metrics;
+            const auto id = renderer.CreateSurface(title, int(metrics.controlPad * 12), int(metrics.controlPad * 12),
+                                                   uint32_t(metrics.fieldWidth * 6), uint32_t(metrics.rowHeight * 35));
+            if (id) shell.SetSurfaceScale(id, renderer.SurfaceDpiScale(id));
+            return id;
+        }, [this](uint32_t surface) { renderer.DestroySurface(surface); });
         renderer.SetSurfaceGeometryCallback(
             [this](const std::string &panelId, float x, float y, float w, float h) { shell.SetFloatingGeometry(panelId, x, y, w, h); });
 
@@ -1598,6 +1624,13 @@ namespace sky::editor {
     void SandboxModule::Start()
     {
         if (initialized) {
+            // Command-line projects open during Init, before later modules register their builders.
+            if (!hubMode) {
+                if (const auto error = AssetDataBase::Get()->RebuildCacheFromScan())
+                    LOG_E(TAG, "Cannot refresh project assets after module registration: %s", error->code.message().c_str());
+                else
+                    EditorAssetCatalog::Get()->Refresh();
+            }
             renderer.Start();
         }
     }
@@ -1629,6 +1662,11 @@ namespace sky::editor {
         }
         if (!hubMode) {
             BindWorldEditor(worldDocument.get());
+            shell.TickAssetViews(delta);
+            if (quitAfterAssetClose) {
+                if (!shell.IsAssetViewerOpen()) Quit();
+                else if (!shell.AreAssetViewsClosing()) quitAfterAssetClose = false;
+            }
             // Play-In-Editor: advances the runtime world only while playing; the
             // edit world is never ticked.
             playSession.Tick(delta);
@@ -1848,6 +1886,7 @@ namespace sky::editor {
     {
         BindWorldEditor(nullptr);
         renderer.SetInputLostCallback({});
+        renderer.SetSurfaceCloseGuard({});
         renderer.SetEditorCamera(std::nullopt);
         CancelProjectCreation();
         // Flush any pending layout edit before teardown.

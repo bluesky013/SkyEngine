@@ -1,9 +1,7 @@
 //
-// Content builder module: registers the content asset builders with the
-// framework offline builder. Cook-only; the runtime module registers handlers.
+// Content.Metadata owns shared schema and handlers; this module owns builders.
 //
 
-#include <content/adaptor/ContentReflection.h>
 #include <content/builder/AnimationBuilder.h>
 
 #include <framework/asset/AssetBuilderManager.h>
@@ -19,7 +17,6 @@ namespace sky::builder {
 
         void RegisterMeta() override
         {
-            ContentReflection(SerializationContext::Get());
             AssetBuilderManager::Get()->RegisterBuilder(new AnimationBuilder());
         }
 

@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/preferences/PreferencesPersistence.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
@@ -92,25 +92,26 @@ namespace sky::editor::preferences_persistence_test {
             EXPECT_EQ(actual.nested.label, expected.nested.label);
         }
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            auto *context = SerializationContext::Get();
+            context->Register<Quality>("PreferencesPersistenceQuality").Enum(Quality::Standard, "Standard").Enum(Quality::Ultra, "Ultra");
+            context->Register<Nested>("PreferencesPersistenceNested").Member<&Nested::enabled>("enabled").Member<&Nested::label>("label");
+            context->Register<PluginSettings>("PreferencesPersistencePlugin")
+                .Member<&PluginSettings::workers>("workers")
+                .Member<&PluginSettings::enabled>("enabled")
+                .Member<&PluginSettings::scale>("scale")
+                .Member<&PluginSettings::quality>("quality")
+                .Member<&PluginSettings::path>("path")
+                .Member<&PluginSettings::samples>("samples")
+                .Member<&PluginSettings::searchPaths>("searchPaths")
+                .Member<&PluginSettings::nested>("nested");
+            context->Register<UnsupportedSettings>("PreferencesPersistenceUnsupported").Member<&UnsupportedSettings::values>("values");
+        });
+
         class PreferencesPersistenceTest : public testing::Test {
         protected:
             void SetUp() override
             {
-                if (Once::Get()->Run("PreferencesPersistenceTest.Types")) {
-                    auto *context = SerializationContext::Get();
-                    context->Register<Quality>("PreferencesPersistenceQuality").Enum(Quality::Standard, "Standard").Enum(Quality::Ultra, "Ultra");
-                    context->Register<Nested>("PreferencesPersistenceNested").Member<&Nested::enabled>("enabled").Member<&Nested::label>("label");
-                    context->Register<PluginSettings>("PreferencesPersistencePlugin")
-                        .Member<&PluginSettings::workers>("workers")
-                        .Member<&PluginSettings::enabled>("enabled")
-                        .Member<&PluginSettings::scale>("scale")
-                        .Member<&PluginSettings::quality>("quality")
-                        .Member<&PluginSettings::path>("path")
-                        .Member<&PluginSettings::samples>("samples")
-                        .Member<&PluginSettings::searchPaths>("searchPaths")
-                        .Member<&PluginSettings::nested>("nested");
-                    context->Register<UnsupportedSettings>("PreferencesPersistenceUnsupported").Member<&UnsupportedSettings::values>("values");
-                }
                 pages = PreferencePageRegistry::Get();
                 pages->Clear();
                 storage = std::make_shared<MemoryStorage>();

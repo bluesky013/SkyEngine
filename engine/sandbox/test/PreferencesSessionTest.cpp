@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/EditorCore.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/core/preferences/PreferencesSession.h>
@@ -44,25 +44,26 @@ namespace sky::editor::preferences_session_test {
     };
 
     namespace {
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            auto *context = SerializationContext::Get();
+            context->Register<Small>("PreferencesSessionSmall").Member<&Small::value>("value");
+            context->Register<Deep>("PreferencesSessionDeep")
+                .Member<&Deep::path>("path")
+                .Member<&Deep::values>("values")
+                .Member<&Deep::readOnly>("readOnly")
+                .Property(CommonPropertyKey::READONLY, Any(true))
+                .Member<&Deep::fixed>("fixed");
+            context->Register<Reentrant>("PreferencesSessionReentrant").MemberNoSetter<&Reentrant::GetValue, &Reentrant::Changed>("value");
+            // This page deliberately has an ordinary setter plus a
+            // notification, matching plugin-reflected settings.
+            auto *member     = GetTypeMember("value", TypeInfo<Reentrant>::RegisteredId());
+            member->setterFn = &Setter<Reentrant, int32_t, &Reentrant::SetValue>;
+        });
+
         class PreferencesSessionTest : public testing::Test {
         protected:
             void SetUp() override
             {
-                if (Once::Get()->Run("PreferencesSessionTest.Types")) {
-                    auto *context = SerializationContext::Get();
-                    context->Register<Small>("PreferencesSessionSmall").Member<&Small::value>("value");
-                    context->Register<Deep>("PreferencesSessionDeep")
-                        .Member<&Deep::path>("path")
-                        .Member<&Deep::values>("values")
-                        .Member<&Deep::readOnly>("readOnly")
-                        .Property(CommonPropertyKey::READONLY, Any(true))
-                        .Member<&Deep::fixed>("fixed");
-                    context->Register<Reentrant>("PreferencesSessionReentrant").MemberNoSetter<&Reentrant::GetValue, &Reentrant::Changed>("value");
-                    // This page deliberately has an ordinary setter plus a
-                    // notification, matching plugin-reflected settings.
-                    auto *member     = GetTypeMember("value", TypeInfo<Reentrant>::RegisteredId());
-                    member->setterFn = &Setter<Reentrant, int32_t, &Reentrant::SetValue>;
-                }
                 pages = PreferencePageRegistry::Get();
                 pages->Clear();
                 EditorCore::GetCommandService().Clear();

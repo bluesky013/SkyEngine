@@ -97,6 +97,7 @@ namespace sky {
         BuildSettingsOverride DiffBuilderSettings(const std::string &ext, const ProductBundleKey &bundle, const Any &edited) const;
 
     private:
+        std::vector<std::shared_ptr<const void>>        moduleCode;
         std::vector<std::unique_ptr<AssetBuilder>>      assetBuilders;
         std::unordered_map<std::string, AssetBuilder *> assetBuilderMap;
 

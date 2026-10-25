@@ -10,13 +10,10 @@ namespace sky::aurora {
 
     void ShaderCompileFuture::RunAsync(sky::ThreadPool &pool)
     {
-        pool.Schedule(sky::ThreadTask([state = mState](sky::ThreadContext &) {
-            state->ok = state->task.Run(*state->compiler, state->result);
-            if (state->ok && state->commit) {
-                state->ok = state->commit(state->task, state->result, &state->result.errorInfo);
-            }
-            state->done.store(true, std::memory_order_release);
-        }));
+        const auto state = mState;
+        if (!state || state->started.exchange(true, std::memory_order_acq_rel))
+            return;
+        pool.Schedule(sky::ThreadTask([state](sky::ThreadContext &) { Execute(state); }));
     }
 
 } // namespace sky::aurora

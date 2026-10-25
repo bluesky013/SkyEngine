@@ -139,8 +139,10 @@ namespace {
                  {{.name = "tint", .size = 16, .scalarType = ShaderScalarType::FLOAT, .kind = ShaderTypeKind::VECTOR, .cols = 4, .alignment = 16}},
                  16}};
             if (activeImage) {
-                reflection.resources      = {reflection.declarations[1]};
+                reflection.blocks         = {reflection.declaredBlocks[0]};
+                reflection.resources      = {reflection.declarations[0], reflection.declarations[1]};
                 reflection.nativeBindings = {
+                    {.set = 2, .binding = 1, .stage = desc.stage, .index = 1, .category = ShaderNativeCategory::DESCRIPTOR, .space = 2},
                     {.set = 2, .binding = 2, .stage = desc.stage, .index = 2, .category = ShaderNativeCategory::DESCRIPTOR, .space = 2}};
             }
             out.data = {3, 2, 35, 7, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
@@ -197,6 +199,7 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     material->Data().properties = {{"color", MaterialPropertyType::TEXTURE2D, texture->GetUuid()}};
     auto files                  = std::make_shared<ShaderFileSystem>();
     files->AddVirtualFile("fixture/Reload.slang", "fixture");
+    files->AddVirtualFile("aurora/config/pipeline_variants.slang", "// @variant\n// @reserved 16\n// @source pipeline\n// @end\n");
     files->AddVirtualFile("fixture/Reload.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
     auto       source  = CreateSceneAssetSource(files, [material, texture](const Uuid &id) -> AssetPtr {
         if (id == material->GetUuid())
@@ -207,6 +210,8 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     });
     const auto resolve = [&] { return source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), material->GetUuid(), {API::VULKAN, 9}); };
     const auto first   = resolve();
+    if (const auto *error = std::get_if<RendererError>(&first))
+        ADD_FAILURE() << error->message;
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(first));
     const auto original  = std::get<std::shared_ptr<const SceneMeshResources>>(first);
     const auto findImage = [](const SceneMeshResources &mesh) -> const RenderResourcePayload * {
@@ -239,7 +244,7 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     EXPECT_TRUE(linked);
 }
 
-TEST(SceneMaterialSource, InactiveAliasesValidateDeclaredTypesAndSkipImageLoads)
+TEST(SceneMaterialSource, InactiveDeclarationsPreserveTypedValues)
 {
     InactiveMaterialCompiler compiler;
     struct Registration {
@@ -260,6 +265,7 @@ TEST(SceneMaterialSource, InactiveAliasesValidateDeclaredTypesAndSkipImageLoads)
         material->Data().properties = {std::move(property)};
         auto files                  = std::make_shared<ShaderFileSystem>();
         files->AddVirtualFile("fixture/Inactive.slang", "fixture");
+        files->AddVirtualFile("aurora/config/pipeline_variants.slang", "// @variant\n// @reserved 16\n// @source pipeline\n// @end\n");
         files->AddVirtualFile("fixture/Inactive.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
         auto source = CreateSceneAssetSource(files, [material](const Uuid &id) -> AssetPtr {
             EXPECT_EQ(id, material->GetUuid()) << "Inactive textures must not invoke the asset loader";
@@ -267,15 +273,45 @@ TEST(SceneMaterialSource, InactiveAliasesValidateDeclaredTypesAndSkipImageLoads)
         });
         return source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), material->GetUuid(), {API::VULKAN, 9});
     };
-    EXPECT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(
-        resolve({"value", MaterialPropertyType::FLOAT4, Vector4{1}}, "inactiveValues.tint")));
-    EXPECT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(
-        resolve({"image", MaterialPropertyType::TEXTURE2D, Uuid::Create()}, "inactiveImage")));
-    EXPECT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(
-        resolve({"filter", MaterialPropertyType::SAMPLER, Sampler::Descriptor{}}, "inactiveSampler")));
+    EXPECT_FALSE(std::holds_alternative<RendererError>(resolve({"value", MaterialPropertyType::FLOAT4, Vector4{1}}, "inactiveValues.tint")));
+    EXPECT_FALSE(std::holds_alternative<RendererError>(resolve({"image", MaterialPropertyType::TEXTURE2D, Uuid::Create()}, "inactiveImage")));
+    EXPECT_FALSE(std::holds_alternative<RendererError>(resolve({"filter", MaterialPropertyType::SAMPLER, Sampler::Descriptor{}}, "inactiveSampler")));
     EXPECT_TRUE(std::holds_alternative<RendererError>(resolve({"value", MaterialPropertyType::FLOAT4, Vector4{1}}, "inactiveSampler")));
     EXPECT_TRUE(std::holds_alternative<RendererError>(resolve({"value", MaterialPropertyType::INT, int32_t{1}}, "inactiveValues.tint")));
     EXPECT_TRUE(
         std::holds_alternative<RendererError>(resolve({"filter", MaterialPropertyType::SAMPLER, Sampler::Descriptor{}}, "inactiveValues.tint")));
     EXPECT_TRUE(std::holds_alternative<RendererError>(resolve({"image", MaterialPropertyType::TEXTURE2D, Uuid::Create()}, "inactiveSampler")));
+}
+
+TEST(SceneMaterialSource, DefinitionGeneratesKeysAndMigratesExactAliasesTransactionally)
+{
+    InactiveMaterialCompiler compiler;
+    struct Registration {
+        IShaderCompiler *previous;
+        ~Registration()
+        {
+            ShaderCompilerFactory::Get().Register(previous);
+        }
+    } registration{ShaderCompilerFactory::Get().GetCompiler()};
+    ShaderCompilerFactory::Get().Register(&compiler);
+    ShaderFileSystem files;
+    files.AddVirtualFile("fixture/Definition.slang", "fixture");
+    files.AddVirtualFile("fixture/Definition.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
+    MaterialAssetData     source;
+    MaterialTechniqueData technique;
+    technique.tag     = "opaque";
+    technique.program = {{"fixture/Definition.slang", "VSMain"}, {"fixture/Definition.slang", "FSMain"}};
+    technique.aliases = {{"color", "inactiveValues.tint"}};
+    source.techniques = {technique};
+    source.properties = {{"color", MaterialPropertyType::FLOAT4, Vector4{1}}};
+    MaterialDefinitionData definition;
+    std::string            error;
+    ASSERT_TRUE(ResolveMaterialDefinition(source, files, API::VULKAN, nullptr, definition, error)) << error;
+    EXPECT_EQ(definition.schema.keys.size(), 3u);
+    EXPECT_TRUE(definition.canonical.techniques[0].aliases.empty());
+    ASSERT_EQ(definition.canonical.properties.size(), 1u);
+    EXPECT_EQ(definition.canonical.properties[0].name, "inactiveValues.tint");
+    source.techniques[0].aliases[0].target = "unrelated.tint";
+    EXPECT_FALSE(ResolveMaterialDefinition(source, files, API::VULKAN, nullptr, definition, error));
+    EXPECT_EQ(definition.canonical.properties[0].name, "inactiveValues.tint");
 }

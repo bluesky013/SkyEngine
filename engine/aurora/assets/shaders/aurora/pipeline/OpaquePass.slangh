@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/OpaquePass.h; do not edit.
-// Inputs: b93588d2e59b1e9cff404754a7b52ad6487c75dd34c7cded1d39fba4841f47b6; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: b93588d2e59b1e9cff404754a7b52ad6487c75dd34c7cded1d39fba4841f47b6; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

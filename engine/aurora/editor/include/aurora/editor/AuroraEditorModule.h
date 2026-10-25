@@ -16,6 +16,7 @@ namespace sky::aurora::editor {
         AuroraEditorModule()           = default;
         ~AuroraEditorModule() override = default;
 
+        void RegisterMeta() override;
         bool Init(const sky::StartArguments &args) override;
         void Shutdown() override;
     };

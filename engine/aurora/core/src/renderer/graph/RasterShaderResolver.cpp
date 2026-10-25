@@ -26,6 +26,7 @@ namespace sky::aurora {
         if (!resolver.ResolveShader(request.vertex, vertex, &message) || !resolver.ResolveShader(request.fragment, fragment, &message))
             return FrameError{FrameErrorCode::COMPILE_FAILED, std::move(message)};
         ShaderReflection reflection;
+        reflection.vertexInputs = vertex.reflection.vertexInputs;
         for (const auto *result : {&vertex, &fragment}) {
             if (!result->reflection.pushConstants.empty())
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Raster push constants are not implemented"};
@@ -47,7 +48,18 @@ namespace sky::aurora {
         const auto fs = CreateShaderFunctionFromResult(device, fragment, ShaderStageFlagBit::FS, request.fragment.entry);
         if (!vs || !fs || vs->GetDevice() != &device || fs->GetDevice() != &device)
             return FrameError{FrameErrorCode::COMPILE_FAILED, "Native shader function creation failed"};
+        std::string reflectionError;
+        if (!ValidateShaderReflection(reflection, reflectionError))
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid raster reflection: " + reflectionError};
+        ShaderParameterTable parameterTable;
+        if (!BuildShaderParameterTable(reflection, 1, {}, parameterTable, reflectionError))
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid raster parameter table: " + reflectionError};
+        ShaderSpecialization specialization;
+        if (!BuildShaderSpecialization(request.vertex.variant, vertex, specialization, message) ||
+            !BuildShaderSpecialization(request.fragment.variant, fragment, specialization, message))
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, std::move(message)};
         Shader::Descriptor descriptor{};
+        descriptor.specialization = &specialization;
         descriptor.vs         = vs.Get();
         descriptor.ps         = fs.Get();
         descriptor.reflection = &reflection;

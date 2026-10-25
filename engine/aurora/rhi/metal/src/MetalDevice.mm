@@ -153,6 +153,7 @@ namespace sky::aurora {
         // Metal guarantees 256-byte alignment for constant buffer offsets on
         // macOS; there is no MTLDevice query for it
         capability.minUniformBufferOffsetAlignment = 256u;
+        capability.minStorageBufferOffsetAlignment = 16u;
 
         if (mtlDevice != nil) {
             // object/mesh pipeline requires Apple7 (A15) / Mac2 class GPUs

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,6 +44,7 @@ namespace sky::editor {
     // in this contract. One action can appear on the toolbar (by `group`), in a menu (by `menu` /
     // `submenu`), in both, or in neither.
     struct EditorAction {
+        std::shared_ptr<const void> moduleLease;
         std::string           id;
         std::string           label;
         std::string           icon;                      // icon name resolved by the UI; empty = text only
@@ -64,6 +66,17 @@ namespace sky::editor {
         std::function<bool()> checked; // null => unchecked
         // Eligibility is separate from enabled: ineligible shortcuts must reach focused text input.
         std::function<bool()> acceleratorEligible;
+        EditorAction &operator=(EditorAction other) noexcept
+        {
+            using std::swap;
+            swap(moduleLease, other.moduleLease);
+            swap(id, other.id); swap(label, other.label); swap(icon, other.icon);
+            swap(group, other.group); swap(menu, other.menu); swap(submenu, other.submenu); swap(order, other.order);
+            swap(enabled, other.enabled); swap(invoke, other.invoke); swap(scope, other.scope);
+            swap(accelerator, other.accelerator); swap(visible, other.visible);
+            swap(checkable, other.checkable); swap(checked, other.checked); swap(acceleratorEligible, other.acceleratorEligible);
+            return *this;
+        }
     };
 
     struct EditorActionState {
@@ -91,6 +104,7 @@ namespace sky::editor {
         // Adds or overrides an action by (scope, id). An empty scope means "global".
         void Add(EditorAction action);
         void Remove(const std::string &scope, const std::string &id);
+        void RemoveScope(const std::string &scope);
         void Clear();
 
         // Actions in the active scope, sorted by id (for accelerator matching).

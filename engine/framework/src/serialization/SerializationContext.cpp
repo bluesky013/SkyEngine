@@ -2,10 +2,11 @@
 // Created by Zach Lee on 2021/12/9.
 //
 
-#include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/JsonArchive.h>
-#include <framework/serialization/CoreReflection.h>
+#include <framework/project/ExportPreset.h>
 #include <framework/serialization/ArrayVisitor.h>
+#include <framework/serialization/CoreReflection.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 namespace sky {
 
     void JsonLoad(std::string &str, JsonInputArchive &archive)
@@ -39,6 +40,7 @@ namespace sky {
                 .JsonSave<&JsonStore>();
 
         CoreReflection(this);
+        RegisterExportPresetReflection(this);
     }
 
     TypeNode *SerializationContext::FindType(const std::string_view &key)

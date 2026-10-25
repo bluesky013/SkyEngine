@@ -7,17 +7,12 @@
 #include <editor/widgets/ReflectedFormView.h>
 
 #include <editor/core/EditorCore.h>
+#include <editor/core/property/ReflectionDemoTypes.h>
 #include <editor/core/resource/SandboxResources.h>
 
-#include <core/math/Color.h>
-#include <core/math/Transform.h>
 #include <core/math/Vector2.h>
-#include <core/math/Vector3.h>
-#include <core/math/Vector4.h>
 #include <core/type/TypeInfo.h>
-#include <core/util/Uuid.h>
 #include <framework/asset/DerivedDataCache.h>
-#include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 #include <ui/IUITextureRegistry.h>
 #include <ui/text/UITextSystem.h>
@@ -27,68 +22,6 @@
 #include <fstream>
 #include <iterator>
 #include <string>
-
-namespace sky::editor::refldemo {
-
-    enum class Quality { Low = 0, Medium = 1, High = 2 };
-
-    struct Placement {
-        float x = 0.0f;
-        float y = 0.0f;
-    };
-
-    struct DemoObject {
-        bool               enabled  = true;
-        Quality            quality  = Quality::Medium;
-        int32_t            count    = 10;
-        float              exposure = 1.0f;
-        std::string        name     = "Sky";
-        Color              tint{0.9f, 0.5f, 0.2f, 1.0f};
-        Vector3            direction{0.0f, 1.0f, 0.0f};
-        Transform          transform;
-        Uuid               texture;
-        Placement          placement{1.0f, 2.0f};
-        std::vector<float> weights{1.0f, 2.0f, 3.0f};
-    };
-
-    void EnsureRegistered()
-    {
-        static bool done = false;
-        if (done) {
-            return;
-        }
-        done = true;
-
-        auto *context = SerializationContext::Get();
-        context->Register<Quality>("ReflectionDemoQuality").Enum(Quality::Low, "Low").Enum(Quality::Medium, "Medium").Enum(Quality::High, "High");
-
-        context->Register<Placement>("ReflectionDemoPlacement").Member<&Placement::x>("x").Member<&Placement::y>("y");
-
-        context->Register<DemoObject>("ReflectionDemoObject")
-            .Member<&DemoObject::enabled>("enabled")
-            .Member<&DemoObject::quality>("quality")
-            .Member<&DemoObject::count>("count")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.0f))
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MAX), Any(100.0f))
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_STEP), Any(5.0f))
-            .Member<&DemoObject::exposure>("exposure")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.0f))
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MAX), Any(2.0f))
-            .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_STEP), Any(0.05f))
-            .Member<&DemoObject::name>("name")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Display Name")))
-            .Member<&DemoObject::tint>("tint")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::EDITOR_KIND), Any(static_cast<int32_t>(PropertyEditorKind::Color)))
-            .Member<&DemoObject::direction>("direction")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::EDITOR_KIND), Any(static_cast<int32_t>(PropertyEditorKind::Vector)))
-            .Member<&DemoObject::transform>("transform")
-            .Member<&DemoObject::texture>("texture")
-            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(std::string_view("Texture")))
-            .Member<&DemoObject::placement>("placement")
-            .Member<&DemoObject::weights>("weights");
-    }
-
-} // namespace sky::editor::refldemo
 
 namespace sky::editor {
 
@@ -150,7 +83,6 @@ namespace sky::editor {
         public:
             ReflectionDemoPanel(sky::ui::UITextSystem *text, std::string title) : ReflectedFormView(text, std::move(title))
             {
-                refldemo::EnsureRegistered();
                 Bind(PropertyObject{&object, GetTypeNode(TypeInfo<refldemo::DemoObject>::RegisteredId())});
             }
 

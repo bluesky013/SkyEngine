@@ -1,0 +1,40 @@
+#pragma once
+#include <aurora/pipeline/SkinningBatch.slangh>
+
+float4x4 SkinMatrix(uint slot, uint normal)
+{
+    uint base = slot * 8 + normal * 4;
+    return transpose(float4x4(gSkinningPalette[base], gSkinningPalette[base + 1], gSkinningPalette[base + 2], gSkinningPalette[base + 3]));
+}
+float3 SkinSafeDirection(float3 value, float3 reference)
+{
+    float largest = max(abs(value.x), max(abs(value.y), abs(value.z)));
+    if (all(isfinite(value)) && largest > 1e-6) return normalize(value / largest);
+    float referenceLargest = max(abs(reference.x), max(abs(reference.y), abs(reference.z)));
+    return all(isfinite(reference)) && referenceLargest > 1e-6 ? normalize(reference / referenceLargest) : float3(0, 1, 0);
+}
+float3 SkinPosition(float3 position, uint4 joints, float4 weights)
+{
+    float3 result = 0;
+    for (uint i = 0; i < 4; ++i)
+        result += mul(SkinMatrix(joints[i], 0), float4(position, 1)).xyz * weights[i];
+    return result;
+}
+float3 SkinNormal(float3 normal, uint4 joints, float4 weights)
+{
+    float3 result = 0;
+    for (uint i = 0; i < 4; ++i)
+        result += mul(SkinMatrix(joints[i], 1), float4(normal, 0)).xyz * weights[i];
+    return SkinSafeDirection(result, normal);
+}
+float4 SkinTangent(float4 tangent, float3 normal, uint4 joints, float4 weights)
+{
+    float3 result = 0;
+    for (uint i = 0; i < 4; ++i)
+        result += mul(SkinMatrix(joints[i], 0), float4(tangent.xyz, 0)).xyz * weights[i];
+    result -= normal * dot(result, normal);
+    float3 reference = tangent.xyz - normal * dot(tangent.xyz, normal);
+    if (dot(reference, reference) < 1e-12)
+        reference = cross(abs(normal.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0), normal);
+    return float4(SkinSafeDirection(result, reference), tangent.w);
+}

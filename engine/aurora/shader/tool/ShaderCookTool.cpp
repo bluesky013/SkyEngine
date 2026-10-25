@@ -1,5 +1,6 @@
 // Target-specific shader usage and offline product verification.
 
+#include <aurora/pipeline/GlobalVariantLayout.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderResolver.h>
@@ -62,17 +63,23 @@ int main(int argc, char **argv)
     ShaderCompilerSlang compiler;
     ShaderCompilerFactory::Get().Register(&compiler);
 
+    GlobalVariantLayout    pipelineLayout;
+    std::string            layoutError;
+    const ShaderVariantSchema *pipelineSchema = nullptr;
+    if (pipelineLayout.Load(source, "aurora/config/pipeline_variants.slang", &layoutError)) {
+        pipelineSchema = &pipelineLayout.schema;
+    }
+
     ShaderResolver resolver(offline.Get(), local.Get(), source, 0, 0);
 
-    const bool ok = BuildUsageCache(resolver, usage, &error);
-    if (!ok) {
+    if (!BuildUsageCache(resolver, usage, &error, pipelineSchema)) {
         std::cerr << "cook failed: " << error << "\n";
         return 1;
     }
 
     ShaderFileSystem emptySources;
-    ShaderResolver   published(local.Get(), nullptr, emptySources, 0, 0, ShaderResolveMode::PRODUCTS);
-    if (!BuildUsageCache(published, usage, &error)) {
+    ShaderResolver published(local.Get(), nullptr, emptySources, 0, 0, ShaderResolveMode::PRODUCTS);
+    if (!BuildUsageCache(published, usage, &error, pipelineSchema)) {
         std::cerr << "published shader products are incomplete: " << error << "\n";
         return 1;
     }

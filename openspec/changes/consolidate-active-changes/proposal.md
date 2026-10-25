@@ -1,6 +1,6 @@
 ## Why
 
-`openspec/changes/` has accumulated **23 active changes** that no longer describe a coherent backlog. Several
+`openspec/changes/` currently contains **37 active change directories** (2026-10-26). The original 23-change snapshot became stale and has been replaced in design.md; the following motivation describes the earlier backlog. Several
 hard-depend on work already archived (so their prerequisite is done but they sit at 0 tasks), several are explicit
 **frozen** or **unimplemented debt records** that will never be scheduled as written, some overlap each other
 (two different framework→aurora scene seams; the legacy taskflow/boost/shader/render retirement has since been consolidated into `legacy-render-thirdparty-cleanup`), and several
@@ -15,7 +15,7 @@ approval; no change directory was archived, and no engine or third-party code is
 
 ## What Changes
 
-- Record a single **current-state snapshot**: each active change classified as `active`, `blocked-on-prereq`,
+- Maintain a dated **current-state snapshot**: each active change classified as `active`, `blocked-on-prereq`,
   `frozen`, `debt-record`, or `superseded`, with task counts and the prerequisites it actually depends on.
 - Group the active changes into **workstreams** (Python runtime, aurora render migration, terrain/vegetation,
   audio/animation, network, packaging/platform/build, RHI debt, framework debt, backlog hygiene) and state the

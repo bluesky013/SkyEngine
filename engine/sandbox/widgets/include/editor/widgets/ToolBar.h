@@ -57,6 +57,11 @@ namespace sky::editor {
         void SetItemEnabled(const std::string &id, bool enabled);
         void SetItemIcon(const std::string &id, sky::ui::UITextureId texture);
         bool RefreshActionStates();
+        void SetTabStyle(bool value)
+        {
+            tabStyle = value;
+            MarkLayoutDirty();
+        }
 
         void                   OnPaint(sky::ui::UIPaintContext &context) override;
         sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &event) override;
@@ -72,6 +77,7 @@ namespace sky::editor {
         std::shared_ptr<void>  lifetime        = std::make_shared<int>(0);
         uint64_t               itemsGeneration = 0;
         bool                   refreshingState = false;
+        bool                   tabStyle        = false;
     };
 
 } // namespace sky::editor

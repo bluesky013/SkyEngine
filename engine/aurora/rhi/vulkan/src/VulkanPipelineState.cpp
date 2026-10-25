@@ -21,7 +21,7 @@ namespace sky::aurora {
             VkSpecializationInfo                  info{};
         };
 
-        bool BuildSpecializationInfo(const ShaderSpecialization &spec, SpecializationData &out)
+        bool BuildSpecializationInfo(const ShaderSpecialization &spec, ShaderStageFlagBit stage, SpecializationData &out)
         {
             if (spec.entries.empty()) {
                 return false;
@@ -29,6 +29,8 @@ namespace sky::aurora {
             out.mapEntries.reserve(spec.entries.size());
             out.data.reserve(spec.entries.size());
             for (const auto &entry : spec.entries) {
+                if (entry.stage != stage)
+                    continue;
                 VkSpecializationMapEntry mapEntry{};
                 mapEntry.constantID = entry.id;
                 mapEntry.offset     = static_cast<uint32_t>(out.data.size() * sizeof(uint32_t));
@@ -40,7 +42,7 @@ namespace sky::aurora {
             out.info.pMapEntries   = out.mapEntries.data();
             out.info.dataSize      = out.data.size() * sizeof(uint32_t);
             out.info.pData         = out.data.data();
-            return true;
+            return !out.mapEntries.empty();
         }
     } // namespace
 
@@ -94,6 +96,10 @@ namespace sky::aurora {
 
         const auto &state    = *desc.state;
         const auto &fmt      = desc.format;
+        if (!desc.shader || desc.shader->GetDevice() != &device) {
+            LOG_E(TAG, "graphics pipeline shader belongs to a different device or is missing");
+            return false;
+        }
         const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
         if (vkShader == nullptr) {
             LOG_E(TAG, "graphics pipeline descriptor missing shader");
@@ -107,8 +113,9 @@ namespace sky::aurora {
         }
 
         // ---- specialization constants (weak variants) ----
-        SpecializationData specData;
-        const bool         hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+        SpecializationData vertexSpec, fragmentSpec;
+        const bool hasVertexSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::VS, vertexSpec);
+        const bool hasFragmentSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::FS, fragmentSpec);
 
         // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
@@ -118,7 +125,7 @@ namespace sky::aurora {
             stageCI.stage                           = FromShaderStage(vs->GetStage());
             stageCI.module                          = vs->GetNativeHandle();
             stageCI.pName                           = vs->GetNativeEntry().c_str();
-            stageCI.pSpecializationInfo             = hasSpec ? &specData.info : nullptr;
+            stageCI.pSpecializationInfo             = hasVertexSpec ? &vertexSpec.info : nullptr;
             shaderStages.push_back(stageCI);
         }
         const auto *fs = vkShader->GetFragmentFunction();
@@ -127,7 +134,7 @@ namespace sky::aurora {
             stageCI.stage                           = FromShaderStage(fs->GetStage());
             stageCI.module                          = fs->GetNativeHandle();
             stageCI.pName                           = fs->GetNativeEntry().c_str();
-            stageCI.pSpecializationInfo             = hasSpec ? &specData.info : nullptr;
+            stageCI.pSpecializationInfo             = hasFragmentSpec ? &fragmentSpec.info : nullptr;
             shaderStages.push_back(stageCI);
         }
 
@@ -286,6 +293,10 @@ namespace sky::aurora {
 
     bool VulkanComputePipeline::Init(const Descriptor &desc)
     {
+        if (!desc.cs || desc.cs->GetDevice() != &device) {
+            LOG_E(TAG, "compute pipeline shader belongs to a different device or is missing");
+            return false;
+        }
         const auto *vkShader = static_cast<const VulkanShader *>(desc.cs);
         if (vkShader == nullptr) {
             LOG_E(TAG, "compute pipeline descriptor missing shader");
@@ -313,7 +324,7 @@ namespace sky::aurora {
 
         // specialization constants (weak variants)
         SpecializationData specData;
-        const bool         hasSpec   = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+        const bool         hasSpec   = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::CS, specData);
         ci.stage.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
 
         const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);

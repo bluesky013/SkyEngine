@@ -16,6 +16,7 @@ namespace sky::editor {
     // popup listing assets of that type from the asset catalog.
     class AssetReflectedWidget : public ReflectedWidget {
     public:
+        explicit AssetReflectedWidget(IEditorAssetCatalog *source = nullptr) : source(source) {}
         PropertyEditorKind Kind() const override
         {
             return PropertyEditorKind::Asset;
@@ -36,10 +37,12 @@ namespace sky::editor {
     private:
         void        Open(PropertyField &field, const sky::ui::UIRect &control, const sky::ui::UIRect &bounds, const UiTheme &theme);
         void        Select(ReflectedWidgetHost &host, int index);
-        static void FormatLabel(const PropertyField &field, std::string &outLabel, bool &outValid);
+        void FormatLabel(const PropertyField &field, std::string &outLabel, bool &outValid) const;
+        IEditorAssetCatalog *source = nullptr;
 
         PropertyField               *openField = nullptr;
         int                          hoverItem = -1;
+        size_t                       firstItem = 0;
         sky::ui::UIRect              popupRect;
         std::vector<sky::ui::UIRect> itemRects;
         std::vector<EditorAssetItem> items;

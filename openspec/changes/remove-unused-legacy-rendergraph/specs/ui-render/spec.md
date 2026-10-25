@@ -23,6 +23,19 @@ The UI render implementation SHALL live in `engine/ui/render`, SHALL retain the 
 - **WHEN** a caller supplies `UIDrawData` directly to the renderer without constructing a widget tree
 - **THEN** it SHALL be able to link `UIRender` without linking the `UI` widget runtime
 
+### Requirement: Uniform blocks scoped to pass and batch tiers
+
+The current UI renderer SHALL project pixel coordinates on the CPU and bind per-batch textures/samplers in set 3. It SHALL NOT require an unused Global/Pass/Material cbuffer or the removed BatchPackWriter. Future uniform inputs SHALL use the shared declaration and target UniformUploadPlan contract, with Global 0 / Pass 1 / Material 2 / Batch 3 ownership.
+
+#### Scenario: CPU projection
+- **WHEN** draw vertices are uploaded for a surface size and backend clip-space convention
+- **THEN** positions are transformed consistently without an implicit Global uniform block
+
+#### Scenario: Texture batch
+- **WHEN** the texture changes between UI draw commands
+- **THEN** the renderer binds the matching Batch set 3 image/sampler after the required pipeline
+
+
 ### Requirement: UI 通过 Aurora encoder 与宿主图集成
 
 UIRenderer SHALL translate UIDrawData through Aurora GraphicsEncoder and ResourceGroup interfaces. Production host composition MAY provide a registered FrameCustomPassEncoder with declared resources; the UI module SHALL NOT depend on the removed PipelinePass, RenderGraph or DrawItem API. Native Vulkan/DX12/Metal commands SHALL remain behind Aurora backends.
@@ -34,15 +47,3 @@ UIRenderer SHALL translate UIDrawData through Aurora GraphicsEncoder and Resourc
 #### Scenario: Host graph integration
 - **WHEN** a host composes UI with scene output in a FrozenFrameGraph
 - **THEN** the host owns graph declarations and frame retirement; UIRenderer does not construct a second graph
-
-### Requirement: Uniform blocks scoped to pass and batch tiers
-
-The current UI renderer SHALL project pixel coordinates on the CPU and bind per-batch textures/samplers in set 2. It SHALL NOT require an unused Global/Pass/Material cbuffer or the removed BatchPackWriter. Future uniform inputs SHALL use the shared declaration and target UniformUploadPlan contract, with Global 0 / Pass 1 / Batch 2 ownership.
-
-#### Scenario: CPU projection
-- **WHEN** draw vertices are uploaded for a surface size and backend clip-space convention
-- **THEN** positions are transformed consistently without an implicit Global uniform block
-
-#### Scenario: Texture batch
-- **WHEN** the texture changes between UI draw commands
-- **THEN** the renderer binds the matching Batch set 2 image/sampler after the required pipeline

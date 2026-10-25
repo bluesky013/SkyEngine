@@ -39,6 +39,7 @@ namespace sky::editor {
 
     class EditorFramePacer;
     class EditorViewportState;
+    class EditorPreviewSessions;
     class EditorRenderer : public sky::IWindowEvent {
     public:
         // Paint executes on the host thread; surface zero is the main window.
@@ -137,6 +138,7 @@ namespace sky::editor {
         {
             surfaceClosed = std::move(callback);
         }
+        void SetSurfaceCloseGuard(std::function<bool(uint32_t)> guard) { surfaceCloseGuard = std::move(guard); }
         // Reports a floating window's live geometry so it can be persisted.
         void SetSurfaceGeometryCallback(std::function<void(const std::string &panelId, float x, float y, float w, float h)> callback)
         {
@@ -157,6 +159,7 @@ namespace sky::editor {
         ViewportPickContext                                pickContext;
         std::function<void(const aurora::RendererEvent &)> rendererEventObserver;
         std::function<void()>                              inputLost;
+        std::function<bool(uint32_t)> surfaceCloseGuard;
         struct Surface {
             explicit Surface(uint32_t id);
             ~Surface();
@@ -179,11 +182,13 @@ namespace sky::editor {
         std::unique_ptr<aurora::FramePacket>        pending;
         std::unique_ptr<EditorFramePacer>           framePacer;
         std::unique_ptr<UiSnapshotProducer>         textures;
+        std::unique_ptr<EditorPreviewSessions>      previewSessions;
         std::shared_ptr<const void>                 moduleLease;
         std::shared_ptr<aurora::IFrameGraphFeature> feature;
         std::vector<std::unique_ptr<Surface>>       surfaces;
-        uint64_t                                    sequence      = 0;
-        uint32_t                                    nextSurfaceId = 1;
+        uint64_t                                    sequence       = 0;
+        uint32_t                                    nextSurfaceId  = 1;
+        uint32_t                                    nextViewportId = 1024;
         bool                                        started = false, withPreview = false;
         GuiPaintFn                                  guiSource;
         bool                                        sceneWorldBound = false;

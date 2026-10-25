@@ -33,7 +33,10 @@ class ShaderHeaderExportTest(unittest.TestCase):
     def test_real_aurora_declarations_export_without_cpp_or_slang(self):
         exports, error = HEADERS.prepare_exports(REPO / 'engine/aurora/resources.json')
         self.assertEqual(error, '')
-        self.assertEqual(len(exports), 13)
+        exported = {name.rsplit('/', 1)[-1]: text for _, name, text in exports}
+        self.assertIn('[AuroraResource(2, 0, "aurora/pipeline/MaterialBlock.h")]', exported['MaterialBlock.h'])
+        self.assertIn('[AuroraResource(3, 1, "aurora/pipeline/SceneSurfaceBatch.h")]', exported['SceneSurfaceBatch.h'])
+        self.assertIn('[[vk::binding(3, 3)]] StructuredBuffer<float4> gSkinningPalette', exported['SkinningBatch.h'])
         for declaration in ('SelectionMaskPass', 'SelectionOutlinePass'):
             selection = next(text for _, name, text in exports if name.endswith('/' + declaration + '.h'))
             self.assertIn('[AuroraResource(1, 0, "aurora/pipeline/' + declaration + '.h")]', selection)

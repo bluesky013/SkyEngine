@@ -19,16 +19,11 @@ RHI 接口层 SHALL 不暴露 `PipelineLayout` 对象：不存在 `aurora/rhi/Pi
 
 ### Requirement: 后端在 Shader 内派生 native layout
 
-native pipeline layout SHALL 由各后端在 `Shader` 内从 shader 反射派生，而非由调用方经独立对象传入：
+各后端 SHALL 在现有 Shader 内由经过身份与完整性校验的目标 stage artifacts 派生 native layout 和 BindingPlan。Vulkan SHALL 派生 descriptor set layouts 与 VkPipelineLayout；DX12 SHALL 派生 root signature；Metal DirectArguments SHALL 派生逐 stage 的 buffer/texture/sampler 地址表。系统 SHALL NOT 恢复可由调用方独立传入的 PipelineLayout 对象，也 SHALL NOT 强制把 logical set 解释成 Metal argument-buffer slot。
 
-- Vulkan：`VulkanShader` 自建 `VkPipelineLayout`（`CreatePipelineLayout()`，由 `Shader::Descriptor.reflection` 构建 descriptor set layout + push constants），pipeline state 统一用 `VulkanShader::GetPipelineLayout()`
-- DX12：root signature 由 `D3D12Shader` 从反射构建（`D3D12RootSignature`），pipeline state 统一用 `d3dShader->GetRootSignature()`
-- Metal：argument buffer 由 `MetalShader` 从反射构建
-
-#### Scenario: Vulkan pipeline 使用 shader 布局
-
-- **WHEN** 创建 `VulkanGraphicsPipeline`/`VulkanComputePipeline`（`Descriptor` 无 layout）
-- **THEN** `VkGraphicsPipelineCreateInfo::layout` / `VkComputePipelineCreateInfo::layout` 取自 `vkShader->GetPipelineLayout()`，该 layout 由反射构建
+#### Scenario: Pipeline 使用 shader 布局
+- **WHEN** 创建 graphics 或 compute pipeline
+- **THEN** pipeline 使用该 Shader 从匹配 artifacts 派生的 native layout，不接受独立布局覆盖
 
 ### Requirement: push constants 归入 shader 反射
 
@@ -41,48 +36,47 @@ native pipeline layout SHALL 由各后端在 `Shader` 内从 shader 反射派生
 
 ### Requirement: shader 派生的 set layout 供 ResourceGroup 复用
 
-shader 内派生的 per-set descriptor set layout SHALL 不仅用于 pipeline layout，也作为 ResourceGroup 分配 descriptor 的唯一来源。
+ResourceGroup SHALL 从同一 Shader 的受检 BindingPlan 获取相应 logical set 的布局。Vulkan SHALL 复用该 Shader 的真实 set 索引对应 VkDescriptorSetLayout；DX12 SHALL 使用计划中的 table/root 映射；Metal SHALL 使用计划中的逐 stage DirectArguments 地址。未实现的 binding model SHALL 返回显式 Unsupported。
 
-- Vulkan：`VulkanShader` SHALL 暴露 per-set 的 `VkDescriptorSetLayout`（按真实 set 索引查询），`VulkanResourceGroup` 用它 `vkAllocateDescriptorSets`，保证 `VkDescriptorSet` 与 `VkPipelineLayout` 同源。
-- DX12：`D3D12Shader` SHALL 暴露 reflection，`D3D12ResourceGroup` 从 reflection 计算 set 的 descriptor 数量。
-- Metal：`MetalShader` SHALL 从反射派生 argument buffer 布局供 ResourceGroup 复用（后续实现）。
+#### Scenario: Vulkan set 索引有空洞
+- **WHEN** Shader 的 logical sets 为 0 与 2
+- **THEN** ResourceGroup 分别取得对应真实 set 的布局，不因容器下标而错位
 
-#### Scenario: Vulkan set layout 按真实 set 索引查询
-
-- **WHEN** shader reflection 含 set 0 与 set 2（set 索引有空洞）
-- **THEN** `GetDescriptorSetLayout(0)` 与 `GetDescriptorSetLayout(2)` 返回各自正确的 per-set layout，而非按数组下标错位
-
-#### Scenario: ResourceGroup 复用 shader set layout
-
-- **WHEN** 用同一 shader 分别创建 pipeline 与 ResourceGroup{shader, set}
-- **THEN** ResourceGroup 的 descriptor set 与 pipeline layout 的对应 set 使用同一 `VkDescriptorSetLayout`
+#### Scenario: ResourceGroup 与 pipeline 同源
+- **WHEN** 用同一 Shader 创建 pipeline 和 ResourceGroup
+- **THEN** 两者消费同一个不可变 BindingPlan 及其 native layout
 
 ### Requirement: shader 反射进入 RHI Shader
 
-后端无关的 `ShaderReflection` SHALL 定义在 `aurora/rhi` 接口层（`aurora/rhi/ShaderReflection.h`），`Shader::Descriptor` SHALL 携带 `const ShaderReflection *reflection`。`aurora/shader` 编译器 SHALL 填充该反射，各后端 SHALL 消费它构建 native layout。
+RHI SHALL 定义不依赖 Slang 或平台原生头的逻辑接口、目标反射及 artifact 视图契约。编译器 SHALL 填充该契约；ShaderFunction SHALL 保留自身 stage artifact 的身份与不可变数据所有权；Shader SHALL 从匹配的 stage artifacts 链接反射及绑定计划。调用方 SHALL NOT 为无关代码另配一份反射绕过验证，后端 SHALL NOT 反向依赖编译器实现。
 
-#### Scenario: 反射可被后端消费
+#### Scenario: 后端消费已编译产物
+- **WHEN** runtime 只获得已发布 artifact，没有 Slang 库或作者源码
+- **THEN** RHI 能检查并消费其中的代码、逻辑接口与目标 ABI
 
-- **WHEN** `aurora/shader` 编译产出 `ShaderReflection`（set/binding/type/stage），并把它填入 `Shader::Descriptor.reflection`
-- **THEN** 后端 `Shader::Init` 能读到该反射，无需反向依赖 `aurora/shader`
+#### Scenario: 函数与反射错配
+- **WHEN** 调用方组合属于不同 artifact 的 stage code 与 reflection
+- **THEN** Shader 创建在 native 执行前明确失败
 
 ### Requirement: Vulkan layout 由反射派生
 
-`VulkanShader::CreatePipelineLayout()` SHALL 从 `Shader::Descriptor.reflection` 构建 `VkDescriptorSetLayout`（按 set 分组，binding/descriptorType/count/stageFlags 来自反射）与 `VkPipelineLayout`（含 push constants），不再创建空 layout。
+VulkanShader SHALL 从经过校验的 stage artifacts 和其链接 BindingPlan 构建 VkDescriptorSetLayout 与 VkPipelineLayout，按实际目标 descriptor set/binding、type/count/stage 可见性及已支持 push constants 派生。布局 SHALL 与实际 Shader 代码同源，不接受调用方另配未绑定 artifact 身份的反射。
 
 #### Scenario: 反射驱动 descriptor set layout
-
-- **WHEN** `Shader::Descriptor.reflection` 含 set 0 的 UBO binding 0、set 1 的 combined image sampler
-- **THEN** `VulkanShader` 产出含两个 `VkDescriptorSetLayout` 的 `VkPipelineLayout`，binding 类型/可见 stage 与反射一致
+- **WHEN** 匹配的 artifacts 包含 set 0 的 UBO 与 set 1 的 sampled image/sampler
+- **THEN** VulkanShader 派生对应 set layouts 和 pipeline layout，类型、数量与实际活跃 stage 一致
 
 ### Requirement: DX12 root signature 由反射派生
 
-`D3D12Shader::Init` SHALL 从反射构建 `D3D12RootSignature`（set → descriptor table，range 来自 binding/type/stage）。`D3D12GraphicsPipeline`/`D3D12ComputePipeline` SHALL 统一使用 `d3dShader->GetRootSignature()`；`D3D12ComputePipeline::Init` SHALL 不再接收外部 root signature 参数。
+D3D12Shader SHALL 从经过校验的目标反射派生 root signature，保留 register class、space、register、count 与 stage 信息；逻辑 set/binding SHALL 经 BindingPlan 映射。只读 structured/raw buffer SHALL 使用 SRV，可写变体 SHALL 使用 UAV，动态 buffer 的 root 参数选择 SHALL 同样遵守访问方式；descriptor 创建/写入 SHALL 保留 raw/structured 形态与 element stride。Graphics/Compute pipeline SHALL 使用该 Shader 的 root signature，不接受外部 root signature 参数。
 
 #### Scenario: PSO 使用 shader 的 root signature
+- **WHEN** 创建 D3D12 graphics 或 compute pipeline
+- **THEN** pRootSignature 来自相应 Shader 的受检目标反射
 
-- **WHEN** 创建 `D3D12GraphicsPipeline`/`D3D12ComputePipeline`
-- **THEN** `pRootSignature` 取自 `d3dShader->GetRootSignature()`（由反射构建），无外部传入
+#### Scenario: 只读输入与可写输出
+- **WHEN** compute 同时声明 StructuredBuffer 或 ByteAddressBuffer 输入与对应 RW 输出
+- **THEN** root/table 与 descriptor 编码分别使用 SRV 和 UAV，GPU 输出包含正确输入值
 
 ### Requirement: ResourceGroup 由 shader + set 创建
 
@@ -102,82 +96,73 @@ shader 内派生的 per-set descriptor set layout SHALL 不仅用于 pipeline la
 
 ### Requirement: shader reflection 的 null 与 empty 语义
 
-`Shader::Descriptor::reflection` 是 `const ShaderReflection*`，MUST 非 null：shader 创建与 `CreateResourceGroup` 遇 null reflection SHALL 拒绝并 logger 报错。非 null 但 `resources` / `pushConstants` / `blocks` 均为空的"空 reflection" SHALL 合法，对应无资源 shader 的空 set 布局。
+Shader 创建 SHALL 要求完整、非缺失的 stage artifact 与目标反射。显式标为完整且活跃资源集合为空的反射 SHALL 合法；缺失反射、未知完整性或错误 stage SHALL 明确失败。零资源 SHALL NOT 表示顺序槽位兼容模式；不存在的 logical set SHALL 不能创建 ResourceGroup。
 
-#### Scenario: null reflection 拒绝
+#### Scenario: 缺失反射拒绝
+- **WHEN** stage code 没有匹配的完整目标反射
+- **THEN** Shader 创建失败，不按资源顺序补出地址
 
-- **WHEN** `Shader::Descriptor::reflection = nullptr` 创建 shader 或 `CreateResourceGroup({shader, set})` 且 shader 无 reflection
-- **THEN** 返回 nullptr 并 logger 报错
-
-#### Scenario: 空 reflection 合法
-
-- **WHEN** shader 的 reflection 非 null 但 `resources` 为空，调用 `CreateShader`
-- **THEN** shader 创建成功（空 reflection 不报错）；随后 `CreateResourceGroup({shader, set})` 对该 shader 中不存在的 set 返回 nullptr
+#### Scenario: 零资源合法
+- **WHEN** 合法 artifact 显式携带完整的零资源反射
+- **THEN** Shader 可创建，针对不存在 set 的 ResourceGroup 创建失败
 
 ### Requirement: ResourceGroup 复用 shader 派生的 native set layout
 
-各后端 ResourceGroup SHALL 复用 shader 内已派生的 native layout，而非自建：
+各后端 ResourceGroup SHALL 复用同一 Shader 内已派生的 BindingPlan 与 native layout，不自建另一套映射。Vulkan SHALL 用对应 set 的 VkDescriptorSetLayout 分配；DX12 SHALL 按计划分配并编码 table/root 资源；Metal DirectArguments SHALL 按计划保存并绑定逐 stage 参数。其所有权 SHALL 保证 ResourceGroup 使用期间计划与 native layout 有效。
 
-- Vulkan：`VulkanShader` SHALL 暴露 `VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t set)`，`VulkanResourceGroup` 用它 `vkAllocateDescriptorSets`。
-- DX12：`D3D12ResourceGroup` SHALL 从 shader reflection 计算 set 的 descriptor 数量并分配 heap 区间。
-- Metal：`MetalResourceGroup` SHALL 从 shader 派生的 argument buffer 布局分配（后续实现）。
+#### Scenario: Vulkan descriptor 与 pipeline 同源
+- **WHEN** 使用同一 Shader 的 ResourceGroup 执行绘制
+- **THEN** descriptor set 与 pipeline 使用同源 VkDescriptorSetLayout
 
-#### Scenario: Vulkan descriptor set 与 pipeline layout 同源
-
-- **WHEN** 用同一 shader 创建 pipeline 与 ResourceGroup
-- **THEN** ResourceGroup 的 `VkDescriptorSet` 与 pipeline 的 `VkPipelineLayout` 使用同一 `VkDescriptorSetLayout`（非 compatible 的两套）
+#### Scenario: Metal stage 地址不同
+- **WHEN** 一个逻辑 uniform 分别映射为 VS buffer(2) 与 FS buffer(5)
+- **THEN** ResourceGroup 在两个 stage 使用各自记录的地址与本次 draw 的数据偏移
 
 ### Requirement: ResourceGroup 布局等于 shader reflection 的完整 set
 
-ResourceGroup 的 binding 集合 SHALL 等于 shader reflection 中该 set 的全部资源；SHALL NOT 存在"手写少于 shader 的 layout"。未 `Update` 的 binding 保持"未写入"（Vulkan 对应 null descriptor）。
+ResourceGroup SHALL cover the selected Shader's complete active logical set through its BindingPlan. Name-first transactions SHALL validate all required active resources/fields before publishing the first complete parameter version. Subsequent partial updates SHALL inherit prior values. Missing required inputs SHALL NOT be treated as valid null descriptors; declared inactive keys SHALL remain distinguishable from unknown names.
 
-#### Scenario: 布局即 shader 完整 set
+#### Scenario: Required binding missing
+- **WHEN** the first transaction supplies only a uniform while an active image is also required
+- **THEN** End fails without publishing a usable partial version
 
-- **WHEN** shader reflection 的 set 0 含 binding 0（UB）+ binding 1（sampled image），创建 ResourceGroup{shader, 0}
-- **THEN** ResourceGroup 覆盖这两个 binding；只 Update binding 0 时 binding 1 保持未写入
+#### Scenario: Later partial update
+- **WHEN** an already complete group updates only its uniform
+- **THEN** the new version retains the previous image while old in-flight versions remain unchanged
 
 ### Requirement: shader 生命周期不因 ResourceGroup 延长
 
-shader SHALL 是派生 native layout 的短命对象，创建完 pipeline 后即可释放，不因 ResourceGroup 而延长生命周期，也 SHALL NOT 需要 delayed release。ResourceGroup 存续期间其 native set layout MUST 存活（最小落地：ResourceGroup 持 shader 引用；native layout 独立所有权为后续优化）。
+Shader-derived native layout and binding plans SHALL remain valid while pipelines, ResourceGroups or frozen parameter snapshots use them. Releasing the caller's Shader reference SHALL NOT invalidate these borrowers. Shared ownership MAY retain the Shader or an independently owned immutable layout; no caller-managed delayed release SHALL be required. Frame/GPU resource lifetime SHALL still follow the normal retirement protocol.
 
-#### Scenario: shader 不因 ResourceGroup 而无限延长
-
-- **WHEN** 创建 pipeline 与 ResourceGroup 后释放调用方 shader 引用
-- **THEN** shader 生命周期由 pipeline 与 ResourceGroup 的引用共同决定，且无 delayed release 语义；ResourceGroup 存续期间 set layout 不悬空
+#### Scenario: Caller releases Shader
+- **WHEN** a pipeline and ResourceGroup remain after the caller releases its Shader reference
+- **THEN** their layout and parameter mappings remain usable until their final borrower retires
 
 ### Requirement: UBO 类型按显式绑定声明
+Shared declarations SHALL describe the base uniform type. The consuming Pass/material SHALL explicitly select static or dynamic binding and keep shader/layout type, allocation and binding offsets consistent; set numbers SHALL NOT determine this policy.
 
-`ShaderResourceType` SHALL 含 `UNIFORM_BUFFER_DYNAMIC` 与 `STORAGE_BUFFER_DYNAMIC` 变体。Global/Pass/Batch 的静态或动态绑定 SHALL 由具体 Pass/材质契约显式选择，不得仅由 set 编号推导。
-
-DYNAMIC 变体非 shader 反射自然产物。共享声明 SHALL 描述基础 uniform 类型；调用方 SHALL 使实际 shader/layout 的动态类型、分配范围和绑定偏移保持一致。
-
-#### Scenario: 显式动态绑定
-
-- **WHEN** 调用方将 batch resource 的类型显式选择为 `UNIFORM_BUFFER_DYNAMIC`
-- **THEN** ResourceGroup{shader, 2} 派生出的 layout 为 dynamic UBO，`BindResourceGroup(2, rg, 1, &offset)` 生效
-
-#### Scenario: 静态绑定
-
-- **WHEN** global（set 0）/ pass（set 1）block 的 reflection resource 类型为 `UNIFORM_BUFFER`
-- **THEN** ResourceGroup{shader, 0} 与 {shader, 1} 的 UBO 为 static，无 dynamic offset
+#### Scenario: Explicit dynamic binding
+- **WHEN** a consumer selects a dynamic uniform binding
+- **THEN** its shader layout, allocation and supplied offsets agree; a policy mismatch returns an explicit error before drawing
 
 ### Requirement: Pass-owned shared header source
-Each Global/Pass/Batch declaration SHALL have one editable shared `.h` source consumed directly by C++ and Slang. Field/resource lists SHALL define native C++ types, typed binding slots, expected schema and shader declarations without duplicating fields or binding numbers. Global/Pass/Batch SHALL remain sets 0/1/2; View SHALL remain optional and owned by the consuming Pass.
 
-#### Scenario: Build C++ without shader code generation
-- **WHEN** Pipeline C++ consumers compile
-- **THEN** they include source headers directly and have no ShaderHeaders, ShaderHeaderTool or Slang execution prerequisite; CMake may embed source text for runtime shader includes
+每个采用共享声明的 Global/Pass/Material/Batch 接口 SHALL 有一个权威共享 `.h`，直接供 C++ 消费，并由既有工具导出持久、版本化 `.slangh` 供 shader 消费。相同字段/资源列表 SHALL 产生语义接口、typed logical slots 与 CPU schema；CPU sizeof/offsetof SHALL 仅描述 CPU 表示，不要求等于所有目标 ABI。Global/Pass/Material/Batch SHALL 分别使用 logical sets 0/1/2/3，View SHALL 按需归 Pass。
 
-#### Scenario: Shared source changes
-- **WHEN** a shared declaration or common shader helper changes
-- **THEN** C++ consumers rebuild and CMake refreshes the embedded source; no mirrored ABI header in the source or build tree is consumed
+#### Scenario: C++ 无 shader 生成前置
+- **WHEN** 编译消费共享声明的 C++ target
+- **THEN** 无需执行 Slang、ShaderHeaderTool 或目标平台生成器即可取得 C++ 类型和 CPU schema
 
-#### Scenario: Uniform layout across targets
-- **WHEN** a shared flat uniform block is compiled for SPIR-V, DXIL or MSL
-- **THEN** it uses explicit logical set/binding ConstantBuffer declarations and column-major matrices; expected C++ sizeof/offsetof and reflected target layout must agree
+#### Scenario: 共享源变更
+- **WHEN** 修改权威声明或其导出 helper
+- **THEN** 相关 C++、持久 shader export 与 shader 依赖身份按各自输入更新，不生成供 C++ 消费的镜像 ABI header
+
+#### Scenario: 目标布局不同
+- **WHEN** 同一平坦 uniform 接口的 CPU 与 SPIR-V、DXIL 或 MSL 目标布局不同
+- **THEN** 语义兼容的受支持字段通过 UniformUploadPlan 编码，不因合法 offset/stride 差异而拒绝
 
 ### Requirement: 虚拟 include
-`ShaderCompilerSlang` SHALL resolve quoted and angle includes through `ShaderFileSystem`, including packaged shared headers and their common helper, without requiring disk copies or native host header generators.
+`ShaderCompilerSlang` SHALL resolve quoted and angle includes through `ShaderFileSystem`, including persisted shader-only .slangh exports and their common helper, without requiring disk copies or native host header generators.
 
 #### Scenario: Packaged scene shaders
 - **WHEN** only the built-in scene virtual files are registered, without filesystem search paths
@@ -188,52 +173,60 @@ Each Global/Pass/Batch declaration SHALL have one editable shared `.h` source co
 - **THEN** the source closure hash changes and old cache entries are rejected; quoted includes search the including directory before the logical root
 
 ### Requirement: 类型映射
-Shared declaration helpers SHALL map float/int/uint, float2/float4 and column-major mat4 fields to native C++ types and Slang fields, and preserve bounded float4 array counts/strides. BOOL/FLOAT3 uniform fields (use UINT/FLOAT4), nested structures, storage-buffer declarations, descriptor arrays and unsupported uniform arrays SHALL fail explicitly instead of omitting fields. Resource-only declarations SHALL preserve resource shape and typed slots; describing a resource SHALL NOT imply backend binding support.
 
-#### Scenario: Bounded uniform arrays
-- **WHEN** a Pass declares a float4 array
-- **THEN** native sizeof/offsetof, array count and stride agree with each target's reflection
+共享声明 SHALL 支持 FLOAT/INT/UINT、FLOAT2/FLOAT4、MAT4 和有界 FLOAT4 uniform 数组，保留逻辑字段类型、元素数量及 CPU 表示。目标反射 SHALL 独立描述其实际存储布局和矩阵表示。BOOL/FLOAT3/half、嵌套结构、未支持矩阵或数组、未支持的 storage-buffer 形态与 descriptor arrays SHALL 明确失败，不能遗漏字段。共享声明 SHALL 支持用于 palette 的只读 STRUCTURED/FLOAT4 buffer，并保留访问方式及 element stride。资源-only 声明 SHALL 保留形状及 typed slots，不引入占位 UBO；描述一种资源 SHALL NOT 意味着该执行路径已支持它。
 
-#### Scenario: Resource-only declaration
-- **WHEN** a shared declaration contains textures or samplers without constants
-- **THEN** it exposes resource schema and typed slots without inventing a placeholder uniform block
+#### Scenario: 有界 uniform 数组
+- **WHEN** 共享接口声明 FLOAT4 数组
+- **THEN** CPU 与目标各自记录 count/stride，上传计划按元素编码；合法的 stride 差异不要求两侧原始字节相同
+
+#### Scenario: Resource-only 声明
+- **WHEN** 接口只包含受支持的 texture/sampler 资源
+- **THEN** 产生资源语义与 typed slots，不产生占位常量块
+
+#### Scenario: 不支持字段拒绝
+- **WHEN** 声明包含本期不支持的字段类型
+- **THEN** 导出或验证明确失败，不能发布缺字段的接口或计划
 
 ### Requirement: 三方一致性校验
-Shared C++ types and their expected schema SHALL use native sizeof/offsetof. Target shader reflection SHALL validate resource shapes and actual uniform members, offsets, sizes and strides before binding; the legacy RgBlockDesc bridge SHALL remain derived from the same field list. Tests SHALL verify shared declarations against SPIR-V, DXIL and MSL independently. MSL source/reflection tests SHALL NOT replace native Metal execution validation.
 
-#### Scenario: Layout drift is rejected
-- **WHEN** compiled shader layout disagrees with the shared C++ schema
-- **THEN** binding returns an explicit error before modifying the draw or executing it on the GPU
+系统 SHALL 分别验证共享语义、CPU schema 与每个目标 ABI，验证上传后的目标字节与语义值一致。CPU schema SHALL 使用真实 sizeof/offsetof；目标 layout SHALL 来自请求目标自身；RgBlockDesc 等桥接描述 SHALL 继续从同一字段列表派生，不成为独立事实源。合法布局差异 SHALL 由 UniformUploadPlan 处理，语义冲突或不能编码的布局 SHALL 在修改 draw/执行 GPU 前明确失败。各目标编译反射测试 SHALL NOT 代替对应平台原生执行。
 
-#### Scenario: Cross compilation
-- **WHEN** a target platform C++ build consumes a Pass header
-- **THEN** no host shader generator is required to obtain its types; target layout and execution still require corresponding shader/platform validation
+#### Scenario: 语义漂移被拒绝
+- **WHEN** 目标字段的逻辑类型、数量或含义与共享接口不兼容
+- **THEN** 计划构建或装配明确失败，原 draw 不变
+
+#### Scenario: 不同 packing 保持值一致
+- **WHEN** CPU schema 与目标 ABI 的 offset、数组 stride 或矩阵表示不同且处于支持集合
+- **THEN** 编码后 shader 读到与 CPU 语义相同的值
+
+#### Scenario: 交叉构建
+- **WHEN** 移动目标编译共享 C++ 声明
+- **THEN** 无需执行目标生成器；交叉构建结果与真机 shader 执行证据分开记录
 
 ### Requirement: 统一变体模型
 
-aurora.shader SHALL 提供统一 `Name→value` 变体模型，接口与 cache key 不区分强/弱：
+Aurora SHALL normalize one typed key/value selection from Vertex, Pipeline and Shader-local inputs. Material, custom Batch, Fullscreen and Compute callers SHALL provide the Shader-local domain without requiring a Material object. Each logical key SHALL have one owner and a consistent type/range/default across stages. Unknown, duplicate, wrong-owner and invalid values SHALL fail explicitly. Omitted and explicit defaults SHALL normalize identically. Stage projection SHALL preserve only that stage's declared dependencies.
 
-- `ShaderVariantEntry{Name key, uint32 value}` — key 与 shader 里宏名/spec 常量名一对一
-- `ShaderVariant` — 一次具体变体选择（entries 列表）
+#### Scenario: Pass without Mesh
+- **WHEN** fullscreen or compute supplies Pipeline and Shader-local inputs without Mesh input
+- **THEN** it uses the same selector and validation as a scene request
 
-#### Scenario: 统一表达
-
-- **WHEN** 构造 `ShaderVariant`，含 `{"USE_SHADOWS", 1}` 与 `{"NUM_LIGHTS", 4}`
-- **THEN** 两者是同一类型条目，无强/弱区分
+#### Scenario: Duplicate or cross-domain input
+- **WHEN** providers repeat a key or write a key owned by another domain
+- **THEN** selection fails without order-dependent overriding
 
 ### Requirement: bitmask key 与数据驱动 schema
 
-`ShaderVariantKey` SHALL 为 128bit bitmask（`uint64_t words[2]` + `totalBits`），`totalBits > 128` 时 schema 构建 SHALL 报错。`ShaderVariantSchema` SHALL 数据驱动：source 为 `Name` tag（非 enum），位布局/宽度由 schema 定义。
+ShaderVariantSchema SHALL describe typed logical keys, ownership, defaults and ranges independently of the legacy 128-bit ShaderVariantKey. Full selections SHALL use canonical typed key/value identities and support the schema's checked limits (1024 entries and 32768 logical bits). The retained bitmask helper SHALL reject values or layouts it cannot represent; it SHALL NOT limit production selection to 128 bits or truncate signed values.
 
-#### Scenario: 越界报错
+#### Scenario: Complete selection exceeds the legacy key
+- **WHEN** a valid typed selection needs more than 128 bits
+- **THEN** normalization and artifact lookup preserve every value without requiring the legacy bitmask helper
 
-- **WHEN** schema 的 `totalBits > 128`
-- **THEN** 构建失败（报错），不静默截断
-
-#### Scenario: 多来源 OR 组合
-
-- **WHEN** 不同 source 拥有不相交位区间，各自 `Set` 后 `operator|=`
-- **THEN** 组合结果等于无冲突拼接
+#### Scenario: Legacy helper cannot represent the selection
+- **WHEN** a caller explicitly uses ShaderVariantKey with an unsupported width
+- **THEN** it reports failure instead of truncating the logical selection
 
 ### Requirement: 全局 pipeline 位预留
 
@@ -246,60 +239,52 @@ aurora.shader SHALL 提供统一 `Name→value` 变体模型，接口与 cache k
 
 ### Requirement: 机制由 shader 声明决定
 
-编译层 SHALL 对每个 key 反射解析：命中 `[SpecializationConstant]` 同名声明 → spec 常量；否则 → `-D name=value` 宏。SPIRV/MSL spec 常量 SHALL 走 native specialize（同二进制），DXIL SHALL 折叠。
+Business inputs SHALL NOT select macro/native policy or native IDs. JSON companions SHALL retain logical key metadata and any explicit source-symbol association. The compiler SHALL derive target implementation and native mappings from validated shader declarations and target support. Supported macro or equivalent compile-time paths SHALL consume the selected values; native paths SHALL retain their stage/type/ID mapping. Unsupported conversion SHALL fail rather than becoming a uniform or using a default.
 
-#### Scenario: spec vs 宏解析
+#### Scenario: One key across targets
+- **WHEN** a shader key uses native specialization on a supported target and an explicitly supported compile-time path on another
+- **THEN** the caller supplies the same semantic key/value and both execute that value
 
-- **WHEN** key `"NUM_LIGHTS"` 在 shader 里声明为 `[SpecializationConstant(0)]`，key `"USE_SHADOWS"` 未声明
-- **THEN** 前者走 spec 常量（SPIRV/MSL native、DXIL 折叠），后者走 `-D USE_SHADOWS=...`
+#### Scenario: Unrelated source symbol
+- **WHEN** a source-symbol mapping is missing, ambiguous or semantically incompatible
+- **THEN** compilation reports the key/stage/target rather than guessing from numeric IDs
 
 ### Requirement: 反射是编译产物
 
-反射 SHALL 随编译结果（`{二进制, 反射}`）一起缓存；强变体（宏）SHALL 可改 layout，弱变体（spec 常量）SHALL 不改。反射不构成 cache key 维度。
+每次成功编译 SHALL 原子地产出请求目标的代码与完整目标反射，二者 SHALL 作为同一 artifact 缓存/发布。宏变体 SHALL 可以改变逻辑活跃集合或布局；原生 specialization 参数 SHALL 遵守既有不改变接口布局的约束，并进入相应 pipeline 选择。反射内容摘要 SHALL 用于产物完整性与计划身份，SHALL NOT 循环成为产生自身的编译输入 key。
 
-#### Scenario: 强变体改 layout
+#### Scenario: 宏变体改变活跃资源
+- **WHEN** 宏变体增删一个资源
+- **THEN** 各变体 artifact 分别保存自己的受检活跃集合、代码和目标映射
 
-- **WHEN** 宏 `#if` 增删一个资源绑定
-- **THEN** 不同宏值编译出的反射 layout 可不同（作为编译产物的一部分）
+#### Scenario: 编译或反射失败
+- **WHEN** 代码生成成功但所需反射或 metadata 验证失败
+- **THEN** 编译整体失败，不发布只有代码的可消费结果
 
 ### Requirement: 统一 cache key 与 ShaderCache 接口
 
-`ShaderCacheKey` SHALL 统一（variantHash 不分强/弱）并扩展为 `{sourceHash, variantHash, target, stage, entryHash, layoutFp, schemaFp, toolchainFp}`。`ShaderCache`（Load/Store）接口 SHALL 由 `shader-cache` change 落地为内容寻址存储后端（offline 只读 / local 可写两 root）；`ShaderCompileDesc` 的 `cache` 字段 SHALL 被使用。
+开发/cook 缓存 SHALL 用规范化源码依赖、entry/stage、变体与 schema/interface、TargetEnvironment、实际 ProducerIdentity 计算 CompileKey。ProducerIdentity SHALL 包含参与工具链与反射转换规则身份，生产调用 SHALL NOT 用零占位。ShaderCache SHALL 保持既有 offline/local root 职责；同一请求输入 SHALL 稳定命中，不同目标环境或生产者 SHALL 失效。Shipping SHALL 从发布 index 解析 artifact，不依赖当前安装编译器重算 CompileKey。
 
-#### Scenario: 统一 key
+#### Scenario: 统一且稳定的 key
+- **WHEN** 规范化输入相同，仅构建机器绝对路径不同
+- **THEN** CompileKey 相同
 
-- **WHEN** 同一 source + 同一 variant + 同一 target + 同一 layout/schema/toolchain 编译两次
-- **THEN** 产生相同 `ShaderCacheKey`；`cache == nullptr` 时走直接编译
-
-#### Scenario: key 含工具链与布局
-
-- **WHEN** source / variant / target 相同，但 `toolchainFp` 或 `layoutFp` 不同
-- **THEN** `ShaderCacheKey` 不同，不会命中旧产物
+#### Scenario: 工具链或布局模式变化
+- **WHEN** 编译器、profile、平台下限、影响布局的选项或反射转换规则改变
+- **THEN** CompileKey 改变，旧开发产物不能被当作新请求命中
 
 ### Requirement: Slang 编译通道
 
-`ShaderCompilerSlang` SHALL 经 Slang Compilation API（`IGlobalSession` / `ISession` / `loadModuleFromSourceString` / compose+link / `getEntryPointCode`）把 Slang 源码编译为 SPIRV 与 MSL 双产物。
+ShaderCompilerSlang SHALL 使用既有 Slang Compilation API 直接生成请求的 SPIR-V、MSL 或 DXIL 代码，并仅从该目标的 layout/metadata 生成 ABI 反射。逻辑身份 SHALL 来自同源声明身份通道，SHALL NOT 借另一个目标的 layout、短名字 first-match、资源顺序或生成文本解析恢复。虚拟 include SHALL 继续通过既有 ShaderFileSystem 及持久导出接口解析，保留源码 snapshot 与 owner/dependency 约束。
 
-Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`（`ShaderResource{set, binding, type, name}`）；`space` 映射 set。
+#### Scenario: SPIR-V 直接产物
+- **WHEN** 请求 SPIR-V 的平坦 ConstantBuffer 程序
+- **THEN** 得到非空 SPIR-V、声明逻辑键与该目标实际 ABI，不请求 MSL/DXIL layout
 
-`ShaderCompilerSlang` SHALL 支持虚拟 include：经 `ShaderFileSystem` 解析 shader 中的 `#include`，命中内存中的共享声明源，无需落盘。
-
-#### Scenario: SPIRV 产物
-
-- **WHEN** 编译含 ParameterBlock 的 mini shader 目标 SPIRV
-- **THEN** 产物非空；Slang program layout 反射出各 block 的 set/binding 与源码声明一致
-
-#### Scenario: MSL 产物直出
-
-- **WHEN** 同一 shader 目标 MSL
-- **THEN** 产物为 MSL 文本，不经 SPIRV-Cross；ParameterBlock 翻译为 argument buffer 形态（`constant* ... [[buffer(N)]]`）
-
-#### Scenario: 反射收敛
-
-- **WHEN** Slang 编译完成
-- **THEN** `ShaderBuildResult.reflection.resources` 含各资源的 set/binding/type/name
+#### Scenario: MSL 单目标产物
+- **WHEN** 请求 MSL stage
+- **THEN** session 仅包含所请求的 MSL target，反射保留该目标原生类别/槽位和真实 block 布局，不创建辅助 SPIR-V layout
 
 #### Scenario: 虚拟 include
-
-- **WHEN** shader 源码含 `#include "Generated/GlobalBlock.slang"`
-- **THEN** 编译器经 `ShaderFileSystem` 解析该路径为内存内容并成功编译；该路径不存在于磁盘
+- **WHEN** 程序 include 已注册的 owner `.slangh`
+- **THEN** 经同一受检源码视图解析，无需访问作者 C++ 头或恢复已移除的嵌入 shader 链路

@@ -43,6 +43,7 @@ namespace sky::editor {
         SandboxModule();
         ~SandboxModule() override;
 
+        void RegisterMeta() override;
         bool Init(const sky::StartArguments &args) override;
         void Start() override;
         void Tick(float delta) override;
@@ -162,6 +163,7 @@ namespace sky::editor {
 
         // Hub (project manager) mode.
         bool                                hubMode = false;
+        bool                                quitAfterAssetClose = false;
         std::unique_ptr<sky::ui::UIContext> hubContext;
         ProjectManagerView                 *hubView = nullptr;
         FileBrowserDialog                  *browser = nullptr;

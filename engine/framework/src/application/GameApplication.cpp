@@ -178,7 +178,7 @@ namespace sky {
     bool GameApplication::LoadConfigs()
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
-        modules.emplace("Aurora.Render", ModuleInfo{"Aurora.Render", {}});
+        modules.emplace("Aurora.Render", ModuleInfo{"Aurora.Render", {"Aurora.Metadata"}});
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }

@@ -37,12 +37,12 @@ class ShaderProjectTest(unittest.TestCase):
         self.assertEqual(len(entries), 4)
         self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments), '')
         self.assertEqual(len(entries), 4)
-        self.assertEqual({entry['variant']['MODE'] for entry in entries.values()}, {0, 1})
+        self.assertEqual({entry['variant']['MODE']['value'] for entry in entries.values()}, {0, 1})
 
     def test_invalid_program_and_variant_fail_without_a_default_shader(self):
         entries = {}
         self.assertIn('Missing shader', append_program({'path': ''}, ['vulkan'], {}, entries, self.environments))
-        program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}], 'variants': [{'MODE': -1}]}
+        program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}], 'variants': [{'MODE': -0x80000001}]}
         self.assertIn('Invalid shader variant', append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments))
         self.assertEqual(entries, {})
 
@@ -60,6 +60,41 @@ class ShaderProjectTest(unittest.TestCase):
             self.assertEqual(error, '')
             self.assertEqual({entry['entry'] for entry in usage['entries']}, {'CustomVertex', 'CustomFragment'})
             self.assertEqual(len(usage['entries']), 2)
+
+    def test_typed_options_preserve_signedness_and_boolean_encoding(self):
+        entries = {}
+        program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}],
+                   'variants': [{'SIGNED': -3, 'ON': True, 'UINT': 7}]}
+        self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments), '')
+        values = next(iter(entries.values()))['variant']
+        self.assertEqual(values, {'SIGNED': {'type': 1, 'value': 0xfffffffd}, 'ON': {'type': 2, 'value': 1},
+                                  'UINT': {'type': 0, 'value': 7}})
+        program['variants'] = [{'ON': {'type': 2, 'value': 2}}]
+        self.assertIn('Invalid shader variant', append_program(program, ['vulkan'], {'toon/Main.slang': b''}, {}, self.environments))
+
+    def test_material_options_are_projected_by_stage_and_duplicates_fail(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            (project / 'assets').mkdir()
+            material = {'techniques': [{'program': {'vertex': {'relativePath': 'toon/V.slang', 'entry': 'Main'},
+                         'fragment': {'relativePath': 'toon/F.slang', 'entry': 'Main'}}}],
+                        'properties': [{'name': 'TEXTURED', 'value': {'index': 7, 'value': True}}]}
+            path = project / 'assets/custom.mat'
+            path.write_text(json.dumps(material), encoding='utf-8')
+            available = {'toon/V.slang': b'', 'toon/F.slang': b'', 'toon/V.slang.json': b'{"variants":[]}',
+                         'toon/F.slang.json': b'{"variants":[{"key":"TEXTURED","type":"bool"}]}'}
+            usage, error = project_requirements(project, [], ['vulkan'], ['common'], available, self.environments)
+            self.assertEqual(error, '')
+            self.assertEqual(usage['formatVersion'], 3)
+            requests = {entry['stage']: entry['variant'] for entry in usage['entries']}
+            self.assertEqual(requests[1], {})
+            self.assertEqual(requests[2], {'TEXTURED': {'type': 2, 'value': 1}})
+            material['techniques'][0]['program']['variant'] = {'TEXTURED': False}
+            path.write_text(json.dumps(material), encoding='utf-8')
+            self.assertIn('duplicate', project_requirements(project, [], ['vulkan'], ['common'], available, self.environments)[1])
+            material['techniques'][0]['program']['variant'] = {'TYPO': True}
+            path.write_text(json.dumps(material), encoding='utf-8')
+            self.assertIn('unknown', project_requirements(project, [], ['vulkan'], ['common'], available, self.environments)[1])
 
     def test_platform_is_required_and_target_combinations_are_checked(self):
         for platform, targets in [(None, ['metal']), ('ios', ['vulkan']), ('android', ['metal']), ('linux', ['d3d12'])]:

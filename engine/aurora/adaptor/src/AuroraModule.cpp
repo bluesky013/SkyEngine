@@ -72,11 +72,7 @@ namespace sky::aurora {
         }
     }
 
-    void AuroraModule::RegisterMeta()
-    {
-        // Other Aurora modules share this process-wide reflection registration.
-        AuroraReflection(SerializationContext::Get());
-    }
+
 
     bool AuroraModule::Init(const StartArguments &args)
     {
@@ -89,7 +85,6 @@ namespace sky::aurora {
         if (!provider)
             provider = CreateRendererProvider();
         if (providerOnly) {
-            AuroraReflection(SerializationContext::Get());
             service->Register(*provider);
             return true;
         }
@@ -107,7 +102,6 @@ namespace sky::aurora {
         const auto active = host.Get()->GetInfo();
         LOG_I(TAG, "Renderer host ready: backend=%u epoch=%llu", static_cast<unsigned>(active.backend),
               static_cast<unsigned long long>(active.deviceEpoch));
-        AuroraReflection(SerializationContext::Get());
         service->Register(*provider);
         return true;
     }

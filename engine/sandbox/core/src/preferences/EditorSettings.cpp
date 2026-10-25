@@ -4,7 +4,6 @@
 
 #include <editor/core/preferences/EditorSettings.h>
 
-#include <core/environment/Once.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
@@ -38,11 +37,6 @@ namespace sky::editor {
 
     void RegisterEditorSettings(sky::SerializationContext *context)
     {
-        // Cross-DLL one-shot guard (EditorCore is a static lib linked into each module DLL).
-        if (context == nullptr || !sky::Once::Get()->Run("EditorSettings")) {
-            return;
-        }
-
         context->Register<EditorLanguage>("EditorLanguage").Enum(EditorLanguage::English, "English").Enum(EditorLanguage::Chinese, "Chinese");
         context->Register<EditorTheme>("EditorTheme").Enum(EditorTheme::Dark, "Dark").Enum(EditorTheme::Light, "Light");
 

@@ -79,11 +79,11 @@ namespace {
             if (moduleManager) {
                 // Builder modules register the concrete AssetBuilders; missing DLLs are
                 // skipped by ModuleManager and cooks then fail observably.
-                moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {}});
+                moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {"Aurora.Metadata"}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
-                moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {}});
+                moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});
             }
             return true;
         }

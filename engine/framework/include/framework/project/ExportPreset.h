@@ -85,7 +85,8 @@ namespace sky {
         bool Save(const std::string &path) const;
     };
 
-    // Registers `ExportPreset` with the reflection/serialization context (idempotent).
-    void RegisterExportPresetReflection();
+    // Owned by SerializationContext construction, alongside the framework types.
+    class SerializationContext;
+    void RegisterExportPresetReflection(SerializationContext *context);
 
 } // namespace sky

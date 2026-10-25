@@ -1,3 +1,4 @@
+#include "ReflectionTestEnvironment.h"
 //
 // Created on 2026/10/08.
 //
@@ -20,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -33,15 +35,13 @@ namespace {
         uint32_t maxSize = 0;
     };
 
+    const auto *builderMetadata = sky::editor::test::AddReflectionEnvironment(
+        [] { sky::SerializationContext::Get()->Register<TestCookSettings>("EditorTestCookSettings").Member<&TestCookSettings::maxSize>("maxSize"); });
+
     class TextBuilder : public sky::AssetBuilder {
     public:
         TextBuilder()
         {
-            static bool registered = false;
-            if (!registered) {
-                registered = true;
-                sky::SerializationContext::Get()->Register<TestCookSettings>("EditorTestCookSettings").Member<&TestCookSettings::maxSize>("maxSize");
-            }
         }
 
         const std::vector<std::string> &GetExtensions() const override
@@ -152,6 +152,46 @@ TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
     db->Reset();
     db->SetWorkSpaceFs({});
     fs::remove_all(root);
+}
+
+TEST(EditorAssetCatalog, GeneratedSkinAppearsInPickerWithOwnerAndCannotBeEditedAsSource)
+{
+    std::error_code error;
+    const auto root = std::filesystem::temp_directory_path(error) / ("sky-generated-picker-" + sky::Uuid::Create().ToString());
+    ASSERT_FALSE(error);
+    sky::NativeFileSystemPtr filesystem = new sky::NativeFileSystem(sky::FilePath(root));
+    ASSERT_TRUE(filesystem->WriteFileExclusive("character.model", std::array<uint8_t, 1>{1}));
+    auto *database = sky::AssetDataBase::Get();
+    database->Reset();
+    database->SetWorkSpaceFs(filesystem);
+    const auto source = database->RegisterAsset("character.model", false);
+    ASSERT_NE(source, nullptr);
+    sky::GeneratedAssetManifest generated;
+    const std::array<sky::GeneratedAssetDescriptor, 1> children{{{"binding/body", "AuroraSkin"}}};
+    ASSERT_TRUE(database->UpdateGeneratedProducts(source->uuid, children, {{"skin", "binding/body"}}, generated));
+    auto *catalog = EditorAssetCatalog::Get();
+    catalog->Refresh();
+    const auto items = catalog->Gather("AuroraSkin");
+    ASSERT_EQ(items.size(), 1U);
+    EXPECT_EQ(items[0].uuid, generated.records[0].uuid);
+    EXPECT_EQ(items[0].sourceOwner, source->uuid);
+    EXPECT_TRUE(items[0].generated);
+    EXPECT_FALSE(items[0].writable);
+    std::string name;
+    ASSERT_TRUE(catalog->GetName(items[0].uuid, name));
+    EXPECT_EQ(name, "binding/body");
+    EditorAssetItem selected;
+    ASSERT_TRUE(catalog->Find(items[0].uuid, selected));
+    EXPECT_EQ(selected.type, "AuroraSkin");
+    ASSERT_TRUE(database->UpdateGeneratedProducts(source->uuid, {}, {}, generated));
+    catalog->Refresh();
+    EXPECT_TRUE(catalog->Gather("AuroraSkin").empty());
+    EXPECT_FALSE(catalog->Find(items[0].uuid, selected));
+    database->Reset();
+    database->SetWorkSpaceFs({});
+    catalog->Refresh();
+    std::filesystem::remove_all(root, error);
+    EXPECT_FALSE(error);
 }
 
 namespace {

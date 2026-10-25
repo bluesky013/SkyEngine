@@ -25,6 +25,7 @@ namespace sky::editor {
         EditorExtensionHost &operator=(const EditorExtensionHost &) = delete;
 
         void Add(EditorExtensionPtr extension);
+        void Add(EditorExtensionRegistration extension);
         void RegisterAll();
         void UnregisterAll();
 
@@ -39,13 +40,13 @@ namespace sky::editor {
         const EditorExtension *Find(const std::string &name) const;
 
         // The owned extensions, e.g. so the host can collect their contributed icon roots.
-        const std::vector<EditorExtensionPtr> &GetExtensions() const
+        const std::vector<EditorExtensionRegistration> &GetExtensions() const
         {
             return extensions;
         }
 
     private:
-        std::vector<EditorExtensionPtr> extensions;
+        std::vector<EditorExtensionRegistration> extensions;
         bool                            registered = false;
     };
 

@@ -46,7 +46,6 @@ if (SKY_BUILD_TEST)
     sky_add_test(TARGET Aurora.CookTest
         SOURCES
             ${TEST_FILES}
-            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
         LIBS

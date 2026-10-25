@@ -1,25 +1,5 @@
 ## MODIFIED Requirements
 
-### Requirement: FrozenFrameGraph 编译与执行生命周期
-
-RDG SHALL 保留 Setup -> Compile -> Execute 的语义阶段，具体入口为公共声明图 Freeze、对应后端完整 Compile、对应 DeviceFrameContext Dispatch/收齐编码结果；Queue Submit SHALL 为显式后续步骤。公共层 SHALL 提供 IR、诊断和可复用纯分析，不固定所有后端的 native pass、编码任务或 command buffer 数量。Compile SHALL 不执行 acquire、present、队列提交或编码 jobs。
-
-#### Scenario: 由活动后端编译
-- **WHEN** 同一份合法声明图交给已支持新协议的后端 FrameContext
-- **THEN** 由相应后端生成匹配的 compiled plan，满足相同逻辑语义但允许不同 native scopes、编码任务和命令组合；尚未支持的后端明确返回 Unsupported
-
-#### Scenario: dispatch 只读编译产物
-- **WHEN** 编译结果进入 Dispatch
-- **THEN** 编码任务只读其已冻结 payload/bindings 与显式前置任务发布的快照，不读取可变 setup graph、Scene ECS 或宿主对象
-
-#### Scenario: Freeze 封口与保活
-- **WHEN** builder 已 Freeze，调用方随后销毁 builder 和外部输入引用
-- **THEN** builder 拒绝追加或修改声明，冻结图拥有 IR 和所需输入；编译/录制/提交依次保活资源，GPU 完成前不得覆写其仍在使用的内容
-
-#### Scenario: 帧末状态转换
-- **WHEN** 输出声明了最终状态
-- **THEN** 后端在消费者完成后的合法 native 边界发出对应同步，候选最终状态仅在提交接受后进入账本
-
 ### Requirement: Resource declaration: Import vs Create
 
 FrameGraph SHALL 区分引用计数外部资源、borrowed swapchain output 与 transient 资源。普通 ImagePtr/BufferPtr 导入 SHALL 保留引用；swapchain image SHALL 由 swapchain 唯一持有，通过 borrowed lease 导入，不得构造会删除该 image 的 CounterPtr。CreateTransient SHALL 声明由 device transient pool 分配的资源。资源名称 SHALL 使用 core::Name。提交使用的资源引用/leases SHALL 转交 FrameSlot 保活至完成，不能仅依赖 CPU graph 的生命周期。
@@ -100,6 +80,56 @@ Renderer feature、scene 和资源目录的逻辑名称 SHALL 使用 `sky::Name`
 - **WHEN** 同一 feature 在不同帧生成相同名称的资源
 - **THEN** 逻辑名称可以相等，图内 handle 仍按不同 graph identity 校验，名称不授权跨图访问
 
+### Requirement: Global ResourceGroup 生效
+
+每个 raster draw 或 compute pass SHALL 显式携带其活跃 set 0 输入；Global 值属于 pipeline 的当帧共享快照，相机属于消费方 Pass set 1。Compile SHALL 在目标 shader/layout 下解析实际绑定，编码 SHALL 在 Pipeline 绑定后使用它们。不同 View/FrameSlot 的可变常量和 descriptor SHALL 独立，未完成 slot 不得覆写。
+
+#### Scenario: Global 与 Pass 独立
+- **WHEN** 主相机与 shadow view 共享 frame time，但相机参数不同
+- **THEN** set 0 可共享不可变 frame 值，各自 set 1 保持独立相机快照
+
+#### Scenario: required Global 输入缺失
+- **WHEN** 活跃 shader 要求 set 0 但声明未提供
+- **THEN** 编译拒绝，不从旧 graph-default ResourceGroup 隐式补齐
+
+### Requirement: Handle 生命周期分析
+
+Compile 期 SHALL 对每个 handle 计算 `(firstUsePass, lastUsePass)` 区间。该区间用于：
+- Transient pool alias 决策
+- 推导 export 资源（lastUsePass 是终点的 import-原点资源）的最终 transition
+- 裁剪后的 backing 复用；跨帧归还仍受 GPU lease 退休约束
+
+Read pass / Write pass / Attachment pass 都计入使用。
+
+#### Scenario: 单一 use pass
+- **WHEN** Texture T 仅被 Pass A 写
+- **THEN** firstUsePass = lastUsePass = A.index；同图后续不重叠区间可复用兼容 backing；跨图只有 GPU 安全退休后可归还
+
+#### Scenario: 跨多 pass 使用
+- **WHEN** Texture T 被 Pass A 写、Pass C 读、Pass D 读
+- **THEN** firstUsePass = A.index；lastUsePass = D.index；T 在 [A, D] 区间内被池占用
+
+
+### Requirement: FrozenFrameGraph 编译与执行生命周期
+
+RDG SHALL 保留 Setup -> Compile -> Execute 的语义阶段，具体入口为公共声明图 Freeze、对应后端完整 Compile、对应 DeviceFrameContext Dispatch/收齐编码结果；Queue Submit SHALL 为显式后续步骤。公共层 SHALL 提供 IR、诊断和可复用纯分析，不固定所有后端的 native pass、编码任务或 command buffer 数量。Compile SHALL 不执行 acquire、present、队列提交或编码 jobs。
+
+#### Scenario: 由活动后端编译
+- **WHEN** 同一份合法声明图交给已支持新协议的后端 FrameContext
+- **THEN** 由相应后端生成匹配的 compiled plan，满足相同逻辑语义但允许不同 native scopes、编码任务和命令组合；尚未支持的后端明确返回 Unsupported
+
+#### Scenario: dispatch 只读编译产物
+- **WHEN** 编译结果进入 Dispatch
+- **THEN** 编码任务只读其已冻结 payload/bindings 与显式前置任务发布的快照，不读取可变 setup graph、Scene ECS 或宿主对象
+
+#### Scenario: Freeze 封口与保活
+- **WHEN** builder 已 Freeze，调用方随后销毁 builder 和外部输入引用
+- **THEN** builder 拒绝追加或修改声明，冻结图拥有 IR 和所需输入；编译/录制/提交依次保活资源，GPU 完成前不得覆写其仍在使用的内容
+
+#### Scenario: 帧末状态转换
+- **WHEN** 输出声明了最终状态
+- **THEN** 后端在消费者完成后的合法 native 边界发出对应同步，候选最终状态仅在提交接受后进入账本
+
 ### Requirement: 冻结图的类型化 pass payload
 
 冻结图 SHALL 持有 BufferCopyPass、BufferImageCopyPass、FrameRasterPass、FrameComputePass 与 FrameCustomPass 的类型化声明；fullscreen 使用生成顶点的 FrameRasterPass，presentation 由输出调度器管理。后端 SHALL 生成自己的 native pass/encode plans，保留每个 draw/pass 的实际绑定和输入所有权；不提供旧 CompiledGraph 或可变 setup graph 的执行旁路。
@@ -154,7 +184,7 @@ Renderer feature、scene 和资源目录的逻辑名称 SHALL 使用 `sky::Name`
 
 ### Requirement: Raster pass execute 由冻结 draw 驱动
 
-FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index type/offset、draw args 与 set/binding 资源。后端 SHALL 在 Compile 生成匹配的 pipeline 和不可变 bindings；编码时先绑定 Pipeline，再绑定实际活跃的 set 0/1/2（Global/Pass/Batch）。切换 layout 后 SHALL 重新绑定所需 sets。动态偏移 SHALL 来自对应声明；几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
+FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index type/offset、draw args 与 set/binding 资源。后端 SHALL 在 Compile 生成匹配的 pipeline 和不可变 bindings；编码时先绑定 Pipeline，再绑定实际活跃的 set 0/1/2/3（Global/Pass/Material/Batch）。切换 layout 后 SHALL 重新绑定所需 sets。动态偏移 SHALL 来自对应声明；几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
 
 #### Scenario: Raster draws 驱动绘制
 - **WHEN** 冻结 draw 具有有效 shader 与 Batch bindings
@@ -220,18 +250,6 @@ FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index t
 - **WHEN** program 的 vertex input 为空，item 使用 shader 生成顶点且 draw args 有效
 - **THEN** 可以不绑定 vertex buffer；缺少必需 vertex input 的其它 item 应报告无效并跳过
 
-### Requirement: Global ResourceGroup 生效
-
-每个 raster draw 或 compute pass SHALL 显式携带其活跃 set 0 输入；Global 值属于 pipeline 的当帧共享快照，相机属于消费方 Pass set 1。Compile SHALL 在目标 shader/layout 下解析实际绑定，编码 SHALL 在 Pipeline 绑定后使用它们。不同 View/FrameSlot 的可变常量和 descriptor SHALL 独立，未完成 slot 不得覆写。
-
-#### Scenario: Global 与 Pass 独立
-- **WHEN** 主相机与 shadow view 共享 frame time，但相机参数不同
-- **THEN** set 0 可共享不可变 frame 值，各自 set 1 保持独立相机快照
-
-#### Scenario: required Global 输入缺失
-- **WHEN** 活跃 shader 要求 set 0 但声明未提供
-- **THEN** 编译拒绝，不从旧 graph-default ResourceGroup 隐式补齐
-
 ### Requirement: 已获取的输出 lease 导入
 
 RDG SHALL 导入调度器已 acquire 的 viewport output lease，携带 image、extent、format、generation 和状态。Compile SHALL NOT 调用 Acquire 或 Present。只有有效输出可成为 culling 根；失效 lease SHALL 被拒绝，相关分支不得执行。
@@ -259,23 +277,6 @@ FrameGraph SHALL 使用独立的 GraphImageHandle 和 GraphBufferHandle，包含
 #### Scenario: 冻结后保留身份
 - **WHEN** builder Freeze 后被销毁
 - **THEN** FrozenFrameGraph 保留原 identity 和资源声明，后端计划使用同一图的 handles
-
-### Requirement: Handle 生命周期分析
-
-Compile 期 SHALL 对每个 handle 计算 `(firstUsePass, lastUsePass)` 区间。该区间用于：
-- Transient pool alias 决策
-- 推导 export 资源（lastUsePass 是终点的 import-原点资源）的最终 transition
-- 裁剪后的 backing 复用；跨帧归还仍受 GPU lease 退休约束
-
-Read pass / Write pass / Attachment pass 都计入使用。
-
-#### Scenario: 单一 use pass
-- **WHEN** Texture T 仅被 Pass A 写
-- **THEN** firstUsePass = lastUsePass = A.index；同图后续不重叠区间可复用兼容 backing；跨图只有 GPU 安全退休后可归还
-
-#### Scenario: 跨多 pass 使用
-- **WHEN** Texture T 被 Pass A 写、Pass C 读、Pass D 读
-- **THEN** firstUsePass = A.index；lastUsePass = D.index；T 在 [A, D] 区间内被池占用
 
 ### Requirement: Handle equality 包含 graph identity
 

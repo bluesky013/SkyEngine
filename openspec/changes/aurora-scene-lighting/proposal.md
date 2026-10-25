@@ -7,7 +7,7 @@ World objects now reach the shared renderer, but the default scene pass only app
 - Add validated depth sampling and depth-only raster attachments, followed by HDR color targets, to the existing frozen graph and backend compilers.
 - Add a bounded forward-lighting scene pass and a directional shadow pass, including casters outside the camera frustum.
 - Add explicit environment input bindings, diffuse/specular IBL and a final tone mapping pass with neutral defaults when inputs are absent.
-- Preserve Global set 0 / Pass set 1 (View optional) / Batch set 2. Pass declarations are shared `.h` sources consumed directly by C++ and Slang; CMake only embeds source text.
+- Preserve Global set 0 / Pass set 1 (View optional) / Material set 2 / Batch set 3. Pass declarations are authoritative `.h` sources consumed by C++; shaders consume persisted `.slangh` exports and target ABI is encoded through UniformUploadPlan.
 - Verify graph rejection paths and actual pixels independently in Vulkan dynamic rendering, Vulkan render passes and DX12. Metal implementation and unexecuted native validation are recorded separately.
 
 ## Capabilities

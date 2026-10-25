@@ -1,6 +1,7 @@
 #include <editor/render/EditorRenderer.h>
 
 #include "EditorFramePacer.h"
+#include "EditorPreviewSessions.h"
 #include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <editor/render/UiSnapshotProducer.h>
 #include <framework/window/NativeWindow.h>

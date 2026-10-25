@@ -2,7 +2,9 @@
   "modules": [
     {
       "name": "Aurora.Render",
-      "dependencies": []
+      "dependencies": [
+        "Aurora.Metadata"
+      ]
     },
     {
       "name": "Aurora.ShaderCompiler",
@@ -10,15 +12,21 @@
     },
     {
       "name": "Aurora.Cook",
-      "dependencies": []
+      "dependencies": [
+        "Aurora.Metadata"
+      ]
     },
     {
       "name": "Aurora.Render.Editor",
-      "dependencies": []
+      "dependencies": [
+        "Aurora.Metadata"
+      ]
     },
     {
       "name": "Content.Views",
-      "dependencies": []
+      "dependencies": [
+        "Content.Metadata"
+      ]
     },
     {
       "name": "SandboxModule",

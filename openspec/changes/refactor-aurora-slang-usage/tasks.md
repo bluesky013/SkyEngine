@@ -1,6 +1,6 @@
 # Slang usage remediation tasks
 
-Status: implementation started. Win32 verified: Slang v2026.19, static Slang package, ShaderModule boundary, session.detach removed; ShaderTest 57/57, PipelineTest 44/44, CoreTest 90 passed/1 skipped, AdaptorTest 45/45, UIShaderTest 9/9; full build passes. Other platforms and Phase 2.1-2.9/3/4/5/6 pending. Depends on `refactor-aurora-target-shader-artifacts` (per-target ABI, UniformUploadPlan, artifact/cache) and `refactor-aurora-pipeline-resource-ownership`.
+Status: implementation started. Win32 verified: Slang v2026.19, static Slang package, ShaderModule boundary, session.detach removed; ShaderTest 57/57, PipelineTest 44/44, CoreTest 90 passed/1 skipped, AdaptorTest 45/45, UIShaderTest 9/9; full build passes. Other platforms and compiler reuse remain pending. Phase 3 was rebased on 2026-10-26 to integrate the already-confirmed typed V/P/S contract; the old macro/runtime category and DX12 root-constant proposal is withdrawn. Depends on `refactor-aurora-target-shader-artifacts` (per-target ABI, UniformUploadPlan, artifact/cache) and `refactor-aurora-pipeline-resource-ownership`.
 
 ## 1. Slang dependency and teardown safety
 
@@ -15,7 +15,7 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 
 - [ ] 2.1 Add `SlangCompilerContext` owning `IGlobalSession`, `SessionPool`, `ModuleCache`, and shared `ShaderCache` integration; contexts live inside `Aurora.ShaderCompiler`.
 - [ ] 2.2 Add a dedicated shader compile pool (module-hosted or host-owned) on top of existing `ShaderCompileTask` / `ShaderCompileFuture` / `sky::ThreadPool`; worker calls into ShaderModule, which uses a thread-local/per-worker `SlangCompilerContext`; no Slang object shared across workers and no render-pool use.
-- [ ] 2.3 Session key: target/platform + environment/options + search paths/fileSystem + platform macros; shader-level macro variants and runtime-specialized values excluded.
+- [ ] 2.3 Session key: target/platform + environment/options + search paths/fileSystem + platform macros; shader-level macro variants and native-only lowering values excluded; code-affecting values must remain in module identity.
 - [ ] 2.4 Decouple `ShaderCompileTask`/`ShaderCompileFuture` from a fixed compiler pointer; obtain the worker-local compiler/context at execution. Refactor `ShaderCompilerSlang::Compile` to acquire/reuse a worker-local session, load module, codegen, and return; remove per-call session creation.
 - [ ] 2.5 Replace the single `gCompilerMutex` serialization with per-worker contexts; make DXC/library initialization thread-safe (`Once`/explicit init); verify downstream codegen concurrency and add per-worker/mutex fallback if needed.
 - [ ] 2.6 Make artifact/cache writes thread-safe and order-independent; shared blobs only, not Slang objects.
@@ -31,15 +31,15 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 
 ## 3. Unified variant interface
 
-- [ ] 3.1 Extend `ShaderVariantEntry` with `CompileTimeMacro | RuntimeSpecialized`; keep Macro as default for compatibility.
-- [ ] 3.2 Keep `ShaderVariantSchema` bitmask macro-only; add a separate specialization descriptor for runtime variants (name/type/default/spec id or root constant range).
-- [ ] 3.3 Unified setting API: callers set `Name→value` through `ShaderVariant` (compile-time) and `ShaderVariantValues` (runtime); no Vulkan/DXIL/Metal-specific spec/root-constant choice.
+- [ ] 3.1 Integrate the existing typed V/P/S selector into the future worker-local compiler path; do not add a caller-facing lowering category.
+- [ ] 3.2 Retain complete typed schema/selection identities independently of the legacy 128-bit helper; preserve per-stage native metadata.
+- [ ] 3.3 Use the same key/value request for scene, custom Batch, fullscreen and compute; preserve ownership/type/default validation.
 - [ ] 3.4 Macro variants: platform macros fixed at session creation; other macros canonicalized into a source prelude (`#define NAME VALUE`), included in sourceHash; give each prelude a unique module identity (module name/path hash) to avoid session module-cache collisions; session pool groups only by target/platform/environment; reject invalid/colliding macro names; document that session reuse does not imply module reuse across macro sets.
-- [ ] 3.5 Runtime specialized variants: add `TargetEnvironment` capability for specialization constants/root constants; implement spec-constant path for SPIRV/MSL and root constants for DXIL/D3D12; other backends explicit Unsupported. Do not add a Vulkan push-constant path. Add capability detection, cache-key participation, and tests.
-- [ ] 3.6 Add generated variant declaration/accessor (from schema or cook) so shader source does not branch on backend; document the generation tool placement.
-- [ ] 3.7 Ensure artifact identity excludes runtime values but includes compile-time macro values and the composed source prelude; update `ShaderCacheKey`/`ShaderUsage`.
-- [ ] 3.8 Add pipeline/material binding for runtime variant values: spec constants at PSO creation; D3D12 root constants through the pipeline/root signature path; no variant cbuffer.
-- [ ] 3.9 Tests: macro variants share a session via source prelude, platform macro fixed, sourceHash changes with macros, spec path, D3D12 root constants, unsupported backend explicit error, no silent structural/runtime downgrade.
+- [ ] 3.5 Preserve target-derived lowering: supported SPIRV/MSL native paths and DXIL selected compile values; verify capabilities and stage mappings through the new contexts.
+- [ ] 3.6 Preserve validated JSON source-symbol associations and declaration metadata when introducing source preludes; do not add another shader declaration DSL.
+- [ ] 3.7 Preserve complete selection, stage-code and executable identities through module reuse; native code sharing must not erase selected values.
+- [ ] 3.8 Reuse existing stage-scoped specialization/compile application; verify each worker-produced artifact executes its selected values.
+- [ ] 3.9 Test session/module reuse, macro/prelude invalidation, per-stage native values, DXIL nondefault compile values, unsupported-shape rejection and deterministic outputs.
 
 ## 4. Cbuffer and SSBO layout policy
 
@@ -52,9 +52,9 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 - [ ] 4.7 Add `ValidateStorageLayout(cpu, native)` exact validation; fail compile/cook on mismatch.
 - [ ] 4.8 Add CPU→GPU→CPU SSBO readback tests; include `ByteAddressBuffer` manual offsets.
 - [ ] 4.9 Ensure cbuffer upload plan and SSBO exact validation are separate code paths; no global compiler flag silently changing layouts.
-- [ ] 4.10 Route D3D12 runtime-specialized variants through root constants; validate root signature DWORD budget and pipeline binding; do not add a variant cbuffer.
+- [ ] 4.10 Verify DXIL selected compile values coexist with per-target uniform and exact storage-layout validation; no root-constant/uniform variant fallback.
 - [ ] 4.11 Run the SSBO layout matrix across SPIRV/MSL/DXIL with 16-byte default layout and `ByteAddressBuffer`; record reflection + GPU readback evidence; confirm `Std430`/`CData` are rejected on Metal/DXIL.
-- [ ] 4.12 Validate D3D12 root constants root signature/pipeline binding, `D3D12_MAX_ROOT_COST=64` cost budget (root constants 1 DWORD, descriptor table 1, root descriptor 2), and multi-draw/indirect behavior.
+- [ ] 4.12 Run multi-draw/indirect regression for independent selected values after compiler-pool integration; preserve executable identity and binding snapshots.
 
 ## 5. Precompiled modules and offline cook
 
@@ -62,17 +62,17 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 - [ ] 5.2 Use `UseUpToDateBinaryModule`; cook codegen and write artifacts/index through existing cache writer.
 - [ ] 5.3 Shipping mode: no source, no Slang/DXC; explicit failure when artifact missing/incompatible.
 - [ ] 5.4 Development mode: compile on demand through the same compiler pool; no separate legacy path.
-- [ ] 5.5 Update `ShaderUsage`/cook matrix to record macro sets, target/environment, runtime variant defaults/representation; verify reproducibility; bump cache/usage versions and recook products.
+- [ ] 5.5 Keep complete typed ShaderUsage selections and per-stage lowering through precompiled modules; version formats only when encoding changes and recook explicitly.
 - [ ] 5.6 Re-enable/execute `ShaderDistribution.RelocatedProductsResolveWithoutSourcesOrCompiler` and equivalent platform tests.
 
 ## 6. Platform validation
 
-- [ ] 6.1 Windows: DXIL/D3D12 + Vulkan/SPIRV compile, static-Slang ShaderModule linkage/CRT match, #11614 regression, thread pool, DXC/codegen concurrency, session teardown, cbuffer upload, SSBO readback, spec/root-constant variant paths.
+- [ ] 6.1 Windows: DXIL/D3D12 + Vulkan/SPIRV compile, static-Slang ShaderModule linkage/CRT match, #11614 regression, thread pool, DXC/codegen concurrency, session teardown, cbuffer upload, SSBO readback, native/compile target lowering paths.
 - [ ] 6.2 macOS: MSL/Metal, spec constant support, thread pool, cbuffer upload, SSBO readback; no DXIL.
 - [ ] 6.3 iOS: static Slang, MSL, precompiled module, device memory/compile time, thread pool.
 - [ ] 6.4 Android: SPIRV/Vulkan, cook-time macro matrix, SSBO read-only/RW readback, shipping without compiler, thread pool.
 - [ ] 6.5 Linux/Vulkan: offscreen compile/readback where host support exists; record unsupported host prerequisites.
-- [ ] 6.6 Record compile-time/memory benchmarks per platform, per worker count, per variant category, and ShaderModule binary size.
+- [ ] 6.6 Record compile-time/memory benchmarks per platform, per worker count, per target lowering path, and ShaderModule binary size.
 
 ## 7. Cleanup and documentation
 

@@ -4,12 +4,70 @@
 
 #include <framework/application/ModuleManager.h>
 
-#include <core/environment/Once.h>
+#include <core/environment/Singleton.h>
 #include <core/logger/Logger.h>
+#include <framework/serialization/SerializationContext.h>
 
 static const char *TAG = "ModuleManager";
 
 namespace sky {
+
+    namespace {
+        class CurrentManager : public Singleton<CurrentManager> {
+        public:
+            ModuleManager *value = nullptr;
+
+        private:
+            friend class Singleton<CurrentManager>;
+            CurrentManager() = default;
+        };
+
+        struct ModuleDefinition {
+            ModuleDefinition(ModuleInfo info, IModule &module, std::shared_ptr<DynamicModule> code) : info(std::move(info)), library(code)
+            {
+                auto *context = SerializationContext::Get();
+                context->BeginModuleCode(std::move(code));
+                module.RegisterMeta();
+                metadataCode = context->EndModuleCode();
+            }
+            ModuleInfo                   info;
+            std::weak_ptr<DynamicModule> library;
+            std::shared_ptr<const void>  metadataCode;
+        };
+
+        class ModuleDefinitions : public Singleton<ModuleDefinitions> {
+        public:
+            std::shared_ptr<DynamicModule> FindLibrary(const std::string &name) const
+            {
+                const auto found = definitions.find(name);
+                return found == definitions.end() ? nullptr : found->second.library.lock();
+            }
+
+            const ModuleDefinition &Resolve(ModuleInfo info, IModule &module, std::shared_ptr<DynamicModule> code)
+            {
+                if (const auto found = definitions.find(info.name); found != definitions.end()) {
+                    found->second.library = code;
+                    return found->second;
+                }
+                const auto name              = info.name;
+                const auto [entry, inserted] = definitions.try_emplace(name, std::move(info), module, std::move(code));
+                SKY_ASSERT(inserted)
+                return entry->second;
+            }
+
+        private:
+            friend class Singleton<ModuleDefinitions>;
+            ModuleDefinitions() = default;
+            std::unordered_map<std::string, ModuleDefinition> definitions;
+        };
+    } // namespace
+
+    ModuleManager *ModuleManager::Current()
+    {
+        return CurrentManager::Get()->value;
+    }
+
+
 
     using ModuleStart = IModule *(*)(Environment *);
     using ModuleStop  = void (*)();
@@ -50,15 +108,6 @@ namespace sky {
     {
         const auto iter = modules.find(name);
         return iter == modules.end() ? nullptr : iter->second.get();
-    }
-
-    // Metadata survives unload; reloading a module must not register its shared types again.
-    static void RegisterMetaOnce(IModule &module, const std::string &name)
-    {
-        const std::string key = "ModuleMeta:" + name;
-        if (Once::Get()->Run(key.c_str())) {
-            module.RegisterMeta();
-        }
     }
 
     void ModuleManager::Tick(float time)
@@ -113,6 +162,7 @@ namespace sky {
     }
     bool ModuleManager::LoadModules(const StartArguments &args)
     {
+        CurrentManager::Get()->value = this;
         unloading      = false;
         bool succeeded = true;
         WalkModules(
@@ -132,7 +182,7 @@ namespace sky {
                 // Statically bundled (compiled-in registration): no dlopen, just Init.
                 if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
                     LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
-                    RegisterMetaOnce(*staticIt->second, moduleName);
+                    ModuleDefinitions::Get()->Resolve({moduleName, dependencies[moduleName]}, *staticIt->second, {});
                     if (!staticIt->second->Init(args)) {
                         succeeded = false;
                         LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
@@ -144,15 +194,17 @@ namespace sky {
                 }
 
                 auto attached = std::make_shared<bool>(false);
-                auto dynModule =
-                    std::shared_ptr<DynamicModule>(new DynamicModule(moduleName), [attached, required = std::move(required)](DynamicModule *library) {
-                        if (*attached)
-                            if (auto stop = library->GetAddress<ModuleStop>("StopModule"))
-                                stop();
-                        delete library;
-                    });
+                auto dynModule = ModuleDefinitions::Get()->FindLibrary(moduleName);
+                if (!dynModule)
+                    dynModule = std::shared_ptr<DynamicModule>(new DynamicModule(moduleName),
+                                                               [attached, required = std::move(required)](DynamicModule *library) {
+                                                                   if (*attached)
+                                                                       if (auto stop = library->GetAddress<ModuleStop>("StopModule"))
+                                                                           stop();
+                                                                   delete library;
+                                                               });
                 LOG_I(TAG, "Load Module : %s", moduleName.c_str());
-                if (dynModule->Load()) {
+                if (dynModule->IsLoaded() || dynModule->Load()) {
                     auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
                     if (startFn == nullptr) {
                         succeeded = false;
@@ -163,7 +215,7 @@ namespace sky {
                     auto module         = std::unique_ptr<IModule>(startFn(Environment::Get()));
                     *attached           = true;
                     if (module)
-                        RegisterMetaOnce(*module, moduleName);
+                        ModuleDefinitions::Get()->Resolve({moduleName, dependencies[moduleName]}, *module, dynModule);
                     if (module == nullptr || !module->Init(args)) {
                         succeeded = false;
                         if (module) {
@@ -206,6 +258,8 @@ namespace sky {
 
     void ModuleManager::UnLoadModules()
     {
+        if (CurrentManager::Get()->value == this)
+            CurrentManager::Get()->value = nullptr;
         if (sortedContainer.empty()) {
             TopoSort();
         }

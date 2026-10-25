@@ -84,7 +84,6 @@ TEST(ExportPresetTest, JsonRoundTrip)
 
 TEST(ExportPresetTest, ReflectionRegistered)
 {
-    sky::RegisterExportPresetReflection();
     const sky::TypeNode *node = sky::GetTypeNode(sky::TypeInfo<sky::ExportPreset>::RegisteredId());
     EXPECT_NE(node, nullptr);
     const sky::TypeNode *document = sky::GetTypeNode(sky::TypeInfo<sky::ExportPresets>::RegisteredId());
@@ -110,7 +109,6 @@ TEST(ExportPresetTest, CliSchemaKeys)
     }
     ASSERT_FALSE(manifestKeys.empty());
 
-    sky::RegisterExportPresetReflection();
     const sky::TypeNode *node = sky::GetTypeNode(sky::TypeInfo<sky::ExportPreset>::RegisteredId());
     ASSERT_NE(node, nullptr);
     std::set<std::string> reflectionKeys;
@@ -262,7 +260,6 @@ TEST(ExportPresetTest, ShaderEnvironmentsRoundTripTypedOverridesAndCliObjectShap
     ASSERT_EQ(reloaded.presets.size(), presets.presets.size());
     for (size_t i = 0; i < presets.presets.size(); ++i)
         EXPECT_EQ(reloaded.presets[i].shaderEnvironments, presets.presets[i].shaderEnvironments);
-    sky::RegisterExportPresetReflection();
     const auto *node = sky::GetTypeNode(sky::TypeInfo<sky::ExportPresetShaderEnvironment>::RegisteredId());
     ASSERT_TRUE(node);
     EXPECT_EQ(node->members.size(), 7u);

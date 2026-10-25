@@ -113,7 +113,16 @@ namespace sky::aurora {
         uint32_t             count                                         = 1;
     };
 
+    struct ShaderVertexInput {
+        std::string semantic;
+        uint32_t semanticIndex = 0, location = 0;
+        ShaderScalarType scalarType = ShaderScalarType::UNKNOWN;
+        uint32_t components = 0;
+        bool operator==(const ShaderVertexInput &) const = default;
+    };
+
     struct ShaderReflection {
+        std::vector<ShaderVertexInput>   vertexInputs;
         std::vector<ShaderResource>      resources;
         std::vector<ShaderNativeBinding> nativeBindings;
         std::vector<ShaderBlockLayout>   blocks;

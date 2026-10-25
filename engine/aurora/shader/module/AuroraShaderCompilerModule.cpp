@@ -6,7 +6,10 @@
 
 #include <aurora/shader/IShaderCompiler.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
+#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
 
 #include <memory>
 
@@ -21,19 +24,28 @@ namespace sky::aurora {
         void Shutdown() override;
 
     private:
-        std::unique_ptr<ShaderCompilerSlang> mCompiler;
+        std::shared_ptr<ShaderCompilerSlang> mCompiler;
     };
 
     bool AuroraShaderCompilerModule::Init(const StartArguments &args)
     {
-        mCompiler = std::make_unique<ShaderCompilerSlang>();
-        ShaderCompilerFactory::Get().Register(mCompiler.get());
-        return true;
+        if (mCompiler)
+            return true;
+        const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
+        auto       *modules = system ? system->GetModuleManager() : ModuleManager::Current();
+        auto        lease   = modules ? modules->RetainModule("Aurora.ShaderCompiler") : nullptr;
+        if (!lease)
+            return false;
+        mCompiler = std::make_shared<ShaderCompilerSlang>();
+        if (ShaderCompilerFactory::Get().RegisterOwned(mCompiler, std::move(lease)))
+            return true;
+        mCompiler.reset();
+        return false;
     }
 
     void AuroraShaderCompilerModule::Shutdown()
     {
-        ShaderCompilerFactory::Get().Register(nullptr);
+        ShaderCompilerFactory::Get().Unregister(mCompiler.get());
         mCompiler.reset();
     }
 

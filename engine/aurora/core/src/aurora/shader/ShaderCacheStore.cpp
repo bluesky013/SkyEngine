@@ -74,6 +74,7 @@ namespace sky::aurora {
             for (const auto &variant : variants) {
                 hash = MixString(hash, variant.name);
                 hash = HashMixU64(hash, variant.value);
+                hash = HashMixU64(hash, static_cast<uint32_t>(variant.type));
             }
             return hash;
         }
@@ -259,9 +260,23 @@ namespace sky::aurora {
         entry->schema   = schema;
         entry->schemaFp = schemaFp;
         ShaderCacheArtifact record{CompileHash(key), result.artifactId, key, result.identity, deps};
+        auto selection = result.selection;
+        if (selection.empty() && !schema.entries.empty()) {
+            ShaderVariant selected;
+            for (const auto &value : key.variants)
+                selected.entries.push_back({Name(value.name.c_str()), value.value, value.type});
+            if (!CanonicalShaderVariants(&selected, schema, key.environment.target, selection, error))
+                return false;
+        }
+        record.selections.push_back(selection);
         const auto          request = PublishedRequest(key);
         for (auto &artifact : entry->artifacts) {
             if (PublishedRequest(artifact.second.key) == request) {
+                if (artifact.second.artifactId == record.artifactId) {
+                    record.selections = artifact.second.selections;
+                    if (std::ranges::find(record.selections, selection) == record.selections.end())
+                        record.selections.push_back(selection);
+                }
                 artifact = {ArtifactKey(request), std::move(record)};
                 return true;
             }

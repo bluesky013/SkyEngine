@@ -199,7 +199,8 @@ TEST(ShaderResolverTest, SpecializationOnlySplitsD3D12Artifacts)
     sources.AddVirtualFile("s.slang", "// source");
     ShaderVariantSchema schema;
     schema.sources        = {{Name("material"), 0, 8}};
-    schema.entries        = {{Name("MODE"), Name("material"), 0, 1, 0, true, 3}};
+    schema.entries        = {{Name("MODE"), Name("material"), 0, 1, 0}};
+    schema.entries[0].symbol = Name("kMode");
     schema.totalBits      = 8;
     auto          request = TestRequest(schema);
     ShaderVariant variant;
@@ -252,4 +253,39 @@ TEST(ShaderResolverTest, ProductsSelectManifestOptionsWithoutAnExplicitEnvironme
     request.environment = DefaultShaderEnvironment(ShaderTarget::SPIRV);
     EXPECT_FALSE(products.ResolveShader(request, shipped, &error));
     EXPECT_NE(error.find("environment"), std::string::npos);
+}
+
+
+TEST(ShaderResolverTest, PublishedNativeCodeDoesNotAuthorizeUnpublishedSelections)
+{
+    ShaderCacheDirectory directory("native-selections");
+    ShaderFileSystem sources;
+    sources.AddVirtualFile("s.slang", "// reflected by the test compiler");
+    ShaderVariantSchema schema;
+    schema.sources = {{Name("shader"), 0, 2}};
+    schema.entries = {{Name("MODE"), Name("shader"), 0, 2, 0}};
+    schema.entries[0].symbol = Name("kMode");
+    schema.totalBits = 2;
+    auto request = TestRequest(schema);
+    ShaderVariant values;
+    request.variant = &values;
+    TestShaderCompiler compiler;
+    const CompilerRegistration registration(&compiler);
+    ShaderResolver development(nullptr, directory.fs.Get(), sources, 0, 0);
+    ShaderCompileResult first, selected;
+    std::string error;
+    ASSERT_TRUE(development.ResolveShader(request, first, &error)) << error;
+    ShaderFileSystem absentSources;
+    ShaderResolver products(directory.fs.Get(), nullptr, absentSources, 0, 0, ShaderResolveMode::PRODUCTS);
+    values.entries = {{Name("MODE"), 2}};
+    EXPECT_FALSE(products.ResolveShader(request, selected, &error));
+    EXPECT_NE(error.find("not found"), std::string::npos);
+    ASSERT_TRUE(development.ResolveShader(request, selected, &error)) << error;
+    EXPECT_EQ(compiler.count, 1u);
+    EXPECT_EQ(first.artifactId, selected.artifactId);
+    ASSERT_TRUE(products.ResolveShader(request, selected, &error)) << error;
+    ASSERT_EQ(selected.selection.size(), 1u);
+    EXPECT_EQ(selected.selection[0].value, 2u);
+    values.entries[0].value = 1;
+    EXPECT_FALSE(products.ResolveShader(request, selected, &error));
 }

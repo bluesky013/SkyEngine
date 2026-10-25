@@ -131,7 +131,8 @@ TEST_P(SceneHighlightUniforms, TargetArtifactsEncodeTypedMaskBatchAndOutlineData
         ShaderParameterHandle handle;
         if (std::string_view(path).ends_with("SelectionMask.slang")) {
             EXPECT_EQ(parameters.Resolve(Name("gSelectionMask.viewProjection"), 1, handle), ShaderParameterLookup::READY);
-            EXPECT_EQ(parameters.Resolve(Name("gSceneBatch.world"), 2, handle), ShaderParameterLookup::READY);
+            EXPECT_EQ(parameters.Resolve(Name("gSceneBatch.world"), shared::SceneBatchBindings::gSceneBatch.set, handle),
+                      ShaderParameterLookup::READY);
             CheckSelectionUniform(program, shared::SelectionMaskPassBindings::gSelectionMask, mask);
             CheckSelectionUniform(program, shared::SceneBatchBindings::gSceneBatch, batch);
             PassResourceBindings bindings(shared::GetSelectionMaskPassReflection());
@@ -154,3 +155,27 @@ INSTANTIATE_TEST_SUITE_P(ShaderTargets, SceneHighlightUniforms, testing::Values(
 #else
 INSTANTIATE_TEST_SUITE_P(ShaderTargets, SceneHighlightUniforms, testing::Values(ShaderTarget::SPIRV, ShaderTarget::MSL));
 #endif
+
+TEST(SceneViewSettingsTest, ScenePolicyRequestsOnlyRegisteredChoices)
+{
+    ShaderVariantSchema schema;
+    schema.sources   = {{Name("pipeline"), 0, 34}};
+    schema.totalBits = 34;
+    schema.entries   = {
+        {Name("SHADOWS"), Name("pipeline"), 0, 1, 0}, {Name("IBL"), Name("pipeline"), 1, 1, 0}, {Name("CUSTOM"), Name("pipeline"), 2, 32, 17}};
+    for (auto &entry : schema.entries)
+        entry.domain = ShaderVariantDomain::PIPELINE;
+    ASSERT_TRUE(schema.Validate());
+    const auto requests = ScenePipelineRequests(schema);
+    ASSERT_EQ(requests.size(), 4u);
+    for (const auto &request : requests) {
+        ShaderVariantSelection selection;
+        std::string            error;
+        ASSERT_TRUE(ResolveShaderVariant(schema, {}, &request, nullptr, selection, error)) << error;
+        const auto custom = std::ranges::find(selection.identity, "CUSTOM", &ShaderVariantValue::name);
+        ASSERT_NE(custom, selection.identity.end());
+        EXPECT_EQ(custom->value, 17u);
+    }
+    schema.entries.erase(schema.entries.begin(), schema.entries.begin() + 2);
+    EXPECT_EQ(ScenePipelineRequests(schema).size(), 1u);
+}

@@ -78,8 +78,6 @@ TEST(ViewportControls, PitchedFlightKeepsSpeedForVerticalAndForwardCombinations)
 
 TEST(ViewportControls, MinimumRotationSnapCommitsAndUndoRedoPreserveIt)
 {
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(SerializationContext::Get());
     WorldDocument          document("");
     auto                  *actor     = document.GetWorld()->CreateActor("Small rotation");
     auto                  *transform = actor->GetComponent<TransformComponent>();
@@ -138,8 +136,6 @@ TEST(ViewportControls, ParentedTranslationSnapAndSingularParent)
 
 TEST(ViewportControls, PreviewCancelCommitUndoAndLostTarget)
 {
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(SerializationContext::Get());
     WorldDocument          document("");
     auto                  *actor     = document.GetWorld()->CreateActor("Target");
     auto                  *transform = actor->GetComponent<TransformComponent>();
@@ -185,8 +181,6 @@ TEST(ViewportControls, PreviewCancelCommitUndoAndLostTarget)
 
 TEST(ViewportControls, CommittedTransformSurvivesSaveAndReopen)
 {
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(SerializationContext::Get());
     const auto             path = std::filesystem::temp_directory_path() / "sky_gizmo_transform_roundtrip.world";
     WorldDocument          document(path.string());
     auto                  *actor = document.GetWorld()->CreateActor("Saved gizmo target");
@@ -239,8 +233,6 @@ TEST(ViewportControls, CameraSpeedBoostAndCancellation)
 
 TEST(ViewportControls, LookPanOrbitFocusAndPlayRemainEditorOnly)
 {
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(SerializationContext::Get());
     WorldDocument document("");
     auto         *actor = document.GetWorld()->CreateActor("Focus target");
     actor->GetComponent<TransformComponent>()->SetLocalTranslation({2, 1, 0});
@@ -303,8 +295,6 @@ TEST(ViewportControls, RotationSnapAndScalePreserveSigns)
 
 TEST(ViewportControls, HistoryCancelsPreviewBeforeUndoAndDocumentSwitchClearsCommands)
 {
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(SerializationContext::Get());
     WorldDocument          document("");
     auto                  *actor = document.GetWorld()->CreateActor("Target");
     SelectionService       selection;

@@ -1,3 +1,5 @@
+> 2026-10-26 一致性复核：下文早期实现/验收记录保留历史原貌；现行规则为 Global/Pass/Material/Batch = 0/1/2/3、持久 `.slangh` 导出和 CPU schema → UniformUploadPlan → 目标 ABI。旧三层、CMake 源码嵌入和 CPU/GPU offset 相等不再约束当前实现。可合并契约以本 change 已同步的 specs 及 `refactor-aurora-target-shader-artifacts` 为准；旧平台结果不覆盖新增路径。
+
 > 当前状态：本 change 的 Slang→C++ 镜像生成链已由 `refactor-aurora-shared-pass-headers` 替代；以下完成记录保留为阶段历史，不能再作为当前构建规则。
 
 Status: active（C01/C02/C03 Windows 实现与验收完成；2026-10-21 用户确认按资源绑定、World、编辑闭环、Shadow、IBL/HDR 顺序推进；macOS/移动端待 P02，archive/commit 待用户确认）。

@@ -3,6 +3,7 @@
 //
 
 #include <aurora/resource/Material.h>
+#include <aurora/resource/MaterialSchema.h>
 #include <aurora/resource/Texture.h>
 #include <core/math/Vector4.h>
 
@@ -209,4 +210,54 @@ TEST(MaterialTest, TypedSnapshotsPreservePartialOverridesWhenBaseValuesChange)
     EXPECT_FALSE(instance.GetData(sky::Name("missing"), snapshot));
     EXPECT_EQ(snapshot.type, previous.type);
     EXPECT_EQ(snapshot.bytes, previous.bytes);
+}
+
+TEST(MaterialSchema, IncludesInactiveFieldsAndOptionsWithoutOffsets)
+{
+    ShaderReflection reflection;
+    reflection.kind           = ShaderReflectionKind::PROGRAM;
+    reflection.complete       = true;
+    reflection.stages         = ShaderStageFlagBit::FS;
+    reflection.bindingModel   = ShaderBindingModel::VULKAN_DESCRIPTORS;
+    reflection.declarations   = {{.name             = "values",
+                                  .type             = ShaderResourceType::UNIFORM_BUFFER,
+                                  .set              = 2,
+                                  .binding          = 1,
+                                  .stages           = ShaderStageFlagBit::FS,
+                                  .declarationOwner = "fixture/material"}};
+    reflection.declaredBlocks = {
+        {"values",
+         "Values",
+         2,
+         1,
+         16,
+         {{.name = "tint", .size = 16, .scalarType = ShaderScalarType::FLOAT, .kind = ShaderTypeKind::VECTOR, .cols = 4, .alignment = 16}},
+         16}};
+    ShaderVariantSchema options;
+    options.sources         = {{sky::Name("s"), 0, 1}};
+    options.entries         = {{sky::Name("TEXTURED"), sky::Name("s"), 0, 1, 1}};
+    options.entries[0].type = ShaderVariantType::BOOL;
+    options.totalBits       = 1;
+    MaterialSchema schema;
+    std::string    error;
+    ASSERT_TRUE(BuildMaterialSchema(reflection, options, schema, error)) << error;
+    ASSERT_EQ(schema.keys.size(), 2u);
+    EXPECT_EQ(schema.keys[0].name, "TEXTURED");
+    EXPECT_EQ(schema.keys[0].kind, MaterialKeyKind::OPTION);
+    EXPECT_EQ(schema.keys[1].name, "values.tint");
+    EXPECT_EQ(schema.keys[1].dataType, ShaderDataType::FLOAT4);
+    auto incompatible             = schema;
+    incompatible.keys[1].dataType = ShaderDataType::UINT;
+    EXPECT_FALSE(MergeMaterialSchemas(incompatible, schema, error));
+    EXPECT_EQ(schema.keys[1].dataType, ShaderDataType::FLOAT4);
+    auto second    = reflection.declarations[0];
+    second.name    = "second";
+    second.binding = 2;
+    reflection.declarations.push_back(second);
+    auto block    = reflection.declaredBlocks[0];
+    block.name    = "second";
+    block.binding = 2;
+    reflection.declaredBlocks.push_back(block);
+    EXPECT_FALSE(BuildMaterialSchema(reflection, options, schema, error));
+    EXPECT_EQ(schema.keys.size(), 2u);
 }

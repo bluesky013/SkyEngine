@@ -22,6 +22,7 @@ namespace sky::aurora {
         ShaderCompilerSlang &operator=(const ShaderCompilerSlang &) = delete;
 
         bool                   Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) override;
+        bool InspectVariants(const ShaderCompileDesc &desc, std::vector<ShaderVariantBinding> &bindings, std::string &error) override;
         ShaderProducerIdentity GetProducerIdentity() const override;
         ShaderProducerIdentity GetProducerIdentity(ShaderTarget target) const override;
 
@@ -29,6 +30,8 @@ namespace sky::aurora {
         bool ReflectBlocks(const std::string &source, ShaderTarget target, ShaderReflection &reflection, std::string &error);
 
     private:
+        bool CompileImpl(const ShaderCompileDesc &desc, ShaderCompileResult &result,
+                         const std::vector<ShaderVariantBinding> *bindings, bool inspect);
         static bool InitGlobalSession();
     };
 

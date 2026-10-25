@@ -4,18 +4,12 @@
 
 #include <aurora/cook/image/ImageCookSettings.h>
 
-#include <core/environment/Once.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky::aurora::cook {
 
     void RegisterImageCookSettings()
     {
-        // Cross-DLL one-shot guard (AuroraCook.Static is linked into each module DLL; see sky::Once).
-        if (!sky::Once::Get()->Run("ImageCookSettings")) {
-            return;
-        }
-
         auto *context = SerializationContext::Get();
 
         context->Register<ImageEncode>("ImageEncode").Enum(ImageEncode::NONE, "NONE").Enum(ImageEncode::BC7, "BC7").Enum(ImageEncode::ASTC, "ASTC");

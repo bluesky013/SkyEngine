@@ -227,6 +227,19 @@ namespace sky::editor {
             // that derive it), so it is not used to filter the list.
             items.push_back(MakeItem(*source));
         });
+        db->ForEachGenerated([&](const sky::GeneratedAssetRecord &child) {
+            const auto owner = db->FindAsset(child.owner);
+            if (!child.active || !owner) { return; }
+            auto item = MakeItem(*owner);
+            item.uuid = child.uuid;
+            item.sourceOwner = child.owner;
+            item.generated = true;
+            item.name = child.key;
+            item.path += "#" + child.key;
+            item.type = child.type;
+            item.writable = false;
+            items.emplace_back(std::move(item));
+        });
 
         std::sort(items.begin(), items.end(), [](const EditorAssetItem &a, const EditorAssetItem &b) {
             if (a.path != b.path) {
@@ -259,6 +272,12 @@ namespace sky::editor {
         auto *db = sky::AssetDataBase::Get();
         if (db == nullptr) {
             return false;
+        }
+        sky::GeneratedAssetRecord child;
+        if (db->GetGenerated(uuid, child)) {
+            if (!child.active) { return false; }
+            outName = child.key;
+            return true;
         }
         auto source = db->FindAsset(uuid);
         if (!source) {
@@ -410,6 +429,20 @@ namespace sky::editor {
         auto *db = sky::AssetDataBase::Get();
         if (db == nullptr) {
             return false;
+        }
+        sky::GeneratedAssetRecord child;
+        if (db->GetGenerated(uuid, child)) {
+            const auto owner = db->FindAsset(child.owner);
+            if (!child.active || !owner) { return false; }
+            out = MakeItem(*owner);
+            out.uuid = child.uuid;
+            out.sourceOwner = child.owner;
+            out.generated = true;
+            out.name = child.key;
+            out.path += "#" + child.key;
+            out.type = child.type;
+            out.writable = false;
+            return true;
         }
         auto source = db->FindAsset(uuid);
         if (!source) {

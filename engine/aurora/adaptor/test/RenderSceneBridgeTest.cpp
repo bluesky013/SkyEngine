@@ -62,9 +62,6 @@ namespace {
         static void SetUpTestSuite()
         {
             auto *context = SerializationContext::Get();
-            if (!TypeInfo<TransformComponent>::RegisteredId())
-                TransformComponent::Reflect(context);
-            AuroraReflection(context);
         }
         WorldPtr                world  = World::CreateWorld();
         std::shared_ptr<Source> source = std::make_shared<Source>();

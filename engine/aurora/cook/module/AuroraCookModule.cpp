@@ -3,8 +3,8 @@
 // offline builder (replaces the former SkyRender.Builder module).
 //
 
-#include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
+#include <aurora/cook/image/ImageCookSettings.h>
 #include <aurora/cook/lodgroup/AuroraLodGroupBuilder.h>
 #include <aurora/cook/material/AuroraMaterialBuilder.h>
 #include <aurora/cook/material/AuroraMaterialInstanceBuilder.h>
@@ -30,8 +30,7 @@ namespace sky::aurora {
 
     void AuroraCookModule::RegisterMeta()
     {
-        // Idempotent: guarantees the aurora asset handlers exist for SaveAsset.
-        AuroraReflection(SerializationContext::Get());
+        cook::RegisterImageCookSettings();
 
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraImageBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraMeshBuilder());

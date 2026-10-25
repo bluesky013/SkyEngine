@@ -34,6 +34,13 @@ namespace {
         ShaderResource resource;
         resource.type              = type;
         resource.binding           = binding;
+        resource.access            = (type == ShaderResourceType::STORAGE_IMAGE || type == ShaderResourceType::STORAGE_BUFFER)
+                                         ? ShaderResourceAccess::READ_WRITE
+                                         : ShaderResourceAccess::READ_ONLY;
+        if (type == ShaderResourceType::STORAGE_BUFFER) {
+            resource.bufferKind    = ShaderBufferKind::STRUCTURED;
+            resource.elementStride = 16;
+        }
         resource.texture.dimension = ShaderTextureDimension::D2;
         shader->reflection.resources.push_back(resource);
         return ShaderPtr(shader);
@@ -503,6 +510,8 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         ShaderResource storage;
         storage.type                 = ShaderResourceType::STORAGE_BUFFER;
         storage.binding              = 1;
+        storage.bufferKind           = ShaderBufferKind::STRUCTURED;
+        storage.elementStride        = 16;
         shader->reflection.resources = {uniform, storage};
         pass.shader                  = ShaderPtr(shader);
         pass.sideEffect              = true;
@@ -526,7 +535,9 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
         pass.buffers[1].kind                 = FrameBufferBindingKind::STORAGE;
-        shader->reflection.resources[0].type = ShaderResourceType::STORAGE_BUFFER;
+        shader->reflection.resources[0].type         = ShaderResourceType::STORAGE_BUFFER;
+        shader->reflection.resources[0].bufferKind    = ShaderBufferKind::STRUCTURED;
+        shader->reflection.resources[0].elementStride = 16;
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 

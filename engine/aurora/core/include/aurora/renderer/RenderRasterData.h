@@ -4,10 +4,15 @@
 
 #pragma once
 
+#include <aurora/resource/MaterialSchema.h>
+
+#include <algorithm>
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/rhi/Shader.h>
 #include <aurora/rhi/ShaderParameters.h>
 #include <aurora/rhi/ShaderReflection.h>
+#include <aurora/shader/ShaderVariant.h>
+#include <cctype>
 #include <cmath>
 #include <core/name/Name.h>
 #include <core/util/Uuid.h>
@@ -40,6 +45,23 @@ namespace sky::aurora {
         std::vector<RasterVertexAttribute> attributes;
         std::vector<RenderMeshLod>         lods;
     };
+    inline VertexSemanticMask RenderVertexMask(std::span<const RenderMeshStream> streams, std::span<const RasterVertexAttribute> attributes)
+    {
+        VertexSemanticMask mask;
+        for (const auto &attribute : attributes) {
+            auto name = attribute.semantic;
+            std::ranges::transform(name, name.begin(), [](unsigned char value) { return static_cast<char>(std::toupper(value)); });
+            VertexSemantic semantic;
+            if (name == "TEXCOORD" && attribute.semanticIndex < 4)
+                mask.Set(static_cast<VertexSemantic>(static_cast<uint8_t>(VertexSemantic::UV1) + attribute.semanticIndex));
+            else if (ParseVertexSemantic(name, semantic) && semantic != VertexSemantic::INSTANCE)
+                mask.Set(semantic);
+        }
+        for (const auto &stream : streams)
+            if (stream.rate == VertexInputRate::PER_INSTANCE)
+                mask.Set(VertexSemantic::INSTANCE);
+        return mask;
+    }
     struct RenderTechniqueData {
         API                               backend = API::DEFAULT;
         ShaderStageArtifactPtr            vertex, fragment, compute;
@@ -47,8 +69,12 @@ namespace sky::aurora {
         std::vector<ShaderBindingPolicy>  bindingPolicies;
         std::vector<ShaderParameterAlias> parameterAliases;
         ShaderSpecialization              specialization;
-        BlendState                        blend;
-        RasterDepthState                  depth;
+        // Identity of the composed P|V|S variant; zero for legacy direct compiles.
+        uint64_t         variantHash = 0;
+        std::vector<ShaderVariantValue> selection;
+        ShaderVariantSchema variantSchema;
+        BlendState       blend;
+        RasterDepthState depth;
     };
     struct RenderMaterialValue {
         Name            name;
@@ -63,15 +89,38 @@ namespace sky::aurora {
         Sampler::Descriptor descriptor;
     };
     struct RenderMaterialParameters {
+        // Material-owned descriptor set; never inferred from per-draw state.
+        uint32_t                           set = 0;
         std::vector<RenderMaterialValue>   values;
         std::vector<RenderMaterialImage>   images;
         std::vector<RenderMaterialSampler> samplers;
     };
-    struct RenderMaterialTechnique {
-        Name                     tag;
-        RenderTechniqueData      program;
-        RenderMaterialParameters parameters;
+    // One concrete P|V combination of a material technique. `pipeline` holds the
+    // non-default pipeline-owned values so a frozen Pass/View can match exactly.
+    struct RenderTechniqueVariantData {
+        RenderTechniqueData program;
+        ShaderVariant       pipeline;
+        bool                skinned = false;
+        uint16_t            vertexMask = 0;
     };
+    struct RenderMaterialTechnique {
+        Name                                    tag;
+        RenderTechniqueData                     program; // default pipeline; kept for direct consumers
+        std::vector<RenderTechniqueVariantData> variants;
+        RenderMaterialParameters                parameters;
+    };
+    inline uint64_t RenderMaterialInterfaceFingerprint(const RenderTechniqueData &program, uint32_t set)
+    {
+        ShaderReflection material;
+        for (const auto &resource : program.reflection.declarations)
+            if (resource.set == set)
+                material.declarations.push_back(resource);
+        for (const auto &block : program.reflection.declaredBlocks)
+            if (block.set == set)
+                material.declaredBlocks.push_back(block);
+        return ShaderInterfaceFingerprint(material);
+    }
+
     inline bool IsValidMaterialSampler(const Sampler::Descriptor &value)
     {
         return value.minFilter <= Filter::LINEAR && value.magFilter <= Filter::LINEAR && value.mipmapMode <= MipFilter::LINEAR &&
@@ -85,6 +134,9 @@ namespace sky::aurora {
                                                  uint64_t                        deviceEpoch,
                                                  std::string                    &error)
     {
+        MaterialSchema generated;
+        if (!BuildMaterialSchema(program.reflection, program.variantSchema, generated, error))
+            return false;
         ShaderParameterTable table;
         if (!BuildShaderParameterTable(program.reflection, 1, program.parameterAliases, table, error))
             return false;
@@ -92,7 +144,7 @@ namespace sky::aurora {
         std::map<std::pair<uint32_t, uint32_t>, std::set<std::string>> fields;
         const auto resolve = [&](Name name, ShaderParameterKind kind, const ShaderParameterEntry *&entry) {
             ShaderParameterHandle handle;
-            const auto            status = table.Resolve(name, 2, handle);
+            const auto            status = table.Resolve(name, parameters.set, handle);
             if ((status != ShaderParameterLookup::READY && status != ShaderParameterLookup::INACTIVE) ||
                 table.Resolve(handle, entry) == ShaderParameterLookup::STALE || !entry || entry->kind != kind ||
                 !targets.emplace(entry->set, entry->binding, entry->field).second) {
@@ -154,6 +206,7 @@ namespace sky::aurora {
     }
 
     struct RenderMaterialData {
+        MaterialSchema schema;
         std::vector<RenderMaterialTechnique> techniques;
     };
 } // namespace sky::aurora

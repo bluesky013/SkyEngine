@@ -48,8 +48,6 @@ TEST(WorldDocumentTest, CreatePlayWorldDuplicates)
     std::error_code             ec;
     std::filesystem::remove(path, ec);
 
-    if (!sky::TypeInfo<sky::TransformComponent>::RegisteredId())
-        sky::TransformComponent::Reflect(sky::SerializationContext::Get());
 
     WorldDocument document(path.string());
     sky::World   *edit = document.GetWorld();

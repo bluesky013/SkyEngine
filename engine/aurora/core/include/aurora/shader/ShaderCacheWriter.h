@@ -18,6 +18,10 @@ namespace sky::aurora {
         ShaderCacheWriter &operator=(const ShaderCacheWriter &) = delete;
         bool               Start(std::string *error = nullptr);
         bool               Stop(std::string *error = nullptr);
+        sky::IFileSystem  *GetRoot() const
+        {
+            return mLocal;
+        }
         struct Pending {
             ShaderCacheKey           key;
             ShaderCompileResult      result;

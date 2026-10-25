@@ -100,7 +100,12 @@ namespace sky::editor {
         // Opens the reusable asset viewer widget (header + reserved preview + reflected cook settings) as a
         // modal overlay for the given asset.
         void OpenAssetViewer(const Uuid &asset);
+        void TickAssetViews(float delta);
         bool IsAssetViewerOpen() const;
+        void RequestCloseAssetViews();
+        bool AreAssetViewsClosing() const;
+        void SetAssetToolHost(std::function<uint32_t(const std::string &)> create, std::function<void(uint32_t)> retire);
+        bool RequestCloseAssetTool(uint32_t surfaceId);
 
         // Registers the asset-viewer-scoped actions (File/Edit) that drive the viewer's chrome
         // while its "assetViewer" scope is active. Idempotent; called lazily when the viewer opens.
@@ -271,12 +276,21 @@ namespace sky::editor {
 
         // One floating window's UI: its own context + router + the panel view.
         struct Surface {
+            std::shared_ptr<void> actionLifetime;
             std::unique_ptr<sky::ui::UIContext>     context;
             std::unique_ptr<sky::ui::UIEventRouter> router;
             std::string                             panelId;
             sky::ui::UIElement                     *view          = nullptr;
             uint64_t                                themeRevision = 0;
+            AssetViewerWidget *assetTool = nullptr;
+            Uuid asset;
+            std::string actionScope;
         };
+        void OpenPendingAssetTools();
+        void RegisterAssetViewerActions(AssetViewerWidget *viewer, const std::string &scope, std::weak_ptr<void> lifetime);
+        std::function<uint32_t(const std::string &)> createAssetTool;
+        std::function<void(uint32_t)> retireAssetTool;
+        std::vector<Uuid> pendingAssetTools;
 
         // Event router for a floating surface (>0). Null if unknown; surface 0
         // uses the main router through the public Dispatch* methods.

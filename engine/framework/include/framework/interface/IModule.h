@@ -24,10 +24,8 @@ namespace sky {
         IModule()          = default;
         virtual ~IModule() = default;
 
-        // Process-once phase: register process-global metadata (reflection types, asset types/
-        // handlers, component groups, cook builders). `ModuleManager` runs this at most once per
-        // process per module - it is NOT re-run on reload - so registrations that persist for the
-        // process lifetime belong here, never in Init/Start/Shutdown.
+        // Called only when the process-owned module definition is created, before its first Init.
+        // Runtime sessions and windows consume this metadata; they never register it again.
         virtual void RegisterMeta()
         {
         }

@@ -17,12 +17,15 @@ Aurora Framework 适配 SHALL 位于 engine/aurora/adaptor，目标为 Aurora.Ad
 
 ### Requirement: AuroraReflection 入口
 
-SHALL 提供 `void sky::aurora::AuroraReflection(sky::SerializationContext *context)`，风格与 `sky::CoreReflection` 一致，负责注册 aurora 类型、asset handler 与组件。它 SHALL 幂等。
+AuroraReflection SHALL register Aurora schema, asset handlers and components exactly once from Aurora.Metadata::RegisterMeta during process definition creation. Runtime, cook and editor modules SHALL depend on that owner; views SHALL only bind registered data. The function SHALL NOT be idempotent through Once, once_flag, static flags, existing-type checks or scratch nodes. A second registration owner SHALL remain a programming error caught by strict UUID/name checks.
 
-#### Scenario: 注册并重复调用安全
+#### Scenario: Runtime cook and editor share one definition
+- **WHEN** these consumers load, restart or open several views in one process
+- **THEN** AuroraReflection has one production call site and each schema is registered once
 
-- **WHEN** 调用 `AuroraReflection` 一次或多次
-- **THEN** aurora 类型/组件可查到，且不触发重复注册断言
+#### Scenario: Duplicate registration is rejected
+- **WHEN** another owner attempts to register the same type UUID or name
+- **THEN** the programming invariant fails rather than silently accepting or skipping the duplicate
 
 ### Requirement: 运行时资产层
 
@@ -164,54 +167,39 @@ SHALL 提供 `CounterPtr<Texture> CreateTextureFromAsset(Device *device, const A
 
 ### Requirement: Material 资产（typed 属性 + technique + 版本）
 
-`MaterialAssetData`（`aurora/adaptor/assets/MaterialAsset.h`）SHALL 带 `version`（`CURRENT_VERSION`），含 `techniques` 与 `properties`：
+MaterialAssetData SHALL persist versioned explicit tagged ShaderTechnique stage/source/entry references, material render state and typed canonical Key/Value properties. Values SHALL use the checked semantic variant, textures SHALL use asset UUIDs and samplers SHALL use typed descriptors; serialization SHALL NOT copy C++ object padding. Complete Material keys SHALL be reconstructed from declaration metadata and Shader-local options. The current payload is version 4; supported legacy version 3 aliases/options SHALL migrate through exact declarations, while unsupported versions and ambiguous mappings SHALL fail with recook/migration diagnostics.
 
-- `MaterialTechniqueData` SHALL 为 `{ std::string tag; ShaderRef shader; MaterialRenderState renderState; }`；`ShaderRef` 以路径 + entry 存取；`MaterialRenderState`（`DepthStencil` / `RasterState` / `blendStates` / `alphaToCoverage`）SHALL **逐字段**序列化，SHALL NOT 对含 padding 的结构体做裸字节拷贝。
-- `MaterialPropertyData` SHALL 为 `{ std::string name; uint32 type(=MaterialPropertyType); std::vector<uint8_t> value; Uuid texture; }`；uniform 值以原始字节存（大小由 `SizeOfPropertyType(type)` 派生），纹理以 `Uuid` 存；`bool` 作为 1 字节 value。
-- `Load` SHALL 在 `version != CURRENT_VERSION` 时拒绝加载（清空并记录）。
+#### Scenario: Typed round trip
+- **WHEN** a valid material with explicit programs, values, texture UUIDs and samplers is saved and loaded
+- **THEN** tags, stage references, render state and semantic property values remain unchanged
 
-#### Scenario: 往返
-
-- **WHEN** 以 technique（含 renderState）+ typed 属性序列化再反序列化 `MaterialAssetData`
-- **THEN** `version` / `techniques`（tag、shader 路径与 entry、renderState 各字段）/ `properties`（name、type、value、texture）一致
-
-#### Scenario: 版本不匹配
-
-- **WHEN** 加载 `version != CURRENT_VERSION` 的 `MaterialAssetData`
-- **THEN** 拒绝加载（清空并记录）
+#### Scenario: Legacy alias is ambiguous
+- **WHEN** an old key cannot map uniquely to the current complete schema
+- **THEN** preparation rejects the migration without guessing a destination
 
 ### Requirement: MaterialInstance 资产（父材质 + 覆盖 + 版本）
 
-`MaterialInstanceAssetData`（`aurora/adaptor/assets/MaterialInstanceAsset.h`）SHALL 带 `version`（`CURRENT_VERSION`），含父材质 `Uuid material`、值覆盖 `valueOverrides`（`{ std::string name; uint32 type; std::vector<uint8_t> value; }`）与纹理覆盖 `textureOverrides`（`{ std::string name; Uuid texture; }`）。`AssetTraits<MaterialInstance>` SHALL 以 `ASSET_TYPE = "AuroraMaterialInstance"`。`Load` SHALL 在 `version != CURRENT_VERSION` 时拒绝加载。
+MaterialInstanceAssetData SHALL persist its supported version, parent Material UUID and typed sparse value/texture/sampler overrides. Unoverridden fields SHALL inherit the parent; explicit equal-to-default writes SHALL still count as overrides. Instance preparation SHALL validate canonical names and types against the parent schema and SHALL NOT allow static Shader-local option changes. Unsupported versions or invalid overrides SHALL fail without publishing a partial instance.
 
-#### Scenario: 往返
+#### Scenario: Sparse override
+- **WHEN** an instance overrides one canonical value and texture
+- **THEN** those values are retained and all other fields inherit the parent
 
-- **WHEN** 序列化再反序列化含父材质与覆盖的 `MaterialInstanceAssetData`
-- **THEN** `version` / `material` / `valueOverrides` / `textureOverrides` 一致
-
-#### Scenario: 版本不匹配
-
-- **WHEN** 加载 `version != CURRENT_VERSION` 的 `MaterialInstanceAssetData`
-- **THEN** 拒绝加载（清空并记录）
+#### Scenario: Static option override
+- **WHEN** an instance attempts to override a Shader-local static option
+- **THEN** preparation rejects it explicitly
 
 ### Requirement: CreateMaterialFromAsset / CreateMaterialInstanceFromAsset
 
-SHALL 提供：
+The existing creation helpers SHALL retain checked tagged programs and typed properties rather than the removed single ShaderRef technique shape. Texture UUIDs SHALL resolve through AssetManager with explicit failure for invalid resources; missing Device or invalid data SHALL return an empty result. Production SceneAssetSource SHALL additionally resolve complete logical Material schema from source or product metadata and freeze named values, explicit selected variants and exact resource dependencies before GPU preparation. Asset conversion SHALL NOT prepack a target's uniform bytes.
 
-- `CounterPtr<Material> CreateMaterialFromAsset(Device *device, const Asset<Material> &asset)`
-- `CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(Device *device, const Asset<MaterialInstance> &asset)`
+#### Scenario: Valid material conversion
+- **WHEN** valid typed data is converted with a compatible device
+- **THEN** the Material retains its explicit technique programs and property values
 
-`CreateMaterialFromAsset` SHALL 建 `Material`：按 `techniques` 填 `tag` + `ShaderRef` + `MaterialRenderState`（SHALL NOT 解析具体 shader），按 `properties` 写值 / 占纹理槽（纹理经 `AssetManager` 解析 `Uuid → Asset<Texture>` 后 `CreateTextureFromAsset(device, …)`）。`CreateMaterialInstanceFromAsset` SHALL 经 `AssetManager` 解析父材质资产并应用覆盖。设备为空或版本不匹配 SHALL 返回空 `CounterPtr` 且不崩溃。
-
-#### Scenario: 构建材质
-
-- **WHEN** 用合法 `MaterialAssetData` + 非空 device 调 `CreateMaterialFromAsset`
-- **THEN** 返回的 `Material` 含对应 technique（`ShaderRef` 相等）与属性默认值
-
-#### Scenario: 无 Device
-
-- **WHEN** `device` 为空
-- **THEN** 返回空 `CounterPtr`，不崩溃
+#### Scenario: Invalid creation input
+- **WHEN** Device is absent or a required asset/value cannot be resolved
+- **THEN** conversion returns failure without publishing a partially valid material
 
 ### Requirement: Skeleton 资产桥接
 

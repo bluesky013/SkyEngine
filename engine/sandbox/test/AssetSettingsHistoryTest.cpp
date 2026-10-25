@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <core/type/TypeInfoObj.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
@@ -26,18 +26,19 @@ namespace {
         uint32_t maxSize = 0;
     };
 
+    const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+        auto *context = sky::SerializationContext::Get();
+        context->Register<HistorySettings>("AssetHistoryHeapSettings")
+            .Member<&HistorySettings::maxSize>("maxSize")
+            .Member<&HistorySettings::label>("label")
+            .Member<&HistorySettings::items>("items");
+        context->Register<ReplacementSettings>("AssetHistoryReplacementSettings").Member<&ReplacementSettings::maxSize>("maxSize");
+    });
+
     class HistoryBuilder : public sky::AssetBuilder {
     public:
         HistoryBuilder()
         {
-            if (sky::Once::Get()->Run("AssetSettingsHistoryTest.Types")) {
-                auto *context = sky::SerializationContext::Get();
-                context->Register<HistorySettings>("AssetHistoryHeapSettings")
-                    .Member<&HistorySettings::maxSize>("maxSize")
-                    .Member<&HistorySettings::label>("label")
-                    .Member<&HistorySettings::items>("items");
-                context->Register<ReplacementSettings>("AssetHistoryReplacementSettings").Member<&ReplacementSettings::maxSize>("maxSize");
-            }
         }
         const std::vector<std::string> &GetExtensions() const override
         {

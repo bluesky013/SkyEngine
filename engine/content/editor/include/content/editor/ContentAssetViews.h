@@ -4,6 +4,7 @@
 //
 
 #pragma once
+#include <memory>
 
 namespace sky {
     class SerializationContext;
@@ -11,7 +12,8 @@ namespace sky {
 
 namespace sky::content::editor {
 
-    // Idempotent: registers the content view structs + AssetViewDataRegistry providers.
-    void RegisterContentAssetViews(sky::SerializationContext *context);
+    void ReflectContentAssetViews(sky::SerializationContext *context);
+    void RegisterContentAssetViews(std::shared_ptr<const void> lease = {});
+    void UnregisterContentAssetViews();
 
 } // namespace sky::content::editor

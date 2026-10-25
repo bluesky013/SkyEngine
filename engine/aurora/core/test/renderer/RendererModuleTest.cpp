@@ -13,6 +13,8 @@
 #include <aurora/rhi/Instance.h>
 #include <aurora/rhi/SwapChain.h>
 #include <aurora/shader/IShaderCompiler.h>
+#include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderResolver.h>
 #include <aurora/shader/ShaderTechnique.h>
 #include <chrono>
 #include <cmath>
@@ -41,15 +43,37 @@ using namespace sky::aurora;
 extern "C" IModule *sky_module_create_Aurora_Render_Contract();
 #elif defined(AURORA_RENDERER_PACKAGED_STATIC)
 extern "C" IModule *sky_module_create_Aurora_Render();
+extern "C" IModule *sky_module_create_Aurora_Metadata();
 #endif
 
 namespace {
     using ProviderService = Interface<IRendererProvider>;
 
+#if defined(AURORA_RENDERER_STATIC_FIXTURE)
+    class MetadataFixture final : public IModule {
+        void RegisterMeta() override
+        {
+            AuroraReflection(SerializationContext::Get());
+        }
+    };
+#endif
+    void RegisterMetadata(ModuleManager &manager)
+    {
+#if defined(AURORA_RENDERER_STATIC_FIXTURE)
+        manager.AddStaticModule("Aurora.Metadata", std::make_unique<MetadataFixture>());
+#elif defined(AURORA_RENDERER_PACKAGED_STATIC)
+        manager.AddStaticModule("Aurora.Metadata", std::unique_ptr<IModule>(sky_module_create_Aurora_Metadata()));
+#else
+        manager.RegisterModule({"Aurora.Metadata", {}});
+#endif
+        manager.RegisterModule({"Aurora.Render", {"Aurora.Metadata"}});
+    }
+
     struct LoadedProvider {
         ModuleManager manager;
         explicit LoadedProvider(bool runtime = false)
         {
+            RegisterMetadata(manager);
 #if defined(AURORA_RENDERER_STATIC_FIXTURE)
             manager.AddStaticModule("Aurora.Render", std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract()));
 #elif defined(AURORA_RENDERER_PACKAGED_STATIC)
@@ -238,12 +262,18 @@ namespace {
         packet->commands.push_back(CreateViewport{output, {ViewportKind::OFFSCREEN, {8, 8}}});
         if (explicitPasses) {
             ShaderTechnique compute;
-            compute.compute     = {"first/pipeline/PackageCompute.slang", "FillTarget"};
+            compute.compute         = {"first/pipeline/PackageCompute.slang", "FillTarget"};
+            compute.variant.entries = {{Name("PACKAGE_VALUE"), 1}};
+            auto unpublished        = compute;
+            unpublished.variant.entries.clear();
+            EXPECT_TRUE(
+                std::holds_alternative<RendererError>(CompileShaderTechnique(*sources, renderer->GetInfo().backend, unpublished, products.Get())));
             const auto dispatch = CompileShaderTechnique(*sources, renderer->GetInfo().backend, compute, products.Get());
             ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(dispatch)) << std::get<RendererError>(dispatch).message;
-            const auto fullscreen = CompileShaderTechnique(
-                *sources, renderer->GetInfo().backend,
-                {{"first/pipeline/PackageFullscreen.slang", "DrawQuad"}, {"first/pipeline/PackageFullscreen.slang", "SampleTarget"}}, products.Get());
+            ShaderTechnique fullscreenRequest{{"first/pipeline/PackageFullscreen.slang", "DrawQuad"},
+                                              {"first/pipeline/PackageFullscreen.slang", "SampleTarget"}};
+            fullscreenRequest.variant.entries = {{Name("PACKAGE_VALUE"), 1}};
+            const auto fullscreen             = CompileShaderTechnique(*sources, renderer->GetInfo().backend, fullscreenRequest, products.Get());
             ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(fullscreen)) << std::get<RendererError>(fullscreen).message;
             packet->featureCommands.push_back(RegisterRenderFeature{
                 {0, 1},
@@ -370,7 +400,7 @@ namespace {
             [AuroraField("tint")] float4 tint;
             [AuroraField("gain")] float4 gain;
         };
-        [AuroraResource(2, 2, "fixture/material")] ConstantBuffer<MaterialValues> materialValues;
+        [AuroraResource(2, 2, "fixture/material")] ConstantBuffer<MaterialValues> shaderValues;
         [AuroraResource(2, 3, "fixture/material")] Texture2D<float4> materialColor;
         [AuroraResource(2, 4, "fixture/material")] SamplerState materialSampler;
         struct Vertex { float4 position : SV_Position; float2 uv : TEXCOORD0; };
@@ -381,7 +411,7 @@ namespace {
             return v;
         }
         float4 FSMain(Vertex v) : SV_Target {
-            return materialColor.Sample(materialSampler, v.uv) * materialValues.tint * materialValues.gain;
+            return materialColor.Sample(materialSampler, v.uv) * shaderValues.tint * shaderValues.gain;
         }
     )");
             sources->AddVirtualFile("material/NamedSample.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
@@ -424,8 +454,8 @@ namespace {
         technique.tag                     = "opaque";
         const std::string materialProgram = shipped ? "first/pipeline/PackageMaterial.slang" : "material/NamedSample.slang";
         technique.program                 = {{materialProgram, "VSMain"}, {materialProgram, "FSMain"}};
-        technique.aliases                 = {{"baseTint", "materialValues.tint"},
-                                             {"inheritedGain", "materialValues.gain"},
+        technique.aliases                 = {{"baseTint", "shaderValues.tint"},
+                                             {"inheritedGain", "shaderValues.gain"},
                                              {"baseColor", "materialColor"},
                                              {"colorSampler", "materialSampler"}};
         material->Data().techniques       = {technique};
@@ -956,10 +986,16 @@ TEST(RendererModule, NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreRelea
 #if defined(AURORA_RENDERER_STATIC_FIXTURE)
 TEST(RendererModule, DuplicateRegistrationDoesNotReplaceOrUnregisterOwner)
 {
-    auto owner     = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
+    ModuleManager manager;
+    RegisterMetadata(manager);
+    auto          module = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
+    auto         *owner  = module.get();
+    manager.AddStaticModule("Aurora.Render", std::move(module));
+    manager.TopoSort();
     auto duplicate = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
-    ASSERT_TRUE(owner->Init({}));
+    ASSERT_TRUE(manager.LoadModules({}));
     auto *provider = ProviderService::Get()->GetApi();
+    ASSERT_NE(provider, nullptr);
     EXPECT_TRUE(owner->Init({}));
     EXPECT_FALSE(duplicate->Init({}));
     duplicate->Shutdown();
@@ -968,6 +1004,7 @@ TEST(RendererModule, DuplicateRegistrationDoesNotReplaceOrUnregisterOwner)
     EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
     owner->Shutdown();
     EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+    manager.UnLoadModules();
 }
 #endif
 
@@ -996,11 +1033,49 @@ TEST(RendererModule, B14LeaseRetainsModuleCodeBeyondManagerLifetime)
 #endif
 }
 
+#if defined(_WIN32) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
+TEST(RendererModule, ShaderFutureRetainsCompilerDllUntilItsFinalRelease)
+{
+    wchar_t executable[MAX_PATH];
+    ASSERT_NE(GetModuleFileNameW(nullptr, executable, MAX_PATH), 0u);
+    if (!std::filesystem::is_regular_file(std::filesystem::path(executable).parent_path() / "Aurora.ShaderCompiler.dll"))
+        GTEST_SKIP() << "Build Aurora.ShaderCompiler to verify its dynamic module lifetime";
+    ShaderCompileFuture       future;
+    std::weak_ptr<const void> code;
+    {
+        ModuleManager modules;
+        modules.RegisterModule({"Aurora.ShaderCompiler", {}});
+        modules.TopoSort();
+        ASSERT_TRUE(modules.LoadModules({}));
+        code = modules.RetainModule("Aurora.ShaderCompiler");
+        ShaderFileSystem sources;
+        sources.AddVirtualFile("lifetime.slang", "float4 VSMain(uint id : SV_VertexID) : SV_Position { return float4(0, 0, 0, 1); }");
+        sources.AddVirtualFile("lifetime.slang.json", "{}");
+        ShaderResolver          resolver(nullptr, nullptr, sources, 0, 0);
+        ShaderResolver::Request request;
+        request.relativePath = "lifetime.slang";
+        request.entry        = "VSMain";
+        request.stage        = ShaderStageFlagBit::VS;
+        request.target       = static_cast<uint32_t>(ShaderTarget::SPIRV);
+        ShaderCompileResult immediate;
+        std::string         error;
+        ASSERT_EQ(resolver.ResolveShaderAsync(request, immediate, future, &error), ShaderResolveStatus::Compile) << error;
+        modules.UnLoadModules();
+    }
+    EXPECT_EQ(ShaderCompilerFactory::Get().GetCompiler(), nullptr);
+    EXPECT_FALSE(code.expired());
+    future.RunInline();
+    ASSERT_TRUE(future.Succeeded()) << future.Result().errorInfo;
+    future = {};
+    EXPECT_TRUE(code.expired());
+    EXPECT_EQ(GetModuleHandleA("Aurora.ShaderCompiler.dll"), nullptr);
+}
+#endif
+
 int main(int argc, char **argv)
 {
     // Shared device and reflection callbacks must outlive the reloadable module.
     Instance::Get();
-    AuroraReflection(SerializationContext::Get());
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -105,7 +105,7 @@ namespace sky::aurora {
             const auto *root = step.pipeline->GetRootSignature();
             if (!root)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute root signature is missing"};
-            for (uint32_t set = 0; set < 3; ++set) {
+            for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
                 const auto count =
                     std::count_if(shader->GetReflection().resources.begin(), shader->GetReflection().resources.end(), [&](const auto &r) {
                         return r.set == set && r.type != ShaderResourceType::SAMPLER && r.type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC &&
@@ -775,10 +775,11 @@ namespace sky::aurora {
                 const FrameBindingLookup<RasterSamplerBinding> samplersLookup(draw.samplers);
 
                 const auto &reflection = shader->GetReflection();
-                for (uint32_t set = 0; set < 3; ++set) {
+                for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
                     const auto count =
                         static_cast<uint32_t>(std::count_if(reflection.resources.begin(), reflection.resources.end(), [&](const auto &r) {
-                            return r.set == set && (r.type == ShaderResourceType::UNIFORM_BUFFER || r.type == ShaderResourceType::SAMPLED_IMAGE);
+                            return r.set == set && (r.type == ShaderResourceType::UNIFORM_BUFFER || r.type == ShaderResourceType::SAMPLED_IMAGE ||
+                                                    r.type == ShaderResourceType::STORAGE_BUFFER);
                         }));
                     D3D12_CPU_DESCRIPTOR_HANDLE descriptor{};
                     if (count) {
@@ -812,6 +813,27 @@ namespace sky::aurora {
                         if (resource.set != set)
                             continue;
 
+                        if (resource.type == ShaderResourceType::STORAGE_BUFFER) {
+                            const auto binding = std::find_if(draw.storage.begin(), draw.storage.end(), [&](const auto &value) {
+                                return value.set == set && value.binding == resource.binding;
+                            });
+                            if (binding == draw.storage.end())
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster storage binding"};
+                            auto *buffer = buffers[binding->range.buffer.index];
+                            if (!buffer || !buffer->GetDescriptor().usage.TestBit(BufferUsageFlagBit::STORAGE) || !resource.elementStride ||
+                                binding->range.offset % resource.elementStride || binding->range.size % resource.elementStride)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid DX12 storage buffer range"};
+                            D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
+                            srv.Format                     = DXGI_FORMAT_UNKNOWN;
+                            srv.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+                            srv.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                            srv.Buffer.FirstElement        = binding->range.offset / resource.elementStride;
+                            srv.Buffer.NumElements         = static_cast<UINT>(binding->range.size / resource.elementStride);
+                            srv.Buffer.StructureByteStride = resource.elementStride;
+                            device.GetNativeHandle()->CreateShaderResourceView(buffer->GetNativeHandle(), &srv, descriptor);
+                            descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                            continue;
+                        }
                         if (resource.type == ShaderResourceType::SAMPLED_IMAGE) {
                             const auto *binding = imagesLookup.Find(set, resource.binding);
                             if (!binding)

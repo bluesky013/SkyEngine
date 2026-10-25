@@ -111,9 +111,9 @@ namespace sky::ui {
         bool sawTex = false;
         bool sawSmp = false;
         for (const auto &res : reflection.resources) {
-            sawTex |= res.name == "tex" && res.declarationOwner == "ui/UIShader" && res.set == 0 && res.binding == texBinding &&
+            sawTex |= res.name == "tex" && res.declarationOwner == "ui/UIShader" && res.set == 3 && res.binding == texBinding &&
                       res.type == ShaderResourceType::SAMPLED_IMAGE && res.count == 1 && !res.descriptorArray;
-            sawSmp |= res.name == "smp" && res.declarationOwner == "ui/UIShader" && res.set == 0 && res.binding == smpBinding &&
+            sawSmp |= res.name == "smp" && res.declarationOwner == "ui/UIShader" && res.set == 3 && res.binding == smpBinding &&
                       res.type == ShaderResourceType::SAMPLER && res.count == 1 && !res.descriptorArray;
         }
         if (!sawTex || !sawSmp || reflection.resources.size() != 2) {
@@ -262,7 +262,7 @@ namespace sky::ui {
         }
         ResourceGroup::Descriptor groupDesc = {};
         groupDesc.shader                    = shader.Get();
-        groupDesc.set                       = 0;
+        groupDesc.set                       = 3;
         CounterPtr<ResourceGroup> group     = device->CreateResourceGroup(groupDesc);
         if (group != nullptr) {
             auto groupEncoder = group->CreateEncoder();
@@ -582,7 +582,7 @@ namespace sky::ui {
                     LOG_W(TAG, "UI draw has no available texture or white fallback");
                     continue;
                 }
-                encoder->BindResourceGroup(0, group);
+                encoder->BindResourceGroup(3, group);
                 boundTexture    = command.textureId;
                 hasBoundTexture = true;
             }

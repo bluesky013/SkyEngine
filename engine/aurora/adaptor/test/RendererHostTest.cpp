@@ -546,7 +546,7 @@ namespace {
             ADD_FAILURE() << "UI pass has no uniform buffers";
             return FrameError{FrameErrorCode::UNSUPPORTED};
         }
-        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList) override
+        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *) override
         {
             ADD_FAILURE() << "UI pass has no scene extraction";
             return FrameError{FrameErrorCode::UNSUPPORTED};
@@ -603,18 +603,18 @@ TEST(UiRenderFeature, MetalDx12AndVulkanKeepTopAndBottomClipsInTheSamePhysicalRo
         }
     )MSL";
     const std::span<const uint8_t> bytes{reinterpret_cast<const uint8_t *>(source.data()), source.size()};
-    ShaderResource                 image{"image", ShaderResourceType::SAMPLED_IMAGE, 0, 0, 1};
+    ShaderResource                 image{"image", ShaderResourceType::SAMPLED_IMAGE, 3, 0, 1};
     image.texture          = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
     image.stages           = ShaderStageFlagBit::FS;
     image.declarationOwner = "adaptor-test/Ui.metal";
-    ShaderResource sampler{"imageSampler", ShaderResourceType::SAMPLER, 0, 1, 1};
+    ShaderResource sampler{"imageSampler", ShaderResourceType::SAMPLER, 3, 1, 1};
     sampler.sampler          = ShaderSamplerType::REGULAR;
     sampler.stages           = ShaderStageFlagBit::FS;
     sampler.declarationOwner = image.declarationOwner;
     ShaderReflection vertexReflection, fragmentReflection;
     vertexReflection.declarations = fragmentReflection.declarations = {image, sampler};
     fragmentReflection.resources                                    = {image, sampler};
-    fragmentReflection.nativeBindings                               = {{0, 0, ShaderStageFlagBit::FS, 0}, {0, 1, ShaderStageFlagBit::FS, 1}};
+    fragmentReflection.nativeBindings                               = {{3, 0, ShaderStageFlagBit::FS, 0}, {3, 1, ShaderStageFlagBit::FS, 1}};
     fragmentReflection.nativeBindings[0].category                   = ShaderNativeCategory::METAL_TEXTURE;
     fragmentReflection.nativeBindings[1].category                   = ShaderNativeCategory::METAL_SAMPLER;
     RenderTechniqueData program;

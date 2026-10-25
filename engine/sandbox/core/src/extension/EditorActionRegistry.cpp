@@ -59,6 +59,10 @@ namespace sky::editor {
         actions.clear();
         ++revision;
     }
+    void EditorActionRegistry::RemoveScope(const std::string &scope)
+    {
+        if (std::erase_if(actions, [&](const auto &entry) { return ScopeOf(entry.second.action) == scope; })) ++revision;
+    }
 
     std::vector<EditorAction> EditorActionRegistry::GetActions() const
     {

@@ -1,5 +1,5 @@
 // Generated from first/pipeline/ToonPass.h; do not edit.
-// Inputs: 49f000a6674e4f37e821b5e60628d83dee8dcb879a0936dcfeaef55c82136bca; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 49f000a6674e4f37e821b5e60628d83dee8dcb879a0936dcfeaef55c82136bca; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

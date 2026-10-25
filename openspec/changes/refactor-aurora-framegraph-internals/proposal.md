@@ -18,4 +18,4 @@ FrameGraph analysis and native compilation have accumulated repeated binding loo
 
 ## Impact
 
-Existing Aurora RHI interface implementation, Vulkan/DX12/Metal compilers and renderer tests. No new target, module ownership, directory relocation, pass ABI or Global/Pass/Batch layout change.
+Existing Aurora RHI interface implementation, Vulkan/DX12/Metal compilers and renderer tests. No new target, module ownership, directory relocation, pass ABI or Global/Pass/Material/Batch layout change.

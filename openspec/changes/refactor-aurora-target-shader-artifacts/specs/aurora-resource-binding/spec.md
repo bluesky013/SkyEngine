@@ -1,4 +1,62 @@
+## ADDED Requirements
+
+### Requirement: Binding plans validate native address mappings
+
+Shader SHALL 为匹配的 stage artifacts 构建不可变 BindingPlan，验证资源语义、访问方式、stage、完整映射、native 容量及冲突。动态策略 SHALL 来自显式契约，不从 tier 推导。同一 pipeline 的同一 logical UBO 若要求无法共享单一 payload 的 stage 布局，本期路径 SHALL 明确 Unsupported，不丢弃另一 stage 布局继续执行。
+
+#### Scenario: 原生槽位冲突
+- **WHEN** 两个活跃资源占用同 stage/同原生命名空间的相同槽位
+- **THEN** Shader/计划构建失败，不发布部分布局
+
+#### Scenario: 不相容 stage block
+- **WHEN** 同一 pipeline 中一个 logical UBO 的两个 stage 需要不同且当前单 range 无法表达的 block ABI
+- **THEN** 链接明确 Unsupported，不保留第一份布局继续执行
+
+### Requirement: Uniform plans and bindings preserve atomicity and lifetime
+
+计划缓存 SHALL 使用链接布局/artifact 身份、CPU schema fingerprint 与 packing 协议版本。计划 SHALL 不持有每次 draw 的可变值；显式新版本 SHALL 与在途旧版本并存并沿现有 frame/module/GPU lease 退休。绑定装配 SHALL 验证全部活跃资源和字段后原子替换 draw；失败 SHALL 保留原 draw，优化掉的资源 SHALL 不要求绑定值。
+
+#### Scenario: 失败不改变 draw
+- **WHEN** 最后一个活跃字段或资源验证失败
+- **THEN** 原 draw 的全部有效绑定不变，不发布部分 descriptor 或上传结果
+
+#### Scenario: 两 View 与在途帧
+- **WHEN** 相同逻辑接口在两个 View、多个 draw 和连续在途帧使用不同 CPU 值
+- **THEN** 每次 GPU 使用读取相应快照，后续写入不覆盖旧值
+
+#### Scenario: 计划版本变化
+- **WHEN** CPU schema、目标 ABI 或 packing 协议改变，旧帧仍在使用旧 Shader
+- **THEN** 新使用取得新计划，旧计划/artifact/字节保持有效至原有退休边界
+
+### Requirement: Named updates preserve provider ownership and snapshots
+
+命名事务 SHALL 维护显式 provider/assembler 归属，未知/歧义名、重复解析目标及字段与完整 block 重叠写 SHALL 失败。首次版本 SHALL 通过显式默认值或写入满足活跃必需参数；后续部分更新 SHALL 继承上一版本。图资源 SHALL 在 Core 同名桥接中声明访问并解析精确版本，再降为 RHI 操作；RHI SHALL NOT 接受 graph handle 或在编码时解析最新资产。已录制帧 SHALL 持不可变版本至 GPU 退休。
+
+#### Scenario: 重叠写入拒绝
+- **WHEN** 同一事务通过两个别名写同一字段，或同时写完整 block 和其字段
+- **THEN** 明确冲突且不改变原版本，不按调用顺序选择最终值
+
+#### Scenario: 后续部分更新
+- **WHEN** 已完整初始化的 group 仅更新一个字段或一张纹理
+- **THEN** 新版本保留其它值，旧在途帧继续使用原版本
+
+#### Scenario: 名称不活跃
+- **WHEN** 已声明的参数被当前 variant 优化掉
+- **THEN** 写入返回可区分的 Inactive 状态且不创建 native binding，名字拼错仍是错误
+
+#### Scenario: ResourceGroup 与图装配共用事务
+- **WHEN** 相同 shader/interface 的 typed 参数分别经 ResourceGroup 和图装配更新
+- **THEN** 两者直接复用相同的事务状态机和编码计划，得到相同目标 uniform 字节；各 materializer 只分配和发布一次，失败不改变既有版本
+
 ## MODIFIED Requirements
+
+### Requirement: Global tier 数据流
+
+Global set 0 SHALL contain only values shared across the pipeline's views for the frame. View/camera values SHALL belong to the consuming Pass in set 1. Global uniform values SHALL use the selected shader artifact and UniformUploadPlan for checked target encoding, without inferring GPU layout from CPU sizeof. Production FrameGraph invocations SHALL retain frame-safe immutable values through the existing lease protocol.
+
+#### Scenario: Multiple views
+- **WHEN** main and shadow views use different cameras in one frame
+- **THEN** they share frame-global values while retaining independent Pass camera snapshots
 
 ### Requirement: 跨后端 binding 索引一致性约定
 
@@ -116,19 +174,17 @@ pipeline 的 typed uniform 写入 SHALL 先按实际 Shader 和 CPU schema 取�
 - **WHEN** 动态 uniform writer 返回的偏移被提交执行
 - **THEN** executor 在相应逻辑 binding 的各原生 stage 地址使用该偏移，并校验顺序、对齐和范围
 
-## ADDED Requirements
+### Requirement: 四层绑定与图 storage 事务完整
 
-### Requirement: Binding plans validate native address mappings
+资源 SHALL 使用 Global 0、Pass 1、Material 2、Batch 3。逐 draw 的 SceneSurface、palette、UI 图片和 sampler SHALL 归 Batch。带 frame context 的图事务 SHALL 保留 storage 的精确 range 和显式 provider，失败 SHALL 不改变原 draw；Metal SHALL 处理全部四个 set 与 raster storage。
 
-Shader SHALL 为匹配的 stage artifacts 构建不可变 BindingPlan，验证资源语义、访问方式、stage、完整映射、native 容量及冲突。动态策略 SHALL 来自显式契约，不从 tier 推导。同一 pipeline 的同一 logical UBO 若要求无法共享单一 payload 的 stage 布局，本期路径 SHALL 明确 Unsupported，不丢弃另一 stage 布局继续执行。
+#### Scenario: 骨骼 palette 通过生产事务
+- **WHEN** 双在途骨骼 draw 经带 context 的 Apply 绑定只读结构化 palette
+- **THEN** 每个 draw 使用自己的精确范围和姿态，错误 stride 或缺失资源明确拒绝并保留原绑定
 
-#### Scenario: 原生槽位冲突
-- **WHEN** 两个活跃资源占用同 stage/同原生命名空间的相同槽位
-- **THEN** Shader/计划构建失败，不发布部分布局
-
-#### Scenario: 不相容 stage block
-- **WHEN** 同一 pipeline 中一个 logical UBO 的两个 stage 需要不同且当前单 range 无法表达的 block ABI
-- **THEN** 链接明确 Unsupported，不保留第一份布局继续执行
+#### Scenario: 第四组与 UI
+- **WHEN** raster 或 compute 使用 Batch set 3，包括 UI 逐 draw 纹理
+- **THEN** 原生 materializer 保留该 set 的资源，不截断为三组，也不将逐 draw 参数放入 Global/Material
 
 ### Requirement: Uniform upload plans encode target layout
 
@@ -145,47 +201,3 @@ UniformUploadPlan SHALL 校验共享语义、CPU 可读范围和目标 block ABI
 #### Scenario: 快路与通用路径等价
 - **WHEN** 两条路径均适用于同一兼容 ABI 和输入值
 - **THEN** 得到相同有效目标字节；总大小相同但成员布局不同不启用整块复制
-
-### Requirement: Uniform plans and bindings preserve atomicity and lifetime
-
-计划缓存 SHALL 使用链接布局/artifact 身份、CPU schema fingerprint 与 packing 协议版本。计划 SHALL 不持有每次 draw 的可变值；显式新版本 SHALL 与在途旧版本并存并沿现有 frame/module/GPU lease 退休。绑定装配 SHALL 验证全部活跃资源和字段后原子替换 draw；失败 SHALL 保留原 draw，优化掉的资源 SHALL 不要求绑定值。
-
-#### Scenario: 失败不改变 draw
-- **WHEN** 最后一个活跃字段或资源验证失败
-- **THEN** 原 draw 的全部有效绑定不变，不发布部分 descriptor 或上传结果
-
-#### Scenario: 两 View 与在途帧
-- **WHEN** 相同逻辑接口在两个 View、多个 draw 和连续在途帧使用不同 CPU 值
-- **THEN** 每次 GPU 使用读取相应快照，后续写入不覆盖旧值
-
-#### Scenario: 计划版本变化
-- **WHEN** CPU schema、目标 ABI 或 packing 协议改变，旧帧仍在使用旧 Shader
-- **THEN** 新使用取得新计划，旧计划/artifact/字节保持有效至原有退休边界
-
-### Requirement: Named updates preserve provider ownership and snapshots
-
-命名事务 SHALL 维护显式 provider/assembler 归属，未知/歧义名、重复解析目标及字段与完整 block 重叠写 SHALL 失败。首次版本 SHALL 通过显式默认值或写入满足活跃必需参数；后续部分更新 SHALL 继承上一版本。图资源 SHALL 在 Core 同名桥接中声明访问并解析精确版本，再降为 RHI 操作；RHI SHALL NOT 接受 graph handle 或在编码时解析最新资产。已录制帧 SHALL 持不可变版本至 GPU 退休。
-
-#### Scenario: 重叠写入拒绝
-- **WHEN** 同一事务通过两个别名写同一字段，或同时写完整 block 和其字段
-- **THEN** 明确冲突且不改变原版本，不按调用顺序选择最终值
-
-#### Scenario: 后续部分更新
-- **WHEN** 已完整初始化的 group 仅更新一个字段或一张纹理
-- **THEN** 新版本保留其它值，旧在途帧继续使用原版本
-
-#### Scenario: 名称不活跃
-- **WHEN** 已声明的参数被当前 variant 优化掉
-- **THEN** 写入返回可区分的 Inactive 状态且不创建 native binding，名字拼错仍是错误
-
-#### Scenario: ResourceGroup 与图装配共用事务
-- **WHEN** 相同 shader/interface 的 typed 参数分别经 ResourceGroup 和图装配更新
-- **THEN** 两者直接复用相同的事务状态机和编码计划，得到相同目标 uniform 字节；各 materializer 只分配和发布一次，失败不改变既有版本
-
-### Requirement: Global tier 数据流
-
-Global set 0 SHALL contain only values shared across the pipeline's views for the frame. View/camera values SHALL belong to the consuming Pass in set 1. Global uniform values SHALL use the selected shader artifact and UniformUploadPlan for checked target encoding, without inferring GPU layout from CPU sizeof. Production FrameGraph invocations SHALL retain frame-safe immutable values through the existing lease protocol.
-
-#### Scenario: Multiple views
-- **WHEN** main and shadow views use different cameras in one frame
-- **THEN** they share frame-global values while retaining independent Pass camera snapshots

@@ -1,20 +1,18 @@
-> 2026-10-26：旧 RenderGraph 及其 PipelinePass 模板已退役；相关旧模板目标不再实施，参见 `remove-unused-legacy-rendergraph`。其余目标维持原验收状态。
-
 ## Why
 
-Status: debt-record（未排期）。当前 Renderer 已完成 Windows RGBA8/D32 最小绘制与 UI；动态 CPU prepare 注册、旧 pipeline 模板迁移和 HDR 是尚未交付的目标设计。归档主 change 时必须保留这些待办，不能把目标条款同步成已完成行为。
+Status: debt-record（未排期）。保留可注册 CPU prepare、更多光类型和生产 FrameGraph feature 的后续扩展。旧 pipeline 模板已由 `remove-unused-legacy-rendergraph` 确认无生产消费者并删除，不再作为迁移目标；其它待办不能因此视为完成。
 
 ## What Changes
 
-- 接收原 3.11 的 CPU prepare 扩展和 4.1 的旧模板/显式 ViewRenderContext 迁移。
-- 保留原 pipeline 目标 delta，实施时按实际抽象复审；不要求沿用旧类名或复制一套管线。
+- 接收原 3.11 的 CPU prepare 扩展和 4.1 尚未覆盖的逐 View/HDR 能力评估。
+- 使用现有 FrameGraphBuildContext/feature 接入；已移除旧模板目标 delta，不复制第二套管线。
 - 记录更多光类型、完整材质/HDR、Compute/Custom、storage/跨队列的扩展条件；每类开始前须限定格式、能力与可执行验收，不默认本 change 一次实现全部。
 
 ## Capabilities
 
 ### Modified Capabilities
 
-- `aurora-pipeline`: 旧 pass 模板与显式逐 View 管线/HDR 迁移的待实施契约。
+- `aurora-pipeline`: 生产逐 View 管线及输出生命周期的后续验收契约。
 
 ## Impact
 

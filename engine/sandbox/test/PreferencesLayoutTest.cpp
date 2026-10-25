@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/EditorCore.h>
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/PreferencesDialog.h>
@@ -247,30 +247,31 @@ namespace sky::editor::preferences_layout_test {
             int        ups   = 0;
         };
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()
+                ->Register<PageData>("PreferencesLayoutPageData")
+                .Member<&PageData::value>("value")
+                .Member<&PageData::first>("first")
+                .Member<&PageData::option01>("option01")
+                .Member<&PageData::option02>("option02")
+                .Member<&PageData::option03>("option03")
+                .Member<&PageData::option04>("option04")
+                .Member<&PageData::option05>("option05")
+                .Member<&PageData::option06>("option06")
+                .Member<&PageData::option07>("option07")
+                .Member<&PageData::option08>("option08")
+                .Member<&PageData::option09>("option09")
+                .Member<&PageData::option10>("option10")
+                .Member<&PageData::option11>("option11")
+                .Member<&PageData::last>("last");
+        });
+
         class PreferencesLayoutTest : public testing::Test {
         protected:
             void SetUp() override
             {
                 savedTheme = GetDefaultUiTheme();
                 SetDefaultUiTheme(MakeDarkTheme());
-                if (Once::Get()->Run("PreferencesLayoutTest.PageData")) {
-                    SerializationContext::Get()
-                        ->Register<PageData>("PreferencesLayoutPageData")
-                        .Member<&PageData::value>("value")
-                        .Member<&PageData::first>("first")
-                        .Member<&PageData::option01>("option01")
-                        .Member<&PageData::option02>("option02")
-                        .Member<&PageData::option03>("option03")
-                        .Member<&PageData::option04>("option04")
-                        .Member<&PageData::option05>("option05")
-                        .Member<&PageData::option06>("option06")
-                        .Member<&PageData::option07>("option07")
-                        .Member<&PageData::option08>("option08")
-                        .Member<&PageData::option09>("option09")
-                        .Member<&PageData::option10>("option10")
-                        .Member<&PageData::option11>("option11")
-                        .Member<&PageData::last>("last");
-                }
                 // This fixture owns its appearance overrides. ReflectedForm's
                 // editor-side ordering follows the registry, independently of
                 // serialization member-map iteration order.

@@ -8,7 +8,7 @@ The working tree already contains compute/custom, scene rendering and editor cha
 2. Keep reads, writes and defines distinct. Validate declarations before culling, then validate content only for surviving passes and exports. Preserve logical pass ordering and inclusive alias lifetimes.
 3. Reuse pure binding lookup and range normalization, including existing raster/compute policies. Preserve Custom resource array order, sparse descriptor sets, and base versus dynamic offsets. Do not add permanent normalized copies to FrozenFrameGraph.
 4. Backend helpers own their native state and allocation rules. Keep Vulkan rendering modes separate, DX12 metadata initialization and scratch barriers intact, and Metal pipeline-specific limits intact. Compilation failure still rolls back within the same lease with device-loss priority.
-5. Keep the current public IR and generated Global/Pass/Batch source contract. Header partitioning remains a follow-up; legacy RDG removal is tracked by `remove-unused-legacy-rendergraph`; no broad renames or module changes are needed here.
+5. Keep the current public IR and generated Global/Pass/Material/Batch source contract. Header partitioning remains a follow-up; legacy RDG removal is tracked by `remove-unused-legacy-rendergraph`; no broad renames or module changes are needed here.
 
 ## Legacy migration inventory
 

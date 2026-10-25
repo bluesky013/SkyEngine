@@ -2,7 +2,7 @@
 
 Status: current authoring and migration record. The [target artifact change](../../openspec/changes/refactor-aurora-target-shader-artifacts/design.md)
 continues this design with immutable target artifacts, per-target reflection, named parameter transactions
-and CPU-to-target upload plans. Cache format 6 / usage format 2 and material version 3 require recook. The [resource-ownership change](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Batch ownership. Its tasks record fresh validation and platform limits.
+and CPU-to-target upload plans. Cache format 10 / usage format 3 and material version 4 require recook. The [resource-ownership change](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Material/Batch ownership (extended by the target-shader-artifacts change). Its tasks record fresh validation and platform limits.
 
 ## 1. Language & modules
 
@@ -16,10 +16,10 @@ Aurora shader implementations are authored in **Slang** (`.slang`). C++ consumes
 | `ShaderHeaderTool` / `ShaderCookTool` | EXE | `engine/aurora/shader/tool` | variant schema generation / usage-cache precompile |
 | `Aurora.Pipeline.Static` | STATIC | `engine/aurora/pipeline` | scene/fullscreen frame features, variant assembly and reflection validation |
 
-Resource tiers: set 0 = Global, set 1 = Pass, set 2 = Batch.
+Resource tiers: set 0 = Global, set 1 = Pass, set 2 = Material, set 3 = Batch.
 Dynamic offsets follow explicit binding types.
 
-The resource contract remains Global / Pass / Batch. View data is optional and
+The resource contract is Global / Pass / Material / Batch. View data is optional and
 declared by the consuming pass; it is not a replacement resource tier. Each pass
 owns one shared `.h` declaration source. Native C++ types and resource metadata
 are expanded from the same lists as shader declarations; shader reflection validates
@@ -43,7 +43,7 @@ user pipelines retain their headers and shader sources inside their own targets.
 C++ compilation needs no shader compiler or header generator. The module resource descriptor supplies exports, source inventory, include roots and dependencies.
 `ShaderResources.Stage` deploys canonical paths under `assets/shaders/`; no C++ source embedding remains.
 `SceneRenderFeature` uses OpaquePass for camera inputs, SceneBatch for world transforms,
-SceneSurfaceBatch for Feature flags, and MaterialBatch for authored tint/surface values.
+SceneSurfaceBatch (set 3, binding 1) for per-draw flags, and MaterialBlock (set 2) for authored tint/surface values.
 Lighting/Shadow/Environment/ToneMap own their additional inputs. Other interfaces may
 use different layouts or omit resource tiers.
 
@@ -88,21 +88,24 @@ artifacts and derives its layouts. There is no independent code/reflection pairi
 Development resolution captures source closure and actual compiler identity before checking
 its compile key. Products resolution reads the selected canonical environment and resolves
 published request → ArtifactID without a compiler or sources. The ArtifactID binds every
-identity field, producer/runtime ABI and code/reflection payload. Index/blob format 6 and
-usage format 2 require recook; Name handles and machine paths are not persistent identities.
+identity field, producer/runtime ABI and code/reflection payload. Index/blob format 10 and
+usage format 3 require recook; Name handles and machine paths are not persistent identities.
 
 SPIR-V, DXIL and MSL each produce their own native reflection. AuroraResource/AuroraField
 attributes preserve logical identities. The current MSL profile is metallib_2_3, emitting
 MSL source; native compilation explicitly uses language 2.3 on macOS 11 / iOS 14 or later.
 See [Shader System](../features/shader-system.md) for environment and Unsupported boundaries.
 
-## 4. Material technique model (version 3)
+## 4. Material technique model (version 4)
 
-Material payload 3 and instance payload 2 contain explicit stage references, semantic properties,
-property-to-canonical-name aliases, ordinary 2D texture references and typed sampler settings.
-A technique can map `baseColor` to `gMaterialBatch.tint` with
-`aliases: [{"alias":"baseColor","target":"gMaterialBatch.tint"}]`.
-Each stage still needs its own canonical source/entry and companion variant schema.
+Material payload 4 and instance payload 2 retain explicit stage references and canonical
+Key/Value properties. The complete Group 2 reflection (zero/one cbuffer, textures, samplers)
+plus Shader-domain static options generates the schema; backend offsets are not asset data.
+`ResolveMaterialDefinition` reconstructs it from source/product metadata. Legacy v3 aliases
+such as `baseColor -> gMaterial.tint` migrate only through exact declarations; conflicting
+or unknown targets fail. New saves use `gMaterial.tint` directly and move legacy technique
+options into the Material properties. Instances cannot override static options.
+Each stage still needs its canonical source/entry and companion key-to-symbol associations.
 
 SceneAssetSource preserves tagged techniques and named CPU snapshots; it does not pack GPU
 uniform bytes. The selected Shader's Name table and cached UniformUploadPlan determine actual
@@ -110,8 +113,8 @@ target encoding. Texture references become exact catalog versions and explicit g
 Missing, stale or unsupported resources fail explicitly. Instances inherit unoverridden values;
 new parameter/texture snapshots leave old in-flight frames intact.
 
-Feature-owned world/receive-shadow Batch blocks and material-owned tint/surface blocks remain
-separate providers. A combined block needs one explicit assembler. Fullscreen/compute can omit
+Feature-owned world/receive-shadow/surface blocks belong to Batch set 3; material tint and
+textures belong to Material set 2. Each block has one explicit provider or assembler. Fullscreen/compute can omit
 scene, material, Tag and Batch altogether; camera data belongs to the consuming Pass.
 
 ResourceGroup uses a Name-first typed transaction with an injected RHI-neutral update context.
@@ -125,7 +128,7 @@ slots retain their exact CPU schema until the actual Shader selects a native upl
   `engine/render/**` and `engine/shader` by `openspec/changes/legacy-render-thirdparty-cleanup/`.
 - The unconsumed repository `assets/shaders` HLSL files, six legacy `.mat` files and
   `assets/vertex/vertex_library.vtxlib` have been removed. Their old references are
-  not supported material examples; use the version-3 model above.
+  not supported material examples; use the version-4 model above.
 - Runtime `ShaderBlockGen` HLSL generation has been removed. Shared `.h` declarations
   export persistent `.slangh`; `RgBlockDesc` remains layout metadata/validation.
 - Aurora uses the Slang-based compiler in `engine/aurora/shader`.
@@ -155,7 +158,7 @@ material features have runtime equivalents.
    alongside the source. C++ includes `.h`; shaders include `.slangh`.
 4. Replace material `shader` fields with explicit `program.vertex/fragment`, preserve Tags,
    and map material uniform members to typed properties. Empty sources/entries are errors.
-5. Recook material version 3 / instance version 2 and shader cache index version 6. Project packaging aggregates
+5. Recook material version 4 / instance version 2 and shader cache index version 10. Project packaging aggregates
    selected owners into one index per target; runtime receives the products root.
 6. Run export checks, layout reflection and affected native rendering tests. Remove obsolete
    sources only under the reviewed migration inventory.
@@ -172,3 +175,17 @@ Nested/FLOAT3/BOOL/half uniform packing, Metal descriptor arrays/argument buffer
 storage buffers, material deformation, full PBR shading and a general PSO cache remain outside
 this change. Linux/Windows/Android/iOS native tests require their actual available hosts/devices;
 a successful macOS test or iOS 13 cross-build cannot substitute for them.
+
+
+## 8. Confirmed variant contract (2026-10-25)
+
+The active `refactor-aurora-shader-source-techniques` change retains JSON companions and
+explicit stage programs; its older source-marker DSL was withdrawn. V/P/S selection lives
+in Core. Each target derives compile/native lowering from the declared source symbols;
+callers supply typed values only. IDs belong to individual stages. Full selection,
+stage code and executable identities remain distinct. Published records authorize complete
+selections, including native values; generic code reuse does not authorize arbitrary values.
+
+See [typed selection](../features/shader-system.md#typed-selection-and-target-lowering)
+for authoring, preparation and supported shapes. See the active change's implementation
+record for fresh test results and the pending macOS native gate.

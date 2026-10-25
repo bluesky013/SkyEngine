@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/ToneMapPass.h; do not edit.
-// Inputs: 59cc901eabc4705af4be4a9af89c3696b7257c8c4fc8bb7f2dca2a37e6d46b3b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 59cc901eabc4705af4be4a9af89c3696b7257c8c4fc8bb7f2dca2a37e6d46b3b; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

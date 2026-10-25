@@ -52,9 +52,10 @@ namespace sky::aurora {
             return invalid("Technique reflection does not match its stage artifacts");
         std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
         for (const auto &resource : source.reflection.resources) {
-            if (resource.set > 2 || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
+            if (resource.set >= MAX_SHADER_SETS || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
                 return invalid("Technique resource declarations require unique scalar Global/Pass/Batch bindings");
-            if (!SupportedResource(resource.type, compute)) {
+            if (!SupportedResource(resource.type, compute) && !(resource.type == ShaderResourceType::STORAGE_BUFFER && resource.access == ShaderResourceAccess::READ_ONLY &&
+                     resource.bufferKind == ShaderBufferKind::STRUCTURED && resource.elementStride)) {
                 return invalid("Unsupported technique resource binding type");
             }
         }
@@ -164,6 +165,15 @@ namespace sky::aurora {
     }
     std::variant<FrameError, RasterBufferRange> FrameComposer::Upload(std::span<const std::byte> bytes, BufferUsageFlags usage)
     {
+        if (usage == BufferUsageFlagBit::STORAGE) {
+            if (bytes.empty() || bytes.size() % 4) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage upload requires nonempty four-byte aligned data"}; }
+            auto written = context.WriteFrameBuffer(inputs.lease, FrameBufferKind::STORAGE, bytes, 64);
+            if (const auto *error = std::get_if<FrameError>(&written)) { return *error; }
+            const auto &slice = std::get<FrameBufferSlice>(written);
+            auto imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
+            if (const auto *error = std::get_if<FrameError>(&imported)) { return *error; }
+            return RasterBufferRange{std::get<GraphBufferHandle>(imported), slice.offset, bytes.size()};
+        }
         if (bytes.empty() || bytes.size() % 4 || !(usage & (BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX)))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Feature geometry requires aligned vertex/index bytes"};
         auto written = context.WriteFrameBuffer(inputs.lease, FrameBufferKind::STAGING, bytes, 4);
@@ -218,7 +228,10 @@ namespace sky::aurora {
         materials    = materialLayouts;
         localBuffers = inGraph;
     }
-    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list)
+    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Name                     tag,
+                                                                                         Rect2D                   scissor,
+                                                                                         PreparedDrawList         list,
+                                                                                         const ShaderVariant     *pipelineValues)
     {
         if (!view || !resources)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Prepared draws require an active BuildView snapshot"};
@@ -228,26 +241,26 @@ namespace sky::aurora {
         PreparedViewData                    selected = *view;
         auto                               &packets  = list == PreparedDrawList::VISIBLE ? selected.draws : selected.shadowCasters;
         std::vector<PreparedMaterialLayout> layouts;
-        for (const auto &material : materials) {
-            const PreparedMaterialLayout *matched = nullptr;
-            for (const auto &[candidate, layout] : material.techniques) {
-                if (candidate != tag) {
-                    continue;
-                }
-                if (matched != nullptr) {
-                    return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Ambiguous material technique for scene queue Tag"};
-                }
-                matched = &layout;
-            }
-            if (matched != nullptr) {
-                layouts.push_back(*matched);
-            }
-        }
+        for (const auto &material : materials)
+            for (const auto &[candidate, layout] : material.techniques)
+                if (candidate == tag)
+                    layouts.push_back(layout);
         std::erase_if(packets, [&](const auto &packet) {
             return std::none_of(layouts.begin(), layouts.end(), [&](const auto &layout) { return layout.resource == packet.material.resource; });
         });
-        auto resolved =
-            ResolvePreparedRaster(device, context, inputs.lease, builder, selected, *resources, meshes, layouts, scissor, localBuffers, list);
+        const ShaderVariant empty;
+        auto                resolved = ResolvePreparedRaster(device,
+                                                             context,
+                                                             inputs.lease,
+                                                             builder,
+                                                             selected,
+                                                             *resources,
+                                                             meshes,
+                                                             layouts,
+                                                             scissor,
+                                                             localBuffers,
+                                                             list,
+                                                             pipelineValues ? *pipelineValues : empty);
         if (const auto *error = std::get_if<FrameError>(&resolved))
             return *error;
         return std::move(std::get<PreparedRasterView>(resolved).draws);

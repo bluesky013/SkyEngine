@@ -17,6 +17,9 @@ namespace sky::editor {
         ui::UITextureId RegisterTextureAs(ui::UITextureId, const ui::UIImageData &) override;
         void            UpdateTexture(ui::UITextureId, const ui::UIImageData &) override;
         void            ReleaseTexture(ui::UITextureId) override;
+        ui::UITextureId RegisterView(aurora::ViewOutputRef);
+        bool            UpdateView(ui::UITextureId, aurora::ViewOutputRef);
+        void            ReleaseView(ui::UITextureId);
         std::variant<aurora::RendererError, aurora::FrameExtensionPayload>
                  Snapshot(Name, aurora::ViewportId, aurora::Extent2D, const ui::UIDrawData &, aurora::ViewOutputRef) const;
         void     Flush(aurora::FramePacket &);
@@ -32,11 +35,12 @@ namespace sky::editor {
             ui::UIImageData           image;
             bool                      dirty = true;
         };
-        std::optional<aurora::RendererError>   Validate(const ui::UIImageData &, uint64_t previous = 0) const;
-        uint64_t                               epoch = 0, cpuBytes = 0;
-        ui::UITextureId                        nextId = 2;
-        std::optional<aurora::RendererError>   failure;
-        std::map<ui::UITextureId, Texture>     textures;
-        std::vector<aurora::RenderResourceKey> released;
+        std::optional<aurora::RendererError>             Validate(const ui::UIImageData &, uint64_t previous = 0) const;
+        uint64_t                                         epoch = 0, cpuBytes = 0;
+        ui::UITextureId                                  nextId = 2;
+        std::optional<aurora::RendererError>             failure;
+        std::map<ui::UITextureId, Texture>               textures;
+        std::map<ui::UITextureId, aurora::ViewOutputRef> views;
+        std::vector<aurora::RenderResourceKey>           released;
     };
 } // namespace sky::editor

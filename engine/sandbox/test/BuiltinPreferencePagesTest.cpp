@@ -18,7 +18,6 @@ namespace sky::editor::builtin_preference_pages_test {
             {
                 pages = PreferencePageRegistry::Get();
                 pages->Clear();
-                RegisterEditorSettings(SerializationContext::Get());
             }
             void TearDown() override
             {

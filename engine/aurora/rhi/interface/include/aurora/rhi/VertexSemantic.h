@@ -28,9 +28,10 @@ namespace sky::aurora {
         CUSTOM2   = 12,
         CUSTOM3   = 13,
         CUSTOM4   = 14,
+        INSTANCE  = 15,
     };
 
-    static constexpr uint16_t kVertexSemanticCount = 15;
+    static constexpr uint16_t kVertexSemanticCount = 16;
     static constexpr uint16_t kVertexSemanticBits  = 16; // reserved vertex region
 
     inline const char *VertexSemanticName(VertexSemantic semantic)
@@ -51,6 +52,7 @@ namespace sky::aurora {
         case VertexSemantic::CUSTOM2:   return "CUSTOM2";
         case VertexSemantic::CUSTOM3:   return "CUSTOM3";
         case VertexSemantic::CUSTOM4:   return "CUSTOM4";
+        case VertexSemantic::INSTANCE: return "INSTANCE";
         }
         return "UNKNOWN";
     }

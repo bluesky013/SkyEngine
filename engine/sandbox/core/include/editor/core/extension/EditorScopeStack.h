@@ -57,5 +57,17 @@ namespace sky::editor {
     private:
         std::vector<std::string> stack;
     };
+    class ScopedEditorActions {
+    public:
+        explicit ScopedEditorActions(std::string scope) : scope(std::move(scope))
+        {
+            if (!this->scope.empty()) EditorScopeStack::Get()->Push(this->scope);
+        }
+        ~ScopedEditorActions() { if (!scope.empty()) EditorScopeStack::Get()->Pop(scope); }
+        ScopedEditorActions(const ScopedEditorActions &) = delete;
+        ScopedEditorActions &operator=(const ScopedEditorActions &) = delete;
+    private:
+        std::string scope;
+    };
 
 } // namespace sky::editor

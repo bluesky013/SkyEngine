@@ -31,11 +31,20 @@ namespace sky::aurora {
         WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte>, ShaderResourceType type = ShaderResourceType::UNIFORM_BUFFER) = 0;
         // Resolves only the current BuildView snapshot, retaining its exact resource versions.
         virtual std::variant<FrameError, std::vector<ResolvedRasterDraw>>
-        ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list = PreparedDrawList::VISIBLE) = 0;
-        virtual std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) = 0;
-        virtual FrameOperationResult                       Raster(FrameRasterPass)                = 0;
-        virtual FrameOperationResult                       Fullscreen(FrameRasterPass)            = 0;
-        virtual FrameOperationResult                       Compute(FrameComputePass)              = 0;
+        ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list = PreparedDrawList::VISIBLE, const ShaderVariant *pipelineValues = nullptr) = 0;
+        virtual std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &)                                                = 0;
+        virtual FrameOperationResult                       Raster(FrameRasterPass)                                                               = 0;
+        virtual FrameOperationResult                       Fullscreen(FrameRasterPass)                                                           = 0;
+        virtual FrameOperationResult                       Compute(FrameComputePass)                                                             = 0;
+    };
+
+    // Coordinator preparation precedes graph declarations and output acquisition.
+    class FrameFeaturePrepareContext {
+    public:
+        virtual ~FrameFeaturePrepareContext()                                                 = default;
+        virtual RendererInfo                        GetRendererInfo() const                   = 0;
+        virtual const FrameBuildInputs             &GetInputs() const                         = 0;
+        virtual std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &) = 0;
     };
 
     class IScenePrepareFeature {
@@ -54,6 +63,10 @@ namespace sky::aurora {
         virtual std::optional<RendererError> Validate(const FrameExtensionPayload &) const
         {
             return {};
+        }
+        virtual FrameOperationResult Prepare(FrameFeaturePrepareContext &)
+        {
+            return FrameOperationComplete{};
         }
         // Coordinator-only; context borrows expire on return. No queue submission or live ECS mutation.
         virtual FrameOperationResult BuildView(FrameGraphBuildContext &, const PreparedViewData &)

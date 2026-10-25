@@ -42,7 +42,7 @@ FullScreenPass and ComputePass SHALL explicitly select their techniques without 
 
 ### Requirement: View shader data belongs to Pass
 
-Resource tiers SHALL remain Global set 0, Pass set 1 and Batch set 2. Optional View/camera/projection/viewport shader parameters SHALL belong to the consuming Pass invocation, with no separate View tier. Global values SHALL be common across that pipeline's views for the frame. CPU View organization and scheduling SHALL remain independent of this shader binding choice.
+Resource tiers SHALL use Global set 0, Pass set 1, Material set 2 and Batch set 3. Optional View/camera/projection/viewport shader parameters SHALL belong to the consuming Pass invocation, with no separate View tier. Global values SHALL be common across that pipeline's views for the frame. CPU View organization and scheduling SHALL remain independent of this shader binding choice.
 
 #### Scenario: Several views in one frame
 - **WHEN** main, secondary and shadow camera invocations coexist
@@ -56,33 +56,25 @@ Resource tiers SHALL remain Global set 0, Pass set 1 and Batch set 2. Optional V
 - **WHEN** a Feature produces lighting, a shadow map or IBL used across a Pass
 - **THEN** the consumer binds it through the Pass contract rather than classifying it as Batch solely because a Feature produced it
 
-### Requirement: Batch composes material and Feature inputs
+### Requirement: Material and Batch have separate providers
 
-ScenePass Batch SHALL support material-authored properties/resources and Feature-supplied draw data within set 2. The selected interface SHALL explicitly assign each binding to one provider, or to one assembler for an intentionally combined block. Binding composition SHALL reject conflicting ownership, missing active inputs and incompatible layouts before atomically replacing draw bindings. Generic rendering SHALL NOT require a fixed SceneBatchParams payload or equate material CPU-property offsets with reflected uniform offsets.
+ScenePass SHALL compose Material inputs in set 2 and Feature/draw inputs in Batch set 3. Material SHALL expose at most one cbuffer plus declared resources; Batch SHALL carry transforms, palette and other explicitly owned draw inputs. Each binding/block SHALL have one provider or assembler. Composition SHALL validate all active resources and semantic types against the selected target ABI before atomically replacing draw bindings. Generic rendering SHALL NOT infer GPU offsets from Material CPU storage or require a fixed SceneBatchParams payload.
 
-#### Scenario: Material and Feature provide different Batch bindings
-- **WHEN** a selected technique requires a material parameter/texture binding and Feature transform or instance bindings
-- **THEN** both contributions compose into its Batch according to declared slots and validated shader layouts
+#### Scenario: Material and Feature contributions
+- **WHEN** a technique needs Material constants/textures and Feature transforms/palette
+- **THEN** they occupy their respective sets and are published together after validation
 
 #### Scenario: Competing providers
-- **WHEN** two providers claim the same Batch binding
-- **THEN** composition reports a conflict and preserves the prior draw bindings rather than overwriting by call order
+- **WHEN** two providers claim one binding or overlap one block
+- **THEN** composition fails and preserves the previous draw
 
-#### Scenario: Combined block has one assembler
-- **WHEN** a concrete interface places material and Feature fields in one uniform block
-- **THEN** one declared assembler packs the fields according to that layout and validates the result without overlapping independent byte writes
+#### Scenario: Optional groups
+- **WHEN** fullscreen or compute has no active Material or Batch resources
+- **THEN** it needs no dummy bindings or Material object
 
-#### Scenario: Missing input or layout mismatch
-- **WHEN** an active Batch resource lacks its provider or a supplied property has an incompatible type/layout
-- **THEN** validation fails explicitly before draw publication or GPU execution
-
-#### Scenario: Optional Batch
-- **WHEN** a FullScreenPass or ComputePass technique has no active set-2 resources
-- **THEN** execution succeeds using its required Global/Pass resources without allocating dummy Batch bindings
-
-#### Scenario: Explicit technique requires Batch
-- **WHEN** a fullscreen or compute technique declares active set-2 resources
-- **THEN** its caller must supply compatible Batch values and cannot ignore them based on the Pass kind
+#### Scenario: Explicit invocation resources
+- **WHEN** fullscreen or compute declares active set-2 or set-3 resources
+- **THEN** its caller provides the matching inputs regardless of Pass kind
 
 ### Requirement: Custom pipelines consume foundation binding mechanisms
 

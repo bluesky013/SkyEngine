@@ -1,0 +1,18 @@
+// Generated from aurora/pipeline/SkinningBatch.h; do not edit.
+// Inputs: ae2eda3043c37be415a48cf372788de80773a469ed022c46dad3febc687a2076; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
+#pragma once
+
+#ifndef AURORA_DECLARATION_ATTRIBUTES
+#define AURORA_DECLARATION_ATTRIBUTES
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+[__AttributeUsage(_AttributeTargets.Var)]
+struct AuroraFieldAttribute { string path; };
+#endif
+
+[AuroraResource(3, 3, "aurora/pipeline/SkinningBatch.h")]
+[[vk::binding(3, 3)]] StructuredBuffer<float4> gSkinningPalette
+#if !AURORA_TARGET_MSL
+    : register(t3, space3)
+#endif
+;

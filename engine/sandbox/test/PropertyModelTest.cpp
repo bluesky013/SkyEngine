@@ -14,7 +14,6 @@ namespace sky::editor {
 
         const TypeNode *GetTestType()
         {
-            test::RegisterTestTypes();
             return GetTypeNode(TypeInfo<test::TestObject>::RegisteredId());
         }
 

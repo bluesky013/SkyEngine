@@ -215,6 +215,7 @@ namespace sky::aurora {
         std::vector<RasterVertexAttribute> attributes;
         std::optional<RasterIndexedDraw>   indexed;
         std::vector<RasterUniformBinding>  uniforms;
+        std::vector<RasterUniformBinding> storage;
         std::vector<RasterImageBinding>    images;
         std::vector<RasterSamplerBinding>  samplers;
         RasterDepthState                   depth;

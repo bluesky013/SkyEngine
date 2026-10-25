@@ -46,6 +46,7 @@ sky_add_test(TARGET EditorRenderTest
     SOURCES
         EditorWindowEventBindingTest.cpp
         EditorFrameSubmissionTest.cpp
+        EditorPreviewSessionTest.cpp
         CpuViewportPickerTest.cpp
         main.cpp
     INCS

@@ -68,6 +68,7 @@ if (NOT SKY_MOBILE)
             include
         LIBS
             Aurora.ShaderCompiler.Static
+            Aurora.Pipeline.Static
             Core
     )
 endif()
@@ -88,6 +89,7 @@ if (SKY_BUILD_TEST)
     target_include_directories(Aurora.ShaderTest PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../core/test")
     target_compile_definitions(Aurora.ShaderTest PRIVATE
+        SLANG_STATIC
         SHADER_TEST_BUNDLE_ROOT="$<TARGET_FILE_DIR:Aurora.ShaderTest>/test-assets/shaders")
 
     if (TARGET Aurora.Vulkan)

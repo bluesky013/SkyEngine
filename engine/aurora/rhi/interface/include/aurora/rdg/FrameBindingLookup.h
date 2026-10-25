@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <aurora/rhi/Core.h>
 #include <cstdint>
 #include <span>
 
@@ -34,7 +35,7 @@ namespace sky::aurora {
         }
 
     private:
-        std::array<std::array<const Binding *, 32>, 3> sets{};
+        std::array<std::array<const Binding *, 32>, MAX_SHADER_SETS> sets{};
         uint32_t                                       usedSets = 0;
     };
 } // namespace sky::aurora

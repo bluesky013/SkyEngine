@@ -1,4 +1,4 @@
-状态：代码实施与当前 macOS 宿主验收已完成，38/43 项通过。5.4/5.5/5.6/5.9/5.10 的平台原生验收仍待对应设备/宿主；交叉构建与离线产品验证不代替实机结果。详情见 [implementation.md](implementation.md)。未 commit/archive。
+状态：2026-10-23 基线为 38/43；2026-10-25 追加审计修复 6/7 完成，本轮 Metal 原生验收（6.7）仍待 Apple 宿主。原跨平台与材质端到端 gate 保持未勾选；构建/离线验证不替代实机结果。详情见 [implementation.md](implementation.md)。未 commit/archive。
 
 ## 1. M1 产物身份与严格校验
 
@@ -80,3 +80,21 @@
 - 当前 adb 设备列表为空，xcdevice 只列出本机 Mac。Windows/D3D12、Windows/Vulkan、Linux/Vulkan 和移动实机尚未执行，五项原生验收保持未勾选。Linux preset 已存在，但 Core/Framework 的当前平台源选择没有 Linux 分支；宿主/异步原语基础为既有前置，不在本 change 扩大移植。
 - `git diff --check`、新增/修改错误路径禁用 throw/try/catch/dynamic_cast 检查及相关 OpenSpec strict 校验完成；具体复现方式、日志和限制见 implementation.md。
 - Origin复验：已rebase至`b5247705`并保留全部原未提交改动，修复冲突及Develop/Clang/日志格式兼容。Release1494项、Develop632项、Python67项通过；shipping重新cook后1+3项、编辑器8帧运行及移动交叉构建通过。UIShader的3项DXIL在非Windows跳过；原五项跨平台原生验收仍待对应环境，进度保持38/43。详见implementation.md的rebase复验记录。
+
+
+## 6. 2026-10-25 审计修复
+
+- [x] 6.1 恢复全部 RendererEvent 交付；补完整 set 2 Material、set 3 SceneSurface/UI/legacy Batch 和生产 storage 事务的失败原子性。
+- [x] 6.2 发布 v9 三域选择元数据；使用真实 Vertex 属性/instance 输入和逐 stage schema，保留 specialization 有效值；补无源非默认组合回归。
+- [x] 6.3 对所有执行 variants 校验接口与唯一选择键，并计入 artifact/反射/选择数据预算。
+- [x] 6.4 异步 compiler/module/root/writer 显式保活及单次执行；补真实 DLL 最终释放回归并消除控制块自卸载。
+- [x] 6.5 Metal compute 四组与 raster storage 实现接通；同步当前文档、规则、持久导出和过期测试夹具。
+- [x] 6.6 完成 Windows 最终构建/原生回归、发布包和规范检查，回填最终结果。
+- [ ] 6.7 在 Apple 宿主验证本轮四组 compute 与 raster palette 修改；本机 MSL 生成不替代该项。
+
+6.x 为本轮追加项；不改写 2026-10-23 的 38/43 历史进度，也不自动关闭原跨平台/材质端到端 gate。当前结论见 implementation.md 与 docs/aurora/rendering-design-audit-2026-10-25.md。
+
+
+## 2026-10-26 规范接续复核
+
+已逐项修正相关主 spec 与 active delta 的现行契约，并将已存在的 ADDED/RENAMED/REMOVED 操作重设为可再次合并的 delta。只读合并检查与 strict 校验分开记录；未执行 archive。历史平台结果不覆盖后续四组/typed selection/metadata owner 修改。完整范围、证据和剩余项见 `docs/aurora/consistency-review-2026-10-26.md`。

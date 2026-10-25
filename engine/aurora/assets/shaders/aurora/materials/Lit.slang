@@ -1,19 +1,37 @@
 #include <aurora/pipeline/GlobalBlock.slangh>
 #include <aurora/pipeline/OpaquePass.slangh>
 #include <aurora/pipeline/SceneBatch.slangh>
-#include <aurora/pipeline/MaterialBatch.slangh>
+#include <aurora/pipeline/MaterialBlock.slangh>
 #include <aurora/pipeline/SceneLightingPass.slangh>
 #include <aurora/pipeline/SceneSurfaceBatch.slangh>
 #include <aurora/pipeline/SceneEnvironmentPass.slangh>
+#if SKINNED
+#include <aurora/materials/Skinning.slangh>
+#endif
 
 struct SceneVarying
 {
     float4 position : SV_Position;
     float3 worldPosition : TEXCOORD0;
+#if SKINNED
+    float3 worldNormal : TEXCOORD1;
+#endif
 };
+#if SKINNED
+SceneVarying VSMain(float3 position : POSITION, float3 normal : NORMAL, uint4 joints : JOINTS, float4 weights : WEIGHTS)
+#else
 SceneVarying VSMain(float3 position : POSITION)
+#endif
 {
     SceneVarying result;
+#if SKINNED
+    position = SkinPosition(position, joints, weights);
+    float3 localNormal = SkinNormal(normal, joints, weights);
+    float3x3 linearWorld = (float3x3)gSceneBatch.world;
+    float3x3 cofactor = float3x3(cross(linearWorld[1], linearWorld[2]), cross(linearWorld[2], linearWorld[0]), cross(linearWorld[0], linearWorld[1]));
+    float3 cofactorNormal = mul(cofactor, localNormal) * (determinant(linearWorld) < 0 ? -1 : 1);
+    result.worldNormal = SkinSafeDirection(cofactorNormal, localNormal);
+#endif
     float4 world = mul(gSceneBatch.world, float4(position, 1));
     result.position = mul(gOpaquePass.viewProjection, world);
     result.worldPosition = world.xyz;
@@ -38,7 +56,11 @@ float2 EnvironmentUv(float3 direction)
 float4 FSMain(SceneVarying input) : SV_Target
 {
     float3 toEye = gOpaquePass.cameraPosition.xyz - input.worldPosition;
+#if SKINNED
+    float3 normal = SkinSafeDirection(input.worldNormal, float3(0, 1, 0));
+#else
     float3 normal = normalize(cross(ddx(input.worldPosition), ddy(input.worldPosition)));
+#endif
     if (dot(normal, toEye) < 0)
         normal = -normal;
     float3 radiance = gDiffuseIrradiance.SampleLevel(gEnvironmentSampler, EnvironmentUv(normal), 0).rgb * gSceneEnvironment.environment.x;

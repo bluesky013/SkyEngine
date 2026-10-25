@@ -685,7 +685,7 @@ namespace sky::aurora {
         uint32_t size;
     };
 
-    struct ShaderVertexInput {};
+    struct ShaderVertexInput;
 
     // draw commands
     struct CmdDrawLinear {
@@ -715,6 +715,8 @@ namespace sky::aurora {
 
     static constexpr uint32_t MAX_COLOR_ATTACHMENTS = 8;
     static constexpr uint32_t MAX_VERTEX_BINDINGS   = 16;
+    // Global/Pass/Batch/Material. Vulkan guarantees at least four bound sets.
+    static constexpr uint32_t MAX_SHADER_SETS       = 4;
     static constexpr uint32_t MAX_VIEWPORTS         = 16;
 
     // rendering attachment

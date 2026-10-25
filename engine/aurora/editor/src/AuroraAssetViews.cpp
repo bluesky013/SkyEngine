@@ -13,7 +13,6 @@
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 
-#include <core/environment/Once.h>
 #include <core/math/Vector3.h>
 #include <editor/core/asset/AssetViewData.h>
 #include <framework/asset/AssetManager.h>
@@ -56,6 +55,8 @@ namespace sky::aurora::editor {
         struct SkeletonView {
             uint32_t boneCount = 0;
         };
+
+
 
         struct LodGroupView {
             uint32_t levelCount = 0;
@@ -158,6 +159,8 @@ namespace sky::aurora::editor {
             }
         };
 
+
+
         ImageViewProvider    g_imageView;
         MeshViewProvider     g_meshView;
         SkeletonViewProvider g_skeletonView;
@@ -165,11 +168,8 @@ namespace sky::aurora::editor {
 
     } // namespace
 
-    void RegisterAuroraAssetViews(sky::SerializationContext *context)
+    void ReflectAuroraAssetViews(sky::SerializationContext *context)
     {
-        if (context == nullptr || !sky::Once::Get()->Run("AuroraAssetViews")) {
-            return; // cross-DLL idempotency
-        }
 
         // Read-only MVP: these are asset summaries; editable import/cook settings live in the
         // BUNDLE section. Source write-back (edit -> re-cook) is a follow-up.
@@ -219,16 +219,31 @@ namespace sky::aurora::editor {
 
         context->Register<SkeletonView>("SkeletonView").Member<&SkeletonView::boneCount>("boneCount").Property(kReadOnly, Any(true));
 
-        context->Register<LodGroupView>("LodGroupView").Member<&LodGroupView::levelCount>("levelCount").Property(kReadOnly, Any(true));
 
+
+        context->Register<LodGroupView>("LodGroupView").Member<&LodGroupView::levelCount>("levelCount").Property(kReadOnly, Any(true));
+    }
+
+    void RegisterAuroraAssetViews(std::shared_ptr<const void> lease)
+    {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
-        registry->Register(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView);
-        registry->Register(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView);
-        registry->Register(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView);
-        registry->Register(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView);
+        registry->Register(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView, lease);
+        registry->Register(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView, lease);
+        registry->Register(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView, lease);
+        registry->Register(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView, lease);
 
         // Material / MaterialInstance are heterogeneous (typed property lists) -> custom editor providers.
-        RegisterMaterialEditorProvider();
+        RegisterMaterialEditorProvider(std::move(lease));
+    }
+
+    void UnregisterAuroraAssetViews()
+    {
+        auto *registry = sky::editor::AssetViewDataRegistry::Get();
+        registry->Unregister(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView);
+        registry->Unregister(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView);
+        registry->Unregister(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView);
+        registry->Unregister(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView);
+        UnregisterMaterialEditorProvider();
     }
 
 } // namespace sky::aurora::editor

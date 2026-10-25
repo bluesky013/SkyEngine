@@ -242,6 +242,14 @@ namespace sky::aurora {
     uint64_t ShaderInterfaceFingerprint(const ShaderReflection &reflection)
     {
         Digest hash;
+        hash.U64(reflection.vertexInputs.size());
+        for (const auto &input : reflection.vertexInputs) {
+            hash.Text(input.semantic);
+            hash.U64(input.semanticIndex);
+            hash.U64(input.location);
+            hash.U64(static_cast<uint32_t>(input.scalarType));
+            hash.U64(input.components);
+        }
         HashTables(hash, reflection.declarations.empty() ? reflection.resources : reflection.declarations,
                    reflection.declaredBlocks.empty() ? reflection.blocks : reflection.declaredBlocks, false);
         return hash.value;
@@ -256,6 +264,14 @@ namespace sky::aurora {
         hash.U64(static_cast<uint32_t>(reflection.usage));
         hash.U64(reflection.stages.value);
         hash.U64(reflection.complete);
+        hash.U64(reflection.vertexInputs.size());
+        for (const auto &input : reflection.vertexInputs) {
+            hash.Text(input.semantic);
+            hash.U64(input.semanticIndex);
+            hash.U64(input.location);
+            hash.U64(static_cast<uint32_t>(input.scalarType));
+            hash.U64(input.components);
+        }
         HashTables(hash, reflection.resources, reflection.blocks, true);
         HashTables(hash, reflection.declarations, reflection.declaredBlocks, true);
         auto bindings = reflection.nativeBindings;
@@ -306,6 +322,16 @@ namespace sky::aurora {
         for (const auto &variant : variants) {
             hash.Text(variant.name);
             hash.U64(variant.value);
+            hash.U64(static_cast<uint32_t>(variant.type));
+        }
+        hash.U64(artifact.variantBindings.size());
+        for (const auto &binding : artifact.variantBindings) {
+            hash.Text(binding.key);
+            hash.Text(binding.symbol);
+            hash.U64(static_cast<uint32_t>(binding.type));
+            hash.U64(static_cast<uint32_t>(binding.lowering));
+            hash.U64(binding.nativeId);
+            hash.U64(binding.defaultValue);
         }
         hash.Bytes(artifact.data);
         hash.U64(ShaderReflectionFingerprint(artifact.reflection));
@@ -424,6 +450,18 @@ namespace sky::aurora {
             !SingleStage(identity.stage) || !identity.sourceHash || identity.producer.compiler.empty() || identity.producer.version.empty() ||
             !identity.producer.adapterVersion || identity.producer.reflectionVersion != ShaderReflection::kProtocolVersion)
             return Fail(error, "Incomplete shader artifact identity");
+        std::set<std::string> variantKeys;
+        std::set<uint32_t> nativeIds;
+        for (const auto &binding : artifact.variantBindings) {
+            if (binding.key.empty() || !variantKeys.insert(binding.key).second || binding.type > ShaderVariantType::BOOL ||
+                binding.lowering > ShaderVariantLowering::NATIVE || (binding.type == ShaderVariantType::BOOL && binding.defaultValue > 1) ||
+                (binding.lowering == ShaderVariantLowering::NATIVE && (binding.symbol.empty() || environment.target == ShaderTarget::DXIL ||
+                                                                     !nativeIds.insert(binding.nativeId).second)))
+                return Fail(error, "Invalid target variant mapping");
+        }
+        for (const auto &value : identity.variants)
+            if (value.name.empty() || value.type > ShaderVariantType::BOOL || (value.type == ShaderVariantType::BOOL && value.value > 1))
+                return Fail(error, "Invalid typed shader variant");
         if (!NormalizeShaderEnvironment(environment, error) || environment != identity.environment)
             return Fail(error, "Shader environment is not canonical");
         if (artifact.reflection.kind != ShaderReflectionKind::STAGE || artifact.reflection.stages != ShaderStageFlags(identity.stage) ||
@@ -465,6 +503,11 @@ namespace sky::aurora {
         merged.complete     = true;
         merged.bindingModel = stage.bindingModel;
         merged.stages |= stage.stages;
+        if (!stage.vertexInputs.empty()) {
+            if (!merged.vertexInputs.empty() && merged.vertexInputs != stage.vertexInputs)
+                return Fail(error, "Shader stages disagree on vertex inputs");
+            merged.vertexInputs = stage.vertexInputs;
+        }
         if (stage.usage == ShaderUsageAnalysis::CONSERVATIVE)
             merged.usage = stage.usage;
         const auto mergeResources = [&](const auto &inputs, auto &outputs) {

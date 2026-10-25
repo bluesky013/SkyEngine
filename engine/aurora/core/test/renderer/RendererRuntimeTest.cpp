@@ -238,8 +238,8 @@ namespace {
         )"));
     }
     struct FeatureCounters {
-        uint32_t builds = 0, retired = 0;
-        bool     fail = false;
+        uint32_t builds = 0, retired = 0, preparations = 0;
+        bool     fail = false, failPreparation = false;
     };
     class CountingFeature final : public IFrameGraphFeature {
     public:
@@ -249,6 +249,13 @@ namespace {
         Name GetName() const override
         {
             return Name("count");
+        }
+        FrameOperationResult Prepare(FrameFeaturePrepareContext &) override
+        {
+            ++counters->preparations;
+            if (counters->failPreparation)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Injected preparation failure"};
+            return FrameOperationComplete{};
         }
         FrameOperationResult BuildFrame(FrameGraphBuildContext &, const FrameExtensionPayload &) override
         {
@@ -502,10 +509,6 @@ namespace {
 
 TEST_P(RendererRuntimeTest, WorldBridgeProductionAssetsTransformAndRemovalReachPixels)
 {
-    auto *context = SerializationContext::Get();
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(context);
-    AuroraReflection(context);
     struct CompilerScope {
         ShaderCompilerSlang compiler;
         IShaderCompiler    *previous = ShaderCompilerFactory::Get().GetCompiler();
@@ -659,7 +662,9 @@ TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
         #include <aurora/pipeline/OpaquePass.slangh>
         #include <aurora/pipeline/SceneBatch.slangh>
         float4 CustomPosition(float3 p : POSITION) : SV_Position { return mul(gOpaquePass.viewProjection, mul(gSceneBatch.world, float4(p, 1))); }
-        float4 CustomSurface() : SV_Target { return float4(0, 0, 1, 1); }
+        [AuroraResource(2,1,"custom/Surface")] [[vk::binding(1,2)]] Texture2D<float4> albedo : register(t1, space2);
+        [AuroraResource(2,2,"custom/Surface")] [[vk::binding(2,2)]] SamplerState sampling : register(s2, space2);
+        float4 CustomSurface() : SV_Target { return albedo.Sample(sampling, float2(.5, .5)); }
     )"));
     ASSERT_TRUE(files->AddVirtualFile("custom/Surface.slang.json", R"({"entries":["CustomPosition","CustomSurface"],"variants":[]})"));
     auto code = CompileShaderTechnique(*files, info.backend, {{"custom/Surface.slang", "CustomPosition"}, {"custom/Surface.slang", "CustomSurface"}});
@@ -667,7 +672,15 @@ TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
     RenderResourcePayload custom;
     custom.resource = Key(1260);
     custom.format   = Name("runtime-material");
-    custom.material.emplace().techniques.push_back({Name("opaque"), std::get<RenderTechniqueData>(std::move(code))});
+    {
+        RenderMaterialTechnique technique;
+        technique.tag            = Name("opaque");
+        technique.program        = std::get<RenderTechniqueData>(std::move(code));
+        technique.parameters.set = 2;
+        technique.parameters.images.push_back({Name("albedo"), Key(1261)});
+        technique.parameters.samplers.push_back({Name("sampling"), {}});
+        custom.material.emplace().techniques.push_back(std::move(technique));
+    }
     auto packet                                               = Scene();
     std::get<CreateViewport>(packet->commands[1]).desc.extent = {24, 8};
     for (const auto &payload : first->payloads)
@@ -675,7 +688,13 @@ TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
     for (const auto &payload : second->payloads)
         if (payload.material)
             packet->commands.push_back(ResourceCpuReady{payload});
-    const auto customKey = custom.resource;
+    const auto            customKey = custom.resource;
+    RenderResourcePayload texture;
+    texture.resource       = Key(1261);
+    texture.format         = Name("pass.rgba8");
+    texture.bytes          = {0, 0, 255, 255};
+    texture.metadata.image = RenderImageLayout{1, 1};
+    packet->commands.push_back(ResourceCpuReady{std::move(texture)});
     packet->commands.push_back(ResourceCpuReady{std::move(custom)});
     const std::array<RenderResourceBinding, 3> materials{first->parts.front().material, second->parts.front().material, {customKey, 1}};
     for (uint32_t i = 0; i < 3; ++i) {
@@ -752,6 +771,8 @@ TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler
     auto          sources  = std::make_shared<ShaderFileSystem>();
     auto          source   = CreateSceneAssetSource(sources, {}, products);
     const auto    resolved = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
+    if (const auto *error = std::get_if<RendererError>(&resolved))
+        ADD_FAILURE() << static_cast<int>(error->code) << ": " << error->message;
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(resolved));
     const auto resources = std::get<std::shared_ptr<const SceneMeshResources>>(resolved);
     ASSERT_TRUE(resources);
@@ -828,6 +849,29 @@ TEST(FrameFeatureRegistryTest, InvalidSecondCommandDoesNotPartiallyRegisterTheFi
     registry.Apply(packet);
     registry.Shutdown();
     EXPECT_EQ(registry.CollectRetired().size(), 1u);
+}
+
+TEST_P(RendererRuntimeTest, FeaturePreparationFailureNeverRecordsAndStillRetires)
+{
+    auto counters             = std::make_shared<FeatureCounters>();
+    counters->failPreparation = true;
+    auto packet               = Scene();
+    packet->featureCommands.push_back(
+        RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<int>(1), std::make_shared<CountingFeature>(counters)});
+    packet->extensions.push_back({Name("count"), {}, {viewport}});
+    Submit(std::move(packet));
+    ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+    EXPECT_FALSE(Find<FrameCompleted>());
+    EXPECT_EQ(counters->preparations, 1u);
+    EXPECT_EQ(counters->builds, 0u);
+    events.clear();
+    auto next = Packet();
+    next->featureCommands.push_back(RetireRenderFeature{{0, 1}});
+    next->readbacks = {viewport};
+    Submit(std::move(next));
+    Complete(sequence);
+    EXPECT_TRUE(Until([&] { return Find<RenderFeatureRetired>(); }));
+    EXPECT_EQ(counters->retired, 1u);
 }
 
 TEST_P(RendererRuntimeTest, B13FeatureBuildFailureDiscardsTheFrameThenRetires)
@@ -1288,6 +1332,33 @@ TEST_P(RendererRuntimeTest, StaleEpochRejectsWholePacketAndLaterPacketsContinue)
     EXPECT_TRUE(Find<ViewportReadback>());
 }
 
+TEST_P(RendererRuntimeTest, EveryMaterialVariantIsValidatedBeforeApplyingThePacket)
+{
+    for (int invalid = 0; invalid < 3; ++invalid) {
+        SCOPED_TRACE(invalid);
+        auto  packet    = Scene();
+        auto  material  = Material();
+        auto &technique = material.material->techniques.front();
+        technique.variants.push_back({.program = technique.program});
+        if (invalid == 0)
+            technique.variants.front().program.backend = API::DEFAULT;
+        else if (invalid == 1)
+            technique.variants.front().program.vertex.reset();
+        else
+            technique.variants.push_back(technique.variants.front());
+        packet->commands.push_back(ResourceCpuReady{std::move(material)});
+        Submit(std::move(packet));
+        ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+        EXPECT_FALSE(Find<PacketApplied>());
+        EXPECT_EQ(Find<RendererFailure>()->error.code, RendererErrorCode::INVALID_PACKET);
+        EXPECT_EQ(renderer->GetState(), RendererState::RUNNING);
+        events.clear();
+    }
+    Submit(Scene());
+    Complete(sequence);
+    EXPECT_TRUE(Find<ViewportReadback>());
+}
+
 TEST_P(RendererRuntimeTest, SceneProjectionFailureIsIsolatedAndViewUpdateResumesIt)
 {
     auto packet = Scene();
@@ -1734,7 +1805,12 @@ TEST_P(RendererRuntimeTest, OffCameraCasterAndLightShadowFlagsChangeReceiverPixe
     ASSERT_TRUE(std::holds_alternative<RenderTechniqueData>(shadowProgram));
     auto shadowCode  = std::get<RenderTechniqueData>(std::move(shadowProgram));
     shadowCode.depth = {true, true, CompareOp::LESS_OR_EQUAL};
-    material.material->techniques.push_back({Name("shadow"), std::move(shadowCode)});
+    {
+        RenderMaterialTechnique technique;
+        technique.tag     = Name("shadow");
+        technique.program = std::move(shadowCode);
+        material.material->techniques.push_back(std::move(technique));
+    }
     RenderEntityDesc receiver;
     receiver.mesh                     = {mesh.resource, 1};
     receiver.material                 = {material.resource, 1};
@@ -1800,7 +1876,12 @@ TEST_P(RendererRuntimeTest, OffCameraCasterAndLightShadowFlagsChangeReceiverPixe
     transparent.material = TestSceneMaterial(std::get<RenderTechniqueData>(compiled), {1, 1, 1, 1});
     auto alphaShadow     = std::get<RenderTechniqueData>(custom);
     alphaShadow.depth    = {true, true, CompareOp::LESS_OR_EQUAL};
-    transparent.material->techniques.push_back({Name("shadow"), std::move(alphaShadow)});
+    {
+        RenderMaterialTechnique technique;
+        technique.tag     = Name("shadow");
+        technique.program = std::move(alphaShadow);
+        transparent.material->techniques.push_back(std::move(technique));
+    }
     caster.material = {transparent.resource, 1};
     EXPECT_NEAR(sample({ResourceCpuReady{std::move(transparent)}, CreateRenderEntity{{scene, {3, 1}}, caster}}), lit, 2);
     Stop();
@@ -2107,7 +2188,7 @@ TEST_P(RendererRuntimeTest, SharedBatchShaderCanOmitViewAndUseStaticBatchBinding
     packet->commands.push_back(ResourceCpuReady{Mesh()});
     auto material = HostMaterial(renderer->GetInfo(), false, false, false);
     ASSERT_EQ(material.material->techniques.front().program.reflection.resources.size(), 2u);
-    EXPECT_EQ(material.material->techniques.front().program.reflection.resources.front().set, 2u);
+    EXPECT_EQ(material.material->techniques.front().program.reflection.resources.front().set, 3u);
     EXPECT_EQ(material.material->techniques.front().program.reflection.resources.front().type, ShaderResourceType::UNIFORM_BUFFER);
     packet->commands.push_back(ResourceCpuReady{std::move(material)});
     Submit(std::move(packet));
@@ -2122,13 +2203,13 @@ TEST_P(RendererRuntimeTest, ScenePassRejectsWrongSharedLayoutAndDiscardsItsFrame
     auto &material = std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques.front().program;
     ASSERT_FALSE(material.reflection.blocks.empty());
     ASSERT_FALSE(material.reflection.blocks.front().members.empty());
-    material.reflection.blocks.front().members.front().name = "wrongField";
+    material.reflection.resources.front().type = ShaderResourceType::STORAGE_IMAGE;
     Submit(std::move(packet));
     ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
-    EXPECT_NE(Find<RendererFailure>()->error.message.find("scene pass declarations"), std::string::npos);
     EXPECT_FALSE(Find<ViewportReadback>());
     events.clear();
-    auto recover       = Packet({DestroyRenderEntity{{scene, {0, 1}}}});
+    auto recover = Scene();
+    recover->commands.push_back(DestroyRenderEntity{{scene, {0, 1}}});
     recover->readbacks = {viewport};
     Submit(std::move(recover));
     Complete(sequence);

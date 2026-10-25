@@ -75,23 +75,21 @@ namespace {
 
     constexpr ReplicationTypeId REPL_TYPE = 77;
 
-    // Reflection registration is process-global and asserts on duplicates; run it once.
-    void EnsureReflection()
-    {
-        static bool done = false;
-        if (!done) {
+    class ReflectionEnvironment final : public testing::Environment {
+    public:
+        void SetUp() override
+        {
             World::Reflect(SerializationContext::Get());
             ReplComponent::Reflect(SerializationContext::Get());
-            done = true;
         }
-    }
+    };
+
+    const auto *reflectionEnvironment = testing::AddGlobalTestEnvironment(new ReflectionEnvironment);
 
 } // namespace
 
 TEST(ActorReplicationSourceTest, EncodeApplyReplicatedFields)
 {
-    EnsureReflection();
-
     std::unique_ptr<World> server(World::CreateWorld());
     std::unique_ptr<World> client(World::CreateWorld());
 
@@ -146,8 +144,6 @@ TEST(ActorReplicationSourceTest, EncodeApplyReplicatedFields)
 
 TEST(ActorReplicationSourceTest, SnapshotLoopback)
 {
-    EnsureReflection();
-
     std::unique_ptr<World> server(World::CreateWorld());
     std::unique_ptr<World> client(World::CreateWorld());
 
@@ -187,8 +183,6 @@ TEST(ActorReplicationSourceTest, SnapshotLoopback)
 
 TEST(ActorReplicationSourceTest, IterationOrderIsDeterministic)
 {
-    EnsureReflection();
-
     std::unique_ptr<World> world(World::CreateWorld());
 
     const Uuid idA = Uuid::CreateWithSeed(11);
@@ -227,8 +221,6 @@ TEST(ActorReplicationSourceTest, IterationOrderIsDeterministic)
 
 TEST(ActorReplicationSourceTest, IndexTracksAttachDetach)
 {
-    EnsureReflection();
-
     std::unique_ptr<World> world(World::CreateWorld());
     const Uuid             typeId = TypeInfoObj<ReplComponent>::Get()->RtInfo()->registeredId;
 
@@ -253,8 +245,6 @@ TEST(ActorReplicationSourceTest, IndexTracksAttachDetach)
 
 TEST(ActorReplicationSourceTest, FieldEncodeApply)
 {
-    EnsureReflection();
-
     std::unique_ptr<World> world(World::CreateWorld());
     const Uuid             id    = Uuid::CreateWithSeed(99);
     auto                  *actor = world->CreateActor(id);

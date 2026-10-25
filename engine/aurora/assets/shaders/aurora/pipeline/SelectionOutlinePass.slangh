@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/SelectionOutlinePass.h; do not edit.
-// Inputs: 63a3c3436518e9b98ac463232eb13b923d59e9a0f970f7b824e022423e33ab8c; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 63a3c3436518e9b98ac463232eb13b923d59e9a0f970f7b824e022423e33ab8c; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

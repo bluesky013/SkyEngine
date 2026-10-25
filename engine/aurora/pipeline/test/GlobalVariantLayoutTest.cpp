@@ -3,7 +3,11 @@
 //
 
 #include <aurora/pipeline/GlobalVariantLayout.h>
+#include <aurora/pipeline/ShaderVariantAssembler.h>
+#include <aurora/shader/ShaderCacheStore.h>
+#include <aurora/shader/ShaderCompanion.h>
 #include <aurora/shader/ShaderFileSystem.h>
+#include <filesystem>
 
 #include <gtest/gtest.h>
 
@@ -47,6 +51,54 @@ TEST(GlobalVariantLayoutTest, LoadAndValidate)
     EXPECT_NE(layout.ToString(key).find("IBL=0"), std::string::npos);
 }
 
+TEST(GlobalVariantLayoutTest, PublishedSelectionRetainsAllThreeOwnersWithoutSources)
+{
+    GlobalVariantLayout layout;
+    std::string         error;
+    ASSERT_TRUE(LoadLayout(kPipelineVariantSource, layout, error));
+    ShaderCompanion companion;
+    ASSERT_TRUE(ParseShaderCompanion(R"({
+        "sources":[{"name":"local","width":3}],
+        "variants":[{"key":"COLOR_ON","source":"local"},{"key":"INSTANCED","source":"local"},{"key":"TEXTURED","source":"local"}],
+        "vertex":[{"name":"COLOR_ON","semantics":["COLOR"]},{"name":"INSTANCED","semantics":["INSTANCE"]}]
+    })",
+                                     companion, &error))
+        << error;
+    const auto       schema = MergeVariantSchemas(companion.schema, &layout.schema);
+    ShaderCacheIndex index;
+    index.paths.push_back({"test/Surface.slang", {HashSchema(schema), schema, {}}});
+    const auto path = std::filesystem::temp_directory_path() / ("aurora-selection-" + std::to_string(::rand()));
+    struct Cleanup {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } cleanup{path};
+    std::filesystem::create_directories(path);
+    NativeFileSystem products{FilePath(path.string())};
+    ASSERT_TRUE(SaveIndex(products, ShaderTargetDirName(0), index));
+    GlobalVariantLayout published;
+    ASSERT_TRUE(published.LoadPublished(products, &error)) << error;
+    ShaderCacheIndex decoded;
+    ASSERT_TRUE(LoadIndex(products, ShaderTargetDirName(0), decoded));
+    const auto         local = SelectVariantDomain(decoded.paths.front().second.schema, false);
+    ShaderVariant      pipeline{{{Name("SHADOWS"), 1}}};
+    ShaderVariant      material{{{Name("TEXTURED"), 1}}};
+    VertexSemanticMask mask;
+    mask.Set(VertexSemantic::COLOR);
+    mask.Set(VertexSemantic::INSTANCE);
+    ShaderVariantInputs inputs{&published, &local, nullptr, mask, &pipeline, &material};
+    ShaderVariantInfo   resolved;
+    ASSERT_TRUE(BuildShaderVariant(inputs, resolved, &error)) << error;
+    EXPECT_NE(resolved.values.ToString().find("SHADOWS=1"), std::string::npos);
+    EXPECT_NE(resolved.values.ToString().find("INSTANCED=1"), std::string::npos);
+    EXPECT_NE(resolved.values.ToString().find("COLOR_ON=1"), std::string::npos);
+    material.entries.push_back({Name("INSTANCED"), 0});
+    EXPECT_FALSE(BuildShaderVariant(inputs, resolved, &error));
+}
+
 TEST(GlobalVariantLayoutTest, ToStringWithPerShader)
 {
     GlobalVariantLayout layout;
@@ -55,7 +107,7 @@ TEST(GlobalVariantLayoutTest, ToStringWithPerShader)
 
     // per-shader schema (relative offsets)
     ShaderVariantSchema perShader;
-    perShader.sources.push_back({Name("vertex"), 0, 8});
+    perShader.sources.push_back({Name("vertex"), 0, 1});
     perShader.entries.push_back({Name("HAS_SKIN"), Name("vertex"), 0, 1, 0});
     perShader.totalBits = 1;
 

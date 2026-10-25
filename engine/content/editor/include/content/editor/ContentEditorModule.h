@@ -15,6 +15,7 @@ namespace sky::content::editor {
         ContentEditorModule()           = default;
         ~ContentEditorModule() override = default;
 
+        void RegisterMeta() override;
         bool Init(const sky::StartArguments &args) override;
         void Shutdown() override;
     };

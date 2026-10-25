@@ -5,45 +5,35 @@ Aurora RHI Metal 后端：slang MSL 直发路径下的 shader 加载（源码/me
 ## Requirements
 ### Requirement: Metal shader function 按 entry 名加载
 
-slang MSL 输出保留源码级 entry 名（如 `mainVS`）。`ShaderFunction::Descriptor.entry` SHALL 传递给 Metal 后端并用于 `newFunctionWithName`；entry 为空时 Metal SHALL 回退 `VSMain/FSMain/CSMain` 约定（兼容手写 MSL）。
+Metal shader creation SHALL validate the complete stage artifact and its explicit MSL_SOURCE or METALLIB format, then load artifact.identity.nativeEntry. Missing entries, wrong function stages and unsupported target environments SHALL fail explicitly. Handwritten fixtures SHALL provide the same complete artifact metadata; an empty entry SHALL NOT trigger VSMain/FSMain/CSMain guessing.
 
-#### Scenario: slang MSL shader 加载
+#### Scenario: Explicit target entry
+- **WHEN** a valid MSL artifact records a native entry and matching stage
+- **THEN** Metal loads that exact function and verifies its native stage
 
-- **WHEN** 用 slang MSL 编译产物（entry `mainVS`/`mainFS`/`mainCS`）创建 `ShaderFunction`
-- **THEN** `newFunctionWithName` 命中，`AuroraMetalTest.SlangToRhiShaderObjects` / `SlangToRhiComputePipeline` 通过
-
-#### Scenario: 手写 MSL 回退
-
-- **WHEN** `desc.entry` 为空且 MSL 源码入口为 `VSMain/FSMain/CSMain`
-- **THEN** shader function 创建成功
+#### Scenario: Missing entry
+- **WHEN** the recorded entry is absent or has the wrong stage
+- **THEN** shader creation fails without selecting a conventional name
 
 ### Requirement: Metal ResourceGroup 直接绑定模型
 
-slang Metal target SHALL 被视为扁平绑定模型：资源按类别（buffer/texture/sampler）各自连续编号（`[[buffer(N)]]`/`[[texture(N)]]`/`[[sampler(N)]]`)，`[[vk::binding]]` 的 space 被忽略，MSL 反射的 `binding` 即类别内索引。Metal ResourceGroup SHALL 以 binding→资源表记录写入，并在 `BindResourceGroup` 时以 `setBuffer/setTexture/setSampler` 直接应用（无 argument buffer)。`DescriptorEncoder`/`DescriptorBatch` SHALL 立即写入 group 表（无批量原生对象）。`CreateResourceGroup`/`CreateDescriptorBatch` SHALL NOT 返回 nullptr。
+Metal DirectArguments SHALL preserve logical set/binding identities independently of stage/category/native index. Shader-derived BindingPlan SHALL validate the target mapping; resource order SHALL NOT determine native slots. Name-first updates SHALL validate and publish immutable complete versions through the shared transaction. Binding SHALL apply only the recorded active stages and addresses. Dynamic offsets SHALL be checked for count, order, alignment and range; invalid inputs SHALL fail instead of falling back to a base offset. This path SHALL explicitly reject unsupported descriptor arrays and argument-buffer models.
 
-descriptor 数组：slang MSL 将资源数组摊平为从数组基址起连续的 argument index；`Write*` 的 `arrayElement` SHALL 落槽 `binding + arrayElement`。
+#### Scenario: Different stage addresses
+- **WHEN** one logical uniform maps to VS buffer(2) and FS buffer(5)
+- **THEN** each stage receives the recorded address and the draw's validated offset
 
-动态 buffer：`*_DYNAMIC` 类型的 binding SHALL 从 shader reflection 派生并按升序记录；bind 时 SHALL 按该顺序消费 `dynamicOffsets` 并加到记录 offset 上（稳定 descriptor + per-draw offset，与 DX12 root CBV/UAV 契约一致）；dynamicOffsets 不足时 SHALL 告警并回退记录 offset。
+#### Scenario: Fourth group
+- **WHEN** Batch set 3 contains a palette or UI image/sampler
+- **THEN** its logical identity survives mapping without truncation to three sets
 
-#### Scenario: ResourceGroup 创建与写入
+#### Scenario: Invalid dynamic offsets
+- **WHEN** supplied offsets do not satisfy the binding plan
+- **THEN** binding is rejected without silently reading the base range
 
-- **WHEN** pipeline 层以 `{shader, set}` 创建 ResourceGroup 并经 encoder/batch 写入 buffer/image/sampler
-- **THEN** 对象创建成功，写入记录进绑定表（`set` 与 `ImageLayout` 在 Metal 上忽略）
-
-#### Scenario: 绑定应用
-
-- **WHEN** 图形/计算 encoder `BindResourceGroup`
-- **THEN** group 内所有 buffer/texture/sampler 被设置到对应类别的 binding 槽位（图形同时设置 vertex 与 fragment 阶段）
-
-#### Scenario: descriptor 数组元素写入
-
-- **WHEN** 对数组 binding 以 `arrayElement=2` 写入 texture
-- **THEN** 该 texture 落槽 `binding + 2`
-
-#### Scenario: 动态 offset 应用
-
-- **WHEN** group 含两个 `UNIFORM_BUFFER_DYNAMIC` binding（升序 b1<b2）且 `BindResourceGroup` 传入 `[o1, o2]`
-- **THEN** b1 以 `记录offset+o1`、b2 以 `记录offset+o2` 绑定
+#### Scenario: Unsupported descriptor array
+- **WHEN** a DirectArguments request requires an unsupported descriptor array
+- **THEN** it returns Unsupported rather than using binding plus arrayElement as a logical key
 
 ### Requirement: Metal 深度模板与光栅化状态
 
@@ -70,19 +60,11 @@ MSL 不携带 `numthreads`。`ShaderReflection` SHALL 携带 `threadGroupSize[3]
 
 ### Requirement: Metal push constant 槽位约定
 
-slang 在 Metal 上把 `[[vk::push_constant]]` 物化为普通 `constant T* [[buffer(N)]]`。引擎约定 push constant 块在 shader 中最后声明；`MetalShader` SHALL 将 push constant 槽位推导为 buffer 类资源的最高 binding + 0（即资源数 - 1），并 SHALL 从 `reflection.pushConstants` 推导块大小（max offset+size）。encoder `PushConstants` SHALL 用 `setVertexBytes/setFragmentBytes/setBytes`（按 stageFlags）写入该槽位。
+Metal push-constant support SHALL require an explicitly supported target mapping. The target-artifact DirectArguments path SHALL reject push constants whose native slots cannot be represented; it SHALL NOT infer a slot from the highest resource binding or declaration order. Retained low-level staging helpers SHALL NOT be treated as proof that production artifact creation supports push constants. Any supported partial-range path SHALL validate range and stage, accumulate CPU staging and preserve prior bytes.
 
-`set*Bytes` 无基偏移；partial-range push SHALL 先在 CPU 侧 staging block 按 `(offset,size)` 累积，再整块重传该槽位。
-
-#### Scenario: push constant 写入
-
-- **WHEN** shader 声明 push constant 块（最后声明）且 encoder 调 `PushConstants`
-- **THEN** 数据经 `set*Bytes` 写入推导槽位，不与普通 buffer 资源冲突
-
-#### Scenario: partial-range push
-
-- **WHEN** 对同一块先后以 `(offset=0,size=16)` 与 `(offset=16,size=16)` 调 `PushConstants`
-- **THEN** 两次写入都落在 staging block 对应偏移，最终整块 32 字节写入槽位
+#### Scenario: Native slot metadata is unsupported
+- **WHEN** a target artifact requests push constants without a supported explicit Metal mapping
+- **THEN** shader/plan creation fails before execution instead of guessing a buffer index
 
 ### Requirement: shader 编译器反射补全
 
@@ -241,4 +223,3 @@ The Metal device SHALL provide the same `FrameTransientPool` used by Vulkan and 
 #### Scenario: Imported resource validation
 - **WHEN** an imported buffer/image belongs to another device or has an incompatible descriptor
 - **THEN** compile SHALL return `INVALID_ARGUMENT` without consuming the lease
-

@@ -23,8 +23,8 @@ namespace sky::aurora {
             uint32_t            magic = MAGIC, count = 0;
             SceneHighlightStyle style;
         };
-        FrameOperationResult
-        Compile(FrameGraphBuildContext &context, ShaderFileSystem &sources, IFileSystem *products, API backend, const char *path, ShaderPtr &shader)
+        FrameOperationResult Compile(
+            FrameFeaturePrepareContext &context, ShaderFileSystem &sources, IFileSystem *products, API backend, const char *path, ShaderPtr &shader)
         {
             if (shader)
                 return FrameOperationComplete{};
@@ -108,24 +108,30 @@ namespace sky::aurora {
         }
         return result;
     }
+    FrameOperationResult SceneHighlightRenderer::Prepare(FrameFeaturePrepareContext &context, ShaderFileSystem &sources, IFileSystem *products)
+    {
+        auto mask = maskShader, outline = outlineShader;
+        for (const auto &[path, shader] :
+             {std::pair{"aurora/pipeline/SelectionMask.slang", &mask}, std::pair{"aurora/pipeline/SelectionOutline.slang", &outline}}) {
+            const auto result = Compile(context, sources, products, context.GetRendererInfo().backend, path, *shader);
+            if (const auto *error = std::get_if<FrameError>(&result))
+                return *error;
+        }
+        maskShader    = std::move(mask);
+        outlineShader = std::move(outline);
+        return FrameOperationComplete{};
+    }
     FrameOperationResult SceneHighlightRenderer::Render(FrameGraphBuildContext             &context,
                                                         const FrameRenderTarget            &target,
                                                         const Matrix4                      &projection,
                                                         GraphImageHandle                    sceneDepth,
                                                         const SceneHighlightStyle          &style,
-                                                        std::span<const ResolvedRasterDraw> selected,
-                                                        ShaderFileSystem                   &sources,
-                                                        IFileSystem                        *products)
+                                                        std::span<const ResolvedRasterDraw> selected)
     {
         if (selected.empty())
             return FrameOperationComplete{};
-        const auto backend = selected.front().draw.shader->GetDevice()->GetAPI();
-        for (const auto &[path, shader] :
-             {std::pair{"aurora/pipeline/SelectionMask.slang", &maskShader}, std::pair{"aurora/pipeline/SelectionOutline.slang", &outlineShader}}) {
-            const auto result = Compile(context, sources, products, backend, path, *shader);
-            if (const auto *error = std::get_if<FrameError>(&result))
-                return *error;
-        }
+        if (!maskShader || !outlineShader)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Highlight programs were not prepared before graph construction"};
         Image::Descriptor desc;
         desc.extent      = {target.output.extent.width, target.output.extent.height, 1};
         desc.format      = PixelFormat::RGBA8_UNORM;

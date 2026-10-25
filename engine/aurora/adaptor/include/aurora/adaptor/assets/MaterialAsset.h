@@ -1,11 +1,11 @@
 //
-// Versioned material techniques with explicit stage entries and Batch mappings.
-// Runtime conversion retains typed properties and explicit aliases until binding.
+// Versioned material values use declaration keys; legacy aliases are resolved on import.
 //
 
 #pragma once
 
 #include <aurora/resource/Material.h>
+#include <aurora/resource/MaterialSchema.h>
 #include <aurora/shader/ShaderRef.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector2.h>
@@ -297,6 +297,7 @@ namespace sky::aurora {
             for (const auto &entry : program.variant.entries) {
                 ar.SaveValue(std::string(entry.key.GetStr()));
                 ar.SaveValue(entry.value);
+                ar.SaveValue(static_cast<uint32_t>(entry.type));
             }
             detail::SaveRenderState(ar, renderState);
             ar.SaveValue(static_cast<uint32_t>(aliases.size()));
@@ -306,7 +307,7 @@ namespace sky::aurora {
             }
         }
 
-        void Load(BinaryInputArchive &ar)
+        void Load(BinaryInputArchive &ar, bool legacy = false)
         {
             ar.LoadValue(tag);
             for (auto *ref : {&program.vertex, &program.fragment, &program.compute}) {
@@ -315,12 +316,25 @@ namespace sky::aurora {
             }
             uint32_t count = 0;
             ar.LoadValue(count);
+            if (count > 1024) {
+                ar.Invalidate();
+                return;
+            }
             program.variant.entries.resize(count);
             for (auto &entry : program.variant.entries) {
                 std::string name;
                 ar.LoadValue(name);
                 entry.key = Name(name.c_str());
                 ar.LoadValue(entry.value);
+                uint32_t type = 0;
+                if (!legacy)
+                    ar.LoadValue(type);
+                if (type > static_cast<uint32_t>(ShaderVariantType::BOOL) ||
+                    (type == static_cast<uint32_t>(ShaderVariantType::BOOL) && entry.value > 1)) {
+                    ar.Invalidate();
+                    return;
+                }
+                entry.type = static_cast<ShaderVariantType>(type);
             }
             detail::LoadRenderState(ar, renderState);
             ar.LoadValue(count);
@@ -359,7 +373,7 @@ namespace sky::aurora {
     };
 
     struct MaterialAssetData {
-        static constexpr uint32_t CURRENT_VERSION = 3;
+        static constexpr uint32_t CURRENT_VERSION = 4;
 
         uint32_t                           version = CURRENT_VERSION;
         std::vector<MaterialTechniqueData> techniques;
@@ -381,18 +395,29 @@ namespace sky::aurora {
         void Load(BinaryInputArchive &ar)
         {
             ar.LoadValue(version);
-            if (version != CURRENT_VERSION) {
+            if (version != CURRENT_VERSION && version != 3) {
                 clear();
+                ar.Invalidate();
                 return;
             }
+            const bool legacy       = version == 3;
+            version                 = CURRENT_VERSION;
             uint32_t techniqueCount = 0;
             ar.LoadValue(techniqueCount);
+            if (techniqueCount > 32) {
+                ar.Invalidate();
+                return;
+            }
             techniques.resize(techniqueCount);
             for (auto &technique : techniques) {
-                technique.Load(ar);
+                technique.Load(ar, legacy);
             }
             uint32_t propertyCount = 0;
             ar.LoadValue(propertyCount);
+            if (propertyCount > 4096) {
+                ar.Invalidate();
+                return;
+            }
             properties.resize(propertyCount);
             for (auto &property : properties) {
                 property.Load(ar);
@@ -451,6 +476,18 @@ namespace sky::aurora {
         }
         return true;
     }
+
+    struct MaterialDefinitionData {
+        MaterialSchema    schema;
+        MaterialAssetData canonical;
+    };
+    class ShaderFileSystem;
+    bool AppendMaterialShaderOptions(const ShaderVariantSchema            &schema,
+                                     std::span<const MaterialPropertyData> properties,
+                                     ShaderVariant                        &values,
+                                     std::string                          &error);
+    bool ResolveMaterialDefinition(const MaterialAssetData &, ShaderFileSystem &, API, IFileSystem *, MaterialDefinitionData &, std::string &);
+    std::optional<MaterialPropertyData> MaterialDefaultValue(const MaterialKey &);
 
     // Runtime-only build: maps the asset onto a Material (techniques with
     // ShaderRef + render state, and typed property defaults). Textures are

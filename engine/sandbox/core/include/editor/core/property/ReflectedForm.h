@@ -117,7 +117,8 @@ namespace sky::editor {
 
     private:
         void AddRoot(const PropertyObject &object, const PropertyObject *baseline, std::string prefix);
-        void BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &registry, const std::string &path, PropertyField &out);
+        void BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &registry, const std::string &path, PropertyField &out,
+                        bool readOnly = false);
         void ApplyAppearance(PropertyField &field, const Uuid &ownerTypeId, const std::string &memberName);
         void AssignDefaults(PropertyField &node);
 

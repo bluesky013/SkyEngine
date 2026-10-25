@@ -1,9 +1,7 @@
 //
-// Content runtime module: registers the content asset data/handlers at runtime
-// (no builders). Loaded by the game; the builder module is cook-only.
+// Shared asset schema and handlers are owned by Content.Metadata.
 //
 
-#include <content/adaptor/ContentReflection.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -14,10 +12,7 @@ namespace sky::content {
         ContentModule()           = default;
         ~ContentModule() override = default;
 
-        void RegisterMeta() override
-        {
-            ContentReflection(SerializationContext::Get());
-        }
+
 
         bool Init(const StartArguments &args) override
         {

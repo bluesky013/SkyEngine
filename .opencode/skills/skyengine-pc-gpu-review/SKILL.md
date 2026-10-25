@@ -21,8 +21,8 @@ Relevant repository facts:
 
 - Desktop-oriented backends include Vulkan, DX12 (Win32), and Metal (Apple)
 - The render stack is centered in `engine/aurora`
-- Shader sources live under `assets/shaders`
-- Materials and techniques live under `assets/materials` and `assets/techniques`
+- Aurora shaders live under `engine/aurora/assets/shaders`; plugins own their `assets/shaders` roots through module inventories
+- Material assets define explicit stage source/entry identities; inspect the selected project's assets and registered programs
 - Desktop asset presets currently use `common + tex_pc`
 - The texture-compression/build pipeline distinguishes PC (`tex_pc`, BC via `ispc_texcomp`) from mobile (`tex_mobile`, ASTC)
 
@@ -71,7 +71,7 @@ Flag changes that:
 
 ## Rule 3 — Review pass participation, not just shader code
 
-The terrain rendering spec shows that SkyEngine rendering features are expected to integrate with:
+The terrain plan lists the following pass participation goals. These are not proof that every current SceneRenderFeature implements a depth pre-pass:
 
 - ForwardColor / main shading
 - depth pre-pass participation

@@ -52,6 +52,10 @@ namespace sky {
         bool LoadModules(const StartArguments &args);
         void UnLoadModules();
 
+        // Manager currently running LoadModules; lets statically linked modules
+        // acquire real leases when no ISystemNotify host is registered.
+        static ModuleManager *Current();
+
         void                        StartModules();
         std::shared_ptr<const void> RetainModule(const std::string &name) const;
 

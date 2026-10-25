@@ -39,7 +39,8 @@ namespace sky::aurora {
                                                                                   std::span<const PreparedMeshLayout>,
                                                                                   std::span<const PreparedMaterialTechniques>,
                                                                                   std::span<const PreparedGraphBuffer>);
-        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList) override;
+        std::variant<FrameError, std::vector<ResolvedRasterDraw>>
+        ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *pipelineValues = nullptr) override;
         std::variant<FrameError, GraphImageHandle>                CreateImage(const Image::Descriptor &) override;
         FrameOperationResult                                      Raster(FrameRasterPass) override;
         FrameOperationResult                                      Fullscreen(FrameRasterPass) override;

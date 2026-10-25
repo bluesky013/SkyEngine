@@ -5,18 +5,15 @@ TBD - created by archiving change aurora-cook-builders. Update Purpose after arc
 ## Requirements
 ### Requirement: Content 模块与 adaptor / builder 分层
 
-SHALL 新增独立模块 `engine/content`，承载**非渲染域**的运行时资产桥与其离线 builder（当前为 animation；后续 prefab 等同类资产也归此）。`engine/content` SHALL 拆为：
+Content SHALL retain its existing adaptor, offline builder and runtime targets. Content.Metadata SHALL own ContentReflection and persistent handlers for existing Content asset schemas once per process definition. Content.Builder.Module SHALL depend on metadata and register its builders through RegisterMeta; it SHALL NOT require the runtime service for reflection. Content.Module and Content.Views SHALL depend on metadata and SHALL NOT invoke ContentReflection. New asset schemas, providers or ownership transfers SHALL be delivered with their feature implementation.
 
-- `engine/content/adaptor`（`Content.Adaptor` STATIC）：动画资产数据 + `AssetTraits` + `FetchOrCreate`/`CreateXxxFromAsset` + `ContentReflection(SerializationContext*)`；`LINK_LIBS: Animation, Framework`。
-- `engine/content/builder`（`Content.Builder.Static` STATIC + `Content.Builder.Module` SHARED）：`AssetBuilder` 实现；`LINK_LIBS: Content.Adaptor, Framework`；`Content.Builder.Module` 注册 builder。
-- `engine/content/runtime`（`Content.Module` SHARED）：运行时模块，只注册资产 data/handler（`ContentReflection`），SHALL NOT 注册 builder。
+#### Scenario: Offline cook without runtime service
+- **WHEN** Content.Metadata and Content.Builder.Module load without Content.Module
+- **THEN** the existing asset schemas, handlers and builders are available without starting Content runtime services
 
-`engine/content` SHALL 由 `engine/CMakeLists.txt` 以 `add_subdirectory(content)` 加入构建。`engine/animation`（`Animation`）SHALL 保持只依赖 `Core`，SHALL NOT 依赖 `Framework`；动画资产 SHALL NOT 放在 `render` / `aurora`。
-
-#### Scenario: 分层与依赖
-
-- **WHEN** 阅读 `engine/content/{adaptor,builder}` 的 CMake
-- **THEN** `Content.Adaptor` 链 `Animation` + `Framework`；`Content.Builder.Static` 链 `Content.Adaptor` + `Framework`；`Animation` 仍只链 `Core`
+#### Scenario: Runtime session restart
+- **WHEN** Content.Module shuts down and initializes again
+- **THEN** the same shared metadata definition remains registered without re-running ContentReflection
 
 ### Requirement: 动画资产（AnimationClip / Animation graph）
 
@@ -51,4 +48,3 @@ SHALL 新增独立模块 `engine/content`，承载**非渲染域**的运行时�
 
 - **WHEN** `Content.Builder.Module` 模块 `Init` 完成
 - **THEN** `AssetBuilderManager` 对 `.clip` / `.graph` 返回非空 builder，且 `AssetManager` 已注册 `AnimationClip` / `Animation` 处理器
-

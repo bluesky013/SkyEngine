@@ -171,7 +171,6 @@ TEST(MaterialAssetTest, InstanceVersionMismatchRejected)
 
 TEST(MaterialAssetTest, SourceJsonCodec)
 {
-    aurora::RegisterMaterialReflection(SerializationContext::Get());
     const char *json =
         R"({"techniques":[{"tag":"T","program":{"vertex":{"relativePath":"custom/a.slang","entry":"Vertex"},"fragment":{"relativePath":"custom/a.slang","entry":"Surface"}},"aliases":[{"alias":"Albedo","target":"gMaterial.albedo"}],"renderState":{"depthStencil":{"depthTest":true},"rasterState":{"cullMode":2}}}],"properties":[{"name":"Metallic","type":0,"value":{"index":0,"value":0.5}},{"name":"Albedo","type":3,"value":{"index":3,"value":[1.0,1.0,1.0,1.0]}}]})";
     IMemoryArchive            mem(json, std::strlen(json));
@@ -188,7 +187,6 @@ TEST(MaterialAssetTest, SourceJsonCodec)
 
 TEST(MaterialAssetTest, MalformedTechniqueCannotSilentlyUseDefaults)
 {
-    aurora::RegisterMaterialReflection(SerializationContext::Get());
     for (const char *technique :
          {R"({"tag":"opaque","shader":{"relativePath":"legacy.slang","entry":"main"}})", R"({"tag":"opaque","program":{"variant":{"MODE":"wrong"}}})",
           R"({"tag":"opaque","program":{},"uniforms":[{"binding":2,"fields":{"tint":3}}]})"}) {
@@ -235,7 +233,6 @@ TEST(MaterialAssetTest, TypedSamplerAndAliasesRoundTripAndRejectSemanticConflict
 
 TEST(MaterialAssetTest, SamplerReflectionSupportsGenericTypedEditsAndKeepsAliases)
 {
-    aurora::RegisterMaterialReflection(SerializationContext::Get());
     const auto *node = GetTypeNode(TypeInfo<aurora::Sampler::Descriptor>::RegisteredId());
     ASSERT_NE(node, nullptr);
     ASSERT_EQ(node->members.size(), 10u);
@@ -284,4 +281,74 @@ TEST(MaterialAssetTest, SamplerReflectionSupportsGenericTypedEditsAndKeepsAliase
     const auto &actual = std::get<aurora::Sampler::Descriptor>(out.properties.back().value);
     EXPECT_EQ(actual.minFilter, aurora::Filter::NEAREST);
     EXPECT_FLOAT_EQ(actual.maxLod, maxLod);
+}
+
+TEST(MaterialAssetData, TypedOptionsRoundTripThroughJsonAndBinary)
+{
+    auto source                                  = MakeMaterialData();
+    source.techniques[0].program.variant.entries = {{Name("SIGNED"), uint32_t(-3), aurora::ShaderVariantType::INT32},
+                                                    {Name("ENABLED"), 1, aurora::ShaderVariantType::BOOL}};
+    aurora::MaterialAssetData binary;
+    RoundTripMaterial(source, binary);
+    EXPECT_EQ(binary.techniques[0].program.variant.entries, source.techniques[0].program.variant.entries);
+    OMemoryArchive    memory;
+    JsonOutputArchive writer(memory);
+    writer.SaveValueObject(source);
+    IMemoryArchive            input(memory.Data(), memory.Size());
+    JsonInputArchive          reader(input);
+    aurora::MaterialAssetData json;
+    reader.LoadValueObject(json);
+    EXPECT_EQ(json.techniques[0].program.variant.entries, source.techniques[0].program.variant.entries);
+}
+
+TEST(MaterialAssetData, GeneratedPropertyReflectionEditsOnlyTheSelectedTypedValue)
+{
+    aurora::MaterialPropertyData property{"TEXTURED", aurora::MaterialPropertyType::BOOL, false};
+    auto                         node = aurora::MakeMaterialPropertyReflection(property);
+    ASSERT_TRUE(node);
+    ASSERT_EQ(node->members.size(), 1u);
+    const auto &member  = node->members.begin()->second;
+    const bool  enabled = true;
+    ASSERT_TRUE(member.setterFn(&property, &enabled));
+    EXPECT_TRUE(std::get<bool>(property.value));
+    const auto value = member.getterConstFn(&property);
+    ASSERT_TRUE(value.GetAsConst<bool>());
+    EXPECT_TRUE(*value.GetAsConst<bool>());
+    property.type       = aurora::MaterialPropertyType::FLOAT;
+    const bool disabled = false;
+    EXPECT_FALSE(member.setterFn(&property, &disabled));
+    EXPECT_TRUE(std::get<bool>(property.value));
+    EXPECT_FALSE(aurora::MakeMaterialPropertyReflection(property));
+}
+
+TEST(MaterialAssetData, ShaderOptionsUseDeclaredTypesAndPreserveOutputOnFailure)
+{
+    using namespace aurora;
+    ShaderVariantSchema schema;
+    schema.entries = {{.key = Name("ENABLED"), .bitWidth = 1, .type = ShaderVariantType::BOOL},
+                      {.key = Name("SIGNED"), .bitWidth = 32, .type = ShaderVariantType::INT32},
+                      {.key = Name("COUNT"), .bitWidth = 2},
+                      {.key = Name("SHADOWS"), .bitWidth = 1, .domain = ShaderVariantDomain::PIPELINE}};
+    std::vector<MaterialPropertyData> properties{{"ENABLED", MaterialPropertyType::BOOL, true},
+                                                 {"SIGNED", MaterialPropertyType::INT, int32_t{-3}},
+                                                 {"COUNT", MaterialPropertyType::UINT, uint32_t{2}},
+                                                 {"SHADOWS", MaterialPropertyType::UINT, uint32_t{1}},
+                                                 {"gMaterial.tint", MaterialPropertyType::FLOAT4, Vector4{}}};
+    ShaderVariant                     values;
+    std::string                       error;
+    ASSERT_TRUE(AppendMaterialShaderOptions(schema, properties, values, error)) << error;
+    ASSERT_EQ(values.entries.size(), 3u);
+    EXPECT_EQ(values.entries[0], (ShaderVariantEntry{Name("ENABLED"), 1, ShaderVariantType::BOOL}));
+    EXPECT_EQ(values.entries[1], (ShaderVariantEntry{Name("SIGNED"), uint32_t(-3), ShaderVariantType::INT32}));
+    EXPECT_EQ(values.entries[2], (ShaderVariantEntry{Name("COUNT"), 2, ShaderVariantType::UINT32}));
+    const auto original = values.entries;
+    properties[2].value = uint32_t{4};
+    EXPECT_FALSE(AppendMaterialShaderOptions(schema, properties, values, error));
+    EXPECT_EQ(values.entries, original);
+    properties[2] = {"COUNT", MaterialPropertyType::INT, int32_t{2}};
+    EXPECT_FALSE(AppendMaterialShaderOptions(schema, properties, values, error));
+    EXPECT_EQ(values.entries, original);
+    properties[2] = {"COUNT", MaterialPropertyType::FLOAT, 2.f};
+    EXPECT_FALSE(AppendMaterialShaderOptions(schema, properties, values, error));
+    EXPECT_EQ(values.entries, original);
 }

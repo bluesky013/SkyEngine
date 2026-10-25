@@ -21,7 +21,7 @@ namespace sky::editor {
         namespace uc = uidraw;
     }
 
-    void AssetReflectedWidget::FormatLabel(const PropertyField &field, std::string &outLabel, bool &outValid)
+    void AssetReflectedWidget::FormatLabel(const PropertyField &field, std::string &outLabel, bool &outValid) const
     {
         outLabel          = "(none)";
         outValid          = true;
@@ -31,7 +31,7 @@ namespace sky::editor {
             return;
         }
         outLabel                     = id->ToString();
-        IEditorAssetCatalog *catalog = GetEditorAssetCatalog();
+        IEditorAssetCatalog *catalog = source ? source : GetEditorAssetCatalog();
         if (catalog == nullptr) {
             return;
         }
@@ -41,9 +41,7 @@ namespace sky::editor {
         }
         if (!field.control.assetType.empty()) {
             std::string type;
-            if (catalog->GetType(*id, type)) {
-                outValid = (type == field.control.assetType);
-            }
+            outValid = catalog->GetType(*id, type) && type == field.control.assetType;
         }
     }
 
@@ -78,8 +76,9 @@ namespace sky::editor {
     {
         openField = &field;
         hoverItem = -1;
+        firstItem = 0;
         items.clear();
-        IEditorAssetCatalog *catalog = GetEditorAssetCatalog();
+        IEditorAssetCatalog *catalog = source ? source : GetEditorAssetCatalog();
         if (catalog != nullptr) {
             items = catalog->Gather(field.control.assetType);
         }
@@ -144,9 +143,10 @@ namespace sky::editor {
         Any         value   = openField->descriptor.GetValue();
         const Uuid *current = value.GetAsConst<Uuid>();
         for (size_t i = 0; i < itemRects.size(); ++i) {
-            const bool selected = current != nullptr && items[i].uuid == *current;
+            const auto &item = items[firstItem + i];
+            const bool selected = current != nullptr && item.uuid == *current;
             host.Skin().DrawPopupItem(context, itemRects[i], static_cast<int>(i) == hoverItem, selected);
-            const std::string &label = items[i].name.empty() ? items[i].path : items[i].name;
+            const std::string &label = item.name.empty() ? item.path : item.name;
             uc::Text(context, label, th.fonts.small,
                      sky::ui::UIRect{itemRects[i].left + 8.0f, itemRects[i].top, itemRects[i].right - 6.0f, itemRects[i].bottom}, th.colors.text,
                      host.Text());
@@ -157,6 +157,14 @@ namespace sky::editor {
     {
         if (openField == nullptr) {
             return false;
+        }
+        if (event.action == sky::ui::UIPointerAction::WHEEL) {
+            const auto maximum = items.size() - itemRects.size();
+            if (event.wheelDelta > 0) firstItem = firstItem ? firstItem - 1 : 0;
+            else if (event.wheelDelta < 0) firstItem = std::min(maximum, firstItem + 1);
+            hoverItem = -1;
+            host.MarkDirty();
+            return true;
         }
         if (event.action == sky::ui::UIPointerAction::MOVE) {
             int hover = -1;
@@ -172,10 +180,11 @@ namespace sky::editor {
             }
             return true;
         }
-        if (event.action == sky::ui::UIPointerAction::DOWN || event.action == sky::ui::UIPointerAction::UP) {
+        // The release that opened the popup belongs to the original field click.
+        if (event.action == sky::ui::UIPointerAction::DOWN) {
             for (size_t i = 0; i < itemRects.size(); ++i) {
                 if (itemRects[i].Contains(event.x, event.y)) {
-                    Select(host, static_cast<int>(i));
+                    Select(host, static_cast<int>(firstItem + i));
                     return true;
                 }
             }

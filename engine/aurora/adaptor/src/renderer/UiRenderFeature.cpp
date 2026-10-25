@@ -190,8 +190,8 @@ namespace sky::aurora {
                                        {4, 0, 48, Format::F_R32, "TEXCOORD", 2}};
                     draw.indexed =
                         RasterIndexedDraw{std::get<RasterBufferRange>(indices), IndexType::U32, {command.indexCount, 1, command.firstIndex}};
-                    draw.images   = {{0, 0, *resolve(command)}};
-                    draw.samplers = {{0, 1, sampler}};
+                    draw.images   = {{3, 0, *resolve(command)}};
+                    draw.samplers = {{3, 1, sampler}};
                     pass.draws.push_back(std::move(draw));
                 }
                 return context.Raster(std::move(pass));
@@ -245,12 +245,15 @@ namespace sky::aurora {
     std::string_view RenderUiShaderSource()
     {
         return R"(
+            #ifndef AURORA_DECLARATION_ATTRIBUTES
+            #define AURORA_DECLARATION_ATTRIBUTES
             [__AttributeUsage(_AttributeTargets.Var)]
-            struct AuroraResourceAttribute { int set; int binding; string owner; }
-            [AuroraResource(0, 0, "aurora/adaptor/Ui")]
-            Texture2D<float4> image : register(t0, space0);
-            [AuroraResource(0, 1, "aurora/adaptor/Ui")]
-            SamplerState imageSampler : register(s1, space0);
+            struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+            #endif
+            [AuroraResource(3, 0, "aurora/adaptor/Ui")]
+            Texture2D<float4> image : register(t0, space3);
+            [AuroraResource(3, 1, "aurora/adaptor/Ui")]
+            SamplerState imageSampler : register(s1, space3);
             struct Varying { float4 position : SV_Position; float2 uv : TEXCOORD0; float4 color : COLOR0; float4 shape : TEXCOORD1; float radius : TEXCOORD2; };
             Varying VSMain(float2 position : POSITION, float2 uv : TEXCOORD0, float4 color : COLOR0, float4 shape : TEXCOORD1, float radius : TEXCOORD2) {
                 Varying result;
@@ -278,8 +281,8 @@ namespace sky::aurora {
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI shader exceeds its code or binding budget"};
         bool image = false, sampler = false;
         for (const auto &resource : resources) {
-            if (resource.set || resource.count != 1 || resource.descriptorArray)
-                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI shader requires scalar set zero bindings"};
+            if (resource.set != 3 || resource.count != 1 || resource.descriptorArray)
+                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "UI shader requires scalar Batch set bindings"};
             image |= resource.binding == 0 && resource.type == ShaderResourceType::SAMPLED_IMAGE &&
                      resource.texture == ShaderTextureType{ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
             sampler |= resource.binding == 1 && resource.type == ShaderResourceType::SAMPLER && resource.sampler == ShaderSamplerType::REGULAR;

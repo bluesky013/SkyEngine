@@ -24,7 +24,7 @@ namespace sky::editor {
     }
     ui::UITextureId UiSnapshotProducer::RegisterTexture(const ui::UIImageData &image)
     {
-        while (nextId != UINT32_MAX && textures.contains(nextId))
+        while (nextId != UINT32_MAX && (textures.contains(nextId) || views.contains(nextId)))
             ++nextId;
         if (nextId == UINT32_MAX) {
             failure = RendererError{RendererErrorCode::OUT_OF_MEMORY, "UI texture IDs exhausted"};
@@ -34,7 +34,7 @@ namespace sky::editor {
     }
     ui::UITextureId UiSnapshotProducer::RegisterTextureAs(ui::UITextureId id, const ui::UIImageData &image)
     {
-        if (id < 2)
+        if (id < 2 || views.contains(id))
             return 0;
         if (textures.contains(id))
             return id;
@@ -79,6 +79,28 @@ namespace sky::editor {
             released.push_back(found->second.published);
         cpuBytes -= found->second.image.pixels.size();
         textures.erase(found);
+    }
+    ui::UITextureId UiSnapshotProducer::RegisterView(ViewOutputRef view)
+    {
+        while (nextId != UINT32_MAX && (textures.contains(nextId) || views.contains(nextId)))
+            ++nextId;
+        if (nextId == UINT32_MAX || views.size() >= 64)
+            return 0;
+        const auto id = nextId++;
+        views.emplace(id, view);
+        return id;
+    }
+    bool UiSnapshotProducer::UpdateView(ui::UITextureId id, ViewOutputRef view)
+    {
+        const auto found = views.find(id);
+        if (found == views.end())
+            return false;
+        found->second = view;
+        return true;
+    }
+    void UiSnapshotProducer::ReleaseView(ui::UITextureId id)
+    {
+        views.erase(id);
     }
     void UiSnapshotProducer::Flush(FramePacket &packet)
     {
@@ -132,6 +154,8 @@ namespace sky::editor {
                                std::clamp(source.clip.right / extent.width, 0.f, 1.f), std::clamp(source.clip.bottom / extent.height, 0.f, 1.f)};
             if (source.textureId == 1 && !source.shape)
                 draw.texture = content;
+            else if (const auto viewBinding = views.find(source.textureId); !source.shape && viewBinding != views.end())
+                draw.texture = viewBinding->second;
             else {
                 const auto found = textures.find(source.shape ? 0 : source.textureId);
                 if (found == textures.end())

@@ -95,7 +95,7 @@ namespace sky::editor {
         const UiTheme   &th = GetDefaultUiTheme();
         const UiMetrics &m  = th.metrics;
         float            w  = 2.0f * m.controlPad;
-        if (items[index].icon != sky::ui::UI_INVALID_TEXTURE) {
+        if (!tabStyle && items[index].icon != sky::ui::UI_INVALID_TEXTURE) {
             w += m.iconSize; // icon-only; the label is reserved for a future tooltip
         } else if (!items[index].label.empty()) {
             w += uc::TextWidth(items[index].label, th.fonts.label, textSystem);
@@ -163,6 +163,11 @@ namespace sky::editor {
 
             const bool     hovered = static_cast<int>(i) == hoverItem && item.enabled;
             const uint32_t color   = item.enabled ? th.colors.text : th.colors.textDisabled;
+            if (tabStyle) {
+                skin.DrawTab(context, r, item.label, item.checked, hovered);
+                previous = true;
+                continue;
+            }
             skin.DrawToolItem(context, r, item.icon == sky::ui::UI_INVALID_TEXTURE ? item.label : std::string{}, hovered, item.enabled,
                               item.checkable && item.checked);
 
@@ -177,7 +182,7 @@ namespace sky::editor {
 
         // Hover tooltip: an icon-only item reveals its label below the bar (the
         // toolbar is not clipped to its bounds, like the MenuBar popup).
-        if (hoverItem >= 0 && hoverItem < static_cast<int>(items.size())) {
+        if (!tabStyle && hoverItem >= 0 && hoverItem < static_cast<int>(items.size())) {
             const Item &item = items[static_cast<size_t>(hoverItem)];
             if (item.icon != sky::ui::UI_INVALID_TEXTURE && !item.label.empty()) {
                 const sky::ui::UIRect hovered = ItemRect(static_cast<size_t>(hoverItem));

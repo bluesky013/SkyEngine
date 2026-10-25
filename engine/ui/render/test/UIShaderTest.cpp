@@ -39,6 +39,8 @@ namespace sky::ui {
                 EXPECT_TRUE(aurora::ValidateShaderArtifact(result, error)) << error;
                 EXPECT_EQ(result.reflection.resources.size(), std::string_view(GetParam().name) == "fs_main" ? 2u : 0u);
                 EXPECT_EQ(result.reflection.declarations.size(), 2u);
+                for (const auto &resource : result.reflection.declarations)
+                    EXPECT_EQ(resource.set, 3u);
                 if (target == aurora::ShaderTarget::SPIRV) {
                     ASSERT_GE(result.data.size(), sizeof(uint32_t));
                     uint32_t magic = 0;

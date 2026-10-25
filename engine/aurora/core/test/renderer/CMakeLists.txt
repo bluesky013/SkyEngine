@@ -51,7 +51,7 @@ endif()
 
 if (SKY_BUILD_TEST AND WIN32)
     sky_add_test(TARGET Aurora.Renderer.GpuSubmissionTest
-        SOURCES EditorHostNativeTest.cpp RendererHostNativeTest.cpp RendererRuntimeTest.cpp FrameSchedulerTest.cpp FrameResourceStateTest.cpp GpuSubmissionTest.cpp FrameContextTest.cpp FrameGraphTest.cpp VulkanFrameCompilerTest.cpp D3D12FrameCompilerTest.cpp FrameAllocationTest.cpp ResourceUploadTest.cpp IndexedRasterTest.cpp ImageSubresourceTest.cpp FrameTransientTest.cpp
+        SOURCES GpuTestMain.cpp EditorHostNativeTest.cpp RendererHostNativeTest.cpp RendererRuntimeTest.cpp FrameSchedulerTest.cpp FrameResourceStateTest.cpp GpuSubmissionTest.cpp FrameContextTest.cpp FrameGraphTest.cpp VulkanFrameCompilerTest.cpp D3D12FrameCompilerTest.cpp FrameAllocationTest.cpp ResourceUploadTest.cpp IndexedRasterTest.cpp ImageSubresourceTest.cpp FrameTransientTest.cpp
         INCS ../../src/renderer
         LIBS EditorRender EditorShell Aurora.Core.Static Aurora.Adaptor.Static Aurora.RHI.Static Aurora.FrameBackend.Static Aurora.Vulkan Aurora.DX12 Aurora.ShaderCompiler.Static 3rdParty::googletest 3rdParty::vulkan_headers 3rdParty::vma 3rdParty::d3d12ma
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.GpuSubmissionTest>)

@@ -650,14 +650,31 @@ TEST_F(AuroraMetalTest, FrameContextDrawsFullscreenTriangle)
 }
 
 namespace {
-    ShaderFunctionPtr MetalConstantFunction(Device *device, const char *source, ShaderStageFlagBit stage)
+    ShaderFunctionPtr MetalConstantFunction(Device *device, const char *source, ShaderStageFlagBit stage,
+                                            std::vector<ShaderVariantBinding> bindings = {})
     {
         ShaderFunction::Descriptor desc{};
         desc.stage        = stage;
         const auto *bytes = reinterpret_cast<const uint8_t *>(source);
-        desc.artifact =
-            MakeTestShaderArtifact(ShaderTarget::MSL, stage, {bytes, std::strlen(source)}, stage == ShaderStageFlagBit::VS ? "VSMain" : "FSMain");
-        return desc.artifact ? ShaderFunctionPtr(device->CreateShaderFunction(desc)) : ShaderFunctionPtr{};
+        const auto base = MakeTestShaderArtifact(ShaderTarget::MSL, stage, {bytes, std::strlen(source)}, stage == ShaderStageFlagBit::VS ? "VSMain" : "FSMain");
+        if (!base)
+            return {};
+        auto artifact = *base;
+        if (bindings.empty()) {
+            if (stage == ShaderStageFlagBit::VS)
+                bindings = {{"FLIP", "flip", ShaderVariantType::BOOL, ShaderVariantLowering::NATIVE, 1, 0}};
+            else
+                bindings = {{"SIGNED", "signedValue", ShaderVariantType::INT32, ShaderVariantLowering::NATIVE, 0, 1},
+                            {"ENABLED", "enabled", ShaderVariantType::BOOL, ShaderVariantLowering::NATIVE, 1, 0},
+                            {"UNSIGNED", "unsignedValue", ShaderVariantType::UINT32, ShaderVariantLowering::NATIVE, 2, 2},
+                            {"MULTIPLIER", "multiplier", ShaderVariantType::UINT32, ShaderVariantLowering::NATIVE, 3, 5}};
+        }
+        artifact.variantBindings = std::move(bindings);
+        std::string error;
+        if (!SealShaderArtifact(artifact, error))
+            return {};
+        desc.artifact = std::make_shared<const ShaderStageArtifact>(std::move(artifact));
+        return ShaderFunctionPtr(device->CreateShaderFunction(desc));
     }
     ShaderPtr MetalConstantProgram(Device                     *device,
                                    const ShaderFunctionPtr    &vertex,
@@ -698,12 +715,12 @@ namespace {
         constant int signedValue [[function_constant(0)]];
         constant bool enabled [[function_constant(1)]];
         constant uint unsignedValue [[function_constant(2)]];
-        constant float multiplier [[function_constant(3)]];
+        constant uint multiplier [[function_constant(3)]];
         fragment float4 FSMain() {
             const int i = is_function_constant_defined(signedValue) ? signedValue : 1;
             const bool b = is_function_constant_defined(enabled) ? enabled : false;
             const uint u = is_function_constant_defined(unsignedValue) ? unsignedValue : 2;
-            const float f = is_function_constant_defined(multiplier) ? multiplier : 0.5f;
+            const float f = is_function_constant_defined(multiplier) ? float(multiplier) * 0.1f : 0.5f;
             return float4(float(i) * 0.1f, b ? 0.8f : 0.2f, float(u) * f * 0.1f, 1);
         }
     )MSL";
@@ -717,8 +734,14 @@ TEST_F(AuroraMetalTest, SpecializationValuesProducePrivateFunctionsAndPreserveSh
     const auto fragment = MetalConstantFunction(device, MetalConstantFragment, ShaderStageFlagBit::FS);
     ASSERT_TRUE(vertex && fragment);
     ShaderSpecialization first, second;
-    first.entries  = {{0, 3}, {1, 1}, {2, 4}, {3, std::bit_cast<uint32_t>(.5f)}};
-    second.entries = {{0, 7}, {1, 0}, {2, 2}, {3, std::bit_cast<uint32_t>(1.f)}};
+    first.entries = {{0, 3, ShaderStageFlagBit::FS, ShaderVariantType::INT32, "SIGNED"},
+                     {1, 1, ShaderStageFlagBit::FS, ShaderVariantType::BOOL, "ENABLED"},
+                     {2, 4, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "UNSIGNED"},
+                     {3, 5, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "MULTIPLIER"}};
+    second.entries = {{0, 7, ShaderStageFlagBit::FS, ShaderVariantType::INT32, "SIGNED"},
+                      {1, 0, ShaderStageFlagBit::FS, ShaderVariantType::BOOL, "ENABLED"},
+                      {2, 2, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "UNSIGNED"},
+                      {3, 10, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "MULTIPLIER"}};
     const std::array shaders{MetalConstantProgram(device, vertex, fragment), MetalConstantProgram(device, vertex, fragment, &first),
                              MetalConstantProgram(device, vertex, fragment, &second), MetalConstantProgram(device, vertex, fragment)};
     for (const auto &shader : shaders)
@@ -789,15 +812,15 @@ TEST_F(AuroraMetalTest, SpecializationValuesProducePrivateFunctionsAndPreserveSh
     readback->UnMap();
 }
 
-TEST_F(AuroraMetalTest, SpecializationRejectsUnknownDuplicateBoolAndConflictingStageTypes)
+TEST_F(AuroraMetalTest, SpecializationRejectsInvalidValuesAndAllowsIndependentStageTypes)
 {
     auto *device = GetDevice();
     ASSERT_TRUE(device);
     const auto vertex   = MetalConstantFunction(device, MetalConstantVertex, ShaderStageFlagBit::VS);
     const auto fragment = MetalConstantFunction(device, MetalConstantFragment, ShaderStageFlagBit::FS);
     ASSERT_TRUE(vertex && fragment);
-    for (const auto &entries : {std::vector<ShaderSpecializationEntry>{{99, 1}}, std::vector<ShaderSpecializationEntry>{{0, 1}, {0, 2}},
-                                std::vector<ShaderSpecializationEntry>{{1, 2}}}) {
+    for (const auto &entries : {std::vector<ShaderSpecializationEntry>{{99, 1}}, std::vector<ShaderSpecializationEntry>{{0, 1, ShaderStageFlagBit::FS, ShaderVariantType::INT32, "SIGNED"}, {0, 2, ShaderStageFlagBit::FS, ShaderVariantType::INT32, "SIGNED"}},
+                                std::vector<ShaderSpecializationEntry>{{1, 2, ShaderStageFlagBit::FS, ShaderVariantType::BOOL, "ENABLED"}}}) {
         const ShaderSpecialization values{entries};
         EXPECT_FALSE(MetalConstantProgram(device, vertex, fragment, &values));
     }
@@ -810,10 +833,11 @@ TEST_F(AuroraMetalTest, SpecializationRejectsUnknownDuplicateBoolAndConflictingS
             return float4(float(value), 0, 0, 1);
         }
     )MSL",
-                                                   ShaderStageFlagBit::FS);
+                                                   ShaderStageFlagBit::FS, {{"ENABLED", "enabled", ShaderVariantType::UINT32, ShaderVariantLowering::NATIVE, 1, 1}});
     ASSERT_TRUE(conflicting);
-    const ShaderSpecialization conflict{{{1, 1}}};
-    EXPECT_FALSE(MetalConstantProgram(device, vertex, conflicting, &conflict));
+    const ShaderSpecialization conflict{{{1, 1, ShaderStageFlagBit::VS, ShaderVariantType::BOOL, "FLIP"},
+                                         {1, 2, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "ENABLED"}}};
+    EXPECT_TRUE(MetalConstantProgram(device, vertex, conflicting, &conflict));
     const auto unsupported = MetalConstantFunction(device, R"MSL(
         #include <metal_stdlib>
         using namespace metal;
@@ -823,9 +847,10 @@ TEST_F(AuroraMetalTest, SpecializationRejectsUnknownDuplicateBoolAndConflictingS
             return float4(float(value), 0, 0, 1);
         }
     )MSL",
-                                                   ShaderStageFlagBit::FS);
+                                                   ShaderStageFlagBit::FS,
+                                                   {{"HALF", "halfValue", ShaderVariantType::UINT32, ShaderVariantLowering::NATIVE, 8, 1}});
     ASSERT_TRUE(unsupported);
-    const ShaderSpecialization halfValue{{{8, 1}}};
+    const ShaderSpecialization halfValue{{{8, 1, ShaderStageFlagBit::FS, ShaderVariantType::UINT32, "HALF"}}};
     EXPECT_FALSE(MetalConstantProgram(device, vertex, unsupported, &halfValue));
 }
 

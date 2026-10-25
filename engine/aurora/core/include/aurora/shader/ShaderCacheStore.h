@@ -29,6 +29,7 @@ namespace sky::aurora {
         ShaderCacheKey           key;
         ShaderStageIdentity      identity;
         std::vector<std::string> sourceDeps;
+        std::vector<std::vector<ShaderVariantValue>> selections;
     };
     struct ShaderCachePathEntry {
         uint64_t                                              schemaFp = 0;
@@ -36,7 +37,7 @@ namespace sky::aurora {
         std::vector<std::pair<uint64_t, ShaderCacheArtifact>> artifacts;
     };
     struct ShaderCacheIndex {
-        static constexpr uint32_t                                 kFormatVersion = 6;
+        static constexpr uint32_t                                 kFormatVersion = 10;
         uint32_t                                                  formatVersion  = kFormatVersion;
         std::vector<std::pair<std::string, ShaderCachePathEntry>> paths;
     };

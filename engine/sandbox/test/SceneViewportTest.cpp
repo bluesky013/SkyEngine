@@ -39,8 +39,6 @@ namespace {
     protected:
         void SetUp() override
         {
-            if (!TypeInfo<TransformComponent>::RegisteredId())
-                TransformComponent::Reflect(SerializationContext::Get());
             EditorActionRegistry::Get()->Clear();
             EditorScopeStack::Get()->Clear();
             SetDefaultUiTheme(MakeDarkTheme());

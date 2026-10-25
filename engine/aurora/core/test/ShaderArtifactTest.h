@@ -77,6 +77,16 @@ namespace sky::aurora::test {
         SealShaderArtifact(result, result.errorInfo);
         return result;
     }
+    inline std::vector<ShaderVariantBinding> TestVariantBindings(const ShaderCompileDesc &desc)
+    {
+        std::vector<ShaderVariantBinding> result;
+        if (desc.schema)
+            for (const auto &entry : desc.schema->entries)
+                result.push_back({std::string(entry.key.GetStr()), std::string(entry.symbol.GetStr()), entry.type,
+                                  !entry.symbol.Empty() && desc.target != ShaderTarget::DXIL ? ShaderVariantLowering::NATIVE : ShaderVariantLowering::COMPILE,
+                                  entry.symbol.Empty() ? 0u : 3u, entry.defaultValue});
+        return result;
+    }
     inline bool TestCompile(const ShaderCompileDesc &desc, const ShaderProducerIdentity &producer, ShaderCompileResult &out)
     {
         ShaderCacheKey key =
@@ -91,11 +101,15 @@ namespace sky::aurora::test {
         key.environment = desc.environment;
         key.producer    = producer;
         key.toolchainFp = ShaderProducerFingerprint(producer);
-        if (desc.schema != nullptr && !CanonicalShaderVariants(desc.variant, *desc.schema, desc.target, key.variants, &out.errorInfo)) {
+        const auto bindings = TestVariantBindings(desc);
+        if (desc.schema != nullptr && !CanonicalShaderVariants(desc.variant, *desc.schema, desc.target, key.variants, &out.errorInfo, &bindings)) {
             return false;
         }
         out = TestArtifact(key);
-        return out.errorInfo.empty();
+        out.variantBindings = bindings;
+        if (desc.schema && !CanonicalShaderVariants(desc.variant, *desc.schema, desc.target, out.selection, &out.errorInfo))
+            return false;
+        return SealShaderArtifact(out, out.errorInfo);
     }
     inline std::string TestProductManifest(const ShaderTargetEnvironment &environment)
     {
@@ -145,6 +159,11 @@ namespace sky::aurora::test {
         ShaderProducerIdentity GetProducerIdentity() const override
         {
             return producer;
+        }
+        bool InspectVariants(const ShaderCompileDesc &desc, std::vector<ShaderVariantBinding> &bindings, std::string &) override
+        {
+            bindings = TestVariantBindings(desc);
+            return true;
         }
         bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
         {

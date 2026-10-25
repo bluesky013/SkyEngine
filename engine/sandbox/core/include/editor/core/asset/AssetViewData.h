@@ -12,13 +12,27 @@
 #include <framework/serialization/Any.h>
 #include <framework/serialization/SerializationFactory.h>
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <unordered_map>
 
 namespace sky::editor {
 
     // An owning reflected view value plus its type; invalid when nothing could be built.
     struct AssetViewData {
+        AssetViewData() = default;
+        AssetViewData(sky::Any value, const sky::TypeNode *node) : object(std::move(value)), type(node) {}
+        AssetViewData(const AssetViewData &) = default;
+        AssetViewData(AssetViewData &&) noexcept = default;
+        AssetViewData &operator=(AssetViewData value) noexcept
+        {
+            moduleLease.swap(value.moduleLease);
+            std::swap(object, value.object);
+            std::swap(type, value.type);
+            return *this;
+        }
+        std::shared_ptr<const void> moduleLease;
         sky::Any             object;
         const sky::TypeNode *type = nullptr;
 
@@ -43,13 +57,14 @@ namespace sky::editor {
         friend class sky::Singleton<AssetViewDataRegistry>;
 
     public:
-        void Register(const std::string &type, IAssetViewDataProvider *provider)
+        void Register(const std::string &type, IAssetViewDataProvider *provider, std::shared_ptr<const void> lease = {})
         {
-            providers[type] = provider;
+            providers[type] = {std::move(lease), provider};
         }
-        void Unregister(const std::string &type)
+        void Unregister(const std::string &type, IAssetViewDataProvider *expected = nullptr)
         {
-            providers.erase(type);
+            const auto found = providers.find(type);
+            if (found != providers.end() && (!expected || expected == found->second.provider)) providers.erase(found);
         }
         bool Has(const std::string &type) const
         {
@@ -58,11 +73,19 @@ namespace sky::editor {
         AssetViewData Build(const std::string &type, const Uuid &uuid) const
         {
             const auto it = providers.find(type);
-            return it != providers.end() ? it->second->Build(uuid, type) : AssetViewData{};
+            if (it == providers.end()) return {};
+            const auto entry = it->second;
+            auto result = entry.provider->Build(uuid, type);
+            result.moduleLease = entry.moduleLease;
+            return result;
         }
 
     private:
-        std::unordered_map<std::string, IAssetViewDataProvider *> providers;
+        struct Entry {
+            std::shared_ptr<const void> moduleLease;
+            IAssetViewDataProvider *provider = nullptr;
+        };
+        std::unordered_map<std::string, Entry> providers;
     };
 
 } // namespace sky::editor

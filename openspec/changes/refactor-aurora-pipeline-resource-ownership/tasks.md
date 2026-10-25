@@ -136,3 +136,8 @@ Checked items are backed by the dated validation records below. Native Metal shi
 ## Target shader artifact continuation — 2026-10-23
 
 `refactor-aurora-target-shader-artifacts` now owns the successor shader ABI, Name parameter and material-image work. It removes the auxiliary SPIR-V identity bridge, upgrades cache to v6 and usage/distribution to v2, and introduces Material v3 / MaterialInstance v2. Current implementation and native/cross-build evidence are in that change's `implementation.md` and `tasks.md`; the historical results above keep their original scope. Mobile cross-compilation and product generation do not close device acceptance. No archive or commit was performed.
+
+
+## 2026-10-26 规范接续复核
+
+已逐项修正相关主 spec 与 active delta 的现行契约，并将已存在的 ADDED/RENAMED/REMOVED 操作重设为可再次合并的 delta。只读合并检查与 strict 校验分开记录；未执行 archive。历史平台结果不覆盖后续四组/typed selection/metadata owner 修改。完整范围、证据和剩余项见 `docs/aurora/consistency-review-2026-10-26.md`。

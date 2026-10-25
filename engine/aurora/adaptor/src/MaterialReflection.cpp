@@ -8,7 +8,6 @@
 #include <aurora/adaptor/assets/MaterialReflection.h>
 
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
-#include <core/environment/Once.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -188,10 +187,27 @@ namespace sky::aurora {
                 return false;
             }
             for (auto entry = program["variant"].MemberBegin(); entry != program["variant"].MemberEnd(); ++entry) {
-                if (!entry->value.IsUint()) {
+                ShaderVariantEntry variant{.key = Name(entry->name.GetString())};
+                const auto        &value = entry->value;
+                if (value.IsUint()) {
+                    variant.value = value.GetUint();
+                } else if (value.IsBool()) {
+                    variant.type  = ShaderVariantType::BOOL;
+                    variant.value = value.GetBool() ? 1u : 0u;
+                } else if (value.IsInt()) {
+                    variant.type  = ShaderVariantType::INT32;
+                    variant.value = static_cast<uint32_t>(value.GetInt());
+                } else if (value.IsObject() && value.MemberCount() == 2 && value.HasMember("type") && value["type"].IsUint() &&
+                           value["type"].GetUint() <= static_cast<uint32_t>(ShaderVariantType::BOOL) && value.HasMember("value") &&
+                           value["value"].IsUint()) {
+                    variant.type  = static_cast<ShaderVariantType>(value["type"].GetUint());
+                    variant.value = value["value"].GetUint();
+                } else {
                     return false;
                 }
-                out.variant.entries.push_back({.key = Name(entry->name.GetString()), .value = entry->value.GetUint()});
+                if (variant.type == ShaderVariantType::BOOL && variant.value > 1)
+                    return false;
+                out.variant.entries.push_back(variant);
             }
             return true;
         }
@@ -355,7 +371,12 @@ namespace sky::aurora {
             ar.StartObject();
             for (const auto &entry : t.program.variant.entries) {
                 ar.Key(std::string(entry.key.GetStr()).c_str());
+                ar.StartObject();
+                ar.Key("type");
+                ar.SaveValue(static_cast<uint32_t>(entry.type));
+                ar.Key("value");
                 ar.SaveValue(entry.value);
+                ar.EndObject();
             }
             ar.EndObject();
             ar.EndObject();
@@ -459,13 +480,41 @@ namespace sky::aurora {
         archive.EndObject();
     }
 
+    std::unique_ptr<sky::TypeNode> MakeMaterialPropertyReflection(const MaterialPropertyData &property)
+    {
+        if (!MaterialPropertyValueMatches(property.type, property.value))
+            return {};
+        auto node = std::make_unique<TypeNode>();
+        std::visit(
+            [&](const auto &value) {
+                using T = std::decay_t<decltype(value)>;
+                serialize::TypeMemberNode member{TypeInfoObj<T>::Get()->RtInfo(), false, false};
+                member.setterFn = [](void *object, const void *value) {
+                    auto       &property = *static_cast<MaterialPropertyData *>(object);
+                    const auto &typed    = *static_cast<const T *>(value);
+                    if constexpr (std::is_same_v<T, Sampler::Descriptor>)
+                        if (!IsValidMaterialSampler(typed))
+                            return false;
+                    MaterialPropertyValue candidate = typed;
+                    if (!MaterialPropertyValueMatches(property.type, candidate))
+                        return false;
+                    property.value = std::move(candidate);
+                    return true;
+                };
+                member.getterConstFn = [](const void *object) {
+                    const auto *value = std::get_if<T>(&static_cast<const MaterialPropertyData *>(object)->value);
+                    return value ? Any(*value) : Any{};
+                };
+                if constexpr (std::is_same_v<T, Uuid>)
+                    member.properties.emplace(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(std::string("AuroraTexture")));
+                node->members.emplace(property.name, std::move(member));
+            },
+            property.value);
+        return node;
+    }
+
     void RegisterMaterialReflection(sky::SerializationContext *context)
     {
-        // Idempotent across callers / module DLLs (AuroraReflection + tests).
-        if (context == nullptr || !sky::Once::Get()->Run("AuroraMaterialReflection")) {
-            return;
-        }
-
         context->Register<Filter>("AuroraSamplerFilter").Enum(Filter::NEAREST, "Nearest").Enum(Filter::LINEAR, "Linear");
         context->Register<MipFilter>("AuroraSamplerMipFilter").Enum(MipFilter::NEAREST, "Nearest").Enum(MipFilter::LINEAR, "Linear");
         context->Register<WrapMode>("AuroraSamplerWrapMode")

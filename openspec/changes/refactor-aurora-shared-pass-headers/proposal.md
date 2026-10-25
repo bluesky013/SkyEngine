@@ -1,3 +1,5 @@
+> 2026-10-26 一致性复核：下文早期实现/验收记录保留历史原貌；现行规则为 Global/Pass/Material/Batch = 0/1/2/3、持久 `.slangh` 导出和 CPU schema → UniformUploadPlan → 目标 ABI。旧三层、CMake 源码嵌入和 CPU/GPU offset 相等不再约束当前实现。可合并契约以本 change 已同步的 specs 及 `refactor-aurora-target-shader-artifacts` 为准；旧平台结果不覆盖新增路径。
+
 > Stage history: the authoritative `.h` contract remains. Source embedding and direct shader
 > inclusion of `.h` were superseded by persistent `.slangh` assets and unified module inventories in
 > [refactor-aurora-pipeline-resource-ownership](../refactor-aurora-pipeline-resource-ownership/design.md).

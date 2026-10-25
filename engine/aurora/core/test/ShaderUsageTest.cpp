@@ -54,6 +54,50 @@ TEST(ShaderUsageTest, GroupingKeepsPlatformAndOptionsSeparate)
     ASSERT_EQ(groups.size(), 3u);
     EXPECT_EQ(groups[0].entries.size(), 2u);
 }
+TEST(ShaderUsageTest, ResolverRecordsComposedUsageWhenEnabled)
+{
+    ShaderUsageStore::SetEnabled(true);
+    ShaderUsageStore::Clear();
+
+    ShaderFileSystem source;
+    source.AddVirtualFile("s.slang", "// variant source");
+    source.AddVirtualFile("s.slang.json", R"({"entries":["mainFS"],"sources":[{"name":"feature","width":1}],"variants":[{"key":"USE_SHADOWS","source":"feature","width":1,"default":0}]})");
+
+    TestShaderCompiler compiler;
+    CompilerRegistration registration(&compiler);
+    ShaderResolver resolver(nullptr, nullptr, source, 0, 0, ShaderResolveMode::DEVELOPMENT);
+
+    ShaderResolver::Request req;
+    req.relativePath    = "s.slang";
+    req.entry           = "mainFS";
+    req.stage           = ShaderStageFlagBit::FS;
+    req.target          = 0;
+    req.variantHash     = 0x1234;
+    req.variantKey[0]   = 1;
+    req.variantKey[1]   = 2;
+    req.variantDump     = "SKINNED=1";
+    ShaderVariant variant;
+    variant.entries.push_back({Name("USE_SHADOWS"), 1});
+    req.variant = &variant;
+
+    ShaderCompileResult result;
+    std::string         error;
+    ASSERT_TRUE(resolver.ResolveShader(req, result, &error)) << error;
+
+    const auto entries = ShaderUsageStore::Snapshot();
+    ASSERT_EQ(entries.size(), 1u);
+    EXPECT_EQ(entries[0].relativePath, "s.slang");
+    EXPECT_EQ(entries[0].entry, "mainFS");
+    EXPECT_EQ(entries[0].variantHash, 0x1234u);
+    EXPECT_EQ(entries[0].variantKey[0], 1u);
+    EXPECT_EQ(entries[0].variantKey[1], 2u);
+    EXPECT_EQ(entries[0].variantDump, "SKINNED=1");
+    ASSERT_EQ(entries[0].variant.entries.size(), 1u);
+
+    ShaderUsageStore::SetEnabled(false);
+    ShaderUsageStore::Clear();
+}
+
 TEST(ShaderUsageTest, FlushMergesAndPreservesCompleteEnvironment)
 {
     ShaderCacheDirectory directory("usage");

@@ -91,7 +91,7 @@ namespace sky {
             }
             std::unique_ptr<IWorldSubSystem> subSystem = registration->factory(*this, entry.config);
             if (subSystem != nullptr) {
-                AddSubSystem(entry.name, subSystem.release());
+                AddSubSystem(entry.name, subSystem.release(), registration->moduleLease);
             }
         }
     }
@@ -287,9 +287,10 @@ namespace sky {
         actorIndex.clear();
     }
 
-    void World::AddSubSystem(const Name &name, IWorldSubSystem *sys)
+    void World::AddSubSystem(const Name &name, IWorldSubSystem *sys, std::shared_ptr<const void> moduleLease)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
+        subSystemModuleLeases.emplace(name, std::move(moduleLease));
         sys->OnAttachToWorld(*this);
     }
 

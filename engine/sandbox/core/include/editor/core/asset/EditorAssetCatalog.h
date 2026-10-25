@@ -47,6 +47,8 @@ namespace sky::editor {
         AssetCookState state = AssetCookState::NotCooked;
         std::string    error;
         bool           writable = false;
+        Uuid           sourceOwner;
+        bool           generated = false;
     };
 
     // A folder node of the virtual-path tree. Folders are derived from the registered sources'

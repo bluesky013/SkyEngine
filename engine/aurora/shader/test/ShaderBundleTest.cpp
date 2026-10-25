@@ -102,6 +102,9 @@ TEST_P(ShaderBundles, CompileFinishesAfterSourcesAndResolverAreDestroyed)
     ShaderCompileFuture future;
     ShaderCompileResult immediate;
     {
+        ShaderCompilerFactory::Get().Register(nullptr);
+        auto ownedCompiler = std::make_shared<ShaderCompilerSlang>();
+        ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(ownedCompiler));
         ShaderFileSystem files;
         NativeFileSystem root{FilePath(SHADER_TEST_BUNDLE_ROOT)};
         ASSERT_TRUE(files.LoadBundles(root, "first"));
@@ -109,6 +112,7 @@ TEST_P(ShaderBundles, CompileFinishesAfterSourcesAndResolverAreDestroyed)
         std::string    error;
         ASSERT_EQ(resolver.ResolveShaderAsync(Request("first"), immediate, future, &error), ShaderResolveStatus::Compile) << error;
         ASSERT_TRUE(files.RemoveBundle("first"));
+        ShaderCompilerFactory::Get().Unregister(ownedCompiler.get());
     }
     future.RunInline();
     ASSERT_TRUE(future.Ready());

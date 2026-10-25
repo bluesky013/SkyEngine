@@ -1,6 +1,6 @@
+#include "ReflectionTestEnvironment.h"
 // The actual shell accelerator/builder paths must share the service's
 // cancel-before-history ordering, including document-local injected histories.
-#include <core/environment/Once.h>
 #include <core/type/TypeInfo.h>
 #include <editor/core/command/CommandService.h>
 #include <editor/core/extension/EditorActionRegistry.h>
@@ -25,17 +25,18 @@ namespace sky::editor::history_routing_test {
     };
 
     namespace {
-        const TypeNode *RegisterTypes()
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()
+                ->Register<Color>("HistoryRoutingColor")
+                .Member<&Color::r>("r")
+                .Member<&Color::g>("g")
+                .Member<&Color::b>("b")
+                .Member<&Color::a>("a");
+            SerializationContext::Get()->Register<Object>("HistoryRoutingObject").Member<&Object::color>("color");
+        });
+
+        const TypeNode *ObjectType()
         {
-            if (Once::Get()->Run("EditorHistoryRoutingTest.Types")) {
-                SerializationContext::Get()
-                    ->Register<Color>("HistoryRoutingColor")
-                    .Member<&Color::r>("r")
-                    .Member<&Color::g>("g")
-                    .Member<&Color::b>("b")
-                    .Member<&Color::a>("a");
-                SerializationContext::Get()->Register<Object>("HistoryRoutingObject").Member<&Object::color>("color");
-            }
             return GetTypeNode(TypeInfo<Object>::RegisteredId());
         }
         PropertyField &ColorField(ReflectedFormView &view)
@@ -117,7 +118,7 @@ namespace sky::editor::history_routing_test {
 
     TEST(EditorHistoryRoutingTest, ShellShortcutMenuToolbarAndExternalHistoryCancelLivePreviews)
     {
-        const auto *type = RegisterTypes();
+        const auto *type = ObjectType();
         for (Entry entry : {Entry::Shortcut, Entry::Menu, Entry::ToolBar, Entry::External}) {
             SCOPED_TRACE(static_cast<int>(entry));
             CommandService         commands;

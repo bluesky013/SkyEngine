@@ -108,12 +108,11 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 
 - Framework/Core（以及各 `*.Static` 库，如 `Aurora.Adaptor.Static`、`AuroraCook.Static`、`Content.Adaptor`）是**静态库**，被**每个模块 DLL 各链一份**。因此**进程级共享的单例必须继承 `sky::Singleton<T>`**（实例存在 `Environment`，跨 DLL 唯一），例：`SerializationContext`、`PhysicsBackendRegistry`、`NetworkBackendRegistry`、`ShaderCompilerFactory`、`WorldSubSystemRegistry`。
 - **禁止**用函数内普通 `static T instance;` 实现跨模块共享的注册表/缓存——那会让每个 DLL 各持一份，模块注册的东西上层看不到（曾导致 world 子系统注册后编辑器列不出来）。
-- **禁止**用函数内 `static bool` 做“只注册一次”的幂等守卫——**它同样是 per-DLL 的**。若守卫保护的是跨模块共享状态（如向共享 `SerializationContext` 注册类型、向共享注册表注册后端），第二个 DLL 里守卫为 `false`，会**重复注册**（`SerializationContext::Register` 的 `SKY_ASSERT(!types.count(id))` 触发，表现为编辑器加载模块时断言/挂起）。改用 `sky::Once`（`core/environment/Once.h`，实例在 `Environment`，跨 DLL 唯一）：`if (!sky::Once::Get()->Run("AuroraReflection")) { return; }`。当前 `AuroraReflection` / `ContentReflection` / `RegisterImageCookSettings` 都走 `Once`。
-- 速记：**要多模块共享的状态 → `Singleton<T>`；跨模块的“只初始化一次” → `sky::Once`；纯模块内状态/纯函数内无共享的 static → 普通 static 无妨。**
-- 反例：
-  - `static WorldSubSystemRegistry instance;`（错）→ `class X : public Singleton<X>` + `friend class Singleton<X>;`（对）。
-  - `static bool reflected = false; if (reflected) return; ...RegisterSharedTypes();`（错）→ `if (!Once::Get()->Run("XReflection")) return;`（对）。
-- 排查手法：`grep -rn "static bool\|static .* instance;"` 看函数内 static；若其保护/持有的东西会跨模块被读取，即有隐患。历史已修：`AuroraReflection`/`ContentReflection`/`RegisterImageCookSettings`（Once）、`PhysicsBackendRegistry`/`NetworkBackendRegistry`/`ShaderCompilerFactory`（Singleton）。
+- **反射必须有唯一注册 owner**：同一份数据在进程内只允许反射一次。metadata owner 的 definition 创建阶段执行 `RegisterMeta`；runtime/cook/editor 通过明确依赖消费，窗口只 Bind。
+- **禁止用幂等守卫掩盖重复反射入口**：包括 `static bool`、`once_flag`、`sky::Once`、查表后跳过、scratchNode。两个 owner 注册同一类型属于程序错误，必须在调用源头修正。
+- ModuleManager 的进程 definition 与 runtime session 分离；Init 失败重试、manager 更换、runtime 重启不重新创建 definition。反射类型和持久回调必须持有代码 lease；不能把只调用一次误当作 DLL 生命周期保证。
+- 速记：**共享状态 → `Singleton<T>`；共享类型 → 唯一 metadata owner；可重启服务 → Init/Shutdown 对称注册；普通模块内部无共享状态 → 普通 static 可用。**
+- 排查反射函数的全部调用点，特别是 Init、构造器、窗口创建和测试 SetUp。测试使用 executable main 或 gtest Environment 初始化元数据，不在用例中重复反射。
 
 ## 编辑器配置/设置 UI（关键）
 
@@ -136,7 +135,7 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 
 ## 构建与验证（Win32 / VS 2022）
 
-- 使用现有 `cmake-build-debug`（cache 已含 `3RD_PATH=D:/Code/sky3rd_win32_output/Win32`、`-G "Visual Studio 17 2022"`）。
+- 使用现有 `cmake-build-debug`（保留现有 cache 的 `3RD_PATH` 和 generator；2026-10-26 本工作区为 `D:/Code/Engine/sky_3rd/Win32`、`Visual Studio 17 2022`）。
 - 顺序：关编辑器 → 配置 → 构建。
 
 ```bash
@@ -150,6 +149,6 @@ cmake --build cmake-build-debug --config Debug --parallel
   `cmake --build cmake-build-debug --config Debug --parallel --target Framework FrameworkTest EditorCoreTest EditorShellTest BulletPhysicsModule RecastNavigation SandboxModule SandboxEditor`
 - 测试（gtest）：
   `output/bin/Debug/FrameworkTest.exe` · `EditorCoreTest.exe` · `EditorShellTest.exe`
-- 三方库版本预检：`python python/third_party.py -p Win32 -o D:/Code/sky3rd_win32_output --check`
+- 三方库版本预检：`python python/third_party.py -p Win32 -o D:/Code/Engine/sky_3rd --check`
 - 运行：`output/bin/Debug/SandboxEditor.exe`（`--project <path>.skyproj` 进编辑器；`--console` 出日志；`--frames N` 有界运行）。
 - 环境备注：编辑器（IDE/工具链）在写文件时会自动跑 clang-format，可能整文件重排或挪动块；新增/改动 C++ 文件后留意 include 与括号完整性。

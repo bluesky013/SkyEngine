@@ -6,9 +6,11 @@
 
 #include <aurora/shader/ShaderCacheWriter.h>
 #include <aurora/shader/ShaderFileSystem.h>
+#include <aurora/shader/ShaderUsage.h>
 
 #include <core/file/FileSystem.h>
 
+#include <algorithm>
 #include <unordered_set>
 
 namespace sky::aurora {
@@ -137,6 +139,15 @@ namespace sky::aurora {
         std::shared_ptr<ShaderFileSystem> snapshot;
         return CaptureSources(fs, relativePath, extraDeps, outHash, outSource, snapshot);
     }
+    bool ShaderResolver::SetAsyncCacheOwners(FileSystemPtr local, std::shared_ptr<ShaderCacheWriter> writer)
+    {
+        if (writer && writer->GetRoot() != local.Get())
+            return false;
+        mLocal      = local.Get();
+        mWriter     = writer.get();
+        mAsyncCache = std::make_shared<AsyncCacheOwners>(std::move(local), std::move(writer));
+        return true;
+    }
     bool ShaderResolver::ResolveSchema(
         const std::string &relativePath, uint32_t target, ShaderVariantSchema &outSchema, uint64_t &outSchemaFp, std::string *error)
     {
@@ -195,6 +206,12 @@ namespace sky::aurora {
             }
             schema = &localSchema;
         }
+        ShaderVariantSchema mergedSchema;
+        if (request.pipelineSchema != nullptr) {
+            mergedSchema = MergeVariantSchemas(*schema, request.pipelineSchema);
+            schema       = &mergedSchema;
+            schemaFp     = 0;
+        }
         std::string validation;
         if (!schema->Validate(&validation)) {
             return fail(validation);
@@ -231,6 +248,22 @@ namespace sky::aurora {
             return ShaderResolveStatus::Failed;
         }
         key.variantHash = HashShaderVariants(key.variants);
+        if (ShaderUsageStore::Enabled()) {
+            ShaderUsageEntry usage;
+            usage.relativePath = request.relativePath;
+            usage.entry        = request.entry;
+            usage.stage        = static_cast<uint32_t>(request.stage);
+            usage.target       = request.target;
+            usage.variantHash  = request.variantHash != 0 ? request.variantHash : key.variantHash;
+            usage.variantKey[0] = request.variantKey[0];
+            usage.variantKey[1] = request.variantKey[1];
+            usage.variantDump   = request.variantDump;
+            usage.environment   = environment;
+            if (request.variant != nullptr) {
+                usage.variant = *request.variant;
+            }
+            ShaderUsageStore::Record(usage);
+        }
         if (mMode == ShaderResolveMode::PRODUCTS) {
             if (mOffline == nullptr) {
                 return fail("PRODUCTS shader resolver has no published root");
@@ -239,8 +272,19 @@ namespace sky::aurora {
             if (!LoadIndex(*mOffline, ShaderTargetDirName(request.target), index)) {
                 return fail("published shader index absent, corrupt or requires recook");
             }
-            const auto *entry  = FindPathEntry(index, request.relativePath);
-            const auto *record = entry != nullptr ? FindPublishedArtifact(*entry, PublishedRequest(key)) : nullptr;
+            const auto *entry = FindPathEntry(index, request.relativePath);
+            const ShaderCacheArtifact *record = nullptr;
+            if (entry)
+                for (const auto &published : entry->artifacts) {
+                    const auto &candidate = published.second;
+                    if (candidate.key.sourceEntry == key.sourceEntry && candidate.key.stage == key.stage &&
+                        candidate.key.schemaFp == key.schemaFp && candidate.key.layoutFp == key.layoutFp && candidate.key.environment == key.environment &&
+                        std::ranges::find(candidate.selections, key.variants) != candidate.selections.end()) {
+                        if (record && record->artifactId != candidate.artifactId)
+                            return fail("Published selection maps to multiple stage artifacts");
+                        record = &candidate;
+                    }
+                }
             if (record == nullptr) {
                 return fail("published shader request/environment not found: " + request.relativePath + ":" + request.entry);
             }
@@ -248,15 +292,18 @@ namespace sky::aurora {
             if (!store.LoadArtifact(*record, outResult)) {
                 return fail(store.LastError());
             }
+            outResult.selection = key.variants;
             return ShaderResolveStatus::Ready;
         }
+        const auto selection = key.variants;
         uint64_t                          sourceHash = 0;
         std::string                       source;
         std::shared_ptr<ShaderFileSystem> snapshot;
         if (!CaptureSources(mSourceFs, request.relativePath, request.depends, sourceHash, source, snapshot)) {
             return fail("DEVELOPMENT shader source not found: " + request.relativePath);
         }
-        auto *compiler = ShaderCompilerFactory::Get().GetCompiler();
+        const auto owner    = ShaderCompilerFactory::Get().Acquire(true);
+        auto      *compiler = owner ? owner->compiler.get() : nullptr;
         if (compiler == nullptr) {
             return fail("DEVELOPMENT shader resolution requires a compiler producer identity");
         }
@@ -267,6 +314,40 @@ namespace sky::aurora {
             return fail("DEVELOPMENT shader target has no valid compiler producer identity");
         }
         key.toolchainFp = ShaderProducerFingerprint(key.producer);
+        ShaderCompileDesc inspection;
+        inspection.source = source;
+        inspection.sourcePath = request.relativePath;
+        inspection.entry = request.entry;
+        inspection.stage = request.stage;
+        inspection.target = environment.target;
+        inspection.environment = environment;
+        inspection.schema = schema;
+        inspection.variant = request.variant;
+        inspection.fileSystem = snapshot.get();
+        std::vector<ShaderVariantBinding> bindings;
+        if (!compiler->InspectVariants(inspection, bindings, validation) ||
+            !CanonicalShaderVariants(request.variant, *schema, environment.target, key.variants, &validation, &bindings))
+            return fail(validation);
+        key.variantHash = HashShaderVariants(key.variants);
+        const auto publishSelection = [&]() {
+            outResult.selection = selection;
+            if (mWriter) {
+                ShaderCacheWriter::Pending pending;
+                pending.key = key;
+                pending.result = outResult;
+                pending.schema = *schema;
+                pending.schemaFp = schemaFp;
+                pending.sourceHash = sourceHash;
+                pending.relativePath = request.relativePath;
+                pending.deps = request.depends;
+                return mWriter->Submit(std::move(pending), error);
+            }
+            if (!mLocal)
+                return true;
+            ShaderBlobStore store(mLocal, mLocal);
+            return store.Store(key, outResult) && UpsertLocalArtifact(*mLocal, ShaderTargetDirName(key.target), request.relativePath, *schema, schemaFp,
+                                                                    key, outResult, request.depends, error);
+        };
         for (auto *root : {mOffline, mLocal}) {
             if (root == nullptr) {
                 continue;
@@ -275,10 +356,10 @@ namespace sky::aurora {
             if (root == mLocal && mWriter != nullptr) {
                 ShaderCacheArtifact record;
                 if (mWriter->LookupArtifact(key, record) && store.LoadArtifact(record, outResult)) {
-                    return ShaderResolveStatus::Ready;
+                    return publishSelection() ? ShaderResolveStatus::Ready : ShaderResolveStatus::Failed;
                 }
             } else if (store.Load(key, outResult)) {
-                return ShaderResolveStatus::Ready;
+                return publishSelection() ? ShaderResolveStatus::Ready : ShaderResolveStatus::Failed;
             }
         }
         ShaderCompileTask task;
@@ -295,8 +376,8 @@ namespace sky::aurora {
         task.sourceHash   = sourceHash;
         // The compiler receives effective macro values; runtime specialization is applied by the pipeline.
         ShaderVariant compileVariant;
-        for (const auto &entry : task.key.variants) {
-            compileVariant.entries.push_back({Name(entry.name.c_str()), entry.value});
+        for (const auto &entry : selection) {
+            compileVariant.entries.push_back({Name(entry.name.c_str()), entry.value, entry.type});
         }
         task.variant = std::move(compileVariant);
         outTask      = std::move(task);
@@ -346,7 +427,8 @@ namespace sky::aurora {
         if (status != ShaderResolveStatus::Compile) {
             return status == ShaderResolveStatus::Ready;
         }
-        auto               *compiler = ShaderCompilerFactory::Get().GetCompiler();
+        const auto          owner    = ShaderCompilerFactory::Get().Acquire(true);
+        auto               *compiler = owner ? owner->compiler.get() : nullptr;
         ShaderCompileResult result;
         if (compiler == nullptr || !task.Run(*compiler, result, error) || !CommitCompile(task, result, error)) {
             return false;
@@ -357,16 +439,28 @@ namespace sky::aurora {
     ShaderResolveStatus
     ShaderResolver::ResolveShaderAsync(const Request &request, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error)
     {
+        outFuture                  = {};
+        const auto        compiler = ShaderCompilerFactory::Get().Acquire();
         ShaderCompileTask task;
         const auto        status = PrepareShader(request, outResult, task, error);
         if (status != ShaderResolveStatus::Compile) {
             return status;
         }
+        if (!compiler || ((mLocal || mWriter) && (!mAsyncCache || mAsyncCache->root.Get() != mLocal || mAsyncCache->writer.get() != mWriter))) {
+            if (error)
+                *error = "Async shader compilation requires compiler and cache lifetime owners";
+            return ShaderResolveStatus::Failed;
+        }
+        if (compiler->compiler->GetProducerIdentity(task.target) != task.key.producer) {
+            if (error)
+                *error = "Shader compiler registration changed while preparing an async task";
+            return ShaderResolveStatus::Failed;
+        }
         auto state      = std::make_shared<ShaderCompileFuture::State>();
         state->task     = std::move(task);
-        state->compiler = ShaderCompilerFactory::Get().GetCompiler();
-        state->commit   = [local = mLocal, writer = mWriter](const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error) {
-            return CommitArtifact(local, writer, task, result, error);
+        state->compiler = compiler;
+        state->commit   = [owners = mAsyncCache](const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error) {
+            return CommitArtifact(owners ? owners->root.Get() : nullptr, owners ? owners->writer.get() : nullptr, task, result, error);
         };
         outFuture.mState = std::move(state);
         return ShaderResolveStatus::Compile;

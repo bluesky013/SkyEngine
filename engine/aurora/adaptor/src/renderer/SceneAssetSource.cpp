@@ -1,11 +1,19 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 
+#include "MaterialBlock.h"
+#include "SkinningBatch.h"
 #include <algorithm>
 #include <atomic>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/pipeline/GlobalVariantLayout.h>
+#include <aurora/pipeline/SceneRenderFeature.h>
+#include <aurora/pipeline/ShaderVariantAssembler.h>
 #include <aurora/rhi/ShaderParameters.h>
 #include <aurora/rhi/VertexSemantic.h>
+#include <aurora/shader/ShaderCompanion.h>
+#include <aurora/shader/ShaderHash.h>
+#include <aurora/shader/ShaderResolver.h>
 #include <aurora/shader/ShaderTechnique.h>
 #include <cmath>
 #include <cstring>
@@ -32,6 +40,11 @@ namespace sky::aurora {
     Uuid SceneLitMaterialId()
     {
         return Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8104");
+    }
+    bool IsBuiltinSceneAsset(const Uuid &id, std::string_view type)
+    {
+        return (type == "AuroraMesh" && (id == ScenePrimitiveId(ScenePrimitive::CUBE) || id == ScenePrimitiveId(ScenePrimitive::PLANE))) ||
+               (type == "AuroraMaterial" && (id == DEFAULT_MATERIAL || id == SceneLitMaterialId()));
     }
     MeshAssetData ScenePrimitiveMesh(ScenePrimitive primitive)
     {
@@ -170,7 +183,7 @@ namespace sky::aurora {
         public:
             uint64_t Revision() const override
             {
-                return revision.load();
+                return revision.load() + AssetManager::Get()->GetProductChangeSerial();
             }
             bool Invalidate(const Uuid &id) override
             {
@@ -228,13 +241,14 @@ namespace sky::aurora {
                     return {};
                 }
                 const auto meshAsset = std::static_pointer_cast<Asset<Mesh>>(asset);
-                bounds[id]           = meshAsset->Data().bounds.ToAABB();
-                auto converted       = ConvertSceneMesh(*meshAsset, info);
+
+                bounds[id]     = meshAsset->Data().bounds.ToAABB();
+                auto converted = ConvertSceneMesh(*meshAsset, info);
                 if (const auto *error = std::get_if<RendererError>(&converted)) {
                     return *error;
                 }
                 auto result                                                  = std::make_shared<SceneMeshResources>();
-                std::get<RenderResourcePayload>(converted).resource.revision = watches.at(id)->assetRevision.load();
+                std::get<RenderResourcePayload>(converted).resource.revision = meshAsset->GetSnapshotRevision();
                 result->payloads.push_back(std::move(std::get<RenderResourcePayload>(converted)));
                 const auto                        meshKey = result->payloads.front().resource;
                 const auto                       &data    = meshAsset->Data();
@@ -256,6 +270,7 @@ namespace sky::aurora {
                         const MaterialAssetData *material = nullptr;
                         AssetPtr                 loaded;
                         MaterialAssetData        instanceMaterial;
+                        std::set<std::string>    instanceOverrides;
                         if (materialId != DEFAULT_MATERIAL && materialId != SceneLitMaterialId()) {
                             loaded = Load(materialId);
                             if (!loaded || loaded->GetStatus() == AssetBase::Status::FAILED)
@@ -291,20 +306,26 @@ namespace sky::aurora {
                                         return Invalid("Material instance texture override has an unknown name or incompatible semantic type");
                                     property->value = texture.texture;
                                 }
-                                material = &instanceMaterial;
+                                instanceOverrides = std::move(overrides);
+                                material          = &instanceMaterial;
                             } else {
                                 return Invalid("Scene material asset type mismatch");
                             }
                         }
                         std::vector<RenderResourcePayload> images;
                         bool                               pending = false;
-                        auto                               ready   = MaterialPayload(materialId, material, info, images, pending);
+                        auto                               ready   = MaterialPayload(
+                            materialId, material, info, false,
+                            RenderVertexMask(result->payloads.front().mesh->streams, result->payloads.front().mesh->attributes), images, pending);
                         if (pending)
                             return {};
                         if (const auto *error = std::get_if<RendererError>(&ready)) {
                             return *error;
                         }
                         auto payload = std::move(std::get<RenderResourcePayload>(ready));
+                        for (const auto &key : payload.material->schema.keys)
+                            if (key.kind == MaterialKeyKind::OPTION && instanceOverrides.contains(key.name))
+                                return Invalid("MaterialInstance cannot override a static Shader option: " + key.name);
                         materials.emplace(materialId, payload.resource);
                         surfaces[materialId] =
                             !material ? SceneSurfaceFacts::StaticOpaque(loadedRevision)
@@ -430,28 +451,111 @@ namespace sky::aurora {
                     },
                     property.value);
             }
-            std::optional<RendererError> BindMaterialParameters(const MaterialTechniqueData          &authored,
-                                                                std::span<const MaterialPropertyData> properties,
+            static std::optional<ShaderTarget> Target(API backend)
+            {
+                switch (backend) {
+                case API::VULKAN: return ShaderTarget::SPIRV;
+                case API::DX12: return ShaderTarget::DXIL;
+                case API::METAL: return ShaderTarget::MSL;
+                default: return {};
+                }
+            }
+            const GlobalVariantLayout &PipelineLayout()
+            {
+                if (!pipelineLayoutReady) {
+                    pipelineLayoutReady = products ? pipelineLayout.LoadPublished(*products, &pipelineError)
+                                                   : pipelineLayout.Load(*files, "aurora/config/pipeline_variants.slang", &pipelineError);
+                }
+                return pipelineLayout;
+            }
+            std::variant<RendererError, ShaderTechniqueVariant> ResolveTechniqueVariant(const ShaderTechnique                &technique,
+                                                                                        API                                   backend,
+                                                                                        VertexSemanticMask                    mask,
+                                                                                        const ShaderVariant                  &pipelineValues,
+                                                                                        std::span<const MaterialPropertyData> properties)
+            {
+                const auto target = Target(backend);
+                if (!target) {
+                    return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Technique backend is unsupported"};
+                }
+                ShaderResolver      resolver(products.Get(), nullptr, *files, 0, 0,
+                                        products ? ShaderResolveMode::PRODUCTS : ShaderResolveMode::DEVELOPMENT);
+                ShaderVariantSchema schema;
+                uint64_t            schemaFp = 0;
+                std::string         error;
+                if (!resolver.ResolveSchema(technique.vertex.relativePath, static_cast<uint32_t>(*target), schema, schemaFp, &error)) {
+                    return Invalid(error);
+                }
+                schema = SelectVariantDomain(schema, false);
+                ShaderVariantSchema fragment;
+                if (!resolver.ResolveSchema(technique.fragment.relativePath, static_cast<uint32_t>(*target), fragment, schemaFp, &error))
+                    return Invalid(error);
+                if (!MergeStageVariantSchemas(schema, SelectVariantDomain(fragment, false), schema, error))
+                    return Invalid(error);
+                ShaderVariant localValues = technique.variant;
+                if (!AppendMaterialShaderOptions(schema, properties, localValues, error))
+                    return Invalid(error);
+                ShaderVariantInputs inputs;
+                inputs.global         = &PipelineLayout();
+                inputs.schema         = &schema;
+                inputs.vertexMask     = mask;
+                inputs.pipelineValues = &pipelineValues;
+                inputs.shaderValues   = &localValues;
+                ShaderVariantInfo info;
+                if (!BuildShaderVariant(inputs, info, &error)) {
+                    return Invalid(error);
+                }
+                ShaderTechniqueVariant result;
+                result.macros         = std::move(info.values);
+                result.vertexFeatures = inputs.vertexMask;
+                result.variantHash    = info.variantHash;
+                result.key            = info.key;
+                result.dump           = result.macros.ToString();
+                result.schema         = MergeVariantSchemas(schema, &PipelineLayout().schema);
+                return result;
+            }
+            static uint64_t LayoutFingerprint(const ShaderReflection &reflection, uint64_t seed)
+            {
+                auto mix = [](uint64_t hash, uint64_t value) {
+                    hash ^= value + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2);
+                    return hash;
+                };
+                for (const auto &input : reflection.vertexInputs) {
+                    uint64_t value = static_cast<uint64_t>(input.location) << 32 | static_cast<uint64_t>(input.components) << 8 |
+                                     static_cast<uint64_t>(input.scalarType);
+                    for (const unsigned char c : input.semantic) {
+                        value = mix(value, c);
+                    }
+                    seed = mix(seed, value);
+                }
+                for (const auto &resource : reflection.resources) {
+                    seed = mix(seed, static_cast<uint64_t>(resource.type) << 48 | static_cast<uint64_t>(resource.set) << 32 |
+                                         static_cast<uint64_t>(resource.binding));
+                }
+                return seed;
+            }
+            std::optional<RendererError> BindMaterialParameters(std::span<const MaterialPropertyData> properties,
                                                                 RenderMaterialTechnique              &technique,
                                                                 RendererInfo                          info,
                                                                 std::vector<RenderResourcePayload>   &images,
                                                                 bool                                 &pending)
             {
-                auto &program            = technique.program;
-                program.parameterAliases = authored.aliases;
+                auto &program = technique.program;
+                program.parameterAliases.clear();
+                technique.parameters.set = shared::MaterialBlockBindings::gMaterial.set;
                 ShaderParameterTable table;
                 std::string          error;
                 if (!BuildShaderParameterTable(program.reflection, 1, program.parameterAliases, table, error))
                     return Invalid(std::move(error));
-                for (const auto &alias : authored.aliases) {
-                    const auto property = std::ranges::find(properties, alias.alias, &MaterialPropertyData::name);
-                    if (property == properties.end())
-                        return Invalid("Material alias has no property: " + alias.alias);
-                    const Name            name(alias.alias.c_str());
+                for (const auto &propertyValue : properties) {
+                    const auto           *property = &propertyValue;
+                    const Name            name(property->name.c_str());
                     ShaderParameterHandle handle;
-                    const auto            status = table.Resolve(name, 2, handle);
+                    const auto            status = table.Resolve(name, shared::MaterialBlockBindings::gMaterial.set, handle);
+                    if (status == ShaderParameterLookup::UNKNOWN)
+                        continue;
                     if (status != ShaderParameterLookup::READY && status != ShaderParameterLookup::INACTIVE)
-                        return Invalid("Material alias is unknown or ambiguous: " + alias.alias);
+                        return Invalid("Material key is ambiguous or stale: " + property->name);
                     const ShaderParameterEntry *entry = nullptr;
                     table.Resolve(handle, entry);
                     if (!entry)
@@ -466,8 +570,6 @@ namespace sky::aurora {
                         if (!sampler || entry->kind != ShaderParameterKind::RESOURCE || entry->resourceType != ShaderResourceType::SAMPLER ||
                             declaration->count != 1 || declaration->descriptorArray || declaration->sampler != ShaderSamplerType::REGULAR)
                             return Invalid("Material sampler alias has an incompatible target");
-                        if (status == ShaderParameterLookup::INACTIVE)
-                            continue;
                         technique.parameters.samplers.push_back({name, *sampler});
                     } else if (IsTextureProperty(property->type)) {
                         if (property->type != MaterialPropertyType::TEXTURE2D || entry->kind != ShaderParameterKind::RESOURCE ||
@@ -477,10 +579,17 @@ namespace sky::aurora {
                             declaration->texture.components != 4)
                             return RendererError{.code    = RendererErrorCode::UNSUPPORTED,
                                                  .message = "Material images currently require ordinary 2D sampled textures"};
-                        if (status == ShaderParameterLookup::INACTIVE)
+                        const bool  required = std::ranges::any_of(technique.variants, [&](const auto &variant) {
+                            return std::ranges::any_of(variant.program.reflection.resources, [&](const auto &resource) {
+                                return resource.set == entry->set && resource.binding == entry->binding;
+                            });
+                        });
+                        const auto *id       = std::get_if<Uuid>(&property->value);
+                        if (!id)
+                            return Invalid("Material texture value has the wrong type");
+                        if (!required)
                             continue;
-                        const auto *id = std::get_if<Uuid>(&property->value);
-                        if (!id || !*id)
+                        if (!*id)
                             return Invalid("Active material texture asset is missing");
                         const auto image = Load(*id);
                         if (!image || !(image->GetType() == AssetTraits<Texture>::ASSET_TYPE) || image->GetStatus() == AssetBase::Status::FAILED)
@@ -506,8 +615,6 @@ namespace sky::aurora {
                         auto &data = std::get<ShaderDataValue>(value);
                         if (entry->kind != ShaderParameterKind::FIELD || entry->dataType != data.type || entry->arrayCount != data.count)
                             return Invalid("Material data alias has an incompatible semantic type or array count");
-                        if (status == ShaderParameterLookup::INACTIVE)
-                            continue;
                         technique.parameters.values.push_back({name, std::move(data)});
                     }
                 }
@@ -515,8 +622,13 @@ namespace sky::aurora {
                     return Invalid(std::move(error));
                 return {};
             }
-            std::variant<RendererError, RenderResourcePayload> MaterialPayload(
-                const Uuid &id, const MaterialAssetData *data, RendererInfo info, std::vector<RenderResourcePayload> &images, bool &pending)
+            std::variant<RendererError, RenderResourcePayload> MaterialPayload(const Uuid                         &id,
+                                                                               const MaterialAssetData            *data,
+                                                                               RendererInfo                        info,
+                                                                               bool                                skeletal,
+                                                                               VertexSemanticMask                  vertexMask,
+                                                                               std::vector<RenderResourcePayload> &images,
+                                                                               bool                               &pending)
             {
                 MaterialAssetData defaults;
                 if (data == nullptr) {
@@ -548,57 +660,142 @@ namespace sky::aurora {
                     }
                 }
                 RenderResourcePayload result;
-                result.format  = Name("runtime-material");
-                auto &material = result.material.emplace();
+                result.format     = Name("runtime-material");
+                auto    &material = result.material.emplace();
+                uint64_t layoutFp = HashMixU64(0xcbf29ce484222325ull, vertexMask.mask);
+                PipelineLayout();
+                if (!pipelineLayoutReady)
+                    return Invalid(pipelineError);
+                const auto pipelineVariants = ScenePipelineRequests(PipelineLayout().schema);
+                if (pipelineVariants.empty()) {
+                    return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Pipeline variant space exceeds the supported budget"};
+                }
                 for (const auto &authored : data->techniques) {
                     if (authored.tag.empty() || !tags.insert(authored.tag).second || !authored.program.compute.relativePath.empty()) {
                         return Invalid("Scene material requires unique Tags and graphics techniques");
                     }
-                    auto compiled = CompileShaderTechnique(*files, info.backend, authored.program, products.Get());
-                    if (const auto *error = std::get_if<RendererError>(&compiled)) {
-                        return *error;
+                    RenderMaterialTechnique technique;
+                    technique.tag = Name(authored.tag.c_str());
+                    for (const auto &pipelineValues : pipelineVariants) {
+                        const auto variant = ResolveTechniqueVariant(authored.program, info.backend, vertexMask, pipelineValues, data->properties);
+                        if (const auto *error = std::get_if<RendererError>(&variant)) {
+                            return *error;
+                        }
+                        const auto &resolved = std::get<ShaderTechniqueVariant>(variant);
+                        auto        compiled = CompileShaderTechnique(*files, info.backend, authored.program, products.Get(), &resolved);
+                        if (const auto *error = std::get_if<RendererError>(&compiled)) {
+                            return *error;
+                        }
+                        auto        program    = std::move(std::get<RenderTechniqueData>(compiled));
+                        const auto &palette    = shared::GetSkinningBatchReflection().resources.front();
+                        const auto  slot       = std::ranges::find_if(program.reflection.resources, [&](const auto &resource) {
+                            return resource.set == palette.set && resource.binding == palette.binding;
+                        });
+                        const bool  hasPalette = slot != program.reflection.resources.end();
+                        if ((skeletal && (!hasPalette || slot->type != palette.type || slot->bufferKind != palette.bufferKind ||
+                                          slot->elementStride != palette.elementStride || slot->access != ShaderResourceAccess::READ_ONLY ||
+                                          slot->count != 1 || slot->descriptorArray)) ||
+                            (!skeletal && hasPalette)) {
+                            return RendererError{RendererErrorCode::UNSUPPORTED,
+                                                 "Material technique does not match the component SkinningBatch palette contract: " + authored.tag};
+                        }
+                        const auto &state  = authored.renderState;
+                        const auto &raster = state.rasterState;
+                        if (state.alphaToCoverage || state.depthStencil.stencilTest || state.depthStencil.minDepth != 0 ||
+                            state.depthStencil.maxDepth != 1 || raster.depthClampEnable || raster.rasterizerDiscardEnable || raster.depthBiasEnable ||
+                            raster.depthClipEnable || raster.lineWidth != 1 || raster.cullMode != CullModeFlagBits::NONE ||
+                            raster.polygonMode != PolygonMode::FILL) {
+                            return RendererError{.code    = RendererErrorCode::UNSUPPORTED,
+                                                 .message = "Scene material raster/stencil state is unsupported"};
+                        }
+                        program.depth = {.test    = bool(state.depthStencil.depthTest),
+                                         .write   = bool(state.depthStencil.depthWrite),
+                                         .compare = state.depthStencil.compareOp};
+                        if (state.blendStates.size() > 1) {
+                            return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material has multiple blend targets"};
+                        }
+                        if (!state.blendStates.empty()) {
+                            program.blend = state.blendStates.front();
+                        }
+                        ShaderVariant pipeline;
+                        for (const auto &entry : resolved.macros.entries)
+                            if (const auto *definition = PipelineLayout().schema.FindEntry(entry.key);
+                                definition && entry.value != definition->defaultValue)
+                                pipeline.entries.push_back(entry);
+                        technique.variants.push_back(
+                            {.program = std::move(program), .pipeline = std::move(pipeline), .skinned = skeletal, .vertexMask = vertexMask.mask});
                     }
-                    RenderMaterialTechnique technique{.tag     = Name(authored.tag.c_str()),
-                                                      .program = std::move(std::get<RenderTechniqueData>(compiled))};
-                    auto                   &program = technique.program;
-                    const auto             &state   = authored.renderState;
-                    const auto             &raster  = state.rasterState;
-                    if (state.alphaToCoverage || state.depthStencil.stencilTest || state.depthStencil.minDepth != 0 ||
-                        state.depthStencil.maxDepth != 1 || raster.depthClampEnable || raster.rasterizerDiscardEnable || raster.depthBiasEnable ||
-                        raster.depthClipEnable || raster.lineWidth != 1 || raster.cullMode != CullModeFlagBits::NONE ||
-                        raster.polygonMode != PolygonMode::FILL) {
-                        return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material raster/stencil state is unsupported"};
+                    technique.program = technique.variants.front().program;
+                    MaterialSchema generated;
+                    if (!BuildMaterialSchema(technique.program.reflection, technique.program.variantSchema, generated, validation) ||
+                        !MergeMaterialSchemas(generated, material.schema, validation))
+                        return Invalid(validation);
+                    for (auto &variant : technique.variants) {
+                        if (RenderMaterialInterfaceFingerprint(variant.program, 2) != RenderMaterialInterfaceFingerprint(technique.program, 2))
+                            return Invalid("Material declaration changes across Pipeline or Vertex variants");
                     }
-                    program.depth = {.test    = bool(state.depthStencil.depthTest),
-                                     .write   = bool(state.depthStencil.depthWrite),
-                                     .compare = state.depthStencil.compareOp};
-                    if (state.blendStates.size() > 1) {
-                        return RendererError{.code = RendererErrorCode::UNSUPPORTED, .message = "Scene material has multiple blend targets"};
+                    layoutFp = LayoutFingerprint(technique.program.reflection, layoutFp);
+                    material.techniques.push_back(std::move(technique));
+                }
+                std::map<std::string, std::string> migratedNames;
+                for (size_t i = 0; i < data->techniques.size(); ++i) {
+                    const auto          &authored = data->techniques[i];
+                    ShaderParameterTable table;
+                    if (!BuildShaderParameterTable(material.techniques[i].program.reflection, 1, {}, table, validation))
+                        return Invalid(validation);
+                    for (const auto &alias : authored.aliases) {
+                        ShaderParameterHandle handle;
+                        const auto            status = table.Resolve(Name(alias.target.c_str()), 2, handle);
+                        if (!properties.contains(alias.alias) ||
+                            (status != ShaderParameterLookup::READY && status != ShaderParameterLookup::INACTIVE))
+                            return Invalid("Legacy material alias requires an existing value and exact Group 2 key: " + alias.alias);
+                        const auto [found, inserted] = migratedNames.emplace(alias.alias, alias.target);
+                        if (!inserted && found->second != alias.target)
+                            return Invalid("Material legacy aliases disagree: " + alias.alias);
                     }
-                    if (!state.blendStates.empty()) {
-                        program.blend = state.blendStates.front();
-                    }
-                    if (const auto error = BindMaterialParameters(authored, data->properties, technique, info, images, pending))
+                }
+                std::vector<MaterialPropertyData> canonical;
+                std::set<std::string>             canonicalNames;
+                for (const auto &property : data->properties) {
+                    auto value = property;
+                    if (const auto found = migratedNames.find(value.name); found != migratedNames.end())
+                        value.name = found->second;
+                    const auto key = std::ranges::find(material.schema.keys, value.name, &MaterialKey::name);
+                    if (key == material.schema.keys.end() || !canonicalNames.insert(value.name).second)
+                        return Invalid("Material value has an unknown or conflicting canonical key: " + value.name);
+                    if (key->kind != MaterialKeyKind::OPTION)
+                        canonical.push_back(std::move(value));
+                }
+                for (size_t i = 0; i < material.techniques.size(); ++i) {
+                    auto &technique = material.techniques[i];
+                    if (const auto error = BindMaterialParameters(canonical, technique, info, images, pending))
                         return *error;
                     if (pending)
                         return RenderResourcePayload{};
-                    material.techniques.push_back(std::move(technique));
+                    for (const auto &variant : technique.variants)
+                        if (!ValidateRenderMaterialParameters(variant.program, technique.parameters, info.deviceEpoch, validation))
+                            return Invalid(validation);
                 }
-                result.resource = {.product = id, .revision = loadedRevision, .usageVariant = 1, .deviceEpoch = info.deviceEpoch};
+                // usageVariant is the layout-compatible family, not a program alias.
+                result.resource = {
+                    .product = id, .revision = loadedRevision, .usageVariant = layoutFp == 0 ? 1ull : layoutFp, .deviceEpoch = info.deviceEpoch};
                 return result;
             }
-            std::shared_ptr<ShaderFileSystem>                                                          files;
-            std::function<AssetPtr(const Uuid &)>                                                      loader;
-            std::map<Uuid, AssetPtr>                                                                   assets;
-            std::map<std::tuple<Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneMeshResources>> cache;
-            std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>          imageCache;
-            std::atomic<uint64_t>                                                                      revision{1};
-            uint64_t                                                                                   loadedRevision = 1;
-            std::map<Uuid, std::optional<AABB>>                                                        bounds;
-            std::map<Uuid, std::unique_ptr<AssetWatch>>                                                watches;
-            uint64_t                                                                                   cachedBytes = 0;
-            FileSystemPtr                                                                              products;
-            std::shared_ptr<const SceneMaterialCapabilitySource>                                       capabilities;
+            std::shared_ptr<ShaderFileSystem>                                                                          files;
+            std::function<AssetPtr(const Uuid &)>                                                                      loader;
+            std::map<Uuid, AssetPtr>                                                                                   assets;
+            std::map<std::tuple<Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneMeshResources>>           cache;
+            std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>                          imageCache;
+            std::atomic<uint64_t>                                                                                      revision{1};
+            uint64_t                                                                                                   loadedRevision = 1;
+            std::map<Uuid, std::optional<AABB>>                                                                        bounds;
+            std::map<Uuid, std::unique_ptr<AssetWatch>>                                                                watches;
+            uint64_t                                                                                                   cachedBytes = 0;
+            FileSystemPtr                                                                                              products;
+            std::shared_ptr<const SceneMaterialCapabilitySource>                                                       capabilities;
+            GlobalVariantLayout                                                                                        pipelineLayout;
+            bool                                                                                                       pipelineLayoutReady = false;
+            std::string                                                                                                pipelineError;
         };
     } // namespace
     std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>                    files,

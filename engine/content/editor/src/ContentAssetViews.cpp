@@ -6,7 +6,6 @@
 
 #include <content/adaptor/assets/AnimationAsset.h>
 
-#include <core/environment/Once.h>
 #include <editor/core/asset/AssetViewData.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
@@ -24,9 +23,6 @@ namespace sky::content::editor {
             uint32_t skeletonBound = 0;
         };
 
-        struct AnimationGraphView {
-            uint32_t version = 0;
-        };
 
         class ClipViewProvider : public sky::editor::IAssetViewDataProvider {
         public:
@@ -48,6 +44,10 @@ namespace sky::content::editor {
                 auto     node = sky::GetTypeNode(any);
                 return sky::editor::AssetViewData{std::move(any), node};
             }
+        };
+
+        struct AnimationGraphView {
+            uint32_t version = 0;
         };
 
         class GraphViewProvider : public sky::editor::IAssetViewDataProvider {
@@ -74,11 +74,8 @@ namespace sky::content::editor {
 
     } // namespace
 
-    void RegisterContentAssetViews(sky::SerializationContext *context)
+    void ReflectContentAssetViews(sky::SerializationContext *context)
     {
-        if (context == nullptr || !sky::Once::Get()->Run("ContentAssetViews")) {
-            return; // cross-DLL idempotency
-        }
 
         // Read-only MVP: asset summaries; source write-back (edit -> re-cook) is a follow-up.
         constexpr uint32_t kReadOnly = static_cast<uint32_t>(CommonPropertyKey::READONLY);
@@ -90,12 +87,21 @@ namespace sky::content::editor {
             .Property(kReadOnly, Any(true))
             .Member<&AnimationClipView::skeletonBound>("skeletonBound")
             .Property(kReadOnly, Any(true));
-
         context->Register<AnimationGraphView>("AnimationGraphView").Member<&AnimationGraphView::version>("version").Property(kReadOnly, Any(true));
+    }
 
+    void RegisterContentAssetViews(std::shared_ptr<const void> lease)
+    {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
-        registry->Register(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView);
-        registry->Register(std::string(AssetTraits<Animation>::ASSET_TYPE), &g_graphView);
+        registry->Register(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView, lease);
+        registry->Register(std::string(AssetTraits<Animation>::ASSET_TYPE), &g_graphView, lease);
+    }
+
+    void UnregisterContentAssetViews()
+    {
+        auto *registry = sky::editor::AssetViewDataRegistry::Get();
+        registry->Unregister(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView);
+        registry->Unregister(std::string(AssetTraits<Animation>::ASSET_TYPE), &g_graphView);
     }
 
 } // namespace sky::content::editor

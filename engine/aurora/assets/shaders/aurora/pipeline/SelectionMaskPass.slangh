@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/SelectionMaskPass.h; do not edit.
-// Inputs: 4864b99fc863aa17a1b2c5e3d079577b3e892a22e5deb1e9852e36d863af0e85; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 4864b99fc863aa17a1b2c5e3d079577b3e892a22e5deb1e9852e36d863af0e85; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

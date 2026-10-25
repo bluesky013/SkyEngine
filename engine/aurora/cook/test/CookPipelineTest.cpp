@@ -470,7 +470,6 @@ TEST(CookAssetWriterTest, BuilderKeepsColorSpaceForUncompressedProductsAndPreser
         std::ofstream output(directory / "source.ktx", std::ios::binary);
         output.write(reinterpret_cast<const char *>(source.data()), source.size());
     }
-    AuroraReflection(SerializationContext::Get());
     auto *manager = AssetManager::Get();
     manager->RegisterAssetHandler<Texture>();
     manager->AddAssetProductBundle(new HashedAssetBundle(files, "color_marker"));

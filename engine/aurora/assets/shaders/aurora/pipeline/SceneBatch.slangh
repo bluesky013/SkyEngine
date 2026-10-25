@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/SceneBatch.h; do not edit.
-// Inputs: 55da0e978ce2ca001c96f4974bc617f26a52014a6f04eaba44e164465c052a1b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 9ccc9cff1d8b9bb5ed9ec3e1385719f6c058391f1ccec2dc81f4f08ec43af078; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES
@@ -14,9 +14,9 @@ struct SceneBatchParams
 {
     [AuroraField("world")] column_major float4x4 world;
 };
-[AuroraResource(2, 0, "aurora/pipeline/SceneBatch.h")]
-[[vk::binding(0, 2)]] ConstantBuffer<SceneBatchParams> gSceneBatch
+[AuroraResource(3, 0, "aurora/pipeline/SceneBatch.h")]
+[[vk::binding(0, 3)]] ConstantBuffer<SceneBatchParams> gSceneBatch
 #if !AURORA_TARGET_MSL
-    : register(b0, space2)
+    : register(b0, space3)
 #endif
 ;

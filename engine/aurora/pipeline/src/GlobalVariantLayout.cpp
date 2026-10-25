@@ -5,6 +5,7 @@
 
 #include <aurora/pipeline/GlobalVariantLayout.h>
 
+#include <aurora/shader/ShaderCacheStore.h>
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderHash.h>
 #include <aurora/shader/gen/ShaderVariantGen.h>
@@ -13,6 +14,9 @@ namespace sky::aurora {
 
     bool GlobalVariantLayout::Init(std::string *error)
     {
+        schema.pipelineReservedBits = reservedBits;
+        for (auto &entry : schema.entries)
+            entry.domain = ShaderVariantDomain::PIPELINE;
         if (schema.totalBits > reservedBits) {
             if (error != nullptr) {
                 *error = "pipeline variant keys exceed reserved bits";
@@ -69,6 +73,37 @@ namespace sky::aurora {
     const ShaderVariantSchema::Entry *GlobalVariantLayout::Find(Name key) const
     {
         return schema.FindEntry(key);
+    }
+
+    bool GlobalVariantLayout::LoadPublished(sky::IFileSystem &products, std::string *error)
+    {
+        bool                found = false;
+        ShaderVariantSchema published;
+        for (uint32_t target = 0; target < 3; ++target) {
+            ShaderCacheIndex index;
+            if (!LoadIndex(products, ShaderTargetDirName(target), index))
+                continue;
+            for (const auto &[path, entry] : index.paths) {
+                if (!entry.schema.pipelineReservedBits)
+                    continue;
+                auto candidate = SelectVariantDomain(entry.schema, true);
+                if (found && HashSchema(published) != HashSchema(candidate)) {
+                    if (error)
+                        *error = "Published shaders disagree on Pipeline selection metadata";
+                    return false;
+                }
+                published = std::move(candidate);
+                found     = true;
+            }
+        }
+        if (!found) {
+            if (error)
+                *error = "Published Pipeline selection metadata is missing or obsolete; recook shaders";
+            return false;
+        }
+        schema       = std::move(published);
+        reservedBits = static_cast<uint16_t>(schema.pipelineReservedBits);
+        return Init(error);
     }
 
     std::string GlobalVariantLayout::ToString(const ShaderVariantKey &key) const

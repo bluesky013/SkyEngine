@@ -1,10 +1,4 @@
-//
-// Editable material / material-instance property list, surfaced as custom asset-view content.
-// The source (`.mat` / `.mati`) is loaded/saved through the reflection JSON codec
-// (`MaterialAssetData` / `MaterialInstanceSource`), not a bespoke parser; value rows edit typed
-// values (std::variant), texture rows open an AuroraTexture picker. Commits write the source and
-// re-cook.
-//
+// Generated material keys bind typed models to reflected forms. Save validates the schema before writing/cooking.
 
 #pragma once
 
@@ -21,6 +15,10 @@
 #include <string>
 #include <vector>
 
+namespace sky {
+    struct TypeNode;
+}
+
 namespace sky::ui {
     class UIPaintContext;
     class UITextSystem;
@@ -29,7 +27,8 @@ namespace sky::ui {
 
 namespace sky::editor {
     class ReflectedFormView;
-}
+    class CommandService;
+} // namespace sky::editor
 
 namespace sky::aurora::editor {
 
@@ -38,6 +37,7 @@ namespace sky::aurora::editor {
         Field = 0,
         TechniqueHeader,
         AddTechnique,
+        Diagnostic,
     };
 
     // One editable row: a typed value, a texture Uuid, or a technique string field.
@@ -49,6 +49,7 @@ namespace sky::aurora::editor {
         // String rows (technique shader path / tag / render-state text).
         std::string text;
         bool        isString       = false;
+        bool        overridden     = true;
         int         techniqueIndex = -1; // >= 0 -> persist to techniques[techniqueIndex]
         int         techniqueField = 0;  // 0 = tag, 1 = shader, 2 = entry, 10 = renderState
         std::string renderKey;           // renderState JSON key (nested with '.') when techniqueField == 10
@@ -58,7 +59,12 @@ namespace sky::aurora::editor {
 
     class MaterialEditorView : public sky::ui::UIElement {
     public:
-        MaterialEditorView(sky::ui::UITextSystem *textSystem, const Uuid &asset, std::string title, bool isInstance, bool enableTechniques = false);
+        MaterialEditorView(sky::ui::UITextSystem       *textSystem,
+                           const Uuid                  &asset,
+                           std::string                  title,
+                           bool                         isInstance,
+                           bool                         enableTechniques = false,
+                           sky::editor::CommandService *history          = nullptr);
         ~MaterialEditorView() override;
 
         const char *GetTypeName() const override
@@ -76,7 +82,14 @@ namespace sky::aurora::editor {
 
         // Asset-view Save hook (called by the asset-view base window): writes the buffered edits
         // to the material source and re-cooks. Returns false when there is no source / nothing to do.
-        bool Save();
+        bool               Save();
+        void               Tick();
+        bool               IsEditing() const;
+        void               CancelInteractions();
+        const std::string &Error() const
+        {
+            return schemaError;
+        }
         bool HasPendingEdits() const
         {
             return dirty;
@@ -101,8 +114,8 @@ namespace sky::aurora::editor {
         bool            PersistProperty(int index);
         void            OpenPicker(int index, const sky::ui::UIRect &row);
         void            ReloadTechniques();
-        void            ClearSamplerForms();
-        void            RebuildSamplerForms();
+        void            ClearPropertyForms();
+        void            RebuildPropertyForms();
         void            AddTechnique();
         void            DeleteTechnique(int techniqueIndex);
 
@@ -115,10 +128,16 @@ namespace sky::aurora::editor {
         MaterialInstanceSource                        instanceSource;      // reflected `.mati` source (instance)
         std::vector<MaterialEditorRow>                rows;                // techniques (grouped) + properties
         sky::ui::GridPanel                           *rowsPanel = nullptr; // owns the themed row layout
-        std::vector<sky::editor::ReflectedFormView *> samplerForms;
-        std::shared_ptr<void>                         samplerGeneration = std::make_shared<int>(0);
-        bool                                          allowTechniques   = false;
-        bool                                          dirty             = false;
+        std::vector<sky::editor::ReflectedFormView *> propertyForms;
+        std::shared_ptr<void>                         propertyGeneration = std::make_shared<int>(0);
+        std::vector<MaterialPropertyData>             formValues;
+        std::vector<std::unique_ptr<sky::TypeNode>>   formNodes;
+        MaterialSchema                                generatedSchema;
+        std::string                                   schemaError;
+        bool                                          allowTechniques = false;
+        bool                                          dirty           = false;
+        bool                                          reloadPending   = true;
+        sky::editor::CommandService                  *history         = nullptr;
 
         int         editingRow = -1;
         std::string editText;
@@ -132,6 +151,7 @@ namespace sky::aurora::editor {
     };
 
     // Registers the material / material-instance providers (AssetViewProviderRegistry).
-    void RegisterMaterialEditorProvider();
+    void RegisterMaterialEditorProvider(std::shared_ptr<const void> lease = {});
+    void UnregisterMaterialEditorProvider();
 
 } // namespace sky::aurora::editor

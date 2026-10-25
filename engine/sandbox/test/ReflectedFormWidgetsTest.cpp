@@ -1,13 +1,14 @@
+#include "ReflectionTestEnvironment.h"
 //
 // Headless coverage for reusable reflected widgets and document service contexts.
 //
 
-#include <core/environment/Once.h>
 #include <core/math/Transform.h>
 #include <core/math/Vector2.h>
 #include <core/type/TypeInfo.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/input/KeyModifiers.h>
+#include <editor/widgets/AssetReflectedWidget.h>
 #include <editor/widgets/ColorPicker.h>
 #include <editor/widgets/GenericReflectedWidget.h>
 #include <editor/widgets/ReflectedFormView.h>
@@ -45,6 +46,29 @@ namespace sky::editor::widget_test {
         bool enabled = false;
     };
 
+    struct AssetObject {
+        Uuid mesh;
+    };
+
+    class AssetCatalog final : public IEditorAssetCatalog {
+    public:
+        Uuid asset = Uuid::Create();
+        std::vector<EditorAssetItem> Gather(const std::string &type) const override
+        {
+            return {{asset, "Character", "Character.gltf", type}};
+        }
+        bool GetType(const Uuid &id, std::string &out) const override
+        {
+            out = "AuroraMesh";
+            return id == asset;
+        }
+        bool GetName(const Uuid &id, std::string &out) const override
+        {
+            out = "Character";
+            return id == asset;
+        }
+    };
+
     struct LayoutObject {
         ToggleObject       nested;
         std::vector<float> items;
@@ -58,34 +82,38 @@ namespace sky::editor::widget_test {
 
     namespace {
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            auto *serialization = SerializationContext::Get();
+            serialization->Register<Choice>("ReflectedWidgetTestChoice").Enum(Choice::First, "First").Enum(Choice::Second, "Second");
+            serialization->Register<Color>("ReflectedWidgetTestColor")
+                .Member<&Color::r>("r")
+                .Member<&Color::g>("g")
+                .Member<&Color::b>("b")
+                .Member<&Color::a>("a");
+            serialization->Register<Object>("ReflectedWidgetTestObject")
+                .Member<&Object::choice>("choice")
+                .Member<&Object::enabled>("enabled")
+                .Member<&Object::text>("text")
+                .Member<&Object::color>("color")
+                .Member<&Object::position>("position");
+            serialization->Register<ToggleObject>("ReflectedWidgetTestToggle").Member<&ToggleObject::enabled>("enabled");
+            serialization->Register<AssetObject>("ReflectedWidgetTestAsset")
+                .Member<&AssetObject::mesh>("mesh")
+                .Property(CommonPropertyKey::ASSET_TYPE, Any(std::string("AuroraMesh")));
+            serialization->Register<LayoutObject>("ReflectedWidgetTestLayout")
+                .Member<&LayoutObject::nested>("nested")
+                .Member<&LayoutObject::items>("items");
+            serialization->Register<MetadataToggleObject>("ReflectedWidgetMetadataToggle")
+                .Member<&MetadataToggleObject::alpha>("alpha")
+                .Property(CommonPropertyKey::ORDER, Any(int32_t{10}))
+                .Member<&MetadataToggleObject::zeta>("zeta")
+                .Property(CommonPropertyKey::ORDER, Any(int32_t{-10}))
+                .Member<&MetadataToggleObject::hidden>("hidden")
+                .Property(CommonPropertyKey::VISIBLE, Any(false));
+        });
+
         const TypeNode *ObjectType()
         {
-            if (Once::Get()->Run("EditorWidgetsTest.ReflectedFormWidgetTypes")) {
-                auto *serialization = SerializationContext::Get();
-                serialization->Register<Choice>("ReflectedWidgetTestChoice").Enum(Choice::First, "First").Enum(Choice::Second, "Second");
-                serialization->Register<Color>("ReflectedWidgetTestColor")
-                    .Member<&Color::r>("r")
-                    .Member<&Color::g>("g")
-                    .Member<&Color::b>("b")
-                    .Member<&Color::a>("a");
-                serialization->Register<Object>("ReflectedWidgetTestObject")
-                    .Member<&Object::choice>("choice")
-                    .Member<&Object::enabled>("enabled")
-                    .Member<&Object::text>("text")
-                    .Member<&Object::color>("color")
-                    .Member<&Object::position>("position");
-                serialization->Register<ToggleObject>("ReflectedWidgetTestToggle").Member<&ToggleObject::enabled>("enabled");
-                serialization->Register<LayoutObject>("ReflectedWidgetTestLayout")
-                    .Member<&LayoutObject::nested>("nested")
-                    .Member<&LayoutObject::items>("items");
-                serialization->Register<MetadataToggleObject>("ReflectedWidgetMetadataToggle")
-                    .Member<&MetadataToggleObject::alpha>("alpha")
-                    .Property(CommonPropertyKey::ORDER, Any(int32_t{10}))
-                    .Member<&MetadataToggleObject::zeta>("zeta")
-                    .Property(CommonPropertyKey::ORDER, Any(int32_t{-10}))
-                    .Member<&MetadataToggleObject::hidden>("hidden")
-                    .Property(CommonPropertyKey::VISIBLE, Any(false));
-            }
             return GetTypeNode(TypeInfo<Object>::RegisteredId());
         }
 
@@ -293,6 +321,46 @@ namespace sky::editor::widget_test {
         };
 
     } // namespace
+
+    TEST(ReflectedFormWidgetsTest, AssetPickerSurvivesOpeningReleaseAndSelectionIsUndoable)
+    {
+        ObjectType();
+        AssetObject object;
+        AssetCatalog catalog;
+        Services services;
+        struct Probe final : AssetReflectedWidget {
+            explicit Probe(IEditorAssetCatalog *catalog) : AssetReflectedWidget(catalog) {}
+            ui::UIRect control;
+            void Paint(ReflectedWidgetHost &host, ui::UIPaintContext &context, PropertyField &field, const ui::UIRect &rect) override
+            {
+                control = rect;
+                AssetReflectedWidget::Paint(host, context, field, rect);
+            }
+        };
+        auto widget = std::make_shared<Probe>(&catalog);
+        ReflectedFormView view(nullptr, "", services.Context());
+        view.Widgets().Register(PropertyEditorKind::Asset, widget);
+        view.Bind({&object, GetTypeNode(TypeInfo<AssetObject>::RegisteredId())});
+        view.Arrange({0, 0, 800, 600});
+        Paint(view);
+        const auto control = widget->control;
+        const float x = (control.left + control.right) * .5f;
+        const float y = (control.top + control.bottom) * .5f;
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::DOWN, x, y));
+        ASSERT_TRUE(view.WantsPointerCapture());
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::UP, x, y));
+        ASSERT_TRUE(view.WantsPointerCapture());
+        EXPECT_FALSE(object.mesh);
+        const auto &metrics = services.theme.metrics;
+        const float itemY = control.bottom + metrics.checkboxPad * 2.5f + metrics.popupItemHeight * .5f;
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::DOWN, x, itemY));
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::UP, x, itemY));
+        EXPECT_EQ(object.mesh, catalog.asset);
+        EXPECT_FALSE(view.WantsPointerCapture());
+        ASSERT_EQ(services.commands.GetUndoCount(), 1u);
+        ASSERT_TRUE(services.commands.Undo());
+        EXPECT_FALSE(object.mesh);
+    }
 
     TEST(ReflectedFormWidgetsTest, GroupedFormsKeepExpansionAndHistoryIndependent)
     {

@@ -20,7 +20,6 @@
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/scene/SceneTypes.h>
 
-#include <core/environment/Once.h>
 #include <core/shapes/Bounds.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/Any.h>
@@ -228,12 +227,7 @@ namespace sky {
 
         void AuroraReflection(sky::SerializationContext *context)
         {
-            // Cross-DLL one-shot guard: Aurora.Adaptor.Static is linked into each module DLL, so a
-            // function-local `static bool` would be per-DLL and re-register into the shared
-            // SerializationContext (assert on duplicate type). See sky::Once.
-            if (!sky::Once::Get()->Run("AuroraReflection")) {
-                return;
-            }
+
 
             ReflectSceneTypes(context);
             ReflectAssetTypes(context);

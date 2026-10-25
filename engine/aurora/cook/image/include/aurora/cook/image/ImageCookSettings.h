@@ -21,8 +21,7 @@ namespace sky::aurora::cook {
         bool        generateMip = true;
     };
 
-    // Registers the enums and struct with the process-wide SerializationContext (idempotent), so the
-    // editor can bind an instance to the generic reflected form.
+    // Owned by the Aurora.Cook metadata phase; consumers only bind instances.
     void RegisterImageCookSettings();
 
 } // namespace sky::aurora::cook

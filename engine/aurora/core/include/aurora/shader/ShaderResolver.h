@@ -7,6 +7,7 @@
 #include <aurora/shader/ShaderCompanion.h>
 #include <aurora/shader/ShaderCompileTask.h>
 #include <aurora/shader/ShaderVariant.h>
+#include <core/file/FileSystem.h>
 
 #include <cstdint>
 #include <string>
@@ -44,16 +45,20 @@ namespace sky::aurora {
         {
             mWriter = writer;
         }
+        bool SetAsyncCacheOwners(FileSystemPtr local, std::shared_ptr<ShaderCacheWriter> writer = {});
 
         struct Request {
             std::string                relativePath;
             std::string                entry;
             ShaderStageFlagBit         stage       = ShaderStageFlagBit::FS;
             uint32_t                   target      = 0;
-            uint64_t                   variantHash = 0;
-            const ShaderVariant       *variant     = nullptr;
-            const ShaderVariantSchema *schema      = nullptr; // nullptr -> resolve
-            uint64_t                   schemaFp    = 0;
+            uint64_t                   variantHash    = 0;
+            uint64_t                   variantKey[2]  = {0, 0}; // composed P|V|S key words
+            std::string                variantDump;             // human-readable composed values
+            const ShaderVariant       *variant         = nullptr;
+            const ShaderVariantSchema *schema          = nullptr; // nullptr -> resolve
+            const ShaderVariantSchema *pipelineSchema  = nullptr; // external P-domain keys
+            uint64_t                   schemaFp        = 0;
             std::vector<std::string>   depends; // extra companion deps
             ShaderTargetEnvironment    environment;
         };
@@ -73,7 +78,7 @@ namespace sky::aurora {
         // Persist a finished compile via the writer queue, or inline otherwise.
         bool CommitCompile(const ShaderCompileTask &task, const ShaderCompileResult &result, std::string *error = nullptr);
 
-        // Sources and variants are captured; compiler, cache roots and writer must outlive pending futures.
+        // Async misses require an owned compiler registration and owned cache endpoints.
         ShaderResolveStatus
         ResolveShaderAsync(const Request &req, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error = nullptr);
 
@@ -85,6 +90,11 @@ namespace sky::aurora {
                                       std::string                    &outSource);
 
     private:
+        struct AsyncCacheOwners {
+            FileSystemPtr                      root;
+            std::shared_ptr<ShaderCacheWriter> writer;
+        };
+        std::shared_ptr<AsyncCacheOwners> mAsyncCache;
         sky::IFileSystem  *mOffline;
         sky::IFileSystem  *mLocal;
         ShaderFileSystem  &mSourceFs;

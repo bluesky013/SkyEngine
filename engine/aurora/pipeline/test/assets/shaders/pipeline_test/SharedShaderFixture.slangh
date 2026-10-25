@@ -1,5 +1,5 @@
 // Generated from pipeline_test/SharedShaderFixture.h; do not edit.
-// Inputs: 7769c557b214889626c6053d7df36f5f720f7d59386dccfd6cf0fcab1c59276b; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 7769c557b214889626c6053d7df36f5f720f7d59386dccfd6cf0fcab1c59276b; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

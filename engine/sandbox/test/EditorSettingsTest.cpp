@@ -15,7 +15,6 @@ using namespace sky::editor;
 // members (so the Preferences dialog can render them generically, without per-type controls).
 TEST(EditorSettingsTest, RegistersReflectedPages)
 {
-    RegisterEditorSettings(sky::SerializationContext::Get());
 
     GeneralSettings      general;
     const sky::TypeNode *type = sky::GetTypeNode(sky::TypeInfo<GeneralSettings>::RegisteredId());

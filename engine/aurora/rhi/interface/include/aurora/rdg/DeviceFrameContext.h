@@ -39,8 +39,9 @@ namespace sky::aurora {
         uint32_t samplerDescriptors  = 128;
         uint32_t descriptorSets      = 256;
         uint32_t renderTargets       = 128;
+        uint64_t storageBytes = 4 * 1024 * 1024;
     };
-    enum class FrameBufferKind : uint8_t { STAGING, UNIFORM };
+    enum class FrameBufferKind : uint8_t { STAGING, UNIFORM, STORAGE = 3 };
     // Uniform size includes zero-filled binding padding; ownership does not extend lease validity.
     struct FrameBufferSlice {
         DeviceFrameLease lease;

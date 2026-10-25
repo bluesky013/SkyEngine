@@ -118,9 +118,10 @@ namespace sky::aurora {
 
         struct State {
             ShaderCompileTask                                                                          task;
-            IShaderCompiler                                                                           *compiler = nullptr;
+            std::shared_ptr<const ShaderCompilerLease>                                                 compiler;
             std::function<bool(const ShaderCompileTask &, const ShaderCompileResult &, std::string *)> commit;
             std::atomic<bool>                                                                          done{false};
+            std::atomic<bool>                                                                          started{false};
             bool                                                                                       ok = false;
             ShaderCompileResult                                                                        result;
         };
@@ -128,7 +129,13 @@ namespace sky::aurora {
         void Run()
         {
             const auto state = mState;
-            state->ok        = state->task.Run(*state->compiler, state->result);
+            if (!state || state->started.exchange(true, std::memory_order_acq_rel))
+                return;
+            Execute(state);
+        }
+        static void Execute(const std::shared_ptr<State> &state)
+        {
+            state->ok = state->task.Run(*state->compiler->compiler, state->result);
             if (state->ok && state->commit) {
                 state->ok = state->commit(state->task, state->result, &state->result.errorInfo);
             }

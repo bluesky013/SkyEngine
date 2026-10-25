@@ -7,8 +7,11 @@
 #include <core/platform/Platform.h>
 
 #include <gtest/gtest.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
 
 #include <cstring>
+#include <map>
 #include <string>
 
 using namespace sky;
@@ -552,4 +555,85 @@ int main(int argc, char *argv[])
 {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
+}
+
+
+TEST(SlangSpikeTest, VariantDeclarationReflectionGate)
+{
+    Slang::ComPtr<slang::IGlobalSession> global;
+    ASSERT_TRUE(SLANG_SUCCEEDED(slang::createGlobalSession(global.writeRef())));
+    EXPECT_STREQ(global->getBuildTagString(), "2026.19");
+    const char *source = R"(
+#ifndef NUM_LIGHTS
+#define NUM_LIGHTS 4
+#endif
+#if AURORA_TARGET_DXIL
+static const int kNumLights = NUM_LIGHTS;
+static const bool kEnabled = true;
+static const uint kUnused = 9u;
+#else
+[SpecializationConstant] [[vk::constant_id(7)]] const int kNumLights = NUM_LIGHTS;
+[SpecializationConstant] [[vk::constant_id(2)]] const bool kEnabled = true;
+[SpecializationConstant] [[vk::constant_id(31)]] const uint kUnused = 9u;
+#endif
+[shader("fragment")] float4 Main() : SV_Target { return kEnabled ? float4(kNumLights, 0, 0, 1) : 0; }
+)";
+    for (auto target : {SLANG_SPIRV, SLANG_METAL, SLANG_DXIL}) {
+        SCOPED_TRACE(static_cast<int>(target));
+        slang::TargetDesc targetDesc{};
+        targetDesc.format = target;
+        targetDesc.profile = global->findProfile(target == SLANG_METAL ? "metallib_2_3" : "sm_6_0");
+        const slang::PreprocessorMacroDesc macros[] = {
+            {"AURORA_TARGET_DXIL", target == SLANG_DXIL ? "1" : "0"},
+            {"NUM_LIGHTS", target == SLANG_DXIL ? "8" : "4"},
+        };
+        slang::SessionDesc sessionDesc{};
+        sessionDesc.targets = &targetDesc;
+        sessionDesc.targetCount = 1;
+        sessionDesc.preprocessorMacros = macros;
+        sessionDesc.preprocessorMacroCount = 2;
+        Slang::ComPtr<slang::ISession> session;
+        ASSERT_TRUE(SLANG_SUCCEEDED(global->createSession(sessionDesc, session.writeRef())));
+        Slang::ComPtr<slang::IBlob> diagnostics;
+        auto *module = session->loadModuleFromSourceString("variant_gate", "variant_gate.slang", source, diagnostics.writeRef());
+        ASSERT_NE(module, nullptr) << (diagnostics ? static_cast<const char *>(diagnostics->getBufferPointer()) : "");
+        std::map<std::string, slang::VariableReflection *> declarations;
+        for (auto *child : module->getModuleReflection()->getChildren())
+            if (auto *variable = child->asVariable())
+                declarations.emplace(variable->getName(), variable);
+        const struct { const char *name; slang::TypeReflection::ScalarType type; uint32_t bits; uint32_t id; } expected[] = {
+            {"kNumLights", slang::TypeReflection::ScalarType::Int32, target == SLANG_DXIL ? 8u : 4u, 7},
+            {"kEnabled", slang::TypeReflection::ScalarType::Bool, 1, 2},
+            {"kUnused", slang::TypeReflection::ScalarType::UInt32, 9, 31},
+        };
+        auto *layout = module->getLayout();
+        ASSERT_NE(layout, nullptr);
+        std::map<std::string, slang::VariableLayoutReflection *> parameters;
+        for (unsigned i = 0; i < layout->getParameterCount(); ++i) {
+            auto *parameter = layout->getParameterByIndex(i);
+            parameters.emplace(parameter->getName(), parameter);
+        }
+        for (const auto &item : expected) {
+            SCOPED_TRACE(item.name);
+            ASSERT_NE(declarations.find(item.name), declarations.end());
+            auto *variable = declarations.at(item.name);
+            EXPECT_EQ(variable->getType()->getKind(), slang::TypeReflection::Kind::Scalar);
+            EXPECT_EQ(variable->getType()->getScalarType(), item.type);
+            Slang::ComPtr<slang::IBlob> value;
+            ASSERT_TRUE(SLANG_SUCCEEDED(variable->getDefaultValueBlob(value.writeRef())));
+            ASSERT_NE(value.get(), nullptr);
+            ASSERT_EQ(value->getBufferSize(), sizeof(uint32_t));
+            uint32_t bits = 0;
+            std::memcpy(&bits, value->getBufferPointer(), sizeof(bits));
+            EXPECT_EQ(bits, item.bits);
+            if (target == SLANG_DXIL) {
+                EXPECT_EQ(parameters.find(item.name), parameters.end());
+            } else {
+                ASSERT_NE(parameters.find(item.name), parameters.end());
+                auto *parameter = parameters.at(item.name);
+                EXPECT_EQ(parameter->getCategory(), slang::ParameterCategory::SpecializationConstant);
+                EXPECT_EQ(parameter->getOffset(slang::ParameterCategory::SpecializationConstant), item.id);
+            }
+        }
+    }
 }

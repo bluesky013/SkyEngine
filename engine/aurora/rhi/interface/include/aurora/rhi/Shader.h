@@ -67,7 +67,11 @@ namespace sky::aurora {
 
     struct ShaderSpecializationEntry {
         uint32_t id    = 0; // specialization constant id
-        uint32_t value = 0; // value (bool/int/uint; float via bit reinterpretation)
+        uint32_t value = 0;
+        ShaderStageFlagBit stage = ShaderStageFlagBit::FS;
+        ShaderVariantType type = ShaderVariantType::UINT32;
+        std::string key;
+        bool operator==(const ShaderSpecializationEntry &) const = default;
     };
     struct ShaderSpecialization {
         std::vector<ShaderSpecializationEntry> entries;

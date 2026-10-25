@@ -80,6 +80,7 @@ namespace sky::aurora {
         capability.anisotropyEnable = true;
 
         capability.minUniformBufferOffsetAlignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+        capability.minStorageBufferOffsetAlignment = 4;
 
         // D3D12 NDC has +Y pointing up.
         capability.clipSpaceYDown = false;

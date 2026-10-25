@@ -108,7 +108,7 @@ namespace sky {
         std::unique_ptr<Actor> DetachFromWorld(Actor *actor);
         void                   Reset();
 
-        void             AddSubSystem(const Name &name, IWorldSubSystem *);
+        void             AddSubSystem(const Name &name, IWorldSubSystem *, std::shared_ptr<const void> moduleLease = {});
         IWorldSubSystem *GetSubSystem(const Name &name) const;
 
         // Iterates the attached subsystems and forwards to the matching
@@ -121,6 +121,8 @@ namespace sky {
 
         std::vector<std::unique_ptr<Actor>>                        actors;
         std::unordered_map<Uuid, size_t>                           actorIndex;
+        // External ownership keeps virtual destructor code resident through subsystem destruction.
+        std::unordered_map<Name, std::shared_ptr<const void>> subSystemModuleLeases;
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         Uuid persistID;

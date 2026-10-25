@@ -163,6 +163,7 @@ namespace sky::editor::sandbox {
         }
 
         LOG_W(TAG, "editor config '%s' not found; falling back to SandboxModule", EDITOR_CONFIG_PATH);
+        moduleManager->RegisterModule(ModuleInfo{"Aurora.Render", {"Aurora.Metadata"}});
         moduleManager->RegisterModule(ModuleInfo{"SandboxModule", {"Aurora.Render", "Aurora.ShaderCompiler"}});
         return true;
     }

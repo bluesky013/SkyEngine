@@ -49,6 +49,11 @@ namespace sky::editor {
 
         // The catalog is borrowed and must outlive the editing session.
         void SetCatalog(EditorAssetCatalog *value);
+        void SetActionScope(std::string value) { actionScope = std::move(value); }
+        void SetStandalone(bool value) { standalone = value; }
+        std::weak_ptr<void> GetActionLifetime() const { return actionLifetime; }
+        bool WantsPointerCapture() const override;
+        void OnPointerCancel(uint32_t pointer) override;
 
         // Routes a chrome action id back to the host (EditorShell::InvokeAction).
         void SetActionHandler(std::function<bool(const std::string &)> handler)
@@ -58,9 +63,16 @@ namespace sky::editor {
 
         void            Open(const Uuid &uuid);
         void            Close();
+        void Tick(float delta);
+        bool NeedsCloseDecision() const;
+        bool IsCloseRequested() const { return documentCloseRequested || pendingSession == PendingSessionAction::Close; }
+        enum class CloseDecision { Save, Discard, Cancel };
+        void ResolveClose(CloseDecision decision);
+        bool            CanResolveClose(CloseDecision decision) const;
+        const Uuid &AssetId() const { return asset; }
         CommandService &History()
         {
-            return assetCommands;
+            return viewDocument.document ? viewDocument.document->History() : assetCommands;
         }
         bool CanUndo() const;
         bool CanRedo() const;
@@ -82,6 +94,7 @@ namespace sky::editor {
         void ArrangeChildren(const sky::ui::UIRect &content) override;
 
     private:
+        class ClosePrompt;
         // One reflected settings form per resolved cook target.
         struct TargetPanel {
             std::string        target;
@@ -97,6 +110,7 @@ namespace sky::editor {
         void            Reload();
         void            RebuildCustomContent();
         void            RebuildDataView();
+        void ReleaseCustomContent();
         sky::ui::UIRect PanelRect() const;
         sky::ui::UIRect ContentRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect RightRect(const sky::ui::UIRect &content) const;
@@ -132,7 +146,16 @@ namespace sky::editor {
         EditorAssetCatalog  *pendingCatalog    = nullptr;
 
         std::vector<TargetPanel> panels;
+        AssetViewDocument viewDocument;
+        std::string actionScope = "assetViewer";
+        bool standalone = false;
+        std::shared_ptr<const void> customContentLease;
+        bool documentCloseRequested = false, documentSaveAndClose = false, documentDiscard = false;
+        bool                        documentCloseSaveFailed = false;
+        ClosePrompt                *closePrompt             = nullptr;
+        Uuid documentNextAsset;
         sky::ui::UIElement      *customContent   = nullptr; // provider content, when any
+        sky::ui::UIElement      *customPreview   = nullptr;
         sky::ui::UIElement      *contentViewport = nullptr; // clips the scrollable content region
         sky::ui::DockPanel      *topDock         = nullptr; // docks menu/toolbar/body
         sky::ui::UIElement      *bodyArea        = nullptr; // Fill area (preview + content columns)

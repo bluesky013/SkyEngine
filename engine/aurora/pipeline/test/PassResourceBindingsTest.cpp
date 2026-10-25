@@ -1,5 +1,6 @@
 #include "GlobalBlock.h"
 #include "SceneBatch.h"
+#include "SkinningBatch.h"
 #include "TextureToScreenPass.h"
 #include <algorithm>
 #include <aurora/renderer/IRenderFeature.h>
@@ -81,7 +82,7 @@ namespace {
             uploads.emplace_back(bytes.begin(), bytes.end());
             return RasterUniformBinding{set, binding, {{1, 0}, 0, bytes.size()}, 0};
         }
-        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList) override
+        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *) override
         {
             return Unsupported();
         }
@@ -164,7 +165,7 @@ TEST(PassResourceBindings, GlobalPassAndBatchComposeWithoutAViewTier)
     const PassResourceBindings *groups[]{&global, &pass, &batch};
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(draw, groups)));
     ASSERT_EQ(draw.uniforms.size(), 3u);
-    for (uint32_t set = 0; set < 3; ++set)
+    for (const uint32_t set : {0u, 1u, shared::SceneBatchBindings::gSceneBatch.set})
         EXPECT_EQ(std::count_if(draw.uniforms.begin(), draw.uniforms.end(), [&](const auto &uniform) { return uniform.set == set; }), 1);
 }
 
@@ -325,6 +326,35 @@ TEST(PassResourceBindings, NamedGraphAdapterUsesTheSharedTransactionAndUploadsOn
     EXPECT_EQ(context.uploads.size(), 1u);
     ASSERT_EQ(draw.images.size(), 1u);
     EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+}
+
+TEST(PassResourceBindings, StorageTransactionsPreserveExactRangesAndLeaveDrawsIntactOnFailure)
+{
+    auto        reflection = shared::GetTextureToScreenPassReflection();
+    const auto &palette    = shared::GetSkinningBatchReflection().resources.front();
+    reflection.resources.push_back(palette);
+    CounterPtr<ReflectedShader> shader(new ReflectedShader(reflection));
+    ASSERT_TRUE(shader->EnableNames()) << shader->error;
+    RasterDraw draw;
+    draw.shader = shader;
+    ParameterFrameContext context;
+    PassResourceBindings  material(shared::GetTextureToScreenPassReflection());
+    BindAll(material);
+    PassResourceBindings    batch(shared::GetSkinningBatchReflection());
+    const RasterBufferRange range{{1, 3}, 32, 128};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(batch.Storage(shared::SkinningBatchBindings::gSkinningPalette, range)));
+    const PassResourceBindings *groups[]{&material, &batch};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(context, draw, groups)));
+    ASSERT_EQ(draw.storage.size(), 1u);
+    EXPECT_EQ(draw.storage.front().range.offset, range.offset);
+    EXPECT_EQ(draw.storage.front().range.size, range.size);
+    PassResourceBindings invalid(shared::GetSkinningBatchReflection());
+    EXPECT_TRUE(std::holds_alternative<FrameError>(invalid.Storage(shared::SkinningBatchBindings::gSkinningPalette, {{1, 3}, 0, 1})));
+    groups[1] = &invalid;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
+    ASSERT_EQ(draw.storage.size(), 1u);
+    EXPECT_EQ(draw.storage.front().range.offset, range.offset);
+    EXPECT_EQ(draw.storage.front().range.size, range.size);
 }
 
 TEST(PassResourceBindings, SharedTransactionRejectsWrongTypesAndOverlappingProvidersBeforeUpload)

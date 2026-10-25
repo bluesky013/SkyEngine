@@ -44,7 +44,7 @@ namespace sky::editor {
     };
 
     // Registers the settings types + editor metadata (label/range/enum) with the reflection
-    // context. Idempotent (sky::Once): safe across module DLLs.
+    // context. Owned by the SandboxModule metadata phase.
     void RegisterEditorSettings(sky::SerializationContext *context);
 
 } // namespace sky::editor

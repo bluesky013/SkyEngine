@@ -13,6 +13,7 @@
 #include <framework/asset/InProcessCookRunner.h>
 #include <framework/asset/OutOfProcessCookRunner.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky {
 
@@ -179,6 +180,8 @@ namespace sky {
 
     void AssetBuilderManager::RegisterBuilder(AssetBuilder *builder)
     {
+        if (auto lease = SerializationContext::Get()->RetainModuleCode())
+            moduleCode.emplace_back(std::move(lease));
         assetBuilders.emplace_back(builder);
         const auto &extensions = builder->GetExtensions();
         for (const auto &ext : extensions) {

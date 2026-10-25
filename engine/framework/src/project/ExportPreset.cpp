@@ -5,7 +5,6 @@
 #include <framework/project/ExportPreset.h>
 
 #include <core/archive/FileArchive.h>
-#include <core/environment/Once.h>
 #include <core/type/TypeInfo.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/PropertyCommon.h>
@@ -289,7 +288,6 @@ namespace sky {
 
     bool ExportPresets::Load(const std::string &path)
     {
-        RegisterExportPresetReflection();
         IFileArchive in(FilePath{path});
         if (!in.IsOpen()) {
             return false;
@@ -304,7 +302,6 @@ namespace sky {
 
     bool ExportPresets::Save(const std::string &path) const
     {
-        RegisterExportPresetReflection();
         for (const auto &preset : presets)
             if (!ValidShaderEnvironments(preset))
                 return false;
@@ -317,14 +314,10 @@ namespace sky {
         return true;
     }
 
-    void RegisterExportPresetReflection()
+    void RegisterExportPresetReflection(SerializationContext *context)
     {
-        if (!Once::Get()->Run("ExportPresetReflection")) {
-            return;
-        }
 
-        SerializationContext::Get()
-            ->Register<ExportPresetCacheVariable>("ExportPresetCacheVariable")
+        context->Register<ExportPresetCacheVariable>("ExportPresetCacheVariable")
             .Member<&ExportPresetCacheVariable::key>("key")
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Key")))
             .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(1))
@@ -332,8 +325,7 @@ namespace sky {
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Value")))
             .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(2));
 
-        SerializationContext::Get()
-            ->Register<ExportPresetShaderEnvironment>("ExportPresetShaderEnvironment")
+        context->Register<ExportPresetShaderEnvironment>("ExportPresetShaderEnvironment")
             .Member<&ExportPresetShaderEnvironment::target>("target")
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Target (vulkan|metal|d3d12)")))
             .Member<&ExportPresetShaderEnvironment::codeFormat>("codeFormat")
@@ -345,8 +337,7 @@ namespace sky {
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Matrix Layout (0 = column, 1 = row)")))
             .Member<&ExportPresetShaderEnvironment::options>("options");
 
-        SerializationContext::Get()
-            ->Register<ExportPreset>("ExportPreset")
+        context->Register<ExportPreset>("ExportPreset")
             .Member<&ExportPreset::name>("name")
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Name")))
             .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(1))
@@ -456,8 +447,7 @@ namespace sky {
 
         // The whole document (a sequence of presets) so a single reflected form can
         // edit every preset without a hand-written list widget.
-        SerializationContext::Get()
-            ->Register<ExportPresets>("ExportPresets")
+        context->Register<ExportPresets>("ExportPresets")
             .Member<&ExportPresets::presets>("presets")
             .JsonSave<&SavePresets>()
             .JsonLoad<&LoadPresets>();

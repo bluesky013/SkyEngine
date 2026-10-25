@@ -274,9 +274,3 @@ TEST_F(VulkanSubmissionFault, FenceErrorsNeverBecomePendingOrSuccess)
         EXPECT_EQ(fence->TryReset().error.nativeCode, error);
     }
 }
-
-int main(int argc, char **argv)
-{
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

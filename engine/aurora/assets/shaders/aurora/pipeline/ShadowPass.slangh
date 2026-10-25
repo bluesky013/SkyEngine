@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/ShadowPass.h; do not edit.
-// Inputs: 3be7e9258281ff58b729cd11e366f77262526e0859b122566b12f0af55621ffa; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 3be7e9258281ff58b729cd11e366f77262526e0859b122566b12f0af55621ffa; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES

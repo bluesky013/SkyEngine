@@ -1,5 +1,5 @@
-// Generated from aurora/pipeline/MaterialBatch.h; do not edit.
-// Inputs: f56de0f403c3f2c7e0182e493febad83da84d211daddd89de613339067acc4cf; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Generated from aurora/pipeline/MaterialBlock.h; do not edit.
+// Inputs: 49fd73f8e5de51bb12e73a69560bcb0abfb41a343ea4a4f9767f96db3d983ba4; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES
@@ -10,14 +10,14 @@ struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owne
 struct AuroraFieldAttribute { string path; };
 #endif
 
-struct MaterialBatchParams
+struct MaterialBlockParams
 {
     [AuroraField("tint")] float4 tint;
     [AuroraField("surface")] float4 surface;
 };
-[AuroraResource(2, 2, "aurora/pipeline/MaterialBatch.h")]
-[[vk::binding(2, 2)]] ConstantBuffer<MaterialBatchParams> gMaterial
+[AuroraResource(2, 0, "aurora/pipeline/MaterialBlock.h")]
+[[vk::binding(0, 2)]] ConstantBuffer<MaterialBlockParams> gMaterial
 #if !AURORA_TARGET_MSL
-    : register(b2, space2)
+    : register(b0, space2)
 #endif
 ;

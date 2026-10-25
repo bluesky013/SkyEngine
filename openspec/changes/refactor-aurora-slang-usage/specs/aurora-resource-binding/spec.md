@@ -4,7 +4,7 @@
 
 Cbuffer（uniform buffer）SHALL 允许每个 target 使用 Slang 原生 offset/size/alignment/stride。CPU 侧 SHALL 使用 canonical `SharedShaderTypes` schema，并通过 `UniformUploadPlan` 按字段名映射到目标布局；SHALL NOT 要求 CPU offset/alignment 等于目标值，也 SHALL NOT 为了测试或上传方便强制所有 target 使用同一 canonical layout。本 change SHALL NOT 重定义 `refactor-aurora-target-shader-artifacts` 的 `UniformUploadPlan`，只规定 cbuffer/SSBO 的适用边界。
 
-`RuntimeSpecialized` variant 的最终表达由后端决定：SPIRV/Metal 使用 specialization constant；D3D12 使用 root constants。不得引入 variant cbuffer fallback，调用方不得选择实现。
+变体 SHALL 沿用 typed V/P/S 选择与逐 stage target lowering；业务输入 SHALL NOT 区分宏/特化，SHALL NOT 将 DXIL 变体改为 root constants 或 uniform fallback。受支持的 DXIL 编译路径 SHALL 消费选定值。
 
 `ReflectBlock` SHALL 保留目标原生 layout，不覆盖 member/block alignment。共享头校验 SHALL 使用 `BuildUniformUploadPlan` 验证兼容性，而不是比较 member 全等。
 
@@ -23,10 +23,10 @@ Cbuffer（uniform buffer）SHALL 允许每个 target 使用 Slang 原生 offset/
 - **WHEN** 检查 shader 编译结果
 - **THEN** 不得存在把 DXIL alignment 改成 SPIRV/C++ alignment 的 canonical 覆盖
 
-#### Scenario: D3D12 specialized variant
+#### Scenario: Preserve selected DXIL values
 
-- **WHEN** 后端为 D3D12，且 variant 为 `RuntimeSpecialized`
-- **THEN** 值 SHALL 通过 root constants 绑定；调用方接口不变；root signature DWORD 数量 SHALL 在编译/cook 期校验
+- **WHEN** a logical key uses a supported compile path on DXIL
+- **THEN** that selected value affects code and identity without becoming a draw-time root constant
 
 ### Requirement: SSBO 使用 canonical 布局并精确校验
 

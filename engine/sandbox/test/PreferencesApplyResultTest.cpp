@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/preferences/PreferencesPersistence.h>
 #include <editor/core/preferences/PreferencesSession.h>
 #include <editor/core/property/PropertyDescriptor.h>
@@ -96,31 +96,32 @@ namespace sky::editor::preferences_apply_result_test {
             std::function<void()> onWrite;
         };
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()->Register<Setting>("PreferencesApplyResultSetting").Member<&Setting::value>("value");
+            SerializationContext::Get()
+                ->Register<ThrowingSettings>("PreferencesApplyResultThrowingSettings")
+                .Member<&ThrowingSettings::value>("value")
+                .Member<&ThrowingSettings::payload>("payload");
+            SerializationContext::Get()
+                ->Register<AccessorSettings>("PreferencesApplyResultAccessorSettings")
+                .Member<&AccessorSettings::SetValue, &AccessorSettings::GetValue>("value")
+                .Member<&AccessorSettings::SetPath, &AccessorSettings::GetPath>("path");
+            GetTypeMember("value", TypeInfo<Setting>::RegisteredId())->setterFn = [](void *object, const void *value) {
+                auto      &setting  = *static_cast<Setting *>(object);
+                const auto callback = setting.onSet;
+                if (callback)
+                    callback();
+                if (setting.rejectWrites)
+                    return false;
+                setting.value = *static_cast<const int32_t *>(value);
+                return true;
+            };
+        });
+
         class PreferencesApplyResultTest : public testing::Test {
         protected:
             void SetUp() override
             {
-                if (Once::Get()->Run("PreferencesApplyResultTest.Setting")) {
-                    SerializationContext::Get()->Register<Setting>("PreferencesApplyResultSetting").Member<&Setting::value>("value");
-                    SerializationContext::Get()
-                        ->Register<ThrowingSettings>("PreferencesApplyResultThrowingSettings")
-                        .Member<&ThrowingSettings::value>("value")
-                        .Member<&ThrowingSettings::payload>("payload");
-                    SerializationContext::Get()
-                        ->Register<AccessorSettings>("PreferencesApplyResultAccessorSettings")
-                        .Member<&AccessorSettings::SetValue, &AccessorSettings::GetValue>("value")
-                        .Member<&AccessorSettings::SetPath, &AccessorSettings::GetPath>("path");
-                    GetTypeMember("value", TypeInfo<Setting>::RegisteredId())->setterFn = [](void *object, const void *value) {
-                        auto      &setting  = *static_cast<Setting *>(object);
-                        const auto callback = setting.onSet;
-                        if (callback)
-                            callback();
-                        if (setting.rejectWrites)
-                            return false;
-                        setting.value = *static_cast<const int32_t *>(value);
-                        return true;
-                    };
-                }
                 pages = PreferencePageRegistry::Get();
                 pages->Clear();
                 storage = std::make_shared<MemoryStorage>();

@@ -143,14 +143,10 @@ namespace sky::aurora {
 
     } // namespace
 
-    AuroraImageBuilder::AuroraImageBuilder()
-    {
-        cook::RegisterImageCookSettings();
-    }
+    AuroraImageBuilder::AuroraImageBuilder() = default;
 
     const TypeInfoRT *AuroraImageBuilder::GetSettingsType() const
     {
-        cook::RegisterImageCookSettings();
         return TypeInfoObj<cook::ImageCookSettings>::Get()->RtInfo();
     }
 

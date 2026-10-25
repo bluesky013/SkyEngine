@@ -60,6 +60,7 @@ FrameScheduler SHALL 复用 DeviceFrameContext 唯一 slot ring，通过 DeviceF
 - **WHEN** 本帧已冻结 mesh/material 版本，后续 packet 更新资源或相机
 - **THEN** 当前帧保留原 geometry、layout、backing 和常量，不能解析成更新版本或改写在途 descriptor
 
+
 ### Requirement: 单一生产图入口与旧 API 退役
 
 Aurora SHALL 通过 FrameComposer/FrameGraphBuildContext、FrozenFrameGraph 和 DeviceFrameContext 编排图渲染。旧 RenderGraph、CompiledGraph、RDGBackend/CreateRDGBackend、PipelinePass 模板及其专属 GlobalRenderResources/BatchAllocator/BatchPackWriter SHALL 不再构建或暴露。共享 shader 声明、RgBlockDesc/UniformUploadPlan、SceneRenderFeature、TextureToScreenFeature、FrameTransientPool 和直接 RHI/viewport 接口 SHALL 保持可用。

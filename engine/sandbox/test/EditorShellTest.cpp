@@ -1,3 +1,4 @@
+#include "ReflectionTestEnvironment.h"
 //
 // Created on 2026/10/06.
 //
@@ -11,6 +12,7 @@
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorScopeStack.h>
 #include <editor/core/filebrowser/FileBrowserModel.h>
+#include <editor/core/input/KeyModifiers.h>
 #include <editor/core/layout/DefaultPanels.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
@@ -18,6 +20,7 @@
 #include <editor/shell/AssetViewerWidget.h>
 #include <editor/shell/EditorShell.h>
 #include <editor/shell/FileBrowserDialog.h>
+#include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/WorldConfigPanel.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/ui/AssetViewProvider.h>
@@ -611,7 +614,6 @@ TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
 
 TEST(EditorShellTest, ConfigPanelKeepsConfigValidAfterToggleRealloc)
 {
-    test::RegisterTestTypes();
     sky::WorldSubSystemRegistry::Get().Clear();
     auto reg = []() -> sky::WorldSubSystemRegistration {
         return sky::WorldSubSystemRegistration{
@@ -853,7 +855,6 @@ TEST(EditorShellTest, DocumentInfoDrivesWindowTitle)
 
 TEST(EditorShellTest, RevertIconClickResetsField)
 {
-    test::RegisterTestTypes();
     const sky::TypeNode *type = sky::GetTypeNode(sky::TypeInfo<test::TestObject>::RegisteredId());
     ASSERT_NE(type, nullptr);
 
@@ -1130,15 +1131,14 @@ namespace {
         uint32_t maxSize = 0;
     };
 
+    const auto *builderMetadata = sky::editor::test::AddReflectionEnvironment([] {
+        sky::SerializationContext::Get()->Register<ShellCookSettings>("ShellTestCookSettings").Member<&ShellCookSettings::maxSize>("maxSize");
+    });
+
     class ShellTextBuilder : public sky::AssetBuilder {
     public:
         ShellTextBuilder()
         {
-            static bool registered = false;
-            if (!registered) {
-                registered = true;
-                sky::SerializationContext::Get()->Register<ShellCookSettings>("ShellTestCookSettings").Member<&ShellCookSettings::maxSize>("maxSize");
-            }
         }
 
         const std::vector<std::string> &GetExtensions() const override
@@ -1545,4 +1545,324 @@ TEST(EditorShellTest, AssetViewerOpensAndCloses)
     shell.DispatchKey(Key(0x1B));
     EXPECT_FALSE(shell.IsAssetViewerOpen());
     EditorActionRegistry::Get()->Clear();
+}
+
+
+namespace {
+    struct DocumentProbe {
+        bool                     dirty = true, pending = false, fail = true, editing = false;
+        int writes = 0, contentReleased = 0, documentReleased = 0, leaseReleased = 0;
+        int                      cancelledEdits = 0, pointerEvents = 0, textEvents = 0;
+        sky::ui::UIElement      *content = nullptr;
+        std::vector<std::string> releaseOrder;
+        CommandService history;
+    };
+    class ProbeContent final : public sky::ui::UIElement {
+    public:
+        explicit ProbeContent(std::shared_ptr<DocumentProbe> state) : state(std::move(state)) {}
+        ~ProbeContent() override
+        {
+            ++state->contentReleased;
+            state->releaseOrder.push_back("content");
+        }
+        sky::ui::UIEventResult OnPointerEvent(const sky::ui::UIPointerEvent &) override
+        {
+            ++state->pointerEvents;
+            return sky::ui::UIEventResult::HANDLED;
+        }
+        sky::ui::UIEventResult OnTextInput(const sky::ui::UITextInputEvent &) override
+        {
+            ++state->textEvents;
+            return sky::ui::UIEventResult::HANDLED;
+        }
+
+    private:
+        std::shared_ptr<DocumentProbe> state;
+    };
+    class ProbeDocument final : public IAssetViewDocument {
+    public:
+        explicit ProbeDocument(std::shared_ptr<DocumentProbe> state) : state(std::move(state)) {}
+        ~ProbeDocument() override
+        {
+            ++state->documentReleased;
+            state->releaseOrder.push_back("document");
+        }
+        std::unique_ptr<sky::ui::UIElement> CreateContent(sky::ui::UITextSystem *) override
+        {
+            auto content   = std::make_unique<ProbeContent>(state);
+            state->content = content.get();
+            return content;
+        }
+        CommandService &History() override { return state->history; }
+        bool IsDirty() const override { return state->dirty; }
+        bool            IsEditing() const override
+        {
+            return state->editing;
+        }
+        void CancelInteractions() override
+        {
+            if (state->editing)
+                ++state->cancelledEdits;
+            state->editing = false;
+        }
+        void RequestSave() override { state->pending = true; }
+        bool IsSavePending() const override { return state->pending; }
+        std::string Status() const override { return state->fail ? "save failed" : "saved"; }
+        void Tick(float) override
+        {
+            if (state->pending) {
+                ++state->writes;
+                state->pending = false;
+                if (!state->fail) state->dirty = false;
+            }
+        }
+    private:
+        std::shared_ptr<DocumentProbe> state;
+    };
+    class ProbeDocumentProvider final : public IAssetViewProvider {
+    public:
+        bool UsesDocumentWindow() const override { return useWindows; }
+        AssetViewDocument OpenDocument(const sky::Uuid &asset, const std::string &) override
+        {
+            state = std::make_shared<DocumentProbe>();
+            documents[asset] = state;
+            auto lease = std::shared_ptr<const void>(new int(0), [probe = state](const void *value) {
+                delete static_cast<const int *>(value);
+                ++probe->leaseReleased;
+                probe->releaseOrder.push_back("lease");
+            });
+            return {std::move(lease), std::make_unique<ProbeDocument>(state)};
+        }
+        std::shared_ptr<DocumentProbe> state;
+        std::unordered_map<sky::Uuid, std::shared_ptr<DocumentProbe>> documents;
+        bool useWindows = false;
+    };
+}
+
+TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndRetainCodeThroughDestruction)
+{
+    ProbeDocumentProvider provider;
+    ScopedAssetViewerEnvironment environment;
+    std::filesystem::create_directories(environment.root);
+    std::ofstream(environment.root / "a.txt") << "a";
+    std::ofstream(environment.root / "b.txt") << "b";
+    if (environment.manager->QueryBuilder(".txt") == nullptr) {
+        environment.temporaryBuilder = new ShellTextBuilder();
+        environment.manager->RegisterBuilder(environment.temporaryBuilder);
+    }
+    sky::CookConfig config;
+    ASSERT_TRUE(config.Parse(R"({"bundles":["common"],"presets":{"windows":["common"]}})"));
+    config.SetActivePlatform("windows");
+    environment.manager->SetCookConfig(std::move(config));
+    environment.databaseChanged = true;
+    environment.database->Reset();
+    environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
+    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    environment.catalog->Refresh();
+    environment.providers->Register("Text", &provider);
+    EditorAssetItem a, b;
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/a.txt", a));
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/b.txt", b));
+    AssetViewerWidget viewer(nullptr);
+    viewer.SetCatalog(environment.catalog);
+    viewer.Open(a.uuid);
+    auto first = provider.state;
+    ASSERT_NE(first, nullptr);
+    viewer.SaveAsset();
+    EXPECT_EQ(first->writes, 0);
+    viewer.Tick(0);
+    EXPECT_EQ(first->writes, 1);
+    viewer.Close();
+    viewer.Tick(0);
+    EXPECT_TRUE(viewer.IsOpen());
+    EXPECT_TRUE(viewer.NeedsCloseDecision());
+    const auto prompt = std::find_if(viewer.GetChildren().begin(), viewer.GetChildren().end(),
+                                     [](const auto &child) { return std::string(child->GetTypeName()) == "AssetClosePrompt"; });
+    ASSERT_NE(prompt, viewer.GetChildren().end());
+    EXPECT_TRUE((*prompt)->IsVisible());
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Cancel);
+    viewer.Tick(0);
+    EXPECT_FALSE(viewer.NeedsCloseDecision());
+    EXPECT_FALSE((*prompt)->IsVisible());
+    EXPECT_EQ(first->contentReleased, 0);
+    viewer.Close();
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Save);
+    EXPECT_FALSE(viewer.CanResolveClose(AssetViewerWidget::CloseDecision::Save));
+    EXPECT_FALSE(viewer.CanResolveClose(AssetViewerWidget::CloseDecision::Discard));
+    EXPECT_TRUE(viewer.CanResolveClose(AssetViewerWidget::CloseDecision::Cancel));
+    viewer.Tick(0);
+    EXPECT_TRUE(viewer.IsOpen());
+    EXPECT_EQ(first->documentReleased, 0);
+    EXPECT_TRUE((*prompt)->IsVisible());
+    first->fail = false;
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Save);
+    EXPECT_EQ(first->writes, 2);
+    viewer.Tick(0);
+    EXPECT_FALSE(viewer.IsOpen());
+    EXPECT_EQ(first->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    viewer.Open(a.uuid);
+    auto second = provider.state;
+    viewer.Open(b.uuid);
+    EXPECT_EQ(viewer.AssetId(), a.uuid);
+    viewer.Tick(0);
+    EXPECT_EQ(viewer.AssetId(), a.uuid);
+    second->editing = true;
+    EXPECT_FALSE(viewer.CanResolveClose(AssetViewerWidget::CloseDecision::Save));
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Save);
+    EXPECT_FALSE(second->pending);
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Discard);
+    viewer.Tick(0);
+    EXPECT_TRUE(viewer.IsOpen());
+    EXPECT_EQ(viewer.AssetId(), b.uuid);
+    EXPECT_EQ(second->cancelledEdits, 1);
+    EXPECT_EQ(second->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    provider.state->dirty   = false;
+    provider.state->editing = true;
+    viewer.Close();
+    viewer.Tick(0);
+    EXPECT_TRUE(viewer.NeedsCloseDecision());
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Cancel);
+    viewer.Tick(0);
+    EXPECT_TRUE(provider.state->editing);
+    EXPECT_TRUE(viewer.IsOpen());
+    viewer.Close();
+    viewer.ResolveClose(AssetViewerWidget::CloseDecision::Discard);
+    viewer.Tick(0);
+    EXPECT_FALSE(viewer.IsOpen());
+    EXPECT_EQ(provider.state->cancelledEdits, 1);
+}
+
+TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndependent)
+{
+    ProbeDocumentProvider provider;
+    provider.useWindows = true;
+    ScopedAssetViewerEnvironment environment;
+    std::filesystem::create_directories(environment.root);
+    std::ofstream(environment.root / "first.txt") << "first";
+    std::ofstream(environment.root / "second.txt") << "second";
+    if (environment.manager->QueryBuilder(".txt") == nullptr) {
+        environment.temporaryBuilder = new ShellTextBuilder();
+        environment.manager->RegisterBuilder(environment.temporaryBuilder);
+    }
+    environment.databaseChanged = true;
+    environment.database->Reset();
+    environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
+    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    environment.catalog->Refresh();
+    environment.providers->Register("Text", &provider);
+    EditorAssetItem first, second;
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/first.txt", first));
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/second.txt", second));
+    EditorShell shell;
+    shell.SetAssetCatalog(environment.catalog);
+    uint32_t nextSurface = 100;
+    std::vector<uint32_t> retired;
+    shell.SetAssetToolHost([&](const std::string &) { return nextSurface++; }, [&](uint32_t id) { retired.push_back(id); });
+    shell.OpenAssetViewer(first.uuid);
+    shell.OpenAssetViewer(second.uuid);
+    EXPECT_TRUE(provider.documents.empty());
+    shell.TickAssetViews(0);
+    ASSERT_EQ(provider.documents.size(), 2u);
+    auto a = provider.documents.at(first.uuid), b = provider.documents.at(second.uuid);
+    sky::ui::UIPaintContext paint;
+    shell.PaintSurface(100, paint, 900, 650);
+    shell.PaintSurface(101, paint, 1100, 750);
+    EXPECT_TRUE(EditorScopeStack::Get()->IsEmpty());
+    const auto invoke = [&](const sky::Uuid &asset, const char *action) {
+        ScopedEditorActions scope("assetTool." + asset.ToString());
+        return EditorActionRegistry::Get()->Invoke(action);
+    };
+    auto save = Key('S');
+    save.modifiers = kModCtrl;
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, save));
+    EXPECT_EQ(a->writes, 0);
+    shell.TickAssetViews(0);
+    EXPECT_EQ(a->writes, 1);
+    EXPECT_EQ(b->writes, 0);
+    class ProbeEdit final : public UndoCommand {
+    public:
+        explicit ProbeEdit(int &value) : UndoCommand("Probe edit"), value(value) {}
+        void Do() override { value = 1; }
+        void Undo() override { value = 0; }
+    private:
+        int &value;
+    };
+    int firstValue = 0, secondValue = 0;
+    a->history.Execute(std::make_unique<ProbeEdit>(firstValue));
+    b->history.Execute(std::make_unique<ProbeEdit>(secondValue));
+    auto undo = Key('Z');
+    undo.modifiers = kModCtrl;
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, undo));
+    EXPECT_EQ(firstValue, 0);
+    EXPECT_EQ(secondValue, 1);
+    auto redo = Key('Y');
+    redo.modifiers = kModCtrl;
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, redo));
+    EXPECT_EQ(firstValue, 1);
+    ASSERT_TRUE(shell.DispatchKeyToSurface(101, undo));
+    EXPECT_EQ(firstValue, 1);
+    EXPECT_EQ(secondValue, 0);
+    shell.OpenAssetViewer(first.uuid);
+    shell.TickAssetViews(0);
+    EXPECT_EQ(nextSurface, 102u);
+    EXPECT_TRUE(shell.RequestCloseAssetTool(100));
+    shell.TickAssetViews(0);
+    EXPECT_TRUE(retired.empty());
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, undo));
+    EXPECT_EQ(firstValue, 1);
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, save));
+    EXPECT_FALSE(a->pending);
+    ASSERT_TRUE(shell.DispatchTextToSurface(100, {}));
+    EXPECT_EQ(a->textEvents, 0);
+    ASSERT_TRUE(shell.DispatchKeyToSurface(100, Key(0x1B)));
+    EXPECT_FALSE(shell.AreAssetViewsClosing());
+    EXPECT_EQ(a->documentReleased, 0);
+    shell.RequestCloseAssetViews();
+    EXPECT_TRUE(shell.AreAssetViewsClosing());
+    shell.TickAssetViews(0);
+    shell.PaintSurface(100, paint, 900, 650);
+    auto      *viewerRoot = a->content->GetParent()->GetParent();
+    const auto prompt     = std::find_if(viewerRoot->GetChildren().begin(), viewerRoot->GetChildren().end(),
+                                         [](const auto &child) { return std::string(child->GetTypeName()) == "AssetClosePrompt"; });
+    ASSERT_NE(prompt, viewerRoot->GetChildren().end());
+    ASSERT_TRUE((*prompt)->IsVisible());
+    ASSERT_EQ((*prompt)->GetChildren().size(), 3u);
+    const auto contentBounds = a->content->GetBounds();
+    EXPECT_TRUE(shell.DispatchPointerToSurface(100, Pointer(sky::ui::UIPointerAction::DOWN, contentBounds.right - 1, contentBounds.top + 1)));
+    EXPECT_TRUE(shell.DispatchPointerToSurface(100, Pointer(sky::ui::UIPointerAction::UP, contentBounds.right - 1, contentBounds.top + 1)));
+    EXPECT_EQ(a->pointerEvents, 0);
+    const auto discard = (*prompt)->GetChildren()[1]->GetBounds();
+    EXPECT_TRUE(shell.DispatchPointerToSurface(100, Pointer(sky::ui::UIPointerAction::DOWN, CenterX(discard), CenterY(discard))));
+    EXPECT_TRUE(shell.DispatchPointerToSurface(100, Pointer(sky::ui::UIPointerAction::UP, CenterX(discard), CenterY(discard))));
+    EXPECT_EQ(a->documentReleased, 0);
+    EXPECT_TRUE(shell.DispatchKeyToSurface(101, Key(0x09)));
+    EXPECT_TRUE(shell.DispatchKeyToSurface(101, Key(0x0D)));
+    shell.TickAssetViews(0);
+    EXPECT_EQ(retired, (std::vector<uint32_t>{100}));
+    EXPECT_EQ(a->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_TRUE(shell.IsAssetViewerOpen());
+    EXPECT_EQ(b->documentReleased, 0);
+    b->fail = false;
+    EXPECT_TRUE(invoke(second.uuid, "assetViewer.saveClose"));
+    shell.TickAssetViews(0);
+    EXPECT_EQ(retired, (std::vector<uint32_t>{100, 101}));
+    EXPECT_FALSE(shell.IsAssetViewerOpen());
+    EXPECT_EQ(b->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_FALSE(invoke(first.uuid, "assetViewer.save"));
+}
+
+TEST(EditorShellTest, ReflectionDemoPanelsConsumeProcessMetadata)
+{
+    auto       *context = sky::SerializationContext::Get();
+    const auto *node    = context->FindType("ReflectionDemoObject");
+    ASSERT_NE(node, nullptr);
+    auto first  = sky::editor::CreateReflectionDemoPanel(nullptr, "First");
+    auto second = sky::editor::CreateReflectionDemoPanel(nullptr, "Second");
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    EXPECT_EQ(context->FindType("ReflectionDemoObject"), node);
+    first.reset();
+    auto reopened = sky::editor::CreateReflectionDemoPanel(nullptr, "Reopened");
+    ASSERT_NE(reopened, nullptr);
+    EXPECT_EQ(context->FindType("ReflectionDemoObject"), node);
 }

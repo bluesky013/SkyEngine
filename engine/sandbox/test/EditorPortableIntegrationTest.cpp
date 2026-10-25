@@ -69,7 +69,6 @@ namespace sky::editor {
         protected:
             void SetUp() override
             {
-                RegisterEditorSettings(sky::SerializationContext::Get());
                 PreferencePageRegistry::Get()->Clear();
                 EditorActionRegistry::Get()->Clear();
                 EditorScopeStack::Get()->Clear();

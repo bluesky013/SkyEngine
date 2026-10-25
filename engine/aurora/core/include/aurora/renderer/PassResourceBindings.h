@@ -28,6 +28,7 @@ namespace sky::aurora {
                                      uint32_t                                               dynamicOffset = 0);
         FrameOperationResult Image(ShaderResourceSlot<ShaderResourceType::SAMPLED_IMAGE> slot, GraphImageHandle image, RasterImageView view = {});
         FrameOperationResult Sampler(ShaderResourceSlot<ShaderResourceType::SAMPLER> slot, SamplerPtr sampler);
+        FrameOperationResult Storage(ShaderResourceSlot<ShaderResourceType::STORAGE_BUFFER> slot, RasterBufferRange range);
         // Validate all groups before replacing the draw's bindings; unused declarations need no value.
         static FrameOperationResult Apply(RasterDraw &draw, std::span<const PassResourceBindings *const> groups);
         static FrameOperationResult Apply(FrameGraphBuildContext &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups);
@@ -58,6 +59,7 @@ namespace sky::aurora {
         std::optional<FrameError>         Check(uint32_t set, uint32_t binding, ShaderResourceType type) const;
         const ShaderReflection           &schema;
         std::vector<UniformValue>         uniforms;
+        std::vector<RasterUniformBinding> storage;
         std::vector<RasterImageBinding>   images;
         std::vector<RasterSamplerBinding> samplers;
         std::vector<CpuUniformValue>      cpuUniforms;

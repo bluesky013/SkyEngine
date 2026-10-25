@@ -102,7 +102,7 @@ Vulkan RenderPass 和 Dynamic Rendering 两套 compiler SHALL 各自生成对应
 
 ### Requirement: Raster pass execute 由冻结 draw 驱动
 
-FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index type/offset、draw args 与 set/binding 资源。后端 SHALL 在 Compile 生成匹配的 pipeline 和不可变 bindings；编码时先绑定 Pipeline，再绑定实际活跃的 set 0/1/2（Global/Pass/Batch）。切换 layout 后 SHALL 重新绑定所需 sets。动态偏移 SHALL 来自对应声明；几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
+FrameRasterPass SHALL 通过 RasterDraw 声明 shader、几何 streams、index type/offset、draw args 与 set/binding 资源。后端 SHALL 在 Compile 生成匹配的 pipeline 和不可变 bindings；编码时先绑定 Pipeline，再绑定实际活跃的 set 0/1/2/3（Global/Pass/Material/Batch）。切换 layout 后 SHALL 重新绑定所需 sets。动态偏移 SHALL 来自对应声明；几何绑定 SHALL 保留实际 vertex streams、offsets 和 U16/U32 index type，不得硬编码单 stream 或 U32。
 
 #### Scenario: Raster draws 驱动绘制
 - **WHEN** 冻结 draw 具有有效 shader 与 Batch bindings

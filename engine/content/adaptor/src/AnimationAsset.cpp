@@ -168,8 +168,7 @@ namespace sky {
             return {};
         }
 
-        auto  *clip     = new AnimationClip(Name(data.name.c_str()));
-        size_t numFrame = 0;
+        AnimClipPtr clip = new AnimationClip(Name(data.name.c_str()));
         for (const auto &header : data.channels) {
             AnimNodeChannelData node;
             node.name = header.name;
@@ -194,13 +193,14 @@ namespace sky {
             loadTrack(header.scaleTimes, header.scaleKeys, node.scale);
             loadTrack(header.rotationTimes, header.rotationKeys, node.rotation);
 
-            clip->AddChannel(new AnimationNodeChannel(node));
-            numFrame = std::max(numFrame, node.position.keys.size());
-            numFrame = std::max(numFrame, node.scale.keys.size());
-            numFrame = std::max(numFrame, node.rotation.keys.size());
+            if (!clip->AddChannel(new AnimationNodeChannel(node))) {
+                return {};
+            }
         }
         clip->SetFrameRate(data.frameRate);
-        clip->SetNumFrame(static_cast<uint32_t>(numFrame));
+        if (!clip->Validate()) {
+            return {};
+        }
         return clip;
     }
 

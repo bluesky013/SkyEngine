@@ -40,10 +40,24 @@ namespace sky::aurora {
         bool        operator==(const ShaderProducerIdentity &) const = default;
     };
 
+    enum class ShaderVariantType : uint8_t { UINT32, INT32, BOOL };
+
     struct ShaderVariantValue {
         std::string name;
         uint32_t    value                                        = 0;
+        ShaderVariantType type = ShaderVariantType::UINT32;
         bool        operator==(const ShaderVariantValue &) const = default;
+    };
+
+    enum class ShaderVariantLowering : uint8_t { COMPILE, NATIVE };
+    struct ShaderVariantBinding {
+        std::string key;
+        std::string symbol;
+        ShaderVariantType type = ShaderVariantType::UINT32;
+        ShaderVariantLowering lowering = ShaderVariantLowering::COMPILE;
+        uint32_t nativeId = 0;
+        uint32_t defaultValue = 0;
+        bool operator==(const ShaderVariantBinding &) const = default;
     };
 
     struct ShaderStageIdentity {
@@ -68,6 +82,7 @@ namespace sky::aurora {
         ShaderStageIdentity       identity;
         std::vector<uint8_t>      data;
         ShaderReflection          reflection;
+        std::vector<ShaderVariantBinding> variantBindings;
         uint64_t                  artifactId = 0;
     };
     using ShaderStageArtifactPtr = std::shared_ptr<const ShaderStageArtifact>;

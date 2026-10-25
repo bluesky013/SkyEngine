@@ -1,3 +1,4 @@
+#include "ReflectionTestEnvironment.h"
 #include "WorldEditorState.h"
 
 #include <aurora/adaptor/AuroraReflection.h>
@@ -13,12 +14,14 @@
 
 using namespace sky;
 using namespace sky::editor;
+namespace {
+    const auto *auroraMetadata = sky::editor::test::AddReflectionEnvironment([] {
+        aurora::AuroraReflection(SerializationContext::Get());
+    });
+}
 TEST(WorldEditorState, CreateEditUndoDeleteAndReopenKeepLogicalSceneData)
 {
     auto *context = SerializationContext::Get();
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(context);
-    aurora::AuroraReflection(context);
     EditorCore::Init();
     const auto       path = std::filesystem::temp_directory_path() / "sky_world_editor_scene.world";
     WorldDocument    document(path.string());
@@ -68,10 +71,6 @@ TEST(WorldEditorState, CreateEditUndoDeleteAndReopenKeepLogicalSceneData)
 TEST(WorldEditorState, ActorHierarchyAndGroupedInspectorKeepSelectionAndUndo)
 {
     auto *context = SerializationContext::Get();
-    if (!TypeInfo<TransformComponent>::RegisteredId()) {
-        TransformComponent::Reflect(context);
-    }
-    aurora::AuroraReflection(context);
     EditorCore::Init();
     WorldDocument    document("");
     SelectionService selection;
@@ -130,9 +129,6 @@ TEST(WorldEditorState, ActorHierarchyAndGroupedInspectorKeepSelectionAndUndo)
 TEST(WorldEditorState, EnvironmentReflectedEditUndoAndReopenPreserveInputs)
 {
     auto *context = SerializationContext::Get();
-    if (!TypeInfo<TransformComponent>::RegisteredId())
-        TransformComponent::Reflect(context);
-    aurora::AuroraReflection(context);
     EditorCore::Init();
     const auto       path = std::filesystem::temp_directory_path() / "sky_world_editor_environment.world";
     WorldDocument    document(path.string());

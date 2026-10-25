@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <core/util/Uuid.h>
 #include <editor/core/preferences/FilePreferenceStorage.h>
 #include <framework/serialization/SerializationContext.h>
@@ -168,14 +168,15 @@ namespace sky::editor::file_preference_storage_test {
         EXPECT_EQ(EntryCount(root), 1u);
     }
 
+    const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+        SerializationContext::Get()
+            ->Register<Settings>("FilePreferenceStorageSettings")
+            .Member<&Settings::value>("value")
+            .Member<&Settings::label>("label");
+    });
+
     TEST_F(FilePreferenceStorageTest, PersistenceRestartsFromTheRealFileAndRejectsBadExistingJsonWithoutReplacement)
     {
-        if (Once::Get()->Run("FilePreferenceStorageTest.Settings")) {
-            SerializationContext::Get()
-                ->Register<Settings>("FilePreferenceStorageSettings")
-                .Member<&Settings::value>("value")
-                .Member<&Settings::label>("label");
-        }
         auto *pages = PreferencePageRegistry::Get();
         pages->Clear();
         struct ResetPages {

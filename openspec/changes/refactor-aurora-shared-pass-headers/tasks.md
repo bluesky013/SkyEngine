@@ -41,3 +41,8 @@
 - Native Metal execution and the documented unsupported declaration subset remain explicit limits, not silently completed tasks.
 - Follow-up `refactor-aurora-pipeline-resource-ownership` contains proposal/design/spec deltas and open implementation tasks for user pipeline/plugin ownership. It is not implemented by this checkpoint.
 - Both changes remain unarchived and uncommitted. This stage's code/specs must be reviewed together; other in-progress workspace changes retain their existing status.
+
+
+## 2026-10-26 规范接续复核
+
+已逐项修正相关主 spec 与 active delta 的现行契约，并将已存在的 ADDED/RENAMED/REMOVED 操作重设为可再次合并的 delta。只读合并检查与 strict 校验分开记录；未执行 archive。历史平台结果不覆盖后续四组/typed selection/metadata owner 修改。完整范围、证据和剩余项见 `docs/aurora/consistency-review-2026-10-26.md`。

@@ -152,3 +152,20 @@ Python 的声明库存断言由 11 更新为 13，并明确检查两个新 Selec
 平台边界不变：本机不能执行 Windows 原生 DXIL/D3D12 验收，本轮也未执行移动真机测试。iOS 三方预检没有 missing/stale 包，但既有 tool-only `ios-cmake` 安装输出目录缺失，实际 toolchain 文件可用；MSL2.3 的 iOS14 运行门槛不因 deployment13 交叉编译而降低。既有 Cocoa 重复 ObjC 类、Apple API deprecation 与三方库 deployment/link 告警未扩展处理。
 
 日志和完整测试输出位于 `/private/tmp/sky-oct24-*`：`build.log`、`ctest.log`、`ctest-full.log`、`ctest-summary.json`、`develop-{build,ctest,ctest-full}.log`、`develop-summary.json`、`{android,ios}-build.log`、`metal-outline.log`、`shipping.log`、`python-final.log`、`editor-smoke.log`。CTest JUnit 的成功输出有 1024 字节截断，gtest 总数由保存的完整 LastTest 输出统计。
+
+
+## 2026-10-25 四组资源与三域变体审计修复
+
+基线为 `69e33334` 上用户的暂存/未暂存工作树；本轮按授权修复 R1–R12，保留既有 Aurora foundation、target 和装载入口。完整问题映射与历史失败见 [渲染审计](../../../docs/aurora/rendering-design-audit-2026-10-25.md#同日修复记录2026-10-25)。未 commit/archive。
+
+当前 index/blob **v9**（usage/distribution v2、Material v3、instance v2）：发布选择 schema 的 Material/Vertex/Pipeline 域、Vertex 条件及 Pipeline 预留位。运行时从真实 mesh 属性/PER_INSTANCE 流、材质值和 View Pipeline 设置选择；无源码模式不再吞掉布局错误。stage 分别规范化自己的 schema，specialization 命名值保留到 DXIL lowering。
+
+完整 Material set 2 与 Batch set 3 分离，SceneSurface/UI/旧 Execute 对齐；带 context 的统一事务保留 storage 类型与精确范围。入口校验和预算覆盖所有执行 variants。RendererEvent 全类型交付恢复。
+
+异步任务拥有 compiler/module/cache root/writer，重复调度只执行一次。真实 DLL 验证揭示并修正最后一次 release 的控制块自卸载问题：registry 分别持 compiler/module；消费侧分配 lease，compiler/deleter 的销毁先于模块释放。既有同步借用仍要求调用方负责生命周期。
+
+Windows 最终定向构建成功。Core100、Pipeline55、Adaptor62、Cook52、Shader57、Resource39（合计365）、RHI154、UI Shader9、动态/静态模块生命周期6/7均通过。宿主/Runtime/骨骼原生回归177项：首轮174通过，另3项过期 set 2 断言修正后全部复验通过；不宣称完整GPU suite已完成。真实发布包剥离源码/编译器后Core1、Vulkan2、DX12 2通过；无源SceneAssetSource的SHADOWS/IBL四组合测试包含在Adaptor62中。
+
+Python shader_headers10项、导出check、当前change strict与diff check通过。最终证据在 `cmake-build-debug/aurora-fix-{build-final,close-*,package-native,headers-final,openspec-final}.log`。原生测试先部署 ShaderResources.Stage，避免把旧部署资源与当前C++混用。静态Batch期望值和异步测试夹具已迁移；完整拾取交互仅冷启动M/V/P编译阶段使用60秒时限，后续交互不变。
+
+Metal compute四组和raster storage代码已修复，本轮无Apple原生构建/执行证据；原跨平台、全材质端到端gate及6.7保持未完成。2026-10-23及后续历史记录不改写为本轮结果。旧v8及更早shader产品必须recook。

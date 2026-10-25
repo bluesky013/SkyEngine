@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/EditorCore.h>
 #include <editor/core/layout/LayoutModel.h>
 #include <editor/core/layout/PanelRegistry.h>
@@ -70,18 +70,19 @@ namespace sky::editor::preferences_persistence_shell_test {
             return nullptr;
         }
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()
+                ->Register<Settings>("PreferencesPersistenceShellSettings")
+                .Member<&Settings::value>("value")
+                .Member<&Settings::uiScale>("uiScale");
+        });
+
         class PreferencesPersistenceShellTest : public testing::Test {
         protected:
             void SetUp() override
             {
                 theme = GetDefaultUiTheme();
                 SetDefaultUiTheme(MakeDarkTheme());
-                if (Once::Get()->Run("PreferencesPersistenceShellTest.Settings")) {
-                    SerializationContext::Get()
-                        ->Register<Settings>("PreferencesPersistenceShellSettings")
-                        .Member<&Settings::value>("value")
-                        .Member<&Settings::uiScale>("uiScale");
-                }
                 pages = PreferencePageRegistry::Get();
                 pages->Clear();
                 EditorCore::GetCommandService().Clear();

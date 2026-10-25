@@ -54,13 +54,13 @@ B05 的 `ResourceCatalog` 位于 Aurora core 的 renderer/resource，只在 coor
 
 B08 的 PreparedScene 在 Aurora core 的 renderer/prepare 复用 CPU scheduler：每 Scene 融合 Object/Bounds/point-light，每 View 分块只读提取；资源版本变化参与 dirty 判断。只把 CPU metadata/逻辑键放进 PreparedFrame，不把 RHI backing 交给 worker。PreparedRaster 在渲染 coordinator 解析精确版本；失败不得偷偷换 mesh。原固定 View/Material/Object UBO 已由 `fix-aurora-pass-resource-contract` 移出通用层：Pipeline 的 SceneRenderFeature 消费 OpaquePass/ShadowPass 与各自 Batch 声明，宿主显式注册；其它 Pass 可使用不同布局或省略 View。
 
-资源层级保持 **Global（set 0）/ Pass（set 1，View 按需）/ Batch（set 2）**。具体 Pass 维护权威 `.h` 声明源，C++ 直接包含它，shader 包含由声明导出的持久化 `.slangh`；导出位于模块 `assets/shaders/<owner>/...` 并入版本控制。C++ 编译不得依赖 Slang/ShaderHeaderTool 生成镜像；CMake 负责导出检查与统一资源清单部署，实际 shader 反射负责校验布局与资源；不得手写第二套结构/字段表或以固定 80/64 字节、Material=set 1 取代此契约。PreparedRaster/RendererRuntime 消费实际 Pass 声明，不决定所有 shader 的业务布局。不可变布局可共享，可变数据仍遵守 frame lease 与 GPU 退休。
+资源层级保持 **Global（set 0）/ Pass（set 1，View 按需）/ Material（set 2）/ Batch（set 3）**；Material 接口跨 P/V variant 固定，Material 与 Batch 不混放。具体 Pass 维护权威 `.h` 声明源，C++ 直接包含它，shader 包含由声明导出的持久化 `.slangh`；导出位于模块 `assets/shaders/<owner>/...` 并入版本控制。C++ 编译不得依赖 Slang/ShaderHeaderTool 生成镜像；CMake 负责导出检查与统一资源清单部署，实际 shader 反射负责校验布局与资源；不得手写第二套结构/字段表或以固定 80/64 字节、Material=set 1 取代此契约。PreparedRaster/RendererRuntime 消费实际 Pass 声明，不决定所有 shader 的业务布局。不可变布局可共享，可变数据仍遵守 frame lease 与 GPU 退休。
 
 生产场景 Pass 由 `RegisterScenePass` 追加到宿主首个 packet；Adaptor 单向依赖 Pipeline，Core 不引用具体 Pass。缺少/禁用场景 feature 时没有隐式 Raster fallback。FrameGraphBuildContext 的 ResolveDraws 只借用当前 BuildView 快照，完整 catalog/feature owners 由协调器交给冻结图保活；WriteUniform 按显式类型分配并绑定实际 payload 长度，不把对齐 padding 计入可读参数范围。
 
 B09 的 Core Completion/ContinuationExecutor 已接入 prepare：终态只在 kernels 收齐、内部归并/借用清理后发布，用户 continuation 在指定 executor 执行。串行回退为同一 prepare pool 的单任务，仍可取消。CancelRequested 不代表完成，外部 read views/continuation captures 另行阻挡下一 packet 和 CPU 存储释放。RequestShutdown 仍收齐已接受包；主动取消走 RequestCancelPrepare。当前 CPU coordinator 失败/取消后须完整重建，生产模块卸载与 arena/GPU 组合仍待 B12/B13。
 
-B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only transient、device pool/frame lease，以及同图整对象 alias。只将完整描述相同且存活区间严格不重叠的 transient 映射到同一 backing；逻辑内容独立，原生物理同步由各 compiler 生成。跨帧只复用已归还的同描述/epoch backing。第四子批已接通完整 RGBA8 2D image 上传/Resident：载荷按 layer 再 mip 紧密排列，整版本接纳，图内 handle 不等于全局就绪；ResourceBacking 的 buffer/image variant 防止类型混用。第五、六子批已接 Texture2D/Texture2DArray/sampler、类型反射、显式 mip/layer view 与三模式实际采样/双在途保活；只要求 view 暴露的内容已定义。cache v2 拒绝旧 blob，离线缓存须重建；第七子批已接部分 initializedRanges 导入与物理子资源状态，图初末 layout 仍统一；copy/view 按范围转换，alias 不继承内容，完整 export/Resident 要求不变。第八子批已支持局部矩形与显式 texel 行距，padding 不属于有效内容；第九子批已接 initializedRegions 跨图矩形内容声明；第十子批已接 RGBA8 image 分块、提交/完成进度及有界部分 backing；第十一子批已接 buffer 字节内容/分块，两者共用进度/退休/预算；第十二子批已接同 context/graphics queue 的显式资源状态账本，第十三子批已接自动 uploader 纳管/退休和 accepted 状态导入，第十四子批已接混合 mip/layer 图边界与账本，第十五子批已接 RGBA8/D32 显式单 mip/layer 附件 view，第十六子批已接 RGBA8 2/4/8× color MSAA/resolve，第十七子批已接匹配采样数的 D32 MSAA depth；depth resolve、更多格式/跨队列留后续。原生后端保留原 RHI 目录，目录 change 独立处理。
+B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only transient、device pool/frame lease，以及同图整对象 alias。只将完整描述相同且存活区间严格不重叠的 transient 映射到同一 backing；逻辑内容独立，原生物理同步由各 compiler 生成。跨帧只复用已归还的同描述/epoch backing。第四子批已接通完整 RGBA8 2D image 上传/Resident：载荷按 layer 再 mip 紧密排列，整版本接纳，图内 handle 不等于全局就绪；ResourceBacking 的 buffer/image variant 防止类型混用。第五、六子批已接 Texture2D/Texture2DArray/sampler、类型反射、显式 mip/layer view 与三模式实际采样/双在途保活；只要求 view 暴露的内容已定义。该阶段的 cache v2 已由后续格式替代，当前 shader index/blob v10，旧产品须重新 cook；第七子批已接部分 initializedRanges 导入与物理子资源状态，图初末 layout 仍统一；copy/view 按范围转换，alias 不继承内容，完整 export/Resident 要求不变。第八子批已支持局部矩形与显式 texel 行距，padding 不属于有效内容；第九子批已接 initializedRegions 跨图矩形内容声明；第十子批已接 RGBA8 image 分块、提交/完成进度及有界部分 backing；第十一子批已接 buffer 字节内容/分块，两者共用进度/退休/预算；第十二子批已接同 context/graphics queue 的显式资源状态账本，第十三子批已接自动 uploader 纳管/退休和 accepted 状态导入，第十四子批已接混合 mip/layer 图边界与账本，第十五子批已接 RGBA8/D32 显式单 mip/layer 附件 view，第十六子批已接 RGBA8 2/4/8× color MSAA/resolve，第十七子批已接匹配采样数的 D32 MSAA depth；depth resolve、更多格式/跨队列留后续。原生后端保留原 RHI 目录，目录 change 独立处理。
 
 如果你新增了 capability 字段，在 `UpdateDeviceCaps()` 里写它。
 
@@ -92,9 +92,9 @@ B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only
 - **Metal** `MetalDescriptorBatch`：thin，与 encoder 一样即时写绑定表，`Flush()`/`Reset()` no-op。
 - 与 `DescriptorEncoder`（per-set template 路径）并存：单 set 快路径走 encoder，跨 set 批量走 batch。
 
-## Dynamic UBO pack（batch tier / set 2）
+## Dynamic UBO pack（batch tier / set 3）
 
-Batch set 2 的数据由当前 DeviceFrameLease 保活。只有 shader binding policy 显式选择时才使用 dynamic UBO；不得直接修改目标反射来切换类型。
+Batch set 3 的数据由当前 DeviceFrameLease 保活。只有 `Shader::Descriptor::bindingPolicies` 显式选择时才使用 dynamic UBO；不得直接修改目标反射来切换类型。
 
 - CPU 参数通过实际 shader 的 `UniformUploadPlan` 编码，再用 `DeviceFrameContext::WriteFrameBuffer` 分配；目标逻辑 range 与分配 padding 分开。
 - dynamic binding 保留 base offset、range 与 dynamicOffset，按真实 set/binding 编码；零 range、越界、对齐错误显式失败。
@@ -114,7 +114,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 - **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制；PSO 从 `PipelineState::vertexBindings/vertexAttributes` 建 IA 输入布局（与 DX12 对齐）；tier2 `DescriptorHeap`（`VK_EXT_descriptor_heap`）**未实现**，`CreateDescriptorHeap` 返回 nullptr 且 `GetFeature().descriptorHeap == false`
 - **DX12**：12.0 起步；PSO / root signature / ResourceGroup / SwapChain 均已落地，encoder 支持 render target 绑定与 clear、IA 顶点输入、indirect draw/dispatch、内置 fullscreen blit 与 tier2 bindless `DescriptorHeap`（SM6.6 门），见 `aurora-dx12-gaps`
-- **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定（含 push constant 的 declare-last 最高槽）占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 槽数超 15 在 pipeline 创建时 assert + 报错。push constant 支持 partial-range（CPU 侧 staging block 累积后整块 `set*Bytes` 重传）。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；Resolve 走 `MTLStoreActionMultisampleResolve` 空 render pass；两者由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**：`DescriptorHeap` 接口按 `VK_EXT_descriptor_heap` 设计为**索引型堆**（tex/buf/smp 各自 backing buffer + per-type stride），而 slang 在 Metal 上走的是**指针/地址型 bindless**（`DescriptorHandle<T>` → `device T*` / `ulong`，无 argument buffer 的 `[[id]]` 形态）——两者模型不同。slang 对 Metal bindless `DescriptorHandle<T>` 的 **compiler emit 已完成**（slang #10842；本仓库 pin 的 v2026.9.2 已含），缺口在 (a) 我们未采用 `DescriptorHandle<T>` 的 shader/RHI 模型、(b) Metal 运行时实现、(c) 纯 `uniform` 数组-of-resource 仍有 bug（slang #12291，Q3 2026）。故 `feature.descriptorHeap == false`、`CreateDescriptorHeap()` 返回 nullptr。落地路线见 `openspec/changes/aurora-metal-bindless-descriptor-heap/`
+- **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定按目标反射占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 地址越界须在计划/创建阶段显式失败。当前 target-artifact DirectArguments 尚不支持原生 push-constant slot 映射，必须拒绝，不能按 declare-last 猜槽位；保留的 partial-range staging helper 不代表生产路径支持。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；Resolve 走 `MTLStoreActionMultisampleResolve` 空 render pass；两者由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**：`DescriptorHeap` 接口按 `VK_EXT_descriptor_heap` 设计为**索引型堆**（tex/buf/smp 各自 backing buffer + per-type stride），而 slang 在 Metal 上走的是**指针/地址型 bindless**（`DescriptorHandle<T>` → `device T*` / `ulong`，无 argument buffer 的 `[[id]]` 形态）——两者模型不同。slang 对 Metal bindless `DescriptorHandle<T>` 的 **compiler emit 已完成**（slang #10842；本仓库 pin 的 v2026.9.2 已含），缺口在 (a) 我们未采用 `DescriptorHandle<T>` 的 shader/RHI 模型、(b) Metal 运行时实现、(c) 纯 `uniform` 数组-of-resource 仍有 bug（slang #12291，Q3 2026）。故 `feature.descriptorHeap == false`、`CreateDescriptorHeap()` 返回 nullptr。落地路线见 `openspec/changes/aurora-metal-bindless-descriptor-heap/`
 
 ## Metal 后端实现约定（ARC / 句柄 / 线程池 / MSL 槽位）
 
@@ -228,15 +228,15 @@ Vulkan 的两套 compiler、DX12 frame compiler 与 Metal frame context 保留�
 
 | 类型 | 位置 | 含义 |
 |---|---|---|
-| `Skin` | `aurora/resource/Skin.h` | mesh 侧蒙皮绑定（`inverseBindMatrices` + `boneMatrices` + `boneMapping`），自持 |
+| `Skin` | `aurora/resource/Skin.h` | 独立只读绑定资源：输入槽契约、inverse bind、Named/Indexed 骨目标；不含姿势 |
 | `SkinnedMesh`（scene 组件） | `aurora/scene/SceneTypes.h` | 实例：持 `CounterPtr<Skin>` |
 
 约定：
 
 - **不要在 aurora 里定义 `Skeleton` / `Bone`**，也不要新增 `aurora/animation` 之类目录；`aurora/core` 不依赖 `Animation`。
-- `animation::Skeleton`（+ pose）→ `aurora::Skin::boneMatrices` 的映射放在**桥接层**（未来 aurora adaptor / framework），由桥接层 link `Animation`。
+- `animation::Skeleton`（+ pose）→ Aurora 的目标布局与模型矩阵转换放在**桥接层**，由桥接层 link `Animation`。`ResolvedSkinBinding` 按精确资源版本解析；调色板归实例/帧，不写回 Skin。
 - 渲染侧每帧求值若需独立类型，叫 `SkinningPalette` / `SkinMatrices`，不要占用 `Skin`。
-- `Mesh` 只有 `SetSkin/GetSkin/HasSkin`。
+- 按已批准 `add-skeletal-animation-workflow`，Mesh 不持 Skin 或 Skeleton；实例显式选择独立 Mesh / Skin / Skeleton。禁止恢复 `Mesh::SetSkin/GetSkin/HasSkin`。
 
 ## 后续 change 路线
 
@@ -281,4 +281,10 @@ Vulkan 的两套 compiler、DX12 frame compiler 与 Metal frame context 保留�
 
 - B10 第十六子批的 colorResolve 是 raster 内部独立写入；源 CLEAR/LOAD 保证全样本有效，源丢弃不影响 resolve 结果，目标可选非零 mip/layer。MSAA storage 限 GPU_ONLY/单 mip；RGBA8 仅 RENDER_TARGET，D32 仅 DEPTH_STENCIL，分别预检设备能力且 color/depth extent 与 samples 匹配；不开放 depth resolve、采样、buffer copy 或局部初始化。上传回执把 resolve target 计为额外写入。
 
-场景材质使用 version 2 的显式 program.vertex/fragment 与 uniforms 映射，按 queue Tag 选择；不推导入口、不选首个 technique。Global 只承载跨 View 的帧数据，相机归 Pass。默认 Scene 的 Feature 和 Material 分别拥有 set 2 的不同 binding；通用层不固定其布局。旧单 shader 材质需迁移，shader cache index v4 需重新 cook。
+场景材质使用 version 4 的显式 program.vertex/fragment 与生成 schema 的 canonical typed properties（旧 aliases 显式迁移），按 queue Tag 选择；不推导入口、不选首个 technique。Global 只承载跨 View 的帧数据，相机归 Pass。Material 占 set 2，逐 draw 的 SceneSurface、palette 和 UI 纹理归 Batch set 3。shader index/blob 当前为 v10，保留三域归属、Vertex 语义条件与 Pipeline 预算；旧缓存须重新 cook。无源码运行不得回退到空 Pipeline 或猜测 SKINNED 定义。
+
+
+变体补充（2026-10-25）：Core 统一归一化 Vertex / Pipeline / Shader 三域；Material、Batch、fullscreen、compute 是 S 的不同提供者。
+业务 API 只传 bool/int32/uint32 Key/Value，JSON 关联 source symbol；compile/native lowering 与 native ID 由对应 target 的源码声明反射决定。
+完整选择、stage code、executable 身份分离，native ID 按 stage 独立；产品必须显式发布完整选择。Group 2 零或一个 cbuffer，已知 inactive 值保留并验证类型。
+Scene Prepare 在 graph 声明前完成附加程序准备；Scene Pipeline 的四个 SHADOWS/IBL 请求是显式策略，不自动遍历所有选项组合。

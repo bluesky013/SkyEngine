@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <editor/core/preferences/PreferencesPersistence.h>
 #include <editor/core/preferences/PreferencesSession.h>
 #include <editor/core/property/PropertyDescriptor.h>
@@ -34,16 +34,17 @@ namespace sky::editor::preferences_copy_lifetime_test {
     std::function<void(const CopySettings &)> CopySettings::onCopy;
 
     namespace {
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+            SerializationContext::Get()
+                ->Register<CopySettings>("PreferencesCopyLifetimeSettings")
+                .Member<&CopySettings::value>("value")
+                .Member<&CopySettings::payload>("payload");
+        });
+
         class PreferencesCopyLifetimeTest : public testing::Test {
         protected:
             void SetUp() override
             {
-                if (Once::Get()->Run("PreferencesCopyLifetimeTest.Types")) {
-                    SerializationContext::Get()
-                        ->Register<CopySettings>("PreferencesCopyLifetimeSettings")
-                        .Member<&CopySettings::value>("value")
-                        .Member<&CopySettings::payload>("payload");
-                }
                 CopySettings::onCopy = {};
                 pages                = PreferencePageRegistry::Get();
                 pages->Clear();

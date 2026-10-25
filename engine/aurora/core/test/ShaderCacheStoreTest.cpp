@@ -161,12 +161,13 @@ TEST(ShaderCacheStoreTest, StableNamesAndCanonicalSpecializationInputs)
 {
     ShaderVariantSchema schema;
     schema.sources   = {{Name("material"), 0, 8}};
-    schema.entries   = {{Name("Z_MACRO"), Name("material"), 0, 1, 1}, {Name("A_SPEC"), Name("material"), 1, 1, 0, true, 3}};
+    schema.entries   = {{Name("Z_MACRO"), Name("material"), 0, 1, 1}, {Name("A_SPEC"), Name("material"), 1, 1, 0}};
     schema.totalBits = 8;
     ShaderVariant variant;
     variant.entries = {{Name("A_SPEC"), 1}, {Name("Z_MACRO"), 0}};
     std::vector<ShaderVariantValue> macros;
-    ASSERT_TRUE(CanonicalShaderVariants(&variant, schema, ShaderTarget::MSL, macros));
+    const std::vector<ShaderVariantBinding> native{{"A_SPEC", "kSpec", ShaderVariantType::UINT32, ShaderVariantLowering::NATIVE, 3, 0}};
+    ASSERT_TRUE(CanonicalShaderVariants(&variant, schema, ShaderTarget::MSL, macros, nullptr, &native));
     EXPECT_EQ(macros, (std::vector<ShaderVariantValue>{{"Z_MACRO", 0}}));
     auto same = variant;
     std::reverse(same.entries.begin(), same.entries.end());

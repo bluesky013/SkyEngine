@@ -10,6 +10,7 @@
 #include <rapidjson/writer.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <string_view>
 
 namespace sky::aurora {
@@ -54,11 +55,11 @@ namespace sky::aurora {
                     return Fail(error, "Duplicate or empty shader usage variant");
                 }
             }
-            const auto hash = entry.variant.ContentHash();
-            if (entry.variantHash && entry.variantHash != hash) {
-                return Fail(error, "Shader usage variant hash mismatch; recollect usage");
+            // Keep a producer-supplied canonical hash (composed P|V|S); legacy raw
+            // requirements without one are hashed from their material macros.
+            if (entry.variantHash == 0) {
+                entry.variantHash = entry.variant.ContentHash();
             }
-            entry.variantHash = hash;
             return true;
         }
         bool SameVariant(const ShaderVariant &left, const ShaderVariant &right)
@@ -68,7 +69,7 @@ namespace sky::aurora {
             }
             for (const auto &entry : left.entries) {
                 if (std::none_of(right.entries.begin(), right.entries.end(),
-                                 [&](const auto &other) { return entry.key == other.key && entry.value == other.value; })) {
+                                 [&](const auto &other) { return entry.key == other.key && entry.value == other.value && entry.type == other.type; })) {
                     return false;
                 }
             }
@@ -112,7 +113,10 @@ namespace sky::aurora {
             rapidjson::Value variant(rapidjson::kObjectType);
             for (const auto &item : entry.variant.entries) {
                 auto key = Text(item.key.GetStr(), allocator);
-                variant.AddMember(key, item.value, allocator);
+                rapidjson::Value typed(rapidjson::kObjectType);
+                typed.AddMember("type", static_cast<uint32_t>(item.type), allocator);
+                typed.AddMember("value", item.value, allocator);
+                variant.AddMember(key, typed, allocator);
             }
             value.AddMember("variant", variant, allocator);
             array.PushBack(value, allocator);
@@ -149,10 +153,23 @@ namespace sky::aurora {
                 }
                 for (const auto &member : value["variant"].GetObject()) {
                     const std::string_view name(member.name.GetString(), member.name.GetStringLength());
-                    if (name.find('\0') != std::string_view::npos || !member.value.IsUint()) {
-                        return Fail(error, "Invalid shader usage variant value");
+                    if (name.find('\0') != std::string_view::npos)
+                        return Fail(error, "Invalid shader usage variant name");
+                    ShaderVariantEntry input{Name(member.name.GetString())};
+                    if (member.value.IsUint()) {
+                        input.value = member.value.GetUint();
+                    } else {
+                        const auto &typed = member.value;
+                        if (!typed.IsObject() || typed.MemberCount() != 2 || !typed.HasMember("type") || !typed["type"].IsUint() ||
+                            typed["type"].GetUint() > static_cast<uint32_t>(ShaderVariantType::BOOL) || !typed.HasMember("value") ||
+                            !typed["value"].IsUint())
+                            return Fail(error, "Invalid typed shader usage value");
+                        input.type = static_cast<ShaderVariantType>(typed["type"].GetUint());
+                        input.value = typed["value"].GetUint();
                     }
-                    entry.variant.entries.push_back({Name(member.name.GetString()), member.value.GetUint()});
+                    if (input.type == ShaderVariantType::BOOL && input.value > 1)
+                        return Fail(error, "Invalid bool shader usage value");
+                    entry.variant.entries.push_back(input);
                 }
             }
             return NormalizeUsage(entry, error);
@@ -243,7 +260,10 @@ namespace sky::aurora {
         }
         return groups;
     }
-    bool BuildUsageCache(ShaderResolver &resolver, const std::vector<ShaderUsageEntry> &usage, std::string *error)
+    bool BuildUsageCache(ShaderResolver                   &resolver,
+                         const std::vector<ShaderUsageEntry> &usage,
+                         std::string                       *error,
+                         const ShaderVariantSchema         *pipelineSchema)
     {
         for (const auto &group : GroupShaderUsage(usage)) {
             for (auto entry : group.entries) {
@@ -255,8 +275,9 @@ namespace sky::aurora {
                 request.entry        = entry.entry;
                 request.stage        = static_cast<ShaderStageFlagBit>(entry.stage);
                 request.target       = entry.target;
-                request.environment  = entry.environment;
-                request.variant      = &entry.variant;
+                request.environment    = entry.environment;
+                request.variant        = &entry.variant;
+                request.pipelineSchema = pipelineSchema;
                 ShaderCompileResult result;
                 std::string         diagnostic;
                 if (!resolver.ResolveShader(request, result, &diagnostic)) {
@@ -265,5 +286,71 @@ namespace sky::aurora {
             }
         }
         return true;
+    }
+
+    bool ShaderUsageStore::Enabled()
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        return store->mCollector.Enabled();
+    }
+
+    void ShaderUsageStore::SetEnabled(bool enabled)
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        store->mCollector.SetEnabled(enabled);
+    }
+
+    void ShaderUsageStore::Record(const ShaderUsageEntry &entry)
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        if (store->mCollector.Enabled()) {
+            store->mCollector.Record(entry);
+        }
+    }
+
+    size_t ShaderUsageStore::Size()
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        return store->mCollector.Size();
+    }
+
+    std::vector<ShaderUsageEntry> ShaderUsageStore::Snapshot()
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        return store->mCollector.Entries();
+    }
+
+    void ShaderUsageStore::Clear()
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        const bool enabled = store->mCollector.Enabled();
+        store->mCollector = ShaderUsageCollector{};
+        store->mCollector.SetEnabled(enabled);
+    }
+
+    bool ShaderUsageStore::Flush(sky::IFileSystem &fs, const std::string &path)
+    {
+        auto *store = Get();
+        std::lock_guard<std::mutex> lock(store->mMutex);
+        return store->mCollector.Flush(fs, path);
+    }
+
+    bool ShaderUsageStore::Flush(const std::string &file)
+    {
+        const std::filesystem::path path(file);
+        auto                        parent = path.parent_path().string();
+        if (parent.empty()) {
+            parent = ".";
+        }
+        std::error_code error;
+        std::filesystem::create_directories(parent, error);
+        NativeFileSystem fs{FilePath(parent)};
+        return Flush(fs, path.filename().string());
     }
 } // namespace sky::aurora

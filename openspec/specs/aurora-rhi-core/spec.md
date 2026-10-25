@@ -668,7 +668,7 @@ Global（set 0）/ Pass（set 1）SHALL **持久化**：默认持一个 set 写�
 
 ### Requirement: Batch 尽可能持久化 + cached 内容
 
-Batch（set 2）SHALL **尽可能持久化**：descriptor set 对象复用，不每帧重分配。内容变化时（每帧 pack 可能拿到不同 buffer、纹理 streaming upgrade/downgrade）SHALL 更新对应 binding，被替换的 buffer/image 引用走 retire 队列延迟释放。
+Material（set 2）与 Batch（set 3）SHALL **尽可能持久化**：descriptor set 对象复用，不每帧重分配。内容变化时（每帧 pack 可能拿到不同 buffer、纹理 streaming upgrade/downgrade）SHALL 更新对应 binding，被替换的 buffer/image 引用走 retire 队列延迟释放。
 
 为降低每帧 buffer 变化带来的 descriptor 重写，SHALL 优先保持 pack buffer handle 稳定（单一持久 buffer 内部分段，dynamic offset 选数据）；只有 buffer 真正换掉（扩容/换池）时才更新 descriptor binding。
 

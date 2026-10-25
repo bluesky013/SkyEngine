@@ -243,6 +243,10 @@ namespace sky::aurora {
                         if (uniform.set == set && !encoder->WriteBuffer(uniform.binding, bindings.buffers[uniform.range.buffer.index].Get(),
                                                                                                                  uniform.range.offset, uniform.range.size, 0))
                             return false;
+                    for (const auto &storage : source.storage)
+                        if (storage.set == set && !encoder->WriteBuffer(storage.binding, bindings.buffers[storage.range.buffer.index].Get(),
+                                                                        storage.range.offset, storage.range.size, 0))
+                            return false;
                     for (const auto &image : source.images)
                         if (image.set == set) {
                             auto       *base = static_cast<MetalImage *>(bindings.images[image.image.index].Get());
@@ -317,6 +321,9 @@ namespace sky::aurora {
                 };
                 for (const auto &uniform : source.uniforms)
                     if (!groupFor(uniform.set))
+                        return false;
+                for (const auto &storage : source.storage)
+                    if (!groupFor(storage.set))
                         return false;
                 for (const auto &image : source.images) {
                     if (image.view.type != ImageViewType::VIEW_2D && image.view.type != ImageViewType::VIEW_2D_ARRAY)
@@ -467,7 +474,7 @@ namespace sky::aurora {
                         return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Compute threadgroup exceeds Metal pipeline limits");
                     threads *= size;
                 }
-                for (uint32_t set = 0; set < 3; ++set) {
+                for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
                     if (!resourceBindings.HasSet(set))
                         continue;
                     const auto *setPlan = static_cast<const MetalShader *>(compute.shader.Get())->GetResourceSetPlan(set);

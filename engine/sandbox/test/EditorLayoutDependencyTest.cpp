@@ -1,6 +1,6 @@
+#include "ReflectionTestEnvironment.h"
 #include "TestTypes.h"
 
-#include <core/environment/Once.h>
 #include <core/type/TypeInfoObj.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/command/CommandService.h>
@@ -198,21 +198,22 @@ namespace {
         std::string        heapStorage = "settings must use Any heap storage";
     };
 
+    const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
+        auto *context = sky::SerializationContext::Get();
+        context->Register<PreviewColor>("EditorBindingLifetimeColor")
+            .Member<&PreviewColor::r>("r")
+            .Member<&PreviewColor::g>("g")
+            .Member<&PreviewColor::b>("b")
+            .Member<&PreviewColor::a>("a");
+        context->Register<PreviewConfig>("EditorBindingLifetimeConfig")
+            .Member<&PreviewConfig::color>("color")
+            .Property(static_cast<uint32_t>(sky::CommonPropertyKey::EDITOR_KIND), sky::Any(static_cast<int32_t>(PropertyEditorKind::Color)))
+            .Member<&PreviewConfig::maxSize>("maxSize")
+            .Member<&PreviewConfig::items>("items");
+    });
+
     const sky::TypeNode *PreviewConfigType()
     {
-        if (sky::Once::Get()->Run("EditorLayoutDependencyTest.PreviewTypes")) {
-            auto *context = sky::SerializationContext::Get();
-            context->Register<PreviewColor>("EditorBindingLifetimeColor")
-                .Member<&PreviewColor::r>("r")
-                .Member<&PreviewColor::g>("g")
-                .Member<&PreviewColor::b>("b")
-                .Member<&PreviewColor::a>("a");
-            context->Register<PreviewConfig>("EditorBindingLifetimeConfig")
-                .Member<&PreviewConfig::color>("color")
-                .Property(static_cast<uint32_t>(sky::CommonPropertyKey::EDITOR_KIND), sky::Any(static_cast<int32_t>(PropertyEditorKind::Color)))
-                .Member<&PreviewConfig::maxSize>("maxSize")
-                .Member<&PreviewConfig::items>("items");
-        }
         return sky::GetTypeNode(sky::TypeInfo<PreviewConfig>::RegisteredId());
     }
 
@@ -345,7 +346,6 @@ namespace {
     protected:
         void SetUp() override
         {
-            test::RegisterTestTypes();
             sky::WorldSubSystemRegistry::Get().Clear();
             sky::WorldSubSystemRegistry::Get().Register(
                 sky::Name(kSubsystemName), sky::WorldSubSystemRegistration{
@@ -961,7 +961,15 @@ TEST(EditorActionOwnerLifetimeTest, OlderShellDestructionPreservesNewOwnersRegis
     second.SetAssetCatalog(environment.catalog);
     second.Rebuild();
     second.OpenAssetViewer(asset.uuid); // same ids now belong to the second shell
+    const auto replacedActions = EditorActionRegistry::Get()->GetActions();
     second.Rebuild();                   // live-owner predicates must not read the just-destroyed viewer
+    for (const auto &action : replacedActions) {
+        if (action.id.rfind("assetViewer.", 0) == 0) {
+            ASSERT_TRUE(action.enabled);
+            EXPECT_FALSE(action.enabled());
+            action.invoke();
+        }
+    }
     EXPECT_TRUE(second.IsAssetViewerOpen());
     first.reset();
     for (const auto &action : oldActions) {

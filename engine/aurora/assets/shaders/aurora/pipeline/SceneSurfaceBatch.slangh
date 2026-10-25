@@ -1,5 +1,5 @@
 // Generated from aurora/pipeline/SceneSurfaceBatch.h; do not edit.
-// Inputs: f714b07e8418e9130d0a26fa07991348b3805df03d5010a9b2f0353b9bff78f9; exporter: 59050eaf75ef2c52523bbf4258caf258c3a0704969953abae6bb391814720759
+// Inputs: 784010527bad500deb4504af26832c2ade354f07d1eefa161c8a65216186e914; exporter: 8a7316ef4656c95d42f78560db00554c54561334746711449c509d1dbc53907c
 #pragma once
 
 #ifndef AURORA_DECLARATION_ATTRIBUTES
@@ -14,9 +14,9 @@ struct SceneSurfaceParams
 {
     [AuroraField("surface")] float4 surface;
 };
-[AuroraResource(2, 1, "aurora/pipeline/SceneSurfaceBatch.h")]
-[[vk::binding(1, 2)]] ConstantBuffer<SceneSurfaceParams> gSceneSurface
+[AuroraResource(3, 1, "aurora/pipeline/SceneSurfaceBatch.h")]
+[[vk::binding(1, 3)]] ConstantBuffer<SceneSurfaceParams> gSceneSurface
 #if !AURORA_TARGET_MSL
-    : register(b1, space2)
+    : register(b1, space3)
 #endif
 ;

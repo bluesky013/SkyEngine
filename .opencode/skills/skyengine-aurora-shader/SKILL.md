@@ -15,7 +15,7 @@ Read `docs/features/shader-system.md` and the active target-shader-artifacts cha
 - Define exports, include roots, explicit resource dependencies and programs in one module resource description.
   Reuse plugin.json registration and existing MultiFileSystem/ShaderFileSystem; no separate shader plugin loader.
 - Slang programs include the exported interfaces, never the C++ declaration `.h` or SharedShader.h.
-- Bindings are Global set 0 / Pass set 1 / Batch set 2. Use `[[vk::binding(binding, set)]]`.
+- Bindings are Global set 0 / Pass set 1 / Material set 2 / Batch set 3. Use `[[vk::binding(binding, set)]]`.
   Generated declarations carry AuroraResource/AuroraField attributes and use flat ConstantBuffers.
   Each requested target supplies its own complete ABI; never recover Metal identity from SPIR-V or short names.
 - View inputs belong to their Pass. Scene techniques match queue Tags; fullscreen/compute select explicit techniques.
@@ -30,8 +30,9 @@ Read `docs/features/shader-system.md` and the active target-shader-artifacts cha
 - Validate semantic CPU schema compatibility and target UniformUploadPlans, then affected native renderer tests.
   MSL generation on Windows is not native Metal validation.
 
-- Material payload version 3 / instance version 2 persist named typed properties, explicit aliases,
-  ordinary 2D texture references and typed samplers. Recook cache format 6 / usage format 2.
+- Material payload version 4 / instance version 2 persist canonical typed values, textures and samplers.
+  Generate keys from complete Group 2 declarations (zero/one cbuffer) and Shader-domain options; aliases are legacy migration input.
+  Recook cache format 10 / usage format 3. Published schemas retain V/P/S ownership, typed values and full allowed selections.
 - Stage artifacts own exact bytes, native entry, full declarations and target reflection.
   Shader linking must derive layouts from those artifacts; dynamic uniform policy is explicit.
 - DEVELOPMENT requires source + current producer. PRODUCTS uses published environment/request → ArtifactID
@@ -42,9 +43,15 @@ Read `docs/features/shader-system.md` and the active target-shader-artifacts cha
   ResourceGroup uses Name-first typed DescriptorEncoder updates with an injected neutral context; do not duplicate transaction validation in Core.
   End returns a new immutable snapshot, never submits GPU work; any failure prevents publication.
 - Cache upload plans by shader generation and CPU schema; encode target offsets/strides/major, clear padding.
-  Keep material-owned and Feature-owned Batch inputs distinct; combined blocks require one assembler.
+  Keep Material and Feature-owned Batch providers distinct; combined blocks require one assembler.
 - Keep Global frame-wide and put camera inputs in each concrete Pass. Material CPU residency needs no dummy GPU upload.
 - Default MSL profile metallib_2_3 still emits MSL source; native compilation requires macOS 11 / iOS 14.
   An iOS 13 cross-build is not native runtime validation. Do not imply shipping products are metallib binaries.
 - Check tasks.md for device coverage and explicit Unsupported boundaries; never restore ordinal slot fallbacks,
   retired shader embedding or generated C++ mirrors.
+
+
+变体补充（2026-10-25）：Core 统一归一化 Vertex / Pipeline / Shader 三域；Material、Batch、fullscreen、compute 是 S 的不同提供者。
+业务 API 只传 bool/int32/uint32 Key/Value，JSON 关联 source symbol；compile/native lowering 与 native ID 由对应 target 的源码声明反射决定。
+完整选择、stage code、executable 身份分离，native ID 按 stage 独立；产品必须显式发布完整选择。Group 2 零或一个 cbuffer，已知 inactive 值保留并验证类型。
+Scene Prepare 在 graph 声明前完成附加程序准备；Scene Pipeline 的四个 SHADOWS/IBL 请求是显式策略，不自动遍历所有选项组合。

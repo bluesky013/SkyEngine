@@ -1,7 +1,7 @@
 # aurora-pipeline Specification
 
 ## Purpose
-TBD - consolidated from: aurora-renderpass aurora-render-viewport aurora-scene-collect pipeline-pass-template
+Specify the production frame feature pipeline, scene/view inputs and shared output lifecycle.
 ## Requirements
 ### Requirement: Render pass begin/end 声明契约
 
@@ -142,6 +142,7 @@ FrameScheduler SHALL 管理窗口与离屏输出，复用 DeviceFrameContext 的
 #### Scenario: 双窗口与离屏的有界分配
 - **WHEN** 多个 View 在同一 lease 请求常量、staging 或 descriptor
 - **THEN** 分配范围互不覆盖，超额显式失败，不能通过重置 slot 或借用其它在途分区掩盖容量不足
+
 
 ### Requirement: 单一生产图入口与旧 API 退役
 

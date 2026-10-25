@@ -118,39 +118,88 @@ namespace sky::aurora {
             for (const auto &attribute : payload.mesh->attributes)
                 add(attribute.semantic.size());
         }
+        const auto reflectionBytes = [&](const ShaderReflection &reflection) {
+            add(reflection.vertexInputs.size() * sizeof(ShaderVertexInput));
+            for (const auto &input : reflection.vertexInputs)
+                add(input.semantic.size());
+            add(reflection.nativeBindings.size() * sizeof(ShaderNativeBinding));
+            add(reflection.pushConstants.size() * sizeof(PushConstantRange));
+            for (const auto *resources : {&reflection.resources, &reflection.declarations}) {
+                add(resources->size() * sizeof(ShaderResource));
+                for (const auto &resource : *resources) {
+                    add(resource.name.size());
+                    add(resource.declarationOwner.size());
+                }
+            }
+            for (const auto *blocks : {&reflection.blocks, &reflection.declaredBlocks}) {
+                add(blocks->size() * sizeof(ShaderBlockLayout));
+                for (const auto &block : *blocks) {
+                    add(block.name.size());
+                    add(block.structName.size());
+                    add(block.members.size() * sizeof(ShaderBlockMember));
+                    for (const auto &member : block.members)
+                        add(member.name.size());
+                }
+            }
+        };
+        const auto programBytes = [&](const RenderTechniqueData &program) {
+            add(program.parameterAliases.size() * sizeof(ShaderParameterAlias));
+            for (const auto &alias : program.parameterAliases) {
+                add(alias.alias.size());
+                add(alias.target.size());
+            }
+            add(program.bindingPolicies.size() * sizeof(ShaderBindingPolicy));
+            add(program.specialization.entries.size() * sizeof(ShaderSpecializationEntry));
+            for (const auto &value : program.specialization.entries)
+                add(value.key.size());
+            add(program.variantSchema.entries.size() * sizeof(ShaderVariantSchema::Entry));
+            add(program.variantSchema.sources.size() * sizeof(ShaderVariantSchema::Source));
+            add(program.selection.size() * sizeof(ShaderVariantValue));
+            for (const auto &value : program.selection)
+                add(value.name.size());
+            reflectionBytes(program.reflection);
+            // Conservatively charge shared artifacts for every program that retains them.
+            for (const auto &artifact : {program.vertex, program.fragment, program.compute}) {
+                if (!artifact)
+                    continue;
+                add(sizeof(ShaderStageArtifact));
+                add(artifact->data.size());
+                add(artifact->variantBindings.size() * sizeof(ShaderVariantBinding));
+                for (const auto &binding : artifact->variantBindings)
+                    add(binding.key.size() + binding.symbol.size());
+                add(artifact->identity.sourcePath.size());
+                add(artifact->identity.sourceEntry.size());
+                add(artifact->identity.nativeEntry.size());
+                add(artifact->identity.variants.size() * sizeof(ShaderVariantValue));
+                for (const auto &value : artifact->identity.variants)
+                    add(value.name.size());
+                add(artifact->identity.environment.profile.size());
+                add(artifact->identity.environment.options.size() * sizeof(std::string));
+                for (const auto &option : artifact->identity.environment.options)
+                    add(option.size());
+                add(artifact->identity.producer.compiler.size());
+                add(artifact->identity.producer.version.size());
+                reflectionBytes(artifact->reflection);
+            }
+        };
+        if (payload.material) {
+            add(payload.material->schema.keys.size() * sizeof(MaterialKey));
+            for (const auto &key : payload.material->schema.keys)
+                add(key.name.size() + key.owner.size());
+        }
         if (payload.material)
             for (const auto &technique : payload.material->techniques) {
-                const auto &material = technique.program;
                 add(sizeof(technique));
                 add(technique.parameters.values.size() * sizeof(RenderMaterialValue));
                 for (const auto &value : technique.parameters.values)
                     add(value.value.bytes.size());
                 add(technique.parameters.images.size() * sizeof(RenderMaterialImage));
                 add(technique.parameters.samplers.size() * sizeof(RenderMaterialSampler));
-                for (const auto &alias : material.parameterAliases)
-                    add(alias.alias.size() + alias.target.size());
-                add(material.specialization.entries.size() * sizeof(ShaderSpecializationEntry));
-                for (const auto &artifact : {material.vertex, material.fragment, material.compute}) {
-                    if (artifact) {
-                        add(sizeof(ShaderStageArtifact));
-                        add(artifact->data.size());
-                        add(artifact->identity.sourcePath.size());
-                        add(artifact->identity.sourceEntry.size());
-                        add(artifact->identity.nativeEntry.size());
-                    }
-                }
-                add(material.reflection.resources.size() * sizeof(ShaderResource));
-                add(material.reflection.nativeBindings.size() * sizeof(ShaderNativeBinding));
-                add(material.reflection.blocks.size() * sizeof(ShaderBlockLayout));
-                add(material.reflection.pushConstants.size() * sizeof(PushConstantRange));
-                for (const auto &resource : material.reflection.resources)
-                    add(resource.name.size());
-                for (const auto &block : material.reflection.blocks) {
-                    add(block.name.size());
-                    add(block.structName.size());
-                    add(block.members.size() * sizeof(ShaderBlockMember));
-                    for (const auto &member : block.members)
-                        add(member.name.size());
+                programBytes(technique.program);
+                add(technique.variants.size() * sizeof(RenderTechniqueVariantData));
+                for (const auto &variant : technique.variants) {
+                    add(variant.pipeline.entries.size() * sizeof(ShaderVariantEntry));
+                    programBytes(variant.program);
                 }
             }
         return size;

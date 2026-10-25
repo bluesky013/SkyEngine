@@ -40,7 +40,6 @@ class AuroraAssetBulkTest : public ::testing::Test {
 public:
     static void SetUpTestSuite()
     {
-        aurora::AuroraReflection(SerializationContext::Get());
     }
 };
 

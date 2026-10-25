@@ -7,7 +7,7 @@
 - B11 checked SwapChain 与旧直接协议互斥；Vulkan 需要 maintenance1、acquire fence 与独立 present fence，DX12 使用 DO_NOT_WAIT 和 Present 后 queue fence。资源可退休不等于屏幕已显示；正常 resize/close 不用全设备 WaitIdle，终态销毁另行安全 drain。
 - borrowed output 绑定 exact lease/owner，单 mip/layer/X1、UNDEFINED→PRESENT；不得包装成拥有型 ImagePtr。逐 cell 状态表也禁止普通资源声明 PRESENT。depth attachment layout 可能包含固定功能 resolve，Vulkan 同步需覆盖 COLOR_ATTACHMENT_OUTPUT/COLOR_ATTACHMENT_WRITE。
 - 当前 Vulkan/DX12 支持 typed buffer copy 冻结图；Vulkan 双 compiler 各自输出 encoder，context mode 固定，支持单 RGBA8 color 的 upload/raster/readback。RenderPass 仅合并连续同 attachment/view、前 STORE/后 LOAD 的 pass 为多 subpass；Dynamic Rendering 独立保留 scope/barrier。公共纯分析不构建 native 同步或命令。
-- 编译产物保留 logical/native 映射和模式对应 inheritance，Vulkan parallelNum>1 按实际 worker/slot/ordinal 录制 secondary，coordinator 在 TryCollect 收齐后按计划组装 primary；单 worker 仍 inline。DX12 已具备自己的单 color image/raster compiler/encoder、DIRECT list 并行与 native 故障验证；每片恢复图形状态，仅首片 clear，收齐后一次有序提交。Vulkan/DX12 descriptor/staging/UBO 已按同一 lease 分区并检查容量；B07 已支持多 float stream、U16/U32、D32、set 0/1/2 scalar UBO 与 dynamic offset；扩展 raster/bindings 已验，compute/custom 已接声明访问与后端编码；Metal 已接 offscreen clear/copy/raster draw、depth、MSAA resolve 与 mip/layer view 新协议。colorLocalRead 必须声明且使用 LOAD，两模式当前明确 Unsupported；不得把普通 LOAD/混合当作 shader local read。native 编译对象随 RecordedFrame 保活至 GPU 完成。
+- 编译产物保留 logical/native 映射和模式对应 inheritance，Vulkan parallelNum>1 按实际 worker/slot/ordinal 录制 secondary，coordinator 在 TryCollect 收齐后按计划组装 primary；单 worker 仍 inline。DX12 已具备自己的单 color image/raster compiler/encoder、DIRECT list 并行与 native 故障验证；每片恢复图形状态，仅首片 clear，收齐后一次有序提交。Vulkan/DX12 descriptor/staging/UBO 已按同一 lease 分区并检查容量；B07 历史检查点覆盖多 float stream、U16/U32、D32 和前三组 scalar UBO/dynamic offset；当前契约为 Global 0 / Pass 1 / Material 2 / Batch 3，Metal 四组与 storage 的原生验收须另行记录；扩展 raster/bindings 已验，compute/custom 已接声明访问与后端编码；Metal 已接 offscreen clear/copy/raster draw、depth、MSAA resolve 与 mip/layer view 新协议。colorLocalRead 必须声明且使用 LOAD，两模式当前明确 Unsupported；不得把普通 LOAD/混合当作 shader local read。native 编译对象随 RecordedFrame 保活至 GPU 完成。
 - Vulkan/DX12 收齐时 DeviceLost 优先于可恢复错误，错误结果优先于取消；旧 ticket 不得影响新 session。teardown 先请求取消、收齐 CPU，再安全收尾 GPU，最后释放 worker pools；Instance/Device 与 backend module 必须持续存活。
 
 - DX12 紧密 image copy 由 compiler 用 footprint scratch 衔接，RTV/DSV/CBV/scratch 使用 slot 分区与预算，编译失败回滚本次游标；PSO 和计划引用随 compiled plan 保活；不得另起隐式 ring。Close 失败的 list 不能 Reset，须在安全 lease 中重建。原生 queue 操作开始后的失败按 Indeterminate，不能报告 Rejected 后允许重复提交。
@@ -61,3 +61,8 @@
 - B10 收尾已接 D32 MINIMUM/MAXIMUM depth resolve：源 CLEAR/合法 LOAD、目标 X1 D32/所选 extent 相同；源丢弃不丢弃目标。能力在 transient 分配前检查；Vulkan 两套 scope 独立，DX12 使用 CommandList1，先初始化未就绪目标 depth metadata，再执行 resolve。
 - device PSO/RenderPass cache 按 epoch 与不可变签名隔离，各自最多 128 项；cache owner 淘汰不越过帧保活，device 原生销毁前清 cache。workers 不查能力、不修改 cache/descriptor；framebuffer/views 仍归帧。
 - 编码收齐后 GPU bindings/encoder/shader/sampler/payload 转交 slot，CPU 图仅由待提交 receipt 保留。Rejected 保留 receipt；Accepted/Indeterminate 后清理 receipt，GPU refs 继续按完成/隔离退休，不能用保留整图代替明确 GPU pin。
+
+
+Shader 变体 native mapping 按 stage 维护 key/type/id/value；VS 与 FS 可合法复用相同 ID 并使用不同类型和值。
+Vulkan 每 stage 构造独立 VkSpecializationInfo；Metal 每 function 构造常量值；DXIL 的静态选择已烘入代码，不补造 uniform 参数。
+后端对象转型前验证同一 GetDevice() owner；原生 required 资源不能根据 false 开关擅自省略。MSL 交叉编译不代表原生 Metal 已验收。

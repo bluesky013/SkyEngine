@@ -92,6 +92,10 @@ namespace sky::editor {
     EditorShell::~EditorShell()
     {
         actionLifetime.reset();
+        for (auto &[id, surface] : surfaces) {
+            surface.actionLifetime.reset();
+            if (surface.assetTool) EditorActionRegistry::Get()->RemoveScope(surface.actionScope);
+        }
     }
 
     void EditorShell::ApplyTheme(sky::ui::UIContext *target)
@@ -492,12 +496,14 @@ namespace sky::editor {
             return;
         }
         Surface &surface = it->second;
+        ScopedEditorActions actions(surface.actionScope);
         if (SynchronizeDefaultUiTheme(*surface.context->GetRoot(), surface.themeRevision)) {
             ApplyTheme(surface.context.get());
         }
         surface.context->SetContentSize(inWidth, inHeight);
         if (surface.view != nullptr) {
-            SynchronizePanelLayout(surface.view);
+            if (surface.assetTool) surface.assetTool->SynchronizeLayout();
+            else SynchronizePanelLayout(surface.view);
             surface.view->ArrangeIfNeeded(sky::ui::UIRect{0.0f, 0.0f, inWidth, inHeight});
         }
         surface.context->Paint(paintContext);
@@ -537,7 +543,8 @@ namespace sky::editor {
             ApplyTheme(target);
         }
         if (view != nullptr) {
-            SynchronizePanelLayout(view);
+            if (found->second.assetTool) found->second.assetTool->SynchronizeLayout();
+            else SynchronizePanelLayout(view);
         }
         if (alive.expired() || rootReference.Get() == nullptr || (view != nullptr && viewReference.Get() == nullptr)) {
             return false;
@@ -555,8 +562,11 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchPointer(event);
+        const auto tool = surfaces.find(surfaceId);
+        ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        if (tool->second.assetTool) return tool->second.assetTool->OnPointerEvent(event) == sky::ui::UIEventResult::HANDLED;
         if (ActiveModal() != nullptr)
             return true;
         auto      *router  = SurfaceRouter(surfaceId);
@@ -571,10 +581,14 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchKey(event);
+        const auto tool = surfaces.find(surfaceId);
+        ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
-        if (ActiveModal() != nullptr)
+        if (!tool->second.assetTool && ActiveModal() != nullptr)
             return true;
+        if (tool->second.assetTool && tool->second.assetTool->NeedsCloseDecision())
+            return tool->second.assetTool->OnKeyEvent(event) == sky::ui::UIEventResult::HANDLED;
         if (const auto id = ActionBarBuilder::MatchAccelerator(event); !id.empty()) {
             if (!alive.expired())
                 InvokeAction(id);
@@ -582,6 +596,7 @@ namespace sky::editor {
         }
         if (alive.expired())
             return true;
+        if (tool->second.assetTool) return tool->second.assetTool->OnKeyEvent(event) == sky::ui::UIEventResult::HANDLED;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchKey(event) == sky::ui::UIEventResult::HANDLED;
     }
@@ -590,8 +605,11 @@ namespace sky::editor {
     {
         if (surfaceId == 0)
             return DispatchText(event);
+        const auto tool = surfaces.find(surfaceId);
+        ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        if (tool->second.assetTool) return tool->second.assetTool->OnTextInput(event) == sky::ui::UIEventResult::HANDLED;
         if (ActiveModal() != nullptr)
             return true;
         auto *router = SurfaceRouter(surfaceId);
@@ -1161,6 +1179,7 @@ namespace sky::editor {
         });
         context->AddChild(std::move(viewer));
         if (assetViewerOpen) {
+            RegisterAssetViewerActions();
             assetViewerElement->Open(assetViewerAsset);
             if (alive.expired() || generation != chromeGeneration)
                 return;
@@ -1406,6 +1425,11 @@ namespace sky::editor {
         if (assetCatalog != nullptr) {
             EditorAssetItem item;
             if (assetCatalog->Find(asset, item) && !item.type.empty()) {
+                const auto *provider = AssetViewProviderRegistry::Get()->Find(item.type);
+                if (createAssetTool && provider && provider->UsesDocumentWindow()) {
+                    if (std::ranges::find(pendingAssetTools, asset) == pendingAssetTools.end()) pendingAssetTools.push_back(asset);
+                    return;
+                }
                 std::string ext;
                 if (const auto dot = item.path.find_last_of('.'); dot != std::string::npos) {
                     ext = item.path.substr(dot);
@@ -1431,16 +1455,39 @@ namespace sky::editor {
             viewer->Open(asset);
             if (alive.expired() || viewer != assetViewerElement)
                 return;
+            assetViewerAsset = viewer->AssetId();
             viewer->Arrange({0.0f, 0.0f, width, height});
         }
     }
 
     void EditorShell::RegisterAssetViewerActions()
     {
-        auto                     *actions    = EditorActionRegistry::Get();
-        const std::string         scope      = "assetViewer";
-        const std::weak_ptr<void> lifetime   = actionLifetime;
-        const auto                ownerAlive = [lifetime]() { return !lifetime.expired(); };
+        RegisterAssetViewerActions(assetViewerElement, "assetViewer", actionLifetime);
+    }
+    void EditorShell::RegisterAssetViewerActions(AssetViewerWidget *viewer, const std::string &scope, std::weak_ptr<void> lifetime)
+    {
+        auto *actions = EditorActionRegistry::Get();
+        const auto widgetAlive = viewer ? viewer->GetActionLifetime() : std::weak_ptr<void>{};
+        const auto ownerAlive = [lifetime, widgetAlive] { return !lifetime.expired() && !widgetAlive.expired(); };
+        for (const auto decision : {AssetViewerWidget::CloseDecision::Save, AssetViewerWidget::CloseDecision::Discard,
+                                    AssetViewerWidget::CloseDecision::Cancel}) {
+            const auto id = decision == AssetViewerWidget::CloseDecision::Save ? "saveClose" :
+                            decision == AssetViewerWidget::CloseDecision::Discard ? "discardClose" : "cancelClose";
+            const auto label = decision == AssetViewerWidget::CloseDecision::Save ? "Save and Close" :
+                               decision == AssetViewerWidget::CloseDecision::Discard ? "Discard Changes" : "Cancel Close";
+            actions->Add({.id      = std::string("assetViewer.") + id,
+                          .label   = label,
+                          .menu    = EditorMenu::File,
+                          .order   = 3 + int(decision),
+                          .enabled = [viewer, ownerAlive, decision] { return ownerAlive() && viewer->CanResolveClose(decision); },
+                          .invoke =
+                              [viewer, ownerAlive, decision] {
+                                  if (ownerAlive())
+                                      viewer->ResolveClose(decision);
+                              },
+                          .scope   = scope,
+                          .visible = [viewer, ownerAlive] { return ownerAlive() && viewer->NeedsCloseDecision(); }});
+        }
 
         actions->Add({.id      = "assetViewer.open",
                       .label   = "Open",
@@ -1449,9 +1496,9 @@ namespace sky::editor {
                       .order   = 0,
                       .enabled = ownerAlive,
                       .invoke =
-                          [this, lifetime]() {
-                              if (!lifetime.expired() && assetViewerElement != nullptr) {
-                                  assetViewerElement->OpenAsset();
+                          [viewer, ownerAlive]() {
+                              if (ownerAlive()) {
+                                  viewer->OpenAsset();
                               }
                           },
                       .scope       = scope,
@@ -1464,9 +1511,9 @@ namespace sky::editor {
                       .order   = 1,
                       .enabled = ownerAlive,
                       .invoke =
-                          [this, lifetime]() {
-                              if (!lifetime.expired() && assetViewerElement != nullptr) {
-                                  assetViewerElement->SaveAsset();
+                          [viewer, ownerAlive]() {
+                              if (ownerAlive()) {
+                                  viewer->SaveAsset();
                               }
                           },
                       .scope       = scope,
@@ -1477,12 +1524,12 @@ namespace sky::editor {
                       .order   = 2,
                       .enabled = ownerAlive,
                       .invoke =
-                          [this, lifetime]() {
+                          [viewer, ownerAlive]() {
                               // Close must NOT save+cook: cooking is heavy work and running it inside
                               // the pointer/key dispatch blocks the UI (see coding rule 9). Saving is
                               // explicit (Save button / Ctrl+S).
-                              if (!lifetime.expired() && assetViewerElement != nullptr) {
-                                  assetViewerElement->Close();
+                              if (ownerAlive()) {
+                                  viewer->Close();
                               }
                           },
                       .scope       = scope,
@@ -1493,11 +1540,11 @@ namespace sky::editor {
                       .group   = EditorGroup::History,
                       .menu    = EditorMenu::Edit,
                       .order   = 0,
-                      .enabled = [this, lifetime]() { return !lifetime.expired() && assetViewerElement != nullptr && assetViewerElement->CanUndo(); },
+                      .enabled = [viewer, ownerAlive]() { return ownerAlive() && viewer->CanUndo(); },
                       .invoke =
-                          [this, lifetime]() {
-                              if (!lifetime.expired() && assetViewerElement != nullptr) {
-                                  assetViewerElement->Undo();
+                          [viewer, ownerAlive]() {
+                              if (ownerAlive()) {
+                                  viewer->Undo();
                               }
                           },
                       .scope       = scope,
@@ -1508,20 +1555,58 @@ namespace sky::editor {
                       .group   = EditorGroup::History,
                       .menu    = EditorMenu::Edit,
                       .order   = 1,
-                      .enabled = [this, lifetime]() { return !lifetime.expired() && assetViewerElement != nullptr && assetViewerElement->CanRedo(); },
+                      .enabled = [viewer, ownerAlive]() { return ownerAlive() && viewer->CanRedo(); },
                       .invoke =
-                          [this, lifetime]() {
-                              if (!lifetime.expired() && assetViewerElement != nullptr) {
-                                  assetViewerElement->Redo();
+                          [viewer, ownerAlive]() {
+                              if (ownerAlive()) {
+                                  viewer->Redo();
                               }
                           },
                       .scope       = scope,
                       .accelerator = "Ctrl+Y, Ctrl+Shift+Z"});
     }
 
+    void EditorShell::TickAssetViews(float delta)
+    {
+        OpenPendingAssetTools();
+        if (assetViewerElement) {
+            assetViewerElement->Tick(delta);
+            assetViewerAsset = assetViewerElement->AssetId();
+            assetViewerOpen = assetViewerElement->IsOpen();
+        }
+        std::vector<uint32_t> closed;
+        for (auto &[id, surface] : surfaces) {
+            if (!surface.assetTool) continue;
+            ScopedEditorActions actions(surface.actionScope);
+            surface.assetTool->Tick(delta);
+            if (!surface.assetTool->IsOpen()) closed.push_back(id);
+        }
+        for (auto id : closed) {
+            auto &surface = surfaces.at(id);
+            surface.actionLifetime.reset();
+            EditorActionRegistry::Get()->RemoveScope(surface.actionScope);
+            surfaces.erase(id);
+            if (retireAssetTool) retireAssetTool(id);
+        }
+    }
+
     bool EditorShell::IsAssetViewerOpen() const
     {
-        return assetViewerElement != nullptr && assetViewerElement->IsOpen();
+        return (assetViewerElement != nullptr && assetViewerElement->IsOpen()) || !pendingAssetTools.empty() ||
+            std::ranges::any_of(surfaces, [](const auto &entry) { return entry.second.assetTool && entry.second.assetTool->IsOpen(); });
+    }
+    void EditorShell::RequestCloseAssetViews()
+    {
+        pendingAssetTools.clear();
+        if (assetViewerElement && assetViewerElement->IsOpen()) assetViewerElement->Close();
+        for (auto &[id, surface] : surfaces) if (surface.assetTool) surface.assetTool->Close();
+    }
+    bool EditorShell::AreAssetViewsClosing() const
+    {
+        if (assetViewerElement && assetViewerElement->IsOpen() && !assetViewerElement->IsCloseRequested()) return false;
+        for (const auto &[id, surface] : surfaces)
+            if (surface.assetTool && surface.assetTool->IsOpen() && !surface.assetTool->IsCloseRequested()) return false;
+        return IsAssetViewerOpen();
     }
 
     void EditorShell::Paint(sky::ui::UIPaintContext &paintContext)
@@ -1580,6 +1665,10 @@ namespace sky::editor {
         // keys must reach that session before global actions and play shortcuts.
         if (preferencesElement != nullptr && preferencesElement->IsVisible()) {
             preferencesElement->OnKeyEvent(event);
+            return true;
+        }
+        if (assetViewerElement != nullptr && assetViewerElement->IsOpen() && assetViewerElement->NeedsCloseDecision()) {
+            assetViewerElement->OnKeyEvent(event);
             return true;
         }
         // Data-driven accelerators for the active scope (a dialog scope wins over global):
@@ -1669,6 +1758,7 @@ namespace sky::editor {
         if (eventRouter)
             eventRouter->Reset();
         for (auto &[id, surface] : surfaces) {
+            if (surface.assetTool) surface.assetTool->OnPointerCancel(0);
             if (surface.router)
                 surface.router->Reset();
         }
@@ -1676,6 +1766,7 @@ namespace sky::editor {
     bool EditorShell::HasPointerCapture(uint32_t surfaceId) const
     {
         const auto  found  = surfaces.find(surfaceId);
+        if (surfaceId && found != surfaces.end() && found->second.assetTool) return found->second.assetTool->WantsPointerCapture();
         const auto *router = surfaceId == 0 ? eventRouter.get() : found != surfaces.end() ? found->second.router.get() : nullptr;
         return router != nullptr && router->GetCapture() != nullptr;
     }

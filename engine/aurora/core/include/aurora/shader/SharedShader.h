@@ -47,6 +47,15 @@
 
 #define AURORA_DECLARE_TEXTURE(...)
 #define AURORA_DECLARE_SAMPLER(...)
+#define AURORA_DECLARE_STRUCTURED(...)
+#define AURORA_SLOT_STRUCTURED(type, variable, setIndex, bindingIndex) \
+    static constexpr ::sky::aurora::ShaderResourceSlot<::sky::aurora::ShaderResourceType::STORAGE_BUFFER> variable{setIndex, bindingIndex};
+#define AURORA_RESOURCE_STRUCTURED(value, variable, setIndex, bindingIndex) \
+    {.name = #variable, .type = ::sky::aurora::ShaderResourceType::STORAGE_BUFFER, .set = setIndex, .binding = bindingIndex, \
+     .texture = {.dimension = ::sky::aurora::ShaderTextureDimension::BUFFER}, .access = ::sky::aurora::ShaderResourceAccess::READ_ONLY, \
+     .bufferKind = ::sky::aurora::ShaderBufferKind::STRUCTURED, \
+     .elementStride = sizeof(::sky::aurora::shared::FieldTraits<::sky::aurora::RgFieldType::value>::Type)},
+#define AURORA_BLOCK_STRUCTURED(...)
 
 #define AURORA_SLOT_UNIFORM(params, variable, setIndex, bindingIndex, fieldList)                                                                     \
     static constexpr ::sky::aurora::ShaderUniformSlot<params> variable{{setIndex, bindingIndex}};

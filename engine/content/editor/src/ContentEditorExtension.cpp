@@ -6,6 +6,9 @@
 
 #include <content/editor/ContentAssetViews.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/application/ModuleManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
 
 #include <vector>
 
@@ -18,13 +21,16 @@ namespace sky::content::editor {
 
     void ContentEditorExtension::Register()
     {
-        // Idempotent (sky::Once): the content cook/editor modules may each reach this.
-        RegisterContentAssetViews(sky::SerializationContext::Get());
+        auto *system = Interface<ISystemNotify>::Get()->GetApi();
+        auto *manager = system ? system->GetModuleManager() : nullptr;
+        auto lease = manager ? manager->RetainModule("Content.Views") : nullptr;
+        if (lease)
+            RegisterContentAssetViews(std::move(lease));
     }
 
     void ContentEditorExtension::Unregister()
     {
-        // Reflection + asset-view registration is process-lifetime; nothing to undo.
+        UnregisterContentAssetViews();
     }
 
     std::vector<std::string> ContentEditorExtension::GetIconDirectories() const

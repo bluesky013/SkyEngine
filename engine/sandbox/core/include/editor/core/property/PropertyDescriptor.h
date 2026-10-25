@@ -27,9 +27,8 @@ namespace sky::editor {
     // A single editable reflected member, independent of any view.
     //
     // A top-level descriptor exposes a member of an object. A sequence-element
-    // descriptor (elementIndex >= 0) refers to one element of a sequence member
-    // and is read-only; sequence contents are edited as a whole through the
-    // container member's setter.
+    // descriptor is read-only unless backed by a form-owned container snapshot.
+    // Forms commit that snapshot through the top-level member's setter.
     class PropertyDescriptor {
     public:
         PropertyDescriptor() = default;
@@ -40,10 +39,12 @@ namespace sky::editor {
         const std::string &GetCategory() const { return category; }
         const TypeInfoRT *GetType() const { return type; }
         const serialize::TypeMemberNode *GetMember() const { return member; }
+        bool IsBoundTo(const void *value) const { return object == value; }
 
         bool IsValid() const { return object != nullptr && member != nullptr; }
         bool IsSequenceElement() const { return elementIndex >= 0; }
-        bool CanEdit() const { return IsValid() && !IsSequenceElement() && member->setterFn != nullptr; }
+        bool CanEdit() const { return IsValid() && member->setterFn != nullptr &&
+            (!IsSequenceElement() || (sequenceStorage && type && type->copy && type->destructor)); }
 
         Any GetValue() const;
         bool SetValue(const Any &value) const;
@@ -51,7 +52,7 @@ namespace sky::editor {
         bool IsSequence() const;
         uint32_t GetSequenceCount() const;
         const TypeNode *GetElementType() const;
-        void BuildSequenceChildren(std::vector<PropertyDescriptor> &out) const;
+        void BuildSequenceChildren(std::vector<PropertyDescriptor> &out, Any *storage = nullptr) const;
 
         bool IsStruct() const;
         const TypeNode *GetStructType() const;
@@ -74,6 +75,7 @@ namespace sky::editor {
         const serialize::TypeMemberNode *member = nullptr;
         const TypeInfoRT *type = nullptr;
         int32_t elementIndex = -1;
+        Any *sequenceStorage = nullptr;
         std::string name;
         std::string displayName;
         std::string category;

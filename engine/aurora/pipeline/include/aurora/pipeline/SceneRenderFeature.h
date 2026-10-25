@@ -17,6 +17,7 @@ namespace sky::aurora {
     };
     // Diffuse irradiance, roughness-prefiltered specular, then BRDF integration; all are linear 2D images.
     using SceneEnvironmentInputs = std::array<std::optional<RenderResourceKey>, 3>;
+    std::vector<ShaderVariant> ScenePipelineRequests(const ShaderVariantSchema &schema);
     FrameExtensionPayload
     SceneViewInput(Name feature, ViewportId output, const SceneViewSettings &settings, const SceneEnvironmentInputs &environment = {});
     std::shared_ptr<IFrameGraphFeature>

@@ -57,10 +57,13 @@ namespace sky::aurora {
             hash = HashMixU64(hash, e.bitOffset);
             hash = HashMixU64(hash, e.bitWidth);
             hash = HashMixU64(hash, e.defaultValue);
-            hash = HashMixU64(hash, e.isSpec ? 1u : 0u);
-            hash = HashMixU64(hash, e.specId);
+            hash = HashMixU64(hash, static_cast<uint32_t>(e.domain));
+            hash = HashMixU64(hash, e.vertexSemantics);
+            hash = HashMixU64(hash, static_cast<uint32_t>(e.type));
+            hash = HashMixU64(hash, HashString(e.symbol.GetStr()));
         }
         hash = HashMixU64(hash, schema.totalBits);
+        hash = HashMixU64(hash, schema.pipelineReservedBits);
         return hash;
     }
 

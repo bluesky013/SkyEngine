@@ -157,10 +157,12 @@ namespace sky::editor {
     }
 
     void
-    ReflectedForm::BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry, const std::string &path, PropertyField &out)
+    ReflectedForm::BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry, const std::string &path, PropertyField &out,
+                             bool readOnly)
     {
         out.descriptor = std::move(descriptor);
         out.control    = inRegistry.Resolve(out.descriptor);
+        out.control.readOnly = out.control.readOnly || readOnly;
         out.kind       = out.control.kind;
         out.path       = path;
         out.label      = out.control.label.empty() ? out.descriptor.GetDisplayName() : out.control.label;
@@ -169,13 +171,13 @@ namespace sky::editor {
             out.isSequence = true;
             out.ownedValue = out.descriptor.GetValue();
             std::vector<PropertyDescriptor> elements;
-            out.descriptor.BuildSequenceChildren(elements);
+            out.descriptor.BuildSequenceChildren(elements, &out.ownedValue);
             out.children.reserve(elements.size());
             for (size_t i = 0; i < elements.size(); ++i) {
                 out.children.emplace_back();
                 PropertyField &child = out.children.back();
                 child.parent         = &out;
-                BuildField(std::move(elements[i]), inRegistry, path + "[" + std::to_string(i) + "]", child);
+                BuildField(std::move(elements[i]), inRegistry, path + "[" + std::to_string(i) + "]", child, out.control.readOnly);
             }
             return;
         }
@@ -192,7 +194,7 @@ namespace sky::editor {
                     out.children.emplace_back();
                     PropertyField &childField = out.children.back();
                     childField.parent         = &out;
-                    BuildField(std::move(child), inRegistry, path + "." + std::string(entry->first), childField);
+                    BuildField(std::move(child), inRegistry, path + "." + std::string(entry->first), childField, out.control.readOnly);
                     ApplyAppearance(childField, ownerTypeId, std::string(entry->first));
                 }
             }
@@ -279,7 +281,7 @@ namespace sky::editor {
 
     bool ReflectedForm::Edit(PropertyField &field, Any value, CommandService &commands)
     {
-        if (!field.descriptor.IsValid()) {
+        if (!field.descriptor.CanEdit() || field.control.readOnly) {
             return false;
         }
 
@@ -305,9 +307,9 @@ namespace sky::editor {
         Any            newRootValue = std::move(value);
 
         if (field.parent != nullptr) {
-            field.descriptor.SetValue(newRootValue);
+            if (!field.descriptor.SetValue(newRootValue)) return false;
             for (PropertyField *node = field.parent; node != nullptr && node->parent != nullptr; node = node->parent) {
-                node->descriptor.SetValue(node->ownedValue);
+                if (node->control.readOnly || !node->descriptor.SetValue(node->ownedValue)) return false;
             }
             rootField = &field;
             while (rootField->parent != nullptr) {

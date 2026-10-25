@@ -91,6 +91,7 @@ namespace sky::editor {
         // Specialized ticking panels and widgets with unnotified dynamic row
         // counts keep the default volatile layout behavior.
         void SynchronizeLayout();
+        bool HasActiveInteraction() const { return IsInteracting(); }
 
         // Hides the built-in header (title + "ctrl+Z/Y undo" hint). Useful when the form is embedded
         // as a section of a larger panel that already has its own title.

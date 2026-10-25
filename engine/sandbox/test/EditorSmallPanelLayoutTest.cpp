@@ -1,4 +1,4 @@
-#include <core/environment/Once.h>
+#include "ReflectionTestEnvironment.h"
 #include <core/type/TypeInfoObj.h>
 #include <editor/core/EditorCore.h>
 #include <editor/core/input/KeyModifiers.h>
@@ -81,6 +81,9 @@ namespace sky::editor::small_panel_layout_test {
             element.Paint(paint);
         }
 
+        const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment(
+            [] { SerializationContext::Get()->Register<Config>("EditorSmallPanelLayoutConfig").Member<&Config::value>("value"); });
+
         class EditorSmallPanelLayoutTest : public testing::Test {
         protected:
             void SetUp() override
@@ -89,9 +92,6 @@ namespace sky::editor::small_panel_layout_test {
                 SetDefaultUiTheme(MakeDarkTheme());
                 EditorCore::GetCommandService().Clear();
                 WorldSubSystemRegistry::Get().Clear();
-                if (Once::Get()->Run("EditorSmallPanelLayoutTest.Config")) {
-                    SerializationContext::Get()->Register<Config>("EditorSmallPanelLayoutConfig").Member<&Config::value>("value");
-                }
                 WorldSubSystemRegistry::Get().Register(Name("SmallPanelConfig"),
                                                        {[](World &, const Any &) -> std::unique_ptr<IWorldSubSystem> { return nullptr; },
                                                         TypeInfoObj<Config>::Get()->RtInfo(),

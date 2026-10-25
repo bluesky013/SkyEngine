@@ -3,8 +3,10 @@
 #pragma once
 
 #include <aurora/shader/ShaderVariant.h>
+#include <core/environment/Singleton.h>
 
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -56,12 +58,34 @@ namespace sky::aurora {
         // Union-merge the in-memory set with the JSON already at `path`.
         bool Flush(sky::IFileSystem &fs, const std::string &path, std::string *error = nullptr);
 
-        static constexpr uint32_t kFormatVersion = 2;
+        static constexpr uint32_t kFormatVersion = 3;
         static bool Load(sky::IFileSystem &fs, const std::string &path, std::vector<ShaderUsageEntry> &out, std::string *error = nullptr);
 
     private:
         bool                          mEnabled = false;
         std::vector<ShaderUsageEntry> mEntries;
+    };
+
+    // Process-wide runtime collector. Core is a static library linked into every
+    // module DLL, so the instance must live in Environment rather than a
+    // function-local static.
+    class ShaderUsageStore : public Singleton<ShaderUsageStore> {
+    public:
+        static bool Enabled();
+        static void SetEnabled(bool enabled);
+        static void Record(const ShaderUsageEntry &entry);
+        static size_t Size();
+        static std::vector<ShaderUsageEntry> Snapshot();
+        static void Clear();
+        static bool Flush(sky::IFileSystem &fs, const std::string &path);
+        static bool Flush(const std::string &file);
+
+    private:
+        friend class Singleton<ShaderUsageStore>;
+        ShaderUsageStore() = default;
+
+        std::mutex            mMutex;
+        ShaderUsageCollector mCollector;
     };
 
     // Group by path, target environment and full variant values.
@@ -76,6 +100,12 @@ namespace sky::aurora {
 
     // Offline precompile: resolve + compile each usage group into the resolver's
     // cache (same code path as runtime, no GPU).
-    bool BuildUsageCache(ShaderResolver &resolver, const std::vector<ShaderUsageEntry> &usage, std::string *error = nullptr);
+    // Offline precompile: resolve + compile each usage group into the resolver's
+    // cache. `pipelineSchema` declares the external P-domain keys; `variant` may
+    // combine them with material keys.
+    bool BuildUsageCache(ShaderResolver                   &resolver,
+                         const std::vector<ShaderUsageEntry> &usage,
+                         std::string                       *error          = nullptr,
+                         const ShaderVariantSchema         *pipelineSchema = nullptr);
 
 } // namespace sky::aurora

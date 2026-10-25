@@ -12,7 +12,7 @@ namespace sky {
 
 namespace sky::aurora {
 
-    // Idempotent: safe to call more than once per process.
+    // Owned by Aurora.Metadata; called once when its process definition is created.
     void AuroraReflection(sky::SerializationContext *context);
 
 } // namespace sky::aurora

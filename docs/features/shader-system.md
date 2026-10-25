@@ -2,7 +2,7 @@
 title: "Shader System"
 description: "Pass declarations, persistent shader exports and module resource inventories."
 module: "aurora"
-updated: "2026-10-23"
+updated: "2026-10-25"
 ---
 
 ## Declaration source and asset paths
@@ -25,8 +25,9 @@ root, `plugins/` include prefix, or second mount for generated files.
 
 The shared declaration grammar supports flat float/int/uint, float2/float4, column-major
 mat4 and bounded float4 arrays, plus supported texture/sampler declarations. BOOL/FLOAT3
-uniform fields, nested structures, storage-buffer declarations and descriptor arrays
-are rejected by the shared authoring grammar. Target layouts may differ from C++ offsets,
+uniform fields, nested structures and descriptor arrays
+are rejected by the shared authoring grammar. Read-only structured float4 buffers support
+skinning palettes through the same graph transaction. Target layouts may differ from C++ offsets,
 size, array stride and matrix major. `UniformUploadPlan` validates semantic compatibility and
 encodes each actual target ABI. Multiple declarations in one header are allowed.
 
@@ -38,8 +39,8 @@ stage, read-only/read-write access and raw/structured stride are part of the art
 CPU helper layout changes do not alter the generated shader declaration fingerprint.
 
 Keep HLSL `register(..., space...)` annotations target-specific with `AURORA_TARGET_DXIL`.
-Slang 2026.9.2 can map distinct register spaces to the same Metal direct argument index;
-this is explicitly Unsupported. For MSL, let the target allocate addresses and consume its
+The configured Slang baseline is v2026.19. Conflicting Metal direct argument indices
+are explicitly Unsupported. For MSL, let the target allocate addresses and consume its
 actual reflection. Vulkan continues to use explicit `vk::binding` addresses.
 
 ## One module resource description
@@ -123,7 +124,7 @@ python python/package_project.py cook-shaders --project <project> --distribution
 ShaderCookTool <requirements.json> <sourceRoot> <cacheDir> [offlineCacheDir]
 ```
 
-Usage JSON format 2 persists an explicit canonical target environment. It contains target,
+Usage JSON format 3 persists an explicit canonical target environment. It contains target,
 platform, code format, profile, target-language minimum version, capability requirements,
 matrix convention and compiler options. Minimum versions encode major × 10000 + minor × 100
 + patch. The current baselines are SPIR-V 1.5, shader model 6.5 and Metal 2.3. Metal 2.3
@@ -132,7 +133,7 @@ that does not qualify these artifacts for execution on iOS 13. Unsupported capab
 language/profile combinations fail explicitly.
 
 One cook invocation aggregates all selected owners into each target's
-`index.bin`/blob format 6. Products live in `<project>/products/shaders/<distribution>/`
+`index.bin`/blob format 10. Products live in `<project>/products/shaders/<distribution>/`
 and packaging copies the selected distribution to `products/shaders/`. The tool verifies
 that every requested artifact can be read back with no source filesystem. It does not
 stack independently generated owner indices in MultiFileSystem.
@@ -166,8 +167,8 @@ them without Slang. Native Metal execution still requires macOS.
 `ShaderTechnique` names explicit vertex/fragment entries or one compute entry, plus variant
 values. Every stage uses a canonical `ShaderRef`; entry names have no required naming convention.
 Each source needs companion metadata, including an empty variant schema when it has no variants.
-Variant keys must be supported by each stage's schema. Compile requests and offline products
-use the same identities.
+Keys are validated against the union of stage schemas, then projected onto each stage.
+Logical declarations must agree across stages; their native IDs and lowering may differ.
 
 Scene materials retain all tagged techniques. `FrameGraphBuildContext::ResolveDraws(tag)`
 selects the matching technique before geometry resolution; no match omits the item and
@@ -176,7 +177,7 @@ program. The default material is an explicit SceneAssetSource policy. Fullscreen
 features can create a shader from a technique and submit their Pass directly, without a
 scene, queue Tag or material. Dispatch groups remain invocation data.
 
-Bindings remain Global set 0 / Pass set 1 / Batch set 2:
+Bindings remain Global set 0 / Pass set 1 / Material set 2 / Batch set 3:
 
 | Input | Built-in supplier |
 |---|---|
@@ -184,11 +185,14 @@ Bindings remain Global set 0 / Pass set 1 / Batch set 2:
 | View projection / camera | OpaquePass; ShadowPass has its own light projection |
 | Lighting / shadow map / IBL | Scene Feature's Pass resources |
 | World transform / receive-shadow | Feature-owned Batch bindings 0 / 1 |
-| Tint / surface parameters | Material-owned Batch binding 2 |
+| Tint / surface parameters | Material set 2, one cbuffer |
 
 These Batch slots are the built-in material interface, not a generic renderer ABI. Custom
-interfaces declare their own bindings. Material source version 3 and instance version 2
-persist semantic properties, typed samplers and explicit property-to-canonical-name aliases.
+interfaces declare their own bindings. Material payload version 4 and instance version 2
+persist canonical Key/Value data, typed samplers and ordinary texture references.
+Material keys are generated from all Group 2 declarations plus Shader-domain options;
+Group 2 permits zero or one cbuffer. Legacy v3 aliases are migration input: resolve exact
+canonical targets, reject conflicts/unknown keys, and save canonical properties.
 Asset dependencies include ordinary 2D textures. Linear data and sRGB color formats remain
 separate through cook, CPU transport and native upload. Unsupported texture shapes fail
 explicitly instead of being interpreted as environment radiance.
@@ -208,6 +212,31 @@ arrays, but two independently updated logical groups cannot share one native des
 DX12 preserves SRV/UAV access class, raw/structured form, stride and checked view ranges.
 
 ## Unified named parameter transactions
+
+The v10 shader index stores typed variant ownership (Vertex, Pipeline, Shader), Vertex
+semantic requirements, target mappings and complete allowed selections. A shipping scene loads
+these from the published index; missing or conflicting metadata is an explicit
+recook error. Old index/blob versions are rejected. The authoring companion format
+and explicit technique entry points are unchanged.
+
+Vertex inputs derive from the actual mesh attributes and per-instance streams.
+`INSTANCE` occupies the reserved sixteenth capability bit. Vertex definitions must
+reference declared one-bit keys and known, nonempty semantics. Named effective
+specialization values survive target lowering, so DXIL receives the selected value.
+Technique selection validates the union of stage declarations; each stage compiles
+against its own schema plus Pipeline keys, retaining stage-local defaults.
+
+Material providers expose all declared set-2 resources, including textures, samplers
+and custom blocks. Material declarations stay fixed across compile selections; values and target active usage may change.
+SceneSurface flags, skinning palettes and UI per-draw textures use Batch set 3.
+Every executable material variant is validated before packet application and charged
+to the CPU resource budget; shared artifacts are conservatively charged per owner.
+
+Async compilation requires an owned compiler registration and explicit cache owners
+through `SetAsyncCacheOwners`. Futures retain the compiler module, compiler, cache
+root and writer, and accept only one execution. Unregistration prevents new work;
+accepted futures keep the module loaded until their owners are released. Borrowed
+compiler/cache registrations remain synchronous-only.
 
 `ResourceGroup::CreateEncoder(updateContext)` provides the same typed entry for data and
 resources. The RHI-neutral context supplies device/lease validation, uniform allocation and
@@ -251,3 +280,54 @@ Descriptor arrays in Metal direct arguments, nested uniforms, FLOAT3/BOOL/half p
 typed/counter storage buffers and material deformation remain unsupported. Native execution
 coverage is recorded in the [target artifact change](../../openspec/changes/refactor-aurora-target-shader-artifacts/tasks.md);
 platform builds and native-device results are tracked separately.
+
+
+## Typed selection and target lowering
+
+`ResolveShaderVariant` owns normalization for V/P/S. V comes from actual vertex semantics
+(including INSTANCE and skin streams); P comes from the Pipeline; S comes from Material,
+custom Batch, fullscreen or compute invocation. The four callers of S are producers of the
+same domain, not additional bit regions. Duplicate, unknown, wrong-domain, wrong-type or
+out-of-range values fail before publication. Omitted values use declared defaults.
+
+Companions associate logical keys with source symbols explicitly:
+
+```json
+{"entries":["FSMain"],"sources":[{"name":"options","width":1}],"variants":[
+  {"key":"TEXTURED","source":"options","type":"bool","width":1,"default":false,"symbol":"kTextured"}
+]}
+```
+
+The key and symbol must differ so preprocessing does not replace the declaration name.
+Declare `kTextured` as a scalar constant initialized from the `TEXTURED` macro. Native-capable
+source uses `[SpecializationConstant]` with its native annotation; a DXIL branch uses
+`static const bool kTextured = TEXTURED`. The pinned compiler inspects this declaration.
+Pure preprocessing keys may omit `symbol` and remain compile-only. The association is required
+when inspecting a scalar declaration for target-native lowering.
+Business requests never contain native IDs or a macro/specialization selector. Supported
+logical types are bool, int32 and uint32; native-dependent resource/array/thread-group shapes
+are outside the fixed-metadata contract. Unsupported declarations fail without rewriting code.
+
+Full selection identity contains all normalized typed values. A stage code key retains only
+compile-lowered values; native values can share its code. Executable identity additionally
+contains ordered stages and each stage's native mapping/value. VS and FS may use the same
+native ID with different keys, values and types. Native required resources remain required
+even when a function constant is false.
+
+Material values remain typed CPU data. Known inactive values are retained and type-checked;
+unknown keys fail. The final target ShaderParameterTable/UniformUploadPlan chooses active
+bindings, offsets, strides and padding. MaterialInstance only overrides ordinary values,
+textures and samplers; static options remain on Material. Editing a static option produces
+another prepared version and must have a corresponding published selection.
+
+Scene asset preparation uses the Pipeline's four explicit SHADOWS/IBL requests and two
+supported vertex-stream configurations. Additional option ranges are not enumerated.
+Scene feature Prepare resolves tone mapping/highlight programs before graph declarations
+and output acquisition. Graph recording consumes those prepared shaders and exact resource
+snapshots. Existing arbitrary feature code remains responsible for preparing its own programs.
+
+Cook collects explicit requests from module/project requirements, material options and usage.
+Each shared artifact records the complete allowed selections. In PRODUCTS mode an unlisted
+native selection is missing even if its generic code exists. Cache/blob v10 and usage v3
+require recook; the distribution manifest remains v2. Logical metadata is bounded separately
+from the optional 128-bit packed key; larger selections retain canonical typed identity.

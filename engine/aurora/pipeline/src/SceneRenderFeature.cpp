@@ -5,6 +5,7 @@
 #include <aurora/pipeline/SceneRenderFeature.h>
 
 #include "GlobalBlock.h"
+#include "MaterialBlock.h"
 #include "OpaquePass.h"
 #include "SceneBatch.h"
 #include "SceneEnvironmentPass.h"
@@ -14,6 +15,7 @@
 #include "ShadowPass.h"
 #include "ToneMapPass.h"
 #include <algorithm>
+#include <aurora/pipeline/GlobalVariantLayout.h>
 #include <aurora/renderer/PassResourceBindings.h>
 #include <aurora/rhi/Device.h>
 #include <aurora/shader/ShaderFileSystem.h>
@@ -51,37 +53,30 @@ namespace sky::aurora {
             return WriteParams(context, bindings, shared::GlobalBlockBindings::gGlobal, params);
         }
 
+
+
         std::variant<FrameError, ShaderReflection> MaterialSchema(const Shader &shader, const RenderMaterialParameters &parameters)
         {
-            ShaderReflection                        result;
-            std::set<std::pair<uint32_t, uint32_t>> keys;
-            const auto                              add = [&](Name name) -> std::optional<FrameError> {
+            const auto &reflection = shader.GetReflection();
+            if (parameters.set != shared::MaterialBlockBindings::gMaterial.set &&
+                (!parameters.values.empty() || !parameters.images.empty() || !parameters.samplers.empty()))
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameters must belong to the Material set"};
+            ShaderReflection material        = reflection;
+            const auto       outsideMaterial = [](const auto &value) { return value.set != shared::MaterialBlockBindings::gMaterial.set; };
+            std::erase_if(material.resources, outsideMaterial);
+            std::erase_if(material.declarations, outsideMaterial);
+            std::erase_if(material.blocks, outsideMaterial);
+            std::erase_if(material.declaredBlocks, outsideMaterial);
+            std::erase_if(material.nativeBindings, outsideMaterial);
+            const auto add = [&](Name name) -> std::optional<FrameError> {
                 ShaderParameterHandle handle;
-                const auto            status = shader.GetParameterTable().Resolve(name, 2, handle);
+                const auto            status = shader.GetParameterTable().Resolve(name, shared::MaterialBlockBindings::gMaterial.set, handle);
                 if (status != ShaderParameterLookup::READY && status != ShaderParameterLookup::INACTIVE)
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter is unknown or ambiguous"};
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter is unknown or ambiguous: " + std::string(name.GetStr())};
                 const ShaderParameterEntry *entry = nullptr;
                 shader.GetParameterTable().Resolve(handle, entry);
                 if (!entry)
                     return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter handle is stale"};
-                if (!keys.emplace(entry->set, entry->binding).second)
-                    return {};
-                const auto  matches = [&](const auto &value) { return value.set == entry->set && value.binding == entry->binding; };
-                const auto &reflection = shader.GetReflection();
-                const auto  active     = std::find_if(reflection.resources.begin(), reflection.resources.end(), matches);
-                const auto  declared = std::find_if(reflection.declarations.begin(), reflection.declarations.end(), matches);
-                if (active != reflection.resources.end())
-                    result.resources.push_back(*active);
-                else if (declared != reflection.declarations.end())
-                    result.resources.push_back(*declared);
-                else
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Material parameter has no logical resource declaration"};
-                const auto block = std::find_if(reflection.blocks.begin(), reflection.blocks.end(), matches);
-                const auto declaration = std::find_if(reflection.declaredBlocks.begin(), reflection.declaredBlocks.end(), matches);
-                if (block != reflection.blocks.end())
-                    result.blocks.push_back(*block);
-                else if (declaration != reflection.declaredBlocks.end())
-                    result.blocks.push_back(*declaration);
                 return {};
             };
             for (const auto &value : parameters.values)
@@ -93,7 +88,7 @@ namespace sky::aurora {
             for (const auto &sampler : parameters.samplers)
                 if (const auto error = add(sampler.name))
                     return *error;
-            return result;
+            return material;
         }
         FrameOperationResult BindMaterial(FrameGraphBuildContext &context, const RenderMaterialParameters &parameters, PassResourceBindings &bindings)
         {
@@ -119,7 +114,7 @@ namespace sky::aurora {
         }
 
         std::variant<FrameError, ShaderPtr>
-        CreateSceneShader(FrameGraphBuildContext &context, ShaderFileSystem *files, IFileSystem *products, API backend, const char *path)
+        CreateSceneShader(FrameFeaturePrepareContext &context, ShaderFileSystem *files, IFileSystem *products, API backend, const char *path)
         {
             if (files == nullptr) {
                 return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene feature has no shader source provider"};
@@ -225,6 +220,42 @@ namespace sky::aurora {
                 }
                 return {};
             }
+            FrameOperationResult Prepare(FrameFeaturePrepareContext &context) override
+            {
+                const auto info = context.GetRendererInfo();
+                if (preparedInfo && (preparedInfo->backend != info.backend || preparedInfo->deviceEpoch != info.deviceEpoch))
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Scene feature must belong to one renderer device epoch"};
+                PipelineLayout();
+                if (!pipelineReady)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, pipelineError};
+                bool hdr = false, highlight = false;
+                for (const auto &payload : context.GetInputs().prepared->extensions) {
+                    if (payload.feature != name)
+                        continue;
+                    if (IsSceneHighlightInput(payload)) {
+                        highlight = true;
+                    } else if (payload.bytes.size() == sizeof(SceneInput)) {
+                        SceneInput input;
+                        std::memcpy(&input, payload.bytes.data(), sizeof(input));
+                        hdr = hdr || input.settings.hdr != 0;
+                    }
+                }
+                auto toneMap = toneMapShader;
+                if (hdr && !toneMap) {
+                    auto created = CreateSceneShader(context, sources.get(), products.Get(), info.backend, "aurora/pipeline/ToneMap.slang");
+                    if (const auto *error = std::get_if<FrameError>(&created))
+                        return *error;
+                    toneMap = std::get<ShaderPtr>(created);
+                }
+                if (highlight) {
+                    const auto prepared = highlights.Prepare(context, *sources, products.Get());
+                    if (const auto *error = std::get_if<FrameError>(&prepared))
+                        return *error;
+                }
+                toneMapShader = std::move(toneMap);
+                preparedInfo  = info;
+                return FrameOperationComplete{};
+            }
             FrameOperationResult BuildFrame(FrameGraphBuildContext &, const FrameExtensionPayload &) override
             {
                 return FrameOperationComplete{};
@@ -240,7 +271,11 @@ namespace sky::aurora {
                 if (const auto error = ReadViewSettings(context, view.view.output, settings, environmentImages)) {
                     return *error;
                 }
-                auto resolved = context.ResolveDraws(Name("opaque"), {.offset = {.x = 0, .y = 0}, .extent = target->output.extent});
+                if (!pipelineReady || !preparedInfo)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Scene feature was not prepared before graph construction"};
+                const auto pipelineValues = PipelineValues(settings, environmentImages, view);
+                auto       resolved       = context.ResolveDraws(Name("opaque"), {.offset = {.x = 0, .y = 0}, .extent = target->output.extent},
+                                                                 PreparedDrawList::VISIBLE, &pipelineValues);
                 if (const auto *error = std::get_if<FrameError>(&resolved)) {
                     return *error;
                 }
@@ -270,8 +305,7 @@ namespace sky::aurora {
                         if (selectedIds.contains(key(draw.entity)))
                             selected.push_back(draw);
                 }
-                const bool hdr     = (settings.hdr != 0u) && !draws.empty();
-                const auto backend = draws.empty() ? API::VULKAN : draws.front().draw.shader->GetDevice()->GetAPI();
+                const bool hdr = (settings.hdr != 0u) && !draws.empty();
                 if (hdr) {
                     if (target->initialized) {
                         return FrameError{.code    = FrameErrorCode::UNSUPPORTED,
@@ -297,7 +331,7 @@ namespace sky::aurora {
                     });
                 });
                 if (lit != draws.end()) {
-                    const auto result = BuildLighting(context, view, lit->draw.shader->GetDevice()->GetAPI(), lighting);
+                    const auto result = BuildLighting(context, view, lit->draw.shader->GetDevice()->GetAPI(), lighting, pipelineValues);
                     if (std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
@@ -330,16 +364,17 @@ namespace sky::aurora {
                     return rendered;
                 }
                 if (hdr) {
-                    rendered = ToneMap(context, *target, color, settings.exposure, backend);
+                    rendered = ToneMap(context, *target, color, settings.exposure);
                     if (std::holds_alternative<FrameError>(rendered))
                         return rendered;
                 }
-                return highlights.Render(context, *target, params.viewProjection, sceneDepth, highlight.style, selected, *sources, products.Get());
+                return highlights.Render(context, *target, params.viewProjection, sceneDepth, highlight.style, selected);
             }
 
             void OnRetired() override
             {
                 highlights.Reset();
+                preparedInfo.reset();
                 shadowSampler.Reset(nullptr);
                 toneMapShader.Reset(nullptr);
                 toneMapSampler.Reset(nullptr);
@@ -445,7 +480,9 @@ namespace sky::aurora {
                             return result;
                         }
                     }
-                    const PassResourceBindings *groups[]{&global, &passBindings, &batchBindings, &material, &lighting, &surface, &environment};
+
+                    const PassResourceBindings *groups[]{&global,   &passBindings, &batchBindings, &material,
+                                                         &lighting, &surface,      &environment};
                     if (const auto  result = PassResourceBindings::Apply(context, draw, groups);
                         const auto *error  = std::get_if<FrameError>(&result)) {
                         return FrameError{.code = error->code, .message = "Shader does not match the scene pass declarations: " + error->message};
@@ -509,16 +546,10 @@ namespace sky::aurora {
                 }
                 return bindings.Sampler(Slots::gBrdfSampler, brdfSampler);
             }
-            FrameOperationResult
-            ToneMap(FrameGraphBuildContext &context, const FrameRenderTarget &target, GraphImageHandle color, float exposure, API backend)
+            FrameOperationResult ToneMap(FrameGraphBuildContext &context, const FrameRenderTarget &target, GraphImageHandle color, float exposure)
             {
-                if (!toneMapShader) {
-                    const auto created = CreateSceneShader(context, sources.get(), products.Get(), backend, "aurora/pipeline/ToneMap.slang");
-                    if (const auto *error = std::get_if<FrameError>(&created)) {
-                        return *error;
-                    }
-                    toneMapShader = std::get<ShaderPtr>(created);
-                }
+                if (!toneMapShader)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "ToneMap program was not prepared before graph construction"};
                 if (!toneMapSampler) {
                     Sampler::Descriptor desc;
                     desc.minFilter = desc.magFilter = Filter::NEAREST;
@@ -589,6 +620,7 @@ namespace sky::aurora {
                     if (const auto result = BindMaterial(context, caster.material, material); std::holds_alternative<FrameError>(result)) {
                         return result;
                     }
+
                     const PassResourceBindings *groups[]{&global, &pass, &batch, &material};
                     const auto                  applied = PassResourceBindings::Apply(context, draw, groups);
                     if (std::holds_alternative<FrameError>(applied)) {
@@ -598,8 +630,43 @@ namespace sky::aurora {
                 }
                 return FrameOperationComplete{};
             }
-            FrameOperationResult
-            BuildLighting(FrameGraphBuildContext &context, const PreparedViewData &view, API backend, PassResourceBindings &bindings)
+            const GlobalVariantLayout &PipelineLayout()
+            {
+                if (!pipelineReady) {
+                    pipelineReady = products ? pipelineLayout.LoadPublished(*products, &pipelineError)
+                                             : pipelineLayout.Load(*sources, "aurora/config/pipeline_variants.slang", &pipelineError);
+                }
+                return pipelineLayout;
+            }
+            ShaderVariant PipelineValues(const SceneViewSettings &settings, const SceneEnvironmentInputs &environment, const PreparedViewData &view)
+            {
+                bool shadows = false;
+                if (!view.shadowCasters.empty()) {
+                    shadows = std::ranges::any_of(view.lights, [](const PreparedPointLight &source) {
+                        return source.light.kind == RenderLightKind::DIRECTIONAL && source.light.castShadow;
+                    });
+                }
+                const bool ibl =
+                    std::ranges::any_of(environment, [](const auto &image) { return image.has_value(); }) && settings.environmentIntensity > 0;
+                ShaderVariant values;
+                for (const auto &entry : PipelineLayout().schema.entries) {
+                    uint32_t value = entry.defaultValue;
+                    if (entry.key == Name("SHADOWS")) {
+                        value = shadows ? 1u : 0u;
+                    } else if (entry.key == Name("IBL")) {
+                        value = ibl ? 1u : 0u;
+                    }
+                    if (value != entry.defaultValue) {
+                        values.entries.push_back({entry.key, value});
+                    }
+                }
+                return values;
+            }
+            FrameOperationResult BuildLighting(FrameGraphBuildContext &context,
+                                               const PreparedViewData &view,
+                                               API                     backend,
+                                               PassResourceBindings   &bindings,
+                                               const ShaderVariant    &pipelineValues)
             {
                 shared::SceneLightingParams params{};
                 if (view.lights.size() > std::size(params.positions)) {
@@ -654,7 +721,7 @@ namespace sky::aurora {
                 if (params.shadowControl.x != 0.0f) {
                     auto resolved =
                         context.ResolveDraws(Name("shadow"), {.offset = {.x = 0, .y = 0}, .extent = {.width = resolution, .height = resolution}},
-                                             PreparedDrawList::SHADOW_CASTERS);
+                                             PreparedDrawList::SHADOW_CASTERS, &pipelineValues);
                     if (const auto *error = std::get_if<FrameError>(&resolved)) {
                         return *error;
                     }
@@ -693,12 +760,32 @@ namespace sky::aurora {
             FileSystemPtr                     products;
             SamplerPtr                        shadowSampler;
             ShaderPtr                         toneMapShader;
+            std::optional<RendererInfo>       preparedInfo;
             SamplerPtr                        toneMapSampler;
             SamplerPtr                        environmentSampler, brdfSampler;
             SceneHighlightRenderer            highlights;
+            GlobalVariantLayout               pipelineLayout;
+            bool                              pipelineReady = false;
+            std::string                       pipelineError;
         };
     } // namespace
 
+    std::vector<ShaderVariant> ScenePipelineRequests(const ShaderVariantSchema &schema)
+    {
+        const std::array           requested{std::array{0u, 0u}, std::array{1u, 0u}, std::array{0u, 1u}, std::array{1u, 1u}};
+        std::vector<ShaderVariant> result;
+        for (const auto &request : requested) {
+            ShaderVariant values;
+            for (size_t i = 0; i < 2; ++i) {
+                const auto *entry = schema.FindEntry(Name(i == 0 ? "SHADOWS" : "IBL"));
+                if (entry && request[i] != entry->defaultValue)
+                    values.entries.push_back({entry->key, request[i], entry->type});
+            }
+            if (std::ranges::none_of(result, [&](const auto &existing) { return existing.entries == values.entries; }))
+                result.push_back(std::move(values));
+        }
+        return result;
+    }
     std::shared_ptr<IFrameGraphFeature> CreateSceneRenderFeature(Name name, std::shared_ptr<ShaderFileSystem> sources, FileSystemPtr products)
     {
         return std::make_shared<SceneRenderFeature>(name, std::move(sources), std::move(products));

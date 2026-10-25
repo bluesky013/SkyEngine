@@ -1,7 +1,6 @@
 //
-// Aurora shader variant: unified key-value variant model, 128-bit bitmask key,
-// and data-driven schema. Strong (macro) vs weak (specialization constant) is
-// NOT a distinction here: it is resolved by the compiler from shader reflection.
+// Typed logical selection is independent of the legacy 128-bit packed key.
+// Shader declarations and target support determine macro/native lowering.
 //
 
 #pragma once
@@ -11,6 +10,7 @@
 #include <core/name/Name.h>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,8 +22,10 @@ namespace sky::aurora {
 
     // ---- variant entry (name -> value), no strong/weak distinction ----
     struct ShaderVariantEntry {
-        Name     key;
-        uint32_t value = 0;
+        Name              key;
+        uint32_t          value                                        = 0;
+        ShaderVariantType type                                         = ShaderVariantType::UINT32;
+        bool              operator==(const ShaderVariantEntry &) const = default;
     };
 
     struct ShaderVariant {
@@ -31,9 +33,6 @@ namespace sky::aurora {
 
         // unified, order-insensitive hash; a component of the cache key
         uint32_t ContentHash() const;
-
-        // collect spec-constant entries into a specialization (id -> value)
-        void BuildSpecialization(const ShaderVariantSchema &schema, ShaderSpecialization &out) const;
 
         // human-readable "key=value, key=value" dump
         std::string ToString() const;
@@ -52,25 +51,31 @@ namespace sky::aurora {
     // GlobalVariantLayout owns pipeline keys; per-shader keys follow its reserved region.
 
     // ---- data-driven schema ----
+    enum class ShaderVariantDomain : uint8_t { SHADER, VERTEX, PIPELINE };
     struct ShaderVariantSchema {
+        static constexpr uint32_t kMaxLogicalBits = 32768;
+        static constexpr uint32_t kMaxEntries     = 1024;
         struct Source {
             Name     name;
             uint16_t bitOffset = 0;
-            uint8_t  bitWidth  = 0;
+            uint16_t bitWidth  = 0;
         };
         struct Entry {
-            Name     key;
-            Name     source;
-            uint16_t bitOffset    = 0; // bit offset relative to its source
-            uint8_t  bitWidth     = 0;
-            uint32_t defaultValue = 0;
-            bool     isSpec       = false; // true = specialization constant (weak variant)
-            uint32_t specId       = 0;     // valid when isSpec
+            Name                key;
+            Name                source;
+            uint16_t            bitOffset       = 0; // bit offset relative to its source
+            uint8_t             bitWidth        = 0;
+            uint32_t            defaultValue    = 0;
+            ShaderVariantDomain domain          = ShaderVariantDomain::SHADER;
+            uint16_t            vertexSemantics = 0;
+            ShaderVariantType   type            = ShaderVariantType::UINT32;
+            Name                symbol;
         };
 
         std::vector<Source> sources;
         std::vector<Entry>  entries;
-        uint32_t            totalBits = 0; // per-shader region size (caller adds pipeline reserved bits)
+        uint32_t            totalBits            = 0; // per-shader region size (caller adds pipeline reserved bits)
+        uint32_t            pipelineReservedBits = 0;
 
         bool          Validate(std::string *error = nullptr) const;
         const Entry  *FindEntry(Name key) const;
@@ -78,12 +83,36 @@ namespace sky::aurora {
         uint16_t      EntryAbsoluteOffset(const Entry &entry) const;
     };
 
-    bool     CanonicalShaderVariants(const ShaderVariant             *variant,
-                                     const ShaderVariantSchema       &schema,
-                                     ShaderTarget                     target,
-                                     std::vector<ShaderVariantValue> &out,
-                                     std::string                     *error = nullptr);
+    struct ShaderVariantSelection {
+        ShaderVariant                   values;
+        std::vector<ShaderVariantValue> identity;
+        uint64_t                        schemaFingerprint = 0;
+        uint64_t                        fingerprint       = 0;
+    };
+
+    bool ResolveShaderVariant(const ShaderVariantSchema &schema,
+                              VertexSemanticMask         vertexFeatures,
+                              const ShaderVariant       *pipelineValues,
+                              const ShaderVariant       *shaderValues,
+                              ShaderVariantSelection    &out,
+                              std::string               &error);
+    bool ValidateShaderVariantValue(const ShaderVariantSchema::Entry &declaration, const ShaderVariantEntry &value);
+
+    bool CanonicalShaderVariants(const ShaderVariant                     *variant,
+                                 const ShaderVariantSchema               &schema,
+                                 ShaderTarget                             target,
+                                 std::vector<ShaderVariantValue>         &out,
+                                 std::string                             *error    = nullptr,
+                                 const std::vector<ShaderVariantBinding> *bindings = nullptr);
+    bool BuildShaderSpecialization(const ShaderVariant *values, const ShaderStageArtifact &artifact, ShaderSpecialization &out, std::string &error);
     uint64_t HashShaderVariants(const std::vector<ShaderVariantValue> &variants);
+
+    // Merge the external P-domain schema with a per-shader S-domain schema for
+    // resolver-side validation/canonicalization. Idempotent when the schema was
+    // already published as combined (products-only).
+    ShaderVariantSchema MergeVariantSchemas(const ShaderVariantSchema &shader, const ShaderVariantSchema *pipeline);
+    ShaderVariantSchema SelectVariantDomain(const ShaderVariantSchema &schema, bool pipeline);
+    bool MergeStageVariantSchemas(const ShaderVariantSchema &first, const ShaderVariantSchema &second, ShaderVariantSchema &out, std::string &error);
 
     // ---- 128-bit bitmask key ----
     class ShaderVariantKey {
@@ -93,10 +122,10 @@ namespace sky::aurora {
         uint64_t words[2]  = {0, 0};
         uint32_t totalBits = 0;
 
-        void     Set(const ShaderVariantSchema &schema, Name key, uint32_t value);
-        uint32_t Get(const ShaderVariantSchema &schema, Name key) const;
-        void     SetPipelineBit(uint16_t bitOffset, bool on);
-        uint32_t GetPipelineBit(uint16_t bitOffset) const;
+        bool                    Set(const ShaderVariantSchema &schema, Name key, uint32_t value);
+        std::optional<uint32_t> Get(const ShaderVariantSchema &schema, Name key) const;
+        void                    SetPipelineBit(uint16_t bitOffset, bool on);
+        uint32_t                GetPipelineBit(uint16_t bitOffset) const;
 
         // 16-bit vertex semantic region at `offset`
         void               SetVertexSemantics(uint16_t offset, const VertexSemanticMask &mask);

@@ -795,6 +795,8 @@ namespace sky {
 
     void AssetManager::RegisterAssetHandler(const std::string_view &type, AssetHandlerBase *handler)
     {
+        if (auto lease = SerializationContext::Get()->RetainModuleCode())
+            moduleCode.emplace_back(std::move(lease));
         assetHandlers[Name(type.data())].reset(handler);
     }
 

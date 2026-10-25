@@ -11,6 +11,9 @@
 #include <cstdint>
 #include <string>
 
+namespace sky {
+    class IFileSystem;
+}
 namespace sky::aurora {
 
     class ShaderFileSystem;
@@ -52,6 +55,7 @@ namespace sky::aurora {
         // load + parse + validate from a pipeline variant .slang via a
         // ShaderFileSystem (same resolution as shader loading)
         bool Load(ShaderFileSystem &fs, const std::string &path, std::string *error = nullptr);
+        bool LoadPublished(sky::IFileSystem &products, std::string *error = nullptr);
 
         const ShaderVariantSchema::Entry *Find(Name key) const;
 

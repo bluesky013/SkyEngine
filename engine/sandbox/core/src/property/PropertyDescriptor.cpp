@@ -72,8 +72,8 @@ namespace sky::editor {
         }
 
         if (IsSequenceElement()) {
-            Any             container   = GetRawValue();
-            void           *elementPtr  = GetSequenceElementPtr(container, static_cast<uint32_t>(elementIndex));
+            Any             container   = sequenceStorage ? Any{} : GetRawValue();
+            void           *elementPtr  = GetSequenceElementPtr(sequenceStorage ? *sequenceStorage : container, static_cast<uint32_t>(elementIndex));
             const TypeNode *elementType = GetElementType();
             if (elementPtr == nullptr || elementType == nullptr || elementType->info == nullptr) {
                 return {};
@@ -88,6 +88,13 @@ namespace sky::editor {
     {
         if (!CanEdit()) {
             return false;
+        }
+        if (IsSequenceElement()) {
+            auto *element = GetSequenceElementPtr(*sequenceStorage, static_cast<uint32_t>(elementIndex));
+            if (!element || !value.Info() || value.Info()->registeredId != type->registeredId) return false;
+            type->destructor(element);
+            type->copy(value.Data(), element);
+            return true;
         }
         if (!member->setterFn(object, value.Data())) {
             return false;
@@ -123,7 +130,7 @@ namespace sky::editor {
         return GetTypeNode(member->info->containerInfo->valueType);
     }
 
-    void PropertyDescriptor::BuildSequenceChildren(std::vector<PropertyDescriptor> &out) const
+    void PropertyDescriptor::BuildSequenceChildren(std::vector<PropertyDescriptor> &out, Any *storage) const
     {
         if (IsSequenceElement() || !IsSequence()) {
             return;
@@ -133,15 +140,16 @@ namespace sky::editor {
         out.reserve(out.size() + count);
         for (uint32_t i = 0; i < count; ++i) {
             out.emplace_back(PropertyDescriptor(object, member, static_cast<int32_t>(i), name + "[" + std::to_string(i) + "]", category));
+            out.back().sequenceStorage = storage;
         }
     }
 
     const TypeNode *PropertyDescriptor::GetStructType() const
     {
-        if (IsSequenceElement() || member == nullptr || member->info == nullptr) {
+        if (member == nullptr || member->info == nullptr) {
             return nullptr;
         }
-        const TypeNode *node = GetTypeNode(member->info);
+        const TypeNode *node = IsSequenceElement() ? GetElementType() : GetTypeNode(member->info);
         if (node == nullptr || node->members.empty()) {
             return nullptr;
         }
@@ -155,7 +163,7 @@ namespace sky::editor {
 
     UndoCommandPtr PropertyDescriptor::MakeEditCommand(Any value) const
     {
-        if (!CanEdit()) {
+        if (!CanEdit() || IsSequenceElement()) {
             return nullptr;
         }
         return std::make_unique<PropertyEditCommand>(object, member, std::move(value), name);

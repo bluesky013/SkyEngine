@@ -3,6 +3,7 @@
 // C++ schema header.
 //
 
+#include <charconv>
 #include <aurora/shader/gen/ShaderVariantGen.h>
 
 #include <sstream>
@@ -29,11 +30,9 @@ namespace sky::aurora {
             return Trim(pos != std::string::npos ? in.substr(pos + 2) : in);
         }
 
-        // parse "NAME : spec(ID, WIDTH) = DEF" or "NAME : bool = DEF"
+        // parse "NAME : uint32(WIDTH) = DEF" or "NAME : bool = DEF"
         struct ParsedEntry {
             std::string name;
-            bool        isSpec   = false;
-            uint32_t    specId   = 0;
             uint8_t     bitWidth = 1;
             uint32_t    defaultValue = 0;
         };
@@ -58,25 +57,17 @@ namespace sky::aurora {
             out.defaultValue = static_cast<uint32_t>(std::strtoul(defaultStr.c_str(), nullptr, 10));
 
             if (kind == "bool") {
-                out.isSpec   = false;
                 out.bitWidth = 1;
                 return true;
             }
-            if (kind.rfind("spec(", 0) == 0) {
-                // spec(ID, WIDTH)
-                const size_t open  = kind.find('(');
-                const size_t comma = kind.find(',');
-                const size_t close = kind.find(')');
-                if (open == std::string::npos || comma == std::string::npos ||
-                    close == std::string::npos) {
+            if (kind.rfind("uint32(", 0) == 0 && kind.back() == ')') {
+                const auto width = kind.substr(7, kind.size() - 8);
+                uint32_t parsed = 0;
+                const auto result = std::from_chars(width.data(), width.data() + width.size(), parsed);
+                if (result.ec != std::errc{} || result.ptr != width.data() + width.size() || parsed == 0 || parsed > 32)
                     return false;
-                }
-                const std::string idStr = Trim(kind.substr(open + 1, comma - open - 1));
-                const std::string wStr  = Trim(kind.substr(comma + 1, close - comma - 1));
-                out.isSpec   = true;
-                out.specId   = static_cast<uint32_t>(std::strtoul(idStr.c_str(), nullptr, 10));
-                out.bitWidth = static_cast<uint8_t>(std::strtoul(wStr.c_str(), nullptr, 10));
-                return out.bitWidth != 0;
+                out.bitWidth = static_cast<uint8_t>(parsed);
+                return true;
             }
             return false;
         }
@@ -161,7 +152,7 @@ namespace sky::aurora {
             auto &src = out.sources[static_cast<size_t>(currentSource)];
             const uint16_t relOffset = static_cast<uint16_t>(runningOffset - src.bitOffset);
             out.entries.push_back({Name(entry.name.c_str()), src.name, relOffset,
-                                   entry.bitWidth, entry.defaultValue, entry.isSpec, entry.specId});
+                                   entry.bitWidth, entry.defaultValue});
             runningOffset = static_cast<uint16_t>(runningOffset + entry.bitWidth);
             src.bitWidth  = static_cast<uint8_t>(runningOffset - src.bitOffset);
         }
@@ -247,8 +238,7 @@ namespace sky::aurora {
         for (const auto &entry : schema.entries) {
             ss << "            v.entries.push_back({Name(\"" << entry.key.GetStr()
                << "\"), Name(\"" << entry.source.GetStr() << "\"), " << entry.bitOffset << ", "
-               << static_cast<int>(entry.bitWidth) << ", " << entry.defaultValue << ", "
-               << (entry.isSpec ? "true" : "false") << ", " << entry.specId << "});\n";
+               << static_cast<int>(entry.bitWidth) << ", " << entry.defaultValue << "});\n";
         }
         ss << "            v.totalBits = " << schema.totalBits << ";\n";
         ss << "            return v;\n";

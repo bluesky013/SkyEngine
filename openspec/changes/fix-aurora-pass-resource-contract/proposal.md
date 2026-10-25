@@ -2,18 +2,18 @@
 
 ## Why
 
-Status: active（2026-10-20 用户要求起 change 纠偏；保留既有 Global / Pass（View 可选）/ Batch 契约）。
+Status: active（2026-10-20 用户要求起 change 纠偏；原三层阶段现已由四层契约接续；View 仍可选）。
 
 新 Renderer 的最小出图路径将 View/Material/Object 三块固定 UBO 写入 `PreparedRaster` 和生产入口校验，绕开了 Pass 对参数布局的所有权；CMake 也未兑现已归档方案中的自动头文件生成。这是实现偏离既有设计，本 change 恢复原契约，不将最小样例 ABI 升格为新的全局规则。
 
 ## What Changes
 
-- 保持 Global set 0、Pass set 1、Batch set 2；View 是具体 Pass 按需消费的数据，不强制所有 shader 声明相机块，也不另占一个固定资源层级。
+- 采用 Global set 0、Pass set 1、Material set 2、Batch set 3；View 是具体 Pass 按需消费的数据，不强制所有 shader 声明相机块，也不另占一个固定资源层级。
 - Pass 自己维护 Slang 参数定义；CMake 构建依赖生成 shader include 与 C++ 镜像/布局，两侧使用同一份定义源。生成物写 build tree，源声明或依赖变化触发重建，失败不得使用陈旧产物继续构建。
 - 复用 `ShaderHeaderTool`、`ShaderCodeGen` 和 Slang 反射，接通 Global 与已有具体 Pass 的生成头消费；不新造 IDL，不用手写 C++ 字段表替代 Slang 布局权威。
 - **BREAKING**：纠正生产 Renderer 的固定 View/Material/Object ABI。Pass 提供其布局和数据，`PreparedRaster` 只解析精确资源版本、组装声明，不固定三块 UBO、80/64 字节、Material=set 1 或 set 决定 dynamic 类型。
 - 更新生产测试与最小场景，让它们消费生成契约；覆盖有/无 View、不同 Pass 布局、多 View 和在途帧隔离、增量生成与错误布局拒绝。
-- 为原 B08 固定 ABI 标注纠偏归属，禁止将修正解释为旧 Global/Pass/Batch 设计被淘汰。保留已有图声明、Compute/Custom 同步和 slot/退休协议。
+- 为原 B08 固定 ABI 标注纠偏归属，当前分层以四层契约为准，旧三层仅保留为历史背景。保留已有图声明、Compute/Custom 同步和 slot/退休协议。
 
 ## Capabilities
 
@@ -23,7 +23,7 @@ Status: active（2026-10-20 用户要求起 change 纠偏；保留既有 Global 
 
 ### Modified Capabilities
 
-- `aurora-resource-binding`：明确三层语义、Pass 的布局所有权及 View 可选性，禁止业务名称推导底层绑定规则。
+- `aurora-resource-binding`：明确四层语义、Pass 的布局所有权及 View 可选性，禁止业务名称推导底层绑定规则。
 - `aurora-shader`：落实由 Pass 定义源驱动的 CMake 生成和两侧头文件一致性、构建失败及跨编译契约。
 - `aurora-pipeline`：逐 View Renderer 通过 Pass 定义的布局消费 prepare 结果，不再将最小固定 ABI 作为生产管线契约。
 

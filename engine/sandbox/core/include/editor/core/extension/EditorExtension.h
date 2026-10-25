@@ -32,5 +32,20 @@ namespace sky::editor {
     };
 
     using EditorExtensionPtr = std::unique_ptr<EditorExtension>;
+    struct EditorExtensionRegistration {
+        EditorExtensionRegistration(std::shared_ptr<const void> lease, EditorExtensionPtr extension)
+            : moduleLease(std::move(lease)), extension(std::move(extension)) {}
+        EditorExtensionRegistration(EditorExtensionRegistration &&) noexcept = default;
+        EditorExtensionRegistration &operator=(EditorExtensionRegistration value) noexcept
+        {
+            moduleLease.swap(value.moduleLease);
+            extension.swap(value.extension);
+            return *this;
+        }
+        EditorExtension *operator->() const { return extension.get(); }
+        EditorExtension *get() const { return extension.get(); }
+        std::shared_ptr<const void> moduleLease;
+        EditorExtensionPtr extension;
+    };
 
 } // namespace sky::editor

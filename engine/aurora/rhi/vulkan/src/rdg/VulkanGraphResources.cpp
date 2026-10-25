@@ -480,6 +480,19 @@ namespace sky::aurora {
                         if (planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
                             resolved.offsets.push_back(binding->dynamicOffset);
                         }
+                    } else if (planned.type == ShaderResourceType::STORAGE_BUFFER) {
+                        const auto binding = std::find_if(draw.storage.begin(), draw.storage.end(), [&](const auto &value) {
+                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
+                        });
+                        if (binding == draw.storage.end()) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster storage binding"};
+                        }
+                        const auto alignment = std::max(1u, device.GetCapability().minStorageBufferOffsetAlignment);
+                        if (binding->range.offset % alignment || binding->dynamicOffset) {
+                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan storage alignment/offset"};
+                        }
+                        buffer = {resources.buffers[binding->range.buffer.index]->GetNativeHandle(), binding->range.offset, binding->range.size};
+                        write.pBufferInfo = &buffer;
                     } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE) {
                         const auto binding = std::find_if(draw.images.begin(), draw.images.end(), [&](const auto &value) {
                             return value.set == planned.logicalSet && value.binding == planned.logicalBinding;

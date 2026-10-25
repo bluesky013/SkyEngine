@@ -390,7 +390,7 @@ Both compile and appear to work within one module, then fail once a second modul
 | Need | Use |
 |---|---|
 | Process-wide singleton registry/cache | `class X : public sky::Singleton<X>` + `friend class sky::Singleton<X>;` (instance stored in `Environment`, cross-DLL unique). Keep a `static X &Get()` only if callers need a reference. |
-| "Initialize/register exactly once" across modules | `sky::Once` (`core/environment/Once.h`): `if (!sky::Once::Get()->Run("UniqKey")) { return; }` |
+| Shared reflection metadata | One metadata owner in the process definition phase. Consumers declare dependencies and only bind. No Once/once_flag/static flag/existing-type skip/scratch node. |
 | Purely module-local / non-shared state | a plain function-local `static` is fine |
 
 ### Examples
@@ -411,13 +411,13 @@ X &X::Get() { return *Singleton<X>::Get(); }
 // Bad — per-DLL guard; the second DLL re-registers into the shared context -> assert
 void Reflect(SerializationContext *ctx) { static bool done = false; if (done) return; done = true; ctx->Register<T>(...); }
 
-// Good — process-wide once
-void Reflect(SerializationContext *ctx) { if (!Once::Get()->Run("MyReflection")) return; ctx->Register<T>(...); }
+// Good — the sole metadata owner calls this during definition creation.
+void Reflect(SerializationContext *ctx) { ctx->Register<T>(...); }
 ```
 
 ### Detection
 
-Search for function-local `static bool` and `static <Type> instance;` (e.g. `grep -rn "static bool\|static .* instance;"`). For each, ask: is the guarded/held state read or written by more than one module DLL? If yes, it is a bug. Fixed history: `AuroraReflection` / `ContentReflection` / `RegisterImageCookSettings` (`Once`); `PhysicsBackendRegistry` / `NetworkBackendRegistry` / `ShaderCompilerFactory` (`Singleton`).
+Search for function-local `static bool` and `static <Type> instance;` (e.g. `grep -rn "static bool\|static .* instance;"`). For each, ask: is the guarded/held state read or written by more than one module DLL? If yes, it is a bug. For reflection, inspect every caller and remove duplicate ownership at the source. Once/once_flag/existing-type checks are prohibited even when process-shared. Test main or gtest Environment owns fixture metadata; constructors, getters and per-test SetUp only consume it.
 
 ---
 
@@ -482,7 +482,7 @@ implementation** and reuse or extend it instead of duplicating it.
 ### Rationale
 
 The repository already provides many utilities, tools and subsystems (e.g. the asset cook worker
-`tools/asset_tool`, the asset/packaging pipeline, reflection panels, registries, `Singleton<T>` / `Once`). Duplicating
+`tools/asset_tool`, the asset/packaging pipeline, reflection panels, registries and `Singleton<T>`). Duplicating
 them causes drift, broken invariants and rejected reviews. (Real incident: a second headless cook tool was written
 that re-implemented `AssetTool`'s project bootstrap and ignored its IPC path.)
 

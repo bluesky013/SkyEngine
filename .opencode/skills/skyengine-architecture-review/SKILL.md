@@ -73,7 +73,7 @@ Flag changes that:
 - assume building a plugin automatically loads it at runtime
 - add runtime module dependencies without matching compile-time support
 - introduce editor-only plugin usage without respecting `requires_editor` / `SKY_BUILD_SANDBOX`
-- make a plugin depend on sandbox editor targets: plugins depend only on `Launcher`, and editor runtime modules are selected through `configs/modules_editor.json`
+- make runtime/core depend on editor targets; plugin editor targets may use the Sandbox editor framework under the root AGENTS.md layering rules
 
 ---
 
@@ -98,19 +98,20 @@ Flag changes that push render state into components, gameplay objects, or framew
 
 ## Rule 4 — Respect lifecycle ownership and feature-processor boundaries
 
-The terrain redesign documents a repo-backed pattern for render features:
+The terrain redesign describes a legacy RenderScene pattern:
 
 - a feature processor is registered with `RenderScene`
 - the feature processor owns render-side state
 - it participates in the engine's Tick/Render lifecycle
 - renderer implementations sit behind an interface and can switch based on capability/configuration
 
-Prefer this style when reviewing new render-facing systems.
+Current Aurora production integration uses RenderSceneBridge/owned FramePacket, registered IFrameGraphFeature,
+and FrameComposer. Review each consumer against its actual lifecycle; do not require new features to use the legacy API.
 
 Flag changes that:
 
 - scatter render ownership across unrelated objects
-- bypass `RenderScene`/feature-processor style integration where the existing pattern already fits
+- bypass the owning renderer's registration, frozen-input and retirement boundaries
 - remove fallback paths for capability-dependent render implementations
 
 ---

@@ -24,6 +24,10 @@
                         "include": "aurora/pipeline/ScenePass.h"
                     },
                     {
+                        "source": "pipeline/shaders/SkinningBatch.h",
+                        "include": "aurora/pipeline/SkinningBatch.h"
+                    },
+                    {
                         "source": "pipeline/shaders/SceneBatch.h",
                         "include": "aurora/pipeline/SceneBatch.h"
                     },
@@ -52,8 +56,8 @@
                         "include": "aurora/pipeline/ToneMapPass.h"
                     },
                     {
-                        "source": "pipeline/shaders/MaterialBatch.h",
-                        "include": "aurora/pipeline/MaterialBatch.h"
+                        "source": "pipeline/shaders/MaterialBlock.h",
+                        "include": "aurora/pipeline/MaterialBlock.h"
                     },
                     {
                         "source": "pipeline/shaders/SelectionMaskPass.h",
@@ -76,6 +80,40 @@
                                 "stage": "fragment",
                                 "name": "FSMain"
                             }
+                        ],
+                        "variants": [
+                            {
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 1
+                            }
                         ]
                     },
                     {
@@ -89,6 +127,40 @@
                                 "stage": "fragment",
                                 "name": "FSMain"
                             }
+                        ],
+                        "variants": [
+                            {
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 1
+                            }
                         ]
                     },
                     {
@@ -101,6 +173,40 @@
                             {
                                 "stage": "fragment",
                                 "name": "FSMain"
+                            }
+                        ],
+                        "variants": [
+                            {
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 0
+                            },
+                            {
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "IBL": 1,
+                                "SKINNED": 1
+                            },
+                            {
+                                "SHADOWS": 1,
+                                "IBL": 1,
+                                "SKINNED": 1
                             }
                         ]
                     },

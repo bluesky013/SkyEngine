@@ -7,9 +7,9 @@ The user confirmed these decisions during review:
 1. ScenePass matches material technique Tags into RenderQueues. FullScreenPass and ComputePass explicitly select a technique.
 2. Plugin registration declares shader import rules once, sharing resource-import metadata with assets where appropriate.
 3. Authoritative shared `.h` declarations export shader-only `.slangh` assets through CMake tooling. Exports persist in the source tree and version control under the module's `assets/shaders/` root; C++ compilation does not depend on Slang.
-4. ScenePass Batch data comes from materials and Features. FullScreenPass and ComputePass may omit Batch and use Pass resources.
+4. Material data occupies set 2; Feature/draw Batch data occupies set 3. FullScreenPass and ComputePass provide only groups declared by their programs.
 5. File inventories, unique paths and MultiFileSystem composition belong to the same registration rule as item 2. Aurora has one `engine/aurora/assets/shaders/` root; each plugin has its own `plugins/<plugin-id>/assets/shaders/` root.
-6. View shader data belongs to Pass. Global/Pass/Batch remain sets 0/1/2.
+6. View shader data belongs to Pass. The current extension uses Global/Pass/Material/Batch sets 0/1/2/3.
 
 The user approved the exact 13-file mapping in migration.md; those moves are implemented. Shared C++ declaration locations and production target ownership remain unchanged.
 
@@ -17,7 +17,7 @@ The user approved the exact 13-file mapping in migration.md; those moves are imp
 
 | Execution kind | Technique selection | Resource sources |
 |---|---|---|
-| ScenePass | Each RenderQueue declares an accepted Tag; eligible scene items contribute the matching material technique | Global, Pass, material and Feature Batch contributions |
+| ScenePass | Each RenderQueue declares an accepted Tag; eligible scene items contribute the matching material technique | Global, Pass, Material and Feature Batch contributions |
 | FullScreenPass | The Pass explicitly references its technique | Global/Pass as used; Batch only if explicitly declared and provided |
 | ComputePass | The Pass explicitly references its technique | Global/Pass as used; Batch only if explicitly declared and provided |
 
@@ -33,7 +33,8 @@ FullScreenPass and ComputePass do not need a scene, RenderQueue, matching Tag or
 |---|---|---|
 | Global, set 0 | Pipeline-selected data common to the frame across its views | Frame time and frame index, if used |
 | Pass, set 1 | Resources for one Pass invocation, assembled by the concrete Pass | Optional camera/view/projection, viewport, lighting, shadow map, IBL, fullscreen inputs or compute inputs/outputs |
-| Batch, set 2 | Resources for the selected draw or explicitly declared invocation | Material parameters/textures; Feature transforms, instance or deformation data |
+| Material, set 2 | Authored material values and resources | At most one cbuffer, textures and samplers |
+| Batch, set 3 | Draw or explicit invocation data | Feature transforms, instance data, palette, UI image/sampler |
 
 Merge View shader parameters into Pass, without a separate View binding tier or mandatory camera block. A Pass may reuse a common camera declaration fragment within its own header. Remove duplicated camera matrices/position from Global; Global must not secretly vary by active view. CPU-side SceneView/PreparedViewData and view scheduling remain useful and are not removed.
 
@@ -43,11 +44,11 @@ Every view/Pass invocation captures its own Pass values and resource versions. M
 
 Material data supplies authored properties, textures, samplers and instance overrides. Features supply scene/draw data such as world transforms, instance inputs and supported deformation resources. The selected technique's interface identifies the required bindings and their providers; reflection validates the resulting layout but cannot infer who owns a value.
 
-Prefer separate blocks/bindings within set 2 for material and Feature data. This is one Batch tier with multiple contributions, not additional fixed descriptor sets. Each binding has one declared provider; multiple Features may contribute distinct bindings. If a concrete interface intentionally packs both sources into one block, one explicit assembler owns that block and writes its declared fields. Do not merge overlapping byte payloads or use last-writer-wins behavior.
+Material and Feature data occupy separate sets 2 and 3. Each binding has one declared provider; multiple Features may contribute distinct Batch bindings. One assembler owns each complete block; do not combine cross-set fields, overlap writes or use last-writer-wins behavior. This supersedes this stage's original combined set-2 design.
 
 Compose and validate all contributions before replacing draw bindings. Reject duplicate providers, missing active resources, unsupported resource kinds and type/layout mismatches. MaterialPropertyMap's CPU offsets are not shader uniform offsets: pack supported property types into the declared target layout and check actual reflection. Never assume `SceneBatchParams{tint, world}`, copy arbitrary material bytes into that struct, or require that layout in the generic renderer. Unused declarations do not require values.
 
-FullScreenPass and ComputePass omit Batch when their technique has no active set-2 resources. Their changing per-invocation data can all live in Pass. If an explicitly selected technique does require Batch, the caller must provide it; absent Batch is not permission to ignore reflected bindings. Reuse existing raster/compute validation and RDG resource/access declarations. The current raster helper's supported types do not imply automatic support for every compute/storage/array feature.
+FullScreenPass and ComputePass omit Batch when their technique has no active set-3 resources. Their changing per-invocation data can all live in Pass. If an explicitly selected technique does require Batch, the caller must provide it; absent Batch is not permission to ignore reflected bindings. Reuse existing raster/compute validation and RDG resource/access declarations. The current raster helper's supported types do not imply automatic support for every compute/storage/array feature.
 
 PreparedRaster continues to resolve geometry, resource versions and owned snapshots. Carry selected technique information and binding inputs through the existing resource/feature path; do not make PreparedRaster define material layouts or render-queue policy. Material and Feature snapshots retain their normal resource/module leases until accepted frame/GPU use completes.
 
@@ -126,13 +127,11 @@ Validation is recorded by implementation stage in tasks.md. This change's macOS 
 
 ## Implementation boundaries
 
-Material asset payload version 2 stores all tagged stage references, variants and explicit uniform mappings. Old binary payloads and the old single `shader` JSON form are rejected; re-author stage entries and recook products. Shader cache index/blob version 5 adds stage-specific native resource bindings to the active-entry reflection introduced by version 4. Previous products must be recooked. Reflection-only declaration inspection still returns the full declaration.
+Current payloads are Material 4, MaterialInstance 2, shader cache 10 and usage 3. Explicit stage programs and canonical typed values replace the old single-shader form and hand-authored uniform mappings. Supported legacy aliases migrate through exact declaration metadata; incompatible products require recook. Complete declarations remain distinct from active target reflection.
 
-Built-in Scene Batch has separate world (binding 0), receive-shadow (binding 1) and material tint/surface (binding 2) inputs. These belong to the built-in interface. Core accepts arbitrary supported binding layouts. `PackShaderUniform` provides layout-checked assembly, including a combined block when one owner supplies all fields; `PassResourceBindings` rejects overlapping providers transactionally.
+Built-in Batch set 3 supplies world, receive-shadow/surface and skinning palette inputs. Material set 2 supplies its one optional cbuffer plus authored textures/samplers. Core accepts supported explicit layouts; UniformUploadPlan encodes target bytes and parameter transactions reject overlapping providers. Each accepted frame retains its own values and exact resource versions.
 
-Material versions retain shaders and CPU parameter snapshots. They become resident without a dummy GPU material upload; each accepted frame allocates its own uniform ranges. Queue selection occurs in FrameComposer above PreparedRaster. Frame time is common Global data, while opaque and shadow camera inputs are independent Pass snapshots.
-
-The current adapter implements scalar/vector/mat4/int/uint material uniforms. Automatic material texture/sampler asset transport, arrays, deformation and a general material PSO cache are outside this implementation. Existing Lit lighting/IBL tests exercise the lit material category; this change does not implement a complete PBR model. Unsupported active resources must fail explicitly.
+Texture/sampler asset transport and skinning were added by the target-artifact and skeletal-animation changes. Descriptor arrays and a general material PSO cache remain separate work; old stage acceptance does not prove these later paths or native Metal changes. The later `remove-unused-legacy-rendergraph` change removes the unused compatibility templates; production remains on FrameGraph.
 
 The editor's ordinary asset deployment excludes the shader child directory, leaving the module collector as its sole owner. The assets container remains a real directory, so staging cannot write through an engine-source symlink.
 

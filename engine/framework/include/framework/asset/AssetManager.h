@@ -149,6 +149,7 @@ namespace sky {
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
         ProductStatus       EncodeProduct(const AssetPtr &asset, std::vector<uint8_t> &out) const;
 
+        std::vector<std::shared_ptr<const void>>                    moduleCode;
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>>            bundles;
 

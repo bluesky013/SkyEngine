@@ -49,13 +49,16 @@ namespace sky::editor {
         if (db == nullptr) {
             return;
         }
-        auto source = db->FindAsset(uuid);
+        Uuid owner;
+        if (!db->GetOwner(uuid, owner))
+            return;
+        auto source = db->FindAsset(owner);
         if (!source) {
             return;
         }
 
         const auto &cookCfg = sky::AssetBuilderManager::Get()->GetCookConfig();
-        const auto  targets = cookCfg.GetTargets(db->GetCookJson(uuid), cookCfg.GetActivePlatform());
+        const auto  targets = cookCfg.GetTargets(db->GetCookJson(owner), cookCfg.GetActivePlatform());
 
         EditorAssetCatalog::Get()->BeginCook(uuid, targets);
         db->BuildAllTargets(uuid);

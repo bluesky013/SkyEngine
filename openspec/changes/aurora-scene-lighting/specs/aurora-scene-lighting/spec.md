@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Pass-owned scene resource declarations
-Scene light, shadow and environment shader inputs SHALL be declared in their consuming Pass shared header under Global set 0, Pass set 1 and Batch set 2. PreparedRaster SHALL remain responsible for geometry and exact-version resolution only.
+Scene light, shadow and environment shader inputs SHALL be declared in their consuming Pass shared header under Global set 0, Pass set 1, Material set 2 and Batch set 3. PreparedRaster SHALL remain responsible for geometry and exact-version resolution only.
 
 #### Scenario: Missing scene input
 - **WHEN** an active shader requires a scene resource without an explicit binding or documented default

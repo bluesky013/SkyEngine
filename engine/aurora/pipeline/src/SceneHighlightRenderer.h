@@ -19,14 +19,13 @@ namespace sky::aurora {
     std::variant<FrameError, SceneHighlightData> ReadSceneHighlightInput(const FrameGraphBuildContext &, Name, ViewportId);
     class SceneHighlightRenderer {
     public:
+        FrameOperationResult Prepare(FrameFeaturePrepareContext &, ShaderFileSystem &, IFileSystem *);
         FrameOperationResult Render(FrameGraphBuildContext &,
                                     const FrameRenderTarget &,
                                     const Matrix4 &,
                                     GraphImageHandle sceneDepth,
                                     const SceneHighlightStyle &,
-                                    std::span<const ResolvedRasterDraw>,
-                                    ShaderFileSystem &,
-                                    IFileSystem *);
+                                    std::span<const ResolvedRasterDraw>);
         void                 Reset();
 
     private:

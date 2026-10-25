@@ -5,9 +5,7 @@
 
 - [x] 1.1 Record dispositions, workstream grouping, prerequisite graph, and cleanup checklist C1-C7 (see `design.md`)
 - [x] 1.2 Verify no dangling reference remains in this change's artifacts
-- [x] 1.3 Re-derive the snapshot to the current 23 active changes (C8): `asset-pipeline`/`add-static-python-embedding`
-      now archived; `export-preset-schema-source` created + archived; `add-game-project-build`,
-      `add-static-module-bundling`, `add-ios-platform`, `add-ios-uikit-backend` added (WS-BUILD)
+- [x] 1.3 Re-derive the snapshot to all 37 current non-archive changes (2026-10-26); record task counts, dispositions, real prerequisites and archive boundaries in design.md.
 
 ## 2. Unblock the aurora render hub
 

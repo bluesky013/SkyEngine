@@ -89,6 +89,7 @@ namespace sky::aurora {
         capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
 
         capability.minUniformBufferOffsetAlignment = gpuProperties.properties.limits.minUniformBufferOffsetAlignment;
+        capability.minStorageBufferOffsetAlignment = gpuProperties.properties.limits.minStorageBufferOffsetAlignment;
 
         // Vulkan NDC has +Y pointing down.
         capability.clipSpaceYDown = true;

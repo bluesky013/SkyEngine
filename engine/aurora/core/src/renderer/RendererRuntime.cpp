@@ -200,16 +200,36 @@ namespace sky::aurora {
                             return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires explicit techniques"};
                         std::set<Name> tags;
                         for (const auto &technique : payload.material->techniques) {
-                            const auto &program = technique.program;
-                            if (technique.tag.Empty() || !tags.insert(technique.tag).second || program.compute != nullptr ||
-                                program.backend != device->GetAPI() || !program.vertex || !program.fragment)
-                                return RendererError{RendererErrorCode::INVALID_PACKET,
-                                                     "Material requires unique Tags and graphics code for the backend"};
-                            if (const auto error = ValidateFrameShader(program))
-                                return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
-                            std::string error;
-                            if (!ValidateRenderMaterialParameters(program, technique.parameters, payload.resource.deviceEpoch, error))
-                                return RendererError{RendererErrorCode::INVALID_PACKET, std::move(error)};
+                            if (technique.tag.Empty() || !tags.insert(technique.tag).second)
+                                return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires unique nonempty Tags"};
+                            const auto validate = [&](const RenderTechniqueData &program) -> std::optional<RendererError> {
+                                if (program.compute || program.backend != device->GetAPI() || !program.vertex || !program.fragment)
+                                    return RendererError{RendererErrorCode::INVALID_PACKET, "Material requires graphics code for the backend"};
+                                if (const auto error = ValidateFrameShader(program))
+                                    return RendererError{RendererErrorCode::INVALID_PACKET, error->message};
+                                std::string error;
+                                if (!ValidateRenderMaterialParameters(program, technique.parameters, payload.resource.deviceEpoch, error))
+                                    return RendererError{RendererErrorCode::INVALID_PACKET, std::move(error)};
+                                return {};
+                            };
+                            if (const auto error = validate(technique.program))
+                                return error;
+                            std::set<std::tuple<bool, uint16_t, std::map<Name, uint32_t>>> selections;
+                            for (const auto &variant : technique.variants) {
+                                if (RenderMaterialInterfaceFingerprint(variant.program, 2) !=
+                                    RenderMaterialInterfaceFingerprint(technique.program, 2))
+                                    return RendererError{RendererErrorCode::INVALID_PACKET,
+                                                         "Material declaration changes across Pipeline or Vertex variants"};
+                                std::map<Name, uint32_t> pipeline;
+                                for (const auto &entry : variant.pipeline.entries)
+                                    if (entry.key.Empty() || !pipeline.emplace(entry.key, entry.value).second)
+                                        return RendererError{RendererErrorCode::INVALID_PACKET,
+                                                             "Material variant has duplicate or empty Pipeline keys"};
+                                if (!selections.emplace(variant.skinned, variant.vertexMask, std::move(pipeline)).second)
+                                    return RendererError{RendererErrorCode::INVALID_PACKET, "Material has duplicate variant selections"};
+                                if (const auto error = validate(variant.program))
+                                    return error;
+                            }
                         }
                     }
                 }
@@ -464,8 +484,9 @@ namespace sky::aurora {
                         }
                         if (readbackFailed)
                             events->Push(RendererFailure{found->second.sequence, {RendererErrorCode::INTERNAL_ERROR, "Readback mapping failed"}});
-                        else
+                        else {
                             events->Push(FrameCompleted{found->second.sequence, completion.token.serial});
+                        }
                     }
                     if (found != submissions.end())
                         submissions.erase(found);
@@ -660,18 +681,33 @@ namespace sky::aurora {
                 if (payload.material) {
                     PreparedMaterialTechniques material;
                     material.resource = payload.resource;
-                    for (const auto &technique : payload.material->techniques) {
-                        const auto &source  = technique.program;
-                        auto        created = CreateFrameShader(*device, source);
+                    const auto add    = [&](const RenderTechniqueData &source, const ShaderVariant &pipeline, bool skinned, bool pipelineAgnostic,
+                                         uint16_t vertexMask, Name tag, const RenderMaterialParameters &parameters) -> std::optional<RendererError> {
+                        auto created = CreateFrameShader(*device, source);
                         if (const auto *error = std::get_if<FrameError>(&created))
                             return Error(*error);
                         PreparedMaterialLayout layout;
-                        layout.resource   = payload.resource;
-                        layout.shader     = std::move(std::get<ShaderPtr>(created));
-                        layout.blend      = source.blend;
-                        layout.depth      = source.depth;
-                        layout.parameters = technique.parameters;
-                        material.techniques.emplace_back(technique.tag, std::move(layout));
+                        layout.resource         = payload.resource;
+                        layout.shader           = std::move(std::get<ShaderPtr>(created));
+                        layout.pipeline         = pipeline;
+                        layout.skinned          = skinned;
+                        layout.pipelineAgnostic = pipelineAgnostic;
+                        layout.vertexMask       = vertexMask;
+                        layout.blend            = source.blend;
+                        layout.depth            = source.depth;
+                        layout.parameters       = parameters;
+                        material.techniques.emplace_back(tag, std::move(layout));
+                        return {};
+                    };
+                    for (const auto &technique : payload.material->techniques) {
+                        if (!technique.variants.empty()) {
+                            for (const auto &variant : technique.variants)
+                                if (const auto error = add(variant.program, variant.pipeline, variant.skinned, false, variant.vertexMask,
+                                                           technique.tag, technique.parameters))
+                                    return error;
+                        } else if (const auto error = add(technique.program, {}, false, true, 0, technique.tag, technique.parameters)) {
+                            return error;
+                        }
                     }
                     materials[key] = std::move(material);
                 }
@@ -820,6 +856,37 @@ namespace sky::aurora {
                 builder.Reset();
                 Discard(work, error);
             };
+            class FeaturePreparation final : public FrameFeaturePrepareContext {
+            public:
+                FeaturePreparation(Device &device, RendererInfo info, const FrameBuildInputs &inputs) : device(device), info(info), inputs(inputs)
+                {
+                }
+                RendererInfo GetRendererInfo() const override
+                {
+                    return info;
+                }
+                const FrameBuildInputs &GetInputs() const override
+                {
+                    return inputs;
+                }
+                std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &source) override
+                {
+                    return CreateFrameShader(device, source);
+                }
+
+            private:
+                Device                 &device;
+                RendererInfo            info;
+                const FrameBuildInputs &inputs;
+            } preparation(*device, events->info, frame.inputs);
+            std::erase_if(frame.features, [](const auto &feature) { return !feature.CanBuild(); });
+            for (const auto &feature : frame.features) {
+                const auto prepared = feature.lease->registration.feature->Prepare(preparation);
+                if (const auto *error = std::get_if<FrameError>(&prepared)) {
+                    fail(*error);
+                    return;
+                }
+            }
             std::vector<ResourceTicket> requested;
             for (const auto &[key, ticket] : tickets)
                 requested.push_back(ticket);
@@ -1095,8 +1162,9 @@ namespace sky::aurora {
                 if (work.sequence) {
                     if (terminal)
                         events->Push(RendererFailure{work.sequence, *terminal});
-                    else
+                    else {
                         events->Push(FrameCompleted{work.sequence, 0});
+                    }
                 }
                 return;
             }

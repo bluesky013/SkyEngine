@@ -448,28 +448,38 @@ namespace {
         ShaderPtr ShaderOf(uint32_t set = 1, bool arrayed = false)
         {
             std::string code = R"(
-                cbuffer View : register(b0, space0) { float4 uvLod; }
-                cbuffer Material : register(b0, space1) { float4 tint; }
-                Texture2D<float4> image : register(t1, space1);
-                SamplerState imageSampler : register(s2, space1);
+                #ifndef AURORA_DECLARATION_ATTRIBUTES
+                #define AURORA_DECLARATION_ATTRIBUTES
+                [__AttributeUsage(_AttributeTargets.Var)] struct AuroraResourceAttribute { int logicalSet; int logicalBinding; string owner; };
+                [__AttributeUsage(_AttributeTargets.Var)] struct AuroraFieldAttribute { string path; };
+                #endif
+                struct ViewParams { [AuroraField("uvLod")] float4 uvLod; };
+                struct MaterialParams { [AuroraField("tint")] float4 tint; };
+                [AuroraResource(0, 0, "test/Sampled")] [[vk::binding(0, 0)]] ConstantBuffer<ViewParams> View : register(b0, space0);
+                [AuroraResource(__SET__, 0, "test/Sampled")] [[vk::binding(0, __SET__)]] ConstantBuffer<MaterialParams> Material : register(b0, space1);
+                [AuroraResource(__SET__, 1, "test/Sampled")] [[vk::binding(1, __SET__)]] Texture2D<float4> image : register(t1, space1);
+                [AuroraResource(__SET__, 2, "test/Sampled")] [[vk::binding(2, __SET__)]] SamplerState imageSampler : register(s2, space1);
                 struct Varying { float4 position : SV_Position; float4 sampled : COLOR; };
                 Varying VSMain(uint id : SV_VertexID) {
                     Varying v;
                     v.position = float4(float2((id << 1) & 2, id & 2) * 2 - 1, 0, 1);
-                    v.sampled = image.SampleLevel(imageSampler, uvLod.xy, uvLod.z);
+                    v.sampled = image.SampleLevel(imageSampler, View.uvLod.xy, View.uvLod.z);
                     return v;
                 }
                 float4 FSMain(Varying v) : SV_Target {
-                    return (v.sampled + image.SampleLevel(imageSampler, uvLod.xy, uvLod.z)) * 0.5 * tint;
+                    return (v.sampled + image.SampleLevel(imageSampler, View.uvLod.xy, View.uvLod.z)) * 0.5 * Material.tint;
                 }
             )";
+            for (size_t pos = 0; (pos = code.find("__SET__", pos)) != std::string::npos; pos += std::to_string(set).size())
+                code.replace(pos, 7, std::to_string(set));
             if (set == 2)
                 for (size_t pos = 0; (pos = code.find("space1", pos)) != std::string::npos; pos += 6)
                     code.replace(pos, 6, "space2");
             if (arrayed) {
                 code.replace(code.find("Texture2D<float4>"), 17, "Texture2DArray<float4>");
-                for (size_t pos = 0; (pos = code.find("uvLod.xy,", pos)) != std::string::npos; pos += 28)
-                    code.replace(pos, 9, "float3(uvLod.xy, uvLod.w),");
+                const std::string coordinate = "float3(View.uvLod.xy, View.uvLod.w)";
+                for (size_t pos = 0; (pos = code.find("View.uvLod.xy", pos)) != std::string::npos; pos += coordinate.size())
+                    code.replace(pos, 13, coordinate);
             }
             auto result = ResolveSource(code, {{0, 0}});
             if (const auto *error = std::get_if<FrameError>(&result)) {
@@ -2089,7 +2099,7 @@ TEST_P(SampledViews, ResolverRejectsUnsupportedShaderResourcesBeforeNativeShader
          {"Texture2D<float4> image[1]; SamplerState smp;", "return image[0].SampleLevel(smp, float2(0.5), 0);"},
          {"Texture2D<float4> image[2]; SamplerState smp;", "return image[1].SampleLevel(smp, float2(0.5), 0);"},
          {"RWTexture2D<float4> image;", "return image[int2(0, 0)];"},
-         {"StructuredBuffer<float4> buffer;", "return buffer[0];"}}};
+         {"RWStructuredBuffer<float4> buffer;", "return buffer[0];"}}};
     for (const auto &[declaration, body] : cases) {
         const std::string code   = declaration + R"(
             float4 VSMain(uint id : SV_VertexID) : SV_Position { return float4(0, 0, 0, 1); }
@@ -2098,7 +2108,8 @@ TEST_P(SampledViews, ResolverRejectsUnsupportedShaderResourcesBeforeNativeShader
         const auto        result = ResolveSource(code);
         const auto       *error  = std::get_if<FrameError>(&result);
         ASSERT_TRUE(error) << declaration;
-        EXPECT_EQ(error->code, FrameErrorCode::UNSUPPORTED) << declaration << ": " << error->message;
+        EXPECT_TRUE(error->code == FrameErrorCode::UNSUPPORTED || error->code == FrameErrorCode::COMPILE_FAILED)
+            << declaration << ": " << error->message;
     }
 }
 

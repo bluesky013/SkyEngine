@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <core/environment/Once.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -26,8 +25,6 @@ namespace sky::editor {
 
     void ViewportControlSettings::Reflect()
     {
-        if (!Once::Get()->Run("ViewportControlSettings"))
-            return;
         SerializationContext::Get()
             ->Register<ViewportControlSettings>("ViewportControlSettings")
             .Member<&ViewportControlSettings::speed>("speed")

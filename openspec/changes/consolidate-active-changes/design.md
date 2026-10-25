@@ -1,158 +1,78 @@
-> 2026-10-26：旧 RenderGraph 及其 PipelinePass 模板已退役；相关旧模板目标不再实施，参见 `remove-unused-legacy-rendergraph`。其余目标维持原验收状态。
+## Current snapshot — 2026-10-26
 
-## Context
+This snapshot replaces the former 23-change table. The original 37-directory audit is extended by `remove-unused-legacy-rendergraph`, and the two extracted prerequisites `refactor-asset-product-transactions` and `fix-animation-sampling-validation`, for 40 active directories. Checked tasks do not imply semantic consistency, all-platform acceptance or archive approval. No change directory is moved, deleted or merged.
 
-`openspec/changes/` currently holds **23 active** change directories on top of a large archive (151 entries).
-Reading the active set shows five problems:
+## Dispositions and workstreams
 
-1. **Prerequisites are already archived but the dependent change is still listed as ordinary backlog**
-   (e.g. `add-network-prediction` sits on archived `add-network-core`/`add-network-replication`;
-   `aurora-scene-bridge` sits on archived `harden-framework-components`; `add-static-module-bundling` sits on
-   archived `add-project-native-layout`).
-2. **Frozen / debt records are mixed in with scheduled work** (`lazy-transform-update` is explicitly frozen;
-   `aurora-cook-schema-layering` and `aurora-metal-bindless-descriptor-heap` declare themselves
-   "proposal (unimplemented)"; `legacy-render-thirdparty-cleanup` has since become a scheduled retirement change).
-3. **Overlaps and splits** (two framework-to-aurora scene seams; taskflow/boost removal spread over three
-   changes).
-4. **Dangling references** to changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`,
-   `navigation-path-query`, `aurora-material-pso`).
-5. **Live drift**: the snapshot must be re-derived, not treated as frozen truth. Since the first snapshot the set
-   changed materially: `asset-pipeline` and `add-static-python-embedding` were archived; `export-preset-schema-source`
-   was created and archived; and `add-game-project-build`, `add-static-module-bundling`, `add-ios-platform`,
-   `add-ios-uikit-backend` joined the active set.
+The fixed dispositions are active, blocked-on-prereq, frozen, debt-record and superseded. The workstream column assigns every current change; named prerequisites below are existing active changes. Platform/device availability is an acceptance gate, not a fictitious change dependency.
 
-Constraints: `AGENTS.md` requires explicit user confirmation before archiving, and requires spec and code for a
-change to ship together. This change records the snapshot and the cleanup checklist; the non-destructive cleanup
-items (C1 parking labels, C3 reference rewording, C4 superseded-row trimming, C5-C7 decision records) have been
-applied with user approval. No change directory was archived by this change.
+| Change | Disposition | Workstream | Checked/total | Remaining boundary |
+|---|---|---|---|---|
+| `add-android-python-runtime` | active | Platform/build | 14/20 | Retain unchecked implementation or acceptance gates. |
+| `add-ios-platform` | active | Platform/build | 0/10 | Retain unchecked implementation or acceptance gates. |
+| `add-ios-uikit-backend` | active | Platform/build | 8/13 | Retain unchecked implementation or acceptance gates. |
+| `add-network-prediction` | active | Other foundation | 0/15 | Retain unchecked implementation or acceptance gates. |
+| `add-python-ssl` | active | Platform/build | 15/20 | Retain unchecked implementation or acceptance gates. |
+| `add-skeletal-animation-workflow` | active | Animation | 50/74 | Retain unchecked implementation or acceptance gates. |
+| `animation-events` | active | Animation | 0/10 | Proposal has no delta; design work remains, not archive-ready. |
+| `audio-animation-bridge` | blocked-on-prereq | Audio/Animation | 0/10 | Requires animation-events; proposal has no delta. |
+| `audio-world-integration` | blocked-on-prereq | Audio/World | 0/8 | Requires aurora-scene-bridge completion; proposal has no delta. |
+| `aurora-compute-custom-passes` | active | Aurora | 52/55 | Retain unchecked implementation or acceptance gates. |
+| `aurora-cook-schema-layering` | debt-record | Aurora layering | 0/7 | Not scheduled; proposal has no delta and is not archive-ready. |
+| `aurora-metal-bindless-descriptor-heap` | debt-record | RHI | 0/8 | Not scheduled; DirectArguments is the current path. |
+| `aurora-navigation-integration` | active | Aurora | 0/8 | Proposal has no delta; design work remains, not archive-ready. |
+| `aurora-renderer-extensions` | debt-record | Aurora extension | 0/5 | Not scheduled; retain unimplemented extension acceptance. |
+| `aurora-renderer-platform-parity` | active | Aurora | 12/48 | Retain unchecked implementation or acceptance gates. |
+| `aurora-scene-bridge` | active | Aurora | 15/16 | Retain unchecked implementation or acceptance gates. |
+| `aurora-scene-lighting` | active | Aurora | 16/17 | Retain unchecked implementation or acceptance gates. |
+| `aurora-world-editor` | active | Aurora | 9/9 | Tasks checked; archive still needs scope/merge review and user confirmation. |
+| `consolidate-active-changes` | active | Other foundation | 12/12 | Tasks checked; archive still needs scope/merge review and user confirmation. |
+| `fix-animation-sampling-validation` | active | Animation | 5/5 | Isolated algorithms passed 64 tests; archive still requires user confirmation. |
+| `refactor-asset-product-transactions` | active | Framework assets | 5/6 | Isolated Framework passed 204 tests; native non-Windows filesystem acceptance remains open. |
+| `fix-aurora-pass-resource-contract` | active | Aurora | 23/25 | Retain unchecked implementation or acceptance gates. |
+| `fix-editor-skipped-frame-fence` | active | Editor | 8/9 | Retain unchecked implementation or acceptance gates. |
+| `fix-editor-surface-gpu-teardown` | active | Editor | 8/9 | Retain unchecked implementation or acceptance gates. |
+| `fix-sandbox-project-creation` | active | Editor | 10/10 | Tasks checked; archive still needs scope/merge review and user confirmation. |
+| `lazy-transform-update` | frozen | Framework debt | 0/18 | Not scheduled; preserve the explicit freeze. |
+| `navigation-terrain-build-tests` | active | Other foundation | 0/9 | Retain unchecked implementation or acceptance gates. |
+| `refactor-aurora-framegraph-internals` | active | Aurora | 7/8 | Retain unchecked implementation or acceptance gates. |
+| `remove-unused-legacy-rendergraph` | active | Aurora cleanup | 7/8 | Unused old graph/templates removed; fresh regression and native Metal gate recorded in that change. |
+| `refactor-aurora-pipeline-resource-ownership` | active | Shader | 43/43 | Tasks checked; archive still needs scope/merge review and user confirmation. |
+| `refactor-aurora-shader-source-techniques` | active | Shader | 22/23 | Retain unchecked implementation or acceptance gates. |
+| `refactor-aurora-shared-pass-headers` | superseded | Shader | 8/8 | Current contract carried by pipeline-resource-ownership and target-shader-artifacts; old validation remains historical. |
+| `refactor-aurora-slang-usage` | active | Aurora | 8/61 | Retain unchecked implementation or acceptance gates. |
+| `refactor-aurora-target-shader-artifacts` | active | Shader | 44/50 | Retain unchecked implementation or acceptance gates. |
+| `refactor-process-owned-reflection` | active | Other foundation | 13/13 | Tasks checked; archive still needs scope/merge review and user confirmation. |
+| `sync-editor-surface-textures` | active | Editor | 10/11 | Retain unchecked implementation or acceptance gates. |
+| `terrain-aurora-render` | active | Aurora | 0/18 | Retain unchecked implementation or acceptance gates. |
+| `terrain-editor-tools` | blocked-on-prereq | Terrain | 0/7 | Requires terrain-aurora-render. |
+| `vegetation-aurora-render` | active | Aurora | 0/12 | Retain unchecked implementation or acceptance gates. |
+| `vegetation-editor-tools` | blocked-on-prereq | Vegetation | 0/5 | Requires vegetation-aurora-render. |
 
-## Goals / Non-Goals
+## Prerequisite order
 
-**Goals:**
+- animation-events → audio-animation-bridge.
+- aurora-scene-bridge → audio-world-integration.
+- terrain-aurora-render → terrain-editor-tools; vegetation-aurora-render → vegetation-editor-tools.
+- Shader contract order: shared-pass-headers → pipeline-resource-ownership → target-shader-artifacts → shader-source-techniques. Earlier active deltas must not overwrite later four-group, target ABI or typed-selection decisions.
+- add-skeletal-animation-workflow consumes the current shader contracts and refactor-process-owned-reflection; check their shared files when constructing intermediate commits.
+- Renderer foundation has already landed. Terrain, vegetation and navigation need their own implementation/capability checks; they must not wait for an unimplemented Renderer hub that no longer exists.
 
-- Give every active change exactly one disposition from a fixed vocabulary.
-- Group active changes into prerequisite-ordered workstreams and make the real gating graph explicit.
-- Record a concrete, itemized cleanup checklist (each item with a disposition and whether it needs confirmation).
-- Define the end-state criterion for "consolidated".
+## Cleanup checklist
 
-**Non-Goals:**
+| Target | Disposition/action | Confirmation |
+|---|---|---|
+| Current shader and reflection deltas | Reconcile existing main requirements and preview merges; retain platform gates | No archive performed |
+| refactor-process-owned-reflection, aurora-world-editor, fix-sandbox-project-creation | Eligible for explicit archive review after commit-boundary review | Required before archive and commit |
+| refactor-aurora-shared-pass-headers, refactor-aurora-pipeline-resource-ownership | Review supersession and historical implementation scope; do not infer readiness from 8/8 or 43/43 | Required before archive |
+| add-skeletal-animation-workflow and both current shader changes | Keep incomplete native/manual acceptance open | Not archive-ready |
+| animation-events, audio-animation-bridge, audio-world-integration, aurora-cook-schema-layering, aurora-navigation-integration | No delta exists; retain as design/debt records, do not invent completed specs to silence validation | No archive proposed |
+| Frozen/debt rows above | Keep explicitly not scheduled | Confirmation required to archive |
 
-- No engine/plugin/CMake/third-party code and no runtime behavior change.
-- Do not modify, archive, or merge any other change directory in this change.
-- Do not re-litigate capability designs of the underlying changes.
+## Historical decisions retained
 
-## Decisions
+The earlier C1–C8 cleanup parked debt, repaired dangling planning references and clarified the scene seam. It did not archive directories. The 23-change count and Renderer-proposal-only prerequisite were historical snapshots, not the current backlog. Network prediction still coexists with the archived lockstep design; the selected prediction model is not reversed here.
 
-### Decision: Fixed disposition vocabulary
+## Acceptance boundary
 
-Each active change is classified as one of:
-
-- **active** — prerequisites met, may proceed now.
-- **blocked-on-prereq** — valid, but gated by a named, still-existing prerequisite.
-- **frozen** — an explicit decision not to schedule; retained for reference.
-- **debt-record** — an unimplemented record of known debt/roadmap; reference only until triggered.
-- **superseded** — its content is (partly) delivered elsewhere; needs trimming, not implementation here.
-
-Alternatives considered: a free-form prose summary (rejected: not checkable), or a single "keep/delete" flag
-(rejected: loses the frozen-vs-debt distinction that drives the cleanup action).
-
-### Decision: Nine workstreams
-
-| ID | Workstream | Members |
-|----|------------|---------|
-| WS-PYTHON | Python static runtime | `add-android-python-runtime`, `add-python-ssl` (base `add-static-python-embedding` archived) |
-| WS-AURORA | Aurora render loop (hub) | `aurora-renderer`, `aurora-scene-bridge`, `aurora-navigation-integration` |
-| WS-WORLD | Terrain / vegetation render + editor tools | `terrain-aurora-render`, `terrain-editor-tools`, `vegetation-aurora-render`, `vegetation-editor-tools`, `navigation-terrain-build-tests` |
-| WS-AUDIO | Audio / animation | `animation-events`, `audio-animation-bridge`, `audio-world-integration` |
-| WS-NET | Network | `add-network-prediction` |
-| WS-BUILD | Packaging / platform / build | `add-game-project-build`, `add-static-module-bundling`, `add-ios-platform`, `add-ios-uikit-backend` |
-| WS-RHI | Aurora RHI backlog | `aurora-metal-bindless-descriptor-heap` |
-| WS-DEBT | Framework / build debt (parked) | `lazy-transform-update`, `aurora-cook-schema-layering` |
-| WS-META | Backlog hygiene | `consolidate-active-changes` |
-
-### Decision: Classification snapshot
-
-| Change | Disposition | Notes |
-|--------|-------------|-------|
-| `add-android-python-runtime` | active | 14/20; prereq `add-static-python-embedding` archived |
-| `add-python-ssl` | active | 15/20; prereq `add-static-python-embedding` archived |
-| `animation-events` | active | 0/10 but unblocked; gates `audio-animation-bridge` |
-| `audio-animation-bridge` | blocked-on-prereq | on `animation-events` |
-| `audio-world-integration` | blocked-on-prereq | on `aurora-renderer` (world/scene attach path) |
-| `aurora-renderer` | active (needs completion) | proposal-only; no `tasks.md`/`design.md`/`specs/` |
-| `aurora-scene-bridge` | blocked-on-prereq | on `aurora-renderer`; seam overlap to resolve |
-| `aurora-navigation-integration` | blocked-on-prereq | on `aurora-renderer`; missing spec/design |
-| `aurora-metal-bindless-descriptor-heap` | debt-record | long-horizon; upstream slang dependency |
-| `aurora-cook-schema-layering` | debt-record | layering debt; no spec delta |
-| `legacy-render-thirdparty-cleanup` | active | scheduled legacy render/shader/editor + third-party retirement; 0/29 |
-| `lazy-transform-update` | frozen | explicit "Frozen (not scheduled)" |
-| `navigation-terrain-build-tests` | active | test-only; prereq `terrain-navigation-integration` archived |
-| `terrain-aurora-render` | blocked-on-prereq | on `aurora-renderer` |
-| `terrain-editor-tools` | blocked-on-prereq | on aurora sandbox editor + `terrain-aurora-render` |
-| `vegetation-aurora-render` | blocked-on-prereq | on `aurora-renderer` |
-| `vegetation-editor-tools` | blocked-on-prereq | on aurora sandbox editor + `vegetation-aurora-render` |
-| `add-network-prediction` | active | prereqs archived; needs rebase decision vs `network-lockstep` |
-| `add-game-project-build` | active | 17/27; in progress |
-| `add-static-module-bundling` | active | 0/16; prereq `add-project-native-layout` archived |
-| `add-ios-platform` | active | 0/10 |
-| `add-ios-uikit-backend` | active | 8/13 |
-| `consolidate-active-changes` | active (meta) | this change |
-
-### Decision: Prerequisite graph
-
-- `add-static-python-embedding` (ARCHIVED) -> `add-android-python-runtime` -> `add-python-ssl`
-- `aurora-renderer` -> `aurora-scene-bridge`, `terrain-aurora-render`, `vegetation-aurora-render`,
-  `audio-world-integration`, `aurora-navigation-integration`
-- `terrain-aurora-render` -> `terrain-editor-tools`
-- `vegetation-aurora-render` -> `vegetation-editor-tools`
-- `animation-events` -> `audio-animation-bridge`
-- `add-project-native-layout` (ARCHIVED) -> `add-static-module-bundling`
-- `add-packaged-asset-bundles` (ARCHIVED) -> `add-game-project-build` packaging path
-
-The single highest-leverage prerequisite is `aurora-renderer`: it gates the whole WS-WORLD workstream plus the
-audio-world and navigation-integration attach paths. It is proposal-only, so making it actionable is the primary
-unblocking action.
-
-### Decision: Cleanup checklist (C1-C7; decisions recorded)
-
-- **C1 — Park frozen/debt (decided): labeled "not scheduled", no archive.**
-- **C2 — Proposal-only: `aurora-renderer` needs design/specs/tasks (owner: user).**
-- **C3 — Dangling refs (done): 3 active ones reworded to "not yet a change"; `aurora-renderer` ref owner: user.**
-- **C4 — Superseded rows (done): delivered rows marked; deferrals marked "no tracking change yet".**
-- **C5 — Network (decided): `add-network-prediction` coexists with archived `network-lockstep`; prediction is the active model.**
-- **C6 — Scene seam (decided): `aurora-renderer` owns `RenderSceneProxy`; `aurora-scene-bridge` transfers data only.**
-- **C7 — Follow-ups (decided): no new tracking changes; missing items stay as "not yet a change" notes.**
-- **C8 — Snapshot re-derivation (done): re-derived to the current 23 active changes after mid-flight archives and
-  additions (see Context #5); `export-preset-schema-source` landed and archived cleanly.**
-
-### Decision: End-state criterion
-
-Consolidation is complete when the active set contains only changes that are `active` or
-`blocked-on-prereq` with a named, existing prerequisite; every `frozen`/`debt-record` change is explicitly
-labeled as not scheduled (or archived); and no active change references a nonexistent change.
-
-## Risks / Trade-offs
-
-- [Archiving frozen/debt changes loses recorded rationale] -> Mitigation: prefer label-as-parked over archive;
-  if archived, first capture the rationale in `openspec/specs/` or this design.
-- [Physical merge of directories is risky and loses history] -> Mitigation: explicitly deferred; this change
-  only classifies and lists.
-- [The snapshot goes stale quickly] -> Mitigation: treat the checklist as tasks that are re-validated when
-  executed, not a frozen truth (C8 re-derived it once already).
-- [Unresolved `aurora-renderer` overlap blocks the largest workstream] -> Mitigation: make completing
-  `aurora-renderer` and resolving C6 the top-priority unblocking tasks.
-
-## Migration Plan
-
-1. Record the snapshot (this change's artifacts).
-2. For each checklist item, perform the operation separately with explicit confirmation (C1 requires user
-   confirmation before any archive).
-3. Re-derive the active list and confirm the end-state criterion holds. Rollback: no destructive operation is
-   performed by this change, so reverting is a no-op.
-
-
-## Aurora 状态校正（2026-10-17）
-
-上文 23 项分类是历史快照。C2 的 design/specs/tasks 和 C3 的不存在材质 change 引用均已解决。aurora-renderer 的 Windows B01–B14/P01 已验收，待用户确认部分范围归档；aurora-renderer-layout 为 8/8。aurora-scene-bridge 现为 active，Windows 前置已解除；新增 aurora-renderer-platform-parity 为 blocked-on-prereq（Mac/原生设备），aurora-renderer-extensions 为 debt-record。新增记录仅为保留本次归档的实际余项，未将历史 C7 的其它设计缺口批量新建。
-
-terrain/vegetation 的 CPU/render-feature 接缝可基于现有主线设计，但它们要求的 compute/indirect/完整材质仍未实现；不能把基础 Renderer 完成视为这些 feature 已可完整交付。navigation 的 Renderer 基础门已解除，仍需本 change 的适配设计。audio-world 的 World 提取前置应看 aurora-scene-bridge，而不是重新等待 Renderer 主循环。
+Snapshot coverage, task counts, prerequisite names, delta mergeability and semantic/code evidence are separate checks. Recompute the table when the active set changes. An archive candidate still needs explicit user approval and a commit plan satisfying implementation-plus-spec ownership; a separate archive-only feature commit is not implied.

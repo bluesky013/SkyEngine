@@ -23,7 +23,6 @@ namespace sky::aurora {
         AuroraModule(std::unique_ptr<IRendererProvider>, FileSystemPtr bundle);
         ~AuroraModule() override;
 
-        void RegisterMeta() override;
         bool Init(const sky::StartArguments &args) override;
         void Start() override;
         void Tick(float delta) override;
