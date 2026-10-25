@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2025/6/2.
 //
 
-#include "animation/core/Skeleton.h"
+#include <animation/core/Skeleton.h>
 
 #include <animation/core/Animation.h>
 #include <animation/core/AnimationCondition.h>
@@ -24,16 +24,17 @@ TEST(AnimationTest, AnimationChannelFloatCompressTest)
 
     data.Compress();
 
-    ASSERT_EQ(data.times.size(), 3);
-    ASSERT_EQ(data.keys.size(), 3);
+    ASSERT_EQ(data.times.size(), 4);
+    ASSERT_EQ(data.keys.size(), 4);
 
     ASSERT_EQ(data.times[0], 0);
     ASSERT_EQ(data.times[1], 1);
-    ASSERT_EQ(data.times[2], 3);
+    ASSERT_EQ(data.times[2], 2);
+    ASSERT_EQ(data.times[3], 3);
 
     ASSERT_FLOAT_EQ(data.keys[0], 3.0f);
     ASSERT_FLOAT_EQ(data.keys[1], 3.5f);
-    ASSERT_FLOAT_EQ(data.keys[2], 4.0f);
+    ASSERT_FLOAT_EQ(data.keys[3], 4.0f);
 }
 
 TEST(AnimationTest, AnimationChannelVecCompressTest)
@@ -45,20 +46,21 @@ TEST(AnimationTest, AnimationChannelVecCompressTest)
 
     data.Compress();
 
-    ASSERT_EQ(data.times.size(), 3);
-    ASSERT_EQ(data.keys.size(), 3);
+    ASSERT_EQ(data.times.size(), 4);
+    ASSERT_EQ(data.keys.size(), 4);
 
     ASSERT_EQ(data.times[0], 0);
     ASSERT_EQ(data.times[1], 1);
-    ASSERT_EQ(data.times[2], 3);
+    ASSERT_EQ(data.times[2], 2);
+    ASSERT_EQ(data.times[3], 3);
 
     ASSERT_FLOAT_EQ(data.keys[0].x, 3.0f);
     ASSERT_FLOAT_EQ(data.keys[1].x, 3.5f);
-    ASSERT_FLOAT_EQ(data.keys[2].x, 4.0f);
+    ASSERT_FLOAT_EQ(data.keys[3].x, 4.0f);
 
     ASSERT_FLOAT_EQ(data.keys[0].y, 3.0f);
     ASSERT_FLOAT_EQ(data.keys[1].y, 3.5f);
-    ASSERT_FLOAT_EQ(data.keys[2].y, 4.0f);
+    ASSERT_FLOAT_EQ(data.keys[3].y, 4.0f);
 
 }
 
@@ -557,9 +559,9 @@ TEST(AnimationTest, AnimationSequencePlayerRateTest)
     player.Tick(1.f);
     ASSERT_NEAR(player.GetCurrentTime(), 0.5f, 1e-5f);
 
-    player.SetPlayRate(-1.f);
+    ASSERT_FALSE(player.SetPlayRate(-1.f));
     player.Tick(1.f);
-    ASSERT_NEAR(player.GetCurrentTime(), 0.f, 1e-5f);
+    ASSERT_NEAR(player.GetCurrentTime(), 1.f, 1e-5f);
 }
 
 TEST(AnimationTest, AnimationSequencePlayerLoopTest)

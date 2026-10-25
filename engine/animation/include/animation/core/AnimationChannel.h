@@ -4,10 +4,11 @@
 
 #pragma once
 
+#include <animation/core/AnimationStatus.h>
 #include <animation/core/AnimationTypes.h>
-#include <core/template/ReferenceObject.h>
-#include <core/name/Name.h>
 #include <core/math/Transform.h>
+#include <core/name/Name.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky {
 
@@ -15,16 +16,33 @@ namespace sky {
 
     class AnimationChannel : public RefObject {
     public:
-        explicit AnimationChannel(const Name &name_) : name(name_) {} // NOLINT
+        explicit AnimationChannel(const Name &name_) : name(name_)
+        {
+        } // NOLINT
         ~AnimationChannel() override = default;
 
         virtual void Sample(const SampleParam &param, Transform &trans) = 0;
 
-        FORCEINLINE const Name& GetName() const { return name; }
+        FORCEINLINE const Name &GetName() const
+        {
+            return name;
+        }
 
-        virtual AnimTimeKey GetLastKeyTime() const { return -1; }
+        virtual AnimTimeKey GetLastKeyTime() const
+        {
+            return -1;
+        }
+        virtual AnimationStatus Validate() const
+        {
+            return {};
+        }
 
-        virtual void BuildTrackData(AnimationTrackData& out, uint16_t bone) const { (void)out; (void)bone; }
+        virtual void BuildTrackData(AnimationTrackData &out, uint16_t bone) const
+        {
+            (void)out;
+            (void)bone;
+        }
+
     protected:
         Name name;
     };

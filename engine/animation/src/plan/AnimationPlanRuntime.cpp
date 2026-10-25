@@ -2,16 +2,16 @@
 // Created by blues on 2026/9/21.
 //
 
-#include <animation/plan/AnimationPlanRuntime.h>
+#include <animation/core/Skeleton.h>
 #include <animation/graph/AnimationClipNode.h>
 #include <animation/graph/PoseBlendNode.h>
-#include <animation/core/Skeleton.h>
+#include <animation/plan/AnimationPlanRuntime.h>
 
 namespace sky {
 
     AnimationPlanRuntime::~AnimationPlanRuntime() = default;
 
-    bool AnimationPlanRuntime::Compile(AnimNode* root, const Skeleton& skeleton)
+    bool AnimationPlanRuntime::Compile(AnimNode *root, const Skeleton &skeleton)
     {
         diagnostics.clear();
         clipBindings.clear();
@@ -21,7 +21,7 @@ namespace sky {
         compiled = false;
 
         std::vector<Transform> bindPose = skeleton.GetRefPos()->transforms;
-        AnimationPlanBuilder builder(static_cast<uint32_t>(skeleton.GetNumBones()), bindPose);
+        AnimationPlanBuilder   builder(static_cast<uint32_t>(skeleton.GetNumBones()), bindPose);
 
         if (!skeleton.GetRoots().empty()) {
             builder.SetRootBone(skeleton.GetRoots().front()->index);
@@ -42,7 +42,7 @@ namespace sky {
         builder.SetOutputSlot(outputSlot);
 
         AnimOpRecord outputOp;
-        outputOp.op = AnimOp::Output;
+        outputOp.op     = AnimOp::Output;
         outputOp.output = static_cast<uint16_t>(outputSlot);
         builder.EmitOp(outputOp);
 
@@ -51,9 +51,9 @@ namespace sky {
             return false;
         }
 
-        clipBindings = builder.GetClipBindings();
+        clipBindings  = builder.GetClipBindings();
         blendBindings = builder.GetBlendBindings();
-        listBindings = builder.GetListBindings();
+        listBindings  = builder.GetListBindings();
         stateBindings = builder.GetStateBindings();
 
         frameState.Resize(plan.GetNumTimeSlots(), plan.GetNumWeightSlots(), plan.GetNumOps());
@@ -65,13 +65,13 @@ namespace sky {
     {
         AnimContext context{};
 
-        for (AnimationClipBinding& binding : clipBindings) {
+        for (AnimationClipBinding &binding : clipBindings) {
             if (binding.node != nullptr) {
                 binding.node->InitAny(context);
             }
         }
 
-        for (AnimationStateBinding& binding : stateBindings) {
+        for (AnimationStateBinding &binding : stateBindings) {
             if (binding.node != nullptr) {
                 binding.node->InitAny(context);
             }
@@ -80,12 +80,15 @@ namespace sky {
         UpdateStateOps();
     }
 
-    void AnimationPlanRuntime::Tick(float deltaTime)
+    AnimationStatus AnimationPlanRuntime::Tick(float deltaTime)
     {
+        if (!std::isfinite(deltaTime) || deltaTime < 0.f) {
+            return {AnimationError::InvalidPlayback, "plan delta must be finite and nonnegative"};
+        }
         AnimLayerContext context{};
 
-        for (AnimationClipBinding& binding : clipBindings) {
-            AnimationClipNode* node = binding.node;
+        for (AnimationClipBinding &binding : clipBindings) {
+            AnimationClipNode *node = binding.node;
             if (node == nullptr) {
                 continue;
             }
@@ -98,8 +101,8 @@ namespace sky {
             }
         }
 
-        for (AnimationBlendBinding& binding : blendBindings) {
-            PoseBlend2Node* node = binding.node;
+        for (AnimationBlendBinding &binding : blendBindings) {
+            PoseBlend2Node *node = binding.node;
             if (node == nullptr) {
                 continue;
             }
@@ -108,8 +111,8 @@ namespace sky {
             frameState.weights[binding.weightSlot] = node->GetBlendedAlpha();
         }
 
-        for (AnimationListBinding& binding : listBindings) {
-            PoseBlendNodeList* node = binding.node;
+        for (AnimationListBinding &binding : listBindings) {
+            PoseBlendNodeList *node = binding.node;
             if (node == nullptr) {
                 continue;
             }
@@ -128,13 +131,14 @@ namespace sky {
             }
         }
 
-        for (AnimationStateBinding& binding : stateBindings) {
+        for (AnimationStateBinding &binding : stateBindings) {
             if (binding.node != nullptr) {
                 binding.node->UpdateControl(context, deltaTime);
             }
         }
 
         UpdateStateOps();
+        return {};
     }
 
     void AnimationPlanRuntime::UpdateStateOps()
@@ -145,18 +149,18 @@ namespace sky {
 
         frameState.SetAllOpsEnabled(plan.GetNumOps());
 
-        for (AnimationStateBinding& binding : stateBindings) {
+        for (AnimationStateBinding &binding : stateBindings) {
             if (binding.node == nullptr) {
                 continue;
             }
 
-            for (const AnimStateOpRange& range : binding.stateOpRanges) {
+            for (const AnimStateOpRange &range : binding.stateOpRanges) {
                 frameState.DisableOps(range.firstOp, range.lastOp);
             }
 
             const AnimHandle active = binding.node->GetCurrentStateHandle();
             if (active < binding.stateOpRanges.size()) {
-                const AnimStateOpRange& range = binding.stateOpRanges[active];
+                const AnimStateOpRange &range = binding.stateOpRanges[active];
                 frameState.EnableOps(range.firstOp, range.lastOp);
             }
 
@@ -164,8 +168,17 @@ namespace sky {
         }
     }
 
-    void AnimationPlanRuntime::Evaluate(AnimPose& out, Transform* outRootMotionDelta) const
+    void AnimationPlanRuntime::Evaluate(AnimPose &out, Transform *outRootMotionDelta) const
     {
+        // Sampling observes explicit seek/stop without advancing clocks or state transitions.
+        for (const auto &binding : clipBindings) {
+            if (binding.node != nullptr) {
+                frameState.clipTimes[binding.timeSlot] = binding.node->GetPlayerTime();
+                if (binding.rootMotionSlot < frameState.rootMotion.size()) {
+                    frameState.rootMotion[binding.rootMotionSlot] = binding.node->IsRootMotionEnable() ? 1 : 0;
+                }
+            }
+        }
         plan.Evaluate(frameState, out, outRootMotionDelta);
     }
 

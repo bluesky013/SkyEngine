@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <animation/core/AnimationStatus.h>
 #include <animation/core/AnimationTypes.h>
 #include <core/math/Transform.h>
 #include <core/util/ArrayBitFlag.h>
@@ -13,27 +14,24 @@ namespace sky {
 
     class Skeleton;
 
-    enum class PoseBlendMode : uint32_t {
-        OVERRIDE,
-        ADDITIVE
-    };
+    enum class PoseBlendMode : uint32_t { OVERRIDE, ADDITIVE };
 
     using AnimationBoneMask = ArrayBit<uint32_t, ANIM_MAX_BONE>;
 
     struct AnimPose {
         std::vector<Transform> transforms;
-        AnimationBoneMask boneMask {AnimationBoneMask::MaskFull{}};
-        Skeleton* skeleton = nullptr; // weak reference
+        AnimationBoneMask      boneMask{AnimationBoneMask::MaskFull{}};
+        Skeleton              *skeleton = nullptr; // weak reference
 
         void ResetRefPose();
         void NormalizeRotation();
 
-        void ToSkinRenderData(std::vector<Matrix4>& skinUpdateData, const Transform& rootMatrix) const;
+        AnimationStatus ToSkinRenderData(std::vector<Matrix4> &skinUpdateData, const Transform &rootMatrix) const;
 
-        static void BlendTransform(const Transform& src, Transform& dst, float weight);
-        static void BlendTransformAdditive(const Transform& delta, Transform& dst, float weight);
+        static void BlendTransform(const Transform &src, Transform &dst, float weight);
+        static void BlendTransformAdditive(const Transform &delta, Transform &dst, float weight);
 
-        static void BlendPose(const AnimPose & src, AnimPose & dst, float weight, PoseBlendMode mode);
+        static void BlendPose(const AnimPose &src, AnimPose &dst, float weight, PoseBlendMode mode);
     };
 
     using PoseSharedPtr = std::shared_ptr<AnimPose>;

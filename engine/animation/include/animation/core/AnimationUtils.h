@@ -4,15 +4,17 @@
 
 #pragma once
 
-#include <core/util/TimeBlend.h>
 #include <animation/core/AnimationTypes.h>
+#include <cmath>
+#include <core/util/TimeBlend.h>
+#include <limits>
 
 namespace sky {
 
     struct AnimFadeInOut {
         float fadeInTime;
         float fadeOutTime;
-        bool initialized;
+        bool  initialized;
 
         TimeBlend blend;
 
@@ -22,13 +24,12 @@ namespace sky {
 
         void SetBlendTime(float time)
         {
-            fadeInTime = time;
+            fadeInTime  = time;
             fadeOutTime = time;
         }
 
         void Reset();
     };
-
 
     namespace Anim {
 
@@ -44,8 +45,13 @@ namespace sky {
 
         FORCEINLINE AnimFrameTime ConvertFromFrameRate(float inSeconds, float framePerSeconds)
         {
-            float frame = inSeconds * framePerSeconds;
-            return {Cast<AnimTimeKey>(std::floor(frame)), frame - std::floor(frame)};
+            const double frame = static_cast<double>(inSeconds) * framePerSeconds;
+            if (!std::isfinite(frame)) {
+                return {0, 0.f};
+            }
+            const double clamped = std::clamp(frame, 0.0, static_cast<double>(std::numeric_limits<AnimTimeKey>::max()));
+            const double whole   = std::floor(clamped);
+            return {static_cast<AnimTimeKey>(whole), static_cast<float>(clamped - whole)};
         }
 
     } // namespace Anim
