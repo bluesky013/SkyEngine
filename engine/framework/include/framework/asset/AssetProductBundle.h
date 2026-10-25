@@ -7,6 +7,7 @@
 #include <core/file/FileSystem.h>
 #include <core/util/Uuid.h>
 #include <framework/asset/AssetCommon.h>
+#include <framework/asset/AssetProductGroup.h>
 
 namespace sky {
 
@@ -18,21 +19,40 @@ namespace sky {
         }
         virtual ~AssetProductBundle() = default;
 
-        virtual FilePtr OpenFile(const Uuid &uuid) const = 0;
+        virtual FilePtr OpenFile(const Uuid &uuid) const         = 0;
         virtual FilePtr CreateOrOpenFile(const Uuid &uuid) const = 0;
 
-        const ProductBundleKey &GetKey() const { return key; }
-        const FileSystemPtr &GetFileSystem() const { return fs; }
-        virtual bool IsPacked() const { return false; }
+        const ProductBundleKey &GetKey() const
+        {
+            return key;
+        }
+        const FileSystemPtr &GetFileSystem() const
+        {
+            return fs;
+        }
+        ProductStatus ResolveGroup(const Uuid &member, ProductGroupSnapshotPtr &out) const
+        {
+            return AssetProductGroupStore(fs).Resolve(member, out);
+        }
+        ProductStatus OpenPinned(const ProductGroupSnapshot &group, const Uuid &member, FilePtr &out) const
+        {
+            return AssetProductGroupStore(fs).Open(group, member, out);
+        }
+        virtual bool IsPacked() const
+        {
+            return false;
+        }
 
     protected:
-        FileSystemPtr fs;
+        FileSystemPtr    fs;
         ProductBundleKey key;
     };
 
     class HashedAssetBundle : public AssetProductBundle {
     public:
-        explicit HashedAssetBundle(const NativeFileSystemPtr &fs, const ProductBundleKey &key) : AssetProductBundle(fs, key) {}
+        explicit HashedAssetBundle(const NativeFileSystemPtr &fs, const ProductBundleKey &key) : AssetProductBundle(fs, key)
+        {
+        }
         ~HashedAssetBundle() override = default;
 
     protected:
@@ -42,12 +62,21 @@ namespace sky {
 
     class PackageAssetBundle : public AssetProductBundle {
     public:
-        explicit PackageAssetBundle(const FileSystemPtr &fs, const ProductBundleKey &key) : AssetProductBundle(fs, key) {}
+        explicit PackageAssetBundle(const FileSystemPtr &fs, const ProductBundleKey &key) : AssetProductBundle(fs, key)
+        {
+        }
         ~PackageAssetBundle() override = default;
 
-        bool IsPacked() const override { return true; }
+        bool IsPacked() const override
+        {
+            return true;
+        }
+
     protected:
-        FilePtr OpenFile(const Uuid &uuid) const override { return {}; }
-        FilePtr CreateOrOpenFile(const Uuid &uuid) const override { return {}; }
+        FilePtr OpenFile(const Uuid &uuid) const override;
+        FilePtr CreateOrOpenFile(const Uuid &uuid) const override
+        {
+            return {};
+        }
     };
 } // namespace sky

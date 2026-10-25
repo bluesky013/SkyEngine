@@ -18,6 +18,17 @@ namespace sky {
 
     namespace {
 
+        AssetSourcePtr MakeBuildSource(const AssetSourcePtr &source)
+        {
+            AssetSourcePtr copy = new AssetSourceInfo;
+            copy->uuid          = source->uuid;
+            copy->path          = source->path;
+            copy->name          = source->name;
+            copy->ext           = source->ext;
+            copy->mount         = source->mount;
+            return copy;
+        }
+
         std::string DefaultWorkerPath()
         {
             std::string dir = Platform::Get()->GetBundlePath();
@@ -212,9 +223,7 @@ namespace sky {
             // The broadcast may originate on a cook worker or the caller thread; deliver it on the
             // main role so observers (editor cook state) never run off the main thread. `onFinished`
             // stays direct: it resolves on-demand loads, some of which block the main thread.
-            ThreadDispatcher::Get()->PostToMain([result]() {
-                AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result);
-            });
+            ThreadDispatcher::Get()->PostToMain([result]() { AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result); });
             if (onFinished) {
                 onFinished(result);
             }
@@ -234,6 +243,23 @@ namespace sky {
 
     void AssetBuilderManager::BuildRequest(const Uuid &uuid, const std::string &target, BuildCompletion onFinished)
     {
+        Uuid owner;
+        if (!AssetDataBase::Get()->GetOwner(uuid, owner)) {
+            EmitBuildResult(MakeBuildFailure(uuid, target, "source or generated child is unavailable"), onFinished);
+            return;
+        }
+        if (owner != uuid) {
+            BuildRequest(owner, target, [this, uuid, target, onFinished = std::move(onFinished)](const AssetBuildResult &ownerResult) {
+                auto result = ownerResult;
+                result.uuid = uuid;
+                if (result.retCode == AssetBuildRetCode::SUCCESS &&
+                    (!AssetDataBase::Get()->Exists(uuid) || !AssetManager::Get()->HasProduct(uuid, GetCookConfig().ResolveBundleForTarget(target)))) {
+                    result = MakeBuildFailure(uuid, target, "owner cook did not produce the requested child");
+                }
+                EmitBuildResult(result, onFinished);
+            });
+            return;
+        }
         auto srcAsset = AssetDataBase::Get()->FindAsset(uuid);
         if (srcAsset == nullptr) {
             EmitBuildResult(MakeBuildFailure(uuid, target, "asset not found"), onFinished);
@@ -241,7 +267,7 @@ namespace sky {
         }
 
         AssetBuildRequest request = {};
-        request.assetInfo         = srcAsset;
+        request.assetInfo         = MakeBuildSource(srcAsset);
         request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
         request.target            = target;
         request.bundle            = GetCookConfig().ResolveBundleForTarget(target);
@@ -256,14 +282,31 @@ namespace sky {
 
     void AssetBuilderManager::BuildRequest(const AssetBuildRequest &request, BuildCompletion onFinished)
     {
-        // Single-writer invariant (D11): when out-of-process cook is active the worker is
-        // the only writer of product bundles, so the editor must not cook in-process.
-        SKY_ASSERT(!outOfProcessActive && "in-process cook requested while out-of-process cook is active");
+        if (!request.assetInfo) {
+            EmitBuildResult(MakeBuildFailure({}, request.target, "cook request has no source"), onFinished);
+            return;
+        }
+        if (outOfProcessActive) {
+            EmitBuildResult(MakeBuildFailure(request.assetInfo->uuid, request.target, "in-process cook disabled while worker is active"), onFinished);
+            return;
+        }
 
         const auto key = request.assetInfo->uuid.ToString() + "#" + request.target;
-        AssetExecutor::Get()->PushCookTask(key, [this, request, onFinished = std::move(onFinished)]() {
+        {
+            std::lock_guard lock(pendingMutex);
+            const auto [entry, inserted] = pendingBuilds.try_emplace(key);
+            if (onFinished) {
+                entry->second.emplace_back(std::move(onFinished));
+            }
+            if (!inserted) {
+                return;
+            }
+        }
+        const auto executionKey = key + "#" + Uuid::Create().ToString();
+        auto       build        = request;
+        build.assetInfo         = MakeBuildSource(request.assetInfo);
+        AssetExecutor::Get()->PushCookTask(executionKey, [this, request = std::move(build), key]() {
             auto *builder = QueryBuilder(request.assetInfo->ext);
-            request.assetInfo->dependencies.clear();
 
             AssetBuildResult result = {};
             result.uuid             = request.assetInfo->uuid;
@@ -274,7 +317,23 @@ namespace sky {
                 builder->Request(request, result);
             }
 
-            EmitBuildResult(result, onFinished);
+            if (result.retCode == AssetBuildRetCode::SUCCESS) {
+                AssetDataBase::Get()->SetBuildDependencies(request.assetInfo->uuid, request.assetInfo->dependencies);
+            }
+            std::vector<BuildCompletion> subscribers;
+            {
+                std::lock_guard lock(pendingMutex);
+                const auto      found = pendingBuilds.find(key);
+                if (found != pendingBuilds.end()) {
+                    subscribers = std::move(found->second);
+                    pendingBuilds.erase(found);
+                }
+            }
+            EmitBuildResult(result, [&subscribers](const AssetBuildResult &completed) {
+                for (const auto &subscriber : subscribers) {
+                    subscriber(completed);
+                }
+            });
         });
     }
 
@@ -291,7 +350,7 @@ namespace sky {
         }
 
         AssetBuildRequest request = {};
-        request.assetInfo         = srcAsset;
+        request.assetInfo         = MakeBuildSource(srcAsset);
         request.file              = AssetDataBase::Get()->OpenFile(srcAsset);
         if (request.file == nullptr) {
             return;
@@ -300,12 +359,13 @@ namespace sky {
         request.bundle   = GetCookConfig().ResolveBundleForTarget(target);
         request.settings = GetCookConfig().GetTargetSettings(AssetDataBase::Get()->GetCookJson(uuid), target);
 
-        srcAsset->dependencies.clear();
-
         AssetBuildResult result = {};
         result.uuid             = uuid;
         result.target           = target;
         builder->Request(request, result);
+        if (result.retCode == AssetBuildRetCode::SUCCESS) {
+            AssetDataBase::Get()->SetBuildDependencies(uuid, request.assetInfo->dependencies);
+        }
 
         // Raise the same completion event as the async path so observers (editor cook state) update,
         // even when the sync path is driven by the inline on-demand cook.
@@ -315,12 +375,19 @@ namespace sky {
     void AssetBuilderManager::RequestCook(const Uuid &uuid, const std::string &target, BuildCompletion onFinished)
     {
         if (outOfProcessActive && cookRunner != nullptr) {
+            Uuid owner;
+            if (!AssetDataBase::Get()->GetOwner(uuid, owner)) {
+                EmitBuildResult(MakeBuildFailure(uuid, target, "source or generated child is unavailable"), onFinished);
+                return;
+            }
             std::string path;
-            if (auto src = AssetDataBase::Get()->FindAsset(uuid); src != nullptr) {
+            if (auto src = AssetDataBase::Get()->FindAsset(owner); src != nullptr) {
                 path = src->path.GetStr();
             }
             // Completion goes to AssetManager (its single SetCompletion); observers still get the event.
-            cookRunner->Request(CookJob{uuid, target, path});
+            if (!cookRunner->Request(CookJob{owner, target, path})) {
+                EmitBuildResult(MakeBuildFailure(uuid, target, "cook worker rejected request"), onFinished);
+            }
             return;
         }
         BuildRequest(uuid, target, std::move(onFinished));

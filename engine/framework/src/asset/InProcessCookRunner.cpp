@@ -2,9 +2,9 @@
 // Created by blues on 2026/10/3.
 //
 
-#include <framework/asset/InProcessCookRunner.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetExecutor.h>
+#include <framework/asset/InProcessCookRunner.h>
 #include <utility>
 
 namespace sky {
@@ -22,7 +22,13 @@ namespace sky {
         }
         // BuildRequest schedules on the asset/cook pool, broadcasts
         // IAssetEvent::OnAssetBuildFinished, and invokes our completion handler.
-        manager->BuildRequest(job.uuid, job.target, completion);
+        manager->BuildRequest(job.uuid, job.target, [handler = completion, requestId = job.requestId](const AssetBuildResult &value) {
+            if (handler) {
+                auto result      = value;
+                result.requestId = requestId;
+                handler(result);
+            }
+        });
         return true;
     }
 

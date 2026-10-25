@@ -2,6 +2,7 @@
 // Created by blues on 2026/10/2.
 //
 
+#include <core/util/Uuid.h>
 #include <framework/asset/JsonLines.h>
 
 namespace sky {
@@ -18,7 +19,7 @@ namespace sky {
             }
 
             auto line = text.substr(begin, end - begin);
-            begin = end + 1;
+            begin     = end + 1;
 
             auto first = line.find_first_not_of(" \t\r");
             if (first == std::string::npos) {
@@ -36,25 +37,11 @@ namespace sky {
             return false;
         }
 
-        FilePath tempPath(path.GetStr() + ".tmp");
-
-        // The handle must be closed before the rename; on Windows an open file cannot be renamed.
-        {
-            auto file = fs->CreateOrOpenFile(tempPath);
-            if (file == nullptr) {
-                return false;
-            }
-
-            auto archive = file->WriteAsArchive();
-            if (archive == nullptr) {
-                return false;
-            }
-
-            archive->SaveRaw(text.data(), text.size());
-            archive->Flush();
+        const FilePath tempPath(path.GetStr() + "." + Uuid::Create().ToString() + ".tmp");
+        if (!fs->WriteFileExclusive(tempPath, {reinterpret_cast<const uint8_t *>(text.data()), text.size()})) {
+            return false;
         }
-
-        return fs->Rename(tempPath, path);
+        return static_cast<bool>(fs->ReplaceFileAtomic(tempPath, path));
     }
 
 } // namespace sky

@@ -100,14 +100,16 @@ namespace sky {
         std::vector<std::unique_ptr<AssetBuilder>>      assetBuilders;
         std::unordered_map<std::string, AssetBuilder *> assetBuilderMap;
 
-        NativeFileSystemPtr          engineFs;
-        NativeFileSystemPtr          workSpaceFs;
-        NativeFileSystemPtr          intermediateFs;
-        CookConfig                   config;
-        mutable std::mutex           configMutex;
-        std::unique_ptr<ICookRunner> cookRunner;
-        bool                         forceInProcess     = false;
-        bool                         outOfProcessActive = false;
+        NativeFileSystemPtr                                           engineFs;
+        NativeFileSystemPtr                                           workSpaceFs;
+        NativeFileSystemPtr                                           intermediateFs;
+        CookConfig                                                    config;
+        mutable std::mutex                                            configMutex;
+        std::unique_ptr<ICookRunner>                                  cookRunner;
+        bool                                                          forceInProcess     = false;
+        bool                                                          outOfProcessActive = false;
+        std::mutex                                                    pendingMutex;
+        std::unordered_map<std::string, std::vector<BuildCompletion>> pendingBuilds;
     };
 
 } // namespace sky

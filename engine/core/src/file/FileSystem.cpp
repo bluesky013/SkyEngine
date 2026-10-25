@@ -215,16 +215,7 @@ namespace sky {
 
     bool NativeFileSystem::Rename(const FilePath &from, const FilePath &to) const
     {
-        auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
-        auto toPath   = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
-
-#if defined(SKY_PLATFORM_WINDOWS)
-        return MoveFileExW(fromPath.c_str(), toPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
-#else
-        std::error_code ec;
-        std::filesystem::rename(fromPath, toPath, ec);
-        return !ec;
-#endif
+        return static_cast<bool>(ReplaceFileAtomic(from, to));
     }
 
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)

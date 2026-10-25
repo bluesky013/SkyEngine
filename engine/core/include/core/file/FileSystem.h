@@ -6,11 +6,13 @@
 
 #include <core/archive/BinaryData.h>
 #include <core/archive/StreamArchive.h>
+#include <core/file/FileTransaction.h>
 #include <core/template/ReferenceObject.h>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <system_error>
 #include <variant>
@@ -150,11 +152,22 @@ namespace sky {
         virtual void Copy(const FilePath &from, const FilePath &to) const
         {
         }
-        // Atomically replace `to` with `from` when supported; returns false when
-        // unsupported (callers fall back to a direct write).
+        // Legacy rename entry point. Transactional callers use ReplaceFileAtomic's explicit status.
         virtual bool Rename(const FilePath &from, const FilePath &to) const
         {
             return false;
+        }
+        virtual FileOperationStatus WriteFileExclusive(const FilePath &, std::span<const uint8_t>) const
+        {
+            return {FileOperationError::Unsupported, "durable exclusive writes are unavailable"};
+        }
+        virtual FileOperationStatus ReplaceFileAtomic(const FilePath &, const FilePath &) const
+        {
+            return {FileOperationError::Unsupported, "atomic replacement is unavailable"};
+        }
+        virtual FileOperationStatus AcquireFileLock(const FilePath &, FileLockPtr &) const
+        {
+            return {FileOperationError::Unsupported, "exclusive file locks are unavailable"};
         }
         virtual bool FileExist(const FilePath &path) const = 0;
         virtual void MakeDir(const FilePath &path)
@@ -197,10 +210,13 @@ namespace sky {
             return fsRoot;
         }
 
-        void          Copy(const FilePath &from, const FilePath &to) const override;
-        bool          Rename(const FilePath &from, const FilePath &to) const override;
-        bool          IsSubDir(const std::string &path) const;
-        FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
+        void                Copy(const FilePath &from, const FilePath &to) const override;
+        bool                Rename(const FilePath &from, const FilePath &to) const override;
+        FileOperationStatus WriteFileExclusive(const FilePath &path, std::span<const uint8_t> bytes) const override;
+        FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override;
+        FileOperationStatus AcquireFileLock(const FilePath &path, FileLockPtr &out) const override;
+        bool                IsSubDir(const std::string &path) const;
+        FileSystemPtr       CreateSubSystem(const std::string &path, bool createDir) override;
 
         [[nodiscard]] static FileScanResult FilterFiles(const FilePath &path, const std::string &ext);
         // Single-pass variant: walks the tree once and keeps files matching any of `extensions`.

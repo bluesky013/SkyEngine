@@ -10,8 +10,7 @@
 namespace sky {
 
     AssetExecutor::AssetExecutor()
-        : pool(std::max(1U, std::thread::hardware_concurrency()))
-        , cookPool(std::max(1U, std::thread::hardware_concurrency()))
+        : pool(std::max(1U, std::thread::hardware_concurrency())), cookPool(std::max(1U, std::thread::hardware_concurrency()))
     {
     }
 
@@ -19,6 +18,7 @@ namespace sky {
     {
         pool.WaitIdle();
         cookPool.WaitIdle();
+        pool.WaitIdle();
         std::lock_guard<std::mutex> lock(mutex);
         SKY_ASSERT(savingTasks.empty());
     }

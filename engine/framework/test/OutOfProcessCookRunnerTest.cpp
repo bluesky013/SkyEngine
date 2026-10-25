@@ -4,9 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <core/platform/Platform.h>
 #include <framework/asset/OutOfProcessCookRunner.h>
 #include <framework/platform/PlatformBase.h>
-#include <core/platform/Platform.h>
 
 #include <chrono>
 #include <condition_variable>
@@ -28,16 +28,16 @@ namespace {
         if (!dir.empty() && dir.back() != '/' && dir.back() != '\\') {
             dir += '/';
         }
-#if SKY_PLATFORM_WINDOWS
+    #if SKY_PLATFORM_WINDOWS
         return dir + "CookWorkerStub.exe";
-#else
+    #else
         return dir + "CookWorkerStub";
-#endif
+    #endif
     }
 
     struct Collector {
-        std::mutex              mutex;
-        std::condition_variable cv;
+        std::mutex                    mutex;
+        std::condition_variable       cv;
         std::vector<AssetBuildResult> results;
 
         void Add(const AssetBuildResult &result)
@@ -81,9 +81,9 @@ protected:
     {
         CookRunnerConfig config;
         config.workerPath = StubPath(mode);
-        config.extraArgs = {mode};
-        config.platform = "Test";
-        config.timeoutMs = timeoutMs;
+        config.extraArgs  = {mode};
+        config.platform   = "Test";
+        config.timeoutMs  = timeoutMs;
         return config;
     }
 };
@@ -91,14 +91,16 @@ protected:
 TEST_F(OutOfProcessCookRunnerTest, HandshakeAndCook)
 {
     OutOfProcessCookRunner runner(MakeConfig("ok"));
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
-    const Uuid id = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1"}));
+    const Uuid id      = Uuid::Create();
+    const Uuid request = Uuid::Create();
+    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1", request}));
 
     ASSERT_TRUE(collector.WaitCount(1, 6000));
     EXPECT_EQ(collector.results[0].uuid, id);
+    EXPECT_EQ(collector.results[0].requestId, request);
     EXPECT_EQ(collector.results[0].target, "common");
     EXPECT_EQ(collector.results[0].retCode, AssetBuildRetCode::SUCCESS);
 
@@ -108,16 +110,16 @@ TEST_F(OutOfProcessCookRunnerTest, HandshakeAndCook)
 TEST_F(OutOfProcessCookRunnerTest, CorrelatesMultipleRequests)
 {
     OutOfProcessCookRunner runner(MakeConfig("ok"));
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
-    const Uuid first = Uuid::Create();
+    const Uuid first  = Uuid::Create();
     const Uuid second = Uuid::Create();
     ASSERT_TRUE(runner.Request(CookJob{first, "common", "a.t1"}));
     ASSERT_TRUE(runner.Request(CookJob{second, "common", "b.t1"}));
 
     ASSERT_TRUE(collector.WaitCount(2, 6000));
-    bool sawFirst = false;
+    bool sawFirst  = false;
     bool sawSecond = false;
     for (const auto &result : collector.results) {
         EXPECT_EQ(result.retCode, AssetBuildRetCode::SUCCESS);
@@ -133,7 +135,7 @@ TEST_F(OutOfProcessCookRunnerTest, CorrelatesMultipleRequests)
 TEST_F(OutOfProcessCookRunnerTest, UnknownResultIdIsDropped)
 {
     OutOfProcessCookRunner runner(MakeConfig("spurious"));
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     // Let the stub emit its spurious (unknown-id) result first.
@@ -153,7 +155,7 @@ TEST_F(OutOfProcessCookRunnerTest, UnknownResultIdIsDropped)
 TEST_F(OutOfProcessCookRunnerTest, TimeoutFailsRequest)
 {
     OutOfProcessCookRunner runner(MakeConfig("timeout", 300));
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     const Uuid id = Uuid::Create();
@@ -171,10 +173,10 @@ TEST_F(OutOfProcessCookRunnerTest, CrashFailsInFlightThenRestarts)
     std::remove(sentinel.c_str());
 
     CookRunnerConfig config = MakeConfig("crashonce", 4000);
-    config.extraArgs = {"crashonce", sentinel};
+    config.extraArgs        = {"crashonce", sentinel};
 
     OutOfProcessCookRunner runner(config);
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     const Uuid first = Uuid::Create();
@@ -194,7 +196,7 @@ TEST_F(OutOfProcessCookRunnerTest, CrashFailsInFlightThenRestarts)
 TEST_F(OutOfProcessCookRunnerTest, HealthyWorkerAfterLogsStillCompletes)
 {
     OutOfProcessCookRunner runner(MakeConfig("ok"));
-    Collector collector;
+    Collector              collector;
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     for (int i = 0; i < 3; ++i) {

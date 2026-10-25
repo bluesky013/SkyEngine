@@ -28,6 +28,14 @@ endif ()
 
 configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/test/EngineRoot.h)
 
+# AssetManager tests write manifests, indices and products into this project.
+file(GLOB_RECURSE FRAMEWORK_TEST_FIXTURES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    assets/*.t1 assets/*.t2 assets/*.t3 configs/*.json)
+list(APPEND FRAMEWORK_TEST_FIXTURES assets/assets.db)
+foreach (FIXTURE IN LISTS FRAMEWORK_TEST_FIXTURES)
+    configure_file(${FIXTURE} ${CMAKE_CURRENT_BINARY_DIR}/fixture/${FIXTURE} COPYONLY)
+endforeach ()
+
 sky_add_test(TARGET FrameworkTest
     SOURCES
         ${TEST_SRC}

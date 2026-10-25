@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <iostream>
-#include <core/util/Uuid.h>
-#include <core/template/Flags.h>
 #include <core/archive/StreamArchive.h>
+#include <core/template/Flags.h>
+#include <core/util/Uuid.h>
+#include <iostream>
 
 namespace sky {
 
@@ -19,33 +19,48 @@ namespace sky {
 
         ~BinaryInputArchive() = default;
 
-        void LoadValue(char* data, size_t size)
+        void LoadValue(char *data, size_t size)
         {
-            archive.LoadRaw(data, size);
+            if (valid) {
+                valid = archive.LoadRaw(data, size);
+            }
+        }
+        bool IsValid() const
+        {
+            return valid;
+        }
+        void Invalidate()
+        {
+            valid = false;
         }
 
-        template <typename T, typename = std::enable_if_t<
-            std::is_arithmetic_v<T> ||
-            is_binary_serializable_v<T> ||
-            std::is_enum_v<T>>>
+        template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T> || is_binary_serializable_v<T> || std::is_enum_v<T>>>
         void LoadValue(T &v)
         {
-            LoadValue(reinterpret_cast<char*>(std::addressof(v)), sizeof(T));
+            LoadValue(reinterpret_cast<char *>(std::addressof(v)), sizeof(T));
         }
 
         void LoadValue(std::string &v)
         {
             uint32_t length = 0;
             LoadValue(length);
+            if (!valid) {
+                return;
+            }
             v.resize(length, 0);
             LoadValue(v.data(), length);
         }
 
         void LoadObject(void *ptr, const Uuid &id);
 
-        const IStreamArchive &GetStream() const { return archive; }
+        const IStreamArchive &GetStream() const
+        {
+            return archive;
+        }
+
     protected:
         IStreamArchive &archive;
+        bool            valid = true;
     };
 
     class BinaryOutputArchive {
@@ -55,18 +70,21 @@ namespace sky {
         }
         ~BinaryOutputArchive() = default;
 
-        void SaveValue(const char* data, size_t size)
+        void SaveValue(const char *data, size_t size)
         {
-            archive.SaveRaw(data, size);
+            if (valid) {
+                valid = archive.SaveRaw(data, size);
+            }
+        }
+        bool IsValid() const
+        {
+            return valid;
         }
 
-        template <typename T, typename = std::enable_if_t<
-            std::is_arithmetic_v<T> ||
-            is_binary_serializable_v<T> ||
-            std::is_enum_v<T>>>
+        template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T> || is_binary_serializable_v<T> || std::is_enum_v<T>>>
         void SaveValue(const T &v)
         {
-            SaveValue(reinterpret_cast<const char*>(std::addressof(v)), sizeof(T));
+            SaveValue(reinterpret_cast<const char *>(std::addressof(v)), sizeof(T));
         }
 
         void SaveValue(const std::string &v)
@@ -81,10 +99,15 @@ namespace sky {
             SaveValue(v.data(), static_cast<uint32_t>(v.length()));
         }
 
-        void SaveObject(const void* data, const Uuid &id);
+        void SaveObject(const void *data, const Uuid &id);
 
-        const OStreamArchive &GetStream() const { return archive; }
+        const OStreamArchive &GetStream() const
+        {
+            return archive;
+        }
+
     protected:
         OStreamArchive &archive;
+        bool            valid = true;
     };
-}
+} // namespace sky

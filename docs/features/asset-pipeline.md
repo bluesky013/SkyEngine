@@ -2,7 +2,7 @@
 title: "Asset Pipeline"
 description: "Source identities, the mounted source namespace, product bundles, loading, cook configuration and the dependency graph."
 module: "framework"
-updated: "2026-10-09"
+updated: "2026-10-26"
 ---
 
 ## Overview
@@ -105,6 +105,27 @@ LOADED/FAILED. `BlockUntilLoaded` must not be called from the executor's loader 
 iteration. `AssetDependencyGraph` is the concrete store. Forward edges come from product headers at runtime and from
 `AssetSourceInfo::dependencies` in the editor; dependencies are not stored in `assets.jsonl` or `product.index`.
 
+## Generated products and atomic publication
+
+The source catalog records generated products with stable source-local keys, UUIDs, types and their owner source.
+Recook and source moves preserve matching identities; copies allocate independent identities. Child dependencies
+retain the child UUID while cook requests resolve the actual source owner. Requests for children of one source
+coalesce per target, and each waiter still receives failure if its requested member was removed or not produced.
+
+`AssetManager::BeginProductGroup` and `SaveProductGroup` publish a complete member set through an explicit
+`ProductStatus`. Encoding, staged writes, flush and readback precede one atomic replacement of the owner manifest.
+A failed or stale cook leaves the previous complete generation readable; uncommitted staged files are not products.
+The group store uses `.groups/<owner>/<generation>/` for immutable payloads and `.groups/<owner>/current.bin`
+for the published manifest, with child-to-owner records under `.groups/owners/`.
+
+`LoadAssetSnapshot` pins a selected generation, including bulk reads. Reload creates a new asset object instead of
+mutating retained data. `LoadAsset(..., AssetLoadPolicy::ProductsOnly)` does not start a cook; `InspectProduct`
+returns pinned product metadata/payload without loading dependencies or mutating the asset cache. Checked binary
+archives and transaction file operations propagate explicit errors to the caller.
+
+These are schema-independent Framework APIs. Model grouping, World asset roots and package closure validation
+are integration consumers. See `refactor-asset-product-transactions` for the standalone validation boundary.
+
 ## Async execution
 
 `AssetExecutor` owns two `sky::ThreadPool` instances: the **loader pool** for deserialization and the **cook pool** for
@@ -127,9 +148,9 @@ tree, manifests and `assets.db` are absent.
 - **Register bundles**: `AssetManager::AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey))`
   (e.g. `GameApplication` for the `common` bundle). Adding a bundle reads its `product.index` into the
   in-memory `productPathMap[canonicalPath] = uuid`; `RefreshProductIndex()` rebuilds it across all bundles.
-- **Products are content-addressed by UUID**: `<bundleFs>/<uuid[0:2]>/<uuid>.bin` (`HashedAssetBundle::OpenFile`).
+- **Legacy single products use UUID-addressed paths**: `<bundleFs>/<uuid[0:2]>/<uuid>.bin`. Grouped products resolve their owner manifest and immutable generation before opening a member.
 - **By path**: `LoadAssetFromPath(path)` -> `MakeCanonicalPath(path)` -> `productPathMap` -> `LoadAsset(uuid)`.
-- **By UUID**: `LoadAsset(uuid)` -> `OpenFile(uuid)` iterates the bundles -> `<xx>/<uuid>.bin` -> deserialize
+- **By UUID**: `LoadAsset(uuid)` resolves a pinned group snapshot when owner metadata exists, otherwise reads the legacy `<xx>/<uuid>.bin` product, then deserializes
   (with optional per-product decompression via `CompressionManager`).
 - Runtime sets **no source catalog**, so there is no path fallback beyond `product.index`; a miss fails.
 - Single-file packaging (`PackageAssetBundle`, `.pak`) is a stub.

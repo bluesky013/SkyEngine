@@ -95,9 +95,9 @@ namespace sky {
     {
         // Seed legacy `(bundle, path)` UUIDs into every source manifest. Existing entries and any
         // `assets.db` rows win (idempotent); only directories containing assets get a manifest.
-        migrationMode = true;
+        migrationMode    = true;
         const auto error = RebuildCacheFromScan();
-        migrationMode = false;
+        migrationMode    = false;
         return error;
     }
 
@@ -193,6 +193,11 @@ namespace sky {
         for (const auto &[id, info] : idMap) {
             graph.Add(id, info->dependencies);
         }
+        for (const auto &[id, record] : generatedAssets) {
+            if (record.active && idMap.contains(record.owner)) {
+                graph.Add(id, {record.owner});
+            }
+        }
     }
 
     bool AssetDataBase::ResolvePath(const std::string &path, Uuid &out) const
@@ -207,11 +212,20 @@ namespace sky {
 
     bool AssetDataBase::Exists(const Uuid &id) const
     {
-        return const_cast<AssetDataBase *>(this)->FindAsset(id) != nullptr;
+        Uuid owner;
+        return GetOwner(id, owner);
     }
 
     bool AssetDataBase::GetType(const Uuid &id, std::string &out) const
     {
+        GeneratedAssetRecord child;
+        if (GetGenerated(id, child)) {
+            if (!child.active || !const_cast<AssetDataBase *>(this)->FindAsset(child.owner)) {
+                return false;
+            }
+            out = child.type;
+            return true;
+        }
         auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
         if (src == nullptr) {
             return false;
@@ -222,14 +236,22 @@ namespace sky {
 
     bool AssetDataBase::GetTarget(const Uuid &id, std::string &out) const
     {
-        auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
+        Uuid owner;
+        if (!GetOwner(id, owner)) {
+            return false;
+        }
+        auto src = const_cast<AssetDataBase *>(this)->FindAsset(owner);
         out      = AssetBuilderManager::Get()->GetCookConfig().ResolveTarget(CookJsonFor(src));
         return true;
     }
 
     bool AssetDataBase::GetSourcePath(const Uuid &id, std::string &out) const
     {
-        auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
+        Uuid owner;
+        if (!GetOwner(id, owner)) {
+            return false;
+        }
+        auto src = const_cast<AssetDataBase *>(this)->FindAsset(owner);
         if (src == nullptr) {
             return false;
         }
@@ -300,6 +322,9 @@ namespace sky {
             }
         }
 
+        if (!RefreshOwner(info->uuid)) {
+            LOG_E(TAG, "Generated catalog refresh failed for %s", info->uuid.ToString().c_str());
+        }
         if (build) {
             AssetBuildRequest request = {};
             request.file              = fs->OpenFile(path);
@@ -323,6 +348,12 @@ namespace sky {
             path = iter->second->path;
             pathMap.erase(path);
             idMap.erase(iter);
+            for (auto &[childId, record] : generatedAssets) {
+                if (record.owner == id) {
+                    record.active = false;
+                }
+            }
+            generatedManifests.erase(id);
         }
 
         auto fs = ResolveOwningFs(path);
@@ -350,25 +381,23 @@ namespace sky {
             return nullptr;
         }
 
-        Uuid        uuid;
-        std::string cook;
+        Uuid           uuid;
+        IndexFileEntry moved;
         {
             const auto &manifest = manifests.Get(fs, from.Parent());
             const auto *entry    = manifest.Find(from.FileName());
             uuid                 = entry != nullptr ? entry->id : Uuid::Create();
-            cook                 = entry != nullptr ? entry->extra : std::string{};
+            moved                = entry != nullptr ? *entry : IndexFileEntry{};
 
             auto updated = manifest;
             updated.Remove(from.FileName());
             manifests.Save(fs, from.Parent(), updated);
         }
         {
-            auto           dest = manifests.Get(fs, to.Parent());
-            IndexFileEntry entry;
-            entry.key   = to.FileName();
-            entry.id    = uuid;
-            entry.extra = cook;
-            dest.Set(entry);
+            auto dest = manifests.Get(fs, to.Parent());
+            moved.key = to.FileName();
+            moved.id  = uuid;
+            dest.Set(moved);
             manifests.Save(fs, to.Parent(), dest);
         }
 
@@ -394,8 +423,37 @@ namespace sky {
             return nullptr;
         }
 
-        fs->Copy(from, to);
-        return RegisterAsset(to, false); // assigns a new UUID and writes the manifest entry
+        const auto           input = fs->OpenFile(from);
+        std::vector<uint8_t> bytes;
+        if (!input || !input->ReadBin(bytes) || !workSpaceFs || !workSpaceFs->WriteFileExclusive(to, bytes)) {
+            LOG_E(TAG, "DuplicateAsset failed to create destination %s", to.GetStr().c_str());
+            return {};
+        }
+        const auto copy     = RegisterAsset(to, false);
+        const auto original = FindAsset(from);
+        if (!copy || !original) {
+            return copy;
+        }
+        const auto *entry    = manifests.Get(fs, from.Parent()).Find(from.FileName());
+        const auto  metadata = entry ? *entry : IndexFileEntry{};
+        if (!metadata.extra.empty() && !SetCookJson(copy->uuid, metadata.extra)) {
+            return {};
+        }
+        GeneratedAssetManifest generated;
+        if (!ParseGeneratedAssets(original->uuid, metadata.generated, generated)) {
+            return {};
+        }
+        std::vector<GeneratedAssetDescriptor> requested;
+        for (const auto &record : generated.records) {
+            if (record.active) {
+                requested.push_back({record.key, record.type});
+            }
+        }
+        GeneratedAssetManifest duplicated;
+        if (!requested.empty() && !UpdateGeneratedProducts(copy->uuid, requested, generated.defaults, duplicated)) {
+            return {};
+        }
+        return copy;
     }
 
     AssetSourcePtr AssetDataBase::ImportAsset(const FilePath &sourceFile, const FilePath &dest, bool cook)
@@ -435,6 +493,15 @@ namespace sky {
     FilePtr AssetDataBase::CreateOrOpenFile(const FilePath &path)
     {
         return mountFs->CreateOrOpenFile(path);
+    }
+
+    void AssetDataBase::SetBuildDependencies(const Uuid &id, const std::vector<Uuid> &dependencies)
+    {
+        std::lock_guard lock(assetMutex);
+        const auto      entry = idMap.find(id);
+        if (entry != idMap.end()) {
+            entry->second->dependencies = dependencies;
+        }
     }
 
     void AssetDataBase::SetMarkedName(const Uuid &id, const std::string &name)
@@ -564,6 +631,8 @@ namespace sky {
         std::lock_guard lock(assetMutex);
         pathMap.clear();
         idMap.clear();
+        generatedAssets.clear();
+        generatedManifests.clear();
         manifests.Clear();
     }
 
@@ -631,7 +700,11 @@ namespace sky {
 
     std::string AssetDataBase::GetCookJson(const Uuid &id) const
     {
-        auto src = const_cast<AssetDataBase *>(this)->FindAsset(id);
+        Uuid owner;
+        if (!GetOwner(id, owner)) {
+            return {};
+        }
+        auto src = const_cast<AssetDataBase *>(this)->FindAsset(owner);
         return CookJsonFor(src);
     }
 
@@ -657,6 +730,11 @@ namespace sky {
         const auto dir      = src->path.Parent();
         const auto fileName = src->path.FileName();
 
+        FileLockPtr fileLock;
+        if (!fs->AcquireFileLock(dir / FilePath("assets.jsonl.lock"), fileLock)) {
+            return false;
+        }
+        manifests.Invalidate(fs, dir);
         auto        manifest = manifests.Get(fs, dir);
         const auto *entry    = manifest.Find(fileName);
         if (entry == nullptr) {
@@ -666,14 +744,17 @@ namespace sky {
         IndexFileEntry updated = *entry;
         updated.extra          = cookJson;
         manifest.Set(updated);
-        manifests.Save(fs, dir, manifest);
-        return true;
+        return manifests.Save(fs, dir, manifest);
     }
 
     bool AssetDataBase::GetAbsoluteSourcePath(const Uuid &id, std::string &out) const
     {
+        Uuid owner;
+        if (!GetOwner(id, owner)) {
+            return false;
+        }
         auto *self = const_cast<AssetDataBase *>(this);
-        auto  src  = self->FindAsset(id);
+        auto  src  = self->FindAsset(owner);
         if (!src) {
             return false;
         }

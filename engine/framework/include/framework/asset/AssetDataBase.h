@@ -49,7 +49,13 @@ namespace sky {
         // Read-only, lock-safe enumeration of the registered sources. The sources are copied under
         // the asset mutex before the callback runs, so the callback may call back into the database
         // (and must not mutate it).
-        void ForEachSource(const std::function<void(const AssetSourcePtr &)> &fn) const;
+        void          ForEachSource(const std::function<void(const AssetSourcePtr &)> &fn) const;
+        void          ForEachGenerated(const std::function<void(const GeneratedAssetRecord &)> &fn) const;
+        ProductStatus UpdateGeneratedProducts(const Uuid                               &owner,
+                                              std::span<const GeneratedAssetDescriptor> requested,
+                                              const std::map<std::string, std::string> &defaults,
+                                              GeneratedAssetManifest                   &out);
+        bool          GetGeneratedDefaults(const Uuid &owner, std::map<std::string, Uuid> &out) const;
 
         AssetSourcePtr RegisterAsset(const FilePath &path, bool build = true);
 
@@ -67,6 +73,7 @@ namespace sky {
         FilePtr OpenFile(const FilePath &path);
         FilePtr CreateOrOpenFile(const FilePath &path);
 
+        void SetBuildDependencies(const Uuid &id, const std::vector<Uuid> &dependencies);
         void SetMarkedName(const Uuid &id, const std::string &name);
         // The asset's raw cook block from its manifest entry (empty when absent).
         std::string GetCookJson(const Uuid &id) const;
@@ -77,8 +84,8 @@ namespace sky {
         bool GetAbsoluteSourcePath(const Uuid &id, std::string &out) const;
 
         [[nodiscard]] std::optional<FileScanError> Load();
-        void Save();
-        void Reset();
+        void                                       Save();
+        void                                       Reset();
         // Rebuild the dev cache by scanning the writable source mount for builder-known extensions.
         [[nodiscard]] std::optional<FileScanError> RebuildCacheFromScan();
         // One-time, idempotent migration: seed every source manifest with the legacy `(bundle, path)`
@@ -103,10 +110,13 @@ namespace sky {
         bool GetType(const Uuid &id, std::string &out) const override;
         bool GetTarget(const Uuid &id, std::string &out) const override;
         bool GetSourcePath(const Uuid &id, std::string &out) const override;
+        bool GetOwner(const Uuid &id, Uuid &out) const override;
+        bool GetGenerated(const Uuid &id, GeneratedAssetRecord &out) const override;
+        bool RefreshOwner(const Uuid &owner) override;
 
     private:
         FileScanResult ScanSources() const;
-        static Uuid CalculateUuidByPath(const FilePath &path);
+        static Uuid    CalculateUuidByPath(const FilePath &path);
         // Legacy `(bundle, path)` UUID, reproduced via the mount -> legacy `SourceAssetBundle` role
         // (engine mount -> ENGINE, workspace/other -> WORKSPACE). Used only by the migration.
         Uuid          CalculateLegacyUuid(const FilePath &path) const;
@@ -116,8 +126,10 @@ namespace sky {
         void          RebuildMounts();
         FileSystemPtr ResolveOwningFs(const FilePath &path) const;
         // Owning mount index for a logical path (or -1); index into mountInfos/mountFsList.
-        int  FindMountIndex(const FilePath &path) const;
-        void EnsureManifestEntry(const FileSystemPtr &fs, const FilePath &path, const Uuid &uuid);
+        int           FindMountIndex(const FilePath &path) const;
+        void          EnsureManifestEntry(const FileSystemPtr &fs, const FilePath &path, const Uuid &uuid);
+        ProductStatus PublishGeneratedCatalog(const Uuid &owner, const GeneratedAssetManifest &manifest);
+        ProductStatus CheckGeneratedCatalogConflicts(const Uuid &owner, const GeneratedAssetManifest &manifest) const;
 
         NativeFileSystemPtr                               engineFs;
         FileSystemPtr                                     workSpaceFs;
@@ -127,9 +139,11 @@ namespace sky {
         std::vector<AssetMount>    mountInfos;  // public, ordered (parallel to mountFsList)
         std::vector<FileSystemPtr> mountFsList; // resolution order
 
-        mutable std::recursive_mutex             assetMutex;
-        std::unordered_map<FilePath, Uuid>       pathMap;
-        std::unordered_map<Uuid, AssetSourcePtr> idMap;
+        mutable std::recursive_mutex                     assetMutex;
+        std::unordered_map<FilePath, Uuid>               pathMap;
+        std::unordered_map<Uuid, AssetSourcePtr>         idMap;
+        std::unordered_map<Uuid, GeneratedAssetRecord>   generatedAssets;
+        std::unordered_map<Uuid, GeneratedAssetManifest> generatedManifests;
 
         mutable AssetIndexFileCache manifests{"assets.jsonl", "file", "cook"};
     };

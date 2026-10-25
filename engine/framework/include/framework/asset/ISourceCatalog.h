@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <string>
 #include <core/util/Uuid.h>
+#include <framework/asset/GeneratedAssetCatalog.h>
+#include <string>
 
 namespace sky {
 
@@ -16,10 +17,26 @@ namespace sky {
         virtual ~ISourceCatalog() = default;
 
         virtual bool ResolvePath(const std::string &path, Uuid &out) const = 0;
-        virtual bool Exists(const Uuid &id) const = 0;
-        virtual bool GetType(const Uuid &id, std::string &out) const = 0;
-        virtual bool GetTarget(const Uuid &id, std::string &out) const = 0;
+        virtual bool Exists(const Uuid &id) const                          = 0;
+        virtual bool GetType(const Uuid &id, std::string &out) const       = 0;
+        virtual bool GetTarget(const Uuid &id, std::string &out) const     = 0;
         virtual bool GetSourcePath(const Uuid &id, std::string &out) const = 0;
+        virtual bool GetOwner(const Uuid &id, Uuid &out) const
+        {
+            if (!Exists(id)) {
+                return false;
+            }
+            out = id;
+            return true;
+        }
+        virtual bool GetGenerated(const Uuid &, GeneratedAssetRecord &) const
+        {
+            return false;
+        }
+        virtual bool RefreshOwner(const Uuid &)
+        {
+            return true;
+        }
     };
 
 } // namespace sky

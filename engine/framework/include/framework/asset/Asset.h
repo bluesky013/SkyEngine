@@ -9,6 +9,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/util/Macros.h>
 #include <core/util/Uuid.h>
+#include <framework/asset/AssetProductGroup.h>
 #include <framework/serialization/BinaryArchive.h>
 #include <framework/serialization/JsonArchive.h>
 
@@ -63,6 +64,13 @@ namespace sky {
         {
             return status.load() == Status::LOADED;
         }
+        const ProductGroupSnapshotPtr &GetProductGroup() const
+        {
+            return productGroup;
+        }
+
+        Uuid GetSnapshotGeneration() const { return productGroup ? productGroup->generation : instanceGeneration; }
+        uint64_t GetSnapshotRevision() const { return productGroup ? productGroup->revision : 1; }
 
         void AddDependencies(const Uuid &id);
         void ResetDependencies();
@@ -118,6 +126,7 @@ namespace sky {
     protected:
         friend class AssetManager;
 
+        Uuid                  instanceGeneration = Uuid::Create();
         Uuid                  uuid;
         Name                  type;
         std::vector<Uuid>     dependencies;
@@ -128,6 +137,8 @@ namespace sky {
         // load side
         uint64_t                  bulkStart = 0;
         mutable IStreamArchivePtr productStream;
+        ProductGroupSnapshotPtr   productGroup;
+        mutable std::mutex        bulkMutex;
 
         std::atomic<Status> status = Status::INITIAL;
         mutable std::mutex  asyncMutex;
@@ -199,6 +210,11 @@ namespace sky {
         virtual bool Load(IStreamArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
 
         virtual void Save(OStreamArchive &archive, const std::shared_ptr<AssetBase> &data) = 0;
+        // Legacy handlers must opt in to transactional encoding and report every failure.
+        virtual bool SaveChecked(OStreamArchive &, const std::shared_ptr<AssetBase> &)
+        {
+            return false;
+        }
     };
 
     template <typename T>
@@ -227,6 +243,12 @@ namespace sky {
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryInputArchive bArchive(archive);
                 bArchive.LoadObject(&assetData, TypeInfo<DataType>::RegisteredId());
+                if (!bArchive.IsValid()) {
+                    return false;
+                }
+            }
+            if constexpr (requires { assetData.IsLoadValid(); }) {
+                return assetData.IsLoadValid();
             }
             return true;
         }
@@ -243,6 +265,16 @@ namespace sky {
                 BinaryOutputArchive bArchive(archive);
                 bArchive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             }
+        }
+
+        bool SaveChecked(OStreamArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
+        {
+            if constexpr (SERIALIZE_TYPE != SerializeType::BIN) {
+                return false;
+            }
+            BinaryOutputArchive binary(archive);
+            binary.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
+            return binary.IsValid() && archive.GetStream().good();
         }
 
     protected:

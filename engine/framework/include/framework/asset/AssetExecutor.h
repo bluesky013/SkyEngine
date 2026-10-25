@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <core/async/ThreadPool.h>
 #include <core/environment/Singleton.h>
 #include <core/file/FileSystem.h>
-#include <core/async/ThreadPool.h>
 
 #include <framework/asset/Asset.h>
 
@@ -22,7 +22,7 @@
 namespace sky {
 
     struct SavingTask {
-        std::string key;
+        std::string       key;
         std::future<void> asyncTask;
     };
 
@@ -36,7 +36,7 @@ namespace sky {
         std::pair<TaskNodePtr, std::future<void>> DependentAsync(Func &&func, const std::vector<TaskNodePtr> &deps)
         {
             auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
-            auto node = pool.CreateTask([holder](ThreadContext &) mutable { (*holder)(); });
+            auto node   = pool.CreateTask([holder](ThreadContext &) mutable { (*holder)(); });
             for (const auto &dep : deps) {
                 if (dep) {
                     node->DependsOn(dep);
@@ -45,7 +45,7 @@ namespace sky {
             // Obtain the future before submitting so completion cannot race the promise creation.
             auto future = node->GetFuture();
             pool.Submit(node);
-            return { node, std::move(future) };
+            return {node, std::move(future)};
         }
 
         template <typename Func>
@@ -59,23 +59,19 @@ namespace sky {
         void PushTask(const std::string &key, ThreadPool &targetPool, Func &&func)
         {
             std::lock_guard<std::mutex> lock(mutex);
-            auto iter = std::find_if(savingTasks.begin(), savingTasks.end(), [&key](const auto &v) {
-                return v.key == key;
-            });
+            auto                        iter = std::find_if(savingTasks.begin(), savingTasks.end(), [&key](const auto &v) { return v.key == key; });
             if (iter != savingTasks.end()) {
                 return;
             }
 
-            auto holder = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
-            auto sharedKey = std::make_shared<std::string>(key);
+            auto       holder    = std::make_shared<std::decay_t<Func>>(std::forward<Func>(func));
+            auto       sharedKey = std::make_shared<std::string>(key);
             SavingTask task;
-            task.key = key;
+            task.key       = key;
             task.asyncTask = targetPool.Dispatch([holder, sharedKey, this](ThreadContext &) mutable {
                 (*holder)();
                 std::lock_guard<std::mutex> innerLock(mutex);
-                auto it = std::find_if(savingTasks.begin(), savingTasks.end(), [&sharedKey](const auto &v) {
-                    return v.key == *sharedKey;
-                });
+                auto it = std::find_if(savingTasks.begin(), savingTasks.end(), [&sharedKey](const auto &v) { return v.key == *sharedKey; });
                 if (it != savingTasks.end()) {
                     savingTasks.erase(it);
                 }
@@ -99,11 +95,21 @@ namespace sky {
 
         void WaitForAll();
 
+        AsyncTask CreateLoadBarrier()
+        {
+            auto node = pool.CreateTask([](ThreadContext &) {});
+            return {node, node->GetFuture().share()};
+        }
+        void CompleteLoadBarrier(const TaskNodePtr &node)
+        {
+            pool.Submit(node);
+        }
+
     private:
         ThreadPool pool;
         ThreadPool cookPool;
 
-        mutable std::mutex mutex;
+        mutable std::mutex    mutex;
         std::list<SavingTask> savingTasks;
     };
 

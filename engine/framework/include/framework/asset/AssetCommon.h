@@ -64,6 +64,7 @@ namespace sky {
         ProductBundleKey  target;
         AssetBuildRetCode retCode;
         std::string       error;
+        Uuid              requestId;
     };
 
     struct AssetRawData {

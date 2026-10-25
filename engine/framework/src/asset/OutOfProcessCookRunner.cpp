@@ -4,13 +4,13 @@
 
 #include <framework/asset/OutOfProcessCookRunner.h>
 
+#include <core/logger/Logger.h>
+#include <core/thread/ThreadDispatcher.h>
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetEvent.h>
 #include <framework/asset/CookProtocol.h>
 #include <framework/ipc/FrameChannel.h>
 #include <framework/platform/Process.h>
-#include <core/logger/Logger.h>
-#include <core/thread/ThreadDispatcher.h>
 
 #include <chrono>
 #include <utility>
@@ -20,25 +20,24 @@ namespace sky {
 
     namespace {
 
-        constexpr const char *TAG = "CookRunner";
+        constexpr const char *TAG                  = "CookRunner";
         constexpr uint32_t    HANDSHAKE_TIMEOUT_MS = 5000;
         constexpr uint32_t    MONITOR_INTERVAL_MS  = 200;
         constexpr uint32_t    SHUTDOWN_WAIT_MS     = 2000;
 
     } // namespace
 
-    void OutOfProcessCookRunner::NotifyCompletion(const Uuid &uuid, const std::string &target, AssetBuildRetCode code, const std::string &error)
+    void OutOfProcessCookRunner::NotifyCompletion(const CookJob &job, AssetBuildRetCode code, const std::string &error)
     {
         AssetBuildResult result = {};
-        result.uuid = uuid;
-        result.target = target;
-        result.retCode = code;
-        result.error = error;
+        result.uuid             = job.uuid;
+        result.target           = job.target;
+        result.requestId        = job.requestId;
+        result.retCode          = code;
+        result.error            = error;
 
         // Runs on the out-of-process monitor thread; deliver the broadcast on the main role.
-        ThreadDispatcher::Get()->PostToMain([uuid, result]() {
-            AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetBuildFinished, result);
-        });
+        ThreadDispatcher::Get()->PostToMain([result]() { AsseEvent::BroadCast(result.uuid, &IAssetEvent::OnAssetBuildFinished, result); });
 
         CookCompletion handler;
         {
@@ -50,8 +49,7 @@ namespace sky {
         }
     }
 
-    OutOfProcessCookRunner::OutOfProcessCookRunner(CookRunnerConfig inConfig)
-        : config(std::move(inConfig))
+    OutOfProcessCookRunner::OutOfProcessCookRunner(CookRunnerConfig inConfig) : config(std::move(inConfig))
     {
     }
 
@@ -108,34 +106,31 @@ namespace sky {
 
         {
             std::lock_guard<std::mutex> lock(mutex);
-            workerReady = false;
+            workerReady  = false;
             workerFailed = false;
         }
 
-        channel = std::make_unique<FrameChannel>(
-            [this](uint8_t *dst, size_t cap, bool &eof) { return process->ReadStdout(dst, cap, eof); },
-            [this](const uint8_t *data, size_t size) { return process->WriteStdin(data, size); },
-            [this](uint8_t *dst, size_t cap, bool &eof) { return process->ReadStderr(dst, cap, eof); });
+        channel = std::make_unique<FrameChannel>([this](uint8_t *dst, size_t cap, bool &eof) { return process->ReadStdout(dst, cap, eof); },
+                                                 [this](const uint8_t *data, size_t size) { return process->WriteStdin(data, size); },
+                                                 [this](uint8_t *dst, size_t cap, bool &eof) { return process->ReadStderr(dst, cap, eof); });
         channel->SetFrameHandler([this](const uint8_t *data, size_t size) { HandleFrame(data, size); });
         channel->SetLogHandler([](const std::string &line) { LOG_I(TAG, "%s", line.c_str()); });
         channel->SetErrorHandler([this](const char *reason) { OnChannelFailure(reason); });
         channel->Start();
 
         CookMessage hello = {};
-        hello.type = CookMessageType::Hello;
-        hello.protocol = COOK_PROTOCOL_VERSION;
+        hello.type        = CookMessageType::Hello;
+        hello.protocol    = COOK_PROTOCOL_VERSION;
         channel->WriteFrame(EncodeCookMessage(hello));
 
         std::unique_lock<std::mutex> lock(mutex);
-        cv.wait_for(lock, std::chrono::milliseconds(HANDSHAKE_TIMEOUT_MS), [this]() {
-            return workerReady || workerFailed;
-        });
+        cv.wait_for(lock, std::chrono::milliseconds(HANDSHAKE_TIMEOUT_MS), [this]() { return workerReady || workerFailed; });
         const bool ok = workerReady && !workerFailed;
         if (!ok) {
             LOG_E(TAG, "worker handshake failed");
         }
 
-        monitorStop = false;
+        monitorStop   = false;
         monitorThread = std::thread([this]() { MonitorLoop(); });
         return ok;
     }
@@ -152,7 +147,7 @@ namespace sky {
 
         if (channel) {
             CookMessage shutdown = {};
-            shutdown.type = CookMessageType::Shutdown;
+            shutdown.type        = CookMessageType::Shutdown;
             channel->WriteFrame(EncodeCookMessage(shutdown));
             channel->Stop();
         }
@@ -201,16 +196,16 @@ namespace sky {
                 uint64_t id = 0;
                 {
                     std::lock_guard<std::mutex> lock(mutex);
-                    id = nextId++;
+                    id           = nextId++;
                     inFlight[id] = InFlight{job, NowMs() + config.timeoutMs};
                 }
 
                 CookMessage message = {};
-                message.type = CookMessageType::Cook;
-                message.id = id;
-                message.uuid = job.uuid;
-                message.target = job.target;
-                message.path = job.path;
+                message.type        = CookMessageType::Cook;
+                message.id          = id;
+                message.uuid        = job.uuid;
+                message.target      = job.target;
+                message.path        = job.path;
 
                 if (!channel->WriteFrame(EncodeCookMessage(message))) {
                     std::lock_guard<std::mutex> lock(mutex);
@@ -221,7 +216,7 @@ namespace sky {
         }
 
         if (failure != nullptr) {
-            NotifyCompletion(job.uuid, job.target, AssetBuildRetCode::FAILED, failure);
+            NotifyCompletion(job, AssetBuildRetCode::FAILED, failure);
             return false;
         }
         return true;
@@ -253,7 +248,7 @@ namespace sky {
             std::this_thread::sleep_for(std::chrono::milliseconds(MONITOR_INTERVAL_MS));
 
             std::vector<CookJob> failed;
-            bool timedOut = false;
+            bool                 timedOut = false;
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (stopping || monitorStop) {
@@ -264,7 +259,7 @@ namespace sky {
                         failed.push_back(flight.job);
                     }
                     inFlight.clear();
-                    workerReady = false;
+                    workerReady  = false;
                     workerFailed = true;
                 } else {
                     const uint64_t now = NowMs();
@@ -285,7 +280,7 @@ namespace sky {
             if (!failed.empty()) {
                 const char *reason = timedOut ? "cook timed out" : "worker exited";
                 for (const auto &job : failed) {
-                    NotifyCompletion(job.uuid, job.target, AssetBuildRetCode::FAILED, reason);
+                    NotifyCompletion(job, AssetBuildRetCode::FAILED, reason);
                 }
                 if (timedOut && process) {
                     process->Kill();
@@ -303,32 +298,31 @@ namespace sky {
         }
 
         switch (message.type) {
-            case CookMessageType::Ready: {
-                std::lock_guard<std::mutex> lock(mutex);
-                if (message.protocol != COOK_PROTOCOL_VERSION) {
-                    workerFailed = true;
-                } else {
-                    workerReady = true;
-                }
-                cv.notify_all();
-                break;
+        case CookMessageType::Ready: {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (message.protocol != COOK_PROTOCOL_VERSION) {
+                workerFailed = true;
+            } else {
+                workerReady = true;
             }
-            case CookMessageType::Result:
-                OnResult(message.id, message.uuid, message.target, message.retCode, message.error);
-                break;
-            case CookMessageType::Pong:
-            default:
-                break;
+            cv.notify_all();
+            break;
+        }
+        case CookMessageType::Result: OnResult(message.id, message.uuid, message.target, message.retCode, message.error); break;
+        case CookMessageType::Pong:
+        default: break;
         }
     }
 
     void OutOfProcessCookRunner::OnResult(uint64_t id, const Uuid &uuid, const std::string &target, int32_t retCode, const std::string &error)
     {
-        bool found = false;
+        bool    found = false;
+        CookJob job;
         {
             std::lock_guard<std::mutex> lock(mutex);
-            const auto it = inFlight.find(id);
+            const auto                  it = inFlight.find(id);
             if (it != inFlight.end()) {
+                job = it->second.job;
                 inFlight.erase(it);
                 found = true;
             }
@@ -340,7 +334,11 @@ namespace sky {
         }
 
         const AssetBuildRetCode code = (retCode == 0) ? AssetBuildRetCode::SUCCESS : AssetBuildRetCode::FAILED;
-        NotifyCompletion(uuid, target, code, error);
+        if (job.uuid != uuid || job.target != target) {
+            NotifyCompletion(job, AssetBuildRetCode::FAILED, "worker returned a mismatched owner or target");
+            return;
+        }
+        NotifyCompletion(job, code, error);
     }
 
     void OutOfProcessCookRunner::FailAllInFlight(const char *reason)
@@ -354,7 +352,7 @@ namespace sky {
             inFlight.clear();
         }
         for (const auto &job : pending) {
-            NotifyCompletion(job.uuid, job.target, AssetBuildRetCode::FAILED, reason);
+            NotifyCompletion(job, AssetBuildRetCode::FAILED, reason);
         }
     }
 
@@ -365,9 +363,9 @@ namespace sky {
         bool first = false;
         {
             std::lock_guard<std::mutex> lock(mutex);
-            first = !workerFailed;
+            first        = !workerFailed;
             workerFailed = true;
-            workerReady = false;
+            workerReady  = false;
         }
         if (first) {
             FailAllInFlight(reason);

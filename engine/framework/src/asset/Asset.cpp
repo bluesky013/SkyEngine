@@ -24,9 +24,15 @@ namespace sky {
             size > uint64_t(std::numeric_limits<std::streamsize>::max())) {
             return {};
         }
-        std::vector<uint8_t> out(static_cast<size_t>(size));
-        auto                &stream = productStream->GetStream();
+        std::lock_guard<std::mutex> lock(bulkMutex);
+        auto                       &stream = productStream->GetStream();
         stream.clear();
+        stream.seekg(0, std::ios::end);
+        const auto end = stream.tellg();
+        if (!stream || end < 0 || bulkStart + offset > static_cast<uint64_t>(end) || size > static_cast<uint64_t>(end) - bulkStart - offset) {
+            return {};
+        }
+        std::vector<uint8_t> out(static_cast<size_t>(size));
         stream.seekg(static_cast<std::streamoff>(bulkStart + offset), std::ios::beg);
         if (!stream || !stream.read(reinterpret_cast<char *>(out.data()), static_cast<std::streamsize>(size)))
             return {};

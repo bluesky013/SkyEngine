@@ -15,12 +15,52 @@
 #include <framework/asset/ICookRunner.h>
 #include <framework/asset/ISourceCatalog.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/serialization/SerializationContext.h>
 
 static const char *TAG = "AssetManager";
 
 namespace sky {
 
     namespace {
+
+        bool RemainingBytes(const IStreamArchivePtr &archive, uint64_t &size)
+        {
+            if (!archive) {
+                return false;
+            }
+            auto      &stream = archive->GetStream();
+            const auto start  = stream.tellg();
+            stream.seekg(0, std::ios::end);
+            const auto end = stream.tellg();
+            stream.seekg(start);
+            if (start < 0 || end < start || !stream) {
+                return false;
+            }
+            size = static_cast<uint64_t>(end - start);
+            return true;
+        }
+
+        bool ReadHeaderString(IStreamArchive &archive, std::string &out, uint32_t limit)
+        {
+            uint32_t size = 0;
+            if (!archive.Load(size) || size > limit) {
+                return false;
+            }
+            out.resize(size);
+            return archive.LoadRaw(out.data(), size) && out.find('\0') == std::string::npos;
+        }
+
+        bool ReadProductHeader(const Uuid &uuid, const IStreamArchivePtr &archive, AssetProductInspection &out, std::string &codec)
+        {
+            uint32_t count = 0;
+            if (!archive || !ReadHeaderString(*archive, out.type, 4096) || out.type.empty() || !archive->Load(count) || count > 4096)
+                return false;
+            out.dependencies.resize(count);
+            for (auto &dependency : out.dependencies)
+                if (!archive->Load(dependency.word[0]) || !archive->Load(dependency.word[1]) || !dependency || dependency == uuid)
+                    return false;
+            return ReadHeaderString(*archive, codec, 16);
+        }
 
         const char *CodecName(CompressionMethod method)
         {
@@ -75,43 +115,85 @@ namespace sky {
 
     void AssetManager::OnCookFinished(const AssetBuildResult &result)
     {
-        const bool produced = OpenFile(result.uuid) != nullptr;
+        if (result.retCode == AssetBuildRetCode::SUCCESS) { productChangeSerial.fetch_add(1, std::memory_order_release); }
+        std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
+        std::vector<Uuid>                     members;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            const auto                            pending = pendingOwners.find(result.uuid.ToString() + "#" + result.target);
+            if (pending == pendingOwners.end() || pending->second != result.requestId) {
+                return;
+            }
+            pendingOwners.erase(pending);
+            for (const auto &[id, job] : pendingJobs) {
+                if (job.owner == result.uuid && job.targets.contains(result.target)) {
+                    members.push_back(id);
+                }
+            }
+        }
+        if (sourceCatalog) {
+            sourceCatalog->RefreshOwner(result.uuid);
+        }
+        for (const auto &member : members) {
+            auto completed = result;
+            completed.uuid = member;
+            CompleteCookMember(completed);
+        }
+    }
+
+    void AssetManager::CompleteCookMember(const AssetBuildResult &result)
+    {
+        const bool produced = (!sourceCatalog || sourceCatalog->Exists(result.uuid)) && OpenFile(result.uuid) != nullptr;
         if (produced) {
             RefreshProductIndex();
         }
 
-        std::shared_ptr<std::promise<void>> promise;
+        TaskNodePtr completion;
+        AssetPtr    placeholder;
+        Uuid        owner;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             const auto                            iter = pendingJobs.find(result.uuid);
             if (iter == pendingJobs.end()) {
                 return; // no pending on-demand load (e.g. an explicit editor cook) or duplicate completion
             }
-            iter->second.targets.erase(result.target);
+            if (iter->second.requestId != result.requestId || !iter->second.targets.erase(result.target)) {
+                return;
+            }
             // Resolve once any target produced a product, or when every requested target has finished.
             if (!(produced || iter->second.targets.empty())) {
                 return; // more targets for this asset are still cooking
             }
-            promise = iter->second.promise;
-            // NOTE: keep pendingJobs[uuid] until the status transition below, so a concurrent on-demand
-            // caller keeps coalescing (sees this load in flight) instead of starting a redundant second
-            // cook whose wait handle no cook would fulfil.
+            owner       = iter->second.owner;
+            completion  = iter->second.completion;
+            placeholder = iter->second.placeholder;
+            // Keep the placeholder discoverable until its load task owns completion.
         }
 
-        if (produced) {
-            DeserializeProduct(result.uuid);
-        } else if (auto asset = FindAsset(result.uuid); asset) {
-            asset->status.store(AssetBase::Status::FAILED);
+        const bool scheduled = produced && DeserializeProduct(result.uuid, placeholder, completion);
+        if (!scheduled) {
+            placeholder->status.store(AssetBase::Status::FAILED);
+            ThreadDispatcher::Get()->PostToMain([id = result.uuid]() { AsseEvent::BroadCast(id, &IAssetEvent::OnAssetLoaded); });
+        } else {
+            completion = nullptr;
         }
 
-        // Only now drop the in-flight marker: a late caller then sees a LOADED/FAILED asset, never a
-        // LOADING-without-in-flight gap.
+        // The original barrier remains attached while deserialization finishes.
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             pendingJobs.erase(result.uuid);
         }
-        if (promise) {
-            promise->set_value();
+        if (completion) {
+            AssetExecutor::Get()->CompleteLoadBarrier(completion);
+        }
+        if (owner != result.uuid) {
+            auto childResult = result;
+            if (!scheduled) {
+                childResult.retCode = AssetBuildRetCode::FAILED;
+                childResult.error   = "owner cook did not produce a readable child product";
+            }
+            ThreadDispatcher::Get()->PostToMain(
+                [childResult]() { AsseEvent::BroadCast(childResult.uuid, &IAssetEvent::OnAssetBuildFinished, childResult); });
         }
     }
 
@@ -153,7 +235,7 @@ namespace sky {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             auto                                 &ref = assets[uuid];
             if (auto res = ref.lock(); res) {
-                return res;
+                return res->GetType() == type ? res : AssetPtr{};
             }
             ref = asset = hIter->second->CreateAsset();
         }
@@ -162,26 +244,18 @@ namespace sky {
         return asset;
     }
 
-    AssetPtr AssetManager::CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec)
+    AssetPtr AssetManager::CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec, const AssetPtr &destination)
     {
-        // get asset type
-        std::string type;
-        archive->Load(type);
-
-        // try to find again
-        auto asset = FindOrCreateAsset(uuid, Name(type.c_str()));
+        AssetProductInspection header;
+        if (!ReadProductHeader(uuid, archive, header, codec)) {
+            return {};
+        }
+        auto asset = destination ? destination : FindOrCreateAsset(uuid, Name(header.type.c_str()));
+        if (asset && asset->GetType() != Name(header.type.c_str())) {
+            return {};
+        }
         if (asset) {
-            uint32_t depCount = 0;
-            archive->Load(depCount);
-
-            asset->dependencies.resize(depCount);
-            for (uint32_t i = 0; i < depCount; ++i) {
-                auto &dep = asset->dependencies[i];
-                archive->Load(dep.word[0]);
-                archive->Load(dep.word[1]);
-            }
-
-            archive->Load(codec);
+            asset->dependencies = std::move(header.dependencies);
         }
         return asset;
     }
@@ -204,39 +278,118 @@ namespace sky {
             return {};
         }
 
-        uint32_t uncompressedSize = 0;
-        archive->Load(uncompressedSize);
-        uint32_t compressedSize = 0;
-        archive->Load(compressedSize);
-
+        uint32_t uncompressedSize = 0, compressedSize = 0;
+        uint64_t remaining = 0;
+        if (!archive->Load(uncompressedSize) || !archive->Load(compressedSize) || !RemainingBytes(archive, remaining) ||
+            compressedSize != remaining || compressedSize > 256U * 1024U * 1024U || uncompressedSize == 0 ||
+            uncompressedSize > 256U * 1024U * 1024U) {
+            return {};
+        }
         std::vector<uint8_t> compressed(compressedSize);
-        archive->LoadRaw(reinterpret_cast<char *>(compressed.data()), compressedSize);
-
+        if (!archive->LoadRaw(reinterpret_cast<char *>(compressed.data()), compressedSize)) {
+            return {};
+        }
         BinaryDataPtr decompressed = new BinaryData(uncompressedSize);
-        auto          res          = compressor->DeCompress({compressed.data(), compressed.size()}, {decompressed->Data(), decompressed->Size()}, 0);
-        if (!res.first) {
-            LOG_E(TAG, "Product decompression failed");
+        const auto    res          = compressor->DeCompress({compressed.data(), compressed.size()}, {decompressed->Data(), decompressed->Size()}, 0);
+        if (!res.first || res.second != uncompressedSize) {
+            LOG_E(TAG, "Product decompression failed or returned the wrong size");
             return {};
         }
 
         return new IMemoryArchive(decompressed);
     }
 
-    AssetPtr AssetManager::LoadAsset(const Uuid &uuid) // NOLINT
+    IStreamArchivePtr AssetManager::ReadProductPayload(const IStreamArchivePtr &stream, const std::string &codec, const AssetPtr &asset,
+                                                     uint64_t *declaredBulkSize) const
+    {
+        uint32_t headerSize = 0;
+        uint64_t remaining  = 0;
+        if (!stream->Load(headerSize) || headerSize > 256U * 1024U * 1024U || !RemainingBytes(stream, remaining) || remaining < sizeof(uint64_t) ||
+            headerSize > remaining - sizeof(uint64_t)) {
+            return {};
+        }
+        BinaryDataPtr headerData = new BinaryData(headerSize);
+        if (!stream->LoadRaw(reinterpret_cast<char *>(headerData->Data()), headerSize)) {
+            return {};
+        }
+        const auto payload  = PreparePayload(new IMemoryArchive(headerData), codec);
+        uint64_t   bulkSize = 0;
+        if (!payload || !stream->Load(bulkSize) || bulkSize != remaining - headerSize - sizeof(uint64_t)) {
+            return {};
+        }
+        if (asset) {
+            asset->bulkStart     = stream->Tell();
+            asset->productStream = bulkSize ? stream : IStreamArchivePtr{};
+        }
+        if (declaredBulkSize)
+            *declaredBulkSize = bulkSize;
+        return payload;
+    }
+
+    ProductStatus AssetManager::InspectProduct(const Uuid &uuid, const ProductBundleKey &bundle, AssetProductInspection &out) const
+    {
+        const auto *source = GetBundle(bundle);
+        if (!uuid || !source)
+            return {ProductError::NotFound, "product bundle unavailable"};
+        AssetProductInspection inspected;
+        FilePtr file;
+        const AssetProductGroupStore store(source->GetFileSystem());
+        if (store.HasOwnerRecord(uuid) && !store.HasLegacyFallback(uuid)) {
+            if (const auto status = source->ResolveGroup(uuid, inspected.group); !status)
+                return status;
+            if (const auto status = source->OpenPinned(*inspected.group, uuid, file); !status)
+                return status;
+        } else
+            file = source->OpenFile(uuid);
+        if (!file)
+            return {ProductError::NotFound, "product file unavailable"};
+        const auto stream = file->ReadAsArchive();
+        std::string codec;
+        if (!ReadProductHeader(uuid, stream, inspected, codec) || !(inspected.payload = ReadProductPayload(stream, codec, {}, &inspected.bulkSize)))
+            return {ProductError::InvalidData, "invalid product header or payload"};
+        out = std::move(inspected);
+        return {};
+    }
+
+    AssetPtr AssetManager::LoadAsset(const Uuid &uuid, AssetLoadPolicy policy) // NOLINT
     {
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
+
+        for (const auto &bundle : bundles) {
+            if (AssetProductGroupStore(bundle->GetFileSystem()).HasOwnerRecord(uuid)) {
+                ProductGroupSnapshotPtr group;
+                auto snapshot = bundle->ResolveGroup(uuid, group) ? LoadAssetSnapshot(uuid, bundle->GetKey(), group, policy) : AssetPtr{};
+                if (snapshot) {
+                    std::lock_guard<std::recursive_mutex> lock(mutex);
+                    assets[uuid] = snapshot;
+                }
+                if (!snapshot && AssetProductGroupStore(bundle->GetFileSystem()).HasLegacyFallback(uuid)) {
+                    break;
+                }
+                if (snapshot) {
+                    return snapshot;
+                }
+                return policy == AssetLoadPolicy::AllowCook && sourceCatalog && sourceCatalog->Exists(uuid) ? LoadAssetOnDemand(uuid) : AssetPtr{};
+            }
+        }
+
+        GeneratedAssetRecord generated;
+        if (policy == AssetLoadPolicy::AllowCook && sourceCatalog && sourceCatalog->GetGenerated(uuid, generated) && !generated.active) {
+            return {};
+        }
 
         auto asset = FindAsset(uuid);
 
         // Another caller may already be loading this asset; reuse its wait handle
         // instead of reading the product header concurrently.
-        if (asset && (asset->IsLoaded() || asset->GetStatus() == AssetBase::Status::LOADING)) {
+        if (asset && (asset->IsLoaded() || asset->GetStatus() == AssetBase::Status::LOADING) &&
+            (policy == AssetLoadPolicy::AllowCook || OpenFile(uuid))) {
             return asset;
         }
 
         auto file = OpenFile(uuid);
         if (!file) {
-            return LoadAssetOnDemand(uuid);
+            return policy == AssetLoadPolicy::AllowCook ? LoadAssetOnDemand(uuid) : AssetPtr{};
         }
 
         IStreamArchivePtr stream = file->ReadAsArchive();
@@ -247,31 +400,10 @@ namespace sky {
             return {};
         }
 
-        // Header block (the handler DataType), then the payload section table.
-        uint32_t headerBlockSize = 0;
-        stream->Load(headerBlockSize);
-        BinaryDataPtr headerData = new BinaryData(headerBlockSize);
-        if (headerBlockSize != 0) {
-            stream->LoadRaw(reinterpret_cast<char *>(headerData->Data()), headerBlockSize);
-        }
-
-        IStreamArchivePtr payload;
-        if (codec.empty()) {
-            payload = new IMemoryArchive(headerData);
-        } else {
-            auto blockArchive = new IMemoryArchive(headerData);
-            payload           = PreparePayload(blockArchive, codec);
-        }
+        const auto payload = ReadProductPayload(stream, codec, asset);
         if (!payload) {
+            asset->status.store(AssetBase::Status::FAILED);
             return {};
-        }
-
-        uint64_t bulkSize = 0;
-        stream->Load(bulkSize);
-        if (bulkSize != 0) {
-            // keep the product stream open to read bulk ranges on demand
-            asset->bulkStart     = static_cast<uint64_t>(stream->Tell());
-            asset->productStream = stream;
         }
 
         // avoid release dep asset
@@ -280,7 +412,7 @@ namespace sky {
         holder.reserve(asset->dependencies.size());
 
         for (auto &dep : asset->dependencies) {
-            auto depAsset = LoadAsset(dep);
+            auto depAsset = LoadAsset(dep, policy);
             if (!depAsset) {
                 return {};
             }
@@ -291,24 +423,21 @@ namespace sky {
 
         asset->status.store(AssetBase::Status::LOADING);
         auto async = AssetExecutor::Get()->DependentAsync(
-            [this, uuid, payload, deps = std::move(holder)]() mutable {
+            [this, weakAsset = std::weak_ptr<AssetBase>(asset), payload, deps = std::move(holder)]() mutable {
+                const auto asset = weakAsset.lock();
+                if (!asset) {
+                    return;
+                }
                 bool success = true;
                 for (const auto &dep : deps) {
-                    SKY_ASSERT(dep->status.load() >= AssetBase::Status::LOADED)
                     success &= dep->IsLoaded();
                 }
 
                 if (!success) {
+                    asset->status.store(AssetBase::Status::FAILED);
                     return;
                 }
                 SKY_PROFILE_NAME("LoadAsset")
-                auto asset = FindAsset(uuid);
-
-                if (!asset) {
-                    LOG_E(TAG, "Asset %s not found while loading. Maybe deleted?", uuid.ToString().c_str());
-                }
-
-                SKY_ASSERT(asset)
                 asset->depAssets.swap(deps);
                 LoadInto(asset, payload);
             },
@@ -333,16 +462,25 @@ namespace sky {
 
         std::string target;
         sourceCatalog->GetTarget(uuid, target);
+        Uuid owner;
+        if (!sourceCatalog->GetOwner(uuid, owner)) {
+            return {};
+        }
+        bool schedule = false;
+        Uuid requestId;
 
         // Establish the coalescing decision AND the wait handle atomically: a concurrent caller for an
         // in-flight load observes pendingJobs[uuid] and reuses the same handle; it never overwrites it.
         // Scheduling happens after the lock is released (both runners only enqueue).
-        AssetPtr                            loading;
-        std::shared_ptr<std::promise<void>> promise;
+        AssetPtr loading;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
 
-            loading = FindOrCreateAsset(uuid, Name(type.c_str()));
+            loading = FindAsset(uuid);
+            if (!loading || loading->GetStatus() == AssetBase::Status::FAILED) {
+                loading      = CreateBuildAsset(uuid, Name(type.c_str()));
+                assets[uuid] = loading;
+            }
             if (!loading) {
                 return {};
             }
@@ -356,19 +494,31 @@ namespace sky {
             loading->status.store(AssetBase::Status::LOADING);
 
             // Establish the wait handle before scheduling the cook; set exactly once per load.
-            promise = std::make_shared<std::promise<void>>();
-            loading->SetWaitHandle(promise->get_future().share());
-            pendingJobs[uuid] = PendingCook{{target}, {}, promise};
+            auto completion = AssetExecutor::Get()->CreateLoadBarrier();
+            loading->SetAsyncTask(completion.first, completion.second);
+            const auto [pending, inserted] = pendingOwners.try_emplace(owner.ToString() + "#" + target, Uuid::Create());
+            requestId                      = pending->second;
+            schedule                       = inserted;
+            pendingJobs[uuid]              = PendingCook{{target}, {}, completion.first, owner, loading, requestId};
         }
 
         // Both runners register the pending job above and resolve through OnCookFinished, so in-process
         // and out-of-process cooks behave identically (D5/D7).
+        if (!schedule) {
+            return loading;
+        }
         if (cookRunner != nullptr) {
             std::string sourcePath;
-            sourceCatalog->GetSourcePath(uuid, sourcePath);
-            cookRunner->Request(CookJob{uuid, target, sourcePath});
+            sourceCatalog->GetSourcePath(owner, sourcePath);
+            if (!cookRunner->Request(CookJob{owner, target, sourcePath, requestId})) {
+                OnCookFinished({owner, target, AssetBuildRetCode::FAILED, "cook runner rejected request", requestId});
+            }
         } else {
-            AssetBuilderManager::Get()->BuildRequest(uuid, target, [this](const AssetBuildResult &result) { OnCookFinished(result); });
+            AssetBuilderManager::Get()->BuildRequest(owner, target, [this, requestId](const AssetBuildResult &value) {
+                auto result      = value;
+                result.requestId = requestId;
+                OnCookFinished(result);
+            });
         }
 
         return loading;
@@ -381,70 +531,83 @@ namespace sky {
         asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
         // May run on the load worker; deliver OnAssetLoaded on the main role.
         const Uuid uuid = asset->uuid;
-        ThreadDispatcher::Get()->PostToMain([uuid]() {
-            AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded);
-        });
+        ThreadDispatcher::Get()->PostToMain([uuid]() { AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded); });
         return res;
     }
 
-    void AssetManager::DeserializeProduct(const Uuid &uuid)
+    bool AssetManager::DeserializeProduct(const Uuid &uuid, const AssetPtr &destination, const TaskNodePtr &completion)
     {
-        // Deserialize from the freshly produced product without touching asyncTask
-        // (a caller may be waiting on the on-demand wait handle).
-        auto file = OpenFile(uuid);
+        FilePtr                 file;
+        ProductGroupSnapshotPtr group;
+        ProductBundleKey        groupBundle;
+        for (const auto &bundle : bundles) {
+            const AssetProductGroupStore store(bundle->GetFileSystem());
+            if (store.HasOwnerRecord(uuid) && !store.HasLegacyFallback(uuid)) {
+                groupBundle = bundle->GetKey();
+                if (!bundle->ResolveGroup(uuid, group) || !bundle->OpenPinned(*group, uuid, file)) {
+                    return false;
+                }
+                break;
+            }
+            file = bundle->OpenFile(uuid);
+            if (file) {
+                break;
+            }
+        }
         if (!file) {
-            return;
+            return false;
         }
 
         IStreamArchivePtr stream = file->ReadAsArchive();
 
         std::string codec;
-        auto        asset = CreateAssetByHeader(uuid, stream, codec);
+        auto        asset = CreateAssetByHeader(uuid, stream, codec, destination);
         if (!asset) {
-            return;
+            return false;
         }
+        asset->productGroup = group;
 
-        uint32_t headerBlockSize = 0;
-        stream->Load(headerBlockSize);
-        BinaryDataPtr headerData = new BinaryData(headerBlockSize);
-        if (headerBlockSize != 0) {
-            stream->LoadRaw(reinterpret_cast<char *>(headerData->Data()), headerBlockSize);
-        }
-
-        IStreamArchivePtr payload;
-        if (codec.empty()) {
-            payload = new IMemoryArchive(headerData);
-        } else {
-            auto blockArchive = new IMemoryArchive(headerData);
-            payload           = PreparePayload(blockArchive, codec);
-        }
+        const auto payload = ReadProductPayload(stream, codec, asset);
         if (!payload) {
-            asset->status.store(AssetBase::Status::FAILED);
-            return;
+            return false;
         }
 
-        uint64_t bulkSize = 0;
-        stream->Load(bulkSize);
-        if (bulkSize != 0) {
-            // keep the product stream open to read bulk ranges on demand
-            asset->bulkStart     = static_cast<uint64_t>(stream->Tell());
-            asset->productStream = stream;
-        }
-
-        std::vector<AssetPtr> deps;
+        std::vector<AssetPtr>    deps;
+        std::vector<TaskNodePtr> tasks;
         deps.reserve(asset->dependencies.size());
         for (auto &dep : asset->dependencies) {
-            auto depAsset = LoadAsset(dep);
+            if (dep == uuid) {
+                return false;
+            }
+            const bool sameGroup =
+                group && std::any_of(group->members.begin(), group->members.end(), [&dep](const auto &member) { return member.uuid == dep; });
+            const auto depAsset = sameGroup ? LoadAssetSnapshot(dep, groupBundle, group) : LoadAsset(dep);
             if (!depAsset) {
                 asset->status.store(AssetBase::Status::FAILED);
-                return;
+                return false;
             }
-            depAsset->BlockUntilLoaded();
+            tasks.push_back(depAsset->GetAsyncNode());
             deps.emplace_back(depAsset);
         }
 
         asset->depAssets.swap(deps);
-        LoadInto(asset, payload);
+        auto loaded = AssetExecutor::Get()->DependentAsync(
+            [this, weak = std::weak_ptr<AssetBase>(asset), payload]() {
+                const auto value = weak.lock();
+                if (!value) {
+                    return;
+                }
+                for (const auto &dependency : value->depAssets) {
+                    if (!dependency->IsLoaded()) {
+                        value->status.store(AssetBase::Status::FAILED);
+                        return;
+                    }
+                }
+                LoadInto(value, payload);
+            },
+            tasks);
+        AssetExecutor::Get()->DependentAsync([completion]() { AssetExecutor::Get()->CompleteLoadBarrier(completion); }, {loaded.first});
+        return true;
     }
 
     AssetProductBundle *AssetManager::GetBundle(const ProductBundleKey &target) const
@@ -503,9 +666,13 @@ namespace sky {
             return;
         }
 
-        // Flush an in-flight load task; the on-demand placeholder has no task node, so skip it
-        // (waiting on it would deadlock the cooking task itself).
-        if (asset->GetAsyncNode() != nullptr) {
+        bool pendingCook = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            pendingCook = pendingJobs.contains(asset->GetUuid());
+        }
+        // A cook must not wait for its own completion barrier.
+        if (asset->GetAsyncNode() != nullptr && !pendingCook) {
             asset->BlockUntilLoaded();
         }
 
@@ -582,14 +749,23 @@ namespace sky {
         if (sourceCatalog != nullptr && sourceCatalog->GetSourcePath(asset->GetUuid(), sourcePath)) {
             std::lock_guard<std::recursive_mutex> lock(mutex);
 
-            auto bundleFs = pBundle->GetFileSystem();
-            auto index    = productIndices.Get(bundleFs, FilePath{});
+            const auto  bundleFs = pBundle->GetFileSystem();
+            FileLockPtr indexLock;
+            if (const auto status = bundleFs->AcquireFileLock(".groups/index.lock", indexLock); !status) {
+                LOG_E(TAG, "Product index lock failed: %s", status.message.c_str());
+                return;
+            }
+            productIndices.Invalidate(bundleFs, FilePath{});
+            auto index = productIndices.Get(bundleFs, FilePath{});
 
             IndexFileEntry entry;
             entry.key = MakeCanonicalPath(sourcePath);
             entry.id  = asset->GetUuid();
             index.Set(entry);
-            productIndices.Save(bundleFs, FilePath{}, index);
+            if (!productIndices.Save(bundleFs, FilePath{}, index)) {
+                LOG_E(TAG, "Product index write failed");
+                return;
+            }
 
             productPathMap[entry.key] = entry.id;
         }

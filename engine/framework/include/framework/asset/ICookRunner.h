@@ -4,17 +4,18 @@
 
 #pragma once
 
-#include <functional>
-#include <string>
 #include <core/util/Uuid.h>
 #include <framework/asset/AssetCommon.h>
+#include <functional>
+#include <string>
 
 namespace sky {
 
     struct CookJob {
         Uuid        uuid;
         std::string target;
-        std::string path; // logical source path; used by the out-of-process runner
+        std::string path;      // logical source path; used by the out-of-process runner
+        Uuid        requestId; // echoed by completion; distinguishes retries for the same owner
     };
 
     // Cook dispatch seam. The loading layer depends only on this and IAssetEvent, so an
@@ -30,7 +31,7 @@ namespace sky {
         virtual void SetCompletion(CookCompletion handler) = 0;
 
         virtual bool Request(const CookJob &job) = 0;
-        virtual void Drain() = 0;
+        virtual void Drain()                     = 0;
     };
 
 } // namespace sky

@@ -25,11 +25,11 @@ namespace sky {
         std::string workerPath;
         // Extra arguments placed immediately after the executable (e.g. a worker mode).
         std::vector<std::string> extraArgs;
-        std::string projectPath;      // passed to the worker as --project
-        std::string enginePath;       // passed to the worker as --engine
-        std::string intermediatePath; // optional, passed as --intermediate
-        std::string platform;         // platform target, e.g. "Win32"
-        uint32_t    timeoutMs = 10u * 60u * 1000u;
+        std::string              projectPath;      // passed to the worker as --project
+        std::string              enginePath;       // passed to the worker as --engine
+        std::string              intermediatePath; // optional, passed as --intermediate
+        std::string              platform;         // platform target, e.g. "Win32"
+        uint32_t                 timeoutMs = 10u * 60u * 1000u;
     };
 
     // Dispatches cooks to a persistent worker process and raises the same
@@ -39,7 +39,7 @@ namespace sky {
         explicit OutOfProcessCookRunner(CookRunnerConfig config);
         ~OutOfProcessCookRunner() override;
 
-        OutOfProcessCookRunner(const OutOfProcessCookRunner &) = delete;
+        OutOfProcessCookRunner(const OutOfProcessCookRunner &)            = delete;
         OutOfProcessCookRunner &operator=(const OutOfProcessCookRunner &) = delete;
 
         void SetCompletion(CookCompletion handler) override;
@@ -58,7 +58,7 @@ namespace sky {
 
         void HandleFrame(const uint8_t *data, size_t size);
         void OnResult(uint64_t id, const Uuid &uuid, const std::string &target, int32_t retCode, const std::string &error);
-        void NotifyCompletion(const Uuid &uuid, const std::string &target, AssetBuildRetCode code, const std::string &error);
+        void NotifyCompletion(const CookJob &job, AssetBuildRetCode code, const std::string &error);
         void FailAllInFlight(const char *reason);
         void OnChannelFailure(const char *reason);
 
@@ -69,17 +69,17 @@ namespace sky {
         std::unique_ptr<FrameChannel> channel;
         std::thread                   monitorThread;
 
-        CookCompletion                completion;
-        std::mutex                    mutex;
+        CookCompletion completion;
+        std::mutex     mutex;
         // Serializes Request/Drain/worker start-stop so concurrent loaders cannot race
         // worker lifecycle (never held by the monitor thread).
-        std::mutex                    lifecycleMutex;
-        std::condition_variable       cv;
-        bool                          workerReady = false;
-        bool                          workerFailed = false;
-        bool                          stopping = false;
-        bool                          monitorStop = false;
-        uint64_t                      nextId = 1;
+        std::mutex                             lifecycleMutex;
+        std::condition_variable                cv;
+        bool                                   workerReady  = false;
+        bool                                   workerFailed = false;
+        bool                                   stopping     = false;
+        bool                                   monitorStop  = false;
+        uint64_t                               nextId       = 1;
         std::unordered_map<uint64_t, InFlight> inFlight;
     };
 
