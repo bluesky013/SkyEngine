@@ -483,7 +483,11 @@ TEST(ShaderVariantTest, TargetMappingsComeFromSourceDeclarations)
     desc.entry  = "mainFS";
     desc.stage  = ShaderStageFlagBit::FS;
     desc.schema = &schema;
-    for (const auto target : {ShaderTarget::SPIRV, ShaderTarget::MSL, ShaderTarget::DXIL}) {
+    std::vector<ShaderTarget> targets{ShaderTarget::SPIRV, ShaderTarget::MSL};
+#if defined(SKY_PLATFORM_WINDOWS)
+    targets.push_back(ShaderTarget::DXIL);
+#endif
+    for (const auto target : targets) {
         SCOPED_TRACE(static_cast<int>(target));
         desc.target = target;
         ShaderCompileResult result;
