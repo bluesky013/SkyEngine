@@ -62,7 +62,7 @@ docs/
 │   └── launcher.md
 ├── plugins/
 │   ├── overview.md            # Plugin architecture and registration
-│   ├── bullet.md
+│   ├── jolt.md
 │   ├── recast.md
 │   ├── terrain.md
 │   ├── opendrive.md

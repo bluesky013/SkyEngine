@@ -73,7 +73,12 @@ namespace sky {
         static void Reflect(SerializationContext *context);
 
         void Init();
-        void Build(const WorldDesc &desc);
+        // Initializes subsystems once, then attaches loaded actors. Failure rolls back newly attached subsystems and actors.
+        bool               Build(const WorldDesc &desc);
+        const std::string &GetLastError() const
+        {
+            return lastError;
+        }
         // The description the world was built from (may be null if built manually).
         const WorldDesc *GetWorldDesc() const;
         // Lazily-created, mutable description (for the editor to edit before Build).
@@ -84,7 +89,10 @@ namespace sky {
         {
             persistID = inID;
         }
-        const Uuid &GetRuntimeId() const { return runtimeId; }
+        const Uuid &GetRuntimeId() const
+        {
+            return runtimeId;
+        }
 
         const Uuid &GetPersistID() const
         {
@@ -92,7 +100,8 @@ namespace sky {
         }
 
         void SaveJson(JsonOutputArchive &archive);
-        void LoadJson(JsonInputArchive &archive);
+        // Loads detached actors; Build must succeed before this world can run.
+        bool LoadJson(JsonInputArchive &archive);
 
         Actor                                     *CreateActor(bool withTrans = true);
         Actor                                     *CreateActor(const char *name, bool withTrans = true);
@@ -106,6 +115,8 @@ namespace sky {
 
         // Takes ownership; the actor must not already belong to a world.
         Actor *AttachToWorld(std::unique_ptr<Actor> actor);
+        // Retains caller ownership on failure. Attachment hooks must not mutate world actor membership.
+        Actor *TryAttachToWorld(std::unique_ptr<Actor> &actor);
         // Releases ownership of the actor (returns it) so the caller can retain or move it.
         std::unique_ptr<Actor> DetachFromWorld(Actor *actor);
         void                   Reset();
@@ -121,15 +132,17 @@ namespace sky {
     private:
         World() = default;
 
-        std::vector<std::unique_ptr<Actor>>                        actors;
-        std::unordered_map<Uuid, size_t>                           actorIndex;
+        std::vector<std::unique_ptr<Actor>> actors;
+        std::unordered_map<Uuid, size_t>    actorIndex;
         // External ownership keeps virtual destructor code resident through subsystem destruction.
-        std::unordered_map<Name, std::shared_ptr<const void>> subSystemModuleLeases;
+        std::unordered_map<Name, std::shared_ptr<const void>>      subSystemModuleLeases;
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         Uuid persistID;
         Uuid runtimeId = Uuid::Create();
 
         std::unique_ptr<WorldDesc> worldDesc;
+        bool                       built = false;
+        std::string                lastError;
     };
 } // namespace sky

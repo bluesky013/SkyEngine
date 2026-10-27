@@ -2,6 +2,7 @@
 // Created on 2026/10/07.
 //
 
+#include <editor/core/EditorCore.h>
 #include <editor/shell/WorldConfigPanel.h>
 
 #include <editor/ui/UiDraw.h>
@@ -116,6 +117,7 @@ namespace sky::editor {
             formView->Unbind();
         }
         Rebind();
+        configRevision = lastDocument ? lastDocument->GetConfigRevision() : 0;
         MarkLayoutDirty();
     }
 
@@ -140,16 +142,18 @@ namespace sky::editor {
 
     void WorldConfigPanel::SynchronizeDocument()
     {
-        if (!providerMode) {
-            return;
-        }
-        WorldDocument *document = documentProvider ? documentProvider() : nullptr;
+        WorldDocument *document = providerMode ? (documentProvider ? documentProvider() : nullptr) : lastDocument;
         if (lastDocument != document) {
             lastDocument = document;
             selected     = 0;
             RefreshDocument();
         } else if (document == nullptr && formView != nullptr) {
             formView->SetVisible(false);
+        }
+        const auto revision = document ? document->GetConfigRevision() : 0;
+        if (revision != configRevision) {
+            configRevision = revision;
+            RefreshDocument();
         }
     }
 
@@ -217,10 +221,6 @@ namespace sky::editor {
         if (formView != nullptr) {
             formView->CancelInteractions();
         }
-        // Persist edits made through the form before switching subsystem.
-        if (WorldDocument *doc = lastDocument; doc != nullptr && doc->IsDirty()) {
-            doc->Save();
-        }
         selected = index;
         Rebind();
         MarkPaintDirty();
@@ -245,15 +245,9 @@ namespace sky::editor {
             formView->Unbind();
         }
 
-        bool       flag   = false;
-        const bool inDesc = doc->IsSubSystemEnabled(name, flag);
-        doc->SetSubSystemEnabled(name, !(!inDesc || flag)); // registered-and-absent counts as enabled
-        doc->Rebuild();                                     // apply immediately (adds newly-enabled)
-        doc->Save();                                        // persist the selection
-
-        // SetSubSystemEnabled can append to WorldDesc::subSystems, which
-        // reallocates the vector; Any stores its value inline, so the form's
-        // bound config pointer is now dangling. Rebind to the fresh instance.
+        bool flag = false;
+        doc->IsSubSystemEnabled(name, flag);
+        EditorCore::GetCommandService().Execute(doc->MakeSubSystemEnabledCommand(name, !flag));
         Rebind();
         MarkPaintDirty();
     }
@@ -294,6 +288,9 @@ namespace sky::editor {
             return;
         }
         formView->Bind(PropertyObject{config->Data(), node});
+        formView->Form().SetEditCommandFactory([doc, key = std::string(name.GetStr())](const PropertyDescriptor &property, Any value) {
+            return doc->MakeConfigEditCommand(key, property, std::move(value));
+        });
     }
 
     void WorldConfigPanel::ArrangeChildren(const sky::ui::UIRect &)
@@ -304,7 +301,7 @@ namespace sky::editor {
     void WorldConfigPanel::OnPaint(sky::ui::UIPaintContext &context)
     {
         context.PushClip(GetBounds());
-        skin.DrawPanel(context, GetBounds(), title, titleVisible);
+        skin.DrawPanel(context, GetBounds(), title + " (applies on next Play)", titleVisible);
         const sky::ui::UIRect content = layout->body->GetBounds();
         const UiTheme        &th      = skin.Theme();
         WorldDocument        *doc     = lastDocument;
@@ -331,7 +328,7 @@ namespace sky::editor {
             }
             bool       flag   = false;
             const bool inDesc = doc->IsSubSystemEnabled(std::string(names[static_cast<std::size_t>(i)].GetStr()), flag);
-            skin.DrawCheckbox(context, ComputeCheckRect(i), !inDesc || flag, false);
+            skin.DrawCheckbox(context, ComputeCheckRect(i), inDesc && flag, false);
             uc::Text(context, std::string(names[static_cast<std::size_t>(i)].GetStr()), th.fonts.label,
                      sky::ui::UIRect{row.left + th.metrics.listLabelIndent, row.top, row.right, row.bottom}, th.colors.text, textSystem,
                      uc::HAlign::Left, uc::VAlign::Middle, true);

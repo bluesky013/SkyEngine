@@ -35,7 +35,7 @@ def main():
     }, indent=2) + '\n', encoding='utf-8')
     presets_path = project / 'export_presets.json'
     presets = json.loads(presets_path.read_text(encoding='utf-8'))
-    disabled = ('BULLET', 'RECAST', 'TERRAIN', 'VEGETATION', 'AUDIO', 'NETWORK_ENET',
+    disabled = ('JOLT', 'RECAST', 'TERRAIN', 'VEGETATION', 'AUDIO', 'NETWORK_ENET',
                 'PVS', 'COMPRESSION', 'SANDBOX', 'TEST', 'TOOL')
     for preset in presets:
         preset['cacheVariables'] = {'SKY_BUILD_' + name: 'OFF' for name in disabled}

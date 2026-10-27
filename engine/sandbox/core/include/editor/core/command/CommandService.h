@@ -30,7 +30,7 @@ namespace sky::editor {
         CommandService(const CommandService &)            = delete;
         CommandService &operator=(const CommandService &) = delete;
 
-        void Execute(UndoCommandPtr command);
+        bool Execute(UndoCommandPtr command);
 
         bool Undo();
         bool Redo();

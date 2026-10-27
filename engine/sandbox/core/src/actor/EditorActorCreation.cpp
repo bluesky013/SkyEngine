@@ -1,23 +1,25 @@
-//
-// Created by blues on 2025/5/18.
-//
-
 #include <editor/core/actor/EditorActorCreation.h>
-#include <algorithm>
 
 namespace sky::editor {
-
-    void EditorActorCreation::RegisterCreation(IActorCreateBase* tool)
+    bool EditorActorCreation::RegisterCreation(ActorCreation creation)
     {
-        creatFn.emplace_back(tool);
+        if (creation.id.empty() || creation.label.empty() || !creation.create || creators.contains(creation.id))
+            return false;
+        auto entry = std::make_shared<const ActorCreation>(std::move(creation));
+        creators.emplace(entry->id, entry);
+        ++revision;
+        return true;
     }
-
-    void EditorActorCreation::UnRegisterCreation(IActorCreateBase* tool)
+    bool EditorActorCreation::UnRegisterCreation(const std::string &id)
     {
-        auto iter = std::find(creatFn.begin(), creatFn.end(), tool);
-        if (iter != creatFn.end()) {
-            creatFn.erase(iter);
-        }
+        if (creators.erase(id) == 0)
+            return false;
+        ++revision;
+        return true;
     }
-
+    std::shared_ptr<const ActorCreation> EditorActorCreation::Find(const std::string &id) const
+    {
+        const auto found = creators.find(id);
+        return found == creators.end() ? nullptr : found->second;
+    }
 } // namespace sky::editor

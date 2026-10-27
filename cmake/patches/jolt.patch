@@ -1,0 +1,21 @@
+--- a/Jolt/Physics/PhysicsSystem.cpp
++++ b/Jolt/Physics/PhysicsSystem.cpp
+@@ -676,7 +676,6 @@
+ 
+ 	// Return any errors
+ 	EPhysicsUpdateError errors = static_cast<EPhysicsUpdateError>(context.mErrors.load(memory_order_acquire));
+-	JPH_ASSERT(errors == EPhysicsUpdateError::None, "An error occurred during the physics update, see EPhysicsUpdateError for more information");
+ 	return errors;
+ }
+ 
+--- a/Build/CMakeLists.txt
++++ b/Build/CMakeLists.txt
+@@ -1,6 +1,8 @@
+ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
+ 
+ project(JoltPhysics VERSION 5.6.0 LANGUAGES CXX)
++
++install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE" DESTINATION include/Jolt RENAME LICENSE.txt)
+ 
+ # When turning this option on, the library will be compiled using assertions. By default asserts are enabled in Debug build.
+ option(USE_ASSERTS "Enable asserts" OFF)

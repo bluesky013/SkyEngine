@@ -16,6 +16,7 @@
 #include <core/logger/Logger.h>
 #include <cstdlib>
 #include <editor/core/EditorCore.h>
+#include <editor/core/actor/EditorActorCreation.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetMutationService.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
@@ -29,6 +30,7 @@
 #include <editor/core/property/ReflectionDemoTypes.h>
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/ui/UiTheme.h>
+#include <framework/application/ModuleManager.h>
 
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
@@ -473,7 +475,7 @@ namespace sky::editor {
             }
             auto document = std::make_unique<WorldDocument>(result.path);
             if (!document->Load()) {
-                LOG_W(TAG, "failed to load world '%s'", result.path.c_str());
+                LOG_W(TAG, "failed to load world '%s': %s", result.path.c_str(), document->GetLastError().c_str());
                 return;
             }
             BindWorldEditor(nullptr);
@@ -781,6 +783,9 @@ namespace sky::editor {
         }
         extensionHost.Add(std::make_unique<DefaultEditorExtension>(panelRegistry));
         extensionHost.RegisterAll();
+        auto *system    = Interface<ISystemNotify>::Get()->GetApi();
+        auto *manager   = system ? system->GetModuleManager() : nullptr;
+        builtinCreators = RegisterBuiltinActorCreators(manager ? manager->RetainModule("SandboxModule") : nullptr);
 
         // Default: Outliner (left) | Viewport (center) | Inspector (right), with a bottom dock
         // for the asset browser + output log (Unity/Godot/O3DE place the asset browser at the
@@ -901,18 +906,23 @@ namespace sky::editor {
         // A closed floating window re-docks its panel into the main window.
         renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
         renderer.SetSurfaceCloseGuard([this](uint32_t surface) {
-            if (shell.RequestCloseAssetTool(surface)) return false;
-            if (surface != 0) return true;
+            if (shell.RequestCloseAssetTool(surface))
+                return false;
+            if (surface != 0)
+                return true;
             Quit();
             return false;
         });
-        shell.SetAssetToolHost([this](const std::string &title) {
-            const auto &metrics = GetDefaultUiTheme().metrics;
-            const auto id = renderer.CreateSurface(title, int(metrics.controlPad * 12), int(metrics.controlPad * 12),
-                                                   uint32_t(metrics.fieldWidth * 6), uint32_t(metrics.rowHeight * 35));
-            if (id) shell.SetSurfaceScale(id, renderer.SurfaceDpiScale(id));
-            return id;
-        }, [this](uint32_t surface) { renderer.DestroySurface(surface); });
+        shell.SetAssetToolHost(
+            [this](const std::string &title) {
+                const auto &metrics = GetDefaultUiTheme().metrics;
+                const auto  id      = renderer.CreateSurface(title, int(metrics.controlPad * 12), int(metrics.controlPad * 12),
+                                                             uint32_t(metrics.fieldWidth * 6), uint32_t(metrics.rowHeight * 35));
+                if (id)
+                    shell.SetSurfaceScale(id, renderer.SurfaceDpiScale(id));
+                return id;
+            },
+            [this](uint32_t surface) { renderer.DestroySurface(surface); });
         renderer.SetSurfaceGeometryCallback(
             [this](const std::string &panelId, float x, float y, float w, float h) { shell.SetFloatingGeometry(panelId, x, y, w, h); });
 
@@ -928,7 +938,14 @@ namespace sky::editor {
         shell.SetPreferencesPersistence(preferencePersistence);
         shell.SetPreferences(PreferencePageRegistry::Get(), {});
         // Play-In-Editor: the session duplicates the edit world and ticks it.
-        playSession.SetWorldFactory([this]() -> sky::WorldPtr { return worldDocument != nullptr ? worldDocument->CreatePlayWorld() : nullptr; });
+        playSession.SetWorldFactory([this]() -> sky::WorldPtr {
+            if (!worldDocument)
+                return nullptr;
+            auto world = worldDocument->CreatePlayWorld();
+            if (!world)
+                LOG_E(TAG, "Cannot start Play: %s", worldDocument->GetLastError().c_str());
+            return world;
+        });
 
         // The window title reflects the open world + dirty marker (see
         // docs/editor/play-in-editor.md / editor-framework-status.md).
@@ -967,31 +984,18 @@ namespace sky::editor {
                       .invoke      = [this]() { CloseWorld(); },
                       .accelerator = "Ctrl+W"});
         actions->Add({.id = "file.quit", .label = "Quit", .menu = EditorMenu::File, .order = 9, .invoke = [this]() { Quit(); }});
-        const std::pair<const char *, EditorSceneObject> objects[] = {{"Cube", EditorSceneObject::CUBE},
-                                                                      {"Plane", EditorSceneObject::PLANE},
-                                                                      {"Point Light", EditorSceneObject::POINT_LIGHT},
-                                                                      {"Directional Light", EditorSceneObject::DIRECTIONAL_LIGHT},
-                                                                      {"Camera", EditorSceneObject::CAMERA},
-                                                                      {"Environment", EditorSceneObject::ENVIRONMENT},
-                                                                      {"Empty Object", EditorSceneObject::EMPTY}};
-        for (const auto &[label, kind] : objects)
-            actions->Add({.id      = std::string("scene.create.") + label,
-                          .label   = label,
-                          .menu    = EditorMenu::Edit,
-                          .submenu = "Create",
-                          .order   = 20 + static_cast<int>(kind),
-                          .enabled = [this]() { return worldDocument && playSession.GetState() == PlayState::Editing; },
-                          .invoke  = [this, kind]() { worldEditor->Create(kind); }});
+        RefreshActorCreationActions();
         for (const auto &[group, types] : ComponentFactory::Get()->GetTypes()) {
             for (const auto &component : types) {
                 const auto type = component.typeId;
-                actions->Add({.id = "scene.component.add." + type.ToString(),
-                              .label = std::string(component.name),
-                              .menu = EditorMenu::Edit,
-                              .submenu = "Add Component",
-                              .order = 29,
-                              .enabled = [this, type]() { return playSession.GetState() == PlayState::Editing && worldEditor->CanAddComponent(type); },
-                              .invoke = [this, type]() { worldEditor->RequestAddComponent(type); }});
+                actions->Add(
+                    {.id      = "scene.component.add." + type.ToString(),
+                     .label   = std::string(component.name),
+                     .menu    = EditorMenu::Edit,
+                     .submenu = "Add Component",
+                     .order   = 29,
+                     .enabled = [this, type]() { return playSession.GetState() == PlayState::Editing && worldEditor->CanAddComponent(type); },
+                     .invoke  = [this, type]() { worldEditor->RequestAddComponent(type); }});
             }
         }
         actions->Add({.id    = "scene.delete",
@@ -1649,6 +1653,40 @@ namespace sky::editor {
         }
     }
 
+    void SandboxModule::RefreshActorCreationActions()
+    {
+        auto *creators = EditorActorCreation::Get();
+        if (creationRevision == creators->GetRevision())
+            return;
+        auto *actions = EditorActionRegistry::Get();
+        for (const auto &id : creationActions)
+            actions->Remove("global", id);
+        creationActions.clear();
+        for (const auto &[id, creator] : creators->GetTools()) {
+            const auto actionId = "scene.create." + id;
+            actions->Add({.moduleLease = creator->moduleLease,
+                          .id          = actionId,
+                          .label       = creator->label,
+                          .menu        = EditorMenu::Edit,
+                          .submenu     = "Create",
+                          .order       = 20 + creator->order,
+                          .enabled =
+                              [this, id, identity = std::weak_ptr<const ActorCreation>(creator)]() {
+                                  const auto current = identity.lock();
+                                  return current && worldDocument && playSession.GetState() == PlayState::Editing &&
+                                         current == EditorActorCreation::Get()->Find(id);
+                              },
+                          .invoke =
+                              [this, id, identity = std::weak_ptr<const ActorCreation>(creator)]() {
+                                  const auto current = identity.lock();
+                                  if (current && current == EditorActorCreation::Get()->Find(id))
+                                      worldEditor->Create(id);
+                              }});
+            creationActions.push_back(actionId);
+        }
+        creationRevision = creators->GetRevision();
+    }
+
     void SandboxModule::Tick(float delta)
     {
         if (!initialized) {
@@ -1677,11 +1715,14 @@ namespace sky::editor {
         if (!hubMode) {
             BindWorldEditor(worldDocument.get());
             if (playSession.GetState() == PlayState::Editing)
-                worldEditor->Tick();
+                RefreshActorCreationActions();
+            worldEditor->Tick();
             shell.TickAssetViews(delta);
             if (quitAfterAssetClose) {
-                if (!shell.IsAssetViewerOpen()) Quit();
-                else if (!shell.AreAssetViewsClosing()) quitAfterAssetClose = false;
+                if (!shell.IsAssetViewerOpen())
+                    Quit();
+                else if (!shell.AreAssetViewsClosing())
+                    quitAfterAssetClose = false;
             }
             // Play-In-Editor: advances the runtime world only while playing; the
             // edit world is never ticked.
@@ -1920,6 +1961,12 @@ namespace sky::editor {
         preferencePersistence.reset();
         preferencePages.reset();
         if (!hubMode) {
+            for (const auto &id : creationActions)
+                EditorActionRegistry::Get()->Remove("global", id);
+            creationActions.clear();
+            for (const auto &id : builtinCreators)
+                EditorActorCreation::Get()->UnRegisterCreation(id);
+            builtinCreators.clear();
             extensionHost.UnregisterAll();
             logService.Uninstall();
         }

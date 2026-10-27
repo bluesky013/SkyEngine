@@ -156,16 +156,15 @@ namespace sky::editor {
         }
     }
 
-    void
-    ReflectedForm::BuildField(PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry, const std::string &path, PropertyField &out,
-                             bool readOnly)
+    void ReflectedForm::BuildField(
+        PropertyDescriptor descriptor, const PropertyEditorRegistry &inRegistry, const std::string &path, PropertyField &out, bool readOnly)
     {
-        out.descriptor = std::move(descriptor);
-        out.control    = inRegistry.Resolve(out.descriptor);
+        out.descriptor       = std::move(descriptor);
+        out.control          = inRegistry.Resolve(out.descriptor);
         out.control.readOnly = out.control.readOnly || readOnly;
-        out.kind       = out.control.kind;
-        out.path       = path;
-        out.label      = out.control.label.empty() ? out.descriptor.GetDisplayName() : out.control.label;
+        out.kind             = out.control.kind;
+        out.path             = path;
+        out.label            = out.control.label.empty() ? out.descriptor.GetDisplayName() : out.control.label;
 
         if (out.kind == PropertyEditorKind::Sequence) {
             out.isSequence = true;
@@ -307,9 +306,11 @@ namespace sky::editor {
         Any            newRootValue = std::move(value);
 
         if (field.parent != nullptr) {
-            if (!field.descriptor.SetValue(newRootValue)) return false;
+            if (!field.descriptor.SetValue(newRootValue))
+                return false;
             for (PropertyField *node = field.parent; node != nullptr && node->parent != nullptr; node = node->parent) {
-                if (node->control.readOnly || !node->descriptor.SetValue(node->ownedValue)) return false;
+                if (node->control.readOnly || !node->descriptor.SetValue(node->ownedValue))
+                    return false;
             }
             rootField = &field;
             while (rootField->parent != nullptr) {
@@ -323,7 +324,9 @@ namespace sky::editor {
         if (!command) {
             return false;
         }
-        commands.Execute(std::move(command));
+        if (!commands.Execute(std::move(command))) {
+            return false;
+        }
         if (!generation.expired() && changed) {
             changed();
         }

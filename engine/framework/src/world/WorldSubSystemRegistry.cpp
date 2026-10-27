@@ -19,9 +19,8 @@ namespace sky {
         }
         const auto it = registrations.find(name);
         if (it != registrations.end()) {
-            LOG_W(TAG, "world subsystem '%.*s' re-registered, overriding", static_cast<int>(name.GetStr().size()), name.GetStr().data());
-            it->second = std::move(registration);
-            return true;
+            LOG_E(TAG, "world subsystem '%.*s' already has an owner", static_cast<int>(name.GetStr().size()), name.GetStr().data());
+            return false;
         }
         registrations.emplace(name, std::move(registration));
         return true;

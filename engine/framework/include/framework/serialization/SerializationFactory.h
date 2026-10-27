@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <framework/serialization/Any.h>
 #include <core/type/Type.h>
-#include <list>
-#include <type_traits>
-#include <map>
+#include <framework/serialization/Any.h>
 #include <functional>
+#include <list>
+#include <map>
+#include <type_traits>
 #include <vector>
 
 namespace sky {
@@ -22,61 +22,61 @@ namespace sky {
     namespace serialize {
         using PropertyMap = std::unordered_map<uint32_t, Any>;
 
-        using SetterFn = bool (*)(void *ptr, const void *);
-        using GetterFn = Any (*)(void *ptr);
-        using GetterConstFn = Any (*)(const void *ptr);
-        using ValueChangedFn = void (*)(void *ptr);
+        using SetterFn        = bool (*)(void *ptr, const void *);
+        using GetterFn        = Any (*)(void *ptr);
+        using GetterConstFn   = Any (*)(const void *ptr);
+        using ValueChangedFn  = void (*)(void *ptr);
         using ConstructibleFn = bool (*)(Any *);
-        using ConstructFn = Any (*)(Any *);
-        using JsonInFn = void (*)(void *p, JsonInputArchive &archive);
-        using JsonOutFn = void (*)(const void *p, JsonOutputArchive &archive);
-        using BinaryInFn = void (*)(void *p, BinaryInputArchive &archive);
-        using BinaryOutFn = void (*)(const void *p, BinaryOutputArchive &archive);
-        using MemberFun = Any (*)(void *ptr, Any *);
+        using ConstructFn     = Any (*)(Any *);
+        using JsonInFn        = void (*)(void *p, JsonInputArchive &archive);
+        using JsonOutFn       = void (*)(const void *p, JsonOutputArchive &archive);
+        using BinaryInFn      = void (*)(void *p, BinaryInputArchive &archive);
+        using BinaryOutFn     = void (*)(const void *p, BinaryOutputArchive &archive);
+        using MemberFun       = Any (*)(void *ptr, Any *);
         using CheckMemberFunc = bool (*)(Any *);
-        using TypeInfoList = std::vector<const TypeInfoRT *>;
+        using TypeInfoList    = std::vector<const TypeInfoRT *>;
 
         struct TypeMemberNode {
             const TypeInfoRT *info = nullptr;
-            const bool isConst;
-            const bool isStatic;
-            SetterFn setterFn = nullptr;
-            GetterFn getterFn = nullptr;
-            GetterConstFn getterConstFn = nullptr;
-            ValueChangedFn valueChangedFn = nullptr;
-            PropertyMap properties;
+            const bool        isConst;
+            const bool        isStatic;
+            SetterFn          setterFn       = nullptr;
+            GetterFn          getterFn       = nullptr;
+            GetterConstFn     getterConstFn  = nullptr;
+            ValueChangedFn    valueChangedFn = nullptr;
+            PropertyMap       properties;
         };
 
         struct ConstructNode {
-            const uint32_t argsNum;
-            ConstructibleFn checkFn = nullptr;
-            ConstructFn constructFn = nullptr;
-            TypeInfoList argTypes;
+            const uint32_t  argsNum;
+            ConstructibleFn checkFn     = nullptr;
+            ConstructFn     constructFn = nullptr;
+            TypeInfoList    argTypes;
         };
 
         struct MemberFunctionNode {
-            const uint32_t argsNum;
-            CheckMemberFunc checkFn = nullptr;
-            MemberFun memberFun = nullptr;
-            TypeInfoList argTypes;
+            const uint32_t  argsNum;
+            CheckMemberFunc checkFn   = nullptr;
+            MemberFun       memberFun = nullptr;
+            TypeInfoList    argTypes;
         };
 
         struct SerializationNode {
-            JsonInFn jsonLoad = nullptr;
-            JsonOutFn jsonSave = nullptr;
-            BinaryInFn binaryLoad = nullptr;
+            JsonInFn    jsonLoad   = nullptr;
+            JsonOutFn   jsonSave   = nullptr;
+            BinaryInFn  binaryLoad = nullptr;
             BinaryOutFn binarySave = nullptr;
         };
 
-        using MemberMap = std::map<std::string_view, TypeMemberNode>;
-        using FunctionMap = std::map<std::string_view, MemberFunctionNode>;
-        using EnumMap = std::map<uint64_t, std::string_view>;
+        using MemberMap     = std::map<std::string_view, TypeMemberNode>;
+        using FunctionMap   = std::map<std::string_view, MemberFunctionNode>;
+        using EnumMap       = std::map<uint64_t, std::string_view>;
         using ConstructList = std::list<ConstructNode>;
 
     } // namespace serialize
     struct TypeNode {
-        const TypeInfoRT  *base = nullptr;
-        const TypeInfoRT  *info = nullptr;
+        const TypeInfoRT            *base = nullptr;
+        const TypeInfoRT            *info = nullptr;
         serialize::MemberMap         members;
         serialize::EnumMap           enums;
         serialize::PropertyMap       properties;
@@ -88,19 +88,19 @@ namespace sky {
     template <auto Func, typename Archive>
     auto SerializationInArchive()
     {
-        using Type = decltype(Func);
-        using RetType = void (*)(void *p, Archive& archive);
+        using Type    = decltype(Func);
+        using RetType = void (*)(void *p, Archive &archive);
         if constexpr (std::is_member_function_pointer_v<Type>) {
             using Cls = typename FuncTraits<Type>::CLASS_TYPE;
-            return RetType{[](void* p, Archive &archive) {
-                Cls *ptr = static_cast<Cls*>(p);
+            return RetType{[](void *p, Archive &archive) {
+                Cls *ptr = static_cast<Cls *>(p);
                 std::invoke(Func, ptr, archive);
             }};
         } else {
             using Args = typename FuncTraits<Type>::ARGS_TYPE;
-            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
-            return RetType{[](void* p, Archive &archive) {
-                Cls *ptr = static_cast<Cls*>(p);
+            using Cls  = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](void *p, Archive &archive) {
+                Cls *ptr = static_cast<Cls *>(p);
                 std::invoke(Func, *ptr, archive);
             }};
         }
@@ -119,9 +119,9 @@ namespace sky {
             }};
         } else {
             using Args = typename FuncTraits<Type>::ARGS_TYPE;
-            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
-            return RetType{[](const void* p, Archive &archive) {
-                const Cls *ptr = static_cast<const Cls*>(p);
+            using Cls  = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](const void *p, Archive &archive) {
+                const Cls *ptr = static_cast<const Cls *>(p);
                 std::invoke(Func, *ptr, archive);
             }};
         }
@@ -138,8 +138,15 @@ namespace sky {
                 }
             }
         } else if constexpr (std::is_member_function_pointer_v<decltype(D)>) {
-            std::invoke(D, static_cast<T *>(p), *static_cast<const V*>(value));
-            return true;
+            if (p == nullptr || value == nullptr) {
+                return false;
+            }
+            if constexpr (std::is_same_v<std::invoke_result_t<decltype(D), T *, const V &>, bool>) {
+                return std::invoke(D, static_cast<T *>(p), *static_cast<const V *>(value));
+            } else {
+                std::invoke(D, static_cast<T *>(p), *static_cast<const V *>(value));
+                return true;
+            }
         }
         return false;
     }
@@ -148,7 +155,7 @@ namespace sky {
     Any Getter(void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
-            return Any(std::invoke(D, static_cast<T*>(p)));
+            return Any(std::invoke(D, static_cast<T *>(p)));
         }
         return Any{};
     }
@@ -157,8 +164,8 @@ namespace sky {
     Any GetterConst(const void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
-            if constexpr (std::is_invocable_v<decltype(D), const T*>) {
-                return Any(std::invoke(D, static_cast<const T*>(p)));
+            if constexpr (std::is_invocable_v<decltype(D), const T *>) {
+                return Any(std::invoke(D, static_cast<const T *>(p)));
             }
         }
         return Any{};
@@ -168,7 +175,7 @@ namespace sky {
     void ValueChanged_(void *p) noexcept
     {
         static_assert(std::is_member_function_pointer_v<decltype(D)>);
-        std::invoke(D, static_cast<T*>(p));
+        std::invoke(D, static_cast<T *>(p));
     }
 
     template <typename T, typename... Args, size_t... I>
@@ -186,30 +193,26 @@ namespace sky {
     template <typename Tuple, size_t... I>
     bool CheckMemberArgs(Any *args, std::index_sequence<I...>)
     {
-        return ((args[I].Info() != nullptr &&
-                 args[I].Info()->registeredId ==
-                     TypeInfo<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::RegisteredId()) &&
-                ...);
+        return (
+            (args[I].Info() != nullptr &&
+             args[I].Info()->registeredId == TypeInfo<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::RegisteredId()) &&
+            ...);
     }
 
     template <typename... Args>
     serialize::TypeInfoList MakeArgTypes()
     {
-        return serialize::TypeInfoList{
-            TypeInfoObj<std::remove_cv_t<std::remove_reference_t<Args>>>::Get()->RtInfo()...
-        };
+        return serialize::TypeInfoList{TypeInfoObj<std::remove_cv_t<std::remove_reference_t<Args>>>::Get()->RtInfo()...};
     }
 
     template <typename Tuple, size_t... I>
     serialize::TypeInfoList MakeArgTypesFromTuple(std::index_sequence<I...>)
     {
-        return serialize::TypeInfoList{
-            TypeInfoObj<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::Get()->RtInfo()...
-        };
+        return serialize::TypeInfoList{TypeInfoObj<std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<I, Tuple>>>>::Get()->RtInfo()...};
     }
 
     template <auto F, typename Tuple, typename Cls, size_t... I>
-    Any InvokeMemberFunc(Cls* val, Any *args, std::index_sequence<I...>)
+    Any InvokeMemberFunc(Cls *val, Any *args, std::index_sequence<I...>)
     {
         return Any(std::invoke(F, val, *args[I].GetAs<std::tuple_element_t<I, Tuple>>()...));
     }
@@ -229,14 +232,14 @@ namespace sky {
         template <typename... Args>
         TypeFactory &Constructor()
         {
-            using FuncType = FuncTraits<Any(*)(Args...)>;
+            using FuncType = FuncTraits<Any (*)(Args...)>;
             using ArgsType = typename FuncType::ARGS_TYPE;
 
-            type.constructList.emplace_back(
-                serialize::ConstructNode{std::tuple_size_v<ArgsType>,
-                              [](Any *args) -> bool { return ConstructCheck<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
-                              [](Any *args) -> Any { return Construct<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
-                              MakeArgTypes<Args...>()});
+            type.constructList.emplace_back(serialize::ConstructNode{
+                std::tuple_size_v<ArgsType>,
+                [](Any *args) -> bool { return ConstructCheck<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
+                [](Any *args) -> Any { return Construct<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
+                MakeArgTypes<Args...>()});
             return *this;
         }
 
@@ -267,35 +270,25 @@ namespace sky {
         {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
             if constexpr (std::is_const_v<Type>) {
-                auto it    = type.members.emplace(key, serialize::TypeMemberNode{
-                                                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
-                                                        std::is_const_v<Type>,
-                                                        !std::is_member_object_pointer_v<Type>,
-                                                        &Setter<T, Type, S>,
-                                                        nullptr,
-                                                        &GetterConst<T, G>,
-                                                        nullptr
-                                                    });
+                auto it = type.members.emplace(key, serialize::TypeMemberNode{TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                                                                              std::is_const_v<Type>, !std::is_member_object_pointer_v<Type>,
+                                                                              &Setter<T, Type, S>, nullptr, &GetterConst<T, G>, nullptr});
                 if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
                     it.first->second.info->containerInfo->valueType =
-                            TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
+                        TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
                 }
-                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type,
+                                                                                                                      it.first->second.properties);
             } else {
-                auto it    = type.members.emplace(key, serialize::TypeMemberNode{
-                                                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
-                                                        std::is_const_v<Type>,
-                                                        !std::is_member_object_pointer_v<Type>,
-                                                        &Setter<T, Type, S>,
-                                                        &Getter<T, G>,
-                                                        &GetterConst<T, G>,
-                                                        nullptr
-                                                    });
+                auto it = type.members.emplace(key, serialize::TypeMemberNode{TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                                                                              std::is_const_v<Type>, !std::is_member_object_pointer_v<Type>,
+                                                                              &Setter<T, Type, S>, &Getter<T, G>, &GetterConst<T, G>, nullptr});
                 if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
                     it.first->second.info->containerInfo->valueType =
-                            TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
+                        TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
                 }
-                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type,
+                                                                                                                      it.first->second.properties);
             }
         }
 
@@ -304,26 +297,14 @@ namespace sky {
         {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
             if constexpr (std::is_const_v<Type>) {
-                auto it    = type.members.emplace(key, serialize::TypeMemberNode{
-                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
-                        std::is_const_v<Type>,
-                        !std::is_member_object_pointer_v<Type>,
-                        nullptr,
-                        nullptr,
-                        &GetterConst<T, G>,
-                        &ValueChanged_<T, N>
-                });
+                auto it = type.members.emplace(key, serialize::TypeMemberNode{TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                                                                              std::is_const_v<Type>, !std::is_member_object_pointer_v<Type>, nullptr,
+                                                                              nullptr, &GetterConst<T, G>, &ValueChanged_<T, N>});
                 return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             } else {
-                auto it    = type.members.emplace(key, serialize::TypeMemberNode{
-                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
-                        std::is_const_v<Type>,
-                        !std::is_member_object_pointer_v<Type>,
-                        nullptr,
-                        &Getter<T, G>,
-                        &GetterConst<T, G>,
-                        &ValueChanged_<T, N>
-                });
+                auto it = type.members.emplace(key, serialize::TypeMemberNode{TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                                                                              std::is_const_v<Type>, !std::is_member_object_pointer_v<Type>, nullptr,
+                                                                              &Getter<T, G>, &GetterConst<T, G>, &ValueChanged_<T, N>});
                 return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             }
         }
@@ -334,19 +315,18 @@ namespace sky {
             static_assert(std::is_member_function_pointer_v<decltype(F)>);
 
             using FuncType = FuncTraits<decltype(F)>;
-            using ClsType = typename FuncType::CLASS_TYPE;
+            using ClsType  = typename FuncType::CLASS_TYPE;
             using ArgsType = typename FuncType::ARGS_TYPE;
 
-            type.functions.emplace(key, serialize::MemberFunctionNode {
-                std::tuple_size_v<ArgsType>,
-                [](Any *args) -> bool {
-                    return CheckMemberArgs<ArgsType>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{});
-                },
-                [](void* ptr, Any *args) -> Any {
-                    return InvokeMemberFunc<F, ArgsType, ClsType>(static_cast<ClsType*>(ptr), args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{});
-                },
-                MakeArgTypesFromTuple<ArgsType>(std::make_index_sequence<std::tuple_size_v<ArgsType>>{})
-            });
+            type.functions.emplace(
+                key, serialize::MemberFunctionNode{
+                         std::tuple_size_v<ArgsType>,
+                         [](Any *args) -> bool { return CheckMemberArgs<ArgsType>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
+                         [](void *ptr, Any *args) -> Any {
+                             return InvokeMemberFunc<F, ArgsType, ClsType>(static_cast<ClsType *>(ptr), args,
+                                                                           std::make_index_sequence<std::tuple_size_v<ArgsType>>{});
+                         },
+                         MakeArgTypesFromTuple<ArgsType>(std::make_index_sequence<std::tuple_size_v<ArgsType>>{})});
         }
 
         template <typename E>
@@ -389,7 +369,6 @@ namespace sky {
         }
 
     protected:
-
         TypeNode &type;
     };
 

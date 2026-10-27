@@ -34,16 +34,43 @@ namespace sky::editor {
 
             void Do() override
             {
-                for (auto &command : commands) {
-                    command->Do();
-                }
+                TryDo();
             }
 
             void Undo() override
             {
-                for (auto it = commands.rbegin(); it != commands.rend(); ++it) {
-                    (*it)->Undo();
+                TryUndo();
+            }
+
+            bool TryDo() override
+            {
+                size_t done = 0;
+                for (; done < commands.size(); ++done) {
+                    if (!commands[done]->TryDo()) {
+                        while (done > 0) {
+                            if (!commands[--done]->TryUndo()) {
+                                return false;
+                            }
+                        }
+                        return false;
+                    }
                 }
+                return true;
+            }
+
+            bool TryUndo() override
+            {
+                for (size_t index = commands.size(); index > 0; --index) {
+                    if (!commands[index - 1]->TryUndo()) {
+                        for (size_t restore = index; restore < commands.size(); ++restore) {
+                            if (!commands[restore]->TryDo()) {
+                                return false;
+                            }
+                        }
+                        return false;
+                    }
+                }
+                return true;
             }
 
         private:
@@ -52,23 +79,26 @@ namespace sky::editor {
 
     } // namespace
 
-    void CommandService::Execute(UndoCommandPtr command)
+    bool CommandService::Execute(UndoCommandPtr command)
     {
         if (command == nullptr) {
-            return;
+            return false;
         }
 
         const uint64_t generation = historyGeneration;
         ++revision;
-        command->Do();
+        if (!command->TryDo()) {
+            return false;
+        }
         if (generation != historyGeneration) {
-            return; // A synchronous callback closed/replaced this history session.
+            return true; // A synchronous callback closed/replaced this history session.
         }
         if (transactionDepth > 0) {
             pending.push_back(std::move(command));
         } else {
             PushExecuted(std::move(command));
         }
+        return true;
     }
 
     bool CommandService::Undo()
@@ -86,7 +116,12 @@ namespace sky::editor {
         auto           command    = std::move(undoStack.back());
         undoStack.pop_back();
         ++revision;
-        command->Undo();
+        if (!command->TryUndo()) {
+            if (generation == historyGeneration) {
+                undoStack.push_back(std::move(command));
+            }
+            return false;
+        }
         if (generation != historyGeneration) {
             return true;
         }
@@ -110,7 +145,12 @@ namespace sky::editor {
         auto           command    = std::move(redoStack.back());
         redoStack.pop_back();
         ++revision;
-        command->Do();
+        if (!command->TryDo()) {
+            if (generation == historyGeneration) {
+                redoStack.push_back(std::move(command));
+            }
+            return false;
+        }
         if (generation != historyGeneration) {
             return true;
         }

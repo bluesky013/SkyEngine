@@ -8,6 +8,7 @@
 #include <aurora/adaptor/components/StaticMeshComponent.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <editor/core/EditorCore.h>
+#include <editor/core/actor/EditorActorCreation.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/shell/ReflectedInspectorPanel.h>
 #include <filesystem>
@@ -78,7 +79,8 @@ namespace {
         context->Register<AuthoringAnimationData>("AuthoringAnimationData").Member<&AuthoringAnimationData::skeleton>("skeleton");
         context->Register<AuthoringAnimationComponent>("AuthoringAnimationComponent")
             .Member<&AuthoringAnimationComponent::SetSkeleton, &AuthoringAnimationComponent::GetSkeleton>("skeleton");
-        ComponentFactory::Get()->RegisterComponent<AuthoringAnimationComponent>("Test");
+        ComponentFactory::Get()->RegisterComponent<AuthoringAnimationComponent>("Test", {Name("TestAnimation")});
+        RegisterBuiltinActorCreators();
     });
 
     class WorldSkinDefaultsTest : public testing::Test {
@@ -116,7 +118,7 @@ TEST_F(WorldSkinDefaultsTest, DeferredComponentCreationRestoresObjectIdentityAnd
     SelectionService          selection;
     WorldEditorState          editor(selection);
     editor.Bind(&document);
-    editor.Create(EditorSceneObject::EMPTY);
+    editor.Create("empty");
     auto      *actor       = document.GetWorld()->GetActors().front().get();
     const auto actorId     = actor->GetUuid();
     const auto skeletalId  = TypeInfo<aurora::SkeletalMeshComponent>::RegisteredId();
@@ -266,7 +268,7 @@ TEST(WorldEditorState, CreateEditUndoDeleteAndReopenKeepLogicalSceneData)
     SelectionService selection;
     WorldEditorState editor(selection);
     editor.Bind(&document);
-    editor.Create(EditorSceneObject::CUBE);
+    editor.Create("cube");
     ASSERT_EQ(document.GetWorld()->GetActors().size(), 1u);
     const auto id = document.GetWorld()->GetActors().front()->GetUuid();
     ASSERT_FALSE(editor.Resolve(id).empty());
@@ -314,10 +316,10 @@ TEST(WorldEditorState, ActorHierarchyAndGroupedInspectorKeepSelectionAndUndo)
     SelectionService selection;
     WorldEditorState editor(selection);
     editor.Bind(&document);
-    editor.Create(EditorSceneObject::CUBE);
+    editor.Create("cube");
     auto      *child   = document.GetWorld()->GetActors().back().get();
     const auto childId = child->GetUuid();
-    editor.Create(EditorSceneObject::PLANE);
+    editor.Create("plane");
     auto      *parent   = document.GetWorld()->GetActors().back().get();
     const auto parentId = parent->GetUuid();
     child->SetParent(parent);
@@ -373,7 +375,7 @@ TEST(WorldEditorState, EnvironmentReflectedEditUndoAndReopenPreserveInputs)
     SelectionService selection;
     WorldEditorState editor(selection);
     editor.Bind(&document);
-    editor.Create(EditorSceneObject::ENVIRONMENT);
+    editor.Create("environment");
     ASSERT_EQ(document.GetWorld()->GetActors().size(), 1u);
     auto      *actor     = document.GetWorld()->GetActors().front().get();
     const auto id        = actor->GetUuid();
@@ -407,4 +409,58 @@ TEST(WorldEditorState, EnvironmentReflectedEditUndoAndReopenPreserveInputs)
     EditorCore::Shutdown();
     std::error_code error;
     std::filesystem::remove(path, error);
+}
+
+TEST_F(WorldSkinDefaultsTest, GenericComponentDependenciesAndRegisteredCreatorsUseOneUndoStep)
+{
+    WorldDocument    document((root / "generic.world").string());
+    SelectionService selection;
+    WorldEditorState editor(selection);
+    editor.Bind(&document);
+    ASSERT_TRUE(editor.Create("empty"));
+    auto      *actor = document.GetWorld()->GetActors().front().get();
+    const auto type  = TypeInfo<AuthoringAnimationComponent>::RegisteredId();
+    EXPECT_FALSE(editor.CanAddComponent(type));
+    WorldSubSystemRegistration registration;
+    registration.factory = [](World &, const Any &) { return std::make_unique<IWorldSubSystem>(); };
+    ASSERT_TRUE(WorldSubSystemRegistry::Get().Register(Name("TestAnimation"), std::move(registration)));
+    struct Cleanup {
+        ~Cleanup()
+        {
+            WorldSubSystemRegistry::Get().Unregister(Name("TestAnimation"));
+            EditorActorCreation::Get()->UnRegisterCreation("test.generic");
+        }
+    } cleanup;
+    ASSERT_TRUE(editor.RequestAddComponent(type));
+    editor.Tick();
+    ASSERT_NE(actor->GetComponent(type), nullptr);
+    bool enabled = false;
+    ASSERT_TRUE(document.IsSubSystemEnabled("TestAnimation", enabled));
+    EXPECT_TRUE(enabled);
+    auto &commands = EditorCore::GetCommandService();
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(actor->GetComponent(type), nullptr);
+    EXPECT_FALSE(document.IsSubSystemEnabled("TestAnimation", enabled));
+    ASSERT_TRUE(commands.Redo());
+    EXPECT_NE(actor->GetComponent(type), nullptr);
+    ASSERT_TRUE(commands.Undo());
+    const auto count = commands.GetUndoCount();
+    ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({{}, "test.generic", "Generic Actor", "Test", 0, [type](Actor &candidate) {
+                                                                  candidate.SetName("Registered actor");
+                                                                  return candidate.AddComponent(type) != nullptr;
+                                                              }}));
+    ASSERT_TRUE(editor.Create("test.generic"));
+    EXPECT_EQ(commands.GetUndoCount(), count + 1);
+    ASSERT_EQ(document.GetWorld()->GetActors().size(), 2u);
+    ASSERT_TRUE(document.IsSubSystemEnabled("TestAnimation", enabled));
+    EXPECT_TRUE(enabled);
+    ASSERT_TRUE(EditorActorCreation::Get()->UnRegisterCreation("test.generic"));
+    EXPECT_FALSE(editor.Create("test.generic"));
+    ASSERT_TRUE(commands.Undo());
+    EXPECT_EQ(document.GetWorld()->GetActors().size(), 1u);
+    EXPECT_FALSE(document.IsSubSystemEnabled("TestAnimation", enabled));
+    ASSERT_TRUE(commands.Redo());
+    EXPECT_EQ(document.GetWorld()->GetActors().size(), 2u);
+    EXPECT_TRUE(document.CreatePlayWorld());
+    editor.Bind(nullptr);
 }

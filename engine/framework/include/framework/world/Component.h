@@ -5,9 +5,9 @@
 #pragma once
 
 #include <core/memory/Allocator.h>
-#include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky {
     class Actor;
@@ -16,7 +16,7 @@ namespace sky {
     class JsonInputArchive;
 
     struct ComponentAssetReference {
-        Uuid uuid;
+        Uuid        uuid;
         std::string type;
     };
 
@@ -25,14 +25,22 @@ namespace sky {
         ComponentBase()          = default;
         virtual ~ComponentBase() = default;
 
-        virtual void Tick(float time) {}
+        virtual void Tick(float time)
+        {
+        }
+        virtual void PostTick(float time)
+        {
+        }
 
         virtual void SaveJson(JsonOutputArchive &archive) const;
         virtual void LoadJson(JsonInputArchive &archive);
         virtual void CollectAssetReferences(std::vector<ComponentAssetReference> &out) const;
-
-        virtual void SaveBin(BinaryOutputArchive &archive) const {}
-        virtual void LoadBin(BinaryInputArchive &archive) {}
+        virtual void SaveBin(BinaryOutputArchive &archive) const
+        {
+        }
+        virtual void LoadBin(BinaryInputArchive &archive)
+        {
+        }
 
         virtual const Uuid &GetTypeId() const = 0;
         // The concrete macro returns the complete object address for its registered reflection type.
@@ -41,12 +49,28 @@ namespace sky {
             return nullptr;
         }
 
-        virtual void OnAttachToWorld() {}
-        virtual void OnDetachFromWorld() {}
+        // On failure Actor calls OnDetachFromWorld to release any partial attachment.
+        virtual bool TryAttachToWorld(std::string &error)
+        {
+            OnAttachToWorld();
+            return true;
+        }
+        virtual void OnAttachToWorld()
+        {
+        }
+        virtual void OnDetachFromWorld()
+        {
+        }
 
-        virtual void OnSerialized() {}
+        virtual void OnSerialized()
+        {
+        }
 
-        Actor* GetActor() const { return actor; }
+        Actor *GetActor() const
+        {
+            return actor;
+        }
+
     protected:
         friend class Actor;
         Actor *actor = nullptr;
@@ -55,7 +79,7 @@ namespace sky {
     template <typename Data>
     class ComponentAdaptor : public ComponentBase {
     public:
-        ComponentAdaptor() = default;
+        ComponentAdaptor()           = default;
         ~ComponentAdaptor() override = default;
 
         void SaveJson(JsonOutputArchive &archive) const override
@@ -68,7 +92,10 @@ namespace sky {
             archive.LoadValueObject(data);
         }
 
-        const Data &GetData() const { return data; }
+        const Data &GetData() const
+        {
+            return data;
+        }
 
     protected:
         Data data = {};

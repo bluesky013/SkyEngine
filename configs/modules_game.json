@@ -25,11 +25,11 @@
       "dependencies": []
     },
     {
-      "name": "BulletPhysicsModule",
+      "name": "JoltPhysicsModule",
       "dependencies": []
     },
     {
-      "name": "BulletPhysicsRenderModule",
+      "name": "JoltPhysicsRenderModule",
       "dependencies": []
     },
     {

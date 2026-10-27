@@ -27,12 +27,15 @@ namespace sky::phy {
         float upper   = 0.f;
     };
 
+    enum class PhysicsMotorMode : uint8_t { Velocity = 0, Position };
+
     struct ConstraintMotor {
         bool  enabled        = false;
         float targetVelocity = 0.f;
         float targetPosition = 0.f;
         float maxForce       = 0.f;
         float maxTorque      = 0.f;
+        PhysicsMotorMode mode = PhysicsMotorMode::Velocity;
     };
 
     struct ConstraintDesc {

@@ -64,19 +64,7 @@ namespace sky::phy {
 
     void PhysicsBackendRegistry::DestroyWorld(IPhysicsWorld *world)
     {
-        if (backend && world != nullptr) {
-            backend->DestroyWorld(world);
-        }
-    }
-
-    void PhysicsBackendRegistry::SetWorldAttacher(PhysicsWorldAttacher attacher)
-    {
-        worldAttacher = std::move(attacher);
-    }
-
-    IWorldSubSystem *PhysicsBackendRegistry::AttachToWorld(World &world)
-    {
-        return worldAttacher ? worldAttacher(world) : nullptr;
+        delete world;
     }
 
 } // namespace sky::phy

@@ -7,17 +7,10 @@
 #include <physics/IPhysicsBackend.h>
 
 #include <core/environment/Singleton.h>
-#include <framework/world/World.h>
 
-#include <functional>
 #include <memory>
 
 namespace sky::phy {
-
-    // Factory registered by the backend plugin that creates its world sub-system (under
-    // PHYSICS_SYSTEM_NAME) for a newly created world, so hosts (launcher/editor) attach physics without
-    // depending on a specific backend plugin.
-    using PhysicsWorldAttacher = std::function<IWorldSubSystem *(World &)>;
 
     // Engine-side factory registry for the active physics backend. Exactly one backend is active at a
     // time; registering a new one shuts the previous one down and releases it.
@@ -45,17 +38,12 @@ namespace sky::phy {
         IPhysicsWorld *CreateWorld(const PhysicsWorldDesc &desc);
         void           DestroyWorld(IPhysicsWorld *world);
 
-        // Host attachment: the backend plugin registers an attacher that adds its sub-system to a world.
-        void             SetWorldAttacher(PhysicsWorldAttacher attacher);
-        IWorldSubSystem *AttachToWorld(World &world);
-
     private:
         friend class Singleton<PhysicsBackendRegistry>;
 
         PhysicsBackendRegistry() = default;
 
         std::unique_ptr<IPhysicsBackend> backend;
-        PhysicsWorldAttacher             worldAttacher;
     };
 
 } // namespace sky::phy

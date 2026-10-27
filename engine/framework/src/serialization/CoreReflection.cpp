@@ -22,9 +22,13 @@ namespace sky {
     template <uint32_t N>
     static void LoadN(float *v, JsonInputArchive &ar)
     {
+        // Sequence elements retain their array node; named vector members already point at the first scalar.
+        const bool nestedArray = ar.IsRootArray();
+        if (nestedArray) { ar.StartRootArray(); }
         for (uint32_t i = 0; i < N; ++i) {
             ar.LoadArrayElement(v[i]);
         }
+        if (nestedArray) { ar.End(); }
     }
 
     template <uint32_t N>

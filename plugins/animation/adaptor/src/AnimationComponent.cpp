@@ -38,6 +38,6 @@ namespace sky::animation {
             .Member<&AnimationComponent::SetPlayRate, &AnimationComponent::GetPlayRate>("playRate")
             .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.f))
             .Member<&AnimationComponent::SetRootPolicy, &AnimationComponent::GetRootPolicy>("rootPolicy");
-        ComponentFactory::Get()->RegisterComponent<AnimationComponent>("Animation");
+        ComponentFactory::Get()->RegisterComponent<AnimationComponent>("Animation", {Name("Animation")});
     }
 } // namespace sky::animation

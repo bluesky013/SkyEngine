@@ -14,13 +14,30 @@ namespace sky::editor {
     // Commands carry no UI-toolkit or render dependency.
     class UndoCommand {
     public:
-        explicit UndoCommand(std::string name = {}) : name(std::move(name)) {}
+        explicit UndoCommand(std::string name = {}) : name(std::move(name))
+        {
+        }
         virtual ~UndoCommand() = default;
 
-        virtual void Do() = 0;
+        virtual void Do()   = 0;
         virtual void Undo() = 0;
 
-        const std::string &GetName() const { return name; }
+        // Fallible commands override these; failure must leave the edited state unchanged.
+        virtual bool TryDo()
+        {
+            Do();
+            return true;
+        }
+        virtual bool TryUndo()
+        {
+            Undo();
+            return true;
+        }
+
+        const std::string &GetName() const
+        {
+            return name;
+        }
 
     private:
         std::string name;

@@ -126,19 +126,23 @@ namespace sky::editor {
         EditorRenderer renderer;
 
         // EditorCore services (render-independent) owned by the host.
-        PanelRegistry       panelRegistry;
-        LayoutModel         layoutModel;
-        SelectionService    selection;
-        std::unique_ptr<WorldEditorState> worldEditor;
+        PanelRegistry                               panelRegistry;
+        LayoutModel                                 layoutModel;
+        SelectionService                            selection;
+        std::unique_ptr<WorldEditorState>           worldEditor;
         std::shared_ptr<ViewportController>         viewportController;
         std::shared_ptr<const IGizmoVisualProvider> gizmoVisualProvider;
         CommandService                              viewportSettingsCommands;
         bool                                        viewportAlt            = false;
         float                                       displayedViewportSpeed = 0;
         std::string                                 viewportError;
-        LogService          logService;
-        CommandController   commandController;
-        EditorExtensionHost extensionHost;
+        LogService                                  logService;
+        CommandController                           commandController;
+        EditorExtensionHost                         extensionHost;
+        void                                        RefreshActorCreationActions();
+        std::vector<std::string>                    builtinCreators;
+        std::vector<std::string>                    creationActions;
+        uint64_t                                    creationRevision = ~uint64_t{0};
 
         // Reflected editor settings (one struct per Preferences page); registered with reflection
         // and exposed to the dialog through PreferencePageRegistry.
@@ -162,13 +166,13 @@ namespace sky::editor {
         std::unique_ptr<IUiTarget> shellTarget;
 
         // Hub (project manager) mode.
-        bool                                hubMode = false;
-        bool                                quitAfterAssetClose = false;
-        std::unique_ptr<sky::ui::UIContext> hubContext;
-        ProjectManagerView                 *hubView = nullptr;
-        FileBrowserDialog                  *browser = nullptr;
-        ProjectDescriptor                   project;
-        sky::ProjectLock                    projectLock;
+        bool                                  hubMode             = false;
+        bool                                  quitAfterAssetClose = false;
+        std::unique_ptr<sky::ui::UIContext>   hubContext;
+        ProjectManagerView                   *hubView = nullptr;
+        FileBrowserDialog                    *browser = nullptr;
+        ProjectDescriptor                     project;
+        sky::ProjectLock                      projectLock;
         std::future<ProjectCreationResult>    projectCreation;
         std::shared_ptr<ProjectCreationState> projectCreationState;
         std::chrono::steady_clock::time_point projectCreationStarted;

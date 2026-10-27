@@ -90,11 +90,12 @@ namespace sky {
         bool           AttachComponent(ComponentPtr &component);
 
         void SaveJson(JsonOutputArchive &archive);
-        void LoadJson(JsonInputArchive &archive);
+        bool LoadJson(JsonInputArchive &archive, std::string *error = nullptr);
 
         void SetParent(Actor *parent);
 
         void Tick(float time);
+        void PostTick(float time);
 
         const Uuid &GetUuid() const
         {
@@ -118,7 +119,11 @@ namespace sky {
             return storage;
         }
 
-        void AttachToWorld(World *world);
+        bool               AttachToWorld(World *world, std::string *error = nullptr);
+        const std::string &GetLastError() const
+        {
+            return lastError;
+        }
         void DetachFromWorld();
 
     private:
@@ -131,7 +136,8 @@ namespace sky {
         Uuid        uuid;
         std::string name;
 
-        World *world = nullptr;
+        World      *world = nullptr;
+        std::string lastError;
     };
 
 } // namespace sky

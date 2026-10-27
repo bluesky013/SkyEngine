@@ -89,7 +89,8 @@ iteration order.
   is rejected and rollback is unavailable. `DeterministicRng` provides a tick-seeded RNG.
 
 Rollback is bounded (`rollbackMaxFrames`); exceeding the bound requests a resync instead. Deterministic physics
-(`PhysicsMathMode::Exact`, Jolt) remains a separate dependency tracked by the physics module.
+(`PhysicsMathMode::Exact`) remains unshipped. The Jolt backend currently advertises Fast with
+`deterministic=false`; its snapshots do not provide exact solver rollback.
 
 ## Usage
 
@@ -130,7 +131,7 @@ Baseline numbers are recorded in `engine/network/replication/bench/BASELINE.md`.
 - The core's `OwnedThread` wakeup is a short poll rather than a semaphore wake.
 - A backend that cannot carry a sender sequence (for example ENet) reports `realSendSequence = false`; consumers
   use their own application sequence for gap detection.
-- Lockstep determinism depends on a deterministic physics backend (`PhysicsMathMode::Exact`, Jolt), which is not
+- Lockstep determinism depends on a deterministic physics backend (`PhysicsMathMode::Exact`), which is not
   yet shipped; the lockstep layer is validated against a simplified deterministic simulation.
 
 ## Dependencies

@@ -92,6 +92,22 @@ class AnimationPackageTest(unittest.TestCase):
             self.assertIn('Re-save World', package.collect_world_asset_roots(project, {})[1])
             self.assertIsNotNone(package.collect_world_asset_roots(project, {'worlds': ['../outside.world']})[1])
 
+    def test_collision_only_mesh_is_checked_by_real_package_audit(self):
+        tool = package.find_asset_tool(package.REPO_ROOT)
+        if tool is None:
+            self.skipTest('Build AssetTool for product-only audit')
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            (project / 'assets').mkdir()
+            mesh = identity()
+            (project / 'assets/collider.world').write_text(json.dumps({
+                'actors': [], 'assetRoots': [{'uuid': mesh, 'type': 'AuroraMesh'}]
+            }), encoding='utf-8')
+            product = write_product(project / 'products/common', mesh, 'AuroraMesh')
+            self.assertEqual(package.stage_bundles(project, {}, project / 'package/products'), ['common'])
+            product.unlink()
+            self.assertIsNone(package.stage_bundles(project, {}, project / 'package/products'))
+
     def test_real_tool_resolves_graph_material_and_skin_group_without_sources(self):
         tool = Path(os.environ['SKY_ASSET_TOOL']) if os.environ.get('SKY_ASSET_TOOL') else package.find_asset_tool(package.REPO_ROOT)
         if tool is None:

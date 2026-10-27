@@ -27,7 +27,8 @@ namespace {
         uint64_t                           next = 1;
 
         const phy::PhysicsBackendCaps &GetCaps() const override { return caps; }
-        void           SetOptions(const phy::PhysicsOptions &) override {}
+        phy::PhysicsStatus SetOptions(const phy::PhysicsOptions &) override { return {}; }
+        phy::PhysicsStatus GetLastStatus() const override { return {}; }
         phy::PhysicsOptions GetOptions() const override { return {}; }
 
         phy::PhysicsMaterialId CreateMaterial(const phy::PhysicsMaterialData &) override { return {}; }
@@ -71,7 +72,7 @@ namespace {
         bool SetCharacterTransform(phy::PhysicsObjectId, const Transform &) override { return false; }
         bool SetCharacterCapsule(phy::PhysicsObjectId, float, float) override { return false; }
 
-        void Step(float) override {}
+        phy::PhysicsStatus Step(float) override { return {}; }
 
         bool Raycast(const Vector3 &, const Vector3 &, float, const phy::PhysicsQueryFilter &, phy::PhysicsQueryHit &) const override { return false; }
         bool Sweep(const phy::ShapeDesc &, const Transform &, const Vector3 &, float, const phy::PhysicsQueryFilter &, phy::PhysicsQueryHit &) const override { return false; }

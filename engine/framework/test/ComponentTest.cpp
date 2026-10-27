@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <framework/serialization/SerializationUtil.h>
 #include <framework/world/Actor.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <fstream>
@@ -85,20 +86,22 @@ static void ExpectTranslation(const Transform &transform, float x, float y, floa
     EXPECT_NEAR(transform.translation.z, z, 1e-4f);
 }
 
-class ComponentTest : public ::testing::Test {
-public:
-    static void SetUpTestSuite()
-    {
-        auto *context = SerializationContext::Get();
-        TestComponent::Reflect(context);
-        TransformComponent::Reflect(context);
-        LifecycleComponent::Reflect(context);
-    }
-
-    static void TearDownTestSuite()
-    {
-    }
-};
+namespace {
+    class ComponentMetadataEnvironment final : public testing::Environment {
+    public:
+        void SetUp() override
+        {
+            auto *context = SerializationContext::Get();
+            TestComponent::Reflect(context);
+            TransformComponent::Reflect(context);
+            LifecycleComponent::Reflect(context);
+            ComponentFactory::Get()->RegisterComponent<TestComponent>("Test");
+            ComponentFactory::Get()->RegisterComponent<LifecycleComponent>("Test");
+        }
+    };
+    const auto *componentMetadata = testing::AddGlobalTestEnvironment(new ComponentMetadataEnvironment());
+} // namespace
+class ComponentTest : public ::testing::Test {};
 
 TEST_F(ComponentTest, ActorTest)
 {
@@ -156,7 +159,8 @@ TEST_F(ComponentTest, ActorTest)
         IStreamArchive   streamArchive(stream);
         JsonInputArchive archive(streamArchive);
 
-        world.LoadJson(archive);
+        ASSERT_TRUE(world.LoadJson(archive));
+        ASSERT_TRUE(world.Build(*world.GetMutableWorldDesc()));
 
         auto tActor = world.GetActorByUuid(id);
         ASSERT_NE(tActor, nullptr);
@@ -377,7 +381,8 @@ TEST_F(ComponentTest, SaveLoadPreservesHierarchy)
         std::ifstream          stream(path);
         IStreamArchive         streamArchive(stream);
         JsonInputArchive       archive(streamArchive);
-        pWorld->LoadJson(archive);
+        ASSERT_TRUE(pWorld->LoadJson(archive));
+        ASSERT_TRUE(pWorld->Build(*pWorld->GetMutableWorldDesc()));
 
         auto loadedChild = pWorld->GetActorByUuid(childId);
         ASSERT_NE(loadedChild, nullptr);
@@ -453,4 +458,20 @@ TEST_F(ComponentTest, DeterministicSerializationOrder)
         second = stream.str();
     }
     ASSERT_EQ(first, second);
+}
+TEST_F(ComponentTest, ReflectedDataCannotBeConstructedAsAComponent)
+{
+    Actor      actor(Uuid::Create());
+    const auto dataId = TypeInfo<TestComponentData>::RegisteredId();
+    EXPECT_EQ(actor.AddComponent(dataId), nullptr);
+    EXPECT_EQ(actor.AddComponent(Uuid::Create()), nullptr);
+    std::stringstream stream;
+    stream << "{\"uuid\":\"" << Uuid::Create().ToString() << "\",\"name\":\"bad\",\"components\":[{\"type\":\"" << dataId.ToString()
+           << "\",\"data\":{}}]}";
+    IStreamArchive   input(stream);
+    JsonInputArchive json(input);
+    std::string      error;
+    EXPECT_FALSE(actor.LoadJson(json, &error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_TRUE(actor.GetComponents().empty());
 }

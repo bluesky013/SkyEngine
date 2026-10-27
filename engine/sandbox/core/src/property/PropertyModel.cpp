@@ -23,13 +23,11 @@ namespace sky::editor {
         return result;
     }
 
-    PropertyModel::PropertyModel(void *object, const TypeNode *type)
-        : object(object), type(type), descriptors(BuildDescriptors(object, type))
+    PropertyModel::PropertyModel(void *object, const TypeNode *type) : object(object), type(type), descriptors(BuildDescriptors(object, type))
     {
     }
 
-    PropertyModel::PropertyModel(const PropertyObject &object)
-        : PropertyModel(object.object, object.type)
+    PropertyModel::PropertyModel(const PropertyObject &object) : PropertyModel(object.object, object.type)
     {
     }
 
@@ -38,8 +36,7 @@ namespace sky::editor {
         if (!descriptor.CanEdit()) {
             return false;
         }
-        commands.Execute(descriptor.MakeEditCommand(std::move(value)));
-        return true;
+        return commands.Execute(descriptor.MakeEditCommand(std::move(value)));
     }
 
 } // namespace sky::editor

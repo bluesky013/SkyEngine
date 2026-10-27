@@ -245,6 +245,9 @@ namespace sky::editor::small_panel_layout_test {
         panel.OnPointerEvent(Down(panel.CheckRect(0)));
         bool enabled = true;
         ASSERT_TRUE(document.IsSubSystemEnabled("SmallPanelConfig", enabled));
+        EXPECT_TRUE(enabled);
+        ASSERT_TRUE(EditorCore::GetCommandService().Undo());
+        ASSERT_TRUE(document.IsSubSystemEnabled("SmallPanelConfig", enabled));
         EXPECT_FALSE(enabled);
     }
 

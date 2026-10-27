@@ -1,3 +1,7 @@
+#include "WorldEditorState.h"
+#include <editor/core/EditorCore.h>
+#include <editor/core/actor/EditorActorCreation.h>
+#include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/sandbox/SandboxModule.h>
 
 #include <cstdlib>
@@ -12,6 +16,21 @@
 namespace sky::editor {
     class SandboxProjectTestAccess {
     public:
+        static void PrepareCreation(SandboxModule &module)
+        {
+            module.hubMode       = false;
+            module.worldDocument = std::make_unique<WorldDocument>("");
+            module.worldEditor   = std::make_unique<WorldEditorState>(module.selection);
+            module.worldEditor->Bind(module.worldDocument.get());
+        }
+        static void RefreshCreation(SandboxModule &module)
+        {
+            module.RefreshActorCreationActions();
+        }
+        static size_t ActorCount(const SandboxModule &module)
+        {
+            return module.worldDocument->GetWorld()->GetActors().size();
+        }
         static void Bind(SandboxModule &module, ProjectManagerView &view)
         {
             module.hubMode = true;
@@ -308,3 +327,38 @@ namespace {
         }
     }
 } // namespace
+
+TEST(SandboxCreationActions, RegistryChangesDriveMenuAndRetainUndoCode)
+{
+    using namespace sky::editor;
+    EditorCore::Init();
+    {
+        SandboxModule module;
+        SandboxProjectTestAccess::PrepareCreation(module);
+        auto               lease = std::make_shared<int>(1);
+        std::weak_ptr<int> alive = lease;
+        ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({lease, "test.menu", "Plugin Actor", "Test", 42, [](sky::Actor &actor) {
+                                                                      actor.SetName("From plugin");
+                                                                      return true;
+                                                                  }}));
+        lease.reset();
+        SandboxProjectTestAccess::RefreshCreation(module);
+        auto *actions = EditorActionRegistry::Get();
+        ASSERT_NE(actions->Find("scene.create.test.menu"), nullptr);
+        ASSERT_TRUE(actions->Invoke("scene.create.test.menu"));
+        EXPECT_EQ(SandboxProjectTestAccess::ActorCount(module), 1u);
+        ASSERT_TRUE(EditorActorCreation::Get()->UnRegisterCreation("test.menu"));
+        actions->Invoke("scene.create.test.menu");
+        EXPECT_EQ(SandboxProjectTestAccess::ActorCount(module), 1u);
+        SandboxProjectTestAccess::RefreshCreation(module);
+        EXPECT_EQ(actions->Find("scene.create.test.menu"), nullptr);
+        EXPECT_FALSE(alive.expired());
+        ASSERT_TRUE(EditorCore::GetCommandService().Undo());
+        EXPECT_EQ(SandboxProjectTestAccess::ActorCount(module), 0u);
+        ASSERT_TRUE(EditorCore::GetCommandService().Redo());
+        EXPECT_EQ(SandboxProjectTestAccess::ActorCount(module), 1u);
+        EditorCore::GetCommandService().Clear();
+        EXPECT_TRUE(alive.expired());
+    }
+    EditorCore::Shutdown();
+}

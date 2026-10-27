@@ -3,6 +3,7 @@
 //
 
 #include <framework/world/Actor.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 
@@ -29,21 +30,24 @@ namespace sky {
             return false;
         }
 
-        if (world != nullptr) {
-            component->OnAttachToWorld();
+        lastError.clear();
+        if (world != nullptr && !component->TryAttachToWorld(lastError)) {
+            component->OnDetachFromWorld();
+            component->actor = nullptr;
+            res.first->second.release();
+            storage.erase(res.first);
+            return false;
         }
         return true;
     }
 
     ComponentBase *Actor::AddComponent(const Uuid &typeId)
     {
-        auto *node = SerializationContext::Get()->FindTypeById(typeId);
-        if (node == nullptr || node->info == nullptr || node->info->newFunc == nullptr) {
-            // Unknown or non-constructible component type: skip without crashing.
+        auto owned = ComponentFactory::Get()->Create(typeId);
+        if (!owned) {
             return nullptr;
         }
-
-        auto *component = static_cast<ComponentBase *>(node->info->newFunc());
+        auto *component = owned.release();
         if (!EmplaceComponent(typeId, component)) {
             delete component;
             component = nullptr;
@@ -79,8 +83,15 @@ namespace sky {
         auto *raw = component.get();
         storage.emplace(raw->GetTypeId(), std::move(component));
         raw->actor = this;
-        if (world)
-            raw->OnAttachToWorld();
+        lastError.clear();
+        if (world && !raw->TryAttachToWorld(lastError)) {
+            raw->OnDetachFromWorld();
+            raw->actor = nullptr;
+            auto found = storage.find(raw->GetTypeId());
+            component  = std::move(found->second);
+            storage.erase(found);
+            return false;
+        }
         return true;
     }
 
@@ -106,8 +117,13 @@ namespace sky {
         archive.EndObject();
     }
 
-    void Actor::LoadJson(JsonInputArchive &archive)
+    bool Actor::LoadJson(JsonInputArchive &archive, std::string *error)
     {
+        if (world || !storage.empty()) {
+            if (error)
+                *error = "Actor loading requires a fresh detached actor";
+            return false;
+        }
         archive.Start("uuid");
         uuid = Uuid::CreateFromString(archive.LoadString());
         archive.End();
@@ -118,8 +134,6 @@ namespace sky {
 
         auto componentCount = archive.StartArray("components");
 
-        auto *context = SerializationContext::Get();
-
         for (uint32_t i = 0; i < componentCount; ++i) {
 
             archive.Start("type");
@@ -127,21 +141,29 @@ namespace sky {
             archive.End();
 
             archive.Start("data");
-            auto *node = context->FindTypeById(typeId);
-            if (node != nullptr && node->info != nullptr && node->info->newFunc != nullptr) {
-                auto *tmp = static_cast<ComponentBase *>(node->info->newFunc());
+            auto component = ComponentFactory::Get()->Create(typeId);
+            if (component && !storage.contains(typeId)) {
+                auto *tmp = component.release();
                 tmp->LoadJson(archive);
                 tmp->actor = this;
                 tmp->OnSerialized();
                 if (!EmplaceComponent(typeId, tmp)) {
                     delete tmp;
                 }
+            } else {
+                if (error) {
+                    *error = "Unknown or duplicate component type: " + typeId.ToString();
+                }
+                archive.End();
+                archive.End();
+                return false;
             }
             archive.End();
 
             archive.NextArrayElement();
         }
         archive.End();
+        return true;
     }
 
     void Actor::SetParent(Actor *parent)
@@ -169,18 +191,44 @@ namespace sky {
         }
     }
 
-    void Actor::AttachToWorld(World *world_)
+    bool Actor::AttachToWorld(World *world_, std::string *error)
     {
-        world = world_;
-        for (auto &[id, component] : storage) {
-            component->OnAttachToWorld();
+        if (!world_ || world) {
+            lastError = "Actor attachment requires a destination and a detached actor";
+            if (error)
+                *error = lastError;
+            return false;
         }
-
+        lastError.clear();
+        world = world_;
+        std::vector<ComponentBase *> attached;
+        for (auto &[id, component] : storage) {
+            if (!component->TryAttachToWorld(lastError)) {
+                component->OnDetachFromWorld();
+                for (auto it = attached.rbegin(); it != attached.rend(); ++it)
+                    (*it)->OnDetachFromWorld();
+                world = nullptr;
+                if (error)
+                    *error = lastError;
+                return false;
+            }
+            attached.push_back(component.get());
+        }
         ActorEvent::BroadCast(this, &IActorEvent::OnAttachToWorld, world);
+        return true;
+    }
+
+    void Actor::PostTick(float time)
+    {
+        for (auto &[id, component] : storage)
+            component->PostTick(time);
     }
 
     void Actor::DetachFromWorld()
     {
+        if (world == nullptr) {
+            return;
+        }
         ActorEvent::BroadCast(this, &IActorEvent::OnDetachFromWorld, world);
 
         for (auto &[id, component] : storage) {

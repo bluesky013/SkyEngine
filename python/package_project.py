@@ -436,7 +436,7 @@ def collect_world_asset_roots(project_dir, preset):
             return None, 'Re-save World in the editor to collect explicit asset roots: {}'.format(world)
         for reference in document['assetRoots']:
             if (not isinstance(reference, dict) or not isinstance(reference.get('uuid'), str)
-                    or not isinstance(reference.get('type'), str)):
+                    or not reference['uuid'] or not isinstance(reference.get('type'), str) or not reference['type']):
                 return None, 'Malformed asset root in {}'.format(world)
             roots.append(dict(reference, world=world.relative_to(assets).as_posix()))
     return roots, None
@@ -506,6 +506,11 @@ def stage_configs(engine, project_dir, dest_configs_dir, development=True):
     for source in (engine / 'configs', project_dir / 'configs'):
         if source.is_dir():
             shutil.copytree(source, dest_configs_dir, dirs_exist_ok=True)
+    jolt_license = engine / 'plugins/jolt/LICENSE.txt'
+    if jolt_license.is_file():
+        notices = dest_configs_dir / 'licenses'
+        notices.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(jolt_license, notices / 'Jolt.txt')
     startup = dest_configs_dir / 'modules_game.json'
     if not development and startup.is_file():
         data = load_json(startup, {})

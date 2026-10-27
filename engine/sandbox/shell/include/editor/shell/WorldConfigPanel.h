@@ -76,7 +76,7 @@ namespace sky::editor {
         void                    Select(int index);
         void                    Rebind();
         void                    SynchronizeDocument();
-        // Toggles a subsystem's enabled flag (persisted + rebuilt immediately).
+        // Configuration is applied when the next Play world is built.
         void ToggleEnabled(int index);
 
         sky::ui::UITextSystem *textSystem = nullptr;
@@ -85,10 +85,11 @@ namespace sky::editor {
         std::string            title;
         bool                   titleVisible = true;
 
-        ReflectedFormView *formView     = nullptr; // owned by this panel via AddChild
-        WorldDocument     *lastDocument = nullptr; // document backing the form's current binding
-        bool               providerMode = true;
-        int                selected     = 0;
+        ReflectedFormView *formView       = nullptr; // owned by this panel via AddChild
+        WorldDocument     *lastDocument   = nullptr; // document backing the form's current binding
+        bool               providerMode   = true;
+        int                selected       = 0;
+        uint64_t           configRevision = 0;
     };
 
 } // namespace sky::editor

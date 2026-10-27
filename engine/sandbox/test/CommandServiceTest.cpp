@@ -269,4 +269,50 @@ namespace sky::editor {
         }
     }
 
+    TEST(CommandServiceTest, FailedTransactionRedoRestoresEarlierCommandsAndKeepsHistory)
+    {
+        class FallibleAdd final : public UndoCommand {
+        public:
+            FallibleAdd(int &value, bool &allowed) : value(value), allowed(allowed)
+            {
+            }
+            void Do() override
+            {
+                TryDo();
+            }
+            void Undo() override
+            {
+                value -= 10;
+            }
+            bool TryDo() override
+            {
+                if (!allowed)
+                    return false;
+                value += 10;
+                return true;
+            }
+
+        private:
+            int  &value;
+            bool &allowed;
+        };
+        CommandService service;
+        int            value   = 0;
+        bool           allowed = true;
+        service.BeginTransaction("fallible group");
+        ASSERT_TRUE(service.Execute(std::make_unique<AddCommand>(value, 1)));
+        ASSERT_TRUE(service.Execute(std::make_unique<FallibleAdd>(value, allowed)));
+        service.EndTransaction();
+        EXPECT_EQ(value, 11);
+        ASSERT_TRUE(service.Undo());
+        allowed = false;
+        EXPECT_FALSE(service.Redo());
+        EXPECT_EQ(value, 0);
+        EXPECT_FALSE(service.CanUndo());
+        EXPECT_TRUE(service.CanRedo());
+        allowed = true;
+        ASSERT_TRUE(service.Redo());
+        EXPECT_EQ(value, 11);
+    }
+
 } // namespace sky::editor

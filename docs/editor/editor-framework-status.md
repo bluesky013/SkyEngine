@@ -69,7 +69,7 @@ Design: `docs/editor/ui-sizing-and-scaling.md` (single style source, ImGui-style
   (tabbed with the Outliner) lists registered subsystems with an **enable checkbox** (toggle → `Rebuild` +
   `Save`) and hosts a `ReflectedFormView` bound to the selected subsystem's config. **File** = New World… /
   Open World… / Save World (`Ctrl+S`) / Close World (`Ctrl+W`) / Quit (saves a dirty world first).
-- Plugins: `plugins/bullet` registers `"Physics"` (`PhysicsSubSystemConfig`), `plugins/recast`
+- Plugins: `plugins/jolt` registers `"Physics"` (`PhysicsSubSystemConfig`), `plugins/recast`
   registers `"Navigation"` (`NavigationSubSystemConfig`); both added to `configs/modules_editor.json`.
 - Tests: `FrameworkTest.WorldSubSystemRegistryTest`, `EditorCoreTest.WorldDocumentTest`,
   `EditorShellTest` (world-config toggle) — all green.

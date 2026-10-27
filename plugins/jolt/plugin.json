@@ -1,0 +1,12 @@
+{
+    "targets": [
+        {
+            "name": "JoltPhysicsModule",
+            "dependencies": ["Launcher"]
+        },
+        {
+            "name": "JoltPhysicsRenderModule",
+            "dependencies": ["Launcher"]
+        }
+    ]
+}

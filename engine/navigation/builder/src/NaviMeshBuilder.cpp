@@ -55,7 +55,10 @@ namespace sky::builder {
                 return;
             }
             JsonInputArchive json(*sceneArchive);
-            world->LoadJson(json);
+            if (!world->LoadJson(json)) {
+                result.retCode = AssetBuildRetCode::FAILED;
+                return;
+            }
         }
 
         auto &registry = WorldSubSystemRegistry::Get();
@@ -65,9 +68,17 @@ namespace sky::builder {
                                   [](World &, const Any &) -> std::unique_ptr<IWorldSubSystem> { return std::make_unique<ai::NavigationSystem>(); },
                               });
         }
-        WorldDesc desc;
-        desc.subSystems.push_back(WorldSubSystemDesc{Name(ai::NavigationSystem::NAME.data()), Any{}, true});
-        world->Build(desc);
+        auto      &desc = *world->GetMutableWorldDesc();
+        const Name navigation(ai::NavigationSystem::NAME.data());
+        auto       found = std::find_if(desc.subSystems.begin(), desc.subSystems.end(), [&](const auto &entry) { return entry.name == navigation; });
+        if (found == desc.subSystems.end())
+            desc.subSystems.push_back({navigation, {}, true});
+        else
+            found->enabled = true;
+        if (!world->Build(desc)) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            return;
+        }
         world->Init();
 
         auto *navSys = static_cast<ai::NavigationSystem *>(world->GetSubSystem(Name(ai::NavigationSystem::NAME.data())));

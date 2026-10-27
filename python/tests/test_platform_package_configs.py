@@ -14,6 +14,32 @@ SPEC.loader.exec_module(PACKAGE)
 
 
 class PlatformPackageConfigTest(unittest.TestCase):
+    def test_collision_only_root_reaches_audit_and_untyped_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            (project / "assets").mkdir()
+            world = project / "assets/collision.world"
+            mesh = "00000000-0000-0000-0000-000000000001"
+            world.write_text(json.dumps({"assetRoots": [{"uuid": mesh, "type": "AuroraMesh"}]}), encoding="utf-8")
+            roots, error = PACKAGE.collect_world_asset_roots(project, {})
+            self.assertIsNone(error)
+            self.assertEqual(roots, [{"uuid": mesh, "type": "AuroraMesh", "world": "collision.world"}])
+            with mock.patch.object(PACKAGE, "find_asset_tool", return_value=None):
+                self.assertIsNone(PACKAGE.stage_bundles(project, {}, project / "package/products"))
+            world.write_text(json.dumps({"assetRoots": [{"uuid": mesh, "type": ""}]}), encoding="utf-8")
+            roots, error = PACKAGE.collect_world_asset_roots(project, {})
+            self.assertIsNone(roots)
+            self.assertIn("Malformed asset root", error)
+
+    def test_jolt_notice_is_staged_with_runtime_configs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            engine, project, destination = root / "engine", root / "project", root / "package/configs"
+            (engine / "plugins/jolt").mkdir(parents=True)
+            (engine / "plugins/jolt/LICENSE.txt").write_text("Jolt MIT notice", encoding="utf-8")
+            PACKAGE.stage_configs(engine, project, destination, development=False)
+            self.assertEqual((destination / "licenses/Jolt.txt").read_text(encoding="utf-8"), "Jolt MIT notice")
+
     def test_builtin_config_and_project_override_are_staged(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -51,7 +51,11 @@
       ]
     },
     {
-      "name": "BulletPhysicsModule",
+      "name": "JoltPhysicsModule",
+      "dependencies": []
+    },
+    {
+      "name": "JoltPhysicsRenderModule",
       "dependencies": []
     },
     {

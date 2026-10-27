@@ -77,20 +77,20 @@ namespace {
 
 } // namespace
 
-TEST_F(WorldSubSystemRegistryTest, RegisterCreateAndOverride)
+TEST_F(WorldSubSystemRegistryTest, RegisterRejectsDuplicateOwner)
 {
     auto &registry = WorldSubSystemRegistry::Get();
     EXPECT_TRUE(registry.Register(Name("Test"), MakeRegistration(1)));
     EXPECT_TRUE(registry.IsRegistered(Name("Test")));
     EXPECT_NE(registry.GetRegistration(Name("Test")), nullptr);
 
-    // Re-registration overrides (no failure).
-    EXPECT_TRUE(registry.Register(Name("Test"), MakeRegistration(2)));
+    // A second owner cannot replace a live registration.
+    EXPECT_FALSE(registry.Register(Name("Test"), MakeRegistration(2)));
 
     WorldPtr                         world = World::CreateWorld();
     std::unique_ptr<IWorldSubSystem> sub   = registry.Create(Name("Test"), *world, Any{});
     ASSERT_NE(sub, nullptr);
-    EXPECT_EQ(static_cast<TestSubSystem *>(sub.get())->marker, 2);
+    EXPECT_EQ(static_cast<TestSubSystem *>(sub.get())->marker, 1);
 
     EXPECT_EQ(registry.Create(Name("Missing"), *world, Any{}), nullptr);
 }
@@ -118,7 +118,6 @@ TEST_F(WorldSubSystemRegistryTest, BuildCreatesFromDescInOrder)
 
     WorldDesc desc;
     desc.subSystems.push_back(WorldSubSystemDesc{Name("A"), Any{}, true});
-    desc.subSystems.push_back(WorldSubSystemDesc{Name("Unknown"), Any{}, true}); // not registered
     desc.subSystems.push_back(WorldSubSystemDesc{Name("B"), Any{}, true});
 
     WorldPtr world = World::CreateWorld();
@@ -133,7 +132,7 @@ TEST_F(WorldSubSystemRegistryTest, BuildCreatesFromDescInOrder)
     EXPECT_TRUE(order[1] == Name("B"));
 }
 
-TEST_F(WorldSubSystemRegistryTest, BuildSkipsDisabledAndDuplicate)
+TEST_F(WorldSubSystemRegistryTest, BuildRejectsDuplicateDescriptor)
 {
     auto &registry = WorldSubSystemRegistry::Get();
     registry.Register(Name("A"), MakeRegistration(1));
@@ -145,7 +144,7 @@ TEST_F(WorldSubSystemRegistryTest, BuildSkipsDisabledAndDuplicate)
     desc.subSystems.push_back(WorldSubSystemDesc{Name("A"), Any{}, false}); // disabled
     desc.subSystems.push_back(WorldSubSystemDesc{Name("A"), Any{}, true});  // duplicate -> skip
 
-    world->Build(desc); // must not assert/leak
+    EXPECT_FALSE(world->Build(desc));
     EXPECT_NE(world->GetSubSystem(Name("A")), nullptr);
 }
 
@@ -189,4 +188,37 @@ TEST_F(WorldSubSystemRegistryTest, BuildValidatesConfig)
     WorldPtr world = World::CreateWorld();
     world->Build(desc);
     EXPECT_NE(world->GetSubSystem(Name("A")), nullptr);
+}
+
+TEST_F(WorldSubSystemRegistryTest, FailedInitializationDoesNotPublishAnySubsystem)
+{
+    auto &registry = WorldSubSystemRegistry::Get();
+    ASSERT_TRUE(registry.Register(Name("A"), MakeRegistration(1)));
+    WorldDesc desc;
+    desc.subSystems = {{Name("A"), {}, true}, {Name("Missing"), {}, true}};
+    WorldPtr world  = World::CreateWorld();
+    EXPECT_FALSE(world->Build(desc));
+    EXPECT_NE(world->GetLastError().find("Missing"), std::string::npos);
+    EXPECT_EQ(world->GetSubSystem(Name("A")), nullptr);
+    WorldSubSystemRegistration failing;
+    failing.factory = [](World &, const Any &) -> std::unique_ptr<IWorldSubSystem> { return {}; };
+    ASSERT_TRUE(registry.Register(Name("Missing"), std::move(failing)));
+    EXPECT_FALSE(world->Build(desc));
+    EXPECT_EQ(world->GetSubSystem(Name("A")), nullptr);
+    registry.Unregister(Name("Missing"));
+    auto invalid     = MakeRegistration(2);
+    invalid.validate = [](const Any &, std::string &error) {
+        error = "invalid test config";
+        return false;
+    };
+    ASSERT_TRUE(registry.Register(Name("Missing"), std::move(invalid)));
+    EXPECT_FALSE(world->Build(desc));
+    EXPECT_NE(world->GetLastError().find("invalid test config"), std::string::npos);
+    EXPECT_EQ(world->GetSubSystem(Name("A")), nullptr);
+    desc.subSystems.pop_back();
+    ASSERT_TRUE(world->Build(desc));
+    auto *original                  = world->GetSubSystem(Name("A"));
+    desc.subSystems.front().enabled = false;
+    EXPECT_FALSE(world->Build(desc));
+    EXPECT_EQ(world->GetSubSystem(Name("A")), original);
 }

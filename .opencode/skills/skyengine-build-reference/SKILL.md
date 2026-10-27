@@ -97,7 +97,7 @@ Frequently useful switches:
 - `-DSKY_BUILD_TEST=ON` — enable `ctest`
 - `-DSKY_BUILD_SANDBOX=ON` — build the sandbox editor
 - `-DSKY_BUILD_TOOL=ON` — build tooling targets
-- plugin switches from `plugins/plugins.json`, such as `-DSKY_BUILD_BULLET=OFF`, `-DSKY_BUILD_PYTHON=ON`, `-DSKY_BUILD_AUDIO=ON`
+- plugin switches from `plugins/plugins.json`, such as `-DSKY_BUILD_JOLT=OFF`, `-DSKY_BUILD_PYTHON=ON`, `-DSKY_BUILD_AUDIO=ON`
 - platform/toolchain flags for Android or iOS when needed
 
 ## Plugin build configuration rules
@@ -115,7 +115,7 @@ Each plugin entry defines:
 Repository flow:
 
 1. `CMakeLists.txt` includes `cmake/plugin_switches.cmake` before `add_subdirectory(plugins)`
-2. `cmake/plugin_switches.cmake` reads `plugins/plugins.json` and creates cache bools such as `SKY_BUILD_BULLET` and `SKY_BUILD_PYTHON`
+2. `cmake/plugin_switches.cmake` reads `plugins/plugins.json` and creates cache bools such as `SKY_BUILD_JOLT` and `SKY_BUILD_PYTHON`
 3. `plugins/CMakeLists.txt` reads the same JSON and only calls `add_subdirectory(<plugin_dir>)` when the plugin's `cmake_var` is enabled
 4. `cmake/thirdparty.cmake` consumes these switches to enable required third-party packages
 5. Per-plugin `plugin.json` files are separate: they describe target dependency wiring after the plugin has already been included in the build
@@ -132,7 +132,7 @@ Working rules:
 Current plugin defaults from `plugins/plugins.json`:
 
 - `SKY_BUILD_PYTHON=OFF`
-- `SKY_BUILD_BULLET=ON`
+- `SKY_BUILD_JOLT=ON`
 - `SKY_BUILD_RECAST=ON`
 - `SKY_BUILD_VEGETATION=ON`
 - `SKY_BUILD_TERRAIN=ON`
@@ -159,7 +159,7 @@ cmake -S <engine_root> -B <build_dir> \
 cmake -S <engine_root> -B <build_dir> \
   -G <generator> \
   -D3RD_PATH=<thirdparty_output_dir> \
-  -DSKY_BUILD_BULLET=OFF \
+  -DSKY_BUILD_JOLT=OFF \
   -DSKY_BUILD_RECAST=OFF \
   -DSKY_BUILD_COMPRESSION=OFF
 ```

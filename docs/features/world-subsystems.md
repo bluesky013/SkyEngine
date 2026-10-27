@@ -45,7 +45,7 @@ host links no plugin; it only knows registry names.
 single instance is shared **across module DLLs** (stored in the process `Environment`). This is
 critical: `Framework`/`Core` are static libs linked separately into each module DLL, so a plain
 function-local static would give each DLL its own copy and plugins' registrations would be invisible
-to the host. `Register` overrides (and logs) an existing name; `GetNames` returns the registered set.
+to the host. `Register` rejects an existing name; only the successful registrant unregisters it. `GetNames` returns the registered set. Registrations and live subsystems retain their module code leases.
 
 ## `WorldDesc` and `World::Build`
 
@@ -60,17 +60,16 @@ struct WorldDesc {
 };
 ```
 
-`World::Build(const WorldDesc &desc)` stores the description and, for each **enabled** entry:
+`World::Build(const WorldDesc &desc)` is a one-time initialization operation returning `bool` and `GetLastError()`:
 
-1. skips a subsystem already present (duplicate guard),
-2. skips names with no registration (logged),
-3. runs the registration's `validate` if present (asserts in debug, skips in release),
-4. calls the factory and `AddSubSystem`s the result.
+1. Validate duplicate names, enabled registrations/configuration and each component's declared subsystem requirements.
+2. Construct all subsystem candidates before attaching any of them.
+3. Attach subsystems, then attach the loaded actors/components through the fallible attachment boundary.
+4. Roll back new attachments on failure; the document/Play factory publishes only a successful candidate.
 
-`World::GetWorldDesc()` returns the description the world was built from (null if built manually);
-`World::GetMutableWorldDesc()` lazily creates a mutable description for an editor to edit **before**
-`Build`. `AddSubSystem` and the `IWorldSubSystem` callbacks (`OnAttachToWorld`, `StartSimulation`,
-`Tick`, …) are unchanged.
+`LoadJson` returns a result and prepares detached actors. It constructs components only through `ComponentFactory`'s typed factories. Hierarchy is resolved before actor attachment. Subsystems no longer need feature-specific scans to repair actor load order.
+
+`GetMutableWorldDesc()` supplies authoring settings. Editing them does not reconfigure an already built runtime: the editor applies them to the next fresh Play world. Calling Build twice returns an error. `TryAttachToWorld` retains the caller's actor on attachment failure; attachment callbacks must not modify the world's actor collection.
 
 ## Persistence
 
@@ -87,12 +86,11 @@ struct WorldDesc {
 
 The `config` object is written with `SaveValueObject(Any)` and read back with
 `LoadValueById(configType->registeredId)`, so it round-trips through the reflected type registered by
-the plugin. On load, only entries whose name resolves to a registration **with a `configType`** are
-restored. This replaces the previously unused `worldConfigs` map as the source of truth.
+the plugin. All descriptor names/enabled flags are restored; typed config data requires the corresponding registered config type. An enabled missing provider fails Build rather than being silently skipped.
 
 ## Plugin registration (examples)
 
-- **Physics** (`plugins/bullet/BulletModule.cpp`): registers under `PHYSICS_SYSTEM_NAME` (`"Physics"`)
+- **Physics** (`plugins/jolt/adaptor/JoltModule.cpp`): registers under `PHYSICS_SYSTEM_NAME` (`"Physics"`)
   with `PhysicsSubSystemConfig` (8 fields) as its config type; the factory creates a `PhysicsSystem`.
 - **Navigation** (`plugins/recast/RecastModule.cpp`): registers under `NavigationSystem::NAME`
   (`"Navigation"`) with `NavigationSubSystemConfig` (6 fields); the factory creates a
@@ -103,51 +101,28 @@ the editor loads them. For the editor to see these subsystems, the modules must 
 
 ## Editor world-config surface
 
-- **`WorldDocument`** (`engine/sandbox/core`, `editor/core/document/WorldDocument.h`) owns a
-  `sky::World` and `Load`/`Save`s it through the framework JSON archive (the `.world` file). It also
-  exposes the config surface: `SetSubSystemEnabled`, `IsSubSystemEnabled`, `Rebuild`
-  (rebuilds from the description, adding enabled missing subsystems), and `EnsureSubSystemConfig`
-  (finds or creates the stored config from the registry default so a form can edit it in place).
-  **Pointer invariant**: `EnsureSubSystemConfig` returns a pointer into `WorldDesc::subSystems`, and
-  `sky::Any` stores its value inline — so any later append (`SetSubSystemEnabled` / `EnsureSubSystemConfig`
-  adding an entry) reallocates the vector and invalidates previously returned pointers. Callers must
-  re-fetch (the panel rebinds after every toggle).
-- **`WorldConfigPanel`** (`engine/sandbox/shell`) is a dockable panel (tabbed with the Outliner):
-  the left side lists registered subsystems as rows with an **enable checkbox** (subsystems are enabled by
-  default; clicking the checkbox toggles + `Rebuild`s + `Save`s so the selection persists with the world) and
-  the subsystem name; clicking the name selects it. The right side hosts a persistent `ReflectedFormView`
-  bound to `PropertyObject{ config.Data(), GetTypeNode(config) }` for the selected subsystem. Selecting a row
-  persists pending edits (via `WorldDocument::Save`) before rebinding.
-  Before a world is opened the panel shows a **"No world open"** empty state (it never fabricates
-  defaults), and it rebinds automatically when a world is opened/closed. Edits through the form mark
-  the document dirty (`ReflectedForm::SetOnChanged` → `WorldDocument::MarkDirty`), so Save persists
-  them and the title/status show the unsaved `*`. The reflected form's **reset baseline is the type's
-  default-constructed value** (`ReflectedForm` / `MakeDefaultValue`), so a field changed from the
-  default keeps its reset button across load/save and reset writes the default back (same rule for the
-  Inspector). `EnsureSubSystemConfig` still uses the registration's `makeDefaultConfig()` to create a
-  missing config, which is a default-constructed config for the built-in subsystems.
+- **`WorldDocument`** owns the authoring world and loads into a fresh candidate. A failed load preserves the current document. `CreatePlayWorld` serializes that authoring state, loads and builds a new runtime; failure prevents Play.
+- **`WorldConfigPanel`** binds the generic reflected form to the selected config. Displaying a row/default config does not enable a subsystem. Checkboxes and fields use CommandService, mark the document dirty and support Undo/Redo; Save persists them, and the next Play applies them.
+- Config values may move when the subsystem vector grows. History commands therefore capture document lifetime + subsystem name + type, and resolve the current object for every edit/undo/redo. Reload invalidates old commands. A configuration structure revision triggers form rebinding, while normal field edits retain their interaction state.
+- Reflected bool setters report rejection through property commands and CommandService; failed edits do not enter the undo history. The form's reset baseline remains the reflected type default.
 - **Menus**: **File > New World…** (name + location dialog → create + save a new `.world`),
   **File > Open World…** (file browser filtered to `*.world`), **File > Save World** (`Ctrl+S`), and
   **File > Close World** (`Ctrl+W`, saves if dirty then unloads); **File > Quit** saves a dirty world
   before exiting.
 
-Config edit persistence is currently triggered on subsystem switch and on quit, not on every
-keystroke.
+Configuration is saved through the normal document Save/close flow; toggling or selecting a row does not auto-save.
 
-## Tests
+## Component and actor creation
 
-- `FrameworkTest` `WorldSubSystemRegistryTest` — register/create + override, unknown-name skip,
-  `Build` ordering + disabled entries, duplicate guard, validator accept.
-- `EditorCoreTest` `WorldDocumentTest` — enable/disable + save/load round-trip.
-- `EditorShellTest` — world-config panel toggles a subsystem.
+`ComponentFactory::ComponentInfo` declares a typed constructor and `requiredSubSystems`. The editor verifies availability and enables requirements together with component insertion in one undo step. Physics declares `Physics`; animation declares `Animation`. Build also enforces those requirements for serialized scenes, including an explicit failure if a required subsystem is disabled.
 
-## Current limitations / follow-ups
+`EditorActorCreation` holds preset id, label/group, detached-actor callback and DLL lease. Sandbox derives creation actions from its revision and invokes common actor commands; there is no host enum/switch for creator types. Removing a registration disables stale actions. Commands retain the creator lease for undo even after its menu entry disappears.
 
-- **Config → runtime mapping**: a subsystem's reflected config is stored and edited, but (except where
-  a factory consumes it) the values are not yet applied to the runtime subsystem. Physics still routes
-  through `PhysicsBackendRegistry::SetWorldAttacher`; folding that into the registry is deferred until a
-  non-render host actually attaches physics.
-- **Removal**: `WorldDocument::Rebuild` only adds enabled, missing subsystems; it does not remove
-  disabled ones from a live world yet.
-- **Render scene subsystem** (`IRenderSceneSubSystem` + the aurora bridge) is designed but not yet
-  registered; it lands with the render main loop.
+## Tests and limits
+
+- Framework: typed/non-component UUID construction, descriptor validation, missing/failing factory, rollback, one-time Build and actor load lifecycle.
+- EditorCore: configuration reallocation, failure-aware history, reload invalidation, next-Play settings and undoable enable/disable.
+- EditorShell/SandboxProject: reflected configuration, generic component dependencies, live creator menu registration, stale callbacks and undo code leases.
+- Jolt: loaded actor binding after subsystem construction, missing collision product rollback/retry, static/kinematic input and dynamic PostTick output.
+
+Hot replacement of running subsystems is not implemented. Subsystem factories must report failure with a null result; fallible component hooks return a reason and support partial cleanup via OnDetachFromWorld. Runtime services still use Init/Shutdown symmetry and process-owned metadata.

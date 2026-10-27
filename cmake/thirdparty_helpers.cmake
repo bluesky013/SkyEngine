@@ -40,9 +40,7 @@ endfunction()
 #                  [EXT_LIBS <lib> ...])
 # Examples:
 #   sky_3rd_static(crc32 LIBS crc32c)
-#   sky_3rd_static(bullet3 INCLUDE_SUBDIR bullet DEBUG_SUFFIX d
-#       LIBS Bullet3Collision Bullet3Common Bullet3Dynamics
-#            Bullet3Geometry BulletCollision BulletDynamics LinearMath)
+#   sky_3rd_static(jolt LIBS Jolt)
 function(sky_3rd_static LIB_NAME)
     cmake_parse_arguments(ARGS "" "DEBUG_SUFFIX;INCLUDE_SUBDIR;LIB_PREFIX" "LIBS;EXT_LIBS" ${ARGN})
     set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")

@@ -1,0 +1,8 @@
+include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
+sky_find_3rd(TARGET jolt DIR jolt)
+add_subdirectory(adaptor)
+add_subdirectory(render)
+sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
+if (SKY_BUILD_TEST)
+    add_subdirectory(test)
+endif()

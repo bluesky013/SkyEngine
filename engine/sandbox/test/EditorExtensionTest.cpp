@@ -29,22 +29,6 @@ namespace {
         }
     };
 
-    class DummyActorCreator : public IActorCreateBase {
-    public:
-        Name GetGroup() const override
-        {
-            return Name("Test");
-        }
-        Name GetName() const override
-        {
-            return Name("DummyActor");
-        }
-        bool OnCreateActor(Actor *) override
-        {
-            return true;
-        }
-    };
-
     class DummyExtension : public EditorExtension {
     public:
         const char *GetName() const override
@@ -55,17 +39,14 @@ namespace {
         void Register() override
         {
             AssetCreatorManager::Get()->RegisterTool(Name("dummy"), new DummyAssetCreator());
-            EditorActorCreation::Get()->RegisterCreation(&actorCreator);
+            EXPECT_TRUE(EditorActorCreation::Get()->RegisterCreation({{}, "dummy", "DummyActor", "Test", 0, [](Actor &) { return true; }}));
         }
 
         void Unregister() override
         {
             AssetCreatorManager::Get()->UnRegisterTool(Name("dummy"));
-            EditorActorCreation::Get()->UnRegisterCreation(&actorCreator);
+            EXPECT_TRUE(EditorActorCreation::Get()->UnRegisterCreation("dummy"));
         }
-
-    private:
-        DummyActorCreator actorCreator;
     };
 
 } // namespace

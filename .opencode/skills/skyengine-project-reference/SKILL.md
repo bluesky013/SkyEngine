@@ -99,7 +99,7 @@ SkyEngine/
 
 | Target | 开关 | 依赖 |
 |--------|------|------|
-| `BulletPhysicsModule` | SKY_BUILD_BULLET | bullet3 |
+| `JoltPhysicsModule` | SKY_BUILD_JOLT | jolt |
 | `RecastNavigation` | SKY_BUILD_RECAST | recast |
 | `PythonModule` | SKY_BUILD_PYTHON | cpython |
 | `CompressionModule` | SKY_BUILD_COMPRESSION | lz4 |
@@ -118,7 +118,7 @@ SkyEngine/
 当前 `plugins/plugins.json` 默认项：
 
 - `python` → `SKY_BUILD_PYTHON=OFF`
-- `bullet` → `SKY_BUILD_BULLET=ON`
+- `jolt` → `SKY_BUILD_JOLT=ON`
 - `recast` → `SKY_BUILD_RECAST=ON`
 - `vegetation` → `SKY_BUILD_VEGETATION=ON`
 - `terrain` → `SKY_BUILD_TERRAIN=ON`
@@ -154,7 +154,7 @@ SkyEngine/
 | `SKY_BUILD_CPYTHON` | OFF | CPython 嵌入 |
 | `SKY_BUILD_COMPRESSION` | OFF | LZ4 压缩 |
 | `SKY_BUILD_FREETYPE` | OFF | 字体渲染 |
-| `SKY_BUILD_BULLET` | OFF | Bullet 物理 |
+| `SKY_BUILD_JOLT` | OFF | Jolt 物理 |
 | `SKY_BUILD_RECAST` | OFF | Recast 导航 |
 | `SKY_BUILD_TERRAIN` | OFF | Terrain 插件编译开关 |
 | `SKY_BUILD_PVS` | OFF | PVS 插件编译开关 |
@@ -197,7 +197,7 @@ SkyEngine/
 
 | 包名 | 版本 | 开关 |
 |------|------|------|
-| bullet3 | 3.25 | SKY_BUILD_BULLET |
+| jolt | 5.6.0 | SKY_BUILD_JOLT |
 | recast | v1.6.0 | SKY_BUILD_RECAST |
 | lz4 | v1.10.0 | SKY_BUILD_COMPRESSION |
 | freetype | 2-13-3 | SKY_BUILD_FREETYPE |
@@ -213,14 +213,14 @@ SkyEngine/
 
 ### 游戏模式 (configs/modules_game.json)
 ```
-Aurora.ShaderCompiler / AudioModule / RecastNavigation / BulletPhysicsModule
-BulletPhysicsRenderModule / TerrainRender / VegetationRender
+Aurora.ShaderCompiler / AudioModule / RecastNavigation / JoltPhysicsModule
+JoltPhysicsRenderModule / TerrainRender / VegetationRender
 ```
 
 ### 编辑器模式 (configs/modules_editor.json)
 ```
 Aurora.ShaderCompiler / Aurora.Cook / Aurora.Render.Editor
-Content.Views / SandboxModule / BulletPhysicsModule / RecastNavigation
+Content.Views / SandboxModule / JoltPhysicsModule / RecastNavigation
 ```
 
 ---
@@ -310,7 +310,7 @@ python python/third_party.py -i <intermediate> -o <output> -e . -p Win32 -f
 
 ```
 Core ← Framework ← Aurora.Adaptor ← Launcher
-                 ← Physics       ← BulletPhysicsModule
+                 ← Physics       ← JoltPhysicsModule
                  ← Navigation    ← RecastNavigation
                  ← SandboxModule ← SandboxEditor
 

@@ -7,9 +7,9 @@
             "enabled": false
         },
         {
-            "name": "bullet",
-            "dir": "bullet",
-            "cmake_var": "SKY_BUILD_BULLET",
+            "name": "jolt",
+            "dir": "jolt",
+            "cmake_var": "SKY_BUILD_JOLT",
             "enabled": true
         },
         {

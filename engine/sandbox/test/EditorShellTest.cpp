@@ -22,6 +22,7 @@
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/WorldConfigPanel.h>
+#include <editor/core/EditorCore.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/ui/AssetViewProvider.h>
 #include <editor/ui/UiTheme.h>
@@ -596,8 +597,7 @@ TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
     WorldConfigPanel panel(nullptr, [&document]() { return &document; }, "Config");
     panel.SetBounds(sky::ui::UIRect{0.0f, 0.0f, 300.0f, 400.0f});
 
-    // Subsystems are enabled by default; clicking the row's checkbox disables it
-    // and persists the selection.
+    // Merely displaying a subsystem does not enable it. The checkbox creates an undoable edit.
     sky::ui::UIPointerEvent down;
     down.action = sky::ui::UIPointerAction::DOWN;
     down.x      = 10.0f;
@@ -606,7 +606,10 @@ TEST(EditorShellTest, WorldConfigPanelTogglesSubsystem)
 
     bool enabled = true;
     ASSERT_TRUE(document.IsSubSystemEnabled("Test", enabled));
-    EXPECT_FALSE(enabled);
+    EXPECT_TRUE(enabled);
+    EXPECT_TRUE(document.IsDirty());
+    ASSERT_TRUE(EditorCore::GetCommandService().Undo());
+    EXPECT_FALSE(document.IsSubSystemEnabled("Test", enabled));
 
     std::filesystem::remove(path, ec);
     sky::WorldSubSystemRegistry::Get().Clear();
@@ -1547,19 +1550,20 @@ TEST(EditorShellTest, AssetViewerOpensAndCloses)
     EditorActionRegistry::Get()->Clear();
 }
 
-
 namespace {
     struct DocumentProbe {
         bool                     dirty = true, pending = false, fail = true, editing = false;
-        int writes = 0, contentReleased = 0, documentReleased = 0, leaseReleased = 0;
+        int                      writes = 0, contentReleased = 0, documentReleased = 0, leaseReleased = 0;
         int                      cancelledEdits = 0, pointerEvents = 0, textEvents = 0;
         sky::ui::UIElement      *content = nullptr;
         std::vector<std::string> releaseOrder;
-        CommandService history;
+        CommandService           history;
     };
     class ProbeContent final : public sky::ui::UIElement {
     public:
-        explicit ProbeContent(std::shared_ptr<DocumentProbe> state) : state(std::move(state)) {}
+        explicit ProbeContent(std::shared_ptr<DocumentProbe> state) : state(std::move(state))
+        {
+        }
         ~ProbeContent() override
         {
             ++state->contentReleased;
@@ -1581,7 +1585,9 @@ namespace {
     };
     class ProbeDocument final : public IAssetViewDocument {
     public:
-        explicit ProbeDocument(std::shared_ptr<DocumentProbe> state) : state(std::move(state)) {}
+        explicit ProbeDocument(std::shared_ptr<DocumentProbe> state) : state(std::move(state))
+        {
+        }
         ~ProbeDocument() override
         {
             ++state->documentReleased;
@@ -1593,9 +1599,15 @@ namespace {
             state->content = content.get();
             return content;
         }
-        CommandService &History() override { return state->history; }
-        bool IsDirty() const override { return state->dirty; }
-        bool            IsEditing() const override
+        CommandService &History() override
+        {
+            return state->history;
+        }
+        bool IsDirty() const override
+        {
+            return state->dirty;
+        }
+        bool IsEditing() const override
         {
             return state->editing;
         }
@@ -1605,43 +1617,57 @@ namespace {
                 ++state->cancelledEdits;
             state->editing = false;
         }
-        void RequestSave() override { state->pending = true; }
-        bool IsSavePending() const override { return state->pending; }
-        std::string Status() const override { return state->fail ? "save failed" : "saved"; }
+        void RequestSave() override
+        {
+            state->pending = true;
+        }
+        bool IsSavePending() const override
+        {
+            return state->pending;
+        }
+        std::string Status() const override
+        {
+            return state->fail ? "save failed" : "saved";
+        }
         void Tick(float) override
         {
             if (state->pending) {
                 ++state->writes;
                 state->pending = false;
-                if (!state->fail) state->dirty = false;
+                if (!state->fail)
+                    state->dirty = false;
             }
         }
+
     private:
         std::shared_ptr<DocumentProbe> state;
     };
     class ProbeDocumentProvider final : public IAssetViewProvider {
     public:
-        bool UsesDocumentWindow() const override { return useWindows; }
+        bool UsesDocumentWindow() const override
+        {
+            return useWindows;
+        }
         AssetViewDocument OpenDocument(const sky::Uuid &asset, const std::string &) override
         {
-            state = std::make_shared<DocumentProbe>();
+            state            = std::make_shared<DocumentProbe>();
             documents[asset] = state;
-            auto lease = std::shared_ptr<const void>(new int(0), [probe = state](const void *value) {
+            auto lease       = std::shared_ptr<const void>(new int(0), [probe = state](const void *value) {
                 delete static_cast<const int *>(value);
                 ++probe->leaseReleased;
                 probe->releaseOrder.push_back("lease");
             });
             return {std::move(lease), std::make_unique<ProbeDocument>(state)};
         }
-        std::shared_ptr<DocumentProbe> state;
+        std::shared_ptr<DocumentProbe>                                state;
         std::unordered_map<sky::Uuid, std::shared_ptr<DocumentProbe>> documents;
-        bool useWindows = false;
+        bool                                                          useWindows = false;
     };
-}
+} // namespace
 
 TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndRetainCodeThroughDestruction)
 {
-    ProbeDocumentProvider provider;
+    ProbeDocumentProvider        provider;
     ScopedAssetViewerEnvironment environment;
     std::filesystem::create_directories(environment.root);
     std::ofstream(environment.root / "a.txt") << "a";
@@ -1755,7 +1781,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     ASSERT_TRUE(environment.catalog->FindByPath("Project/second.txt", second));
     EditorShell shell;
     shell.SetAssetCatalog(environment.catalog);
-    uint32_t nextSurface = 100;
+    uint32_t              nextSurface = 100;
     std::vector<uint32_t> retired;
     shell.SetAssetToolHost([&](const std::string &) { return nextSurface++; }, [&](uint32_t id) { retired.push_back(id); });
     shell.OpenAssetViewer(first.uuid);
@@ -1763,7 +1789,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     EXPECT_TRUE(provider.documents.empty());
     shell.TickAssetViews(0);
     ASSERT_EQ(provider.documents.size(), 2u);
-    auto a = provider.documents.at(first.uuid), b = provider.documents.at(second.uuid);
+    auto                    a = provider.documents.at(first.uuid), b = provider.documents.at(second.uuid);
     sky::ui::UIPaintContext paint;
     shell.PaintSurface(100, paint, 900, 650);
     shell.PaintSurface(101, paint, 1100, 750);
@@ -1772,7 +1798,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
         ScopedEditorActions scope("assetTool." + asset.ToString());
         return EditorActionRegistry::Get()->Invoke(action);
     };
-    auto save = Key('S');
+    auto save      = Key('S');
     save.modifiers = kModCtrl;
     ASSERT_TRUE(shell.DispatchKeyToSurface(100, save));
     EXPECT_EQ(a->writes, 0);
@@ -1781,21 +1807,30 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     EXPECT_EQ(b->writes, 0);
     class ProbeEdit final : public UndoCommand {
     public:
-        explicit ProbeEdit(int &value) : UndoCommand("Probe edit"), value(value) {}
-        void Do() override { value = 1; }
-        void Undo() override { value = 0; }
+        explicit ProbeEdit(int &value) : UndoCommand("Probe edit"), value(value)
+        {
+        }
+        void Do() override
+        {
+            value = 1;
+        }
+        void Undo() override
+        {
+            value = 0;
+        }
+
     private:
         int &value;
     };
     int firstValue = 0, secondValue = 0;
     a->history.Execute(std::make_unique<ProbeEdit>(firstValue));
     b->history.Execute(std::make_unique<ProbeEdit>(secondValue));
-    auto undo = Key('Z');
+    auto undo      = Key('Z');
     undo.modifiers = kModCtrl;
     ASSERT_TRUE(shell.DispatchKeyToSurface(100, undo));
     EXPECT_EQ(firstValue, 0);
     EXPECT_EQ(secondValue, 1);
-    auto redo = Key('Y');
+    auto redo      = Key('Y');
     redo.modifiers = kModCtrl;
     ASSERT_TRUE(shell.DispatchKeyToSurface(100, redo));
     EXPECT_EQ(firstValue, 1);

@@ -5,15 +5,15 @@
 #include <editor/core/selection/SelectionService.h>
 
 namespace sky::editor {
-    enum class EditorSceneObject { CUBE, PLANE, POINT_LIGHT, DIRECTIONAL_LIGHT, CAMERA, ENVIRONMENT, EMPTY };
-    class WorldEditorState final : public IEditorPropertySource, public IWorldEvent {
+    std::vector<std::string> RegisterBuiltinActorCreators(std::shared_ptr<const void> lease = {});
+    class WorldEditorState   final : public IEditorPropertySource, public IWorldEvent {
     public:
         explicit WorldEditorState(SelectionService &selection) : selection(selection)
         {
         }
         ~WorldEditorState() override;
         void                           Bind(WorldDocument *document);
-        void                           Create(EditorSceneObject kind);
+        bool                           Create(const std::string &creatorId);
         void                           DeleteSelection();
         bool                           CanAddComponent(const Uuid &type) const;
         bool                           RequestAddComponent(const Uuid &type);

@@ -4,6 +4,7 @@
 
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/SimpleRotateComponent.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
@@ -15,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 static const char *TAG = "World";
 
@@ -62,38 +64,98 @@ namespace sky {
         return worldDesc.get();
     }
 
-    void World::Build(const WorldDesc &desc)
+    bool World::Build(const WorldDesc &desc)
     {
-        worldDesc      = std::make_unique<WorldDesc>(desc);
-        auto &registry = WorldSubSystemRegistry::Get();
-        for (const auto &entry : worldDesc->subSystems) {
+        lastError.clear();
+        const auto fail = [this](std::string reason) {
+            lastError = std::move(reason);
+            LOG_E(TAG, "%s", lastError.c_str());
+            return false;
+        };
+        if (built) {
+            return fail("World is already initialized; apply edited settings to a new runtime world");
+        }
+        struct PendingSystem {
+            std::shared_ptr<const void>      lease;
+            std::unique_ptr<IWorldSubSystem> system;
+            Name                             name;
+        };
+        std::vector<PendingSystem> pending;
+        std::unordered_set<Name>   names;
+        auto                      &registry = WorldSubSystemRegistry::Get();
+        for (const auto &entry : desc.subSystems) {
+            if (!names.insert(entry.name).second) {
+                return fail("Duplicate world subsystem: " + std::string(entry.name.GetStr()));
+            }
             if (!entry.enabled) {
                 continue;
             }
             if (GetSubSystem(entry.name) != nullptr) {
-                LOG_W(TAG, "world subsystem already present, skipping");
-                continue;
+                return fail("World subsystem is already attached: " + std::string(entry.name.GetStr()));
             }
             const WorldSubSystemRegistration *registration = registry.GetRegistration(entry.name);
             if (registration == nullptr) {
-                LOG_W(TAG, "world subsystem '%.*s' not registered, skipping", static_cast<int>(entry.name.GetStr().size()),
-                      entry.name.GetStr().data());
-                continue;
+                return fail("World subsystem is unavailable: " + std::string(entry.name.GetStr()));
             }
             if (registration->validate != nullptr) {
                 std::string reason;
                 if (!registration->validate(entry.config, reason)) {
-                    LOG_E(TAG, "world subsystem '%.*s' config invalid: %s", static_cast<int>(entry.name.GetStr().size()), entry.name.GetStr().data(),
-                          reason.c_str());
-                    SKY_ASSERT(false); // develop/debug: fail loudly; release: skip and continue
-                    continue;
+                    return fail(std::string(entry.name.GetStr()) + ": " + reason);
                 }
             }
-            std::unique_ptr<IWorldSubSystem> subSystem = registration->factory(*this, entry.config);
-            if (subSystem != nullptr) {
-                AddSubSystem(entry.name, subSystem.release(), registration->moduleLease);
+        }
+        for (const auto &actor : actors) {
+            for (const auto &[id, component] : actor->GetComponents()) {
+                const auto *info = ComponentFactory::Get()->Find(id);
+                if (!info) {
+                    return fail("Component is not registered: " + id.ToString());
+                }
+                for (const auto &required : info->requiredSubSystems) {
+                    const bool enabled = std::any_of(desc.subSystems.begin(), desc.subSystems.end(),
+                                                     [&](const auto &entry) { return entry.name == required && entry.enabled; });
+                    if (!enabled && !GetSubSystem(required)) {
+                        return fail(info->name + " requires world subsystem " + std::string(required.GetStr()));
+                    }
+                }
             }
         }
+        for (const auto &entry : desc.subSystems) {
+            if (!entry.enabled) {
+                continue;
+            }
+            const auto                      *registration = registry.GetRegistration(entry.name);
+            auto                             lease        = registration->moduleLease;
+            auto                             factory      = registration->factory;
+            std::unique_ptr<IWorldSubSystem> subSystem    = factory(*this, entry.config);
+            if (!subSystem) {
+                return fail("World subsystem creation failed: " + std::string(entry.name.GetStr()));
+            }
+            pending.push_back({std::move(lease), std::move(subSystem), entry.name});
+        }
+        if (&desc != worldDesc.get()) {
+            worldDesc = std::make_unique<WorldDesc>(desc);
+        }
+        for (const auto &actor : actors) {
+            actor->DetachFromWorld();
+        }
+        for (auto &entry : pending) {
+            AddSubSystem(entry.name, entry.system.release(), std::move(entry.lease));
+        }
+        for (const auto &actor : actors) {
+            std::string error;
+            if (!actor->AttachToWorld(this, &error)) {
+                for (const auto &attached : actors)
+                    attached->DetachFromWorld();
+                for (auto it = pending.rbegin(); it != pending.rend(); ++it) {
+                    subSystems.at(it->name)->OnDetachFromWorld(*this);
+                    subSystems.erase(it->name);
+                    subSystemModuleLeases.erase(it->name);
+                }
+                return fail("Actor " + actor->GetName() + ": " + error);
+            }
+        }
+        built = true;
+        return true;
     }
 
     void World::Tick(float time)
@@ -111,6 +173,8 @@ namespace sky {
                 sys.second->Tick(time);
             }
         }
+        for (auto &actor : actors)
+            actor->PostTick(time);
     }
 
     void World::SaveJson(JsonOutputArchive &archive)
@@ -163,13 +227,25 @@ namespace sky {
         archive.EndObject();
     }
 
-    void World::LoadJson(JsonInputArchive &archive)
+    bool World::LoadJson(JsonInputArchive &archive)
     {
+        if (!actors.empty() || built) {
+            lastError = "Scene loading requires a fresh world";
+            return false;
+        }
         auto num = archive.StartArray("actors");
         for (uint32_t i = 0; i < num; ++i) {
             auto actor = std::make_unique<Actor>();
-            actor->LoadJson(archive);
-            AttachToWorld(std::move(actor));
+            if (!actor->LoadJson(archive, &lastError) || !actor->GetUuid() || actorIndex.contains(actor->GetUuid())) {
+                if (lastError.empty()) {
+                    lastError = "Invalid or duplicate actor UUID";
+                }
+                Reset();
+                archive.End();
+                return false;
+            }
+            actorIndex.emplace(actor->GetUuid(), actors.size());
+            actors.push_back(std::move(actor));
             archive.NextArrayElement();
         }
         archive.End();
@@ -220,19 +296,22 @@ namespace sky {
                 }
             }
         }
+        return true;
     }
 
     Actor *World::CreateActor(const char *name, bool withTrans)
     {
         auto *actor = CreateActor(Uuid::Create(), withTrans);
-        actor->SetName(name);
+        if (actor)
+            actor->SetName(name);
         return actor;
     }
 
     Actor *World::CreateActor(const std::string &name, bool withTrans)
     {
         auto *actor = CreateActor(Uuid::Create(), withTrans);
-        actor->SetName(name);
+        if (actor)
+            actor->SetName(name);
         return actor;
     }
 
@@ -244,7 +323,7 @@ namespace sky {
     Actor *World::CreateActor(const Uuid &id, bool withTrans)
     {
         auto *actor = AttachToWorld(std::make_unique<Actor>(id));
-        if (withTrans) {
+        if (actor && withTrans) {
             actor->AddComponent<TransformComponent>();
         }
         return actor;
@@ -258,14 +337,25 @@ namespace sky {
 
     Actor *World::AttachToWorld(std::unique_ptr<Actor> actor)
     {
-        SKY_ASSERT(actor != nullptr);
-        SKY_ASSERT(actor->world == nullptr);
+        return TryAttachToWorld(actor);
+    }
 
+    Actor *World::TryAttachToWorld(std::unique_ptr<Actor> &actor)
+    {
+        lastError.clear();
+        if (!actor || actor->GetWorld() || !actor->GetUuid() || actorIndex.contains(actor->GetUuid())) {
+            lastError = "Actor attachment requires a unique valid UUID and a detached actor";
+            return nullptr;
+        }
         Actor *ptr = actor.get();
         actors.emplace_back(std::move(actor));
         actorIndex[ptr->GetUuid()] = actors.size() - 1;
-        ptr->AttachToWorld(this);
-
+        if (!ptr->AttachToWorld(this, &lastError)) {
+            actorIndex.erase(ptr->GetUuid());
+            actor = std::move(actors.back());
+            actors.pop_back();
+            return nullptr;
+        }
         WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, ptr);
         return ptr;
     }
@@ -296,7 +386,6 @@ namespace sky {
 
     void World::Reset()
     {
-        runtimeId = Uuid::Create();
         for (auto &actor : actors) {
             actor->DetachFromWorld();
         }
