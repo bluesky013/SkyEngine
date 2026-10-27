@@ -119,12 +119,12 @@ namespace sky {
             return storage;
         }
 
-        bool               AttachToWorld(World *world, std::string *error = nullptr);
+        bool               AttachToWorld(World *world, std::string *error = nullptr, bool notify = true);
         const std::string &GetLastError() const
         {
             return lastError;
         }
-        void DetachFromWorld();
+        void DetachFromWorld(bool notify = true);
 
     private:
         friend class World;

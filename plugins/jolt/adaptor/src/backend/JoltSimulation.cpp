@@ -174,6 +174,10 @@ namespace sky::phy {
     }
     PhysicsStatus JoltWorld::Step(float delta)
     {
+        if (activation) {
+            Fail(PhysicsError::InvalidState, "Cannot step during activation");
+            return status;
+        }
         if (!Ready()) {
             return status;
         }
@@ -219,8 +223,11 @@ namespace sky::phy {
     }
     PhysicsWorldStats JoltWorld::GetStats() const
     {
-        auto result            = stats;
-        result.activeBodyCount = 0;
+        auto result                  = stats;
+        result.shapeResourceCount    = session->preparationCount.load();
+        result.shapePreparationCount = session->preparationTasks.load();
+        result.shapeSourceBytes      = session->preparationBytes.load();
+        result.activeBodyCount       = 0;
         if (native) {
             for (const auto &entry : slots) {
                 if (entry && entry->kind == Kind::Body && native->GetBodyInterface().IsActive(entry->body)) {

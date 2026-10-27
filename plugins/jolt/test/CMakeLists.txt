@@ -1,8 +1,12 @@
 file(GLOB TEST_SOURCES *.cpp)
-file(GLOB_RECURSE ADAPTOR_SOURCES ../adaptor/src/*.cpp)
 sky_add_test(TARGET JoltPhysicsTest
-    SOURCES ${TEST_SOURCES} ${ADAPTOR_SOURCES} ../render/JoltMeshConversion.cpp
-    INCS ../adaptor/include ../adaptor/src/backend ../render
-    LIBS Physics Framework Aurora.Adaptor.Static AuroraCook.Static 3rdParty::jolt 3rdParty::googletest
+    SOURCES ${TEST_SOURCES}
+    INCS ../shared ../adaptor/src/assets ../adaptor/src/backend ../render
+    LIBS JoltPhysics.Adaptor.Static JoltPhysics.Render.Static JoltPhysics.Builder.Static AuroraCook.Static 3rdParty::jolt 3rdParty::googletest
     WORKING_DIR $<TARGET_FILE_DIR:JoltPhysicsTest>
 )
+add_dependencies(JoltPhysicsTest JoltPhysicsModule JoltPhysicsRenderModule JoltPhysics.Builder)
+if (NOT SKY_MODULE_PACKAGING STREQUAL "static")
+    add_test(NAME JoltPhysicsModuleLifecycle COMMAND JoltPhysicsTest --module-lifecycle
+        WORKING_DIRECTORY $<TARGET_FILE_DIR:JoltPhysicsTest>)
+endif ()

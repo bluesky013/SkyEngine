@@ -64,7 +64,7 @@
 
 ### 命名与结构
 - engine 接口 `I<Name>` / `<Name>Interface.h`；数据 `<Name>Types.h` / `<Name>Asset.h`（仅当 schema 需跨插件共享才留 engine）。
-- plugin 目录 `plugins/<feature>/{runtime,editor,builder,<bridge>}`，多 target 分离（backend / render bridge / editor），参照 `plugins/bullet`、`plugins/recast`。
+- plugin 目录 `plugins/<feature>/{runtime,editor,builder,<bridge>}`，多 target 分离（backend / render bridge / editor），参照 `plugins/jolt`、`plugins/recast`。
 - 两 feature 的 bridge 放在**提供方 plugin** 的子模块。
 - include 路径用领域名（`terrain/...`、`vegetation/...`），移动实现时保持不变。
 
@@ -135,6 +135,10 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 
 ## 构建与验证（Win32 / VS 2022）
 
+- **生产源码只有一个编译 owner**：测试、工具和模块入口通过链接 STATIC / OBJECT 实现 target 复用代码；禁止把其它模块的 `.cpp` 放进 `SOURCES`、GLOB、`target_sources` 或 `INTERFACE_SOURCES` 来解决链接问题。缺少可链接实现时，在现有目录中建立对应实现 target；不得借机新增 core 层或搬迁目录。
+- `cmake/functions.cmake` 自动启用源码归属检查，配置结束时核验全部 target。测试只编译测试源码；共享测试 main / mock / DLL probe 可复用。只有验证不同编译契约的测试才可用 `sky_source_compile_variant` 声明精确 owner、源码、差异宏和原因；不得增加全局关闭开关或目录白名单来绕过检查。
+- 修改构建组织时运行 `CMakeSourceOwnership`（或 `python python/tests/test_cmake_source_ownership.py`）以及受影响的真实库、模块和测试。不得仅以测试程序链接成功作为模块边界正确的依据。
+
 - 使用现有 `cmake-build-debug`（保留现有 cache 的 `3RD_PATH` 和 generator；2026-10-26 本工作区为 `D:/Code/Engine/sky_3rd/Win32`、`Visual Studio 17 2022`）。
 - 顺序：关编辑器 → 配置 → 构建。
 
@@ -146,7 +150,7 @@ cmake --build cmake-build-debug --config Debug --parallel
 
 - **编辑器 UI 在 `SandboxModule.dll`（运行时加载）**：改了 shell/module 代码要编 `SandboxModule` 目标，不能只编 `SandboxEditor`。
 - 只编相关目标更快，例：
-  `cmake --build cmake-build-debug --config Debug --parallel --target Framework FrameworkTest EditorCoreTest EditorShellTest BulletPhysicsModule RecastNavigation SandboxModule SandboxEditor`
+  `cmake --build cmake-build-debug --config Debug --parallel --target Framework FrameworkTest EditorCoreTest EditorShellTest JoltPhysicsModule RecastNavigation SandboxModule SandboxEditor`
 - 测试（gtest）：
   `output/bin/Debug/FrameworkTest.exe` · `EditorCoreTest.exe` · `EditorShellTest.exe`
 - 三方库版本预检：`python python/third_party.py -p Win32 -o D:/Code/Engine/sky_3rd --check`

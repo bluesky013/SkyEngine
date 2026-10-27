@@ -1,0 +1,11 @@
+name: Build contracts
+
+on: [push, pull_request]
+
+jobs:
+  source-ownership:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test CMake source ownership without third-party SDKs
+        run: python python/tests/test_cmake_source_ownership.py -v

@@ -15,6 +15,7 @@
 
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@ namespace sky {
 
     class World;
     struct WorldDesc;
+    class WorldStreaming;
     using WorldPtr = CounterPtr<World>;
 
     class IWorldEvent {
@@ -58,6 +60,20 @@ namespace sky {
 
         virtual void Tick(float time)
         {
+        }
+        virtual bool BeginAttachmentGroup(std::span<Actor *const> actors, std::string &error)
+        {
+            return true;
+        }
+        virtual void EndAttachmentGroup(bool commit)
+        {
+        }
+        virtual void BeforeDetachGroup(std::span<Actor *const> actors)
+        {
+        }
+        virtual bool CanDetachGroup(std::span<Actor *const> actors) const
+        {
+            return true;
         }
     };
 
@@ -117,6 +133,11 @@ namespace sky {
         Actor *AttachToWorld(std::unique_ptr<Actor> actor);
         // Retains caller ownership on failure. Attachment hooks must not mutate world actor membership.
         Actor *TryAttachToWorld(std::unique_ptr<Actor> &actor);
+        // Bounded host safe point: no Tick/query callbacks may mutate membership until publication.
+        bool            TryAttachGroup(std::vector<std::unique_ptr<Actor>> &group);
+        bool            CanDetachGroup(std::span<Actor *const> group) const;
+        bool            DetachGroup(std::span<Actor *const> group);
+        WorldStreaming &GetStreaming();
         // Releases ownership of the actor (returns it) so the caller can retain or move it.
         std::unique_ptr<Actor> DetachFromWorld(Actor *actor);
         void                   Reset();
@@ -141,8 +162,10 @@ namespace sky {
         Uuid persistID;
         Uuid runtimeId = Uuid::Create();
 
-        std::unique_ptr<WorldDesc> worldDesc;
-        bool                       built = false;
-        std::string                lastError;
+        std::unique_ptr<WorldDesc>      worldDesc;
+        bool                            membershipLocked = false;
+        bool                            built            = false;
+        std::string                     lastError;
+        std::unique_ptr<WorldStreaming> streaming;
     };
 } // namespace sky

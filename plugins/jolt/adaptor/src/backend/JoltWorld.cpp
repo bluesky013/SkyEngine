@@ -45,7 +45,8 @@ namespace sky::phy {
                 characterCollisions.Remove(entry->character.get());
                 entry->character.reset();
             } else if (!entry->body.IsInvalid()) {
-                native->GetBodyInterface().RemoveBody(entry->body);
+                if (entry->added)
+                    native->GetBodyInterface().RemoveBody(entry->body);
                 native->GetBodyInterface().DestroyBody(entry->body);
             }
         }
@@ -234,7 +235,13 @@ namespace sky::phy {
             Fail(PhysicsError::CapacityExceeded, "Body capacity exceeded");
             return {};
         }
-        if (options.maxActiveBodies && desc.kind != BodyKind::Static && !desc.startsAsleep && GetStats().activeBodyCount >= options.maxActiveBodies) {
+        if (options.maxActiveBodies && desc.kind != BodyKind::Static && !desc.startsAsleep &&
+            GetStats().activeBodyCount + std::count_if(staged.begin(), staged.end(),
+                                                       [this](auto id) {
+                                                           const auto *body = Resolve(id);
+                                                           return body && body->desc.kind != BodyKind::Static && !body->desc.startsAsleep;
+                                                       }) >=
+                options.maxActiveBodies) {
             Fail(PhysicsError::CapacityExceeded, "Active body budget exceeded");
             return {};
         }
@@ -242,17 +249,36 @@ namespace sky::phy {
         if (desc.material != INVALID_PHYSICS_OBJECT_ID && !GetMaterial(desc.material, material)) {
             return {};
         }
-        auto shape = Cook(desc.shape, desc.transform.scale);
+        JPH::RefConst<JPH::Shape> shape;
+        const ShapeDesc          *geometry = &desc.shape;
+        if (desc.preparedShape) {
+            if (desc.preparedShape->GetOwner() != session.get()) {
+                Fail(PhysicsError::InvalidArgument, "Prepared shape belongs to another backend session");
+                return {};
+            }
+            const auto &prepared = static_cast<const JoltPreparedShape &>(*desc.preparedShape);
+            if (prepared.margin != descriptor.collisionMargin || prepared.scale.x != desc.transform.scale.x ||
+                prepared.scale.y != desc.transform.scale.y || prepared.scale.z != desc.transform.scale.z) {
+                Fail(PhysicsError::InvalidArgument, "Prepared shape options differ from body options");
+                return {};
+            }
+            shape    = prepared.native;
+            geometry = prepared.source.get();
+        } else {
+            shape = Cook(desc.shape, desc.transform.scale);
+        }
         if (!shape) {
             return {};
         }
-        if (desc.kind != BodyKind::Static && HasConcave(desc.shape)) {
+        if (desc.kind != BodyKind::Static && HasConcave(*geometry)) {
             Fail(PhysicsError::Unsupported, "Concave shapes require a static body");
             return {};
         }
-        auto &entry    = Allocate(Kind::Body);
-        entry.shape    = shape;
-        entry.desc     = desc;
+        auto &entry = Allocate(Kind::Body);
+        entry.shape = shape;
+        entry.desc  = desc;
+        if (desc.preparedShape)
+            entry.desc.shape = *geometry;
         entry.filter   = desc.filter;
         entry.material = material;
         entry.previous = entry.current   = desc.transform;
@@ -264,7 +290,7 @@ namespace sky::phy {
         settings.mUserData                     = entry.id.index;
         settings.mCollisionGroup               = JPH::CollisionGroup(pairFilter, uint32_t(entry.id.index), entry.id.generation);
         settings.mIsSensor                     = desc.isTrigger;
-        settings.mAllowDynamicOrKinematic      = !HasConcave(desc.shape);
+        settings.mAllowDynamicOrKinematic      = !HasConcave(*geometry);
         settings.mCollideKinematicVsNonDynamic = desc.isTrigger;
         settings.mMotionQuality =
             options.enableCCD && desc.enableCCD && desc.kind == BodyKind::Dynamic ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete;
@@ -293,13 +319,19 @@ namespace sky::phy {
         }
         entry.body                                        = body->GetID();
         nativeIds[entry.body.GetIndexAndSequenceNumber()] = entry.id;
-        native->GetBodyInterface().AddBody(entry.body, desc.startsAsleep || desc.kind == BodyKind::Static ? JPH::EActivation::DontActivate
-                                                                                                          : JPH::EActivation::Activate);
+        if (activation) {
+            staged.push_back(entry.id);
+        } else {
+            native->GetBodyInterface().AddBody(entry.body, desc.startsAsleep || desc.kind == BodyKind::Static ? JPH::EActivation::DontActivate
+                                                                                                              : JPH::EActivation::Activate);
+            entry.added = true;
+        }
         ++stats.bodyCount;
         return entry.id;
     }
 
-    PhysicsStatus JoltWorld::UpdateBody(PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &description)
+    PhysicsStatus
+    JoltWorld::UpdateBody(PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &description, std::shared_ptr<const IPhysicsShape> prepared)
     {
         if (!Ready())
             return status;
@@ -308,11 +340,22 @@ namespace sky::phy {
             Fail(PhysicsError::InvalidArgument, "Invalid body properties or handle");
             return status;
         }
-        if (kind != BodyKind::Static && HasConcave(description)) {
+        if (prepared && prepared->GetOwner() != session.get()) {
+            Fail(PhysicsError::InvalidArgument, "Prepared shape belongs to another session");
+            return status;
+        }
+        const auto *cooked   = prepared ? static_cast<const JoltPreparedShape *>(prepared.get()) : nullptr;
+        const auto &geometry = cooked ? *cooked->source : description;
+        if (cooked && (cooked->margin != descriptor.collisionMargin || cooked->scale.x != entry->current.scale.x ||
+                       cooked->scale.y != entry->current.scale.y || cooked->scale.z != entry->current.scale.z)) {
+            Fail(PhysicsError::InvalidArgument, "Prepared shape options differ from body options");
+            return status;
+        }
+        if (kind != BodyKind::Static && HasConcave(geometry)) {
             Fail(PhysicsError::Unsupported, "Concave shapes require a static body");
             return status;
         }
-        auto shape = Cook(description, entry->current.scale);
+        auto shape = cooked ? cooked->native : Cook(description, entry->current.scale);
         if (!shape)
             return status;
         std::vector<Entry *> connected;
@@ -368,10 +411,11 @@ namespace sky::phy {
         }
         for (auto *constraint : connected)
             constraint->constraint->NotifyShapeChanged(entry->body, deltaCOM);
-        entry->shape      = std::move(shape);
-        entry->desc.shape = description;
-        entry->desc.kind  = kind;
-        entry->desc.mass  = mass;
+        entry->shape              = std::move(shape);
+        entry->desc.shape         = geometry;
+        entry->desc.preparedShape = std::move(prepared);
+        entry->desc.kind          = kind;
+        entry->desc.mass          = mass;
         if (kind != BodyKind::Kinematic)
             entry->kinematicTarget.reset();
         EraseContacts(id);
@@ -408,7 +452,8 @@ namespace sky::phy {
         }
         EraseContacts(id);
         nativeIds.erase(entry->body.GetIndexAndSequenceNumber());
-        native->GetBodyInterface().RemoveBody(entry->body);
+        if (entry->added)
+            native->GetBodyInterface().RemoveBody(entry->body);
         native->GetBodyInterface().DestroyBody(entry->body);
         Release(id);
         --stats.bodyCount;
@@ -593,6 +638,25 @@ namespace sky::phy {
             motion->SetAngularDamping(entry.desc.angularDamping.x != 0 ? entry.desc.angularDamping.x : entry.material.angularDamping);
         }
     }
+    bool JoltWorld::SetBodyDamping(PhysicsObjectId id, float linear, float angular)
+    {
+        if (!Ready())
+            return false;
+        auto *entry = Resolve(id);
+        if (!entry || entry->kind != Kind::Body || !Finite(linear) || !Finite(angular) || linear < 0 || angular < 0)
+            return Fail(PhysicsError::InvalidArgument, "Invalid body damping");
+        JPH::BodyLockWrite lock(native->GetBodyLockInterface(), entry->body);
+        if (!lock.Succeeded())
+            return Fail(PhysicsError::BackendFailure, "Unable to lock body for damping update");
+        if (auto *motion = lock.GetBody().GetMotionPropertiesUnchecked()) {
+            motion->SetLinearDamping(linear);
+            motion->SetAngularDamping(angular);
+        }
+        entry->desc.linearDamping  = Vector3(linear, linear, linear);
+        entry->desc.angularDamping = Vector3(angular, angular, angular);
+        return true;
+    }
+
     bool JoltWorld::SetBodyMaterial(PhysicsObjectId id, PhysicsMaterialId material)
     {
         if (!Ready()) {

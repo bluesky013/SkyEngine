@@ -191,7 +191,7 @@ namespace sky {
         }
     }
 
-    bool Actor::AttachToWorld(World *world_, std::string *error)
+    bool Actor::AttachToWorld(World *world_, std::string *error, bool notify)
     {
         if (!world_ || world) {
             lastError = "Actor attachment requires a destination and a detached actor";
@@ -214,7 +214,8 @@ namespace sky {
             }
             attached.push_back(component.get());
         }
-        ActorEvent::BroadCast(this, &IActorEvent::OnAttachToWorld, world);
+        if (notify)
+            ActorEvent::BroadCast(this, &IActorEvent::OnAttachToWorld, world);
         return true;
     }
 
@@ -224,12 +225,13 @@ namespace sky {
             component->PostTick(time);
     }
 
-    void Actor::DetachFromWorld()
+    void Actor::DetachFromWorld(bool notify)
     {
         if (world == nullptr) {
             return;
         }
-        ActorEvent::BroadCast(this, &IActorEvent::OnDetachFromWorld, world);
+        if (notify)
+            ActorEvent::BroadCast(this, &IActorEvent::OnDetachFromWorld, world);
 
         for (auto &[id, component] : storage) {
             component->OnDetachFromWorld();

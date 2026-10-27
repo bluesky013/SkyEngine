@@ -14,6 +14,7 @@ namespace sky {
     class World;
     class JsonOutputArchive;
     class JsonInputArchive;
+    enum class ComponentPreparation : uint8_t { Preparing, Ready, Failed };
 
     struct ComponentAssetReference {
         Uuid        uuid;
@@ -35,6 +36,19 @@ namespace sky {
         virtual void SaveJson(JsonOutputArchive &archive) const;
         virtual void LoadJson(JsonInputArchive &archive);
         virtual void CollectAssetReferences(std::vector<ComponentAssetReference> &out) const;
+        // Called on detached components by the host. Cancellation must not invalidate shared work.
+        virtual ComponentPreparation PrepareForWorld(World &world, std::string &error)
+        {
+            return ComponentPreparation::Ready;
+        }
+        virtual void CancelPreparation()
+        {
+        }
+        virtual bool KeepWorldResidency() const
+        {
+            return false;
+        }
+
         virtual void SaveBin(BinaryOutputArchive &archive) const
         {
         }

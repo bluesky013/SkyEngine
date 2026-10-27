@@ -46,4 +46,8 @@ if (SKY_BUILD_TEST)
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.StaticModuleTest>)
     target_compile_definitions(Aurora.Renderer.StaticModuleTest PRIVATE
         AURORA_RENDERER_STATIC_FIXTURE SKY_MODULE_STATIC SKY_MODULE_TAG=Aurora_Render_Contract)
+    sky_source_compile_variant(TARGET Aurora.Renderer.StaticModuleTest OWNER Aurora.Render
+        SOURCE src/AuroraRegistry.cpp
+        DEFINITIONS SKY_MODULE_TAG=Aurora_Render_Contract
+        REASON "Exercise the tagged static factory independently of the production module packaging")
 endif()

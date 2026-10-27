@@ -3,6 +3,7 @@
 //
 
 #include "JoltBackend.h"
+#include "PhysicsAssets.h"
 #include <core/logger/Logger.h>
 #include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
@@ -28,6 +29,7 @@ namespace sky::phy {
     public:
         void RegisterMeta() override
         {
+            RegisterPhysicsAssets();
             PhysicsBodyComponent::Reflect(SerializationContext::Get());
             PhysicsSubSystemConfig::Reflect(SerializationContext::Get());
         }

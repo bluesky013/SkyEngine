@@ -1,0 +1,636 @@
+{
+  "actors": [],
+  "subSystems": [
+    {
+      "name": "Physics",
+      "enabled": true,
+      "config": {
+        "classId": "26F689A9-6BCC-402E-B36D-C255536A4E71",
+        "elements": {
+          "gravity": -9.81,
+          "fixedTimestep": 0.016666666666666666,
+          "maxSubSteps": 8,
+          "solverIterations": 12,
+          "sleepThreshold": 0.005,
+          "collisionMargin": 0.04,
+          "deterministic": false,
+          "continuousCollision": true,
+          "nativeBodyCapacity": 2048,
+          "nativeBodyPairCapacity": 8192,
+          "nativeContactCapacity": 4096,
+          "characterCapacity": 16,
+          "workerCount": 2
+        }
+      }
+    }
+  ],
+  "cells": [
+    {
+      "uuid": "B42B9409-205C-5E5A-910B-014F227FBFDC",
+      "initialTarget": 2,
+      "actors": [
+        {
+          "uuid": "F5352979-9D80-503E-9E3A-79D6541F63C4",
+          "name": "Streamed Ground - static",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        0,
+                        -0.25,
+                        0
+                      ],
+                      "scale": [
+                        18,
+                        0.5,
+                        14
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 0,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uuid": "B0EB6E6B-9C40-5C86-994B-AF875E88DBDF",
+          "name": "Streamed Box L1 1-1",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        -1.15,
+                        0.65,
+                        -0.575
+                      ],
+                      "scale": [
+                        1,
+                        1,
+                        1
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 1,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uuid": "1A074EEB-870E-5715-B905-767995F158DA",
+          "name": "Streamed Box L1 1-2",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        -1.15,
+                        0.65,
+                        0.575
+                      ],
+                      "scale": [
+                        1,
+                        1,
+                        1
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 1,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uuid": "9EB7E955-66C1-571D-8888-7A3B1FCE2843",
+          "name": "Streamed Box L1 2-1",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        0.0,
+                        0.65,
+                        -0.575
+                      ],
+                      "scale": [
+                        1,
+                        1,
+                        1
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 1,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uuid": "860AFC6F-2964-5642-965B-93F5D2512EA9",
+          "name": "Streamed Box L1 2-2",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        0.0,
+                        0.65,
+                        0.575
+                      ],
+                      "scale": [
+                        1,
+                        1,
+                        1
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 1,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        },
+        {
+          "uuid": "26022D64-1929-5D88-A048-A593B643FFB1",
+          "name": "Streamed Box L1 3-1",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        1.15,
+                        0.65,
+                        -0.575
+                      ],
+                      "scale": [
+                        1,
+                        1,
+                        1
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 1,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uuid": "C77ED605-B124-5FA5-B1D2-5C0F687409E5",
+      "initialTarget": 1,
+      "actors": [
+        {
+          "uuid": "39B3235A-CCAA-53B7-94A7-F0AAD1C19C79",
+          "name": "Preloaded independent triangle collision",
+          "components": [
+            {
+              "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+              "data": {
+                "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+                "elements": {
+                  "data": {
+                    "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                    "elements": {
+                      "translation": [
+                        30,
+                        0,
+                        0
+                      ],
+                      "scale": [
+                        18,
+                        0.5,
+                        14
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    }
+                  },
+                  "parent": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            },
+            {
+              "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+              "data": {
+                "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+                "elements": {
+                  "mass": 1,
+                  "kind": 0,
+                  "enableCCD": true,
+                  "gravityEnabled": true,
+                  "allowSleep": true,
+                  "isTrigger": false,
+                  "shape": {
+                    "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                    "elements": {
+                      "type": 0,
+                      "pivot": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "halfExt": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.5,
+                      "height": 1,
+                      "children": [],
+                      "points": [],
+                      "samples": []
+                    }
+                  },
+                  "filter": {
+                    "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                    "elements": {
+                      "group": 1,
+                      "mask": 4294967295
+                    }
+                  },
+                  "shapeSource": 1,
+                  "collisionAsset": "7DAA5807-F557-5DDC-9AC2-4DF5EECEFFDC",
+                  "materialAsset": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+                  "linearDamping": 0.03,
+                  "angularDamping": 0.03
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assetRoots": [
+    {
+      "uuid": "28C4B9A5-F1E2-57DA-BC9C-3F66825E7A1A",
+      "type": "PhysicsCollision"
+    },
+    {
+      "uuid": "879CAAE4-BB15-56E5-B2E7-254DAB2FBA2D",
+      "type": "PhysicsMaterial"
+    },
+    {
+      "uuid": "7DAA5807-F557-5DDC-9AC2-4DF5EECEFFDC",
+      "type": "PhysicsCollision"
+    }
+  ]
+}

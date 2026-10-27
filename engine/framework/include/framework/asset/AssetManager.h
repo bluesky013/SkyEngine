@@ -27,11 +27,35 @@ namespace sky {
     enum class AssetLoadPolicy { AllowCook, ProductsOnly };
 
     struct AssetProductInspection {
-        std::string type;
-        std::vector<Uuid> dependencies;
-        IStreamArchivePtr payload;
+        std::string             type;
+        std::vector<Uuid>       dependencies;
+        IStreamArchivePtr       payload;
         ProductGroupSnapshotPtr group;
-        uint64_t bulkSize = 0;
+        uint64_t                bulkSize = 0;
+    };
+
+    struct AssetProductData {
+        Uuid                 uuid;
+        std::string          type;
+        std::vector<Uuid>    dependencies;
+        std::vector<uint8_t> payload;
+    };
+
+    class AssetLoadRequest {
+    public:
+        bool IsResolved() const
+        {
+            return resolved.load(std::memory_order_acquire);
+        }
+        AssetPtr GetAsset() const
+        {
+            return IsResolved() ? asset : nullptr;
+        }
+
+    private:
+        friend class AssetManager;
+        AssetPtr          asset;
+        std::atomic<bool> resolved{false};
     };
 
     class AssetManager : public Singleton<AssetManager> {
@@ -39,8 +63,11 @@ namespace sky {
         AssetManager()           = default;
         ~AssetManager() override = default;
 
-        void SetWorkFileSystem(const FileSystemPtr &fs);
-        uint64_t GetProductChangeSerial() const { return productChangeSerial.load(std::memory_order_acquire); }
+        void     SetWorkFileSystem(const FileSystemPtr &fs);
+        uint64_t GetProductChangeSerial() const
+        {
+            return productChangeSerial.load(std::memory_order_acquire);
+        }
         void SetSourceCatalog(ISourceCatalog *catalog)
         {
             sourceCatalog = catalog;
@@ -69,16 +96,25 @@ namespace sky {
         AssetPtr FindOrCreateAsset(const Uuid &uuid, const Name &type);
 
         AssetPtr LoadAsset(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
-        void     SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
-        AssetPtr CreateBuildAsset(const Uuid &uuid, const Name &type) const;
+        // Includes product lookup/validation IO. The host drains AssetExecutor before destroying this manager.
+        std::shared_ptr<AssetLoadRequest> LoadAssetAsync(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::ProductsOnly);
+        void                              SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
+        AssetPtr                          CreateBuildAsset(const Uuid &uuid, const Name &type) const;
         ProductStatus
         BeginProductGroup(const Uuid &owner, const ProductBundleKey &bundle, std::span<const Uuid> members, ProductGroupTransaction &out) const;
         ProductStatus SaveProductGroup(ProductGroupTransaction  &transaction,
                                        const ProductBundleKey   &bundle,
                                        std::span<const AssetPtr> members,
                                        ProductGroupSnapshotPtr  &out);
-        AssetPtr      LoadAssetSnapshot(const Uuid &uuid, const ProductBundleKey &bundle, const ProductGroupSnapshotPtr &snapshot,
-                                       AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
+        // Builders with their own validated codecs need no runtime handler or module to publish.
+        ProductStatus SaveProductData(ProductGroupTransaction          &transaction,
+                                      const ProductBundleKey           &bundle,
+                                      std::span<const AssetProductData> members,
+                                      ProductGroupSnapshotPtr          &out);
+        AssetPtr      LoadAssetSnapshot(const Uuid                    &uuid,
+                                        const ProductBundleKey        &bundle,
+                                        const ProductGroupSnapshotPtr &snapshot,
+                                        AssetLoadPolicy                policy = AssetLoadPolicy::AllowCook);
 
         AssetPtr LoadAssetFromPath(const std::string &path);
 
@@ -128,14 +164,16 @@ namespace sky {
 
     private:
         std::atomic<uint64_t> productChangeSerial{0};
-        FileSystemPtr     workSpace;
-        ISourceCatalog   *sourceCatalog     = nullptr;
-        bool              compressProducts  = false;
-        CompressionMethod compressionMethod = CompressionMethod::LZ4;
+        FileSystemPtr         workSpace;
+        ISourceCatalog       *sourceCatalog     = nullptr;
+        bool                  compressProducts  = false;
+        CompressionMethod     compressionMethod = CompressionMethod::LZ4;
         AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive, std::string &codec, const AssetPtr &destination = {});
         // Resolve the payload archive, decompressing when the product header records a codec.
-        IStreamArchivePtr ReadProductPayload(const IStreamArchivePtr &stream, const std::string &codec, const AssetPtr &asset,
-                                            uint64_t *declaredBulkSize = nullptr) const;
+        IStreamArchivePtr ReadProductPayload(const IStreamArchivePtr &stream,
+                                             const std::string       &codec,
+                                             const AssetPtr          &asset,
+                                             uint64_t                *declaredBulkSize = nullptr) const;
         IStreamArchivePtr PreparePayload(const IStreamArchivePtr &archive, const std::string &codec) const;
         // Resolve an in-flight on-demand cook: refresh the index, deserialize or fail.
         void OnCookFinished(const AssetBuildResult &result);
@@ -148,6 +186,15 @@ namespace sky {
         bool                LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload);
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
         ProductStatus       EncodeProduct(const AssetPtr &asset, std::vector<uint8_t> &out) const;
+        ProductStatus       EncodePayload(std::string_view         type,
+                                          std::span<const Uuid>    dependencies,
+                                          std::span<const uint8_t> payload,
+                                          std::span<const uint8_t> bulk,
+                                          std::vector<uint8_t>    &out) const;
+        ProductStatus       CommitProducts(ProductGroupTransaction  &transaction,
+                                           const AssetProductBundle &bundle,
+                                           std::span<const Uuid>     members,
+                                           ProductGroupSnapshotPtr  &out);
 
         std::vector<std::shared_ptr<const void>>                    moduleCode;
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;

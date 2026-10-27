@@ -19,9 +19,9 @@
 
 namespace sky::phy {
 
-    JPH::RefConst<JPH::Shape> JoltWorld::Cook(const ShapeDesc &desc, const Vector3 &scale, uint32_t depth) const
+    JPH::RefConst<JPH::Shape> CookJoltShape(const ShapeDesc &desc, const Vector3 &scale, float margin, PhysicsStatus &status, uint32_t depth)
     {
-        const float margin = descriptor.collisionMargin;
+        const auto  Fail = [&status](PhysicsError error, const char *message) { status = {error, message}; };
         std::string error;
         if (depth == 0 && !ValidateShape(desc, &error)) {
             Fail(PhysicsError::InvalidArgument, error.c_str());
@@ -148,7 +148,7 @@ namespace sky::phy {
             }
             JPH::StaticCompoundShapeSettings compound;
             for (const auto &child : desc.children) {
-                auto shape = Cook(child, VEC3_ONE, depth + 1);
+                auto shape = CookJoltShape(child, VEC3_ONE, margin, status, depth + 1);
                 if (!shape) {
                     return {};
                 }
@@ -164,8 +164,9 @@ namespace sky::phy {
             return {};
         }
         JPH::RefConst<JPH::Shape> shape = result.Get();
-        if (desc.pivot.x != 0 || desc.pivot.y != 0 || desc.pivot.z != 0) {
-            result = JPH::RotatedTranslatedShapeSettings(ToJolt(desc.pivot), JPH::Quat::sIdentity(), shape.GetPtr()).Create();
+        if (desc.pivot.x != 0 || desc.pivot.y != 0 || desc.pivot.z != 0 || desc.rotation.x != 0 || desc.rotation.y != 0 || desc.rotation.z != 0 ||
+            desc.rotation.w != 1) {
+            result = JPH::RotatedTranslatedShapeSettings(ToJolt(desc.pivot), ToJolt(desc.rotation).Normalized(), shape.GetPtr()).Create();
             if (!result.IsValid()) {
                 Fail(PhysicsError::InvalidArgument, result.GetError().c_str());
                 return {};
@@ -181,5 +182,10 @@ namespace sky::phy {
             shape = result.Get();
         }
         return shape;
+    }
+
+    JPH::RefConst<JPH::Shape> JoltWorld::Cook(const ShapeDesc &desc, const Vector3 &scale, uint32_t depth) const
+    {
+        return CookJoltShape(desc, scale, descriptor.collisionMargin, status, depth);
     }
 } // namespace sky::phy

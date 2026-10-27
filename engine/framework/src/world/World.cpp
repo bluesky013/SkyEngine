@@ -9,6 +9,7 @@
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <framework/world/WorldDesc.h>
+#include <framework/world/WorldStreaming.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 
 #include <core/logger/Logger.h>
@@ -24,6 +25,7 @@ namespace sky {
 
     World::~World()
     {
+        streaming.reset();
         for (auto &actor : actors) {
             actor->DetachFromWorld();
         }
@@ -160,6 +162,8 @@ namespace sky {
 
     void World::Tick(float time)
     {
+        if (streaming)
+            streaming->Tick();
         {
             SKY_PROFILE_NAME("Actors Tick")
             for (auto &actor : actors) {
@@ -185,6 +189,8 @@ namespace sky {
         for (const auto &actor : actors)
             for (const auto &[type, component] : actor->GetComponents())
                 component->CollectAssetReferences(assets);
+        if (streaming)
+            streaming->CollectAssetReferences(assets);
         archive.Key("assetRoots");
         archive.StartArray();
         for (const auto &asset : assets) {
@@ -201,11 +207,16 @@ namespace sky {
         archive.StartArray();
 
         for (auto &actor : actors) {
-            actor->SaveJson(archive);
+            if (!streaming || !streaming->OwnsActor(actor->GetUuid()))
+                actor->SaveJson(archive);
         }
 
         archive.EndArray();
 
+        if (streaming) {
+            archive.Key("cells");
+            streaming->SaveJson(archive);
+        }
         archive.Key("subSystems");
         archive.StartArray();
         if (worldDesc != nullptr) {
@@ -281,6 +292,11 @@ namespace sky {
         }
         archive.End();
 
+        if (archive.HasMember("cells") && !GetStreaming().LoadJson(archive, lastError)) {
+            Reset();
+            return false;
+        }
+
         // resolve hierarchy
         for (auto &actor : actors) {
             auto *trans = actor->GetComponent<TransformComponent>();
@@ -343,7 +359,8 @@ namespace sky {
     Actor *World::TryAttachToWorld(std::unique_ptr<Actor> &actor)
     {
         lastError.clear();
-        if (!actor || actor->GetWorld() || !actor->GetUuid() || actorIndex.contains(actor->GetUuid())) {
+        if (membershipLocked || !actor || actor->GetWorld() || !actor->GetUuid() || actorIndex.contains(actor->GetUuid()) ||
+            (streaming && streaming->OwnsActor(actor->GetUuid()))) {
             lastError = "Actor attachment requires a unique valid UUID and a detached actor";
             return nullptr;
         }
@@ -362,6 +379,8 @@ namespace sky {
 
     std::unique_ptr<Actor> World::DetachFromWorld(Actor *actor)
     {
+        if (membershipLocked || !actor || actor->GetWorld() != this)
+            return {};
         auto iter = actorIndex.find(actor->GetUuid());
         if (iter == actorIndex.end()) {
             return nullptr;
@@ -386,6 +405,12 @@ namespace sky {
 
     void World::Reset()
     {
+        if (membershipLocked) {
+            lastError = "Cannot reset during group publication";
+            return;
+        }
+        streaming.reset();
+        runtimeId = Uuid::Create();
         for (auto &actor : actors) {
             actor->DetachFromWorld();
         }
@@ -404,6 +429,136 @@ namespace sky {
     {
         auto iter = subSystems.find(name);
         return iter != subSystems.end() ? iter->second.get() : nullptr;
+    }
+
+    WorldStreaming &World::GetStreaming()
+    {
+        if (!streaming)
+            streaming = std::make_unique<WorldStreaming>(*this);
+        return *streaming;
+    }
+
+    bool World::TryAttachGroup(std::vector<std::unique_ptr<Actor>> &group)
+    {
+        lastError.clear();
+        if (membershipLocked || group.size() > 128) {
+            lastError = "Attachment group is busy or exceeds 128 actors";
+            return false;
+        }
+        std::unordered_set<Uuid> ids;
+        std::vector<Actor *>     pointers;
+        for (const auto &actor : group) {
+            if (!actor || actor->GetWorld() || !actor->GetUuid() || actorIndex.contains(actor->GetUuid()) || !ids.insert(actor->GetUuid()).second) {
+                lastError = "Attachment group requires unique detached actors";
+                return false;
+            }
+            pointers.push_back(actor.get());
+        }
+        for (auto *actor : pointers) {
+            for (const auto &[type, component] : actor->GetComponents()) {
+                const auto *registration = ComponentFactory::Get()->Find(type);
+                if (!registration) {
+                    lastError = "Activation contains an unregistered component: " + type.ToString();
+                    return false;
+                }
+                for (const auto &required : registration->requiredSubSystems) {
+                    if (!GetSubSystem(required)) {
+                        lastError = registration->name + " requires world subsystem " + std::string(required.GetStr());
+                        return false;
+                    }
+                }
+                if (component->PrepareForWorld(*this, lastError) != ComponentPreparation::Ready) {
+                    if (lastError.empty())
+                        lastError = "Attachment group is not ready";
+                    return false;
+                }
+            }
+        }
+        membershipLocked = true;
+        std::vector<IWorldSubSystem *> begun;
+        for (const auto &[name, system] : subSystems) {
+            if (!system->BeginAttachmentGroup(pointers, lastError)) {
+                for (auto *previous : begun)
+                    previous->EndAttachmentGroup(false);
+                membershipLocked = false;
+                return false;
+            }
+            begun.push_back(system.get());
+        }
+        const size_t start = actors.size();
+        for (auto &actor : group) {
+            actorIndex[actor->GetUuid()] = actors.size();
+            actors.push_back(std::move(actor));
+        }
+        bool success = true;
+        for (auto *actor : pointers) {
+            if (!actor->AttachToWorld(this, &lastError, false)) {
+                success = false;
+                break;
+            }
+        }
+        if (!success) {
+            for (size_t i = 0; i < group.size(); ++i) {
+                actors[start + i]->DetachFromWorld(false);
+                actorIndex.erase(actors[start + i]->GetUuid());
+                group[i] = std::move(actors[start + i]);
+            }
+            actors.resize(start);
+        }
+        for (auto *system : begun)
+            system->EndAttachmentGroup(success);
+        if (success) {
+            group.clear();
+            for (auto *actor : pointers) {
+                ActorEvent::BroadCast(actor, &IActorEvent::OnAttachToWorld, this);
+                WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, actor);
+            }
+        }
+        membershipLocked = false;
+        return success;
+    }
+
+    bool World::CanDetachGroup(std::span<Actor *const> group) const
+    {
+        if (membershipLocked)
+            return false;
+        for (auto *actor : group) {
+            if (!actor || actor->GetWorld() != this)
+                return false;
+            const auto found = actorIndex.find(actor->GetUuid());
+            if (found == actorIndex.end() || actors[found->second].get() != actor)
+                return false;
+        }
+        return std::all_of(subSystems.begin(), subSystems.end(), [&](const auto &entry) { return entry.second->CanDetachGroup(group); });
+    }
+
+    bool World::DetachGroup(std::span<Actor *const> group)
+    {
+        if (group.size() > 128 || !CanDetachGroup(group))
+            return false;
+        std::unordered_set<Uuid> ids;
+        for (auto *actor : group)
+            if (!actor || actor->GetWorld() != this || !ids.insert(actor->GetUuid()).second)
+                return false;
+        membershipLocked = true;
+        for (const auto &[name, system] : subSystems)
+            system->BeforeDetachGroup(group);
+        std::vector<std::unique_ptr<Actor>> retired;
+        for (auto *actor : group) {
+            WorldEvent::BroadCast(this, &IWorldEvent::OnActorDetached, actor);
+            actor->DetachFromWorld();
+            const auto index = actorIndex.at(actor->GetUuid());
+            actorIndex.erase(actor->GetUuid());
+            retired.push_back(std::move(actors[index]));
+            if (index + 1 != actors.size()) {
+                actors[index]                        = std::move(actors.back());
+                actorIndex[actors[index]->GetUuid()] = index;
+            }
+            actors.pop_back();
+        }
+        retired.clear();
+        membershipLocked = false;
+        return true;
     }
 
     void World::StartSimulation()

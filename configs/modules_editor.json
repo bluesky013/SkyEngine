@@ -1,5 +1,6 @@
 {
   "modules": [
+    {"name": "JoltPhysics.Builder", "buildOption": "SKY_BUILD_JOLT", "dependencies": []},
     {
       "name": "Content.Module",
       "dependencies": [

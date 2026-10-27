@@ -59,6 +59,16 @@ namespace sky {
         if (!handler->second->Load(validationInput, validationAsset)) {
             return {ProductError::InvalidData, "encoded product failed handler validation"};
         }
+        return EncodePayload(asset->type.GetStr(), asset->dependencies, {reinterpret_cast<const uint8_t *>(header.Data()), header.Size()},
+                             asset->bulk, out);
+    }
+
+    ProductStatus AssetManager::EncodePayload(std::string_view         type,
+                                              std::span<const Uuid>    dependencies,
+                                              std::span<const uint8_t> payload,
+                                              std::span<const uint8_t> bulk,
+                                              std::vector<uint8_t>    &out) const
+    {
         auto *compressor = compressProducts ? CompressionManager::Get()->GetCompressor(compressionMethod) : nullptr;
         if (compressProducts && !compressor) {
             return {ProductError::Unsupported, "requested product compressor is unavailable"};
@@ -68,35 +78,35 @@ namespace sky {
         OMemoryArchive       block;
         if (compressor) {
             codec            = compressionMethod == CompressionMethod::LZ4 ? "lz4" : "zlib";
-            const auto bound = compressor->CompressBound(static_cast<uint32_t>(header.Size()));
+            const auto bound = compressor->CompressBound(static_cast<uint32_t>(payload.size()));
             if (bound == 0) {
                 return {ProductError::InvalidData, "product compressor returned an invalid bound"};
             }
             compressed.resize(bound);
-            const auto result = compressor->Compress({reinterpret_cast<const uint8_t *>(header.Data()), header.Size()}, compressed, 0);
+            const auto result = compressor->Compress(payload, compressed, 0);
             if (!result.first || result.second == 0 || result.second > bound || result.second > UINT32_MAX - 8U) {
                 return {ProductError::IOError, "product compression failed"};
             }
-            if (!block.Save(static_cast<uint32_t>(header.Size())) || !block.Save(result.second) ||
+            if (!block.Save(static_cast<uint32_t>(payload.size())) || !block.Save(result.second) ||
                 !block.SaveRaw(reinterpret_cast<const char *>(compressed.data()), result.second)) {
                 return {ProductError::IOError, "compressed product encoding failed"};
             }
-        } else if (!block.SaveRaw(header.Data(), header.Size())) {
+        } else if (!block.SaveRaw(reinterpret_cast<const char *>(payload.data()), payload.size())) {
             return {ProductError::IOError, "product encoding failed"};
         }
         OMemoryArchive      product;
         BinaryOutputArchive archive(product);
-        archive.SaveValue(asset->type.GetStr());
-        archive.SaveValue(static_cast<uint32_t>(asset->dependencies.size()));
-        for (const auto &dependency : asset->dependencies) {
+        archive.SaveValue(type);
+        archive.SaveValue(static_cast<uint32_t>(dependencies.size()));
+        for (const auto &dependency : dependencies) {
             archive.SaveValue(dependency);
         }
         archive.SaveValue(codec);
         archive.SaveValue(static_cast<uint32_t>(block.Size()));
         archive.SaveValue(block.Data(), block.Size());
-        archive.SaveValue(static_cast<uint64_t>(asset->bulk.size()));
-        if (!asset->bulk.empty()) {
-            archive.SaveValue(reinterpret_cast<const char *>(asset->bulk.data()), asset->bulk.size());
+        archive.SaveValue(static_cast<uint64_t>(bulk.size()));
+        if (!bulk.empty()) {
+            archive.SaveValue(reinterpret_cast<const char *>(bulk.data()), bulk.size());
         }
         if (!archive.IsValid()) {
             return {ProductError::IOError, "product serialization failed"};
@@ -116,6 +126,7 @@ namespace sky {
             return {ProductError::InvalidData, "product group requires a bundle and members"};
         }
         const AssetProductGroupStore store(target->GetFileSystem());
+        std::vector<Uuid>            ids;
         for (const auto &member : members) {
             std::vector<uint8_t> bytes;
             if (const auto status = EncodeProduct(member, bytes); !status) {
@@ -124,10 +135,47 @@ namespace sky {
             if (const auto status = store.Stage(transaction, member->GetUuid(), bytes); !status) {
                 return status;
             }
+            ids.push_back(member->GetUuid());
         }
+        return CommitProducts(transaction, *target, ids, out);
+    }
+
+    ProductStatus AssetManager::SaveProductData(ProductGroupTransaction          &transaction,
+                                                const ProductBundleKey           &bundle,
+                                                std::span<const AssetProductData> members,
+                                                ProductGroupSnapshotPtr          &out)
+    {
+        const auto *target = GetBundle(bundle);
+        if (!target || members.empty() || members.size() > 4096)
+            return {ProductError::InvalidData, "product group requires a bundle and members"};
+        const AssetProductGroupStore store(target->GetFileSystem());
+        std::vector<Uuid>            ids;
+        for (const auto &member : members) {
+            if (!member.uuid || member.type.empty() || member.type.size() > 4096 || member.type.find('\0') != std::string::npos ||
+                member.dependencies.size() > 4096 || member.payload.empty() || member.payload.size() > 256u * 1024u * 1024u)
+                return {ProductError::InvalidData, "invalid encoded product"};
+            for (const auto &dependency : member.dependencies)
+                if (!dependency || dependency == member.uuid)
+                    return {ProductError::InvalidData, "invalid product dependency"};
+            std::vector<uint8_t> bytes;
+            if (const auto status = EncodePayload(member.type, member.dependencies, member.payload, {}, bytes); !status)
+                return status;
+            if (const auto status = store.Stage(transaction, member.uuid, bytes); !status)
+                return status;
+            ids.push_back(member.uuid);
+        }
+        return CommitProducts(transaction, *target, ids, out);
+    }
+
+    ProductStatus AssetManager::CommitProducts(ProductGroupTransaction  &transaction,
+                                               const AssetProductBundle &target,
+                                               std::span<const Uuid>     members,
+                                               ProductGroupSnapshotPtr  &out)
+    {
+        const AssetProductGroupStore store(target.GetFileSystem());
         if (sourceCatalog) {
             std::lock_guard<std::recursive_mutex> guard(mutex);
-            const auto                           &filesystem = target->GetFileSystem();
+            const auto                           &filesystem = target.GetFileSystem();
             FileLockPtr                           indexLock;
             if (const auto status = filesystem->AcquireFileLock(".groups/index.lock", indexLock); !status) {
                 return {ProductError::IOError, status.message};
@@ -136,8 +184,8 @@ namespace sky {
             auto index = productIndices.Get(filesystem, FilePath{});
             for (const auto &member : members) {
                 std::string path;
-                if (member->GetUuid() == transaction.GetOwner() && sourceCatalog->GetSourcePath(member->GetUuid(), path)) {
-                    index.Set({MakeCanonicalPath(path), member->GetUuid(), {}});
+                if (member == transaction.GetOwner() && sourceCatalog->GetSourcePath(member, path)) {
+                    index.Set({MakeCanonicalPath(path), member, {}});
                 }
             }
             if (!productIndices.Save(filesystem, FilePath{}, index)) {
@@ -148,12 +196,14 @@ namespace sky {
             }
         }
         const auto status = store.Commit(transaction, out);
-        if (status) { productChangeSerial.fetch_add(1, std::memory_order_release); }
+        if (status) {
+            productChangeSerial.fetch_add(1, std::memory_order_release);
+        }
         return status;
     }
 
-    AssetPtr AssetManager::LoadAssetSnapshot(const Uuid &uuid, const ProductBundleKey &bundle, const ProductGroupSnapshotPtr &snapshot,
-                                            AssetLoadPolicy policy)
+    AssetPtr
+    AssetManager::LoadAssetSnapshot(const Uuid &uuid, const ProductBundleKey &bundle, const ProductGroupSnapshotPtr &snapshot, AssetLoadPolicy policy)
     {
         std::lock_guard<std::recursive_mutex> lock(loadMutex);
         const auto                           *target = GetBundle(bundle);
@@ -227,7 +277,7 @@ namespace sky {
         for (const auto &dependency : asset->dependencies) {
             const bool sameGroup = std::any_of(snapshot->members.begin(), snapshot->members.end(),
                                                [&dependency](const auto &value) { return value.uuid == dependency; });
-            auto child = sameGroup ? LoadAssetSnapshot(dependency, bundle, snapshot, policy) : LoadAsset(dependency, policy);
+            auto       child     = sameGroup ? LoadAssetSnapshot(dependency, bundle, snapshot, policy) : LoadAsset(dependency, policy);
             if (!child || (child->GetStatus() == AssetBase::Status::LOADING && !child->GetAsyncNode() && !child->GetWaitHandle().valid())) {
                 asset->status.store(AssetBase::Status::FAILED);
                 return asset;

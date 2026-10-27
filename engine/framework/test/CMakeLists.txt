@@ -20,12 +20,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     list(APPEND TEST_SRC ${NATIVE_PLATFORM_TEST_SRC})
 endif ()
 
-# Android input mapping is SDK-independent and is exercised on every host.
-# The native Android Framework already includes it through its platform glob.
-if (NOT ANDROID)
-    list(APPEND TEST_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../platform/android/AndroidInput.cpp)
-endif ()
-
 configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/test/EngineRoot.h)
 
 # AssetManager tests write manifests, indices and products into this project.
@@ -43,6 +37,7 @@ sky_add_test(TARGET FrameworkTest
         ${CMAKE_SOURCE_DIR}
     LIBS
         Framework
+        Framework.AndroidInput
         3rdParty::rapidjson
         3rdParty::googletest
     )

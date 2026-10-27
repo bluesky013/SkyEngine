@@ -32,7 +32,8 @@ namespace sky::phy {
 
         bool ValidateShapeImpl(const ShapeDesc &desc, std::string *why, uint32_t depth = 0)
         {
-            if (depth > 32 || !Finite(desc.pivot))
+            const float rotationLength = desc.rotation.Dot(desc.rotation);
+            if (depth > 32 || !Finite(desc.pivot) || !std::isfinite(rotationLength) || rotationLength <= 0)
                 return Fail(why, "invalid shape transform or compound depth");
             switch (desc.type) {
             case ShapeType::Box:

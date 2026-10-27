@@ -102,6 +102,9 @@ namespace {
                 // skipped by ModuleManager and cooks then fail observably.
                 moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {"Aurora.Metadata"}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
+#if SKY_HAS_JOLT_BUILDER
+                moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {}});
+#endif
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});
@@ -222,6 +225,9 @@ int main(int argc, char **argv)
         uint32_t cooked = 0;
         uint32_t failed = 0;
         AssetDataBase::Get()->ForEachSource([&](const AssetSourcePtr &src) {
+            // World manifests are read by World::LoadJson; their asset roots are cooked products.
+            if (src->ext == ".world")
+                return;
             const std::string cookJson = AssetDataBase::Get()->GetCookJson(src->uuid);
             for (const auto &target : builderMgr->GetCookConfig().GetTargets(cookJson, activePlatform)) {
                 std::promise<AssetBuildResult> completion;

@@ -108,3 +108,10 @@ endif()
 
 
 # The runtime host (`Launcher`) is project-owned (see the `add-project-native-layout` change).
+if (SKY_BUILD_TEST)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME CMakeSourceOwnership
+        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_GENERATOR=${CMAKE_GENERATOR}"
+            ${Python3_EXECUTABLE} "${ENGINE_ROOT}/python/tests/test_cmake_source_ownership.py")
+    set_tests_properties(CMakeSourceOwnership PROPERTIES TIMEOUT 180)
+endif ()

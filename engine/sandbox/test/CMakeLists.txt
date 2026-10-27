@@ -128,14 +128,11 @@ if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
         SOURCES
             SandboxProjectTest.cpp
             WorldEditorStateTest.cpp
-            ../module/src/SandboxModule.cpp
-            ../module/src/WorldEditorState.cpp
-            ../module/src/UiIconBuilder.cpp
             main.cpp
         WORKING_DIR ${CMAKE_SOURCE_DIR}
-        LIBS EditorRender EditorShell EditorCore Framework Core 3rdParty::nanosvg 3rdParty::googletest
+        LIBS SandboxModule.Static 3rdParty::googletest
     )
-    target_include_directories(SandboxProjectTest PRIVATE ../module/include ../module/src)
+    target_include_directories(SandboxProjectTest PRIVATE ../module/src)
     target_compile_definitions(SandboxProjectTest PRIVATE
         SKY_TEST_ENGINE_ROOT="${CMAKE_SOURCE_DIR}"
         SKY_TEST_PYTHON="${Python3_EXECUTABLE}"

@@ -2,6 +2,7 @@
 // Created on 2026/10/27.
 //
 
+#include "PhysicsAssets.h"
 #include <framework/application/ModuleManager.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/World.h>
@@ -110,6 +111,7 @@ int main(int argc, char *argv[])
     if (argc == 2 && std::string_view(argv[1]) == "--module-lifecycle") {
         return RunModuleLifecycle();
     }
+    sky::phy::RegisterPhysicsAssets();
     testing::InitGoogleTest(&argc, argv);
     sky::World::Reflect(sky::SerializationContext::Get());
     sky::phy::PhysicsBodyComponent::Reflect(sky::SerializationContext::Get());

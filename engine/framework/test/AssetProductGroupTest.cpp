@@ -181,6 +181,45 @@ TEST_F(AssetProductGroupTest, PinnedGroupSurvivesRecookAndRestartWithoutMixedMem
     EXPECT_EQ(latest->generation, second->generation);
 }
 
+TEST_F(AssetProductGroupTest, OfflineCodecPublishesWithoutLoadingRuntimeHandler)
+{
+    AssetManager manager;
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    const uint32_t   value = 73;
+    AssetProductData product;
+    product.uuid      = mesh;
+    product.type      = "GroupTest";
+    const auto *bytes = reinterpret_cast<const uint8_t *>(&value);
+    product.payload.assign(bytes, bytes + sizeof(value));
+    ProductGroupTransaction transaction;
+    ProductGroupSnapshotPtr snapshot;
+    ASSERT_TRUE(manager.BeginProductGroup(owner, "test", std::array{mesh}, transaction));
+    ASSERT_TRUE(manager.SaveProductData(transaction, "test", std::span(&product, 1), snapshot));
+    AssetProductInspection inspection;
+    ASSERT_TRUE(manager.InspectProduct(mesh, "test", inspection));
+    EXPECT_EQ(inspection.type, "GroupTest");
+    uint32_t inspected = 0;
+    ASSERT_TRUE(inspection.payload->Load(inspected));
+    EXPECT_EQ(inspected, value);
+    manager.RegisterAssetHandler("GroupTest", new ProductTestHandler());
+    const auto request = manager.LoadAssetAsync(mesh, AssetLoadPolicy::ProductsOnly);
+    AssetExecutor::Get()->WaitForAll();
+    ASSERT_TRUE(request->IsResolved());
+    const auto loaded = request->GetAsset();
+    ASSERT_NE(loaded, nullptr);
+    loaded->BlockUntilLoaded();
+    ASSERT_TRUE(loaded->IsLoaded());
+    EXPECT_EQ(std::static_pointer_cast<ProductTestAsset>(loaded)->value, value);
+
+    ProductGroupTransaction rejected;
+    ASSERT_TRUE(manager.BeginProductGroup(owner, "test", std::array{mesh}, rejected));
+    product.dependencies = {mesh};
+    EXPECT_FALSE(manager.SaveProductData(rejected, "test", std::span(&product, 1), snapshot));
+    ProductGroupSnapshotPtr stillPublished;
+    ASSERT_TRUE(AssetProductGroupStore(fs).Resolve(mesh, stillPublished));
+    EXPECT_EQ(stillPublished->revision, 1u);
+}
+
 TEST_F(AssetProductGroupTest, WriteReadbackFlushAndCommitFailuresKeepPreviousGroup)
 {
     const auto first = Publish(1);
@@ -404,7 +443,7 @@ TEST_F(AssetProductGroupTest, ProductOnlyLoadsNeverConsultSourcesOrCookMissingDe
 {
     struct SourceProbe final : DeferredProductCook {
         mutable uint32_t queries = 0;
-        bool Exists(const Uuid &value) const override
+        bool             Exists(const Uuid &value) const override
         {
             ++queries;
             return DeferredProductCook::Exists(value);
@@ -428,7 +467,7 @@ TEST_F(AssetProductGroupTest, ProductOnlyLoadsNeverConsultSourcesOrCookMissingDe
     ProductGroupSnapshotPtr snapshot;
     ASSERT_TRUE(manager.BeginProductGroup(owner, "test", std::array{mesh}, transaction));
     ASSERT_TRUE(manager.SaveProductGroup(transaction, "test", std::array{parent}, snapshot));
-    runner.queries = 0;
+    runner.queries         = 0;
     const auto unavailable = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);
     ASSERT_NE(unavailable, nullptr);
     EXPECT_EQ(unavailable->GetStatus(), AssetBase::Status::FAILED);
@@ -438,7 +477,7 @@ TEST_F(AssetProductGroupTest, ProductOnlyLoadsNeverConsultSourcesOrCookMissingDe
     manager.SetSourceCatalog(nullptr);
     ProductGroupTransaction childTransaction;
     ProductGroupSnapshotPtr childSnapshot;
-    const auto child = manager.CreateBuildAsset(skin, Name("GroupTest"));
+    const auto              child = manager.CreateBuildAsset(skin, Name("GroupTest"));
     ASSERT_TRUE(manager.BeginProductGroup(skin, "test", std::array{skin}, childTransaction));
     ASSERT_TRUE(manager.SaveProductGroup(childTransaction, "test", std::array{child}, childSnapshot));
     const auto recovered = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);

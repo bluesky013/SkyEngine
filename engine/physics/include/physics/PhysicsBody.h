@@ -16,17 +16,14 @@
 
 namespace sky::phy {
 
-    enum class BodyKind : uint8_t {
-        Static = 0,
-        Dynamic,
-        Kinematic
-    };
+    enum class BodyKind : uint8_t { Static = 0, Dynamic, Kinematic };
 
     // Backend-neutral body description. The world owns the created body; the caller keeps only the
     // returned PhysicsObjectId.
     struct PhysicsBodyDesc {
-        BodyKind  kind = BodyKind::Static;
-        ShapeDesc shape;
+        std::shared_ptr<const IPhysicsShape> preparedShape;
+        BodyKind                             kind = BodyKind::Static;
+        ShapeDesc                            shape;
 
         float mass = 1.f;
         // Zero on an axis means "let the backend compute this component from the shape".

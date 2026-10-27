@@ -10,10 +10,9 @@ endif ()
 
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
+list(REMOVE_ITEM SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/SandboxRegistry.cpp)
 
-# Editor module (dynamic, loaded by ModuleManager). A thin adapter over the
-# engine application/module system; the rendering lives in EditorRender.
-sky_add_library(TARGET SandboxModule SHARED
+sky_add_library(TARGET SandboxModule.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -29,6 +28,11 @@ sky_add_library(TARGET SandboxModule SHARED
         EditorRender
         3rdParty::nanosvg
         ${SANDBOX_MODULE_EXTRA_LIBS}
+)
+set_target_properties(SandboxModule.Static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+sky_add_library(TARGET SandboxModule SHARED
+    SOURCES src/SandboxRegistry.cpp
+    LINK_LIBS SandboxModule.Static
 )
 
 # backends are dlopen'd by Instance at runtime; build + deploy them next to the host

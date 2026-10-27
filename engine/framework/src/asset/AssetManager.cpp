@@ -115,7 +115,9 @@ namespace sky {
 
     void AssetManager::OnCookFinished(const AssetBuildResult &result)
     {
-        if (result.retCode == AssetBuildRetCode::SUCCESS) { productChangeSerial.fetch_add(1, std::memory_order_release); }
+        if (result.retCode == AssetBuildRetCode::SUCCESS) {
+            productChangeSerial.fetch_add(1, std::memory_order_release);
+        }
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
         std::vector<Uuid>                     members;
         {
@@ -299,8 +301,10 @@ namespace sky {
         return new IMemoryArchive(decompressed);
     }
 
-    IStreamArchivePtr AssetManager::ReadProductPayload(const IStreamArchivePtr &stream, const std::string &codec, const AssetPtr &asset,
-                                                     uint64_t *declaredBulkSize) const
+    IStreamArchivePtr AssetManager::ReadProductPayload(const IStreamArchivePtr &stream,
+                                                       const std::string       &codec,
+                                                       const AssetPtr          &asset,
+                                                       uint64_t                *declaredBulkSize) const
     {
         uint32_t headerSize = 0;
         uint64_t remaining  = 0;
@@ -331,8 +335,8 @@ namespace sky {
         const auto *source = GetBundle(bundle);
         if (!uuid || !source)
             return {ProductError::NotFound, "product bundle unavailable"};
-        AssetProductInspection inspected;
-        FilePtr file;
+        AssetProductInspection       inspected;
+        FilePtr                      file;
         const AssetProductGroupStore store(source->GetFileSystem());
         if (store.HasOwnerRecord(uuid) && !store.HasLegacyFallback(uuid)) {
             if (const auto status = source->ResolveGroup(uuid, inspected.group); !status)
@@ -343,12 +347,22 @@ namespace sky {
             file = source->OpenFile(uuid);
         if (!file)
             return {ProductError::NotFound, "product file unavailable"};
-        const auto stream = file->ReadAsArchive();
+        const auto  stream = file->ReadAsArchive();
         std::string codec;
         if (!ReadProductHeader(uuid, stream, inspected, codec) || !(inspected.payload = ReadProductPayload(stream, codec, {}, &inspected.bulkSize)))
             return {ProductError::InvalidData, "invalid product header or payload"};
         out = std::move(inspected);
         return {};
+    }
+
+    std::shared_ptr<AssetLoadRequest> AssetManager::LoadAssetAsync(const Uuid &uuid, AssetLoadPolicy policy)
+    {
+        auto request = std::make_shared<AssetLoadRequest>();
+        AssetExecutor::Get()->DependentAsync([this, request, uuid, policy] {
+            request->asset = LoadAsset(uuid, policy);
+            request->resolved.store(true, std::memory_order_release);
+        });
+        return request;
     }
 
     AssetPtr AssetManager::LoadAsset(const Uuid &uuid, AssetLoadPolicy policy) // NOLINT

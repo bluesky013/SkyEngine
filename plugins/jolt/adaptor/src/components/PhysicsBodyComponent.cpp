@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <core/logger/Logger.h>
+#include <framework/serialization/PropertyCommon.h>
 #include <jolt/components/PhysicsBodyComponent.h>
 #include <physics/IPhysicsSystem.h>
 
@@ -19,6 +20,9 @@ namespace sky::phy {
 
     void PhysicsBodyComponent::Reflect(SerializationContext *context)
     {
+        context->Register<PhysicsShapeSource>("PhysicsShapeSource")
+            .Enum(PhysicsShapeSource::Inline, "Inline")
+            .Enum(PhysicsShapeSource::Asset, "Asset");
         context->Register<BodyKind>("PhysicsBodyKind")
             .Enum(BodyKind::Static, "Static")
             .Enum(BodyKind::Dynamic, "Dynamic")
@@ -38,6 +42,7 @@ namespace sky::phy {
         context->Register<ShapeDesc>("PhysicsShapeDesc")
             .Member<&ShapeDesc::type>("type")
             .Member<&ShapeDesc::pivot>("pivot")
+            .Member<&ShapeDesc::rotation>("rotation")
             .Member<&ShapeDesc::halfExt>("halfExt")
             .Member<&ShapeDesc::radius>("radius")
             .Member<&ShapeDesc::height>("height")
@@ -56,6 +61,11 @@ namespace sky::phy {
             .Member<&ShapeDesc::children>("children");
 
         context->Register<PhysicsBodyData>("PhysicsBodyData")
+            .Member<&PhysicsBodyData::shapeSource>("shapeSource")
+            .Member<&PhysicsBodyData::collisionAsset>("collisionAsset")
+            .Member<&PhysicsBodyData::materialAsset>("materialAsset")
+            .Member<&PhysicsBodyData::linearDamping>("linearDamping")
+            .Member<&PhysicsBodyData::angularDamping>("angularDamping")
             .Member<&PhysicsBodyData::mass>("mass")
             .Member<&PhysicsBodyData::kind>("kind")
             .Member<&PhysicsBodyData::enableCCD>("enableCCD")
@@ -68,7 +78,14 @@ namespace sky::phy {
         REGISTER_BEGIN(PhysicsBodyComponent, context)
         REGISTER_MEMBER(mass, SetMass, GetMass)
         REGISTER_MEMBER(kind, SetKind, GetKind)
-        REGISTER_MEMBER(shape, SetShape, GetShape);
+        REGISTER_MEMBER(shape, SetShape, GetShape)
+            .Member<&PhysicsBodyComponent::SetShapeSource, &PhysicsBodyComponent::GetShapeSource>("shapeSource")
+            .Member<&PhysicsBodyComponent::SetCollisionAsset, &PhysicsBodyComponent::GetCollisionAsset>("collisionAsset")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(std::string("PhysicsCollision")))
+            .Member<&PhysicsBodyComponent::SetMaterialAsset, &PhysicsBodyComponent::GetMaterialAsset>("materialAsset")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(std::string("PhysicsMaterial")))
+            .Member<&PhysicsBodyComponent::SetLinearDamping, &PhysicsBodyComponent::GetLinearDamping>("linearDamping")
+            .Member<&PhysicsBodyComponent::SetAngularDamping, &PhysicsBodyComponent::GetAngularDamping>("angularDamping");
 
         ComponentFactory::Get()->RegisterComponent<PhysicsBodyComponent>("PhysicsBody", {Name(PHYSICS_SYSTEM_NAME.data())});
     }
@@ -84,15 +101,26 @@ namespace sky::phy {
 
     bool PhysicsBodyComponent::Apply(const PhysicsBodyData &candidate)
     {
-        if (!std::isfinite(candidate.mass) || candidate.mass <= 0 || candidate.kind > BodyKind::Kinematic) {
+        if (!std::isfinite(candidate.mass) || candidate.mass <= 0 || candidate.kind > BodyKind::Kinematic ||
+            candidate.shapeSource > PhysicsShapeSource::Asset || !std::isfinite(candidate.linearDamping) || candidate.linearDamping < 0 ||
+            !std::isfinite(candidate.angularDamping) || candidate.angularDamping < 0) {
             status = {PhysicsError::InvalidArgument, "Invalid body authoring properties"};
             return false;
+        }
+        if (candidate.shapeSource == PhysicsShapeSource::Asset || candidate.materialAsset) {
+            CancelPreparation();
+            data           = candidate;
+            pendingBinding = true;
+            status         = {};
+            return true;
         }
         auto            next = candidate;
         PhysicsBodyDesc desc;
         desc.kind           = next.kind;
         desc.shape          = next.shape;
         desc.mass           = next.mass;
+        desc.linearDamping  = Vector3(next.linearDamping, next.linearDamping, next.linearDamping);
+        desc.angularDamping = Vector3(next.angularDamping, next.angularDamping, next.angularDamping);
         desc.filter         = next.filter;
         desc.enableCCD      = next.enableCCD;
         desc.gravityEnabled = next.gravityEnabled;
@@ -129,6 +157,13 @@ namespace sky::phy {
                 status = world->UpdateBody(objectId, next.kind, next.mass, next.shape);
                 if (!status)
                     return false;
+                if (!world->SetBodyMaterial(objectId, INVALID_PHYSICS_OBJECT_ID)) {
+                    status = world->GetLastStatus();
+                    return false;
+                }
+                if (IsValid(materialId))
+                    world->DestroyMaterial(materialId);
+                materialId = INVALID_PHYSICS_OBJECT_ID;
             } else {
                 const auto created = world->CreateBody(desc);
                 status             = world->GetLastStatus();
@@ -137,6 +172,9 @@ namespace sky::phy {
                 objectId = created;
             }
         }
+        CancelPreparation();
+        pendingBinding = false;
+        installedShape.reset();
         data   = std::move(next);
         status = {};
         return true;
@@ -150,6 +188,9 @@ namespace sky::phy {
         if (IPhysicsWorld *world = GetPhysicsWorld()) {
             if (world->HasObject(objectId))
                 world->DestroyObject(objectId);
+            if (IsValid(materialId))
+                world->DestroyMaterial(materialId);
+            materialId = INVALID_PHYSICS_OBJECT_ID;
         }
         objectId = INVALID_PHYSICS_OBJECT_ID;
     }
@@ -157,6 +198,16 @@ namespace sky::phy {
     bool PhysicsBodyComponent::TryAttachToWorld(std::string &error)
     {
         TransformEvent::Connect(actor, this);
+        if (resources || data.shapeSource == PhysicsShapeSource::Asset || data.materialAsset) {
+            const auto prepared = PrepareForWorld(*actor->GetWorld(), error);
+            pendingBinding      = prepared != ComponentPreparation::Failed;
+            if (prepared == ComponentPreparation::Preparing)
+                return true;
+            if (prepared == ComponentPreparation::Ready && BindPrepared())
+                return true;
+            error = status.message;
+            return false;
+        }
         if (!Apply(data)) {
             error = status.message;
             return false;
@@ -168,6 +219,9 @@ namespace sky::phy {
     {
         TransformEvent::DisConnect(actor, this);
         DestroyBody();
+        installedShape.reset();
+        CancelPreparation();
+        pendingBinding = false;
     }
 
     void PhysicsBodyComponent::PostTick(float time)
@@ -205,8 +259,9 @@ namespace sky::phy {
 
     bool PhysicsBodyComponent::SetShape(const ShapeDesc &shape)
     {
-        auto next  = data;
-        next.shape = shape;
+        auto next        = data;
+        next.shape       = shape;
+        next.shapeSource = PhysicsShapeSource::Inline;
         return Apply(next);
     }
 
@@ -233,6 +288,13 @@ namespace sky::phy {
 
     void PhysicsBodyComponent::CollectAssetReferences(std::vector<ComponentAssetReference> &out) const
     {
+        if (data.materialAsset)
+            out.push_back({data.materialAsset, "PhysicsMaterial"});
+        if (data.shapeSource == PhysicsShapeSource::Asset) {
+            if (data.collisionAsset)
+                out.push_back({data.collisionAsset, "PhysicsCollision"});
+            return;
+        }
         const auto                     type = GetPhysicsMeshAssetType();
         std::vector<const ShapeDesc *> pending{&data.shape};
         while (!pending.empty()) {

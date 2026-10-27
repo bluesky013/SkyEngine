@@ -38,6 +38,10 @@ namespace sky::phy {
             return world.get();
         }
 
+        bool BeginAttachmentGroup(std::span<Actor *const> actors, std::string &error) override;
+        void BeforeDetachGroup(std::span<Actor *const> actors) override;
+        void EndAttachmentGroup(bool commit) override;
+        bool CanDetachGroup(std::span<Actor *const> actors) const override;
         void OnAttachToWorld(World &world) override;
         void OnDetachFromWorld(World &world) override;
 

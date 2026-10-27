@@ -15,6 +15,7 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <physics/IPhysicsBackend.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -30,13 +31,34 @@ namespace sky::phy {
         std::mutex               updateMutex;
     };
 
+    class JoltShapeRequest;
     struct JoltSession {
+        std::mutex                                      preparationMutex;
+        std::vector<std::weak_ptr<JoltShapeRequest>>    preparations;
+        std::atomic<uint32_t>                           preparationTasks{0};
+        std::atomic<size_t>                             preparationBytes{0};
+        std::atomic<uint32_t>                           preparationCount{0};
         std::shared_ptr<const void>                     codeLease;
         std::shared_ptr<JoltSdk>                        sdk;
         std::mutex                                      executorMutex;
         std::map<uint32_t, std::weak_ptr<JoltExecutor>> executors;
         std::shared_ptr<JoltExecutor>                   GetExecutor(uint32_t workers);
     };
+
+    struct JoltPreparedShape final : IPhysicsShape {
+        ~JoltPreparedShape() override;
+        size_t                           accountedBytes = 0;
+        std::shared_ptr<JoltSession>     session;
+        std::shared_ptr<const ShapeDesc> source;
+        JPH::RefConst<JPH::Shape>        native;
+        Vector3                          scale;
+        float                            margin = 0;
+        const void                      *GetOwner() const override
+        {
+            return session.get();
+        }
+    };
+    JPH::RefConst<JPH::Shape> CookJoltShape(const ShapeDesc &desc, const Vector3 &scale, float margin, PhysicsStatus &status, uint32_t depth = 0);
 
     class JoltLayers final : public JPH::BroadPhaseLayerInterface {
     public:
@@ -85,10 +107,15 @@ namespace sky::phy {
         bool              DestroyMaterial(PhysicsMaterialId id) override;
         bool              GetMaterial(PhysicsMaterialId id, PhysicsMaterialData &out) const override;
 
-        PhysicsObjectId CreateBody(const PhysicsBodyDesc &desc) override;
-        PhysicsStatus   UpdateBody(PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &shape) override;
-        bool            DestroyObject(PhysicsObjectId id) override;
-        bool            HasObject(PhysicsObjectId id) const override;
+        PhysicsObjectId                       CreateBody(const PhysicsBodyDesc &desc) override;
+        std::shared_ptr<IPhysicsShapeRequest> PrepareShape(std::shared_ptr<const ShapeDesc> shape, const Vector3 &scale) override;
+        PhysicsStatus                         BeginActivation(uint32_t bodies) override;
+        void                                  EndActivation(bool commit) override;
+        bool                                  CanRetire(std::span<const PhysicsObjectId> objects) const override;
+        PhysicsStatus                         UpdateBody(
+                                    PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &shape, std::shared_ptr<const IPhysicsShape> prepared = {}) override;
+        bool DestroyObject(PhysicsObjectId id) override;
+        bool HasObject(PhysicsObjectId id) const override;
 
         bool GetBodyTransform(PhysicsObjectId id, Transform &out) const override;
         bool SetBodyTransform(PhysicsObjectId id, const Transform &transform) override;
@@ -103,6 +130,7 @@ namespace sky::phy {
 
         bool SetBodyFilter(PhysicsObjectId id, const CollisionFilter &filter) override;
         bool SetBodyMaterial(PhysicsObjectId id, PhysicsMaterialId material) override;
+        bool SetBodyDamping(PhysicsObjectId id, float linear, float angular) override;
         bool Wake(PhysicsObjectId id) override;
 
         PhysicsObjectId CreateConstraint(const ConstraintDesc &desc) override;
@@ -144,7 +172,8 @@ namespace sky::phy {
         enum class Kind { Body, Character, Constraint, Material };
         struct Entry {
             PhysicsObjectId                        id;
-            Kind                                   kind = Kind::Body;
+            Kind                                   kind  = Kind::Body;
+            bool                                   added = false;
             JPH::BodyID                            body;
             JPH::RefConst<JPH::Shape>              shape;
             std::unique_ptr<JPH::CharacterVirtual> character;
@@ -223,6 +252,8 @@ namespace sky::phy {
         PhysicsOptions                           options;
         PhysicsWorldStats                        stats;
         mutable PhysicsStatus                    status;
+        bool                                     activation = false;
+        std::vector<PhysicsObjectId>             staged;
         bool                                     faulted            = false;
         float                                    interpolationAlpha = 0.f;
         uint32_t                                 worldTag           = 0;

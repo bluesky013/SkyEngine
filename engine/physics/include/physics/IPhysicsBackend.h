@@ -22,6 +22,7 @@
 #include <core/math/Vector3.h>
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -93,8 +94,25 @@ namespace sky::phy {
 
         // Bodies
         virtual PhysicsObjectId CreateBody(const PhysicsBodyDesc &desc) = 0;
+        // Called by the host; work retains its own session and immutable input, never a world pointer.
+        virtual std::shared_ptr<IPhysicsShapeRequest> PrepareShape(std::shared_ptr<const ShapeDesc> shape, const Vector3 &scale)
+        {
+            return {};
+        }
+        virtual PhysicsStatus BeginActivation(uint32_t bodies)
+        {
+            return {PhysicsError::Unsupported, "Atomic activation is unsupported"};
+        }
+        virtual void EndActivation(bool commit)
+        {
+        }
+        virtual bool CanRetire(std::span<const PhysicsObjectId> objects) const
+        {
+            return false;
+        }
         // Updates authoring properties atomically while retaining the object, velocity and constraints.
-        virtual PhysicsStatus UpdateBody(PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &shape)
+        virtual PhysicsStatus
+        UpdateBody(PhysicsObjectId id, BodyKind kind, float mass, const ShapeDesc &shape, std::shared_ptr<const IPhysicsShape> prepared = {})
         {
             return {PhysicsError::Unsupported, "Body property updates are unsupported"};
         }
@@ -119,7 +137,11 @@ namespace sky::phy {
 
         virtual bool SetBodyFilter(PhysicsObjectId id, const CollisionFilter &filter) = 0;
         virtual bool SetBodyMaterial(PhysicsObjectId id, PhysicsMaterialId material)  = 0;
-        virtual bool Wake(PhysicsObjectId id)                                         = 0;
+        virtual bool SetBodyDamping(PhysicsObjectId id, float linear, float angular)
+        {
+            return false;
+        }
+        virtual bool Wake(PhysicsObjectId id) = 0;
 
         // Constraints
         virtual PhysicsObjectId CreateConstraint(const ConstraintDesc &desc) = 0;

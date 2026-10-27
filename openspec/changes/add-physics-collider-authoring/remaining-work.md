@@ -1,0 +1,31 @@
+# Remaining work and acceptance map
+
+Status: subsequent iterations after the 2026-10-27 runtime/benchmark checkpoint. This file records remaining work; it does not authorize claiming those capabilities as implemented or archiving the complete authoring change.
+
+The delivered slice includes versioned `.collision` / `.physmat` products, component references, async product/native preparation, explicit World cell requests, safe-point activation/retirement, current support/constraint pins, dynamic promotion, persistence/root collection and five opt-in benchmarks. Evidence is in verification.md and benchmarks.md. Jolt keeps adaptor/render/builder responsibilities and no new core layer.
+
+## Subsequent implementation work
+
+| ID | Scope / owner | Existing task IDs | Spec requirements and acceptance |
+| --- | --- | --- | --- |
+| R1 | Authoring recipe/product provenance in Jolt builder and existing asset pipeline | 2.2a, 4.4, 5.1 | `physics-collider-authoring`: Reusable collision sources and independent products; Generation tasks and reimport are transactional. Persist source identities, recipes and dependency/build fingerprints; changed inputs invalidate the product; failed recook keeps the last good product but blocks stale packaging. Current version-1 geometry products and stable element IDs are already delivered. |
+| R2 | Geometry-source access and generation in consumer interfaces / providing plugin bridge / builder | 2.1a, 2.3, 2.5, 5.1 | `physics-collider-authoring`: Explicit geometry generation and limits; Shape transforms and legacy compatibility. Reuse existing geometry interfaces where suitable; validate primitive bounds, hull/static mesh inputs, nested transforms, COM and scaling. Degenerate data returns errors without replacing old geometry. No runtime/editor dependency in the builder. |
+| R3 | Collision asset editor in Jolt editor through Sandbox extension interfaces | 3.1–3.6 | `physics-collider-authoring`: Reflected and undoable authoring UI; Physics preview and replacement preserve world ownership; Offline dependencies and unique metadata owners. Add document save/cook status, reflected forms, registered actions, handles, one-command drags, Escape/Undo and isolated preview. Reject stale async results; validate multiple windows, restart and leased task lifetimes. Current reflected component asset fields are already delivered. |
+| R4 | Spatial demand and extended cell manifests in Framework / consuming game host | 6.5a, 6.7a | `physics-streaming`: World-owned streaming with explicit collision coverage; Persistent descriptions and package discovery are independent of residency; Spatial host policy acceptance. Add bounds, product locations, explicit dependency groups, priorities, prefetch/unload hysteresis and teleport/spawn gates. Loading and failure must not become collision gaps. Resolve stable cross-cell endpoints explicitly; a missing endpoint is never silently a world anchor. Current inline cell manifests and explicit Request API are already delivered. |
+| R5 | Terrain collision residency in the existing Terrain physics bridge | 6.6a, 6.7a | `physics-streaming`: Terrain paging acknowledges physics residency; Dynamic objects and cross-cell relationships survive residency changes. Couple product readiness, activation and safe retirement to Terrain paging; render LOD/visibility cannot discard required support collision. Verify a supported moving body, crossing constraint, tile failure and eventual release after dependents leave. Current-contact pinning in Jolt is already delivered, but Terrain is not wired to this protocol. |
+| R6 | Measured performance and deployment validation in existing test/package tools | 6.8a, 5.2, 5.3 | `physics-streaming`: Streaming performance investigation and platform validation. Profile the approximately 27 ms Debug preparation-Tick p95 seen in shared/resident workloads before assigning a root cause. Separate actor cloning, product work, native preparation and commit. Record Release baseline, native/process memory, task/source-byte counters, sustained paging/cancel/teleport workloads and declared host budgets. Exercise no-source/no-tool shipping on each supported platform; distinguish unsupported/untested from passed. |
+| R7 | DCC/reimport and optional decomposition tooling in offline builder/editor | 4.1–4.4 | `physics-collider-authoring`: Generation tasks and reimport are transactional; Explicit geometry generation and limits. Preserve manual edits and generated identities, expose conflicts, then evaluate a pinned CoACD revision/license and error/cancellation behavior. Budget failure must not silently truncate output. Do not add a decomposition dependency before this investigation; exception-dependent third-party integration follows AGENTS.md confirmation rules. |
+
+## Decisions requiring evidence before implementation
+
+- Task 5.2: choose whether native ABI/platform-bound cooked Shape products are justified by measured costs. Current portable CPU geometry products remain supported.
+- Task 5.4: decide whether separate simulation/query geometry and per-face materials are needed. They are not part of the delivered body-level material contract and are not implicitly authorized feature expansions.
+- Confirm effective fitting tolerances, host time/memory budgets and supported shipping configurations against real project requirements; do not invent universal performance thresholds from the Debug fixture.
+
+## Adjacent existing follow-up
+
+`refactor-asset-tool-module-config` already contains the deferred shared manifest parser and AssetTool cook/audit module-selection design. Its implementation tasks remain unchecked. The present checkpoint includes the existing Jolt builder registration needed by physical assets; it does not implement configuration-driven module loading or claim that hardcoded host module selection has been removed.
+
+## Completion boundary
+
+Continue by selecting one remaining row and its acceptance cases. Keep evidence and task boxes aligned with the actual delivery. Do not repeat completed asset/cell-host implementation tasks merely because the broader requirement also contains future policy. Archive only after the intended final scope is satisfied or explicitly re-scoped and the user confirms archive under AGENTS.md.

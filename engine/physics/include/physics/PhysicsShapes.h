@@ -4,31 +4,27 @@
 
 #pragma once
 
+#include <core/math/Quaternion.h>
 #include <core/math/Vector3.h>
 #include <core/shapes/TriangleMesh.h>
 #include <core/util/Uuid.h>
+#include <physics/PhysicsStatus.h>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace sky::phy {
 
-    enum class ShapeType : uint8_t {
-        Box = 0,
-        Sphere,
-        Capsule,
-        HeightField,
-        TriangleMesh,
-        ConvexHull,
-        Compound
-    };
+    enum class ShapeType : uint8_t { Box = 0, Sphere, Capsule, HeightField, TriangleMesh, ConvexHull, Compound };
 
     // Backend-neutral shape description. A single tagged struct keeps serialization and editing simple
     // and avoids exposing any backend shape type; unused members are ignored per `type`.
     struct ShapeDesc {
-        ShapeType type  = ShapeType::Box;
-        Vector3   pivot = VEC3_ZERO;
+        ShapeType  type  = ShapeType::Box;
+        Vector3    pivot = VEC3_ZERO;
+        Quaternion rotation;
 
         // Box
         Vector3 halfExt = VEC3_ONE;
@@ -63,5 +59,21 @@ namespace sky::phy {
     // Pure validation used by editors and by backends before cooking. Returns false and fills `why`
     // (when provided) for malformed descriptors.
     bool ValidateShape(const ShapeDesc &desc, std::string *why = nullptr);
+
+    class IPhysicsShape {
+    public:
+        virtual ~IPhysicsShape() = default;
+        // Owner identity guarantees the concrete shape implementation for that backend session.
+        virtual const void *GetOwner() const = 0;
+    };
+
+    enum class ShapePreparationState : uint8_t { Preparing, Ready, Failed };
+    class IPhysicsShapeRequest {
+    public:
+        virtual ~IPhysicsShapeRequest()                                = default;
+        virtual ShapePreparationState                GetState() const  = 0;
+        virtual PhysicsStatus                        GetStatus() const = 0;
+        virtual std::shared_ptr<const IPhysicsShape> GetShape() const  = 0;
+    };
 
 } // namespace sky::phy

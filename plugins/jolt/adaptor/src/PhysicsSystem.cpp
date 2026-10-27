@@ -146,7 +146,7 @@ namespace sky::phy {
             if (body == nullptr || !IsValid(body->GetObjectId())) {
                 continue;
             }
-            const ShapeDesc &shape = body->GetShape();
+            const ShapeDesc &shape = body->GetResolvedShape();
             if (shape.type != ShapeType::TriangleMesh || !shape.meshData) {
                 continue;
             }
@@ -157,6 +157,41 @@ namespace sky::phy {
             }
             out.push_back(instance);
         }
+    }
+
+    bool PhysicsSystem::BeginAttachmentGroup(std::span<Actor *const> actors, std::string &error)
+    {
+        if (!world) {
+            error = "Physics world is unavailable";
+            return false;
+        }
+        uint32_t count = 0;
+        for (auto *actor : actors)
+            count += actor->GetComponent<PhysicsBodyComponent>() ? 1 : 0;
+        status = world->BeginActivation(count);
+        error  = status.message;
+        return static_cast<bool>(status);
+    }
+    void PhysicsSystem::EndAttachmentGroup(bool commit)
+    {
+        if (world)
+            world->EndActivation(commit);
+    }
+    void PhysicsSystem::BeforeDetachGroup(std::span<Actor *const> actors)
+    {
+        for (auto *actor : actors)
+            if (auto *body = actor->GetComponent<PhysicsBodyComponent>(); body && IsValid(body->GetObjectId()))
+                world->DestroyObject(body->GetObjectId());
+    }
+    bool PhysicsSystem::CanDetachGroup(std::span<Actor *const> actors) const
+    {
+        if (!world)
+            return false;
+        std::vector<PhysicsObjectId> bodies;
+        for (auto *actor : actors)
+            if (auto *body = actor->GetComponent<PhysicsBodyComponent>(); body && IsValid(body->GetObjectId()))
+                bodies.push_back(body->GetObjectId());
+        return world->CanRetire(bodies);
     }
 
     PhysicsSystem *AttachPhysicsSystem(World &world, const PhysicsWorldDesc &desc, std::shared_ptr<const void> lease)

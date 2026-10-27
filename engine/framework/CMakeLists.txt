@@ -50,6 +50,20 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
     set_source_files_properties(${IOS_OBJCXX_SRC} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 endif ()
 
+if (ANDROID OR SKY_BUILD_TEST)
+    sky_add_library(TARGET Framework.AndroidInput STATIC
+        SOURCES platform/android/AndroidInput.cpp
+        PRIVATE_INC include
+        LINK_LIBS Core
+    )
+    set_target_properties(Framework.AndroidInput PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif ()
+if (ANDROID)
+    list(REMOVE_ITEM PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/platform/android/AndroidInput.cpp)
+    list(APPEND FM_EXT_LIB Framework.AndroidInput)
+    install(TARGETS Framework.AndroidInput EXPORT SkyEngineExport ARCHIVE DESTINATION lib)
+endif ()
+
 sky_add_library(TARGET Framework STATIC
     SOURCES
         ${PLATFORM_SRC}
