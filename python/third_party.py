@@ -551,6 +551,7 @@ def process_package(package):
     source = package.get('source')
     is_tool = package.get('is_tool')
     options = package.get('options', {})
+    options = {**options, **package.get(f'options_{args.platform}', {})}
     header_only = package.get('header_only', False)
     custom_engine = package.get('custom_engine', False)
     custom_only = package.get('custom_only', False)

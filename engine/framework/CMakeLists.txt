@@ -41,6 +41,14 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         log
         android
         game-activity::game-activity_static)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    # Native X11 window/event backend (no SDL) + shared POSIX process backend.
+    file(GLOB_RECURSE PLATFORM_SRC
+        platform/linux/*
+        platform/posix/*)
+    set(FM_EXT_LIB
+        X11
+        ${CMAKE_DL_LIBS})
 endif ()
 
 # The UIKit backend uses ARC ownership idioms (__bridge_retained/transfer for

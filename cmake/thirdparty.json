@@ -100,6 +100,9 @@
 				"RECASTNAVIGATION_DEMO": "OFF",
 				"RECASTNAVIGATION_EXAMPLES": "OFF",
 				"RECASTNAVIGATION_TESTS": "OFF"
+			},
+			"options_Linux": {
+				"CMAKE_POSITION_INDEPENDENT_CODE": "ON"
 			}
 		},
 		{
@@ -117,6 +120,9 @@
 				"ENET_STATIC": "ON",
 				"ENET_SHARED": "OFF",
 				"ENET_TEST": "OFF"
+			},
+			"options_Linux": {
+				"CMAKE_POSITION_INDEPENDENT_CODE": "ON"
 			}
 		},
 		{
@@ -159,6 +165,10 @@
 				"TARGET_PERFORMANCE_TEST": "OFF",
 				"TARGET_SAMPLES": "OFF",
 				"TARGET_VIEWER": "OFF"
+			},
+			"options_Linux": {
+				"CMAKE_POSITION_INDEPENDENT_CODE": "ON",
+				"CPP_RTTI_ENABLED": "ON"
 			}
 		},
 		{
@@ -318,6 +328,9 @@
 				"SLANG_ENABLE_SPLIT_DEBUG_INFO": "OFF",
 				"SLANG_LIB_TYPE": "STATIC",
 				"SLANG_EMBED_CORE_MODULE": "ON"
+			},
+			"options_Linux": {
+				"SLANG_ENABLE_DXIL": "OFF"
 			},
 			"submodules": [
 				"external/spirv-headers",

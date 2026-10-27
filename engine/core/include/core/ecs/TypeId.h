@@ -45,4 +45,4 @@ namespace sky {
 // register an explicit, platform/compiler-stable tag for an ECS type.
 // convention: "sky.<module>.<TypeName>"
 #define SKY_TYPE_TAG(T, STR) \
-    template <> struct ::sky::TypeTagOf<T> { static constexpr std::string_view value = STR; };
+    template <> struct sky::TypeTagOf<T> { static constexpr std::string_view value = STR; };

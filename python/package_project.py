@@ -53,7 +53,7 @@ TOKEN_KEYS = [
     '{{ANDROID_KEY_PASSWORD}}',
 ]
 
-LAUNCHER_PLATFORMS = ['android', 'ios', 'macos', 'windows']
+LAUNCHER_PLATFORMS = ['android', 'ios', 'macos', 'windows', 'linux']
 
 # 环境变量覆盖（凭据优先级最高）。
 ENV_ANDROID = {

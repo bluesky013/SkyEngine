@@ -1,1 +1,1 @@
-sky_3rd_static(sfmt LIBS sfmt)
+sky_3rd_static(sfmt LIBS SFMT)

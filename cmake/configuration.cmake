@@ -28,6 +28,15 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_library(log-lib log)
     set(PLATFORM_EXT_LIBS  android ${log-lib})
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    find_package(Threads REQUIRED)
+    set(PLATFORM_EXT_LIBS ${CMAKE_DL_LIBS} Threads::Threads)
+    # Static libraries are linked into shared modules; they must be PIC.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    # Modules are dlopen'd by bare name from <exe>/; resolve them next to the
+    # executable (all binaries land in output/bin).
+    set(CMAKE_BUILD_RPATH "$ORIGIN")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PLATFORM_EXT_LIBS winmm imm32 version setupapi)
     add_compile_definitions(NOMINMAX)

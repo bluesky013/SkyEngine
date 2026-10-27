@@ -7,6 +7,7 @@
 #include <core/util/DynamicModule.h>
 #include <core/std/Graph.h>
 #include <framework/interface/IModule.h>
+#include <memory>
 #include <unordered_map>
 #include <optional>
 

@@ -159,7 +159,7 @@ namespace sky {
             for (auto it = retiring.begin(); it != retiring.end();) {
                 auto      *transform = (*it)->GetComponent<TransformComponent>();
                 const bool related   = transform && std::any_of(promoted.begin(), promoted.end(), [&](auto *actor) {
-                                         auto *other = actor->GetComponent<TransformComponent>();
+                                         auto *other = actor->template GetComponent<TransformComponent>();
                                          return other && (other->GetParent() == transform || transform->GetParent() == other);
                                      });
                 if (related) {

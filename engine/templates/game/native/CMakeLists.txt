@@ -84,6 +84,8 @@ elseif (APPLE)
     add_subdirectory(macos)
 elseif (WIN32)
     add_subdirectory(windows)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_subdirectory(linux)
 endif ()
 
 # Game module(s).

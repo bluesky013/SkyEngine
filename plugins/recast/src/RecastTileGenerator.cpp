@@ -8,6 +8,8 @@
 
 #include <core/logger/Logger.h>
 
+#include <cstring>
+
 #include <Recast.h>
 #include <DetourTileCacheBuilder.h>
 #include <DetourCommon.h>

@@ -19,6 +19,9 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/android/*)
     list(APPEND CORE_PLATFORM_SRC ${UNIX_ASYNC_SRC})
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    file(GLOB_RECURSE CORE_PLATFORM_SRC
+        platform/unix/*)
 endif ()
 
 set(CORE_OPT_LIBS)
@@ -32,6 +35,8 @@ endif ()
 set(CORE_PLATFORM_LIBS)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     list(APPEND CORE_PLATFORM_LIBS log)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    list(APPEND CORE_PLATFORM_LIBS ${CMAKE_DL_LIBS})
 endif ()
 
 sky_add_library(TARGET Core STATIC

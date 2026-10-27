@@ -20,7 +20,7 @@ static const std::string DYN_SUFFIX = ".dll";
 #elif __APPLE__
 static const std::string DYN_PREFIX = "lib";
 static const std::string DYN_SUFFIX = ".dylib";
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__linux__)
 static const std::string DYN_PREFIX = "lib";
 static const std::string DYN_SUFFIX = ".so";
 #endif
@@ -126,6 +126,11 @@ namespace sky {
         const char *error = dlerror();
         if (error != nullptr) {
             res = error;
+        }
+#else
+        const char *err = dlerror();
+        if (err != nullptr) {
+            res = err;
         }
 #endif
         return res;

@@ -4,6 +4,7 @@
 
 #include <core/archive/BinaryData.h>
 #include <core/memory/Allocator.h>
+#include <cstring>
 namespace sky {
 
     BinaryData::BinaryData(uint32_t inSize) : size(inSize)

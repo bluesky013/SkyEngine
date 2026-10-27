@@ -1,5 +1,6 @@
 [
   { "name": "{{PROJECT_NAME}}-android", "platform": "android", "variant": "debug", "abis": ["arm64-v8a"], "keystore": "release" },
   { "name": "{{PROJECT_NAME}}-ios", "platform": "ios", "variant": "release", "packing": "static", "signing": "off" },
-  { "name": "{{PROJECT_NAME}}-macos", "platform": "macos", "variant": "release", "bundle": true, "signing": "off" }
+  { "name": "{{PROJECT_NAME}}-macos", "platform": "macos", "variant": "release", "bundle": true, "signing": "off" },
+  { "name": "{{PROJECT_NAME}}-linux", "platform": "linux", "variant": "release" }
 ]
