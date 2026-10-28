@@ -121,16 +121,10 @@ namespace sky {
         case ERROR_ACCESS_DENIED: res = "Access Denied"; break;
         default: res = "Unknown"; break;
         }
-#endif
-#ifndef _WIN32
+#else
         const char *error = dlerror();
         if (error != nullptr) {
             res = error;
-        }
-#else
-        const char *err = dlerror();
-        if (err != nullptr) {
-            res = err;
         }
 #endif
         return res;

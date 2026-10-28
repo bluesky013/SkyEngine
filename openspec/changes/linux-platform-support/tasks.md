@@ -60,7 +60,12 @@
 - [x] 7.3 运行示例 `SkyLinuxTest`：原生 X11 窗口 + 事件循环正常；Aurora.Metadata/Aurora.Render 模块加载、Vulkan instance/device 初始化成功
 - [x] 7.4 当前止步于 `no platform surface support compiled in`（WSI 未实现，见 8）
 - [ ] 7.5 `SKY_BUILD_TEST=ON` + `ctest`（Linux headless 用例）
-- [ ] 7.6 Win32/macOS 回归确认（由对应平台跟进）
+- [ ] 7.6 Win32/macOS 回归确认（Win32 快速回归见 7.6a；macOS 仍待对应平台跟进）
+- [x] 7.6a 2026-10-28 在 `6446826e` 上修复 Windows 动态库错误查询分支并通过 VS 2022 Debug 快速回归：Core 311、Framework 208、Jolt 58、Recast 2 个用例，以及 Jolt DLL 生命周期和 CMake 源码归属检查。未运行重型 benchmark、完整编辑器 smoke 或 Linux/macOS 实机验证。
+
+本轮发现：Linux 提交在已有 `#ifndef _WIN32` / `dlerror()` 分支后重复添加 `#else`，令 Windows 编译 POSIX 调用并与已有 `DWORD err` 冲突。修复将错误查询收敛为单一 `#ifdef _WIN32` / `#else`，保留两侧原生 API。现有源码归属检查不检查预处理平台语义；本次由实际 Win32 编译发现。
+
+验证命令：`cmake -S . -B cmake-build-debug`；构建 `CoreTest FrameworkTest JoltPhysicsTest RecastModuleTest` 及其模块依赖；运行这四套测试、`JoltPhysicsModuleLifecycle` 和 `CMakeSourceOwnership`，共 6/6 CTest 通过。日志见 `build_3rd/rebase-origin-20261028/{configure,build,build-fixed,runtime-tests,source-ownership-test}.log`；`build.log` 保留修复前失败证据。
 
 ## 8. aurora Vulkan xcb WSI（**暂缓，待接显示器统一处理**）
 
