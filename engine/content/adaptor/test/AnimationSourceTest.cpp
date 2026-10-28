@@ -1,4 +1,3 @@
-#include <array>
 #include <content/adaptor/AnimationClipSource.h>
 #include <content/adaptor/ContentReflection.h>
 #include <content/adaptor/assets/AnimationAsset.h>
@@ -33,10 +32,7 @@ TEST(AnimationClipSource, PollOwnsExactSnapshotAndCodeUntilLastResultIsReleased)
         ASSERT_TRUE(data.PrepareSource());
         const auto bulk = data.BuildBulk();
         product->AddBulk(bulk.data(), bulk.size());
-        ProductGroupTransaction transaction;
-        ProductGroupSnapshotPtr group;
-        ASSERT_TRUE(manager->BeginProductGroup(id, "clip-source-test", std::array<Uuid, 1>{id}, transaction));
-        ASSERT_TRUE(manager->SaveProductGroup(transaction, "clip-source-test", std::array<AssetPtr, 1>{product}, group));
+        ASSERT_TRUE(manager->SaveAsset(product, "clip-source-test"));
         auto                      code     = std::make_shared<int>(1);
         std::weak_ptr<const void> lifetime = code;
         auto                      source   = content::CreateAnimationClipSource(code);
@@ -47,8 +43,10 @@ TEST(AnimationClipSource, PollOwnsExactSnapshotAndCodeUntilLastResultIsReleased)
         AssetExecutor::Get()->WaitForAll();
         auto ready = request.Poll();
         ASSERT_EQ(ready.state, AnimationSourceState::Ready) << ready.status.message;
-        EXPECT_EQ(ready.version.generation, group->generation);
-        EXPECT_EQ(ready.version.revision, group->revision);
+        const auto loaded = manager->FindAsset<AnimationClip>(id);
+        ASSERT_NE(loaded, nullptr);
+        EXPECT_EQ(ready.version.generation, loaded->GetInstanceId());
+        EXPECT_EQ(ready.version.revision, loaded->GetRevision());
         ASSERT_NE(ready.resource, nullptr);
         EXPECT_FLOAT_EQ(ready.resource->GetDuration(), 1);
         EXPECT_EQ(source->Request({}).Poll().state, AnimationSourceState::Error);

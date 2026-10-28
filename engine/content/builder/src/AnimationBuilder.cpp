@@ -10,7 +10,6 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/BinaryArchive.h>
 
-#include <array>
 #include <string>
 
 static const char *TAG = "ContentAnimationBuilder";
@@ -34,15 +33,7 @@ namespace sky::builder {
             return;
         }
 
-        auto                   *manager = AssetManager::Get();
-        ProductGroupTransaction transaction;
-        const auto              beginStatus =
-            manager->BeginProductGroup(request.assetInfo->uuid, request.bundle, std::array<Uuid, 1>{request.assetInfo->uuid}, transaction);
-        if (!beginStatus) {
-            result.retCode = AssetBuildRetCode::FAILED;
-            result.error   = beginStatus.message;
-            return;
-        }
+        auto *manager = AssetManager::Get();
         auto asset = std::static_pointer_cast<Asset<AnimationClip>>(
             manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<AnimationClip>::ASSET_TYPE.data())));
         if (!asset) {
@@ -81,8 +72,7 @@ namespace sky::builder {
             AddAssetDependency(asset, request, data.skeleton);
         }
 
-        ProductGroupSnapshotPtr published;
-        const auto              saved = manager->SaveProductGroup(transaction, request.bundle, std::array<AssetPtr, 1>{asset}, published);
+        const auto saved = manager->SaveAsset(asset, request.bundle);
         if (!saved) {
             result.retCode = AssetBuildRetCode::FAILED;
             result.error   = saved.message;

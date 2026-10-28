@@ -2,10 +2,14 @@
 // Created on 2026/10/17.
 //
 
+#include "LauncherSceneTestHelper.h"
 #include "ShaderArtifactTestHelper.h"
 #include <algorithm>
 #include <array>
 #include <aurora/adaptor/AuroraModule.h>
+#include <aurora/adaptor/components/CameraComponent.h>
+#include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <aurora/adaptor/renderer/RenderSceneProxy.h>
 #include <aurora/adaptor/renderer/RendererHost.h>
 #include <aurora/adaptor/renderer/UiRenderFeature.h>
@@ -17,6 +21,8 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/window/NativeWindowManager.h>
+#include <framework/world/IGameWorld.h>
+#include <framework/world/World.h>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <span>
@@ -228,6 +234,23 @@ namespace {
     private:
         std::shared_ptr<const void> surface;
     };
+    class PublishedGameWorld final : public IGameWorld {
+    public:
+        PublishedGameWorld()
+        {
+            Interface<IGameWorld>::Get()->Register(*this);
+        }
+        ~PublishedGameWorld() override
+        {
+            if (Interface<IGameWorld>::Get()->GetApi() == this)
+                Interface<IGameWorld>::Get()->UnRegister();
+        }
+        World *GetWorld() const override
+        {
+            return world.Get();
+        }
+        WorldPtr world;
+    };
     class LauncherSurfaceTest : public testing::Test, public ISystemNotify {
     protected:
         void SetUp() override
@@ -340,6 +363,15 @@ namespace {
                         result.push_back(*value);
             return result;
         }
+        LauncherSceneRegistration RegisterSource(test::LauncherSceneSession::AppendFunction append,
+                                                 test::LauncherSceneSession::EventFunction  event = {})
+        {
+            const auto result =
+                module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(std::move(append), std::move(event)));
+            const auto *registration = std::get_if<LauncherSceneRegistration>(&result);
+            EXPECT_NE(registration, nullptr);
+            return registration ? *registration : LauncherSceneRegistration{};
+        }
         std::filesystem::path          root;
         std::shared_ptr<LauncherTrace> trace = std::make_shared<LauncherTrace>();
         LauncherWindow                 window;
@@ -352,8 +384,8 @@ namespace {
 TEST_F(LauncherSurfaceTest, ReplacementWaitsForExactRetirementAndRebindsTheExistingSceneAndView)
 {
     uint32_t sources = 0;
-    module->SetSceneSource([&](FramePacket &, SceneId scene) {
-        EXPECT_EQ(scene, (SceneId{0, 1}));
+    RegisterSource([&](FramePacket &, const LauncherSceneContext &context) {
+        EXPECT_EQ(context.scene, (SceneId{0, 1}));
         ++sources;
     });
     std::weak_ptr<const void> old = window.RetainNativeHandle();
@@ -395,6 +427,311 @@ TEST_F(LauncherSurfaceTest, ReplacementWaitsForExactRetirementAndRebindsTheExist
     EXPECT_FALSE(failed);
 }
 
+TEST_F(LauncherSurfaceTest, SceneSourceServicePublishesTheLauncherAndReleasesCapturesBeforeDrain)
+{
+    auto *service = Interface<ILauncherSceneSource>::Get();
+    ASSERT_EQ(service->GetApi(), static_cast<ILauncherSceneSource *>(module.get()));
+    auto               capture  = std::make_shared<int>(7);
+    std::weak_ptr<int> retained = capture;
+    uint32_t           calls    = 0;
+    RegisterSource([capture, &calls](FramePacket &, const LauncherSceneContext &context) {
+        EXPECT_EQ(*capture, 7);
+        EXPECT_EQ(context.scene, (SceneId{0, 1}));
+        ++calls;
+    });
+    capture.reset();
+    module->Tick(0);
+    EXPECT_GT(calls, 0u);
+    EXPECT_FALSE(retained.expired());
+    trace->stopping = [&] {
+        EXPECT_EQ(service->GetApi(), nullptr);
+        EXPECT_TRUE(retained.expired());
+    };
+    module->Shutdown();
+    EXPECT_EQ(service->GetApi(), nullptr);
+    EXPECT_TRUE(retained.expired());
+    module->Shutdown();
+}
+
+TEST_F(LauncherSurfaceTest, SessionRegistrationRejectsUnknownModulesCompetitionAndStaleOwners)
+{
+    auto session = std::make_shared<test::LauncherSceneSession>(nullptr);
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("MissingModule", session)));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", nullptr)));
+    const auto first = module->RegisterSceneSession("Aurora.Render", session);
+    ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(first));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", session)));
+    const auto registration = std::get<LauncherSceneRegistration>(first);
+    auto       foreign      = registration;
+    foreign.host            = Uuid::Create();
+    EXPECT_TRUE(module->UnregisterSceneSession(foreign));
+    ASSERT_FALSE(module->UnregisterSceneSession(registration));
+    const auto second = module->RegisterSceneSession("Aurora.Render", session);
+    ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(second));
+    EXPECT_NE(std::get<LauncherSceneRegistration>(second), registration);
+    EXPECT_TRUE(module->UnregisterSceneSession(registration));
+    EXPECT_FALSE(module->UnregisterSceneSession(std::get<LauncherSceneRegistration>(second)));
+}
+
+TEST_F(LauncherSurfaceTest, SessionRetainsItsActualModuleUntilAfterSessionDestruction)
+{
+    modules.AddStaticModule("SessionOwner", std::make_unique<IModule>());
+    modules.TopoSort();
+    ASSERT_TRUE(modules.LoadModules({}));
+    std::weak_ptr<const void> code      = modules.RetainModule("SessionOwner");
+    bool                      destroyed = false;
+    struct Capture {
+        Capture(std::weak_ptr<const void> code, bool &destroyed) : code(std::move(code)), destroyed(destroyed)
+        {
+        }
+        std::weak_ptr<const void> code;
+        bool                     &destroyed;
+        ~Capture()
+        {
+            EXPECT_FALSE(code.expired());
+            destroyed = true;
+        }
+    };
+    auto       capture    = std::make_shared<Capture>(code, destroyed);
+    const auto registered = module->RegisterSceneSession(
+        "SessionOwner", std::make_shared<test::LauncherSceneSession>([capture](FramePacket &, const LauncherSceneContext &) {}));
+    ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(registered));
+    capture.reset();
+    modules.UnLoadModules();
+    EXPECT_FALSE(code.expired());
+    EXPECT_FALSE(destroyed);
+    EXPECT_FALSE(module->UnregisterSceneSession(std::get<LauncherSceneRegistration>(registered)));
+    EXPECT_TRUE(destroyed);
+    EXPECT_TRUE(code.expired());
+}
+
+TEST_F(LauncherSurfaceTest, SelfRemovalKeepsTheCurrentCallAliveAndReplacementWaitsForSceneRetirement)
+{
+    auto                      capture  = std::make_shared<int>(7);
+    std::weak_ptr<int>        retained = capture;
+    LauncherSceneRegistration first, second;
+    uint32_t                  calls = 0;
+    first                           = RegisterSource([&, capture](FramePacket &, const LauncherSceneContext &context) {
+        EXPECT_EQ(context.mainView, (ViewId{0, 1}));
+        EXPECT_EQ(context.output, (ViewportId{0, 1}));
+        EXPECT_EQ(context.extent.width, 64u);
+        EXPECT_EQ(context.extent.height, 64u);
+        EXPECT_FALSE(module->UnregisterSceneSession(first));
+        second = RegisterSource([&](FramePacket &, const LauncherSceneContext &replacement) {
+            EXPECT_EQ(replacement.scene, (SceneId{0, 2}));
+            ++calls;
+        });
+        EXPECT_FALSE(retained.expired());
+        EXPECT_EQ(*capture, 7);
+    });
+    capture.reset();
+    module->Tick(0);
+    EXPECT_TRUE(retained.expired());
+    EXPECT_NE(first, second);
+    module->Tick(0);
+    EXPECT_EQ(Commands<DestroyScene>().size(), 1u);
+    EXPECT_EQ(calls, 0u);
+    trace->events.push_back(SceneDestroyed{{0, 2}});
+    module->Tick(0);
+    EXPECT_EQ(calls, 0u);
+    trace->events.push_back(SceneDestroyed{{0, 1}});
+    module->Tick(0);
+    EXPECT_EQ(calls, 1u);
+    const auto scenes = Commands<CreateScene>();
+    ASSERT_EQ(scenes.size(), 2u);
+    EXPECT_EQ(scenes.back().id, (SceneId{0, 2}));
+    const auto views = Commands<UpdateView>();
+    ASSERT_FALSE(views.empty());
+    EXPECT_EQ(views.back().desc.scene, (SceneId{0, 2}));
+    EXPECT_FALSE(module->UnregisterSceneSession(second));
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, ShutdownFromAppendDefersDrainUntilTheCurrentCallReturns)
+{
+    auto               capture  = std::make_shared<int>(7);
+    std::weak_ptr<int> retained = capture;
+    RegisterSource([&, capture](FramePacket &packet, const LauncherSceneContext &) {
+        module->Shutdown();
+        EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
+        EXPECT_FALSE(retained.expired());
+        EXPECT_EQ(*capture, 7);
+        packet.readbacks.clear();
+    });
+    capture.reset();
+    trace->stopping = [&] { EXPECT_TRUE(retained.expired()); };
+    module->Tick(0);
+    EXPECT_TRUE(retained.expired());
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(LauncherSurfaceTest, SessionReceivesExactEntityRetirementsAndReusesBridgeSlotsAcrossCycles)
+{
+    class EmptyResources final : public ISceneResourceSource {
+    public:
+        SceneResourceResult ResolveMesh(const Uuid &, const Uuid &, RendererInfo) override
+        {
+            ADD_FAILURE() << "Light-only World must not request mesh resources";
+            return {};
+        }
+    };
+    const WorldPtr world = World::CreateWorld();
+    auto          *actor = world->CreateActor("Light");
+    actor->AddComponent<PointLightComponent>();
+    auto bridge = std::make_shared<RenderSceneBridge>(RendererInfo{API::VULKAN, 1}, std::make_shared<EmptyResources>());
+    bridge->SetWorld(world.Get());
+    RegisterSource(
+        [bridge](FramePacket &packet, const LauncherSceneContext &context) {
+            EXPECT_FALSE(bridge->Append(packet, context.scene, context.output));
+            EXPECT_TRUE(bridge->GetIssues().empty());
+        },
+        [bridge](const RendererEvent &event) { bridge->OnEvent(event); });
+    module->Tick(0);
+    for (uint32_t generation = 1; generation <= 8; ++generation) {
+        const auto created = Commands<CreateRenderEntity>();
+        ASSERT_FALSE(created.empty());
+        const auto entity = created.back().id;
+        EXPECT_EQ(entity.entity.index, 0u);
+        EXPECT_EQ(entity.entity.generation, generation);
+        actor->RemoveComponent<PointLightComponent>();
+        module->Tick(0);
+        const auto destroyed = Commands<DestroyRenderEntity>();
+        ASSERT_FALSE(destroyed.empty());
+        EXPECT_EQ(destroyed.back().id, entity);
+        trace->events.push_back(EntityDestroyed{{entity.scene, {0, generation + 1}}});
+        module->Tick(0);
+        trace->events.push_back(EntityDestroyed{entity});
+        actor->AddComponent<PointLightComponent>();
+        module->Tick(0);
+    }
+    const auto created = Commands<CreateRenderEntity>();
+    ASSERT_EQ(created.size(), 9u);
+    EXPECT_EQ(created.back().id.entity.index, 0u);
+    EXPECT_EQ(created.back().id.entity.generation, 9u);
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, DefaultWorldPresentsWithoutTickingSimulationAndYieldsToExplicitRegistration)
+{
+    PublishedGameWorld game;
+    game.world  = World::CreateWorld();
+    auto *light = game.world->CreateActor("Light");
+    light->AddComponent<PointLightComponent>();
+    game.world->CreateActor("Camera")->AddComponent<CameraComponent>();
+    class Clock final : public IWorldSubSystem {
+    public:
+        void Tick(float delta) override
+        {
+            elapsed += delta;
+        }
+        float elapsed = 0;
+    };
+    auto *clock = new Clock();
+    game.world->AddSubSystem(Name("clock"), clock, modules.RetainModule("Aurora.Render"));
+    game.world->Tick(0.25f);
+    module->Tick(0.25f);
+    EXPECT_FLOAT_EQ(clock->elapsed, 0.25f);
+    const auto initial = Commands<CreateRenderEntity>();
+    ASSERT_EQ(initial.size(), 1u);
+    EXPECT_EQ(initial.front().id.scene, (SceneId{0, 1}));
+    const auto cameras = Commands<UpdateView>();
+    ASSERT_FALSE(cameras.empty());
+    EXPECT_EQ(cameras.back().desc.output, (ViewportId{0, 1}));
+    EXPECT_GT(cameras.back().revision, 0u);
+    uint32_t   explicitCalls = 0;
+    const auto explicitOwner = RegisterSource([&](FramePacket &, const LauncherSceneContext &context) {
+        EXPECT_EQ(context.scene, (SceneId{0, 2}));
+        ++explicitCalls;
+    });
+    module->Tick(0);
+    EXPECT_EQ(explicitCalls, 0u);
+    trace->events.push_back(SceneDestroyed{{0, 1}});
+    module->Tick(0);
+    EXPECT_EQ(explicitCalls, 1u);
+    EXPECT_EQ(Commands<CreateRenderEntity>().size(), 1u);
+    EXPECT_FALSE(module->UnregisterSceneSession(explicitOwner));
+    module->Tick(0);
+    trace->events.push_back(SceneDestroyed{{0, 2}});
+    module->Tick(0);
+    const auto resumed = Commands<CreateRenderEntity>();
+    ASSERT_EQ(resumed.size(), 2u);
+    EXPECT_EQ(resumed.back().id.scene, (SceneId{0, 3}));
+    EXPECT_FLOAT_EQ(clock->elapsed, 0.25f);
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, DefaultWorldWithoutACameraFailsExplicitly)
+{
+    PublishedGameWorld game;
+    game.world = World::CreateWorld();
+    game.world->CreateActor("Light")->AddComponent<PointLightComponent>();
+    module->Tick(0);
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi()->GetState(), RendererState::STOPPED);
+}
+
+TEST_F(LauncherSurfaceTest, ProviderOnlyDoesNotPublishALauncherSceneSource)
+{
+    module->Shutdown();
+    module = std::make_unique<AuroraModule>(std::make_unique<LauncherProvider>(trace), FileSystemPtr{});
+    StartArguments args;
+    args.values = {"Aurora.Render", "--aurora-provider-only"};
+    for (const auto &value : args.values) {
+        args.args.push_back(value.c_str());
+    }
+    ASSERT_TRUE(module->Init(args));
+    EXPECT_TRUE(
+        std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(nullptr))));
+    EXPECT_NE(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
+    module->Shutdown();
+    EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(LauncherSurfaceTest, FailedLauncherInitCannotRegisterOrPublishASession)
+{
+    module->Shutdown();
+    auto provider  = std::make_unique<HostProvider>();
+    provider->fail = true;
+    module         = std::make_unique<AuroraModule>(std::move(provider), FileSystemPtr{});
+    EXPECT_FALSE(module->Init({}));
+    EXPECT_TRUE(failed);
+    const auto result = module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(nullptr));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(result));
+    EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(LauncherSurfaceTest, CompetingSceneSourceIsNeitherReplacedNorUnregistered)
+{
+    class OtherSource final : public ILauncherSceneSource {
+    public:
+        std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::string_view, std::shared_ptr<ILauncherSceneSession>) override
+        {
+            return RendererError{RendererErrorCode::NOT_READY};
+        }
+        std::optional<RendererError> UnregisterSceneSession(LauncherSceneRegistration) override
+        {
+            return RendererError{RendererErrorCode::STALE_HANDLE};
+        }
+    } other;
+    auto *service = Interface<ILauncherSceneSource>::Get();
+    service->Register(other);
+    module->Shutdown();
+    EXPECT_EQ(service->GetApi(), &other);
+    module = std::make_unique<AuroraModule>(std::make_unique<LauncherProvider>(trace), FileSystemPtr{});
+    EXPECT_FALSE(module->Init({}));
+    EXPECT_EQ(service->GetApi(), &other);
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    module->Shutdown();
+    EXPECT_EQ(service->GetApi(), &other);
+    service->UnRegister();
+}
+
 TEST_F(LauncherSurfaceTest, PendingNativeBorrowStaysAliveThroughShutdownDrain)
 {
     std::weak_ptr<const void> old = window.RetainNativeHandle();
@@ -409,13 +746,13 @@ TEST_F(LauncherSurfaceTest, PendingNativeBorrowStaysAliveThroughShutdownDrain)
 TEST_F(LauncherSurfaceTest, CameraUpdatesDuringSurfaceLossAreCoalescedAndRebound)
 {
     float camera = 1;
-    module->SetSceneSource([&](FramePacket &packet, SceneId scene) {
+    RegisterSource([&](FramePacket &packet, const LauncherSceneContext &context) {
         ViewDesc description;
-        description.scene          = scene;
-        description.output         = {0, 1};
+        description.scene          = context.scene;
+        description.output         = context.output;
         description.cameraPosition = {camera, 2, 3};
-        packet.commands.push_back(UpdateView{{0, 1}, description, 1});
-        packet.extensions.push_back({.feature = Name("fixture"), .outputs = {{0, 1}}});
+        packet.commands.push_back(UpdateView{context.mainView, description, 0});
+        packet.extensions.push_back({.feature = Name("fixture"), .outputs = {context.output}});
     });
     module->Tick(0);
     window.SetSurface({});
@@ -487,7 +824,7 @@ TEST_F(LauncherSurfaceTest, SurfaceFailureRequestsReplacementWithoutStoppingTheL
 
 TEST_F(LauncherSurfaceTest, CloseFromSceneSourceDoesNotSubmitThePacketReentrantly)
 {
-    module->SetSceneSource([&](FramePacket &, SceneId) { module->OnWindowClose(&window); });
+    RegisterSource([&](FramePacket &, const LauncherSceneContext &) { module->OnWindowClose(&window); });
     module->Tick(0);
     EXPECT_EQ(Commands<CreateViewport>().size(), 1u);
     EXPECT_EQ(Commands<DestroyViewport>().size(), 1u);
@@ -549,6 +886,30 @@ namespace {
         std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *) override
         {
             ADD_FAILURE() << "UI pass has no scene extraction";
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Copy(BufferCopyPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Copy(BufferImageCopyPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Custom(FrameCustomPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Export(GraphBufferExport) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Export(GraphImageHandle) override
+        {
             return FrameError{FrameErrorCode::UNSUPPORTED};
         }
         std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) override

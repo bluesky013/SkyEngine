@@ -4,11 +4,12 @@
 
 #pragma once
 
-#include <algorithm>
 #include <core/environment/Singleton.h>
 #include <core/name/Name.h>
 #include <core/util/Uuid.h>
 #include <framework/world/Component.h>
+#include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace sky {
@@ -21,6 +22,7 @@ namespace sky {
             Uuid        typeId;
             std::string name;
             std::unique_ptr<ComponentBase> (*create)() = nullptr;
+            const TypeInfoRT *(*queryDataType)()       = nullptr;
             std::vector<Name>           requiredSubSystems;
             std::shared_ptr<const void> moduleLease;
         };
@@ -31,11 +33,25 @@ namespace sky {
             static_assert(std::is_base_of_v<ComponentBase, T>);
 
             const auto *info = TypeInfoObj<T>::Get()->RtInfo();
-
             SKY_ASSERT(Find(info->registeredId) == nullptr)
-            componentTypes[group].push_back({info->registeredId, std::string(info->name),
-                                             []() -> std::unique_ptr<ComponentBase> { return std::make_unique<T>(); }, std::move(requiredSubSystems),
-                                             SerializationContext::Get()->RetainModuleCode()});
+            componentTypes[group].push_back({
+                info->registeredId,
+                std::string(info->name),
+                []() -> std::unique_ptr<ComponentBase> {
+                    if constexpr (std::is_default_constructible_v<T>) {
+                        return std::make_unique<T>();
+                    }
+                    return {};
+                },
+                []() -> const TypeInfoRT * {
+                    if constexpr (requires { typename T::PersistentDataType; }) {
+                        return TypeInfoObj<typename T::PersistentDataType>::Get()->RtInfo();
+                    }
+                    return nullptr;
+                },
+                std::move(requiredSubSystems),
+                SerializationContext::Get()->RetainModuleCode(),
+            });
         }
 
         const ComponentInfo *Find(const Uuid &id) const
@@ -54,6 +70,12 @@ namespace sky {
         {
             const auto *info = Find(id);
             return info && info->create ? info->create() : nullptr;
+        }
+
+        const TypeInfoRT *GetPersistentDataType(const Uuid &id) const
+        {
+            const auto *info = Find(id);
+            return info && info->queryDataType ? info->queryDataType() : nullptr;
         }
 
         const std::unordered_map<std::string, std::vector<ComponentInfo>> &GetTypes() const

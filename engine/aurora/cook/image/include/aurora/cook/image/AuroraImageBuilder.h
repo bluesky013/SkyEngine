@@ -40,7 +40,7 @@ namespace sky::aurora {
         BuildSettingsOverride DiffSettings(const ProductBundleKey &bundle, const Any &edited) const override;
 
     private:
-        std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".hdr", ".ktx", ".image"};
+        std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".hdr", ".ktx"};
         cook::ImageBuildPresets  presets;
     };
 

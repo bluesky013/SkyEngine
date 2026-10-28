@@ -17,10 +17,6 @@ namespace sky::phy {
                 return ReadPhysicsText(archive.GetStream(), text) &&
                        static_cast<bool>(Parse(text, std::static_pointer_cast<Asset<T>>(asset)->Data()));
             }
-            void Save(OStreamArchive &archive, const AssetPtr &asset) override
-            {
-                SaveChecked(archive, asset);
-            }
             bool SaveChecked(OStreamArchive &archive, const AssetPtr &asset) override
             {
                 std::string text;

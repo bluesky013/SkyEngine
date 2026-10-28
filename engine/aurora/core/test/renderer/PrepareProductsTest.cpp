@@ -1,5 +1,6 @@
 #include "frame/CpuRenderCoordinator.h"
 #include "prepare/RenderObjectPrepare.h"
+#include <core/async/Completion.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -7,6 +8,7 @@
 #include <chrono>
 #include <future>
 #include <limits>
+#include <memory>
 #include <thread>
 
 using namespace sky;
@@ -123,6 +125,81 @@ TEST(PrepareProducts, MergeOrderAndOwnedPayloadMatchSerialDespiteReversedComplet
             EXPECT_EQ(output->records[i].origin.ordinal, i % 2);
         }
         EXPECT_TRUE(output->Read({{}, 7, std::numeric_limits<size_t>::max(), 1}).empty());
+    }
+}
+
+TEST(PrepareProducts, RepeatedCompletionDeliveryReleasesKernelCapturesAndRetiredProducts)
+{
+    const auto waitForRelease = [](const std::weak_ptr<const PrepareProducts> &products) {
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (!products.expired() && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::yield();
+        return products.expired();
+    };
+    for (uint32_t serial = 0; serial < 2; ++serial) {
+        CpuSceneStore store;
+        ASSERT_TRUE(store.Apply(Initial(4)).Succeeded());
+        ScenePrepareInit info;
+        info.workers = 2;
+        if (serial)
+            info.maxParallelNodes = 0;
+        auto scheduler = ScenePrepareScheduler::Create(info);
+        ASSERT_TRUE(scheduler.scheduler);
+        const auto executor = ContinuationExecutor::Create(1);
+        ASSERT_TRUE(executor);
+        std::weak_ptr<const PrepareProducts> previousProducts;
+        for (uint32_t iteration = 0; iteration < 256; ++iteration) {
+            SCOPED_TRACE(testing::Message() << "serial=" << serial << " iteration=" << iteration);
+            auto                          frame       = store.Freeze();
+            auto                          kernelProbe = std::make_shared<uint32_t>(iteration);
+            const std::weak_ptr<uint32_t> weakKernel  = kernelProbe;
+            ASSERT_TRUE(frame);
+            auto submitted = scheduler.scheduler->Submit(
+                *frame, {Reader()},
+                [probe = std::move(kernelProbe)](const FrozenPrepareContext &context) { EXPECT_TRUE(Emit(context, static_cast<uint8_t>(*probe))); },
+                {{1, scene, 2}}, {{1, 3072, 1024 * 1024, 0}});
+            ASSERT_TRUE(submitted.Accepted());
+            auto                                   callbackProbe = std::make_shared<uint32_t>(iteration);
+            const std::weak_ptr<uint32_t>          weakCallback  = callbackProbe;
+            std::shared_ptr<const PrepareProducts> consumer;
+            bool                                   delivered = false;
+            CompletionContinuation                 callback  = [group = submitted.group, probe = std::move(callbackProbe), &consumer,
+                                               &delivered](const CompletionResult &result) {
+                EXPECT_EQ(result.state, CompletionState::SUCCEEDED);
+                consumer = group->Wait().products;
+                ASSERT_TRUE(consumer);
+                EXPECT_EQ(Values(*consumer), (std::vector<uint8_t>{static_cast<uint8_t>(*probe), static_cast<uint8_t>(*probe)}));
+                delivered = true;
+            };
+            ASSERT_EQ(submitted.group->GetCompletion()->Subscribe(executor->Id(), callback), CompletionSubscribeResult::ACCEPTED);
+            EXPECT_FALSE(callback);
+            ASSERT_TRUE(submitted.group->Wait().Succeeded());
+            EXPECT_EQ(submitted.group->UsedSerialFallback(), serial != 0);
+            EXPECT_TRUE(weakKernel.expired());
+            EXPECT_FALSE(weakCallback.expired());
+            EXPECT_FALSE(delivered);
+            EXPECT_EQ(executor->Pump(true), ContinuationPumpResult::EXECUTED);
+            EXPECT_TRUE(delivered);
+            EXPECT_TRUE(weakCallback.expired());
+            EXPECT_TRUE(executor->IsDrained());
+            ASSERT_TRUE(waitForRelease(previousProducts));
+            previousProducts = consumer;
+            consumer.reset();
+            submitted.group.reset();
+            frame.reset();
+            EXPECT_FALSE(store.IsFrozen());
+            EXPECT_FALSE(previousProducts.expired());
+        }
+        auto frame = store.Freeze();
+        ASSERT_TRUE(frame);
+        auto replacement = scheduler.scheduler->Submit(*frame, {}, {});
+        ASSERT_TRUE(replacement.Accepted());
+        EXPECT_TRUE(replacement.group->Wait().Succeeded());
+        ASSERT_TRUE(waitForRelease(previousProducts));
+        frame.reset();
+        EXPECT_FALSE(store.IsFrozen());
+        executor->Close();
+        EXPECT_TRUE(executor->IsDrained());
     }
 }
 

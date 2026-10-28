@@ -1,7 +1,7 @@
 #pragma once
 
 #include <core/util/Uuid.h>
-#include <framework/asset/AssetProductGroup.h>
+#include <framework/asset/AssetProduct.h>
 
 #include <map>
 #include <span>
@@ -11,8 +11,6 @@ namespace sky {
     struct GeneratedAssetDescriptor {
         std::string key;
         std::string type;
-        // First-import migration only; the builder must verify the old product's identity.
-        Uuid verifiedLegacyId;
     };
 
     struct GeneratedAssetRecord {

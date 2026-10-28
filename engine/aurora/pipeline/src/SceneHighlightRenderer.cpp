@@ -4,6 +4,8 @@
 
 #include "SceneHighlightRenderer.h"
 
+#include <aurora/rdg/FrameBindings.h>
+
 #include "SceneBatch.h"
 #include "SelectionMaskPass.h"
 #include "SelectionOutlinePass.h"
@@ -160,9 +162,13 @@ namespace sky::aurora {
             draw.shader     = maskShader;
             draw.blend      = {};
             draw.depth      = {.test = true, .write = true};
-            draw.uniforms.clear();
-            draw.images.clear();
-            draw.samplers.clear();
+            auto retainedBindings = ResolveRasterBindings(draw);
+            retainedBindings.uniforms.clear();
+            retainedBindings.images.clear();
+            retainedBindings.samplers.clear();
+            result = SetRasterBindings(draw, std::move(retainedBindings));
+            if (const auto *error = std::get_if<FrameError>(&result))
+                return *error;
             const auto position = std::ranges::find_if(
                 draw.attributes, [](const auto &a) { return a.semantic == "POSITION" && a.semanticIndex == 0 && a.format == Format::F_RGB32; });
             if (position == draw.attributes.end())

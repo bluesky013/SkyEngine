@@ -17,6 +17,7 @@
 import argparse
 import json
 import os
+import posixpath
 import shutil
 import stat
 import subprocess
@@ -344,7 +345,8 @@ def collect_apple_package(engine, project_dir, preset, name):
         raise SystemExit('不完整的 Apple 应用包: {}'.format(app))
     if not development_preset(preset):
         strip_development_resources(resource_root)
-    stage_configs(engine, project_dir, resource_root / 'configs', development=development_preset(preset))
+    if not stage_configs(engine, project_dir, resource_root / 'configs', development=development_preset(preset)):
+        return None
     if stage_bundles(project_dir, preset, resource_root / 'products', engine) is None:
         return None
     suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
@@ -367,16 +369,26 @@ def find_asset_tool(engine):
 
 
 def run_cook(engine, project_dir, platform):
-    """Headless cook of the project's assets into <project>/products (AssetTool --cook-all)."""
+    """Rebuild all project products; failed cooks cannot leave deployable output."""
     tool = find_asset_tool(engine)
     if tool is None:
-        print('  (AssetTool not built; skipping cook - assets must be pre-cooked)')
+        print('Build AssetTool before packaging; a full asset cook is required', file=sys.stderr)
         return False
+    products = project_dir / 'products'
+    if products.is_symlink():
+        products.unlink()
+    elif products.exists():
+        shutil.rmtree(products)
     cmd = [str(tool), '--project', str(project_dir), '--engine', str(tool.parent), '--cook-all', '--platform', platform]
     print('cook: {}'.format(' '.join(cmd)))
     result = subprocess.run(cmd, cwd=str(tool.parent))
     if result.returncode != 0:
-        raise SystemExit('AssetTool cook 失败 (exit {})'.format(result.returncode))
+        if products.is_symlink():
+            products.unlink()
+        elif products.exists():
+            shutil.rmtree(products)
+        print('AssetTool cook failed (exit {})'.format(result.returncode), file=sys.stderr)
+        return False
     return True
 
 
@@ -422,24 +434,48 @@ def check_bundle_conflicts(bundles):
         seen.add(name)
 
 
-def collect_world_asset_roots(project_dir, preset):
+def canonical_world_reference(value):
+    if not isinstance(value, str) or '\0' in value or ':' in value:
+        return None
+    if not value:
+        return ''
+    path = posixpath.normpath(value.replace('\\', '/'))
+    return None if path in ('.', '..') or path.startswith(('/', '../')) else path
+
+
+def collect_world_documents(project_dir, preset):
     assets = (project_dir / 'assets').resolve()
-    worlds = ([assets / path for path in preset['worlds']] if preset.get('worlds')
-              else sorted(assets.rglob('*.world')))
+    selected = sorted(assets.rglob('*.world'))
+    if preset.get('worlds'):
+        if not isinstance(preset['worlds'], list):
+            return None, None, 'World selection must be an array of logical asset paths'
+        paths = [canonical_world_reference(path) for path in preset['worlds']]
+        if any(not path for path in paths):
+            return None, None, 'World selection must contain relative project asset paths'
+        selected = [assets / path for path in paths]
+    worlds = []
     roots = []
-    for world in worlds:
-        world = world.resolve()
-        if not world.is_relative_to(assets) or not world.is_file():
-            return None, 'World must be a project asset: {}'.format(world)
+    for world in selected:
+        world = Path(os.path.abspath(world))
+        if not world.is_relative_to(assets) or not world.resolve().is_relative_to(assets) or not world.is_file():
+            return None, None, 'World must be a project asset: {}'.format(world)
+        if world in worlds:
+            continue
         document = load_json(world)
         if not isinstance(document, dict) or not isinstance(document.get('assetRoots'), list):
-            return None, 'Re-save World in the editor to collect explicit asset roots: {}'.format(world)
+            return None, None, 'Re-save World in the editor to collect explicit asset roots: {}'.format(world)
         for reference in document['assetRoots']:
             if (not isinstance(reference, dict) or not isinstance(reference.get('uuid'), str)
                     or not reference['uuid'] or not isinstance(reference.get('type'), str) or not reference['type']):
-                return None, 'Malformed asset root in {}'.format(world)
+                return None, None, 'Malformed asset root in {}'.format(world)
             roots.append(dict(reference, world=world.relative_to(assets).as_posix()))
-    return roots, None
+        worlds.append(world)
+    return worlds, roots, None
+
+
+def collect_world_asset_roots(project_dir, preset):
+    _, roots, error = collect_world_documents(project_dir, preset)
+    return roots, error
 
 
 def stage_bundles(project_dir, preset, dest_products_dir, engine=None):
@@ -458,9 +494,19 @@ def stage_bundles(project_dir, preset, dest_products_dir, engine=None):
     if destination == project or destination in project.parents or destination.is_relative_to(project / 'products'):
         print('Package destination must not replace project files or cooked products', file=sys.stderr)
         return None
-    roots, error = collect_world_asset_roots(project_dir, preset)
+    worlds, _, error = collect_world_documents(project_dir, preset)
     if error:
         print(error, file=sys.stderr)
+        return None
+    assets = (project_dir / 'assets').resolve()
+    roots = [{'path': world.relative_to(assets).as_posix(), 'type': 'World'} for world in worlds]
+    descriptor = optional_descriptor(project_dir)
+    default_scene = canonical_world_reference(descriptor.get('defaultScene', ''))
+    if default_scene is None:
+        print('Default World must be a relative project asset path', file=sys.stderr)
+        return None
+    if default_scene and default_scene not in {root['path'] for root in roots}:
+        print('Default World must be selected for packaging: ' + default_scene, file=sys.stderr)
         return None
     tool = find_asset_tool(engine or REPO_ROOT) if roots else None
     if roots and tool is None:
@@ -472,7 +518,8 @@ def stage_bundles(project_dir, preset, dest_products_dir, engine=None):
     for name in bundles:
         src = project_dir / 'products' / name
         if src.is_dir():
-            shutil.copytree(src, dest_products_dir / name, dirs_exist_ok=True)
+            shutil.copytree(src, dest_products_dir / name, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns('product.lock', '*.tmp'))
         else:
             print('  (bundle "{}" not cooked; skipped copy)'.format(name))
     distribution = preset.get('name') or preset.get('platform', 'default')
@@ -498,6 +545,10 @@ def stage_bundles(project_dir, preset, dest_products_dir, engine=None):
     return bundles
 
 
+def optional_descriptor(project_dir):
+    return load_descriptor(project_dir)[1] if any(project_dir.glob('*.skyproj')) else {}
+
+
 def stage_configs(engine, project_dir, dest_configs_dir, development=True):
     """Ship startup configuration in the read-only package; project files win."""
     if dest_configs_dir.exists():
@@ -512,13 +563,25 @@ def stage_configs(engine, project_dir, dest_configs_dir, development=True):
         notices.mkdir(parents=True, exist_ok=True)
         shutil.copy2(jolt_license, notices / 'Jolt.txt')
     startup = dest_configs_dir / 'modules_game.json'
-    if not development and startup.is_file():
+    if startup.is_file():
         data = load_json(startup, {})
-        excluded = {'Aurora.ShaderCompiler', 'Aurora.Cook'}
-        data['modules'] = [module for module in data.get('modules', []) if module.get('name') not in excluded]
-        for module in data['modules']:
-            module['dependencies'] = [name for name in module.get('dependencies', []) if name not in excluded]
+        if not isinstance(data, dict) or not isinstance(data.get('game', {}), dict):
+            print('Game configuration must contain object-shaped startup settings', file=sys.stderr)
+            return False
+        descriptor = optional_descriptor(project_dir)
+        if descriptor:
+            default_scene = canonical_world_reference(descriptor.get('defaultScene', ''))
+            if default_scene is None:
+                print('Default World must be a relative project asset path', file=sys.stderr)
+                return False
+            data.setdefault('game', {})['defaultScene'] = default_scene
+        if not development:
+            excluded = {'Aurora.ShaderCompiler', 'Aurora.Cook'}
+            data['modules'] = [module for module in data.get('modules', []) if module.get('name') not in excluded]
+            for module in data['modules']:
+                module['dependencies'] = [name for name in module.get('dependencies', []) if name not in excluded]
         startup.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return True
 
 
 def strip_development_resources(destination):
@@ -640,9 +703,11 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
         instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
         if not development_preset(preset):
             strip_development_resources(out_dir / 'app' / 'src' / 'main' / 'assets')
-        stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs',
-                      development=development_preset(preset))
-        run_cook(engine, project_dir, 'android')
+        if not stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs',
+                             development=development_preset(preset)):
+            return 1
+        if not run_cook(engine, project_dir, 'android'):
+            return 1
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
         if stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products', engine) is None:
@@ -658,7 +723,8 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
                 # Reuse compiled objects, but never ship libraries/resources left
                 # by a previous preset or disabled plugin.
                 shutil.rmtree(old_app)
-        run_cook(engine, project_dir, platform)
+        if not run_cook(engine, project_dir, platform):
+            return 1
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
         run_cmake_preset(engine, project_dir, platform, build=build,
@@ -731,17 +797,16 @@ def cmd_stage_runtime(args):
     project, _ = load_descriptor(args.project)
     project_dir = project.parent
     destination = Path(args.destination)
-    if args.development:
-        stage_configs(engine, project_dir, destination / 'configs')
-        return 0
     preset = find_preset(project_dir, args.distribution)
     manifest = project_dir / 'products/shaders' / args.distribution / 'distribution.json'
-    if not manifest.is_file():
+    if not args.development and not manifest.is_file():
         print('Shader distribution has not been cooked: ' + args.distribution, file=sys.stderr)
         return 1
-    strip_development_resources(destination)
-    stage_configs(engine, project_dir, destination / 'configs', development=False)
-    return 0 if stage_bundles(project_dir, preset, destination / 'products') else 1
+    if not args.development:
+        strip_development_resources(destination)
+    if not stage_configs(engine, project_dir, destination / 'configs', development=args.development):
+        return 1
+    return 0 if stage_bundles(project_dir, preset, destination / 'products', engine) else 1
 
 
 def main():

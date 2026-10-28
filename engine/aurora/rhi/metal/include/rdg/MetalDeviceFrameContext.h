@@ -5,8 +5,6 @@
 namespace sky::aurora {
     class MetalDevice;
 
-    // Serial Metal frame compiler for the offscreen subset (clear + copy +
-    // readback). Draws, compute and custom passes remain explicit Unsupported.
     class MetalDeviceFrameContext final : public BackendFrameContext {
     public:
         explicit MetalDeviceFrameContext(MetalDevice *device) : device(device) {}
@@ -18,6 +16,8 @@ namespace sky::aurora {
         FrameBufferStorageResult CreateFrameBuffer(const Buffer::Descriptor &) override;
 
         MetalDevice *device = nullptr;
+        const BackendCompiledFrame *issuedPlan = nullptr;
+        CompiledFrameIdentity       issuedIdentity;
     };
 
 } // namespace sky::aurora

@@ -4,11 +4,17 @@
 #include <VulkanBuffer.h>
 #include <VulkanImage.h>
 #include <VulkanPipelineState.h>
+#include <aurora/rdg/FrameBindings.h>
 #include <map>
 #include <optional>
 #include <tuple>
 
 namespace sky::aurora {
+    class VulkanShader;
+    struct VulkanResourceAccess {
+        VkPipelineStageFlags2 stage  = 0;
+        VkAccessFlags2        access = 0;
+    };
     struct VulkanBarriers {
         std::vector<VkBufferMemoryBarrier2> buffers;
         std::vector<VkImageMemoryBarrier2>  images;
@@ -35,6 +41,10 @@ namespace sky::aurora {
         ~VulkanGraphImageView();
         VulkanDevice &device;
         VkImageView   view = VK_NULL_HANDLE;
+    };
+    struct VulkanFrameBindings {
+        std::vector<VulkanDescriptorSet>                   sets;
+        std::vector<std::shared_ptr<VulkanGraphImageView>> views;
     };
     struct VulkanDraw {
         CounterPtr<VulkanGraphicsPipeline>                 pipeline;
@@ -76,9 +86,13 @@ namespace sky::aurora {
                                                                          VkExtent2D,
                                                                          PixelFormat,
                                                                          const SubpassInfo *);
-    std::variant<FrameError, VulkanComputeStep>
-    ResolveVulkanCompute(VulkanDevice &, VulkanDeviceFrameContext &, const DeviceFrameLease &, VulkanGraphResources &, const FrameComputePass &);
-    FrameError VulkanFrameError(VkResult, FrameErrorCode) noexcept;
+    std::variant<FrameError, VulkanComputeStep>       ResolveVulkanCompute(VulkanDevice &,
+                                                                           VulkanDeviceFrameContext &,
+                                                                           const DeviceFrameLease &,
+                                                                           VulkanGraphResources &,
+                                                                           const FrameComputePass &,
+                                                                           const FramePassResourceUses &);
+    FrameError                                        VulkanFrameError(VkResult, FrameErrorCode) noexcept;
 
     // Allocation helpers and access tracking; each compiler decides scopes, transitions and command order.
     class VulkanGraphResources {
@@ -86,18 +100,21 @@ namespace sky::aurora {
         VulkanGraphResources(VulkanDevice &device, const FrameGraphData &data, uint64_t epoch) : epoch(epoch), device(device), data(data)
         {
         }
-        std::optional<FrameError>                                       Resolve(const FrameGraphAnalysis &);
-        std::variant<FrameError, VulkanTransferStep>                    Copy(const BufferCopyPass &);
-        std::variant<FrameError, VulkanTransferStep>                    Copy(const BufferImageCopyPass &);
-        std::variant<FrameError, VulkanCustomStep>                      Custom(const FrameCustomPass &);
-        std::optional<FrameError>                                       RasterInputs(const FrameRasterPass &, VulkanBarriers &);
-        std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> SampledView(const RasterImageBinding &);
-        std::variant<FrameError, RasterImageView>                       ResolveDeclaredView(const FrameImageBinding &, bool storage = false) const;
+        std::optional<FrameError>                    Resolve(const FrameGraphAnalysis &);
+        std::variant<FrameError, VulkanTransferStep> Copy(const BufferCopyPass &, const FramePassResourceUses &);
+        std::variant<FrameError, VulkanTransferStep> Copy(const BufferImageCopyPass &, const FramePassResourceUses &);
+        std::variant<FrameError, VulkanCustomStep>   Custom(const FrameCustomPass &, const FramePassResourceUses &);
+        std::optional<FrameError>                    RasterInputs(const FramePassResourceUses &, VulkanBarriers &);
+        std::optional<FrameError>                    ShaderInputs(const FramePassResourceUses &, VulkanBarriers &);
+        void                                         TransferInputs(const FramePassResourceUses &, VulkanBarriers &);
+        std::variant<FrameError, VulkanFrameBindings>
+        ResolveBindings(VulkanDeviceFrameContext &, const DeviceFrameLease &, VulkanShader &, const FrameBindingGroups &);
+        std::variant<FrameError, RasterImageView> ResolveDeclaredView(const FrameImageBinding &, bool storage = false) const;
         // The range must already be normalized and validated against this image.
         std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> ImageView(uint32_t, const RasterImageView &);
         std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> AttachmentView(GraphImageHandle, const RasterAttachmentView &);
         void        ImageBarrier(uint32_t, ImageLayout target, VulkanBarriers &, const ImageSubRange &range = {});
-        void        BufferBarrier(uint32_t, CopyBufferState target, VulkanBarriers &);
+        void        BufferBarrier(uint32_t, CopyBufferState target, VulkanBarriers &, VkPipelineStageFlags2 stages = 0, VkAccessFlags2 access = 0);
         void        Finish(const FrameGraphAnalysis &, VulkanBarriers &);
         ImageLayout GetImageState(uint32_t index, uint32_t subresource) const
         {
@@ -115,9 +132,10 @@ namespace sky::aurora {
         uint64_t                              epoch;
         VulkanDevice                         &device;
         const FrameGraphData                 &data;
-        std::vector<CopyBufferState>          bufferStates;
+        std::vector<VulkanResourceAccess>     bufferStates;
         std::vector<std::vector<ImageLayout>> imageStates;
         using ViewKey = std::tuple<uint32_t, ImageViewType, uint32_t, uint32_t, uint32_t, uint32_t>;
-        std::map<ViewKey, std::shared_ptr<VulkanGraphImageView>> imageViews;
+        std::map<ViewKey, std::shared_ptr<VulkanGraphImageView>>                        imageViews;
+        std::map<const FrameBindingGroup *, VulkanFrameBindings, FrameBindingGroupLess> bindingGroups;
     };
 } // namespace sky::aurora

@@ -86,6 +86,30 @@ namespace {
         {
             return Unsupported();
         }
+        std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Copy(BufferCopyPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Copy(BufferImageCopyPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Custom(FrameCustomPass) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Export(GraphBufferExport) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
+        FrameOperationResult Export(GraphImageHandle) override
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED};
+        }
         std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) override
         {
             return Unsupported();
@@ -138,10 +162,10 @@ TEST(PassResourceBindings, CompleteBindingsFollowActualShaderOrder)
     PassResourceBindings bindings(shared::GetTextureToScreenPassReflection());
     BindAll(bindings);
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(Apply(draw, bindings)));
-    ASSERT_EQ(draw.uniforms.size(), 1u);
-    ASSERT_EQ(draw.images.size(), 1u);
-    ASSERT_EQ(draw.samplers.size(), 1u);
-    EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+    ASSERT_EQ(ResolveRasterBindings(draw).uniforms.size(), 1u);
+    ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+    ASSERT_EQ(ResolveRasterBindings(draw).samplers.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).images.front().image, (GraphImageHandle{1, 1}));
     EXPECT_EQ(draw.command.vertexCount, 7u);
 }
 
@@ -164,9 +188,10 @@ TEST(PassResourceBindings, GlobalPassAndBatchComposeWithoutAViewTier)
     BindAll(pass);
     const PassResourceBindings *groups[]{&global, &pass, &batch};
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(draw, groups)));
-    ASSERT_EQ(draw.uniforms.size(), 3u);
+    ASSERT_EQ(ResolveRasterBindings(draw).uniforms.size(), 3u);
+    const auto bound = ResolveRasterBindings(draw);
     for (const uint32_t set : {0u, 1u, shared::SceneBatchBindings::gSceneBatch.set})
-        EXPECT_EQ(std::count_if(draw.uniforms.begin(), draw.uniforms.end(), [&](const auto &uniform) { return uniform.set == set; }), 1);
+        EXPECT_EQ(std::count_if(bound.uniforms.begin(), bound.uniforms.end(), [&](const auto &uniform) { return uniform.set == set; }), 1);
 }
 
 TEST(PassResourceBindings, ShaderVariantCanOmitUnusedDeclarations)
@@ -178,9 +203,9 @@ TEST(PassResourceBindings, ShaderVariantCanOmitUnusedDeclarations)
     PassResourceBindings bindings(shared::GetTextureToScreenPassReflection());
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(bindings.Uniform(Slots::gTextureToScreen, UniformRange())));
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(Apply(draw, bindings)));
-    EXPECT_EQ(draw.uniforms.size(), 1u);
-    EXPECT_TRUE(draw.images.empty());
-    EXPECT_TRUE(draw.samplers.empty());
+    EXPECT_EQ(ResolveRasterBindings(draw).uniforms.size(), 1u);
+    EXPECT_TRUE(ResolveRasterBindings(draw).images.empty());
+    EXPECT_TRUE(ResolveRasterBindings(draw).samplers.empty());
 }
 
 TEST(PassResourceBindings, MissingBindingsLeaveExistingDrawUnchanged)
@@ -189,7 +214,7 @@ TEST(PassResourceBindings, MissingBindingsLeaveExistingDrawUnchanged)
         SCOPED_TRACE(missing);
         RasterDraw draw;
         draw.shader = new ReflectedShader(shared::GetTextureToScreenPassReflection());
-        draw.images.push_back({8, 9, {7, 6}, {}});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, RasterBindingDraft{.images = {{1, 9, {7, 6}, {}}}})));
         PassResourceBindings bindings(shared::GetTextureToScreenPassReflection());
         if (missing != 0)
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(bindings.Uniform(Slots::gTextureToScreen, UniformRange())));
@@ -198,10 +223,10 @@ TEST(PassResourceBindings, MissingBindingsLeaveExistingDrawUnchanged)
         if (missing != 2)
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(bindings.Sampler(Slots::gSourceSampler, SamplerPtr(new Sampler))));
         EXPECT_TRUE(std::holds_alternative<FrameError>(Apply(draw, bindings)));
-        EXPECT_TRUE(draw.uniforms.empty());
-        ASSERT_EQ(draw.images.size(), 1u);
-        EXPECT_EQ(draw.images.front().image, (GraphImageHandle{7, 6}));
-        EXPECT_EQ(draw.images.front().binding, 9u);
+        EXPECT_TRUE(ResolveRasterBindings(draw).uniforms.empty());
+        ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+        EXPECT_EQ(ResolveRasterBindings(draw).images.front().image, (GraphImageHandle{7, 6}));
+        EXPECT_EQ(ResolveRasterBindings(draw).images.front().binding, 9u);
     }
 }
 
@@ -222,10 +247,10 @@ TEST(PassResourceBindings, RejectsWrongSlotsDuplicatesAndInvalidRanges)
     EXPECT_TRUE(std::holds_alternative<FrameError>(bindings.Uniform(Slots::gTextureToScreen, UniformRange())));
     RasterDraw draw;
     draw.shader = new ReflectedShader(shared::GetTextureToScreenPassReflection());
-    draw.images.push_back({8, 9, {7, 6}, {}});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, RasterBindingDraft{.images = {{1, 9, {7, 6}, {}}}})));
     EXPECT_TRUE(std::holds_alternative<FrameError>(Apply(draw, bindings)));
-    ASSERT_EQ(draw.images.size(), 1u);
-    EXPECT_EQ(draw.images.front().binding, 9u);
+    ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).images.front().binding, 9u);
     PassResourceBindings valid(shared::GetTextureToScreenPassReflection());
     BindAll(valid);
     EXPECT_TRUE(std::holds_alternative<FrameError>(valid.Image(Slots::gSourceTexture, {1, 2})));
@@ -258,7 +283,7 @@ TEST(PassResourceBindings, RejectsShaderShapeLayoutAndDynamicPolicyConflicts)
         PassResourceBindings bindings(shared::GetTextureToScreenPassReflection());
         BindAll(bindings);
         EXPECT_TRUE(std::holds_alternative<FrameError>(Apply(draw, bindings)));
-        EXPECT_TRUE(draw.uniforms.empty());
+        EXPECT_TRUE(ResolveRasterBindings(draw).uniforms.empty());
     }
 }
 
@@ -319,13 +344,13 @@ TEST(PassResourceBindings, NamedGraphAdapterUsesTheSharedTransactionAndUploadsOn
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(context, draw, groups)));
     ASSERT_EQ(context.uploads.size(), 1u);
     EXPECT_EQ(context.uploads.front(), packet->uniforms.front().bytes);
-    ASSERT_EQ(draw.images.size(), 1u);
-    EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+    ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).images.front().image, (GraphImageHandle{1, 1}));
     context.failUpload = true;
     EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
     EXPECT_EQ(context.uploads.size(), 1u);
-    ASSERT_EQ(draw.images.size(), 1u);
-    EXPECT_EQ(draw.images.front().image, (GraphImageHandle{1, 1}));
+    ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).images.front().image, (GraphImageHandle{1, 1}));
 }
 
 TEST(PassResourceBindings, StorageTransactionsPreserveExactRangesAndLeaveDrawsIntactOnFailure)
@@ -345,16 +370,16 @@ TEST(PassResourceBindings, StorageTransactionsPreserveExactRangesAndLeaveDrawsIn
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(batch.Storage(shared::SkinningBatchBindings::gSkinningPalette, range)));
     const PassResourceBindings *groups[]{&material, &batch};
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(context, draw, groups)));
-    ASSERT_EQ(draw.storage.size(), 1u);
-    EXPECT_EQ(draw.storage.front().range.offset, range.offset);
-    EXPECT_EQ(draw.storage.front().range.size, range.size);
+    ASSERT_EQ(ResolveRasterBindings(draw).storage.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).storage.front().range.offset, range.offset);
+    EXPECT_EQ(ResolveRasterBindings(draw).storage.front().range.size, range.size);
     PassResourceBindings invalid(shared::GetSkinningBatchReflection());
     EXPECT_TRUE(std::holds_alternative<FrameError>(invalid.Storage(shared::SkinningBatchBindings::gSkinningPalette, {{1, 3}, 0, 1})));
     groups[1] = &invalid;
     EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
-    ASSERT_EQ(draw.storage.size(), 1u);
-    EXPECT_EQ(draw.storage.front().range.offset, range.offset);
-    EXPECT_EQ(draw.storage.front().range.size, range.size);
+    ASSERT_EQ(ResolveRasterBindings(draw).storage.size(), 1u);
+    EXPECT_EQ(ResolveRasterBindings(draw).storage.front().range.offset, range.offset);
+    EXPECT_EQ(ResolveRasterBindings(draw).storage.front().range.size, range.size);
 }
 
 TEST(PassResourceBindings, SharedTransactionRejectsWrongTypesAndOverlappingProvidersBeforeUpload)
@@ -375,12 +400,12 @@ TEST(PassResourceBindings, SharedTransactionRejectsWrongTypesAndOverlappingProvi
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(values.Sampler(Name("gSourceSampler"), SamplerPtr(new Sampler))));
         RasterDraw draw;
         draw.shader = shader;
-        draw.images.push_back({8, 9, {7, 6}, {}});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, RasterBindingDraft{.images = {{1, 9, {7, 6}, {}}}})));
         ParameterFrameContext       context;
         const PassResourceBindings *groups[]{&values};
         EXPECT_TRUE(std::holds_alternative<FrameError>(PassResourceBindings::Apply(context, draw, groups)));
         EXPECT_TRUE(context.uploads.empty());
-        ASSERT_EQ(draw.images.size(), 1u);
-        EXPECT_EQ(draw.images.front().binding, 9u);
+        ASSERT_EQ(ResolveRasterBindings(draw).images.size(), 1u);
+        EXPECT_EQ(ResolveRasterBindings(draw).images.front().binding, 9u);
     }
 }

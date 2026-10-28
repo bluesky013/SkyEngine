@@ -4,9 +4,58 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <memory>
 
 using namespace sky;
 using namespace std::chrono_literals;
+
+TEST(TaskDispatcher, DrainReleasesSmallSharedCapturesForEmptyAndNonemptyBatches)
+{
+    ThreadPool pool(1);
+    for (const bool empty : {true, false}) {
+        SCOPED_TRACE(empty ? "empty" : "nonempty");
+        TaskDispatcher graph;
+        if (!empty)
+            graph.CreateTask([](ThreadContext &) {});
+        auto                     captured  = std::make_shared<int>(7);
+        const std::weak_ptr<int> lifetime  = captured;
+        auto                     submitted = graph.Submit(pool, [captured](DispatchState state) {
+            EXPECT_EQ(state, DispatchState::SUCCEEDED);
+            EXPECT_EQ(*captured, 7);
+        });
+        captured.reset();
+        ASSERT_TRUE(submitted.Accepted());
+        ASSERT_EQ(submitted.completion.wait_for(5s), std::future_status::ready);
+        EXPECT_EQ(submitted.completion.get(), DispatchState::SUCCEEDED);
+        pool.WaitIdle();
+        EXPECT_TRUE(lifetime.expired());
+    }
+}
+
+TEST(TaskDispatcher, DrainCanDestroyItsDispatcherOwnerBeforeCompletionNotification)
+{
+    struct Owner {
+        TaskDispatcher graph;
+    };
+    ThreadPool                 pool(1);
+    auto                       owner    = std::make_shared<Owner>();
+    const std::weak_ptr<Owner> lifetime = owner;
+    std::promise<void>         release;
+    const auto                 gate = release.get_future().share();
+    owner->graph.CreateTask([gate](ThreadContext &) { EXPECT_EQ(gate.wait_for(5s), std::future_status::ready); });
+    auto submitted = owner->graph.Submit(pool, [pin = owner](DispatchState state) mutable {
+        EXPECT_EQ(state, DispatchState::SUCCEEDED);
+        EXPECT_EQ(pin->graph.Clear(), DispatchError::NONE);
+        pin.reset();
+    });
+    ASSERT_TRUE(submitted.Accepted());
+    owner.reset();
+    release.set_value();
+    ASSERT_EQ(submitted.completion.wait_for(5s), std::future_status::ready);
+    EXPECT_EQ(submitted.completion.get(), DispatchState::SUCCEEDED);
+    pool.WaitIdle();
+    EXPECT_TRUE(lifetime.expired());
+}
 
 TEST(TaskDispatcher, FailuresSkipDependentsAndDrainIndependentNodes)
 {

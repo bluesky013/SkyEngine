@@ -22,44 +22,34 @@ namespace sky::editor {
     namespace {
         namespace uc = uidraw;
 
-        constexpr float    kRowHeight    = 20.0f;
-        constexpr float    kCrumbHeight  = 22.0f;
-        constexpr float    kDetailHeight = 260.0f; // details-pane max height (shares the panel below this)
-        constexpr uint32_t kTextSize     = 12;
-
-        constexpr float kTileWidth  = 84.0f;
-        constexpr float kTileHeight = 84.0f;
-        constexpr float kTileGap    = 8.0f;
-        constexpr float kIconSize   = 52.0f;
-
-        int TileColumns(const sky::ui::UIRect &r)
+        int TileColumns(const sky::ui::UIRect &r, const UiMetrics &m)
         {
-            const float inner = r.right - r.left - kTileGap * 2.0f;
-            const int   cols  = static_cast<int>((inner + kTileGap) / (kTileWidth + kTileGap));
+            const float inner = r.Width() - m.itemSpacing * 2.0f;
+            const int   cols  = static_cast<int>((inner + m.itemSpacing) / (m.assetTileSize + m.itemSpacing));
             return cols < 1 ? 1 : cols;
         }
 
-        sky::ui::UIRect TileRect(const sky::ui::UIRect &r, int index, int cols)
+        sky::ui::UIRect TileRect(const sky::ui::UIRect &r, int index, int cols, const UiMetrics &m)
         {
             const int   row = index / cols;
             const int   col = index % cols;
-            const float x   = r.left + kTileGap + static_cast<float>(col) * (kTileWidth + kTileGap);
-            const float y   = r.top + kTileGap + static_cast<float>(row) * (kTileHeight + kTileGap);
-            return {x, y, x + kTileWidth, y + kTileHeight};
+            const float x   = r.left + m.itemSpacing + static_cast<float>(col) * (m.assetTileSize + m.itemSpacing);
+            const float y   = r.top + m.itemSpacing + static_cast<float>(row) * (m.assetTileSize + m.itemSpacing);
+            return {x, y, x + m.assetTileSize, y + m.assetTileSize};
         }
 
-        int TileAt(const sky::ui::UIRect &r, float x, float y, int cols, int count)
+        int TileAt(const sky::ui::UIRect &r, float x, float y, int cols, int count, const UiMetrics &m)
         {
-            if (x < r.left || x > r.right || y < r.top || y > r.bottom) {
+            if (!r.Contains(x, y) || x < r.left + m.itemSpacing || y < r.top + m.itemSpacing) {
                 return -1;
             }
-            const int col = static_cast<int>((x - r.left - kTileGap) / (kTileWidth + kTileGap));
-            const int row = static_cast<int>((y - r.top - kTileGap) / (kTileHeight + kTileGap));
+            const int col = static_cast<int>((x - r.left - m.itemSpacing) / (m.assetTileSize + m.itemSpacing));
+            const int row = static_cast<int>((y - r.top - m.itemSpacing) / (m.assetTileSize + m.itemSpacing));
             if (col < 0 || col >= cols || row < 0) {
                 return -1;
             }
             const int index = row * cols + col;
-            return (index >= 0 && index < count) ? index : -1;
+            return index < count && TileRect(r, index, cols, m).Contains(x, y) ? index : -1;
         }
 
         const char *CookStateLabel(AssetCookState state)
@@ -141,21 +131,24 @@ namespace sky::editor {
 
     AssetBrowserPanel::Layout AssetBrowserPanel::ComputeLayout() const
     {
-        Layout                 layout;
-        const sky::ui::UIRect &content = GetBounds();
-        layout.content                 = content;
-        layout.rowHeight               = kRowHeight;
+        const UiTheme        &theme = GetDefaultUiTheme();
+        const UiMetrics      &m     = theme.metrics;
+        Layout                layout;
+        const sky::ui::UIRect content = UiSkin(theme, textSystem).PanelContentRect(GetBounds(), titleVisible);
+        layout.content                = content;
+        layout.rowHeight              = m.rowHeight;
 
         const float mid = content.left + (content.right - content.left) * 0.42f;
 
-        // Details pane shares the panel height (the bottom dock is short); clamp so the reflected
-        // settings form always keeps usable space above/below.
-        const float contentHeight = content.bottom - content.top;
-        const float detailHeight  = std::clamp(contentHeight * 0.6f, 120.0f, kDetailHeight);
-        const float listBottom    = content.bottom - detailHeight;
+        // Selection must not move a tile between the two clicks of a double-click.
+        const float contentHeight = std::max(0.0f, content.Height());
+        const float listHeight    = m.listHeaderHeight + m.itemSpacing * 2.0f + m.assetTileSize;
+        const float detailHeight =
+            std::min({contentHeight * 0.6f, m.rowHeight * 5.0f + m.panelGap * 2.0f, std::max(0.0f, contentHeight - listHeight)});
+        const float listBottom = content.bottom - detailHeight;
 
-        layout.tree   = {content.left, content.top + kCrumbHeight, mid - 2.0f, listBottom};
-        layout.items  = {mid + 2.0f, content.top + kCrumbHeight, content.right, listBottom};
+        layout.tree   = {content.left, content.top + m.listHeaderHeight, mid - m.checkboxPad, listBottom};
+        layout.items  = {mid + m.checkboxPad, content.top + m.listHeaderHeight, content.right, listBottom};
         layout.detail = {content.left, listBottom, content.right, content.bottom};
         return layout;
     }
@@ -315,8 +308,13 @@ namespace sky::editor {
             {"asset.delete", "Delete", item.writable},
         };
 
-        const float width  = 170.0f;
-        const float height = static_cast<float>(menuEntries.size()) * kRowHeight + 6.0f;
+        const UiTheme   &theme = GetDefaultUiTheme();
+        const UiMetrics &m     = theme.metrics;
+        float            width = m.popupMinWidth;
+        for (const auto &entry : menuEntries) {
+            width = std::max(width, uc::TextWidth(entry.label, theme.fonts.label, textSystem) + m.controlPad * 2.0f);
+        }
+        const float height = static_cast<float>(menuEntries.size()) * m.popupItemHeight + m.panelGap * 2.0f;
         menuRect           = {x, y, x + width, y + height};
         menuOpen           = true;
         hoverMenuIndex     = -1;
@@ -327,7 +325,10 @@ namespace sky::editor {
         if (!menuOpen || x < menuRect.left || x > menuRect.right || y < menuRect.top || y > menuRect.bottom) {
             return -1;
         }
-        const int index = static_cast<int>((y - menuRect.top - 3.0f) / kRowHeight);
+        const UiMetrics &m = GetDefaultUiTheme().metrics;
+        if (y < menuRect.top + m.panelGap)
+            return -1;
+        const int index = static_cast<int>((y - menuRect.top - m.panelGap) / m.popupItemHeight);
         if (index < 0 || index >= static_cast<int>(menuEntries.size()) || !menuEntries[index].enabled) {
             return -1;
         }
@@ -351,12 +352,16 @@ namespace sky::editor {
 
     void AssetBrowserPanel::OnPaint(sky::ui::UIPaintContext &context)
     {
-        UiSkin     skin(GetDefaultUiTheme(), textSystem);
-        const auto content = skin.DrawPanel(context, GetBounds(), title, titleVisible);
+        const UiTheme   &theme    = GetDefaultUiTheme();
+        const UiMetrics &m        = theme.metrics;
+        const uint32_t   textSize = theme.fonts.label;
+        UiSkin           skin(theme, textSystem);
+        const auto       content = skin.DrawPanel(context, GetBounds(), title, titleVisible);
 
         if (catalog == nullptr) {
-            uc::Text(context, "(asset catalog unavailable)", kTextSize,
-                     {content.left + 8.0f, content.top, content.right - 8.0f, content.top + kRowHeight}, uc::color::TextMuted, textSystem);
+            uc::Text(context, "(asset catalog unavailable)", textSize,
+                     {content.left + m.controlPad, content.top, content.right - m.controlPad, content.top + m.rowHeight}, uc::color::TextMuted,
+                     textSystem);
             return;
         }
 
@@ -366,44 +371,45 @@ namespace sky::editor {
         }
 
         const Layout layout = ComputeLayout();
-        (void)layout;
 
         // Breadcrumb.
         {
-            const sky::ui::UIRect crumb{content.left, content.top, content.right, content.top + kCrumbHeight};
+            const sky::ui::UIRect crumb{content.left, content.top, content.right, content.top + m.listHeaderHeight};
             uc::Fill(context, crumb, uc::color::Section);
-            uc::Text(context, currentPath.empty() ? "/" : currentPath, kTextSize, {crumb.left + 6.0f, crumb.top, crumb.right - 6.0f, crumb.bottom},
-                     uc::color::Text, textSystem);
+            uc::Text(context, currentPath.empty() ? "/" : currentPath, textSize,
+                     {crumb.left + m.cellPadding, crumb.top, crumb.right - m.cellPadding, crumb.bottom}, uc::color::Text, textSystem);
         }
 
         // Folder tree (left): collapsible virtual-path hierarchy.
         {
             const auto &tree = layout.tree;
             uc::Fill(context, tree, uc::color::Panel);
-            float y = tree.top + 2.0f;
+            float y = tree.top + m.checkboxPad;
             for (const auto &row : treeCache) {
-                if (y + kRowHeight > tree.bottom) {
+                if (y + layout.rowHeight > tree.bottom) {
                     break;
                 }
-                const sky::ui::UIRect rowRect{tree.left + 2.0f, y, tree.right - 2.0f, y + kRowHeight};
+                const sky::ui::UIRect rowRect{tree.left + m.checkboxPad, y, tree.right - m.checkboxPad, y + layout.rowHeight};
                 if (row.path == currentPath) {
                     uc::Fill(context, rowRect, uc::color::RowSelected);
                 }
-                const float       indent = tree.left + 6.0f + static_cast<float>(row.depth) * 12.0f;
+                const float       indent = tree.left + m.cellPadding + static_cast<float>(row.depth) * m.indentX;
                 const std::string arrow  = row.hasChildren ? (row.expanded ? "v " : "> ") : "  ";
-                uc::Text(context, arrow + row.name, kTextSize, {indent, y, tree.right - 4.0f, y + kRowHeight}, uc::color::Text, textSystem);
-                y += kRowHeight;
+                uc::Text(context, arrow + row.name, textSize, {indent, y, tree.right - m.controlPad, y + layout.rowHeight}, uc::color::Text,
+                         textSystem);
+                y += layout.rowHeight;
             }
         }
 
         // Item view (right): thumbnail icon tiles.
         {
             const auto &items = layout.items;
+            context.PushClip(items);
             uc::Fill(context, items, uc::color::Panel);
-            const int cols = TileColumns(items);
+            const int cols = TileColumns(items, m);
             for (size_t i = 0; i < folder.items.size(); ++i) {
                 const auto           &item = folder.items[i];
-                const sky::ui::UIRect tile = TileRect(items, static_cast<int>(i), cols);
+                const sky::ui::UIRect tile = TileRect(items, static_cast<int>(i), cols, m);
                 if (tile.top > items.bottom) {
                     break;
                 }
@@ -419,27 +425,32 @@ namespace sky::editor {
                         iconColor = uc::color::AccentSoft;
                     }
                 }
-                const sky::ui::UIRect icon{tile.left + (kTileWidth - kIconSize) * 0.5f, tile.top + 6.0f, tile.left + (kTileWidth + kIconSize) * 0.5f,
-                                           tile.top + 6.0f + kIconSize};
-                uc::RoundedRect(context, icon, iconColor, 4.0f);
+                const sky::ui::UIRect icon{tile.left + (m.assetTileSize - m.assetThumbnailSize) * 0.5f, tile.top + m.cellPadding,
+                                           tile.left + (m.assetTileSize + m.assetThumbnailSize) * 0.5f,
+                                           tile.top + m.cellPadding + m.assetThumbnailSize};
+                uc::RoundedRect(context, icon, iconColor, m.rowRadius);
                 if (item.state != AssetCookState::NotCooked) {
-                    uc::RoundedRect(context, {icon.left + 2.0f, icon.top + 2.0f, icon.left + 9.0f, icon.top + 9.0f}, CookStateColor(item.state),
-                                    2.0f);
+                    uc::RoundedRect(
+                        context, {icon.left + m.checkboxPad, icon.top + m.checkboxPad, icon.left + m.iconSize * 0.5f, icon.top + m.iconSize * 0.5f},
+                        CookStateColor(item.state), m.checkboxRadius);
                 }
 
-                const sky::ui::UIRect nameRect{tile.left + 2.0f, icon.bottom + 2.0f, tile.right - 2.0f, tile.bottom - 2.0f};
+                const sky::ui::UIRect nameRect{tile.left + m.checkboxPad, icon.bottom + m.checkboxPad, tile.right - m.checkboxPad,
+                                               tile.bottom - m.checkboxPad};
                 if (editing && item.uuid == editingUuid) {
                     skin.DrawField(context, nameRect, true, false);
-                    uc::Text(context, edit.GetText(), kTextSize, nameRect, uc::color::Text, textSystem, uc::HAlign::Center);
+                    uc::Text(context, edit.GetText(), textSize, nameRect, uc::color::Text, textSystem, uc::HAlign::Center);
                 } else {
-                    uc::Text(context, item.name, kTextSize, nameRect, uc::color::Text, textSystem, uc::HAlign::Center);
+                    uc::Text(context, item.name, textSize, nameRect, uc::color::Text, textSystem, uc::HAlign::Center);
                 }
             }
+            context.PopClip();
         }
 
         // Detail (bottom).
         {
             const auto &detail = layout.detail;
+            context.PushClip(detail);
             uc::Fill(context, detail, uc::color::Section);
             EditorAssetItem selectedItem;
             bool            hasSelection = false;
@@ -451,22 +462,23 @@ namespace sky::editor {
                 }
             }
 
-            float y       = detail.top + 4.0f;
+            float y       = detail.top + m.panelGap;
             auto  nextRow = [&](float h) {
-                sky::ui::UIRect r{detail.left + 6.0f, y, detail.right - 6.0f, y + h};
+                sky::ui::UIRect r{detail.left + m.cellPadding, y, detail.right - m.cellPadding, y + h};
                 y += h;
                 return r;
             };
 
             if (!hasSelection) {
-                uc::Text(context, "(no asset selected)", kTextSize, nextRow(kRowHeight), uc::color::TextMuted, textSystem);
+                uc::Text(context, "(no asset selected)", textSize, nextRow(layout.rowHeight), uc::color::TextMuted, textSystem);
             } else {
-                uc::Text(context, selectedItem.name + "  [" + selectedItem.type + "]", kTextSize, nextRow(kRowHeight), uc::color::Text, textSystem);
-                uc::Text(context, selectedItem.path, kTextSize, nextRow(kRowHeight), uc::color::TextMuted, textSystem);
+                uc::Text(context, selectedItem.name + "  [" + selectedItem.type + "]", textSize, nextRow(layout.rowHeight), uc::color::Text,
+                         textSystem);
+                uc::Text(context, selectedItem.path, textSize, nextRow(layout.rowHeight), uc::color::TextMuted, textSystem);
 
                 // Target selector (click to cycle) + active platform on one compact row.
                 {
-                    const sky::ui::UIRect r     = nextRow(kRowHeight);
+                    const sky::ui::UIRect r     = nextRow(layout.rowHeight);
                     AssetCookState        state = AssetCookState::NotCooked;
                     for (const auto &ti : detailTargets) {
                         if (ti.target == detailTarget) {
@@ -478,33 +490,35 @@ namespace sky::editor {
                     const std::string line =
                         "target: < " + (detailTarget.empty() ? std::string("(none)") : detailTarget) + " >  " + CookStateLabel(state) + "   /   " +
                         (cookCfg.activePlatform.empty() ? std::string("platform: (unset)") : "platform: " + cookCfg.activePlatform);
-                    uc::Text(context, line, kTextSize, r, selectedItem.writable ? uc::color::Text : uc::color::TextMuted, textSystem);
+                    uc::Text(context, line, textSize, r, selectedItem.writable ? uc::color::Text : uc::color::TextMuted, textSystem);
                 }
 
-                uc::Text(context, "double-click to open the asset viewer (cook settings)", kTextSize, nextRow(kRowHeight), uc::color::TextDisabled,
-                         textSystem);
+                uc::Text(context, "double-click to open the asset viewer (cook settings)", textSize, nextRow(layout.rowHeight),
+                         uc::color::TextDisabled, textSystem);
                 if (!selectedItem.writable) {
-                    uc::Text(context, "(read-only mount)", kTextSize, nextRow(kRowHeight), uc::color::TextDisabled, textSystem);
+                    uc::Text(context, "(read-only mount)", textSize, nextRow(layout.rowHeight), uc::color::TextDisabled, textSystem);
                 }
             }
+            context.PopClip();
         }
 
         // Context menu overlay.
         if (menuOpen) {
             skin.DrawPopup(context, menuRect);
-            float y = menuRect.top + 3.0f;
+            float y = menuRect.top + m.panelGap;
             for (int i = 0; i < static_cast<int>(menuEntries.size()); ++i) {
                 const auto           &entry    = menuEntries[i];
-                const sky::ui::UIRect itemRect = {menuRect.left + 2.0f, y, menuRect.right - 2.0f, y + kRowHeight};
+                const sky::ui::UIRect itemRect = {menuRect.left + m.controlPad, y, menuRect.right - m.controlPad, y + m.popupItemHeight};
                 skin.DrawPopupItem(context, itemRect, i == hoverMenuIndex, false);
-                uc::Text(context, entry.label, kTextSize, itemRect, entry.enabled ? uc::color::Text : uc::color::TextDisabled, textSystem);
-                y += kRowHeight;
+                uc::Text(context, entry.label, textSize, itemRect, entry.enabled ? uc::color::Text : uc::color::TextDisabled, textSystem);
+                y += m.popupItemHeight;
             }
         }
     }
 
     sky::ui::UIEventResult AssetBrowserPanel::OnPointerEvent(const sky::ui::UIPointerEvent &event)
     {
+        const UiMetrics &m = GetDefaultUiTheme().metrics;
         if (event.action == sky::ui::UIPointerAction::MOVE) {
             if (menuOpen) {
                 const int hover = MenuIndexAt(event.x, event.y);
@@ -520,7 +534,7 @@ namespace sky::editor {
         if (event.action == sky::ui::UIPointerAction::DOWN && event.button == 1) {
             // Right-click over the item grid opens the context menu for the hit item.
             const Layout layout = ComputeLayout();
-            const int    index  = TileAt(layout.items, event.x, event.y, TileColumns(layout.items), static_cast<int>(folder.items.size()));
+            const int    index  = TileAt(layout.items, event.x, event.y, TileColumns(layout.items, m), static_cast<int>(folder.items.size()), m);
             if (index >= 0) {
                 SelectItem(folder.items[index]);
                 OpenStreamMenu(event.x, event.y, folder.items[index]);
@@ -557,8 +571,9 @@ namespace sky::editor {
                 }
             }
 
-            const int drow = static_cast<int>((event.y - layout.detail.top - 4.0f) / kRowHeight);
-            if (catalog != nullptr && hasItem && item.writable && drow == 3) {
+            const float rowY = event.y - layout.detail.top - m.panelGap;
+            const int   drow = rowY >= 0.0f ? static_cast<int>(rowY / layout.rowHeight) : -1;
+            if (catalog != nullptr && hasItem && item.writable && drow == 2) {
                 // Cycle the edited target.
                 if (detailTargets.size() > 1) {
                     const auto   it   = std::find_if(detailTargets.begin(), detailTargets.end(),
@@ -574,8 +589,10 @@ namespace sky::editor {
 
         // Tree region: toggle expand (if it has children) and navigate.
         if (event.x >= layout.tree.left && event.x <= layout.tree.right && event.y >= layout.tree.top && event.y <= layout.tree.bottom) {
-            const int index = static_cast<int>((event.y - layout.tree.top - 2.0f) / kRowHeight);
-            if (index >= 0 && index < static_cast<int>(treeCache.size())) {
+            const float rowY  = event.y - layout.tree.top - m.checkboxPad;
+            const int   index = rowY >= 0.0f ? static_cast<int>(rowY / layout.rowHeight) : -1;
+            if (index >= 0 && index < static_cast<int>(treeCache.size()) &&
+                layout.tree.top + m.checkboxPad + static_cast<float>(index + 1) * layout.rowHeight <= layout.tree.bottom) {
                 const TreeRow &row = treeCache[index];
                 if (row.hasChildren) {
                     if (auto it = expanded.find(row.path); it != expanded.end()) {
@@ -591,7 +608,7 @@ namespace sky::editor {
 
         // Item grid: select (and open on double-click).
         {
-            const int index = TileAt(layout.items, event.x, event.y, TileColumns(layout.items), static_cast<int>(folder.items.size()));
+            const int index = TileAt(layout.items, event.x, event.y, TileColumns(layout.items, m), static_cast<int>(folder.items.size()), m);
             if (index >= 0) {
                 const auto &item     = folder.items[index];
                 const auto  now      = std::chrono::steady_clock::now();

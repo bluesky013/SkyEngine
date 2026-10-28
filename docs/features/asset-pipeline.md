@@ -127,26 +127,35 @@ A World lists its shipped asset roots explicitly in `assetRoots`:
 - The audit and cook invocations accept script-style arguments (`--group value`, no program name); `AssetTool`
   pads the cxxopts program slot when the first argument already starts with `-`.
 
-## Generated products and atomic publication
+## Generated products and checked publication
 
 The source catalog records generated products with stable source-local keys, UUIDs, types and their owner source.
 Recook and source moves preserve matching identities; copies allocate independent identities. Child dependencies
 retain the child UUID while cook requests resolve the actual source owner. Requests for children of one source
-coalesce per target, and each waiter still receives failure if its requested member was removed or not produced.
+coalesce per target, and each waiter fails if its requested product was removed or not produced.
 
-`AssetManager::BeginProductGroup` and `SaveProductGroup` publish a complete member set through an explicit
-`ProductStatus`. Encoding, staged writes, flush and readback precede one atomic replacement of the owner manifest.
-A failed or stale cook leaves the previous complete generation readable; uncommitted staged files are not products.
-The group store uses `.groups/<owner>/<generation>/` for immutable payloads and `.groups/<owner>/current.bin`
-for the published manifest, with child-to-owner records under `.groups/owners/`.
+Runtime products use only `<bundle>/<uuid[0:2]>/<uuid>.bin`. A 40-byte prefix stores magic `0x44525053` (SPRD),
+version `1`, UUID, exact body length and FNV-1a64 body checksum. The body contains type, UUID dependencies,
+optional codec, typed header and bulk bytes. Loading and inspection reject invalid version, identity, length
+or checksum before accepting content.
 
-`LoadAssetSnapshot` pins a selected generation, including bulk reads. Reload creates a new asset object instead of
-mutating retained data. `LoadAsset(..., AssetLoadPolicy::ProductsOnly)` does not start a cook; `InspectProduct`
-returns pinned product metadata/payload without loading dependencies or mutating the asset cache. Checked binary
-archives and transaction file operations propagate explicit errors to the caller.
+`SaveAsset` and `SaveProducts` return `ProductStatus`. All batch inputs are encoded/validated and all temporary
+files are written, flushed and read back before atomic per-file replacement. Failure before replacement leaves
+destinations untouched. A partial replacement or index failure invalidates the affected batch and propagates
+failure through cook/package; it does not promise restoration of the previous complete batch. Checked cleanup
+errors remain failures. No runtime ProductGroup, owner manifest or generation directory is used.
 
-These are schema-independent Framework APIs. Model grouping, World asset roots and package closure validation
-are integration consumers. See `refactor-asset-product-transactions` for the standalone validation boundary.
+A later load after a successful save creates a fresh immutable object with `GetInstanceId()` / `GetRevision()`.
+Retained objects keep their active CPU data and already-bound bulk stream/bytes. Bulk reads do not reopen the UUID
+path to select a newer file. Existing GPU leases/pins still determine submitted resource retirement.
+`LoadAsset(..., AssetLoadPolicy::ProductsOnly)` never starts cook; `InspectProduct` returns checked type,
+dependencies, formatVersion, checksum and payload without loading dependencies or mutating the asset cache.
+
+This first-release change deliberately removes product-format compatibility. Clear old `groups`/`.groups` and
+headerless cook output, then recook/package all required bundles; no dual reader, fallback or automatic migration
+is provided. Stable source UUIDs and generated child identities remain authoring contracts. Format migration
+will be considered separately after the first formal release. See `simplify-asset-product-storage` for the
+current contract; it supersedes the product-group portions of `refactor-asset-product-transactions`.
 
 ## Async execution
 
@@ -170,9 +179,9 @@ tree, manifests and `assets.db` are absent.
 - **Register bundles**: `AssetManager::AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey))`
   (e.g. `GameApplication` for the `common` bundle). Adding a bundle reads its `product.index` into the
   in-memory `productPathMap[canonicalPath] = uuid`; `RefreshProductIndex()` rebuilds it across all bundles.
-- **Legacy single products use UUID-addressed paths**: `<bundleFs>/<uuid[0:2]>/<uuid>.bin`. Grouped products resolve their owner manifest and immutable generation before opening a member.
+- **Product paths**: `<bundleFs>/<uuid[0:2]>/<uuid>.bin`; each file carries the checked version/UUID/length/checksum envelope.
 - **By path**: `LoadAssetFromPath(path)` -> `MakeCanonicalPath(path)` -> `productPathMap` -> `LoadAsset(uuid)`.
-- **By UUID**: `LoadAsset(uuid)` resolves a pinned group snapshot when owner metadata exists, otherwise reads the legacy `<xx>/<uuid>.bin` product, then deserializes
+- **By UUID**: `LoadAsset(uuid)` validates the flat product envelope, then deserializes the typed header and binds its bulk bytes
   (with optional per-product decompression via `CompressionManager`).
 - Runtime sets **no source catalog**, so there is no path fallback beyond `product.index`; a miss fails.
 - Single-file packaging (`PackageAssetBundle`, `.pak`) is a stub.

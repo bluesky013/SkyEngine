@@ -1,3 +1,5 @@
+> Successor: `simplify-asset-product-storage` replaces the product-group/generation implementation below. Historical validation is retained as evidence of that intermediate snapshot, not a current storage or compatibility guarantee.
+
 ## Extraction
 
 - [x] 1. Identify Core/Framework transaction, snapshot, generated-catalog and cook-completion changes.

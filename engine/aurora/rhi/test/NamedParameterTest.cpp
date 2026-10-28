@@ -186,7 +186,7 @@ kernel void CSMain(device float4 *output [[buffer(0)]], constant MaterialData &m
         return BufferPtr(device->CreateBuffer(descriptor));
     }
 
-    void StageRequired(DescriptorEncoder &encoder, Buffer *output, float gain = 2.f)
+    void StageRequired(ShaderParameterUpdate &encoder, Buffer *output, float gain = 2.f)
     {
         EXPECT_TRUE(encoder.WriteData(Name("Material.tint"), Vector4(.25f, .5f, .75f, 1.f)));
         EXPECT_TRUE(encoder.WriteData(Name("Material.gain"), gain));
@@ -225,7 +225,7 @@ TEST_F(NamedParameterMetalTest, TypedUpdatesPublishDistinctSnapshotsAndRetainPre
     ResourceGroupPtr initial(device->CreateResourceGroup({shader.Get(), 0}));
     ASSERT_TRUE(initial);
     ParameterContext context(device);
-    auto             first = initial->CreateEncoder(context);
+    auto             first = initial->CreateParameterUpdate(context);
     ASSERT_TRUE(first);
     StageRequired(*first, output.Get());
     EXPECT_FALSE(first->GetResult());
@@ -234,17 +234,13 @@ TEST_F(NamedParameterMetalTest, TypedUpdatesPublishDistinctSnapshotsAndRetainPre
     ASSERT_TRUE(old);
     EXPECT_TRUE(old->IsParameterSnapshot());
     EXPECT_FALSE(old->CreateEncoder());
-    std::unique_ptr<DescriptorBatch> batch(device->CreateDescriptorBatch());
-    ASSERT_TRUE(batch);
-    EXPECT_FALSE(batch->WriteBuffer(old.Get(), 0, output.Get(), 0, 16));
-    EXPECT_FALSE(batch->Flush());
     EXPECT_NE(old.Get(), initial.Get());
     ASSERT_EQ(context.uploads.size(), 1u);
     auto oldBytes     = context.uploads[0].bytes;
     auto oldBuffer    = context.uploads[0].buffer;
     auto oldRetention = context.uploads[0].retention;
     EXPECT_FALSE(oldRetention.expired());
-    auto second = old->CreateEncoder(context);
+    auto second = old->CreateParameterUpdate(context);
     ASSERT_TRUE(second);
     EXPECT_TRUE(second->WriteData(Name("Material.gain"), 3.f));
     ASSERT_TRUE(second->End()) << second->GetError();
@@ -278,7 +274,7 @@ TEST_F(NamedParameterMetalTest, UnknownDuplicateAliasTypedAndOverlappingUpdatesN
     ASSERT_TRUE(group);
     ParameterContext context(device);
     {
-        auto update = group->CreateEncoder(context);
+        auto update = group->CreateParameterUpdate(context);
         EXPECT_FALSE(update->WriteData(Name("Missing"), 1.f));
         const auto first = update->GetError();
         EXPECT_FALSE(first.empty());
@@ -289,20 +285,20 @@ TEST_F(NamedParameterMetalTest, UnknownDuplicateAliasTypedAndOverlappingUpdatesN
         EXPECT_FALSE(update->GetResult());
     }
     {
-        auto update = group->CreateEncoder(context);
+        auto update = group->CreateParameterUpdate(context);
         EXPECT_TRUE(update->WriteData(Name("Material.tint"), Vector4(1.f)));
         EXPECT_FALSE(update->WriteData(Name("tintAlias"), Vector4(.5f)));
         EXPECT_FALSE(update->End());
         EXPECT_FALSE(update->GetResult());
     }
     {
-        auto update = group->CreateEncoder(context);
+        auto update = group->CreateParameterUpdate(context);
         EXPECT_FALSE(update->WriteData(Name("Material.gain"), uint32_t(1)));
         EXPECT_FALSE(update->End());
         EXPECT_FALSE(update->GetResult());
     }
     {
-        auto                            update = group->CreateEncoder(context);
+        auto                            update = group->CreateParameterUpdate(context);
         const auto                      block  = MaterialBlock();
         ShaderCpuSchema                 schema{block.size, block.alignment, block.members};
         const std::array<std::byte, 32> bytes{};
@@ -332,29 +328,29 @@ TEST_F(NamedParameterMetalTest, OwnerLeaseStaleHandleAndCancelRejectBeforeNative
     ParameterContext      context(device);
     ShaderParameterHandle handle;
     ASSERT_EQ(shader->GetParameterTable().Resolve(Name("Material.tint"), 0, handle), ShaderParameterLookup::READY);
-    auto stale = newGroup->CreateEncoder(context);
+    auto stale = newGroup->CreateParameterUpdate(context);
     EXPECT_FALSE(stale->WriteData(handle, MakeShaderData(Vector4(1.f))));
     EXPECT_FALSE(stale->End());
     EXPECT_FALSE(stale->GetResult());
 
     Buffer unknown;
-    auto   owner = group->CreateEncoder(context);
+    auto   owner = group->CreateParameterUpdate(context);
     EXPECT_FALSE(owner->WriteBuffer(Name("Output"), &unknown, 0, 16));
     EXPECT_FALSE(owner->End());
     EXPECT_FALSE(owner->GetResult());
-    auto cancel = group->CreateEncoder(context);
+    auto cancel = group->CreateParameterUpdate(context);
     StageRequired(*cancel, output.Get());
     cancel->Cancel();
     EXPECT_FALSE(cancel->End());
     EXPECT_FALSE(cancel->GetResult());
-    auto expired = group->CreateEncoder(context);
+    auto expired = group->CreateParameterUpdate(context);
     StageRequired(*expired, output.Get());
     context.valid = false;
     EXPECT_FALSE(expired->End());
     EXPECT_FALSE(expired->GetResult());
     EXPECT_TRUE(context.uploads.empty());
     ParameterContext foreign(nullptr);
-    auto             wrongContext = group->CreateEncoder(foreign);
+    auto             wrongContext = group->CreateParameterUpdate(foreign);
     EXPECT_FALSE(wrongContext->WriteData(Name("Material.gain"), 1.f));
     EXPECT_FALSE(wrongContext->End());
     EXPECT_FALSE(wrongContext->GetResult());
@@ -379,7 +375,7 @@ TEST_F(NamedParameterMetalTest, KnownInactiveParametersAreValidatedAndDistinguis
     ASSERT_TRUE(image);
     ASSERT_TRUE(sampler);
     ParameterContext context(device);
-    auto             update = group->CreateEncoder(context);
+    auto             update = group->CreateParameterUpdate(context);
     EXPECT_EQ(update->WriteData(Name("Optional.value"), 1.f).status, ShaderParameterWriteStatus::INACTIVE);
     EXPECT_EQ(update->WriteImage(Name("UnusedTexture"), image.Get(), ImageLayout::SHADER_READ_ONLY).status, ShaderParameterWriteStatus::INACTIVE);
     EXPECT_EQ(update->WriteSampler(Name("UnusedSampler"), sampler.Get()).status, ShaderParameterWriteStatus::INACTIVE);
@@ -388,14 +384,14 @@ TEST_F(NamedParameterMetalTest, KnownInactiveParametersAreValidatedAndDistinguis
     ASSERT_TRUE(update->End()) << update->GetError();
     ASSERT_EQ(context.uploads.size(), 1u);
     EXPECT_TRUE(update->GetResult());
-    auto wrongType = group->CreateEncoder(context);
+    auto wrongType = group->CreateParameterUpdate(context);
     EXPECT_EQ(wrongType->WriteData(Name("Optional.value"), uint32_t(1)).status, ShaderParameterWriteStatus::FAILED);
     EXPECT_FALSE(wrongType->End());
     EXPECT_FALSE(wrongType->GetResult());
     descriptor.format = PixelFormat::R8_UINT;
     ImagePtr unsignedImage(device->CreateImage(descriptor));
     ASSERT_TRUE(unsignedImage);
-    auto wrongImage = group->CreateEncoder(context);
+    auto wrongImage = group->CreateParameterUpdate(context);
     EXPECT_EQ(wrongImage->WriteImage(Name("UnusedTexture"), unsignedImage.Get(), ImageLayout::SHADER_READ_ONLY).status,
               ShaderParameterWriteStatus::FAILED);
     EXPECT_FALSE(wrongImage->End());
@@ -405,7 +401,7 @@ TEST_F(NamedParameterMetalTest, KnownInactiveParametersAreValidatedAndDistinguis
     bufferDescriptor.usage = BufferUsageFlagBit::UNIFORM;
     BufferPtr uniformOnly(device->CreateBuffer(bufferDescriptor));
     ASSERT_TRUE(uniformOnly);
-    auto wrongBuffer = group->CreateEncoder(context);
+    auto wrongBuffer = group->CreateParameterUpdate(context);
     EXPECT_EQ(wrongBuffer->WriteBuffer(Name("UnusedBuffer"), uniformOnly.Get(), 0, 16).status, ShaderParameterWriteStatus::FAILED);
     EXPECT_FALSE(wrongBuffer->End());
     EXPECT_FALSE(wrongBuffer->GetResult());
@@ -422,14 +418,14 @@ TEST_F(NamedParameterMetalTest, FailedUniformUploadCannotReplaceAnExistingSnapsh
     ResourceGroupPtr group(device->CreateResourceGroup({shader.Get(), 0}));
     ASSERT_TRUE(group);
     ParameterContext context(device);
-    auto             first = group->CreateEncoder(context);
+    auto             first = group->CreateParameterUpdate(context);
     StageRequired(*first, output.Get());
     ASSERT_TRUE(first->End()) << first->GetError();
     auto snapshot = first->GetResult();
     ASSERT_TRUE(snapshot);
     const auto bytes   = context.uploads[0].bytes;
     context.failUpload = true;
-    auto failed        = snapshot->CreateEncoder(context);
+    auto failed        = snapshot->CreateParameterUpdate(context);
     EXPECT_TRUE(failed->WriteData(Name("Material.gain"), 4.f));
     EXPECT_FALSE(failed->End());
     EXPECT_FALSE(failed->GetResult());
@@ -437,7 +433,7 @@ TEST_F(NamedParameterMetalTest, FailedUniformUploadCannotReplaceAnExistingSnapsh
     EXPECT_EQ(context.uploads[0].bytes, bytes);
     context.failUpload         = false;
     context.expireDuringUpload = true;
-    auto expired               = snapshot->CreateEncoder(context);
+    auto expired               = snapshot->CreateParameterUpdate(context);
     EXPECT_TRUE(expired->WriteData(Name("Material.gain"), 4.f));
     EXPECT_FALSE(expired->End());
     EXPECT_FALSE(expired->GetResult());
@@ -455,7 +451,7 @@ TEST_F(NamedParameterMetalTest, CommittedSnapshotDispatchesThroughItsPhysicalMet
     ResourceGroupPtr group(device->CreateResourceGroup({shader.Get(), 0}));
     ASSERT_TRUE(group);
     ParameterContext parameters(device);
-    auto             update = group->CreateEncoder(parameters);
+    auto             update = group->CreateParameterUpdate(parameters);
     StageRequired(*update, output.Get());
     ASSERT_TRUE(update->End()) << update->GetError();
     auto operation      = std::make_shared<SnapshotDispatch>();

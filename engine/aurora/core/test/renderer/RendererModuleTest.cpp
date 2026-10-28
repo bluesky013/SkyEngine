@@ -1,4 +1,5 @@
 #include <array>
+
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
@@ -6,6 +7,7 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneHighlight.h>
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/renderer/IRenderFeature.h>
 #include <aurora/renderer/IRenderer.h>
@@ -207,7 +209,11 @@ namespace {
             dispatch.shader  = std::get<ShaderPtr>(dispatchShader);
             dispatch.groupsX = descriptor.extent.width;
             dispatch.groupsY = descriptor.extent.height;
-            dispatch.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
+            ComputeBindingDraft dispatchBindings;
+            dispatchBindings.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
+            const auto boundCompute = SetComputeBindings(dispatch, std::move(dispatchBindings));
+            if (const auto *error = std::get_if<FrameError>(&boundCompute))
+                return *error;
             const auto executed = context.Compute(std::move(dispatch));
             if (std::holds_alternative<FrameError>(executed))
                 return executed;
@@ -218,8 +224,12 @@ namespace {
             draw.shader              = std::get<ShaderPtr>(rasterShader);
             draw.command.vertexCount = 3;
             draw.scissor.extent      = output->output.extent;
-            draw.images.push_back({1, 0, target});
-            draw.samplers.push_back({1, 1, std::get<SamplerPtr>(sampler)});
+            RasterBindingDraft bindings;
+            bindings.images.push_back({1, 0, target});
+            bindings.samplers.push_back({1, 1, std::get<SamplerPtr>(sampler)});
+            const auto boundRaster = SetRasterBindings(draw, std::move(bindings));
+            if (const auto *error = std::get_if<FrameError>(&boundRaster))
+                return *error;
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
@@ -433,10 +443,14 @@ namespace {
         assets->RegisterAssetHandler<MaterialInstance>();
         assets->RegisterAssetHandler<Texture>();
         assets->AddAssetProductBundle(new HashedAssetBundle(products, bundle));
-        auto material = assets->FindOrCreateAsset<Material>(Uuid::Create());
-        auto instance = assets->FindOrCreateAsset<MaterialInstance>(Uuid::Create());
-        auto imageA   = assets->FindOrCreateAsset<Texture>(Uuid::Create());
-        auto imageB   = assets->FindOrCreateAsset<Texture>(Uuid::Create());
+        auto material =
+            std::static_pointer_cast<Asset<Material>>(assets->CreateBuildAsset(Uuid::Create(), Name(AssetTraits<Material>::ASSET_TYPE.data())));
+        auto instance = std::static_pointer_cast<Asset<MaterialInstance>>(
+            assets->CreateBuildAsset(Uuid::Create(), Name(AssetTraits<MaterialInstance>::ASSET_TYPE.data())));
+        auto imageA =
+            std::static_pointer_cast<Asset<Texture>>(assets->CreateBuildAsset(Uuid::Create(), Name(AssetTraits<Texture>::ASSET_TYPE.data())));
+        auto imageB =
+            std::static_pointer_cast<Asset<Texture>>(assets->CreateBuildAsset(Uuid::Create(), Name(AssetTraits<Texture>::ASSET_TYPE.data())));
         ASSERT_TRUE(material && instance && imageA && imageB);
         const auto imageData = [](std::array<uint8_t, 4> rgba) {
             ImageAssetData data;
@@ -469,18 +483,10 @@ namespace {
         material->AddDependencies(imageA->GetUuid());
         instance->AddDependencies(material->GetUuid());
         instance->AddDependencies(imageB->GetUuid());
-        assets->SaveAsset(material, bundle);
-        assets->SaveAsset(instance, bundle);
-        assets->SaveAsset(imageA, bundle);
-        ASSERT_TRUE(material->IsLoaded() && instance->IsLoaded() && imageA->IsLoaded());
-        auto       source = CreateSceneAssetSource(sources, [assets](const Uuid &id) { return assets->FindAsset(id); }, shaderProducts);
-        const auto mesh   = ScenePrimitiveId(ScenePrimitive::CUBE);
-        EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo())));
-        assets->SaveAsset(imageB, bundle);
-        ASSERT_TRUE(imageB->IsLoaded());
+        const std::array<AssetPtr, 4> productsToSave{material, instance, imageA, imageB};
+        ASSERT_TRUE(assets->SaveProducts(productsToSave, bundle));
         const auto materialId = material->GetUuid(), instanceId = instance->GetUuid();
         const auto imageAId = imageA->GetUuid(), imageBId = imageB->GetUuid();
-        source.reset();
         material.reset();
         instance.reset();
         imageA.reset();
@@ -496,6 +502,13 @@ namespace {
         }
         ASSERT_TRUE(imageA->HasBulk() && imageB->HasBulk());
         EXPECT_TRUE(imageA->Data().rawData.empty() && imageB->Data().rawData.empty());
+        const auto pendingTexture = assets->CreateBuildAsset(imageBId, Name(AssetTraits<Texture>::ASSET_TYPE.data()));
+        ASSERT_NE(pendingTexture, nullptr);
+        auto source = CreateSceneAssetSource(
+            sources, [assets, pendingTexture](const Uuid &id) { return id == pendingTexture->GetUuid() ? pendingTexture : assets->FindAsset(id); },
+            shaderProducts);
+        const auto mesh = ScenePrimitiveId(ScenePrimitive::CUBE);
+        EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo())));
         source                    = CreateSceneAssetSource(sources, [assets](const Uuid &id) { return assets->FindAsset(id); }, shaderProducts);
         const auto baseResult     = source->ResolveMesh(mesh, material->GetUuid(), renderer->GetInfo());
         const auto instanceResult = source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo());
@@ -518,7 +531,7 @@ namespace {
         const auto &parameters = oldMaterial->material->techniques.front().parameters;
         ASSERT_EQ(parameters.values.size(), 2u);
         ASSERT_EQ(parameters.images.size(), 1u);
-        EXPECT_EQ(parameters.images.front().name, Name("baseColor"));
+        EXPECT_EQ(parameters.images.front().name, Name("materialColor"));
         EXPECT_EQ(parameters.images.front().resource, oldImage->resource);
         constexpr SceneId                   scene{0, 1};
         constexpr std::array<ViewportId, 3> outputs{{{0, 1}, {1, 1}, {2, 1}}};
@@ -616,10 +629,10 @@ namespace {
         pixel(pixels.at(0), baseColor);
         pixel(pixels.at(1), oldColor);
         auto newImage                                                               = *oldImage;
-        newImage.resource.revision                                                  = 2;
+        newImage.resource.revision                                                  = oldImage->resource.revision + 1;
         newImage.bytes                                                              = {64, 255, 128, 255};
         auto newMaterial                                                            = *oldMaterial;
-        newMaterial.resource.revision                                               = 2;
+        newMaterial.resource.revision                                               = oldMaterial->resource.revision + 1;
         newMaterial.material->techniques.front().parameters.images.front().resource = newImage.resource;
         auto third                                                                  = std::make_unique<FramePacket>();
         third->sequence                                                             = 3;

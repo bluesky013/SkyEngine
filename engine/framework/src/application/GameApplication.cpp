@@ -20,6 +20,8 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/world/IGameWorld.h>
+#include <framework/world/WorldAsset.h>
 
 #include <vector>
 
@@ -40,9 +42,20 @@ namespace sky {
         return configs.OpenFile(CONFIG_PATH);
     }
 
+    GameApplication::GameApplication() = default;
+
     GameApplication::~GameApplication()
     {
         Shutdown();
+    }
+
+    void GameApplication::OnShutdown()
+    {
+        ReleaseWorld();
+        auto *service = Interface<IGameWorld>::Get();
+        if (service->GetApi() == this) {
+            service->UnRegister();
+        }
     }
 
     namespace {
@@ -113,6 +126,10 @@ namespace sky {
         if (!Application::Init(argc, argv)) {
             return false;
         }
+        if (!worldReady) {
+            Shutdown();
+            return false;
+        }
         return true;
     }
 
@@ -173,6 +190,57 @@ namespace sky {
 
     void GameApplication::PreTick()
     {
+    }
+
+    void GameApplication::Tick(float delta)
+    {
+        if (worldReady && worldStarted && world) {
+            world->Tick(delta);
+        }
+    }
+
+    World *GameApplication::GetWorld() const
+    {
+        return worldReady ? world.Get() : nullptr;
+    }
+
+    void GameApplication::ReleaseWorld()
+    {
+        worldReady          = false;
+        const auto released = world;
+        world               = nullptr;
+        const bool stop     = worldStarted;
+        worldStarted        = false;
+        if (released && stop) {
+            released->StopSimulation();
+        }
+    }
+
+    bool GameApplication::LoadDefaultWorld()
+    {
+        if (defaultScene.empty()) {
+            return true;
+        }
+        if (hasProject) {
+            MountProductBundles(workFs);
+        }
+        const auto product = AssetManager::Get()->LoadAssetFromPath<World>(defaultScene, AssetLoadPolicy::ProductsOnly);
+        if (!product) {
+            LOG_E(TAG, "Default World product is missing or has the wrong type: %s", defaultScene.c_str());
+            return false;
+        }
+        product->BlockUntilLoaded();
+        if (!product->IsLoaded() || !product->Data().IsLoadValid()) {
+            LOG_E(TAG, "Default World binary product is invalid: %s (%s)", defaultScene.c_str(), product->Data().GetLoadError().c_str());
+            return false;
+        }
+        std::string error;
+        if (!InstantiateWorldAsset(product->Data(), world, error)) {
+            LOG_E(TAG, "Default World failed to load: %s (%s)", defaultScene.c_str(), error.c_str());
+            return false;
+        }
+        LOG_I(TAG, "Default World ready: %s (%zu actors)", defaultScene.c_str(), world->GetActors().size());
+        return true;
     }
 
     bool GameApplication::LoadConfigs()
@@ -268,6 +336,13 @@ namespace sky {
                 return false;
             }
             auto obj = document["game"].GetObject();
+            if (obj.HasMember("defaultScene")) {
+                if (!obj["defaultScene"].IsString()) {
+                    LOG_E(TAG, "Config 'game.defaultScene' must be a string");
+                    return false;
+                }
+                defaultScene = obj["defaultScene"].GetString();
+            }
             if (obj.HasMember("width")) {
                 if (!obj["width"].IsUint() || obj["width"].GetUint() == 0) {
                     LOG_E(TAG, "Config 'game.width' Is Invalid: %s", CONFIG_PATH);
@@ -284,6 +359,10 @@ namespace sky {
             }
         }
 
+        if (hasProject) {
+            defaultScene = project.defaultScene;
+        }
+
         return true;
     }
 
@@ -295,11 +374,28 @@ namespace sky {
             LOG_E(TAG, "Create Native Window Failed");
             return false;
         }
+        auto *service = Interface<IGameWorld>::Get();
+        if (service->GetApi() != nullptr) {
+            LOG_E(TAG, "An application World provider is already active");
+            return false;
+        }
+        service->Register(*this);
         return true;
+    }
+
+    bool GameApplication::InitStartupData()
+    {
+        worldReady = LoadDefaultWorld();
+        return worldReady;
     }
 
     void GameApplication::PostInit()
     {
+        if (worldReady && world) {
+            worldStarted      = true;
+            const auto active = world;
+            active->StartSimulation();
+        }
     }
 
     void *GameApplication::GetMainWindowHandle() const

@@ -105,7 +105,7 @@ namespace sky::editor {
             sky::ui::UIRect tree;
             sky::ui::UIRect items;
             sky::ui::UIRect detail;
-            float           rowHeight = 20.0f;
+            float           rowHeight = 0.0f;
         };
 
         Layout ComputeLayout() const;

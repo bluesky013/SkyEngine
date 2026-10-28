@@ -2,8 +2,9 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/ui/UiDraw.h>
 #include <editor/widgets/GenericReflectedWidget.h>
+
+#include <editor/ui/UiDraw.h>
 
 #include <editor/core/command/CommandService.h>
 #include <editor/core/property/PropertyValidation.h>
@@ -62,11 +63,13 @@ namespace sky::editor {
         return sky::ui::UIRect{control.left, control.top, std::max(control.left, control.right - 60.0f - 6.0f), control.bottom};
     }
 
-    sky::ui::UIRect GenericReflectedWidget::VectorCell(const sky::ui::UIRect &control, int index, int count) const
+    sky::ui::UIRect GenericReflectedWidget::VectorCell(const UiMetrics &metrics, const sky::ui::UIRect &control, int index, int count) const
     {
-        const float span = (control.right - control.left) / static_cast<float>(std::max(count, 1));
-        return sky::ui::UIRect{control.left + span * static_cast<float>(index) + 1.0f, control.top,
-                               control.left + span * static_cast<float>(index + 1) - 2.0f, control.bottom};
+        count             = std::max(count, 1);
+        const float gap   = std::min(metrics.itemSpacing, std::max(0.0f, control.Width()) / static_cast<float>(count));
+        const float width = std::max(0.0f, (control.Width() - gap * static_cast<float>(count - 1)) / static_cast<float>(count));
+        const float left  = control.left + (width + gap) * static_cast<float>(index);
+        return {left, control.top, left + width, control.bottom};
     }
 
     float GenericReflectedWidget::Fraction(float x, float left, float right) const
@@ -127,14 +130,18 @@ namespace sky::editor {
             const int          count     = std::max(1, static_cast<int>(field.control.componentCount));
             static const char *labels[4] = {"X", "Y", "Z", "W"};
             for (int i = 0; i < count && i < 4; ++i) {
-                const sky::ui::UIRect cell = VectorCell(rect, i, count);
+                const sky::ui::UIRect cell = VectorCell(th.metrics, rect, i, count);
                 host.Skin().DrawField(context, cell, false, false);
-                uc::Text(context, labels[i], th.fonts.tiny, sky::ui::UIRect{cell.left + 4.0f, cell.top, cell.left + 15.0f, cell.bottom},
-                         th.colors.textMuted, host.Text());
+                const float labelLeft  = std::min(cell.right, cell.left + th.metrics.controlPad);
+                const float labelRight = std::min(cell.right, labelLeft + uc::TextWidth(labels[i], th.fonts.tiny, host.Text()));
+                uc::Text(context, labels[i], th.fonts.tiny, {labelLeft, cell.top, labelRight, cell.bottom}, th.colors.textMuted, host.Text(),
+                         uc::HAlign::Left, uc::VAlign::Middle, false);
                 char buffer[32] = {0};
                 std::snprintf(buffer, sizeof(buffer), "%.2f", ReadComponent(field, i));
-                uc::Text(context, buffer, th.fonts.small, sky::ui::UIRect{cell.left + 15.0f, cell.top, cell.right - 3.0f, cell.bottom},
-                         th.colors.text, host.Text());
+                const float valueLeft = std::min(cell.right, labelRight + th.metrics.controlPad);
+                uc::Text(context, buffer, th.fonts.small,
+                         sky::ui::UIRect{valueLeft, cell.top, std::max(valueLeft, cell.right - th.metrics.controlPad), cell.bottom}, th.colors.text,
+                         host.Text());
             }
             return;
         }
@@ -206,7 +213,7 @@ namespace sky::editor {
         case PropertyEditorKind::Vector: {
             const int count = std::max(1, static_cast<int>(field.control.componentCount));
             for (int i = 0; i < count; ++i) {
-                if (VectorCell(rect, i, count).Contains(event.x, event.y)) {
+                if (VectorCell(host.Skin().Theme().metrics, rect, i, count).Contains(event.x, event.y)) {
                     ReflectedWidgetHost *h           = &host;
                     PropertyField       *t           = &field;
                     const int            component   = i;

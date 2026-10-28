@@ -3,6 +3,7 @@
 //
 
 #include "HostSceneFixture.h"
+#include "LauncherSceneTestHelper.h"
 #include <array>
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/rhi/Instance.h>
@@ -192,19 +193,21 @@ INSTANTIATE_TEST_SUITE_P(Windows, RendererHostNativeTest, testing::Values(0u, 1u
 
 TEST_P(RendererHostNativeTest, B14NonemptySceneUsesHostProducerAndSurvivesShutdown)
 {
-    bool populated = false;
-    module.SetSceneSource([&](FramePacket &packet, SceneId scene) {
-        if (!populated) {
-            AddHostMesh(packet, scene, renderer->GetInfo());
-            packet.commands.push_back(CreateViewport{{90, 1}, {ViewportKind::OFFSCREEN, {32, 32}}});
-            ViewDesc view;
-            view.scene  = scene;
-            view.output = {90, 1};
-            packet.commands.push_back(CreateView{{90, 1}, view});
-            populated = true;
-        }
-        packet.readbacks.push_back({90, 1});
-    });
+    bool       populated  = false;
+    const auto registered = module.RegisterSceneSession(
+        "Aurora.Render", std::make_shared<test::LauncherSceneSession>([&](FramePacket &packet, const LauncherSceneContext &context) {
+            if (!populated) {
+                AddHostMesh(packet, context.scene, renderer->GetInfo());
+                packet.commands.push_back(CreateViewport{{90, 1}, {ViewportKind::OFFSCREEN, {32, 32}}});
+                ViewDesc view;
+                view.scene  = context.scene;
+                view.output = {90, 1};
+                packet.commands.push_back(CreateView{{90, 1}, view});
+                populated = true;
+            }
+            packet.readbacks.push_back({90, 1});
+        }));
+    ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(registered));
     module.Start();
     ASSERT_TRUE(Until([&] {
         for (const auto &event : events)

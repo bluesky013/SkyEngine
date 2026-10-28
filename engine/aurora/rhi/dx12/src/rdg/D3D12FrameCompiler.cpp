@@ -3,14 +3,15 @@
 //
 
 #include "D3D12FrameCompiler.h"
+
 #include <aurora/rdg/FrameBindingLookup.h>
+#include <aurora/rdg/FrameBindings.h>
 
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
 #include <D3D12Device.h>
 #include <D3D12Sampler.h>
 #include <algorithm>
-#include <common/FrameRasterBindings.h>
 #include <map>
 #include <rdg/D3D12DeviceFrameContext.h>
 
@@ -31,7 +32,9 @@ namespace sky::aurora {
             switch (state) {
             case CopyBufferState::HOST_WRITE: return D3D12_RESOURCE_STATE_GENERIC_READ;
             case CopyBufferState::COPY_SOURCE: return D3D12_RESOURCE_STATE_COPY_SOURCE;
-            case CopyBufferState::RASTER_READ: return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_INDEX_BUFFER;
+            case CopyBufferState::RASTER_READ:
+                return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_INDEX_BUFFER |
+                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
             case CopyBufferState::SHADER_READ:
                 return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
                        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
@@ -74,47 +77,45 @@ namespace sky::aurora {
         {
             return {FrameErrorCode::COMPILE_FAILED, {}, D3D12Error(result)};
         }
-        std::variant<FrameError, D3D12ComputeStep> ResolveCompute(D3D12Device                  &device,
-                                                                  D3D12DeviceFrameContext      &context,
-                                                                  const DeviceFrameLease       &lease,
-                                                                  const FrameComputePass       &pass,
-                                                                  std::span<D3D12Buffer *const> buffers,
-                                                                  std::span<D3D12Image *const>  images,
-                                                                  D3D12FrameEncoder            &encoder)
+        struct D3D12ResolvedBindings {
+            std::vector<D3D12DescriptorTable> tables;
+            std::vector<D3D12UniformAddress>  uniforms;
+        };
+        using D3D12BindingCache = std::map<const FrameBindingGroup *, std::vector<D3D12DescriptorTable>, FrameBindingGroupLess>;
+        std::variant<FrameError, D3D12ResolvedBindings> ResolveD3D12Bindings(D3D12Device                  &device,
+                                                                             D3D12DeviceFrameContext      &context,
+                                                                             const DeviceFrameLease       &lease,
+                                                                             D3D12Shader                  *shader,
+                                                                             const FrameBindingGroups     &groups,
+                                                                             std::span<D3D12Buffer *const> buffers,
+                                                                             std::span<D3D12Image *const>  images,
+                                                                             D3D12FrameEncoder            &encoder,
+                                                                             D3D12BindingCache            &cache)
         {
-            const FrameBindingLookup<FrameBufferBinding>   buffersLookup(pass.buffers);
-            const FrameBindingLookup<FrameImageBinding>    imagesLookup(pass.images);
-            const FrameBindingLookup<RasterSamplerBinding> samplersLookup(pass.samplers);
-
-            if (pass.groupsX > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION ||
-                pass.groupsY > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || pass.groupsZ > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION)
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch exceeds device limits"};
-            if (!pass.shader || pass.shader->GetDevice() != &device)
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute shader belongs to another device"};
-            auto *shader = static_cast<D3D12Shader *>(pass.shader.Get());
-            if (shader->IsGraphics())
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute pass requires a compute-only shader"};
-            D3D12ComputeStep step;
-            step.groupsX = pass.groupsX;
-            step.groupsY = pass.groupsY;
-            step.groupsZ = pass.groupsZ;
-            CounterPtr<D3D12ComputePipeline> pipeline(new D3D12ComputePipeline(device));
-            if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
-                return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
-            step.pipeline    = std::move(pipeline);
-            const auto *root = step.pipeline->GetRootSignature();
+            FrameComputePass proxy;
+            proxy.groups                                                = groups;
+            const auto                                     passBindings = ResolveComputeBindings(proxy);
+            const FrameBindingLookup<FrameBufferBinding>   buffersLookup(passBindings.buffers);
+            const FrameBindingLookup<FrameImageBinding>    imagesLookup(passBindings.images);
+            const FrameBindingLookup<RasterSamplerBinding> samplersLookup(passBindings.samplers);
+            const auto                                    *root = shader->GetRootSignature();
             if (!root)
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute root signature is missing"};
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader root signature is missing"};
+            D3D12ResolvedBindings result;
             for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
+                if (!groups[set].group)
+                    continue;
+                const auto [cached, materialize] = cache.try_emplace(groups[set].group.get());
+                auto      &snapshot              = cached->second;
                 const auto count =
                     std::count_if(shader->GetReflection().resources.begin(), shader->GetReflection().resources.end(), [&](const auto &r) {
                         return r.set == set && r.type != ShaderResourceType::SAMPLER && r.type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC &&
                                r.type != ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
                     });
-                const auto samplerCount =
-                    static_cast<uint32_t>(std::count_if(pass.samplers.begin(), pass.samplers.end(), [&](const auto &b) { return b.set == set; }));
+                const auto samplerCount = static_cast<uint32_t>(
+                    std::count_if(passBindings.samplers.begin(), passBindings.samplers.end(), [&](const auto &b) { return b.set == set; }));
                 D3D12_CPU_DESCRIPTOR_HANDLE descriptor{};
-                if (count) {
+                if (materialize && count) {
                     auto allocated = context.AllocateDescriptors(lease, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, static_cast<uint32_t>(count));
                     if (auto *error = std::get_if<FrameError>(&allocated))
                         return std::move(*error);
@@ -123,11 +124,11 @@ namespace sky::aurora {
                     descriptor        = range.cpu;
                     for (const auto &table : root->GetDescriptorTables(set)) {
                         if (table.sampler == false)
-                            step.tables.push_back({table.root, range.gpu});
+                            snapshot.push_back({table.root, range.gpu});
                     }
                 }
                 D3D12_CPU_DESCRIPTOR_HANDLE samplerDescriptor{};
-                if (samplerCount) {
+                if (materialize && samplerCount) {
                     auto allocated = context.AllocateDescriptors(lease, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, samplerCount);
                     if (auto *error = std::get_if<FrameError>(&allocated))
                         return std::move(*error);
@@ -136,7 +137,7 @@ namespace sky::aurora {
                     samplerDescriptor = range.cpu;
                     for (const auto &table : root->GetDescriptorTables(set)) {
                         if (table.sampler == true)
-                            step.tables.push_back({table.root, range.gpu});
+                            snapshot.push_back({table.root, range.gpu});
                     }
                 }
                 for (const auto &resource : shader->GetReflection().resources) {
@@ -144,6 +145,8 @@ namespace sky::aurora {
                         continue;
 
                     if (resource.type == ShaderResourceType::SAMPLER) {
+                        if (!materialize)
+                            continue;
                         const auto *binding = samplersLookup.Find(set, resource.binding);
                         if (!binding || binding->sampler->GetDevice() != &device)
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute sampler"};
@@ -153,6 +156,8 @@ namespace sky::aurora {
                         continue;
                     }
                     if (resource.type == ShaderResourceType::SAMPLED_IMAGE || resource.type == ShaderResourceType::STORAGE_IMAGE) {
+                        if (!materialize)
+                            continue;
                         const auto *binding = imagesLookup.Find(set, resource.binding);
                         if (!binding)
                             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute image binding"};
@@ -165,7 +170,8 @@ namespace sky::aurora {
                         const auto  mips = view.mipCount;
                         if (resource.type == ShaderResourceType::SAMPLED_IMAGE) {
                             D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
-                            srv.Format                  = FromPixelFormat(image->GetPixelFormat());
+                            srv.Format =
+                                image->GetPixelFormat() == PixelFormat::D32 ? DXGI_FORMAT_R32_FLOAT : FromPixelFormat(image->GetPixelFormat());
                             srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
                             if (view.type == ImageViewType::VIEW_2D_ARRAY) {
                                 srv.ViewDimension                  = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
@@ -218,12 +224,12 @@ namespace sky::aurora {
                                     continue;
                                 if (mapping.category != ShaderNativeCategory::CBV)
                                     return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute root CBV category"};
-                                step.uniforms.push_back({mapping.root, address, mapping.category});
+                                result.uniforms.push_back({mapping.root, address, mapping.category});
                                 mapped = true;
                             }
                             if (!mapped)
                                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute root CBV"};
-                        } else {
+                        } else if (materialize) {
                             const D3D12_CONSTANT_BUFFER_VIEW_DESC cbv{address, static_cast<UINT>(padded)};
                             device.GetNativeHandle()->CreateConstantBufferView(&cbv, descriptor);
                             descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -248,20 +254,54 @@ namespace sky::aurora {
                                     resource.access == ShaderResourceAccess::READ_ONLY ? ShaderNativeCategory::SRV : ShaderNativeCategory::UAV;
                                 if (mapping.category != expected)
                                     return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute root storage category"};
-                                step.uniforms.push_back(
+                                result.uniforms.push_back(
                                     {mapping.root, buffer->GetNativeHandle()->GetGPUVirtualAddress() + range.offset, mapping.category});
                                 mapped = true;
                             }
                             if (!mapped)
                                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute root storage binding"};
-                        } else {
+                        } else if (materialize) {
                             if (const auto error = buffer->CreateStorageView(descriptor, resource, range.offset, range.size))
                                 return *error;
                             descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
                         }
                     }
                 }
+                result.tables.insert(result.tables.end(), snapshot.begin(), snapshot.end());
             }
+            return result;
+        }
+        std::variant<FrameError, D3D12ComputeStep> ResolveCompute(D3D12Device                  &device,
+                                                                  D3D12DeviceFrameContext      &context,
+                                                                  const DeviceFrameLease       &lease,
+                                                                  const FrameComputePass       &pass,
+                                                                  std::span<D3D12Buffer *const> buffers,
+                                                                  std::span<D3D12Image *const>  images,
+                                                                  D3D12FrameEncoder            &encoder,
+                                                                  D3D12BindingCache            &cache)
+        {
+            if (pass.groupsX > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION ||
+                pass.groupsY > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || pass.groupsZ > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch exceeds device limits"};
+            if (!pass.shader || pass.shader->GetDevice() != &device)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute shader belongs to another device"};
+            auto *shader = static_cast<D3D12Shader *>(pass.shader.Get());
+            if (shader->IsGraphics())
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute pass requires a compute-only shader"};
+            D3D12ComputeStep step;
+            step.groupsX = pass.groupsX;
+            step.groupsY = pass.groupsY;
+            step.groupsZ = pass.groupsZ;
+            CounterPtr<D3D12ComputePipeline> pipeline(new D3D12ComputePipeline(device));
+            if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
+                return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
+            step.pipeline = std::move(pipeline);
+            auto bindings = ResolveD3D12Bindings(device, context, lease, shader, pass.groups, buffers, images, encoder, cache);
+            if (const auto *error = std::get_if<FrameError>(&bindings))
+                return *error;
+            auto resolved = std::get<D3D12ResolvedBindings>(std::move(bindings));
+            step.tables   = std::move(resolved.tables);
+            step.uniforms = std::move(resolved.uniforms);
             return step;
         }
     } // namespace
@@ -527,16 +567,29 @@ namespace sky::aurora {
                 return buffers[i]->GetDescriptor().usage.TestBit(source ? BufferUsageFlagBit::TRANSFER_SRC : BufferUsageFlagBit::TRANSFER_DST) &&
                        heaps[i] != (source ? D3D12_HEAP_TYPE_READBACK : D3D12_HEAP_TYPE_UPLOAD);
             }
+            std::optional<FrameError> PrepareTransferBuffers(uint32_t index, D3D12EncodeTask &task)
+            {
+                std::vector<bool> used(buffers.size());
+                for (const auto &use : analysis.passResourceUses[index].buffers) {
+                    const auto logical  = use.range.buffer.index;
+                    const auto physical = plan->resources.bufferBacking[logical];
+                    const bool source   = use.kind == FrameBufferUseKind::COPY_SOURCE;
+                    if (!ValidBufferUsage(logical, source))
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT};
+                    if (!used[physical])
+                        BufferBarrier(logical, source ? D3D12_RESOURCE_STATE_COPY_SOURCE : D3D12_RESOURCE_STATE_COPY_DEST, task.before);
+                    used[physical] = true;
+                }
+                return {};
+            }
             std::optional<FrameError> CompilePass(uint32_t index, const BufferCopyPass &copy)
             {
                 D3D12EncodeTask task;
                 task.logicalPass = index;
 
                 const auto src = copy.source.index, dst = copy.destination.index;
-                if (!ValidBufferUsage(src, true) || !ValidBufferUsage(dst, false))
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-                BufferBarrier(src, D3D12_RESOURCE_STATE_COPY_SOURCE, task.before);
-                BufferBarrier(dst, D3D12_RESOURCE_STATE_COPY_DEST, task.before);
+                if (const auto error = PrepareTransferBuffers(index, task))
+                    return *error;
                 task.operation = D3D12BufferCopyStep{buffers[src]->GetNativeHandle(), buffers[dst]->GetNativeHandle(), copy.sourceOffset,
                                                      copy.destinationOffset, copy.size};
                 encoder->tasks.push_back(std::move(task));
@@ -550,10 +603,10 @@ namespace sky::aurora {
 
                 const auto bi = copy.buffer.index, im = copy.image.index;
                 const bool upload = copy.direction == ImageCopyDirection::BUFFER_TO_IMAGE;
-                if (!ValidBufferUsage(bi, upload) ||
-                    !images[im]->GetDescriptor().usage.TestBit(upload ? ImageUsageFlagBit::TRANSFER_DST : ImageUsageFlagBit::TRANSFER_SRC))
+                if (!images[im]->GetDescriptor().usage.TestBit(upload ? ImageUsageFlagBit::TRANSFER_DST : ImageUsageFlagBit::TRANSFER_SRC))
                     return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-                BufferBarrier(bi, upload ? D3D12_RESOURCE_STATE_COPY_SOURCE : D3D12_RESOURCE_STATE_COPY_DEST, task.before);
+                if (const auto error = PrepareTransferBuffers(index, task))
+                    return *error;
                 D3D12ImageCopyStep step;
                 step.buffer           = buffers[bi]->GetNativeHandle();
                 step.image            = images[im]->GetNativeHandle();
@@ -563,7 +616,7 @@ namespace sky::aurora {
                 const auto &imageDesc = data.images[im].descriptor;
                 const bool  partial   = copy.region.imageExtent.width != std::max(1u, imageDesc.extent.width >> copy.region.subRange.level) ||
                                      copy.region.imageExtent.height != std::max(1u, imageDesc.extent.height >> copy.region.subRange.level);
-                const ImageSubRange range{copy.region.subRange.level, 1, copy.region.subRange.baseLayer, 1};
+                const auto &range = analysis.passResourceUses[index].images.front().range;
                 if (upload)
                     task.initializeImage = ImageWriteBarrier(im, D3D12_RESOURCE_STATE_COPY_DEST, task.before, range, partial);
                 else
@@ -604,34 +657,11 @@ namespace sky::aurora {
             {
                 D3D12EncodeTask task;
                 task.logicalPass = index;
-
-                auto resolved = ResolveCompute(device, context, lease, compute, buffers, images, *encoder);
+                if (const auto error = PrepareInputs(index, task))
+                    return *error;
+                auto resolved = ResolveCompute(device, context, lease, compute, buffers, images, *encoder, bindingGroups);
                 if (auto *error = std::get_if<FrameError>(&resolved))
                     return std::move(*error);
-                const FrameBindingLookup<ShaderResource> reflection(compute.shader->GetReflection().resources);
-                for (const auto &binding : compute.buffers) {
-                    const auto *resource = reflection.Find(binding.set, binding.binding);
-                    if (!resource)
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute buffer reflection"};
-                    const bool uniform =
-                        resource->type == ShaderResourceType::UNIFORM_BUFFER || resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                    BufferBarrier(binding.range.buffer.index,
-                                  uniform                                               ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-                                  : resource->access == ShaderResourceAccess::READ_ONLY ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-                                                                                        : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                  task.before);
-                }
-                for (const auto &binding : compute.images) {
-                    const auto *resource = reflection.Find(binding.set, binding.binding);
-                    if (!resource)
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing compute image reflection"};
-                    const bool storage = resource->type == ShaderResourceType::STORAGE_IMAGE;
-                    const auto view =
-                        std::get<RasterImageView>(ResolveFrameImageView(binding, images[binding.image.index]->GetDescriptor(), storage));
-                    ImageBarrier(binding.image.index,
-                                 storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, task.before,
-                                 {view.baseMip, view.mipCount, view.baseLayer, view.layerCount});
-                }
                 task.operation = std::move(std::get<D3D12ComputeStep>(resolved));
                 encoder->tasks.push_back(std::move(task));
 
@@ -644,47 +674,12 @@ namespace sky::aurora {
 
                 D3D12CustomStep step;
                 step.encoder = custom.encoder;
-                for (const auto &binding : custom.buffers) {
-                    const auto *buffer  = buffers[binding.range.buffer.index];
-                    const bool  uniform = binding.kind == FrameBufferBindingKind::UNIFORM;
-                    if (!buffer->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE) ||
-                        (uniform ? heaps[binding.range.buffer.index] == D3D12_HEAP_TYPE_READBACK
-                                 : heaps[binding.range.buffer.index] != D3D12_HEAP_TYPE_DEFAULT))
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Custom buffer kind does not match usage/heap"};
-                    if (!uniform) {
-                        if (binding.resourceAccess == ShaderResourceAccess::READ_ONLY && binding.access != FrameAccessMode::READ)
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Read-only custom buffer requires read access"};
-                        ShaderResource resource;
-                        resource.type          = ShaderResourceType::STORAGE_BUFFER;
-                        resource.access        = binding.resourceAccess;
-                        resource.bufferKind    = binding.bufferKind;
-                        resource.elementStride = binding.elementStride;
-                        const auto resolved    = ResolveFrameBufferRange(binding, buffer->GetSize());
-                        if (const auto *error = std::get_if<FrameError>(&resolved))
-                            return *error;
-                        const auto &range = std::get<RasterBufferRange>(resolved);
-                        if (const auto error = buffer->CheckStorageRange(resource, range.offset, range.size))
-                            return *error;
-                    }
-                    BufferBarrier(binding.range.buffer.index,
-                                  uniform ? D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-                                  : binding.resourceAccess == ShaderResourceAccess::READ_ONLY
-                                      ? D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-                                      : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                  task.before);
-                    step.buffers.push_back(buffers[binding.range.buffer.index]);
-                }
-                for (const auto &binding : custom.images) {
-                    const auto resolved = ResolveFrameImageView(binding, data.images[binding.image.index].descriptor);
-                    if (const auto *error = std::get_if<FrameError>(&resolved))
-                        return *error;
-                    const auto &view    = std::get<RasterImageView>(resolved);
-                    const auto  mips    = view.mipCount;
-                    const auto  storage = binding.kind == FrameImageBindingKind::STORAGE;
-                    ImageBarrier(binding.image.index, storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : ImageState(ImageLayout::SHADER_READ_ONLY),
-                                 task.before, {view.baseMip, mips, view.baseLayer, view.layerCount});
-                    step.images.push_back(images[binding.image.index]);
-                }
+                if (const auto error = PrepareInputs(index, task))
+                    return *error;
+                for (const auto &use : analysis.passResourceUses[index].buffers)
+                    step.buffers.push_back(buffers[use.range.buffer.index]);
+                for (const auto &use : analysis.passResourceUses[index].images)
+                    step.images.push_back(images[use.image.index]);
                 task.operation = std::move(step);
                 encoder->tasks.push_back(std::move(task));
 
@@ -760,173 +755,90 @@ namespace sky::aurora {
 
                 return {};
             }
-            bool ReadRasterBuffer(GraphBufferHandle handle, BufferUsageFlagBit usage, std::vector<bool> &rasterBuffers) const
+            std::optional<FrameError> PrepareInputs(uint32_t index, D3D12EncodeTask &task)
             {
-                if (heaps[handle.index] == D3D12_HEAP_TYPE_READBACK || !buffers[handle.index]->GetDescriptor().usage.TestBit(usage))
-                    return false;
-                rasterBuffers[handle.index] = true;
-                return true;
+                struct Read {
+                    uint32_t              logical = UINT32_MAX;
+                    D3D12_RESOURCE_STATES state   = D3D12_RESOURCE_STATE_COMMON;
+                };
+                const auto shaderReadState = [](ShaderStageFlags stages) {
+                    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+                    if (!stages || stages.TestBit(ShaderStageFlagBit::FS))
+                        state |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+                    if (!stages || stages.TestBit(ShaderStageFlagBit::VS) || stages.TestBit(ShaderStageFlagBit::CS))
+                        state |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+                    return state;
+                };
+                std::map<uint32_t, Read> reads;
+                const auto              &uses = analysis.passResourceUses[index];
+                for (const auto &use : uses.buffers) {
+                    const auto logical = use.range.buffer.index;
+                    if (heaps[logical] == D3D12_HEAP_TYPE_READBACK || !buffers[logical]->GetDescriptor().usage.TestBit(FrameBufferUseUsage(use.kind)))
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader buffer lacks its declared usage or readable heap"};
+                    auto state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+                    if (use.kind == FrameBufferUseKind::INDEX)
+                        state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+                    else if (use.kind == FrameBufferUseKind::STORAGE) {
+                        ShaderResource resource;
+                        resource.type          = ShaderResourceType::STORAGE_BUFFER;
+                        resource.access        = use.resourceAccess;
+                        resource.bufferKind    = use.bufferKind;
+                        resource.elementStride = use.elementStride;
+                        if (const auto error = buffers[logical]->CheckStorageRange(resource, use.range.offset, use.range.size))
+                            return *error;
+                        state = use.resourceAccess == ShaderResourceAccess::READ_ONLY ? shaderReadState(use.stages)
+                                                                                      : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                    }
+                    auto &read = reads[plan->resources.bufferBacking[logical]];
+                    if (read.state && ((read.state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS) != (state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)))
+                        return FrameError{FrameErrorCode::UNSUPPORTED, "Writable storage cannot share a pass with another buffer view class"};
+                    read.logical = logical;
+                    read.state |= state;
+                }
+                for (const auto &[physical, read] : reads)
+                    BufferBarrier(read.logical, read.state, task.before);
+                for (const auto &use : uses.images) {
+                    if (use.kind != FrameImageUseKind::SAMPLED && use.kind != FrameImageUseKind::STORAGE)
+                        continue;
+                    const bool storage = use.kind == FrameImageUseKind::STORAGE;
+                    if (!images[use.image.index]->GetDescriptor().usage.TestBit(storage ? ImageUsageFlagBit::STORAGE : ImageUsageFlagBit::SAMPLED))
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader image lacks its declared usage"};
+                    ImageBarrier(use.image.index, storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : shaderReadState(use.stages), task.before,
+                                 use.range);
+                }
+                return {};
             }
-            std::optional<FrameError> CompileRasterBindings(
-                const RasterDraw &draw, D3D12Shader *shader, D3D12GraphDraw &native, D3D12EncodeTask &task, std::vector<bool> &rasterBuffers)
+            std::optional<FrameError> CompileRasterBindings(const RasterDraw &draw, D3D12Shader *shader, D3D12GraphDraw &native)
             {
-                const FrameBindingLookup<RasterUniformBinding> uniformsLookup(draw.uniforms);
-                const FrameBindingLookup<RasterImageBinding>   imagesLookup(draw.images);
-                const FrameBindingLookup<RasterSamplerBinding> samplersLookup(draw.samplers);
-
-                const auto &reflection = shader->GetReflection();
-                for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
-                    const auto count =
-                        static_cast<uint32_t>(std::count_if(reflection.resources.begin(), reflection.resources.end(), [&](const auto &r) {
-                            return r.set == set && (r.type == ShaderResourceType::UNIFORM_BUFFER || r.type == ShaderResourceType::SAMPLED_IMAGE ||
-                                                    r.type == ShaderResourceType::STORAGE_BUFFER);
-                        }));
-                    D3D12_CPU_DESCRIPTOR_HANDLE descriptor{};
-                    if (count) {
-                        auto allocated = context.AllocateDescriptors(lease, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, count);
-                        if (auto *error = std::get_if<FrameError>(&allocated))
-                            return std::move(*error);
-                        auto &range        = std::get<D3D12FrameDescriptors>(allocated);
-                        encoder->resources = range.heap;
-                        descriptor         = range.cpu;
-                        for (const auto &table : shader->GetRootSignature()->GetDescriptorTables(set)) {
-                            if (table.sampler == false)
-                                native.tables.push_back({table.root, range.gpu});
-                        }
-                    }
-                    const auto samplerCount = static_cast<uint32_t>(
-                        std::count_if(draw.samplers.begin(), draw.samplers.end(), [&](const auto &binding) { return binding.set == set; }));
-                    D3D12_CPU_DESCRIPTOR_HANDLE samplerDescriptor{};
-                    if (samplerCount) {
-                        auto allocated = context.AllocateDescriptors(lease, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, samplerCount);
-                        if (auto *error = std::get_if<FrameError>(&allocated))
-                            return std::move(*error);
-                        auto &range       = std::get<D3D12FrameDescriptors>(allocated);
-                        encoder->samplers = range.heap;
-                        samplerDescriptor = range.cpu;
-                        for (const auto &table : shader->GetRootSignature()->GetDescriptorTables(set)) {
-                            if (table.sampler == true)
-                                native.tables.push_back({table.root, range.gpu});
-                        }
-                    }
-                    for (const auto &resource : reflection.resources) {
-                        if (resource.set != set)
-                            continue;
-
-                        if (resource.type == ShaderResourceType::STORAGE_BUFFER) {
-                            const auto binding = std::find_if(draw.storage.begin(), draw.storage.end(), [&](const auto &value) {
-                                return value.set == set && value.binding == resource.binding;
-                            });
-                            if (binding == draw.storage.end())
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster storage binding"};
-                            auto *buffer = buffers[binding->range.buffer.index];
-                            if (!buffer || !buffer->GetDescriptor().usage.TestBit(BufferUsageFlagBit::STORAGE) || !resource.elementStride ||
-                                binding->range.offset % resource.elementStride || binding->range.size % resource.elementStride)
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid DX12 storage buffer range"};
-                            D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
-                            srv.Format                     = DXGI_FORMAT_UNKNOWN;
-                            srv.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
-                            srv.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                            srv.Buffer.FirstElement        = binding->range.offset / resource.elementStride;
-                            srv.Buffer.NumElements         = static_cast<UINT>(binding->range.size / resource.elementStride);
-                            srv.Buffer.StructureByteStride = resource.elementStride;
-                            device.GetNativeHandle()->CreateShaderResourceView(buffer->GetNativeHandle(), &srv, descriptor);
-                            descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-                            continue;
-                        }
-                        if (resource.type == ShaderResourceType::SAMPLED_IMAGE) {
-                            const auto *binding = imagesLookup.Find(set, resource.binding);
-                            if (!binding)
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster binding"};
-                            auto *sampled = images[binding->image.index];
-                            if (!sampled->GetDescriptor().usage.TestBit(ImageUsageFlagBit::SAMPLED))
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing sampled image usage"};
-                            D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
-                            srv.Format =
-                                sampled->GetPixelFormat() == PixelFormat::D32 ? DXGI_FORMAT_R32_FLOAT : FromPixelFormat(sampled->GetPixelFormat());
-                            auto resolvedView = ResolveRasterImageView(binding->view, sampled->GetDescriptor());
-                            if (const auto *error = std::get_if<FrameError>(&resolvedView))
-                                return *error;
-                            const auto &view            = std::get<RasterImageView>(resolvedView);
-                            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                            if (view.type == ImageViewType::VIEW_2D_ARRAY) {
-                                srv.ViewDimension                  = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-                                srv.Texture2DArray.MostDetailedMip = view.baseMip;
-                                srv.Texture2DArray.MipLevels       = view.mipCount;
-                                srv.Texture2DArray.FirstArraySlice = view.baseLayer;
-                                srv.Texture2DArray.ArraySize       = view.layerCount;
-                            } else {
-                                srv.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-                                srv.Texture2D.MostDetailedMip = view.baseMip;
-                                srv.Texture2D.MipLevels       = view.mipCount;
-                            }
-                            device.GetNativeHandle()->CreateShaderResourceView(sampled->GetNativeHandle(), &srv, descriptor);
-                            descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-                            ImageBarrier(binding->image.index, ImageState(ImageLayout::SHADER_READ_ONLY), task.before,
-                                         {view.baseMip, view.mipCount, view.baseLayer, view.layerCount});
-                            continue;
-                        }
-                        if (resource.type == ShaderResourceType::SAMPLER) {
-                            const auto *binding = samplersLookup.Find(set, resource.binding);
-                            if (!binding)
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster binding"};
-                            if (binding->sampler->GetDevice() != &device)
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Sampler belongs to another or unknown device"};
-                            const auto &desc = static_cast<const D3D12Sampler *>(binding->sampler.Get())->GetNativeDesc();
-                            device.GetNativeHandle()->CreateSampler(&desc, samplerDescriptor);
-                            samplerDescriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-                            continue;
-                        }
-                        const auto *binding = uniformsLookup.Find(set, resource.binding);
-                        if (!binding)
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster binding"};
-                        auto      *buffer = buffers[binding->range.buffer.index];
-                        const auto offset = binding->range.offset + binding->dynamicOffset;
-                        const auto padded = (binding->range.size + 255) & ~uint64_t{255};
-                        if (!ReadRasterBuffer(binding->range.buffer, BufferUsageFlagBit::UNIFORM, rasterBuffers) || binding->range.offset % 256 ||
-                            binding->dynamicOffset % 256 || padded > buffer->GetSize() - offset)
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid DX12 UBO alignment/range/heap"};
-                        const auto address = buffer->GetNativeHandle()->GetGPUVirtualAddress() + offset;
-                        if (resource.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
-                            bool mapped = false;
-                            for (const auto &mapping : shader->GetRootSignature()->GetDynamicBindings(set)) {
-                                if (mapping.binding != resource.binding)
-                                    continue;
-                                if (mapping.category != ShaderNativeCategory::CBV)
-                                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid raster root CBV category"};
-                                native.uniforms.push_back({mapping.root, address});
-                                mapped = true;
-                            }
-                            if (!mapped)
-                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing raster root CBV"};
-                        } else {
-                            const D3D12_CONSTANT_BUFFER_VIEW_DESC cbv{address, static_cast<UINT>(padded)};
-                            device.GetNativeHandle()->CreateConstantBufferView(&cbv, descriptor);
-                            descriptor.ptr += device.GetNativeHandle()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-                        }
-                    }
+                auto bindings = ResolveD3D12Bindings(device, context, lease, shader, draw.groups, buffers, images, *encoder, bindingGroups);
+                if (const auto *error = std::get_if<FrameError>(&bindings))
+                    return *error;
+                auto resolved = std::get<D3D12ResolvedBindings>(std::move(bindings));
+                for (const auto &table : resolved.tables)
+                    native.tables.push_back({table.root, table.descriptor});
+                for (const auto &uniform : resolved.uniforms) {
+                    if (uniform.category != ShaderNativeCategory::CBV)
+                        return FrameError{FrameErrorCode::UNSUPPORTED, "Raster dynamic storage buffers are not supported"};
+                    native.uniforms.push_back({uniform.root, uniform.address});
                 }
                 return {};
             }
             std::optional<FrameError>
-            CompileRasterDraws(const FrameRasterPass &pass, D3D12Image *image, D3D12EncodeTask &task, D3D12RasterScope &scope)
+            CompileRasterDraws(uint32_t index, const FrameRasterPass &pass, D3D12Image *image, D3D12EncodeTask &task, D3D12RasterScope &scope)
             {
-                const bool        hasColor = pass.color != GraphImageHandle{};
-                std::vector<bool> rasterBuffers(buffers.size());
+                const bool hasColor = pass.color != GraphImageHandle{};
+                if (auto error = PrepareInputs(index, task))
+                    return error;
 
                 auto less = [](const RasterDraw *a, const RasterDraw *b) { return RasterPipelineLess(*a, *b); };
                 std::map<const RasterDraw *, CounterPtr<D3D12GraphicsPipeline>, decltype(less)> pipelines(less);
-                std::map<const RasterDraw *, size_t, FrameRasterBindingsLess>                   descriptors;
                 for (const auto &draw : pass.draws) {
                     if (!draw.shader || draw.shader->GetDevice() != &device)
                         return FrameError{FrameErrorCode::INVALID_ARGUMENT};
                     auto *shader = static_cast<D3D12Shader *>(draw.shader.Get());
                     if (!shader->IsGraphics())
                         return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-                    const auto &reflection = shader->GetReflection();
-                    const auto &blend      = draw.blend;
-                    if (auto error = ValidateRasterBindings(draw, reflection))
-                        return std::move(*error);
+                    const auto &blend = draw.blend;
                     if (blend.srcColor >= BlendFactor::SRC1_COLOR || blend.dstColor >= BlendFactor::SRC1_COLOR ||
                         blend.srcAlpha >= BlendFactor::SRC1_COLOR || blend.dstAlpha >= BlendFactor::SRC1_COLOR)
                         return FrameError{FrameErrorCode::UNSUPPORTED};
@@ -963,35 +875,20 @@ namespace sky::aurora {
                     scope.draws.push_back({pipeline, draw.command, scissor});
                     auto &native = scope.draws.back();
                     for (const auto &stream : draw.vertices) {
-                        if (!ReadRasterBuffer(stream.range.buffer, BufferUsageFlagBit::VERTEX, rasterBuffers))
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid vertex buffer usage/heap"};
                         native.vertices.push_back(
                             {buffers[stream.range.buffer.index]->GetNativeHandle()->GetGPUVirtualAddress() + stream.range.offset,
                              static_cast<UINT>(stream.range.size), stream.stride});
                     }
                     if (draw.indexed) {
-                        if (!ReadRasterBuffer(draw.indexed->range.buffer, BufferUsageFlagBit::INDEX, rasterBuffers))
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid index buffer usage/heap"};
                         native.index   = {buffers[draw.indexed->range.buffer.index]->GetNativeHandle()->GetGPUVirtualAddress() +
                                               draw.indexed->range.offset,
                                           static_cast<UINT>(draw.indexed->range.size),
                                         draw.indexed->type == IndexType::U16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT};
                         native.indexed = draw.indexed->command;
                     }
-                    const auto [cachedBindings, inserted] = descriptors.emplace(&draw, scope.draws.size() - 1);
-                    if (!inserted) {
-                        const auto &previous = scope.draws[cachedBindings->second];
-                        native.tables        = previous.tables;
-                        native.uniforms      = previous.uniforms;
-                        continue;
-                    }
-                    if (auto error = CompileRasterBindings(draw, shader, native, task, rasterBuffers))
+                    if (auto error = CompileRasterBindings(draw, shader, native))
                         return error;
                 }
-                for (uint32_t i = 0; i < rasterBuffers.size(); ++i)
-                    if (rasterBuffers[i])
-                        BufferBarrier(i, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_INDEX_BUFFER, task.before);
-
                 return {};
             }
             std::optional<FrameError> CompilePass(uint32_t index, const FrameRasterPass &pass)
@@ -1010,7 +907,7 @@ namespace sky::aurora {
                 if (auto error = PrepareRasterScope(pass, image, view, task, scope)) {
                     return error;
                 }
-                if (auto error = CompileRasterDraws(pass, image, task, scope)) {
+                if (auto error = CompileRasterDraws(index, pass, image, task, scope)) {
                     return error;
                 }
                 const auto scopeIndex = static_cast<uint32_t>(encoder->scopes.size());
@@ -1097,6 +994,7 @@ namespace sky::aurora {
             std::vector<D3D12Buffer *>                      buffers;
             std::vector<D3D12Image *>                       images;
             std::vector<D3D12_HEAP_TYPE>                    heaps;
+            D3D12BindingCache                               bindingGroups;
             std::vector<D3D12_RESOURCE_STATES>              bufferStates;
             std::vector<std::vector<D3D12_RESOURCE_STATES>> imageStates;
             std::vector<std::vector<bool>>                  imageReady;

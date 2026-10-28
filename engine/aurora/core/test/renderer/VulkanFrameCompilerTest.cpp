@@ -1,10 +1,12 @@
 #include "rdg/VulkanFrameCompiler.h"
+
 #include "GpuTestSupport.h"
 #include "graph/FrameGraphBuilder.h"
 #include "rdg/VulkanRenderPassCache.h"
 #include <algorithm>
 #include <atomic>
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/FrameBindings.h>
 #include <condition_variable>
 #include <future>
 #include <map>
@@ -33,6 +35,7 @@ namespace {
             fn.vkCreateFramebuffer       = CreateFramebuffer;
             fn.vkDestroyFramebuffer      = DestroyFramebuffer;
             fn.vkDestroyRenderPass       = DestroyRenderPass;
+            fn.vkUpdateDescriptorSets    = UpdateDescriptors;
         }
         ~NativeProbe()
         {
@@ -77,14 +80,24 @@ namespace {
         {
             EXPECT_EQ(std::this_thread::get_id(), active->coordinator);
             EXPECT_FALSE(active->insideScope);
+            for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; ++i) {
+                const auto &barrier = info->pBufferMemoryBarriers[i];
+                if ((barrier.dstAccessMask & VK_ACCESS_2_SHADER_STORAGE_READ_BIT) &&
+                    (barrier.dstAccessMask & VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT)) {
+                    ++active->rasterStorageReads;
+                    active->rasterStorageSources |= barrier.srcAccessMask;
+                    EXPECT_TRUE(barrier.dstStageMask & VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT);
+                    EXPECT_TRUE(barrier.dstStageMask & VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+                    EXPECT_TRUE(barrier.dstStageMask & VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+                }
+            }
             if (active->inspectStorageStages) {
                 auto check = [&](VkAccessFlags2 access, VkPipelineStageFlags2 stages, uint32_t &count) {
                     if (!(access & (VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT)))
                         return;
                     ++count;
-                    EXPECT_TRUE((stages & VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT) ||
-                                ((stages & VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT) &&
-                                 (stages & (VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT))));
+                    EXPECT_TRUE(stages & (VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                          VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
                 };
                 for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; ++i) {
                     const auto &barrier = info->pBufferMemoryBarriers[i];
@@ -98,6 +111,13 @@ namespace {
                 }
             }
             active->saved.vkCmdPipelineBarrier2(command, info);
+        }
+        static void VKAPI_PTR UpdateDescriptors(
+            VkDevice device, uint32_t writeCount, const VkWriteDescriptorSet *writes, uint32_t copyCount, const VkCopyDescriptorSet *copies)
+        {
+            for (uint32_t i = 0; i < writeCount; ++i)
+                active->descriptorWrites += writes[i].descriptorCount;
+            active->saved.vkUpdateDescriptorSets(device, writeCount, writes, copyCount, copies);
         }
         static VkResult VKAPI_PTR CreateRenderPass(VkDevice                       device,
                                                    const VkRenderPassCreateInfo2 *info,
@@ -186,6 +206,9 @@ namespace {
         bool                                                insideScope          = false;
         bool                                                inspectStorageStages = false;
         uint32_t                                            storageSources = 0, storageDestinations = 0;
+        uint32_t                                            rasterStorageReads   = 0;
+        VkAccessFlags2                                      rasterStorageSources = 0;
+        uint32_t                                            descriptorWrites     = 0;
         uint32_t                                            subpassTransitions = 0, pipelineAttempts = 0, failPipelineAttempt = 0;
         std::vector<uint32_t>                               subpassCounts, pipelineSubpasses;
         std::vector<VkAttachmentLoadOp>                     scopeLoads;
@@ -654,6 +677,54 @@ TEST_P(VulkanFrameCompilerFixture, ComputeUniformOffsetsAreIndependentOfDeclarat
     }
 }
 
+TEST_P(VulkanFrameCompilerFixture, GpuProducedStorageCombinesVertexAndShaderReadSynchronization)
+{
+    for (const bool computeProducer : {false, true}) {
+        auto [graph, readback] = RasterStorageGraph(*device, computeProducer);
+        ASSERT_TRUE(graph);
+        ASSERT_TRUE(readback);
+        NativeProbe probe(*device);
+        Execute(graph);
+        EXPECT_EQ(probe.rasterStorageReads, 1u);
+        EXPECT_TRUE(probe.rasterStorageSources & (computeProducer ? VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT : VK_ACCESS_2_TRANSFER_WRITE_BIT));
+        const auto *pixels = readback->Map();
+        ASSERT_TRUE(pixels);
+        for (uint32_t i = 0; i < 64; ++i) {
+            EXPECT_EQ(pixels[i * 4], 0);
+            EXPECT_EQ(pixels[i * 4 + 1], 255);
+            EXPECT_EQ(pixels[i * 4 + 2], 0);
+            EXPECT_EQ(pixels[i * 4 + 3], 255);
+        }
+        readback->UnMap();
+    }
+}
+
+TEST_P(VulkanFrameCompilerFixture, BindingGroupsReuseDescriptorsWhileDynamicOffsetsAndBaseRangesStayIndependent)
+{
+    const auto function = CompileGpuFunction(*device, kGpuComputeUniformSource, ShaderStageFlagBit::CS, "CSMain");
+    ASSERT_TRUE(function);
+    for (uint32_t scenario = 0; scenario < 3; ++scenario) {
+        const bool         dynamic      = scenario == 1;
+        const bool         changedRange = scenario == 2;
+        Shader::Descriptor descriptor;
+        descriptor.cs              = function.Get();
+        descriptor.bindingPolicies = ComputeUniformPolicies(dynamic);
+        auto shader                = ShaderPtr(device->CreateShader(descriptor));
+        ASSERT_TRUE(shader);
+        auto [graph, readback] = RepeatedComputeUniformGraph(*device, std::move(shader), dynamic, changedRange);
+        ASSERT_TRUE(graph);
+        ASSERT_TRUE(readback);
+        NativeProbe probe(*device);
+        Execute(graph);
+        EXPECT_EQ(probe.descriptorWrites, changedRange ? 5u : 3u);
+        const auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], (dynamic || changedRange ? 117u : 81u) + i);
+        readback->UnMap();
+    }
+}
+
 TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelease)
 {
     const auto function = CompileGpuFunction(*device, kGpuComputeSampleSource, ShaderStageFlagBit::CS, "CSMain");
@@ -667,16 +738,20 @@ TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelea
     FrameGraphBuilder builder;
     const auto        image = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
     const auto storage      = std::get<GraphBufferHandle>(builder.Import(StorageBufferOf(), CopyBufferState::COMMON, CopyBufferState::COMMON, false));
-    FrameComputePass fill;
+    FrameComputePass    fill;
+    ComputeBindingDraft fillBindings;
     fill.shader  = ComputeImageShaderOf();
     fill.groupsX = fill.groupsY = 8;
-    fill.images.push_back({0, 0, image, {}, FrameAccessMode::WRITE});
+    fillBindings.images.push_back({0, 0, image, {}, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(fill, std::move(fillBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(fill))));
-    FrameComputePass sample;
+    FrameComputePass    sample;
+    ComputeBindingDraft sampleBindings;
     sample.shader = shader;
-    sample.images.push_back({0, 0, image, {}, FrameAccessMode::READ});
-    sample.samplers.push_back({0, 1, sampler});
-    sample.buffers.push_back({1, 0, {storage, 0, 4}, 0, FrameAccessMode::WRITE});
+    sampleBindings.images.push_back({0, 0, image, {}, FrameAccessMode::READ});
+    sampleBindings.samplers.push_back({0, 1, sampler});
+    sampleBindings.buffers.push_back({1, 0, {storage, 0, 4}, 0, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(sample, std::move(sampleBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(sample))));
     auto       readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
     const auto target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
@@ -712,12 +787,14 @@ TEST_P(VulkanFrameCompilerFixture, ComputeStorageBufferWritesReadBack)
     auto              storage = StorageBufferOf();
     const auto        source =
         std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
-    auto             readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
-    const auto       target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
-    FrameComputePass compute;
+    auto                readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+    const auto          target = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+    FrameComputePass    compute;
+    ComputeBindingDraft computeBindings;
     compute.shader  = ComputeShaderOf();
     compute.groupsX = 4;
-    compute.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+    computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
@@ -732,22 +809,26 @@ TEST_P(VulkanFrameCompilerFixture, ComputeStorageBufferWritesReadBack)
 
 TEST_P(VulkanFrameCompilerFixture, ComputeStorageImageIsSampledByRaster)
 {
-    FrameGraphBuilder builder;
-    const auto        source = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
-    const auto        output = std::get<GraphImageHandle>(builder.Import(ImageOf()));
-    FrameComputePass  compute;
+    FrameGraphBuilder   builder;
+    const auto          source = std::get<GraphImageHandle>(builder.Import(StorageImageOf()));
+    const auto          output = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    FrameComputePass    compute;
+    ComputeBindingDraft computeBindings;
     compute.shader  = ComputeImageShaderOf();
     compute.groupsX = 8;
     compute.groupsY = 8;
-    compute.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+    computeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
     FrameRasterPass raster;
     raster.color = output;
-    RasterDraw draw;
+    RasterDraw         draw;
+    RasterBindingDraft drawBindings;
     draw.shader  = SampleShaderOf();
     draw.command = {3, 1, 0, 0};
-    draw.images.push_back({0, 0, source, {}});
-    draw.samplers.push_back({0, 1, SamplerPtr(device->CreateSampler({}))});
+    drawBindings.images.push_back({0, 0, source, {}});
+    drawBindings.samplers.push_back({0, 1, SamplerPtr(device->CreateSampler({}))});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(drawBindings))));
     raster.draws.push_back(std::move(draw));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
     auto readback = Readback(builder, output);

@@ -1,5 +1,7 @@
 #include <aurora/rdg/FrozenFrameGraph.h>
 
+#include <aurora/rdg/FrameBindings.h>
+
 #include <algorithm>
 #include <aurora/rdg/FrameBindingLookup.h>
 #include <bit>
@@ -254,7 +256,8 @@ namespace sky::aurora {
 
     std::vector<uint32_t> ResolveComputeDynamicOffsets(const FrameComputePass &pass, uint32_t set)
     {
-        const FrameBindingLookup<FrameBufferBinding> buffers(pass.buffers);
+        const auto                                   bindings = ResolveComputeBindings(pass);
+        const FrameBindingLookup<FrameBufferBinding> buffers(bindings.buffers);
         std::vector<std::pair<uint32_t, uint32_t>>   ordered;
         for (const auto &resource : pass.shader->GetReflection().resources) {
             if (resource.set != set ||
@@ -273,75 +276,56 @@ namespace sky::aurora {
     }
 
     namespace {
-        // Called after handles, views and reflected bindings have been validated.
-        template <class Pass>
-        std::optional<FrameError>
-        ValidatePassKinds(const FrameGraphData &data, const Pass &pass, const FrameBindingLookup<ShaderResource> *reflection)
+        std::optional<FrameError> ValidatePassKinds(const FrameGraphData &data, const FramePassResourceUses &uses)
         {
-            std::vector<FrameBufferBindingKind> bufferKinds(data.buffers.size(), FrameBufferBindingKind::REFLECTED);
-            for (const auto &binding : pass.buffers) {
-                auto kind = binding.kind;
-                if (reflection) {
-                    const auto *resource = reflection->Find(binding.set, binding.binding);
-                    if (!resource)
-                        return Invalid("Missing compute buffer reflection");
-                    kind = resource->type == ShaderResourceType::UNIFORM_BUFFER || resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC
-                               ? FrameBufferBindingKind::UNIFORM
-                               : FrameBufferBindingKind::STORAGE;
-                }
-                const auto index    = binding.range.buffer.index;
+            std::vector<std::optional<FrameBufferUseKind>> bufferKinds(data.buffers.size());
+            for (const auto &use : uses.buffers) {
+                const auto index    = use.range.buffer.index;
                 auto      &previous = bufferKinds[index];
-                if (previous == kind)
+                if (previous == use.kind)
                     continue;
-                if (previous != FrameBufferBindingKind::REFLECTED)
+                if (previous)
                     return Invalid("A pass cannot use one buffer as both uniform and storage");
                 const auto *physical = data.buffers[index].buffer.Get();
                 if (physical)
                     for (size_t j = 0; j < data.buffers.size(); ++j)
-                        if (data.buffers[j].buffer.Get() == physical && bufferKinds[j] != FrameBufferBindingKind::REFLECTED && bufferKinds[j] != kind)
+                        if (data.buffers[j].buffer.Get() == physical && bufferKinds[j] && bufferKinds[j] != use.kind)
                             return Invalid("A pass cannot use one physical buffer as both uniform and storage");
-                previous = kind;
+                previous = use.kind;
             }
-            std::vector<std::vector<FrameImageBindingKind>> imageKinds(data.images.size());
-            for (const auto &binding : pass.images) {
-                auto kind = binding.kind;
-                if (reflection) {
-                    const auto *resource = reflection->Find(binding.set, binding.binding);
-                    if (!resource)
-                        return Invalid("Missing compute image reflection");
-                    kind = resource->type == ShaderResourceType::STORAGE_IMAGE ? FrameImageBindingKind::STORAGE : FrameImageBindingKind::SAMPLED;
-                }
-                const auto &desc     = data.images[binding.image.index].descriptor;
-                const auto  resolved = ResolveFrameImageView(binding, desc);
-                if (const auto *error = std::get_if<FrameError>(&resolved))
-                    return *error;
-                const auto &view  = std::get<RasterImageView>(resolved);
-                auto       &cells = imageKinds[binding.image.index];
+            std::vector<std::vector<std::optional<FrameImageUseKind>>> imageKinds(data.images.size());
+            for (const auto &use : uses.images) {
+                const auto &desc  = data.images[use.image.index].descriptor;
+                const auto &range = use.range;
+                auto       &cells = imageKinds[use.image.index];
                 if (cells.empty())
-                    cells.resize(uint64_t(desc.mipLevels) * desc.arrayLayers, FrameImageBindingKind::REFLECTED);
-                for (uint32_t layer = view.baseLayer; layer < view.baseLayer + view.layerCount; ++layer)
-                    for (uint32_t mip = view.baseMip; mip < view.baseMip + view.mipCount; ++mip) {
+                    cells.resize(uint64_t(desc.mipLevels) * desc.arrayLayers);
+                for (uint32_t layer = range.baseLayer; layer < range.baseLayer + range.layers; ++layer)
+                    for (uint32_t mip = range.baseLevel; mip < range.baseLevel + range.levels; ++mip) {
                         auto &previous = cells[uint64_t(layer) * desc.mipLevels + mip];
-                        if (previous != FrameImageBindingKind::REFLECTED && previous != kind)
+                        if (previous && previous != use.kind)
                             return Invalid("A pass cannot use overlapping image views as both sampled and storage");
-                        previous = kind;
+                        previous = use.kind;
                     }
             }
             return {};
         }
         std::optional<FrameError> ValidateComputeBindings(const FrameComputePass &pass, const ShaderReflection &reflection)
         {
+            if (const auto error = ValidateBindingGroups(pass.shader.Get(), pass.groups))
+                return *error;
+            const auto bindings = ResolveComputeBindings(pass);
             if (!pass.shader)
                 return Invalid("Compute pass requires a shader");
             if (!pass.groupsX || !pass.groupsY || !pass.groupsZ)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch dimensions must be nonzero"};
             if (!reflection.pushConstants.empty())
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Compute push constants are not implemented"};
-            if (pass.buffers.size() + pass.images.size() + pass.samplers.size() != reflection.resources.size())
+            if (bindings.buffers.size() + bindings.images.size() + bindings.samplers.size() != reflection.resources.size())
                 return Invalid("Compute bindings do not match shader reflection");
-            const FrameBindingLookup<FrameBufferBinding>   buffers(pass.buffers);
-            const FrameBindingLookup<FrameImageBinding>    images(pass.images);
-            const FrameBindingLookup<RasterSamplerBinding> samplers(pass.samplers);
+            const FrameBindingLookup<FrameBufferBinding>   buffers(bindings.buffers);
+            const FrameBindingLookup<FrameImageBinding>    images(bindings.images);
+            const FrameBindingLookup<RasterSamplerBinding> samplers(bindings.samplers);
             for (size_t i = 0; i < reflection.resources.size(); ++i) {
                 const auto &resource = reflection.resources[i];
                 if (resource.count != 1 || resource.descriptorArray || resource.set >= MAX_SHADER_SETS || resource.binding >= 32)
@@ -416,8 +400,9 @@ namespace sky::aurora {
             Range    range;
         };
         struct Accesses {
-            std::vector<Use> reads, writes, defines;
-            bool             sideEffect = false;
+            std::vector<Use>      reads, writes, defines;
+            bool                  sideEffect = false;
+            FramePassResourceUses resources;
         };
         class FrameGraphAnalyzer {
         public:
@@ -546,8 +531,11 @@ namespace sky::aurora {
                 return {};
             }
 
-            std::optional<FrameError>
-            AddDeclaredBuffer(Accesses &out, const FrameBufferBinding &binding, bool descriptor, FrameBufferBindingKind kind)
+            std::optional<FrameError> AddDeclaredBuffer(Accesses                 &out,
+                                                        const FrameBufferBinding &binding,
+                                                        bool                      descriptor,
+                                                        FrameBufferBindingKind    kind,
+                                                        const ShaderResource     *resource = nullptr)
             {
                 if ((descriptor && (binding.set >= MAX_SHADER_SETS || binding.binding >= 32)) || binding.range.buffer.graph != graph.GetId() ||
                     binding.range.buffer.index >= data.buffers.size())
@@ -564,6 +552,10 @@ namespace sky::aurora {
                     if (!usage.TestBit(kind == FrameBufferBindingKind::UNIFORM ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE))
                         return Invalid("Declared buffer kind does not match usage");
                 }
+                out.resources.buffers.push_back(
+                    {range, kind == FrameBufferBindingKind::UNIFORM ? FrameBufferUseKind::UNIFORM : FrameBufferUseKind::STORAGE, binding.access,
+                     resource ? resource->stages : ShaderStageFlags{}, resource ? resource->access : binding.resourceAccess,
+                     resource ? resource->bufferKind : binding.bufferKind, resource ? resource->elementStride : binding.elementStride});
                 const Use use{range.buffer.index, {range.offset, range.offset + range.size}};
                 if (read)
                     out.reads.push_back(use);
@@ -574,7 +566,8 @@ namespace sky::aurora {
                 return {};
             }
 
-            std::optional<FrameError> AddDeclaredImage(Accesses &out, const FrameImageBinding &binding, bool descriptor, bool storage)
+            std::optional<FrameError>
+            AddDeclaredImage(Accesses &out, const FrameImageBinding &binding, bool descriptor, bool storage, ShaderStageFlags stages = {})
             {
                 if ((descriptor && (binding.set >= MAX_SHADER_SETS || binding.binding >= 32)) || !ValidImage(binding.image))
                     return Invalid("Invalid declared image binding");
@@ -591,6 +584,11 @@ namespace sky::aurora {
                     return Invalid("Declared image read lacks sampled usage");
                 if ((write || storage) && !desc.usage.TestBit(ImageUsageFlagBit::STORAGE))
                     return Invalid("Declared image write lacks storage usage");
+                out.resources.images.push_back({binding.image,
+                                                {view.baseMip, view.mipCount, view.baseLayer, view.layerCount},
+                                                storage ? FrameImageUseKind::STORAGE : FrameImageUseKind::SAMPLED,
+                                                binding.access,
+                                                stages});
                 for (uint32_t layer = view.baseLayer; layer < view.baseLayer + view.layerCount; ++layer) {
                     const auto  first   = uint64_t(layer) * desc.mipLevels + view.baseMip;
                     const auto &offsets = imageOffsets[binding.image.index];
@@ -607,17 +605,28 @@ namespace sky::aurora {
 
             std::optional<FrameError> CollectDraw(const RasterDraw &draw, const FrameRasterPass &raster, Extent2D extent, Accesses &access)
             {
-                auto readBuffer = [&](const RasterBufferRange &range, uint64_t extra = 0) {
+                if (const auto error = ValidateBindingGroups(draw.shader.Get(), draw.groups))
+                    return *error;
+                const auto bindings   = ResolveRasterBindings(draw);
+                auto       readBuffer = [&](const RasterBufferRange &range, FrameBufferUseKind kind, uint64_t extra = 0,
+                                      ShaderStageFlags stages = ShaderStageFlagBit::VS, const ShaderResource *resource = nullptr) {
                     if (extra > UINT64_MAX - range.offset || !ValidBuffer(range.buffer, range.offset + extra, range.size))
                         return false;
                     access.reads.push_back({range.buffer.index, {range.offset + extra, range.offset + extra + range.size}});
+                    access.resources.buffers.push_back({{range.buffer, range.offset + extra, range.size},
+                                                        kind,
+                                                        FrameAccessMode::READ,
+                                                        stages,
+                                                        resource ? resource->access : ShaderResourceAccess::READ_ONLY,
+                                                        resource ? resource->bufferKind : ShaderBufferKind::NONE,
+                                                        resource ? resource->elementStride : 0});
                     return true;
                 };
                 const auto &r = draw.scissor;
                 if (!draw.shader || (!draw.indexed && (!draw.command.vertexCount || !draw.command.instanceCount)))
                     return Invalid("Invalid raster draw");
                 if (draw.vertices.size() > MAX_VERTEX_BINDINGS || draw.attributes.size() > 16 ||
-                    draw.uniforms.size() + draw.storage.size() + draw.images.size() + draw.samplers.size() > 32 ||
+                    bindings.uniforms.size() + bindings.storage.size() + bindings.images.size() + bindings.samplers.size() > 32 ||
                     draw.depth.compare > CompareOp::ALWAYS || (draw.depth.write && !draw.depth.test) ||
                     ((draw.depth.test || draw.depth.write) && !raster.depth))
                     return Invalid("Invalid raster input budget or depth state");
@@ -629,12 +638,13 @@ namespace sky::aurora {
                     if ((indexed.type != IndexType::U16 && indexed.type != IndexType::U32) || !indexed.command.indexCount ||
                         !indexed.command.instanceCount || indexed.range.offset % bytes ||
                         (uint64_t(indexed.command.firstIndex) + indexed.command.indexCount) * bytes > indexed.range.size ||
-                        indexed.range.size > UINT32_MAX || !readBuffer(indexed.range))
+                        indexed.range.size > UINT32_MAX || !readBuffer(indexed.range, FrameBufferUseKind::INDEX))
                         return Invalid("Invalid index input range");
                 }
                 for (const auto &stream : draw.vertices) {
                     if (!stream.stride || stream.stride > 2048 || stream.range.size > UINT32_MAX || stream.range.offset % 4 || stream.stride % 4 ||
-                        stream.rate > VertexInputRate::PER_INSTANCE || stream.range.size < stream.stride || !readBuffer(stream.range))
+                        stream.rate > VertexInputRate::PER_INSTANCE || stream.range.size < stream.stride ||
+                        !readBuffer(stream.range, FrameBufferUseKind::VERTEX))
                         return Invalid("Invalid vertex input range/stride");
                     const auto instanceCount = draw.indexed ? draw.indexed->command.instanceCount : draw.command.instanceCount;
                     const auto firstInstance = draw.indexed ? draw.indexed->command.firstInstance : draw.command.firstInstance;
@@ -666,17 +676,22 @@ namespace sky::aurora {
                     occupied[set][binding] = true;
                     return true;
                 };
-                for (const auto &binding : draw.uniforms) {
-                    if (!bind(binding.set, binding.binding) || binding.range.size > 65536 || !readBuffer(binding.range, binding.dynamicOffset))
+                const FrameBindingLookup<ShaderResource> reflection(draw.shader->GetReflection().resources);
+                for (const auto &binding : bindings.uniforms) {
+                    const auto *resource = reflection.Find(binding.set, binding.binding);
+                    if (!bind(binding.set, binding.binding) || binding.range.size > 65536 ||
+                        !readBuffer(binding.range, FrameBufferUseKind::UNIFORM, binding.dynamicOffset,
+                                    resource ? resource->stages : ShaderStageFlags{}, resource))
                         return Invalid("Invalid uniform input range/set");
                 }
-                for (const auto &binding : draw.storage) {
-                    if (!bind(binding.set, binding.binding) || binding.dynamicOffset || !readBuffer(binding.range, 0)) {
+                for (const auto &binding : bindings.storage) {
+                    const auto *resource = reflection.Find(binding.set, binding.binding);
+                    if (!bind(binding.set, binding.binding) || binding.dynamicOffset ||
+                        !readBuffer(binding.range, FrameBufferUseKind::STORAGE, 0, resource ? resource->stages : ShaderStageFlags{}, resource)) {
                         return Invalid("Invalid storage input range/set");
                     }
                 }
-                const FrameBindingLookup<ShaderResource> reflection(draw.shader->GetReflection().resources);
-                for (const auto &binding : draw.images) {
+                for (const auto &binding : bindings.images) {
                     if (!bind(binding.set, binding.binding) || !ValidImage(binding.image) || binding.image == raster.color ||
                         (raster.depth && binding.image == raster.depth->image) ||
                         (raster.colorResolve && binding.image == raster.colorResolve->image) ||
@@ -694,15 +709,22 @@ namespace sky::aurora {
                     if (const auto *error = std::get_if<FrameError>(&resolved))
                         return *error;
                     const auto &view = std::get<RasterImageView>(resolved);
+                    access.resources.images.push_back({binding.image,
+                                                       {view.baseMip, view.mipCount, view.baseLayer, view.layerCount},
+                                                       FrameImageUseKind::SAMPLED,
+                                                       FrameAccessMode::READ,
+                                                       resource ? resource->stages : ShaderStageFlags{}});
                     for (uint32_t layer = view.baseLayer; layer < view.baseLayer + view.layerCount; ++layer) {
                         const auto  first   = uint64_t(layer) * sampled.mipLevels + view.baseMip;
                         const auto &offsets = imageOffsets[binding.image.index];
                         access.reads.push_back({imageBase + binding.image.index, {offsets[first], offsets[first + view.mipCount]}});
                     }
                 }
-                for (const auto &binding : draw.samplers)
+                for (const auto &binding : bindings.samplers)
                     if (!bind(binding.set, binding.binding) || !binding.sampler)
                         return Invalid("Invalid sampler binding");
+                if (auto error = ValidateRasterBindings(draw, draw.shader->GetReflection()))
+                    return error;
                 const auto &blend = draw.blend;
                 if (blend.writeMask > 0xF || blend.srcColor > BlendFactor::ONE_MINUS_SRC1_ALPHA ||
                     blend.dstColor > BlendFactor::ONE_MINUS_SRC1_ALPHA || blend.srcAlpha > BlendFactor::ONE_MINUS_SRC1_ALPHA ||
@@ -725,6 +747,9 @@ namespace sky::aurora {
                 access.reads.push_back({copy.source.index, {copy.sourceOffset, copy.sourceOffset + copy.size}});
                 access.writes.push_back({copy.destination.index, {copy.destinationOffset, copy.destinationOffset + copy.size}});
                 access.defines = access.writes;
+                access.resources.buffers.push_back({{copy.source, copy.sourceOffset, copy.size}, FrameBufferUseKind::COPY_SOURCE});
+                access.resources.buffers.push_back(
+                    {{copy.destination, copy.destinationOffset, copy.size}, FrameBufferUseKind::COPY_DESTINATION, FrameAccessMode::WRITE});
 
                 return {};
             }
@@ -772,42 +797,53 @@ namespace sky::aurora {
                 auto &imageUses  = copy.direction == ImageCopyDirection::BUFFER_TO_IMAGE ? access.writes : access.reads;
                 for (uint32_t row = 0; row < bufferRows; ++row) {
                     const auto first = region.bufferOffset + row * rowPitch;
-                    bufferUses.push_back({copy.buffer.index, {first, first + (bufferRows == 1 ? bytes : rowBytes)}});
+                    const auto count = bufferRows == 1 ? bytes : rowBytes;
+                    bufferUses.push_back({copy.buffer.index, {first, first + count}});
+                    const bool upload = copy.direction == ImageCopyDirection::BUFFER_TO_IMAGE;
+                    access.resources.buffers.push_back({{copy.buffer, first, count},
+                                                        upload ? FrameBufferUseKind::COPY_SOURCE : FrameBufferUseKind::COPY_DESTINATION,
+                                                        upload ? FrameAccessMode::READ : FrameAccessMode::WRITE});
                 }
                 for (uint32_t row = 0; row < imageRows; ++row) {
                     const auto     first = imageOffset + uint64_t(row) * width;
                     const uint64_t count = imageRows == 1 ? uint64_t(region.imageExtent.width) * region.imageExtent.height : region.imageExtent.width;
                     imageUses.push_back({imageBase + copy.image.index, {first, first + count}});
                 }
-                access.defines = access.writes;
+                access.defines    = access.writes;
+                const bool upload = copy.direction == ImageCopyDirection::BUFFER_TO_IMAGE;
+                access.resources.images.push_back({copy.image,
+                                                   {subresource.level, 1, subresource.baseLayer, 1},
+                                                   upload ? FrameImageUseKind::COPY_DESTINATION : FrameImageUseKind::COPY_SOURCE,
+                                                   upload ? FrameAccessMode::WRITE : FrameAccessMode::READ});
 
                 return {};
             }
             std::optional<FrameError> CollectAccess(const FrameComputePass &compute, Accesses &access)
             {
+                const auto bindings = ResolveComputeBindings(compute);
                 if (!compute.shader)
                     return Invalid("Compute pass requires a shader");
                 if (auto error = ValidateComputeBindings(compute, compute.shader->GetReflection()))
                     return *error;
                 const FrameBindingLookup<ShaderResource> resources(compute.shader->GetReflection().resources);
-                for (const auto &binding : compute.buffers) {
+                for (const auto &binding : bindings.buffers) {
                     const auto *resource = resources.Find(binding.set, binding.binding);
                     if (!resource)
                         return Invalid("Missing compute buffer reflection");
                     const bool uniform =
                         resource->type == ShaderResourceType::UNIFORM_BUFFER || resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                    if (auto error =
-                            AddDeclaredBuffer(access, binding, true, uniform ? FrameBufferBindingKind::UNIFORM : FrameBufferBindingKind::STORAGE))
+                    if (auto error = AddDeclaredBuffer(access, binding, true,
+                                                       uniform ? FrameBufferBindingKind::UNIFORM : FrameBufferBindingKind::STORAGE, resource))
                         return *error;
                 }
-                for (const auto &binding : compute.images) {
+                for (const auto &binding : bindings.images) {
                     const auto *resource = resources.Find(binding.set, binding.binding);
                     if (!resource)
                         return Invalid("Missing compute image reflection");
-                    if (auto error = AddDeclaredImage(access, binding, true, resource->type == ShaderResourceType::STORAGE_IMAGE))
+                    if (auto error = AddDeclaredImage(access, binding, true, resource->type == ShaderResourceType::STORAGE_IMAGE, resource->stages))
                         return *error;
                 }
-                if (auto error = ValidatePassKinds(data, compute, &resources))
+                if (auto error = ValidatePassKinds(data, access.resources))
                     return *error;
 
                 return {};
@@ -830,7 +866,7 @@ namespace sky::aurora {
                     if (auto error = AddDeclaredImage(access, binding, false, binding.kind == FrameImageBindingKind::STORAGE))
                         return *error;
                 }
-                if (auto error = ValidatePassKinds(data, custom, nullptr))
+                if (auto error = ValidatePassKinds(data, access.resources))
                     return *error;
 
                 return {};
@@ -872,6 +908,7 @@ namespace sky::aurora {
                     const Use   use{imageBase + resolve.image.index, {offsets[view.subresource], offsets[view.subresource + 1]}};
                     access.writes.push_back(use);
                     access.defines.push_back(use);
+                    access.resources.images.push_back({resolve.image, view.range, FrameImageUseKind::COLOR_RESOLVE, FrameAccessMode::WRITE});
                 }
                 if (raster.depth) {
                     const auto &depth = *raster.depth;
@@ -893,6 +930,8 @@ namespace sky::aurora {
                     access.writes.push_back(use);
                     if (depth.store == StoreOp::STORE && depth.load != LoadOp::DONT_CARE)
                         access.defines.push_back(use);
+                    access.resources.images.push_back({depth.image, view.range, FrameImageUseKind::DEPTH_ATTACHMENT,
+                                                       depth.load == LoadOp::LOAD ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
                     if (depth.resolve) {
                         const auto &resolve = *depth.resolve;
                         if (!ValidImage(resolve.image) || resolve.image == depth.image || resolve.image == raster.color ||
@@ -914,6 +953,8 @@ namespace sky::aurora {
                                               {targetOffsets[targetView.subresource], targetOffsets[targetView.subresource + 1]}};
                         access.writes.push_back(targetUse);
                         access.defines.push_back(targetUse);
+                        access.resources.images.push_back(
+                            {resolve.image, targetView.range, FrameImageUseKind::DEPTH_RESOLVE, FrameAccessMode::WRITE});
                     }
                 }
 
@@ -928,6 +969,8 @@ namespace sky::aurora {
                     access.writes.push_back(image);
                     if (raster.store == StoreOp::STORE && raster.load != LoadOp::DONT_CARE)
                         access.defines.push_back(image);
+                    access.resources.images.push_back({raster.color, colorView.range, FrameImageUseKind::COLOR_ATTACHMENT,
+                                                       raster.load == LoadOp::LOAD ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
                 }
 
                 return {};
@@ -1002,6 +1045,7 @@ namespace sky::aurora {
                 FrameGraphAnalysis result;
                 result.bufferLifetimes.resize(data.buffers.size());
                 result.imageLifetimes.resize(data.images.size());
+                result.passResourceUses.resize(data.passes.size());
                 auto touch = [&](uint32_t resource, uint32_t pass) {
                     auto &lifetime = resource < imageBase ? result.bufferLifetimes[resource] : result.imageLifetimes[resource - imageBase];
                     lifetime.first = std::min(lifetime.first, pass);
@@ -1024,6 +1068,7 @@ namespace sky::aurora {
                     for (auto write : access.defines)
                         Include(defined[write.resource], write.range);
                     result.livePasses.push_back(i);
+                    result.passResourceUses[i] = std::move(accesses[i].resources);
                 }
                 for (auto root : roots) {
                     if (!Covered(defined[root.resource], root.range))
@@ -1098,14 +1143,33 @@ namespace sky::aurora {
 
     std::optional<FrameError> ValidateRasterBindings(const RasterDraw &draw, const ShaderReflection &reflection) noexcept
     {
+        if (const auto error = ValidateBindingGroups(draw.shader.Get(), draw.groups))
+            return *error;
+        for (const auto &use : draw.groups) {
+            for (const auto &binding : use.bufferUses)
+                if (binding.access != FrameAccessMode::READ)
+                    return Invalid("Raster buffer group use must be read-only");
+            for (const auto &binding : use.imageUses)
+                if (binding.access != FrameAccessMode::READ)
+                    return Invalid("Raster image group use must be read-only");
+            if (use.group) {
+                for (const auto &binding : use.group->GetData().buffers)
+                    if (binding.kind != FrameBufferBindingKind::UNIFORM && binding.kind != FrameBufferBindingKind::STORAGE)
+                        return Invalid("Raster buffer group requires an explicit descriptor kind");
+                for (const auto &binding : use.group->GetData().images)
+                    if (binding.kind != FrameImageBindingKind::SAMPLED)
+                        return Invalid("Raster image group requires a sampled descriptor");
+            }
+        }
+        const auto bindings = ResolveRasterBindings(draw);
         if (!reflection.pushConstants.empty())
             return FrameError{FrameErrorCode::UNSUPPORTED, "Raster push constants are not implemented"};
-        if (reflection.resources.size() != draw.uniforms.size() + draw.storage.size() + draw.images.size() + draw.samplers.size())
+        if (reflection.resources.size() != bindings.uniforms.size() + bindings.storage.size() + bindings.images.size() + bindings.samplers.size())
             return Invalid("Raster bindings do not match shader reflection");
-        const FrameBindingLookup<RasterUniformBinding> uniforms(draw.uniforms);
-        const FrameBindingLookup<RasterUniformBinding> storage(draw.storage);
-        const FrameBindingLookup<RasterImageBinding>   images(draw.images);
-        const FrameBindingLookup<RasterSamplerBinding> samplers(draw.samplers);
+        const FrameBindingLookup<RasterUniformBinding> uniforms(bindings.uniforms);
+        const FrameBindingLookup<RasterUniformBinding> storage(bindings.storage);
+        const FrameBindingLookup<RasterImageBinding>   images(bindings.images);
+        const FrameBindingLookup<RasterSamplerBinding> samplers(bindings.samplers);
         for (size_t i = 0; i < reflection.resources.size(); ++i) {
             const auto &resource = reflection.resources[i];
             if (!IsRasterResourceSupported(resource))
@@ -1135,9 +1199,8 @@ namespace sky::aurora {
             }
             if (!found || (resource.type == ShaderResourceType::UNIFORM_BUFFER && found->dynamicOffset))
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT,
-                                  "Missing uniform binding or unexpected dynamic offset set=" + std::to_string(resource.set) +
-                                      " binding=" + std::to_string(resource.binding) +
-                                      " type=" + std::to_string(static_cast<uint32_t>(resource.type))};
+                                  "Missing uniform binding or unexpected dynamic offset set=" + std::to_string(resource.set) + " binding=" +
+                                      std::to_string(resource.binding) + " type=" + std::to_string(static_cast<uint32_t>(resource.type))};
         }
         for (const auto &block : reflection.blocks) {
             const auto *found = uniforms.Find(block.set, block.binding);

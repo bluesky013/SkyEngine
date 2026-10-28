@@ -1,9 +1,10 @@
-"""Package boundary regressions without installed SDKs or signing credentials."""
+"""Package boundary regressions with an optional real Android SDK asset-packaging check."""
 
 import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import shutil
 import subprocess
@@ -14,6 +15,11 @@ from unittest import mock
 from types import SimpleNamespace
 import zipfile
 
+if __package__:
+    from .asset_product_test_helpers import product_bytes
+else:
+    from asset_product_test_helpers import product_bytes
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'package_project.py'
 SPEC = importlib.util.spec_from_file_location('package_project', SCRIPT)
 PACKAGE = importlib.util.module_from_spec(SPEC)
@@ -22,13 +28,132 @@ from shader_project import target_environments
 
 
 class NativePackageArtifactTest(unittest.TestCase):
-    def test_failed_cook_stops_packaging_while_missing_tool_can_use_precooked_assets(self):
-        with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
-                mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=7)):
-            with self.assertRaises(SystemExit):
-                PACKAGE.run_cook(Path('/engine'), Path('/project'), 'ios')
-        with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=None):
-            self.assertFalse(PACKAGE.run_cook(Path('/engine'), Path('/project'), 'ios'))
+    def test_framework_globs_regenerate_after_source_and_header_changes_without_reconfigure(self):
+        if shutil.which('cmake') is None or shutil.which('ninja') is None:
+            self.skipTest('CMake and Ninja are required for the incremental source inventory regression')
+        framework = (PACKAGE.REPO_ROOT / 'engine/framework/CMakeLists.txt').read_text(encoding='utf-8')
+        expressions = []
+        for name in ('APP_SRC', 'APP_INC'):
+            match = re.search(r'file\s*\(\s*GLOB_RECURSE\s+' + name + r'\b[^)]*\)', framework, re.DOTALL)
+            self.assertIsNotNone(match, name)
+            expressions.append(match.group())
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, headers, build = root / 'src', root / 'include', root / 'build'
+            source.mkdir()
+            headers.mkdir()
+            old_source, old_header = source / 'OldProduct.cpp', headers / 'OldProduct.h'
+            old_source.write_text('int product_value() { return 1; }\n', encoding='utf-8')
+            old_header.write_text('#pragma once\n', encoding='utf-8')
+            (root / 'CMakeLists.txt').write_text(
+                'cmake_minimum_required(VERSION 3.19)\nproject(FrameworkSourceInventory CXX)\n'
+                + '\n'.join(expressions) + '\n'
+                + 'add_library(Inventory STATIC ${APP_SRC} ${APP_INC})\n'
+                + 'file(WRITE "${CMAKE_BINARY_DIR}/sources.txt" "${APP_SRC};${APP_INC}")\n', encoding='utf-8')
+
+            def run(command):
+                result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            def inventory():
+                return {Path(value).name for value in (build / 'sources.txt').read_text().split(';') if value}
+
+            run(['cmake', '-S', str(root), '-B', str(build), '-G', 'Ninja'])
+            run(['cmake', '--build', str(build)])
+            self.assertEqual(inventory(), {'OldProduct.cpp', 'OldProduct.h'})
+            old_source.unlink()
+            (source / 'AssetProduct.cpp').write_text('int product_value() { return 2; }\n', encoding='utf-8')
+            run(['cmake', '--build', str(build)])
+            self.assertEqual(inventory(), {'AssetProduct.cpp', 'OldProduct.h'})
+            old_header.rename(headers / 'AssetProduct.h')
+            run(['cmake', '--build', str(build)])
+            self.assertEqual(inventory(), {'AssetProduct.cpp', 'AssetProduct.h'})
+
+    def test_full_cook_replaces_all_old_products_before_the_tool_runs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            products = project / 'products'
+            for relative in ('common/groups/old/current.bin', 'common/11/old.bin', 'shaders/old/index.bin'):
+                path = products / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'stale')
+            source = project / 'assets/source.world'
+            source.parent.mkdir()
+            source.write_bytes(b'authoring source')
+            cooked = products / 'common/22/new.bin'
+
+            def cook(command, **kwargs):
+                self.assertFalse(products.exists())
+                self.assertIn('--cook-all', command)
+                self.assertEqual(command[-2:], ['--platform', 'ios'])
+                cooked.parent.mkdir(parents=True)
+                cooked.write_bytes(b'new product')
+                return SimpleNamespace(returncode=0)
+
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', side_effect=cook):
+                self.assertTrue(PACKAGE.run_cook(Path('/engine'), project, 'ios'))
+            self.assertEqual([path for path in products.rglob('*') if path.is_file()], [cooked])
+            self.assertEqual(source.read_bytes(), b'authoring source')
+
+    def test_failed_cook_discards_partial_products_and_missing_tool_never_claims_success(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            marker = project / 'products/common/11/old.bin'
+            marker.parent.mkdir(parents=True)
+            marker.write_bytes(b'old product')
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=None), \
+                    mock.patch.object(PACKAGE.subprocess, 'run') as run:
+                self.assertFalse(PACKAGE.run_cook(Path('/engine'), project, 'ios'))
+                run.assert_not_called()
+            self.assertEqual(marker.read_bytes(), b'old product')
+
+            def fail(*args, **kwargs):
+                self.assertFalse(marker.exists())
+                marker.parent.mkdir(parents=True)
+                marker.write_bytes(b'partial product')
+                return SimpleNamespace(returncode=7)
+
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', side_effect=fail):
+                self.assertFalse(PACKAGE.run_cook(Path('/engine'), project, 'ios'))
+            self.assertFalse((project / 'products').exists())
+
+    def test_every_platform_stops_before_shader_staging_and_native_build_after_cook_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            for platform in ('android', 'ios', 'macos'):
+                with self.subTest(platform=platform), \
+                        mock.patch.object(PACKAGE, 'instantiate_template'), \
+                        mock.patch.object(PACKAGE, 'stage_configs', return_value=True), \
+                        mock.patch.object(PACKAGE, 'find_apple_app', return_value=None), \
+                        mock.patch.object(PACKAGE, 'run_cook', return_value=False), \
+                        mock.patch.object(PACKAGE, 'prepare_shader_products') as shaders, \
+                        mock.patch.object(PACKAGE, 'stage_bundles') as bundles, \
+                        mock.patch.object(PACKAGE, 'run_cmake_preset') as native, \
+                        mock.patch.object(PACKAGE, 'package_android') as android, \
+                        mock.patch.object(PACKAGE, 'collect_apple_package') as apple:
+                    result = PACKAGE._prepare(Path('/engine'), project, {'platform': platform, 'signing': 'off'},
+                                              {'{{PROJECT_NAME}}': 'Smoke'}, {}, True)
+                    self.assertEqual(result, 1)
+                    for step in (shaders, bundles, native, android, apple):
+                        step.assert_not_called()
+
+    @unittest.skipIf(os.name == 'nt', 'requires unprivileged symlink creation')
+    def test_full_cook_retires_a_products_alias_without_deleting_its_target(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project, external = root / 'project', root / 'external'
+            project.mkdir()
+            external.mkdir()
+            marker = external / 'keep.bin'
+            marker.write_bytes(b'external product')
+            (project / 'products').symlink_to(external, target_is_directory=True)
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=0)):
+                self.assertTrue(PACKAGE.run_cook(Path('/engine'), project, 'ios'))
+            self.assertFalse((project / 'products').exists())
+            self.assertEqual(marker.read_bytes(), b'external product')
 
     def test_repackage_removes_deleted_configs_and_unselected_products(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -87,6 +212,53 @@ class NativePackageArtifactTest(unittest.TestCase):
         self.assertIn("'-DEXTRA=with space'", result)
         self.assertIn("'-D3RD_PATH=/deps with space'", result)
 
+    def test_android_sdk_default_filter_keeps_flat_products_and_excludes_hidden_assets(self):
+        template = PACKAGE.REPO_ROOT / 'engine/templates/ide/android/app/build.gradle'
+        self.assertNotRegex(template.read_text(encoding='utf-8'), r'\bignoreAssetsPatterns?\b')
+        sdk_roots = [Path(value) for key in ('ANDROID_HOME', 'ANDROID_SDK_ROOT') if (value := os.environ.get(key))]
+        sdk_roots += [Path.home() / 'Library/Android/sdk', Path.home() / 'Android/Sdk']
+        aapt_name = 'aapt.exe' if os.name == 'nt' else 'aapt'
+        for sdk in sdk_roots:
+            tools = sorted(sdk.glob('build-tools/*/' + aapt_name),
+                           key=lambda path: tuple(int(part) for part in re.findall(r'\d+', path.parent.name)))
+            platforms = sorted(sdk.glob('platforms/android-*/android.jar'),
+                               key=lambda path: tuple(int(part) for part in re.findall(r'\d+', path.parent.name)))
+            if tools and platforms:
+                aapt, android_jar = tools[-1], platforms[-1]
+                break
+        else:
+            self.skipTest('Android SDK aapt and android.jar are required for this optional asset-packaging regression')
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            assets = root / 'assets'
+            records = {
+                'products/common/product.index': b'{"path":"main.world","id":"11111111-2222-4333-8444-555555555555"}\n',
+                'products/common/11/11111111-2222-4333-8444-555555555555.bin': product_bytes(
+                    '11111111-2222-4333-8444-555555555555', b'World\0binary payload'),
+            }
+            ignored = {'.git/config': b'ignored', '.hidden.bin': b'ignored', '.hidden/nested.bin': b'ignored',
+                       'products/common/11/.hidden.bin': b'ignored', 'backup.bin~': b'ignored'}
+            for relative, data in {**records, **ignored}.items():
+                target = assets / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            manifest = root / 'AndroidManifest.xml'
+            manifest.write_text(
+                '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.skyengine.flatproducts">'
+                '<application android:label="FlatProducts"/></manifest>', encoding='utf-8')
+            apk = root / 'flat-products.apk'
+            result = subprocess.run([str(aapt), 'package', '-f', '-F', str(apk), '-M', str(manifest),
+                                     '-I', str(android_jar), '-A', str(assets),
+                                     '--min-sdk-version', '29', '--target-sdk-version', '33'],
+                                    capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with zipfile.ZipFile(apk) as archive:
+                output = {path: archive.read(path) for path in archive.namelist() if path.startswith('assets/')}
+            for relative, data in records.items():
+                self.assertEqual(output.get('assets/' + relative), data)
+            for relative in ignored:
+                self.assertNotIn('assets/' + relative, output)
+
     def make_app(self, root, platform):
         project, engine = root / 'project', root / 'engine'
         app = project / 'build' / platform / 'bin' / 'Release' / 'Smoke.app'
@@ -108,14 +280,166 @@ class NativePackageArtifactTest(unittest.TestCase):
     def test_ios_archive_contains_payload_resources_and_executable_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             engine, project, app, resources = self.make_app(Path(temp), 'ios')
-            archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'ios'}, 'Smoke')
+            world = project / 'assets/scenes/lighting.world'
+            world.parent.mkdir(parents=True)
+            content = b'{"actors": [{"name": "Cube"}], "assetRoots": []}\n'
+            world.write_bytes(content)
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=0)):
+                archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'ios'}, 'Smoke')
             self.assertTrue(archive.name.endswith('-unsigned.ipa'))
             with zipfile.ZipFile(archive) as output:
                 self.assertEqual(output.read('Payload/Smoke.app/products/common/asset.bin'), b'cooked')
+                self.assertFalse(any(name.endswith('.world') for name in output.namelist()))
+                roots = json.loads(output.read('Payload/Smoke.app/products/asset-roots.json'))
+                self.assertEqual(roots['roots'], [{'path': 'scenes/lighting.world', 'type': 'World'}])
                 self.assertEqual(json.loads(output.read('Payload/Smoke.app/configs/modules_game.json')),
                                  {'modules': [{'name': 'Smoke', 'dependencies': []}]})
                 self.assertTrue(output.getinfo('Payload/Smoke.app/Smoke').external_attr >> 16 & stat.S_IXUSR)
             self.assertFalse((project / 'build/ios/bin/products').exists())
+
+    def test_package_keeps_flat_products_and_index_without_publication_scratch_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            engine, project, _, _ = self.make_app(Path(temporary), 'ios')
+            bundle = project / 'products/common'
+            identity = '11111111-2222-4333-8444-555555555555'
+            records = {
+                'product.index': ('{"path":"main.world","id":"' + identity + '"}\n').encode('utf-8'),
+                '11/' + identity + '.bin': product_bytes(identity, b'cooked binary payload'),
+            }
+            scratch = {
+                'product.lock': b'lock',
+                'product.index.abandoned.tmp': b'partial index',
+                '11/' + identity + '.bin.abandoned.tmp': b'partial product',
+            }
+            for relative, data in {**records, **scratch}.items():
+                path = bundle / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'ios'}, 'Smoke')
+            with zipfile.ZipFile(archive) as output:
+                prefix = 'Payload/Smoke.app/products/common/'
+                for relative, data in records.items():
+                    self.assertEqual(output.read(prefix + relative), data)
+                for relative in scratch:
+                    self.assertNotIn(prefix + relative, output.namelist())
+            for relative, data in scratch.items():
+                self.assertEqual((bundle / relative).read_bytes(), data)
+
+    def test_worlds_use_cooked_products_and_audit_logical_source_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            assets = project / 'assets'
+            (assets / 'scenes').mkdir(parents=True)
+            documents = {
+                'main.world': b'{"actors": [], "assetRoots": []}\n',
+                'scenes/lighting.world': b'{\n  "actors": [{"name": "Cube"}], "assetRoots": []\n}\n',
+            }
+            for path, content in documents.items():
+                (assets / path).write_bytes(content)
+            (assets / 'notes.json').write_text('not a World document', encoding='utf-8')
+            destination = Path(temp) / 'staged/products'
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as audit:
+                self.assertEqual(PACKAGE.stage_bundles(project, {}, destination), ['common'])
+            audit.assert_called_once()
+            self.assertFalse(list(destination.rglob('*.world')))
+            roots = json.loads((destination / 'asset-roots.json').read_text())
+            self.assertEqual(roots['roots'], [{'path': path, 'type': 'World'} for path in sorted(documents)])
+
+    def test_explicit_world_selection_drives_staging_and_dependency_audit_together(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            assets = project / 'assets'
+            (assets / 'scenes').mkdir(parents=True)
+            reference = {'uuid': '11111111-2222-4333-8444-555555555555', 'type': 'AuroraMaterial'}
+            selected = assets / 'scenes/selected.world'
+            content = json.dumps({'actors': [], 'assetRoots': [reference]}).encode('utf-8')
+            selected.write_bytes(content)
+            (assets / 'unselected.world').write_text('{"actors": []}', encoding='utf-8')
+            destination = Path(temp) / 'staged/products'
+            (destination / 'worlds').mkdir(parents=True)
+            (destination / 'worlds/removed.world').write_text('old package', encoding='utf-8')
+            preset = {'worlds': ['scenes/selected.world', 'scenes/selected.world']}
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as audit:
+                self.assertEqual(PACKAGE.stage_bundles(project, preset, destination), ['common'])
+            audit.assert_called_once()
+            self.assertFalse(list(destination.rglob('*.world')))
+            manifest = json.loads((destination / 'asset-roots.json').read_text(encoding='utf-8'))
+            self.assertEqual(manifest['roots'], [{'path': 'scenes/selected.world', 'type': 'World'}])
+
+    @unittest.skipIf(os.name == 'nt', 'requires unprivileged symlink creation')
+    def test_internal_world_symlink_keeps_its_selected_logical_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            assets = project / 'assets'
+            (assets / 'scenes').mkdir(parents=True)
+            (assets / 'shared').mkdir()
+            (assets / 'shared/main.world').write_text('{"actors": [], "assetRoots": []}')
+            (assets / 'scenes/start.world').symlink_to(assets / 'shared/main.world')
+            destination = Path(temp) / 'staged/products'
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=0)):
+                self.assertEqual(PACKAGE.stage_bundles(project, {'worlds': ['scenes\\start.world']}, destination), ['common'])
+            roots = json.loads((destination / 'asset-roots.json').read_text())
+            self.assertEqual(roots['roots'], [{'path': 'scenes/start.world', 'type': 'World'}])
+
+    def test_missing_cooked_world_rejects_package_instead_of_shipping_authoring_json(self):
+        with tempfile.TemporaryDirectory() as temp:
+            engine, project, app, _ = self.make_app(Path(temp), 'ios')
+            (project / 'assets').mkdir()
+            (project / 'assets/main.world').write_text('{"actors": [], "assetRoots": []}')
+            with mock.patch.object(PACKAGE, 'find_asset_tool', return_value=Path('/engine/AssetTool')), \
+                    mock.patch.object(PACKAGE.subprocess, 'run', return_value=SimpleNamespace(returncode=1)):
+                self.assertIsNone(PACKAGE.collect_apple_package(engine, project, {'platform': 'ios'}, 'Smoke'))
+            self.assertFalse(list((project / 'build/ios').glob('*.ipa')))
+            self.assertFalse(list(app.rglob('*.world')))
+
+    def test_default_world_must_be_selected_before_replacing_package_products(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            (project / 'assets').mkdir(parents=True)
+            for name in ('default', 'other'):
+                (project / ('assets/' + name + '.world')).write_text('{"actors": [], "assetRoots": []}')
+            (project / 'Game.skyproj').write_text('{"defaultScene": "default.world"}')
+            destination = Path(temp) / 'staged/products'
+            destination.mkdir(parents=True)
+            marker = destination / 'previous.bin'
+            marker.write_bytes(b'previous package')
+            self.assertIsNone(PACKAGE.stage_bundles(project, {'worlds': ['other.world']}, destination))
+            self.assertEqual(marker.read_bytes(), b'previous package')
+
+    def test_world_selection_rejects_escape_missing_and_invalid_documents_before_staging(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            assets = project / 'assets'
+            assets.mkdir(parents=True)
+            outside = project / 'outside.world'
+            outside.write_text('{"actors": [], "assetRoots": []}', encoding='utf-8')
+            (assets / 'legacy.world').write_text('{"actors": []}', encoding='utf-8')
+            (assets / 'invalid.world').write_text('{"assetRoots": [{"uuid": 3, "type": "Mesh"}]}', encoding='utf-8')
+            destination = Path(temp) / 'staged/products'
+            destination.mkdir(parents=True)
+            marker = destination / 'keep.bin'
+            marker.write_bytes(b'previous package')
+            for path in ('../outside.world', str(outside), 'missing.world', 'legacy.world', 'invalid.world'):
+                with self.subTest(path=path):
+                    self.assertIsNone(PACKAGE.stage_bundles(project, {'worlds': [path]}, destination))
+                    self.assertEqual(marker.read_bytes(), b'previous package')
+
+    @unittest.skipIf(os.name == 'nt', 'requires unprivileged symlink creation')
+    def test_world_symlink_cannot_escape_the_project_assets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / 'project'
+            assets = project / 'assets'
+            assets.mkdir(parents=True)
+            outside = Path(temp) / 'outside.world'
+            outside.write_text('{"assetRoots": []}', encoding='utf-8')
+            (assets / 'linked.world').symlink_to(outside)
+            destination = Path(temp) / 'staged/products'
+            self.assertIsNone(PACKAGE.stage_bundles(project, {}, destination))
+            self.assertFalse(destination.exists())
 
     def test_macos_archive_preserves_framework_links_and_bundle_layout(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -183,7 +507,7 @@ class NativePackageArtifactTest(unittest.TestCase):
 
     def test_apple_products_are_cooked_before_the_ide_build_deploy_runs(self):
         events = []
-        with mock.patch.object(PACKAGE, 'run_cook', side_effect=lambda *args: events.append('assets')), \
+        with mock.patch.object(PACKAGE, 'run_cook', side_effect=lambda *args: events.append('assets') or True), \
                 mock.patch.object(PACKAGE, 'prepare_shader_products', side_effect=lambda *args: events.append('shaders') or True), \
                 mock.patch.object(PACKAGE, 'run_cmake_preset', side_effect=lambda *args, **kwargs: events.append('native')), \
                 mock.patch.object(PACKAGE, 'collect_apple_package', side_effect=lambda *args: events.append('archive')), \

@@ -10,11 +10,13 @@
 #include <framework/asset/Asset.h>
 #include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetIndexFile.h>
+#include <framework/asset/AssetProduct.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/compression/Compressor.h>
 
 #include <atomic>
 #include <future>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -27,11 +29,12 @@ namespace sky {
     enum class AssetLoadPolicy { AllowCook, ProductsOnly };
 
     struct AssetProductInspection {
-        std::string             type;
-        std::vector<Uuid>       dependencies;
-        IStreamArchivePtr       payload;
-        ProductGroupSnapshotPtr group;
-        uint64_t                bulkSize = 0;
+        std::string       type;
+        std::vector<Uuid> dependencies;
+        IStreamArchivePtr payload;
+        uint32_t          formatVersion = 0;
+        uint64_t          checksum      = 0;
+        uint64_t          bulkSize      = 0;
     };
 
     struct AssetProductData {
@@ -60,7 +63,7 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-        AssetManager()           = default;
+        AssetManager();
         ~AssetManager() override = default;
 
         void     SetWorkFileSystem(const FileSystemPtr &fs);
@@ -89,34 +92,24 @@ namespace sky {
         void AddAssetProductBundle(AssetProductBundle *bundle);
         // Whether a product for the uuid exists in a specific bundle.
         bool HasProduct(const Uuid &uuid, const ProductBundleKey &bundle) const;
-        // Offline inspection owns a pinned header; it does not load dependencies, mutate caches or schedule cook.
+        // Offline inspection validates the complete file without loading dependencies or scheduling cook.
         ProductStatus InspectProduct(const Uuid &uuid, const ProductBundleKey &bundle, AssetProductInspection &out) const;
 
         AssetPtr FindAsset(const Uuid &uuid) const;
         AssetPtr FindOrCreateAsset(const Uuid &uuid, const Name &type);
 
         AssetPtr LoadAsset(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
-        // Includes product lookup/validation IO. The host drains AssetExecutor before destroying this manager.
+        // Includes lookup/validation IO; the host drains AssetExecutor before destroying this manager.
         std::shared_ptr<AssetLoadRequest> LoadAssetAsync(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::ProductsOnly);
-        void                              SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
-        AssetPtr                          CreateBuildAsset(const Uuid &uuid, const Name &type) const;
-        ProductStatus
-        BeginProductGroup(const Uuid &owner, const ProductBundleKey &bundle, std::span<const Uuid> members, ProductGroupTransaction &out) const;
-        ProductStatus SaveProductGroup(ProductGroupTransaction  &transaction,
-                                       const ProductBundleKey   &bundle,
-                                       std::span<const AssetPtr> members,
-                                       ProductGroupSnapshotPtr  &out);
-        // Builders with their own validated codecs need no runtime handler or module to publish.
-        ProductStatus SaveProductData(ProductGroupTransaction          &transaction,
-                                      const ProductBundleKey           &bundle,
-                                      std::span<const AssetProductData> members,
-                                      ProductGroupSnapshotPtr          &out);
-        AssetPtr      LoadAssetSnapshot(const Uuid                    &uuid,
-                                        const ProductBundleKey        &bundle,
-                                        const ProductGroupSnapshotPtr &snapshot,
-                                        AssetLoadPolicy                policy = AssetLoadPolicy::AllowCook);
+        ProductStatus                     SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
+        ProductStatus                     SaveProducts(std::span<const AssetPtr> products, const ProductBundleKey &bundleKey);
+        // The producer validates its codec payload without requiring a runtime handler.
+        ProductStatus SaveProductData(std::span<const AssetProductData> products, const ProductBundleKey &bundleKey);
+        AssetPtr      CreateBuildAsset(const Uuid &uuid, const Name &type) const;
 
-        AssetPtr LoadAssetFromPath(const std::string &path);
+        // Paths normalize lexically; invalid, missing or conflicting logical identities return an invalid UUID.
+        Uuid     ResolveProductPath(std::string_view path);
+        AssetPtr LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
 
         const FileSystemPtr &GetWorkSpaceFS() const
         {
@@ -124,9 +117,9 @@ namespace sky {
         }
 
         template <typename T>
-        std::shared_ptr<Asset<T>> LoadAssetFromPath(const std::string &path)
+        std::shared_ptr<Asset<T>> LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook)
         {
-            const auto asset = LoadAssetFromPath(path);
+            const auto asset = LoadAssetFromPath(path, policy);
             return asset && asset->GetType() == Name(AssetTraits<T>::ASSET_TYPE.data()) ? std::static_pointer_cast<Asset<T>>(asset) : nullptr;
         }
 
@@ -163,6 +156,7 @@ namespace sky {
         }
 
     private:
+        Uuid                  FindProductPath(std::string_view canonical, bool &ambiguous);
         std::atomic<uint64_t> productChangeSerial{0};
         FileSystemPtr         workSpace;
         ISourceCatalog       *sourceCatalog     = nullptr;
@@ -184,24 +178,27 @@ namespace sky {
         bool DeserializeProduct(const Uuid &uuid, const AssetPtr &destination, const TaskNodePtr &completion);
         // Run the handler load + status transition + loaded event for an asset whose deps are resolved.
         bool                LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload);
+        void                CompleteLoad(const AssetPtr &asset, bool success);
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
         ProductStatus       EncodeProduct(const AssetPtr &asset, std::vector<uint8_t> &out) const;
-        ProductStatus       EncodePayload(std::string_view         type,
+        ProductStatus       ReadProductHeader(const Uuid &, const IStreamArchivePtr &, AssetProductInspection &, std::string &) const;
+        ProductStatus       EncodePayload(const Uuid              &uuid,
+                                          std::string_view         type,
                                           std::span<const Uuid>    dependencies,
                                           std::span<const uint8_t> payload,
                                           std::span<const uint8_t> bulk,
                                           std::vector<uint8_t>    &out) const;
-        ProductStatus       CommitProducts(ProductGroupTransaction  &transaction,
-                                           const AssetProductBundle &bundle,
-                                           std::span<const Uuid>     members,
-                                           ProductGroupSnapshotPtr  &out);
+        struct EncodedProduct {
+            Uuid                 uuid;
+            std::vector<uint8_t> bytes;
+        };
+        ProductStatus PublishProducts(std::span<const EncodedProduct> products, const ProductBundleKey &bundleKey);
+        void          InvalidateProducts(std::span<const Uuid> products);
 
         std::vector<std::shared_ptr<const void>>                    moduleCode;
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>>            bundles;
 
-        // Product path index (canonical logical path -> uuid), assembled from each bundle's product.index.
-        std::unordered_map<std::string, Uuid> productPathMap;
         // Per-bundle parsed product indexes (canonical logical path -> uuid).
         AssetIndexFileCache productIndices{"product.index", "path"};
         // Selected cook backend (null = built-in inline in-process path).
@@ -221,9 +218,8 @@ namespace sky {
         mutable std::recursive_mutex mutex;
         // Serializes load orchestration; protects CreateAssetByHeader's header
         // read and the LOADING transition against concurrent loads.
-        std::recursive_mutex                                                         loadMutex;
-        std::unordered_map<Uuid, std::weak_ptr<AssetBase>>                           assets;
-        std::unordered_map<Uuid, std::unordered_map<Uuid, std::weak_ptr<AssetBase>>> snapshots;
+        std::recursive_mutex                               loadMutex;
+        std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;
     };
 
 } // namespace sky

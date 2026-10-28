@@ -34,6 +34,7 @@ TEST(ExportPresetTest, JsonRoundTrip)
     android.keystore           = "release";
     android.abis               = {"arm64-v8a"};
     android.bundles            = {"common", "tex_low"};
+    android.worlds             = {"scenes/main.world", "scenes/secondary.world"};
     android.cacheVariables     = {{"CMAKE_BUILD_TYPE", "Release"}, {"STRIP", "ON"}};
     android.compileDefinitions = {"FOO=1"};
     android.compileFlags       = {"-Wall"};
@@ -60,6 +61,7 @@ TEST(ExportPresetTest, JsonRoundTrip)
     EXPECT_EQ(a->versionCode, 7);
     EXPECT_EQ(a->bundles.size(), 2u);
     EXPECT_EQ(a->bundles[1], "tex_low");
+    EXPECT_EQ(a->worlds, (std::vector<std::string>{"scenes/main.world", "scenes/secondary.world"}));
     EXPECT_EQ(a->abis.size(), 1u);
     ASSERT_EQ(a->cacheVariables.size(), 2u);
     EXPECT_EQ(a->cacheVariables[0].key, "CMAKE_BUILD_TYPE");

@@ -1027,9 +1027,6 @@ namespace sky::aurora {
                 const auto target = composer.GetOutput(view.view.output);
                 if (!target)
                     continue;
-                const auto extent = target->output.extent;
-                if (target->transform != SurfaceTransform::IDENTITY)
-                    view.view.projection = ViewportMapping{extent, target->transform}.ClipTransform() * view.view.projection;
                 const auto unavailable = [&](const auto &draw) {
                     const auto ready = [&](const RenderResourceKey &key) {
                         return std::any_of(frame.resources.pins.begin(), frame.resources.pins.end(),

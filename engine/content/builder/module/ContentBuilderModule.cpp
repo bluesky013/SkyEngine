@@ -1,8 +1,9 @@
 //
-// Content.Metadata owns shared schema and handlers; this module owns builders.
+// Content.Metadata owns asset handlers; this module owns builders.
 //
 
 #include <content/builder/AnimationBuilder.h>
+#include <content/builder/WorldBuilder.h>
 
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
@@ -18,6 +19,7 @@ namespace sky::builder {
         void RegisterMeta() override
         {
             AssetBuilderManager::Get()->RegisterBuilder(new AnimationBuilder());
+            AssetBuilderManager::Get()->RegisterBuilder(new WorldBuilder());
         }
 
         bool Init(const StartArguments &args) override

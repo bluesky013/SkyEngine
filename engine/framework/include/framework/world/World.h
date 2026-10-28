@@ -23,6 +23,7 @@ namespace sky {
 
     class World;
     struct WorldDesc;
+    struct WorldAssetData;
     class WorldStreaming;
     using WorldPtr = CounterPtr<World>;
 
@@ -83,7 +84,7 @@ namespace sky {
 
         static World *CreateWorld();
 
-        World(const World &)            = delete;
+        World(const World &) = delete;
         World &operator=(const World &) = delete;
 
         static void Reflect(SerializationContext *context);
@@ -151,6 +152,7 @@ namespace sky {
         void StopSimulation();
 
     private:
+        friend bool InstantiateWorldAsset(const WorldAssetData &data, WorldPtr &out, std::string &error);
         World() = default;
 
         std::vector<std::unique_ptr<Actor>> actors;

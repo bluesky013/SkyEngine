@@ -8,6 +8,10 @@
 
 #include <memory>
 
+#if defined(__GNUC__)
+    #pragma GCC visibility push(hidden)
+#endif
+
 namespace sky::phy {
 
     struct JoltSession;
@@ -31,3 +35,7 @@ namespace sky::phy {
     };
 
 } // namespace sky::phy
+
+#if defined(__GNUC__)
+    #pragma GCC visibility pop
+#endif

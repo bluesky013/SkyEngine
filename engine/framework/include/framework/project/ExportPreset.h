@@ -52,6 +52,7 @@ namespace sky {
 
         // Bundles to package (empty => cook-config distribution default).
         std::vector<std::string>                   bundles;
+        std::vector<std::string>                   worlds;
         std::vector<std::string>                   shaderTargets;
         std::vector<ExportPresetShaderEnvironment> shaderEnvironments;
 

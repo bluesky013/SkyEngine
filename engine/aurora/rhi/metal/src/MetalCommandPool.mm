@@ -80,11 +80,19 @@ namespace sky::aurora {
         id<MTLCommandQueue>  mtlQueue = (__bridge id<MTLCommandQueue>)queue;
         id<MTLCommandBuffer> cb       = [mtlQueue commandBuffer];
         cmdBuffer                     = (__bridge_retained void *)cb;
+        if (!cb)
+            RecordError({GpuErrorCode::OUT_OF_MEMORY});
     }
 
     void MetalCommandBuffer::End()
     {
         // Metal command buffer commit happens at submit time, not here.
+    }
+
+    void MetalCommandBuffer::RecordError(GpuError error) noexcept
+    {
+        if (recordingError.code == GpuErrorCode::NONE || error.code == GpuErrorCode::DEVICE_LOST)
+            recordingError = error;
     }
 
     void MetalCommandBuffer::PipelineBarrier(const BarrierInfo &info)
@@ -134,6 +142,10 @@ namespace sky::aurora {
 
     void MetalCommandBuffer::NotifyEncoderBegin(ActiveEncoderKind kind, void *encoder)
     {
+        if (!encoder) {
+            RecordError({GpuErrorCode::OUT_OF_MEMORY});
+            return;
+        }
         activeEncoder = encoder;
         activeKind    = kind;
 

@@ -3,6 +3,9 @@
 //
 
 #include <aurora/shader/ShaderCompilerSlang.h>
+
+#include "SpirvArtifact.h"
+
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderHash.h>
 #include <aurora/shader/SlangFileSystemAdapter.h>
@@ -561,37 +564,69 @@ namespace sky::aurora {
             return true;
         }
 
-        bool FindSpirvEntry(std::span<const uint8_t> code, ShaderStageFlagBit stage, std::string &entry, std::string &error)
-        {
-            if (code.size() < 20 || code.size() % 4)
-                return Fail(error, "Malformed SPIR-V payload");
-            auto word = [&](size_t index) {
-                const auto *bytes = code.data() + index * 4;
-                return uint32_t(bytes[0]) | uint32_t(bytes[1]) << 8 | uint32_t(bytes[2]) << 16 | uint32_t(bytes[3]) << 24;
-            };
-            const auto model = stage == ShaderStageFlagBit::VS    ? 0u
-                               : stage == ShaderStageFlagBit::FS  ? 4u
-                               : stage == ShaderStageFlagBit::CS  ? 5u
-                               : stage == ShaderStageFlagBit::TAS ? 5364u
-                                                                  : 5365u;
-            for (size_t i = 5; i < code.size() / 4;) {
-                const auto instruction = word(i);
-                const auto count       = instruction >> 16;
-                if (!count || count > code.size() / 4 - i)
-                    return Fail(error, "Malformed SPIR-V instruction");
-                if ((instruction & 0xffffu) == 15 && count >= 4 && word(i + 1) == model) {
-                    const char  *name    = reinterpret_cast<const char *>(code.data() + (i + 3) * 4);
-                    const size_t maximum = (count - 3) * 4;
-                    const char  *end     = static_cast<const char *>(std::memchr(name, 0, maximum));
-                    if (!end || end == name || !entry.empty())
-                        return Fail(error, "Missing or ambiguous SPIR-V entry point");
-                    entry.assign(name, end);
-                }
-                i += count;
-            }
-            return !entry.empty() || Fail(error, "SPIR-V has no matching native entry point");
-        }
     } // namespace
+
+    bool FinalizeSpirvArtifact(std::vector<uint8_t> &code, ShaderStageFlagBit stage, std::string &entry, std::string &error)
+    {
+        error.clear();
+        if (code.size() < 20 || code.size() % 4)
+            return Fail(error, "Malformed SPIR-V payload");
+        const auto word = [&](size_t index) {
+            const auto *bytes = code.data() + index * 4;
+            return uint32_t(bytes[0]) | uint32_t(bytes[1]) << 8 | uint32_t(bytes[2]) << 16 | uint32_t(bytes[3]) << 24;
+        };
+        if (word(0) != 0x07230203u || word(4) != 0)
+            return Fail(error, "Malformed SPIR-V header");
+        uint32_t model = 0;
+        switch (stage) {
+        case ShaderStageFlagBit::VS: model = 0; break;
+        case ShaderStageFlagBit::FS: model = 4; break;
+        case ShaderStageFlagBit::CS: model = 5; break;
+        case ShaderStageFlagBit::TAS: model = 5364; break;
+        case ShaderStageFlagBit::MS: model = 5365; break;
+        default: return Fail(error, "Unsupported SPIR-V entry stage");
+        }
+        std::vector<uint8_t> finalized;
+        finalized.reserve(code.size());
+        finalized.insert(finalized.end(), code.begin(), code.begin() + 20);
+        std::string nativeEntry;
+        for (size_t i = 5; i < code.size() / 4;) {
+            const auto instruction = word(i);
+            const auto count       = instruction >> 16;
+            const auto opcode      = instruction & 0xffffu;
+            if (!count || count > code.size() / 4 - i)
+                return Fail(error, "Malformed SPIR-V instruction");
+            const auto terminated = [&](size_t first) { return std::memchr(code.data() + (i + first) * 4, 0, (count - first) * 4) != nullptr; };
+            if (opcode == 3) {
+                if (count < 3 || (count > 4 && !terminated(4)))
+                    return Fail(error, "Malformed SPIR-V OpSource");
+            } else if (opcode == 2) {
+                if (count < 2 || !terminated(1))
+                    return Fail(error, "Malformed SPIR-V OpSourceContinued");
+            } else {
+                if (opcode == 15) {
+                    if (count < 4)
+                        return Fail(error, "Malformed SPIR-V entry point");
+                    const char *name = reinterpret_cast<const char *>(code.data() + (i + 3) * 4);
+                    const char *end  = static_cast<const char *>(std::memchr(name, 0, (count - 3) * 4));
+                    if (!end || end == name)
+                        return Fail(error, "Malformed SPIR-V entry point");
+                    if (word(i + 1) == model) {
+                        if (!nativeEntry.empty())
+                            return Fail(error, "Ambiguous SPIR-V entry point");
+                        nativeEntry.assign(name, end);
+                    }
+                }
+                finalized.insert(finalized.end(), code.begin() + i * 4, code.begin() + (i + count) * 4);
+            }
+            i += count;
+        }
+        if (nativeEntry.empty())
+            return Fail(error, "SPIR-V has no matching native entry point");
+        code  = std::move(finalized);
+        entry = std::move(nativeEntry);
+        return true;
+    }
 
     bool ShaderCompilerSlang::InitGlobalSession()
     {
@@ -976,7 +1011,7 @@ namespace sky::aurora {
             candidate.identity.sourceEntry = desc.entry;
             candidate.identity.stage       = desc.stage;
             if (desc.target == ShaderTarget::SPIRV) {
-                if (!FindSpirvEntry(candidate.data, desc.stage, candidate.identity.nativeEntry, candidate.errorInfo))
+                if (!FinalizeSpirvArtifact(candidate.data, desc.stage, candidate.identity.nativeEntry, candidate.errorInfo))
                     return false;
             } else {
                 const char *nativeEntry = entryLayout->getNameOverride();
@@ -1033,6 +1068,8 @@ namespace sky::aurora {
         identity.adapterVersion = 3;
         identity.configuration  = HashString(
             "AuroraResource-v1;AuroraField-v1;single-target;direct-arguments;exact-metadata;native-mat4-stride;line-none;typed-variant-symbol-v1");
+        if (target == ShaderTarget::SPIRV)
+            identity.configuration = HashMixU64(identity.configuration, HashString("spirv-source-omitted-v1"));
 #if defined(SKY_PLATFORM_WINDOWS)
         if (target == ShaderTarget::DXIL)
             identity.configuration = HashMixU64(identity.configuration, gDxcLibraries->fingerprint);

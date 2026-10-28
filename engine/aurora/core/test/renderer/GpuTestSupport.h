@@ -1,10 +1,12 @@
 #pragma once
 
 #include "graph/FrameGraphBuilder.h"
+
 #include "prepare/ScenePrepareScheduler.h"
 #include <VulkanCommandPool.h>
 #include <VulkanDevice.h>
 #include <array>
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/Instance.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
@@ -65,6 +67,21 @@ float4 PSMain(float4 position : SV_Position) : SV_Target { return sourceTex.Samp
 [AuroraResource(0,2,"fixture/storage-read")] [[vk::binding(2,0)]] StructuredBuffer<uint> inputData : register(t2);
 [numthreads(1,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) {
     outputData[id.x] = inputData[id.x] + uint(image[int2(0,0)].g * 255);
+}
+)";
+    constexpr const char *kGpuRasterStorageSource  = R"(
+[AuroraResource(0,0,"fixture/raster-storage")] [[vk::binding(0,0)]] StructuredBuffer<uint> palette : register(t0);
+struct Input { uint4 value : COLOR; uint id : SV_VertexID; };
+struct Varying { float4 position : SV_Position; float value : TEXCOORD0; };
+Varying VSMain(Input input) {
+    float2 positions[3] = {float2(-1,-1), float2(-1,3), float2(3,-1)};
+    Varying output;
+    output.position = float4(positions[input.id], 0, 1);
+    output.value = float(input.value.x - input.id + palette[1]);
+    return output;
+}
+float4 PSMain(Varying input) : SV_Target {
+    return abs(input.value - float(palette[0] + palette[1])) < 0.1 ? float4(0,1,0,1) : float4(1,0,0,1);
 }
 )";
     constexpr const char *kGpuComputeUniformSource = R"(
@@ -182,15 +199,19 @@ float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
         const auto        storage = std::get<GraphBufferHandle>(builder.Import(output, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
         const auto target      = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
         const auto inputHandle = std::get<GraphBufferHandle>(builder.Import(input, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
-        FrameComputePass writeBuffer;
+        FrameComputePass    writeBuffer;
+        ComputeBindingDraft writeBufferBindings;
         writeBuffer.shader  = std::move(bufferWriter);
         writeBuffer.groupsX = 4;
-        writeBuffer.buffers.push_back({0, 0, {inputHandle, 0, 16}, 0, FrameAccessMode::WRITE});
+        writeBufferBindings.buffers.push_back({0, 0, {inputHandle, 0, 16}, 0, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(writeBuffer, std::move(writeBufferBindings))));
         builder.Compute(std::move(writeBuffer));
-        FrameComputePass write;
+        FrameComputePass    write;
+        ComputeBindingDraft writeBindings;
         write.shader  = std::move(writer);
         write.groupsX = write.groupsY = 8;
-        write.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+        writeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, std::move(writeBindings))));
         builder.Compute(std::move(write));
         FrameCustomPass read;
         read.encoder = std::move(callback);
@@ -235,17 +256,118 @@ float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
         const auto output = std::get<GraphBufferHandle>(builder.Import(storage, CopyBufferState::COMMON, CopyBufferState::UNORDERED_ACCESS, false));
         const auto host   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({source, constants, 0, 0, 1024})));
-        FrameComputePass pass;
+        FrameComputePass    pass;
+        ComputeBindingDraft passBindings;
         pass.shader  = std::move(shader);
         pass.groupsX = 4;
         for (const auto binding : {3u, 1u}) {
             const uint32_t offset = binding == 3 ? 512 : 256;
-            pass.buffers.push_back({0, binding, {constants, dynamic ? 0u : offset, 16}, dynamic ? offset : 0, FrameAccessMode::READ});
+            passBindings.buffers.push_back({0, binding, {constants, dynamic ? 0u : offset, 16}, dynamic ? offset : 0, FrameAccessMode::READ});
         }
-        pass.buffers.push_back({1, 0, {output, 0, 16}, 0, FrameAccessMode::WRITE});
+        passBindings.buffers.push_back({1, 0, {output, 0, 16}, 0, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(passBindings))));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(pass))));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({output, host, 0, 0, 16})));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({host, 0, 16})));
+        return {std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), std::move(readback)};
+    }
+    std::pair<std::shared_ptr<const FrozenFrameGraph>, BufferPtr>
+    RepeatedComputeUniformGraph(Device &device, ShaderPtr shader, bool dynamic, bool changeStaticRange = false)
+    {
+        auto [graph, readback] = ComputeUniformGraph(device, std::move(shader), dynamic);
+        if (!graph)
+            return {};
+        auto  data        = graph->GetData();
+        auto &first       = std::get<FrameComputePass>(data.passes[1]);
+        first.sideEffect  = true;
+        auto second       = first;
+        second.sideEffect = false;
+        for (auto &use : second.groups)
+            if (use.group)
+                use.group = std::make_shared<const FrameBindingGroup>(use.group->GetData());
+        if (dynamic) {
+            second.groups[0].bufferUses = {{1, 512}, {3, 256}};
+        } else if (changeStaticRange) {
+            auto group = second.groups[0].group->GetData();
+            for (auto &binding : group.buffers)
+                binding.range.offset = binding.binding == 1 ? 512 : 256;
+            second.groups[0].group = std::make_shared<const FrameBindingGroup>(std::move(group));
+        }
+        data.passes.insert(data.passes.begin() + 2, std::move(second));
+        return {std::make_shared<const FrozenFrameGraph>(graph->GetId(), std::move(data)), std::move(readback)};
+    }
+    std::pair<std::shared_ptr<const FrozenFrameGraph>, BufferPtr> RasterStorageGraph(Device &device, bool computeProducer)
+    {
+        const auto vs = CompileGpuFunction(device, kGpuRasterStorageSource, ShaderStageFlagBit::VS, "VSMain");
+        const auto fs = CompileGpuFunction(device, kGpuRasterStorageSource, ShaderStageFlagBit::FS, "PSMain");
+        if (!vs || !fs)
+            return {};
+        Shader::Descriptor shaderDesc;
+        shaderDesc.vs             = vs.Get();
+        shaderDesc.ps             = fs.Get();
+        const auto         shader = ShaderPtr(device.CreateShader(shaderDesc));
+        Buffer::Descriptor storageDesc;
+        storageDesc.size           = 64;
+        storageDesc.usage          = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::TRANSFER_DST;
+        const auto         storage = BufferPtr(device.CreateBuffer(storageDesc));
+        Buffer::Descriptor hostDesc{64, BufferUsageFlagBit::TRANSFER_SRC, MemoryType::CPU_TO_GPU};
+        const auto         upload = BufferPtr(device.CreateBuffer(hostDesc));
+        hostDesc.size             = 256;
+        hostDesc.usage            = BufferUsageFlagBit::TRANSFER_DST;
+        hostDesc.memory           = MemoryType::GPU_TO_CPU;
+        auto            readback  = BufferPtr(device.CreateBuffer(hostDesc));
+        FrameGraphImage target;
+        target.descriptor.format = PixelFormat::RGBA8_UNORM;
+        target.descriptor.extent = {8, 8, 1};
+        target.descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+        target.image             = ImagePtr(device.CreateImage(target.descriptor));
+        if (!shader || !storage || !upload || !readback || !target.image)
+            return {};
+        std::array<uint32_t, 16> values;
+        for (uint32_t i = 0; i < values.size(); ++i)
+            values[i] = i + 7;
+        auto *mapped = upload->Map();
+        if (!mapped)
+            return {};
+        std::memcpy(mapped, values.data(), sizeof(values));
+        upload->UnMap();
+        FrameGraphBuilder builder;
+        const auto        buffer = std::get<GraphBufferHandle>(builder.Import(storage, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+        if (computeProducer) {
+            const auto         cs = CompileGpuFunction(device, kGpuComputeSource, ShaderStageFlagBit::CS, "CSMain");
+            Shader::Descriptor computeDesc;
+            computeDesc.cs = cs.Get();
+            FrameComputePass    compute;
+            ComputeBindingDraft computeBindings;
+            compute.shader = cs ? ShaderPtr(device.CreateShader(computeDesc)) : ShaderPtr{};
+            if (!compute.shader)
+                return {};
+            compute.groupsX = 16;
+            computeBindings.buffers.push_back({0, 0, {buffer, 0, 64}, 0, FrameAccessMode::WRITE});
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+        } else {
+            const auto source = std::get<GraphBufferHandle>(builder.Import(upload, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true));
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({source, buffer, 0, 0, 64})));
+        }
+        const auto         color = std::get<GraphImageHandle>(builder.Import(std::move(target)));
+        RasterDraw         draw;
+        RasterBindingDraft drawBindings;
+        draw.shader  = shader;
+        draw.command = {3, 1, 0, 0};
+        draw.vertices.push_back({{buffer, 0, 64}, 4});
+        draw.attributes.push_back({0, 0, 0, Format::U_RGBA8, "COLOR", 0});
+        drawBindings.storage.push_back({0, 0, {buffer, 0, 64}, 0});
+        FrameRasterPass raster;
+        raster.color = color;
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(drawBindings))));
+        raster.draws.push_back(std::move(draw));
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
+        const auto      host = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+        BufferImageCopy region;
+        region.imageExtent = {8, 8, 1};
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({host, color, region, ImageCopyDirection::IMAGE_TO_BUFFER})));
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({host, 0, 256})));
         return {std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), std::move(readback)};
     }
     std::weak_ptr<const void> TrackGraphGpuPayload(std::shared_ptr<const FrozenFrameGraph> &graph)

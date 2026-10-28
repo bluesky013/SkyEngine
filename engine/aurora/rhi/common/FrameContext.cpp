@@ -68,7 +68,7 @@ namespace sky::aurora {
             std::shared_ptr<const FrameStateChanges> states;
         };
         enum class SlotPhase { IDLE, RECORDING, SUBMITTED, QUARANTINED };
-        enum class Protocol { UNSELECTED, EXPLICIT, DIRECT };
+        enum class Protocol { EXPLICIT, DIRECT };
     } // namespace
 
     FrameError *FindEncodingFailure(std::span<std::optional<FrameError>> errors) noexcept
@@ -166,10 +166,11 @@ namespace sky::aurora {
         Queue                                       *queue            = nullptr;
         FrameContextIdentity                         identity;
         std::vector<Slot>                            slots;
-        mutable Protocol                             protocol      = Protocol::UNSELECTED;
+        Protocol                                     protocol        = Protocol::EXPLICIT;
         uint32_t                                     active        = UINT32_MAX;
         uint32_t                                     cursor        = 0;
         uint32_t                                     directSlot    = 0;
+        bool                                         directRecording = false;
         uint64_t                                     serial        = 0;
         uint64_t                                     recording     = 0;
         uint64_t                                     session       = 0;
@@ -186,7 +187,7 @@ namespace sky::aurora {
         if (state->queue && std::any_of(state->slots.begin(), state->slots.end(), [](const auto &slot) { return bool(slot.retained); }))
             state->queue->WaitIdle();
     }
-    bool BackendFrameContext::Init(Device *device, const DeviceFrameContextInitInfo &info)
+    bool BackendFrameContext::Init(Device *device, const DeviceFrameContextInitInfo &info, bool direct)
     {
         if (!device || !info.inflightNum || !info.parallelNum || !info.deviceEpoch || !info.maxRecordingsPerSlot)
             return false;
@@ -194,6 +195,7 @@ namespace sky::aurora {
             (device->GetAPI() != API::VULKAN && info.vulkanCompiler != VulkanFrameGraphMode::DYNAMIC_RENDERING))
             return false;
         state->device               = device;
+        state->protocol             = direct ? Protocol::DIRECT : Protocol::EXPLICIT;
         state->maxTracked           = info.trackedResources;
         state->maxImageSubresources = info.trackedImageSubresources;
         state->limits               = info.allocations;
@@ -252,7 +254,6 @@ namespace sky::aurora {
             return Error(FrameErrorCode::OUT_OF_MEMORY);
         state->tracked.emplace(key, State::TrackedResource{std::move(resource), {{initial, {}}, {initial, {}}}, 0, imageSubresources});
         state->trackedImageSubresources += imageSubresources;
-        state->protocol = Protocol::EXPLICIT;
         return FrameOperationComplete{};
     }
     FrameResourceTrackingResult BackendFrameContext::TrackOwnedResource(FrameResource resource, FrameResourceBoundaryState initial)
@@ -295,7 +296,6 @@ namespace sky::aurora {
     {
         if (state->protocol == Protocol::DIRECT || state->terminal)
             return Error(FrameErrorCode::INVALID_STATE);
-        state->protocol = Protocol::EXPLICIT;
         state->RetireOwnedResources();
         if (state->active != UINT32_MAX)
             return FrameBusy{};
@@ -732,23 +732,39 @@ namespace sky::aurora {
 
     Fence *BackendFrameContext::GetFrameFence() const noexcept
     {
-        if (state->protocol == Protocol::EXPLICIT || state->slots.empty())
+        if (state->protocol != Protocol::DIRECT || state->terminal || state->slots.empty())
             return nullptr;
-        state->protocol = Protocol::DIRECT;
         return state->slots[state->directSlot].fence.Get();
     }
-    void BackendFrameContext::BeginFrame() noexcept
+    DirectFrameBeginResult BackendFrameContext::TryBeginFrame() noexcept
     {
-        if (auto *fence = GetFrameFence()) {
-            fence->Wait();
-            fence->Reset();
-            SelectDirectSlot(state->directSlot);
+        auto *fence = GetFrameFence();
+        if (!fence || state->directRecording)
+            return Error(FrameErrorCode::INVALID_STATE);
+        const auto queried = fence->Query();
+        if (queried.status == FenceStatus::PENDING)
+            return FrameBusy{};
+        if (queried.status != FenceStatus::SIGNALED) {
+            state->terminal = true;
+            return Error(queried.error.code == GpuErrorCode::DEVICE_LOST ? FrameErrorCode::DEVICE_LOST : FrameErrorCode::INVALID_STATE,
+                         queried.error);
         }
+        const auto reset = fence->TryReset();
+        if (!reset.Succeeded()) {
+            state->terminal = true;
+            return Error(reset.error.code == GpuErrorCode::DEVICE_LOST ? FrameErrorCode::DEVICE_LOST : FrameErrorCode::INVALID_STATE, reset.error);
+        }
+        SelectDirectSlot(state->directSlot);
+        state->directRecording = true;
+        return FrameOperationComplete{};
     }
-    void BackendFrameContext::EndFrame() noexcept
+    FrameOperationResult BackendFrameContext::EndFrame() noexcept
     {
-        if (state->protocol == Protocol::DIRECT)
-            state->directSlot = (state->directSlot + 1) % static_cast<uint32_t>(state->slots.size());
+        if (state->protocol != Protocol::DIRECT || state->terminal || !state->directRecording)
+            return Error(FrameErrorCode::INVALID_STATE);
+        state->directRecording = false;
+        state->directSlot      = (state->directSlot + 1) % static_cast<uint32_t>(state->slots.size());
+        return FrameOperationComplete{};
     }
 
 } // namespace sky::aurora

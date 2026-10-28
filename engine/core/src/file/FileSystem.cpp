@@ -282,10 +282,8 @@ namespace sky {
             if (regular) {
                 const auto ext = entryPath.extension().string();
                 if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
-                    const auto relative = std::filesystem::relative(entryPath, path.filePath, error);
-                    if (error) {
-                        return FileScanError{FilePath(entryPath), error};
-                    }
+                    // Source identity follows the scanned name, including file symlink aliases.
+                    const auto relative = entryPath.lexically_relative(path.filePath);
                     result.emplace_back(relative);
                 }
             }

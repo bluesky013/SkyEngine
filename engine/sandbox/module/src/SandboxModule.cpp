@@ -61,11 +61,6 @@
 #include <nanosvg/nanosvg.h>
 #include <nanosvg/nanosvgrast.h>
 
-#if defined(_WIN32)
-    #include <windows.h>
-    #undef CreateProcess
-#endif
-
 static const char *TAG = "SandboxModule";
 
 namespace sky::editor {
@@ -330,18 +325,11 @@ namespace sky::editor {
         }
         initialized = true;
 
-        // System DPI scale = dpi / 96 (96 = 100%); SKY_UI_SCALE overrides it for dev.
+        // The UI uses physical pixels, so the theme follows the window's device scale.
         systemUiScale = 1.0f;
-#if defined(_WIN32)
-        if (auto *system = Interface<ISystemNotify>::Get()->GetApi()) {
-            if (void *handle = system->GetMainWindowHandle()) {
-                const UINT dpi = ::GetDpiForWindow(static_cast<HWND>(handle));
-                if (dpi > 0) {
-                    systemUiScale = static_cast<float>(dpi) / 96.0f;
-                }
-            }
+        if (const auto *window = sky::NativeWindowManager::Get()->GetMainWindow()) {
+            systemUiScale = window->GetDpiScale();
         }
-#endif
         if (const char *env = std::getenv("SKY_UI_SCALE")) {
             const float value = static_cast<float>(std::atof(env));
             if (value >= 0.5f && value <= 4.0f) {

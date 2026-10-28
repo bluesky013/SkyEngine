@@ -170,6 +170,21 @@ namespace sky {
 #endif
     }
 
+    FileOperationStatus NativeFileSystem::RemoveFile(const FilePath &path) const
+    {
+        std::filesystem::path resolved;
+        if (const auto status = ResolvePath(fsRoot, path, resolved); !status) {
+            return status;
+        }
+        std::error_code error;
+        if (std::filesystem::is_directory(resolved, error)) {
+            return {FileOperationError::InvalidPath, "file removal does not accept directories"};
+        }
+        error.clear();
+        std::filesystem::remove(resolved, error);
+        return error ? FileOperationStatus{FileOperationError::IOError, error.message()} : FileOperationStatus{};
+    }
+
     FileOperationStatus NativeFileSystem::AcquireFileLock(const FilePath &path, FileLockPtr &out) const
     {
         std::filesystem::path resolved;

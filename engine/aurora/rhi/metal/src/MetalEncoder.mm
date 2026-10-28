@@ -42,7 +42,30 @@ namespace sky::aurora {
 
     void MetalGraphicsEncoder::BeginRendering(const RenderingInfo &info)
     {
+        TryBeginRendering(info, {});
+    }
+
+    GpuOperationResult MetalGraphicsEncoder::TryBeginRendering(const RenderingInfo &info, const MetalRenderingResolves &resolves)
+    {
+        auto fail = [&](GpuError error) {
+            owner->RecordError(error);
+            return GpuOperationResult{error};
+        };
+        if (const auto error = owner->GetRecordingError(); error.code != GpuErrorCode::NONE)
+            return {error};
+        if (renderEncoder || info.numColors > MAX_COLOR_ATTACHMENTS || (!info.depthStencil.image && resolves.depth))
+            return fail({GpuErrorCode::INVALID_ARGUMENT});
+        const auto validImage = [&](const Image *image) {
+            return image && image->GetDevice() == &device && static_cast<const MetalImage *>(image)->GetNativeHandle();
+        };
+        for (uint32_t i = 0; i < info.numColors; ++i)
+            if (!validImage(info.colors[i].image) || (resolves.colors[i] && !validImage(resolves.colors[i])))
+                return fail({GpuErrorCode::INVALID_ARGUMENT});
+        if ((info.depthStencil.image && !validImage(info.depthStencil.image)) || (resolves.depth && !validImage(resolves.depth)))
+            return fail({GpuErrorCode::INVALID_ARGUMENT});
         MTLRenderPassDescriptor *rpDesc = [MTLRenderPassDescriptor renderPassDescriptor];
+        if (!rpDesc)
+            return fail({GpuErrorCode::OUT_OF_MEMORY});
 
         for (uint32_t i = 0; i < info.numColors; ++i) {
             auto          &src                     = info.colors[i];
@@ -50,6 +73,11 @@ namespace sky::aurora {
             rpDesc.colorAttachments[i].texture     = tex;
             rpDesc.colorAttachments[i].loadAction  = ToMetalLoadAction(src.loadOp);
             rpDesc.colorAttachments[i].storeAction = ToMetalStoreAction(src.storeOp);
+            if (resolves.colors[i]) {
+                rpDesc.colorAttachments[i].resolveTexture = (__bridge id<MTLTexture>)static_cast<MetalImage *>(resolves.colors[i])->GetNativeHandle();
+                rpDesc.colorAttachments[i].storeAction =
+                    src.storeOp == StoreOp::STORE ? MTLStoreActionStoreAndMultisampleResolve : MTLStoreActionMultisampleResolve;
+            }
             if (src.loadOp == LoadOp::CLEAR) {
                 const auto &c                         = src.clearValue.color;
                 rpDesc.colorAttachments[i].clearColor = MTLClearColorMake(c.float32[0], c.float32[1], c.float32[2], c.float32[3]);
@@ -65,6 +93,13 @@ namespace sky::aurora {
                 rpDesc.depthAttachment.texture     = dsTex;
                 rpDesc.depthAttachment.loadAction  = ToMetalLoadAction(info.depthStencil.depthLoadOp);
                 rpDesc.depthAttachment.storeAction = ToMetalStoreAction(info.depthStencil.depthStoreOp);
+                if (resolves.depth) {
+                    rpDesc.depthAttachment.resolveTexture = (__bridge id<MTLTexture>)static_cast<MetalImage *>(resolves.depth)->GetNativeHandle();
+                    rpDesc.depthAttachment.storeAction = info.depthStencil.depthStoreOp == StoreOp::STORE ? MTLStoreActionStoreAndMultisampleResolve
+                                                                                                          : MTLStoreActionMultisampleResolve;
+                    rpDesc.depthAttachment.depthResolveFilter =
+                        resolves.depthMaximum ? MTLMultisampleDepthResolveFilterMax : MTLMultisampleDepthResolveFilterMin;
+                }
                 if (info.depthStencil.depthLoadOp == LoadOp::CLEAR) {
                     rpDesc.depthAttachment.clearDepth = info.depthStencil.clearValue.depthStencil.depth;
                 }
@@ -82,6 +117,8 @@ namespace sky::aurora {
 
         id<MTLCommandBuffer>        cb        = (__bridge id<MTLCommandBuffer>)owner->GetNativeHandle();
         id<MTLRenderCommandEncoder> nativeEnc = [cb renderCommandEncoderWithDescriptor:rpDesc];
+        if (!nativeEnc)
+            return fail({GpuErrorCode::OUT_OF_MEMORY});
         renderEncoder                         = (__bridge_retained void *)nativeEnc;
         owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Render, (__bridge void *)nativeEnc);
 
@@ -102,6 +139,7 @@ namespace sky::aurora {
             sc.height = info.renderArea.extent.height;
             [nativeEnc setScissorRect:sc];
         }
+        return {owner->GetRecordingError()};
     }
 
     void MetalGraphicsEncoder::EndRendering()

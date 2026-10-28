@@ -35,6 +35,7 @@ if (SKY_BUILD_TEST)
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
         INCS
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer
         LIBS
             Aurora.Core.Static
             Aurora.RHI.Static

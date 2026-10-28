@@ -3,6 +3,7 @@
 //
 
 #include <editor/widgets/RotationReflectedWidget.h>
+
 #include <editor/ui/UiDraw.h>
 
 #include <editor/core/command/CommandService.h>
@@ -75,13 +76,13 @@ namespace sky::editor {
             if (!FloatMemberIndex(field.descriptor, name, ordinal)) {
                 return 0.0f;
             }
-            Any copy = field.descriptor.GetValue();
+            Any                              copy   = field.descriptor.GetValue();
             const serialize::TypeMemberNode *member = FloatMemberAt(field.descriptor.GetStructType(), ordinal);
             if (copy.Data() == nullptr || member == nullptr) {
                 return 0.0f;
             }
             PropertyDescriptor child(copy.Data(), member, std::string(), field.descriptor.GetCategory());
-            const Any value = child.GetValue();
+            const Any          value = child.GetValue();
             if (const float *f = value.GetAsConst<float>()) {
                 return *f;
             }
@@ -100,12 +101,12 @@ namespace sky::editor {
 
         Any BuildQuaternionValue(const PropertyField &field, const Quaternion &quat)
         {
-            Any copy = field.descriptor.GetValue();
+            Any             copy = field.descriptor.GetValue();
             const TypeNode *node = field.descriptor.GetStructType();
             if (copy.Data() == nullptr || node == nullptr) {
                 return {};
             }
-            const char *names[4] = {"x", "y", "z", "w"};
+            const char *names[4]  = {"x", "y", "z", "w"};
             const float values[4] = {quat.x, quat.y, quat.z, quat.w};
             for (int c = 0; c < 4; ++c) {
                 int ordinal = -1;
@@ -124,74 +125,77 @@ namespace sky::editor {
 
     } // namespace
 
-    sky::ui::UIRect RotationReflectedWidget::Cell(const sky::ui::UIRect &control, int index, int count) const
+    RotationReflectedWidget::Layout RotationReflectedWidget::ComputeLayout(const ReflectedWidgetHost &host, const sky::ui::UIRect &control) const
     {
-        const float span = (control.right - control.left) / static_cast<float>(std::max(count, 1));
-        return sky::ui::UIRect{control.left + span * static_cast<float>(index) + 1.0f, control.top,
-                               control.left + span * static_cast<float>(index + 1) - 2.0f, control.bottom};
+        const UiTheme &theme = host.Skin().Theme();
+        const float    buttonWidth =
+            std::max(uc::TextWidth("YZX", theme.fonts.tiny, host.Text()), uc::TextWidth("Quat", theme.fonts.tiny, host.Text())) +
+            2.0f * theme.metrics.controlPad;
+        const float buttonLeft = std::max(control.left, control.right - buttonWidth);
+        return {{control.left, control.top, std::max(control.left, buttonLeft - theme.metrics.itemSpacing), control.bottom},
+                {buttonLeft, control.top, control.right, control.bottom}};
     }
 
-    void RotationReflectedWidget::Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context,
-                                        PropertyField &field, const sky::ui::UIRect &rect)
+    sky::ui::UIRect RotationReflectedWidget::Cell(const UiMetrics &metrics, const sky::ui::UIRect &control, int index, int count) const
     {
-        const UiTheme &th = host.Skin().Theme();
-        const sky::ui::UIRect body{rect.left, rect.top, rect.right - 44.0f, rect.bottom};
-        const sky::ui::UIRect button{rect.right - 42.0f, rect.top, rect.right, rect.bottom};
+        count             = std::max(count, 1);
+        const float gap   = std::min(metrics.itemSpacing, std::max(0.0f, control.Width()) / static_cast<float>(count));
+        const float width = std::max(0.0f, (control.Width() - gap * static_cast<float>(count - 1)) / static_cast<float>(count));
+        const float left  = control.left + (width + gap) * static_cast<float>(index);
+        return {left, control.top, left + width, control.bottom};
+    }
 
-        const Quaternion q = ReadQuaternion(field);
-        if (mode == 0) {
-            const Vector3 euler = q.ToEulerYZX();
-            const float values[3] = {euler.x, euler.y, euler.z};
-            static const char *labels[3] = {"X", "Y", "Z"};
-            for (int i = 0; i < 3; ++i) {
-                const sky::ui::UIRect cell = Cell(body, i, 3);
-                host.Skin().DrawField(context, cell, false, false);
-                uc::Text(context, labels[i], th.fonts.tiny,
-                         sky::ui::UIRect{cell.left + 4.0f, cell.top, cell.left + 15.0f, cell.bottom}, th.colors.textMuted, host.Text());
-                char buffer[32] = {0};
-                std::snprintf(buffer, sizeof(buffer), "%.1f", values[i]);
-                uc::Text(context, buffer, th.fonts.small,
-                         sky::ui::UIRect{cell.left + 15.0f, cell.top, cell.right - 3.0f, cell.bottom}, th.colors.text, host.Text());
-            }
-        } else {
-            const float values[4] = {q.x, q.y, q.z, q.w};
-            static const char *labels[4] = {"x", "y", "z", "w"};
-            for (int i = 0; i < 4; ++i) {
-                const sky::ui::UIRect cell = Cell(body, i, 4);
-                host.Skin().DrawField(context, cell, false, false);
-                uc::Text(context, labels[i], th.fonts.tiny,
-                         sky::ui::UIRect{cell.left + 4.0f, cell.top, cell.left + 14.0f, cell.bottom}, th.colors.textMuted, host.Text());
-                char buffer[32] = {0};
-                std::snprintf(buffer, sizeof(buffer), "%.2f", values[i]);
-                uc::Text(context, buffer, th.fonts.small,
-                         sky::ui::UIRect{cell.left + 14.0f, cell.top, cell.right - 3.0f, cell.bottom}, th.colors.text, host.Text());
-            }
+    void
+    RotationReflectedWidget::Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field, const sky::ui::UIRect &rect)
+    {
+        const UiTheme &th     = host.Skin().Theme();
+        const Layout   layout = ComputeLayout(host, rect);
+
+        const Quaternion   q            = ReadQuaternion(field);
+        const Vector3      euler        = q.ToEulerYZX();
+        const int          count        = mode == 0 ? 3 : 4;
+        static const char *labels[2][4] = {{"X", "Y", "Z", ""}, {"x", "y", "z", "w"}};
+        for (int i = 0; i < count; ++i) {
+            const sky::ui::UIRect cell = Cell(th.metrics, layout.body, i, count);
+            host.Skin().DrawField(context, cell, false, false);
+            const float labelLeft  = std::min(cell.right, cell.left + th.metrics.controlPad);
+            const float labelRight = std::min(cell.right, labelLeft + uc::TextWidth(labels[mode][i], th.fonts.tiny, host.Text()));
+            uc::Text(context, labels[mode][i], th.fonts.tiny, {labelLeft, cell.top, labelRight, cell.bottom}, th.colors.textMuted, host.Text(),
+                     uc::HAlign::Left, uc::VAlign::Middle, false);
+            char buffer[32] = {0};
+            std::snprintf(buffer, sizeof(buffer), mode == 0 ? "%.1f" : "%.2f", mode == 0 ? euler.v[i] : q.v[i]);
+            const float valueLeft = std::min(cell.right, labelRight + th.metrics.controlPad);
+            uc::Text(context, buffer, th.fonts.small,
+                     sky::ui::UIRect{valueLeft, cell.top, std::max(valueLeft, cell.right - th.metrics.controlPad), cell.bottom}, th.colors.text,
+                     host.Text());
         }
 
-        host.Skin().DrawField(context, button, false, false);
-        uc::Text(context, mode == 0 ? "YZX" : "Quat", th.fonts.tiny, button, th.colors.textMuted, host.Text(), uc::HAlign::Center);
+        host.Skin().DrawField(context, layout.button, false, false);
+        uc::Text(context, mode == 0 ? "YZX" : "Quat", th.fonts.tiny, layout.button, th.colors.textMuted, host.Text(), uc::HAlign::Center);
     }
 
-    bool RotationReflectedWidget::OnDown(ReflectedWidgetHost &host, PropertyField &field,
-                                         const sky::ui::UIPointerEvent &event, const sky::ui::UIRect &rect)
+    bool RotationReflectedWidget::OnDown(ReflectedWidgetHost           &host,
+                                         PropertyField                 &field,
+                                         const sky::ui::UIPointerEvent &event,
+                                         const sky::ui::UIRect         &rect)
     {
-        if (event.x >= rect.right - 44.0f) {
+        const Layout layout = ComputeLayout(host, rect);
+        if (layout.button.Contains(event.x, event.y)) {
             mode = (mode + 1) % 2;
             host.MarkDirty();
             return true;
         }
 
-        const sky::ui::UIRect body{rect.left, rect.top, rect.right - 44.0f, rect.bottom};
         const int count = (mode == 0) ? 3 : 4;
         for (int i = 0; i < count; ++i) {
-            if (!Cell(body, i, count).Contains(event.x, rect.top)) {
+            if (!Cell(host.Skin().Theme().metrics, layout.body, i, count).Contains(event.x, event.y)) {
                 continue;
             }
-            ReflectedWidgetHost *h = &host;
-            PropertyField *t = &field;
-            const int component = i;
-            const int currentMode = mode;
-            char initial[32] = {0};
+            ReflectedWidgetHost *h           = &host;
+            PropertyField       *t           = &field;
+            const int            component   = i;
+            const int            currentMode = mode;
+            char                 initial[32] = {0};
             if (currentMode == 0) {
                 std::snprintf(initial, sizeof(initial), "%.2f", ReadQuaternion(field).ToEulerYZX().v[i]);
             } else {
@@ -199,14 +203,14 @@ namespace sky::editor {
                 std::snprintf(initial, sizeof(initial), "%.3f", q.v[i]);
             }
             host.BeginTextEdit(field, component, PropertyEditorKind::Float, initial, [h, t, component, currentMode](const std::string &text) {
-                char *end = nullptr;
+                char       *end   = nullptr;
                 const float value = std::strtof(text.c_str(), &end);
                 if (end == text.c_str()) {
                     return false;
                 }
                 Quaternion q = ReadQuaternion(*t);
                 if (currentMode == 0) {
-                    Vector3 euler = q.ToEulerYZX();
+                    Vector3 euler      = q.ToEulerYZX();
                     euler.v[component] = value;
                     q.FromEulerYZX(euler);
                 } else {

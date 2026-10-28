@@ -426,7 +426,6 @@ TEST_P(ResourceStates, TrackingIsBoundedTypedAndPinsExactBackingUntilRelease)
     EXPECT_TRUE(Ok(context->TrackResource(FrameResource{extra}, CopyBufferState::COMMON)));
     std::unique_ptr<DeviceFrameContext> other(device->CreateFrameContext(info));
     EXPECT_TRUE(std::holds_alternative<FrameError>(other->GetResourceState(FrameResource{extra})));
-    EXPECT_EQ(context->GetFrameFence(), nullptr);
     const auto lease   = Begin();
     auto      *backend = static_cast<BackendFrameContext *>(context.get());
     EXPECT_TRUE(std::holds_alternative<FrameError>(backend->AllocateCommand(lease, 0)));

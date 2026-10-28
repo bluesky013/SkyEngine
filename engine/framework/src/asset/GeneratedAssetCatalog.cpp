@@ -109,16 +109,12 @@ namespace sky {
             const auto found =
                 std::find_if(next.records.begin(), next.records.end(), [&descriptor](const auto &record) { return record.key == descriptor.key; });
             if (found != next.records.end()) {
-                if (found->type != descriptor.type || (descriptor.verifiedLegacyId && found->uuid != descriptor.verifiedLegacyId)) {
-                    return {ProductError::InvalidData, "generated child key cannot change its asset type or identity"};
+                if (found->type != descriptor.type) {
+                    return {ProductError::InvalidData, "generated child key cannot change its asset type"};
                 }
                 found->active = true;
             } else {
-                if (descriptor.verifiedLegacyId && !previous.records.empty()) {
-                    return {ProductError::InvalidData, "legacy identity migration requires an empty child catalog"};
-                }
-                next.records.push_back(
-                    {descriptor.verifiedLegacyId ? descriptor.verifiedLegacyId : Uuid::Create(), owner, descriptor.key, descriptor.type, true});
+                next.records.push_back({Uuid::Create(), owner, descriptor.key, descriptor.type, true});
             }
         }
         if (const auto status = Validate(owner, next); !status) {

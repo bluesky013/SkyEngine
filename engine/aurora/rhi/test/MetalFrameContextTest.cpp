@@ -3,6 +3,7 @@
 
 #include <array>
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/Shader.h>
@@ -535,8 +536,10 @@ fragment float4 FSMain(VOut input [[stage_in]], constant float4 &a [[buffer(5)]]
         draw.shader              = shader;
         draw.command.vertexCount = 3;
         draw.scissor             = {{static_cast<int32_t>(i * 4), 0}, {4, kSize}};
-        draw.uniforms.push_back({1, 3, {{kGraphId, 1}, 0, 16}, (i ? 3u : 1u) * stride});
-        draw.uniforms.push_back({1, 1, {{kGraphId, 1}, 0, 16}, (i ? 3u : 2u) * stride});
+        RasterBindingDraft bindings;
+        bindings.uniforms.push_back({1, 3, {{kGraphId, 1}, 0, 16}, (i ? 3u : 1u) * stride});
+        bindings.uniforms.push_back({1, 1, {{kGraphId, 1}, 0, 16}, (i ? 3u : 2u) * stride});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
         pass.draws.push_back(std::move(draw));
     }
     data.passes.insert(data.passes.begin() + 1, std::move(pass));
@@ -920,9 +923,11 @@ kernel void CSMain(constant Params &first [[buffer(0)]], constant Params &second
     FrameComputePass compute;
     compute.shader  = std::move(shader);
     compute.groupsX = 4;
-    compute.buffers.push_back({0, 3, {{kGraphId, 0}, 0, 16}, 512, FrameAccessMode::READ});
-    compute.buffers.push_back({0, 1, {{kGraphId, 0}, 0, 16}, 256, FrameAccessMode::READ});
-    compute.buffers.push_back({1, 0, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
+    ComputeBindingDraft bindings;
+    bindings.buffers.push_back({0, 3, {{kGraphId, 0}, 0, 16}, 512, FrameAccessMode::READ});
+    bindings.buffers.push_back({0, 1, {{kGraphId, 0}, 0, 16}, 256, FrameAccessMode::READ});
+    bindings.buffers.push_back({1, 0, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(bindings))));
     data.passes.emplace_back(std::move(compute));
     data.passes.emplace_back(BufferCopyPass{{kGraphId, 1}, {kGraphId, 2}, 0, 0, 16});
     data.exports.push_back({{kGraphId, 2}, 0, 16});
@@ -1006,12 +1011,12 @@ TEST_F(AuroraMetalTest, CustomFailureCanBeDiscardedBeforeSlotReuse)
     auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
     auto dispatched = context->Dispatch(plan);
     ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    EXPECT_FALSE(plan);
     const auto result = context->TryCollect(std::get<EncodingTicket>(dispatched));
     ASSERT_TRUE(std::holds_alternative<EncodingFailed>(result));
     EXPECT_EQ(std::get<EncodingFailed>(result).error.code, FrameErrorCode::ENCODE_FAILED);
     EXPECT_EQ(first->calls, 1u);
     EXPECT_EQ(second->calls, 0u);
-    plan.reset();
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
     Image::Descriptor imageDesc;
     imageDesc.format = PixelFormat::RGBA8_UNORM;
@@ -1041,6 +1046,110 @@ TEST_F(AuroraMetalTest, CustomFailureCanBeDiscardedBeforeSlotReuse)
     EXPECT_NEAR(pixels[0], 64, 1);
     EXPECT_NEAR(pixels[1], 128, 1);
     readback->UnMap();
+}
+
+TEST_F(AuroraMetalTest, FrameContextRejectsForeignAndForgedPlansBeforeConsumingIssuedPlan)
+{
+    class Callback final : public FrameCustomPassEncoder {
+    public:
+        mutable uint32_t     calls = 0;
+        FrameOperationResult Encode(FrameCustomPassContext &) const noexcept override
+        {
+            ++calls;
+            return FrameOperationComplete{};
+        }
+    };
+    class UnknownPlan final : public BackendCompiledFrame {
+    public:
+        CompiledFrameIdentity identity;
+        CompiledFrameIdentity GetIdentity() const noexcept override
+        {
+            return identity;
+        }
+    };
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    std::unique_ptr<DeviceFrameContext> first(device->CreateFrameContext({1, 1, 1}));
+    std::unique_ptr<DeviceFrameContext> second(device->CreateFrameContext({1, 1, 1}));
+    ASSERT_TRUE(first && second);
+    const auto      callback = std::make_shared<Callback>();
+    FrameGraphData  data;
+    FrameCustomPass pass;
+    pass.encoder    = callback;
+    pass.sideEffect = true;
+    data.passes.emplace_back(std::move(pass));
+    const auto begun = first->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    const auto lease    = std::get<DeviceFrameLease>(begun);
+    auto       compiled = first->Compile(lease, std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto plan                                      = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto forged                                    = std::make_unique<UnknownPlan>();
+    forged->identity                               = plan->GetIdentity();
+    std::unique_ptr<BackendCompiledFrame> unknown  = std::move(forged);
+    const auto                            rejected = first->Dispatch(unknown);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(rejected));
+    EXPECT_EQ(std::get<FrameError>(rejected).code, FrameErrorCode::WRONG_CONTEXT);
+    EXPECT_TRUE(unknown);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(second->Dispatch(plan)));
+    EXPECT_TRUE(plan);
+    EXPECT_EQ(callback->calls, 0u);
+    const auto dispatched = first->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    EXPECT_FALSE(plan);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(first->Dispatch(plan)));
+    auto collected = first->TryCollect(std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+    EXPECT_EQ(callback->calls, 1u);
+    std::get<std::unique_ptr<RecordedFrame>>(collected).reset();
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(first->DiscardUnsubmitted(lease)));
+}
+
+TEST_F(AuroraMetalTest, NativeRecordingFailureCannotPublishReceiptAndReleasesConsumedPlan)
+{
+    class Callback final : public FrameCustomPassEncoder {
+    public:
+        mutable uint32_t     calls = 0;
+        FrameOperationResult Encode(FrameCustomPassContext &context) const noexcept override
+        {
+            ++calls;
+            Image         unknownOwner;
+            RenderingInfo info;
+            info.numColors       = 1;
+            info.colors[0].image = &unknownOwner;
+            auto encoder         = context.command.CreateGraphicsEncoder();
+            encoder->BeginRendering(info);
+            return FrameOperationComplete{};
+        }
+    };
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+    ASSERT_TRUE(context);
+    const auto     callback = std::make_shared<Callback>();
+    FrameGraphData data;
+    for (uint32_t i = 0; i < 2; ++i) {
+        FrameCustomPass pass;
+        pass.encoder    = callback;
+        pass.sideEffect = true;
+        data.passes.emplace_back(std::move(pass));
+    }
+    const auto begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    const auto lease    = std::get<DeviceFrameLease>(begun);
+    auto       compiled = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    auto       plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    const auto dispatched = context->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+    EXPECT_FALSE(plan);
+    const auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+    ASSERT_TRUE(std::holds_alternative<EncodingFailed>(collected));
+    EXPECT_EQ(std::get<EncodingFailed>(collected).error.code, FrameErrorCode::ENCODE_FAILED);
+    EXPECT_EQ(std::get<EncodingFailed>(collected).error.cause.code, GpuErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(callback->calls, 1u);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    EXPECT_TRUE(std::holds_alternative<DeviceFrameLease>(context->TryBeginSlot()));
 }
 
 TEST_F(AuroraMetalTest, ComputeInputValidationPreservesLease)
@@ -1120,8 +1229,11 @@ fragment float4 FSMain(device uint *output [[buffer(1)]]) {
         FrameComputePass pass;
         pass.shader  = std::move(shader);
         pass.groupsX = 1;
-        pass.buffers.push_back({0, 0, {{kGraphId, 0}, fault == 2 ? 4u : 0u, 16}, fault == 3 ? 4u : (fault == 5 ? 512u : 0u), FrameAccessMode::READ});
-        pass.buffers.push_back({0, 1, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
+        ComputeBindingDraft bindings;
+        bindings.buffers.push_back(
+            {0, 0, {{kGraphId, 0}, fault == 2 ? 4u : 0u, 16}, fault == 3 ? 4u : (fault == 5 ? 512u : 0u), FrameAccessMode::READ});
+        bindings.buffers.push_back({0, 1, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(bindings))));
         pass.sideEffect = true;
         data.passes.emplace_back(std::move(pass));
         const auto begun = context->TryBeginSlot();
@@ -1190,7 +1302,9 @@ kernel void CSMain(device const uint *input [[buffer(0)]], device uint *output [
         data.buffers.push_back({output, 16, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
         FrameComputePass pass;
         pass.shader  = shader;
-        pass.buffers = {{0, 0, {{kGraphId, 0}, 4, 4}, offset, FrameAccessMode::READ}, {0, 1, {{kGraphId, 1}, 0, 4}, 0, FrameAccessMode::WRITE}};
+        ComputeBindingDraft bindings;
+        bindings.buffers = {{0, 0, {{kGraphId, 0}, 4, 4}, offset, FrameAccessMode::READ}, {0, 1, {{kGraphId, 1}, 0, 4}, 0, FrameAccessMode::WRITE}};
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(bindings))));
         data.passes.emplace_back(std::move(pass));
         data.exports.push_back({{kGraphId, 1}, 0, 4});
         auto begun = context->TryBeginSlot();
@@ -1376,6 +1490,150 @@ TEST_F(AuroraMetalTest, FrameContextResolvesMsaa)
         EXPECT_EQ(pixels[i * 4 + 3], 255);
     }
     readback->UnMap();
+}
+
+TEST_F(AuroraMetalTest, ResolveHonorsColorAndDepthStoreActions)
+{
+    auto *device = GetDevice();
+    ASSERT_TRUE(device);
+    ShaderReflection reflection;
+    ShaderResource   depthResource;
+    depthResource.name    = "depth";
+    depthResource.type    = ShaderResourceType::SAMPLED_IMAGE;
+    depthResource.stages  = ShaderStageFlagBit::FS;
+    depthResource.texture = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 1, false, false};
+    reflection.resources.push_back(depthResource);
+    ShaderResource samplerResource;
+    samplerResource.name    = "sam";
+    samplerResource.type    = ShaderResourceType::SAMPLER;
+    samplerResource.binding = 1;
+    samplerResource.sampler = ShaderSamplerType::REGULAR;
+    samplerResource.stages  = ShaderStageFlagBit::FS;
+    reflection.resources.push_back(samplerResource);
+    reflection.nativeBindings = {{0, 0, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_TEXTURE},
+                                 {0, 1, ShaderStageFlagBit::FS, 0, ShaderNativeCategory::METAL_SAMPLER}};
+    const auto shader         = MakeFullscreenShader(device, R"MSL(
+#include <metal_stdlib>
+using namespace metal;
+vertex float4 VSMain(uint id [[vertex_id]]) {
+    float2 p = float2((id << 1) & 2, id & 2);
+    return float4(p * 2 - 1, 0, 1);
+}
+fragment float4 FSMain(float4 p [[position]], depth2d<float> depth [[texture(0)]], sampler sam [[sampler(0)]]) {
+    float d = depth.sample(sam, p.xy / 8, level(0));
+    return float4(d, d, d, 1);
+}
+)MSL",
+                                                     &reflection);
+    ASSERT_TRUE(shader);
+    Sampler::Descriptor samplerDesc;
+    samplerDesc.minFilter = samplerDesc.magFilter = Filter::NEAREST;
+    const SamplerPtr sampler(device->CreateSampler(samplerDesc));
+    ASSERT_TRUE(sampler);
+    constexpr uint64_t imageBytes = kSize * kSize * 4;
+    for (const auto store : {StoreOp::DONT_CARE, StoreOp::STORE}) {
+        SCOPED_TRACE(static_cast<uint32_t>(store));
+        Image::Descriptor colorDesc;
+        colorDesc.format         = PixelFormat::RGBA8_UNORM;
+        colorDesc.extent         = {kSize, kSize, 1};
+        colorDesc.samples        = SampleCount::X4;
+        colorDesc.usage          = ImageUsageFlagBit::RENDER_TARGET;
+        auto depthDesc           = colorDesc;
+        depthDesc.format         = PixelFormat::D32;
+        depthDesc.usage          = ImageUsageFlagBit::DEPTH_STENCIL;
+        auto colorResolveDesc    = colorDesc;
+        colorResolveDesc.samples = SampleCount::X1;
+        colorResolveDesc.usage |= ImageUsageFlagBit::TRANSFER_SRC;
+        auto depthResolveDesc    = depthDesc;
+        depthResolveDesc.samples = SampleCount::X1;
+        depthResolveDesc.usage |= ImageUsageFlagBit::SAMPLED;
+        const std::array descriptors{colorDesc, depthDesc, colorResolveDesc, depthResolveDesc, colorResolveDesc};
+        FrameGraphData   data;
+        for (const auto &desc : descriptors) {
+            const ImagePtr image(device->CreateImage(desc));
+            ASSERT_TRUE(image);
+            FrameGraphImage input;
+            input.image      = FrameImageReference(image);
+            input.descriptor = desc;
+            input.initial    = ImageLayout::UNDEFINED;
+            input.final      = ImageLayout::GENERAL;
+            data.images.push_back(std::move(input));
+        }
+        Buffer::Descriptor bufferDesc;
+        bufferDesc.size   = imageBytes * 2;
+        bufferDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
+        bufferDesc.memory = MemoryType::CPU_TO_GPU;
+        const BufferPtr readback(device->CreateBuffer(bufferDesc));
+        ASSERT_TRUE(readback);
+        data.buffers.push_back({readback, bufferDesc.size, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
+        FrameRasterPass raster;
+        raster.color          = {kGraphId, 0};
+        raster.load           = LoadOp::CLEAR;
+        raster.store          = store;
+        raster.clear          = ClearValue(0.2f, 0.4f, 0.8f, 1);
+        raster.colorResolve   = RasterColorResolve{{kGraphId, 2}, {}};
+        raster.depth          = RasterDepthAttachment{{kGraphId, 1}, LoadOp::CLEAR, store, 0.25f, {}};
+        raster.depth->resolve = RasterDepthResolve{{kGraphId, 3}, {}, DepthResolveMode::MINIMUM};
+        data.passes.emplace_back(raster);
+        if (store == StoreOp::STORE) {
+            raster.load         = LoadOp::LOAD;
+            raster.store        = StoreOp::DONT_CARE;
+            raster.depth->load  = LoadOp::LOAD;
+            raster.depth->store = StoreOp::DONT_CARE;
+            data.passes.emplace_back(std::move(raster));
+        }
+        FrameRasterPass sample;
+        sample.color = {kGraphId, 4};
+        sample.load  = LoadOp::CLEAR;
+        RasterDraw draw;
+        draw.shader              = shader;
+        draw.command.vertexCount = 3;
+        RasterBindingDraft bindings;
+        bindings.images   = {{0, 0, {kGraphId, 3}, {ImageViewType::VIEW_2D, 0, 1, 0, 1}}};
+        bindings.samplers = {{0, 1, sampler}};
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
+        sample.draws.push_back(std::move(draw));
+        data.passes.emplace_back(std::move(sample));
+        for (uint32_t i = 0; i < 2; ++i) {
+            BufferImageCopyPass copy;
+            copy.buffer                 = {kGraphId, 0};
+            copy.image                  = {kGraphId, i ? 4u : 2u};
+            copy.direction              = ImageCopyDirection::IMAGE_TO_BUFFER;
+            copy.region.bufferOffset    = imageBytes * i;
+            copy.region.imageExtent     = {kSize, kSize, 1};
+            copy.region.subRange.layers = 1;
+            data.passes.emplace_back(copy);
+        }
+        data.exports.push_back({{kGraphId, 0}, 0, bufferDesc.size});
+        std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+        ASSERT_TRUE(context);
+        const auto begun = context->TryBeginSlot();
+        ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+        auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data)));
+        if (const auto *error = std::get_if<FrameError>(&compiled))
+            FAIL() << error->message;
+        auto       plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        const auto dispatched = context->Dispatch(plan);
+        ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+        EXPECT_FALSE(plan);
+        auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+        auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+        ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+        ASSERT_TRUE(WaitForCompletion(*context));
+        const auto *pixels = readback->Map();
+        ASSERT_TRUE(pixels);
+        for (uint32_t pixel = 0; pixel < kSize * kSize; ++pixel) {
+            EXPECT_EQ(pixels[pixel * 4], 51u);
+            EXPECT_EQ(pixels[pixel * 4 + 1], 102u);
+            EXPECT_EQ(pixels[pixel * 4 + 2], 204u);
+            EXPECT_EQ(pixels[pixel * 4 + 3], 255u);
+            for (uint32_t channel = 0; channel < 3; ++channel)
+                EXPECT_NEAR(pixels[imageBytes + pixel * 4 + channel], 64, 1);
+            EXPECT_EQ(pixels[imageBytes + pixel * 4 + 3], 255u);
+        }
+        readback->UnMap();
+    }
 }
 
 TEST_F(AuroraMetalTest, FrameContextClearsDepthAttachment)
@@ -1978,8 +2236,10 @@ fragment float4 FSMain(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]]
     RasterDraw draw;
     draw.shader  = shader;
     draw.command = {3, 1, 0, 0};
-    draw.images.push_back(RasterImageBinding{0, 0, GraphImageHandle{kGraphId, 0}, RasterImageView{}});
-    draw.samplers.push_back(RasterSamplerBinding{0, 1, sampler});
+    RasterBindingDraft bindings;
+    bindings.images.push_back(RasterImageBinding{0, 0, GraphImageHandle{kGraphId, 0}, RasterImageView{}});
+    bindings.samplers.push_back(RasterSamplerBinding{0, 1, sampler});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
     raster.draws.push_back(draw);
     data.passes.push_back(raster);
 
@@ -2084,8 +2344,10 @@ fragment float4 FSMain(VOut in [[stage_in]], texture2d<float> tex [[texture(0)]]
     RasterDraw draw;
     draw.shader  = shader;
     draw.command = {3, 1, 0, 0};
-    draw.images.push_back({0, 0, {kGraphId, 0}, {}});
-    draw.samplers.push_back({0, 1, sampler});
+    RasterBindingDraft bindings;
+    bindings.images.push_back({0, 0, {kGraphId, 0}, {}});
+    bindings.samplers.push_back({0, 1, sampler});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
     raster.draws.push_back(std::move(draw));
     data.passes.push_back(std::move(raster));
 
@@ -2213,10 +2475,24 @@ fragment float4 FSMain(float4 p [[position]], depth2d_array<float> depth [[textu
     draw                     = {};
     draw.shader              = sampleShader;
     draw.command.vertexCount = 3;
-    draw.images              = {{0, 0, {kGraphId, 1}, {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}}};
-    draw.samplers            = {{0, 1, sampler}};
+    RasterBindingDraft bindings;
+    bindings.images   = {{0, 0, {kGraphId, 1}, {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}}};
+    bindings.samplers = {{0, 1, sampler}};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
     std::get<FrameRasterPass>(data.passes[0]).draws.push_back(draw);
+    const auto repeatedSample = data.passes[0];
+    auto       repeatedCopy   = std::get<BufferImageCopyPass>(data.passes[1]);
     data.passes.insert(data.passes.begin(), {FrameGraphPass{write}, FrameGraphPass{load}});
+    const BufferPtr rewrittenReadback(device->CreateBuffer({kSize * kSize * 4, BufferUsageFlagBit::TRANSFER_DST, MemoryType::CPU_TO_GPU}));
+    ASSERT_TRUE(rewrittenReadback);
+    data.buffers.push_back({rewrittenReadback, kSize * kSize * 4, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
+    write.draws.clear();
+    write.depth->clear = 0.75f;
+    data.passes.emplace_back(std::move(write));
+    data.passes.push_back(repeatedSample);
+    repeatedCopy.buffer = {kGraphId, 1};
+    data.passes.emplace_back(repeatedCopy);
+    data.exports.push_back({{kGraphId, 1}, 0, kSize * kSize * 4});
     auto context = device->CreateFrameContext({1, 1, 1});
     ASSERT_NE(context, nullptr);
     auto begun = context->TryBeginSlot();
@@ -2239,5 +2515,13 @@ fragment float4 FSMain(float4 p [[position]], depth2d_array<float> depth [[textu
     EXPECT_EQ(pixels[(3 * 8 + 1) * 4 + 3], 255);
     EXPECT_EQ(pixels[(3 * 8 + 6) * 4 + 3], 255);
     readback->UnMap();
+    pixels = rewrittenReadback->Map();
+    ASSERT_NE(pixels, nullptr);
+    for (uint32_t pixel = 0; pixel < kSize * kSize; ++pixel) {
+        for (uint32_t channel = 0; channel < 3; ++channel)
+            EXPECT_NEAR(pixels[pixel * 4 + channel], 191, 1);
+        EXPECT_EQ(pixels[pixel * 4 + 3], 255u);
+    }
+    rewrittenReadback->UnMap();
 }
 #endif

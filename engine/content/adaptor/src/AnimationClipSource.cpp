@@ -27,8 +27,8 @@ namespace sky::content {
                 if (!asset->IsLoaded()) {
                     return result;
                 }
-                result.version.generation = asset->GetSnapshotGeneration();
-                result.version.revision   = asset->GetSnapshotRevision();
+                result.version.generation = asset->GetInstanceId();
+                result.version.revision   = asset->GetRevision();
                 if (!resource) {
                     resource = CreateAnimationClipFromAsset(asset, &result.status);
                 }

@@ -7,7 +7,7 @@
 #include <core/file/FileSystem.h>
 #include <core/util/Uuid.h>
 #include <framework/asset/AssetCommon.h>
-#include <framework/asset/AssetProductGroup.h>
+#include <framework/asset/AssetProduct.h>
 
 namespace sky {
 
@@ -29,14 +29,6 @@ namespace sky {
         const FileSystemPtr &GetFileSystem() const
         {
             return fs;
-        }
-        ProductStatus ResolveGroup(const Uuid &member, ProductGroupSnapshotPtr &out) const
-        {
-            return AssetProductGroupStore(fs).Resolve(member, out);
-        }
-        ProductStatus OpenPinned(const ProductGroupSnapshot &group, const Uuid &member, FilePtr &out) const
-        {
-            return AssetProductGroupStore(fs).Open(group, member, out);
         }
         virtual bool IsPacked() const
         {

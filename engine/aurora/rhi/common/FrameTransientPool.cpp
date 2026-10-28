@@ -53,17 +53,19 @@ namespace sky::aurora {
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
         FrameResourceBindings bindings;
         bindings.payload  = data.payload;
-        auto retainShader = [&](const ShaderPtr &shader, const std::vector<RasterSamplerBinding> &samplers) {
+        auto retainShader = [&](const ShaderPtr &shader, const FrameBindingGroups &groups) {
             bindings.objects.emplace_back(shader.Get());
-            for (const auto &sampler : samplers)
-                bindings.objects.emplace_back(sampler.sampler.Get());
+            for (const auto &use : groups)
+                if (use.group)
+                    for (const auto &sampler : use.group->GetData().samplers)
+                        bindings.objects.emplace_back(sampler.sampler.Get());
         };
         for (auto index : analysis.livePasses) {
             if (const auto *raster = std::get_if<FrameRasterPass>(&data.passes[index]))
                 for (const auto &draw : raster->draws)
-                    retainShader(draw.shader, draw.samplers);
+                    retainShader(draw.shader, draw.groups);
             if (const auto *compute = std::get_if<FrameComputePass>(&data.passes[index]))
-                retainShader(compute->shader, compute->samplers);
+                retainShader(compute->shader, compute->groups);
         }
         bindings.buffers.resize(data.buffers.size());
         bindings.images.resize(data.images.size());
@@ -140,8 +142,8 @@ namespace sky::aurora {
                 continue;
             }
             // Logical texel bytes bound this cache; native allocation padding is backend-dependent.
-            uint64_t       bytes  = 0;
-            const uint64_t copies = uint64_t(desc.arrayLayers) * static_cast<uint32_t>(desc.samples);
+            uint64_t       bytes      = 0;
+            const uint64_t copies     = uint64_t(desc.arrayLayers) * static_cast<uint32_t>(desc.samples);
             const uint32_t texelBytes = desc.format == PixelFormat::RGBA16_SFLOAT ? 8 : 4;
             for (uint32_t mip = 0; mip < desc.mipLevels; ++mip) {
                 const uint64_t texels = uint64_t(std::max(1u, desc.extent.width >> mip)) * std::max(1u, desc.extent.height >> mip);

@@ -1,9 +1,10 @@
 #include <rdg/MetalDeviceFrameContext.h>
 
+#include <aurora/rdg/FrameBindings.h>
+
 #include "MetalFormat.h"
 
 #include <Metal/Metal.h>
-#include <MetalBlitHelper.h>
 #include <MetalBuffer.h>
 #include <MetalCommandPool.h>
 #include <MetalDevice.h>
@@ -17,10 +18,12 @@
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/PipelineState.h>
+#include <common/FrameObjectCache.h>
 #include <common/FrameTransientPool.h>
 
 #include <algorithm>
 #include <map>
+#include <set>
 #include <tuple>
 #include <variant>
 
@@ -50,6 +53,11 @@ namespace sky::aurora {
             CounterPtr<ResourceGroup> group;
             std::vector<uint32_t>     dynamicOffsets;
         };
+        struct CachedMetalGroup {
+            CounterPtr<ResourceGroup>         group;
+            std::vector<SampledDepthCopyStep> refreshCopies;
+        };
+        using MetalBindingCache = std::map<const FrameBindingGroup *, CachedMetalGroup, FrameBindingGroupLess>;
         struct MetalDraw {
             CounterPtr<GraphicsPipeline> pipeline;
             std::vector<MetalSet>        sets;
@@ -72,14 +80,8 @@ namespace sky::aurora {
             ClearValue             clear;
             ClearValue             depthClear;
             Extent2D               extent;
+            MetalRenderingResolves resolves;
             std::vector<MetalDraw> draws;
-        };
-        struct ResolveStep {
-            MetalImage *source = nullptr;
-            MetalImage *target = nullptr;
-            Extent2D    extent;
-            bool        depth   = false;
-            bool        maximum = false;
         };
         struct ComputeStep {
             CounterPtr<ComputePipeline> pipeline;
@@ -91,7 +93,7 @@ namespace sky::aurora {
             std::vector<Image *>                          images;
             std::vector<Buffer *>                         buffers;
         };
-        using MetalStep = std::variant<CopyBufferStep, CopyImageStep, SampledDepthCopyStep, RasterStep, ResolveStep, ComputeStep, CustomStep>;
+        using MetalStep = std::variant<CopyBufferStep, CopyImageStep, SampledDepthCopyStep, RasterStep, ComputeStep, CustomStep>;
 
         class MetalCompiledFrame final : public BackendCompiledFrame {
         public:
@@ -121,6 +123,7 @@ namespace sky::aurora {
 
         std::optional<FrameError> ValidateComputeInputs(MetalDevice &device, const FrameComputePass &pass, const FrameResourceBindings &bindings)
         {
+            const auto passBindings = ResolveComputeBindings(pass);
             if (!pass.shader || pass.shader->GetDevice() != &device)
                 return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute shader owner mismatch");
             const auto *shader = static_cast<const MetalShader *>(pass.shader.Get());
@@ -142,7 +145,7 @@ namespace sky::aurora {
                 if (!groups[axis] || threads > limits[axis])
                     return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Compute threadgroup exceeds Metal device limits");
             }
-            for (const auto &binding : pass.buffers) {
+            for (const auto &binding : passBindings.buffers) {
                 const auto *resource = resourceBindings.Find(binding.set, binding.binding);
                 if (!resource)
                     return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Missing compute buffer reflection");
@@ -185,29 +188,119 @@ namespace sky::aurora {
             return view;
         }
 
-        bool ResolveDraws(MetalDevice                         &device,
-                          const FrameGraphData                &data,
-                          const FrameResourceBindings         &bindings,
-                          const FrameRasterPass               &raster,
-                          PixelFormat                          colorFormat,
-                          SampleCount                          samples,
-                          bool                                 hasDepth,
-                          PixelFormat                          depthFormat,
-                          std::vector<CounterPtr<MetalImage>> &views,
-                          std::vector<MetalStep>              &steps,
-                          std::vector<MetalDraw>              &out)
+        using SampledDepthCopies = std::map<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>, SampledDepthCopyStep>;
+
+        std::variant<FrameError, const CachedMetalGroup *> MaterializeRasterGroup(MetalDevice                         &device,
+                                                                                  const FrameGraphData                &data,
+                                                                                  const FrameResourceBindings         &bindings,
+                                                                                  const FrameBindingGroup             &logical,
+                                                                                  std::vector<CounterPtr<MetalImage>> &views,
+                                                                                  MetalBindingCache                   &groupCache,
+                                                                                  SampledDepthCopies                  &sampledDepthCopies)
         {
-            std::map<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>, MetalImage *> sampledDepthCopies;
+            if (const auto cached = groupCache.find(&logical); cached != groupCache.end())
+                return &cached->second;
+            const auto               &groupData = logical.GetData();
+            CachedMetalGroup          materialized;
+            ResourceGroup::Descriptor groupDesc{groupData.layoutOwner.Get(), groupData.set};
+            CounterPtr<ResourceGroup> group(device.CreateResourceGroup(groupDesc));
+            if (!group)
+                return MakeError(FrameErrorCode::COMPILE_FAILED, "Metal raster resource group creation failed");
+            auto encoder = group->CreateEncoder();
+            if (!encoder)
+                return MakeError(FrameErrorCode::OUT_OF_MEMORY, "Metal raster descriptor encoder creation failed");
+            for (const auto &buffer : groupData.buffers)
+                if (!encoder->WriteBuffer(buffer.binding, bindings.buffers[buffer.range.buffer.index].Get(), buffer.range.offset, buffer.range.size,
+                                          0))
+                    return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster buffer binding failed");
+            for (const auto &image : groupData.images) {
+                auto       *base     = static_cast<MetalImage *>(bindings.images[image.image.index].Get());
+                const auto &desc     = data.images[image.image.index].descriptor;
+                const auto  mipCount = image.view.mipCount ? image.view.mipCount : desc.mipLevels - image.view.baseMip;
+                const bool  restricted =
+                    image.view.baseMip || mipCount != desc.mipLevels || image.view.baseLayer || image.view.layerCount != desc.arrayLayers;
+                MetalImage *sampled = nullptr;
+                if (GetImageFormatInfo(desc.format).hasDepth && image.view.type == ImageViewType::VIEW_2D_ARRAY && restricted) {
+                    const auto key = std::make_tuple(image.image.index, image.view.baseMip, mipCount, image.view.baseLayer, image.view.layerCount);
+                    if (auto found = sampledDepthCopies.find(key); found != sampledDepthCopies.end()) {
+                        sampled = found->second.destination;
+                        materialized.refreshCopies.push_back(found->second);
+                    } else {
+                        auto copyDesc          = desc;
+                        copyDesc.extent.width  = std::max(1u, desc.extent.width >> image.view.baseMip);
+                        copyDesc.extent.height = std::max(1u, desc.extent.height >> image.view.baseMip);
+                        copyDesc.mipLevels     = mipCount;
+                        copyDesc.arrayLayers   = image.view.layerCount;
+                        copyDesc.usage         = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
+                        copyDesc.viewUsage     = {};
+                        copyDesc.memory        = MemoryType::GPU_ONLY;
+                        auto copy              = std::make_unique<MetalImage>(device);
+                        if (desc.samples != SampleCount::X1)
+                            return MakeError(FrameErrorCode::UNSUPPORTED, "Metal sampled depth copies require one sample");
+                        if (!copy->Init(copyDesc, true))
+                            return MakeError(FrameErrorCode::OUT_OF_MEMORY, "Metal sampled depth copy allocation failed");
+                        sampled = copy.release();
+                        views.emplace_back(sampled);
+                        // Restricted depth-array mip views can sample the wrong parent mip on Intel Metal.
+                        const SampledDepthCopyStep refresh{base,
+                                                           sampled,
+                                                           image.view.baseMip,
+                                                           mipCount,
+                                                           image.view.baseLayer,
+                                                           image.view.layerCount,
+                                                           {copyDesc.extent.width, copyDesc.extent.height}};
+                        sampledDepthCopies.emplace(key, refresh);
+                        materialized.refreshCopies.push_back(refresh);
+                    }
+                } else {
+                    sampled = (restricted || image.view.layerCount != desc.arrayLayers ||
+                               (image.view.type == ImageViewType::VIEW_2D_ARRAY && desc.arrayLayers == 1))
+                                  ? MakeView(base, image.view.baseMip, mipCount, image.view.baseLayer, image.view.layerCount, views, image.view.type)
+                                  : base;
+                }
+                if (!sampled)
+                    return MakeError(FrameErrorCode::OUT_OF_MEMORY, "Metal sampled image view creation failed");
+                if (!encoder->WriteImage(image.binding, sampled, ImageLayout::SHADER_READ_ONLY, 0))
+                    return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster image binding failed");
+            }
+            for (const auto &sampler : groupData.samplers)
+                if (!encoder->WriteSampler(sampler.binding, sampler.sampler.Get(), 0))
+                    return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster sampler binding failed");
+            if (!encoder->End())
+                return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster descriptor commit failed");
+            materialized.group = std::move(group);
+            const auto cached  = groupCache.emplace(&logical, std::move(materialized));
+            return &cached.first->second;
+        }
+
+        std::optional<FrameError> ResolveDraws(MetalDevice                         &device,
+                                               const FrameGraphData                &data,
+                                               const FrameResourceBindings         &bindings,
+                                               const FrameRasterPass               &raster,
+                                               PixelFormat                          colorFormat,
+                                               SampleCount                          samples,
+                                               bool                                 hasDepth,
+                                               PixelFormat                          depthFormat,
+                                               std::vector<CounterPtr<MetalImage>> &views,
+                                               std::vector<MetalStep>              &steps,
+                                               std::vector<MetalDraw>              &out,
+                                               FramePipelineCache                  &pipelines,
+                                               MetalBindingCache                   &groupCache,
+                                               uint64_t                             epoch)
+        {
+            SampledDepthCopies           sampledDepthCopies;
+            std::set<const MetalImage *> refreshedCopies;
             for (const auto &source : raster.draws) {
+                const auto sourceBindings = ResolveRasterBindings(source);
                 if (!source.shader || source.shader->GetDevice() != &device)
-                    return false;
-                for (const auto &sampler : source.samplers)
+                    return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster shader owner mismatch");
+                for (const auto &sampler : sourceBindings.samplers)
                     if (!sampler.sampler || sampler.sampler->GetDevice() != &device)
-                        return false;
+                        return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal raster sampler owner mismatch");
                 const auto alignment = device.GetCapability().minUniformBufferOffsetAlignment;
-                for (const auto &uniform : source.uniforms)
+                for (const auto &uniform : sourceBindings.uniforms)
                     if (!alignment || uniform.range.offset % alignment || uniform.dynamicOffset % alignment)
-                        return false;
+                        return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Invalid Metal raster uniform offset alignment");
                 MetalDraw draw;
                 draw.command   = source.command;
                 draw.indexed   = source.indexed ? source.indexed->command : CmdDrawIndexed{};
@@ -223,117 +316,52 @@ namespace sky::aurora {
                 format.sampleCount  = samples;
                 format.depthStencil = hasDepth ? depthFormat : PixelFormat::UNDEFINED;
                 GraphicsPipeline::Descriptor pipelineDesc{&state, source.shader.Get(), format};
-                draw.pipeline = CounterPtr<GraphicsPipeline>(device.CreatePipelineState(pipelineDesc));
-                if (!draw.pipeline)
-                    return false;
+                auto                         pipeline =
+                    pipelines.Acquire(FramePipelineKey{source, format, epoch}, [&]() -> std::variant<FrameError, CounterPtr<GraphicsPipeline>> {
+                        CounterPtr<GraphicsPipeline> created(device.CreatePipelineState(pipelineDesc));
+                        if (!created)
+                            return MakeError(FrameErrorCode::COMPILE_FAILED, "Metal raster pipeline creation failed");
+                        return created;
+                    });
+                if (const auto *error = std::get_if<FrameError>(&pipeline))
+                    return *error;
+                draw.pipeline = std::move(std::get<CounterPtr<GraphicsPipeline>>(pipeline));
 
-                std::map<uint32_t, CounterPtr<ResourceGroup>> groups;
-                auto                                          groupFor = [&](uint32_t set) -> bool {
-                    auto found = groups.find(set);
-                    if (found != groups.end())
-                        return true;
-                    ResourceGroup::Descriptor groupDesc{source.shader.Get(), set};
-                    CounterPtr<ResourceGroup> group(device.CreateResourceGroup(groupDesc));
-                    if (!group)
-                        return false;
-                    auto encoder = group->CreateEncoder();
-                    if (!encoder)
-                        return false;
-                    for (const auto &uniform : source.uniforms)
-                        if (uniform.set == set && !encoder->WriteBuffer(uniform.binding, bindings.buffers[uniform.range.buffer.index].Get(),
-                                                                                                                 uniform.range.offset, uniform.range.size, 0))
-                            return false;
-                    for (const auto &storage : source.storage)
-                        if (storage.set == set && !encoder->WriteBuffer(storage.binding, bindings.buffers[storage.range.buffer.index].Get(),
-                                                                        storage.range.offset, storage.range.size, 0))
-                            return false;
-                    for (const auto &image : source.images)
-                        if (image.set == set) {
-                            auto       *base = static_cast<MetalImage *>(bindings.images[image.image.index].Get());
-                            const auto &desc = data.images[image.image.index].descriptor;
-                            const auto  mipCount = image.view.mipCount ? image.view.mipCount : desc.mipLevels - image.view.baseMip;
-                            const bool  restricted =
-                                image.view.baseMip || mipCount != desc.mipLevels || image.view.baseLayer || image.view.layerCount != desc.arrayLayers;
-                            MetalImage *sampled = nullptr;
-                            if (GetImageFormatInfo(desc.format).hasDepth && image.view.type == ImageViewType::VIEW_2D_ARRAY && restricted) {
-                                const auto key =
-                                    std::make_tuple(image.image.index, image.view.baseMip, mipCount, image.view.baseLayer, image.view.layerCount);
-                                if (auto found = sampledDepthCopies.find(key); found != sampledDepthCopies.end()) {
-                                    sampled = found->second;
-                                } else {
-                                    auto copyDesc = desc;
-                                    copyDesc.extent.width = std::max(1u, desc.extent.width >> image.view.baseMip);
-                                    copyDesc.extent.height = std::max(1u, desc.extent.height >> image.view.baseMip);
-                                    copyDesc.mipLevels   = mipCount;
-                                    copyDesc.arrayLayers = image.view.layerCount;
-                                    copyDesc.usage = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
-                                    copyDesc.viewUsage = {};
-                                    copyDesc.memory    = MemoryType::GPU_ONLY;
-                                    auto copy          = std::make_unique<MetalImage>(device);
-                                    if (desc.samples != SampleCount::X1 || !copy->Init(copyDesc, true))
-                                        return false;
-                                    sampled = copy.release();
-                                    views.emplace_back(sampled);
-                                    sampledDepthCopies.emplace(key, sampled);
-                                    // Restricted depth-array mip views can sample the wrong parent mip on Intel Metal.
-                                    steps.emplace_back(SampledDepthCopyStep{base,
-                                                                            sampled,
-                                                                            image.view.baseMip,
-                                                                            mipCount,
-                                                                            image.view.baseLayer,
-                                                                            image.view.layerCount,
-                                                                                                                     {copyDesc.extent.width, copyDesc.extent.height}});
-                                }
-                            } else {
-                                sampled = (restricted || image.view.layerCount != desc.arrayLayers ||
-                                           (image.view.type == ImageViewType::VIEW_2D_ARRAY && desc.arrayLayers == 1))
-                                                                                       ? MakeView(base, image.view.baseMip, mipCount, image.view.baseLayer, image.view.layerCount, views,
-                                                                                                  image.view.type)
-                                                                                       : base;
-                            }
-                            if (!sampled)
-                                return false;
-                            if (!encoder->WriteImage(image.binding, sampled, ImageLayout::SHADER_READ_ONLY, 0))
-                                return false;
-                        }
-                    for (const auto &sampler : source.samplers)
-                        if (sampler.set == set && !encoder->WriteSampler(sampler.binding, sampler.sampler.Get(), 0))
-                            return false;
-                    if (!encoder->End())
-                        return false;
+                auto groupFor = [&](uint32_t set) -> std::optional<FrameError> {
+                    auto compiled = MaterializeRasterGroup(device, data, bindings, *source.groups[set].group, views, groupCache, sampledDepthCopies);
+                    if (const auto *error = std::get_if<FrameError>(&compiled))
+                        return *error;
+                    const auto &materialized = *std::get<const CachedMetalGroup *>(compiled);
+                    // The native group is immutable, but copied depth contents must be refreshed after intervening passes.
+                    for (const auto &refresh : materialized.refreshCopies)
+                        if (refreshedCopies.insert(refresh.destination).second)
+                            steps.emplace_back(refresh);
                     std::vector<std::pair<uint32_t, uint32_t>> offsets;
                     for (const auto &resource : source.shader->GetReflection().resources) {
                         if (resource.set != set || resource.type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)
                             continue;
-                        const auto binding = std::find_if(source.uniforms.begin(), source.uniforms.end(),
-                                                                                                   [&](const auto &value) { return value.set == set && value.binding == resource.binding; });
-                        if (binding == source.uniforms.end())
-                            return false;
+                        const auto binding = std::find_if(sourceBindings.uniforms.begin(), sourceBindings.uniforms.end(),
+                                                          [&](const auto &value) { return value.set == set && value.binding == resource.binding; });
+                        if (binding == sourceBindings.uniforms.end())
+                            return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Missing Metal raster dynamic uniform binding");
                         offsets.emplace_back(resource.binding, binding->dynamicOffset);
                     }
                     std::sort(offsets.begin(), offsets.end());
-                    MetalSet nativeSet{set, group, {}};
+                    MetalSet nativeSet{set, materialized.group, {}};
                     for (const auto &[binding, offset] : offsets)
                         nativeSet.dynamicOffsets.push_back(offset);
                     draw.sets.push_back(std::move(nativeSet));
-                    groups.emplace(set, std::move(group));
-                    return true;
+                    return {};
                 };
-                for (const auto &uniform : source.uniforms)
-                    if (!groupFor(uniform.set))
-                        return false;
-                for (const auto &storage : source.storage)
-                    if (!groupFor(storage.set))
-                        return false;
-                for (const auto &image : source.images) {
+                for (const auto &image : sourceBindings.images)
                     if (image.view.type != ImageViewType::VIEW_2D && image.view.type != ImageViewType::VIEW_2D_ARRAY)
-                        return false;
-                    if (!groupFor(image.set))
-                        return false;
+                        return MakeError(FrameErrorCode::UNSUPPORTED, "Unsupported Metal raster image view type");
+                for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
+                    if (!source.groups[set].group)
+                        continue;
+                    if (auto error = groupFor(set))
+                        return error;
                 }
-                for (const auto &sampler : source.samplers)
-                    if (!groupFor(sampler.set))
-                        return false;
 
                 for (const auto &stream : source.vertices) {
                     auto *buffer = static_cast<MetalBuffer *>(bindings.buffers[stream.range.buffer.index].Get());
@@ -346,7 +374,7 @@ namespace sky::aurora {
                 }
                 out.push_back(std::move(draw));
             }
-            return true;
+            return {};
         }
     } // namespace
 
@@ -367,8 +395,9 @@ namespace sky::aurora {
     namespace {
         class MetalPassCompiler final {
         public:
-            MetalPassCompiler(MetalDevice *device, const FrameGraphData &data, const FrameResourceBindings &bindings, MetalCompiledFrame &plan)
-                : device(device), data(data), bindings(bindings), plan(plan)
+            MetalPassCompiler(
+                MetalDevice *device, const FrameGraphData &data, const FrameResourceBindings &bindings, MetalCompiledFrame &plan, uint64_t epoch)
+                : device(device), data(data), bindings(bindings), plan(plan), epoch(epoch)
             {
             }
             std::optional<FrameError> Compile(const BufferCopyPass &copy)
@@ -421,39 +450,37 @@ namespace sky::aurora {
                     step.depthClear                    = ClearValue(0.f, 0.f, 0.f, 0.f);
                     step.depthClear.depthStencil.depth = raster.depth->clear;
                 }
-                if (!ResolveDraws(*device, data, bindings, raster, hasColor ? desc.format : PixelFormat::UNDEFINED, desc.samples,
-                                  raster.depth.has_value(),
-                                  raster.depth ? data.images[raster.depth->image.index].descriptor.format : PixelFormat::UNDEFINED, plan.views,
-                                  plan.steps, step.draws))
-                    return MakeError(FrameErrorCode::UNSUPPORTED, "Metal raster draw/pipeline binding is not supported");
-                plan.steps.emplace_back(std::move(step));
+                if (auto error = ResolveDraws(*device, data, bindings, raster, hasColor ? desc.format : PixelFormat::UNDEFINED, desc.samples,
+                                              raster.depth.has_value(),
+                                              raster.depth ? data.images[raster.depth->image.index].descriptor.format : PixelFormat::UNDEFINED,
+                                              plan.views, plan.steps, step.draws, graphicsPipelines, groupCache, epoch))
+                    return error;
                 if (raster.colorResolve) {
-                    ResolveStep resolve;
-                    resolve.source    = colorView;
                     auto *resolveBase = static_cast<MetalImage *>(bindings.images[raster.colorResolve->image.index].Get());
-                    resolve.target    = (raster.colorResolve->view.mip || raster.colorResolve->view.layer)
-                                            ? MakeView(resolveBase, raster.colorResolve->view.mip, 1, raster.colorResolve->view.layer, 1, plan.views)
-                                            : resolveBase;
-                    resolve.extent    = step.extent;
-                    plan.steps.emplace_back(resolve);
+                    step.resolves.colors[0] =
+                        (raster.colorResolve->view.mip || raster.colorResolve->view.layer)
+                            ? MakeView(resolveBase, raster.colorResolve->view.mip, 1, raster.colorResolve->view.layer, 1, plan.views)
+                            : resolveBase;
+                    if (!step.resolves.colors[0])
+                        return MakeError(FrameErrorCode::OUT_OF_MEMORY, "Metal color resolve view creation failed");
                 }
                 if (raster.depth && raster.depth->resolve) {
-                    ResolveStep resolve;
-                    resolve.source    = step.depth;
-                    resolve.depth     = true;
-                    resolve.maximum   = raster.depth->resolve->mode == DepthResolveMode::MAXIMUM;
+                    step.resolves.depthMaximum = raster.depth->resolve->mode == DepthResolveMode::MAXIMUM;
                     auto *resolveBase = static_cast<MetalImage *>(bindings.images[raster.depth->resolve->image.index].Get());
-                    resolve.target    = (raster.depth->resolve->view.mip || raster.depth->resolve->view.layer)
-                                            ? MakeView(resolveBase, raster.depth->resolve->view.mip, 1, raster.depth->resolve->view.layer, 1, plan.views)
-                                            : resolveBase;
-                    resolve.extent    = step.extent;
-                    plan.steps.emplace_back(resolve);
+                    step.resolves.depth =
+                        (raster.depth->resolve->view.mip || raster.depth->resolve->view.layer)
+                            ? MakeView(resolveBase, raster.depth->resolve->view.mip, 1, raster.depth->resolve->view.layer, 1, plan.views)
+                            : resolveBase;
+                    if (!step.resolves.depth)
+                        return MakeError(FrameErrorCode::OUT_OF_MEMORY, "Metal depth resolve view creation failed");
                 }
+                plan.steps.emplace_back(std::move(step));
 
                 return {};
             }
             std::optional<FrameError> Compile(const FrameComputePass &compute)
             {
+                const auto computeBindings = ResolveComputeBindings(compute);
                 if (const auto error = ValidateComputeInputs(*device, compute, bindings))
                     return *error;
                 ComputeStep step;
@@ -461,9 +488,15 @@ namespace sky::aurora {
                 step.groupsY = compute.groupsY;
                 step.groupsZ = compute.groupsZ;
                 ComputePipeline::Descriptor pipelineDesc{compute.shader.Get()};
-                step.pipeline = CounterPtr<ComputePipeline>(device->CreatePipelineState(pipelineDesc));
-                if (!step.pipeline)
-                    return MakeError(FrameErrorCode::COMPILE_FAILED, "Metal compute pipeline creation failed");
+                auto cachedPipeline = computePipelines.Acquire(compute.shader.Get(), [&]() -> std::variant<FrameError, CounterPtr<ComputePipeline>> {
+                    CounterPtr<ComputePipeline> created(device->CreatePipelineState(pipelineDesc));
+                    if (!created)
+                        return MakeError(FrameErrorCode::COMPILE_FAILED, "Metal compute pipeline creation failed");
+                    return created;
+                });
+                if (const auto *error = std::get_if<FrameError>(&cachedPipeline))
+                    return *error;
+                step.pipeline                                           = std::move(std::get<CounterPtr<ComputePipeline>>(cachedPipeline));
                 const auto                              *pipeline       = static_cast<const MetalComputePipeline *>(step.pipeline.Get());
                 const auto                               nativePipeline = (__bridge id<MTLComputePipelineState>)pipeline->GetNativeHandle();
                 const auto                              &reflection     = compute.shader->GetReflection();
@@ -481,7 +514,7 @@ namespace sky::aurora {
                     if (setPlan == nullptr)
                         return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Missing linked Metal resource set");
                     const auto &slots = setPlan->stages[2];
-                    for (const auto &binding : compute.buffers) {
+                    for (const auto &binding : computeBindings.buffers) {
                         if (binding.set != set)
                             continue;
                         const auto slot = slots.buffer.find(binding.binding);
@@ -493,6 +526,13 @@ namespace sky::aurora {
                         if (*alignment && (binding.range.offset % *alignment || binding.dynamicOffset % *alignment))
                             return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute buffer offset violates native alignment");
                     }
+                    const auto *logical = compute.groups[set].group.get();
+                    if (!logical)
+                        return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Missing Metal compute binding group");
+                    if (const auto found = groupCache.find(logical); found != groupCache.end()) {
+                        step.sets.push_back({set, found->second.group, ResolveComputeDynamicOffsets(compute, set)});
+                        continue;
+                    }
                     ResourceGroup::Descriptor groupDesc{compute.shader.Get(), set};
                     CounterPtr<ResourceGroup> group(device->CreateResourceGroup(groupDesc));
                     if (!group)
@@ -500,11 +540,11 @@ namespace sky::aurora {
                     auto encoder = group->CreateEncoder();
                     if (!encoder)
                         return MakeError(FrameErrorCode::OUT_OF_MEMORY);
-                    for (const auto &binding : compute.buffers)
+                    for (const auto &binding : computeBindings.buffers)
                         if (binding.set == set && !encoder->WriteBuffer(binding.binding, bindings.buffers[binding.range.buffer.index].Get(),
                                                                         binding.range.offset, binding.range.size, 0))
                             return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute buffer binding failed");
-                    for (const auto &binding : compute.images) {
+                    for (const auto &binding : computeBindings.images) {
                         if (binding.set != set)
                             continue;
                         auto       *base     = static_cast<MetalImage *>(bindings.images[binding.image.index].Get());
@@ -526,7 +566,7 @@ namespace sky::aurora {
                         if (!encoder->WriteImage(binding.binding, view, storage ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY, 0))
                             return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute image binding failed");
                     }
-                    for (const auto &binding : compute.samplers)
+                    for (const auto &binding : computeBindings.samplers)
                         if (binding.set == set) {
                             if (binding.sampler->GetDevice() != device)
                                 return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute sampler owner mismatch");
@@ -535,6 +575,7 @@ namespace sky::aurora {
                         }
                     if (!encoder->End())
                         return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal compute descriptor commit failed");
+                    groupCache.emplace(logical, CachedMetalGroup{group, {}});
                     step.sets.push_back({set, group, ResolveComputeDynamicOffsets(compute, set)});
                 }
                 plan.steps.emplace_back(std::move(step));
@@ -564,6 +605,10 @@ namespace sky::aurora {
             const FrameGraphData        &data;
             const FrameResourceBindings &bindings;
             MetalCompiledFrame          &plan;
+            const uint64_t                                                epoch;
+            FramePipelineCache                                            graphicsPipelines;
+            FrameObjectCache<const Shader *, CounterPtr<ComputePipeline>> computePipelines;
+            MetalBindingCache                                             groupCache;
         };
     } // namespace
     FrameCompileResult MetalDeviceFrameContext::Compile(const DeviceFrameLease &lease, std::shared_ptr<const FrozenFrameGraph> graph)
@@ -607,9 +652,14 @@ namespace sky::aurora {
                     return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal frame image descriptor does not match native storage");
             }
 
+            for (const auto index : semantic.livePasses)
+                for (const auto &use : semantic.passResourceUses[index].buffers)
+                    if (!bindings.buffers[use.range.buffer.index]->GetDescriptor().usage.TestBit(FrameBufferUseUsage(use.kind)))
+                        return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Metal frame buffer usage does not match the declared resource use");
+
             auto plan        = std::make_unique<MetalCompiledFrame>();
             plan->livePasses = semantic.livePasses;
-            MetalPassCompiler compiler(device, data, bindings, *plan);
+            MetalPassCompiler compiler(device, data, bindings, *plan, lease.context.deviceEpoch);
             for (auto index : semantic.livePasses) {
                 if (auto error = std::visit([&](const auto &pass) { return compiler.Compile(pass); }, data.passes[index]))
                     return *error;
@@ -621,6 +671,8 @@ namespace sky::aurora {
             plan->reservation = std::move(std::get<FramePlanLease>(reserved));
             plan->resources   = std::move(bindings);
             plan->graph       = std::move(graph);
+            issuedPlan        = plan.get();
+            issuedIdentity    = plan->GetIdentity();
             return std::unique_ptr<BackendCompiledFrame>(std::move(plan));
         }
     }
@@ -628,16 +680,16 @@ namespace sky::aurora {
     FrameDispatchResult MetalDeviceFrameContext::Dispatch(std::unique_ptr<BackendCompiledFrame> &compiled)
     {
         @autoreleasepool {
-            if (!compiled)
-                return MakeError(FrameErrorCode::INVALID_ARGUMENT);
-            auto *plan = static_cast<MetalCompiledFrame *>(compiled.get());
-            if (plan->reservation.identity.lease.context != GetIdentity())
+            if (!compiled || compiled.get() != issuedPlan || compiled->GetIdentity() != issuedIdentity)
                 return MakeError(FrameErrorCode::WRONG_CONTEXT);
+            auto *plan = static_cast<MetalCompiledFrame *>(compiled.get());
 
             auto started = BeginEncoding(plan->reservation);
             if (auto *error = std::get_if<FrameError>(&started))
                 return *error;
             const auto ticket = std::get<EncodingTicket>(started);
+            std::unique_ptr<MetalCompiledFrame> encoding(static_cast<MetalCompiledFrame *>(compiled.release()));
+            issuedPlan = nullptr;
 
             auto allocation = AllocatePlanCommand(plan->reservation, 0);
             if (auto *error = std::get_if<FrameError>(&allocation)) {
@@ -648,6 +700,8 @@ namespace sky::aurora {
             command->Begin();
             std::optional<FrameError> encodeError;
             for (const auto &step : plan->steps) {
+                if (command->GetRecordingError().code != GpuErrorCode::NONE)
+                    break;
                 if (const auto *copy = std::get_if<CopyBufferStep>(&step)) {
                     auto encoder = command->CreateBlitEncoder();
                     encoder->CopyBuffer(copy->source, copy->destination, copy->size, copy->sourceOffset, copy->destinationOffset);
@@ -680,7 +734,7 @@ namespace sky::aurora {
                     [encoder endEncoding];
                 } else if (const auto *rasterPtr = std::get_if<RasterStep>(&step)) {
                     const auto   &raster  = *rasterPtr;
-                    auto          encoder = command->CreateGraphicsEncoder();
+                    auto          encoder = std::make_unique<MetalGraphicsEncoder>(*device, command);
                     RenderingInfo info;
                     info.renderArea           = {{0, 0}, raster.extent};
                     info.numColors            = raster.color ? 1 : 0;
@@ -694,7 +748,11 @@ namespace sky::aurora {
                         info.depthStencil.depthStoreOp = raster.depthStore;
                         info.depthStencil.clearValue   = raster.depthClear;
                     }
-                    encoder->BeginRendering(info);
+                    const auto begun = encoder->TryBeginRendering(info, raster.resolves);
+                    if (!begun.Succeeded()) {
+                        encodeError = FrameError{FrameErrorCode::ENCODE_FAILED, "Metal raster encoder creation failed", begun.error};
+                        break;
+                    }
                     for (const auto &draw : raster.draws) {
                         encoder->BindPipeline(draw.pipeline.Get());
                         const auto scissor = draw.scissor.extent.width && draw.scissor.extent.height ? draw.scissor : Rect2D{{0, 0}, raster.extent};
@@ -725,23 +783,14 @@ namespace sky::aurora {
                         encodeError = std::move(*error);
                         break;
                     }
-                } else {
-                    const auto &resolve = std::get<ResolveStep>(step);
-                    if (resolve.depth) {
-                        device->GetBlitHelper()->ResolveDepth(command->GetNativeHandle(), resolve.source, resolve.target, resolve.maximum);
-                    } else {
-                        auto        encoder = command->CreateBlitEncoder();
-                        ResolveInfo info;
-                        info.srcRange.layers     = 1;
-                        info.dstRange.layers     = 1;
-                        info.srcRange.aspectMask = AspectFlagBit::COLOR_BIT;
-                        info.dstRange.aspectMask = AspectFlagBit::COLOR_BIT;
-                        info.extent              = {resolve.extent.width, resolve.extent.height, 1};
-                        encoder->ResolveImage(resolve.source, resolve.target, {info});
-                    }
                 }
+                if (command->GetRecordingError().code != GpuErrorCode::NONE)
+                    break;
             }
             command->End();
+            if (const auto error = command->GetRecordingError();
+                error.code != GpuErrorCode::NONE && (!encodeError || error.code == GpuErrorCode::DEVICE_LOST))
+                encodeError = FrameError{FrameErrorCode::ENCODE_FAILED, "Metal native recording failed", error};
             if (encodeError) {
                 PublishEncoding(ticket, std::move(*encodeError));
                 return ticket;

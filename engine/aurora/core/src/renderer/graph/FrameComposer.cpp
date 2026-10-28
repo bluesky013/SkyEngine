@@ -52,10 +52,12 @@ namespace sky::aurora {
             return invalid("Technique reflection does not match its stage artifacts");
         std::set<std::pair<uint32_t, uint32_t>> resources, blocks;
         for (const auto &resource : source.reflection.resources) {
-            if (resource.set >= MAX_SHADER_SETS || resource.count != 1 || resource.descriptorArray || !resources.emplace(resource.set, resource.binding).second)
+            if (resource.set >= MAX_SHADER_SETS || resource.count != 1 || resource.descriptorArray ||
+                !resources.emplace(resource.set, resource.binding).second)
                 return invalid("Technique resource declarations require unique scalar Global/Pass/Batch bindings");
-            if (!SupportedResource(resource.type, compute) && !(resource.type == ShaderResourceType::STORAGE_BUFFER && resource.access == ShaderResourceAccess::READ_ONLY &&
-                     resource.bufferKind == ShaderBufferKind::STRUCTURED && resource.elementStride)) {
+            if (!SupportedResource(resource.type, compute) &&
+                !(resource.type == ShaderResourceType::STORAGE_BUFFER && resource.access == ShaderResourceAccess::READ_ONLY &&
+                  resource.bufferKind == ShaderBufferKind::STRUCTURED && resource.elementStride)) {
                 return invalid("Unsupported technique resource binding type");
             }
         }
@@ -166,12 +168,18 @@ namespace sky::aurora {
     std::variant<FrameError, RasterBufferRange> FrameComposer::Upload(std::span<const std::byte> bytes, BufferUsageFlags usage)
     {
         if (usage == BufferUsageFlagBit::STORAGE) {
-            if (bytes.empty() || bytes.size() % 4) { return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage upload requires nonempty four-byte aligned data"}; }
+            if (bytes.empty() || bytes.size() % 4) {
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Storage upload requires nonempty four-byte aligned data"};
+            }
             auto written = context.WriteFrameBuffer(inputs.lease, FrameBufferKind::STORAGE, bytes, 64);
-            if (const auto *error = std::get_if<FrameError>(&written)) { return *error; }
-            const auto &slice = std::get<FrameBufferSlice>(written);
-            auto imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
-            if (const auto *error = std::get_if<FrameError>(&imported)) { return *error; }
+            if (const auto *error = std::get_if<FrameError>(&written)) {
+                return *error;
+            }
+            const auto &slice    = std::get<FrameBufferSlice>(written);
+            auto        imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
+            if (const auto *error = std::get_if<FrameError>(&imported)) {
+                return *error;
+            }
             return RasterBufferRange{std::get<GraphBufferHandle>(imported), slice.offset, bytes.size()};
         }
         if (bytes.empty() || bytes.size() % 4 || !(usage & (BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX)))
@@ -199,8 +207,18 @@ namespace sky::aurora {
     std::variant<FrameError, RasterUniformBinding>
     FrameComposer::WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte> bytes, ShaderResourceType type)
     {
-        if (type != ShaderResourceType::UNIFORM_BUFFER && type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC)
+        if (set >= MAX_SHADER_SETS || binding >= 32 ||
+            (type != ShaderResourceType::UNIFORM_BUFFER && type != ShaderResourceType::UNIFORM_BUFFER_DYNAMIC))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Uniform allocation requires an explicit uniform binding type"};
+        const auto available = context.AvailableFrameBufferBytes(inputs.lease, FrameBufferKind::UNIFORM);
+        if (const auto *error = std::get_if<FrameError>(&available))
+            return *error;
+        if (const auto found = uniformUploads.find(UniformUploadView{set, binding, type, bytes}); found != uniformUploads.end())
+            return found->second;
+        if (bytes.empty())
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Uniform upload is empty"};
+        if (bytes.size() > std::get<uint64_t>(available))
+            return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Frame uniform allocation budget exhausted"};
         auto written = context.WriteFrameBuffer(inputs.lease, FrameBufferKind::UNIFORM, bytes);
         if (const auto *error = std::get_if<FrameError>(&written))
             return *error;
@@ -211,10 +229,64 @@ namespace sky::aurora {
         auto imported = builder.Import(slice.buffer, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true);
         if (const auto *error = std::get_if<FrameError>(&imported))
             return *error;
-        return RasterUniformBinding{set,
+        RasterUniformBinding result{set,
                                     binding,
                                     {std::get<GraphBufferHandle>(imported), dynamic ? 0 : slice.offset, bytes.size()},
                                     dynamic ? static_cast<uint32_t>(slice.offset) : 0};
+        if (uniformUploads.size() < 1024)
+            uniformUploads.emplace(UniformUploadKey{set, binding, type, {bytes.begin(), bytes.end()}}, result);
+        return result;
+    }
+    bool FrameComposer::ParameterGroupLess::operator()(const ParameterGroupKey &a, const ParameterGroupKey &b) const
+    {
+        if (a.shader.Get() != b.shader.Get())
+            return std::less<const Shader *>{}(a.shader.Get(), b.shader.Get());
+        if (a.set != b.set)
+            return a.set < b.set;
+        if (a.fields != b.fields)
+            return a.fields < b.fields;
+        return FrameBindingGroupLess{}(a.resources.get(), b.resources.get());
+    }
+    std::variant<FrameError, FrameBindingGroupUse>
+    FrameComposer::MaterializeParameters(ShaderPtr shader, uint32_t set, const ShaderParameterTransactionState &state, RasterBindingDraft resources)
+    {
+        if (!shader || shader->GetDevice() != &device || set >= MAX_SHADER_SETS)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid parameter group shader/set"};
+        const auto available = context.AvailableFrameBufferBytes(inputs.lease, FrameBufferKind::UNIFORM);
+        if (const auto *error = std::get_if<FrameError>(&available))
+            return *error;
+        if (auto error = ValidateParameterResources(shader, set, state, resources))
+            return *error;
+        RasterDraw key;
+        key.shader       = shader;
+        const auto bound = SetRasterBindings(key, resources);
+        if (const auto *error = std::get_if<FrameError>(&bound))
+            return *error;
+        const auto       &resourceKey = key.groups[set];
+        ParameterGroupKey cacheKey{shader, set, state.fields, resourceKey.group};
+        if (const auto entry = parameterGroups.find(cacheKey); entry != parameterGroups.end()) {
+            auto result = entry->second;
+            if (resourceKey.group) {
+                const auto &buffers = resourceKey.group->GetData().buffers;
+                std::erase_if(result.bufferUses, [&](const auto &use) {
+                    return std::ranges::any_of(buffers, [&](const auto &buffer) { return buffer.binding == use.binding; });
+                });
+            }
+            for (const auto &use : resourceKey.bufferUses) {
+                const auto found =
+                    std::find_if(result.bufferUses.begin(), result.bufferUses.end(), [&](const auto &value) { return value.binding == use.binding; });
+                if (found == result.bufferUses.end())
+                    result.bufferUses.push_back(use);
+                else
+                    *found = use;
+            }
+            result.imageUses = resourceKey.imageUses;
+            return result;
+        }
+        auto materialized = FrameGraphServices::MaterializeParameters(shader, set, state, std::move(resources));
+        if (auto *group = std::get_if<FrameBindingGroupUse>(&materialized); group && parameterGroups.size() < 1024)
+            parameterGroups.emplace(std::move(cacheKey), *group);
+        return materialized;
     }
     void FrameComposer::SetPreparedView(const PreparedViewData                     *prepared,
                                         const FrozenResourceCatalog                &catalog,
@@ -228,10 +300,8 @@ namespace sky::aurora {
         materials    = materialLayouts;
         localBuffers = inGraph;
     }
-    std::variant<FrameError, std::vector<ResolvedRasterDraw>> FrameComposer::ResolveDraws(Name                     tag,
-                                                                                         Rect2D                   scissor,
-                                                                                         PreparedDrawList         list,
-                                                                                         const ShaderVariant     *pipelineValues)
+    std::variant<FrameError, std::vector<ResolvedRasterDraw>>
+    FrameComposer::ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list, const ShaderVariant *pipelineValues)
     {
         if (!view || !resources)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Prepared draws require an active BuildView snapshot"};
@@ -249,25 +319,27 @@ namespace sky::aurora {
             return std::none_of(layouts.begin(), layouts.end(), [&](const auto &layout) { return layout.resource == packet.material.resource; });
         });
         const ShaderVariant empty;
-        auto                resolved = ResolvePreparedRaster(device,
-                                                             context,
-                                                             inputs.lease,
-                                                             builder,
-                                                             selected,
-                                                             *resources,
-                                                             meshes,
-                                                             layouts,
-                                                             scissor,
-                                                             localBuffers,
-                                                             list,
-                                                             pipelineValues ? *pipelineValues : empty);
+        auto resolved = ResolvePreparedRaster(device, context, inputs.lease, builder, selected, *resources, meshes, layouts, scissor, localBuffers,
+                                              list, pipelineValues ? *pipelineValues : empty);
         if (const auto *error = std::get_if<FrameError>(&resolved))
             return *error;
         return std::move(std::get<PreparedRasterView>(resolved).draws);
     }
+    std::variant<FrameError, GraphBufferHandle> FrameComposer::CreateBuffer(const Buffer::Descriptor &desc)
+    {
+        return builder.CreateTransient(desc);
+    }
     std::variant<FrameError, GraphImageHandle> FrameComposer::CreateImage(const Image::Descriptor &desc)
     {
         return builder.CreateTransient(desc);
+    }
+    FrameOperationResult FrameComposer::Copy(BufferCopyPass pass)
+    {
+        return builder.Copy(pass);
+    }
+    FrameOperationResult FrameComposer::Copy(BufferImageCopyPass pass)
+    {
+        return builder.Copy(pass);
     }
     FrameOperationResult FrameComposer::AddRaster(FrameRasterPass pass, bool fullscreen)
     {
@@ -290,6 +362,18 @@ namespace sky::aurora {
     FrameOperationResult FrameComposer::Compute(FrameComputePass pass)
     {
         return builder.Compute(std::move(pass));
+    }
+    FrameOperationResult FrameComposer::Custom(FrameCustomPass pass)
+    {
+        return builder.Custom(std::move(pass));
+    }
+    FrameOperationResult FrameComposer::Export(GraphBufferExport value)
+    {
+        return builder.Export(value);
+    }
+    FrameOperationResult FrameComposer::Export(GraphImageHandle value)
+    {
+        return builder.Export(value);
     }
     FrameOperationResult FrameComposer::ExportOutputs()
     {

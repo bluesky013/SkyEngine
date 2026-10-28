@@ -7,56 +7,65 @@
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/RegisterTypes.h>
-#include <core/environment/Singleton.h>
+#include <mutex>
 
 namespace sky::phy {
 
-    struct JoltSdk {
-        std::shared_ptr<const void> codeLease;
-        ~JoltSdk()
-        {
-            JPH::UnregisterTypes();
-            delete JPH::Factory::sInstance;
-            JPH::Factory::sInstance = nullptr;
-        }
-    };
-
-    class JoltSdkState final : public Singleton<JoltSdkState> {
-    public:
-        std::mutex               debugMutex;
-        std::shared_ptr<JoltSdk> Acquire(const std::shared_ptr<const void> &lease)
-        {
-            std::lock_guard lock(mutex);
-            if (auto existing = sdk.lock()) {
-                return existing;
+    namespace {
+        struct JoltSdk {
+            std::shared_ptr<const void> codeLease;
+            ~JoltSdk()
+            {
+                JPH::UnregisterTypes();
+                delete JPH::Factory::sInstance;
+                JPH::Factory::sInstance = nullptr;
             }
-            if (JPH::Factory::sInstance != nullptr) {
-                return {};
-            }
-            JPH::RegisterDefaultAllocator();
-            JPH::Factory::sInstance = new JPH::Factory();
-            JPH::RegisterTypes();
-            auto created       = std::shared_ptr<JoltSdk>(new JoltSdk(), [this](JoltSdk *state) {
-                std::lock_guard releaseLock(mutex);
-                delete state;
-            });
-            created->codeLease = lease;
-            codeLease          = lease;
-            sdk                = created;
-            return created;
-        }
+        };
 
-    private:
-        friend class Singleton<JoltSdkState>;
-        JoltSdkState() = default;
-        std::shared_ptr<const void> codeLease;
-        std::mutex                  mutex;
-        std::weak_ptr<JoltSdk>      sdk;
-    };
+        class JoltSdkState final {
+        public:
+            JoltSdkState() = default;
+
+            std::mutex               debugMutex;
+            std::shared_ptr<JoltSdk> Acquire(const std::shared_ptr<const void> &lease)
+            {
+                std::lock_guard lock(mutex);
+                if (auto existing = sdk.lock()) {
+                    return existing;
+                }
+                if (JPH::Factory::sInstance != nullptr) {
+                    return {};
+                }
+                JPH::RegisterDefaultAllocator();
+                JPH::Factory::sInstance = new JPH::Factory();
+                JPH::RegisterTypes();
+                auto created       = std::shared_ptr<JoltSdk>(new JoltSdk(), [this](JoltSdk *state) {
+                    std::lock_guard releaseLock(mutex);
+                    delete state;
+                });
+                created->codeLease = lease;
+                codeLease          = lease;
+                sdk                = created;
+                return created;
+            }
+
+        private:
+            std::shared_ptr<const void> codeLease;
+            std::mutex                  mutex;
+            std::weak_ptr<JoltSdk>      sdk;
+        };
+
+        JoltSdkState &GetJoltSdkState()
+        {
+            // Static Jolt globals belong to this link image; SDK guards and callbacks must share that owner.
+            static JoltSdkState state;
+            return state;
+        }
+    } // namespace
 
     std::mutex &JoltDebugMutex()
     {
-        return JoltSdkState::Get()->debugMutex;
+        return GetJoltSdkState().debugMutex;
     }
 
     JoltExecutor::JoltExecutor(uint32_t workers) : jobs(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(workers))
@@ -89,7 +98,7 @@ namespace sky::phy {
         if (session) {
             return true;
         }
-        auto sdk = JoltSdkState::Get()->Acquire(codeLease);
+        auto sdk = GetJoltSdkState().Acquire(codeLease);
         if (!sdk) {
             status = {PhysicsError::InvalidState, "Jolt Factory has an unknown owner"};
             return false;

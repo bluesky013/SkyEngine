@@ -9,43 +9,6 @@
 #include <variant>
 
 namespace sky::aurora {
-    ShaderParameterWriteResult DescriptorEncoder::WriteData(Name, const ShaderDataValue &)
-    {
-        return {};
-    }
-    ShaderParameterWriteResult DescriptorEncoder::WriteData(ShaderParameterHandle, const ShaderDataValue &)
-    {
-        return {};
-    }
-    ShaderParameterWriteResult DescriptorEncoder::WriteBlock(Name, const ShaderCpuSchema &, std::span<const std::byte>)
-    {
-        return {};
-    }
-    ShaderParameterWriteResult DescriptorEncoder::WriteBuffer(Name, Buffer *, uint64_t, uint64_t, uint32_t)
-    {
-        return {};
-    }
-    ShaderParameterWriteResult DescriptorEncoder::WriteImage(Name, Image *, ImageLayout, uint32_t)
-    {
-        return {};
-    }
-    ShaderParameterWriteResult DescriptorEncoder::WriteSampler(Name, Sampler *, uint32_t)
-    {
-        return {};
-    }
-    const std::string &DescriptorEncoder::GetError() const
-    {
-        static const std::string unsupported("Named updates require an update context");
-        return unsupported;
-    }
-    CounterPtr<ResourceGroup> DescriptorEncoder::GetResult() const
-    {
-        return {};
-    }
-    void DescriptorEncoder::Cancel()
-    {
-    }
-
     bool ResourceGroup::InitParameterLayout(const Descriptor &desc)
     {
         if (!desc.shader || desc.shader->GetDevice() != GetDevice() || !desc.shader->GetParameterTable().generation)
@@ -56,9 +19,9 @@ namespace sky::aurora {
         return true;
     }
 
-    class NamedDescriptorEncoder final : public DescriptorEncoder {
+    class ResourceGroupParameterUpdate final : public ShaderParameterUpdate {
     public:
-        NamedDescriptorEncoder(const ResourceGroup &group, ShaderParameterUpdateContext &context)
+        ResourceGroupParameterUpdate(const ResourceGroup &group, ShaderParameterUpdateContext &context)
             : shader(group.parameterShader), set(group.parameterSet), context(context), owner(group.GetDevice())
         {
             if (group.parameterState)
@@ -166,18 +129,6 @@ namespace sky::aurora {
             registry.emplace_back(value);
             staged.samplers[{resource->binding, element}] = std::move(value);
             return result;
-        }
-        bool WriteBuffer(uint32_t, Buffer *, uint64_t, uint64_t, uint32_t) override
-        {
-            return static_cast<bool>(Fail("Named transaction requires a parameter name"));
-        }
-        bool WriteImage(uint32_t, Image *, ImageLayout, uint32_t) override
-        {
-            return static_cast<bool>(Fail("Named transaction requires a parameter name"));
-        }
-        bool WriteSampler(uint32_t, Sampler *, uint32_t) override
-        {
-            return static_cast<bool>(Fail("Named transaction requires a parameter name"));
         }
         bool End() override
         {
@@ -307,8 +258,8 @@ namespace sky::aurora {
         bool                                        ended = false;
     };
 
-    std::unique_ptr<DescriptorEncoder> ResourceGroup::CreateEncoder(ShaderParameterUpdateContext &context) const
+    std::unique_ptr<ShaderParameterUpdate> ResourceGroup::CreateParameterUpdate(ShaderParameterUpdateContext &context) const
     {
-        return std::make_unique<NamedDescriptorEncoder>(*this, context);
+        return std::make_unique<ResourceGroupParameterUpdate>(*this, context);
     }
 } // namespace sky::aurora

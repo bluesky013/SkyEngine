@@ -9,14 +9,12 @@
 namespace sky::aurora {
     class VulkanDevice;
     class VulkanDescriptorEncoder;
-    class VulkanDescriptorBatch;
     class VulkanResourceGroup : public ResourceGroup {
     public:
         explicit VulkanResourceGroup(VulkanDevice &dev);
         ~VulkanResourceGroup() override;
         bool          Init(const Descriptor &desc);
-        const Device *GetDevice() const noexcept override;
-        using ResourceGroup::CreateEncoder;
+        const Device                      *GetDevice() const noexcept override;
         std::unique_ptr<DescriptorEncoder> CreateEncoder() override;
         bool                               Bind(VkCommandBuffer     command,
                                                 VkPipelineBindPoint point,
@@ -27,7 +25,6 @@ namespace sky::aurora {
 
     private:
         friend class VulkanDescriptorEncoder;
-        friend class VulkanDescriptorBatch;
         struct NativeSet {
             uint32_t        index  = 0;
             VkDescriptorSet handle = VK_NULL_HANDLE;

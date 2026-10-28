@@ -1,5 +1,6 @@
 #include "VulkanGraphResources.h"
-#include <aurora/rdg/FrameBindingLookup.h>
+
+#include <aurora/rdg/FrameBindings.h>
 
 #include <VulkanConversion.h>
 #include <VulkanDevice.h>
@@ -7,17 +8,12 @@
 #include <VulkanSampler.h>
 #include <VulkanShader.h>
 #include <algorithm>
-#include <common/FrameRasterBindings.h>
 #include <map>
 #include <rdg/VulkanDeviceFrameContext.h>
 
 namespace sky::aurora {
     namespace {
-        struct Access {
-            VkPipelineStageFlags2 stage;
-            VkAccessFlags2        access;
-        };
-        Access BufferAccess(CopyBufferState state)
+        VulkanResourceAccess BufferAccess(CopyBufferState state)
         {
             switch (state) {
             case CopyBufferState::HOST_WRITE: return {VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT};
@@ -26,7 +22,8 @@ namespace sky::aurora {
             case CopyBufferState::COPY_DESTINATION: return {VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT};
             case CopyBufferState::RASTER_READ:
                 return {VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                        VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT};
+                        VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
+                            VK_ACCESS_2_SHADER_STORAGE_READ_BIT};
             case CopyBufferState::SHADER_READ:
                 return {VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                         VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT};
@@ -36,7 +33,7 @@ namespace sky::aurora {
             default: return {VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT};
             }
         }
-        Access ImageAccess(ImageLayout state)
+        VulkanResourceAccess ImageAccess(ImageLayout state)
         {
             switch (state) {
             case ImageLayout::SHADER_READ_ONLY:
@@ -143,7 +140,7 @@ namespace sky::aurora {
             if (host && !buffer->IsHostCoherent())
                 return FrameError{FrameErrorCode::UNSUPPORTED};
             buffers[i]      = buffer;
-            bufferStates[i] = input.initial;
+            bufferStates[i] = BufferAccess(input.initial);
         }
         for (auto i : analysis.usedImages) {
             const auto &input = data.images[i];
@@ -182,21 +179,22 @@ namespace sky::aurora {
         }
         return {};
     }
-    void VulkanGraphResources::BufferBarrier(uint32_t index, CopyBufferState target, VulkanBarriers &out)
+    void VulkanGraphResources::BufferBarrier(
+        uint32_t index, CopyBufferState target, VulkanBarriers &out, VkPipelineStageFlags2 stages, VkAccessFlags2 access)
     {
         index                       = bindings.bufferBacking[index];
-        const auto             from = BufferAccess(bufferStates[index]);
+        const auto             from = bufferStates[index];
         const auto             to   = BufferAccess(target);
         VkBufferMemoryBarrier2 barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
         barrier.srcStageMask        = from.stage;
         barrier.srcAccessMask       = from.access;
-        barrier.dstStageMask        = to.stage;
-        barrier.dstAccessMask       = to.access;
+        barrier.dstStageMask        = stages ? stages : to.stage;
+        barrier.dstAccessMask       = access ? access : to.access;
         barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.buffer                                            = buffers[index]->GetNativeHandle();
         barrier.size                                              = VK_WHOLE_SIZE;
         out.buffers.push_back(barrier);
-        bufferStates[index] = target;
+        bufferStates[index] = {barrier.dstStageMask, barrier.dstAccessMask};
     }
     void VulkanGraphResources::ImageBarrier(uint32_t index, ImageLayout target, VulkanBarriers &out, const ImageSubRange &range)
     {
@@ -229,7 +227,21 @@ namespace sky::aurora {
             }
         }
     }
-    std::variant<FrameError, VulkanTransferStep> VulkanGraphResources::Copy(const BufferCopyPass &pass)
+    void VulkanGraphResources::TransferInputs(const FramePassResourceUses &uses, VulkanBarriers &out)
+    {
+        std::vector<bool> used(buffers.size());
+        for (const auto &use : uses.buffers) {
+            const auto physical = bindings.bufferBacking[use.range.buffer.index];
+            if (!used[physical])
+                BufferBarrier(use.range.buffer.index,
+                              use.kind == FrameBufferUseKind::COPY_SOURCE ? CopyBufferState::COPY_SOURCE : CopyBufferState::COPY_DESTINATION, out);
+            used[physical] = true;
+        }
+        for (const auto &use : uses.images)
+            ImageBarrier(use.image.index, use.kind == FrameImageUseKind::COPY_SOURCE ? ImageLayout::TRANSFER_SRC : ImageLayout::TRANSFER_DST, out,
+                         use.range);
+    }
+    std::variant<FrameError, VulkanTransferStep> VulkanGraphResources::Copy(const BufferCopyPass &pass, const FramePassResourceUses &uses)
     {
         auto *source      = buffers[pass.source.index];
         auto *destination = buffers[pass.destination.index];
@@ -237,14 +249,13 @@ namespace sky::aurora {
             !destination->GetDescriptor().usage.TestBit(BufferUsageFlagBit::TRANSFER_DST))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
         VulkanTransferStep step;
-        BufferBarrier(pass.source.index, CopyBufferState::COPY_SOURCE, step.before);
-        BufferBarrier(pass.destination.index, CopyBufferState::COPY_DESTINATION, step.before);
+        TransferInputs(uses, step.before);
         step.source       = source->GetNativeHandle();
         step.destination  = destination->GetNativeHandle();
         step.bufferRegion = {pass.sourceOffset, pass.destinationOffset, pass.size};
         return step;
     }
-    std::variant<FrameError, VulkanTransferStep> VulkanGraphResources::Copy(const BufferImageCopyPass &pass)
+    std::variant<FrameError, VulkanTransferStep> VulkanGraphResources::Copy(const BufferImageCopyPass &pass, const FramePassResourceUses &uses)
     {
         const bool upload = pass.direction == ImageCopyDirection::BUFFER_TO_IMAGE;
         auto      *buffer = buffers[pass.buffer.index];
@@ -253,9 +264,7 @@ namespace sky::aurora {
             !image->GetDescriptor().usage.TestBit(upload ? ImageUsageFlagBit::TRANSFER_DST : ImageUsageFlagBit::TRANSFER_SRC))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT};
         VulkanTransferStep step;
-        BufferBarrier(pass.buffer.index, upload ? CopyBufferState::COPY_SOURCE : CopyBufferState::COPY_DESTINATION, step.before);
-        ImageBarrier(pass.image.index, upload ? ImageLayout::TRANSFER_DST : ImageLayout::TRANSFER_SRC, step.before,
-                     {pass.region.subRange.level, 1, pass.region.subRange.baseLayer, 1});
+        TransferInputs(uses, step.before);
         (upload ? step.source : step.destination) = buffer->GetNativeHandle();
         step.image                                = image->GetNativeHandle();
         step.imageRegion.bufferOffset             = pass.region.bufferOffset;
@@ -284,38 +293,34 @@ namespace sky::aurora {
                     }
             }
     }
-    std::optional<FrameError> VulkanGraphResources::RasterInputs(const FrameRasterPass &pass, VulkanBarriers &out)
+    std::optional<FrameError> VulkanGraphResources::RasterInputs(const FramePassResourceUses &uses, VulkanBarriers &out)
     {
-        std::vector<bool> used(buffers.size());
-        auto              read = [&](GraphBufferHandle handle, BufferUsageFlagBit usage) {
-            if (!buffers[handle.index]->GetDescriptor().usage.TestBit(usage))
-                return false;
-            used[handle.index] = true;
-            return true;
-        };
-        for (const auto &draw : pass.draws) {
-            for (const auto &stream : draw.vertices)
-                if (!read(stream.range.buffer, BufferUsageFlagBit::VERTEX))
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing vertex buffer usage"};
-            if (draw.indexed && !read(draw.indexed->range.buffer, BufferUsageFlagBit::INDEX))
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing index buffer usage"};
-            for (const auto &binding : draw.uniforms)
-                if (!read(binding.range.buffer, BufferUsageFlagBit::UNIFORM))
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing uniform buffer usage"};
-            for (const auto &binding : draw.images) {
-                const auto *image = images[binding.image.index];
-                if (!image->GetDescriptor().usage.TestBit(ImageUsageFlagBit::SAMPLED))
-                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid sampled image usage"};
-                const auto resolved = ResolveRasterImageView(binding.view, image->GetDescriptor());
-                if (const auto *error = std::get_if<FrameError>(&resolved))
-                    return *error;
-                const auto &view = std::get<RasterImageView>(resolved);
-                ImageBarrier(binding.image.index, ImageLayout::SHADER_READ_ONLY, out, {view.baseMip, view.mipCount, view.baseLayer, view.layerCount});
+        std::vector<VulkanResourceAccess> reads(buffers.size());
+        for (const auto &use : uses.buffers) {
+            const auto index = use.range.buffer.index;
+            if (!buffers[index]->GetDescriptor().usage.TestBit(FrameBufferUseUsage(use.kind)))
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Raster buffer lacks its declared usage"};
+            auto &read = reads[bindings.bufferBacking[index]];
+            if (use.kind == FrameBufferUseKind::VERTEX || use.kind == FrameBufferUseKind::INDEX) {
+                read.stage |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+                read.access |= use.kind == FrameBufferUseKind::VERTEX ? VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT : VK_ACCESS_2_INDEX_READ_BIT;
+            } else {
+                if (!use.stages || use.stages.TestBit(ShaderStageFlagBit::VS))
+                    read.stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                if (!use.stages || use.stages.TestBit(ShaderStageFlagBit::FS))
+                    read.stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                read.access |= use.kind == FrameBufferUseKind::UNIFORM ? VK_ACCESS_2_UNIFORM_READ_BIT : VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
             }
         }
-        for (uint32_t i = 0; i < used.size(); ++i)
-            if (used[i])
-                BufferBarrier(i, CopyBufferState::RASTER_READ, out);
+        for (uint32_t i = 0; i < reads.size(); ++i)
+            if (reads[i].access)
+                BufferBarrier(i, CopyBufferState::RASTER_READ, out, reads[i].stage, reads[i].access);
+        for (const auto &use : uses.images)
+            if (use.kind == FrameImageUseKind::SAMPLED) {
+                if (!images[use.image.index]->GetDescriptor().usage.TestBit(ImageUsageFlagBit::SAMPLED))
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid sampled image usage"};
+                ImageBarrier(use.image.index, ImageLayout::SHADER_READ_ONLY, out, use.range);
+            }
         return {};
     }
     VulkanGraphImageView::~VulkanGraphImageView()
@@ -323,13 +328,154 @@ namespace sky::aurora {
         if (view)
             device.GetDeviceFn().vkDestroyImageView(device.GetNativeHandle(), view, nullptr);
     }
-    std::variant<FrameError, std::shared_ptr<VulkanGraphImageView>> VulkanGraphResources::SampledView(const RasterImageBinding &binding)
+    std::optional<FrameError> VulkanGraphResources::ShaderInputs(const FramePassResourceUses &uses, VulkanBarriers &out)
     {
-        auto *image    = images[binding.image.index];
-        auto  resolved = ResolveRasterImageView(binding.view, image->GetDescriptor());
-        if (auto *error = std::get_if<FrameError>(&resolved))
-            return std::move(*error);
-        return ImageView(binding.image.index, std::get<RasterImageView>(resolved));
+        std::vector<VulkanResourceAccess> accesses(buffers.size());
+        std::vector<CopyBufferState>      states(buffers.size(), CopyBufferState::SHADER_READ);
+        for (const auto &use : uses.buffers) {
+            const auto logical = use.range.buffer.index;
+            if (!buffers[logical]->GetDescriptor().usage.TestBit(FrameBufferUseUsage(use.kind)))
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader buffer lacks its declared usage"};
+            const auto physical = bindings.bufferBacking[logical];
+            auto      &access   = accesses[physical];
+            if (!use.stages)
+                access.stage |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+            if (use.stages.TestBit(ShaderStageFlagBit::VS))
+                access.stage |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+            if (use.stages.TestBit(ShaderStageFlagBit::FS))
+                access.stage |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+            if (use.stages.TestBit(ShaderStageFlagBit::CS))
+                access.stage |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            if (use.kind == FrameBufferUseKind::UNIFORM)
+                access.access |= VK_ACCESS_2_UNIFORM_READ_BIT;
+            else {
+                if (use.access != FrameAccessMode::WRITE)
+                    access.access |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+                if (use.access != FrameAccessMode::READ)
+                    access.access |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+                if (use.resourceAccess != ShaderResourceAccess::READ_ONLY)
+                    states[physical] = CopyBufferState::UNORDERED_ACCESS;
+            }
+        }
+        for (uint32_t i = 0; i < accesses.size(); ++i)
+            if (accesses[i].access)
+                BufferBarrier(i, states[i], out, accesses[i].stage, accesses[i].access);
+        for (const auto &use : uses.images) {
+            const bool storage = use.kind == FrameImageUseKind::STORAGE;
+            if (!images[use.image.index]->GetDescriptor().usage.TestBit(storage ? ImageUsageFlagBit::STORAGE : ImageUsageFlagBit::SAMPLED))
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader image lacks its declared usage"};
+            ImageBarrier(use.image.index, storage ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY, out, use.range);
+        }
+        return {};
+    }
+    std::variant<FrameError, VulkanFrameBindings> VulkanGraphResources::ResolveBindings(VulkanDeviceFrameContext &context,
+                                                                                        const DeviceFrameLease   &lease,
+                                                                                        VulkanShader             &shader,
+                                                                                        const FrameBindingGroups &groups)
+    {
+        VulkanFrameBindings result;
+        for (uint32_t logicalSet = 0; logicalSet < groups.size(); ++logicalSet) {
+            const auto &use = groups[logicalSet];
+            if (!use.group)
+                continue;
+            const auto &group      = use.group->GetData();
+            const auto  findBuffer = [&](uint32_t binding) {
+                return std::ranges::find_if(group.buffers, [&](const auto &value) { return value.binding == binding; });
+            };
+            const auto dynamicOffset = [&](uint32_t binding) {
+                const auto found = std::ranges::find_if(use.bufferUses, [&](const auto &value) { return value.binding == binding; });
+                return found == use.bufferUses.end() ? 0u : found->dynamicOffset;
+            };
+            const auto [entry, inserted] = bindingGroups.try_emplace(use.group.get());
+            auto &snapshot               = entry->second;
+            for (const auto &[physicalSet, setPlan] : shader.GetBindingPlan().sets) {
+                if (setPlan.logicalSet != logicalSet)
+                    continue;
+                if (inserted) {
+                    auto allocation = context.AllocateDescriptorSet(lease, shader, physicalSet);
+                    if (const auto *error = std::get_if<FrameError>(&allocation))
+                        return *error;
+                    VulkanDescriptorSet native{physicalSet, std::get<VkDescriptorSet>(allocation)};
+                    for (const auto &planned : setPlan.bindings) {
+                        if (planned.count != 1)
+                            return FrameError{FrameErrorCode::UNSUPPORTED, "Graph descriptor arrays are not supported"};
+                        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+                        write.dstSet          = native.descriptor;
+                        write.dstBinding      = planned.physicalBinding;
+                        write.descriptorCount = 1;
+                        write.descriptorType  = FromShaderResourceType(planned.type);
+                        VkDescriptorBufferInfo buffer{};
+                        VkDescriptorImageInfo  image{};
+                        const bool             uniform =
+                            planned.type == ShaderResourceType::UNIFORM_BUFFER || planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+                        const bool storage =
+                            planned.type == ShaderResourceType::STORAGE_BUFFER || planned.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
+                        if (uniform || storage) {
+                            const auto binding = findBuffer(planned.logicalBinding);
+                            if (binding == group.buffers.end())
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical buffer binding"};
+                            const auto *resource  = buffers[binding->range.buffer.index];
+                            const auto  alignment = std::max<VkDeviceSize>(1, uniform ? device.GetLimits().minUniformBufferOffsetAlignment
+                                                                                      : device.GetLimits().minStorageBufferOffsetAlignment);
+                            const auto  maximum   = uniform ? device.GetLimits().maxUniformBufferRange : device.GetLimits().maxStorageBufferRange;
+                            if (!resource->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE) ||
+                                binding->range.offset % alignment || binding->range.size > maximum)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan buffer usage/alignment/range"};
+                            buffer            = {resource->GetNativeHandle(), binding->range.offset, binding->range.size};
+                            write.pBufferInfo = &buffer;
+                        } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE || planned.type == ShaderResourceType::STORAGE_IMAGE) {
+                            const auto binding =
+                                std::ranges::find_if(group.images, [&](const auto &value) { return value.binding == planned.logicalBinding; });
+                            if (binding == group.images.end())
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical image binding"};
+                            const bool storageImage = planned.type == ShaderResourceType::STORAGE_IMAGE;
+                            auto       normalized = ResolveDeclaredView({logicalSet, binding->binding, binding->image, binding->view}, storageImage);
+                            if (const auto *error = std::get_if<FrameError>(&normalized))
+                                return *error;
+                            auto view = ImageView(binding->image.index, std::get<RasterImageView>(normalized));
+                            if (const auto *error = std::get_if<FrameError>(&view))
+                                return *error;
+                            auto retained    = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
+                            image            = {VK_NULL_HANDLE, retained->view,
+                                     storageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                            write.pImageInfo = &image;
+                            snapshot.views.push_back(std::move(retained));
+                        } else if (planned.type == ShaderResourceType::SAMPLER) {
+                            const auto binding =
+                                std::ranges::find_if(group.samplers, [&](const auto &value) { return value.binding == planned.logicalBinding; });
+                            if (binding == group.samplers.end() || !binding->sampler || binding->sampler->GetDevice() != &device)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing or foreign logical sampler"};
+                            const auto handle = static_cast<const VulkanSampler *>(binding->sampler.Get())->GetNativeHandle();
+                            if (!handle)
+                                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan sampler"};
+                            image            = {handle, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+                            write.pImageInfo = &image;
+                        } else
+                            return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported Vulkan descriptor kind"};
+                        device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
+                    }
+                    snapshot.sets.push_back(std::move(native));
+                }
+            }
+            for (const auto &materialized : snapshot.sets) {
+                auto native = materialized;
+                for (const auto &planned : shader.GetBindingPlan().sets.at(native.set).bindings) {
+                    const bool uniform = planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+                    if (!uniform && planned.type != ShaderResourceType::STORAGE_BUFFER_DYNAMIC)
+                        continue;
+                    const auto offset    = dynamicOffset(planned.logicalBinding);
+                    const auto alignment = std::max<VkDeviceSize>(1, uniform ? device.GetLimits().minUniformBufferOffsetAlignment
+                                                                             : device.GetLimits().minStorageBufferOffsetAlignment);
+                    if (offset % alignment)
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Misaligned Vulkan dynamic buffer offset"};
+                    native.offsets.push_back(offset);
+                }
+                result.sets.push_back(std::move(native));
+            }
+            result.views.insert(result.views.end(), snapshot.views.begin(), snapshot.views.end());
+        }
+        std::sort(result.sets.begin(), result.sets.end(), [](const auto &a, const auto &b) { return a.set < b.set; });
+        return result;
     }
     std::variant<FrameError, RasterImageView> VulkanGraphResources::ResolveDeclaredView(const FrameImageBinding &binding, bool storage) const
     {
@@ -377,7 +523,6 @@ namespace sky::aurora {
         std::vector<VulkanDraw> result;
         auto                    less = [](const RasterDraw *a, const RasterDraw *b) { return RasterPipelineLess(*a, *b); };
         std::map<const RasterDraw *, CounterPtr<VulkanGraphicsPipeline>, decltype(less)> pipelines(less);
-        std::map<const RasterDraw *, size_t, FrameRasterBindingsLess>                    descriptors;
         for (const auto &draw : pass.draws) {
             if (!draw.shader || draw.shader->GetDevice() != &device)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT};
@@ -387,8 +532,6 @@ namespace sky::aurora {
             if (shader->GetVertexFunction()->GetStage() != ShaderStageFlagBit::VS ||
                 shader->GetFragmentFunction()->GetStage() != ShaderStageFlagBit::FS)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT};
-            if (auto error = ValidateRasterBindings(draw, shader->GetReflection()))
-                return std::move(*error);
             const auto &blend = draw.blend;
             if (blend.srcColor >= BlendFactor::SRC1_COLOR || blend.dstColor >= BlendFactor::SRC1_COLOR || blend.srcAlpha >= BlendFactor::SRC1_COLOR ||
                 blend.dstAlpha >= BlendFactor::SRC1_COLOR)
@@ -439,103 +582,21 @@ namespace sky::aurora {
                 native.indexType   = draw.indexed->type == IndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
                 native.indexed     = draw.indexed->command;
             }
-            const auto [cachedBindings, inserted] = descriptors.emplace(&draw, result.size() - 1);
-            if (!inserted) {
-                const auto &previous = result[cachedBindings->second];
-                native.sets          = previous.sets;
-                native.views         = previous.views;
-                continue;
-            }
-            for (const auto &[physicalSet, setPlan] : shader->GetBindingPlan().sets) {
-                auto allocated = context.AllocateDescriptorSet(lease, *shader, physicalSet);
-                if (auto *error = std::get_if<FrameError>(&allocated)) {
-                    return std::move(*error);
-                }
-                VulkanDescriptorSet resolved{physicalSet, std::get<VkDescriptorSet>(allocated)};
-                for (const auto &planned : setPlan.bindings) {
-                    if (planned.count != 1) {
-                        return FrameError{FrameErrorCode::UNSUPPORTED, "Graph Vulkan descriptor arrays are not supported by this pass contract"};
-                    }
-                    VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-                    write.dstSet          = resolved.descriptor;
-                    write.dstBinding      = planned.physicalBinding;
-                    write.descriptorCount = 1;
-                    write.descriptorType  = FromShaderResourceType(planned.type);
-                    VkDescriptorBufferInfo buffer{};
-                    VkDescriptorImageInfo  image{};
-                    if (planned.type == ShaderResourceType::UNIFORM_BUFFER || planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
-                        const auto binding = std::find_if(draw.uniforms.begin(), draw.uniforms.end(), [&](const auto &value) {
-                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                        });
-                        if (binding == draw.uniforms.end()) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster uniform binding"};
-                        }
-                        const auto alignment = std::max(1u, device.GetCapability().minUniformBufferOffsetAlignment);
-                        if (binding->range.offset % alignment || binding->dynamicOffset % alignment ||
-                            binding->range.size > device.GetLimits().maxUniformBufferRange) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan UBO alignment/range"};
-                        }
-                        buffer = {resources.buffers[binding->range.buffer.index]->GetNativeHandle(), binding->range.offset, binding->range.size};
-                        write.pBufferInfo = &buffer;
-                        if (planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) {
-                            resolved.offsets.push_back(binding->dynamicOffset);
-                        }
-                    } else if (planned.type == ShaderResourceType::STORAGE_BUFFER) {
-                        const auto binding = std::find_if(draw.storage.begin(), draw.storage.end(), [&](const auto &value) {
-                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                        });
-                        if (binding == draw.storage.end()) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster storage binding"};
-                        }
-                        const auto alignment = std::max(1u, device.GetCapability().minStorageBufferOffsetAlignment);
-                        if (binding->range.offset % alignment || binding->dynamicOffset) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan storage alignment/offset"};
-                        }
-                        buffer = {resources.buffers[binding->range.buffer.index]->GetNativeHandle(), binding->range.offset, binding->range.size};
-                        write.pBufferInfo = &buffer;
-                    } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE) {
-                        const auto binding = std::find_if(draw.images.begin(), draw.images.end(), [&](const auto &value) {
-                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                        });
-                        if (binding == draw.images.end()) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical raster image binding"};
-                        }
-                        auto view = resources.SampledView(*binding);
-                        if (auto *error = std::get_if<FrameError>(&view)) {
-                            return std::move(*error);
-                        }
-                        auto retained    = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
-                        image            = {VK_NULL_HANDLE, retained->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-                        write.pImageInfo = &image;
-                        native.views.push_back(std::move(retained));
-                    } else if (planned.type == ShaderResourceType::SAMPLER) {
-                        const auto binding = std::find_if(draw.samplers.begin(), draw.samplers.end(), [&](const auto &value) {
-                            return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                        });
-                        if (binding == draw.samplers.end() || !binding->sampler || binding->sampler->GetDevice() != &device) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing or foreign logical raster sampler"};
-                        }
-                        const auto sampler = static_cast<const VulkanSampler *>(binding->sampler.Get())->GetNativeHandle();
-                        if (!sampler) {
-                            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan sampler"};
-                        }
-                        image            = {sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
-                        write.pImageInfo = &image;
-                    } else {
-                        return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported Vulkan raster descriptor kind"};
-                    }
-                    device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-                }
-                native.sets.push_back(std::move(resolved));
-            }
+            auto bindings = resources.ResolveBindings(context, lease, *shader, draw.groups);
+            if (const auto *error = std::get_if<FrameError>(&bindings))
+                return *error;
+            auto resolved = std::get<VulkanFrameBindings>(std::move(bindings));
+            native.sets   = std::move(resolved.sets);
+            native.views  = std::move(resolved.views);
         }
         return result;
     }
-    std::variant<FrameError, VulkanComputeStep> ResolveVulkanCompute(VulkanDevice             &device,
-                                                                     VulkanDeviceFrameContext &context,
-                                                                     const DeviceFrameLease   &lease,
-                                                                     VulkanGraphResources     &resources,
-                                                                     const FrameComputePass   &pass)
+    std::variant<FrameError, VulkanComputeStep> ResolveVulkanCompute(VulkanDevice                &device,
+                                                                     VulkanDeviceFrameContext    &context,
+                                                                     const DeviceFrameLease      &lease,
+                                                                     VulkanGraphResources        &resources,
+                                                                     const FrameComputePass      &pass,
+                                                                     const FramePassResourceUses &uses)
     {
         if (!pass.shader || pass.shader->GetDevice() != &device)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute shader belongs to another device"};
@@ -556,114 +617,26 @@ namespace sky::aurora {
             return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
         step.pipeline = std::move(pipeline);
 
-        for (const auto &[physicalSet, setPlan] : shader->GetBindingPlan().sets) {
-            auto allocated = context.AllocateDescriptorSet(lease, *shader, physicalSet);
-            if (auto *error = std::get_if<FrameError>(&allocated)) {
-                return std::move(*error);
-            }
-            VulkanDescriptorSet resolved{physicalSet, std::get<VkDescriptorSet>(allocated)};
-            for (const auto &planned : setPlan.bindings) {
-                if (planned.count != 1) {
-                    return FrameError{FrameErrorCode::UNSUPPORTED, "Graph Vulkan descriptor arrays are not supported by this pass contract"};
-                }
-                VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-                write.dstSet          = resolved.descriptor;
-                write.dstBinding      = planned.physicalBinding;
-                write.descriptorCount = 1;
-                write.descriptorType  = FromShaderResourceType(planned.type);
-                VkDescriptorBufferInfo buffer{};
-                VkDescriptorImageInfo  image{};
-                const bool uniform = planned.type == ShaderResourceType::UNIFORM_BUFFER || planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-                const bool storageBuffer =
-                    planned.type == ShaderResourceType::STORAGE_BUFFER || planned.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
-                if (uniform || storageBuffer) {
-                    const auto binding = std::find_if(pass.buffers.begin(), pass.buffers.end(), [&](const auto &value) {
-                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                    });
-                    if (binding == pass.buffers.end()) {
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical compute buffer"};
-                    }
-                    const auto alignment =
-                        std::max<VkDeviceSize>(1, uniform ? limits.minUniformBufferOffsetAlignment : limits.minStorageBufferOffsetAlignment);
-                    const auto  maximum  = uniform ? limits.maxUniformBufferRange : limits.maxStorageBufferRange;
-                    const auto *resource = resources.buffers[binding->range.buffer.index];
-                    if (!resource->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM : BufferUsageFlagBit::STORAGE) ||
-                        binding->range.offset % alignment || binding->dynamicOffset % alignment || binding->range.size > maximum) {
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid compute buffer usage/alignment/range"};
-                    }
-                    buffer            = {resource->GetNativeHandle(), binding->range.offset, binding->range.size};
-                    write.pBufferInfo = &buffer;
-                    if (planned.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC || planned.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                        resolved.offsets.push_back(binding->dynamicOffset);
-                    }
-                    resources.BufferBarrier(binding->range.buffer.index, uniform ? CopyBufferState::SHADER_READ : CopyBufferState::UNORDERED_ACCESS,
-                                            step.before);
-                } else if (planned.type == ShaderResourceType::SAMPLED_IMAGE || planned.type == ShaderResourceType::STORAGE_IMAGE) {
-                    const auto binding = std::find_if(pass.images.begin(), pass.images.end(), [&](const auto &value) {
-                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                    });
-                    if (binding == pass.images.end()) {
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing logical compute image"};
-                    }
-                    const bool storage    = planned.type == ShaderResourceType::STORAGE_IMAGE;
-                    auto       normalized = resources.ResolveDeclaredView(*binding, storage);
-                    if (auto *error = std::get_if<FrameError>(&normalized)) {
-                        return std::move(*error);
-                    }
-                    const auto &resolvedView = std::get<RasterImageView>(normalized);
-                    auto        view         = resources.ImageView(binding->image.index, resolvedView);
-                    if (auto *error = std::get_if<FrameError>(&view)) {
-                        return std::move(*error);
-                    }
-                    auto retained    = std::get<std::shared_ptr<VulkanGraphImageView>>(std::move(view));
-                    image            = {VK_NULL_HANDLE, retained->view, storage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-                    write.pImageInfo = &image;
-                    resources.ImageBarrier(binding->image.index, storage ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY, step.before,
-                                           {resolvedView.baseMip, resolvedView.mipCount, resolvedView.baseLayer, resolvedView.layerCount});
-                    step.views.push_back(std::move(retained));
-                } else if (planned.type == ShaderResourceType::SAMPLER) {
-                    const auto binding = std::find_if(pass.samplers.begin(), pass.samplers.end(), [&](const auto &value) {
-                        return value.set == planned.logicalSet && value.binding == planned.logicalBinding;
-                    });
-                    if (binding == pass.samplers.end() || !binding->sampler || binding->sampler->GetDevice() != &device) {
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing or foreign logical compute sampler"};
-                    }
-                    const auto sampler = static_cast<const VulkanSampler *>(binding->sampler.Get())->GetNativeHandle();
-                    if (!sampler) {
-                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid Vulkan sampler"};
-                    }
-                    image            = {sampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
-                    write.pImageInfo = &image;
-                } else {
-                    return FrameError{FrameErrorCode::UNSUPPORTED, "Unsupported Vulkan compute descriptor kind"};
-                }
-                device.GetDeviceFn().vkUpdateDescriptorSets(device.GetNativeHandle(), 1, &write, 0, nullptr);
-            }
-            step.sets.push_back(std::move(resolved));
-        }
+        auto bindings = resources.ResolveBindings(context, lease, *shader, pass.groups);
+        if (const auto *error = std::get_if<FrameError>(&bindings))
+            return *error;
+        auto resolved = std::get<VulkanFrameBindings>(std::move(bindings));
+        step.sets     = std::move(resolved.sets);
+        step.views    = std::move(resolved.views);
+        if (const auto error = resources.ShaderInputs(uses, step.before))
+            return *error;
         return step;
     }
-    std::variant<FrameError, VulkanCustomStep> VulkanGraphResources::Custom(const FrameCustomPass &pass)
+    std::variant<FrameError, VulkanCustomStep> VulkanGraphResources::Custom(const FrameCustomPass &pass, const FramePassResourceUses &uses)
     {
         VulkanCustomStep step;
         step.encoder = pass.encoder;
-        for (const auto &binding : pass.buffers) {
-            const bool uniform = binding.kind == FrameBufferBindingKind::UNIFORM;
-            if (!buffers[binding.range.buffer.index]->GetDescriptor().usage.TestBit(uniform ? BufferUsageFlagBit::UNIFORM
-                                                                                            : BufferUsageFlagBit::STORAGE))
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Custom buffer kind does not match usage"};
-            BufferBarrier(binding.range.buffer.index, uniform ? CopyBufferState::SHADER_READ : CopyBufferState::UNORDERED_ACCESS, step.before);
-            step.buffers.push_back(buffers[binding.range.buffer.index]);
-        }
-        for (const auto &binding : pass.images) {
-            const auto view = ResolveDeclaredView(binding);
-            if (const auto *error = std::get_if<FrameError>(&view))
-                return *error;
-            const auto &resolved = std::get<RasterImageView>(view);
-            ImageBarrier(binding.image.index, binding.kind == FrameImageBindingKind::STORAGE ? ImageLayout::GENERAL : ImageLayout::SHADER_READ_ONLY,
-                         step.before, {resolved.baseMip, resolved.mipCount, resolved.baseLayer, resolved.layerCount});
-            step.images.push_back(images[binding.image.index]);
-        }
+        if (const auto error = ShaderInputs(uses, step.before))
+            return *error;
+        for (const auto &use : uses.buffers)
+            step.buffers.push_back(buffers[use.range.buffer.index]);
+        for (const auto &use : uses.images)
+            step.images.push_back(images[use.image.index]);
         return step;
     }
     void VulkanComputeStep::Encode(const VulkanDeviceFunctions &fn, VkCommandBuffer command) const noexcept

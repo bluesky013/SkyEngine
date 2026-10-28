@@ -72,25 +72,24 @@ B10 已实现 image 重复导入统一、完整 mip/layer copy、descriptor-only
 - ResourceGroup 复用 shader 内派生的 native set layout（Vulkan `GetDescriptorSetLayout(set)` / DX12 从 reflection 算 descriptor 数量）。
 - binding 类型统一用 `ShaderResourceType`（含 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC`，batch tier 用）；`DescriptorType` / `DescriptorBindingFlags` 已删除。
 
-## DescriptorEncoder 批量写入
+## 参数更新与原生 descriptor 写入（2026-10-27）
 
-直接 RHI/旧宿主的 ResourceGroup 更新统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncoder.h`），`ResourceUpdateInfo` + `ResourceGroup::Update(vector)` 已移除。新 FrameContext 图路径由各 native compiler 在 Compile 内写入 lease-owned descriptor，worker 只消费冻结绑定，不重用旧宿主的隐式 ring：
+`ResourceUpdateInfo`、`ResourceGroup::Update(vector)` 和带 context 的 `CreateEncoder(context)` 已移除。命名事务与原生数字 binding 写入使用独立接口，不能在同一 encoder 上按模式切换：
 
-- 接口：`ResourceGroup::CreateEncoder()` 返回 `std::unique_ptr<DescriptorEncoder>`；`WriteBuffer(binding, buffer, offset, range, arrayElement=0)` / `WriteImage` / `WriteSampler` + `End()` 提交。
-- **Vulkan**：`VulkanResourceGroup` 持持久化 packed `mWriteInfos` + `mDirty`；`VulkanShader` 为每个 set 建 `VkDescriptorUpdateTemplate`（core 1.1，1.3 floor 下始终可用）。`End()` 仅 dirty 时 `vkUpdateDescriptorSetWithTemplate`；template 创建失败回退 `vkUpdateDescriptorSets`。DYNAMIC + `range==0` 仍 assert/warning（`aurora-dynamic-ubo-pack` 约定）。
-- **DX12**：无批量 flush，descriptor heap 写入即时；动态绑定（`*_DYNAMIC`）记录到 `dynamicBindings`，bind 时走 root CBV/UAV。`End()` 是 no-op（接口对称）。
-  - **shader-visible 隔离**：`D3D12DescriptorAllocator` 用 CPU-only staging heap（source of truth）+ `ringSize` 张 shader-visible heap（每 in-flight frame 一张，offset 1:1）；encoder 只写 staging，`BindResourceGroup` 前 `EnsureFrameCopy()` 用 `CopyDescriptorsSimple` 拷到当前帧 heap；`D3D12DeviceFrameContext::BeginFrame` 调 `allocator->BeginFrame(mFrameIndex)` 轮换 ring。
-- **Metal**：直接绑定模型（无 descriptor 对象）。`MetalDescriptorEncoder`/`MetalDescriptorBatch` 即时写 `MetalResourceGroup` 的绑定表（`Write* 的 arrayElement` 映射到槽位 `binding + arrayElement`，与 slang MSL 数组摊平一致），`BindResourceGroup` 时 `setBuffer/setTexture/setSampler` 应用。`*_DYNAMIC` binding 由 shader reflection 派生，bind 时按 dynamicOffsets 顺序重定 offset（与 DX12 root CBV/UAV 契约一致）。
+- `ResourceGroup::CreateParameterUpdate(context)` 返回 `ShaderParameterUpdate`：Name/typed-handle `WriteData`、带 CPU schema 的 `WriteBlock`、命名 `WriteBuffer/Image/Sampler`；`End()` 成功后 `GetResult()` 发布新的不可变 ResourceGroup。`GetError/Cancel` 归此事务；失败保留旧版本，部分更新继承旧值。上下文显式提供 device、有效 lease/epoch、uniform 分配和 retention。
+- `ResourceGroup::CreateEncoder()` 只返回 numeric `DescriptorEncoder`：`WriteBuffer(binding, buffer, offset, range, arrayElement)`、`WriteImage`、`WriteSampler` 与 `End()`。调用方保证 group 可写且旧 GPU 使用已退休；已发布 parameter snapshot 拒绝创建 writer。错误写入使 `End()` 失败，低层写入不承诺跨 group 或原地修改的原子性。
+- 两条 materializer 共用 `ShaderParameterTransaction`、`BindingPlan` 与 `UniformUploadPlan` 的适用部分；命名解析、语义类型和字段校验不在各后端另写一套。数字 writer 不再保留 Name 占位方法、`GetResult` 或命名取消接口。
+- **Vulkan**：数字 writer 按 Shader 的 native set plan 校验后提交 descriptors；保留合法 update-template/显式更新路径。dynamic binding 的 range 必须非零并满足范围/对齐，失败显式返回，不能 assert/warning 后继续。
+- **DX12**：按 BindingPlan 区分 CBV/SRV/UAV 与动态 root 参数。旧 direct 路径保留 CPU staging 和 shader-visible ring，只有独立 `DirectFrameContext::TryBeginFrame` 成功后选择退休 slot；生产图改由当前 lease 的 descriptor heap 分区冻结，不能消费旧 ring。
+- **Metal**：按 Shader 派生的 stage/category/index 保存并绑定资源，不能从 logical set 或 `binding + arrayElement` 猜物理槽位；未支持的 descriptor array/model 显式拒绝。dynamic offsets 按实际 set/binding 顺序应用。
 
-## DescriptorBatch 跨 set 批量
+历史记录：`aurora-frame-descriptor-batch` 于 2026-09-14 增加过跨 set 的 `DescriptorBatch`；2026-10-27 的 `refactor-aurora-framegraph-contracts` 确认它只有测试调用，已移除接口、Device 工厂和三个后端实现。跨 set 原生写入使用各 group 的 numeric writer，生产图使用后端按 lease 管理的 materializer，不恢复第二套 batch/Flush/Reset 协议。
 
-帧内跨 set 的 descriptor 写入走 **`DescriptorBatch`**（`aurora/rhi/DescriptorBatch.h`）：
+## Frame context 的两种公开协议（2026-10-27）
 
-- `Device::CreateDescriptorBatch()` 返回后端 batch；`WriteBuffer/WriteImage/WriteSampler(group, binding, ...)` 累积，`Flush()` 一帧一次，`Reset()` 帧末复用。
-- **Vulkan** `VulkanDescriptorBatch`：累积 `VkWriteDescriptorSet`（`dstSet` = 各 group 当前 set），`Flush()` 单次 `vkUpdateDescriptorSets`。
-- **DX12** `D3D12DescriptorBatch`：thin，`Write*` 复用 `D3D12DescriptorEncoder`（即时写 CPU staging），`Flush()`/`Reset()` no-op（copy 在 bind）。
-- **Metal** `MetalDescriptorBatch`：thin，与 encoder 一样即时写绑定表，`Flush()`/`Reset()` no-op。
-- 与 `DescriptorEncoder`（per-set template 路径）并存：单 set 快路径走 encoder，跨 set 批量走 batch。
+- `Device::CreateFrameContext(info)` 返回只公开 lease 协议的 `DeviceFrameContext`：取 slot、分配、Compile、Dispatch/收齐、Submit、丢弃与完成查询。生产 renderer 的全部 viewport 共用此 context。
+- `Device::CreateDirectFrameContext(info)` 显式创建独立 `DirectFrameContext` compatibility 接口，只有 `TryBeginFrame/EndFrame/GetFrameFence`。后端可复用内部 slot storage，但创建时固定模式；getter 不选择协议、不推进 slot。
+- direct begin 非阻塞检查 `Fence::Query`，PENDING 返回 Busy 且不 reset；SIGNALED 后检查 `TryReset`，native 错误显式返回。begin/end 必须配对，调用方负责直接提交及销毁前的 GPU 退休。不能通过 direct 接口访问图分配/状态账本，也不能把其 fence reset 规则带回 lease 取槽路径。
 
 ## Dynamic UBO pack（batch tier / set 3）
 
@@ -114,7 +113,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 - **Vulkan**：要求 1.3，`dynamicRendering` + `timelineSemaphore` 强制；PSO 从 `PipelineState::vertexBindings/vertexAttributes` 建 IA 输入布局（与 DX12 对齐）；tier2 `DescriptorHeap`（`VK_EXT_descriptor_heap`）**未实现**，`CreateDescriptorHeap` 返回 nullptr 且 `GetFeature().descriptorHeap == false`
 - **DX12**：12.0 起步；PSO / root signature / ResourceGroup / SwapChain 均已落地，encoder 支持 render target 绑定与 clear、IA 顶点输入、indirect draw/dispatch、内置 fullscreen blit 与 tier2 bindless `DescriptorHeap`（SM6.6 门），见 `aurora-dx12-gaps`
-- **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定按目标反射占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 地址越界须在计划/创建阶段显式失败。当前 target-artifact DirectArguments 尚不支持原生 push-constant slot 映射，必须拒绝，不能按 declare-last 猜槽位；保留的 partial-range staging helper 不代表生产路径支持。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；Resolve 走 `MTLStoreActionMultisampleResolve` 空 render pass；两者由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**：`DescriptorHeap` 接口按 `VK_EXT_descriptor_heap` 设计为**索引型堆**（tex/buf/smp 各自 backing buffer + per-type stride），而 slang 在 Metal 上走的是**指针/地址型 bindless**（`DescriptorHandle<T>` → `device T*` / `ulong`，无 argument buffer 的 `[[id]]` 形态）——两者模型不同。slang 对 Metal bindless `DescriptorHandle<T>` 的 **compiler emit 已完成**（slang #10842；本仓库 pin 的 v2026.9.2 已含），缺口在 (a) 我们未采用 `DescriptorHandle<T>` 的 shader/RHI 模型、(b) Metal 运行时实现、(c) 纯 `uniform` 数组-of-resource 仍有 bug（slang #12291，Q3 2026）。故 `feature.descriptorHeap == false`、`CreateDescriptorHeap()` 返回 nullptr。落地路线见 `openspec/changes/aurora-metal-bindless-descriptor-heap/`
+- **Metal**：3 起步；PSO 从 `vertexBindings/vertexAttributes` 建 `MTLVertexDescriptor`；**buffer 槽位分区**——Metal 每 stage 31 个 `[[buffer(N)]]` 槽（0..30），shader buffer 绑定按目标反射占低段 `[0, 15)`，顶点缓冲占高段 `[15, 31)`（`METAL_VERTEX_BUFFER_SLOT_BASE = 31 - MAX_VERTEX_BINDINGS`，`BindVertexBuffers` 与 vertex descriptor 一致使用）；shader buffer 地址越界须在计划/创建阶段显式失败。当前 target-artifact DirectArguments 尚不支持原生 push-constant slot 映射，必须拒绝，不能按 declare-last 猜槽位；保留的 partial-range staging helper 不代表生产路径支持。Blit：同格式同尺寸走 blit encoder 原生 copy，缩放/过滤走 `MetalBlitHelper` 的 fullscreen-triangle render pass（dst 需 RENDER_TARGET usage）；直接 RHI 的 Blit Resolve 保留空 render-pass helper；生产 FrameGraph attachment resolve 必须在原 raster pass 内按 STORE/DONT_CARE 选择 store-and-resolve/resolve，不得先丢弃 source 再额外 LOAD。Blit helper 由 `MetalBlitEncoder` 挂起/恢复 blit encoder 包住。SwapChain：3-image ring（`maximumDrawableCount=3`），`framebufferOnly=NO`（backbuffer 可采样）；acquire 仍是 CPU 立即 signal（Metal 无 GPU acquire 语义）。压缩格式：BC1-7（桌面 GPU）+ ASTC（Apple GPU）已映射，ETC2 无 Metal 对应。tier2 `DescriptorHeap` **未实现**：`DescriptorHeap` 接口按 `VK_EXT_descriptor_heap` 设计为**索引型堆**（tex/buf/smp 各自 backing buffer + per-type stride），而 slang 在 Metal 上走的是**指针/地址型 bindless**（`DescriptorHandle<T>` → `device T*` / `ulong`，无 argument buffer 的 `[[id]]` 形态）——两者模型不同。slang 对 Metal bindless `DescriptorHandle<T>` 的 **compiler emit 已完成**（slang #10842；本仓库 pin 的 v2026.9.2 已含），缺口在 (a) 我们未采用 `DescriptorHandle<T>` 的 shader/RHI 模型、(b) Metal 运行时实现、(c) 纯 `uniform` 数组-of-resource 仍有 bug（slang #12291，Q3 2026）。故 `feature.descriptorHeap == false`、`CreateDescriptorHeap()` 返回 nullptr。落地路线见 `openspec/changes/aurora-metal-bindless-descriptor-heap/`
 
 ## Metal 后端实现约定（ARC / 句柄 / 线程池 / MSL 槽位）
 
@@ -131,7 +130,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 ### Queue::Submit 契约
 
 - 新 Renderer 接入使用 `Queue::TrySubmit`：Accepted 仅表示接受；Rejected 保证无入队；Indeterminate 必须保留引用并隔离到安全完成/teardown。Vulkan/DX12 已实现，Metal 新入口当前明确 Unsupported。
-- 新路径使用 `Fence::Query` 区分 Pending/Signaled/Failed、`TryReset` 读取 reset 错误。Reset 不产生 submission；拒绝后的 Pending 不能作为等待理由。旧 BeginFrame/EndFrame 尚未迁移为 slot lease，不允许空转复用未提交的 fence。
+- 新路径使用 `Fence::Query` 区分 Pending/Signaled/Failed、`TryReset` 读取 reset 错误。Reset 不产生 submission；拒绝后的 Pending 不能作为等待理由。旧 direct 宿主现在显式使用 DirectFrameContext compatibility；成功 begin 后仍须配对直接提交，不允许空转复用未提交的 fence，lease 取槽不执行此 reset。
 
 - `Queue::Submit(SubmitInfo)`：`SubmitInfo` 含 `commandBuffers` / `waitSemaphores` / `signalSemaphores` / `fence`。
 - `SemaphoreSubmitInfo::stageMask` 表达 wait 前 / signal 后的 pipeline stage（sync2 语义）。
@@ -160,7 +159,7 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 
 - `RenderViewport`（`aurora/rdg/RenderViewport.h`）是表面基类：`Begin`/`Acquire`/`Release` + backbuffer/format/extent + acquire/render-done sema 访问器（不含 frame index/fence）。
 - `ClientViewport` 持 `SwapChain` + per-viewport 帧 ring sema（本地 `mFrameSlot` 计数，非 image index、非全局 frame index）。
-- inflight frame 全局化：`DeviceFrameContext` 是 slot ring 的唯一所有者；新路径经 lease、Submit/PollCompleted 驱动。直接宿主 Begin/End/GetFrameFence 与 lease 在一个 context 内禁止混用；多 viewport 共用同一 lease。
+- inflight frame 全局化：`DeviceFrameContext` 是 slot ring 的唯一所有者；新路径经 lease、Submit/PollCompleted 驱动。direct 宿主通过独立工厂取得 DirectFrameContext；lease 接口不再暴露 Begin/End/GetFrameFence，多 viewport 共用同一 lease。
 - 输出导入：FrameScheduler 取得有效输出 lease 后由 FrameComposer 导入图；Compile 不 acquire/present，borrowed swapchain image 不构造拥有删除权的 CounterPtr。
 
 ## Barrier 用法
@@ -220,7 +219,18 @@ Vulkan validation 严格检查 stage ↔ access。stage 由调用方显式填 `B
 
 Vulkan 的两套 compiler、DX12 frame compiler 与 Metal frame context 保留各自 native 编译策略；共享 `FrameTransientPool` 只管理 device backing/lease，不统一 encoder。Custom 仅访问声明资源，不自行插入 barrier。
 
-旧 RenderGraph/CompiledGraph、RDGBackend/CreateRDGBackend 和 PipelinePass 模板已退役，不新增兼容注册入口。直接 RHI encoder、RenderViewport/ClientViewport 仍可用于受控宿主，不能与同一 context 的 lease 协议混用。共享 Pass shader 声明与 SceneRenderFeature/TextureToScreenFeature 保留。
+旧 RenderGraph/CompiledGraph、RDGBackend/CreateRDGBackend 和 PipelinePass 模板已退役，不新增兼容注册入口。直接 RHI encoder、RenderViewport/ClientViewport 仍可用于显式创建的 DirectFrameContext compatibility 宿主；生产 lease context 不暴露 direct 方法。共享 Pass shader 声明与 SceneRenderFeature/TextureToScreenFeature 保留。
+
+## 冻结绑定组与编译访问事实（2026-10-27）
+
+- `RasterDraw` / `FrameComputePass` 只持 `FrameBindingGroups`，不保留 flat bindings 的永久副本。`FrameBindingGroup` 的 const data 保活 layoutOwner，保存真实 set、graph handles、base range/view 与 sampler；构造时按 binding 规范化。
+- `FrameBindingGroupUse` 的 `bufferUses/imageUses` 单独保存 per-use access 和 dynamic offsets。相同 shader/layout owner 与资源值可共享组；动态窗口变化不使其它组重建。不同 graph resource/version、base range/view 或 layout owner 不得误命中。
+- 追加绑定先构造临时 `RasterBindingDraft/ComputeBindingDraft`，经 `SetRasterBindings/SetComputeBindings` 原子发布；非法 set/binding 或重复槽拒绝并保留旧组。`ValidateBindingGroups` 必须在读取前拒绝 unknown/duplicate overrides、owner/set 不符或无 snapshot 的 overrides。
+- `ResolveRasterBindings/ResolveComputeBindings` 只提供 Compile 内临时 flat values；Custom 保留有序声明数组和回调资源顺序。不能为统一模型持久化第二份规范化 IR。
+- `FrameGraphAnalysis::passResourceUses` 复用同一 typed 声明遍历，保留有效 byte/subresource 范围、usage role、stage 和 access；内容 reads/writes/defines 独立。结构/reflection 在 culling 前验证，只有存活访问与 exports 要求内容已定义。
+- 各 native compiler 从上述访问事实生成自己的同步；同一物理 buffer 的 vertex/index/uniform/storage 同时只读角色先合并，不能漏掉 raster storage 或以最后一个角色覆盖前一个。Vulkan 两种 compiler 仍各自生成 scopes/encoder。
+- `FrameGraphDeclarations` 只提供 transient buffer/image、copy、raster/fullscreen、compute、Custom、exports；`FrameGraphServices` 提供资源/几何解析和 upload/factory。`FrameGraphBuildContext` 组合这两个 borrowed facets，不暴露 Submit。
+- 图参数先经共享语义事务 Complete，再由 `FrameGraphServices::MaterializeParameters` 取得 immutable group。`FrameComposer` 在当前 composition/lease 内按 shader/set、typed fields 和精确资源值缓存目标 ABI 编码与 uniform upload；native materializer 按组复用 descriptor，worker 不写参数或 cache，GPU pins 仍按既有 lease 退休。
 
 ## 骨架 / 蒙皮（animation 独立，aurora 无 Skeleton）
 

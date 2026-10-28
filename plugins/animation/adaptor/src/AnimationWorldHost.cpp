@@ -199,8 +199,7 @@ namespace sky::animation {
                     const auto &bound = *instance->bound;
                     result.skeleton   = bound.rig.version;
                     if (bound.graph) {
-                        result.animation = {bound.graphAsset->GetUuid(), bound.graphAsset->GetSnapshotGeneration(),
-                                            bound.graphAsset->GetSnapshotRevision(), 0};
+                        result.animation = {bound.graphAsset->GetUuid(), bound.graphAsset->GetInstanceId(), bound.graphAsset->GetRevision(), 0};
                         result.playing   = bound.graph->IsPlaying();
                         if (includeDebug) {
                             const auto debug          = bound.graph->Debug();

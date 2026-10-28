@@ -14,21 +14,12 @@ namespace sky::aurora {
         bool               WriteImage(uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
         bool               WriteSampler(uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
         bool               End() override;
-        const std::string &GetError() const override
-        {
-            return error;
-        }
-        void Cancel() override
-        {
-            ended = true;
-        }
         const std::string &LastError() const
         {
             return error;
         }
 
     private:
-        friend class VulkanDescriptorBatch;
         bool                                            Fail(const char *message);
         bool                                            Ready();
         void                                            AppendWrites(std::vector<VkWriteDescriptorSet> &writes);

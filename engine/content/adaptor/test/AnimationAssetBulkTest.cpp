@@ -67,7 +67,8 @@ TEST(AnimationAssetBulkTest, ClipBulkRoundTrip)
     const Uuid                 id     = Uuid::Create();
 
     {
-        auto asset = AssetManager::Get()->FindOrCreateAsset<AnimationClip>(id);
+        auto asset = std::static_pointer_cast<Asset<AnimationClip>>(
+            AssetManager::Get()->CreateBuildAsset(id, Name(AssetTraits<AnimationClip>::ASSET_TYPE.data())));
         ASSERT_NE(asset, nullptr);
 
         IMemoryArchive     in(source.data(), source.size());
@@ -84,7 +85,7 @@ TEST(AnimationAssetBulkTest, ClipBulkRoundTrip)
         EXPECT_EQ(data.channels[0].positionKeys.size, 2u * sizeof(Vector3));
 
         asset->AddBulk(bulk.data(), bulk.size());
-        AssetManager::Get()->SaveAsset(asset, "clipbulk");
+        ASSERT_TRUE(AssetManager::Get()->SaveAsset(asset, "clipbulk"));
     }
 
     auto loaded = AssetManager::Get()->LoadAsset<AnimationClip>(id);

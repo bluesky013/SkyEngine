@@ -2,6 +2,8 @@
 // Created by blues on 2024/6/16.
 //
 
+#include <framework/asset/AssetManager.h>
+
 #include <core/archive/FileArchive.h>
 #include <core/archive/MemoryStreamArchive.h>
 #include <core/logger/Logger.h>
@@ -11,17 +13,60 @@
 #include <framework/asset/AssetDependencyProvider.h>
 #include <framework/asset/AssetEvent.h>
 #include <framework/asset/AssetIndexFile.h>
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/ICookRunner.h>
 #include <framework/asset/ISourceCatalog.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/WorldAsset.h>
+#include <limits>
 
 static const char *TAG = "AssetManager";
 
 namespace sky {
 
     namespace {
+
+        class OwnedBulkArchive final : public IMemoryArchive {
+        public:
+            explicit OwnedBulkArchive(std::vector<uint8_t> &&bytes) : IMemoryArchive(bytes.data(), bytes.size()), storage(std::move(bytes))
+            {
+            }
+
+        private:
+            // Moving the vector preserves the allocation referenced by IMemoryArchive.
+            std::vector<uint8_t> storage;
+        };
+
+        std::string NormalizeLogicalProductPath(std::string_view input)
+        {
+            if (input.empty() || input.find(':') != std::string_view::npos || input.find('\0') != std::string_view::npos)
+                return {};
+            const auto path = MakeCanonicalPath(std::string(input));
+            if (path.front() == '/')
+                return {};
+            std::vector<std::string_view> segments;
+            size_t                        position = 0;
+            while (position < path.size()) {
+                const auto separator = path.find('/', position);
+                const auto end       = separator == std::string::npos ? path.size() : separator;
+                const auto segment   = std::string_view(path).substr(position, end - position);
+                if (segment == "..") {
+                    if (segments.empty())
+                        return {};
+                    segments.pop_back();
+                } else if (!segment.empty() && segment != ".") {
+                    segments.push_back(segment);
+                }
+                position = end + 1;
+            }
+            std::string normalized;
+            for (const auto segment : segments) {
+                if (!normalized.empty())
+                    normalized += '/';
+                normalized += segment;
+            }
+            return normalized;
+        }
 
         bool RemainingBytes(const IStreamArchivePtr &archive, uint64_t &size)
         {
@@ -40,37 +85,6 @@ namespace sky {
             return true;
         }
 
-        bool ReadHeaderString(IStreamArchive &archive, std::string &out, uint32_t limit)
-        {
-            uint32_t size = 0;
-            if (!archive.Load(size) || size > limit) {
-                return false;
-            }
-            out.resize(size);
-            return archive.LoadRaw(out.data(), size) && out.find('\0') == std::string::npos;
-        }
-
-        bool ReadProductHeader(const Uuid &uuid, const IStreamArchivePtr &archive, AssetProductInspection &out, std::string &codec)
-        {
-            uint32_t count = 0;
-            if (!archive || !ReadHeaderString(*archive, out.type, 4096) || out.type.empty() || !archive->Load(count) || count > 4096)
-                return false;
-            out.dependencies.resize(count);
-            for (auto &dependency : out.dependencies)
-                if (!archive->Load(dependency.word[0]) || !archive->Load(dependency.word[1]) || !dependency || dependency == uuid)
-                    return false;
-            return ReadHeaderString(*archive, codec, 16);
-        }
-
-        const char *CodecName(CompressionMethod method)
-        {
-            switch (method) {
-            case CompressionMethod::LZ4: return "lz4";
-            case CompressionMethod::ZLIB: return "zlib";
-            }
-            return "";
-        }
-
         bool CodecFromName(const std::string &name, CompressionMethod &out)
         {
             if (name == "lz4") {
@@ -85,6 +99,12 @@ namespace sky {
         }
 
     } // namespace
+
+    AssetManager::AssetManager()
+    {
+        assetHandlers.emplace(Name(AssetTraits<World>::ASSET_TYPE.data()), std::make_unique<AssetHandler<World>>());
+    }
+
     void AssetManager::SetWorkFileSystem(const FileSystemPtr &fs)
     {
         workSpace = fs;
@@ -100,26 +120,24 @@ namespace sky {
 
     void AssetManager::RefreshProductIndex()
     {
+        std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
         std::lock_guard<std::recursive_mutex> lock(mutex);
+        std::erase_if(assets, [&](const auto &entry) { return !pendingJobs.contains(entry.first); });
+        productChangeSerial.fetch_add(1, std::memory_order_release);
 
-        productPathMap.clear();
         for (auto &bundle : bundles) {
             const auto &bundleFs = bundle->GetFileSystem();
             productIndices.Invalidate(bundleFs, FilePath{});
-            const auto &index = productIndices.Get(bundleFs, FilePath{});
-            for (const auto &entry : index.Entries()) {
-                productPathMap[entry.key] = entry.id;
-            }
+            productIndices.Get(bundleFs, FilePath{});
         }
     }
 
     void AssetManager::OnCookFinished(const AssetBuildResult &result)
     {
-        if (result.retCode == AssetBuildRetCode::SUCCESS) {
-            productChangeSerial.fetch_add(1, std::memory_order_release);
-        }
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
-        std::vector<Uuid>                     members;
+        if (result.retCode == AssetBuildRetCode::SUCCESS)
+            RefreshProductIndex();
+        std::vector<Uuid> members;
         {
             std::lock_guard<std::recursive_mutex> lock(mutex);
             const auto                            pending = pendingOwners.find(result.uuid.ToString() + "#" + result.target);
@@ -145,10 +163,8 @@ namespace sky {
 
     void AssetManager::CompleteCookMember(const AssetBuildResult &result)
     {
-        const bool produced = (!sourceCatalog || sourceCatalog->Exists(result.uuid)) && OpenFile(result.uuid) != nullptr;
-        if (produced) {
-            RefreshProductIndex();
-        }
+        const bool produced = result.retCode == AssetBuildRetCode::SUCCESS && (!sourceCatalog || sourceCatalog->Exists(result.uuid)) &&
+                              OpenFile(result.uuid) != nullptr;
 
         TaskNodePtr completion;
         AssetPtr    placeholder;
@@ -174,8 +190,7 @@ namespace sky {
 
         const bool scheduled = produced && DeserializeProduct(result.uuid, placeholder, completion);
         if (!scheduled) {
-            placeholder->status.store(AssetBase::Status::FAILED);
-            ThreadDispatcher::Get()->PostToMain([id = result.uuid]() { AsseEvent::BroadCast(id, &IAssetEvent::OnAssetLoaded); });
+            CompleteLoad(placeholder, false);
         } else {
             completion = nullptr;
         }
@@ -201,14 +216,9 @@ namespace sky {
 
     void AssetManager::AddAssetProductBundle(AssetProductBundle *bundle)
     {
-        bundles.emplace_back(bundle);
-
-        const auto &index = productIndices.Get(bundle->GetFileSystem(), FilePath{});
-
         std::lock_guard<std::recursive_mutex> lock(mutex);
-        for (const auto &entry : index.Entries()) {
-            productPathMap[entry.key] = entry.id;
-        }
+        bundles.emplace_back(bundle);
+        productIndices.Get(bundle->GetFileSystem(), FilePath{});
     }
 
     AssetPtr AssetManager::FindAsset(const Uuid &uuid) const
@@ -252,12 +262,17 @@ namespace sky {
         if (!ReadProductHeader(uuid, archive, header, codec)) {
             return {};
         }
-        auto asset = destination ? destination : FindOrCreateAsset(uuid, Name(header.type.c_str()));
+        auto asset = destination ? destination : CreateBuildAsset(uuid, Name(header.type.c_str()));
         if (asset && asset->GetType() != Name(header.type.c_str())) {
             return {};
         }
         if (asset) {
             asset->dependencies = std::move(header.dependencies);
+            asset->revision     = GetProductChangeSerial() + 1;
+            if (!destination) {
+                std::lock_guard<std::recursive_mutex> lock(mutex);
+                assets[uuid] = asset;
+            }
         }
         return asset;
     }
@@ -322,8 +337,19 @@ namespace sky {
             return {};
         }
         if (asset) {
-            asset->bulkStart     = stream->Tell();
-            asset->productStream = bulkSize ? stream : IStreamArchivePtr{};
+            IStreamArchivePtr bulk;
+            if (bulkSize) {
+                if (bulkSize > std::numeric_limits<size_t>::max() || bulkSize > uint64_t(std::numeric_limits<std::streamsize>::max())) {
+                    return {};
+                }
+                std::vector<uint8_t> bytes(static_cast<size_t>(bulkSize));
+                if (!stream->LoadRaw(reinterpret_cast<char *>(bytes.data()), bytes.size())) {
+                    return {};
+                }
+                bulk = new OwnedBulkArchive(std::move(bytes));
+            }
+            asset->bulkStart     = 0;
+            asset->productStream = std::move(bulk);
         }
         if (declaredBulkSize)
             *declaredBulkSize = bulkSize;
@@ -335,22 +361,17 @@ namespace sky {
         const auto *source = GetBundle(bundle);
         if (!uuid || !source)
             return {ProductError::NotFound, "product bundle unavailable"};
-        AssetProductInspection       inspected;
-        FilePtr                      file;
-        const AssetProductGroupStore store(source->GetFileSystem());
-        if (store.HasOwnerRecord(uuid) && !store.HasLegacyFallback(uuid)) {
-            if (const auto status = source->ResolveGroup(uuid, inspected.group); !status)
-                return status;
-            if (const auto status = source->OpenPinned(*inspected.group, uuid, file); !status)
-                return status;
-        } else
-            file = source->OpenFile(uuid);
+        const auto file = source->OpenFile(uuid);
         if (!file)
             return {ProductError::NotFound, "product file unavailable"};
-        const auto  stream = file->ReadAsArchive();
-        std::string codec;
-        if (!ReadProductHeader(uuid, stream, inspected, codec) || !(inspected.payload = ReadProductPayload(stream, codec, {}, &inspected.bulkSize)))
-            return {ProductError::InvalidData, "invalid product header or payload"};
+        const auto             stream = file->ReadAsArchive();
+        AssetProductInspection inspected;
+        std::string            codec;
+        if (const auto status = ReadProductHeader(uuid, stream, inspected, codec); !status)
+            return status;
+        inspected.payload = ReadProductPayload(stream, codec, {}, &inspected.bulkSize);
+        if (!inspected.payload)
+            return {ProductError::InvalidData, "invalid product payload"};
         out = std::move(inspected);
         return {};
     }
@@ -368,24 +389,6 @@ namespace sky {
     AssetPtr AssetManager::LoadAsset(const Uuid &uuid, AssetLoadPolicy policy) // NOLINT
     {
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
-
-        for (const auto &bundle : bundles) {
-            if (AssetProductGroupStore(bundle->GetFileSystem()).HasOwnerRecord(uuid)) {
-                ProductGroupSnapshotPtr group;
-                auto snapshot = bundle->ResolveGroup(uuid, group) ? LoadAssetSnapshot(uuid, bundle->GetKey(), group, policy) : AssetPtr{};
-                if (snapshot) {
-                    std::lock_guard<std::recursive_mutex> lock(mutex);
-                    assets[uuid] = snapshot;
-                }
-                if (!snapshot && AssetProductGroupStore(bundle->GetFileSystem()).HasLegacyFallback(uuid)) {
-                    break;
-                }
-                if (snapshot) {
-                    return snapshot;
-                }
-                return policy == AssetLoadPolicy::AllowCook && sourceCatalog && sourceCatalog->Exists(uuid) ? LoadAssetOnDemand(uuid) : AssetPtr{};
-            }
-        }
 
         GeneratedAssetRecord generated;
         if (policy == AssetLoadPolicy::AllowCook && sourceCatalog && sourceCatalog->GetGenerated(uuid, generated) && !generated.active) {
@@ -416,19 +419,21 @@ namespace sky {
 
         const auto payload = ReadProductPayload(stream, codec, asset);
         if (!payload) {
-            asset->status.store(AssetBase::Status::FAILED);
+            CompleteLoad(asset, false);
             return {};
         }
 
-        // avoid release dep asset
+        asset->status.store(AssetBase::Status::LOADING);
         std::vector<AssetPtr>    holder;
         std::vector<TaskNodePtr> asyncTasks;
         holder.reserve(asset->dependencies.size());
 
         for (auto &dep : asset->dependencies) {
             auto depAsset = LoadAsset(dep, policy);
-            if (!depAsset) {
-                return {};
+            if (!depAsset ||
+                (depAsset->GetStatus() == AssetBase::Status::LOADING && !depAsset->GetAsyncNode() && !depAsset->GetWaitHandle().valid())) {
+                CompleteLoad(asset, false);
+                return asset;
             }
 
             holder.emplace_back(depAsset);
@@ -448,7 +453,7 @@ namespace sky {
                 }
 
                 if (!success) {
-                    asset->status.store(AssetBase::Status::FAILED);
+                    CompleteLoad(asset, false);
                     return;
                 }
                 SKY_PROFILE_NAME("LoadAsset")
@@ -541,36 +546,24 @@ namespace sky {
     bool AssetManager::LoadInto(const AssetPtr &asset, const IStreamArchivePtr &payload)
     {
         asset->status.store(AssetBase::Status::LOADING);
-        auto res = assetHandlers[asset->type]->Load(*payload, asset);
-        asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
+        const bool success = assetHandlers[asset->type]->Load(*payload, asset);
+        CompleteLoad(asset, success);
+        return success;
+    }
+
+    void AssetManager::CompleteLoad(const AssetPtr &asset, bool success)
+    {
+        asset->status.store(success ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
         // May run on the load worker; deliver OnAssetLoaded on the main role.
         const Uuid uuid = asset->uuid;
         ThreadDispatcher::Get()->PostToMain([uuid]() { AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded); });
-        return res;
     }
 
     bool AssetManager::DeserializeProduct(const Uuid &uuid, const AssetPtr &destination, const TaskNodePtr &completion)
     {
-        FilePtr                 file;
-        ProductGroupSnapshotPtr group;
-        ProductBundleKey        groupBundle;
-        for (const auto &bundle : bundles) {
-            const AssetProductGroupStore store(bundle->GetFileSystem());
-            if (store.HasOwnerRecord(uuid) && !store.HasLegacyFallback(uuid)) {
-                groupBundle = bundle->GetKey();
-                if (!bundle->ResolveGroup(uuid, group) || !bundle->OpenPinned(*group, uuid, file)) {
-                    return false;
-                }
-                break;
-            }
-            file = bundle->OpenFile(uuid);
-            if (file) {
-                break;
-            }
-        }
-        if (!file) {
+        const auto file = OpenFile(uuid);
+        if (!file)
             return false;
-        }
 
         IStreamArchivePtr stream = file->ReadAsArchive();
 
@@ -579,7 +572,6 @@ namespace sky {
         if (!asset) {
             return false;
         }
-        asset->productGroup = group;
 
         const auto payload = ReadProductPayload(stream, codec, asset);
         if (!payload) {
@@ -593,11 +585,8 @@ namespace sky {
             if (dep == uuid) {
                 return false;
             }
-            const bool sameGroup =
-                group && std::any_of(group->members.begin(), group->members.end(), [&dep](const auto &member) { return member.uuid == dep; });
-            const auto depAsset = sameGroup ? LoadAssetSnapshot(dep, groupBundle, group) : LoadAsset(dep);
+            const auto depAsset = LoadAsset(dep);
             if (!depAsset) {
-                asset->status.store(AssetBase::Status::FAILED);
                 return false;
             }
             tasks.push_back(depAsset->GetAsyncNode());
@@ -613,7 +602,7 @@ namespace sky {
                 }
                 for (const auto &dependency : value->depAssets) {
                     if (!dependency->IsLoaded()) {
-                        value->status.store(AssetBase::Status::FAILED);
+                        CompleteLoad(value, false);
                         return;
                     }
                 }
@@ -648,141 +637,53 @@ namespace sky {
         return productBundle != nullptr && productBundle->OpenFile(uuid) != nullptr;
     }
 
-    AssetPtr AssetManager::LoadAssetFromPath(const std::string &path)
+    Uuid AssetManager::FindProductPath(std::string_view canonical, bool &ambiguous)
     {
-        Uuid       uuid;
-        const auto canonical = MakeCanonicalPath(path);
-        {
-            std::lock_guard<std::recursive_mutex> lock(mutex);
-            auto                                  iter = productPathMap.find(canonical);
-            if (iter != productPathMap.end()) {
-                uuid = iter->second;
+        ambiguous = false;
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        Uuid                                  resolved;
+        for (const auto &bundle : bundles) {
+            const auto *entry = productIndices.Get(bundle->GetFileSystem(), FilePath{}).Find(canonical);
+            if (!entry)
+                continue;
+            if (resolved && resolved != entry->id) {
+                ambiguous = true;
+                return {};
             }
+            resolved = entry->id;
         }
+        return resolved;
+    }
 
-        if (!uuid) {
+    Uuid AssetManager::ResolveProductPath(std::string_view path)
+    {
+        const auto canonical = NormalizeLogicalProductPath(path);
+        if (canonical.empty())
+            return {};
+        bool ambiguous = false;
+        return FindProductPath(canonical, ambiguous);
+    }
+
+    AssetPtr AssetManager::LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy)
+    {
+        const auto canonical = NormalizeLogicalProductPath(path);
+        if (canonical.empty())
+            return {};
+        bool ambiguous = false;
+        auto uuid      = FindProductPath(canonical, ambiguous);
+        if (ambiguous)
+            return {};
+        if (!uuid && policy == AssetLoadPolicy::AllowCook) {
             // Level 2: editor source-catalog fallback for not-yet-cooked sources (empty at runtime).
             if (sourceCatalog != nullptr) {
                 Uuid resolved;
-                if (sourceCatalog->ResolvePath(path, resolved)) {
+                if (sourceCatalog->ResolvePath(canonical, resolved)) {
                     uuid = resolved;
                 }
             }
         }
 
-        return uuid ? LoadAsset(uuid) : AssetPtr{};
-    }
-
-    void AssetManager::SaveAsset(const AssetPtr &asset, const ProductBundleKey &target)
-    {
-        auto hIter = assetHandlers.find(asset->GetType());
-        if (hIter == assetHandlers.end()) {
-            return;
-        }
-
-        bool pendingCook = false;
-        {
-            std::lock_guard<std::recursive_mutex> lock(mutex);
-            pendingCook = pendingJobs.contains(asset->GetUuid());
-        }
-        // A cook must not wait for its own completion barrier.
-        if (asset->GetAsyncNode() != nullptr && !pendingCook) {
-            asset->BlockUntilLoaded();
-        }
-
-        auto *pBundle = GetBundle(target);
-        if (pBundle == nullptr) {
-            return;
-        }
-
-        FilePtr file = pBundle->CreateOrOpenFile(asset->GetUuid());
-        if (!file) {
-            LOG_E(TAG, "Save Asset %s Failed. Can not create file.", asset->GetUuid().ToString().c_str());
-            return;
-        }
-
-        auto archive = file->WriteAsArchive();
-
-        auto type = asset->type.GetStr();
-        archive->Save(static_cast<uint32_t>(type.size()));
-        archive->SaveRaw(type.data(), type.size());
-        archive->Save(static_cast<uint32_t>(asset->dependencies.size()));
-        for (auto &dep : asset->dependencies) {
-            archive->Save(dep.word[0]);
-            archive->Save(dep.word[1]);
-        }
-
-        auto       *compressor = compressProducts ? CompressionManager::Get()->GetCompressor(compressionMethod) : nullptr;
-        std::string codec      = compressor != nullptr ? CodecName(compressionMethod) : std::string{};
-        archive->Save(static_cast<uint32_t>(codec.size()));
-        archive->SaveRaw(codec.data(), codec.size());
-
-        asset->status.store(AssetBase::Status::LOADED);
-
-        // Header block = the handler's DataType payload (compressed when a codec is set).
-        OMemoryArchive headerPayload;
-        hIter->second->Save(headerPayload, asset);
-
-        std::vector<uint8_t> headerBlock;
-        if (compressor == nullptr) {
-            const auto *begin = reinterpret_cast<const uint8_t *>(headerPayload.Data());
-            headerBlock.assign(begin, begin + headerPayload.Size());
-        } else {
-            uint32_t             bound = compressor->CompressBound(static_cast<uint32_t>(headerPayload.Size()));
-            std::vector<uint8_t> compressed(bound);
-            auto                 res = compressor->Compress({reinterpret_cast<const uint8_t *>(headerPayload.Data()), headerPayload.Size()},
-                                                            {compressed.data(), compressed.size()}, 0);
-            if (!res.first) {
-                LOG_E(TAG, "Product compression failed for %s", asset->GetUuid().ToString().c_str());
-                return;
-            }
-            const auto appendU32 = [&headerBlock](uint32_t value) {
-                const auto *bytes = reinterpret_cast<const uint8_t *>(&value);
-                headerBlock.insert(headerBlock.end(), bytes, bytes + sizeof(uint32_t));
-            };
-            appendU32(static_cast<uint32_t>(headerPayload.Size()));
-            appendU32(res.second);
-            headerBlock.insert(headerBlock.end(), compressed.begin(), compressed.begin() + res.second);
-        }
-        archive->Save(static_cast<uint32_t>(headerBlock.size()));
-        if (!headerBlock.empty()) {
-            archive->SaveRaw(reinterpret_cast<const char *>(headerBlock.data()), headerBlock.size());
-        }
-
-        // Bulk payload (opaque bytes; the per-resource layout lives in the header).
-        archive->Save(static_cast<uint64_t>(asset->bulk.size()));
-        if (!asset->bulk.empty()) {
-            archive->SaveRaw(reinterpret_cast<const char *>(asset->bulk.data()), asset->bulk.size());
-        }
-        archive->Flush();
-        asset->bulk.clear();
-
-        // Update the bundle's product index (path -> uuid) so a later path load resolves.
-        // Serialized per AssetManager so concurrent cooks do not lose entries (read-modify-write).
-        std::string sourcePath;
-        if (sourceCatalog != nullptr && sourceCatalog->GetSourcePath(asset->GetUuid(), sourcePath)) {
-            std::lock_guard<std::recursive_mutex> lock(mutex);
-
-            const auto  bundleFs = pBundle->GetFileSystem();
-            FileLockPtr indexLock;
-            if (const auto status = bundleFs->AcquireFileLock(".groups/index.lock", indexLock); !status) {
-                LOG_E(TAG, "Product index lock failed: %s", status.message.c_str());
-                return;
-            }
-            productIndices.Invalidate(bundleFs, FilePath{});
-            auto index = productIndices.Get(bundleFs, FilePath{});
-
-            IndexFileEntry entry;
-            entry.key = MakeCanonicalPath(sourcePath);
-            entry.id  = asset->GetUuid();
-            index.Set(entry);
-            if (!productIndices.Save(bundleFs, FilePath{}, index)) {
-                LOG_E(TAG, "Product index write failed");
-                return;
-            }
-
-            productPathMap[entry.key] = entry.id;
-        }
+        return uuid ? LoadAsset(uuid, policy) : AssetPtr{};
     }
 
     FilePtr AssetManager::OpenFile(const Uuid &uuid) const

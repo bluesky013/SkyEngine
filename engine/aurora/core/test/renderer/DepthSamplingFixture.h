@@ -1,7 +1,9 @@
 #pragma once
 
 #include "HostSceneFixture.h"
+
 #include <array>
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/renderer/IRenderFeature.h>
 
 namespace sky::aurora {
@@ -87,8 +89,12 @@ namespace sky::aurora {
             draw                     = {};
             draw.shader              = shaders[1];
             draw.command.vertexCount = 3;
-            draw.images              = {{1, 0, depth, {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}}};
-            draw.samplers            = {{1, 1, sampler}};
+            RasterBindingDraft bindings;
+            bindings.images   = {{1, 0, depth, {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}}};
+            bindings.samplers = {{1, 1, sampler}};
+            const auto bound  = SetRasterBindings(draw, std::move(bindings));
+            if (const auto *error = std::get_if<FrameError>(&bound))
+                return *error;
             sample.draws.push_back(std::move(draw));
             return context.Raster(std::move(sample));
         }

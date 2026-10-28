@@ -187,7 +187,7 @@ TEST_F(PhysicsAssetStreamingTest, RejectedRecookRetainsPublishedProductAndOldSna
     ASSERT_NE(second, nullptr);
     second->BlockUntilLoaded();
     ASSERT_TRUE(second->IsLoaded());
-    EXPECT_NE(first->GetSnapshotGeneration(), second->GetSnapshotGeneration());
+    EXPECT_NE(first->GetInstanceId(), second->GetInstanceId());
     EXPECT_FLOAT_EQ(first->Data().shape.radius, 1.f);
     EXPECT_FLOAT_EQ(second->Data().shape.radius, 2.f);
 }

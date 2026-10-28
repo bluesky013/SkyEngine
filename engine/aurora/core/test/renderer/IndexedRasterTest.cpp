@@ -3,11 +3,12 @@
 //
 
 #include "GpuTestSupport.h"
+
+#include "HostSceneFixture.h"
 #include "ShaderSourcesFixture.h"
 #include "SkinningBatch.h"
-#include <aurora/renderer/PassResourceBindings.h>
-#include "HostSceneFixture.h"
 #include "graph/FrameComposer.h"
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/renderer/PassResourceBindings.h>
 
 #include "graph/FrameGraphBuilder.h"
@@ -254,9 +255,10 @@ namespace {
                 draw.attributes = {{0, 0, 0, Format::F_RG32, "POSITION", 0}, {1, 1, 0, Format::F_RGBA32, "COLOR", 0}};
                 draw.indexed =
                     RasterIndexedDraw{{mesh, type == IndexType::U16 ? 80u : 96u, type == IndexType::U16 ? 8u : 16u}, type, {3, 1, 1, 0, 0}};
-                draw.uniforms = {{2, 0, {uniforms, 0, scale.size}, static_cast<uint32_t>(scale.offset)},
-                                 {0, 0, {uniforms, 0, view.size}, static_cast<uint32_t>(view.offset)},
-                                 {1, alternate ? 1u : 0u, {uniforms, tint.offset, tint.size}, 0}};
+                RasterBindingDraft bindings;
+                bindings.uniforms = {{2, 0, {uniforms, 0, scale.size}, static_cast<uint32_t>(scale.offset)},
+                                     {0, 0, {uniforms, 0, view.size}, static_cast<uint32_t>(view.offset)},
+                                     {1, alternate ? 1u : 0u, {uniforms, tint.offset, tint.size}, 0}};
                 draw.depth    = {true, true, CompareOp::LESS};
                 if (i < 2)
                     draw.scissor = {{static_cast<int32_t>(i * 4), 0}, {4, 8}};
@@ -266,6 +268,7 @@ namespace {
                     pass.load        = LoadOp::LOAD;
                     pass.depth->load = LoadOp::LOAD;
                 }
+                EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
                 pass.draws.push_back(std::move(draw));
             }
             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));
@@ -447,7 +450,7 @@ TEST_P(IndexedRaster, DepthResolveMinMaxPreserveSelectedCellAndDiscardedSource)
                 source.depth->resolve  = RasterDepthResolve{resolved, {1, workers - 1}, mode ? DepthResolveMode::MAXIMUM : DepthResolveMode::MINIMUM};
                 source.draws.resize(1);
                 source.draws[0].scissor                   = {};
-                source.draws[0].uniforms[0].dynamicOffset = static_cast<uint32_t>(partial.offset);
+                source.draws[0].groups[2].bufferUses      = {{0, static_cast<uint32_t>(partial.offset)}};
                 source.draws.resize(70, source.draws[0]);
                 FrameRasterPass poison = original;
                 poison.draws.clear();
@@ -608,7 +611,7 @@ TEST_P(IndexedRaster, DepthClippingMatchesWithDepthTestDisabled)
     auto       data                = probe.graph->GetData();
     auto      &draw                = std::get<FrameRasterPass>(data.passes[1]).draws.back();
     draw.depth                     = {};
-    draw.uniforms[1].dynamicOffset = static_cast<uint32_t>(outside.offset);
+    draw.groups[0].bufferUses      = {{0, static_cast<uint32_t>(outside.offset)}};
     probe.graph                    = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
     auto recording                 = Record(lease, probe);
     ASSERT_TRUE(recording);
@@ -640,20 +643,25 @@ TEST_P(IndexedRaster, InvalidRangesBindingsAndDepthAreRejected)
         auto  data = probe.graph->GetData();
         auto &pass = std::get<FrameRasterPass>(data.passes[1]);
         auto &draw = pass.draws.front();
+        auto       bindings = ResolveRasterBindings(draw);
+        const auto uniform  = [&](uint32_t set) -> RasterUniformBinding  &{
+            return *std::ranges::find_if(bindings.uniforms, [&](const auto &value) { return value.set == set; });
+        };
         switch (fault) {
         case 0: draw.indexed->range.size = 2; break;
         case 1: draw.vertices[0].range.size = UINT64_MAX; break;
         case 2: draw.attributes[0].binding = 9; break;
-        case 3: draw.uniforms[0].range.buffer.graph++; break;
-        case 4: draw.uniforms[0].dynamicOffset = UINT32_MAX; break;
+        case 3: uniform(2).range.buffer.graph++; break;
+        case 4: uniform(2).dynamicOffset = UINT32_MAX; break;
         case 5: pass.depth->load = LoadOp::DONT_CARE; break;
         case 6: pass.depth.reset(); break;
-        case 7: draw.uniforms.pop_back(); break;
-        case 8: draw.uniforms[0].binding = 7; break;
-        case 9: draw.uniforms[0].dynamicOffset = 1; break;
-        case 10: draw.uniforms[2].dynamicOffset = 256; break;
+        case 7: std::erase_if(bindings.uniforms, [](const auto &value) { return value.set == 1; }); break;
+        case 8: uniform(2).binding = 7; break;
+        case 9: uniform(2).dynamicOffset = 1; break;
+        case 10: uniform(1).dynamicOffset = 256; break;
         case 11: data.passes.erase(data.passes.begin()); break;
         }
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
         auto graph = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
         EXPECT_TRUE(std::holds_alternative<FrameError>(context->Compile(lease, graph))) << fault;
     }
@@ -782,8 +790,10 @@ TEST_P(IndexedRaster, SparseShaderSetsKeepTheirActualSetNumbers)
     auto       data  = probe.graph->GetData();
     for (auto &draw : std::get<FrameRasterPass>(data.passes[1]).draws) {
         draw.shader     = std::get<ShaderPtr>(resolved);
-        const auto tint = draw.uniforms.back();
-        draw.uniforms   = {{2, 0, {tint.range.buffer, 0, tint.range.size}, static_cast<uint32_t>(tint.range.offset)}};
+        auto       bindings = ResolveRasterBindings(draw);
+        const auto tint     = *std::ranges::find_if(bindings.uniforms, [](const auto &value) { return value.set == 1; });
+        bindings.uniforms   = {{2, 0, {tint.range.buffer, 0, tint.range.size}, static_cast<uint32_t>(tint.range.offset)}};
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
         draw.depth      = {};
     }
     probe.graph    = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
@@ -925,7 +935,7 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
         retained->push_back(std::move(std::get<PreparedRasterView>(raster)));
         auto &item = retained->back().draws[0];
         EXPECT_EQ(item.draw.indexed->range.offset, i ? 60u : 48u);
-        EXPECT_TRUE(item.draw.uniforms.empty());
+        EXPECT_TRUE(ResolveRasterBindings(item.draw).uniforms.empty());
         const auto                    &view = prepared->views[i].view;
         const shared::OpaquePassParams params{view.projection * view.view, {view.cameraPosition.x, view.cameraPosition.y, view.cameraPosition.z, 1}};
         const shared::SceneBatchParams batch{item.world};

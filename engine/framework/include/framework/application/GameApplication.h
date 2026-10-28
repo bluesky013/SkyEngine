@@ -5,9 +5,11 @@
 #pragma once
 
 #include <core/file/FileSystem.h>
+#include <core/template/ReferenceObject.h>
 #include <framework/application/Application.h>
 #include <framework/project/ProjectDescriptor.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/world/IGameWorld.h>
 
 #include <string>
 
@@ -16,16 +18,18 @@ namespace sky {
     // Writable/project config takes precedence over read-only packaged config.
     FilePtr OpenGameConfig(const FileSystemPtr &workFs, const FileSystemPtr &bundleFs);
 
-    class GameApplication : public Application {
+    class GameApplication : public Application, public IGameWorld {
     public:
-        GameApplication() = default;
+        GameApplication();
         ~GameApplication() override;
 
         bool Init(int argc, char **argv) override;
         bool PreInit() override;
         void PostInit() override;
 
-        void PreTick() override;
+        void   PreTick() override;
+        void   Tick(float delta) override;
+        World *GetWorld() const override;
 
         NativeWindow *GetWindow() const
         {
@@ -41,6 +45,10 @@ namespace sky {
 
     private:
         bool LoadConfigs() override;
+        bool InitStartupData() override;
+        void OnShutdown() override;
+        bool LoadDefaultWorld();
+        void ReleaseWorld();
 
         std::unique_ptr<NativeWindow> nativeWindow;
         uint32_t                      width  = 1024;
@@ -49,6 +57,10 @@ namespace sky {
         FileSystemPtr     workFs;
         ProjectDescriptor project;
         bool              hasProject = false;
+        std::string       defaultScene;
+        CounterPtr<World> world;
+        bool              worldReady   = false;
+        bool              worldStarted = false;
     };
 
 } // namespace sky

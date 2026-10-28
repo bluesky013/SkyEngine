@@ -1,9 +1,10 @@
-﻿//
+//
 // Created by Zach Lee on 2026/3/30.
 //
 
 #include "AuroraTestHelper.h"
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/DirectFrameContext.h>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -58,24 +59,24 @@ TEST_F(DeviceTestD3D12, DeviceInfo)
     EXPECT_FALSE(info.empty());
 }
 
-TEST_F(DeviceTestD3D12, CreateFrameContext)
+TEST_F(DeviceTestD3D12, CreateDirectFrameContext)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
     DeviceFrameContextInitInfo info{};
     info.inflightNum        = 3;
     info.parallelNum        = 2;
-    DeviceFrameContext *ctx = device->CreateFrameContext(info);
+    DirectFrameContext *ctx = device->CreateDirectFrameContext(info);
     ASSERT_NE(ctx, nullptr);
 
-    // Legacy BeginFrame resets the fence, so each rotation requires a matching submission.
+    // Direct frame rotation requires a matching queue submission for each reset fence.
     for (int i = 0; i < 6; ++i) {
-        ctx->BeginFrame();
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(ctx->TryBeginFrame()));
         SubmitInfo submit;
         submit.fence = ctx->GetFrameFence();
         ASSERT_EQ(device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submit).status, QueueSubmitStatus::ACCEPTED);
         ASSERT_TRUE(submit.fence->WaitFor(5'000'000'000ULL));
-        ctx->EndFrame();
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(ctx->EndFrame()));
     }
 
     delete ctx;

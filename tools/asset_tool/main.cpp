@@ -225,9 +225,6 @@ int main(int argc, char **argv)
         uint32_t cooked = 0;
         uint32_t failed = 0;
         AssetDataBase::Get()->ForEachSource([&](const AssetSourcePtr &src) {
-            // World manifests are read by World::LoadJson; their asset roots are cooked products.
-            if (src->ext == ".world")
-                return;
             const std::string cookJson = AssetDataBase::Get()->GetCookJson(src->uuid);
             for (const auto &target : builderMgr->GetCookConfig().GetTargets(cookJson, activePlatform)) {
                 std::promise<AssetBuildResult> completion;

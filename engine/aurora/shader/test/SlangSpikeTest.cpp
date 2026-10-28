@@ -4,6 +4,8 @@
 
 #include <aurora/shader/ShaderCompilerSlang.h>
 
+#include "SpirvArtifact.h"
+
 #include <core/platform/Platform.h>
 
 #include <gtest/gtest.h>
@@ -11,6 +13,7 @@
 #include <slang.h>
 
 #include <cstring>
+#include <initializer_list>
 #include <map>
 #include <string>
 
@@ -54,7 +57,146 @@ FSOutput mainFS(float2 uv : TEXCOORD0)
         return out;
     }
 
+    std::vector<uint8_t> SpirvBytes(std::initializer_list<uint32_t> words)
+    {
+        std::vector<uint8_t> bytes;
+        for (const auto word : words)
+            for (uint32_t i = 0; i < 4; ++i)
+                bytes.push_back(static_cast<uint8_t>(word >> (i * 8)));
+        return bytes;
+    }
+
+    std::vector<uint8_t> SpirvComputeFixture()
+    {
+        return SpirvBytes({0x07230203,
+                           0x00010500,
+                           0,
+                           6,
+                           0,
+                           (2u << 16) | 17,
+                           1,
+                           (3u << 16) | 14,
+                           0,
+                           1,
+                           (5u << 16) | 15,
+                           5,
+                           4,
+                           0x6e69616d,
+                           0,
+                           (6u << 16) | 16,
+                           4,
+                           17,
+                           1,
+                           1,
+                           1,
+                           (4u << 16) | 5,
+                           4,
+                           0x6e69616d,
+                           0,
+                           (2u << 16) | 19,
+                           1,
+                           (3u << 16) | 33,
+                           2,
+                           1,
+                           (5u << 16) | 54,
+                           1,
+                           4,
+                           0,
+                           2,
+                           (2u << 16) | 248,
+                           5,
+                           (1u << 16) | 253,
+                           (1u << 16) | 56});
+    }
+
+    void ExpectNoSpirvSourceMetadata(const std::vector<uint8_t> &code)
+    {
+        ASSERT_GE(code.size(), 20u);
+        ASSERT_EQ(code.size() % 4, 0u);
+        for (size_t offset = 20; offset < code.size();) {
+            uint32_t instruction = 0;
+            for (uint32_t i = 0; i < 4; ++i)
+                instruction |= uint32_t(code[offset + i]) << (i * 8);
+            const auto words = instruction >> 16;
+            ASSERT_NE(words, 0u);
+            ASSERT_LE(words, (code.size() - offset) / 4);
+            EXPECT_NE(instruction & 0xffffu, 2u);
+            EXPECT_NE(instruction & 0xffffu, 3u);
+            offset += words * 4;
+        }
+    }
+
 } // namespace
+
+TEST(SlangSpikeTest, SpirvFinalizationPreservesEveryNonSourceInstructionAndIsIdempotent)
+{
+    const auto expected = SpirvComputeFixture();
+    auto       code     = expected;
+    const auto source   = SpirvBytes({(3u << 16) | 3, 11, 1, (2u << 16) | 2, 0x00637273});
+    code.insert(code.begin() + 21 * 4, source.begin(), source.end());
+    std::string entry = "previous";
+    std::string error;
+    ASSERT_TRUE(FinalizeSpirvArtifact(code, ShaderStageFlagBit::CS, entry, error)) << error;
+    EXPECT_EQ(code, expected);
+    EXPECT_EQ(entry, "main");
+    EXPECT_TRUE(error.empty());
+    ASSERT_TRUE(FinalizeSpirvArtifact(code, ShaderStageFlagBit::CS, entry, error)) << error;
+    EXPECT_EQ(code, expected);
+    EXPECT_EQ(entry, "main");
+}
+
+TEST(SlangSpikeTest, SpirvFinalizationRejectsMalformedInstructionsWithoutPublishingPartialCode)
+{
+    const auto valid  = SpirvComputeFixture();
+    const auto reject = [](std::vector<uint8_t> code, ShaderStageFlagBit stage = ShaderStageFlagBit::CS) {
+        const auto  original = code;
+        std::string entry    = "preserved";
+        std::string error;
+        EXPECT_FALSE(FinalizeSpirvArtifact(code, stage, entry, error));
+        EXPECT_EQ(code, original);
+        EXPECT_EQ(entry, "preserved");
+        EXPECT_FALSE(error.empty());
+    };
+    reject({valid.begin(), valid.begin() + 19});
+    reject({valid.begin(), valid.end() - 1});
+    auto badHeader = valid;
+    badHeader[0]   = 0;
+    reject(badHeader);
+    badHeader     = valid;
+    badHeader[16] = 1;
+    reject(badHeader);
+    reject({valid.begin(), valid.begin() + 20});
+    reject(valid, ShaderStageFlagBit::VS);
+    reject(valid, ShaderStageFlagBit::GFX);
+    for (const auto &tail : {
+             SpirvBytes({0}),
+             SpirvBytes({(4u << 16) | 17, 1}),
+             SpirvBytes({(2u << 16) | 3, 11}),
+             SpirvBytes({(1u << 16) | 2}),
+             SpirvBytes({(2u << 16) | 2, 0x61616161}),
+             SpirvBytes({(5u << 16) | 3, 11, 1, 5, 0x61616161}),
+             SpirvBytes({(3u << 16) | 15, 5, 4}),
+             SpirvBytes({(4u << 16) | 15, 5, 4, 0x61616161}),
+             SpirvBytes({(4u << 16) | 15, 5, 4, 0}),
+             SpirvBytes({(5u << 16) | 15, 5, 4, 0x6e69616d, 0}),
+         }) {
+        auto code = valid;
+        code.insert(code.end(), tail.begin(), tail.end());
+        reject(std::move(code));
+    }
+}
+
+TEST(SlangSpikeTest, SpirvSourceOmissionHasATargetSpecificProducerPolicy)
+{
+    ShaderCompilerSlang compiler;
+    const auto          spirv = compiler.GetProducerIdentity(ShaderTarget::SPIRV);
+    const auto          metal = compiler.GetProducerIdentity(ShaderTarget::MSL);
+    EXPECT_FALSE(spirv.version.empty());
+    EXPECT_EQ(spirv.compiler, metal.compiler);
+    EXPECT_EQ(spirv.version, metal.version);
+    EXPECT_EQ(spirv.adapterVersion, metal.adapterVersion);
+    EXPECT_NE(spirv.configuration, metal.configuration);
+}
 
 TEST(SlangSpikeTest, MetalKeepsLogicalBindingsAndReflectsActualArgumentSlots)
 {
@@ -435,6 +577,8 @@ TEST(SlangSpikeTest, CompleteStageArtifactsPreserveIdentityThroughStageMacroAndO
                     EXPECT_EQ(result.identity.sourceEntry, desc.entry);
                     EXPECT_EQ(result.identity.nativeEntry, target == ShaderTarget::SPIRV ? "main" : desc.entry);
                     EXPECT_EQ(result.identity.producer, compiler.GetProducerIdentity(target));
+                    if (target == ShaderTarget::SPIRV)
+                        ExpectNoSpirvSourceMetadata(result.data);
                     EXPECT_NE(result.identity.producer.configuration, 0u);
                     EXPECT_FALSE(result.identity.producer.version.empty());
                     EXPECT_EQ(result.reflection.kind, ShaderReflectionKind::STAGE);
@@ -557,7 +701,6 @@ int main(int argc, char *argv[])
     return RUN_ALL_TESTS();
 }
 
-
 TEST(SlangSpikeTest, VariantDeclarationReflectionGate)
 {
     Slang::ComPtr<slang::IGlobalSession> global;
@@ -581,16 +724,16 @@ static const uint kUnused = 9u;
     for (auto target : {SLANG_SPIRV, SLANG_METAL, SLANG_DXIL}) {
         SCOPED_TRACE(static_cast<int>(target));
         slang::TargetDesc targetDesc{};
-        targetDesc.format = target;
-        targetDesc.profile = global->findProfile(target == SLANG_METAL ? "metallib_2_3" : "sm_6_0");
+        targetDesc.format                           = target;
+        targetDesc.profile                          = global->findProfile(target == SLANG_METAL ? "metallib_2_3" : "sm_6_0");
         const slang::PreprocessorMacroDesc macros[] = {
             {"AURORA_TARGET_DXIL", target == SLANG_DXIL ? "1" : "0"},
             {"NUM_LIGHTS", target == SLANG_DXIL ? "8" : "4"},
         };
         slang::SessionDesc sessionDesc{};
-        sessionDesc.targets = &targetDesc;
-        sessionDesc.targetCount = 1;
-        sessionDesc.preprocessorMacros = macros;
+        sessionDesc.targets                = &targetDesc;
+        sessionDesc.targetCount            = 1;
+        sessionDesc.preprocessorMacros     = macros;
         sessionDesc.preprocessorMacroCount = 2;
         Slang::ComPtr<slang::ISession> session;
         ASSERT_TRUE(SLANG_SUCCEEDED(global->createSession(sessionDesc, session.writeRef())));
@@ -601,7 +744,12 @@ static const uint kUnused = 9u;
         for (auto *child : module->getModuleReflection()->getChildren())
             if (auto *variable = child->asVariable())
                 declarations.emplace(variable->getName(), variable);
-        const struct { const char *name; slang::TypeReflection::ScalarType type; uint32_t bits; uint32_t id; } expected[] = {
+        const struct {
+            const char                       *name;
+            slang::TypeReflection::ScalarType type;
+            uint32_t                          bits;
+            uint32_t                          id;
+        } expected[] = {
             {"kNumLights", slang::TypeReflection::ScalarType::Int32, target == SLANG_DXIL ? 8u : 4u, 7},
             {"kEnabled", slang::TypeReflection::ScalarType::Bool, 1, 2},
             {"kUnused", slang::TypeReflection::ScalarType::UInt32, 9, 31},

@@ -19,7 +19,6 @@ namespace sky::aurora {
     class MetalImage;
     class MetalSampler;
     class MetalDescriptorEncoder;
-    class MetalDescriptorBatch;
 
     // Logical bindings are remapped to reflected MSL argument slots per stage.
     class MetalResourceGroup : public ResourceGroup {
@@ -30,7 +29,6 @@ namespace sky::aurora {
         bool          Init(const Descriptor &desc);
         const Device *GetDevice() const noexcept override;
 
-        using ResourceGroup::CreateEncoder;
         std::unique_ptr<DescriptorEncoder> CreateEncoder() override;
 
         // Dynamic offsets follow ascending logical binding order, shared by both graphics stages.
@@ -39,7 +37,6 @@ namespace sky::aurora {
 
     private:
         friend class MetalDescriptorEncoder;
-        friend class MetalDescriptorBatch;
         bool ValidateBindings(uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) const;
         struct BufferBinding {
             CounterPtr<MetalBuffer> buffer;

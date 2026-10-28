@@ -1,5 +1,7 @@
 #include <core/async/TaskDispatcher.h>
+
 #include <core/platform/Platform.h>
+#include <utility>
 
 namespace sky {
 
@@ -114,7 +116,7 @@ namespace sky {
         finished.store(nodes.empty(), std::memory_order_release);
         if (nodes.empty()) {
             auto completion = batchPromise;
-            auto callback   = std::move(drainCallback);
+            auto callback   = std::exchange(drainCallback, {});
             if (callback)
                 callback(DispatchState::SUCCEEDED);
             completion->set_value(DispatchState::SUCCEEDED);
@@ -155,7 +157,8 @@ namespace sky {
                     break;
                 }
             }
-            auto callback = std::move(drainCallback);
+            // A small std::function may retain captures after move; the original owner must be empty.
+            auto callback = std::exchange(drainCallback, {});
             // Independent owners allow the drain hook to clear/destroy graph storage before notification.
             finished.store(true, std::memory_order_release);
             if (callback)

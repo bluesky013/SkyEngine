@@ -64,6 +64,7 @@ TEST_F(GeneratedAssetCatalogTest, RecookMoveAndReloadKeepChildrenAndDefaultCombi
     ASSERT_EQ(first.records.size(), 2U);
     const auto second = Generate();
     EXPECT_EQ(first.records[0].uuid, second.records[0].uuid);
+    EXPECT_EQ(first.records[1].uuid, second.records[1].uuid);
     Uuid        owner;
     std::string type, path;
     ASSERT_TRUE(database.GetOwner(first.records[0].uuid, owner));
@@ -88,31 +89,6 @@ TEST_F(GeneratedAssetCatalogTest, RecookMoveAndReloadKeepChildrenAndDefaultCombi
     EXPECT_TRUE(database.Exists(first.records[1].uuid));
     EXPECT_FALSE(database.GetCookJson(id).empty());
     EXPECT_EQ(Generate().records[0].uuid, first.records[0].uuid);
-}
-
-TEST_F(GeneratedAssetCatalogTest, VerifiedLegacyIdentityIsPersistentAndCannotStealOrRebindAnExistingIdentity)
-{
-    const auto legacy = Uuid::Create();
-    descriptors[1].verifiedLegacyId = legacy;
-    const auto first = Generate();
-    ASSERT_EQ(first.records.size(), 2U);
-    EXPECT_EQ(first.records[1].uuid, legacy);
-    descriptors[1].verifiedLegacyId = {};
-    EXPECT_EQ(Generate().records[1].uuid, legacy);
-    GeneratedAssetManifest result;
-    descriptors[1].verifiedLegacyId = Uuid::Create();
-    EXPECT_FALSE(database.UpdateGeneratedProducts(source->uuid, descriptors, defaults, result));
-    EXPECT_TRUE(database.Exists(legacy));
-    descriptors[1].key = "other-rig";
-    defaults["skeleton"] = "other-rig";
-    EXPECT_FALSE(database.UpdateGeneratedProducts(source->uuid, descriptors, defaults, result));
-    ASSERT_TRUE(filesystem->WriteFileExclusive("other.model", std::array<uint8_t, 1>{1}));
-    const auto other = database.RegisterAsset("other.model", false);
-    ASSERT_TRUE(other);
-    descriptors[1].verifiedLegacyId = legacy;
-    EXPECT_EQ(database.UpdateGeneratedProducts(other->uuid, descriptors, defaults, result).error, ProductError::OwnerConflict);
-    descriptors[1].verifiedLegacyId = source->uuid;
-    EXPECT_EQ(database.UpdateGeneratedProducts(other->uuid, descriptors, defaults, result).error, ProductError::OwnerConflict);
 }
 
 TEST_F(GeneratedAssetCatalogTest, DuplicateGetsNewChildIdsAndRemovalKeepsTombstone)

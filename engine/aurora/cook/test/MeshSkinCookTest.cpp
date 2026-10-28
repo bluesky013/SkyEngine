@@ -10,6 +10,7 @@
 #include <core/archive/MemoryStreamArchive.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetProduct.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
 
@@ -53,8 +54,8 @@ namespace {
         bool                fail = false;
         FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override
         {
-            return fail && to.FileName() == "current.bin" ? FileOperationStatus{FileOperationError::IOError, "injected mesh commit failure"}
-                                                          : NativeFileSystem::ReplaceFileAtomic(from, to);
+            return fail && to.FileName().ends_with(".bin") ? FileOperationStatus{FileOperationError::IOError, "injected mesh commit failure"}
+                                                           : NativeFileSystem::ReplaceFileAtomic(from, to);
         }
     };
 } // namespace
@@ -334,22 +335,23 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         ASSERT_NE(mesh, nullptr);
         mesh->BlockUntilLoaded();
         ASSERT_TRUE(mesh->IsLoaded());
-        const auto firstGroup = mesh->GetProductGroup();
-        ASSERT_EQ(firstGroup->members.size(), 5U);
-        FilePtr productFile;
-        ASSERT_TRUE(AssetProductGroupStore(fs).Open(*firstGroup, source->uuid, productFile));
-        const auto  header = productFile->ReadAsArchive();
-        std::string type;
-        uint32_t    dependencies = 99;
-        ASSERT_TRUE(header->Load(type));
-        ASSERT_TRUE(header->Load(dependencies));
-        EXPECT_EQ(dependencies, 0U);
-        for (const auto &member : firstGroup->members) {
-            const auto loaded = manager->LoadAsset(member.uuid);
+        std::vector<Uuid> products{source->uuid};
+        database->ForEachGenerated([&](const GeneratedAssetRecord &record) {
+            if (record.owner == source->uuid && record.active)
+                products.push_back(record.uuid);
+        });
+        ASSERT_EQ(products.size(), 5U);
+        AssetProductInspection inspection;
+        ASSERT_TRUE(manager->InspectProduct(source->uuid, request.bundle, inspection));
+        EXPECT_EQ(inspection.type, "AuroraMesh");
+        EXPECT_TRUE(inspection.dependencies.empty());
+        for (const auto &id : products) {
+            EXPECT_TRUE(fs->FileExist(ProductFilePath(id)));
+            const auto loaded = manager->LoadAsset(id);
             ASSERT_NE(loaded, nullptr);
             loaded->BlockUntilLoaded();
             EXPECT_TRUE(loaded->IsLoaded());
-            EXPECT_EQ(loaded->GetProductGroup()->generation, firstGroup->generation);
+            EXPECT_TRUE(loaded->GetInstanceId());
         }
         builder.Request(request, result);
         ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
@@ -361,7 +363,8 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         second->BlockUntilLoaded();
         ASSERT_TRUE(second->IsLoaded());
         EXPECT_NE(second.get(), mesh.get());
-        EXPECT_EQ(second->GetProductGroup()->revision, firstGroup->revision + 1);
+        EXPECT_NE(second->GetInstanceId(), mesh->GetInstanceId());
+        EXPECT_NE(second->GetRevision(), mesh->GetRevision());
         EXPECT_EQ(mesh->ReadBulk(mesh->Data().vertexOffset, mesh->Data().vertexSize),
                   second->ReadBulk(second->Data().vertexOffset, second->Data().vertexSize));
         const auto otherFs = fs->CreateSubSystem("other", true);
@@ -369,21 +372,23 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         request.bundle = "mesh-skin-second";
         builder.Request(request, result);
         ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
-        ProductGroupSnapshotPtr otherGroup;
-        ASSERT_TRUE(AssetProductGroupStore(otherFs).Resolve(source->uuid, otherGroup));
-        EXPECT_NE(otherGroup->generation, second->GetProductGroup()->generation);
-        const auto otherMesh = manager->LoadAssetSnapshot(source->uuid, request.bundle, otherGroup);
-        ASSERT_NE(otherMesh, nullptr);
-        otherMesh->BlockUntilLoaded();
-        EXPECT_TRUE(otherMesh->IsLoaded());
+        AssetProductInspection otherProduct;
+        ASSERT_TRUE(manager->InspectProduct(source->uuid, request.bundle, otherProduct));
+        EXPECT_EQ(otherProduct.type, "AuroraMesh");
+        for (const auto &id : products)
+            EXPECT_TRUE(otherFs->FileExist(ProductFilePath(id)));
         std::map<std::string, Uuid> otherDefaults;
         ASSERT_TRUE(database->GetGeneratedDefaults(source->uuid, otherDefaults));
         EXPECT_EQ(otherDefaults, defaults);
+        const auto beforeFailure = manager->LoadAsset<Mesh>(source->uuid);
+        ASSERT_NE(beforeFailure, nullptr);
+        beforeFailure->BlockUntilLoaded();
+        ASSERT_TRUE(beforeFailure->IsLoaded());
         request.bundle = "mesh-skin-test";
         fs->fail       = true;
         builder.Request(request, result);
         EXPECT_EQ(result.retCode, AssetBuildRetCode::FAILED);
-        EXPECT_EQ(manager->LoadAsset<Mesh>(source->uuid).get(), second.get());
+        EXPECT_EQ(manager->LoadAsset<Mesh>(source->uuid).get(), beforeFailure.get());
         manager->SetSourceCatalog(nullptr);
         database->Reset();
         AssetExecutor::Get()->WaitForAll();

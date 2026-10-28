@@ -13,11 +13,13 @@
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/asset/CookConfig.h>
 #include <framework/asset/CookWorker.h>
+#include <framework/asset/ISourceCatalog.h>
 #include <framework/asset/InProcessCookRunner.h>
 #include <framework/compression/Compressor.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/CoreReflection.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/WorldAsset.h>
 #include <test/EngineRoot.h>
 
 #include <chrono>
@@ -28,6 +30,110 @@
 #include <thread>
 
 using namespace sky;
+
+TEST(AssetManagerBuiltins, RecreatedManagerProvidesWorldWithoutModuleRegistration)
+{
+    for (uint32_t iteration = 0; iteration < 2; ++iteration) {
+        AssetManager manager;
+        const auto   id    = Uuid::Create();
+        const auto   asset = manager.CreateBuildAsset(id, Name(AssetTraits<World>::ASSET_TYPE.data()));
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->GetUuid(), id);
+        ASSERT_EQ(asset->GetType(), Name("World"));
+        const auto typed = std::static_pointer_cast<Asset<World>>(asset);
+        EXPECT_TRUE(typed->Data().IsLoadValid());
+        EXPECT_TRUE(typed->Data().actors.empty());
+    }
+}
+
+TEST(AssetProductPaths, ProductIndexesRejectConflictingLogicalIdentities)
+{
+    class RecordingCatalog final : public ISourceCatalog {
+    public:
+        bool ResolvePath(const std::string &path, Uuid &) const override
+        {
+            paths.push_back(path);
+            return false;
+        }
+        bool Exists(const Uuid &) const override
+        {
+            return false;
+        }
+        bool GetType(const Uuid &, std::string &) const override
+        {
+            return false;
+        }
+        bool GetTarget(const Uuid &, std::string &) const override
+        {
+            return false;
+        }
+        bool GetSourcePath(const Uuid &, std::string &) const override
+        {
+            return false;
+        }
+        mutable std::vector<std::string> paths;
+    } catalog;
+    namespace fs = std::filesystem;
+    std::error_code error;
+    const auto      temporary = fs::temp_directory_path(error);
+    ASSERT_FALSE(error);
+    struct Cleanup {
+        fs::path root;
+        ~Cleanup()
+        {
+            std::error_code error;
+            fs::remove_all(root, error);
+            EXPECT_FALSE(error);
+        }
+    } cleanup{temporary / ("sky-product-paths-" + Uuid::Create().ToString())};
+    const Uuid                     firstId = Uuid::Create(), conflictingId = Uuid::Create();
+    const std::vector<std::string> invalidPaths{"",
+                                                ".",
+                                                "./",
+                                                "..",
+                                                "worlds/..",
+                                                "../worlds/main.world",
+                                                "worlds/../../main.world",
+                                                "/worlds/main.world",
+                                                "\\worlds\\main.world",
+                                                "C:\\worlds\\main.world",
+                                                "worlds:main.world",
+                                                "//server/worlds/main.world",
+                                                std::string("worlds/main.world") + '\0' + "hidden"};
+    const auto                     bundle = [&](const char *name, const Uuid &id) {
+        const FileSystemPtr filesystem = new NativeFileSystem(FilePath(cleanup.root / name));
+        AssetIndexFile      index("path");
+        index.Set({"worlds/main.world", id, {}});
+        for (const auto &path : invalidPaths)
+            index.Set({path, id, {}});
+        EXPECT_TRUE(AssetIndexFile::Save(filesystem, FilePath("product.index"), index));
+        return new PackageAssetBundle(filesystem, name);
+    };
+    AssetManager manager;
+    manager.SetSourceCatalog(&catalog);
+    manager.AddAssetProductBundle(bundle("first", firstId));
+    EXPECT_EQ(manager.ResolveProductPath("worlds/main.world"), firstId);
+    EXPECT_EQ(manager.ResolveProductPath("worlds\\main.world"), firstId);
+    EXPECT_EQ(manager.ResolveProductPath("./worlds\\main.world"), firstId);
+    EXPECT_EQ(manager.ResolveProductPath("scratch/../worlds/./main.world"), firstId);
+    EXPECT_EQ(manager.ResolveProductPath("worlds//nested/../main.world/"), firstId);
+    EXPECT_FALSE(manager.ResolveProductPath("worlds/missing.world"));
+    EXPECT_EQ(manager.LoadAssetFromPath("./worlds\\draft\\..\\missing.world", AssetLoadPolicy::AllowCook), nullptr);
+    EXPECT_EQ(catalog.paths, (std::vector<std::string>{"worlds/missing.world"}));
+    EXPECT_EQ(manager.LoadAssetFromPath("./worlds\\missing.world", AssetLoadPolicy::ProductsOnly), nullptr);
+    for (const auto &path : invalidPaths) {
+        SCOPED_TRACE(path);
+        EXPECT_FALSE(manager.ResolveProductPath(path));
+        EXPECT_EQ(manager.LoadAssetFromPath(path, AssetLoadPolicy::AllowCook), nullptr);
+        EXPECT_EQ(manager.LoadAssetFromPath(path, AssetLoadPolicy::ProductsOnly), nullptr);
+    }
+    EXPECT_EQ(catalog.paths, (std::vector<std::string>{"worlds/missing.world"}));
+    manager.AddAssetProductBundle(bundle("same", firstId));
+    EXPECT_EQ(manager.ResolveProductPath("worlds/main.world"), firstId);
+    manager.AddAssetProductBundle(bundle("conflict", conflictingId));
+    EXPECT_FALSE(manager.ResolveProductPath("worlds/main.world"));
+    EXPECT_EQ(manager.LoadAssetFromPath("worlds/main.world", AssetLoadPolicy::ProductsOnly), nullptr);
+}
 
 namespace {
     class AssetScanTest : public testing::Test {
@@ -162,9 +268,13 @@ public:
         json.End();
 
         auto *am        = AssetManager::Get();
-        auto  asset     = std::static_pointer_cast<Asset<MAggData>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("MAgg")));
+        auto  asset     = std::static_pointer_cast<Asset<MAggData>>(am->CreateBuildAsset(request.assetInfo->uuid, Name("MAgg")));
         asset->Data().v = v;
-        am->SaveAsset(asset, request.target);
+        if (const auto status = am->SaveAsset(asset, request.target); !status) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            result.error   = status.message;
+            return;
+        }
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
@@ -317,15 +427,20 @@ public:
         auto *am      = AssetManager::Get();
         auto *builder = AssetBuilderManager::Get()->QueryBuilder(request.assetInfo->ext);
         if (builder != nullptr && builder->QueryType(request.assetInfo->ext) == AssetTraits<T1Data>::ASSET_TYPE) {
-            auto asset = std::static_pointer_cast<Asset<T1Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T1")));
+            auto asset = std::static_pointer_cast<Asset<T1Data>>(am->CreateBuildAsset(request.assetInfo->uuid, Name("T1")));
 
             T1Data &data = asset->Data();
             json.Start("val");
             data.v = json.LoadInt();
 
-            am->SaveAsset(asset, "common");
+            if (const auto status = am->SaveAsset(asset, "common"); !status) {
+                result.retCode = AssetBuildRetCode::FAILED;
+                result.error   = status.message;
+                return;
+            }
+            result.retCode = AssetBuildRetCode::SUCCESS;
         } else {
-            auto asset = std::static_pointer_cast<Asset<T2Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T2")));
+            auto asset = std::static_pointer_cast<Asset<T2Data>>(am->CreateBuildAsset(request.assetInfo->uuid, Name("T2")));
 
             T2Data &data = asset->Data();
             json.Start("val");
@@ -336,7 +451,12 @@ public:
             auto iter = configs.find(target);
             if (iter != configs.end()) {
                 data.extVal = iter->second.extVal;
-                am->SaveAsset(asset, target);
+                if (const auto status = am->SaveAsset(asset, target); !status) {
+                    result.retCode = AssetBuildRetCode::FAILED;
+                    result.error   = status.message;
+                    return;
+                }
+                result.retCode = AssetBuildRetCode::SUCCESS;
             }
         }
     }
@@ -370,7 +490,7 @@ public:
         json.End();
 
         auto *am    = AssetManager::Get();
-        auto  asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T3")));
+        auto  asset = std::static_pointer_cast<Asset<T3Data>>(am->CreateBuildAsset(request.assetInfo->uuid, Name("T3")));
 
         auto p1Asset = AssetDataBase::Get()->RegisterAsset(p1);
         auto p2Asset = AssetDataBase::Get()->RegisterAsset(p2);
@@ -387,7 +507,11 @@ public:
         asset->AddDependencies(p1Asset->uuid);
         asset->AddDependencies(p2Asset->uuid);
 
-        am->SaveAsset(asset, "common");
+        if (const auto status = am->SaveAsset(asset, "common"); !status) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            result.error   = status.message;
+            return;
+        }
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
@@ -749,7 +873,7 @@ TEST_F(AssetManagerTest, LoadFromProductsOnlyTest)
     std::filesystem::remove(FilePath(root + "/" + path).GetStr());
     AssetManager::Get()->SetSourceCatalog(nullptr);
 
-    auto asset = AssetManager::Get()->LoadAsset<T1Data>(id);
+    auto asset = AssetManager::Get()->LoadAssetFromPath<T1Data>("./framework\\data\\nested\\..\\products_only.t1", AssetLoadPolicy::ProductsOnly);
     ASSERT_NE(asset, nullptr);
     asset->BlockUntilLoaded();
     EXPECT_TRUE(asset->IsLoaded());
@@ -1144,13 +1268,13 @@ TEST_F(AssetManagerTest, BulkRoundTripTest)
 
     {
         auto asset =
-            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->FindOrCreateAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
+            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->CreateBuildAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
         ASSERT_NE(asset, nullptr);
         asset->Data().magic  = 0xC0DE;
         asset->Data().offset = 0;
         asset->Data().size   = payload.size();
         asset->AddBulk(payload.data(), payload.size());
-        AssetManager::Get()->SaveAsset(asset, "bulk");
+        ASSERT_TRUE(AssetManager::Get()->SaveAsset(asset, "bulk"));
     }
 
     // Reload from the product only: the header is resident, the payload is read on demand.
@@ -1197,10 +1321,10 @@ TEST_F(AssetManagerTest, NoBulkRoundTripTest)
 
     {
         auto asset =
-            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->FindOrCreateAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
+            std::static_pointer_cast<Asset<BulkData>>(AssetManager::Get()->CreateBuildAsset(id, Name(AssetTraits<BulkData>::ASSET_TYPE.data())));
         ASSERT_NE(asset, nullptr);
         asset->Data().magic = 0x1234;
-        AssetManager::Get()->SaveAsset(asset, "nobulk");
+        ASSERT_TRUE(AssetManager::Get()->SaveAsset(asset, "nobulk"));
     }
 
     auto loaded = AssetManager::Get()->LoadAsset<BulkData>(id);

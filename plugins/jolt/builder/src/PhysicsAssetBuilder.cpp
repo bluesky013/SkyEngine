@@ -45,15 +45,9 @@ namespace sky::phy {
             result.error = status.message;
             return;
         }
-        AssetProductData        product{request.assetInfo->uuid, std::string(type), {}, {encoded.begin(), encoded.end()}};
-        ProductGroupTransaction transaction;
-        const auto             &bundle    = request.bundle.empty() ? request.target : request.bundle;
-        auto                   *manager   = AssetManager::Get();
-        const Uuid              members[] = {product.uuid};
-        auto                    published = manager->BeginProductGroup(product.uuid, bundle, members, transaction);
-        ProductGroupSnapshotPtr snapshot;
-        if (published)
-            published = manager->SaveProductData(transaction, bundle, std::span(&product, 1), snapshot);
+        const AssetProductData product{request.assetInfo->uuid, std::string(type), {}, {encoded.begin(), encoded.end()}};
+        const auto            &bundle    = request.bundle.empty() ? request.target : request.bundle;
+        const auto             published = AssetManager::Get()->SaveProductData(std::span(&product, 1), bundle);
         if (!published) {
             result.error = published.message;
             return;

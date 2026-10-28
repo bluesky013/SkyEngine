@@ -4,6 +4,8 @@
 
 #include <aurora/adaptor/renderer/UiRenderFeature.h>
 
+#include <aurora/rdg/FrameBindings.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -190,8 +192,12 @@ namespace sky::aurora {
                                        {4, 0, 48, Format::F_R32, "TEXCOORD", 2}};
                     draw.indexed =
                         RasterIndexedDraw{std::get<RasterBufferRange>(indices), IndexType::U32, {command.indexCount, 1, command.firstIndex}};
-                    draw.images   = {{3, 0, *resolve(command)}};
-                    draw.samplers = {{3, 1, sampler}};
+                    RasterBindingDraft bindings;
+                    bindings.images   = {{3, 0, *resolve(command)}};
+                    bindings.samplers = {{3, 1, sampler}};
+                    const auto bound  = SetRasterBindings(draw, std::move(bindings));
+                    if (const auto *error = std::get_if<FrameError>(&bound))
+                        return *error;
                     pass.draws.push_back(std::move(draw));
                 }
                 return context.Raster(std::move(pass));

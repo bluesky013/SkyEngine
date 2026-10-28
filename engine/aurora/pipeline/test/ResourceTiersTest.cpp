@@ -133,7 +133,6 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
     auto enc = group->CreateEncoder();
     EXPECT_FALSE(enc->WriteBuffer(binding, buffer.Get(), 0, 0)); // dynamic UBO requires an explicit range
     EXPECT_FALSE(enc->End());
-    EXPECT_NE(enc->GetError().find("Invalid buffer descriptor"), std::string::npos);
 }
 
 TEST_F(AuroraVulkanTest, ReflectionValidationMatch)

@@ -56,7 +56,19 @@ namespace sky {
         {
         }
 
-        virtual const Uuid &GetTypeId() const = 0;
+        virtual const Uuid       &GetTypeId() const = 0;
+        virtual const TypeInfoRT *GetPersistentDataType() const
+        {
+            return nullptr;
+        }
+        virtual const void *GetPersistentData() const
+        {
+            return nullptr;
+        }
+        virtual void *GetPersistentData()
+        {
+            return nullptr;
+        }
         // The concrete macro returns the complete object address for its registered reflection type.
         virtual void *GetReflectedObject()
         {
@@ -93,6 +105,8 @@ namespace sky {
     template <typename Data>
     class ComponentAdaptor : public ComponentBase {
     public:
+        using PersistentDataType = Data;
+
         ComponentAdaptor()           = default;
         ~ComponentAdaptor() override = default;
 
@@ -109,6 +123,18 @@ namespace sky {
         const Data &GetData() const
         {
             return data;
+        }
+        const TypeInfoRT *GetPersistentDataType() const override
+        {
+            return TypeInfoObj<Data>::Get()->RtInfo();
+        }
+        const void *GetPersistentData() const override
+        {
+            return &data;
+        }
+        void *GetPersistentData() override
+        {
+            return &data;
         }
 
     protected:

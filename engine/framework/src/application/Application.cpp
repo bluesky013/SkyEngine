@@ -64,6 +64,7 @@ namespace sky {
         if (Platform::Get()->GetImpl() != nullptr) {
             Platform::Get()->SetFrameCallback({});
         }
+        OnShutdown();
         // Workers may still use module code and registries while completing queued work.
         AssetExecutor::Get()->WaitForAll();
         ThreadDispatcher::Get()->Clear();
@@ -127,6 +128,11 @@ namespace sky {
                 return false;
             }
             moduleManager->StartModules();
+            if (!InitStartupData()) {
+                LOG_E(TAG, "Application startup data failed to load");
+                Shutdown();
+                return false;
+            }
         }
 
         PostInit();
@@ -170,6 +176,8 @@ namespace sky {
         const uint64_t frequency      = Platform::Get()->GetPerformanceFrequency();
         const uint64_t currentCounter = Platform::Get()->GetPerformanceCounter();
         const float    delta          = frameClock.Sample(currentCounter, frequency, Platform::Get()->GetFrameEpoch());
+
+        Tick(delta);
 
         if (tickFn) {
             SKY_PROFILE_NAME("World Tick")

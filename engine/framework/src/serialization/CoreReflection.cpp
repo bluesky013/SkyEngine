@@ -14,6 +14,7 @@
 #include <core/util/Uuid.h>
 
 #include <framework/world/World.h>
+#include <framework/world/WorldAsset.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/PropertyCommon.h>
@@ -73,13 +74,21 @@ namespace sky {
         ar.LoadValue(uuid.word[1]);
     }
 
+    void JsonSaveName(const Name &name, JsonOutputArchive &archive)
+    {
+        archive.SaveValue(name.GetStr());
+    }
+    void JsonLoadName(Name &name, JsonInputArchive &archive)
+    {
+        name = Name(archive.LoadString().c_str());
+    }
+
     void CoreReflection(SerializationContext *context)
     {
-        context->Register<Vector2>("Vector2")
-            .Member<&Vector2::x>("x")
-            .Member<&Vector2::y>("y")
-            .JsonSave<&JsonSaveVec2>()
-            .JsonLoad<&JsonLoadVec2>();
+        context->Register<Name>("Name").JsonSave<&JsonSaveName>().JsonLoad<&JsonLoadName>();
+        context->Register<Any>("Any");
+        context->Register<WorldAssetData>("WorldAssetData").BinLoad<&WorldAssetData::Load>().BinSave<&WorldAssetData::Save>();
+        context->Register<Vector2>("Vector2").Member<&Vector2::x>("x").Member<&Vector2::y>("y").JsonSave<&JsonSaveVec2>().JsonLoad<&JsonLoadVec2>();
 
         context->Register<Vector3>("Vector3")
             .Member<&Vector3::x>("x")

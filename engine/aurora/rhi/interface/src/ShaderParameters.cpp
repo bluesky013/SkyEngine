@@ -512,41 +512,58 @@ namespace sky::aurora {
         staged.resources[{entry->binding, arrayElement}] = {entry->binding, arrayElement, token, resource->type};
         return {ShaderParameterWriteStatus::SUCCESS};
     }
+    bool ValidateShaderParameterState(const Shader &shader, uint32_t set, const ShaderParameterTransactionState &state, std::string &error)
+    {
+        if (!shader.GetParameterTable().generation)
+            return Invalid(error, "Parameter transaction requires an initialized shader parameter table");
+        const auto &reflection     = shader.GetReflection();
+        uint64_t    resourceCount  = 0;
+        size_t      fieldProviders = 0, resourceProviders = 0;
+        for (const auto &resource : reflection.resources) {
+            if (resource.set != set)
+                continue;
+            if (!resource.count || resource.count > 65536 || resourceCount + resource.count > 65536)
+                return Invalid(error, "Parameter descriptor count exceeds the transaction limit");
+            resourceCount += resource.count;
+            const bool uniform = ParameterBaseType(resource.type) == ShaderResourceType::UNIFORM_BUFFER;
+            const auto fields  = state.fields.find(resource.binding);
+            if (uniform && !state.resources.contains({resource.binding, 0})) {
+                const auto *block = ParameterBlock(reflection, set, resource.binding, true);
+                if (!block || resource.count != 1 || fields == state.fields.end() || fields->second.empty() ||
+                    fields->second.size() != block->members.size())
+                    return Invalid(error, "Required uniform block has incomplete values");
+                for (const auto &member : block->members) {
+                    const auto value = fields->second.find(member.name);
+                    if (value == fields->second.end() || value->second.type != ShaderMemberDataType(member) ||
+                        value->second.count != member.arrayCount)
+                        return Invalid(error, "Required uniform field has an incompatible type or array count");
+                    if (!ValidateShaderData(value->second, error))
+                        return false;
+                }
+                ++fieldProviders;
+                continue;
+            }
+            if (uniform && fields != state.fields.end() && !fields->second.empty())
+                return Invalid(error, "Uniform resource and typed field providers overlap");
+            for (uint32_t element = 0; element < resource.count; ++element) {
+                const auto value = state.resources.find({resource.binding, element});
+                if (value == state.resources.end() || value->second.binding != resource.binding || value->second.element != element ||
+                    ParameterBaseType(value->second.type) != ParameterBaseType(resource.type) || value->second.token == UINT32_MAX)
+                    return Invalid(error, "Required parameter resource is missing or has an incompatible type");
+                ++resourceProviders;
+            }
+        }
+        if (fieldProviders != state.fields.size())
+            return Invalid(error, "Parameter state contains an unused field provider");
+        if (resourceProviders != state.resources.size())
+            return Invalid(error, "Parameter state contains an unused resource provider");
+        return true;
+    }
     bool ShaderParameterTransaction::Complete()
     {
         if (!Open())
             return Fail("Parameter transaction is closed or failed");
-        uint64_t resourceCount = 0;
-        for (const auto &resource : shader.GetReflection().resources) {
-            if (resource.set != set)
-                continue;
-            if (!resource.count || resource.count > 65536 || resourceCount + resource.count > 65536)
-                return Fail("Parameter descriptor count exceeds the transaction limit");
-            resourceCount += resource.count;
-            const bool uniform = ParameterBaseType(resource.type) == ShaderResourceType::UNIFORM_BUFFER;
-            const auto fields  = staged.fields.find(resource.binding);
-            if (uniform && !staged.resources.contains({resource.binding, 0})) {
-                const auto *block = ParameterBlock(shader.GetReflection(), set, resource.binding, true);
-                if (!block || resource.count != 1 || fields == staged.fields.end() || fields->second.size() != block->members.size())
-                    return Fail("Required uniform block has incomplete values");
-                for (const auto &member : block->members) {
-                    const auto value = fields->second.find(member.name);
-                    if (value == fields->second.end() || value->second.type != ShaderMemberDataType(member) ||
-                        value->second.count != member.arrayCount || !ValidateShaderData(value->second, error))
-                        return Fail("Required uniform field has an incompatible type or array count");
-                }
-                continue;
-            }
-            if (uniform && fields != staged.fields.end() && !fields->second.empty())
-                return Fail("Uniform resource and typed field providers overlap");
-            for (uint32_t element = 0; element < resource.count; ++element) {
-                const auto value = staged.resources.find({resource.binding, element});
-                if (value == staged.resources.end() || value->second.binding != resource.binding || value->second.element != element ||
-                    ParameterBaseType(value->second.type) != ParameterBaseType(resource.type) || value->second.token == UINT32_MAX)
-                    return Fail("Required parameter resource is missing or has an incompatible type");
-            }
-        }
-        return true;
+        return ValidateShaderParameterState(shader, set, staged, error);
     }
     bool ShaderParameterTransaction::Finalize(std::shared_ptr<const ShaderParameterPacket> &out)
     {

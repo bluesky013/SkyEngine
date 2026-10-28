@@ -11,6 +11,7 @@
 #include <aurora/rhi/Resource.h>
 #include <aurora/rhi/Sampler.h>
 #include <aurora/rhi/Shader.h>
+#include <aurora/rhi/ShaderParameterUpdate.h>
 #include <core/template/ReferenceObject.h>
 #include <memory>
 
@@ -18,7 +19,7 @@ namespace sky::aurora {
 
     class Shader;
     class Device;
-    class NamedDescriptorEncoder;
+    class ResourceGroupParameterUpdate;
     struct ShaderUniformAllocation {
         BufferPtr                   buffer;
         uint64_t                    offset = 0, range = 0;
@@ -63,7 +64,7 @@ namespace sky::aurora {
         }
 
         virtual std::unique_ptr<DescriptorEncoder> CreateEncoder() = 0;
-        std::unique_ptr<DescriptorEncoder>         CreateEncoder(ShaderParameterUpdateContext &context) const;
+        std::unique_ptr<ShaderParameterUpdate>     CreateParameterUpdate(ShaderParameterUpdateContext &context) const;
         Shader                                    *GetShader() const noexcept
         {
             return parameterShader.Get();
@@ -81,7 +82,7 @@ namespace sky::aurora {
         bool InitParameterLayout(const Descriptor &desc);
 
     private:
-        friend class NamedDescriptorEncoder;
+        friend class ResourceGroupParameterUpdate;
         ShaderPtr                                   parameterShader;
         uint32_t                                    parameterSet = 0;
         std::shared_ptr<const ShaderParameterState> parameterState;

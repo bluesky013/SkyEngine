@@ -57,6 +57,18 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64"
       }
     },
+    {
+      "name": "ios-simulator",
+      "inherits": "ios",
+      "description": "Set SKY_IOS_SIMULATOR_ARCH and SKY_3RD_PATH to matching simulator dependencies.",
+      "cacheVariables": {
+        "SKY_PLATFORM": "ios-simulator",
+        "CMAKE_OSX_SYSROOT": "iphonesimulator",
+        "CMAKE_OSX_ARCHITECTURES": "$env{SKY_IOS_SIMULATOR_ARCH}",
+        "3RD_PATH": "$env{SKY_3RD_PATH}"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
     { "name": "windows-develop", "inherits": "windows", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
     { "name": "linux-develop", "inherits": "linux", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
     { "name": "macos-develop", "inherits": "macos", "cacheVariables": { "CMAKE_BUILD_TYPE": "Develop", "SKY_DEVELOP": "ON" } },
@@ -69,6 +81,7 @@
     { "name": "linux", "configurePreset": "linux" },
     { "name": "android", "configurePreset": "android" },
     { "name": "ios", "configurePreset": "ios", "configuration": "Release" },
+    { "name": "ios-simulator", "configurePreset": "ios-simulator", "configuration": "Release" },
     { "name": "windows-develop", "configurePreset": "windows-develop", "configuration": "Develop" },
     { "name": "linux-develop", "configurePreset": "linux-develop", "configuration": "Develop" },
     { "name": "macos-develop", "configurePreset": "macos-develop", "configuration": "Develop" },

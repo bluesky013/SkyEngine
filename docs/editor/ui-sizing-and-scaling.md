@@ -1,7 +1,7 @@
 ---
 title: "Editor UI Sizing & DPI Scaling"
 description: "Single style source, content-derived sizing, and DPI/UI scaling for the Sandbox editor UI (ImGui-style)."
-updated: "2026-10-07"
+updated: "2026-10-27"
 ---
 
 ## Purpose
@@ -28,7 +28,10 @@ font, it does not hard-code pixels.
 bakes the scale into metrics + font sizes, and layout/hit-testing use the same rects, so they are always
 consistent. There is **no paint-time transform** (that would blur the non-SDF font atlas).
 
-**Effective scale.** `systemUiScale` = `GetDpiForWindow / 96` (Win32), overridable by `SKY_UI_SCALE`.
+**Effective scale.** `systemUiScale` comes from the main `NativeWindow::GetDpiScale()` before the
+editor or hub is built: `GetDpiForWindow / 96` on Win32, and the window's `backingScaleFactor` on
+macOS. On a Retina 2× window, a base 12-pixel font is rasterized at 24 backing pixels, preserving
+its 12-point visual size. `SKY_UI_SCALE` can override the device scale for development.
 `uiScale = systemUiScale * editor.uiScale` (user preference, `Preferences > Editor > UI Scale`).
 `MakeDarkTheme(uiScale)` is applied once at startup, for **both** the editor and the Project Manager hub.
 
@@ -66,11 +69,24 @@ Applied at startup (before views are built). Live changes are a "retheme": drop 
 - Removed the transitional `UiPx` / `UiFont` helpers and the hub's local `S()/FS()`. Only the low-level
   draw utility (`uidraw::Slider` / `Field`) uses `GetThemeScale()` for its primitive proportions.
 - `UiFonts` gained a `banner` role for launcher/hero headings.
+- The asset browser uses theme fonts and metrics for rows, thumbnails, details and hit testing.
+  Its detail allocation stays stable across selection so a double-click keeps targeting the same tile.
+- Menu popups measure separate check, icon, label, shortcut and arrow columns; status text uses the theme font.
 - All layout literals in the converted views (hub, dialogs, config panel, widget popups) are now metrics
   or expressions of metrics; only semantic constants (e.g. dividing a color row into 4 channels) remain.
 
 ## Verification
 
 - `EditorShellTest` keeps geometry assertions in scaled terms (they run at the default scale 1.0).
-- Add a test that sets a 2× theme and asserts a converted view's row rect and font-scaled row height
-  double accordingly.
+- 2× regressions cover popup column separation and shortcut-area clicks, status glyph size, asset
+  tree/tile hit testing and double-clicking after a repaint, and Inspector axis label gutters.
+
+On 2026-10-27, the existing macOS Xcode Debug build succeeded, including the editor extension
+modules. `EditorShellTest` passed 148 cases and `EditorWidgetsTest` passed 42 cases, including the
+six new 2× regressions. Evidence is in `cmake-build-debug/mac-ui-final-{build,shell,widgets}.log`.
+Computer Use confirmed readable Retina asset/status text, separated File-menu shortcuts and
+visible Inspector axis labels. The saved Cube/Plane lighting world was reopened and rendered
+with Metal, then the editor exited with code 0 (`cmake-build-debug/cube-plane-final-ui.log`).
+
+The asset browser's inline context menu and long lists still need a separate scrolling/overlay change
+for very short panels; theme scaling does not add a new popup host or scrolling model.

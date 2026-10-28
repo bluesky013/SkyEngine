@@ -21,6 +21,12 @@ namespace sky::builder {
 
     void TerrainBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
+        result.retCode = AssetBuildRetCode::FAILED;
+        result.error.clear();
+        if (!request.assetInfo || !request.file) {
+            result.error = "Terrain cook requires an identified source file";
+            return;
+        }
         terrain::TerrainSourceData source;
         {
             auto archive = request.file->ReadAsArchive();
@@ -38,9 +44,18 @@ namespace sky::builder {
             return;
         }
 
-        auto asset = AssetManager::Get()->FindOrCreateAsset<terrain::TerrainAsset>(request.assetInfo->uuid);
-        asset->Data() = data;
-        AssetManager::Get()->SaveAsset(asset, request.target);
+        auto      *manager = AssetManager::Get();
+        const auto asset   = std::static_pointer_cast<Asset<terrain::TerrainAsset>>(
+            manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<terrain::TerrainAsset>::ASSET_TYPE.data())));
+        if (!asset) {
+            result.error = "Terrain asset handler is unavailable";
+            return;
+        }
+        asset->Data() = std::move(data);
+        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle); !saved) {
+            result.error = saved.message;
+            return;
+        }
 
         result.retCode = AssetBuildRetCode::SUCCESS;
     }

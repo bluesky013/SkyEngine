@@ -34,6 +34,10 @@ namespace sky {
         {
         }
 
+        virtual void Tick(float delta)
+        {
+        }
+
         void Mainloop();
 
         void Loop();
@@ -76,7 +80,7 @@ namespace sky {
         bool                           exit              = false;
         bool                           externalFrameLoop = false;
         FrameClock                     frameClock;
-        bool                           shutdown          = false;
+        bool                           shutdown = false;
 
         virtual void ParseStartArgs()
         {
@@ -90,6 +94,14 @@ namespace sky {
             return true;
         }
         virtual void PostInit()
+        {
+        }
+        // Runtime services registered by module Start hooks are available here.
+        virtual bool InitStartupData()
+        {
+            return true;
+        }
+        virtual void OnShutdown()
         {
         }
     };

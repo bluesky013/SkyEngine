@@ -8,7 +8,7 @@
 - 按用户确认采用 Godot 式组合：独立 `AuroraSkin` 子资产保存 inverse bind 与骨骼目标标识；组件显式选择 Mesh / Skin / Skeleton 与 Pose 来源。Mesh 只含几何、joint/weight 槽数据，不强绑某一套骨架。
 - 在既有 Aurora scene bridge、FramePacket、资源准备和场景 Pass 中接通顶点蒙皮、阴影、动态 bounds 与在途生命周期；复用唯一 RendererHost。
 - 修正触及链路的骨架/skin 校验、坐标空间、稳定子资产身份与 clip 时长；保留已有 `.clip` 输入。FBX/glTF 动画 take 导出不伪装成已具备能力，首版不新增第二套模型 importer。
-- 扩展现有 Framework 的 generated subproduct catalog 和产品组发布：子资产可选择、可触发 owner cook，保存返回显式结果，加载固定 revision，失败保留上一完整版本。
+- 复用 Framework 的 generated subproduct catalog 和 checked SaveAsset/SaveProducts：子资产可选择、可触发 owner cook，保存返回显式结果，运行中对象按实例身份保活；产品存储以 simplify-asset-product-storage 的 flat 格式为准，不要求历史组回滚。
 - 用版本化 Graph 文档和 cooked 定义替换空 `.graph`：Clip、Blend2、Output、bool/float 参数与单层状态机；明确编译诊断、依赖和实例化。复杂嵌套图、事件、角色 Root Motion 集成不混入首版。
 - 增加角色/Clip 预览、骨骼树、时间轴与动画图编辑器，复用 Sandbox 的文档、撤销重做、反射属性、action、theme 和渲染宿主。
 - **BREAKING**：clip/mesh/skeleton/graph 的受影响产品格式需升级与 recook；Mesh v5 内嵌 Skin / skeleton 引用拆为独立产品和组件引用，移除 Mesh::SetSkin/GetSkin/HasSkin；旧空 Graph 不可运行。Skin 的可变调色板改由实例/帧持有。
@@ -46,3 +46,7 @@
 **Status: applying。** 2026-10-24 用户在整体严格 review 后以 `apply` 确认 Godot 式组合、新增模块/target/入口与首版范围。实施进度以 `tasks.md` 为准，验证证据见 `review.md`；commit 和 archive 仍需分别确认。
 
 首版从可用的 `.clip`、mesh、skin 和 skeleton 产品开始，完成组件、渲染、Graph 与编辑闭环；模型动画 take 导出、ACL 资产链路、Notify、物理驱动 Root Motion、IK、BlendSpace、挂点与重定向另行定界。已有 `animation-events`、`audio-animation-bridge` 保持各自所有权。与现有场景/着色器 change 的交界及证据见 `review.md`，不得把其待办标为本 change 已完成。
+
+## Product storage successor
+
+`simplify-asset-product-storage` supersedes prior product-group publication, disk-generation and old-product migration requirements. Development cook output is cleared and rebuilt. Active object/bulk/GPU lifetime and complete skeletal candidate validation remain required.

@@ -19,7 +19,7 @@ namespace {
         bool                failCommit = false;
         FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override
         {
-            if (failCommit && to.FileName() == "current.bin") {
+            if (failCommit && to.FileName().ends_with(".bin")) {
                 return {FileOperationError::IOError, "injected clip publish failure"};
             }
             return NativeFileSystem::ReplaceFileAtomic(from, to);
@@ -85,7 +85,7 @@ TEST(AnimationBuilderTest, RecookPublishesNewSnapshotAndFailuresKeepOldClip)
         ASSERT_NE(first, nullptr);
         first->BlockUntilLoaded();
         ASSERT_TRUE(first->IsLoaded());
-        ASSERT_NE(first->GetProductGroup(), nullptr);
+        EXPECT_TRUE(first->GetInstanceId());
         AnimationStatus status;
         const auto      firstClip = CreateAnimationClipFromAsset(first, &status);
         ASSERT_TRUE(status) << status.message;
@@ -99,7 +99,8 @@ TEST(AnimationBuilderTest, RecookPublishesNewSnapshotAndFailuresKeepOldClip)
         second->BlockUntilLoaded();
         ASSERT_TRUE(second->IsLoaded());
         EXPECT_NE(first.get(), second.get());
-        EXPECT_EQ(second->GetProductGroup()->revision, first->GetProductGroup()->revision + 1);
+        EXPECT_NE(second->GetInstanceId(), first->GetInstanceId());
+        EXPECT_NE(second->GetRevision(), first->GetRevision());
         const auto oldClip = CreateAnimationClipFromAsset(first, &status);
         ASSERT_TRUE(status);
         const auto newClip = CreateAnimationClipFromAsset(second, &status);

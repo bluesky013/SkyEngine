@@ -4,15 +4,20 @@
 #include <editor/core/input/KeyModifiers.h>
 #include <editor/shell/AssetViewerWidget.h>
 #include <editor/shell/EditorShell.h>
+#include <editor/ui/UiDraw.h>
 #include <editor/ui/UiTheme.h>
 #include <editor/widgets/ActionBarBuilder.h>
 #include <editor/widgets/MenuBar.h>
+#include <editor/widgets/StatusBar.h>
 #include <editor/widgets/ToolBar.h>
 #include <gtest/gtest.h>
+#include <ui/IUIFontProvider.h>
 #include <ui/UIPaintContext.h>
+#include <ui/text/UITextSystem.h>
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 
 namespace sky::editor::action_state_test {
     namespace {
@@ -113,6 +118,68 @@ namespace sky::editor::action_state_test {
                 if (auto *bar = FindMenuBar(*child))
                     return bar;
             return nullptr;
+        }
+
+        class ScaleTestFont : public ui::IUIFontProvider {
+        public:
+            bool GetGlyph(uint32_t codepoint, uint32_t size, ui::UIGlyphBitmap &out) override
+            {
+                out         = {};
+                out.advance = static_cast<float>(size) * 0.5f;
+                if (codepoint != ' ') {
+                    out.width    = size / 2;
+                    out.height   = size;
+                    out.bearingY = static_cast<float>(size);
+                    out.pixels.assign(static_cast<size_t>(out.width) * out.height, 255);
+                }
+                return true;
+            }
+
+            ui::UIFontMetrics GetFontMetrics(uint32_t size) override
+            {
+                return {static_cast<float>(size), 0.0f, static_cast<float>(size)};
+            }
+        };
+
+        struct RestoreScaleTheme {
+            UiTheme previous = GetDefaultUiTheme();
+
+            ~RestoreScaleTheme()
+            {
+                SetDefaultUiTheme(previous);
+            }
+        };
+
+        std::optional<ui::UIRect> PaintedBounds(const ui::UIDrawData &data, uint32_t textureId, uint32_t color, const ui::UIRect &region)
+        {
+            std::optional<ui::UIRect> result;
+            for (const auto &command : data.commands) {
+                if (command.textureId != textureId)
+                    continue;
+                for (uint32_t i = 0; i < command.indexCount; ++i) {
+                    const auto &vertex = data.vertices[data.indices[command.indexOffset + i]];
+                    if (vertex.color != color || vertex.x < region.left || vertex.x > region.right || vertex.y < region.top ||
+                        vertex.y > region.bottom)
+                        continue;
+                    if (!result) {
+                        result = ui::UIRect{vertex.x, vertex.y, vertex.x, vertex.y};
+                    } else {
+                        result->left   = std::min(result->left, vertex.x);
+                        result->top    = std::min(result->top, vertex.y);
+                        result->right  = std::max(result->right, vertex.x);
+                        result->bottom = std::max(result->bottom, vertex.y);
+                    }
+                }
+            }
+            return result;
+        }
+
+        ui::UIDrawData PaintMenu(MenuBar &menu)
+        {
+            ui::UIPaintContext paint;
+            paint.Begin({0, 0, 2000, 1600});
+            menu.OnPaint(paint);
+            return paint.GetDrawData();
         }
     } // namespace
 
@@ -614,5 +681,132 @@ namespace sky::editor::action_state_test {
         oldShell->PaintSurface(0, paint, 800, 600);
         EXPECT_EQ(shell, nullptr);
         EXPECT_EQ(calls, 0);
+    }
+
+    TEST_F(EditorActionStateTest, TwoTimesMenuPopupSeparatesTextColumnsAndHitsTheShortcutArea)
+    {
+        RestoreScaleTheme restore;
+        const UiTheme     theme = MakeDarkTheme(2.0f);
+        SetDefaultUiTheme(theme);
+        ScaleTestFont    font;
+        ui::UITextSystem text(&font, nullptr);
+        const auto      &m     = theme.metrics;
+        int              calls = 0;
+        MenuBar::Item    save;
+        save.label    = "Save World";
+        save.shortcut = "Ctrl+S";
+        save.action   = [&]() { ++calls; };
+        MenuBar baseline({{"File", {save}}}, &text);
+        baseline.SetBarHeight(m.menuBarHeight);
+        baseline.Arrange({0, 0, 2000, m.menuBarHeight});
+        OpenMenu(baseline);
+        const auto plainData  = PaintMenu(baseline);
+        const auto plainPopup = PaintedBounds(plainData, ui::UI_INVALID_TEXTURE, theme.colors.borderSoft, {0, m.menuBarHeight, 2000, 1600});
+        ASSERT_TRUE(plainPopup);
+
+        constexpr uint32_t iconId = 9001;
+        IconRegistry::Get()->Set("scale-test-menu", iconId);
+        save.checkable = true;
+        save.icon      = "scale-test-menu";
+        MenuBar::Item child;
+        child.label = "Child";
+        MenuBar::Item recent;
+        recent.label    = "Recent";
+        recent.children = {child};
+        MenuBar::Item hidden;
+        hidden.label   = std::string(200, 'W');
+        hidden.visible = false;
+        MenuBar menu({{"File", {save, recent, hidden}}}, &text);
+        menu.SetBarHeight(m.menuBarHeight);
+        menu.Arrange({0, 0, 2000, m.menuBarHeight});
+        OpenMenu(menu);
+        const auto data  = PaintMenu(menu);
+        const auto popup = PaintedBounds(data, ui::UI_INVALID_TEXTURE, theme.colors.borderSoft, {0, m.menuBarHeight, 2000, 1600});
+        ASSERT_TRUE(popup);
+        EXPECT_GT(popup->Width(), plainPopup->Width() + 2.0f * m.iconSize);
+        const ui::UIRect firstRow{popup->left, popup->top + m.panelGap, popup->right, popup->top + m.panelGap + m.popupItemHeight};
+        const uint32_t   atlas    = text.GetAtlas().GetGlyph('S', theme.fonts.label).textureId;
+        const auto       label    = PaintedBounds(data, atlas, theme.colors.text, firstRow);
+        const auto       shortcut = PaintedBounds(data, atlas, theme.colors.textMuted, firstRow);
+        const auto       icon     = PaintedBounds(data, iconId, theme.colors.text, firstRow);
+        ASSERT_TRUE(label);
+        ASSERT_TRUE(shortcut);
+        ASSERT_TRUE(icon);
+        EXPECT_GE(shortcut->left - label->right, m.itemSpacing - 1.0f);
+        EXPECT_GT(label->left, icon->right);
+        EXPECT_GE(icon->left, popup->left + m.controlPad + m.iconSize);
+        EXPECT_GE(popup->right - shortcut->right, m.controlPad + m.iconSize + m.itemSpacing);
+
+        MenuBar withoutHidden({{"File", {save, recent}}}, &text);
+        withoutHidden.SetBarHeight(m.menuBarHeight);
+        withoutHidden.Arrange({0, 0, 2000, m.menuBarHeight});
+        OpenMenu(withoutHidden);
+        const auto visibleData  = PaintMenu(withoutHidden);
+        const auto visiblePopup = PaintedBounds(visibleData, ui::UI_INVALID_TEXTURE, theme.colors.borderSoft, {0, m.menuBarHeight, 2000, 1600});
+        ASSERT_TRUE(visiblePopup);
+        EXPECT_FLOAT_EQ(popup->Width(), visiblePopup->Width());
+        EXPECT_EQ(menu.OnPointerEvent(Down(shortcut->right, (firstRow.top + firstRow.bottom) * 0.5f)), ui::UIEventResult::HANDLED);
+        EXPECT_EQ(calls, 1);
+    }
+
+    TEST_F(EditorActionStateTest, TwoTimesSubmenuUsesTheSameSeparatedTextColumns)
+    {
+        RestoreScaleTheme restore;
+        const UiTheme     theme = MakeDarkTheme(2.0f);
+        SetDefaultUiTheme(theme);
+        ScaleTestFont    font;
+        ui::UITextSystem text(&font, nullptr);
+        const auto      &m     = theme.metrics;
+        int              calls = 0;
+        MenuBar::Item    child;
+        child.label    = "Save Recent World";
+        child.shortcut = "Ctrl+Shift+S";
+        child.action   = [&]() { ++calls; };
+        MenuBar::Item parent;
+        parent.label    = "Recent";
+        parent.children = {child};
+        MenuBar menu({{"File", {parent}}}, &text);
+        menu.SetBarHeight(m.menuBarHeight);
+        menu.Arrange({0, 0, 2000, m.menuBarHeight});
+        OpenMenu(menu);
+        const auto rootData = PaintMenu(menu);
+        const auto root     = PaintedBounds(rootData, ui::UI_INVALID_TEXTURE, theme.colors.borderSoft, {0, m.menuBarHeight, 2000, 1600});
+        ASSERT_TRUE(root);
+        auto hover   = MenuRow(menu);
+        hover.action = ui::UIPointerAction::MOVE;
+        menu.OnPointerEvent(hover);
+        const auto data  = PaintMenu(menu);
+        const auto popup = PaintedBounds(data, ui::UI_INVALID_TEXTURE, theme.colors.borderSoft, {root->right, m.menuBarHeight, 2000, 1600});
+        ASSERT_TRUE(popup);
+        const uint32_t atlas    = text.GetAtlas().GetGlyph('S', theme.fonts.label).textureId;
+        const auto     label    = PaintedBounds(data, atlas, theme.colors.text, *popup);
+        const auto     shortcut = PaintedBounds(data, atlas, theme.colors.textMuted, *popup);
+        ASSERT_TRUE(label);
+        ASSERT_TRUE(shortcut);
+        EXPECT_GE(shortcut->left - label->right, m.itemSpacing - 1.0f);
+        EXPECT_GE(popup->right - shortcut->right, m.controlPad);
+        EXPECT_EQ(menu.OnPointerEvent(Down(shortcut->right, (popup->top + popup->bottom) * 0.5f)), ui::UIEventResult::HANDLED);
+        EXPECT_EQ(calls, 1);
+    }
+
+    TEST_F(EditorActionStateTest, TwoTimesStatusTextUsesTheThemeFontAndPadding)
+    {
+        RestoreScaleTheme restore;
+        const UiTheme     theme = MakeDarkTheme(2.0f);
+        SetDefaultUiTheme(theme);
+        ScaleTestFont    font;
+        ui::UITextSystem text(&font, nullptr);
+        StatusBar        status(&text);
+        const ui::UIRect bounds{20, 30, 620, 30 + theme.metrics.statusBarHeight};
+        status.Arrange(bounds);
+        status.SetText("State");
+        ui::UIPaintContext paint;
+        paint.Begin({0, 0, 2000, 1600});
+        status.OnPaint(paint);
+        const uint32_t atlas  = text.GetAtlas().GetGlyph('S', theme.fonts.label).textureId;
+        const auto     glyphs = PaintedBounds(paint.GetDrawData(), atlas, theme.colors.text, bounds);
+        ASSERT_TRUE(glyphs);
+        EXPECT_FLOAT_EQ(glyphs->Height(), static_cast<float>(theme.fonts.label));
+        EXPECT_FLOAT_EQ(glyphs->left, bounds.left + theme.metrics.controlPad);
     }
 } // namespace sky::editor::action_state_test

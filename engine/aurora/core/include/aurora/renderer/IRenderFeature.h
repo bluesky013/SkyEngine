@@ -1,5 +1,6 @@
 #pragma once
 
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/renderer/PreparedFrameTypes.h>
 #include <aurora/rhi/SwapChain.h>
 #include <span>
@@ -16,10 +17,25 @@ namespace sky::aurora {
         Matrix4          logicalToClip = RenderIdentityMatrix();
     };
 
-    // Coordinator-only borrowed context. It exposes declarations and lease allocations, never submission.
-    class FrameGraphBuildContext {
+    class FrameGraphDeclarations {
     public:
-        virtual ~FrameGraphBuildContext()                                                                        = default;
+        virtual ~FrameGraphDeclarations()                                                            = default;
+        virtual std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) = 0;
+        virtual std::variant<FrameError, GraphImageHandle>  CreateImage(const Image::Descriptor &)   = 0;
+        virtual FrameOperationResult                        Copy(BufferCopyPass)                     = 0;
+        virtual FrameOperationResult                        Copy(BufferImageCopyPass)                = 0;
+        virtual FrameOperationResult                        Raster(FrameRasterPass)                  = 0;
+        virtual FrameOperationResult                        Fullscreen(FrameRasterPass)              = 0;
+        virtual FrameOperationResult                        Compute(FrameComputePass)                = 0;
+        virtual FrameOperationResult                        Custom(FrameCustomPass)                  = 0;
+        virtual FrameOperationResult                        Export(GraphBufferExport)                = 0;
+        virtual FrameOperationResult                        Export(GraphImageHandle)                 = 0;
+    };
+
+    // Resource resolution borrows the current prepared snapshot; it never exposes submission.
+    class FrameGraphServices {
+    public:
+        virtual ~FrameGraphServices()                                                                            = default;
         virtual const FrameBuildInputs                     &GetInputs() const                                    = 0;
         virtual std::optional<FrameRenderTarget>            GetOutput(ViewportId) const                          = 0;
         virtual std::optional<GraphImageHandle>             ResolveViewOutput(ViewOutputRef) const               = 0;
@@ -29,13 +45,22 @@ namespace sky::aurora {
         virtual std::variant<FrameError, RasterBufferRange> Upload(std::span<const std::byte>, BufferUsageFlags) = 0;
         virtual std::variant<FrameError, RasterUniformBinding>
         WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte>, ShaderResourceType type = ShaderResourceType::UNIFORM_BUFFER) = 0;
+        // Completes one raster parameter set; graph ranges still require Compile validation.
+        virtual std::variant<FrameError, FrameBindingGroupUse>
+        MaterializeParameters(ShaderPtr, uint32_t set, const ShaderParameterTransactionState &, RasterBindingDraft resources);
         // Resolves only the current BuildView snapshot, retaining its exact resource versions.
         virtual std::variant<FrameError, std::vector<ResolvedRasterDraw>>
         ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list = PreparedDrawList::VISIBLE, const ShaderVariant *pipelineValues = nullptr) = 0;
-        virtual std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &)                                                = 0;
-        virtual FrameOperationResult                       Raster(FrameRasterPass)                                                               = 0;
-        virtual FrameOperationResult                       Fullscreen(FrameRasterPass)                                                           = 0;
-        virtual FrameOperationResult                       Compute(FrameComputePass)                                                             = 0;
+
+    protected:
+        static std::optional<FrameError>
+        ValidateParameterResources(ShaderPtr, uint32_t, const ShaderParameterTransactionState &, const RasterBindingDraft &);
+    };
+
+    // Coordinator-only facets; all borrows expire when the feature callback returns.
+    class FrameGraphBuildContext : public FrameGraphDeclarations, public FrameGraphServices {
+    public:
+        ~FrameGraphBuildContext() override = default;
     };
 
     // Coordinator preparation precedes graph declarations and output acquisition.

@@ -75,6 +75,8 @@ namespace sky::aurora {
         }
 
         FinishProduct(asset, request, result);
+        if (result.retCode != AssetBuildRetCode::SUCCESS)
+            return;
         LOG_I(TAG, "built material instance '%s' (%u value, %u texture overrides)", request.assetInfo->path.GetStr().c_str(),
               static_cast<uint32_t>(data.valueOverrides.size()), static_cast<uint32_t>(data.textureOverrides.size()));
     }

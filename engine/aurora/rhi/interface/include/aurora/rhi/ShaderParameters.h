@@ -5,6 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/ShaderReflection.h>
+#include <compare>
 #include <core/math/Matrix4.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector4.h>
@@ -15,6 +16,7 @@
 #include <memory>
 #include <set>
 #include <span>
+#include <string>
 #include <type_traits>
 
 namespace sky::aurora {
@@ -33,6 +35,8 @@ namespace sky::aurora {
         uint32_t               count        = 0;
         ShaderMatrixLayout     matrixLayout = ShaderMatrixLayout::COLUMN_MAJOR;
         std::vector<std::byte> bytes;
+        bool                   operator==(const ShaderDataValue &) const  = default;
+        auto                   operator<=>(const ShaderDataValue &) const = default;
     };
     template <class T>
     constexpr ShaderDataType ShaderDataTypeOf()
@@ -139,6 +143,8 @@ namespace sky::aurora {
         std::map<uint32_t, std::map<std::string, ShaderDataValue>>            fields;
         std::map<std::pair<uint32_t, uint32_t>, ShaderParameterResourceWrite> resources;
     };
+    // Validates borrowed semantic values without retaining inputs or encoding target bytes.
+    bool ValidateShaderParameterState(const Shader &, uint32_t set, const ShaderParameterTransactionState &, std::string &error);
     struct ShaderParameterPacket {
         uint64_t                                  generation = 0;
         uint32_t                                  set        = 0;

@@ -339,6 +339,88 @@ TEST_F(ShaderParameterTransactionTest, CancelledTransactionCannotReplaceAPublish
     EXPECT_EQ(shader.CachedPlanCount(), 0u);
 }
 
+TEST_F(ShaderParameterTransactionTest, BorrowedStateValidationAcceptsTypedAndOpaqueValuesWithoutPacking)
+{
+    ShaderParameterTransaction transaction(shader, 2);
+    Required(transaction);
+    const auto &state  = transaction.GetState();
+    const auto  fields = state.fields;
+    std::string error;
+    ASSERT_TRUE(ValidateShaderParameterState(shader, 2, state, error)) << error;
+    EXPECT_EQ(state.fields, fields);
+    EXPECT_EQ(state.resources.at({5, 1}).token, 102u);
+    EXPECT_EQ(shader.CachedPlanCount(), 0u);
+    EXPECT_TRUE(transaction.Complete()) << transaction.GetError();
+    EXPECT_EQ(shader.CachedPlanCount(), 0u);
+
+    auto opaque = state;
+    opaque.fields.clear();
+    opaque.resources[{3, 0}] = {3, 0, 401, ShaderResourceType::UNIFORM_BUFFER_DYNAMIC};
+    ASSERT_TRUE(ValidateShaderParameterState(shader, 2, opaque, error)) << error;
+    ShaderParameterTransaction                   inherited(shader, 2, opaque);
+    std::shared_ptr<const ShaderParameterPacket> packet;
+    ASSERT_TRUE(inherited.Finalize(packet)) << inherited.GetError();
+    EXPECT_TRUE(packet->uniforms.empty());
+    ASSERT_EQ(packet->resources.size(), 4u);
+    EXPECT_EQ(packet->resources.front().binding, 3u);
+    EXPECT_EQ(packet->resources.front().type, ShaderResourceType::UNIFORM_BUFFER);
+    EXPECT_EQ(shader.CachedPlanCount(), 0u);
+}
+
+TEST_F(ShaderParameterTransactionTest, BorrowedStateRejectsUnusedAndMalformedProvidersBeforePublishing)
+{
+    ShaderParameterTransaction source(shader, 2);
+    Required(source);
+    for (uint32_t fault = 0; fault < 16; ++fault) {
+        SCOPED_TRACE(fault);
+        auto state = source.GetState();
+        switch (fault) {
+        case 0: state.fields[99]["unused"] = MakeShaderData(1.f); break;
+        case 1: state.fields[9]["value"] = MakeShaderData(1.f); break;
+        case 2: state.fields[3]["unused"] = MakeShaderData(1.f); break;
+        case 3: state.fields[5]["unused"] = MakeShaderData(1.f); break;
+        case 4: state.resources[{99, 0}] = {99, 0, 301, ShaderResourceType::SAMPLED_IMAGE}; break;
+        case 5: state.resources[{11, 0}] = {11, 0, 301, ShaderResourceType::SAMPLED_IMAGE}; break;
+        case 6: state.resources[{5, 2}] = {5, 2, 301, ShaderResourceType::SAMPLED_IMAGE}; break;
+        case 7: state.resources.at({5, 0}).binding = 7; break;
+        case 8: state.resources.at({5, 1}).element = 0; break;
+        case 9: state.resources.at({5, 0}).type = ShaderResourceType::SAMPLER; break;
+        case 10: state.resources.at({5, 0}).token = UINT32_MAX; break;
+        case 11: state.fields[3]["tint"].bytes.resize(1); break;
+        case 12: state.fields[3]["gain"] = MakeShaderData(uint32_t{1}); break;
+        case 13: state.resources[{3, 0}] = {3, 0, 401, ShaderResourceType::UNIFORM_BUFFER}; break;
+        case 14: state.fields[3].clear(); break;
+        case 15: state.resources.erase({5, 1}); break;
+        }
+        const auto  fields = state.fields;
+        std::string error;
+        EXPECT_FALSE(ValidateShaderParameterState(shader, 2, state, error));
+        EXPECT_FALSE(error.empty());
+        EXPECT_EQ(state.fields, fields);
+        ShaderParameterTransaction inherited(shader, 2, state);
+        const auto                 sentinel = std::make_shared<const ShaderParameterPacket>();
+        auto                       packet   = sentinel;
+        EXPECT_FALSE(inherited.Complete());
+        EXPECT_EQ(inherited.GetError(), error);
+        EXPECT_FALSE(inherited.Finalize(packet));
+        EXPECT_EQ(packet, sentinel);
+    }
+    EXPECT_EQ(shader.CachedPlanCount(), 0u);
+}
+
+TEST_F(ShaderParameterTransactionTest, BorrowedStateRequiresItsInitializedShaderAndActiveSet)
+{
+    ShaderParameterTransaction transaction(shader, 2);
+    Required(transaction);
+    std::string error;
+    CpuShader   uninitialized;
+    EXPECT_FALSE(ValidateShaderParameterState(uninitialized, 2, transaction.GetState(), error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_FALSE(ValidateShaderParameterState(shader, 1, transaction.GetState(), error));
+    EXPECT_TRUE(ValidateShaderParameterState(shader, 1, {}, error));
+    EXPECT_EQ(shader.CachedPlanCount(), 0u);
+}
+
 TEST(ShaderParameterTransaction, TypedBlockExtractionPacksMatrixAndArrayExactlyOnceForTheTarget)
 {
     auto matrix         = Float4Field("transform", 0);

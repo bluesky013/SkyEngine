@@ -10,6 +10,11 @@ import tempfile
 import unittest
 import uuid
 
+if __package__:
+    from .asset_product_test_helpers import checksum, product_body, product_bytes
+else:
+    from asset_product_test_helpers import checksum, product_body, product_bytes
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import package_project as package
 
@@ -36,30 +41,27 @@ def envelope(kind, dependencies=()):
 def write_product(bundle, value, kind, dependencies=()):
     path = bundle / value[:2] / (value + '.bin')
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(envelope(kind, dependencies))
+    path.write_bytes(product_bytes(value, envelope(kind, dependencies)))
     return path
 
 
-def write_group(bundle, owner, entries):
-    generation = identity()
-    directory = bundle / '.groups' / owner / generation
-    directory.mkdir(parents=True)
-    owners = bundle / '.groups/owners'
-    owners.mkdir(exist_ok=True)
-    manifest = struct.pack('<II', 0x47505244, 1) + binary_uuid(owner) + binary_uuid(generation) + struct.pack('<QI', 1, len(entries))
-    for value, kind, dependencies in entries:
-        data = envelope(kind, dependencies)
-        (directory / (value + '.bin')).write_bytes(data)
-        (owners / (value + '.bin')).write_bytes(binary_uuid(owner) + struct.pack('<I', 0))
-        checksum = 14695981039346656037
-        for byte in data:
-            checksum = ((checksum ^ byte) * 1099511628211) & ((1 << 64) - 1)
-        manifest += binary_uuid(value) + struct.pack('<QQ', len(data), checksum)
-    (directory.parent / 'current.bin').write_bytes(manifest)
-    return generation
-
-
 class AnimationPackageTest(unittest.TestCase):
+    def test_flat_fixture_has_a_versioned_identity_and_checked_body(self):
+        self.assertEqual(checksum(b'hello'), 0xA430D84680AABD0B)
+        value = identity()
+        body = envelope('AuroraImage')
+        encoded = product_bytes(value, body)
+        self.assertEqual(len(encoded) - len(body), 40)
+        self.assertEqual(encoded[:8], b'SPRD\x01\x00\x00\x00')
+        self.assertEqual(encoded[8:24], binary_uuid(value))
+        self.assertEqual(struct.unpack_from('<QQ', encoded, 24), (len(body), checksum(body)))
+        self.assertEqual(product_body(encoded, value), body)
+        for offset in (4, 8, 24, 32, len(encoded) - 1):
+            corrupt = bytearray(encoded)
+            corrupt[offset] ^= 1
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                product_body(corrupt, value)
+
     def test_build_option_manifest_records_explicit_disabled_feature(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -99,16 +101,19 @@ class AnimationPackageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)
             (project / 'assets').mkdir()
-            mesh = identity()
+            mesh, world = identity(), identity()
             (project / 'assets/collider.world').write_text(json.dumps({
                 'actors': [], 'assetRoots': [{'uuid': mesh, 'type': 'AuroraMesh'}]
             }), encoding='utf-8')
-            product = write_product(project / 'products/common', mesh, 'AuroraMesh')
+            bundle = project / 'products/common'
+            product = write_product(bundle, mesh, 'AuroraMesh')
+            write_product(bundle, world, 'World', [mesh])
+            (bundle / 'product.index').write_text(json.dumps({'path': 'collider.world', 'id': world}) + '\n', encoding='utf-8')
             self.assertEqual(package.stage_bundles(project, {}, project / 'package/products'), ['common'])
             product.unlink()
             self.assertIsNone(package.stage_bundles(project, {}, project / 'package/products'))
 
-    def test_real_tool_resolves_graph_material_and_skin_group_without_sources(self):
+    def test_real_tool_resolves_flat_dependency_closure_without_sources(self):
         tool = Path(os.environ['SKY_ASSET_TOOL']) if os.environ.get('SKY_ASSET_TOOL') else package.find_asset_tool(package.REPO_ROOT)
         if tool is None:
             self.skipTest('Build AssetTool for product-only audit')
@@ -116,11 +121,15 @@ class AnimationPackageTest(unittest.TestCase):
             products = Path(temp) / 'products'
             bundle = products / 'common'
             mesh, skin, rig, graph, clip, material, texture = [identity() for _ in range(7)]
-            generation = write_group(bundle, mesh, [(mesh, 'AuroraMesh', [material]), (skin, 'AuroraSkin', []), (rig, 'AuroraSkeleton', [])])
+            write_product(bundle, mesh, 'AuroraMesh', [skin, material])
+            skin_path = write_product(bundle, skin, 'AuroraSkin', [rig])
+            write_product(bundle, rig, 'AuroraSkeleton')
             write_product(bundle, graph, 'AnimationGraph', [rig, clip])
             write_product(bundle, clip, 'AnimationClip')
             write_product(bundle, material, 'AuroraMaterial', [texture])
             texture_path = write_product(bundle, texture, 'AuroraImage')
+            unrelated = write_product(bundle, identity(), 'AuroraImage')
+            unrelated.write_bytes(b'not part of the selected dependency closure')
             roots = [{'uuid': value, 'type': kind} for value, kind in ((mesh, 'AuroraMesh'), (skin, 'AuroraSkin'), (rig, 'AuroraSkeleton'), (graph, 'AnimationGraph'))]
             manifest = products / 'asset-roots.json'
             manifest.write_text(json.dumps({'bundles': ['common'], 'roots': roots}), encoding='utf-8')
@@ -132,15 +141,28 @@ class AnimationPackageTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = json.loads((products / 'asset-closure.json').read_text())
             self.assertEqual({value['uuid'] for value in report['products']}, {mesh, skin, rig, graph, clip, material, texture})
-            self.assertEqual(report['groups'], [{'bundle': 'common', 'owner': mesh, 'generation': generation, 'revision': 1}])
+            self.assertNotIn('groups', report)
+            for item in report['products']:
+                path = bundle / item['uuid'][:2] / (item['uuid'] + '.bin')
+                self.assertEqual(item['formatVersion'], 1)
+                self.assertEqual(item['checksum'], checksum(product_body(path.read_bytes(), item['uuid'])))
+                self.assertEqual(item['bulkSize'], 0)
             # One literal-only LZ4 block exercises the actual deployed codec module.
             compressed = struct.pack('<II', 4, 5) + b'\x40\x01\x00\x00\x00'
-            texture_path.write_bytes(string('AuroraImage') + struct.pack('<I', 0) + string('lz4')
-                                     + struct.pack('<I', len(compressed)) + compressed + struct.pack('<Q', 0))
+            texture_path.write_bytes(product_bytes(texture, string('AuroraImage') + struct.pack('<I', 0) + string('lz4')
+                                                  + struct.pack('<I', len(compressed)) + compressed + struct.pack('<Q', 0)))
             result = run()
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            texture_path.write_bytes(texture_path.read_bytes()[:-1])
-            self.assertNotEqual(run().returncode, 0)
+            valid_texture = texture_path.read_bytes()
+            for name, data in (
+                    ('unsupported-version', valid_texture[:4] + struct.pack('<I', 2) + valid_texture[8:]),
+                    ('bad-checksum', valid_texture[:32] + bytes([valid_texture[32] ^ 1]) + valid_texture[33:]),
+                    ('bad-body', valid_texture[:-1] + bytes([valid_texture[-1] ^ 1])),
+                    ('truncated', valid_texture[:-1])):
+                with self.subTest(name=name):
+                    texture_path.write_bytes(data)
+                    self.assertNotEqual(run().returncode, 0)
+            texture_path.write_bytes(valid_texture)
             texture_path.unlink()
             result = run()
             self.assertNotEqual(result.returncode, 0)
@@ -153,7 +175,7 @@ class AnimationPackageTest(unittest.TestCase):
             self.assertIn('type mismatch', result.stderr)
             roots[1]['type'] = 'AuroraSkin'
             manifest.write_text(json.dumps({'bundles': ['common'], 'roots': roots}), encoding='utf-8')
-            (bundle / '.groups' / mesh / generation / (skin + '.bin')).write_bytes(b'corrupt')
+            skin_path.write_bytes(b'corrupt')
             result = run()
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(skin, result.stderr)

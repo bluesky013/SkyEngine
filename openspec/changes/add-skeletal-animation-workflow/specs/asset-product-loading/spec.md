@@ -1,42 +1,31 @@
 ## ADDED Requirements
 
-### Requirement: Explicit-result atomic product group publication
-The skeletal import path SHALL publish each owner-source/bundle Mesh/Skin/Skeleton group through an explicit Result-returning staging/commit API in the existing Framework asset pipeline. It SHALL write a new immutable generation, verify all required writes, flushes, encoding and readback, and publish a complete group manifest through one atomic replacement. No member SHALL be visible as part of the new generation before that commit. Failed or stale-generation cooks SHALL NOT overwrite the previous committed group. Updating several UUID files independently SHALL NOT be considered an atomic group commit. Unsupported filesystem guarantees SHALL return an explicit error.
+### Requirement: Skeletal product saves report checked publication outcomes
+The skeletal import path SHALL build its complete required Mesh/Skin/Skeleton product list before calling the existing Framework SaveProducts API. Encoding, staging, flush, readback, per-file atomic replacement and index failures SHALL report explicit failure. A failed batch SHALL NOT emit cook success or be accepted as successful package output. No persistent product group or rollback to a previous complete group is required; storage follows simplify-asset-product-storage.
 
-#### Scenario: Failure after writing a skin
-- **WHEN** Skin staging succeeds but Skeleton staging or group commit fails
-- **THEN** all previously committed group members SHALL remain resolvable and no success event SHALL be emitted for the failed new generation
+#### Scenario: Failure after replacing a mesh
+- **WHEN** a later Skin/Skeleton replacement or index update fails
+- **THEN** the batch reports failure and its affected output is invalidated rather than accepted as a successful partial cook
 
-#### Scenario: Process stops before commit
-- **WHEN** the cook process exits after staging files but before replacing the group manifest
-- **THEN** subsequent loads SHALL use the previous complete committed generation and SHALL ignore uncommitted staging files
+### Requirement: Immutable loaded instances during binding and reload
+Skeletal products SHALL load through the existing UUID product loader using in-memory asset instance identities/revisions. Reload SHALL create new immutable loaded objects rather than mutate published data or reopen retained bulk by UUID path. Mesh/Skin/Skeleton candidates SHALL validate their complete slot/layout/reference-pose combination and fixed loaded instances before switching. Existing consumers and submitted GPU work SHALL retain active data through normal retirement. Runtime and packaging SHALL use checked product data without source access or runtime group metadata.
 
-#### Scenario: Older cook finishes late
-- **WHEN** an outdated request completes after a newer generation has committed for the same owner and bundle
-- **THEN** it SHALL NOT replace the newer manifest or report its contents as the latest version
-
-### Requirement: Immutable product revisions during binding and reload
-New skeletal workflow products SHALL resolve through the existing product loader with a pinned group revision for group members and a validated exact revision tuple for independent Clip/Graph dependencies. Reload SHALL construct new asset snapshots rather than mutate published data or open bulk streams. Existing consumers SHALL retain their exact content while referenced. Clip/Graph single-product publication SHALL also return explicit success only after staging and commit. Runtime resolution and packaging SHALL use product metadata without source files or source catalogs.
-
-#### Scenario: Reload during a group read
-- **WHEN** a new group commits between loading its Mesh and Skin
-- **THEN** an existing binding request SHALL finish against its pinned generation or restart the entire candidate, never combine arbitrary latest members
-
-#### Scenario: Failed graph write
-- **WHEN** Graph serialization, compression or file publication fails
-- **THEN** the save/cook result SHALL report failure and the previous successful product SHALL remain readable
+#### Scenario: Rebuild while a candidate is being prepared
+- **WHEN** a product change invalidates a skeletal binding candidate
+- **THEN** the resolver rebuilds and validates the complete candidate before replacing the active binding
+- **AND** it does not mutate already-submitted frame resources
 
 #### Scenario: Products-only package
 - **WHEN** a World referencing separate Mesh/Skin/Skeleton assets and a Graph is packaged without sources
-- **THEN** all explicit component roots, transitive Clip/Graph dependencies and required group resolution metadata SHALL resolve through AssetManager
+- **THEN** explicit component roots and transitive dependencies resolve through checked UUID products without group manifests
 
 ### Requirement: Generated child cook requests complete through their owner
-A missing generated child with a valid catalog owner SHALL request the owner source cook, coalesced by owner and target bundle. Every waiting child SHALL receive success only when its own requested member exists in the committed group; failure or a removed child SHALL complete as Failed with a diagnostic. Both in-process and out-of-process completion SHALL identify the affected child UUIDs and generation. No child request SHALL recursively schedule a nonexistent child source or remain Loading indefinitely.
+A missing generated child with a valid catalog owner SHALL request the owner source cook, coalesced by owner and target bundle. Every child receives success only when its own requested checked product exists after successful cook. Failure or a removed child SHALL complete as Failed with a diagnostic. No child SHALL recursively schedule a nonexistent child source or remain Loading indefinitely.
 
 #### Scenario: Concurrent skin and skeleton requests
-- **WHEN** an uncooked Skin and Skeleton from the same model are requested together
-- **THEN** one owner cook per bundle SHALL serve both requests and both SHALL reach a terminal result
+- **WHEN** an uncooked Skin and Skeleton from one model are requested together
+- **THEN** one owner cook per bundle serves both requests and both reach terminal results
 
 #### Scenario: Requested child removed by reimport
-- **WHEN** the owner cooks successfully but the requested child no longer exists
-- **THEN** that child's waiter SHALL fail explicitly instead of inheriting the owner's success or remaining Loading
+- **WHEN** the owner cooks successfully but a requested child no longer exists
+- **THEN** that child fails explicitly instead of inheriting owner success

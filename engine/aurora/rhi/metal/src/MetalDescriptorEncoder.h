@@ -15,17 +15,8 @@ namespace sky::aurora {
         bool               WriteImage(uint32_t binding, Image *image, ImageLayout layout, uint32_t arrayElement = 0) override;
         bool               WriteSampler(uint32_t binding, Sampler *sampler, uint32_t arrayElement = 0) override;
         bool               End() override;
-        const std::string &GetError() const override
-        {
-            return error;
-        }
-        void Cancel() override
-        {
-            ended = true;
-        }
 
     private:
-        friend class MetalDescriptorBatch;
         const ShaderResource                                           *Find(uint32_t binding, uint32_t arrayElement);
         bool                                                            Fail(const char *message);
         bool                                                            Ready();

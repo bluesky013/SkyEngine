@@ -5,6 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Encoder.h>
+#include <aurora/rhi/SubmissionResult.h>
 
 #include <vector>
 
@@ -14,6 +15,12 @@ namespace sky::aurora {
     class MetalCommandBuffer;
     class MetalGraphicsPipeline;
     class MetalComputePipeline;
+
+    struct MetalRenderingResolves {
+        Image *colors[MAX_COLOR_ATTACHMENTS] = {};
+        Image *depth                         = nullptr;
+        bool   depthMaximum                  = false;
+    };
 
     // Metal encoders wrap MTLRenderCommandEncoder / MTLComputeCommandEncoder /
     // MTLBlitCommandEncoder, but expose them as void* to keep Metal.h out of
@@ -25,6 +32,7 @@ namespace sky::aurora {
         ~MetalGraphicsEncoder() override;
 
         void BeginRendering(const RenderingInfo &info) override;
+        GpuOperationResult TryBeginRendering(const RenderingInfo &, const MetalRenderingResolves &);
         void EndRendering() override;
 
         void BindPipeline(GraphicsPipeline *pso) override;

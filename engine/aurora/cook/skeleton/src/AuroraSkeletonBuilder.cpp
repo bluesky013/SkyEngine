@@ -4,7 +4,6 @@
 
 #include <aurora/cook/skeleton/AuroraSkeletonBuilder.h>
 
-#include <array>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <framework/asset/AssetManager.h>
 
@@ -32,14 +31,8 @@ namespace sky::aurora {
             result.error = "skeleton cook request has no source";
             return;
         }
-        auto                     *manager = AssetManager::Get();
-        const auto                bundle  = request.bundle.empty() ? request.target : request.bundle;
-        ProductGroupTransaction   transaction;
-        const std::array<Uuid, 1> members{request.assetInfo->uuid};
-        if (const auto status = manager->BeginProductGroup(request.assetInfo->uuid, bundle, members, transaction); !status) {
-            result.error = status.message;
-            return;
-        }
+        auto               *manager = AssetManager::Get();
+        const auto          bundle  = request.bundle.empty() ? request.target : request.bundle;
         rapidjson::Document document;
         if (!LoadJsonDocument(request, result, document)) {
             return;
@@ -125,8 +118,7 @@ namespace sky::aurora {
             result.error = status.message;
             return;
         }
-        ProductGroupSnapshotPtr published;
-        if (const auto saved = manager->SaveProductGroup(transaction, bundle, std::array<AssetPtr, 1>{asset}, published); !saved) {
+        if (const auto saved = manager->SaveAsset(asset, bundle); !saved) {
             result.error = saved.message;
             return;
         }

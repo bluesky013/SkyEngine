@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Stable skin and skeleton subproduct identity
-Skin and Skeleton child identities SHALL follow the generated identity contract of asset-source-identity. Mesh/Skin/Skeleton publication SHALL use the explicit-result product group commit of asset-product-loading, with complete validation before publication. Failure SHALL NOT expose partial new combinations or overwrite a previous complete group.
+Skin and Skeleton child identities SHALL follow the generated identity contract of asset-source-identity. Mesh/Skin/Skeleton publication SHALL use checked SaveProducts with a complete required product list. A failed batch SHALL report failure and invalidate affected output rather than publish cook success. No product-group manifest, history or complete-old-group rollback is required; the flat format is defined by simplify-asset-product-storage.
 
 #### Scenario: Rebuild preserves bindings
 - **WHEN** the same model is recooked or moved while keeping its source identity

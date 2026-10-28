@@ -379,7 +379,7 @@ TEST_F(ResourceGroupTestVulkan, EncoderBatchWrite)
     EXPECT_TRUE(encoder->End());
 }
 
-TEST_F(ResourceGroupTestVulkan, DescriptorBatchCrossSet)
+TEST_F(ResourceGroupTestVulkan, NativeWritersAcrossSets)
 {
     auto *device = GetDevice();
 
@@ -406,15 +406,14 @@ TEST_F(ResourceGroupTestVulkan, DescriptorBatchCrossSet)
     auto ub   = CounterPtr<Buffer>(device->CreateBuffer(bd));
     ASSERT_NE(ub.Get(), nullptr);
 
-    auto *batch = device->CreateDescriptorBatch();
-    ASSERT_NE(batch, nullptr);
-
-    EXPECT_TRUE(batch->WriteBuffer(group0.Get(), 0, ub.Get(), 0, 256));
-    EXPECT_TRUE(batch->WriteBuffer(group1.Get(), 0, ub.Get(), 0, 256));
-    EXPECT_TRUE(batch->Flush());
-    batch->Reset();
-
-    delete batch;
+    auto encoder0 = group0->CreateEncoder();
+    auto encoder1 = group1->CreateEncoder();
+    ASSERT_TRUE(encoder0);
+    ASSERT_TRUE(encoder1);
+    EXPECT_TRUE(encoder0->WriteBuffer(0, ub.Get(), 0, 256));
+    EXPECT_TRUE(encoder1->WriteBuffer(0, ub.Get(), 0, 256));
+    EXPECT_TRUE(encoder0->End());
+    EXPECT_TRUE(encoder1->End());
 }
 
 TEST_F(ResourceGroupTestVulkan, SetIndexHole)
@@ -681,7 +680,7 @@ TEST_F(ResourceGroupTestD3D12, DynamicStorageCreatesNativeSrvAndUavRoots)
     EXPECT_TRUE(encoder->End());
 }
 
-TEST_F(ResourceGroupTestD3D12, StorageRejectsUnknownOwnersUsageAndLatchesBatchFailure)
+TEST_F(ResourceGroupTestD3D12, StorageRejectsUnknownOwnersUsageAndLatchesWriterFailure)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
@@ -704,11 +703,10 @@ TEST_F(ResourceGroupTestD3D12, StorageRejectsUnknownOwnersUsageAndLatchesBatchFa
     EXPECT_FALSE(usage->WriteBuffer(3, buffer.Get(), 16, 64));
     EXPECT_FALSE(usage->End());
 
-    std::unique_ptr<DescriptorBatch> batch(device->CreateDescriptorBatch());
-    ASSERT_TRUE(batch);
-    EXPECT_FALSE(batch->WriteBuffer(group.Get(), 3, &unknown, 16, 64));
-    EXPECT_FALSE(batch->Flush());
-    batch->Reset();
-    EXPECT_TRUE(batch->Flush());
+    auto failed = group->CreateEncoder();
+    ASSERT_TRUE(failed);
+    EXPECT_FALSE(failed->WriteBuffer(3, &unknown, 16, 64));
+    EXPECT_FALSE(failed->End());
+    EXPECT_FALSE(failed->End());
 }
 #endif

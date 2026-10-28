@@ -6,27 +6,34 @@
 
 #include <aurora/rdg/ClientViewport.h>
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/DirectFrameContext.h>
 #include <core/name/Name.h>
 
 using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
-TEST_F(AuroraVulkanTest, DeviceFrameContextFenceRing)
+TEST_F(AuroraVulkanTest, DirectFrameContextFenceRing)
 {
     auto *device = GetDevice();
 
     DeviceFrameContextInitInfo info{};
     info.inflightNum = 2;
     info.parallelNum = 1;
-    std::unique_ptr<DeviceFrameContext> ctx(device->CreateFrameContext(info));
+    std::unique_ptr<DirectFrameContext> ctx(device->CreateDirectFrameContext(info));
     ASSERT_NE(ctx, nullptr);
 
     Fence *f0 = ctx->GetFrameFence();
     ASSERT_NE(f0, nullptr);
 
-    ctx->BeginFrame(); // waits + resets fence[0] (signaled on creation)
-    ctx->EndFrame();   // ++mFrameIndex → 1
+    EXPECT_EQ(ctx->GetFrameFence(), f0);
+    EXPECT_TRUE(f0->IsSignaled());
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(ctx->TryBeginFrame()));
+    SubmitInfo submit;
+    submit.fence = f0;
+    ASSERT_EQ(device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submit).status, QueueSubmitStatus::ACCEPTED);
+    ASSERT_TRUE(f0->WaitFor(5'000'000'000ULL));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(ctx->EndFrame()));
 
     Fence *f1 = ctx->GetFrameFence();
     ASSERT_NE(f1, nullptr);

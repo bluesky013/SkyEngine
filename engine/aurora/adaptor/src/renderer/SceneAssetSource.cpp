@@ -315,18 +315,7 @@ namespace sky::aurora {
                 if (!skinAsset->IsLoaded() || !rigAsset->IsLoaded()) {
                     return {};
                 }
-                const auto                    mesh = std::static_pointer_cast<Asset<Mesh>>(assets.at(id));
-                const std::array<AssetPtr, 3> tuple{mesh, skinAsset, rigAsset};
-                for (size_t a = 0; a < tuple.size(); ++a) {
-                    for (size_t b = a + 1; b < tuple.size(); ++b) {
-                        const auto &first  = tuple[a]->GetProductGroup();
-                        const auto &second = tuple[b]->GetProductGroup();
-                        if (first && second && first->owner == second->owner && first->generation != second->generation) {
-                            ++revision;
-                            return {};
-                        }
-                    }
-                }
+                const auto mesh = std::static_pointer_cast<Asset<Mesh>>(assets.at(id));
                 SkinStatus skinStatus;
                 const auto skin = FetchOrCreateSkinByAsset(std::static_pointer_cast<Asset<Skin>>(skinAsset), &skinStatus);
                 if (!skin) {
@@ -347,13 +336,13 @@ namespace sky::aurora {
                 SkinBindingKey bindingKey{id,
                                           skinId,
                                           rigId,
-                                          mesh->GetSnapshotRevision(),
-                                          skinAsset->GetSnapshotRevision(),
-                                          rigAsset->GetSnapshotRevision(),
+                                          mesh->GetRevision(),
+                                          skinAsset->GetRevision(),
+                                          rigAsset->GetRevision(),
                                           target.signature,
-                                          mesh->GetSnapshotGeneration(),
-                                          skinAsset->GetSnapshotGeneration(),
-                                          rigAsset->GetSnapshotGeneration()};
+                                          mesh->GetInstanceId(),
+                                          skinAsset->GetInstanceId(),
+                                          rigAsset->GetInstanceId()};
                 skinStatus = skinBindings.Resolve(data.skinInput, *skin, target, bindingKey, result->binding);
                 if (!skinStatus) {
                     return Invalid(skinStatus.message);
@@ -401,7 +390,7 @@ namespace sky::aurora {
                     return *error;
                 }
                 auto result                                                  = std::make_shared<SceneMeshResources>();
-                std::get<RenderResourcePayload>(converted).resource.revision = meshAsset->GetSnapshotRevision();
+                std::get<RenderResourcePayload>(converted).resource.revision = meshAsset->GetRevision();
                 result->payloads.push_back(std::move(std::get<RenderResourcePayload>(converted)));
                 const auto                        meshKey = result->payloads.front().resource;
                 const auto                       &data    = meshAsset->Data();
@@ -514,6 +503,8 @@ namespace sky::aurora {
                 if (bytes > 256ull * 1024 * 1024 - cachedBytes) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset CPU byte budget exceeded"};
                 }
+                if (Revision() != loadedRevision)
+                    return {};
                 cachedBytes += bytes;
                 cache.emplace(key, result);
                 return std::shared_ptr<const SceneMeshResources>(std::move(result));
@@ -548,6 +539,8 @@ namespace sky::aurora {
                 if (bytes > 256ull * 1024 * 1024 - cachedBytes) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset CPU byte budget exceeded"};
                 }
+                if (Revision() != loadedRevision)
+                    return {};
                 cachedBytes += bytes;
                 imageCache.emplace(key, result);
                 return result;

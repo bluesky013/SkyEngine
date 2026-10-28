@@ -102,8 +102,10 @@ namespace sky::editor {
         float sliderValueWidth  = 56.0f; // trailing numeric label width next to a slider
 
         // Panels.
-        float listColumnWidth = 150.0f; // config panel subsystem column
-        float listLabelIndent = 22.0f;  // config panel name x offset
+        float listColumnWidth    = 150.0f; // config panel subsystem column
+        float listLabelIndent    = 22.0f;  // config panel name x offset
+        float assetTileSize      = 84.0f;
+        float assetThumbnailSize = 52.0f;
 
         // Dialogs.
         float dialogMargin           = 14.0f;

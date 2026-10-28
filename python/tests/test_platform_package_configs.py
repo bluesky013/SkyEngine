@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -14,6 +15,16 @@ SPEC.loader.exec_module(PACKAGE)
 
 
 class PlatformPackageConfigTest(unittest.TestCase):
+    def test_public_create_keeps_the_project_owned_linux_launcher(self):
+        with tempfile.TemporaryDirectory() as temp, mock.patch("builtins.print"):
+            PACKAGE.cmd_create(SimpleNamespace(engine=None, dir=Path(temp), name="NativeSmoke", force=False))
+            launcher = Path(temp) / "NativeSmoke/native/linux"
+            template = PACKAGE.REPO_ROOT / "engine/templates/launcher/linux"
+            self.assertEqual((launcher / "main.cpp").read_bytes(), (template / "main.cpp").read_bytes())
+            cmake = (launcher / "CMakeLists.txt").read_text(encoding="utf-8")
+            self.assertIn('OUTPUT_NAME "NativeSmoke"', cmake)
+            self.assertNotIn("{{PROJECT_NAME}}", cmake)
+
     def test_collision_only_root_reaches_audit_and_untyped_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)
@@ -26,10 +37,12 @@ class PlatformPackageConfigTest(unittest.TestCase):
             self.assertEqual(roots, [{"uuid": mesh, "type": "AuroraMesh", "world": "collision.world"}])
             with mock.patch.object(PACKAGE, "find_asset_tool", return_value=None):
                 self.assertIsNone(PACKAGE.stage_bundles(project, {}, project / "package/products"))
-            world.write_text(json.dumps({"assetRoots": [{"uuid": mesh, "type": ""}]}), encoding="utf-8")
-            roots, error = PACKAGE.collect_world_asset_roots(project, {})
-            self.assertIsNone(roots)
-            self.assertIn("Malformed asset root", error)
+            for reference in ({"uuid": mesh, "type": ""}, {"uuid": "", "type": "AuroraMesh"}):
+                with self.subTest(reference=reference):
+                    world.write_text(json.dumps({"assetRoots": [reference]}), encoding="utf-8")
+                    roots, error = PACKAGE.collect_world_asset_roots(project, {})
+                    self.assertIsNone(roots)
+                    self.assertIn("Malformed asset root", error)
 
     def test_jolt_notice_is_staged_with_runtime_configs(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -39,6 +52,24 @@ class PlatformPackageConfigTest(unittest.TestCase):
             (engine / "plugins/jolt/LICENSE.txt").write_text("Jolt MIT notice", encoding="utf-8")
             PACKAGE.stage_configs(engine, project, destination, development=False)
             self.assertEqual((destination / "licenses/Jolt.txt").read_text(encoding="utf-8"), "Jolt MIT notice")
+
+    def test_default_world_is_published_in_shipping_and_development_startup_config(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            engine, project = root / 'engine', root / 'project'
+            (engine / 'configs').mkdir(parents=True)
+            (project / 'configs').mkdir(parents=True)
+            (project / 'Scene.skyproj').write_text(json.dumps({'defaultScene': './scenes\\main.world'}))
+            (project / 'configs/modules_game.json').write_text(json.dumps({
+                'modules': [{'name': 'Aurora.ShaderCompiler'}, {'name': 'Game'}],
+                'game': {'width': 640, 'height': 480},
+            }))
+            for development in (False, True):
+                destination = root / str(development) / 'configs'
+                PACKAGE.stage_configs(engine, project, destination, development=development)
+                data = json.loads((destination / 'modules_game.json').read_text())
+                self.assertEqual(data['game'], {'width': 640, 'height': 480, 'defaultScene': 'scenes/main.world'})
+                self.assertEqual(any(m['name'] == 'Aurora.ShaderCompiler' for m in data['modules']), development)
 
     def test_builtin_config_and_project_override_are_staged(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -61,7 +92,7 @@ class PlatformPackageConfigTest(unittest.TestCase):
             engine, project = root / "engine", root / "project"
             (engine / "configs").mkdir(parents=True)
             (engine / "configs/modules_game.json").write_text('{"modules": []}', encoding="utf-8")
-            with mock.patch.object(PACKAGE, "instantiate_template"), mock.patch.object(PACKAGE, "run_cook"), \
+            with mock.patch.object(PACKAGE, "instantiate_template"), mock.patch.object(PACKAGE, "run_cook", return_value=True), \
                     mock.patch.object(PACKAGE, "prepare_shader_products", return_value=True), \
                     mock.patch.object(PACKAGE, "stage_bundles"), mock.patch.object(PACKAGE, "package_android") as build:
                 PACKAGE._prepare(engine, project, {"platform": "android"}, {}, {}, build=False)

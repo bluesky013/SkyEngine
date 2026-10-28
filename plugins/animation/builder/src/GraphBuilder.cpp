@@ -1,6 +1,5 @@
 #include <animation/assets/GraphAsset.h>
 #include <animation/builder/GraphBuilder.h>
-#include <array>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 
@@ -16,14 +15,8 @@ namespace sky::animation {
             result.error = "Graph source file or identity is missing";
             return;
         }
-        auto                   *manager = AssetManager::Get();
-        const auto             &bundle  = request.bundle.empty() ? request.target : request.bundle;
-        ProductGroupTransaction transaction;
-        const auto begin = manager->BeginProductGroup(request.assetInfo->uuid, bundle, std::array<Uuid, 1>{request.assetInfo->uuid}, transaction);
-        if (!begin) {
-            result.error = begin.message;
-            return;
-        }
+        auto       *manager = AssetManager::Get();
+        const auto &bundle  = request.bundle.empty() ? request.target : request.bundle;
         const auto input = request.file->ReadAsArchive();
         if (!input) {
             result.error = "Graph source cannot be opened";
@@ -78,8 +71,7 @@ namespace sky::animation {
         for (const auto &dependency : asset->Data().graph.dependencies) {
             asset->AddDependencies(dependency);
         }
-        ProductGroupSnapshotPtr published;
-        const auto              saved = manager->SaveProductGroup(transaction, bundle, std::array<AssetPtr, 1>{asset}, published);
+        const auto saved = manager->SaveAsset(asset, bundle);
         if (!saved) {
             result.error = saved.message;
             return;

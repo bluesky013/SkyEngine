@@ -13,7 +13,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [x] 1.3 按 D4 统一顶点、G(bind)、IB 空间及切线线性变换/正交化；验证非均匀/镜像 mesh、Actor 变换、不可逆/shear 与 bind 恒等条件。
 - [x] 1.4 加入 256 rig 关节/256 Skin 槽/四正 influence、槽索引、归一化与零和失败检查；输出 mesh-space 槽 AABB；优化后重验所有流和 bounds。
 - [x] 1.5 为源 manifest 增加稳定 Skin/Skeleton 子产品映射和默认组合；覆盖 recook、源移动/复制、子路径重命名/移除、多 bundle；旧随机 Skeleton 身份仅在可核验时复用。
-- [x] 1.6 在 Framework 实现显式 Result 的产品组 staging/commit、单次清单发布与 pinned revision；注入子文件/flush/commit/进程中断和陈旧请求失败，验证旧组仍完整可读。（Windows 原生故障与进程终止测试通过；非 Windows 原生运行另行验收。）
+- [ ] 1.6 按 successor simplify-asset-product-storage 验证 checked flat SaveProducts、批量失败失效、生成子项完成与在用 bulk 生命周期；不保留原产品组/磁盘 generation 回滚要求。
 - [x] 1.7 在 Clip source/product/runtime 保存压缩前 sourceFrameCount，保留旧 v2 source 读取；覆盖常量 clip、静止尾段、稀疏 key 和无元数据回退。
 - [x] 1.8 校验 Clip time/key 数量、时间顺序、有限值、显式长度和骨骼通道；产品升版，旧产品给出 recook 诊断。
 - [x] 1.9 统一虚图/Plan 路径的 Play/Pause/Stop/Seek/loop/rate 控制；覆盖 paused init、循环多圈、零时长、结束边界和非法速率。
@@ -21,7 +21,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [x] 1.11 实现 generated child catalog/type/owner 查询、picker 与 Graph 依赖登记；child 按需 cook 合并到 owner，逐 child 完成通知；覆盖删除 child、无产品与双请求不挂起。
 - [x] 1.12 输出独立版本化 AuroraSkin，Mesh 移除 skin bulk / skeleton 引用；每原始绑定正规化后再判断共享几何，禁止 GlobalBoneIndex 按名称吞掉不同 offset。
 - [x] 1.13 加入 Mesh v5 与历史 AuroraSkin 旧格式 recook 诊断；保留 source UUID 和确定的迁移映射，不把缺失旧子身份自动指向新 rig。
-- [ ] 1.14 Clip/Graph 保存接显式 staging 成功结果；新 revision 使用新 asset snapshot/bulk stream，不覆盖在用对象；覆盖压缩/写入失败与加载跨提交点。
+- [ ] 1.14 Clip/Graph 保存检查显式 ProductStatus；reload 创建新 instance，不覆盖在用对象；覆盖压缩/写入失败与 retained bulk。
 - [x] 1.15 采样先填完整 reference pose 再写已有 TRS 通道；覆盖部分 clip、状态切换、helper 与复用工作区残留值。
 
 ## 2. 动画 feature 模块与消费方接口

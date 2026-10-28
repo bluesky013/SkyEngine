@@ -1,5 +1,5 @@
 #pragma once
 
-#include <framework/asset/AssetProductGroup.h>
+#include <framework/asset/AssetProduct.h>
 
 sky::ProductStatus AuditPackagedProducts(const std::string &manifestPath);

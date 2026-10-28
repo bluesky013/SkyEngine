@@ -71,6 +71,10 @@ namespace {
     {
         return VK_ERROR_DEVICE_LOST;
     }
+    VkResult VKAPI_PTR PendingSlotQuery(VkDevice, VkFence)
+    {
+        return VK_NOT_READY;
+    }
     VkResult VKAPI_PTR FailedSlotReset(VkDevice, uint32_t, const VkFence *)
     {
         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -101,9 +105,6 @@ TEST_P(FrameSlots, EmptyLeasesValidateIdentityAndDoNotCreateSubmissionWaits)
         EXPECT_TRUE(std::holds_alternative<FrameError>(context->DiscardUnsubmitted(invalid)));
         EXPECT_TRUE(std::holds_alternative<FrameError>(backend->AllocateCommand(invalid, 0)));
     }
-    EXPECT_EQ(context->GetFrameFence(), nullptr);
-    context->BeginFrame();
-    context->EndFrame();
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
     EXPECT_TRUE(std::holds_alternative<FrameError>(context->DiscardUnsubmitted(lease)));
     for (int i = 0; i < 32; ++i) {
@@ -115,10 +116,68 @@ TEST_P(FrameSlots, EmptyLeasesValidateIdentityAndDoNotCreateSubmissionWaits)
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(next)));
     }
     EXPECT_TRUE(Collect(0).empty());
-    std::unique_ptr<DeviceFrameContext> direct(device->CreateFrameContext({}));
+}
+
+TEST_P(FrameSlots, DirectContextsSelectTheirProtocolAtCreationAndCheckFramePairing)
+{
+    std::unique_ptr<DirectFrameContext> direct(device->CreateDirectFrameContext({}));
     ASSERT_TRUE(direct);
-    ASSERT_NE(direct->GetFrameFence(), nullptr);
-    EXPECT_TRUE(std::holds_alternative<FrameError>(direct->TryBeginSlot()));
+    auto *directBackend = static_cast<BackendFrameContext *>(direct.get());
+    EXPECT_TRUE(std::holds_alternative<FrameError>(directBackend->TryBeginSlot()));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(direct->EndFrame()));
+    auto *fence = direct->GetFrameFence();
+    ASSERT_NE(fence, nullptr);
+    EXPECT_EQ(direct->GetFrameFence(), fence);
+    EXPECT_EQ(fence->Query().status, FenceStatus::SIGNALED);
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(direct->TryBeginFrame()));
+    EXPECT_EQ(direct->GetFrameFence(), fence);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(direct->TryBeginFrame()));
+    SubmitInfo submit;
+    submit.fence = fence;
+    ASSERT_EQ(device->GetQueue(QueueType::GRAPHICS)->TrySubmit(submit).status, QueueSubmitStatus::ACCEPTED);
+    ASSERT_TRUE(fence->WaitFor(5'000'000'000ULL));
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(direct->EndFrame()));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(direct->EndFrame()));
+
+    EXPECT_EQ(backend->GetFrameFence(), nullptr);
+    auto begun = context->TryBeginSlot();
+    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(std::get<DeviceFrameLease>(begun))));
+}
+
+TEST_P(VulkanFrameSlots, DirectBeginReportsBusyQueryAndResetFailures)
+{
+    auto                               &fn    = const_cast<VulkanDeviceFunctions &>(static_cast<VulkanDevice *>(device)->GetDeviceFn());
+    const auto                          query = fn.vkGetFenceStatus;
+    const auto                          reset = fn.vkResetFences;
+    Finally                             restore{[&] {
+        fn.vkGetFenceStatus = query;
+        fn.vkResetFences    = reset;
+    }};
+    std::unique_ptr<DirectFrameContext> busy(device->CreateDirectFrameContext({}));
+    ASSERT_TRUE(busy);
+    auto *fence         = busy->GetFrameFence();
+    fn.vkGetFenceStatus = PendingSlotQuery;
+    fn.vkResetFences    = UnexpectedSlotFenceReset;
+    EXPECT_TRUE(std::holds_alternative<FrameBusy>(busy->TryBeginFrame()));
+    EXPECT_EQ(busy->GetFrameFence(), fence);
+
+    fn.vkGetFenceStatus    = query;
+    fn.vkResetFences       = FailedSlotReset;
+    const auto resetResult = busy->TryBeginFrame();
+    ASSERT_TRUE(std::holds_alternative<FrameError>(resetResult));
+    EXPECT_EQ(std::get<FrameError>(resetResult).cause.nativeCode, VK_ERROR_OUT_OF_HOST_MEMORY);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(busy->TryBeginFrame()));
+
+    fn.vkResetFences = reset;
+    std::unique_ptr<DirectFrameContext> failed(device->CreateDirectFrameContext({}));
+    ASSERT_TRUE(failed);
+    fn.vkGetFenceStatus    = FailedSlotQuery;
+    const auto queryResult = failed->TryBeginFrame();
+    ASSERT_TRUE(std::holds_alternative<FrameError>(queryResult));
+    EXPECT_EQ(std::get<FrameError>(queryResult).code, FrameErrorCode::DEVICE_LOST);
+    EXPECT_EQ(std::get<FrameError>(queryResult).cause.nativeCode, VK_ERROR_DEVICE_LOST);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(failed->EndFrame()));
 }
 
 TEST_P(FrameSlots, TwoSlotsKeepCommandsAndOwnedPrepareProductsUntilCompletion)

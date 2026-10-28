@@ -14,7 +14,6 @@ namespace sky::aurora {
         std::shared_ptr<const void>      owner;
     };
 
-    class Fence;
     class FrameResourceTracking;
     using FrameResourceTrackingResult = std::variant<FrameError, std::shared_ptr<const FrameResourceTracking>>;
     using FrameResource               = std::variant<BufferPtr, ImagePtr>;
@@ -108,11 +107,6 @@ namespace sky::aurora {
         {
             return FrameError{FrameErrorCode::UNSUPPORTED};
         }
-
-        // Direct hosts remain separate until migration; a context cannot mix the two protocols.
-        virtual void   BeginFrame() noexcept          = 0;
-        virtual void   EndFrame() noexcept            = 0;
-        virtual Fence *GetFrameFence() const noexcept = 0;
     };
 
 } // namespace sky::aurora

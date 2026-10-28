@@ -35,6 +35,7 @@ namespace sky::aurora {
         {
             return recordingError;
         }
+        void RecordError(GpuError error) noexcept;
 
         // Backend-only: encoders call these on construction/destruction so the
         // command buffer can route in-encoder barriers and flush pending ones.

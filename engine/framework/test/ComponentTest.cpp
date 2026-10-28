@@ -93,7 +93,6 @@ namespace {
         {
             auto *context = SerializationContext::Get();
             TestComponent::Reflect(context);
-            TransformComponent::Reflect(context);
             LifecycleComponent::Reflect(context);
             ComponentFactory::Get()->RegisterComponent<TestComponent>("Test");
             ComponentFactory::Get()->RegisterComponent<LifecycleComponent>("Test");
@@ -101,7 +100,8 @@ namespace {
     };
     const auto *componentMetadata = testing::AddGlobalTestEnvironment(new ComponentMetadataEnvironment());
 } // namespace
-class ComponentTest : public ::testing::Test {};
+class ComponentTest : public ::testing::Test {
+};
 
 TEST_F(ComponentTest, ActorTest)
 {

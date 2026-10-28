@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -48,7 +49,8 @@ TEST_F(AuroraAssetBulkTest, ImageBulkRoundTrip)
     const std::vector<uint8_t> pixels = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     {
-        auto asset = AssetManager::Get()->FindOrCreateAsset<aurora::Texture>(id);
+        auto asset = std::static_pointer_cast<Asset<aurora::Texture>>(
+            AssetManager::Get()->CreateBuildAsset(id, Name(AssetTraits<aurora::Texture>::ASSET_TYPE.data())));
         ASSERT_NE(asset, nullptr);
         auto &data       = asset->Data();
         data.format      = aurora::PixelFormat::RGBA8_UNORM;
@@ -63,7 +65,7 @@ TEST_F(AuroraAssetBulkTest, ImageBulkRoundTrip)
         slice.size   = pixels.size();
         data.slices.push_back(slice);
         asset->AddBulk(pixels.data(), pixels.size());
-        AssetManager::Get()->SaveAsset(asset, "imgbulk");
+        ASSERT_TRUE(AssetManager::Get()->SaveAsset(asset, "imgbulk"));
     }
 
     auto loaded = AssetManager::Get()->LoadAsset<aurora::Texture>(id);
@@ -91,7 +93,8 @@ TEST_F(AuroraAssetBulkTest, MeshBulkAndIndependentSkinRoundTrip)
     const Uuid skinId = Uuid::Create();
 
     {
-        auto asset = AssetManager::Get()->FindOrCreateAsset<aurora::Mesh>(id);
+        auto asset = std::static_pointer_cast<Asset<aurora::Mesh>>(
+            AssetManager::Get()->CreateBuildAsset(id, Name(AssetTraits<aurora::Mesh>::ASSET_TYPE.data())));
         ASSERT_NE(asset, nullptr);
         auto &data        = asset->Data();
         data.vertexStride = vtx.size();
@@ -107,14 +110,15 @@ TEST_F(AuroraAssetBulkTest, MeshBulkAndIndependentSkinRoundTrip)
 
         asset->AddBulk(vtx.data(), vtx.size());
         asset->AddBulk(idx.data(), idx.size());
-        AssetManager::Get()->SaveAsset(asset, "meshbulk");
-
-        auto  skinAsset        = AssetManager::Get()->FindOrCreateAsset<aurora::Skin>(skinId);
+        auto skinAsset = std::static_pointer_cast<Asset<aurora::Skin>>(
+            AssetManager::Get()->CreateBuildAsset(skinId, Name(AssetTraits<aurora::Skin>::ASSET_TYPE.data())));
+        ASSERT_NE(skinAsset, nullptr);
         auto &skinData         = skinAsset->Data();
         skinData.sourceOwner   = id;
         skinData.binding.input = {42, {"slot0", "slot1"}};
         skinData.binding.binds = {{Matrix4::Identity(), "root", 0}, {Matrix4::Identity(), "spine", 0}};
-        AssetManager::Get()->SaveAsset(skinAsset, "meshbulk");
+        const std::array<AssetPtr, 2> products{asset, skinAsset};
+        ASSERT_TRUE(AssetManager::Get()->SaveProducts(products, "meshbulk"));
     }
 
     auto loaded = AssetManager::Get()->LoadAsset<aurora::Mesh>(id);

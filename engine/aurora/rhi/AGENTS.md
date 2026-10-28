@@ -2,7 +2,7 @@
 
 - 原生后端遵循根规则及 [Aurora 领域约定](../AGENTS.md) 的 namespace、RHI、同步与 Metal 规则；Aurora 属于 foundation，接口与实现均在 engine/aurora，原生后端保留原 RHI 目录，不迁入 plugins。接口 target 与实现 target 仍分离。
 - `common` 只共享 slot 生命周期、lease 约束的 buffer 范围分配、device transient 对象池/借用绑定、完成错误归并、显式纳管资源的提交边界账本与提交保活；native pass、资源/同步计划、encode DAG 和编码策略由各后端完整实现。
-- 对外只通过 `DeviceFrameContext` 执行；compiler 为后端私有组合对象。取槽不 reset fence，Rejected 不等待完成，Indeterminate/查询错误不得提前释放资源。
+- 生产图只通过 `DeviceFrameContext` 的 lease 协议执行；compiler 为后端私有组合对象。取槽不 reset fence，Rejected 不等待完成，Indeterminate/查询错误不得提前释放资源。2026-10-27 起旧直接协议改由 `Device::CreateDirectFrameContext` 显式创建独立 `DirectFrameContext`，getter 不切协议/推进 slot，TryBeginFrame 检查 Query/TryReset，EndFrame 检查配对。
 - 每个 command reset 域只能覆盖已经退休的 slot/worker/recording；生产 descriptor/staging/UBO 也必须消费同一 lease，禁止自行推进 ring。
 - B11 checked SwapChain 与旧直接协议互斥；Vulkan 需要 maintenance1、acquire fence 与独立 present fence，DX12 使用 DO_NOT_WAIT 和 Present 后 queue fence。资源可退休不等于屏幕已显示；正常 resize/close 不用全设备 WaitIdle，终态销毁另行安全 drain。
 - borrowed output 绑定 exact lease/owner，单 mip/layer/X1、UNDEFINED→PRESENT；不得包装成拥有型 ImagePtr。逐 cell 状态表也禁止普通资源声明 PRESENT。depth attachment layout 可能包含固定功能 resolve，Vulkan 同步需覆盖 COLOR_ATTACHMENT_OUTPUT/COLOR_ATTACHMENT_WRITE。
@@ -18,7 +18,7 @@
 
 - B06 的 RecordedFrame 回执由各后端在所有 live pass/最终转换成功录制并收齐后提供，包含对应冻结图和实际执行 pass；common 仅保存/交付。Compile 成功、计划中的 pass 或 Submit Accepted 均不能冒充 GPU 完成；资源发布归 renderer uploader。
 
-- B07 的 descriptors/PSO 在 Compile 冻结，worker 只发出绑定/绘制命令。Vulkan 稀疏 set 保留空 layout 槽位；失败 Compile 只回收本次新增 descriptor sets，失败的 native 清理不得伪造预算恢复。PSO 当前仅 pass/subpass 内复用，不能误认为 device 跨帧缓存。
+- B07 历史检查点将 descriptors/PSO 在 Compile 冻结，worker 只发出绑定/绘制命令。Vulkan 稀疏 set 保留空 layout 槽位；失败 Compile 只回收本次新增 descriptor sets，失败的 native 清理不得伪造预算恢复。该历史阶段只在 pass/subpass 复用 PSO；当前 device PSO/scope cache 仍按下文的 epoch、签名与有界容量约束。
 
 - B10 首批支持 2D RGBA8 指定单个完整 mip/layer 的紧密 copy；内容分析逐 mip/layer，initialized=true/整图 export 覆盖全部子资源；initializedRanges 可声明部分完整 mip/layer 有效，与 initialized=true 互斥，UNDEFINED/transient 禁止已有内容。Vulkan/DX12 按物理 backing 的子资源转换，图初末 layout 仍统一，转换不能扩大内容定义范围。第八子批补局部矩形/显式行距；多 layer 单次 copy 仍未支持；第十五子批的 raster 可从多 mip/layer image 选择单 cell；第四子批的 renderer uploader 复用这些 copy 上传完整 image，核验全部回执并成功完成后发布 Resident，后端不负责目录发布。
 
@@ -66,3 +66,12 @@
 Shader 变体 native mapping 按 stage 维护 key/type/id/value；VS 与 FS 可合法复用相同 ID 并使用不同类型和值。
 Vulkan 每 stage 构造独立 VkSpecializationInfo；Metal 每 function 构造常量值；DXIL 的静态选择已烘入代码，不补造 uniform 参数。
 后端对象转型前验证同一 GetDevice() owner；原生 required 资源不能根据 false 开关擅自省略。MSL 交叉编译不代表原生 Metal 已验收。
+
+## FrameGraph 契约收敛（2026-10-27）
+
+- numeric `DescriptorEncoder` 只负责原生 binding 写入；Name/typed 更新使用 `ShaderParameterUpdate` 和显式 `ResourceGroup::CreateParameterUpdate(context)`。后者复用语义事务并发布新 immutable snapshot；前者不能更新已发布 snapshot。`DescriptorBatch` 无生产调用者，接口、Device 工厂和三个实现已移除，不恢复独立 batch/ring。
+- Raster/Compute 从 immutable `FrameBindingGroup` 与 per-use overrides 解析临时 bindings；snapshot 持 layoutOwner/set/精确资源值，dynamic offsets/access 独立。Custom 保留 ordered arrays。组结构/reflection 在 culling 前验证，内容只对存活工作验证；unknown/duplicate overrides 不能被 resolver 静默忽略。
+- 公共 typed 访问遍历产出临时 `passResourceUses`，内容 reads/writes/defines 保持独立；native barrier/scope/encode 计划仍由各后端构建。Vulkan/DX12 将同物理 buffer 的只读角色合并后同步，覆盖 raster storage 和真实 shader stages，不以几何同步代替 shader 读取。
+- native group cache 只属于本次 Compile/lease，按 layout owner、真实 set、graph resource/backing、base range/view 和 sampler 匹配；dynamic offsets 不进入 descriptor value key，每次 use 单独按真实 binding 排序。raster/compute consumers 各自复用相同组，不复用不兼容 native layout；scope/PSO 签名仍独立；失败不发布 cache entry，所有 native refs 沿现有提交退休。
+- Metal attachment resolve 与源 STORE/DONT_CARE 在原始 raster pass 共同降低；STORE 保留源同时 resolve，DONT_CARE 仍产生目标。受限 depth-array sampling workaround 的 group 命中跨 pass 时仍需按当前 source 刷新 copy，不能复用上一 pass 的临时纹理内容。
+- Dispatch 在 backend 下转型前同时核对 exact issued object 与 public identity；开始编码即消费调用方 plan。native command/encoder 失败阻止成功 receipt，收齐/清理后按未提交协议丢弃；不能要求 reset 一个已经消费的 plan 才能退休。

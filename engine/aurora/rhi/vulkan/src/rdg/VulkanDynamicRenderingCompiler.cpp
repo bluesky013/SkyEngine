@@ -92,34 +92,34 @@ namespace sky::aurora {
         for (auto index : semantic.livePasses) {
             const auto &pass = data.passes[index];
             if (const auto *copy = std::get_if<BufferCopyPass>(&pass)) {
-                auto step = resources.Copy(*copy);
+                auto step = resources.Copy(*copy, semantic.passResourceUses[index]);
                 if (auto *error = std::get_if<FrameError>(&step))
                     return std::move(*error);
                 encoder->steps.emplace_back(std::move(std::get<VulkanTransferStep>(step)));
             } else if (const auto *copy = std::get_if<BufferImageCopyPass>(&pass)) {
-                auto step = resources.Copy(*copy);
+                auto step = resources.Copy(*copy, semantic.passResourceUses[index]);
                 if (auto *error = std::get_if<FrameError>(&step))
                     return std::move(*error);
                 encoder->steps.emplace_back(std::move(std::get<VulkanTransferStep>(step)));
             } else if (const auto *compute = std::get_if<FrameComputePass>(&pass)) {
-                auto step = ResolveVulkanCompute(device, context, lease, resources, *compute);
+                auto step = ResolveVulkanCompute(device, context, lease, resources, *compute, semantic.passResourceUses[index]);
                 if (auto *error = std::get_if<FrameError>(&step))
                     return std::move(*error);
                 encoder->steps.emplace_back(std::move(std::get<VulkanComputeStep>(step)));
             } else if (const auto *custom = std::get_if<FrameCustomPass>(&pass)) {
-                auto step = resources.Custom(*custom);
+                auto step = resources.Custom(*custom, semantic.passResourceUses[index]);
                 if (auto *error = std::get_if<FrameError>(&step))
                     return std::move(*error);
                 encoder->steps.emplace_back(std::move(std::get<VulkanCustomStep>(step)));
             } else {
-                const auto &raster = std::get<FrameRasterPass>(pass);
+                const auto &raster   = std::get<FrameRasterPass>(pass);
                 const bool  hasColor = raster.color != GraphImageHandle{};
                 auto       *image    = resources.images[hasColor ? raster.color.index : raster.depth->image.index];
-                const auto &desc   = image->GetDescriptor();
+                const auto &desc     = image->GetDescriptor();
                 if (hasColor && !desc.usage.TestBit(ImageUsageFlagBit::RENDER_TARGET))
                     return FrameError{FrameErrorCode::INVALID_ARGUMENT};
                 DynamicRasterStep step;
-                if (auto error = resources.RasterInputs(raster, step.before))
+                if (auto error = resources.RasterInputs(semantic.passResourceUses[index], step.before))
                     return std::move(*error);
                 const auto view =
                     std::get<ResolvedRasterAttachmentView>(ResolveRasterAttachmentView(hasColor ? raster.colorView : raster.depth->view, desc));

@@ -148,7 +148,7 @@ TEST_F(WorldSkinDefaultsTest, DeferredComponentCreationRestoresObjectIdentityAnd
         EXPECT_TRUE(enabled);
         selection.SetSelection({{SelectionType::ENTITY, actorId}});
         ASSERT_EQ(inspector.Form().GetSections().size(), 3u);
-        PropertyModel model({animation->GetReflectedObject(), GetTypeNode(animationId)});
+        PropertyModel model(PropertyObject{animation->GetReflectedObject(), GetTypeNode(animationId)});
         const auto    changedRig = Uuid::Create();
         auto         &commands   = EditorCore::GetCommandService();
         commands.Execute(editor.MakeEditCommand(actorId, model.GetDescriptors().front(), Any(changedRig)));

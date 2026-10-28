@@ -80,6 +80,10 @@ namespace sky {
         {
             return valid;
         }
+        void Invalidate()
+        {
+            valid = false;
+        }
 
         template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T> || is_binary_serializable_v<T> || std::is_enum_v<T>>>
         void SaveValue(const T &v)

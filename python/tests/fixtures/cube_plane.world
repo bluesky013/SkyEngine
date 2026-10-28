@@ -1,0 +1,251 @@
+{
+  "assetRoots": [],
+  "actors": [
+    {
+      "uuid": "7FE3FEFC-B3F1-479F-9893-36BB3C2005B4",
+      "name": "Cube",
+      "components": [
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "rotation": [
+                    0.0,
+                    0.2588190734386444,
+                    0.0,
+                    0.965925931930542
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        },
+        {
+          "type": "06E5131D-299F-4DC3-AB66-12765D3E4F18",
+          "data": {
+            "classId": "D472BE01-F47F-4D73-9084-BACF7A6A78A1",
+            "elements": {
+              "castShadow": true,
+              "material": "8F015801-3437-4A44-A581-C191184C8104",
+              "mesh": "8F015801-3437-4A44-A581-C191184C8101",
+              "receiveShadow": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "9D960A46-0561-44F4-BCCC-1653E19A59A5",
+      "name": "Plane",
+      "components": [
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    0.0,
+                    -0.5,
+                    0.0
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        },
+        {
+          "type": "06E5131D-299F-4DC3-AB66-12765D3E4F18",
+          "data": {
+            "classId": "D472BE01-F47F-4D73-9084-BACF7A6A78A1",
+            "elements": {
+              "castShadow": true,
+              "material": "8F015801-3437-4A44-A581-C191184C8104",
+              "mesh": "8F015801-3437-4A44-A581-C191184C8102",
+              "receiveShadow": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "8B456A31-208E-45B9-93FC-78AA22781E66",
+      "name": "Directional Light",
+      "components": [
+        {
+          "type": "2B24EDC9-21C9-431E-B314-A2F8E20A08EF",
+          "data": {
+            "classId": "ACD7AAE2-3A85-4B83-A1A6-54BCB00CCA0C",
+            "elements": {
+              "castShadow": true,
+              "color": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "intensity": 1.0
+            }
+          }
+        },
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "rotation": [
+                    -0.3303660750389099,
+                    0.2432103455066681,
+                    0.0885213240981102,
+                    0.9076733589172363
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "F9A81BA9-F1F1-4FBF-95C9-9E303EF0AF8D",
+      "name": "Point Light",
+      "components": [
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    -2.0,
+                    2.0,
+                    2.0
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        },
+        {
+          "type": "5ACF5D76-F6EB-42F0-8C80-1AD4BFC36917",
+          "data": {
+            "classId": "588117DB-50A5-492A-A288-6A3D4790E99A",
+            "elements": {
+              "color": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "intensity": 1.0,
+              "range": 10.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "DC2EBD80-2678-41BD-8EB0-A23E2EC8A3F5",
+      "name": "Camera",
+      "components": [
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "rotation": [
+                    -0.16733267214403555,
+                    0.2631784246642595,
+                    0.04640545700865909,
+                    0.9489907413585196
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    3.0,
+                    2.4,
+                    5.0
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        },
+        {
+          "type": "AB0CE7A2-8882-461C-9A97-4DD10E5658F6",
+          "data": {
+            "classId": "AC19F182-4365-4775-845E-F9A14F36B875",
+            "elements": {
+              "fov": 1.0471976,
+              "nearZ": 0.1,
+              "farZ": 100.0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "subSystems": []
+}

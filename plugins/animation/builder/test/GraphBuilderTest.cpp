@@ -5,6 +5,7 @@
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetProduct.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
 
@@ -18,7 +19,7 @@ namespace {
         bool                failCommit = false;
         FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override
         {
-            if (failCommit && to.FileName() == "current.bin") {
+            if (failCommit && to.FileName().ends_with(".bin")) {
                 return {FileOperationError::IOError, "injected graph commit failure"};
             }
             return NativeFileSystem::ReplaceFileAtomic(from, to);
@@ -87,25 +88,29 @@ TEST(GraphBuilder, GeneratedDependenciesAndFailedRecookPreservePublishedProduct)
         AssetBuildResult result;
         builder.Request(request, result);
         ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
-        AssetProductGroupStore  store(products);
-        ProductGroupSnapshotPtr first;
-        ASSERT_TRUE(store.Pin(info->uuid, first));
+        const auto readProduct = [&] {
+            std::vector<uint8_t> bytes;
+            const auto           file = products->OpenFile(ProductFilePath(info->uuid));
+            EXPECT_NE(file, nullptr);
+            if (file)
+                EXPECT_TRUE(file->ReadBin(bytes));
+            return bytes;
+        };
+        const auto first = readProduct();
+        ASSERT_FALSE(first.empty());
         EXPECT_EQ(info->dependencies.size(), 2u);
         graph.nodes[0].rate = 2.f;
         writeSource();
         builder.Request(request, result);
         ASSERT_EQ(result.retCode, AssetBuildRetCode::SUCCESS) << result.error;
-        ProductGroupSnapshotPtr second;
-        ASSERT_TRUE(store.Pin(info->uuid, second));
-        EXPECT_NE(second->generation, first->generation);
+        const auto second = readProduct();
+        EXPECT_NE(second, first);
         products->failCommit = true;
         graph.nodes[0].rate  = 3.f;
         writeSource();
         builder.Request(request, result);
         EXPECT_EQ(result.retCode, AssetBuildRetCode::FAILED);
-        ProductGroupSnapshotPtr retained;
-        ASSERT_TRUE(store.Pin(info->uuid, retained));
-        EXPECT_EQ(retained->generation, second->generation);
+        EXPECT_EQ(readProduct(), second);
         products->failCommit = false;
         graph.nodes[0].clip  = graph.skeleton;
         writeSource();
@@ -116,9 +121,7 @@ TEST(GraphBuilder, GeneratedDependenciesAndFailedRecookPreservePublishedProduct)
         writeSource();
         builder.Request(request, result);
         EXPECT_EQ(result.retCode, AssetBuildRetCode::FAILED);
-        FilePtr oldProduct;
-        EXPECT_TRUE(store.Open(*first, info->uuid, oldProduct));
-        EXPECT_NE(oldProduct, nullptr);
+        EXPECT_EQ(readProduct(), second);
         catalog->Reset();
         manager->SetSourceCatalog(nullptr);
         AssetExecutor::Get()->WaitForAll();

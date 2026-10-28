@@ -56,6 +56,8 @@ namespace sky::aurora {
         }
 
         FinishProduct(asset, request, result);
+        if (result.retCode != AssetBuildRetCode::SUCCESS)
+            return;
         LOG_I(TAG, "built material '%s' (%u techniques, %u properties)", request.assetInfo->path.GetStr().c_str(),
               static_cast<uint32_t>(asset->Data().techniques.size()), static_cast<uint32_t>(asset->Data().properties.size()));
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <aurora/rdg/FrameExecutionTypes.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/Image.h>
@@ -206,6 +207,65 @@ namespace sky::aurora {
         uint32_t   set = 0, binding = 0;
         SamplerPtr sampler;
     };
+    enum class FrameAccessMode : uint8_t { READ, WRITE, READ_WRITE };
+    // REFLECTED is valid only for Compute; Custom declares the descriptor kind explicitly.
+    enum class FrameBufferBindingKind : uint8_t { REFLECTED, UNIFORM, STORAGE };
+    enum class FrameImageBindingKind : uint8_t { REFLECTED, SAMPLED, STORAGE };
+
+    struct FrameGroupBufferBinding {
+        uint32_t               binding = 0;
+        RasterBufferRange      range;
+        FrameBufferBindingKind kind           = FrameBufferBindingKind::REFLECTED;
+        ShaderResourceAccess   resourceAccess = ShaderResourceAccess::READ_WRITE;
+        ShaderBufferKind       bufferKind     = ShaderBufferKind::RAW;
+        uint32_t               elementStride  = 0;
+    };
+    struct FrameGroupImageBinding {
+        uint32_t              binding = 0;
+        GraphImageHandle      image;
+        RasterImageView       view;
+        FrameImageBindingKind kind = FrameImageBindingKind::REFLECTED;
+    };
+    struct FrameGroupSamplerBinding {
+        uint32_t   binding = 0;
+        SamplerPtr sampler;
+    };
+    struct FrameBindingGroupData {
+        ShaderPtr                             layoutOwner;
+        uint32_t                              set = 0;
+        std::vector<FrameGroupBufferBinding>  buffers;
+        std::vector<FrameGroupImageBinding>   images;
+        std::vector<FrameGroupSamplerBinding> samplers;
+    };
+    class FrameBindingGroup final {
+    public:
+        explicit FrameBindingGroup(FrameBindingGroupData data) : data(Canonicalize(std::move(data)))
+        {
+        }
+        const FrameBindingGroupData &GetData() const noexcept
+        {
+            return data;
+        }
+
+    private:
+        static FrameBindingGroupData Canonicalize(FrameBindingGroupData);
+        const FrameBindingGroupData  data;
+    };
+    struct FrameBufferBindingUse {
+        uint32_t        binding = 0, dynamicOffset = 0;
+        FrameAccessMode access = FrameAccessMode::READ;
+    };
+    struct FrameImageBindingUse {
+        uint32_t        binding = 0;
+        FrameAccessMode access  = FrameAccessMode::READ;
+    };
+    struct FrameBindingGroupUse {
+        std::shared_ptr<const FrameBindingGroup> group;
+        std::vector<FrameBufferBindingUse>       bufferUses;
+        std::vector<FrameImageBindingUse>        imageUses;
+    };
+    using FrameBindingGroups = std::array<FrameBindingGroupUse, MAX_SHADER_SETS>;
+
     struct RasterDraw {
         ShaderPtr                          shader;
         BlendState                         blend;
@@ -214,10 +274,7 @@ namespace sky::aurora {
         std::vector<RasterVertexStream>    vertices;
         std::vector<RasterVertexAttribute> attributes;
         std::optional<RasterIndexedDraw>   indexed;
-        std::vector<RasterUniformBinding>  uniforms;
-        std::vector<RasterUniformBinding> storage;
-        std::vector<RasterImageBinding>    images;
-        std::vector<RasterSamplerBinding>  samplers;
+        FrameBindingGroups                 groups;
         RasterDepthState                   depth;
     };
     // One mip and one array layer; attachment views do not span subresources.
@@ -263,11 +320,6 @@ namespace sky::aurora {
         // Resolve preserves its result even when the multisampled color is discarded.
         std::optional<RasterColorResolve> colorResolve;
     };
-    enum class FrameAccessMode : uint8_t { READ, WRITE, READ_WRITE };
-    // REFLECTED is valid only for Compute; Custom declares the descriptor kind explicitly.
-    enum class FrameBufferBindingKind : uint8_t { REFLECTED, UNIFORM, STORAGE };
-    enum class FrameImageBindingKind : uint8_t { REFLECTED, SAMPLED, STORAGE };
-
     struct FrameBufferBinding {
         uint32_t               set = 0, binding = 0;
         RasterBufferRange      range;
@@ -290,9 +342,7 @@ namespace sky::aurora {
         ShaderPtr shader;
         // Zero dimensions are rejected: a no-op cannot define declared write contents.
         uint32_t                          groupsX = 1, groupsY = 1, groupsZ = 1;
-        std::vector<FrameBufferBinding>   buffers;
-        std::vector<FrameImageBinding>    images;
-        std::vector<RasterSamplerBinding> samplers;
+        FrameBindingGroups                groups;
         bool                              sideEffect = false;
     };
 
@@ -351,12 +401,57 @@ namespace sky::aurora {
         // Inclusive logical pass indices; exports extend through the graph-end sentinel.
         uint32_t first = UINT32_MAX, last = 0;
     };
+    enum class FrameBufferUseKind : uint8_t { COPY_SOURCE, COPY_DESTINATION, VERTEX, INDEX, UNIFORM, STORAGE };
+    enum class FrameImageUseKind : uint8_t {
+        COPY_SOURCE,
+        COPY_DESTINATION,
+        SAMPLED,
+        STORAGE,
+        COLOR_ATTACHMENT,
+        DEPTH_ATTACHMENT,
+        COLOR_RESOLVE,
+        DEPTH_RESOLVE
+    };
+    struct FrameBufferUse {
+        RasterBufferRange    range;
+        FrameBufferUseKind   kind;
+        FrameAccessMode      access = FrameAccessMode::READ;
+        ShaderStageFlags     stages;
+        ShaderResourceAccess resourceAccess = ShaderResourceAccess::READ_ONLY;
+        ShaderBufferKind     bufferKind = ShaderBufferKind::NONE;
+        uint32_t             elementStride = 0;
+    };
+    struct FrameImageUse {
+        GraphImageHandle  image;
+        ImageSubRange     range;
+        FrameImageUseKind kind;
+        FrameAccessMode   access = FrameAccessMode::READ;
+        ShaderStageFlags  stages;
+    };
+    // Compile-local facts; Custom order and effective ranges come from the declaration traversal.
+    struct FramePassResourceUses {
+        std::vector<FrameBufferUse> buffers;
+        std::vector<FrameImageUse>  images;
+    };
+    constexpr BufferUsageFlagBit FrameBufferUseUsage(FrameBufferUseKind kind) noexcept
+    {
+        switch (kind) {
+        case FrameBufferUseKind::COPY_SOURCE: return BufferUsageFlagBit::TRANSFER_SRC;
+        case FrameBufferUseKind::COPY_DESTINATION: return BufferUsageFlagBit::TRANSFER_DST;
+        case FrameBufferUseKind::VERTEX: return BufferUsageFlagBit::VERTEX;
+        case FrameBufferUseKind::INDEX: return BufferUsageFlagBit::INDEX;
+        case FrameBufferUseKind::UNIFORM: return BufferUsageFlagBit::UNIFORM;
+        case FrameBufferUseKind::STORAGE: return BufferUsageFlagBit::STORAGE;
+        }
+        return BufferUsageFlagBit::NONE;
+    }
     struct FrameGraphAnalysis {
         std::vector<uint32_t>              livePasses;
         std::vector<uint32_t>              usedBuffers;
         std::vector<uint32_t>              usedImages;
         std::vector<FrameResourceLifetime> bufferLifetimes;
         std::vector<FrameResourceLifetime> imageLifetimes;
+        std::vector<FramePassResourceUses> passResourceUses;
     };
     using FrameGraphAnalysisResult = std::variant<FrameError, FrameGraphAnalysis>;
 

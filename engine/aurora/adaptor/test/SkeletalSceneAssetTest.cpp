@@ -5,12 +5,14 @@
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
+#include <aurora/pipeline/GlobalVariantLayout.h>
 #include <aurora/rhi/VertexSemantic.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
-#include <aurora/shader/ShaderUsage.h>
 #include <aurora/shader/ShaderResolver.h>
-#include <aurora/pipeline/GlobalVariantLayout.h>
+#include <aurora/shader/ShaderUsage.h>
 #include <cstring>
+#include <filesystem>
+#include <framework/asset/AssetManager.h>
 #include <map>
 
 using namespace sky;
@@ -24,10 +26,6 @@ namespace {
             this->SetUuid(Uuid::Create());
             this->SetType(Name(AssetTraits<T>::ASSET_TYPE.data()));
             this->status = AssetBase::Status::LOADED;
-        }
-        void Group(ProductGroupSnapshotPtr value)
-        {
-            this->productGroup = std::move(value);
         }
     };
     class SkeletalSceneAssets : public testing::Test {
@@ -196,25 +194,52 @@ TEST_F(SkeletalSceneAssets, RejectsStaticMaterialBeforePublishingSkeletalTuple)
     EXPECT_NE(std::get<RendererError>(result).message.find("SkinningBatch"), std::string::npos);
 }
 
-TEST_F(SkeletalSceneAssets, CommitCrossingNeverPublishesMixedGenerationFromOneOwner)
+TEST_F(SkeletalSceneAssets, ProductChangeRefreshesTheWholeTupleAndRetainsPreviousBinding)
 {
-    auto old         = std::make_shared<ProductGroupSnapshot>();
-    old->owner       = mesh->GetUuid();
-    old->generation  = Uuid::Create();
-    old->revision    = 1;
-    auto next        = std::make_shared<ProductGroupSnapshot>(*old);
-    next->generation = Uuid::Create();
-    next->revision   = 2;
-    mesh->Group(old);
-    skin->Group(next);
-    rig->Group(next);
-    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve()));
-    mesh->Group(next);
-    const auto result = Resolve();
-    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(result));
-    const auto ready = std::get<std::shared_ptr<const SceneSkeletalResources>>(result);
+    const auto first = Resolve();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(first));
+    const auto previous = std::get<std::shared_ptr<const SceneSkeletalResources>>(first);
+    auto       nextMesh = std::make_shared<ReadyAsset<Mesh>>();
+    auto       nextSkin = std::make_shared<ReadyAsset<Skin>>();
+    auto       nextRig  = std::make_shared<ReadyAsset<Skeleton>>();
+    nextMesh->SetUuid(mesh->GetUuid());
+    nextSkin->SetUuid(skin->GetUuid());
+    nextRig->SetUuid(rig->GetUuid());
+    nextMesh->Data()                                         = mesh->Data();
+    nextSkin->Data()                                         = skin->Data();
+    nextRig->Data()                                          = rig->Data();
+    nextSkin->Data().binding.binds.front().inverseBind.v[12] = 1;
+    nextRig->Data().refPos.front().translation.x             = -1;
+    assets            = {{nextMesh->GetUuid(), nextMesh}, {nextSkin->GetUuid(), nextSkin}, {nextRig->GetUuid(), nextRig}};
+    const auto cached = Resolve();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(cached));
+    EXPECT_EQ(std::get<std::shared_ptr<const SceneSkeletalResources>>(cached), previous);
+
+    std::error_code error;
+    const auto      root = std::filesystem::temp_directory_path(error) / ("sky-skeletal-refresh-" + Uuid::Create().ToString());
+    ASSERT_FALSE(error);
+    auto               *manager    = AssetManager::Get();
+    const auto          bundle     = "skeletal-refresh-" + Uuid::Create().ToString();
+    NativeFileSystemPtr filesystem = new NativeFileSystem(FilePath(root));
+    manager->AddAssetProductBundle(new HashedAssetBundle(filesystem, bundle));
+    const auto marker = std::static_pointer_cast<Asset<Skeleton>>(manager->CreateBuildAsset(Uuid::Create(), Name("AuroraSkeleton")));
+    ASSERT_NE(marker, nullptr);
+    marker->Data()    = rig->Data();
+    const auto serial = manager->GetProductChangeSerial();
+    ASSERT_TRUE(manager->SaveAsset(marker, bundle));
+    EXPECT_GT(manager->GetProductChangeSerial(), serial);
+    const auto refreshed = Resolve();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(refreshed));
+    const auto ready = std::get<std::shared_ptr<const SceneSkeletalResources>>(refreshed);
     ASSERT_NE(ready, nullptr);
-    EXPECT_EQ(ready->binding->key.meshGeneration, next->generation);
-    EXPECT_EQ(ready->binding->key.skinGeneration, next->generation);
-    EXPECT_EQ(ready->binding->key.skeletonGeneration, next->generation);
+    EXPECT_NE(ready, previous);
+    EXPECT_EQ(ready->binding->key.meshGeneration, nextMesh->GetInstanceId());
+    EXPECT_EQ(ready->binding->key.skinGeneration, nextSkin->GetInstanceId());
+    EXPECT_EQ(ready->binding->key.skeletonGeneration, nextRig->GetInstanceId());
+    EXPECT_EQ(previous->binding->key.meshGeneration, mesh->GetInstanceId());
+    EXPECT_FLOAT_EQ(previous->binding->inverseBindMatrices.front().v[12], 0);
+    EXPECT_FLOAT_EQ(ready->binding->inverseBindMatrices.front().v[12], 1);
+    source.reset();
+    std::filesystem::remove_all(root, error);
+    EXPECT_FALSE(error) << error.message();
 }

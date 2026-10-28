@@ -7,7 +7,6 @@
 #include <D3D12BlitHelper.h>
 #include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
-#include <D3D12DescriptorBatch.h>
 #include <D3D12DescriptorHeap.h>
 #include <D3D12Fence.h>
 #include <D3D12Instance.h>
@@ -220,6 +219,11 @@ namespace sky::aurora {
         return BackendFrameContext::Create<D3D12DeviceFrameContext>(this, info);
     }
 
+    DirectFrameContext *D3D12Device::CreateDirectFrameContext(const DeviceFrameContextInitInfo &info)
+    {
+        return BackendFrameContext::CreateDirect<D3D12DeviceFrameContext>(this, info);
+    }
+
     Fence *D3D12Device::CreateFence(const Fence::Descriptor &desc)
     {
         auto *f = new D3D12Fence(*this);
@@ -328,11 +332,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
-    }
-
-    DescriptorBatch *D3D12Device::CreateDescriptorBatch()
-    {
-        return new D3D12DescriptorBatch(*this);
     }
 
     DescriptorHeap *D3D12Device::CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)

@@ -1,4 +1,6 @@
 #include "ShaderSourcesFixture.h"
+
+#include <aurora/rdg/FrameBindings.h>
 //
 // Created on 2026/10/17.
 //
@@ -11,6 +13,7 @@
 #include "graph/FrameFeatureRegistry.h"
 #include <D3D12Device.h>
 #include <VulkanDevice.h>
+#include <VulkanInstance.h>
 #include <array>
 #include <atomic>
 #include <aurora/adaptor/renderer/RendererHost.h>
@@ -26,6 +29,7 @@
 #include <d3d12sdklayers.h>
 #include <editor/render/UiSnapshotProducer.h>
 #include <filesystem>
+#include <functional>
 #include <gtest/gtest.h>
 #include <limits>
 #include <thread>
@@ -72,7 +76,11 @@ namespace {
             dispatch.shader  = std::get<ShaderPtr>(cs);
             dispatch.groupsX = desc.extent.width;
             dispatch.groupsY = desc.extent.height;
-            dispatch.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
+            ComputeBindingDraft dispatchBindings;
+            dispatchBindings.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
+            const auto boundCompute = SetComputeBindings(dispatch, std::move(dispatchBindings));
+            if (const auto *error = std::get_if<FrameError>(&boundCompute))
+                return *error;
             const auto executed = context.Compute(std::move(dispatch));
             if (std::holds_alternative<FrameError>(executed))
                 return executed;
@@ -83,8 +91,12 @@ namespace {
             draw.shader              = std::get<ShaderPtr>(raster);
             draw.command.vertexCount = 3;
             draw.scissor.extent      = output->output.extent;
-            draw.images.push_back({1, 0, target});
-            draw.samplers.push_back({1, 1, std::get<SamplerPtr>(sampler)});
+            RasterBindingDraft bindings;
+            bindings.images.push_back({1, 0, target});
+            bindings.samplers.push_back({1, 1, std::get<SamplerPtr>(sampler)});
+            const auto boundRaster = SetRasterBindings(draw, std::move(bindings));
+            if (const auto *error = std::get_if<FrameError>(&boundRaster))
+                return *error;
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
@@ -173,9 +185,13 @@ namespace {
             draw.shader              = shader;
             draw.command.vertexCount = 3;
             draw.scissor.extent      = output->output.extent;
-            draw.uniforms.push_back(std::get<RasterUniformBinding>(written));
+            RasterBindingDraft bindings;
+            bindings.uniforms.push_back(std::get<RasterUniformBinding>(written));
             if (shortRange)
-                draw.uniforms.front().range.size -= 4;
+                bindings.uniforms.front().range.size -= 4;
+            const auto bound = SetRasterBindings(draw, std::move(bindings));
+            if (const auto *error = std::get_if<FrameError>(&bound))
+                return *error;
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
@@ -309,6 +325,51 @@ namespace {
         PFN_vkEndCommandBuffer     savedVk              = nullptr;
         D3D12Functions            *dx                   = nullptr;
         HRESULT (*savedDx)(ID3D12GraphicsCommandList *) = nullptr;
+    };
+    struct RotatedSurfaceProbe {
+        RotatedSurfaceProbe(VulkanDevice &device, std::function<void()> stop)
+            : owner(&device)
+            , functions(const_cast<VulkanInstanceFunctions &>(device.GetVulkanInstance().GetInstanceFn()))
+            , deviceFunctions(const_cast<VulkanDeviceFunctions &>(device.GetDeviceFn()))
+            , savedCaps(functions.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)
+            , savedCreate(deviceFunctions.vkCreateSwapchainKHR)
+            , stop(std::move(stop))
+        {
+            active                                              = this;
+            functions.vkGetPhysicalDeviceSurfaceCapabilitiesKHR = [](VkPhysicalDevice gpu, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *caps) {
+                const auto result = active->savedCaps(gpu, surface, caps);
+                if (result == VK_SUCCESS) {
+                    active->nativeTransform = caps->currentTransform;
+                    caps->supportedTransforms |= VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR;
+                    caps->currentTransform = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR;
+                }
+                return result;
+            };
+            deviceFunctions.vkCreateSwapchainKHR = [](VkDevice device, const VkSwapchainCreateInfoKHR *info, const VkAllocationCallbacks *allocator,
+                                                      VkSwapchainKHR *swapchain) {
+                // Exercise rotated output metadata without requiring native Windows rotation support.
+                auto native         = *info;
+                native.preTransform = active->nativeTransform;
+                return active->savedCreate(device, &native, allocator, swapchain);
+            };
+        }
+        ~RotatedSurfaceProbe()
+        {
+            stop();
+            if (Instance::Get()->GetDevice() == owner) {
+                functions.vkGetPhysicalDeviceSurfaceCapabilitiesKHR = savedCaps;
+                deviceFunctions.vkCreateSwapchainKHR                = savedCreate;
+            }
+            active = nullptr;
+        }
+        VulkanDevice                                 *owner;
+        VulkanInstanceFunctions                      &functions;
+        VulkanDeviceFunctions                        &deviceFunctions;
+        PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR savedCaps;
+        PFN_vkCreateSwapchainKHR                      savedCreate;
+        std::function<void()>                         stop;
+        VkSurfaceTransformFlagBitsKHR                 nativeTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+        static inline RotatedSurfaceProbe            *active          = nullptr;
     };
     constexpr SceneId    scene{0, 1};
     constexpr ViewportId viewport{0, 1};
@@ -1583,6 +1644,87 @@ TEST(ViewportMappingTest, AllTransformsUseTheSameCornersForClipAndUiCoordinates)
         EXPECT_EQ(mapping.LogicalExtent().width, i % 2 ? 40u : 80u);
         EXPECT_EQ(mapping.LogicalExtent().height, i % 2 ? 80u : 40u);
     }
+}
+
+TEST_P(RendererRuntimeTest, RotatedSurfacePreservesLogicalCameraAndMapsItsOutputOnce)
+{
+    if (info.backend != API::VULKAN)
+        GTEST_SKIP() << "Vulkan surface metadata probe";
+    struct WindowGuard {
+        HWND handle = nullptr;
+        ~WindowGuard()
+        {
+            if (handle)
+                DestroyWindow(handle);
+        }
+    } window;
+    WNDCLASSW cls{};
+    cls.lpfnWndProc   = DefWindowProcW;
+    cls.hInstance     = GetModuleHandleW(nullptr);
+    cls.lpszClassName = L"AuroraRotatedCameraOutput";
+    RegisterClassW(&cls);
+    window.handle = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, cls.lpszClassName, L"Rotated camera output", WS_POPUP, 0, 0, 80, 40, nullptr,
+                                    nullptr, cls.hInstance, nullptr);
+    ASSERT_TRUE(window.handle);
+    ShowWindow(window.handle, SW_SHOWNOACTIVATE);
+    RotatedSurfaceProbe surface(*static_cast<VulkanDevice *>(Instance::Get()->GetDevice()), [&] { Stop(); });
+    struct MappingProbe final : IFrameGraphFeature {
+        Name GetName() const override
+        {
+            return Name("output.mapping.probe");
+        }
+        FrameOperationResult BuildFrame(FrameGraphBuildContext &, const FrameExtensionPayload &) override
+        {
+            return FrameOperationComplete{};
+        }
+        FrameOperationResult BuildView(FrameGraphBuildContext &context, const PreparedViewData &view) override
+        {
+            const auto target = context.GetOutput(view.view.output);
+            if (!target)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Missing rotated output"};
+            projection          = view.view.projection;
+            mapping             = target->logicalToClip;
+            transform           = target->transform;
+            auto sceneToLogical = RenderIdentityMatrix();
+            sceneToLogical.v[5] = -1;
+            clip                = mapping * sceneToLogical * projection * view.view.view * Vector4{-.4f, .2f, .25f, 1};
+            FrameRasterPass pass;
+            pass.color = target->color;
+            return context.Raster(std::move(pass));
+        }
+        Matrix4          projection, mapping;
+        Vector4          clip;
+        SurfaceTransform transform = SurfaceTransform::IDENTITY;
+    };
+    auto     probe = std::make_shared<MappingProbe>();
+    ViewDesc camera;
+    camera.scene           = scene;
+    camera.output          = viewport;
+    camera.projection.v[0] = .5f;
+    camera.projection.v[5] = .75f;
+    camera.view.v[12]      = .1f;
+    camera.view.v[13]      = .05f;
+    ViewportDesc output;
+    output.kind         = ViewportKind::NATIVE_WINDOW;
+    output.extent       = {80, 40};
+    output.nativeWindow = reinterpret_cast<uintptr_t>(window.handle);
+    auto packet         = Packet({CreateScene{scene, {}}, CreateViewport{viewport, output}, CreateView{view, camera}});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, probe->GetName(), std::make_shared<int>(1), probe});
+    Submit(std::move(packet));
+    Complete(sequence);
+    EXPECT_EQ(probe->transform, SurfaceTransform::ROTATE_90);
+    auto expectedMapping = RenderIdentityMatrix();
+    expectedMapping.v[0] = expectedMapping.v[5] = 0;
+    expectedMapping.v[1]                        = 1;
+    expectedMapping.v[4]                        = -1;
+    for (uint32_t i = 0; i < 16; ++i) {
+        EXPECT_FLOAT_EQ(probe->projection.v[i], camera.projection.v[i]) << i;
+        EXPECT_FLOAT_EQ(probe->mapping.v[i], expectedMapping.v[i]) << i;
+    }
+    EXPECT_NEAR(probe->clip.x, .1875f, 1e-6f);
+    EXPECT_NEAR(probe->clip.y, -.15f, 1e-6f);
+    EXPECT_FLOAT_EQ(probe->clip.z, .25f);
+    EXPECT_FLOAT_EQ(probe->clip.w, 1);
 }
 
 TEST_P(RendererRuntimeTest, InvalidWorkerConfigurationAndWrongThreadSubmissionAreRejected)

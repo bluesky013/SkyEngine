@@ -136,8 +136,11 @@ namespace sky::aurora {
 
     FrameOperationResult PassResourceBindings::Storage(ShaderResourceSlot<ShaderResourceType::STORAGE_BUFFER> slot, RasterBufferRange range)
     {
-        if (const auto error = Check(slot.set, slot.binding, ShaderResourceType::STORAGE_BUFFER)) { return *error; }
-        const auto resource = std::ranges::find_if(schema.resources, [&](const auto &value) { return value.set == slot.set && value.binding == slot.binding; });
+        if (const auto error = Check(slot.set, slot.binding, ShaderResourceType::STORAGE_BUFFER)) {
+            return *error;
+        }
+        const auto resource =
+            std::ranges::find_if(schema.resources, [&](const auto &value) { return value.set == slot.set && value.binding == slot.binding; });
         if (resource->access != ShaderResourceAccess::READ_ONLY || resource->bufferKind != ShaderBufferKind::STRUCTURED || !resource->elementStride ||
             !range.size || range.size % resource->elementStride || range.offset % resource->elementStride || !range.buffer.graph ||
             range.buffer.index == UINT32_MAX || range.offset > UINT64_MAX - range.size) {
@@ -174,8 +177,8 @@ namespace sky::aurora {
                 if (!declarations.emplace(Key{resource.set, resource.binding}, std::pair{group, &resource}).second)
                     return Invalid("Pass declarations overlap at the same binding");
         }
-        RasterDraw  staged;
-        const auto &reflection = draw.shader->GetReflection();
+        RasterBindingDraft staged;
+        const auto        &reflection = draw.shader->GetReflection();
         for (const auto &resource : reflection.resources) {
             const auto found = declarations.find({resource.set, resource.binding});
             if (found == declarations.end())
@@ -185,8 +188,8 @@ namespace sky::aurora {
                 resource.descriptorArray != expected->descriptorArray ||
                 ((resource.type == ShaderResourceType::SAMPLED_IMAGE || resource.type == ShaderResourceType::STORAGE_IMAGE) &&
                  resource.texture != expected->texture) ||
-                resource.sampler != expected->sampler || resource.bufferKind != expected->bufferKind || resource.elementStride != expected->elementStride ||
-                resource.access != expected->access)
+                resource.sampler != expected->sampler || resource.bufferKind != expected->bufferKind ||
+                resource.elementStride != expected->elementStride || resource.access != expected->access)
                 return Invalid("Shader resource shape differs from the pass declarations");
             const auto matches = [&](const auto &value) { return value.set == resource.set && value.binding == resource.binding; };
             if (resource.type == ShaderResourceType::STORAGE_BUFFER) {
@@ -216,12 +219,14 @@ namespace sky::aurora {
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Resource type is not supported by raster bindings"};
             }
         }
-        if (const auto error = ValidateRasterBindings(staged, reflection))
+        RasterDraw candidate;
+        candidate.shader = draw.shader;
+        auto bound       = SetRasterBindings(candidate, std::move(staged));
+        if (const auto *error = std::get_if<FrameError>(&bound))
             return *error;
-        draw.uniforms = std::move(staged.uniforms);
-        draw.storage  = std::move(staged.storage);
-        draw.images   = std::move(staged.images);
-        draw.samplers = std::move(staged.samplers);
+        if (const auto error = ValidateRasterBindings(candidate, reflection))
+            return *error;
+        draw.groups = std::move(candidate.groups);
         return FrameOperationComplete{};
     }
 
@@ -250,8 +255,8 @@ namespace sky::aurora {
                 resource.descriptorArray != expected.descriptorArray ||
                 ((resource.type == ShaderResourceType::SAMPLED_IMAGE || resource.type == ShaderResourceType::STORAGE_IMAGE) &&
                  resource.texture != expected.texture) ||
-                resource.sampler != expected.sampler || resource.bufferKind != expected.bufferKind || resource.elementStride != expected.elementStride ||
-                resource.access != expected.access)
+                resource.sampler != expected.sampler || resource.bufferKind != expected.bufferKind ||
+                resource.elementStride != expected.elementStride || resource.access != expected.access)
                 return Invalid("Shader resource shape differs from the pass declarations");
         }
         std::map<uint32_t, std::unique_ptr<ShaderParameterTransaction>> transactions;
@@ -381,42 +386,32 @@ namespace sky::aurora {
         for (const auto &[set, update] : transactions)
             if (!update->Complete())
                 return Invalid(update->GetError().c_str());
-        std::vector<std::shared_ptr<const ShaderParameterPacket>> packets;
-        for (const auto &[set, update] : transactions) {
-            std::shared_ptr<const ShaderParameterPacket> packet;
-            if (!update->Finalize(packet))
-                return Invalid(update->GetError().c_str());
-            packets.push_back(std::move(packet));
-        }
         RasterDraw staged;
-        for (const auto &packet : packets) {
-            for (const auto &uniform : packet->uniforms) {
-                const auto allocation = context.WriteUniform(packet->set, uniform.binding, uniform.bytes, uniform.type);
-                if (const auto *error = std::get_if<FrameError>(&allocation))
-                    return *error;
-                staged.uniforms.push_back(std::get<RasterUniformBinding>(allocation));
-            }
-            for (const auto &resource : packet->resources) {
+        staged.shader = draw.shader;
+        for (const auto &[set, update] : transactions) {
+            RasterBindingDraft resources;
+            for (const auto &[key, resource] : update->GetState().resources) {
                 if (resource.token >= registry.size())
                     return Invalid("Invalid parameter resource token");
                 const auto &value = registry[resource.token];
                 if (const auto *buffer = std::get_if<RasterUniformBinding>(&value)) {
                     if (resource.type == ShaderResourceType::STORAGE_BUFFER)
-                        staged.storage.push_back(*buffer);
+                        resources.storage.push_back(*buffer);
                     else
-                        staged.uniforms.push_back(*buffer);
+                        resources.uniforms.push_back(*buffer);
                 } else if (const auto *image = std::get_if<RasterImageBinding>(&value))
-                    staged.images.push_back(*image);
+                    resources.images.push_back(*image);
                 else
-                    staged.samplers.push_back(std::get<RasterSamplerBinding>(value));
+                    resources.samplers.push_back(std::get<RasterSamplerBinding>(value));
             }
+            auto materialized = context.MaterializeParameters(draw.shader, set, update->GetState(), std::move(resources));
+            if (const auto *error = std::get_if<FrameError>(&materialized))
+                return *error;
+            staged.groups[set] = std::move(std::get<FrameBindingGroupUse>(materialized));
         }
         if (const auto error = ValidateRasterBindings(staged, reflection))
             return *error;
-        draw.uniforms = std::move(staged.uniforms);
-        draw.storage = std::move(staged.storage);
-        draw.images   = std::move(staged.images);
-        draw.samplers = std::move(staged.samplers);
+        draw.groups = std::move(staged.groups);
         return FrameOperationComplete{};
     }
 } // namespace sky::aurora

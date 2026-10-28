@@ -23,6 +23,12 @@ namespace sky::builder {
 
     void AudioBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
+        result.retCode = AssetBuildRetCode::FAILED;
+        result.error.clear();
+        if (!request.assetInfo || !request.file) {
+            result.error = "Audio cook requires an identified source file";
+            return;
+        }
         std::vector<uint8_t> raw;
         request.file->ReadBin(raw);
 
@@ -32,7 +38,13 @@ namespace sky::builder {
             return;
         }
 
-        auto  asset = AssetManager::Get()->FindOrCreateAsset<AudioClip>(request.assetInfo->uuid);
+        auto      *manager = AssetManager::Get();
+        const auto asset   = std::static_pointer_cast<Asset<AudioClip>>(
+            manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<AudioClip>::ASSET_TYPE.data())));
+        if (!asset) {
+            result.error = "Audio asset handler is unavailable";
+            return;
+        }
         auto &data  = asset->Data();
 
         data.desc.source     = request.assetInfo->path.GetStr();
@@ -59,7 +71,10 @@ namespace sky::builder {
 
         data.rawData.storage = std::move(raw);
 
-        AssetManager::Get()->SaveAsset(asset, request.target);
+        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle); !saved) {
+            result.error = saved.message;
+            return;
+        }
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 

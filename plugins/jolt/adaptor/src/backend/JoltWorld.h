@@ -22,9 +22,12 @@
 #include <optional>
 #include <tuple>
 
+#if defined(__GNUC__)
+    #pragma GCC visibility push(hidden)
+#endif
+
 namespace sky::phy {
 
-    struct JoltSdk;
     struct JoltExecutor {
         explicit JoltExecutor(uint32_t workers);
         JPH::JobSystemThreadPool jobs;
@@ -39,7 +42,7 @@ namespace sky::phy {
         std::atomic<size_t>                             preparationBytes{0};
         std::atomic<uint32_t>                           preparationCount{0};
         std::shared_ptr<const void>                     codeLease;
-        std::shared_ptr<JoltSdk>                        sdk;
+        std::shared_ptr<const void>                     sdk;
         std::mutex                                      executorMutex;
         std::map<uint32_t, std::weak_ptr<JoltExecutor>> executors;
         std::shared_ptr<JoltExecutor>                   GetExecutor(uint32_t workers);
@@ -260,3 +263,7 @@ namespace sky::phy {
     };
 
 } // namespace sky::phy
+
+#if defined(__GNUC__)
+    #pragma GCC visibility pop
+#endif

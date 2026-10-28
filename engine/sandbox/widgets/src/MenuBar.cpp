@@ -137,28 +137,70 @@ namespace sky::editor {
         return 2.0f * m.panelGap + RowHeight() * rows;
     }
 
-    static float ItemsWidth(const std::vector<MenuBar::Item> &items, const UiTheme &th, sky::ui::UITextSystem *text)
-    {
-        float w         = th.metrics.controlButtonWidth;
-        bool  checkable = false;
-        for (const auto &item : items) {
-            if (!item.visible)
-                continue;
-            w         = std::max(w, 3.0f * th.metrics.controlPad + uc::TextWidth(item.label, th.fonts.label, text));
-            checkable = checkable || item.checkable;
+    namespace {
+        struct PopupColumns {
+            float width         = 0.0f;
+            float checkLeft     = 0.0f;
+            float iconLeft      = 0.0f;
+            float labelLeft     = 0.0f;
+            float labelRight    = 0.0f;
+            float shortcutLeft  = 0.0f;
+            float shortcutRight = 0.0f;
+            float arrowCenter   = 0.0f;
+        };
+
+        PopupColumns MeasurePopup(const std::vector<MenuBar::Item> &items, const UiTheme &theme, sky::ui::UITextSystem *text, bool arrows)
+        {
+            const UiMetrics &m     = theme.metrics;
+            float            label = 0.0f, shortcut = 0.0f;
+            bool             check = false, icon = false, arrow = false;
+            for (const auto &item : items) {
+                if (!item.visible || item.separator)
+                    continue;
+                label    = std::max(label, uc::TextWidth(item.label, theme.fonts.label, text));
+                shortcut = std::max(shortcut, uc::TextWidth(item.shortcut, theme.fonts.small, text));
+                check    = check || item.checkable;
+                icon     = icon || !item.icon.empty();
+                arrow    = arrow || (arrows && !item.children.empty());
+            }
+            PopupColumns columns;
+            float        x    = m.controlPad;
+            columns.checkLeft = x;
+            if (check)
+                x += m.iconSize + m.itemSpacing;
+            columns.iconLeft = x;
+            if (icon)
+                x += m.iconSize + m.itemSpacing;
+            columns.labelLeft = x;
+            x += label;
+            columns.labelRight = x;
+            if (shortcut > 0.0f)
+                x += m.itemSpacing;
+            columns.shortcutLeft = x;
+            x += shortcut;
+            columns.shortcutRight = x;
+            if (arrow)
+                x += m.itemSpacing;
+            columns.arrowCenter = x + m.iconSize * 0.5f;
+            if (arrow)
+                x += m.iconSize;
+            columns.width     = std::max(m.controlButtonWidth, x + m.controlPad);
+            const float extra = columns.width - x - m.controlPad;
+            columns.labelRight += extra;
+            columns.shortcutLeft += extra;
+            columns.shortcutRight += extra;
+            columns.arrowCenter += extra;
+            return columns;
         }
-        if (checkable) {
-            w += th.metrics.iconSize + th.metrics.panelGap;
-        }
-        return w;
-    }
+    } // namespace
 
     void MenuBar::PaintPopup(
         sky::ui::UIPaintContext &context, const std::vector<Item> &items, const sky::ui::UIRect &popup, int32_t hovered, bool withSubmenuArrows) const
     {
-        const UiTheme   &th   = GetDefaultUiTheme();
-        const UiMetrics &m    = th.metrics;
-        const float      rowH = RowHeight();
+        const UiTheme     &th      = GetDefaultUiTheme();
+        const UiMetrics   &m       = th.metrics;
+        const float        rowH    = RowHeight();
+        const PopupColumns columns = MeasurePopup(items, th, textSystem, withSubmenuArrows);
 
         uc::Fill(context, popup, th.colors.borderSoft);
         uc::Fill(context, sky::ui::UIRect{popup.left + 1.0f, popup.top + 1.0f, popup.right - 1.0f, popup.bottom - 1.0f}, th.colors.panel);
@@ -181,30 +223,31 @@ namespace sky::editor {
             }
             const float    cy        = (row.top + row.bottom) * 0.5f;
             const uint32_t textColor = item.enabled ? th.colors.text : th.colors.textDisabled;
-            float          textLeft  = row.left + m.controlPad;
             if (item.checkable) {
                 const float           cb = m.iconSize;
-                const sky::ui::UIRect box{textLeft, cy - cb * 0.5f, textLeft + cb, cy + cb * 0.5f};
+                const float           x  = popup.left + columns.checkLeft;
+                const sky::ui::UIRect box{x, cy - cb * 0.5f, x + cb, cy + cb * 0.5f};
                 skin.DrawCheckbox(context, box, item.checked, hoveredRow);
-                textLeft += cb + m.panelGap;
             }
             if (!item.icon.empty()) {
                 const uint32_t iconId = IconRegistry::Get()->Find(item.icon);
                 if (iconId != 0) {
                     const float           isz = m.iconSize;
-                    const sky::ui::UIRect ir{textLeft, cy - isz * 0.5f, textLeft + isz, cy + isz * 0.5f};
+                    const float           x   = popup.left + columns.iconLeft;
+                    const sky::ui::UIRect ir{x, cy - isz * 0.5f, x + isz, cy + isz * 0.5f};
                     skin.DrawIcon(context, ir, iconId, textColor);
                 }
-                textLeft += m.iconSize + m.panelGap;
             }
-            uc::Text(context, item.label, th.fonts.label, sky::ui::UIRect{textLeft, row.top, row.right - m.controlPad, row.bottom}, textColor,
-                     textSystem, uc::HAlign::Left, uc::VAlign::Middle, false);
+            uc::Text(context, item.label, th.fonts.label,
+                     sky::ui::UIRect{popup.left + columns.labelLeft, row.top, popup.left + columns.labelRight, row.bottom}, textColor, textSystem,
+                     uc::HAlign::Left, uc::VAlign::Middle, false);
             if (!item.shortcut.empty()) {
-                uc::Text(context, item.shortcut, th.fonts.small, sky::ui::UIRect{row.left, row.top, row.right - m.controlPad * 2.0f, row.bottom},
+                uc::Text(context, item.shortcut, th.fonts.small,
+                         sky::ui::UIRect{popup.left + columns.shortcutLeft, row.top, popup.left + columns.shortcutRight, row.bottom},
                          item.enabled ? th.colors.textMuted : th.colors.textDisabled, textSystem, uc::HAlign::Right, uc::VAlign::Middle, false);
             }
             if (withSubmenuArrows && !item.children.empty()) {
-                skin.DrawTriangle(context, row.right - m.controlPad, cy, true, item.enabled ? th.colors.textMuted : th.colors.textDisabled);
+                skin.DrawTriangle(context, popup.left + columns.arrowCenter, cy, true, item.enabled ? th.colors.textMuted : th.colors.textDisabled);
             }
         }
     }
@@ -324,7 +367,7 @@ namespace sky::editor {
     sky::ui::UIRect MenuBar::PopupRect() const
     {
         const sky::ui::UIRect label = LabelRect(static_cast<size_t>(openIndex));
-        const float           w     = ItemsWidth(menus[static_cast<size_t>(openIndex)].items, GetDefaultUiTheme(), textSystem);
+        const float           w     = MeasurePopup(menus[static_cast<size_t>(openIndex)].items, GetDefaultUiTheme(), textSystem, true).width;
         return sky::ui::UIRect{label.left, label.bottom, label.left + w, label.bottom + PopupHeight()};
     }
 
@@ -341,7 +384,7 @@ namespace sky::editor {
                 ++row;
         const float top = popup.top + m.panelGap + rowH * static_cast<float>(row);
         const auto &sub = menus[static_cast<size_t>(openIndex)].items[static_cast<size_t>(hoverItem)].children;
-        const float w   = ItemsWidth(sub, th, textSystem);
+        const float w   = MeasurePopup(sub, th, textSystem, false).width;
         const float h   = 2.0f * m.panelGap + rowH * static_cast<float>(VisibleRowCount(sub));
         return sky::ui::UIRect{popup.right, top, popup.right + w, top + h};
     }

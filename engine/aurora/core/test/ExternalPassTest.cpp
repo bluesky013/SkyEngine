@@ -1,5 +1,6 @@
 #include "plugins/first/shaders/ToonPass.h"
 #include "plugins/second/shaders/ToonPass.h"
+#include <aurora/rdg/FrameBindings.h>
 #include <aurora/renderer/PassResourceBindings.h>
 #include <gtest/gtest.h>
 
@@ -36,7 +37,7 @@ TEST(ExternalPass, IndependentLayoutsAndNamesLinkWithoutBuiltinPipeline)
         }
         const PassResourceBindings *groups[]{&bindings};
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(PassResourceBindings::Apply(draw, groups)));
-        ASSERT_EQ(draw.uniforms.size(), 3u);
-        EXPECT_EQ(draw.uniforms[1].binding, schema->blocks[1].binding);
+        ASSERT_EQ(ResolveRasterBindings(draw).uniforms.size(), 3u);
+        EXPECT_EQ(ResolveRasterBindings(draw).uniforms[1].binding, schema->blocks[1].binding);
     }
 }

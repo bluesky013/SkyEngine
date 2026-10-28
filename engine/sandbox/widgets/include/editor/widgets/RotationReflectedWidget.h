@@ -14,15 +14,22 @@ namespace sky::editor {
     // the component a TRS editor.
     class RotationReflectedWidget : public ReflectedWidget {
     public:
-        PropertyEditorKind Kind() const override { return PropertyEditorKind::Rotation; }
+        PropertyEditorKind Kind() const override
+        {
+            return PropertyEditorKind::Rotation;
+        }
 
-        void Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field,
-                   const sky::ui::UIRect &rect) override;
-        bool OnDown(ReflectedWidgetHost &host, PropertyField &field, const sky::ui::UIPointerEvent &event,
-                    const sky::ui::UIRect &rect) override;
+        void Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field, const sky::ui::UIRect &rect) override;
+        bool OnDown(ReflectedWidgetHost &host, PropertyField &field, const sky::ui::UIPointerEvent &event, const sky::ui::UIRect &rect) override;
 
     private:
-        sky::ui::UIRect Cell(const sky::ui::UIRect &control, int index, int count) const;
+        struct Layout {
+            sky::ui::UIRect body;
+            sky::ui::UIRect button;
+        };
+
+        Layout          ComputeLayout(const ReflectedWidgetHost &host, const sky::ui::UIRect &control) const;
+        sky::ui::UIRect Cell(const UiMetrics &metrics, const sky::ui::UIRect &control, int index, int count) const;
 
         int mode = 0; // 0 = Euler (YZX, degrees), 1 = Quaternion (x/y/z/w)
     };

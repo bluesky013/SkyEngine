@@ -42,6 +42,8 @@
 #include <string>
 #include <ui/UIElement.h>
 #include <ui/UIPaintContext.h>
+#include <ui/text/UIBuiltinFontProvider.h>
+#include <ui/text/UITextSystem.h>
 #include <ui/widgets/StackPanel.h>
 #include <vector>
 
@@ -1900,4 +1902,109 @@ TEST(EditorShellTest, ReflectionDemoPanelsConsumeProcessMetadata)
     auto reopened = sky::editor::CreateReflectionDemoPanel(nullptr, "Reopened");
     ASSERT_NE(reopened, nullptr);
     EXPECT_EQ(context->FindType("ReflectionDemoObject"), node);
+}
+
+TEST(EditorShellTest, TwoTimesAssetBrowserUsesThemeTextAndMatchingTreeAndTileHits)
+{
+    namespace fs = std::filesystem;
+    struct TestState {
+        UiTheme             previous = GetDefaultUiTheme();
+        fs::path            root     = fs::temp_directory_path() / ("sky_asset_browser_scale_" + sky::Uuid::Create().ToString());
+        sky::AssetDataBase *database = sky::AssetDataBase::Get();
+        ShellTextBuilder   *builder  = new ShellTextBuilder();
+        ~TestState()
+        {
+            database->Reset();
+            database->SetWorkSpaceFs({});
+            EditorAssetCatalog::Get()->Refresh();
+            sky::AssetBuilderManager::Get()->UnRegisterBuilder(builder);
+            std::error_code error;
+            fs::remove_all(root, error);
+            SetDefaultUiTheme(previous);
+        }
+    } state;
+    class RecordingFont : public sky::ui::IUIFontProvider {
+    public:
+        bool GetGlyph(uint32_t codepoint, uint32_t size, sky::ui::UIGlyphBitmap &glyph) override
+        {
+            sizes.push_back(size);
+            return builtin.GetGlyph(codepoint, size, glyph);
+        }
+        sky::ui::UIFontMetrics GetFontMetrics(uint32_t size) override
+        {
+            return builtin.GetFontMetrics(size);
+        }
+        std::vector<uint32_t>          sizes;
+        sky::ui::UIBuiltinFontProvider builtin;
+    } font;
+
+    sky::AssetBuilderManager::Get()->RegisterBuilder(state.builder);
+    std::error_code error;
+    fs::create_directories(state.root / "one", error);
+    ASSERT_FALSE(error);
+    fs::create_directories(state.root / "two", error);
+    ASSERT_FALSE(error);
+    for (const char *path : {"one/a.txt", "one/b.txt", "two/c.txt"}) {
+        std::ofstream file(state.root / path);
+        file << "asset";
+        ASSERT_TRUE(file.good());
+    }
+    state.database->Reset();
+    state.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(state.root.string())));
+    ASSERT_FALSE(state.database->RebuildCacheFromScan().has_value());
+    auto *catalog = EditorAssetCatalog::Get();
+    catalog->Refresh();
+    const auto one = catalog->ListFolder("Project/one");
+    const auto two = catalog->ListFolder("Project/two");
+    ASSERT_EQ(one.items.size(), 2u);
+    ASSERT_EQ(two.items.size(), 1u);
+
+    const UiTheme theme = MakeDarkTheme(2.0f);
+    SetDefaultUiTheme(theme);
+    const auto           &m = theme.metrics;
+    sky::ui::UITextSystem text(&font, nullptr);
+    SelectionService      selection;
+    AssetBrowserPanel     panel;
+    panel.SetTitleBarVisible(false);
+    panel.SetCatalog(catalog);
+    panel.SetTextSystem(&text);
+    panel.SetSelection(&selection);
+    std::vector<sky::Uuid> opened;
+    panel.SetOpenHandler([&](const sky::Uuid &id) { opened.push_back(id); });
+    const sky::ui::UIRect bounds{50, 80, 1650, 380};
+    panel.Arrange(bounds);
+    sky::ui::UIPaintContext paint;
+    const auto              render = [&]() {
+        paint.Begin({0, 0, 1800, 1400});
+        panel.OnPaint(paint);
+    };
+    render();
+    ASSERT_FALSE(font.sizes.empty());
+    EXPECT_TRUE(std::all_of(font.sizes.begin(), font.sizes.end(), [&](uint32_t size) { return size == theme.fonts.label; }));
+
+    const auto treeRow = [&](int index) {
+        return Pointer(sky::ui::UIPointerAction::UP, bounds.left + m.cellPadding,
+                       bounds.top + m.listHeaderHeight + m.checkboxPad + (static_cast<float>(index) + 0.5f) * m.rowHeight);
+    };
+    EXPECT_EQ(panel.OnPointerEvent(treeRow(1)), sky::ui::UIEventResult::HANDLED);
+    render();
+    const float tileLeft  = bounds.left + bounds.Width() * 0.42f + m.checkboxPad + m.itemSpacing;
+    const float tileTop   = bounds.top + m.listHeaderHeight + m.itemSpacing;
+    const auto  tileClick = Pointer(sky::ui::UIPointerAction::UP, tileLeft + m.assetTileSize - m.checkboxPad, tileTop + m.assetTileSize * 0.5f);
+    EXPECT_EQ(panel.OnPointerEvent(tileClick), sky::ui::UIEventResult::HANDLED);
+    ASSERT_EQ(selection.GetSelection().size(), 1u);
+    EXPECT_EQ(selection.GetSelection().front().id, one.items.front().uuid);
+    render();
+    EXPECT_EQ(panel.OnPointerEvent(tileClick), sky::ui::UIEventResult::HANDLED);
+    ASSERT_EQ(opened.size(), 1u);
+    EXPECT_EQ(opened.front(), one.items.front().uuid);
+    EXPECT_EQ(panel.OnPointerEvent(Pointer(sky::ui::UIPointerAction::UP, tileLeft + m.assetTileSize + m.itemSpacing * 0.5f, tileClick.y)),
+              sky::ui::UIEventResult::UNHANDLED);
+    EXPECT_EQ(selection.GetSelection().front().id, one.items.front().uuid);
+
+    EXPECT_EQ(panel.OnPointerEvent(treeRow(2)), sky::ui::UIEventResult::HANDLED);
+    render();
+    EXPECT_EQ(panel.OnPointerEvent(tileClick), sky::ui::UIEventResult::HANDLED);
+    ASSERT_EQ(selection.GetSelection().size(), 1u);
+    EXPECT_EQ(selection.GetSelection().front().id, two.items.front().uuid);
 }

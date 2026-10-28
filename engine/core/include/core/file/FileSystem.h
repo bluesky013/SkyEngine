@@ -169,6 +169,10 @@ namespace sky {
         {
             return {FileOperationError::Unsupported, "exclusive file locks are unavailable"};
         }
+        virtual FileOperationStatus RemoveFile(const FilePath &) const
+        {
+            return {FileOperationError::Unsupported, "file removal is unavailable"};
+        }
         virtual bool FileExist(const FilePath &path) const = 0;
         virtual void MakeDir(const FilePath &path)
         {
@@ -215,6 +219,7 @@ namespace sky {
         FileOperationStatus WriteFileExclusive(const FilePath &path, std::span<const uint8_t> bytes) const override;
         FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override;
         FileOperationStatus AcquireFileLock(const FilePath &path, FileLockPtr &out) const override;
+        FileOperationStatus RemoveFile(const FilePath &path) const override;
         bool                IsSubDir(const std::string &path) const;
         FileSystemPtr       CreateSubSystem(const std::string &path, bool createDir) override;
 

@@ -13,18 +13,18 @@ using namespace sky;
 
 TEST(FileSystemTest, FileTest)
 {
-    FilePath path("test.txt");
+    FilePath         path("test.txt");
     NativeFileSystem fs("./");
     {
-        auto file = fs.CreateOrOpenFile(path);
+        auto file    = fs.CreateOrOpenFile(path);
         auto archive = file->WriteAsArchive();
         archive->Save(0xFFFF0000);
     }
 
     {
-        auto file = fs.OpenFile(path);
-        auto archive = file->ReadAsArchive();
-        uint32_t val = 0;
+        auto     file    = fs.OpenFile(path);
+        auto     archive = file->ReadAsArchive();
+        uint32_t val     = 0;
         archive->Load(val);
         ASSERT_EQ(val, 0xFFFF0000);
     }
@@ -70,6 +70,42 @@ namespace {
         const auto multiple = NativeFileSystem::FilterFiles(FilePath(root), std::vector<std::string>{".world", ".txt"});
         ASSERT_TRUE(std::holds_alternative<std::vector<FilePath>>(multiple));
         EXPECT_EQ(std::get<std::vector<FilePath>>(multiple).size(), 3u);
+    }
+
+    TEST_F(FileScanTest, InternalFileSymlinkRetainsItsLogicalSourcePath)
+    {
+        std::ofstream(root / "nested" / "template.source") << "{}";
+        std::error_code error;
+        std::filesystem::create_symlink(std::filesystem::path("nested") / "template.source", root / "startup.world", error);
+#if defined(SKY_PLATFORM_WINDOWS)
+        if (error) {
+            GTEST_SKIP() << "File symlinks are unavailable: " << error.message();
+        }
+#endif
+        ASSERT_FALSE(error);
+        const auto single = NativeFileSystem::FilterFiles(FilePath(root), std::string(".world"));
+        ASSERT_TRUE(std::holds_alternative<std::vector<FilePath>>(single));
+        const auto &singlePaths = std::get<std::vector<FilePath>>(single);
+        ASSERT_EQ(singlePaths.size(), 1u);
+        EXPECT_EQ(singlePaths.front(), FilePath("startup.world"));
+        const auto multiple = NativeFileSystem::FilterFiles(FilePath(root), std::vector<std::string>{".world", ".source"});
+        ASSERT_TRUE(std::holds_alternative<std::vector<FilePath>>(multiple));
+        std::set<std::string> paths;
+        for (const auto &path : std::get<std::vector<FilePath>>(multiple)) {
+            paths.insert(std::filesystem::path(path.GetStr()).generic_string());
+        }
+        EXPECT_EQ(paths, (std::set<std::string>{"startup.world", "nested/template.source"}));
+    }
+
+    TEST_F(FileScanTest, RemovalRejectsDirectoriesAndEscapesAndAllowsMissingFiles)
+    {
+        NativeFileSystem filesystem{FilePath(root)};
+        std::ofstream(root / "nested" / "product.bin") << "product";
+        EXPECT_EQ(filesystem.RemoveFile("nested").error, FileOperationError::InvalidPath);
+        EXPECT_EQ(filesystem.RemoveFile("../product.bin").error, FileOperationError::InvalidPath);
+        EXPECT_TRUE(filesystem.RemoveFile("nested/product.bin"));
+        EXPECT_FALSE(filesystem.FileExist("nested/product.bin"));
+        EXPECT_TRUE(filesystem.RemoveFile("nested/product.bin"));
     }
 
     TEST_F(FileScanTest, EmptyDirectorySucceedsButMissingOrInvalidRootFails)

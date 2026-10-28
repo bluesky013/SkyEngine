@@ -12,7 +12,9 @@
 #include <editor/widgets/ColorPicker.h>
 #include <editor/widgets/GenericReflectedWidget.h>
 #include <editor/widgets/ReflectedFormView.h>
+#include <editor/widgets/RotationReflectedWidget.h>
 #include <framework/serialization/SerializationContext.h>
+#include <ui/IUIFontProvider.h>
 #include <ui/IUITextureRegistry.h>
 #include <ui/UIContext.h>
 #include <ui/UIEventRouter.h>
@@ -21,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <vector>
 
 namespace sky::editor::widget_test {
@@ -160,6 +163,99 @@ namespace sky::editor::widget_test {
             event.x      = x;
             event.y      = y;
             return event;
+        }
+
+        class ComponentTestFont : public ui::IUIFontProvider {
+        public:
+            bool GetGlyph(uint32_t, uint32_t size, ui::UIGlyphBitmap &out) override
+            {
+                out          = {};
+                out.advance  = static_cast<float>(size);
+                out.width    = size;
+                out.height   = size;
+                out.bearingY = static_cast<float>(size);
+                out.pixels.assign(static_cast<size_t>(size) * size, 255);
+                return true;
+            }
+
+            ui::UIFontMetrics GetFontMetrics(uint32_t size) override
+            {
+                return {static_cast<float>(size), 0.0f, static_cast<float>(size)};
+            }
+        };
+
+        class ComponentProbeForm : public ReflectedFormView {
+        public:
+            using ReflectedFormView::ReflectedFormView;
+
+            void
+            BeginTextEdit(PropertyField &, int component, PropertyEditorKind, const std::string &, std::function<bool(const std::string &)>) override
+            {
+                editedComponent = component;
+            }
+
+            int editedComponent = -1;
+        };
+
+        struct ComponentTextRun {
+            ui::UIRect clip;
+            ui::UIRect ink;
+            uint32_t   glyphs = 0;
+        };
+
+        std::vector<ComponentTextRun> ComponentText(const ui::UIDrawData &data, uint32_t color)
+        {
+            std::vector<ComponentTextRun> result;
+            for (const auto &command : data.commands) {
+                if (command.textureId == ui::UI_INVALID_TEXTURE || command.indexCount == 0)
+                    continue;
+                const auto &first = data.vertices[data.indices[command.indexOffset]];
+                if (first.color != color)
+                    continue;
+                ComponentTextRun run{command.clip, {first.x, first.y, first.x, first.y}, command.indexCount / 6};
+                for (uint32_t i = 0; i < command.indexCount; ++i) {
+                    const auto &vertex = data.vertices[data.indices[command.indexOffset + i]];
+                    run.ink.left       = std::min(run.ink.left, vertex.x);
+                    run.ink.right      = std::max(run.ink.right, vertex.x);
+                    run.ink.top        = std::min(run.ink.top, vertex.y);
+                    run.ink.bottom     = std::max(run.ink.bottom, vertex.y);
+                }
+                result.push_back(run);
+            }
+            return result;
+        }
+
+        void CheckComponentPaintAndHits(
+            ReflectedWidget &widget, ComponentProbeForm &host, PropertyField &field, const ui::UIRect &rect, int count, bool modeButton)
+        {
+            const auto        &theme = host.Skin().Theme();
+            ui::UIPaintContext paint;
+            paint.Begin({0, 0, 2000, 1600});
+            widget.Paint(host, paint, field, rect);
+            const auto labels = ComponentText(paint.GetDrawData(), theme.colors.textMuted);
+            const auto values = ComponentText(paint.GetDrawData(), theme.colors.text);
+            ASSERT_EQ(labels.size(), static_cast<size_t>(count + (modeButton ? 1 : 0)));
+            ASSERT_EQ(values.size(), static_cast<size_t>(count));
+            const float y = (rect.top + rect.bottom) * 0.5f;
+            for (int i = 0; i < count; ++i) {
+                SCOPED_TRACE(i);
+                EXPECT_EQ(labels[i].glyphs, 1u);
+                EXPECT_FLOAT_EQ(labels[i].ink.Height(), static_cast<float>(theme.fonts.tiny));
+                EXPECT_GE(values[i].clip.left - labels[i].ink.right, theme.metrics.controlPad - 1.0f);
+                EXPECT_GE(values[i].glyphs, 3u);
+                EXPECT_TRUE(widget.OnDown(host, field, Pointer(ui::UIPointerAction::DOWN, labels[i].ink.left, y), rect));
+                EXPECT_EQ(host.editedComponent, i);
+                const float valueX = (values[i].ink.left + values[i].ink.right) * 0.5f;
+                EXPECT_TRUE(widget.OnDown(host, field, Pointer(ui::UIPointerAction::DOWN, valueX, y), rect));
+                EXPECT_EQ(host.editedComponent, i);
+                EXPECT_FALSE(widget.OnDown(host, field, Pointer(ui::UIPointerAction::DOWN, valueX, rect.bottom + 1.0f), rect));
+                if (i + 1 < count) {
+                    const float gap = labels[i + 1].ink.left - values[i].clip.right - 2.0f * theme.metrics.controlPad;
+                    EXPECT_NEAR(gap, theme.metrics.itemSpacing, 1.0f);
+                    const float gapX = (values[i].clip.right + labels[i + 1].ink.left) * 0.5f;
+                    EXPECT_FALSE(widget.OnDown(host, field, Pointer(ui::UIPointerAction::DOWN, gapX, y), rect));
+                }
+            }
         }
 
         class LayoutProbeWidget : public ReflectedWidget {
@@ -1045,6 +1141,49 @@ namespace sky::editor::widget_test {
         EXPECT_EQ(threeRows->paints, 1);
         EXPECT_FLOAT_EQ(threeRows->lastRect.Height(), services.theme.metrics.rowHeight * 3.0f - 2.0f);
         EXPECT_FALSE(host.IsLayoutDirty());
+    }
+
+    TEST(ReflectedFormWidgetsTest, TwoTimesVectorAxesKeepTheirGlyphsAndValueGutters)
+    {
+        Transform object;
+        object.translation = {30.0f, 30.0f, 30.0f};
+        Services services;
+        services.theme = MakeDarkTheme(2.0f);
+        ComponentTestFont font;
+        ui::UITextSystem text(&font, nullptr);
+        ComponentProbeForm host(&text, "", services.Context());
+        host.Bind({&object, GetTypeNode(TypeInfo<Transform>::RegisteredId())});
+        auto *field = Field(host, "translation");
+        ASSERT_NE(field, nullptr);
+        ASSERT_EQ(field->kind, PropertyEditorKind::Vector);
+        GenericReflectedWidget widget;
+        CheckComponentPaintAndHits(widget, host, *field, {100, 100, 1300, 100 + services.theme.metrics.frameHeight}, 3, false);
+    }
+
+    TEST(ReflectedFormWidgetsTest, TwoTimesRotationModesShareMeasuredAxesAndPointerBounds)
+    {
+        Transform object;
+        Services  services;
+        services.theme = MakeDarkTheme(2.0f);
+        ComponentTestFont  font;
+        ui::UITextSystem   text(&font, nullptr);
+        ComponentProbeForm host(&text, "", services.Context());
+        host.Bind({&object, GetTypeNode(TypeInfo<Transform>::RegisteredId())});
+        auto *field = Field(host, "rotation");
+        ASSERT_NE(field, nullptr);
+        ASSERT_EQ(field->kind, PropertyEditorKind::Rotation);
+        RotationReflectedWidget widget;
+        const ui::UIRect        rect{100, 100, 1300, 100 + services.theme.metrics.frameHeight};
+        CheckComponentPaintAndHits(widget, host, *field, rect, 3, true);
+        ui::UIPaintContext paint;
+        paint.Begin({0, 0, 2000, 1600});
+        widget.Paint(host, paint, *field, rect);
+        const auto labels = ComponentText(paint.GetDrawData(), services.theme.colors.textMuted);
+        ASSERT_FALSE(labels.empty());
+        const auto &buttonText = labels.back().ink;
+        EXPECT_TRUE(widget.OnDown(
+            host, *field, Pointer(ui::UIPointerAction::DOWN, (buttonText.left + buttonText.right) * 0.5f, (rect.top + rect.bottom) * 0.5f), rect));
+        CheckComponentPaintAndHits(widget, host, *field, rect, 4, true);
     }
 
     TEST(ReflectedFormWidgetsTest, EveryRegistryGetsDefaultsWithoutOverwritingExtensions)

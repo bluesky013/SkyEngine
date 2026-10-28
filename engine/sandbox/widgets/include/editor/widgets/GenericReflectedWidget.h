@@ -32,7 +32,7 @@ namespace sky::editor {
 
     private:
         sky::ui::UIRect SliderRect(const sky::ui::UIRect &control) const;
-        sky::ui::UIRect VectorCell(const sky::ui::UIRect &control, int index, int count) const;
+        sky::ui::UIRect VectorCell(const UiMetrics &metrics, const sky::ui::UIRect &control, int index, int count) const;
         float           Fraction(float x, float left, float right) const;
         static float    ReadComponent(const PropertyField &field, int index);
         bool            WriteComponent(ReflectedWidgetHost &host, PropertyField &field, int index, float value);

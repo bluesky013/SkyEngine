@@ -123,6 +123,8 @@ namespace sky::editor {
 
         s(listColumnWidth);
         s(listLabelIndent);
+        s(assetTileSize);
+        s(assetThumbnailSize);
 
         s(dialogMargin);
         s(titleBarHeight);

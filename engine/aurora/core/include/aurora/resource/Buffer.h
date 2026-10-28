@@ -140,7 +140,7 @@ namespace sky::aurora {
     // so a frame's write never races an in-flight frame still reading the
     // previous buffer. framesInFlight must match DeviceFrameContext::inflightNum,
     // and the frame driver calls AdvanceFrame() once per frame after
-    // DeviceFrameContext::BeginFrame(), keeping `current` in lockstep with the
+    // DirectFrameContext::TryBeginFrame(), keeping `current` in lockstep with the
     // frame context's mFrameIndex.
     class DynamicBuffer : public RenderResource {
     public:

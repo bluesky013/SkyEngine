@@ -4,7 +4,6 @@
 
 #include <MetalDevice.h>
 
-#include "MetalDescriptorBatch.h"
 #include "MetalUtils.h"
 #include <MetalBuffer.h>
 #include <MetalCommandPool.h>
@@ -233,11 +232,6 @@ namespace sky::aurora {
         return CreateAndInit<MetalResourceGroup>(*this, desc);
     }
 
-    DescriptorBatch *MetalDevice::CreateDescriptorBatch()
-    {
-        return new MetalDescriptorBatch(*this);
-    }
-
     SwapChain *MetalDevice::CreateSwapChain(const SwapChain::Descriptor &desc)
     {
         return CreateAndInit<MetalSwapChain>(*this, desc);
@@ -323,6 +317,11 @@ namespace sky::aurora {
     DeviceFrameContext *MetalDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)
     {
         return BackendFrameContext::Create<MetalDeviceFrameContext>(this, info);
+    }
+
+    DirectFrameContext *MetalDevice::CreateDirectFrameContext(const DeviceFrameContextInitInfo &info)
+    {
+        return BackendFrameContext::CreateDirect<MetalDeviceFrameContext>(this, info);
     }
 
 } // namespace sky::aurora

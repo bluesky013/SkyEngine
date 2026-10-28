@@ -1,3 +1,5 @@
+> Successor: `simplify-asset-product-storage` replaces the product-group/generation implementation below. Historical validation is retained as evidence of that intermediate snapshot, not a current storage or compatibility guarantee.
+
 # Verification — 2026-10-26
 
 The isolated intermediate snapshot contains HEAD `69e33334`, the separately reviewed legacy graph cleanup, and this generic asset batch. It excludes animation/plugin integration and the later metadata lease changes.

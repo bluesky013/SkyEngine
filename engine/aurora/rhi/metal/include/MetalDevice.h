@@ -38,7 +38,6 @@ namespace sky::aurora {
         Image           *CreateImage(const Image::Descriptor &desc) override;
         Sampler         *CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
-        DescriptorBatch *CreateDescriptorBatch() override;
         DescriptorHeap  *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
         {
             return nullptr;
@@ -53,6 +52,7 @@ namespace sky::aurora {
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
         DeviceFrameContext *CreateFrameContext(const DeviceFrameContextInitInfo &info) override;
+        DirectFrameContext *CreateDirectFrameContext(const DeviceFrameContextInitInfo &info) override;
 
         Queue       *GetQueue(QueueType type) override;
         CommandPool *CreateCommandPool(QueueType type) override;

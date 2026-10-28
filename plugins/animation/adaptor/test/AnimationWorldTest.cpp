@@ -169,10 +169,7 @@ namespace {
             ASSERT_NE(asset, nullptr);
             ASSERT_TRUE(CompileGraphDefinition(graph, asset->Data().graph));
             // Clip/rig are supplied by fake providers; packaging dependencies are tested by the builder suite.
-            ProductGroupTransaction transaction;
-            ASSERT_TRUE(manager->BeginProductGroup(graphId, bundle, std::array<Uuid, 1>{graphId}, transaction));
-            ProductGroupSnapshotPtr published;
-            ASSERT_TRUE(manager->SaveProductGroup(transaction, bundle, std::array<AssetPtr, 1>{asset}, published));
+            ASSERT_TRUE(manager->SaveAsset(asset, bundle));
         }
         Actor *AddGraph(float value = 1.f)
         {

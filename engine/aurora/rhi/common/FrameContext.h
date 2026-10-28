@@ -1,6 +1,7 @@
 #pragma once
 
 #include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rdg/DirectFrameContext.h>
 #include <aurora/rhi/Device.h>
 #include <memory>
 #include <optional>
@@ -40,7 +41,7 @@ namespace sky::aurora {
     };
 
     // Backend-internal slot storage; compilation and native encoding policy remain in each backend.
-    class BackendFrameContext : public DeviceFrameContext {
+    class BackendFrameContext : public DeviceFrameContext, public DirectFrameContext {
     public:
         BackendFrameContext();
         ~BackendFrameContext() override;
@@ -53,6 +54,13 @@ namespace sky::aurora {
 
             auto context = std::make_unique<T>(device);
             return context->Init(device, info) ? context.release() : nullptr;
+        }
+
+        template <typename T, typename D>
+        static DirectFrameContext *CreateDirect(D *device, const DeviceFrameContextInitInfo &info) noexcept
+        {
+            auto context = std::make_unique<T>(device);
+            return context->Init(device, info, true) ? context.release() : nullptr;
         }
 
         FrameContextIdentity GetIdentity() const noexcept override;
@@ -79,8 +87,8 @@ namespace sky::aurora {
         virtual CommandAllocationResult AllocateCommand(const DeviceFrameLease &, uint32_t ordinal) noexcept;
         virtual FrameRecordResult       FinishRecording(const DeviceFrameLease &, FrameRecordingInputs inputs) noexcept;
 
-        void   BeginFrame() noexcept override;
-        void   EndFrame() noexcept override;
+        DirectFrameBeginResult TryBeginFrame() noexcept override;
+        FrameOperationResult   EndFrame() noexcept override;
         Fence *GetFrameFence() const noexcept override;
 
     protected:
@@ -115,7 +123,7 @@ namespace sky::aurora {
 
     private:
         FrameBufferAllocation   AllocateBuffer(const DeviceFrameLease &, uint32_t kind, uint64_t size, uint64_t alignment);
-        bool                    Init(Device *, const DeviceFrameContextInitInfo &);
+        bool                    Init(Device *, const DeviceFrameContextInitInfo &, bool direct = false);
         CommandAllocationResult Allocate(const DeviceFrameLease &, uint32_t ordinal) noexcept;
         FrameRecordResult       Record(const DeviceFrameLease &, FrameRecordingInputs, const FramePlanLease *) noexcept;
         struct State;

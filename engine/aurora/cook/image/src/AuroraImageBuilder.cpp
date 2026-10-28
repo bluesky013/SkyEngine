@@ -328,7 +328,8 @@ namespace sky::aurora {
         }
 
         auto *manager = AssetManager::Get();
-        auto  asset   = manager->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
+        auto  asset   = std::static_pointer_cast<Asset<Texture>>(
+            manager->CreateBuildAsset(request.assetInfo->uuid, Name(AssetTraits<Texture>::ASSET_TYPE.data())));
         if (!asset) {
             LOG_E(TAG, "failed to create texture asset %s", request.assetInfo->uuid.ToString().c_str());
             result.error = "failed to create texture asset";
@@ -347,31 +348,6 @@ namespace sky::aurora {
                 return;
             }
             LOG_I(TAG, "  decode ktx: precompressed=%d bytes=%u", source.precompressed ? 1 : 0, static_cast<uint32_t>(bytes.size()));
-        } else if (ext == ".image") {
-            // Re-cook of an aurora image source: [asset header(type + deps)][ImageAssetData
-            // header][bulk]. Read the header, then the pixel bytes and re-emit into the bulk.
-            auto        stream = request.file->ReadAsArchive();
-            std::string type;
-            stream->Load(type);
-            uint32_t depCount = 0;
-            stream->Load(depCount);
-            for (uint32_t i = 0; i < depCount; ++i) {
-                uint32_t a = 0;
-                uint32_t b = 0;
-                stream->Load(a);
-                stream->Load(b);
-            }
-            BinaryInputArchive bin(*stream);
-            imageData.Load(bin);
-            if (imageData.dataSize != 0) {
-                std::vector<uint8_t> pixels(static_cast<size_t>(imageData.dataSize));
-                stream->LoadRaw(reinterpret_cast<char *>(pixels.data()), pixels.size());
-                asset->AddBulk(pixels.data(), pixels.size());
-            }
-            manager->SaveAsset(asset, bundleKey);
-            result.retCode = AssetBuildRetCode::SUCCESS;
-            LOG_I(TAG, "  re-cook product passthrough: %s", request.assetInfo->path.GetStr().c_str());
-            return;
         } else {
             auto image = cook::LoadStbImage(bytes, ext == ".hdr");
             if (!image) {
@@ -388,7 +364,10 @@ namespace sky::aurora {
         if (source.precompressed) {
             imageData = source.asset;
             CommitImageBulk(*asset);
-            manager->SaveAsset(asset, bundleKey);
+            if (const auto saved = manager->SaveAsset(asset, bundleKey); !saved) {
+                result.error = saved.message;
+                return;
+            }
             result.retCode = AssetBuildRetCode::SUCCESS;
             return;
         }
@@ -404,7 +383,10 @@ namespace sky::aurora {
         CompressAndEmit(image, config, assetType, imageData);
 
         CommitImageBulk(*asset);
-        manager->SaveAsset(asset, bundleKey);
+        if (const auto saved = manager->SaveAsset(asset, bundleKey); !saved) {
+            result.error = saved.message;
+            return;
+        }
         result.retCode = AssetBuildRetCode::SUCCESS;
         LOG_I(TAG, "  saved texture '%s' bundle='%s'", request.assetInfo->path.GetStr().c_str(), bundleKey.c_str());
     }

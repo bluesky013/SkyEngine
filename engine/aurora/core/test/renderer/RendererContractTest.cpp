@@ -17,6 +17,10 @@ static_assert(!std::is_copy_constructible_v<FrameCollectResult>);
 static_assert(std::is_abstract_v<IRenderer>);
 static_assert(std::is_abstract_v<IRendererProvider>);
 static_assert(std::is_abstract_v<DeviceFrameContext>);
+static_assert(std::is_abstract_v<FrameGraphDeclarations>);
+static_assert(std::is_abstract_v<FrameGraphServices>);
+static_assert(std::is_base_of_v<FrameGraphDeclarations, FrameGraphBuildContext>);
+static_assert(std::is_base_of_v<FrameGraphServices, FrameGraphBuildContext>);
 static_assert(std::is_const_v<std::remove_reference_t<decltype(std::declval<FrozenFrameGraph &>().GetData())>>);
 static_assert(std::is_abstract_v<sky::ICompletion>);
 

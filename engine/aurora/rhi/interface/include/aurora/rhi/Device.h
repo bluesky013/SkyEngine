@@ -7,7 +7,6 @@
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Core.h>
-#include <aurora/rhi/DescriptorBatch.h>
 #include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/DescriptorHeap.h>
 #include <aurora/rhi/Encoder.h>
@@ -31,6 +30,7 @@
 namespace sky::aurora {
 
     class DeviceFrameContext;
+    class DirectFrameContext;
     struct DeviceFrameContextInitInfo;
 
     struct DeviceInit {
@@ -80,8 +80,7 @@ namespace sky::aurora {
         virtual Buffer              *CreateBuffer(const Buffer::Descriptor &desc)                           = 0;
         virtual Image               *CreateImage(const Image::Descriptor &desc)                             = 0;
         virtual Sampler             *CreateSampler(const Sampler::Descriptor &desc)                         = 0;
-        virtual ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) = 0;
-        virtual DescriptorBatch *CreateDescriptorBatch() = 0;
+        virtual ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc)              = 0;
         virtual DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)            = 0;
         virtual SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc)                     = 0;
 
@@ -94,6 +93,7 @@ namespace sky::aurora {
         virtual PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const = 0;
 
         virtual DeviceFrameContext *CreateFrameContext(const DeviceFrameContextInitInfo &info) = 0;
+        virtual DirectFrameContext *CreateDirectFrameContext(const DeviceFrameContextInitInfo &info) = 0;
 
         // queue
         virtual Queue *GetQueue(QueueType type) = 0;

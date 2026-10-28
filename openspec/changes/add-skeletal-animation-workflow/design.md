@@ -102,15 +102,13 @@ rig 的布局签名覆盖关节路径、顺序、parent 和参考姿势；UUID �
 
 烘焙顶点时，法线用 M_mesh 的 inverse-transpose，切线用线性部分再对法线正交化，镜像同步调整切线 handedness 和三角形绕序；不沿用现有把切线也乘 inverse-transpose 的实现。蒙皮后的法线/切线采用 D6 的统一 CPU/GPU 约定。
 
-### D4a. 产品组发布与版本读取
+### D4a. Checked 产品发布与运行中实例
 
-现有 AssetManager::SaveAsset 返回 void，直接覆盖 UUID 文件；仅规定先存 Skin/Skeleton 再存 Mesh 不能保证失败保留旧版本。本次在现有 Framework 内补显式 Result 的 staging / publish 入口：对同一 owner source + bundle 串行提交，将该次 Mesh/Skin/Skeleton 全组写入新的不可变 generation 文件，检查编码、写入、flush 和读回校验，再以一次原子替换发布组清单。组清单是提交点，关联 UUID -> group 的产品目录记录可预先登记但没有已提交 member 时不能解析为成功产品。失败/进程中断保留上一清单，未发布文件可回收；不以多次 rename 声称跨文件事务。
+当前存储以 successor `simplify-asset-product-storage` 为准：SaveAsset/SaveProducts 返回 ProductStatus，flat UUID 文件包含版本、身份、精确长度与 checksum。完整产品列表先编码、stage、flush、读回校验，再逐文件 atomic replace。批量失败不得发 cook/package success；部分替换或 index 失败会使该批输出失效，不承诺恢复上一完整组。没有 ProductGroup、owner manifest、磁盘 generation 历史或旧格式 fallback；开发期清理旧输出并 recook，首个正式版之后再单独设计迁移。
 
-loader 在一次候选绑定中固定组 revision，成员读取不得各自重新取 latest；runtime 只查产品目录/组清单，不读取 source manifest。旧 Asset 对象与 bulk stream 不原地重载；新 revision 创建新快照，旧引用和 GPU lease 退出后才回收旧内容。不同来源的 Clip/Graph/rig 不要求全局事务，由实例解析并固定精确版本元组，验证后切换。单输出 Clip/Graph 保存使用相同显式成功 / staging 语义；其它资产旧写入路径不在本次全面迁移。
+source owner 与稳定 child UUID 仍由源 catalog 管理，child cook 合并与各自完成结果不变。Runtime 只读 UUID 产品与 product.index。新加载创建新的不可变 Asset instance，缓存用 GetInstanceId/GetRevision；旧对象的 bulk 与 GPU 使用由已绑定 stream/owned bytes 和 frame lease 保活，不按 UUID 路径重开文件。
 
-已实现的产品组使用 `.groups/<owner>/<generation>/<member>.bin` 与单一 `current.bin` 提交点；预先声明完整 member 集合，漏项不能提交。revision 同时包含 generation UUID 与组内递增序号，绑定缓存不得仅凭序号跨 bundle 复用。写入请求 ticket 与原生文件锁阻止陈旧提交；未引用 generation 暂不自动删除。首次迁移时 owner 记录可声明之前存在的 legacy UUID 文件，仅在该组尚无任何已提交清单时保留旧文件读取；新 child 无此回退，已有清单移除的 child 也不回退。
-
-打包遍历 World 中显式 mesh/skin/skeleton 引用以及 Graph/Clip 的 UUID 依赖，并保留所选产品组的解析元数据；不能依赖已删除的 Mesh -> Skin/Skeleton 边来保活它们。原生文件系统无原子替换/可靠错误返回时，该发布操作返回 Unsupported/IOError，不能退回覆盖旧文件。跨进程 cook 由既有调度串行化同 owner/bundle，旧请求 generation 不得覆盖新提交。
+Mesh/Skin/Skeleton 候选须完整校验输入槽、骨架布局、参考姿势与所持实例；产品变化时重建候选，通过后才切换活动资源。打包遍历 World 显式引用和 Graph/Clip UUID 依赖，不需要组元数据。多次文件替换不构成跨进程的多文件 snapshot 事务。
 
 ### D5. Clip 时长与格式兼容
 
@@ -227,14 +225,14 @@ Graph 内容向宿主声明适配可用视口，画布保持可见，Graph/选�
 - [目标数增加] -> 每个 target 有明确不可跨越的依赖预算；D1 已于 2026-10-24 确认，实施中改变归属或入口须重新说明。
 - [缺少模型动画 take 导出] -> 首版交付组件/Graph 工作流，使用确定的 `.clip` fixture；导入功能只有独立 change 明确格式/子资产契约后才算可用。
 - [256 骨/四权重与 TRS 限制] -> 明确错误与 UI 诊断；扩大格式另行升版，不能截断或变形近似。
-- [保存/加载原子性与 manifest 扩展] -> source UUID、子产品映射、产品依赖整体验证，故障注入测试，保留上一完整产物。
+- [保存/加载原子性与 manifest 扩展] -> source UUID、子产品映射、产品依赖整体验证，故障注入测试，检查失败不得报告 cook/package 成功；在用实例正常退休。
 - [自定义材质和静态拾取不适用] -> 明确 capability/Unsupported；颜色/阴影共用蒙皮，选择用保守 bounds，禁止错误静态退化。
 - [Metal 尚未实机验证] -> 单列平台验收；不得将 Windows 结果表述为全平台完成。
 
 ## Migration Plan
 
 1. 确认 D1 模块/装载、首版范围和 schema 版本政策；只批准文档不自动视为批准所有实现。
-2. 原地修复资产正确性与 duration；实现 generated catalog / 产品组发布，再将 Mesh v5 内嵌 skin 改为独立 AuroraSkin 新版本产品，读取入口按版本拒绝旧布局并要求 recook。新的 AuroraSkin 格式也明确拒绝历史已删除 Skin 资产的旧版本，不能只因类型字符串相同而接受。
+2. 原地修复资产正确性与 duration；实现 generated catalog / checked flat 产品发布，再将 Mesh v5 内嵌 skin 改为独立 AuroraSkin 新版本产品，读取入口按版本拒绝旧布局并要求 recook。新的 AuroraSkin 格式也明确拒绝历史已删除 Skin 资产的旧版本，不能只因类型字符串相同而接受。
 3. 建立新 plugin/provider 与 SkeletalMeshComponent；先完成 single clip、双实例和颜色/阴影闭环。
 4. 接入共享预览宿主；再切换 Graph 空 handler 到新 owner，发布完整源 schema 与产品格式。
 5. 完成 Graph 运行时与编辑器，更新用户说明/示例；产品与代码版本一起验证。

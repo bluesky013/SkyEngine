@@ -35,7 +35,7 @@ namespace sky {
 
     std::shared_ptr<AssetBase> AssetBuilder::FindOrCreateProduct(const Uuid &uuid, const Name &type, AssetBuildResult &result)
     {
-        auto asset = AssetManager::Get()->FindOrCreateAsset(uuid, type);
+        auto asset = AssetManager::Get()->CreateBuildAsset(uuid, type);
         if (asset == nullptr) {
             result.retCode = AssetBuildRetCode::FAILED;
             result.error   = "failed to create product asset";
@@ -57,8 +57,9 @@ namespace sky {
 
     void AssetBuilder::FinishProduct(const std::shared_ptr<AssetBase> &asset, const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        AssetManager::Get()->SaveAsset(asset, request.bundle);
-        result.retCode = AssetBuildRetCode::SUCCESS;
+        const auto status = AssetManager::Get()->SaveAsset(asset, request.bundle);
+        result.retCode    = status ? AssetBuildRetCode::SUCCESS : AssetBuildRetCode::FAILED;
+        result.error      = status.message;
     }
 
 } // namespace sky

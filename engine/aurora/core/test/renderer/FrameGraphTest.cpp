@@ -1,8 +1,10 @@
 #include "GpuTestSupport.h"
+
 #include "graph/FrameGraphBuilder.h"
 #include <D3D12Device.h>
 #include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/rdg/FrameBindingLookup.h>
+#include <aurora/rdg/FrameBindings.h>
 #include <common/FrameObjectCache.h>
 
 namespace {
@@ -54,9 +56,11 @@ namespace {
         buffer.initializedRanges.push_back({16, 16});
         data.buffers.push_back(std::move(buffer));
         FrameComputePass pass;
+        ComputeBindingDraft passBindings;
         pass.shader = AnalysisShader(ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
-        pass.buffers.push_back({0, 0, {{1, 0}, 0, 16}, 16, FrameAccessMode::READ});
+        passBindings.buffers.push_back({0, 0, {{1, 0}, 0, 16}, 16, FrameAccessMode::READ});
         pass.sideEffect = true;
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
         data.passes.emplace_back(std::move(pass));
         return data;
     }
@@ -147,10 +151,12 @@ TEST(FrameComputeAnalysis, DynamicOffsetsDriveBoundsContentsAndProducerLiveness)
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.buffers[0].initializedRanges.clear();
     data.buffers[0].initialized                                         = true;
-    std::get<FrameComputePass>(data.passes[0]).buffers[0].dynamicOffset = 64;
+    std::get<FrameComputePass>(data.passes[0]).groups[0].bufferUses     = {{0, 64}};
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    auto &binding        = std::get<FrameComputePass>(data.passes[0]).buffers[0];
-    binding.range.offset = UINT64_MAX - 7;
+    auto &changed                           = std::get<FrameComputePass>(data.passes[0]);
+    auto  changedBindings                   = ResolveComputeBindings(changed);
+    changedBindings.buffers[0].range.offset = UINT64_MAX - 7;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(changed, std::move(changedBindings))));
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 
     data = ComputeBufferData();
@@ -178,11 +184,11 @@ TEST(FrameComputeAnalysis, ShaderBoundariesAndInvalidAccessAreValidated)
     }
     auto  data                = ComputeBufferData();
     auto &compute             = std::get<FrameComputePass>(data.passes[0]);
-    compute.buffers[0].access = static_cast<FrameAccessMode>(255);
+    compute.groups[0].bufferUses = {{0, 16, static_cast<FrameAccessMode>(255)}};
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     FrameCustomPass custom;
     custom.encoder    = std::make_shared<AnalysisCustomEncoder>();
-    custom.buffers    = compute.buffers;
+    custom.buffers    = ResolveComputeBindings(compute).buffers;
     custom.sideEffect = true;
     data.passes[0]    = custom;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
@@ -220,6 +226,7 @@ TEST(FrameComputeAnalysis, SparseBindingLookupKeepsDeclarationOrderAndDynamicOff
 {
     auto            *shader = new AnalysisComputeShader();
     FrameComputePass pass;
+    ComputeBindingDraft passBindings;
     pass.shader = ShaderPtr(shader);
     ShaderResource storage;
     storage.type                 = ShaderResourceType::STORAGE_BUFFER_DYNAMIC;
@@ -229,8 +236,8 @@ TEST(FrameComputeAnalysis, SparseBindingLookupKeepsDeclarationOrderAndDynamicOff
     uniform.type                 = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
     uniform.binding              = 1;
     shader->reflection.resources = {storage, uniform};
-    pass.buffers = {{.set = 2, .binding = 9, .range = {.buffer = {.graph = 1, .index = 0}, .offset = 0, .size = 16}, .dynamicOffset = 48},
-                    {.set = 2, .binding = 1, .range = {.buffer = {.graph = 1, .index = 0}, .offset = 0, .size = 16}, .dynamicOffset = 16}};
+    passBindings.buffers = {{.set = 2, .binding = 9, .range = {.buffer = {.graph = 1, .index = 0}, .offset = 0, .size = 16}, .dynamicOffset = 48},
+                            {.set = 2, .binding = 1, .range = {.buffer = {.graph = 1, .index = 0}, .offset = 0, .size = 16}, .dynamicOffset = 16}};
     const FrameBindingLookup<ShaderResource> resources(shader->reflection.resources);
     EXPECT_FALSE(resources.HasSet(0));
     EXPECT_FALSE(resources.HasSet(1));
@@ -238,15 +245,17 @@ TEST(FrameComputeAnalysis, SparseBindingLookupKeepsDeclarationOrderAndDynamicOff
     EXPECT_EQ(resources.Find(2, 1), &shader->reflection.resources[1]);
     EXPECT_EQ(resources.Find(2, 8), nullptr);
     EXPECT_EQ(resources.Find(UINT32_MAX, UINT32_MAX), nullptr);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     EXPECT_EQ(ResolveComputeDynamicOffsets(pass, 2), (std::vector<uint32_t>{16, 48}));
-    EXPECT_EQ(pass.buffers[0].binding, 9u);
-    EXPECT_EQ(pass.buffers[1].binding, 1u);
+    EXPECT_EQ(passBindings.buffers[0].binding, 9u);
+    EXPECT_EQ(passBindings.buffers[1].binding, 1u);
 
     const std::vector<ShaderResource>        duplicate{storage, storage};
     const FrameBindingLookup<ShaderResource> duplicates(duplicate);
     EXPECT_EQ(duplicates.Find(2, 9), &duplicate.front());
     shader->reflection.resources = duplicate;
     auto data                    = ComputeBufferData();
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     data.passes[0]               = std::move(pass);
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, std::move(data)))));
 }
@@ -287,20 +296,25 @@ TEST(FrameComputeAnalysis, StorageImageWritesDefineOnlyTheirSelectedMip)
     image.descriptor.mipLevels = 2;
     data.images.push_back(std::move(image));
     FrameComputePass pass;
+    ComputeBindingDraft passBindings;
     pass.shader = AnalysisShader(ShaderResourceType::STORAGE_IMAGE);
-    pass.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
+    passBindings.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
     pass.sideEffect = true;
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     data.passes.emplace_back(pass);
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    pass.images[0].view.mipCount = 1;
+    passBindings.images[0].view.mipCount = 1;
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     data.passes[0]               = pass;
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.imageExports.push_back({1, 0});
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    pass.images[0].view.baseMip = 1;
+    passBindings.images[0].view.baseMip = 1;
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     data.passes.emplace_back(pass);
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    pass.images[0].access = FrameAccessMode::READ_WRITE;
+    passBindings.images[0].access = FrameAccessMode::READ_WRITE;
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
     data.passes.emplace_back(pass);
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 }
@@ -321,8 +335,10 @@ TEST(FrameComputeAnalysis, CustomStorageReadsRequireContentsAndPreserveTheirProd
     data.passes.emplace_back(read);
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     FrameComputePass write;
+    ComputeBindingDraft writeBindings;
     write.shader = AnalysisShader(ShaderResourceType::STORAGE_IMAGE);
-    write.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
+    writeBindings.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, writeBindings)));
     data.passes.insert(data.passes.begin(), write);
     const auto analyzed = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(analyzed));
@@ -338,7 +354,10 @@ TEST(FrameComputeAnalysis, CustomStorageReadsRequireContentsAndPreserveTheirProd
     data.passes[1] = read;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.passes.pop_back();
-    std::get<FrameComputePass>(data.passes[0]).images[0].kind = FrameImageBindingKind::SAMPLED;
+    auto &changed                  = std::get<FrameComputePass>(data.passes[0]);
+    auto  changedBindings          = ResolveComputeBindings(changed);
+    changedBindings.images[0].kind = FrameImageBindingKind::SAMPLED;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(changed, std::move(changedBindings))));
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 }
 
@@ -412,8 +431,10 @@ TEST(FrameComputeAnalysis, CustomBufferKindsAndReadContentsAreIndependent)
     data.passes[0] = read;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     FrameComputePass write;
+    ComputeBindingDraft writeBindings;
     write.shader = AnalysisShader(ShaderResourceType::STORAGE_BUFFER);
-    write.buffers.push_back({0, 0, {{1, 0}, 16, 16}, 0, FrameAccessMode::WRITE});
+    writeBindings.buffers.push_back({0, 0, {{1, 0}, 16, 16}, 0, FrameAccessMode::WRITE});
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, writeBindings)));
     data.passes.insert(data.passes.begin(), write);
     const auto analyzed = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(analyzed));
@@ -428,13 +449,17 @@ TEST(FrameComputeAnalysis, CustomBufferKindsAndReadContentsAreIndependent)
     data.passes[1]         = read;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.passes.pop_back();
-    std::get<FrameComputePass>(data.passes[0]).buffers[0].kind = FrameBufferBindingKind::UNIFORM;
+    auto &changed                   = std::get<FrameComputePass>(data.passes[0]);
+    auto  changedBindings           = ResolveComputeBindings(changed);
+    changedBindings.buffers[0].kind = FrameBufferBindingKind::UNIFORM;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(changed, std::move(changedBindings))));
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 
     data                   = ComputeBufferData();
     data.buffers[0].buffer = {};
     data.buffers[0].initializedRanges.clear();
     data.buffers[0].transient = Buffer::Descriptor{64, BufferUsageFlagBit::UNIFORM, MemoryType::GPU_ONLY};
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, writeBindings)));
     data.passes[0]            = write;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 }
@@ -468,7 +493,9 @@ TEST(FrameRasterAnalysis, DepthOnlyContentsAndSampledScalarContract)
     shader->reflection.resources.push_back(resource);
     draw.shader              = ShaderPtr(shader);
     draw.command.vertexCount = 3;
-    draw.images              = {{0, 0, {1, 0}, {ImageViewType::VIEW_2D, 0, 1, 0, 1}}};
+    RasterBindingDraft drawBindings;
+    drawBindings.images = {{0, 0, {1, 0}, {ImageViewType::VIEW_2D, 0, 1, 0, 1}}};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(drawBindings))));
     sample.draws.push_back(draw);
     data.passes.emplace_back(sample);
     data.imageExports.push_back({1, 1});
@@ -482,7 +509,10 @@ TEST(FrameRasterAnalysis, DepthOnlyContentsAndSampledScalarContract)
     std::get<FrameRasterPass>(data.passes[0]).depth->store = StoreOp::DONT_CARE;
     EXPECT_TRUE(std::holds_alternative<FrameError>(analyze()));
     data.passes[0]                                                            = write;
-    std::get<FrameRasterPass>(data.passes[1]).draws[0].images[0].view.baseMip = 1;
+    auto &changed                                                             = std::get<FrameRasterPass>(data.passes[1]).draws[0];
+    auto  changedBindings                                                     = ResolveRasterBindings(changed);
+    changedBindings.images[0].view.baseMip                                    = 1;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(changed, std::move(changedBindings))));
     EXPECT_TRUE(std::holds_alternative<FrameError>(analyze()));
     data.passes[1]                                           = sample;
     std::get<FrameRasterPass>(data.passes[0]).colorLocalRead = true;
@@ -504,6 +534,7 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         data.buffers[0].initializedRanges.clear();
         data.buffers[0].initialized = true;
         FrameComputePass pass;
+        ComputeBindingDraft passBindings;
         auto            *shader = new AnalysisComputeShader();
         ShaderResource   uniform;
         uniform.type = ShaderResourceType::UNIFORM_BUFFER;
@@ -515,26 +546,27 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         shader->reflection.resources = {uniform, storage};
         pass.shader                  = ShaderPtr(shader);
         pass.sideEffect              = true;
-        pass.buffers                 = {{0, 0, {{1, 0}, 0, 16}, 0, FrameAccessMode::READ, FrameBufferBindingKind::UNIFORM},
+        passBindings.buffers         = {{0, 0, {{1, 0}, 0, 16}, 0, FrameAccessMode::READ, FrameBufferBindingKind::UNIFORM},
                                         {0, 1, {{1, 0}, 32, 16}, 0, FrameAccessMode::READ, FrameBufferBindingKind::STORAGE}};
         auto assign                  = [&] {
             if (custom) {
                 FrameCustomPass callback;
                 callback.encoder    = std::make_shared<AnalysisCustomEncoder>();
                 callback.sideEffect = true;
-                callback.buffers    = pass.buffers;
-                callback.images     = pass.images;
+                callback.buffers    = passBindings.buffers;
+                callback.images     = passBindings.images;
                 data.passes[0]      = callback;
             } else {
+                EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
                 data.passes[0] = pass;
             }
         };
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-        std::reverse(pass.buffers.begin(), pass.buffers.end());
+        std::reverse(passBindings.buffers.begin(), passBindings.buffers.end());
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-        pass.buffers[1].kind                 = FrameBufferBindingKind::STORAGE;
+        passBindings.buffers[1].kind                  = FrameBufferBindingKind::STORAGE;
         shader->reflection.resources[0].type         = ShaderResourceType::STORAGE_BUFFER;
         shader->reflection.resources[0].bufferKind    = ShaderBufferKind::STRUCTURED;
         shader->reflection.resources[0].elementStride = 16;
@@ -550,23 +582,23 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         image.initial = image.final = ImageLayout::GENERAL;
         image.initialized           = true;
         data.images.push_back(image);
-        pass.buffers.clear();
+        passBindings.buffers.clear();
         shader->reflection.resources[0].type = ShaderResourceType::SAMPLED_IMAGE;
         shader->reflection.resources[1].type = ShaderResourceType::STORAGE_IMAGE;
         for (auto &resource : shader->reflection.resources)
             resource.texture.dimension = ShaderTextureDimension::D2;
         RasterImageView view;
         view.mipCount = 1;
-        pass.images   = {{0, 0, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::SAMPLED},
-                         {0, 1, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::STORAGE}};
+        passBindings.images = {{0, 0, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::SAMPLED},
+                               {0, 1, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::STORAGE}};
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-        pass.images[1].view.baseMip = 1;
+        passBindings.images[1].view.baseMip = 1;
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-        pass.images[0].kind                  = FrameImageBindingKind::STORAGE;
+        passBindings.images[0].kind          = FrameImageBindingKind::STORAGE;
         shader->reflection.resources[0].type = ShaderResourceType::STORAGE_IMAGE;
-        pass.images[1].view.baseMip          = 0;
+        passBindings.images[1].view.baseMip  = 0;
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     }
@@ -1142,14 +1174,17 @@ TEST(FrameGraphImports, BufferByteHolesRejectCopyImageVertexIndexUniformAndExpor
             data.exports.push_back({{1, 0}, 0, 64});
         } else {
             RasterDraw draw;
-            draw.shader  = ShaderPtr(new Shader());
+            draw.shader  = kind == 4 ? AnalysisShader(ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) : ShaderPtr(new Shader());
             draw.command = {3, 1, 0, 0};
             if (kind == 2)
                 draw.vertices.push_back({{{1, 0}, 0, 24}, 8});
             else if (kind == 3)
                 draw.indexed = RasterIndexedDraw{{{1, 0}, 8, 16}, IndexType::U32, {3, 1, 0, 0, 0}};
-            else
-                draw.uniforms.push_back({0, 0, {{1, 0}, 0, 16}, 8});
+            else {
+                RasterBindingDraft bindings;
+                bindings.uniforms.push_back({0, 0, {{1, 0}, 0, 16}, 8});
+                ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
+            }
             FrameRasterPass raster;
             raster.color      = {1, 0};
             raster.sideEffect = true;
