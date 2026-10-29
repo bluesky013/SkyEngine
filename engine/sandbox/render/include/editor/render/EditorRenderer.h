@@ -8,6 +8,7 @@
 #include <aurora/adaptor/renderer/RendererHost.h>
 #include <aurora/renderer/RenderCommands.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/VulkanConfig.h>
 #include <editor/core/viewport/EditorCamera.h>
 #include <editor/render/CpuViewportPicker.h>
 #include <framework/window/IWindowEvent.h>
@@ -51,12 +52,12 @@ namespace sky::editor {
         EditorRenderer(const EditorRenderer &)            = delete;
         EditorRenderer &operator=(const EditorRenderer &) = delete;
 
-        bool Init(const std::string         &appName,
-                  uint32_t                   width,
-                  uint32_t                   height,
-                  sky::aurora::API           api         = sky::aurora::API::DEFAULT,
-                  bool                       withPreview = true,
-                  aurora::RendererVulkanMode mode        = aurora::RendererVulkanMode::DYNAMIC_RENDERING);
+        bool Init(const std::string   &appName,
+                  uint32_t             width,
+                  uint32_t             height,
+                  sky::aurora::API     api         = sky::aurora::API::DEFAULT,
+                  bool                 withPreview = true,
+                  aurora::VulkanConfig vulkan      = {});
         void Start();
         void Tick(float delta);
         void Shutdown();

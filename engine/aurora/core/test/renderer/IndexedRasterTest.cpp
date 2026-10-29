@@ -98,16 +98,17 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"IndexedRasterTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"IndexedRasterTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
                 ASSERT_TRUE(SUCCEEDED(static_cast<D3D12Device *>(device)->GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&debug))));
                 debug->ClearStoredMessages();
             }
-            info.deviceEpoch    = epoch;
-            info.parallelNum    = 3;
-            info.vulkanCompiler = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
+            info.deviceEpoch = epoch;
+            info.parallelNum = 3;
             ResetContext();
             shaders[0] = ShaderOf(false);
             shaders[1] = ShaderOf(true);
@@ -259,7 +260,7 @@ namespace {
                 bindings.uniforms = {{2, 0, {uniforms, 0, scale.size}, static_cast<uint32_t>(scale.offset)},
                                      {0, 0, {uniforms, 0, view.size}, static_cast<uint32_t>(view.offset)},
                                      {1, alternate ? 1u : 0u, {uniforms, tint.offset, tint.size}, 0}};
-                draw.depth    = {true, true, CompareOp::LESS};
+                draw.depth        = {true, true, CompareOp::LESS};
                 if (i < 2)
                     draw.scissor = {{static_cast<int32_t>(i * 4), 0}, {4, 8}};
                 if (split && i == 2) {
@@ -449,8 +450,8 @@ TEST_P(IndexedRaster, DepthResolveMinMaxPreserveSelectedCellAndDiscardedSource)
                 source.colorResolve    = RasterColorResolve{addImage(false, SampleCount::X1, true), {1, workers - 1}};
                 source.depth->resolve  = RasterDepthResolve{resolved, {1, workers - 1}, mode ? DepthResolveMode::MAXIMUM : DepthResolveMode::MINIMUM};
                 source.draws.resize(1);
-                source.draws[0].scissor                   = {};
-                source.draws[0].groups[2].bufferUses      = {{0, static_cast<uint32_t>(partial.offset)}};
+                source.draws[0].scissor              = {};
+                source.draws[0].groups[2].bufferUses = {{0, static_cast<uint32_t>(partial.offset)}};
                 source.draws.resize(70, source.draws[0]);
                 FrameRasterPass poison = original;
                 poison.draws.clear();
@@ -605,15 +606,15 @@ TEST_P(IndexedRaster, DepthResolveMinMaxPreserveSelectedCellAndDiscardedSource)
 
 TEST_P(IndexedRaster, DepthClippingMatchesWithDepthTestDisabled)
 {
-    const auto lease               = Begin();
-    auto       probe               = MakeGraph(lease, IndexType::U32, 3);
-    const auto outside             = Uniform(lease, {0, 0, 2, 0});
-    auto       data                = probe.graph->GetData();
-    auto      &draw                = std::get<FrameRasterPass>(data.passes[1]).draws.back();
-    draw.depth                     = {};
-    draw.groups[0].bufferUses      = {{0, static_cast<uint32_t>(outside.offset)}};
-    probe.graph                    = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
-    auto recording                 = Record(lease, probe);
+    const auto lease          = Begin();
+    auto       probe          = MakeGraph(lease, IndexType::U32, 3);
+    const auto outside        = Uniform(lease, {0, 0, 2, 0});
+    auto       data           = probe.graph->GetData();
+    auto      &draw           = std::get<FrameRasterPass>(data.passes[1]).draws.back();
+    draw.depth                = {};
+    draw.groups[0].bufferUses = {{0, static_cast<uint32_t>(outside.offset)}};
+    probe.graph               = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
+    auto recording            = Record(lease, probe);
     ASSERT_TRUE(recording);
     ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recording)));
     Complete(1);
@@ -640,9 +641,9 @@ TEST_P(IndexedRaster, InvalidRangesBindingsAndDepthAreRejected)
     const auto lease = Begin();
     auto       probe = MakeGraph(lease, IndexType::U16, 3);
     for (uint32_t fault = 0; fault < 12; ++fault) {
-        auto  data = probe.graph->GetData();
-        auto &pass = std::get<FrameRasterPass>(data.passes[1]);
-        auto &draw = pass.draws.front();
+        auto       data     = probe.graph->GetData();
+        auto      &pass     = std::get<FrameRasterPass>(data.passes[1]);
+        auto      &draw     = pass.draws.front();
         auto       bindings = ResolveRasterBindings(draw);
         const auto uniform  = [&](uint32_t set) -> RasterUniformBinding  &{
             return *std::ranges::find_if(bindings.uniforms, [&](const auto &value) { return value.set == set; });
@@ -789,12 +790,12 @@ TEST_P(IndexedRaster, SparseShaderSetsKeepTheirActualSetNumbers)
     auto       probe = MakeGraph(lease, IndexType::U16, 2);
     auto       data  = probe.graph->GetData();
     for (auto &draw : std::get<FrameRasterPass>(data.passes[1]).draws) {
-        draw.shader     = std::get<ShaderPtr>(resolved);
+        draw.shader         = std::get<ShaderPtr>(resolved);
         auto       bindings = ResolveRasterBindings(draw);
         const auto tint     = *std::ranges::find_if(bindings.uniforms, [](const auto &value) { return value.set == 1; });
         bindings.uniforms   = {{2, 0, {tint.range.buffer, 0, tint.range.size}, static_cast<uint32_t>(tint.range.offset)}};
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
-        draw.depth      = {};
+        draw.depth = {};
     }
     probe.graph    = std::make_shared<const FrozenFrameGraph>(probe.graph->GetId(), std::move(data));
     auto recording = Record(lease, probe);
@@ -912,7 +913,7 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
     wrongMaterials[0].vertexMask = 0;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
         ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, meshes, wrongMaterials, {})));
-    auto       wrongMeshes           = meshes;
+    auto wrongMeshes                 = meshes;
     wrongMeshes[0].resource.revision = 2;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
         ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
@@ -1190,15 +1191,15 @@ TEST_P(IndexedRaster, MultisampleDepthLoadAndLayerSelectionMatchSerialAndParalle
                 }
 }
 
-
 TEST(VertexInputResolution, ReordersBySemanticAndRejectsMissingDuplicateOrWrongNumericType)
 {
-    std::vector<RasterVertexAttribute> attributes{
-        {0, 0, 0, Format::F_RGB32, "POSITION", 0}, {1, 0, 12, Format::F_RGB32, "NORMAL", 0},
-        {2, 0, 24, Format::U_RGBA8, "JOINTS", 0}, {3, 0, 28, Format::F_RGBA32, "WEIGHTS", 0}};
-    ShaderReflection reflection;
-    reflection.vertexInputs = {{"POSITION", 0, 0, ShaderScalarType::FLOAT, 3},
-                               {"JOINTS", 0, 1, ShaderScalarType::UINT, 4}, {"WEIGHTS", 0, 2, ShaderScalarType::FLOAT, 4}};
+    std::vector<RasterVertexAttribute> attributes{{0, 0, 0, Format::F_RGB32, "POSITION", 0},
+                                                  {1, 0, 12, Format::F_RGB32, "NORMAL", 0},
+                                                  {2, 0, 24, Format::U_RGBA8, "JOINTS", 0},
+                                                  {3, 0, 28, Format::F_RGBA32, "WEIGHTS", 0}};
+    ShaderReflection                   reflection;
+    reflection.vertexInputs = {
+        {"POSITION", 0, 0, ShaderScalarType::FLOAT, 3}, {"JOINTS", 0, 1, ShaderScalarType::UINT, 4}, {"WEIGHTS", 0, 2, ShaderScalarType::FLOAT, 4}};
     const auto resolved = ResolveVertexInputs(attributes, reflection);
     ASSERT_TRUE(std::holds_alternative<std::vector<RasterVertexAttribute>>(resolved));
     const auto &inputs = std::get<std::vector<RasterVertexAttribute>>(resolved);
@@ -1219,9 +1220,9 @@ TEST(VertexInputResolution, ReordersBySemanticAndRejectsMissingDuplicateOrWrongN
 TEST_P(IndexedRaster, SkeletalStorageUsesIntegerSlotsExactRangesAndTwoInflightPoses)
 {
     ShaderCompilerSlang compiler;
-    auto *previous = ShaderCompilerFactory::Get().GetCompiler();
+    auto               *previous = ShaderCompilerFactory::Get().GetCompiler();
     ShaderCompilerFactory::Get().Register(&compiler);
-    Finally restore{[&] { ShaderCompilerFactory::Get().Register(previous); }};
+    Finally          restore{[&] { ShaderCompilerFactory::Get().Register(previous); }};
     ShaderFileSystem files;
     ASSERT_TRUE(LoadTestShaderSources(files));
     files.AddVirtualFile("SkinReadback.slang", R"(
@@ -1237,108 +1238,128 @@ TEST_P(IndexedRaster, SkeletalStorageUsesIntegerSlotsExactRangesAndTwoInflightPo
         }
         float4 FSMain(Varying input) : SV_Target { return float4(input.color, 1); }
     )");
-    ShaderResolver resolver(nullptr, nullptr, files, 1, 1);
+    ShaderResolver      resolver(nullptr, nullptr, files, 1, 1);
     ShaderVariantSchema schema;
     RasterShaderRequest request;
     request.vertex.relativePath = "SkinReadback.slang";
-    request.vertex.entry = "VSMain";
-    request.vertex.stage = ShaderStageFlagBit::VS;
-    request.vertex.target = static_cast<uint32_t>(GetParam() == 2 ? ShaderTarget::DXIL : ShaderTarget::SPIRV);
-    request.vertex.schema = &schema;
-    request.vertex.schemaFp = HashSchema(schema);
-    request.fragment = request.vertex;
-    request.fragment.entry = "FSMain";
-    request.fragment.stage = ShaderStageFlagBit::FS;
-    const auto created = ResolveRasterShader(*device, resolver, request);
-    if (const auto *error = std::get_if<FrameError>(&created)) { FAIL() << error->message; }
+    request.vertex.entry        = "VSMain";
+    request.vertex.stage        = ShaderStageFlagBit::VS;
+    request.vertex.target       = static_cast<uint32_t>(GetParam() == 2 ? ShaderTarget::DXIL : ShaderTarget::SPIRV);
+    request.vertex.schema       = &schema;
+    request.vertex.schemaFp     = HashSchema(schema);
+    request.fragment            = request.vertex;
+    request.fragment.entry      = "FSMain";
+    request.fragment.stage      = ShaderStageFlagBit::FS;
+    const auto created          = ResolveRasterShader(*device, resolver, request);
+    if (const auto *error = std::get_if<FrameError>(&created)) {
+        FAIL() << error->message;
+    }
     const auto shader = std::get<ShaderPtr>(created);
     ASSERT_EQ(shader->GetReflection().resources.size(), 1u);
     EXPECT_EQ(shader->GetReflection().resources[0].elementStride, 16u);
     EXPECT_EQ(shader->GetReflection().resources[0].bufferKind, ShaderBufferKind::STRUCTURED);
     EXPECT_EQ(shader->GetReflection().resources[0].access, ShaderResourceAccess::READ_ONLY);
-    struct Vertex { Vector3 position; Vector3 unusedNormal{0, 0, 1}; std::array<uint8_t, 4> joints{0, 1, 0, 0}; Vector4 weights{.25f, .75f, 0, 0}; };
+    struct Vertex {
+        Vector3                position;
+        Vector3                unusedNormal{0, 0, 1};
+        std::array<uint8_t, 4> joints{0, 1, 0, 0};
+        Vector4                weights{.25f, .75f, 0, 0};
+    };
     const std::array<Vertex, 6> vertices{{{{-1, -1, .5f}}, {{1, -1, .5f}}, {{-1, 1, .5f}}, {{-1, 1, .5f}}, {{1, -1, .5f}}, {{1, 1, .5f}}}};
-    const auto make = [&](DeviceFrameLease lease, bool flipped) {
-        Probe probe;
+    const auto                  make = [&](DeviceFrameLease lease, bool flipped) {
+        Probe             probe;
         FrameGraphBuilder builder;
-        FrameBuildInputs inputs;
+        FrameBuildInputs  inputs;
         inputs.lease = lease;
         FrameComposer composer(*device, *context, builder, inputs);
-        const auto vertexData = composer.Upload(std::as_bytes(std::span{vertices}), BufferUsageFlagBit::VERTEX);
+        const auto    vertexData = composer.Upload(std::as_bytes(std::span{vertices}), BufferUsageFlagBit::VERTEX);
         EXPECT_TRUE(std::holds_alternative<RasterBufferRange>(vertexData));
-        if (!std::holds_alternative<RasterBufferRange>(vertexData)) { return probe; }
-        const auto color = ImageOf(builder, false);
+        if (!std::holds_alternative<RasterBufferRange>(vertexData)) {
+            return probe;
+        }
+        const auto      color = ImageOf(builder, false);
         FrameRasterPass pass;
         pass.color = color;
         for (uint32_t instance = 0; instance < 2; ++instance) {
             std::array<Matrix4, 4> palette;
             for (uint32_t joint = 0; joint < 2; ++joint) {
-                auto &matrix = palette[joint * 2];
-                matrix = Matrix4::Identity();
-                matrix[0].x = ((instance != 0) != flipped) ? -.5f : .5f;
-                matrix[3].x = (instance ? 1.f : -1.f) * (joint ? .6f : .2f);
+                auto &matrix           = palette[joint * 2];
+                matrix                 = Matrix4::Identity();
+                matrix[0].x            = ((instance != 0) != flipped) ? -.5f : .5f;
+                matrix[3].x            = (instance ? 1.f : -1.f) * (joint ? .6f : .2f);
                 palette[joint * 2 + 1] = matrix.InverseTranspose();
             }
             const auto storage = composer.Upload(std::as_bytes(std::span{palette}), BufferUsageFlagBit::STORAGE);
             EXPECT_TRUE(std::holds_alternative<RasterBufferRange>(storage));
-            if (!std::holds_alternative<RasterBufferRange>(storage)) { return probe; }
+            if (!std::holds_alternative<RasterBufferRange>(storage)) {
+                return probe;
+            }
             const auto range = std::get<RasterBufferRange>(storage);
             EXPECT_EQ(range.size, sizeof(palette));
             RasterDraw draw;
-            draw.shader = shader;
-            draw.command = {6, 1, 0, 0};
-            draw.scissor = {{0, 0}, {8, 8}};
-            draw.vertices = {{std::get<RasterBufferRange>(vertexData), sizeof(Vertex)}};
+            draw.shader     = shader;
+            draw.command    = {6, 1, 0, 0};
+            draw.scissor    = {{0, 0}, {8, 8}};
+            draw.vertices   = {{std::get<RasterBufferRange>(vertexData), sizeof(Vertex)}};
             draw.attributes = {{0, 0, offsetof(Vertex, position), Format::F_RGB32, "POSITION", 0},
                                {1, 0, offsetof(Vertex, unusedNormal), Format::F_RGB32, "NORMAL", 0},
                                {2, 0, offsetof(Vertex, joints), Format::U_RGBA8, "JOINTS", 0},
                                {3, 0, offsetof(Vertex, weights), Format::F_RGBA32, "WEIGHTS", 0}};
-            auto resolved = ResolveVertexInputs(draw.attributes, shader->GetReflection());
+            auto resolved   = ResolveVertexInputs(draw.attributes, shader->GetReflection());
             EXPECT_TRUE(std::holds_alternative<std::vector<RasterVertexAttribute>>(resolved));
-            if (const auto *error = std::get_if<FrameError>(&resolved)) { ADD_FAILURE() << error->message; return probe; }
+            if (const auto *error = std::get_if<FrameError>(&resolved)) {
+                ADD_FAILURE() << error->message;
+                return probe;
+            }
             draw.attributes = std::move(std::get<std::vector<RasterVertexAttribute>>(resolved));
             PassResourceBindings bindings(shared::GetSkinningBatchReflection());
             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(bindings.Storage(shared::SkinningBatchBindings::gSkinningPalette, range)));
             const PassResourceBindings *groups[]{&bindings};
             const auto                  applied = PassResourceBindings::Apply(composer, draw, groups);
-            if (const auto *applyError = std::get_if<FrameError>(&applied)) { ADD_FAILURE() << applyError->message; return probe; }
+            if (const auto *applyError = std::get_if<FrameError>(&applied)) {
+                ADD_FAILURE() << applyError->message;
+                return probe;
+            }
             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(applied));
             pass.draws.push_back(std::move(draw));
         }
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));
         Buffer::Descriptor readback;
-        readback.size = 8 * 8 * 4;
-        readback.usage = BufferUsageFlagBit::TRANSFER_DST;
-        readback.memory = GetParam() == 2 ? MemoryType::GPU_TO_CPU : MemoryType::CPU_ONLY;
-        probe.readback = BufferPtr(device->CreateBuffer(readback));
-        const auto outputBuffer = Import(builder, probe.readback, CopyBufferState::HOST_READ, false);
+        readback.size                = 8 * 8 * 4;
+        readback.usage               = BufferUsageFlagBit::TRANSFER_DST;
+        readback.memory              = GetParam() == 2 ? MemoryType::GPU_TO_CPU : MemoryType::CPU_ONLY;
+        probe.readback               = BufferPtr(device->CreateBuffer(readback));
+        const auto      outputBuffer = Import(builder, probe.readback, CopyBufferState::HOST_READ, false);
         BufferImageCopy region;
         region.imageExtent = {8, 8, 1};
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({outputBuffer, color, region, ImageCopyDirection::IMAGE_TO_BUFFER})));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({outputBuffer, 0, readback.size})));
         const auto frozen = builder.Freeze();
         EXPECT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
-        if (const auto *graph = std::get_if<std::shared_ptr<const FrozenFrameGraph>>(&frozen)) { probe.graph = *graph; }
+        if (const auto *graph = std::get_if<std::shared_ptr<const FrozenFrameGraph>>(&frozen)) {
+            probe.graph = *graph;
+        }
         return probe;
     };
     const auto firstLease = Begin();
-    const auto first = make(firstLease, false);
+    const auto first      = make(firstLease, false);
     ASSERT_NE(first.graph, nullptr);
     auto firstRecording = Record(firstLease, first);
     ASSERT_NE(firstRecording, nullptr);
     const std::array<Matrix4, 2> overwrite{Matrix4::Identity(), Matrix4::Identity()};
-    EXPECT_TRUE(std::holds_alternative<FrameError>(context->WriteFrameBuffer(firstLease, FrameBufferKind::STORAGE, std::as_bytes(std::span{overwrite}), 64)));
+    EXPECT_TRUE(
+        std::holds_alternative<FrameError>(context->WriteFrameBuffer(firstLease, FrameBufferKind::STORAGE, std::as_bytes(std::span{overwrite}), 64)));
     ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(firstRecording)));
     const auto secondLease = Begin();
-    const auto second = make(secondLease, true);
+    const auto second      = make(secondLease, true);
     ASSERT_NE(second.graph, nullptr);
     auto secondRecording = Record(secondLease, second);
     ASSERT_NE(secondRecording, nullptr);
     ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(secondRecording)));
     Complete(2);
     for (uint32_t frame = 0; frame < 2; ++frame) {
-        const auto &probe = frame ? second : first;
-        auto *pixels = probe.readback->Map();
+        const auto &probe  = frame ? second : first;
+        auto       *pixels = probe.readback->Map();
         ASSERT_NE(pixels, nullptr);
         for (uint32_t y = 0; y < 8; ++y) {
             for (uint32_t x = 0; x < 8; ++x) {
@@ -1355,7 +1376,7 @@ TEST_P(IndexedRaster, SkeletalStorageUsesIntegerSlotsExactRangesAndTwoInflightPo
 
 TEST(MaterialVariantSelection, SelectsExactPipelineAndVertexVariant)
 {
-    const RenderResourceKey key{Uuid::CreateWithSeed(9901), 1, 1, 1};
+    const RenderResourceKey               key{Uuid::CreateWithSeed(9901), 1, 1, 1};
     std::array<PreparedMaterialLayout, 3> layouts;
     layouts[0].resource = key;
     layouts[1].resource = key;

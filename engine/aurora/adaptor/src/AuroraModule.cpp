@@ -135,22 +135,22 @@ namespace sky::aurora {
     {
         mApi            = API::DEFAULT;
         providerOnly    = false;
-        vulkanMode      = RendererVulkanMode::AUTO;
+        vulkanConfig    = {};
         shaderUsagePath = {};
         CmdOptions options("Aurora Render Module", "Aurora Render Module");
         options.allow_unrecognised_options();
         options.add_options()("r,rhi", "RHI Type", CmdValue<std::string>());
         options.add_options()("aurora-provider-only", "Register the Renderer provider without creating a host");
-        options.add_options()("aurora-vulkan-render-pass", "Use the Vulkan render-pass compiler");
+        options.add_options()("aurora-vulkan-render-pass", "Disable Vulkan dynamic rendering");
         options.add_options()("aurora-shader-usage", "Write collected shader variants to this JSON path", CmdValue<std::string>());
 
         if (args.args.empty()) {
             return;
         }
 
-        auto result  = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
-        providerOnly = result.count("aurora-provider-only") != 0u;
-        vulkanMode   = result.count("aurora-vulkan-render-pass") ? RendererVulkanMode::RENDER_PASS : RendererVulkanMode::AUTO;
+        auto result                   = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+        providerOnly                  = result.count("aurora-provider-only") != 0u;
+        vulkanConfig.dynamicRendering = result.count("aurora-vulkan-render-pass") == 0u;
         if (result.count("rhi") != 0u) {
             mApi = ParseApi(result["rhi"].as<std::string>());
         }
@@ -229,8 +229,8 @@ namespace sky::aurora {
             return true;
         }
         RendererInitInfo info;
-        info.backend    = mApi;
-        info.vulkanMode = vulkanMode;
+        info.backend = mApi;
+        info.vulkan  = vulkanConfig;
 #if SKY_ENABLE_GPU_VALIDATION
         info.enableValidation = true;
 #endif

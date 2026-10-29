@@ -118,19 +118,16 @@ TEST(RendererRuntimeEvents, RealStoppedCoordinatorDrainsSuccessResultsBeforePubl
     EXPECT_EQ(cpu.PollEvents(remaining), 0U);
 }
 
-TEST(RendererConfiguration, UnknownVulkanModesAreRejectedBeforeBackendAcquisition)
+TEST(RendererConfiguration, UnknownBackendsAreRejectedBeforeBackendAcquisition)
 {
     auto *originalDevice = Instance::Get()->GetDevice();
     auto  provider       = CreateRendererProvider();
-    for (const auto value : {3u, 255u}) {
+    for (const auto value : {-1, 255, INT32_MAX}) {
         RendererInitInfo info;
-        info.vulkanMode = static_cast<RendererVulkanMode>(value);
-        auto provided   = provider->Create(info);
+        info.backend  = static_cast<API>(value);
+        auto provided = provider->Create(info);
         ASSERT_TRUE(std::holds_alternative<RendererError>(provided));
         EXPECT_EQ(std::get<RendererError>(provided).code, RendererErrorCode::INVALID_ARGUMENT);
-        auto direct = CreateRuntimeRenderer(info);
-        ASSERT_TRUE(std::holds_alternative<RendererError>(direct));
-        EXPECT_EQ(std::get<RendererError>(direct).code, RendererErrorCode::INVALID_ARGUMENT);
         EXPECT_EQ(Instance::Get()->GetDevice(), originalDevice);
     }
 }

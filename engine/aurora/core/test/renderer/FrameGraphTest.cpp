@@ -34,11 +34,10 @@ namespace {
     {
         auto          *shader = new AnalysisComputeShader();
         ShaderResource resource;
-        resource.type              = type;
-        resource.binding           = binding;
-        resource.access            = (type == ShaderResourceType::STORAGE_IMAGE || type == ShaderResourceType::STORAGE_BUFFER)
-                                         ? ShaderResourceAccess::READ_WRITE
-                                         : ShaderResourceAccess::READ_ONLY;
+        resource.type    = type;
+        resource.binding = binding;
+        resource.access = (type == ShaderResourceType::STORAGE_IMAGE || type == ShaderResourceType::STORAGE_BUFFER) ? ShaderResourceAccess::READ_WRITE
+                                                                                                                    : ShaderResourceAccess::READ_ONLY;
         if (type == ShaderResourceType::STORAGE_BUFFER) {
             resource.bufferKind    = ShaderBufferKind::STRUCTURED;
             resource.elementStride = 16;
@@ -55,7 +54,7 @@ namespace {
         buffer.size   = 64;
         buffer.initializedRanges.push_back({16, 16});
         data.buffers.push_back(std::move(buffer));
-        FrameComputePass pass;
+        FrameComputePass    pass;
         ComputeBindingDraft passBindings;
         pass.shader = AnalysisShader(ShaderResourceType::UNIFORM_BUFFER_DYNAMIC);
         passBindings.buffers.push_back({0, 0, {{1, 0}, 0, 16}, 16, FrameAccessMode::READ});
@@ -68,11 +67,23 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"CopyGraphTest", "SkyEngine", true, GetParam()});
+            ASSERT_TRUE(ResetDevice(true));
+        }
+        bool ResetDevice(bool dynamicRendering)
+        {
+            context.reset();
+            if (device) {
+                device = nullptr;
+                Instance::Destroy();
+            }
+            Instance::Descriptor instanceInfo{"CopyGraphTest", "SkyEngine", true, GetParam()};
+            instanceInfo.vulkan.dynamicRendering = dynamicRendering;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
-            ASSERT_TRUE(device);
+            if (!device)
+                return false;
             context.reset(device->CreateFrameContext({2, 1, 61, 2}));
-            ASSERT_TRUE(context);
+            return context != nullptr;
         }
         void TearDown() override
         {
@@ -150,8 +161,8 @@ TEST(FrameComputeAnalysis, DynamicOffsetsDriveBoundsContentsAndProducerLiveness)
     data.buffers[0].initializedRanges = {{0, 16}};
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.buffers[0].initializedRanges.clear();
-    data.buffers[0].initialized                                         = true;
-    std::get<FrameComputePass>(data.passes[0]).groups[0].bufferUses     = {{0, 64}};
+    data.buffers[0].initialized                                     = true;
+    std::get<FrameComputePass>(data.passes[0]).groups[0].bufferUses = {{0, 64}};
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     auto &changed                           = std::get<FrameComputePass>(data.passes[0]);
     auto  changedBindings                   = ResolveComputeBindings(changed);
@@ -182,8 +193,8 @@ TEST(FrameComputeAnalysis, ShaderBoundariesAndInvalidAccessAreValidated)
         const auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
         EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(*graph)));
     }
-    auto  data                = ComputeBufferData();
-    auto &compute             = std::get<FrameComputePass>(data.passes[0]);
+    auto  data                   = ComputeBufferData();
+    auto &compute                = std::get<FrameComputePass>(data.passes[0]);
     compute.groups[0].bufferUses = {{0, 16, static_cast<FrameAccessMode>(255)}};
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     FrameCustomPass custom;
@@ -224,8 +235,8 @@ TEST(FrameComputeAnalysis, DeclarationErrorsPrecedeCullingButDeadReadsDoNotRequi
 
 TEST(FrameComputeAnalysis, SparseBindingLookupKeepsDeclarationOrderAndDynamicOffsetOrder)
 {
-    auto            *shader = new AnalysisComputeShader();
-    FrameComputePass pass;
+    auto               *shader = new AnalysisComputeShader();
+    FrameComputePass    pass;
     ComputeBindingDraft passBindings;
     pass.shader = ShaderPtr(shader);
     ShaderResource storage;
@@ -256,7 +267,7 @@ TEST(FrameComputeAnalysis, SparseBindingLookupKeepsDeclarationOrderAndDynamicOff
     shader->reflection.resources = duplicate;
     auto data                    = ComputeBufferData();
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
-    data.passes[0]               = std::move(pass);
+    data.passes[0] = std::move(pass);
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, std::move(data)))));
 }
 
@@ -295,7 +306,7 @@ TEST(FrameComputeAnalysis, StorageImageWritesDefineOnlyTheirSelectedMip)
     image.descriptor.usage     = ImageUsageFlagBit::STORAGE;
     image.descriptor.mipLevels = 2;
     data.images.push_back(std::move(image));
-    FrameComputePass pass;
+    FrameComputePass    pass;
     ComputeBindingDraft passBindings;
     pass.shader = AnalysisShader(ShaderResourceType::STORAGE_IMAGE);
     passBindings.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
@@ -305,7 +316,7 @@ TEST(FrameComputeAnalysis, StorageImageWritesDefineOnlyTheirSelectedMip)
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     passBindings.images[0].view.mipCount = 1;
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, passBindings)));
-    data.passes[0]               = pass;
+    data.passes[0] = pass;
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
     data.imageExports.push_back({1, 0});
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
@@ -334,7 +345,7 @@ TEST(FrameComputeAnalysis, CustomStorageReadsRequireContentsAndPreserveTheirProd
     read.sideEffect = true;
     data.passes.emplace_back(read);
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    FrameComputePass write;
+    FrameComputePass    write;
     ComputeBindingDraft writeBindings;
     write.shader = AnalysisShader(ShaderResourceType::STORAGE_IMAGE);
     writeBindings.images.push_back({0, 0, {1, 0}, {}, FrameAccessMode::WRITE});
@@ -430,7 +441,7 @@ TEST(FrameComputeAnalysis, CustomBufferKindsAndReadContentsAreIndependent)
     read.buffers.push_back({0, 0, {{1, 0}, 16, 16}, 0, FrameAccessMode::READ, FrameBufferBindingKind::STORAGE});
     data.passes[0] = read;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
-    FrameComputePass write;
+    FrameComputePass    write;
     ComputeBindingDraft writeBindings;
     write.shader = AnalysisShader(ShaderResourceType::STORAGE_BUFFER);
     writeBindings.buffers.push_back({0, 0, {{1, 0}, 16, 16}, 0, FrameAccessMode::WRITE});
@@ -460,7 +471,7 @@ TEST(FrameComputeAnalysis, CustomBufferKindsAndReadContentsAreIndependent)
     data.buffers[0].initializedRanges.clear();
     data.buffers[0].transient = Buffer::Descriptor{64, BufferUsageFlagBit::UNIFORM, MemoryType::GPU_ONLY};
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, writeBindings)));
-    data.passes[0]            = write;
+    data.passes[0] = write;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 }
 
@@ -508,10 +519,10 @@ TEST(FrameRasterAnalysis, DepthOnlyContentsAndSampledScalarContract)
     shader->reflection.resources[0].texture.components     = 1;
     std::get<FrameRasterPass>(data.passes[0]).depth->store = StoreOp::DONT_CARE;
     EXPECT_TRUE(std::holds_alternative<FrameError>(analyze()));
-    data.passes[0]                                                            = write;
-    auto &changed                                                             = std::get<FrameRasterPass>(data.passes[1]).draws[0];
-    auto  changedBindings                                                     = ResolveRasterBindings(changed);
-    changedBindings.images[0].view.baseMip                                    = 1;
+    data.passes[0]                         = write;
+    auto &changed                          = std::get<FrameRasterPass>(data.passes[1]).draws[0];
+    auto  changedBindings                  = ResolveRasterBindings(changed);
+    changedBindings.images[0].view.baseMip = 1;
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(changed, std::move(changedBindings))));
     EXPECT_TRUE(std::holds_alternative<FrameError>(analyze()));
     data.passes[1]                                           = sample;
@@ -533,10 +544,10 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         auto data = ComputeBufferData();
         data.buffers[0].initializedRanges.clear();
         data.buffers[0].initialized = true;
-        FrameComputePass pass;
+        FrameComputePass    pass;
         ComputeBindingDraft passBindings;
-        auto            *shader = new AnalysisComputeShader();
-        ShaderResource   uniform;
+        auto               *shader = new AnalysisComputeShader();
+        ShaderResource      uniform;
         uniform.type = ShaderResourceType::UNIFORM_BUFFER;
         ShaderResource storage;
         storage.type                 = ShaderResourceType::STORAGE_BUFFER;
@@ -567,7 +578,7 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         assign();
         EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
         passBindings.buffers[1].kind                  = FrameBufferBindingKind::STORAGE;
-        shader->reflection.resources[0].type         = ShaderResourceType::STORAGE_BUFFER;
+        shader->reflection.resources[0].type          = ShaderResourceType::STORAGE_BUFFER;
         shader->reflection.resources[0].bufferKind    = ShaderBufferKind::STRUCTURED;
         shader->reflection.resources[0].elementStride = 16;
         assign();
@@ -588,7 +599,7 @@ TEST(FrameComputeAnalysis, ConflictingKindsAreRejectedAtNativeStateGranularity)
         for (auto &resource : shader->reflection.resources)
             resource.texture.dimension = ShaderTextureDimension::D2;
         RasterImageView view;
-        view.mipCount = 1;
+        view.mipCount       = 1;
         passBindings.images = {{0, 0, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::SAMPLED},
                                {0, 1, {1, 0}, view, FrameAccessMode::READ, FrameImageBindingKind::STORAGE}};
         assign();
@@ -756,11 +767,11 @@ TEST(FrameBuildLifetime, CacheEvictionPreservesBorrowersAndDoesNotCacheFailures)
 
 TEST_P(CopyGraph, InvalidDeclarationsFailBeforeAllocationEvenWithoutExports)
 {
-    for (auto mode : {VulkanFrameGraphMode::DYNAMIC_RENDERING, VulkanFrameGraphMode::RENDER_PASS}) {
-        if (GetParam() == API::DX12 && mode == VulkanFrameGraphMode::RENDER_PASS)
+    for (const bool dynamicRendering : {true, false}) {
+        if (GetParam() == API::DX12 && !dynamicRendering)
             continue;
-        context.reset(device->CreateFrameContext({2, 1, 61, 2, mode}));
-        ASSERT_TRUE(context);
+        if (!dynamicRendering)
+            ASSERT_TRUE(ResetDevice(false));
         const auto lease = Begin();
         for (bool compute : {false, true}) {
             FrameGraphBuilder builder;
@@ -1051,16 +1062,13 @@ TEST_P(CopyGraph, NativeBeginFailureProducesFailedEncodingWithoutSubmission)
     EXPECT_EQ(context->PollCompleted(completion), 0u);
 }
 
-TEST_P(CopyGraph, BackendRejectsForeignCompilerOptionAndInvalidImageGraph)
+TEST_P(CopyGraph, InvalidContextLimitsAndImageGraphAreRejected)
 {
     DeviceFrameContextInitInfo info{1, 1, 62, 1};
-    info.vulkanCompiler = static_cast<VulkanFrameGraphMode>(255);
+    info.parallelNum = 0;
     std::unique_ptr<DeviceFrameContext> invalid(device->CreateFrameContext(info));
     EXPECT_FALSE(invalid);
     if (GetParam() == API::DX12) {
-        info.vulkanCompiler = VulkanFrameGraphMode::RENDER_PASS;
-        invalid.reset(device->CreateFrameContext(info));
-        EXPECT_FALSE(invalid);
         FrameGraphData data;
         data.images.emplace_back();
         const auto lease  = Begin();

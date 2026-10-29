@@ -131,14 +131,8 @@ namespace sky::aurora {
     {
         state->limits = info.allocations;
         state->descriptors.resize(info.inflightNum);
-        const auto &fn   = device->GetDeviceFn();
-        const auto  mode = SelectVulkanCompiler(info.vulkanCompiler, device->SupportsDynamicRendering(), device->SupportsRenderPass2());
-        if (!mode) {
-            LOG_E("AuroraVulkan", "requested frame compiler is not supported by the enabled device features");
-            return false;
-        }
-        LOG_I("AuroraVulkan", "frame compiler: %s", *mode == VulkanFrameGraphMode::RENDER_PASS ? "render-pass" : "dynamic-rendering");
-        if (*mode == VulkanFrameGraphMode::RENDER_PASS) {
+        const auto &fn = device->GetDeviceFn();
+        if (!device->IsDynamicRenderingEnabled()) {
             if (!fn.vkCreateRenderPass2 || !fn.vkDestroyRenderPass || !fn.vkCreateFramebuffer || !fn.vkDestroyFramebuffer ||
                 !fn.vkCmdBeginRenderPass2 || !fn.vkCmdNextSubpass2 || !fn.vkCmdEndRenderPass2)
                 return false;

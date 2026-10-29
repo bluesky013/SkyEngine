@@ -120,19 +120,26 @@ namespace sky::aurora {
         {
             return swapchainMaintenance;
         }
-        bool SupportsDynamicRendering() const noexcept
+        bool IsDynamicRenderingRequested() const noexcept
         {
-            return dynamicRendering;
+            return dynamicRenderingRequested;
         }
-        bool SupportsRenderPass2() const noexcept
+        bool IsDynamicRenderingSupported() const noexcept
         {
-            return renderPass2;
+            return dynamicRenderingSupported;
+        }
+        // Reports the usable rendering path, including device dispatch availability.
+        bool IsDynamicRenderingEnabled() const noexcept
+        {
+            return dynamicRenderingEnabled;
         }
 
     private:
-        bool                                   swapchainMaintenance = false;
-        bool                                   dynamicRendering     = false;
-        bool                                   renderPass2          = false;
+        bool                                   dynamicRenderingRequested = false;
+        bool                                   dynamicRenderingSupported = false;
+        bool                                   dynamicRenderingEnabled   = false;
+        bool                                   swapchainMaintenance      = false;
+        bool                                   renderPass2               = false;
         std::unique_ptr<FrameTransientPool>    transientPool;
         FramePipelineCache                     pipelineCache;
         std::unique_ptr<VulkanRenderPassCache> renderPassCache;

@@ -6,6 +6,7 @@
 
 #include <aurora/rhi/Device.h>
 #include <aurora/rhi/SubmissionResult.h>
+#include <aurora/rhi/VulkanConfig.h>
 #include <core/environment/Singleton.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
@@ -21,10 +22,11 @@ namespace sky::aurora {
         ~Instance() override;
 
         struct Descriptor {
-            std::string appName;
-            std::string engineName;
-            bool        enableDebugLayer;
-            API         api;
+            std::string  appName;
+            std::string  engineName;
+            bool         enableDebugLayer;
+            API          api;
+            VulkanConfig vulkan;
         };
 
         class Impl {

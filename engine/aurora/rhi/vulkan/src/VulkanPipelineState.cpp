@@ -61,8 +61,8 @@ namespace sky::aurora {
 
     bool VulkanGraphicsPipeline::Init(const Descriptor &desc)
     {
-        if (!device.SupportsDynamicRendering()) {
-            LOG_E(TAG, "direct graphics pipelines require enabled dynamic rendering");
+        if (!device.IsDynamicRenderingEnabled()) {
+            LOG_E(TAG, "graphics pipelines without a render pass require dynamic rendering");
             return false;
         }
         const auto &fmt = desc.format;

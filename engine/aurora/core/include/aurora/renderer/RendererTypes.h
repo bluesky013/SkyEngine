@@ -1,6 +1,7 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/VulkanConfig.h>
 #include <core/math/Matrix4.h>
 #include <core/name/Name.h>
 #include <cstdint>
@@ -61,7 +62,6 @@ namespace sky::aurora {
 
     enum class RendererState : uint8_t { STARTING, RUNNING, STOPPING, STOPPED, FAILED };
     enum class PacketSubmitStatus : uint8_t { ACCEPTED, BUSY, REJECTED };
-    enum class RendererVulkanMode : uint8_t { DYNAMIC_RENDERING = 0, RENDER_PASS = 1, AUTO = 2 };
 
     struct PacketSubmitResult {
         PacketSubmitStatus status = PacketSubmitStatus::REJECTED;
@@ -69,15 +69,15 @@ namespace sky::aurora {
     };
 
     struct RendererInitInfo {
-        API                backend                 = API::DEFAULT;
-        uint32_t           inflightFrames          = 2;
-        uint32_t           maxPendingPackets       = 2;
-        uint32_t           prepareWorkers          = 1;
-        uint32_t           encodeWorkers           = 1;
-        uint64_t           maxPendingResourceBytes = 256ull * 1024 * 1024;
-        uint64_t           maxUploadBytesPerFrame  = 16ull * 1024 * 1024;
-        RendererVulkanMode vulkanMode              = RendererVulkanMode::AUTO;
-        bool               enableValidation        = false;
+        API          backend                 = API::DEFAULT;
+        uint32_t     inflightFrames          = 2;
+        uint32_t     maxPendingPackets       = 2;
+        uint32_t     prepareWorkers          = 1;
+        uint32_t     encodeWorkers           = 1;
+        uint64_t     maxPendingResourceBytes = 256ull * 1024 * 1024;
+        uint64_t     maxUploadBytesPerFrame  = 16ull * 1024 * 1024;
+        VulkanConfig vulkan;
+        bool         enableValidation = false;
     };
 
     struct RendererInfo {

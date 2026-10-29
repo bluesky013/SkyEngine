@@ -28,8 +28,6 @@ namespace sky::aurora {
     };
     using FrameResourceStateResult = std::variant<FrameError, FrameResourceStateSnapshot>;
 
-    enum class VulkanFrameGraphMode : uint8_t { DYNAMIC_RENDERING = 0, RENDER_PASS = 1, AUTO = 2 };
-
     struct FrameAllocationLimits {
         uint64_t stagingBytes        = 4 * 1024 * 1024;
         uint64_t uniformBytes        = 1024 * 1024;
@@ -55,7 +53,6 @@ namespace sky::aurora {
         uint32_t              parallelNum          = 1;
         uint64_t              deviceEpoch          = 1;
         uint32_t              maxRecordingsPerSlot = 256;
-        VulkanFrameGraphMode  vulkanCompiler       = VulkanFrameGraphMode::AUTO;
         FrameAllocationLimits allocations;
         uint32_t              trackedResources         = 1024;
         uint32_t              trackedImageSubresources = MAX_FRAME_IMAGE_SUBRESOURCES;

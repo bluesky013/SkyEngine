@@ -320,8 +320,9 @@ namespace sky::editor {
         // docking is not implemented yet, so no standalone window is opened.
         const bool renderPass =
             std::any_of(args.args.begin(), args.args.end(), [](const char *arg) { return std::string_view(arg) == "--aurora-vulkan-render-pass"; });
-        if (!renderer.Init("SandboxEditor", 1280, 720, api, false,
-                           renderPass ? sky::aurora::RendererVulkanMode::RENDER_PASS : sky::aurora::RendererVulkanMode::DYNAMIC_RENDERING)) {
+        sky::aurora::VulkanConfig vulkanConfig;
+        vulkanConfig.dynamicRendering = !renderPass;
+        if (!renderer.Init("SandboxEditor", 1280, 720, api, false, vulkanConfig)) {
             return false;
         }
         initialized = true;

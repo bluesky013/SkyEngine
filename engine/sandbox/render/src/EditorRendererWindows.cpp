@@ -65,7 +65,7 @@ namespace sky::editor {
     {
     }
     EditorRenderer::Surface::~Surface() = default;
-    bool EditorRenderer::Init(const std::string &, uint32_t, uint32_t, API api, bool preview, RendererVulkanMode mode)
+    bool EditorRenderer::Init(const std::string &, uint32_t, uint32_t, API api, bool preview, VulkanConfig vulkan)
     {
         if (host.Get())
             return false;
@@ -78,8 +78,8 @@ namespace sky::editor {
             return false;
         }
         RendererInitInfo init;
-        init.backend    = api;
-        init.vulkanMode = mode;
+        init.backend = api;
+        init.vulkan  = vulkan;
 #if SKY_ENABLE_GPU_VALIDATION
         init.enableValidation = true;
 #endif

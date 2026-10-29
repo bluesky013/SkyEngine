@@ -11,9 +11,10 @@ namespace sky::aurora {
                 info.maxPendingResourceBytes == 0 || info.maxUploadBytesPerFrame < 4) {
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Frame, queue, worker counts and resource budgets must be nonzero"};
             }
+            const bool validBackend =
+                info.backend == API::DEFAULT || info.backend == API::VULKAN || info.backend == API::METAL || info.backend == API::DX12;
             if (info.maxPendingPackets > 64 || info.inflightFrames > 8 || info.prepareWorkers > 64 || info.encodeWorkers > 64 ||
-                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || info.vulkanMode > RendererVulkanMode::AUTO ||
-                info.backend > API::DX12)
+                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || !validBackend)
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Renderer configuration exceeds supported ranges"};
             return CreateRuntimeRenderer(info);
         }

@@ -2,7 +2,6 @@
 // Created on 2026/10/17.
 //
 #include "HostSceneFixture.h"
-#include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
@@ -10,6 +9,7 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneHighlight.h>
 #include <aurora/rhi/Instance.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/shader/ShaderResolver.h>
 #include <chrono>
 #include <editor/render/EditorRenderer.h>
@@ -51,8 +51,8 @@ namespace {
             args.args = {"EditorHostTest", "--aurora-provider-only"};
             ASSERT_TRUE(provider.Init(args));
             ASSERT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
-            ASSERT_TRUE(editor.Init("B14", 160, 120, GetParam() == 2 ? API::DX12 : API::VULKAN, false,
-                                    GetParam() == 1 ? RendererVulkanMode::RENDER_PASS : RendererVulkanMode::DYNAMIC_RENDERING));
+            const VulkanConfig vulkan{GetParam() != 1};
+            ASSERT_TRUE(editor.Init("B14", 160, 120, GetParam() == 2 ? API::DX12 : API::VULKAN, false, vulkan));
             renderer = Interface<IRenderer>::Get()->GetApi();
             ASSERT_TRUE(renderer);
 #if SKY_ENABLE_GPU_VALIDATION

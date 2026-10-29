@@ -5,9 +5,8 @@
 #pragma once
 
 #include <VulkanFunctions.h>
-#include <aurora/rdg/DeviceFrameContext.h>
+#include <aurora/rhi/VulkanConfig.h>
 #include <cstring>
-#include <optional>
 #include <span>
 #include <vector>
 
@@ -46,8 +45,9 @@ namespace sky::aurora {
         VkPhysicalDeviceSynchronization2Features     synchronization{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
         VkPhysicalDeviceDynamicRenderingFeatures     rendering{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
         std::vector<const char *>                    extensions;
-        bool                                         renderPass2      = false;
-        bool                                         dynamicRendering = false;
+        bool                                         renderPass2               = false;
+        bool                                         dynamicRendering          = false;
+        bool                                         dynamicRenderingSupported = false;
 
         VulkanDeviceNegotiation()                                           = default;
         VulkanDeviceNegotiation(const VulkanDeviceNegotiation &)            = delete;
@@ -58,7 +58,8 @@ namespace sky::aurora {
                                              VkPhysicalDevice                       gpu,
                                              uint32_t                               apiVersion,
                                              std::span<const VkExtensionProperties> extensions,
-                                             VulkanDeviceNegotiation               &result)
+                                             VulkanDeviceNegotiation               &result,
+                                             const VulkanConfig                    &config = {})
     {
         if (apiVersion < VK_API_VERSION_1_1 || !query)
             return "AuroraVulkan requires Vulkan 1.1 feature queries";
@@ -84,9 +85,11 @@ namespace sky::aurora {
             return "Selected GPU does not support timelineSemaphore";
         if (!result.synchronization.synchronization2)
             return "Selected GPU does not support synchronization2";
-        result.dynamicRendering = queryRendering && result.rendering.dynamicRendering == VK_TRUE;
+        result.dynamicRenderingSupported  = queryRendering && result.rendering.dynamicRendering == VK_TRUE;
+        result.dynamicRendering           = config.dynamicRendering && result.dynamicRenderingSupported;
+        result.rendering.dynamicRendering = result.dynamicRendering ? VK_TRUE : VK_FALSE;
         if (!result.renderPass2 && !result.dynamicRendering)
-            return "Selected GPU supports neither render-pass2 nor dynamic rendering";
+            return "Selected GPU cannot provide the requested rendering configuration";
 
         if (!core12) {
             result.extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
@@ -142,24 +145,4 @@ namespace sky::aurora {
                (!renderPass2 || (fn.vkCreateRenderPass2 && fn.vkCmdBeginRenderPass2 && fn.vkCmdNextSubpass2 && fn.vkCmdEndRenderPass2));
     }
 
-    inline std::optional<VulkanFrameGraphMode> SelectVulkanCompiler(VulkanFrameGraphMode requested, bool dynamicRendering, bool renderPass2)
-    {
-        switch (requested) {
-        case VulkanFrameGraphMode::AUTO:
-            if (dynamicRendering)
-                return VulkanFrameGraphMode::DYNAMIC_RENDERING;
-            if (renderPass2)
-                return VulkanFrameGraphMode::RENDER_PASS;
-            break;
-        case VulkanFrameGraphMode::DYNAMIC_RENDERING:
-            if (dynamicRendering)
-                return requested;
-            break;
-        case VulkanFrameGraphMode::RENDER_PASS:
-            if (renderPass2)
-                return requested;
-            break;
-        }
-        return std::nullopt;
-    }
 } // namespace sky::aurora

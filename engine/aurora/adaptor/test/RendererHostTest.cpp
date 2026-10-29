@@ -514,10 +514,10 @@ namespace {
     };
 } // namespace
 
-TEST_F(LauncherSurfaceTest, DefaultVulkanCompilerIsAutomaticAndRenderPassOptionRemainsExplicit)
+TEST_F(LauncherSurfaceTest, DefaultVulkanPreferenceIsEnabledAndRenderPassOptionDisablesIt)
 {
     ASSERT_EQ(trace->creations.size(), 1u);
-    EXPECT_EQ(trace->creations.front().vulkanMode, RendererVulkanMode::AUTO);
+    EXPECT_TRUE(trace->creations.front().vulkan.dynamicRendering);
     module->Shutdown();
     module.reset();
     FileSystemPtr bundle = new NativeFileSystem(FilePath(root.string()));
@@ -528,7 +528,7 @@ TEST_F(LauncherSurfaceTest, DefaultVulkanCompilerIsAutomaticAndRenderPassOptionR
         args.args.push_back(value.c_str());
     ASSERT_TRUE(module->Init(args));
     ASSERT_EQ(trace->creations.size(), 2u);
-    EXPECT_EQ(trace->creations.back().vulkanMode, RendererVulkanMode::RENDER_PASS);
+    EXPECT_FALSE(trace->creations.back().vulkan.dynamicRendering);
 }
 
 TEST_F(LauncherSurfaceTest, ReplacementWaitsForExactRetirementAndRebindsTheExistingSceneAndView)

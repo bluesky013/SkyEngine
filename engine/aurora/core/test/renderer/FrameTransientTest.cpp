@@ -46,16 +46,17 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"FrameTransientTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"FrameTransientTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
                 ASSERT_TRUE(SUCCEEDED(static_cast<D3D12Device *>(device)->GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&debug))));
                 debug->ClearStoredMessages();
             }
-            info.deviceEpoch    = 149;
-            info.parallelNum    = 3;
-            info.vulkanCompiler = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
+            info.deviceEpoch = 149;
+            info.parallelNum = 3;
             context.reset(device->CreateFrameContext(info));
             ASSERT_TRUE(context);
         }

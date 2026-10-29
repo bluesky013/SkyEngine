@@ -8,6 +8,7 @@
 #include <aurora/adaptor/renderer/RenderSceneProxy.h>
 #include <aurora/adaptor/renderer/RendererHost.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/VulkanConfig.h>
 #include <framework/interface/IModule.h>
 #include <framework/window/IWindowEvent.h>
 
@@ -78,7 +79,7 @@ namespace sky::aurora {
         bool        pumping           = false;
         bool        shutdownRequested = false;
 
-        RendererVulkanMode vulkanMode = RendererVulkanMode::AUTO;
+        VulkanConfig vulkanConfig;
 
         API         mApi         = API::DEFAULT;
         bool        providerOnly = false;

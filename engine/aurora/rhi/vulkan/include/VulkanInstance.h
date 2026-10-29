@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <aurora/rhi/Instance.h>
 #include <VulkanFunctions.h>
-#include <vector>
+#include <aurora/rhi/Instance.h>
 #include <string>
+#include <vector>
 
 namespace sky::aurora {
 
@@ -18,19 +18,38 @@ namespace sky::aurora {
         VulkanInstance() = default;
         ~VulkanInstance() override;
 
-        bool Init(const Instance::Descriptor &desc) override;
+        bool    Init(const Instance::Descriptor &desc) override;
         Device *CreateDevice() override;
 
-        VkInstance       GetNativeHandle() const { return instance; }
-        VkPhysicalDevice GetActiveGpu() const { return activeGpu; }
-        bool             IsDebugEnabled() const { return enableDebugLayer; }
-        bool             HasSurfaceMaintenance() const noexcept
+        VkInstance GetNativeHandle() const
+        {
+            return instance;
+        }
+        VkPhysicalDevice GetActiveGpu() const
+        {
+            return activeGpu;
+        }
+        bool IsDebugEnabled() const
+        {
+            return enableDebugLayer;
+        }
+        bool HasSurfaceMaintenance() const noexcept
         {
             return surfaceMaintenance;
         }
+        const VulkanConfig &GetConfig() const noexcept
+        {
+            return config;
+        }
 
-        const VulkanGlobalFunctions   &GetGlobalFn() const { return globalFn; }
-        const VulkanInstanceFunctions &GetInstanceFn() const { return instanceFn; }
+        const VulkanGlobalFunctions &GetGlobalFn() const
+        {
+            return globalFn;
+        }
+        const VulkanInstanceFunctions &GetInstanceFn() const
+        {
+            return instanceFn;
+        }
 
     private:
         bool CreateInstance(const Instance::Descriptor &desc);
@@ -42,11 +61,12 @@ namespace sky::aurora {
         VkPhysicalDevice         activeGpu      = VK_NULL_HANDLE;
 
         std::vector<VkPhysicalDevice> physicalDevices;
-        std::vector<const char*>      enabledLayers;
-        std::vector<const char*>      enabledExtensions;
+        std::vector<const char *>     enabledLayers;
+        std::vector<const char *>     enabledExtensions;
 
-        bool enableDebugLayer = false;
-        bool surfaceMaintenance = false;
+        bool         enableDebugLayer   = false;
+        bool         surfaceMaintenance = false;
+        VulkanConfig config;
 
         VulkanGlobalFunctions   globalFn   = {};
         VulkanInstanceFunctions instanceFn = {};

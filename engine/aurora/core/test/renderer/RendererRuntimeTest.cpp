@@ -378,12 +378,12 @@ namespace {
     protected:
         void SetUp() override
         {
-            info.backend          = GetParam() == 2 ? API::DX12 : API::VULKAN;
-            info.vulkanMode       = GetParam() == 1 ? RendererVulkanMode::RENDER_PASS : RendererVulkanMode::DYNAMIC_RENDERING;
-            info.prepareWorkers   = 3;
-            info.encodeWorkers    = 3;
-            info.enableValidation = true;
-            provider              = CreateRendererProvider();
+            info.backend                 = GetParam() == 2 ? API::DX12 : API::VULKAN;
+            info.vulkan.dynamicRendering = GetParam() != 1;
+            info.prepareWorkers          = 3;
+            info.encodeWorkers           = 3;
+            info.enableValidation        = true;
+            provider                     = CreateRendererProvider();
             Create();
         }
         void Create()

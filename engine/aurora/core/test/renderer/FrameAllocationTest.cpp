@@ -32,7 +32,9 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"FrameAllocationTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"FrameAllocationTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
@@ -49,7 +51,6 @@ namespace {
                 ASSERT_TRUE(shader);
             }
             info.parallelNum                     = 2;
-            info.vulkanCompiler                  = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
             info.allocations.stagingBytes        = 96;
             info.allocations.uniformBytes        = 2 * device->GetCapability().minUniformBufferOffsetAlignment;
             info.allocations.resourceDescriptors = 2;

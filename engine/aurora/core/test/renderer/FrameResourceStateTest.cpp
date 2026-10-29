@@ -64,7 +64,9 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"ResourceStateTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"ResourceStateTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
@@ -74,7 +76,6 @@ namespace {
             info.deviceEpoch      = 151;
             info.parallelNum      = 2;
             info.trackedResources = 2;
-            info.vulkanCompiler   = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
             context.reset(device->CreateFrameContext(info));
             ASSERT_TRUE(context);
             buffer                  = BufferOf(MemoryType::GPU_ONLY);
@@ -152,8 +153,8 @@ namespace {
         {
             FrameGraphBuilder builder;
             const auto        b = State(FrameResource{buffer}), i = State(FrameResource{image.image.GetOwned()});
-            const auto        bh = std::get<GraphBufferHandle>(builder.Import(buffer, std::get<CopyBufferState>(b.accepted.state),
-                                                                              read ? CopyBufferState::COMMON : CopyBufferState::RASTER_READ, read));
+            const auto        bh       = std::get<GraphBufferHandle>(builder.Import(buffer, std::get<CopyBufferState>(b.accepted.state),
+                                                                       read ? CopyBufferState::COMMON : CopyBufferState::RASTER_READ, read));
             auto              imported = image;
             imported.initial           = std::get<ImageBoundaryState>(i.accepted.state);
             imported.final             = read ? ImageLayout::GENERAL : ImageLayout::TRANSFER_SRC;

@@ -51,16 +51,17 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"ImageSubresourceTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"ImageSubresourceTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
                 ASSERT_TRUE(SUCCEEDED(static_cast<D3D12Device *>(device)->GetNativeHandle()->QueryInterface(IID_PPV_ARGS(&debug))));
                 debug->ClearStoredMessages();
             }
-            info.deviceEpoch    = 139;
-            info.parallelNum    = 3;
-            info.vulkanCompiler = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
+            info.deviceEpoch = 139;
+            info.parallelNum = 3;
             ResetContext();
         }
         void TearDown() override
@@ -281,7 +282,7 @@ TEST_P(ImageSubresource, NonPowerOfTwoMipsAndLayersRoundTripInSerialAndParallel)
             }
         }
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(image)));
-        auto graph = Freeze(builder);
+        auto graph    = Freeze(builder);
         storage.image = {};
         upload.Reset(nullptr);
         ASSERT_TRUE(Execute(std::move(graph)));
@@ -1960,9 +1961,9 @@ TEST_P(MultisampleResolve, ResolveDiscardedColorPreservesUnselectedTargetCells)
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({output, 0, offset})));
             ASSERT_TRUE(Execute(Freeze(builder), [&](const BackendCompiledFrame &compiled) {
                 if (GetParam() == 2) {
-                    const auto &plan   = static_cast<const D3D12CompiledFrame &>(compiled);
-                    const auto resolve = std::find_if(plan.encoder->tasks.begin(), plan.encoder->tasks.end(),
-                                                      [](const auto &task) { return std::holds_alternative<D3D12ColorResolveStep>(task.operation); });
+                    const auto &plan    = static_cast<const D3D12CompiledFrame &>(compiled);
+                    const auto  resolve = std::find_if(plan.encoder->tasks.begin(), plan.encoder->tasks.end(),
+                                                       [](const auto &task) { return std::holds_alternative<D3D12ColorResolveStep>(task.operation); });
                     ASSERT_NE(resolve, plan.encoder->tasks.end());
                     const auto &step = std::get<D3D12ColorResolveStep>(resolve->operation);
                     EXPECT_EQ(step.sourceSubresource, 1u);

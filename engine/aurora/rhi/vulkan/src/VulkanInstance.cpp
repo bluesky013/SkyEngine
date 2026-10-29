@@ -38,11 +38,10 @@ namespace sky::aurora {
         return false;
     }
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT             messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-        void                                       *pUserData)
+    static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                                                        VkDebugUtilsMessageTypeFlagsEXT             messageType,
+                                                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                        void                                       *pUserData)
     {
         if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
             LOG_E(TAG, "validation: %s", pCallbackData->pMessage);
@@ -54,9 +53,7 @@ namespace sky::aurora {
         return VK_FALSE;
     }
 
-    static const std::vector<const char*> VALIDATION_LAYERS = {
-        "VK_LAYER_KHRONOS_validation"
-    };
+    static const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
     VulkanInstance::~VulkanInstance()
     {
@@ -72,6 +69,7 @@ namespace sky::aurora {
     bool VulkanInstance::Init(const Instance::Descriptor &desc)
     {
         enableDebugLayer = desc.enableDebugLayer;
+        config           = desc.vulkan;
 
         if (!LoadVulkanLibrary(globalFn)) {
             LOG_E(TAG, "failed to load Vulkan library");
@@ -118,7 +116,7 @@ namespace sky::aurora {
             LOG_I(TAG, "instance extension: %s (spec %u)", extension.extensionName, extension.specVersion);
         }
 
-        uint32_t layerCount = 0;
+        uint32_t                       layerCount = 0;
         std::vector<VkLayerProperties> supportedLayers;
         if (globalFn.vkEnumerateInstanceLayerProperties != nullptr) {
             globalFn.vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -148,8 +146,7 @@ namespace sky::aurora {
         if (HasExtension(supportedExts, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
             enabledExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
         } else {
-            LOG_W(TAG, "instance extension %s is not available; portability enumeration disabled",
-                  VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+            LOG_W(TAG, "instance extension %s is not available; portability enumeration disabled", VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
         }
 #elif SKY_PLATFORM_ANDROID
         enabledExtensions.push_back("VK_KHR_android_surface");
@@ -188,9 +185,7 @@ namespace sky::aurora {
 
         uint32_t apiVersion = 0;
         globalFn.vkEnumerateInstanceVersion(&apiVersion);
-        LOG_I(TAG, "Vulkan API version: %u.%u.%u",
-              VK_API_VERSION_MAJOR(apiVersion),
-              VK_API_VERSION_MINOR(apiVersion),
+        LOG_I(TAG, "Vulkan API version: %u.%u.%u", VK_API_VERSION_MAJOR(apiVersion), VK_API_VERSION_MINOR(apiVersion),
               VK_API_VERSION_PATCH(apiVersion));
 
         VkApplicationInfo appInfo  = {};
@@ -236,17 +231,15 @@ namespace sky::aurora {
     bool VulkanInstance::SetupDebugMessenger()
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
-        createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-        createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.sType                              = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                 VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = DebugCallback;
 
         VkResult result = instanceFn.vkCreateDebugUtilsMessengerEXT != nullptr
-            ? instanceFn.vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger)
-            : VK_ERROR_EXTENSION_NOT_PRESENT;
+                              ? instanceFn.vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger)
+                              : VK_ERROR_EXTENSION_NOT_PRESENT;
         if (result != VK_SUCCESS) {
             LOG_W(TAG, "failed to setup debug messenger, error: %d", result);
             return false;

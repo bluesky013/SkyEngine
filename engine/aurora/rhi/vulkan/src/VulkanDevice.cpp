@@ -51,7 +51,8 @@ namespace sky::aurora {
     bool VulkanDevice::OnInit(const DeviceInit &init)
     {
         (void)init;
-        gpu = instance.GetActiveGpu();
+        dynamicRenderingRequested = instance.GetConfig().dynamicRendering;
+        gpu                       = instance.GetActiveGpu();
         if (gpu == VK_NULL_HANDLE) {
             LOG_E(TAG, "no physical device available");
             return false;
@@ -135,14 +136,15 @@ namespace sky::aurora {
         }
         VulkanDeviceNegotiation negotiated;
         if (const auto *error = NegotiateVulkanDevice(instFn.vkGetPhysicalDeviceFeatures2, gpu, gpuProperties.properties.apiVersion,
-                                                      supportedExtensions, negotiated)) {
+                                                      supportedExtensions, negotiated, instance.GetConfig())) {
             LOG_E(TAG, "%s", error);
             return false;
         }
-        gpuFeatures       = negotiated.core.features;
-        dynamicRendering  = negotiated.dynamicRendering;
-        renderPass2       = negotiated.renderPass2;
-        enabledExtensions = negotiated.extensions;
+        gpuFeatures               = negotiated.core.features;
+        dynamicRenderingSupported = negotiated.dynamicRenderingSupported;
+        dynamicRenderingEnabled   = negotiated.dynamicRendering;
+        renderPass2               = negotiated.renderPass2;
+        enabledExtensions         = negotiated.extensions;
 
         // enumerate queue families
         uint32_t queueFamilyCount = 0;
@@ -229,12 +231,12 @@ namespace sky::aurora {
                                                                    supportedExtensions, maintenance, enabledExtensions);
         for (const char *extension : enabledExtensions)
             LOG_I(TAG, "enabled device extension: %s", extension);
-        LOG_I(TAG, "enabled rendering paths: dynamic=%u render-pass2=%u", dynamicRendering, renderPass2);
+        LOG_I(TAG, "enabled rendering paths: dynamic=%u render-pass2=%u", dynamicRenderingEnabled, renderPass2);
 
         VkPhysicalDeviceFeatures enabledCoreFeatures{};
         enabledCoreFeatures.samplerAnisotropy = gpuFeatures.samplerAnisotropy;
         if (swapchainMaintenance) {
-            if (dynamicRendering)
+            if (dynamicRenderingEnabled)
                 negotiated.rendering.pNext = &maintenance;
             else
                 negotiated.synchronization.pNext = &maintenance;
@@ -256,11 +258,22 @@ namespace sky::aurora {
         }
 
         // Load device-level function pointers
-        LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn, gpuProperties.properties.apiVersion, dynamicRendering, renderPass2);
-        if (!HasVulkanRequiredFunctions(deviceFn, dynamicRendering, renderPass2)) {
+        LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn, gpuProperties.properties.apiVersion, dynamicRenderingEnabled, renderPass2);
+        if (!HasVulkanRequiredFunctions(deviceFn, false, renderPass2)) {
             LOG_E(TAG, "enabled Vulkan features have missing device commands");
             return false;
         }
+
+        if (dynamicRenderingEnabled && (!deviceFn.vkCmdBeginRendering || !deviceFn.vkCmdEndRendering)) {
+            if (!renderPass2) {
+                LOG_E(TAG, "dynamic rendering commands are missing and render-pass2 is unavailable");
+                return false;
+            }
+            LOG_W(TAG, "dynamic rendering entry points are unavailable; using render passes");
+            dynamicRenderingEnabled = false;
+        }
+        LOG_I(TAG, "dynamic rendering: requested=%s supported=%s enabled=%s", dynamicRenderingRequested ? "yes" : "no",
+              dynamicRenderingSupported ? "yes" : "no", dynamicRenderingEnabled ? "yes" : "no");
 
         // retrieve queues
         VkQueue graphicsQueue = VK_NULL_HANDLE;

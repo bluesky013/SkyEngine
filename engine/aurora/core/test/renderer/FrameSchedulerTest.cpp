@@ -253,7 +253,9 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"FrameOutputTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"FrameOutputTest", "SkyEngine", true, GetParam() == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() == 2) {
@@ -261,9 +263,8 @@ namespace {
                 debug->ClearStoredMessages();
             }
             DeviceFrameContextInitInfo info;
-            info.parallelNum    = 3;
-            info.deviceEpoch    = 211;
-            info.vulkanCompiler = GetParam() == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
+            info.parallelNum = 3;
+            info.deviceEpoch = 211;
             context.reset(device->CreateFrameContext(info));
             ASSERT_TRUE(context);
             scheduler = std::make_unique<FrameScheduler>(*device, *context);

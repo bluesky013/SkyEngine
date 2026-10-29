@@ -141,8 +141,6 @@ TEST_F(VulkanDeviceCapabilityTest, Vulkan11QueriesAdvertisedKHRFeaturesAndUsesTh
               (std::set<std::string>{VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
                                      VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME}));
     EXPECT_EQ(negotiated.synchronization.pNext, nullptr);
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::AUTO, false, true), VulkanFrameGraphMode::RENDER_PASS);
-    EXPECT_FALSE(SelectVulkanCompiler(VulkanFrameGraphMode::DYNAMIC_RENDERING, false, true));
 }
 
 TEST_F(VulkanDeviceCapabilityTest, Core13DoesNotRequirePromotedExtensionNames)
@@ -154,8 +152,6 @@ TEST_F(VulkanDeviceCapabilityTest, Core13DoesNotRequirePromotedExtensionNames)
     EXPECT_TRUE(negotiated.extensions.empty());
     EXPECT_EQ(featureProbe.structures.size(), 4U);
     EXPECT_EQ(featureProbe.structures.back(), VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::AUTO, true, true), VulkanFrameGraphMode::DYNAMIC_RENDERING);
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::RENDER_PASS, true, true), VulkanFrameGraphMode::RENDER_PASS);
 }
 
 TEST_F(VulkanDeviceCapabilityTest, Core12UsesItsCoreTimelineAndRenderPassWithKHRSyncAndRendering)
@@ -201,7 +197,6 @@ TEST_F(VulkanDeviceCapabilityTest, AdvertisedButFalseDynamicFeatureIsNotEnabled)
     EXPECT_EQ(featureProbe.structures.size(), 4U);
     EXPECT_EQ(negotiated.synchronization.pNext, nullptr);
     EXPECT_EQ(EnabledExtensions(negotiated), (std::set<std::string>{VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME}));
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::AUTO, false, true), VulkanFrameGraphMode::RENDER_PASS);
 }
 
 TEST_F(VulkanDeviceCapabilityTest, MissingRequiredExtensionFailsBeforeAnyFeatureQuery)
@@ -287,13 +282,16 @@ TEST_F(VulkanDeviceCapabilityTest, AnEnabledFeatureWithAMissingRequiredCommandIs
     }
 }
 
-TEST_F(VulkanDeviceCapabilityTest, ExplicitCompilerChoicesNeverSilentlyChange)
+TEST_F(VulkanDeviceCapabilityTest, DisabledDynamicPreferenceKeepsSupportButDoesNotEnableItsFeatureOrExtension)
 {
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::DYNAMIC_RENDERING, true, true), VulkanFrameGraphMode::DYNAMIC_RENDERING);
-    EXPECT_FALSE(SelectVulkanCompiler(VulkanFrameGraphMode::DYNAMIC_RENDERING, false, true));
-    EXPECT_EQ(SelectVulkanCompiler(VulkanFrameGraphMode::RENDER_PASS, true, true), VulkanFrameGraphMode::RENDER_PASS);
-    EXPECT_FALSE(SelectVulkanCompiler(VulkanFrameGraphMode::RENDER_PASS, true, false));
-    EXPECT_FALSE(SelectVulkanCompiler(VulkanFrameGraphMode::AUTO, false, false));
-    EXPECT_FALSE(SelectVulkanCompiler(static_cast<VulkanFrameGraphMode>(255), true, true));
+    const auto              extensions = Extensions({VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME});
+    VulkanDeviceNegotiation negotiated;
+    ASSERT_EQ(NegotiateVulkanDevice(QueryFeatures, VK_NULL_HANDLE, VK_API_VERSION_1_2, extensions, negotiated, {false}), nullptr);
+    EXPECT_TRUE(negotiated.dynamicRenderingSupported);
+    EXPECT_FALSE(negotiated.dynamicRendering);
+    EXPECT_EQ(negotiated.rendering.dynamicRendering, VK_FALSE);
+    EXPECT_EQ(negotiated.synchronization.pNext, nullptr);
+    EXPECT_FALSE(EnabledExtensions(negotiated).contains(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME));
+    EXPECT_TRUE(negotiated.renderPass2);
 }
 #endif

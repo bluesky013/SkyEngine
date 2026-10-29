@@ -162,7 +162,9 @@ namespace {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"ResourceUploadTest", "SkyEngine", true, GetParam() % 3 == 2 ? API::DX12 : API::VULKAN});
+            Instance::Descriptor instanceInfo{"ResourceUploadTest", "SkyEngine", true, GetParam() % 3 == 2 ? API::DX12 : API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() % 3 != 1;
+            Instance::Get()->Init(instanceInfo);
             device = Instance::Get()->GetDevice();
             ASSERT_TRUE(device);
             if (GetParam() % 3 == 2) {
@@ -171,7 +173,6 @@ namespace {
             }
             info.deviceEpoch              = epoch;
             info.parallelNum              = 2;
-            info.vulkanCompiler           = GetParam() % 3 == 1 ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
             info.allocations.stagingBytes = 256;
             context.reset(device->CreateFrameContext(info));
             ASSERT_TRUE(context);
@@ -513,10 +514,10 @@ namespace {
                           uint32_t                set   = 1,
                           std::array<float, 4>    uvLod = {0.25f, 0.25f, 0.f, 0.f})
         {
-            RasterDraw draw;
+            RasterDraw         draw;
             RasterBindingDraft bindings;
-            draw.shader   = std::move(shader);
-            draw.command  = {3, 1, 0, 0};
+            draw.shader       = std::move(shader);
+            draw.command      = {3, 1, 0, 0};
             bindings.images   = {{set, 1, image}};
             bindings.samplers = {{set, 2, std::move(sampler)}};
             const std::array<float, 4> tint{1, 1, 1, 1};
@@ -1850,18 +1851,18 @@ TEST_P(SampledRaster, InvalidBindingsAndUndefinedMipsFailBeforeEncoding)
     auto shader  = ShaderOf();
     auto sampler = SamplerOf();
     ASSERT_TRUE(shader && sampler);
-    const auto        ticket = Supply(0, 1, 1, 1, false, RenderImageLayout{4, 4, 2, 1});
-    const auto        lease  = Begin();
-    FrameGraphBuilder builder;
-    const auto        batch    = Prepare(lease, builder, {ticket});
-    const auto        texture  = std::get<GraphImageHandle>(uploader->ResolveInGraph(batch.id, ticket, builder));
-    auto              readback = Raster(builder, Target(builder), {DrawOf(lease, builder, texture, shader, sampler)});
-    const auto        original = Freeze(builder);
+    const auto           ticket = Supply(0, 1, 1, 1, false, RenderImageLayout{4, 4, 2, 1});
+    const auto           lease  = Begin();
+    FrameGraphBuilder    builder;
+    const auto           batch    = Prepare(lease, builder, {ticket});
+    const auto           texture  = std::get<GraphImageHandle>(uploader->ResolveInGraph(batch.id, ticket, builder));
+    auto                 readback = Raster(builder, Target(builder), {DrawOf(lease, builder, texture, shader, sampler)});
+    const auto           original = Freeze(builder);
     class UnknownSampler final : public Sampler {};
     for (uint32_t fault = 0; fault < 11; ++fault) {
-        auto  data = original->GetData();
-        auto &pass = std::get<FrameRasterPass>(data.passes[2]);
-        auto &draw = pass.draws.front();
+        auto  data     = original->GetData();
+        auto &pass     = std::get<FrameRasterPass>(data.passes[2]);
+        auto &draw     = pass.draws.front();
         auto  bindings = ResolveRasterBindings(draw);
         if (fault == 0)
             bindings.images.front().image = pass.color;
@@ -2000,12 +2001,12 @@ TEST_P(SampledViews, SelectedMipsDefineReadsAndCullOtherProducers)
     UploadMip(lease, builder, texture, 0, 0, 1);
     UploadMip(lease, builder, texture, 1, 0, 4);
     UploadMip(lease, builder, texture, 2, 0, 7);
-    auto draw                = DrawOf(lease, builder, texture, shader, sampler, 1, {0.25f, 0.25f, 1.f, 0.f});
+    auto draw = DrawOf(lease, builder, texture, shader, sampler, 1, {0.25f, 0.25f, 1.f, 0.f});
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
         EditBindings(draw, [&](auto &bindings) { bindings.images.front().view = {ImageViewType::VIEW_2D, 1, 2, 0, 1}; })));
-    auto       readback      = Raster(builder, Target(builder), {draw});
-    const auto graph         = Freeze(builder);
-    const auto analysis      = AnalyzeFrameGraph(*graph);
+    auto       readback = Raster(builder, Target(builder), {draw});
+    const auto graph    = Freeze(builder);
+    const auto analysis = AnalyzeFrameGraph(*graph);
     ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(analysis));
     EXPECT_EQ(std::get<FrameGraphAnalysis>(analysis).livePasses, (std::vector<uint32_t>{1, 2, 3, 4}));
     auto recording = Record(lease, graph);
@@ -2067,14 +2068,14 @@ TEST_P(SampledViews, InvalidRangesMissingContentsAndShaderShapeFailBeforeEncodin
     FrameGraphBuilder builder;
     const auto        texture = Texture(builder, 3);
     UploadMip(lease, builder, texture, 1, 1, 17);
-    auto draw                = DrawOf(lease, builder, texture, shader, sampler);
+    auto draw = DrawOf(lease, builder, texture, shader, sampler);
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
         EditBindings(draw, [&](auto &bindings) { bindings.images.front().view = {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}; })));
-    auto       readback      = Raster(builder, Target(builder), {draw});
-    const auto graph         = Freeze(builder);
+    auto       readback = Raster(builder, Target(builder), {draw});
+    const auto graph    = Freeze(builder);
     for (uint32_t fault = 0; fault < 11; ++fault) {
-        auto  data    = graph->GetData();
-        auto &changed = std::get<FrameRasterPass>(data.passes[1]).draws.front();
+        auto  data     = graph->GetData();
+        auto &changed  = std::get<FrameRasterPass>(data.passes[1]).draws.front();
         auto  bindings = ResolveRasterBindings(changed);
         auto &view     = bindings.images.front().view;
         if (fault == 0)
@@ -2125,12 +2126,12 @@ TEST_P(SampledViews, ResolverRejectsUnsupportedShaderResourcesBeforeNativeShader
          {"RWTexture2D<float4> image;", "return image[int2(0, 0)];"},
          {"RWStructuredBuffer<float4> buffer;", "return buffer[0];"}}};
     for (const auto &[declaration, body] : cases) {
-        const std::string code   = declaration + R"(
+        const std::string code = declaration + R"(
             float4 VSMain(uint id : SV_VertexID) : SV_Position { return float4(0, 0, 0, 1); }
             float4 FSMain() : SV_Target { )" +
-                                   body + " }";
-        const auto        result = ResolveSource(code);
-        const auto       *error  = std::get_if<FrameError>(&result);
+                                 body + " }";
+        const auto  result = ResolveSource(code);
+        const auto *error  = std::get_if<FrameError>(&result);
         ASSERT_TRUE(error) << declaration;
         EXPECT_TRUE(error->code == FrameErrorCode::UNSUPPORTED || error->code == FrameErrorCode::COMPILE_FAILED)
             << declaration << ": " << error->message;
@@ -2221,7 +2222,7 @@ TEST_P(VulkanSampledViews, ViewsShareWithinPlanAndRetireAfterFailureDrainOrCompl
         UploadMip(lease, builder, texture, 2, 0, 7);
         std::vector<RasterDraw> draws;
         for (uint32_t i = 0; i < 70; ++i) {
-            auto draw                = DrawOf(lease, builder, texture, shader, sampler);
+            auto draw = DrawOf(lease, builder, texture, shader, sampler);
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
                 EditBindings(draw, [&](auto &bindings) { bindings.images.front().view = {ImageViewType::VIEW_2D, i % 2 + 1, 1, 0, 1}; })));
             draws.push_back(std::move(draw));
@@ -2567,7 +2568,7 @@ TEST_P(SampledViews, RectangleUnionDefinesSampledViewInSerialAndParallel)
         UploadMip(lease, builder, texture, 1, 1, 61);
         std::vector<RasterDraw> draws;
         for (uint32_t i = 0; i < 70; ++i) {
-            auto draw                = DrawOf(lease, builder, texture, shader, sampler);
+            auto draw = DrawOf(lease, builder, texture, shader, sampler);
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
                 EditBindings(draw, [&](auto &bindings) { bindings.images.front().view = {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}; })));
             draws.push_back(std::move(draw));
@@ -2646,10 +2647,10 @@ TEST_P(SampledViews, ImportedRectangleAndNewPatchDefineViewAcrossFrames)
         UploadMip(lease, builder, texture, 1, 1, 97);
         std::vector<RasterDraw> draws;
         for (uint32_t i = 0; i < 70; ++i) {
-            auto draw                = DrawOf(lease, builder, texture, shader, sampler, 1, {i % 2 ? 0.75f : 0.25f, 0.25f, 0.f, 0.f});
+            auto draw = DrawOf(lease, builder, texture, shader, sampler, 1, {i % 2 ? 0.75f : 0.25f, 0.25f, 0.f, 0.f});
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(
                 EditBindings(draw, [&](auto &bindings) { bindings.images.front().view = {ImageViewType::VIEW_2D_ARRAY, 1, 1, 1, 1}; })));
-            draw.scissor             = {{static_cast<int32_t>(i % 2 * 2), 0}, {2, 4}};
+            draw.scissor = {{static_cast<int32_t>(i % 2 * 2), 0}, {2, 4}};
             draws.push_back(std::move(draw));
         }
         auto       readback = Raster(builder, Target(builder), std::move(draws));

@@ -271,14 +271,7 @@ namespace sky::aurora {
 
         std::optional<RendererError> RendererRuntime::Initialize()
         {
-            VulkanFrameGraphMode compiler;
-            switch (init.vulkanMode) {
-            case RendererVulkanMode::AUTO: compiler = VulkanFrameGraphMode::AUTO; break;
-            case RendererVulkanMode::DYNAMIC_RENDERING: compiler = VulkanFrameGraphMode::DYNAMIC_RENDERING; break;
-            case RendererVulkanMode::RENDER_PASS: compiler = VulkanFrameGraphMode::RENDER_PASS; break;
-            default: return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Invalid Vulkan compiler mode"};
-            }
-            auto acquired = instance.Acquire({"Aurora Renderer", "SkyEngine", init.enableValidation, init.backend});
+            auto acquired = instance.Acquire({"Aurora Renderer", "SkyEngine", init.enableValidation, init.backend, init.vulkan});
             if (const auto *error = std::get_if<GpuError>(&acquired))
                 return RendererError{error->code == GpuErrorCode::INVALID_ARGUMENT ? RendererErrorCode::NOT_READY : RendererErrorCode::UNSUPPORTED,
                                      "Renderer requires an available, exclusive backend device"};
@@ -289,7 +282,6 @@ namespace sky::aurora {
             info.parallelNum              = init.encodeWorkers;
             info.deviceEpoch              = session->GetEpoch();
             info.allocations.stagingBytes = init.maxUploadBytesPerFrame;
-            info.vulkanCompiler           = compiler;
             context.reset(device->CreateFrameContext(info));
             if (!context || context->GetIdentity().deviceEpoch != info.deviceEpoch)
                 return RendererError{RendererErrorCode::UNSUPPORTED, "Backend could not initialize its frame context"};

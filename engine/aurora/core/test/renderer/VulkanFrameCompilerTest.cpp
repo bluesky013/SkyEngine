@@ -13,6 +13,7 @@
 #include <set>
 
 namespace {
+    enum class TestVulkanMode : uint8_t { DYNAMIC_RENDERING, RENDER_PASS };
     void EvictFrameCaches(VulkanDevice &device)
     {
         device.GetFramePipelineCache().Clear();
@@ -460,14 +461,19 @@ namespace {
             return FrameOperationComplete{};
         }
     };
-    class VulkanFrameCompilerFixture : public testing::TestWithParam<VulkanFrameGraphMode> {
+    class VulkanFrameCompilerFixture : public testing::TestWithParam<TestVulkanMode> {
     protected:
         void SetUp() override
         {
-            Instance::Get()->Init({"VulkanFrameCompilerTest", "SkyEngine", true, API::VULKAN});
+            Instance::Descriptor instanceInfo{"VulkanFrameCompilerTest", "SkyEngine", true, API::VULKAN};
+            instanceInfo.vulkan.dynamicRendering = GetParam() == TestVulkanMode::DYNAMIC_RENDERING;
+            Instance::Get()->Init(instanceInfo);
             device = static_cast<VulkanDevice *>(Instance::Get()->GetDevice());
             ASSERT_TRUE(device);
-            context.reset(device->CreateFrameContext({2, 1, 91, 2, GetParam()}));
+            EXPECT_EQ(device->IsDynamicRenderingRequested(), instanceInfo.vulkan.dynamicRendering);
+            if (!instanceInfo.vulkan.dynamicRendering)
+                ASSERT_FALSE(device->IsDynamicRenderingEnabled());
+            context.reset(device->CreateFrameContext({2, 1, 91, 2}));
             ASSERT_TRUE(context);
         }
         void TearDown() override
@@ -1013,7 +1019,7 @@ TEST_P(VulkanFrameCompilerFixture, BothEncodersPreserveIntermediateContentsAndRe
             }
         }
     }
-    const bool renderPass = GetParam() == VulkanFrameGraphMode::RENDER_PASS;
+    const bool renderPass = !device->IsDynamicRenderingEnabled();
     EXPECT_EQ(probe.renderPassBegins, renderPass ? 12u : 0u);
     EXPECT_EQ(probe.dynamicBegins, renderPass ? 0u : 12u);
     EXPECT_EQ(probe.renderPassPipelines, renderPass ? 12u : 0u);
@@ -1029,7 +1035,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelFragmentsOverlapAndMatchSerialAcrossT
     std::array<uint8_t, 256> reference{};
     std::memcpy(reference.data(), serialBuffer->Map(), reference.size());
     serialBuffer->UnMap();
-    context.reset(device->CreateFrameContext({2, 2, 93, 16, GetParam()}));
+    context.reset(device->CreateFrameContext({2, 2, 93, 16}));
     ASSERT_TRUE(context);
     NativeProbe    native(*device);
     RecordingProbe probe(*device);
@@ -1093,7 +1099,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelFragmentsOverlapAndMatchSerialAcrossT
 TEST_P(VulkanFrameCompilerFixture, ParallelFailureAndCancellationDrainBeforeReleasingLease)
 {
     for (bool fail : {false, true}) {
-        context.reset(device->CreateFrameContext({2, 2, 94, 16, GetParam()}));
+        context.reset(device->CreateFrameContext({2, 2, 94, 16}));
         ASSERT_TRUE(context);
         auto [graph, buffer]                       = FragmentGraph();
         std::weak_ptr<const FrozenFrameGraph> weak = graph;
@@ -1135,7 +1141,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelFailureAndCancellationDrainBeforeRele
         } else
             EXPECT_TRUE(std::holds_alternative<EncodingCancelled>(collected));
         EXPECT_TRUE(weak.expired());
-        EXPECT_EQ(native.pipelinesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 7u : 2u);
+        EXPECT_EQ(native.pipelinesDestroyed, !device->IsDynamicRenderingEnabled() ? 7u : 2u);
         EXPECT_EQ(probe.primaryBegins, 0u);
         EXPECT_TRUE(probe.executedCommands.empty());
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
@@ -1160,7 +1166,7 @@ TEST_P(VulkanFrameCompilerFixture, CustomFailureStopsEncodingAndPreservesDeviceL
         }
     };
     for (bool deviceLost : {false, true}) {
-        context.reset(device->CreateFrameContext({1, 1, 101, 16, GetParam()}));
+        context.reset(device->CreateFrameContext({1, 1, 101, 16}));
         ASSERT_TRUE(context);
         RecordingProbe probe(*device);
         Finally        cleanup{[&] { context.reset(); }};
@@ -1221,7 +1227,7 @@ TEST_P(VulkanFrameCompilerFixture, ResourceFreeCustomExecutes)
 
 TEST_P(VulkanFrameCompilerFixture, DeviceLostInLaterFragmentCannotBeHiddenByEarlierFailure)
 {
-    context.reset(device->CreateFrameContext({1, 2, 101, 16, GetParam()}));
+    context.reset(device->CreateFrameContext({1, 2, 101, 16}));
     ASSERT_TRUE(context);
     NativeProbe    native(*device);
     RecordingProbe probe(*device);
@@ -1266,7 +1272,7 @@ TEST_P(VulkanFrameCompilerFixture, NativeEncodingFaultsDrainWithoutSubmissionAnd
     using Fault = RecordingProbe::Fault;
     for (auto fault : {Fault::WORKER_RESET, Fault::WORKER_ALLOCATE, Fault::WORKER_BEGIN, Fault::NONE, Fault::PRIMARY_BEGIN, Fault::PRIMARY_END}) {
         SCOPED_TRACE(static_cast<int>(fault));
-        context.reset(device->CreateFrameContext({1, 2, 102, 16, GetParam()}));
+        context.reset(device->CreateFrameContext({1, 2, 102, 16}));
         ASSERT_TRUE(context);
         NativeProbe    native(*device);
         RecordingProbe probe(*device);
@@ -1294,7 +1300,7 @@ TEST_P(VulkanFrameCompilerFixture, NativeEncodingFaultsDrainWithoutSubmissionAnd
         EXPECT_EQ(error.cause.code, GpuErrorCode::OUT_OF_MEMORY);
         EXPECT_EQ(error.cause.nativeCode, fault == Fault::NONE ? VK_ERROR_OUT_OF_DEVICE_MEMORY : VK_ERROR_OUT_OF_HOST_MEMORY);
         EXPECT_TRUE(weak.expired());
-        EXPECT_EQ(native.pipelinesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 7u : 2u);
+        EXPECT_EQ(native.pipelinesDestroyed, !device->IsDynamicRenderingEnabled() ? 7u : 2u);
         EXPECT_EQ(probe.concurrent, 0u);
         EXPECT_EQ(probe.submitCalls, 0u);
         EXPECT_EQ(probe.fenceResets, 0u);
@@ -1312,7 +1318,7 @@ TEST_P(VulkanFrameCompilerFixture, NativeEncodingFaultsDrainWithoutSubmissionAnd
 
 TEST_P(VulkanFrameCompilerFixture, WrongTicketsAndLateCancellationCannotConsumeAnotherSession)
 {
-    context.reset(device->CreateFrameContext({1, 2, 103, 16, GetParam()}));
+    context.reset(device->CreateFrameContext({1, 2, 103, 16}));
     ASSERT_TRUE(context);
     RecordingProbe probe(*device);
     Finally        cleanup{[&] {
@@ -1392,7 +1398,7 @@ TEST_P(VulkanFrameCompilerFixture, WrongTicketsAndLateCancellationCannotConsumeA
 
 TEST_P(VulkanFrameCompilerFixture, ParallelRecordingSurvivesRejectedSubmitAndRetiresOnlyAfterCompletion)
 {
-    context.reset(device->CreateFrameContext({1, 2, 104, 16, GetParam()}));
+    context.reset(device->CreateFrameContext({1, 2, 104, 16}));
     ASSERT_TRUE(context);
     NativeProbe    native(*device);
     RecordingProbe probe(*device);
@@ -1450,7 +1456,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelRecordingSurvivesRejectedSubmitAndRet
     probe.queryResult = VK_SUCCESS;
     AwaitCompletions(1);
     EXPECT_TRUE(weak.expired());
-    EXPECT_EQ(native.pipelinesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 7u : 2u);
+    EXPECT_EQ(native.pipelinesDestroyed, !device->IsDynamicRenderingEnabled() ? 7u : 2u);
     probe.protectedPools.clear();
     Execute(ClearGraph());
 }
@@ -1458,7 +1464,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelRecordingSurvivesRejectedSubmitAndRet
 TEST_P(VulkanFrameCompilerFixture, ParallelUncertainSubmissionAndQueryFailureRetainUntilTeardown)
 {
     for (bool uncertain : {false, true}) {
-        context.reset(device->CreateFrameContext({1, 2, 105, 16, GetParam()}));
+        context.reset(device->CreateFrameContext({1, 2, 105, 16}));
         ASSERT_TRUE(context);
         NativeProbe    native(*device);
         RecordingProbe probe(*device);
@@ -1498,13 +1504,13 @@ TEST_P(VulkanFrameCompilerFixture, ParallelUncertainSubmissionAndQueryFailureRet
         EXPECT_TRUE(probe.idleComplete);
         EXPECT_EQ(probe.poolsDestroyed, 3u);
         EXPECT_TRUE(weak.expired());
-        EXPECT_EQ(native.pipelinesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 7u : 2u);
+        EXPECT_EQ(native.pipelinesDestroyed, !device->IsDynamicRenderingEnabled() ? 7u : 2u);
     }
 }
 
 TEST_P(VulkanFrameCompilerFixture, TeardownDrainsWorkersBeforeDestroyingPools)
 {
-    context.reset(device->CreateFrameContext({1, 2, 106, 16, GetParam()}));
+    context.reset(device->CreateFrameContext({1, 2, 106, 16}));
     ASSERT_TRUE(context);
     NativeProbe    native(*device);
     RecordingProbe probe(*device);
@@ -1565,14 +1571,14 @@ TEST_P(VulkanFrameCompilerFixture, TeardownDrainsWorkersBeforeDestroyingPools)
     EXPECT_TRUE(weak.expired());
     EXPECT_TRUE(probe.idleComplete);
     EXPECT_EQ(probe.poolsDestroyed, 3u);
-    EXPECT_EQ(native.pipelinesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 7u : 2u);
+    EXPECT_EQ(native.pipelinesDestroyed, !device->IsDynamicRenderingEnabled() ? 7u : 2u);
     EXPECT_EQ(probe.primaryBegins, 0u);
     EXPECT_EQ(probe.submitCalls, 0u);
 }
 
 TEST_P(VulkanFrameCompilerFixture, ParallelBudgetFailureDoesNotStartWorkersOrProducePartialFrame)
 {
-    context.reset(device->CreateFrameContext({2, 2, 95, 2, GetParam()}));
+    context.reset(device->CreateFrameContext({2, 2, 95, 2}));
     ASSERT_TRUE(context);
     RecordingProbe probe(*device);
     Finally        cleanup{[&] { context.reset(); }};
@@ -1595,7 +1601,7 @@ TEST_P(VulkanFrameCompilerFixture, ParallelBudgetFailureDoesNotStartWorkersOrPro
 TEST_P(VulkanFrameCompilerFixture, CompatiblePassesFuseAndMatchSplitReference)
 {
     std::array<std::array<uint8_t, 256>, 2> pixels{};
-    const bool                              renderPass = GetParam() == VulkanFrameGraphMode::RENDER_PASS;
+    const bool                              renderPass = !device->IsDynamicRenderingEnabled();
     for (uint32_t split = 0; split < 2; ++split) {
         NativeProbe       probe(*device);
         FrameGraphBuilder builder;
@@ -1700,7 +1706,7 @@ TEST_P(VulkanFrameCompilerFixture, ClearAndAttachmentChangesSplitNativeScopes)
             EXPECT_EQ(plan.rasterPasses[i].nativeScope, i);
         }
     });
-    const bool renderPass = GetParam() == VulkanFrameGraphMode::RENDER_PASS;
+    const bool renderPass = !device->IsDynamicRenderingEnabled();
     EXPECT_EQ(probe.renderPassBegins, renderPass ? 4u : 0u);
     EXPECT_EQ(probe.dynamicBegins, renderPass ? 0u : 4u);
     EXPECT_EQ(probe.subpassTransitions, 0u);
@@ -1737,7 +1743,7 @@ TEST_P(VulkanFrameCompilerFixture, DiscardedStoreEndsScopeAndCannotFeedLoad)
     auto buffer = Readback(builder, image);
     auto graph  = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
     Execute(graph);
-    if (GetParam() == VulkanFrameGraphMode::RENDER_PASS) {
+    if (!device->IsDynamicRenderingEnabled()) {
         EXPECT_EQ(probe.subpassCounts, std::vector<uint32_t>({2, 1}));
         EXPECT_EQ(probe.scopeStores, std::vector<VkAttachmentStoreOp>({VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE}));
     } else
@@ -1804,8 +1810,8 @@ TEST_P(VulkanFrameCompilerFixture, LaterPipelineFailureReleasesEarlierSubpasses)
     EvictFrameCaches(*device);
     EXPECT_EQ(probe.pipelineAttempts, 2u);
     EXPECT_EQ(probe.pipelinesDestroyed, 1u);
-    EXPECT_EQ(probe.renderPassesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 1u : 0u);
-    EXPECT_EQ(probe.framebuffersDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 1u : 0u);
+    EXPECT_EQ(probe.renderPassesDestroyed, !device->IsDynamicRenderingEnabled() ? 1u : 0u);
+    EXPECT_EQ(probe.framebuffersDestroyed, !device->IsDynamicRenderingEnabled() ? 1u : 0u);
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
 }
 
@@ -1856,7 +1862,7 @@ TEST_P(VulkanFrameCompilerFixture, CompileRejectsUndefinedContentsAndUnsupported
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
 }
 
-TEST_P(VulkanFrameCompilerFixture, WrongCompilerRejectsPlanAndCancellationReleasesNativeObjects)
+TEST_P(VulkanFrameCompilerFixture, ForeignContextRejectsPlanAndCancellationReleasesNativeObjects)
 {
     NativeProbe                           probe(*device);
     const auto                            lease  = Begin();
@@ -1864,12 +1870,12 @@ TEST_P(VulkanFrameCompilerFixture, WrongCompilerRejectsPlanAndCancellationReleas
     std::weak_ptr<const FrozenFrameGraph> weak   = graph;
     auto                                  result = context->Compile(lease, graph);
     ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(result));
-    auto       plan = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(result));
-    const auto otherMode =
-        GetParam() == VulkanFrameGraphMode::RENDER_PASS ? VulkanFrameGraphMode::DYNAMIC_RENDERING : VulkanFrameGraphMode::RENDER_PASS;
-    std::unique_ptr<DeviceFrameContext> other(device->CreateFrameContext({2, 1, 92, 2, otherMode}));
+    auto                                plan = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(result));
+    std::unique_ptr<DeviceFrameContext> other(device->CreateFrameContext({2, 1, 92, 2}));
     ASSERT_TRUE(other);
-    EXPECT_TRUE(std::holds_alternative<FrameError>(other->Dispatch(plan)));
+    const auto foreign = other->Dispatch(plan);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(foreign));
+    EXPECT_EQ(std::get<FrameError>(foreign).code, FrameErrorCode::WRONG_CONTEXT);
     ASSERT_TRUE(plan);
     EvictFrameCaches(*device);
     graph.reset();
@@ -1882,7 +1888,7 @@ TEST_P(VulkanFrameCompilerFixture, WrongCompilerRejectsPlanAndCancellationReleas
     EvictFrameCaches(*device);
     EXPECT_EQ(probe.pipelinesDestroyed, 1u);
     EvictFrameCaches(*device);
-    EXPECT_EQ(probe.renderPassesDestroyed, GetParam() == VulkanFrameGraphMode::RENDER_PASS ? 1u : 0u);
+    EXPECT_EQ(probe.renderPassesDestroyed, !device->IsDynamicRenderingEnabled() ? 1u : 0u);
     EXPECT_TRUE(std::holds_alternative<EncodingCancelled>(context->TryCollect(ticket)));
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
 }
@@ -1892,7 +1898,7 @@ TEST_P(VulkanFrameCompilerFixture, NativeCreationFailuresCleanUpAndPreserveError
     NativeProbe probe(*device);
     auto        graph = ClearGraph();
     const auto  lease = Begin();
-    if (GetParam() == VulkanFrameGraphMode::RENDER_PASS) {
+    if (!device->IsDynamicRenderingEnabled()) {
         probe.framebufferFailure = VK_ERROR_OUT_OF_DEVICE_MEMORY;
         auto result              = context->Compile(lease, graph);
         ASSERT_TRUE(std::holds_alternative<FrameError>(result));
@@ -1929,6 +1935,4 @@ TEST_P(VulkanFrameCompilerFixture, DeviceLostDuringCompilationClosesContext)
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
 }
 
-INSTANTIATE_TEST_SUITE_P(VulkanModes,
-                         VulkanFrameCompilerFixture,
-                         testing::Values(VulkanFrameGraphMode::DYNAMIC_RENDERING, VulkanFrameGraphMode::RENDER_PASS));
+INSTANTIATE_TEST_SUITE_P(VulkanModes, VulkanFrameCompilerFixture, testing::Values(TestVulkanMode::DYNAMIC_RENDERING, TestVulkanMode::RENDER_PASS));

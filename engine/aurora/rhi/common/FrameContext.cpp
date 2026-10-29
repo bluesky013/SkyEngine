@@ -191,9 +191,6 @@ namespace sky::aurora {
     {
         if (!device || !info.inflightNum || !info.parallelNum || !info.deviceEpoch || !info.maxRecordingsPerSlot)
             return false;
-        if (info.vulkanCompiler > VulkanFrameGraphMode::AUTO ||
-            (device->GetAPI() != API::VULKAN && info.vulkanCompiler == VulkanFrameGraphMode::RENDER_PASS))
-            return false;
         state->device               = device;
         state->protocol             = direct ? Protocol::DIRECT : Protocol::EXPLICIT;
         state->maxTracked           = info.trackedResources;
