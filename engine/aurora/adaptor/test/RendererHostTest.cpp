@@ -6,10 +6,12 @@
 #include "RendererShutdown.h"
 #include "ShaderArtifactTestHelper.h"
 #include <algorithm>
+#include <animation/IAnimationSkeletonSource.h>
 #include <array>
 #include <aurora/adaptor/AuroraModule.h>
 #include <aurora/adaptor/components/CameraComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/renderer/IRuntimeSceneSource.h>
 #include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <aurora/adaptor/renderer/RenderSceneProxy.h>
 #include <aurora/adaptor/renderer/RendererHost.h>
@@ -100,6 +102,34 @@ namespace {
         HostTrace trace;
         bool      fail = false;
     };
+    class ExternalSkeletonSource final : public IAnimationSkeletonSource {
+    public:
+        AnimationSourceRequest<Skeleton> Request(const Uuid &) override
+        {
+            return {};
+        }
+    };
+    class AuroraModuleLifecycleTest : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            ASSERT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+            ASSERT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+            ASSERT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+            ASSERT_EQ(Interface<ISystemNotify>::Get()->GetApi(), nullptr);
+            ASSERT_EQ(ModuleManager::Current(), nullptr);
+        }
+        void TearDown() override
+        {
+            auto *service = Interface<IAnimationSkeletonSource>::Get();
+            if (service->GetApi() == &skeleton)
+                service->UnRegister();
+            EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+            EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+        }
+
+        ExternalSkeletonSource skeleton;
+    };
 } // namespace
 
 TEST(RendererHostDrain, PausedNativePumpNeverWaitsForAnOSMessageToObserveCompletion)
@@ -166,6 +196,61 @@ TEST(RendererHost, FailedCreationLeavesNoPublishedOrPartiallyOwnedRenderer)
     EXPECT_EQ(provider.trace.stops, 0u);
     provider.fail = false;
     EXPECT_FALSE(host.Init(provider, {}));
+}
+
+TEST_F(AuroraModuleLifecycleTest, ProviderOnlyInitializesWithoutSkeletonOrModuleManager)
+{
+    auto           provider = std::make_unique<HostProvider>();
+    const auto    *source   = provider.get();
+    AuroraModule   module(std::move(provider), {});
+    StartArguments arguments;
+    arguments.args = {"AuroraModuleLifecycleTest", "--aurora-provider-only"};
+    ASSERT_TRUE(module.Init(arguments));
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), source);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(source->trace.creates, 0u);
+    module.Shutdown();
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(AuroraModuleLifecycleTest, RendererHostInitializesWithoutSkeletonOrModuleManager)
+{
+    auto         provider = std::make_unique<HostProvider>();
+    const auto  *source   = provider.get();
+    AuroraModule module(std::move(provider), {});
+    ASSERT_TRUE(module.Init({}));
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), source);
+    EXPECT_NE(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(source->trace.creates, 1u);
+    module.Shutdown();
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(AuroraModuleLifecycleTest, RendererHostPreservesExternalSkeletonSourceThroughShutdown)
+{
+    Interface<IAnimationSkeletonSource>::Get()->Register(skeleton);
+    AuroraModule module(std::make_unique<HostProvider>(), {});
+    ASSERT_TRUE(module.Init({}));
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), &skeleton);
+    module.Shutdown();
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), &skeleton);
+}
+
+TEST_F(AuroraModuleLifecycleTest, FailedHostCreationPreservesExternalSkeletonSource)
+{
+    Interface<IAnimationSkeletonSource>::Get()->Register(skeleton);
+    auto provider  = std::make_unique<HostProvider>();
+    provider->fail = true;
+    AuroraModule module(std::move(provider), {});
+    EXPECT_FALSE(module.Init({}));
+    EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), &skeleton);
+    module.Shutdown();
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), &skeleton);
 }
 
 TEST(RenderSceneProxy, RetirementAcknowledgementGuardsReuseAndDoesNotBorrowSceneStorage)
@@ -806,6 +891,87 @@ TEST_F(LauncherSurfaceTest, PendingNativeBorrowStaysAliveThroughShutdownDrain)
     trace->stopping = [&] { EXPECT_FALSE(old.expired()); };
     module->Shutdown();
     EXPECT_TRUE(old.expired());
+}
+
+namespace {
+    class ProjectSceneSource final : public IRuntimeSceneSource {
+    public:
+        ProjectSceneSource()
+        {
+            Interface<IRuntimeSceneSource>::Get()->Register(*this);
+        }
+        ~ProjectSceneSource() override
+        {
+            Interface<IRuntimeSceneSource>::Get()->UnRegister();
+        }
+        std::optional<RendererError> Append(FramePacket &packet, const RuntimeSceneContext &value) override
+        {
+            ++appends;
+            context = value;
+            sequences.push_back(packet.sequence);
+            if (fail)
+                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Rejected project scene"};
+            ViewDesc camera;
+            camera.scene          = value.scene;
+            camera.output         = value.output;
+            camera.cameraPosition = {3, 4, 5};
+            packet.commands.push_back(UpdateView{value.view, camera, 1});
+            return {};
+        }
+        void OnRendererEvent(const RendererEvent &) override
+        {
+            ++events;
+        }
+        RuntimeSceneContext   context;
+        std::vector<uint64_t> sequences;
+        uint32_t              appends = 0, events = 0;
+        bool                  fail = false;
+    };
+} // namespace
+
+TEST_F(LauncherSurfaceTest, ProjectSourceUsesHostContextAndDoesNotAppendAgainWhileBusy)
+{
+    ProjectSceneSource source;
+    module->Tick(.016f);
+    ASSERT_EQ(source.appends, 1u);
+    EXPECT_EQ(source.context.scene, (SceneId{0, 1}));
+    EXPECT_EQ(source.context.view, (ViewId{0, 1}));
+    EXPECT_EQ(source.context.output, (ViewportId{0, 1}));
+    trace->busy = true;
+    module->Tick(.016f);
+    const auto calls = source.appends;
+    module->Tick(.016f);
+    module->Tick(.016f);
+    EXPECT_EQ(source.appends, calls);
+    trace->busy = false;
+    trace->events.push_back(FrameCompleted{1, 1});
+    module->Tick(.016f);
+    EXPECT_GT(source.events, 0u);
+    EXPECT_EQ(source.appends, calls + 1);
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, ProjectSourceErrorStopsHostWithoutSubmittingPartialCommands)
+{
+    ProjectSceneSource source;
+    source.fail = true;
+    module->Tick(.016f);
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(source.appends, 1u);
+    EXPECT_TRUE(Commands<UpdateView>().empty());
+}
+
+TEST_F(LauncherSurfaceTest, UnregisteredProjectIsNotCalledByLaterHostTicks)
+{
+    {
+        ProjectSceneSource source;
+        module->Tick(.016f);
+        EXPECT_EQ(source.appends, 1u);
+    }
+    const auto updates = Commands<UpdateView>().size();
+    module->Tick(.016f);
+    EXPECT_EQ(Commands<UpdateView>().size(), updates);
+    EXPECT_FALSE(failed);
 }
 
 TEST_F(LauncherSurfaceTest, CameraUpdatesDuringSurfaceLossAreCoalescedAndRebound)

@@ -14,10 +14,6 @@
 #include <memory>
 #include <thread>
 
-namespace sky {
-    class IAnimationSkeletonSource;
-}
-
 namespace sky::aurora {
 
     class IRendererProvider;
@@ -88,8 +84,7 @@ namespace sky::aurora {
         bool        providerOnly = false;
         std::string shaderUsagePath;
 
-        std::unique_ptr<IRendererProvider>        provider;
-        std::unique_ptr<IAnimationSkeletonSource> skeletonSource;
+        std::unique_ptr<IRendererProvider> provider;
     };
 
 } // namespace sky::aurora

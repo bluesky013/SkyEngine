@@ -1,3 +1,4 @@
+#include <animation/IAnimationSkeletonSource.h>
 #include <array>
 
 #include <aurora/adaptor/AuroraReflection.h>
@@ -11,6 +12,7 @@
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/renderer/IRenderFeature.h>
 #include <aurora/renderer/IRenderer.h>
+#include <aurora/renderer/RendererProvider.h>
 #include <aurora/rhi/Device.h>
 #include <aurora/rhi/Instance.h>
 #include <aurora/rhi/SwapChain.h>
@@ -73,6 +75,7 @@ namespace {
 
     struct LoadedProvider {
         ModuleManager manager;
+        bool          succeeded = false;
         explicit LoadedProvider(bool runtime = false)
         {
             RegisterMetadata(manager);
@@ -87,14 +90,80 @@ namespace {
             StartArguments args;
             if (runtime)
                 args.args = {"RendererModuleTest", "--aurora-provider-only"};
-            manager.LoadModules(args);
+            succeeded = manager.LoadModules(args);
         }
         ~LoadedProvider()
         {
             manager.UnLoadModules();
         }
     };
+
+    struct ScopedProviderRegistration {
+        IRendererProvider *provider;
+        ~ScopedProviderRegistration()
+        {
+            if (ProviderService::Get()->GetApi() == provider)
+                ProviderService::Get()->UnRegister();
+        }
+    };
 } // namespace
+
+TEST(RendererModule, SkeletonSourcePublishesWithoutHostAndRetainsRequestsAndResultsAfterUnload)
+{
+    auto *skeletons = Interface<IAnimationSkeletonSource>::Get();
+    ASSERT_EQ(skeletons->GetApi(), nullptr);
+    ASSERT_EQ(Interface<ISystemNotify>::Get()->GetApi(), nullptr);
+    AnimationSourceRequest<Skeleton> request;
+    AnimationSourceResult<Skeleton>  result;
+    std::weak_ptr<const void>        code;
+    {
+        LoadedProvider loaded(true);
+        ASSERT_TRUE(loaded.succeeded);
+        ASSERT_NE(ProviderService::Get()->GetApi(), nullptr);
+        EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+        auto *source = skeletons->GetApi();
+        ASSERT_NE(source, nullptr);
+        code    = loaded.manager.RetainModule("Aurora.Render");
+        request = source->Request({});
+        ASSERT_TRUE(request);
+        result = request.Poll();
+        EXPECT_EQ(result.state, AnimationSourceState::Error);
+        EXPECT_TRUE(result.moduleLease);
+        loaded.manager.UnLoadModules();
+        EXPECT_EQ(skeletons->GetApi(), nullptr);
+        EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+    }
+    EXPECT_FALSE(code.expired());
+    result = {};
+    EXPECT_FALSE(code.expired());
+    result = request.Poll();
+    EXPECT_EQ(result.state, AnimationSourceState::Error);
+    EXPECT_FALSE(result.status.message.empty());
+    request = {};
+    EXPECT_FALSE(code.expired());
+    EXPECT_TRUE(result.moduleLease);
+    result = {};
+    EXPECT_TRUE(code.expired());
+}
+
+TEST(RendererModule, RendererRegistrationFailureRollsBackSkeletonSourceAndPreservesExternalProvider)
+{
+    ASSERT_EQ(ProviderService::Get()->GetApi(), nullptr);
+    ASSERT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+    auto provider = CreateRendererProvider();
+    ASSERT_TRUE(provider);
+    ProviderService::Get()->Register(*provider);
+    ScopedProviderRegistration registration{provider.get()};
+    {
+        LoadedProvider loaded(true);
+        EXPECT_FALSE(loaded.succeeded);
+        EXPECT_EQ(ProviderService::Get()->GetApi(), provider.get());
+        EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+        loaded.manager.UnLoadModules();
+        EXPECT_EQ(ProviderService::Get()->GetApi(), provider.get());
+        EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+    }
+}
 
 TEST(RendererModule, RegistersInHostEnvironmentAndReloads)
 {
@@ -1001,22 +1070,28 @@ TEST(RendererModule, DuplicateRegistrationDoesNotReplaceOrUnregisterOwner)
 {
     ModuleManager manager;
     RegisterMetadata(manager);
-    auto          module = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
-    auto         *owner  = module.get();
+    auto  module = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
+    auto *owner  = module.get();
     manager.AddStaticModule("Aurora.Render", std::move(module));
     manager.TopoSort();
     auto duplicate = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
     ASSERT_TRUE(manager.LoadModules({}));
     auto *provider = ProviderService::Get()->GetApi();
     ASSERT_NE(provider, nullptr);
+    auto *skeletons = Interface<IAnimationSkeletonSource>::Get()->GetApi();
+    ASSERT_NE(skeletons, nullptr);
     EXPECT_TRUE(owner->Init({}));
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), skeletons);
     EXPECT_FALSE(duplicate->Init({}));
     duplicate->Shutdown();
     EXPECT_EQ(ProviderService::Get()->GetApi(), provider);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), skeletons);
     owner->Shutdown();
     EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
     owner->Shutdown();
     EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
     manager.UnLoadModules();
 }
 #endif

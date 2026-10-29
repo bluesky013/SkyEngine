@@ -698,7 +698,7 @@ namespace sky::aurora {
                 }
                 params.lightCount.x         = static_cast<float>(view.lights.size());
                 params.shadowViewProjection = RenderIdentityMatrix();
-                params.shadowControl        = {0, .001f, backend == API::VULKAN ? 1.f : -1.f, 0};
+                params.shadowControl        = {0, .00005f, backend == API::VULKAN ? 1.f : -1.f, 0};
                 for (size_t i = 0; i < view.lights.size(); ++i) {
                     const auto &source    = view.lights[i];
                     const auto &light     = source.light;
@@ -731,7 +731,7 @@ namespace sky::aurora {
                         params.shadowViewProjection = std::get<Matrix4>(projected);
                     }
                 }
-                const uint32_t    resolution = (params.shadowControl.x != 0.0f) ? 512 : 1;
+                const uint32_t    resolution = (params.shadowControl.x != 0.0f) ? 2048 : 1;
                 Image::Descriptor desc;
                 desc.format      = PixelFormat::D32;
                 desc.extent      = {.width = resolution, .height = resolution, .depth = 1};
@@ -763,6 +763,7 @@ namespace sky::aurora {
                     Sampler::Descriptor sampler;
                     sampler.minFilter = sampler.magFilter = Filter::NEAREST;
                     sampler.mipmapMode                    = MipFilter::NEAREST;
+                    sampler.addressModeU = sampler.addressModeV = sampler.addressModeW = WrapMode::CLAMP_TO_EDGE;
                     const auto created                    = context.CreateSampler(sampler);
                     if (const auto *error = std::get_if<FrameError>(&created)) {
                         return *error;

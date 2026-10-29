@@ -5,7 +5,7 @@
 #include <aurora/adaptor/AuroraModule.h>
 
 #include <array>
-#include <aurora/adaptor/AnimationSkeletonSource.h>
+#include <aurora/adaptor/renderer/IRuntimeSceneSource.h>
 #include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/renderer/RendererProvider.h>
@@ -163,6 +163,11 @@ namespace sky::aurora {
     {
         if (sceneSession && !sceneSession->defaultWorld)
             return {};
+        if (Interface<IRuntimeSceneSource>::Get()->GetApi()) {
+            if (sceneSession)
+                return UnregisterSceneSession(sceneSession->registration);
+            return {};
+        }
         const auto *service = Interface<IGameWorld>::Get()->GetApi();
         auto       *world   = service ? service->GetWorld() : nullptr;
         if (sceneSession && sceneSession->defaultWorld == world)
@@ -219,19 +224,6 @@ namespace sky::aurora {
 
         if (!provider)
             provider = CreateRendererProvider();
-        auto       *skeletonService = Interface<IAnimationSkeletonSource>::Get();
-        const auto *system          = Interface<ISystemNotify>::Get()->GetApi();
-        auto       *modules         = system ? system->GetModuleManager() : ModuleManager::Current();
-        if (skeletonService->GetApi()) {
-            provider.reset();
-            return false;
-        }
-        skeletonSource = CreateAnimationSkeletonSource(modules ? modules->RetainModule("Aurora.Render") : nullptr);
-        if (!skeletonSource) {
-            provider.reset();
-            return false;
-        }
-        skeletonService->Register(*skeletonSource);
         if (providerOnly) {
             service->Register(*provider);
             return true;
@@ -335,6 +327,8 @@ namespace sky::aurora {
                 const auto active = sceneSession;
                 if (active)
                     active->session->OnEvent(event);
+                else if (auto *source = Interface<IRuntimeSceneSource>::Get()->GetApi())
+                    source->OnRendererEvent(event);
                 if (shutdownRequested)
                     return;
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
@@ -466,8 +460,13 @@ namespace sky::aurora {
             return;
         UpdateOutput(*pending);
         const auto active = sceneSession;
-        if (sceneReady && produceScene && active) {
-            if (const auto error = active->session->Append(*pending, {scene.GetSceneId(), view, viewport, extent})) {
+        if (sceneReady && produceScene) {
+            std::optional<RendererError> error;
+            if (active)
+                error = active->session->Append(*pending, {scene.GetSceneId(), view, viewport, extent});
+            else if (auto *source = Interface<IRuntimeSceneSource>::Get()->GetApi())
+                error = source->Append(*pending, {scene.GetSceneId(), view, viewport, extent, host.Get()->GetInfo()});
+            if (error) {
                 Fail(*error);
                 return;
             }
@@ -548,19 +547,13 @@ namespace sky::aurora {
     void AuroraModule::Shutdown()
     {
         auto *sceneService = Interface<ILauncherSceneSource>::Get();
-        if (sceneService->GetApi() == this) {
+        if (sceneService->GetApi() == this)
             sceneService->UnRegister();
-        }
         sceneSession.reset();
         if (pumping) {
             shutdownRequested = true;
             return;
         }
-        auto *skeletonService = Interface<IAnimationSkeletonSource>::Get();
-        if (skeletonSource && skeletonService->GetApi() == skeletonSource.get()) {
-            skeletonService->UnRegister();
-        }
-        skeletonSource.reset();
         const bool active = provider || host.Get();
         Event<IWindowEvent>::DisConnect(this);
         pending.reset();

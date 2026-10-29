@@ -39,15 +39,34 @@ SceneVarying VSMain(float3 position : POSITION)
 }
 float ShadowVisibility(float3 worldPosition)
 {
-    if (gSceneSurface.surface.x < 0.5 || gSceneLighting.shadowControl.x < 0.5)
-        return 1;
     float4 projected = mul(gSceneLighting.shadowViewProjection, float4(worldPosition, 1));
     float3 p = projected.xyz / projected.w;
     float2 uv = p.xy * float2(0.5, gSceneLighting.shadowControl.z * 0.5) + 0.5;
+    float3 dx = ddx(float3(uv, p.z));
+    float3 dy = ddy(float3(uv, p.z));
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    float2 gradient = 0;
+    if (abs(determinant) > 1e-12)
+        gradient = float2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant;
+    if (gSceneSurface.surface.x < 0.5 || gSceneLighting.shadowControl.x < 0.5)
+        return 1;
     if (any(uv < 0) || any(uv > 1) || p.z < 0 || p.z > 1)
         return 1;
-    float depth = gShadowImage.SampleLevel(gShadowSampler, uv, 0);
-    return p.z - gSceneLighting.shadowControl.y <= depth ? 1 : 0;
+    uint width, height;
+    gShadowImage.GetDimensions(width, height);
+    float2 dimensions = float2(width, height);
+    float visibility = 0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float2 texel = clamp(floor(uv * dimensions) + float2(x, y), 0, dimensions - 1);
+            float2 sampleUv = (texel + 0.5) / dimensions;
+            // Each PCF tap compares depth on the same receiver plane as its sampled texel.
+            float receiverDepth = p.z + clamp(dot(gradient, sampleUv - uv), -0.02, 0.02);
+            float depth = gShadowImage.SampleLevel(gShadowSampler, sampleUv, 0);
+            visibility += receiverDepth - gSceneLighting.shadowControl.y <= depth ? 1 : 0;
+        }
+    }
+    return visibility / 9;
 }
 float2 EnvironmentUv(float3 direction)
 {

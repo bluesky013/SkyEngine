@@ -1377,6 +1377,35 @@ TEST_P(RendererRuntimeTest, ResizeAndHandleReuseRespectRetirement)
     EXPECT_EQ(Find<ViewportReadback>()->viewport, next);
 }
 
+TEST_P(RendererRuntimeTest, MovingMeshKeepsMaterialWhileViewportIsSuspended)
+{
+    auto first = Scene();
+    AddMesh(*first);
+    Submit(std::move(first));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {255, 0, 0});
+
+    for (uint64_t revision = 2; revision != 5; ++revision) {
+        auto mesh              = Mesh();
+        mesh.resource.revision = revision;
+        RenderEntityDesc entity;
+        entity.mesh        = {mesh.resource, revision};
+        entity.material    = {Key(1202), revision};
+        entity.world.v[12] = .1f;
+        auto hidden        = Packet(
+            {ResizeViewport{viewport, {}, revision * 2}, UpdateRenderEntity{{scene, {0, 1}}, entity, revision}, ResourceCpuReady{std::move(mesh)}});
+        hidden->releasedResources.push_back(Key(1201, revision - 1));
+        Submit(std::move(hidden));
+        Complete(sequence);
+
+        auto restored       = Packet({ResizeViewport{viewport, {12, 10}, revision * 2 + 1}});
+        restored->readbacks = {viewport};
+        Submit(std::move(restored));
+        Complete(sequence);
+        Pixel(sequence, viewport, 6, 5, {255, 0, 0});
+    }
+}
+
 TEST_P(RendererRuntimeTest, StaleEpochRejectsWholePacketAndLaterPacketsContinue)
 {
     auto bad     = Scene();
@@ -2002,6 +2031,24 @@ TEST_P(RendererRuntimeTest, OffCameraCasterAndLightShadowFlagsChangeReceiverPixe
     receiver.properties.receiveShadow = true;
     EXPECT_NEAR(sample({UpdateRenderEntity{{scene, {0, 1}}, receiver, 2}, DestroyRenderEntity{{scene, {1, 1}}}}), lit, 2);
     EXPECT_TRUE(Until([&] { return Find<EntityDestroyed>() != nullptr; }));
+    // A sloped receiver must remain lit when it also writes the shadow map.
+    uint64_t shadowRevision = 4;
+    for (const float slope : {2.5f, 8.f}) {
+        light.properties.light.direction = {-slope, .3f, 1};
+        for (const float offset : {.013f, .027f, .041f}) {
+            receiver.world.v[12]           = offset;
+            receiver.properties.castShadow = false;
+            const auto unshadowed          = sample(
+                {UpdateRenderEntity{{scene, {2, 1}}, light, ++shadowRevision}, UpdateRenderEntity{{scene, {0, 1}}, receiver, ++shadowRevision}});
+            receiver.properties.castShadow = true;
+            EXPECT_NEAR(sample({UpdateRenderEntity{{scene, {0, 1}}, receiver, ++shadowRevision}}), unshadowed, 2)
+                << "slope=" << slope << " offset=" << offset;
+        }
+    }
+    receiver.properties.castShadow   = false;
+    receiver.world.v[12]             = 0;
+    light.properties.light.direction = {-0.936329f, 0, 0.351123f};
+    sample({UpdateRenderEntity{{scene, {2, 1}}, light, ++shadowRevision}, UpdateRenderEntity{{scene, {0, 1}}, receiver, ++shadowRevision}});
     ASSERT_TRUE(files.AddVirtualFile("custom/Shadow.slang", R"(
         #include <aurora/pipeline/GlobalBlock.slangh>
         #include <aurora/pipeline/ShadowPass.slangh>
