@@ -61,6 +61,23 @@ DeviceFrameContext SHALL 提供显式 slot 获取、command/分配访问、提�
 
 ## ADDED Requirements
 
+### Requirement: Vulkan capability negotiation follows physical API and enabled extensions
+
+Vulkan initialization SHALL distinguish the loader/instance API version from the selected physical device API version. A physical Vulkan 1.1 device MAY use existing functionality promoted in later core versions only through the corresponding advertised, queried and enabled KHR extensions and features. Feature-query/enable chains and command dispatch SHALL use the applicable core or extension contracts; an available function pointer alone SHALL NOT establish enabled feature support. Timeline semaphore and synchronization2 requirements SHALL remain mandatory for the existing submission/resource-state implementation. RenderPass2, shader draw parameters and any requested resolve feature SHALL be validated according to actual use. Missing required support SHALL fail explicitly, without forcing feature bits or bypassing synchronization/retirement.
+
+#### Scenario: Physical Vulkan 1.1 device has the required extensions
+- **WHEN** the selected device reports Vulkan 1.1 and actually supports the required timeline, synchronization2 and RenderPass extension contracts
+- **THEN** initialization enables only the advertised and successfully queried features, loads their applicable KHR commands and can use the existing RenderPass compiler
+- **AND** it does not require a Vulkan 1.3 physical feature structure or dynamic rendering for that path
+
+#### Scenario: Required synchronization is unavailable
+- **WHEN** timeline semaphore or synchronization2 support, enablement or required command dispatch is unavailable
+- **THEN** device initialization fails with a diagnostic rather than weakening queue submission or resource retirement
+
+#### Scenario: Direct rendering lacks its required capability
+- **WHEN** a direct dynamic-rendering pipeline/encoder path is requested without enabled dynamic-rendering support
+- **THEN** the existing checked creation/recording boundary reports failure before emitting unsupported native commands
+
 ### Requirement: DirectFrameContext 的受检兼容协议
 
 DirectFrameContext SHALL 仅通过 Device::CreateDirectFrameContext 显式创建。TryBeginFrame SHALL 非阻塞返回 FrameOperationComplete、FrameBusy 或 FrameError；只有当前 direct slot 的 fence 查询确认为 SIGNALED 后才可 TryReset，并 SHALL 检查查询和重置的显式原生错误。PENDING SHALL 返回 Busy 且不 reset、不推进 slot；query/reset 失败 SHALL 返回可诊断错误并停止该 context 后续使用。重复 begin 或未 begin 即 EndFrame SHALL 返回显式错误。

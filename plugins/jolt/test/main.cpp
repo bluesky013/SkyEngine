@@ -23,7 +23,7 @@ namespace {
         using namespace sky;
         using namespace sky::phy;
         auto &registry = PhysicsBackendRegistry::Get();
-        World::Reflect(SerializationContext::Get());
+        SerializationContext::Get();
         const TypeNode                *metadata = nullptr;
         std::unique_ptr<IPhysicsWorld> retained;
         for (int cycle = 0; cycle < 2; ++cycle) {
@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
     }
     sky::phy::RegisterPhysicsAssets();
     testing::InitGoogleTest(&argc, argv);
-    sky::World::Reflect(sky::SerializationContext::Get());
     sky::phy::PhysicsBodyComponent::Reflect(sky::SerializationContext::Get());
     sky::phy::PhysicsSubSystemConfig::Reflect(sky::SerializationContext::Get());
     return RUN_ALL_TESTS();

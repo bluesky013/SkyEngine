@@ -28,3 +28,10 @@
 - [x] 4.3 Check scoped formatting, ASCII/includes, forbidden patterns, whitespace and strict OpenSpec validation; record unavailable clang-tidy.
 - [x] 4.4 Review the final diff and update current API/design rules and verification evidence without commit/archive.
 - [ ] 4.5 Run the Windows Vulkan/DX12 native storage/group-reuse and GPU lifecycle regressions listed in verification.md on the Windows validation host.
+
+## 5. Physical Vulkan device compatibility
+
+- [x] 5.1 Preserve explicit compiler modes, default to AUTO and reject invalid configuration; verify public/default/non-Vulkan behavior and actual capability selection.
+- [x] 5.2 Validate version-correct Vulkan 1.1/KHR feature and command negotiation, mandatory synchronization and unsupported direct-rendering errors.
+- [x] 5.3 Recook Android SPIR-V 1.3 products, pass the 40-check physics APK audit, verify falling/settled bodies over the 121-second device run and record the separate 15-second presentation-progress sample with controlled cleanup.
+- [ ] 5.4 Complete separately scoped visual-quality/validation review of observed shadow striping and vendor warnings; the physics/package run does not establish full visual acceptance or a validation-clean device run.

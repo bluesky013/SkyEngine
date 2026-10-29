@@ -140,5 +140,114 @@ file(WRITE "${CMAKE_BINARY_DIR}/compiler.txt" "${CMAKE_CXX_COMPILER_ID}")
             self.assertEqual(build[platform].get('configuration', 'Release'), 'Release')
 
 
+@unittest.skipUnless(shutil.which('cmake'), 'CMake is required for module configuration tests')
+class JoltBuilderConfigurationTest(unittest.TestCase):
+    def configure(self, root, option=None):
+        plugin = root / 'jolt'
+        plugin.mkdir()
+        for name in ('CMakeLists.txt', 'plugin.json'):
+            shutil.copyfile(ROOT / 'plugins/jolt' / name, plugin / name)
+        for directory, target in (('shared', 'JoltPhysics.AssetCodec.Static'),
+                                  ('adaptor', 'JoltPhysicsModule'), ('render', 'JoltPhysicsRenderModule')):
+            child = plugin / directory
+            child.mkdir()
+            (child / 'stub.cpp').write_text('int stub_' + directory + ';\n', encoding='utf-8')
+            declaration = ('sky_add_library(TARGET ' + target + ' STATIC' if directory == 'shared'
+                           else 'sky_add_module(TARGET ' + target)
+            (child / 'CMakeLists.txt').write_text(declaration + ' SOURCES stub.cpp)\n', encoding='utf-8')
+        (plugin / 'test').mkdir()
+        (plugin / 'test/CMakeLists.txt').write_text('add_custom_target(JoltFixtureTests)\n', encoding='utf-8')
+        (plugin / 'builder/src').mkdir(parents=True)
+        (plugin / 'builder/include').mkdir()
+        shutil.copyfile(ROOT / 'plugins/jolt/builder/CMakeLists.txt', plugin / 'builder/CMakeLists.txt')
+        shutil.copyfile(ROOT / 'plugins/jolt/builder/PhysicsBuilderModule.cpp', plugin / 'builder/PhysicsBuilderModule.cpp')
+        (plugin / 'builder/src/PhysicsAssetBuilder.cpp').write_text('int builder_stub;\n', encoding='utf-8')
+        (root / 'main.cpp').write_text('int main() { return 0; }\n', encoding='utf-8')
+        template = (ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text(encoding='utf-8')
+        registration = template[template.index('if (SKY_MODULE_PACKAGING STREQUAL "static")'):
+                                template.index('# The same deployment runs')]
+        (root / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.21)
+project(JoltModulePolicy LANGUAGES CXX)
+set(ENGINE_ROOT "@ROOT@")
+set(3RD_PATH "${CMAKE_CURRENT_SOURCE_DIR}/unused")
+set(SKY_MODULE_PACKAGING static)
+include("${ENGINE_ROOT}/cmake/options.cmake")
+include("${ENGINE_ROOT}/cmake/functions.cmake")
+function(sky_find_3rd)
+endfunction()
+add_library(Physics INTERFACE)
+add_library(Framework INTERFACE)
+add_executable(Launcher main.cpp)
+add_subdirectory(jolt)
+sky_set_dependency(TARGET Launcher)
+@REGISTRATION@
+get_target_property(links Launcher LINK_LIBRARIES)
+file(WRITE "${CMAKE_BINARY_DIR}/links.txt" "${links}")
+file(WRITE "${CMAKE_BINARY_DIR}/targets.txt" "")
+foreach(target JoltPhysics.Builder JoltPhysics.Builder.Static JoltFixtureTests)
+    if(TARGET ${target})
+        file(APPEND "${CMAKE_BINARY_DIR}/targets.txt" "${target}\n")
+    endif()
+endforeach()
+if(TARGET JoltPhysics.Builder)
+    get_target_property(definitions JoltPhysics.Builder COMPILE_DEFINITIONS)
+    file(WRITE "${CMAKE_BINARY_DIR}/builder-definitions.txt" "${definitions}")
+endif()
+'''.replace('@ROOT@', ROOT.as_posix()).replace('@REGISTRATION@', registration), encoding='utf-8')
+        command = ['cmake', '-S', str(root), '-B', str(root / 'build')]
+        if option:
+            command.append('-D' + option + '=ON')
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        return root / 'build'
+
+    def test_shipping_omits_builder_and_developer_consumers_keep_it(self):
+        for option in (None, 'SKY_DEVELOP', 'SKY_BUILD_TOOL', 'SKY_BUILD_SANDBOX', 'SKY_BUILD_TEST'):
+            with self.subTest(option=option), tempfile.TemporaryDirectory() as temporary:
+                build = self.configure(Path(temporary), option)
+                targets = (build / 'targets.txt').read_text().splitlines()
+                registration = (build / 'RegisterStaticModules.cpp').read_text()
+                links = (build / 'links.txt').read_text().split(';')
+                enabled = option is not None
+                for target in ('JoltPhysics.Builder', 'JoltPhysics.Builder.Static'):
+                    self.assertEqual(target in targets, enabled)
+                self.assertEqual('sky_module_create_JoltPhysics_Builder' in registration, enabled)
+                self.assertEqual('JoltPhysics.Builder' in links, enabled)
+                self.assertEqual('JoltFixtureTests' in targets, option == 'SKY_BUILD_TEST')
+                for target in ('JoltPhysicsModule', 'JoltPhysicsRenderModule'):
+                    self.assertIn(target, links)
+                if enabled:
+                    definitions = (build / 'builder-definitions.txt').read_text().split(';')
+                    self.assertIn('SKY_MODULE_STATIC', definitions)
+                    self.assertIn('SKY_MODULE_TAG=JoltPhysics_Builder', definitions)
+
+    def test_builder_entry_emits_the_factory_requested_by_static_registration(self):
+        compiler = next((shutil.which(name) for name in ('clang++', 'g++', 'c++') if shutil.which(name)), None)
+        if compiler is None:
+            self.skipTest('A GCC-compatible preprocessor is required')
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            headers = {
+                'builder/physics/PhysicsAssetBuilder.h': '',
+                'framework/asset/AssetBuilderManager.h': '',
+            }
+            module = (ROOT / 'engine/framework/include/framework/interface/IModule.h').read_text(encoding='utf-8')
+            headers['framework/interface/IModule.h'] = '#define SKY_EXPORT\n' + module[module.index('#define REGISTER_MODULE(name)'):]
+            for name, content in headers.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding='utf-8')
+            source = ROOT / 'plugins/jolt/builder/PhysicsBuilderModule.cpp'
+            for static in (False, True):
+                with self.subTest(static=static):
+                    command = [compiler, '-E', '-P', '-I', str(root), str(source)]
+                    if static:
+                        command.extend(['-DSKY_MODULE_STATIC', '-DSKY_MODULE_TAG=JoltPhysics_Builder'])
+                    result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual('sky_module_create_JoltPhysics_Builder' in result.stdout, static)
+                    self.assertEqual('StartModule(' in result.stdout, not static)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -3,6 +3,7 @@
 //
 
 #include "LauncherSceneTestHelper.h"
+#include "RendererShutdown.h"
 #include "ShaderArtifactTestHelper.h"
 #include <algorithm>
 #include <array>
@@ -16,6 +17,7 @@
 #include <aurora/shader/ShaderCacheStore.h>
 #include <chrono>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <framework/application/ModuleManager.h>
 #include <framework/interface/ISystem.h>
@@ -51,6 +53,15 @@ namespace {
         }
         size_t PollEvents(std::span<RendererEvent> events) override
         {
+            if (state == RendererState::STOPPED) {
+                ++terminalPolls;
+                if (!events.empty() && !terminalEvents.empty()) {
+                    events[0] = std::move(terminalEvents.front());
+                    terminalEvents.pop_front();
+                    return 1;
+                }
+                return 0;
+            }
             if (!events.empty() && state == RendererState::STOPPING && ++trace.polls == 2) {
                 state     = RendererState::STOPPED;
                 events[0] = RendererStopped{};
@@ -69,10 +80,13 @@ namespace {
         void RequestShutdown() override
         {
             ++trace.stops;
-            state = RendererState::STOPPING;
+            if (state != RendererState::STOPPED)
+                state = RendererState::STOPPING;
         }
-        HostTrace    &trace;
-        RendererState state = RendererState::RUNNING;
+        HostTrace                &trace;
+        RendererState             state = RendererState::RUNNING;
+        std::deque<RendererEvent> terminalEvents;
+        uint32_t                  terminalPolls = 0;
     };
     class HostProvider final : public IRendererProvider {
     public:
@@ -87,6 +101,37 @@ namespace {
         bool      fail = false;
     };
 } // namespace
+
+TEST(RendererHostDrain, PausedNativePumpNeverWaitsForAnOSMessageToObserveCompletion)
+{
+    HostTrace                  trace;
+    HostRenderer               renderer(trace);
+    std::vector<EventPollMode> polls;
+    sky::aurora::detail::DrainRenderer(renderer, [&](EventPollMode mode) {
+        EXPECT_EQ(renderer.GetState(), RendererState::STOPPING);
+        EXPECT_EQ(mode, EventPollMode::NON_BLOCKING);
+        polls.push_back(mode);
+    });
+    EXPECT_EQ(renderer.GetState(), RendererState::STOPPED);
+    EXPECT_EQ(trace.polls, 2U);
+    EXPECT_EQ(trace.stops, 1U);
+    ASSERT_EQ(polls.size(), 1U);
+}
+
+TEST(RendererHostDrain, AlreadyStoppedStillDrainsQueuedFailureAndStoppedEvents)
+{
+    HostTrace    trace;
+    HostRenderer renderer(trace);
+    renderer.state = RendererState::STOPPED;
+    renderer.terminalEvents.push_back(RendererFailure{17, {RendererErrorCode::DEVICE_LOST, "injected stopped renderer failure"}});
+    renderer.terminalEvents.push_back(RendererStopped{});
+    sky::aurora::detail::DrainRenderer(renderer, [](EventPollMode) { ADD_FAILURE() << "terminal event drain must not pump native events"; });
+    EXPECT_EQ(renderer.GetState(), RendererState::STOPPED);
+    EXPECT_EQ(trace.stops, 1U);
+    EXPECT_EQ(trace.polls, 0U);
+    EXPECT_EQ(renderer.terminalPolls, 3U);
+    EXPECT_TRUE(renderer.terminalEvents.empty());
+}
 
 TEST(RendererHost, PublishesOneOwnerAndDrainsBeforeUnregistering)
 {
@@ -152,6 +197,7 @@ namespace {
     struct LauncherTrace {
         std::vector<std::unique_ptr<FramePacket>> packets;
         std::vector<RendererEvent>                events;
+        std::vector<RendererInitInfo>             creations;
         std::function<void()>                     stopping;
         bool                                      busy = false;
     };
@@ -200,8 +246,9 @@ namespace {
         explicit LauncherProvider(std::shared_ptr<LauncherTrace> trace) : trace(std::move(trace))
         {
         }
-        RendererCreateResult Create(const RendererInitInfo &) override
+        RendererCreateResult Create(const RendererInitInfo &info) override
         {
+            trace->creations.push_back(info);
             return std::unique_ptr<IRenderer>(std::make_unique<LauncherRenderer>(trace));
         }
 
@@ -380,6 +427,23 @@ namespace {
         bool                           failed = false;
     };
 } // namespace
+
+TEST_F(LauncherSurfaceTest, DefaultVulkanCompilerIsAutomaticAndRenderPassOptionRemainsExplicit)
+{
+    ASSERT_EQ(trace->creations.size(), 1u);
+    EXPECT_EQ(trace->creations.front().vulkanMode, RendererVulkanMode::AUTO);
+    module->Shutdown();
+    module.reset();
+    FileSystemPtr bundle = new NativeFileSystem(FilePath(root.string()));
+    module               = std::make_unique<AuroraModule>(std::make_unique<LauncherProvider>(trace), std::move(bundle));
+    StartArguments args;
+    args.values = {"Aurora.Render", "--aurora-vulkan-render-pass"};
+    for (const auto &value : args.values)
+        args.args.push_back(value.c_str());
+    ASSERT_TRUE(module->Init(args));
+    ASSERT_EQ(trace->creations.size(), 2u);
+    EXPECT_EQ(trace->creations.back().vulkanMode, RendererVulkanMode::RENDER_PASS);
+}
 
 TEST_F(LauncherSurfaceTest, ReplacementWaitsForExactRetirementAndRebindsTheExistingSceneAndView)
 {

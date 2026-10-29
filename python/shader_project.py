@@ -27,12 +27,15 @@ def target_environments(platform, targets, overrides=None):
         overrides = {}
     if not isinstance(overrides, dict) or any(target not in targets for target in overrides):
         return None, 'Shader environment overrides must name selected targets'
+    spirv_profile, spirv_version = ('spirv_1_3', 10300) if platform == 'android' else ('spirv_1_5', 10500)
+    profiles = {'vulkan': spirv_profile, 'metal': 'metallib_2_3', 'd3d12': 'sm_6_5'}
+    versions = {'vulkan': spirv_version, 'metal': 20300, 'd3d12': 60500}
     environments = {}
     for target in targets:
         environment = {'target': TARGETS[target], 'platform': PLATFORMS[platform],
                        'codeFormat': {'vulkan': 1, 'metal': 2, 'd3d12': 3}[target],
-                       'profile': {'vulkan': 'spirv_1_5', 'metal': 'metallib_2_3', 'd3d12': 'sm_6_5'}[target],
-                       'minimumVersion': {'vulkan': 10500, 'metal': 20300, 'd3d12': 60500}[target], 'requiredCapabilities': 0, 'matrixLayout': 0, 'options': []}
+                       'profile': profiles[target],
+                       'minimumVersion': versions[target], 'requiredCapabilities': 0, 'matrixLayout': 0, 'options': []}
         custom = overrides.get(target, {})
         allowed = {'codeFormat', 'profile', 'minimumVersion', 'requiredCapabilities', 'matrixLayout', 'options'}
         if not isinstance(custom, dict) or set(custom) - allowed:
@@ -44,7 +47,7 @@ def target_environments(platform, targets, overrides=None):
             if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= maximum:
                 return None, 'Invalid shader environment field: ' + name
         if environment['minimumVersion'] == 0:
-            environment['minimumVersion'] = {'vulkan': 10500, 'metal': 20300, 'd3d12': 60500}[target]
+            environment['minimumVersion'] = versions[target]
         if environment['codeFormat'] not in {'vulkan': {1}, 'metal': {2, 4}, 'd3d12': {3}}[target]:
             return None, 'Shader code format disagrees with target: ' + target
         if not isinstance(environment['profile'], str) or not environment['profile'] or '\x00' in environment['profile']:

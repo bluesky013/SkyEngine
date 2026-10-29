@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -174,4 +175,63 @@ TEST(ThreadDispatcherTest, EmptyDispatchIsNoOp)
     dispatcher->Dispatch(ThreadRole::Device);
 
     SUCCEED();
+}
+
+TEST(ThreadDispatcherTest, ReleasedMainRoleCanMoveThreadsWithoutChangingOtherRoles)
+{
+    ThreadDispatcher dispatcher;
+    dispatcher.Dispatch(ThreadRole::Main);
+    dispatcher.Dispatch(ThreadRole::Render);
+    uint32_t renderCalls = 0, mainCalls = 0;
+    dispatcher.Post(ThreadRole::Render, [&] { ++renderCalls; });
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::RELEASED);
+    std::thread successor([&] {
+        dispatcher.PostToMain([&] { ++mainCalls; });
+        EXPECT_EQ(dispatcher.Dispatch(ThreadRole::Main), 1U);
+        EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Render), ThreadDispatcher::ReleaseResult::NOT_OWNER);
+        EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::RELEASED);
+    });
+    successor.join();
+    EXPECT_EQ(mainCalls, 1U);
+    EXPECT_EQ(renderCalls, 0U);
+    EXPECT_EQ(dispatcher.Dispatch(ThreadRole::Render), 1U);
+    EXPECT_EQ(renderCalls, 1U);
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Render), ThreadDispatcher::ReleaseResult::RELEASED);
+}
+
+TEST(ThreadDispatcherTest, RoleReleaseRejectsPendingAndActiveCallbacksIncludingCaptureDestruction)
+{
+    ThreadDispatcher dispatcher;
+    dispatcher.Dispatch(ThreadRole::Main);
+    auto captureRelease = ThreadDispatcher::ReleaseResult::RELEASED;
+    struct Capture {
+        Capture(ThreadDispatcher &dispatcher, ThreadDispatcher::ReleaseResult &result) : dispatcher(dispatcher), result(result)
+        {
+        }
+        ~Capture()
+        {
+            result = dispatcher.ReleaseRole(ThreadRole::Main);
+        }
+        ThreadDispatcher                &dispatcher;
+        ThreadDispatcher::ReleaseResult &result;
+    };
+    auto capture = std::make_shared<Capture>(dispatcher, captureRelease);
+    dispatcher.PostToMain([&, capture] { EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::DISPATCHING); });
+    capture.reset();
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::PENDING_CALLBACKS);
+    EXPECT_EQ(dispatcher.Dispatch(ThreadRole::Main), 1U);
+    EXPECT_EQ(captureRelease, ThreadDispatcher::ReleaseResult::DISPATCHING);
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::RELEASED);
+}
+
+TEST(ThreadDispatcherTest, ClearDoesNotReleaseOwnershipAndOtherThreadsCannotReleaseIt)
+{
+    ThreadDispatcher dispatcher;
+    dispatcher.Dispatch(ThreadRole::Main);
+    dispatcher.PostToMain([] {});
+    dispatcher.Clear();
+    std::thread other([&] { EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::NOT_OWNER); });
+    other.join();
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Main), ThreadDispatcher::ReleaseResult::RELEASED);
+    EXPECT_EQ(dispatcher.ReleaseRole(ThreadRole::Count), ThreadDispatcher::ReleaseResult::INVALID_ROLE);
 }

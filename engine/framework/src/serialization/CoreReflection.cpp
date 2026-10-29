@@ -13,11 +13,11 @@
 #include <core/math/Color.h>
 #include <core/util/Uuid.h>
 
-#include <framework/world/World.h>
-#include <framework/world/WorldAsset.h>
-#include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/serialization/PropertyCommon.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/world/SimpleRotateComponent.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/world/WorldAsset.h>
 
 namespace sky {
     template <uint32_t N>
@@ -139,5 +139,8 @@ namespace sky {
             .JsonLoad<&JsonLoadUuid>()
             .BinLoad<&BinaryLoadUuid>()
             .BinSave<&BinarySaveUuid>();
+
+        TransformComponent::Reflect(context);
+        SimpleRotateComponent::Reflect(context);
     }
 } // namespace sky

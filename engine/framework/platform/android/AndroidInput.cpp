@@ -5,6 +5,7 @@
 #include "AndroidInput.h"
 
 #include <algorithm>
+#include <framework/platform/PlatformBase.h>
 
 namespace sky {
 
@@ -52,6 +53,11 @@ namespace sky {
     uint64_t AndroidLifecycleState::GetEpoch() const
     {
         return epoch;
+    }
+
+    int AndroidLifecycleState::GetPollTimeout(EventPollMode mode) const
+    {
+        return mode == EventPollMode::NON_BLOCKING || IsFrameActive() || destroyed ? 0 : -1;
     }
 
     void AndroidPointerState::UpdateButtons(uint32_t next, std::vector<AndroidMouseChange> &changes)

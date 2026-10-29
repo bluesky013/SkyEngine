@@ -87,8 +87,6 @@ namespace sky {
         World(const World &) = delete;
         World &operator=(const World &) = delete;
 
-        static void Reflect(SerializationContext *context);
-
         void Init();
         // Initializes subsystems once, then attaches loaded actors. Failure rolls back newly attached subsystems and actors.
         bool               Build(const WorldDesc &desc);

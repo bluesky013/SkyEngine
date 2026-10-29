@@ -27,6 +27,7 @@ if (SKY_BUILD_TEST)
         SOURCES
             ${TEST_FILES}
         INCS
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer
             ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
             ${CMAKE_CURRENT_SOURCE_DIR}/../core/test
         LIBS

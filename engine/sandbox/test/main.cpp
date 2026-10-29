@@ -6,13 +6,13 @@
 #include <editor/core/preferences/EditorSettings.h>
 #include <editor/core/property/ReflectionDemoTypes.h>
 #include <editor/core/viewport/EditorCamera.h>
-#include <framework/world/World.h>
+#include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
 
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
-    sky::World::Reflect(sky::SerializationContext::Get());
+    sky::SerializationContext::Get();
     sky::editor::test::RegisterTestTypes();
     sky::editor::RegisterEditorSettings(sky::SerializationContext::Get());
     sky::editor::ViewportControlSettings::Reflect();

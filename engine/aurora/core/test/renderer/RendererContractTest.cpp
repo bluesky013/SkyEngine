@@ -23,6 +23,12 @@ static_assert(std::is_base_of_v<FrameGraphDeclarations, FrameGraphBuildContext>)
 static_assert(std::is_base_of_v<FrameGraphServices, FrameGraphBuildContext>);
 static_assert(std::is_const_v<std::remove_reference_t<decltype(std::declval<FrozenFrameGraph &>().GetData())>>);
 static_assert(std::is_abstract_v<sky::ICompletion>);
+static_assert(static_cast<uint8_t>(VulkanFrameGraphMode::DYNAMIC_RENDERING) == 0);
+static_assert(static_cast<uint8_t>(VulkanFrameGraphMode::RENDER_PASS) == 1);
+static_assert(static_cast<uint8_t>(RendererVulkanMode::DYNAMIC_RENDERING) == 0);
+static_assert(static_cast<uint8_t>(RendererVulkanMode::RENDER_PASS) == 1);
+static_assert(DeviceFrameContextInitInfo{}.vulkanCompiler == VulkanFrameGraphMode::AUTO);
+static_assert(RendererInitInfo{}.vulkanMode == RendererVulkanMode::AUTO);
 
 PacketSubmitResult SubmitPacket(IRenderer &renderer, std::unique_ptr<FramePacket> &packet)
 {

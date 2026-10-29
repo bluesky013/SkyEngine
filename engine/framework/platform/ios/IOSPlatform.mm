@@ -143,7 +143,7 @@ namespace sky {
         }
     }
 
-    void IOSPlatform::PollEvent(bool &exit)
+    void IOSPlatform::PollEvent(bool &exit, EventPollMode)
     {
         // UIKit owns the run loop; events are delivered via view/controller
         // callbacks and frames via CADisplayLink. Nothing to pump here.

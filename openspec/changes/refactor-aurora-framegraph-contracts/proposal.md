@@ -10,6 +10,7 @@ FrameGraph binding, content analysis and native synchronization independently en
 - **BREAKING** Separate named immutable parameter updates from numeric native descriptor writes, and isolate the legacy direct-frame protocol from the explicit lease context.
 - Expose the existing supported graph declaration operations independently of feature resource/draw resolution services.
 - Add focused semantic, allocation/reuse, lifecycle and native regressions; record unavailable platform checks explicitly.
+- Default Vulkan compiler selection to AUTO while preserving explicit modes; negotiate actual Vulkan 1.1/KHR capabilities and cook the Android SPIR-V 1.3 baseline without bypassing synchronization requirements.
 
 ## Capabilities
 
@@ -21,6 +22,7 @@ FrameGraph binding, content analysis and native synchronization independently en
 - `aurora-resource-binding`: Separate numeric native DescriptorEncoder from named immutable ShaderParameterUpdate/CreateParameterUpdate; update direct compatibility descriptor-ring ownership.
 - `aurora-rhi-core`: Remove DescriptorBatch, split explicit lease and separately-created DirectFrameContext, and preserve checked allocation/retirement boundaries. The historical `aurora-frame-context` capability was consolidated into this main spec; no duplicate capability is introduced.
 - `aurora-rdg`: Freeze immutable group references with per-use overrides, unify pre-cull validation/resource uses, and preserve native synchronization/resolve/plan ownership.
+- `aurora-shader`: Bind the Android Vulkan SPIR-V 1.3 baseline to actual code, target environment and producer identity; recook incompatible earlier products.
 
 ## Impact
 

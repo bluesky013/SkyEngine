@@ -4,13 +4,10 @@
 
 #include <aurora/adaptor/renderer/RendererHost.h>
 
-#include <array>
+#include "RendererShutdown.h"
 #include <aurora/pipeline/SceneRenderFeature.h>
-#include <chrono>
-#include <core/logger/Logger.h>
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
-#include <thread>
 
 namespace sky::aurora {
     std::optional<RendererError> RegisterScenePass(FramePacket                      &packet,
@@ -53,20 +50,12 @@ namespace sky::aurora {
     {
         if (!renderer)
             return;
-        renderer->RequestShutdown();
-        while (renderer->GetState() != RendererState::STOPPED) {
-            std::array<RendererEvent, 32> events;
-            const auto                    count = renderer->PollEvents(events);
-            for (const auto &event : std::span(events).first(count))
-                if (const auto *failure = std::get_if<RendererFailure>(&event))
-                    LOG_E("RendererHost", "shutdown frame %llu: %s", static_cast<unsigned long long>(failure->packetSequence),
-                          failure->error.message.c_str());
+        detail::DrainRenderer(*renderer, [](EventPollMode mode) {
             if (Platform::Get()->GetImpl()) {
                 bool exit = false;
-                Platform::Get()->PoolEvent(exit);
+                Platform::Get()->PoolEvent(exit, mode);
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
+        });
         auto *service = Interface<IRenderer>::Get();
         if (service->GetApi() == renderer.get())
             service->UnRegister();

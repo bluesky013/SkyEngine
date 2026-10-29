@@ -4,12 +4,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <framework/window/IWindowEvent.h>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace sky {
+    enum class EventPollMode : uint8_t;
 
     // Kept independent of the NDK so lifecycle and input semantics are tested on the host.
     enum class AndroidLifecycleEvent { RESUME, PAUSE, FOCUS_GAINED, FOCUS_LOST, SURFACE_AVAILABLE, SURFACE_LOST, DESTROY };
@@ -21,6 +23,7 @@ namespace sky {
         bool     HasFocus() const;
         bool     IsDestroyed() const;
         uint64_t GetEpoch() const;
+        int      GetPollTimeout(EventPollMode mode) const;
 
     private:
         bool     resumed   = false;

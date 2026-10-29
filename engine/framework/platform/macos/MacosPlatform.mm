@@ -222,7 +222,7 @@ namespace sky {
         [pasteboard setString:[NSString stringWithUTF8String:text.c_str()] forType:NSPasteboardTypeString];
     }
 
-    void MacosPlatform::PollEvent(bool &exit)
+    void MacosPlatform::PollEvent(bool &exit, EventPollMode)
     {
         // Drain the previous frame's pool and open a fresh one so autoreleased
         // objects created anywhere during this frame are reclaimed on the next

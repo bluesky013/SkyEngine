@@ -32,7 +32,7 @@ namespace sky {
         void  FreeClipBoardText(char *text) override;
         void  SetClipBoardText(const std::string &text) override;
 
-        void PollEvent(bool &exit) override;
+        void PollEvent(bool &exit, EventPollMode mode = EventPollMode::WAIT_IF_INACTIVE) override;
 
         bool ShowOpenFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) override;
         bool ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title, const std::string &filter) override;

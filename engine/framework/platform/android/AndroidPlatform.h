@@ -29,7 +29,7 @@ namespace sky {
         void     Launch();
         bool     IsFrameActive() const override;
         uint64_t GetFrameEpoch() const override;
-        void     PollEvent(bool &exit) override;
+        void     PollEvent(bool &exit, EventPollMode mode = EventPollMode::WAIT_IF_INACTIVE) override;
         void     StartTextInput() override;
         void     StopTextInput() override;
 

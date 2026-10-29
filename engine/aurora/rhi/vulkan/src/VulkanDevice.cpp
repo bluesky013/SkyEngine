@@ -5,6 +5,7 @@
 #include <VulkanDevice.h>
 #include <common/FrameTransientPool.h>
 
+#include "VulkanDeviceCapabilities.h"
 #include "rdg/VulkanRenderPassCache.h"
 #include <VulkanCommandPool.h>
 #include <VulkanConversion.h>
@@ -23,16 +24,6 @@ static const char *TAG                          = "AuroraVulkan";
 static const char *PORTABILITY_SUBSET_EXTENSION = "VK_KHR_portability_subset";
 
 namespace sky::aurora {
-
-    static bool HasDeviceExtension(const std::vector<VkExtensionProperties> &extensions, const char *name)
-    {
-        for (const auto &extension : extensions) {
-            if (std::strcmp(extension.extensionName, name) == 0) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     VulkanDevice::VulkanDevice(VulkanInstance &inst)
         : transientPool(std::make_unique<FrameTransientPool>(*this)), renderPassCache(std::make_unique<VulkanRenderPassCache>(*this)), instance(inst)
@@ -69,6 +60,9 @@ namespace sky::aurora {
         const auto &instFn = instance.GetInstanceFn();
         instFn.vkGetPhysicalDeviceProperties2(gpu, &gpuProperties);
         instFn.vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
+        const auto apiVersion = gpuProperties.properties.apiVersion;
+        LOG_I(TAG, "physical device Vulkan API: %u.%u.%u", VK_API_VERSION_MAJOR(apiVersion), VK_API_VERSION_MINOR(apiVersion),
+              VK_API_VERSION_PATCH(apiVersion));
 
         if (!CreateDevice()) {
             return false;
@@ -85,7 +79,7 @@ namespace sky::aurora {
     void VulkanDevice::UpdateDeviceCaps()
     {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
-        capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
+        capability.anisotropyEnable = gpuFeatures.samplerAnisotropy == VK_TRUE;
 
         capability.minUniformBufferOffsetAlignment = gpuProperties.properties.limits.minUniformBufferOffsetAlignment;
         capability.minStorageBufferOffsetAlignment = gpuProperties.properties.limits.minStorageBufferOffsetAlignment;
@@ -139,6 +133,16 @@ namespace sky::aurora {
         for (const auto &extension : supportedExtensions) {
             LOG_I(TAG, "device extension: %s (spec %u)", extension.extensionName, extension.specVersion);
         }
+        VulkanDeviceNegotiation negotiated;
+        if (const auto *error = NegotiateVulkanDevice(instFn.vkGetPhysicalDeviceFeatures2, gpu, gpuProperties.properties.apiVersion,
+                                                      supportedExtensions, negotiated)) {
+            LOG_E(TAG, "%s", error);
+            return false;
+        }
+        gpuFeatures       = negotiated.core.features;
+        dynamicRendering  = negotiated.dynamicRendering;
+        renderPass2       = negotiated.renderPass2;
+        enabledExtensions = negotiated.extensions;
 
         // enumerate queue families
         uint32_t queueFamilyCount = 0;
@@ -212,16 +216,12 @@ namespace sky::aurora {
 
         // device extensions
         enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        if (HasDeviceExtension(supportedExtensions, PORTABILITY_SUBSET_EXTENSION)) {
+        if (HasVulkanDeviceExtension(supportedExtensions, PORTABILITY_SUBSET_EXTENSION)) {
             enabledExtensions.push_back(PORTABILITY_SUBSET_EXTENSION);
         }
 
-        for (const char *extension : enabledExtensions) {
-            LOG_I(TAG, "enabled device extension: %s", extension);
-        }
-
         VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
-        if (instance.HasSurfaceMaintenance() && HasDeviceExtension(supportedExtensions, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+        if (instance.HasSurfaceMaintenance() && HasVulkanDeviceExtension(supportedExtensions, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
             VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
             queried.pNext = &maintenance;
             instFn.vkGetPhysicalDeviceFeatures2(gpu, &queried);
@@ -229,41 +229,22 @@ namespace sky::aurora {
             if (swapchainMaintenance)
                 enabledExtensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
         }
-        QueryDeviceFeatures();
+        for (const char *extension : enabledExtensions)
+            LOG_I(TAG, "enabled device extension: %s", extension);
+        LOG_I(TAG, "enabled rendering paths: dynamic=%u render-pass2=%u", dynamicRendering, renderPass2);
 
-        if (vkFeature13.dynamicRendering == VK_FALSE) {
-            LOG_E(TAG, "selected GPU does not support dynamicRendering, but AuroraVulkan requires vkCmdBeginRendering");
-            return false;
+        VkPhysicalDeviceFeatures enabledCoreFeatures{};
+        enabledCoreFeatures.samplerAnisotropy = gpuFeatures.samplerAnisotropy;
+        if (swapchainMaintenance) {
+            if (dynamicRendering)
+                negotiated.rendering.pNext = &maintenance;
+            else
+                negotiated.synchronization.pNext = &maintenance;
         }
-        if (vkFeature13.synchronization2 == VK_FALSE) {
-            LOG_E(TAG, "selected GPU does not support synchronization2, but AuroraVulkan requires vkQueueSubmit2");
-            return false;
-        }
-        if (vkFeature12.timelineSemaphore == VK_FALSE) {
-            LOG_E(TAG, "selected GPU does not support timelineSemaphore, but AuroraVulkan requires timeline semaphores");
-            return false;
-        }
-
-        VkPhysicalDeviceFeatures enabledCoreFeatures      = {};
-        enabledCoreFeatures.samplerAnisotropy             = gpuFeatures.features.samplerAnisotropy;
-        VkPhysicalDeviceVulkan11Features enabledFeature11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-        VkPhysicalDeviceVulkan12Features enabledFeature12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-        VkPhysicalDeviceVulkan13Features enabledFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-        VkPhysicalDeviceVulkan14Features enabledFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
-        enabledFeature12.timelineSemaphore                = VK_TRUE;
-        enabledFeature13.dynamicRendering                 = VK_TRUE;
-        enabledFeature13.synchronization2                 = VK_TRUE;
-        // slang-emitted SPIRV declares DrawParameters for SV_VertexID etc.
-        enabledFeature11.shaderDrawParameters = vkFeature11.shaderDrawParameters;
-        enabledFeature11.pNext                = &enabledFeature12;
-        enabledFeature12.pNext                = &enabledFeature13;
-        enabledFeature13.pNext                = &enabledFeature14;
-        if (swapchainMaintenance)
-            enabledFeature14.pNext = &maintenance;
 
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pNext                   = &enabledFeature11;
+        createInfo.pNext                   = &negotiated.draw;
         createInfo.queueCreateInfoCount    = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos       = queueCreateInfos.data();
         createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
@@ -277,7 +258,11 @@ namespace sky::aurora {
         }
 
         // Load device-level function pointers
-        LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn);
+        LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn, gpuProperties.properties.apiVersion, dynamicRendering, renderPass2);
+        if (!HasVulkanRequiredFunctions(deviceFn, dynamicRendering, renderPass2)) {
+            LOG_E(TAG, "enabled Vulkan features have missing device commands");
+            return false;
+        }
 
         // retrieve queues
         VkQueue graphicsQueue = VK_NULL_HANDLE;
@@ -309,7 +294,7 @@ namespace sky::aurora {
         allocatorCI.pVulkanFunctions       = &vulkanFunctions;
         allocatorCI.vulkanApiVersion       = gpuProperties.properties.apiVersion;
 #if SKY_PLATFORM_ANDROID
-        // Android's allocator uses the same 1.3 contract as Aurora's required device features.
+        // Android's VMA build supports API versions through 1.3.
         allocatorCI.vulkanApiVersion = std::min(allocatorCI.vulkanApiVersion, VK_API_VERSION_1_3);
 #endif
 
@@ -319,16 +304,6 @@ namespace sky::aurora {
             return false;
         }
         return true;
-    }
-
-    void VulkanDevice::QueryDeviceFeatures()
-    {
-        // query supported features via pNext chain
-        gpuFeatures.pNext = &vkFeature11;
-        vkFeature11.pNext = &vkFeature12;
-        vkFeature12.pNext = &vkFeature13;
-        vkFeature13.pNext = &vkFeature14;
-        instance.GetInstanceFn().vkGetPhysicalDeviceFeatures2(gpu, &gpuFeatures);
     }
 
     uint32_t VulkanDevice::GetQueueFamilyIndex(QueueType type) const

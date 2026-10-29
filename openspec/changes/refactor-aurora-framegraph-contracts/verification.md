@@ -2,7 +2,25 @@
 
 Date: 2026-10-27. Host: macOS, Intel Iris Plus Graphics 655. Existing Xcode Debug build and `3RD_PATH=build_3rd/MacOS-x86` were preserved. No commit, archive, target ownership or directory migration was performed.
 
-## Build
+## Physical Android compatibility follow-up — physics/package scope passed
+
+Date: 2026-10-28. Evidence is under `build_ios/projects/AndroidPhysicsDemo/validation`; `validation-report.json` is the consolidated record. This follow-up is distinct from the original host evidence below and from the earlier emulator fixture. Its acceptance is limited to package integrity, native compatibility, observed physics behavior and the measured presentation interval; visual-quality and validation-clean acceptance remain open.
+
+The first physical launch failed at the unconditional dynamic-rendering requirement. The selected Adreno (TM) 725 reports physical Vulkan 1.1.128, while the loader reports 1.3.0. The existing backend now negotiates the actual core/KHR features and commands, preserving mandatory timeline/synchronization2 rather than forcing feature bits. Runtime logging confirms `dynamic=0`, `render-pass2=1` and `frame compiler: render-pass` for AUTO. Explicit-mode and unsupported direct-rendering rejection remain enforced.
+
+The final arm64 Debug/static APK is 45,422,822 bytes with SHA-256 `a47b4d26afae3b9ae316e79cde9fa026205a1b159d89860795868e5d990d6004`. All 40 archive checks passed: SDK signature/manifest and ABI, ELF dependency closure, flat product identity/version/length/checksum, complete binary World/source correspondence, shader inventory/bytes, Jolt license and source/compiler/builder/group/scratch exclusion. The World has seven actors, 18 components and four bodies (one static ground and three dynamic boxes). The 54 actual shader blobs contain SPIR-V 1.3 and all passed the SDK validator with `--target-env vulkan1.1`; metadata was not merely relabeled. Evidence: `apk-audit.json`, `apk-vulkan11-audit.log`, `package-vulkan11.log` and `spirv13-validation/report.json`.
+
+The final host checks passed 119 selected native/C++ executions: RHI 31, actual Slang baseline compilation 2, Core 6, Adaptor 78 and native Metal context 2, with no failures or skips. The interface-only renderer contract exited 0. Python compatibility checks passed 30; the source-ownership gate passed 25 with one skip. Evidence: `compat-rhi-tests.xml/.log`, `compat-shader-tests.xml/.log`, `compat-core-tests.xml/.log`, `compat-adaptor-tests-final.xml/.log`, `compat-metal-context-tests.xml/.log`, `compat-renderer-contract.log`, `compat-python-tests.log` and `compat-source-ownership-tests.log`. The first Adaptor run had 77/78 passes: its new test reused a module after Shutdown had released its injected fake provider, inadvertently requesting explicit RenderPass from real Metal. The fixture now recreates that fake provider/module; the final 78/78 run passed without changing Metal's correct rejection or weakening the assertion. The initial failed log/XML remain intact and are not counted as passes.
+
+The physical run lasted 121.478 seconds with the same PID 9540. At t=8.000 seconds the observer reported all three boxes had fallen and settled, with center heights `[0.4800, 0.4902, 0.4800]`; no physics FAIL log was recorded. At t=120 seconds it still reported four bodies, zero active bodies, the same heights and 7176 physics steps. Steady-state samples from 20 through 120 seconds show RSS 282036-282044 KiB. This is a bounded observation, not a general absence-of-leaks proof.
+
+Presentation progress was measured separately: `presentation-progress.json` contains four successful observations of the same BLAST SurfaceView over 15.297 seconds, with strictly increasing real presentation timestamps from 53906650534122 to 53921878547085 ns. The driver's initial surface query failed and is retained separately; the physics/memory run is not relabeled as 120 seconds of presentation sampling. Scene captures and observer logs establish the scoped physics result, not complete image-quality acceptance.
+
+Known limits remain: shadow striping is visible on cube faces and has not been isolated by controlled A/B; the legacy shadow algorithm was not changed in this follow-up. `VKDBGUTILWARN003` appears 72037 times, and the Khronos validation layer is unavailable, so this is not a validation-clean claim. BACK was consumed without exiting the application; final ADB force-stop stopped it, rather than demonstrating graceful application shutdown. `device-cleanup.json` records restored screen timeout 60000 ms, stay-awake setting 0 and removal of the probe. Runtime/termination evidence is in `device-runtime-driver.log`, `device-runtime-exit.log`, `runtime-logcat.log`, `runtime-progress.json` and `validation-report.json`.
+
+Android Back, graceful shutdown and same-process recreation were subsequently fixed and independently verified in [fix-android-application-lifecycle](../fix-android-application-lifecycle/verification.md). That later result does not replace this artifact's historical termination or visual-quality evidence.
+
+## Original host build — 2026-10-27
 
 Third-party preflight reported zero missing/stale packages and zero missing outputs. Reconfigured the existing `cmake-build-debug` for new sources and removed APIs.
 
@@ -10,7 +28,7 @@ Built `Aurora.RHITest`, `Aurora.CoreTest`, `Aurora.PipelineTest`, `Aurora.Adapto
 
 The initial sandboxed Xcode attempt could not write DerivedData, and sandboxed Metal could not obtain a system device. The approved normal-access build/test runs succeeded. Those infrastructure failures are retained in the initial logs and are not counted as successful tests.
 
-## Current regression evidence
+## Original regression evidence
 
 | Suite | Result | Evidence under cmake-build-debug |
 |---|---|---|

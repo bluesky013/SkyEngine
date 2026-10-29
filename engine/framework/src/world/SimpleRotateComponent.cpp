@@ -17,7 +17,7 @@ namespace sky {
         REGISTER_BEGIN(SimpleRotateComponent, context)
         REGISTER_MEMBER(Speed, SetSpeed, GetSpeed) SET_REPLICATED();
 
-        ComponentFactory::Get()->RegisterComponent<SimpleRotateComponent>("Base");
+        ComponentFactory::Get()->RegisterComponent<SimpleRotateComponent>(*context, "Base");
     }
 
     void SimpleRotateComponent::Tick(float time)

@@ -98,12 +98,11 @@ namespace {
                 return true;
             }
             if (moduleManager) {
-                // Builder modules register the concrete AssetBuilders; missing DLLs are
-                // skipped by ModuleManager and cooks then fail observably.
+                // Builders consume their existing metadata owners; missing modules fail initialization.
                 moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {"Aurora.Metadata"}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
 #if SKY_HAS_JOLT_BUILDER
-                moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {}});
+                moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {"JoltPhysicsModule"}});
 #endif
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});

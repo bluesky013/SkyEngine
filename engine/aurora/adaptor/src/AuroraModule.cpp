@@ -135,7 +135,7 @@ namespace sky::aurora {
     {
         mApi            = API::DEFAULT;
         providerOnly    = false;
-        vulkanMode      = RendererVulkanMode::DYNAMIC_RENDERING;
+        vulkanMode      = RendererVulkanMode::AUTO;
         shaderUsagePath = {};
         CmdOptions options("Aurora Render Module", "Aurora Render Module");
         options.allow_unrecognised_options();
@@ -150,7 +150,7 @@ namespace sky::aurora {
 
         auto result  = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
         providerOnly = result.count("aurora-provider-only") != 0u;
-        vulkanMode   = result.count("aurora-vulkan-render-pass") ? RendererVulkanMode::RENDER_PASS : RendererVulkanMode::DYNAMIC_RENDERING;
+        vulkanMode   = result.count("aurora-vulkan-render-pass") ? RendererVulkanMode::RENDER_PASS : RendererVulkanMode::AUTO;
         if (result.count("rhi") != 0u) {
             mApi = ParseApi(result["rhi"].as<std::string>());
         }

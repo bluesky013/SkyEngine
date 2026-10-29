@@ -46,12 +46,12 @@ namespace sky::aurora {
         Fence     *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer          *CreateBuffer(const Buffer::Descriptor &desc) override;
-        Image           *CreateImage(const Image::Descriptor &desc) override;
-        Sampler         *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroup   *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
-        DescriptorHeap  *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
-        SwapChain       *CreateSwapChain(const SwapChain::Descriptor &desc) override;
+        Buffer         *CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image          *CreateImage(const Image::Descriptor &desc) override;
+        Sampler        *CreateSampler(const Sampler::Descriptor &desc) override;
+        ResourceGroup  *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorHeap *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
+        SwapChain      *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader           *CreateShader(const Shader::Descriptor &desc) override;
@@ -120,9 +120,19 @@ namespace sky::aurora {
         {
             return swapchainMaintenance;
         }
+        bool SupportsDynamicRendering() const noexcept
+        {
+            return dynamicRendering;
+        }
+        bool SupportsRenderPass2() const noexcept
+        {
+            return renderPass2;
+        }
 
     private:
         bool                                   swapchainMaintenance = false;
+        bool                                   dynamicRendering     = false;
+        bool                                   renderPass2          = false;
         std::unique_ptr<FrameTransientPool>    transientPool;
         FramePipelineCache                     pipelineCache;
         std::unique_ptr<VulkanRenderPassCache> renderPassCache;
@@ -137,7 +147,6 @@ namespace sky::aurora {
 
         bool CreateDevice();
         bool CreateAllocator();
-        void QueryDeviceFeatures();
 
         VulkanInstance &instance;
 
@@ -154,12 +163,7 @@ namespace sky::aurora {
 
         VkPhysicalDeviceProperties2 gpuProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 
-        // features;
-        VkPhysicalDeviceFeatures2        gpuFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-        VkPhysicalDeviceVulkan11Features vkFeature11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-        VkPhysicalDeviceVulkan12Features vkFeature12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-        VkPhysicalDeviceVulkan13Features vkFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-        VkPhysicalDeviceVulkan14Features vkFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+        VkPhysicalDeviceFeatures gpuFeatures = {};
 
         // memory properties
         VkPhysicalDeviceMemoryProperties memoryProperties = {};

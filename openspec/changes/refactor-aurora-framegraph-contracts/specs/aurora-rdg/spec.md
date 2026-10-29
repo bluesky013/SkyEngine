@@ -231,3 +231,66 @@ Dispatch SHALL 在 backend 下转型前同时验证 public identity 与 exact is
 #### Scenario: 编码启动后失败
 - **WHEN** Dispatch 已消费合法 plan，但 native recording 失败
 - **THEN** collection 报告失败而不发布成功 receipt；调用方无需保留或手动 reset 已消费 plan，按既有未提交协议安全清理
+
+### Requirement: Vulkan 独立 compiler 与对应 encoder
+
+Vulkan SHALL 提供 RenderPass 与 Dynamic Rendering 两套完整 compiler，各自构建 native scope、同步和匹配 PSO，并输出自身 encoder 程序。模式 SHALL 在 DeviceFrameContext 创建时确定并在该 context 生命周期内固定；Dispatch SHALL 仅接受匹配 context、lease 和模式的计划。公共纯分析、资源核验及底层命令辅助 MAY 复用；不能只在共享 encoder 的 Begin/End 中分支来代替两套 compiler。未支持的 attachment、binding、copy region 或并行模式 SHALL 明确报告，不得静默降为无操作。
+
+RendererVulkanMode 与 VulkanFrameGraphMode SHALL 保留显式 DYNAMIC_RENDERING=0、RENDER_PASS=1，并追加 AUTO=2 作为默认。AUTO SHALL 在 context 初始化时按实际已启用的 dynamic-rendering 能力优先选择 Dynamic Rendering，否则选择已有合法 RenderPass compiler；解析后的模式在 context 生命周期内固定。显式 Dynamic Rendering 在设备缺少该能力时 SHALL 返回 Unsupported，不得替换为 AUTO 或 RenderPass。非法枚举 SHALL 在后端设备获取/命令录制前拒绝；非 Vulkan 后端 SHALL 接受默认 AUTO 而不得接受 Vulkan 专属 RenderPass 请求。
+
+#### Scenario: 同一图的两套 native 编译
+- **WHEN** 同一受支持的 upload、CLEAR/LOAD/STORE raster 和 readback 图分别交给两种模式
+- **THEN** RenderPass 计划使用 native render pass/subpass/framebuffer 和匹配的 PSO；Dynamic Rendering 计划使用 rendering scopes、显式 image barriers 和格式匹配的 PSO；两者读回同样内容
+
+#### Scenario: 多 logical pass 的 scope 组织
+- **WHEN** 相邻 raster passes 具备兼容 attachments 且存在经验证的合法合并与同步方案
+- **THEN** RenderPass compiler 可将其映射为一个 native render pass 的多个 subpasses，Dynamic Rendering compiler 独立选择 scopes；两者保留 logical 映射和 LOAD/STORE 内容语义，不兼容或不能合法同步时拆分或返回明确错误
+
+#### Scenario: 单 attachment 合并与中间 copy 对照
+- **WHEN** 连续 raster 使用同一完整 color attachment，前项 STORE、后项 LOAD，且仅含受支持的普通绘制/混合
+- **THEN** RenderPass 可使用首项 load/clear、末项 store 和有序 subpass 依赖合并；实际读回应与中间插入 copy 而拆分的参考路径一致，Dynamic Rendering 保持自己的 scope/barrier 方案
+
+#### Scenario: CLEAR 和丢弃内容不被合并掩盖
+- **WHEN** 存活序列中出现重新 CLEAR、attachment 切换、copy，或 STORE_DONT_CARE 后又 LOAD
+- **THEN** 前三者形成合法的 scope 边界；丢弃内容后的读取在编译时被拒绝，不能靠省掉 store/load 使未定义内容伪装有效
+
+#### Scenario: RenderPass 合并比较附件 view
+- **WHEN** 连续 raster 使用同一 color/depth image，但任一附件选择不同 mip 或 layer
+- **THEN** 不合并为同一 framebuffer scope；只有逻辑附件、各自 view 和 STORE/LOAD 连续性均匹配才可合并，各 scope 从所选 cell 的实际状态进入并更新该 cell
+
+#### Scenario: 各后端保留每次 color resolve 的结果
+- **WHEN** 连续 MSAA raster passes 分别声明 resolve，且后续消费者读取任一结果
+- **THEN** Vulkan 两个 compiler 各自构建原生附件 resolve，RenderPass 当前不合并带 resolve 的 pass；DX12 在该 pass 全部 raster fragments 之后按顺序执行 resolve，源/目标使用正确子资源和状态，不能被后一次 resolve 替代；PSO 与 inheritance 的 samples 匹配 color storage
+
+#### Scenario: 模式对应的 secondary inheritance
+- **WHEN** 计划声明 secondary 编码任务
+- **THEN** RenderPass 计划提供匹配 render pass、subpass 和 framebuffer 约束的 inheritance；Dynamic Rendering 计划提供匹配 formats、samples 和 view mask 的 rendering inheritance；不匹配在任务入队前被拒绝
+
+#### Scenario: local read 能力不足
+- **WHEN** 图的 attachment 局部读取语义依赖当前模式未启用或设备不支持的能力
+- **THEN** compiler 仅可选择满足同等声明语义的合法拆分方案，否则返回 Unsupported，不能静默忽略读取或套用另一模式的能力
+
+#### Scenario: shader local read 与普通 LOAD 区分
+- **WHEN** 单 color raster 声明 colorLocalRead
+- **THEN** 声明要求 LOAD 并保留输入内容依赖；缺少该模式的 local-read 编译/绑定能力时返回 Unsupported，普通 LOAD 或 blend 不自动要求 shader local read
+
+#### Scenario: 后续 subpass 的 PSO 创建失败
+- **WHEN** 同一个 scope 已创建 native 对象和前一个 subpass 的 PSO，而后续 PSO 创建失败
+- **THEN** 返回带原生错误码的编译失败，释放已创建的 pipeline/framebuffer/render pass，不保留阻止 slot 被丢弃的计划借用
+
+#### Scenario: 编译对象生命周期
+- **WHEN** 外部 graph/shader/image 引用在 Compile 后释放，计划随后 Dispatch/Submit
+- **THEN** pipeline、render pass、framebuffer 及其依赖保持有效至 GPU 完成；取消或编译失败及时销毁未提交对象，不遗留 slot 借用；device lost 使 context 停止接受新工作
+
+
+#### Scenario: 自动选择已有 RenderPass compiler
+- **WHEN** Vulkan 设备具有基础同步和 RenderPass 所需能力，但不支持 dynamic rendering，调用方使用默认 AUTO
+- **THEN** context 选择已有 RenderPass compiler，绘制/PSO/secondary inheritance 使用该路径，且不调用 dynamic-rendering 命令
+
+#### Scenario: 保留显式模式含义
+- **WHEN** 调用方显式选择 DYNAMIC_RENDERING 或 RENDER_PASS
+- **THEN** 前者必须验证实际 dynamic-rendering 能力，不支持则明确失败；后者始终选择已有 RenderPass 路径并验证其能力，不以 AUTO 替代
+
+#### Scenario: 非法模式不进入设备初始化
+- **WHEN** renderer 或 frame-context 配置包含未知 Vulkan mode 数值
+- **THEN** 配置被明确拒绝，不把未知值解释为 AUTO 或 Dynamic Rendering

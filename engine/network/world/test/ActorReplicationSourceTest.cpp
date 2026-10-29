@@ -79,7 +79,6 @@ namespace {
     public:
         void SetUp() override
         {
-            World::Reflect(SerializationContext::Get());
             ReplComponent::Reflect(SerializationContext::Get());
         }
     };

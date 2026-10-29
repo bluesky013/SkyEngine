@@ -35,6 +35,7 @@ namespace sky {
 
     public:
         using Callback = std::function<void()>;
+        enum class ReleaseResult { RELEASED, INVALID_ROLE, NOT_OWNER, DISPATCHING, PENDING_CALLBACKS };
 
         void Post(ThreadRole role, Callback callback)
         {
@@ -49,24 +50,51 @@ namespace sky {
         }
 
         // Owner-thread only: swap the queue to a local batch (O(1)) and run outside the lock.
-        void Dispatch(ThreadRole role)
+        size_t Dispatch(ThreadRole role)
         {
-            const size_t     index = static_cast<size_t>(role);
-            std::thread::id &owner = ownerThread[index];
-            if (owner == std::thread::id{}) {
-                owner = std::this_thread::get_id();
-            }
-            SKY_ASSERT(owner == std::this_thread::get_id() && "Dispatch must run on the role's owner thread");
-
-            Queue                 &queue = queues[index];
+            Queue                &queue = queues[static_cast<size_t>(role)];
             std::vector<Callback> batch;
             {
                 std::lock_guard<std::mutex> lock(queue.mutex);
+                if (queue.owner == std::thread::id{}) {
+                    queue.owner = std::this_thread::get_id();
+                }
+                SKY_ASSERT(queue.owner == std::this_thread::get_id() && "Dispatch must run on the role's owner thread");
+                ++queue.dispatchDepth;
                 batch.swap(queue.pending);
             }
+            const auto count = batch.size();
             for (auto &callback : batch) {
                 callback();
             }
+            batch.clear();
+            {
+                std::lock_guard<std::mutex> lock(queue.mutex);
+                --queue.dispatchDepth;
+            }
+            return count;
+        }
+
+        // The owner releases a quiescent role after its session's producers and callbacks have drained.
+        ReleaseResult ReleaseRole(ThreadRole role)
+        {
+            const auto index = static_cast<size_t>(role);
+            if (index >= queues.size()) {
+                return ReleaseResult::INVALID_ROLE;
+            }
+            auto                       &queue = queues[index];
+            std::lock_guard<std::mutex> lock(queue.mutex);
+            if (queue.owner != std::thread::id{} && queue.owner != std::this_thread::get_id()) {
+                return ReleaseResult::NOT_OWNER;
+            }
+            if (queue.dispatchDepth != 0) {
+                return ReleaseResult::DISPATCHING;
+            }
+            if (!queue.pending.empty()) {
+                return ReleaseResult::PENDING_CALLBACKS;
+            }
+            queue.owner = {};
+            return ReleaseResult::RELEASED;
         }
 
         // Shutdown: drop all queued callbacks. Call only after workers are joined (no further Post).
@@ -82,10 +110,11 @@ namespace sky {
         struct Queue {
             std::mutex            mutex;
             std::vector<Callback> pending;
+            std::thread::id       owner;
+            size_t                dispatchDepth = 0;
         };
 
-        std::array<Queue, static_cast<size_t>(ThreadRole::Count)>           queues;
-        std::array<std::thread::id, static_cast<size_t>(ThreadRole::Count)> ownerThread{};
+        std::array<Queue, static_cast<size_t>(ThreadRole::Count)> queues;
     };
 
 } // namespace sky

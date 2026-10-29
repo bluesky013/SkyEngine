@@ -4,6 +4,8 @@
 
 #include <VulkanFunctions.h>
 
+#include "VulkanDeviceCapabilities.h"
+
 #if defined(_WIN32)
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
@@ -49,11 +51,10 @@ namespace sky::aurora {
         }
 
 #if defined(_WIN32)
-        fn.vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
-            GetProcAddress(static_cast<HMODULE>(g_vulkanLibrary), "vkGetInstanceProcAddr"));
+        fn.vkGetInstanceProcAddr =
+            reinterpret_cast<PFN_vkGetInstanceProcAddr>(GetProcAddress(static_cast<HMODULE>(g_vulkanLibrary), "vkGetInstanceProcAddr"));
 #else
-        fn.vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
-            dlsym(g_vulkanLibrary, "vkGetInstanceProcAddr"));
+        fn.vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(g_vulkanLibrary, "vkGetInstanceProcAddr"));
 #endif
         if (fn.vkGetInstanceProcAddr == nullptr) {
             UnloadVulkanLibrary();
@@ -61,11 +62,13 @@ namespace sky::aurora {
         }
 
         // Load global-level functions via vkGetInstanceProcAddr(VK_NULL_HANDLE, ...)
-        const auto gipa = fn.vkGetInstanceProcAddr;
-        fn.vkEnumerateInstanceVersion             = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
-        fn.vkEnumerateInstanceExtensionProperties = reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceExtensionProperties"));
-        fn.vkEnumerateInstanceLayerProperties     = reinterpret_cast<PFN_vkEnumerateInstanceLayerProperties>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceLayerProperties"));
-        fn.vkCreateInstance                       = reinterpret_cast<PFN_vkCreateInstance>(gipa(VK_NULL_HANDLE, "vkCreateInstance"));
+        const auto gipa               = fn.vkGetInstanceProcAddr;
+        fn.vkEnumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
+        fn.vkEnumerateInstanceExtensionProperties =
+            reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceExtensionProperties"));
+        fn.vkEnumerateInstanceLayerProperties =
+            reinterpret_cast<PFN_vkEnumerateInstanceLayerProperties>(gipa(VK_NULL_HANDLE, "vkEnumerateInstanceLayerProperties"));
+        fn.vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(gipa(VK_NULL_HANDLE, "vkCreateInstance"));
 
         return true;
     }
@@ -82,9 +85,7 @@ namespace sky::aurora {
         }
     }
 
-    void LoadInstanceFunctions(PFN_vkGetInstanceProcAddr gipa,
-                               VkInstance instance,
-                               VulkanInstanceFunctions &fn)
+    void LoadInstanceFunctions(PFN_vkGetInstanceProcAddr gipa, VkInstance instance, VulkanInstanceFunctions &fn)
     {
 #define LOAD_INSTANCE(name) fn.name = reinterpret_cast<PFN_##name>(gipa(instance, #name))
         LOAD_INSTANCE(vkDestroyInstance);
@@ -124,9 +125,8 @@ namespace sky::aurora {
 #undef LOAD_INSTANCE
     }
 
-    void LoadDeviceFunctions(PFN_vkGetDeviceProcAddr gdpa,
-                             VkDevice device,
-                             VulkanDeviceFunctions &fn)
+    void LoadDeviceFunctions(
+        PFN_vkGetDeviceProcAddr gdpa, VkDevice device, VulkanDeviceFunctions &fn, uint32_t apiVersion, bool dynamicRendering, bool renderPass2)
     {
 #define LOAD_DEVICE(name) fn.name = reinterpret_cast<PFN_##name>(gdpa(device, #name))
         LOAD_DEVICE(vkDestroyDevice);
@@ -141,9 +141,6 @@ namespace sky::aurora {
 
         LOAD_DEVICE(vkCreateSemaphore);
         LOAD_DEVICE(vkDestroySemaphore);
-        LOAD_DEVICE(vkGetSemaphoreCounterValue);
-        LOAD_DEVICE(vkWaitSemaphores);
-        LOAD_DEVICE(vkSignalSemaphore);
 
         LOAD_DEVICE(vkCreateCommandPool);
         LOAD_DEVICE(vkDestroyCommandPool);
@@ -184,7 +181,6 @@ namespace sky::aurora {
         LOAD_DEVICE(vkDestroyImage);
 
         LOAD_DEVICE(vkQueueSubmit);
-        LOAD_DEVICE(vkQueueSubmit2);
         LOAD_DEVICE(vkQueueWaitIdle);
         LOAD_DEVICE(vkQueuePresentKHR);
 
@@ -195,16 +191,9 @@ namespace sky::aurora {
         LOAD_DEVICE(vkAcquireNextImageKHR);
         LOAD_DEVICE(vkReleaseSwapchainImagesEXT);
 
-        // dynamic rendering (Vulkan 1.3+)
-        LOAD_DEVICE(vkCmdBeginRendering);
-        LOAD_DEVICE(vkCmdEndRendering);
-        LOAD_DEVICE(vkCreateRenderPass2);
         LOAD_DEVICE(vkDestroyRenderPass);
         LOAD_DEVICE(vkCreateFramebuffer);
         LOAD_DEVICE(vkDestroyFramebuffer);
-        LOAD_DEVICE(vkCmdBeginRenderPass2);
-        LOAD_DEVICE(vkCmdNextSubpass2);
-        LOAD_DEVICE(vkCmdEndRenderPass2);
 
         // draw commands
         LOAD_DEVICE(vkCmdDraw);
@@ -232,9 +221,8 @@ namespace sky::aurora {
         LOAD_DEVICE(vkCmdBlitImage);
         LOAD_DEVICE(vkCmdResolveImage);
 
-        // synchronization
-        LOAD_DEVICE(vkCmdPipelineBarrier2);
 #undef LOAD_DEVICE
+        LoadVulkanPromotedFunctions(gdpa, device, apiVersion, dynamicRendering, renderPass2, fn);
     }
 
 } // namespace sky::aurora

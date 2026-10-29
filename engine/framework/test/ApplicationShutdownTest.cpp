@@ -1,11 +1,15 @@
+#include <core/thread/ThreadDispatcher.h>
 #include <framework/application/Application.h>
 #include <framework/asset/AssetExecutor.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/platform/Process.h>
+#include <framework/world/ComponentFactory.h>
 #include <framework/world/WorldAsset.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -192,6 +196,117 @@ namespace {
         std::vector<int> &events;
     };
 
+    struct ThreadSessionTrace {
+        std::thread::id          owner;
+        std::vector<std::string> completions;
+        bool                     offOwner = false, callbacksBeforeShutdown = false;
+    };
+
+    void QueueSessionCompletion(ThreadSessionTrace &trace, const char *phase)
+    {
+        sky::AssetExecutor::Get()->DependentAsync([&trace, phase] {
+            sky::ThreadDispatcher::Get()->PostToMain([&trace, phase] {
+                trace.offOwner |= std::this_thread::get_id() != trace.owner;
+                trace.completions.emplace_back(phase);
+            });
+        });
+    }
+
+    class ThreadSessionApplication final : public sky::Application {
+    public:
+        explicit ThreadSessionApplication(ThreadSessionTrace &trace) : trace(trace)
+        {
+        }
+
+    private:
+        bool LoadConfigs() override
+        {
+            class Module final : public sky::IModule {
+            public:
+                explicit Module(ThreadSessionTrace &trace) : trace(trace)
+                {
+                }
+                ~Module() override
+                {
+                    QueueSessionCompletion(trace, "module-destroyed");
+                }
+                void Shutdown() override
+                {
+                    trace.callbacksBeforeShutdown = trace.completions.size() == 2;
+                    QueueSessionCompletion(trace, "module-shutdown");
+                }
+                ThreadSessionTrace &trace;
+            };
+            moduleManager->AddStaticModule("ThreadSessionModule", std::make_unique<Module>(trace));
+            return true;
+        }
+        ThreadSessionTrace &trace;
+    };
+
+    int RunThreadSession()
+    {
+        ThreadSessionTrace trace;
+        trace.owner = std::this_thread::get_id();
+        {
+            ThreadSessionApplication application(trace);
+            if (!application.Init(0, nullptr)) {
+                return 11;
+            }
+            struct TickCapture {
+                explicit TickCapture(ThreadSessionTrace &trace) : trace(trace)
+                {
+                }
+                ~TickCapture()
+                {
+                    QueueSessionCompletion(trace, "tick-destroyed");
+                }
+                ThreadSessionTrace &trace;
+            };
+            auto capture = std::make_shared<TickCapture>(trace);
+            application.BindTick([capture](float) {});
+            capture.reset();
+            auto *dispatcher = sky::ThreadDispatcher::Get();
+            dispatcher->PostToMain([&] {
+                trace.completions.emplace_back("before-shutdown");
+                QueueSessionCompletion(trace, "before-child");
+            });
+            if (dispatcher->Dispatch(sky::ThreadRole::Main) != 1) {
+                return 12;
+            }
+            application.Shutdown();
+            if (!trace.callbacksBeforeShutdown || trace.completions.size() != 4) {
+                return 13;
+            }
+        }
+        std::sort(trace.completions.begin(), trace.completions.end());
+        const std::vector<std::string> expected{"before-child", "before-shutdown", "module-destroyed", "module-shutdown", "tick-destroyed"};
+        return !trace.offOwner && trace.completions == expected ? 0 : 14;
+    }
+
+    int RunThreadedApplicationSessions()
+    {
+        std::promise<void> firstFinished, secondFinished;
+        auto               firstDone  = firstFinished.get_future();
+        auto               secondDone = secondFinished.get_future();
+        std::thread::id    firstId, secondId;
+        int                firstResult = -1, secondResult = -1;
+        std::thread        first([&] {
+            firstId     = std::this_thread::get_id();
+            firstResult = RunThreadSession();
+            firstFinished.set_value();
+            secondDone.wait();
+        });
+        std::thread        second([&] {
+            firstDone.wait();
+            secondId     = std::this_thread::get_id();
+            secondResult = RunThreadSession();
+            secondFinished.set_value();
+        });
+        first.join();
+        second.join();
+        return firstId != secondId && firstResult == 0 && secondResult == 0 ? 0 : 15;
+    }
+
 } // namespace
 
 std::optional<int> RunApplicationStartupProcessHelper(int argc, char **argv)
@@ -200,35 +315,76 @@ std::optional<int> RunApplicationStartupProcessHelper(int argc, char **argv)
         return std::nullopt;
     }
     const std::string mode = argv[2];
-    if (mode != "success" && mode != "failure") {
+    if (mode == "thread-restart") {
+        return RunThreadedApplicationSessions();
+    }
+    if (mode != "success" && mode != "failure" && mode != "restart") {
         return 2;
     }
-    const bool               failStartup = mode == "failure";
-    std::vector<StartupStep> events;
-    std::vector<StartupStep> expected{StartupStep::ModuleInit, StartupStep::ModuleStart, StartupStep::StartupData, StartupStep::WorldAttached};
-    {
-        StartupApplicationProbe application(events, failStartup);
-        if (application.Init(argc, argv) == failStartup) {
-            return 3;
-        }
-        if (failStartup) {
-            expected.insert(expected.end(), {StartupStep::ApplicationShutdown, StartupStep::WorldDetached, StartupStep::ModuleShutdown});
-        } else {
-            expected.push_back(StartupStep::PostInit);
+    using Metadata                             = std::array<const sky::TypeNode *, 4>;
+    using ComponentTypes                       = std::array<const sky::ComponentFactory::ComponentInfo *, 2>;
+    const bool                 failStartup     = mode == "failure";
+    const uint32_t             sessions        = mode == "restart" ? 2 : 1;
+    sky::SerializationContext *metadataContext = nullptr;
+    Metadata                   metadata{};
+    ComponentTypes             componentTypes{};
+    size_t                     typeCount = 0;
+    for (uint32_t session = 0; session < sessions; ++session) {
+        std::vector<StartupStep> events;
+        std::vector<StartupStep> expected{StartupStep::ModuleInit, StartupStep::ModuleStart, StartupStep::StartupData, StartupStep::WorldAttached};
+        {
+            StartupApplicationProbe application(events, failStartup);
+            if (application.Init(argc, argv) == failStartup) {
+                return 3;
+            }
+            if (failStartup) {
+                expected.insert(expected.end(), {StartupStep::ApplicationShutdown, StartupStep::WorldDetached, StartupStep::ModuleShutdown});
+            } else {
+                expected.push_back(StartupStep::PostInit);
+            }
+            if (events != expected) {
+                return 4;
+            }
+            auto          *context = sky::SerializationContext::Get();
+            const Metadata currentMetadata{context->FindType("TransformData"), context->FindType("SimpleRotateData"),
+                                           context->FindType("TransformComponent"), context->FindType("SimpleRotateComponent")};
+            if (std::any_of(currentMetadata.begin(), currentMetadata.end(), [](const auto *node) { return node == nullptr; })) {
+                return 7;
+            }
+            auto                *factory = sky::ComponentFactory::Get();
+            const ComponentTypes currentComponents{factory->Find(currentMetadata[2]->info->registeredId),
+                                                   factory->Find(currentMetadata[3]->info->registeredId)};
+            if (std::any_of(currentComponents.begin(), currentComponents.end(), [](const auto *info) { return info == nullptr; })) {
+                return 8;
+            }
+            if (session != 0 && (metadataContext != context || metadata != currentMetadata || componentTypes != currentComponents ||
+                                 typeCount != context->GetAllTypes().size())) {
+                return 9;
+            }
+            metadataContext = context;
+            metadata        = currentMetadata;
+            componentTypes  = currentComponents;
+            typeCount       = context->GetAllTypes().size();
+            for (size_t index = 0; index < componentTypes.size(); ++index) {
+                const auto component = factory->Create(componentTypes[index]->typeId);
+                if (!component || component->GetPersistentDataType() != metadata[index]->info) {
+                    return 10;
+                }
+            }
+            application.Shutdown();
+            application.Shutdown();
+            if (!failStartup) {
+                expected.insert(expected.end(), {StartupStep::ApplicationShutdown, StartupStep::WorldDetached, StartupStep::ModuleShutdown});
+            }
+            if (events != expected || sky::WorldSubSystemRegistry::Get().IsRegistered(sky::Name("StartupWorldProbe"))) {
+                return 5;
+            }
         }
         if (events != expected) {
-            return 4;
-        }
-        application.Shutdown();
-        application.Shutdown();
-        if (!failStartup) {
-            expected.insert(expected.end(), {StartupStep::ApplicationShutdown, StartupStep::WorldDetached, StartupStep::ModuleShutdown});
-        }
-        if (events != expected || sky::WorldSubSystemRegistry::Get().IsRegistered(sky::Name("StartupWorldProbe"))) {
-            return 5;
+            return 6;
         }
     }
-    return events == expected ? 0 : 6;
+    return 0;
 }
 
 TEST(ApplicationShutdownTest, RuntimeStartupDataSeesServicesRegisteredByModuleStart)
@@ -239,6 +395,16 @@ TEST(ApplicationShutdownTest, RuntimeStartupDataSeesServicesRegisteredByModuleSt
 TEST(ApplicationShutdownTest, StartupDataFailureReleasesWorldBeforeModulesAndSkipsPostInit)
 {
     CheckStartupProcess("failure");
+}
+
+TEST(ApplicationShutdownTest, RecreatedApplicationsReuseBuiltinWorldMetadataAndFactories)
+{
+    CheckStartupProcess("restart");
+}
+
+TEST(ApplicationShutdownTest, RecreatedApplicationsOnDifferentThreadsDrainCallbacksBeforeReleasingMain)
+{
+    CheckStartupProcess("thread-restart");
 }
 
 TEST(ApplicationShutdownTest, OwnedStartupStateStopsOnceBeforeModulesEvenOnReentry)

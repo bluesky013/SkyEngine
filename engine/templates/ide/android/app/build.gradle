@@ -159,5 +159,5 @@ androidComponents {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.3.0'
     implementation 'com.google.android.material:material:1.4.0'
-    implementation 'androidx.games:games-activity:1.2.2'
+    implementation 'androidx.games:games-activity:4.4.2'
 }

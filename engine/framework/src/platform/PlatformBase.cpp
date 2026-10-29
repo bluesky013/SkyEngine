@@ -156,9 +156,9 @@ namespace sky {
         platform->SetTextInputRect(x, y, width, height);
     }
 
-    void Platform::PoolEvent(bool &exit)
+    void Platform::PoolEvent(bool &exit, EventPollMode mode)
     {
-        platform->PollEvent(exit);
+        platform->PollEvent(exit, mode);
     }
 
     bool Platform::IsFrameActive() const

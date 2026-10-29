@@ -82,7 +82,7 @@ namespace sky::aurora {
         bool        pumping           = false;
         bool        shutdownRequested = false;
 
-        RendererVulkanMode vulkanMode = RendererVulkanMode::DYNAMIC_RENDERING;
+        RendererVulkanMode vulkanMode = RendererVulkanMode::AUTO;
 
         API         mApi         = API::DEFAULT;
         bool        providerOnly = false;

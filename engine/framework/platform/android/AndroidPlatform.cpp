@@ -16,6 +16,10 @@
 #include <framework/window/IWindowEvent.h>
 #include <time.h>
 
+#if !defined(GAMEACTIVITY_PACKED_VERSION) || GAMEACTIVITY_PACKED_VERSION < 0x040402
+    #error "Android requires GameActivity 4.4.2 or newer for safe Activity recreation"
+#endif
+
 namespace sky {
 
     namespace {
@@ -154,7 +158,7 @@ namespace sky {
         return true;
     }
 
-    void AndroidPlatform::PollEvent(bool &exit)
+    void AndroidPlatform::PollEvent(bool &exit, EventPollMode mode)
     {
         if (app == nullptr || app->destroyRequested != 0 || lifecycle.IsDestroyed()) {
             exit = true;
@@ -163,7 +167,7 @@ namespace sky {
         if (mainWindow != nullptr && !launched) {
             Launch();
         }
-        int timeout = IsFrameActive() ? 0 : -1;
+        int timeout = lifecycle.GetPollTimeout(mode);
         while (!exit) {
             int                  events = 0;
             android_poll_source *source = nullptr;

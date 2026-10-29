@@ -119,6 +119,19 @@ class ShaderProjectTest(unittest.TestCase):
         for overrides in [{'metal': {'platform': 2}}, {'metal': {'matrixLayout': 2}}, {'metal': {'codeFormat': 1}}]:
             self.assertTrue(target_environments('ios', ['metal'], overrides)[1])
 
+    def test_android_spirv_baseline_is_13_and_zero_version_uses_the_same_default(self):
+        for overrides in (None, {'vulkan': {'minimumVersion': 0}}):
+            environments, error = target_environments('android', ['vulkan'], overrides)
+            self.assertEqual(error, '')
+            self.assertEqual(environments['vulkan']['profile'], 'spirv_1_3')
+            self.assertEqual(environments['vulkan']['minimumVersion'], 10300)
+            self.assertEqual(environments['vulkan']['requiredCapabilities'], 0)
+        for platform in ('windows', 'macos', 'linux'):
+            environments, error = target_environments(platform, ['vulkan'])
+            self.assertEqual(error, '')
+            self.assertEqual(environments['vulkan']['profile'], 'spirv_1_5')
+            self.assertEqual(environments['vulkan']['minimumVersion'], 10500)
+
     def test_same_metal_program_on_two_platforms_keeps_separate_requests(self):
         program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}]}
         entries = {}

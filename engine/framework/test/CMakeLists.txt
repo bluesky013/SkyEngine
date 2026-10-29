@@ -59,6 +59,7 @@ target_compile_definitions(FrameworkTest PRIVATE
 
 target_include_directories(FrameworkTest PRIVATE
     ${CMAKE_BINARY_DIR}/Gen
+    ${ENGINE_ROOT}/engine/templates/launcher/android/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../platform/android
     ${CMAKE_CURRENT_SOURCE_DIR}/../platform/ios)
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")

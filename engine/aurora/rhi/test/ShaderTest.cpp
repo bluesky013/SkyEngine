@@ -7,12 +7,18 @@
 #include <aurora/rhi/Shader.h>
 #include <core/archive/BinaryData.h>
 #include <cstring>
+#include <initializer_list>
 
 using namespace sky;
 using namespace sky::aurora;
 using namespace sky::aurora::test;
 
 namespace {
+
+    class ShaderArtifactProbe final : public ShaderFunction {
+    public:
+        using ShaderFunction::InitArtifact;
+    };
 
     // ---------------------------------------------------------------------------
     // Helpers
@@ -532,6 +538,66 @@ static const uint32_t SPIRV_CS[] = {
         0x00, 0x01, 0x00, 0x00, 0x00, 0x13, 0x04, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00};
 
 } // namespace
+
+TEST(ShaderEnvironmentTest, AndroidSpirvBaselineDoesNotChangeOtherPlatforms)
+{
+    const auto android = DefaultShaderEnvironment(ShaderTarget::SPIRV, ShaderPlatform::ANDROID_OS);
+    EXPECT_EQ(android.profile, "spirv_1_3");
+    EXPECT_EQ(android.minimumVersion, 10300u);
+    EXPECT_EQ(android.requiredCapabilities, 0u);
+    for (const auto platform : {ShaderPlatform::WINDOWS, ShaderPlatform::MACOS, ShaderPlatform::LINUX}) {
+        const auto environment = DefaultShaderEnvironment(ShaderTarget::SPIRV, platform);
+        EXPECT_EQ(environment.profile, "spirv_1_5");
+        EXPECT_EQ(environment.minimumVersion, 10500u);
+    }
+    for (const auto platform : {ShaderPlatform::MACOS, ShaderPlatform::IOS}) {
+        const auto environment = DefaultShaderEnvironment(ShaderTarget::MSL, platform);
+        EXPECT_EQ(environment.profile, "metallib_2_3");
+        EXPECT_EQ(environment.minimumVersion, 20300u);
+    }
+    const auto dxil = DefaultShaderEnvironment(ShaderTarget::DXIL, ShaderPlatform::WINDOWS);
+    EXPECT_EQ(dxil.profile, "sm_6_5");
+    EXPECT_EQ(dxil.minimumVersion, 60500u);
+}
+
+TEST(ShaderEnvironmentTest, RuntimeAdapterAcceptsTheCurrentPlatformBaseline)
+{
+    const auto          descriptor = MakeShaderFuncDesc(ShaderStageFlagBit::VS, MakeBinaryFromData(SPIRV_VS, sizeof(SPIRV_VS)));
+    ShaderArtifactProbe probe;
+    std::string         error;
+    ASSERT_TRUE(probe.InitArtifact(descriptor, API::VULKAN, error)) << error;
+    ASSERT_TRUE(probe.GetArtifact());
+    EXPECT_EQ(probe.GetArtifact()->identity.environment, DefaultShaderEnvironment(ShaderTarget::SPIRV));
+}
+
+TEST(ShaderEnvironmentTest, AndroidVersionGatePreservesPlatformChecksAndRejectsOld15)
+{
+    auto descriptor = MakeShaderFuncDesc(ShaderStageFlagBit::VS, MakeBinaryFromData(SPIRV_VS, sizeof(SPIRV_VS)));
+    ASSERT_TRUE(descriptor.artifact);
+    ShaderStageArtifact artifact  = *descriptor.artifact;
+    artifact.identity.environment = DefaultShaderEnvironment(ShaderTarget::SPIRV, ShaderPlatform::ANDROID_OS);
+    artifact.data[5]              = 3;
+    std::string error;
+    ASSERT_TRUE(SealShaderArtifact(artifact, error)) << error;
+    descriptor.data     = {};
+    descriptor.artifact = std::make_shared<const ShaderStageArtifact>(artifact);
+    ShaderArtifactProbe probe;
+    if (CurrentShaderPlatform() == ShaderPlatform::ANDROID_OS) {
+        ASSERT_TRUE(probe.InitArtifact(descriptor, API::VULKAN, error)) << error;
+    } else {
+        ASSERT_FALSE(probe.InitArtifact(descriptor, API::VULKAN, error));
+        EXPECT_NE(error.find("target, platform, stage or native entry"), std::string::npos);
+    }
+    const auto accepted                          = probe.GetArtifact();
+    artifact.identity.environment.profile        = "spirv_1_5";
+    artifact.identity.environment.minimumVersion = 10500;
+    artifact.data[5]                             = 5;
+    ASSERT_TRUE(SealShaderArtifact(artifact, error)) << error;
+    descriptor.artifact = std::make_shared<const ShaderStageArtifact>(artifact);
+    EXPECT_FALSE(probe.InitArtifact(descriptor, API::VULKAN, error));
+    EXPECT_NE(error.find("requirements are unsupported"), std::string::npos);
+    EXPECT_EQ(probe.GetArtifact(), accepted);
+}
 
 // ===========================================================================
 // Vulkan

@@ -203,7 +203,10 @@ namespace sky::aurora {
 
     // Loads device-level function pointers from the given VkDevice.
     void LoadDeviceFunctions(PFN_vkGetDeviceProcAddr getDeviceProcAddr,
-                             VkDevice device,
-                             VulkanDeviceFunctions &fn);
+                             VkDevice                device,
+                             VulkanDeviceFunctions  &fn,
+                             uint32_t                apiVersion,
+                             bool                    dynamicRendering,
+                             bool                    renderPass2);
 
 } // namespace sky::aurora

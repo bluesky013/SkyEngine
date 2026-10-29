@@ -111,6 +111,13 @@ namespace sky::aurora {
             }
             std::optional<RendererError> Initialize() override
             {
+                VulkanFrameGraphMode compiler;
+                switch (init.vulkanMode) {
+                case RendererVulkanMode::AUTO: compiler = VulkanFrameGraphMode::AUTO; break;
+                case RendererVulkanMode::DYNAMIC_RENDERING: compiler = VulkanFrameGraphMode::DYNAMIC_RENDERING; break;
+                case RendererVulkanMode::RENDER_PASS: compiler = VulkanFrameGraphMode::RENDER_PASS; break;
+                default: return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Invalid Vulkan compiler mode"};
+                }
                 auto acquired = instance.Acquire({"Aurora Renderer", "SkyEngine", init.enableValidation, init.backend});
                 if (const auto *error = std::get_if<GpuError>(&acquired))
                     return RendererError{error->code == GpuErrorCode::INVALID_ARGUMENT ? RendererErrorCode::NOT_READY
@@ -123,8 +130,7 @@ namespace sky::aurora {
                 info.parallelNum              = init.encodeWorkers;
                 info.deviceEpoch              = session->GetEpoch();
                 info.allocations.stagingBytes = init.maxUploadBytesPerFrame;
-                info.vulkanCompiler =
-                    init.vulkanMode == RendererVulkanMode::RENDER_PASS ? VulkanFrameGraphMode::RENDER_PASS : VulkanFrameGraphMode::DYNAMIC_RENDERING;
+                info.vulkanCompiler           = compiler;
                 context.reset(device->CreateFrameContext(info));
                 if (!context || context->GetIdentity().deviceEpoch != info.deviceEpoch)
                     return RendererError{RendererErrorCode::UNSUPPORTED, "Backend could not initialize its frame context"};
@@ -1212,25 +1218,8 @@ namespace sky::aurora {
                     std::lock_guard lock(events->mutex);
                     drainCpu = events->events.empty();
                 }
-                std::array<CpuCoordinatorEvent, 1> batch;
-                if (drainCpu && coordinator.PollEvents(batch)) {
-                    if (auto *packet = std::get_if<CpuPacketCompleted>(&batch[0])) {
-                        if (packet->application.error)
-                            events->Push(RendererFailure{packet->application.sequence, *packet->application.error});
-                        else if (packet->executionError)
-                            events->Push(RendererFailure{packet->application.sequence, *packet->executionError});
-                        else if (!packet->preparation.Succeeded())
-                            events->Push(
-                                RendererFailure{packet->application.sequence, {RendererErrorCode::INTERNAL_ERROR, packet->preparation.error}});
-                    } else {
-                        const auto &stopped = std::get<CpuCoordinatorStopped>(batch[0]);
-                        if (stopped.error) {
-                            events->failed = true;
-                            events->Push(RendererFailure{0, *stopped.error});
-                        }
-                        events->Push(RendererStopped{});
-                    }
-                }
+                if (drainCpu)
+                    detail::DrainRuntimeCompletions(coordinator, *events);
                 std::lock_guard lock(events->mutex);
                 size_t          count = 0;
                 while (count < destination.size() && !events->events.empty()) {

@@ -15,4 +15,4 @@ namespace sky::phy {
         }
     };
 } // namespace sky::phy
-REGISTER_MODULE(sky::phy::PhysicsBuilderModule)
+REGISTER_MODULE_TAGGED(sky::phy::PhysicsBuilderModule)

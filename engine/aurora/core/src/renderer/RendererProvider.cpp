@@ -12,7 +12,7 @@ namespace sky::aurora {
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Frame, queue, worker counts and resource budgets must be nonzero"};
             }
             if (info.maxPendingPackets > 64 || info.inflightFrames > 8 || info.prepareWorkers > 64 || info.encodeWorkers > 64 ||
-                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || info.vulkanMode > RendererVulkanMode::RENDER_PASS ||
+                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || info.vulkanMode > RendererVulkanMode::AUTO ||
                 info.backend > API::DX12)
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Renderer configuration exceeds supported ranges"};
             return CreateRuntimeRenderer(info);

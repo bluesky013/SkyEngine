@@ -61,6 +61,10 @@ namespace sky::aurora {
 
     bool VulkanGraphicsPipeline::Init(const Descriptor &desc)
     {
+        if (!device.SupportsDynamicRendering()) {
+            LOG_E(TAG, "direct graphics pipelines require enabled dynamic rendering");
+            return false;
+        }
         const auto &fmt = desc.format;
 
         // -- dynamic rendering path via VkPipelineRenderingCreateInfo --
@@ -94,8 +98,8 @@ namespace sky::aurora {
             return false;
         }
 
-        const auto &state    = *desc.state;
-        const auto &fmt      = desc.format;
+        const auto &state = *desc.state;
+        const auto &fmt   = desc.format;
         if (!desc.shader || desc.shader->GetDevice() != &device) {
             LOG_E(TAG, "graphics pipeline shader belongs to a different device or is missing");
             return false;
@@ -114,8 +118,8 @@ namespace sky::aurora {
 
         // ---- specialization constants (weak variants) ----
         SpecializationData vertexSpec, fragmentSpec;
-        const bool hasVertexSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::VS, vertexSpec);
-        const bool hasFragmentSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::FS, fragmentSpec);
+        const bool         hasVertexSpec   = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::VS, vertexSpec);
+        const bool         hasFragmentSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::FS, fragmentSpec);
 
         // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;

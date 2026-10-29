@@ -359,6 +359,56 @@ TEST(SlangSpikeTest, ResourceContainersFailWithoutPublishingPartialReflection)
     }
 }
 
+TEST(SlangSpikeTest, AndroidSpirv13CompilesGraphicsAndCompute)
+{
+    ShaderCompilerSlang compiler;
+    for (const auto stage : {ShaderStageFlagBit::VS, ShaderStageFlagBit::FS, ShaderStageFlagBit::CS}) {
+        SCOPED_TRACE(static_cast<uint32_t>(stage));
+        ShaderCompileDesc desc{};
+        desc.source = kSpikeShader;
+        desc.entry  = "mainFS";
+        if (stage == ShaderStageFlagBit::VS) {
+            desc.source = "float4 VertexMain(uint id : SV_VertexID) : SV_Position { return float4(float(id), 0, 0, 1); }";
+            desc.entry  = "VertexMain";
+        } else if (stage == ShaderStageFlagBit::CS) {
+            desc.source = "[numthreads(1,1,1)] void ComputeMain() {}";
+            desc.entry  = "ComputeMain";
+        }
+        desc.stage       = stage;
+        desc.target      = ShaderTarget::SPIRV;
+        desc.environment = DefaultShaderEnvironment(desc.target, ShaderPlatform::ANDROID_OS);
+        ASSERT_EQ(desc.environment.profile, "spirv_1_3");
+        ASSERT_EQ(desc.environment.minimumVersion, 10300u);
+        ShaderCompileResult result;
+        ASSERT_TRUE(compiler.Compile(desc, result)) << result.errorInfo;
+        ASSERT_GE(result.data.size(), 20u);
+        uint32_t version = 0;
+        std::memcpy(&version, result.data.data() + 4, sizeof(version));
+        EXPECT_EQ(version, 0x00010300u);
+        EXPECT_EQ(result.identity.environment, desc.environment);
+        std::string error;
+        EXPECT_TRUE(ValidateShaderArtifact(result, error)) << error;
+    }
+}
+
+TEST(SlangSpikeTest, AndroidSpirv15IsRejectedBeforePublishingCode)
+{
+    ShaderCompilerSlang compiler;
+    ShaderCompileDesc   desc{};
+    desc.source                     = "[numthreads(1,1,1)] void ComputeMain() {}";
+    desc.entry                      = "ComputeMain";
+    desc.stage                      = ShaderStageFlagBit::CS;
+    desc.target                     = ShaderTarget::SPIRV;
+    desc.environment                = DefaultShaderEnvironment(desc.target, ShaderPlatform::ANDROID_OS);
+    desc.environment.profile        = "spirv_1_5";
+    desc.environment.minimumVersion = 10500;
+    ShaderCompileResult result;
+    EXPECT_FALSE(compiler.Compile(desc, result));
+    EXPECT_TRUE(result.data.empty());
+    EXPECT_EQ(result.artifactId, 0u);
+    EXPECT_NE(result.errorInfo.find("Unsupported"), std::string::npos);
+}
+
 TEST(SlangSpikeTest, CompileSpirvWithParameterBlocks)
 {
     ShaderCompilerSlang compiler;

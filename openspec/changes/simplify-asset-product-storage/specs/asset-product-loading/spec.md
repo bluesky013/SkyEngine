@@ -44,3 +44,14 @@ A successful save SHALL allow subsequent loads to create a new immutable loaded 
 #### Scenario: Products-only inspection
 - **WHEN** a checked product is inspected with no source catalog
 - **THEN** type, dependencies, format version, checksum and payload are read from the product without loading dependencies or mutating the asset cache
+
+### Requirement: Host World cooking consumes existing component metadata owners
+When the Jolt builder is enabled, AssetTool SHALL load the existing `JoltPhysicsModule` through ModuleManager before cooking World documents containing PhysicsBody or Physics subsystem configuration. That module SHALL remain the unique metadata registration owner. The integration SHALL NOT introduce duplicate reflection, a new metadata target or module-loading protocol, or a builder target dependency on runtime/adaptor implementation. Physics schema and config validation SHALL apply to each target platform cooked by the host tool.
+
+#### Scenario: Physics World cooked for mobile targets
+- **WHEN** the host tool cooks a complete authored PhysicsBody and Physics subsystem config for iOS or Android
+- **THEN** the existing metadata owner supplies their schemas and the tool publishes a checked flat binary World product
+
+#### Scenario: Invalid physics World rejected
+- **WHEN** a PhysicsBody omits a required persisted field or its Physics config requests an unsupported deterministic backend
+- **THEN** cooking fails explicitly and publishes no World product

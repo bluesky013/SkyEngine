@@ -14,6 +14,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import uuid
 import zlib
 
 if __package__:
@@ -174,6 +175,58 @@ def run_invalid_world_case(tool, root, engine, logs, unknown_component):
     return {'name': name, 'exitCode': result.returncode, 'command': command, 'log': str(path)}
 
 
+def run_physics_world_case(tool, root, engine, logs, platform, rejection=None):
+    name = f'physics-world-{platform}' + (f'-{rejection}' if rejection else '')
+    project = root / name
+    (project / 'assets').mkdir(parents=True)
+    (project / 'configs').mkdir()
+    (project / 'configs/asset_cook.jsonc').write_text(json.dumps({
+        'bundles': ['common'], 'presets': {platform: ['common']},
+    }), encoding='utf-8')
+    world = json.loads((REPOSITORY / 'python/tests/fixtures/jolt_physics.world').read_text(encoding='utf-8'))
+    physics = world['actors'][0]['components'][1]
+    if rejection == 'invalid-config':
+        world['subSystems'][0]['config']['elements']['deterministic'] = True
+    elif rejection == 'missing-field':
+        del physics['data']['elements']['shapeSource']
+    (project / 'assets/physics.world').write_text(json.dumps(world), encoding='utf-8')
+    command = [str(tool), '--project', str(project), '--engine', str(engine), '--cook-all', '--platform', platform]
+    result = subprocess.run(command, cwd=tool.parent, capture_output=True, text=True, timeout=120)
+    text = result.stdout + result.stderr
+    log = logs / f'asset-tool-batch-{name}.log'
+    log.write_text(text, encoding='utf-8')
+    diagnostic = f'exit {result.returncode}; {log}'
+    if rejection:
+        reason = ('Deterministic physics is not supported' if rejection == 'invalid-config'
+                  else 'World object fields disagree with its schema')
+        if result.returncode != 1 or reason not in text or f"cook-all: 0 product(s), 1 failed for platform '{platform}'" not in text:
+            raise RuntimeError(f'Invalid physics World did not fail through its registered schema: {diagnostic}')
+        if list((project / 'products/common').glob('*/*.bin')):
+            raise RuntimeError(f'Invalid physics World published a product: {diagnostic}')
+    else:
+        if (result.returncode != 0 or f"cook-all: 1 product(s), 0 failed for platform '{platform}'" not in text
+                or 'JoltPhysicsModule' not in text):
+            raise RuntimeError(f'Physics World did not cook through its existing metadata owner: {diagnostic}')
+        product = check_world_product(project, diagnostic)
+        body = product_body(product.read_bytes(), product.stem)
+        offset = 4 + struct.unpack_from('<I', body)[0]
+        dependencies = struct.unpack_from('<I', body, offset)[0]
+        offset += 4 + dependencies * 16
+        codec_bytes = struct.unpack_from('<I', body, offset)[0]
+        offset += 4
+        if codec_bytes:
+            raise RuntimeError(f'Default uncompressed World fixture unexpectedly used a codec: {diagnostic}')
+        payload_bytes = struct.unpack_from('<I', body, offset)[0]
+        offset += 4
+        payload = body[offset:offset + payload_bytes]
+        if len(payload) != payload_bytes or payload[:4] != b'WRLD':
+            raise RuntimeError(f'Physics World was not encoded as a complete WRLD payload: {diagnostic}')
+        for identity in (physics['type'], physics['data']['classId'], world['subSystems'][0]['config']['classId']):
+            if uuid.UUID(identity).bytes not in payload:
+                raise RuntimeError(f'Cooked World omitted a physics component/config schema: {diagnostic}')
+    return {'name': name, 'exitCode': result.returncode, 'command': command, 'log': str(log)}
+
+
 def run_symlink_world_case(tool, root, engine, logs):
     project = root / 'internal-world-symlink'
     (project / 'assets/shared').mkdir(parents=True)
@@ -259,6 +312,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--asset-tool', type=Path, help='Built AssetTool executable; default: repository output/bin')
     parser.add_argument('--work-dir', type=Path, help='Keep generated fixtures and process logs here')
+    parser.add_argument('--with-jolt', action='store_true', help='Also require real physics World cooking through deployed Jolt modules')
     args = parser.parse_args()
     tool = args.asset_tool or find_asset_tool()
     if tool is None or not tool.is_file():
@@ -281,6 +335,11 @@ def main():
         report['cases'].extend(run_symlink_world_case(tool, root, engine, logs))
         for unknown_component in (False, True):
             report['cases'].append(run_invalid_world_case(tool, root, engine, logs, unknown_component))
+        if args.with_jolt:
+            for platform in ('ios', 'android'):
+                report['cases'].append(run_physics_world_case(tool, root, engine, logs, platform))
+            for rejection in ('invalid-config', 'missing-field'):
+                report['cases'].append(run_physics_world_case(tool, root, engine, logs, 'android', rejection))
     except (RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, str(error) + '\n')
     (logs / 'asset-tool-batch-integration.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')

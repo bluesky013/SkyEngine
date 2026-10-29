@@ -30,6 +30,13 @@ namespace sky {
         template <typename T>
         void RegisterComponent(const std::string &group, std::vector<Name> requiredSubSystems = {})
         {
+            RegisterComponent<T>(*SerializationContext::Get(), group, std::move(requiredSubSystems));
+        }
+
+        // Core metadata bootstrap uses its constructing context without reentering the singleton.
+        template <typename T>
+        void RegisterComponent(SerializationContext &context, const std::string &group, std::vector<Name> requiredSubSystems = {})
+        {
             static_assert(std::is_base_of_v<ComponentBase, T>);
 
             const auto *info = TypeInfoObj<T>::Get()->RtInfo();
@@ -50,7 +57,7 @@ namespace sky {
                     return nullptr;
                 },
                 std::move(requiredSubSystems),
-                SerializationContext::Get()->RetainModuleCode(),
+                context.RetainModuleCode(),
             });
         }
 

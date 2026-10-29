@@ -28,7 +28,7 @@ namespace sky::aurora {
     };
     using FrameResourceStateResult = std::variant<FrameError, FrameResourceStateSnapshot>;
 
-    enum class VulkanFrameGraphMode : uint8_t { DYNAMIC_RENDERING, RENDER_PASS };
+    enum class VulkanFrameGraphMode : uint8_t { DYNAMIC_RENDERING = 0, RENDER_PASS = 1, AUTO = 2 };
 
     struct FrameAllocationLimits {
         uint64_t stagingBytes        = 4 * 1024 * 1024;
@@ -38,7 +38,7 @@ namespace sky::aurora {
         uint32_t samplerDescriptors  = 128;
         uint32_t descriptorSets      = 256;
         uint32_t renderTargets       = 128;
-        uint64_t storageBytes = 4 * 1024 * 1024;
+        uint64_t storageBytes        = 4 * 1024 * 1024;
     };
     enum class FrameBufferKind : uint8_t { STAGING, UNIFORM, STORAGE = 3 };
     // Uniform size includes zero-filled binding padding; ownership does not extend lease validity.
@@ -55,7 +55,7 @@ namespace sky::aurora {
         uint32_t              parallelNum          = 1;
         uint64_t              deviceEpoch          = 1;
         uint32_t              maxRecordingsPerSlot = 256;
-        VulkanFrameGraphMode  vulkanCompiler       = VulkanFrameGraphMode::DYNAMIC_RENDERING;
+        VulkanFrameGraphMode  vulkanCompiler       = VulkanFrameGraphMode::AUTO;
         FrameAllocationLimits allocations;
         uint32_t              trackedResources         = 1024;
         uint32_t              trackedImageSubresources = MAX_FRAME_IMAGE_SUBRESOURCES;
@@ -79,8 +79,8 @@ namespace sky::aurora {
         virtual FrameCollectResult   TryCollect(const EncodingTicket &)                                                 = 0;
         virtual FrameOperationResult Cancel(const EncodingTicket &)                                                     = 0;
         // Rejected preserves the recording; Accepted/Indeterminate consume it and retain GPU references.
-        virtual FrameSubmitResult    Submit(std::unique_ptr<RecordedFrame> &) noexcept     = 0;
-        virtual FrameSubmitResult    Submit(std::unique_ptr<RecordedFrame> &, const FrameSubmissionSync &) noexcept
+        virtual FrameSubmitResult Submit(std::unique_ptr<RecordedFrame> &) noexcept = 0;
+        virtual FrameSubmitResult Submit(std::unique_ptr<RecordedFrame> &, const FrameSubmissionSync &) noexcept
         {
             return SubmissionRejected{FrameError{FrameErrorCode::UNSUPPORTED}};
         }

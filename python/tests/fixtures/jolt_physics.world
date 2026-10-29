@@ -1,0 +1,128 @@
+{
+  "actors": [
+    {
+      "uuid": "F5352979-9D80-503E-9E3A-79D6541F63C4",
+      "name": "Cooked Physics Body",
+      "components": [
+        {
+          "type": "F13BC3B8-E6B2-4482-9B66-36ED48EA48BB",
+          "data": {
+            "classId": "C07EF08B-38D4-4D80-8ADC-4D0EC34588AA",
+            "elements": {
+              "data": {
+                "classId": "A18AEAAB-6A06-4DA6-87CB-6A5A12227297",
+                "elements": {
+                  "translation": [
+                    0,
+                    -0.25,
+                    0
+                  ],
+                  "scale": [
+                    18,
+                    0.5,
+                    14
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0,
+                    1
+                  ]
+                }
+              },
+              "parent": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        },
+        {
+          "type": "42F3FA52-E75B-4DEF-ADFD-9E5F8DE15D12",
+          "data": {
+            "classId": "D133914B-1028-411D-9BD9-95758C28B677",
+            "elements": {
+              "mass": 2,
+              "kind": 1,
+              "enableCCD": true,
+              "gravityEnabled": true,
+              "allowSleep": true,
+              "isTrigger": false,
+              "shape": {
+                "classId": "C2851C1E-97FC-44C9-85F5-6BFA6490D1D1",
+                "elements": {
+                  "type": 0,
+                  "pivot": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0,
+                    1
+                  ],
+                  "halfExt": [
+                    0.5,
+                    0.5,
+                    0.5
+                  ],
+                  "radius": 0.5,
+                  "height": 1,
+                  "cols": 0,
+                  "rows": 0,
+                  "scaleX": 1,
+                  "scaleZ": 1,
+                  "heightScale": 1,
+                  "heightOffset": 0,
+                  "minHeight": 0,
+                  "maxHeight": 0,
+                  "upAxis": 1,
+                  "mesh": "00000000-0000-0000-0000-000000000000",
+                  "samples": [],
+                  "points": [],
+                  "children": []
+                }
+              },
+              "filter": {
+                "classId": "EF6E9694-9E4E-4ACE-80F8-F0A93F4A674A",
+                "elements": {
+                  "group": 1,
+                  "mask": 4294967295
+                }
+              },
+              "shapeSource": 0,
+              "collisionAsset": "00000000-0000-0000-0000-000000000000",
+              "materialAsset": "00000000-0000-0000-0000-000000000000",
+              "linearDamping": 0.03,
+              "angularDamping": 0.03
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "subSystems": [
+    {
+      "name": "Physics",
+      "enabled": true,
+      "config": {
+        "classId": "26F689A9-6BCC-402E-B36D-C255536A4E71",
+        "elements": {
+          "gravity": -9.81,
+          "fixedTimestep": 0.016666666666666666,
+          "maxSubSteps": 8,
+          "solverIterations": 12,
+          "sleepThreshold": 0.005,
+          "collisionMargin": 0.04,
+          "deterministic": false,
+          "continuousCollision": true,
+          "nativeBodyCapacity": 2048,
+          "nativeBodyPairCapacity": 8192,
+          "nativeContactCapacity": 4096,
+          "characterCapacity": 16,
+          "workerCount": 0
+        }
+      }
+    }
+  ],
+  "assetRoots": []
+}

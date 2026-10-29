@@ -124,6 +124,10 @@ namespace sky::aurora {
 
     std::unique_ptr<GraphicsEncoder> VulkanCommandBuffer::CreateGraphicsEncoder()
     {
+        if (!device.SupportsDynamicRendering()) {
+            LOG_E(TAG, "direct graphics encoders require enabled dynamic rendering");
+            return nullptr;
+        }
         return std::make_unique<VulkanGraphicsEncoder>(device, cmdBuffer);
     }
 

@@ -3,9 +3,172 @@
 //
 
 #include "AndroidInput.h"
+#include "AndroidLauncherLoop.h"
+#include <deque>
+#include <framework/platform/PlatformBase.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
+
+namespace {
+    enum class LoopEvent { FRAME, EXIT, INIT_FAILED, PAUSE, TERM_WINDOW, DESTROY, POLL_ERROR };
+    struct LauncherHost {
+        explicit LauncherHost(std::initializer_list<LoopEvent> events) : pending(events)
+        {
+        }
+        bool DestroyRequested() const
+        {
+            return destroyed;
+        }
+        bool RunApplicationStep()
+        {
+            EXPECT_EQ(shutdowns, 0U);
+            ++steps;
+            const auto event = NextEvent();
+            if (event == LoopEvent::FRAME) {
+                ++frames;
+                return true;
+            }
+            return event == LoopEvent::PAUSE || event == LoopEvent::TERM_WINDOW;
+        }
+        void RequestFinish()
+        {
+            EXPECT_EQ(finishes++, 0U);
+            order.push_back("finish");
+        }
+        void ShutdownApplication()
+        {
+            EXPECT_EQ(shutdowns++, 0U);
+            order.push_back("shutdown");
+            if (destroyDuringShutdown) {
+                destroyed = true;
+                order.push_back("destroy");
+            }
+        }
+        bool PollLifecycle()
+        {
+            EXPECT_EQ(shutdowns, 1U);
+            ++polls;
+            return NextEvent() != LoopEvent::POLL_ERROR;
+        }
+        LoopEvent NextEvent()
+        {
+            if (pending.empty()) {
+                ADD_FAILURE() << "launcher requested work after the lifecycle queue was exhausted";
+                return LoopEvent::POLL_ERROR;
+            }
+            const auto event = pending.front();
+            pending.pop_front();
+            switch (event) {
+            case LoopEvent::FRAME: order.push_back("frame"); break;
+            case LoopEvent::EXIT: order.push_back("exit"); break;
+            case LoopEvent::INIT_FAILED: order.push_back("init-failed"); break;
+            case LoopEvent::PAUSE: order.push_back("pause"); break;
+            case LoopEvent::TERM_WINDOW: order.push_back("term-window"); break;
+            case LoopEvent::DESTROY:
+                destroyed = true;
+                order.push_back("destroy");
+                break;
+            case LoopEvent::POLL_ERROR: order.push_back("poll-error"); break;
+            }
+            return event;
+        }
+        std::deque<LoopEvent>    pending;
+        std::vector<std::string> order;
+        bool                     destroyed             = false;
+        bool                     destroyDuringShutdown = false;
+        uint32_t                 steps                 = 0;
+        uint32_t                 frames                = 0;
+        uint32_t                 finishes              = 0;
+        uint32_t                 shutdowns             = 0;
+        uint32_t                 polls                 = 0;
+    };
+} // namespace
+
+TEST(AndroidLauncherLoop, QuitStopsFramesButAcknowledgesLifecycleUntilDestroy)
+{
+    LauncherHost host{LoopEvent::FRAME, LoopEvent::FRAME, LoopEvent::EXIT, LoopEvent::PAUSE, LoopEvent::TERM_WINDOW, LoopEvent::DESTROY};
+    EXPECT_TRUE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_EQ(host.order, (std::vector<std::string>{"frame", "frame", "exit", "finish", "shutdown", "pause", "term-window", "destroy"}));
+    EXPECT_EQ(host.frames, 2U);
+    EXPECT_EQ(host.steps, 3U);
+    EXPECT_EQ(host.finishes, 1U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.polls, 3U);
+    EXPECT_TRUE(host.pending.empty());
+}
+
+TEST(AndroidLauncherLoop, StartupFailureStillFinishesAndWaitsForDestroy)
+{
+    LauncherHost host{LoopEvent::INIT_FAILED, LoopEvent::PAUSE, LoopEvent::TERM_WINDOW, LoopEvent::DESTROY};
+    EXPECT_TRUE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_EQ(host.order, (std::vector<std::string>{"init-failed", "finish", "shutdown", "pause", "term-window", "destroy"}));
+    EXPECT_EQ(host.frames, 0U);
+    EXPECT_EQ(host.steps, 1U);
+    EXPECT_EQ(host.finishes, 1U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.polls, 3U);
+}
+
+TEST(AndroidLauncherLoop, PauseAndSurfaceLossDoNotRequestApplicationExit)
+{
+    LauncherHost host{LoopEvent::PAUSE, LoopEvent::TERM_WINDOW, LoopEvent::DESTROY};
+    EXPECT_TRUE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_EQ(host.finishes, 0U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.polls, 0U);
+    EXPECT_EQ(host.order, (std::vector<std::string>{"pause", "term-window", "destroy", "shutdown"}));
+}
+
+TEST(AndroidLauncherLoop, DestroyObservedDuringShutdownDoesNotWaitForAnotherEvent)
+{
+    LauncherHost host{LoopEvent::EXIT};
+    host.destroyDuringShutdown = true;
+    EXPECT_TRUE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_EQ(host.finishes, 1U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.polls, 0U);
+    EXPECT_EQ(host.order, (std::vector<std::string>{"exit", "finish", "shutdown", "destroy"}));
+}
+
+TEST(AndroidLauncherLoop, AlreadyDestroyedDoesNotRunOrFinishTheActivityAgain)
+{
+    LauncherHost host{};
+    host.destroyed = true;
+    EXPECT_TRUE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_EQ(host.finishes, 0U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.steps, 0U);
+    EXPECT_EQ(host.polls, 0U);
+}
+
+TEST(AndroidLauncherLoop, TerminalPollFailureIsNotReportedAsDestroyCompletion)
+{
+    LauncherHost host{LoopEvent::EXIT, LoopEvent::POLL_ERROR};
+    EXPECT_FALSE(detail::RunAndroidLauncherLoop(host));
+    EXPECT_FALSE(host.destroyed);
+    EXPECT_EQ(host.finishes, 1U);
+    EXPECT_EQ(host.shutdowns, 1U);
+    EXPECT_EQ(host.polls, 1U);
+}
+
+TEST(AndroidLifecycleTest, DrainPollNeverWaitsWhileOrdinaryBackgroundPollingStillCan)
+{
+    AndroidLifecycleState state;
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::WAIT_IF_INACTIVE), -1);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::NON_BLOCKING), 0);
+    state.Apply(AndroidLifecycleEvent::SURFACE_AVAILABLE);
+    state.Apply(AndroidLifecycleEvent::RESUME);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::WAIT_IF_INACTIVE), 0);
+    state.Apply(AndroidLifecycleEvent::PAUSE);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::WAIT_IF_INACTIVE), -1);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::NON_BLOCKING), 0);
+    state.Apply(AndroidLifecycleEvent::SURFACE_LOST);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::WAIT_IF_INACTIVE), -1);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::NON_BLOCKING), 0);
+    state.Apply(AndroidLifecycleEvent::DESTROY);
+    EXPECT_EQ(state.GetPollTimeout(EventPollMode::WAIT_IF_INACTIVE), 0);
+}
 
 TEST(AndroidLifecycleTest, SurfaceAndResumeAreBothRequiredForFrames)
 {

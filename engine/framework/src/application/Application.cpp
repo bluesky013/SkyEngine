@@ -6,11 +6,7 @@
 
 #include <core/profile/Profiler.h>
 
-// std
-#include <chrono>
-
 #include <core/environment/Environment.h>
-#include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 
 #include <framework/asset/AssetExecutor.h>
@@ -19,7 +15,6 @@
 #include <core/thread/ThreadDispatcher.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
-#include <framework/world/World.h>
 
 #if defined(SKY_MODULE_STATIC)
 namespace sky {
@@ -33,6 +28,16 @@ static const char *TAG = "Application";
 
 namespace sky {
 
+    namespace {
+        void DrainApplicationCallbacks()
+        {
+            auto *dispatcher = ThreadDispatcher::Get();
+            do {
+                AssetExecutor::Get()->WaitForAll();
+            } while (dispatcher->Dispatch(ThreadRole::Main) != 0);
+        }
+    } // namespace
+
     Application::Application() : env(nullptr)
     {
     }
@@ -43,15 +48,19 @@ namespace sky {
 
         Interface<ISystemNotify>::Get()->UnRegister();
 
-        // Also drain work and callbacks produced during module shutdown before
-        // destroying the asset managers.
-        AssetExecutor::Get()->WaitForAll();
-        ThreadDispatcher::Get()->Clear();
+        tickFn = {};
+        DrainApplicationCallbacks();
+        moduleManager.reset();
+        DrainApplicationCallbacks();
 
         AssetManager::Destroy();
 
         sky::Platform *platform = sky::Platform::Get();
         platform->Shutdown();
+        const auto released = ThreadDispatcher::Get()->ReleaseRole(ThreadRole::Main);
+        if (released != ThreadDispatcher::ReleaseResult::RELEASED) {
+            LOG_E(TAG, "Application main dispatcher role release failed: %u", static_cast<unsigned>(released));
+        }
     }
 
     void Application::Shutdown()
@@ -66,11 +75,11 @@ namespace sky {
         }
         OnShutdown();
         // Workers may still use module code and registries while completing queued work.
-        AssetExecutor::Get()->WaitForAll();
-        ThreadDispatcher::Get()->Clear();
+        DrainApplicationCallbacks();
         if (moduleManager) {
             moduleManager->UnLoadModules();
         }
+        DrainApplicationCallbacks();
     }
 
     void Application::SaveArgs(int argc, char **argv)
@@ -107,8 +116,7 @@ namespace sky {
 
         Interface<ISystemNotify>::Get()->Register(*this);
 
-        auto *context = SerializationContext::Get();
-        World::Reflect(context);
+        SerializationContext::Get();
 
         if (!PreInit()) {
             LOG_E(TAG, "Application PreInit Failed");

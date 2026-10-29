@@ -31,6 +31,8 @@ if (SKY_BUILD_TEST)
 
     # backends are dlopen'd at runtime; only need them built, not linked
     if (TARGET Aurora.Vulkan)
+        target_include_directories(Aurora.RHITest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vulkan/src)
+        target_link_libraries(Aurora.RHITest 3rdParty::vulkan_headers)
         add_dependencies(Aurora.RHITest Aurora.Vulkan)
     endif()
     if (TARGET Aurora.DX12)

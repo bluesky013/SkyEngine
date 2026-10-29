@@ -166,6 +166,9 @@
 				"TARGET_SAMPLES": "OFF",
 				"TARGET_VIEWER": "OFF"
 			},
+			"options_Android": {
+				"CPP_RTTI_ENABLED": "ON"
+			},
 			"options_MacOS-x86": {
 				"CPP_RTTI_ENABLED": "ON"
 			},

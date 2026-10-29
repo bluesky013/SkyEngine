@@ -61,7 +61,7 @@ namespace sky::aurora {
 
     enum class RendererState : uint8_t { STARTING, RUNNING, STOPPING, STOPPED, FAILED };
     enum class PacketSubmitStatus : uint8_t { ACCEPTED, BUSY, REJECTED };
-    enum class RendererVulkanMode : uint8_t { DYNAMIC_RENDERING, RENDER_PASS };
+    enum class RendererVulkanMode : uint8_t { DYNAMIC_RENDERING = 0, RENDER_PASS = 1, AUTO = 2 };
 
     struct PacketSubmitResult {
         PacketSubmitStatus status = PacketSubmitStatus::REJECTED;
@@ -76,7 +76,7 @@ namespace sky::aurora {
         uint32_t           encodeWorkers           = 1;
         uint64_t           maxPendingResourceBytes = 256ull * 1024 * 1024;
         uint64_t           maxUploadBytesPerFrame  = 16ull * 1024 * 1024;
-        RendererVulkanMode vulkanMode              = RendererVulkanMode::DYNAMIC_RENDERING;
+        RendererVulkanMode vulkanMode              = RendererVulkanMode::AUTO;
         bool               enableValidation        = false;
     };
 

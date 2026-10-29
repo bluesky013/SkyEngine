@@ -15,4 +15,5 @@ endif ()
 
 if (TARGET JoltPhysics.Builder)
     target_compile_definitions(AssetTool PRIVATE SKY_HAS_JOLT_BUILDER=1)
+    add_dependencies(AssetTool JoltPhysicsModule)
 endif ()

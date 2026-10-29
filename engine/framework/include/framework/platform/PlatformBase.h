@@ -20,6 +20,8 @@ namespace sky {
     };
 
     using LaunchCallback = std::function<void()>;
+    // NON_BLOCKING drains queued work without waiting for a future native event.
+    enum class EventPollMode : uint8_t { WAIT_IF_INACTIVE, NON_BLOCKING };
 
     class PlatformBase {
     public:
@@ -71,8 +73,10 @@ namespace sky {
         virtual void SetClipBoardText(const std::string &text)
         {
         }
-        virtual void PollEvent(bool &exit)
+        virtual void PollEvent(bool &exit, EventPollMode mode = EventPollMode::WAIT_IF_INACTIVE)
         {
+            (void)exit;
+            (void)mode;
         }
         // Mobile hosts return false while inactive or without a native surface.
         // Event pumping continues, but application ticks are suspended.
@@ -164,7 +168,7 @@ namespace sky {
         bool         RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;
 
-        void     PoolEvent(bool &exit);
+        void     PoolEvent(bool &exit, EventPollMode mode = EventPollMode::WAIT_IF_INACTIVE);
         bool     IsFrameActive() const;
         uint64_t GetFrameEpoch() const;
 

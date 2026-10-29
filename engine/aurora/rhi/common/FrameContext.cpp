@@ -162,20 +162,20 @@ namespace sky::aurora {
         uint32_t                                     maxImageSubresources = 0, trackedImageSubresources = 0;
         FrameAllocationLimits                        limits;
         uint64_t                                     uniformAlignment = 1;
-        uint64_t storageAlignment = 1;
+        uint64_t                                     storageAlignment = 1;
         Queue                                       *queue            = nullptr;
         FrameContextIdentity                         identity;
         std::vector<Slot>                            slots;
         Protocol                                     protocol        = Protocol::EXPLICIT;
-        uint32_t                                     active        = UINT32_MAX;
-        uint32_t                                     cursor        = 0;
-        uint32_t                                     directSlot    = 0;
+        uint32_t                                     active          = UINT32_MAX;
+        uint32_t                                     cursor          = 0;
+        uint32_t                                     directSlot      = 0;
         bool                                         directRecording = false;
-        uint64_t                                     serial        = 0;
-        uint64_t                                     recording     = 0;
-        uint64_t                                     session       = 0;
-        uint32_t                                     maxRecordings = 0;
-        bool                                         terminal      = false;
+        uint64_t                                     serial          = 0;
+        uint64_t                                     recording       = 0;
+        uint64_t                                     session         = 0;
+        uint32_t                                     maxRecordings   = 0;
+        bool                                         terminal        = false;
     };
 
     BackendFrameContext::BackendFrameContext() : state(std::make_unique<State>())
@@ -191,8 +191,8 @@ namespace sky::aurora {
     {
         if (!device || !info.inflightNum || !info.parallelNum || !info.deviceEpoch || !info.maxRecordingsPerSlot)
             return false;
-        if (info.vulkanCompiler > VulkanFrameGraphMode::RENDER_PASS ||
-            (device->GetAPI() != API::VULKAN && info.vulkanCompiler != VulkanFrameGraphMode::DYNAMIC_RENDERING))
+        if (info.vulkanCompiler > VulkanFrameGraphMode::AUTO ||
+            (device->GetAPI() != API::VULKAN && info.vulkanCompiler == VulkanFrameGraphMode::RENDER_PASS))
             return false;
         state->device               = device;
         state->protocol             = direct ? Protocol::DIRECT : Protocol::EXPLICIT;
@@ -200,9 +200,10 @@ namespace sky::aurora {
         state->maxImageSubresources = info.trackedImageSubresources;
         state->limits               = info.allocations;
         state->uniformAlignment     = std::max(1u, device->GetCapability().minUniformBufferOffsetAlignment);
-        state->storageAlignment = std::max(1u, device->GetCapability().minStorageBufferOffsetAlignment);
+        state->storageAlignment     = std::max(1u, device->GetCapability().minStorageBufferOffsetAlignment);
         if ((state->uniformAlignment & (state->uniformAlignment - 1)) || info.allocations.stagingBytes > SIZE_MAX ||
-            info.allocations.uniformBytes > SIZE_MAX || info.allocations.storageBytes > SIZE_MAX || (state->storageAlignment & (state->storageAlignment - 1)))
+            info.allocations.uniformBytes > SIZE_MAX || info.allocations.storageBytes > SIZE_MAX ||
+            (state->storageAlignment & (state->storageAlignment - 1)))
             return false;
         state->maxRecordings = info.maxRecordingsPerSlot;
         state->queue         = device->GetQueue(QueueType::GRAPHICS);
@@ -337,13 +338,18 @@ namespace sky::aurora {
         const auto valid = ValidateCompileLease(lease);
         if (const auto *error = std::get_if<FrameError>(&valid))
             return *error;
-        if ((kind != FrameBufferKind::STAGING && kind != FrameBufferKind::UNIFORM && kind != FrameBufferKind::STORAGE) || !alignment || (alignment & (alignment - 1)))
+        if ((kind != FrameBufferKind::STAGING && kind != FrameBufferKind::UNIFORM && kind != FrameBufferKind::STORAGE) || !alignment ||
+            (alignment & (alignment - 1)))
             return Error(FrameErrorCode::INVALID_ARGUMENT);
         const bool uniform  = kind == FrameBufferKind::UNIFORM;
-        const auto capacity = uniform ? state->limits.uniformBytes : kind == FrameBufferKind::STORAGE ? state->limits.storageBytes : state->limits.stagingBytes;
+        const auto capacity = uniform                            ? state->limits.uniformBytes
+                              : kind == FrameBufferKind::STORAGE ? state->limits.storageBytes
+                                                                 : state->limits.stagingBytes;
         if (uniform)
             alignment = std::max(alignment, state->uniformAlignment);
-        if (kind == FrameBufferKind::STORAGE) { alignment = std::max(alignment, state->storageAlignment); }
+        if (kind == FrameBufferKind::STORAGE) {
+            alignment = std::max(alignment, state->storageAlignment);
+        }
         const auto offset    = FrameRangeOffset(state->slots[lease.slot].arenas[static_cast<uint32_t>(kind)].cursor, capacity, 1, alignment);
         const auto remaining = offset ? capacity - *offset : 0;
         return uniform ? remaining - remaining % state->uniformAlignment : remaining;
@@ -355,9 +361,12 @@ namespace sky::aurora {
             return std::move(*error);
         if (!size || !alignment || (alignment & (alignment - 1)))
             return Error(FrameErrorCode::INVALID_ARGUMENT);
-        const uint64_t capacities[] = {state->limits.stagingBytes, state->limits.uniformBytes, state->limits.scratchBytes, state->limits.storageBytes};
+        const uint64_t capacities[] = {state->limits.stagingBytes, state->limits.uniformBytes, state->limits.scratchBytes,
+                                       state->limits.storageBytes};
         auto          &arena        = state->slots[lease.slot].arenas[kind];
-        if (kind == 3) { alignment = std::max(alignment, state->storageAlignment); }
+        if (kind == 3) {
+            alignment = std::max(alignment, state->storageAlignment);
+        }
         if (kind == 1) {
             alignment         = std::max(alignment, state->uniformAlignment);
             const auto padded = FrameRangeOffset(size, UINT64_MAX, 1, state->uniformAlignment);
@@ -372,7 +381,9 @@ namespace sky::aurora {
             Buffer::Descriptor desc;
             desc.size    = capacities[kind];
             desc.memory  = kind == 2 ? MemoryType::GPU_ONLY : MemoryType::CPU_TO_GPU;
-            desc.usage = kind == 1 ? BufferUsageFlagBit::UNIFORM : kind == 3 ? BufferUsageFlagBit::STORAGE : BufferUsageFlagBit::TRANSFER_SRC | BufferUsageFlagBit::TRANSFER_DST;
+            desc.usage   = kind == 1   ? BufferUsageFlagBit::UNIFORM
+                           : kind == 3 ? BufferUsageFlagBit::STORAGE
+                                       : BufferUsageFlagBit::TRANSFER_SRC | BufferUsageFlagBit::TRANSFER_DST;
             auto created = CreateFrameBuffer(desc);
             if (auto *error = std::get_if<FrameError>(&created)) {
                 ObserveFailure(*error);

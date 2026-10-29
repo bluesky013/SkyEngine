@@ -178,8 +178,14 @@ namespace sky::aurora {
         result.codeFormat     = target == ShaderTarget::SPIRV ? ShaderCodeFormat::SPIRV
                                 : target == ShaderTarget::MSL ? ShaderCodeFormat::MSL_SOURCE
                                                               : ShaderCodeFormat::DXIL;
-        result.profile        = target == ShaderTarget::SPIRV ? "spirv_1_5" : target == ShaderTarget::MSL ? "metallib_2_3" : "sm_6_5";
-        result.minimumVersion = target == ShaderTarget::SPIRV ? 10500 : target == ShaderTarget::MSL ? 20300 : 60500;
+        if (target == ShaderTarget::SPIRV) {
+            const bool androidTarget = result.platform == ShaderPlatform::ANDROID_OS;
+            result.profile           = androidTarget ? "spirv_1_3" : "spirv_1_5";
+            result.minimumVersion    = androidTarget ? 10300 : 10500;
+        } else {
+            result.profile        = target == ShaderTarget::MSL ? "metallib_2_3" : "sm_6_5";
+            result.minimumVersion = target == ShaderTarget::MSL ? 20300 : 60500;
+        }
         return result;
     }
 

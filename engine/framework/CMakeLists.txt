@@ -32,7 +32,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_package(game-activity REQUIRED CONFIG)
     if (NOT TARGET game-activity::game-activity_static)
-        message(FATAL_ERROR "Android requires GameActivity 1.2.2 or newer with its Prefab static library")
+        message(FATAL_ERROR "Android requires GameActivity 4.4.2 or newer with its Prefab static library")
     endif ()
 
     file(GLOB_RECURSE PLATFORM_SRC

@@ -123,7 +123,7 @@ def load_json(path, default=None):
 
 
 def load_descriptor(project_arg):
-    path = Path(project_arg)
+    path = Path(project_arg).resolve()
     if path.is_dir():
         candidates = sorted(path.glob('*.skyproj'))
         if not candidates:

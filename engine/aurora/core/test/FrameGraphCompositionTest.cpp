@@ -3,14 +3,137 @@
 //
 
 #include "AuroraTestHelper.h"
+#include "RendererRuntime.h"
 #include "graph/FrameComposer.h"
 
 #include <array>
 #include <aurora/rdg/DeviceFrameContext.h>
 #include <aurora/renderer/PassResourceBindings.h>
+#include <aurora/renderer/RendererProvider.h>
+#include <deque>
 
 using namespace sky;
 using namespace sky::aurora;
+
+namespace {
+    struct CpuCompletionQueueProbe {
+        size_t PollEvents(std::span<CpuCoordinatorEvent> destination)
+        {
+            ++polls;
+            if (destination.empty() || events.empty())
+                return 0;
+            destination[0] = std::move(events.front());
+            events.pop_front();
+            return 1;
+        }
+        std::deque<CpuCoordinatorEvent> events;
+        size_t                          polls = 0;
+    };
+    struct RendererCompletionSinkProbe {
+        void Push(RendererEvent event)
+        {
+            events.push_back(std::move(event));
+        }
+        std::deque<RendererEvent> events;
+        bool                      failed = false;
+    };
+} // namespace
+
+TEST(RendererRuntimeEvents, SuccessfulCpuCompletionsCannotHideStoppedFailure)
+{
+    CpuCompletionQueueProbe cpu;
+    for (const auto sequence : {1U, 2U}) {
+        CpuPacketCompleted completed;
+        completed.application.sequence = sequence;
+        completed.preparationAttempted = true;
+        ASSERT_TRUE(completed.preparation.Succeeded());
+        cpu.events.push_back(std::move(completed));
+    }
+    cpu.events.push_back(CpuCoordinatorStopped{RendererError{RendererErrorCode::DEVICE_LOST, "injected terminal failure"}});
+    RendererCompletionSinkProbe sink;
+    sky::aurora::detail::DrainRuntimeCompletions(cpu, sink);
+    ASSERT_EQ(sink.events.size(), 2U);
+    ASSERT_TRUE(std::holds_alternative<RendererFailure>(sink.events[0]));
+    const auto &failure = std::get<RendererFailure>(sink.events[0]);
+    EXPECT_EQ(failure.packetSequence, 0U);
+    EXPECT_EQ(failure.error.code, RendererErrorCode::DEVICE_LOST);
+    EXPECT_EQ(failure.error.message, "injected terminal failure");
+    EXPECT_TRUE(std::holds_alternative<RendererStopped>(sink.events[1]));
+    EXPECT_TRUE(sink.failed);
+    EXPECT_EQ(cpu.polls, 3U);
+    EXPECT_TRUE(cpu.events.empty());
+}
+
+TEST(RendererRuntimeEvents, PacketFailureKeepsItsPriorityAndLaterStoppedRemainsDeliverable)
+{
+    CpuCompletionQueueProbe cpu;
+    CpuPacketCompleted      completed;
+    completed.application.sequence = 7;
+    completed.application.error    = RendererError{RendererErrorCode::INVALID_PACKET, "packet failure"};
+    completed.executionError       = RendererError{RendererErrorCode::DEVICE_LOST, "later failure"};
+    cpu.events.push_back(std::move(completed));
+    cpu.events.push_back(CpuCoordinatorStopped{});
+    RendererCompletionSinkProbe sink;
+    sky::aurora::detail::DrainRuntimeCompletions(cpu, sink);
+    ASSERT_EQ(sink.events.size(), 1U);
+    ASSERT_TRUE(std::holds_alternative<RendererFailure>(sink.events[0]));
+    EXPECT_EQ(std::get<RendererFailure>(sink.events[0]).packetSequence, 7U);
+    EXPECT_EQ(std::get<RendererFailure>(sink.events[0]).error.code, RendererErrorCode::INVALID_PACKET);
+    EXPECT_FALSE(sink.failed);
+    sink.events.clear();
+    sky::aurora::detail::DrainRuntimeCompletions(cpu, sink);
+    ASSERT_EQ(sink.events.size(), 1U);
+    EXPECT_TRUE(std::holds_alternative<RendererStopped>(sink.events[0]));
+    EXPECT_TRUE(cpu.events.empty());
+}
+
+TEST(RendererRuntimeEvents, EmptyCpuQueueDoesNotInventAPublicEvent)
+{
+    CpuCompletionQueueProbe     cpu;
+    RendererCompletionSinkProbe sink;
+    sky::aurora::detail::DrainRuntimeCompletions(cpu, sink);
+    EXPECT_TRUE(sink.events.empty());
+    EXPECT_FALSE(sink.failed);
+    EXPECT_EQ(cpu.polls, 1U);
+}
+
+TEST(RendererRuntimeEvents, RealStoppedCoordinatorDrainsSuccessResultsBeforePublishingStopped)
+{
+    CpuRenderCoordinator cpu;
+    ASSERT_FALSE(cpu.Init({2, 3}));
+    for (const auto sequence : {1U, 2U}) {
+        auto packet      = std::make_unique<FramePacket>();
+        packet->sequence = sequence;
+        ASSERT_EQ(cpu.TrySubmit(packet).status, PacketSubmitStatus::ACCEPTED);
+    }
+    cpu.RequestShutdown();
+    cpu.Join();
+    ASSERT_EQ(cpu.GetState(), CpuCoordinatorState::STOPPED);
+    RendererCompletionSinkProbe sink;
+    sky::aurora::detail::DrainRuntimeCompletions(cpu, sink);
+    ASSERT_EQ(sink.events.size(), 1U);
+    EXPECT_TRUE(std::holds_alternative<RendererStopped>(sink.events[0]));
+    EXPECT_FALSE(sink.failed);
+    std::array<CpuCoordinatorEvent, 1> remaining;
+    EXPECT_EQ(cpu.PollEvents(remaining), 0U);
+}
+
+TEST(RendererConfiguration, UnknownVulkanModesAreRejectedBeforeBackendAcquisition)
+{
+    auto *originalDevice = Instance::Get()->GetDevice();
+    auto  provider       = CreateRendererProvider();
+    for (const auto value : {3u, 255u}) {
+        RendererInitInfo info;
+        info.vulkanMode = static_cast<RendererVulkanMode>(value);
+        auto provided   = provider->Create(info);
+        ASSERT_TRUE(std::holds_alternative<RendererError>(provided));
+        EXPECT_EQ(std::get<RendererError>(provided).code, RendererErrorCode::INVALID_ARGUMENT);
+        auto direct = CreateRuntimeRenderer(info);
+        ASSERT_TRUE(std::holds_alternative<RendererError>(direct));
+        EXPECT_EQ(std::get<RendererError>(direct).code, RendererErrorCode::INVALID_ARGUMENT);
+        EXPECT_EQ(Instance::Get()->GetDevice(), originalDevice);
+    }
+}
 
 namespace {
     class CompositionShader final : public Shader {

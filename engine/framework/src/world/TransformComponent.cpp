@@ -20,7 +20,7 @@ namespace sky {
         REGISTER_MEMBER(rotation, SetLocalRotationEuler, GetLocalRotationEuler)
         REGISTER_MEMBER(scale, SetLocalScale, GetLocalScale);
 
-        ComponentFactory::Get()->RegisterComponent<TransformComponent>("Base");
+        ComponentFactory::Get()->RegisterComponent<TransformComponent>(*context, "Base");
     }
 
     TransformComponent::~TransformComponent()

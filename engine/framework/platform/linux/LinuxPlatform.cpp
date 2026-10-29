@@ -206,7 +206,7 @@ namespace sky {
         gClipboardText = text;
     }
 
-    void LinuxPlatform::PollEvent(bool &exit)
+    void LinuxPlatform::PollEvent(bool &exit, EventPollMode)
     {
         if (Display *display = x11::GetDisplay()) {
             while (XPending(display) > 0) {
