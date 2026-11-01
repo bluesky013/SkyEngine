@@ -18,7 +18,7 @@ Presentation progress was measured separately: `presentation-progress.json` cont
 
 Known limits remain: shadow striping is visible on cube faces and has not been isolated by controlled A/B; the legacy shadow algorithm was not changed in this follow-up. `VKDBGUTILWARN003` appears 72037 times, and the Khronos validation layer is unavailable, so this is not a validation-clean claim. BACK was consumed without exiting the application; final ADB force-stop stopped it, rather than demonstrating graceful application shutdown. `device-cleanup.json` records restored screen timeout 60000 ms, stay-awake setting 0 and removal of the probe. Runtime/termination evidence is in `device-runtime-driver.log`, `device-runtime-exit.log`, `runtime-logcat.log`, `runtime-progress.json` and `validation-report.json`.
 
-Android Back, graceful shutdown and same-process recreation were subsequently fixed and independently verified in [fix-android-application-lifecycle](../fix-android-application-lifecycle/verification.md). That later result does not replace this artifact's historical termination or visual-quality evidence.
+Android Back, graceful shutdown and same-process recreation were subsequently fixed and independently verified in [fix-android-application-lifecycle](../archive/2026-11-01-fix-android-application-lifecycle/verification.md). That later result does not replace this artifact's historical termination or visual-quality evidence.
 
 ## Original host build — 2026-10-27
 

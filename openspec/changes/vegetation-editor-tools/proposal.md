@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: blocked-on-prereq.** 等待 vegetation render 的可用预览/绘制闭环。
+> Owner: `vegetation-editor-tools`. Prerequisites: `vegetation-aurora-render`.
+
 ## Why
 
 Vegetation editor tooling is implemented on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt), not the legacy Qt editor. It was split out of `vegetation-large-world` so the core can land independently.
@@ -14,11 +17,11 @@ Vegetation editor tooling is implemented on the aurora sandbox framework (`engin
 
 ### New Capabilities
 
-- `vegetation-editor`: vegetation authoring extension on the aurora sandbox framework.
+None.
 
 ### Modified Capabilities
 
-<!-- none -->
+- `vegetation`: vegetation authoring extension on the aurora sandbox framework.
 
 ## Impact
 

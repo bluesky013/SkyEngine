@@ -1,3 +1,6 @@
+> Status — 2026-11-01: debt（未实现、未排期）。tier2 抽象/驻留和 Metal/Vulkan 实现仍未交付，不列入当前实施清单。
+> 排期前需以当前 pinned Slang 做能力探针并评审首个用例与 RHI 模型；历史上游版本/issue 记录不构成现行阻塞或支持保证。
+
 # Tasks: aurora-metal-bindless-descriptor-heap
 
 （未实现，待排期）

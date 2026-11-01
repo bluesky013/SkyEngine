@@ -1,6 +1,8 @@
 # 纯血鸿蒙（HarmonyOS）接入待办
 
-状态：active；canonical API 26 SDK 下 Android 同集合 15 包已实际重建，严格预检为 0 missing/stale、0 output-missing。Pura 80 Pro 已验证签名 HAP、Vulkan 清屏、HarmonyPhysics 的 cooked World/material/indexed mesh、物理模拟及前后台恢复；新 OHOSHost 通过 30 项设备断言和 65 秒真实组件生命周期压力。Windows FrameworkTest 完整 270 项通过，含公共输入框状态 17 项和 OHOS 输入策略 13 项。Android 隔离 UI 的 9 个终态、OHOS 修复后的 7 个 UI 流程和原生中文 IME 通过，两端无验收 probe 的纯正式包已公开重建、审计并恢复真机物理场景及同进程前后台；用户暂无 Mac，UIKit 编译运行明确 deferred。纹理专项、缺资源/图形失败路径、旋转及长期压力仍待完成；短测 RSS 增长不作为无泄漏证明。用户明确三方库集合/版本与 Android 保持一致，并要求独立 platform；`[x]` 只代表有确认/实测/产物证据的任务完成。
+> Status (2026-11-01): **active**；owner：本 change。核心宿主/构建和基础场景已交付；剩余公开包闭包校验、资源/图形失败、GPU 生命周期与长期矩阵，UIKit 专项由 3.10 跟踪。
+
+状态：active；canonical API 26 SDK 下 Android 同集合 15 包已实际重建，严格预检为 0 missing/stale、0 output-missing。Pura 80 Pro 已验证签名 HAP、Vulkan 清屏、HarmonyPhysics 的 cooked World/material/indexed mesh、物理模拟及前后台恢复；新 OHOSHost 通过 30 项设备断言和 65 秒真实组件生命周期压力。Windows FrameworkTest 完整 270 项通过，含公共输入框状态 17 项和 OHOS 输入策略 13 项。Android 隔离 UI 的 9 个终态、OHOS 修复后的 7 个 UI 流程和原生中文 IME 通过，两端无验收 probe 的纯正式包已公开重建、审计并恢复真机物理场景及同进程前后台；已有 Mac 与本轮基础 iPad 导航运行证据；UIKit 原生输入/scene-host 专项仍按 3.10 保持未验收。纹理专项、缺资源/图形失败路径、旋转及长期压力仍待完成；短测 RSS 增长不作为无泄漏证明。用户明确三方库集合/版本与 Android 保持一致，并要求独立 platform；`[x]` 只代表有确认/实测/产物证据的任务完成。
 
 依赖顺序：P0 → P1 → P2 → P3 → P4 → P5。P6 是后续扩展，只有具体需求/设备条件满足才排期。各阶段代码与对应 spec 一起 review，不混入目录重组。
 
@@ -54,7 +56,7 @@
 - [x] 3.7 鸿蒙 launcher 在加载页面前设置全屏布局并隐藏状态栏、导航栏和手势指示条，忽略过期 stage 完成回调；模板及 HarmonyPhysics 同步，Pura 80 Pro 实测 1276×2848 swapchain 和同进程前后台恢复通过。
 - [x] 3.8 统一 `NativeTextInputOptions`、快照事件与 owner-thread 一次性终态，Android/ArkUI/UIKit 使用各自原生编辑 UI；公共状态 17 项及桌面 OHOS 输入策略 13 项通过，非法终态文本与桥接转换失败使用最后合法快照收尾，不记录密码内容。
 - [x] 3.9 完成本轮 Android/OHOS 原生 UI 真机验收，覆盖单行/多行、Unicode 标量长度、密码、取消/后台、重开。Android 隔离 fixture 的 native 121/UI 20 检查通过、9 终态（6 confirmed/2 cancelled/1 error），实际 JNI null→ERROR 保留最后合法文本且 retry 成功。OHOS 桥接修复后 PID 31461 完整 7 cases/0 fail，19 CHANGED、5 CONFIRMED、2 CANCELLED，IME 展开时编辑区/动作可见。隔离验收与纯正式包恢复分开，后者仍归 6.11。
-- [ ] 3.10 UIKit 源码及设备测试/runner 已提供；用户明确暂无 Mac，编译与 UIKit 运行 deferred，后续有 Mac 再验收，不阻塞本轮 OHOS/Android 验收。37 项 Python owner/runner 检查不作为 UIKit 编译或运行证据。
+- [ ] 3.10 UIKit 输入/scene-host 专项验收：源码及设备测试/runner 已提供；2026-11-01 已有 Mac Xcode/iOS Framework/Launcher 构建与 iPad Metal 导航基础场景证据（`openspec/changes/archive/2026-11-01-fix-ios-navigation-demo-linkage/verification.md`），不再以“无 Mac”作为延期理由。仍须运行 UIKit runner，覆盖 primary touch/取消、committed Unicode/IME、单行/多行/密码输入、取消/后台/重开，以及 scene 连接/断开、迟到或外来回调、frame epoch/恢复时钟；保留未勾选。GPU surface/generation 退休和长期呈现归 `aurora-renderer-platform-parity` P02-IOS，基础 demo 与 37 项 Python 检查不能代替这些专项。
 
 ## 4. P3 — Aurora Vulkan 首帧
 
@@ -92,9 +94,9 @@
 
 - [ ] 6.1 在选定设备执行前后台/旋转/Surface 重建/关闭的重复循环与持续渲染，记录内存、句柄、卡死及异常。6.10 已完成 Host 的 65 秒真实组件压力及 RSS/线程采样；尚未完成旋转、持续 GPU 呈现压力和长期测试，fd 读取被系统拒绝。
 - [ ] 6.2 执行错误路径：缺 SDK、错误 ABI、缺库、坏资源、Vulkan 能力不足、初始化中断、待处理回调时退出。6.10 已覆盖 Host create/request/factory 失败、迟到回调及退出；不代表资源/图形失败矩阵全部完成。
-- [ ] 6.3 提交前 Python 打包/预设/shader/源码归属、OHOS 平台/打包契约与 Win32 Aurora/Renderer GPU 定向回归已有通过记录，详细阶段数量见 validation；最新 Framework 完整 270 项、公共输入框 17 项、桌面 OHOS 输入策略 13 项通过。本次 Python 组合 96 项有 2 failures/6 errors/5 skipped；8 个 failures/errors 均为已有 native_package_artifacts Windows 夹具限制。排除该模块的可移植 8 模块 68 项通过，不宣称全 Python 通过。移动端完整失败路径和全编辑器回归仍待执行；UIKit 按用户无 Mac 条件 deferred，不把 Python 检查计为 iOS 原生运行。
+- [ ] 6.3 提交前 Python 打包/预设/shader/源码归属、OHOS 平台/打包契约与 Win32 Aurora/Renderer GPU 定向回归已有通过记录，详细阶段数量见 validation；最新 Framework 完整 270 项、公共输入框 17 项、桌面 OHOS 输入策略 13 项通过。本次 Python 组合 96 项有 2 failures/6 errors/5 skipped；8 个 failures/errors 均为已有 native_package_artifacts Windows 夹具限制。排除该模块的可移植 8 模块 68 项通过，不宣称全 Python 通过。移动端完整失败路径和全编辑器回归仍待执行；UIKit 专项仍由 3.10 跟踪；现有 Mac/iPad 基础运行不代替该矩阵，也不把 Python 检查计为原生 UI 验收。
 - [x] 6.4 更新 `docs/architecture/platform-support.md` 与 validation，公布 canonical SDK 三方严格预检、Host 真机/短压力、两端原生 UI/IME 和 Windows 回归证据；区分 iOS deferred、纯正式包恢复状态与未完成的图形/长期验收。
-- [ ] 6.5 整理同一 change 的实现+spec+测试供 review；按根 AGENTS 分别取得 commit 与 archive 确认后再执行对应动作。
+- [ ] 6.5 核心实现已随 `ab7ecc12` 提交；继续收口本 change 剩余矩阵与最终范围，再按根 AGENTS 展示状态并取得 archive 确认。后续新增实现的提交仍须独立确认，不把历史实现再次列为“尚未提交”。
 
 - [ ] 6.6 后续按模块清理历史具体枚举上限：RHI/FrameGraph/renderer、Jolt/physics、WorldStreaming、GraphDefinition、TransformGizmo；本轮检查位置和业务区间例外见 validation，尚未批量修改。
 - [ ] 6.7 定位 Android Adreno VKDBGUTILWARN003 的具体 render-pass 触发条件，检查启动/重开阶段 dequeueBuffer 超时重试频率；不以场景可运行代替图形诊断完成。

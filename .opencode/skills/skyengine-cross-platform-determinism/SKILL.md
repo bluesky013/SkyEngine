@@ -83,5 +83,5 @@ Default `OFF` changes nothing; enable it for deterministic/replay/parity builds.
 ## References
 
 - `docs/features/cross-platform-determinism.md`
-- `openspec/specs/physics-determinism/spec.md`, `openspec/specs/network-determinism/spec.md`
+- `openspec/specs/physics/spec.md`, `openspec/specs/network/spec.md`
 - `openspec/changes/deterministic-cross-platform-hardening/`

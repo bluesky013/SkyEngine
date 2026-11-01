@@ -1,3 +1,6 @@
+> Status — 2026-11-01: active；typed V/P/S 实现已交付，仅余6.4的 macOS native Metal 与 stripped-products 验收，尚未取得该项完成证据。
+> 可把这项精确验收移交 `refactor-aurora-target-shader-artifacts` 后统一收口；在正式移交前仍由本 change 保留，不能以 iPad 示例或普通编辑器启动代替。
+
 # Implementation tasks
 
 Status: implemented with Windows automatic validation on 2026-10-25; macOS native acceptance remains open. These tasks replace the withdrawn source-technique migration. Check a task only after its implementation and relevant verification are complete.

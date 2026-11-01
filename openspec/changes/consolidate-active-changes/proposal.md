@@ -1,52 +1,25 @@
 ## Why
 
-`openspec/changes/` currently contains **37 active change directories** (2026-10-26). The original 23-change snapshot became stale and has been replaced in design.md; the following motivation describes the earlier backlog. Several
-hard-depend on work already archived (so their prerequisite is done but they sit at 0 tasks), several are explicit
-**frozen** or **unimplemented debt records** that will never be scheduled as written, some overlap each other
-(two different framework→aurora scene seams; the legacy taskflow/boost/shader/render retirement has since been consolidated into `legacy-render-thirdparty-cleanup`), and several
-reference changes that do not exist (`animation-graph-assets`, `aurora-animation-bridge`, `navigation-path-query`,
-`aurora-material-pso`). The result is that the backlog cannot answer "what is actually next?" or "what is
-blocked on what?".
-
-This change is a **planning-first consolidation**: it takes stock of the current state, groups the active changes
-into prerequisite-ordered workstreams, and records a concrete cleanup checklist. The non-destructive cleanup items
-(reference rewording, superseded-row trimming, parking labels, decision records) have since been applied with user
-approval; no change directory was archived, and no engine or third-party code is touched.
+At the rebased audit baseline the backlog had 55 active changes and 176 main capability folders. Delivered work, historical intermediate contracts, remaining platform acceptance and unexpanded proposals are mixed together. A usable specification set needs a small domain index, one current owner per seam and explicit archive decisions.
 
 ## What Changes
 
-- Maintain a dated **current-state snapshot**: each active change classified as `active`, `blocked-on-prereq`,
-  `frozen`, `debt-record`, or `superseded`, with task counts and the prerequisites it actually depends on.
-- Group the active changes into **workstreams** (Python runtime, aurora render migration, terrain/vegetation,
-  audio/animation, network, packaging/platform/build, RHI debt, framework debt, backlog hygiene) and state the
-  real prerequisite ordering between them (e.g. the aurora render loop gates terrain/vegetation render).
-- Record a **cleanup checklist** with an explicit disposition per item, marking applied ones:
-  - archive or keep-as-frozen the frozen / debt-record changes;
-  - flesh out or fold the proposal-only changes that have no `tasks.md`/`specs/`;
-  - fix dangling references to nonexistent changes;
-  - trim/superseded task rows that archived changes already delivered (notably in `asset-pipeline`);
-  - re-point deferrals that cite an unnamed "sandbox editor refactor" to a real tracking change.
-- Define the intended end state so the backlog shrinks to a set where every entry is either scheduled,
-  explicitly frozen-by-decision, or blocked on a named prerequisite.
-
-**Non-goals**: no engine code, no CMake/third-party changes, no physical merge of change directories, and no
-archiving. Only non-destructive doc edits to other changes (references, superseded rows, parking banners) apply.
+- Consolidate main specifications into 32 canonical domains while preserving all 1,327 requirements and a historical capability map.
+- Migrate active delta paths, proposal capability IDs and concrete documentation links together.
+- Replace outdated snapshots with one current disposition/owner/dependency table; preserve genuine incomplete acceptance and label planned/frozen/debt records accurately.
+- Reconcile stale shader, Vulkan configuration, process-residency and platform statements against the latest origin baseline.
+- Record the explicit synchronization/history-only review and execute the user-approved 24 archives plus four backlog moves; retain 27 current change directories and preserve unfinished acceptance. Commit/push are not part of this authorization.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `change-backlog-consolidation`: classification and disposition rules for active OpenSpec changes, the
-  prerequisite-ordered workstream grouping, and the requirements the recorded consolidation snapshot must
-  satisfy (every change has a disposition, no dangling references remain in the snapshot, blocked changes name
-  a real prerequisite).
+- `workflow`: classified backlog maintenance, lossless domain consolidation, current-owner rules and archive review boundaries.
 
 ### Modified Capabilities
 
-<!-- none: this is a process/backlog capability; no existing engine capability requirements change. -->
+- Current domain specs are reorganized without changing their accepted behavior; the canonical paths and historical mapping are listed in openspec/README.md.
 
 ## Impact
 
-- `openspec/` only: this change's own artifacts plus the classification of the 23 existing active changes.
-- No engine, plugin, CMake, or third-party impact. No runtime behavior change.
-- Downstream: any remaining cleanup (archiving, if ever) stays a separate, user-confirmed maintenance operation.
+Documentation and OpenSpec configuration only. No engine, plugin, runtime, CMake target or third-party implementation changes are part of this cleanup. Historical archive snapshots retain their content and IDs. The independent common-IO design remains unimplemented and separately owned.

@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 复制基础已交付；输入序列、预测、重放/平滑与网络端到端矩阵仍未实施。
+> Owner: `add-network-prediction`.
+
 ## Why
 
 `add-network-replication` makes state authoritative but leaves the locally controlled entity a round-trip behind: the player presses a key and sees the result only after the server confirms it. For action-oriented genres this latency is unacceptable. This change adds client-side prediction for the locally controlled entity plus server reconciliation, on top of the existing replication bridge.
@@ -16,12 +19,14 @@
 
 ### New Capabilities
 
-- `network-input-stream`: client-to-server input commands with sequencing, ordering, de-duplication, and loss-tolerant redundancy.
-- `network-prediction`: local prediction of the locally controlled entity, server reconciliation by replay, and visual error smoothing.
+None.
 
 ### Modified Capabilities
 
-<!-- None: this adds prediction on top of the replication bridge; replication requirements are unchanged. -->
+- `network`: client-to-server input commands with sequencing, ordering, de-duplication, and loss-tolerant redundancy.
+  local prediction of the locally controlled entity, server reconciliation by replay, and visual error smoothing.
+
+<!-- this adds prediction on top of the replication bridge; replication requirements are unchanged. -->
 
 ## Impact
 

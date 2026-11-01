@@ -1,3 +1,6 @@
+> Status — 2026-11-01: active；剩余 owner 为 worker-local 编译池/session/module 复用、预编译模块、SSBO 精确布局及相应验证。
+> typed V/P/S 与 cbuffer 目标 ABI 沿用已交付契约；不恢复宏/RuntimeSpecialized 调用方分类或 DX12 root-constant 方案，不把未来编译池集成标为完成。
+
 # Slang usage remediation tasks
 
 Status: implementation started. Win32 verified: Slang v2026.19, static Slang package, ShaderModule boundary, session.detach removed; ShaderTest 57/57, PipelineTest 44/44, CoreTest 90 passed/1 skipped, AdaptorTest 45/45, UIShaderTest 9/9; full build passes. Other platforms and compiler reuse remain pending. Phase 3 was rebased on 2026-10-26 to integrate the already-confirmed typed V/P/S contract; the old macro/runtime category and DX12 root-constant proposal is withdrawn. Depends on `refactor-aurora-target-shader-artifacts` (per-target ABI, UniformUploadPlan, artifact/cache) and `refactor-aurora-pipeline-resource-ownership`.
@@ -43,7 +46,7 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 
 ## 4. Cbuffer and SSBO layout policy
 
-- [ ] 4.1 Remove `ReflectBlock` canonical alignment/block alignment overrides; keep native target layout.
+- Superseded 4.1: `refactor-aurora-target-shader-artifacts` already removed canonical cbuffer alignment overrides; keep its native target-layout contract. The shared-header compatibility and SSBO tasks below remain open.
 - [ ] 4.2 Update `SharedPassHeadersTest` to validate `BuildUniformUploadPlan(cpu, native)` instead of member equality.
 - [ ] 4.3 Add cbuffer tests for float2/scalar/matrix/array offsets differing per target.
 - [ ] 4.4 Define the canonical SSBO layout: default layout + 16-byte fields/padding (verified reflection across SPIRV/MSL/DXIL); complex layouts use `ByteAddressBuffer`. `Std430DataLayout`/`CDataLayout` are unavailable on Metal/DXIL.
@@ -60,7 +63,7 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 
 - [ ] 5.1 Precompile base modules to `.slang-module` (`IModule::serialize`/`writeToFile`); store content-addressed by target/environment/platform macros + composed sourceHash, shared across entries/shaders (not per instance); pin Slang/module version compatibility (`get-supported-module-versions`).
 - [ ] 5.2 Use `UseUpToDateBinaryModule`; cook codegen and write artifacts/index through existing cache writer.
-- [ ] 5.3 Shipping mode: no source, no Slang/DXC; explicit failure when artifact missing/incompatible.
+- [ ] 5.3 Verify compiler-pool/precompiled-module integration preserves the existing shipping contract: no source or Slang/DXC, and explicit failure when an artifact is missing/incompatible.
 - [ ] 5.4 Development mode: compile on demand through the same compiler pool; no separate legacy path.
 - [ ] 5.5 Keep complete typed ShaderUsage selections and per-stage lowering through precompiled modules; version formats only when encoding changes and recook explicitly.
 - [ ] 5.6 Re-enable/execute `ShaderDistribution.RelocatedProductsResolveWithoutSourcesOrCompiler` and equivalent platform tests.
@@ -76,8 +79,8 @@ Status: implementation started. Win32 verified: Slang v2026.19, static Slang pac
 
 ## 7. Cleanup and documentation
 
-- [ ] 7.1 Remove `session.detach()` and any session-pool retention used only as a workaround.
-- [ ] 7.2 Remove the canonical alignment workaround; keep per-target native cbuffer reflection.
+- Baseline 7.1: `session.detach()` removal is already complete in 1.3. Future pool teardown and bounded retention remain owned by 2.8/2.9; do not repeat this as a second removal task.
+- Superseded 7.2: canonical cbuffer override removal is supplied by `refactor-aurora-target-shader-artifacts`, as recorded in 4.1; future SSBO exact-layout validation is separate.
 - [ ] 7.3 Keep the `sourcePath` lifetime fix, Vulkan range=0 explicit-failure test, and `RendererRuntimeTest` compile fix.
 - [ ] 7.4 Update `docs/aurora/shader-design-and-migration.md` and `skyengine-aurora-shader` skill.
 - [ ] 7.5 Update `refactor-aurora-target-shader-artifacts` relationship notes; do not rewrite its completed evidence.

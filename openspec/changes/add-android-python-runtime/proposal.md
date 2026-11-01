@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change。先修复当前 pin 的 Android frozen/getpath 生成头失败，再完成 PythonModule/APK、stdlib 与设备 import/绑定验收；旧原型记录不代表当前 fresh build 可用。
+
 ## Why
 
 Per the unified-static decision, every platform links the CPython core statically and builds the required
@@ -23,11 +25,12 @@ android-31).
 ## Capabilities
 
 ### New Capabilities
-- `android-python-runtime`: cross-building, bundling, and packaging the statically linked CPython for the Android
-  launcher.
+
+None.
 
 ### Modified Capabilities
-<!-- none -->
+
+- `python`: cross-building, bundling, and packaging the statically linked CPython for the Android launcher.
 
 ## Impact
 

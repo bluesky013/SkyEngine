@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: frozen.** 当前 eager transform 保留；仅在 profiling 证明热点后重开。
+> Owner: `lazy-transform-update`.
+
 > Status: Frozen. These tasks are not scheduled.
 
 ## 1. Dirty flag and lazy resolution

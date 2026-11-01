@@ -20,7 +20,7 @@ updated: "2026-10-07"
   dialogs + `Ctrl+S`/`Ctrl+W` + title/status (sandbox), physics/nav subsystem registration (plugins). Plus
   `editor-play-in-editor` (PIE): world duplication + `PlaySession` + Play menu / `F5`/`Shift+F5`.
   Archived to `openspec/changes/archive/2026-10-07-{world-subsystem-registry,editor-play-in-editor}`; main
-  specs synced to `openspec/specs/{world-subsystem-registry,editor-play-in-editor}`.
+  specs synced to `openspec/specs/{world,editor-viewport}`.
 
 Design: `docs/editor/editor-framework-design.md`. World subsystems: `docs/features/world-subsystems.md`.
 PIE: `docs/editor/play-in-editor.md`. Changes: `openspec/changes/editor-*/`.

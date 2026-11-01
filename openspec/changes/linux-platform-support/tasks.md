@@ -1,8 +1,10 @@
+> Status (2026-11-01): **active**；owner：本 change。X11/Launcher 已交付；XCB WSI、Linux cook/测试与 CI 仍待完成；不把其它平台基线回归等同 Linux 运行验收。
+
 ## 1. 环境前置（Ubuntu 24.04 宿主机）
 
 - [x] 1.1 Python 依赖经 `venv/` 提供（GitPython + ninja；系统 PATH 无 ninja）
 - [x] 1.2 系统依赖：`X11/Xlib.h`、`X11/Xutil.h`、`X11/keysym.h`、`X11/Xatom.h`、`xcb/xcb.h`、`libX11.so`、`libxcb.so` 已具备；缺 `X11/Xlib-xcb.h` 与 `libX11-xcb.so` dev 符号链接（无 sudo 安装）→ 以运行期 `dlopen("libX11-xcb.so.1")` 规避
-- [ ] 1.3 （可选）`qtbase5-dev`、`libvulkan-dev`：编辑器/后续 RHI 需要，当前不依赖
+历史 1.3 已退休：Qt 编辑器依赖不属于当前原生后端，不再列为待办；现行 X11 前置见 1.2，Vulkan WSI 前置随第 8 节验收。
 - [x] 1.4 `python3 python/third_party.py -l` 可列出包
 
 ## 2. 三方引导（`third_party.py -p Linux -o build_3rd`）
@@ -51,7 +53,7 @@
 - [x] 6.2 `plugins/recast/src/RecastTileGenerator.cpp` 补 `<cstring>`
 - [x] 6.2b `engine/framework/src/world/WorldStreaming.cpp` 泛型 lambda 中的依赖模板调用补 `template` 关键字（GCC 要求 `actor->template GetComponent<T>()`）
 - [x] 6.3 `Flags.h`/`TypeId.h` 的 GCC 修复（rebase 前落地，保留）
-- [ ] 6.4 `configs/asset_build_presets.json` 加 `linux` preset（真实 cook 待 builder 适配）
+- [ ] 6.4 使用现行 `configs/asset_cook.jsonc` 验证 Linux 真实 cook/产品闭环；游戏模板已含 `linux → common`，不再新增已退休的 `configs/asset_build_presets.json`。Builder/工具链适配与实际 cook 仍待验收。
 
 ## 7. 验证
 
@@ -60,7 +62,7 @@
 - [x] 7.3 运行示例 `SkyLinuxTest`：原生 X11 窗口 + 事件循环正常；Aurora.Metadata/Aurora.Render 模块加载、Vulkan instance/device 初始化成功
 - [x] 7.4 当前止步于 `no platform surface support compiled in`（WSI 未实现，见 8）
 - [ ] 7.5 `SKY_BUILD_TEST=ON` + `ctest`（Linux headless 用例）
-- [ ] 7.6 Win32/macOS 回归确认（Win32 快速回归见 7.6a；macOS 仍待对应平台跟进）
+- [x] 7.6 Win32/macOS 基线回归已有记录：Win32 快速回归见 7.6a；2026-11-01 Mac Xcode 全配置 target 构建、19 组 CTest 和三帧 Metal smoke 见 `../archive/2026-11-01-aurora-navigation-integration/verification.md`。这些记录不替代 Linux WSI 或全平台性能验收。
 - [x] 7.6a 2026-10-28 在 `6446826e` 上修复 Windows 动态库错误查询分支并通过 VS 2022 Debug 快速回归：Core 311、Framework 208、Jolt 58、Recast 2 个用例，以及 Jolt DLL 生命周期和 CMake 源码归属检查。未运行重型 benchmark、完整编辑器 smoke 或 Linux/macOS 实机验证。
 
 本轮发现：Linux 提交在已有 `#ifndef _WIN32` / `dlerror()` 分支后重复添加 `#else`，令 Windows 编译 POSIX 调用并与已有 `DWORD err` 冲突。修复将错误查询收敛为单一 `#ifdef _WIN32` / `#else`，保留两侧原生 API。现有源码归属检查不检查预处理平台语义；本次由实际 Win32 编译发现。
@@ -78,6 +80,6 @@
 
 ## 9. 文档、CI 与收尾
 
-- [ ] 9.1 README/AGENTS 补 Linux 构建前置与 `third_party.py -p Linux -o build_3rd` 工作流
+- [ ] 9.1 核对平台文档的 Linux 构建前置和 WSI 限制；README / build-reference 已有 `third_party.py -p Linux -o build_3rd` 流程，不重复创建另一份构建说明。
 - [ ] 9.2 GitHub Actions Linux job（third_party 缓存 + Ninja + xvfb + lavapipe）
 - [ ] 9.3 archive 本 change（archive 前需用户确认）

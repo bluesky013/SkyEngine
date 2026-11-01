@@ -1,20 +1,9 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Use the canonical domain capability IDs in openspec/README.md and openspec/capability-map.json; explain any genuinely new domain.
+    - Keep one current implementation or acceptance owner; distinguish delivered work, remaining validation, planned work and historical evidence.
+  specs:
+    - Extend the existing domain spec rather than recreating historical leaf-capability directories. Preserve requirement identity and update active delta paths and references together.
+    - Historical archive snapshots retain their original IDs; use openspec/capability-map.json to resolve them. Do not replay old deltas over a newer contract without a sync review.

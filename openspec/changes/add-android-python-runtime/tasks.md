@@ -1,4 +1,8 @@
+> Status (2026-11-01): **active**；owner：本 change。先修复当前 pin 的 Android frozen/getpath 生成头失败，再完成 PythonModule/APK、stdlib 与设备 import/绑定验收；旧原型记录不代表当前 fresh build 可用。
+
 ## 1. Static core cross-build (configure + CMake)
+
+Current reproducibility gate: the earlier prototype checks below are historical. The 2026-11-01 Android 14/15 dependency run still fails CPython 3.13.9 on missing frozen/getpath generated headers (`add-harmonyos-platform/validation.md`, Android dependency section); repair and rerun that fresh-build path before claiming the current Android runtime is deployable.
 
 - [x] 1.1 Generate the Android platform configuration by running CPython `configure --host=aarch64-linux-android --disable-shared` under a POSIX shell (Git Bash on Windows) with the NDK clang (`pyconfig.h`, `Modules/config.c`, `Makefile`)
 - [x] 1.2 Prototype: CMake + Ninja + NDK compile the core into an AArch64 `libpython3.XX.a` (no `make`, no `android.py`)

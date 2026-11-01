@@ -1,6 +1,9 @@
+> 2026-11-01 整理：**debt-record**。现行 owner：本 change 保留未排期扩展条件；基础平台验收归 `aurora-renderer-platform-parity`。
+> 剩余：没有具体消费者与像素/生命周期验收前不激活；未来候选 delta 不得当作已实现契约同步。下方较早状态与验收记录保留为历史。
+
 ## Why
 
-Status: debt-record（未排期）。保留可注册 CPU prepare、更多光类型和生产 FrameGraph feature 的后续扩展。旧 pipeline 模板已由 `remove-unused-legacy-rendergraph` 确认无生产消费者并删除，不再作为迁移目标；其它待办不能因此视为完成。
+原阶段状态：debt-record（未排期）。保留可注册 CPU prepare、更多光类型和生产 FrameGraph feature 的后续扩展。旧 pipeline 模板已由 `remove-unused-legacy-rendergraph` 确认无生产消费者并删除，不再作为迁移目标；其它待办不能因此视为完成。
 
 ## What Changes
 

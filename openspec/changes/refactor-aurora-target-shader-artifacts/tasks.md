@@ -1,4 +1,7 @@
-状态：2026-10-23 基线为 38/43；2026-10-25 追加审计修复 6/7 完成，本轮 Metal 原生验收（6.7）仍待 Apple 宿主。原跨平台与材质端到端 gate 保持未勾选；构建/离线验证不替代实机结果。详情见 [implementation.md](implementation.md)。未 commit/archive。
+> Status — 2026-11-01: active；本 change 负责 shader artifact/目标 ABI 及其跨平台验收收口，剩余六项 native/material gate 见未勾选任务。
+> iPad 导航示例只补充 graphics/products 证据，不替代 compute、typed selection、材质读回矩阵；旧宿主不可用说明不再作为当前阻塞。
+
+状态：2026-10-23 基线为 38/43；2026-10-25 追加审计修复 6/7 完成，本轮 Metal 原生验收（6.7）仍缺对应执行记录；宿主可用不等于该项已验收。原跨平台与材质端到端 gate 保持未勾选；构建/离线验证不替代实机结果。详情见 [implementation.md](implementation.md)。未 commit/archive。
 
 2026-11-01 lifecycle update: completed compiler/module-unload checks below record the original checkpoint. The current loader keeps code process resident; remaining work must preserve actual compiler/root/writer ownership without reintroducing code tokens.
 
@@ -56,7 +59,7 @@
 - [ ] 5.6 Windows：DXIL/SPIR-V 实编译、D3D12 debug layer 下只读 SRV/RW UAV 与 graphics/compute 原生读回、Vulkan 两条既有 raster 路径及无编译器产品回归
 - [x] 5.7 清理被替代的辅助 target、短名关联、顺序槽位和固定 CPU=GPU 兼容分支；更新 shader-system、相关技能/设计说明及已有 change 的接续记录，不重写历史验收
 - [x] 5.8 运行受影响构建/测试、源码规则与 diff 检查及 OpenSpec strict；回填每项证据、设备/工具链和未完成项，未执行的实机验证保持未勾选
-- [ ] 5.9 Linux/Vulkan 消费方：基于已有 preset 核查公共 shader/Vulkan 构建及产品加载；在可用 Vulkan 环境执行 offscreen compute/参数读回，缺失的现有宿主基础记录为前置且保持未验收，不混入额外平台移植
+- [ ] 5.9 Linux/Vulkan 消费方：基于现有 Linux 平台入口与 preset 验证公共 shader/Vulkan 构建、产品加载及 offscreen compute/参数读回；缺少本次执行记录时保持未验收，不再以旧的 Linux 分支缺失描述为阻塞，也不混入额外平台移植
 - [ ] 5.10 以真实材质资产及实例在三后端通过同一 Name 入口同时更新常量、纹理与 sampler，检查实际采样读回、异步未就绪/缺失错误、device epoch 和两帧旧纹理保活；shipping 剥离源码/Slang/debug 信息后仍按 Name 工作
 - [x] 5.11 迁移材质命名映射/资源与 sampler 的资产 schema，收集 cook/package 图片依赖并 recook；覆盖不同 technique 的显式 alias、sRGB 与线性输入以及保留的非本期资源 Unsupported 边界
 

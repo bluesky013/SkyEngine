@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change；剩余事项唯一入口为 remaining-work.md 的 R1–R7。产品/cell slice 已交付，制作工具、空间策略、Terrain 接线及扩大验证仍未完成。
+
 ## Why
 
 状态（2026-10-27）：物理材质/Collision 产品、显式 World cell 加载、生命周期回归和 benchmark 已实施；专用制作工具、空间调度、Terrain 接线及扩大性能/平台验证仍待后续。已交付证据见 verification.md / benchmarks.md；剩余工作及验收映射见 [remaining-work.md](remaining-work.md)。本 change 保持开放，不将全部制作能力宣称完成。
@@ -19,10 +21,12 @@ Jolt 迁移提供了运行时形状与物理接口，但美术和关卡制作仍
 
 ### New Capabilities
 
-- `physics-collider-authoring`: 碰撞资产、生成工具、编辑器接入、cook 与验证的完整制作契约。
-- `physics-streaming`: 资产准备、物理激活、驻留引用、取消与分块宿主的交互契约。
+None.
 
 ### Modified Capabilities
+
+- `physics`: 碰撞资产、生成工具、编辑器接入、cook 与验证的完整制作契约。
+  资产准备、物理激活、驻留引用、取消与分块宿主的交互契约。
 
 主 spec 已包含此前归档的 Jolt 基线；本 change 的增量规范覆盖当前已交付切片与后续目标，交付状态按 remaining-work.md 区分。Framework 显式 cell 格式已接通，空间调度和 Terrain collision 接线仍需各自验证，不将现有地形分页描述成已具备完整物理就绪保障。
 

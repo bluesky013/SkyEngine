@@ -1,6 +1,9 @@
+> Status — 2026-11-01: debt（未实现、未排期）。tier2 抽象/驻留和 Metal/Vulkan 实现仍未交付，不列入当前实施清单。
+> 排期前需以当前 pinned Slang 做能力探针并评审首个用例与 RHI 模型；历史上游版本/issue 记录不构成现行阻塞或支持保证。
+
 # Change: aurora-metal-bindless-descriptor-heap
 
-> 状态：Debt record（未实现，not scheduled）。记录 Metal 侧 tier2 bindless 的模型差异与落地路线；未排期，待上游 slang 就绪后再提案。
+> 状态：Debt record（未实现，not scheduled）。记录 Metal 侧 tier2 bindless 的模型差异与落地路线；未排期，需在当前 pin 下完成能力探针和模型评审后再提案。
 
 ## Why
 
@@ -14,12 +17,12 @@ RHI 的 tier2 bindless 抽象 `DescriptorHeap`（`aurora/rhi/DescriptorHeap.h`�
 | Vulkan | ❌ | 需 `VK_EXT_descriptor_heap` + 后端实现 |
 | Metal | ❌ | `feature.descriptorHeap=false`、`CreateDescriptorHeap()` 返回 nullptr |
 
-此前记「Metal 工具链不支持」。**该判断过窄**，需修正：
+以下保留 2026-10-11 的源码/issue 分析，不作为当前 pin 的重新验证结果。此前记「Metal 工具链不支持」。**该判断过窄**，需修正：
 
 - slang 对 Metal 的 bindless 走**指针/地址型**模型：`DescriptorHandle<T>` 在 Metal 上具 `T` 的布局、以
   `device T*` 表示（可 `ulong` 化），**不是** argument buffer 的 `[[id]]` 形态。
-- slang 对 `DescriptorHandle<T>` on Metal 的 **compiler emit 已完成**（slang #10842）；本仓库 pin 的
-  第 `v2026.9.2` 已含（`slang-emit-metal.cpp` 的 `DescriptorHandleType` / `CastDescriptorHandleToUInt64`、
+- slang 对 `DescriptorHandle<T>` on Metal 的 **compiler emit 已完成**（slang #10842）；2026-10-11 分析时仓库 pin 的
+  `v2026.9.2` 已含（`slang-emit-metal.cpp` 的 `DescriptorHandleType` / `CastDescriptorHandleToUInt64`、
   `slang-ir-wrap-cbuffer-element.cpp` 的 `wrapCBufferElementsForMetal`）。
 - 缺口在：(a) 我们未采用 `DescriptorHandle<T>` 的 shader/RHI 模型；(b) Metal 运行时实现；
   (c) 纯 `uniform` 数组-of-resource 仍有 codegen bug（slang #12291，Q3 2026 里程碑）——与本条 bindless 路径不同层。

@@ -4,7 +4,7 @@
 
 | 入口 | 当前行为 | 问题 |
 |---|---|---|
-| AssetTool | C++ 列举 builder；Animation/Jolt 使用专用编译宏；audit 单独注册 Compression | 宿主认识每个插件，宏不保证 DLL 构建/部署 |
+| AssetTool | C++ 列举 builder；Animation/Jolt/Navigation 使用专用编译宏；压缩已由 Framework 提供 | 宿主认识每个插件，宏不保证 DLL 构建/部署 |
 | GameApplication | 从项目/内置配置解析 modules，并处理项目模块、game 设置及基础模块 | JSON 模块解析与启动策略混合 |
 | EditorApplication | 从内置 modules_editor.json 读取模块，有缺省启动策略 | 模块解析与 Game 重复，字段错误处理不一致 |
 | ToolApplicationBase | 读取旧 `/config/modules_tool.json` | 路径及错误语义不同，不宜直接作为 AssetTool 的新基类 |
@@ -49,12 +49,12 @@ AssetTool 所选配置缺失或损坏即启动失败，不静默使用另一份�
 {
   "modules": [
     {"name": "Aurora.Cook", "dependencies": ["Aurora.Metadata"]},
-    {"name": "JoltPhysics.Builder", "buildOption": "SKY_BUILD_JOLT", "dependencies": []}
+    {"name": "JoltPhysics.Builder", "buildOption": "SKY_BUILD_JOLT", "dependencies": ["JoltPhysicsModule"]}
   ]
 }
 ```
 
-该片段不是最终完整清单。实施时按实际 target 与功能开关补齐 Audio、Navigation、Terrain、Content、Animation 和必要 metadata/产品读取依赖；不能从模块名猜测构建条件。Jolt Builder 使用包含它的资产 change，Jolt runtime adaptor 不因 cook 配置而加载。
+该片段不是最终完整清单。实施时按实际 target 与功能开关补齐 Audio、Navigation、Terrain、Content、Animation 和必要 metadata/产品读取依赖；不能从模块名猜测构建条件。沿用已有 metadata owner：JoltPhysics.Builder 通过 JoltPhysicsModule 的正常模块生命周期取得 Physics World schema，不另建 metadata-only 装载模式，也不增加 builder 对 runtime/adaptor 实现的链接依赖。
 
 ### 3. 构建、静态注册和部署消费同一份清单
 
@@ -69,15 +69,15 @@ C++ 与 CMake 分别处理各自阶段的配置，但共同遵守字段、buildO
 
 ### 4. 审计模式保持最小激活集合
 
-audit 配置包含产品读取所需模块，当前 CompressionModule 通过 `SKY_BUILD_COMPRESSION` 条件选择。配置定位不读取项目源配置；PreInit 继续跳过源资产挂载和 builder 初始化。审计可执行代码不能因为 cook 工厂也链接在二进制内，就激活 cook 模块或其 metadata owner。
+audit 配置只包含产品读取实际需要的模块，可以为空。Framework 已按 `SKY_BUILD_COMPRESSION` 提供内置 LZ4；清单不再选择 CompressionModule，具体读取仍检查解码能力。配置定位不读取项目源配置；PreInit 继续跳过源资产挂载和 builder 初始化。审计可执行代码不能因为 cook 工厂也链接在二进制内，就激活 cook 模块或其 metadata owner。
 
-压缩模块关闭时，未压缩产品仍按现有读取契约审计；需要但没有可用解码能力的产品明确失败。不能把“配置筛掉模块”当成产品读取一定成功。
+内置压缩关闭或解码能力不可用时，未压缩产品仍按现有读取契约审计；需要该能力的产品明确失败。不能把清单解析成功当成产品读取一定成功。
 
 ### 5. 失败和元数据生命周期
 
 配置错误输出文件、模块或字段及原因；启用模块缺失/初始化失败由现有 ModuleManager 返回失败，应用退出非零或使 worker 启动失败。模块成功启动但具体资产没有 builder 时，仍通过现有 cook 失败回包完成请求。
 
-不新增 throw/try-catch、静默跳过、重复反射幂等守卫。RegisterMeta owner、definition lease 和 Init/Shutdown 会话语义保持不变。配置失败发生于模块装载前；装载失败仍走现有对称清理并收齐工作。
+不新增 throw/try-catch、静默跳过、重复反射幂等守卫。RegisterMeta 唯一 owner、process definition 对象所有权及 Init/Shutdown 会话语义保持不变；按 `remove-module-code-leases`，成功加载的 DLL 由 loader 保持进程常驻，不为清单或回调重新引入纯代码 token。配置失败发生于模块装载前；装载失败仍走现有对称清理并收齐工作。
 
 ## Implementation Plan
 

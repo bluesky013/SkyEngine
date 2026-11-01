@@ -14,7 +14,7 @@ Shader 现按确认的 V/P/S 输入和 backend lowering 契约实施，详见 `r
 
 ### Latest strict review: three variant input domains
 
-- 依据：`openspec/specs/aurora-shader-cache/spec.md` 的“变体 key 组装”已要求 P | V | S；`ShaderVariantAssembler` 已有对应输入。当前生产 `ShaderTechnique.cpp::CompileStage` 仅取材质 variant 并以 `ContentHash()` 请求 shader，未调用 assembler。
+- 依据：`openspec/specs/aurora-shaders/spec.md` 的“变体 key 组装”已要求 P | V | S；`ShaderVariantAssembler` 已有对应输入。当前生产 `ShaderTechnique.cpp::CompileStage` 仅取材质 variant 并以 `ContentHash()` 请求 shader，未调用 assembler。
 - 本次新增偏差：`SceneAssetSource::MaterialPayload` 用 `Skinned` 文件名前缀及固定 1/2 usageVariant 区分几何；`Skinned*.slang` 直接定义 `AURORA_SKINNED`，没有按三域组合。既有提前编译边界不是本次偏离的理由，应一起修正触及调用链。
 - 既有 assembler 的 `overrides` 同时覆盖 Pipeline 值和 Vertex 派生值，违反本轮明确的 owner 约束；不能只接上该函数就宣称通过。`ShaderUsage` 的 hash 重算与无源元数据也必须纳入回归。
 - 设计复核遗漏了上述主 spec/生产调用链差距。先前任务 4.6 的勾选和独立 Skinned 编译证据不足，现已撤销其完成状态。未修改另一份未批准的 shader source techniques change。
@@ -39,7 +39,7 @@ Shader 现按确认的 V/P/S 输入和 backend lowering 契约实施，详见 `r
 | P1 / 产品原子性 | `engine/framework/src/asset/AssetManager.cpp:499` SaveAsset 返回 void，`:517` 覆盖 UUID 文件，`:539` 提前标 LOADED；先存子产品不足以保住旧完整版本 | D4a / asset-product-loading：显式 Result、不可变组 generation、单清单提交、revision pin 与故障注入；tasks 1.6/1.14 | 设计已修，实施技术门 |
 | P1 / 子资产寻址 | 现有 `engine/framework/src/asset/AssetDataBase.cpp` 注册的是源文件；新 Skin/Skeleton 没有独立源，Graph 存在性校验和按需 cook 不能直接套用源路径 | D4 / asset-source-identity：child type/owner catalog、owner cook 合并、child 终态通知；tasks 1.5/1.11 | 设计已修 |
 | P1 / 热重载责任 | 原 D3 承诺 animation instance 同时验证 mesh/rig/clip/graph，违反动画不依赖渲染数据的边界；不同层先后 reload 会混版 | D3：Animation 只绑定 rig/clip/graph，Aurora 验证完整渲染元组并可冻结旧快照；tasks 3.3/3.5/4.4 | 设计已修 |
-| P1 / 主规范冲突 | `openspec/specs/content/spec.md` 仍给 Content Graph 所有权；aurora-mesh、aurora-mesh-cook、aurora-adaptor 仍要求 Mesh 引用 Skin/Skeleton；editor-asset-viewer 仍要求 Skin 不打开 | 补齐相应 MODIFIED/RENAMED delta，保留未触及材质/静态行为；全量 MODIFIED 标题和合成后的 requirement 审计 | 设计已修 |
+| P1 / 主规范冲突 | `openspec/specs/assets/spec.md` 仍给 Content Graph 所有权；aurora-mesh、aurora-mesh-cook、aurora-adaptor 仍要求 Mesh 引用 Skin/Skeleton；editor-asset-viewer 仍要求 Skin 不打开 | 补齐相应 MODIFIED/RENAMED delta，保留未触及材质/静态行为；全量 MODIFIED 标题和合成后的 requirement 审计 | 设计已修 |
 | P2 / Graph 控制 | 原 D9 没有说明 Blend2 状态用哪个 Clip 算 exit time；Graph loop/Seek/Stop、大 delta 和零 rate 不完整；`engine/animation/src/plan/AnimationPlanRuntime.cpp:93` 当前无条件推进 Clip bindings | D3/D9：显式 clock、tick 起点判定、活动范围、停止重置、Seek Unsupported、reference 通道回填；tasks 1.15/7.3/7.7 | 设计已修 |
 | P2 / 文档与产品边界 | 原 D10 在 Save 前要求图可执行，会阻止保存未完成工作；草稿直接建预览与 asset-product-loading 的仅产品加载原则冲突 | D10：可保存 schema-valid 草稿，cook 独立失败，v1 只预览最后成功产品；tasks 8.4/8.7 | 设计已修 |
 | P2 / 编辑扩展生命周期 | `engine/sandbox/core/include/editor/core/asset/AssetPreviewProvider.h:22` 只有 bool，不能表示两个预览的关闭/resize/在途所有权；动画编辑控制缺显式接口 | D1/D10：preview session + IAnimationInstanceControl，generation / lease / drain；tasks 2.6/5.1 | 设计已修 |

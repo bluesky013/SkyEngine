@@ -2,7 +2,7 @@
 
 Status: current authoring and migration record. The [target artifact change](../../openspec/changes/refactor-aurora-target-shader-artifacts/design.md)
 continues this design with immutable target artifacts, per-target reflection, named parameter transactions
-and CPU-to-target upload plans. Cache format 10 / usage format 3 and material version 4 require recook. The [resource-ownership change](../../openspec/changes/refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Material/Batch ownership (extended by the target-shader-artifacts change). Its tasks record fresh validation and platform limits.
+and CPU-to-target upload plans. Cache format 10 / usage format 3 and material version 4 require recook. The [resource-ownership change](../../openspec/changes/archive/2026-11-01-refactor-aurora-pipeline-resource-ownership/design.md) defines the implemented module roots, persistent exports, tagged scene techniques, explicit fullscreen/compute techniques and Global/Pass/Material/Batch ownership (extended by the target-shader-artifacts change). Its tasks record fresh validation and platform limits.
 
 ## 1. Language & modules
 
@@ -30,13 +30,13 @@ The production Renderer now invokes registered pass features through
 versions and owned material uniform snapshots; it does not choose parameter layouts.
 `RendererRuntime` validates declarations rather than a fixed three-UBO ABI.
 The change and platform validation are tracked by
-`openspec/changes/refactor-aurora-pipeline-resource-ownership`.
+`openspec/changes/archive/2026-11-01-refactor-aurora-pipeline-resource-ownership`.
 
 The unused RenderGraph and mutable pass template classes were removed on 2026-10-26.
 Scene collection and technique selection use `SceneRenderFeature` and `FrameComposer`;
 fullscreen composition uses `TextureToScreenFeature`. Shared Pass declaration headers
 and their persistent shader exports remain available. See
-[the removal change](../../openspec/changes/remove-unused-legacy-rendergraph/design.md).
+[the removal change](../../openspec/changes/archive/2026-11-01-remove-unused-legacy-rendergraph/design.md).
 
 Built-in Global and Pass/Batch declarations live in `engine/aurora/pipeline/shaders/*.h`;
 user pipelines retain their headers and shader sources inside their own targets.

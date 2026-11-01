@@ -1,3 +1,6 @@
+> Status — 2026-11-01: active；typed V/P/S 实现已交付，仅余6.4的 macOS native Metal 与 stripped-products 验收，尚未取得该项完成证据。
+> 可把这项精确验收移交 `refactor-aurora-target-shader-artifacts` 后统一收口；在正式移交前仍由本 change 保留，不能以 iPad 示例或普通编辑器启动代替。
+
 ## Why
 
 Status: active; the user confirmed the reviewed V/P/S contract on 2026-10-25. The earlier source-attribute/no-JSON implementation was withdrawn on 2026-10-24 and is not resumed. The existing change identifier is retained to avoid overlapping ownership.
@@ -20,11 +23,14 @@ None.
 
 ### Modified Capabilities
 
-- `aurora-shader`: unified selection, logical/target metadata and stage-scoped specialization.
-- `aurora-shader-cache`: selection/code/executable identities and generated product metadata.
-- `aurora-material`: generated parameter keys, one cbuffer and inactive semantics.
-- `aurora-adaptor`: coherent material/scene preparation and migration.
-- `aurora-cook`: normalized demand and compiler-free published selections.
+- `aurora-shaders`: unified selection, logical/target metadata and stage-scoped specialization.
+  selection/code/executable identities and generated product metadata.
+
+- `aurora-resources`: generated parameter keys, one cbuffer and inactive semantics.
+
+- `aurora-renderer`: coherent material/scene preparation and migration.
+
+- `asset-cook`: normalized demand and compiler-free published selections.
 
 ## Impact
 

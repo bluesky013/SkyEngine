@@ -1,3 +1,6 @@
+> Status — 2026-11-01: active；本 change 负责 shader artifact/目标 ABI 及其跨平台验收收口，剩余六项 native/material gate 见未勾选任务。
+> iPad 导航示例只补充 graphics/products 证据，不替代 compute、typed selection、材质读回矩阵；旧宿主不可用说明不再作为当前阻塞。
+
 ## Why
 
 各目标已经能生成自己的 shader，但当前反射仍混合逻辑接口与目标 ABI：Metal 借第二份 SPIR-V layout 恢复逻辑键，缺失 native metadata 会进入顺序槽位约定，Pass 上传要求目标布局等于 C++ 内存布局。缓存的实际工具链指纹为零，且公共资源分类丢失只读 buffer 的 DXIL register class，需要将这批问题收敛为同一个产物与绑定契约。
@@ -18,13 +21,16 @@
 
 ### New Capabilities
 
+None.
+
 无；在既有 shader 与 resource-binding capability 内修订契约。
 
 ### Modified Capabilities
 
-- `aurora-shader`：逻辑接口与目标 ABI 分离、单目标反射、完整 stage artifact、编译与运行时兼容身份、严格反射与缓存校验。
-- `aurora-resource-binding`：逻辑键到原生地址的 BindingPlan、访问方式、CPU 到目标 uniform 的 UniformUploadPlan、原子装配与生命周期。
-- `aurora-material`：受检的 Name 参数/资源入口、材质属性到 shader 名称映射、实例覆盖与普通 2D 贴图的版本化传递。
+- `aurora-shaders`: 逻辑接口与目标 ABI 分离、单目标反射、完整 stage artifact、编译与运行时兼容身份、严格反射与缓存校验。
+  逻辑键到原生地址的 BindingPlan、访问方式、CPU 到目标 uniform 的 UniformUploadPlan、原子装配与生命周期。
+
+- `aurora-resources`: 受检的 Name 参数/资源入口、材质属性到 shader 名称映射、实例覆盖与普通 2D 贴图的版本化传递。
 
 ## Impact
 

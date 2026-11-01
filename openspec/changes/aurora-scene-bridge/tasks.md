@@ -1,6 +1,9 @@
+> 2026-11-01 整理：**implemented-with-quality-debt**。现行 owner：本 change 维护单向 World→owned packet bridge；5.3 仅保留明确的 clang-tidy 清理债务。
+> 剩余：构建、格式与功能回归已完成；5.3 的警告清理尚未关闭，不伪称 warning-free。下方较早状态与验收记录保留为历史。
+
 # Scene bridge implementation batches
 
-Status: active. Windows renderer B12/B14 prerequisites are satisfied; bridge implementation and Windows native integration are verified; the clang-tidy completion gate remains open. Keep these original task IDs for review history; renderer implementation order is maintained separately in [aurora-renderer/batches.md](../archive/2026-10-17-aurora-renderer/batches.md).
+原阶段状态：active. Windows renderer B12/B14 prerequisites are satisfied; bridge implementation and Windows native integration are verified; the clang-tidy completion gate remains open. Keep these original task IDs for review history; renderer implementation order is maintained separately in [aurora-renderer/batches.md](../archive/2026-10-17-aurora-renderer/batches.md).
 
 | Batch | Dependencies | Scope / task IDs | Exit criteria |
 |---|---|---|---|

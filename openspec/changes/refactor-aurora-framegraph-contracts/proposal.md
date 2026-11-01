@@ -1,3 +1,6 @@
+> 2026-11-01 整理：**active**。现行 owner：本 change 保持最终公共参数/DirectFrame/绑定组契约；平台矩阵由 `aurora-renderer-platform-parity` 接续。
+> 剩余：Windows 新契约原生回归 4.5；视觉质量 5.4 转 P02-LIGHTING，均未验收。下方较早状态与验收记录保留为历史。
+
 ## Why
 
 FrameGraph binding, content analysis and native synchronization independently enumerate resource uses, which has left raster storage reads unsynchronized on Vulkan/DX12. Metal also separates resolve from attachment preservation, and the public binding/context interfaces mix incompatible update and execution protocols. The approved review calls for explicit ownership and reusable immutable binding groups while preserving backend-specific compilation.
@@ -15,14 +18,18 @@ FrameGraph binding, content analysis and native synchronization independently en
 ## Capabilities
 
 ### New Capabilities
-- `framegraph-contracts`: Compile-local access facts, immutable logical groups, complete declaration services, explicit parameter/direct protocols and backend lifecycle parity.
+
+None.
 
 ### Modified Capabilities
 
-- `aurora-resource-binding`: Separate numeric native DescriptorEncoder from named immutable ShaderParameterUpdate/CreateParameterUpdate; update direct compatibility descriptor-ring ownership.
-- `aurora-rhi-core`: Remove DescriptorBatch, split explicit lease and separately-created DirectFrameContext, and preserve checked allocation/retirement boundaries. The historical `aurora-frame-context` capability was consolidated into this main spec; no duplicate capability is introduced.
-- `aurora-rdg`: Freeze immutable group references with per-use overrides, unify pre-cull validation/resource uses, and preserve native synchronization/resolve/plan ownership.
-- `aurora-shader`: Bind the Android Vulkan SPIR-V 1.3 baseline to actual code, target environment and producer identity; recook incompatible earlier products.
+- `aurora-framegraph`: Compile-local access facts, immutable logical groups, complete declaration services, explicit parameter/direct protocols and backend lifecycle parity.
+  Freeze immutable group references with per-use overrides, unify pre-cull validation/resource uses, and preserve native synchronization/resolve/plan ownership.
+
+- `aurora-shaders`: Separate numeric native DescriptorEncoder from named immutable ShaderParameterUpdate/CreateParameterUpdate; update direct compatibility descriptor-ring ownership.
+  Bind the Android Vulkan SPIR-V 1.3 baseline to actual code, target environment and producer identity; recook incompatible earlier products.
+
+- `aurora-rhi`: Remove DescriptorBatch, split explicit lease and separately-created DirectFrameContext, and preserve checked allocation/retirement boundaries. The historical `aurora-frame-context` capability was consolidated into this main spec; no duplicate capability is introduced.
 
 ## Impact
 

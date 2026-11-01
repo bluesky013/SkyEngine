@@ -1,6 +1,9 @@
+> 2026-11-01 整理：**active**。现行 owner：唯一跨平台原生验收矩阵；公共 API 语义仍由 `refactor-aurora-framegraph-contracts` 定义。
+> 剩余：按下方 P02 六项聚合待验场景；旧编号仅保留映射，不再重复统计为待实现项。下方较早状态与验收记录保留为历史。
+
 ## Why
 
-Status: active. Windows Renderer 与 macOS Metal offscreen/native-window 宿主已完成；iOS/Android 原生窗口仍需各自平台设备验收。
+原阶段状态：active. Windows Renderer 与 macOS Metal offscreen/native-window 宿主已完成；iOS/Android 原生窗口仍需各自平台设备验收。
 
 ## What Changes
 
@@ -13,7 +16,11 @@ Status: active. Windows Renderer 与 macOS Metal offscreen/native-window 宿主�
 
 ### New Capabilities
 
-- `aurora-renderer-platforms`: 新后端整套能力门、原生设备验收与跨平台对等记录。
+None.
+
+### Modified Capabilities
+
+- `aurora-renderer`: 新后端整套能力门、原生设备验收与跨平台对等记录。
 
 ## Impact
 

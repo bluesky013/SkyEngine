@@ -1,5 +1,7 @@
 # Physics asset, streaming and authoring tasks
 
+> Status (2026-11-01): **active**；owner：本 change；剩余事项唯一入口为 remaining-work.md 的 R1–R7。产品/cell slice 已交付，制作工具、空间策略、Terrain 接线及扩大验证仍未完成。
+
 Status (2026-10-27): the runtime asset/cell-loading slice and benchmark cases are implemented and verified. Unchecked items are subsequent iterations, tracked with acceptance criteria in [remaining-work.md](remaining-work.md). They do not mean that the already delivered explicit streaming host is unimplemented. This change remains open; no archive is requested in the current batch.
 
 ## 1. Design review and implementation boundary

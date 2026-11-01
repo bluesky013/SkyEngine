@@ -1,3 +1,6 @@
+> Status — 2026-11-01: frozen（设计就绪、实现按用户要求暂缓）。本 change 只负责宿主清单/parser/部署，剩余实施与验收任务尚未开始。
+> 当前压缩能力已由 Framework 内置 LZ4 提供；通用字节 IO 调度另属 `add-common-async-io`，不在此重复建设。
+
 ## 1. Design-only preparation
 
 - [x] 1.1 Inspect AssetTool, Game, Editor and legacy tool bootstrap paths; identify duplicated parsing and stale missing-DLL comments.

@@ -1,3 +1,6 @@
+> 2026-11-01 整理：**partially-superseded**。现行 owner：共享 CPU 图片目录契约仍有效；GPU/浮窗验收归 `aurora-renderer-platform-parity` P02-EDITOR。
+> 剩余：3.5 保留未验收；旧 inflight=1/BeginFrame GPU 段不得原样同步，先保留 CPU 契约再按 owned-frame 机制整合。下方较早状态与验收记录保留为历史。
+
 ## Why
 
 Floating editor surfaces receive glyph atlas pages, but SVG icons and the color picker wheel upload
@@ -26,8 +29,8 @@ None.
 
 ### Modified Capabilities
 
-- `ui-text`: UITextSystem owns shared CPU images and attaches/detaches their backend registries.
-- `ui-render`: deferred texture generation and retirement preserve submitted GPU resource lifetime.
+- `ui`: UITextSystem owns shared CPU images and attaches/detaches their backend registries.
+  deferred texture generation and retirement preserve submitted GPU resource lifetime.
 
 ## Impact
 

@@ -1,3 +1,6 @@
+> 2026-11-01 整理：**active**。现行 owner：本 change 保持最终公共参数/DirectFrame/绑定组契约；平台矩阵由 `aurora-renderer-platform-parity` 接续。
+> 剩余：Windows 新契约原生回归 4.5；视觉质量 5.4 转 P02-LIGHTING，均未验收。下方较早状态与验收记录保留为历史。
+
 ## 1. Native correctness and resource-use facts
 
 - [x] 1.1 Produce compile-local typed resource uses and unify pre-cull declaration validation.
@@ -34,4 +37,4 @@
 - [x] 5.1 Preserve explicit compiler modes, default to AUTO and reject invalid configuration; verify public/default/non-Vulkan behavior and actual capability selection.
 - [x] 5.2 Validate version-correct Vulkan 1.1/KHR feature and command negotiation, mandatory synchronization and unsupported direct-rendering errors.
 - [x] 5.3 Recook Android SPIR-V 1.3 products, pass the 40-check physics APK audit, verify falling/settled bodies over the 121-second device run and record the separate 15-second presentation-progress sample with controlled cleanup.
-- [ ] 5.4 Complete separately scoped visual-quality/validation review of observed shadow striping and vendor warnings; the physics/package run does not establish full visual acceptance or a validation-clean device run.
+- [ ] 5.4 Transferred, not accepted: `aurora-renderer-platform-parity` P02-LIGHTING owns the observed shadow striping/vendor-warning visual review; the physics/package run does not establish visual-quality or validation-clean acceptance.

@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 复制基础已交付；输入序列、预测、重放/平滑与网络端到端矩阵仍未实施。
+> Owner: `add-network-prediction`.
+
 ## 1. Input stream
 
 - [ ] 1.1 Define the input command payload (sequence + input data) in the replication bridge

@@ -15,23 +15,29 @@ The user established a process-resident DLL contract: plugin updates, replacemen
 ## Capabilities
 
 ### New Capabilities
-- `process-resident-module-code`: Native code residency independent of restartable module sessions and owned data.
+
+None.
 
 ### Modified Capabilities
 
-- `asset-cook-config`: retain acquired compressor instances without per-provider code tokens.
-- `async-threadpool`: retain accepted callback state and executor owners without caller-supplied code tokens.
-- `aurora-adaptor`: replace distributed code tokens with resident code and explicit object/session ownership.
+- `modules`: Native code residency independent of restartable module sessions and owned data.
+  replace distributed code tokens with resident code and explicit object/session ownership.
+
+- `asset-cook`: retain acquired compressor instances without per-provider code tokens.
+
+- `async`: retain accepted callback state and executor owners without caller-supplied code tokens.
+
 - `aurora-renderer`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `aurora-shader-cache`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `aurora-shader`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `editor-viewport-picking`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `jolt-integration`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `module-registration`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `native-platform-services`: drain asset work before destroying its services and resources while module code remains resident.
-- `navigation-runtime`: retain navigation meshes, generators and query data while provider code remains resident.
-- `physics-backend`: replace distributed code tokens with resident code and explicit object/session ownership.
-- `physics-serialization`: replace distributed code tokens with resident code and explicit object/session ownership.
+
+- `aurora-shaders`: replace distributed code tokens with resident code and explicit object/session ownership.
+
+- `editor-viewport`: replace distributed code tokens with resident code and explicit object/session ownership.
+
+- `physics`: replace distributed code tokens with resident code and explicit object/session ownership.
+
+- `platform`: drain asset work before destroying its services and resources while module code remains resident.
+
+- `navigation`: retain navigation meshes, generators and query data while provider code remains resident.
 
 ## Impact
 

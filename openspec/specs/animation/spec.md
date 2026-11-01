@@ -1,9 +1,13 @@
 # animation Specification
 
 ## Purpose
-TBD - created by archiving change animation-system. Update Purpose after archive.
+
+Define animation sampling, graph data, world/adaptor integration and authoring contracts.
+
 ## Requirements
+
 ### Requirement: Runtime animation module boundary
+
 The animation runtime SHALL be provided by the `Animation` module, which SHALL depend only on `Core` and SHALL NOT depend on rendering modules. Rendering and editor consumers SHALL interact with it through its public runtime types.
 
 #### Scenario: No render dependency
@@ -11,6 +15,7 @@ The animation runtime SHALL be provided by the `Animation` module, which SHALL d
 - **THEN** it SHALL link only against `Core` and its own dependencies, with no render target in its link interface
 
 ### Requirement: Animation instance lifecycle
+
 An animation instance SHALL own a node graph and named parameters, SHALL be initialized with a root node and skeleton, and SHALL advance through an update phase and an evaluation phase. The update phase SHALL advance graph state by delta time; the evaluation phase SHALL sample the graph into a pose without advancing time.
 
 #### Scenario: Update then evaluate
@@ -26,6 +31,7 @@ An animation instance SHALL own a node graph and named parameters, SHALL be init
 - **THEN** each evaluation SHALL produce the same pose and SHALL NOT advance graph time
 
 ### Requirement: Named animation parameters
+
 An animation instance SHALL store named parameters that are updated once per tick, and transition conditions SHALL read the current parameter value during evaluation.
 
 #### Scenario: Parameter updated per tick
@@ -41,6 +47,7 @@ An animation instance SHALL store named parameters that are updated once per tic
 - **THEN** the condition SHALL evaluate false rather than read stale or invalid data
 
 ### Requirement: Node graph and layer weighting
+
 The animation graph SHALL be composed of nodes implementing the node contract (initialize, pre-tick, tick, evaluate) and SHALL propagate a layer context carrying a normalized weight and bone mask to child nodes.
 
 #### Scenario: Layer weight propagation
@@ -52,6 +59,7 @@ The animation graph SHALL be composed of nodes implementing the node contract (i
 - **THEN** the effective weight reaching a leaf node SHALL be the product of the ancestor weights
 
 ### Requirement: Skeleton model
+
 A skeleton SHALL represent a bone hierarchy with named bones, parent/child relationships, and a shared reference pose, and SHALL resolve a bone by name to its index.
 
 #### Scenario: Resolve bone by name
@@ -71,6 +79,7 @@ A skeleton SHALL represent a bone hierarchy with named bones, parent/child relat
 - **THEN** its shared reference pose SHALL provide one transform per bone
 
 ### Requirement: Pose representation
+
 An animation pose SHALL store a transform per bone, a bone mask selecting participating bones, and a reference to its skeleton. A pose SHALL be resettable to the skeleton reference pose, SHALL support rotation normalization, and SHALL convert to per-bone skin matrices using a root transform.
 
 #### Scenario: Reset to reference pose
@@ -94,6 +103,7 @@ An animation pose SHALL store a transform per bone, a bone mask selecting partic
 - **THEN** each bone's matrix SHALL include its ancestors' transforms
 
 ### Requirement: Clip channel data
+
 An animation clip SHALL store channels keyed by bone name. Each channel SHALL store per-component keyframe data with monotonically ordered key times, SHALL support compressing redundant keys, and SHALL report the keyframe span containing a sample time.
 
 #### Scenario: Compress redundant keys
@@ -121,6 +131,7 @@ An animation clip SHALL store channels keyed by bone name. Each channel SHALL st
 - **THEN** its times and keys SHALL both provide N entries
 
 ### Requirement: Channel sampling applies position, rotation, and scale
+
 Clip sampling SHALL apply the position, rotation, and scale components that are present in the channel. Step interpolation SHALL hold the previous key; linear interpolation SHALL interpolate scalars and vectors and SHALL spherical-interpolate rotations along the shortest arc. A component with no keys SHALL leave the incoming reference value unchanged.
 
 #### Scenario: Step holds previous key
@@ -148,6 +159,7 @@ Clip sampling SHALL apply the position, rotation, and scale components that are 
 - **THEN** the channel SHALL NOT be applied to the pose
 
 ### Requirement: Sequence playback timing
+
 A sequence player SHALL advance clip time by play rate and delta time, SHALL support looping and non-looping modes, and SHALL use the clip duration derived from its key times. A non-looping player SHALL stop when time reaches the duration; a looping player SHALL wrap time within the duration.
 
 #### Scenario: Non-looping stop
@@ -167,6 +179,7 @@ A sequence player SHALL advance clip time by play rate and delta time, SHALL sup
 - **THEN** its time SHALL clamp to zero
 
 ### Requirement: Clip duration reflects key times
+
 An animation clip SHALL preserve an authoritative source frame count when supplied, including after key reduction. Without that metadata it SHALL derive frame count from the last key time across channels plus one. A supplied frame count SHALL cover every key. Duration SHALL be frame count divided by positive frame rate, independent of retained key count and adaptor loading. Zero frame rate SHALL produce zero duration without time advancement.
 
 #### Scenario: Sparse clip duration
@@ -190,6 +203,7 @@ An animation clip SHALL preserve an authoritative source frame count when suppli
 - **THEN** source validation SHALL fail with a diagnostic rather than truncate playback
 
 ### Requirement: Pose blending uses the source pose
+
 Pose blending SHALL consume both the source and destination poses. Override blending SHALL interpolate the destination toward the source by weight; additive blending SHALL accumulate a weighted delta onto the destination. Rotations SHALL be blended as rotations and SHALL remain unit-length.
 
 #### Scenario: Override halfway
@@ -217,6 +231,7 @@ Pose blending SHALL consume both the source and destination poses. Override blen
 - **THEN** the destination pose SHALL be left unmodified
 
 ### Requirement: Pose blend nodes are weight-driven
+
 Blend nodes SHALL produce an output pose reflecting their configured weights, SHALL reset the destination pose to the reference pose before blending, and SHALL NOT access storage outside their allocated entries.
 
 #### Scenario: Two-pose blend at alpha
@@ -240,6 +255,7 @@ Blend nodes SHALL produce an output pose reflecting their configured weights, SH
 - **THEN** the output SHALL return to the first pose
 
 ### Requirement: Animation state machine
+
 An animation state machine SHALL hold named states, an entry state, transitions guarded by conditions between states, and SHALL evaluate the active state's node each tick. State selection SHALL be bounds-safe and SHALL only follow registered transitions.
 
 #### Scenario: Entry state
@@ -275,6 +291,7 @@ An animation state machine SHALL hold named states, an entry state, transitions 
 - **THEN** no out-of-range state SHALL be accessed
 
 ### Requirement: Clip node playback control
+
 A clip node SHALL bind a clip to the graph and expose playback, looping, and root-motion controls. Sampling SHALL position the clip at the player's current time. The virtual graph and lowered-plan paths SHALL apply updated controls consistently before advancement; initialization SHALL honor the configured playing flag. Seek SHALL update sampling time without implicitly starting playback.
 
 #### Scenario: Sampling follows playback time
@@ -294,6 +311,7 @@ A clip node SHALL bind a clip to the graph and expose playback, looping, and roo
 - **THEN** its next advance SHALL honor those flags without relying on an uncalled virtual PreTick
 
 ### Requirement: Root-motion evaluation is non-destructive
+
 Evaluating a clip with root motion disabled SHALL NOT mutate shared pose state such as the bone mask, and SHALL identify the root bone from the skeleton rather than a hardcoded index. The consumed root delta SHALL be made available on the evaluation context.
 
 #### Scenario: Repeated evaluation preserves bone mask
@@ -309,6 +327,7 @@ Evaluating a clip with root motion disabled SHALL NOT mutate shared pose state s
 - **THEN** the consumed root delta SHALL be available on the evaluation context
 
 ### Requirement: Renderer-neutral pose output
+
 The animation core SHALL expose the evaluated final pose to callers without any renderer dependency, so that any renderer adaptor can consume it. Renderer-specific concerns - asset storage, skinning, and debug drawing - SHALL NOT be required for the core to tick and evaluate animation, and the renderer/asset integration SHALL be provided outside the `Animation` module.
 
 #### Scenario: Core evaluates without a renderer
@@ -320,6 +339,7 @@ The animation core SHALL expose the evaluated final pose to callers without any 
 - **THEN** the evaluated final pose SHALL be obtainable through renderer-neutral core types for downstream skinning or debug rendering
 
 ### Requirement: Animation asset builder
+
 The engine SHALL provide an editor/cook-time animation asset builder that converts source animation data into runtime assets for clips, skeletons, and graphs. The builder SHALL validate source data, resolve and register the skeleton dependency, set the clip frame rate, write a versioned runtime asset, and report failures with a diagnostic instead of emitting a partially valid asset. The builder SHALL NOT be required by the runtime.
 
 #### Scenario: Clip build
@@ -335,6 +355,7 @@ The engine SHALL provide an editor/cook-time animation asset builder that conver
 - **THEN** it SHALL write the runtime graph asset and set the build result
 
 ### Requirement: Cook-time curve compression
+
 The builder SHALL compress animation clip keyframe tracks at cook time using ACL v2 (Animation Compression Library), reducing keyframe storage while bounding reconstruction error by a configured threshold. Compression settings - at least the error threshold and compression level - SHALL be configurable per clip with engine defaults.
 
 #### Scenario: Bounded error
@@ -350,6 +371,7 @@ The builder SHALL compress animation clip keyframe tracks at cook time using ACL
 - **THEN** the last key time SHALL be preserved so the key-derived duration is unchanged
 
 ### Requirement: Runtime decompression
+
 The runtime SHALL sample compressed clips through the same channel-sampling interface as uncompressed clips, without requiring the original keyframes, and SHALL depend only on ACL decompression code. Clips stored uncompressed SHALL remain loadable and sampleable.
 
 #### Scenario: Compressed sampling
@@ -365,6 +387,7 @@ The runtime SHALL sample compressed clips through the same channel-sampling inte
 - **THEN** the runtime SHALL still sample it correctly
 
 ### Requirement: ACL2 third-party dependency
+
 ACL v2 SHALL be provided as a third-party package built through the repository third-party bootstrap (`python/third_party.py`) for all supported platforms, and SHALL be consumed as an external CMake target rather than a vendored copy inside the engine tree.
 
 #### Scenario: Package available
@@ -376,6 +399,7 @@ ACL v2 SHALL be provided as a third-party package built through the repository t
 - **THEN** no ACL sources SHALL be vendored under `engine/`; the third-party package SHALL be the single source
 
 ### Requirement: Animation asset versioning and compression metadata
+
 Runtime animation assets SHALL be versioned. The builder SHALL record the asset version and the compression settings with each compressed clip, and the runtime SHALL reject assets whose version or compression information it does not support.
 
 #### Scenario: Version mismatch
@@ -387,6 +411,7 @@ Runtime animation assets SHALL be versioned. The builder SHALL record the asset 
 - **THEN** it SHALL carry the settings required to decompress it
 
 ### Requirement: Data-oriented evaluation plan
+
 The animation runtime SHALL evaluate a flattened, topologically ordered array of fixed-size operation records over a preallocated pose pool instead of dispatching virtual node calls in the data plane. Each operation record SHALL identify its operation kind, input and output pose slots, a weight, and a data index.
 
 #### Scenario: Operations evaluate in order
@@ -398,6 +423,7 @@ The animation runtime SHALL evaluate a flattened, topologically ordered array of
 - **THEN** the weight SHALL be carried by an operation record field rather than a recursively propagated context
 
 ### Requirement: Control plane and data plane separation
+
 The animation runtime SHALL separate a control plane that performs state-machine transitions, condition evaluation, parameter updates, clip time advance, root-motion decisions, and event dispatch from a data plane that performs only clip sampling, blending, and skin-matrix generation. The data plane SHALL consume a frame-state block produced by the control plane and SHALL NOT perform data-dependent branching on graph structure.
 
 #### Scenario: State machine stays on the control plane
@@ -409,6 +435,7 @@ The animation runtime SHALL separate a control plane that performs state-machine
 - **THEN** it SHALL produce the same pose without requiring additional control-plane input
 
 ### Requirement: Allocation-free evaluation
+
 Evaluating a compiled plan SHALL NOT perform heap allocation. Pose slots, blend scratch, and transition search storage SHALL be owned by the plan or its instance and reused across frames.
 
 #### Scenario: Repeated evaluation does not allocate
@@ -416,6 +443,7 @@ Evaluating a compiled plan SHALL NOT perform heap allocation. Pose slots, blend 
 - **THEN** no heap allocation SHALL occur during evaluation
 
 ### Requirement: Index-based bone and channel resolution
+
 Channel-to-bone and bone-name resolution SHALL be performed when the plan is compiled, producing index ranges used by the evaluation loop. The evaluation loop SHALL NOT perform name-based or hash-based lookups.
 
 #### Scenario: No hashing during sampling
@@ -423,6 +451,7 @@ Channel-to-bone and bone-name resolution SHALL be performed when the plan is com
 - **THEN** channel and bone access SHALL use precomputed indices only
 
 ### Requirement: Structure-of-arrays keyframe layout
+
 Clip keyframes SHALL be stored as separate fixed-stride time and value blocks per channel component so the data can be read coalesced and uploaded without repacking.
 
 #### Scenario: Keyframe blocks are separated
@@ -430,6 +459,7 @@ Clip keyframes SHALL be stored as separate fixed-stride time and value blocks pe
 - **THEN** its times and values SHALL occupy separate contiguous blocks with a fixed element stride
 
 ### Requirement: Pointer-free serializable graph data
+
 The compiled plan together with its clip, skeleton, and bone-mask data SHALL form a self-contained, versioned byte layout containing no pointers and using offsets for all cross-references. The CPU evaluator SHALL read this layout directly.
 
 #### Scenario: No pointers in the compiled layout
@@ -441,6 +471,7 @@ The compiled plan together with its clip, skeleton, and bone-mask data SHALL for
 - **THEN** evaluating it SHALL produce the same pose as the in-memory plan
 
 ### Requirement: Graph compilation and validation
+
 The authoring graph SHALL be compiled into the evaluation plan, and compilation SHALL validate the graph and SHALL reject invalid graphs with a diagnostic instead of evaluating them. Validation SHALL detect cycles, out-of-range references, a missing or multiple output operation, and bone indices outside the skeleton.
 
 #### Scenario: Cyclic graph rejected
@@ -452,6 +483,7 @@ The authoring graph SHALL be compiled into the evaluation plan, and compilation 
 - **THEN** compilation SHALL fail with a diagnostic
 
 ### Requirement: Authoring API preserved
+
 The existing node types SHALL remain available as the authoring and graph-building surface, and SHALL lower to the evaluation plan. Authoring code SHALL NOT be required to construct operation records directly.
 
 #### Scenario: Existing authoring builds a plan
@@ -459,6 +491,7 @@ The existing node types SHALL remain available as the authoring and graph-buildi
 - **THEN** it SHALL compile to an evaluation plan without direct operation-record construction
 
 ### Requirement: Plan supports bone masking
+
 A compiled clip operation SHALL reference a bone mask, and the evaluator SHALL NOT apply channels whose bone is excluded by the mask. A clip node's bone mask SHALL be captured when it is lowered.
 
 #### Scenario: Masked bone keeps the bind pose
@@ -470,6 +503,7 @@ A compiled clip operation SHALL reference a bone mask, and the evaluator SHALL N
 - **THEN** all of its tracks SHALL be applied
 
 ### Requirement: Plan exposes the consumed root-motion delta
+
 Evaluating a plan SHALL be able to return the consumed root-motion delta, and SHALL NOT mutate shared pose state such as the bone mask.
 
 #### Scenario: Root-motion delta output
@@ -477,6 +511,7 @@ Evaluating a plan SHALL be able to return the consumed root-motion delta, and SH
 - **THEN** the root bone SHALL be reset to the bind pose and the delta output SHALL hold the sampled root offset
 
 ### Requirement: Plan blend weights are runtime-driven
+
 Blend operations SHALL read their weight from the frame state when a weight slot is assigned, so blend weights can change between frames without recompiling. Multi-pose weights SHALL be normalized at runtime.
 
 #### Scenario: Two-pose weight follows the frame state
@@ -488,6 +523,7 @@ Blend operations SHALL read their weight from the frame state when a weight slot
 - **THEN** the output SHALL be the weighted average of the active poses at their current weights
 
 ### Requirement: Plan supports additive blending
+
 A two-pose node marked additive SHALL lower to an additive blend operation that accumulates a weighted delta onto the base pose.
 
 #### Scenario: Additive blend op emitted
@@ -495,6 +531,7 @@ A two-pose node marked additive SHALL lower to an additive blend operation that 
 - **THEN** the plan SHALL contain an additive blend operation and evaluate the base pose plus the weighted delta
 
 ### Requirement: Layer weight semantics
+
 A layer operation SHALL blend its input pose over the plan's bind pose by its weight, so a layer at weight 0 keeps the bind pose and at weight 1 equals its input.
 
 #### Scenario: Half-weight layer
@@ -502,6 +539,7 @@ A layer operation SHALL blend its input pose over the plan's bind pose by its we
 - **THEN** the output SHALL be the midpoint between the bind pose and the input pose
 
 ### Requirement: Node lowering extension point
+
 Authoring node types SHALL lower themselves into the plan through a virtual lowering entry point. Nodes that do not implement it SHALL be rejected by the compiler with a diagnostic rather than silently skipped.
 
 #### Scenario: Unsupported node rejected
@@ -513,6 +551,7 @@ Authoring node types SHALL lower themselves into the plan through a virtual lowe
 - **THEN** each child SHALL lower through the same entry point without the compiler inspecting concrete node types
 
 ### Requirement: Inactive state operations are skipped
+
 When a state machine is compiled, the control plane SHALL mark only the active state's operations as enabled, and the data plane SHALL skip disabled operations.
 
 #### Scenario: Only the active state is evaluated
@@ -520,6 +559,7 @@ When a state machine is compiled, the control plane SHALL mark only the active s
 - **THEN** the operations of the inactive states SHALL be disabled while the active state's operations, state selection, and output remain enabled
 
 ### Requirement: Comparative performance benchmark
+
 The animation tests SHALL include a benchmark that evaluates the same graph through both the virtual and the flat evaluators and compares heap allocations and evaluation time. The flat evaluator SHALL perform zero heap allocations during evaluation and SHALL NOT regress beyond a wide time margin against the virtual evaluator.
 
 #### Scenario: Allocation benchmark
@@ -531,6 +571,7 @@ The animation tests SHALL include a benchmark that evaluates the same graph thro
 - **THEN** the flat path SHALL stay within a wide margin of the virtual path and the result SHALL be reported
 
 ### Requirement: ACL2 third-party packaging
+
 ACL v2 SHALL be provided as a header-only third-party package built by `python/third_party.py`, exposing a CMake target that makes both the `acl` and bundled `rtm` headers available, without vendoring ACL sources under `engine/`. The package build SHALL NOT require ACL's unit tests, benchmark, or compressor tools.
 
 #### Scenario: Package builds header-only
@@ -542,6 +583,7 @@ ACL v2 SHALL be provided as a header-only third-party package built by `python/t
 - **THEN** no ACL sources SHALL exist under `engine/`
 
 ### Requirement: Optional ACL dependency
+
 The ACL integration SHALL be gated by a build option that is enabled by default. When disabled, the animation module SHALL still build, compression entry points SHALL report failure, and decompression SHALL be a no-op.
 
 #### Scenario: Disabled build
@@ -553,6 +595,7 @@ The ACL integration SHALL be gated by a build option that is enabled by default.
 - **THEN** the animation module SHALL link the ACL target and compression SHALL succeed
 
 ### Requirement: Cook-time clip compression API
+
 The animation module SHALL expose a cook-time compressor that converts sparse clip tracks into a compressed clip at a given frame rate, bounded by a configurable per-track error threshold, and SHALL preserve the clip duration. The compressor SHALL NOT be required at runtime.
 
 #### Scenario: Compress sparse tracks
@@ -568,6 +611,7 @@ The animation module SHALL expose a cook-time compressor that converts sparse cl
 - **THEN** the produced blobs SHALL be identical
 
 ### Requirement: Runtime decompression path
+
 The runtime clip SHALL decompress the stored blob through ACL decompression only, write the result into the engine transform layout, and SHALL be transferable as a pointer-free blob with its metadata.
 
 #### Scenario: Sample decoded pose
@@ -583,6 +627,7 @@ The runtime clip SHALL decompress the stored blob through ACL decompression only
 - **THEN** sampling both SHALL produce the same pose
 
 ### Requirement: Runtime animation data construction reports validation failures
+
 Skeleton, channel and clip construction SHALL validate bone counts, unique identities, parent bounds and cycles, reference-pose sizes, finite invertible transforms, key array shapes and times, explicit clip length and named channel compatibility before evaluation. Invalid runtime input SHALL return an explicit status rather than throw, assert or silently omit a channel.
 
 #### Scenario: Invalid topology or channel data
@@ -590,6 +635,7 @@ Skeleton, channel and clip construction SHALL validate bone counts, unique ident
 - **THEN** construction or binding SHALL fail before invalid data is used for sampling
 
 ### Requirement: Sampling restores unanimated reference channels
+
 Each Clip sampling operation SHALL initialize its destination from the selected skeleton's reference local transforms before applying available channels. Valid partial clips SHALL leave missing joints and missing TRS components at reference values. Unknown named channels SHALL remain an error on the validated asset path. Plan and virtual evaluation SHALL follow the same rule.
 
 #### Scenario: Reused workspace with partial animation

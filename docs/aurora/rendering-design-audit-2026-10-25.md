@@ -2,7 +2,7 @@
 
 2026-11-01 契约更新：本文的审计与同日测试结果是历史快照。后续 `remove-module-code-leases` 已将 DLL 改为进程常驻，删除逐对象代码租约及最终卸载预期；当前仍保留实际 compiler、Feature、World 和 GPU 对象的完成/退役约束。历史测试数量和失败原因不作为当前行为要求。
 
-> 2026-10-26 后续：本文记录审计当日状态。旧 RenderGraph、RDGBackend 与 PipelinePass 模板现已确认无生产消费者并删除，见 [退役设计](../../openspec/changes/remove-unused-legacy-rendergraph/design.md)。本文旧 API 缺口不再是待迁移任务；RenderScene/LightSystem 等独立 CPU 数据设施不在本次删除范围。
+> 2026-10-26 后续：本文记录审计当日状态。旧 RenderGraph、RDGBackend 与 PipelinePass 模板现已确认无生产消费者并删除，见 [退役设计](../../openspec/changes/archive/2026-11-01-remove-unused-legacy-rendergraph/design.md)。本文旧 API 缺口不再是待迁移任务；RenderScene/LightSystem 等独立 CPU 数据设施不在本次删除范围。
 
 日期：2026-10-25。基线：本地工作树，包含暂存、未暂存及相关新增文件；HEAD 为 `69e33334`。正文保留本次修复前的审计快照；用户授权修复后的代码与验证状态见文末“同日修复记录”。历史失败和行号不代表修复后仍然存在的问题。
 
@@ -293,7 +293,7 @@ Slang 2026.9.2 的问题描述可作为历史缺陷证据保留，但需注明�
 
 ### 2026-10-25 cleanup 后的状态补充
 
-上节 v9 和定向构建是历史验证记录。当前 shader source techniques 工作区为 v10，按其 change 的版本迁移重新 cook。本轮完成全项目 Debug 增量构建、唯一 metadata owner 拆分和窗口/测试重复注册清理；没有进行 clean build 或 OpenSpec archive。此前静态模块 fixture 的缺 lease 问题已在受管入口修正，动态/静态生命周期 6/7 项通过；真实无源码/无 compiler 包的 Core 1、Vulkan 2、D3D12 2 项通过。具体 owner、lease 和回归契约见 `openspec/changes/refactor-process-owned-reflection/`；原生 Metal 验收仍开放。
+上节 v9 和定向构建是历史验证记录。当前 shader source techniques 工作区为 v10，按其 change 的版本迁移重新 cook。本轮完成全项目 Debug 增量构建、唯一 metadata owner 拆分和窗口/测试重复注册清理；没有进行 clean build 或 OpenSpec archive。此前静态模块 fixture 的缺 lease 问题已在受管入口修正，动态/静态生命周期 6/7 项通过；真实无源码/无 compiler 包的 Core 1、Vulkan 2、D3D12 2 项通过。具体 owner、lease 和回归契约见 `openspec/changes/archive/2026-11-01-refactor-process-owned-reflection/`；原生 Metal 验收仍开放。
 
 2026-10-26 最终补充：原生 GPU 首轮 174/177 通过；3 个静态拾取用例因最后一次 Tick 已完成但等待辅助函数未复查而误报，修复后 3/3 定向复测通过，保留全部行为断言。证据为 `cleanup-review-2026-10-25/gpu-metadata-final.xml` 与 `gpu-picking-final.xml`，不是单次全 suite 全绿。Reflection Demo、NetworkWorld 和 Bullet 的遗留反射入口也已收敛；最终编辑器 376、NetworkWorld 5、Bullet 8、Animation 模块生命周期 2 项通过。
 

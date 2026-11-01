@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: blocked-on-prereq.** 等待 vegetation render 的可用预览/绘制闭环。
+> Owner: `vegetation-editor-tools`. Prerequisites: `vegetation-aurora-render`.
+
 ## 1. Editor extension
 
 - [ ] 1.1 Implement biome authoring (rules, palette, density) in a vegetation editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt)

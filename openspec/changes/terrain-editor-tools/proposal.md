@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: blocked-on-prereq.** 等待 terrain render 的可用预览/绘制闭环。
+> Owner: `terrain-editor-tools`. Prerequisites: `terrain-aurora-render`.
+
 ## Why
 
 The terrain editor tooling was re-scoped away from the legacy Qt editor to the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt). It was split out of `terrain-large-world-core` so the core can land independently. This change implements terrain authoring as a sandbox editor extension.
@@ -15,11 +18,11 @@ The terrain editor tooling was re-scoped away from the legacy Qt editor to the a
 
 ### New Capabilities
 
-- `terrain-editor`: terrain authoring extension on the aurora sandbox framework.
+None.
 
 ### Modified Capabilities
 
-<!-- none -->
+- `terrain`: terrain authoring extension on the aurora sandbox framework.
 
 ## Impact
 

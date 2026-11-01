@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 运行时植被渲染、LOD、风场与 culling 尚待实施；基础 Renderer 已交付。
+> Owner: `vegetation-aurora-render`.
+
 ## 1. Aurora adaptor
 
 - [ ] 1.1 Create the `plugins/vegetation` aurora adaptor and module registration, registering it with the core factory seam

@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change。target 分层和模块入口已有实现；剩余多实例/CPU oracle、GPU palette/退休、Graph/Preview 和人工平台复合验收。
+
 Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 模块、装载和首版范围。只勾选已实施并验证的任务；提交与 archive 仍需单独确认。
 
 ## 0. Review 与实施门
@@ -26,10 +28,10 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 
 ## 2. 动画 feature 模块与消费方接口
 
-- [ ] 2.1 按已批准 D1 建立 Graph core/assets、World adaptor、Builder 和 Editor 的独立 target/开关；检查完整依赖图无 engine -> plugin、core -> adaptor/editor/builder。
+- [ ] 2.1 Graph core/assets、World adaptor、Builder、Editor 的独立 target/开关已有实现（`plugins/animation/CMakeLists.txt`）；待按已批准 D1 完成全依赖图审计，确认无 engine -> plugin、core -> adaptor/editor/builder，不能把“存在 target”当作完整验收。
 - [x] 2.2 在 engine/animation 定义 Clip/Skeleton source 接口及状态/诊断数据；在现有 Content/Aurora provider 中实现，沿 AssetManager 请求而非另建 loader。
 - [x] 2.3 在 Aurora renderer 接口定义 ISkeletalPoseSource；由 World adaptor 实现，明确 main-thread 查询、World/Actor generation 和 owned result。
-- [ ] 2.4 配置 game/editor/cook 模块入口和实际依赖，验证插件关闭、无 editor 构建、provider 缺失以及合法装载顺序。
+- [ ] 2.4 game/editor/cook 模块入口和实际依赖已有配置（`configs/modules_game.json`、`configs/modules_editor.json`、`tools/asset_tool/main.cpp`）；待验证插件关闭、无 editor 构建、provider 缺失及合法装载顺序，保留未勾选。
 - [x] 2.5 为共享注册表采用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，禁止 Once/查表跳过/scratchNode 吞重。实施 provider 注册/撤销及任务 drain，验证关闭 World 和模块会话后不留失效回调和借用。原代码 lease 方案已由 `remove-module-code-leases` 的进程常驻 DLL 契约替代，实际对象保活不变。（2026-10-25 唯一 owner 方案获批并实施；Framework 205/205、真实模块重载/窗口回归 2/2 通过，详见 refactor-process-owned-reflection。）
 - [x] 2.6 定义 Animation.Editor 消费的 IAnimationInstanceControl，World adaptor 实现播放/参数/调试状态与 stale generation 返回；编辑器不直接访问 node/player。
 
@@ -100,7 +102,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [x] 9.1 更新打包/模块清单和指南，从 World 的 Mesh/Skin/Skeleton 显式根收集依赖与组清单；仅 products 环境验证 clip/graph/material/shader 解析，不依赖 Mesh -> rig 边。（`test_animation_package.py` 3/3：显式 roots、legacy 诊断、products-only 审计/损坏产品/类型错配；修正 AssetTool 脚本式参数缺 program slot；`docs/features/asset-pipeline.md` 增补 roots/audit 说明。）
 - [x] 9.2 按仓库顺序关闭编辑器、必要时重配现有 cmake-build-debug、构建所有修改 targets；编辑器 UI 修改构建 SandboxModule，执行相关测试和静态检查。（全量 Debug 构建通过；Develop `ShaderCookTool`/`AssetTool` 重建；GPU 951 项 0 失败、Pipeline 48、Shader 49、Adaptor 48、core usage/cache/binding 22、Resource 37；仓库无独立 lint 命令，格式由 IDE clang-format 维护。）
 - [ ] 9.3 Windows Vulkan/DX12 真实项目验收：添加双角色、播放不同动画、切参数、保存重开、重导入、reload、撤销删除、Preview/PIE 切换及退出。（已执行 `AnimationCharacter.skyproj` 有界运行：Vulkan/DX12 均 exit 0，RTX 3080 设备创建、Animation.World/Builder/Editor 模块装载；自动化覆盖沙盒世界 add/edit/undo/delete/reopen、skin defaults、graph 编辑/保存重开、preview session、products-only 与 GPU 蒙皮/阴影。逐项双角色 UI 播放、参数切换、重导入和 PIE 人工交互仍待执行，不能以自动化结果代替。）
-- [ ] 9.4 执行 Metal 原生颜色/阴影/palette/退休验收；无设备时保留未勾选并明确平台限制，不用 Windows 或 mock 结果代替。（当前 Win32 环境无 Metal 设备；保留未勾选。）
+- [ ] 9.4 执行 Metal 原生颜色/阴影/palette/退休验收。2026-11-01 已有 Mac/Metal 与 iPad 导航基础场景，但未执行本动画矩阵；保留未勾选，不用 Windows、mock 或无骨骼 demo 结果代替。
 - [ ] 9.5 验收每一份 spec 的场景，记录数据、GPU 和编辑器证据，删除临时诊断；关联 change 的遗留任务不冒领完成。（D6a/usage/打包/编辑器自动化证据已入 review.md；9.3/9.4 人工验收尚未收口；2.5 已在本地按批准的唯一 owner 方案完成。）
 - [ ] 9.6 review 最终 diff、版本迁移和任务状态；提交前给出 message + 文件清单等待用户确认，archive 前另行展示状态并等待确认。（2026-10-25 反射阻塞已解决并保留严格测试；分批提交清单已准备，见 cmake-build-debug/cleanup-review-2026-10-25/commit-plan.md。仍需用户确认 commit/archive，不把剩余人工验收标为完成。）
 

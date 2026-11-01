@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: blocked-on-prereq.** 等待 terrain render 的可用预览/绘制闭环。
+> Owner: `terrain-editor-tools`. Prerequisites: `terrain-aurora-render`.
+
 ## 1. Editor extension
 
 - [ ] 1.1 Implement a terrain editor extension on the aurora sandbox framework (`engine/sandbox` `EditorExtension`, non-Qt) bound to the refactored component and core data model

@@ -1,6 +1,9 @@
+> Status — 2026-11-01: frozen（设计就绪、实现按用户要求暂缓）。本 change 只负责宿主清单/parser/部署，剩余实施与验收任务尚未开始。
+> 当前压缩能力已由 Framework 内置 LZ4 提供；通用字节 IO 调度另属 `add-common-async-io`，不在此重复建设。
+
 ## Why
 
-AssetTool 在 `WorkerApplication::LoadConfigs()` 中写死 builder 模块名与依赖，并用 `SKY_HAS_ANIMATION_BUILDER`、`SKY_HAS_JOLT_BUILDER` 控制注册。新增业务插件因此必须修改工具主程序，运行时清单又与构建、静态注册及部署清单分离。Jolt 独立提交验证中，构建 AssetTool 后仍需单独补建 CompressionModule 才能执行产品审计，暴露了这条依赖边界。
+AssetTool 在 `WorkerApplication::LoadConfigs()` 中写死 builder 模块名与依赖，并用 `SKY_HAS_ANIMATION_BUILDER`、`SKY_HAS_JOLT_BUILDER` 控制注册。新增业务插件因此必须修改工具主程序，运行时清单又与构建、静态注册及部署清单分离。早期 Jolt 验证曾暴露 CompressionModule 的宿主依赖问题，该问题现已由 Framework 内置 LZ4 解决；本 change 剩余范围是清单、解析与构建/部署的一致性。
 
 Game、Editor 已使用 `modules_*.json`，但解析代码各自维护；旧 ToolApplicationBase 还保留不同路径与宽松错误处理。应复用现有模块框架并统一必要的解析能力，而不是继续增加宿主专用宏。
 
@@ -17,11 +20,13 @@ Game、Editor 已使用 `modules_*.json`，但解析代码各自维护；旧 Too
 
 ### New Capabilities
 
-- `application-module-config`: 共用模块清单解析、宿主配置选择、构建/部署与运行时清单一致性。
+None.
 
 ### Modified Capabilities
 
-- `asset-cook-ipc`: 将 worker builder 的能力来源改为配置，明确缺失启用模块时在启动阶段失败。
+- `modules`: 共用模块清单解析、宿主配置选择、构建/部署与运行时清单一致性。
+
+- `asset-cook`: 将 worker builder 的能力来源改为配置，明确缺失启用模块时在启动阶段失败。
 
 ## Impact
 

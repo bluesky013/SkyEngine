@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 地形 atlas、clipmap、seam、culling 与 CPU fallback 尚待实施。
+> Owner: `terrain-aurora-render`.
+
 ## Why
 
 `terrain-large-world-core` delivered the render-agnostic core (tiled data, LOD chains, streaming, collision, procedural generation, component). Its aurora render layer was split out because it needs the aurora renderer and the GPU-driven pipeline. This change implements that render layer on aurora.
@@ -16,11 +19,11 @@
 
 ### New Capabilities
 
-- `terrain-render`: aurora render layer for terrain (feature processor, atlas, clipmap, stitching, material, GPU-driven path + CPU fallback).
+None.
 
 ### Modified Capabilities
 
-<!-- none -->
+- `terrain`: aurora render layer for terrain (feature processor, atlas, clipmap, stitching, material, GPU-driven path + CPU fallback).
 
 ## Impact
 

@@ -1,4 +1,7 @@
-Status: active. L01-L04 Windows implementation, native editor checks and final regression passed. Metal/macOS and mobile native execution remain unverified; static-analysis cleanup is recorded separately in aurora-scene-bridge 5.3.
+> 2026-11-01 整理：**implemented-awaiting-platform-validation**。现行 owner：功能里程碑保留于本 change；现行原生/视觉验收归 `aurora-renderer-platform-parity` P02-LIGHTING。
+> 剩余：5.2 仍未验收；Metal 深度和手动画面只覆盖子集，不替代 HDR/IBL/移动端完整像素矩阵。下方较早状态与验收记录保留为历史。
+
+原阶段状态：active. L01-L04 Windows implementation, native editor checks and final regression passed. Metal/macOS and mobile native execution remain unverified; static-analysis cleanup is recorded separately in aurora-scene-bridge 5.3.
 
 ## 1. L01 Depth attachments and sampling
 
@@ -38,6 +41,6 @@ L04 evidence: environment default/replacement/intensity/specular-mip/BRDF pixels
 ## 5. Completion gates
 
 - [x] 5.1 Run affected builds, regression tests, formatting checks and strict OpenSpec validation.
-- [ ] 5.2 Execute Metal/macOS and mobile native coverage where available; otherwise retain an explicit unverified gate.
+- [ ] 5.2 Transferred, not accepted: `aurora-renderer-platform-parity` P02-LIGHTING owns the remaining Metal/mobile L01-L04 pixel and visual-quality matrix; retain this source ID without duplicating its schedule.
 
 Final Windows evidence (2026-10-21): affected Debug targets and the normal SandboxModule build with configured runtime dependencies passed. GPU submission suite: 895 cases, 892 passed / 3 DX12-parameter skips for Vulkan-only surface cases, zero failures (217.448 s). The previously intermittent QueryErrorAfterAcquirePreservesCauseAndReleasesBorrowedOutput/2 passed this run. RHITest 133/133, EditorShellTest 129/129, AdaptorTest 32/32, SandboxProjectTest 10/10, PipelineTest 33/33, ShaderTest 46/46, ResourceTest 36/36 and CoreTest 69/69 passed. Changed-range clang-format and git diff --check passed, as did strict validation of the four active pass/bridge/editor/lighting changes. Scoped clang-tidy still has recorded warnings and is not claimed clean. Logs: cmake-build-debug/scene-final-gpu-tests.log/.xml, scene-rhi-final.log, scene-menu-shell-tests.log, scene-orientation-after.log and scene-orientation-fix-build.log. Native editor verification covered Environment exposure edit/undo, shadow toggle, save/reopen, corrected scene orientation and directional light defaults. No archive or commit was performed.

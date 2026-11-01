@@ -1,8 +1,489 @@
 # aurora-renderer Specification
 
 ## Purpose
+
+Define renderer lifecycle, scene adaptation, launcher integration, built-in geometry and level-of-detail behavior.
+
+## Scope notes
+
+### aurora-renderer
+
 Specify the Aurora renderer interface, owned scene and viewport commands, parallel CPU preparation, exact resource versions, bounded GPU scheduling, frame composition and safe lifecycle behavior of supported hosts.
+
 ## Requirements
+
+### Requirement: adaptor 静态库 + runtime/editor 动态模块
+
+Aurora Framework 适配 SHALL 位于 engine/aurora/adaptor，目标为 Aurora.Adaptor.Static；Renderer foundation 实现 SHALL 位于 Aurora.Core.Static，核心不得依赖 Framework 或业务 plugin。运行时入口 SHALL 位于 engine/aurora/runtime 的 Aurora.Render；编辑扩展 SHALL 位于 engine/aurora/editor 的 Aurora.Render.Editor，注册编辑器功能而不建立第二个 Renderer。模块 SHALL 复用既有静态实现，支持配置指定的动态或 tagged static 入口。
+
+#### Scenario: 既有职责与装载入口
+- **WHEN** 构建并装载 Aurora.Render 与 Aurora.Render.Editor
+- **THEN** 两者使用 Aurora.Adaptor.Static，Renderer 实现只归 Aurora.Core.Static；编辑扩展不重复创建 Device
+
+#### Scenario: core 与 Framework 边界
+- **WHEN** 构建 Aurora.Core.Static 或仅接口消费者
+- **THEN** core 不链接 Framework，接口消费者不需要链接 foundation 的实现 target
+
+### Requirement: AuroraReflection 入口
+
+AuroraReflection SHALL register Aurora schema, asset handlers and components exactly once from Aurora.Metadata::RegisterMeta during process definition creation. Runtime, cook and editor modules SHALL depend on that owner; views SHALL only bind registered data. The function SHALL NOT be idempotent through Once, once_flag, static flags, existing-type checks or scratch nodes. A second registration owner SHALL remain a programming error caught by strict UUID/name checks.
+
+#### Scenario: Runtime cook and editor share one definition
+- **WHEN** these consumers load, restart or open several views in one process
+- **THEN** AuroraReflection has one production call site and each schema is registered once
+
+#### Scenario: Duplicate registration is rejected
+- **WHEN** another owner attempts to register the same type UUID or name
+- **THEN** the programming invariant fails rather than silently accepting or skipping the duplicate
+
+### Requirement: 运行时资产层
+
+SHALL 为 `aurora::Mesh` / `Material` / `MaterialInstance` / `Texture` / `LodGroup` 提供 `AssetTraits<T>`（`DataType` + `ASSET_TYPE` + `SERIALIZE_TYPE`）、asset data 结构及 `Json`/`Bin` 存取，并在 `AuroraReflection` 中 `AssetManager::RegisterAssetHandler<T>()`。本 change SHALL 只做运行时加载，SHALL NOT 接离线 `AssetBuilderManager` 构建产物。
+
+#### Scenario: 注册资产处理器
+
+- **WHEN** `AuroraReflection` 完成
+- **THEN** `AssetManager` 已注册 `Mesh`/`Material`/`MaterialInstance`/`Texture`/`LodGroup` 的 handler
+
+#### Scenario: 资产数据往返
+
+- **WHEN** 序列化再反序列化对应 asset data
+- **THEN** 字段一致
+
+### Requirement: 资产驱动组件
+
+组件类型 SHALL 位于命名空间 `sky::aurora` 且 SHALL NOT 再加 `Aurora` 前缀（命名空间已限定）。SHALL 提供 `StaticMeshComponent`（`StaticMeshComponentData{ Uuid mesh; Uuid material; castShadow; receiveShadow; }`）、`LodGroupComponent`（`LodGroupComponentData{ Uuid lodGroup; castShadow; receiveShadow; }`）、`CameraComponent`、以及按光源类型拆分的 `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`，均派生 `ComponentAdaptor<Data>` 并注册到 `ComponentFactory`（分组 `"Aurora"`）。资产引用成员 SHALL 用 `Uuid` 且 SHALL 以 `SET_ASSET_TYPE(AssetTraits<T>::ASSET_TYPE)` 标注。
+
+#### Scenario: 组件注册到组件层
+
+- **WHEN** 查询 `ComponentFactory::GetTypes()` 的 `"Aurora"` 分组
+- **THEN** 含 `StaticMeshComponent` / `LodGroupComponent` / `CameraComponent` / `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`
+
+#### Scenario: 资产成员带类型元数据
+
+- **WHEN** 取 `StaticMeshComponent` 的网格成员节点或 `LodGroupComponent` 的 LodGroup 成员节点
+- **THEN** 其 `CommonPropertyKey::ASSET_TYPE` 为对应资产类型
+
+#### Scenario: 光照按类型拆分
+
+- **WHEN** 取 `DirectLightComponent` / `PointLightComponent` / `SpotLightComponent`
+- **THEN** 各自 `Data` 只含该光源类型的字段（方向光无 range/cone；点光无 cone；聚光含 inner/outer cone）
+
+### Requirement: 编辑器经扩展模块对接
+
+编辑器 SHALL 通过**编辑器扩展模块**（`AuroraEditorModule : AuroraModule` + `REGISTER_MODULE`，由编辑器模块配置加载）对接 aurora，SHALL NOT 由应用入口显式调用 `AuroraReflection`。扩展模块 `Init` SHALL 走基类 `AuroraModule::Init`（内部调用 `AuroraReflection`）并注册编辑器侧扩展（actor/asset creator、preview）。资产成员 SHALL 走 `Uuid` + `ASSET_TYPE`，以便编辑器 `PropertyUuid` 拾取器无需改动即可工作。
+
+#### Scenario: 编辑器经扩展模块加载 aurora
+
+- **WHEN** 编辑器加载 aurora 编辑器扩展模块
+- **THEN** 组件/资产元数据通过组件扩展路径可见，`"Aurora"` 分组组件出现且资产成员可编辑
+
+#### Scenario: 运行时不依赖编辑器扩展
+
+- **WHEN** launcher 运行 `AuroraModule::Init`
+- **THEN** 反射/组件注册完成，无需编辑器扩展模块
+
+### Requirement: 图像资产支持 2D / 2DArray / 3D 与版本
+
+`ImageAssetData`（`aurora/adaptor/assets/ImageAsset.h`）SHALL 携带版本号 `version`（`CURRENT_VERSION`）与图像类型 `ImageAssetType`（`TEXTURE_2D` / `TEXTURE_2D_ARRAY` / `TEXTURE_3D` / `TEXTURE_CUBE`），并 SHALL 含 `format`(`PixelFormat`) / `width` / `height` / `depth` / `mipLevels` / `arrayLayers`，以及 `slices`（`ImageSliceHeader{offset,size,mipLevel, layer, depth}`）与 `rawData`（字节载荷）。`Save`/`Load` SHALL 支持上述布局；`Load` SHALL 在 `version != CURRENT_VERSION` 时拒绝加载（保持空数据并记录），SHALL NOT 静默按新布局解析旧数据。
+
+#### Scenario: 2D / 2DArray / 3D / Cube 往返
+
+- **WHEN** 分别以 `TEXTURE_2D` / `TEXTURE_2D_ARRAY` / `TEXTURE_3D` / `TEXTURE_CUBE` 序列化再反序列化
+- **THEN** `version` / `type` / `format` / `width` / `height` / `depth` / `mipLevels` / `arrayLayers` / `slices` / `rawData` 一致
+
+#### Scenario: 版本不匹配
+
+- **WHEN** 加载 `version != CURRENT_VERSION` 的数据
+- **THEN** 拒绝加载（不产生错误尺寸/类型的资源），并记录错误
+
+### Requirement: CreateTextureFromAsset 构建纹理
+
+SHALL 提供 `CounterPtr<Texture> CreateTextureFromAsset(Device *device, const Asset<Texture> &asset)`，按 `ImageAssetType` 映射 `Image::Descriptor` 并创建对应 `Texture` 子类：`TEXTURE_2D` → `Texture2D`（`IMAGE_2D`，`arrayLayers=1`）、`TEXTURE_2D_ARRAY` → `Texture2DArray`（`IMAGE_2D`，`arrayLayers=N`）、`TEXTURE_3D` → `Texture3D`（`IMAGE_3D`，`extent.z=depth`）、`TEXTURE_CUBE` → `TextureCube`（`IMAGE_2D`，`arrayLayers=6`，`viewUsage=CUBE_MAP_COMPATIBLE`）。它 SHALL 遍历 `slices` 以 `ImageUploadRequest{mipLevel, layer, imageExtent}` 上传 `rawData` 的对应区段。
+
+#### Scenario: 按类型创建并上传
+
+- **WHEN** 用 `TEXTURE_2D_ARRAY`（`arrayLayers > 1`）的资产调用 `CreateTextureFromAsset`
+- **THEN** 得到 `Texture2DArray`，且每个 slice 按 `mipLevel`/`layer` 上传
+
+#### Scenario: Cubemap 创建
+
+- **WHEN** 用 `TEXTURE_CUBE`（`arrayLayers=6`）的资产调用 `CreateTextureFromAsset`
+- **THEN** 得到 `TextureCube`（`viewUsage` 含 `CUBE_MAP_COMPATIBLE`），6 个面按 layer 上传
+
+#### Scenario: Cube layer 数非法
+
+- **WHEN** `TEXTURE_CUBE` 的 `arrayLayers != 6`
+- **THEN** 拒绝创建（返回空 `CounterPtr`）
+
+#### Scenario: 无效资产
+
+- **WHEN** 资产版本不匹配或 `device` 为空
+- **THEN** 返回空 `CounterPtr`，不崩溃
+
+### Requirement: Mesh 资产材质槽引用与版本
+
+MeshAssetData SHALL 保留 version、materials UUID 槽表与 GetMaterialUuid(materialIndex)，子网格 materialIndex SHALL 按表解析。新产品 SHALL 序列化独立 Mesh 的几何及输入槽契约，SHALL NOT 序列化选定 Skin/Skeleton UUID 或 inverse bind bulk。版本不匹配 SHALL 显式拒绝，SHALL NOT 按新布局读取旧产品。材质槽行为 SHALL 保持兼容。
+
+#### Scenario: 材质槽与版本往返
+- **WHEN** 新版 MeshAssetData 带 materials 完成 Save/Load
+- **THEN** version 和 materials 顺序 SHALL 一致
+
+#### Scenario: 解析材质索引
+- **WHEN** materialIndex 小于 materials.size()
+- **THEN** GetMaterialUuid SHALL 返回对应槽 UUID
+
+#### Scenario: 越界索引回退
+- **WHEN** 非空槽表的 materialIndex 越界
+- **THEN** SHALL 保持既有槽 0 回退并报告警告
+
+#### Scenario: 空槽表
+- **WHEN** materials 为空
+- **THEN** 子网格 SHALL 解析为无绑定材质且不崩溃
+
+#### Scenario: 实例绑定不进入 Mesh 产品
+- **WHEN** 两个组件为相同 Mesh 选择不同 Skin/Skeleton 后保存资产和 World
+- **THEN** 各绑定 SHALL 保存在对应组件，Mesh 产品 SHALL 无 Skin/Skeleton 引用
+
+#### Scenario: 版本不匹配
+- **WHEN** loader 读取旧 Mesh 产品版本
+- **THEN** SHALL 返回 recook 诊断且不产生错误索引或材质资源
+
+### Requirement: StaticMeshComponent 材质槽 0 覆盖
+
+`StaticMeshComponentData.material` SHALL 为可选的**材质槽 0 覆盖**：为空时 SHALL 使用 mesh 资产的 `materials[0]`；非空时 SHALL 仅覆盖槽 0，`materialIndex != 0` 的子网格 SHALL 仍使用资产 `materials[materialIndex]`。该资产引用成员 SHALL 保持 `Uuid` 并以 `SET_ASSET_TYPE(AssetTraits<Material>::ASSET_TYPE)` 标注。
+
+#### Scenario: 空覆盖取资产槽 0
+
+- **WHEN** `material` 为空且 mesh 资产含非空 `materials`
+- **THEN** 槽 0 的子网格解析为资产 `materials[0]`
+
+#### Scenario: 非空仅覆盖槽 0
+
+- **WHEN** `material` 非空且 mesh 资产含多个槽
+- **THEN** 槽 0 子网格解析为组件 `material`，其余子网格仍解析为资产 `materials[materialIndex]`
+
+#### Scenario: 资产成员带类型元数据
+
+- **WHEN** 取 `StaticMeshComponent` 的材质成员节点
+- **THEN** 其 `CommonPropertyKey::ASSET_TYPE` 为 `AuroraMaterial`
+
+### Requirement: Material 资产（typed 属性 + technique + 版本）
+
+MaterialAssetData SHALL persist versioned explicit tagged ShaderTechnique stage/source/entry references, material render state and typed canonical Key/Value properties. Values SHALL use the checked semantic variant, textures SHALL use asset UUIDs and samplers SHALL use typed descriptors; serialization SHALL NOT copy C++ object padding. Complete Material keys SHALL be reconstructed from declaration metadata and Shader-local options. The current payload is version 4; supported legacy version 3 aliases/options SHALL migrate through exact declarations, while unsupported versions and ambiguous mappings SHALL fail with recook/migration diagnostics.
+
+#### Scenario: Typed round trip
+- **WHEN** a valid material with explicit programs, values, texture UUIDs and samplers is saved and loaded
+- **THEN** tags, stage references, render state and semantic property values remain unchanged
+
+#### Scenario: Legacy alias is ambiguous
+- **WHEN** an old key cannot map uniquely to the current complete schema
+- **THEN** preparation rejects the migration without guessing a destination
+
+### Requirement: MaterialInstance 资产（父材质 + 覆盖 + 版本）
+
+MaterialInstanceAssetData SHALL persist its supported version, parent Material UUID and typed sparse value/texture/sampler overrides. Unoverridden fields SHALL inherit the parent; explicit equal-to-default writes SHALL still count as overrides. Instance preparation SHALL validate canonical names and types against the parent schema and SHALL NOT allow static Shader-local option changes. Unsupported versions or invalid overrides SHALL fail without publishing a partial instance.
+
+#### Scenario: Sparse override
+- **WHEN** an instance overrides one canonical value and texture
+- **THEN** those values are retained and all other fields inherit the parent
+
+#### Scenario: Static option override
+- **WHEN** an instance attempts to override a Shader-local static option
+- **THEN** preparation rejects it explicitly
+
+### Requirement: CreateMaterialFromAsset / CreateMaterialInstanceFromAsset
+
+The existing creation helpers SHALL retain checked tagged programs and typed properties rather than the removed single ShaderRef technique shape. Texture UUIDs SHALL resolve through AssetManager with explicit failure for invalid resources; missing Device or invalid data SHALL return an empty result. Production SceneAssetSource SHALL additionally resolve complete logical Material schema from source or product metadata and freeze named values, explicit selected variants and exact resource dependencies before GPU preparation. Asset conversion SHALL NOT prepack a target's uniform bytes.
+
+#### Scenario: Valid material conversion
+- **WHEN** valid typed data is converted with a compatible device
+- **THEN** the Material retains its explicit technique programs and property values
+
+#### Scenario: Invalid creation input
+- **WHEN** Device is absent or a required asset/value cannot be resolved
+- **THEN** conversion returns failure without publishing a partially valid material
+
+### Requirement: Skeleton 资产桥接
+
+`engine/aurora/adaptor` SHALL 提供 `SkeletonAssetData`（`aurora/adaptor/assets/SkeletonAsset.h`，`version = CURRENT_VERSION`，包 `sky::SkeletonData`：`boneData`(`Name` + `parentIndex`) 与 `refPos`(`Transform`)，`Save`/`Load` 逐字段）与 `AssetTraits<sky::Skeleton>`（`DataType = SkeletonAssetData`，`ASSET_TYPE = "AuroraSkeleton"`，`BIN`），并提供 `FetchOrCreateSkeletonByAsset`（asset → `Skeleton::BuildSkeleton`）。`Aurora.Adaptor.Static` SHALL 链接 `Animation`（桥接层唯一的 Skeleton 依赖点）；`AuroraReflection` SHALL 注册 `SkeletonAssetData` 与 `RegisterAssetHandler<sky::Skeleton>()`。`aurora/core` SHALL NOT 定义 `Skeleton`/`Bone`。
+
+#### Scenario: 注册骨架资产
+
+- **WHEN** `AuroraReflection` 完成
+- **THEN** `AssetManager` 已注册 `sky::Skeleton` 的 handler，且 `AssetTraits<sky::Skeleton>::ASSET_TYPE == "AuroraSkeleton"`
+
+#### Scenario: 骨架数据往返
+
+- **WHEN** 序列化再反序列化 `SkeletonAssetData`
+- **THEN** `version` / `boneData`（name、parentIndex）/ `refPos` 一致
+
+#### Scenario: 构建运行时骨架
+
+- **WHEN** 对一个含非空 `boneData` 的 `Asset<Skeleton>` 调 `FetchOrCreateSkeletonByAsset`
+- **THEN** 得到非空 `SkeletonPtr`（`GetNumBones() == boneData.size()`）
+
+### Requirement: Renderer foundation 实现与模块归属
+
+Renderer 接口与实现 SHALL 属于现有 Aurora core，Framework 服务注册与 World/资产对接 SHALL 属于现有 Aurora adaptor，运行时入口 SHALL 复用 Aurora.Render。不得为 Renderer 再建立 core/adaptor/runtime 实现模块体系或 Aurora plugin。仅接口 target SHALL 不链接实现；CPU prepare SHALL 不访问 GPU 或 Framework 可变对象，内部实现头 SHALL 不作为公开 include 传播。
+
+#### Scenario: 宿主只消费接口
+- **WHEN** 宿主包含 aurora/renderer 公共接口
+- **THEN** 原 include 路径有效，接口 target 不要求链接 Aurora.Core.Static 或 Aurora.Adaptor.Static
+
+#### Scenario: 动态与静态模块装载
+- **WHEN** 宿主通过动态或 tagged static 方式初始化 Aurora.Render
+- **THEN** 初始化成功后发布同一 Environment 中的 provider，重复 owner 不被覆盖，Shutdown 只撤销自己的注册
+
+#### Scenario: CPU prepare 与内部实现边界
+- **WHEN** Renderer 实现编译进 Aurora.Core.Static
+- **THEN** scene/prepare/frame 代码仍只消费 CPU 接口数据，graph/resource 内部头不经 target 的公开 include 传播给宿主
+
+### Requirement: 渲染端 UI feature
+
+UI adaptor SHALL 将 owned vertices、indices、draw order、clip、圆角参数、精确图像版本和 logical ViewOutput 引用编码为有界快照。渲染端 SHALL 通过消费方 FrameGraphBuildContext 创建图声明与 lease-owned 上传，不读取可变编辑器 UI 对象。shader 编译归生产者，native 对象创建与退休归 coordinator。
+
+#### Scenario: 透明 UI draw 并行编码
+- **WHEN** UI draw 形成多于 encode worker 的任务片段且有多个帧在途
+- **THEN** 片段按快照顺序提交，clip、alpha blend 与 LOAD 像素结果保持一致
+
+#### Scenario: 一个 UI 窗口不可用
+- **WHEN** 两个 UI 输出采样同一个离屏结果，其中一个 native 输出不能 acquire
+- **THEN** 只跳过不可用窗口，共享 producer 和另一输出的采样绘制继续
+
+### Requirement: RenderSceneProxy 命令入口
+
+Aurora adaptor SHALL 提供主线程 RenderSceneProxy，将宿主 scene 生命周期映射为 Renderer IDs 与有序命令。Proxy SHALL 只消费 IRenderer 接口，不访问渲染线程 ECS 或 provider 具体类型。完整组件/资产事件提取 SHALL 由 aurora-scene-bridge 实施并复用该命令入口。
+
+#### Scenario: Scene 创建与关闭
+- **WHEN** 宿主创建或关闭 World
+- **THEN** Proxy 提交对应 scene 命令并处理完成状态，不跨线程调用 RenderScene 的 Add/Get/DestroyEntity
+
+#### Scenario: Scene 等待退休
+- **WHEN** Proxy 已向宿主 packet 追加 Scene 销毁命令
+- **THEN** 不再暴露该 Scene 为可写目标，收到匹配 generation 的 SceneDestroyed 或整个 Renderer 已停止后才释放生命周期状态；不匹配的旧回执不能释放新 Scene
+
+### Requirement: 编辑器共享 Renderer 与 UI 快照
+
+编辑器 SHALL 使用同一 IRenderer 接口提交主窗、工具窗和离屏 View 请求。UI 布局、输入、平台事件 SHALL 留在主线程；UI 绘制数据 SHALL 以拥有数据的快照交给渲染端扩展，资源上传/绑定按 FrameSlot 保活。合成 SHALL 显式声明对离屏结果的读取；Renderer 实现 SHALL 不依赖 EditorShell 或在渲染线程调用捕获 shell 状态的 GuiPaintFn。
+
+#### Scenario: 主窗合成双场景视图
+- **WHEN** 主线程 UI 快照引用两个离屏 View 的图像
+- **THEN** FrameComposer 在同一 Frame RDG 声明其采样依赖，渲染端使用快照完成 UI 绘制而不读取主线程可变 UI 状态
+
+### Requirement: Provider 注册与卸载顺序
+
+宿主 SHALL 经 engine 接口的显式注入或服务注册取得 Renderer。provider SHALL 先于消费者就绪，消费者 SHALL 先停止提交再关闭 provider；模块会话关闭 SHALL 等待渲染线程退出与资源退休，DLL 代码 SHALL 由装载层保持进程常驻。跨 DLL 共享状态 SHALL 使用 sky::Singleton；每份反射数据 SHALL 由唯一 metadata owner 在进程 definition 创建时注册一次，SHALL NOT 使用 Once、once_flag、static 标志或查表跳过掩盖重复入口；静态模块构建 SHALL 提供相同服务解析行为。
+
+#### Scenario: 多模块消费同一服务
+- **WHEN** runtime 与 editor 扩展在一个宿主进程解析 Renderer
+- **THEN** 得到同一活动实例，重复注册不创建第二线程/设备，会话关闭后撤销服务注册，不留下访问已销毁服务或数据的回调
+
+#### Scenario: 模块初始化失败
+- **WHEN** 动态或静态渲染宿主模块初始化失败
+- **THEN** 清理部分初始化状态并在模块代码仍可执行时销毁对象，不调用该失败模块的 Start/Tick，也不留下已发布的 Renderer
+
+#### Scenario: 既有模块的 provider-only 启动
+- **WHEN** Aurora.Render 以 provider-only 模式加载，消费者创建真实 Renderer 后请求关闭
+- **THEN** 模块只注册 provider，不启动旧 device/loop；消费者收到 RendererStopped 并销毁对象后才能关闭 provider 会话，动态与静态入口均可再次初始化并创建新 epoch 的实例，DLL 保持常驻
+
+### Requirement: 编辑器 CPU 纹理与快照版本
+
+UI texture registry SHALL 仅持有有界 CPU 数据与逻辑版本。主线程 SHALL 先完成本帧所有窗口的字形/图集修改，再生成拥有数据的快照；每个 image draw SHALL 使用确切 product/revision/usage/device epoch。无效或未就绪版本 SHALL 跳过该 draw，不以其他版本替换。
+
+#### Scenario: 多窗口共享更新后的字体图集
+- **WHEN** 后绘制窗口新增字形导致 atlas revision 更新
+- **THEN** 本帧全部 UI 快照引用该最终 revision，其上传沿用 Renderer 的资源和帧预算
+
+#### Scenario: 图集更新或释放
+- **WHEN** CPU registry 更新或释放已发布纹理
+- **THEN** producer 发出旧版本释放请求；已接纳帧和未决上传继续持有需要的数据，最后借用退出后回收
+
+#### Scenario: 工具窗口关闭
+- **WHEN** 主线程收到工具窗口关闭请求
+- **THEN** 只停止该输出的新快照并提交 DestroyViewport；收到匹配回执后才解除窗口事件监听和销毁 HWND，其它输出继续提交
+
+### Requirement: Feature 模块代码保活
+
+动态模块 loader SHALL 将成功加载的 DLL 保持到进程退出，不向 Feature 或帧逐层传递代码 lease。模块会话 Shutdown SHALL 撤销服务并收齐任务；Feature 实例及其数据 SHALL 由实际 owner 保持到最后的 CPU、GPU、presentation 借用退出。二进制更新和移除 SHALL 在进程重启后生效。
+
+#### Scenario: Manager 清理后仍有 Feature 借用
+- **WHEN** ModuleManager 已 Shutdown/销毁模块对象，而已接受帧仍持有 Feature 实例
+- **THEN** Feature 及所需数据保活到帧退休，动态库在最后对象释放后仍保持进程常驻
+
+#### Scenario: Provider 初始化失败
+- **WHEN** provider 初始化失败或声明的依赖未能加载
+- **THEN** 不初始化依赖它的消费者，宿主返回明确启动失败并清理已初始化模块
+
+### Requirement: 参数化图元生成（core/math）
+
+`GeometryGenerator`（`core/math`）SHALL 提供 `GenerateCube` / `GeneratePlane` / `GenerateSphere` / `GenerateCylinder` / `GenerateCone` / `GenerateCapsule`，各产出 `GeometryStreams`（SoA）：
+
+- `positions`(Vector3) / `normals`(Vector3) / `tangents`(Vector4，xyz 对齐 UV U 方向，w=±1) / `uvs`(Vector2) / `indices`(uint32)。
+- 数组长度一致（顶点属性同长度）；索引为三角形列表（CCW）。
+
+生成算法 SHALL NOT 依赖 aurora/rhi（纯 `core/math`）。
+
+#### Scenario: 图元数据合法
+
+- **WHEN** `GenerateSphere(1.0, 16, 32)` 后检查输出
+- **THEN** `positions/normals/tangents/uvs` 长度一致（`(rings+1)*(sectors+1)`）；法线单位化、`dot(tangent.xyz, normal) ≈ 0`、`tangent.w ∈ {±1}`、`uv ∈ [0,1]`；`indices` 为 3 的倍数且索引不越界
+
+### Requirement: BuiltinGeometry 装配为 RenderGeometry（aurora）
+
+`BuiltinGeometry::Build(Device*, const sky::GeometryStreams&, IndexType)` SHALL 产出 `CounterPtr<RenderGeometry>`：
+
+- 4 个分离 `VertexBuffer`，语义分别为 `POSITION` / `NORMAL` / `TANGENT` / `UV1`（stride = 对应类型 sizeof），已 `Upload`。
+- 1 个 `IndexBuffer`（`IndexType` 匹配），已 `Upload`。
+- `RenderGeometry` 的 `GetLocalBounds()` 由 positions 的 min/max 计算。
+- `indexType == U16` 且 `vertexCount ≥ 65536` 时返回 null。
+
+#### Scenario: Build 后 stream 语义与 bounds
+
+- **WHEN** `Build(device, GenerateCube(1.0), IndexType::U32)` 后检查返回的 `RenderGeometry`
+- **THEN** `GetVertexStreams().size() == 4`，语义依次含 POSITION/NORMAL/TANGENT/UV1；`GetIndexBuffer()->GetIndexType() == U32`；`GetLocalBounds()` 覆盖所有顶点
+
+#### Scenario: U16 越界返回 null
+
+- **WHEN** 一个 `vertexCount ≥ 65536` 的 `GeometryStreams` 用 `IndexType::U16` 调 `Build`
+- **THEN** 返回 `CounterPtr<RenderGeometry>(nullptr)`
+
+### Requirement: AuroraRender 是可被 launcher 加载的动态模块
+
+`engine/aurora/adaptor` SHALL 产出 `AuroraRender` SHARED 目标，SHALL 通过 `REGISTER_MODULE` 导出 `StartModule`/`StopModule` 并实现 `sky::IModule`。模块 SHALL 是唯一的渲染模块；legacy `SkyRender` 已随 `legacy-stack-retirement` 删除。
+
+#### Scenario: 模块被 ModuleManager 发现
+
+- **WHEN** launcher 选择 aurora 渲染模块
+- **THEN** `ModuleManager` 能加载 `AuroraRender` 并调用其 `Init`
+
+### Requirement: 模块初始化 aurora 设备
+
+AuroraModule::Init SHALL 解析 RHI API 并通过 IRenderer 初始化 provider；Device、FrameSlots 和 command 资源 SHALL 由渲染端持有。初始化 SHALL 返回明确成功/失败结果，失败时不进入 GPU 帧循环；Shutdown SHALL 安全清理已创建部分。
+
+#### Scenario: 指定 RHI API
+- **WHEN** 启动参数包含 -r vulkan 或 -r dx12
+- **THEN** Renderer 使用对应 API 初始化设备，AuroraModule 不再自行创建另一套设备
+
+#### Scenario: 初始化失败安全
+- **WHEN** provider 或设备初始化失败
+- **THEN** 错误反馈给宿主，Tick 不发起 GPU 操作，Shutdown 可安全调用
+
+### Requirement: 模块用平台窗口创建 viewport
+
+AuroraModule::Start SHALL 优先从 ISystemNotify 取得主窗口原生 handle，并通过 Renderer 提交窗口描述创建 Viewport。平台窗口创建、事件和销毁 SHALL 留在宿主线程；原生窗口 SHALL 保活至 Renderer 返回销毁确认。
+
+#### Scenario: 创建 swapchain viewport
+- **WHEN** 模块 Start 且宿主提供有效窗口 handle
+- **THEN** Renderer 创建关联该窗口的 viewport；宿主不直接持有或操作 swapchain
+
+#### Scenario: 原生关闭请求与应用析构
+- **WHEN** Windows 宿主收到 WM_CLOSE 或开始退出应用
+- **THEN** 渲染中的原生窗口延迟销毁，宿主在渲染退休期间继续处理平台消息；应用在窗口成员析构前完成模块 Shutdown，不能仅把退出放在基类析构函数
+
+#### Scenario: 选择整套宿主模式
+- **WHEN** 已迁移平台启动 launcher，或尚未迁移平台启动原宿主
+- **THEN** 在初始化时选择唯一一套帧循环；旧宿主不得借用新 Renderer 的 Device 另建 command/frame 资源
+
+### Requirement: Tick 驱动最小出帧闭环
+
+AuroraModule::Tick SHALL 收集状态/命令并提交 FramePacket，由 Renderer 处理 acquire、RDG、submit 与 present。无场景内容的有效窗口 SHALL 支持清屏；有效场景 SHALL 走实际 pipeline。零尺寸 SHALL 不 acquire，单窗口失败 SHALL 不阻断其它输出或命令；成功 acquire 后的失败 SHALL 安全收尾，不直接 Release 一个会等待未 signal semaphore 的 image。
+
+#### Scenario: 出帧并呈现
+- **WHEN** viewport 可用且提交 packet
+- **THEN** Renderer 完成真实绘制或空场景清屏并呈现，宿主 Tick 不直接编码 GPU 命令
+
+#### Scenario: packet 背压与尺寸变化
+- **WHEN** TrySubmit 返回 BUSY 且窗口继续 resize
+- **THEN** 保留未接纳 packet 的身份和数据，接纳后再用后续 packet 提交最新尺寸，不修改排队帧快照
+
+#### Scenario: acquire 失败取消单输出
+- **WHEN** 一个 viewport Begin/Acquire 失败
+- **THEN** 该输出不 present，其余输出继续工作且 lifecycle 命令仍生效
+
+#### Scenario: 零尺寸不 acquire
+- **WHEN** surface extent 为零
+- **THEN** Renderer 跳过该输出 acquire，恢复尺寸后可正常继续
+
+#### Scenario: 已获取图像的失败收尾
+- **WHEN** acquire 成功后建图或提交失败
+- **THEN** Renderer 走有效收尾提交或后端错误退休路径，不产生等待未 signal 对象的 Present
+
+### Requirement: launcher 只加载 AuroraRender（移除 legacy render）
+
+`GameApplication` SHALL 只注册并加载 `AuroraRender` 作为渲染模块；the runtime host SHALL NOT link any legacy render target. 启动参数 SHALL NOT 需要渲染模块选择开关。
+
+#### Scenario: 启动即加载 aurora
+
+- **WHEN** the runtime host starts（无渲染选择参数）
+- **THEN** `ModuleManager` 加载 `AuroraRender`，且不存在 `SkyRender` 目标
+
+### Requirement: 窗口 handle 由宿主提供
+
+宿主应用 SHALL 通过 `ISystemNotify::GetMainWindowHandle()` 暴露主窗口原生 handle；渲染模块 SHALL 优先从该接口取 handle，SHALL NOT 只依赖 `Platform::GetMainWinHandle()`（Windows SDL 后端返回 nullptr）。
+
+#### Scenario: 用宿主窗口建 swapchain
+
+- **WHEN** 模块 `Start`
+- **THEN** 从 `ISystemNotify` 取到主窗口 handle 并初始化 `ClientViewport`
+
+### Requirement: 引擎内置 configs
+
+引擎 SHALL 提供内置 `configs/`（仓库根，`modules_game.json` / `modules_editor.json` / `asset_build_presets.json` / `render_preload_assets.json`），并在构建时部署到可执行文件旁的 `configs/`。`GameApplication` SHALL 在项目 workFs 找不到 `configs/modules_game.json` 时回退到内置配置，使 launcher 无需外部工程即可启动。
+
+#### Scenario: 无工程启动
+
+- **WHEN** 直接运行 launcher 且无 `-p` 工程（或工程无 configs）
+- **THEN** 从可执行文件旁的内置 `configs/modules_game.json` 加载模块配置
+
+### Requirement: Launcher 游戏模式从部署的 configs 启动
+
+Outside editor/tool/Android builds the game application SHALL use the executable bundle path as its work file
+system, so the builtin `configs/` deployed next to the launcher are found and the launcher boots without a
+project directory.
+
+#### Scenario: Boot from deployed configs
+- **WHEN** the launcher runs in game mode with `configs/modules_game.json` next to the executable
+- **THEN** it SHALL load the config from the bundle path and register its modules without crashing
+
+### Requirement: aurora::LodGroup 核心资源
+
+`aurora/resource/LodGroup.h` SHALL 定义 `sky::aurora::LodGroup : RefObject`，持有有序 `std::vector<LodLevel>`，其中 `LodLevel { float screenSize; CounterPtr<Mesh> mesh; }`。SHALL 提供 `AddLevel`、`GetLevels`、`GetLevelCount`、`GetMesh(uint32_t)`（越界返回 `nullptr`）、`GetBoundingSphere()`（取 level 0 mesh 的 local bounds；无 level 或 mesh 为空时返回空 sphere）与 `SelectLod`。`SelectLod(float screenSize)` SHALL 在有序 levels 上按阈值选择并返回层级索引；`SelectLod(const BoundingBoxSphere &bounds, const Vector3 &viewOrigin, const Matrix4 &proj)` SHALL 先由投影计算 screen size 再复用阈值选择。`LodGroup` SHALL NOT 依赖 framework 或 `Uuid`。
+
+#### Scenario: 阈值选择层级
+
+- **WHEN** levels 的 `screenSize` 阈值为有序值，且给定 screen size 命中某一层
+- **THEN** `SelectLod` 返回对应层级索引
+
+#### Scenario: 越界或空网格
+
+- **WHEN** 传入的 level 索引越界，或 level 的 mesh 为空
+- **THEN** `GetMesh` 返回 `nullptr`，不崩溃
+
+#### Scenario: 空组包围球
+
+- **WHEN** `LodGroup` 没有任何 level
+- **THEN** `GetBoundingSphere` 返回空 sphere，不崩溃
+
+#### Scenario: 投影重载选择
+
+- **WHEN** 用 `BoundingBoxSphere` + `viewOrigin` + `proj` 调用 `SelectLod`
+- **THEN** 结果与先用相同参数计算 screen size 再调 `SelectLod(float)` 一致
+
+### Requirement: LodGroup 资产数据与版本
+
+`LodGroupAssetData`（`aurora/adaptor/assets/LodGroupAsset.h`）SHALL 携带 `version`（`CURRENT_VERSION`）与有序 `std::vector<LodGroupLevelData>`，其中 `LodGroupLevelData { float screenSize; Uuid mesh; }`。SHALL 提供 `Save`/`Load`（Bin）；`Load` SHALL 在 `version != CURRENT_VERSION` 时拒绝加载（清空数据并记录），SHALL NOT 静默按新布局解析旧数据。`AssetTraits<sky::aurora::LodGroup>` SHALL 为 `DataType = LodGroupAssetData`、`ASSET_TYPE = "AuroraLodGroup"`、`SERIALIZE_TYPE = BIN`。
+
+#### Scenario: 层级与版本往返
+
+- **WHEN** 以非空 `levels` 与 `version = CURRENT_VERSION` 序列化再反序列化 `LodGroupAssetData`
+- **THEN** `version` 与 `levels`（含顺序、`screenSize`、`mesh`）一致
+
+#### Scenario: 版本不匹配
+
+- **WHEN** 加载 `version != CURRENT_VERSION` 的 `LodGroupAssetData`
+- **THEN** 拒绝加载（保持空 levels），并记录错误
+
 ### Requirement: Renderer 对象与模块边界
 
 Aurora SHALL 作为 foundation 保留在 `engine/aurora`，不得注册为 Aurora plugin。系统 SHALL 通过 `IRenderer` 接口提供渲染能力；实现 SHALL 复用既有 `core`，Framework 对接归 `adaptor`，模块入口归 `runtime`，不得再建立 `renderer/{core,adaptor,runtime}` 子模块。公共接口 target SHALL 不链接具体实现。接口 SHALL 只引用句柄、描述、命令和结果数据；不得暴露 World/Actor、具体 plugin 或可变渲染 ECS。活动宿主 SHALL 共享一个 Renderer/Device，GPU 资源缓存 SHALL 按 device 共享。
@@ -629,3 +1110,327 @@ The host SHALL assemble selected built-in or user features through existing Regi
 #### Scenario: Owner retires with outstanding work
 - **WHEN** an owner retires with accepted compilation, frame or GPU/presentation borrowers
 - **THEN** new work stops and existing material/Feature/source/resource/module snapshots remain valid until users complete or drain
+
+### Requirement: Scene techniques match RenderQueue Tags
+
+ScenePass SHALL declare RenderQueues with accepted technique Tags and select each eligible item's matching material technique before queue sorting/execution. Draws SHALL retain the selected technique's actual program, render state and binding inputs. Selection SHALL NOT use the first material technique unconditionally, silently substitute SceneForward.slang, or replace shadow techniques with a universal shader. Material programs SHALL consume compatible exported Global and target-Pass interfaces while retaining their own shading implementation.
+
+#### Scenario: Different material programs in one queue
+- **WHEN** Unlit, PBR and user-defined materials each provide a technique matching an OpaquePass queue Tag
+- **THEN** their draws enter that queue with their own programs and data while obeying the common Pass resource/output contract
+
+#### Scenario: Opaque and shadow techniques
+- **WHEN** a material provides opaque and shadow Tags with different programs
+- **THEN** the corresponding queues select their matching programs, preserving material-specific deformation or alpha testing
+
+#### Scenario: Missing or ambiguous Tag
+- **WHEN** no technique matches a queue, or multiple techniques match without an explicit selection policy
+- **THEN** the non-matching item is excluded, while ambiguous selection reports an explicit error rather than selecting by array order
+
+#### Scenario: Invalid matched technique
+- **WHEN** a matched technique has a missing program or incompatible execution/output interface
+- **THEN** validation reports an explicit error rather than choosing another technique or an implicit scene shader
+
+#### Scenario: Unused shared declarations
+- **WHEN** a material includes a Pass interface without using some declared lighting resources
+- **THEN** binding validates actual reflected use without requiring values or algorithms for unused declarations
+
+### Requirement: Fullscreen and compute select techniques explicitly
+
+FullScreenPass and ComputePass SHALL explicitly select their techniques without requiring a scene, RenderQueue Tag match or dummy material. Program descriptions SHALL resolve explicit stage/entry names; fullscreen execution SHALL validate graphics compatibility and compute execution SHALL validate compute-only compatibility. Dispatch dimensions SHALL remain invocation inputs.
+
+#### Scenario: Fullscreen technique without a scene
+- **WHEN** a FullScreenPass selects a graphics technique with custom entry names
+- **THEN** it renders using those entries and Pass resources without material queue matching or mandatory Batch data
+
+#### Scenario: Compute technique without a material
+- **WHEN** a ComputePass selects a compute technique and supplies dispatch dimensions plus Pass inputs/outputs
+- **THEN** it dispatches without a scene material, queue Tag or mandatory Batch while retaining existing compute resource/access validation
+
+#### Scenario: Technique stage mismatch
+- **WHEN** a selected technique's stages do not satisfy the Pass execution kind
+- **THEN** validation rejects it before GPU execution without inferring replacement entries
+
+### Requirement: View shader data belongs to Pass
+
+Resource tiers SHALL use Global set 0, Pass set 1, Material set 2 and Batch set 3. Optional View/camera/projection/viewport shader parameters SHALL belong to the consuming Pass invocation, with no separate View tier. Global values SHALL be common across that pipeline's views for the frame. CPU View organization and scheduling SHALL remain independent of this shader binding choice.
+
+#### Scenario: Several views in one frame
+- **WHEN** main, secondary and shadow camera invocations coexist
+- **THEN** each uses its own immutable Pass values/resource versions without overwriting another invocation or varying a shared Global camera block
+
+#### Scenario: Pass without View inputs
+- **WHEN** a fullscreen, compute or scene Pass does not declare active camera inputs
+- **THEN** no camera block or dummy View binding is required
+
+#### Scenario: Feature supplies Pass-wide data
+- **WHEN** a Feature produces lighting, a shadow map or IBL used across a Pass
+- **THEN** the consumer binds it through the Pass contract rather than classifying it as Batch solely because a Feature produced it
+
+### Requirement: Material and Batch have separate providers
+
+ScenePass SHALL compose Material inputs in set 2 and Feature/draw inputs in Batch set 3. Material SHALL expose at most one cbuffer plus declared resources; Batch SHALL carry transforms, palette and other explicitly owned draw inputs. Each binding/block SHALL have one provider or assembler. Composition SHALL validate all active resources and semantic types against the selected target ABI before atomically replacing draw bindings. Generic rendering SHALL NOT infer GPU offsets from Material CPU storage or require a fixed SceneBatchParams payload.
+
+#### Scenario: Material and Feature contributions
+- **WHEN** a technique needs Material constants/textures and Feature transforms/palette
+- **THEN** they occupy their respective sets and are published together after validation
+
+#### Scenario: Competing providers
+- **WHEN** two providers claim one binding or overlap one block
+- **THEN** composition fails and preserves the previous draw
+
+#### Scenario: Optional groups
+- **WHEN** fullscreen or compute has no active Material or Batch resources
+- **THEN** it needs no dummy bindings or Material object
+
+#### Scenario: Explicit invocation resources
+- **WHEN** fullscreen or compute declares active set-2 or set-3 resources
+- **THEN** its caller provides the matching inputs regardless of Pass kind
+
+### Requirement: Custom pipelines consume foundation binding mechanisms
+
+Aurora SHALL expose generic binding validation through existing foundation interfaces/implementation targets without forcing consumers to link built-in pipeline implementations. Plugin Pass implementations and declarations SHALL remain plugin-owned. Validation SHALL preserve supported backend/resource boundaries, explicit static/dynamic policy, actual reflection checks and atomic binding replacement. PreparedRaster SHALL retain its geometry/resource-version/snapshot role without owning material layouts or queue-selection policy.
+
+#### Scenario: Standalone custom pipeline target
+- **WHEN** a user pipeline consumes shared declarations, bindings and FrameGraph feature interfaces
+- **THEN** it builds without linking the built-in Pipeline library or shader compiler to obtain C++ types, and no engine target depends on the plugin
+
+#### Scenario: Unsupported binding capability
+- **WHEN** a custom interface requests a resource shape unsupported by its execution path
+- **THEN** validation returns an explicit unsupported error without treating declaration export as backend support
+
+### Requirement: Renderer adapter is independent of Skeleton service publication
+
+`AuroraModule` SHALL manage its renderer provider, host and launcher lifecycle without creating, registering, inspecting or withdrawing `IAnimationSkeletonSource`.
+
+#### Scenario: Direct renderer adapter without animation services
+- **WHEN** a caller initializes the renderer adapter with no Skeleton source or module manager
+- **THEN** Skeleton source availability does not affect provider-only or host initialization
+
+#### Scenario: External Skeleton owner
+- **WHEN** an external Skeleton service exists during direct adapter initialization or host failure
+- **THEN** the adapter preserves that service through initialization, rollback and shutdown
+
+### Requirement: Runtime assembly owns the Skeleton service session
+
+The existing Aurora runtime entry SHALL compose the Skeleton asset source and renderer adapter with one explicit registration owner and actual source/request/result ownership; defining DLL code SHALL remain process resident without per-object code tokens. Provider-only loading SHALL still publish both required providers without creating a RendererHost.
+
+#### Scenario: Provider-only module session
+- **WHEN** the runtime module loads in provider-only mode
+- **THEN** renderer and Skeleton providers are available to dependent modules
+- **AND** shutdown withdraws the session's providers
+
+#### Scenario: Renderer initialization fails after source publication
+- **WHEN** renderer initialization fails after this session registers its Skeleton source
+- **THEN** the session withdraws and releases its source
+- **AND** services owned by others remain registered
+
+#### Scenario: Duplicate runtime owner
+- **WHEN** another runtime instance attempts to publish a Skeleton source over the active owner
+- **THEN** initialization fails explicitly
+- **AND** cleanup does not withdraw the active owner's services
+
+### Requirement: Service withdrawal and code lifetime are distinct
+
+Runtime shutdown SHALL withdraw its Skeleton interface before draining the renderer host and SHALL release its source after host shutdown. Outstanding requests/results SHALL retain the actual operation, asset and resource owners required after service withdrawal or module manager destruction. The loader SHALL keep defining code process resident without per-object code tokens.
+
+#### Scenario: Request outlives its module session
+- **WHEN** a caller retains a Skeleton request or result across runtime shutdown and module manager destruction
+- **THEN** the global source interface is withdrawn
+- **AND** the retained object's required data remains owned until its last use, while defining code stays resident even after the object is released
+
+#### Scenario: Repeated module session
+- **WHEN** initialization/shutdown is repeated or cleanup follows partial failure
+- **THEN** the session neither duplicates registration nor unregisters another owner
+
+### Requirement: Project scene input uses the launcher renderer owner
+
+The launcher renderer SHALL consume a registered runtime scene source through an Aurora adaptor interface. The project SHALL provide owned scene/resource data and SHALL NOT submit frames or poll renderer events independently.
+
+#### Scenario: Backpressure
+- **WHEN** a packet is busy
+- **THEN** the host retries the exact pending packet without appending project commands again.
+
+#### Scenario: Source failure
+- **WHEN** a source returns an explicit error
+- **THEN** the host abandons that unsubmitted packet and follows its renderer failure and shutdown path.
+
+#### Scenario: Source lifetime
+- **WHEN** a project module shuts down
+- **THEN** it unregisters its source before destroying project state, and previously queued packets retain no source callbacks or borrowed project storage.
+
+### Requirement: Project arena is loaded through World
+
+The project SHALL load the defaultScene World asset before creating dynamic characters. Static geometry, lights and Physics configuration SHALL come from that asset. Characters SHALL use the World's Physics subsystem, and World::Tick SHALL own its stepping. Static and dynamic visual actors SHALL render through RenderSceneBridge.
+
+#### Scenario: Authored scene changes
+- **WHEN** an arena transform, gravity or fixed timestep changes in the World asset
+- **THEN** the next launch uses the authored configuration for physics and rendering without editing procedural arena arrays.
+
+#### Scenario: Missing scene
+- **WHEN** the descriptor's defaultScene cannot be loaded or built
+- **THEN** the project reports an explicit error and exits without substituting a procedural arena.
+
+### Requirement: Original character geometry is imported offline
+
+The project SHALL decode the supported NeoX character mesh offline and retain the original positions, topology, normals and UV data in standard OBJ plus source records. Runtime SHALL load the converted geometry, create dynamic World actors and apply the existing visual cage without coupling the renderer to NeoX parsing or cook dependencies. Prototype materials and unimplemented skeletal animation SHALL be identified explicitly.
+
+#### Scenario: Valid original geometry
+- **WHEN** the verified danzai01_lod source is converted
+- **THEN** its 4,723 vertices and 8,002 triangles match source GIM bounds within quantization tolerance, all indices are valid and the complete payload is consumed.
+
+#### Scenario: Unsupported or corrupt model
+- **WHEN** the converter encounters an unsupported layout or corrupt counts, indices or skin weights
+- **THEN** it reports a failure instead of exporting guessed geometry.
+- **WHEN** the runtime model is missing or has invalid geometry indices
+- **THEN** startup fails explicitly instead of displaying a replacement sphere.
+
+### Requirement: Collision response distinguishes impact and control state
+
+The project SHALL track resolved motion separately from drive input, derive punch strength from the post-physics velocity difference, and distinguish light contact from control loss using recovered thresholds. Strong impacts SHALL suppress movement and jumping until the documented prototype recovery policy completes. Recovery SHALL preserve current velocity without injecting another impulse. Unrecovered native extra-body and recovery semantics SHALL remain explicitly identified as approximations.
+
+#### Scenario: Light contact with held input
+- **WHEN** a normal grounded impact has strength 7.7
+- **THEN** the character stays controlled, separates immediately, and can steer away or tangentially while contact constrains inward acceleration.
+- **AND** ending contact releases this constraint without a fixed impact-protection timer.
+
+#### Scenario: Rolling strong impact
+- **WHEN** a rolling impact exceeds the 10.5 stronger-hit threshold
+- **THEN** drive input is cleared, the resolved outward velocity survives held inward input, and the HUD shows loss and recovery of control.
+
+#### Scenario: Recovery continuity
+- **WHEN** recovery completes or a new impact interrupts recovery
+- **THEN** motion remains continuous and the previous-velocity snapshot does not produce a false additional hit.
+
+#### Scenario: Replay and single step
+- **WHEN** the user selects replay 1, 2 or 4
+- **THEN** the project resets into the player-pair, wall/slide or landing showcase respectively, without exposing rolling through these demonstration controls.
+- **WHEN** the paused simulation advances one step
+- **THEN** its simulation tick and state timers advance together.
+
+### Requirement: Close-up collision showcase
+
+The project SHALL provide player-pair, wall/slide and landing demonstrations through keys 1, 2 and 4, using authored static World actors and dynamic characters. The pair SHALL face each other and the camera SHALL frame collision detail. Rolling is excluded from these demonstration controls.
+
+#### Scenario: Independent tuning and observable response
+- **WHEN** a user edits the reflected lab panel
+- **THEN** the runtime SHALL use the same bound settings instance for cage integration, contact restitution, camera and playback
+- **AND** gravity/drop height SHALL apply on replay, restitution on the next contact, and other parameters on subsequent simulation/render updates
+- **AND** the panel SHALL support undo/redo through CommandService
+- **AND** the HUD SHALL display the last pair impact's restitution and actual outgoing speed.
+
+#### Scenario: Soft presentation with limited body separation
+- **WHEN** the default automatic pair demonstration makes first contact
+- **THEN** its approach drive SHALL stop, the body response SHALL use .08 restitution independently of softer cage parameters, and configurable demonstration braking SHALL control the coast
+- **AND** landing SHALL affect cage Y velocity without adding an upward body bounce.
+
+#### Scenario: Directional shadow detail
+- **WHEN** the active directional light casts shadows
+- **THEN** the existing shadow pass SHALL allocate and rasterize a 2048x2048 D32 map with its current PCF/depth comparison behavior.
+
+
+#### Scenario: Bounded wall compression
+- **WHEN** the extra probe reaches a static vertical showcase wall
+- **THEN** its project support constraint SHALL limit inward planar displacement at the configured compression distance
+- **AND** tangent motion, vertical movement and moving away SHALL remain permitted
+- **AND** the motor SHALL stop reapplying inward acceleration while that contact persists.
+
+#### Scenario: Dynamic characters survive viewport suspension
+- **WHEN** a window resize temporarily suspends the viewport while dynamic characters change transforms or mesh versions
+- **THEN** renderer resource subscriptions SHALL follow those binding updates even while no output can be prepared
+- **AND** restoring the viewport SHALL render the characters with their existing material payloads without resetting the scene or republishing unchanged assets.
+
+### Requirement: Model-specific World2 spring demonstration
+
+The project SHALL provide a separate World2 scene with the imported penguin, goose and peacock bind meshes, defaulting to penguin. Static actors SHALL load through World, and runtime characters SHALL use model-specific spring controls and constraints derived from skin influence regions and skeleton topology.
+
+#### Scenario: Model selection and constraints
+- **WHEN** the user presses 5, 6 or 7 in World2
+- **THEN** the project SHALL select penguin, goose or peacock and rebuild the current demonstration with that model's capsule and probe dimensions
+- **AND** debug display SHALL show structural springs, bend/support links and control particles
+- **AND** the existing pair, wall and landing showcases and reflected tuning panel SHALL remain usable.
+
+#### Scenario: Manual jump takes control
+- **WHEN** Space or WASD reaches gameplay while automatic replay is active
+- **THEN** input SHALL switch to manual control without resetting the character
+- **AND** a grounded, controlled character SHALL execute a Space jump
+- **AND** focused property editors SHALL retain their keyboard input.
+
+#### Scenario: Peacock abdomen and head probes
+- **WHEN** the peacock is selected in World2
+- **THEN** it SHALL have an abdomen probe and a separate head probe fitted to the actual head influence region
+- **AND** the head probe SHALL follow its simulated control, constrain local head deformation against scene boxes and other-character probes, and avoid duplicate whole-body impulses
+- **AND** PROBE and ALL debug modes SHALL distinguish abdomen and head spheres
+- **AND** selecting another model SHALL recreate probes using the selected model's profile.
+
+#### Scenario: Original Party model in World2
+- **WHEN** the user presses 8 in World2
+- **THEN** the original Party mesh SHALL use its seven-point deformation solver, original capsule and abdomen probe
+- **AND** pair, wall, landing, live tuning and debug display SHALL remain usable
+- **AND** switching back to a bird SHALL restore that bird's rig and probes without stale state.
+
+#### Scenario: Penguin and goose head contact
+- **WHEN** the penguin or goose is selected
+- **THEN** it SHALL have a separate head probe fitted to its visible head influence region, including a local center offset where needed
+- **AND** the offset SHALL be included in following motion and node contact conversion
+- **AND** head contact SHALL constrain local rig deformation without an additional whole-body impulse.
+
+#### Scenario: Goose segmented neck contact
+- **WHEN** the goose is selected
+- **THEN** one middle-neck probe and one head probe SHALL follow their simulated controls and be visible in PROBE/ALL debug modes, with the abdomen probe kept separately
+- **AND** scene and other-character contacts SHALL constrain the corresponding local controls without additional main-body impulses
+- **AND** same-character probe overlaps SHALL be ignored and model changes SHALL remove all old neck triggers.
+
+#### Scenario: Jelly-like movement response
+- **WHEN** the goose accelerates, stops or reverses
+- **THEN** its softer neck SHALL visibly lag, swing back and decay within the existing constraints
+- **AND** the reflected Rig inertia value SHALL scale acceleration-driven rig response live
+- **AND** the rigid-body bounce setting SHALL remain independent and steady translation SHALL not add a scripted perpetual sway.
+
+#### Scenario: Fitted bird wall contact
+- **WHEN** a World2 bird presses against the static wall
+- **THEN** its abdomen cage SHALL convert contacts and deformation through that model's probe center and radius
+- **AND** the existing head/neck probes SHALL bound motor-driven compression using rest-frame support while preserving sliding, escape and jumping
+- **AND** positional depenetration SHALL NOT create an additional outward launch velocity
+- **AND** the goose default response SHALL retain a small decaying movement lag, with one head sphere and one neck sphere.
+
+### Requirement: Runtime preserves the ECS preparation boundary
+
+The renderer runtime SHALL use the existing CPU coordinator, frozen ECS system program and prepared-product collection as the only scene preparation path. Derived component writes and view extraction SHALL retain declared accesses and producer dependencies. GPU graph stages SHALL consume owned prepared products without accessing mutable ECS storage.
+
+#### Scenario: Scene data is prepared before view extraction
+- **WHEN** an accepted packet changes an entity or its selected resource version
+- **THEN** the scene producer updates invalidated derived data before dependent view extraction
+- **AND** the runtime queues GPU work only from successfully collected prepared products
+
+#### Scenario: A reader outlives prepare kernel execution
+- **WHEN** a frozen read view remains borrowed after kernels finish
+- **THEN** the coordinator waits for the borrower before the runtime's prepared callback, the next packet mutation or teardown
+
+### Requirement: Packet synchronization precedes ECS freezing
+
+The runtime SHALL synchronize resource subscriptions and output metadata on the coordinator thread before ECS freezing, including bindings changed while their outputs are suspended.
+
+#### Scenario: A moving mesh changes with a suspended viewport
+- **WHEN** mesh binding revisions continue to change while output extent is zero
+- **THEN** the current mesh and material subscribers remain synchronized
+- **AND** rendering resumes with the current bindings when the output becomes available
+
+### Requirement: GPU orchestration preserves cleanup and completion order
+
+The runtime SHALL expose explicit graph and progress stages while preserving uploader-owned completion polling, output acquisition, graph lifetime retention and retirement ordering. Stage failures SHALL propagate explicitly to cleanup that releases graph borrowers before abandoning the output or frame slot.
+
+#### Scenario: Graph construction fails after output acquisition
+- **WHEN** a graph stage reports an error
+- **THEN** acquired output borrowers and builder references are released before the frame is discarded
+- **AND** the accepted packet receives its existing failure notification
+
+#### Scenario: Upload preparation admits no work
+- **WHEN** upload preparation returns an invalid batch ID because no upload work was admitted
+- **THEN** the runtime does not attempt to discard a nonexistent batch
+- **AND** the frame can still render or complete through its normal no-work path
+
+#### Scenario: CPU preparation hands off a successful frame
+- **WHEN** a prepared frame is queued for GPU processing
+- **THEN** the GPU path owns its final completion notification
+- **AND** CPU acknowledgement does not emit a duplicate frame completion

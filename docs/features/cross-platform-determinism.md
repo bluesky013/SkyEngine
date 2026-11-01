@@ -102,6 +102,6 @@ replay / cross-platform-parity builds.
 
 ## Related
 
-- Specs: `openspec/specs/physics-determinism/spec.md`, `openspec/specs/network-determinism/spec.md`
+- Specs: `openspec/specs/physics/spec.md`, `openspec/specs/network/spec.md`
 - Change: `openspec/changes/deterministic-cross-platform-hardening/`
 - Skill: `skyengine-cross-platform-determinism`

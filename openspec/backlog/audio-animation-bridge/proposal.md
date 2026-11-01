@@ -1,0 +1,42 @@
+> **Current status — 2026-11-01: blocked-on-prereq.** 等待事件分发与 World 音频接入；复用既有动画 world/palette 对接。
+> Owner: `audio-animation-bridge`. Prerequisites: `animation-events`, `audio-world-integration`.
+
+## Why
+
+Animation events (`animation-events`) should drive audio, e.g. footsteps, weapon sounds, or state-transition
+stingers. `Animation` (depends on `Core`) and `Audio` (depends on `Framework`) must stay mutually independent, so
+the mapping belongs in a new bridge layer, mirroring how `render/adaptor` links `Animation` + `Framework`.
+
+## What Changes
+
+- Add a bridge layer that links `Animation` + `Audio` (neither module gains a dependency on the other).
+- Add a component mapping animation event names to audio clips, bus, volume, pitch, and spatial parameters.
+- Subscribe to the animation event dispatch; on a matching event, play through `AudioSystem` / `AudioSource`.
+- Support 3D positioning at a bone socket (e.g. foot/weapon), which needs a bone world-transform query.
+
+## Capabilities
+
+### New Capabilities
+
+None.
+
+### Modified Capabilities
+
+- `audio`: event-name to audio-clip mapping component and playback wiring.
+
+## Related backlog (no change exists yet; create when expanded)
+
+- Aurora animation bridge (not yet a change): map `animation::AnimPose` to `aurora::Skin::boneMatrices` in a
+  bridge layer (aurora must not depend on `Animation`). Bone-socket audio positioning depends on this; the
+  Aurora adaptor is the only remaining render bridge.
+- Bone socket query: expose `AnimPose::GetBoneTransform(Name)`-style access (currently only `ToSkinRenderData`).
+
+## Impact
+
+- New bridge target linking `Animation` + `Audio`; a reflected component (registered in the audio component group).
+- No change to the `Animation` or `Audio` module dependencies.
+
+## Open Questions (expand later)
+
+- One-to-one event/clip mapping vs weighted variants (randomized footsteps).
+- Whether the mapping is per-actor authored data or an asset (event table).

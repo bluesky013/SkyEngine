@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change。target 分层和模块入口已有实现；剩余多实例/CPU oracle、GPU palette/退休、Graph/Preview 和人工平台复合验收。
+
 ## Why
 
 现有 Animation 已有采样、混合、基础状态机与执行计划，但 Actor 缺少骨骼网格/动画组件，Aurora 生产路径拒绝 skin mesh，`.graph` 仍是版本号占位，资产预览也未接入实际渲染。需要建立可保存、可播放、可预览、可编辑的骨骼动画工作流，并用真实多实例角色验证跨层契约。
@@ -18,22 +20,28 @@
 
 ### New Capabilities
 
-- `animation-world-components`: 动画组件、World 更新、播放状态、资产切换、错误与 Pose 发布。
-- `animation-graph-assets`: 图文档、参数/节点/状态机、cook 校验、依赖、运行时实例和热重载。
-- `animation-editor`: 角色/Clip/Graph 编辑预览、骨骼树、时间轴、节点图、保存和调试。
+None.
 
 ### Modified Capabilities
 
-- `animation`: 明确保留原始片段时长、播放/seek 行为、每实例执行状态和旧 Root Motion 输出的边界。
-- `aurora-skinning`: 分离不可变 skin 绑定与实例调色板，定义蒙皮、bounds、Pass 一致性和 GPU 生命周期。
-- `aurora-adaptor`: 增加骨骼网格组件、消费方 Pose 接口和 World 到 renderer 的原子快照。
-- `aurora-cook`: 校验原始权重/节点空间，分别生成 Mesh / Skin / Skeleton 产品，保持 skin 槽与 rig 索引独立。
-- `asset-source-identity`: 持久化 generated 子身份及 owner 关系、默认导入绑定元数据，不改变源 UUID 规则。
-- `asset-product-loading`: 产品组原子发布、精确 revision 读取、generated child 按需 cook 与完成通知。
-- `content`: 移除 Content 对空 Graph handler/builder 的规范所有权，Clip 继续由原模块维护。
-- `aurora-mesh`: 清理旧 Mesh 持 Skeleton 的冲突条款，明确 JOINTS 索引 Skin 槽。
-- `aurora-mesh-cook`: 同步原始导入校验、顶点空间处理及独立 Skin 产品格式；不恢复旧 meshlet 字段。
-- `editor-asset-viewer`: 将 bool 预览占位接口扩展为 session 生命周期，Skin 提供反射只读摘要。
+- `animation`: 动画组件、World 更新、播放状态、资产切换、错误与 Pose 发布。
+  图文档、参数/节点/状态机、cook 校验、依赖、运行时实例和热重载。
+  角色/Clip/Graph 编辑预览、骨骼树、时间轴、节点图、保存和调试。
+  明确保留原始片段时长、播放/seek 行为、每实例执行状态和旧 Root Motion 输出的边界。
+
+- `aurora-resources`: 分离不可变 skin 绑定与实例调色板，定义蒙皮、bounds、Pass 一致性和 GPU 生命周期。
+  清理旧 Mesh 持 Skeleton 的冲突条款，明确 JOINTS 索引 Skin 槽。
+
+- `aurora-renderer`: 增加骨骼网格组件、消费方 Pose 接口和 World 到 renderer 的原子快照。
+
+- `asset-cook`: 校验原始权重/节点空间，分别生成 Mesh / Skin / Skeleton 产品，保持 skin 槽与 rig 索引独立。
+  同步原始导入校验、顶点空间处理及独立 Skin 产品格式；不恢复旧 meshlet 字段。
+
+- `assets`: 持久化 generated 子身份及 owner 关系、默认导入绑定元数据，不改变源 UUID 规则。
+  产品组原子发布、精确 revision 读取、generated child 按需 cook 与完成通知。
+  移除 Content 对空 Graph handler/builder 的规范所有权，Clip 继续由原模块维护。
+
+- `editor-assets`: 将 bool 预览占位接口扩展为 session 生命周期，Skin 提供反射只读摘要。
 
 ## Impact
 

@@ -1,3 +1,6 @@
+> 2026-11-01 整理：**implemented-awaiting-platform-validation**。现行 owner：功能里程碑保留于本 change；现行原生/视觉验收归 `aurora-renderer-platform-parity` P02-LIGHTING。
+> 剩余：5.2 仍未验收；Metal 深度和手动画面只覆盖子集，不替代 HDR/IBL/移动端完整像素矩阵。下方较早状态与验收记录保留为历史。
+
 ## Why
 
 World objects now reach the shared renderer, but the default scene pass only applies a tint. The approved next stages require scene lighting, shadow resources and environment inputs to use the same pass-owned shared declarations as ordinary draws.
@@ -13,11 +16,14 @@ World objects now reach the shared renderer, but the default scene pass only app
 ## Capabilities
 
 ### New Capabilities
-- `aurora-scene-lighting`: Pass-owned light, shadow and environment inputs with explicit defaults, bounded work and native pixel verification.
+
+None.
 
 ### Modified Capabilities
 
-None. This capability specifies the additive scene pipeline and its required frozen-graph subset.
+- `aurora-pipeline`: Pass-owned light, shadow and environment inputs with explicit defaults, bounded work and native pixel verification.
+
+This capability specifies the additive scene pipeline and its required frozen-graph subset.
 
 ## Impact
 

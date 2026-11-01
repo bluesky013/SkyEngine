@@ -1,10 +1,13 @@
+> Status (2026-11-01): **active**；owner：本 change 的 TLS/CA 契约；Android core/插件/APK 前置归 add-android-python-runtime。剩余真实 HTTPS 和 Android SSL/builtins 设备验收。
+
 ## 1. OpenSSL third-party
 
 - [x] 1.1 Add an `openssl` package (version `3.0.18`, matching CPython 3.13.9) to `cmake/thirdparty.json` with a custom build step
 - [x] 1.2 One-time generate + vendor the Perl-produced headers/sources and source lists (`python/gen_openssl.py` -> `cmake/thirdparty/openssl/generated/`, `sources-<variant>.cmake`)
 - [x] 1.3 Compile the static libraries with CMake (`cmake/thirdparty/openssl/CMakeLists.txt`: `libcrypto`, `libssl`, `libdefault`, `libcommon`, `liblegacy`) and install into `3RD_PATH/<platform>/openssl` (`python/build_openssl.py`)
 - [x] 1.4 Android: build with the NDK CMake toolchain (verified on a Windows host -> AArch64 static libraries)
-- [ ] 1.5 Windows/Linux/macOS: generate the `win64` variant and build on the remaining hosts
+
+Historical 1.5 is covered by the recorded Windows checks in 5.1/5.3 and macOS/Linux build in 6.3; it is no longer a separate incomplete desktop-build task. Android acceptance remains open below.
 
 ## 2. Wire into the static interpreter
 
@@ -32,6 +35,7 @@
 ## 6. Deferred (do together with the Android adaptation)
 
 - [ ] 6.1 Android end-to-end: build the Android CPython core with `_ssl`/`_hashlib` (unix variant + `Setup.local`), link into `PythonModule`, and confirm the builtins import on device/emulator
-- [ ] 6.2 5.2 HTTPS request test once Android is wired (uses the bundled `ssl/cert.pem`)
+
+Historical 6.2 duplicates the real HTTPS/CA acceptance in 5.2. Track that acceptance once under 5.2, including Android after its runtime is wired; no passing HTTPS run is implied.
 - [x] 6.3 macOS/Linux: built the `unix` static variant with `_ssl`/`_hashlib`; PythonRuntimeTest (TlsBuiltins) passes; no shared libpython/openssl at runtime
 - [ ] 6.4 Confirm `_ssl`/`_hashlib` registration is a no-op on Android (modules already in the core inittab via `Setup.local`)

@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: active.** 仅保留真实 terrain+collision→Recast 的测试矩阵；不能用普通碰撞 demo 代替。
+> Owner: `navigation-terrain-build-tests`.
+
 ## 1. Harness
 
 - [ ] 1.1 Add a World-level nav mesh build harness (World + `NavigationSystem` + registered recast factory + injectable geometry sources)

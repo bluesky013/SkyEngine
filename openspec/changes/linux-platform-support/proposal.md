@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change。X11/Launcher 已交付；XCB WSI、Linux cook/测试与 CI 仍待完成；不把其它平台基线回归等同 Linux 运行验收。
+
 ## Why
 
 上游 `dev_refactor_rhi` 已退休旧 render/shader/Qt 编辑器，平台层改为**原生后端**（Win32 / Cocoa / UIKit / GameActivity，**不再使用 SDL**），launcher 改为 **project-owned**（`engine/templates/launcher/<platform>` + `engine/templates/game/native` + `python/package_project.py`）。但 Linux 仍缺原生窗口后端：`Platform::Init`、`NativeWindow::Create`、平台 CMake 分支均没有 Linux 实现，aurora Vulkan 也缺 X11/xcb surface。
@@ -17,13 +19,17 @@
 ## Capabilities
 
 ### New Capabilities
-- `linux-core-platform`：Linux 下 core 的编译/运行动态库与线程原语
-- `linux-application-shell`：原生 X11 平台/窗口 + project-owned Linux launcher
-- `linux-vulkan-wsi`：aurora Vulkan 在 Linux X11（xcb）上的 surface/swapchain（surface 前实现完成，端到端待显示器）
-- `linux-thirdparty-bootstrap`：第三方引导在 Linux 的闭环（slang/PIC/大小写）
+
+None.
 
 ### Modified Capabilities
-（无）
+
+- `platform`: Linux 下 core 的编译/运行动态库与线程原语
+  原生 X11 平台/窗口 + project-owned Linux launcher
+
+- `aurora-rhi`: aurora Vulkan 在 Linux X11（xcb）上的 surface/swapchain（surface 前实现完成，端到端待显示器）
+
+- `build`: 第三方引导在 Linux 的闭环（slang/PIC/大小写）
 
 ## Impact
 

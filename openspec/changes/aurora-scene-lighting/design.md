@@ -1,5 +1,5 @@
 > Current shader paths, material techniques and persistent header exports are defined by
-> [refactor-aurora-pipeline-resource-ownership](../refactor-aurora-pipeline-resource-ownership/design.md).
+> [refactor-aurora-pipeline-resource-ownership](../archive/2026-11-01-refactor-aurora-pipeline-resource-ownership/design.md).
 > Lighting implementation milestones below remain historical evidence, not an alternative shader registration path.
 
 ## Context

@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 运行时植被渲染、LOD、风场与 culling 尚待实施；基础 Renderer 已交付。
+> Owner: `vegetation-aurora-render`.
+
 ## Why
 
 `vegetation-large-world` delivered the render-agnostic core (surface seam, placement, streaming, asset, component) and the render adaptor seam (`VegetationRenderFactory` / `IVegetationRenderAdaptor`). This change implements the aurora render adaptor plus the culling scheme.
@@ -15,11 +18,11 @@
 
 ### New Capabilities
 
-- `vegetation-render`: aurora vegetation render adaptor (GPU population, tiers, wind, interaction, foliage pass, culling).
+None.
 
 ### Modified Capabilities
 
-<!-- none -->
+- `vegetation`: aurora vegetation render adaptor (GPU population, tiers, wind, interaction, foliage pass, culling).
 
 ## Impact
 

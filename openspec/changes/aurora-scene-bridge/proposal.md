@@ -1,6 +1,9 @@
+> 2026-11-01 整理：**implemented-with-quality-debt**。现行 owner：本 change 维护单向 World→owned packet bridge；5.3 仅保留明确的 clang-tidy 清理债务。
+> 剩余：构建、格式与功能回归已完成；5.3 的警告清理尚未关闭，不伪称 warning-free。下方较早状态与验收记录保留为历史。
+
 ## Why
 
-Status: active（可实施）。Windows Renderer B12/B14 能力门已通过，S01/S02/S03 不再等待 Renderer 主线；非 Windows 集成需等 aurora-renderer-platform-parity。
+原阶段状态：active（可实施）。Windows Renderer B12/B14 能力门已通过，S01/S02/S03 不再等待 Renderer 主线；非 Windows 集成需等 aurora-renderer-platform-parity。
 
 Framework components are the scene authoring model, while aurora renders from a data-oriented scene ECS. Today the two coexist without a defined transfer path. This is an addition to the existing **aurora adaptor** capability (not a new capability): the adaptor already bridges components/assets; this adds the one-way scene→ECS hand-off.
 
@@ -14,7 +17,8 @@ Framework components are the scene authoring model, while aurora renders from a 
 ## Capabilities
 
 ### Modified Capabilities
-- `aurora-adaptor`: adds one-way scene-to-ECS hand-off (lifecycle-driven create/remove, transform transfer) alongside the existing component/asset bridge.
+
+- `aurora-renderer`: adds one-way scene-to-ECS hand-off (lifecycle-driven create/remove, transform transfer) alongside the existing component/asset bridge.
 
 ## Impact
 

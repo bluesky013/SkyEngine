@@ -1,3 +1,5 @@
+> Historical commit scope at `52fbcb3a`: paths below record that commit, before domain consolidation. Resolve former spec IDs through [capability-map.json](../../capability-map.json); completed change directories now reside under `openspec/changes/archive/2026-11-01-<change>/`.
+
 # Confirmed engine commit and rebase integration
 
 `refactor: replace module code leases with process-resident libraries`

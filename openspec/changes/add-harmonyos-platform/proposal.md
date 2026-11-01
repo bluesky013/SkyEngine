@@ -1,8 +1,10 @@
+> Status (2026-11-01): **active**；owner：本 change。核心宿主/构建和基础场景已交付；剩余公开包闭包校验、资源/图形失败、GPU 生命周期与长期矩阵，UIKit 专项由 3.10 跟踪。
+
 ## Why
 
 用户已确认目标为华为纯血鸿蒙，即原生 HarmonyOS（HarmonyOS NEXT 技术体系）。SkyEngine 已有 Windows、macOS、Android、iOS 和 Linux 平台代码，需要沿现有 Core / Framework / Aurora 架构增加 HarmonyOS 原生宿主和 HAP 打包链路，让项目从交叉编译走到华为设备上的渲染与场景运行。
 
-状态：active，已完成 API 26 SDK/三方编译、鸿蒙原生宿主与 Vulkan cooked 物理场景，并完成同工程 Android 基础真机验证；正在整理提交和补充既有平台回归。输入/IME、原生输入框和 Host 重复 Surface 生命周期已完成本轮验收；公开 package 的完整 Native 依赖闭包自动校验仍有实现缺口，纹理/坏资源、真实 Renderer 的 Surface/GPU 退休及长期稳定性仍未全部验收。任务状态见 [tasks.md](tasks.md)，实测边界见 [validation.md](validation.md)。
+状态：active，已完成 API 26 SDK/三方编译、鸿蒙原生宿主与 Vulkan cooked 物理场景，并完成同工程 Android 基础真机验证；核心实现已提交，继续收口既有平台与剩余验收。输入/IME、原生输入框和 Host 重复 Surface 生命周期已完成本轮验收；公开 package 的完整 Native 依赖闭包自动校验仍有实现缺口，纹理/坏资源、真实 Renderer 的 Surface/GPU 退休及长期稳定性仍未全部验收。任务状态见 [tasks.md](tasks.md)，实测边界见 [validation.md](validation.md)。
 
 ## What Changes
 
@@ -21,13 +23,16 @@
 
 ### New Capabilities
 
-- `harmonyos-platform`: HarmonyOS 平台识别、OHOS Native 工具链、原生窗口、平台服务、输入和生命周期。
-- `harmonyos-vulkan`: 现有 Aurora Vulkan 后端在 HarmonyOS 上的 Surface、能力门和安全呈现。
-- `harmonyos-packaging`: project-owned HarmonyOS launcher、导出预设、HAP 签名安装及 cooked 资源交付。
+None.
 
 ### Modified Capabilities
 
-- `aurora-rhi-core`：按用户要求把 Vulkan maintenance1 作为可选能力，增加 checked core WSI 兼容路径，明确应用帧退休与 native presentation 资源寿命的区别；对应 delta 与代码一起 review。其它平台服务/导出契约沿用现有定义。
+- `platform`: HarmonyOS 平台识别、OHOS Native 工具链、原生窗口、平台服务、输入和生命周期。
+
+- `aurora-rhi`: 现有 Aurora Vulkan 后端在 HarmonyOS 上的 Surface、能力门和安全呈现。
+  按用户要求把 Vulkan maintenance1 作为可选能力，增加 checked core WSI 兼容路径，明确应用帧退休与 native presentation 资源寿命的区别；对应 delta 与代码一起 review。其它平台服务/导出契约沿用现有定义。
+
+- `project-packaging`: project-owned HarmonyOS launcher、导出预设、HAP 签名安装及 cooked 资源交付。
 
 ## Impact
 

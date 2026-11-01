@@ -1,43 +1,63 @@
 # 平台对等待办
 
-Status: active（macOS 原生验证进行中；iOS/Android 设备验收仍待可用设备）。每项保留 aurora-renderer 的原编号；已有 Windows 子集不重复计为这里的完成。
+> 2026-11-01 整理：**active**。现行 owner：唯一跨平台原生验收矩阵；公共 API 语义仍由 `refactor-aurora-framegraph-contracts` 定义。
+> 剩余：按下方 P02 六项聚合待验场景；旧编号仅保留映射，不再重复统计为待实现项。下方较早状态与验收记录保留为历史。
 
-- [ ] 2.2 修正 RDG executor 的 PSO/RG 顺序与布局切换重绑；覆盖 DX12 和 Vulkan 真正的 descriptor 使用（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
-- [ ] 2.3 重构 frame fence 状态；覆盖零输出、全部 acquire 失败、恢复和提交失败（B11/B12 Windows 组件与生产服务已验；B14 Windows 宿主已验；P02 待验收）
-- [ ] 2.4 分离 acquire/present 同步资源复用规则，定义 resize/close 的 presentation retirement（B11/B12 Windows 已验；B14 Windows 宿主已验；P02 待验收）
-- [ ] 2.5 为 RHI Submit/完成查询补可观察的 Accepted/Rejected/Error 协议；故障注入验证 reset 后拒绝与 device lost 不无限等 fence（Windows 组件及 B12 服务已验；B14 Windows 宿主已验；P02 待验收）
-- [ ] 3.4 将 acquire 移到调度器；RDG 导入 borrowed output，重复 Compile 不获取第二张图像（B11/B12 输出与 B13 owned UI 已验；B14 真实 UI/宿主已验；P02 物理旋转/非 Windows 待验收）
-- [ ] 3.5 实现窗口/离屏输出、单输出失败隔离、已 acquire 后失败收尾和窗口销毁确认（B11/B12/B13 Windows 输出/合成已验；只跳过受影响输出，其它 pass/command buffers 和上传继续；B14 Windows 宿主已验；P02 待验收）
-- [ ] 3.16 独立 DeviceFrameContext 领域头文件，提供 TryBeginSlot/分配/Compile/Dispatch/TryCollect/Submit/Discard/PollCompleted；校验 backend/context/slot generation/device epoch，宿主不直接驱动 RDG command buffers（B12 Windows 服务已验；B14 Windows 宿主已验；P02 待验收）
-- [ ] 3.17 统一 staging/DynamicBuffer/descriptor ring 的显式 slot 分区与容量检查；消除 renderer 路径 AdvanceFrame/Reset 自增，验证任意空帧/输出跳帧/upload-only（B04 的 Vulkan/DX12 新协议已完成；Windows 宿主 B14 已切换；Metal P02 待验收）
-- [ ] 3.18 按 slot × worker × recording ordinal 建立安全 command 资源与预算；验证任务多于 worker 时不覆盖待提交结果，两帧在途不互相 reset；Metal child 按 parent 管理（B02 Vulkan 与 P01 当前 DX12 子集已验收；完整平台能力及 P02 待收口）
-- [ ] 4.2 实现逐 pass set 0、逐 view/slot 常量；填完整 projection/camera position（B04 分配已完成；B07 scalar UBO/set 0 已验证、B08 projection/camera 已实际读回；P01/P02）
-- [ ] 4.3 实现后端 Compile 的 descriptor resolve 或显式前置任务，发布不可变 bindings；审计 DX12 EnsureFrameCopy 等 bind 时共享写入，确保 RG 引用资源有显式 Read/Write（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
-- [ ] 4.4 实现 transient pool frame leases 与导入资源状态；覆盖跨帧保活、同帧物理复用及重复导入（B10 Windows 固定资源范围已验；完整平台归 P01/P02）
-- [ ] 4.6 实现 content version/producer、ReadWrite/WriteDiscard 与明确 roots；先内容剔除再推导存活 hazard/lifetime，覆盖中间读与 UI LOAD（B10 内容/alias 与 B13 生产 UI LOAD 已验；完整平台归 P01/P02）
-- [ ] 4.7 闭合 CopyBlit 的 typed source/destination、owned regions、buffer copy/buffer-to-image emit 和对齐检查；其它 kind 不得静默无操作（B06；P01/P02）
-- [ ] 4.10 各后端自行完整 Compile；公共图只保留声明/Freeze 与可复用纯分析，context 持匹配 compiler，新路径不由公共 Compile/ExecutePasses 控制（B12 Windows 三条生产路径已验；P02 待实现）
-- [ ] 4.11 定义 native pass/scope 与 logical pass 映射；后端分别决定合并/拆分、GPU 顺序、lifetime/backing/同步，顺序变化后重新验证 alias（B01 scope/映射与 B10 Windows 固定范围已验收；完整平台归 P01/P02）
-- [ ] 4.12 分离 EncodeTaskGraph 和 SubmissionPlan，稳定 result index、CPU edges、Worker/Coordinator executor 约束与 opaque plan 单次消费；Custom 默认串行（B02/B03 与 P01 当前 Vulkan/DX12 分片、单次消费与失败收齐已验收；完整平台能力及 P02 待收口）
-- [ ] 4.15 实现 Metal 编译/dispatch：native scope 描述、parallel parent/有序 children 生命周期、autorelease/强持有；不支持并行的 scope 明确安全回退，需 Mac 平台验证（P02）
-- [ ] 4.16 在各后端 FrameContext 适配 DeviceFrameDispatcher worker 子批次与 coordinator continuations；覆盖空图、单 worker、有界 fan-out、显式失败/取消 drain 和无 worker 阻塞等待（B02；P01/P02）
-- [ ] 4.19 扩展 raster recipe、bindings、depth/MSAA/resolve、subresources 与 PSO/scope cache，接入两套 encoder 的稳定并行组装；串行子集不等同于本项完成（B07/B10/B12 固定范围与 B13 UI sampled bindings 已验；完整资产材质不在最小范围，剩余平台归 P01/P02）
-- [ ] 4.20 明确新图 IR 的公开 pass kind 能力范围；受支持 FullScreen 发出真实命令并通过读回验证，不支持者显式 Unsupported（B10 Windows：Fullscreen 已读回；Compute/Custom 的 IR、后端实现及 Windows 验收归 `aurora-compute-custom-passes` 的阶段交付。本项承接其未完成的 6.3/6.4/10.11：macOS 编译、能力错误码与真实设备读回，覆盖 buffer alignment reflection、动态偏移、线程组限制、storage view、只读 storage image/buffer、Custom 失败后的 discard/复用及 shader/sampler/callback 退休保活；验收记录回填 P02，并引用阶段归档）
-- [ ] 5.1 实现程序化 indexed mesh 和简单 Slang VS/FS，通过 owned packet 提交与上传（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
-- [ ] 5.2 接入最小 ShaderResolver/PSO cache，key 覆盖 program/layout/vertex/state/attachment（B07 前置解析与 pass/subpass 内缓存、B10 Windows device 跨帧缓存已验；完整平台/生产条件待收口）
-- [ ] 6.4 在平台 probe 中确定 Metal 线程和 drawable 协议；未通过时明确保持未迁移状态（P02）
-- [ ] 7.4 生命周期测试覆盖最小化单窗/全部窗口、恢复、resize、close、资产迟到和 device/surface 错误（B11/B12 Windows 组件与公共服务已验，含配置注入/8 种纯映射；B14 owned 资产/真实宿主已验；P02 物理旋转与非 Windows 待验收）
-- [ ] 7.5 按根 AGENTS 关闭编辑器后配置并构建相关 targets；运行相关测试和有界宿主验收，记录各平台结果（各批与最终收口）
-- [ ] 7.11 验证同图首次上传后真实 draw/readback、无窗口 upload-only、预算延后、取消共享 ticket、热更新与过期 device epoch（B06/B07/B12 Windows 公共服务已验；P02 待验收）
-- [ ] 7.12 验证慢/不可用输出期间控制流继续，prepare 后 resize 不沿用旧 ViewContext；记录后端可退出等待与呈现退休限制（B11/B12 Windows 配置竞态与公共排队 resize、最小化继续提交已验；B14 Windows 宿主已验；P02 待验收）
-- [ ] 7.13 对三个后端执行相同内容/剔除语义用例，并对串行/并行 dispatch 做实际 readback 对照；记录未验证的平台，不以公共 fallback 代替后端实现（B01/B02/B10；P01/P02）
-- [ ] 7.14 打乱编码任务完成顺序，验证 GPU copy→draw→UI 同步、透明片段稳定组装、task 数大于 worker、同 slot 多结果和两帧在途（B02/B03 分片乱序/双 slot、B07 bindings、B13 copy→UI 与 97 draws 稳定顺序已验；完整平台仍待 P02）
-- [ ] 7.15 故障注入 Compile/dispatch 部分失败、错误 context/epoch/slot、重复 Dispatch/Submit 与取消；确保 drain 前不 reset、失败不发布上传、coordinator-only 节点线程正确（B03 与 P01 的 Vulkan/DX12 native 错误/取消/退出已验收；B06 上传发布及完整平台能力待收口）
-- [ ] 8.3 实现 CpuReady/UploadQueued/UploadSubmitted/Resident 状态与 graph-local InGraph resolve；不把 create 成功或 Submit Accepted 当成 Resident（B06/B10/B12 Windows buffer/image 与生产组合已验；Metal P02）
-- [ ] 8.4 实现 slot-owned staging、UploadBatch 的字节/创建数量/在途预算及显式持久上传 roots，支持 upload-only submission（B06/B10/B12 Windows 组件与生产预算/后台分块已验；Metal P02）
-- [ ] 8.5 实现实际录制 receipts、提交接受后的状态登记、完成后的 Resident 发布和源 bytes/staging/GPU leases 分阶段释放（B06/B10/B12 Windows 组件与统一 Submit/Poll 已验；Metal P02）
-- [ ] 8.6 实现精确版本 pins、冻结前旧版本选择与延迟释放；验证新版本失败不覆写旧在途 descriptor/mesh，未匹配状态的 legacy transfer 资源不得直接使用（B05–B10 组件与 B12 公共热更新/逐帧 layouts/pins 已验；Metal P02）
-- [ ] 8.11 按 `refactor-aurora-pipeline-resource-ownership` 验证共享 Pass 接入：macOS 编译及 MSL 真实布局/字段偏移、Global/Pass/Material/Batch 与 native buffer index 映射、有/无 View、不同 Pass 布局、两 View/双在途帧、实际 uniform 字节范围、显式场景注册及模块退休；iOS/Android 交叉编译消费权威 `.h`，检查持久化 `.slangh` 与源同步、模块资源打包并做实机读回。C++ 编译不依赖 Slang 或 host ShaderHeaderTool；Windows 结果不能代替本项，旧 8.9/8.10 的宿主证据也不覆盖此次 ABI 变更。
+## 2026-11-01 当前验收矩阵
+
+所有项仍未完成；后续证据只回填此矩阵，原 change/编号保留为来源。每项按根 AGENTS 完成对应真实库/模块构建、相关回归和平台证据记录；不可把交叉编译或一次 smoke 当作完整平台通过。
+
+- [ ] P02-IOS 验证 iOS GPU surface 重建、物理旋转/resize、前后台恢复、精确 output generation 退休、失败恢复和长稳；已有 iPad 导航启动/异步查询/画面证据只作为子集。旧 `add-ios-platform` / `add-ios-uikit-backend` 的 GPU 门在此接收，UIKit 输入与 scene-host 专项仍归 `add-harmonyos-platform` 3.10。
+- [ ] P02-ANDROID 验证 ANativeWindow 替换、旋转/前后台、无输出期间控制/上传继续、精确退休及失败恢复；既有物理设备 physics/package/呈现采样不替代本矩阵。
+- [ ] P02-NATIVE 对现行 API/绑定 ABI 补齐跨平台 compiler/slot/提交/资源/输出矩阵：native capability 与错误协议、乱序编码及双在途帧、部分失败/取消 drain、upload-only/InGraph/精确版本保活、当前共享资源布局/动态偏移与多 View；记录已有 Metal 读回覆盖及每个未匹配用例。Windows 后继契约专有回归仍以 `refactor-aurora-framegraph-contracts` 4.5 为唯一 owner。
+- [ ] P02-COMPUTE 对 Compute/Custom 补齐 readonly storage image/buffer、native buffer alignment reflection、动态偏移、线程组/usage/view 限制、失败 discard/slot 复用及 shader/sampler/callback 退休保活；2026-10-27 已执行的 native compute/custom 子集不得重复记为待实现，也不得据此关闭完整矩阵。接收 `aurora-compute-custom-passes` 6.3/6.4/10.11。
+- [ ] P02-LIGHTING 收齐 Metal/移动端 L01-L04 的深度/光照/shadow/HDR/IBL 像素矩阵，并单列观察到的 shadow striping 与 vendor warnings；接收 `aurora-scene-lighting` 5.2 和 `refactor-aurora-framegraph-contracts` 5.4，普通 unlit 场景或更换物体角度不算修复视觉质量。
+- [ ] P02-EDITOR 验证当前 owned-frame editor 的多浮窗/preview close-reopen、minimize/restore、acquire failure/恢复、其它窗口继续和全局退出；验证共享图标/色轮 late update/remove/replay 的真实 GPU 画面。接收 `sync-editor-surface-textures` 3.5、`fix-editor-surface-gpu-teardown` 2.4、`fix-editor-skipped-frame-fence` 3.3；不恢复历史 direct fence/combined-submit 实现。
+
+### 已有证据与原编号映射
+
+后续证据已证明 macOS checked host/部分 native Metal 读回、Android physics/package 及 iPad 导航实机执行；各记录的确切范围仍有效，不将其扩大为完整生命周期、视觉或全部平台通过。以下36项为历史来源映射，标“未验收转交”而不是勾选完成，避免与上方当前矩阵重复排期。
+
+### 原阶段任务明细
+
+原阶段状态：active（macOS 原生验证进行中；iOS/Android 设备验收仍待可用设备）。每项保留 aurora-renderer 的原编号；已有 Windows 子集不重复计为这里的完成。
+
+- **原 2.2（未验收；转交 P02-NATIVE）** 修正 RDG executor 的 PSO/RG 顺序与布局切换重绑；覆盖 DX12 和 Vulkan 真正的 descriptor 使用（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
+- **原 2.3（未验收；转交 P02-IOS/P02-ANDROID/P02-NATIVE）** 重构 frame fence 状态；覆盖零输出、全部 acquire 失败、恢复和提交失败（B11/B12 Windows 组件与生产服务已验；B14 Windows 宿主已验；P02 待验收）
+- **原 2.4（未验收；转交 P02-IOS/P02-ANDROID/P02-NATIVE）** 分离 acquire/present 同步资源复用规则，定义 resize/close 的 presentation retirement（B11/B12 Windows 已验；B14 Windows 宿主已验；P02 待验收）
+- **原 2.5（未验收；转交 P02-NATIVE）** 为 RHI Submit/完成查询补可观察的 Accepted/Rejected/Error 协议；故障注入验证 reset 后拒绝与 device lost 不无限等 fence（Windows 组件及 B12 服务已验；B14 Windows 宿主已验；P02 待验收）
+- **原 3.4（未验收；转交 P02-IOS/P02-ANDROID）** 将 acquire 移到调度器；RDG 导入 borrowed output，重复 Compile 不获取第二张图像（B11/B12 输出与 B13 owned UI 已验；B14 真实 UI/宿主已验；P02 物理旋转/非 Windows 待验收）
+- **原 3.5（未验收；转交 P02-IOS/P02-ANDROID/P02-NATIVE）** 实现窗口/离屏输出、单输出失败隔离、已 acquire 后失败收尾和窗口销毁确认（B11/B12/B13 Windows 输出/合成已验；只跳过受影响输出，其它 pass/command buffers 和上传继续；B14 Windows 宿主已验；P02 待验收）
+- **原 3.16（未验收；转交 P02-NATIVE）** 独立 DeviceFrameContext 领域头文件，提供 TryBeginSlot/分配/Compile/Dispatch/TryCollect/Submit/Discard/PollCompleted；校验 backend/context/slot generation/device epoch，宿主不直接驱动 RDG command buffers（B12 Windows 服务已验；B14 Windows 宿主已验；P02 待验收）
+- **原 3.17（未验收；转交 P02-NATIVE）** 统一 staging/DynamicBuffer/descriptor ring 的显式 slot 分区与容量检查；消除 renderer 路径 AdvanceFrame/Reset 自增，验证任意空帧/输出跳帧/upload-only（B04 的 Vulkan/DX12 新协议已完成；Windows 宿主 B14 已切换；Metal P02 待验收）
+- **原 3.18（未验收；转交 P02-NATIVE）** 按 slot × worker × recording ordinal 建立安全 command 资源与预算；验证任务多于 worker 时不覆盖待提交结果，两帧在途不互相 reset；Metal child 按 parent 管理（B02 Vulkan 与 P01 当前 DX12 子集已验收；完整平台能力及 P02 待收口）
+- **原 4.2（未验收；转交 P02-NATIVE）** 实现逐 pass set 0、逐 view/slot 常量；填完整 projection/camera position（B04 分配已完成；B07 scalar UBO/set 0 已验证、B08 projection/camera 已实际读回；P01/P02）
+- **原 4.3（未验收；转交 P02-NATIVE）** 实现后端 Compile 的 descriptor resolve 或显式前置任务，发布不可变 bindings；审计 DX12 EnsureFrameCopy 等 bind 时共享写入，确保 RG 引用资源有显式 Read/Write（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
+- **原 4.4（未验收；转交 P02-NATIVE）** 实现 transient pool frame leases 与导入资源状态；覆盖跨帧保活、同帧物理复用及重复导入（B10 Windows 固定资源范围已验；完整平台归 P01/P02）
+- **原 4.6（未验收；转交 P02-NATIVE）** 实现 content version/producer、ReadWrite/WriteDiscard 与明确 roots；先内容剔除再推导存活 hazard/lifetime，覆盖中间读与 UI LOAD（B10 内容/alias 与 B13 生产 UI LOAD 已验；完整平台归 P01/P02）
+- **原 4.7（未验收；转交 P02-NATIVE）** 闭合 CopyBlit 的 typed source/destination、owned regions、buffer copy/buffer-to-image emit 和对齐检查；其它 kind 不得静默无操作（B06；P01/P02）
+- **原 4.10（未验收；转交 P02-NATIVE）** 各后端自行完整 Compile；公共图只保留声明/Freeze 与可复用纯分析，context 持匹配 compiler，新路径不由公共 Compile/ExecutePasses 控制（B12 Windows 三条生产路径已验；P02 待实现）
+- **原 4.11（未验收；转交 P02-NATIVE）** 定义 native pass/scope 与 logical pass 映射；后端分别决定合并/拆分、GPU 顺序、lifetime/backing/同步，顺序变化后重新验证 alias（B01 scope/映射与 B10 Windows 固定范围已验收；完整平台归 P01/P02）
+- **原 4.12（未验收；转交 P02-NATIVE）** 分离 EncodeTaskGraph 和 SubmissionPlan，稳定 result index、CPU edges、Worker/Coordinator executor 约束与 opaque plan 单次消费；Custom 默认串行（B02/B03 与 P01 当前 Vulkan/DX12 分片、单次消费与失败收齐已验收；完整平台能力及 P02 待收口）
+- **原 4.15（未验收；转交 P02-NATIVE）** 实现 Metal 编译/dispatch：native scope 描述、parallel parent/有序 children 生命周期、autorelease/强持有；不支持并行的 scope 明确安全回退，需 Mac 平台验证（P02）
+- **原 4.16（未验收；转交 P02-NATIVE）** 在各后端 FrameContext 适配 DeviceFrameDispatcher worker 子批次与 coordinator continuations；覆盖空图、单 worker、有界 fan-out、显式失败/取消 drain 和无 worker 阻塞等待（B02；P01/P02）
+- **原 4.19（未验收；转交 P02-NATIVE）** 扩展 raster recipe、bindings、depth/MSAA/resolve、subresources 与 PSO/scope cache，接入两套 encoder 的稳定并行组装；串行子集不等同于本项完成（B07/B10/B12 固定范围与 B13 UI sampled bindings 已验；完整资产材质不在最小范围，剩余平台归 P01/P02）
+- **原 4.20（未验收；转交 P02-COMPUTE）** 明确新图 IR 的公开 pass kind 能力范围；受支持 FullScreen 发出真实命令并通过读回验证，不支持者显式 Unsupported（B10 Windows：Fullscreen 已读回；Compute/Custom 的 IR、后端实现及 Windows 验收归 `aurora-compute-custom-passes` 的阶段交付。本项承接其未完成的 6.3/6.4/10.11：macOS 编译、能力错误码与真实设备读回，覆盖 buffer alignment reflection、动态偏移、线程组限制、storage view、只读 storage image/buffer、Custom 失败后的 discard/复用及 shader/sampler/callback 退休保活；验收记录回填 P02，并引用阶段归档）
+- **原 5.1（未验收；转交 P02-NATIVE）** 实现程序化 indexed mesh 和简单 Slang VS/FS，通过 owned packet 提交与上传（B07 当前 Vulkan/DX12 子集已验证；完整平台/生产条件仍待收口）
+- **原 5.2（未验收；转交 P02-NATIVE）** 接入最小 ShaderResolver/PSO cache，key 覆盖 program/layout/vertex/state/attachment（B07 前置解析与 pass/subpass 内缓存、B10 Windows device 跨帧缓存已验；完整平台/生产条件待收口）
+- **原 6.4（未验收；转交 P02-IOS/P02-ANDROID）** 在平台 probe 中确定 Metal 线程和 drawable 协议；未通过时明确保持未迁移状态（P02）
+- **原 7.4（未验收；转交 P02-IOS/P02-ANDROID/P02-EDITOR）** 生命周期测试覆盖最小化单窗/全部窗口、恢复、resize、close、资产迟到和 device/surface 错误（B11/B12 Windows 组件与公共服务已验，含配置注入/8 种纯映射；B14 owned 资产/真实宿主已验；P02 物理旋转与非 Windows 待验收）
+- **原 7.5（未验收；转交 所有 P02 验收项的共同构建规则）** 按根 AGENTS 关闭编辑器后配置并构建相关 targets；运行相关测试和有界宿主验收，记录各平台结果（各批与最终收口）
+- **原 7.11（未验收；转交 P02-NATIVE）** 验证同图首次上传后真实 draw/readback、无窗口 upload-only、预算延后、取消共享 ticket、热更新与过期 device epoch（B06/B07/B12 Windows 公共服务已验；P02 待验收）
+- **原 7.12（未验收；转交 P02-IOS/P02-ANDROID/P02-NATIVE）** 验证慢/不可用输出期间控制流继续，prepare 后 resize 不沿用旧 ViewContext；记录后端可退出等待与呈现退休限制（B11/B12 Windows 配置竞态与公共排队 resize、最小化继续提交已验；B14 Windows 宿主已验；P02 待验收）
+- **原 7.13（未验收；转交 P02-NATIVE）** 对三个后端执行相同内容/剔除语义用例，并对串行/并行 dispatch 做实际 readback 对照；记录未验证的平台，不以公共 fallback 代替后端实现（B01/B02/B10；P01/P02）
+- **原 7.14（未验收；转交 P02-NATIVE）** 打乱编码任务完成顺序，验证 GPU copy→draw→UI 同步、透明片段稳定组装、task 数大于 worker、同 slot 多结果和两帧在途（B02/B03 分片乱序/双 slot、B07 bindings、B13 copy→UI 与 97 draws 稳定顺序已验；完整平台仍待 P02）
+- **原 7.15（未验收；转交 P02-NATIVE）** 故障注入 Compile/dispatch 部分失败、错误 context/epoch/slot、重复 Dispatch/Submit 与取消；确保 drain 前不 reset、失败不发布上传、coordinator-only 节点线程正确（B03 与 P01 的 Vulkan/DX12 native 错误/取消/退出已验收；B06 上传发布及完整平台能力待收口）
+- **原 8.3（未验收；转交 P02-NATIVE）** 实现 CpuReady/UploadQueued/UploadSubmitted/Resident 状态与 graph-local InGraph resolve；不把 create 成功或 Submit Accepted 当成 Resident（B06/B10/B12 Windows buffer/image 与生产组合已验；Metal P02）
+- **原 8.4（未验收；转交 P02-NATIVE）** 实现 slot-owned staging、UploadBatch 的字节/创建数量/在途预算及显式持久上传 roots，支持 upload-only submission（B06/B10/B12 Windows 组件与生产预算/后台分块已验；Metal P02）
+- **原 8.5（未验收；转交 P02-NATIVE）** 实现实际录制 receipts、提交接受后的状态登记、完成后的 Resident 发布和源 bytes/staging/GPU leases 分阶段释放（B06/B10/B12 Windows 组件与统一 Submit/Poll 已验；Metal P02）
+- **原 8.6（未验收；转交 P02-NATIVE）** 实现精确版本 pins、冻结前旧版本选择与延迟释放；验证新版本失败不覆写旧在途 descriptor/mesh，未匹配状态的 legacy transfer 资源不得直接使用（B05–B10 组件与 B12 公共热更新/逐帧 layouts/pins 已验；Metal P02）
+- **原 8.11（未验收；转交 P02-NATIVE/P02-IOS/P02-ANDROID）** 按 `refactor-aurora-pipeline-resource-ownership` 验证共享 Pass 接入：macOS 编译及 MSL 真实布局/字段偏移、Global/Pass/Material/Batch 与 native buffer index 映射、有/无 View、不同 Pass 布局、两 View/双在途帧、实际 uniform 字节范围、显式场景注册及模块退休；iOS/Android 交叉编译消费权威 `.h`，检查持久化 `.slangh` 与源同步、模块资源打包并做实机读回。C++ 编译不依赖 Slang 或 host ShaderHeaderTool；Windows 结果不能代替本项，旧 8.9/8.10 的宿主证据也不覆盖此次 ABI 变更。
 
 实施顺序：native probe → slot/提交 → compiler/encode → 资源/绘制 → 输出/宿主 → 故障与实机验收。
 - [x] 8.7 在 Metal/non-Windows 原生宿主 capability gate 通过后，把 `AuroraModule` 的 `Init/Start/Tick/Shutdown` 统一到 `RendererHost` + `IRendererProvider`；删除 `#if !defined(_WIN32)` 宿主分叉。

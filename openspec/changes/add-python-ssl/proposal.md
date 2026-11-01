@@ -1,3 +1,5 @@
+> Status (2026-11-01): **active**；owner：本 change 的 TLS/CA 契约；Android core/插件/APK 前置归 add-android-python-runtime。剩余真实 HTTPS 和 Android SSL/builtins 设备验收。
+
 ## Why
 
 Scripts increasingly need TLS/HTTPS (`urllib`, `http.client`, `requests`, `wss://`). Python's `ssl` and `_hashlib`
@@ -22,10 +24,12 @@ replacing the engine's C++ networking/asset HTTP layer.
 ## Capabilities
 
 ### New Capabilities
-- `python-ssl`: provisioning and statically linking OpenSSL so the embedded interpreter exposes `ssl`/`_hashlib`.
+
+None.
 
 ### Modified Capabilities
-<!-- none -->
+
+- `python`: provisioning and statically linking OpenSSL so the embedded interpreter exposes `ssl`/`_hashlib`.
 
 ## Impact
 

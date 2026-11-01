@@ -1,3 +1,6 @@
+> 2026-11-01 整理：**partially-superseded**。现行 owner：共享 CPU 图片目录契约仍有效；GPU/浮窗验收归 `aurora-renderer-platform-parity` P02-EDITOR。
+> 剩余：3.5 保留未验收；旧 inflight=1/BeginFrame GPU 段不得原样同步，先保留 CPU 契约再按 owned-frame 机制整合。下方较早状态与验收记录保留为历史。
+
 ## 1. Shared CPU image ownership
 
 - [x] 1.1 Add a backend-free shared-image catalog with explicit id domains, RGBA8 validation, initial replay, and live registration/update/removal.
@@ -16,7 +19,7 @@
 - [x] 3.2 Run an isolated ASan shared-catalog detach/destroy/update/glyph-growth reproduction.
 - [x] 3.3 Build UI/UIRender/editor consumers and run relevant text/widget regressions, including the existing ColorPicker reset test.
 - [x] 3.4 Validate this change strictly and check whitespace; record exact checks without committing or archiving.
-- [ ] 3.5 Run real GPU validation for floating icons/wheel, late changes/removal, and close/reopen. Keep this visual gate pending when only CPU/static checks are available.
+- [ ] 3.5 Transferred, not accepted: `aurora-renderer-platform-parity` P02-EDITOR owns real floating icons/wheel, late changes/removal and close/reopen validation under the current owned-frame protocol.
 
 ASan evidence (2026-10-16): a standalone C++17 probe built from UISharedTextureRegistry,
 UITextSystem, UIFontAtlas, and UIBuiltinFontProvider passed with `ASAN_OPTIONS=detect_leaks=0`.
@@ -36,3 +39,7 @@ regression. The text total includes T01 and the full-range texture-id regression
 Sandbox=OFF/FreeType=OFF full build and text suite also passed.
 Native startup was retried after rebuilding stale runtime modules: exit 0, but Metal device
 creation failed, so no rendered frame/visual GPU success is claimed. Task 3.5 remains open.
+
+## 2026-11-01 契约接续
+
+`UITextSystem::GetSharedRegistry`、CPU 图片 replay/update/remove、ID 隔离与 detach 安全仍由现有 `UISharedTextureRegistry` 和 `UITextTest` 覆盖，不能因 GPU 实现替换而丢弃这两条 CPU 契约。GPU 端已改为 `UiSnapshotProducer` 发布精确版本的 owned payload / released resources，再由 renderer 保活退休；旧 `UIRenderer` 的 inflight=1 BeginFrame collection 段只是历史实现，不能原样同步。P02-EDITOR 接收尚未执行的浮窗视觉矩阵。

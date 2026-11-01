@@ -1,3 +1,6 @@
+> Status — 2026-11-01: active；剩余 owner 为 worker-local 编译池/session/module 复用、预编译模块、SSBO 精确布局及相应验证。
+> typed V/P/S 与 cbuffer 目标 ABI 沿用已交付契约；不恢复宏/RuntimeSpecialized 调用方分类或 DX12 root-constant 方案，不把未来编译池集成标为完成。
+
 ## Why
 
 This change retains the remaining Slang compiler lifecycle and throughput work. The original teardown failure and static compiler-module boundary have Windows evidence in tasks.md; worker-local contexts, bounded session/module reuse, precompiled modules and other platforms remain incomplete. The old proposal's caller-selected macro/runtime categories and DX12 root-constant variants conflict with the confirmed typed V/P/S design and are withdrawn.
@@ -16,8 +19,8 @@ This change retains the remaining Slang compiler lifecycle and throughput work. 
 
 ### Modified Capabilities
 
-- aurora-shader: worker ownership, session/module reuse, teardown, precompiled module/cook integration; preserve the current variant and artifact contracts.
-- aurora-resource-binding: distinguish target uniform encoding from proposed exact storage-layout validation.
+- `aurora-shaders`: worker ownership, session/module reuse, teardown, precompiled module/cook integration; preserve the current variant and artifact contracts.
+  distinguish target uniform encoding from proposed exact storage-layout validation.
 
 ## Impact
 

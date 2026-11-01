@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: planned.** 地形 atlas、clipmap、seam、culling 与 CPU fallback 尚待实施。
+> Owner: `terrain-aurora-render`.
+
 ## 1. Aurora render adaptor
 
 - [ ] 1.1 Create the aurora terrain render adaptor target and module registration

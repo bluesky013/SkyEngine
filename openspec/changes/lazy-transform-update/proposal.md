@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: frozen.** 当前 eager transform 保留；仅在 profiling 证明热点后重开。
+> Owner: `lazy-transform-update`.
+
 > **Status: Frozen (not scheduled).** The current eager propagation is correct; making it lazy would change `ITransformEvent` semantics across ~10 render components for marginal gain, while the framework's role is authoring/script. Kept for reference; revisit only if profiling shows transform propagation as a hotspot.
 
 ## Why
@@ -15,9 +18,13 @@
 ## Capabilities
 
 ### New Capabilities
-- `lazy-transform-update`: dirty-flagged, read-time resolution of world transforms with a defined scale-composition policy.
+
+None.
 
 ### Modified Capabilities
+
+- `world`: dirty-flagged, read-time resolution of world transforms with a defined scale-composition policy.
+
 <!-- aurora-adaptor/render components consume ITransformEvent; their contract may change and is migrated here. -->
 
 ## Impact

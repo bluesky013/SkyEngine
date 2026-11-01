@@ -1,3 +1,6 @@
+> **Current status — 2026-11-01: active.** 仅保留真实 terrain+collision→Recast 的测试矩阵；不能用普通碰撞 demo 代替。
+> Owner: `navigation-terrain-build-tests`.
+
 ## Why
 
 `terrain-navigation-integration` delivered the render-agnostic core for building nav meshes from terrain: a geometry provider that emits terrain LOD0 triangles, LOD0 residency/deferral, and incremental rebuild coordination. Those are covered by unit-level tests (provider triangles, coordinator mapping/defer/determinism). What was deferred is the **end-to-end validation through the recast backend**: actually building a nav mesh from terrain LOD0 and asserting walkability, and building from terrain plus collision geometry together. That needs a World-level harness (World + terrain system + recast factory), which is out of scope for the core change.
@@ -12,11 +15,11 @@
 
 ### New Capabilities
 
-- `navigation-terrain-build`: end-to-end nav mesh construction from terrain LOD0 (flat/sloped walkability) and from combined geometry sources (terrain + collision).
+None.
 
 ### Modified Capabilities
 
-<!-- none -->
+- `navigation`: end-to-end nav mesh construction from terrain LOD0 (flat/sloped walkability) and from combined geometry sources (terrain + collision).
 
 ## Impact
 
