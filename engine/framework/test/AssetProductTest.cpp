@@ -257,6 +257,34 @@ TEST_F(AssetProductTest, OfflineCodecPublishesFlatProductsWithoutRuntimeHandlerA
     EXPECT_EQ(missingRequest->GetAsset(), nullptr);
 }
 
+TEST_F(AssetProductTest, RuntimeResetPreservesHandlersAndDropsSessionProducts)
+{
+    AssetManager manager;
+    manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+    manager.SetWorkFileSystem(fs);
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, mesh, 42), "test"));
+    const auto first = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);
+    ASSERT_TRUE(first);
+    first->BlockUntilLoaded();
+    AssetExecutor::Get()->WaitForAll();
+    ASSERT_TRUE(first->IsLoaded());
+    const auto serial = manager.GetProductChangeSerial();
+    ASSERT_TRUE(manager.ResetRuntimeState());
+    EXPECT_EQ(manager.GetWorkSpaceFS(), nullptr);
+    EXPECT_EQ(manager.FindAsset(mesh), nullptr);
+    EXPECT_FALSE(manager.HasProduct(mesh, "test"));
+    EXPECT_GT(manager.GetProductChangeSerial(), serial);
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    const auto second = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);
+    ASSERT_TRUE(second);
+    second->BlockUntilLoaded();
+    AssetExecutor::Get()->WaitForAll();
+    ASSERT_TRUE(second->IsLoaded());
+    EXPECT_NE(first, second);
+    EXPECT_EQ(std::static_pointer_cast<ProductTestAsset>(second)->value, 42u);
+}
+
 TEST_F(AssetProductTest, OfflineCodecValidatesAllMembersBeforeReplacingPublishedProducts)
 {
     AssetManager manager;
@@ -546,6 +574,7 @@ TEST_F(AssetProductTest, ProductWaitsForOnDemandDependencyWithoutBlockingLoader)
     EXPECT_EQ(loaded->GetStatus(), AssetBase::Status::LOADING);
     EXPECT_EQ(loaded->GetWaitHandle().wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
     EXPECT_EQ(runner.requests, 1U);
+    EXPECT_FALSE(manager.ResetRuntimeState());
     const auto child = manager.CreateBuildAsset(skin, Name("ProductTest"));
     ASSERT_TRUE(manager.SaveAsset(child, "test"));
     runner.complete({skin, "test", AssetBuildRetCode::SUCCESS, {}, runner.requestId});

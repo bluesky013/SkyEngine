@@ -36,10 +36,11 @@ namespace sky {
     // configs/export_preset.schema.json (single source of truth).
     struct ExportPreset {
         std::string name;
-        std::string platform; // android | ios | macos | windows | linux
-        std::string variant = "debug";
+        std::string platform; // android | harmonyos | ios | macos | windows | linux
+        std::string variant     = "debug";
+        std::string orientation = "landscape";
 
-        std::string bundleId; // install id; defaults to the project application id
+        std::string bundleId; // Platform install identity; required by packaged exports.
         std::string versionName = "1.0";
         int         versionCode = 1;
 
@@ -56,7 +57,7 @@ namespace sky {
         std::vector<std::string>                   shaderTargets;
         std::vector<ExportPresetShaderEnvironment> shaderEnvironments;
 
-        // Android.
+        // Mobile ABI/API selection; keystore and ndkVersion are Android-specific.
         std::vector<std::string> abis;
         std::string              keystore;
         int                      compileSdk = 34;

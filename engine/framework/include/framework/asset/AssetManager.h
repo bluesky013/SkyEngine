@@ -66,7 +66,9 @@ namespace sky {
         AssetManager();
         ~AssetManager() override = default;
 
-        void     SetWorkFileSystem(const FileSystemPtr &fs);
+        void SetWorkFileSystem(const FileSystemPtr &fs);
+        // The host must drain loads/callbacks first; metadata handlers and their code leases survive sessions.
+        bool     ResetRuntimeState();
         uint64_t GetProductChangeSerial() const
         {
             return productChangeSerial.load(std::memory_order_acquire);

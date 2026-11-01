@@ -16,6 +16,65 @@ SPEC.loader.exec_module(PACKAGE)
 
 
 class PlatformPackageConfigTest(unittest.TestCase):
+    def test_install_identity_obeys_each_platform_character_rules(self):
+        cases = {
+            'android': (['com.example.app', 'com.example.my_app'], ['com.example.my-app', 'com.123.app', 'single']),
+            'harmonyos': (['com.example.app', 'com.123.app', 'com.ex_ample.app'],
+                         ['com.foo', 'com.foo_.app', 'com.example.my-app', 'com.example.' + 'a' * 117]),
+            'ios': (['com.example.my-game', 'com.123.app'], ['com.example.my_app', 'com.example app']),
+            'macos': (['com.example.my-game', 'com.123.app'], ['com.example.my_app', 'com.example app']),
+        }
+        with tempfile.TemporaryDirectory() as temp, mock.patch('builtins.print'):
+            PACKAGE.cmd_create(SimpleNamespace(engine=None, dir=temp, name='Identity', force=False))
+            project = Path(temp) / 'Identity'
+            for platform, (valid, invalid) in cases.items():
+                for value in valid + invalid + ['', None, 17]:
+                    with self.subTest(platform=platform, value=value):
+                        preset = {'name': 'test', 'platform': platform, 'bundleId': value}
+                        (project / 'export_presets.json').write_text(json.dumps([preset]), encoding='utf-8')
+                        self.assertEqual(PACKAGE._resolve(project, 'test') is not None, value in valid)
+
+    def test_install_ids_are_per_preset_and_java_namespace_survives_rename(self):
+        with tempfile.TemporaryDirectory() as temp, mock.patch('builtins.print'):
+            PACKAGE.cmd_create(SimpleNamespace(engine=None, dir=temp, name='Identity', force=False))
+            project = Path(temp) / 'Identity'
+            descriptor = project / 'Identity.skyproj'
+            data = json.loads(descriptor.read_text())
+            self.assertNotIn('applicationId', data['settings'])
+            data['settings']['applicationId'] = 'com.legacy.ignored'
+            data['name'] = 'Renamed'
+            descriptor.write_text(json.dumps(data), encoding='utf-8')
+            presets_path = project / 'export_presets.json'
+            presets = json.loads(presets_path.read_text())
+            for preset in presets:
+                preset['bundleId'] = 'com.example.' + preset['platform']
+            presets_path.write_text(json.dumps(presets), encoding='utf-8')
+            java = next((project / 'native/android/java').rglob('SkyEngineActivity.java'))
+            original = java.read_bytes()
+            for platform in ('android', 'harmonyos', 'ios', 'macos'):
+                resolved = PACKAGE._resolve(project, 'Identity-' + platform)
+                self.assertIsNotNone(resolved)
+                tokens = resolved[2]
+                self.assertEqual(tokens['{{APPLICATION_ID}}'], 'com.example.' + platform)
+                if platform == 'android':
+                    self.assertEqual(tokens['{{ANDROID_NAMESPACE}}'], 'com.skyengine.identity')
+            self.assertEqual(java.read_bytes(), original)
+
+    def test_missing_install_id_does_not_fall_back_to_descriptor_or_mutate_output(self):
+        with tempfile.TemporaryDirectory() as temp, mock.patch('builtins.print'):
+            PACKAGE.cmd_create(SimpleNamespace(engine=None, dir=temp, name='Identity', force=False))
+            project = Path(temp) / 'Identity'
+            (project / 'Identity.skyproj').write_text(
+                '{"name":"Identity","settings":{"applicationId":"com.legacy.shared"}}', encoding='utf-8')
+            preset = {'name': 'test', 'platform': 'android'}
+            for value in (None, '', 'bad id', 17):
+                if value is not None:
+                    preset['bundleId'] = value
+                (project / 'export_presets.json').write_text(json.dumps([preset]), encoding='utf-8')
+                with mock.patch.object(PACKAGE, '_prepare') as prepare:
+                    self.assertEqual(PACKAGE.cmd_package(SimpleNamespace(engine=None, project=project, preset='test')), 1)
+                    prepare.assert_not_called()
+
     def test_relative_project_paths_survive_external_tool_working_directories(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temp:
             root = Path(temp)
@@ -26,8 +85,11 @@ class PlatformPackageConfigTest(unittest.TestCase):
             descriptor = project / "Relative.skyproj"
             descriptor.write_text('{"name": "Relative"}', encoding="utf-8")
             (project / "export_presets.json").write_text(json.dumps([
-                {"name": "Relative-android", "platform": "android"}
+                {"name": "Relative-android", "platform": "android", "bundleId": "com.example.relative"}
             ]), encoding="utf-8")
+            launcher = project / 'native/android/java/SkyEngineActivity.java'
+            launcher.parent.mkdir(parents=True)
+            launcher.write_text('package com.example.launcher;', encoding='utf-8')
             tool = engine / "output/bin/AssetTool"
             tool.parent.mkdir(parents=True)
 

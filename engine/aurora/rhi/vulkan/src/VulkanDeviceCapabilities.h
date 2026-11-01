@@ -20,6 +20,25 @@ namespace sky::aurora {
         return false;
     }
 
+    inline bool NegotiateVulkanSwapchainMaintenance(PFN_vkGetPhysicalDeviceFeatures2                  query,
+                                                    VkPhysicalDevice                                  gpu,
+                                                    bool                                              surfaceMaintenance,
+                                                    std::span<const VkExtensionProperties>            extensions,
+                                                    VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT &feature,
+                                                    std::vector<const char *>                        &enabled)
+    {
+        feature = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+        if (!query || !surfaceMaintenance || !HasVulkanDeviceExtension(extensions, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME))
+            return false;
+        VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        queried.pNext = &feature;
+        query(gpu, &queried);
+        if (feature.swapchainMaintenance1 != VK_TRUE)
+            return false;
+        enabled.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+        return true;
+    }
+
     struct VulkanDeviceNegotiation {
         VkPhysicalDeviceFeatures2                    core{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
         VkPhysicalDeviceShaderDrawParametersFeatures draw{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES};

@@ -1,0 +1,6 @@
+{
+  "modelVersion": "26.0.0",
+  "name": "{{PROJECT_NAME}}",
+  "version": "{{VERSION_NAME}}",
+  "dependencies": {}
+}

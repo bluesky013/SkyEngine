@@ -14,9 +14,9 @@
 
 namespace sky::aurora {
 
-    enum class ShaderTarget : uint32_t { SPIRV = 0, MSL, DXIL };
-    enum class ShaderPlatform : uint32_t { UNKNOWN = 0, WINDOWS, MACOS, IOS, ANDROID_OS, LINUX };
-    enum class ShaderCodeFormat : uint32_t { UNKNOWN = 0, SPIRV, MSL_SOURCE, DXIL, METALLIB };
+    enum class ShaderTarget : uint32_t { SPIRV = 0, MSL, DXIL, END };
+    enum class ShaderPlatform : uint32_t { UNKNOWN = 0, WINDOWS, MACOS, IOS, ANDROID_OS, LINUX, HARMONYOS, END };
+    enum class ShaderCodeFormat : uint32_t { UNKNOWN = 0, SPIRV, MSL_SOURCE, DXIL, METALLIB, END };
 
     struct ShaderTargetEnvironment {
         ShaderTarget     target     = ShaderTarget::SPIRV;
@@ -40,19 +40,19 @@ namespace sky::aurora {
         bool        operator==(const ShaderProducerIdentity &) const = default;
     };
 
-    enum class ShaderVariantType : uint8_t { UINT32, INT32, BOOL };
+    enum class ShaderVariantType : uint8_t { UINT32, INT32, BOOL, END };
 
     struct ShaderVariantValue {
-        std::string name;
-        uint32_t    value                                        = 0;
-        ShaderVariantType type = ShaderVariantType::UINT32;
-        bool        operator==(const ShaderVariantValue &) const = default;
+        std::string       name;
+        uint32_t          value                                        = 0;
+        ShaderVariantType type                                         = ShaderVariantType::UINT32;
+        bool              operator==(const ShaderVariantValue &) const = default;
     };
 
-    enum class ShaderVariantLowering : uint8_t { COMPILE, NATIVE };
+    enum class ShaderVariantLowering : uint8_t { COMPILE, NATIVE, END };
     struct ShaderVariantBinding {
-        std::string key;
-        std::string symbol;
+        std::string           key;
+        std::string           symbol;
         ShaderVariantType type = ShaderVariantType::UINT32;
         ShaderVariantLowering lowering = ShaderVariantLowering::COMPILE;
         uint32_t nativeId = 0;

@@ -2,7 +2,11 @@
 
 import importlib.util
 from pathlib import Path
+import plistlib
+import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).with_name("run_ios_platform_tests.py")
@@ -49,6 +53,94 @@ class IOSSceneRunnerResultTest(unittest.TestCase):
                "SKY_IOS_TEST_COUNT=0\nSKY_IOS_TEST_EXIT=0\n")
         with self.assertRaisesRegex(RuntimeError, "No native tests executed"):
             RUNNER.validate_test_result(0, log)
+
+
+class IOSSceneRunnerBuildTest(unittest.TestCase):
+    def make_args(self, directory):
+        root = Path(directory)
+        gtest = root / "Google Test"
+        dependencies = root / "Simulator Dependencies"
+        files = [
+            gtest / "CMakeLists.txt", gtest / "src/gtest-all.cc",
+            dependencies / "sfmt/include/SFMT.h",
+            dependencies / "sfmt/lib/Debug/libSFMT.a",
+            dependencies / "rapidjson/include/rapidjson/document.h",
+        ]
+        for path in files:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("fixture")
+        return SimpleNamespace(
+            sdk="iphonesimulator", arch="arm64", minimum_ios="13.0", config="Debug",
+            third_party_root=dependencies, gtest_root=gtest, jobs=3, timeout=300,
+        )
+
+    def test_commands_build_one_test_target_and_preserve_sdk_dependency_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args = self.make_args(temp)
+            directory = Path(temp) / "Work Directory"
+            sdk = "/Applications/Test Xcode.app/SDKs/iPhoneSimulator.sdk"
+            configure, build = RUNNER.cmake_build_commands(args, directory, sdk)
+            self.assertEqual(configure[:3], ["cmake", "-S", str(RUNNER.TEST_FIXTURE)])
+            self.assertIn("-DCMAKE_OSX_SYSROOT=" + sdk, configure)
+            self.assertIn("-D3RD_PATH=" + str(args.third_party_root.resolve()), configure)
+            self.assertIn("-DSKY_IOS_GTEST_ROOT=" + str(args.gtest_root.resolve()), configure)
+            self.assertEqual(build, [
+                "cmake", "--build", str(directory / "cmake-build"), "--config", "Debug",
+                "--target", "IOSPlatformTest", "--parallel", "3",
+            ])
+            self.assertFalse(any(argument.endswith((".cpp", ".mm", ".cc")) for argument in configure + build))
+            self.assertFalse(hasattr(RUNNER, "SOURCES"))
+
+    def test_failed_configure_or_build_cannot_sign_or_return_a_stale_bundle(self):
+        for failed_phase in ("configure", "build"):
+            with self.subTest(phase=failed_phase), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                args = self.make_args(temp)
+                app = directory / "cmake-build/bundle/Debug/SkyIOSPlatformTests.app"
+                app.mkdir(parents=True)
+                binary = app / "SkyIOSPlatformTests"
+                binary.write_text("stale binary")
+                (directory / "cmake-build/test-app-Debug.txt").write_text(str(app))
+                calls = []
+
+                def command(arguments, **kwargs):
+                    calls.append(arguments)
+                    if arguments[0] == "xcrun":
+                        output = "/Installed/Simulator.sdk" if arguments[-1] == "--show-sdk-path" else "18.6"
+                        return SimpleNamespace(returncode=0, stdout=output, stderr="")
+                    failed = arguments[0] == "cmake" and (("--build" in arguments) == (failed_phase == "build"))
+                    return SimpleNamespace(returncode=1 if failed else 0, stdout="", stderr="deliberate failure" if failed else "")
+
+                with patch.object(RUNNER, "command", side_effect=command):
+                    with self.assertRaisesRegex(RuntimeError, "CMake .* failed"):
+                        RUNNER.build_test_app(args, directory)
+                self.assertFalse(any(arguments[0] == "codesign" for arguments in calls))
+                self.assertEqual(binary.read_text(), "stale binary")
+
+    def test_success_uses_the_bundle_reported_by_cmake_and_shared_scene_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            args = self.make_args(temp)
+            app = directory / "cmake-build/bundle/Debug/SkyIOSPlatformTests.app"
+            app.mkdir(parents=True)
+            (app / "SkyIOSPlatformTests").write_text("fresh test binary")
+            (directory / "cmake-build/test-app-Debug.txt").write_text(str(app))
+            calls = []
+
+            def command(arguments, **kwargs):
+                calls.append(arguments)
+                output = "/Installed/Simulator.sdk" if arguments[-1] == "--show-sdk-path" else "18.6"
+                return SimpleNamespace(returncode=0, stdout=output if arguments[0] == "xcrun" else "", stderr="")
+
+            with patch.object(RUNNER, "command", side_effect=command):
+                actual, identifier = RUNNER.build_test_app(args, directory)
+            self.assertEqual(actual, app)
+            self.assertEqual(calls[-1], ["codesign", "--force", "--sign", "-", str(app)])
+            manifest = plistlib.loads((app / "Info.plist").read_bytes())
+            source = plistlib.loads(RUNNER.TEST_HOST_PLIST.read_bytes())
+            self.assertEqual(manifest["UIApplicationSceneManifest"], source["UIApplicationSceneManifest"])
+            self.assertEqual(manifest["CFBundleIdentifier"], identifier)
+            self.assertEqual(manifest["CFBundleExecutable"], "SkyIOSPlatformTests")
 
 
 if __name__ == "__main__":

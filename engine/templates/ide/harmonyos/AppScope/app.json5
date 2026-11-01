@@ -1,0 +1,10 @@
+{
+  "app": {
+    "bundleName": "{{APPLICATION_ID}}",
+    "vendor": "SkyEngine",
+    "versionCode": {{VERSION_CODE}},
+    "versionName": "{{VERSION_NAME}}",
+    "icon": "$media:app_icon",
+    "label": "$string:app_name"
+  }
+}

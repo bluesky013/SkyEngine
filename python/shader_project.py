@@ -13,9 +13,9 @@ from shader_headers import logical_path
 TARGETS = {'vulkan': 0, 'metal': 1, 'd3d12': 2}
 STAGES = {'vertex': 1, 'fragment': 2, 'compute': 4}
 
-PLATFORMS = {'windows': 1, 'macos': 2, 'ios': 3, 'android': 4, 'linux': 5}
+PLATFORMS = {'windows': 1, 'macos': 2, 'ios': 3, 'android': 4, 'linux': 5, 'harmonyos': 6}
 PLATFORM_TARGETS = {'windows': {'vulkan', 'd3d12'}, 'macos': {'metal', 'vulkan'},
-                    'ios': {'metal'}, 'android': {'vulkan'}, 'linux': {'vulkan'}}
+                    'ios': {'metal'}, 'android': {'vulkan'}, 'linux': {'vulkan'}, 'harmonyos': {'vulkan'}}
 USAGE_FORMAT = 3
 PRODUCT_FORMAT = 2
 

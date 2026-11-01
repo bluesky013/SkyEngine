@@ -2,16 +2,17 @@
 // Created by blues on 2026/1/1.
 //
 
+#include <animation/graph/AnimationClipNode.h>
+
 #include <animation/core/AnimationClip.h>
 #include <animation/core/AnimationTrackData.h>
 #include <animation/core/AnimationUtils.h>
 #include <animation/core/Skeleton.h>
-#include <animation/graph/AnimationClipNode.h>
 #include <animation/plan/AnimationPlan.h>
 
 namespace sky {
 
-    AnimationClipNode::AnimationClipNode(const PersistentData &inData) : data(inData)
+    AnimationClipNode::AnimationClipNode(const PersistentData &inData) : data{inData}
     {
     }
 

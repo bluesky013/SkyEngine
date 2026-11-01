@@ -9,7 +9,6 @@
 #include <rapidjson/document.h>
 
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -94,28 +93,6 @@ namespace sky {
         return (AsPath(Dir()) / "cache").string();
     }
 
-    std::string ProjectDescriptor::ResolvedApplicationId() const
-    {
-        if (!applicationId.empty()) {
-            return applicationId;
-        }
-        std::string identifier;
-        for (const char ch : name) {
-            if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_') {
-                identifier += ch;
-            }
-        }
-        if (identifier.empty() || std::isdigit(static_cast<unsigned char>(identifier[0]))) {
-            identifier = "Game" + identifier;
-        }
-        std::string lowered;
-        lowered.reserve(identifier.size());
-        for (const char ch : identifier) {
-            lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-        }
-        return "com.skyengine." + lowered;
-    }
-
     bool ProjectDescriptor::Read(const std::string &skyprojPath)
     {
         std::string json;
@@ -144,9 +121,6 @@ namespace sky {
             const auto &settings = document["settings"];
             if (settings.HasMember("rhi") && settings["rhi"].IsString()) {
                 rhi = settings["rhi"].GetString();
-            }
-            if (settings.HasMember("applicationId") && settings["applicationId"].IsString()) {
-                applicationId = settings["applicationId"].GetString();
             }
             if (settings.HasMember("versionName") && settings["versionName"].IsString()) {
                 versionName = settings["versionName"].GetString();
@@ -200,7 +174,6 @@ namespace sky {
         json += "  \"defaultScene\": " + Quote(defaultScene) + ",\n";
         json += "  \"settings\": {\n";
         json += "    \"rhi\": " + Quote(rhi) + ",\n";
-        json += "    \"applicationId\": " + Quote(ResolvedApplicationId()) + ",\n";
         json += "    \"versionName\": " + Quote(versionName) + ",\n";
         json += "    \"versionCode\": " + std::to_string(versionCode) + "\n";
         json += "  },\n";

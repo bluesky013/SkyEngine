@@ -3,14 +3,17 @@
 //
 
 #include "AndroidPlatform.h"
+#include "AndroidNativeTextInput.h"
 #include "AndroidPerfManager.h"
 #include "AndroidWindow.h"
+#include "platform/NativeTextInputState.h"
 
 #include <android/configuration.h>
 #include <android/looper.h>
 #include <android/native_window.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
+#include <core/logger/Logger.h>
 #include <cstdlib>
 #include <filesystem>
 #include <framework/window/IWindowEvent.h>
@@ -33,6 +36,7 @@ namespace sky {
 
     AndroidPlatform::~AndroidPlatform()
     {
+        AndroidNativeTextInput::Get()->Shutdown();
         if (app != nullptr && app->userData == this) {
             app->onAppCmd = nullptr;
             app->userData = nullptr;
@@ -53,6 +57,7 @@ namespace sky {
         case APP_CMD_PAUSE:
         case APP_CMD_STOP:
             lifecycle.Apply(AndroidLifecycleEvent::PAUSE);
+            HideTextInputDialog();
             if (nativeWindow != nullptr) {
                 nativeWindow->CancelInput();
                 nativeWindow->PollInput(app, false);
@@ -93,6 +98,8 @@ namespace sky {
     {
         mainWindow = handle;
         lifecycle.Apply(handle != nullptr ? AndroidLifecycleEvent::SURFACE_AVAILABLE : AndroidLifecycleEvent::SURFACE_LOST);
+        if (handle == nullptr)
+            HideTextInputDialog();
         if (nativeWindow != nullptr) {
             nativeWindow->SetWinHandle(handle);
             if (handle == nullptr) {
@@ -155,12 +162,17 @@ namespace sky {
         }
         perfManager = std::make_unique<AndroidPerfManager>();
         perfManager->Init();
+        if (!AndroidNativeTextInput::Get()->Init(app)) {
+            LOG_W("AndroidPlatform", "Native text input dialog unavailable in this Activity");
+        }
         return true;
     }
 
     void AndroidPlatform::PollEvent(bool &exit, EventPollMode mode)
     {
+        NativeTextInputState::Get()->Dispatch();
         if (app == nullptr || app->destroyRequested != 0 || lifecycle.IsDestroyed()) {
+            HideTextInputDialog();
             exit = true;
             return;
         }
@@ -190,6 +202,19 @@ namespace sky {
             android_app_clear_key_events(buffer);
             android_app_clear_motion_events(buffer);
         }
+        if (exit)
+            HideTextInputDialog();
+        NativeTextInputState::Get()->Dispatch();
+    }
+
+    bool AndroidPlatform::ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback)
+    {
+        return IsFrameActive() && AndroidNativeTextInput::Get()->Show(options, std::move(callback));
+    }
+
+    void AndroidPlatform::HideTextInputDialog()
+    {
+        AndroidNativeTextInput::Get()->Hide();
     }
 
     void AndroidPlatform::StartTextInput()

@@ -127,6 +127,7 @@ class NativePackageArtifactTest(unittest.TestCase):
                         mock.patch.object(PACKAGE, 'instantiate_template'), \
                         mock.patch.object(PACKAGE, 'stage_configs', return_value=True), \
                         mock.patch.object(PACKAGE, 'find_apple_app', return_value=None), \
+                        mock.patch.object(PACKAGE, 'prepare_ios_orientation', return_value='-DSKY_IOS_INFO_PLIST=unused'), \
                         mock.patch.object(PACKAGE, 'run_cook', return_value=False), \
                         mock.patch.object(PACKAGE, 'prepare_shader_products') as shaders, \
                         mock.patch.object(PACKAGE, 'stage_bundles') as bundles, \
@@ -507,13 +508,14 @@ class NativePackageArtifactTest(unittest.TestCase):
 
     def test_apple_products_are_cooked_before_the_ide_build_deploy_runs(self):
         events = []
-        with mock.patch.object(PACKAGE, 'run_cook', side_effect=lambda *args: events.append('assets') or True), \
+        with mock.patch.object(PACKAGE, 'prepare_ios_orientation', return_value='-DSKY_IOS_INFO_PLIST=unused'), \
+                mock.patch.object(PACKAGE, 'run_cook', side_effect=lambda *args: events.append('assets') or True), \
                 mock.patch.object(PACKAGE, 'prepare_shader_products', side_effect=lambda *args: events.append('shaders') or True), \
                 mock.patch.object(PACKAGE, 'run_cmake_preset', side_effect=lambda *args, **kwargs: events.append('native')), \
                 mock.patch.object(PACKAGE, 'collect_apple_package', side_effect=lambda *args: events.append('archive')), \
                 mock.patch.object(PACKAGE, 'find_apple_app', return_value=None):
             PACKAGE._prepare(Path('/engine'), Path('/project'), {'platform': 'ios', 'signing': 'off'},
-                             {'{{ANDROID_NAMESPACE}}': 'test.app', '{{PROJECT_NAME}}': 'Smoke'}, {}, True)
+                             {'{{APPLICATION_ID}}': 'test.app', '{{PROJECT_NAME}}': 'Smoke'}, {}, True)
         self.assertEqual(events, ['assets', 'shaders', 'native', 'archive'])
 
     def test_android_shipping_excludes_the_compiler_but_development_preserves_it(self):
@@ -525,12 +527,12 @@ class NativePackageArtifactTest(unittest.TestCase):
             self.assertIn('if (!' + str(development).lower() + ')', text)
             self.assertIn('**/libAurora.ShaderCompiler.so', text)
             self.assertIn('**/libslang*.so', text)
-            self.assertIn('merge${variantTaskName}Assets', text)
+            self.assertNotIn('merge${variantTaskName}Assets', text)
 
     def test_static_shipping_registration_omits_the_compiler_factory(self):
         template = (PACKAGE.REPO_ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text()
         registration = template[template.index('if (SKY_MODULE_PACKAGING STREQUAL "static")'):
-                                template.index('# The same deployment runs')]
+                                template.index('# Mobile assets are prepared')]
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'main.cpp').write_text('int main() {}\n')
@@ -553,7 +555,7 @@ class NativePackageArtifactTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'darwin', 'requires native Apple bundle generation')
     def test_building_only_the_launcher_deploys_products_inside_the_new_bundle(self):
         template = (PACKAGE.REPO_ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text()
-        deployment = template[template.index('# The same deployment runs'):
+        deployment = template[template.index('# Mobile assets are prepared'):
                               template.index('function(_sky_collect_imported_runtimes')]
         with tempfile.TemporaryDirectory() as temp:
             engine, project, app, resources = self.make_app(Path(temp), 'macos')

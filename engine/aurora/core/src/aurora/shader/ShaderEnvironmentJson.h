@@ -56,6 +56,7 @@ namespace sky::aurora {
         case ShaderPlatform::IOS: return "ios";
         case ShaderPlatform::ANDROID_OS: return "android";
         case ShaderPlatform::LINUX: return "linux";
+        case ShaderPlatform::HARMONYOS: return "harmonyos";
         default: return "unknown";
         }
     }

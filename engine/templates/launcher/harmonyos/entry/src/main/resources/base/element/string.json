@@ -1,0 +1,6 @@
+{
+  "string": [
+    { "name": "sky_input_cancel", "value": "Cancel" },
+    { "name": "sky_input_confirm", "value": "Done" }
+  ]
+}

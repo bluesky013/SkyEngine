@@ -106,7 +106,7 @@ namespace sky {
         // Product bundles are a packaged-build concern; `--project` dev mode mounts
         // the project tree (source assets) later in ParseStartArgs.
         const bool mountBundles = !HasProjectArg(argc, argv);
-#if defined(SKY_PLATFORM_ANDROID) || defined(SKY_PLATFORM_IOS)
+#if defined(SKY_PLATFORM_ANDROID) || defined(SKY_PLATFORM_IOS) || defined(SKY_PLATFORM_OHOS)
         // Mobile work files stay in the writable app data directory; packaged
         // configs/products are read separately through the bundle filesystem.
         workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());

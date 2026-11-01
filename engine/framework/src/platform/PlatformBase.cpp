@@ -20,6 +20,7 @@ namespace sky {
         case PlatformType::Linux: return "Linux";
         case PlatformType::Android: return "Android";
         case PlatformType::IOS: return "iOS";
+        case PlatformType::HarmonyOS: return "HarmonyOS";
         case PlatformType::Default:
         case PlatformType::UNDEFINED: break;
         }
@@ -42,6 +43,9 @@ namespace sky {
         }
         if (name == "iOS") {
             return PlatformType::IOS;
+        }
+        if (name == "HarmonyOS" || name == "harmonyos") {
+            return PlatformType::HarmonyOS;
         }
         return PlatformType::UNDEFINED;
     }
@@ -144,6 +148,18 @@ namespace sky {
     void Platform::StartTextInput()
     {
         platform->StartTextInput();
+    }
+
+    bool Platform::ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback)
+    {
+        return platform != nullptr && platform->ShowTextInputDialog(options, std::move(callback));
+    }
+
+    void Platform::HideTextInputDialog()
+    {
+        if (platform != nullptr) {
+            platform->HideTextInputDialog();
+        }
     }
 
     void Platform::StopTextInput()

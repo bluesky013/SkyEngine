@@ -41,6 +41,9 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         log
         android
         game-activity::game-activity_static)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    file(GLOB_RECURSE PLATFORM_SRC CONFIGURE_DEPENDS platform/ohos/*)
+    set(FM_EXT_LIB ace_ndk.z ace_napi.z native_window native_vsync ohinputmethod rawfile.z)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     # Native X11 window/event backend (no SDL) + shared POSIX process backend.
     file(GLOB_RECURSE PLATFORM_SRC

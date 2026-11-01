@@ -74,7 +74,7 @@ def main(argv=None):
     simulator_variables = dict(ios['cacheVariables'],
                                SKY_MODULE_PACKAGING=ios['packing'],
                                SKY_SHADER_DISTRIBUTION=ios['name'],
-                               SKY_BUNDLE_ID=descriptor['settings']['applicationId'],
+                               SKY_BUNDLE_ID=ios['bundleId'],
                                CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED='NO',
                                CODE_SIGNING_ALLOWED='NO', CODE_SIGNING_REQUIRED='NO')
     simulator = {

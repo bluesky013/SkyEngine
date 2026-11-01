@@ -2,16 +2,21 @@
 // Aurora Vulkan SwapChain.
 //
 
+#include <VulkanSwapChain.h>
+
 #include <VulkanConversion.h>
 #include <VulkanDevice.h>
 #include <VulkanFence.h>
 #include <VulkanInstance.h>
 #include <VulkanQueue.h>
 #include <VulkanSemaphore.h>
-#include <VulkanSwapChain.h>
 #include <core/logger/Logger.h>
 
 #include <algorithm>
+
+#if defined(VK_USE_PLATFORM_OHOS)
+    #include "ohos/VulkanSurface.h"
+#endif
 
 #if defined(VK_USE_PLATFORM_METAL_EXT)
     #include <vulkan/vulkan_metal.h>
@@ -45,13 +50,22 @@ namespace sky::aurora {
 
     VulkanSwapChain::~VulkanSwapChain()
     {
-        // Terminal teardown alone may block; queue idle does not replace the presentation fence.
-        if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }) &&
-            device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle()) == VK_SUCCESS)
-            for (auto &frame : presentationFrames)
-                if (frame.serial)
-                    (frame.presented ? frame.presentFence : frame.acquireFence)->Wait();
+        if (!maintenancePresentation && (swapchain || !retiredSwapchains.empty())) {
+            const auto result = DrainCompatibilityPresentation();
+            if (result != VK_SUCCESS)
+                LOG_E(TAG, "Compatibility presentation teardown failed: %d", result);
+        } else if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; })) {
+            const auto result = device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle());
+            if (result == VK_SUCCESS) {
+                for (auto &frame : presentationFrames)
+                    if (frame.serial)
+                        (frame.presented ? frame.presentFence : frame.acquireFence)->Wait();
+            } else {
+                LOG_E(TAG, "Presentation teardown failed: %d", result);
+            }
+        }
         DestroySwapchain();
+        DestroyRetiredSwapchains();
         DestroySurface();
     }
 
@@ -61,9 +75,11 @@ namespace sky::aurora {
             LOG_E(TAG, "swapchain requires a non-null window pointer");
             return false;
         }
-        window          = desc.window;
-        preferredMode   = desc.preferredMode;
-        preferredFormat = desc.preferredFormat;
+        window                  = desc.window;
+        preferredMode           = desc.preferredMode;
+        preferredFormat         = desc.preferredFormat;
+        maintenancePresentation = device.HasSwapchainMaintenance() && device.GetDeviceFn().vkReleaseSwapchainImagesEXT;
+        LOG_I(TAG, "presentation path: %s", maintenancePresentation ? "maintenance1 present fences" : "core swapchain per-image semaphores");
         if (!CreateSurface(desc.window)) {
             return false;
         }
@@ -108,6 +124,10 @@ namespace sky::aurora {
             LOG_E(TAG, "vkCreateAndroidSurfaceKHR failed: %d", r);
             return false;
         }
+#elif defined(VK_USE_PLATFORM_OHOS)
+        if (!CreateOHOSSurface(instFn, vkInstance, window, surface)) {
+            return false;
+        }
 #else
         (void)window;
         (void)instFn;
@@ -116,9 +136,17 @@ namespace sky::aurora {
         return false;
 #endif
 
-        // Sanity-check that the graphics queue family supports presentation.
+        if (instFn.vkGetPhysicalDeviceSurfaceSupportKHR == nullptr) {
+            LOG_E(TAG, "vkGetPhysicalDeviceSurfaceSupportKHR not loaded");
+            return false;
+        }
         VkBool32 supported = VK_FALSE;
-        instFn.vkGetPhysicalDeviceSurfaceSupportKHR(device.GetGpuHandle(), device.GetQueueFamilyIndex(QueueType::GRAPHICS), surface, &supported);
+        const VkResult supportResult =
+            instFn.vkGetPhysicalDeviceSurfaceSupportKHR(device.GetGpuHandle(), device.GetQueueFamilyIndex(QueueType::GRAPHICS), surface, &supported);
+        if (supportResult != VK_SUCCESS) {
+            LOG_E(TAG, "surface presentation query failed: %d", supportResult);
+            return false;
+        }
         if (!supported) {
             LOG_E(TAG, "graphics queue family does not support presentation on this surface");
             return false;
@@ -246,14 +274,17 @@ namespace sky::aurora {
 
     bool VulkanSwapChain::CreateSwapchain(uint32_t width, uint32_t height)
     {
+        VkSwapchainCreateInfoKHR ci{};
+        creationResult = QueryConfiguration(width, height, ci);
+        return creationResult == VK_SUCCESS && CreateSwapchain(ci);
+    }
+
+    bool VulkanSwapChain::CreateSwapchain(const VkSwapchainCreateInfoKHR &ci)
+    {
         if (surfaceRevision == UINT64_MAX) {
             creationResult = VK_ERROR_TOO_MANY_OBJECTS;
             return false;
         }
-        VkSwapchainCreateInfoKHR ci{};
-        creationResult = QueryConfiguration(width, height, ci);
-        if (creationResult != VK_SUCCESS)
-            return false;
         const auto &devFn = device.GetDeviceFn();
         surfaceFormat     = {ci.imageFormat, ci.imageColorSpace};
         extent            = ci.imageExtent;
@@ -273,6 +304,18 @@ namespace sky::aurora {
         if ((creationResult = devFn.vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapchain, &imageCount, swapImages.data())) != VK_SUCCESS)
             return false;
 
+        if (!maintenancePresentation) {
+            presentSemaphores.resize(imageCount);
+            imagePresented.assign(imageCount, false);
+            for (auto &semaphore : presentSemaphores) {
+                semaphore = SemaphorePtr(device.CreateSema({}));
+                if (!semaphore) {
+                    creationResult = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+                    return false;
+                }
+            }
+        }
+
         images.clear();
         images.reserve(imageCount);
         for (uint32_t i = 0; i < imageCount; ++i) {
@@ -283,7 +326,7 @@ namespace sky::aurora {
 
         LOG_I(TAG, "swapchain created: %ux%u format=%d images=%u presentMode=%d", extent.width, extent.height, surfaceFormat.format, imageCount,
               presentMode);
-        applied = ci;
+        applied                  = ci;
         presentationOptionsDirty = false;
         ++surfaceRevision;
         status = SwapChainStatus::OK;
@@ -297,6 +340,43 @@ namespace sky::aurora {
             device.GetDeviceFn().vkDestroySwapchainKHR(device.GetNativeHandle(), swapchain, nullptr);
             swapchain = VK_NULL_HANDLE;
         }
+        presentSemaphores.clear();
+        imagePresented.clear();
+    }
+
+    GpuOperationResult VulkanSwapChain::CollectRetiredSwapchains()
+    {
+        for (auto retired = retiredSwapchains.begin(); retired != retiredSwapchains.end();) {
+            if (!retired->completion) {
+                ++retired;
+                continue;
+            }
+            const auto completed = retired->completion->Query();
+            if (completed.status == FenceStatus::FAILED)
+                return {completed.error};
+            if (completed.status == FenceStatus::SIGNALED) {
+                device.GetDeviceFn().vkDestroySwapchainKHR(device.GetNativeHandle(), retired->handle, nullptr);
+                retired = retiredSwapchains.erase(retired);
+            } else {
+                ++retired;
+            }
+        }
+        return {};
+    }
+
+    void VulkanSwapChain::DestroyRetiredSwapchains()
+    {
+        for (const auto &retired : retiredSwapchains)
+            device.GetDeviceFn().vkDestroySwapchainKHR(device.GetNativeHandle(), retired.handle, nullptr);
+        retiredSwapchains.clear();
+    }
+
+    VkResult VulkanSwapChain::DrainCompatibilityPresentation()
+    {
+        // Core WSI exposes no final present fence. Queue drain is its shutdown compatibility convention,
+        // not proof of display completion; normal reuse/recreation uses acquire evidence instead.
+        const auto *queue = static_cast<VulkanQueue *>(device.GetQueue(QueueType::GRAPHICS));
+        return device.GetDeviceFn().vkQueueWaitIdle(queue->GetNativeHandle());
     }
 
     void VulkanSwapChain::DestroySurface()
@@ -446,8 +526,6 @@ namespace sky::aurora {
 
     SurfaceQueryResult VulkanSwapChain::QuerySurface() const noexcept
     {
-        if (!device.HasSwapchainMaintenance() || !device.GetDeviceFn().vkReleaseSwapchainImagesEXT)
-            return {{PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}}, {}};
         if (status == SwapChainStatus::LOST || !surface)
             return {{PresentationStatus::SURFACE_LOST}, {}};
         VkSwapchainCreateInfoKHR desired{};
@@ -483,8 +561,6 @@ namespace sky::aurora {
 
     SwapChainAcquireResult VulkanSwapChain::TryAcquireFrame(uint64_t timeoutNs) noexcept
     {
-        if (!device.HasSwapchainMaintenance() || !device.GetDeviceFn().vkReleaseSwapchainImagesEXT)
-            return {{PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}}, {}};
         if (directProtocol || timeoutNs > 1'000'000 || presentationSerial == UINT64_MAX)
             return {{PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}}, {}};
         checkedProtocol = true;
@@ -492,6 +568,9 @@ namespace sky::aurora {
             return {{PresentationStatus::SURFACE_LOST}, {}};
         if (status == SwapChainStatus::OUT_OF_DATE)
             return {{PresentationStatus::OUT_OF_DATE}, {}};
+        const auto collected = CollectRetiredSwapchains();
+        if (!collected.Succeeded())
+            return {{PresentationStatus::FAILED, collected.error}, {}};
         // FrameScheduler validates live capabilities and invalidated options after acquisition, before exposing the image.
         auto found = std::find_if(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return !frame.serial; });
         if (found == presentationFrames.end()) {
@@ -503,15 +582,17 @@ namespace sky::aurora {
         auto &frame = *found;
         if (!frame.acquired)
             frame.acquired = SemaphorePtr(device.CreateSema({}));
-        if (!frame.rendered)
+        if (maintenancePresentation && !frame.rendered)
             frame.rendered = SemaphorePtr(device.CreateSema({}));
         if (!frame.acquireFence)
             frame.acquireFence = FencePtr(device.CreateFence({false}));
-        if (!frame.presentFence)
+        if (maintenancePresentation && !frame.presentFence)
             frame.presentFence = FencePtr(device.CreateFence({false}));
-        if (!frame.acquired || !frame.rendered || !frame.acquireFence || !frame.presentFence)
+        if (!frame.acquired || !frame.acquireFence || (maintenancePresentation && (!frame.rendered || !frame.presentFence)))
             return {{PresentationStatus::FAILED, {GpuErrorCode::NATIVE_ERROR}}, {}};
         for (const auto &fence : {frame.acquireFence, frame.presentFence}) {
+            if (!fence)
+                continue;
             const auto reset = fence->TryReset();
             if (!reset.Succeeded())
                 return {{PresentationStatus::FAILED, reset.error}, {}};
@@ -532,6 +613,14 @@ namespace sky::aurora {
         frame.serial    = ++presentationSerial;
         frame.presented = false;
         frame.error     = {};
+        if (!maintenancePresentation) {
+            frame.rendered = presentSemaphores[frame.imageIndex];
+            // Reacquiring a presented image proves its old present finished once this acquire fence signals.
+            if (imagePresented[frame.imageIndex])
+                for (auto &retired : retiredSwapchains)
+                    if (!retired.completion)
+                        retired.completion = frame.acquireFence;
+        }
         return {checked, {frame.serial, frame.imageIndex, frame.acquired.Get(), frame.rendered.Get()}};
     }
 
@@ -541,14 +630,14 @@ namespace sky::aurora {
                                         [serial](const auto &frame) { return serial && frame.serial == serial; });
         if (found == presentationFrames.end() || found->presented)
             return {PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT}};
-        auto                          &frame     = *found;
-        const auto                     fence     = static_cast<VulkanFence *>(frame.presentFence.Get())->GetNativeHandle();
-        const auto                     semaphore = static_cast<VulkanSemaphore *>(frame.rendered.Get())->GetNativeHandle();
+        auto      &frame     = *found;
+        const auto fence     = frame.presentFence ? static_cast<VulkanFence *>(frame.presentFence.Get())->GetNativeHandle() : VK_NULL_HANDLE;
+        const auto semaphore = static_cast<VulkanSemaphore *>(frame.rendered.Get())->GetNativeHandle();
         VkSwapchainPresentFenceInfoEXT completion{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
         completion.swapchainCount = 1;
         completion.pFences        = &fence;
         VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-        present.pNext              = &completion;
+        present.pNext              = maintenancePresentation ? &completion : nullptr;
         present.swapchainCount     = 1;
         present.pSwapchains        = &swapchain;
         present.pImageIndices      = &frame.imageIndex;
@@ -564,6 +653,10 @@ namespace sky::aurora {
             return checked;
         }
         frame.presented = checked.status != PresentationStatus::FAILED;
+        if (!maintenancePresentation && frame.presented)
+            imagePresented[frame.imageIndex] = true;
+        if (serial == 1 && checked.status == PresentationStatus::READY)
+            LOG_I(TAG, "first swapchain present queued");
         if (checked.status == PresentationStatus::FAILED)
             frame.error = checked.error;
         if (checked.status == PresentationStatus::SURFACE_LOST)
@@ -587,6 +680,20 @@ namespace sky::aurora {
         const auto acquired = frame.acquireFence->Query();
         if (acquired.status != FenceStatus::SIGNALED)
             return acquired;
+        if (!maintenancePresentation) {
+            if (!abandon && serial == 1)
+                LOG_I(TAG, "first presented frame GPU work retired; presentation resources retained by swapchain");
+            if (abandon) {
+                // No image-release command exists in core WSI. Retire this generation instead of presenting undefined contents.
+                frame.acquired = {};
+                if (status != SwapChainStatus::LOST)
+                    status = SwapChainStatus::OUT_OF_DATE;
+            }
+            // CPU/GPU work is retired; presentation semaphores remain owned by the swapchain generation.
+            frame.rendered = {};
+            frame.serial   = 0;
+            return {FenceStatus::SIGNALED};
+        }
         const auto completed = abandon ? acquired : frame.presentFence->Query();
         if (completed.status != FenceStatus::SIGNALED)
             return completed;
@@ -615,11 +722,26 @@ namespace sky::aurora {
             return {PresentationStatus::BUSY};
         if (status == SwapChainStatus::LOST)
             return {PresentationStatus::SURFACE_LOST};
-        // Retired CPU-side frames can still leave present semaphores in flight.
-        device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle());
+        const auto collected = CollectRetiredSwapchains();
+        if (!collected.Succeeded())
+            return {PresentationStatus::FAILED, collected.error};
+        VkSwapchainCreateInfoKHR configuration{};
+        creationResult = QueryConfiguration(width, height, configuration);
+        if (creationResult != VK_SUCCESS)
+            return PresentationResultFromVk(creationResult);
+        if (surfaceRevision == UINT64_MAX)
+            return {PresentationStatus::FAILED, {GpuErrorCode::INVALID_ARGUMENT, VK_ERROR_TOO_MANY_OBJECTS}};
+        if (!maintenancePresentation && swapchain) {
+            if (retiredSwapchains.size() >= 8)
+                return {PresentationStatus::FAILED, {GpuErrorCode::OUT_OF_MEMORY, VK_ERROR_TOO_MANY_OBJECTS}};
+            configuration.oldSwapchain = swapchain;
+            retiredSwapchains.push_back({swapchain, std::move(presentSemaphores), {}});
+            swapchain = VK_NULL_HANDLE;
+        }
         presentationFrames.clear();
         DestroySwapchain();
-        if (!CreateSwapchain(width, height))
+        status = SwapChainStatus::OUT_OF_DATE;
+        if (!CreateSwapchain(configuration))
             return PresentationResultFromVk(creationResult);
         return {PresentationStatus::READY};
     }
@@ -631,11 +753,14 @@ namespace sky::aurora {
         checkedProtocol = true;
         if (std::any_of(presentationFrames.begin(), presentationFrames.end(), [](const auto &frame) { return frame.serial; }))
             return {PresentationStatus::BUSY};
-        // Semaphores may still be referenced by a submitted present even when
-        // every CPU-side frame has retired; wait before destroying the swapchain.
-        device.GetDeviceFn().vkDeviceWaitIdle(device.GetNativeHandle());
+        if (!maintenancePresentation && (swapchain || !retiredSwapchains.empty())) {
+            const auto result = DrainCompatibilityPresentation();
+            if (result != VK_SUCCESS)
+                return PresentationResultFromVk(result);
+        }
         presentationFrames.clear();
         DestroySwapchain();
+        DestroyRetiredSwapchains();
         DestroySurface();
         status = SwapChainStatus::LOST;
         return {PresentationStatus::READY};

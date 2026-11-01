@@ -6,7 +6,6 @@
 
 #include <core/event/Event.h>
 #include <core/name/Name.h>
-#include <core/std/Container.h>
 #include <core/template/ReferenceObject.h>
 #include <core/util/Uuid.h>
 #include <framework/serialization/BinaryArchive.h>

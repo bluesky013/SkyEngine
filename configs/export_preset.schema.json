@@ -4,6 +4,7 @@
     "name",
     "platform",
     "variant",
+    "orientation",
     "bundleId",
     "versionName",
     "versionCode",

@@ -1,8 +1,7 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ee091ac7..f48b2065 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -24,7 +24,7 @@ if(CMAKE_CONFIGURATION_TYPES)
+@@ -24,7 +24,7 @@
  endif()
  
  # Determine if we should include unit tests
@@ -11,7 +10,7 @@ index ee091ac7..f48b2065 100644
  
  if(PLATFORM_IOS)
  	# Catch2 2.13 doesn't compile on iOS with Xcode 8 and 9
-@@ -70,18 +70,26 @@ add_custom_target(${PROJECT_NAME} SOURCES ${ACL_INCLUDE_FILES} ${ACL_ROOT_FILES}
+@@ -70,18 +70,26 @@
  enable_testing()
  
  # Add other projects
@@ -45,10 +44,9 @@ index ee091ac7..f48b2065 100644
  		add_subdirectory("${PROJECT_SOURCE_DIR}/tools/regression_tester_android")
  	elseif(PLATFORM_IOS)
 diff --git a/cmake/CMakePlatforms.cmake b/cmake/CMakePlatforms.cmake
-index a2b440db..0a8efda6 100644
 --- a/cmake/CMakePlatforms.cmake
 +++ b/cmake/CMakePlatforms.cmake
-@@ -8,8 +8,9 @@ endif()
+@@ -8,8 +8,9 @@
  if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
  	set(PLATFORM_WINDOWS 1)
  	set(PLATFORM_NAME "Windows")
@@ -60,3 +58,18 @@ index a2b440db..0a8efda6 100644
  		set(PLATFORM_NAME "iOS")
  	else()
  		set(PLATFORM_OSX 1)
+@@ -30,7 +31,10 @@
+ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+-	set(PLATFORM_ANDROID 1)
+-	set(PLATFORM_NAME "Android")
++	set(PLATFORM_ANDROID 1)
++	set(PLATFORM_NAME "Android")
++elseif(${CMAKE_SYSTEM_NAME} STREQUAL "OHOS")
++	set(PLATFORM_OHOS 1)
++	set(PLATFORM_NAME "HarmonyOS")
+ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+-	set(PLATFORM_EMSCRIPTEN 1)
+-	set(PLATFORM_NAME "Emscripten")
++	set(PLATFORM_EMSCRIPTEN 1)
++	set(PLATFORM_NAME "Emscripten")
+ else()

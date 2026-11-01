@@ -215,20 +215,18 @@ namespace sky::aurora {
         addQueue(transferQueueFamily);
 
         // device extensions
+        if (!HasVulkanDeviceExtension(supportedExtensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+            LOG_E(TAG, "Presentation requires VK_KHR_swapchain");
+            return false;
+        }
         enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         if (HasVulkanDeviceExtension(supportedExtensions, PORTABILITY_SUBSET_EXTENSION)) {
             enabledExtensions.push_back(PORTABILITY_SUBSET_EXTENSION);
         }
 
         VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
-        if (instance.HasSurfaceMaintenance() && HasVulkanDeviceExtension(supportedExtensions, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-            VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-            queried.pNext = &maintenance;
-            instFn.vkGetPhysicalDeviceFeatures2(gpu, &queried);
-            swapchainMaintenance = maintenance.swapchainMaintenance1 == VK_TRUE;
-            if (swapchainMaintenance)
-                enabledExtensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-        }
+        swapchainMaintenance = NegotiateVulkanSwapchainMaintenance(instFn.vkGetPhysicalDeviceFeatures2, gpu, instance.HasSurfaceMaintenance(),
+                                                                   supportedExtensions, maintenance, enabledExtensions);
         for (const char *extension : enabledExtensions)
             LOG_I(TAG, "enabled device extension: %s", extension);
         LOG_I(TAG, "enabled rendering paths: dynamic=%u render-pass2=%u", dynamicRendering, renderPass2);

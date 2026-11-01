@@ -10,6 +10,7 @@
 #include <VulkanInstance.h>
 #include <algorithm>
 #include <d3d12sdklayers.h>
+#include <map>
 #include <windows.h>
 
 namespace {
@@ -64,15 +65,29 @@ namespace {
                 return result == VK_SUCCESS && active->acquireSuboptimal ? VK_SUBOPTIMAL_KHR : result;
             };
             deviceFunctions.vkQueuePresentKHR = [](VkQueue queue, const VkPresentInfoKHR *info) {
+                if (info->swapchainCount == 1 && info->waitSemaphoreCount == 1)
+                    active->presented.push_back({info->pSwapchains[0], info->pImageIndices[0], info->pWaitSemaphores[0]});
+                if (info->pNext)
+                    ++active->presentExtensions;
                 const auto result = active->savedDevice.vkQueuePresentKHR(queue, info);
                 return result == VK_SUCCESS && active->presentSuboptimal ? VK_SUBOPTIMAL_KHR : result;
             };
             deviceFunctions.vkCreateSwapchainKHR = [](VkDevice device, const VkSwapchainCreateInfoKHR *info, const VkAllocationCallbacks *allocator,
                                                       VkSwapchainKHR *swapchain) {
                 const auto result = active->savedDevice.vkCreateSwapchainKHR(device, info, allocator, swapchain);
-                if (result == VK_SUCCESS)
+                if (result == VK_SUCCESS) {
                     active->createdPresentMode = info->presentMode;
+                    ++active->createdSwapchains;
+                }
                 return result;
+            };
+            deviceFunctions.vkDestroySwapchainKHR = [](VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *allocator) {
+                ++active->destroyedSwapchains;
+                active->savedDevice.vkDestroySwapchainKHR(device, swapchain, allocator);
+            };
+            deviceFunctions.vkQueueWaitIdle = [](VkQueue queue) {
+                ++active->queueDrains;
+                return active->savedDevice.vkQueueWaitIdle(queue);
             };
         }
         ~VulkanSurfaceProbe()
@@ -96,7 +111,14 @@ namespace {
         uint32_t                                              capsQueries   = 0;
         uint32_t                                              formatQueries = 0, modeQueries = 0;
         VkPresentModeKHR                                      createdPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
-        static inline VulkanSurfaceProbe                     *active             = nullptr;
+        struct PresentRecord {
+            VkSwapchainKHR swapchain;
+            uint32_t       image;
+            VkSemaphore    semaphore;
+        };
+        std::vector<PresentRecord>        presented;
+        uint32_t                          presentExtensions = 0, createdSwapchains = 0, destroyedSwapchains = 0, queueDrains = 0;
+        static inline VulkanSurfaceProbe *active = nullptr;
     };
     void PumpWindows()
     {
@@ -541,6 +563,94 @@ TEST_P(FrameOutputs, BeginViewportQueriesWithoutAcquiringAndDetectsNativeResize)
     EXPECT_EQ(Render({updated}), 1u);
 }
 
+TEST_P(FrameOutputs, VulkanCorePresentationReusesPerImageSemaphoresAndRetiresOldGenerations)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan core WSI compatibility";
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.deviceFunctions.vkReleaseSwapchainImagesEXT = nullptr;
+    auto *output                                      = Add({0, 1});
+    ASSERT_TRUE(output);
+    const uint32_t frameCount = output->GetImageCount() * 3;
+    for (uint32_t frame = 0; frame < frameCount; ++frame)
+        ASSERT_TRUE(Until([&] { return Render(scheduler->Snapshot()) == 1; }));
+    ASSERT_TRUE(Until([&] { return completedCount == frameCount && probe.presented.size() == frameCount; }));
+    std::map<uint32_t, VkSemaphore> perImage;
+    for (const auto &present : probe.presented) {
+        const auto found = perImage.emplace(present.image, present.semaphore).first;
+        EXPECT_EQ(found->second, present.semaphore);
+    }
+    EXPECT_GT(probe.presented.size(), perImage.size());
+    EXPECT_EQ(probe.presentExtensions, 0U);
+    windows.front()->Resize(128, 80);
+    scheduler->BeginViewport({0, 1});
+    ASSERT_TRUE(Until([&] { return output->resizes == 1; }));
+    EXPECT_EQ(probe.createdSwapchains, 2U);
+    EXPECT_EQ(probe.destroyedSwapchains, 0U);
+    EXPECT_EQ(probe.queueDrains, 0U);
+    for (uint32_t frame = 0; frame < frameCount; ++frame)
+        ASSERT_TRUE(Until([&] { return Render(scheduler->Snapshot()) == 1; }));
+    ASSERT_TRUE(Until([&] { return probe.destroyedSwapchains == 1; }));
+    EXPECT_EQ(probe.queueDrains, 0U);
+    scheduler->RequestClose({0, 1});
+    ASSERT_TRUE(Until([&] { return scheduler->Empty(); }));
+    EXPECT_EQ(probe.destroyedSwapchains, 2U);
+    EXPECT_EQ(probe.queueDrains, 1U);
+}
+
+TEST_P(FrameOutputs, VulkanCoreAbandonRecreatesWithoutPresentingTheUnusedImage)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan core WSI compatibility";
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.deviceFunctions.vkReleaseSwapchainImagesEXT = nullptr;
+    auto *output                                      = Add({0, 1});
+    ASSERT_TRUE(output);
+    const auto lease    = Begin();
+    auto       acquired = scheduler->Acquire(lease, scheduler->Snapshot());
+    ASSERT_TRUE(std::holds_alternative<OutputAcquireBatch>(acquired));
+    auto batch = std::move(std::get<OutputAcquireBatch>(acquired));
+    ASSERT_EQ(batch.outputs.size(), 1U);
+    batch = {};
+    scheduler->Abandon(lease);
+    context->DiscardUnsubmitted(lease);
+    ASSERT_TRUE(Until([&] {
+        scheduler->BeginViewport({0, 1});
+        return output->resizes == 1;
+    }));
+    EXPECT_TRUE(probe.presented.empty());
+    EXPECT_EQ(probe.queueDrains, 0U);
+    EXPECT_EQ(probe.createdSwapchains, 2U);
+    ASSERT_TRUE(Until([&] { return Render(scheduler->Snapshot()) == 1; }));
+    ASSERT_TRUE(Until([&] { return completedCount == 1 && !probe.presented.empty(); }));
+    scheduler->RequestClose({0, 1});
+    ASSERT_TRUE(Until([&] { return scheduler->Empty(); }));
+}
+
+TEST_P(FrameOutputs, VulkanCoreResizeQueryFailureDoesNotRetireTheLiveSwapchain)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "Vulkan core WSI compatibility";
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.deviceFunctions.vkReleaseSwapchainImagesEXT = nullptr;
+    auto *output                                      = Add({0, 1});
+    ASSERT_TRUE(output);
+    probe.capsResult  = VK_ERROR_OUT_OF_HOST_MEMORY;
+    const auto failed = output->native->TryResize(128, 80);
+    EXPECT_EQ(failed.status, PresentationStatus::FAILED);
+    EXPECT_EQ(failed.error.nativeCode, VK_ERROR_OUT_OF_HOST_MEMORY);
+    EXPECT_EQ(probe.createdSwapchains, 1U);
+    EXPECT_EQ(probe.destroyedSwapchains, 0U);
+    probe.capsResult = VK_SUCCESS;
+    windows.front()->Resize(128, 80);
+    scheduler->BeginViewport({0, 1});
+    ASSERT_TRUE(Until([&] { return output->resizes == 1; }));
+    EXPECT_EQ(probe.createdSwapchains, 2U);
+    ASSERT_TRUE(Until([&] { return Render(scheduler->Snapshot()) == 1; }));
+    scheduler->RequestClose({0, 1});
+    ASSERT_TRUE(Until([&] { return scheduler->Empty(); }));
+}
+
 TEST_P(FrameOutputs, SurfaceQueryFailureAndBusyRecoverWithoutCancellingOtherOutput)
 {
     auto *first = Add({0, 1});
@@ -809,20 +919,17 @@ TEST_P(FrameOutputs, VulkanStableFrameQueriesCapabilitiesWithoutEnumeratingOptio
     ASSERT_TRUE(Until([&] { return completedCount == 1; }));
 }
 
-TEST_P(FrameOutputs, VulkanCheckedSurfaceRejectsMissingRetirementCapabilityBeforeAcquire)
+TEST_P(FrameOutputs, VulkanCheckedSurfaceAllowsCorePresentationWithoutReleaseExtension)
 {
     if (GetParam() == 2)
         GTEST_SKIP() << "Vulkan presentation capability";
-    auto *output = Add({0, 1});
+    VulkanSurfaceProbe probe(*static_cast<VulkanDevice *>(device));
+    probe.deviceFunctions.vkReleaseSwapchainImagesEXT = nullptr;
+    auto *output                                      = Add({0, 1});
     ASSERT_TRUE(output);
-    auto      &functions                  = const_cast<VulkanDeviceFunctions &>(static_cast<VulkanDevice *>(device)->GetDeviceFn());
-    const auto release                    = functions.vkReleaseSwapchainImagesEXT;
-    functions.vkReleaseSwapchainImagesEXT = nullptr;
-    const auto queried                    = output->QuerySurface();
-    EXPECT_EQ(queried.status, PresentationStatus::FAILED);
-    EXPECT_EQ(queried.error.code, GpuErrorCode::UNSUPPORTED);
+    const auto queried = output->QuerySurface();
+    EXPECT_EQ(queried.status, PresentationStatus::READY);
     EXPECT_EQ(output->acquires, 0u);
-    functions.vkReleaseSwapchainImagesEXT = release;
 }
 
 TEST_P(FrameOutputs, VulkanSurfaceQueryPreservesErrorsAndRejectsUnsupportedConfiguration)

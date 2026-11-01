@@ -72,7 +72,7 @@ namespace sky::aurora {
         }
     };
 
-    FrameScheduler::FrameScheduler(Device &device, DeviceFrameContext &context) : state(std::make_unique<State>(device, context))
+    FrameScheduler::FrameScheduler(Device &device, DeviceFrameContext &context) : state(std::make_unique<State>(State{device, context}))
     {
     }
     FrameScheduler::~FrameScheduler() = default;

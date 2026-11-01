@@ -19,9 +19,16 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/android/*)
     list(APPEND CORE_PLATFORM_SRC ${UNIX_ASYNC_SRC})
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/unix/*)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    file(GLOB_RECURSE CORE_PLATFORM_SRC platform/ohos/*)
+    list(APPEND CORE_PLATFORM_SRC ${UNIX_ASYNC_SRC})
+endif ()
+
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    list(APPEND CORE_PLATFORM_SRC platform/common/PlatformLog.cpp)
 endif ()
 
 set(CORE_OPT_LIBS)
@@ -37,6 +44,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     list(APPEND CORE_PLATFORM_LIBS log)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     list(APPEND CORE_PLATFORM_LIBS ${CMAKE_DL_LIBS})
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    list(APPEND CORE_PLATFORM_LIBS hilog_ndk.z)
 endif ()
 
 sky_add_library(TARGET Core STATIC

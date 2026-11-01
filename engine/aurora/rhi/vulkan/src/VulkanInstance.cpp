@@ -3,11 +3,16 @@
 //
 
 #include <VulkanInstance.h>
+
 #include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 #include <cstring>
 #include <vector>
+
+#if SKY_PLATFORM_OHOS
+    #include "ohos/VulkanSurface.h"
+#endif
 
 static const char *TAG = "AuroraVulkan";
 
@@ -125,6 +130,10 @@ namespace sky::aurora {
             LOG_I(TAG, "instance layer: %s (spec %u)", layer.layerName, layer.specVersion);
         }
 
+        if (!HasExtension(supportedExts, VK_KHR_SURFACE_EXTENSION_NAME)) {
+            LOG_E(TAG, "Presentation requires VK_KHR_surface");
+            return false;
+        }
         enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         surfaceMaintenance = HasExtension(supportedExts, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) &&
                              HasExtension(supportedExts, VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
@@ -144,6 +153,10 @@ namespace sky::aurora {
         }
 #elif SKY_PLATFORM_ANDROID
         enabledExtensions.push_back("VK_KHR_android_surface");
+#elif SKY_PLATFORM_OHOS
+        if (!EnableOHOSSurfaceExtension(supportedExts, enabledExtensions)) {
+            return false;
+        }
 #endif
 
         const bool enableDebugUtils =

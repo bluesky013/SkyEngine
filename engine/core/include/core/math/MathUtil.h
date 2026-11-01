@@ -340,7 +340,7 @@ namespace sky {
     }
 
     template <typename T>
-    FORCEINLINE T::Type ScalerVisit(const T& t, uint32_t index)
+    FORCEINLINE typename T::Type ScalerVisit(const T &t, uint32_t index)
     {
         return t.v[index];
     }

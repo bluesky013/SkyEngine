@@ -12,11 +12,13 @@
     "macos": ["common"],
     "linux": ["common"],
     "android": ["common"],
+    "harmonyos": ["common"],
     "ios": ["common"]
   },
 
   "distributions": {
     "{{PROJECT_NAME}}-android": ["common"],
+    "{{PROJECT_NAME}}-harmonyos": ["common"],
     "{{PROJECT_NAME}}-ios": ["common"],
     "{{PROJECT_NAME}}-macos": ["common"]
 

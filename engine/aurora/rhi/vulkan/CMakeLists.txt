@@ -13,6 +13,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 
 elseif(ANDROID)
     file(GLOB_RECURSE PLATFORM_SRC platform/android/*)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    file(GLOB_RECURSE PLATFORM_SRC platform/ohos/*)
 endif()
 
 sky_add_library(TARGET Aurora.Vulkan SHARED
@@ -22,6 +24,7 @@ sky_add_library(TARGET Aurora.Vulkan SHARED
         ${PLATFORM_SRC}
     PRIVATE_INC
         src
+        platform
     PUBLIC_INC
         include
     LINK_LIBS
@@ -42,6 +45,8 @@ elseif (APPLE)
     target_compile_definitions(Aurora.Vulkan PRIVATE SKY_VULKAN_LIBRARY_PATH="${Vulkan_LIBRARY}")
 elseif (ANDROID)
     target_compile_definitions(Aurora.Vulkan PUBLIC VK_USE_PLATFORM_ANDROID_KHR)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    target_compile_definitions(Aurora.Vulkan PUBLIC VK_USE_PLATFORM_OHOS)
 endif()
 
 if(ANDROID)

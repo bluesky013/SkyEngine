@@ -1,7 +1,7 @@
 ---
 title: "Game Project Build & Packaging"
 description: "Creating a game project, building its launcher/module, generating platform IDE projects, and the product-bundle packaging model."
-updated: "2026-10-15"
+updated: "2026-11-01"
 ---
 
 ## Game Project Build & Packaging
@@ -53,15 +53,22 @@ For optimized editing with symbols and engine assertions, use the new `<platform
 
 ### Application identity, export presets, and signing
 
-The descriptor's `settings` holds the **default identity** only (nothing secret):
+The descriptor's `settings` holds runtime settings and shared version defaults:
 
 ```json
-"settings": { "rhi": "vulkan", "applicationId": "com.example.game", "versionName": "1.0", "versionCode": 1 }
+"settings": { "rhi": "vulkan", "versionName": "1.0", "versionCode": 1 }
 ```
 
-`applicationId` maps to the Android `applicationId`/`namespace` and the Apple `CFBundleIdentifier`; when unset it
-defaults to `com.skyengine.<sanitized-name>`. The Android **namespace / Java package** is fixed at create time (it
-is baked into `native/android/java`); a preset `bundleId` only overrides the install `applicationId`.
+Each Android/HarmonyOS/iOS/macOS export preset owns its required `bundleId`. Android maps it to `applicationId`,
+HarmonyOS to `bundleName`, and Apple to `CFBundleIdentifier`. Project creation seeds each preset once with
+`com.skyengine.<sanitized-name>`; subsequent exports never derive or inherit an install ID from `.skyproj`.
+The Android namespace and manifest Activity name come from the package declaration in the project-owned
+`native/android/java/**/SkyEngineActivity.java`; changing a preset ID does not rewrite Java sources.
+HarmonyOS signing must match that preset's ID and does not constrain Android's ID.
+
+For existing projects, copy the old `settings.applicationId` into each intended platform preset's `bundleId`
+(preserving published/signed identities), then remove it from `.skyproj`. Missing or invalid preset IDs fail
+before cook/build/output changes. Old descriptor IDs are ignored by readers and are not written back.
 
 Per-platform options live in **`export_presets.json`** (committed); secrets live in **`export_credentials.json`**
 (never committed), like Godot's `export_presets.cfg` / `export_credentials.cfg`. Credentials resolve **env > file**.
@@ -70,8 +77,8 @@ Per-platform options live in **`export_presets.json`** (committed); secrets live
 // export_presets.json (committed)
 [ { "name": "Game-android", "platform": "android", "variant": "release", "bundleId": "com.acme.game",
     "abis": ["arm64-v8a"], "keystore": "release", "compileSdk": 34, "minSdk": 29, "targetSdk": 33 },
-  { "name": "Game-ios",     "platform": "ios",   "variant": "release", "packing": "static", "signing": "off" },
-  { "name": "Game-macos",   "platform": "macos", "variant": "release", "bundle": true, "signing": "off" } ]
+  { "name": "Game-ios",     "platform": "ios",   "bundleId": "com.acme.game.ios", "variant": "release", "packing": "static", "signing": "off" },
+  { "name": "Game-macos",   "platform": "macos", "bundleId": "com.acme.game.macos", "variant": "release", "bundle": true, "signing": "off" } ]
 
 // export_credentials.json (not committed)
 { "android": { "release": { "keystorePath": "~/.keys/acme.jks", "storePassword": "...",
@@ -79,7 +86,7 @@ Per-platform options live in **`export_presets.json`** (committed); secrets live
   "apple":   { "teamId": "...", "signingIdentity": "...", "provisioningProfile": "..." } }
 ```
 
-Preset fields: `bundleId` (defaults to the project app id), `versionName`/`versionCode`, `variant`; **Apple**
+Preset fields: `bundleId` (required install identity), `versionName`/`versionCode`, `variant`; **Apple**
 `signing` (`auto` uses the credentials/team, `off` builds unsigned), `bundle` (macOS `.app`),
 `team`/`signingIdentity`/`provisioningProfile` (override credentials); **Android** `abis`/`keystore`/`compileSdk`/
 `minSdk`/`targetSdk`/`ndkVersion`; plus `cacheVariables`, `compileDefinitions`, `compileFlags`,
@@ -92,6 +99,43 @@ Apple signing fields are forwarded when generating/configuring the Xcode project
 `package` resource collector requires `signing=off`: changing bundle contents after signing would invalidate
 the signature. Signed iOS archive/export and macOS signing/notarization need a separate distribution workflow.
 The unsigned IPA below is a package-structure artifact, not an ordinary-device installation result.
+
+### Mobile screen orientation
+
+Set `orientation` in each mobile preset in `export_presets.json`. Omitting the field or using `"default"`
+selects **fixed landscape**. New Android, HarmonyOS and iOS presets explicitly use `"landscape"`.
+
+```json
+{ "name": "Game-harmonyos", "platform": "harmonyos", "orientation": "landscape" }
+```
+
+| Preset value | Android activity | HarmonyOS main ability | iOS supported orientations |
+|---|---|---|---|
+| `landscape` / `default` | `landscape` | `landscape` | LandscapeLeft |
+| `portrait` | `portrait` | `portrait` | Portrait |
+| `auto_rotation` | `fullSensor` | `auto_rotation` | Both portrait and both landscape orientations |
+| `auto_rotation_landscape` | `sensorLandscape` | `auto_rotation_landscape` | LandscapeLeft, LandscapeRight |
+| `auto_rotation_portrait` | `sensorPortrait` | `auto_rotation_portrait` | Portrait, PortraitUpsideDown |
+
+`generate` and `package` apply the policy to the generated Android manifest, HarmonyOS `mainElement` ability,
+or iOS export plist. Other abilities and metadata remain intact; project-owned files under `native/` are not
+rewritten. The reflected export preset editor uses the same field. Invalid values fail before generation;
+desktop presets accept the common landscape/default value without changing window behavior and reject other policies.
+
+Install CLI dependencies with `python -m pip install -r python/requirements.txt`; HarmonyOS manifest generation
+uses JSON5 parsing, including comments, single quotes, unquoted keys and trailing commas.
+
+Existing iOS launchers need this cache variable before their `Launcher` target properties:
+
+```cmake
+set(SKY_IOS_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist" CACHE FILEPATH "Exported iOS application metadata")
+```
+
+Set that target's `MACOSX_BUNDLE_INFO_PLIST` to `"${SKY_IOS_INFO_PLIST}"`. The exporter creates
+`build/ios/export/Info.plist` and passes its path to CMake; the original plist remains the metadata source.
+Generation reports an explicit migration error for an older launcher without this hook. New projects include it.
+Device-qualified iOS orientation arrays are updated along with the common array. Device/OS orientation restrictions
+still apply; Android/iOS native package and device acceptance must be checked on their respective toolchains.
 
 ### Generating platform projects and packaging
 
@@ -168,21 +212,36 @@ without cross-tier UUID conflicts (quality tiers use distinct bundle names, e.g.
 
 - Bundles are staged under `products/<bundle>/`:
   - **Android** → the APK's `assets/products/<bundle>/` (read at runtime via the APK asset filesystem).
+  - **HarmonyOS** → the HAP's `resources/rawfile/products/<bundle>/`.
   - **iOS** → `<Name>.app/products/<bundle>/`.
   - **macOS** → `<Name>.app/Contents/MacOS/products/<bundle>/`.
   - **non-bundle desktop** → `products/<bundle>/` beside the launcher.
 - `package`/`generate` invoke the headless worker (`tools/asset_tool` -> `AssetTool
   --project <dir> --engine <bundle> --cook-all --platform <p>`) to cook into `<Project>/products/`.
-  Android stages before Gradle packaging; Apple `package` stages into the built app before collecting its archive.
+  Android and HarmonyOS share one cook/staging sequence before Gradle/Hvigor;
+  Apple `package` stages into the built app before collecting its archive.
 - `package_project.py` copies `<Project>/products/<bundle>` for each selected bundle and writes
   **`products/bundles.json`** (`{ platform, distribution, bundles: [...] }`). Selection comes from the preset's
   `bundles` list, else the cook config's distribution.
 - `GameApplication` reads `products/bundles.json` and mounts **exactly** those bundles (no filesystem enumeration);
   when the manifest is absent it falls back to `common`. `--project` dev mode skips product bundles.
 
-An available AssetTool returning failure stops the command. If AssetTool is absent, the existing workflow
-permits pre-cooked products with a warning. Each package rebuilds configuration/product staging; Apple also
-rebuilds the app directory while reusing compiled objects, avoiding stale disabled-module binaries.
+Missing AssetTool or a failed cook stops the command. Old APK/HAP/IPA/ZIP deliverables are retired before cooking.
+Each export prepares configuration/product staging once; Apple also rebuilds the app directory while reusing
+compiled objects, avoiding stale disabled-module binaries.
+
+`stage_runtime_resources` is the common implementation for configs, selected products and development shader sources.
+Android/HarmonyOS native builds do not write application assets/rawfile. Apple `package` also disables native resource
+deployment (`SKY_DEPLOY_RUNTIME_RESOURCES=OFF`) and invokes the common stage after building the app. Standalone
+desktop/Apple IDE builds keep deployment enabled and invoke the same implementation through `stage-runtime`;
+Apple `generate` explicitly restores it. Runtime DLL/.so/framework collection remains separate from game resources.
+
+After changing mobile assets/configs/export presets, rerun `generate` or `package` before building in Android Studio
+or DevEco; a native-only rebuild consumes the previously generated resources. Existing projects created with older
+templates must update the resource deployment block of `native/CMakeLists.txt` from the current game template
+(including `SKY_DEPLOY_RUNTIME_RESOURCES`) and remove the separate project shader staging target. Preserve their
+project-specific sources/targets. Newly created projects already contain this change; the local HarmonyPhysics
+acceptance project also uses it and is excluded from version control under `examples/`.
 
 ### Reproducible cross-platform smoke test
 

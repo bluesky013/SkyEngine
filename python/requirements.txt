@@ -1,5 +1,6 @@
 # Python tooling dependencies. PySide6 was only needed by the removed project /
-# third-party GUIs; the CLI entry (third_party.py) needs GitPython only.
+# third-party GUIs. GitPython supports dependency builds; json5 reads HarmonyOS manifests.
 gitdb==4.0.12
 GitPython==3.1.44
 smmap==5.0.2
+json5==0.17.3

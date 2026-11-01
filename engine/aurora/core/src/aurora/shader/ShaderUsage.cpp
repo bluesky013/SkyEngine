@@ -32,7 +32,7 @@ namespace sky::aurora {
             const auto stage = static_cast<ShaderStageFlagBit>(entry.stage);
             if (entry.relativePath.empty() || entry.entry.empty() || entry.relativePath.find('\0') != std::string::npos ||
                 entry.entry.find('\0') != std::string::npos || entry.environment.profile.find('\0') != std::string::npos ||
-                entry.target > static_cast<uint32_t>(ShaderTarget::DXIL) ||
+                entry.target >= static_cast<uint32_t>(ShaderTarget::END) ||
                 (stage != ShaderStageFlagBit::VS && stage != ShaderStageFlagBit::FS && stage != ShaderStageFlagBit::CS &&
                  stage != ShaderStageFlagBit::MS && stage != ShaderStageFlagBit::TAS) ||
                 entry.environment.platform == ShaderPlatform::UNKNOWN || entry.environment.codeFormat == ShaderCodeFormat::UNKNOWN ||
@@ -161,7 +161,7 @@ namespace sky::aurora {
                     } else {
                         const auto &typed = member.value;
                         if (!typed.IsObject() || typed.MemberCount() != 2 || !typed.HasMember("type") || !typed["type"].IsUint() ||
-                            typed["type"].GetUint() > static_cast<uint32_t>(ShaderVariantType::BOOL) || !typed.HasMember("value") ||
+                            typed["type"].GetUint() >= static_cast<uint32_t>(ShaderVariantType::END) || !typed.HasMember("value") ||
                             !typed["value"].IsUint())
                             return Fail(error, "Invalid typed shader usage value");
                         input.type = static_cast<ShaderVariantType>(typed["type"].GetUint());

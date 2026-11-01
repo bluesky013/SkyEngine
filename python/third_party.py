@@ -18,7 +18,8 @@ parser.add_argument('-i', '--intermediate', type=str, help='中间文件')
 parser.add_argument('-o', '--output', type=str, help='输出路径')
 parser.add_argument('-e', '--engine', type=str, help='引擎目录')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
-parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"], help='编译平台')
+parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "HarmonyOS", "IOS", "Linux"], help='编译平台')
+parser.add_argument('--ohos-sdk', help='HarmonyOS native SDK root (or OHOS_SDK_NATIVE)')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
 parser.add_argument('-l', '--list', action='store_true', default=False, help='列出所有包信息')
@@ -39,6 +40,7 @@ tool_chain = {
     'MacOS-arm': 'Xcode',
     'IOS': 'Xcode',
     'Android': 'Ninja',
+    'HarmonyOS': 'Ninja',
     'Linux': 'Ninja'
 }
 
@@ -128,9 +130,14 @@ def run_git_with_retry(label, operation):
 def is_commit_hash(ref):
     return bool(ref) and COMMIT_HASH_RE.fullmatch(ref) is not None
 
-def compute_package_key(package):
+def compute_package_key(package, platform=None):
     """Compute a hash from package config to detect changes."""
     relevant = {k: v for k, v in package.items() if k not in ('name',)}
+    if (platform or args.platform) == 'HarmonyOS':
+        relevant['ohos_toolchain'] = harmonyos_toolchain_identity()
+        patch = Path(args.engine) / 'cmake/patches' / f"{package['name']}.patch"
+        if patch.is_file():
+            relevant['ohos_patch'] = hashlib.sha256(patch.read_bytes()).hexdigest()
     content = json.dumps(relevant, sort_keys=True)
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
@@ -395,6 +402,44 @@ def fill_android_config(options):
     options['ANDROID_PLATFORM'] = 'android-31'
     options['CMAKE_TOOLCHAIN_FILE'] = toolchain
 
+def resolve_harmonyos_sdk():
+    value = args.ohos_sdk or os.environ.get('OHOS_SDK_NATIVE')
+    if not value:
+        parser.error('HarmonyOS requires --ohos-sdk <native-sdk> or OHOS_SDK_NATIVE')
+    native = Path(value).resolve()
+    for relative in ('build/cmake/ohos.toolchain.cmake', 'oh-uni-package.json', 'sysroot/usr/include'):
+        if not (native / relative).exists():
+            parser.error(f'HarmonyOS native SDK is missing {relative}: {native}')
+    return native
+
+
+def harmonyos_toolchain_identity():
+    native = resolve_harmonyos_sdk()
+    identity = hashlib.sha256()
+    for relative in ('build/cmake/ohos.toolchain.cmake', 'oh-uni-package.json'):
+        identity.update((native / relative).read_bytes())
+    return {'sdk': native.as_posix(), 'hash': identity.hexdigest(), 'abi': 'arm64-v8a', 'stl': 'c++_shared'}
+
+
+def fill_harmonyos_config(options):
+    native = resolve_harmonyos_sdk()
+    options['CMAKE_TOOLCHAIN_FILE'] = (native / 'build/cmake/ohos.toolchain.cmake').as_posix()
+    options['OHOS_ARCH'] = 'arm64-v8a'
+    options['OHOS_STL'] = 'c++_shared'
+    options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
+    ninja = native / 'build-tools/cmake/bin' / ('ninja.exe' if os.name == 'nt' else 'ninja')
+    if ninja.is_file():
+        options['CMAKE_MAKE_PROGRAM'] = ninja.as_posix()
+
+
+def package_options(package, platform):
+    options = dict(package.get('options', {}))
+    if platform == 'HarmonyOS':
+        options.update(package.get('options_Android', {}))
+    options.update(package.get(f'options_{platform}', {}))
+    return options
+
+
 def fill_common_options(options, build_type, install_dir):
     cmake_modules_path = os.path.join(args.engine, 'cmake', 'thirdparty').replace('\\', '/')
     options['3RD_PATH'] = get_platform_output_root()
@@ -408,6 +453,8 @@ def fill_common_options(options, build_type, install_dir):
 
     if args.platform == 'Android':
         fill_android_config(options)
+    elif args.platform == 'HarmonyOS':
+        fill_harmonyos_config(options)
     elif args.platform == 'IOS':
         fill_ios_config(options)
 
@@ -421,7 +468,10 @@ def slang_build_identity(source_dir, options):
 
 
 def build_package_type(name, source_dir, build_type, options, cache, components, header_only=False):
-    build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
+    platform_build = args.platform
+    if args.platform == 'HarmonyOS':
+        platform_build += '_' + hashlib.sha256(json.dumps(harmonyos_toolchain_identity(), sort_keys=True).encode()).hexdigest()[:12]
+    build_dir = os.path.join(source_dir, f"build_{platform_build}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
     fill_common_options(options, build_type, install_dir)
@@ -464,23 +514,21 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
         Path(identity_file).write_text(identity + '\n', encoding='utf-8')
 
 def build_slang_host_generators(source_dir, options):
-    # slang's code generators (slang-embed, slang-fiddle, ...) must run on the
-    # HOST. When cross-compiling (iOS/Android) build them once for the host and
-    # point the target build at them via SLANG_GENERATORS_PATH — otherwise the
-    # target build tries to run target-arch generators (and installs them as
-    # MACOSX_BUNDLE on iOS, which fails).
+    # Cross builds run generators on the host, then pass their directory to
+    # the target build via SLANG_GENERATORS_PATH.
     host_build = os.path.join(source_dir, 'build_host_generators')
+    generator = tool_chain['Win32'] if os.name == 'nt' else 'Ninja'
     revision = subprocess.check_output(["git", "-C", source_dir, "rev-parse", "HEAD"], text=True).strip()
     version = options.get('SLANG_VERSION_NUMERIC', '')
     embed_core = options.get('SLANG_EMBED_CORE_MODULE', '')
-    host_identity = f'{revision}|{version}|{embed_core}'
+    host_identity = f'{revision}|{version}|{embed_core}|{generator}'
     revision_file = os.path.join(host_build, 'source-revision.txt')
 
     def find_generators_dir():
         # slang emits generators under generators/<config>/bin; locate by the
         # slang-bootstrap executable (the one the target build references).
         for root, _dirs, files in os.walk(host_build):
-            if 'slang-bootstrap' in files:
+            if ('slang-bootstrap.exe' if os.name == 'nt' else 'slang-bootstrap') in files:
                 return normalize_cmake_path(root)
         return None
 
@@ -496,16 +544,18 @@ def build_slang_host_generators(source_dir, options):
         shutil.rmtree(host_build)
 
     print("  [slang] building host generators")
-    # Ninja (single-config) for a deterministic host tools build.
-    cmake_cmd = ["cmake", "-S", source_dir, "-B", host_build, "-G", "Ninja",
+    cmake_cmd = ["cmake", "-S", source_dir, "-B", host_build, "-G", generator,
                  "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"]
     for key, value in options.items():
         cmake_cmd.append(f"-D{key}={value}")
     run_stream(cmake_cmd)
-    run_stream(["cmake", "--build", host_build, "--target", "all-generators",
-                "--parallel", str(os.cpu_count() or 4)])
+    run_stream(["cmake", "--build", host_build, "--config", "Release", "--target", "all-generators",
+                "--parallel", str(args.jobs or os.cpu_count() or 4)])
+    generators = find_generators_dir()
+    if not generators:
+        parser.error(f'Slang host generators missing after build: {host_build}')
     Path(revision_file).write_text(host_identity + '\n', encoding='utf-8')
-    return find_generators_dir()
+    return generators
 
 
 
@@ -525,7 +575,7 @@ def build_package(name, source_dir, options, cache, components, header_only=Fals
         if match:
             options['SLANG_VERSION_NUMERIC'] = match.group(1)
             options['SLANG_VERSION_FULL'] = described[1:]
-    if name == 'slang' and args.platform in ('IOS', 'Android'):
+    if name == 'slang' and args.platform in ('IOS', 'Android', 'HarmonyOS'):
         generators = build_slang_host_generators(source_dir, options)
         if generators:
             options['SLANG_GENERATORS_PATH'] = generators
@@ -550,8 +600,7 @@ def process_package(package):
     components = package.get('components')
     source = package.get('source')
     is_tool = package.get('is_tool')
-    options = package.get('options', {})
-    options = {**options, **package.get(f'options_{args.platform}', {})}
+    options = package_options(package, args.platform)
     header_only = package.get('header_only', False)
     custom_engine = package.get('custom_engine', False)
     custom_only = package.get('custom_only', False)
@@ -617,6 +666,8 @@ def process_package(package):
             custom_cmd.extend(['-p', args.platform])
         if custom_engine:
             custom_cmd.extend(['-o', normalize_cmake_path(args.output)])
+        if args.platform == 'HarmonyOS':
+            os.environ['OHOS_SDK_NATIVE'] = str(resolve_harmonyos_sdk())
         subprocess.run(custom_cmd, cwd=str(clone_dir), check=True)
 
     # init submodule
@@ -629,7 +680,7 @@ def process_package(package):
     if submodules:
         for subName in submodules:
             update_cmd = ["git", "submodule", "update", "--init", "--recursive", subName]
-            subprocess.run(update_cmd, cwd=clone_dir, capture_output=True, text=True)
+            subprocess.run(update_cmd, cwd=clone_dir, check=True)
 
     # try to apply patch
     patch_path = os.path.join(args.engine, 'cmake', 'patches', name + '.patch')
@@ -717,7 +768,7 @@ def check_platform(packages, platform):
         if platforms and platform not in platforms:
             continue
 
-        package_key = compute_package_key(pkg)
+        package_key = compute_package_key(pkg, platform)
         entry = metadata.get(name)
         out_dir = os.path.join(output_root, name)
 
@@ -788,6 +839,8 @@ def app_main():
 
     if not args.output:
         parser.error('--output is required: specify the third-party output directory')
+    if args.platform == 'HarmonyOS':
+        resolve_harmonyos_sdk()
     ensure_default_intermediate()
 
     metadata = load_build_metadata()
@@ -801,6 +854,9 @@ def app_main():
     for package in filtered:
         name = package.get('name', '')
         if not name:
+            continue
+        platforms = package.get('platforms')
+        if platforms and args.platform not in platforms:
             continue
         package_key = compute_package_key(package)
 

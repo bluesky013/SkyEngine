@@ -58,6 +58,8 @@ namespace sky {
         void StartFrameLoop() override;
         void StopFrameLoop() override;
         void StartTextInput() override;
+        bool ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback) override;
+        void HideTextInputDialog() override;
         void StopTextInput() override;
         void SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
@@ -88,8 +90,10 @@ namespace sky {
         void                 *displayLink      = nullptr; // CADisplayLink
         void                 *linkTarget       = nullptr; // SkyDisplayLinkTarget
         void                 *windowScene      = nullptr; // UIWindowScene, owned while connected
+        void                 *textInputDialog  = nullptr; // SkyIOSNativeTextInputHandle, owned
         ios::FrameState       frameState;
         bool                  textInputEnabled = false;
+        bool                  destroying       = false;
         int32_t               textInputRect[4] = {0, 0, 1, 1};
         FileSystemPtr         bundleFileSystem;
         std::function<void()> frameCallback;

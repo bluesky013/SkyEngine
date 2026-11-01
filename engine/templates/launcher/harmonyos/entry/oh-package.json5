@@ -1,0 +1,5 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "dependencies": { "lib{{LAUNCHER_LIB_NAME}}.so": "file:./types/lib{{LAUNCHER_LIB_NAME}}" }
+}

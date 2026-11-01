@@ -23,18 +23,19 @@ namespace sky::aurora {
         INPUT_ATTACHMENT       = 5,
         UNIFORM_BUFFER_DYNAMIC = 6,
         STORAGE_BUFFER_DYNAMIC = 7,
+        END,
     };
 
-    enum class ShaderScalarType : uint32_t { UNKNOWN = 0, FLOAT, INT, UINT, BOOL };
-    enum class ShaderTextureDimension : uint32_t { UNKNOWN = 0, D1, D2, D3, CUBE, BUFFER };
-    enum class ShaderSamplerType : uint32_t { UNKNOWN = 0, REGULAR, COMPARISON };
-    enum class ShaderResourceAccess : uint32_t { UNKNOWN = 0, READ_ONLY, READ_WRITE };
-    enum class ShaderBufferKind : uint32_t { NONE = 0, RAW, STRUCTURED };
-    enum class ShaderMatrixLayout : uint32_t { COLUMN_MAJOR = 0, ROW_MAJOR };
-    enum class ShaderReflectionKind : uint32_t { DECLARATION = 0, STAGE, PROGRAM };
-    enum class ShaderBindingModel : uint32_t { UNKNOWN = 0, VULKAN_DESCRIPTORS, D3D12_REGISTERS, METAL_DIRECT_ARGUMENTS };
-    enum class ShaderUsageAnalysis : uint32_t { EXACT = 0, CONSERVATIVE };
-    enum class ShaderNativeCategory : uint32_t { UNKNOWN = 0, DESCRIPTOR, CBV, SRV, UAV, SAMPLER, METAL_BUFFER, METAL_TEXTURE, METAL_SAMPLER };
+    enum class ShaderScalarType : uint32_t { UNKNOWN = 0, FLOAT, INT, UINT, BOOL, END };
+    enum class ShaderTextureDimension : uint32_t { UNKNOWN = 0, D1, D2, D3, CUBE, BUFFER, END };
+    enum class ShaderSamplerType : uint32_t { UNKNOWN = 0, REGULAR, COMPARISON, END };
+    enum class ShaderResourceAccess : uint32_t { UNKNOWN = 0, READ_ONLY, READ_WRITE, END };
+    enum class ShaderBufferKind : uint32_t { NONE = 0, RAW, STRUCTURED, END };
+    enum class ShaderMatrixLayout : uint32_t { COLUMN_MAJOR = 0, ROW_MAJOR, END };
+    enum class ShaderReflectionKind : uint32_t { DECLARATION = 0, STAGE, PROGRAM, END };
+    enum class ShaderBindingModel : uint32_t { UNKNOWN = 0, VULKAN_DESCRIPTORS, D3D12_REGISTERS, METAL_DIRECT_ARGUMENTS, END };
+    enum class ShaderUsageAnalysis : uint32_t { EXACT = 0, CONSERVATIVE, END };
+    enum class ShaderNativeCategory : uint32_t { UNKNOWN = 0, DESCRIPTOR, CBV, SRV, UAV, SAMPLER, METAL_BUFFER, METAL_TEXTURE, METAL_SAMPLER, END };
 
     template <ShaderResourceType Type>
     struct ShaderResourceSlot {
@@ -71,6 +72,7 @@ namespace sky::aurora {
         MATRIX,
         ARRAY,
         STRUCT,
+        END,
     };
 
     // uniform block member (UBO field reflection)

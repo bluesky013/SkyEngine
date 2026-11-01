@@ -630,20 +630,24 @@ namespace sky::aurora {
             {
                 if (progress.kind != OutputProgressKind::FAILED)
                     return;
-                const auto    code = progress.error.code == GpuErrorCode::DEVICE_LOST   ? RendererErrorCode::DEVICE_LOST
-                                     : progress.error.code == GpuErrorCode::UNSUPPORTED ? RendererErrorCode::UNSUPPORTED
-                                                                                        : RendererErrorCode::NOT_READY;
-                RendererError error{code, "Viewport is unavailable (native=" + std::to_string(progress.error.nativeCode) + ")"};
+                const auto    code    = progress.error.code == GpuErrorCode::DEVICE_LOST   ? RendererErrorCode::DEVICE_LOST
+                                        : progress.error.code == GpuErrorCode::UNSUPPORTED ? RendererErrorCode::UNSUPPORTED
+                                                                                           : RendererErrorCode::NOT_READY;
+                const char   *message = code == RendererErrorCode::UNSUPPORTED ? "Viewport presentation is unsupported" : "Viewport is unavailable";
+                RendererError error{code, std::string(message) + " (native=" + std::to_string(progress.error.nativeCode) + ")"};
                 const auto    reported = failedOutputs.find(progress.viewport.index);
                 if (reported == failedOutputs.end() || reported->second != progress.disposition) {
                     events->Push(ViewportFailed{progress.viewport, error, progress.disposition == OutputFailureDisposition::REPLACE});
                     failedOutputs[progress.viewport.index] = progress.disposition;
                 }
-                if (error.code == RendererErrorCode::DEVICE_LOST || progress.disposition == OutputFailureDisposition::SHUTDOWN)
+                if (error.code == RendererErrorCode::DEVICE_LOST || error.code == RendererErrorCode::UNSUPPORTED ||
+                    progress.disposition == OutputFailureDisposition::SHUTDOWN)
                     terminal = error;
             }
             void UpdateOutput(const CpuViewportState &viewport)
             {
+                if (terminal)
+                    return;
                 const auto existing = outputs.find(viewport.id.index);
                 if (existing != outputs.end() && existing->second->cpu.id == viewport.id) {
                     if (existing->second->cpu.revision != viewport.revision) {

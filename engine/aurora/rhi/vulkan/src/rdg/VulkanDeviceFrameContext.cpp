@@ -331,7 +331,8 @@ namespace sky::aurora {
         if (ended != VK_SUCCESS)
             return VulkanFrameError(ended, FrameErrorCode::ENCODE_FAILED);
         FrameRecordingInputs inputs;
-        inputs.payload = std::make_shared<FrameGpuPayload<VulkanFrameEncoder>>(std::move(plan.resources), std::move(plan.encoder));
+        inputs.payload = std::make_shared<FrameGpuPayload<VulkanFrameEncoder>>(
+            FrameGpuPayload<VulkanFrameEncoder>{std::move(plan.resources), std::move(plan.encoder)});
         inputs.receipt = {std::move(plan.graph), std::move(plan.livePasses)};
         return FinishPlanRecording(plan.reservation, std::move(inputs));
     }

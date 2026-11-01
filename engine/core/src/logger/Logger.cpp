@@ -2,7 +2,10 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "core/logger/Logger.h"
+#include <core/logger/Logger.h>
+
+#include "logger/PlatformLog.h"
+
 #include <stdarg.h>
 #include <string>
 #include <wchar.h>
@@ -32,7 +35,7 @@ namespace sky {
         va_end(params);
         buffer[MAX_SIZE - 1] = '\0';
 
-        fprintf(sOutputStream != nullptr ? sOutputStream : stdout, "[%s] [%s] : %s\n", tag, type, buffer);
+        WritePlatformLog(sOutputStream, tag, type, buffer);
 
         if (sOutputCallback) {
             sOutputCallback(tag, type, buffer);

@@ -38,7 +38,7 @@ namespace sky::aurora {
         if (g_vulkanLibrary == nullptr) {
             g_vulkanLibrary = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
         }
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__OHOS__)
         g_vulkanLibrary = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
 #else
         g_vulkanLibrary = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
@@ -121,6 +121,9 @@ namespace sky::aurora {
 #endif
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
         LOAD_INSTANCE(vkCreateAndroidSurfaceKHR);
+#endif
+#if defined(VK_USE_PLATFORM_OHOS)
+        LOAD_INSTANCE(vkCreateSurfaceOHOS);
 #endif
 #undef LOAD_INSTANCE
     }

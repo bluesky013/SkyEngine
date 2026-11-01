@@ -100,12 +100,14 @@ namespace {
             if (moduleManager) {
                 // Builders consume their existing metadata owners; missing modules fail initialization.
                 moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {"Aurora.Metadata"}});
-                moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
+                if (ModuleManager::GetBuildOption("SKY_BUILD_AUDIO").value_or(false))
+                    moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
 #if SKY_HAS_JOLT_BUILDER
                 moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {"JoltPhysicsModule"}});
 #endif
                 moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
-                moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
+                if (ModuleManager::GetBuildOption("SKY_BUILD_TERRAIN").value_or(false))
+                    moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});
 #if SKY_HAS_ANIMATION_BUILDER
                 moduleManager->RegisterModule(ModuleInfo{"Animation.Builder", {"Animation.GraphAssets"}});

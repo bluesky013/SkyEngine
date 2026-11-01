@@ -379,7 +379,7 @@ namespace sky::aurora {
                     *error = "invalid or duplicate variant declaration";
                 return false;
             }
-            if (entry.domain > ShaderVariantDomain::PIPELINE ||
+            if (entry.domain >= ShaderVariantDomain::END ||
                 (entry.domain == ShaderVariantDomain::VERTEX ? !entry.vertexSemantics || entry.bitWidth != 1 : entry.vertexSemantics != 0)) {
                 if (error)
                     *error = "invalid variant ownership metadata";

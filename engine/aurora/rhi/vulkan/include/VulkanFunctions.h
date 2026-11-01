@@ -62,6 +62,9 @@ namespace sky::aurora {
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
         PFN_vkCreateAndroidSurfaceKHR                      vkCreateAndroidSurfaceKHR                      = nullptr;
 #endif
+#if defined(VK_USE_PLATFORM_OHOS)
+        PFN_vkCreateSurfaceOHOS vkCreateSurfaceOHOS = nullptr;
+#endif
     };
 
     // ---------------------------------------------------------------------------

@@ -1,0 +1,62 @@
+diff --git a/public/common/TracySystem.cpp b/public/common/TracySystem.cpp
+--- a/public/common/TracySystem.cpp
++++ b/public/common/TracySystem.cpp
+@@ -272,7 +272,7 @@
+   char path[32];
+   snprintf( path, sizeof( path ), "/proc/self/task/%d/comm", id );
+   sprintf( buf, "%" PRIu32, id );
+-# ifndef __ANDROID__
++# if !defined(__ANDROID__) && !defined(__OHOS__)
+    pthread_setcancelstate( PTHREAD_CANCEL_DISABLE, &cs );
+ # endif
+   if ( ( fd = open( path, O_RDONLY ) ) > 0) {
+@@ -287,7 +287,7 @@
+       }
+       close( fd );
+   }
+-# ifndef __ANDROID__
++# if !defined(__ANDROID__) && !defined(__OHOS__)
+    pthread_setcancelstate( cs, 0 );
+ # endif
+   return buf;
+diff --git a/public/client/TracyProfiler.cpp b/public/client/TracyProfiler.cpp
+--- a/public/client/TracyProfiler.cpp
++++ b/public/client/TracyProfiler.cpp
+@@ -60,6 +60,9 @@
+ #include <limits>
+ #include <new>
+ #include <stdlib.h>
++#if defined __OHOS__
++#  include <stdio.h>
++#endif
+ #include <string.h>
+ #include <sys/stat.h>
+ #include <thread>
+@@ -422,6 +425,18 @@
+     auto buf = getprogname();
+     if( buf ) processName = buf;
+ #  endif
++#elif defined __OHOS__
++    static char buf[256];
++    auto file = fopen( "/proc/self/comm", "r" );
++    if( file )
++    {
++        if( fgets( buf, sizeof( buf ), file ) )
++        {
++            buf[strcspn( buf, "\n" )] = '\0';
++            if( buf[0] ) processName = buf;
++        }
++        fclose( file );
++    }
+ #elif defined __linux__ && defined _GNU_SOURCE
+     if( program_invocation_short_name ) processName = program_invocation_short_name;
+ #elif defined __APPLE__ || defined BSD
+@@ -439,7 +454,7 @@
+     static char buf[_MAX_PATH];
+     GetModuleFileNameA( nullptr, buf, _MAX_PATH );
+     return buf;
+-#elif defined __ANDROID__
++#elif defined __ANDROID__ || defined __OHOS__
+     return nullptr;
+ #elif defined __linux__ && defined _GNU_SOURCE
+     return program_invocation_name;

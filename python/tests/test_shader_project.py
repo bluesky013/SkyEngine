@@ -126,11 +126,23 @@ class ShaderProjectTest(unittest.TestCase):
             self.assertEqual(environments['vulkan']['profile'], 'spirv_1_3')
             self.assertEqual(environments['vulkan']['minimumVersion'], 10300)
             self.assertEqual(environments['vulkan']['requiredCapabilities'], 0)
-        for platform in ('windows', 'macos', 'linux'):
+        for platform in ('windows', 'macos', 'linux', 'harmonyos'):
             environments, error = target_environments(platform, ['vulkan'])
             self.assertEqual(error, '')
             self.assertEqual(environments['vulkan']['profile'], 'spirv_1_5')
             self.assertEqual(environments['vulkan']['minimumVersion'], 10500)
+
+    def test_harmonyos_products_keep_a_distinct_platform_identity(self):
+        program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}]}
+        entries = {}
+        for platform in ('android', 'harmonyos', 'linux'):
+            environments, error = target_environments(platform, ['vulkan'])
+            self.assertEqual(error, '')
+            self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, environments), '')
+        self.assertEqual(len(entries), 3)
+        self.assertEqual({entry['environment']['platform'] for entry in entries.values()}, {4, 5, 6})
+        for target in ('metal', 'd3d12'):
+            self.assertTrue(target_environments('harmonyos', [target])[1])
 
     def test_same_metal_program_on_two_platforms_keeps_separate_requests(self):
         program = {'path': 'toon/Main.slang', 'entries': [{'stage': 'compute', 'name': 'Main'}]}

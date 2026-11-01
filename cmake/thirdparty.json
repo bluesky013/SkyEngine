@@ -382,6 +382,7 @@
 				"MacOS-x86",
 				"MacOS-arm",
 				"Android",
+				"HarmonyOS",
 				"Linux"
 			]
 		},
@@ -399,6 +400,7 @@
 				"MacOS-x86",
 				"MacOS-arm",
 				"Android",
+				"HarmonyOS",
 				"Linux"
 			]
 		}

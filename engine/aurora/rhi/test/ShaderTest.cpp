@@ -545,7 +545,7 @@ TEST(ShaderEnvironmentTest, AndroidSpirvBaselineDoesNotChangeOtherPlatforms)
     EXPECT_EQ(android.profile, "spirv_1_3");
     EXPECT_EQ(android.minimumVersion, 10300u);
     EXPECT_EQ(android.requiredCapabilities, 0u);
-    for (const auto platform : {ShaderPlatform::WINDOWS, ShaderPlatform::MACOS, ShaderPlatform::LINUX}) {
+    for (const auto platform : {ShaderPlatform::WINDOWS, ShaderPlatform::MACOS, ShaderPlatform::LINUX, ShaderPlatform::HARMONYOS}) {
         const auto environment = DefaultShaderEnvironment(ShaderTarget::SPIRV, platform);
         EXPECT_EQ(environment.profile, "spirv_1_5");
         EXPECT_EQ(environment.minimumVersion, 10500u);

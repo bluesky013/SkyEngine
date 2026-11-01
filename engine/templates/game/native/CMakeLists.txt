@@ -31,19 +31,21 @@ endif ()
 if (SKY_ENGINE_ROOT STREQUAL "")
     message(FATAL_ERROR "SKY_ENGINE_ROOT is not set: point it at the SkyEngine repository.")
 endif ()
-set(ENGINE_ROOT "${SKY_ENGINE_ROOT}")
+file(TO_CMAKE_PATH "${SKY_ENGINE_ROOT}" ENGINE_ROOT)
 
 # Platform name used for the output tree layout (<Project>/build/<platform>/bin).
 if (NOT DEFINED SKY_PLATFORM OR SKY_PLATFORM STREQUAL "")
     string(TOLOWER "${CMAKE_SYSTEM_NAME}" SKY_PLATFORM)
     if (SKY_PLATFORM STREQUAL "darwin")
         set(SKY_PLATFORM "macos")
+    elseif (SKY_PLATFORM STREQUAL "ohos")
+        set(SKY_PLATFORM "harmonyos")
     endif ()
 endif ()
 
 # Unified runtime/library output. Android must NOT override these (gradle's
 # externalNativeBuild collects the shared libraries from the CMake build tree).
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "OHOS")
     set(_sky_bin "${CMAKE_CURRENT_SOURCE_DIR}/../build/${SKY_PLATFORM}/bin")
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${_sky_bin}")
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${_sky_bin}")
@@ -78,6 +80,8 @@ endif ()
 # Project-owned platform launcher (defines the `Launcher` target).
 if (ANDROID)
     add_subdirectory(android/cpp)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    add_subdirectory(harmonyos/cpp)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     add_subdirectory(ios)
 elseif (APPLE)
@@ -93,18 +97,6 @@ add_subdirectory(source)
 
 # Bind every `DEPENDENCIES Launcher` registration (engine, plugins) to this launcher.
 sky_set_dependency(TARGET Launcher)
-
-if(SKY_DEVELOP)
-    if(ANDROID)
-        set(_sky_shader_source_destination "${CMAKE_CURRENT_SOURCE_DIR}/../build/android/app/src/main/assets/assets/shaders")
-    else()
-        set(_sky_shader_source_destination "$<TARGET_FILE_DIR:Launcher>/assets/shaders")
-    endif()
-    sky_stage_shader_resources(TARGET ShaderResources.Stage
-        DESTINATION "${_sky_shader_source_destination}"
-        PROJECT "${CMAKE_CURRENT_SOURCE_DIR}/.." ENGINE "${ENGINE_ROOT}"
-        CONSUMERS Launcher)
-endif()
 
 # Static module packaging: generate the registration cpp from the statically built
 # modules and link them into the launcher (their code is compiled in, not dlopen'd).
@@ -124,24 +116,29 @@ if (SKY_MODULE_PACKAGING STREQUAL "static")
     endif ()
 endif ()
 
-# The same deployment runs from Xcode/IDE builds and the packaging entrypoint.
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
+# Mobile assets are prepared before Gradle/Hvigor; standalone desktop IDE builds deploy here.
+set(_sky_deploy_resources_default ON)
+if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    set(_sky_deploy_resources_default OFF)
+endif()
+option(SKY_DEPLOY_RUNTIME_RESOURCES "Deploy runtime resources from standalone native builds" ${_sky_deploy_resources_default})
 set(SKY_SHADER_DISTRIBUTION "${PROJECT_NAME}-${SKY_PLATFORM}" CACHE STRING "Selected shader product distribution")
-set(_sky_runtime_stage_arguments "")
-set(_sky_runtime_destination "$<TARGET_FILE_DIR:Launcher>")
-if(ANDROID)
-    set(_sky_runtime_destination "${CMAKE_CURRENT_SOURCE_DIR}/../build/android/app/src/main/assets")
+add_custom_target({{PROJECT_NAME}}Deploy ALL)
+if(SKY_DEPLOY_RUNTIME_RESOURCES)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(_sky_runtime_stage_arguments "")
+    if(SKY_DEVELOP)
+        list(APPEND _sky_runtime_stage_arguments --development)
+    endif()
+    add_custom_command(TARGET {{PROJECT_NAME}}Deploy POST_BUILD
+        COMMAND "${Python3_EXECUTABLE}" "${ENGINE_ROOT}/python/package_project.py" stage-runtime
+            --project "${CMAKE_CURRENT_SOURCE_DIR}/.." --engine "${ENGINE_ROOT}"
+            --distribution "${SKY_SHADER_DISTRIBUTION}" --destination "$<TARGET_FILE_DIR:Launcher>"
+            ${_sky_runtime_stage_arguments}
+        COMMENT "Deploying runtime resources"
+        VERBATIM
+    )
 endif()
-if(SKY_DEVELOP)
-    list(APPEND _sky_runtime_stage_arguments --development)
-endif()
-add_custom_target({{PROJECT_NAME}}Deploy ALL
-    COMMAND "${Python3_EXECUTABLE}" "${ENGINE_ROOT}/python/package_project.py" stage-runtime
-        --project "${CMAKE_CURRENT_SOURCE_DIR}/.." --engine "${ENGINE_ROOT}"
-        --distribution "${SKY_SHADER_DISTRIBUTION}" --destination "${_sky_runtime_destination}"
-        ${_sky_runtime_stage_arguments}
-    COMMENT "Deploying engine + project configs"
-)
 add_dependencies(Launcher {{PROJECT_NAME}}Deploy)
 
 function(_sky_collect_imported_runtimes directory result)

@@ -3,13 +3,16 @@
 //
 
 #include "IOSPlatform.h"
+#include "IOSNativeTextInput.h"
 #include "IOSWindow.h"
+#include "platform/NativeTextInputState.h"
 
 #include <framework/platform/IOSSceneHost.h>
 
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <utility>
 
 #import <Foundation/Foundation.h>
 #import <QuartzCore/QuartzCore.h>
@@ -145,9 +148,8 @@ namespace sky {
 
     void IOSPlatform::PollEvent(bool &exit, EventPollMode)
     {
-        // UIKit owns the run loop; events are delivered via view/controller
-        // callbacks and frames via CADisplayLink. Nothing to pump here.
         (void)exit;
+        NativeTextInputState::Get()->Dispatch();
     }
 
     bool IOSPlatform::IsFrameActive() const
@@ -185,9 +187,13 @@ namespace sky {
         if (![NSThread isMainThread] || !frameState.SetSceneActive(reinterpret_cast<uintptr_t>(scene), active)) {
             return;
         }
+        void *closingDialog = active ? nullptr : std::exchange(textInputDialog, nullptr);
         RefreshFrameLoop();
         if (mainNativeWindow != nullptr) {
             mainNativeWindow->SetFocused(active);
+        }
+        if (!active) {
+            ios::HideNativeTextInput(closingDialog);
         }
     }
 
@@ -198,11 +204,13 @@ namespace sky {
         }
         UIWindowScene *previousScene = (__bridge_transfer UIWindowScene *)windowScene;
         windowScene                  = nullptr;
+        void *closingDialog          = std::exchange(textInputDialog, nullptr);
         RefreshFrameLoop();
         (void)previousScene; // Keep the scene alive through surface teardown.
         if (mainNativeWindow != nullptr) {
             mainNativeWindow->DetachScene();
         }
+        ios::HideNativeTextInput(closingDialog);
     }
 
     bool IOSPlatform::RegisterMainWindow(IOSWindow *window)
@@ -227,6 +235,8 @@ namespace sky {
             if (mainNativeWindow == owner) {
                 owner->SetTextInputEnabled(textInputEnabled);
             }
+        } else {
+            HideTextInputDialog();
         }
     }
 
@@ -246,6 +256,19 @@ namespace sky {
         if (mainNativeWindow != nullptr) {
             mainNativeWindow->SetTextInputEnabled(true);
         }
+    }
+
+    bool IOSPlatform::ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback)
+    {
+        if (destroying || ![NSThread isMainThread] || !frameState.CanTick()) {
+            return false;
+        }
+        return ios::ShowNativeTextInput(windowScene, options, std::move(callback), textInputDialog);
+    }
+
+    void IOSPlatform::HideTextInputDialog()
+    {
+        ios::HideNativeTextInput(textInputDialog);
     }
 
     void IOSPlatform::StopTextInput()
@@ -327,11 +350,13 @@ namespace sky {
 
     IOSPlatform::~IOSPlatform()
     {
+        destroying = true;
         StopFrameLoop();
         frameCallback = {};
         if (windowScene != nullptr) {
             DisconnectScene(windowScene);
         }
+        HideTextInputDialog();
     }
 
 } // namespace sky

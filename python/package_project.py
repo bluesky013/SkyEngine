@@ -18,6 +18,8 @@ import argparse
 import json
 import os
 import posixpath
+import plistlib
+import re
 import shutil
 import stat
 import subprocess
@@ -47,6 +49,7 @@ TOKEN_KEYS = [
     '{{ANDROID_ABI}}',
     '{{MODULE_PACKAGING}}',
     '{{ANDROID_CMAKE_ARGUMENTS}}',
+    '{{ANDROID_ORIENTATION}}',
     '{{DEVELOP_MODE}}',
     '{{ANDROID_KEYSTORE_PATH}}',
     '{{ANDROID_KEYSTORE_ALIAS}}',
@@ -54,7 +57,29 @@ TOKEN_KEYS = [
     '{{ANDROID_KEY_PASSWORD}}',
 ]
 
-LAUNCHER_PLATFORMS = ['android', 'ios', 'macos', 'windows', 'linux']
+LAUNCHER_PLATFORMS = ['android', 'ios', 'macos', 'windows', 'linux', 'harmonyos']
+
+ORIENTATIONS = ('landscape', 'portrait', 'auto_rotation', 'auto_rotation_landscape', 'auto_rotation_portrait')
+ANDROID_ORIENTATIONS = dict(zip(ORIENTATIONS, ('landscape', 'portrait', 'fullSensor', 'sensorLandscape', 'sensorPortrait')))
+IOS_ORIENTATIONS = {
+    'landscape': ['UIInterfaceOrientationLandscapeLeft'],
+    'portrait': ['UIInterfaceOrientationPortrait'],
+    'auto_rotation': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown',
+                      'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
+    'auto_rotation_landscape': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
+    'auto_rotation_portrait': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown'],
+}
+
+
+def preset_orientation(preset):
+    value = preset.get('orientation', 'landscape')
+    if value == 'default':
+        value = 'landscape'
+    if not isinstance(value, str) or value not in ORIENTATIONS:
+        raise SystemExit('Invalid orientation: expected default, ' + ', '.join(ORIENTATIONS))
+    if preset.get('platform') not in ('android', 'harmonyos', 'ios') and value != 'landscape':
+        raise SystemExit('orientation is only supported on android, harmonyos and ios')
+    return value
 
 # 环境变量覆盖（凭据优先级最高）。
 ENV_ANDROID = {
@@ -168,7 +193,7 @@ def base_tokens(descriptor):
     name = descriptor.get('name') or 'Game'
     identifier = sanitize_identifier(name)
     settings = descriptor.get('settings') or {}
-    namespace = sanitize_package(settings.get('applicationId') or ('com.skyengine.' + identifier.lower()))
+    namespace = sanitize_package('com.skyengine.' + identifier.lower())
     return {
         '{{PROJECT_NAME}}': identifier,
         '{{PROJECT_DISPLAY_NAME}}': name,
@@ -184,6 +209,7 @@ def base_tokens(descriptor):
         '{{ANDROID_ABI}}': 'arm64-v8a',
         '{{MODULE_PACKAGING}}': 'dynamic',
         '{{ANDROID_CMAKE_ARGUMENTS}}': "'-DSKY_MODULE_PACKAGING=dynamic'",
+        '{{ANDROID_ORIENTATION}}': 'landscape',
         '{{DEVELOP_MODE}}': 'false',
         '{{APPLICATION_ID}}': namespace,
         '{{ANDROID_KEYSTORE_PATH}}': '',
@@ -195,10 +221,10 @@ def base_tokens(descriptor):
 
 def build_tokens(descriptor, preset, credentials):
     tokens = base_tokens(descriptor)
+    tokens['{{ANDROID_ORIENTATION}}'] = ANDROID_ORIENTATIONS[preset_orientation(preset)]
     settings = descriptor.get('settings') or {}
 
-    # 安装用 applicationId 可被预设 bundleId 覆盖；namespace/Java 包名保持 create 时的值。
-    tokens['{{APPLICATION_ID}}'] = preset.get('bundleId') or tokens['{{ANDROID_NAMESPACE}}']
+    tokens['{{APPLICATION_ID}}'] = preset.get('bundleId') or ''
     tokens['{{VERSION_NAME}}'] = str(preset.get('versionName') or settings.get('versionName') or '1.0')
     tokens['{{VERSION_CODE}}'] = str(preset.get('versionCode') or settings.get('versionCode') or 1)
     tokens['{{COMPILE_SDK}}'] = str(preset.get('compileSdk', 34))
@@ -271,6 +297,7 @@ def android_cmake_args(engine, preset):
             '-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic')),
             '-DSKY_SHADER_DISTRIBUTION=' + str(preset.get('name') or preset.get('platform', 'android'))]
     args += preset_cmake_args(preset)
+    args.append('-DSKY_DEPLOY_RUNTIME_RESOURCES=OFF')
     if os.environ.get('SKY_3RD_PATH'):
         args.append('-D3RD_PATH=' + os.environ['SKY_3RD_PATH'])
     # Groovy single-quoted strings preserve dollar signs in paths/definitions.
@@ -304,6 +331,153 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
                  '-DCODE_SIGNING_ALLOWED=NO']
 
     return args + preset_cmake_args(preset)
+
+
+def prepare_harmonyos_project(engine, project_dir, preset, tokens, credentials):
+    out_dir = project_dir / 'build' / 'harmonyos'
+    source = project_dir / 'native' / 'harmonyos' / 'entry'
+    if not source.is_dir():
+        raise SystemExit('Missing project-owned HarmonyOS launcher: ' + str(source))
+    import json5
+    manifest_path = source / 'src/main/module.json5'
+    manifest, error, _ = json5.parse(manifest_path.read_text(encoding='utf-8'), allow_duplicate_keys=False)
+    if error:
+        raise SystemExit('Invalid HarmonyOS module.json5: ' + error)
+    module = manifest.get('module') if isinstance(manifest, dict) else None
+    abilities = module.get('abilities') if isinstance(module, dict) else None
+    main = module.get('mainElement') if isinstance(module, dict) else None
+    if not isinstance(main, str) or not isinstance(abilities, list):
+        raise SystemExit('HarmonyOS module.json5 requires mainElement and abilities')
+    entries = [entry for entry in abilities if isinstance(entry, dict) and entry.get('name') == main]
+    if len(entries) != 1:
+        raise SystemExit('HarmonyOS mainElement must identify exactly one ability')
+    entries[0]['orientation'] = preset_orientation(preset)
+    abis = preset.get('abis') or ['arm64-v8a']
+    if abis != ['arm64-v8a']:
+        raise SystemExit('HarmonyOS currently requires abis=[arm64-v8a]')
+    compile_sdk = preset.get('compileSdk', 26)
+    target_sdk = preset.get('targetSdk', 26)
+    min_sdk = preset.get('minSdk', 26)
+    if not all(isinstance(v, int) and v >= 26 for v in (compile_sdk, target_sdk, min_sdk)) or not compile_sdk >= target_sdk >= min_sdk:
+        raise SystemExit('HarmonyOS requires compileSdk >= targetSdk >= minSdk >= 26')
+    if preset.get('variant', 'debug') not in ('debug', 'release'):
+        raise SystemExit('HarmonyOS variant must be debug or release')
+    if preset.get('extraBuildArgs'):
+        raise SystemExit('HarmonyOS extraBuildArgs are not supported by the Hvigor packaging entry')
+    signing = preset.get('signing', 'off')
+    if signing not in ('auto', 'off'):
+        raise SystemExit('HarmonyOS signing must be auto or off')
+    product = {'name': 'default', 'compileSdkVersion': '{}.0.0'.format(compile_sdk),
+               'targetSdkVersion': '{}.0.0'.format(target_sdk), 'compatibleSdkVersion': '{}.0.0'.format(min_sdk),
+               'runtimeOS': 'HarmonyOS',
+               'buildOption': {'strictMode': {'caseSensitiveCheck': True, 'useNormalizedOHMUrl': True}}}
+    configs = []
+    if signing == 'auto':
+        material = credentials.get('harmonyos') or {}
+        fields = ('storeFile', 'storePassword', 'keyAlias', 'keyPassword', 'signAlg', 'profile', 'certpath')
+        if any(not isinstance(material.get(key), str) or not material[key] for key in fields):
+            raise SystemExit('HarmonyOS signing requires the full harmonyos material in export_credentials.json')
+        material = {key: material[key] for key in fields}
+        for key in ('storeFile', 'profile', 'certpath'):
+            path = (project_dir / material[key]).resolve()
+            if not path.is_file():
+                raise SystemExit('HarmonyOS signing file is missing: ' + key)
+            material[key] = path.as_posix()
+        configs = [{'name': 'default', 'type': 'HarmonyOS', 'material': material}]
+        product['signingConfig'] = 'default'
+    # Refresh only generated copies; native/ remains the source of truth.
+    for name in ('src', 'types'):
+        generated = out_dir / 'entry' / name
+        if generated.exists():
+            shutil.rmtree(generated)
+    shutil.copytree(source, out_dir / 'entry', dirs_exist_ok=True)
+    instantiate_template(engine / 'engine/templates/ide/harmonyos', out_dir, tokens)
+    (out_dir / 'entry/src/main/module.json5').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    root_profile = {'app': {'signingConfigs': configs, 'products': [product],
+                            'buildModeSet': [{'name': 'debug'}, {'name': 'release'}]},
+                    'modules': [{'name': 'entry', 'srcPath': './entry',
+                                 'targets': [{'name': 'default', 'applyToProducts': ['default']}]}]}
+    arguments = ['-DSKY_ENGINE_ROOT=' + engine.as_posix(), '-DOHOS_STL=c++_shared',
+                 '-DSKY_MODULE_PACKAGING=' + str(preset.get('packing', 'dynamic')),
+                 '-DSKY_SHADER_DISTRIBUTION=' + preset['name']]
+    arguments += preset_cmake_args(preset)
+    arguments.append('-DSKY_DEPLOY_RUNTIME_RESOURCES=OFF')
+    if os.environ.get('SKY_3RD_PATH'):
+        arguments.append('-D3RD_PATH=' + Path(os.environ['SKY_3RD_PATH']).as_posix())
+    module_profile = {'apiType': 'stageMode', 'targets': [{'name': 'default'}],
+                      'buildOption': {'externalNativeOptions': {
+                          'path': './src/main/cpp/CMakeLists.txt',
+                          'arguments': arguments, 'abiFilters': abis},
+                          'nativeLib': {'collectAllLibs': True}}}
+    for path, data in ((out_dir / 'build-profile.json5', root_profile),
+                       (out_dir / 'entry/build-profile.json5', module_profile)):
+        path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return out_dir
+
+
+def prepare_ios_orientation(project_dir, preset):
+    source = project_dir / 'native/ios'
+    launcher = source / 'CMakeLists.txt'
+    if not launcher.is_file() or '${SKY_IOS_INFO_PLIST}' not in launcher.read_text(encoding='utf-8'):
+        raise SystemExit('Update native/ios/CMakeLists.txt to use ${SKY_IOS_INFO_PLIST} for MACOSX_BUNDLE_INFO_PLIST')
+    with (source / 'Info.plist').open('rb') as handle:
+        manifest = plistlib.load(handle)
+    if not isinstance(manifest, dict):
+        raise SystemExit('iOS Info.plist must contain a dictionary')
+    orientations = IOS_ORIENTATIONS[preset_orientation(preset)]
+    # Device-qualified keys take precedence over the common orientation list.
+    for key in list(manifest):
+        if key.startswith('UISupportedInterfaceOrientations~') or key.startswith('UISupportedInterfaceOrientations-'):
+            manifest[key] = list(orientations)
+    manifest['UISupportedInterfaceOrientations'] = list(orientations)
+    manifest['UISupportedInterfaceOrientations~ipad'] = list(orientations)
+    output = project_dir / 'build/ios/export/Info.plist'
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(plistlib.dumps(manifest, sort_keys=False))
+    return '-DSKY_IOS_INFO_PLIST=' + output.resolve().as_posix()
+
+
+def package_harmonyos(out_dir, preset, tokens):
+    tools_root = os.environ.get('HARMONYOS_COMMAND_LINE_TOOLS')
+    suffix = '.bat' if os.name == 'nt' else ''
+    commands = []
+    for name in ('ohpm', 'hvigorw'):
+        command = Path(tools_root) / 'bin' / (name + suffix) if tools_root else shutil.which(name)
+        if not command or not Path(command).is_file():
+            raise SystemExit('Set HARMONYOS_COMMAND_LINE_TOOLS to the official command-line-tools directory')
+        commands.append(str(command))
+    mode = preset.get('variant', 'debug')
+    subprocess.run([commands[0], 'install', '--all'], cwd=out_dir, check=True)
+    subprocess.run([commands[1], '--mode', 'module', '-p', 'product=default',
+                    '-p', 'module=entry@default', '-p', 'buildMode=' + mode,
+                    'assembleHap', '--no-daemon'], cwd=out_dir, check=True)
+    signed = preset.get('signing', 'off') != 'off'
+    artifacts = list((out_dir / 'entry/build/default/outputs/default').glob(
+        '*-signed.hap' if signed else '*-unsigned.hap'))
+    if len(artifacts) != 1:
+        raise SystemExit('Expected exactly one HarmonyOS HAP, found {}'.format(len(artifacts)))
+    validate_harmonyos_hap(artifacts[0], tokens['{{LAUNCHER_LIB_NAME}}'], preset.get('abis') or ['arm64-v8a'])
+    destination = out_dir / '{}-{}-{}.hap'.format(tokens['{{PROJECT_NAME}}'], mode, 'signed' if signed else 'unsigned')
+    shutil.copy2(artifacts[0], destination)
+    print('产物: {}'.format(destination))
+    return destination
+
+
+def validate_harmonyos_hap(artifact, launcher, abis):
+    with zipfile.ZipFile(artifact) as archive:
+        names = set(archive.namelist())
+        for abi in abis:
+            for library in ('lib' + launcher + '.so', 'libc++_shared.so'):
+                name = 'libs/{}/{}'.format(abi, library)
+                if name not in names:
+                    raise SystemExit('HarmonyOS HAP is missing native library: ' + name)
+                with archive.open(name) as stream:
+                    header = stream.read(20)
+                if len(header) != 20 or header[:6] != b'\x7fELF\x02\x01' or int.from_bytes(header[18:20], 'little') != 183:
+                    raise SystemExit('HarmonyOS HAP requires ELF64 AArch64 libraries: ' + name)
+        for resource in ('configs/modules_game.json', 'products/bundles.json'):
+            if 'resources/rawfile/' + resource not in names:
+                raise SystemExit('HarmonyOS HAP is missing runtime resource: ' + resource)
 
 
 def find_apple_app(project_dir, platform, name, required=True):
@@ -343,11 +517,7 @@ def collect_apple_package(engine, project_dir, preset, name):
     plist = app / 'Contents' / 'Info.plist' if platform == 'macos' else app / 'Info.plist'
     if not plist.is_file() or not executable.is_file() or not executable.stat().st_mode & stat.S_IXUSR:
         raise SystemExit('不完整的 Apple 应用包: {}'.format(app))
-    if not development_preset(preset):
-        strip_development_resources(resource_root)
-    if not stage_configs(engine, project_dir, resource_root / 'configs', development=development_preset(preset)):
-        return None
-    if stage_bundles(project_dir, preset, resource_root / 'products', engine) is None:
+    if not stage_runtime_resources(engine, project_dir, preset, resource_root):
         return None
     suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
     archive = project_dir / 'build' / platform / (name + suffix)
@@ -584,6 +754,22 @@ def stage_configs(engine, project_dir, dest_configs_dir, development=True):
     return True
 
 
+def stage_runtime_resources(engine, project_dir, preset, destination, development=None):
+    development = development_preset(preset) if development is None else development
+    if development:
+        configs, error = project_modules(engine, project_dir, optional_descriptor(project_dir))
+        if not error:
+            error = stage_module_sources(configs, destination / 'assets/shaders')
+        if error:
+            print(error, file=sys.stderr)
+            return False
+    else:
+        strip_development_resources(destination)
+    if not stage_configs(engine, project_dir, destination / 'configs', development=development):
+        return False
+    return stage_bundles(project_dir, preset, destination / 'products', engine) is not None
+
+
 def strip_development_resources(destination):
     """Retire generated development files when reusing a shipping app/assets directory."""
     sources = destination / 'assets/shaders'
@@ -666,7 +852,6 @@ def cmd_create(args):
         'defaultScene': '',
         'settings': {
             'rhi': 'vulkan',
-            'applicationId': tokens['{{ANDROID_NAMESPACE}}'],
             'versionName': '1.0',
             'versionCode': 1,
         },
@@ -680,13 +865,55 @@ def cmd_create(args):
     return 0
 
 
+def valid_bundle_id(platform, value):
+    if not isinstance(value, str) or not value:
+        return False
+    if platform in ('ios', 'macos'):
+        return re.fullmatch(r'[A-Za-z0-9.-]+', value) is not None
+    if platform == 'harmonyos':
+        return 7 <= len(value) <= 128 and re.fullmatch(
+            r'[A-Za-z](?:[A-Za-z0-9_]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_]*[A-Za-z0-9])?){2,}', value) is not None
+    return re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+', value) is not None
+
+
 def _resolve(project_arg, preset_name):
     skyproj, descriptor = load_descriptor(project_arg)
     project_dir = skyproj.parent
     preset = find_preset(project_dir, preset_name)
+    if preset['platform'] in ('android', 'harmonyos', 'ios', 'macos'):
+        bundle_id = preset.get('bundleId')
+        if not valid_bundle_id(preset['platform'], bundle_id):
+            print('Export preset requires a valid {} bundleId; move the install identity from .skyproj to each platform preset.'.format(
+                preset['platform']), file=sys.stderr)
+            return None
     credentials = load_json(project_dir / 'export_credentials.json', {})
     tokens = build_tokens(descriptor, preset, credentials)
+    if preset['platform'] == 'android':
+        launchers = list((project_dir / 'native/android/java').rglob('SkyEngineActivity.java'))
+        if len(launchers) != 1:
+            print('Android export requires exactly one project-owned SkyEngineActivity.java.', file=sys.stderr)
+            return None
+        declaration = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)\s*;',
+                                launchers[0].read_text(encoding='utf-8'), re.MULTILINE)
+        if declaration is None:
+            print('Android launcher has no valid Java package declaration.', file=sys.stderr)
+            return None
+        tokens['{{ANDROID_NAMESPACE}}'] = declaration.group(1)
+        tokens['{{ANDROID_NAMESPACE_PATH}}'] = declaration.group(1).replace('.', '/')
     return project_dir, preset, tokens, credentials
+
+
+def retire_package_artifacts(project_dir, platform):
+    output = project_dir / 'build' / platform
+    patterns = {
+        'android': ('*.apk', 'app/build/outputs/apk/**/*.apk'),
+        'harmonyos': ('*.hap', 'entry/build/default/outputs/default/*.hap'),
+        'ios': ('*.ipa',),
+        'macos': ('*-macos.zip',),
+    }
+    for pattern in patterns[platform]:
+        for artifact in output.glob(pattern):
+            artifact.unlink()
 
 
 def _prepare(engine, project_dir, preset, tokens, credentials, build):
@@ -696,27 +923,33 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
     collect the artifact.
     """
     platform = preset['platform']
-    if platform == 'android':
-        out_dir = project_dir / 'build' / 'android'
-        tokens = dict(tokens)
-        tokens['{{ANDROID_CMAKE_ARGUMENTS}}'] = android_cmake_args(engine, preset)
-        instantiate_template(engine / 'engine' / 'templates' / 'ide' / 'android', out_dir, tokens)
-        if not development_preset(preset):
-            strip_development_resources(out_dir / 'app' / 'src' / 'main' / 'assets')
-        if not stage_configs(engine, project_dir, out_dir / 'app' / 'src' / 'main' / 'assets' / 'configs',
-                             development=development_preset(preset)):
+    orientation = preset_orientation(preset)
+    if platform in ('android', 'harmonyos'):
+        if platform == 'android':
+            out_dir = project_dir / 'build/android'
+            tokens = dict(tokens)
+            tokens['{{ANDROID_ORIENTATION}}'] = ANDROID_ORIENTATIONS[orientation]
+            tokens['{{ANDROID_CMAKE_ARGUMENTS}}'] = android_cmake_args(engine, preset)
+            instantiate_template(engine / 'engine/templates/ide/android', out_dir, tokens)
+            resources = out_dir / 'app/src/main/assets'
+        else:
+            out_dir = prepare_harmonyos_project(engine, project_dir, preset, tokens, credentials)
+            resources = out_dir / 'entry/src/main/resources/rawfile'
+        retire_package_artifacts(project_dir, platform)
+        if not run_cook(engine, project_dir, platform) or not prepare_shader_products(engine, project_dir, preset):
             return 1
-        if not run_cook(engine, project_dir, 'android'):
-            return 1
-        if not prepare_shader_products(engine, project_dir, preset):
-            return 1
-        if stage_bundles(project_dir, preset, out_dir / 'app' / 'src' / 'main' / 'assets' / 'products', engine) is None:
+        if not stage_runtime_resources(engine, project_dir, preset, resources):
             return 1
         if build:
-            package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
+            if platform == 'android':
+                package_android(out_dir, project_dir, tokens, preset.get('variant', 'debug'))
+            else:
+                package_harmonyos(out_dir, preset, tokens)
     elif platform in ('ios', 'macos'):
         if build and preset.get('signing', 'auto') != 'off':
             raise SystemExit('Apple 包内资源收集目前要求 signing=off；签名分发请使用 Xcode archive/export。')
+        orientation_args = [prepare_ios_orientation(project_dir, preset)] if platform == 'ios' else []
+        retire_package_artifacts(project_dir, platform)
         if build:
             old_app = find_apple_app(project_dir, platform, tokens['{{PROJECT_NAME}}'], required=False)
             if old_app is not None:
@@ -727,8 +960,10 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
             return 1
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
+        # IDE-only builds deploy beside the executable; package owns staging after the app is built.
+        deployment_args = ['-DSKY_DEPLOY_RUNTIME_RESOURCES=' + ('OFF' if build else 'ON')]
         run_cmake_preset(engine, project_dir, platform, build=build,
-                         extra=apple_cmake_args(preset, credentials, tokens['{{ANDROID_NAMESPACE}}']),
+                         extra=apple_cmake_args(preset, credentials, tokens['{{APPLICATION_ID}}']) + orientation_args + deployment_args,
                          extra_build=preset.get('extraBuildArgs') or [])
         if build:
             if collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}']) is None:
@@ -739,13 +974,19 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
 
 def cmd_generate(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
-    project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
+    resolved = _resolve(args.project, args.preset)
+    if resolved is None:
+        return 1
+    project_dir, preset, tokens, credentials = resolved
     return _prepare(engine, project_dir, preset, tokens, credentials, build=False) or 0
 
 
 def cmd_package(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
-    project_dir, preset, tokens, credentials = _resolve(args.project, args.preset)
+    resolved = _resolve(args.project, args.preset)
+    if resolved is None:
+        return 1
+    project_dir, preset, tokens, credentials = resolved
     return _prepare(engine, project_dir, preset, tokens, credentials, build=True) or 0
 
 
@@ -802,11 +1043,7 @@ def cmd_stage_runtime(args):
     if not args.development and not manifest.is_file():
         print('Shader distribution has not been cooked: ' + args.distribution, file=sys.stderr)
         return 1
-    if not args.development:
-        strip_development_resources(destination)
-    if not stage_configs(engine, project_dir, destination / 'configs', development=args.development):
-        return 1
-    return 0 if stage_bundles(project_dir, preset, destination / 'products', engine) else 1
+    return 0 if stage_runtime_resources(engine, project_dir, preset, destination, args.development) else 1
 
 
 def main():
@@ -824,7 +1061,7 @@ def main():
     p_shaders = sub.add_parser('cook-shaders', help='Cook one project shader distribution from registered module resources')
     p_shaders.add_argument('-p', '--project', required=True)
     p_shaders.add_argument('--distribution', default='default')
-    p_shaders.add_argument('--platform', choices=['windows', 'macos', 'ios', 'android', 'linux'], required=True)
+    p_shaders.add_argument('--platform', choices=['windows', 'macos', 'ios', 'android', 'linux', 'harmonyos'], required=True)
     p_shaders.add_argument('--target', choices=['vulkan', 'metal', 'd3d12'], action='append', required=True)
     p_shaders.add_argument('--bundle', action='append')
     p_shaders.add_argument('--engine')

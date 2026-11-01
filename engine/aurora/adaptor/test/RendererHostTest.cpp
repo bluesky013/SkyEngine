@@ -342,6 +342,7 @@ namespace {
             case ShaderPlatform::IOS: platform = "ios"; break;
             case ShaderPlatform::ANDROID_OS: platform = "android"; break;
             case ShaderPlatform::LINUX: platform = "linux"; break;
+            case ShaderPlatform::HARMONYOS: platform = "harmonyos"; break;
             default: break;
             }
             ASSERT_NE(platform, nullptr);

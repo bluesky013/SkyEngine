@@ -42,11 +42,12 @@ namespace sky {
                                                  : preset.shaderTargets;
             std::set<std::string> targets;
             for (const auto &value : preset.shaderEnvironments) {
-                const bool compatible = value.target == "metal" ? preset.platform == "macos" || preset.platform == "ios"
-                                        : value.target == "d3d12"
-                                            ? preset.platform == "windows"
-                                            : value.target == "vulkan" && (preset.platform == "windows" || preset.platform == "macos" ||
-                                                                           preset.platform == "android" || preset.platform == "linux");
+                const bool compatible =
+                    value.target == "metal" ? preset.platform == "macos" || preset.platform == "ios"
+                    : value.target == "d3d12"
+                        ? preset.platform == "windows"
+                        : value.target == "vulkan" && (preset.platform == "windows" || preset.platform == "macos" || preset.platform == "android" ||
+                                                       preset.platform == "linux" || preset.platform == "harmonyos");
                 if (!compatible || std::find(selected.begin(), selected.end(), value.target) == selected.end() ||
                     !targets.insert(value.target).second || value.matrixLayout > 1 ||
                     (!value.profile.empty() && !ValidEnvironmentString(value.profile)))
@@ -59,6 +60,19 @@ namespace sky {
                     return false;
             }
             return true;
+        }
+
+        bool ValidOrientation(std::string_view value)
+        {
+            return value == "default" || value == "landscape" || value == "portrait" || value == "auto_rotation" ||
+                   value == "auto_rotation_landscape" || value == "auto_rotation_portrait";
+        }
+
+        bool ValidPresetOrientation(const ExportPreset &preset)
+        {
+            return ValidOrientation(preset.orientation) &&
+                   (preset.orientation == "default" || preset.orientation == "landscape" || preset.platform == "android" ||
+                    preset.platform == "harmonyos" || preset.platform == "ios");
         }
 
         void SaveShaderEnvironment(const ExportPresetShaderEnvironment &value, JsonOutputArchive &ar)
@@ -186,6 +200,14 @@ namespace sky {
 
         bool LoadPreset(ExportPreset &value, JsonInputArchive &ar)
         {
+            bool validOrientation = true;
+            ar.ForEachMember([&](const std::string &key, const JsonInputArchive::Value &json) {
+                if (key == "orientation") {
+                    validOrientation = json.IsString() && ValidOrientation(std::string_view(json.GetString(), json.GetStringLength()));
+                }
+            });
+            if (!validOrientation)
+                return false;
             const Uuid      typeId = TypeInfo<ExportPreset>::RegisteredId();
             const TypeNode *node   = GetTypeNode(typeId);
             for (const auto &entry : node->members) {
@@ -244,7 +266,7 @@ namespace sky {
                 }
                 SetValueRaw(&value, typeId, name, field.Data());
             }
-            return ValidShaderEnvironments(value);
+            return ValidPresetOrientation(value) && ValidShaderEnvironments(value);
         }
 
         // The document is a bare array of presets, or an object with a `presets` array.
@@ -303,7 +325,7 @@ namespace sky {
     bool ExportPresets::Save(const std::string &path) const
     {
         for (const auto &preset : presets)
-            if (!ValidShaderEnvironments(preset))
+            if (!ValidPresetOrientation(preset) || !ValidShaderEnvironments(preset))
                 return false;
         OFileArchive out(FilePath{path}, std::ios::binary | std::ios::trunc);
         if (!out.IsOpen()) {
@@ -362,6 +384,12 @@ namespace sky {
             .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Identity")))
             .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(6))
             .Property(static_cast<uint32_t>(CommonPropertyKey::RANGE_MIN), Any(0.0f))
+            .Member<&ExportPreset::orientation>("orientation")
+            .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Orientation")))
+            .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Mobile")))
+            .Property(static_cast<uint32_t>(CommonPropertyKey::ORDER), Any(7))
+            .Property(static_cast<uint32_t>(CommonPropertyKey::TOOLTIP),
+                      Any(std::string_view("landscape (default), portrait, auto_rotation, auto_rotation_landscape, auto_rotation_portrait")))
             .Member<&ExportPreset::bundles>("bundles")
             .Property(static_cast<uint32_t>(CommonPropertyKey::LABEL), Any(std::string_view("Bundles")))
             .Property(static_cast<uint32_t>(CommonPropertyKey::CATEGORY), Any(std::string_view("Content")))

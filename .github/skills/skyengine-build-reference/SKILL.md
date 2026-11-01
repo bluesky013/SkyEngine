@@ -15,7 +15,7 @@ Use this skill when the task involves building SkyEngine, proposing build comman
 - Always keep the documented order: third-party bootstrap first, then CMake configure/generate, then engine build, then optional tests or app packaging.
 - Treat `python/third_party.py` as the required entrypoint for third-party setup, generated `3RD_PATH`, and `build_3rd/thirdparty_cache.cmake` refresh.
 - Preserve placeholders like `<engine_root>`, `<build_dir>`, and `<thirdparty_output_dir>` unless the user provides concrete paths.
-- Use only platform names that exist in the repository tooling: `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `Linux`.
+- Use only platform names that exist in the repository tooling: `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `HarmonyOS`, `Linux`.
 - Call out platform assumptions explicitly when adapting commands.
 - Verify whether `SKY_BUILD_TEST=ON` is enabled before recommending `ctest`.
 - Mention required SDK/toolchain constraints when relevant, especially for Android and iOS.
@@ -48,7 +48,7 @@ Common options:
 - `-i, --intermediate`: clone/build workspace for 3rd-party sources (defaults to `<engine_root>/build_3rd/intermediate`)
 - `-o, --output`: third-party output root; the effective `3RD_PATH` becomes `<output>/<platform>` (defaults to `<engine_root>/build_3rd/<platform>`)
 - `-e, --engine`: repository root (defaults to the current engine root)
-- `-p, --platform`: one of `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `Linux`
+- `-p, --platform`: one of `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `HarmonyOS`, `Linux`
 - `-j, --jobs`: build parallelism (`0` means auto in the script)
 - `-f, --force`: force rebuild even if cached metadata says up to date
 - `-c, --clean`: clean package working trees
@@ -325,6 +325,10 @@ Notes:
   - `CMAKE_TOOLCHAIN_FILE=<ndk>/build/cmake/android.toolchain.cmake`
 - Required SDK env var: one of `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_SDK`
 - Default Android NDK version: `28.1.13356709`
+- APK template baseline: `compileSdk=34`, `targetSdk=33`; AGP `8.8.2`, Gradle wrapper `8.10.2`.
+- Keep the repository toolchain baseline when packaging a test project; the connected device API is an acceptance target, not a reason to change compileSdk/NDK.
+- The legacy APK template defaults to `minSdk=29`, while native dependencies are built for API 31. Exports using those dependencies must declare `minSdk>=31`; claiming API 29 requires rebuilding and validating the native dependency closure for that API.
+- Pass the intended NDK path/version explicitly: discovery permits environment overrides and newest-installed fallback, so a default is not a strict version lock.
 
 ```bash
 python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p Android -j 8
@@ -344,6 +348,15 @@ Notes:
 - If the Android SDK/NDK env vars are missing, `python/third_party.py` fails.
 - The runtime launcher is project-owned: `engine/templates/launcher/` holds the launcher templates; a project's generated Android Studio project lives under `<Project>/build/android/`.
 - Native engine/library build and Android app packaging are related but not identical steps.
+
+### HarmonyOS
+
+- Third-party platform: `HarmonyOS`; it inherits Android package selections and pinned versions.
+- Pass `--ohos-sdk <native-sdk>` or `OHOS_SDK_NATIVE`; use `arm64-v8a`, `c++_shared` and API 26.
+- Bootstrap with `python3 python/third_party.py -p HarmonyOS -o <out> --ohos-sdk <native-sdk> -j 8`.
+- Set `HARMONYOS_COMMAND_LINE_TOOLS` to the official command-line-tools root for `ohpm`/Hvigor packaging.
+- Export through the project's `harmonyos` preset and explicit `bundleId`; signing credentials stay in the ignored credentials file.
+- SDK compilation, signed installation and device lifecycle coverage are distinct results; see `docs/architecture/platform-support.md`.
 
 ### Linux
 

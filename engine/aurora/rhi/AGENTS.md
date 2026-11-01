@@ -4,7 +4,7 @@
 - `common` 只共享 slot 生命周期、lease 约束的 buffer 范围分配、device transient 对象池/借用绑定、完成错误归并、显式纳管资源的提交边界账本与提交保活；native pass、资源/同步计划、encode DAG 和编码策略由各后端完整实现。
 - 生产图只通过 `DeviceFrameContext` 的 lease 协议执行；compiler 为后端私有组合对象。取槽不 reset fence，Rejected 不等待完成，Indeterminate/查询错误不得提前释放资源。2026-10-27 起旧直接协议改由 `Device::CreateDirectFrameContext` 显式创建独立 `DirectFrameContext`，getter 不切协议/推进 slot，TryBeginFrame 检查 Query/TryReset，EndFrame 检查配对。
 - 每个 command reset 域只能覆盖已经退休的 slot/worker/recording；生产 descriptor/staging/UBO 也必须消费同一 lease，禁止自行推进 ring。
-- B11 checked SwapChain 与旧直接协议互斥；Vulkan 需要 maintenance1、acquire fence 与独立 present fence，DX12 使用 DO_NOT_WAIT 和 Present 后 queue fence。资源可退休不等于屏幕已显示；正常 resize/close 不用全设备 WaitIdle，终态销毁另行安全 drain。
+- B11 checked SwapChain 与旧直接协议互斥；Vulkan 按能力选择 maintenance1 的 acquire/present fence 路径，或 core swapchain 的逐图像呈现信号量与 acquire 完成证据。兼容路径的帧退休与呈现资源回收分离，resize 延迟回收旧 generation；无后续 acquire 的关闭采用 core WSI 队列排空惯例，不冒充独立 present fence 或显示完成证明。DX12 使用 DO_NOT_WAIT 和 Present 后 queue fence；正常 resize/close 不用全设备 WaitIdle。
 - borrowed output 绑定 exact lease/owner，单 mip/layer/X1、UNDEFINED→PRESENT；不得包装成拥有型 ImagePtr。逐 cell 状态表也禁止普通资源声明 PRESENT。depth attachment layout 可能包含固定功能 resolve，Vulkan 同步需覆盖 COLOR_ATTACHMENT_OUTPUT/COLOR_ATTACHMENT_WRITE。
 - 当前 Vulkan/DX12 支持 typed buffer copy 冻结图；Vulkan 双 compiler 各自输出 encoder，context mode 固定，支持单 RGBA8 color 的 upload/raster/readback。RenderPass 仅合并连续同 attachment/view、前 STORE/后 LOAD 的 pass 为多 subpass；Dynamic Rendering 独立保留 scope/barrier。公共纯分析不构建 native 同步或命令。
 - Vulkan 按 physical API（至少 1.1）与扩展使用独立 feature 结构协商；timeline/sync2 仍须真实支持，低于 core 提升版本时启用 KHR 扩展并加载对应后缀命令。AUTO 仅在 context 初始化时确定已有 compiler；显式 Dynamic/RenderPass 不支持时失败，不能静默更换或伪报能力。未启用 dynamic rendering 的 device 不提供直接 graphics encoder/PSO；同步、lease 与提交退休不因 compiler 选择改变。

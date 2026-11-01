@@ -32,6 +32,13 @@
 - 后端原生对象先验证 `GetDevice()` 与目标 device 一致；该 owner 契约须保证对象来自对应 device 的实现。不要增加与既有归属接口重复的 `BelongsTo`，也不要只凭 backend 枚举跨 device 转型。
 - 仅迁移本次涉及的调用链；不扩大到无关历史代码。完整规则见 `.opencode/skills/skyengine-coding-rules/SKILL.md`。
 
+## 枚举边界检查
+
+- **禁止用具体业务枚举值表示整个枚举的上限**（如 `value <= ShaderPlatform::HARMONYOS`、`ReadEnum(value, ShaderTarget::DXIL)`）；连续枚举使用独立的 `END` / `COUNT` 排他边界，合法范围为 `[首个合法值, END)`，边界本身不得作为有效值读取或序列化。
+- 新增边界不改变既有枚举数值；读取外部整数时先检查范围再转型，尤其不能先窄化到 `uint8_t` 后再检查。`UNKNOWN` / `UNDEFINED` 是否允许须另按业务契约处理。
+- 位标志、有空洞/显式非连续值的枚举使用合法位掩码或成员白名单；业务只支持部分成员时显式列出，不得把范围边界当作能力支持判断。
+- Review 同步检查二进制/JSON 读写、归一化、索引/数组长度和循环边界；覆盖最后合法值、`END` 及越界值，失败不得覆盖已有有效输出。完整规则见 `.opencode/skills/skyengine-coding-rules/SKILL.md`。
+
 ## 代码注释规范
 
 - **仅注释关键内容**：说明不易从代码直接看出的约束、原因或陷阱，例如所有权、生命周期、线程安全、关键不变量和错误处理边界；不复述命名、语法或显而易见的流程。

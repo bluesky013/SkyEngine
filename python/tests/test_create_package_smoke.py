@@ -75,8 +75,8 @@ class PackageSmokeFixtureTest(unittest.TestCase):
             cache = configure['cacheVariables']
             self.assertEqual(cache['SKY_SHADER_DISTRIBUTION'], 'SceneSmoke-ios')
             self.assertEqual(cache['SKY_MODULE_PACKAGING'], 'static')
-            descriptor = json.loads((project / 'SceneSmoke.skyproj').read_text())
-            self.assertEqual(cache['SKY_BUNDLE_ID'], descriptor['settings']['applicationId'])
+            presets = json.loads((project / 'export_presets.json').read_text())
+            self.assertEqual(cache['SKY_BUNDLE_ID'], next(p['bundleId'] for p in presets if p['platform'] == 'ios'))
             self.assertNotIn('3RD_PATH', cache)
             self.assertNotIn('CMAKE_OSX_ARCHITECTURES', cache)
             self.assertIn('SKY_3RD_CMAKE_ARGS=', commands)

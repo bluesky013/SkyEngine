@@ -27,6 +27,7 @@
     },
     {
       "name": "AudioModule",
+      "buildOption": "SKY_BUILD_AUDIO",
       "dependencies": []
     },
     {

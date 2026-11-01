@@ -49,10 +49,11 @@ namespace sky::aurora {
         std::lock_guard lock(mMutex);
         // Allocate the lease in the consumer; a module-owned control block cannot safely unload itself.
         if (mOwnedCompiler)
-            return std::make_shared<const ShaderCompilerLease>(mModule, mOwnedCompiler);
+            return std::make_shared<const ShaderCompilerLease>(ShaderCompilerLease{mModule, mOwnedCompiler});
         if (!allowBorrowed || !mCompiler)
             return {};
-        return std::make_shared<const ShaderCompilerLease>(nullptr, std::shared_ptr<IShaderCompiler>(mCompiler, [](IShaderCompiler *) {}));
+        return std::make_shared<const ShaderCompilerLease>(
+            ShaderCompilerLease{nullptr, std::shared_ptr<IShaderCompiler>(mCompiler, [](IShaderCompiler *) {})});
     }
 
 } // namespace sky::aurora

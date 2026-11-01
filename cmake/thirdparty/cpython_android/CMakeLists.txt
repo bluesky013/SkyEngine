@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(cpython_android C)
 
-# Cross-builds the CPython core for Android using the NDK toolchain. `pyconfig.h`, `Modules/config.c`, and the
-# object list (`libsrc.txt`) are produced beforehand by CPython's `configure` (see python/build_cpython.py).
+# Android and HarmonyOS share this static-core wrapper; configure supplies the target's
+# pyconfig.h, Modules/config.c and libsrc.txt (see python/build_cpython.py).
 
 set(CPYTHON_SRC "" CACHE PATH "CPython source tree")
 set(CPYTHON_BUILD "" CACHE PATH "CPython out-of-tree configure build directory")

@@ -25,11 +25,11 @@ namespace sky {
 
     // Identity describes actual storage; frame sequence must not disguise mutable aliases.
     struct AccessKey {
-        std::string domain;
-        AccessOwner owner;
-        AccessKind  kind                                 = AccessKind::COMPONENT;
-        uint64_t    identity                             = 0;
-        auto        operator<=>(const AccessKey &) const = default;
+        std::string          domain;
+        AccessOwner          owner;
+        AccessKind           kind                                 = AccessKind::COMPONENT;
+        uint64_t             identity                             = 0;
+        std::strong_ordering operator<=>(const AccessKey &) const = default;
     };
 
     struct AccessDesc {
@@ -69,7 +69,7 @@ namespace sky {
         uint32_t                 to     = 0;
         DependencyOrigin         origin = DependencyOrigin::PHASE;
         std::optional<AccessKey> access;
-        auto                     operator<=>(const DependencyEdge &) const = default;
+        std::strong_ordering     operator<=>(const DependencyEdge &) const = default;
     };
 
     // Systems are in stable semantic order; edges refer to indices in this owned array.

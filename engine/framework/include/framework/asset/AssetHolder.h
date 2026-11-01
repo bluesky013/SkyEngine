@@ -52,7 +52,10 @@ namespace sky {
             return asset ? asset->GetUuid() : Uuid::GetEmpty();
         }
 
-        Asset<T>::DataType &Data() { return asset->Data(); }
+        typename Asset<T>::DataType &Data()
+        {
+            return asset->Data();
+        }
 
         const std::shared_ptr<Asset<T>> &GetAsset() const { return asset; }
     private:

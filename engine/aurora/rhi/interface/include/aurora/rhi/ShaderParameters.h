@@ -36,7 +36,7 @@ namespace sky::aurora {
         ShaderMatrixLayout     matrixLayout = ShaderMatrixLayout::COLUMN_MAJOR;
         std::vector<std::byte> bytes;
         bool                   operator==(const ShaderDataValue &) const  = default;
-        auto                   operator<=>(const ShaderDataValue &) const = default;
+        std::strong_ordering   operator<=>(const ShaderDataValue &) const = default;
     };
     template <class T>
     constexpr ShaderDataType ShaderDataTypeOf()

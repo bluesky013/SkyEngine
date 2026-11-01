@@ -5,7 +5,7 @@ index 6cb480038..b4c2e410b 100644
 @@ -66,6 +66,13 @@ endif()
  #
  enable_language(C CXX)
- 
+
 +# Treat source files as UTF-8 so MSVC does not emit C4819 (and turn it into a
 +# hard error via C2220 under /WX) when building on a non-UTF-8 system code page
 +# (e.g., GBK/936 on Chinese Windows).
@@ -18,7 +18,7 @@ index 6cb480038..b4c2e410b 100644
  include(GNUInstallDirs)
 @@ -657,7 +664,19 @@ if(${SLANG_USE_SYSTEM_GLSLANG})
  endif()
- 
+
  if(SLANG_ENABLE_DXIL)
 -    include(FetchDXC)
 +    # Reuse the engine's dxcompiler package (3RD_PATH) instead of downloading.
@@ -35,7 +35,7 @@ index 6cb480038..b4c2e410b 100644
 +        set_target_properties(copy-${_dll} PROPERTIES FOLDER generated)
 +    endforeach()
  endif()
- 
+
  add_subdirectory(external)
 diff --git a/cmake/SlangTarget.cmake b/cmake/SlangTarget.cmake
 index 6a2e9a85d..705a97f5c 100644
@@ -110,3 +110,115 @@ index 342eb0f41..be58d0c95 100644
          MACHO_COMPATIBILITY_VERSION 0.0.0
          MACHO_CURRENT_VERSION ${SLANG_VERSION_NUMERIC}
  )
+diff --git a/source/core/slang-internally-linked-list.h b/source/core/slang-internally-linked-list.h
+--- a/source/core/slang-internally-linked-list.h
++++ b/source/core/slang-internally-linked-list.h
+@@ -119,6 +119,6 @@
+ };
+
+ template<typename T>
+-using InternallyLinkedListNode = InternallyLinkedList<T>::Node;
++using InternallyLinkedListNode = typename InternallyLinkedList<T>::Node;
+
+ } // namespace Slang
+diff --git a/source/compiler-core/slang-rich-diagnostics-render.cpp b/source/compiler-core/slang-rich-diagnostics-render.cpp
+--- a/source/compiler-core/slang-rich-diagnostics-render.cpp
++++ b/source/compiler-core/slang-rich-diagnostics-render.cpp
+@@ -12,5 +12,4 @@
+ #include <cctype>
+ #include <limits>
+-#include <ranges>
+
+ #ifdef SLANG_ENABLE_DIAGNOSTIC_RENDER_UNIT_TESTS
+@@ -611,6 +610,7 @@
+             StringBuilder conn;
+             Int64 p = 1;
+-            for (const auto& l : labels | std::views::reverse)
+-            {
++            for (Index labelIndex = labels.getCount(); labelIndex-- > 0;)
++            {
++                const auto& l = labels[labelIndex];
+                 conn << repeat(' ', l.col - p)
+                      << color(
+@@ -624,6 +624,7 @@
+             Int64 c = 1;
+             Label target = labels[0];
+-            for (const auto& l : labels | std::views::reverse)
+-            {
++            for (Index labelIndex = labels.getCount(); labelIndex-- > 0;)
++            {
++                const auto& l = labels[labelIndex];
+                 if (l.col > target.col)
+                     break;
+diff --git a/source/slang/slang-capability.cpp b/source/slang/slang-capability.cpp
+--- a/source/slang/slang-capability.cpp
++++ b/source/slang/slang-capability.cpp
+@@ -7,5 +7,4 @@
+ #include "slang-capability-val.h"
+
+-#include <ranges>
+
+ // This file implements the core of the "capability" system.
+@@ -946,6 +945,7 @@
+     // The key and the "target" member of the target sets are always the same,
+     // so we can just hash the values
+-    auto stageSetsView = shaderStageSets | std::views::values;
+-    HashCode64 stageSetsHash = symmetricHash(stageSetsView.begin(), stageSetsView.end());
++    HashCode64 stageSetsHash = symmetricHash(
++        shaderStageSets.begin(), shaderStageSets.end(),
++        [](const auto& entry) { return ::Slang::getHashCode(entry.second); });
+     return combineHash(targetHash, stageSetsHash);
+ }
+@@ -955,6 +955,7 @@
+     // The key and the "target" member of the target sets are always the same,
+     // so we can just hash the values
+-    auto targetSetsView = m_targetSets | std::views::values;
+-    return symmetricHash(targetSetsView.begin(), targetSetsView.end());
++    return symmetricHash(
++        m_targetSets.begin(), m_targetSets.end(),
++        [](const auto& entry) { return ::Slang::getHashCode(entry.second); });
+ }
+
+diff --git a/source/core/slang-hash.h b/source/core/slang-hash.h
+--- a/source/core/slang-hash.h
++++ b/source/core/slang-hash.h
+@@ -197,9 +197,7 @@
+ }
+
+-template<typename I>
+-HashCode64 symmetricHash(I begin, I end)
+-{
+-    using V = typename std::iterator_traits<I>::value_type;
+-
++template<typename I, typename ElementHash>
++HashCode64 symmetricHash(I begin, I end, ElementHash hashElement)
++{
+     HashCode64 sum = 0;
+     HashCode64 product = 1;
+@@ -208,5 +206,5 @@
+     for (I it = begin; it != end; ++it)
+     {
+-        HashCode64 element_hash = getHashCode(*it);
++        HashCode64 element_hash = hashElement(*it);
+
+         sum += element_hash;
+@@ -217,4 +215,9 @@
+
+     return sum ^ (product * prime);
++}
++template<typename I>
++HashCode64 symmetricHash(I begin, I end)
++{
++    return symmetricHash(begin, end, [](const auto& value) { return getHashCode(value); });
+ }
+ struct Hasher
+diff --git a/source/slang/slang-fossil.h b/source/slang/slang-fossil.h
+--- a/source/slang/slang-fossil.h
++++ b/source/slang/slang-fossil.h
+@@ -127,5 +127,5 @@
+
+ template<typename T>
+-using Fossilized = FossilizedTypeTraits<T>::FossilizedType;
++using Fossilized = typename FossilizedTypeTraits<T>::FossilizedType;
+
+ //

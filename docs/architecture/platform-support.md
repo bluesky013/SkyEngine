@@ -2,12 +2,12 @@
 title: "Multi-Platform Support"
 description: "Per-OS status of window/input/filesystem/process backends and RHI, with open TODOs and build caveats."
 module: "framework"
-updated: "2026-10-15"
+updated: "2026-11-01"
 ---
 
 ## Overview
 
-SkyEngine has native Windows, macOS, Android, and iOS platform layers. This document is the single place
+SkyEngine has native Windows, macOS, Android, iOS and Linux platform layers, with HarmonyOS integration in progress. This document is the single place
 that tracks **what each platform backend implements today**, the **TODO gaps**, and the **cross-cutting
 caveats** that repeatedly bite when adding platform-specific code. It is grounded in
 `engine/framework/platform/*` and `engine/aurora/rhi/*`.
@@ -25,7 +25,7 @@ caveats** that repeatedly bite when adding platform-specific code. It is grounde
 | Editor (`SandboxEditor` / `SandboxModule`) | main baseline | builds; native platform tests pass | not a mobile editor target | not a mobile editor target |
 
 Platform selection is done in `engine/framework/CMakeLists.txt`: Windows, Darwin (Cocoa + POSIX),
-Android (GameActivity), and iOS (UIKit + POSIX). Linux still has no complete native platform branch.
+Android (GameActivity), iOS (UIKit + POSIX), Linux (X11 + POSIX) and OHOS (XComponent).
 The native service work does not establish GPU, signing, or packaged-game parity across platforms.
 
 Hosts use `aurora::API::DEFAULT` unless an explicit backend is selected. DEFAULT maps to Metal on
@@ -35,10 +35,92 @@ The consolidated [resolved-issue ledger](../../openspec/changes/archive/2026-10-
 records root causes, fixes, evidence and remaining work across the native-service, UIScene and package phases.
 Historical test counts and compile-only checks are kept separate from final package/runtime results.
 
+## HarmonyOS integration in progress
+
+Huawei native HarmonyOS has a separate `HarmonyOS` dependency platform, `harmonyos` CMake preset,
+and `SKY_PLATFORM_OHOS` engine identity. It uses the same dependency set and pinned versions as Android,
+rebuilt with the OHOS toolchain into a separate output. OHOS SDK libraries are handled independently.
+The current compile baseline is Command Line Tools 26.0.0.865 / Native SDK 26.0.0.105,
+API 26, arm64-v8a, C++20 and c++_shared. Older runtime API levels are not validated.
+
+All 15 Android-matched dependencies and the OHOS root runtime build pass with the current SDK.
+After SDK relocation, all 15 packages were actually rebuilt through the public third-party workflow
+using `D:/Program Files/Huawei/sdk/default/openharmony/native`, with independent artifacts in
+`build/harmonyos-thirdparty/HarmonyOS`. Canonical-SDK strict preflight reports **0 missing/stale,
+0 output-missing**; this was not a cache-key rewrite. Package/version parity does not imply device
+Python import or TLS runtime acceptance.
+Core/Framework whole-archive links and the production Vulkan target pass; NEON is enabled in the root build.
+Window/surface, rawfile, sandbox paths, HiLog, NativeVSync and the ArkTS/XComponent launcher are implemented.
+The initial development HAP covered 21 AArch64 shared libraries, the shared STL and staged runtime resources;
+that package's ELF dependency closure resolved against packaged libraries and SDK system stubs.
+Signed installation and application startup pass on Pura 80 Pro / HarmonyOS 7.0.0.109 (API 26).
+Its Maleoon 920 reports Vulkan 1.3.309 and lacks the surface/swapchain maintenance1 extensions.
+The checked protocol now selects maintenance1 only when its dependencies and feature are available;
+otherwise it uses core WSI with per-image present semaphores and deferred swapchain retirement.
+The device passed three capability-negotiation tests and two 600-frame GPU clear runs. Blue/green
+screenshots, one background/foreground cycle, and normal renderer shutdown were verified.
+Core WSI final shutdown uses the queue-drain convention, which is not an independent present-completion
+proof. The local, git-ignored `examples/HarmonyPhysics` acceptance project also passes cooked World/material loading,
+indexed cube rendering and Jolt gravity/collision/stacking with 27 dynamic bodies on a static ground.
+Its 12-second simulation reset and one background/foreground cycle pass on the same device.
+Android's nine isolated terminal flows, OHOS's seven UI flows and native Chinese IME pass.
+Clean formal APK/HAP packages were rebuilt through the public package command, audited without acceptance
+probes, and restored on both phones. Android's nine and OHOS's eleven native libraries have complete
+ELF dependency closure; all 80 OHOS rawfiles match staging byte for byte. Both physical scenes remain
+visible after a same-process background/foreground cycle. Texture and missing-resource failure scenarios,
+rotation and long-running GPU/presentation stress also remain open. Windows Framework and FrameworkTest
+were rebuilt with the existing VS2022 cache; the complete run passes **270 tests**, including **17**
+shared text-dialog state tests and **13** OHOS input policy tests executed on the desktop.
+HiLog lives in `core/platform/ohos`, window/resource services in `framework/platform/ohos`,
+and OHOS Vulkan surface setup in `aurora/rhi/vulkan/platform/ohos`, each in its existing target.
+The approved host consolidation places `OHOSHost` in the existing Framework `platform/ohos` implementation.
+A cross-DLL `Singleton` provides a stable callback receiver; its PIMPL owns sessions, the worker, NativeVSync,
+the event queue, generation checks and stop/join. The project launcher retains N-API/XComponent registration
+and supplies a factory that initializes `GameApplication` when invoked on the host worker.
+`OHOSHost` remains independent of `OHOSPlatform`; the external N-API owner stops and joins the host before
+releasing that owner. Platform windows consume shared native-window leases without retaining the SDK object
+again. Native reference/unreference operations share one long-lived mutex, including delayed lease release.
+This work adds no target and does not change the Android/iOS thread models. Tasks 6.9/6.10 record the
+new host's API 26 build, restart and Windows regression, plus **30/30** device assertions covering SDK
+failure paths and stale callbacks. A separate **65-second** run used real SDK VSync and XComponent
+destruction/recreation, with 48 attachments, six background/foreground pairs and zero reported failures.
+Stop balanced 48/48 Host window references, 1/1 applications and 1/1 VSync handles. RSS grew from
+75092 to 92744 KiB by the 75-second sample and later reached 94428 KiB; file-descriptor access was denied.
+This lightweight Host fixture does not run Renderer. Balanced explicit resources and a short observation
+do not establish a leak-free process or GPU/present retirement; longer rendering stress remains open.
+The API 26 Windows emulator image is prepared; host virtualization changes require a reboot,
+and the x86 emulator still needs a separate ABI build. See the
+[active checklist](../../openspec/changes/add-harmonyos-platform/tasks.md) and
+[validation record](../../openspec/changes/add-harmonyos-platform/validation.md) for exact build coverage.
+
 ## Input layer
 
 All window input is delivered as events in `engine/framework/include/framework/window/IWindowEvent.h` and
 consumed by the editor through `IMouseEvent` / `IKeyboardEvent` (see `SandboxModule`).
+
+### Native text dialogs
+
+`Platform::ShowTextInputDialog` / `HideTextInputDialog` share `NativeTextInputOptions` and a callback
+contract across Android, HarmonyOS and iOS. Options include text, placeholder, title, multiline,
+password and a Unicode-scalar maximum length (zero is unlimited); multiline password requests are invalid.
+These callbacks are separate from window key events and committed-text deltas.
+
+| Backend | Native UI | Current verification |
+|---|---|---|
+| Android | Activity Dialog/EditText | Isolated phone fixture: 121 native + 20 UI checks, nine terminal flows pass; clean formal APK restored |
+| HarmonyOS | ArkUI CustomDialogController + TextInput/TextArea | Final phone retest: seven flows, zero failures, 19 CHANGED / 5 CONFIRMED / 2 CANCELLED; native Chinese IME also verified |
+| iOS | UIKit editor controller + UITextField/UITextView | Source and device-test runner provided; compile/runtime deferred because no Mac is available |
+
+UI threads retain only a token and queue committed CHANGED snapshots; identical snapshots are deduplicated,
+preedit is excluded, and one CONFIRMED/CANCELLED/ERROR is delivered on the engine owner thread.
+Hide and session teardown drain accepted work. Terminal delivery retires the token before invoking user
+code, allowing reopening; shutdown disables new requests first. Invalid CHANGED data is rejected, while
+invalid terminal text or bridge-conversion failure completes with ERROR and the last valid snapshot.
+Password contents and other input text are excluded from logs.
+
+The shared state passes 17 desktop behavior tests. UIKit's 37 Python ownership/runner checks verify
+source contracts only; they do not compile or execute UIKit. The user has deferred Mac validation,
+which does not block the current Android/OHOS device work.
 
 ### Mouse wheel event contract
 
@@ -90,7 +172,7 @@ while marked composition stays in the platform text system.
 - Mobile work files use writable app data directories. Startup config lookup prefers that/project directory,
   then the bundle filesystem. Android packages `configs/` under APK assets with project overrides applied.
   A failed launcher initialization never starts the application tick loop.
-- Android uses GameActivity **1.2.2** and `game-activity::game-activity_static`. Its official archive includes
+- Android uses GameActivity **4.4.2** and `game-activity::game-activity_static`. Its official archive includes
   GameActivity, native app glue and GameTextInput; do not include those implementation sources again.
   The former 1.1.0 source distribution is incompatible with the current NDK compiler.
 - APK paths use normalized logical separators; missing files and short reads fail explicitly. Buffered

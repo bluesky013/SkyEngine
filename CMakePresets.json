@@ -3,6 +3,23 @@
   "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
   "configurePresets": [
     {
+      "name": "harmonyos",
+      "displayName": "HarmonyOS arm64 runtime",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/harmonyos",
+      "toolchainFile": "$env{OHOS_SDK_NATIVE}/build/cmake/ohos.toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OHOS_ARCH": "arm64-v8a",
+        "OHOS_STL": "c++_shared",
+        "SKY_BUILD_SANDBOX": "OFF",
+        "SKY_BUILD_TOOL": "OFF",
+        "SKY_BUILD_TEST": "OFF",
+        "SKY_BUILD_NETWORK_ENET": "OFF",
+        "SKY_BUILD_AUDIO": "OFF"
+      }
+    },
+    {
       "name": "windows-develop",
       "displayName": "Windows Develop editor",
       "generator": "Visual Studio 17 2022",
@@ -35,6 +52,7 @@
     }
   ],
   "buildPresets": [
+    { "name": "harmonyos", "configurePreset": "harmonyos" },
     { "name": "windows-develop", "configurePreset": "windows-develop", "configuration": "Develop" },
     { "name": "windows-debug", "configurePreset": "windows-develop", "configuration": "Debug" },
     { "name": "windows-release", "configurePreset": "windows-develop", "configuration": "Release" },

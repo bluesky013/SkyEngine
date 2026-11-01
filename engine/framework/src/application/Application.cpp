@@ -2,6 +2,7 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
+#include "platform/NativeTextInputState.h"
 #include <framework/application/Application.h>
 
 #include <core/profile/Profiler.h>
@@ -53,7 +54,9 @@ namespace sky {
         moduleManager.reset();
         DrainApplicationCallbacks();
 
-        AssetManager::Destroy();
+        if (!AssetManager::Get()->ResetRuntimeState()) {
+            LOG_E(TAG, "Asset runtime reset failed: cook requests remain after draining application callbacks");
+        }
 
         sky::Platform *platform = sky::Platform::Get();
         platform->Shutdown();
@@ -69,6 +72,8 @@ namespace sky {
             return;
         }
         shutdown = true;
+        NativeTextInputState::Get()->SetEnabled(false);
+        Platform::Get()->HideTextInputDialog();
         Platform::Get()->StopFrameLoop();
         if (Platform::Get()->GetImpl() != nullptr) {
             Platform::Get()->SetFrameCallback({});
@@ -92,6 +97,7 @@ namespace sky {
 
     bool Application::Init(int argc, char **argv)
     {
+        NativeTextInputState::Get()->SetEnabled(true);
         LOG_I(TAG, "Application Init Start...");
         env = Environment::Get();
         if (env == nullptr) {

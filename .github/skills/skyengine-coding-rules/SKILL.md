@@ -323,4 +323,28 @@ that re-implemented `AssetTool`'s project bootstrap and ignored its IPC path.)
 When adding a tool/target/file, if something similar already exists, flag it and reuse it. Re-implementing bootstrap,
 registration, or serialization that another component already performs is a red flag.
 
+## Rule 10 - Enum bounds must use a dedicated sentinel
+
+### Requirement
+
+- Do not use a concrete business enumerator as the upper bound of its entire enum, such as
+  `value <= ShaderPlatform::HARMONYOS` or `ReadEnum(value, ShaderTarget::DXIL)`.
+- Contiguous enums use an exclusive `END` / `COUNT` sentinel. Check the lower bound as needed and reject
+  the sentinel itself. Keep existing serialized values unchanged when adding it.
+- Validate an external integer before casting to the enum, particularly before narrowing to an 8-bit
+  underlying type. Treat `UNKNOWN` / `UNDEFINED` according to the separate domain contract.
+- Sparse enums and bit flags require an explicit membership check or valid-bit mask. A supported subset
+  uses explicit members; enum range validity does not establish backend capability support.
+- Do not replace the last member with a literal or `END - 1`. Use the exclusive boundary directly.
+
+### Review checks
+
+1. Inspect enum comparisons (`<`, `<=`, `>`, `>=`), reader bounds, loop limits and enum-indexed array sizes.
+   A concrete enumerator used as a range limit is a review finding; comparisons with business meaning
+   must be distinguished from whole-enum bounds.
+2. Follow each changed enum through binary/JSON decoding, normalization and validation. Reject invalid
+   values before narrowing and preserve the caller's valid output on decode failure.
+3. Verify the last valid member, `END` / `COUNT`, a value above it and the input integer's maximum value.
+   Preserve explicit subset restrictions and sparse/flag validation instead of widening them mechanically.
+
 <!-- Future rules go here as ## Rule N sections -->

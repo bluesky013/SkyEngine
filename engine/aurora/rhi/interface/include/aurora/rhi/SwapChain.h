@@ -88,6 +88,7 @@ namespace sky::aurora {
             return {PresentationStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};
         }
         // Call after GPU completion and CPU borrowers exit; abandon means no present was enqueued.
+        // Retirement releases the frame; the backend may retain presentation resources until separate completion evidence.
         virtual FenceQueryResult RetireFrame(uint64_t, bool) noexcept
         {
             return {FenceStatus::FAILED, {GpuErrorCode::UNSUPPORTED}};

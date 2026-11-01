@@ -329,7 +329,7 @@ namespace sky::aurora {
                 uint32_t type = 0;
                 if (!legacy)
                     ar.LoadValue(type);
-                if (type > static_cast<uint32_t>(ShaderVariantType::BOOL) ||
+                if (type >= static_cast<uint32_t>(ShaderVariantType::END) ||
                     (type == static_cast<uint32_t>(ShaderVariantType::BOOL) && entry.value > 1)) {
                     ar.Invalidate();
                     return;

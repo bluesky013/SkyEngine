@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <framework/platform/NativeTextInput.h>
+
 #include <core/environment/Singleton.h>
 #include <core/file/FileSystem.h>
 #include <core/platform/Platform.h>
@@ -119,6 +121,14 @@ namespace sky {
         virtual void StartTextInput()
         {
         }
+        // False means unavailable/invalid/busy; accepted requests finish through the callback.
+        virtual bool ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback)
+        {
+            return false;
+        }
+        virtual void HideTextInputDialog()
+        {
+        }
         virtual void StopTextInput()
         {
         }
@@ -162,6 +172,8 @@ namespace sky {
         bool ShowSaveFileDialog(void *owner, std::string &outPath, const std::string &title = {}, const std::string &filter = {}) const;
         void RevealInFileExplorer(const std::string &path);
         void StartTextInput();
+        bool ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback);
+        void HideTextInputDialog();
         void StopTextInput();
         void SetTextInputRect(int32_t x, int32_t y, int32_t width, int32_t height);
 

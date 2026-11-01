@@ -51,7 +51,7 @@ namespace sky::aurora {
     // GlobalVariantLayout owns pipeline keys; per-shader keys follow its reserved region.
 
     // ---- data-driven schema ----
-    enum class ShaderVariantDomain : uint8_t { SHADER, VERTEX, PIPELINE };
+    enum class ShaderVariantDomain : uint8_t { SHADER, VERTEX, PIPELINE, END };
     struct ShaderVariantSchema {
         static constexpr uint32_t kMaxLogicalBits = 32768;
         static constexpr uint32_t kMaxEntries     = 1024;

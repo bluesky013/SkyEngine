@@ -32,6 +32,8 @@ namespace sky {
         void     PollEvent(bool &exit, EventPollMode mode = EventPollMode::WAIT_IF_INACTIVE) override;
         void     StartTextInput() override;
         void     StopTextInput() override;
+        bool     ShowTextInputDialog(const NativeTextInputOptions &options, NativeTextInputCallback callback) override;
+        void     HideTextInputDialog() override;
 
     private:
         bool Init(const PlatformInfo &desc) override;

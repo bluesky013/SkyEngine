@@ -29,6 +29,7 @@ TEST(ExportPresetTest, JsonRoundTrip)
     android.platform           = "android";
     android.variant            = "release";
     android.bundleId           = "com.acme.game";
+    android.orientation        = "auto_rotation_landscape";
     android.versionName        = "2.3";
     android.versionCode        = 7;
     android.keystore           = "release";
@@ -58,6 +59,7 @@ TEST(ExportPresetTest, JsonRoundTrip)
     const sky::ExportPreset *a = loaded.Find("Game-android");
     ASSERT_NE(a, nullptr);
     EXPECT_EQ(a->bundleId, "com.acme.game");
+    EXPECT_EQ(a->orientation, "auto_rotation_landscape");
     EXPECT_EQ(a->versionCode, 7);
     EXPECT_EQ(a->bundles.size(), 2u);
     EXPECT_EQ(a->bundles[1], "tex_low");
@@ -82,6 +84,56 @@ TEST(ExportPresetTest, JsonRoundTrip)
     EXPECT_EQ(m->signing, "off");
 
     std::filesystem::remove_all(root);
+}
+
+TEST(ExportPresetTest, OrientationDefaultsAndValidationPreservePreviousState)
+{
+    const auto root = std::filesystem::temp_directory_path() / ("sky_orientation_" + sky::Uuid::Create().ToString());
+    std::filesystem::create_directories(root);
+    const auto         path = (root / "presets.json").string();
+    sky::ExportPresets presets;
+    for (const auto *platform : {"android", "harmonyos", "ios", "macos", "windows", "linux"}) {
+        {
+            std::ofstream file(path);
+            file << "[{\"name\":\"game\",\"platform\":\"" << platform << "\"}]";
+        }
+        ASSERT_TRUE(presets.Load(path));
+        EXPECT_EQ(presets.presets[0].orientation, "landscape");
+    }
+    for (const auto *platform : {"android", "harmonyos", "ios"}) {
+        for (const auto *orientation : {"default", "landscape", "portrait", "auto_rotation", "auto_rotation_landscape", "auto_rotation_portrait"}) {
+            presets.presets[0].platform    = platform;
+            presets.presets[0].orientation = orientation;
+            ASSERT_TRUE(presets.Save(path));
+            sky::ExportPresets loaded;
+            ASSERT_TRUE(loaded.Load(path));
+            EXPECT_EQ(loaded.presets[0].orientation, orientation);
+        }
+    }
+    const auto previous = presets.presets[0].orientation;
+    for (const auto *invalid : {R"("sideways")", R"("")", "null", "123", "false", "[]", R"("landscape\u0000bad")"}) {
+        {
+            std::ofstream file(path);
+            file << "[{\"platform\":\"harmonyos\",\"orientation\":" << invalid << "}]";
+        }
+        EXPECT_FALSE(presets.Load(path)) << invalid;
+        EXPECT_EQ(presets.presets[0].orientation, previous);
+    }
+    {
+        std::ofstream file(path);
+        file << "keep";
+    }
+    presets.presets[0].orientation = "invalid";
+    EXPECT_FALSE(presets.Save(path));
+    presets.presets[0].orientation = "portrait";
+    presets.presets[0].platform    = "windows";
+    EXPECT_FALSE(presets.Save(path));
+    std::ifstream file(path);
+    std::string   contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(contents, "keep");
+    file.close();
+    std::error_code error;
+    std::filesystem::remove_all(root, error);
 }
 
 TEST(ExportPresetTest, ReflectionRegistered)

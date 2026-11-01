@@ -198,7 +198,7 @@ namespace sky::aurora {
                     variant.type  = ShaderVariantType::INT32;
                     variant.value = static_cast<uint32_t>(value.GetInt());
                 } else if (value.IsObject() && value.MemberCount() == 2 && value.HasMember("type") && value["type"].IsUint() &&
-                           value["type"].GetUint() <= static_cast<uint32_t>(ShaderVariantType::BOOL) && value.HasMember("value") &&
+                           value["type"].GetUint() < static_cast<uint32_t>(ShaderVariantType::END) && value.HasMember("value") &&
                            value["value"].IsUint()) {
                     variant.type  = static_cast<ShaderVariantType>(value["type"].GetUint());
                     variant.value = value["value"].GetUint();

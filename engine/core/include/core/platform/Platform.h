@@ -48,6 +48,8 @@ namespace sky::detail {
 
 #elif defined(__ANDROID__)
     #define SKY_PLATFORM_ANDROID 1
+#elif defined(__OHOS__)
+    #define SKY_PLATFORM_OHOS 1
 #elif defined(__linux__)
     #define SKY_PLATFORM_LINUX 1
 #else
@@ -115,15 +117,7 @@ namespace sky::detail {
 
 namespace sky {
 
-    enum class PlatformType : uint8_t {
-        Default,
-        Windows,
-        MacOS,
-        Linux,
-        Android,
-        IOS,
-        UNDEFINED
-    };
+    enum class PlatformType : uint8_t { Default, Windows, MacOS, Linux, Android, IOS, HarmonyOS, UNDEFINED };
 
     enum class Endian : uint8_t {
         Little,

@@ -20,9 +20,11 @@ PyConfig.site_import = 0.
 """
 
 import argparse
+import hashlib
 import struct
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -30,7 +32,8 @@ import zipfile
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Build CPython for SkyEngine")
-parser.add_argument("-p", "--platform", required=True, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"])
+parser.add_argument("-p", "--platform", required=True, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "HarmonyOS", "IOS", "Linux"])
+parser.add_argument("--ohos-sdk", help="HarmonyOS native SDK root (or OHOS_SDK_NATIVE)")
 parser.add_argument("-o", "--output", required=True, help="third-party output root")
 args = parser.parse_args()
 
@@ -409,6 +412,98 @@ def find_frozen_root():
     raise RuntimeError("frozen module headers not found; build CPython on the host first or run Tools/build/freeze_modules.py")
 
 
+def build_harmonyos(major, minor):
+    native_path = args.ohos_sdk or os.environ.get("OHOS_SDK_NATIVE")
+    if not native_path:
+        parser.error("HarmonyOS requires --ohos-sdk <native-sdk> or OHOS_SDK_NATIVE")
+    native = Path(native_path).resolve()
+    toolchain = native / "build/cmake/ohos.toolchain.cmake"
+    metadata = native / "oh-uni-package.json"
+    if not toolchain.is_file() or not metadata.is_file():
+        parser.error(f"Incomplete HarmonyOS native SDK: {native}")
+    bash = find_bash()
+    if not bash:
+        parser.error("CPython HarmonyOS configuration requires bash on the build host")
+    if sys.version_info[:2] != (major, minor):
+        parser.error(f"CPython cross-build requires a Python {major}.{minor} host interpreter")
+    identity = hashlib.sha256(native.as_posix().encode() + toolchain.read_bytes() + metadata.read_bytes()).hexdigest()[:12]
+    build_dir = SOURCE_DIR / f"harmonyos-build-{identity}-arm64"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["MSYS_NO_PATHCONV"] = "1"
+    env["ac_cv_file__dev_ptmx"] = "no"
+    env["ac_cv_file__dev_ptc"] = "no"
+    exe = ".exe" if os.name == "nt" else ""
+    # Some SDKs ship an empty libintl.h; check the declarations and linked symbols.
+    gettext_probe = """#include <libintl.h>
+char *probe(const char *text) {
+    gettext(text);
+    dgettext(text, text);
+    dcgettext(text, text, 0);
+    textdomain(text);
+    return bindtextdomain(text, text);
+}
+"""
+    gettext_result = subprocess.run(
+        [str(native / "llvm/bin" / ("clang" + exe)), "--target=aarch64-linux-ohos",
+         f"--sysroot={native.as_posix()}/sysroot", "-D__MUSL__", "-fPIC", "-shared", "-Wl,--no-undefined",
+         "-Werror=implicit-function-declaration", "-Werror=int-conversion", "-x", "c", "-",
+         "-o", str(build_dir / "libgettext_probe.so")], input=gettext_probe, text=True, capture_output=True)
+    (build_dir / "gettext-probe.log").write_text(gettext_result.stdout + gettext_result.stderr, encoding="utf-8")
+    env["ac_cv_header_libintl_h"] = "yes" if gettext_result.returncode == 0 else "no"
+    for variable, binary in (("CC", "clang"), ("CXX", "clang++"), ("AR", "llvm-ar"),
+                             ("RANLIB", "llvm-ranlib"), ("READELF", "llvm-readelf")):
+        command = [to_msys_path(native / "llvm/bin" / (binary + exe))]
+        if variable in ("CC", "CXX"):
+            command += ["--target=aarch64-linux-ohos", f"--sysroot={native.as_posix()}/sysroot", "-D__MUSL__", "-fPIC"]
+        wrapper = build_dir / f"{variable.lower()}.sh"
+        wrapper.write_text("#!/bin/sh\nexec " + shlex.join(command) + ' "$@"\n', encoding="utf-8", newline="\n")
+        wrapper.chmod(0o755)
+        env[variable] = f"./{wrapper.name}"
+
+    use_ssl = static_ssl_available()
+    setup_lines = builtin_setup_lines()
+    if use_ssl:
+        setup_lines += [f"{entry} -I{to_msys_path(OPENSSL_DIR / 'include')}" for entry in ANDROID_SSL_SETUP]
+    setup = build_dir / "Modules/Setup.local"
+    setup.parent.mkdir(parents=True, exist_ok=True)
+    setup.write_text("\n".join(setup_lines) + "\n", encoding="utf-8")
+    build_triplet = subprocess.check_output([bash, to_msys_path(SOURCE_DIR / "config.guess")], text=True).strip()
+    # CPython's config.sub recognizes musl; the compiler wrapper selects the OHOS ABI.
+    run([bash, to_msys_path(SOURCE_DIR / "configure"), "-C", "--host=aarch64-unknown-linux-musl",
+         f"--build={build_triplet}", "--disable-shared", "--without-ensurepip", "--enable-ipv6",
+         f"--with-build-python={to_msys_path(sys.executable)}"], cwd=build_dir, env=env)
+
+    makefile = build_dir / "Makefile"
+    if not makefile.is_file():
+        parser.error(f"CPython configure did not produce {makefile}")
+    (build_dir / "libsrc.txt").write_text("\n".join(parse_makefile_sources(makefile)), encoding="utf-8")
+    rules = (SOURCE_DIR / "Makefile.pre.in").read_text(encoding="utf-8")
+    freezes = re.findall(r'\$\(FREEZE_MODULE(?:_BOOTSTRAP)?\) (\S+) \$\(srcdir\)/(\S+) (Python/frozen_modules/\S+)', rules)
+    if not freezes:
+        parser.error("CPython frozen-module rules were not found")
+    for name, source, output in freezes:
+        target = build_dir / output
+        target.parent.mkdir(parents=True, exist_ok=True)
+        run([sys.executable, SOURCE_DIR / "Programs/_freeze_module.py", name, SOURCE_DIR / source, target])
+
+    tag = f"{major}.{minor}"
+    cmake_build = build_dir / "cmake-build"
+    ninja = native / "build-tools/cmake/bin" / ("ninja.exe" if os.name == "nt" else "ninja")
+    command = ["cmake", "-S", str(ENGINE_ROOT / "cmake/thirdparty/cpython_android"),
+               "-B", str(cmake_build), "-G", "Ninja", f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}",
+               "-DOHOS_ARCH=arm64-v8a", "-DOHOS_STL=c++_shared", "-DCMAKE_BUILD_TYPE=Release",
+               "-DCMAKE_POSITION_INDEPENDENT_CODE=ON", f"-DCPYTHON_SRC={SOURCE_DIR}",
+               f"-DCPYTHON_BUILD={build_dir}", f"-DCPYTHON_FROZEN={build_dir}", f"-DCPYTHON_VERSION={tag}"]
+    if ninja.is_file():
+        command.append(f"-DCMAKE_MAKE_PROGRAM={ninja.as_posix()}")
+    if use_ssl:
+        command.append(f"-DOPENSSL_INCLUDE_DIR={OPENSSL_DIR / 'include'}")
+    run(command)
+    run(["cmake", "--build", str(cmake_build), "--parallel", os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", "8")])
+    install_cross_python(build_dir, cmake_build, tag, use_ssl)
+
+
 def build_android(major, minor):
     sdk, ndk = resolve_android_env()
     if ndk is None:
@@ -480,6 +575,11 @@ def build_android(major, minor):
     ] + ([f"-DOPENSSL_INCLUDE_DIR={OPENSSL_DIR / 'include'}"] if use_ssl else []))
     run(["cmake", "--build", str(cmake_build)])
 
+    install_cross_python(build_dir, cmake_build, tag, use_ssl)
+
+
+def install_cross_python(build_dir, cmake_build, tag, use_ssl):
+
     include_dir = INSTALL_DIR / "include"
     reset_dir(include_dir)
     for item in (SOURCE_DIR / "Include").iterdir():
@@ -524,7 +624,7 @@ def package_android_stdlib_zip(tag):
             if any(part in ANDROID_STDLIB_EXCLUDE for part in rel.parts):
                 continue
             archive.write(file, rel.as_posix())
-    print(f"[cpython] android stdlib zip: {zip_path}")
+    print(f"[cpython] {args.platform} stdlib zip: {zip_path}")
 
 
 def decimal_setup_entry():
@@ -621,6 +721,8 @@ def main():
         build_windows(major, minor)
     elif args.platform == "Android":
         build_android(major, minor)
+    elif args.platform == "HarmonyOS":
+        build_harmonyos(major, minor)
     else:
         build_unix(major, minor)
 

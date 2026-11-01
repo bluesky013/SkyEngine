@@ -17,6 +17,7 @@ the OpenSSL source clone as the working directory. Install layout:
 """
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -31,7 +32,8 @@ CA_BUNDLE_URL = "https://curl.se/ca/cacert.pem"
 
 parser = argparse.ArgumentParser(description="Build static OpenSSL for SkyEngine")
 parser.add_argument("-p", "--platform", required=True,
-                    choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"])
+                    choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "HarmonyOS", "IOS", "Linux"])
+parser.add_argument("--ohos-sdk", help="HarmonyOS native SDK root (or OHOS_SDK_NATIVE)")
 parser.add_argument("-o", "--output", required=True, help="third-party output root")
 args = parser.parse_args()
 
@@ -52,6 +54,7 @@ VARIANTS = {
     "MacOS-arm": "darwin",
     "Linux": "unix",
     "Android": "unix",
+    "HarmonyOS": "unix",
     "IOS": "darwin",
 }
 
@@ -147,8 +150,27 @@ def resolve_android_ndk():
 
 
 def configure_cmake(variant, generated):
-    cmake = ["cmake", "-S", str(CMAKE_SOURCE), "-B", str(BUILD_DIR)]
-    if args.platform == "Android":
+    build_dir = BUILD_DIR
+    cmake = ["cmake", "-S", str(CMAKE_SOURCE)]
+    if args.platform == "HarmonyOS":
+        native_path = args.ohos_sdk or os.environ.get("OHOS_SDK_NATIVE")
+        if not native_path:
+            parser.error("HarmonyOS requires --ohos-sdk <native-sdk> or OHOS_SDK_NATIVE")
+        native = Path(native_path).resolve()
+        toolchain = native / "build/cmake/ohos.toolchain.cmake"
+        if not toolchain.is_file():
+            parser.error(f"HarmonyOS toolchain not found: {toolchain}")
+        metadata = native / "oh-uni-package.json"
+        if not metadata.is_file():
+            parser.error(f"HarmonyOS SDK metadata not found: {metadata}")
+        identity = hashlib.sha256(native.as_posix().encode() + toolchain.read_bytes() + metadata.read_bytes()).hexdigest()[:12]
+        build_dir = BUILD_DIR.with_name(f"{BUILD_DIR.name}-{identity}-arm64-shared")
+        ninja = native / "build-tools/cmake/bin" / ("ninja.exe" if os.name == "nt" else "ninja")
+        cmake += ["-G", "Ninja", f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}",
+                  "-DOHOS_ARCH=arm64-v8a", "-DOHOS_STL=c++_shared"]
+        if ninja.is_file():
+            cmake.append(f"-DCMAKE_MAKE_PROGRAM={ninja.as_posix()}")
+    elif args.platform == "Android":
         ninja = find_ninja()
         if ninja is None:
             raise RuntimeError("ninja not found; required for the Android CMake build")
@@ -157,6 +179,7 @@ def configure_cmake(variant, generated):
                   f"-DCMAKE_TOOLCHAIN_FILE={ndk / 'build' / 'cmake' / 'android.toolchain.cmake'}",
                   "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-31", "-DANDROID_STL=c++_static"]
     cmake += [
+        "-B", str(build_dir),
         f"-DOPENSSL_SRC={SOURCE_DIR}",
         f"-DOPENSSL_VARIANT={variant}",
         f"-DOPENSSL_GENERATED={generated / 'generated'}",
@@ -167,8 +190,11 @@ def configure_cmake(variant, generated):
     if args.platform != "Win32":
         cmake.append("-DCMAKE_BUILD_TYPE=Release")
     run(cmake)
-    run(["cmake", "--build", str(BUILD_DIR), "--config", "Release", "--parallel"])
-    run(["cmake", "--install", str(BUILD_DIR), "--config", "Release"])
+    build_command = ["cmake", "--build", str(build_dir), "--config", "Release", "--parallel"]
+    if os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL"):
+        build_command.append(os.environ["CMAKE_BUILD_PARALLEL_LEVEL"])
+    run(build_command)
+    run(["cmake", "--install", str(build_dir), "--config", "Release"])
 
 
 def install_ca_bundle():

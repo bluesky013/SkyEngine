@@ -36,7 +36,7 @@ namespace sky {
     template <typename M>
     using EventMutex = std::conditional_t<std::is_void_v<M>, NullEventMutex, M>;
 
-    template <typename Interface, class KeyType = Interface::KeyType>
+    template <typename Interface, class KeyType = typename Interface::KeyType>
     class Event {
     public:
         Event()  = default;
@@ -189,7 +189,7 @@ namespace sky {
         }
     };
 
-    template <typename T, typename KeyType = T::KeyType>
+    template <typename T, typename KeyType = typename T::KeyType>
     class EventBinder {
     public:
         EventBinder() = default;

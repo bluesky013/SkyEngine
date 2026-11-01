@@ -110,6 +110,25 @@ namespace sky {
         workSpace = fs;
     }
 
+    bool AssetManager::ResetRuntimeState()
+    {
+        std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        if (!pendingJobs.empty() || !pendingOwners.empty()) {
+            return false;
+        }
+        assets.clear();
+        bundles.clear();
+        productIndices.Clear();
+        workSpace.Reset(nullptr);
+        sourceCatalog     = nullptr;
+        cookRunner        = nullptr;
+        compressProducts  = false;
+        compressionMethod = CompressionMethod::LZ4;
+        productChangeSerial.fetch_add(1, std::memory_order_release);
+        return true;
+    }
+
     void AssetManager::SetCookRunner(ICookRunner *runner)
     {
         cookRunner = runner;

@@ -145,7 +145,7 @@ namespace sky::aurora {
             return false;
         mLocal      = local.Get();
         mWriter     = writer.get();
-        mAsyncCache = std::make_shared<AsyncCacheOwners>(std::move(local), std::move(writer));
+        mAsyncCache = std::make_shared<AsyncCacheOwners>(AsyncCacheOwners{std::move(local), std::move(writer)});
         return true;
     }
     bool ShaderResolver::ResolveSchema(
@@ -194,7 +194,7 @@ namespace sky::aurora {
             }
             return ShaderResolveStatus::Failed;
         };
-        if (request.target > static_cast<uint32_t>(ShaderTarget::DXIL) || request.relativePath.empty() || request.entry.empty()) {
+        if (request.target >= static_cast<uint32_t>(ShaderTarget::END) || request.relativePath.empty() || request.entry.empty()) {
             return fail("invalid shader request");
         }
         ShaderVariantSchema localSchema;

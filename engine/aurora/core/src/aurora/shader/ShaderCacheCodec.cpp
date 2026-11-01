@@ -75,10 +75,10 @@ namespace sky::aurora {
                 return value.find('\0') == std::string::npos;
             }
             template <class T>
-            bool Enum(T &value, T maximum)
+            bool Enum(T &value)
             {
                 uint32_t number = 0;
-                if (!U32(number) || number > static_cast<uint32_t>(maximum)) {
+                if (!U32(number) || number >= static_cast<uint32_t>(T::END)) {
                     return false;
                 }
                 value = static_cast<T>(number);
@@ -134,7 +134,7 @@ namespace sky::aurora {
         }
         bool ReadVariant(Reader &r, ShaderVariantValue &v)
         {
-            return r.Str(v.name) && r.U32(v.value) && r.Enum(v.type, ShaderVariantType::BOOL);
+            return r.Str(v.name) && r.U32(v.value) && r.Enum(v.type);
         }
         void WriteVariantBinding(Writer &w, const ShaderVariantBinding &v)
         {
@@ -147,8 +147,7 @@ namespace sky::aurora {
         }
         bool ReadVariantBinding(Reader &r, ShaderVariantBinding &v)
         {
-            return r.Str(v.key) && r.Str(v.symbol) && r.Enum(v.type, ShaderVariantType::BOOL) &&
-                   r.Enum(v.lowering, ShaderVariantLowering::NATIVE) && r.U32(v.nativeId) && r.U32(v.defaultValue);
+            return r.Str(v.key) && r.Str(v.symbol) && r.Enum(v.type) && r.Enum(v.lowering) && r.U32(v.nativeId) && r.U32(v.defaultValue);
         }
         void WriteEnvironment(Writer &w, const ShaderTargetEnvironment &v)
         {
@@ -163,9 +162,8 @@ namespace sky::aurora {
         }
         bool ReadEnvironment(Reader &r, ShaderTargetEnvironment &v)
         {
-            if (!r.Enum(v.target, ShaderTarget::DXIL) || !r.Enum(v.platform, ShaderPlatform::LINUX) ||
-                !r.Enum(v.codeFormat, ShaderCodeFormat::METALLIB) || !r.Str(v.profile) || !r.U32(v.minimumVersion) ||
-                !r.U64(v.requiredCapabilities) || !r.Enum(v.matrixLayout, ShaderMatrixLayout::ROW_MAJOR) || !ReadList(r, v.options, ReadString)) {
+            if (!r.Enum(v.target) || !r.Enum(v.platform) || !r.Enum(v.codeFormat) || !r.Str(v.profile) || !r.U32(v.minimumVersion) ||
+                !r.U64(v.requiredCapabilities) || !r.Enum(v.matrixLayout) || !ReadList(r, v.options, ReadString)) {
                 return false;
             }
             auto        normalized = v;
@@ -279,21 +277,20 @@ namespace sky::aurora {
                           [](Reader &r, ShaderVariantSchema::Entry &e) {
                               std::string key, source, symbol;
                               uint32_t    offset = 0, width = 0;
-                              if (!r.Str(key) || !r.Str(source) || !r.U32(offset) || !r.U32(width) || !r.U32(e.defaultValue) || offset > UINT16_MAX || width > UINT8_MAX) {
+                              if (!r.Str(key) || !r.Str(source) || !r.U32(offset) || !r.U32(width) || !r.U32(e.defaultValue) || offset > UINT16_MAX ||
+                                  width > UINT8_MAX) {
                                   return false;
                               }
-                              e.key       = Name(key.c_str());
-                              e.source    = Name(source.c_str());
-                              e.bitOffset = static_cast<uint16_t>(offset);
-                              e.bitWidth  = static_cast<uint8_t>(width);
-                              uint32_t domain = 0, semantics = 0;
-                              if (!r.U32(domain) || domain > static_cast<uint32_t>(ShaderVariantDomain::PIPELINE) || !r.U32(semantics) ||
-                                  semantics > UINT16_MAX)
+                              e.key              = Name(key.c_str());
+                              e.source           = Name(source.c_str());
+                              e.bitOffset        = static_cast<uint16_t>(offset);
+                              e.bitWidth         = static_cast<uint8_t>(width);
+                              uint32_t semantics = 0;
+                              if (!r.Enum(e.domain) || !r.U32(semantics) || semantics > UINT16_MAX)
                                   return false;
-                              if (!r.Enum(e.type, ShaderVariantType::BOOL) || !r.Str(symbol))
+                              if (!r.Enum(e.type) || !r.Str(symbol))
                                   return false;
-                              e.symbol = Name(symbol.c_str());
-                              e.domain          = static_cast<ShaderVariantDomain>(domain);
+                              e.symbol          = Name(symbol.c_str());
                               e.vertexSemantics = static_cast<uint16_t>(semantics);
                               return true;
                           }) ||
@@ -325,12 +322,10 @@ namespace sky::aurora {
         bool ReadResource(Reader &r, ShaderResource &v)
         {
             uint32_t stages = 0;
-            if (!r.Str(v.name) || !r.Enum(v.type, ShaderResourceType::STORAGE_BUFFER_DYNAMIC) || !r.U32(v.set) || !r.U32(v.binding) ||
-                !r.U32(v.count) || !r.Enum(v.texture.dimension, ShaderTextureDimension::BUFFER) ||
-                !r.Enum(v.texture.scalarType, ShaderScalarType::BOOL) || !r.U32(v.texture.components) || !r.Bool(v.texture.arrayed) ||
-                !r.Bool(v.texture.multisampled) || !r.Enum(v.sampler, ShaderSamplerType::COMPARISON) || !r.Bool(v.descriptorArray) ||
-                !r.Enum(v.access, ShaderResourceAccess::READ_WRITE) || !r.Enum(v.bufferKind, ShaderBufferKind::STRUCTURED) ||
-                !r.U32(v.elementStride) || !r.U32(stages) || !r.Str(v.declarationOwner)) {
+            if (!r.Str(v.name) || !r.Enum(v.type) || !r.U32(v.set) || !r.U32(v.binding) || !r.U32(v.count) || !r.Enum(v.texture.dimension) ||
+                !r.Enum(v.texture.scalarType) || !r.U32(v.texture.components) || !r.Bool(v.texture.arrayed) || !r.Bool(v.texture.multisampled) ||
+                !r.Enum(v.sampler) || !r.Bool(v.descriptorArray) || !r.Enum(v.access) || !r.Enum(v.bufferKind) || !r.U32(v.elementStride) ||
+                !r.U32(stages) || !r.Str(v.declarationOwner)) {
                 return false;
             }
             v.stages = ShaderStageFlags(stages);
@@ -364,10 +359,9 @@ namespace sky::aurora {
         {
             return r.Str(v.name) && r.Str(v.structName) && r.U32(v.set) && r.U32(v.binding) && r.U32(v.size) && r.U32(v.alignment) &&
                    ReadList(r, v.members, [](Reader &r, ShaderBlockMember &m) {
-                       return r.Str(m.name) && r.U32(m.offset) && r.U32(m.size) && r.Enum(m.scalarType, ShaderScalarType::BOOL) &&
-                              r.Enum(m.kind, ShaderTypeKind::STRUCT) && r.U32(m.rows) && r.U32(m.cols) && r.U32(m.arrayCount) &&
-                              r.U32(m.arrayStride) && r.U32(m.alignment) && r.U32(m.scalarBytes) && r.U32(m.matrixStride) &&
-                              r.Enum(m.matrixLayout, ShaderMatrixLayout::ROW_MAJOR);
+                       return r.Str(m.name) && r.U32(m.offset) && r.U32(m.size) && r.Enum(m.scalarType) && r.Enum(m.kind) && r.U32(m.rows) &&
+                              r.U32(m.cols) && r.U32(m.arrayCount) && r.U32(m.arrayStride) && r.U32(m.alignment) && r.U32(m.scalarBytes) &&
+                              r.U32(m.matrixStride) && r.Enum(m.matrixLayout);
                    });
         }
         void WriteReflection(Writer &w, const ShaderReflection &v)
@@ -410,19 +404,22 @@ namespace sky::aurora {
         bool ReadReflection(Reader &r, ShaderReflection &v)
         {
             uint32_t stages = 0;
-            if (!r.U32(v.protocolVersion) || !r.Enum(v.kind, ShaderReflectionKind::PROGRAM) ||
-                !r.Enum(v.bindingModel, ShaderBindingModel::METAL_DIRECT_ARGUMENTS) || !r.Enum(v.usage, ShaderUsageAnalysis::CONSERVATIVE) ||
-                !r.U32(stages) || !r.Bool(v.complete) ||
-                !ReadList(r, v.vertexInputs, [](Reader &r, ShaderVertexInput &input) {
-                    return ReadString(r, input.semantic) && r.U32(input.semanticIndex) && r.U32(input.location) &&
-                           r.Enum(input.scalarType, ShaderScalarType::UINT) && r.U32(input.components);
-                }) ||
-                !ReadList(r, v.resources, ReadResource) || !ReadList(r, v.declarations, ReadResource) ||
-                !ReadList(r, v.blocks, ReadBlock) || !ReadList(r, v.declaredBlocks, ReadBlock) ||
+            if (!r.U32(v.protocolVersion) || !r.Enum(v.kind) || !r.Enum(v.bindingModel) || !r.Enum(v.usage) || !r.U32(stages) ||
+                !r.Bool(v.complete) ||
+                !ReadList(r, v.vertexInputs,
+                          [](Reader &r, ShaderVertexInput &input) {
+                              return ReadString(r, input.semantic) && r.U32(input.semanticIndex) && r.U32(input.location) &&
+                                     r.Enum(input.scalarType) &&
+                                     (input.scalarType == ShaderScalarType::UNKNOWN || input.scalarType == ShaderScalarType::FLOAT ||
+                                      input.scalarType == ShaderScalarType::INT || input.scalarType == ShaderScalarType::UINT) &&
+                                     r.U32(input.components);
+                          }) ||
+                !ReadList(r, v.resources, ReadResource) || !ReadList(r, v.declarations, ReadResource) || !ReadList(r, v.blocks, ReadBlock) ||
+                !ReadList(r, v.declaredBlocks, ReadBlock) ||
                 !ReadList(r, v.nativeBindings,
                           [](Reader &r, ShaderNativeBinding &b) {
-                              return r.U32(b.set) && r.U32(b.binding) && ReadStage(r, b.stage) && r.U32(b.index) &&
-                                     r.Enum(b.category, ShaderNativeCategory::METAL_SAMPLER) && r.U32(b.space) && r.U32(b.count);
+                              return r.U32(b.set) && r.U32(b.binding) && ReadStage(r, b.stage) && r.U32(b.index) && r.Enum(b.category) &&
+                                     r.U32(b.space) && r.U32(b.count);
                           }) ||
                 !ReadList(r, v.pushConstants, [](Reader &r, PushConstantRange &p) {
                     uint32_t stages = 0;
@@ -479,7 +476,8 @@ namespace sky::aurora {
                               std::string error;
                               return r.U64(a.first) && r.U64(a.second.compileHash) && r.U64(a.second.artifactId) && ReadKey(r, a.second.key) &&
                                      ReadIdentity(r, a.second.identity) && ReadList(r, a.second.sourceDeps, ReadString) &&
-                                     ReadList(r, a.second.selections, [](Reader &r, auto &selection) { return ReadList(r, selection, ReadVariant); }) &&
+                                     ReadList(r, a.second.selections,
+                                              [](Reader &r, auto &selection) { return ReadList(r, selection, ReadVariant); }) &&
                                      a.first == ArtifactKey(PublishedRequest(a.second.key)) && ValidateCacheRecord(a.second, error);
                           });
                       }) ||
@@ -541,8 +539,8 @@ namespace sky::aurora {
         uint64_t        size = 0;
         if (!r.U32(magic) || magic != kBlobMagic || !r.U32(version) || version != ShaderCacheIndex::kFormatVersion ||
             !r.U32(blob.runtimeAbiVersion) || !r.U64(blob.artifactId) || !ReadIdentity(r, blob.identity) || !ReadReflection(r, blob.reflection) ||
-            !ReadList(r, blob.variantBindings, ReadVariantBinding) ||
-            !r.U64(size) || size > 64u * 1024u * 1024u || size != bytes.size() - r.position) {
+            !ReadList(r, blob.variantBindings, ReadVariantBinding) || !r.U64(size) || size > 64u * 1024u * 1024u ||
+            size != bytes.size() - r.position) {
             return false;
         }
         blob.data.assign(bytes.begin() + static_cast<std::ptrdiff_t>(r.position), bytes.end());

@@ -21,8 +21,7 @@ android {
             }
         }
     }
-    // namespace = the fixed Java package (create-time application id); applicationId
-    // is the install id (may be overridden per preset).
+    // The project-owned Java launcher defines namespace; the export preset defines the install id.
     namespace '{{ANDROID_NAMESPACE}}'
     compileSdk {{COMPILE_SDK}}
     ndkVersion '{{NDK_VERSION}}'
@@ -141,11 +140,6 @@ androidComponents {
     onVariants(selector().all()) { variant ->
         def variantTaskName = variant.name.capitalize()
         def nativeConfig = variant.buildType == 'debug' ? 'Debug' : 'Release'
-        tasks.configureEach { task ->
-            if (task.name == "merge${variantTaskName}Assets") {
-                task.dependsOn("externalNativeBuild${variantTaskName}")
-            }
-        }
         def stageRuntime = tasks.register("stage${variantTaskName}SkyRuntimeLibraries", StageSkyRuntimeLibraries) {
             dependsOn("externalNativeBuild${variantTaskName}")
             manifestDirectory.set(layout.projectDirectory.dir("../../../build/android/runtime-libraries/${nativeConfig}"))

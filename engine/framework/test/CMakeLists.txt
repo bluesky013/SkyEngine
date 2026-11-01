@@ -1,7 +1,7 @@
 set(CURRENT_FOLDER Engine/Foundation/Tests/Framework)
 
 file(GLOB TEST_SRC *.cpp *.h)
-file(GLOB PLATFORM_POLICY_TEST_SRC platform/android/*.cpp platform/ios/*.cpp)
+file(GLOB PLATFORM_POLICY_TEST_SRC platform/android/*.cpp platform/ios/*.cpp platform/ohos/*.cpp)
 list(APPEND TEST_SRC ${PLATFORM_POLICY_TEST_SRC})
 
 if (ANDROID)
@@ -59,9 +59,11 @@ target_compile_definitions(FrameworkTest PRIVATE
 
 target_include_directories(FrameworkTest PRIVATE
     ${CMAKE_BINARY_DIR}/Gen
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
     ${ENGINE_ROOT}/engine/templates/launcher/android/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../platform/android
-    ${CMAKE_CURRENT_SOURCE_DIR}/../platform/ios)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../platform/ios
+    ${CMAKE_CURRENT_SOURCE_DIR}/../platform/ohos)
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     target_include_directories(FrameworkTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../platform/macos)
 endif ()

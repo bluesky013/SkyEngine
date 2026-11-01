@@ -15,7 +15,14 @@ include(${ENGINE_ROOT}/cmake/plugin_switches.cmake)
 include(${ENGINE_ROOT}/cmake/configuration.cmake)
 include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 
-if (NOT ANDROID)
+if (CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    if (NOT DEFINED CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    endif ()
+    if (NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    endif ()
+elseif (NOT ANDROID)
     if (NOT DEFINED CMAKE_LIBRARY_OUTPUT_DIRECTORY)
         set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
     endif()
@@ -102,7 +109,7 @@ endif ()
 
 # Tools are always available on desktop (AssetTool is the out-of-process cook worker);
 # the SKY_BUILD_TOOL gate only controls the optional developer tools inside tools/.
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "OHOS")
     add_subdirectory(tools)
 endif()
 

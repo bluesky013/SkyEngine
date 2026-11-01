@@ -137,7 +137,7 @@ namespace sky::aurora {
                         member.offset > block.size || member.size > block.size - member.offset || member.scalarBytes != 4 ||
                         member.scalarType == ShaderScalarType::UNKNOWN || member.kind == ShaderTypeKind::UNKNOWN ||
                         member.kind == ShaderTypeKind::STRUCT || !member.rows || !member.cols || member.rows > 4 || member.cols > 4 ||
-                        static_cast<uint32_t>(member.matrixLayout) > static_cast<uint32_t>(ShaderMatrixLayout::ROW_MAJOR))
+                        static_cast<uint32_t>(member.matrixLayout) >= static_cast<uint32_t>(ShaderMatrixLayout::END))
                         return Fail(error, "Invalid uniform field layout");
                     if (member.arrayCount && (!member.arrayStride || member.arrayCount > member.size / member.arrayStride))
                         return Fail(error, "Invalid uniform array stride or count");
@@ -163,6 +163,8 @@ namespace sky::aurora {
         return ShaderPlatform::MACOS;
 #elif defined(SKY_PLATFORM_ANDROID)
         return ShaderPlatform::ANDROID_OS;
+#elif defined(SKY_PLATFORM_OHOS)
+        return ShaderPlatform::HARMONYOS;
 #elif defined(SKY_PLATFORM_LINUX)
         return ShaderPlatform::LINUX;
 #else
@@ -191,7 +193,7 @@ namespace sky::aurora {
 
     bool NormalizeShaderEnvironment(ShaderTargetEnvironment &environment, std::string &error)
     {
-        if (static_cast<uint32_t>(environment.target) > static_cast<uint32_t>(ShaderTarget::DXIL))
+        if (static_cast<uint32_t>(environment.target) >= static_cast<uint32_t>(ShaderTarget::END))
             return Fail(error, "Unsupported shader target");
         const auto defaults = DefaultShaderEnvironment(environment.target, environment.platform);
         if (environment.platform == ShaderPlatform::UNKNOWN)
@@ -203,8 +205,8 @@ namespace sky::aurora {
         if (!environment.minimumVersion)
             environment.minimumVersion = defaults.minimumVersion;
         if (environment.platform == ShaderPlatform::UNKNOWN ||
-            static_cast<uint32_t>(environment.platform) > static_cast<uint32_t>(ShaderPlatform::LINUX) ||
-            static_cast<uint32_t>(environment.matrixLayout) > static_cast<uint32_t>(ShaderMatrixLayout::ROW_MAJOR))
+            static_cast<uint32_t>(environment.platform) >= static_cast<uint32_t>(ShaderPlatform::END) ||
+            static_cast<uint32_t>(environment.matrixLayout) >= static_cast<uint32_t>(ShaderMatrixLayout::END))
             return Fail(error, "Invalid shader platform or matrix convention");
         if ((environment.target == ShaderTarget::SPIRV && environment.codeFormat != ShaderCodeFormat::SPIRV) ||
             (environment.target == ShaderTarget::DXIL && environment.codeFormat != ShaderCodeFormat::DXIL) ||
@@ -352,8 +354,8 @@ namespace sky::aurora {
             reflection.resources.size() > 65536 || reflection.declarations.size() > 65536 || reflection.nativeBindings.size() > 65536 ||
             reflection.blocks.size() > 4096 || reflection.declaredBlocks.size() > 4096 || reflection.pushConstants.size() > 32 ||
             reflection.bindingModel == ShaderBindingModel::UNKNOWN ||
-            static_cast<uint32_t>(reflection.bindingModel) > static_cast<uint32_t>(ShaderBindingModel::METAL_DIRECT_ARGUMENTS) ||
-            static_cast<uint32_t>(reflection.usage) > static_cast<uint32_t>(ShaderUsageAnalysis::CONSERVATIVE))
+            static_cast<uint32_t>(reflection.bindingModel) >= static_cast<uint32_t>(ShaderBindingModel::END) ||
+            static_cast<uint32_t>(reflection.usage) >= static_cast<uint32_t>(ShaderUsageAnalysis::END))
             return Fail(error, "Missing or incompatible target reflection protocol");
         if (!BlocksValid(reflection.blocks, error) || !BlocksValid(reflection.declaredBlocks, error))
             return false;
@@ -413,7 +415,8 @@ namespace sky::aurora {
                 if (resource->stages.TestBit(stage) && !logicalStages.count({key.first, key.second, stage}))
                     return Fail(error, "Active shader resource has no native address");
             if ((resource->type == ShaderResourceType::UNIFORM_BUFFER || resource->type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC) &&
-                std::ranges::none_of(reflection.blocks, [&](const auto &block) { return block.set == key.first && block.binding == key.second; }))
+                std::ranges::none_of(reflection.blocks,
+                                     [key = key](const auto &block) { return block.set == key.first && block.binding == key.second; }))
                 return Fail(error, "Active uniform buffer has no target block layout");
         }
         std::set<Key>                              declarationKeys;
@@ -424,8 +427,8 @@ namespace sky::aurora {
                 return Fail(error, "Duplicate or ambiguous logical parameter declaration");
         }
         for (const auto &[key, resource] : resources) {
-            const auto declaration =
-                std::ranges::find_if(reflection.declarations, [&](const auto &item) { return item.set == key.first && item.binding == key.second; });
+            const auto declaration = std::ranges::find_if(
+                reflection.declarations, [key = key](const auto &item) { return item.set == key.first && item.binding == key.second; });
             if (declaration == reflection.declarations.end())
                 return Fail(error, "Active resource is absent from its logical interface");
             const auto baseType = [](ShaderResourceType type) {
@@ -459,14 +462,14 @@ namespace sky::aurora {
         std::set<std::string> variantKeys;
         std::set<uint32_t> nativeIds;
         for (const auto &binding : artifact.variantBindings) {
-            if (binding.key.empty() || !variantKeys.insert(binding.key).second || binding.type > ShaderVariantType::BOOL ||
-                binding.lowering > ShaderVariantLowering::NATIVE || (binding.type == ShaderVariantType::BOOL && binding.defaultValue > 1) ||
-                (binding.lowering == ShaderVariantLowering::NATIVE && (binding.symbol.empty() || environment.target == ShaderTarget::DXIL ||
-                                                                     !nativeIds.insert(binding.nativeId).second)))
+            if (binding.key.empty() || !variantKeys.insert(binding.key).second || binding.type >= ShaderVariantType::END ||
+                binding.lowering >= ShaderVariantLowering::END || (binding.type == ShaderVariantType::BOOL && binding.defaultValue > 1) ||
+                (binding.lowering == ShaderVariantLowering::NATIVE &&
+                 (binding.symbol.empty() || environment.target == ShaderTarget::DXIL || !nativeIds.insert(binding.nativeId).second)))
                 return Fail(error, "Invalid target variant mapping");
         }
         for (const auto &value : identity.variants)
-            if (value.name.empty() || value.type > ShaderVariantType::BOOL || (value.type == ShaderVariantType::BOOL && value.value > 1))
+            if (value.name.empty() || value.type >= ShaderVariantType::END || (value.type == ShaderVariantType::BOOL && value.value > 1))
                 return Fail(error, "Invalid typed shader variant");
         if (!NormalizeShaderEnvironment(environment, error) || environment != identity.environment)
             return Fail(error, "Shader environment is not canonical");

@@ -18,6 +18,7 @@ namespace {
         bool                         timeline        = true;
         bool                         synchronization = true;
         bool                         rendering       = true;
+        bool                         maintenance     = true;
         uint32_t                     calls           = 0;
         std::vector<VkStructureType> structures;
     };
@@ -46,6 +47,10 @@ namespace {
                 break;
             case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES:
                 static_cast<VkPhysicalDeviceDynamicRenderingFeatures *>(static_cast<void *>(entry))->dynamicRendering = features->rendering;
+                break;
+            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT:
+                static_cast<VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT *>(static_cast<void *>(entry))->swapchainMaintenance1 =
+                    features->maintenance;
                 break;
             default: ADD_FAILURE() << "Unexpected feature structure " << entry->sType; break;
             }
@@ -89,6 +94,35 @@ namespace {
         FunctionProbe functionProbe;
     };
 } // namespace
+
+TEST_F(VulkanDeviceCapabilityTest, MissingOptionalMaintenanceDoesNotQueryOrEnableIt)
+{
+    VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT feature{};
+    std::vector<const char *>                        enabled{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const auto                                       advertised = Extensions({VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME});
+    EXPECT_FALSE(NegotiateVulkanSwapchainMaintenance(QueryFeatures, VK_NULL_HANDLE, true, {}, feature, enabled));
+    EXPECT_FALSE(NegotiateVulkanSwapchainMaintenance(QueryFeatures, VK_NULL_HANDLE, false, advertised, feature, enabled));
+    EXPECT_FALSE(NegotiateVulkanSwapchainMaintenance(nullptr, VK_NULL_HANDLE, true, advertised, feature, enabled));
+    EXPECT_EQ(featureProbe.calls, 0U);
+    EXPECT_EQ(enabled.size(), 1U);
+    EXPECT_EQ(feature.swapchainMaintenance1, VK_FALSE);
+}
+
+TEST_F(VulkanDeviceCapabilityTest, MaintenanceRequiresBothExtensionAndFeature)
+{
+    const auto                                       advertised = Extensions({VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME});
+    VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT feature{};
+    std::vector<const char *>                        enabled;
+    featureProbe.maintenance = false;
+    EXPECT_FALSE(NegotiateVulkanSwapchainMaintenance(QueryFeatures, VK_NULL_HANDLE, true, advertised, feature, enabled));
+    EXPECT_TRUE(enabled.empty());
+    featureProbe.maintenance = true;
+    EXPECT_TRUE(NegotiateVulkanSwapchainMaintenance(QueryFeatures, VK_NULL_HANDLE, true, advertised, feature, enabled));
+    ASSERT_EQ(enabled.size(), 1U);
+    EXPECT_STREQ(enabled.front(), VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+    EXPECT_EQ(featureProbe.calls, 2U);
+    EXPECT_EQ(feature.swapchainMaintenance1, VK_TRUE);
+}
 
 TEST_F(VulkanDeviceCapabilityTest, Vulkan11QueriesAdvertisedKHRFeaturesAndUsesTheRenderPassCompiler)
 {

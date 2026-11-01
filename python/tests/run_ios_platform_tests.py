@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Build and run the native iOS platform regressions without the renderer.
+r"""Build and run the native iOS platform regressions without the renderer.
 
-Requires Xcode, an installed iOS Simulator runtime, and the repository's existing
-GoogleTest sources. Downloads nothing. By default a temporary simulator is
-created and deleted. With --udid, the existing device's boot state is restored.
+Requires Xcode, CMake, an installed iOS Simulator runtime, local GoogleTest sources,
+and SFMT/RapidJSON installed for that simulator SDK and architecture. Core and
+Framework are built through their production CMake targets. Downloads nothing.
+By default a temporary simulator is created and deleted. With --udid, the existing
+device's boot state is restored.
 Build artifacts, compiler output, and test output remain in --work-dir.
 
 Example:
-    python3 python/tests/run_ios_platform_tests.py --runtime iOS-18-6
+    python3 python/tests/run_ios_platform_tests.py --runtime iOS-18-6 \
+        --third-party-root /path/to/ios-simulator-dependencies
     python3 python/tests/run_ios_platform_tests.py --udid DEVICE_ID \
+        --third-party-root /path/to/ios-simulator-dependencies \
         --gtest-filter 'IOSPlatformStateTest.*' --work-dir /tmp/sky-ios-tests
 """
 
 import argparse
-import concurrent.futures
 import json
 import os
 import pathlib
@@ -27,25 +30,7 @@ import uuid
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 TEST_HOST_PLIST = REPOSITORY / "engine/framework/test/platform/ios/Info.plist"
-SOURCES = (
-    "engine/framework/platform/ios/IOSPlatform.mm",
-    "engine/framework/platform/ios/IOSWindow.mm",
-    "engine/framework/src/platform/PlatformBase.cpp",
-    "engine/framework/src/window/NativeWindow.cpp",
-    "engine/framework/src/window/NativeWindowManager.cpp",
-    "engine/core/src/environment/Environment.cpp",
-    "engine/core/src/file/FileSystem.cpp",
-    "engine/core/src/file/FileIO.cpp",
-    "engine/core/src/archive/StreamArchive.cpp",
-    "engine/core/src/archive/FileArchive.cpp",
-    "engine/core/src/archive/MemoryAchive.cpp",
-    "engine/core/src/archive/BinaryData.cpp",
-    "engine/core/src/memory/Allocator.cpp",
-    "engine/core/src/util/String.cpp",
-    "engine/framework/test/platform/ios/IOSPlatformStateTest.cpp",
-    "engine/framework/test/platform/ios/IOSNativePlatformTest.mm",
-    "engine/framework/test/platform/ios/main.mm",
-)
+TEST_FIXTURE = REPOSITORY / "python/tests/fixtures/ios_platform"
 
 
 def command(arguments, *, timeout=300, check=True, env=None):
@@ -101,56 +86,64 @@ def select_runtime(requested):
     )["identifier"]
 
 
+def cmake_build_commands(args, directory, sdk):
+    build = directory / "cmake-build"
+    configure = [
+        "cmake", "-S", str(TEST_FIXTURE), "-B", str(build), "-G", "Xcode",
+        "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=" + str(sdk),
+        "-DCMAKE_OSX_ARCHITECTURES=" + args.arch,
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET=" + args.minimum_ios,
+        "-DSKY_IOS_TEST_CONFIG=" + args.config,
+        "-D3RD_PATH=" + str(args.third_party_root.resolve()),
+        "-DSKY_IOS_GTEST_ROOT=" + str(args.gtest_root.resolve()),
+        "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO",
+        "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO",
+    ]
+    compile_target = [
+        "cmake", "--build", str(build), "--config", args.config,
+        "--target", "IOSPlatformTest", "--parallel", str(args.jobs),
+    ]
+    return configure, compile_target
+
+
 def build_test_app(args, directory):
-    compiler = command(["xcrun", "--sdk", args.sdk, "--find", "clang++"]).stdout.strip()
     sdk = command(["xcrun", "--sdk", args.sdk, "--show-sdk-path"]).stdout.strip()
     sdk_version = command(["xcrun", "--sdk", args.sdk, "--show-sdk-version"]).stdout.strip()
+    configure, compile_target = cmake_build_commands(args, directory, sdk)
     (directory / "build-info.json").write_text(json.dumps({
         "sdk": args.sdk, "sdk_path": sdk, "sdk_version": sdk_version,
         "arch": args.arch, "minimum_ios": args.minimum_ios,
         "test_host_plist": str(TEST_HOST_PLIST),
+        "configuration": args.config, "fixture": str(TEST_FIXTURE),
+        "third_party_root": str(args.third_party_root.resolve()),
+        "commands": [configure, compile_target],
     }, indent=2))
     gtest = args.gtest_root.resolve()
-    if not (gtest / "src/gtest-all.cc").is_file():
+    if not (gtest / "src/gtest-all.cc").is_file() or not (gtest / "CMakeLists.txt").is_file():
         raise RuntimeError("GoogleTest sources not found; pass --gtest-root (downloads are disabled)")
-    flags = [
-        "-target", f"{args.arch}-apple-ios{args.minimum_ios}-simulator",
-        "-isysroot", sdk, "-std=c++20",
-        "-Wno-unused-value", "-Wno-deprecated-declarations",
-        "-I" + str(REPOSITORY / "engine/core/include"),
-        "-I" + str(REPOSITORY / "engine/framework/include"),
-        "-I" + str(gtest / "include"), "-I" + str(gtest),
+    dependencies = args.third_party_root.resolve()
+    required = [
+        dependencies / "sfmt/include/SFMT.h",
+        dependencies / "rapidjson/include/rapidjson/document.h",
+        dependencies / "sfmt/lib" / args.config / "libSFMT.a",
     ]
-    sources = [REPOSITORY / source for source in SOURCES] + [gtest / "src/gtest-all.cc"]
-
-    def compile_source(item):
-        index, source = item
-        output = directory / f"{index}.o"
-        options = ["-fobjc-arc"] if source.suffix == ".mm" else []
-        result = command(
-            [compiler, *flags, *options, "-c", str(source), "-o", str(output)], check=False
-        )
-        return output, result, source
-
-    print(f"Building {len(sources)} platform/test sources with {args.sdk} ({args.arch})", flush=True)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        compiled = list(pool.map(compile_source, enumerate(sources)))
-    (directory / "compile.log").write_text(
-        "\n".join(f"{source}\n{result.stdout}{result.stderr}" for _, result, source in compiled)
-    )
-    if any(result.returncode for _, result, _ in compiled):
-        raise RuntimeError(f"Compilation failed; see {directory / 'compile.log'}")
-
-    app = directory / "SkyIOSPlatformTests.app"
-    app.mkdir(exist_ok=True)
-    result = command(
-        [compiler, *flags, *(str(output) for output, _, _ in compiled),
-         "-framework", "UIKit", "-framework", "QuartzCore", "-framework", "Foundation",
-         "-o", str(app / "SkyIOSPlatformTests")], check=False
-    )
-    (directory / "link.log").write_text(result.stdout + result.stderr)
-    if result.returncode:
-        raise RuntimeError(f"Link failed; see {directory / 'link.log'}")
+    if any(not path.is_file() for path in required):
+        raise RuntimeError("Missing simulator SFMT/RapidJSON; pass --third-party-root for the selected SDK/architecture/configuration")
+    print(f"Building production Core/Framework and IOSPlatformTest with {args.sdk} ({args.arch})", flush=True)
+    for arguments, log_name, label in (
+        (configure, "configure.log", "CMake configuration"),
+        (compile_target, "compile.log", "CMake build"),
+    ):
+        result = command(arguments, timeout=max(args.timeout, 300), check=False)
+        (directory / log_name).write_text(result.stdout + result.stderr)
+        if result.returncode:
+            raise RuntimeError(f"{label} failed; see {directory / log_name}")
+    app_record = directory / "cmake-build" / f"test-app-{args.config}.txt"
+    if not app_record.is_file():
+        raise RuntimeError(f"CMake did not report its test bundle: {app_record}")
+    app = pathlib.Path(app_record.read_text().strip())
+    if not app.is_dir() or not (app / "SkyIOSPlatformTests").is_file():
+        raise RuntimeError(f"CMake test bundle is incomplete: {app}")
     identifier = "com.skyengine.platform-tests." + uuid.uuid4().hex
     # Share the exact scene manifest with the CMake FrameworkTest app target.
     manifest = plistlib.loads(TEST_HOST_PLIST.read_bytes())
@@ -253,8 +246,12 @@ def main():
     simulator.add_argument("--runtime", help="Installed runtime identifier/name; default: latest iOS")
     parser.add_argument("--device-type", default="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro")
     parser.add_argument("--sdk", default="iphonesimulator", help="Installed simulator SDK name or path")
-    parser.add_argument("--arch", choices=("arm64", "x86_64"), default=platform.machine())
+    parser.add_argument("--arch", choices=("arm64", "x86_64"),
+                        default="arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x86_64")
     parser.add_argument("--minimum-ios", default="13.0")
+    parser.add_argument("--config", choices=("Debug", "Release"), default="Debug")
+    parser.add_argument("--third-party-root", type=pathlib.Path, required=True,
+                        help="SFMT/RapidJSON install root for the selected simulator SDK, architecture and configuration")
     parser.add_argument("--gtest-root", type=pathlib.Path,
                         default=REPOSITORY / "build_3rd/intermediate/googletest/googletest")
     parser.add_argument("--work-dir", type=pathlib.Path)
@@ -262,6 +259,8 @@ def main():
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 4))
     parser.add_argument("--timeout", type=int, default=300, help="Simulator operation timeout in seconds")
     args = parser.parse_args()
+    if platform.system() != "Darwin":
+        parser.error("Native iOS platform builds require macOS, Xcode and an installed iOS Simulator SDK")
     if args.jobs < 1 or args.timeout < 1:
         parser.error("--jobs and --timeout must be positive")
     try:
