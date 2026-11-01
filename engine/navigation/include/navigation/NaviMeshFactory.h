@@ -1,42 +1,34 @@
 //
-// Created by blues on 2024/10/11.
+// Created on 2026/10/30.
 //
 
 #pragma once
 
 #include <core/environment/Singleton.h>
-#include <framework/interface/IWorldBuilder.h>
+#include <memory>
 #include <navigation/NaviMesh.h>
 #include <navigation/NaviMeshGenerator.h>
 
 namespace sky::ai {
-
-    class NaviMeshFactory : public Singleton<NaviMeshFactory>, public IWorldBuilderGather {
+    class NaviMeshFactory : public Singleton<NaviMeshFactory> {
     public:
-        NaviMeshFactory();
-        ~NaviMeshFactory() override = default;
-
-        CounterPtr<NaviMesh> CreateNaviMesh();
-        CounterPtr<NaviMeshGenerator> CreateGenerator();
         class Impl {
         public:
-            Impl() = default;
-            virtual ~Impl() = default;
-
-            virtual NaviMesh* CreateNaviMesh() = 0;
-            virtual NaviMeshGenerator* CreateGenerator() = 0;
-            virtual NaviQueryFilter* CreateQueryFilter() = 0;
+            virtual ~Impl()                                = default;
+            virtual NaviMesh          *CreateNaviMesh()    = 0;
+            virtual NaviMeshGenerator *CreateGenerator()   = 0;
+            virtual NaviQueryFilter   *CreateQueryFilter() = 0;
         };
-        void Register(Impl* impl);
-        void UnRegister();
-
-        NaviQueryFilterPtr CreateQueryFilter();
+        CounterPtr<NaviMesh>          CreateNaviMesh();
+        CounterPtr<NaviMeshGenerator> CreateGenerator();
+        NaviQueryFilterPtr            CreateQueryFilter();
+        bool                          Register(Impl *impl, std::shared_ptr<const void> codeLease = {});
+        void                          UnRegister();
 
     private:
-        void Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const override;
-
-        std::unique_ptr<Impl> factory;
-        EventBinder<IWorldBuilderGather> binder;
+        friend class Singleton<NaviMeshFactory>;
+        NaviMeshFactory() = default;
+        std::shared_ptr<const void> codeLease;
+        std::unique_ptr<Impl>       factory;
     };
-
 } // namespace sky::ai

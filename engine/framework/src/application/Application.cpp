@@ -12,6 +12,7 @@
 
 #include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/compression/Compressor.h>
 // #include <framework/database/DBManager.h>
 #include <core/thread/ThreadDispatcher.h>
 #include <framework/platform/PlatformBase.h>
@@ -104,6 +105,9 @@ namespace sky {
             LOG_E(TAG, "Get Environment Failed");
             return false;
         }
+
+        // Establish host-owned built-ins before loadable modules can acquire their virtual interfaces.
+        CompressionManager::Get();
 
         // save args
         SaveArgs(argc, argv);

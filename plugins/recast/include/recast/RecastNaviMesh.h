@@ -7,15 +7,14 @@
 #include <core/math/Vector3.h>
 #include <navigation/NaviMesh.h>
 #include <recast/RecastConstants.h>
-#include <recast/RecastDebugDraw.h>
+#include <recast/RecastLz4Compressor.h>
 #include <recast/RecastTileCacheMeshProcessor.h>
 
 #include <DetourTileCacheBuilder.h>
 
-#include <mutex>
+#include <shared_mutex>
 
 class dtNavMesh;
-class dtNavMeshQuery;
 class dtTileCache;
 
 namespace sky {
@@ -25,8 +24,8 @@ namespace sky {
 namespace sky::ai {
 
     struct RecastNaviMapConfig {
-        uint32_t maxTiles   = RECAST_MAX_BUILD_TILES;
-        uint32_t maxPolys   = 16384;
+        uint32_t maxTiles = RECAST_MAX_BUILD_TILES;
+        uint32_t maxPolys = 16384;
     };
 
     struct RecastTile {
@@ -53,34 +52,55 @@ namespace sky::ai {
         ~RecastNaviMesh() override;
 
         bool BuildNavMesh(const RecastNaviMapConfig &config);
-        void BuildNavQuery();
+        bool BuildNavQuery();
 
-        dtNavMesh* GetNavMesh() const { return navMesh; }
+        // Borrowed native access requires external exclusion of queries and mesh mutation.
+        dtNavMesh *GetNavMesh() const
+        {
+            return navMesh;
+        }
 
         bool Serialize(std::vector<uint8_t> &out) const;
         bool Deserialize(const std::vector<uint8_t> &in);
+        bool ApplyBuild(const NaviMeshData &data, const std::vector<NaviMeshTileCoord> &rebuiltTiles) override;
+        bool SaveFullData(std::vector<uint8_t> &out) const override
+        {
+            return Serialize(out);
+        }
 
-        NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const override;
-        NaviQueryResult QueryPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter, const NaviPathQueryParam &param, NaviPath &out) const override;
-        void BuildDebugGeometry(NaviDebugGeometry &out) const override;
-        bool LoadData(const NaviMeshData &data) override;
-        bool AddTile(const NaviMeshTilePayload &tile) override;
-        bool RemoveTile(const NaviMeshTileCoord &coord) override;
-        bool PrepareStreaming(const NaviMeshBuildParams &params) override;
+        NaviQueryResult
+        FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr &filter, const NaviPathQueryParam &param) const override;
+        NaviQueryResult QueryPath(const Vector3            &start,
+                                  const Vector3            &end,
+                                  const NaviQueryFilterPtr &filter,
+                                  const NaviPathQueryParam &param,
+                                  NaviPath                 &out) const override;
+        void            BuildDebugGeometry(NaviDebugGeometry &out) const override;
+        bool            LoadData(const NaviMeshData &data) override;
+        bool            AddTile(const NaviMeshTilePayload &tile) override;
+        bool            RemoveTile(const NaviMeshTileCoord &coord) override;
+        bool            PrepareStreaming(const NaviMeshBuildParams &params) override;
 
     private:
         void ResetNavMesh();
+        bool BuildNavMeshUnlocked(const RecastNaviMapConfig &config);
+        bool BuildNavQueryUnlocked();
+        bool PrepareStreamingUnlocked(const NaviMeshBuildParams &params);
+        bool AddTileUnlocked(const NaviMeshTilePayload &tile);
+        bool RemoveTileUnlocked(const NaviMeshTileCoord &coord);
+        bool SerializeUnlocked(std::vector<uint8_t> &out) const;
+        bool DeserializeUnlocked(const std::vector<uint8_t> &in);
         bool InitTileCache(const NaviMeshBuildParams &params);
 
-        dtNavMesh *navMesh = nullptr;
-        dtNavMeshQuery* navQuery = nullptr;
+        dtNavMesh   *navMesh   = nullptr;
         dtTileCache *tileCache = nullptr;
 
         // Per-instance state: worlds must not share allocator / mesh processor state.
-        dtTileCacheAlloc           tileCacheAlloc;
+        NaviCompressor               compressor;
+        dtTileCacheAlloc             tileCacheAlloc;
         RecastTileCacheMeshProcessor meshProcessor;
 
-        // dtNavMeshQuery is not thread-safe; serialize access across worker queries.
-        mutable std::mutex queryMutex;
+        // Readers own separate search contexts; native tile/link mutation excludes every reader.
+        mutable std::shared_mutex queryMutex;
     };
 } // namespace sky::ai

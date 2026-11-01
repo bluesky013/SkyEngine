@@ -73,6 +73,7 @@ namespace sky::phy {
         }
         void                 CollectAssetReferences(std::vector<ComponentAssetReference> &out) const override;
         ComponentPreparation PrepareForWorld(World &world, std::string &error) override;
+        ComponentPreparation PollWorldPreparation(std::string &error) override;
         void                 CancelPreparation() override;
         bool                 KeepWorldResidency() const override
         {

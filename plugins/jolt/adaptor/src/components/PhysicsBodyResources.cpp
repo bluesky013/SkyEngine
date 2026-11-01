@@ -177,14 +177,39 @@ namespace sky::phy {
         return true;
     }
 
+    ComponentPreparation PhysicsBodyComponent::PollWorldPreparation(std::string &error)
+    {
+        if (!actor || !actor->GetWorld()) {
+            error = "Physics body is not attached to a world";
+            return ComponentPreparation::Failed;
+        }
+        if (!pendingBinding) {
+            if (IsValid(objectId) && status) {
+                error.clear();
+                return ComponentPreparation::Ready;
+            }
+            error = status.message.empty() ? "Physics body attachment failed" : status.message;
+            return ComponentPreparation::Failed;
+        }
+        const auto prepared = PrepareForWorld(*actor->GetWorld(), error);
+        if (prepared == ComponentPreparation::Preparing)
+            return prepared;
+        if (prepared == ComponentPreparation::Failed || !BindPrepared()) {
+            pendingBinding = false;
+            if (error.empty())
+                error = status.message.empty() ? "Physics body attachment failed" : status.message;
+            return ComponentPreparation::Failed;
+        }
+        error.clear();
+        return ComponentPreparation::Ready;
+    }
+
     void PhysicsBodyComponent::Tick(float)
     {
-        if (!pendingBinding || !actor || !actor->GetWorld())
+        if (!pendingBinding)
             return;
         std::string error;
-        const auto  prepared = PrepareForWorld(*actor->GetWorld(), error);
-        if (prepared == ComponentPreparation::Failed || (prepared == ComponentPreparation::Ready && !BindPrepared()))
-            pendingBinding = false;
+        PollWorldPreparation(error);
     }
 
     bool PhysicsBodyComponent::SetShapeSource(PhysicsShapeSource value)

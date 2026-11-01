@@ -93,8 +93,6 @@ namespace {
         bool LoadConfigs() override
         {
             if (!auditManifest.empty()) {
-                if (moduleManager && ModuleManager::GetBuildOption("SKY_BUILD_COMPRESSION").value_or(false))
-                    moduleManager->RegisterModule(ModuleInfo{"CompressionModule", {}});
                 return true;
             }
             if (moduleManager) {
@@ -105,7 +103,9 @@ namespace {
 #if SKY_HAS_JOLT_BUILDER
                 moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {"JoltPhysicsModule"}});
 #endif
-                moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {}});
+#if SKY_HAS_NAVIGATION_BUILDER
+                moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {"RecastNavigation"}});
+#endif
                 if (ModuleManager::GetBuildOption("SKY_BUILD_TERRAIN").value_or(false))
                     moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
                 moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});

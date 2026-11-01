@@ -31,12 +31,6 @@
             "enabled": true
         },
         {
-            "name": "compression",
-            "dir": "compression",
-            "cmake_var": "SKY_BUILD_COMPRESSION",
-            "enabled": true
-        },
-        {
             "name": "pvs",
             "dir": "pvs",
             "cmake_var": "SKY_BUILD_PVS",

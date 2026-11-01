@@ -17,3 +17,8 @@ if (TARGET JoltPhysics.Builder)
     target_compile_definitions(AssetTool PRIVATE SKY_HAS_JOLT_BUILDER=1)
     add_dependencies(AssetTool JoltPhysicsModule)
 endif ()
+
+if (TARGET SkyNavigation.Builder)
+    target_compile_definitions(AssetTool PRIVATE SKY_HAS_NAVIGATION_BUILDER=1)
+    add_dependencies(AssetTool RecastNavigation)
+endif ()

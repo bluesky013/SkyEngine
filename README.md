@@ -158,7 +158,7 @@ Common CMake switches:
 | `-DSKY_BUILD_RECAST=ON/OFF` | Toggle Recast plugin |
 | `-DSKY_BUILD_TERRAIN=ON/OFF` | Toggle Terrain plugin |
 | `-DSKY_BUILD_VEGETATION=ON/OFF` | Toggle Vegetation plugin |
-| `-DSKY_BUILD_COMPRESSION=ON/OFF` | Toggle Compression plugin |
+| `-DSKY_BUILD_COMPRESSION=ON/OFF` | Toggle Framework built-in LZ4 support |
 | `-DSKY_BUILD_PVS=ON/OFF` | Toggle PVS plugin |
 | `-DSKY_BUILD_AUDIO=ON/OFF` | Toggle Audio plugin |
 | `-DSKY_BUILD_CONSOLE=ON/OFF` | Toggle Console plugin |
@@ -214,7 +214,6 @@ Current repository defaults (see `plugins/plugins.json`):
 - `SKY_BUILD_RECAST=ON`
 - `SKY_BUILD_TERRAIN=ON`
 - `SKY_BUILD_VEGETATION=ON`
-- `SKY_BUILD_COMPRESSION=ON`
 - `SKY_BUILD_PVS=ON`
 - `SKY_BUILD_AUDIO=ON`
 - `SKY_BUILD_CONSOLE=ON`
@@ -222,6 +221,8 @@ Current repository defaults (see `plugins/plugins.json`):
 - `SKY_BUILD_PYTHON=OFF`
 
 This compile-time selection is separate from runtime module loading.
+
+Framework also provides built-in LZ4 compression by default (`SKY_BUILD_COMPRESSION=ON` in `cmake/options.cmake`); it does not require a runtime module.
 
 - `configs/modules_game.json` controls modules loaded by the game/runtime launcher
 - `configs/modules_editor.json` controls modules loaded by the editor configuration

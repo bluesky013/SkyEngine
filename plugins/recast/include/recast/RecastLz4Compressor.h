@@ -15,20 +15,15 @@ namespace sky::ai {
 
     struct NaviCompressor : public dtTileCacheCompressor {
     public:
-        NaviCompressor();
+        NaviCompressor()           = default;
         ~NaviCompressor() override = default;
 
         int maxCompressedSize(const int bufferSize) override;
 
-        dtStatus compress(const uint8_t* buffer, const int bufferSize, uint8_t* compressed,
-                          const int maxCompressedSize, int* compressedSize) override;
+        dtStatus
+        compress(const uint8_t *buffer, const int bufferSize, uint8_t *compressed, const int maxCompressedSize, int *compressedSize) override;
 
-        dtStatus decompress(const uint8_t* compressed, const int compressedSize,
-                            uint8_t* buffer, const int maxBufferSize, int* bufferSize) override;
-
-        ICompressor* compressor = nullptr;
+        dtStatus decompress(const uint8_t *compressed, const int compressedSize, uint8_t *buffer, const int maxBufferSize, int *bufferSize) override;
     };
-
-    NaviCompressor* GetOrCreateCompressor();
 
 } // namespace sky::ai

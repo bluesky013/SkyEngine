@@ -1,66 +1,44 @@
 //
-// Created by blues on 2024/10/11.
+// Created on 2026/10/30.
 //
 
 #include <navigation/NaviMeshFactory.h>
-#include <navigation/NavigationSystem.h>
-#include <framework/interface/Interface.h>
 
 namespace sky::ai {
-
-    class NavigationBuilder : public IWorldBuilder {
-    public:
-        explicit NavigationBuilder() = default;
-        ~NavigationBuilder() override = default;
-
-        void Build(const WorldPtr &world) const override
-        {
-            CounterPtr<NaviMeshGenerator> generator = NaviMeshFactory::Get()->CreateGenerator();
-            generator->Setup(world);
-            generator->StartAsync();
-        }
-
-        std::string GetDesc() const override
-        {
-            return "Build Navigation";
-        }
-    };
-
-    NaviMeshFactory::NaviMeshFactory()
+    bool NaviMeshFactory::Register(Impl *impl, std::shared_ptr<const void> lease)
     {
-        binder.Bind(this);
-    }
-
-    void NaviMeshFactory::Register(Impl* impl)
-    {
+        if (!impl || factory) {
+            delete impl;
+            return false;
+        }
+        codeLease = std::move(lease);
         factory.reset(impl);
+        return true;
     }
-
     void NaviMeshFactory::UnRegister()
     {
         factory.reset();
+        codeLease.reset();
     }
-
     CounterPtr<NaviMesh> NaviMeshFactory::CreateNaviMesh()
     {
-        return factory ? factory->CreateNaviMesh() : nullptr;
+        CounterPtr<NaviMesh> result = factory ? factory->CreateNaviMesh() : nullptr;
+        if (result)
+            result->SetCodeLease(codeLease);
+        return result;
     }
-
     CounterPtr<NaviMeshGenerator> NaviMeshFactory::CreateGenerator()
     {
-        return factory ? factory->CreateGenerator() : nullptr;
+        CounterPtr<NaviMeshGenerator> result = factory ? factory->CreateGenerator() : nullptr;
+        if (result)
+            result->SetCodeLease(codeLease);
+        return result;
     }
-
     NaviQueryFilterPtr NaviMeshFactory::CreateQueryFilter()
     {
-        return factory ? NaviQueryFilterPtr(factory->CreateQueryFilter()) : nullptr;
+        NaviQueryFilterPtr result = factory ? factory->CreateQueryFilter() : nullptr;
+        if (result)
+            result->SetCodeLease(codeLease);
+        return result;
     }
-
-    void NaviMeshFactory::Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const
-    {
-        if (factory) {
-            builders.emplace_back(new NavigationBuilder());
-        }
-    }
-
 } // namespace sky::ai

@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #if defined(_WIN32)
@@ -57,6 +58,7 @@ namespace sky::editor::sandbox {
             if (!document.HasMember("modules") || !document["modules"].IsArray()) {
                 return false;
             }
+            std::unordered_set<std::string> disabledModules;
             for (const auto &module : document["modules"].GetArray()) {
                 if (!module.IsObject() || !module.HasMember("name") || !module["name"].IsString()) {
                     continue;
@@ -68,13 +70,18 @@ namespace sky::editor::sandbox {
                     if (!enabled)
                         return false;
                     if (!*enabled)
-                        continue;
+                        disabledModules.emplace(module["name"].GetString());
                 }
+            }
+            for (const auto &module : document["modules"].GetArray()) {
+                if (!module.IsObject() || !module.HasMember("name") || !module["name"].IsString() ||
+                    disabledModules.contains(module["name"].GetString()))
+                    continue;
                 ModuleInfo info;
                 info.name = module["name"].GetString();
                 if (module.HasMember("dependencies") && module["dependencies"].IsArray()) {
                     for (const auto &dep : module["dependencies"].GetArray()) {
-                        if (dep.IsString()) {
+                        if (dep.IsString() && !disabledModules.contains(dep.GetString())) {
                             info.dependencies.emplace_back(dep.GetString());
                         }
                     }

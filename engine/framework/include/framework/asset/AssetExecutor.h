@@ -93,6 +93,8 @@ namespace sky {
             PushTask(key, cookPool, std::forward<Func>(func));
         }
 
+        // Cook workers may drain loader work; loader workers must never wait on their own pool.
+        void WaitForLoads();
         void WaitForAll();
 
         AsyncTask CreateLoadBarrier()

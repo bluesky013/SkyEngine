@@ -1,24 +1,28 @@
 //
-// Created on 2026/10/07.
+// Created on 2026/10/30.
 //
 
 #pragma once
 
+#include <core/util/Uuid.h>
 #include <framework/serialization/SerializationContext.h>
+#include <navigation/NaviMesh.h>
+#include <string>
 
 namespace sky::ai {
-
-    // Authoring config for the navigation world subsystem (shown in the editor's
-    // project-level Config panel).
     struct NavigationSubSystemConfig {
-        float cellSize      = 0.3f;
-        float agentHeight   = 2.0f;
-        float agentRadius   = 0.6f;
-        float agentMaxSlope = 45.0f; // degrees
-        float agentMaxClimb = 0.4f;
+        Uuid  navMeshAsset;
+        bool  streaming     = false;
+        float cellSize      = .3f;
+        float cellHeight    = .3f;
+        float tileSize      = 10.f;
+        float agentHeight   = 2.f;
+        float agentRadius   = .6f;
+        float agentMaxSlope = 45.f;
+        float agentMaxClimb = .4f;
         int   maxTiles      = 256;
 
+        bool        MakeSettings(NaviAgentConfig &agent, NaviMeshResolution &resolution, uint32_t &capacity, std::string &error) const;
         static void Reflect(SerializationContext *context);
     };
-
 } // namespace sky::ai

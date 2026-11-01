@@ -2,7 +2,15 @@
     "targets": [
         {
             "name": "RecastNavigation",
-            "dependencies": ["Launcher"]
+            "dependencies": [
+                "Launcher"
+            ]
+        },
+        {
+            "name": "RecastNavigation.Editor",
+            "dependencies": [
+                "SandboxEditor"
+            ]
         }
     ]
 }

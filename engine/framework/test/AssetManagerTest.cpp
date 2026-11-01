@@ -219,7 +219,7 @@ namespace {
     }
 } // namespace
 
-// Identity codec used to exercise the compressed product path without the CompressionModule.
+// Identity override isolates product framing from the built-in codec.
 class DummyCompressor : public ICompressor {
 public:
     uint32_t CompressBound(uint32_t inDataSize) override
@@ -960,7 +960,7 @@ TEST_F(AssetManagerTest, ImportTest)
 
 TEST_F(AssetManagerTest, CompressionTest)
 {
-    CompressionManager::Get()->Register(CompressionMethod::LZ4, new DummyCompressor());
+    ASSERT_TRUE(CompressionManager::Get()->Register(CompressionMethod::LZ4, new DummyCompressor()));
     AssetManager::Get()->SetProductCompression(CompressionMethod::LZ4);
 
     auto             *db   = AssetDataBase::Get();

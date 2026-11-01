@@ -16,8 +16,7 @@ namespace sky::ai {
     public:
         virtual ~INaviGeometrySink() = default;
 
-        virtual void AddTriangles(const Vector3 *vertices, uint32_t vertexCount,
-                                  const uint32_t *indices, uint32_t indexCount) = 0;
+        virtual void AddTriangles(const Vector3 *vertices, uint32_t vertexCount, const uint32_t *indices, uint32_t indexCount) = 0;
     };
 
     // A source of nav mesh geometry (e.g. terrain). Implemented outside the navigation core so the

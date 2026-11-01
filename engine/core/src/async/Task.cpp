@@ -19,10 +19,12 @@ namespace sky {
         CounterPtr<Task> thisTask = this;
         isDone.store(false);
 
-        handle = TaskExecutor::Get()->GetPool().CreateTask([thisTask](ThreadContext &) {
+        handle = TaskExecutor::Get()->GetPool().CreateTask([thisTask](ThreadContext &) mutable {
             const bool result = thisTask->DoWork();
             thisTask->OnComplete(result);
             thisTask->isDone.store(true);
+            // The queued node owns its execution lifetime; do not retain a Task -> node -> Task cycle.
+            thisTask = nullptr;
         });
 
         for (const auto &dep : dependencies) {
@@ -47,9 +49,8 @@ namespace sky {
 
     TaskExecutor::TaskExecutor(size_t N)
     {
-        const uint32_t count = N != 0 ? static_cast<uint32_t>(N)
-                                      : std::max<uint32_t>(1, std::thread::hardware_concurrency());
-        pool = std::make_unique<ThreadPool>(count);
+        const uint32_t count = N != 0 ? static_cast<uint32_t>(N) : std::max<uint32_t>(1, std::thread::hardware_concurrency());
+        pool                 = std::make_unique<ThreadPool>(count);
     }
 
     void TaskExecutor::WaitForAll()

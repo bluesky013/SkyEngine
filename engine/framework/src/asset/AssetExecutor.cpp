@@ -14,6 +14,11 @@ namespace sky {
     {
     }
 
+    void AssetExecutor::WaitForLoads()
+    {
+        pool.WaitIdle();
+    }
+
     void AssetExecutor::WaitForAll()
     {
         pool.WaitIdle();

@@ -308,7 +308,7 @@ namespace sky {
             return {};
         }
 
-        auto *compressor = CompressionManager::Get()->GetCompressor(method);
+        const auto compressor = CompressionManager::Get()->AcquireCompressor(method);
         if (compressor == nullptr) {
             LOG_E(TAG, "No compressor registered for codec %s", codec.c_str());
             return {};

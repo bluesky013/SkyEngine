@@ -135,6 +135,38 @@ namespace {
     };
 } // namespace
 
+TEST_F(PhysicsAssetStreamingTest, AttachedBodyPreparationReportsReadyAfterLoaderDrain)
+{
+    auto  actor = Body(Collision());
+    auto *body  = actor->GetComponent<PhysicsBodyComponent>();
+    ASSERT_NE(host->TryAttachToWorld(actor), nullptr);
+    std::string error;
+    auto        state = ComponentPreparation::Preparing;
+    for (uint32_t stage = 0; stage < 64 && state == ComponentPreparation::Preparing; ++stage) {
+        AssetExecutor::Get()->WaitForLoads();
+        state = body->PollWorldPreparation(error);
+    }
+    ASSERT_EQ(state, ComponentPreparation::Ready) << error;
+    EXPECT_TRUE(IsValid(body->GetObjectId()));
+    EXPECT_EQ(system->GetStats().bodyCount, 1u);
+}
+
+TEST_F(PhysicsAssetStreamingTest, FailedAttachedBodyPreparationDoesNotLaterReportReady)
+{
+    auto  actor = Body(Uuid::Create());
+    auto *body  = actor->GetComponent<PhysicsBodyComponent>();
+    ASSERT_NE(host->TryAttachToWorld(actor), nullptr);
+    AssetExecutor::Get()->WaitForLoads();
+    std::string error;
+    EXPECT_EQ(body->PollWorldPreparation(error), ComponentPreparation::Failed);
+    EXPECT_FALSE(error.empty());
+    host->Tick(0);
+    EXPECT_EQ(body->PollWorldPreparation(error), ComponentPreparation::Failed);
+    EXPECT_FALSE(error.empty());
+    EXPECT_FALSE(IsValid(body->GetObjectId()));
+    EXPECT_EQ(system->GetStats().bodyCount, 0u);
+}
+
 TEST_F(PhysicsAssetStreamingTest, BuilderToProductsToReadyActivationAndRetirement)
 {
     const auto collision = Collision();
@@ -426,6 +458,47 @@ TEST(PhysicsAssetCodecTest, RejectsDuplicateElementIdsAndNonFiniteAuthoring)
     PhysicsMaterialData material;
     material.linearDamping = 1;
     EXPECT_FALSE(WritePhysicsMaterial(material, text));
+}
+
+TEST(PhysicsAssetCodecTest, TriangleMeshRoundTripRetainsAWholeMeshView)
+{
+    const auto text = std::string(R"({"version":1,"shape":{"id":")") + Uuid::Create().ToString() +
+                      R"(","type":"TriangleMesh","vertices":[[-2,1,-3],[4,1,-3],[4,1,6],[-2,1,6]],"indices":[0,2,1,0,3,2]}})";
+    CollisionSource source;
+    ASSERT_TRUE(ParseCollision(text, source));
+    const auto mesh = source.shape.meshData;
+    ASSERT_NE(mesh, nullptr);
+    ASSERT_EQ(mesh->views.size(), 1u);
+    const auto &view = mesh->views.front();
+    EXPECT_EQ(view.numVert, 4u);
+    EXPECT_EQ(view.numTris, 2u);
+    EXPECT_EQ(view.firstVertex, 0u);
+    EXPECT_EQ(view.firstIndex, 0u);
+    EXPECT_EQ(mesh->vtxStride, sizeof(Vector3));
+    EXPECT_EQ(mesh->indexType, IndexType::U32);
+    EXPECT_EQ(mesh->indexRaw.size(), 6 * sizeof(uint32_t));
+    EXPECT_FLOAT_EQ(view.aabb.min.x, -2);
+    EXPECT_FLOAT_EQ(view.aabb.min.y, 1);
+    EXPECT_FLOAT_EQ(view.aabb.min.z, -3);
+    EXPECT_FLOAT_EQ(view.aabb.max.x, 4);
+    EXPECT_FLOAT_EQ(view.aabb.max.y, 1);
+    EXPECT_FLOAT_EQ(view.aabb.max.z, 6);
+    std::string encoded;
+    ASSERT_TRUE(WriteCollision(source, encoded));
+    CollisionSource restored;
+    ASSERT_TRUE(ParseCollision(encoded, restored));
+    ASSERT_NE(restored.shape.meshData, nullptr);
+    ASSERT_EQ(restored.shape.meshData->views.size(), 1u);
+    EXPECT_EQ(restored.shape.meshData->views.front().numTris, 2u);
+    EXPECT_FLOAT_EQ(restored.shape.meshData->views.front().aabb.max.z, 6);
+}
+
+TEST(PhysicsAssetCodecTest, RejectsTriangleIndicesWithoutVertices)
+{
+    const auto text =
+        std::string(R"({"version":1,"shape":{"id":")") + Uuid::Create().ToString() + R"(","type":"TriangleMesh","vertices":[],"indices":[0,1,2]}})";
+    CollisionSource source;
+    EXPECT_FALSE(ParseCollision(text, source));
 }
 
 TEST(PhysicsAssetCodecTest, MalformedCellEnvelopesReturnErrors)

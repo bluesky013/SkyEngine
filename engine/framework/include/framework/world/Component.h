@@ -41,6 +41,12 @@ namespace sky {
         {
             return ComponentPreparation::Ready;
         }
+        // Polls deferred attachment, including failures after initial attachment accepted asynchronous work.
+        virtual ComponentPreparation PollWorldPreparation(std::string &error)
+        {
+            error.clear();
+            return ComponentPreparation::Ready;
+        }
         virtual void CancelPreparation()
         {
         }

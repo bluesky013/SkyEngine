@@ -42,6 +42,8 @@ sky_add_test(TARGET FrameworkTest
         3rdParty::googletest
     )
 
+target_compile_definitions(FrameworkTest PRIVATE SKY_FRAMEWORK_EXPECT_LZ4=$<BOOL:${SKY_BUILD_COMPRESSION}>)
+
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_target_properties(FrameworkTest PROPERTIES
         MACOSX_BUNDLE TRUE

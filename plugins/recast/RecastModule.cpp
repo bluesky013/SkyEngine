@@ -1,83 +1,118 @@
 //
-// Created by blues on 2024/9/1.
+// Created on 2026/10/30.
 //
+
+#include <core/logger/Logger.h>
+#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/Any.h>
-#include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/SerializationFactory.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 #include <navigation/NaviMeshAsset.h>
 #include <navigation/NaviMeshFactory.h>
+#include <navigation/NaviMeshSource.h>
 #include <navigation/NavigationSystem.h>
-#include <recast/NavigationSubSystemConfig.h>
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastNaviMeshGenerator.h>
 #include <recast/RecastQueryFilter.h>
 
-#include <memory>
-#include <string>
-
 namespace sky::ai {
-
-    class RecastNaviMapFactory : public NaviMeshFactory::Impl {
+    namespace {
+        const NavigationSubSystemConfig *ReadConfig(const Any &value, NavigationSubSystemConfig &defaults)
+        {
+            return value ? value.GetAsConst<NavigationSubSystemConfig>() : &defaults;
+        }
+        class RecastNaviMapFactory final : public NaviMeshFactory::Impl {
+        public:
+            NaviMesh *CreateNaviMesh() override
+            {
+                return new RecastNaviMesh();
+            }
+            NaviMeshGenerator *CreateGenerator() override
+            {
+                return new RecastNaviMeshGenerator();
+            }
+            NaviQueryFilter *CreateQueryFilter() override
+            {
+                return new RecastQueryFilter();
+            }
+        };
+    } // namespace
+    class RecastModule final : public IModule {
     public:
-        RecastNaviMapFactory()           = default;
-        ~RecastNaviMapFactory() override = default;
-
-        NaviMesh *CreateNaviMesh() override
-        {
-            return new RecastNaviMesh();
-        }
-
-        NaviMeshGenerator *CreateGenerator() override
-        {
-            return new RecastNaviMeshGenerator();
-        }
-
-        NaviQueryFilter *CreateQueryFilter() override
-        {
-            return new RecastQueryFilter();
-        }
-    };
-
-    class RecastModule : public IModule {
-    public:
-        RecastModule()           = default;
-        ~RecastModule() override = default;
-
         void RegisterMeta() override
         {
             NaviMeshData::Reflect(SerializationContext::Get());
+            NaviMeshSourceData::Reflect(SerializationContext::Get());
             NavigationSubSystemConfig::Reflect(SerializationContext::Get());
             AssetManager::Get()->RegisterAssetHandler<NaviMesh>();
         }
-
-        bool Init(const StartArguments &args) override
+        bool Init(const StartArguments &) override
         {
+            auto *manager = ModuleManager::Current();
+            lease         = manager ? manager->RetainModule("RecastNavigation") : nullptr;
             return true;
         }
-
         void Start() override
         {
-            NaviMeshFactory::Get()->Register(new RecastNaviMapFactory());
-
-            // Declarative world subsystem: navigation.
-            WorldSubSystemRegistry::Get().Register(
-                Name(NavigationSystem::NAME.data()),
-                WorldSubSystemRegistration{
-                    [](World &, const Any &) -> std::unique_ptr<IWorldSubSystem> { return std::make_unique<NavigationSystem>(); },
-                    TypeInfoObj<NavigationSubSystemConfig>::Get()->RtInfo(),
-                    [] { return Any(std::in_place_type<NavigationSubSystemConfig>); },
-                    [](const Any &, std::string &) { return true; },
-                });
+            factoryRegistered = NaviMeshFactory::Get()->Register(new RecastNaviMapFactory(), lease);
+            if (!factoryRegistered) {
+                LOG_E("Recast", "Navigation backend is already registered");
+                return;
+            }
+            WorldSubSystemRegistration registration;
+            registration.factory = [code = lease](World &, const Any &value) -> std::unique_ptr<IWorldSubSystem> {
+                NavigationSubSystemConfig defaults;
+                const auto               *config = ReadConfig(value, defaults);
+                if (!config)
+                    return nullptr;
+                auto        system = std::make_unique<NavigationSystem>();
+                std::string error;
+                if (!system->Init(*config, error, code)) {
+                    LOG_E("Recast", "%s", error.c_str());
+                    return nullptr;
+                }
+                return system;
+            };
+            registration.configType        = TypeInfoObj<NavigationSubSystemConfig>::Get()->RtInfo();
+            registration.makeDefaultConfig = [] { return Any(std::in_place_type<NavigationSubSystemConfig>); };
+            registration.validate          = [](const Any &value, std::string &error) {
+                NavigationSubSystemConfig defaults;
+                const auto               *config = ReadConfig(value, defaults);
+                if (!config) {
+                    error = "Unexpected navigation config type";
+                    return false;
+                }
+                NaviAgentConfig    agent;
+                NaviMeshResolution resolution;
+                uint32_t           capacity = 0;
+                return config->MakeSettings(agent, resolution, capacity, error);
+            };
+            registration.moduleLease = lease;
+            worldRegistered          = WorldSubSystemRegistry::Get().Register(Name(INavigationSystem::NAME.data()), std::move(registration));
+            if (!worldRegistered) {
+                LOG_E("Recast", "Navigation subsystem is already registered");
+                NaviMeshFactory::Get()->UnRegister();
+                factoryRegistered = false;
+            }
         }
-
         void Shutdown() override
         {
-            WorldSubSystemRegistry::Get().Unregister(Name(NavigationSystem::NAME.data()));
-            NaviMeshFactory::Get()->UnRegister();
+            if (worldRegistered) {
+                WorldSubSystemRegistry::Get().Unregister(Name(INavigationSystem::NAME.data()));
+                worldRegistered = false;
+            }
+            if (factoryRegistered) {
+                NaviMeshFactory::Get()->UnRegister();
+                factoryRegistered = false;
+            }
+            lease.reset();
         }
+
+    private:
+        std::shared_ptr<const void> lease;
+        bool                        factoryRegistered = false;
+        bool                        worldRegistered   = false;
     };
 } // namespace sky::ai
 REGISTER_MODULE_TAGGED(sky::ai::RecastModule)

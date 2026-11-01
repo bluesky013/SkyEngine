@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <navigation/NaviQueryFilter.h>
 #include <DetourNavMeshQuery.h>
+#include <navigation/NaviQueryFilter.h>
 
 namespace sky::ai {
 
@@ -14,7 +14,19 @@ namespace sky::ai {
         RecastQueryFilter();
         ~RecastQueryFilter() override = default;
 
-        const dtQueryFilter* GetFilter() const { return &data; }
+        const dtQueryFilter *GetFilter() const
+        {
+            return &data;
+        }
+        float       GetAreaCost(AreaId id) const override;
+        FilterFlags GetIncludeFlags() const override
+        {
+            return data.getIncludeFlags();
+        }
+        FilterFlags GetExcludeFlags() const override
+        {
+            return data.getExcludeFlags();
+        }
 
     private:
         void SetAreaCost(AreaId id, float cost) override;

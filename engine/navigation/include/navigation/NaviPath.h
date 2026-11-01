@@ -23,7 +23,10 @@ namespace sky::ai {
         std::vector<Vector3> points;
         std::vector<uint8_t> flags;
 
-        bool IsValid() const { return result == NaviQueryResult::SUCCESS; }
+        bool IsValid() const
+        {
+            return result == NaviQueryResult::SUCCESS;
+        }
 
         void Reset()
         {

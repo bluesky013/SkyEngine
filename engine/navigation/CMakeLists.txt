@@ -15,20 +15,3 @@ sky_add_library(TARGET Navigation STATIC
     LINK_LIBS
         Framework
 )
-
-if (SKY_DEVELOP AND NOT SKY_MOBILE)
-    add_subdirectory(builder)
-endif ()
-add_subdirectory(terrain)
-
-if (SKY_BUILD_TEST)
-    sky_add_test(TARGET NavigationTest
-        SOURCES
-            ${TEST_FILES}
-        LIBS
-            Navigation
-            3rdParty::googletest
-        WORKING_DIR
-            $<TARGET_FILE_DIR:NavigationTest>
-        )
-endif ()

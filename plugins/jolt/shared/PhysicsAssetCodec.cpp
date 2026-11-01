@@ -194,6 +194,8 @@ namespace sky::phy {
                     shape.points = std::move(vertices);
                     break;
                 }
+                if (vertices.empty())
+                    return Invalid("Collision mesh requires vertices");
                 const auto *indices = Member(value, "indices");
                 if (!indices || !indices->IsArray() || indices->Empty() || indices->Size() % 3 != 0)
                     return Invalid("Collision mesh requires triangle indices");
@@ -210,6 +212,12 @@ namespace sky::phy {
                     const uint32_t index = (*indices)[i].GetUint();
                     std::memcpy(shape.meshData->indexRaw.data() + size_t(i) * sizeof(index), &index, sizeof(index));
                 }
+                AABB bounds{vertices.front(), vertices.front()};
+                for (const auto &vertex : vertices) {
+                    bounds.min = {std::min(bounds.min.x, vertex.x), std::min(bounds.min.y, vertex.y), std::min(bounds.min.z, vertex.z)};
+                    bounds.max = {std::max(bounds.max.x, vertex.x), std::max(bounds.max.y, vertex.y), std::max(bounds.max.z, vertex.z)};
+                }
+                shape.meshData->AddView(0, static_cast<uint32_t>(vertices.size()), 0, indices->Size(), bounds);
                 break;
             }
             case ShapeType::Compound: {

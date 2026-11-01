@@ -122,7 +122,7 @@ TEST(AnimationBuilderTest, RecookPublishesNewSnapshotAndFailuresKeepOldClip)
         EXPECT_NE(result.error.find("publish"), std::string::npos);
         EXPECT_EQ(manager->LoadAsset<AnimationClip>(id).get(), second.get());
         filesystem->failCommit = false;
-        CompressionManager::Get()->Register(CompressionMethod::LZ4, new FailedClipCompressor);
+        ASSERT_TRUE(CompressionManager::Get()->Register(CompressionMethod::LZ4, new FailedClipCompressor));
         manager->SetProductCompression(CompressionMethod::LZ4);
         builder.Request(request, result);
         EXPECT_EQ(result.retCode, AssetBuildRetCode::FAILED);

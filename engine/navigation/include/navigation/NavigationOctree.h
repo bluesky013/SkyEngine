@@ -4,28 +4,28 @@
 
 #pragma once
 
-#include <core/tree/OctTree.h>
-#include <core/template/ReferenceObject.h>
 #include <core/shapes/TriangleMesh.h>
+#include <core/template/ReferenceObject.h>
+#include <core/tree/OctTree.h>
 
 namespace sky {
     struct NaviOctreeElement;
     using NaviOctreeElementRef = CounterPtr<NaviOctreeElement>;
-    using NaviOctree = Octree<NaviOctreeElementRef>;
+    using NaviOctree           = Octree<NaviOctreeElementRef>;
 
-    template<>
+    template <>
     struct OctreeTraits<NaviOctreeElementRef> {
-        using BoundType = AABB;
-        static const uint32_t MAX_DEPTH = 12;
+        using BoundType                        = AABB;
+        static const uint32_t MAX_DEPTH        = 12;
         static const uint32_t MAX_ELEMENT_LEAF = 16;
 
         static inline const BoundType &GetBounds(const NaviOctreeElementRef &ele);
-        static inline void IndexChanged(const NaviOctreeElementRef &ele, const NaviOctree::ElementIndex &index);
+        static inline void             IndexChanged(const NaviOctreeElementRef &ele, const NaviOctree::ElementIndex &index);
     };
 
     struct NaviOctreeElement : public RefObject {
         CounterPtr<TriangleMesh> triangleMesh;
-        uint32_t viewIndex = 0;
+        uint32_t                 viewIndex = 0;
 
         const AABB &GetBounds() const
         {
@@ -44,4 +44,4 @@ namespace sky {
     {
         ele->index = index;
     }
-}
+} // namespace sky

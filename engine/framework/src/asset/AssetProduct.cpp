@@ -134,7 +134,7 @@ namespace sky {
         for (const auto &dependency : dependencies)
             if (!dependency || dependency == uuid || !unique.insert(dependency).second)
                 return {ProductError::InvalidData, "invalid or duplicate product dependency"};
-        auto *compressor = compressProducts ? CompressionManager::Get()->GetCompressor(compressionMethod) : nullptr;
+        const auto compressor = compressProducts ? CompressionManager::Get()->AcquireCompressor(compressionMethod) : nullptr;
         if (compressProducts && !compressor)
             return {ProductError::Unsupported, "requested product compressor is unavailable"};
         OMemoryArchive block;

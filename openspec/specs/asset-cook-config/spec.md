@@ -51,17 +51,27 @@ A source asset configured for several targets SHALL emit one product per target;
 
 ### Requirement: Cook data compression
 
-Cook MAY compress product data. The product header SHALL record the compression codec, and the loader SHALL decompress via the framework `CompressionManager` (`ICompressor`), whose lz4 implementation is registered by the dynamically loaded `CompressionModule`.
+Cook MAY compress product data. The product header SHALL record the compression codec, and the loader SHALL decompress via the Framework CompressionManager/ICompressor interface. Framework SHALL provide default LZ4 when SKY_BUILD_COMPRESSION is enabled, without a dynamically loaded compression module. Disabling the built-in SHALL preserve uncompressed loading and explicit unsupported-codec failures. Operations SHALL retain acquired provider handles until their calls finish. Hosts SHALL establish the shared manager before loading modules; replacement-provider ownership SHALL keep its implementation code alive through destruction.
 
 #### Scenario: Compressed product round-trips
 
-- **WHEN** a target is configured to compress and the codec module is loaded
-- **THEN** the loader SHALL decompress the product before deserialization
+- **WHEN** a target is configured to compress and Framework built-in LZ4 is enabled
+- **THEN** the loader SHALL decompress the product before deserialization without loading any codec module
 
 #### Scenario: Uncompressed needs no codec
 
 - **WHEN** a product is not compressed
-- **THEN** loading SHALL NOT require any compression module
+- **THEN** loading SHALL NOT require a compression implementation or module
+
+#### Scenario: Support disabled
+
+- **WHEN** built-in compression is disabled and no explicit codec replacement is provided
+- **THEN** requesting an LZ4 product operation SHALL fail explicitly without loading an optional module or changing the encoding
+
+#### Scenario: Replacement removed during retained use
+
+- **WHEN** an acquired provider remains referenced while its registry replacement is removed or disabled
+- **THEN** the acquired provider and its code lease SHALL remain valid until that handle is released, while subsequent acquisition observes the current selection
 
 ### Requirement: Cook worker protocol integrity
 

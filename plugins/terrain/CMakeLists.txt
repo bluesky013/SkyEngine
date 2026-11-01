@@ -26,6 +26,7 @@ sky_add_module(TARGET TerrainRender
         Terrain.Static
 )
 
+add_subdirectory(navigation)
 add_subdirectory(builder)
 add_subdirectory(physics)
 

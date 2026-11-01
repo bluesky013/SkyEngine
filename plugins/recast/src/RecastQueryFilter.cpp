@@ -4,6 +4,8 @@
 
 #include <recast/RecastQueryFilter.h>
 
+#include <cmath>
+
 namespace sky::ai {
 
     RecastQueryFilter::RecastQueryFilter()
@@ -13,7 +15,14 @@ namespace sky::ai {
 
     void RecastQueryFilter::SetAreaCost(AreaId id, float cost)
     {
-        data.setAreaCost(id, cost);
+        if (id < DT_MAX_AREAS && std::isfinite(cost) && cost >= 1.f) {
+            data.setAreaCost(id, cost);
+        }
+    }
+
+    float RecastQueryFilter::GetAreaCost(AreaId id) const
+    {
+        return id < DT_MAX_AREAS ? data.getAreaCost(id) : 1.f;
     }
 
     void RecastQueryFilter::SetIncludeFlags(FilterFlags flags)

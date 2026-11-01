@@ -21,6 +21,7 @@
 #include <editor/core/asset/AssetMutationService.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
 #include <editor/core/asset/EditorAssetEditor.h>
+#include <editor/core/document/EditorWorldContext.h>
 #include <editor/core/extension/DefaultEditorExtension.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorExtensionRegistry.h>
@@ -616,6 +617,7 @@ namespace sky::editor {
 
     void SandboxModule::CloseWorld()
     {
+        EditorWorldContext::Get()->Clear();
         if (viewportController)
             viewportController->Cancel();
         if (worldDocument == nullptr) {
@@ -1735,7 +1737,9 @@ namespace sky::editor {
             // Reflect document edits (-> title/status dirty marker).
             RefreshDocumentInfo();
         }
-        renderer.SetWorld(playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr);
+        auto *displayWorld = playSession.GetWorld() ? playSession.GetWorld().Get() : worldDocument ? worldDocument->GetWorld() : nullptr;
+        EditorWorldContext::Get()->SetWorld(displayWorld, !hubMode && playSession.GetState() == PlayState::Editing);
+        renderer.SetWorld(displayWorld);
         renderer.Tick(delta);
         if (viewportController) {
             viewportController->ProcessPicking();
@@ -1929,6 +1933,7 @@ namespace sky::editor {
 
     void SandboxModule::Shutdown()
     {
+        EditorWorldContext::Get()->Clear();
         BindWorldEditor(nullptr);
         renderer.SetInputLostCallback({});
         renderer.SetSurfaceCloseGuard({});

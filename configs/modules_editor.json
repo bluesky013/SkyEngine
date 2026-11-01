@@ -1,6 +1,10 @@
 {
   "modules": [
-    {"name": "JoltPhysics.Builder", "buildOption": "SKY_BUILD_JOLT", "dependencies": []},
+    {
+      "name": "JoltPhysics.Builder",
+      "buildOption": "SKY_BUILD_JOLT",
+      "dependencies": []
+    },
     {
       "name": "Content.Module",
       "dependencies": [
@@ -48,7 +52,8 @@
         "Aurora.ShaderCompiler",
         "Aurora.Render.Editor",
         "Content.Views",
-        "Content.Builder.Module"
+        "Content.Builder.Module",
+        "RecastNavigation.Editor"
       ]
     },
     {
@@ -61,7 +66,8 @@
     },
     {
       "name": "RecastNavigation",
-      "dependencies": []
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_RECAST"
     },
     {
       "name": "Animation.World",
@@ -87,6 +93,21 @@
         "Animation.World",
         "Aurora.Render.Editor",
         "Content.Views"
+      ]
+    },
+    {
+      "name": "SkyNavigation.Builder",
+      "buildOption": "SKY_BUILD_RECAST",
+      "dependencies": [
+        "RecastNavigation"
+      ]
+    },
+    {
+      "name": "RecastNavigation.Editor",
+      "buildOption": "SKY_BUILD_RECAST",
+      "dependencies": [
+        "RecastNavigation",
+        "Aurora.Render.Editor"
       ]
     }
   ]

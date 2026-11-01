@@ -51,6 +51,7 @@ option(SKY_MATH_SIMD   "enable simd math"     OFF)
 # physics). Off by default; enable for deterministic/replay builds.
 option(SKY_DETERMINISTIC_FP "deterministic floating point (no FMA contraction)" OFF)
 option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
+option(SKY_BUILD_COMPRESSION "enable Framework built-in LZ4 compression" ON)
 
 # FreeType UI font adaptor (engine/ui/freetype + sandbox). Decoupled from the
 # removed legacy freetype render plugin; on by default.

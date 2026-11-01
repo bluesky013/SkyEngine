@@ -12,7 +12,9 @@
 #include <aurora/pipeline/SceneHighlight.h>
 #include <aurora/shader/IShaderCompiler.h>
 #include <core/logger/Logger.h>
+#include <editor/core/document/EditorWorldContext.h>
 #include <editor/core/resource/SandboxResources.h>
+#include <editor/render/SceneOverlayRegistry.h>
 #include <editor/render/UiSnapshotProducer.h>
 #include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
@@ -30,7 +32,7 @@ namespace sky::editor {
         std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CompileUi(API api)
         {
             RenderTechniqueData code;
-            code.backend = api;
+            code.backend              = api;
             IShaderCompiler *compiler = ShaderCompilerFactory::Get().GetCompiler();
             if (compiler == nullptr) {
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Shader compiler module is not loaded"};
@@ -112,7 +114,8 @@ namespace sky::editor {
             Shutdown();
             return false;
         }
-        sceneBridge = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), std::move(sceneSource));
+        sceneResources = std::move(sceneSource);
+        sceneBridge    = std::make_unique<RenderSceneBridge>(host.Get()->GetInfo(), sceneResources);
         sceneBridge->EnableGeometrySnapshots(true);
         textures = std::make_unique<UiSnapshotProducer>(host.Get()->GetInfo().deviceEpoch);
         if (AssetPreviewProviderRegistry::Get()->GetProvider()) {
@@ -120,9 +123,8 @@ namespace sky::editor {
             Shutdown();
             return false;
         }
-        auto previewSource = CreateSceneAssetSource(shaderFiles, [](const Uuid &id) {
-            return AssetManager::Get()->LoadAsset(id, AssetLoadPolicy::ProductsOnly);
-        });
+        auto previewSource =
+            CreateSceneAssetSource(shaderFiles, [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id, AssetLoadPolicy::ProductsOnly); });
         previewSessions = std::make_unique<EditorPreviewSessions>(host.Get()->GetInfo(), std::move(previewSource), *textures, [this] {
             if (nextViewportId == UINT32_MAX || surfaces.size() + previewSessions->Count() >= 63)
                 return ViewportId{};
@@ -144,7 +146,8 @@ namespace sky::editor {
         if (started || sceneWorldBound || !host.Get() || !source || !previewSessions || !previewSessions->SetResources(source))
             return false;
         viewportPicker->Reset();
-        sceneBridge = std::make_unique<aurora::RenderSceneBridge>(host.Get()->GetInfo(), std::move(source));
+        sceneResources = std::move(source);
+        sceneBridge    = std::make_unique<aurora::RenderSceneBridge>(host.Get()->GetInfo(), sceneResources);
         sceneBridge->EnableGeometrySnapshots(true);
         return true;
     }
@@ -205,6 +208,7 @@ namespace sky::editor {
                 scene.OnEvent(event);
                 if (sceneBridge)
                     sceneBridge->OnEvent(event);
+                SceneOverlayRegistry::Get()->OnEvent(event);
                 if (previewSessions)
                     previewSessions->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
@@ -328,6 +332,9 @@ namespace sky::editor {
         }
         if (sceneSource)
             sceneSource(*pending, scene.GetSceneId());
+        if (!sceneSource)
+            SceneOverlayRegistry::Get()->Append(*pending, scene.GetSceneId(), EditorWorldContext::Get()->GetWorld(), host.Get()->GetInfo(),
+                                                sceneResources);
         if (previewSessions) {
             if (const auto error = previewSessions->Append(*pending)) {
                 Fail(*error);
@@ -389,6 +396,7 @@ namespace sky::editor {
         sceneSource = {};
         pending.reset();
         host.Shutdown();
+        SceneOverlayRegistry::Get()->OnRendererStopped();
         if (previewSessions) {
             if (AssetPreviewProviderRegistry::Get()->GetProvider() == previewSessions.get())
                 AssetPreviewProviderRegistry::Get()->SetProvider(nullptr);
@@ -398,6 +406,7 @@ namespace sky::editor {
         framePacer->Reset();
         viewportPicker->Reset();
         sceneBridge.reset();
+        sceneResources.reset();
         sceneWorldBound = false;
         shaderFiles.reset();
         scene.OnRendererStopped();

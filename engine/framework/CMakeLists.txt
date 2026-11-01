@@ -3,6 +3,14 @@ set(CURRENT_FOLDER Engine/Foundation)
 file(GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS src/*)
 file(GLOB_RECURSE APP_INC CONFIGURE_DEPENDS include/*)
 
+set(FM_COMPRESSION_LIBS)
+if (SKY_BUILD_COMPRESSION)
+    sky_find_3rd(TARGET lz4 DIR lz4)
+    list(APPEND FM_COMPRESSION_LIBS 3rdParty::lz4)
+else ()
+    list(REMOVE_ITEM APP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/compression/Lz4Compressor.cpp")
+endif ()
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/windows/*)
@@ -92,6 +100,12 @@ sky_add_library(TARGET Framework STATIC
     INSTALL_DIR
         include
     )
+
+if (SKY_BUILD_COMPRESSION)
+    target_compile_definitions(Framework PRIVATE SKY_FRAMEWORK_BUILTIN_LZ4=1)
+    set_property(TARGET Framework APPEND PROPERTY LINK_LIBRARIES ${FM_COMPRESSION_LIBS})
+    set_property(TARGET Framework APPEND PROPERTY INTERFACE_LINK_LIBRARIES "$<LINK_ONLY:3rdParty::lz4>")
+endif ()
 
 if (SKY_BUILD_TEST)
     add_subdirectory(test)

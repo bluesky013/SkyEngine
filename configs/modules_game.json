@@ -22,7 +22,8 @@
     },
     {
       "name": "RecastNavigation",
-      "dependencies": []
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_RECAST"
     },
     {
       "name": "JoltPhysicsModule",
