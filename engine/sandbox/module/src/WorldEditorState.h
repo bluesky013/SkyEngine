@@ -5,7 +5,7 @@
 #include <editor/core/selection/SelectionService.h>
 
 namespace sky::editor {
-    std::vector<std::string> RegisterBuiltinActorCreators(std::shared_ptr<const void> lease = {});
+    std::vector<std::string> RegisterBuiltinActorCreators();
     class WorldEditorState   final : public IEditorPropertySource, public IWorldEvent {
     public:
         explicit WorldEditorState(SelectionService &selection) : selection(selection)

@@ -3,7 +3,7 @@
 ## Extraction
 
 - [x] 1. Identify Core/Framework transaction, snapshot, generated-catalog and cook-completion changes.
-- [x] 2. Keep animation schema, UI/package integration and metadata code leases in their owning changes.
+- [x] 2. Keep animation schema, UI/package integration and metadata/code-lifetime policy in their owning changes; current code residency is provided by the loader cleanup.
 - [x] 3. Include generic main specifications and transaction documentation with the implementation.
 
 ## Validation

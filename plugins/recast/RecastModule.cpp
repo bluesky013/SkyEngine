@@ -3,7 +3,6 @@
 //
 
 #include <core/logger/Logger.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/Any.h>
@@ -47,28 +46,22 @@ namespace sky::ai {
             NavigationSubSystemConfig::Reflect(SerializationContext::Get());
             AssetManager::Get()->RegisterAssetHandler<NaviMesh>();
         }
-        bool Init(const StartArguments &) override
-        {
-            auto *manager = ModuleManager::Current();
-            lease         = manager ? manager->RetainModule("RecastNavigation") : nullptr;
-            return true;
-        }
         void Start() override
         {
-            factoryRegistered = NaviMeshFactory::Get()->Register(new RecastNaviMapFactory(), lease);
+            factoryRegistered = NaviMeshFactory::Get()->Register(new RecastNaviMapFactory());
             if (!factoryRegistered) {
                 LOG_E("Recast", "Navigation backend is already registered");
                 return;
             }
             WorldSubSystemRegistration registration;
-            registration.factory = [code = lease](World &, const Any &value) -> std::unique_ptr<IWorldSubSystem> {
+            registration.factory = [](World &, const Any &value) -> std::unique_ptr<IWorldSubSystem> {
                 NavigationSubSystemConfig defaults;
                 const auto               *config = ReadConfig(value, defaults);
                 if (!config)
                     return nullptr;
                 auto        system = std::make_unique<NavigationSystem>();
                 std::string error;
-                if (!system->Init(*config, error, code)) {
+                if (!system->Init(*config, error)) {
                     LOG_E("Recast", "%s", error.c_str());
                     return nullptr;
                 }
@@ -88,8 +81,7 @@ namespace sky::ai {
                 uint32_t           capacity = 0;
                 return config->MakeSettings(agent, resolution, capacity, error);
             };
-            registration.moduleLease = lease;
-            worldRegistered          = WorldSubSystemRegistry::Get().Register(Name(INavigationSystem::NAME.data()), std::move(registration));
+            worldRegistered = WorldSubSystemRegistry::Get().Register(Name(INavigationSystem::NAME.data()), std::move(registration));
             if (!worldRegistered) {
                 LOG_E("Recast", "Navigation subsystem is already registered");
                 NaviMeshFactory::Get()->UnRegister();
@@ -106,13 +98,11 @@ namespace sky::ai {
                 NaviMeshFactory::Get()->UnRegister();
                 factoryRegistered = false;
             }
-            lease.reset();
         }
 
     private:
-        std::shared_ptr<const void> lease;
-        bool                        factoryRegistered = false;
-        bool                        worldRegistered   = false;
+        bool factoryRegistered = false;
+        bool worldRegistered   = false;
     };
 } // namespace sky::ai
 REGISTER_MODULE_TAGGED(sky::ai::RecastModule)

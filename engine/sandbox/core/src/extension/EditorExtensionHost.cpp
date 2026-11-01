@@ -13,7 +13,7 @@ namespace sky::editor {
 
     void EditorExtensionHost::Add(EditorExtensionPtr extension)
     {
-        Add(EditorExtensionRegistration({}, std::move(extension)));
+        Add(EditorExtensionRegistration(std::move(extension)));
     }
     void EditorExtensionHost::Add(EditorExtensionRegistration extension)
     {

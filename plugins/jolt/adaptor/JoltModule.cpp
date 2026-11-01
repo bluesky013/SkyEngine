@@ -5,7 +5,6 @@
 #include "JoltBackend.h"
 #include "PhysicsAssets.h"
 #include <core/logger/Logger.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/SerializationContext.h>
@@ -35,9 +34,7 @@ namespace sky::phy {
         }
         bool Init(const StartArguments &) override
         {
-            auto *manager = ModuleManager::Current();
-            lease         = manager ? manager->RetainModule("JoltPhysicsModule") : nullptr;
-            backend       = std::make_unique<JoltBackend>(lease);
+            backend = std::make_unique<JoltBackend>();
             if (!backend->Init()) {
                 LOG_E("Jolt", "%s", backend->GetLastStatus().message.c_str());
                 backend.reset();
@@ -78,8 +75,7 @@ namespace sky::phy {
                 error                    = status.message;
                 return static_cast<bool>(status);
             };
-            registration.moduleLease = lease;
-            worldRegistered          = WorldSubSystemRegistry::Get().Register(Name(PHYSICS_SYSTEM_NAME.data()), std::move(registration));
+            worldRegistered = WorldSubSystemRegistry::Get().Register(Name(PHYSICS_SYSTEM_NAME.data()), std::move(registration));
             if (!worldRegistered) {
                 LOG_E("Jolt", "Physics subsystem registration failed");
                 Shutdown();
@@ -96,11 +92,9 @@ namespace sky::phy {
                 started = false;
             }
             backend.reset();
-            lease.reset();
         }
 
     private:
-        std::shared_ptr<const void>  lease;
         std::unique_ptr<JoltBackend> backend;
         bool                         started         = false;
         bool                         worldRegistered = false;

@@ -22,13 +22,12 @@ namespace sky::ai {
         CounterPtr<NaviMesh>          CreateNaviMesh();
         CounterPtr<NaviMeshGenerator> CreateGenerator();
         NaviQueryFilterPtr            CreateQueryFilter();
-        bool                          Register(Impl *impl, std::shared_ptr<const void> codeLease = {});
+        bool                          Register(Impl *impl);
         void                          UnRegister();
 
     private:
         friend class Singleton<NaviMeshFactory>;
         NaviMeshFactory() = default;
-        std::shared_ptr<const void> codeLease;
-        std::unique_ptr<Impl>       factory;
+        std::unique_ptr<Impl> factory;
     };
 } // namespace sky::ai

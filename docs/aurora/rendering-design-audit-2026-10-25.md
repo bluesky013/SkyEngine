@@ -1,5 +1,7 @@
 # Aurora 渲染设计与一致性审计
 
+2026-11-01 契约更新：本文的审计与同日测试结果是历史快照。后续 `remove-module-code-leases` 已将 DLL 改为进程常驻，删除逐对象代码租约及最终卸载预期；当前仍保留实际 compiler、Feature、World 和 GPU 对象的完成/退役约束。历史测试数量和失败原因不作为当前行为要求。
+
 > 2026-10-26 后续：本文记录审计当日状态。旧 RenderGraph、RDGBackend 与 PipelinePass 模板现已确认无生产消费者并删除，见 [退役设计](../../openspec/changes/remove-unused-legacy-rendergraph/design.md)。本文旧 API 缺口不再是待迁移任务；RenderScene/LightSystem 等独立 CPU 数据设施不在本次删除范围。
 
 日期：2026-10-25。基线：本地工作树，包含暂存、未暂存及相关新增文件；HEAD 为 `69e33334`。正文保留本次修复前的审计快照；用户授权修复后的代码与验证状态见文末“同日修复记录”。历史失败和行号不代表修复后仍然存在的问题。

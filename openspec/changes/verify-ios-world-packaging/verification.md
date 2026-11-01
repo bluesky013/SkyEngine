@@ -4,7 +4,7 @@ Editable `.world` JSON now cooks through Content.Builder into a versioned, typed
 
 The ordinary GameApplication loads `game.defaultScene` with ProductsOnly after module Start has registered runtime services and before simulation starts. Simulation advances in the application frame loop. Aurora consumes the World through IGameWorld and only presents it. The fixture keeps the camera, Cube, Plane and lights in source data; its game module has no scene bootstrap.
 
-Scene sessions have exact ownership tokens, real module leases, explicit main view/output/extent and retirement event forwarding. A replaced scene drains before the next generation starts. Internal file symlinks retain logical source identities in both packaging and the native scanner.
+The original verification used exact ownership tokens and module leases, with explicit main view/output/extent and retirement event forwarding. `remove-module-code-leases` now retains the session object through callbacks and keeps defining DLL code process-resident; the recorded iOS results below are historical, not a rerun after this migration. A replaced scene drains before the next generation starts. Internal file symlinks retain logical source identities in both packaging and the native scanner.
 
 ## Checks completed
 

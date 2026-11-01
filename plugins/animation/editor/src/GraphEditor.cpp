@@ -450,16 +450,15 @@ namespace sky::animation::editor {
                     const auto                id     = std::string("animation.graph.inspector.") + suffix;
                     const std::weak_ptr<void> alive  = lifetime;
                     EditorAction              action;
-                    action.id          = id;
-                    action.label       = label;
-                    action.menu        = EditorMenu::View;
-                    action.submenu     = "Inspector";
-                    action.scope       = scope;
-                    action.moduleLease = preview ? preview->CodeLease() : nullptr;
-                    action.enabled     = [this, alive] { return !alive.expired() && view && !view->Editing(); };
-                    action.checkable   = true;
-                    action.checked     = [this, alive, panel] { return !alive.expired() && view->CurrentInspector() == panel; };
-                    action.invoke      = [this, alive, panel] {
+                    action.id        = id;
+                    action.label     = label;
+                    action.menu      = EditorMenu::View;
+                    action.submenu   = "Inspector";
+                    action.scope     = scope;
+                    action.enabled   = [this, alive] { return !alive.expired() && view && !view->Editing(); };
+                    action.checkable = true;
+                    action.checked   = [this, alive, panel] { return !alive.expired() && view->CurrentInspector() == panel; };
+                    action.invoke    = [this, alive, panel] {
                         if (!alive.expired())
                             view->RequestInspector(panel);
                     };
@@ -571,7 +570,6 @@ namespace sky::animation::editor {
                 const auto                id    = "animation.graph." + name;
                 const std::weak_ptr<void> alive = lifetime;
                 EditorAction              action;
-                action.moduleLease         = preview ? preview->CodeLease() : nullptr;
                 action.id                  = id;
                 action.label               = std::move(label);
                 action.icon                = std::move(icon);
@@ -582,7 +580,7 @@ namespace sky::animation::editor {
                 action.accelerator         = std::move(key);
                 action.enabled             = [this, alive] { return !alive.expired() && document->IsLoaded() && view && !view->Editing(); };
                 action.acceleratorEligible = [this, alive] { return !alive.expired() && view && view->CanvasFocused(); };
-                action.invoke              = [alive, code = preview, callback = std::move(callback)] {
+                action.invoke              = [alive, previewOwner = preview, callback = std::move(callback)] {
                     if (!alive.expired())
                         callback();
                 };

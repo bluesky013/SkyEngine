@@ -187,7 +187,6 @@ namespace sky::editor {
         std::unique_ptr<EditorFramePacer>             framePacer;
         std::unique_ptr<UiSnapshotProducer>           textures;
         std::unique_ptr<EditorPreviewSessions>        previewSessions;
-        std::shared_ptr<const void>                   moduleLease;
         std::shared_ptr<aurora::IFrameGraphFeature>   feature;
         std::vector<std::unique_ptr<Surface>>         surfaces;
         uint64_t                                      sequence       = 0;

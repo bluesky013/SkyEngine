@@ -1,5 +1,7 @@
 状态：2026-10-23 基线为 38/43；2026-10-25 追加审计修复 6/7 完成，本轮 Metal 原生验收（6.7）仍待 Apple 宿主。原跨平台与材质端到端 gate 保持未勾选；构建/离线验证不替代实机结果。详情见 [implementation.md](implementation.md)。未 commit/archive。
 
+2026-11-01 lifecycle update: completed compiler/module-unload checks below record the original checkpoint. The current loader keeps code process resident; remaining work must preserve actual compiler/root/writer ownership without reintroducing code tokens.
+
 ## 1. M1 产物身份与严格校验
 
 - [x] 1.1 为现有五类问题固定回归入口和支持矩阵：缺失 native mapping、零工具链指纹、只读 buffer class、辅助 SPIR-V 身份桥、CPU/目标 ABI 耦合；记录可复现事实与仅属契约缺口的项目

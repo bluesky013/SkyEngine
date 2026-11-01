@@ -14,19 +14,6 @@ using namespace sky;
 namespace {
     struct ProviderLifetime {
         std::atomic_uint32_t destroyed{0};
-        std::atomic_bool     leaseAlive{true};
-        std::atomic_bool     providerDestroyedAfterLease{false};
-    };
-
-    struct ProviderLease {
-        explicit ProviderLease(std::shared_ptr<ProviderLifetime> state) : state(std::move(state))
-        {
-        }
-        ~ProviderLease()
-        {
-            state->leaseAlive.store(false);
-        }
-        std::shared_ptr<ProviderLifetime> state;
     };
 
     class TrackingCompressor final : public ICompressor {
@@ -36,7 +23,6 @@ namespace {
         }
         ~TrackingCompressor() override
         {
-            state->providerDestroyedAfterLease.store(!state->leaseAlive.load());
             state->destroyed.fetch_add(1);
         }
         uint32_t CompressBound(uint32_t size) override
@@ -101,23 +87,17 @@ TEST_F(CompressionTest, OverrideDoesNotDestroyTheBuiltinAndDuplicateRegistration
     EXPECT_EQ(manager->AcquireCompressor(CompressionMethod::LZ4), builtin);
 }
 
-TEST_F(CompressionTest, AcquiredProviderRetainsItsObjectAndCodeUntilReleased)
+TEST_F(CompressionTest, AcquiredProviderRetainsItsObjectUntilReleased)
 {
-    const auto                         state = std::make_shared<ProviderLifetime>();
-    auto                               lease = std::make_shared<ProviderLease>(state);
-    const std::weak_ptr<ProviderLease> weak  = lease;
-    ASSERT_TRUE(manager->Register(CompressionMethod::ZLIB, new TrackingCompressor(state), lease));
-    lease.reset();
+    const auto state = std::make_shared<ProviderLifetime>();
+    ASSERT_TRUE(manager->Register(CompressionMethod::ZLIB, new TrackingCompressor(state)));
     auto acquired = manager->AcquireCompressor(CompressionMethod::ZLIB);
     manager->UnRegister(CompressionMethod::ZLIB);
     EXPECT_EQ(manager->AcquireCompressor(CompressionMethod::ZLIB), nullptr);
     EXPECT_EQ(state->destroyed.load(), 0u);
-    EXPECT_FALSE(weak.expired());
     EXPECT_EQ(acquired->CompressBound(17), 17u);
     acquired.reset();
     EXPECT_EQ(state->destroyed.load(), 1u);
-    EXPECT_TRUE(weak.expired());
-    EXPECT_FALSE(state->providerDestroyedAfterLease.load());
 }
 
 TEST_F(CompressionTest, DisabledSelectionDoesNotInvalidateAnAcquiredProvider)

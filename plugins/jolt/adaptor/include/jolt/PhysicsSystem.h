@@ -89,6 +89,6 @@ namespace sky::phy {
 
     // Creates a physics world from the registered backend, wraps it in a PhysicsSystem and attaches it
     // to the world. Returns nullptr when no backend is registered.
-    PhysicsSystem *AttachPhysicsSystem(World &world, const PhysicsWorldDesc &desc = {}, std::shared_ptr<const void> lease = {});
+    PhysicsSystem *AttachPhysicsSystem(World &world, const PhysicsWorldDesc &desc = {});
 
 } // namespace sky::phy

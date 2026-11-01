@@ -75,7 +75,7 @@ View 是可选输入：场景 Pass 可将相机相关数据填入它声明的块
 
 进一步检查确认，生产 `RendererRuntime` 在调用 feature 的 `BuildView` **之前**自行组装并提交默认场景 Raster；已有 `pipeline` Pass 尚未接入该路径。仅修改 `PreparedRaster` 参数不能完成纠偏，必须一并切换场景 Pass 的调用者。
 
-推荐沿用现有 `IFrameGraphFeature` 和 `RegisterRenderFeature`，由 `Aurora.Pipeline.Static` 提供场景 Pass 实现与工厂，宿主显式注册。`Aurora.Adaptor.Static` 增加对 `Aurora.Pipeline.Static` 的单向依赖，提供 Launcher/Editor 共用的装配入口；不在 `RendererHost::Init` 内偷偷提交一帧或占用调用者的 sequence/feature ID。注册命令及 module lease 仍由实际宿主填入其首个 packet，沿用现有 feature 退休协议。
+推荐沿用现有 `IFrameGraphFeature` 和 `RegisterRenderFeature`，由 `Aurora.Pipeline.Static` 提供场景 Pass 实现与工厂，宿主显式注册。`Aurora.Adaptor.Static` 增加对 `Aurora.Pipeline.Static` 的单向依赖，提供 Launcher/Editor 共用的装配入口；不在 `RendererHost::Init` 内偷偷提交一帧或占用调用者的 sequence/feature ID。注册命令及实际 Feature owner 由宿主填入其首个 packet，沿用现有帧/资源退休协议；DLL 代码由装载层保持进程常驻。
 
 依赖变化仅为：
 

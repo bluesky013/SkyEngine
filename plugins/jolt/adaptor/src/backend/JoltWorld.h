@@ -41,7 +41,6 @@ namespace sky::phy {
         std::atomic<uint32_t>                           preparationTasks{0};
         std::atomic<size_t>                             preparationBytes{0};
         std::atomic<uint32_t>                           preparationCount{0};
-        std::shared_ptr<const void>                     codeLease;
         std::shared_ptr<const void>                     sdk;
         std::mutex                                      executorMutex;
         std::map<uint32_t, std::weak_ptr<JoltExecutor>> executors;

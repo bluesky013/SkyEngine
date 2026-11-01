@@ -5,40 +5,29 @@
 #include <navigation/NaviMeshFactory.h>
 
 namespace sky::ai {
-    bool NaviMeshFactory::Register(Impl *impl, std::shared_ptr<const void> lease)
+    bool NaviMeshFactory::Register(Impl *impl)
     {
         if (!impl || factory) {
             delete impl;
             return false;
         }
-        codeLease = std::move(lease);
         factory.reset(impl);
         return true;
     }
     void NaviMeshFactory::UnRegister()
     {
         factory.reset();
-        codeLease.reset();
     }
     CounterPtr<NaviMesh> NaviMeshFactory::CreateNaviMesh()
     {
-        CounterPtr<NaviMesh> result = factory ? factory->CreateNaviMesh() : nullptr;
-        if (result)
-            result->SetCodeLease(codeLease);
-        return result;
+        return factory ? factory->CreateNaviMesh() : nullptr;
     }
     CounterPtr<NaviMeshGenerator> NaviMeshFactory::CreateGenerator()
     {
-        CounterPtr<NaviMeshGenerator> result = factory ? factory->CreateGenerator() : nullptr;
-        if (result)
-            result->SetCodeLease(codeLease);
-        return result;
+        return factory ? factory->CreateGenerator() : nullptr;
     }
     NaviQueryFilterPtr NaviMeshFactory::CreateQueryFilter()
     {
-        NaviQueryFilterPtr result = factory ? factory->CreateQueryFilter() : nullptr;
-        if (result)
-            result->SetCodeLease(codeLease);
-        return result;
+        return factory ? factory->CreateQueryFilter() : nullptr;
     }
 } // namespace sky::ai

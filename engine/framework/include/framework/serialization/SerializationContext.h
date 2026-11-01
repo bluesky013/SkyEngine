@@ -37,7 +37,6 @@ namespace sky {
             }
 
             lookupTable.emplace(info->name, &type);
-            RetainPendingModuleCode();
             return TypeFactory<T>(type);
         }
 
@@ -50,28 +49,6 @@ namespace sky {
         TypeNode *FindType(const std::string_view &key);
         TypeNode *FindTypeById(const Uuid &id);
 
-        // Definition creation scopes metadata callbacks; runtime-only modules need no permanent lease.
-        void BeginModuleCode(std::shared_ptr<const void> lease)
-        {
-            pendingModuleCode.emplace_back(std::move(lease));
-            pendingRetained.emplace_back(false);
-        }
-        std::shared_ptr<const void> EndModuleCode()
-        {
-            SKY_ASSERT(!pendingModuleCode.empty() && !pendingRetained.empty())
-            auto lease = pendingRetained.back() ? pendingModuleCode.back() : nullptr;
-            pendingModuleCode.pop_back();
-            pendingRetained.pop_back();
-            return lease;
-        }
-
-        // Persistent registries retain their callback code independently of reflected types.
-        std::shared_ptr<const void> RetainModuleCode()
-        {
-            RetainPendingModuleCode();
-            return pendingModuleCode.empty() ? nullptr : pendingModuleCode.back();
-        }
-
         const std::unordered_map<std::string_view, TypeNode *> &GetAllTypes() const
         {
             return lookupTable;
@@ -83,18 +60,6 @@ namespace sky {
         SerializationContext();
         ~SerializationContext() override = default;
 
-        void RetainPendingModuleCode()
-        {
-            if (pendingModuleCode.empty() || pendingRetained.empty() || pendingRetained.back())
-                return;
-            if (pendingModuleCode.back())
-                moduleCode.emplace_back(pendingModuleCode.back());
-            pendingRetained.back() = true;
-        }
-
-        std::vector<std::shared_ptr<const void>>         moduleCode;
-        std::vector<std::shared_ptr<const void>>         pendingModuleCode;
-        std::vector<bool>                                pendingRetained;
         std::unordered_map<Uuid, TypeNode>               types;
         std::unordered_map<std::string_view, TypeNode *> lookupTable;
     };

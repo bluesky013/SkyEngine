@@ -63,7 +63,7 @@ Product audit SHALL read the deployed audit manifest without mounting project so
 
 ### Requirement: Configuration preserves existing module ownership and failure contracts
 
-Configuration-driven registration SHALL retain ModuleManager's unique metadata owner, code leases and symmetric runtime lifecycle. Missing enabled modules or initialization failures SHALL fail host startup and use existing cleanup; they SHALL NOT be described or treated as successful optional skips. The configuration path SHALL NOT introduce duplicate metadata registration guards, a separate module registry or a new core target.
+Configuration-driven registration SHALL retain ModuleManager's unique metadata owner, process-resident code, initialized-session dependency checks and symmetric runtime lifecycle. Missing enabled modules or initialization failures SHALL fail host startup and use existing cleanup; they SHALL NOT be described or treated as successful optional skips. The configuration path SHALL NOT introduce duplicate metadata registration guards, a separate module registry or a new core target.
 
 #### Scenario: Enabled DLL is missing
 - **WHEN** an enabled module's DLL cannot be loaded

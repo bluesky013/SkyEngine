@@ -1,0 +1,236 @@
+# Confirmed engine commit and rebase integration
+
+`refactor: replace module code leases with process-resident libraries`
+
+The user confirmed the original 167-file scope, committed as `dbb34a0d`, and then requested a rebase with conflict resolution and amend. Integration with origin `741a3371` additionally migrates the new launcher session, navigation/editor overlay and compressor consumers; preserves image-local Jolt SDK ownership; and updates affected tests and current specifications. No archive.
+
+## Exact file list
+
+201 files in the final lifecycle commit after rebase. The preceding runtime and Vulkan configuration commits remain separate.
+
+- `AGENTS.md`
+- `docs/architecture/platform-support.md`
+- `docs/aurora/consistency-review-2026-10-26.md`
+- `docs/aurora/rendering-design-audit-2026-10-25.md`
+- `docs/aurora/shader-design-and-migration.md`
+- `docs/editor/material-editor-design.md`
+- `docs/editor/reflection-widget-framework.md`
+- `docs/editor/ui-layout-and-chrome-plan.md`
+- `docs/features/shader-system.md`
+- `docs/features/world-subsystems.md`
+- `engine/animation/include/animation/AnimationSourceTypes.h`
+- `engine/aurora/AGENTS.md`
+- `engine/aurora/adaptor/include/aurora/adaptor/AnimationSkeletonSource.h`
+- `engine/aurora/adaptor/include/aurora/adaptor/AuroraModule.h`
+- `engine/aurora/adaptor/include/aurora/adaptor/ILauncherSceneSource.h`
+- `engine/aurora/adaptor/include/aurora/adaptor/renderer/RendererHost.h`
+- `engine/aurora/adaptor/include/aurora/adaptor/renderer/SceneAssetSource.h`
+- `engine/aurora/adaptor/src/AnimationSkeletonSource.cpp`
+- `engine/aurora/adaptor/src/AuroraModule.cpp`
+- `engine/aurora/adaptor/src/renderer/RendererHost.cpp`
+- `engine/aurora/adaptor/test/AnimationSkeletonSourceTest.cpp`
+- `engine/aurora/adaptor/test/RendererHostTest.cpp`
+- `engine/aurora/core/include/aurora/renderer/RenderCommands.h`
+- `engine/aurora/core/include/aurora/shader/IShaderCompiler.h`
+- `engine/aurora/core/src/aurora/shader/ShaderCompilerFactory.cpp`
+- `engine/aurora/core/src/renderer/graph/FrameFeatureRegistry.cpp`
+- `engine/aurora/core/test/ShaderCompileTaskTest.cpp`
+- `engine/aurora/core/test/renderer/EditorHostNativeTest.cpp`
+- `engine/aurora/core/test/renderer/RendererHostNativeTest.cpp`
+- `engine/aurora/core/test/renderer/RendererModuleTest.cpp`
+- `engine/aurora/core/test/renderer/RendererRuntimeTest.cpp`
+- `engine/aurora/editor/include/aurora/editor/AuroraAssetViews.h`
+- `engine/aurora/editor/include/aurora/editor/MaterialEditorView.h`
+- `engine/aurora/editor/src/AuroraAssetViews.cpp`
+- `engine/aurora/editor/src/AuroraEditorExtension.cpp`
+- `engine/aurora/editor/src/AuroraEditorModule.cpp`
+- `engine/aurora/editor/src/MaterialEditorView.cpp`
+- `engine/aurora/pipeline/src/SceneRenderFeature.cpp`
+- `engine/aurora/runtime/src/AuroraRegistry.cpp`
+- `engine/aurora/shader/module/AuroraShaderCompilerModule.cpp`
+- `engine/content/adaptor/include/content/adaptor/AnimationClipSource.h`
+- `engine/content/adaptor/src/AnimationClipSource.cpp`
+- `engine/content/adaptor/test/AnimationSourceTest.cpp`
+- `engine/content/editor/include/content/editor/ContentAssetViews.h`
+- `engine/content/editor/src/ContentAssetViews.cpp`
+- `engine/content/editor/src/ContentEditorExtension.cpp`
+- `engine/content/editor/src/ContentEditorModule.cpp`
+- `engine/content/runtime/module/ContentModule.cpp`
+- `engine/core/include/core/async/Completion.h`
+- `engine/core/include/core/environment/Environment.h`
+- `engine/core/include/core/environment/Singleton.h`
+- `engine/core/include/core/util/DynamicModule.h`
+- `engine/core/src/environment/Environment.cpp`
+- `engine/core/src/util/DynamicModule.cpp`
+- `engine/core/test/UtilTest.cpp`
+- `engine/framework/include/framework/application/ModuleManager.h`
+- `engine/framework/include/framework/asset/AssetBuilderManager.h`
+- `engine/framework/include/framework/asset/AssetManager.h`
+- `engine/framework/include/framework/compression/Compressor.h`
+- `engine/framework/include/framework/serialization/SerializationContext.h`
+- `engine/framework/include/framework/world/ComponentFactory.h`
+- `engine/framework/include/framework/world/World.h`
+- `engine/framework/include/framework/world/WorldSubSystemRegistry.h`
+- `engine/framework/src/application/ModuleManager.cpp`
+- `engine/framework/src/asset/AssetBuilderManager.cpp`
+- `engine/framework/src/asset/AssetManager.cpp`
+- `engine/framework/src/compression/Compressor.cpp`
+- `engine/framework/src/world/World.cpp`
+- `engine/framework/test/CompressionTest.cpp`
+- `engine/framework/test/ModuleManagerStaticTest.cpp`
+- `engine/framework/test/WorldAssetTest.cpp`
+- `engine/navigation/include/navigation/NaviMesh.h`
+- `engine/navigation/include/navigation/NaviMeshFactory.h`
+- `engine/navigation/include/navigation/NaviMeshGenerator.h`
+- `engine/navigation/include/navigation/NaviQueryFilter.h`
+- `engine/navigation/src/NaviMeshFactory.cpp`
+- `engine/physics/include/physics/PhysicsMesh.h`
+- `engine/physics/src/PhysicsMesh.cpp`
+- `engine/sandbox/core/include/editor/core/actor/EditorActorCreation.h`
+- `engine/sandbox/core/include/editor/core/asset/AssetPreviewProvider.h`
+- `engine/sandbox/core/include/editor/core/asset/AssetViewData.h`
+- `engine/sandbox/core/include/editor/core/extension/EditorActionRegistry.h`
+- `engine/sandbox/core/include/editor/core/extension/EditorExtension.h`
+- `engine/sandbox/core/include/editor/core/extension/EditorExtensionRegistry.h`
+- `engine/sandbox/core/include/editor/core/viewport/IViewportPicker.h`
+- `engine/sandbox/core/src/extension/EditorExtensionHost.cpp`
+- `engine/sandbox/module/src/SandboxModule.cpp`
+- `engine/sandbox/module/src/WorldEditorState.cpp`
+- `engine/sandbox/module/src/WorldEditorState.h`
+- `engine/sandbox/render/include/editor/render/CpuViewportPicker.h`
+- `engine/sandbox/render/include/editor/render/EditorRenderer.h`
+- `engine/sandbox/render/include/editor/render/SceneOverlayRegistry.h`
+- `engine/sandbox/render/src/CpuViewportPicker.cpp`
+- `engine/sandbox/render/src/EditorPreviewSessions.cpp`
+- `engine/sandbox/render/src/EditorRendererWindows.cpp`
+- `engine/sandbox/render/src/SceneOverlayRegistry.cpp`
+- `engine/sandbox/shell/include/editor/shell/AssetViewerWidget.h`
+- `engine/sandbox/shell/src/AssetViewerWidget.cpp`
+- `engine/sandbox/test/CpuViewportPickerTest.cpp`
+- `engine/sandbox/test/EditorExtensionTest.cpp`
+- `engine/sandbox/test/EditorPreviewSessionTest.cpp`
+- `engine/sandbox/test/EditorShellTest.cpp`
+- `engine/sandbox/test/SandboxProjectTest.cpp`
+- `engine/sandbox/test/WorldEditorStateTest.cpp`
+- `engine/sandbox/ui/include/editor/ui/AssetViewProvider.h`
+- `openspec/changes/add-party-softbody-project/design.md`
+- `openspec/changes/add-physics-collider-authoring/design.md`
+- `openspec/changes/add-physics-collider-authoring/remaining-work.md`
+- `openspec/changes/add-physics-collider-authoring/specs/physics-collider-authoring/spec.md`
+- `openspec/changes/add-physics-collider-authoring/specs/physics-streaming/spec.md`
+- `openspec/changes/add-physics-collider-authoring/tasks.md`
+- `openspec/changes/add-skeletal-animation-workflow/design.md`
+- `openspec/changes/add-skeletal-animation-workflow/review.md`
+- `openspec/changes/add-skeletal-animation-workflow/tasks.md`
+- `openspec/changes/aurora-renderer-extensions/design.md`
+- `openspec/changes/fix-android-application-lifecycle/design.md`
+- `openspec/changes/fix-android-application-lifecycle/specs/android-application-lifecycle/spec.md`
+- `openspec/changes/fix-android-application-lifecycle/tasks.md`
+- `openspec/changes/fix-aurora-pass-resource-contract/design.md`
+- `openspec/changes/fix-aurora-pass-resource-contract/tasks.md`
+- `openspec/changes/refactor-asset-product-transactions/design.md`
+- `openspec/changes/refactor-asset-product-transactions/proposal.md`
+- `openspec/changes/refactor-asset-product-transactions/tasks.md`
+- `openspec/changes/refactor-asset-tool-module-config/specs/application-module-config/spec.md`
+- `openspec/changes/refactor-aurora-runtime-service-lifecycle/design.md`
+- `openspec/changes/refactor-aurora-runtime-service-lifecycle/proposal.md`
+- `openspec/changes/refactor-aurora-runtime-service-lifecycle/specs/aurora-runtime-service-lifecycle/spec.md`
+- `openspec/changes/refactor-aurora-runtime-service-lifecycle/tasks.md`
+- `openspec/changes/refactor-aurora-runtime-service-lifecycle/verification.md`
+- `openspec/changes/refactor-aurora-slang-usage/design.md`
+- `openspec/changes/refactor-aurora-slang-usage/proposal.md`
+- `openspec/changes/refactor-aurora-target-shader-artifacts/design.md`
+- `openspec/changes/refactor-aurora-target-shader-artifacts/implementation.md`
+- `openspec/changes/refactor-aurora-target-shader-artifacts/specs/aurora-resource-binding/spec.md`
+- `openspec/changes/refactor-aurora-target-shader-artifacts/specs/aurora-shader-cache/spec.md`
+- `openspec/changes/refactor-aurora-target-shader-artifacts/tasks.md`
+- `openspec/changes/remove-module-code-leases/.openspec.yaml`
+- `openspec/changes/remove-module-code-leases/commit-scope.md`
+- `openspec/changes/remove-module-code-leases/design.md`
+- `openspec/changes/remove-module-code-leases/proposal.md`
+- `openspec/changes/remove-module-code-leases/review.md`
+- `openspec/changes/remove-module-code-leases/specs/asset-cook-config/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/async-threadpool/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/aurora-adaptor/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/aurora-renderer/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/aurora-shader-cache/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/aurora-shader/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/editor-viewport-picking/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/jolt-integration/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/module-registration/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/native-platform-services/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/navigation-runtime/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/physics-backend/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/physics-serialization/spec.md`
+- `openspec/changes/remove-module-code-leases/specs/process-resident-module-code/spec.md`
+- `openspec/changes/remove-module-code-leases/tasks.md`
+- `openspec/changes/remove-module-code-leases/verification.md`
+- `openspec/changes/simplify-asset-product-storage/design.md`
+- `openspec/changes/simplify-asset-product-storage/specs/jolt-integration/spec.md`
+- `openspec/changes/verify-ios-world-packaging/design.md`
+- `openspec/changes/verify-ios-world-packaging/specs/ios-world-packaging/spec.md`
+- `openspec/changes/verify-ios-world-packaging/verification.md`
+- `openspec/specs/asset-cook-config/spec.md`
+- `openspec/specs/async-threadpool/spec.md`
+- `openspec/specs/aurora-adaptor/spec.md`
+- `openspec/specs/aurora-renderer/spec.md`
+- `openspec/specs/aurora-shader-cache/spec.md`
+- `openspec/specs/aurora-shader/spec.md`
+- `openspec/specs/editor-viewport-picking/spec.md`
+- `openspec/specs/jolt-integration/spec.md`
+- `openspec/specs/module-registration/spec.md`
+- `openspec/specs/native-platform-services/spec.md`
+- `openspec/specs/navigation-runtime/spec.md`
+- `openspec/specs/physics-backend/spec.md`
+- `openspec/specs/physics-serialization/spec.md`
+- `plugins/animation/adaptor/include/animation/world/AnimationWorldHost.h`
+- `plugins/animation/adaptor/module/AnimationWorldModule.cpp`
+- `plugins/animation/adaptor/module_test/AnimationModuleTest.cpp`
+- `plugins/animation/adaptor/src/AnimationWorldHost.cpp`
+- `plugins/animation/adaptor/test/AnimationWorldTest.cpp`
+- `plugins/animation/editor/include/animation/editor/CharacterPreview.h`
+- `plugins/animation/editor/module/AnimationEditorModule.cpp`
+- `plugins/animation/editor/src/CharacterPreview.cpp`
+- `plugins/animation/editor/src/CharacterPreviewView.cpp`
+- `plugins/animation/editor/src/GraphEditor.cpp`
+- `plugins/animation/editor/test/GraphEditorTest.cpp`
+- `plugins/jolt/adaptor/JoltModule.cpp`
+- `plugins/jolt/adaptor/include/jolt/PhysicsSystem.h`
+- `plugins/jolt/adaptor/src/PhysicsSystem.cpp`
+- `plugins/jolt/adaptor/src/backend/JoltBackend.cpp`
+- `plugins/jolt/adaptor/src/backend/JoltBackend.h`
+- `plugins/jolt/adaptor/src/backend/JoltWorld.h`
+- `plugins/jolt/render/JoltPhysicsRenderModule.cpp`
+- `plugins/jolt/test/JoltIntegrationTest.cpp`
+- `plugins/recast/RecastModule.cpp`
+- `plugins/recast/editor/include/recast/editor/NavigationEditorService.h`
+- `plugins/recast/editor/module/NavigationEditorModule.cpp`
+- `plugins/recast/editor/src/NavigationEditorService.cpp`
+- `plugins/recast/editor/test/NavigationEditorTest.cpp`
+- `plugins/recast/runtime/include/navigation/NavigationSystem.h`
+- `plugins/recast/runtime/src/NavigationSystem.cpp`
+
+## Selective content
+
+The original approved patch included only lifecycle changes from these already-dirty files:
+
+- `docs/aurora/rendering-design-audit-2026-10-25.md`
+- `docs/aurora/shader-design-and-migration.md`
+- `openspec/changes/add-skeletal-animation-workflow/design.md`
+- `openspec/specs/aurora-renderer/spec.md`
+- `openspec/specs/aurora-shader/spec.md`
+
+The renderer/shader primary specs include only the directly affected new ownership requirement blocks in addition to edits of existing requirements. Other pending archive merges are excluded. Review patch: `build/module-code-cleanup-review-20261101/commit.patch`. That patch records the original approval; the list above additionally includes the requested rebase integration. Unrelated work is preserved separately and restored after the amend.
+
+## Excluded
+
+- Existing staged `docs/README.md` and `engine/framework/test/assets/assets.db`.
+- Historical archive moves and all other unrelated edits.
+- External PartySoftBody project files and generated build/test evidence.
+- These previously untracked research documents have synchronized lifecycle wording but remain separate whole-document additions:
+
+- `docs/features/flight-simulation-integration-plan.md`
+- `docs/features/pcg-technology-and-plugin-gap-analysis.md`
+- `docs/features/softbody-integration-plan.md`
+- `docs/features/weather-system-design.md`
+- `docs/features/pcg-plugin-detailed-design.md`

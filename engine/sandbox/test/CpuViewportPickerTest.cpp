@@ -810,17 +810,15 @@ TEST_F(CpuViewportPickerTest, RandomTransformedTrianglesMatchWorldSpaceOracle)
     }
 }
 
-TEST_F(CpuViewportPickerTest, ProviderUnregistrationReleasesForeignObjectsBeforeLease)
+TEST_F(CpuViewportPickerTest, ProviderUnregistrationReleasesProviderInstance)
 {
     struct ProbeProvider : IViewportPickProvider {
-        std::weak_ptr<int> lease;
-        bool              &destroyed;
+        bool &destroyed;
         explicit ProbeProvider(bool &value) : destroyed(value)
         {
         }
         ~ProbeProvider() override
         {
-            EXPECT_FALSE(lease.expired());
             destroyed = true;
         }
         uint64_t Id() const override
@@ -834,14 +832,11 @@ TEST_F(CpuViewportPickerTest, ProviderUnregistrationReleasesForeignObjectsBefore
             return result;
         }
     };
-    bool                     destroyed = false;
-    auto                     lease     = std::make_shared<int>(1);
-    const std::weak_ptr<int> weak      = lease;
-    auto                     provider  = std::make_shared<ProbeProvider>(destroyed);
-    provider->lease                    = lease;
-    auto scope                         = picker.RegisterProvider(provider, lease);
+    bool                                       destroyed = false;
+    auto                                       provider  = std::make_shared<ProbeProvider>(destroyed);
+    const std::weak_ptr<IViewportPickProvider> weak      = provider;
+    auto                                       scope     = picker.RegisterProvider(provider);
     provider.reset();
-    lease.reset();
     EXPECT_FALSE(weak.expired());
     scope.scope.reset();
     EXPECT_TRUE(destroyed);
@@ -995,23 +990,16 @@ TEST_F(CpuViewportPickerTest, CustomGeometryResumesAndCancellationDestroysCursor
     EXPECT_EQ(picker.Poll(request.context).reason, ViewportPickReason::STALE_REQUEST);
 }
 
-TEST_F(CpuViewportPickerTest, CustomGeometryRevisionAndUnregisterRetainCursorLease)
+TEST_F(CpuViewportPickerTest, CustomGeometryRevisionAndUnregisterRetainCursorAndGeometry)
 {
-    auto query                     = std::make_shared<PlanePickGeometry>();
-    query->steps                   = 3;
-    auto provider                  = std::make_shared<TestPickProvider>();
-    provider->snapshot->revision   = 1;
-    provider->snapshot->geometries = {CustomGeometry(query)};
-    bool       released            = false;
-    const auto probe               = query->probe;
-    auto       lease               = std::shared_ptr<const void>(new int(0), [&](const void *value) {
-        EXPECT_EQ(probe->created, probe->destroyed);
-        EXPECT_EQ(probe->geometriesDestroyed, 1u);
-        released = true;
-        delete static_cast<const int *>(value);
-    });
-    auto       registration        = picker.RegisterProvider(provider, lease);
-    lease.reset();
+    auto query                                                    = std::make_shared<PlanePickGeometry>();
+    query->steps                                                  = 3;
+    auto provider                                                 = std::make_shared<TestPickProvider>();
+    provider->snapshot->revision                                  = 1;
+    provider->snapshot->geometries                                = {CustomGeometry(query)};
+    const auto                                       probe        = query->probe;
+    const std::weak_ptr<const IViewportPickGeometry> geometry     = query;
+    auto                                             registration = picker.RegisterProvider(provider);
     scene->version = scene->revision = 1;
     picker.Prepare(scene, request.context);
     request.context.providers = picker.Context().providers;
@@ -1030,10 +1018,13 @@ TEST_F(CpuViewportPickerTest, CustomGeometryRevisionAndUnregisterRetainCursorLea
     provider.reset();
     query.reset();
     picker.Prepare(scene, request.context);
-    EXPECT_FALSE(released);
+    EXPECT_FALSE(geometry.expired());
+    EXPECT_EQ(probe->geometriesDestroyed, 0u);
     EXPECT_EQ(picker.Poll(request.context).reason, ViewportPickReason::STALE_REQUEST);
     picker.Cancel(request.context);
-    EXPECT_TRUE(released);
+    EXPECT_TRUE(geometry.expired());
+    EXPECT_EQ(probe->created, probe->destroyed);
+    EXPECT_EQ(probe->geometriesDestroyed, 1u);
 }
 
 TEST_F(CpuViewportPickerTest, CustomGeometryUnknownCoverageAndMalformedResultsAreExplicit)

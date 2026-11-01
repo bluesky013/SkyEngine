@@ -1,5 +1,7 @@
 # Design review record
 
+2026-11-01 lifecycle update: code-lease observations below describe the reviewed historical snapshot. `remove-module-code-leases` now keeps native code process resident; requests, snapshots and World subsystems retain actual object/data ownership and drain before provider teardown. Historical test outcomes are preserved.
+
 2026-10-24；包含 Godot 式绑定确认后的整体严格复核。下文“修正”均指设计、spec 与验收任务已更新，不表示产品实现完成。
 
 ## Architecture status

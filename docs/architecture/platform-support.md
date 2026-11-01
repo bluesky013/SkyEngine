@@ -178,7 +178,7 @@ while marked composition stays in the platform text system.
 - APK paths use normalized logical separators; missing files and short reads fail explicitly. Buffered
   asset archives share one stream cursor for raw reads, skip, peek and position, including compressed assets.
 - Worker synchronization uses a real counted semaphore on Android. NamedThread drains its worker before
-  destroying that semaphore; Application drains asset work before unloading module code and registries.
+  destroying that semaphore; Application drains asset work before withdrawing module services and releasing registries; loaded native code remains process resident.
 
 ### Event structs are shared across the exe and modules
 

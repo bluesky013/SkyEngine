@@ -20,7 +20,7 @@ namespace sky::aurora {
     public:
         virtual ~IShaderCompiler() = default;
 
-        virtual bool                   Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) = 0;
+        virtual bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &result) = 0;
         virtual bool InspectVariants(const ShaderCompileDesc &desc, std::vector<ShaderVariantBinding> &bindings, std::string &error)
         {
             std::vector<ShaderVariantBinding> candidate;
@@ -35,7 +35,7 @@ namespace sky::aurora {
             bindings = std::move(candidate);
             return true;
         }
-        virtual ShaderProducerIdentity GetProducerIdentity() const                                         = 0;
+        virtual ShaderProducerIdentity GetProducerIdentity() const = 0;
         virtual ShaderProducerIdentity GetProducerIdentity(ShaderTarget) const
         {
             return GetProducerIdentity();
@@ -43,8 +43,6 @@ namespace sky::aurora {
     };
 
     struct ShaderCompilerLease {
-        // Release the compiler and its deleter before unloading its module code.
-        std::shared_ptr<const void>      module;
         std::shared_ptr<IShaderCompiler> compiler;
     };
     // Process-wide (cross-DLL) registry: Aurora.Core is a static lib linked into several module DLLs,
@@ -54,7 +52,7 @@ namespace sky::aurora {
         static ShaderCompilerFactory &Get();
 
         void Register(IShaderCompiler *compiler);
-        bool RegisterOwned(std::shared_ptr<IShaderCompiler> compiler, std::shared_ptr<const void> module = {});
+        bool RegisterOwned(std::shared_ptr<IShaderCompiler> compiler);
         void Unregister(IShaderCompiler *compiler);
         // Borrowed registrations are synchronous-only and remain caller-owned.
         std::shared_ptr<const ShaderCompilerLease> Acquire(bool allowBorrowed = false) const;
@@ -66,7 +64,6 @@ namespace sky::aurora {
         ShaderCompilerFactory() = default;
 
         IShaderCompiler                 *mCompiler = nullptr;
-        std::shared_ptr<const void>      mModule;
         std::shared_ptr<IShaderCompiler> mOwnedCompiler;
         mutable std::mutex               mMutex;
     };

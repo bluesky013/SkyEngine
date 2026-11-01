@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <mutex>
 #include <unordered_map>
 
@@ -23,9 +24,10 @@ namespace sky {
 
         void Register(uint32_t key, void *ptr);
 
-        void UnRegister(uint32_t key);
+        void *UnRegister(uint32_t key);
 
         void *Find(uint32_t key);
+        void *FindOrCreate(uint32_t key, void *(*create)());
 
     protected:
         static Environment *instance;
@@ -34,7 +36,7 @@ namespace sky {
 
         Environment()  = default;
         ~Environment() = default;
-        mutable std::mutex                   mutex;
+        mutable std::recursive_mutex         mutex;
         std::unordered_map<uint32_t, void *> envMap;
     };
 

@@ -16,7 +16,6 @@
 #include <editor/core/resource/SandboxResources.h>
 #include <editor/render/SceneOverlayRegistry.h>
 #include <editor/render/UiSnapshotProducer.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
@@ -70,11 +69,8 @@ namespace sky::editor {
         if (host.Get())
             return false;
         auto *provider = Interface<IRendererProvider>::Get()->GetApi();
-        auto *system   = Interface<ISystemNotify>::Get()->GetApi();
-        auto *modules  = system ? system->GetModuleManager() : nullptr;
-        moduleLease    = modules ? modules->RetainModule("SandboxModule") : nullptr;
-        if (!provider || !moduleLease) {
-            Fail({RendererErrorCode::NOT_READY, "Editor requires provider-only Aurora.Render and a loaded SandboxModule lease"});
+        if (!provider) {
+            Fail({RendererErrorCode::NOT_READY, "Editor requires provider-only Aurora.Render"});
             return false;
         }
         RendererInitInfo init;
@@ -169,8 +165,8 @@ namespace sky::editor {
         surfaces.insert(surfaces.begin(), std::move(surface));
         pending           = std::make_unique<FramePacket>();
         pending->sequence = ++sequence;
-        pending->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name(UI_FEATURE), moduleLease, feature});
-        if (const auto error = RegisterScenePass(*pending, {1, 1}, moduleLease, shaderFiles)) {
+        pending->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name(UI_FEATURE), feature});
+        if (const auto error = RegisterScenePass(*pending, {1, 1}, shaderFiles)) {
             Fail(*error);
             return;
         }
@@ -411,7 +407,6 @@ namespace sky::editor {
         shaderFiles.reset();
         scene.OnRendererStopped();
         feature.reset();
-        moduleLease.reset();
         textSystem.reset();
         textures.reset();
         for (auto &surface : surfaces)

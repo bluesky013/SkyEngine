@@ -12,7 +12,7 @@ namespace sky::ai {
 
     class NavigationEditorService final : public editor::ISceneOverlay, public std::enable_shared_from_this<NavigationEditorService> {
     public:
-        bool Register(std::shared_ptr<const void> lease);
+        bool Register();
         void Unregister();
         void Deactivate();
         bool IsActive() const

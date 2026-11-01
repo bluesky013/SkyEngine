@@ -2,9 +2,7 @@
 #include <animation/IAnimationSkeletonSource.h>
 #include <animation/world/AnimationComponent.h>
 #include <animation/world/AnimationWorldHost.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/world/WorldSubSystemRegistry.h>
 
@@ -25,15 +23,12 @@ namespace sky::animation {
                 !Interface<IAnimationSkeletonSource>::Get()->GetApi()) {
                 return false;
             }
-            const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-            auto       *modules = system ? system->GetModuleManager() : nullptr;
-            host                = CreateAnimationWorldHost(modules ? modules->RetainModule("Animation.World") : nullptr);
+            host = CreateAnimationWorldHost();
             if (!host) {
                 return false;
             }
             WorldSubSystemRegistration registration;
-            registration.moduleLease = modules->RetainModule("Animation.World");
-            registration.factory     = [this](World &, const Any &) { return host->CreateSystem(); };
+            registration.factory = [this](World &, const Any &) { return host->CreateSystem(); };
             if (!WorldSubSystemRegistry::Get().Register(Name(ANIMATION_WORLD_SYSTEM), std::move(registration))) {
                 host.reset();
                 return false;

@@ -110,19 +110,16 @@ TEST(ShaderCompileTaskTest, RunInline)
     ShaderCompilerFactory::Get().Register(nullptr);
 }
 
-TEST(ShaderCompileTaskTest, FutureRetainsCompilerModuleAfterResolverAndRegistrationAreGone)
+TEST(ShaderCompileTaskTest, FutureRetainsCompilerAndWriterAfterResolverAndRegistrationAreGone)
 {
     test::ShaderCacheDirectory       products("future-owners");
     ShaderCompileFuture              future;
     std::weak_ptr<FakeCompiler>      weakCompiler;
-    std::weak_ptr<int>               weakModule;
     std::weak_ptr<ShaderCacheWriter> weakWriter;
     {
         auto compiler = std::make_shared<FakeCompiler>();
-        auto module   = std::make_shared<int>(1);
         weakCompiler  = compiler;
-        weakModule    = module;
-        ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler, module));
+        ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler));
         ShaderFileSystem source;
         source.AddVirtualFile("s.slang", "// captured source");
         source.AddVirtualFile("s.slang.json", kCompanion);
@@ -137,7 +134,6 @@ TEST(ShaderCompileTaskTest, FutureRetainsCompilerModuleAfterResolverAndRegistrat
     }
     products.fs = nullptr;
     EXPECT_FALSE(weakCompiler.expired());
-    EXPECT_FALSE(weakModule.expired());
     EXPECT_FALSE(weakWriter.expired());
     ThreadPool pool(2);
     future.RunAsync(pool);
@@ -149,7 +145,6 @@ TEST(ShaderCompileTaskTest, FutureRetainsCompilerModuleAfterResolverAndRegistrat
     ASSERT_TRUE(weakWriter.lock()->Flush());
     future = {};
     EXPECT_TRUE(weakCompiler.expired());
-    EXPECT_TRUE(weakModule.expired());
     EXPECT_TRUE(weakWriter.expired());
     NativeFileSystem verify{FilePath(products.path)};
     ShaderCacheIndex index;

@@ -3,7 +3,6 @@
 #include <aurora/renderer/RenderCommands.h>
 #include <memory>
 #include <optional>
-#include <string_view>
 
 namespace sky::aurora {
 
@@ -32,10 +31,9 @@ namespace sky::aurora {
     public:
         virtual ~ILauncherSceneSource() = default;
 
-        // Main-thread only. The host retains the named module through every in-progress session call.
+        // Main-thread only. The host retains the session through every in-progress call.
         // Replacement starts a new scene after the previous registration's exact retirement.
-        virtual std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::string_view                       moduleName,
-                                                                                            std::shared_ptr<ILauncherSceneSession> session) = 0;
+        virtual std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::shared_ptr<ILauncherSceneSession> session) = 0;
         virtual std::optional<RendererError>                           UnregisterSceneSession(LauncherSceneRegistration registration)       = 0;
     };
 

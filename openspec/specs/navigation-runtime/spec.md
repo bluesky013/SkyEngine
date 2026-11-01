@@ -50,7 +50,7 @@ loaded.
 
 ### Requirement: Validated runtime settings and lifetime
 
-The runtime SHALL apply reflected settings to meshes. Invalid/mismatched settings SHALL reject creation with a diagnostic. Registration SHALL retain callback code leases and shutdown SHALL remove only session-owned registrations.
+The runtime SHALL apply reflected settings to meshes. Invalid/mismatched settings SHALL reject creation with a diagnostic. Provider DLLs SHALL remain process-resident without callback code leases, and shutdown SHALL remove only session-owned registrations.
 
 #### Scenario: Custom settings
 
@@ -65,7 +65,7 @@ The runtime SHALL apply reflected settings to meshes. Invalid/mismatched setting
 #### Scenario: Retained objects
 
 - **WHEN** the module shuts down with referenced meshes/tasks
-- **THEN** new factory creation SHALL stop and retained objects SHALL keep implementation code alive
+- **THEN** new factory creation SHALL stop and retained meshes, generators and tasks SHALL preserve their data ownership and completion constraints while implementation code remains process-resident
 
 ### Requirement: Cooked mesh runtime binding
 

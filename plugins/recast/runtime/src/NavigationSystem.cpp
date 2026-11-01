@@ -59,8 +59,8 @@ namespace sky::ai {
         };
         class PathQuery final : public NaviPathQueryTask {
         public:
-            PathQuery(CounterPtr<NaviMesh> mesh, Vector3 start, Vector3 end, NaviQueryFilterPtr filter, std::shared_ptr<const void> lease)
-                : lease(std::move(lease)), mesh(std::move(mesh)), start(start), end(end), filter(std::move(filter))
+            PathQuery(CounterPtr<NaviMesh> mesh, Vector3 start, Vector3 end, NaviQueryFilterPtr filter)
+                : mesh(std::move(mesh)), start(start), end(end), filter(std::move(filter))
             {
             }
             bool IsFinished() const override
@@ -104,24 +104,22 @@ namespace sky::ai {
                 return GetResult() == NaviQueryResult::SUCCESS;
             }
             enum class State : uint8_t { RUNNING, CANCEL_REQUESTED, SUCCEEDED, FAILED, CANCELLED };
-            std::shared_ptr<const void> lease;
-            CounterPtr<NaviMesh>        mesh;
-            Vector3                     start, end;
-            NaviQueryFilterPtr          filter;
-            NaviPath                    path;
-            const NaviPath              pendingPath;
-            std::atomic<State>          state{State::RUNNING};
+            CounterPtr<NaviMesh> mesh;
+            Vector3              start, end;
+            NaviQueryFilterPtr   filter;
+            NaviPath             path;
+            const NaviPath       pendingPath;
+            std::atomic<State>   state{State::RUNNING};
         };
     } // namespace
     NavigationSystem::~NavigationSystem()
     {
         CancelQueries();
     }
-    bool NavigationSystem::Init(const NavigationSubSystemConfig &config, std::string &error, std::shared_ptr<const void> lease)
+    bool NavigationSystem::Init(const NavigationSubSystemConfig &config, std::string &error)
     {
         if (!config.MakeSettings(agent, resolution, maxTiles, error))
             return false;
-        codeLease = std::move(lease);
         if (!config.navMeshAsset)
             return true;
         auto asset = AssetManager::Get()->LoadAsset<NaviMesh>(config.navMeshAsset, AssetLoadPolicy::ProductsOnly);
@@ -324,7 +322,7 @@ namespace sky::ai {
         if (!naviMesh || !filter || activeQueries.size() >= queryBudget)
             return nullptr;
         NaviQueryFilterPtr   snapshot = new SnapshotFilter(*filter);
-        NaviPathQueryTaskPtr task     = new PathQuery(naviMesh, start, end, std::move(snapshot), codeLease);
+        NaviPathQueryTaskPtr task     = new PathQuery(naviMesh, start, end, std::move(snapshot));
         activeQueries.push_back(task);
         task->StartAsync();
         return task;

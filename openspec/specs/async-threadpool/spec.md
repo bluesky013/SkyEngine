@@ -124,9 +124,9 @@ TaskDispatcher SHALL 通过返回值报告建图/提交错误，以带状态的 
 
 Core SHALL 提供不依赖 Renderer/RHI、与协程语法无关的 Completion 协议，区分 Pending、Succeeded、Failed 和 Cancelled；结果发布后最终状态 SHALL 只确定一次。CancelRequested SHALL 是独立请求，不自动完成任务或证明业务资源已退休。调用方 SHALL 可非阻塞查询或订阅结果；订阅与完成竞态 SHALL 不丢通知、不重复交付。业务 JobGroup SHALL 自行定义何时满足完成条件，不能由通用 Completion 推断 GPU 或 ECS 生命周期。
 
-订阅 SHALL 指定 executor，callback SHALL 排队交付而非在发布者栈上隐式执行。Subscribe 返回 Busy/Rejected 时 SHALL 保留调用方 callback 所有权；Accepted SHALL 预留交付容量并保活 executor、callback 及其模块至交付结束。普通 worker 队列满或 shutdown SHALL 不得丢弃已接受的通知；关闭 SHALL 停止接收并排空已接受订阅，可按任务所属协议请求取消，但最终仍交付唯一完成状态，不将已发布成功改成订阅者各异的取消。错误 SHALL 使用显式返回值，不使用 throw/try/catch；标准库异常不纳入该协议。
+订阅 SHALL 指定 executor，callback SHALL 排队交付而非在发布者栈上隐式执行。Subscribe 返回 Busy/Rejected 时 SHALL 保留调用方 callback 所有权；Accepted SHALL 预留交付容量并保持 executor、callback 及其捕获对象至交付结束；定义这些回调的模块代码 SHALL 由装载层保持进程常驻。普通 worker 队列满或 shutdown SHALL 不得丢弃已接受的通知；关闭 SHALL 停止接收并排空已接受订阅，可按任务所属协议请求取消，但最终仍交付唯一完成状态，不将已发布成功改成订阅者各异的取消。错误 SHALL 使用显式返回值，不使用 throw/try/catch；标准库异常不纳入该协议。
 
-executor SHALL 由目的线程 pump；错误线程与嵌套 pump 返回显式错误。容量 SHALL 包括 Pending 订阅、Ready 通知和正在执行的 callback，直到捕获对象析构才归还；关闭后 owner SHALL 继续驱动已接受通知到 drained。生产者 SHALL 保持 source 并在任务收齐后发布，放弃 token 不改变这一义务。模块加载方 SHALL 向 executor keepAlive 或 callback captures 提供代码租约。
+executor SHALL 由目的线程 pump；错误线程与嵌套 pump 返回显式错误。容量 SHALL 包括 Pending 订阅、Ready 通知和正在执行的 callback，直到捕获对象析构才归还；关闭后 owner SHALL 继续驱动已接受通知到 drained。生产者 SHALL 保持 source 并在任务收齐后发布，放弃 token 不改变这一义务。executor keepAlive 和 callback captures SHALL 保持实际服务、数据及资源所有权，不要求传递模块代码租约；代码常驻 SHALL NOT 替代任务收齐或对象保活。
 
 #### Scenario: 完成前后订阅与发布竞争
 - **WHEN** 两个订阅分别在完成前后注册，或注册与完成同时发生
@@ -142,5 +142,5 @@ executor SHALL 由目的线程 pump；错误线程与嵌套 pump 返回显式错
 
 #### Scenario: 取消与关闭不提前释放
 - **WHEN** CancelRequested 或 executor shutdown 与任务完成竞争
-- **THEN** 最终结果只发布一次，已接受通知及其捕获对象和模块保持有效到交付退出；取消请求本身不代表底层工作结束
+- **THEN** 最终结果只发布一次，已接受通知及其捕获对象保持有效到交付退出，定义代码在交付结束后仍保持进程常驻；取消请求本身不代表底层工作结束
 

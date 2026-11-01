@@ -38,9 +38,9 @@ namespace sky {
         // Borrowed compatibility lookup; operations retain an AcquireCompressor handle instead.
         ICompressor *GetCompressor(CompressionMethod method) const;
 
-        // Host-owned virtual dispatch keeps control-block code resident; consumes candidates even on rejection.
-        // Configure quiescently; DLL providers supply a code lease retained by acquired handles.
-        virtual bool Register(CompressionMethod method, ICompressor *compressor, std::shared_ptr<const void> codeLease = {});
+        // Consumes candidates even on rejection. Acquired handles retain the compressor across unregister.
+        // Configure quiescently; provider DLLs remain process-resident.
+        virtual bool Register(CompressionMethod method, ICompressor *compressor);
         void         UnRegister(CompressionMethod method);
         bool         SetEnabled(CompressionMethod method, bool enabled);
 

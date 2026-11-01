@@ -38,7 +38,7 @@
 
 **Non-Goals:**
 
-- 当前采用 Global=0 / Pass=1 / Material=2 / Batch=3；View 仍归 Pass，动态绑定仍显式选择，沿用 frame/module/GPU lease。原三层限制已撤销。
+- 当前采用 Global=0 / Pass=1 / Material=2 / Batch=3；View 仍归 Pass，动态绑定仍显式选择，沿用 frame/Feature/GPU owner。原三层限制已撤销。
 - 不增加 Aurora target、模块入口、注册表、插件 loader、独立 PipelineLayout API 或目录体系；实现继续归现有 core、shader、adaptor 与 rhi 后端。
 - 不在本期启用 descriptor arrays、argument buffers、bindless、嵌套 uniform、BOOL/FLOAT3/half 等新字段；不会删除其他路径已经验证的能力。
 - 不扩展 typed/counter/append/consume buffer；不能表达的形态显式 Unsupported。
@@ -283,7 +283,7 @@ MaterialAsset 的字段/资源映射改以 logical Name 作为目的地，统一
 
 Vertex 由实际 mesh 属性与实例流推导，保留 SKINNED 的 palette 契约；完整 mask 进入选择键与材质兼容族。Material provider 提供完整 set 2，SceneSurface/palette/UI 逐 draw 参数归 set 3。带 context 的事务同时处理 storage，并在失败时保留原 draw。Material 声明跨变体保持一致，所有执行变体都在 packet 应用前校验并计费；共享 artifact 按 owner 保守计数。
 
-异步编译的 factory registration、future 与 cache endpoints 改用显式 owner。注册表分开持有 compiler/module；消费侧分配 lease 控制块，先销毁 compiler/deleter 再释放模块，避免 DLL 控制块卸载自身。future 保留真实模块租约及 compiler，输出保留 root/writer，执行只接受一次；注销后拒绝新请求，旧 future 可安全执行并延迟模块退休。同步借用接口继续要求调用方保证生命周期，不把借用对象伪装成异步所有权。此修复不新增调度器或线程池。
+异步编译的 factory registration、future 与 cache endpoints 使用显式 owner。future 持有实际 compiler，输出持有 root/writer，执行只接受一次；注销后拒绝新请求，旧 future 依靠这些对象继续完成。后续 `remove-module-code-leases` 已将 DLL 保活统一放到装载层，移除代码 token 及控制块释放时卸载 DLL 的路径；compiler/deleter 与缓存对象仍按真实所有权释放。同步借用接口继续要求调用方保证生命周期，不把借用对象伪装成异步所有权。此修复不新增调度器或线程池。
 
 Windows 验证与 Metal 原生 gate 分开记录。Metal graph raster 补齐 storage，compute 遍历 MAX_SHADER_SETS；本机的 MSL 生成/反射结果不能替代原生 Metal 读回。
 

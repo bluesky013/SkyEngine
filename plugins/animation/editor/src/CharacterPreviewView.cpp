@@ -463,16 +463,15 @@ namespace sky::animation::editor {
         const auto add = [&](std::string suffix, std::string label, std::string icon, std::function<void()> action, bool playback = false) {
             const auto   id = "animation.preview." + suffix;
             EditorAction entry;
-            entry.moduleLease = preview->CodeLease();
-            entry.id          = id;
-            entry.label       = std::move(label);
-            entry.icon        = std::move(icon);
-            entry.group       = EditorGroup::Play;
-            entry.menu        = EditorMenu::View;
-            entry.submenu     = "Preview";
-            entry.scope       = this->scope;
-            entry.enabled     = [alive, preview, playback] { return !alive.expired() && (!playback || preview->CanPlay()); };
-            entry.invoke      = [alive, preview, action = std::move(action)] {
+            entry.id      = id;
+            entry.label   = std::move(label);
+            entry.icon    = std::move(icon);
+            entry.group   = EditorGroup::Play;
+            entry.menu    = EditorMenu::View;
+            entry.submenu = "Preview";
+            entry.scope   = this->scope;
+            entry.enabled = [alive, preview, playback] { return !alive.expired() && (!playback || preview->CanPlay()); };
+            entry.invoke  = [alive, preview, action = std::move(action)] {
                 if (!alive.expired())
                     action();
             };

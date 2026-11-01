@@ -29,8 +29,7 @@ namespace sky::aurora {
         void                                                   Start() override;
         void                                                   Tick(float delta) override;
         void                                                   Shutdown() override;
-        std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::string_view                       moduleName,
-                                                                                    std::shared_ptr<ILauncherSceneSession> session) override;
+        std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::shared_ptr<ILauncherSceneSession> session) override;
         std::optional<RendererError>                           UnregisterSceneSession(LauncherSceneRegistration registration) override;
         void                                                   OnWindowResize(const WindowResizeEvent &) override;
         void                                                   OnSurfaceChanged(const NativeWindow *) override;

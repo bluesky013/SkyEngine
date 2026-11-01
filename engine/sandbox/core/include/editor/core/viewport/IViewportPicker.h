@@ -133,10 +133,6 @@ namespace sky::editor {
     public:
         virtual ~IViewportPickProvider() = default;
         virtual uint64_t Id() const      = 0;
-        virtual bool     RequiresModuleLease() const
-        {
-            return false;
-        }
         // Called only during host preparation; snapshots are immutable and contain owned data.
         virtual std::shared_ptr<const ViewportPickProxySnapshot> Snapshot() = 0;
     };
@@ -179,12 +175,11 @@ namespace sky::editor {
     public:
         virtual ~IViewportPicker() = default;
         // Host-thread queries only inspect prepared, owned data; they never load assets or build geometry.
-        virtual ViewportPickResult Query(const ViewportPickRequest &request)  = 0;
-        virtual ViewportPickResult Submit(const ViewportPickRequest &request) = 0;
-        virtual ViewportPickResult Poll(const ViewportPickContext &token)     = 0;
-        virtual void               Cancel(const ViewportPickContext &token)   = 0;
-        // Dynamic module providers require a real ModuleManager::RetainModule lease.
-        virtual ViewportPickRegistration RegisterProvider(std::shared_ptr<IViewportPickProvider>, std::shared_ptr<const void> moduleLease = {})
+        virtual ViewportPickResult       Query(const ViewportPickRequest &request)  = 0;
+        virtual ViewportPickResult       Submit(const ViewportPickRequest &request) = 0;
+        virtual ViewportPickResult       Poll(const ViewportPickContext &token)     = 0;
+        virtual void                     Cancel(const ViewportPickContext &token)   = 0;
+        virtual ViewportPickRegistration RegisterProvider(std::shared_ptr<IViewportPickProvider>)
         {
             return {{}, "This picker does not support providers"};
         }

@@ -8,7 +8,7 @@
 
 using namespace sky;
 
-TEST(AnimationClipSource, PollOwnsExactSnapshotAndCodeUntilLastResultIsReleased)
+TEST(AnimationClipSource, PollOwnsExactSnapshotAfterSourceAndRequestAreReleased)
 {
     std::error_code error;
     const auto      root = std::filesystem::temp_directory_path(error) / ("sky-clip-source-" + Uuid::Create().ToString());
@@ -33,9 +33,7 @@ TEST(AnimationClipSource, PollOwnsExactSnapshotAndCodeUntilLastResultIsReleased)
         const auto bulk = data.BuildBulk();
         product->AddBulk(bulk.data(), bulk.size());
         ASSERT_TRUE(manager->SaveAsset(product, "clip-source-test"));
-        auto                      code     = std::make_shared<int>(1);
-        std::weak_ptr<const void> lifetime = code;
-        auto                      source   = content::CreateAnimationClipSource(code);
+        auto source = content::CreateAnimationClipSource();
         ASSERT_NE(source, nullptr);
         auto request = source->Request(id);
         ASSERT_TRUE(request);
@@ -51,12 +49,11 @@ TEST(AnimationClipSource, PollOwnsExactSnapshotAndCodeUntilLastResultIsReleased)
         EXPECT_FLOAT_EQ(ready.resource->GetDuration(), 1);
         EXPECT_EQ(source->Request({}).Poll().state, AnimationSourceState::Error);
         source.reset();
-        code.reset();
         request = {};
-        EXPECT_FALSE(lifetime.expired());
+        EXPECT_TRUE(ready.assetLease);
+        EXPECT_FLOAT_EQ(ready.resource->GetDuration(), 1);
         ready = {};
-        EXPECT_TRUE(lifetime.expired());
-        EXPECT_EQ(content::CreateAnimationClipSource({}), nullptr);
+        EXPECT_EQ(AnimationSourceRequest<AnimationClip>{}.Poll().state, AnimationSourceState::Error);
         AssetExecutor::Get()->WaitForAll();
     }
     std::filesystem::remove_all(root, error);

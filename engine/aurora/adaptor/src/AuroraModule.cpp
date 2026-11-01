@@ -14,7 +14,6 @@
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <core/name/Name.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
@@ -30,9 +29,7 @@ static const char *TAG = "AuroraModule";
 namespace sky::aurora {
 
     struct AuroraModule::SceneSession {
-        LauncherSceneRegistration registration;
-        // Destroy the session's DLL-defined state before releasing its code lease.
-        std::shared_ptr<const void>            moduleLease;
+        LauncherSceneRegistration              registration;
         std::shared_ptr<ILauncherSceneSession> session;
         World                                 *defaultWorld = nullptr;
     };
@@ -48,28 +45,22 @@ namespace sky::aurora {
         Shutdown();
     }
 
-    std::variant<RendererError, LauncherSceneRegistration> AuroraModule::RegisterSceneSession(std::string_view                       moduleName,
-                                                                                              std::shared_ptr<ILauncherSceneSession> session)
+    std::variant<RendererError, LauncherSceneRegistration> AuroraModule::RegisterSceneSession(std::shared_ptr<ILauncherSceneSession> session)
     {
         if (std::this_thread::get_id() != sceneThread)
             return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Scene registration requires the launcher thread"};
         if (!host.Get() || providerOnly || closed || Interface<ILauncherSceneSource>::Get()->GetApi() != this)
             return RendererError{RendererErrorCode::NOT_READY, "Launcher scene service is unavailable"};
-        if (!session || moduleName.empty())
-            return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Scene registration requires a session and its defining module"};
+        if (!session)
+            return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Scene registration requires a session"};
         if (sceneSession && !sceneSession->defaultWorld)
             return RendererError{RendererErrorCode::NOT_READY, "A launcher scene session is already registered"};
-        const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-        const auto *modules = system ? system->GetModuleManager() : ModuleManager::Current();
-        const auto  lease   = modules ? modules->RetainModule(std::string(moduleName)) : nullptr;
-        if (!lease)
-            return RendererError{RendererErrorCode::NOT_READY, "Scene defining module is not loaded"};
         if (sessionGeneration == UINT64_MAX)
             return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene registration generation exhausted"};
         const LauncherSceneRegistration registration{sceneOwner, ++sessionGeneration};
         if (sceneSession)
             resetScene = started;
-        sceneSession = std::make_shared<SceneSession>(SceneSession{registration, lease, std::move(session)});
+        sceneSession = std::make_shared<SceneSession>(SceneSession{registration, std::move(session)});
         return registration;
     }
 
@@ -197,8 +188,7 @@ namespace sky::aurora {
             std::move(shaders.products));
         if (!source)
             return RendererError{RendererErrorCode::NOT_READY, "Default World asset source is unavailable"};
-        const auto registered =
-            RegisterSceneSession("Aurora.Render", std::make_shared<DefaultWorldSession>(world, host.Get()->GetInfo(), std::move(source)));
+        const auto registered = RegisterSceneSession(std::make_shared<DefaultWorldSession>(world, host.Get()->GetInfo(), std::move(source)));
         if (const auto *error = std::get_if<RendererError>(&registered))
             return *error;
         sceneSession->defaultWorld = world;
@@ -273,9 +263,7 @@ namespace sky::aurora {
         desiredSurfaceLease = window ? window->RetainNativeHandle() : nullptr;
         pending             = std::make_unique<FramePacket>();
         pending->sequence   = ++sequence;
-        auto *system        = Interface<ISystemNotify>::Get()->GetApi();
-        auto *modules       = system ? system->GetModuleManager() : nullptr;
-        auto  root          = bundle;
+        auto root           = bundle;
         if (!root && Platform::Get()->GetImpl())
             root = Platform::Get()->GetBundleFileSystem();
         if (!root) {
@@ -293,8 +281,7 @@ namespace sky::aurora {
             return;
         }
         auto &shaders = std::get<ShaderResources>(resources);
-        if (const auto error = RegisterScenePass(*pending, {0, 1}, modules ? modules->RetainModule("Aurora.Render") : nullptr,
-                                                 std::move(shaders.sources), std::move(shaders.products))) {
+        if (const auto error = RegisterScenePass(*pending, {0, 1}, std::move(shaders.sources), std::move(shaders.products))) {
             Fail(*error);
             return;
         }

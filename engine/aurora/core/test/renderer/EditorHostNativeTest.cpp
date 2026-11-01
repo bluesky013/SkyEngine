@@ -448,10 +448,6 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
         {
             return 9921;
         }
-        bool RequiresModuleLease() const override
-        {
-            return true;
-        }
         std::shared_ptr<const ViewportPickProxySnapshot> Snapshot() override
         {
             return snapshot;
@@ -463,7 +459,7 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
     iconProvider->snapshot->proxies.push_back({.target = {.actor = iconActor->GetUuid(), .generation = 1},
                                                .shape  = ViewportBillboardProxy{{0, 0, 0}, {32, 32}},
                                                .depth  = ViewportProxyDepth::OVERLAY});
-    auto registration = picker->RegisterProvider(iconProvider, modules.RetainModule("SandboxModule"));
+    auto registration = picker->RegisterProvider(iconProvider);
     ASSERT_TRUE(registration) << registration.message;
     const auto prepared = picker->PreparationSerial();
     ASSERT_TRUE(Until([&] { return picker->PreparationSerial() > prepared + 2; }));

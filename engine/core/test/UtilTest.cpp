@@ -2,6 +2,7 @@
 // Created by Zach Lee on 2021/12/3.
 //
 
+#include <core/environment/Singleton.h>
 #include <core/hash/Fnv1a.h>
 #include <core/util/ArrayBitFlag.h>
 #include <core/util/BitUtil.h>
@@ -9,8 +10,12 @@
 #include <core/util/TimeBlend.h>
 #include <core/util/Uuid.h>
 
+#include <array>
+#include <atomic>
+#include <barrier>
 #include <gtest/gtest.h>
 #include <string>
+#include <thread>
 #include <unordered_set>
 
 static constexpr uint32_t hash32 = sky::Fnv1a32("SkyEngine");
@@ -21,6 +26,97 @@ using namespace sky;
 struct TestUuid {
     static constexpr Uuid ID = Uuid::CreateFromString("12345678-0123-4567-8901-234567890123");
 };
+
+namespace {
+    class EnvironmentSingletonProbe final : public Singleton<EnvironmentSingletonProbe> {
+    public:
+        EnvironmentSingletonProbe() : generation(++constructions)
+        {
+        }
+        ~EnvironmentSingletonProbe() override
+        {
+            ++destructions;
+        }
+        inline static std::atomic_uint32_t constructions = 0;
+        inline static std::atomic_uint32_t destructions  = 0;
+        uint32_t                           generation;
+    };
+    class NestedEnvironmentSingleton final : public Singleton<NestedEnvironmentSingleton> {
+    public:
+        NestedEnvironmentSingleton() : dependency(EnvironmentSingletonProbe::Get())
+        {
+        }
+        EnvironmentSingletonProbe *dependency;
+    };
+    class SingletonEnvironmentTest : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            NestedEnvironmentSingleton::Destroy();
+            EnvironmentSingletonProbe::Destroy();
+            EnvironmentSingletonProbe::constructions = 0;
+            EnvironmentSingletonProbe::destructions  = 0;
+        }
+        void TearDown() override
+        {
+            NestedEnvironmentSingleton::Destroy();
+            EnvironmentSingletonProbe::Destroy();
+        }
+    };
+} // namespace
+
+TEST_F(SingletonEnvironmentTest, DestroyAndEnvironmentRemovalAllowFreshConstruction)
+{
+    auto *environment = Environment::Get();
+    auto *first       = EnvironmentSingletonProbe::Get();
+    ASSERT_EQ(first->generation, 1u);
+    EXPECT_EQ(environment->Find(EnvironmentSingletonProbe::ID), first);
+    EnvironmentSingletonProbe::Destroy();
+    EXPECT_EQ(environment->Find(EnvironmentSingletonProbe::ID), nullptr);
+    EXPECT_EQ(EnvironmentSingletonProbe::destructions.load(), 1u);
+
+    auto *second = EnvironmentSingletonProbe::Get();
+    ASSERT_EQ(second->generation, 2u);
+    ASSERT_EQ(environment->UnRegister(EnvironmentSingletonProbe::ID), second);
+    delete second;
+    EXPECT_EQ(EnvironmentSingletonProbe::destructions.load(), 2u);
+
+    auto *third = EnvironmentSingletonProbe::Get();
+    EXPECT_EQ(third->generation, 3u);
+    EXPECT_EQ(environment->Find(EnvironmentSingletonProbe::ID), third);
+    EXPECT_EQ(EnvironmentSingletonProbe::constructions.load(), 3u);
+}
+
+TEST_F(SingletonEnvironmentTest, ConstructorCanResolveAnotherSingleton)
+{
+    auto *owner = NestedEnvironmentSingleton::Get();
+    ASSERT_NE(owner->dependency, nullptr);
+    EXPECT_EQ(owner->dependency, EnvironmentSingletonProbe::Get());
+    EXPECT_EQ(Environment::Get()->Find(NestedEnvironmentSingleton::ID), owner);
+    EXPECT_EQ(EnvironmentSingletonProbe::constructions.load(), 1u);
+}
+
+TEST_F(SingletonEnvironmentTest, ConcurrentFirstLookupConstructsOneSharedInstance)
+{
+    constexpr size_t                                 workers = 16;
+    std::barrier                                     start(workers + 1);
+    std::array<EnvironmentSingletonProbe *, workers> instances{};
+    std::array<std::thread, workers>                 threads;
+    for (size_t i = 0; i != workers; ++i) {
+        threads[i] = std::thread([&, i] {
+            start.arrive_and_wait();
+            instances[i] = EnvironmentSingletonProbe::Get();
+        });
+    }
+    start.arrive_and_wait();
+    for (auto &thread : threads)
+        thread.join();
+    ASSERT_NE(instances.front(), nullptr);
+    for (const auto *instance : instances)
+        EXPECT_EQ(instance, instances.front());
+    EXPECT_EQ(EnvironmentSingletonProbe::constructions.load(), 1u);
+    EXPECT_EQ(Environment::Get()->Find(EnvironmentSingletonProbe::ID), instances.front());
+}
 
 TEST(UtilTest, TestFnv1aHash)
 {

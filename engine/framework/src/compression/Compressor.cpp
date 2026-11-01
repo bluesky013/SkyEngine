@@ -10,13 +10,6 @@
 
 namespace sky {
 
-    namespace {
-        struct CompressorOwner {
-            std::shared_ptr<const void>  codeLease;
-            std::unique_ptr<ICompressor> compressor;
-        };
-    } // namespace
-
     CompressionManager::CompressionManager()
     {
 #if defined(SKY_FRAMEWORK_BUILTIN_LZ4)
@@ -39,16 +32,13 @@ namespace sky {
         return AcquireCompressor(method).get();
     }
 
-    bool CompressionManager::Register(CompressionMethod method, ICompressor *compressor, std::shared_ptr<const void> codeLease)
+    bool CompressionManager::Register(CompressionMethod method, ICompressor *compressor)
     {
-        auto owner       = std::make_shared<CompressorOwner>();
-        owner->codeLease = std::move(codeLease);
-        owner->compressor.reset(compressor);
-        const auto index = static_cast<size_t>(method);
+        std::shared_ptr<ICompressor> handle(compressor);
+        const auto                   index = static_cast<size_t>(method);
         if (!compressor || index >= methods.size())
             return false;
-        std::shared_ptr<ICompressor> handle(owner, compressor);
-        std::lock_guard              lock(mutex);
+        std::lock_guard lock(mutex);
         if (methods[index].replacement)
             return false;
         methods[index].replacement = std::move(handle);

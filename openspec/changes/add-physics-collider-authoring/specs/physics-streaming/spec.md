@@ -40,7 +40,7 @@ Physics instance batches SHALL be committed or retired only at a host-controlled
 - **THEN** its contacts end according to the existing ordered event contract without callbacks dereferencing destroyed Actors, and its resource references are released after removal
 
 ### Requirement: Generation-checked completion and shutdown
-Requests SHALL retain immutable product revisions and world-session/owner generations. A stale, cancelled or retired request SHALL NOT mutate an active world. Native shapes, jobs and callbacks SHALL retain the required SDK and module leases. Shutdown SHALL prevent new publication, collect outstanding work and retirement, and release leases only after their last user.
+Requests SHALL retain immutable product revisions and world-session/owner generations. A stale, cancelled or retired request SHALL NOT mutate an active world. Native shapes, jobs and callbacks SHALL retain the required SDK state, inputs and runtime objects; defining DLL code SHALL remain process resident without per-object code tokens. Shutdown SHALL prevent new publication, collect outstanding work and retirement, and release owned state only after its last user.
 
 #### Scenario: Unload and immediately reload a cell
 - **WHEN** a previous generation completes after the cell has been unloaded and requested again

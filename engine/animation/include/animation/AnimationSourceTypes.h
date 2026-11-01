@@ -23,7 +23,6 @@ namespace sky {
         AnimationSourceResult &operator=(AnimationSourceResult other) noexcept
         {
             using std::swap;
-            swap(moduleLease, other.moduleLease);
             swap(assetLease, other.assetLease);
             swap(state, other.state);
             swap(status, other.status);
@@ -33,8 +32,7 @@ namespace sky {
             return *this;
         }
 
-        // Code and asset owners outlive the published resource. Consumers treat resources as immutable.
-        std::shared_ptr<const void> moduleLease;
+        // Asset owners outlive the published resource. Consumers treat resources as immutable.
         std::shared_ptr<const void> assetLease;
         AnimationSourceState        state = AnimationSourceState::Pending;
         AnimationStatus             status;
@@ -54,21 +52,19 @@ namespace sky {
     class AnimationSourceRequest {
     public:
         AnimationSourceRequest() = default;
-        AnimationSourceRequest(std::shared_ptr<const void> code, std::shared_ptr<IAnimationSourceRequest<T>> request)
-            : moduleLease(std::move(code)), operation(std::move(request))
+        explicit AnimationSourceRequest(std::shared_ptr<IAnimationSourceRequest<T>> request) : operation(std::move(request))
         {
         }
         AnimationSourceRequest(const AnimationSourceRequest &)     = default;
         AnimationSourceRequest(AnimationSourceRequest &&) noexcept = default;
         AnimationSourceRequest &operator=(AnimationSourceRequest other) noexcept
         {
-            moduleLease.swap(other.moduleLease);
             operation.swap(other.operation);
             return *this;
         }
         explicit operator bool() const
         {
-            return moduleLease && operation;
+            return operation != nullptr;
         }
         AnimationSourceResult<T> Poll() const
         {
@@ -82,8 +78,6 @@ namespace sky {
         }
 
     private:
-        // Code must outlive the virtual request destructor, including during assignment.
-        std::shared_ptr<const void>                 moduleLease;
         std::shared_ptr<IAnimationSourceRequest<T>> operation;
     };
 } // namespace sky

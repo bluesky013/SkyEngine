@@ -22,10 +22,6 @@ namespace sky::ai {
         virtual void             Setup(const WorldPtr &world) = 0;
         virtual bool             HasSucceeded() const         = 0;
         virtual std::string_view GetError() const             = 0;
-        void                     SetCodeLease(std::shared_ptr<const void> lease)
-        {
-            codeLease = std::move(lease);
-        }
 
         // Build params and per-tile payloads are emitted so offline tooling can persist a nav mesh asset
         // without touching backend types.
@@ -52,7 +48,6 @@ namespace sky::ai {
         }
 
     protected:
-        std::shared_ptr<const void>    codeLease;
         NaviMeshExportMode             exportMode = NaviMeshExportMode::Tiled;
         std::vector<NaviMeshTileCoord> rebuildTiles;
     };

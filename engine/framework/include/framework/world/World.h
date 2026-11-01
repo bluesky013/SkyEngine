@@ -83,7 +83,7 @@ namespace sky {
 
         static World *CreateWorld();
 
-        World(const World &) = delete;
+        World(const World &)            = delete;
         World &operator=(const World &) = delete;
 
         void Init();
@@ -140,7 +140,7 @@ namespace sky {
         std::unique_ptr<Actor> DetachFromWorld(Actor *actor);
         void                   Reset();
 
-        void             AddSubSystem(const Name &name, IWorldSubSystem *, std::shared_ptr<const void> moduleLease = {});
+        void             AddSubSystem(const Name &name, IWorldSubSystem *);
         IWorldSubSystem *GetSubSystem(const Name &name) const;
 
         // Iterates the attached subsystems and forwards to the matching
@@ -152,10 +152,8 @@ namespace sky {
         friend bool InstantiateWorldAsset(const WorldAssetData &data, WorldPtr &out, std::string &error);
         World() = default;
 
-        std::vector<std::unique_ptr<Actor>> actors;
-        std::unordered_map<Uuid, size_t>    actorIndex;
-        // External ownership keeps virtual destructor code resident through subsystem destruction.
-        std::unordered_map<Name, std::shared_ptr<const void>>      subSystemModuleLeases;
+        std::vector<std::unique_ptr<Actor>>                        actors;
+        std::unordered_map<Uuid, size_t>                           actorIndex;
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         Uuid persistID;

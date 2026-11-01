@@ -138,7 +138,7 @@ EditorCore SHALL define the consumer-facing provider and owned proxy data contra
 
 #### Scenario: Provider unregisters with outstanding work
 - **WHEN** a provider is unregistered while its snapshots or requests remain in flight
-- **THEN** new collection SHALL stop, its generation SHALL invalidate dependent results, and required data and module leases SHALL remain alive until work and destructors are safely retired
+- **THEN** new collection SHALL stop, its generation SHALL invalidate dependent results, and required provider/data owners SHALL remain alive until work and destructors are safely retired; defining DLL code SHALL remain process resident
 
 #### Scenario: Transform Gizmo consumes a click
 - **WHEN** an existing IGizmoVisualProvider handle captures manipulation
@@ -202,7 +202,7 @@ EditorCore SHALL expose a custom geometry query interface through the existing s
 
 #### Scenario: A custom query yields and is cancelled
 - **WHEN** a query exhausts its cooperative work/time budget or its request is cancelled, replaced, invalidated or unregistered
-- **THEN** Pending SHALL retain a provider-owned continuation only while valid; cancellation SHALL destroy the cursor without blocking, with query data and the real module lease retained through foreign destructors
+- **THEN** Pending SHALL retain a provider-owned continuation only while valid; cancellation SHALL destroy the cursor without blocking, with query data and provider/geometry owners retained through foreign destructors while defining DLL code stays process resident
 
 #### Scenario: Unknown or invalid custom data
 - **WHEN** a relevant entry has unknown bounds, an unsupported/error query, invalid hit data or a null snapshot/query object

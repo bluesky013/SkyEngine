@@ -21,9 +21,10 @@ namespace sky::editor {
         friend class sky::Singleton<EditorExtensionRegistry>;
 
     public:
-        void Add(EditorExtensionPtr extension, std::shared_ptr<const void> lease = {})
+        void Add(EditorExtensionPtr extension)
         {
-            if (extension) pending.emplace_back(std::move(lease), std::move(extension));
+            if (extension)
+                pending.emplace_back(std::move(extension));
         }
 
         // Transfers ownership of all staged extensions to the caller (the host).

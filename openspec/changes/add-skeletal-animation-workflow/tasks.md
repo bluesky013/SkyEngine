@@ -30,7 +30,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [x] 2.2 在 engine/animation 定义 Clip/Skeleton source 接口及状态/诊断数据；在现有 Content/Aurora provider 中实现，沿 AssetManager 请求而非另建 loader。
 - [x] 2.3 在 Aurora renderer 接口定义 ISkeletalPoseSource；由 World adaptor 实现，明确 main-thread 查询、World/Actor generation 和 owned result。
 - [ ] 2.4 配置 game/editor/cook 模块入口和实际依赖，验证插件关闭、无 editor 构建、provider 缺失以及合法装载顺序。
-- [x] 2.5 为共享注册表采用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，禁止 Once/查表跳过/scratchNode 吞重。实施 provider 注册/撤销和真实模块 lease/drain，验证关闭 World 后卸载不留回调和借用。（2026-10-25 唯一 owner 方案获批并实施；Framework 205/205、真实模块重载/窗口回归 2/2 通过，详见 refactor-process-owned-reflection。）
+- [x] 2.5 为共享注册表采用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，禁止 Once/查表跳过/scratchNode 吞重。实施 provider 注册/撤销及任务 drain，验证关闭 World 和模块会话后不留失效回调和借用。原代码 lease 方案已由 `remove-module-code-leases` 的进程常驻 DLL 契约替代，实际对象保活不变。（2026-10-25 唯一 owner 方案获批并实施；Framework 205/205、真实模块重载/窗口回归 2/2 通过，详见 refactor-process-owned-reflection。）
 - [x] 2.6 定义 Animation.Editor 消费的 IAnimationInstanceControl，World adaptor 实现播放/参数/调试状态与 stale generation 返回；编辑器不直接访问 node/player。
 
 ## 3. 单 Clip 组件与 World 实例

@@ -1152,12 +1152,9 @@ namespace sky::aurora::editor {
             {
                 return true;
             }
-            sky::editor::AssetViewDocument OpenDocument(const Uuid &asset, const std::string &type) override
+            sky::editor::AssetViewDocument OpenDocument(const Uuid &asset, const std::string &) override
             {
-                auto lease = sky::editor::AssetViewProviderRegistry::Get()->Retain(type);
-                if (!lease)
-                    return {};
-                return {std::move(lease), std::make_unique<MaterialDocument>(asset, instance)};
+                return {std::make_unique<MaterialDocument>(asset, instance)};
             }
 
         private:
@@ -1169,11 +1166,11 @@ namespace sky::aurora::editor {
 
     } // namespace
 
-    void RegisterMaterialEditorProvider(std::shared_ptr<const void> lease)
+    void RegisterMaterialEditorProvider()
     {
         auto *registry = sky::editor::AssetViewProviderRegistry::Get();
-        registry->Register(std::string(AssetTraits<Material>::ASSET_TYPE), &g_materialView, lease);
-        registry->Register(std::string(AssetTraits<MaterialInstance>::ASSET_TYPE), &g_materialInstanceView, std::move(lease));
+        registry->Register(std::string(AssetTraits<Material>::ASSET_TYPE), &g_materialView);
+        registry->Register(std::string(AssetTraits<MaterialInstance>::ASSET_TYPE), &g_materialInstanceView);
     }
     void UnregisterMaterialEditorProvider()
     {

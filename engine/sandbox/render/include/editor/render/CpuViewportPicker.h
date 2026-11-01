@@ -31,8 +31,7 @@ namespace sky::editor {
         ViewportPickResult               Submit(const ViewportPickRequest &request) override;
         ViewportPickResult               Poll(const ViewportPickContext &token) override;
         void                             Cancel(const ViewportPickContext &token) override;
-        ViewportPickRegistration         RegisterProvider(std::shared_ptr<IViewportPickProvider> provider,
-                                                          std::shared_ptr<const void>            moduleLease = {}) override;
+        ViewportPickRegistration         RegisterProvider(std::shared_ptr<IViewportPickProvider> provider) override;
         std::vector<ViewportProxyLayout> Overlay(const EditorCamera &camera, Vector2 extent) const override;
         ViewportPickContext              Context() const override;
         uint64_t                         PreparationSerial() const override;

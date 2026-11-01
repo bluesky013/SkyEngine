@@ -12,7 +12,7 @@
 - `plugins/jolt/adaptor/include/jolt/components/PhysicsBodyComponent.h`：PhysicsBodyData 内联形状、质量、BodyKind、CCD、重力、睡眠、trigger 和 filter；目前没有 Collision 资产引用或制作窗口。
 - `plugins/jolt/render/JoltPhysicsRenderModule.cpp`：Aurora 产品到 CPU TriangleMesh 的桥；调用可能同步等待产品，不适合直接放进编辑器绘制循环。
 - Sandbox 的 `ReflectedFormView`、`ReflectedInspectorPanel`、`CommandService`、`EditorActionRegistry`、`DocumentService`、`TransformGizmo` 已提供通用编辑基础。
-- 资产窗口优先参照 `plugins/animation/editor/module/AnimationEditorModule.cpp` 的 `IAssetViewProvider::OpenDocument` 与代码 lease；其 `GraphDocument` 是可撤销源文档、原子保存、触发 cook 的实际参考。
+- 资产窗口优先参照 `plugins/animation/editor/module/AnimationEditorModule.cpp` 的 `IAssetViewProvider::OpenDocument` 与文档实际所有权；其 `GraphDocument` 是可撤销源文档、原子保存、触发 cook 的实际参考。
 - `framework/asset/AssetBuilder.h` 已有 Request、依赖记录、产品发布以及反射 cook settings。新工具应接入它，不另建资产数据库或独立导出路径。
 - `AssetManager` 已有异步任务、产品依赖和 `ProductsOnly` 策略；`World::LoadJson/Build` 仍是完整世界构造，不能用于每个 streaming cell 的重复装载。`TryAttachToWorld` 是同步挂接，不接受未准备好的碰撞依赖。
 - 地形已有异步分页、加载/卸载半径滞回与应用预算；`TerrainCollisionLayer::Update` 根据已加载 LOD0 tile 同步创建/删除 Body，尚无独立的碰撞准备状态、激活确认或支撑面驻留保护。这里只定义后续对接契约，不顺带重写地形实现。
@@ -101,7 +101,7 @@
 
 选择**规范几何产品 + adaptor 内 Jolt shape cache**作为 v1，避免一开始就把 Jolt 原生二进制 ABI 绑进资产格式。构建时完成高成本的分解和清理；运行时首次装载仍有 Jolt hull/BVH 构建成本，进入关卡前预热，禁止在 UI draw 或物理 Step 回调里同步构建。若测量表明不够快，后续独立设计 native cooked product，完整 key 必须包含 SDK revision、平台、精度、SIMD、产品版本，失配时重新 cook 或显式失败。
 
-shape cache key 包含产品 hash、局部几何变换、有效缩放、collision margin 和其他影响形状的选项，并隔离 SDK/build 配置；不包含 body 位置、姿态、质量、过滤或 body 级材质。缓存对象随 SDK/code lease 存活，不让形状比 Factory/注册类型活得更久。准备、驻留与淘汰见第 9 节。
+shape cache key 包含产品 hash、局部几何变换、有效缩放、collision margin 和其他影响形状的选项，并隔离 SDK/build 配置；不包含 body 位置、姿态、质量、过滤或 body 级材质。缓存对象持有 SDK state，不让形状比 Factory/注册类型活得更久；DLL 代码由装载层保持进程常驻。准备、驻留与淘汰见第 9 节。
 
 源 recipe 是编辑依据；预览使用同一生成服务的内存结果；正式运行通过产品加载器读取。保存源文件成功但 cook 失败时，显示“源已保存/产品过期”，保留上一个好产品；发布打包遇到过期产品必须失败，不能无提示带旧数据。
 
@@ -130,7 +130,7 @@ shape cache key 包含产品 hash、局部几何变换、有效缩放、collisio
 
 元数据 owner 明确分开：JoltPhysicsModule 负责 PhysicsBody、world config 和运行时接口数据；JoltPhysics.Builder definition 负责生成设置/源文档 schema，离线 AssetTool 与 editor 都加载同一个 definition；JoltPhysics.Editor 仅注册窗口视图类型并 Bind 数据。runtime CollisionProduct 使用版本化 codec，不注册同一份 source schema。shared codec 不执行 RegisterMeta，测试 main 选择同一 owner 初始化一次。
 
-builder 允许在编辑器进程中提供轻量拟合服务；高成本分解委托 worker。物理制作服务契约定义在消费方物理领域的 `engine/physics`，签名只引用 CPU 几何、生成参数和结果数据，具体实现由 builder 注册；builder 不依赖 Sandbox/editor target。文档、生成任务、回调和 native shape 持有相应模块 lease，Shutdown 取消任务、等待结束、撤销注册；不能靠 static bool 避免重复反射。
+builder 允许在编辑器进程中提供轻量拟合服务；高成本分解委托 worker。物理制作服务契约定义在消费方物理领域的 `engine/physics`，签名只引用 CPU 几何、生成参数和结果数据，具体实现由 builder 注册；builder 不依赖 Sandbox/editor target。文档、生成任务、回调和 native shape 保持实际数据、服务和 SDK state 所有权，DLL 由装载层保持进程常驻；Shutdown 取消并收齐任务、撤销注册后才释放实际对象；不能靠 static bool 避免重复反射。
 
 ### 7. 编辑器实现约束
 
@@ -195,7 +195,7 @@ Unloaded -> Preparing -> Ready -> Active -> Retiring -> Unloaded
 - **Ready**：产品依赖及 native shape 均就绪，持有可释放的准备结果；不在 broadphase 中，也不能被物理查询命中。不能通过把 Body 设为 sleeping 伪装成未激活，因为 sleeping Body 仍参与碰撞。
 - **Active**：宿主在前一轮模拟/jobs 和事件分发完成、下一次 Step 与对外查询开始前提交。预检查容量并准备未加入世界的 Body；以有界激活组一次发布。失败销毁仅本次候选，保留旧区域及其他已激活组，不允许查询观察半组对象。超预算组在 cook/宿主阶段拆小，不能承诺任意大小 cell 在一帧内原子装入。
 - **Retiring**：在相同安全点先处理约束/持久对象归属，再移除 Body；接触结束通知按既有事件顺序交付，只保留稳定身份和必要事件数据，不引用已销毁 Actor。最后释放 world 材质引用、shape 引用和资产请求。
-- 每次请求携带 world session generation、owner/cell generation 和产品版本；取消、卸载或新版本到达后，旧回调只清理结果，不再插入 Body。共享准备任务按消费者计数，取消一个 cell 不取消其他消费者。Shutdown 禁止新提交，收齐任务/退役队列后才释放 SDK/code lease。
+- 每次请求携带 world session generation、owner/cell generation 和产品版本；取消、卸载或新版本到达后，旧回调只清理结果，不再插入 Body。共享准备任务按消费者计数，取消一个 cell 不取消其他消费者。Shutdown 禁止新提交，收齐任务/退役队列后才释放实际 SDK state 和资源。
 
 接口只表达非阻塞 Prepare、状态/错误、Commit、Retire 与结果持有关系，名称在实现审阅时确定；复用现有 IPhysicsSystem 和资产任务，避免为每个状态新建 registry/manager。组件保持同步 attach，但 attach 前由宿主提供 Ready 数据；未就绪是可查询的 Pending，不能被当前 bool attach 误判为资产永久损坏。`World::Build` 仍只构造一次全局子系统，streaming 通过增量实例批次进入现有 world。
 
@@ -254,7 +254,7 @@ Unloaded -> Preparing -> Ready -> Active -> Retiring -> Unloaded
 - 网格：U16/U32、stride、选定子网格/LOD、坏索引、NaN、退化/重复面、开口与薄壁、动态/运动学 mesh 拒绝。
 - 交互：资产多实例共享、独立副本、拖动撤销/Esc、生成撤销、dirty/save/失败状态、源变更后旧生成结果丢弃。
 - cook：依赖 hash 变化、重导入 manual 保留、输出版本、过期产品阻止打包、取消/进程失败后一次终态与资源清理。
-- 物理：形状替换失败旧 body/约束保留、质心/惯性更新、预览不改场景、模块重启与存活任务/文档 lease。
+- 物理：形状替换失败旧 body/约束保留、质心/惯性更新、预览不改场景、模块会话重启与存活任务/文档的实际所有权，DLL 二进制变更须重启进程。
 - streaming：第 9.6 节的生命周期、预算、空间依赖及保存/打包用例；只准备好而未激活的形状不进入查询和接触。
 - 性能：记录样本顶点/三角形数、生成耗时、内存峰值、hull 数、native cook 时间和查询/接触成本；测量前不填虚构指标。
 
@@ -270,7 +270,7 @@ Unloaded -> Preparing -> Ready -> Active -> Retiring -> Unloaded
 - `JoltPhysics.Builder` 模块链接既有 builder 目录的 `JoltPhysics.Builder.Static`；它依赖 Physics/Framework 与共享的 `JoltPhysics.AssetCodec.Static`。adaptor 和测试链接同一个 codec target，源码只有一个编译 owner；没有新增 core。Runtime 注册产品 handler，builder 注册 builder；没有重复反射入口。
 - Framework 增加 `SaveProductData`，复用既有压缩、产品 envelope、校验、原子 group 发布及索引逻辑；builder 无须加载运行时 handler。新增 `LoadAssetAsync` 将产品查找、读取、校验也调度到已有 AssetExecutor；旧 `LoadAsset` 并非完全异步，不能直接放在 streaming Tick 中调用。
 - 组件保留 Inline 模式，增加 Collision UUID、PhysicsMaterial UUID、Body 阻尼和反射资产字段。空材质是默认值；缺失产品、错误类型、版本、几何或不支持的动态凹面阻止激活。旧的 render-mesh Inline 路径仅兼容普通加载；streaming 要求先制作为独立 Collision 产品。
-- Shape 请求按不可变产品对象身份（固定产品 generation）、scale、collision margin 和 SDK session 合并。消费者取消只释放自己的请求；后台任务不捕获 World/Actor/组件，持有输入与 SDK/code lease。世界销毁或新编辑不会接收旧结果。
+- Shape 请求按不可变产品对象身份（固定产品 generation）、scale、collision margin 和 SDK session 合并。消费者取消只释放自己的请求；后台任务不捕获 World/Actor/组件，持有输入与 SDK state；DLL 代码进程常驻。世界销毁或新编辑不会接收旧结果。
 - `WorldStreaming` 是 Framework 的显式请求宿主，不是分区算法。World Tick 前执行准备和提交；外部空间/游戏策略使用 Request(Unloaded/Ready/Active)。Ready 不创建 Body，不参与查询。整组预检、分配完成后再加入 broadphase；失败只回滚该组。退役先删除整组物理实例，再发布 Actor 退出通知。
 - World JSON 增加 `cells: [{uuid, initialTarget, actors}]`，目标值为 0/1/2。initialTarget 是作者配置，不是保存瞬时运行状态。全部未加载 cell 描述和资产根引用参与保存/打包审计。旧 actors/subSystems 文件继续可用。动态/运动学对象与其 transform 树提升为 World 驻留，cell 重载不复制它们；跨 cell 约束及现有支撑接触阻止退役。
 - 初始硬上限：每组 128 Actor、清单 4096 cells、每帧处理 4 个准备 cell、每 cell 每帧克隆最多 8 Actor、每帧最多 2 组提交；SDK session 最多 32 个在途 shape 工作、1024 个形状资源、256 MiB 估算输入几何。单 shape 输入上限 64 MiB、4096 元素，codec 最多 4M 数值。资源统计明确是 source bytes，不代表完整 Jolt/native 或进程内存峰值。

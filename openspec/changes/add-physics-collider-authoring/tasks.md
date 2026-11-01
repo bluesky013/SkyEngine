@@ -29,7 +29,7 @@ Status (2026-10-27): the runtime asset/cell-loading slice and benchmark cases ar
 - [ ] 3.2 Register reflected authoring settings, asset fields and actions; bind shared forms and use shared toolbar/menu/icon/theme facilities.
 - [ ] 3.3 Implement shape selection, transform/size handles, one-command drags, Escape cancellation and undoable generation application.
 - [ ] 3.4 Add isolated physics preview with reset/pause/single-step and engine debug geometry; prewarm shapes outside rendering and simulation callbacks.
-- [ ] 3.5 Implement revision-checked async work, cancellation, single completion and leased module/document lifetimes.
+- [ ] 3.5 Implement revision-checked async work, cancellation, single completion and owned document/provider lifetimes and process-resident code.
 - [ ] 3.6 Exercise multi-instance editing, independent copies, asset failure, undo/redo and editor restart through contract tests and bounded UI smoke.
 
 ## 4. M2 import and convex decomposition
@@ -49,7 +49,7 @@ Status (2026-10-27): the runtime asset/cell-loading slice and benchmark cases ar
 ## 6. M1 physics streaming contracts and host integration
 
 - [x] 6.1 Reuse AssetManager/AssetExecutor for ProductsOnly asynchronous geometry/material preparation; validate Jolt worker safety and prohibit blocking component attachment.
-- [x] 6.2 Add immutable prepared-shape caching keyed by product snapshot identity, scale, margin and SDK session, with in-flight deduplication, per-consumer cancellation, SDK/code leases and accounted source-byte/concurrency limits. Content fingerprint semantics remain in 2.2a; complete native-memory accounting remains in 6.8a.
+- [x] 6.2 Add immutable prepared-shape caching keyed by product snapshot identity, scale, margin and SDK session, with in-flight deduplication, per-consumer cancellation, SDK state ownership and process-resident code and accounted source-byte/concurrency limits. Content fingerprint semantics remain in 2.2a; complete native-memory accounting remains in 6.8a.
 - [x] 6.3 Add Ready/Active/Retiring results and safe-point instance batches; preflight capacity, avoid partial query visibility and roll back only new candidates on failure.
 - [x] 6.4 Track world/owner generations and product revisions through cancellation, world destruction and hot replacement; collect all tasks before SDK release.
 - [x] 6.5 Implement the Framework explicit host with stable cell/actor identities, Ready/Active/Retiring states, current constraint/support pins and dynamic-object promotion.

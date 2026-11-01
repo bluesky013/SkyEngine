@@ -260,17 +260,17 @@ namespace sky::aurora::editor {
         context->Register<LodGroupView>("LodGroupView").Member<&LodGroupView::levelCount>("levelCount").Property(kReadOnly, Any(true));
     }
 
-    void RegisterAuroraAssetViews(std::shared_ptr<const void> lease)
+    void RegisterAuroraAssetViews()
     {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
-        registry->Register(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView, lease);
-        registry->Register(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView, lease);
-        registry->Register(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView, lease);
-        registry->Register(std::string(AssetTraits<Skin>::ASSET_TYPE), &g_skinView, lease);
-        registry->Register(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView, lease);
+        registry->Register(std::string(AssetTraits<Texture>::ASSET_TYPE), &g_imageView);
+        registry->Register(std::string(AssetTraits<Mesh>::ASSET_TYPE), &g_meshView);
+        registry->Register(std::string(AssetTraits<Skeleton>::ASSET_TYPE), &g_skeletonView);
+        registry->Register(std::string(AssetTraits<Skin>::ASSET_TYPE), &g_skinView);
+        registry->Register(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView);
 
         // Material / MaterialInstance are heterogeneous (typed property lists) -> custom editor providers.
-        RegisterMaterialEditorProvider(std::move(lease));
+        RegisterMaterialEditorProvider();
     }
 
     void UnregisterAuroraAssetViews()

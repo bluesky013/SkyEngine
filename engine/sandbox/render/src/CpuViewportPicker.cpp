@@ -208,7 +208,6 @@ namespace sky::editor {
 
     struct CpuViewportPicker::Impl {
         struct ProviderEntry {
-            std::shared_ptr<const void>                      moduleLease;
             std::shared_ptr<IViewportPickProvider>           provider;
             std::shared_ptr<const ViewportPickProxySnapshot> snapshot;
             uint64_t                                         generation = 0;
@@ -234,8 +233,7 @@ namespace sky::editor {
         std::shared_ptr<Providers>     providers = std::make_shared<Providers>();
         std::vector<ViewportPickProxy> proxies;
         struct CustomGeometry {
-            std::shared_ptr<const void> moduleLease;
-            ViewportPickGeometry        source;
+            ViewportPickGeometry source;
         };
         std::vector<CustomGeometry> customGeometries;
         uint64_t                    preparedProviders = 0, proxyDataGeneration = 1;
@@ -338,7 +336,7 @@ namespace sky::editor {
                         break;
                     }
                     source.target.provider = id;
-                    customGeometries.push_back({entry.moduleLease, std::move(source)});
+                    customGeometries.push_back({std::move(source)});
                 }
                 if (proxyStatus != ViewportPickStatus::HIT)
                     break;
@@ -456,8 +454,6 @@ namespace sky::editor {
         ViewportPickReason                                   indexReason = ViewportPickReason::INVALID_REQUEST;
         struct Traversal {
             struct CustomQuery {
-                // Foreign cursor and geometry destruct before their module lease.
-                std::shared_ptr<const void>                  moduleLease;
                 std::shared_ptr<const IViewportPickGeometry> geometry;
                 std::unique_ptr<IViewportPickGeometryCursor> cursor;
             };
@@ -877,13 +873,10 @@ namespace sky::editor {
         return impl->stats;
     }
 
-    ViewportPickRegistration CpuViewportPicker::RegisterProvider(std::shared_ptr<IViewportPickProvider> provider,
-                                                                 std::shared_ptr<const void>            moduleLease)
+    ViewportPickRegistration CpuViewportPicker::RegisterProvider(std::shared_ptr<IViewportPickProvider> provider)
     {
         if (!provider || !provider->Id())
             return {{}, "Provider identity must be nonzero"};
-        if (provider->RequiresModuleLease() && !moduleLease)
-            return {{}, "Dynamic provider requires a module lease"};
         const auto id    = provider->Id();
         auto      &state = *impl->providers;
         if (state.entries.contains(id))
@@ -891,7 +884,7 @@ namespace sky::editor {
         if (state.entries.size() >= 32)
             return {{}, "Provider capacity exceeded"};
         const auto generation = ++state.next;
-        state.entries.emplace(id, Impl::ProviderEntry{std::move(moduleLease), std::move(provider), {}, generation});
+        state.entries.emplace(id, Impl::ProviderEntry{std::move(provider), {}, generation});
         ++state.generation;
         auto scope        = std::make_shared<Impl::ProviderScope>();
         scope->owner      = impl->providers;
@@ -1197,9 +1190,8 @@ namespace sky::editor {
                                 continue;
                             }
                             if (!work.customQuery) {
-                                work.customQuery              = std::make_unique<Impl::Traversal::CustomQuery>();
-                                work.customQuery->moduleLease = owned.moduleLease;
-                                work.customQuery->geometry    = source.geometry;
+                                work.customQuery           = std::make_unique<Impl::Traversal::CustomQuery>();
+                                work.customQuery->geometry = source.geometry;
                             }
                             const double               allowance = state.activeTraversal ? state.queryAllowance : 1.0;
                             ViewportPickGeometryBudget budget{remaining, std::max(0.0, allowance - Milliseconds(start))};

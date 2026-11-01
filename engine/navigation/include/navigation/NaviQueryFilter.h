@@ -25,13 +25,7 @@ namespace sky::ai {
         virtual FilterFlags GetIncludeFlags() const            = 0;
         virtual FilterFlags GetExcludeFlags() const            = 0;
 
-        void SetCodeLease(std::shared_ptr<const void> value)
-        {
-            codeLease = std::move(value);
-        }
-
     private:
-        std::shared_ptr<const void> codeLease;
     };
     using NaviQueryFilterPtr = CounterPtr<NaviQueryFilter>;
 

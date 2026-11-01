@@ -54,8 +54,9 @@ explicit. Shadow/IBL/HDR and bounded float4 arrays are implemented, while nested
 uniform structures remain unsupported. Native Metal validation remains a platform gate.
 
 Launcher and the Windows Editor explicitly register the scene pass using
-`RegisterScenePass` in their first packet, with a host-selected feature ID and
-the defining module lease. Adaptor links Pipeline; Core does not link it.
+`RegisterScenePass` in their first packet, with a host-selected feature ID and an
+owned Feature instance. Frame borrowers retain that instance until retirement; defining
+DLL code remains process resident. Adaptor links Pipeline; Core does not link it.
 There is no implicit scene raster when the feature is absent or disabled.
 Frame/view constants use lease allocations; reflected layouts and shader objects
 may be shared. Uniform bindings expose the actual payload length, excluding

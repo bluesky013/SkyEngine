@@ -193,9 +193,9 @@ INSTANTIATE_TEST_SUITE_P(Windows, RendererHostNativeTest, testing::Values(0u, 1u
 
 TEST_P(RendererHostNativeTest, B14NonemptySceneUsesHostProducerAndSurvivesShutdown)
 {
-    bool       populated  = false;
-    const auto registered = module.RegisterSceneSession(
-        "Aurora.Render", std::make_shared<test::LauncherSceneSession>([&](FramePacket &packet, const LauncherSceneContext &context) {
+    bool       populated = false;
+    const auto registered =
+        module.RegisterSceneSession(std::make_shared<test::LauncherSceneSession>([&](FramePacket &packet, const LauncherSceneContext &context) {
             if (!populated) {
                 AddHostMesh(packet, context.scene, renderer->GetInfo());
                 packet.commands.push_back(CreateViewport{{90, 1}, {ViewportKind::OFFSCREEN, {32, 32}}});

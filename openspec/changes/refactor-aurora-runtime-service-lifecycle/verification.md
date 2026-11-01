@@ -1,5 +1,7 @@
 # Verification — 2026-10-30
 
+2026-11-01 lifecycle update: lease API checks below preserve the original checkpoint. `remove-module-code-leases` now keeps DLL code process resident and removes code tokens; service withdrawal, source/request/result ownership and renderer drain remain required. These historical counts are not a new validation run.
+
 ## Implementation review
 
 - `AuroraModule.h/.cpp` contain no Skeleton source type, member, factory, interface access or lifecycle operations.

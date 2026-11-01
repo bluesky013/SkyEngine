@@ -7,6 +7,7 @@
 #include <core/type/TypeInfo.h>
 #include <core/type/TypeInfoObj.h>
 #include <cstdlib>
+#include <editor/core/EditorCore.h>
 #include <editor/core/asset/EditorAssetCatalog.h>
 #include <editor/core/document/WorldDocument.h>
 #include <editor/core/extension/EditorActionRegistry.h>
@@ -22,7 +23,6 @@
 #include <editor/shell/FileBrowserDialog.h>
 #include <editor/shell/ReflectionDemoPanel.h>
 #include <editor/shell/WorldConfigPanel.h>
-#include <editor/core/EditorCore.h>
 #include <editor/shell/panels/AssetBrowserPanel.h>
 #include <editor/ui/AssetViewProvider.h>
 #include <editor/ui/UiTheme.h>
@@ -1555,7 +1555,7 @@ TEST(EditorShellTest, AssetViewerOpensAndCloses)
 namespace {
     struct DocumentProbe {
         bool                     dirty = true, pending = false, fail = true, editing = false;
-        int                      writes = 0, contentReleased = 0, documentReleased = 0, leaseReleased = 0;
+        int                      writes = 0, contentReleased = 0, documentReleased = 0;
         int                      cancelledEdits = 0, pointerEvents = 0, textEvents = 0;
         sky::ui::UIElement      *content = nullptr;
         std::vector<std::string> releaseOrder;
@@ -1654,12 +1654,7 @@ namespace {
         {
             state            = std::make_shared<DocumentProbe>();
             documents[asset] = state;
-            auto lease       = std::shared_ptr<const void>(new int(0), [probe = state](const void *value) {
-                delete static_cast<const int *>(value);
-                ++probe->leaseReleased;
-                probe->releaseOrder.push_back("lease");
-            });
-            return {std::move(lease), std::make_unique<ProbeDocument>(state)};
+            return {std::make_unique<ProbeDocument>(state)};
         }
         std::shared_ptr<DocumentProbe>                                state;
         std::unordered_map<sky::Uuid, std::shared_ptr<DocumentProbe>> documents;
@@ -1667,7 +1662,7 @@ namespace {
     };
 } // namespace
 
-TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndRetainCodeThroughDestruction)
+TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndDestroyContentBeforeDocument)
 {
     ProbeDocumentProvider        provider;
     ScopedAssetViewerEnvironment environment;
@@ -1727,7 +1722,7 @@ TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndRetainCo
     EXPECT_EQ(first->writes, 2);
     viewer.Tick(0);
     EXPECT_FALSE(viewer.IsOpen());
-    EXPECT_EQ(first->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_EQ(first->releaseOrder, (std::vector<std::string>{"content", "document"}));
     viewer.Open(a.uuid);
     auto second = provider.state;
     viewer.Open(b.uuid);
@@ -1743,7 +1738,7 @@ TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndRetainCo
     EXPECT_TRUE(viewer.IsOpen());
     EXPECT_EQ(viewer.AssetId(), b.uuid);
     EXPECT_EQ(second->cancelledEdits, 1);
-    EXPECT_EQ(second->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_EQ(second->releaseOrder, (std::vector<std::string>{"content", "document"}));
     provider.state->dirty   = false;
     provider.state->editing = true;
     viewer.Close();
@@ -1876,7 +1871,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     EXPECT_TRUE(shell.DispatchKeyToSurface(101, Key(0x0D)));
     shell.TickAssetViews(0);
     EXPECT_EQ(retired, (std::vector<uint32_t>{100}));
-    EXPECT_EQ(a->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_EQ(a->releaseOrder, (std::vector<std::string>{"content", "document"}));
     EXPECT_TRUE(shell.IsAssetViewerOpen());
     EXPECT_EQ(b->documentReleased, 0);
     b->fail = false;
@@ -1884,7 +1879,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     shell.TickAssetViews(0);
     EXPECT_EQ(retired, (std::vector<uint32_t>{100, 101}));
     EXPECT_FALSE(shell.IsAssetViewerOpen());
-    EXPECT_EQ(b->releaseOrder, (std::vector<std::string>{"content", "document", "lease"}));
+    EXPECT_EQ(b->releaseOrder, (std::vector<std::string>{"content", "document"}));
     EXPECT_FALSE(invoke(first.uuid, "assetViewer.save"));
 }
 

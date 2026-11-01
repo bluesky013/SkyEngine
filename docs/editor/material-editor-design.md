@@ -16,7 +16,7 @@ pickers use the same generic editor registry. Commands carry generation leases s
 cannot apply an old edit to a different property. Undo of the first inherited-value edit removes
 the instance override. The existing IAssetViewDocument owns each window's CommandService;
 schema rebuilds and queued saves run from its host tick, outside input dispatch. Save validates
-the regenerated schema before writing and requesting cook. Module leases outlive content and history.
+the regenerated schema before writing and requesting cook. Content, reflected schema and command history retain their actual owners; defining DLL code remains process resident.
 
 Technique rows still expose Tag, explicit source/entry and render-state fields through the
 existing GridPanel/UiTheme/UiSkin path. Collapse and migration of those legacy manual technique

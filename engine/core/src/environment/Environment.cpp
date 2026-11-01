@@ -51,26 +51,43 @@ namespace sky {
         if (ptr == nullptr) {
             return;
         }
-        std::lock_guard<std::mutex> lock(mutex);
+        std::lock_guard lock(mutex);
         envMap.emplace(key, ptr);
     }
 
-    void Environment::UnRegister(uint32_t key)
+    void *Environment::UnRegister(uint32_t key)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        auto                        iter = envMap.find(key);
+        std::lock_guard lock(mutex);
+        auto            iter = envMap.find(key);
         if (iter != envMap.end()) {
+            auto *value = iter->second;
             envMap.erase(iter);
+            return value;
         }
+        return nullptr;
     }
 
     void *Environment::Find(uint32_t key)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        auto                        iter = envMap.find(key);
+        std::lock_guard lock(mutex);
+        auto            iter = envMap.find(key);
         if (iter != envMap.end()) {
             return iter->second;
         }
         return nullptr;
+    }
+
+    void *Environment::FindOrCreate(uint32_t key, void *(*create)())
+    {
+        std::lock_guard lock(mutex);
+        if (const auto found = envMap.find(key); found != envMap.end())
+            return found->second;
+        if (!create)
+            return nullptr;
+        // Constructors may resolve other singleton types through this same Environment.
+        auto *value = create();
+        if (value)
+            envMap.emplace(key, value);
+        return value;
     }
 } // namespace sky

@@ -50,8 +50,8 @@ namespace sky::editor {
     {
         if (stopped || !resources)
             return AssetPreviewError{AssetPreviewErrorCode::Unavailable, "Preview renderer unavailable"};
-        if (!input.world || !input.moduleLease || !ValidCamera(input.camera, input.width, input.height))
-            return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Preview requires an owned World, code lease, valid camera and extent"};
+        if (!input.world || !ValidCamera(input.camera, input.width, input.height))
+            return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Preview requires an owned World, valid camera and extent"};
         if (sessions.size() >= 16 || nextScene == UINT32_MAX)
             return AssetPreviewError{AssetPreviewErrorCode::Capacity, "Preview session capacity exceeded"};
         const auto output = allocate ? allocate() : ViewportId{};

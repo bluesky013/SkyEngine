@@ -16,7 +16,7 @@ namespace sky::ai {
     public:
         NavigationSystem() = default;
         ~NavigationSystem() override;
-        bool                        Init(const NavigationSubSystemConfig &config, std::string &error, std::shared_ptr<const void> lease = {});
+        bool                        Init(const NavigationSubSystemConfig &config, std::string &error);
         const CounterPtr<NaviMesh> &GetNaviMesh() const override
         {
             return naviMesh;
@@ -72,7 +72,6 @@ namespace sky::ai {
         };
         void RetryTile(uint64_t key, TileRetry &retry, bool needsRemoval);
 
-        std::shared_ptr<const void>                                    codeLease;
         CounterPtr<NaviMesh>                                           naviMesh;
         NaviAgentConfig                                                agent;
         NaviMeshResolution                                             resolution;

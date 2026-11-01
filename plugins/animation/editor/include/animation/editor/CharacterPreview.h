@@ -14,13 +14,12 @@ namespace sky::animation::editor {
         float rate = 1.f, scrubSeconds = 0.f;
         bool  operator==(const CharacterPreviewSettings &) const = default;
     };
-    void                        RegisterCharacterPreviewSettings();
-    std::shared_ptr<const void> RetainCharacterPreviewModules();
-    AnimationStatus             ApplyImportedCharacterDefaults(CharacterPreviewSettings &settings);
+    void            RegisterCharacterPreviewSettings();
+    AnimationStatus ApplyImportedCharacterDefaults(CharacterPreviewSettings &settings);
 
     class CharacterPreview {
     public:
-        CharacterPreview(Uuid asset, std::string type, std::shared_ptr<const void> code);
+        CharacterPreview(Uuid asset, std::string type);
         ~CharacterPreview();
         void                            Configure(CharacterPreviewSettings value);
         void                            Tick(float delta);
@@ -65,10 +64,6 @@ namespace sky::animation::editor {
         {
             return !settings.referencePose && playback.state == AnimationSourceState::Ready;
         }
-        const std::shared_ptr<const void> &CodeLease() const
-        {
-            return code;
-        }
         uint32_t selectedBone = 0;
         void     ReportError(std::string message)
         {
@@ -80,7 +75,6 @@ namespace sky::animation::editor {
         void                                             ResolveRig();
         Uuid                                             asset;
         std::string                                      type;
-        std::shared_ptr<const void>                      code;
         WorldPtr                                         world;
         Uuid                                             actor;
         CharacterPreviewSettings                         settings;

@@ -9,13 +9,13 @@
 
 namespace sky::editor {
 
-    bool SceneOverlayRegistry::Add(std::string id, std::shared_ptr<ISceneOverlay> overlay, std::shared_ptr<const void> lease)
+    bool SceneOverlayRegistry::Add(std::string id, std::shared_ptr<ISceneOverlay> overlay)
     {
-        if (id.empty() || !overlay || !lease || nextIndex == std::numeric_limits<uint32_t>::max() ||
+        if (id.empty() || !overlay || nextIndex == std::numeric_limits<uint32_t>::max() ||
             std::ranges::any_of(entries, [&](const auto &entry) { return entry.id == id && !entry.retiring; })) {
             return false;
         }
-        entries.push_back({std::move(lease), std::move(overlay), std::move(id), nextIndex++, false});
+        entries.push_back({std::move(overlay), std::move(id), nextIndex++, false});
         return true;
     }
 

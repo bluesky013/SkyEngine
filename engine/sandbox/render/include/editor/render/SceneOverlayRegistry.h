@@ -33,7 +33,7 @@ namespace sky::editor {
         friend class Singleton<SceneOverlayRegistry>;
 
     public:
-        bool Add(std::string id, std::shared_ptr<ISceneOverlay> overlay, std::shared_ptr<const void> lease);
+        bool Add(std::string id, std::shared_ptr<ISceneOverlay> overlay);
         void Remove(const std::string &id);
         void Append(aurora::FramePacket                                 &packet,
                     aurora::SceneId                                      scene,
@@ -45,7 +45,6 @@ namespace sky::editor {
 
     private:
         struct Entry {
-            std::shared_ptr<const void>    lease;
             std::shared_ptr<ISceneOverlay> overlay;
             std::string                    id;
             uint32_t                       index    = 0;

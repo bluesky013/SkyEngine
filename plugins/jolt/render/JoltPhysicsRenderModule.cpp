@@ -6,7 +6,6 @@
 #include <physics/PhysicsMesh.h>
 
 #include <aurora/adaptor/assets/MeshAsset.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/IModule.h>
 
@@ -16,13 +15,6 @@ namespace sky::phy {
     public:
         JoltPhysicsRenderModule()           = default;
         ~JoltPhysicsRenderModule() override = default;
-
-        bool Init(const StartArguments &args) override
-        {
-            auto *manager = ModuleManager::Current();
-            lease         = manager ? manager->RetainModule("JoltPhysicsRenderModule") : nullptr;
-            return true;
-        }
 
         void Start() override
         {
@@ -39,17 +31,13 @@ namespace sky::phy {
                         LOG_E("JoltMesh", "%s", error.c_str());
                     return mesh;
                 },
-                lease, std::string(AssetTraits<aurora::Mesh>::ASSET_TYPE));
+                std::string(AssetTraits<aurora::Mesh>::ASSET_TYPE));
         }
 
         void Shutdown() override
         {
             SetPhysicsMeshProvider(nullptr);
-            lease.reset();
         }
-
-    private:
-        std::shared_ptr<const void> lease;
     };
 
 } // namespace sky::phy

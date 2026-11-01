@@ -1,5 +1,7 @@
 # 实施记录 — 2026-10-23
 
+2026-11-01 lifecycle update: the compiler/module release observations below are historical evidence. `remove-module-code-leases` now retains DLL code until process exit; accepted futures still own compiler and cache endpoints. Final object release no longer unloads the DLL.
+
 2026-10-23 实施阶段完成代码应用，任务进度 38/43；五项尚待跨平台原生验收，不能据此宣称全部平台完成。后续提交、rebase 与复验状态见文末记录。
 
 ## 当前实现

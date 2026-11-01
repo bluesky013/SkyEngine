@@ -45,7 +45,7 @@ The third-party manifest SHALL pin Jolt v5.6.0 to revision `e77f175595e64cb44218
 
 ### Requirement: SDK state and executable code outlive physics objects
 
-The backend and every live world SHALL hold an SDK state lease and the necessary module code lease. Unregistering a backend SHALL prevent new world creation but SHALL NOT destroy SDK state or unload code still needed by existing worlds. The last user SHALL release jobs, native objects and callbacks before releasing SDK state and code.
+The backend and every live world SHALL retain the SDK state they use; defining DLL code SHALL remain process resident without per-object code tokens. Unregistering a backend SHALL prevent new world creation but SHALL NOT destroy SDK state still needed by existing worlds. The last user SHALL release jobs, native objects and callbacks before releasing SDK state. The SDK initialization guard SHALL belong to the actual native static Jolt image whose globals it initializes; independently linked images SHALL NOT share an initialization guard. Native SDK symbols and private backend types/templates SHALL remain bound to their owning image. Public Physics interfaces and process-shared registries SHALL remain visible, with one metadata owner; this change SHALL NOT add a target or public SDK lifecycle API.
 
 #### Scenario: Registry is unregistered before a world is released
 - **WHEN** a backend is unregistered while a created world is still owned by a consumer

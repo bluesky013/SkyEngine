@@ -16,7 +16,7 @@ Session identity includes target/platform/environment/options, search paths, imm
 
 Validate DXC/downstream concurrency independently. If required, use worker-local instances or a narrowly scoped backend mutex. Shared library initialization may use an explicit thread-safe lifecycle; this must never become a guard around reflection registration. Reflection remains uniquely owned by process definitions.
 
-Accepted work retains source/module/compiler/cache ownership until completion or collected cancellation. Resolving a worker context must not discard the previously accepted compiler code lease. Shutdown stops new work, gathers tasks, then releases modules, sessions and global sessions in their valid ownership order. Pools must support bounded eviction or explicit cleanup without relying on process exit.
+Accepted work retains source/module/compiler/cache ownership until completion or collected cancellation. Resolving a worker context must preserve the accepted compiler and cache endpoint owners; defining DLL code stays process resident without per-job code tokens. Shutdown stops new work, gathers tasks, then releases modules, sessions and global sessions in their valid ownership order. Pools must support bounded eviction or explicit cleanup without relying on process exit.
 
 ## Variant contract to preserve
 

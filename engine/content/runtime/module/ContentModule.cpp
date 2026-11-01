@@ -3,11 +3,8 @@
 //
 
 #include <content/adaptor/AnimationClipSource.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/serialization/SerializationContext.h>
 
 namespace sky::content {
 
@@ -25,9 +22,7 @@ namespace sky::content {
             if (service->GetApi()) {
                 return false;
             }
-            const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-            auto       *modules = system ? system->GetModuleManager() : nullptr;
-            source              = CreateAnimationClipSource(modules ? modules->RetainModule("Content.Module") : nullptr);
+            source = CreateAnimationClipSource();
             if (!source) {
                 return false;
             }

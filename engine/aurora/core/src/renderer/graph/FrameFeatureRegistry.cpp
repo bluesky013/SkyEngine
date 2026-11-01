@@ -19,7 +19,7 @@ namespace sky::aurora {
                 return RendererError{RendererErrorCode::INVALID_PACKET, "Feature requires a unique valid command per packet"};
             auto found = projected.find(id.index);
             if (const auto *add = std::get_if<RegisterRenderFeature>(&command)) {
-                if (!add->feature || !add->moduleLease || add->name.Empty() || add->feature->GetName() != add->name ||
+                if (!add->feature || add->name.Empty() || add->feature->GetName() != add->name ||
                     (found != projected.end() && (found->second.lease || id.generation <= found->second.generation)) ||
                     std::any_of(projected.begin(), projected.end(), [&](const auto &entry) {
                         return entry.second.lease &&

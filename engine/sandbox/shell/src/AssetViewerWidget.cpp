@@ -307,7 +307,7 @@ namespace sky::editor {
     {
         if (viewDocument.document) {
             documentCloseRequested = true;
-            documentNextAsset = {};
+            documentNextAsset      = {};
             MarkPaintDirty();
             return;
         }
@@ -340,10 +340,10 @@ namespace sky::editor {
         if (decision == CloseDecision::Cancel) {
             documentCloseRequested = documentSaveAndClose = documentDiscard = false;
             documentCloseSaveFailed                                         = false;
-            documentNextAsset = {};
+            documentNextAsset                                               = {};
         } else if (decision == CloseDecision::Save) {
             SaveAsset();
-            documentSaveAndClose = true;
+            documentSaveAndClose    = true;
             documentCloseSaveFailed = false;
         } else {
             documentDiscard = true;
@@ -356,7 +356,7 @@ namespace sky::editor {
             return;
         viewDocument.document->Tick(delta);
         if (documentSaveAndClose && !viewDocument.document->IsSavePending()) {
-            documentSaveAndClose = false;
+            documentSaveAndClose    = false;
             documentCloseSaveFailed = viewDocument.document->IsDirty();
         }
         if (documentCloseRequested &&
@@ -483,7 +483,7 @@ namespace sky::editor {
         if (IsOpen() && viewDocument.document) {
             if (uuid != asset) {
                 documentCloseRequested = true;
-                documentNextAsset = uuid;
+                documentNextAsset      = uuid;
                 MarkPaintDirty();
             }
             return;
@@ -544,9 +544,8 @@ namespace sky::editor {
         if (provider == nullptr) {
             return;
         }
-        customContentLease = AssetViewProviderRegistry::Get()->Retain(assetType);
         auto opened = provider->OpenDocument(asset, assetType);
-        if (opened.document && opened.moduleLease) {
+        if (opened.document) {
             viewDocument = std::move(opened);
             viewDocument.document->SetActionScope(actionScope);
             if (auto content = viewDocument.document->CreateContent(textSystem)) {
@@ -559,7 +558,6 @@ namespace sky::editor {
                 return;
             }
             viewDocument.document.reset();
-            viewDocument.moduleLease.reset();
         }
         if (auto content = provider->CreateContent(asset, assetType, textSystem)) {
             customContent = contentViewport->AddChild(std::move(content));
@@ -579,8 +577,6 @@ namespace sky::editor {
             customPreview = nullptr;
         }
         viewDocument.document.reset();
-        viewDocument.moduleLease.reset();
-        customContentLease.reset();
         documentCloseRequested = documentSaveAndClose = documentDiscard = false;
         documentCloseSaveFailed                                         = false;
         closePrompt->Close();
@@ -728,11 +724,12 @@ namespace sky::editor {
     bool AssetViewerWidget::WantsPointerCapture() const
     {
         return resizing || dragScroll || capturedElement ||
-            std::ranges::any_of(contentElements, [](const auto *element) { return element && element->WantsPointerCapture(); });
+               std::ranges::any_of(contentElements, [](const auto *element) { return element && element->WantsPointerCapture(); });
     }
     void AssetViewerWidget::OnPointerCancel(uint32_t pointer)
     {
-        if (capturedElement) capturedElement->OnPointerCancel(pointer);
+        if (capturedElement)
+            capturedElement->OnPointerCancel(pointer);
         capturedElement = nullptr;
         resizing = dragScroll = false;
         CancelFormInteractions();
@@ -943,8 +940,8 @@ namespace sky::editor {
         uc::Text(context, assetName + "  [" + assetType + "]", kTextSize, {right.left, right.top, right.right, right.top + kRowHeight},
                  uc::color::Text, textSystem);
         auto status = viewDocument.document ? viewDocument.document->Status() : assetPath;
-        uc::Text(context, status, kTextSize, {right.left, right.top + kRowHeight, right.right, right.top + 2.0f * kRowHeight},
-                 uc::color::TextMuted, textSystem);
+        uc::Text(context, status, kTextSize, {right.left, right.top + kRowHeight, right.right, right.top + 2.0f * kRowHeight}, uc::color::TextMuted,
+                 textSystem);
 
         const float         viewTop      = right.top + 2.0f * kRowHeight + 4.0f;
         const bool          hasBar       = contentTotal > contentViewH + 0.5f;
@@ -977,7 +974,8 @@ namespace sky::editor {
 
         const sky::ui::UIRect grip      = ResizeRect(panel);
         const auto            gripColor = (hoverResize || resizing) ? uc::color::Text : uc::color::TextDisabled;
-        if (!standalone) uc::Text(context, "//", kTextSize, grip, gripColor, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
+        if (!standalone)
+            uc::Text(context, "//", kTextSize, grip, gripColor, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
     }
 
     sky::ui::UIEventResult AssetViewerWidget::OnPointerEvent(const sky::ui::UIPointerEvent &event)

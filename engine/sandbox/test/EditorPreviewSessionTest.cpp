@@ -23,15 +23,33 @@ namespace {
                 values.push_back(*value);
         return values;
     }
+    class WorldLifetimeProbe final : public IWorldSubSystem {
+    public:
+        explicit WorldLifetimeProbe(std::shared_ptr<bool> destroyed) : destroyed(std::move(destroyed))
+        {
+        }
+        ~WorldLifetimeProbe() override
+        {
+            *destroyed = true;
+        }
+
+    private:
+        std::shared_ptr<bool> destroyed;
+    };
+    WorldPtr TrackedWorld(std::shared_ptr<bool> destroyed)
+    {
+        WorldPtr world = World::CreateWorld();
+        world->AddSubSystem(Name("LifetimeProbe"), new WorldLifetimeProbe(std::move(destroyed)));
+        return world;
+    }
     struct PreviewSessions : testing::Test {
         uint32_t              next = 10;
         UiSnapshotProducer    textures{1};
         EditorPreviewSessions host{{API::VULKAN, 1}, std::make_shared<EmptySource>(), textures, [this] { return ViewportId{next++, 1}; }};
-        AssetPreviewHandle    Create(std::shared_ptr<const void> lease = std::make_shared<int>(1))
+        AssetPreviewHandle    Create(WorldPtr world = World::CreateWorld())
         {
             AssetPreviewScene scene;
-            scene.moduleLease = std::move(lease);
-            scene.world       = World::CreateWorld();
+            scene.world       = std::move(world);
             const auto result = host.CreateSession(std::move(scene));
             EXPECT_TRUE(std::holds_alternative<AssetPreviewHandle>(result));
             return std::get<AssetPreviewHandle>(result);
@@ -44,7 +62,7 @@ TEST_F(PreviewSessions, TwoSessionsHaveIndependentSceneViewOutputAndResize)
     FramePacket create;
     create.sequence = 1;
     ASSERT_FALSE(host.Append(create));
-    const auto scenes = Commands<CreateScene>(create);
+    const auto scenes  = Commands<CreateScene>(create);
     const auto views   = Commands<CreateView>(create);
     const auto outputs = Commands<CreateViewport>(create);
     ASSERT_EQ(scenes.size(), 2u);
@@ -76,12 +94,10 @@ TEST_F(PreviewSessions, TwoSessionsHaveIndependentSceneViewOutputAndResize)
     EXPECT_TRUE(std::holds_alternative<AssetPreviewError>(host.Update(first, camera)));
     EXPECT_TRUE(std::holds_alternative<AssetPreviewError>(host.Resize(first, 0, 100)));
 }
-TEST_F(PreviewSessions, CloseRetainsWorldCodeUntilEveryRendererObjectRetires)
+TEST_F(PreviewSessions, CloseRetainsWorldUntilEveryRendererObjectRetires)
 {
-    auto                      lease    = std::make_shared<int>(1);
-    std::weak_ptr<const void> lifetime = lease;
-    const auto                handle   = Create(lease);
-    lease.reset();
+    auto        destroyed = std::make_shared<bool>(false);
+    const auto  handle    = Create(TrackedWorld(destroyed));
     FramePacket create;
     create.sequence = 1;
     ASSERT_FALSE(host.Append(create));
@@ -97,27 +113,25 @@ TEST_F(PreviewSessions, CloseRetainsWorldCodeUntilEveryRendererObjectRetires)
     EXPECT_EQ(Commands<DestroyScene>(close).size(), 1u);
     EXPECT_EQ(Commands<DestroyViewport>(close).size(), 1u);
     host.OnEvent(ViewportDestroyed{{output.index, output.generation + 1}});
-    EXPECT_FALSE(lifetime.expired());
+    EXPECT_FALSE(*destroyed);
     host.OnEvent(SceneDestroyed{scene});
     host.OnEvent(ViewDestroyed{view});
-    EXPECT_FALSE(lifetime.expired());
+    EXPECT_FALSE(*destroyed);
     host.OnEvent(ViewportDestroyed{output});
-    EXPECT_TRUE(lifetime.expired());
+    EXPECT_TRUE(*destroyed);
     EXPECT_EQ(std::get<AssetPreviewStatus>(host.Status(handle)).state, AssetPreviewState::Closed);
     EXPECT_TRUE(std::holds_alternative<AssetPreviewError>(host.Update(handle, {})));
 }
 TEST_F(PreviewSessions, UnsubmittedCloseAndStoppedHostReleaseSessionsWithoutGpuClaims)
 {
-    auto                      lease    = std::make_shared<int>(1);
-    std::weak_ptr<const void> lifetime = lease;
-    const auto                handle   = Create(lease);
-    lease.reset();
+    auto       destroyed = std::make_shared<bool>(false);
+    const auto handle    = Create(TrackedWorld(destroyed));
     host.CloseSession(handle);
     FramePacket packet;
     packet.sequence = 1;
     ASSERT_FALSE(host.Append(packet));
     EXPECT_TRUE(packet.commands.empty());
-    EXPECT_TRUE(lifetime.expired());
+    EXPECT_TRUE(*destroyed);
     EXPECT_EQ(std::get<AssetPreviewStatus>(host.Status(handle)).state, AssetPreviewState::Closed);
     const auto second = Create();
     host.OnRendererStopped();

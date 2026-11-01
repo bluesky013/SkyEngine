@@ -22,21 +22,20 @@ namespace sky::ai {
         }
     } // namespace
 
-    bool NavigationEditorService::Register(std::shared_ptr<const void> lease)
+    bool NavigationEditorService::Register()
     {
         const auto self = weak_from_this().lock();
-        if (!active || registered || !lease || !self || !editor::SceneOverlayRegistry::Get()->Add(OVERLAY_ID, self, lease))
+        if (!active || registered || !self || !editor::SceneOverlayRegistry::Get()->Add(OVERLAY_ID, self))
             return false;
         const auto           weak = weak_from_this();
         editor::EditorAction build;
-        build.moduleLease = lease;
-        build.id          = BUILD_ACTION;
-        build.label       = "Build Navigation";
-        build.icon        = "navigation-build";
-        build.group       = editor::EditorGroup::Navigation;
-        build.menu        = editor::EditorMenu::Edit;
-        build.submenu     = "Navigation";
-        build.enabled     = [weak] {
+        build.id      = BUILD_ACTION;
+        build.label   = "Build Navigation";
+        build.icon    = "navigation-build";
+        build.group   = editor::EditorGroup::Navigation;
+        build.menu    = editor::EditorMenu::Edit;
+        build.submenu = "Navigation";
+        build.enabled = [weak] {
             const auto service = weak.lock();
             return service && service->CanBuild();
         };
@@ -46,16 +45,15 @@ namespace sky::ai {
         };
         editor::EditorActionRegistry::Get()->Add(std::move(build));
         editor::EditorAction debug;
-        debug.moduleLease = std::move(lease);
-        debug.id          = DEBUG_ACTION;
-        debug.label       = "Show Navigation Mesh";
-        debug.icon        = "navigation-mesh";
-        debug.group       = editor::EditorGroup::Navigation;
-        debug.menu        = editor::EditorMenu::View;
-        debug.submenu     = "Navigation";
-        debug.order       = 1;
-        debug.checkable   = true;
-        debug.checked     = [weak] {
+        debug.id        = DEBUG_ACTION;
+        debug.label     = "Show Navigation Mesh";
+        debug.icon      = "navigation-mesh";
+        debug.group     = editor::EditorGroup::Navigation;
+        debug.menu      = editor::EditorMenu::View;
+        debug.submenu   = "Navigation";
+        debug.order     = 1;
+        debug.checkable = true;
+        debug.checked   = [weak] {
             const auto service = weak.lock();
             return service && service->debugVisible;
         };

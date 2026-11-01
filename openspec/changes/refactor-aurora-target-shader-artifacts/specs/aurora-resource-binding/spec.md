@@ -14,7 +14,7 @@ Shader SHALL 为匹配的 stage artifacts 构建不可变 BindingPlan，验证�
 
 ### Requirement: Uniform plans and bindings preserve atomicity and lifetime
 
-计划缓存 SHALL 使用链接布局/artifact 身份、CPU schema fingerprint 与 packing 协议版本。计划 SHALL 不持有每次 draw 的可变值；显式新版本 SHALL 与在途旧版本并存并沿现有 frame/module/GPU lease 退休。绑定装配 SHALL 验证全部活跃资源和字段后原子替换 draw；失败 SHALL 保留原 draw，优化掉的资源 SHALL 不要求绑定值。
+计划缓存 SHALL 使用链接布局/artifact 身份、CPU schema fingerprint 与 packing 协议版本。计划 SHALL 不持有每次 draw 的可变值；显式新版本 SHALL 与在途旧版本并存并沿现有 frame/Feature/GPU owner 退休。绑定装配 SHALL 验证全部活跃资源和字段后原子替换 draw；失败 SHALL 保留原 draw，优化掉的资源 SHALL 不要求绑定值。
 
 #### Scenario: 失败不改变 draw
 - **WHEN** 最后一个活跃字段或资源验证失败

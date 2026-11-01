@@ -5,8 +5,6 @@
 #include <aurora/adaptor/AnimationSkeletonSource.h>
 #include <aurora/adaptor/AuroraModule.h>
 #include <core/logger/Logger.h>
-#include <framework/application/ModuleManager.h>
-#include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 
 namespace sky::aurora {
@@ -26,11 +24,9 @@ namespace sky::aurora {
                 LOG_E("AuroraRuntime", "Skeleton source already has a registration owner");
                 return false;
             }
-            const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-            auto       *modules = system ? system->GetModuleManager() : ModuleManager::Current();
-            skeletonSource      = CreateAnimationSkeletonSource(modules ? modules->RetainModule("Aurora.Render") : nullptr);
+            skeletonSource = CreateAnimationSkeletonSource();
             if (!skeletonSource) {
-                LOG_E("AuroraRuntime", "Skeleton source requires the owning Aurora.Render module lease");
+                LOG_E("AuroraRuntime", "Skeleton source initialization failed");
                 return false;
             }
             service->Register(*skeletonSource);
@@ -57,7 +53,7 @@ namespace sky::aurora {
             auto *service = Interface<IAnimationSkeletonSource>::Get();
             if (skeletonSource && service->GetApi() == skeletonSource.get())
                 service->UnRegister();
-            // Stop new requests before draining the host; outstanding requests retain their own code leases.
+            // Stop new requests before draining the host and releasing the source.
             renderer.Shutdown();
             skeletonSource.reset();
             initialized = false;

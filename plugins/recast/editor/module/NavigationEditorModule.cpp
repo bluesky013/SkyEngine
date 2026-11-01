@@ -6,14 +6,12 @@
 
 #include <core/logger/Logger.h>
 #include <editor/core/extension/EditorExtensionRegistry.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
 
 namespace sky::ai {
     class NavigationEditorExtension final : public editor::EditorExtension {
     public:
-        NavigationEditorExtension(std::shared_ptr<NavigationEditorService> value, std::shared_ptr<const void> code)
-            : lease(std::move(code)), service(std::move(value))
+        NavigationEditorExtension(std::shared_ptr<NavigationEditorService> value) : service(std::move(value))
         {
         }
         const char *GetName() const override
@@ -24,7 +22,7 @@ namespace sky::ai {
         {
             if (!service->IsActive())
                 return;
-            if (!service->Register(lease))
+            if (!service->Register())
                 LOG_E("NavigationEditor", "Editor action/overlay registration failed");
         }
         void Unregister() override
@@ -33,7 +31,6 @@ namespace sky::ai {
         }
 
     private:
-        std::shared_ptr<const void>              lease;
         std::shared_ptr<NavigationEditorService> service;
     };
 
@@ -41,13 +38,9 @@ namespace sky::ai {
     public:
         bool Init(const StartArguments &) override
         {
-            auto *manager = ModuleManager::Current();
-            auto  lease   = manager ? manager->RetainModule("RecastNavigation.Editor") : nullptr;
-            if (!lease)
-                return false;
             service        = std::make_shared<NavigationEditorService>();
-            auto extension = std::make_unique<NavigationEditorExtension>(service, lease);
-            editor::EditorExtensionRegistry::Get()->Add(std::move(extension), std::move(lease));
+            auto extension = std::make_unique<NavigationEditorExtension>(service);
+            editor::EditorExtensionRegistry::Get()->Add(std::move(extension));
             return true;
         }
         void Tick(float) override

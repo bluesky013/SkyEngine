@@ -37,7 +37,6 @@ namespace {
     template <class T, class API>
     class Source final : public API {
     public:
-        std::shared_ptr<const void>                          code = std::make_shared<int>(1);
         std::unordered_map<Uuid, std::shared_ptr<Record<T>>> records;
         uint64_t                                             serial = 0;
         uint64_t                                             GetChangeSerial() const override
@@ -50,16 +49,15 @@ namespace {
             if (found == records.end()) {
                 return {};
             }
-            return {code, std::make_shared<Operation<T>>(found->second)};
+            return AnimationSourceRequest<T>{std::make_shared<Operation<T>>(found->second)};
         }
         std::shared_ptr<Record<T>> Publish(const Uuid &id, CounterPtr<T> resource, uint64_t layout = 0)
         {
-            auto next               = std::make_shared<Record<T>>();
-            next->value.resource    = std::move(resource);
-            next->value.moduleLease = code;
-            next->value.state       = AnimationSourceState::Ready;
-            next->value.version     = {id, Uuid::Create(), 1, layout};
-            records[id]             = next;
+            auto next            = std::make_shared<Record<T>>();
+            next->value.resource = std::move(resource);
+            next->value.state    = AnimationSourceState::Ready;
+            next->value.version  = {id, Uuid::Create(), 1, layout};
+            records[id]          = next;
             return next;
         }
     };
@@ -88,7 +86,7 @@ namespace {
             rig                        = Skeleton::BuildSkeleton(data);
             rigs.Publish(rigId, rig, rig->GetLayoutSignature());
             clips.Publish(clipId, Clip());
-            host  = CreateAnimationWorldHost(std::make_shared<int>(1));
+            host  = CreateAnimationWorldHost();
             world = World::CreateWorld();
             world->AddSubSystem(Name(ANIMATION_WORLD_SYSTEM), host->CreateSystem().release());
         }
@@ -447,26 +445,17 @@ TEST_F(AnimationWorldTest, ProductChangeRequestsNewSnapshotAndSerializedConfigOm
     EXPECT_FALSE(restored.GetAttachment());
 }
 
-TEST_F(AnimationWorldTest, WorldRetainsModuleThroughVirtualSubsystemDestructor)
+TEST_F(AnimationWorldTest, WorldAndPoseRemainOwnedAfterHostShutdown)
 {
-    struct Probe final : IWorldSubSystem {
-        Probe(std::weak_ptr<const void> code, bool &observed) : lifetime(std::move(code)), alive(observed)
-        {
-        }
-        ~Probe() override
-        {
-            alive = !lifetime.expired();
-        }
-        std::weak_ptr<const void> lifetime;
-        bool                     &alive;
-    };
-    auto                      code                  = std::make_shared<int>(2);
-    std::weak_ptr<const void> lifetime              = code;
-    bool                      aliveDuringDestructor = false;
-    world->AddSubSystem(Name("ModuleLeaseProbe"), new Probe(code, aliveDuringDestructor), code);
-    code.reset();
-    EXPECT_FALSE(lifetime.expired());
+    auto *actor = Add();
+    world->StartSimulation();
+    world->Tick(.5f);
+    auto pose = host->Describe(world.Get(), actor->GetUuid());
+    ASSERT_EQ(pose.state, SkeletalPoseState::Ready);
+    ASSERT_EQ(pose.models.size(), 2u);
+    host.reset();
+    EXPECT_NE(world->GetSubSystem(Name(ANIMATION_WORLD_SYSTEM)), nullptr);
+    world->Tick(.5f);
     world.Reset(nullptr);
-    EXPECT_TRUE(aliveDuringDestructor);
-    EXPECT_TRUE(lifetime.expired());
+    EXPECT_EQ(pose.models.size(), 2u);
 }

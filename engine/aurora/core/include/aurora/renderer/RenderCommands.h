@@ -130,10 +130,8 @@ namespace sky::aurora {
     };
 
     struct RegisterRenderFeature {
-        RenderFeatureId id;
-        Name            name;
-        // Retain the defining module until the feature and all frame borrowers are released.
-        std::shared_ptr<const void>         moduleLease;
+        RenderFeatureId                     id;
+        Name                                name;
         std::shared_ptr<IFrameGraphFeature> feature;
     };
     struct SetRenderFeatureEnabled {

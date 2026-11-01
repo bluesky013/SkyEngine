@@ -376,11 +376,11 @@ namespace sky::editor {
         // Bind clears history before releasing its document and reflected storage.
         return std::make_unique<WorldPropertyCommand>(std::move(edit), *document);
     }
-    std::vector<std::string> RegisterBuiltinActorCreators(std::shared_ptr<const void> lease)
+    std::vector<std::string> RegisterBuiltinActorCreators()
     {
         std::vector<std::string> ids;
         const auto               add = [&](const char *id, const char *label, std::function<bool(Actor &)> create) {
-            if (EditorActorCreation::Get()->RegisterCreation({lease, id, label, "Scene", static_cast<int>(ids.size()), std::move(create)}))
+            if (EditorActorCreation::Get()->RegisterCreation({id, label, "Scene", static_cast<int>(ids.size()), std::move(create)}))
                 ids.emplace_back(id);
         };
         using namespace aurora;

@@ -328,20 +328,20 @@ namespace {
     }
 } // namespace
 
-TEST(SandboxCreationActions, RegistryChangesDriveMenuAndRetainUndoCode)
+TEST(SandboxCreationActions, RegistryChangesDriveMenuAndRetainUndoCreationData)
 {
     using namespace sky::editor;
     EditorCore::Init();
     {
         SandboxModule module;
         SandboxProjectTestAccess::PrepareCreation(module);
-        auto               lease = std::make_shared<int>(1);
-        std::weak_ptr<int> alive = lease;
-        ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({lease, "test.menu", "Plugin Actor", "Test", 42, [](sky::Actor &actor) {
-                                                                      actor.SetName("From plugin");
+        auto                       creationData = std::make_shared<std::string>("From plugin");
+        std::weak_ptr<std::string> alive        = creationData;
+        ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({"test.menu", "Plugin Actor", "Test", 42, [creationData](sky::Actor &actor) {
+                                                                      actor.SetName(*creationData);
                                                                       return true;
                                                                   }}));
-        lease.reset();
+        creationData.reset();
         SandboxProjectTestAccess::RefreshCreation(module);
         auto *actions = EditorActionRegistry::Get();
         ASSERT_NE(actions->Find("scene.create.test.menu"), nullptr);

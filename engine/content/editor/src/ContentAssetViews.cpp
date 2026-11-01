@@ -23,7 +23,6 @@ namespace sky::content::editor {
             uint32_t skeletonBound = 0;
         };
 
-
         class ClipViewProvider : public sky::editor::IAssetViewDataProvider {
         public:
             sky::editor::AssetViewData Build(const Uuid &uuid, const std::string &) override
@@ -46,7 +45,7 @@ namespace sky::content::editor {
             }
         };
 
-        ClipViewProvider  g_clipView;
+        ClipViewProvider g_clipView;
 
     } // namespace
 
@@ -65,10 +64,10 @@ namespace sky::content::editor {
             .Property(kReadOnly, Any(true));
     }
 
-    void RegisterContentAssetViews(std::shared_ptr<const void> lease)
+    void RegisterContentAssetViews()
     {
         auto *registry = sky::editor::AssetViewDataRegistry::Get();
-        registry->Register(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView, lease);
+        registry->Register(std::string(AssetTraits<AnimationClip>::ASSET_TYPE), &g_clipView);
     }
 
     void UnregisterContentAssetViews()

@@ -11,7 +11,7 @@ Aurora 属于 foundation，接口与实现均留在 `engine/aurora`，不得创�
 
 B11 的输出调度位于 `core/src/renderer/frame/FrameScheduler`，先 CPU prepare/可用 lease，再 timeout=0 acquire/复核，Compile 不获取窗口。输出借用、提交同步与 presentation 退休分别保活，完成只由现有 poll owner 转发；没有新 target 或第二个 ring。B12 已接生产 provider/主循环，B13 沿用单图合成前 acquire。
 
-B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHost 在既有 adaptor 中管理唯一服务与停止事件泵，SceneProxy 只追加 owned 生命周期命令。TrySubmit/PollEvents 归单一宿主 producer，不能让多个模块各用一套 sequence 或分抢事件。编辑器主线程完成所有窗口 UI 布局、字体/图标更新后生成 owned 快照，渲染端只解析精确资源和逻辑 ViewOutput；真实 loader lease 保活 feature 代码。Win32 窗口延迟 WM_CLOSE 的原生销毁，收到退休回执后才释放；拥有窗口的 Application 派生类须在窗口成员析构前调用幂等 Shutdown。Windows 旧 GPU loop 编译排除，非 Windows 保持原整套宿主路径；World 自动提取归独立 scene-bridge。
+B14 的 Windows AuroraModule 与 EditorRenderer 均消费 IRenderer；RendererHost 在既有 adaptor 中管理唯一服务与停止事件泵，SceneProxy 只追加 owned 生命周期命令。TrySubmit/PollEvents 归单一宿主 producer，不能让多个模块各用一套 sequence 或分抢事件。编辑器主线程完成所有窗口 UI 布局、字体/图标更新后生成 owned 快照，渲染端只解析精确资源和逻辑 ViewOutput；模块代码进程常驻，帧借用仍保活 feature 实例。Win32 窗口延迟 WM_CLOSE 的原生销毁，收到退休回执后才释放；拥有窗口的 Application 派生类须在窗口成员析构前调用幂等 Shutdown。Windows 旧 GPU loop 编译排除，非 Windows 保持原整套宿主路径；World 自动提取归独立 scene-bridge。
 
 ## 命名空间
 
@@ -275,8 +275,8 @@ Vulkan 的两套 compiler、DX12 frame compiler 与 Metal frame context 保留�
 - UI 布局、字形、图标、输入和窗口操作留主线程。UiSnapshotProducer 只持 CPU 数据，全部窗口完成图集修改后才生成精确版本快照；UI texture 0 是白图，1 是场景离屏结果，其余为字体/图标。GPU 上传、SDF/采样、clip/alpha、图像依赖和 native 缓存由渲染端 feature 处理。
 - UI 数据与资源沿用现有有界资源上传和 slot allocator。旧 atlas 版本通过 releasedResources 释放，排队候选、未决 upload 和提交 pins 在安全退出前继续保活，禁止在主线程创建 GPU 纹理或另建上传 ring。
 - NativeWindow deferred-close 保护 HWND：工具窗等 ViewportDestroyed 后销毁；整个宿主等 RendererStopped 后销毁 Renderer，再解除窗口保护。Game/Editor/XR 在窗口成员析构前 Shutdown，并在 drain 中保持平台事件泵。
-- feature 的 moduleLease 必须来自 ModuleManager::RetainModule，不能用 dummy owner 代替真实动态库。feature 对象先释放，代码 lease 后释放；loader 最后 lease 才 detach/unload，依赖库随消费者代码保活。静态模块代码常驻宿主，复用相同接口。
-- 模块 Init 失败先 Shutdown/销毁，依赖消费者不初始化，Application 返回失败。跨 DLL 共享服务使用 Singleton；metadata 由唯一 definition owner 注册，runtime 服务在 Init/Shutdown 对称绑定。
+- 模块代码由 DynamicModule 装载层保持进程常驻，不向 feature 或请求传递纯 code lease；feature 实例仍须在最后一个帧/GPU/输出借用退出后释放。DLL 更新和移除要求进程重启。
+- 模块 Init 失败先 Shutdown/销毁，依赖消费者不初始化，Application 返回失败。跨 DLL 服务仍用 Singleton；反射由唯一 metadata owner 注册一次，runtime 服务按 Init/Shutdown 对称注册。
 - `AuroraModule` 在所有平台经 RendererHost 创建/驱动唯一 Renderer；旧 non-Windows GPU loop 已删除。Windows 旧 EditorRenderer 编译排除；Metal 新编译/输出/宿主已通过 Cocoa native host test，iOS/Android 实机验收仍待 P02。
 
 ## Image 边界状态

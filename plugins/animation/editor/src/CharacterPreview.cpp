@@ -5,10 +5,8 @@
 #include <aurora/renderer/ImportedSkinBinding.h>
 #include <cmath>
 #include <editor/core/property/PropertyDescriptor.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
-#include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/world/ComponentFactory.h>
@@ -88,15 +86,6 @@ namespace sky::animation::editor {
             .Property(CommonPropertyKey::LABEL, Any(std::string("Show bounds")))
             .Property(CommonPropertyKey::ORDER, Any(9));
     }
-    std::shared_ptr<const void> RetainCharacterPreviewModules()
-    {
-        auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-        auto *manager = system ? system->GetModuleManager() : nullptr;
-        if (!manager)
-            return {};
-        // The manager's lease retains declared dependencies and has a host-owned deleter.
-        return manager->RetainModule("Animation.Editor");
-    }
     AnimationStatus ApplyImportedCharacterDefaults(CharacterPreviewSettings &settings)
     {
         Uuid                        owner;
@@ -111,8 +100,7 @@ namespace sky::animation::editor {
         settings.skeleton = binding.skeleton;
         return {};
     }
-    CharacterPreview::CharacterPreview(Uuid asset, std::string type, std::shared_ptr<const void> code)
-        : asset(asset), type(std::move(type)), code(std::move(code))
+    CharacterPreview::CharacterPreview(Uuid asset, std::string type) : asset(asset), type(std::move(type))
     {
         settings.referencePose = this->type == "AuroraSkeleton";
         if (settings.referencePose)
@@ -283,8 +271,8 @@ namespace sky::animation::editor {
         frameOnReady = true;
         diagnostic.clear();
         auto *provider = AssetPreviewProviderRegistry::Get()->GetProvider();
-        if (!provider || !code) {
-            diagnostic = "Preview renderer or component module lease is unavailable";
+        if (!provider) {
+            diagnostic = "Preview renderer is unavailable";
             return false;
         }
         if (!settings.skeleton) {
@@ -309,7 +297,7 @@ namespace sky::animation::editor {
                 diagnostic = "Cannot create preview Animation subsystem";
                 return false;
             }
-            next->AddSubSystem(Name("Animation"), system.release(), registration->moduleLease);
+            next->AddSubSystem(Name("Animation"), system.release());
         }
         auto character = std::make_unique<Actor>(Uuid::Create());
         character->SetName("Preview character");
@@ -339,7 +327,7 @@ namespace sky::animation::editor {
             diagnostic = "Cannot attach preview character";
             return false;
         }
-        auto created = provider->CreateSession({code, next, camera, width, height});
+        auto created = provider->CreateSession({next, camera, width, height});
         if (const auto *error = std::get_if<AssetPreviewError>(&created)) {
             diagnostic = error->message;
             return false;

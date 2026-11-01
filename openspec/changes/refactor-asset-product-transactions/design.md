@@ -14,6 +14,6 @@ Loaded objects retain active CPU/bulk/GPU data while referenced, but this does n
 
 ## Commit dependencies
 
-The source changes use existing Core/Framework targets. In the isolated snapshot, the `RetainModuleCode` registration lines and their storage members are left to the process-owned-reflection batch; no new guard or alternate reflection entry is introduced. The final working tree retains those leases.
+The source changes use existing Core/Framework targets. In the isolated snapshot, the `RetainModuleCode` registration lines and their storage members are left to the process-owned-reflection batch; no new guard or alternate reflection entry is introduced. That sentence records the original isolated commit boundary. The subsequent `remove-module-code-leases` change removes the code-token fields and guarantees code residency in the loader; transaction/data ownership remains unchanged.
 
 The `remove-unused-legacy-rendergraph` batch is ordered first for review but supplies no asset API dependency. Framework tests copy source fixtures into their build directory so validation cannot dirty the source database.

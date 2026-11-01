@@ -45,7 +45,7 @@ host links no plugin; it only knows registry names.
 single instance is shared **across module DLLs** (stored in the process `Environment`). This is
 critical: `Framework`/`Core` are static libs linked separately into each module DLL, so a plain
 function-local static would give each DLL its own copy and plugins' registrations would be invisible
-to the host. `Register` rejects an existing name; only the successful registrant unregisters it. `GetNames` returns the registered set. Registrations and live subsystems retain their module code leases.
+to the host. `Register` rejects an existing name; only the successful registrant unregisters it. `GetNames` returns the registered set. DynamicModule keeps native code resident until process exit; World owns each live subsystem instance independently of registry removal.
 
 ## `WorldDesc` and `World::Build`
 
@@ -116,13 +116,13 @@ Configuration is saved through the normal document Save/close flow; toggling or 
 
 `ComponentFactory::ComponentInfo` declares a typed constructor and `requiredSubSystems`. The editor verifies availability and enables requirements together with component insertion in one undo step. Physics declares `Physics`; animation declares `Animation`. Build also enforces those requirements for serialized scenes, including an explicit failure if a required subsystem is disabled.
 
-`EditorActorCreation` holds preset id, label/group, detached-actor callback and DLL lease. Sandbox derives creation actions from its revision and invokes common actor commands; there is no host enum/switch for creator types. Removing a registration disables stale actions. Commands retain the creator lease for undo even after its menu entry disappears.
+`EditorActorCreation` holds preset id, label/group and a detached-actor callback. Sandbox derives creation actions from its revision and invokes common actor commands; there is no host enum/switch for creator types. Removing a registration disables stale actions. Commands retain the creator callback and captured object/data owners for undo even after its menu entry disappears; native module code remains process resident.
 
 ## Tests and limits
 
 - Framework: typed/non-component UUID construction, descriptor validation, missing/failing factory, rollback, one-time Build and actor load lifecycle.
 - EditorCore: configuration reallocation, failure-aware history, reload invalidation, next-Play settings and undoable enable/disable.
-- EditorShell/SandboxProject: reflected configuration, generic component dependencies, live creator menu registration, stale callbacks and undo code leases.
+- EditorShell/SandboxProject: reflected configuration, generic component dependencies, live creator menu registration, stale callbacks and owned undo data.
 - Jolt: loaded actor binding after subsystem construction, missing collision product rollback/retry, static/kinematic input and dynamic PostTick output.
 
 Hot replacement of running subsystems is not implemented. Subsystem factories must report failure with a null result; fallible component hooks return a reason and support partial cleanup via OnDetachFromWorld. Runtime services still use Init/Shutdown symmetry and process-owned metadata.

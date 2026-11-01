@@ -49,7 +49,7 @@ Runtime SHALL preserve logical camera projection and let frame composition apply
 
 ### Requirement: Launcher scene sessions have explicit ownership and events
 
-A normally initialized launcher SHALL expose one session registration using a real module lease and exact host/generation token; provider-only mode SHALL NOT. Sessions SHALL receive Append context and relevant RendererEvents from the unique poll owner. Replacement SHALL wait for retirement of the previous scene generation. Failed or stale unregister operations SHALL NOT remove another session.
+A normally initialized launcher SHALL expose one session registration using an owned session and exact host/generation token; provider-only mode SHALL NOT. Sessions SHALL receive Append context and relevant RendererEvents from the unique poll owner. Replacement SHALL wait for retirement of the previous scene generation. Failed or stale unregister operations SHALL NOT remove another session.
 
 #### Scenario: Dynamic entity churn
 - **WHEN** a session repeatedly creates and removes entities
@@ -57,7 +57,7 @@ A normally initialized launcher SHALL expose one session registration using a re
 
 #### Scenario: Session replacement
 - **WHEN** an executing session unregisters or is replaced
-- **THEN** its callback and code lease survive the current invocation, and the replacement uses a new retired-safe scene generation
+- **THEN** its callback object survives the current invocation while defining DLL code remains process-resident, and the replacement uses a new retired-safe scene generation
 
 ### Requirement: Native iOS launch and reproducible fixture
 

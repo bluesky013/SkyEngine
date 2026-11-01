@@ -11,14 +11,14 @@
 #include <framework/world/WorldSubSystemRegistry.h>
 #include <gtest/gtest.h>
 #if ANIMATION_TEST_EDITOR
-#include <editor/core/asset/AssetPreviewProvider.h>
-#include <editor/core/asset/AssetViewData.h>
-#include <editor/core/extension/EditorExtensionHost.h>
-#include <editor/core/extension/EditorExtensionRegistry.h>
-#include <editor/core/extension/EditorActionRegistry.h>
-#include <editor/core/extension/EditorScopeStack.h>
-#include <editor/ui/AssetViewProvider.h>
-#include <editor/widgets/ReflectedFormView.h>
+    #include <editor/core/asset/AssetPreviewProvider.h>
+    #include <editor/core/asset/AssetViewData.h>
+    #include <editor/core/extension/EditorActionRegistry.h>
+    #include <editor/core/extension/EditorExtensionHost.h>
+    #include <editor/core/extension/EditorExtensionRegistry.h>
+    #include <editor/core/extension/EditorScopeStack.h>
+    #include <editor/ui/AssetViewProvider.h>
+    #include <editor/widgets/ReflectedFormView.h>
 #endif
 
 using namespace sky;
@@ -26,11 +26,16 @@ using namespace sky;
 TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
 {
     struct SystemNotify final : ISystemNotify {
-        void SetExit() override {}
-        ModuleManager *GetModuleManager() const override { return manager; }
+        void SetExit() override
+        {
+        }
+        ModuleManager *GetModuleManager() const override
+        {
+            return manager;
+        }
         ModuleManager *manager = nullptr;
     } system;
-    auto manager = std::make_unique<ModuleManager>();
+    auto manager   = std::make_unique<ModuleManager>();
     system.manager = manager.get();
     Interface<ISystemNotify>::Get()->Register(system);
     manager->RegisterModule({"Content.Module", {"Content.Metadata"}});
@@ -47,13 +52,14 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     ASSERT_TRUE(manager->LoadModules(arguments));
     manager->StartModules();
     auto *clips = Interface<IAnimationClipSource>::Get()->GetApi();
-    auto *rigs = Interface<IAnimationSkeletonSource>::Get()->GetApi();
-    ASSERT_NE(clips, nullptr); ASSERT_NE(rigs, nullptr);
+    auto *rigs  = Interface<IAnimationSkeletonSource>::Get()->GetApi();
+    ASSERT_NE(clips, nullptr);
+    ASSERT_NE(rigs, nullptr);
     ASSERT_NE(Interface<IAnimationInstanceControl>::Get()->GetApi(), nullptr);
     ASSERT_NE(Interface<aurora::ISkeletalPoseSource>::Get()->GetApi(), nullptr);
-    auto clipRequest = clips->Request({});
-    auto rigRequest = rigs->Request({});
-    WorldPtr world = World::CreateWorld();
+    auto      clipRequest = clips->Request({});
+    auto      rigRequest  = rigs->Request({});
+    WorldPtr  world       = World::CreateWorld();
     WorldDesc desc;
     desc.subSystems.push_back({Name("Animation"), {}, true});
     world->Build(desc);
@@ -61,7 +67,8 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
 #if ANIMATION_TEST_EDITOR
     using namespace sky::editor;
     auto extensions = std::make_unique<EditorExtensionHost>();
-    for (auto &entry : EditorExtensionRegistry::Get()->TakeAll()) extensions->Add(std::move(entry));
+    for (auto &entry : EditorExtensionRegistry::Get()->TakeAll())
+        extensions->Add(std::move(entry));
     extensions->RegisterAll();
     ASSERT_TRUE(AssetViewDataRegistry::Get()->Has("AuroraSkin"));
     ASSERT_TRUE(AssetViewDataRegistry::Get()->Has("AnimationClip"));
@@ -70,7 +77,7 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     extensions->RegisterAll();
     ASSERT_TRUE(AssetViewDataRegistry::Get()->Has("AuroraSkin"));
     auto skinSummary = AssetViewDataRegistry::Get()->Build("AuroraSkin", Uuid::Create());
-    EXPECT_TRUE(skinSummary.moduleLease);
+    EXPECT_FALSE(skinSummary.IsValid());
     struct PreviewHost final : IAssetPreviewProvider {
         AssetPreviewResult CreateSession(AssetPreviewScene value) override
         {
@@ -78,36 +85,51 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
             ++created;
             return AssetPreviewHandle{Uuid::Create(), Uuid::Create()};
         }
-        AssetPreviewStatusResult Resize(AssetPreviewHandle, uint32_t, uint32_t) override { return AssetPreviewStatus{AssetPreviewState::Ready}; }
-        AssetPreviewStatusResult Update(AssetPreviewHandle, EditorCamera) override { return AssetPreviewStatus{AssetPreviewState::Ready}; }
-        AssetPreviewStatusResult Status(AssetPreviewHandle) const override { return AssetPreviewStatus{AssetPreviewState::Ready}; }
-        AssetPreviewStatusResult CloseSession(AssetPreviewHandle) override { ++closed; return AssetPreviewStatus{AssetPreviewState::Closed}; }
+        AssetPreviewStatusResult Resize(AssetPreviewHandle, uint32_t, uint32_t) override
+        {
+            return AssetPreviewStatus{AssetPreviewState::Ready};
+        }
+        AssetPreviewStatusResult Update(AssetPreviewHandle, EditorCamera) override
+        {
+            return AssetPreviewStatus{AssetPreviewState::Ready};
+        }
+        AssetPreviewStatusResult Status(AssetPreviewHandle) const override
+        {
+            return AssetPreviewStatus{AssetPreviewState::Ready};
+        }
+        AssetPreviewStatusResult CloseSession(AssetPreviewHandle) override
+        {
+            ++closed;
+            return AssetPreviewStatus{AssetPreviewState::Closed};
+        }
         AssetPreviewScene input;
-        int created = 0, closed = 0;
+        int               created = 0, closed = 0;
     } previewHost;
     AssetPreviewProviderRegistry::Get()->SetProvider(&previewHost);
     auto *viewProvider = AssetViewProviderRegistry::Get()->Find("AnimationClip");
     ASSERT_NE(viewProvider, nullptr);
     auto document = viewProvider->OpenDocument(Uuid::Create(), "AnimationClip");
     ASSERT_NE(document.document, nullptr);
-    auto content = document.document->CreateContent(nullptr);
+    auto content  = document.document->CreateContent(nullptr);
     auto viewport = document.document->CreatePreview(nullptr);
     ASSERT_NE(content, nullptr);
     ASSERT_NE(viewport, nullptr);
     EditorScopeStack::Get()->Push("assetViewer");
     auto oldPreviewAction = EditorActionRegistry::Get()->GetSnapshot("animation.preview.play");
     EditorScopeStack::Get()->Pop("assetViewer");
-    ASSERT_TRUE(oldPreviewAction.action.moduleLease);
+    ASSERT_FALSE(oldPreviewAction.action.id.empty());
     content->Arrange({0, 0, 600, 800});
     viewport->Arrange({0, 0, 320, 480});
     ASSERT_EQ(content->GetChildren().size(), 1u);
-    auto *form = static_cast<ReflectedFormView *>(content->GetChildren().front().get());
+    auto      *form     = static_cast<ReflectedFormView *>(content->GetChildren().front().get());
     const auto skeleton = Uuid::Create(), mesh = Uuid::Create(), skin = Uuid::Create(), material = Uuid::Create();
-    for (const auto &[name, value] : {std::pair{"skeleton", skeleton}, std::pair{"mesh", mesh}, std::pair{"skin", skin}, std::pair{"material", material}}) {
+    for (const auto &[name, value] :
+         {std::pair{"skeleton", skeleton}, std::pair{"mesh", mesh}, std::pair{"skin", skin}, std::pair{"material", material}}) {
         bool edited = false;
         for (auto &section : form->Form().GetSections())
             for (auto &field : section.fields)
-                if (field.descriptor.GetName() == name) edited = form->Form().Edit(field, Any(value), document.document->History());
+                if (field.descriptor.GetName() == name)
+                    edited = form->Form().Edit(field, Any(value), document.document->History());
         ASSERT_TRUE(edited) << name;
     }
     document.document->Tick(0);
@@ -115,10 +137,11 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     ASSERT_TRUE(previewHost.input.world);
     ASSERT_EQ(previewHost.input.world->GetActors().size(), 1u);
     ASSERT_NE(previewHost.input.world->GetSubSystem(Name("Animation")), nullptr);
-    auto *previewActor = previewHost.input.world->GetActors().front().get();
-    const auto *meshType = SerializationContext::Get()->FindType("SkeletalMeshComponent");
+    auto       *previewActor  = previewHost.input.world->GetActors().front().get();
+    const auto *meshType      = SerializationContext::Get()->FindType("SkeletalMeshComponent");
     const auto *animationType = SerializationContext::Get()->FindType("AnimationComponent");
-    ASSERT_NE(meshType, nullptr); ASSERT_NE(animationType, nullptr);
+    ASSERT_NE(meshType, nullptr);
+    ASSERT_NE(animationType, nullptr);
     auto *meshComponent = previewActor->GetComponent(meshType->info->registeredId);
     ASSERT_NE(meshComponent, nullptr);
     ASSERT_NE(previewActor->GetComponent(animationType->info->registeredId), nullptr);
@@ -129,21 +152,25 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     }
     EXPECT_NE(previewHost.input.world.Get(), world.Get());
     struct ParameterControl final : IAnimationInstanceControl {
-        Uuid parameter = Uuid::Create();
-        AnimationParam value = .25f;
+        Uuid                    parameter = Uuid::Create();
+        AnimationParam          value     = .25f;
         AnimationInstanceStatus Find(const World *world, const Uuid &actor) const override
         {
             AnimationInstanceStatus state;
             state.handle.world = world;
             state.handle.actor = actor;
-            state.state = AnimationSourceState::Ready;
-            state.parameters = {{parameter, "Speed", value}};
+            state.state        = AnimationSourceState::Ready;
+            state.parameters   = {{parameter, "Speed", value}};
             return state;
         }
-        AnimationStatus Control(const AnimationInstanceHandle &, AnimationControlOp, float) override { return {}; }
+        AnimationStatus Control(const AnimationInstanceHandle &, AnimationControlOp, float) override
+        {
+            return {};
+        }
         AnimationStatus SetParameter(const AnimationInstanceHandle &, const Uuid &id, const AnimationParam &next) override
         {
-            if (id != parameter || next.index() != value.index()) return {AnimationError::InvalidAsset, "parameter identity mismatch"};
+            if (id != parameter || next.index() != value.index())
+                return {AnimationError::InvalidAsset, "parameter identity mismatch"};
             value = next;
             return {};
         }
@@ -153,19 +180,23 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     document.document->Tick(0);
     document.document->Tick(0);
     PropertyField *parameterValue = nullptr, *parameterList = nullptr;
-    const auto findFields = [&](auto &&visit, std::vector<PropertyField> &fields) -> void {
+    const auto     findFields = [&](auto &&visit, std::vector<PropertyField> &fields) -> void {
         for (auto &field : fields) {
-            if (field.descriptor.GetName() == "floatValue") parameterValue = &field;
-            if (field.descriptor.GetName() == "parameters") parameterList = &field;
+            if (field.descriptor.GetName() == "floatValue")
+                parameterValue = &field;
+            if (field.descriptor.GetName() == "parameters")
+                parameterList = &field;
             visit(visit, field.children);
         }
     };
-    for (auto &section : form->Form().GetSections()) findFields(findFields, section.fields);
+    for (auto &section : form->Form().GetSections())
+        findFields(findFields, section.fields);
     ASSERT_NE(parameterValue, nullptr);
     ASSERT_NE(parameterList, nullptr);
     EXPECT_FALSE(form->Form().RemoveSequenceElement(*parameterList, 0, document.document->History()));
     ASSERT_TRUE(form->Form().Edit(*parameterValue, Any(.75f), document.document->History()));
-    for (int i = 0; i < 4; ++i) document.document->Tick(0);
+    for (int i = 0; i < 4; ++i)
+        document.document->Tick(0);
     EXPECT_FLOAT_EQ(std::get<float>(parameterControl.value), .75f);
     ASSERT_TRUE(document.document->History().Undo());
     document.document->Tick(0);
@@ -181,7 +212,8 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     EXPECT_EQ(Interface<IAnimationInstanceControl>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<aurora::ISkeletalPoseSource>::Get()->GetApi(), nullptr);
     EXPECT_FALSE(WorldSubSystemRegistry::Get().IsRegistered(Name("Animation")));
-    manager.reset(); system.manager = nullptr;
+    manager.reset();
+    system.manager = nullptr;
 #if ANIMATION_TEST_EDITOR
     EXPECT_EQ(AssetViewProviderRegistry::Get()->Find("AnimationClip"), nullptr);
     EXPECT_EQ(AssetViewProviderRegistry::Get()->Find("AnimationGraph"), nullptr);
@@ -191,10 +223,8 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     viewport.reset();
     content.reset();
     document.document.reset();
-    document.moduleLease.reset();
     EXPECT_EQ(previewHost.closed, 1);
     previewHost.input.world.Reset(nullptr);
-    previewHost.input.moduleLease.reset();
     AssetPreviewProviderRegistry::Get()->SetProvider(nullptr);
     extensions.reset();
     skinSummary = {};
@@ -206,8 +236,9 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     EXPECT_EQ(rigRequest.Poll().state, AnimationSourceState::Error);
     AssetExecutor::Get()->WaitForAll();
     world.Reset(nullptr);
-    clipRequest = {}; rigRequest = {};
-    // Reflection is still callable after all runtime requests and manager leases are gone.
+    clipRequest = {};
+    rigRequest  = {};
+    // Reflection remains callable after runtime sessions and owned requests are gone.
     const auto *retainedType = SerializationContext::Get()->FindType("AnimationComponent");
     ASSERT_NE(retainedType, nullptr);
     auto reflectedComponent = MakeAny(retainedType->info->registeredId);

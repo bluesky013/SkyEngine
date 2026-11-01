@@ -13,7 +13,6 @@ namespace sky::phy {
 
     namespace {
         struct JoltSdk {
-            std::shared_ptr<const void> codeLease;
             ~JoltSdk()
             {
                 JPH::UnregisterTypes();
@@ -27,7 +26,7 @@ namespace sky::phy {
             JoltSdkState() = default;
 
             std::mutex               debugMutex;
-            std::shared_ptr<JoltSdk> Acquire(const std::shared_ptr<const void> &lease)
+            std::shared_ptr<JoltSdk> Acquire()
             {
                 std::lock_guard lock(mutex);
                 if (auto existing = sdk.lock()) {
@@ -39,20 +38,17 @@ namespace sky::phy {
                 JPH::RegisterDefaultAllocator();
                 JPH::Factory::sInstance = new JPH::Factory();
                 JPH::RegisterTypes();
-                auto created       = std::shared_ptr<JoltSdk>(new JoltSdk(), [this](JoltSdk *state) {
+                auto created = std::shared_ptr<JoltSdk>(new JoltSdk(), [this](JoltSdk *state) {
                     std::lock_guard releaseLock(mutex);
                     delete state;
                 });
-                created->codeLease = lease;
-                codeLease          = lease;
-                sdk                = created;
+                sdk          = created;
                 return created;
             }
 
         private:
-            std::shared_ptr<const void> codeLease;
-            std::mutex                  mutex;
-            std::weak_ptr<JoltSdk>      sdk;
+            std::mutex             mutex;
+            std::weak_ptr<JoltSdk> sdk;
         };
 
         JoltSdkState &GetJoltSdkState()
@@ -83,7 +79,7 @@ namespace sky::phy {
         return result;
     }
 
-    JoltBackend::JoltBackend(std::shared_ptr<const void> lease) : codeLease(std::move(lease))
+    JoltBackend::JoltBackend()
     {
         caps.jobStepping         = true;
         caps.supportsCCD         = true;
@@ -98,15 +94,14 @@ namespace sky::phy {
         if (session) {
             return true;
         }
-        auto sdk = GetJoltSdkState().Acquire(codeLease);
+        auto sdk = GetJoltSdkState().Acquire();
         if (!sdk) {
             status = {PhysicsError::InvalidState, "Jolt Factory has an unknown owner"};
             return false;
         }
-        session            = std::make_shared<JoltSession>();
-        session->codeLease = codeLease;
-        session->sdk       = std::move(sdk);
-        status             = {};
+        session      = std::make_shared<JoltSession>();
+        session->sdk = std::move(sdk);
+        status       = {};
         return true;
     }
 

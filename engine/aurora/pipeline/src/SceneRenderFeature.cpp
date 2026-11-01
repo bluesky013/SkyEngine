@@ -764,7 +764,7 @@ namespace sky::aurora {
                     sampler.minFilter = sampler.magFilter = Filter::NEAREST;
                     sampler.mipmapMode                    = MipFilter::NEAREST;
                     sampler.addressModeU = sampler.addressModeV = sampler.addressModeW = WrapMode::CLAMP_TO_EDGE;
-                    const auto created                    = context.CreateSampler(sampler);
+                    const auto created                                                 = context.CreateSampler(sampler);
                     if (const auto *error = std::get_if<FrameError>(&created)) {
                         return *error;
                     }

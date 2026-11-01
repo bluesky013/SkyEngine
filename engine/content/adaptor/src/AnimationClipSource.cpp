@@ -6,7 +6,7 @@ namespace sky::content {
     namespace {
         class RequestOperation final : public IAnimationSourceRequest<AnimationClip> {
         public:
-            RequestOperation(const Uuid &id, std::shared_ptr<const void> code) : moduleLease(std::move(code)), assetId(id)
+            explicit RequestOperation(const Uuid &id) : assetId(id)
             {
                 if (assetId) {
                     asset = AssetManager::Get()->LoadAsset<AnimationClip>(assetId, AssetLoadPolicy::ProductsOnly);
@@ -15,7 +15,6 @@ namespace sky::content {
             AnimationSourceResult<AnimationClip> Poll() override
             {
                 AnimationSourceResult<AnimationClip> result;
-                result.moduleLease   = moduleLease;
                 result.assetLease    = asset;
                 result.version.asset = assetId;
                 if (!asset || asset->GetStatus() == AssetBase::Status::FAILED) {
@@ -46,7 +45,6 @@ namespace sky::content {
             }
 
         private:
-            std::shared_ptr<const void>           moduleLease;
             Uuid                                  assetId;
             std::shared_ptr<Asset<AnimationClip>> asset;
             CounterPtr<AnimationClip>             resource;
@@ -57,20 +55,14 @@ namespace sky::content {
             {
                 return AssetManager::Get()->GetProductChangeSerial();
             }
-            explicit Source(std::shared_ptr<const void> code) : moduleLease(std::move(code))
-            {
-            }
             AnimationSourceRequest<AnimationClip> Request(const Uuid &id) override
             {
-                return {moduleLease, std::make_shared<RequestOperation>(id, moduleLease)};
+                return AnimationSourceRequest<AnimationClip>{std::make_shared<RequestOperation>(id)};
             }
-
-        private:
-            std::shared_ptr<const void> moduleLease;
         };
     } // namespace
-    std::unique_ptr<IAnimationClipSource> CreateAnimationClipSource(std::shared_ptr<const void> moduleLease)
+    std::unique_ptr<IAnimationClipSource> CreateAnimationClipSource()
     {
-        return moduleLease ? std::make_unique<Source>(std::move(moduleLease)) : nullptr;
+        return std::make_unique<Source>();
     }
 } // namespace sky::content

@@ -1,3 +1,5 @@
+> 2026-11-01 lifecycle update: the code-lease fixture checks below are historical evidence. The loader now keeps DLL code process resident; current tests retain actual Feature/data/GPU owners without code tokens.
+
 > 2026-10-26 一致性复核：下文早期实现/验收记录保留历史原貌；现行规则为 Global/Pass/Material/Batch = 0/1/2/3、持久 `.slangh` 导出和 CPU schema → UniformUploadPlan → 目标 ABI。旧三层、CMake 源码嵌入和 CPU/GPU offset 相等不再约束当前实现。可合并契约以本 change 已同步的 specs 及 `refactor-aurora-target-shader-artifacts` 为准；旧平台结果不覆盖新增路径。
 
 > 当前状态：本 change 的 Slang→C++ 镜像生成链已由 `refactor-aurora-shared-pass-headers` 替代；以下完成记录保留为阶段历史，不能再作为当前构建规则。
@@ -80,7 +82,7 @@ Status: active（C01/C02/C03 Windows 实现与验收完成；2026-10-21 用户�
 
 - Pipeline 的 `SceneRenderFeature` 消费生成的 ScenePass/SceneBatch 类型及反射布局；ScenePass 的相机块按 shader 声明可省略，Batch 同时覆盖 static/dynamic 绑定。同一 View 内相同类型的 Pass 常量复用，跨 View/帧按 lease 分配。
 - Core 新增通用 `ResolveDraws` / 显式类型 `WriteUniform` / `CreateImage`；移除 PreparedRaster 的 View/Object struct、固定 UBO 写入与 RendererRuntime 的三个 set/80/64 字节校验。准确的 mesh/material 版本、LOD/range、InGraph 与完整 catalog/feature owners 保活沿用原协调器协议。
-- `RegisterScenePass` 由 Launcher/Windows Editor 首个 packet 显式调用，持真实 ModuleManager lease；Adaptor 单向链接现有 Pipeline。没有新增 runtime target、目录搬迁或 Core 反向依赖；缺少场景 feature 时不隐式出图。
+- `RegisterScenePass` 由 Launcher/Windows Editor 首个 packet 显式调用，持实际 Feature owner，DLL 代码进程常驻；Adaptor 单向链接现有 Pipeline。没有新增 runtime target、目录搬迁或 Core 反向依赖；缺少场景 feature 时不隐式出图。
 - 生成头新增只读反射布局 accessor，用于比较真实 shader 的字段类型/大小/偏移，避免另写字段表。宿主 shader fixture 改为 include 生成 Slang，CPU 使用同源 SceneBatch 镜像。
 - 新增 5 项 × 3 后端模式的 GPU 用例全部通过：80 字节 ScenePass 与 16 字节另一 Pass 同帧切换、双 View/连续排队帧读回、无 View shader/static Batch、错误生成布局及失败后恢复、uniform 范围不足、无场景 feature 时无 fallback。双在途 slot 的原 `FrameSlots.TwoSlotsKeepCommandsAndOwnedPrepareProductsUntilCompletion` 和 `FrameAllocations.TwoInflightSlotsSurviveEmptyAndSkippedOutputs` 也在全量回归中通过。
 - 范围负例发现并修复 `WriteUniform` 绑定对齐分配长度的问题：现按实际输入 bytes.size 绑定，分配 padding 不再掩盖参数不足。资源隔离用例先等待 mesh/material Resident，再连续提交两帧；首次 InGraph 上传和迟到/热更新资源继续由原回归覆盖。

@@ -210,7 +210,8 @@ before child teardown while preserving a newer shell's same-ID registrations. A 
 clears its viewer target before rebuilding the owning tree, so chrome predicates cannot read the
 previous viewer between destruction and recreation; see
 [`fix-editor-action-owner-lifetime`](../../openspec/changes/archive/2026-10-17-fix-editor-action-owner-lifetime/design.md).
-This object guard does not implement scope-instance ownership or DLL-unload callback registration.
+This object guard does not implement scope-instance ownership or service-registration cleanup. Defining DLL
+code remains process resident; object guards still cannot authorize callbacks into destroyed service state.
 
 ## Reflection-driven, not type-driven
 

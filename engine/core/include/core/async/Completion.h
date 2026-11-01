@@ -51,7 +51,7 @@ namespace sky {
     enum class ContinuationPumpResult : uint8_t { EXECUTED, IDLE, INVALID_THREAD, REENTRANT };
 
     // Created and pumped on the destination thread; Close rejects new reservations but preserves accepted deliveries.
-    // The owner must pump until drained before unloading code. Callback captures must pin their own module/resources.
+    // The owner must pump until drained before teardown. Captured objects/resources must outlive accepted callbacks.
     class ContinuationExecutor : public std::enable_shared_from_this<ContinuationExecutor> {
     public:
         static std::shared_ptr<ContinuationExecutor> Create(size_t capacity, std::shared_ptr<void> keepAlive = {});

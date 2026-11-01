@@ -39,7 +39,7 @@ namespace {
         void Register() override
         {
             AssetCreatorManager::Get()->RegisterTool(Name("dummy"), new DummyAssetCreator());
-            EXPECT_TRUE(EditorActorCreation::Get()->RegisterCreation({{}, "dummy", "DummyActor", "Test", 0, [](Actor &) { return true; }}));
+            EXPECT_TRUE(EditorActorCreation::Get()->RegisterCreation({"dummy", "DummyActor", "Test", 0, [](Actor &) { return true; }}));
         }
 
         void Unregister() override

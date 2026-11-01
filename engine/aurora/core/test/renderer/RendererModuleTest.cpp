@@ -108,14 +108,12 @@ namespace {
     };
 } // namespace
 
-TEST(RendererModule, SkeletonSourcePublishesWithoutHostAndRetainsRequestsAndResultsAfterUnload)
+TEST(RendererModule, SkeletonSourceWithdrawsWhileOwnedRequestsRemainUsable)
 {
     auto *skeletons = Interface<IAnimationSkeletonSource>::Get();
     ASSERT_EQ(skeletons->GetApi(), nullptr);
     ASSERT_EQ(Interface<ISystemNotify>::Get()->GetApi(), nullptr);
     AnimationSourceRequest<Skeleton> request;
-    AnimationSourceResult<Skeleton>  result;
-    std::weak_ptr<const void>        code;
     {
         LoadedProvider loaded(true);
         ASSERT_TRUE(loaded.succeeded);
@@ -123,27 +121,17 @@ TEST(RendererModule, SkeletonSourcePublishesWithoutHostAndRetainsRequestsAndResu
         EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
         auto *source = skeletons->GetApi();
         ASSERT_NE(source, nullptr);
-        code    = loaded.manager.RetainModule("Aurora.Render");
         request = source->Request({});
         ASSERT_TRUE(request);
-        result = request.Poll();
-        EXPECT_EQ(result.state, AnimationSourceState::Error);
-        EXPECT_TRUE(result.moduleLease);
+        EXPECT_EQ(request.Poll().state, AnimationSourceState::Error);
         loaded.manager.UnLoadModules();
         EXPECT_EQ(skeletons->GetApi(), nullptr);
         EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
     }
-    EXPECT_FALSE(code.expired());
-    result = {};
-    EXPECT_FALSE(code.expired());
-    result = request.Poll();
+    const auto result = request.Poll();
     EXPECT_EQ(result.state, AnimationSourceState::Error);
     EXPECT_FALSE(result.status.message.empty());
     request = {};
-    EXPECT_FALSE(code.expired());
-    EXPECT_TRUE(result.moduleLease);
-    result = {};
-    EXPECT_TRUE(code.expired());
 }
 
 TEST(RendererModule, RendererRegistrationFailureRollsBackSkeletonSourceAndPreservesExternalProvider)
@@ -332,8 +320,7 @@ namespace {
         FileSystemPtr products(new NativeFileSystem(FilePath(root)));
         ASSERT_TRUE(products->FileExist("requirements.json"));
         auto sources = std::make_shared<ShaderFileSystem>();
-        auto lease   = loaded.manager.RetainModule("Aurora.Render");
-        ASSERT_TRUE(lease);
+
         constexpr SceneId    scene{0, 1};
         constexpr ViewportId output{0, 1};
         auto                 packet = std::make_unique<FramePacket>();
@@ -357,7 +344,6 @@ namespace {
             packet->featureCommands.push_back(RegisterRenderFeature{
                 {0, 1},
                 Name("package.passes"),
-                lease,
                 std::make_shared<ShippedPasses>(std::get<RenderTechniqueData>(dispatch), std::get<RenderTechniqueData>(fullscreen))});
             packet->extensions.push_back({Name("package.passes"), {}, {output}, {}});
         } else {
@@ -372,7 +358,7 @@ namespace {
             camera.scene  = scene;
             camera.output = output;
             packet->commands.push_back(CreateView{{0, 1}, camera});
-            ASSERT_FALSE(RegisterScenePass(*packet, {0, 1}, lease, sources, products));
+            ASSERT_FALSE(RegisterScenePass(*packet, {0, 1}, sources, products));
             RenderEntityDesc entity;
             entity.mesh        = resources->parts.front().mesh;
             entity.material    = resources->parts.front().material;
@@ -676,9 +662,8 @@ namespace {
         first->commands.push_back(CreateScene{scene, {}});
         addView(*first, 0, base->parts.front().material);
         addView(*first, 1, overridden->parts.front().material);
-        auto moduleLease = loaded.manager.RetainModule("Aurora.Render");
-        ASSERT_TRUE(moduleLease);
-        ASSERT_FALSE(RegisterScenePass(*first, {0, 1}, moduleLease, sources, shaderProducts));
+
+        ASSERT_FALSE(RegisterScenePass(*first, {0, 1}, sources, shaderProducts));
         std::vector<RenderResourceKey> supplied;
         for (const auto *resources : {base.get(), overridden.get()})
             for (const auto &payload : resources->payloads)
@@ -748,8 +733,7 @@ TEST(RendererModule, MetalSelectionOutlineUsesTypedParametersAndExactEntityGener
     const auto resources = std::get<std::shared_ptr<const SceneMeshResources>>(resolved);
     ASSERT_TRUE(resources);
     ASSERT_EQ(resources->parts.size(), 1u);
-    const auto moduleLease = loaded.manager.RetainModule("Aurora.Render");
-    ASSERT_TRUE(moduleLease);
+
     constexpr SceneId         scene{0, 1};
     constexpr ViewportId      output{0, 1};
     constexpr RenderEntityRef entity{scene, {0, 1}};
@@ -807,7 +791,7 @@ TEST(RendererModule, MetalSelectionOutlineUsesTypedParametersAndExactEntityGener
     first->commands.push_back(CreateRenderEntity{entity, desc});
     for (const auto &payload : resources->payloads)
         first->commands.push_back(ResourceCpuReady{payload});
-    ASSERT_FALSE(RegisterScenePass(*first, {0, 1}, moduleLease, sources));
+    ASSERT_FALSE(RegisterScenePass(*first, {0, 1}, sources));
     std::vector<uint8_t> baseline, outlined, cleared, stale;
     ASSERT_TRUE(finish(std::move(first), baseline));
     EXPECT_GT(baseline[(32 * 64 + 32) * 4], 100u);
@@ -1002,8 +986,7 @@ TEST(RendererModule, NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreRelea
         LoadedProvider loaded(true);
         auto          *provider = ProviderService::Get()->GetApi();
         ASSERT_TRUE(provider);
-        auto lease = loaded.manager.RetainModule("Aurora.Render");
-        ASSERT_TRUE(lease);
+
         RendererHost     host;
         RendererInitInfo info;
     #if defined(SKY_PLATFORM_MACOS)
@@ -1017,7 +1000,7 @@ TEST(RendererModule, NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreRelea
         uint64_t sequence = 1;
         auto     packet   = std::make_unique<FramePacket>();
         packet->sequence  = sequence;
-        packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("native.clear"), lease, std::make_shared<ClearOutput>()});
+        packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("native.clear"), std::make_shared<ClearOutput>()});
         ViewportDesc output;
         output.kind         = ViewportKind::NATIVE_WINDOW;
         output.extent       = {128, 96};
@@ -1096,46 +1079,48 @@ TEST(RendererModule, DuplicateRegistrationDoesNotReplaceOrUnregisterOwner)
 }
 #endif
 
-TEST(RendererModule, B14LeaseRetainsModuleCodeBeyondManagerLifetime)
+TEST(RendererModule, ModuleCodeStaysResidentWhileSessionsStopAndRestart)
 {
-    std::shared_ptr<const void> lease;
-    std::weak_ptr<const void>   weak;
-    {
-        LoadedProvider loaded(true);
-        lease = loaded.manager.RetainModule("Aurora.Render");
-        ASSERT_TRUE(lease);
-        weak = lease;
-        EXPECT_FALSE(loaded.manager.RetainModule("missing"));
-        loaded.manager.UnLoadModules();
-        EXPECT_FALSE(loaded.manager.RetainModule("Aurora.Render"));
-        EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+#if defined(_WIN32) && !defined(AURORA_RENDERER_STATIC_FIXTURE) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
+    HMODULE resident = nullptr;
+#endif
+    for (uint32_t iteration = 0; iteration < 2; ++iteration) {
+        {
+            LoadedProvider loaded(true);
+            ASSERT_TRUE(loaded.succeeded);
+            EXPECT_TRUE(loaded.manager.IsModuleInitialized("Aurora.Render"));
+            EXPECT_FALSE(loaded.manager.IsModuleInitialized("missing"));
+            ASSERT_NE(ProviderService::Get()->GetApi(), nullptr);
+            loaded.manager.UnLoadModules();
+            EXPECT_FALSE(loaded.manager.IsModuleInitialized("Aurora.Render"));
+            EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+            EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
+        }
+#if defined(_WIN32) && !defined(AURORA_RENDERER_STATIC_FIXTURE) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
+        const auto current = GetModuleHandleA("Aurora.Render.dll");
+        ASSERT_NE(current, nullptr);
+        if (resident)
+            EXPECT_EQ(current, resident);
+        resident = current;
+#endif
     }
-    EXPECT_FALSE(weak.expired());
-#if defined(_WIN32) && !defined(AURORA_RENDERER_STATIC_FIXTURE) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
-    EXPECT_NE(GetModuleHandleA("Aurora.Render.dll"), nullptr);
-#endif
-    lease.reset();
-    EXPECT_TRUE(weak.expired());
-#if defined(_WIN32) && !defined(AURORA_RENDERER_STATIC_FIXTURE) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
-    EXPECT_EQ(GetModuleHandleA("Aurora.Render.dll"), nullptr);
-#endif
 }
 
 #if defined(_WIN32) && !defined(AURORA_RENDERER_PACKAGED_STATIC)
-TEST(RendererModule, ShaderFutureRetainsCompilerDllUntilItsFinalRelease)
+TEST(RendererModule, ShaderFutureOwnsCompilerAfterServiceStopsAndCodeRemainsResident)
 {
     wchar_t executable[MAX_PATH];
     ASSERT_NE(GetModuleFileNameW(nullptr, executable, MAX_PATH), 0u);
     if (!std::filesystem::is_regular_file(std::filesystem::path(executable).parent_path() / "Aurora.ShaderCompiler.dll"))
         GTEST_SKIP() << "Build Aurora.ShaderCompiler to verify its dynamic module lifetime";
-    ShaderCompileFuture       future;
-    std::weak_ptr<const void> code;
+    ShaderCompileFuture            future;
+    std::weak_ptr<IShaderCompiler> compiler;
     {
         ModuleManager modules;
         modules.RegisterModule({"Aurora.ShaderCompiler", {}});
         modules.TopoSort();
         ASSERT_TRUE(modules.LoadModules({}));
-        code = modules.RetainModule("Aurora.ShaderCompiler");
+        compiler = ShaderCompilerFactory::Get().Acquire()->compiler;
         ShaderFileSystem sources;
         sources.AddVirtualFile("lifetime.slang", "float4 VSMain(uint id : SV_VertexID) : SV_Position { return float4(0, 0, 0, 1); }");
         sources.AddVirtualFile("lifetime.slang.json", "{}");
@@ -1151,18 +1136,18 @@ TEST(RendererModule, ShaderFutureRetainsCompilerDllUntilItsFinalRelease)
         modules.UnLoadModules();
     }
     EXPECT_EQ(ShaderCompilerFactory::Get().GetCompiler(), nullptr);
-    EXPECT_FALSE(code.expired());
+    EXPECT_FALSE(compiler.expired());
     future.RunInline();
     ASSERT_TRUE(future.Succeeded()) << future.Result().errorInfo;
     future = {};
-    EXPECT_TRUE(code.expired());
-    EXPECT_EQ(GetModuleHandleA("Aurora.ShaderCompiler.dll"), nullptr);
+    EXPECT_TRUE(compiler.expired());
+    EXPECT_NE(GetModuleHandleA("Aurora.ShaderCompiler.dll"), nullptr);
 }
 #endif
 
 int main(int argc, char **argv)
 {
-    // Shared device and reflection callbacks must outlive the reloadable module.
+    // Shared device and reflection callbacks outlive runtime module sessions.
     Instance::Get();
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

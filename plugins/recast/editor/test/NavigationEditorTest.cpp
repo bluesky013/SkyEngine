@@ -162,7 +162,7 @@ namespace {
             world->AddSubSystem(Name(INavigationSystem::NAME.data()), new NavigationSystem());
             EditorWorldContext::Get()->SetWorld(world.Get(), true);
             service = std::make_shared<NavigationEditorService>();
-            ASSERT_TRUE(service->Register(std::make_shared<int>(1)));
+            ASSERT_TRUE(service->Register());
         }
         void TearDown() override
         {
@@ -219,7 +219,7 @@ TEST_F(NavigationEditorTest, PlayingDisablesBuildAndUnregisterRemovesActions)
     EXPECT_FALSE(EditorActionRegistry::Get()->Find("navigation.build"));
     EXPECT_FALSE(EditorActionRegistry::Get()->Find("navigation.debug"));
     SceneOverlayRegistry::Get()->OnRendererStopped();
-    EXPECT_TRUE(service->Register(std::make_shared<int>(2)));
+    EXPECT_TRUE(service->Register());
 }
 
 TEST_F(NavigationEditorTest, DeactivatedSessionCannotRegisterOrRunStagedRequests)
@@ -227,7 +227,7 @@ TEST_F(NavigationEditorTest, DeactivatedSessionCannotRegisterOrRunStagedRequests
     service->RequestBuild();
     service->Deactivate();
     EXPECT_FALSE(service->IsActive());
-    EXPECT_FALSE(service->Register(std::make_shared<int>(2)));
+    EXPECT_FALSE(service->Register());
     EXPECT_FALSE(EditorActionRegistry::Get()->Find("navigation.build"));
     EXPECT_FALSE(EditorActionRegistry::Get()->Find("navigation.debug"));
     EXPECT_FALSE(service->CanBuild());
@@ -235,9 +235,13 @@ TEST_F(NavigationEditorTest, DeactivatedSessionCannotRegisterOrRunStagedRequests
     EXPECT_EQ(counts.created, 0u);
     SceneOverlayRegistry::Get()->OnRendererStopped();
     auto nextSession = std::make_shared<NavigationEditorService>();
-    EXPECT_TRUE(nextSession->Register(std::make_shared<int>(3)));
+    EXPECT_TRUE(nextSession->Register());
     nextSession->Unregister();
+    std::weak_ptr<NavigationEditorService> retained = nextSession;
+    nextSession.reset();
+    EXPECT_FALSE(retained.expired());
     SceneOverlayRegistry::Get()->OnRendererStopped();
+    EXPECT_TRUE(retained.expired());
 }
 
 TEST_F(NavigationEditorTest, PollsDeferredComponentsAcrossFramesBeforeStartingBuild)

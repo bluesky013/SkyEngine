@@ -71,7 +71,6 @@ namespace sky {
             return fail("World is already initialized; apply edited settings to a new runtime world");
         }
         struct PendingSystem {
-            std::shared_ptr<const void>      lease;
             std::unique_ptr<IWorldSubSystem> system;
             Name                             name;
         };
@@ -119,13 +118,12 @@ namespace sky {
                 continue;
             }
             const auto                      *registration = registry.GetRegistration(entry.name);
-            auto                             lease        = registration->moduleLease;
             auto                             factory      = registration->factory;
             std::unique_ptr<IWorldSubSystem> subSystem    = factory(*this, entry.config);
             if (!subSystem) {
                 return fail("World subsystem creation failed: " + std::string(entry.name.GetStr()));
             }
-            pending.push_back({std::move(lease), std::move(subSystem), entry.name});
+            pending.push_back({std::move(subSystem), entry.name});
         }
         if (&desc != worldDesc.get()) {
             worldDesc = std::make_unique<WorldDesc>(desc);
@@ -134,7 +132,7 @@ namespace sky {
             actor->DetachFromWorld();
         }
         for (auto &entry : pending) {
-            AddSubSystem(entry.name, entry.system.release(), std::move(entry.lease));
+            AddSubSystem(entry.name, entry.system.release());
         }
         for (const auto &actor : actors) {
             std::string error;
@@ -144,7 +142,6 @@ namespace sky {
                 for (auto it = pending.rbegin(); it != pending.rend(); ++it) {
                     subSystems.at(it->name)->OnDetachFromWorld(*this);
                     subSystems.erase(it->name);
-                    subSystemModuleLeases.erase(it->name);
                 }
                 return fail("Actor " + actor->GetName() + ": " + error);
             }
@@ -411,10 +408,9 @@ namespace sky {
         actorIndex.clear();
     }
 
-    void World::AddSubSystem(const Name &name, IWorldSubSystem *sys, std::shared_ptr<const void> moduleLease)
+    void World::AddSubSystem(const Name &name, IWorldSubSystem *sys)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
-        subSystemModuleLeases.emplace(name, std::move(moduleLease));
         sys->OnAttachToWorld(*this);
     }
 

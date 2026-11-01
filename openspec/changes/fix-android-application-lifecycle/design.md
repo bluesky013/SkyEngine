@@ -2,7 +2,7 @@
 
 The original Android launcher derived from GameActivity 1.2.2. Its onKeyDown/onKeyUp implementation forwarded directly to native handlers. A later committed-gesture run also exposed a native text-input use-after-free after Activity recreation. This change adopts official stable GameActivity 4.4.2 and its native-owner lifecycle fix. The launcher targets SDK 33 and retains its existing AppCompat/AndroidX Back dispatcher. The bridge must preserve the actual platform decision to background or finish the Activity; a live PID proves neither that an Activity survived nor that shutdown failed.
 
-The native application also owns callbacks referenced by later Android commands. An explicit exit or failed initialization can stop the game loop before DESTROY arrives. Separately, Activity recreation can construct another application in the same process while its process-shared metadata and code leases remain valid.
+The native application also owns callbacks referenced by later Android commands. An explicit exit or failed initialization can stop the game loop before DESTROY arrives. Separately, Activity recreation can construct another application in the same process while its process-shared metadata and process-resident module code remain valid.
 
 ## Goals / Non-Goals
 
@@ -34,7 +34,7 @@ The host continues polling through a real empty result even after renderer state
 
 ### Keep metadata in its process definition
 
-Built-in Core reflection belongs to creation of the process-shared serialization context. Its initialization factory receives that context explicitly; it must not recursively request the singleton while the singleton is being constructed. Module metadata continues to belong to the existing RegisterMeta process definition and its code leases.
+Built-in Core reflection belongs to creation of the process-shared serialization context. Its initialization factory receives that context explicitly; it must not recursively request the singleton while the singleton is being constructed. Module metadata continues to belong to the existing RegisterMeta process definition; defining DLL code remains process-resident under `remove-module-code-leases`.
 
 Applications, repeated runtime sessions and test fixtures consume these definitions. They do not call Core reflection again or use Once/flags/existing-type checks to hide duplicate owners. Same-process recreation does not reset the Environment or discard definitions to make the next initialization succeed. Test executables/test environments remain the unique owners of any additional fixture metadata.
 
@@ -51,7 +51,7 @@ Main-role cleanup remains necessary for a replacement native thread. It uses an 
 - Back may background or finish the Activity while leaving the process alive: verify the actual Activity transition and corresponding pause or ordered shutdown rather than requiring one outcome or equating PID survival with failure.
 - API 33+ gesture delivery differs from legacy key delivery: verify both paths on the actual packaged Activity, including returning to the existing task.
 - DESTROY can arrive after exit or initialization failure: retain the native callback owner and test late command dispatch with shutdown counters and no dangling callbacks.
-- A shared serialization context can outlive many application sessions: verify stable type identity and retained module leases instead of weakening duplicate-registration assertions.
+- A shared serialization context can outlive many application sessions: verify stable type identity and process-resident defining code instead of weakening duplicate-registration assertions.
 - Sequential recreation does not prove overlapping clear-task handoff: keep the old and new native lifecycle owners distinct until the old engine session is released, and verify the exact device case.
 - Full rendering/physics/package acceptance belongs to existing changes; this change validates lifecycle behavior and does not claim a new visual acceptance result.
 

@@ -8,7 +8,7 @@ Packaging carries `defaultScene` into the existing game config. GameApplication 
 
 ## Presentation protocol
 
-ILauncherSceneSource remains in the existing Aurora adaptor target. A single owner registers an ILauncherSceneSession using an actual module lease and an exact host/generation token. Append receives scene, main view, output and extent; OnEvent receives events from the sole poll owner. Main view revision remains host-owned. Session snapshots retain callback code while a callback replaces/unregisters itself. Replacements retire the old scene generation before using a new Bridge. Provider-only mode has no launcher scene service.
+ILauncherSceneSource remains in the existing Aurora adaptor target. A single owner registers an ILauncherSceneSession using an owned session and an exact host/generation token. Append receives scene, main view, output and extent; OnEvent receives events from the sole poll owner. Main view revision remains host-owned. Session snapshots retain callback objects while a callback replaces/unregisters itself; defining DLL code remains process-resident under `remove-module-code-leases`. Replacements retire the old scene generation before using a new Bridge. Provider-only mode has no launcher scene service.
 
 The default presentation connector consumes Framework IGameWorld and only extracts/render-presents; it does not tick simulation. Explicit sessions can take over and then return to the default World. No second packet producer or event polling loop is introduced.
 

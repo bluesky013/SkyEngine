@@ -3,6 +3,10 @@
 //
 
 #include <core/util/DynamicModule.h>
+
+#include <core/environment/Singleton.h>
+#include <mutex>
+#include <unordered_map>
 #include <vector>
 #ifdef _WIN32
     #include <windows.h>
@@ -51,6 +55,47 @@ namespace sky {
     }
 #endif
 
+    namespace {
+        class ResidentLibraries : public Singleton<ResidentLibraries> {
+        public:
+            void *Load(const std::string &name)
+            {
+                {
+                    std::lock_guard lock(mutex);
+                    if (const auto found = handles.find(name); found != handles.end())
+                        return found->second;
+                }
+                const std::string libraryName = DYN_PREFIX + name + DYN_SUFFIX;
+                void             *loaded      = nullptr;
+                // Native loading may execute initializers; do not hold the registry lock across it.
+#ifdef _WIN32
+                loaded = ::LoadLibraryExA(libraryName.c_str(), nullptr, 0);
+#elif defined(__APPLE__)
+                const auto embeddedPath = GetEmbeddedModulePath(name, libraryName);
+                if (!embeddedPath.empty())
+                    loaded = dlopen(embeddedPath.c_str(), RTLD_LOCAL | RTLD_LAZY);
+    #if !TARGET_OS_IPHONE
+                if (!loaded)
+                    loaded = dlopen(libraryName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+    #endif
+#else
+                loaded = dlopen(libraryName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+#endif
+                if (!loaded)
+                    return nullptr;
+                std::lock_guard lock(mutex);
+                return handles.emplace(name, loaded).first->second;
+            }
+
+        private:
+            friend class Singleton<ResidentLibraries>;
+            ResidentLibraries() = default;
+            std::mutex mutex;
+            // Native references deliberately live until process exit, including concurrent first loads.
+            std::unordered_map<std::string, void *> handles;
+        };
+    } // namespace
+
     DynamicModule::DynamicModule(const std::string &str) : name(str), handle(nullptr)
     {
     }
@@ -62,34 +107,13 @@ namespace sky {
 
     bool DynamicModule::Load()
     {
-        std::string libName = DYN_PREFIX + name + DYN_SUFFIX;
-#ifdef _WIN32
-        handle = ::LoadLibraryExA(libName.c_str(), nullptr, 0);
-#elif defined(__APPLE__)
-        const std::string embeddedPath = GetEmbeddedModulePath(name, libName);
-        if (!embeddedPath.empty()) {
-            handle = dlopen(embeddedPath.c_str(), RTLD_LOCAL | RTLD_LAZY);
-        }
-    #if !TARGET_OS_IPHONE
-        if (handle == nullptr) {
-            handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
-        }
-    #endif
-#else
-        handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
-#endif
+        if (!handle)
+            handle = ResidentLibraries::Get()->Load(name);
         return handle != nullptr;
     }
 
     void DynamicModule::Unload()
     {
-        if (handle != nullptr) {
-#ifdef _WIN32
-            ::FreeLibrary((HMODULE)handle);
-#else
-            dlclose(handle);
-#endif
-        }
         handle = nullptr;
     }
 

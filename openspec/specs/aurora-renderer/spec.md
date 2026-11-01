@@ -440,7 +440,7 @@ Renderer SHALL 在 coordinator 上用冻结的 PreparedFrame、有效输出租�
 
 #### Scenario: GPU 完成但 presentation 未退休
 - **WHEN** feature 请求退休，GPU 已完成而相关窗口的 presentation 尚未结束
-- **THEN** module lease 继续保活，OnRetired 和 RenderFeatureRetired 等待最后 presentation 责任退出
+- **THEN** Feature 实例及帧资源继续保活，OnRetired 和 RenderFeatureRetired 等待最后 presentation 责任退出；DLL 代码保持进程常驻
 
 #### Scenario: feature 声明窗口却不产生绘制
 - **WHEN** acquired output 在最终图中没有存活访问/export，其他输出仍有工作
@@ -618,3 +618,14 @@ Aurora renderer sources SHALL compile with Clang and GCC as well as MSVC. Member
 - **WHEN** the portability fix is applied
 - **THEN** renderer behavior and public interfaces SHALL remain unchanged
 
+### Requirement: Host explicitly assembles pipeline owners
+
+The host SHALL assemble selected built-in or user features through existing RegisterRenderFeature/IFrameGraphFeature commands and owned Feature instances under process-resident module code. Built-in Scene registration SHALL NOT be a prerequisite or fallback for custom pipelines. Plugins SHALL share the existing producer, Renderer/Device, graph composition and retirement protocols.
+
+#### Scenario: User pipeline replaces built-in scene
+- **WHEN** the host selects custom features without registering built-in Scene
+- **THEN** those features produce output without constructing built-in Passes or enforcing their layouts
+
+#### Scenario: Owner retires with outstanding work
+- **WHEN** an owner retires with accepted compilation, frame or GPU/presentation borrowers
+- **THEN** new work stops and existing material/Feature/source/resource/module snapshots remain valid until users complete or drain

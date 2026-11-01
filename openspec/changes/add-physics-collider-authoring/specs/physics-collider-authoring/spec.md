@@ -82,7 +82,7 @@ Preview SHALL use an isolated physics world with reset, pause and single-step. A
 - **THEN** the original body and its constraints remain usable and the failure is reported
 
 ### Requirement: Offline dependencies and unique metadata owners
-Runtime adaptor and render modules MUST NOT depend on editor or builder targets. Builder MUST NOT depend on runtime adaptor or render implementations. Shared source codecs SHALL perform no reflection registration; each reflected type SHALL have one definition owner and leased code lifetime.
+Runtime adaptor and render modules MUST NOT depend on editor or builder targets. Builder MUST NOT depend on runtime adaptor or render implementations. Shared source codecs SHALL perform no reflection registration; each reflected type SHALL have one definition owner, and its defining DLL code SHALL remain process resident without per-object code tokens.
 
 #### Scenario: Runtime-only deployment
 - **WHEN** the game is packaged without authoring tools and CoACD
@@ -90,4 +90,4 @@ Runtime adaptor and render modules MUST NOT depend on editor or builder targets.
 
 #### Scenario: Editor module restart with open work
 - **WHEN** an authoring module shuts down with an open document or task
-- **THEN** tasks are cancelled and collected, registrations are removed symmetrically, and leased callbacks remain valid until released
+- **THEN** tasks are cancelled and collected, registrations are removed symmetrically, and callback captures and required SDK/data owners remain valid until their last use; DLL code remains resident after release

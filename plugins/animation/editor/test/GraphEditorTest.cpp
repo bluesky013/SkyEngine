@@ -35,7 +35,7 @@ namespace {
 
 TEST(AnimationPreview, ReferencePoseDisablesPlaybackAndValidSettingsClearInputErrors)
 {
-    auto                    preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton", std::make_shared<int>(0));
+    auto                    preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton");
     CharacterPreviewActions actions(preview, [] {}, "preview.reference-test");
     ScopedEditorActions     scope("preview.reference-test");
     for (const auto *id : {"animation.preview.play", "animation.preview.pause", "animation.preview.stop"}) {
@@ -89,7 +89,7 @@ TEST(AnimationPreview, DelayedBoundsTriggerAutomaticFocusAndFitANarrowViewport)
         }
     } restore;
     AssetPreviewProviderRegistry::Get()->SetProvider(&host);
-    auto preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton", std::make_shared<int>(0));
+    auto preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton");
     preview->Resize(180, 600);
     const auto original = preview->Camera().position;
     preview->Tick(0);
@@ -129,7 +129,7 @@ TEST(AnimationGraphEditor, ViewportLayoutKeepsCanvasAndInspectorVisibleAndSwitch
     ASSERT_TRUE(model->Load());
     const auto output = model->AddNode(GraphNodeKind::Output, 320, 50);
     model->AddState("Idle", output);
-    auto preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton", std::make_shared<int>(0));
+    auto preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton");
     auto editor  = CreateGraphEditor(std::move(model), preview);
     editor->SetActionScope("graph.layout-test");
     ScopedEditorActions scope("graph.layout-test");

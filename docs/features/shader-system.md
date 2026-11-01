@@ -104,7 +104,9 @@ Compilation snapshots expose only the owning module and its dependency closure. 
 covers all files and include roots in that closure, including macro includes and imports.
 Accepted tasks survive source/provider/resolver retirement. The compiler and cache writer
 must still outlive their pending work. Register on the owner thread before handing sources
-to render features; feature/module leases follow normal GPU retirement.
+to render features. Frame borrowers retain Feature instances until normal GPU retirement;
+compiler handles and tasks retain the compiler/writer objects. DynamicModule keeps native
+code resident until process exit, independently of these object lifetimes.
 
 ## Project cook and shipping products
 
@@ -233,9 +235,10 @@ Every executable material variant is validated before packet application and cha
 to the CPU resource budget; shared artifacts are conservatively charged per owner.
 
 Async compilation requires an owned compiler registration and explicit cache owners
-through `SetAsyncCacheOwners`. Futures retain the compiler module, compiler, cache
+through `SetAsyncCacheOwners`. Futures retain the compiler, cache
 root and writer, and accept only one execution. Unregistration prevents new work;
-accepted futures keep the module loaded until their owners are released. Borrowed
+accepted futures retain those objects until their owners are released, while native code
+stays process resident. Borrowed
 compiler/cache registrations remain synchronous-only.
 
 `ResourceGroup::CreateEncoder(updateContext)` provides the same typed entry for data and

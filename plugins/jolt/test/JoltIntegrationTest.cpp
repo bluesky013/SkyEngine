@@ -113,7 +113,7 @@ TEST_F(JoltIntegrationTest, CollisionOnlyMeshIsIncludedInAssetRoots)
     ShapeDesc              shape;
     shape.type = ShapeType::TriangleMesh;
     shape.mesh = Uuid::Create();
-    SetPhysicsMeshProvider({}, {}, "AuroraMesh");
+    SetPhysicsMeshProvider({}, "AuroraMesh");
     ShapeDesc compound;
     compound.type = ShapeType::Compound;
     compound.children.push_back(shape);
@@ -189,7 +189,7 @@ TEST_F(JoltIntegrationTest, MissingCollisionProductRollsBackWorldInitialization)
     shape.type = ShapeType::TriangleMesh;
     shape.mesh = Uuid::Create();
     ASSERT_TRUE(body->SetShape(shape));
-    SetPhysicsMeshProvider({}, {}, "AuroraMesh");
+    SetPhysicsMeshProvider({}, "AuroraMesh");
     WorldDesc desc;
     desc.subSystems.push_back({Name("Physics"), {}, true});
     EXPECT_FALSE(world->Build(desc));

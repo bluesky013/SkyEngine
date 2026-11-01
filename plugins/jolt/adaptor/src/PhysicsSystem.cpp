@@ -194,14 +194,14 @@ namespace sky::phy {
         return world->CanRetire(bodies);
     }
 
-    PhysicsSystem *AttachPhysicsSystem(World &world, const PhysicsWorldDesc &desc, std::shared_ptr<const void> lease)
+    PhysicsSystem *AttachPhysicsSystem(World &world, const PhysicsWorldDesc &desc)
     {
         auto system = std::make_unique<PhysicsSystem>();
         if (!system->Init(desc)) {
             return nullptr;
         }
         auto *raw = system.get();
-        world.AddSubSystem(Name(PhysicsSystem::NAME.data()), system.release(), std::move(lease));
+        world.AddSubSystem(Name(PhysicsSystem::NAME.data()), system.release());
         return raw;
     }
 

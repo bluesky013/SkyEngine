@@ -14,7 +14,7 @@ namespace sky {
 namespace sky::aurora::editor {
 
     void ReflectAuroraAssetViews(sky::SerializationContext *context);
-    void RegisterAuroraAssetViews(std::shared_ptr<const void> lease = {});
+    void RegisterAuroraAssetViews();
     void UnregisterAuroraAssetViews();
 
 } // namespace sky::aurora::editor

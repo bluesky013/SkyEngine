@@ -46,7 +46,7 @@ Material data and collision filter data SHALL serialize and deserialize without 
 
 ### Requirement: Serialization implementation lives in the plugin
 
-Reflection registration and asset/component serialization for physics SHALL be implemented in the physics plugin, while engine descriptor structs and their field names SHALL remain backend-neutral. Metadata SHALL be registered only by the unique module definition owner and SHALL retain a code lease for persistent callbacks. Runtime Init/Shutdown SHALL NOT repeat reflection registration.
+Reflection registration and asset/component serialization for physics SHALL be implemented in the physics plugin, while engine descriptor structs and their field names SHALL remain backend-neutral. Metadata SHALL be registered only by the unique module definition owner and SHALL rely on process-resident DLL code for persistent callbacks, retaining any captured data through actual owners. Runtime Init/Shutdown SHALL NOT repeat reflection registration.
 
 #### Scenario: Engine stays implementation-free
 - **WHEN** the engine physics module is inspected

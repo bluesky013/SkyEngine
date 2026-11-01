@@ -4,7 +4,6 @@
 //
 
 #pragma once
-#include <memory>
 
 namespace sky {
     class SerializationContext;
@@ -13,7 +12,7 @@ namespace sky {
 namespace sky::content::editor {
 
     void ReflectContentAssetViews(sky::SerializationContext *context);
-    void RegisterContentAssetViews(std::shared_ptr<const void> lease = {});
+    void RegisterContentAssetViews();
     void UnregisterContentAssetViews();
 
 } // namespace sky::content::editor

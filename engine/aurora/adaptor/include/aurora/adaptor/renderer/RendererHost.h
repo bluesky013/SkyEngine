@@ -10,11 +10,8 @@
 
 namespace sky::aurora {
     class ShaderFileSystem;
-    std::optional<RendererError> RegisterScenePass(FramePacket &,
-                                                   RenderFeatureId,
-                                                   std::shared_ptr<const void>       moduleLease,
-                                                   std::shared_ptr<ShaderFileSystem> sources  = {},
-                                                   FileSystemPtr                     products = {});
+    std::optional<RendererError>
+    RegisterScenePass(FramePacket &, RenderFeatureId, std::shared_ptr<ShaderFileSystem> sources = {}, FileSystemPtr products = {});
     // One main-thread producer owns the published renderer until shutdown has drained.
     class RendererHost {
     public:

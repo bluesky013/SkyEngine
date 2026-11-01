@@ -27,14 +27,6 @@ namespace sky {
         const TypeInfoRT                                          *configType = nullptr;
         std::function<Any()>                                       makeDefaultConfig;
         std::function<bool(const Any &config, std::string &error)> validate;
-        std::shared_ptr<const void>                                moduleLease;
-        ~WorldSubSystemRegistration()
-        {
-            // Callback destructors may reside in the retained module.
-            factory           = {};
-            makeDefaultConfig = {};
-            validate          = {};
-        }
     };
 
     // Process-wide registry of world subsystem registrations. Derives from

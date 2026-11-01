@@ -23,8 +23,7 @@ namespace sky {
             std::string name;
             std::unique_ptr<ComponentBase> (*create)() = nullptr;
             const TypeInfoRT *(*queryDataType)()       = nullptr;
-            std::vector<Name>           requiredSubSystems;
-            std::shared_ptr<const void> moduleLease;
+            std::vector<Name> requiredSubSystems;
         };
 
         template <typename T>
@@ -57,7 +56,6 @@ namespace sky {
                     return nullptr;
                 },
                 std::move(requiredSubSystems),
-                context.RetainModuleCode(),
             });
         }
 

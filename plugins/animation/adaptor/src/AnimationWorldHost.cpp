@@ -35,7 +35,7 @@ namespace sky::animation {
 
             AnimationSourceResult<Skeleton>      rig;
             AnimationSourceResult<AnimationClip> clip;
-            // Plans and players must die before their provider resource and code leases.
+            // Plans and players must die before their provider resource snapshots.
             std::unique_ptr<GraphInstance> graph;
             AnimationSequencePlayer        player;
             AnimPose                       pose;
@@ -61,7 +61,6 @@ namespace sky::animation {
         };
         class System;
         struct Registry {
-            std::shared_ptr<const void>                code;
             std::unordered_map<const void *, System *> systems;
             bool                                       active = true;
         };
@@ -617,9 +616,8 @@ namespace sky::animation {
         };
         class Host final : public AnimationWorldHost {
         public:
-            explicit Host(std::shared_ptr<const void> code) : registry(std::make_shared<Registry>())
+            Host() : registry(std::make_shared<Registry>())
             {
-                registry->code = std::move(code);
             }
             ~Host() override
             {
@@ -689,8 +687,8 @@ namespace sky::animation {
             std::shared_ptr<Registry> registry;
         };
     } // namespace
-    std::unique_ptr<AnimationWorldHost> CreateAnimationWorldHost(std::shared_ptr<const void> moduleLease)
+    std::unique_ptr<AnimationWorldHost> CreateAnimationWorldHost()
     {
-        return moduleLease ? std::make_unique<Host>(std::move(moduleLease)) : nullptr;
+        return std::make_unique<Host>();
     }
 } // namespace sky::animation

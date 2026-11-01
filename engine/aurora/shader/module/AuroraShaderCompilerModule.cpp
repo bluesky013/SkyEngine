@@ -6,10 +6,7 @@
 
 #include <aurora/shader/IShaderCompiler.h>
 #include <aurora/shader/ShaderCompilerSlang.h>
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
 
 #include <memory>
 
@@ -31,13 +28,8 @@ namespace sky::aurora {
     {
         if (mCompiler)
             return true;
-        const auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-        auto       *modules = system ? system->GetModuleManager() : ModuleManager::Current();
-        auto        lease   = modules ? modules->RetainModule("Aurora.ShaderCompiler") : nullptr;
-        if (!lease)
-            return false;
         mCompiler = std::make_shared<ShaderCompilerSlang>();
-        if (ShaderCompilerFactory::Get().RegisterOwned(mCompiler, std::move(lease)))
+        if (ShaderCompilerFactory::Get().RegisterOwned(mCompiler))
             return true;
         mCompiler.reset();
         return false;

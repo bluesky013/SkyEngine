@@ -16,5 +16,5 @@ namespace sky::animation {
         virtual std::unique_ptr<IWorldSubSystem> CreateSystem() = 0;
         virtual void                             Drain()        = 0;
     };
-    std::unique_ptr<AnimationWorldHost> CreateAnimationWorldHost(std::shared_ptr<const void> moduleLease);
+    std::unique_ptr<AnimationWorldHost> CreateAnimationWorldHost();
 } // namespace sky::animation

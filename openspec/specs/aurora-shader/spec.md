@@ -288,3 +288,11 @@ ShaderCompilerSlang SHALL 使用既有 Slang Compilation API 直接生成请求�
 #### Scenario: 虚拟 include
 - **WHEN** 程序 include 已注册的 owner `.slangh`
 - **THEN** 经同一受检源码视图解析，无需访问作者 C++ 头或恢复已移除的嵌入 shader 链路
+
+### Requirement: Compilation retains its source snapshot
+
+Accepted compilation SHALL retain a stable owned source/dependency view, inventory and required provider/compiler/data ownership until completion or collected cancellation; defining DLL code SHALL remain process resident. Resource registration/retirement SHALL NOT mutate or destroy backing still used by a compile job. Failures SHALL release borrows through the same lifetime protocol.
+
+#### Scenario: Source owner retires during compilation
+- **WHEN** an owner stops accepting requests while a shader job is in flight
+- **THEN** the job finishes against its retained snapshot or reports collected cancellation, and ownership is released only after that use ends

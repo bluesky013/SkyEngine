@@ -69,7 +69,7 @@ Each supported platform SHALL provide a nonzero monotonic clock frequency. Appli
 
 #### Scenario: Shutdown with queued work
 - **WHEN** a worker has queued signal closures or an application still has asset tasks during teardown
-- **THEN** the worker SHALL finish before its semaphore is destroyed and asset work SHALL finish before its module code is unloaded
+- **THEN** the worker SHALL finish before its semaphore is destroyed and asset work SHALL finish before its owning services and resources are destroyed; defining module code SHALL remain process resident
 
 ### Requirement: Packaged startup configuration and honest services
 Startup config SHALL prefer writable/project config and then read-only packaged config. Android packages SHALL include configs in their assets. A failed application initialization SHALL NOT start its tick loop. Unsupported mobile shell commands SHALL return failure.

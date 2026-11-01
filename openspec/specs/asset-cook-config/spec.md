@@ -51,7 +51,7 @@ A source asset configured for several targets SHALL emit one product per target;
 
 ### Requirement: Cook data compression
 
-Cook MAY compress product data. The product header SHALL record the compression codec, and the loader SHALL decompress via the Framework CompressionManager/ICompressor interface. Framework SHALL provide default LZ4 when SKY_BUILD_COMPRESSION is enabled, without a dynamically loaded compression module. Disabling the built-in SHALL preserve uncompressed loading and explicit unsupported-codec failures. Operations SHALL retain acquired provider handles until their calls finish. Hosts SHALL establish the shared manager before loading modules; replacement-provider ownership SHALL keep its implementation code alive through destruction.
+Cook MAY compress product data. The product header SHALL record the compression codec, and the loader SHALL decompress via the Framework CompressionManager/ICompressor interface. Framework SHALL provide default LZ4 when SKY_BUILD_COMPRESSION is enabled, without a dynamically loaded compression module. Disabling the built-in SHALL preserve uncompressed loading and explicit unsupported-codec failures. Operations SHALL retain acquired provider handles until their calls finish. Hosts SHALL establish the shared manager before loading modules; acquired handles SHALL retain replacement-provider objects through use and destruction while defining DLL code remains process-resident.
 
 #### Scenario: Compressed product round-trips
 
@@ -71,7 +71,7 @@ Cook MAY compress product data. The product header SHALL record the compression 
 #### Scenario: Replacement removed during retained use
 
 - **WHEN** an acquired provider remains referenced while its registry replacement is removed or disabled
-- **THEN** the acquired provider and its code lease SHALL remain valid until that handle is released, while subsequent acquisition observes the current selection
+- **THEN** the acquired provider object SHALL remain valid until that handle is released, with defining DLL code remaining process-resident, while subsequent acquisition observes the current selection
 
 ### Requirement: Cook worker protocol integrity
 

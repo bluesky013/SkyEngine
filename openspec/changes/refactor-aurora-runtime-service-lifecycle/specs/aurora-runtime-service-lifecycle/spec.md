@@ -14,7 +14,7 @@
 
 ### Requirement: Runtime assembly owns the Skeleton service session
 
-The existing Aurora runtime entry SHALL compose the Skeleton asset source and renderer adapter with one explicit registration owner and a real defining-module lease. Provider-only loading SHALL still publish both required providers without creating a RendererHost.
+The existing Aurora runtime entry SHALL compose the Skeleton asset source and renderer adapter with one explicit registration owner and actual source/request/result ownership; defining DLL code SHALL remain process resident without per-object code tokens. Provider-only loading SHALL still publish both required providers without creating a RendererHost.
 
 #### Scenario: Provider-only module session
 - **WHEN** the runtime module loads in provider-only mode
@@ -33,12 +33,12 @@ The existing Aurora runtime entry SHALL compose the Skeleton asset source and re
 
 ### Requirement: Service withdrawal and code lifetime are distinct
 
-Runtime shutdown SHALL withdraw its Skeleton interface before draining the renderer host and SHALL release its source after host shutdown. Outstanding request/result leases SHALL keep defining code available for calls and destruction after service withdrawal or module manager destruction.
+Runtime shutdown SHALL withdraw its Skeleton interface before draining the renderer host and SHALL release its source after host shutdown. Outstanding requests/results SHALL retain the actual operation, asset and resource owners required after service withdrawal or module manager destruction. The loader SHALL keep defining code process resident without per-object code tokens.
 
 #### Scenario: Request outlives its module session
 - **WHEN** a caller retains a Skeleton request or result across runtime shutdown and module manager destruction
 - **THEN** the global source interface is withdrawn
-- **AND** the retained object's defining code remains valid until its final lease is released
+- **AND** the retained object's required data remains owned until its last use, while defining code stays resident even after the object is released
 
 #### Scenario: Repeated module session
 - **WHEN** initialization/shutdown is repeated or cleanup follows partial failure

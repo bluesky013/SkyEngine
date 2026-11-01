@@ -117,7 +117,8 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - **禁止**用函数内普通 `static T instance;` 实现跨模块共享的注册表/缓存——那会让每个 DLL 各持一份，模块注册的东西上层看不到（曾导致 world 子系统注册后编辑器列不出来）。
 - **反射必须有唯一注册 owner**：同一份数据在进程内只允许反射一次。metadata owner 的 definition 创建阶段执行 `RegisterMeta`；runtime/cook/editor 通过明确依赖消费，窗口只 Bind。
 - **禁止用幂等守卫掩盖重复反射入口**：包括 `static bool`、`once_flag`、`sky::Once`、查表后跳过、scratchNode。两个 owner 注册同一类型属于程序错误，必须在调用源头修正。
-- ModuleManager 的进程 definition 与 runtime session 分离；Init 失败重试、manager 更换、runtime 重启不重新创建 definition。反射类型和持久回调必须持有代码 lease；不能把只调用一次误当作 DLL 生命周期保证。
+- ModuleManager 的进程 definition 与 runtime session 分离；Init 失败重试、manager 更换、runtime 重启不重新创建 definition。插件/RHI 模块代码由装载层保持进程常驻，更新、重载和移除在进程重启后生效；不得为纯 DLL 代码保活向对象逐层传递 module/code lease。
+- Shutdown 仍须撤销服务并收齐任务；必须保留 compiler、World、Feature、asset/resource 和 GPU 对象的真实所有权及完成/退役约束。DLL 已加载不代表依赖服务已 Init 成功，依赖检查使用当前 manager 的会话状态。
 - 速记：**共享状态 → `Singleton<T>`；共享类型 → 唯一 metadata owner；可重启服务 → Init/Shutdown 对称注册；普通模块内部无共享状态 → 普通 static 可用。**
 - 排查反射函数的全部调用点，特别是 Init、构造器、窗口创建和测试 SetUp。测试使用 executable main 或 gtest Environment 初始化元数据，不在用例中重复反射。
 

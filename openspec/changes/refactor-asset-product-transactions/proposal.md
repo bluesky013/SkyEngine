@@ -21,7 +21,7 @@ This change extracts that existing implementation for commit preparation. It doe
 
 ## Impact
 
-Existing Core file operations, Framework asset/archive APIs and tests. Animation-specific import, packaging, selection UI and Mesh/Skin/Skeleton consistency remain in `add-skeletal-animation-workflow`. Persistent callback code leases remain in `refactor-process-owned-reflection`; the isolated transaction snapshot retains the existing registration lifecycle. Implementation and these specifications belong in one commit. Commit and archive require separate user confirmation.
+Existing Core file operations, Framework asset/archive APIs and tests. Animation-specific import, packaging, selection UI and Mesh/Skin/Skeleton consistency remain in `add-skeletal-animation-workflow`. The original isolated transaction snapshot left persistent metadata/code ownership to `refactor-process-owned-reflection`. The current loader contract in `remove-module-code-leases` keeps DLLs resident while preserving unique metadata owners and symmetric runtime registration. Implementation and these specifications belong in one commit. Commit and archive require separate user confirmation.
 
 ## Successor
 

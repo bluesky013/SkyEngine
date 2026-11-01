@@ -474,7 +474,7 @@ namespace {
             ViewportDesc output;
             output.extent = {8, 8};
             auto packet   = Packet({CreateScene{scene, {}}, CreateViewport{viewport, output}, CreateView{view, camera}});
-            EXPECT_FALSE(RegisterScenePass(*packet, {63, 1}, std::make_shared<int>(1), TestShaderSources()));
+            EXPECT_FALSE(RegisterScenePass(*packet, {63, 1}, TestShaderSources()));
             packet->readbacks.push_back(viewport);
             return packet;
         }
@@ -612,7 +612,7 @@ TEST_P(RendererRuntimeTest, WorldBridgeProductionAssetsTransformAndRemovalReachP
         }
     };
     auto probe = std::make_shared<SceneProbe>();
-    packet->featureCommands.push_back(RegisterRenderFeature{{62, 1}, probe->GetName(), std::make_shared<int>(1), probe});
+    packet->featureCommands.push_back(RegisterRenderFeature{{62, 1}, probe->GetName(), probe});
     ASSERT_FALSE(bridge.Append(*packet, scene));
     ASSERT_TRUE(bridge.GetIssues().empty()) << bridge.GetIssues().front().message;
     ASSERT_EQ(std::count_if(packet->commands.begin(), packet->commands.end(),
@@ -661,7 +661,7 @@ TEST_P(RendererRuntimeTest, ExplicitComputeAndFullscreenRunWithoutSceneMaterialO
     auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
     const auto feature = ExplicitPasses(info.backend, false);
     ASSERT_TRUE(feature);
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), feature});
     packet->extensions.push_back({feature->GetName(), {}, {viewport}});
     packet->readbacks.push_back(viewport);
     Submit(std::move(packet));
@@ -674,7 +674,7 @@ TEST_P(RendererRuntimeTest, ExplicitComputeRejectsMissingActiveBatch)
     auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
     const auto feature = ExplicitPasses(info.backend, true);
     ASSERT_TRUE(feature);
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), feature});
     packet->extensions.push_back({feature->GetName(), {}, {viewport}});
     packet->readbacks.push_back(viewport);
     Submit(std::move(packet));
@@ -687,7 +687,7 @@ TEST_P(RendererRuntimeTest, ExplicitFullscreenRejectsMissingActiveBatch)
     auto       packet  = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
     const auto feature = ExplicitPasses(info.backend, false, true);
     ASSERT_TRUE(feature);
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), std::make_shared<int>(1), feature});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, feature->GetName(), feature});
     packet->extensions.push_back({feature->GetName(), {}, {viewport}});
     packet->readbacks.push_back(viewport);
     Submit(std::move(packet));
@@ -842,7 +842,7 @@ TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler
     camera.scene  = scene;
     camera.output = viewport;
     packet->commands.push_back(CreateView{view, camera});
-    ASSERT_FALSE(RegisterScenePass(*packet, {63, 1}, std::make_shared<int>(1), sources, products));
+    ASSERT_FALSE(RegisterScenePass(*packet, {63, 1}, sources, products));
     RenderEntityDesc entity;
     entity.mesh        = resources->parts.front().mesh;
     entity.material    = resources->parts.front().material;
@@ -859,12 +859,12 @@ TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler
 
 TEST(FrameFeatureRegistryTest, DisableStopsBorrowersAndRetirementWaitsForTheFinalLease)
 {
-    FrameFeatureRegistry registry;
-    auto                 counters = std::make_shared<FeatureCounters>();
-    auto                 module   = std::make_shared<int>(1);
-    std::weak_ptr<int>   unloaded = module;
-    FramePacket          packet;
-    packet.featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::move(module), std::make_shared<CountingFeature>(counters)});
+    FrameFeatureRegistry              registry;
+    auto                              counters = std::make_shared<FeatureCounters>();
+    auto                              feature  = std::make_shared<CountingFeature>(counters);
+    std::weak_ptr<IFrameGraphFeature> lifetime = feature;
+    FramePacket                       packet;
+    packet.featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::move(feature)});
     ASSERT_FALSE(registry.Validate(packet));
     registry.Apply(packet);
     auto borrowers = registry.Snapshot();
@@ -882,14 +882,13 @@ TEST(FrameFeatureRegistryTest, DisableStopsBorrowersAndRetirementWaitsForTheFina
     ASSERT_FALSE(registry.Validate(packet));
     registry.Apply(packet);
     EXPECT_TRUE(registry.CollectRetired().empty());
-    EXPECT_FALSE(unloaded.expired());
+    EXPECT_FALSE(lifetime.expired());
     EXPECT_EQ(counters->retired, 0u);
     borrowers.clear();
     EXPECT_EQ(registry.CollectRetired(), (std::vector<RenderFeatureId>{{0, 1}}));
-    EXPECT_TRUE(unloaded.expired());
+    EXPECT_TRUE(lifetime.expired());
     EXPECT_EQ(counters->retired, 1u);
-    packet.featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<int>(1), std::make_shared<CountingFeature>(counters)});
+    packet.featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<CountingFeature>(counters)});
     EXPECT_TRUE(registry.Validate(packet));
     std::get<RegisterRenderFeature>(packet.featureCommands.front()).id.generation = 2;
     EXPECT_FALSE(registry.Validate(packet));
@@ -900,8 +899,7 @@ TEST(FrameFeatureRegistryTest, InvalidSecondCommandDoesNotPartiallyRegisterTheFi
     FrameFeatureRegistry registry;
     FramePacket          packet;
     auto                 counters = std::make_shared<FeatureCounters>();
-    packet.featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<int>(1), std::make_shared<CountingFeature>(counters)});
+    packet.featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<CountingFeature>(counters)});
     packet.featureCommands.push_back(SetRenderFeatureEnabled{{1, 1}, false});
     EXPECT_TRUE(registry.Validate(packet));
     EXPECT_TRUE(registry.Snapshot().empty());
@@ -917,8 +915,7 @@ TEST_P(RendererRuntimeTest, FeaturePreparationFailureNeverRecordsAndStillRetires
     auto counters             = std::make_shared<FeatureCounters>();
     counters->failPreparation = true;
     auto packet               = Scene();
-    packet->featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<int>(1), std::make_shared<CountingFeature>(counters)});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<CountingFeature>(counters)});
     packet->extensions.push_back({Name("count"), {}, {viewport}});
     Submit(std::move(packet));
     ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
@@ -940,8 +937,7 @@ TEST_P(RendererRuntimeTest, B13FeatureBuildFailureDiscardsTheFrameThenRetires)
     auto counters  = std::make_shared<FeatureCounters>();
     counters->fail = true;
     auto packet    = Scene();
-    packet->featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<int>(1), std::make_shared<CountingFeature>(counters)});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("count"), std::make_shared<CountingFeature>(counters)});
     packet->extensions.push_back({Name("count"), {}, {viewport}});
     Submit(std::move(packet));
     ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
@@ -965,7 +961,7 @@ TEST_P(RendererRuntimeTest, B13OffscreenToUiPixelsAndStaleRevisionSkipsOldConten
     ViewportDesc target;
     target.extent = {16, 8};
     packet->commands.push_back(CreateViewport{ui, target});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     packet->extensions.push_back(UiSnapshot(ui, {viewport, 0}));
     packet->readbacks.push_back(ui);
     Submit(std::move(packet));
@@ -1016,7 +1012,7 @@ TEST_P(RendererRuntimeTest, B13TwoCamerasSecondSceneAndUiLoadUseSeparateConstant
     entity.material = {Key(1203), 1};
     packet->commands.push_back(CreateRenderEntity{{secondScene, {0, 1}}, entity});
     packet->commands.push_back(ResourceCpuReady{std::move(green)});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     packet->extensions.push_back(UiSnapshot(secondOutput, {viewport, 0}, .5f));
     packet->readbacks = {viewport, cameraOutput, secondOutput};
     Submit(std::move(packet));
@@ -1033,12 +1029,12 @@ TEST_P(RendererRuntimeTest, B13TwoCamerasSecondSceneAndUiLoadUseSeparateConstant
     Pixel(sequence, secondOutput, 6, 8, {0, 255, 0});
 }
 
-TEST_P(RendererRuntimeTest, B13DisableAndRetireFeatureReleaseModuleAfterFrames)
+TEST_P(RendererRuntimeTest, B13DisableAndRetireFeatureReleaseInstanceAfterFrames)
 {
-    const ViewportId   ui{1, 1};
-    auto               owner    = std::make_shared<int>(1);
-    std::weak_ptr<int> lifetime = owner;
-    auto               packet   = Scene();
+    const ViewportId                  ui{1, 1};
+    auto                              feature  = Ui();
+    std::weak_ptr<IFrameGraphFeature> lifetime = feature;
+    auto                              packet   = Scene();
     AddMesh(*packet);
     ViewportDesc target;
     target.extent = {8, 8};
@@ -1048,7 +1044,7 @@ TEST_P(RendererRuntimeTest, B13DisableAndRetireFeatureReleaseModuleAfterFrames)
     uiScene.output   = ui;
     uiScene.drawTags = 0;
     packet->commands.push_back(CreateView{{1, 1}, uiScene});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::move(owner), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::move(feature)});
     packet->extensions.push_back(UiSnapshot(ui, {viewport, 0}));
     packet->readbacks = {ui};
     Submit(std::move(packet));
@@ -1069,7 +1065,7 @@ TEST_P(RendererRuntimeTest, B13DisableAndRetireFeatureReleaseModuleAfterFrames)
     EXPECT_TRUE(Until([&] { return Find<RenderFeatureRetired>(); }));
     EXPECT_TRUE(lifetime.expired());
     auto replace = Packet();
-    replace->featureCommands.push_back(RegisterRenderFeature{{0, 2}, Name("ui"), std::make_shared<int>(2), Ui()});
+    replace->featureCommands.push_back(RegisterRenderFeature{{0, 2}, Name("ui"), Ui()});
     replace->extensions.push_back(UiSnapshot(ui, {viewport, 0}));
     replace->readbacks = {ui};
     Submit(std::move(replace));
@@ -1080,7 +1076,7 @@ TEST_P(RendererRuntimeTest, B13DisableAndRetireFeatureReleaseModuleAfterFrames)
 TEST_P(RendererRuntimeTest, B13MalformedUiPayloadRejectsAtomicallyThenValidFrameContinues)
 {
     auto packet = Scene();
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     auto payload = UiSnapshot({1, 1}, {viewport, 0});
     payload.bytes.pop_back();
     packet->extensions.push_back(std::move(payload));
@@ -1103,7 +1099,7 @@ TEST_P(RendererRuntimeTest, B13QueuedCompositionFramesKeepTheirOwnRevisionAndSiz
     ViewportDesc desc;
     desc.extent = {8, 8};
     initial->commands.push_back(CreateViewport{ui, desc});
-    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     initial->extensions.push_back(UiSnapshot(ui, {viewport, 0}));
     initial->readbacks = {ui};
     Submit(std::move(initial));
@@ -1140,7 +1136,7 @@ TEST_P(RendererRuntimeTest, B13TransparentFragmentsPreserveOrderAndClipAcrossQue
     ViewportDesc desc;
     desc.extent = {16, 8};
     initial->commands.push_back(CreateViewport{ui, desc});
-    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     Submit(std::move(initial));
     Complete(sequence);
     ASSERT_TRUE(Until([&] {
@@ -1181,7 +1177,7 @@ TEST_P(RendererRuntimeTest, B13StaleGenerationNeverSamplesAReplacementOutput)
     ViewportDesc desc;
     desc.extent = {8, 8};
     initial->commands.push_back(CreateViewport{ui, desc});
-    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     initial->extensions.push_back(UiSnapshot(ui, {viewport, 0}));
     initial->readbacks = {ui};
     Submit(std::move(initial));
@@ -1229,7 +1225,7 @@ TEST_P(RendererRuntimeTest, B13UnavailableNativeUiDoesNotRemoveTheSharedOffscree
     desc        = {};
     desc.extent = {16, 8};
     initial->commands.push_back(CreateViewport{ui, desc});
-    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    initial->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     initial->extensions = {UiSnapshot(native, {viewport, 0}), UiSnapshot(ui, {viewport, 0})};
     initial->readbacks  = {ui};
     Submit(std::move(initial));
@@ -1738,7 +1734,7 @@ TEST_P(RendererRuntimeTest, RotatedSurfacePreservesLogicalCameraAndMapsItsOutput
     output.extent       = {80, 40};
     output.nativeWindow = reinterpret_cast<uintptr_t>(window.handle);
     auto packet         = Packet({CreateScene{scene, {}}, CreateViewport{viewport, output}, CreateView{view, camera}});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, probe->GetName(), std::make_shared<int>(1), probe});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, probe->GetName(), probe});
     Submit(std::move(packet));
     Complete(sequence);
     EXPECT_EQ(probe->transform, SurfaceTransform::ROTATE_90);
@@ -1871,7 +1867,7 @@ TEST_P(RendererRuntimeTest, B14OwnedAtlasRevisionsRoundedClippingAndRelease)
     const auto texture = producer.RegisterTexture(red);
     ASSERT_GE(texture, 2u);
     auto packet = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {32, 32}}}});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     ui::UIPaintContext paint;
     const auto         snapshot = [&](FramePacket &target) {
         paint.Begin({0, 0, 32, 32});
@@ -1933,7 +1929,7 @@ TEST_P(RendererRuntimeTest, DepthOnlySelectedSubresourceIsSampledAfterParallelDr
 {
     auto packet = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
     packet->featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("depth.sample"), std::make_shared<int>(1), std::make_shared<DepthSamplingFeature>(renderer->GetInfo())});
+        RegisterRenderFeature{{0, 1}, Name("depth.sample"), std::make_shared<DepthSamplingFeature>(renderer->GetInfo())});
     FrameExtensionPayload payload;
     payload.feature = Name("depth.sample");
     payload.outputs = {viewport};
@@ -2265,7 +2261,7 @@ TEST_P(RendererRuntimeTest, UiRepeatedBindingsShareDescriptorsAcrossDifferentCli
 {
     editor::UiSnapshotProducer producer(renderer->GetInfo().deviceEpoch);
     auto                       packet = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {32, 32}}}});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     ui::UIPaintContext paint;
     paint.Begin({0, 0, 32, 32});
     for (uint32_t i = 0; i < 300; ++i) {
@@ -2290,7 +2286,7 @@ TEST_P(RendererRuntimeTest, TransformedRoundedUiUsesLayoutCoordinatesAndSurfaceC
 {
     editor::UiSnapshotProducer producer(renderer->GetInfo().deviceEpoch);
     auto                       packet = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {64, 64}}}});
-    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), std::make_shared<int>(1), Ui()});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("ui"), Ui()});
     ui::UIPaintContext paint;
     paint.Begin({0, 0, 64, 64});
     paint.AddRect({0, 0, 64, 64}, 0xFF0000FF);
@@ -2332,7 +2328,7 @@ TEST_P(RendererRuntimeTest, SharedPassLayoutsKeepViewsAndQueuedFrameDataIndepend
     first->commands.push_back(CreateRenderEntity{{scene, {0, 1}}, entity});
     first->commands.push_back(ResourceCpuReady{Mesh()});
     first->commands.push_back(ResourceCpuReady{HostMaterial(renderer->GetInfo(), true, true, false)});
-    first->featureCommands.push_back(RegisterRenderFeature{{2, 1}, Name("header.color"), std::make_shared<int>(1), HeaderColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{2, 1}, Name("header.color"), HeaderColor(renderer->GetInfo())});
     first->extensions.push_back(HeaderColorPayload(colorOutput, {0, 1, 0, 1}));
     first->readbacks = {viewport, second, colorOutput};
     Submit(std::move(first));
@@ -2408,8 +2404,7 @@ TEST_P(RendererRuntimeTest, ScenePassRejectsWrongSharedLayoutAndDiscardsItsFrame
 TEST_P(RendererRuntimeTest, PassUniformRangeMismatchFailsBeforeGpuExecution)
 {
     auto packet = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}});
-    packet->featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("header.color"), std::make_shared<int>(1), HeaderColor(renderer->GetInfo(), true)});
+    packet->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("header.color"), HeaderColor(renderer->GetInfo(), true)});
     packet->extensions.push_back(HeaderColorPayload(viewport, {1, 0, 0, 1}));
     packet->readbacks = {viewport};
     Submit(std::move(packet));
@@ -2433,7 +2428,7 @@ TEST_P(RendererRuntimeTest, MissingScenePassHasNoImplicitRasterFallback)
     }));
     events.clear();
     auto next = Packet();
-    ASSERT_FALSE(RegisterScenePass(*next, {63, 1}, std::make_shared<int>(1), TestShaderSources()));
+    ASSERT_FALSE(RegisterScenePass(*next, {63, 1}, TestShaderSources()));
     next->readbacks = {viewport};
     Submit(std::move(next));
     Complete(sequence);
@@ -2455,9 +2450,8 @@ TEST_P(RendererRuntimeTest, SharedTextureBindingsKeepProducerOutputsAndQueuedFra
     const ViewportId producer{0, 1}, firstOutput{1, 1}, secondOutput{2, 1};
     auto first = Packet({CreateViewport{producer, {ViewportKind::OFFSCREEN, {8, 8}}}, CreateViewport{firstOutput, {ViewportKind::OFFSCREEN, {8, 8}}},
                          CreateViewport{secondOutput, {ViewportKind::OFFSCREEN, {8, 8}}}});
-    first->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("header.color"), std::make_shared<int>(1), HeaderColor(renderer->GetInfo())});
-    first->featureCommands.push_back(
-        RegisterRenderFeature{{1, 1}, Name("sampled.color"), std::make_shared<int>(1), SampledColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("header.color"), HeaderColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{1, 1}, Name("sampled.color"), SampledColor(renderer->GetInfo())});
     first->extensions  = {HeaderColorPayload(producer, {1, 1, 1, 1}),
                           TextureToScreenInput(Name("sampled.color"), firstOutput, ViewOutputRef{producer, 0}, {1, 0, 0, 1}),
                           TextureToScreenInput(Name("sampled.color"), secondOutput, ViewOutputRef{producer, 0}, {0, 1, 0, 1})};
@@ -2483,9 +2477,8 @@ TEST_P(RendererRuntimeTest, SharedTextureBindingsRejectStaleOutputThenRecoverAft
 {
     const ViewportId sampled{1, 1};
     auto first = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}, CreateViewport{sampled, {ViewportKind::OFFSCREEN, {8, 8}}}});
-    first->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("header.color"), std::make_shared<int>(1), HeaderColor(renderer->GetInfo())});
-    first->featureCommands.push_back(
-        RegisterRenderFeature{{1, 1}, Name("sampled.color"), std::make_shared<int>(1), SampledColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("header.color"), HeaderColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{1, 1}, Name("sampled.color"), SampledColor(renderer->GetInfo())});
     first->extensions = {HeaderColorPayload(viewport, {1, 0, 0, 1}),
                          TextureToScreenInput(Name("sampled.color"), sampled, ViewOutputRef{viewport, 1})};
     first->readbacks  = {sampled};
@@ -2517,8 +2510,7 @@ TEST_P(RendererRuntimeTest, SharedTextureBindingsPinExactAssetVersionsAcrossUplo
     };
     auto first = Packet({CreateViewport{viewport, {ViewportKind::OFFSCREEN, {8, 8}}}, CreateViewport{other, {ViewportKind::OFFSCREEN, {8, 8}}},
                          texture(oldKey, {255, 0, 0, 255})});
-    first->featureCommands.push_back(
-        RegisterRenderFeature{{0, 1}, Name("sampled.color"), std::make_shared<int>(1), SampledColor(renderer->GetInfo())});
+    first->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name("sampled.color"), SampledColor(renderer->GetInfo())});
     first->extensions  = {TextureToScreenInput(Name("sampled.color"), viewport, oldKey)};
     first->readbacks   = {viewport};
     const auto initial = first->sequence;

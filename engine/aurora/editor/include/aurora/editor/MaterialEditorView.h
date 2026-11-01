@@ -151,7 +151,7 @@ namespace sky::aurora::editor {
     };
 
     // Registers the material / material-instance providers (AssetViewProviderRegistry).
-    void RegisterMaterialEditorProvider(std::shared_ptr<const void> lease = {});
+    void RegisterMaterialEditorProvider();
     void UnregisterMaterialEditorProvider();
 
 } // namespace sky::aurora::editor

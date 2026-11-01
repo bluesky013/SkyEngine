@@ -12,21 +12,15 @@ namespace sky::phy {
     namespace {
         class PhysicsMeshProviderState final : public Singleton<PhysicsMeshProviderState> {
         public:
-            std::shared_ptr<const void> ownerLease;
-            std::shared_ptr<const void> providerLease;
-            PhysicsMeshProvider         provider;
-            std::string                 assetType;
+            PhysicsMeshProvider provider;
+            std::string         assetType;
         };
     } // namespace
 
-    void SetPhysicsMeshProvider(PhysicsMeshProvider provider, std::shared_ptr<const void> codeLease, std::string assetType)
+    void SetPhysicsMeshProvider(PhysicsMeshProvider provider, std::string assetType)
     {
-        auto *state = PhysicsMeshProviderState::Get();
-        if (!state->ownerLease) {
-            state->ownerLease = codeLease;
-        }
-        state->provider      = std::move(provider);
-        state->providerLease = std::move(codeLease);
+        auto *state     = PhysicsMeshProviderState::Get();
+        state->provider = std::move(provider);
         if (!assetType.empty())
             state->assetType = std::move(assetType);
     }
@@ -39,7 +33,6 @@ namespace sky::phy {
     CounterPtr<TriangleMesh> CreatePhysicsMesh(const Uuid &asset)
     {
         auto *state    = PhysicsMeshProviderState::Get();
-        auto  lease    = state->providerLease;
         auto  provider = state->provider;
         return provider ? provider(asset) : nullptr;
     }

@@ -91,14 +91,14 @@ Ordinary paused/background lifecycle processing SHALL use WAIT behavior without 
 
 ### Requirement: Same-process recreation preserves metadata and leases
 
-Destroying and recreating an Android Activity in one process SHALL create a new runtime session while reusing existing process metadata definitions and their required code leases. The host SHALL NOT clear the shared Environment, re-reflect built-in types, or add duplicate-registration guards to permit recreation.
+Destroying and recreating an Android Activity in one process SHALL create a new runtime session while reusing existing process metadata definitions and process-resident defining DLL code. The host SHALL NOT clear the shared Environment, re-reflect built-in types, or add duplicate-registration guards to permit recreation.
 
 #### Scenario: Destroy and reopen in one process
 
 - **WHEN** a launcher Activity is destroyed and a new launcher Activity is initialized in the same process
 - **THEN** built-in and module metadata SHALL preserve their existing definition identity
 - **AND** the new runtime session SHALL initialize without duplicate reflection
-- **AND** retained definitions and callbacks SHALL keep the code leases they require
+- **AND** retained definitions and callbacks SHALL retain their data owners while defining DLL code remains process-resident
 
 ### Requirement: Overlapping Activities hand off engine session ownership
 

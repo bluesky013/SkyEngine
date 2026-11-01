@@ -5,8 +5,8 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
-#include <core/util/Uuid.h>
 #include <core/shapes/AABB.h>
+#include <core/util/Uuid.h>
 #include <editor/core/viewport/EditorCamera.h>
 #include <framework/world/World.h>
 
@@ -27,11 +27,9 @@ namespace sky::editor {
         bool operator==(const AssetPreviewHandle &) const = default;
     };
     struct AssetPreviewScene {
-        // The World and callbacks must be destroyed before their defining code is released.
-        std::shared_ptr<const void> moduleLease;
-        WorldPtr                    world;
-        EditorCamera                camera;
-        uint32_t                    width = 320, height = 240;
+        WorldPtr     world;
+        EditorCamera camera;
+        uint32_t     width = 320, height = 240;
     };
     enum class AssetPreviewState { Pending, Ready, Closing, Closed, Failed };
     struct AssetPreviewStatus {

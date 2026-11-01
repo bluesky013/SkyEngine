@@ -6,7 +6,7 @@
 
 上一轮已运行现有 Debug 测试程序：AnimationTest 54、Content.AdaptorTest 1、MeshCook 筛选 9 项通过；程序生成于 2026-10-21，未重新编译，不构成本设计的集成验收。
 
-2026-10-26 提交拆分：通用 Core/Framework 产品事务、不可变快照、generated catalog 和子产品 cook 完成协议由 `refactor-asset-product-transactions` 独立承接。本 change 保留 Mesh/Skin/Skeleton、Clip/Graph、选择器与打包的集成要求；基础设施测试不替代这些验收。metadata code lease 仍归 `refactor-process-owned-reflection`。
+2026-10-26 提交拆分：通用 Core/Framework 产品事务、不可变快照、generated catalog 和子产品 cook 完成协议由 `refactor-asset-product-transactions` 独立承接。本 change 保留 Mesh/Skin/Skeleton、Clip/Graph、选择器与打包的集成要求；基础设施测试不替代这些验收。metadata 唯一 owner 由 `refactor-process-owned-reflection` 建立；后续 `remove-module-code-leases` 将 DLL 保活统一交给装载层，取消分散代码租约。
 
 运行时算法前置修正由 `fix-animation-sampling-validation` 独立承接：骨架/Clip 校验、reference pose 采样与虚图/Plan 播放控制。本 change 仍负责资产链路保留 sourceFrameCount、导入校验、实例隔离和编辑/渲染接入。
 
@@ -60,7 +60,7 @@ Skin 的纯绑定数据留在 Aurora core；资产 handler / 反射 / 创建入�
 
 实现时还须核验项目覆盖配置/静态模块聚合路径，将此关系落实到实际合并后的装载图。当前 configs 未列 Content.Module，不能假定它已经为游戏加载。
 
-Clip provider 由 Content 原模块发布，Skeleton provider 由 Aurora Adaptor 原模块发布；两个接口定义在消费方 `engine/animation`，用 Uuid、状态、诊断和既有 renderer-neutral clip/skeleton 数据返回。发布后的 clip/skeleton 内容不可由实例修改。World plugin 不链接这些提供方实现。Aurora 消费 Pose 的 `ISkeletalPoseSource` 定义在 `aurora/renderer`，由 Animation.World 实现；Animation.Editor 经 `IAnimationInstanceControl` 发送播放 / 参数命令并查询状态，不包含 World adaptor 实现头。两者使用同一 World epoch / Actor / instance generation 身份。跨模块服务复用 Framework `Interface<T>`。所有新共享注册表用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，调用源头须明确，禁止通过 Once、已存在跳过或 scratchNode 吞掉重复注册。runtime 重启与窗口创建只消费已注册元数据，不重复反射。服务仅在主线程访问，撤销早于模块释放；借用/完成回调持真实 module lease 或在卸载前完全 drain，不把 Interface 内裸指针误认为所有权。2026-10-25 用户再次确认该约束；原“反射幂等用 Once”方案撤销；用户已回复“按此方案实施”批准 Aurora.Metadata、Content.Metadata、Animation.GraphAssets，详见 `refactor-process-owned-reflection/design.md`。
+Clip provider 由 Content 原模块发布，Skeleton provider 由 Aurora Adaptor 原模块发布；两个接口定义在消费方 `engine/animation`，用 Uuid、状态、诊断和既有 renderer-neutral clip/skeleton 数据返回。发布后的 clip/skeleton 内容不可由实例修改。World plugin 不链接这些提供方实现。Aurora 消费 Pose 的 `ISkeletalPoseSource` 定义在 `aurora/renderer`，由 Animation.World 实现；Animation.Editor 经 `IAnimationInstanceControl` 发送播放 / 参数命令并查询状态，不包含 World adaptor 实现头。两者使用同一 World epoch / Actor / instance generation 身份。跨模块服务复用 Framework `Interface<T>`。所有新共享注册表用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，调用源头须明确，禁止通过 Once、已存在跳过或 scratchNode 吞掉重复注册。runtime 重启与窗口创建只消费已注册元数据，不重复反射。服务仅在主线程访问，撤销早于依赖对象销毁；借用/完成回调保留实际资产、请求和 provider owner，并在会话关闭时完整 drain。DLL 代码保持进程常驻，不把 Interface 内裸指针或代码常驻误认为对象所有权。2026-10-25 用户再次确认该约束；原“反射幂等用 Once”方案撤销；用户已回复“按此方案实施”批准 Aurora.Metadata、Content.Metadata、Animation.GraphAssets，详见 `refactor-process-owned-reflection/design.md`。
 
 替代方案：把组件/Graph/编辑器继续塞入 Content 或 Aurora，短期 target 少但扩大 engine 业务实现和渲染耦合；整体搬迁 Animation/Content 则混入无关目录 diff。推荐上述新增实现归 plugin、原算法就地修复的边界。此表与装载列表须确认后才改 CMake/注册入口。
 
@@ -197,7 +197,7 @@ normalized exit time 必须指定本 state 的一个 Clip 节点作为 timeSourc
 
 Animation.Editor 注册 Skeleton/Clip/Graph 专用编辑扩展；Clip/Skeleton 的既有只读摘要仍可并存。通用 GraphCanvas 置于 Sandbox widgets，仅负责缩放/平移、选择、拖动、pin 命中、连线、框选、删除/复制；节点语义、graph schema 和状态机模型在 plugin。不新接 Qt 或外部节点编辑框架。
 
-EditorCore 的 IAssetPreviewProvider 扩展为 CreateSession / Update / Resize / Close / Status 契约；session 持独立 generation，shell 通过现有 RendererHost 提供 scene/view/output，provider 在输出退休前保持代码 lease。现有 bool GetPreview 只表示能力，不足以拥有多个预览。Skin 由 Aurora 扩展注册只读反射摘要并显示源 owner；用户重导入 owner 来修改绑定，不直接编辑 cooked 矩阵。Animation.Editor 对所选三元组创建生产组件并通过 IAnimationInstanceControl 控制，缺 provider 显式不可用。
+EditorCore 的 IAssetPreviewProvider 扩展为 CreateSession / Update / Resize / Close / Status 契约；session 持独立 generation，shell 通过现有 RendererHost 提供 scene/view/output，provider、预览 World 和输出数据在输出退休前由实际 owner 保持，DLL 代码由装载层保持进程常驻。现有 bool GetPreview 只表示能力，不足以拥有多个预览。Skin 由 Aurora 扩展注册只读反射摘要并显示源 owner；用户重导入 owner 来修改绑定，不直接编辑 cooked 矩阵。Animation.Editor 对所选三元组创建生产组件并通过 IAnimationInstanceControl 控制，缺 provider 显式不可用。
 
 GraphDocument 管理源文档/dirty，CommandService 管理节点/连线/参数/过渡和布局修改，拖动合并为一个事务。所选节点/组件/cook 设置经 ReflectedFormView；动态节点属性用节点描述符提供反射对象，不在 shell 写逐类型 switch 表单。ActionRegistry 统一菜单/工具栏/快捷键，UiTheme/UiSkin 决定尺寸与颜色。
 

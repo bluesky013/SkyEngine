@@ -90,7 +90,7 @@ The backend SHALL create and destroy physics worlds through the engine contract,
 
 ### Requirement: Single active backend registration
 
-The engine registry SHALL maintain exactly one active backend at a time. Registering a new backend SHALL unregister the previous factory and release the registry's ownership of it without invalidating existing worlds' state or code leases. World destruction SHALL use its creating owner's lifetime contract, not whichever backend is currently active.
+The engine registry SHALL maintain exactly one active backend at a time. Registering a new backend SHALL unregister the previous factory and release the registry's ownership of it without invalidating existing worlds' owned SDK state; defining DLL code SHALL remain process resident. World destruction SHALL use its creating owner's lifetime contract, not whichever backend is currently active.
 
 #### Scenario: Replace the active backend
 - **WHEN** a new backend is registered while one is active

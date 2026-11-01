@@ -49,9 +49,18 @@ namespace sky::editor {
 
         // The catalog is borrowed and must outlive the editing session.
         void SetCatalog(EditorAssetCatalog *value);
-        void SetActionScope(std::string value) { actionScope = std::move(value); }
-        void SetStandalone(bool value) { standalone = value; }
-        std::weak_ptr<void> GetActionLifetime() const { return actionLifetime; }
+        void SetActionScope(std::string value)
+        {
+            actionScope = std::move(value);
+        }
+        void SetStandalone(bool value)
+        {
+            standalone = value;
+        }
+        std::weak_ptr<void> GetActionLifetime() const
+        {
+            return actionLifetime;
+        }
         bool WantsPointerCapture() const override;
         void OnPointerCancel(uint32_t pointer) override;
 
@@ -61,15 +70,21 @@ namespace sky::editor {
             actionHandler = std::move(handler);
         }
 
-        void            Open(const Uuid &uuid);
-        void            Close();
+        void Open(const Uuid &uuid);
+        void Close();
         void Tick(float delta);
         bool NeedsCloseDecision() const;
-        bool IsCloseRequested() const { return documentCloseRequested || pendingSession == PendingSessionAction::Close; }
+        bool IsCloseRequested() const
+        {
+            return documentCloseRequested || pendingSession == PendingSessionAction::Close;
+        }
         enum class CloseDecision { Save, Discard, Cancel };
-        void ResolveClose(CloseDecision decision);
-        bool            CanResolveClose(CloseDecision decision) const;
-        const Uuid &AssetId() const { return asset; }
+        void        ResolveClose(CloseDecision decision);
+        bool        CanResolveClose(CloseDecision decision) const;
+        const Uuid &AssetId() const
+        {
+            return asset;
+        }
         CommandService &History()
         {
             return viewDocument.document ? viewDocument.document->History() : assetCommands;
@@ -110,7 +125,7 @@ namespace sky::editor {
         void            Reload();
         void            RebuildCustomContent();
         void            RebuildDataView();
-        void ReleaseCustomContent();
+        void            ReleaseCustomContent();
         sky::ui::UIRect PanelRect() const;
         sky::ui::UIRect ContentRect(const sky::ui::UIRect &panel) const;
         sky::ui::UIRect RightRect(const sky::ui::UIRect &content) const;
@@ -146,14 +161,13 @@ namespace sky::editor {
         EditorAssetCatalog  *pendingCatalog    = nullptr;
 
         std::vector<TargetPanel> panels;
-        AssetViewDocument viewDocument;
-        std::string actionScope = "assetViewer";
-        bool standalone = false;
-        std::shared_ptr<const void> customContentLease;
-        bool documentCloseRequested = false, documentSaveAndClose = false, documentDiscard = false;
-        bool                        documentCloseSaveFailed = false;
-        ClosePrompt                *closePrompt             = nullptr;
-        Uuid documentNextAsset;
+        AssetViewDocument        viewDocument;
+        std::string              actionScope            = "assetViewer";
+        bool                     standalone             = false;
+        bool                     documentCloseRequested = false, documentSaveAndClose = false, documentDiscard = false;
+        bool                     documentCloseSaveFailed = false;
+        ClosePrompt             *closePrompt             = nullptr;
+        Uuid                     documentNextAsset;
         sky::ui::UIElement      *customContent   = nullptr; // provider content, when any
         sky::ui::UIElement      *customPreview   = nullptr;
         sky::ui::UIElement      *contentViewport = nullptr; // clips the scrollable content region

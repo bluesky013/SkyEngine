@@ -18,7 +18,7 @@ namespace sky::phy {
 
     class JoltBackend final : public IPhysicsBackend {
     public:
-        explicit JoltBackend(std::shared_ptr<const void> codeLease = {});
+        JoltBackend();
         ~JoltBackend() override;
         bool                      Init() override;
         void                      Shutdown() override;
@@ -28,7 +28,6 @@ namespace sky::phy {
         void                      DestroyWorld(IPhysicsWorld *world) override;
 
     private:
-        std::shared_ptr<const void>  codeLease;
         std::shared_ptr<JoltSession> session;
         PhysicsBackendCaps           caps;
         PhysicsStatus                status;

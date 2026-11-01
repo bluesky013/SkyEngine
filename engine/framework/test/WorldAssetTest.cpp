@@ -217,7 +217,6 @@ namespace {
                                                                            }
                                                                            return true;
                                                                        },
-                                                                       {},
                                                                    }));
         }
         void TearDown() override

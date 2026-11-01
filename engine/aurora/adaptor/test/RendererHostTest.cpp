@@ -117,7 +117,6 @@ namespace {
             ASSERT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
             ASSERT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
             ASSERT_EQ(Interface<ISystemNotify>::Get()->GetApi(), nullptr);
-            ASSERT_EQ(ModuleManager::Current(), nullptr);
         }
         void TearDown() override
         {
@@ -457,9 +456,6 @@ namespace {
             ShaderCompileResult stored;
             ASSERT_TRUE(blobs.Load(key, stored)) << blobs.LastError();
             ASSERT_EQ(stored.artifactId, artifact.artifactId);
-            modules.AddStaticModule("Aurora.Render", std::make_unique<IModule>());
-            modules.TopoSort();
-            ASSERT_TRUE(modules.LoadModules({}));
             Interface<ISystemNotify>::Get()->Register(*this);
             window.SetSurface(std::make_shared<int>(1));
             module = std::make_unique<AuroraModule>(std::make_unique<LauncherProvider>(trace), std::move(bundle));
@@ -469,7 +465,6 @@ namespace {
         void TearDown() override
         {
             module.reset();
-            modules.UnLoadModules();
             Interface<ISystemNotify>::Get()->UnRegister();
             std::error_code error;
             std::filesystem::remove_all(root, error);
@@ -481,10 +476,6 @@ namespace {
         void *GetMainWindowHandle() const override
         {
             return window.GetNativeHandle();
-        }
-        ModuleManager *GetModuleManager() const override
-        {
-            return const_cast<ModuleManager *>(&modules);
         }
         template <typename T>
         std::vector<T> Commands() const
@@ -499,8 +490,7 @@ namespace {
         LauncherSceneRegistration RegisterSource(test::LauncherSceneSession::AppendFunction append,
                                                  test::LauncherSceneSession::EventFunction  event = {})
         {
-            const auto result =
-                module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(std::move(append), std::move(event)));
+            const auto  result = module->RegisterSceneSession(std::make_shared<test::LauncherSceneSession>(std::move(append), std::move(event)));
             const auto *registration = std::get_if<LauncherSceneRegistration>(&result);
             EXPECT_NE(registration, nullptr);
             return registration ? *registration : LauncherSceneRegistration{};
@@ -508,7 +498,6 @@ namespace {
         std::filesystem::path          root;
         std::shared_ptr<LauncherTrace> trace = std::make_shared<LauncherTrace>();
         LauncherWindow                 window;
-        ModuleManager                  modules;
         std::unique_ptr<AuroraModule>  module;
         bool                           failed = false;
     };
@@ -603,56 +592,36 @@ TEST_F(LauncherSurfaceTest, SceneSourceServicePublishesTheLauncherAndReleasesCap
     module->Shutdown();
 }
 
-TEST_F(LauncherSurfaceTest, SessionRegistrationRejectsUnknownModulesCompetitionAndStaleOwners)
+TEST_F(LauncherSurfaceTest, SessionRegistrationRejectsNullCompetitionAndStaleOwners)
 {
     auto session = std::make_shared<test::LauncherSceneSession>(nullptr);
-    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("MissingModule", session)));
-    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", nullptr)));
-    const auto first = module->RegisterSceneSession("Aurora.Render", session);
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession(nullptr)));
+    const auto first = module->RegisterSceneSession(session);
     ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(first));
-    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", session)));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession(session)));
     const auto registration = std::get<LauncherSceneRegistration>(first);
     auto       foreign      = registration;
     foreign.host            = Uuid::Create();
     EXPECT_TRUE(module->UnregisterSceneSession(foreign));
     ASSERT_FALSE(module->UnregisterSceneSession(registration));
-    const auto second = module->RegisterSceneSession("Aurora.Render", session);
+    const auto second = module->RegisterSceneSession(session);
     ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(second));
     EXPECT_NE(std::get<LauncherSceneRegistration>(second), registration);
     EXPECT_TRUE(module->UnregisterSceneSession(registration));
     EXPECT_FALSE(module->UnregisterSceneSession(std::get<LauncherSceneRegistration>(second)));
 }
 
-TEST_F(LauncherSurfaceTest, SessionRetainsItsActualModuleUntilAfterSessionDestruction)
+TEST_F(LauncherSurfaceTest, SessionOwnsCapturesUntilUnregistered)
 {
-    modules.AddStaticModule("SessionOwner", std::make_unique<IModule>());
-    modules.TopoSort();
-    ASSERT_TRUE(modules.LoadModules({}));
-    std::weak_ptr<const void> code      = modules.RetainModule("SessionOwner");
-    bool                      destroyed = false;
-    struct Capture {
-        Capture(std::weak_ptr<const void> code, bool &destroyed) : code(std::move(code)), destroyed(destroyed)
-        {
-        }
-        std::weak_ptr<const void> code;
-        bool                     &destroyed;
-        ~Capture()
-        {
-            EXPECT_FALSE(code.expired());
-            destroyed = true;
-        }
-    };
-    auto       capture    = std::make_shared<Capture>(code, destroyed);
-    const auto registered = module->RegisterSceneSession(
-        "SessionOwner", std::make_shared<test::LauncherSceneSession>([capture](FramePacket &, const LauncherSceneContext &) {}));
+    auto               capture  = std::make_shared<int>(7);
+    std::weak_ptr<int> retained = capture;
+    const auto         registered =
+        module->RegisterSceneSession(std::make_shared<test::LauncherSceneSession>([capture](FramePacket &, const LauncherSceneContext &) {}));
     ASSERT_TRUE(std::holds_alternative<LauncherSceneRegistration>(registered));
     capture.reset();
-    modules.UnLoadModules();
-    EXPECT_FALSE(code.expired());
-    EXPECT_FALSE(destroyed);
+    EXPECT_FALSE(retained.expired());
     EXPECT_FALSE(module->UnregisterSceneSession(std::get<LauncherSceneRegistration>(registered)));
-    EXPECT_TRUE(destroyed);
-    EXPECT_TRUE(code.expired());
+    EXPECT_TRUE(retained.expired());
 }
 
 TEST_F(LauncherSurfaceTest, SelfRemovalKeepsTheCurrentCallAliveAndReplacementWaitsForSceneRetirement)
@@ -777,7 +746,7 @@ TEST_F(LauncherSurfaceTest, DefaultWorldPresentsWithoutTickingSimulationAndYield
         float elapsed = 0;
     };
     auto *clock = new Clock();
-    game.world->AddSubSystem(Name("clock"), clock, modules.RetainModule("Aurora.Render"));
+    game.world->AddSubSystem(Name("clock"), clock);
     game.world->Tick(0.25f);
     module->Tick(0.25f);
     EXPECT_FLOAT_EQ(clock->elapsed, 0.25f);
@@ -830,8 +799,7 @@ TEST_F(LauncherSurfaceTest, ProviderOnlyDoesNotPublishALauncherSceneSource)
         args.args.push_back(value.c_str());
     }
     ASSERT_TRUE(module->Init(args));
-    EXPECT_TRUE(
-        std::holds_alternative<RendererError>(module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(nullptr))));
+    EXPECT_TRUE(std::holds_alternative<RendererError>(module->RegisterSceneSession(std::make_shared<test::LauncherSceneSession>(nullptr))));
     EXPECT_NE(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
@@ -848,7 +816,7 @@ TEST_F(LauncherSurfaceTest, FailedLauncherInitCannotRegisterOrPublishASession)
     module         = std::make_unique<AuroraModule>(std::move(provider), FileSystemPtr{});
     EXPECT_FALSE(module->Init({}));
     EXPECT_TRUE(failed);
-    const auto result = module->RegisterSceneSession("Aurora.Render", std::make_shared<test::LauncherSceneSession>(nullptr));
+    const auto result = module->RegisterSceneSession(std::make_shared<test::LauncherSceneSession>(nullptr));
     EXPECT_TRUE(std::holds_alternative<RendererError>(result));
     EXPECT_EQ(Interface<ILauncherSceneSource>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
@@ -859,7 +827,7 @@ TEST_F(LauncherSurfaceTest, CompetingSceneSourceIsNeitherReplacedNorUnregistered
 {
     class OtherSource final : public ILauncherSceneSource {
     public:
-        std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::string_view, std::shared_ptr<ILauncherSceneSession>) override
+        std::variant<RendererError, LauncherSceneRegistration> RegisterSceneSession(std::shared_ptr<ILauncherSceneSession>) override
         {
             return RendererError{RendererErrorCode::NOT_READY};
         }
@@ -948,6 +916,27 @@ TEST_F(LauncherSurfaceTest, ProjectSourceUsesHostContextAndDoesNotAppendAgainWhi
     module->Tick(.016f);
     EXPECT_GT(source.events, 0u);
     EXPECT_EQ(source.appends, calls + 1);
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, ProjectSourceTakesPriorityOverDefaultWorld)
+{
+    PublishedGameWorld game;
+    game.world = World::CreateWorld();
+    ProjectSceneSource source;
+    module->Tick(0);
+    EXPECT_EQ(source.appends, 1u);
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(LauncherSurfaceTest, ExplicitSessionTakesPriorityOverProjectSource)
+{
+    ProjectSceneSource source;
+    uint32_t           calls = 0;
+    RegisterSource([&](FramePacket &, const LauncherSceneContext &) { ++calls; });
+    module->Tick(0);
+    EXPECT_EQ(calls, 1u);
+    EXPECT_EQ(source.appends, 0u);
     EXPECT_FALSE(failed);
 }
 

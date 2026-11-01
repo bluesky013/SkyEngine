@@ -43,7 +43,7 @@ Keys 1/2 reset into normal light contact and rolling heavy impact respectively. 
 
 Lit computes a receiver depth gradient before sampling branches, compares at each shadow texel center and retains a small depth epsilon. A 3x3 PCF kernel smooths the hard nearest shadow edge. The sampler clamps at map boundaries. Native pixel-readback tests compare self-casting sloped receivers with noncasting baselines, plus the existing real occlusion/material-shadow checks.
 
-Project lighting enables the existing HDR/tone-map path. Its HUD uses Aurora's existing UI feature with an actual PartySoftBodyModule code lease; owned font texture and mesh/line snapshots do not retain gameplay objects. The Windows prototype rasterizes a local system font via GDI; there is no editor dependency or settings form. F1 cycles cage/body/probe/all, F2 toggles shadows, P/F3 pause/single-step. The title contains only the project name.
+Project lighting enables the existing HDR/tone-map path. Its HUD uses Aurora's existing UI feature with an owned Feature instance and process-resident PartySoftBodyModule code; owned font texture and mesh/line snapshots do not retain gameplay objects. The Windows prototype rasterizes a local system font via GDI; there is no editor dependency or settings form. F1 cycles cage/body/probe/all, F2 toggles shadows, P/F3 pause/single-step. The title contains only the project name.
 
 
 ## Close-up showcase and live tuning

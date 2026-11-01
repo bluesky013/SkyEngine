@@ -445,7 +445,7 @@ TEST_F(WorldSkinDefaultsTest, GenericComponentDependenciesAndRegisteredCreatorsU
     EXPECT_NE(actor->GetComponent(type), nullptr);
     ASSERT_TRUE(commands.Undo());
     const auto count = commands.GetUndoCount();
-    ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({{}, "test.generic", "Generic Actor", "Test", 0, [type](Actor &candidate) {
+    ASSERT_TRUE(EditorActorCreation::Get()->RegisterCreation({"test.generic", "Generic Actor", "Test", 0, [type](Actor &candidate) {
                                                                   candidate.SetName("Registered actor");
                                                                   return candidate.AddComponent(type) != nullptr;
                                                               }}));

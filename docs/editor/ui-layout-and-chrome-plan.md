@@ -1,5 +1,7 @@
 # Editor UI — Layout & Chrome Plan
 
+2026-11-01 lifecycle update: DLL code now stays process resident under `remove-module-code-leases`. Current T10 ownership work concerns session registrations, callback captures and actual service/data owners; binary replacement/removal requires restart. Earlier platform/checkpoint evidence remains historical.
+
 Goal: converge the editor UI on one architecture so future work is **incremental**, not a
 big-bang refactor. Companion to `docs/editor/ui-standards.md` (the rules) and
 `ui-sizing-and-scaling.md` (theme/sizing), `editor-toolbar.md`, `editor-framework-design.md`.
@@ -440,7 +442,7 @@ from executed reproductions.
   Integration additionally fixed inline Any field relocation (`fix-reflected-field-storage-lifetime`)
   and retained Shell action callbacks (`fix-editor-action-owner-lifetime`). Nested fields are built
   in reserved final storage after sorting metadata, and expired action owners make copied callbacks
-  inert without removing a newer owner's same-id actions. General scope ownership, DLL unload,
+  inert without removing a newer owner's same-id actions. General scope ownership, module-session shutdown,
   and deletion of another listener during raw-pointer Event snapshots remain future contracts.
   Audit the duplicate `SkyCocoaView`/`SkyCocoaWindowDelegate` Objective-C class definitions observed
   in the host and SandboxModule as a separate platform/DLL ownership investigation. The resolved
@@ -480,7 +482,7 @@ from executed reproductions.
   data-driven accelerators are already delivered.
   **Resolution:** `unify-editor-action-state` delivers enabled/visible/checkable/checked state,
   copied registration generations, guarded dispatch and in-place Shell/Viewer chrome refresh.
-  T10-A CPU/ASan acceptance passes. Scope-instance/registration ownership and DLL unload remain T10-B.
+  T10-A CPU/ASan acceptance passes. Scope-instance/registration ownership and module-session shutdown remain T10-B; DLL code stays resident.
 
 - [ ] **UI-13 · P3 · document definition versus instance.** UIDocument still combines its live tree,
   raw binding targets, and name index. Define serialized schema/stable ids separately from instance
@@ -584,7 +586,7 @@ advance T09/T10 ownership and action-state design before increasing renderer inf
 | --- | --- |
 | `fix-editor-skipped-frame-fence` | Implemented; CPU/ASan order tests pass. Real GPU recovery remains T02/T08. |
 | `fix-reflected-field-storage-lifetime` | Complete; nested inline values, defaults, parent chains and edit/reset/Undo pass normally/ASan. |
-| `fix-editor-action-owner-lifetime` | Complete; retained callbacks, newer owners, and live Shell rebuild pass normally/ASan. General scope/DLL-unload ownership remains T10. |
+| `fix-editor-action-owner-lifetime` | Complete; retained callbacks, newer owners, and live Shell rebuild pass normally/ASan. General scope/service-registration ownership remains T10. |
 
 ### T01 — Font registry lifetime
 
@@ -774,7 +776,7 @@ gates open until they run in an environment with a usable device.
 | T09-A · Remaining ownership/lifecycle decisions | P2; separate bounded scopes | Map remaining document/tree/binding ownership and close/rebind/transfer order. Audit handle domains across DLLs/multiple text systems, raw Event snapshots when another pending listener is deleted, and duplicate Cocoa class ownership. Renderer/device/resource decisions remain deferred under §13. | Explicit supported lifetimes and unregister rules; concrete follow-up changes for gaps. T09-A1 does not close Core Event or native module ownership. |
 | T09-B · Renderer specification decision | Deferred during the separate RDG/RHI refactor | After the refactor's contracts stabilize, reconcile the UI renderer/spec with its resource boundaries. Do not select or amend the renderer contract in this UI batch. | A coordinated decision and matching spec/proposal after the temporary exclusion in §13 is lifted. |
 | T10-A · Action presentation | Complete; portable CPU/ASan evidence in §14 | Carry checked/checkable/visible and disabled presentation from action registry through builder to toolbar/menu/shortcut dispatch; define refresh notifications. | Consistent state and invocation behavior across all chrome, with state-change regressions. |
-| T10-B · Scope and handler ownership | P2; depends on T09-A | Define scope instance identity and precise cleanup for nested dialogs/windows/documents and plugin unload. | Closing an older owner cannot remove a newer scope; no handlers/callback code remain callable after document/window close or DLL unload. Existing weak Shell action guards remain delivered. |
+| T10-B · Scope and handler ownership | P2; depends on T09-A | Define scope instance identity and precise cleanup for nested dialogs/windows/documents and plugin unload. | Closing an older owner cannot remove a newer scope; no stale handlers/callbacks access destroyed state after document/window close or module-session shutdown; DLL code remains resident. Existing weak Shell action guards remain delivered. |
 | T11-B · Preferences container composition | Complete; portable normal/ASan evidence in §16 | DockPanel header/body/footer, category ScrollView+VBox, stable reflected form and right-aligned 4/2/1-column footer use shared containers, theme metrics and explicit logical sizes. | 13 Preferences layout/input cases and 4 shared-skin scrollbar cases passed in both profiles; actual display/DPI appearance remains pending. |
 | T11-C · Portable persistence/application protocols | Complete; portable normal/ASan evidence in §17 | Generic checked page persistence, injectable storage/results, validation/application callbacks and result-aware session/dialog integration are present. | 30 new Core/Shell cases passed in both profiles; all six suites passed 491 tests per profile. Settings-only host integration is now included in the authorized §18 closeout; actual native display/GPU acceptance stays open. |
 | T11 closeout · ORDER, host wiring and frozen four-screen composition | Complete implementation/portable evidence in §18 | Effective ORDER, real file storage/generic host injection/plugin preservation, consistent user×DPI and the four named outer layout migrations are delivered. | 42 new cases; all six suites passed 533 tests in each normal/ASan profile. Settings-source syntax and scope checks passed; native execution/display gates remain distinct and eight settings remain stored-only. |

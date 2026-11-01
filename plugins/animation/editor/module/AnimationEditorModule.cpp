@@ -1,31 +1,26 @@
 #include "animation/editor/CharacterPreviewView.h"
 #include "animation/editor/GraphEditor.h"
 #include "animation/editor/GraphProperties.h"
-#include <framework/application/ModuleManager.h>
 #include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
 
 namespace sky::animation::editor {
     class GraphViewProvider final : public sky::editor::IAssetViewProvider {
     public:
-        bool UsesDocumentWindow() const override { return true; }
+        bool UsesDocumentWindow() const override
+        {
+            return true;
+        }
         sky::editor::AssetViewDocument OpenDocument(const Uuid &asset, const std::string &type) override
         {
             if (type != "AnimationGraph" && type != "AnimationClip" && type != "AuroraSkeleton")
                 return {};
-            auto *system  = Interface<ISystemNotify>::Get()->GetApi();
-            auto *modules = system ? system->GetModuleManager() : nullptr;
-            auto  lease   = modules ? modules->RetainModule("Animation.Editor") : nullptr;
-            if (!lease)
-                return {};
-            auto preview = std::make_shared<CharacterPreview>(asset, type, RetainCharacterPreviewModules());
+            auto preview = std::make_shared<CharacterPreview>(asset, type);
             if (type == "AnimationGraph") {
                 auto document = std::make_unique<GraphDocument>(asset);
                 document->Load();
-                return {std::move(lease), CreateGraphEditor(std::move(document), std::move(preview))};
+                return sky::editor::AssetViewDocument{CreateGraphEditor(std::move(document), std::move(preview))};
             }
-            return {std::move(lease), CreateCharacterEditor(std::move(preview))};
+            return sky::editor::AssetViewDocument{CreateCharacterEditor(std::move(preview))};
         }
     };
     class AnimationEditorModule final : public IModule {

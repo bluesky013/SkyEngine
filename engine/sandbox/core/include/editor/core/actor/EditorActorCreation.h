@@ -12,11 +12,10 @@ namespace sky {
 
 namespace sky::editor {
     struct ActorCreation {
-        std::shared_ptr<const void> moduleLease;
-        std::string                 id;
-        std::string                 label;
-        std::string                 group;
-        int                         order = 0;
+        std::string id;
+        std::string label;
+        std::string group;
+        int         order = 0;
         // Prepare a detached actor; failure discards it without editing the world.
         std::function<bool(Actor &)> create;
     };

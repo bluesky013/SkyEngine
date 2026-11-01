@@ -197,7 +197,6 @@ namespace sky {
         ProductStatus PublishProducts(std::span<const EncodedProduct> products, const ProductBundleKey &bundleKey);
         void          InvalidateProducts(std::span<const Uuid> products);
 
-        std::vector<std::shared_ptr<const void>>                    moduleCode;
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>>            bundles;
 

@@ -25,4 +25,4 @@ Compiler module internals, task ownership, third-party platform packaging, sourc
 
 ## Related changes
 
-refactor-aurora-target-shader-artifacts owns target ABI, parameter transactions and artifacts; refactor-aurora-shader-source-techniques owns typed V/P/S, complete Material keys and target lowering; refactor-process-owned-reflection owns process metadata definitions and code leases. This follow-up must preserve all three contracts. Current tasks and native platform gaps remain open; this correction is not an archive or implementation claim.
+refactor-aurora-target-shader-artifacts owns target ABI, parameter transactions and artifacts; refactor-aurora-shader-source-techniques owns typed V/P/S, complete Material keys and target lowering; refactor-process-owned-reflection owns unique process metadata definitions, and remove-module-code-leases now owns process-resident native code. This follow-up must preserve these contracts and the actual compiler/Slang-object ownership. Current tasks and native platform gaps remain open; this correction is not an archive or implementation claim.

@@ -15,6 +15,7 @@ namespace sky {
 
         bool Load();
 
+        // Releases this view; successfully loaded native libraries remain resident until process exit.
         void Unload();
 
         template <typename Func>

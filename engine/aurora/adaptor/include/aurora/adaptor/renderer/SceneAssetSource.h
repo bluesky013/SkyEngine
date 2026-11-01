@@ -9,14 +9,12 @@
 namespace sky::aurora {
     struct MaterialAssetData;
     struct SceneMaterialCapabilitySource {
-        // Dynamic providers retain their real loader lease until the callback is destroyed.
-        std::shared_ptr<const void>                                                         moduleLease;
         std::function<SceneSurfaceFacts(const Uuid &, const MaterialAssetData &, uint64_t)> resolve;
     };
     enum class ScenePrimitive { CUBE, PLANE };
     Uuid                                               ScenePrimitiveId(ScenePrimitive primitive);
     Uuid                                               SceneLitMaterialId();
-    bool IsBuiltinSceneAsset(const Uuid &id, std::string_view type);
+    bool                                               IsBuiltinSceneAsset(const Uuid &id, std::string_view type);
     MeshAssetData                                      ScenePrimitiveMesh(ScenePrimitive primitive);
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info);
     enum class SceneImageUsage { ENVIRONMENT, MATERIAL };

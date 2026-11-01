@@ -17,7 +17,7 @@
 ## 3. Process metadata and repeated sessions
 
 - [x] 3.1 Give built-in Core metadata one process-shared context creation owner with an explicit context factory and no recursive singleton construction.
-- [x] 3.2 Remove repeated Core reflection from application/test consumers while preserving module RegisterMeta and metadata/code leases.
+- [x] 3.2 Remove repeated Core reflection from application/test consumers while preserving module RegisterMeta and process metadata; defining code is now process-resident under `remove-module-code-leases`.
 - [x] 3.3 Add focused regressions for stable metadata across multiple applications, exit/late DESTROY, initialization failure and polling modes without weakening duplicate-owner checks.
 
 ## 4. Verification and cleanup

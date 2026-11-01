@@ -77,10 +77,6 @@ namespace sky::ai {
             return buildBounds;
         }
 
-        void SetCodeLease(std::shared_ptr<const void> lease)
-        {
-            codeLease = std::move(lease);
-        }
         void SetMaxTiles(uint32_t value)
         {
             maxTiles = value;
@@ -138,11 +134,10 @@ namespace sky::ai {
 
         INavigationSystem *navSystem = nullptr;
 
-        std::shared_ptr<const void> codeLease;
-        uint32_t                    maxTiles               = 256;
-        float                       maxSimplificationError = 1.3f;
-        NaviAgentConfig             agentCfg;
-        NaviMeshResolution          resolution;
+        uint32_t           maxTiles               = 256;
+        float              maxSimplificationError = 1.3f;
+        NaviAgentConfig    agentCfg;
+        NaviMeshResolution resolution;
 
         AABB                        buildBounds = {{-50.f, -50.f, -50.f}, {50.f, 50.f, 50.f}};
         std::unique_ptr<NaviOctree> octree;

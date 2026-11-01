@@ -6,7 +6,6 @@
 
 #include <core/environment/Environment.h>
 #include <core/type/Rtti.h>
-#include <mutex>
 
 namespace sky {
 
@@ -22,30 +21,15 @@ namespace sky {
 
         static void Destroy()
         {
-            auto &instance = GetPtr(false);
-            if (instance != nullptr) {
-                Environment::Get()->UnRegister(ID);
-                delete instance;
-                instance = nullptr;
-            }
+            delete static_cast<T *>(Environment::Get()->UnRegister(ID));
         }
 
     protected:
-        static T *&GetPtr(bool create)
+        static T *GetPtr(bool create)
         {
-            static T         *instance = nullptr;
-            static std::mutex mutex;
-            if (instance == nullptr && create) {
-                std::lock_guard<std::mutex> lock(mutex);
-                void                       *ptr = Environment::Get()->Find(ID);
-                if (ptr == nullptr) {
-                    instance = new T();
-                    Environment::Get()->Register(ID, instance);
-                } else {
-                    instance = static_cast<T *>(ptr);
-                }
-            }
-            return instance;
+            auto *environment = Environment::Get();
+            // Resident DLLs must not keep private pointers to instances destroyed by another DLL.
+            return static_cast<T *>(create ? environment->FindOrCreate(ID, []() -> void * { return new T(); }) : environment->Find(ID));
         }
 
         Singleton()          = default;

@@ -6,7 +6,7 @@ namespace sky::aurora {
     namespace {
         class RequestOperation final : public IAnimationSourceRequest<Skeleton> {
         public:
-            RequestOperation(const Uuid &id, std::shared_ptr<const void> code) : moduleLease(std::move(code)), assetId(id)
+            explicit RequestOperation(const Uuid &id) : assetId(id)
             {
                 if (assetId) {
                     asset = AssetManager::Get()->LoadAsset<Skeleton>(assetId, AssetLoadPolicy::ProductsOnly);
@@ -15,7 +15,6 @@ namespace sky::aurora {
             AnimationSourceResult<Skeleton> Poll() override
             {
                 AnimationSourceResult<Skeleton> result;
-                result.moduleLease   = moduleLease;
                 result.assetLease    = asset;
                 result.version.asset = assetId;
                 if (!asset || asset->GetStatus() == AssetBase::Status::FAILED) {
@@ -46,7 +45,6 @@ namespace sky::aurora {
             }
 
         private:
-            std::shared_ptr<const void>      moduleLease;
             Uuid                             assetId;
             std::shared_ptr<Asset<Skeleton>> asset;
             CounterPtr<Skeleton>             resource;
@@ -57,20 +55,14 @@ namespace sky::aurora {
             {
                 return AssetManager::Get()->GetProductChangeSerial();
             }
-            explicit Source(std::shared_ptr<const void> code) : moduleLease(std::move(code))
-            {
-            }
             AnimationSourceRequest<Skeleton> Request(const Uuid &id) override
             {
-                return {moduleLease, std::make_shared<RequestOperation>(id, moduleLease)};
+                return AnimationSourceRequest<Skeleton>{std::make_shared<RequestOperation>(id)};
             }
-
-        private:
-            std::shared_ptr<const void> moduleLease;
         };
     } // namespace
-    std::unique_ptr<IAnimationSkeletonSource> CreateAnimationSkeletonSource(std::shared_ptr<const void> moduleLease)
+    std::unique_ptr<IAnimationSkeletonSource> CreateAnimationSkeletonSource()
     {
-        return moduleLease ? std::make_unique<Source>(std::move(moduleLease)) : nullptr;
+        return std::make_unique<Source>();
     }
 } // namespace sky::aurora

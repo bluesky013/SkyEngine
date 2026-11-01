@@ -774,9 +774,7 @@ namespace sky::editor {
         }
         extensionHost.Add(std::make_unique<DefaultEditorExtension>(panelRegistry));
         extensionHost.RegisterAll();
-        auto *system    = Interface<ISystemNotify>::Get()->GetApi();
-        auto *manager   = system ? system->GetModuleManager() : nullptr;
-        builtinCreators = RegisterBuiltinActorCreators(manager ? manager->RetainModule("SandboxModule") : nullptr);
+        builtinCreators = RegisterBuiltinActorCreators();
 
         // Default: Outliner (left) | Viewport (center) | Inspector (right), with a bottom dock
         // for the asset browser + output log (Unity/Godot/O3DE place the asset browser at the
@@ -1655,12 +1653,11 @@ namespace sky::editor {
         creationActions.clear();
         for (const auto &[id, creator] : creators->GetTools()) {
             const auto actionId = "scene.create." + id;
-            actions->Add({.moduleLease = creator->moduleLease,
-                          .id          = actionId,
-                          .label       = creator->label,
-                          .menu        = EditorMenu::Edit,
-                          .submenu     = "Create",
-                          .order       = 20 + creator->order,
+            actions->Add({.id      = actionId,
+                          .label   = creator->label,
+                          .menu    = EditorMenu::Edit,
+                          .submenu = "Create",
+                          .order   = 20 + creator->order,
                           .enabled =
                               [this, id, identity = std::weak_ptr<const ActorCreation>(creator)]() {
                                   const auto current = identity.lock();

@@ -24,9 +24,7 @@ TEST(AnimationSkeletonSource, PollPinsRigInstanceAndLayoutWithoutBlocking)
         product->Data().boneData = {{Name("root"), INVALID_BONE_ID}};
         product->Data().refPos.resize(1);
         ASSERT_TRUE(manager->SaveAsset(product, "rig-source-test"));
-        auto                      code     = std::make_shared<int>(1);
-        std::weak_ptr<const void> lifetime = code;
-        auto                      source   = CreateAnimationSkeletonSource(code);
+        auto source = CreateAnimationSkeletonSource();
         ASSERT_NE(source, nullptr);
         auto request = source->Request(id);
         ASSERT_TRUE(request);
@@ -41,12 +39,11 @@ TEST(AnimationSkeletonSource, PollPinsRigInstanceAndLayoutWithoutBlocking)
         EXPECT_EQ(ready.version.layout, ready.resource->GetLayoutSignature());
         EXPECT_EQ(source->Request({}).Poll().state, AnimationSourceState::Error);
         source.reset();
-        code.reset();
         request = {};
-        EXPECT_FALSE(lifetime.expired());
+        EXPECT_TRUE(ready.assetLease);
+        EXPECT_EQ(ready.version.layout, ready.resource->GetLayoutSignature());
         ready = {};
-        EXPECT_TRUE(lifetime.expired());
-        EXPECT_EQ(CreateAnimationSkeletonSource({}), nullptr);
+        EXPECT_EQ(AnimationSourceRequest<Skeleton>{}.Poll().state, AnimationSourceState::Error);
         AssetExecutor::Get()->WaitForAll();
     }
     std::filesystem::remove_all(root, error);
