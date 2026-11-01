@@ -6,6 +6,8 @@
 
 #include <framework/platform/PlatformBase.h>
 
+#include <atomic>
+
 namespace sky {
 
     class CocoaWindow;
@@ -63,14 +65,12 @@ namespace sky {
         void NotifyWindowClosed(void *handle)
         {
             if (handle == mainWindow) {
-                exitRequested = true;
+                RequestExit();
             }
         }
 
-        void RequestExit()
-        {
-            exitRequested = true;
-        }
+        // Safe from a worker while the platform remains alive; wakes the owner event pump.
+        void RequestExit();
 
         void NotifyWindowDestroyed(void *handle)
         {
@@ -80,10 +80,10 @@ namespace sky {
         }
 
     private:
-        void *mainWindow          = nullptr; // CAMetalLayer of the main window
-        void *framePool           = nullptr; // NSAutoreleasePool, drained once per frame
-        void *applicationDelegate = nullptr; // owned when this backend supplies the app delegate
-        bool  exitRequested       = false;
+        void             *mainWindow          = nullptr; // CAMetalLayer of the main window
+        void             *framePool           = nullptr; // NSAutoreleasePool, drained once per frame
+        void             *applicationDelegate = nullptr; // owned when this backend supplies the app delegate
+        std::atomic<bool> exitRequested       = false;
     };
 
 } // namespace sky

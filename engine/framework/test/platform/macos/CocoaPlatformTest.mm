@@ -9,8 +9,11 @@
 #include <framework/window/NativeWindowManager.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cmath>
 #include <memory>
+#include <string>
+#include <thread>
 
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -114,12 +117,16 @@ namespace {
         {
             ++eventCount;
         }
-        void OnTextInput(sky::WindowID, const char *) override
+        void OnTextInput(sky::WindowID window, const char *value) override
         {
+            textWindow = window;
+            text += value;
             ++eventCount;
         }
 
-        int eventCount = 0;
+        sky::WindowID textWindow = sky::INVALID_WIN_ID;
+        std::string   text;
+        int           eventCount = 0;
     };
 
     class WindowRecorder : public sky::IWindowEvent {
@@ -271,6 +278,139 @@ namespace {
         EXPECT_EQ([NSCursor currentCursor], [NSCursor IBeamCursor]);
         window->SetPointerCapture(true);
         window->SetPointerCapture(false);
+    }
+
+    TEST_F(CocoaPlatformTest, InactiveWaitPumpsTimerDrivenWindowRestore)
+    {
+        ASSERT_FALSE(sky::Platform::Get()->IsFrameActive());
+        __block bool restored = false;
+        NSWindow    *native   = Native();
+        NSTimer     *timer    = [NSTimer scheduledTimerWithTimeInterval:0.02
+                                                         repeats:NO
+                                                           block:^(NSTimer *) {
+                                                               [native orderFront:nil];
+                                                               restored = true;
+                                                           }];
+        bool         exit     = false;
+        sky::Platform::Get()->PoolEvent(exit, sky::EventPollMode::WAIT_IF_INACTIVE);
+        [timer invalidate];
+        EXPECT_TRUE(restored);
+        EXPECT_TRUE(sky::Platform::Get()->IsFrameActive());
+        EXPECT_FALSE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, NonBlockingPollDoesNotEnterNativeWaiting)
+    {
+        ASSERT_FALSE(sky::Platform::Get()->IsFrameActive());
+        __block bool         waited = false;
+        CFRunLoopObserverRef observer =
+            CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, true, 0, ^(CFRunLoopObserverRef, CFRunLoopActivity) {
+                waited = true;
+            });
+        ASSERT_NE(observer, nullptr);
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopDefaultMode);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit, sky::EventPollMode::NON_BLOCKING);
+        CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, kCFRunLoopDefaultMode);
+        CFRelease(observer);
+        EXPECT_FALSE(waited);
+        EXPECT_FALSE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, NonBlockingExitStillDispatchesQueuedNativeWork)
+    {
+        __block bool dispatched = false;
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopDefaultMode, ^{
+            dispatched = true;
+        });
+        auto *platform = static_cast<sky::MacosPlatform *>(sky::Platform::Get()->GetImpl());
+        platform->RequestExit();
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit, sky::EventPollMode::NON_BLOCKING);
+        EXPECT_TRUE(dispatched);
+        EXPECT_TRUE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, WorkerExitWakesTheInactiveEventPump)
+    {
+        ASSERT_FALSE(sky::Platform::Get()->IsFrameActive());
+        auto       *platform = static_cast<sky::MacosPlatform *>(sky::Platform::Get()->GetImpl());
+        std::thread request([platform] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            platform->RequestExit();
+        });
+        const auto  deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        bool        exit     = false;
+        do {
+            sky::Platform::Get()->PoolEvent(exit, sky::EventPollMode::WAIT_IF_INACTIVE);
+        } while (!exit && std::chrono::steady_clock::now() < deadline);
+        request.join();
+        EXPECT_TRUE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, AlreadyRequestedExitDoesNotWaitWhileInactive)
+    {
+        ASSERT_FALSE(sky::Platform::Get()->IsFrameActive());
+        auto *platform = static_cast<sky::MacosPlatform *>(sky::Platform::Get()->GetImpl());
+        platform->RequestExit();
+        __block bool         waited = false;
+        CFRunLoopObserverRef observer =
+            CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, true, 0, ^(CFRunLoopObserverRef, CFRunLoopActivity) {
+                waited = true;
+            });
+        ASSERT_NE(observer, nullptr);
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopDefaultMode);
+        bool exit = false;
+        sky::Platform::Get()->PoolEvent(exit, sky::EventPollMode::WAIT_IF_INACTIVE);
+        CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, kCFRunLoopDefaultMode);
+        CFRelease(observer);
+        EXPECT_FALSE(waited);
+        EXPECT_TRUE(exit);
+    }
+
+    TEST_F(CocoaPlatformTest, NativeCompositionCommitsUTF8OnlyAfterPreedit)
+    {
+        [Native() makeKeyAndOrderFront:nil];
+        NSView<NSTextInputClient> *view = static_cast<NSView<NSTextInputClient> *>(Native().contentView);
+        [Native() makeFirstResponder:view];
+        sky::Platform::Get()->StartTextInput();
+        KeyboardRecorder recorder;
+        [view setMarkedText:@"\u4E2D\u6587" selectedRange:NSMakeRange(1, 0) replacementRange:NSMakeRange(NSNotFound, 0)];
+        EXPECT_TRUE([view hasMarkedText]);
+        EXPECT_EQ(recorder.eventCount, 0);
+        NSAttributedString *committed = [[[NSAttributedString alloc] initWithString:@"\u4E2D\u6587\U0001F642"] autorelease];
+        [view insertText:committed replacementRange:NSMakeRange(NSNotFound, 0)];
+        EXPECT_FALSE([view hasMarkedText]);
+        EXPECT_EQ(recorder.eventCount, 1);
+        EXPECT_EQ(recorder.textWindow, window->GetWinId());
+        EXPECT_EQ(recorder.text, "\xE4\xB8\xAD\xE6\x96\x87\xF0\x9F\x99\x82");
+        sky::Platform::Get()->StopTextInput();
+    }
+
+    TEST_F(CocoaPlatformTest, FocusLossAndStopDiscardCompositionAndStartAcceptsAgain)
+    {
+        [Native() makeKeyAndOrderFront:nil];
+        NSView<NSTextInputClient> *view = static_cast<NSView<NSTextInputClient> *>(Native().contentView);
+        [Native() makeFirstResponder:view];
+        sky::Platform::Get()->StartTextInput();
+        KeyboardRecorder recorder;
+        [view setMarkedText:@"pending" selectedRange:NSMakeRange(0, 0) replacementRange:NSMakeRange(NSNotFound, 0)];
+        ASSERT_TRUE([view hasMarkedText]);
+        id<NSWindowDelegate> delegate = [Native() delegate];
+        ASSERT_TRUE([delegate respondsToSelector:@selector(windowDidResignKey:)]);
+        [delegate windowDidResignKey:[NSNotification notificationWithName:NSWindowDidResignKeyNotification object:Native()]];
+        EXPECT_FALSE([view hasMarkedText]);
+        EXPECT_EQ(recorder.eventCount, 0);
+        [view setMarkedText:@"cancelled" selectedRange:NSMakeRange(0, 0) replacementRange:NSMakeRange(NSNotFound, 0)];
+        sky::Platform::Get()->StopTextInput();
+        EXPECT_FALSE([view hasMarkedText]);
+        [view insertText:@"stopped" replacementRange:NSMakeRange(NSNotFound, 0)];
+        EXPECT_EQ(recorder.eventCount, 0);
+        sky::Platform::Get()->StartTextInput();
+        [view insertText:@"restart" replacementRange:NSMakeRange(NSNotFound, 0)];
+        EXPECT_EQ(recorder.text, "restart");
+        EXPECT_EQ(recorder.eventCount, 1);
+        sky::Platform::Get()->StopTextInput();
     }
 
     TEST_F(CocoaPlatformTest, TextCandidateUsesFramebufferCaretRectangle)
@@ -466,6 +606,23 @@ namespace {
         ASSERT_NE(fs, nullptr);
         EXPECT_EQ(fs->GetPath().GetStr(), sky::Platform::Get()->GetBundlePath());
         EXPECT_FALSE(sky::Platform::Get()->GetEnvVariable("PATH").empty());
+    }
+
+    TEST_F(CocoaPlatformTest, BundleDataUsesResourcesWhileLooseExecutablesUseTheirDirectory)
+    {
+        NSBundle *bundle     = [NSBundle mainBundle];
+        NSString *bundlePath = [bundle bundlePath];
+        ASSERT_NE(bundlePath, nil);
+        const bool application = [[bundlePath pathExtension] caseInsensitiveCompare:@"app"] == NSOrderedSame;
+        NSString  *expected    = application ? [bundle resourcePath] : [[bundle executablePath] stringByDeletingLastPathComponent];
+        ASSERT_NE(expected, nil);
+        EXPECT_EQ(sky::Platform::Get()->GetBundlePath(), [expected UTF8String]);
+        const auto fs = sky::Platform::Get()->GetBundleFileSystem();
+        ASSERT_NE(fs, nullptr);
+        EXPECT_EQ(fs->GetPath().GetStr(), [expected UTF8String]);
+        if (application) {
+            EXPECT_TRUE([expected hasSuffix:@"/Contents/Resources"]);
+        }
     }
 
 } // namespace

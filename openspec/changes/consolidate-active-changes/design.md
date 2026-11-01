@@ -1,13 +1,14 @@
 # 当前整合快照 — 2026-11-01
 
-本轮以最新 `52fbcb3a` 为基线，176 份主 spec 先保留全部 1,327 条需求并合并为 32 个领域。经用户明确确认，24 项已交付/已替代 change 已按选择性同步计划归档，4 份未展开草案移入 backlog。当前为 **27 个活跃目录、4 份 backlog 草案、32 个领域、1,390 条主需求**。原 1,183 个历史归档文件不改写。
+本轮以最新 `52fbcb3a` 为基线，176 份主 spec 先保留全部 1,327 条需求并合并为 32 个领域。经用户明确确认，24 项已交付/已替代 change 已按选择性同步计划归档，4 份未展开草案移入 backlog。归档整理结束时为 **27 个活跃目录、4 份 backlog 草案、32 个领域、1,390 条主需求**。原 1,183 个历史归档文件不改写。
 
 ## 当前逐项状态
 
-`active` 表示仍有明确工作，`blocked-on-prereq` 指向真实前置，`planned` 为待设计/实施；冻结与债务不进入执行清单。`ready-to-archive` 只表示 review readiness，不授权归档。下表覆盖当前全部 27 个目录。
+`active` 表示仍有明确工作，`blocked-on-prereq` 指向真实前置，`planned` 为待设计/实施；冻结与债务不进入执行清单。`ready-to-archive` 只表示 review readiness，不授权归档。下表保留整理后的归属；2026-11-02 新增 Apple 适配修复后当前目录数为 28。
 
 | Change | 状态 | 已勾/总任务 | 当前 owner | 实际剩余/边界 |
 | --- | --- | ---: | --- | --- |
+| [fix-apple-platform-parity](../fix-apple-platform-parity/tasks.md) | active | 21/23 | fix-apple-platform-parity | Apple 架构/导出、Cocoa 与 UIKit 原生输入、签名资源布局修复；最终模拟器与 Windows 共享构建回归待补，实测逐项在该 change 记录。 |
 | [add-android-python-runtime](../add-android-python-runtime/tasks.md) | active | 14/20 | add-android-python-runtime | 修复 CPython frozen/getpath 生成头；完成 Gradle 模块/stdlib 打包及设备 import/反射验证。 |
 | [add-common-async-io](../add-common-async-io/tasks.md) | active | 4/43 | add-common-async-io | 详细方案待 review；通用 IO 调度、chunk product 和发布实现尚未开始。 |
 | [add-harmonyos-platform](../add-harmonyos-platform/tasks.md) | active | 43/64 | add-harmonyos-platform | 保留 HAP 依赖闭包、真实 GPU/输入/长期稳定性矩阵、CPython 构建缺口；3.10 同时承接 UIKit input/scene-host 专项。 |

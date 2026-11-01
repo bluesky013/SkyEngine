@@ -174,7 +174,7 @@ class NativePackageArtifactTest(unittest.TestCase):
             (resources / 'assets/shaders').mkdir(parents=True)
             (resources / 'assets/shaders/Main.slang').write_text('source')
             for name in ('libslang-compiler.dylib', 'libAurora.ShaderCompiler.dylib', 'libKeep.dylib'):
-                (resources / name).write_bytes(b'library')
+                (app / 'Contents/MacOS' / name).write_bytes(b'library')
             archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'macos'}, 'Smoke')
             with zipfile.ZipFile(archive) as output:
                 self.assertFalse(any(name.endswith('.slang') or 'slang-compiler' in name or 'Aurora.ShaderCompiler' in name
@@ -263,9 +263,11 @@ class NativePackageArtifactTest(unittest.TestCase):
     def make_app(self, root, platform):
         project, engine = root / 'project', root / 'engine'
         app = project / 'build' / platform / 'bin' / 'Release' / 'Smoke.app'
-        resources = app / 'Contents' / 'MacOS' if platform == 'macos' else app
+        resources = app / 'Contents' / 'Resources' if platform == 'macos' else app
         resources.mkdir(parents=True)
-        executable = resources / 'Smoke'
+        executable_directory = app / 'Contents/MacOS' if platform == 'macos' else app
+        executable_directory.mkdir(parents=True, exist_ok=True)
+        executable = executable_directory / 'Smoke'
         executable.write_bytes(b'test executable')
         executable.chmod(0o755)
         plist = app / 'Contents/Info.plist' if platform == 'macos' else app / 'Info.plist'
@@ -445,15 +447,43 @@ class NativePackageArtifactTest(unittest.TestCase):
     def test_macos_archive_preserves_framework_links_and_bundle_layout(self):
         with tempfile.TemporaryDirectory() as temp:
             engine, project, app, resources = self.make_app(Path(temp), 'macos')
-            (resources / 'library.1.dylib').write_bytes(b'library')
-            (resources / 'library.dylib').symlink_to('library.1.dylib')
+            executable_directory = app / 'Contents/MacOS'
+            (executable_directory / 'library.1.dylib').write_bytes(b'library')
+            (executable_directory / 'library.dylib').symlink_to('library.1.dylib')
             archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'macos'}, 'Smoke')
             with zipfile.ZipFile(archive) as output:
                 self.assertIn('Smoke.app/Contents/Info.plist', output.namelist())
-                self.assertIn('Smoke.app/Contents/MacOS/products/bundles.json', output.namelist())
+                self.assertIn('Smoke.app/Contents/Resources/products/bundles.json', output.namelist())
+                self.assertIn('Smoke.app/Contents/Resources/configs/modules_game.json', output.namelist())
+                self.assertIn('Smoke.app/Contents/MacOS/Smoke', output.namelist())
+                self.assertFalse(any(name.startswith('Smoke.app/Contents/MacOS/' + root)
+                                     for name in output.namelist() for root in ('products/', 'configs/', 'assets/')))
                 link = output.getinfo('Smoke.app/Contents/MacOS/library.dylib')
                 self.assertTrue(stat.S_ISLNK(link.external_attr >> 16))
                 self.assertEqual(output.read(link), b'library.1.dylib')
+
+    def test_macos_collection_retires_legacy_generated_data_without_touching_code_or_sources(self):
+        with tempfile.TemporaryDirectory() as temp:
+            engine, project, app, resources = self.make_app(Path(temp), 'macos')
+            executable_directory = app / 'Contents/MacOS'
+            for relative in ('products/old.bin', 'configs/old.json', 'assets/shaders/Old.slang'):
+                path = executable_directory / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'old generated data')
+            runtime = executable_directory / 'libKeep.dylib'
+            runtime.write_bytes(b'runtime code')
+            source = project / 'assets/owned.txt'
+            source.parent.mkdir()
+            source.write_bytes(b'project source')
+            archive = PACKAGE.collect_apple_package(engine, project, {'platform': 'macos'}, 'Smoke')
+            self.assertEqual(runtime.read_bytes(), b'runtime code')
+            self.assertEqual(source.read_bytes(), b'project source')
+            self.assertFalse((executable_directory / 'products').exists())
+            self.assertFalse((executable_directory / 'configs').exists())
+            self.assertFalse((executable_directory / 'assets').exists())
+            self.assertTrue((resources / 'products/bundles.json').is_file())
+            with zipfile.ZipFile(archive) as output:
+                self.assertNotIn('Smoke.app/Contents/MacOS/products/old.bin', output.namelist())
 
     def test_rejects_missing_or_ambiguous_app_instead_of_collecting_stale_build(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -555,6 +585,8 @@ class NativePackageArtifactTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'darwin', 'requires native Apple bundle generation')
     def test_building_only_the_launcher_deploys_products_inside_the_new_bundle(self):
         template = (PACKAGE.REPO_ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text()
+        defaults = template[template.index('set(_sky_deploy_resources_default ON)'):
+                            template.index('set(_sky_project_native_directory')]
         deployment = template[template.index('# Mobile assets are prepared'):
                               template.index('function(_sky_collect_imported_runtimes')]
         with tempfile.TemporaryDirectory() as temp:
@@ -577,12 +609,12 @@ class NativePackageArtifactTest(unittest.TestCase):
                 'add_executable(Launcher MACOSX_BUNDLE main.c)\n'
                 'set_target_properties(Launcher PROPERTIES OUTPUT_NAME Smoke RUNTIME_OUTPUT_DIRECTORY "'
                 + str(project / 'build/macos/bin/Release') + '")\n'
-                + deployment.replace('{{PROJECT_NAME}}', 'Smoke'), encoding='utf-8')
+                + (defaults + deployment).replace('{{PROJECT_NAME}}', 'Smoke'), encoding='utf-8')
             subprocess.run(['cmake', '-S', str(native), '-B', str(project / 'cmake')],
                            check=True, capture_output=True, text=True)
             subprocess.run(['cmake', '--build', str(project / 'cmake'), '--target', 'Launcher'],
                            check=True, capture_output=True, text=True)
-            self.assertTrue((resources / 'Smoke').is_file())
+            self.assertTrue((app / 'Contents/MacOS/Smoke').is_file())
             self.assertEqual((resources / 'products/shaders/metal/index.bin').read_bytes(), b'shader index')
 
 

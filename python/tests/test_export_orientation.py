@@ -65,7 +65,7 @@ class ExportOrientationTest(unittest.TestCase):
                         self.assertEqual(manifest['UISupportedInterfaceOrientations'], ios[index])
                         self.assertEqual(manifest['UISupportedInterfaceOrientations~ipad'], ios[index])
                         self.assertIn('UIApplicationSceneManifest', manifest)
-                        self.assertIn('-DSKY_IOS_INFO_PLIST=' + path.as_posix(), configure.call_args.kwargs['extra'])
+                        self.assertIn('-DSKY_IOS_INFO_PLIST=' + path.resolve().as_posix(), configure.call_args.kwargs['extra'])
         for path, data in original.items():
             self.assertEqual(path.read_bytes(), data, str(path))
 

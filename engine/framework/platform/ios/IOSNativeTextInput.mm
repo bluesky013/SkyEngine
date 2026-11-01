@@ -57,13 +57,63 @@ namespace {
     }
 } // namespace
 
-@interface                                            SkyIOSNativeTextInputHandle : NSObject
-@property (nonatomic, assign) uint64_t                token;
-@property (nonatomic, strong) UINavigationController *navigation;
+@interface                                                  SkyIOSNativeTextInputHandle : NSObject
+@property (nonatomic, assign) uint64_t                      token;
+@property (nonatomic, assign) BOOL                          retiring;
+@property (nonatomic, assign) sky::NativeTextInputEventType terminalType;
+@property (nonatomic, assign) int32_t                       terminalError;
+@property (nonatomic, copy) NSString                       *terminalText;
+@property (nonatomic, strong) UINavigationController       *navigation;
 @end
 
 @implementation SkyIOSNativeTextInputHandle
 @end
+
+namespace {
+    bool IsCurrentDialog(SkyIOSNativeTextInputHandle *handle, uint64_t token)
+    {
+        return token != 0 && (handle == nil || handle.token == token) && sky::NativeTextInputState::Get()->ActiveToken() == token;
+    }
+
+    void DispatchDialog(SkyIOSNativeTextInputHandle *handle, uint64_t token)
+    {
+        if (IsCurrentDialog(handle, token) && !handle.retiring) {
+            sky::NativeTextInputState::Get()->Dispatch();
+        }
+    }
+
+    bool ClaimDialogTerminal(
+        SkyIOSNativeTextInputHandle *handle, uint64_t token, sky::NativeTextInputEventType type, NSString *text, int32_t nativeError = 0)
+    {
+        if (handle == nil || !IsCurrentDialog(handle, token) || handle.retiring) {
+            return false;
+        }
+        handle.retiring      = YES;
+        handle.terminalType  = type;
+        handle.terminalText  = text;
+        handle.terminalError = nativeError;
+        return true;
+    }
+
+    void DispatchDialogTerminal(SkyIOSNativeTextInputHandle *handle, uint64_t token)
+    {
+        if (handle == nil || !IsCurrentDialog(handle, token) || !handle.retiring) {
+            return;
+        }
+        sky::NativeTextInputState::Get()->Post(token, {handle.terminalType, EngineString(handle.terminalText), handle.terminalError});
+        handle.retiring     = NO;
+        handle.terminalText = nil;
+        DispatchDialog(handle, token);
+    }
+
+    void CompleteDialogDismissal(SkyIOSNativeTextInputHandle *handle, uint64_t token)
+    {
+        handle.navigation = nil;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            DispatchDialogTerminal(handle, token);
+        });
+    }
+} // namespace
 
 @interface SkyIOSNativeTextInputController : UIViewController <UITextFieldDelegate, UITextViewDelegate, UIAdaptivePresentationControllerDelegate>
 @property (nonatomic, assign) uint64_t                   token;
@@ -179,12 +229,13 @@ namespace {
     }
     if (![input becomeFirstResponder]) {
         SkyIOSNativeTextInputHandle *handle = self.handle;
-        sky::NativeTextInputState::Get()->Post(self.token, {sky::NativeTextInputEventType::ERROR, EngineString(self.committedText), EIO});
-        [self.navigationController dismissViewControllerAnimated:NO
-                                                      completion:^{
-                                                          handle.navigation = nil;
-                                                          sky::NativeTextInputState::Get()->Dispatch();
-                                                      }];
+        const uint64_t               token  = self.token;
+        if (ClaimDialogTerminal(handle, token, sky::NativeTextInputEventType::ERROR, self.committedText, EIO)) {
+            [self.navigationController dismissViewControllerAnimated:NO
+                                                          completion:^{
+                                                              CompleteDialogDismissal(handle, token);
+                                                          }];
+        }
     }
 }
 
@@ -192,7 +243,7 @@ namespace {
 {
     __attribute__((objc_precise_lifetime)) SkyIOSNativeTextInputController *keepAlive = self;
     (void)keepAlive;
-    if (sky::NativeTextInputState::Get()->ActiveToken() != self.token) {
+    if (self.handle.retiring || !IsCurrentDialog(self.handle, self.token)) {
         return;
     }
     id<UITextInput> input = self.editor;
@@ -228,7 +279,7 @@ namespace {
     self.placeholderLabel.hidden = limited.length != 0;
     self.committedText           = limited;
     if (sky::NativeTextInputState::Get()->Post(self.token, {sky::NativeTextInputEventType::CHANGED, EngineString(limited), 0})) {
-        sky::NativeTextInputState::Get()->Dispatch();
+        DispatchDialog(self.handle, self.token);
     }
 }
 
@@ -271,14 +322,15 @@ namespace {
 {
     UINavigationController      *navigation = self.navigationController;
     SkyIOSNativeTextInputHandle *handle     = self.handle;
-    if (!sky::NativeTextInputState::Get()->Post(self.token, {type, EngineString(self.committedText), 0})) {
+    const uint64_t               token      = self.token;
+    if (!ClaimDialogTerminal(handle, token, type, self.committedText)) {
         return;
     }
+    // Keep the claimed terminal out of the shared queue until UIKit releases the presenter.
     [self.view endEditing:YES];
     [navigation dismissViewControllerAnimated:YES
                                    completion:^{
-                                       handle.navigation = nil;
-                                       sky::NativeTextInputState::Get()->Dispatch();
+                                       CompleteDialogDismissal(handle, token);
                                    }];
 }
 
@@ -299,22 +351,20 @@ namespace {
 - (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController
 {
     (void)presentationController;
-    if (sky::NativeTextInputState::Get()->Post(self.token, {sky::NativeTextInputEventType::CANCELLED, EngineString(self.committedText), 0})) {
-        self.handle.navigation = nil;
-        sky::NativeTextInputState::Get()->Dispatch();
+    SkyIOSNativeTextInputHandle *handle = self.handle;
+    if (ClaimDialogTerminal(handle, self.token, sky::NativeTextInputEventType::CANCELLED, self.committedText)) {
+        CompleteDialogDismissal(handle, self.token);
     }
 }
 
 - (void)viewDidDisappear:(BOOL)animated
 {
     [super viewDidDisappear:animated];
-    UINavigationController *navigation = self.navigationController;
+    UINavigationController      *navigation = self.navigationController;
+    SkyIOSNativeTextInputHandle *handle     = self.handle;
     if ((self.isBeingDismissed || navigation.isBeingDismissed || navigation.presentingViewController == nil) &&
-        sky::NativeTextInputState::Get()->Post(self.token, {sky::NativeTextInputEventType::CANCELLED, EngineString(self.committedText), 0})) {
-        self.handle.navigation = nil;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            sky::NativeTextInputState::Get()->Dispatch();
-        });
+        ClaimDialogTerminal(handle, self.token, sky::NativeTextInputEventType::CANCELLED, self.committedText)) {
+        CompleteDialogDismissal(handle, self.token);
     }
 }
 
@@ -354,7 +404,7 @@ namespace sky::ios {
         SkyIOSNativeTextInputController *editor = [[SkyIOSNativeTextInputController alloc] init];
         if (editor == nil) {
             NativeTextInputState::Get()->Post(token, {NativeTextInputEventType::ERROR, options.text, ENOMEM});
-            NativeTextInputState::Get()->Dispatch();
+            DispatchDialog(nil, token);
             return true;
         }
         editor.token                            = token;
@@ -369,7 +419,7 @@ namespace sky::ios {
         SkyIOSNativeTextInputHandle *handle     = [[SkyIOSNativeTextInputHandle alloc] init];
         if (navigation == nil || handle == nil) {
             NativeTextInputState::Get()->Post(token, {NativeTextInputEventType::ERROR, options.text, ENOMEM});
-            NativeTextInputState::Get()->Dispatch();
+            DispatchDialog(nil, token);
             return true;
         }
         navigation.modalPresentationStyle = UIModalPresentationFormSheet;
@@ -379,7 +429,7 @@ namespace sky::ios {
         dialog                            = (__bridge_retained void *)handle;
         [presenter presentViewController:navigation animated:YES completion:nil];
         if (navigation.presentingViewController == nil) {
-            NativeTextInputState::Get()->Post(token, {NativeTextInputEventType::ERROR, options.text, EIO});
+            ClaimDialogTerminal(handle, token, NativeTextInputEventType::ERROR, text, EIO);
             HideNativeTextInput(dialog);
         }
         return true;
@@ -388,23 +438,31 @@ namespace sky::ios {
     void HideNativeTextInput(void *&dialog)
     {
         SkyIOSNativeTextInputHandle *handle = (__bridge_transfer SkyIOSNativeTextInputHandle *)std::exchange(dialog, nullptr);
+        const uint64_t               token  = handle.token;
         const auto                   close  = ^{
-            if (handle == nil) {
-                NativeTextInputState::Get()->Cancel();
-            } else {
-                UINavigationController          *navigation = handle.navigation;
-                SkyIOSNativeTextInputController *editor = static_cast<SkyIOSNativeTextInputController *>(navigation.viewControllers.firstObject);
-                NativeTextInputState::Get()->Post(handle.token, {NativeTextInputEventType::CANCELLED, EngineString(editor.committedText), 0});
-                [navigation.view endEditing:YES];
-                [navigation dismissViewControllerAnimated:NO completion:nil];
-                handle.navigation = nil;
-            }
-            NativeTextInputState::Get()->Dispatch();
+            UINavigationController          *navigation = handle.navigation;
+            SkyIOSNativeTextInputController *editor = static_cast<SkyIOSNativeTextInputController *>(navigation.viewControllers.firstObject);
+            ClaimDialogTerminal(handle, token, NativeTextInputEventType::CANCELLED, editor.committedText);
+            [navigation.view endEditing:YES];
+            [navigation dismissViewControllerAnimated:NO completion:nil];
+            handle.navigation = nil;
+            DispatchDialogTerminal(handle, token);
         };
         if ([NSThread isMainThread]) {
             close();
         } else {
             dispatch_async(dispatch_get_main_queue(), close);
+        }
+    }
+
+    void DispatchNativeTextInput(void *dialog)
+    {
+        const uint64_t token = NativeTextInputState::Get()->ActiveToken();
+        if ([NSThread isMainThread]) {
+            SkyIOSNativeTextInputHandle *handle = (__bridge SkyIOSNativeTextInputHandle *)dialog;
+            DispatchDialog(handle, token);
+        } else {
+            NativeTextInputState::Get()->Dispatch();
         }
     }
 } // namespace sky::ios

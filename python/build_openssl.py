@@ -178,6 +178,9 @@ def configure_cmake(variant, generated):
         cmake += ["-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}",
                   f"-DCMAKE_TOOLCHAIN_FILE={ndk / 'build' / 'cmake' / 'android.toolchain.cmake'}",
                   "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-31", "-DANDROID_STL=c++_static"]
+    elif args.platform in ("MacOS-x86", "MacOS-arm"):
+        architecture = "arm64" if args.platform == "MacOS-arm" else "x86_64"
+        cmake += [f"-DCMAKE_OSX_ARCHITECTURES={architecture}", "-DCMAKE_OSX_SYSROOT=macosx"]
     cmake += [
         "-B", str(build_dir),
         f"-DOPENSSL_SRC={SOURCE_DIR}",

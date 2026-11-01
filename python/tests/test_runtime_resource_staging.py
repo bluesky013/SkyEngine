@@ -18,9 +18,11 @@ SPEC.loader.exec_module(PACKAGE)
 class RuntimeResourceStagingTest(unittest.TestCase):
     def test_native_build_has_one_resource_owner(self):
         template = (PACKAGE.REPO_ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text()
+        defaults = template[template.index('set(_sky_deploy_resources_default ON)'):
+                            template.index('set(_sky_project_native_directory')]
         deployment = template[template.index('# Mobile assets are prepared'):
                               template.index('function(_sky_collect_imported_runtimes')]
-        deployment = deployment.replace('{{PROJECT_NAME}}', 'Smoke')
+        deployment = (defaults + deployment).replace('{{PROJECT_NAME}}', 'Smoke')
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             script = root / 'python/package_project.py'

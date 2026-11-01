@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform as host_platform
 import re
 import shutil
 import subprocess
@@ -20,6 +21,8 @@ parser.add_argument('-e', '--engine', type=str, help='引擎目录')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
 parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "HarmonyOS", "IOS", "Linux"], help='编译平台')
 parser.add_argument('--ohos-sdk', help='HarmonyOS native SDK root (or OHOS_SDK_NATIVE)')
+parser.add_argument('--ios-platform', choices=['OS64', 'SIMULATOR64', 'SIMULATORARM64'],
+                    help='iOS device or simulator SDK/architecture (IOS only; default OS64)')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
 parser.add_argument('-l', '--list', action='store_true', default=False, help='列出所有包信息')
@@ -28,6 +31,8 @@ parser.add_argument('--strict', action='store_true', default=False, help='配合
 parser.add_argument('-f', '--force', action='store_true', default=False, help='强制重新构建（忽略增量缓存）')
 parser.add_argument('-a', '--archive', type=str, help='可选：将平台输出打包到指定的 zip 路径（不修改受跟踪文件）')
 args = parser.parse_args()
+if args.ios_platform is not None and args.platform != 'IOS':
+    parser.error('--ios-platform is only valid with --platform IOS')
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,6 +56,14 @@ METADATA_FILE = 'build_metadata.json'
 THIRD_PARTY_CACHE_FILE = 'thirdparty_cache.cmake'
 GIT_RETRY_DELAYS = [1, 3, 5]
 COMMIT_HASH_RE = re.compile(r'^[0-9a-fA-F]{40}$')
+MACOS_ARCHITECTURES = {'MacOS-x86': 'x86_64', 'MacOS-arm': 'arm64'}
+IOS_BUILD_TARGETS = {
+    'OS64': ('iphoneos', 'arm64'),
+    'SIMULATOR64': ('iphonesimulator', 'x86_64'),
+    'SIMULATORARM64': ('iphonesimulator', 'arm64'),
+}
+MACHO_MAGICS = {b'\xfe\xed\xfa\xce', b'\xce\xfa\xed\xfe', b'\xfe\xed\xfa\xcf', b'\xcf\xfa\xed\xfe',
+                b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca', b'\xca\xfe\xba\xbf', b'\xbf\xba\xfe\xca'}
 
 
 def normalize_cmake_path(path):
@@ -133,7 +146,12 @@ def is_commit_hash(ref):
 def compute_package_key(package, platform=None):
     """Compute a hash from package config to detect changes."""
     relevant = {k: v for k, v in package.items() if k not in ('name',)}
-    if (platform or args.platform) == 'HarmonyOS':
+    target = platform or args.platform
+    if target in MACOS_ARCHITECTURES:
+        relevant['macos_architecture'] = MACOS_ARCHITECTURES[target]
+    elif target == 'IOS':
+        relevant['ios_target'] = ios_build_identity()
+    elif target == 'HarmonyOS':
         relevant['ohos_toolchain'] = harmonyos_toolchain_identity()
         patch = Path(args.engine) / 'cmake/patches' / f"{package['name']}.patch"
         if patch.is_file():
@@ -170,6 +188,134 @@ def _write_stdout(text):
 def get_extra_cmake_args():
     raw = os.environ.get('SKY_3RD_CMAKE_ARGS', '')
     return raw.split() if raw else []
+
+
+def apple_target_options(platform):
+    if platform in MACOS_ARCHITECTURES:
+        return {'CMAKE_OSX_ARCHITECTURES': MACOS_ARCHITECTURES[platform], 'CMAKE_OSX_SYSROOT': 'macosx'}
+    if platform == 'IOS':
+        target = ios_build_identity()
+        return {'PLATFORM': target['platform'], 'CMAKE_OSX_ARCHITECTURES': target['architecture'],
+                'CMAKE_OSX_SYSROOT': target['sdk']}
+    return {}
+
+
+def apple_option_error(options, platform):
+    expected = apple_target_options(platform)
+    overrides = dict(options)
+    extra = get_extra_cmake_args()
+    for index, option in enumerate(extra):
+        value = extra[index + 1] if option == '-D' and index + 1 < len(extra) else option[2:] if option.startswith('-D') else ''
+        key, separator, value = value.partition('=')
+        if separator:
+            overrides[key.split(':', 1)[0]] = value
+    for key, value in expected.items():
+        if key not in overrides:
+            continue
+        configured = str(overrides[key])
+        if key == 'CMAKE_OSX_SYSROOT':
+            configured = Path(configured).name.lower()
+            matches = configured == value or (configured.startswith(value) and configured.endswith('.sdk'))
+        else:
+            matches = configured == value
+        if not matches:
+            return f'{platform} requires {key}={value}, received {overrides[key]}'
+    return None
+
+
+def apple_runtime_binaries(package_root):
+    root = Path(package_root).resolve()
+    pending = [root / name for name in ('lib', 'bin') if (root / name).exists() or (root / name).is_symlink()]
+    directories = set()
+    binaries = set()
+    while pending:
+        path = pending.pop()
+        actual = Path(os.path.realpath(path))
+        if not actual.is_relative_to(root):
+            return [], f'runtime symlink escapes package: {path}'
+        if not actual.exists():
+            return [], f'broken runtime symlink: {path}'
+        if actual.is_dir():
+            if actual not in directories:
+                directories.add(actual)
+                pending.extend(actual.iterdir())
+            continue
+        if actual.is_file():
+            with actual.open('rb') as stream:
+                magic = stream.read(4)
+            if actual.suffix in ('.a', '.dylib') or '.so' in actual.suffixes or magic in MACHO_MAGICS:
+                binaries.add(actual)
+    return sorted(binaries), None
+
+
+def apple_artifact_error(package_root, platform):
+    target = apple_target_options(platform)
+    if not target:
+        return None
+    architecture = target['CMAKE_OSX_ARCHITECTURES']
+    sdk = target['CMAKE_OSX_SYSROOT']
+    binaries, discovery_error = apple_runtime_binaries(package_root)
+    if discovery_error:
+        return discovery_error
+    if not binaries:
+        return f'no native artifacts found in {package_root}'
+    lipo = shutil.which('lipo')
+    otool = shutil.which('otool')
+    if not lipo or not otool:
+        return 'Apple artifact verification requires lipo and otool from Xcode Command Line Tools'
+    expected_platform = {'macosx': 1, 'iphoneos': 2, 'iphonesimulator': 7}[sdk]
+    for binary in binaries:
+        result = subprocess.run([lipo, '-archs', str(binary)], capture_output=True, text=True)
+        if result.returncode:
+            return f'cannot inspect architecture of {binary}: {result.stderr.strip()}'
+        architectures = set(result.stdout.split())
+        if architectures != {architecture}:
+            return f'{binary} has architectures {sorted(architectures)}, expected only {architecture}'
+        result = subprocess.run([otool, '-l', str(binary)], capture_output=True, text=True)
+        if result.returncode:
+            return f'cannot inspect SDK platform of {binary}: {result.stderr.strip()}'
+        platforms = {int(value) for value in re.findall(r'^\s*platform\s+(\d+)\s*$', result.stdout, re.MULTILINE)}
+        if 'LC_VERSION_MIN_MACOSX' in result.stdout:
+            platforms.add(1)
+        if 'LC_VERSION_MIN_IPHONEOS' in result.stdout:
+            platforms.add(7 if architecture == 'x86_64' else 2)
+        if platforms != {expected_platform}:
+            return f'{binary} has SDK platforms {sorted(platforms)}, expected {sdk}'
+    return None
+
+
+def tool_source_error(package):
+    source = Path(args.intermediate or os.path.join(args.output, 'intermediate')) / package['name']
+    if not source.is_dir():
+        return f'tool source missing: {source}'
+    required = ('ios.toolchain.cmake',) if package['name'] == 'ios-cmake' else ()
+    for relative in required:
+        if not (source / relative).is_file():
+            return f'tool file missing: {source / relative}'
+    reference = package.get('commit') or package.get('tag')
+    if not reference:
+        return f'tool has no pinned source reference: {package["name"]}'
+    head = subprocess.run(['git', '-C', str(source), 'rev-parse', 'HEAD'], capture_output=True, text=True)
+    pinned = subprocess.run(['git', '-C', str(source), 'rev-parse', '--verify', reference + '^{commit}'],
+                            capture_output=True, text=True)
+    if head.returncode or pinned.returncode or head.stdout.strip() != pinned.stdout.strip():
+        return f'tool checkout does not match pinned reference {reference}: {source}'
+    if required:
+        changed = subprocess.run(['git', '-C', str(source), 'diff', '--quiet', 'HEAD', '--', *required])
+        if changed.returncode:
+            return f'tool files differ from pinned checkout: {source}'
+    return None
+
+
+def package_output_error(package, platform):
+    if package.get('is_tool'):
+        return tool_source_error(package)
+    output = Path(args.output) / platform / package['name']
+    if not output.is_dir():
+        return f'package output missing: {output}'
+    if not package.get('header_only'):
+        return apple_artifact_error(output, platform)
+    return None
 
 
 def run_stream(cmd, log_file=None):
@@ -351,21 +497,20 @@ def get_android_sdk_path():
     raise Exception("Android SDK path not found.")
 
 def fill_ios_config(options):
-    # options['CMAKE_SYSTEM_NAME'] = 'iOS'
-    # options['CMAKE_OSX_DEPLOYMENT_TARGET'] = '13.0'
-    # options['CMAKE_OSX_ARCHITECTURES'] = 'arm64'
-    # options['CMAKE_IOS_DEVELOPER_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer'
-    # options['CMAKE_IOS_SDK_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
-    # Absolute: CMake resolves a relative toolchain path against the build dir.
+    target = ios_build_identity()
     options['CMAKE_TOOLCHAIN_FILE'] = os.path.abspath(os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake'))
-    options['PLATFORM'] = 'OS64'
-    # ios-cmake defaults executables to MACOSX_BUNDLE; third-party libraries/tools
-    # are not app bundles, and several install(TARGETS ...) calls omit a BUNDLE
-    # DESTINATION, so building them as bundles fails. Keep them plain.
+    options['PLATFORM'] = target['platform']
+    options['CMAKE_OSX_SYSROOT'] = target['sdk']
+    options['CMAKE_OSX_ARCHITECTURES'] = target['architecture']
+    # Third-party libraries are not app bundles; ios-cmake's bundle default
+    # otherwise makes install(TARGETS) require an irrelevant BUNDLE destination.
     options['CMAKE_MACOSX_BUNDLE'] = 'OFF'
-    # Slang's NO_SOURCE main compiler target is kept linkable on Xcode by the
-    # link anchor in cmake/patches/slang.patch, so iOS keeps the same embedded
-    # core module configuration as the other platforms.
+
+
+def ios_build_identity():
+    target = args.ios_platform or 'OS64'
+    sdk, architecture = IOS_BUILD_TARGETS[target]
+    return {'platform': target, 'sdk': sdk, 'architecture': architecture}
 
 def resolve_android_ndk():
     for name in ['ANDROID_NDK_HOME', 'ANDROID_NDK_ROOT']:
@@ -447,8 +592,7 @@ def fill_common_options(options, build_type, install_dir):
     options['BUILD_TESTING'] = 'OFF'
     options['CMAKE_INSTALL_PREFIX'] = install_dir
     options['CMAKE_BUILD_TYPE'] = build_type
-    # CMake 4 removed compatibility with cmake_minimum_required(<3.5); several
-    # third-party projects are older, so relax the policy floor globally.
+    # Several pinned dependencies predate CMake 4's compatibility floor.
     options['CMAKE_POLICY_VERSION_MINIMUM'] = '3.5'
 
     if args.platform == 'Android':
@@ -457,6 +601,8 @@ def fill_common_options(options, build_type, install_dir):
         fill_harmonyos_config(options)
     elif args.platform == 'IOS':
         fill_ios_config(options)
+    elif args.platform in MACOS_ARCHITECTURES:
+        options.update(apple_target_options(args.platform))
 
 def slang_build_identity(source_dir, options):
     try:
@@ -468,9 +614,15 @@ def slang_build_identity(source_dir, options):
 
 
 def build_package_type(name, source_dir, build_type, options, cache, components, header_only=False):
+    option_error = apple_option_error(options, args.platform)
+    if option_error:
+        print(f'[apple] {option_error}')
+        return False
     platform_build = args.platform
     if args.platform == 'HarmonyOS':
         platform_build += '_' + hashlib.sha256(json.dumps(harmonyos_toolchain_identity(), sort_keys=True).encode()).hexdigest()[:12]
+    elif args.platform == 'IOS':
+        platform_build += '_' + ios_build_identity()['platform']
     build_dir = os.path.join(source_dir, f"build_{platform_build}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
@@ -509,9 +661,15 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
     else:
         run_cmake(build_dir, source_dir, build_type, options, cache, components, log_name=name)
 
+    if not header_only:
+        artifact_error = apple_artifact_error(install_dir, args.platform)
+        if artifact_error:
+            print(f'[apple] {artifact_error}')
+            return False
     copy_package(name, install_dir, build_type)
     if identity is not None:
         Path(identity_file).write_text(identity + '\n', encoding='utf-8')
+    return True
 
 def build_slang_host_generators(source_dir, options):
     # Cross builds run generators on the host, then pass their directory to
@@ -521,7 +679,13 @@ def build_slang_host_generators(source_dir, options):
     revision = subprocess.check_output(["git", "-C", source_dir, "rev-parse", "HEAD"], text=True).strip()
     version = options.get('SLANG_VERSION_NUMERIC', '')
     embed_core = options.get('SLANG_EMBED_CORE_MODULE', '')
-    host_identity = f'{revision}|{version}|{embed_core}|{generator}'
+    architecture = host_architecture()
+    system = host_platform.system()
+    host_options = {key: value for key, value in options.items()
+                    if key.startswith('SLANG_') and key != 'SLANG_GENERATORS_PATH'}
+    host_identity = json.dumps({'revision': revision, 'version': version, 'embed': embed_core,
+                                'generator': generator, 'system': system, 'architecture': architecture,
+                                'options': host_options}, sort_keys=True)
     revision_file = os.path.join(host_build, 'source-revision.txt')
 
     def find_generators_dir():
@@ -539,23 +703,53 @@ def build_slang_host_generators(source_dir, options):
     # Generators are version-coupled to the Slang sources; a tag bump must not
     # reuse the previous checkout's host tools.
     if existing and cached_revision == host_identity:
-        return existing
+        artifact_error = host_generator_error(existing)
+        if artifact_error is None:
+            return existing
+        print(f'[slang] cached host generators are invalid: {artifact_error}')
     if os.path.isdir(host_build):
         shutil.rmtree(host_build)
 
     print("  [slang] building host generators")
     cmake_cmd = ["cmake", "-S", source_dir, "-B", host_build, "-G", generator,
                  "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"]
-    for key, value in options.items():
+    if system == 'Darwin':
+        cmake_cmd += [f'-DCMAKE_OSX_ARCHITECTURES={architecture}', '-DCMAKE_OSX_SYSROOT=macosx']
+    for key, value in host_options.items():
         cmake_cmd.append(f"-D{key}={value}")
     run_stream(cmake_cmd)
     run_stream(["cmake", "--build", host_build, "--config", "Release", "--target", "all-generators",
                 "--parallel", str(args.jobs or os.cpu_count() or 4)])
     generators = find_generators_dir()
-    if not generators:
-        parser.error(f'Slang host generators missing after build: {host_build}')
+    artifact_error = host_generator_error(generators)
+    if artifact_error:
+        print(f'[slang] {artifact_error}')
+        return None
     Path(revision_file).write_text(host_identity + '\n', encoding='utf-8')
     return generators
+
+
+def host_architecture():
+    architecture = host_platform.machine().lower()
+    return {'amd64': 'x86_64', 'aarch64': 'arm64'}.get(architecture, architecture)
+
+
+def host_generator_error(directory):
+    if directory is None:
+        return 'Slang host generators missing after build'
+    bootstrap = Path(directory) / ('slang-bootstrap.exe' if os.name == 'nt' else 'slang-bootstrap')
+    if not bootstrap.is_file() or not os.access(bootstrap, os.X_OK):
+        return f'Slang host bootstrap is not executable: {bootstrap}'
+    if host_platform.system() == 'Darwin':
+        with bootstrap.open('rb') as stream:
+            if stream.read(4) not in MACHO_MAGICS:
+                return f'Slang host bootstrap is not a native Mach-O executable: {bootstrap}'
+        architecture = host_architecture()
+        platform = next((name for name, target in MACOS_ARCHITECTURES.items() if target == architecture), None)
+        if platform is None:
+            return f'unsupported Slang host architecture: {architecture}'
+        return apple_artifact_error(Path(directory).parent, platform)
+    return None
 
 
 
@@ -575,16 +769,22 @@ def build_package(name, source_dir, options, cache, components, header_only=Fals
         if match:
             options['SLANG_VERSION_NUMERIC'] = match.group(1)
             options['SLANG_VERSION_FULL'] = described[1:]
-    if name == 'slang' and args.platform in ('IOS', 'Android', 'HarmonyOS'):
+    cross_macos = args.platform in MACOS_ARCHITECTURES and MACOS_ARCHITECTURES[args.platform] != host_architecture()
+    if name == 'slang' and (args.platform in ('IOS', 'Android', 'HarmonyOS') or cross_macos):
         generators = build_slang_host_generators(source_dir, options)
-        if generators:
-            options['SLANG_GENERATORS_PATH'] = generators
+        if not generators:
+            return False
+        options['SLANG_GENERATORS_PATH'] = generators
     if header_only:
-        build_package_type(name, source_dir, 'Release', dict(options), cache, components, header_only=True)
+        if not build_package_type(name, source_dir, 'Release', dict(options), cache, components, header_only=True):
+            return False
     else:
-        build_package_type(name, source_dir, 'Debug', dict(options), cache, components)
-        build_package_type(name, source_dir, 'Release', dict(options), cache, components)
+        if not build_package_type(name, source_dir, 'Debug', dict(options), cache, components):
+            return False
+        if not build_package_type(name, source_dir, 'Release', dict(options), cache, components):
+            return False
     print("build package done")
+    return True
 
 def process_package(package):
     name = package.get('name')
@@ -606,6 +806,10 @@ def process_package(package):
     custom_only = package.get('custom_only', False)
     if len(name) == 0:
         return
+    option_error = apple_option_error(options, args.platform)
+    if option_error:
+        print(f'[apple] {option_error}')
+        return False
 
     print("build package ...", name)
 
@@ -700,7 +904,7 @@ def process_package(package):
     if is_tool is True:
         return
 
-    build_package(name, source_dir, options, cache, components, header_only=header_only)
+    return build_package(name, source_dir, options, cache, components, header_only=header_only)
 
 
 def pack_output(zip_path):
@@ -780,15 +984,20 @@ def check_platform(packages, platform):
             state = 'STALE'
             detail = f"meta={entry.get('key')} pin={package_key}"
             hard_fail += 1
-        elif not os.path.isdir(out_dir):
-            state = 'NOOUT'
-            detail = 'metadata current but output dir missing'
-            warn += 1
         else:
-            state = 'ok'
-            detail = pkg.get('tag') or pkg.get('commit', '')
-            if len(detail) == 40:
-                detail = detail[:12]
+            output_error = package_output_error(pkg, platform)
+            if output_error:
+                state = 'INVALID' if pkg.get('is_tool') or os.path.isdir(out_dir) else 'NOOUT'
+                detail = output_error
+                if state == 'NOOUT':
+                    warn += 1
+                else:
+                    hard_fail += 1
+            else:
+                state = 'ok'
+                detail = pkg.get('tag') or pkg.get('commit', '')
+                if len(detail) == 40:
+                    detail = detail[:12]
 
         print(f"{name:<20} {state:<8} {detail}")
 
@@ -861,12 +1070,20 @@ def app_main():
         package_key = compute_package_key(package)
 
         if not args.force and not args.clean and is_package_up_to_date(metadata, name, package_key):
-            print(f"[skip] {name} (已是最新, 使用 -f 强制重建)")
-            continue
+            output_error = package_output_error(package, args.platform)
+            if not output_error:
+                print(f"[skip] {name} (已是最新, 使用 -f 强制重建)")
+                continue
+            print(f'[rebuild] {name}: {output_error}')
 
-        process_package(package)
+        if process_package(package) is False:
+            sys.exit(1)
 
         if not args.clean:
+            output_error = package_output_error(package, args.platform)
+            if output_error:
+                print(f'[third-party] {output_error}')
+                sys.exit(1)
             mark_package_built(metadata, name, package_key)
             save_build_metadata(metadata)
             write_cmake_cache()

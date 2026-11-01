@@ -66,7 +66,7 @@ class HarmonyOSPlatformTest(unittest.TestCase):
                 self.assertEqual(old_android, THIRD_PARTY.compute_package_key(package, "Android"))
                 options = {}
                 THIRD_PARTY.fill_harmonyos_config(options)
-                self.assertEqual(options["CMAKE_TOOLCHAIN_FILE"], toolchain.as_posix())
+                self.assertEqual(Path(options["CMAKE_TOOLCHAIN_FILE"]).resolve(), toolchain.resolve())
                 self.assertEqual(options["OHOS_ARCH"], "arm64-v8a")
                 self.assertEqual(options["OHOS_STL"], "c++_shared")
                 self.assertNotIn("ANDROID_ABI", options)

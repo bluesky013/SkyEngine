@@ -1,5 +1,6 @@
 # Project-owned macOS launcher. `SKY_MACOS_BUNDLE=ON` produces a .app.
 option(SKY_MACOS_BUNDLE "build a macOS .app bundle" OFF)
+set(SKY_MACOS_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist" CACHE FILEPATH "Exported macOS application metadata")
 
 if (SKY_MACOS_BUNDLE)
     sky_add_exe(TARGET Launcher MACOSX_BUNDLE
@@ -11,9 +12,12 @@ if (SKY_MACOS_BUNDLE)
     set_target_properties(Launcher PROPERTIES
         MACOSX_BUNDLE_BUNDLE_NAME "{{PROJECT_DISPLAY_NAME}}"
         MACOSX_BUNDLE_GUI_IDENTIFIER "${SKY_BUNDLE_ID}"
-        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+        MACOSX_BUNDLE_INFO_PLIST "${SKY_MACOS_INFO_PLIST}"
         XCODE_ATTRIBUTE_PRODUCT_NAME "{{PROJECT_NAME}}"
         XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${SKY_BUNDLE_ID}"
+        XCODE_GENERATE_SCHEME TRUE
+        XCODE_ATTRIBUTE_SKIP_INSTALL "NO"
+        XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
     )
 else ()
     sky_add_exe(TARGET Launcher
@@ -37,4 +41,7 @@ if (NOT SKY_APPLE_SIGNING_IDENTITY STREQUAL "")
 endif ()
 if (NOT SKY_APPLE_PROVISIONING_PROFILE STREQUAL "")
     set_target_properties(Launcher PROPERTIES XCODE_ATTRIBUTE_PROVISIONING_PROFILE_SPECIFIER "${SKY_APPLE_PROVISIONING_PROFILE}")
+endif ()
+if (COMMAND sky_stage_apple_archive)
+    sky_stage_apple_archive(Launcher)
 endif ()

@@ -2,7 +2,7 @@
 title: "Multi-Platform Support"
 description: "Per-OS status of window/input/filesystem/process backends and RHI, with open TODOs and build caveats."
 module: "framework"
-updated: "2026-11-01"
+updated: "2026-11-02"
 ---
 
 ## Overview
@@ -19,7 +19,7 @@ caveats** that repeatedly bite when adding platform-specific code. It is grounde
 | Window | `platform/windows/Win32Window.cpp` | `platform/macos/CocoaWindow.mm` | `platform/android/AndroidWindow.cpp` | `platform/ios/IOSWindow.mm` |
 | Platform (app/services) | `platform/windows/Win32Platform.cpp` | `platform/macos/MacosPlatform.mm` | `platform/android/AndroidPlatform.cpp` | `platform/ios/IOSPlatform.mm` |
 | Process | `platform/windows/Win32Process.cpp` | `platform/posix/PosixProcess.cpp` | explicit Unsupported | explicit Unsupported |
-| Asset/bundle filesystem | native | native executable directory | APK asset filesystem | native app bundle |
+| Asset/bundle filesystem | native | app `Contents/Resources`; loose executable directory | APK asset filesystem | native app bundle |
 | Timing | performance counter | Mach clock | monotonic nanosecond clock | Mach clock |
 | RHI backend | DX12 (`aurora/rhi/dx12`), Vulkan | Metal (`aurora/rhi/metal`), Vulkan | Vulkan | Metal |
 | Editor (`SandboxEditor` / `SandboxModule`) | main baseline | builds; native platform tests pass | not a mobile editor target | not a mobile editor target |
@@ -109,7 +109,7 @@ These callbacks are separate from window key events and committed-text deltas.
 |---|---|---|
 | Android | Activity Dialog/EditText | Isolated phone fixture: 121 native + 20 UI checks, nine terminal flows pass; clean formal APK restored |
 | HarmonyOS | ArkUI CustomDialogController + TextInput/TextArea | Final phone retest: seven flows, zero failures, 19 CHANGED / 5 CONFIRMED / 2 CANCELLED; native Chinese IME also verified |
-| iOS | UIKit editor controller + UITextField/UITextView | Source and device-test runner provided; compile/runtime deferred because no Mac is available |
+| iOS | UIKit editor controller + UITextField/UITextView | Simulator and signed iPad native execution available; current results and remaining manual cases belong to `fix-apple-platform-parity` |
 
 UI threads retain only a token and queue committed CHANGED snapshots; identical snapshots are deduplicated,
 preedit is excluded, and one CONFIRMED/CANCELLED/ERROR is delivered on the engine owner thread.
@@ -118,9 +118,11 @@ code, allowing reopening; shutdown disables new requests first. Invalid CHANGED 
 invalid terminal text or bridge-conversion failure completes with ERROR and the last valid snapshot.
 Password contents and other input text are excluded from logs.
 
-The shared state passes 17 desktop behavior tests. UIKit's 37 Python ownership/runner checks verify
-source contracts only; they do not compile or execute UIKit. The user has deferred Mac validation,
-which does not block the current Android/OHOS device work.
+The shared state passes 17 desktop behavior tests. Python ownership/runner checks verify tooling
+contracts; native execution is recorded separately in the
+[Apple verification record](../../openspec/changes/fix-apple-platform-parity/verification.md).
+UIKit retains its terminal decision until dismissal releases the presenter; explicit Hide/window
+teardown drains the same decision synchronously. Stale native callbacks cannot terminate a newer request.
 
 ### Mouse wheel event contract
 
@@ -216,8 +218,16 @@ can keep the same field size while still being incompatible.
   loads build presets.
 - Generated iOS games use static module factories and embed the Metal backend as a framework under
   `Frameworks/`; macOS deploys modules beside the executable under `Contents/MacOS`. The Core loader uses
-  these bundle locations independently of the process working directory. Configs and products use the
-  same production bundle filesystem roots.
+  these bundle locations independently of the process working directory. macOS configs, assets and
+  products live under `Contents/Resources`; loose command-line tools retain their executable-directory root.
+- Apple dependencies bind their architecture and SDK to the cache identity and inspect actual Mach-O
+  artifacts before reuse. Simulator dependencies use a separate output root from device dependencies:
+  `python3 python/third_party.py -p IOS --ios-platform SIMULATOR64 -o <simulator-root>` on Intel,
+  or `SIMULATORARM64` on Apple Silicon. The default IOS target remains device arm64 (`OS64`).
+- Apple presets carry one Debug/Release configuration and version metadata through the final artifact.
+  `package` collects unsigned bundles. `apple-distribute` stages resources before Xcode signs, validates
+  an application archive and its resource receipt, then exports with external export options. Credentials
+  remain external; device install/launch require an explicit selected device.
 - Android imports Slang under its actual compiler SONAME. Runtime-loaded companion libraries are listed
   by CMake and staged through an AGP variant task; compatibility aliases must not duplicate the compiler.
 - AssetTool loads builder settings after modules register the builders, combines project config with
@@ -235,10 +245,15 @@ models without requiring SDKs.
 The 2026-10-15 run generated an arm64 Android debug APK, an arm64 unsigned iOS IPA and an x86_64 macOS app/ZIP.
 The macOS app passed relocated startup/shutdown with default and explicit Metal. Android package signing,
 alignment, assets and ELF dependencies were inspected; no Android device/emulator was available. The iOS
-device-SDK app/framework layout, scene configuration and unsigned archive were inspected; no signing
-identity/profile is installed. This is not real-device lifecycle or signed distribution acceptance.
+device-SDK app/framework layout, scene configuration and unsigned archive were inspected; that run had
+no signing identity/profile. It does not establish real-device lifecycle or signed distribution acceptance.
 See the [package validation record](../../openspec/changes/archive/2026-10-16-complete-native-platform-services/package-validation.md)
 for exact SDK/minimum OS versions, commands, artifacts and remaining limits.
+
+The November 2026 Apple follow-up uses the available Mac and paired iPad mini 6. Its
+[verification record](../../openspec/changes/fix-apple-platform-parity/verification.md) separates native
+platform tests, development signing/archive/export, persistent manual input and the outstanding GPU,
+physical keyboard/IME and release-distribution matrix.
 
 ## TODOs
 
@@ -249,8 +264,9 @@ Priority order (highest first):
    platform service implementation.
 2. **Native device acceptance** — exercise Android/iOS backgrounding, surface recreation/rotation, external
    keyboards and real IMEs on devices. Portable policies and SDK builds do not replace these cases.
-3. **Release distribution** — add signed iOS archive/export and macOS signing/notarization, then validate
-   physical devices and additional Apple architectures/minimum OS versions. The template smoke exports are unsigned.
+3. **Release distribution** — validate the archive/export entry with release profiles, macOS notarization,
+   physical devices and additional Apple architectures/minimum OS versions. Development signing and unsigned
+   template smoke exports do not establish store acceptance.
 4. **Guard ASTC for DX12** — ensure the desktop bundle never selects an ASTC format (cook fails to
    `DXGI_FORMAT_UNKNOWN`), and surface a clear error instead of a silent bad product.
 
@@ -276,12 +292,18 @@ Pure policy tests also run on desktop. A renderer-free simulator recipe uses the
 installed SDK/runtime and existing GoogleTest sources:
 
 ```bash
-python3 python/tests/run_ios_platform_tests.py --runtime iOS-18-6 --work-dir /tmp/sky-ios-tests
+python3 python/tests/run_ios_platform_tests.py --runtime iOS-18-6 \
+    --third-party-root <simulator-root>/IOS --work-dir /tmp/sky-ios-tests
+python3 python/tests/run_ios_platform_tests.py --device <device-id> --team-id <team-id> \
+    --third-party-root <device-root>/IOS --work-dir /tmp/sky-ipad-tests
 ```
 
 The recipe creates and removes its own temporary simulator, or accepts `--udid` and restores the
-existing simulator's boot state. It preserves compile/link/test logs and verifies the native test
-process exit marker.
+existing simulator's boot state. It preserves compile/link/test logs and requires a successful launcher,
+both completion markers and at least one executed test. Physical-device mode verifies the Xcode-signed
+bundle without editing it, installs and normally removes the test app. `--manual-input` leaves
+**Sky Input Test** installed with single-line, multiline and password controls; this mode reports no
+automatic test result and remains interactive when reopened from the device Home Screen.
 
 Android native cases are SDK-gated and need a device/emulator to execute. Build the Android Framework
 using the Prefab package supplied by the generated Gradle project. With `SKY_BUILD_TEST=ON`, the Android

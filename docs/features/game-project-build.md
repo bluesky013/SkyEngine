@@ -1,7 +1,7 @@
 ---
 title: "Game Project Build & Packaging"
 description: "Creating a game project, building its launcher/module, generating platform IDE projects, and the product-bundle packaging model."
-updated: "2026-11-01"
+updated: "2026-11-02"
 ---
 
 ## Game Project Build & Packaging
@@ -97,7 +97,7 @@ Env overrides: `SKY_ANDROID_KEYSTORE`, `SKY_ANDROID_STORE_PASSWORD`, `SKY_ANDROI
 
 Apple signing fields are forwarded when generating/configuring the Xcode project. The current Python
 `package` resource collector requires `signing=off`: changing bundle contents after signing would invalidate
-the signature. Signed iOS archive/export and macOS signing/notarization need a separate distribution workflow.
+the signature. Use `apple-distribute` for signed local archive/export, as described below.
 The unsigned IPA below is a package-structure artifact, not an ordinary-device installation result.
 
 ### Mobile screen orientation
@@ -163,6 +163,44 @@ Android build prerequisites (from the environment):
 - `JAVA_HOME` with a Gradle-compatible JDK (Gradle 8.10.2 supports up to Java 22; JDK 17/21 recommended). Some
   IDE-bundled runtimes are too new (e.g. a Java 25 JBR fails with `Unsupported class file major version 69`).
 
+### Signed Apple archive and local export
+
+Run on macOS with Xcode, CMake and the selected platform's third-party dependencies. Copy an Apple preset
+to a signed preset with `signing: "auto"`; keep `bundle: true` for macOS. Select existing signing materials
+through the preset, external credentials or the environment variables above. iOS requires
+a team; an external export-options plist can also supply `teamID`. Signing materials must already be
+available to Xcode. This command does not create certificates or enable provisioning updates.
+
+Apple `variant` accepts `debug` or `release` (default `release`) and selects Debug/Release throughout
+configuration, archive and collection. `versionName`/`versionCode` override descriptor defaults in generated
+export plist copies; project-owned source plists remain intact. Select the configuration with `variant`,
+rather than `extraBuildArgs --config`.
+
+```bash
+python3 python/package_project.py apple-distribute --project <p>.skyproj --preset Game-macos-signed --archive-only
+python3 python/package_project.py apple-distribute --project <p>.skyproj --preset Game-macos-signed --export-options <external-options.plist>
+python3 python/package_project.py apple-distribute --project <p>.skyproj --preset Game-ios-signed --export-options <external-options.plist> --device <UDID> --launch
+```
+
+`--export-options` must identify an external Xcode plist outside the generated distribution directory.
+Use a `method` compatible with the existing certificate/profile, `destination: export`, a matching `teamID`,
+and `manageAppVersionAndBuildNumber: false` to preserve the preset version. `--archive-only` verifies only
+the signed application archive and cannot be combined with export options or device installation.
+Installation requires an explicit iOS device UDID; `--launch` requires `--device`.
+
+Results live in `<Project>/build/<platform>/distribution/`: `Application.xcarchive`, `export/` (one IPA on
+iOS or one app on macOS), phase logs and `result.json`. The command checks application-archive identity,
+versions, executable, resource hashes and certificate signature before reporting success. Previous and
+partial deliverables are retired on a failed distribution attempt; logs and compiled-object cache remain.
+The workflow performs local export only; it does not upload to App Store/TestFlight or notarize macOS apps.
+
+Signed archive resources are staged by the launcher's build step before Xcode's final CodeSign step.
+Verification and export inspection only read the signed bundle. Existing projects must reconcile the
+Apple archive helper in the current `engine/templates/game/native/CMakeLists.txt` and its invocation in
+the platform launcher template, preserving project-specific sources and targets. macOS metadata also uses
+the `SKY_MACOS_INFO_PLIST` cache hook, analogous to the iOS hook above. Older projects receive an explicit
+migration error rather than having their native sources overwritten.
+
 ### Module packaging (dynamic / static)
 
 Runtime modules are built and loaded two ways, selected by an option / export preset:
@@ -214,12 +252,13 @@ without cross-tier UUID conflicts (quality tiers use distinct bundle names, e.g.
   - **Android** → the APK's `assets/products/<bundle>/` (read at runtime via the APK asset filesystem).
   - **HarmonyOS** → the HAP's `resources/rawfile/products/<bundle>/`.
   - **iOS** → `<Name>.app/products/<bundle>/`.
-  - **macOS** → `<Name>.app/Contents/MacOS/products/<bundle>/`.
+  - **macOS** → `<Name>.app/Contents/Resources/products/<bundle>/`.
   - **non-bundle desktop** → `products/<bundle>/` beside the launcher.
 - `package`/`generate` invoke the headless worker (`tools/asset_tool` -> `AssetTool
   --project <dir> --engine <bundle> --cook-all --platform <p>`) to cook into `<Project>/products/`.
   Android and HarmonyOS share one cook/staging sequence before Gradle/Hvigor;
-  Apple `package` stages into the built app before collecting its archive.
+  Apple `package` stages into the built unsigned app before collecting its archive;
+  `apple-distribute` stages through the launcher before Xcode signs.
 - `package_project.py` copies `<Project>/products/<bundle>` for each selected bundle and writes
   **`products/bundles.json`** (`{ platform, distribution, bundles: [...] }`). Selection comes from the preset's
   `bundles` list, else the cook config's distribution.
@@ -232,9 +271,11 @@ compiled objects, avoiding stale disabled-module binaries.
 
 `stage_runtime_resources` is the common implementation for configs, selected products and development shader sources.
 Android/HarmonyOS native builds do not write application assets/rawfile. Apple `package` also disables native resource
-deployment (`SKY_DEPLOY_RUNTIME_RESOURCES=OFF`) and invokes the common stage after building the app. Standalone
-desktop/Apple IDE builds keep deployment enabled and invoke the same implementation through `stage-runtime`;
-Apple `generate` explicitly restores it. Runtime DLL/.so/framework collection remains separate from game resources.
+deployment (`SKY_DEPLOY_RUNTIME_RESOURCES=OFF`) and invokes the common stage after building the unsigned app.
+Signed Apple archives disable that ordinary deployment owner and use the launcher's pre-sign `stage-runtime`
+step instead. Standalone desktop/Apple IDE builds keep ordinary deployment enabled; Apple `generate` explicitly
+restores it. macOS app data goes to `Contents/Resources`, while executables/modules stay in `Contents/MacOS`.
+Runtime DLL/.so/framework collection remains separate from game resources.
 
 After changing mobile assets/configs/export presets, rerun `generate` or `package` before building in Android Studio
 or DevEco; a native-only rebuild consumes the previously generated resources. Existing projects created with older

@@ -1,21 +1,6 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
 include(${ENGINE_ROOT}/cmake/thirdparty_helpers.cmake)
 
-function(sky_find_3rd)
-    cmake_parse_arguments(TMP
-        ""
-        "TARGET"
-        "DIR"
-        ${ARGN}
-        )
-    message("find target ${TMP_TARGET}")
-    set(${TMP_TARGET}_PATH ${3RD_PATH}/${TMP_DIR})
-    find_package(${TMP_TARGET})
-    if (NOT ${${TMP_TARGET}_FOUND})
-        message(FATAL_ERROR "${TMP_TARGET} not found")
-    endif()
-endfunction()
-
 if(EXISTS ${3RD_PATH})
     # core
     sky_find_3rd(TARGET sfmt          DIR sfmt)

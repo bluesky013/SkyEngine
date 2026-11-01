@@ -5,7 +5,6 @@
 #include "IOSPlatform.h"
 #include "IOSNativeTextInput.h"
 #include "IOSWindow.h"
-#include "platform/NativeTextInputState.h"
 
 #include <framework/platform/IOSSceneHost.h>
 
@@ -149,7 +148,7 @@ namespace sky {
     void IOSPlatform::PollEvent(bool &exit, EventPollMode)
     {
         (void)exit;
-        NativeTextInputState::Get()->Dispatch();
+        ios::DispatchNativeTextInput(textInputDialog);
     }
 
     bool IOSPlatform::IsFrameActive() const
@@ -248,6 +247,7 @@ namespace sky {
         mainNativeWindow = nullptr;
         frameState.SetSurfaceAvailable(false);
         RefreshFrameLoop();
+        HideTextInputDialog();
     }
 
     void IOSPlatform::StartTextInput()

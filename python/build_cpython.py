@@ -654,7 +654,34 @@ def write_ssl_stamp():
     (INSTALL_DIR / "ssl.txt").write_text(str(OPENSSL_DIR) + "\n", encoding="utf-8")
 
 
+def apple_unix_environment(major, minor):
+    architecture = {"MacOS-x86": "x86_64", "MacOS-arm": "arm64"}.get(args.platform)
+    if architecture is None:
+        return None, None
+    if sys.platform != "darwin":
+        return None, "Apple CPython requires a native macOS host"
+    if os.uname().machine != architecture:
+        return None, (f"CPython {args.platform} is not supported by the in-source native builder on {os.uname().machine}; "
+                      f"cross-building requires a separate build tree and a Python {major}.{minor} build interpreter. "
+                      "Use a matching native Apple host.")
+    environment = os.environ.copy()
+    for name in ("CFLAGS", "CXXFLAGS", "LDFLAGS"):
+        value = environment.get(name, "")
+        configured = re.findall(r"(?:^|\s)-arch\s+(\S+)", value)
+        if any(item != architecture for item in configured):
+            return None, f"{args.platform} requires {name} to target only {architecture}"
+        environment[name] = (value + f" -arch {architecture}").strip()
+    return environment, None
+
+
 def build_unix(major, minor):
+    build_env, environment_error = apple_unix_environment(major, minor)
+    if environment_error:
+        print(f"[cpython] {environment_error}", file=sys.stderr)
+        return False
+    if args.platform in ("MacOS-x86", "MacOS-arm") and (SOURCE_DIR / "Makefile").is_file():
+        # Native Unix builds share the checkout; stale objects must not retain another architecture.
+        run(["make", "distclean"], cwd=SOURCE_DIR, env=build_env)
     prefix = INSTALL_DIR / "stage"
     reset_dir(prefix)
     tag = f"{major}.{minor}"
@@ -662,7 +689,6 @@ def build_unix(major, minor):
     # A static core cannot dlopen extension modules, so the Tier 1 set (and, when
     # available, _ssl/_hashlib) is compiled in via Modules/Setup.local marked
     # *static* — same mechanism as the Android cross-build.
-    build_env = None
     use_ssl = static_ssl_available()
     setup_lines = builtin_setup_lines()
     if use_ssl:
@@ -678,8 +704,9 @@ def build_unix(major, minor):
         # CPython's openssl probe links only -lssl -lcrypto, but OpenSSL 3 static
         # splits provider symbols into libdefault/libcommon/liblegacy; append them
         # so detection (and the host python link) resolves.
-        build_env = os.environ.copy()
-        build_env["LDFLAGS"] = f"-L{OPENSSL_DIR / 'lib'}"
+        if build_env is None:
+            build_env = os.environ.copy()
+        build_env["LDFLAGS"] = (build_env.get("LDFLAGS", "") + f" -L{OPENSSL_DIR / 'lib'}").strip()
         build_env["LIBS"] = "-lssl -lcrypto -ldefault -lcommon -llegacy"
         print(f"[cpython] static OpenSSL found at {OPENSSL_DIR}; enabling ssl/_hashlib")
     run(configure_args, cwd=SOURCE_DIR, env=build_env)
@@ -709,6 +736,7 @@ def build_unix(major, minor):
 
     if use_ssl:
         write_ssl_stamp()
+    return True
 
 
 def main():
@@ -724,7 +752,8 @@ def main():
     elif args.platform == "HarmonyOS":
         build_harmonyos(major, minor)
     else:
-        build_unix(major, minor)
+        if build_unix(major, minor) is False:
+            sys.exit(1)
 
     print("[cpython] install complete")
 

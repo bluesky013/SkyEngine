@@ -8,6 +8,7 @@
 #include <core/logger/Logger.h>
 #include <framework/window/NativeWindowManager.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -51,6 +52,19 @@ static const char *TAG = "MacosPlatform";
 namespace sky {
 
     namespace {
+
+        constexpr auto INACTIVE_EVENT_WAIT = std::chrono::milliseconds(50);
+
+        void DrainCocoaEvents()
+        {
+            for (;;) {
+                NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
+                if (event == nil) {
+                    return;
+                }
+                [NSApp sendEvent:event];
+            }
+        }
 
         NSView *ActiveTextView()
         {
@@ -142,16 +156,17 @@ namespace sky {
 
     std::string MacosPlatform::GetBundlePath() const
     {
-        // Directory containing the executable. For a plain executable this is the
-        // containing folder; for a `.app` it is `<App>.app/Contents/MacOS`, matching
-        // the `$<TARGET_FILE_DIR>` deploy convention (configs/assets are copied next
-        // to the executable, not to the bundle root `bundlePath`).
-        NSString *exe = [[NSBundle mainBundle] executablePath];
+        NSBundle *bundle = [NSBundle mainBundle];
+        NSString *path   = [bundle bundlePath];
+        if (path != nil && [[path pathExtension] caseInsensitiveCompare:@"app"] == NSOrderedSame) {
+            NSString *resources = [bundle resourcePath];
+            return resources != nil ? [resources UTF8String] : std::string{};
+        }
+        NSString *exe = [bundle executablePath];
         if (exe != nil) {
             return std::filesystem::path([exe UTF8String]).parent_path().string();
         }
-        auto *path = [[NSBundle mainBundle] bundlePath];
-        return [path UTF8String];
+        return path != nil ? [path UTF8String] : std::string{};
     }
 
     std::string MacosPlatform::GetUserConfigPath() const
@@ -222,27 +237,69 @@ namespace sky {
         [pasteboard setString:[NSString stringWithUTF8String:text.c_str()] forType:NSPasteboardTypeString];
     }
 
-    void MacosPlatform::PollEvent(bool &exit, EventPollMode)
+    void MacosPlatform::RequestExit()
     {
-        // Drain the previous frame's pool and open a fresh one so autoreleased
-        // objects created anywhere during this frame are reclaimed on the next
-        // frame boundary (the loop itself has no @autoreleasepool).
+        exitRequested.store(true, std::memory_order_release);
+        @autoreleasepool {
+            NSEvent *event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                                location:NSZeroPoint
+                                           modifierFlags:0
+                                               timestamp:0
+                                            windowNumber:0
+                                                 context:nil
+                                                 subtype:0
+                                                   data1:0
+                                                   data2:0];
+            [NSApp postEvent:event atStart:NO];
+            CFRunLoopWakeUp(CFRunLoopGetMain());
+        }
+    }
+
+    void MacosPlatform::PollEvent(bool &exit, EventPollMode mode)
+    {
+        // Reclaim autoreleased frame objects even when an external host supplies no pool.
         if (framePool != nullptr) {
             [(NSAutoreleasePool *)framePool drain];
         }
         framePool = [[NSAutoreleasePool alloc] init];
 
         @autoreleasepool {
-            for (;;) {
-                NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
-                if (event == nil) {
-                    break;
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, true);
+            DrainCocoaEvents();
+            if (mode == EventPollMode::WAIT_IF_INACTIVE && !exit && !exitRequested.load(std::memory_order_acquire) && !IsFrameActive()) {
+                // Timers and dispatch sources can change readiness without posting an NSEvent.
+                // A bounded native wait keeps those changes visible to the engine loop.
+                const auto deadline = std::chrono::steady_clock::now() + INACTIVE_EVENT_WAIT;
+                while (!exit && !exitRequested.load(std::memory_order_acquire) && !IsFrameActive()) {
+                    const double remaining = std::chrono::duration<double>(deadline - std::chrono::steady_clock::now()).count();
+                    if (remaining <= 0.0) {
+                        break;
+                    }
+                    const auto result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, remaining, true);
+                    DrainCocoaEvents();
+                    if (result == kCFRunLoopRunFinished) {
+                        const double fallback = std::chrono::duration<double>(deadline - std::chrono::steady_clock::now()).count();
+                        if (exit || exitRequested.load(std::memory_order_acquire) || IsFrameActive() || fallback <= 0.0) {
+                            break;
+                        }
+                        NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                                            untilDate:[NSDate dateWithTimeIntervalSinceNow:fallback]
+                                                               inMode:NSDefaultRunLoopMode
+                                                              dequeue:YES];
+                        if (event != nil) {
+                            [NSApp sendEvent:event];
+                        }
+                        DrainCocoaEvents();
+                        break;
+                    }
+                    if (result != kCFRunLoopRunHandledSource) {
+                        break;
+                    }
                 }
-                [NSApp sendEvent:event];
             }
             [NSApp updateWindows];
         }
-        if (exitRequested) {
+        if (exitRequested.load(std::memory_order_acquire)) {
             exit = true;
         }
     }

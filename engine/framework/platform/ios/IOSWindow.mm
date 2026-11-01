@@ -428,11 +428,14 @@ namespace sky {
         focused              = false;
         textInputEnabled     = false;
         winHandle            = nullptr;
+        NativeWindowManager::Get()->UnRegister(this);
+        RemoveFocusObservers();
         if (IOSPlatform *platform = GetIOSPlatform()) {
             platform->ClearMainWindow(this);
         }
-        NativeWindowManager::Get()->UnRegister(this);
-        RemoveFocusObservers();
+        if (view != nil && view.owner != this) {
+            return;
+        }
         if (view != nil) {
             [view cancelPrimaryTouch];
             if (view.owner != this) {

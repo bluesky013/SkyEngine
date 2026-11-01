@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 r"""Build and run the native iOS platform regressions without the renderer.
 
-Requires Xcode, CMake, an installed iOS Simulator runtime, local GoogleTest sources,
-and SFMT/RapidJSON installed for that simulator SDK and architecture. Core and
+Requires Xcode, CMake, local GoogleTest sources, and SFMT/RapidJSON/LZ4 installed
+for the selected iOS SDK and architecture. Core and
 Framework are built through their production CMake targets. Downloads nothing.
 By default a temporary simulator is created and deleted. With --udid, the existing
-device's boot state is restored.
+simulator's boot state is restored. --device selects a physical device and requires
+an existing Apple signing team/profile; account updates are opt-in.
 Build artifacts, compiler output, and test output remain in --work-dir.
 
 Example:
@@ -14,6 +15,10 @@ Example:
     python3 python/tests/run_ios_platform_tests.py --udid DEVICE_ID \
         --third-party-root /path/to/ios-simulator-dependencies \
         --gtest-filter 'IOSPlatformStateTest.*' --work-dir /tmp/sky-ios-tests
+    python3 python/tests/run_ios_platform_tests.py --device DEVICE_ID --team-id TEAM_ID \
+        --third-party-root /path/to/ios-device-dependencies --work-dir /tmp/sky-ipad-tests
+    python3 python/tests/run_ios_platform_tests.py --device DEVICE_ID --team-id TEAM_ID \
+        --third-party-root /path/to/ios-device-dependencies --manual-input
 """
 
 import argparse
@@ -31,6 +36,7 @@ import uuid
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 TEST_HOST_PLIST = REPOSITORY / "engine/framework/test/platform/ios/Info.plist"
 TEST_FIXTURE = REPOSITORY / "python/tests/fixtures/ios_platform"
+DEVICE_BUNDLE_ID = "com.skyengine.platform-tests"
 
 
 def command(arguments, *, timeout=300, check=True, env=None):
@@ -43,6 +49,26 @@ def simctl(*arguments, timeout=300, check=True, env=None):
     return command(["xcrun", "simctl", *arguments], timeout=timeout, check=check, env=env)
 
 
+def devicectl(*arguments, timeout=300, env=None):
+    return command(["xcrun", "devicectl", "--timeout", str(timeout), *arguments],
+                   timeout=None, check=False, env=env)
+
+
+def device_test_result(returncode, log):
+    counts = re.findall(r"SKY_IOS_TEST_COUNT=(\d+)", log)
+    exits = re.findall(r"SKY_IOS_TEST_EXIT=(\d+)", log)
+    if counts and exits and int(exits[-1]) != 0:
+        return 0, f"Native tests failed (host exit {exits[-1]})"
+    if returncode:
+        return 0, f"Device launcher failed or crashed (exit {returncode})"
+    if not counts or not exits:
+        return 0, "Native test host did not report both completion markers"
+    count = int(counts[-1])
+    if count <= 0:
+        return 0, "No native tests executed; check the gtest filter"
+    return count, None
+
+
 def validate_test_result(returncode, log):
     """Require both a successful host exit and at least one completed check.
 
@@ -52,12 +78,12 @@ def validate_test_result(returncode, log):
     """
     counts = re.findall(r"SKY_IOS_TEST_COUNT=(\d+)", log)
     exit_codes = re.findall(r"SKY_IOS_TEST_EXIT=(\d+)", log)
+    if counts and exit_codes and int(exit_codes[-1]) != 0:
+        raise RuntimeError(f"Native tests failed (host exit {exit_codes[-1]})")
     if returncode:
         raise RuntimeError(f"Simulator launcher failed or crashed (exit {returncode})")
     if not counts or not exit_codes:
         raise RuntimeError("Native test host did not report both completion markers")
-    if int(exit_codes[-1]) != 0:
-        raise RuntimeError(f"Native tests failed (host exit {exit_codes[-1]})")
     count = int(counts[-1])
     if count <= 0:
         raise RuntimeError("No native tests executed; check the gtest filter")
@@ -103,7 +129,37 @@ def cmake_build_commands(args, directory, sdk):
         "cmake", "--build", str(build), "--config", args.config,
         "--target", "IOSPlatformTest", "--parallel", str(args.jobs),
     ]
+    if getattr(args, "device", None):
+        configure += [
+            "-DSKY_IOS_TEST_DEVICE=ON",
+            "-DSKY_IOS_TEST_MANUAL_INPUT=" + ("ON" if getattr(args, "manual_input", False) else "OFF"),
+            "-DSKY_IOS_TEST_BUNDLE_ID=" + args.bundle_id,
+            "-DSKY_IOS_TEST_TEAM_ID=" + args.team_id,
+        ]
+        if args.allow_provisioning_updates:
+            compile_target += ["--", "-allowProvisioningUpdates"]
+    else:
+        configure += ["-DSKY_IOS_TEST_DEVICE=OFF", "-DSKY_IOS_TEST_MANUAL_INPUT=OFF"]
     return configure, compile_target
+
+
+def signed_device_bundle(args, app, directory):
+    info = app / "Info.plist"
+    if not info.is_file():
+        return None, f"Signed test bundle has no Info.plist: {app}"
+    manifest = plistlib.loads(info.read_bytes())
+    if manifest.get("CFBundleIdentifier") != args.bundle_id:
+        return None, "Signed test bundle identifier does not match --bundle-id"
+    if manifest.get("CFBundleExecutable") != "SkyIOSPlatformTests":
+        return None, "Signed test bundle executable does not match the test host"
+    expected_scene = plistlib.loads(TEST_HOST_PLIST.read_bytes()).get("UIApplicationSceneManifest")
+    if manifest.get("UIApplicationSceneManifest") != expected_scene:
+        return None, "Signed test bundle scene manifest does not match the checked-in host"
+    result = command(["codesign", "--verify", "--deep", "--strict", str(app)], check=False)
+    (directory / "signature-verify.log").write_text(result.stdout + result.stderr)
+    if result.returncode:
+        return None, f"Signed test bundle verification failed; see {directory / 'signature-verify.log'}"
+    return args.bundle_id, None
 
 
 def build_test_app(args, directory):
@@ -126,9 +182,11 @@ def build_test_app(args, directory):
         dependencies / "sfmt/include/SFMT.h",
         dependencies / "rapidjson/include/rapidjson/document.h",
         dependencies / "sfmt/lib" / args.config / "libSFMT.a",
+        dependencies / "lz4/include/lz4.h",
+        dependencies / "lz4/lib" / args.config / "liblz4.a",
     ]
     if any(not path.is_file() for path in required):
-        raise RuntimeError("Missing simulator SFMT/RapidJSON; pass --third-party-root for the selected SDK/architecture/configuration")
+        raise RuntimeError("Missing SFMT/RapidJSON/LZ4; pass --third-party-root for the selected SDK/architecture/configuration")
     print(f"Building production Core/Framework and IOSPlatformTest with {args.sdk} ({args.arch})", flush=True)
     for arguments, log_name, label in (
         (configure, "configure.log", "CMake configuration"),
@@ -144,6 +202,9 @@ def build_test_app(args, directory):
     app = pathlib.Path(app_record.read_text().strip())
     if not app.is_dir() or not (app / "SkyIOSPlatformTests").is_file():
         raise RuntimeError(f"CMake test bundle is incomplete: {app}")
+    if getattr(args, "device", None):
+        identifier, error = signed_device_bundle(args, app, directory)
+        return (None, error) if error else (app, identifier)
     identifier = "com.skyengine.platform-tests." + uuid.uuid4().hex
     # Share the exact scene manifest with the CMake FrameworkTest app target.
     manifest = plistlib.loads(TEST_HOST_PLIST.read_bytes())
@@ -169,6 +230,61 @@ def build_test_app(args, directory):
     (app / "Info.plist").write_bytes(plistlib.dumps(manifest))
     command(["codesign", "--force", "--sign", "-", str(app)])
     return app, identifier
+
+
+def run_device_tests(args, app, identifier, directory):
+    device = args.device
+    manual = getattr(args, "manual_input", False)
+    mode = "manual-input" if manual else "automated-tests"
+    keep_app = manual or getattr(args, "keep_app", False)
+    (directory / "device-info.json").write_text(json.dumps({
+        "device": device, "bundle_id": identifier, "team_id": args.team_id,
+        "provisioning_updates": args.allow_provisioning_updates,
+        "mode": mode, "keep_app": keep_app,
+    }, indent=2))
+    install = devicectl("device", "install", "app", "--device", device, str(app),
+                        "--json-output", str(directory / "install-result.json"), timeout=args.timeout)
+    (directory / "install.log").write_text(install.stdout + install.stderr)
+    count = 0
+    error = f"Device installation failed; see {directory / 'install.log'}" if install.returncode else None
+    launched = False
+    if error is None:
+        arguments = ["device", "process", "launch", "--device", device, "--terminate-existing"]
+        if not manual:
+            arguments.append("--console")
+        arguments.append(identifier)
+        if manual:
+            arguments += ["--", "--sky-manual-input"]
+        else:
+            test_filter = args.gtest_filter or os.environ.get("GTEST_FILTER")
+            if test_filter:
+                arguments += ["--", "--gtest_filter=" + test_filter]
+        print(f"Running on physical device {device}", flush=True)
+        result = devicectl(*arguments, timeout=args.timeout)
+        log = result.stdout + result.stderr
+        (directory / "test.log").write_text(log)
+        print(log, end="", flush=True)
+        launched = result.returncode == 0
+        if manual:
+            error = "Manual input app could not be launched; see test.log" if result.returncode else None
+        else:
+            count, error = device_test_result(result.returncode, log)
+    if install.returncode:
+        (directory / "cleanup.log").write_text("Cleanup skipped because this run did not complete installation.\n")
+    elif keep_app:
+        (directory / "cleanup.log").write_text("App kept installed as explicitly requested.\n")
+    else:
+        cleanup = devicectl("device", "uninstall", "app", "--device", device, identifier, timeout=60)
+        (directory / "cleanup.log").write_text(
+            f"uninstall {identifier}: exit={cleanup.returncode}\n{cleanup.stdout}{cleanup.stderr}")
+        if cleanup.returncode and error is None:
+            error = "Device app cleanup failed; see cleanup.log"
+    (directory / "device-result.json").write_text(json.dumps({
+        "mode": mode, "launched": launched,
+        "kept_app": keep_app and install.returncode == 0, "automated_tests_run": not manual and count > 0,
+        "test_count": None if manual else count, "error": error,
+    }, indent=2))
+    return count, error
 
 
 def run_tests(args, app, identifier, directory):
@@ -242,27 +358,56 @@ def run_tests(args, app, identifier, directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     simulator = parser.add_mutually_exclusive_group()
+    simulator.add_argument("--device", help="Run an Xcode-signed test app on a paired physical device")
     simulator.add_argument("--udid", help="Use an existing simulator and restore its boot state")
     simulator.add_argument("--runtime", help="Installed runtime identifier/name; default: latest iOS")
     parser.add_argument("--device-type", default="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro")
-    parser.add_argument("--sdk", default="iphonesimulator", help="Installed simulator SDK name or path")
-    parser.add_argument("--arch", choices=("arm64", "x86_64"),
-                        default="arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x86_64")
+    parser.add_argument("--sdk", help="Installed SDK name/path; default iphoneos with --device, otherwise iphonesimulator")
+    parser.add_argument("--arch", choices=("arm64", "x86_64"), help="Default arm64 for devices or host architecture for simulators")
+    parser.add_argument("--team-id", help="Existing Apple development team for --device")
+    parser.add_argument("--bundle-id", help="Physical test app identifier; default " + DEVICE_BUNDLE_ID)
+    parser.add_argument("--allow-provisioning-updates", action="store_true",
+                        help="Explicitly permit Xcode to update development signing profiles")
+    parser.add_argument("--manual-input", action="store_true",
+                        help="Launch and keep the physical input test UI; do not run automated tests")
+    parser.add_argument("--keep-app", action="store_true", help="Keep the physical test app installed")
     parser.add_argument("--minimum-ios", default="13.0")
     parser.add_argument("--config", choices=("Debug", "Release"), default="Debug")
     parser.add_argument("--third-party-root", type=pathlib.Path, required=True,
-                        help="SFMT/RapidJSON install root for the selected simulator SDK, architecture and configuration")
+                        help="SFMT/RapidJSON/LZ4 install root matching the selected SDK, architecture and configuration")
     parser.add_argument("--gtest-root", type=pathlib.Path,
                         default=REPOSITORY / "build_3rd/intermediate/googletest/googletest")
     parser.add_argument("--work-dir", type=pathlib.Path)
     parser.add_argument("--gtest-filter", help="Override the checked-in UIKit main's platform-only default")
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 1, 4))
-    parser.add_argument("--timeout", type=int, default=300, help="Simulator operation timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=300, help="Native operation timeout in seconds")
     args = parser.parse_args()
     if platform.system() != "Darwin":
         parser.error("Native iOS platform builds require macOS, Xcode and an installed iOS Simulator SDK")
     if args.jobs < 1 or args.timeout < 1:
         parser.error("--jobs and --timeout must be positive")
+    if args.device:
+        if not args.team_id:
+            parser.error("--device requires an existing --team-id")
+        args.sdk = args.sdk or "iphoneos"
+        args.arch = args.arch or "arm64"
+        args.bundle_id = args.bundle_id or DEVICE_BUNDLE_ID
+        if args.arch != "arm64":
+            parser.error("Physical iOS devices require --arch arm64")
+        if not re.fullmatch(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+", args.bundle_id):
+            parser.error("--bundle-id must be a concrete reverse-DNS identifier")
+        if args.manual_input and args.gtest_filter:
+            parser.error("--manual-input does not run tests and cannot use --gtest-filter")
+    else:
+        if args.team_id or args.bundle_id or args.allow_provisioning_updates:
+            parser.error("Signing options require --device; --udid only selects a simulator")
+        if args.manual_input or args.keep_app:
+            parser.error("--manual-input and --keep-app require --device")
+        args.sdk = args.sdk or "iphonesimulator"
+        args.arch = args.arch or ("arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x86_64")
+    expected_sdk = "iphoneos" if args.device else "iphonesimulator"
+    if not pathlib.Path(args.sdk).name.lower().startswith(expected_sdk):
+        parser.error(f"Selected execution mode requires the {expected_sdk} SDK")
     try:
         minimum_version = tuple(int(part) for part in args.minimum_ios.split("."))
     except ValueError:
@@ -275,10 +420,20 @@ def main():
     print(f"Artifacts: {directory}", flush=True)
     try:
         app, identifier = build_test_app(args, directory)
-        run_tests(args, app, identifier, directory)
+        if app is None:
+            parser.exit(1, identifier + "\n")
+        if not args.device:
+            run_tests(args, app, identifier, directory)
     except (RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, str(error) + "\n")
-    print(f"UIKit platform tests passed. Logs: {directory}", flush=True)
+    if args.device:
+        count, error = run_device_tests(args, app, identifier, directory)
+        if error:
+            parser.exit(1, error + "\n")
+    if args.manual_input:
+        print(f"Sky Input Test launched and kept installed. Automated tests were not run. Logs: {directory}", flush=True)
+    else:
+        print(f"UIKit platform tests passed. Logs: {directory}", flush=True)
 
 
 if __name__ == "__main__":

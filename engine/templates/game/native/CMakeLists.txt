@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project({{PROJECT_NAME}} LANGUAGES C CXX)
 
+option(SKY_APPLE_ARCHIVE_RESOURCES "Stage runtime resources before Xcode archive signing" OFF)
 if (APPLE)
     enable_language(OBJCXX)
     set(CMAKE_OBJCXX_STANDARD 20)
@@ -18,6 +19,9 @@ if (APPLE)
     set(CMAKE_INSTALL_NAME_DIR "@rpath")
     set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
     set(CMAKE_INSTALL_RPATH "@loader_path")
+    if(SKY_APPLE_ARCHIVE_RESOURCES)
+        set(CMAKE_XCODE_ATTRIBUTE_SKIP_INSTALL YES)
+    endif()
 endif ()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -77,6 +81,38 @@ if (SKY_EXTRA_CXX_FLAGS)
     add_compile_options(${SKY_EXTRA_CXX_FLAGS})
 endif ()
 
+set(_sky_deploy_resources_default ON)
+if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "OHOS")
+    set(_sky_deploy_resources_default OFF)
+endif()
+option(SKY_DEPLOY_RUNTIME_RESOURCES "Deploy runtime resources from standalone native builds" ${_sky_deploy_resources_default})
+set(SKY_SHADER_DISTRIBUTION "${PROJECT_NAME}-${SKY_PLATFORM}" CACHE STRING "Selected shader product distribution")
+set(_sky_project_native_directory "${CMAKE_CURRENT_SOURCE_DIR}")
+function(sky_stage_apple_archive target)
+    if(NOT APPLE OR NOT SKY_APPLE_ARCHIVE_RESOURCES)
+        return()
+    endif()
+    if(SKY_DEPLOY_RUNTIME_RESOURCES)
+        message(FATAL_ERROR "Apple archive staging requires SKY_DEPLOY_RUNTIME_RESOURCES=OFF")
+    endif()
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(_sky_archive_stage_arguments "")
+    if(SKY_DEVELOP)
+        list(APPEND _sky_archive_stage_arguments --development)
+    endif()
+    # The launcher owner calls this before Xcode's final CodeSign step;
+    # archive relocation is resolved from the Xcode product environment.
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${Python3_EXECUTABLE}" "${ENGINE_ROOT}/python/package_project.py" stage-runtime
+            --project "${_sky_project_native_directory}/.." --engine "${ENGINE_ROOT}"
+            --distribution "${SKY_SHADER_DISTRIBUTION}" --xcode-environment
+            --receipt "${CMAKE_BINARY_DIR}/apple-stage/$<CONFIG>.json"
+            ${_sky_archive_stage_arguments}
+        COMMENT "Staging archive resources before signing"
+        VERBATIM
+    )
+endfunction()
+
 # Project-owned platform launcher (defines the `Launcher` target).
 if (ANDROID)
     add_subdirectory(android/cpp)
@@ -117,23 +153,22 @@ if (SKY_MODULE_PACKAGING STREQUAL "static")
 endif ()
 
 # Mobile assets are prepared before Gradle/Hvigor; standalone desktop IDE builds deploy here.
-set(_sky_deploy_resources_default ON)
-if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "OHOS")
-    set(_sky_deploy_resources_default OFF)
-endif()
-option(SKY_DEPLOY_RUNTIME_RESOURCES "Deploy runtime resources from standalone native builds" ${_sky_deploy_resources_default})
-set(SKY_SHADER_DISTRIBUTION "${PROJECT_NAME}-${SKY_PLATFORM}" CACHE STRING "Selected shader product distribution")
 add_custom_target({{PROJECT_NAME}}Deploy ALL)
 if(SKY_DEPLOY_RUNTIME_RESOURCES)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     set(_sky_runtime_stage_arguments "")
+    set(_sky_runtime_destination "$<TARGET_FILE_DIR:Launcher>")
+    get_target_property(_sky_runtime_bundle Launcher MACOSX_BUNDLE)
+    if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND _sky_runtime_bundle)
+        set(_sky_runtime_destination "$<TARGET_BUNDLE_CONTENT_DIR:Launcher>/Resources")
+    endif()
     if(SKY_DEVELOP)
         list(APPEND _sky_runtime_stage_arguments --development)
     endif()
     add_custom_command(TARGET {{PROJECT_NAME}}Deploy POST_BUILD
         COMMAND "${Python3_EXECUTABLE}" "${ENGINE_ROOT}/python/package_project.py" stage-runtime
             --project "${CMAKE_CURRENT_SOURCE_DIR}/.." --engine "${ENGINE_ROOT}"
-            --distribution "${SKY_SHADER_DISTRIBUTION}" --destination "$<TARGET_FILE_DIR:Launcher>"
+            --distribution "${SKY_SHADER_DISTRIBUTION}" --destination "${_sky_runtime_destination}"
             ${_sky_runtime_stage_arguments}
         COMMENT "Deploying runtime resources"
         VERBATIM

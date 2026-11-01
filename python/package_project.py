@@ -12,9 +12,11 @@
 - create   从 templates/game 建工程，并把 templates/launcher/<platform> 铺到 native/<platform>
 - generate 按预设生成平台工程：android → templates/ide/android 到 build/android；ios/macos → cmake --preset
 - package  generate + 构建 + 收集产物（android 出 APK；ios/macos 走 cmake --preset/--build）
+- apple-distribute 通过 Xcode 归档、验签并使用外部 export-options 本地导出 Apple 应用
 """
 
 import argparse
+import hashlib
 import json
 import os
 import posixpath
@@ -319,18 +321,67 @@ def apple_cmake_args(preset, credentials, default_bundle_id):
     team = preset.get('team') or apple['teamId']
     identity = preset.get('signingIdentity') or apple['signingIdentity']
     profile = preset.get('provisioningProfile') or apple['provisioningProfile']
-    if team:
-        args.append('-DSKY_APPLE_TEAM_ID=' + team)
-    if identity:
-        args.append('-DSKY_APPLE_SIGNING_IDENTITY=' + identity)
-    if profile:
-        args.append('-DSKY_APPLE_PROVISIONING_PROFILE=' + profile)
+    args += ['-DSKY_APPLE_TEAM_ID=' + team, '-DSKY_APPLE_SIGNING_IDENTITY=' + identity,
+             '-DSKY_APPLE_PROVISIONING_PROFILE=' + profile]
 
     if preset.get('signing', 'auto') == 'off':
         args += ['-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO', '-DCODE_SIGNING_REQUIRED=NO',
                  '-DCODE_SIGNING_ALLOWED=NO']
 
     return args + preset_cmake_args(preset)
+
+
+def apple_build_configuration(preset):
+    configurations = {'debug': 'Debug', 'release': 'Release'}
+    variant = preset.get('variant', 'release')
+    configuration = configurations.get(variant) if isinstance(variant, str) else None
+    if configuration is None:
+        print('Apple variant must be debug or release', file=sys.stderr)
+        return None
+    arguments = preset.get('extraBuildArgs') or []
+    if not isinstance(arguments, list) or any(
+            not isinstance(argument, str) or argument == '--config' or argument.startswith('--config=')
+            or argument == '--preset' or argument.startswith('--preset=') for argument in arguments):
+        print('Select the Apple build configuration with variant, not extraBuildArgs', file=sys.stderr)
+        return None
+    return configuration
+
+
+def apple_export_versions(descriptor, preset):
+    settings = descriptor.get('settings') or {}
+    name = preset.get('versionName', settings.get('versionName', '1.0'))
+    code = preset.get('versionCode', settings.get('versionCode', 1))
+    if not isinstance(name, str) or re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', name) is None:
+        print('Apple versionName must contain one to three numeric components', file=sys.stderr)
+        return None
+    if not isinstance(code, int) or isinstance(code, bool) or code <= 0:
+        print('Apple versionCode must be a positive integer', file=sys.stderr)
+        return None
+    return name, str(code)
+
+
+def prepare_macos_metadata(project_dir, tokens):
+    source = project_dir / 'native/macos'
+    launcher = source / 'CMakeLists.txt'
+    if not launcher.is_file() or '${SKY_MACOS_INFO_PLIST}' not in launcher.read_text(encoding='utf-8'):
+        print('Update native/macos/CMakeLists.txt to use ${SKY_MACOS_INFO_PLIST} for MACOSX_BUNDLE_INFO_PLIST',
+              file=sys.stderr)
+        return None
+    manifest_path = source / 'Info.plist'
+    if not manifest_path.is_file():
+        print('Missing project-owned macOS Info.plist', file=sys.stderr)
+        return None
+    with manifest_path.open('rb') as handle:
+        manifest = plistlib.load(handle)
+    if not isinstance(manifest, dict):
+        print('macOS Info.plist must contain a dictionary', file=sys.stderr)
+        return None
+    manifest['CFBundleShortVersionString'] = tokens.get('{{VERSION_NAME}}', '1.0')
+    manifest['CFBundleVersion'] = tokens.get('{{VERSION_CODE}}', '1')
+    output = project_dir / 'build/macos/export/Info.plist'
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(plistlib.dumps(manifest, sort_keys=False))
+    return '-DSKY_MACOS_INFO_PLIST=' + output.resolve().as_posix()
 
 
 def prepare_harmonyos_project(engine, project_dir, preset, tokens, credentials):
@@ -415,7 +466,7 @@ def prepare_harmonyos_project(engine, project_dir, preset, tokens, credentials):
     return out_dir
 
 
-def prepare_ios_orientation(project_dir, preset):
+def prepare_ios_orientation(project_dir, preset, tokens=None):
     source = project_dir / 'native/ios'
     launcher = source / 'CMakeLists.txt'
     if not launcher.is_file() or '${SKY_IOS_INFO_PLIST}' not in launcher.read_text(encoding='utf-8'):
@@ -431,6 +482,9 @@ def prepare_ios_orientation(project_dir, preset):
             manifest[key] = list(orientations)
     manifest['UISupportedInterfaceOrientations'] = list(orientations)
     manifest['UISupportedInterfaceOrientations~ipad'] = list(orientations)
+    if tokens is not None:
+        manifest['CFBundleShortVersionString'] = tokens.get('{{VERSION_NAME}}', '1.0')
+        manifest['CFBundleVersion'] = tokens.get('{{VERSION_CODE}}', '1')
     output = project_dir / 'build/ios/export/Info.plist'
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(plistlib.dumps(manifest, sort_keys=False))
@@ -480,10 +534,13 @@ def validate_harmonyos_hap(artifact, launcher, abis):
                 raise SystemExit('HarmonyOS HAP is missing runtime resource: ' + resource)
 
 
-def find_apple_app(project_dir, platform, name, required=True):
-    # Build presets select Release, but honor Debug/custom output configurations.
-    candidates = sorted((project_dir / 'build' / platform / 'bin').glob('*/' + name + '.app'))
-    candidates += sorted((project_dir / 'build' / platform / 'bin').glob(name + '.app'))
+def find_apple_app(project_dir, platform, name, required=True, configuration=None):
+    output = project_dir / 'build' / platform / 'bin'
+    if configuration is None:
+        candidates = sorted(output.glob('*/' + name + '.app')) + sorted(output.glob(name + '.app'))
+    else:
+        selected = output / configuration / (name + '.app')
+        candidates = [selected] if selected.is_dir() else []
     if not candidates and not required:
         return None
     if len(candidates) != 1:
@@ -509,14 +566,354 @@ def zip_bundle(app, archive, prefix):
                 output.writestr(info, source.read_bytes())
 
 
-def collect_apple_package(engine, project_dir, preset, name):
+def apple_resource_inventory(destination):
+    files = {}
+    for relative in ('configs', 'products', 'assets/shaders'):
+        directory = destination / relative
+        if directory.is_symlink():
+            print('Apple runtime resource directory must not be a symlink: ' + relative, file=sys.stderr)
+            return None
+        for path in sorted(directory.rglob('*')) if directory.is_dir() else []:
+            if path.is_symlink():
+                print('Apple runtime resource must not be a symlink: ' + str(path), file=sys.stderr)
+                return None
+            if not path.is_file():
+                continue
+            digest = hashlib.sha256()
+            with path.open('rb') as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            files[path.relative_to(destination).as_posix()] = digest.hexdigest()
+    return files
+
+
+def apple_resource_directory(app, platform):
+    return app / 'Contents/Resources' if platform == 'macos' else app
+
+
+def apple_executable_directory(app, platform):
+    return app / 'Contents/MacOS' if platform == 'macos' else app
+
+
+def retire_legacy_macos_resources(destination):
+    contents = destination.parent
+    if destination.name != 'Resources' or contents.name != 'Contents' or contents.parent.suffix != '.app':
+        return True
+    bundle = contents.parent.resolve()
+    executable_root = contents / 'MacOS'
+    if destination.is_symlink() or not destination.resolve().is_relative_to(bundle) or not executable_root.resolve().is_relative_to(bundle):
+        print('macOS application resource and executable directories must remain inside the bundle', file=sys.stderr)
+        return False
+    paths = [executable_root / relative for relative in ('configs', 'products', 'assets/shaders')]
+    if any(not path.parent.resolve().is_relative_to(executable_root.resolve()) for path in paths):
+        print('Refusing to retire legacy resources through an aliased executable directory', file=sys.stderr)
+        return False
+    for path in paths:
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+    assets = executable_root / 'assets'
+    if assets.is_dir() and not assets.is_symlink() and not any(assets.iterdir()):
+        assets.rmdir()
+    return True
+
+
+def apple_distribution_command(command, output, phase):
+    result = subprocess.run(command, capture_output=True, text=True)
+    log = output / (phase + '.log')
+    log.write_text(result.stdout + result.stderr, encoding='utf-8')
+    if result.returncode:
+        print('Apple {} failed (exit {}); see {}'.format(phase, result.returncode, log), file=sys.stderr)
+        return None
+    return result
+
+
+def verify_apple_distribution_app(app, preset, tokens, receipt, output, phase, team):
     platform = preset['platform']
-    app = find_apple_app(project_dir, platform, name)
-    resource_root = app / 'Contents' / 'MacOS' if platform == 'macos' else app
-    executable = resource_root / name
+    resources = apple_resource_directory(app, platform)
+    plist = app / 'Contents/Info.plist' if platform == 'macos' else app / 'Info.plist'
+    if not plist.is_file() or not receipt.is_file():
+        print('Signed Apple application is missing its metadata or fresh resource receipt', file=sys.stderr)
+        return False
+    with plist.open('rb') as handle:
+        metadata = plistlib.load(handle)
+    if not isinstance(metadata, dict) or (
+            metadata.get('CFBundleIdentifier'), metadata.get('CFBundleShortVersionString'), metadata.get('CFBundleVersion')) != (
+                tokens['{{APPLICATION_ID}}'], tokens['{{VERSION_NAME}}'], tokens['{{VERSION_CODE}}']):
+        print('Signed Apple application identity/version differs from the selected preset', file=sys.stderr)
+        return False
+    executable = metadata.get('CFBundleExecutable')
+    if not isinstance(executable, str) or not executable or '/' in executable or executable in ('.', '..'):
+        print('Signed Apple application has no valid bundle executable', file=sys.stderr)
+        return False
+    binary = apple_executable_directory(app, platform) / executable
+    if not binary.is_file() or not binary.stat().st_mode & stat.S_IXUSR:
+        print('Signed Apple application has no executable binary', file=sys.stderr)
+        return False
+    expected = load_json(receipt, {})
+    files = apple_resource_inventory(resources)
+    if (not isinstance(expected, dict) or expected.get('platform') != platform
+            or expected.get('distribution') != preset['name']
+            or expected.get('configuration') != apple_build_configuration(preset)
+            or not isinstance(expected.get('files'), dict)
+            or not {'configs/modules_game.json', 'products/bundles.json'} <= expected['files'].keys()
+            or files is None or files != expected['files']):
+        print('Signed Apple application resources do not match the pre-sign staging receipt', file=sys.stderr)
+        return False
+    if apple_distribution_command(['codesign', '--verify', '--deep', '--strict', str(app)], output,
+                                  phase + '-codesign-verify') is None:
+        return False
+    identity = apple_distribution_command(['codesign', '--display', '--verbose=4', str(app)], output,
+                                         phase + '-codesign-identity')
+    if identity is None:
+        return False
+    signature = identity.stdout + identity.stderr
+    if 'Signature=adhoc' in signature or 'Authority=' not in signature:
+        print('Apple distribution requires a certificate signature, not an ad-hoc signature', file=sys.stderr)
+        return False
+    actual_team = re.search(r'^TeamIdentifier=(.+)$', signature, re.MULTILINE)
+    if team and (actual_team is None or actual_team.group(1).strip() != team):
+        print('Signed Apple application belongs to a different development team', file=sys.stderr)
+        return False
+    return True
+
+
+def retire_apple_distribution(output):
+    for name in ('Application.xcarchive', 'export', 'inspection', 'result.json'):
+        path = output / name
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+
+
+def apple_distribution_failed(output, message):
+    print(message, file=sys.stderr)
+    retire_apple_distribution(output)
+    return 1
+
+
+def apple_archive_application(archive, tokens):
+    manifest = archive / 'Info.plist'
+    if not manifest.is_file():
+        print('Apple archive is missing Info.plist', file=sys.stderr)
+        return None
+    with manifest.open('rb') as handle:
+        metadata = plistlib.load(handle)
+    properties = metadata.get('ApplicationProperties') if isinstance(metadata, dict) else None
+    if not isinstance(properties, dict) or (
+            properties.get('CFBundleIdentifier'), properties.get('CFBundleShortVersionString'), properties.get('CFBundleVersion')) != (
+                tokens['{{APPLICATION_ID}}'], tokens['{{VERSION_NAME}}'], tokens['{{VERSION_CODE}}']):
+        print('Expected an application archive with matching identity/version, not a generic archive', file=sys.stderr)
+        return None
+    relative = properties.get('ApplicationPath')
+    if (not isinstance(relative, str) or not relative or Path(relative).is_absolute()
+            or len(Path(relative).parts) != 2 or Path(relative).parts[0] != 'Applications'
+            or '..' in Path(relative).parts or not relative.endswith('.app')):
+        print('Apple archive has no valid ApplicationPath', file=sys.stderr)
+        return None
+    products = archive / 'Products'
+    application = products / relative
+    if not application.is_dir() or not application.resolve().is_relative_to(products.resolve()):
+        print('Apple archive ApplicationPath does not identify its application product', file=sys.stderr)
+        return None
+    return application
+
+
+def retire_apple_archive_products(project_dir, platform, configuration, name, output):
+    generated = project_dir / 'build' / platform
+    derived = output / 'DerivedData'
+    archive_products = derived / 'ArchiveIntermediates/Launcher/InstallationBuildProductsLocation'
+    if derived.is_symlink() or not derived.resolve().is_relative_to(output.resolve()) or not archive_products.resolve().is_relative_to(derived.resolve()):
+        print('Refusing to retire Apple archive products through an aliased DerivedData directory', file=sys.stderr)
+        return False
+    configured = generated / 'bin' / configuration / (name + '.app')
+    if not configured.parent.resolve().is_relative_to(generated.resolve()):
+        print('Refusing to retire Apple app products outside the selected build directory', file=sys.stderr)
+        return False
+    for product in (configured, archive_products):
+        if product.is_symlink():
+            product.unlink()
+        elif product.is_dir():
+            shutil.rmtree(product)
+    return True
+
+
+def apple_export_options(path, output, team):
+    if not path.is_file() or path.resolve().is_relative_to(output.resolve()):
+        print('Supply an external export-options plist outside the generated distribution directory', file=sys.stderr)
+        return None
+    converted = subprocess.run(['plutil', '-convert', 'xml1', '-o', '-', str(path)], capture_output=True, text=True)
+    if converted.returncode:
+        print('Invalid Apple export-options plist: ' + str(path), file=sys.stderr)
+        return None
+    options = plistlib.loads(converted.stdout.encode('utf-8'))
+    if not isinstance(options, dict) or options.get('destination', 'export') != 'export':
+        print('Apple distribution only supports local export; uploading is not enabled', file=sys.stderr)
+        return None
+    if options.get('manageAppVersionAndBuildNumber') is True:
+        print('Disable manageAppVersionAndBuildNumber to preserve the export preset version', file=sys.stderr)
+        return None
+    if team and options.get('teamID', team) != team:
+        print('Export options select a different Apple development team', file=sys.stderr)
+        return None
+    return options
+
+
+def cmd_apple_distribute(args):
+    if sys.platform != 'darwin':
+        print('Apple distribution requires macOS and Xcode', file=sys.stderr)
+        return 1
+    engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
+    descriptor, _ = load_descriptor(args.project)
+    selected = find_preset(descriptor.parent, args.preset)
+    platform = selected.get('platform')
+    if platform not in ('ios', 'macos'):
+        print('apple-distribute requires an ios/macos preset', file=sys.stderr)
+        return 1
+    output = descriptor.parent / 'build' / platform / 'distribution'
+    if output.is_symlink() or not output.parent.resolve().is_relative_to(descriptor.parent.resolve()):
+        print('Apple distribution output must remain inside the project build directory', file=sys.stderr)
+        return 1
+    output.mkdir(parents=True, exist_ok=True)
+    retire_apple_distribution(output)
+    resolved = _resolve(args.project, args.preset)
+    if resolved is None:
+        return 1
+    project_dir, preset, tokens, credentials = resolved
+    if preset['platform'] != platform or preset.get('signing') != 'auto':
+        print('apple-distribute requires an ios/macos preset with signing=auto', file=sys.stderr)
+        return 1
+    if (args.device and (platform != 'ios' or args.archive_only)) or (args.launch and not args.device):
+        print('Device installation/launch requires an iOS export and an explicit --device', file=sys.stderr)
+        return 1
+    if not args.archive_only and not args.export_options:
+        print('Apple export requires an explicit --export-options plist', file=sys.stderr)
+        return 1
+    if args.archive_only and args.export_options:
+        print('--archive-only does not consume export options', file=sys.stderr)
+        return 1
+    if any(shutil.which(tool) is None for tool in ('cmake', 'xcodebuild', 'codesign', 'plutil', 'ditto', 'xcrun')):
+        print('Apple distribution requires CMake and the installed Xcode command-line tools', file=sys.stderr)
+        return 1
+    native = project_dir / 'native/CMakeLists.txt'
+    launcher = project_dir / 'native' / platform / 'CMakeLists.txt'
+    if (not native.is_file() or 'SKY_APPLE_ARCHIVE_RESOURCES' not in native.read_text(encoding='utf-8')
+            or not launcher.is_file() or 'sky_stage_apple_archive(Launcher)' not in launcher.read_text(encoding='utf-8')):
+        print('Update native/CMakeLists.txt with the Apple pre-sign archive staging contract', file=sys.stderr)
+        return 1
+    material = apple_credentials(credentials)
+    team = preset.get('team') or material['teamId']
+    identity = preset.get('signingIdentity') or material['signingIdentity']
+    if identity == '-':
+        print('Apple distribution requires a certificate signing identity', file=sys.stderr)
+        return 1
+    options_path = Path(args.export_options).resolve() if args.export_options else None
+    if options_path is not None:
+        options = apple_export_options(options_path, output, team)
+        if options is None:
+            return 1
+        if not team:
+            team = options.get('teamID', '')
+            if not isinstance(team, str):
+                print('Apple export teamID must be a string', file=sys.stderr)
+                return 1
+            preset = dict(preset, team=team)
+    if platform == 'ios' and not team:
+        print('iOS distribution requires a development team in the preset, credentials or export options', file=sys.stderr)
+        return 1
+    configuration = apple_build_configuration(preset)
+    receipt = project_dir / 'build' / platform / 'apple-stage' / (configuration + '.json')
+    if receipt.exists():
+        receipt.unlink()
+    if _prepare(engine, project_dir, preset, tokens, credentials, build=False, archive_resources=True):
+        return apple_distribution_failed(output, 'Apple archive preparation failed')
+    projects = sorted((project_dir / 'build' / platform).glob('*.xcodeproj'))
+    if len(projects) != 1:
+        return apple_distribution_failed(output, 'Expected exactly one configured Xcode project for Apple distribution')
+    if not retire_apple_archive_products(project_dir, platform, configuration, tokens['{{PROJECT_NAME}}'], output):
+        return apple_distribution_failed(output, 'Apple archive product cleanup failed')
+    archive = output / 'Application.xcarchive'
+    command = ['xcodebuild', '-project', str(projects[0]), '-scheme', 'Launcher', '-configuration', configuration,
+               '-destination', 'generic/platform=' + ('iOS' if platform == 'ios' else 'macOS'),
+               '-archivePath', str(archive), '-derivedDataPath', str(output / 'DerivedData'),
+               'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGNING_REQUIRED=YES']
+    if team:
+        command.append('DEVELOPMENT_TEAM=' + team)
+    if identity:
+        command.append('CODE_SIGN_IDENTITY=' + identity)
+    command += ['CODE_SIGN_STYLE=' + ('Manual' if preset.get('provisioningProfile') or material['provisioningProfile']
+                                      else 'Automatic'), 'archive']
+    if apple_distribution_command(command, output, 'archive') is None:
+        return apple_distribution_failed(output, 'No Apple distribution was published')
+    archived_application = apple_archive_application(archive, tokens)
+    if archived_application is None or not verify_apple_distribution_app(
+            archived_application, preset, tokens, receipt, output, 'archive', team):
+        return apple_distribution_failed(output, 'Apple archive validation failed')
+    published = archive
+    installed = False
+    if not args.archive_only:
+        exported = output / 'export'
+        if apple_distribution_command(['xcodebuild', '-exportArchive', '-archivePath', str(archive),
+                                       '-exportPath', str(exported), '-exportOptionsPlist', str(options_path)],
+                                      output, 'export') is None:
+            return apple_distribution_failed(output, 'Apple export failed; no deployable result was retained')
+        if platform == 'ios':
+            packages = sorted(exported.glob('*.ipa'))
+            if len(packages) != 1:
+                return apple_distribution_failed(output, 'Apple export did not produce exactly one IPA')
+            with zipfile.ZipFile(packages[0]) as package:
+                if any(name.startswith('/') or '..' in Path(name).parts for name in package.namelist()):
+                    return apple_distribution_failed(output, 'Apple export contains an invalid archive entry')
+            inspection = output / 'inspection'
+            if apple_distribution_command(['ditto', '-x', '-k', str(packages[0]), str(inspection)],
+                                          output, 'inspect-export') is None:
+                return apple_distribution_failed(output, 'Cannot inspect the exported iOS application')
+            applications = sorted((inspection / 'Payload').glob('*.app'))
+            published = packages[0]
+        else:
+            applications = sorted(exported.glob('*.app'))
+            published = applications[0] if len(applications) == 1 else exported
+        if len(applications) != 1 or not verify_apple_distribution_app(
+                applications[0], preset, tokens, receipt, output, 'export', team):
+            return apple_distribution_failed(output, 'Exported Apple application validation failed')
+        if args.device:
+            if apple_distribution_command(['xcrun', 'devicectl', 'device', 'install', 'app', '--device',
+                                           args.device, str(applications[0])], output, 'install') is None:
+                return apple_distribution_failed(output, 'Apple device installation failed')
+            installed = True
+            if args.launch and apple_distribution_command(
+                    ['xcrun', 'devicectl', 'device', 'process', 'launch', '--device', args.device,
+                     tokens['{{APPLICATION_ID}}']], output, 'launch') is None:
+                return apple_distribution_failed(output, 'Apple application launch failed')
+    result = {'platform': platform, 'configuration': configuration, 'archive': str(archive),
+              'artifact': str(published), 'archiveOnly': args.archive_only, 'installed': installed,
+              'bundleId': tokens['{{APPLICATION_ID}}'], 'versionName': tokens['{{VERSION_NAME}}'],
+              'versionCode': tokens['{{VERSION_CODE}}']}
+    (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+    print('Verified Apple artifact: ' + str(published))
+    return 0
+
+
+def collect_apple_package(engine, project_dir, preset, name, versions=None):
+    platform = preset['platform']
+    configuration = apple_build_configuration(preset)
+    if configuration is None:
+        return None
+    app = find_apple_app(project_dir, platform, name, configuration=configuration)
+    resource_root = apple_resource_directory(app, platform)
+    executable = apple_executable_directory(app, platform) / name
     plist = app / 'Contents' / 'Info.plist' if platform == 'macos' else app / 'Info.plist'
     if not plist.is_file() or not executable.is_file() or not executable.stat().st_mode & stat.S_IXUSR:
         raise SystemExit('不完整的 Apple 应用包: {}'.format(app))
+    if versions is not None:
+        with plist.open('rb') as handle:
+            manifest = plistlib.load(handle)
+        if not isinstance(manifest, dict) or (
+                manifest.get('CFBundleShortVersionString'), manifest.get('CFBundleVersion')) != tuple(versions):
+            print('Built Apple bundle version does not match the selected export preset', file=sys.stderr)
+            return None
     if not stage_runtime_resources(engine, project_dir, preset, resource_root):
         return None
     suffix = '-unsigned.ipa' if platform == 'ios' else '-macos.zip'
@@ -756,6 +1153,12 @@ def stage_configs(engine, project_dir, dest_configs_dir, development=True):
 
 def stage_runtime_resources(engine, project_dir, preset, destination, development=None):
     development = development_preset(preset) if development is None else development
+    runtime_directory = None
+    if (preset.get('platform') == 'macos' and destination.name == 'Resources' and destination.parent.name == 'Contents'
+            and destination.parent.parent.suffix == '.app'):
+        if not retire_legacy_macos_resources(destination):
+            return False
+        runtime_directory = destination.parent / 'MacOS'
     if development:
         configs, error = project_modules(engine, project_dir, optional_descriptor(project_dir))
         if not error:
@@ -764,13 +1167,13 @@ def stage_runtime_resources(engine, project_dir, preset, destination, developmen
             print(error, file=sys.stderr)
             return False
     else:
-        strip_development_resources(destination)
+        strip_development_resources(destination, runtime_directory)
     if not stage_configs(engine, project_dir, destination / 'configs', development=development):
         return False
     return stage_bundles(project_dir, preset, destination / 'products', engine) is not None
 
 
-def strip_development_resources(destination):
+def strip_development_resources(destination, runtime_directory=None):
     """Retire generated development files when reusing a shipping app/assets directory."""
     sources = destination / 'assets/shaders'
     if sources.exists() or sources.is_symlink():
@@ -780,10 +1183,13 @@ def strip_development_resources(destination):
             sources.unlink()
         else:
             shutil.rmtree(sources)
-    for directory in (destination, destination / 'Frameworks'):
+    directories = [(destination, destination), (destination / 'Frameworks', destination)]
+    if runtime_directory is not None:
+        directories += [(runtime_directory, runtime_directory), (runtime_directory / 'Frameworks', runtime_directory)]
+    for directory, owner in directories:
         if not directory.is_dir():
             continue
-        if not directory.resolve().is_relative_to(destination.resolve()):
+        if not directory.resolve().is_relative_to(owner.resolve()):
             raise SystemExit('Refusing to retire compiler files through an aliased runtime directory: ' + str(directory))
         for library in directory.iterdir():
             name = library.name.lower().removeprefix('lib')
@@ -795,20 +1201,25 @@ def strip_development_resources(destination):
                     library.unlink()
 
 
-def run_cmake_preset(engine, project_dir, platform, build, extra, extra_build):
+def run_cmake_preset(engine, project_dir, platform, build, extra, extra_build, configuration=None):
     native_dir = project_dir / 'native'
     env = os.environ.copy()
     env['SKY_ENGINE_ROOT'] = str(engine)
     args = list(extra)
     if env.get('SKY_3RD_PATH'):
         args.append('-D3RD_PATH=' + env['SKY_3RD_PATH'])
+    if configuration is not None:
+        args.append('-DCMAKE_BUILD_TYPE=' + configuration)
     configure = ['cmake', '--preset', platform] + args
     print('配置: {} (cwd={})'.format(' '.join(configure), native_dir))
     result = subprocess.run(configure, cwd=str(native_dir), env=env)
     if result.returncode != 0:
         raise SystemExit('cmake 配置失败 (exit {})'.format(result.returncode))
     if build:
-        build_cmd = ['cmake', '--build', '--preset', platform] + list(extra_build)
+        build_cmd = ['cmake', '--build', '--preset', platform]
+        if configuration is not None:
+            build_cmd += ['--config', configuration]
+        build_cmd += list(extra_build)
         print('构建: {} (cwd={})'.format(' '.join(build_cmd), native_dir))
         result = subprocess.run(build_cmd, cwd=str(native_dir), env=env)
         if result.returncode != 0:
@@ -888,6 +1299,11 @@ def _resolve(project_arg, preset_name):
             return None
     credentials = load_json(project_dir / 'export_credentials.json', {})
     tokens = build_tokens(descriptor, preset, credentials)
+    if preset['platform'] in ('ios', 'macos'):
+        versions = apple_export_versions(descriptor, preset)
+        if apple_build_configuration(preset) is None or versions is None:
+            return None
+        tokens['{{VERSION_NAME}}'], tokens['{{VERSION_CODE}}'] = versions
     if preset['platform'] == 'android':
         launchers = list((project_dir / 'native/android/java').rglob('SkyEngineActivity.java'))
         if len(launchers) != 1:
@@ -916,7 +1332,7 @@ def retire_package_artifacts(project_dir, platform):
             artifact.unlink()
 
 
-def _prepare(engine, project_dir, preset, tokens, credentials, build):
+def _prepare(engine, project_dir, preset, tokens, credentials, build, archive_resources=False):
     """Generate the platform project, cook, and stage the selected bundles.
 
     With `build`, also run the platform build (gradle assemble / cmake build) and
@@ -947,11 +1363,23 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
                 package_harmonyos(out_dir, preset, tokens)
     elif platform in ('ios', 'macos'):
         if build and preset.get('signing', 'auto') != 'off':
-            raise SystemExit('Apple 包内资源收集目前要求 signing=off；签名分发请使用 Xcode archive/export。')
-        orientation_args = [prepare_ios_orientation(project_dir, preset)] if platform == 'ios' else []
-        retire_package_artifacts(project_dir, platform)
+            raise SystemExit('Apple package 要求 signing=off；签名分发请使用 apple-distribute。')
+        configuration = apple_build_configuration(preset)
+        if configuration is None:
+            return 1
+        metadata_args = []
+        if platform == 'ios':
+            metadata_args.append(prepare_ios_orientation(project_dir, preset, tokens))
+        elif preset.get('bundle'):
+            metadata = prepare_macos_metadata(project_dir, tokens)
+            if metadata is None:
+                return 1
+            metadata_args.append(metadata)
+        if not archive_resources:
+            retire_package_artifacts(project_dir, platform)
         if build:
-            old_app = find_apple_app(project_dir, platform, tokens['{{PROJECT_NAME}}'], required=False)
+            old_app = find_apple_app(project_dir, platform, tokens['{{PROJECT_NAME}}'], required=False,
+                                     configuration=configuration)
             if old_app is not None:
                 # Reuse compiled objects, but never ship libraries/resources left
                 # by a previous preset or disabled plugin.
@@ -960,13 +1388,19 @@ def _prepare(engine, project_dir, preset, tokens, credentials, build):
             return 1
         if not prepare_shader_products(engine, project_dir, preset):
             return 1
-        # IDE-only builds deploy beside the executable; package owns staging after the app is built.
-        deployment_args = ['-DSKY_DEPLOY_RUNTIME_RESOURCES=' + ('OFF' if build else 'ON')]
+        # IDE builds deploy runtime resources; unsigned package collection owns staging after the build.
+        deployment_args = ['-DSKY_APPLE_ARCHIVE_RESOURCES=' + ('ON' if archive_resources else 'OFF')]
+        if archive_resources:
+            deployment_args += ['-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=YES',
+                                '-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=YES',
+                                '-DCODE_SIGNING_ALLOWED=YES', '-DCODE_SIGNING_REQUIRED=YES']
+        deployment_args.append('-DSKY_DEPLOY_RUNTIME_RESOURCES=' + ('OFF' if build or archive_resources else 'ON'))
         run_cmake_preset(engine, project_dir, platform, build=build,
-                         extra=apple_cmake_args(preset, credentials, tokens['{{APPLICATION_ID}}']) + orientation_args + deployment_args,
-                         extra_build=preset.get('extraBuildArgs') or [])
+                         extra=apple_cmake_args(preset, credentials, tokens['{{APPLICATION_ID}}']) + metadata_args + deployment_args,
+                         extra_build=preset.get('extraBuildArgs') or [], configuration=configuration)
         if build:
-            if collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}']) is None:
+            versions = (tokens.get('{{VERSION_NAME}}', '1.0'), tokens.get('{{VERSION_CODE}}', '1'))
+            if collect_apple_package(engine, project_dir, preset, tokens['{{PROJECT_NAME}}'], versions) is None:
                 return 1
     else:
         raise SystemExit('不支持的平台: {}'.format(platform))
@@ -1037,13 +1471,53 @@ def cmd_stage_runtime(args):
     engine = Path(args.engine).resolve() if args.engine else REPO_ROOT
     project, _ = load_descriptor(args.project)
     project_dir = project.parent
-    destination = Path(args.destination)
     preset = find_preset(project_dir, args.distribution)
+    if getattr(args, 'xcode_environment', False):
+        target = os.environ.get('TARGET_BUILD_DIR', '')
+        folder = os.environ.get('UNLOCALIZED_RESOURCES_FOLDER_PATH', '')
+        relative = Path(folder)
+        if (preset.get('platform') not in ('ios', 'macos') or not target or not Path(target).is_absolute()
+                or not folder or relative.is_absolute() or '..' in relative.parts
+                or os.environ.get('CONFIGURATION') != apple_build_configuration(preset)):
+            print('Apple archive staging requires the selected configuration and Xcode product environment', file=sys.stderr)
+            return 1
+        destination = Path(target) / relative
+        if not destination.resolve().is_relative_to(Path(target).resolve()) or not any(
+                path.suffix == '.app' for path in [destination] + list(destination.parents)
+                if path.is_relative_to(Path(target))):
+            print('Xcode runtime resource destination must belong to its application bundle', file=sys.stderr)
+            return 1
+        if preset['platform'] == 'macos' and (destination.name != 'Resources' or destination.parent.name != 'Contents'
+                                             or destination.parent.parent.suffix != '.app'):
+            print('macOS Xcode resources must use Contents/Resources', file=sys.stderr)
+            return 1
+    else:
+        destination = Path(args.destination)
+        if (preset.get('platform') == 'macos' and destination.name == 'MacOS' and destination.parent.name == 'Contents'
+                and destination.parent.parent.suffix == '.app'):
+            destination = destination.parent / 'Resources'
+    receipt = Path(args.receipt).resolve() if getattr(args, 'receipt', None) else None
+    if receipt is not None:
+        if receipt.is_relative_to(destination.resolve()):
+            print('Apple resource receipts must remain outside the signed application', file=sys.stderr)
+            return 1
+        if receipt.exists():
+            receipt.unlink()
     manifest = project_dir / 'products/shaders' / args.distribution / 'distribution.json'
     if not args.development and not manifest.is_file():
         print('Shader distribution has not been cooked: ' + args.distribution, file=sys.stderr)
         return 1
-    return 0 if stage_runtime_resources(engine, project_dir, preset, destination, args.development) else 1
+    if not stage_runtime_resources(engine, project_dir, preset, destination, args.development):
+        return 1
+    if receipt is not None:
+        files = apple_resource_inventory(destination)
+        if files is None:
+            return 1
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        receipt.write_text(json.dumps({'platform': preset['platform'], 'distribution': args.distribution,
+                                       'configuration': apple_build_configuration(preset), 'files': files},
+                                      indent=2) + '\n', encoding='utf-8')
+    return 0
 
 
 def main():
@@ -1078,9 +1552,22 @@ def main():
     p_runtime.add_argument('-p', '--project', required=True)
     p_runtime.add_argument('--engine')
     p_runtime.add_argument('--distribution', required=True)
-    p_runtime.add_argument('--destination', required=True)
+    destination = p_runtime.add_mutually_exclusive_group(required=True)
+    destination.add_argument('--destination')
+    destination.add_argument('--xcode-environment', action='store_true', help='Use the current Xcode archive product directory')
+    p_runtime.add_argument('--receipt', help='Write a resource inventory outside the application bundle')
     p_runtime.add_argument('--development', action='store_true')
     p_runtime.set_defaults(func=cmd_stage_runtime)
+
+    p_apple = sub.add_parser('apple-distribute', help='Archive, verify and locally export a signed Apple application')
+    p_apple.add_argument('-p', '--project', required=True)
+    p_apple.add_argument('--preset', required=True)
+    p_apple.add_argument('--engine')
+    p_apple.add_argument('--export-options', help='External Xcode export-options plist; destination must be export')
+    p_apple.add_argument('--archive-only', action='store_true', help='Verify a local signed archive without claiming export')
+    p_apple.add_argument('--device', help='Explicit iOS device UDID to install the verified exported application')
+    p_apple.add_argument('--launch', action='store_true', help='Launch after explicit iOS device installation')
+    p_apple.set_defaults(func=cmd_apple_distribute)
 
     for name, helptext in (('generate', '按预设生成平台工程'), ('package', '按预设打包')):
         p = sub.add_parser(name, help=helptext)

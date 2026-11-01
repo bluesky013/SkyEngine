@@ -5,6 +5,16 @@ if (COMMAND sky_3rd_static)
     return()
 endif()
 
+function(sky_find_3rd)
+    cmake_parse_arguments(TMP "" "TARGET" "DIR" ${ARGN})
+    message("find target ${TMP_TARGET}")
+    set(${TMP_TARGET}_PATH ${3RD_PATH}/${TMP_DIR})
+    find_package(${TMP_TARGET})
+    if (NOT ${${TMP_TARGET}_FOUND})
+        message(FATAL_ERROR "${TMP_TARGET} not found")
+    endif()
+endfunction()
+
 # Creates an INTERFACE IMPORTED target for header-only libraries.
 # Usage:
 #   sky_3rd_header_only(<name> [INCLUDE_SUBDIR <subdir>])

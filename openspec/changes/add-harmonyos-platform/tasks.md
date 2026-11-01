@@ -56,7 +56,7 @@
 - [x] 3.7 鸿蒙 launcher 在加载页面前设置全屏布局并隐藏状态栏、导航栏和手势指示条，忽略过期 stage 完成回调；模板及 HarmonyPhysics 同步，Pura 80 Pro 实测 1276×2848 swapchain 和同进程前后台恢复通过。
 - [x] 3.8 统一 `NativeTextInputOptions`、快照事件与 owner-thread 一次性终态，Android/ArkUI/UIKit 使用各自原生编辑 UI；公共状态 17 项及桌面 OHOS 输入策略 13 项通过，非法终态文本与桥接转换失败使用最后合法快照收尾，不记录密码内容。
 - [x] 3.9 完成本轮 Android/OHOS 原生 UI 真机验收，覆盖单行/多行、Unicode 标量长度、密码、取消/后台、重开。Android 隔离 fixture 的 native 121/UI 20 检查通过、9 终态（6 confirmed/2 cancelled/1 error），实际 JNI null→ERROR 保留最后合法文本且 retry 成功。OHOS 桥接修复后 PID 31461 完整 7 cases/0 fail，19 CHANGED、5 CONFIRMED、2 CANCELLED，IME 展开时编辑区/动作可见。隔离验收与纯正式包恢复分开，后者仍归 6.11。
-- [ ] 3.10 UIKit 输入/scene-host 专项验收：源码及设备测试/runner 已提供；2026-11-01 已有 Mac Xcode/iOS Framework/Launcher 构建与 iPad Metal 导航基础场景证据（`openspec/changes/archive/2026-11-01-fix-ios-navigation-demo-linkage/verification.md`），不再以“无 Mac”作为延期理由。仍须运行 UIKit runner，覆盖 primary touch/取消、committed Unicode/IME、单行/多行/密码输入、取消/后台/重开，以及 scene 连接/断开、迟到或外来回调、frame epoch/恢复时钟；保留未勾选。GPU surface/generation 退休和长期呈现归 `aurora-renderer-platform-parity` P02-IOS，基础 demo 与 37 项 Python 检查不能代替这些专项。
+- [ ] 3.10 UIKit 输入/scene-host 专项验收：Apple 修复与原生自动化由 `fix-apple-platform-parity` 唯一负责，OHOS 不重复实施。2026-11-02 Mac Framework 303/303（Cocoa 22/22）、iPad mini 6 原生/策略 33/33；用户确认留驻 Sky Input Test 三种输入、确认/取消和重开正常。最终补丁的模拟器重跑、真实中文 IME/外设专项仍未全部验收，证据与边界见该 change 的 verification.md。GPU surface/generation 退休与长期呈现仍归 `aurora-renderer-platform-parity` P02-IOS；基础导航 demo 与平台测试不代替该矩阵，保留未勾选。
 
 ## 4. P3 — Aurora Vulkan 首帧
 
