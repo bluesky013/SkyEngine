@@ -26,6 +26,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
         platform/posix/*)
     set(FM_EXT_LIB
         "-framework UIKit"
+        "-framework CoreGraphics"
         "-framework QuartzCore"
         "-framework Metal"
         "-framework Foundation")

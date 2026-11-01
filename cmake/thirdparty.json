@@ -169,6 +169,9 @@
 			"options_Android": {
 				"CPP_RTTI_ENABLED": "ON"
 			},
+			"options_IOS": {
+				"CPP_RTTI_ENABLED": "ON"
+			},
 			"options_MacOS-x86": {
 				"CPP_RTTI_ENABLED": "ON"
 			},
