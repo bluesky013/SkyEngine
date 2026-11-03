@@ -1,3 +1,5 @@
+> Ownership update (2026-11-02): [refactor-animation-engine-ownership](../archive/2026-11-04-refactor-animation-engine-ownership/design.md) 按用户确认收拢至 engine/animation，取代 D1 原 plugin 目录/注册归属；2026-11-03 进一步将原算法与 Graph 合入 core/Animation、资产归 assets，2026-11-04 已归档；模块名和本 workflow 剩余功能验收不变。
+
 ## Context
 
 状态：2026-10-24 实施中；用户在整体严格 review 后以 `apply` 确认 Godot 式组合、D1 新模块与首版实施范围。代码证据、严格复核结果及关联 change 见 [review.md](review.md)。
@@ -34,40 +36,40 @@
 
 | 归属 | target / 入口方案 | 依赖和职责 |
 |---|---|---|
-| `engine/animation` | 复用 `Animation` | 修复既有采样/播放/校验；新增消费方 `IAnimationClipSource`、`IAnimationSkeletonSource`，以及 Animation.Editor 消费的 `IAnimationInstanceControl` 和签名数据，不新放 World/Graph 编辑实现 |
-| `plugins/animation/core` | 新 `Animation.Graph.Static` | Core + 既有 Animation；纯 Graph 定义、结构校验、控制逻辑、实例构建；无 renderer/editor/asset manager |
-| `plugins/animation/core` 的资产适配单元 | 新 `Animation.GraphAssets.Static` | Graph core + Framework 的资产/归档契约；Graph schema、序列化、反射与 handler 注册；不依赖 World/adaptor/editor/builder |
-| `plugins/animation/adaptor` | 新 `Animation.World.Static` + `Animation.World` 装载入口 | Graph core/assets + Framework + Aurora.Renderer.Interface；组件、World 系统、资产请求与 Pose provider；入口同属 adaptor，不增加依赖 adaptor 的核心 runtime target |
-| `plugins/animation/builder` | 新 `Animation.Builder.Static` + `Animation.Builder` 装载入口 | Graph core/assets + Framework AssetBuilder；仅负责 `.graph`，不得链接 Animation.World、Content.Adaptor 或 Aurora.Adaptor |
-| `plugins/animation/editor` | 新 `Animation.Editor` 装载入口 | Graph core/assets + Sandbox EditorCore/EditorUi/EditorWidgets/EditorRender；通过 World/组件注册与接口驱动预览，不 include World 实现头 |
-| `engine/aurora` | 现有 Core/Pipeline/Adaptor/Render/Render.Editor | 保有 Skin、蒙皮执行、SkeletalMeshComponent 和场景桥；不 link/include 动画 plugin |
+| `engine/animation/core` | `Animation` | 修复既有采样/播放/校验；新增消费方 `IAnimationClipSource`、`IAnimationSkeletonSource`，以及 Animation.Editor 消费的 `IAnimationInstanceControl` 和签名数据，不放 World/资产/编辑器实现 |
+| `engine/animation/core` 的 Graph | 合入 `Animation` | 纯 Graph 定义、结构校验、控制逻辑、实例构建；复用同库的求值计划，无 renderer/editor/asset manager |
+| `engine/animation/assets` | 新 `Animation.GraphAssets.Static` | Graph core + Framework 的资产/归档契约；Graph schema、序列化、反射与 handler 注册；不依赖 World/adaptor/editor/builder |
+| `engine/animation/adaptor` | 新 `Animation.World.Static` + `Animation.World` 装载入口 | Graph core/assets + Framework + Aurora.Renderer.Interface；组件、World 系统、资产请求与 Pose provider；入口同属 adaptor，不增加依赖 adaptor 的核心 runtime target |
+| `engine/animation/builder` | 新 `Animation.Builder.Static` + `Animation.Builder` 装载入口 | Graph core/assets + Framework AssetBuilder；仅负责 `.graph`，不得链接 Animation.World、Content.Adaptor 或 Aurora.Adaptor |
+| `engine/animation/editor` | 新 `Animation.Editor` 装载入口 | Graph core/assets + Sandbox EditorCore/EditorUi/EditorWidgets/EditorRender；通过 World/组件注册与接口驱动预览，不 include World 实现头 |
+| `engine/aurora` | 现有 Core/Pipeline/Adaptor/Render/Render.Editor | 保有 Skin、蒙皮执行、SkeletalMeshComponent 和场景桥；不 link/include 动画集成模块 |
 | `engine/framework` | 现有 Framework / AssetTool 路径 | 扩展 generated subproduct catalog、显式保存结果和产品组发布 / revision 读取；不增加动画语义或另一套 loader |
 | `engine/content` | 原 targets | 保持 Clip 资产/构建/provider；在原文件删除空 Graph 的注册、builder 分支和只读摘要，不移动目录 |
-| `engine/sandbox` | 原 targets | 通用 GraphCanvas、预览宿主、文档/actions 接入；不含动画节点语义或 plugin 具体类型 |
+| `engine/sandbox` | 原 targets | 通用 GraphCanvas、预览宿主、文档/actions 接入；不含动画节点语义或动画实现具体类型 |
 
-`Animation.GraphAssets.Static` 是 feature 内共享的资产层，允许使用 Framework 归档接口；它不是运行时 adaptor，不引用 World、renderer 或 editor。物理路径仍在 plugin/core，schema 不泄漏到 engine。`Animation` 仍是遗留 Core-only 实现库；这次仅沿原路径修改触及算法，完整 plugin 迁移另行结构 review，不声称已解决该历史例外。
+`Animation.GraphAssets.Static` 是 feature 内共享的资产层，允许使用 Framework 归档接口；它不是运行时 adaptor，不引用 World、renderer 或 editor。物理路径位于 engine/animation/assets，schema 仅由 GraphAssets 实现 target 暴露。`Animation` 合并原有算法与 Graph，保留 Core-only 算法边界；目录收拢已由 [refactor-animation-engine-ownership](../archive/2026-11-04-refactor-animation-engine-ownership/design.md) 独立完成。
 
 Skin 的纯绑定数据留在 Aurora core；资产 handler / 反射 / 创建入口归既有 Aurora Adaptor，模型子产品生成归既有 Aurora Cook，Skin 摘要视图归 Aurora 编辑扩展。新增 Skin 格式读写只使用 Core 数据与 Framework archive，不调用 adaptor 运行时服务；现有 Cook -> Aurora.Adaptor.Static 是实际存在的 schema 分层债务，列入 review 风险，不通过增加目标或搬迁旧 schema 在本次顺带解决，也不把该依赖当作新 Graph builder 的先例。
 
-编译开关拟为 `SKY_BUILD_ANIMATION`，在 `plugins/plugins.json` 注册。基础 plugin 可用于 game；Editor target 受 Sandbox 开关约束，Builder 受 develop/tool 条件约束。配置分别显式加载 `Animation.World`（game/editor）、`Animation.Builder`（cook/editor）和 `Animation.Editor`（editor）。装载依赖与静态链接不同，不能只改 modules_editor.json 就声称 AssetTool 可用。
+编译开关拟为 `SKY_BUILD_ANIMATION`，由 `cmake/options.cmake` 定义，不在 `plugins/plugins.json` 注册。基础集成模块可用于 game；Editor target 受 Sandbox 开关约束，Builder 受 develop/tool 条件约束。配置分别显式加载 `Animation.World`（game/editor）、`Animation.Builder`（cook/editor）和 `Animation.Editor`（editor）。装载依赖与静态链接不同，不能只改 modules_editor.json 就声称 AssetTool 可用。
 
 | 宿主 | 拟接入的装载关系 |
 |---|---|
 | game/editor 生产 World | `Content.Module` 提供 Clip 服务，已有 `Aurora.Render` 提供 Skeleton 服务，二者在 `Animation.World` 前可用；`Animation.World` 不反向成为 Aurora 的依赖 |
-| editor | `Animation.Editor` 在 `Animation.World` 与 Sandbox 编辑服务可用后注册；沿既有扩展注册/发现路径，不要求 Sandbox 编译链接 plugin |
+| editor | `Animation.Editor` 在 `Animation.World` 与 Sandbox 编辑服务可用后注册；沿既有扩展注册/发现路径，不要求 Sandbox 编译链接动画实现 |
 | AssetTool/cook | 在 `tools/asset_tool/main.cpp` 的实际模块注册路径接 `Animation.Builder`；保留已有 `Content.Builder.Module` / `Aurora.Cook`，不加载 Animation.World/Animation.Editor |
 | headless core/World 测试 | 直接提供 fake Clip/Skeleton services，不初始化 Aurora renderer；测试结果不替代生产模块装载验证 |
 
 实现时还须核验项目覆盖配置/静态模块聚合路径，将此关系落实到实际合并后的装载图。当前 configs 未列 Content.Module，不能假定它已经为游戏加载。
 
-Clip provider 由 Content 原模块发布，Skeleton provider 由 Aurora Adaptor 原模块发布；两个接口定义在消费方 `engine/animation`，用 Uuid、状态、诊断和既有 renderer-neutral clip/skeleton 数据返回。发布后的 clip/skeleton 内容不可由实例修改。World plugin 不链接这些提供方实现。Aurora 消费 Pose 的 `ISkeletalPoseSource` 定义在 `aurora/renderer`，由 Animation.World 实现；Animation.Editor 经 `IAnimationInstanceControl` 发送播放 / 参数命令并查询状态，不包含 World adaptor 实现头。两者使用同一 World epoch / Actor / instance generation 身份。跨模块服务复用 Framework `Interface<T>`。所有新共享注册表用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，调用源头须明确，禁止通过 Once、已存在跳过或 scratchNode 吞掉重复注册。runtime 重启与窗口创建只消费已注册元数据，不重复反射。服务仅在主线程访问，撤销早于依赖对象销毁；借用/完成回调保留实际资产、请求和 provider owner，并在会话关闭时完整 drain。DLL 代码保持进程常驻，不把 Interface 内裸指针或代码常驻误认为对象所有权。2026-10-25 用户再次确认该约束；原“反射幂等用 Once”方案撤销；用户已回复“按此方案实施”批准 Aurora.Metadata、Content.Metadata、Animation.GraphAssets，详见 `openspec/changes/archive/2026-11-01-refactor-process-owned-reflection/design.md`。
+Clip provider 由 Content 原模块发布，Skeleton provider 由 Aurora Adaptor 原模块发布；两个接口定义在消费方 `engine/animation`，用 Uuid、状态、诊断和既有 renderer-neutral clip/skeleton 数据返回。发布后的 clip/skeleton 内容不可由实例修改。Animation.World 不链接这些提供方实现。Aurora 消费 Pose 的 `ISkeletalPoseSource` 定义在 `aurora/renderer`，由 Animation.World 实现；Animation.Editor 经 `IAnimationInstanceControl` 发送播放 / 参数命令并查询状态，不包含 World adaptor 实现头。两者使用同一 World epoch / Actor / instance generation 身份。跨模块服务复用 Framework `Interface<T>`。所有新共享注册表用 Singleton；每份反射数据由唯一 owner 在进程内注册一次，调用源头须明确，禁止通过 Once、已存在跳过或 scratchNode 吞掉重复注册。runtime 重启与窗口创建只消费已注册元数据，不重复反射。服务仅在主线程访问，撤销早于依赖对象销毁；借用/完成回调保留实际资产、请求和 provider owner，并在会话关闭时完整 drain。DLL 代码保持进程常驻，不把 Interface 内裸指针或代码常驻误认为对象所有权。2026-10-25 用户再次确认该约束；原“反射幂等用 Once”方案撤销；用户已回复“按此方案实施”批准 Aurora.Metadata、Content.Metadata、Animation.GraphAssets，详见 `openspec/changes/archive/2026-11-01-refactor-process-owned-reflection/design.md`。
 
-替代方案：把组件/Graph/编辑器继续塞入 Content 或 Aurora，短期 target 少但扩大 engine 业务实现和渲染耦合；整体搬迁 Animation/Content 则混入无关目录 diff。推荐上述新增实现归 plugin、原算法就地修复的边界。此表与装载列表须确认后才改 CMake/注册入口。
+替代方案：把组件/Graph/编辑器继续塞入 Content 或 Aurora，短期 target 少但扩大跨领域职责和渲染耦合；整体搬迁 Animation/Content 则混入无关目录 diff。推荐上述新增实现使用独立 target、原算法就地修复的边界。此表与装载列表须确认后才改 CMake/注册入口。
 
 ### D2. 组件、World 系统和唯一姿势来源
 
 - `SkeletalMeshComponent`：独立的 mesh UUID、skin UUID、skeleton UUID，`poseSource = ReferencePose | SameActorAnimation`，material slot 覆盖、阴影/可见性配置；不持 GPU 对象。新组件默认 ReferencePose；添加动画的编辑命令显式改为 SameActorAnimation。导入元数据可提供默认三元组，写入组件后即为显式引用；Mesh 本体不保存 defaultSkin / Skeleton 引用。
-- `AnimationComponent`：模式 `Clip | Graph`、clip/graph UUID、skeleton UUID、autoplay、非负有限全局 playRate、RootPolicy、参数初值；loop 仅对 Clip 模式生效，Graph 各 Clip 节点自行配置 loop。当前播放时间、Pose、加载请求及 graph 状态不进入场景序列化。SameActorAnimation 时两组件的 Skeleton UUID / revision / 布局须一致，不能从 Mesh 或组件遍历次序推断骨架。ReferencePose 可在没有动画 plugin 时由 Aurora Adaptor 加载 skeleton 构造。
+- `AnimationComponent`：模式 `Clip | Graph`、clip/graph UUID、skeleton UUID、autoplay、非负有限全局 playRate、RootPolicy、参数初值；loop 仅对 Clip 模式生效，Graph 各 Clip 节点自行配置 loop。当前播放时间、Pose、加载请求及 graph 状态不进入场景序列化。SameActorAnimation 时两组件的 Skeleton UUID / revision / 布局须一致，不能从 Mesh 或组件遍历次序推断骨架。ReferencePose 可在没有动画集成模块 时由 Aurora Adaptor 加载 skeleton 构造。
 - `AnimationWorldSystem`：World 内持有实例和资产绑定，组件仅注册/更新意图。每个 World tick 的该系统更新一次，所有实例求值与结果收齐在系统返回前完成；最初可串行，后续并行仍保持同一完成边界。
 
 `World::Tick -> AnimationWorldSystem 完成 -> RenderSceneBridge 提取` 是本次时序；不依赖两个组件的 Tick 顺序，也不假设它与物理子系统的相对顺序。首版不写 Actor transform，因此不存在隐式 Root Motion/physics 冲突。停止模拟清理实例状态；编辑态预览只推进独立 Preview World，场景编辑态不自动播放所有动画。
@@ -179,7 +181,7 @@ Graph builder 只做文档校验、源/产品依赖登记和规范化控制/pose
 
 加载流程：Graph product -> 请求 skeleton/clip providers -> 核验精确版本 -> 为实例构造控制对象 -> 使用既有 LowerToPlan 生成该实例 Plan -> 预分配 Pose -> 发布 Ready。只在创建/rebind 编译，不每帧重编。core 编译不持 AssetManager/renderer；Graph cooked 定义可共享，任何 node raw pointer、player 和 posePool 不共享。
 
-Graph 原 `AnimationAssetData` 只有版本号：保留资产类型字符串 `AnimationGraph` 和源 UUID，但产品升版；旧空源导入为明确空文档，要求建立输出才能 cook。旧产品不能静默运行参考姿势当作成功。切换时 Content 取消 `.graph` 扩展/handler/view 注册，Animation plugin 一次性接管，确保任意装载顺序只有一个 owner。
+Graph 原 `AnimationAssetData` 只有版本号：保留资产类型字符串 `AnimationGraph` 和源 UUID，但产品升版；旧空源导入为明确空文档，要求建立输出才能 cook。旧产品不能静默运行参考姿势当作成功。切换时 Content 取消 `.graph` 扩展/handler/view 注册，Animation integration 一次性接管，确保任意装载顺序只有一个 owner。
 
 ### D9. 首版状态机与 Root Motion 边界
 
@@ -195,7 +197,7 @@ normalized exit time 必须指定本 state 的一个 Clip 节点作为 timeSourc
 
 ### D10. 编辑器：共享画布、反射与保存
 
-Animation.Editor 注册 Skeleton/Clip/Graph 专用编辑扩展；Clip/Skeleton 的既有只读摘要仍可并存。通用 GraphCanvas 置于 Sandbox widgets，仅负责缩放/平移、选择、拖动、pin 命中、连线、框选、删除/复制；节点语义、graph schema 和状态机模型在 plugin。不新接 Qt 或外部节点编辑框架。
+Animation.Editor 注册 Skeleton/Clip/Graph 专用编辑扩展；Clip/Skeleton 的既有只读摘要仍可并存。通用 GraphCanvas 置于 Sandbox widgets，仅负责缩放/平移、选择、拖动、pin 命中、连线、框选、删除/复制；节点语义、graph schema 和状态机模型在 Animation 实现 target。不新接 Qt 或外部节点编辑框架。
 
 EditorCore 的 IAssetPreviewProvider 扩展为 CreateSession / Update / Resize / Close / Status 契约；session 持独立 generation，shell 通过现有 RendererHost 提供 scene/view/output，provider、预览 World 和输出数据在输出退休前由实际 owner 保持，DLL 代码由装载层保持进程常驻。现有 bool GetPreview 只表示能力，不足以拥有多个预览。Skin 由 Aurora 扩展注册只读反射摘要并显示源 owner；用户重导入 owner 来修改绑定，不直接编辑 cooked 矩阵。Animation.Editor 对所选三元组创建生产组件并通过 IAnimationInstanceControl 控制，缺 provider 显式不可用。
 
@@ -221,7 +223,7 @@ Graph 内容向宿主声明适配可用视口，画布保持可见，Graph/选�
 
 ## Risks / Trade-offs
 
-- [既有 Animation/Content 分层债务] -> 原路径局部修改，新增业务实现归 plugin；不让 Aurora 反向依赖 plugin，后续结构迁移单独 change。
+- [既有 Animation/Content 分层债务] -> 原路径局部修改，新增动画实现归 engine/animation 独立 target；不让 Aurora 反向依赖 Animation 实现，结构收拢已由 [refactor-animation-engine-ownership](../archive/2026-11-04-refactor-animation-engine-ownership/design.md) 独立完成。
 - [目标数增加] -> 每个 target 有明确不可跨越的依赖预算；D1 已于 2026-10-24 确认，实施中改变归属或入口须重新说明。
 - [缺少模型动画 take 导出] -> 首版交付组件/Graph 工作流，使用确定的 `.clip` fixture；导入功能只有独立 change 明确格式/子资产契约后才算可用。
 - [256 骨/四权重与 TRS 限制] -> 明确错误与 UI 诊断；扩大格式另行升版，不能截断或变形近似。
@@ -233,7 +235,7 @@ Graph 内容向宿主声明适配可用视口，画布保持可见，Graph/选�
 
 1. 确认 D1 模块/装载、首版范围和 schema 版本政策；只批准文档不自动视为批准所有实现。
 2. 原地修复资产正确性与 duration；实现 generated catalog / checked flat 产品发布，再将 Mesh v5 内嵌 skin 改为独立 AuroraSkin 新版本产品，读取入口按版本拒绝旧布局并要求 recook。新的 AuroraSkin 格式也明确拒绝历史已删除 Skin 资产的旧版本，不能只因类型字符串相同而接受。
-3. 建立新 plugin/provider 与 SkeletalMeshComponent；先完成 single clip、双实例和颜色/阴影闭环。
+3. 建立动画集成模块/provider 与 SkeletalMeshComponent；先完成 single clip、双实例和颜色/阴影闭环。
 4. 接入共享预览宿主；再切换 Graph 空 handler 到新 owner，发布完整源 schema 与产品格式。
 5. 完成 Graph 运行时与编辑器，更新用户说明/示例；产品与代码版本一起验证。
 

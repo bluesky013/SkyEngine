@@ -12,7 +12,7 @@
 - `plugins/jolt/adaptor/include/jolt/components/PhysicsBodyComponent.h`：PhysicsBodyData 内联形状、质量、BodyKind、CCD、重力、睡眠、trigger 和 filter；目前没有 Collision 资产引用或制作窗口。
 - `plugins/jolt/render/JoltPhysicsRenderModule.cpp`：Aurora 产品到 CPU TriangleMesh 的桥；调用可能同步等待产品，不适合直接放进编辑器绘制循环。
 - Sandbox 的 `ReflectedFormView`、`ReflectedInspectorPanel`、`CommandService`、`EditorActionRegistry`、`DocumentService`、`TransformGizmo` 已提供通用编辑基础。
-- 资产窗口优先参照 `plugins/animation/editor/module/AnimationEditorModule.cpp` 的 `IAssetViewProvider::OpenDocument` 与文档实际所有权；其 `GraphDocument` 是可撤销源文档、原子保存、触发 cook 的实际参考。
+- 资产窗口优先参照 `engine/animation/editor/module/AnimationEditorModule.cpp` 的 `IAssetViewProvider::OpenDocument` 与文档实际所有权；其 `GraphDocument` 是可撤销源文档、原子保存、触发 cook 的实际参考。
 - `framework/asset/AssetBuilder.h` 已有 Request、依赖记录、产品发布以及反射 cook settings。新工具应接入它，不另建资产数据库或独立导出路径。
 - `AssetManager` 已有异步任务、产品依赖和 `ProductsOnly` 策略；`World::LoadJson/Build` 仍是完整世界构造，不能用于每个 streaming cell 的重复装载。`TryAttachToWorld` 是同步挂接，不接受未准备好的碰撞依赖。
 - 地形已有异步分页、加载/卸载半径滞回与应用预算；`TerrainCollisionLayer::Update` 根据已加载 LOD0 tile 同步创建/删除 Body，尚无独立的碰撞准备状态、激活确认或支撑面驻留保护。这里只定义后续对接契约，不顺带重写地形实现。

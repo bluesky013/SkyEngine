@@ -4,7 +4,7 @@
 
 #include <framework/application/ModuleManager.h>
 
-#include "BuildPluginOptions.h"
+#include "BuildOptions.h"
 #include <core/environment/Singleton.h>
 #include <core/logger/Logger.h>
 #include <framework/serialization/SerializationContext.h>
@@ -49,7 +49,7 @@ namespace sky {
 
     std::optional<bool> ModuleManager::GetBuildOption(std::string_view option)
     {
-        for (const auto &[name, enabled] : build::PLUGIN_OPTIONS)
+        for (const auto &[name, enabled] : build::BUILD_OPTIONS)
             if (name == option)
                 return enabled;
         return std::nullopt;

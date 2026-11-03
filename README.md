@@ -208,6 +208,8 @@ ctest --test-dir <build_dir> -C Release --output-on-failure
 
 Compile-time plugin selection is driven by `plugins/plugins.json`. Each entry defines the plugin directory, the controlling CMake variable, and whether the plugin requires editor mode.
 
+Animation is an engine subsystem under `engine/animation`. `SKY_BUILD_ANIMATION` defaults to `ON` and selects its assets/World integration, with Builder gated by `SKY_DEVELOP` and Editor also gated by `SKY_BUILD_SANDBOX`. The `Animation` algorithm library under `core` includes pure Graph definition/evaluation and remains available when integration is disabled. Asset serialization/registration stays in the separate `assets` layer. This engine option does not require a plugin manifest entry.
+
 Current repository defaults (see `plugins/plugins.json`):
 
 - `SKY_BUILD_BULLET=ON`

@@ -2,7 +2,7 @@
 
 ### Requirement: Actor skeletal mesh component
 
-Aurora Adaptor SHALL provide a reflected SkeletalMeshComponent with independent mesh, skin and skeleton UUIDs, poseSource ReferencePose or SameActorAnimation, material-slot overrides, visibility and shadow settings. New components SHALL default to ReferencePose. Persisted data SHALL contain identities/configuration without RHI objects or animation plugin implementation types. Import defaults SHALL be copied into explicit component fields. ReferencePose SHALL use the selected skeleton without requiring an animation plugin; SameActorAnimation SHALL require matching skeleton identity/revision/layout and report missing or invalid providers rather than claim animation success.
+Aurora Adaptor SHALL provide a reflected SkeletalMeshComponent with independent mesh, skin and skeleton UUIDs, poseSource ReferencePose or SameActorAnimation, material-slot overrides, visibility and shadow settings. New components SHALL default to ReferencePose. Persisted data SHALL contain identities/configuration without RHI objects or animation integration implementation types. Import defaults SHALL be copied into explicit component fields. ReferencePose SHALL use the selected skeleton without requiring an Animation integration; SameActorAnimation SHALL require matching skeleton identity/revision/layout and report missing or invalid providers rather than claim animation success.
 
 #### Scenario: Component serialization and reference pose
 - **WHEN** an actor containing only a valid SkeletalMeshComponent is saved, reopened and rendered
@@ -14,9 +14,9 @@ Aurora Adaptor SHALL provide a reflected SkeletalMeshComponent with independent 
 
 ### Requirement: Consumer-owned skeletal pose source
 
-Aurora SHALL define the renderer-neutral skeletal pose source interface consumed by its scene bridge. An external provider SHALL publish owning CPU matrices, rig identity/layout signature, generation, revision and status for the current World/Actor. Aurora Core SHALL NOT depend on Animation or on the animation plugin; Aurora Adaptor SHALL NOT include/link the plugin implementation to discover components.
+Aurora SHALL define the renderer-neutral skeletal pose source interface consumed by its scene bridge. An external provider SHALL publish owning CPU matrices, rig identity/layout signature, generation, revision and status for the current World/Actor. Aurora Core SHALL NOT depend on Animation or on the Animation integration; Aurora Adaptor SHALL NOT include/link the plugin implementation to discover components.
 
-#### Scenario: Animation plugin absent
+#### Scenario: Animation integration absent
 - **WHEN** no pose provider is registered
 - **THEN** static scene behavior SHALL remain unchanged and a valid skeletal mesh SHALL use its declared reference-pose/error policy without loading a plugin implicitly
 

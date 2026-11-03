@@ -28,7 +28,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 
 ## 2. 动画 feature 模块与消费方接口
 
-- [ ] 2.1 Graph core/assets、World adaptor、Builder、Editor 的独立 target/开关已有实现（`plugins/animation/CMakeLists.txt`）；待按已批准 D1 完成全依赖图审计，确认无 engine -> plugin、core -> adaptor/editor/builder，不能把“存在 target”当作完整验收。
+- [ ] 2.1 Graph 已合入 Animation core，assets、World adaptor、Builder、Editor 的独立 target/开关已有实现（`engine/CMakeLists.txt` 与 `engine/animation/*/CMakeLists.txt`）；待按已批准 D1 完成全依赖图审计，确认无 engine -> plugin、core -> adaptor/editor/builder，不能把“存在 target”当作完整验收。
 - [x] 2.2 在 engine/animation 定义 Clip/Skeleton source 接口及状态/诊断数据；在现有 Content/Aurora provider 中实现，沿 AssetManager 请求而非另建 loader。
 - [x] 2.3 在 Aurora renderer 接口定义 ISkeletalPoseSource；由 World adaptor 实现，明确 main-thread 查询、World/Actor generation 和 owned result。
 - [ ] 2.4 game/editor/cook 模块入口和实际依赖已有配置（`configs/modules_game.json`、`configs/modules_editor.json`、`tools/asset_tool/main.cpp`）；待验证插件关闭、无 editor 构建、provider 缺失及合法装载顺序，保留未勾选。
@@ -55,7 +55,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [ ] 4.7 用每槽 P_s 变换 mesh-space 槽 AABB，覆盖换 Skin 和 helper 重排；静态 geometry snapshot/picking/highlight 返回 Unsupported 或明确 bounds-only。
 - [ ] 4.8 用 CPU oracle 与 Vulkan/DX12 GPU readback 验证 bind pose、动画位置、normal/tangent、阴影和动态裁剪；覆盖共享 mesh 双实例。
 - [x] 4.9 实现 Named/Indexed Skin 解析和 ResolvedSkinBinding 缓存键；验证缺骨/歧义、同数错序、错误参考姿势、slot 契约不符与同 rig UUID 不同 revision。
-- [ ] 4.10 验证无动画 plugin 的 ReferencePose、SameActorAnimation 缺 provider 诊断、显式换 Skin 不显示伪新绑定，以及旧提交帧正常退休。
+- [ ] 4.10 验证无动画集成模块 的 ReferencePose、SameActorAnimation 缺 provider 诊断、显式换 Skin 不显示伪新绑定，以及旧提交帧正常退休。
 - [x] 4.11 按 D6a 接通 Vertex / Pipeline / Shader-local 三域变体（Material 是 S 输入方之一）；撤销 Skinned 源路径分叉和固定 1/2 usageVariant，明确 owner 并拒绝跨域覆盖；选择点取得冻结 draw/material/Pass/View 全部输入，同材质跨几何和 View 不互相污染。（assembler 一域一 owner、跨域拒绝；材质按全部 P 组合 × 当前 V 预编译并带 non-default Pipeline 选择键；`ResolveDraws` 用冻结 Tag/View 与 draw skinning 逐 draw 选择，同材质静态/蒙皮和不同 Pass 不互相污染。Pipeline 组合测试与 GPU 950 项通过。）
 - [x] 4.12 统一三域组合的 runtime、usage、cache、cook、products-only 身份；覆盖各输入独立变化、组合变化、非法输入、颜色/阴影相同变形域、同帧共存与旧资源退休。shader 输入反射测试不能替代此项。（runtime/offline cook/products-only 按 SKINNED × SHADOWS × IBL 组合对齐，relocated 1/1 + 3/3 通过；resolver 接 `ShaderUsageStore`，`--aurora-shader-usage <path>` 开启并在 Shutdown flush；新增 P×V×S 8 组合矩阵、owner/非法输入、同材质按 Pass/vertex 选择、旧/新 revision 身份测试，现有 frozen-material hot-update 测试覆盖退休保留。原生平台验收由 9.3/9.4 跟踪。）
 
@@ -73,8 +73,8 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 - [x] 6.1 实现版本化 Graph schema：稳定节点/参数/state/transition ID、skeleton UUID、typed pins、根输出、独立 editor layout。
 - [x] 6.2 实现 Clip/Blend2/Output 与 bool/float 描述符、纯结构校验；区分 pose 环和合法 state 循环，拒绝共享有状态节点及嵌套/多状态机。
 - [x] 6.3 实现规范化 Graph cooked 定义与序列化，包含控制数据、依赖及 node 诊断映射；往返后无需 source 运行。
-- [x] 6.4 实现 plugin Graph builder 的 catalog 依赖校验/登记和失败不发布；不加载 Content.Adaptor、World 或 renderer。
-- [ ] 6.5 在原 Content 文件移除空 Graph handler、`.graph` builder 分支/扩展和 view 注册；由 plugin 唯一接管，验证装载顺序及缺 plugin 时明确不可用。
+- [x] 6.4 实现 Animation.Graph builder 的 catalog 依赖校验/登记和失败不发布；不加载 Content.Adaptor、World 或 renderer。
+- [ ] 6.5 在原 Content 文件移除空 Graph handler、`.graph` builder 分支/扩展和 view 注册；由 Animation.GraphAssets/Builder 唯一接管，验证装载顺序及缺动画集成模块时明确不可用。
 - [x] 6.6 实现旧空 Graph source 的编辑迁移、旧产品 recook 诊断、source UUID 保持；覆盖无输出/坏节点/缺资产的负例。
 
 ## 7. Graph 实例与状态控制
@@ -90,7 +90,7 @@ Status: applying；2026-10-24 用户以 `apply` 确认严格 review 后的 D1 �
 ## 8. Graph 编辑器
 
 - [x] 8.1 在 Sandbox widgets 实现无动画语义的 GraphCanvas：缩放/平移、节点/typed pin 命中、连线、框选和拖动；接口只暴露通用图描述。
-- [x] 8.2 在 plugin 增 GraphDocument、命令及增删节点/连线/参数/状态/过渡；drag 为单次 undo transaction，复制生成新身份。
+- [x] 8.2 在 Animation.Editor 增 GraphDocument、命令及增删节点/连线/参数/状态/过渡；drag 为单次 undo transaction，复制生成新身份。
 - [x] 8.3 节点属性和过渡设置通过描述符/反射对象接 ReflectedFormView；菜单/工具栏/快捷键经 ActionRegistry，不写逐类型 shell 表单。
 - [x] 8.4 接入文档/AssetDataBase；允许保存 schema-valid 未完成草稿，原子写源一次、延后 RequestCook；执行语义错误只阻止 cook，不丢失编辑工作。
 - [ ] 8.5 显示活动 state、transition progress、参数调试覆盖、node/pin 诊断与 preview revision；默认值编辑和临时调试值明确区分。（2026-10-25：原生 UI 已验证可读节点名、固定画布/属性页、人形自动取景及临时 Moving 参数切换 Walk、活动 Clip 高亮和 state/revision；node/pin 失败定位等剩余场景仍待验收。）

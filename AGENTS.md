@@ -16,6 +16,7 @@
 
 - **功能修改与既有目录搬迁分开 review**：除用户明确要求同批实施，不在功能 change 中混入大范围移动、目录重命名或纯结构整理；先保留原路径，让 diff 展示实际代码修改，结构调整后续单独起 change。
 - **Aurora 属于 foundation**：接口与实现均归 `engine/aurora`，不创建 `plugins/aurora`，不注册为业务 feature plugin。Renderer 实现复用现有 `engine/aurora/core`，Framework 对接归 `adaptor`，模块入口归 `runtime`；保留仅接口 target，不再建立 `renderer/{core,adaptor,runtime}` 子模块体系。新增或调整模块归属、target 和装载入口须先说明方案并取得用户确认；RHI 后端保留 `engine/aurora/rhi/{vulkan,dx12,metal,common}`。
+- **Animation 是完整 engine 子系统**：算法与 Graph、资产、World、Builder、Editor 实现统一归 `engine/animation`，不创建 `plugins/animation` 或业务 plugin 注册。原有算法与纯 Graph 统一在 `core/{include,src,test}`，由 `Animation` / `AnimationTest` 编译；资产读写/注册归 `assets` 的 GraphAssets target，adaptor/builder/editor 保留独立 target 与模块入口；算法库只依赖 Core/可选 ACL，集成通过接口连接 Framework/Aurora，builder/editor 不得反向成为算法或 runtime 依赖。`SKY_BUILD_ANIMATION` 是 engine 集成开关，不控制基础算法库。
 
 ## 异常与错误处理规范
 
@@ -54,15 +55,15 @@
 ## 模块分层与跨模块交互规范
 
 ### 分层
-- 以下 `engine/<feature>` 接口 / `plugins/<feature>` 实现规则用于业务 feature，不适用于 Aurora foundation；Aurora 内部仍分离接口与实现 target，且不得反向依赖业务 plugin。动态库或模块注册本身不意味着 plugin 归属。
-- `engine/<feature>`：只放**接口** + **接口签名引用到的数据** + 对这批数据的纯函数；**不含实现**。
-- `plugins/<feature>`：**实现**（子系统、资产 schema/序列化/注册、组件、builder、module、渲染/编辑器对接）。
+- 以下 `engine/<feature>` 接口 / `plugins/<feature>` 实现规则用于业务 feature，不适用于 Aurora foundation 与 Animation engine 子系统；这些 engine 子系统内部仍分离接口与实现 target，且不得反向依赖业务 plugin。动态库、模块注册或可选开关本身不意味着 plugin 归属。
+- 业务 feature 的 `engine/<feature>`：只放**接口** + **接口签名引用到的数据** + 对这批数据的纯函数；**不含实现**。
+- 业务 feature 的 `plugins/<feature>`：**实现**（子系统、资产 schema/序列化/注册、组件、builder、module、渲染/编辑器对接）。
 - 依赖方向恒为 **plugin → engine**；`engine` 不得 include/link 任何 plugin。
 
 ### 交互归属（关键）
-- 当 A 需要 B 的能力：**接口定义在 A 所在的 engine 模块（消费方）**；B 的实现（plugin）实现该接口。
+- 当 A 需要 B 的能力：**接口定义在 A 所在的 engine 模块（消费方）**；B 的实现 target 实现该接口（业务 feature 位于 plugin，engine 子系统位于自身目录）。
   - 例：`INaviGeometryProvider` 在 `engine/navigation`；`IVegetationSurfaceProvider` 在 `engine/vegetation`；`ITerrainSystem`/`ITerrainField` 在 `engine/terrain`；`PhysicsWorld`/`PhysicsRegistry` 在 `engine/physics`。
-- 接口签名/返回值用到的数据类型放**定义接口的 engine 模块**；**资产 schema/实现专用数据放 plugin**。
+- 接口签名/返回值用到的数据类型放**定义接口的 engine 模块**；**资产 schema/实现专用数据放所属实现 target**（业务 feature 位于 plugin）。
 - 消费方通过 world 子系统名（或显式注册）解析接口指针；**出现具体实现类型即违规**。
 
 ### interface 模块
@@ -91,10 +92,10 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 依赖方向（自下而上）：核心逻辑 ← adaptor / editor / builder。**反向依赖一律禁止**（这三类不得被核心逻辑或 runtime 依赖）。
 
 ### 验收检查
-- [ ] `engine/*` CMake 只链 `Framework`（+其它 engine 接口），**不**链任何 `*.Static`/plugin 目标。
+- [ ] 业务 feature 的 engine 接口 target 只链 `Framework`（+其它 engine 接口），**不**链实现 target；engine 子系统内部按职责链接自身实现 target，**不**链 plugin 目标。
 - [ ] `engine/*` 头文件不含 plugin 头。
 - [ ] 跨模块交互都有 engine 侧接口；消费方不出现具体实现类型。
-- [ ] 资产 schema/实现数据不在 engine（接口引用所需除外）。
+- [ ] 业务 feature 的资产 schema/实现数据不在 engine（接口引用所需除外）；engine 子系统的实现数据只归所属实现 target。
 - [ ] plugin 之间不强依赖（明确单向 bridge 除外）。
 - [ ] 核心逻辑模块只依赖 `Core`（+必要的 engine 接口/`Framework` 接口），不依赖 editor/adaptor/builder。
 - [ ] editor 模块只经 Sandbox 编辑器 framework 接入，且不被 runtime/核心依赖。
@@ -102,10 +103,10 @@ engine 内部的大模块与每个 plugin 内部，按职责拆成四类 target�
 - [ ] builder/cook/chef 模块只依赖自身核心模块 + 必要三方库。
 
 ### 反例（禁止）
-- 实现写进 `engine`（如子系统/生成器/序列化）。
+- 业务 feature 的实现写进其 engine 接口 target（如子系统/生成器/序列化）；已明确归属 engine 的子系统仍须分离实现 target。
 - 消费方直接 include 提供方 plugin 头。
 - `engine` include/link plugin。
-- 资产 schema/业务实现塞进 engine。
+- 业务 plugin 的资产 schema/实现塞进 engine 接口 target。
 - 用单一 `engine/interface` 兜底所有接口。
 - 核心逻辑模块依赖 editor / adaptor / builder 或具体后端/渲染。
 - editor 模块被 runtime / 核心逻辑依赖；editor 模块绕过 Sandbox 编辑器 framework 自接 Qt 等。

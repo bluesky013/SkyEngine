@@ -76,7 +76,7 @@ class AnimationPackageTest(unittest.TestCase):
                 'include("' + helper.as_posix() + '")\n', encoding='utf-8')
             result = subprocess.run(['cmake', '-S', str(root), '-B', str(root / 'build'), '-DSKY_BUILD_SMOKE=OFF'], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            header = (root / 'build/generated/framework/BuildPluginOptions.h').read_text()
+            header = (root / 'build/generated/framework/BuildOptions.h').read_text()
             self.assertIn('{"SKY_BUILD_SMOKE", false}', header)
 
     def test_explicit_skin_roots_and_legacy_world_resave_diagnostic(self):

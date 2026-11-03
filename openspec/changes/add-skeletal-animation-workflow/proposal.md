@@ -1,3 +1,5 @@
+> Ownership update (2026-11-02): [refactor-animation-engine-ownership](../archive/2026-11-04-refactor-animation-engine-ownership/design.md) 按用户确认收拢至 engine/animation，取代 D1 原 plugin 目录/注册归属；2026-11-03 进一步将原算法与 Graph 合入 core/Animation、资产归 assets，2026-11-04 已归档；模块名和本 workflow 剩余功能验收不变。
+
 > Status (2026-11-01): **active**；owner：本 change。target 分层和模块入口已有实现；剩余多实例/CPU oracle、GPU palette/退休、Graph/Preview 和人工平台复合验收。
 
 ## Why
@@ -45,9 +47,9 @@ None.
 
 ## Impact
 
-既有 `engine/framework` 资产链、`engine/animation`、`engine/content/{adaptor,builder,editor}`、`engine/aurora/{core,pipeline,adaptor,cook,assets}`、`engine/sandbox/{core,widgets,render,shell}`；拟新增 `plugins/animation/{core,adaptor,builder,editor}` 与明确编译/加载配置。不创建 Aurora plugin，不引入新 RHI 后端或并行 Renderer，不搬迁既有目录。
+既有 `engine/framework` 资产链、`engine/animation`、`engine/content/{adaptor,builder,editor}`、`engine/aurora/{core,pipeline,adaptor,cook,assets}`、`engine/sandbox/{core,widgets,render,shell}`；动画集成归 `engine/animation/{core,assets,adaptor,builder,editor}` 与明确编译/加载配置。不创建 Aurora plugin，不引入新 RHI 后端或并行 Renderer，不搬迁既有目录。
 
-`design.md` 的模块表已确认，保留旧 `Animation` Core-only 库作为现有基础，不借此扩大 engine 中的业务实现。旧 Content 的空 Graph handler/builder/view 将在原位置移除注册，由动画 plugin 唯一接管 Graph；Clip/Skeleton 原 handler 保持单一归属。
+`design.md` 的模块表已确认，保留旧 `Animation` Core-only 库作为现有基础，与集成实现保持独立 target。旧 Content 的空 Graph handler/builder/view 将在原位置移除注册，由动画集成模块 唯一接管 Graph；Clip/Skeleton 原 handler 保持单一归属。
 
 ## Scope and status
 

@@ -685,9 +685,3 @@ TEST(AnimationTest, AnimationParameterTypeTest)
     TAnimParameterCond<float> unavailableCond(nullptr, 0.5f, AnimComp::GE);
     ASSERT_FALSE(unavailableCond.Eval());
 }
-
-int main(int argc, char *argv[])
-{
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

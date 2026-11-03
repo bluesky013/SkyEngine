@@ -42,7 +42,7 @@ The preview SHALL provide independent Mesh/Skin/Skeleton selection, resolved bin
 
 ### Requirement: Reusable graph canvas with domain-owned semantics
 
-Sandbox SHALL provide a domain-neutral graph canvas for zoom/pan, node movement, selection, typed-pin interaction, connection display and editing actions. The animation plugin SHALL provide node definitions, validation and state-machine semantics. Runtime and builder targets SHALL NOT depend on canvas or editor modules.
+Sandbox SHALL provide a domain-neutral graph canvas for zoom/pan, node movement, selection, typed-pin interaction, connection display and editing actions. The Animation integration SHALL provide node definitions, validation and state-machine semantics. Runtime and builder targets SHALL NOT depend on canvas or editor modules.
 
 #### Scenario: Canvas edits a graph
 - **WHEN** nodes are moved or connected through the canvas
@@ -189,7 +189,7 @@ An exit-time condition SHALL identify one Clip node owned by its source state as
 
 ### Requirement: Single graph registration owner and migration
 
-The animation plugin SHALL be the sole owner of the AnimationGraph handler, `.graph` builder and Graph editor. Content SHALL stop registering its placeholder graph path. Existing source UUIDs SHALL be preserved. Version-only products SHALL be rejected with a recook diagnostic; an empty old source SHALL open as an incomplete document requiring a valid output before successful cook.
+The targets under engine/animation SHALL be the sole owners of the AnimationGraph handler (Animation.GraphAssets), `.graph` builder (Animation.Builder) and Graph editor (Animation.Editor). Content SHALL stop registering its placeholder graph path. Existing source UUIDs SHALL be preserved. Version-only products SHALL be rejected with a recook diagnostic; an empty old source SHALL open as an incomplete document requiring a valid output before successful cook.
 
 #### Scenario: Module load order does not select a different handler
 - **WHEN** Content and animation modules are loaded in either valid dependency order
@@ -241,7 +241,7 @@ Clip mode SHALL support Play/Pause/Stop/Seek/loop/rate with explicit status. Pau
 
 ### Requirement: Renderer-neutral asset and pose interfaces
 
-Clip and skeleton asset access SHALL use consumer-owned interfaces in engine/animation. Aurora SHALL consume owned model-space joint matrices through its own ISkeletalPoseSource interface without including or linking animation plugin implementation types. Service calls SHALL occur on the owning thread while the provider is alive; render packets SHALL NOT retain provider, World, Actor, animation-node, or asset-handler pointers.
+Clip and skeleton asset access SHALL use consumer-owned interfaces in engine/animation. Aurora SHALL consume owned model-space joint matrices through its own ISkeletalPoseSource interface without including or linking animation integration implementation types. Service calls SHALL occur on the owning thread while the provider is alive; render packets SHALL NOT retain provider, World, Actor, animation-node, or asset-handler pointers.
 
 #### Scenario: Headless evaluation
 - **WHEN** valid clip and skeleton providers are supplied without a renderer service

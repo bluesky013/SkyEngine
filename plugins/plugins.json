@@ -53,12 +53,6 @@
             "dir": "network-enet",
             "cmake_var": "SKY_BUILD_NETWORK_ENET",
             "enabled": true
-        },
-        {
-            "name": "animation",
-            "dir": "animation",
-            "cmake_var": "SKY_BUILD_ANIMATION",
-            "enabled": true
         }
     ]
 }

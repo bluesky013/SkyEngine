@@ -26,7 +26,13 @@ else()
 endif()
 
 string(JSON _sky_plugin_count LENGTH "${_SKY_PLUGINS_SWITCHES_JSON}" "plugins")
-set(_sky_plugin_options "")
+if (SKY_BUILD_ANIMATION)
+    set(_runtime_enabled true)
+else()
+    set(_runtime_enabled false)
+endif()
+set(_sky_build_options "    {\"SKY_BUILD_ANIMATION\", ${_runtime_enabled}},\n")
+math(EXPR _sky_build_option_count "${_sky_plugin_count} + 1")
 if (_sky_plugin_count GREATER 0)
     math(EXPR _sky_plugin_last "${_sky_plugin_count} - 1")
     foreach(_i RANGE ${_sky_plugin_last})
@@ -48,20 +54,21 @@ if (_sky_plugin_count GREATER 0)
         else()
             set(_runtime_enabled false)
         endif()
-        string(APPEND _sky_plugin_options "    {\"${_cmake_var}\", ${_runtime_enabled}},\n")
+        string(APPEND _sky_build_options "    {\"${_cmake_var}\", ${_runtime_enabled}},\n")
     endforeach()
 endif()
-file(CONFIGURE OUTPUT "${CMAKE_BINARY_DIR}/generated/framework/BuildPluginOptions.h" CONTENT
+file(CONFIGURE OUTPUT "${CMAKE_BINARY_DIR}/generated/framework/BuildOptions.h" CONTENT
 "#pragma once
 #include <array>
 #include <string_view>
 #include <utility>
 namespace sky::build {
-inline constexpr std::array<std::pair<std::string_view, bool>, ${_sky_plugin_count}> PLUGIN_OPTIONS = {{
-${_sky_plugin_options}}};
+inline constexpr std::array<std::pair<std::string_view, bool>, ${_sky_build_option_count}> BUILD_OPTIONS = {{
+${_sky_build_options}}};
 }
 ")
-unset(_sky_plugin_options)
+unset(_sky_build_options)
+unset(_sky_build_option_count)
 unset(_runtime_enabled)
 
 # cpython is derived from python plugin switch.

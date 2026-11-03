@@ -4,7 +4,7 @@
 
 2026-11-01 整理基线：`52fbcb3a`。176 份主 spec 合并为 32 个领域，1,327 条既有主需求全部保留。55 个原活跃 change 的 delta 路径与 proposal 能力 ID 同步迁移。仅两个同名的控制台历史导航条目增加来源前缀，其余需求名称保持原样。
 
-经用户确认，24 项已交付/被替代 change 已同步或仅历史归档，4 份未展开草案已移入 [backlog](backlog/README.md)。当前为 **32 个领域、1,390 条主需求、28 个活跃 change 目录**（含明确标记的冻结/债务记录）。未完成的平台验收仍保留在 P02。
+经用户确认，24 项已交付/被替代 change 已同步或仅历史归档，4 份未展开草案已移入 [backlog](backlog/README.md)。当前为 **32 个领域、1,391 条主需求、28 个活跃 change 目录**（含明确标记的冻结/债务记录）。未完成的平台验收仍保留在 P02。
 
 - [当前工作、依赖与逐项状态](changes/consolidate-active-changes/design.md)
 - [归档预审清单](changes/consolidate-active-changes/archive-review.md)：逐项记录已批准并执行的同步或历史保留方式。
@@ -20,7 +20,7 @@
 | 资产与 IO | `add-common-async-io` 仍为设计方案；`refactor-asset-tool-module-config` 的进一步重构单独待排期 |
 | Apple 适配修复 | [fix-apple-platform-parity](changes/fix-apple-platform-parity/tasks.md)：修复 UIKit 原生回归入口、Apple 架构/导出、Cocoa 等待与签名归档；具体实测见该 change 的 verification |
 | 平台交付 | HarmonyOS、Linux、Python SSL/Android Python；基础运行证据与专项恢复、输入、WSI、长期矩阵分开记录 |
-| 动画与物理制作 | 骨骼动画、碰撞制作继续按现有 workflow 收口；已有 target/入口不再重复计为待实现；`navigation-terrain-build-tests` 继续推进 terrain+collision→Recast 测试矩阵 |
+| 动画与物理制作 | [Animation engine 迁移已归档](changes/archive/2026-11-04-refactor-animation-engine-ownership/verification.md)；骨骼动画、碰撞制作继续按现有 workflow 收口；已有 target/入口不再重复计为待实现；`navigation-terrain-build-tests` 继续推进 terrain+collision→Recast 测试矩阵 |
 | 规划池 | 地形/植被渲染与编辑、动画事件、音频桥、网络预测；保持真实前置条件和未实现状态 |
 
 ## 领域主规范
@@ -38,7 +38,7 @@
 | [aurora-resources](specs/aurora-resources/spec.md) | 4 | 39 |
 | [aurora-rhi](specs/aurora-rhi/spec.md) | 3 | 83 |
 | [aurora-shaders](specs/aurora-shaders/spec.md) | 4 | 82 |
-| [build](specs/build/spec.md) | 9 | 40 |
+| [build](specs/build/spec.md) | 9 | 41 |
 | [console](specs/console/spec.md) | 7 | 57 |
 | [core](specs/core/spec.md) | 4 | 14 |
 | [editor-assets](specs/editor-assets/spec.md) | 5 | 43 |
