@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from shader_project import append_program, project_requirements, project_modules, target_environments, stage_products
+from shader_project import ENGINE_RESOURCE_INVENTORIES, append_program, project_requirements, project_modules, target_environments, stage_products
 
 
 class ShaderProjectTest(unittest.TestCase):
@@ -38,6 +38,22 @@ class ShaderProjectTest(unittest.TestCase):
         self.assertEqual(append_program(program, ['vulkan'], {'toon/Main.slang': b''}, entries, self.environments), '')
         self.assertEqual(len(entries), 4)
         self.assertEqual({entry['variant']['MODE']['value'] for entry in entries.values()}, {0, 1})
+
+    def test_engine_particle_inventory_produces_shipping_requests(self):
+        engine = Path(__file__).resolve().parents[2]
+        configs, error = project_modules(engine, engine / 'engine/templates/game', {})
+        self.assertEqual(error, '')
+        particle = engine / 'engine/particle/resources.json'
+        self.assertIn(particle, configs)
+        self.assertEqual(len(configs), len(ENGINE_RESOURCE_INVENTORIES))
+        for path in configs:
+            self.assertTrue(path.is_relative_to(engine / 'engine'))
+            self.assertNotIn('test', path.parts)
+        program = json.loads(particle.read_text(encoding='utf-8'))['resources']['roots'][0]['programs'][0]
+        entries = {}
+        self.assertEqual(append_program(program, ['vulkan', 'metal'], {program['path']: b''}, entries, self.environments), '')
+        self.assertEqual(len(entries), 4)
+        self.assertEqual({entry['entry'] for entry in entries.values()}, {'VSMain', 'FSMain'})
 
     def test_invalid_program_and_variant_fail_without_a_default_shader(self):
         entries = {}

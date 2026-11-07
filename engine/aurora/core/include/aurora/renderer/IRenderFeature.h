@@ -30,6 +30,14 @@ namespace sky::aurora {
         virtual FrameOperationResult                        Custom(FrameCustomPass)                  = 0;
         virtual FrameOperationResult                        Export(GraphBufferExport)                = 0;
         virtual FrameOperationResult                        Export(GraphImageHandle)                 = 0;
+        // Imports a caller-owned persistent buffer; the graph retains it until submission completes.
+        virtual std::variant<FrameError, GraphBufferHandle> ImportBuffer(BufferPtr, CopyBufferState initial, CopyBufferState final, bool initialized)
+        {
+            (void)initial;
+            (void) final;
+            (void)initialized;
+            return FrameError{FrameErrorCode::UNSUPPORTED, "External buffer import is unavailable"};
+        }
     };
 
     // Resource resolution borrows the current prepared snapshot; it never exposes submission.
@@ -70,6 +78,43 @@ namespace sky::aurora {
         virtual RendererInfo                        GetRendererInfo() const                   = 0;
         virtual const FrameBuildInputs             &GetInputs() const                         = 0;
         virtual std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &) = 0;
+        // Caller-owned persistent device resource; release it after every importing frame retires.
+        virtual std::variant<FrameError, BufferPtr> CreatePersistentBuffer(const Buffer::Descriptor &)
+        {
+            return FrameError{FrameErrorCode::UNSUPPORTED, "Persistent feature buffers are unavailable"};
+        }
+    };
+
+    // Borrowed for the callback only; scene color/depth are owned by the scene feature.
+    struct SceneRenderStageContext {
+        const PreparedViewData &view;
+        GraphImageHandle        color;
+        GraphImageHandle        depth{};
+        Extent2D                extent{};
+    };
+
+    class ISceneRenderExtension {
+    public:
+        virtual ~ISceneRenderExtension() = default;
+        virtual Name     GetName() const = 0;
+        virtual uint32_t GetOrder() const
+        {
+            return 0;
+        }
+        virtual bool RequiresDepth() const
+        {
+            return true;
+        }
+        virtual FrameOperationResult Prepare(FrameFeaturePrepareContext &)
+        {
+            return FrameOperationComplete{};
+        }
+        virtual std::optional<RendererError> Validate(const FrameExtensionPayload &) const = 0;
+        // Loaded scene attachments only; must not clear or retain borrowed state.
+        virtual FrameOperationResult Build(FrameGraphBuildContext &, const SceneRenderStageContext &, const FrameExtensionPayload &) = 0;
+        virtual void                 OnRetired()
+        {
+        }
     };
 
     class IScenePrepareFeature {
@@ -99,6 +144,10 @@ namespace sky::aurora {
             return FrameOperationComplete{};
         }
         virtual FrameOperationResult BuildFrame(FrameGraphBuildContext &, const FrameExtensionPayload &) = 0;
+        virtual bool                 SupportsSceneExtensions() const
+        {
+            return false;
+        }
         // Runs on the coordinator after the final CPU/GPU/presentation borrower; release native caches here.
         virtual void OnRetired()
         {

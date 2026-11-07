@@ -24,6 +24,10 @@ namespace sky::aurora {
         std::vector<D3D12_VERTEX_BUFFER_VIEW> vertices;
         D3D12_INDEX_BUFFER_VIEW               index{};
         CmdDrawIndexed                        indexed;
+        ID3D12Resource                       *indirect = nullptr;
+        ComPtr<ID3D12CommandSignature>        indirectSignature;
+        uint64_t                              indirectOffset    = 0;
+        uint32_t                              indirectDrawCount = 0;
         struct DescriptorTable {
             uint32_t                    root;
             D3D12_GPU_DESCRIPTOR_HANDLE descriptor;
@@ -87,6 +91,9 @@ namespace sky::aurora {
         std::vector<D3D12DescriptorTable> tables;
         std::vector<D3D12UniformAddress>  uniforms;
         uint32_t                          groupsX = 1, groupsY = 1, groupsZ = 1;
+        ID3D12Resource                   *indirect = nullptr;
+        ComPtr<ID3D12CommandSignature>    indirectSignature;
+        uint64_t                          indirectOffset = 0;
     };
     struct D3D12CustomStep {
         std::shared_ptr<const FrameCustomPassEncoder> encoder;

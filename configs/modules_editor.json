@@ -109,6 +109,42 @@
         "RecastNavigation",
         "Aurora.Render.Editor"
       ]
+    },
+    {
+      "name": "Particle.Assets",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": []
+    },
+    {
+      "name": "Particle.World",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets"
+      ]
+    },
+    {
+      "name": "Particle.Render",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets",
+        "Aurora.Render"
+      ]
+    },
+    {
+      "name": "Particle.Builder",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets"
+      ]
+    },
+    {
+      "name": "Particle.Editor",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets",
+        "Particle.World",
+        "Particle.Render"
+      ]
     }
   ]
 }

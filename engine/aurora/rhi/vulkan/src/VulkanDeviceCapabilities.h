@@ -40,6 +40,7 @@ namespace sky::aurora {
 
     struct VulkanDeviceNegotiation {
         VkPhysicalDeviceFeatures2                    core{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        VkPhysicalDeviceFeatures                     enabledCore{};
         VkPhysicalDeviceShaderDrawParametersFeatures draw{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES};
         VkPhysicalDeviceTimelineSemaphoreFeatures    timeline{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES};
         VkPhysicalDeviceSynchronization2Features     synchronization{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
@@ -81,6 +82,9 @@ namespace sky::aurora {
         result.timeline.pNext        = &result.synchronization;
         result.synchronization.pNext = queryRendering ? &result.rendering : nullptr;
         query(gpu, &result.core);
+        result.enabledCore.samplerAnisotropy         = result.core.features.samplerAnisotropy;
+        result.enabledCore.multiDrawIndirect         = result.core.features.multiDrawIndirect;
+        result.enabledCore.drawIndirectFirstInstance = result.core.features.drawIndirectFirstInstance;
         if (!result.timeline.timelineSemaphore)
             return "Selected GPU does not support timelineSemaphore";
         if (!result.synchronization.synchronization2)

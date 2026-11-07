@@ -56,6 +56,10 @@ namespace sky::aurora {
         VkDeviceSize                                       indexOffset = 0;
         VkIndexType                                        indexType   = VK_INDEX_TYPE_UINT32;
         CmdDrawIndexed                                     indexed;
+        VkBuffer                                           indirect          = VK_NULL_HANDLE;
+        VkDeviceSize                                       indirectOffset    = 0;
+        uint32_t                                           indirectDrawCount = 0;
+        uint32_t                                           indirectStride    = 0;
         VkPipelineLayout                                   layout = VK_NULL_HANDLE;
         std::vector<VulkanDescriptorSet>                   sets;
         std::vector<std::shared_ptr<VulkanGraphImageView>> views;
@@ -67,6 +71,8 @@ namespace sky::aurora {
         std::vector<VulkanDescriptorSet>                   sets;
         std::vector<std::shared_ptr<VulkanGraphImageView>> views;
         uint32_t                                           groupsX = 1, groupsY = 1, groupsZ = 1;
+        VkBuffer                                           indirect       = VK_NULL_HANDLE;
+        VkDeviceSize                                       indirectOffset = 0;
         void                                               Encode(const VulkanDeviceFunctions &, VkCommandBuffer) const noexcept;
     };
     struct VulkanCustomStep {

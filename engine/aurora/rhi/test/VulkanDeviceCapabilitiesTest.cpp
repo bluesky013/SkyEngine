@@ -19,6 +19,8 @@ namespace {
         bool                         synchronization = true;
         bool                         rendering       = true;
         bool                         maintenance     = true;
+        bool                         multiDrawIndirect     = true;
+        bool                         firstInstanceIndirect = true;
         uint32_t                     calls           = 0;
         std::vector<VkStructureType> structures;
     };
@@ -33,6 +35,9 @@ namespace {
     {
         ++features->calls;
         value->features.samplerAnisotropy = VK_TRUE;
+        value->features.multiDrawIndirect         = features->multiDrawIndirect;
+        value->features.drawIndirectFirstInstance = features->firstInstanceIndirect;
+        value->features.geometryShader            = VK_TRUE;
         for (auto *entry = static_cast<VkBaseOutStructure *>(value->pNext); entry; entry = entry->pNext) {
             features->structures.push_back(entry->sType);
             switch (entry->sType) {
@@ -152,6 +157,22 @@ TEST_F(VulkanDeviceCapabilityTest, Core13DoesNotRequirePromotedExtensionNames)
     EXPECT_TRUE(negotiated.extensions.empty());
     EXPECT_EQ(featureProbe.structures.size(), 4U);
     EXPECT_EQ(featureProbe.structures.back(), VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
+}
+
+TEST_F(VulkanDeviceCapabilityTest, EnablesOnlySupportedIndirectCoreFeatures)
+{
+    for (const bool multiDraw : {false, true}) {
+        for (const bool firstInstance : {false, true}) {
+            featureProbe.multiDrawIndirect     = multiDraw;
+            featureProbe.firstInstanceIndirect = firstInstance;
+            VulkanDeviceNegotiation negotiated;
+            ASSERT_EQ(NegotiateVulkanDevice(QueryFeatures, VK_NULL_HANDLE, VK_API_VERSION_1_3, {}, negotiated), nullptr);
+            EXPECT_EQ(negotiated.enabledCore.multiDrawIndirect, multiDraw ? VK_TRUE : VK_FALSE);
+            EXPECT_EQ(negotiated.enabledCore.drawIndirectFirstInstance, firstInstance ? VK_TRUE : VK_FALSE);
+            EXPECT_EQ(negotiated.enabledCore.samplerAnisotropy, VK_TRUE);
+            EXPECT_EQ(negotiated.enabledCore.geometryShader, VK_FALSE);
+        }
+    }
 }
 
 TEST_F(VulkanDeviceCapabilityTest, Core12UsesItsCoreTimelineAndRenderPassWithKHRSyncAndRendering)

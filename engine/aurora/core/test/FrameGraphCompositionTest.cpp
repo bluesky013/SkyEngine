@@ -362,3 +362,36 @@ TEST_F(FrameGraphComposition, MismatchedParameterResourcesFailBeforeUniformAlloc
     ASSERT_TRUE(std::holds_alternative<FrameError>(unused));
     EXPECT_EQ(std::get<FrameError>(unused).code, FrameErrorCode::INVALID_ARGUMENT);
 }
+
+TEST_F(FrameGraphComposition, PersistentBufferImportKeepsOwnershipAndRejectsConflicts)
+{
+    FrameGraphBuilder builder;
+    FrameComposer     composer(*device, *context, builder, inputs);
+    Buffer::Descriptor descriptor;
+    descriptor.size   = 64;
+    descriptor.memory = MemoryType::GPU_ONLY;
+    descriptor.usage  = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_DST;
+    BufferPtr persistent(device->CreateBuffer(descriptor));
+    ASSERT_TRUE(persistent);
+    BufferPtr alias = persistent;
+
+    const auto imported = composer.ImportBuffer(persistent, CopyBufferState::COMMON, CopyBufferState::COMMON, false);
+    ASSERT_TRUE(std::holds_alternative<GraphBufferHandle>(imported));
+    const auto handle = std::get<GraphBufferHandle>(imported);
+    persistent        = nullptr;
+
+    const auto duplicate = composer.ImportBuffer(alias, CopyBufferState::COMMON, CopyBufferState::COMMON, false);
+    ASSERT_TRUE(std::holds_alternative<GraphBufferHandle>(duplicate));
+    EXPECT_EQ(std::get<GraphBufferHandle>(duplicate).index, handle.index);
+
+    const auto conflict = composer.ImportBuffer(alias, CopyBufferState::COMMON, CopyBufferState::COMMON, true);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(conflict));
+    EXPECT_EQ(std::get<FrameError>(conflict).code, FrameErrorCode::INVALID_ARGUMENT);
+
+    const auto frozen = builder.Freeze();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+    const auto &data = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen)->GetData();
+    ASSERT_EQ(data.buffers.size(), 1u);
+    EXPECT_TRUE(data.buffers[0].buffer);
+    EXPECT_FALSE(data.buffers[0].transient);
+}

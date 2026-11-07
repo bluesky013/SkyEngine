@@ -857,11 +857,13 @@ TEST_F(AuroraMetalTest, SpecializationRejectsInvalidValuesAndAllowsIndependentSt
     EXPECT_FALSE(MetalConstantProgram(device, vertex, unsupported, &halfValue));
 }
 
-TEST_F(AuroraMetalTest, FrameContextComputeUsesDynamicOffsetsInBindingOrder)
+TEST_F(AuroraMetalTest, FrameContextDirectAndIndirectComputeUseDynamicOffsetsInBindingOrder)
 {
     auto *device = GetDevice();
     ASSERT_TRUE(device);
-    const char      *source = R"MSL(
+    for (const bool indirect : {false, true}) {
+        SCOPED_TRACE(indirect ? "indirect" : "direct");
+        const char      *source = R"MSL(
 #include <metal_stdlib>
 using namespace metal;
 struct Params { uint value; };
@@ -870,87 +872,109 @@ kernel void CSMain(constant Params &first [[buffer(0)]], constant Params &second
     output[id] = first.value + 10 * second.value + id;
 }
 )MSL";
-    ShaderReflection reflection;
-    for (const auto binding : {1u, 3u}) {
-        ShaderResource uniform;
-        uniform.type    = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
-        uniform.name    = binding == 1 ? "first" : "second";
-        uniform.binding = binding;
-        uniform.stages  = ShaderStageFlagBit::CS;
-        reflection.resources.push_back(uniform);
-        reflection.blocks.push_back(FixtureUniformBlock(0, binding, uniform.name.c_str(), false));
-        reflection.nativeBindings.push_back({0, binding, ShaderStageFlagBit::CS, binding == 1 ? 0u : 1u, ShaderNativeCategory::METAL_BUFFER});
+        ShaderReflection reflection;
+        for (const auto binding : {1u, 3u}) {
+            ShaderResource uniform;
+            uniform.type    = ShaderResourceType::UNIFORM_BUFFER_DYNAMIC;
+            uniform.name    = binding == 1 ? "first" : "second";
+            uniform.binding = binding;
+            uniform.stages  = ShaderStageFlagBit::CS;
+            reflection.resources.push_back(uniform);
+            reflection.blocks.push_back(FixtureUniformBlock(0, binding, uniform.name.c_str(), false));
+            reflection.nativeBindings.push_back({0, binding, ShaderStageFlagBit::CS, binding == 1 ? 0u : 1u, ShaderNativeCategory::METAL_BUFFER});
+        }
+        ShaderResource storage;
+        storage.name          = "output";
+        storage.type          = ShaderResourceType::STORAGE_BUFFER;
+        storage.set           = 1;
+        storage.access        = ShaderResourceAccess::READ_WRITE;
+        storage.bufferKind    = ShaderBufferKind::STRUCTURED;
+        storage.elementStride = 4;
+        storage.stages        = ShaderStageFlagBit::CS;
+        reflection.resources.push_back(storage);
+        reflection.nativeBindings.push_back({1, 0, ShaderStageFlagBit::CS, 2, ShaderNativeCategory::METAL_BUFFER});
+        reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
+        auto shader = MakeMetalFixtureShader(device, source, reflection, false);
+        ASSERT_TRUE(shader);
+        Buffer::Descriptor bufferDesc;
+        bufferDesc.size   = 1024;
+        bufferDesc.usage  = BufferUsageFlagBit::UNIFORM;
+        bufferDesc.memory = MemoryType::CPU_TO_GPU;
+        auto input        = BufferPtr(device->CreateBuffer(bufferDesc));
+        ASSERT_TRUE(input);
+        std::array<uint32_t, 256> values{};
+        values[64]   = 11;
+        values[128]  = 7;
+        auto *mapped = input->Map();
+        ASSERT_TRUE(mapped);
+        std::memcpy(mapped, values.data(), sizeof(values));
+        input->UnMap();
+        bufferDesc.size   = 16;
+        bufferDesc.usage  = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_SRC;
+        bufferDesc.memory = MemoryType::GPU_ONLY;
+        auto output       = BufferPtr(device->CreateBuffer(bufferDesc));
+        ASSERT_TRUE(output);
+        bufferDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
+        bufferDesc.memory = MemoryType::CPU_TO_GPU;
+        auto readback     = BufferPtr(device->CreateBuffer(bufferDesc));
+        ASSERT_TRUE(readback);
+        FrameGraphData data;
+        data.buffers.push_back({input, 1024, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true});
+        data.buffers.push_back({output, 16, CopyBufferState::COMMON, CopyBufferState::COMMON, false});
+        data.buffers.push_back({readback, 16, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
+        FrameComputePass compute;
+        compute.shader   = std::move(shader);
+        compute.dispatch = CmdDispatch{4, 1, 1};
+        if (indirect) {
+            const CmdDispatch  dispatch{4, 1, 1};
+            Buffer::Descriptor argumentDesc;
+            argumentDesc.size   = sizeof(dispatch);
+            argumentDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
+            argumentDesc.memory = MemoryType::CPU_TO_GPU;
+            const auto upload   = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(upload);
+            auto *arguments = upload->Map();
+            ASSERT_TRUE(arguments);
+            std::memcpy(arguments, &dispatch, sizeof(dispatch));
+            upload->UnMap();
+            argumentDesc.usage        = BufferUsageFlagBit::TRANSFER_DST | BufferUsageFlagBit::INDIRECT;
+            argumentDesc.memory       = MemoryType::GPU_ONLY;
+            const auto argumentBuffer = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(argumentBuffer);
+            data.buffers.push_back({upload, sizeof(dispatch), CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true});
+            data.buffers.push_back({argumentBuffer, sizeof(dispatch), CopyBufferState::COMMON, CopyBufferState::COMMON, false});
+            data.passes.emplace_back(BufferCopyPass{{kGraphId, 3}, {kGraphId, 4}, 0, 0, sizeof(dispatch)});
+            compute.dispatch = ComputeIndirectDispatch{{{kGraphId, 4}, 0, sizeof(dispatch)}};
+        }
+        ComputeBindingDraft bindings;
+        bindings.buffers.push_back({0, 3, {{kGraphId, 0}, 0, 16}, 512, FrameAccessMode::READ});
+        bindings.buffers.push_back({0, 1, {{kGraphId, 0}, 0, 16}, 256, FrameAccessMode::READ});
+        bindings.buffers.push_back({1, 0, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(bindings))));
+        data.passes.emplace_back(std::move(compute));
+        data.passes.emplace_back(BufferCopyPass{{kGraphId, 1}, {kGraphId, 2}, 0, 0, 16});
+        data.exports.push_back({{kGraphId, 2}, 0, 16});
+        const auto                          graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
+        std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+        ASSERT_TRUE(context);
+        const auto begun = context->TryBeginSlot();
+        ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+        auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        auto dispatched = context->Dispatch(plan);
+        ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+        auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+        auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+        ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+        ASSERT_TRUE(WaitForCompletion(*context));
+        const auto *result = reinterpret_cast<const uint32_t *>(readback->Map());
+        ASSERT_TRUE(result);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(result[i], 81u + i);
+        readback->UnMap();
     }
-    ShaderResource storage;
-    storage.name          = "output";
-    storage.type          = ShaderResourceType::STORAGE_BUFFER;
-    storage.set           = 1;
-    storage.access        = ShaderResourceAccess::READ_WRITE;
-    storage.bufferKind    = ShaderBufferKind::STRUCTURED;
-    storage.elementStride = 4;
-    storage.stages        = ShaderStageFlagBit::CS;
-    reflection.resources.push_back(storage);
-    reflection.nativeBindings.push_back({1, 0, ShaderStageFlagBit::CS, 2, ShaderNativeCategory::METAL_BUFFER});
-    reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
-    auto shader = MakeMetalFixtureShader(device, source, reflection, false);
-    ASSERT_TRUE(shader);
-    Buffer::Descriptor bufferDesc;
-    bufferDesc.size   = 1024;
-    bufferDesc.usage  = BufferUsageFlagBit::UNIFORM;
-    bufferDesc.memory = MemoryType::CPU_TO_GPU;
-    auto input        = BufferPtr(device->CreateBuffer(bufferDesc));
-    ASSERT_TRUE(input);
-    std::array<uint32_t, 256> values{};
-    values[64]   = 11;
-    values[128]  = 7;
-    auto *mapped = input->Map();
-    ASSERT_TRUE(mapped);
-    std::memcpy(mapped, values.data(), sizeof(values));
-    input->UnMap();
-    bufferDesc.size   = 16;
-    bufferDesc.usage  = BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_SRC;
-    bufferDesc.memory = MemoryType::GPU_ONLY;
-    auto output       = BufferPtr(device->CreateBuffer(bufferDesc));
-    ASSERT_TRUE(output);
-    bufferDesc.usage  = BufferUsageFlagBit::TRANSFER_DST;
-    bufferDesc.memory = MemoryType::CPU_TO_GPU;
-    auto readback     = BufferPtr(device->CreateBuffer(bufferDesc));
-    ASSERT_TRUE(readback);
-    FrameGraphData data;
-    data.buffers.push_back({input, 1024, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true});
-    data.buffers.push_back({output, 16, CopyBufferState::COMMON, CopyBufferState::COMMON, false});
-    data.buffers.push_back({readback, 16, CopyBufferState::COMMON, CopyBufferState::HOST_READ, false});
-    FrameComputePass compute;
-    compute.shader  = std::move(shader);
-    compute.groupsX = 4;
-    ComputeBindingDraft bindings;
-    bindings.buffers.push_back({0, 3, {{kGraphId, 0}, 0, 16}, 512, FrameAccessMode::READ});
-    bindings.buffers.push_back({0, 1, {{kGraphId, 0}, 0, 16}, 256, FrameAccessMode::READ});
-    bindings.buffers.push_back({1, 0, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(bindings))));
-    data.passes.emplace_back(std::move(compute));
-    data.passes.emplace_back(BufferCopyPass{{kGraphId, 1}, {kGraphId, 2}, 0, 0, 16});
-    data.exports.push_back({{kGraphId, 2}, 0, 16});
-    const auto                          graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
-    std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
-    ASSERT_TRUE(context);
-    const auto begun = context->TryBeginSlot();
-    ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
-    auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
-    auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
-    auto dispatched = context->Dispatch(plan);
-    ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
-    auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
-    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
-    auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
-    ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
-    ASSERT_TRUE(WaitForCompletion(*context));
-    const auto *result = reinterpret_cast<const uint32_t *>(readback->Map());
-    ASSERT_TRUE(result);
-    for (uint32_t i = 0; i < 4; ++i)
-        EXPECT_EQ(result[i], 81u + i);
-    readback->UnMap();
 }
 
 TEST_F(AuroraMetalTest, FrameContextRejectsInvalidComputeDeclarations)
@@ -1228,7 +1252,7 @@ fragment float4 FSMain(device uint *output [[buffer(1)]]) {
         data.buffers.push_back({output, 512, CopyBufferState::COMMON, CopyBufferState::COMMON, false});
         FrameComputePass pass;
         pass.shader  = std::move(shader);
-        pass.groupsX = 1;
+        pass.dispatch = CmdDispatch{1, 1, 1};
         ComputeBindingDraft bindings;
         bindings.buffers.push_back(
             {0, 0, {{kGraphId, 0}, fault == 2 ? 4u : 0u, 16}, fault == 3 ? 4u : (fault == 5 ? 512u : 0u), FrameAccessMode::READ});

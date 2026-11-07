@@ -52,6 +52,7 @@ option(SKY_MATH_SIMD   "enable simd math"     OFF)
 option(SKY_DETERMINISTIC_FP "deterministic floating point (no FMA contraction)" OFF)
 option(SKY_ANIMATION_ACL "enable acl2 animation compression" ON)
 option(SKY_BUILD_ANIMATION "enable engine animation assets, world and tool integration" ON)
+option(SKY_BUILD_PARTICLE "enable engine particle assets, world, render and tool integration" ON)
 option(SKY_BUILD_COMPRESSION "enable Framework built-in LZ4 compression" ON)
 
 # FreeType UI font adaptor (engine/ui/freetype + sandbox). Decoupled from the

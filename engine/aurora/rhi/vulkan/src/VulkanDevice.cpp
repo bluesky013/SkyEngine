@@ -81,6 +81,8 @@ namespace sky::aurora {
     {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = gpuFeatures.samplerAnisotropy == VK_TRUE;
+        feature.multiDrawIndirect     = gpuFeatures.multiDrawIndirect == VK_TRUE;
+        feature.firstInstanceIndirect = gpuFeatures.drawIndirectFirstInstance == VK_TRUE;
 
         capability.minUniformBufferOffsetAlignment = gpuProperties.properties.limits.minUniformBufferOffsetAlignment;
         capability.minStorageBufferOffsetAlignment = gpuProperties.properties.limits.minStorageBufferOffsetAlignment;
@@ -140,7 +142,7 @@ namespace sky::aurora {
             LOG_E(TAG, "%s", error);
             return false;
         }
-        gpuFeatures               = negotiated.core.features;
+        gpuFeatures               = negotiated.enabledCore;
         dynamicRenderingSupported = negotiated.dynamicRenderingSupported;
         dynamicRenderingEnabled   = negotiated.dynamicRendering;
         renderPass2               = negotiated.renderPass2;
@@ -233,8 +235,6 @@ namespace sky::aurora {
             LOG_I(TAG, "enabled device extension: %s", extension);
         LOG_I(TAG, "enabled rendering paths: dynamic=%u render-pass2=%u", dynamicRenderingEnabled, renderPass2);
 
-        VkPhysicalDeviceFeatures enabledCoreFeatures{};
-        enabledCoreFeatures.samplerAnisotropy = gpuFeatures.samplerAnisotropy;
         if (swapchainMaintenance) {
             if (dynamicRenderingEnabled)
                 negotiated.rendering.pNext = &maintenance;
@@ -249,7 +249,7 @@ namespace sky::aurora {
         createInfo.pQueueCreateInfos       = queueCreateInfos.data();
         createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
-        createInfo.pEnabledFeatures        = &enabledCoreFeatures;
+        createInfo.pEnabledFeatures        = &gpuFeatures;
 
         VkResult result = instFn.vkCreateDevice(gpu, &createInfo, nullptr, &device);
         if (result != VK_SUCCESS) {

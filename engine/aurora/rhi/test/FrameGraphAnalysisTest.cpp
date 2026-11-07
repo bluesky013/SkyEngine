@@ -232,3 +232,109 @@ TEST(FrameResourceUses, RasterStorageAndVertexReadsKeepTheirProducer)
     EXPECT_EQ(uses[1].stages, ShaderStageFlags(ShaderStageFlagBit::VS | ShaderStageFlagBit::FS));
     EXPECT_EQ(uses[1].resourceAccess, ShaderResourceAccess::READ_ONLY);
 }
+
+TEST(FrameResourceUses, IndirectArgumentsAreReadDependenciesAndRequireInitializedContent)
+{
+    FrameGraphData data;
+    data.buffers.push_back({BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::INDIRECT)), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, true});
+    data.images.push_back(ColorTarget());
+    RasterDraw draw;
+    draw.shader   = ShaderPtr(new AnalysisShader(ShaderReflection{}));
+    draw.indirect = RasterIndirectDraw{{{1, 0}, 0, 64}, 1, 0};
+    FrameRasterPass raster;
+    raster.color = {1, 0};
+    raster.load  = LoadOp::CLEAR;
+    raster.draws.push_back(draw);
+    data.passes.push_back(raster);
+    data.imageExports.push_back({1, 0});
+    const auto live = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(live));
+    const auto &uses = std::get<FrameGraphAnalysis>(live).passResourceUses[0].buffers;
+    ASSERT_EQ(uses.size(), 1u);
+    EXPECT_EQ(uses[0].kind, FrameBufferUseKind::INDIRECT);
+    EXPECT_EQ(uses[0].access, FrameAccessMode::READ);
+    EXPECT_EQ(uses[0].range.size, 64u);
+
+    auto invalid                                                                   = data;
+    std::get<FrameRasterPass>(invalid.passes[0]).draws[0].indirect->arguments.size = 12;
+    const auto tooSmall                                                            = AnalyzeFrameGraph(FrozenFrameGraph(1, invalid));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(tooSmall));
+
+    data.buffers[0].initialized = false;
+    const auto undefined        = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(undefined));
+    EXPECT_NE(std::get<FrameError>(undefined).message.find("undefined"), std::string::npos);
+}
+
+TEST(FrameResourceUses, DispatchSelectsExactlyOneCommandAndReadsIndirectArguments)
+{
+    FrameGraphData data;
+    data.buffers.push_back({BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::INDIRECT)), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, true});
+    ShaderReflection reflection;
+    reflection.threadGroupSize[0] = reflection.threadGroupSize[1] = reflection.threadGroupSize[2] = 1;
+    FrameComputePass pass;
+    pass.shader     = ShaderPtr(new AnalysisShader(std::move(reflection)));
+    pass.dispatch   = ComputeIndirectDispatch{{{1, 0}, 0, 64}};
+    pass.sideEffect = true;
+    data.passes.push_back(pass);
+    const auto live = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(live));
+    const auto &uses = std::get<FrameGraphAnalysis>(live).passResourceUses[0].buffers;
+    ASSERT_EQ(uses.size(), 1u);
+    EXPECT_EQ(uses[0].kind, FrameBufferUseKind::INDIRECT);
+
+    pass.dispatch     = CmdDispatch{1, 1, 1};
+    data.passes[0]    = pass;
+    const auto direct = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(direct));
+    EXPECT_TRUE(std::get<FrameGraphAnalysis>(direct).passResourceUses[0].buffers.empty());
+    pass.dispatch  = CmdDispatch{0, 1, 1};
+    data.passes[0] = pass;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
+}
+
+TEST(IndirectArgumentLayout, NormalizesPackingAndRejectsInvalidShape)
+{
+    for (const auto kind : {IndirectCommandKind::DRAW, IndirectCommandKind::DRAW_INDEXED, IndirectCommandKind::DISPATCH}) {
+        const auto result = ResolveIndirectArgumentLayout(kind);
+        ASSERT_TRUE(std::holds_alternative<IndirectArgumentLayout>(result));
+        const auto layout = std::get<IndirectArgumentLayout>(result);
+        const auto size   = kind == IndirectCommandKind::DRAW ? 16u : kind == IndirectCommandKind::DRAW_INDEXED ? 20u : 12u;
+        EXPECT_EQ(layout.stride, size);
+        EXPECT_EQ(layout.size, size);
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(kind, 0)));
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(kind, 1, size - 4)));
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(kind, 1, size + 1)));
+    }
+    const auto padded = ResolveIndirectArgumentLayout(IndirectCommandKind::DRAW_INDEXED, 3, 32);
+    ASSERT_TRUE(std::holds_alternative<IndirectArgumentLayout>(padded));
+    EXPECT_EQ(std::get<IndirectArgumentLayout>(padded).size, 84u);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(IndirectCommandKind::DISPATCH, 2)));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(IndirectCommandKind::END)));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveIndirectArgumentLayout(static_cast<IndirectCommandKind>(UINT8_MAX))));
+    const auto large = ResolveIndirectArgumentLayout(IndirectCommandKind::DRAW, UINT32_MAX, UINT32_MAX - 3);
+    ASSERT_TRUE(std::holds_alternative<IndirectArgumentLayout>(large));
+    EXPECT_EQ(std::get<IndirectArgumentLayout>(large).size, uint64_t(UINT32_MAX - 1) * (UINT32_MAX - 3) + 16);
+}
+
+TEST(FrameResourceUses, RejectsMisalignedIndirectStrideAndInsufficientPaddedRange)
+{
+    FrameGraphData data;
+    data.buffers.push_back({BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::INDIRECT)), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, true});
+    data.images.push_back(ColorTarget());
+    RasterDraw draw;
+    draw.shader   = ShaderPtr(new AnalysisShader(ShaderReflection{}));
+    draw.indirect = RasterIndirectDraw{{{1, 0}, 0, 64}, 2, 17};
+    FrameRasterPass raster;
+    raster.color = {1, 0};
+    raster.load  = LoadOp::CLEAR;
+    raster.draws.push_back(draw);
+    data.passes.push_back(raster);
+    data.imageExports.push_back({1, 0});
+    EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
+    auto &indirect  = *std::get<FrameRasterPass>(data.passes[0]).draws[0].indirect;
+    indirect.stride = 48;
+    EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
+    indirect.arguments.size = 63;
+    EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
+}

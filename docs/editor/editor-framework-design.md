@@ -100,8 +100,9 @@ Current implementation state, build/run, gotchas and handoff live in **`editor-f
   override) — the editor owns shared mutable project state (asset DB, project cache, thumbnails,
   cooked products). The hub offers *Focus existing* / *Cancel*; a stale lock (owner PID not running)
   is reclaimed automatically.
-- **PIE = separate process**: play spawns `Launcher --project <path>` as an independent process
-  (UE "Standalone"-style isolation), never rendering the game inside the editor process.
+- **PIE = in-process PlaySession today**: Play duplicates the edit world and starts simulation inside
+  the editor process (`PlaySession`); a separate `Launcher --project <path>` process remains available
+  for standalone testing.
 - **Hub = a separate Project Manager window on the base UI stack**: in hub mode `SandboxEditor`
   loads its **engine-side** base modules (`<bundle>/configs/modules_editor.json`: UI/render/text/
   resources) but **does not build the editor shell**; it opens the Project Manager in its **own
@@ -111,7 +112,11 @@ Current implementation state, build/run, gotchas and handoff live in **`editor-f
   branches on project presence — `SandboxModule::Init` must **skip editor-shell construction in hub
   mode**.
 - **Command-line contract**:
-  - `SandboxEditor [--project <path>] [--rhi <name>] [--console] [--safe-mode]`
+  - `SandboxEditor [--project <path>] [--rhi <name>] [--console] [--safe-mode] [--frames <n>]`
+  - `SandboxEditor --project <path> [--world <path>] [--asset <uuid>] [--play] [--screenshot <file.png>] [--screenshot-frame <n>]`
+    (dev/automation: opens a world without the dialog, enters PIE, and optionally writes the scene
+    viewport from a GPU readback; the window must stay visible because occluded windows pause frame
+    submission)
   - `Launcher [--project <path>] [--app game|xr] [--rhi <name>]`
 - **File association**: opening a `.skyproj` maps to `SandboxEditor --project <path>`; launching with
   no argument opens the hub.

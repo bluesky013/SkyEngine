@@ -161,6 +161,8 @@ namespace sky::aurora {
             feature.framebufferFetch = [mtlDevice supportsFamily:MTLGPUFamilyApple1];
             // MTLDraw*IndirectArguments carry baseInstance
             feature.firstInstanceIndirect = true;
+            // Metal loops the requested count through indirect encoders.
+            feature.multiDrawIndirect = true;
             // tier2 bindless argument-buffer heap needs shader-side argument
             // buffer emission, which the slang MSL path does not produce yet
             feature.descriptorHeap     = false;

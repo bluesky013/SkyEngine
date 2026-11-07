@@ -21,7 +21,6 @@
 #include <dxgi1_6.h>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <wrl/client.h>
 
@@ -43,13 +42,6 @@ namespace sky::aurora {
         D3D12Device                      &device;
         std::unique_ptr<D3D12CommandPool> pool;
     };
-    // Indirect command kind for ExecuteIndirect command signatures.
-    enum class IndirectKind : uint8_t {
-        DRAW = 0,
-        DRAW_INDEXED,
-        DISPATCH,
-    };
-
     class D3D12Device : public Device {
     public:
         explicit D3D12Device(D3D12Instance &inst);
@@ -100,9 +92,8 @@ namespace sky::aurora {
         }
         IDXGIFactory4 *GetDXGIFactory() const;
 
-        // Lazily-created command signature for ExecuteIndirect, cached by
-        // (kind, stride). Returns nullptr when creation fails.
-        ID3D12CommandSignature *GetIndirectSignature(IndirectKind kind, uint32_t stride);
+        // Callers retain signatures through command execution; cache eviction only drops its own reference.
+        std::variant<FrameError, ComPtr<ID3D12CommandSignature>> GetIndirectSignature(IndirectCommandKind kind, uint32_t stride);
 
         // Lazily-created built-in fullscreen blit pipeline (scaled BlitImage).
         D3D12BlitHelper *GetBlitHelper();
@@ -145,7 +136,7 @@ namespace sky::aurora {
 
         std::array<std::unique_ptr<D3D12Queue>, 3> queues; // by QueueType
 
-        std::unordered_map<uint64_t, ComPtr<ID3D12CommandSignature>> indirectSignatures;
+        FrameObjectCache<uint64_t, ComPtr<ID3D12CommandSignature>> indirectSignatures;
 
         DXGI_ADAPTER_DESC1 adapterDesc = {};
     };

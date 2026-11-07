@@ -443,29 +443,115 @@ TEST_F(D3D12FrameCompilerTest, FullscreenGeneratedTriangleReadsBackThroughOwnCom
     readback->UnMap();
 }
 
-TEST_F(D3D12FrameCompilerTest, ComputeStorageBufferWritesReadBack)
+TEST_F(D3D12FrameCompilerTest, IndirectCommandSignaturesRemainAliveAfterCacheEviction)
 {
+    constexpr uint32_t                            signatureCount = 130;
+    std::array<CmdDrawLinear, signatureCount + 1> commands;
+    commands.fill({3, 1, 0, 5});
+    Buffer::Descriptor descriptor;
+    descriptor.size   = sizeof(commands);
+    descriptor.usage  = BufferUsageFlagBit::INDIRECT;
+    descriptor.memory = MemoryType::CPU_TO_GPU;
+    auto arguments    = BufferPtr(device->CreateBuffer(descriptor));
+    ASSERT_TRUE(arguments);
+    auto *mapped = arguments->Map();
+    ASSERT_TRUE(mapped);
+    std::memcpy(mapped, commands.data(), sizeof(commands));
+    arguments->UnMap();
     FrameGraphBuilder builder;
-    auto              storage = StorageBufferOf();
-    const auto        source =
-        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
-    auto                readback = BufferOf(false);
-    const auto          target = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
-    FrameComputePass    compute;
-    ComputeBindingDraft computeBindings;
-    compute.shader  = ComputeShaderOf();
-    compute.groupsX = 4;
-    computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
-    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+    const auto        image = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    const auto        argumentHandle =
+        std::get<GraphBufferHandle>(builder.Import(arguments, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true));
+    const auto shader = ShaderOf();
+    ASSERT_TRUE(shader);
+    FrameRasterPass pass;
+    pass.color = image;
+    for (uint32_t i = 1; i <= signatureCount; ++i) {
+        RasterDraw draw;
+        draw.shader   = shader;
+        draw.indirect = RasterIndirectDraw{{argumentHandle, 0, sizeof(commands)}, 2, i * static_cast<uint32_t>(sizeof(CmdDrawLinear))};
+        pass.draws.push_back(std::move(draw));
+    }
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));
+    auto readback = Readback(builder, image);
     Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
-    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
-    ASSERT_TRUE(values);
-    for (uint32_t i = 0; i < 4; ++i)
-        EXPECT_EQ(values[i], i + 7);
+    const auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    for (uint32_t i = 0; i < 64; ++i) {
+        EXPECT_EQ(pixels[i * 4], 255);
+        EXPECT_EQ(pixels[i * 4 + 1], 0);
+        EXPECT_EQ(pixels[i * 4 + 2], 0);
+        EXPECT_EQ(pixels[i * 4 + 3], 255);
+    }
     readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, InvalidDirectIndirectCommandRejectsSubmission)
+{
+    std::unique_ptr<CommandPool> pool(device->CreateCommandPool(QueueType::GRAPHICS));
+    ASSERT_TRUE(pool);
+    auto *command = pool->Allocate();
+    ASSERT_TRUE(command);
+    command->Begin();
+    auto encoder = command->CreateComputeEncoder();
+    ASSERT_TRUE(encoder);
+    encoder->DispatchIndirect(nullptr, 0);
+    encoder.reset();
+    command->End();
+    SubmitInfo info;
+    info.commandBuffers.push_back(command);
+    const auto result = device->GetQueue(QueueType::GRAPHICS)->TrySubmit(info);
+    EXPECT_EQ(result.status, QueueSubmitStatus::REJECTED);
+    EXPECT_EQ(result.error.nativeCode, E_INVALIDARG);
+}
+
+TEST_F(D3D12FrameCompilerTest, DirectAndIndirectComputeStorageBufferWritesReadBack)
+{
+    for (const bool indirect : {false, true}) {
+        SCOPED_TRACE(indirect ? "indirect" : "direct");
+        FrameGraphBuilder builder;
+        auto              storage = StorageBufferOf();
+        const auto        source =
+            std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+        auto       readback = BufferOf(false);
+        const auto target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+        FrameComputePass    compute;
+        ComputeBindingDraft computeBindings;
+        compute.shader   = ComputeShaderOf();
+        compute.dispatch = CmdDispatch{4, 1, 1};
+        if (indirect) {
+            const CmdDispatch  dispatch{4, 1, 1};
+            Buffer::Descriptor argumentDesc;
+            argumentDesc.size   = sizeof(dispatch);
+            argumentDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
+            argumentDesc.memory = MemoryType::CPU_TO_GPU;
+            const auto upload   = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(upload);
+            auto *arguments = upload->Map();
+            ASSERT_TRUE(arguments);
+            std::memcpy(arguments, &dispatch, sizeof(dispatch));
+            upload->UnMap();
+            argumentDesc.usage        = BufferUsageFlagBit::TRANSFER_DST | BufferUsageFlagBit::INDIRECT;
+            argumentDesc.memory       = MemoryType::GPU_ONLY;
+            const auto argumentBuffer = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(argumentBuffer);
+            const auto from = std::get<GraphBufferHandle>(builder.Import(upload, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true));
+            const auto to   = std::get<GraphBufferHandle>(builder.Import(argumentBuffer, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{from, to, 0, 0, sizeof(dispatch)})));
+            compute.dispatch = ComputeIndirectDispatch{{to, 0, sizeof(dispatch)}};
+        }
+        computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+        Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()));
+        auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], i + 7);
+        readback->UnMap();
+    }
 }
 
 TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
@@ -476,8 +562,7 @@ TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
     FrameComputePass    compute;
     ComputeBindingDraft computeBindings;
     compute.shader  = ComputeImageShaderOf();
-    compute.groupsX = 8;
-    compute.groupsY = 8;
+    compute.dispatch = CmdDispatch{8, 8, 1};
     computeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
@@ -682,14 +767,14 @@ TEST_F(D3D12FrameCompilerTest, ConsecutiveComputeUavAccessesSynchronizeBuffersAn
         FrameComputePass    pass;
         ComputeBindingDraft passBindings;
         pass.shader  = ComputeShaderOf(accumulate);
-        pass.groupsX = 4;
+        pass.dispatch = CmdDispatch{4, 1, 1};
         passBindings.buffers.push_back({0, 0, {storage, 0, 16}, 0, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(passBindings))));
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(pass))));
         FrameComputePass    fill;
         ComputeBindingDraft fillBindings;
         fill.shader  = ComputeImageShaderOf();
-        fill.groupsX = fill.groupsY = 8;
+        fill.dispatch = CmdDispatch{8, 8, 1};
         fillBindings.images.push_back({0, 0, image, {}, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(fill, std::move(fillBindings))));
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(fill))));
@@ -737,7 +822,7 @@ TEST_F(D3D12FrameCompilerTest, ComputeRasterInterleavingIsStableAcrossWorkerCoun
         FrameComputePass    compute;
         ComputeBindingDraft computeBindings;
         compute.shader  = ComputeShaderOf();
-        compute.groupsX = 4;
+        compute.dispatch = CmdDispatch{4, 1, 1};
         computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));

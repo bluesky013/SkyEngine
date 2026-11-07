@@ -50,7 +50,7 @@ set(shader_resource_directory "${runtime_resource_directory}/assets/shaders")
 sky_stage_shader_resources(TARGET ShaderResources.Stage
     DESTINATION "${shader_resource_directory}"
     CONFIGS ${module_resource_configs}
-    CONSUMERS SandboxEditor Aurora.Render Aurora.PipelineTest Aurora.Renderer.GpuSubmissionTest)
+    CONSUMERS SandboxEditor Aurora.Render Aurora.PipelineTest Aurora.Renderer.GpuSubmissionTest Particle.Render)
 install(DIRECTORY "${shader_resource_directory}/" DESTINATION assets/shaders)
 if(SKY_BUILD_TEST)
     sky_stage_shader_resources(TARGET ShaderResources.TestFixtures

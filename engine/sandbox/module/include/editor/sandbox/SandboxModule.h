@@ -82,6 +82,8 @@ namespace sky::editor {
         void NewProject();
         void NewWorld();
         void OpenWorld();
+        void OpenWorldPath(const std::string &path);
+        void OpenAssetById(const sky::Uuid &id);
         void SaveWorld();
         void CloseWorld();
         void Quit();
@@ -105,6 +107,7 @@ namespace sky::editor {
         void        RefreshHubRecent();
         bool        ValidateProject(const ProjectDescriptor &descriptor, std::string &message);
         void        PaintGui(uint32_t surfaceId, sky::ui::UIPaintContext &context, uint32_t width, uint32_t height);
+        void        SaveScreenshot(const sky::aurora::ViewportReadback &pixels);
 
         // Per-window input routing: records the primary (main) window id on the
         // first non-floating event (or accepts id-less events as a fallback).
@@ -154,6 +157,16 @@ namespace sky::editor {
         std::unique_ptr<WorldDocument>          worldDocument;
         std::unique_ptr<sky::ExportPresets>     exportPresets; // project export_presets.json (editor)
         PlaySession                             playSession;
+        std::string                             startupWorld;
+        bool                                    startupPending      = false;
+        bool                                    autoPlayPending     = false;
+        std::string                             startupAsset;
+        std::string                             screenshotPath;
+        uint32_t                                screenshotFrame     = 60;
+        uint32_t                                tickCount           = 0;
+        bool                                    screenshotRequested = false;
+        bool                                    screenshotTimedOut  = false;
+
         WorldDocument                          *lastDocPtr     = nullptr; // detects document switches
         bool                                    lastDocDirty   = false;
         bool                                    docInfoApplied = false; // forces the first title/status push

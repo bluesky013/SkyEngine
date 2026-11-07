@@ -16,6 +16,9 @@
 #include <rdg/D3D12DeviceFrameContext.h>
 
 namespace sky::aurora {
+    static_assert(sizeof(CmdDrawLinear) == sizeof(D3D12_DRAW_ARGUMENTS));
+    static_assert(sizeof(CmdDrawIndexed) == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS));
+    static_assert(sizeof(CmdDispatch) == sizeof(D3D12_DISPATCH_ARGUMENTS));
     namespace {
         D3D12_RESOURCE_BARRIER Transition(ID3D12Resource       *resource,
                                           D3D12_RESOURCE_STATES before,
@@ -280,8 +283,10 @@ namespace sky::aurora {
                                                                   D3D12FrameEncoder            &encoder,
                                                                   D3D12BindingCache            &cache)
         {
-            if (pass.groupsX > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION ||
-                pass.groupsY > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || pass.groupsZ > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION)
+            const auto *direct = std::get_if<CmdDispatch>(&pass.dispatch);
+            if (direct &&
+                (direct->x > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || direct->y > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION ||
+                 direct->z > D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION))
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch exceeds device limits"};
             if (!pass.shader || pass.shader->GetDevice() != &device)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute shader belongs to another device"};
@@ -289,9 +294,19 @@ namespace sky::aurora {
             if (shader->IsGraphics())
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute pass requires a compute-only shader"};
             D3D12ComputeStep step;
-            step.groupsX = pass.groupsX;
-            step.groupsY = pass.groupsY;
-            step.groupsZ = pass.groupsZ;
+            if (direct) {
+                step.groupsX = direct->x;
+                step.groupsY = direct->y;
+                step.groupsZ = direct->z;
+            } else {
+                const auto &arguments = std::get<ComputeIndirectDispatch>(pass.dispatch).arguments;
+                step.indirect         = buffers[arguments.buffer.index]->GetNativeHandle();
+                step.indirectOffset   = arguments.offset;
+                auto signature        = device.GetIndirectSignature(IndirectCommandKind::DISPATCH, sizeof(D3D12_DISPATCH_ARGUMENTS));
+                if (const auto *error = std::get_if<FrameError>(&signature))
+                    return *error;
+                step.indirectSignature = std::get<ComPtr<ID3D12CommandSignature>>(std::move(signature));
+            }
             CounterPtr<D3D12ComputePipeline> pipeline(new D3D12ComputePipeline(device));
             if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
                 return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
@@ -778,6 +793,8 @@ namespace sky::aurora {
                     auto state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
                     if (use.kind == FrameBufferUseKind::INDEX)
                         state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+                    else if (use.kind == FrameBufferUseKind::INDIRECT)
+                        state = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
                     else if (use.kind == FrameBufferUseKind::STORAGE) {
                         ShaderResource resource;
                         resource.type          = ShaderResourceType::STORAGE_BUFFER;
@@ -885,6 +902,25 @@ namespace sky::aurora {
                                           static_cast<UINT>(draw.indexed->range.size),
                                         draw.indexed->type == IndexType::U16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT};
                         native.indexed = draw.indexed->command;
+                    }
+                    if (draw.indirect) {
+                        if (draw.indirect->drawCount > 1 && !device.GetFeature().multiDrawIndirect)
+                            return FrameError{FrameErrorCode::UNSUPPORTED, "DX12 device does not support multi-draw indirect"};
+                        if (!device.GetFeature().firstInstanceIndirect)
+                            return FrameError{FrameErrorCode::UNSUPPORTED, "DX12 device does not support indirect first instance"};
+                        const auto layout =
+                            ResolveIndirectArgumentLayout(draw.indexed ? IndirectCommandKind::DRAW_INDEXED : IndirectCommandKind::DRAW,
+                                                          draw.indirect->drawCount, draw.indirect->stride);
+                        if (const auto *error = std::get_if<FrameError>(&layout))
+                            return *error;
+                        native.indirect = buffers[draw.indirect->arguments.buffer.index]->GetNativeHandle();
+                        auto signature  = device.GetIndirectSignature(draw.indexed ? IndirectCommandKind::DRAW_INDEXED : IndirectCommandKind::DRAW,
+                                                                     std::get<IndirectArgumentLayout>(layout).stride);
+                        if (const auto *error = std::get_if<FrameError>(&signature))
+                            return *error;
+                        native.indirectSignature = std::get<ComPtr<ID3D12CommandSignature>>(std::move(signature));
+                        native.indirectOffset    = draw.indirect->arguments.offset;
+                        native.indirectDrawCount = draw.indirect->drawCount;
                     }
                     if (auto error = CompileRasterBindings(draw, shader, native))
                         return error;
@@ -1081,7 +1117,10 @@ namespace sky::aurora {
                 else
                     command->SetComputeRootConstantBufferView(binding.root, binding.address);
             }
-            command->Dispatch(compute->groupsX, compute->groupsY, compute->groupsZ);
+            if (compute->indirect)
+                command->ExecuteIndirect(compute->indirectSignature.Get(), 1, compute->indirect, compute->indirectOffset, nullptr, 0);
+            else
+                command->Dispatch(compute->groupsX, compute->groupsY, compute->groupsZ);
         } else if (const auto *custom = std::get_if<D3D12CustomStep>(&task.operation)) {
             FrameCustomPassContext context{rhi, std::span<Image *const>(custom->images), std::span<Buffer *const>(custom->buffers)};
             if (auto result = custom->encoder->Encode(context); auto *error = std::get_if<FrameError>(&result))
@@ -1116,12 +1155,16 @@ namespace sky::aurora {
                     command->SetGraphicsRootConstantBufferView(binding.root, binding.address);
                 if (!draw.vertices.empty())
                     command->IASetVertexBuffers(0, static_cast<UINT>(draw.vertices.size()), draw.vertices.data());
-                if (draw.index.BufferLocation) {
+                if (draw.index.BufferLocation)
                     command->IASetIndexBuffer(&draw.index);
+                if (draw.indirect) {
+                    command->ExecuteIndirect(draw.indirectSignature.Get(), draw.indirectDrawCount, draw.indirect, draw.indirectOffset, nullptr, 0);
+                } else if (draw.index.BufferLocation) {
                     command->DrawIndexedInstanced(draw.indexed.indexCount, draw.indexed.instanceCount, draw.indexed.firstIndex,
                                                   draw.indexed.vertexOffset, draw.indexed.firstInstance);
-                } else
+                } else {
                     fn.draw(command, draw.command.vertexCount, draw.command.instanceCount, draw.command.firstVertex, draw.command.firstInstance);
+                }
             }
         }
         if (!task.after.empty())

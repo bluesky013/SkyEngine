@@ -62,6 +62,9 @@
 
 `workflow` 目前仍是本次维护 change 的待同步领域，不伪造为已归档主规范。
 
+`particle` 领域由 `add-particle-system` 引入，已登记到 `capability-map.json`；主规范
+`specs/particle/spec.md` 在该 change 归档时生成。
+
 ## 维护方式
 
 新增变更优先扩展上述领域，proposal 与 delta 使用同一个 canonical domain ID。确需新增领域时，在 proposal 解释独立边界；不要重新建立历史叶子目录。

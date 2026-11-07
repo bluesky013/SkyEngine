@@ -179,3 +179,174 @@ TEST(SceneViewSettingsTest, ScenePolicyRequestsOnlyRegisteredChoices)
     schema.entries.erase(schema.entries.begin(), schema.entries.begin() + 2);
     EXPECT_EQ(ScenePipelineRequests(schema).size(), 1u);
 }
+
+TEST(SceneViewSettingsTest, ScenePassAdvertisesStageSupport)
+{
+    EXPECT_TRUE(CreateSceneRenderFeature(Name("scene"))->SupportsSceneExtensions());
+}
+
+namespace {
+    class SceneStageContext final : public FrameGraphBuildContext, public FrameFeaturePrepareContext {
+    public:
+        SceneStageContext()
+        {
+            frame           = std::make_shared<PreparedFrame>();
+            inputs.prepared = frame;
+            target.output   = {{0, 1}, 1, {32, 24}, PixelFormat::RGBA8_UNORM};
+            target.color    = {1, 0};
+        }
+        RendererInfo GetRendererInfo() const override
+        {
+            return {API::VULKAN, 1};
+        }
+        const FrameBuildInputs &GetInputs() const override
+        {
+            return inputs;
+        }
+        std::optional<FrameRenderTarget> GetOutput(ViewportId id) const override
+        {
+            return id == target.output.viewport ? std::optional{target} : std::nullopt;
+        }
+        std::optional<GraphImageHandle> ResolveViewOutput(ViewOutputRef) const override
+        {
+            return {};
+        }
+        std::optional<GraphImageHandle> ResolveImage(const RenderResourceKey &) const override
+        {
+            return {};
+        }
+        std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, SamplerPtr> CreateSampler(const Sampler::Descriptor &) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, RasterBufferRange> Upload(std::span<const std::byte>, BufferUsageFlags) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, RasterUniformBinding> WriteUniform(uint32_t, uint32_t, std::span<const std::byte>, ShaderResourceType) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *) override
+        {
+            return std::vector<ResolvedRasterDraw>{};
+        }
+        std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override
+        {
+            return Unsupported();
+        }
+        std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &desc) override
+        {
+            images.push_back(desc);
+            return GraphImageHandle{1, static_cast<uint32_t>(images.size())};
+        }
+        FrameOperationResult Copy(BufferCopyPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Copy(BufferImageCopyPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Custom(FrameCustomPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Export(GraphBufferExport) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Export(GraphImageHandle) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Raster(FrameRasterPass pass) override
+        {
+            passes.push_back(std::move(pass));
+            return FrameOperationComplete{};
+        }
+        FrameOperationResult Fullscreen(FrameRasterPass) override
+        {
+            return Unsupported();
+        }
+        FrameOperationResult Compute(FrameComputePass) override
+        {
+            return Unsupported();
+        }
+        static FrameError Unsupported()
+        {
+            return {FrameErrorCode::UNSUPPORTED, "Unexpected stage test operation"};
+        }
+        std::shared_ptr<PreparedFrame> frame;
+        FrameBuildInputs               inputs;
+        FrameRenderTarget              target;
+        std::vector<Image::Descriptor> images;
+        std::vector<FrameRasterPass>   passes;
+    };
+    class SceneExtensionCapture final : public ISceneRenderExtension {
+    public:
+        Name GetName() const override
+        {
+            return Name("capture");
+        }
+        std::optional<RendererError> Validate(const FrameExtensionPayload &) const override
+        {
+            return {};
+        }
+        FrameOperationResult
+        Build(FrameGraphBuildContext &context, const SceneRenderStageContext &stage, const FrameExtensionPayload &payload) override
+        {
+            ++calls;
+            color = stage.color;
+            depth = stage.depth;
+            bytes = payload.bytes;
+            if (fail)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Stage rejected"};
+            FrameRasterPass pass;
+            pass.color = color;
+            pass.load  = clearColor ? LoadOp::CLEAR : LoadOp::LOAD;
+            pass.depth = RasterDepthAttachment{depth, LoadOp::LOAD, StoreOp::STORE, 1.f};
+            return context.Raster(std::move(pass));
+        }
+        bool                 fail       = false;
+        bool                 clearColor = false;
+        uint32_t             calls      = 0;
+        GraphImageHandle     color, depth;
+        std::vector<uint8_t> bytes;
+    };
+} // namespace
+
+TEST(SceneViewSettingsTest, StageConsumesOnlyItsOutputPayloadAndSharesOpaqueAttachments)
+{
+    SceneStageContext context;
+    auto              feature   = CreateSceneRenderFeature(Name("scene"), TestShaderSources());
+    auto              extension = std::make_shared<SceneExtensionCapture>();
+    context.inputs.sceneExtensions.push_back({Name("scene"), extension});
+    context.frame->extensions.push_back({Name("capture"), {1}, {{8, 1}}, {}});
+    context.frame->extensions.push_back({Name("capture"), {2}, {{0, 1}}, {}});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(feature->Prepare(context)));
+    PreparedViewData view;
+    view.view.output = {0, 1};
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(feature->BuildView(context, view)));
+    ASSERT_EQ(context.passes.size(), 2u);
+    ASSERT_TRUE(context.passes.front().depth);
+    EXPECT_EQ(extension->calls, 1u);
+    EXPECT_EQ(extension->bytes, std::vector<uint8_t>{2});
+    EXPECT_EQ(extension->color, context.passes.front().color);
+    EXPECT_EQ(extension->depth, context.passes.front().depth->image);
+    EXPECT_EQ(context.passes.back().load, LoadOp::LOAD);
+    EXPECT_EQ(context.passes.back().depth->load, LoadOp::LOAD);
+    extension->clearColor = true;
+    context.passes.clear();
+    EXPECT_TRUE(std::holds_alternative<FrameError>(feature->BuildView(context, view)));
+    EXPECT_EQ(context.passes.size(), 1u);
+    extension->clearColor = false;
+    extension->fail       = true;
+    context.passes.clear();
+    EXPECT_TRUE(std::holds_alternative<FrameError>(feature->BuildView(context, view)));
+    EXPECT_EQ(context.passes.size(), 1u);
+}

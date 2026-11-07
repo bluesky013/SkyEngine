@@ -263,9 +263,8 @@ namespace {
                 return *error;
             const auto       target = std::get<GraphImageHandle>(image);
             FrameComputePass dispatch;
-            dispatch.shader  = std::get<ShaderPtr>(dispatchShader);
-            dispatch.groupsX = descriptor.extent.width;
-            dispatch.groupsY = descriptor.extent.height;
+            dispatch.shader   = std::get<ShaderPtr>(dispatchShader);
+            dispatch.dispatch = CmdDispatch{descriptor.extent.width, descriptor.extent.height, 1};
             ComputeBindingDraft dispatchBindings;
             dispatchBindings.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
             const auto boundCompute = SetComputeBindings(dispatch, std::move(dispatchBindings));
@@ -562,13 +561,18 @@ namespace {
         auto source = CreateSceneAssetSource(
             sources, [assets, pendingTexture](const Uuid &id) { return id == pendingTexture->GetUuid() ? pendingTexture : assets->FindAsset(id); },
             shaderProducts);
-        const auto mesh = ScenePrimitiveId(ScenePrimitive::CUBE);
-        EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo())));
+        const auto mesh           = ScenePrimitiveId(ScenePrimitive::CUBE);
+        const auto describeResult = [](const SceneResourceResult &result) {
+            const auto *error = std::get_if<RendererError>(&result);
+            return error ? error->message : std::string{"Scene resources are pending or ready"};
+        };
+        const auto pendingResult = source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo());
+        EXPECT_TRUE(std::holds_alternative<std::monostate>(pendingResult)) << describeResult(pendingResult);
         source                    = CreateSceneAssetSource(sources, [assets](const Uuid &id) { return assets->FindAsset(id); }, shaderProducts);
         const auto baseResult     = source->ResolveMesh(mesh, material->GetUuid(), renderer->GetInfo());
         const auto instanceResult = source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo());
-        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(baseResult));
-        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(instanceResult));
+        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(baseResult)) << describeResult(baseResult);
+        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(instanceResult)) << describeResult(instanceResult);
         const auto base       = std::get<std::shared_ptr<const SceneMeshResources>>(baseResult);
         const auto overridden = std::get<std::shared_ptr<const SceneMeshResources>>(instanceResult);
         ASSERT_EQ(base->parts.size(), 1u);

@@ -66,7 +66,8 @@ namespace sky::aurora {
         return draw.instanceCount == 1 && draw.firstInstance == 0;
     }
     using SceneResourceResult = std::variant<std::monostate, RendererError, std::shared_ptr<const SceneMeshResources>>;
-    using SceneImageResult    = std::variant<std::monostate, RendererError, std::shared_ptr<const RenderResourcePayload>>;
+    enum class SceneImageUsage { ENVIRONMENT, MATERIAL };
+    using SceneImageResult = std::variant<std::monostate, RendererError, std::shared_ptr<const RenderResourcePayload>>;
     enum class SceneGeometryState { READY, PENDING, UNSUPPORTED, ERROR };
     struct SceneGeometryInstance {
         Uuid                                      actor, mesh, material;
@@ -110,7 +111,7 @@ namespace sky::aurora {
         {
             return false;
         }
-        virtual SceneImageResult ResolveImage(const Uuid &, RendererInfo)
+        virtual SceneImageResult ResolveImage(const Uuid &, RendererInfo, SceneImageUsage = SceneImageUsage::ENVIRONMENT)
         {
             return RendererError{RendererErrorCode::UNSUPPORTED, "Scene source does not provide environment images"};
         }

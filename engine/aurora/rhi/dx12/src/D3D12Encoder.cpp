@@ -6,6 +6,7 @@
 
 #include <D3D12BlitHelper.h>
 #include <D3D12Buffer.h>
+#include <D3D12CommandPool.h>
 #include <D3D12Conversion.h>
 #include <D3D12DescriptorHeap.h>
 #include <D3D12Device.h>
@@ -19,11 +20,39 @@
 
 namespace sky::aurora {
 
+    namespace {
+        ComPtr<ID3D12CommandSignature> ResolveIndirectSignature(D3D12Device        &device,
+                                                                D3D12CommandBuffer &command,
+                                                                Buffer             *buffer,
+                                                                uint64_t            offset,
+                                                                uint32_t            count,
+                                                                uint32_t            stride,
+                                                                IndirectCommandKind kind)
+        {
+            const auto layout = ResolveIndirectArgumentLayout(kind, count, stride);
+            if (!buffer || buffer->GetDevice() != &device || !buffer->GetDescriptor().usage.TestBit(BufferUsageFlagBit::INDIRECT) || offset % 4 ||
+                offset >= buffer->GetSize() || std::holds_alternative<FrameError>(layout) ||
+                std::get<IndirectArgumentLayout>(layout).size > buffer->GetSize() - offset) {
+                command.RecordError(E_INVALIDARG);
+                return {};
+            }
+            auto acquired = device.GetIndirectSignature(kind, std::get<IndirectArgumentLayout>(layout).stride);
+            if (const auto *error = std::get_if<FrameError>(&acquired)) {
+                command.RecordError(error->cause.nativeCode ? static_cast<HRESULT>(error->cause.nativeCode) : E_FAIL);
+                return {};
+            }
+            auto signature = std::get<ComPtr<ID3D12CommandSignature>>(std::move(acquired));
+            command.RetainIndirectSignature(signature);
+            return signature;
+        }
+    } // namespace
+
     static const char *TAG = "AuroraDX12";
 
     // ---- D3D12GraphicsEncoder ----
 
-    D3D12GraphicsEncoder::D3D12GraphicsEncoder(D3D12Device &device, ID3D12GraphicsCommandList *cmdList) : device(device), cmdList(cmdList)
+    D3D12GraphicsEncoder::D3D12GraphicsEncoder(D3D12Device &device, D3D12CommandBuffer &command)
+        : device(device), command(command), cmdList(command.GetNativeHandle())
     {
     }
 
@@ -301,31 +330,30 @@ namespace sky::aurora {
 
     void D3D12GraphicsEncoder::DrawIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride)
     {
-        if (buffer == nullptr) {
+        if (!drawCount)
+            return;
+        const auto signature = ResolveIndirectSignature(device, command, buffer, offset, drawCount, stride, IndirectCommandKind::DRAW);
+        if (!signature) {
             return;
         }
-        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DRAW, stride);
-        if (signature == nullptr) {
-            return;
-        }
-        cmdList->ExecuteIndirect(signature, drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
+        cmdList->ExecuteIndirect(signature.Get(), drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     void D3D12GraphicsEncoder::DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride)
     {
-        if (buffer == nullptr) {
+        if (!drawCount)
+            return;
+        const auto signature = ResolveIndirectSignature(device, command, buffer, offset, drawCount, stride, IndirectCommandKind::DRAW_INDEXED);
+        if (!signature) {
             return;
         }
-        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DRAW_INDEXED, stride);
-        if (signature == nullptr) {
-            return;
-        }
-        cmdList->ExecuteIndirect(signature, drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
+        cmdList->ExecuteIndirect(signature.Get(), drawCount, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     // ---- D3D12ComputeEncoder ----
 
-    D3D12ComputeEncoder::D3D12ComputeEncoder(D3D12Device &device, ID3D12GraphicsCommandList *cmdList) : device(device), cmdList(cmdList)
+    D3D12ComputeEncoder::D3D12ComputeEncoder(D3D12Device &device, D3D12CommandBuffer &command)
+        : device(device), command(command), cmdList(command.GetNativeHandle())
     {
     }
 
@@ -453,14 +481,11 @@ namespace sky::aurora {
 
     void D3D12ComputeEncoder::DispatchIndirect(Buffer *buffer, uint64_t offset)
     {
-        if (buffer == nullptr) {
+        const auto signature = ResolveIndirectSignature(device, command, buffer, offset, 1, 0, IndirectCommandKind::DISPATCH);
+        if (!signature) {
             return;
         }
-        ID3D12CommandSignature *signature = device.GetIndirectSignature(IndirectKind::DISPATCH, sizeof(D3D12_DISPATCH_ARGUMENTS));
-        if (signature == nullptr) {
-            return;
-        }
-        cmdList->ExecuteIndirect(signature, 1, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
+        cmdList->ExecuteIndirect(signature.Get(), 1, static_cast<D3D12Buffer *>(buffer)->GetNativeHandle(), offset, nullptr, 0);
     }
 
     // ---- D3D12BlitEncoder ----

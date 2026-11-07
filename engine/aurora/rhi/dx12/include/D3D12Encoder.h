@@ -13,11 +13,12 @@ namespace sky::aurora {
     using Microsoft::WRL::ComPtr;
 
     class D3D12Device;
+    class D3D12CommandBuffer;
     class D3D12RootSignature;
 
     class D3D12GraphicsEncoder : public GraphicsEncoder {
     public:
-        D3D12GraphicsEncoder(D3D12Device &device, ID3D12GraphicsCommandList *cmdList);
+        D3D12GraphicsEncoder(D3D12Device &device, D3D12CommandBuffer &command);
         ~D3D12GraphicsEncoder() override = default;
 
         void BeginRendering(const RenderingInfo &info) override;
@@ -40,6 +41,7 @@ namespace sky::aurora {
 
     private:
         D3D12Device               &device;
+        D3D12CommandBuffer        &command;
         ID3D12GraphicsCommandList *cmdList = nullptr;
         const D3D12RootSignature  *currentRootSignature = nullptr;
         std::vector<uint32_t>      currentVertexStrides; // cached from bound PSO
@@ -47,7 +49,7 @@ namespace sky::aurora {
 
     class D3D12ComputeEncoder : public ComputeEncoder {
     public:
-        D3D12ComputeEncoder(D3D12Device &device, ID3D12GraphicsCommandList *cmdList);
+        D3D12ComputeEncoder(D3D12Device &device, D3D12CommandBuffer &command);
         ~D3D12ComputeEncoder() override = default;
 
         void BindPipeline(ComputePipeline *pso) override;
@@ -59,6 +61,7 @@ namespace sky::aurora {
 
     private:
         D3D12Device               &device;
+        D3D12CommandBuffer        &command;
         ID3D12GraphicsCommandList *cmdList = nullptr;
         const D3D12RootSignature  *currentRootSignature = nullptr;
     };

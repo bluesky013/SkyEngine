@@ -28,6 +28,9 @@
 #include <variant>
 
 namespace sky::aurora {
+    static_assert(sizeof(CmdDrawLinear) == sizeof(MTLDrawPrimitivesIndirectArguments));
+    static_assert(sizeof(CmdDrawIndexed) == sizeof(MTLDrawIndexedPrimitivesIndirectArguments));
+    static_assert(sizeof(CmdDispatch) == sizeof(MTLDispatchThreadgroupsIndirectArguments));
     namespace {
         struct CopyBufferStep {
             MetalBuffer *source            = nullptr;
@@ -69,6 +72,10 @@ namespace sky::aurora {
             CmdDrawIndexed               indexed;
             Rect2D                       scissor;
             bool                         isIndexed = false;
+            MetalBuffer                 *indirectBuffer    = nullptr;
+            uint64_t                     indirectOffset    = 0;
+            uint32_t                     indirectDrawCount = 0;
+            uint32_t                     indirectStride    = 0;
         };
         struct RasterStep {
             MetalImage            *color      = nullptr;
@@ -87,6 +94,8 @@ namespace sky::aurora {
             CounterPtr<ComputePipeline> pipeline;
             std::vector<MetalSet>       sets;
             uint32_t                    groupsX = 1, groupsY = 1, groupsZ = 1;
+            MetalBuffer                *indirectBuffer = nullptr;
+            uint64_t                    indirectOffset = 0;
         };
         struct CustomStep {
             std::shared_ptr<const FrameCustomPassEncoder> encoder;
@@ -137,12 +146,11 @@ namespace sky::aurora {
                 return MakeError(FrameErrorCode::UNSUPPORTED, "Metal compute device is unavailable");
             const auto       maximum  = nativeDevice.maxThreadsPerThreadgroup;
             const NSUInteger limits[] = {maximum.width, maximum.height, maximum.depth};
-            const uint32_t   groups[] = {pass.groupsX, pass.groupsY, pass.groupsZ};
             for (uint32_t axis = 0; axis < 3; ++axis) {
                 const auto threads = reflection.threadGroupSize[axis];
                 if (!threads)
                     return MakeError(FrameErrorCode::UNSUPPORTED, "Metal requires reflected compute threadgroup dimensions");
-                if (!groups[axis] || threads > limits[axis])
+                if (threads > limits[axis])
                     return MakeError(FrameErrorCode::INVALID_ARGUMENT, "Compute threadgroup exceeds Metal device limits");
             }
             for (const auto &binding : passBindings.buffers) {
@@ -306,6 +314,20 @@ namespace sky::aurora {
                 draw.indexed   = source.indexed ? source.indexed->command : CmdDrawIndexed{};
                 draw.isIndexed = source.indexed.has_value();
                 draw.scissor   = source.scissor;
+                if (source.indirect) {
+                    if (source.indirect->drawCount > 1 && !device.GetFeature().multiDrawIndirect)
+                        return MakeError(FrameErrorCode::UNSUPPORTED, "Metal device does not support multi-draw indirect");
+                    if (!device.GetFeature().firstInstanceIndirect)
+                        return MakeError(FrameErrorCode::UNSUPPORTED, "Metal device does not support indirect first instance");
+                    const auto layout = ResolveIndirectArgumentLayout(source.indexed ? IndirectCommandKind::DRAW_INDEXED : IndirectCommandKind::DRAW,
+                                                                      source.indirect->drawCount, source.indirect->stride);
+                    if (const auto *error = std::get_if<FrameError>(&layout))
+                        return *error;
+                    draw.indirectBuffer    = static_cast<MetalBuffer *>(bindings.buffers[source.indirect->arguments.buffer.index].Get());
+                    draw.indirectOffset    = source.indirect->arguments.offset;
+                    draw.indirectDrawCount = source.indirect->drawCount;
+                    draw.indirectStride    = std::get<IndirectArgumentLayout>(layout).stride;
+                }
 
                 PipelineState    state = RasterPipelineState(source);
                 AttachmentFormat format;
@@ -484,9 +506,15 @@ namespace sky::aurora {
                 if (const auto error = ValidateComputeInputs(*device, compute, bindings))
                     return *error;
                 ComputeStep step;
-                step.groupsX = compute.groupsX;
-                step.groupsY = compute.groupsY;
-                step.groupsZ = compute.groupsZ;
+                if (const auto *direct = std::get_if<CmdDispatch>(&compute.dispatch)) {
+                    step.groupsX = direct->x;
+                    step.groupsY = direct->y;
+                    step.groupsZ = direct->z;
+                } else {
+                    const auto &arguments = std::get<ComputeIndirectDispatch>(compute.dispatch).arguments;
+                    step.indirectBuffer   = static_cast<MetalBuffer *>(bindings.buffers[arguments.buffer.index].Get());
+                    step.indirectOffset   = arguments.offset;
+                }
                 ComputePipeline::Descriptor pipelineDesc{compute.shader.Get()};
                 auto cachedPipeline = computePipelines.Acquire(compute.shader.Get(), [&]() -> std::variant<FrameError, CounterPtr<ComputePipeline>> {
                     CounterPtr<ComputePipeline> created(device->CreatePipelineState(pipelineDesc));
@@ -762,8 +790,14 @@ namespace sky::aurora {
                                                        set.dynamicOffsets.data());
                         if (!draw.vertexBuffers.empty())
                             encoder->BindVertexBuffers(0, static_cast<uint32_t>(draw.vertexBuffers.size()), draw.vertexBuffers.data());
-                        if (draw.isIndexed) {
+                        if (draw.isIndexed)
                             encoder->BindIndexBuffer(draw.indexBuffer, draw.indexOffset, draw.indexType);
+                        if (draw.indirectBuffer) {
+                            if (draw.isIndexed)
+                                encoder->DrawIndexedIndirect(draw.indirectBuffer, draw.indirectOffset, draw.indirectDrawCount, draw.indirectStride);
+                            else
+                                encoder->DrawIndirect(draw.indirectBuffer, draw.indirectOffset, draw.indirectDrawCount, draw.indirectStride);
+                        } else if (draw.isIndexed) {
                             encoder->DrawIndexed(draw.indexed);
                         } else {
                             encoder->Draw(draw.command);
@@ -776,7 +810,10 @@ namespace sky::aurora {
                     for (const auto &set : compute->sets)
                         encoder->BindResourceGroup(set.set, set.group.Get(), static_cast<uint32_t>(set.dynamicOffsets.size()),
                                                    set.dynamicOffsets.data());
-                    encoder->Dispatch(compute->groupsX, compute->groupsY, compute->groupsZ);
+                    if (compute->indirectBuffer)
+                        encoder->DispatchIndirect(compute->indirectBuffer, compute->indirectOffset);
+                    else
+                        encoder->Dispatch(compute->groupsX, compute->groupsY, compute->groupsZ);
                 } else if (const auto *custom = std::get_if<CustomStep>(&step)) {
                     FrameCustomPassContext context{*command, std::span<Image *const>(custom->images), std::span<Buffer *const>(custom->buffers)};
                     if (auto result = custom->encoder->Encode(context); auto *error = std::get_if<FrameError>(&result)) {

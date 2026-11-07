@@ -2,6 +2,7 @@ set(CURRENT_FOLDER Sandbox/Module)
 
 # SVG rasterizer for editor UI icons (only the sandbox module references it).
 sky_find_3rd(TARGET nanosvg DIR nanosvg)
+sky_find_3rd(TARGET stb DIR stb)
 
 # Windows: comdlg32 for the "add existing project" file dialog.
 if (WIN32)
@@ -27,6 +28,7 @@ sky_add_library(TARGET SandboxModule.Static STATIC
         EditorShell
         EditorRender
         3rdParty::nanosvg
+        3rdParty::stb
         ${SANDBOX_MODULE_EXTRA_LIBS}
 )
 set_target_properties(SandboxModule.Static PROPERTIES POSITION_INDEPENDENT_CODE ON)

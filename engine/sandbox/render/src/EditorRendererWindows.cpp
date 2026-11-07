@@ -1,6 +1,9 @@
 //
 // Created on 2026/10/17.
 //
+#include <aurora/adaptor/renderer/ISceneRenderExtensionSource.h>
+#include <aurora/adaptor/renderer/SceneExtensionRetirementQueue.h>
+#include <aurora/adaptor/renderer/SceneRenderExtensionSourceRegistry.h>
 #include <editor/render/EditorRenderer.h>
 
 #include "EditorFramePacer.h"
@@ -21,6 +24,7 @@
 #include <framework/interface/Interface.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/window/NativeWindowManager.h>
+#include <framework/world/World.h>
 
 namespace sky::editor {
     using namespace aurora;
@@ -28,6 +32,7 @@ namespace sky::editor {
         constexpr const char                                            *UI_FEATURE = "editor.ui";
         constexpr ViewportId                                             CONTENT{0, 1};
         constexpr SceneId                                                SCENE{0, 1};
+        constexpr RenderFeatureId                                        SCENE_FEATURE{1, 1};
         std::variant<RendererError, std::shared_ptr<IFrameGraphFeature>> CompileUi(API api)
         {
             RenderTechniqueData code;
@@ -151,6 +156,7 @@ namespace sky::editor {
     {
         if (!host.Get() || started)
             return;
+        ++extensionEpoch;
         auto *window = NativeWindowManager::Get()->GetMainWindow();
         if (!window) {
             Fail({RendererErrorCode::NOT_READY, "Editor main window is unavailable"});
@@ -166,7 +172,7 @@ namespace sky::editor {
         pending           = std::make_unique<FramePacket>();
         pending->sequence = ++sequence;
         pending->featureCommands.push_back(RegisterRenderFeature{{0, 1}, Name(UI_FEATURE), feature});
-        if (const auto error = RegisterScenePass(*pending, {1, 1}, shaderFiles)) {
+        if (const auto error = RegisterScenePass(*pending, SCENE_FEATURE, shaderFiles)) {
             Fail(*error);
             return;
         }
@@ -209,8 +215,10 @@ namespace sky::editor {
                     previewSessions->OnEvent(event);
                 if (const auto *failure = std::get_if<RendererFailure>(&event))
                     Fail(failure->error);
-                if (const auto *pixels = std::get_if<ViewportReadback>(&event); pixels && readback)
+                if (const auto *pixels = std::get_if<ViewportReadback>(&event); pixels && readback) {
+                    LOG_I("EditorRender", "scene readback delivered (%ux%u)", pixels->extent.width, pixels->extent.height);
                     readback(*pixels);
+                }
                 if (const auto *failure = std::get_if<ViewportFailed>(&event))
                     for (const auto &surface : surfaces)
                         if (surface->output->OnFailure(*failure))
@@ -337,6 +345,28 @@ namespace sky::editor {
                 return;
             }
         }
+        std::vector<SceneExtensionRetirement> retirements;
+        SceneExtensionRetirementQueue::Get()->Drain(retirements);
+        for (const auto &retirement : retirements)
+            if (retirement.scene == SCENE_FEATURE)
+                pending->featureCommands.push_back(RetireSceneExtension{retirement.extension, retirement.scene});
+        auto *extensionSources = SceneRenderExtensionSourceRegistry::Get();
+        if (!extensionSources->Empty()) {
+            std::vector<SceneExtensionSourceView> extensionViews;
+            const auto                           *world = EditorWorldContext::Get()->GetWorld();
+            if (!sceneSource && world) {
+                for (const auto &command : pending->commands)
+                    if (const auto *update = std::get_if<UpdateView>(&command); update && update->desc.output == CONTENT)
+                        extensionViews.push_back({world->GetRuntimeId(), CONTENT, update->desc.cameraPosition});
+            }
+            if (previewSessions)
+                previewSessions->CollectExtensionViews(extensionViews);
+            if (const auto error =
+                    extensionSources->Append(*pending, {SCENE_FEATURE, extensionEpoch, host.Get()->GetInfo(), sceneResources, extensionViews})) {
+                Fail(*error);
+                return;
+            }
+        }
         // All windows finish glyph generation before snapshots select the final atlas revision.
         for (const auto &surface : surfaces) {
             if (surface->closed || surface->output->IsRetiring() || !surface->extent.width || !surface->extent.height)
@@ -350,6 +380,11 @@ namespace sky::editor {
             pending->extensions.push_back(std::move(std::get<FrameExtensionPayload>(snapshot)));
         }
         textures->Flush(*pending);
+        if (sceneReadbackRequested) {
+            pending->readbacks.push_back(CONTENT);
+            sceneReadbackRequested = false;
+            LOG_I("EditorRender", "scene readback queued (packet %llu)", static_cast<unsigned long long>(pending->sequence));
+        }
         Submit();
         std::erase_if(surfaces, [&](const auto &surface) {
             if (!surface->closed || surface->output->IsCreated())

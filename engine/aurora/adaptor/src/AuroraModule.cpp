@@ -3,6 +3,9 @@
 //
 
 #include <aurora/adaptor/AuroraModule.h>
+#include <aurora/adaptor/renderer/ISceneRenderExtensionSource.h>
+#include <aurora/adaptor/renderer/SceneExtensionRetirementQueue.h>
+#include <aurora/adaptor/renderer/SceneRenderExtensionSourceRegistry.h>
 
 #include <array>
 #include <aurora/adaptor/renderer/IRuntimeSceneSource.h>
@@ -28,10 +31,16 @@ static const char *TAG = "AuroraModule";
 
 namespace sky::aurora {
 
+    namespace {
+        // Runtime host scene feature id; extensions register against this scene.
+        constexpr RenderFeatureId RUNTIME_SCENE_FEATURE_ID{0, 1};
+    } // namespace
+
     struct AuroraModule::SceneSession {
         LauncherSceneRegistration              registration;
         std::shared_ptr<ILauncherSceneSession> session;
         World                                 *defaultWorld = nullptr;
+        std::shared_ptr<ISceneResourceSource>  resources;
     };
 
     AuroraModule::AuroraModule() = default;
@@ -188,10 +197,11 @@ namespace sky::aurora {
             std::move(shaders.products));
         if (!source)
             return RendererError{RendererErrorCode::NOT_READY, "Default World asset source is unavailable"};
-        const auto registered = RegisterSceneSession(std::make_shared<DefaultWorldSession>(world, host.Get()->GetInfo(), std::move(source)));
+        const auto registered = RegisterSceneSession(std::make_shared<DefaultWorldSession>(world, host.Get()->GetInfo(), source));
         if (const auto *error = std::get_if<RendererError>(&registered))
             return *error;
         sceneSession->defaultWorld = world;
+        sceneSession->resources    = std::move(source);
         return {};
     }
 
@@ -281,7 +291,7 @@ namespace sky::aurora {
             return;
         }
         auto &shaders = std::get<ShaderResources>(resources);
-        if (const auto error = RegisterScenePass(*pending, {0, 1}, std::move(shaders.sources), std::move(shaders.products))) {
+        if (const auto error = RegisterScenePass(*pending, RUNTIME_SCENE_FEATURE_ID, std::move(shaders.sources), std::move(shaders.products))) {
             Fail(*error);
             return;
         }
@@ -290,6 +300,7 @@ namespace sky::aurora {
             return;
         }
         UpdateOutput(*pending);
+        ++hostEpoch;
         started = true;
     }
 
@@ -498,6 +509,17 @@ namespace sky::aurora {
         } else if (outputState == OutputState::LIVE && (extent.width != submittedExtent.width || extent.height != submittedExtent.height)) {
             pending->commands.push_back(ResizeViewport{viewport, extent, ++revision});
             submittedExtent = extent;
+        }
+        auto *extensionSources = SceneRenderExtensionSourceRegistry::Get();
+        if (!extensionSources->Empty()) {
+            std::vector<SceneExtensionSourceView> extensionViews;
+            if (!closed && outputState == OutputState::LIVE && active && active->defaultWorld)
+                extensionViews.push_back({active->defaultWorld->GetRuntimeId(), viewport, viewDescription.cameraPosition});
+            if (const auto error = extensionSources->Append(
+                    *pending, {RUNTIME_SCENE_FEATURE_ID, hostEpoch, host.Get()->GetInfo(), active ? active->resources : nullptr, extensionViews})) {
+                Fail(*error);
+                return;
+            }
         }
         const auto result = host.Get()->TrySubmit(pending);
         if (result.status == PacketSubmitStatus::REJECTED)

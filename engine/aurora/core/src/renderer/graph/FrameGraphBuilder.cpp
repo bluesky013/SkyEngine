@@ -162,7 +162,7 @@ namespace sky::aurora {
         if (pass.draws.size() != 1)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Fullscreen requires one draw"};
         for (const auto &draw : pass.draws)
-            if (!draw.vertices.empty() || draw.indexed || draw.command.vertexCount != 3 || draw.command.instanceCount != 1 ||
+            if (!draw.vertices.empty() || draw.indexed || draw.indirect || draw.command.vertexCount != 3 || draw.command.instanceCount != 1 ||
                 draw.command.firstVertex || draw.command.firstInstance)
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Fullscreen requires a generated triangle"};
         return Raster(std::move(pass));

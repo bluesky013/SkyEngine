@@ -6,6 +6,7 @@
 //
 
 #include "WorldEditorState.h"
+#include "ScreenshotWriter.h"
 #include <editor/sandbox/SandboxModule.h>
 #include <editor/shell/SceneViewport.h>
 #include <editor/widgets/ReflectedFormView.h>
@@ -13,6 +14,7 @@
 #include <editor/sandbox/UiIconBuilder.h>
 
 #include <core/cmdline/CmdParser.h>
+#include <core/file/FileUtil.h>
 #include <core/logger/Logger.h>
 #include <cstdlib>
 #include <editor/core/EditorCore.h>
@@ -216,6 +218,64 @@ namespace sky::editor {
             }
             return {};
         }
+
+        // Dev/automation entry: `--world <path> --play` opens a world and enters PIE
+        // without touching the UI; `--screenshot` captures the scene viewport.
+        struct StartupOptions {
+            std::string world;
+            std::string asset;
+            std::string screenshot;
+            uint32_t    screenshotFrame = 60;
+            bool        play            = false;
+        };
+
+        StartupOptions ParseStartupOptions(const sky::StartArguments &args)
+        {
+            StartupOptions startup;
+            if (args.args.empty()) {
+                return startup;
+            }
+            sky::CmdOptions options("SandboxEditor", "SkyEngine Editor");
+            options.allow_unrecognised_options();
+            options.add_options()("w,world", "World (.world) to open on startup", sky::CmdValue<std::string>());
+            options.add_options()("asset", "Asset UUID to open on startup", sky::CmdValue<std::string>());
+            options.add_options()("screenshot", "Write the scene viewport to a .png", sky::CmdValue<std::string>());
+            options.add_options()("screenshot-frame", "Frame index for --screenshot", sky::CmdValue<std::string>());
+
+            auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+            if (result.count("world") != 0u) {
+                startup.world = result["world"].as<std::string>();
+            }
+            if (result.count("asset") != 0u) {
+                startup.asset = result["asset"].as<std::string>();
+            }
+            if (result.count("screenshot") != 0u) {
+                startup.screenshot = result["screenshot"].as<std::string>();
+            }
+            if (result.count("screenshot-frame") != 0u) {
+                const unsigned long frame = std::strtoul(result["screenshot-frame"].as<std::string>().c_str(), nullptr, 10);
+                if (frame > 0u) {
+                    startup.screenshotFrame = static_cast<uint32_t>(std::min<unsigned long>(frame, 1000000u));
+                }
+            }
+            startup.play = std::any_of(args.args.begin(), args.args.end(), [](const char *arg) { return std::string_view(arg) == "--play"; });
+            return startup;
+        }
+
+        // World paths are project-relative: either from the project dir or its assets dir.
+        std::string ResolveWorldPath(const sky::ProjectDescriptor &project, const std::string &path)
+        {
+            const std::filesystem::path worldPath(path);
+            if (worldPath.is_absolute()) {
+                return worldPath.string();
+            }
+            std::error_code             ec;
+            const std::filesystem::path fromProject = std::filesystem::path(project.Dir()) / worldPath;
+            if (std::filesystem::exists(fromProject, ec)) {
+                return fromProject.string();
+            }
+            return (std::filesystem::path(project.AssetsDir()) / worldPath).string();
+        }
         class HubTarget : public IUiTarget {
         public:
             explicit HubTarget(ProjectManagerView *view) : view(view)
@@ -357,6 +417,24 @@ namespace sky::editor {
             return false;
         }
 
+        // Startup automation: `--world <path>` opens a world without the dialog and
+        // `--play` enters PIE (a missing world falls back to the project's default scene).
+        // Deferred to the first Tick: component types are registered by later modules.
+        if (!hubMode) {
+            const StartupOptions startup = ParseStartupOptions(args);
+            if (!startup.world.empty()) {
+                startupWorld = ResolveWorldPath(project, startup.world);
+            } else if (startup.play && !project.defaultScene.empty()) {
+                startupWorld = ResolveWorldPath(project, project.defaultScene);
+            }
+            startupPending  = !startupWorld.empty();
+            autoPlayPending = startup.play;
+            startupAsset    = startup.asset;
+            screenshotPath  = startup.screenshot;
+            screenshotFrame = startup.screenshotFrame;
+        }
+        renderer.SetReadbackCallback([this](const sky::aurora::ViewportReadback &pixels) { SaveScreenshot(pixels); });
+
         renderer.SetGuiSource(
             [this](uint32_t surfaceId, sky::ui::UIPaintContext &context, uint32_t w, uint32_t h) { PaintGui(surfaceId, context, w, h); });
 
@@ -460,22 +538,44 @@ namespace sky::editor {
         request.filters   = {{"World (*.world)", {"world"}}};
 
         shell.OpenFileBrowser(request, [this](const FileBrowserResult &result) {
-            if (!result.accepted) {
-                return;
+            if (result.accepted) {
+                OpenWorldPath(result.path);
             }
-            auto document = std::make_unique<WorldDocument>(result.path);
-            if (!document->Load()) {
-                LOG_W(TAG, "failed to load world '%s': %s", result.path.c_str(), document->GetLastError().c_str());
-                return;
-            }
-            BindWorldEditor(nullptr);
-            worldDocument = std::move(document);
-            BindWorldEditor(worldDocument.get());
-            shell.SetWorldDocument(worldDocument.get());
-            shell.SetPanelVisible("config", true);
-            RefreshDocumentInfo();
-            LOG_I(TAG, "opened world '%s'", result.path.c_str());
         });
+    }
+
+    void SandboxModule::OpenWorldPath(const std::string &path)
+    {
+        StopPlay();
+        auto document = std::make_unique<WorldDocument>(path);
+        if (!document->Load()) {
+            LOG_W(TAG, "failed to load world '%s': %s", path.c_str(), document->GetLastError().c_str());
+            return;
+        }
+        BindWorldEditor(nullptr);
+        worldDocument = std::move(document);
+        BindWorldEditor(worldDocument.get());
+        shell.SetWorldDocument(worldDocument.get());
+        shell.SetPanelVisible("config", true);
+        RefreshDocumentInfo();
+        LOG_I(TAG, "opened world '%s'", path.c_str());
+    }
+
+    void SandboxModule::OpenAssetById(const sky::Uuid &id)
+    {
+        auto        *catalog = EditorAssetCatalog::Get();
+        std::string type;
+        if (catalog != nullptr && catalog->GetType(id, type)) {
+            if (auto *editor = EditorAssetEditorRegistry::Get()->Find(type); editor != nullptr) {
+                // Load the asset's data through the product-based loader (on-demand cook);
+                // never read source files.
+                AssetManager::Get()->LoadAsset(id);
+                editor->Open(id);
+                return;
+            }
+        }
+        // No type-specific editor: open the generic asset viewer widget.
+        shell.OpenAssetViewer(id);
     }
 
     void SandboxModule::SaveWorld()
@@ -492,6 +592,26 @@ namespace sky::editor {
         } else {
             LOG_W(TAG, "failed to save world");
         }
+    }
+
+    void SandboxModule::SaveScreenshot(const sky::aurora::ViewportReadback &pixels)
+    {
+        LOG_I(TAG, "scene readback received: %ux%u (%zu bytes, path '%s')", pixels.extent.width, pixels.extent.height, pixels.bytes.size(),
+              screenshotPath.c_str());
+        if (screenshotPath.empty() || pixels.extent.width == 0u || pixels.extent.height == 0u) {
+            return;
+        }
+        if (pixels.format != sky::aurora::PixelFormat::RGBA8_UNORM) {
+            LOG_W(TAG, "screenshot readback is not RGBA8: %s", screenshotPath.c_str());
+            screenshotPath.clear();
+            return;
+        }
+        if (WriteScreenshotPng(screenshotPath, pixels.extent.width, pixels.extent.height, pixels.bytes)) {
+            LOG_I(TAG, "screenshot written: %s (%ux%u)", screenshotPath.c_str(), pixels.extent.width, pixels.extent.height);
+        } else {
+            LOG_W(TAG, "failed to write screenshot: %s", screenshotPath.c_str());
+        }
+        screenshotPath.clear();
     }
 
     void SandboxModule::BindWorldEditor(WorldDocument *document)
@@ -709,7 +829,7 @@ namespace sky::editor {
     void SandboxModule::LoadPreferences()
     {
         preferencePersistence =
-            std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(std::filesystem::u8path(PreferencePath())));
+            std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(PathFromUtf8(PreferencePath())));
         const auto result = preferencePersistence->Load(*PreferencePageRegistry::Get());
         if (result.code == PreferenceCode::NotFound) {
             return;
@@ -876,21 +996,7 @@ namespace sky::editor {
                 AssetMutationService::Get()->Move(from, to); // same API backs both rename and move
             }
         });
-        shell.SetAssetOpenHandler([this](const sky::Uuid &id) {
-            auto       *catalog = EditorAssetCatalog::Get();
-            std::string type;
-            if (catalog != nullptr && catalog->GetType(id, type)) {
-                if (auto *editor = EditorAssetEditorRegistry::Get()->Find(type); editor != nullptr) {
-                    // Load the asset's data through the product-based loader (on-demand cook);
-                    // never read source files.
-                    sky::AssetManager::Get()->LoadAsset(id);
-                    editor->Open(id);
-                    return;
-                }
-            }
-            // No type-specific editor: open the generic asset viewer widget.
-            shell.OpenAssetViewer(id);
-        });
+        shell.SetAssetOpenHandler([this](const sky::Uuid &id) { OpenAssetById(id); });
         shell.SetStatusInfo(project.name, rhiName, "Edit");
         // A closed floating window re-docks its panel into the main window.
         renderer.SetSurfaceClosedCallback([this](const std::string &panelId) { shell.DockFloatingPanel(panelId, "viewport", DockPosition::CENTER); });
@@ -1680,6 +1786,16 @@ namespace sky::editor {
         if (!initialized) {
             return;
         }
+        ++tickCount;
+        if (!screenshotPath.empty() && !screenshotRequested && tickCount >= screenshotFrame) {
+            renderer.RequestSceneReadback();
+            screenshotRequested = true;
+            LOG_I(TAG, "scene readback requested at frame %u", tickCount);
+        }
+        if (screenshotRequested && !screenshotPath.empty() && !screenshotTimedOut && tickCount > screenshotFrame && tickCount - screenshotFrame > 120u) {
+            screenshotTimedOut = true;
+            LOG_W(TAG, "screenshot readback timed out; keep the editor window visible/foreground (occluded windows pause frames)");
+        }
         PollProjectCreation();
         if (!hubMode) {
             // Run deferred cook requests (main thread) before rendering, then coalesce any build
@@ -1701,6 +1817,38 @@ namespace sky::editor {
             }
         }
         if (!hubMode) {
+            if (startupPending) {
+                startupPending = false;
+                OpenWorldPath(startupWorld);
+                startupWorld.clear();
+                if (autoPlayPending && worldDocument != nullptr) {
+                    viewportController->Cancel();
+                    if (playSession.Play()) {
+                        shell.SetPlayState(playSession.GetState());
+                        LOG_I(TAG, "PIE play");
+                    } else {
+                        LOG_E(TAG, "Cannot start Play: %s", worldDocument->GetLastError().c_str());
+                    }
+                }
+                autoPlayPending = false;
+            }
+            if (!startupAsset.empty()) {
+                const Uuid id = Uuid::CreateFromString(startupAsset);
+                if (!id) {
+                    LOG_W(TAG, "invalid startup asset id '%s'", startupAsset.c_str());
+                    startupAsset.clear();
+                } else {
+                    std::string type;
+                    if (EditorAssetCatalog::Get()->GetType(id, type)) {
+                        LOG_I(TAG, "opening startup asset %s (%s)", startupAsset.c_str(), type.c_str());
+                        OpenAssetById(id);
+                        startupAsset.clear();
+                    } else if (tickCount > 600u) {
+                        LOG_W(TAG, "startup asset %s is not in the catalog", startupAsset.c_str());
+                        startupAsset.clear();
+                    }
+                }
+            }
             BindWorldEditor(worldDocument.get());
             if (playSession.GetState() == PlayState::Editing)
                 RefreshActorCreationActions();

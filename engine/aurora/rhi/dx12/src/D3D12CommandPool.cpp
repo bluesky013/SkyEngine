@@ -2,8 +2,9 @@
 // Created by blues on 2026/3/29.
 //
 
-#include <D3D12Buffer.h>
 #include <D3D12CommandPool.h>
+
+#include <D3D12Buffer.h>
 #include <D3D12Conversion.h>
 #include <D3D12Device.h>
 #include <D3D12Encoder.h>
@@ -75,8 +76,25 @@ namespace sky::aurora {
         if (FAILED(result)) {
             cmdList.Reset();
             extended.Reset();
+        } else {
+            recordingError = S_OK;
+            indirectSignatures.clear();
         }
         return result;
+    }
+
+    void D3D12CommandBuffer::RecordError(HRESULT error) noexcept
+    {
+        if (SUCCEEDED(recordingError) || D3D12Error(error).code == GpuErrorCode::DEVICE_LOST)
+            recordingError = error;
+    }
+
+    void D3D12CommandBuffer::RetainIndirectSignature(ComPtr<ID3D12CommandSignature> signature)
+    {
+        for (const auto &retained : indirectSignatures)
+            if (retained.Get() == signature.Get())
+                return;
+        indirectSignatures.push_back(std::move(signature));
     }
     HRESULT D3D12CommandBuffer::EndChecked() noexcept
     {
@@ -88,7 +106,9 @@ namespace sky::aurora {
             cmdList.Reset();
             extended.Reset();
         }
-        return result;
+        if (D3D12Error(recordingError).code == GpuErrorCode::DEVICE_LOST)
+            return recordingError;
+        return FAILED(result) ? result : recordingError;
     }
 
     void D3D12CommandBuffer::ResetAllocator()
@@ -154,12 +174,12 @@ namespace sky::aurora {
 
     std::unique_ptr<GraphicsEncoder> D3D12CommandBuffer::CreateGraphicsEncoder()
     {
-        return std::make_unique<D3D12GraphicsEncoder>(device, cmdList.Get());
+        return std::make_unique<D3D12GraphicsEncoder>(device, *this);
     }
 
     std::unique_ptr<ComputeEncoder> D3D12CommandBuffer::CreateComputeEncoder()
     {
-        return std::make_unique<D3D12ComputeEncoder>(device, cmdList.Get());
+        return std::make_unique<D3D12ComputeEncoder>(device, *this);
     }
 
     std::unique_ptr<BlitEncoder> D3D12CommandBuffer::CreateBlitEncoder()

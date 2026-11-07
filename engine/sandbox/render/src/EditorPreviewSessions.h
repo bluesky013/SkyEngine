@@ -1,5 +1,6 @@
 #pragma once
 
+#include <aurora/adaptor/renderer/ISceneRenderExtensionSource.h>
 #include <aurora/adaptor/renderer/RenderSceneBridge.h>
 #include <aurora/adaptor/renderer/RenderSceneProxy.h>
 #include <deque>
@@ -19,6 +20,7 @@ namespace sky::editor {
         AssetPreviewStatusResult             CloseSession(AssetPreviewHandle handle) override;
         AssetPreviewStatusResult             Status(AssetPreviewHandle handle) const override;
         std::optional<aurora::RendererError> Append(aurora::FramePacket &packet);
+        void                                 CollectExtensionViews(std::vector<aurora::SceneExtensionSourceView> &) const;
         void                                 OnEvent(const aurora::RendererEvent &event);
         void                                 OnRendererStopped();
         bool                                 SetResources(std::shared_ptr<aurora::ISceneResourceSource> source);

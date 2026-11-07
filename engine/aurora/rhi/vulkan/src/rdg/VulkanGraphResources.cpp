@@ -12,6 +12,9 @@
 #include <rdg/VulkanDeviceFrameContext.h>
 
 namespace sky::aurora {
+    static_assert(sizeof(CmdDrawLinear) == sizeof(VkDrawIndirectCommand));
+    static_assert(sizeof(CmdDrawIndexed) == sizeof(VkDrawIndexedIndirectCommand));
+    static_assert(sizeof(CmdDispatch) == sizeof(VkDispatchIndirectCommand));
     namespace {
         VulkanResourceAccess BufferAccess(CopyBufferState state)
         {
@@ -301,7 +304,10 @@ namespace sky::aurora {
             if (!buffers[index]->GetDescriptor().usage.TestBit(FrameBufferUseUsage(use.kind)))
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Raster buffer lacks its declared usage"};
             auto &read = reads[bindings.bufferBacking[index]];
-            if (use.kind == FrameBufferUseKind::VERTEX || use.kind == FrameBufferUseKind::INDEX) {
+            if (use.kind == FrameBufferUseKind::INDIRECT) {
+                read.stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+                read.access |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+            } else if (use.kind == FrameBufferUseKind::VERTEX || use.kind == FrameBufferUseKind::INDEX) {
                 read.stage |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
                 read.access |= use.kind == FrameBufferUseKind::VERTEX ? VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT : VK_ACCESS_2_INDEX_READ_BIT;
             } else {
@@ -338,6 +344,11 @@ namespace sky::aurora {
                 return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader buffer lacks its declared usage"};
             const auto physical = bindings.bufferBacking[logical];
             auto      &access   = accesses[physical];
+            if (use.kind == FrameBufferUseKind::INDIRECT) {
+                access.stage |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+                access.access |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+                continue;
+            }
             if (!use.stages)
                 access.stage |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             if (use.stages.TestBit(ShaderStageFlagBit::VS))
@@ -582,6 +593,22 @@ namespace sky::aurora {
                 native.indexType   = draw.indexed->type == IndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
                 native.indexed     = draw.indexed->command;
             }
+            if (draw.indirect) {
+                if (draw.indirect->drawCount > 1 && !device.GetFeature().multiDrawIndirect)
+                    return FrameError{FrameErrorCode::UNSUPPORTED, "Vulkan device does not support multi-draw indirect"};
+                if (!device.GetFeature().firstInstanceIndirect)
+                    return FrameError{FrameErrorCode::UNSUPPORTED, "Vulkan device does not support indirect first instance"};
+                if (draw.indirect->drawCount > device.GetLimits().maxDrawIndirectCount)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Indirect draw count exceeds Vulkan device limits"};
+                const auto layout = ResolveIndirectArgumentLayout(draw.indexed ? IndirectCommandKind::DRAW_INDEXED : IndirectCommandKind::DRAW,
+                                                                  draw.indirect->drawCount, draw.indirect->stride);
+                if (const auto *error = std::get_if<FrameError>(&layout))
+                    return *error;
+                native.indirect          = resources.buffers[draw.indirect->arguments.buffer.index]->GetNativeHandle();
+                native.indirectOffset    = draw.indirect->arguments.offset;
+                native.indirectDrawCount = draw.indirect->drawCount;
+                native.indirectStride    = std::get<IndirectArgumentLayout>(layout).stride;
+            }
             auto bindings = resources.ResolveBindings(context, lease, *shader, draw.groups);
             if (const auto *error = std::get_if<FrameError>(&bindings))
                 return *error;
@@ -604,13 +631,20 @@ namespace sky::aurora {
         if (!shader->GetComputeFunction() || shader->GetVertexFunction() || shader->GetFragmentFunction())
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute pass requires a compute-only shader"};
         const auto &limits = device.GetLimits();
-        if (pass.groupsX > limits.maxComputeWorkGroupCount[0] || pass.groupsY > limits.maxComputeWorkGroupCount[1] ||
-            pass.groupsZ > limits.maxComputeWorkGroupCount[2])
+        const auto *direct = std::get_if<CmdDispatch>(&pass.dispatch);
+        if (direct && (direct->x > limits.maxComputeWorkGroupCount[0] || direct->y > limits.maxComputeWorkGroupCount[1] ||
+                       direct->z > limits.maxComputeWorkGroupCount[2]))
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch exceeds device limits"};
         VulkanComputeStep step;
-        step.groupsX = pass.groupsX;
-        step.groupsY = pass.groupsY;
-        step.groupsZ = pass.groupsZ;
+        if (direct) {
+            step.groupsX = direct->x;
+            step.groupsY = direct->y;
+            step.groupsZ = direct->z;
+        } else {
+            const auto &arguments = std::get<ComputeIndirectDispatch>(pass.dispatch).arguments;
+            step.indirect         = resources.buffers[arguments.buffer.index]->GetNativeHandle();
+            step.indirectOffset   = arguments.offset;
+        }
         step.layout  = shader->GetPipelineLayout();
         CounterPtr<VulkanComputePipeline> pipeline(new VulkanComputePipeline(device));
         if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
@@ -646,7 +680,10 @@ namespace sky::aurora {
         for (const auto &set : sets)
             fn.vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, layout, set.set, 1, &set.descriptor,
                                        static_cast<uint32_t>(set.offsets.size()), set.offsets.data());
-        fn.vkCmdDispatch(command, groupsX, groupsY, groupsZ);
+        if (indirect != VK_NULL_HANDLE)
+            fn.vkCmdDispatchIndirect(command, indirect, indirectOffset);
+        else
+            fn.vkCmdDispatch(command, groupsX, groupsY, groupsZ);
     }
     FrameOperationResult VulkanCustomStep::Encode(const VulkanDeviceFunctions &fn, VkCommandBuffer command, CommandBuffer &rhi) const noexcept
     {
@@ -668,10 +705,16 @@ namespace sky::aurora {
                 fn.vkCmdBindVertexBuffers(command, 0, static_cast<uint32_t>(draw.vertices.size()), draw.vertices.data(), draw.vertexOffsets.data());
             if (draw.index) {
                 fn.vkCmdBindIndexBuffer(command, draw.index, draw.indexOffset, draw.indexType);
-                fn.vkCmdDrawIndexed(command, draw.indexed.indexCount, draw.indexed.instanceCount, draw.indexed.firstIndex, draw.indexed.vertexOffset,
-                                    draw.indexed.firstInstance);
-            } else
+                if (draw.indirect != VK_NULL_HANDLE)
+                    fn.vkCmdDrawIndexedIndirect(command, draw.indirect, draw.indirectOffset, draw.indirectDrawCount, draw.indirectStride);
+                else
+                    fn.vkCmdDrawIndexed(command, draw.indexed.indexCount, draw.indexed.instanceCount, draw.indexed.firstIndex,
+                                        draw.indexed.vertexOffset, draw.indexed.firstInstance);
+            } else if (draw.indirect != VK_NULL_HANDLE) {
+                fn.vkCmdDrawIndirect(command, draw.indirect, draw.indirectOffset, draw.indirectDrawCount, draw.indirectStride);
+            } else {
                 fn.vkCmdDraw(command, draw.command.vertexCount, draw.command.instanceCount, draw.command.firstVertex, draw.command.firstInstance);
+            }
         }
     }
 } // namespace sky::aurora

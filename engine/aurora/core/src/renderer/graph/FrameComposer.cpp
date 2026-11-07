@@ -329,6 +329,13 @@ namespace sky::aurora {
     {
         return builder.CreateTransient(desc);
     }
+    std::variant<FrameError, GraphBufferHandle>
+    FrameComposer::ImportBuffer(BufferPtr buffer, CopyBufferState initial, CopyBufferState final, bool initialized)
+    {
+        if (!buffer || buffer->GetDevice() != &device)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Imported feature buffer belongs to another device"};
+        return builder.Import(std::move(buffer), initial, final, initialized);
+    }
     std::variant<FrameError, GraphImageHandle> FrameComposer::CreateImage(const Image::Descriptor &desc)
     {
         return builder.CreateTransient(desc);

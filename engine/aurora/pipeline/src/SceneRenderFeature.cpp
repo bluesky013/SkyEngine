@@ -196,6 +196,117 @@ namespace sky::aurora {
             return result;
         }
 
+        class SceneExtensionContext final : public FrameGraphBuildContext {
+        public:
+            SceneExtensionContext(FrameGraphBuildContext &context, GraphImageHandle color, GraphImageHandle depth)
+                : context(context), color(color), depth(depth)
+            {
+            }
+            const FrameBuildInputs &GetInputs() const override
+            {
+                return context.GetInputs();
+            }
+            std::optional<FrameRenderTarget> GetOutput(ViewportId id) const override
+            {
+                return context.GetOutput(id);
+            }
+            std::optional<GraphImageHandle> ResolveViewOutput(ViewOutputRef view) const override
+            {
+                return context.ResolveViewOutput(view);
+            }
+            std::optional<GraphImageHandle> ResolveImage(const RenderResourceKey &key) const override
+            {
+                return context.ResolveImage(key);
+            }
+            std::variant<FrameError, ShaderPtr> CreateShader(const RenderTechniqueData &data) override
+            {
+                return context.CreateShader(data);
+            }
+            std::variant<FrameError, SamplerPtr> CreateSampler(const Sampler::Descriptor &desc) override
+            {
+                return context.CreateSampler(desc);
+            }
+            std::variant<FrameError, RasterBufferRange> Upload(std::span<const std::byte> bytes, BufferUsageFlags usage) override
+            {
+                return context.Upload(bytes, usage);
+            }
+            std::variant<FrameError, RasterUniformBinding>
+            WriteUniform(uint32_t set, uint32_t binding, std::span<const std::byte> bytes, ShaderResourceType type) override
+            {
+                return context.WriteUniform(set, binding, bytes, type);
+            }
+            std::variant<FrameError, FrameBindingGroupUse>
+            MaterializeParameters(ShaderPtr shader, uint32_t set, const ShaderParameterTransactionState &state, RasterBindingDraft resources) override
+            {
+                return context.MaterializeParameters(std::move(shader), set, state, std::move(resources));
+            }
+            std::variant<FrameError, std::vector<ResolvedRasterDraw>>
+            ResolveDraws(Name name, Rect2D scissor, PreparedDrawList list, const ShaderVariant *values) override
+            {
+                return context.ResolveDraws(name, scissor, list, values);
+            }
+            std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &desc) override
+            {
+                return context.CreateBuffer(desc);
+            }
+            std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &desc) override
+            {
+                return context.CreateImage(desc);
+            }
+            std::variant<FrameError, GraphBufferHandle>
+            ImportBuffer(BufferPtr buffer, CopyBufferState initial, CopyBufferState final, bool initialized) override
+            {
+                return context.ImportBuffer(std::move(buffer), initial, final, initialized);
+            }
+            FrameOperationResult Copy(BufferCopyPass pass) override
+            {
+                return context.Copy(std::move(pass));
+            }
+            FrameOperationResult Copy(BufferImageCopyPass pass) override
+            {
+                return context.Copy(std::move(pass));
+            }
+            FrameOperationResult Raster(FrameRasterPass pass) override
+            {
+                if (const auto error = ValidateAttachments(pass))
+                    return *error;
+                return context.Raster(std::move(pass));
+            }
+            FrameOperationResult Fullscreen(FrameRasterPass pass) override
+            {
+                if (const auto error = ValidateAttachments(pass))
+                    return *error;
+                return context.Fullscreen(std::move(pass));
+            }
+            FrameOperationResult Compute(FrameComputePass pass) override
+            {
+                return context.Compute(std::move(pass));
+            }
+            FrameOperationResult Custom(FrameCustomPass pass) override
+            {
+                return context.Custom(std::move(pass));
+            }
+            FrameOperationResult Export(GraphBufferExport value) override
+            {
+                return context.Export(value);
+            }
+            FrameOperationResult Export(GraphImageHandle value) override
+            {
+                return context.Export(value);
+            }
+
+        private:
+            std::optional<FrameError> ValidateAttachments(const FrameRasterPass &pass) const
+            {
+                if ((pass.color == color && (pass.load != LoadOp::LOAD || pass.store != StoreOp::STORE)) ||
+                    (pass.depth && pass.depth->image == depth && (pass.depth->load != LoadOp::LOAD || pass.depth->store != StoreOp::STORE)))
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Scene extensions must load and preserve shared attachments"};
+                return {};
+            }
+            FrameGraphBuildContext &context;
+            GraphImageHandle        color, depth;
+        };
+
         class SceneRenderFeature final : public IFrameGraphFeature {
         public:
             SceneRenderFeature(Name name, std::shared_ptr<ShaderFileSystem> sources, FileSystemPtr products)
@@ -205,6 +316,41 @@ namespace sky::aurora {
             Name GetName() const override
             {
                 return name;
+            }
+            bool SupportsSceneExtensions() const override
+            {
+                return true;
+            }
+            bool HasSceneExtensions(const FrameGraphBuildContext &context, ViewportId output, bool requireDepth) const
+            {
+                for (const auto &entry : context.GetInputs().sceneExtensions) {
+                    if (entry.scene != name || (requireDepth && !entry.extension->RequiresDepth()))
+                        continue;
+                    for (const auto &payload : context.GetInputs().prepared->extensions)
+                        if (payload.feature == entry.extension->GetName() &&
+                            std::find(payload.outputs.begin(), payload.outputs.end(), output) != payload.outputs.end())
+                            return true;
+                }
+                return false;
+            }
+            FrameOperationResult BuildSceneExtensions(
+                FrameGraphBuildContext &context, const PreparedViewData &view, GraphImageHandle color, GraphImageHandle depth, Extent2D extent)
+            {
+                const SceneRenderStageContext stage{view, color, depth, extent};
+                SceneExtensionContext         declarations(context, color, depth);
+                for (const auto &entry : context.GetInputs().sceneExtensions) {
+                    if (entry.scene != name)
+                        continue;
+                    for (const auto &payload : context.GetInputs().prepared->extensions) {
+                        if (payload.feature != entry.extension->GetName() ||
+                            std::find(payload.outputs.begin(), payload.outputs.end(), view.view.output) == payload.outputs.end())
+                            continue;
+                        auto result = entry.extension->Build(declarations, stage, payload);
+                        if (std::holds_alternative<FrameError>(result))
+                            return result;
+                    }
+                }
+                return FrameOperationComplete{};
             }
             std::optional<RendererError> Validate(const FrameExtensionPayload &payload) const override
             {
@@ -323,7 +469,7 @@ namespace sky::aurora {
                         if (selectedIds.contains(key(draw.entity)))
                             selected.push_back(draw);
                 }
-                const bool hdr = (settings.hdr != 0u) && !draws.empty();
+                const bool hdr = (settings.hdr != 0u) && (!draws.empty() || HasSceneExtensions(context, view.view.output, false));
                 if (hdr) {
                     if (target->initialized) {
                         return FrameError{.code    = FrameErrorCode::UNSUPPORTED,
@@ -362,7 +508,8 @@ namespace sky::aurora {
                 if (std::holds_alternative<FrameError>(bound)) {
                     return bound;
                 }
-                if (!selected.empty() || std::ranges::any_of(pass.draws, [](const auto &draw) { return draw.depth.test || draw.depth.write; })) {
+                if (!selected.empty() || HasSceneExtensions(context, view.view.output, true) ||
+                    std::ranges::any_of(pass.draws, [](const auto &draw) { return draw.depth.test || draw.depth.write; })) {
                     Image::Descriptor depth;
                     depth.format = PixelFormat::D32;
                     depth.extent = {.width = target->output.extent.width, .height = target->output.extent.height, .depth = 1};
@@ -380,6 +527,10 @@ namespace sky::aurora {
                 auto       rendered   = context.Raster(std::move(pass));
                 if (std::holds_alternative<FrameError>(rendered)) {
                     return rendered;
+                }
+                if (auto extensions = BuildSceneExtensions(context, view, color, sceneDepth, target->output.extent);
+                    std::holds_alternative<FrameError>(extensions)) {
+                    return extensions;
                 }
                 if (hdr) {
                     rendered = ToneMap(context, *target, color, settings.exposure);

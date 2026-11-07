@@ -71,8 +71,10 @@ def add_native_programs(project):
         (sources / (filename + '.json')).write_text(json.dumps({'entries': [entry['name'] for entry in entries],
             'sources': [{'name': 'shader', 'width': 1}] if variant else [],
             'variants': [{'key': 'PACKAGE_VALUE', 'source': 'shader', 'width': 1, 'default': 0, 'symbol': 'kPackageValue'}] if variant else []}), encoding='utf-8')
+        # SceneAssetSource resolves every scene pipeline variant while preparing a material.
+        material_variants = [{}, {'SHADOWS': 1}, {'IBL': 1}, {'SHADOWS': 1, 'IBL': 1}]
         inventory.append({'path': 'first/pipeline/' + filename, 'entries': entries,
-                          'variants': [{'PACKAGE_VALUE': 1}] if variant else [{}]})
+                          'variants': [{'PACKAGE_VALUE': 1}] if variant else material_variants})
     config.write_text(json.dumps(description, indent=2), encoding='utf-8')
 
 

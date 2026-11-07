@@ -46,6 +46,8 @@ namespace sky::aurora {
         std::variant<FrameError, std::vector<ResolvedRasterDraw>>
         ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *pipelineValues = nullptr) override;
         std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override;
+        std::variant<FrameError, GraphBufferHandle>
+        ImportBuffer(BufferPtr, CopyBufferState, CopyBufferState, bool) override;
         std::variant<FrameError, GraphImageHandle>  CreateImage(const Image::Descriptor &) override;
         FrameOperationResult                        Copy(BufferCopyPass) override;
         FrameOperationResult                        Copy(BufferImageCopyPass) override;

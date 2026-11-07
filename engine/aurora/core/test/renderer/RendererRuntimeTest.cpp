@@ -74,8 +74,7 @@ namespace {
             const auto       target = std::get<GraphImageHandle>(image);
             FrameComputePass dispatch;
             dispatch.shader  = std::get<ShaderPtr>(cs);
-            dispatch.groupsX = desc.extent.width;
-            dispatch.groupsY = desc.extent.height;
+            dispatch.dispatch = CmdDispatch{desc.extent.width, desc.extent.height, 1};
             ComputeBindingDraft dispatchBindings;
             dispatchBindings.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
             const auto boundCompute = SetComputeBindings(dispatch, std::move(dispatchBindings));

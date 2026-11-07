@@ -71,6 +71,25 @@ namespace sky::aurora {
         }
     } // namespace
 
+    std::variant<FrameError, IndirectArgumentLayout> ResolveIndirectArgumentLayout(IndirectCommandKind kind, uint32_t count, uint32_t stride) noexcept
+    {
+        uint32_t commandSize = 0;
+        switch (kind) {
+        case IndirectCommandKind::DRAW: commandSize = sizeof(CmdDrawLinear); break;
+        case IndirectCommandKind::DRAW_INDEXED: commandSize = sizeof(CmdDrawIndexed); break;
+        case IndirectCommandKind::DISPATCH: commandSize = sizeof(CmdDispatch); break;
+        default: return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid indirect command kind"};
+        }
+        if (!count || (kind == IndirectCommandKind::DISPATCH && count != 1))
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid indirect command count"};
+        const uint32_t effectiveStride = stride ? stride : commandSize;
+        if (effectiveStride < commandSize || effectiveStride % 4)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid indirect command stride"};
+        if (count - 1 > (UINT64_MAX - commandSize) / effectiveStride)
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Indirect command range overflows"};
+        return IndirectArgumentLayout{effectiveStride, uint64_t(count - 1) * effectiveStride + commandSize};
+    }
+
     std::variant<FrameError, std::vector<BufferContentRange>> ResolveInitializedBufferContents(const FrameGraphBuffer &buffer) noexcept
     {
         if (!buffer.size || !IsValidFrameBufferState(buffer.initial) || !IsValidFrameBufferState(buffer.final) ||
@@ -317,8 +336,16 @@ namespace sky::aurora {
             const auto bindings = ResolveComputeBindings(pass);
             if (!pass.shader)
                 return Invalid("Compute pass requires a shader");
-            if (!pass.groupsX || !pass.groupsY || !pass.groupsZ)
-                return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch dimensions must be nonzero"};
+            if (const auto *indirect = std::get_if<ComputeIndirectDispatch>(&pass.dispatch)) {
+                const auto &arguments = indirect->arguments;
+                const auto  layout    = std::get<IndirectArgumentLayout>(ResolveIndirectArgumentLayout(IndirectCommandKind::DISPATCH));
+                if (arguments.offset % 4 || arguments.size < layout.size)
+                    return Invalid("Invalid indirect dispatch argument range");
+            } else {
+                const auto &direct = std::get<CmdDispatch>(pass.dispatch);
+                if (!direct.x || !direct.y || !direct.z)
+                    return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Compute dispatch dimensions must be nonzero"};
+            }
             if (!reflection.pushConstants.empty())
                 return FrameError{FrameErrorCode::UNSUPPORTED, "Compute push constants are not implemented"};
             if (bindings.buffers.size() + bindings.images.size() + bindings.samplers.size() != reflection.resources.size())
@@ -622,8 +649,9 @@ namespace sky::aurora {
                                                         resource ? resource->elementStride : 0});
                     return true;
                 };
-                const auto &r = draw.scissor;
-                if (!draw.shader || (!draw.indexed && (!draw.command.vertexCount || !draw.command.instanceCount)))
+                const auto &r        = draw.scissor;
+                const bool  indirect = draw.indirect.has_value();
+                if (!draw.shader || (!indirect && !draw.indexed && (!draw.command.vertexCount || !draw.command.instanceCount)))
                     return Invalid("Invalid raster draw");
                 if (draw.vertices.size() > MAX_VERTEX_BINDINGS || draw.attributes.size() > 16 ||
                     bindings.uniforms.size() + bindings.storage.size() + bindings.images.size() + bindings.samplers.size() > 32 ||
@@ -632,13 +660,33 @@ namespace sky::aurora {
                     return Invalid("Invalid raster input budget or depth state");
                 if (draw.depth.test && raster.depth->load == LoadOp::DONT_CARE)
                     return Invalid("Depth test reads undefined depth");
+                if (indirect) {
+                    const auto &value = *draw.indirect;
+                    if (!value.drawCount || !value.arguments.size || value.arguments.offset % 4)
+                        return Invalid("Invalid indirect draw declaration");
+                    if (draw.indexed) {
+                        const auto &command = draw.indexed->command;
+                        if (command.indexCount || command.firstIndex || command.vertexOffset || command.firstInstance)
+                            return Invalid("Indirect indexed draw must not carry explicit command counts");
+                    } else if (draw.command.vertexCount || draw.command.firstVertex || draw.command.firstInstance) {
+                        return Invalid("Indirect draw must not carry explicit command counts");
+                    }
+                    const auto layout = ResolveIndirectArgumentLayout(draw.indexed ? IndirectCommandKind::DRAW_INDEXED : IndirectCommandKind::DRAW,
+                                                                      value.drawCount, value.stride);
+                    if (const auto *error = std::get_if<FrameError>(&layout))
+                        return *error;
+                    if (std::get<IndirectArgumentLayout>(layout).size > value.arguments.size ||
+                        !readBuffer(value.arguments, FrameBufferUseKind::INDIRECT, 0, ShaderStageFlags{}))
+                        return Invalid("Invalid indirect draw argument range");
+                }
                 if (draw.indexed) {
                     const auto &indexed = *draw.indexed;
                     const auto  bytes   = indexed.type == IndexType::U16 ? 2u : 4u;
-                    if ((indexed.type != IndexType::U16 && indexed.type != IndexType::U32) || !indexed.command.indexCount ||
-                        !indexed.command.instanceCount || indexed.range.offset % bytes ||
-                        (uint64_t(indexed.command.firstIndex) + indexed.command.indexCount) * bytes > indexed.range.size ||
-                        indexed.range.size > UINT32_MAX || !readBuffer(indexed.range, FrameBufferUseKind::INDEX))
+                    if ((indexed.type != IndexType::U16 && indexed.type != IndexType::U32) || indexed.range.offset % bytes ||
+                        indexed.range.size < bytes || indexed.range.size > UINT32_MAX || !readBuffer(indexed.range, FrameBufferUseKind::INDEX))
+                        return Invalid("Invalid index input range");
+                    if (!indirect && (!indexed.command.indexCount || !indexed.command.instanceCount ||
+                                      (uint64_t(indexed.command.firstIndex) + indexed.command.indexCount) * bytes > indexed.range.size))
                         return Invalid("Invalid index input range");
                 }
                 for (const auto &stream : draw.vertices) {
@@ -646,6 +694,8 @@ namespace sky::aurora {
                         stream.rate > VertexInputRate::PER_INSTANCE || stream.range.size < stream.stride ||
                         !readBuffer(stream.range, FrameBufferUseKind::VERTEX))
                         return Invalid("Invalid vertex input range/stride");
+                    if (indirect)
+                        continue;
                     const auto instanceCount = draw.indexed ? draw.indexed->command.instanceCount : draw.command.instanceCount;
                     const auto firstInstance = draw.indexed ? draw.indexed->command.firstInstance : draw.command.firstInstance;
                     if ((stream.rate == VertexInputRate::PER_INSTANCE &&
@@ -842,6 +892,13 @@ namespace sky::aurora {
                         return Invalid("Missing compute image reflection");
                     if (auto error = AddDeclaredImage(access, binding, true, resource->type == ShaderResourceType::STORAGE_IMAGE, resource->stages))
                         return *error;
+                }
+                if (const auto *indirect = std::get_if<ComputeIndirectDispatch>(&compute.dispatch)) {
+                    const auto &arguments = indirect->arguments;
+                    if (!ValidBuffer(arguments.buffer, arguments.offset, arguments.size))
+                        return Invalid("Invalid indirect dispatch argument range");
+                    access.reads.push_back({arguments.buffer.index, {arguments.offset, arguments.offset + arguments.size}});
+                    access.resources.buffers.push_back({arguments, FrameBufferUseKind::INDIRECT, FrameAccessMode::READ});
                 }
                 if (auto error = ValidatePassKinds(data, access.resources))
                     return *error;

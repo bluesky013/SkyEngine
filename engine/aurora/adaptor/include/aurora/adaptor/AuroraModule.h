@@ -68,6 +68,7 @@ namespace sky::aurora {
         Extent2D    extent{1280, 720};
         Extent2D    submittedExtent{1280, 720};
         uint64_t    sequence          = 0;
+        uint64_t    hostEpoch         = 0;
         uint64_t    revision          = 0;
         uint64_t    viewRevision      = 0;
         bool        viewCreated       = false;

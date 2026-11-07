@@ -60,8 +60,14 @@ def target_environments(platform, targets, overrides=None):
     return environments, ''
 
 
+ENGINE_RESOURCE_INVENTORIES = (
+    'engine/aurora/resources.json',
+    'engine/particle/resources.json',
+)
+
+
 def project_modules(engine, project, descriptor):
-    configs = [engine / 'engine/aurora/resources.json']
+    configs = [path for name in ENGINE_RESOURCE_INVENTORIES if (path := engine / name).is_file()]
     for name in descriptor.get('plugins', []):
         if isinstance(name, dict):
             name = name.get('id', '')

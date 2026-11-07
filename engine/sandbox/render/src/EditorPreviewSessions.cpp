@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <framework/world/World.h>
 
 namespace sky::editor {
     using namespace aurora;
@@ -181,6 +182,12 @@ namespace sky::editor {
         }
         RetireClosed();
         return {};
+    }
+    void EditorPreviewSessions::CollectExtensionViews(std::vector<SceneExtensionSourceView> &views) const
+    {
+        for (const auto &session : sessions)
+            if (session->created && !session->closing && !session->retiring)
+                views.push_back({session->input.world->GetRuntimeId(), session->output, session->input.camera.position});
     }
     void EditorPreviewSessions::RetireClosed()
     {

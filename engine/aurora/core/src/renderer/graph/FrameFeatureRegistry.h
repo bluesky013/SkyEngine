@@ -21,13 +21,27 @@ namespace sky::aurora {
             return lease->enabled && lease->activation == activation;
         }
     };
+    struct SceneExtensionLease {
+        RegisterSceneExtension             registration;
+        std::shared_ptr<FrameFeatureLease> scene;
+        bool                               enabled = true;
+    };
+    struct SceneExtensionUse {
+        std::shared_ptr<SceneExtensionLease> lease;
+        uint64_t                             activation = 0;
+        bool                                 CanBuild() const
+        {
+            return lease->enabled && lease->scene->enabled && lease->scene->activation == activation;
+        }
+    };
     class FrameFeatureRegistry {
     public:
-        std::optional<RendererError> Validate(const FramePacket &) const;
-        void                         Apply(FramePacket &);
-        std::vector<FrameFeatureUse> Snapshot() const;
-        std::vector<RenderFeatureId> CollectRetired();
-        void                         Shutdown();
+        std::optional<RendererError>   Validate(const FramePacket &) const;
+        void                           Apply(FramePacket &);
+        std::vector<FrameFeatureUse>   Snapshot() const;
+        std::vector<SceneExtensionUse> SnapshotExtensions() const;
+        std::vector<RenderFeatureId>   CollectRetired();
+        void                           Shutdown();
 
     private:
         struct Entry {
@@ -35,6 +49,13 @@ namespace sky::aurora {
             std::shared_ptr<FrameFeatureLease> lease;
             bool                               retiring = false;
         };
-        std::map<uint32_t, Entry> entries;
+        struct ExtensionEntry {
+            uint32_t                             generation = 0;
+            std::shared_ptr<SceneExtensionLease> lease;
+            bool                                 retiring = false;
+        };
+        std::map<uint32_t, Entry>          entries;
+        std::map<uint32_t, ExtensionEntry> extensions;
+        std::vector<uint32_t>              extensionOrder;
     };
 } // namespace sky::aurora

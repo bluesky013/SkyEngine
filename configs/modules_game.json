@@ -49,6 +49,26 @@
         "Content.Module",
         "Aurora.Render"
       ]
+    },
+    {
+      "name": "Particle.Assets",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": []
+    },
+    {
+      "name": "Particle.World",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets"
+      ]
+    },
+    {
+      "name": "Particle.Render",
+      "buildOption": "SKY_BUILD_PARTICLE",
+      "dependencies": [
+        "Particle.Assets",
+        "Aurora.Render"
+      ]
     }
   ]
 }

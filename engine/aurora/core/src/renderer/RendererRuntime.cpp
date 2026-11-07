@@ -74,6 +74,7 @@ namespace sky::aurora {
             std::vector<PreparedMeshLayout>                    meshes;
             std::vector<PreparedMaterialTechniques>            materials;
             std::vector<FrameFeatureUse>                       features;
+            std::vector<SceneExtensionUse>                     sceneExtensions;
         };
         struct PendingReadback {
             ViewportId  viewport;
@@ -93,6 +94,10 @@ namespace sky::aurora {
             std::vector<std::shared_ptr<RuntimeOutput>> offscreen;
             std::vector<PendingReadback>                readbacks;
         };
+        struct FrameFeatureOwners {
+            std::vector<FrameFeatureUse>   features;
+            std::vector<SceneExtensionUse> extensions;
+        };
         struct FrameGraphWork {
             FrameGraphBuilder                                           builder;
             OutputAcquireBatch                                          outputBatch;
@@ -100,7 +105,7 @@ namespace sky::aurora {
             std::vector<PreparedGraphBuffer>                            localBuffers;
             std::vector<std::pair<RenderResourceKey, GraphImageHandle>> localImages;
             std::map<uint32_t, GraphImageHandle>                        renderedImages;
-            std::shared_ptr<const std::vector<FrameFeatureUse>>         featureOwners;
+            std::shared_ptr<const FrameFeatureOwners>                   featureOwners;
         };
         struct RuntimeOutput {
             CpuViewportState  cpu;
@@ -576,6 +581,7 @@ namespace sky::aurora {
             frame.readbacks       = std::move(requestedReadbacks);
             frame.outputVersions  = outputs;
             frame.features        = features.Snapshot();
+            frame.sceneExtensions = features.SnapshotExtensions();
             for (const auto &pin : frame.resources.pins) {
                 const auto key = Key(pin->cpu->resource);
                 if (const auto found = meshes.find(key); found != meshes.end())
@@ -655,6 +661,15 @@ namespace sky::aurora {
                 {
                     return CreateFrameShader(device, source);
                 }
+                std::variant<FrameError, BufferPtr> CreatePersistentBuffer(const Buffer::Descriptor &desc) override
+                {
+                    if (!desc.size || !desc.usage)
+                        return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Persistent buffer requires size and usage"};
+                    auto buffer = BufferPtr(device.CreateBuffer(desc));
+                    if (!buffer)
+                        return FrameError{FrameErrorCode::OUT_OF_MEMORY, "Persistent buffer creation failed"};
+                    return buffer;
+                }
 
             private:
                 Device                 &device;
@@ -662,6 +677,16 @@ namespace sky::aurora {
                 const FrameBuildInputs &inputs;
             } preparation(*device, events->info, frame.inputs);
             std::erase_if(frame.features, [](const auto &feature) { return !feature.CanBuild(); });
+            std::erase_if(frame.sceneExtensions, [](const auto &extension) { return !extension.CanBuild(); });
+            for (const auto &use : frame.sceneExtensions) {
+                const auto &extension = use.lease->registration.extension;
+                if (std::none_of(frame.inputs.prepared->extensions.begin(), frame.inputs.prepared->extensions.end(),
+                                 [&](const auto &payload) { return payload.feature == extension->GetName(); }))
+                    continue;
+                if (const auto result = extension->Prepare(preparation); std::holds_alternative<FrameError>(result))
+                    return std::get<FrameError>(result);
+                frame.inputs.sceneExtensions.push_back({use.lease->scene->registration.name, extension});
+            }
             for (const auto &feature : frame.features) {
                 const auto prepared = feature.lease->registration.feature->Prepare(preparation);
                 if (const auto *error = std::get_if<FrameError>(&prepared)) {
@@ -720,6 +745,11 @@ namespace sky::aurora {
         std::optional<FrameError> RendererRuntime::AcquireFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph)
         {
             std::erase_if(frame.features, [](const auto &feature) { return !feature.CanBuild(); });
+            std::erase_if(frame.sceneExtensions, [](const auto &extension) { return !extension.CanBuild(); });
+            std::erase_if(frame.inputs.sceneExtensions, [&](const auto &entry) {
+                return std::none_of(frame.sceneExtensions.begin(), frame.sceneExtensions.end(),
+                                    [&](const auto &use) { return use.lease->registration.extension == entry.extension; });
+            });
             std::erase_if(frame.outputs, [&](const auto &output) { return !NeedsOutput(frame, output.viewport); });
             auto acquired = scheduler->Acquire(graph.encoding.lease, frame.outputs);
             if (const auto *error = std::get_if<FrameError>(&acquired)) {
@@ -884,8 +914,9 @@ namespace sky::aurora {
                     scheduler->AbandonOutput(graph.encoding.lease, version->cpu.id);
                 }
             }
-            if (!frame.features.empty()) {
-                graph.featureOwners = std::make_shared<const std::vector<FrameFeatureUse>>(std::move(frame.features));
+            if (!frame.features.empty() || !frame.sceneExtensions.empty()) {
+                graph.featureOwners =
+                    std::make_shared<const FrameFeatureOwners>(FrameFeatureOwners{std::move(frame.features), std::move(frame.sceneExtensions)});
                 scheduler->Retain(graph.encoding.lease, graph.featureOwners);
             }
             graph.outputBatch.outputs.clear();

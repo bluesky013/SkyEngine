@@ -58,6 +58,8 @@ namespace sky::aurora {
             if (!buffer || buffer->GetDevice() != &device)
                 return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
             auto *native = static_cast<D3D12CommandBuffer *>(buffer);
+            if (FAILED(native->GetRecordingError()))
+                return {QueueSubmitStatus::REJECTED, D3D12Error(native->GetRecordingError())};
             if (!native->GetNativeHandle())
                 return {QueueSubmitStatus::REJECTED, {GpuErrorCode::INVALID_ARGUMENT}};
             lists.push_back(native->GetNativeHandle());

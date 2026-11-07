@@ -181,6 +181,19 @@ namespace sky::aurora {
         IndexType         type = IndexType::U32;
         CmdDrawIndexed    command;
     };
+    // Draw arguments are GPU-produced; the graph validates layout/range and content initialization.
+    struct RasterIndirectDraw {
+        RasterBufferRange arguments;
+        uint32_t          drawCount = 1;
+        uint32_t          stride    = 0; // Zero means backend-tightly packed.
+    };
+    enum class IndirectCommandKind : uint8_t { DRAW, DRAW_INDEXED, DISPATCH, END };
+    struct IndirectArgumentLayout {
+        uint32_t stride = 0;
+        uint64_t size   = 0;
+    };
+    std::variant<FrameError, IndirectArgumentLayout>
+    ResolveIndirectArgumentLayout(IndirectCommandKind, uint32_t count = 1, uint32_t stride = 0) noexcept;
     struct RasterUniformBinding {
         uint32_t          set = 0, binding = 0;
         RasterBufferRange range;
@@ -274,6 +287,7 @@ namespace sky::aurora {
         std::vector<RasterVertexStream>    vertices;
         std::vector<RasterVertexAttribute> attributes;
         std::optional<RasterIndexedDraw>   indexed;
+        std::optional<RasterIndirectDraw>  indirect;
         FrameBindingGroups                 groups;
         RasterDepthState                   depth;
     };
@@ -337,11 +351,14 @@ namespace sky::aurora {
         FrameAccessMode       access = FrameAccessMode::READ;
         FrameImageBindingKind kind   = FrameImageBindingKind::REFLECTED;
     };
+    struct ComputeIndirectDispatch {
+        RasterBufferRange arguments;
+    };
     // Declarations retain their order; native bindings are identified by set/binding.
     struct FrameComputePass {
         ShaderPtr shader;
-        // Zero dimensions are rejected: a no-op cannot define declared write contents.
-        uint32_t                          groupsX = 1, groupsY = 1, groupsZ = 1;
+        // Direct dispatch dimensions must be nonzero to define declared write contents.
+        std::variant<CmdDispatch, ComputeIndirectDispatch> dispatch = CmdDispatch{};
         FrameBindingGroups                groups;
         bool                              sideEffect = false;
     };
@@ -401,7 +418,7 @@ namespace sky::aurora {
         // Inclusive logical pass indices; exports extend through the graph-end sentinel.
         uint32_t first = UINT32_MAX, last = 0;
     };
-    enum class FrameBufferUseKind : uint8_t { COPY_SOURCE, COPY_DESTINATION, VERTEX, INDEX, UNIFORM, STORAGE };
+    enum class FrameBufferUseKind : uint8_t { COPY_SOURCE, COPY_DESTINATION, VERTEX, INDEX, UNIFORM, STORAGE, INDIRECT };
     enum class FrameImageUseKind : uint8_t {
         COPY_SOURCE,
         COPY_DESTINATION,
@@ -442,6 +459,7 @@ namespace sky::aurora {
         case FrameBufferUseKind::INDEX: return BufferUsageFlagBit::INDEX;
         case FrameBufferUseKind::UNIFORM: return BufferUsageFlagBit::UNIFORM;
         case FrameBufferUseKind::STORAGE: return BufferUsageFlagBit::STORAGE;
+        case FrameBufferUseKind::INDIRECT: return BufferUsageFlagBit::INDIRECT;
         }
         return BufferUsageFlagBit::NONE;
     }

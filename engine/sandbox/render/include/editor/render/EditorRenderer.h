@@ -154,6 +154,12 @@ namespace sky::editor {
         {
             readback = std::move(callback);
         }
+        // Dev/automation: captures the offscreen scene viewport on the next built frame.
+        // The pixels arrive through SetReadbackCallback after GPU completion.
+        void RequestSceneReadback()
+        {
+            sceneReadbackRequested = true;
+        }
 
     private:
         std::vector<Uuid>                                  selectedActors;
@@ -193,6 +199,7 @@ namespace sky::editor {
         uint32_t                                      nextSurfaceId  = 1;
         uint32_t                                      nextViewportId = 1024;
         bool                                          started = false, withPreview = false;
+        bool                                          sceneReadbackRequested = false;
         GuiPaintFn                                    guiSource;
         bool                                          sceneWorldBound = false;
         SceneSource                                   sceneSource;
@@ -201,6 +208,7 @@ namespace sky::editor {
         std::shared_ptr<aurora::ShaderFileSystem>     shaderFiles;
         aurora::Extent2D                              sceneExtent{640, 360}, submittedSceneExtent{640, 360};
         uint64_t                                      sceneRevision = 0, viewRevision = 0;
+        uint64_t                                      extensionEpoch = 1;
         std::string                                   sceneIssue;
         ui::UIBuiltinFontProvider                     builtinFont;
 #if defined(SKY_BUILD_FREETYPE)

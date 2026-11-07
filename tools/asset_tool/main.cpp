@@ -112,6 +112,14 @@ namespace {
 #if SKY_HAS_ANIMATION_BUILDER
                 moduleManager->RegisterModule(ModuleInfo{"Animation.Builder", {"Animation.GraphAssets"}});
 #endif
+#if SKY_HAS_PARTICLE_WORLD
+                // World cook resolves ParticleComponent persistence schema and the "Particle"
+                // subsystem, so the runtime metadata owner must be present (as Aurora.Cook is).
+                moduleManager->RegisterModule(ModuleInfo{"Particle.World", {"Particle.Assets"}});
+#endif
+#if SKY_HAS_PARTICLE_BUILDER
+                moduleManager->RegisterModule(ModuleInfo{"Particle.Builder", {"Particle.Assets"}});
+#endif
             }
             return true;
         }

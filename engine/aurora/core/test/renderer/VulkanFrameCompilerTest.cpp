@@ -662,6 +662,56 @@ TEST_P(VulkanFrameCompilerFixture, FullscreenGeneratedTriangleReadsBackThroughOw
     readback->UnMap();
 }
 
+TEST_P(VulkanFrameCompilerFixture, IndirectDrawUsesEnabledFeaturesAndNativeCountLimit)
+{
+    if (!device->GetFeature().multiDrawIndirect || !device->GetFeature().firstInstanceIndirect || device->GetLimits().maxDrawIndirectCount < 2)
+        GTEST_SKIP() << "Device does not expose indirect multi-draw with base instance";
+    FrameGraphBuilder                  builder;
+    const auto                         image = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    const std::array<CmdDrawLinear, 2> commands{{{3, 1, 0, 5}, {3, 1, 0, 6}}};
+    Buffer::Descriptor                 descriptor;
+    descriptor.size   = sizeof(commands);
+    descriptor.usage  = BufferUsageFlagBit::INDIRECT;
+    descriptor.memory = MemoryType::CPU_TO_GPU;
+    auto arguments    = BufferPtr(device->CreateBuffer(descriptor));
+    ASSERT_TRUE(arguments);
+    auto *mapped = arguments->Map();
+    ASSERT_TRUE(mapped);
+    std::memcpy(mapped, commands.data(), sizeof(commands));
+    arguments->UnMap();
+    const auto argumentHandle =
+        std::get<GraphBufferHandle>(builder.Import(arguments, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true));
+    FrameRasterPass pass;
+    pass.color = image;
+    RasterDraw draw;
+    draw.shader   = ShaderOf();
+    draw.indirect = RasterIndirectDraw{{argumentHandle, 0, sizeof(commands)}, 2, 0};
+    pass.draws.push_back(std::move(draw));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(pass))));
+    auto       readback = Readback(builder, image);
+    const auto graph    = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+
+    auto      &limits           = const_cast<VkPhysicalDeviceLimits &>(device->GetLimits());
+    const auto originalLimit    = limits.maxDrawIndirectCount;
+    limits.maxDrawIndirectCount = 1;
+    const auto lease            = Begin();
+    auto       rejected         = context->Compile(lease, graph);
+    limits.maxDrawIndirectCount = originalLimit;
+    ASSERT_TRUE(std::holds_alternative<FrameError>(rejected));
+    EXPECT_EQ(std::get<FrameError>(rejected).code, FrameErrorCode::INVALID_ARGUMENT);
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    Execute(graph);
+    const auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    for (uint32_t i = 0; i < 64; ++i) {
+        EXPECT_EQ(pixels[i * 4], 255);
+        EXPECT_EQ(pixels[i * 4 + 1], 0);
+        EXPECT_EQ(pixels[i * 4 + 2], 0);
+        EXPECT_EQ(pixels[i * 4 + 3], 255);
+    }
+    readback->UnMap();
+}
+
 TEST_P(VulkanFrameCompilerFixture, ComputeUniformOffsetsAreIndependentOfDeclarationOrder)
 {
     const auto function = CompileGpuFunction(*device, kGpuComputeUniformSource, ShaderStageFlagBit::CS, "CSMain");
@@ -747,7 +797,7 @@ TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelea
     FrameComputePass    fill;
     ComputeBindingDraft fillBindings;
     fill.shader  = ComputeImageShaderOf();
-    fill.groupsX = fill.groupsY = 8;
+    fill.dispatch = CmdDispatch{8, 8, 1};
     fillBindings.images.push_back({0, 0, image, {}, FrameAccessMode::WRITE});
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(fill, std::move(fillBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(fill))));
@@ -787,30 +837,54 @@ TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelea
     readback->UnMap();
 }
 
-TEST_P(VulkanFrameCompilerFixture, ComputeStorageBufferWritesReadBack)
+TEST_P(VulkanFrameCompilerFixture, DirectAndIndirectComputeStorageBufferWritesReadBack)
 {
-    FrameGraphBuilder builder;
-    auto              storage = StorageBufferOf();
-    const auto        source =
-        std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
-    auto                readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
-    const auto          target = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
-    FrameComputePass    compute;
-    ComputeBindingDraft computeBindings;
-    compute.shader  = ComputeShaderOf();
-    compute.groupsX = 4;
-    computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
-    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
-    auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
-    Execute(graph);
-    auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
-    ASSERT_TRUE(values);
-    for (uint32_t i = 0; i < 4; ++i)
-        EXPECT_EQ(values[i], i + 7);
-    readback->UnMap();
+    for (const bool indirect : {false, true}) {
+        SCOPED_TRACE(indirect ? "indirect" : "direct");
+        FrameGraphBuilder builder;
+        auto              storage = StorageBufferOf();
+        const auto        source =
+            std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+        auto       readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+        const auto target   = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+        FrameComputePass    compute;
+        ComputeBindingDraft computeBindings;
+        compute.shader   = ComputeShaderOf();
+        compute.dispatch = CmdDispatch{4, 1, 1};
+        if (indirect) {
+            const CmdDispatch  dispatch{4, 1, 1};
+            Buffer::Descriptor argumentDesc;
+            argumentDesc.size   = sizeof(dispatch);
+            argumentDesc.usage  = BufferUsageFlagBit::TRANSFER_SRC;
+            argumentDesc.memory = MemoryType::CPU_TO_GPU;
+            const auto upload   = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(upload);
+            auto *arguments = upload->Map();
+            ASSERT_TRUE(arguments);
+            std::memcpy(arguments, &dispatch, sizeof(dispatch));
+            upload->UnMap();
+            argumentDesc.usage        = BufferUsageFlagBit::TRANSFER_DST | BufferUsageFlagBit::INDIRECT;
+            argumentDesc.memory       = MemoryType::GPU_ONLY;
+            const auto argumentBuffer = BufferPtr(device->CreateBuffer(argumentDesc));
+            ASSERT_TRUE(argumentBuffer);
+            const auto from = std::get<GraphBufferHandle>(builder.Import(upload, CopyBufferState::HOST_WRITE, CopyBufferState::HOST_WRITE, true));
+            const auto to   = std::get<GraphBufferHandle>(builder.Import(argumentBuffer, CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{from, to, 0, 0, sizeof(dispatch)})));
+            compute.dispatch = ComputeIndirectDispatch{{to, 0, sizeof(dispatch)}};
+        }
+        computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy(BufferCopyPass{source, target, 0, 0, 64})));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(GraphBufferExport{target, 0, 64})));
+        auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+        Execute(graph);
+        auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], i + 7);
+        readback->UnMap();
+    }
 }
 
 TEST_P(VulkanFrameCompilerFixture, ComputeStorageImageIsSampledByRaster)
@@ -821,8 +895,7 @@ TEST_P(VulkanFrameCompilerFixture, ComputeStorageImageIsSampledByRaster)
     FrameComputePass    compute;
     ComputeBindingDraft computeBindings;
     compute.shader  = ComputeImageShaderOf();
-    compute.groupsX = 8;
-    compute.groupsY = 8;
+    compute.dispatch = CmdDispatch{8, 8, 1};
     computeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));

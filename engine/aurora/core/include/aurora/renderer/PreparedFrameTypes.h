@@ -41,11 +41,11 @@ namespace sky::aurora {
 
     // Geometry and typed material values are owned until the frame retires.
     struct ResolvedRasterDraw {
-        RasterDraw                               draw;
-        Matrix4                                  world = RenderIdentityMatrix();
-        RenderMaterialParameters                 material;
-        bool                                     receiveShadow = true;
-        RenderEntityRef                          entity;
+        RasterDraw                                draw;
+        Matrix4                                   world = RenderIdentityMatrix();
+        RenderMaterialParameters                  material;
+        bool                                      receiveShadow = true;
+        RenderEntityRef                           entity;
         std::shared_ptr<const RenderSkinningData> skinning;
     };
 
@@ -65,12 +65,19 @@ namespace sky::aurora {
         PixelFormat format = PixelFormat::RGBA8_UNORM;
     };
 
+    class ISceneRenderExtension;
+    struct SceneRenderExtensionInput {
+        Name                                   scene;
+        std::shared_ptr<ISceneRenderExtension> extension;
+    };
+
     // Provider build-context storage owns native outputs/uploads/pins for this lease.
     // Freeze transfers recording/GPU retention to the backend plan.
     struct FrameBuildInputs {
-        std::shared_ptr<const PreparedFrame> prepared;
-        DeviceFrameLease                     lease;
-        std::vector<FrameOutputInfo>         outputs;
+        std::shared_ptr<const PreparedFrame>   prepared;
+        DeviceFrameLease                       lease;
+        std::vector<FrameOutputInfo>           outputs;
+        std::vector<SceneRenderExtensionInput> sceneExtensions;
     };
 
 } // namespace sky::aurora

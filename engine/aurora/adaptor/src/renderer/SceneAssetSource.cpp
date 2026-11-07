@@ -509,10 +509,10 @@ namespace sky::aurora {
                 cache.emplace(key, result);
                 return std::shared_ptr<const SceneMeshResources>(std::move(result));
             }
-            SceneImageResult ResolveImage(const Uuid &id, RendererInfo info) override
+            SceneImageResult ResolveImage(const Uuid &id, RendererInfo info, SceneImageUsage usage) override
             {
                 Refresh();
-                const auto key = std::pair{id, info.deviceEpoch};
+                const auto key = std::tuple{id, info.deviceEpoch, usage};
                 if (const auto found = imageCache.find(key); found != imageCache.end()) {
                     return found->second;
                 }
@@ -529,7 +529,7 @@ namespace sky::aurora {
                 if (!asset->IsLoaded()) {
                     return {};
                 }
-                auto converted = ConvertSceneImage(*std::static_pointer_cast<Asset<Texture>>(asset), info);
+                auto converted = ConvertSceneImage(*std::static_pointer_cast<Asset<Texture>>(asset), info, usage);
                 if (const auto *error = std::get_if<RendererError>(&converted)) {
                     return *error;
                 }
@@ -933,7 +933,7 @@ namespace sky::aurora {
             std::map<std::tuple<Uuid, Uuid, API, uint64_t, bool>, std::shared_ptr<const SceneMeshResources>>           cache;
             std::map<std::tuple<Uuid, Uuid, Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneSkeletalResources>> skeletalCache;
             SkinBindingCache                                                                                           skinBindings;
-            std::map<std::pair<Uuid, uint64_t>, std::shared_ptr<const RenderResourcePayload>>                          imageCache;
+            std::map<std::tuple<Uuid, uint64_t, SceneImageUsage>, std::shared_ptr<const RenderResourcePayload>>        imageCache;
             std::atomic<uint64_t>                                                                                      revision{1};
             uint64_t                                                                                                   loadedRevision = 1;
             std::map<Uuid, std::optional<AABB>>                                                                        bounds;

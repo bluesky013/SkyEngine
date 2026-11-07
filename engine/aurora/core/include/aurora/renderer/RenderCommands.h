@@ -11,6 +11,7 @@
 
 namespace sky::aurora {
     class IFrameGraphFeature;
+    class ISceneRenderExtension;
 
     enum class RenderLightKind : uint8_t { POINT, DIRECTIONAL, SPOT };
     struct RenderPointLight {
@@ -141,7 +142,17 @@ namespace sky::aurora {
     struct RetireRenderFeature {
         RenderFeatureId id;
     };
-    using RenderFeatureCommand = std::variant<RegisterRenderFeature, SetRenderFeatureEnabled, RetireRenderFeature>;
+    struct RegisterSceneExtension {
+        RenderFeatureId                        id;
+        RenderFeatureId                        scene;
+        std::shared_ptr<ISceneRenderExtension> extension;
+    };
+    struct RetireSceneExtension {
+        RenderFeatureId id;
+        RenderFeatureId scene;
+    };
+    using RenderFeatureCommand =
+        std::variant<RegisterRenderFeature, SetRenderFeatureEnabled, RetireRenderFeature, RegisterSceneExtension, RetireSceneExtension>;
 
     using RenderCommand = std::variant<CreateScene,
                                        DestroyScene,

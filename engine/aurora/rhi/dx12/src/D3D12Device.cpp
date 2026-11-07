@@ -32,6 +32,7 @@ namespace sky::aurora {
     D3D12Device::~D3D12Device()
     {
         pipelineCache.Clear();
+        indirectSignatures.Clear();
         transientPool.reset();
         for (auto &q : queues) {
             q.reset();
@@ -90,6 +91,10 @@ namespace sky::aurora {
         } else {
             capability.isUMA = false;
         }
+
+        // Indirect draws/dispatches are core; ExecuteIndirect accepts multiple commands and base instance.
+        feature.multiDrawIndirect     = true;
+        feature.firstInstanceIndirect = true;
 
         // Directly-indexed ResourceDescriptorHeap needs Shader Model 6.6.
         D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = {};
@@ -259,37 +264,32 @@ namespace sky::aurora {
         return instance.GetDXGIFactory();
     }
 
-    ID3D12CommandSignature *D3D12Device::GetIndirectSignature(IndirectKind kind, uint32_t stride)
+    std::variant<FrameError, ComPtr<ID3D12CommandSignature>> D3D12Device::GetIndirectSignature(IndirectCommandKind kind, uint32_t stride)
     {
         const uint64_t key  = (static_cast<uint64_t>(kind) << 32) | stride;
-        auto           iter = indirectSignatures.find(key);
-        if (iter != indirectSignatures.end()) {
-            return iter->second.Get();
-        }
+        return indirectSignatures.Acquire(key, [&]() -> std::variant<FrameError, ComPtr<ID3D12CommandSignature>> {
+            D3D12_INDIRECT_ARGUMENT_DESC argument = {};
+            switch (kind) {
+            case IndirectCommandKind::DRAW: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW; break;
+            case IndirectCommandKind::DRAW_INDEXED: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED; break;
+            case IndirectCommandKind::DISPATCH: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH; break;
+            default: return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Invalid DX12 indirect command kind"};
+            }
 
-        D3D12_INDIRECT_ARGUMENT_DESC argument = {};
-        switch (kind) {
-        case IndirectKind::DRAW: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW; break;
-        case IndirectKind::DRAW_INDEXED: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED; break;
-        case IndirectKind::DISPATCH: argument.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH; break;
-        default: return nullptr;
-        }
+            D3D12_COMMAND_SIGNATURE_DESC desc = {};
+            desc.ByteStride                   = stride;
+            desc.NumArgumentDescs             = 1;
+            desc.pArgumentDescs               = &argument;
+            desc.NodeMask                     = 0;
 
-        D3D12_COMMAND_SIGNATURE_DESC desc = {};
-        desc.ByteStride                   = stride;
-        desc.NumArgumentDescs             = 1;
-        desc.pArgumentDescs               = &argument;
-        desc.NodeMask                     = 0;
-
-        ComPtr<ID3D12CommandSignature> signature;
-        const HRESULT                  hr = device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create indirect command signature, hr=0x%08x", static_cast<unsigned>(hr));
-            return nullptr;
-        }
-
-        auto result = indirectSignatures.emplace(key, std::move(signature));
-        return result.first->second.Get();
+            ComPtr<ID3D12CommandSignature> signature;
+            const HRESULT                  hr = device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(signature.GetAddressOf()));
+            if (FAILED(hr)) {
+                LOG_E(TAG, "failed to create indirect command signature, hr=0x%08x", static_cast<unsigned>(hr));
+                return FrameError{FrameErrorCode::COMPILE_FAILED, "DX12 indirect command signature creation failed", D3D12Error(hr)};
+            }
+            return signature;
+        });
     }
 
     D3D12BlitHelper *D3D12Device::GetBlitHelper()

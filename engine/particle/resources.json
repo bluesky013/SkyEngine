@@ -1,0 +1,28 @@
+{
+    "resources": {
+        "owner": "particle",
+        "roots": [
+            {
+                "kind": "shader",
+                "path": "adaptor/render/shaders",
+                "dependencies": [],
+                "exports": [
+                    {
+                        "source": "adaptor/render/decl/ParticleSpritePass.h",
+                        "include": "particle/ParticleSpritePass.h"
+                    }
+                ],
+                "programs": [
+                    {
+                        "path": "particle/ParticleSprite.slang",
+                        "entries": [
+                            {"stage": "vertex", "name": "VSMain"},
+                            {"stage": "fragment", "name": "FSMain"}
+                        ],
+                        "variants": [{}]
+                    }
+                ]
+            }
+        ]
+    }
+}

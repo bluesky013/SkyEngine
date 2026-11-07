@@ -48,6 +48,12 @@ namespace sky::aurora {
         GpuOperationResult TryResetAllocator() noexcept;
         HRESULT            BeginAfterPoolReset(bool requireExtended = false) noexcept;
         HRESULT            EndChecked() noexcept;
+        void               RecordError(HRESULT error) noexcept;
+        void               RetainIndirectSignature(ComPtr<ID3D12CommandSignature> signature);
+        HRESULT            GetRecordingError() const noexcept
+        {
+            return recordingError;
+        }
 
     private:
         D3D12_COMMAND_LIST_TYPE            listType;
@@ -56,6 +62,8 @@ namespace sky::aurora {
         ComPtr<ID3D12GraphicsCommandList1> extended;
         bool                               requiresExtended = false;
         ComPtr<ID3D12CommandAllocator>     allocator;
+        HRESULT                                     recordingError = S_OK;
+        std::vector<ComPtr<ID3D12CommandSignature>> indirectSignatures;
     };
 
     class D3D12CommandPool : public CommandPool {

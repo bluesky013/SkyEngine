@@ -202,14 +202,14 @@ float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
         FrameComputePass    writeBuffer;
         ComputeBindingDraft writeBufferBindings;
         writeBuffer.shader  = std::move(bufferWriter);
-        writeBuffer.groupsX = 4;
+        writeBuffer.dispatch = CmdDispatch{4, 1, 1};
         writeBufferBindings.buffers.push_back({0, 0, {inputHandle, 0, 16}, 0, FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(writeBuffer, std::move(writeBufferBindings))));
         builder.Compute(std::move(writeBuffer));
         FrameComputePass    write;
         ComputeBindingDraft writeBindings;
         write.shader  = std::move(writer);
-        write.groupsX = write.groupsY = 8;
+        write.dispatch = CmdDispatch{8, 8, 1};
         writeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(write, std::move(writeBindings))));
         builder.Compute(std::move(write));
@@ -259,7 +259,7 @@ float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
         FrameComputePass    pass;
         ComputeBindingDraft passBindings;
         pass.shader  = std::move(shader);
-        pass.groupsX = 4;
+        pass.dispatch = CmdDispatch{4, 1, 1};
         for (const auto binding : {3u, 1u}) {
             const uint32_t offset = binding == 3 ? 512 : 256;
             passBindings.buffers.push_back({0, binding, {constants, dynamic ? 0u : offset, 16}, dynamic ? offset : 0, FrameAccessMode::READ});
@@ -342,7 +342,7 @@ float4 FSMain(Varying input) : SV_Target { return input.color * material.tint; }
             compute.shader = cs ? ShaderPtr(device.CreateShader(computeDesc)) : ShaderPtr{};
             if (!compute.shader)
                 return {};
-            compute.groupsX = 16;
+            compute.dispatch = CmdDispatch{16, 1, 1};
             computeBindings.buffers.push_back({0, 0, {buffer, 0, 64}, 0, FrameAccessMode::WRITE});
             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
             EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));

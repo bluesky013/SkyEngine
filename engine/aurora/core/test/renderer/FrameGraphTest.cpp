@@ -216,7 +216,7 @@ TEST(FrameComputeAnalysis, DeclarationErrorsPrecedeCullingButDeadReadsDoNotRequi
     EXPECT_TRUE(std::get<FrameGraphAnalysis>(dead).livePasses.empty());
     EXPECT_TRUE(std::get<FrameGraphAnalysis>(dead).usedBuffers.empty());
 
-    pass.groupsX           = 0;
+    pass.dispatch          = CmdDispatch{0, 1, 1};
     const auto invalidPass = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameError>(invalidPass));
     EXPECT_EQ(std::get<FrameError>(invalidPass).code, FrameErrorCode::INVALID_ARGUMENT);
@@ -226,7 +226,7 @@ TEST(FrameComputeAnalysis, DeclarationErrorsPrecedeCullingButDeadReadsDoNotRequi
     EXPECT_EQ(std::get<FrameError>(invalidResource).code, FrameErrorCode::COMPILE_FAILED);
 
     data.buffers[0].size = 64;
-    pass.groupsX         = 1;
+    pass.dispatch        = CmdDispatch{1, 1, 1};
     pass.sideEffect      = true;
     const auto live      = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameError>(live));
@@ -423,7 +423,8 @@ TEST(FrameComputeAnalysis, ZeroDispatchDimensionsAreInvalid)
     for (uint32_t axis = 0; axis < 3; ++axis) {
         auto      data         = ComputeBufferData();
         auto     &pass         = std::get<FrameComputePass>(data.passes[0]);
-        uint32_t *dimensions[] = {&pass.groupsX, &pass.groupsY, &pass.groupsZ};
+        auto     &direct       = std::get<CmdDispatch>(pass.dispatch);
+        uint32_t *dimensions[] = {&direct.x, &direct.y, &direct.z};
         *dimensions[axis]      = 0;
         const auto result      = AnalyzeFrameGraph(FrozenFrameGraph(1, std::move(data)));
         ASSERT_TRUE(std::holds_alternative<FrameError>(result));

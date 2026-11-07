@@ -17,6 +17,7 @@
 - **功能修改与既有目录搬迁分开 review**：除用户明确要求同批实施，不在功能 change 中混入大范围移动、目录重命名或纯结构整理；先保留原路径，让 diff 展示实际代码修改，结构调整后续单独起 change。
 - **Aurora 属于 foundation**：接口与实现均归 `engine/aurora`，不创建 `plugins/aurora`，不注册为业务 feature plugin。Renderer 实现复用现有 `engine/aurora/core`，Framework 对接归 `adaptor`，模块入口归 `runtime`；保留仅接口 target，不再建立 `renderer/{core,adaptor,runtime}` 子模块体系。新增或调整模块归属、target 和装载入口须先说明方案并取得用户确认；RHI 后端保留 `engine/aurora/rhi/{vulkan,dx12,metal,common}`。
 - **Animation 是完整 engine 子系统**：算法与 Graph、资产、World、Builder、Editor 实现统一归 `engine/animation`，不创建 `plugins/animation` 或业务 plugin 注册。原有算法与纯 Graph 统一在 `core/{include,src,test}`，由 `Animation` / `AnimationTest` 编译；资产读写/注册归 `assets` 的 GraphAssets target，adaptor/builder/editor 保留独立 target 与模块入口；算法库只依赖 Core/可选 ACL，集成通过接口连接 Framework/Aurora，builder/editor 不得反向成为算法或 runtime 依赖。`SKY_BUILD_ANIMATION` 是 engine 集成开关，不控制基础算法库。
+- **Particle 是完整 engine 子系统**：模拟算法、资产、World 对接、Aurora RenderFeature、Builder 与 Editor 统一归 `engine/particle/{core,assets,adaptor,builder,editor}`，不创建 `plugins/particle` 或业务 plugin 注册。core 只依赖 Core；assets 增加 Framework；adaptor/render 可依赖 Framework 与 Aurora；builder/editor 不得被 core/adaptor/runtime 反向依赖。`SKY_BUILD_PARTICLE` 是 engine 集成开关，不控制基础算法库。
 
 ## 异常与错误处理规范
 

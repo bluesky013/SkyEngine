@@ -160,6 +160,7 @@
     "network-session": "network",
     "network-tick": "network",
     "network-transport": "network",
+    "particle": "particle",
     "physics-backend": "physics",
     "physics-bodies": "physics",
     "physics-character": "physics",
@@ -350,6 +351,13 @@
       "spec": "specs/network/spec.md",
       "sourceCapabilities": 13,
       "requirements": 73
+    },
+    "particle": {
+      "spec": "specs/particle/spec.md",
+      "sourceCapabilities": 1,
+      "requirements": 12,
+      "status": "pending-archive",
+      "change": "add-particle-system"
     },
     "physics": {
       "spec": "specs/physics/spec.md",
