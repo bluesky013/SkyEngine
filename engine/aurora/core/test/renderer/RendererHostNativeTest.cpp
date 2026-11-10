@@ -33,7 +33,8 @@ namespace {
             window.reset(NativeWindow::Create({128, 96, "AuroraB14Host", "Aurora host test", nullptr}));
             ASSERT_TRUE(window);
             Interface<ISystemNotify>::Get()->Register(*this);
-            modules.AddStaticModule("Aurora.Render", std::make_unique<IModule>());
+            modules.AddStaticModule("Aurora.Render", [&] { return std::make_unique<IModule>(); });
+            modules.RegisterModule({"Aurora.Render", {}});
             modules.TopoSort();
             ASSERT_TRUE(modules.LoadModules({}));
             args.args = {"RendererHostNativeTest", "-r", GetParam() == 2 ? "dx12" : "vulkan"};

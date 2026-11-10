@@ -34,10 +34,13 @@ namespace {
 TEST(ModuleManagerStaticTest, StaticModuleLoadsWithoutDlopen)
 {
     sky::ModuleManager manager;
-    auto               module = std::make_unique<TestStaticModule>();
-    TestStaticModule  *raw    = module.get();
-
-    manager.AddStaticModule("TestStaticModule", std::move(module));
+    TestStaticModule  *raw = nullptr;
+    manager.AddStaticModule("TestStaticModule", [&] {
+        auto module = std::make_unique<TestStaticModule>();
+        raw         = module.get();
+        return module;
+    });
+    manager.RegisterModule({"TestStaticModule", {}});
     manager.TopoSort();
 
     sky::StartArguments args;
@@ -53,6 +56,66 @@ TEST(ModuleManagerStaticTest, RuntimeBuildOptionsAreKnownAndUnknownOptionsStayDi
     EXPECT_TRUE(sky::ModuleManager::GetBuildOption("SKY_BUILD_ANIMATION").has_value());
     EXPECT_TRUE(sky::ModuleManager::GetBuildOption("SKY_BUILD_PYTHON").has_value());
     EXPECT_FALSE(sky::ModuleManager::GetBuildOption("SKY_BUILD_UNKNOWN_FEATURE").has_value());
+}
+
+TEST(ModuleManagerStaticTest, AvailableFactoriesStayDormantUntilSelectedByADependency)
+{
+    std::vector<int> calls;
+    struct Probe     final : sky::IModule {
+        Probe(std::vector<int> &calls, int id) : calls(calls), id(id)
+        {
+            calls.push_back(id);
+        }
+        bool Init(const sky::StartArguments &) override
+        {
+            calls.push_back(id + 10);
+            return true;
+        }
+        void Shutdown() override
+        {
+            calls.push_back(id + 20);
+        }
+        std::vector<int> &calls;
+        int               id;
+    };
+    sky::ModuleManager manager;
+    ASSERT_TRUE(manager.AddStaticModule("InventoryProvider", [&] { return std::make_unique<Probe>(calls, 1); }));
+    ASSERT_TRUE(manager.AddStaticModule("InventoryConsumer", [&] { return std::make_unique<Probe>(calls, 2); }));
+    ASSERT_TRUE(manager.AddStaticModule("InventoryUnused", [&] { return std::make_unique<Probe>(calls, 3); }));
+    EXPECT_FALSE(manager.AddStaticModule("InventoryUnused", [&] { return std::make_unique<Probe>(calls, 4); }));
+    ASSERT_TRUE(manager.TopoSort());
+    ASSERT_TRUE(manager.LoadModules({}));
+    ASSERT_TRUE(manager.StartModules());
+    ASSERT_TRUE(manager.Tick(0.f));
+    EXPECT_TRUE(calls.empty());
+
+    ASSERT_TRUE(manager.RegisterModule({"InventoryConsumer", {"InventoryProvider"}}));
+    ASSERT_TRUE(manager.TopoSort());
+    ASSERT_TRUE(manager.LoadModules({}));
+    EXPECT_EQ(calls, (std::vector<int>{1, 11, 2, 12}));
+    EXPECT_FALSE(manager.IsModuleInitialized("InventoryUnused"));
+    ASSERT_TRUE(manager.UnLoadModules());
+    EXPECT_EQ(calls, (std::vector<int>{1, 11, 2, 12, 22, 21}));
+    calls.clear();
+    ASSERT_TRUE(manager.LoadModules({}));
+    EXPECT_EQ(calls, (std::vector<int>{1, 11, 2, 12}));
+}
+
+TEST(ModuleManagerStaticTest, EmptyFactoryResultCanRetryWithoutReplacingTheInventory)
+{
+    int                attempts = 0;
+    sky::ModuleManager manager;
+    EXPECT_FALSE(manager.AddStaticModule("", [] { return std::make_unique<sky::IModule>(); }));
+    EXPECT_FALSE(manager.AddStaticModule("EmptyFactory", {}));
+    ASSERT_TRUE(manager.AddStaticModule(
+        "RetryFactory", [&]() -> std::unique_ptr<sky::IModule> { return ++attempts == 1 ? nullptr : std::make_unique<sky::IModule>(); }));
+    ASSERT_TRUE(manager.RegisterModule({"RetryFactory", {}}));
+    ASSERT_TRUE(manager.TopoSort());
+    EXPECT_FALSE(manager.LoadModules({}));
+    EXPECT_FALSE(manager.IsModuleInitialized("RetryFactory"));
+    EXPECT_TRUE(manager.LoadModules({}));
+    EXPECT_TRUE(manager.IsModuleInitialized("RetryFactory"));
+    EXPECT_EQ(attempts, 2);
 }
 
 TEST(ModuleManagerStaticTest, DestructionStopsInitializedSessionsInDependencyOrder)
@@ -74,7 +137,7 @@ TEST(ModuleManagerStaticTest, DestructionStopsInitializedSessionsInDependencyOrd
             EXPECT_FALSE(manager.Tick(0.f));
             EXPECT_TRUE(manager.UnLoadModules());
             EXPECT_FALSE(manager.RegisterModule({"ShutdownRegistration", {}}));
-            EXPECT_FALSE(manager.AddStaticModule("ShutdownStaticRegistration", std::make_unique<sky::IModule>()));
+            EXPECT_FALSE(manager.AddStaticModule("ShutdownStaticRegistration", [&] { return std::make_unique<sky::IModule>(); }));
             EXPECT_FALSE(manager.TopoSort());
             stopped.push_back(id);
         }
@@ -84,8 +147,8 @@ TEST(ModuleManagerStaticTest, DestructionStopsInitializedSessionsInDependencyOrd
     };
     {
         sky::ModuleManager manager;
-        manager.AddStaticModule("ResidentProviderSession", std::make_unique<Session>(manager, stopped, 1));
-        manager.AddStaticModule("ResidentConsumerSession", std::make_unique<Session>(manager, stopped, 2));
+        manager.AddStaticModule("ResidentProviderSession", [&] { return std::make_unique<Session>(manager, stopped, 1); });
+        manager.AddStaticModule("ResidentConsumerSession", [&] { return std::make_unique<Session>(manager, stopped, 2); });
         manager.RegisterModule({"ResidentConsumerSession", {"ResidentProviderSession"}});
         manager.TopoSort();
         ASSERT_TRUE(manager.LoadModules({}));
@@ -127,7 +190,7 @@ TEST(ModuleManagerStaticTest, UninitializedStaticInstanceReceivesNoServiceCallba
     };
     {
         sky::ModuleManager manager;
-        manager.AddStaticModule("UninitializedResidentSession", std::make_unique<Cold>(callbacks));
+        manager.AddStaticModule("UninitializedResidentSession", [&] { return std::make_unique<Cold>(callbacks); });
         manager.TopoSort();
         manager.StartModules();
         manager.Tick(0.f);
@@ -167,7 +230,7 @@ TEST(ModuleManagerStaticTest, InitializationRejectsNestedLoadWithoutPublishingAS
             EXPECT_FALSE(manager.LoadModules({}));
             EXPECT_FALSE(manager.UnLoadModules());
             EXPECT_FALSE(manager.RegisterModule({"InitializationRegistration", {}}));
-            EXPECT_FALSE(manager.AddStaticModule("InitializationStaticRegistration", std::make_unique<sky::IModule>()));
+            EXPECT_FALSE(manager.AddStaticModule("InitializationStaticRegistration", [&] { return std::make_unique<sky::IModule>(); }));
             EXPECT_FALSE(manager.TopoSort());
             EXPECT_FALSE(manager.StartModules());
             EXPECT_FALSE(manager.Tick(0.f));
@@ -178,8 +241,8 @@ TEST(ModuleManagerStaticTest, InitializationRejectsNestedLoadWithoutPublishingAS
         int                &calls;
         int                &providerCallbacks;
     };
-    manager.AddStaticModule("NonReentrantResidentProvider", std::make_unique<Provider>(providerCallbacks));
-    manager.AddStaticModule("NonReentrantResidentInit", std::make_unique<Initializer>(manager, calls, providerCallbacks));
+    manager.AddStaticModule("NonReentrantResidentProvider", [&] { return std::make_unique<Provider>(providerCallbacks); });
+    manager.AddStaticModule("NonReentrantResidentInit", [&] { return std::make_unique<Initializer>(manager, calls, providerCallbacks); });
     manager.RegisterModule({"NonReentrantResidentInit", {"NonReentrantResidentProvider"}});
     manager.TopoSort();
     ASSERT_TRUE(manager.LoadModules({}));
@@ -235,7 +298,7 @@ TEST(ModuleManagerStaticTest, ServiceCallbacksCannotReloadOrDestroyTheirExecutin
             EXPECT_FALSE(host->Tick(0.f));
             EXPECT_EQ(observed->callbacks, calls);
             EXPECT_FALSE(host->RegisterModule({"CallbackRegistration", {}}));
-            EXPECT_FALSE(host->AddStaticModule("CallbackStaticRegistration", std::make_unique<sky::IModule>()));
+            EXPECT_FALSE(host->AddStaticModule("CallbackStaticRegistration", [&] { return std::make_unique<sky::IModule>(); }));
             EXPECT_FALSE(host->TopoSort());
             EXPECT_FALSE(host->LoadModules({}));
             EXPECT_FALSE(host->UnLoadModules());
@@ -248,7 +311,8 @@ TEST(ModuleManagerStaticTest, ServiceCallbacksCannotReloadOrDestroyTheirExecutin
     for (int phase = 0; phase != 4; ++phase) {
         State              state;
         sky::ModuleManager manager;
-        manager.AddStaticModule("ExecutingResidentSession", std::make_unique<Session>(manager, state, phase));
+        manager.AddStaticModule("ExecutingResidentSession", [&] { return std::make_unique<Session>(manager, state, phase); });
+        manager.RegisterModule({"ExecutingResidentSession", {}});
         manager.TopoSort();
         ASSERT_TRUE(manager.LoadModules({}));
         if (phase == 0)
@@ -296,7 +360,8 @@ TEST(ModuleManagerStaticTest, FailedInitializationShutsDownBeforeDestroyAndNever
         Counts &counts;
     };
     sky::ModuleManager manager;
-    manager.AddStaticModule("FailedModule", std::make_unique<FailedModule>(counts));
+    manager.AddStaticModule("FailedModule", [&] { return std::make_unique<FailedModule>(counts); });
+    manager.RegisterModule({"FailedModule", {}});
     manager.TopoSort();
     EXPECT_FALSE(manager.LoadModules({}));
     EXPECT_EQ(counts.destroys, 1u);
@@ -349,8 +414,8 @@ TEST(ModuleManagerStaticTest, B14FailedDependencyPreventsConsumerInitialization)
     };
     bool               called = false;
     sky::ModuleManager manager;
-    manager.AddStaticModule("provider", std::make_unique<Failed>());
-    manager.AddStaticModule("consumer", std::make_unique<Consumer>(called));
+    manager.AddStaticModule("provider", [&] { return std::make_unique<Failed>(); });
+    manager.AddStaticModule("consumer", [&] { return std::make_unique<Consumer>(called); });
     manager.RegisterModule({"consumer", {"provider"}});
     manager.TopoSort();
     EXPECT_FALSE(manager.LoadModules({}));
@@ -390,7 +455,8 @@ TEST(ModuleManagerStaticTest, FailedInitRetryKeepsMetadataProcessOnceAndCleansEa
     };
     for (uint32_t attempt = 0; attempt < 2; ++attempt) {
         sky::ModuleManager manager;
-        manager.AddStaticModule("MetadataRetryModule", std::make_unique<RetryModule>(counts));
+        manager.AddStaticModule("MetadataRetryModule", [&] { return std::make_unique<RetryModule>(counts); });
+        manager.RegisterModule({"MetadataRetryModule", {}});
         manager.TopoSort();
         EXPECT_EQ(manager.LoadModules({}), attempt != 0);
         EXPECT_EQ(manager.IsModuleInitialized("MetadataRetryModule"), attempt != 0);

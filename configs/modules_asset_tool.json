@@ -1,0 +1,67 @@
+{
+  "modules": [
+    {
+      "name": "Aurora.Cook",
+      "dependencies": [
+        "Aurora.Metadata"
+      ]
+    },
+    {
+      "name": "SkyAudio.Builder",
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_AUDIO"
+    },
+    {
+      "name": "JoltPhysics.Builder",
+      "dependencies": [
+        "JoltPhysicsModule"
+      ],
+      "buildOption": "SKY_BUILD_JOLT"
+    },
+    {
+      "name": "SkyNavigation.Builder",
+      "dependencies": [
+        "RecastNavigation"
+      ],
+      "buildOption": "SKY_BUILD_RECAST"
+    },
+    {
+      "name": "SkyTerrain.Builder",
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_TERRAIN"
+    },
+    {
+      "name": "Content.Builder.Module",
+      "dependencies": [
+        "Content.Metadata"
+      ]
+    },
+    {
+      "name": "Animation.Builder",
+      "dependencies": [
+        "Animation.GraphAssets"
+      ],
+      "buildOption": "SKY_BUILD_ANIMATION"
+    },
+    {
+      "name": "Particle.World",
+      "dependencies": [
+        "Particle.Assets"
+      ],
+      "buildOption": "SKY_BUILD_PARTICLE"
+    },
+    {
+      "name": "Particle.Builder",
+      "dependencies": [
+        "Particle.Assets"
+      ],
+      "buildOption": "SKY_BUILD_PARTICLE"
+    },
+    {
+      "name": "Curve.Builder",
+      "dependencies": [
+        "Curve.Assets"
+      ]
+    }
+  ]
+}

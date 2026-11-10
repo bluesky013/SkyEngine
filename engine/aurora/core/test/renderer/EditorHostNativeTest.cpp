@@ -43,8 +43,10 @@ namespace {
             window.reset(NativeWindow::Create({160, 120, "B14EditorHost", "Editor host test", nullptr}));
             ASSERT_TRUE(window);
             Interface<ISystemNotify>::Get()->Register(*this);
-            modules.AddStaticModule("SandboxModule", std::make_unique<IModule>());
-            modules.AddStaticModule("Aurora.Render", std::make_unique<IModule>());
+            modules.AddStaticModule("SandboxModule", [&] { return std::make_unique<IModule>(); });
+            modules.AddStaticModule("Aurora.Render", [&] { return std::make_unique<IModule>(); });
+            modules.RegisterModule({"Aurora.Render", {}});
+            modules.RegisterModule({"SandboxModule", {"Aurora.Render"}});
             modules.TopoSort();
             modules.LoadModules({});
             StartArguments args;

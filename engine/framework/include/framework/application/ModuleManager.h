@@ -7,6 +7,7 @@
 #include <core/std/Graph.h>
 #include <core/util/DynamicModule.h>
 #include <framework/interface/IModule.h>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -31,10 +32,9 @@ namespace sky {
         bool                       RegisterModule(const ModuleInfo &info);
         static std::optional<bool> GetBuildOption(std::string_view option);
 
-        // Register a module that is compiled into the host (static bundling); it is
-        // loaded/started alongside dynamic modules but never dlopen'd. `id` is the
-        // module's target name (the same name used in the module configs).
-        bool AddStaticModule(const std::string &id, std::unique_ptr<IModule> module);
+        using StaticModuleFactory = std::function<std::unique_ptr<IModule>()>;
+        // Availability does not activate a module. RegisterModule selects it or a dependent root.
+        bool AddStaticModule(const std::string &id, StaticModuleFactory factory);
 
         bool TopoSort();
 
@@ -81,5 +81,6 @@ namespace sky {
 
         std::unordered_map<std::string, std::unique_ptr<DynamicModule>> dynLibs;
         std::unordered_map<std::string, std::unique_ptr<IModule>>       modules;
+        std::unordered_map<std::string, StaticModuleFactory>            staticFactories;
     };
 } // namespace sky

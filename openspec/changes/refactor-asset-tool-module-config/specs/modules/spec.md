@@ -2,7 +2,7 @@
 
 ### Requirement: Hosts share module manifest parsing
 
-Framework SHALL provide a reusable parser for the existing modules array with name, dependencies and optional buildOption fields. It SHALL use existing ModuleInfo data and the generated build-option lookup, return explicit diagnostics, and validate the entire bounded manifest before the host registers its selection. It SHALL reject malformed fields, duplicate module declarations, unknown build options and conflicting or cyclic dependency selections. Implicit metadata dependency nodes supported by ModuleInfo SHALL remain valid. File lookup and host-specific settings SHALL remain host responsibilities.
+Framework SHALL provide a reusable parser for the existing modules array with name, dependencies and optional buildOption fields. Explicit optionalDependencies SHALL reference a declared module, omit its ordering edge only when that module is disabled, and reject unknown optional dependencies. It SHALL use existing ModuleInfo data and the generated build-option lookup, return explicit diagnostics, and validate the entire bounded manifest before the host registers its selection. It SHALL reject malformed fields, duplicate module declarations, unknown build options and conflicting or cyclic dependency selections. Implicit metadata dependency nodes supported by ModuleInfo SHALL remain valid. File lookup and host-specific settings SHALL remain host responsibilities.
 
 #### Scenario: Invalid later entry
 - **WHEN** a later module entry is malformed after earlier entries were parsed
@@ -69,3 +69,18 @@ Configuration-driven registration SHALL retain ModuleManager's unique metadata o
 - **WHEN** an enabled module's DLL cannot be loaded
 - **THEN** the host SHALL return startup failure with the module identity and reason
 - **AND** initialized resources SHALL follow the existing shutdown path
+
+#### Scenario: Optional editor integration is disabled
+- **WHEN** Recast is disabled and SandboxModule declares RecastNavigation.Editor as an optional dependency
+- **THEN** the editor host remains selected without that edge
+- **AND** required dependencies on disabled modules and unknown optional module names still fail parsing
+
+#### Scenario: Static factory is available but not selected
+- **WHEN** a host registers a static module factory without selecting its module or a dependent root
+- **THEN** the factory SHALL NOT run and the module SHALL NOT register metadata or receive lifecycle callbacks
+- **AND** a selected module can retry initialization or restart using the same retained factory
+
+#### Scenario: Non-development AssetTool
+- **WHEN** AssetTool is built without SKY_DEVELOP
+- **THEN** only its audit closure is built and activated
+- **AND** cook, worker and migration modes fail explicitly without attempting unavailable builders

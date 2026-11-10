@@ -2,11 +2,12 @@
 // Created on 2026/09/19.
 //
 
+#include <ui/UIPaintContext.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <ui/UIGeometry.h>
-#include <ui/UIPaintContext.h>
 #include <utility>
 
 namespace sky::ui {
@@ -124,19 +125,7 @@ namespace sky::ui {
         for (uint32_t i = 1; i + 1 < count; ++i)
             drawData.indices.insert(drawData.indices.end(), {base, base + i, base + i + 1});
         const auto indexCount = static_cast<uint32_t>((count - 2) * 3);
-        if (!drawData.commands.empty()) {
-            auto &last = drawData.commands.back();
-            if (!last.shape && last.textureId == UI_INVALID_TEXTURE && last.clip.left == clip.left && last.clip.top == clip.top &&
-                last.clip.right == clip.right && last.clip.bottom == clip.bottom) {
-                last.indexCount += indexCount;
-                return;
-            }
-        }
-        UIDrawCmd command{};
-        command.indexOffset = indexBase;
-        command.indexCount  = indexCount;
-        command.clip        = clip;
-        drawData.commands.push_back(command);
+        AppendDrawCommand(indexBase, indexCount, UI_INVALID_TEXTURE, false);
     }
 
     void UIPaintContext::AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color)
@@ -154,9 +143,32 @@ namespace sky::ui {
         if (opacity >= 1.0f) {
             return color;
         }
-        const uint32_t alpha = (color >> 24) & 0xFF;
-        const auto scaled = static_cast<uint32_t>(static_cast<float>(alpha) * opacity + 0.5f);
+        const uint32_t alpha  = (color >> 24) & 0xFF;
+        const auto     scaled = static_cast<uint32_t>(static_cast<float>(alpha) * opacity + 0.5f);
         return (color & 0x00FFFFFF) | (scaled << 24);
+    }
+
+    void UIPaintContext::AppendDrawCommand(uint32_t indexOffset, uint32_t indexCount, UITextureId textureId, bool shape)
+    {
+        const auto &clip = clipStack.back();
+        // Merge only adjacent draws; each vertex already carries its own shape parameters.
+        if (!drawData.commands.empty()) {
+            auto      &last = drawData.commands.back();
+            const bool sameClip =
+                last.clip.left == clip.left && last.clip.top == clip.top && last.clip.right == clip.right && last.clip.bottom == clip.bottom;
+            if (last.textureId == textureId && last.shape == shape && sameClip &&
+                static_cast<uint64_t>(last.indexOffset) + last.indexCount == indexOffset) {
+                last.indexCount += indexCount;
+                return;
+            }
+        }
+        UIDrawCmd command;
+        command.indexOffset = indexOffset;
+        command.indexCount  = indexCount;
+        command.clip        = clip;
+        command.textureId   = textureId;
+        command.shape       = shape;
+        drawData.commands.push_back(command);
     }
 
     void UIPaintContext::AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius)
@@ -169,12 +181,12 @@ namespace sky::ui {
         const auto base      = static_cast<uint32_t>(drawData.vertices.size());
         const auto indexBase = static_cast<uint32_t>(drawData.indices.size());
 
-        const uint32_t shaded = ApplyOpacity(color);
-        const bool shape = radius >= 0.0f;
-        const float centerX = (rect.left + rect.right) * 0.5f;
-        const float centerY = (rect.top + rect.bottom) * 0.5f;
-        const float halfX = (rect.right - rect.left) * 0.5f;
-        const float halfY = (rect.bottom - rect.top) * 0.5f;
+        const uint32_t shaded  = ApplyOpacity(color);
+        const bool     shape   = radius >= 0.0f;
+        const float    centerX = (rect.left + rect.right) * 0.5f;
+        const float    centerY = (rect.top + rect.bottom) * 0.5f;
+        const float    halfX   = (rect.right - rect.left) * 0.5f;
+        const float    halfY   = (rect.bottom - rect.top) * 0.5f;
         // Shape shaders use untransformed layout coordinates for their SDF;
         // textured draws retain their normalized texture coordinates.
         const UIRect &drawUv = shape ? rect : uv;
@@ -194,16 +206,16 @@ namespace sky::ui {
 
         const auto makeVertex = [&](float x, float y, float u, float v) {
             UIVertex vert;
-            vert.x = x;
-            vert.y = y;
-            vert.u = u;
-            vert.v = v;
-            vert.color = shaded;
+            vert.x            = x;
+            vert.y            = y;
+            vert.u            = u;
+            vert.v            = v;
+            vert.color        = shaded;
             vert.roundCenterX = centerX;
             vert.roundCenterY = centerY;
-            vert.roundHalfX = halfX;
-            vert.roundHalfY = halfY;
-            vert.roundRadius = radius < 0.0f ? 0.0f : radius;
+            vert.roundHalfX   = halfX;
+            vert.roundHalfY   = halfY;
+            vert.roundRadius  = radius < 0.0f ? 0.0f : radius;
             return vert;
         };
         drawData.vertices.push_back(makeVertex(x0, y0, drawUv.left, drawUv.top));
@@ -218,24 +230,61 @@ namespace sky::ui {
         drawData.indices.push_back(base + 2);
         drawData.indices.push_back(base + 3);
 
-        if (!shape && !drawData.commands.empty()) {
-            const UIDrawCmd &last = drawData.commands.back();
-            const bool sameTexture = last.textureId == textureId;
-            const bool sameClip = last.clip.left == clip.left && last.clip.top == clip.top &&
-                                  last.clip.right == clip.right && last.clip.bottom == clip.bottom;
-            if (sameTexture && sameClip && !last.shape) {
-                drawData.commands.back().indexCount += 6;
-                return;
-            }
-        }
+        AppendDrawCommand(indexBase, 6, textureId, shape);
+    }
 
-        UIDrawCmd cmd;
-        cmd.indexOffset = indexBase;
-        cmd.indexCount  = 6;
-        cmd.clip        = clip;
-        cmd.textureId   = textureId;
-        cmd.shape       = shape;
-        drawData.commands.push_back(cmd);
+    void UIPaintContext::AddLine(float x0, float y0, float x1, float y1, float thickness, uint32_t color)
+    {
+        const float radius = std::max(thickness * 0.5f, 0.5f);
+        const float dx = x1 - x0, dy = y1 - y0;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        const float half   = length * 0.5f;
+        const float dirX   = length > 1e-5f ? dx / length : 1.f;
+        const float dirY   = length > 1e-5f ? dy / length : 0.f;
+        const float nrmX = -dirY, nrmY = dirX;
+        const float cx = (x0 + x1) * 0.5f, cy = (y0 + y1) * 0.5f;
+        const float extX = half + radius;
+
+        const float wx[4] = {cx + dirX * extX + nrmX * radius, cx + dirX * extX - nrmX * radius, cx - dirX * extX - nrmX * radius,
+                             cx - dirX * extX + nrmX * radius};
+        const float wy[4] = {cy + dirY * extX + nrmY * radius, cy + dirY * extX - nrmY * radius, cy - dirY * extX - nrmY * radius,
+                             cy - dirY * extX + nrmY * radius};
+        const float lx[4] = {extX, extX, -extX, -extX};
+        const float ly[4] = {radius, -radius, -radius, radius};
+
+        const UIRect  bounds{std::min({wx[0], wx[1], wx[2], wx[3]}), std::min({wy[0], wy[1], wy[2], wy[3]}), std::max({wx[0], wx[1], wx[2], wx[3]}),
+                            std::max({wy[0], wy[1], wy[2], wy[3]})};
+        const UIRect &clip = clipStack.back();
+        if (UIRect::Intersect(TransformRect(bounds, transform), clip).IsEmpty())
+            return;
+        const auto     base      = static_cast<uint32_t>(drawData.vertices.size());
+        const auto     indexBase = static_cast<uint32_t>(drawData.indices.size());
+        const uint32_t shaded    = ApplyOpacity(color);
+        for (int i = 0; i < 4; ++i) {
+            float x = wx[i], y = wy[i];
+            transform.Apply(x, y);
+            UIVertex vert;
+            vert.x = x;
+            vert.y = y;
+            // Shape path: u/v carry the capsule-local position and the center stays zero.
+            vert.u            = lx[i];
+            vert.v            = ly[i];
+            vert.color        = shaded;
+            vert.roundCenterX = 0.f;
+            vert.roundCenterY = 0.f;
+            vert.roundHalfX   = extX;
+            vert.roundHalfY   = radius;
+            vert.roundRadius  = radius;
+            drawData.vertices.push_back(vert);
+        }
+        drawData.indices.push_back(base + 0);
+        drawData.indices.push_back(base + 1);
+        drawData.indices.push_back(base + 2);
+        drawData.indices.push_back(base + 0);
+        drawData.indices.push_back(base + 2);
+        drawData.indices.push_back(base + 3);
+
+        AppendDrawCommand(indexBase, 6, UI_INVALID_TEXTURE, true);
     }
 
 } // namespace sky::ui

@@ -3,7 +3,9 @@
     {
       "name": "JoltPhysics.Builder",
       "buildOption": "SKY_BUILD_JOLT",
-      "dependencies": []
+      "dependencies": [
+        "JoltPhysicsModule"
+      ]
     },
     {
       "name": "Content.Module",
@@ -52,17 +54,21 @@
         "Aurora.ShaderCompiler",
         "Aurora.Render.Editor",
         "Content.Views",
-        "Content.Builder.Module",
+        "Content.Builder.Module"
+      ],
+      "optionalDependencies": [
         "RecastNavigation.Editor"
       ]
     },
     {
       "name": "JoltPhysicsModule",
-      "dependencies": []
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_JOLT"
     },
     {
       "name": "JoltPhysicsRenderModule",
-      "dependencies": []
+      "dependencies": [],
+      "buildOption": "SKY_BUILD_JOLT"
     },
     {
       "name": "RecastNavigation",
@@ -144,6 +150,22 @@
         "Particle.Assets",
         "Particle.World",
         "Particle.Render"
+      ]
+    },
+    {
+      "name": "Curve.Assets",
+      "dependencies": []
+    },
+    {
+      "name": "Curve.Builder",
+      "dependencies": [
+        "Curve.Assets"
+      ]
+    },
+    {
+      "name": "Curve.Editor",
+      "dependencies": [
+        "Curve.Assets"
       ]
     }
   ]

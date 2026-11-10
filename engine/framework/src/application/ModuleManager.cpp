@@ -94,7 +94,7 @@ namespace sky {
         if (phase != Phase::Idle)
             return false;
         sortedContainer = dependencyGraph.TopologicalSort();
-        return true;
+        return !dependencyGraph.IsCyclic();
     }
 
     static IModule *FindModule(const std::unordered_map<std::string, std::unique_ptr<IModule>> &modules, const std::string &name)
@@ -135,21 +135,17 @@ namespace sky {
         return true;
     }
 
-    bool ModuleManager::AddStaticModule(const std::string &id, std::unique_ptr<IModule> module)
+    bool ModuleManager::AddStaticModule(const std::string &id, StaticModuleFactory factory)
     {
-        if (phase != Phase::Idle || !module) {
-            LOG_E(TAG, "Cannot add an empty static module or register during lifecycle callbacks");
+        if (phase != Phase::Idle || id.empty() || !factory) {
+            LOG_E(TAG, "Cannot add an empty static factory or register during lifecycle callbacks");
             return false;
         }
-        // Duplicate static registration (e.g. the same module registered by two
-        // entries): keep the first deterministically and report it.
-        if (modules.find(id) != modules.end()) {
+        if (modules.contains(id) || staticFactories.contains(id)) {
             LOG_W(TAG, "Static module '%s' already registered; ignoring duplicate", id.c_str());
             return false;
         }
-        // Ensure the id participates in the load/start order (same graph as dynamic).
-        RegisterModule(ModuleInfo{id, {}});
-        modules.emplace(id, std::move(module));
+        staticFactories.emplace(id, std::move(factory));
         return true;
     }
 
@@ -175,16 +171,18 @@ namespace sky {
                         return;
                     }
                 }
-                // Statically bundled (compiled-in registration): no dlopen, just Init.
-                if (auto staticIt = modules.find(moduleName); staticIt != modules.end()) {
+                if (const auto factory = staticFactories.find(moduleName); factory != staticFactories.end()) {
                     LOG_I(TAG, "Load Module (static) : %s", moduleName.c_str());
-                    ModuleDefinitions::Get()->Resolve({moduleName, dependencies[moduleName]}, *staticIt->second);
-                    if (!staticIt->second->Init(args)) {
+                    auto module = factory->second();
+                    if (module)
+                        ModuleDefinitions::Get()->Resolve({moduleName, dependencies[moduleName]}, *module);
+                    if (!module || !module->Init(args)) {
                         succeeded = false;
                         LOG_E(TAG, "Load Module (static) : %s failed", moduleName.c_str());
-                        staticIt->second->Shutdown();
-                        modules.erase(staticIt);
+                        if (module)
+                            module->Shutdown();
                     } else {
+                        modules.emplace(moduleName, std::move(module));
                         initializedModules.insert(moduleName);
                     }
                     return;

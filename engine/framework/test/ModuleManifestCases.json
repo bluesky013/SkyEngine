@@ -1,0 +1,231 @@
+[
+  {
+    "name": "empty audit",
+    "manifest": {
+      "modules": []
+    },
+    "expected": []
+  },
+  {
+    "name": "implicit metadata",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "dependencies": [
+            "Metadata"
+          ]
+        }
+      ]
+    },
+    "expected": [
+      "Consumer",
+      "Metadata"
+    ]
+  },
+  {
+    "name": "disabled module",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Provider",
+          "buildOption": "Disabled"
+        },
+        {
+          "name": "Consumer",
+          "buildOption": "Enabled"
+        }
+      ]
+    },
+    "expected": [
+      "Consumer"
+    ]
+  },
+  {
+    "name": "optional disabled",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Provider",
+          "buildOption": "Disabled"
+        },
+        {
+          "name": "Consumer",
+          "optionalDependencies": [
+            "Provider"
+          ]
+        }
+      ]
+    },
+    "expected": [
+      "Consumer"
+    ]
+  },
+  {
+    "name": "optional enabled",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Provider",
+          "buildOption": "Enabled"
+        },
+        {
+          "name": "Consumer",
+          "optionalDependencies": [
+            "Provider"
+          ]
+        }
+      ]
+    },
+    "expected": [
+      "Consumer",
+      "Provider"
+    ]
+  },
+  {
+    "name": "required disabled",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Provider",
+          "buildOption": "Disabled"
+        },
+        {
+          "name": "Consumer",
+          "dependencies": [
+            "Provider"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown optional",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "optionalDependencies": [
+            "Provider"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "dependencies": [
+            "Provider"
+          ]
+        },
+        {
+          "name": "Provider",
+          "dependencies": [
+            "Consumer"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate module",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer"
+        },
+        {
+          "name": "Consumer"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown option",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "buildOption": "Unknown"
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid name type",
+    "manifest": {
+      "modules": [
+        {
+          "name": 42
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid dependency type",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "dependencies": [
+            42
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid dependency array",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "dependencies": {}
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate edge",
+    "manifest": {
+      "modules": [
+        {
+          "name": "Consumer",
+          "dependencies": [
+            "Provider"
+          ],
+          "optionalDependencies": [
+            "Provider"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid modules array",
+    "manifest": {
+      "modules": {}
+    }
+  },
+  {
+    "name": "missing modules",
+    "manifest": {}
+  },
+  {
+    "name": "boolean-like module cycle",
+    "manifest": {
+      "modules": [
+        {
+          "name": "OFF",
+          "dependencies": [
+            "OFF"
+          ]
+        }
+      ]
+    }
+  }
+]

@@ -10,7 +10,7 @@ sky_add_library(TARGET Particle STATIC
         src
     PUBLIC_INC
         include
-    LINK_LIBS
+    PUBLIC_LINK_LIBS
         Core
     INSTALL_DIR
         include

@@ -28,27 +28,42 @@ namespace sky::ui {
 
         void AddRect(const UIRect &rect, uint32_t color);
         void AddTriangle(float x0, float y0, float x1, float y1, float x2, float y2, uint32_t color);
+        // Anti-aliased capsule in layout coordinates; vertices carry capsule-local SDF parameters.
+        void AddLine(float x0, float y0, float x1, float y1, float thickness, uint32_t color);
         void AddTexturedQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color);
         // Anti-aliased rounded box drawn analytically (fs_round).
         void AddRoundedRect(const UIRect &rect, uint32_t color, float radius);
 
-        const UIDrawData &GetDrawData() const { return drawData; }
-        const UIRect &CurrentClip() const { return clipStack.back(); }
+        const UIDrawData &GetDrawData() const
+        {
+            return drawData;
+        }
+        const UIRect &CurrentClip() const
+        {
+            return clipStack.back();
+        }
 
-        void SetTheme(const UITheme *value) { theme = value; }
-        const UITheme *GetTheme() const { return theme; }
+        void SetTheme(const UITheme *value)
+        {
+            theme = value;
+        }
+        const UITheme *GetTheme() const
+        {
+            return theme;
+        }
 
     private:
-        void AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius);
+        void     AddQuad(const UIRect &rect, const UIRect &uv, UITextureId textureId, uint32_t color, float radius);
+        void     AppendDrawCommand(uint32_t indexOffset, uint32_t indexCount, UITextureId textureId, bool shape);
         uint32_t ApplyOpacity(uint32_t color) const;
 
-        UIDrawData drawData;
-        std::vector<UIRect> clipStack;
-        UI2DTransform transform;
+        UIDrawData                 drawData;
+        std::vector<UIRect>        clipStack;
+        UI2DTransform              transform;
         std::vector<UI2DTransform> transformStack;
-        float opacity = 1.0f;
-        std::vector<float> opacityStack;
-        const UITheme *theme = nullptr;
+        float                      opacity = 1.0f;
+        std::vector<float>         opacityStack;
+        const UITheme             *theme = nullptr;
     };
 
 } // namespace sky::ui

@@ -6,7 +6,7 @@ sky_add_library(TARGET Particle.Assets.Static STATIC
         ${SRC_FILES}
     PUBLIC_INC
         include
-    LINK_LIBS
+    PUBLIC_LINK_LIBS
         Particle
         Framework
 )

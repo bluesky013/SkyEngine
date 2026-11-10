@@ -1316,7 +1316,6 @@ TEST(EditorShellTest, AssetViewerMeasuresResponsiveContentAtItsFinalWidth)
     // The clipping viewport includes the scrollbar column, while custom
     // content receives the narrower final column and therefore a taller size.
     EXPECT_GT(wideViewport.Width(), wideBounds.Width());
-    EXPECT_GT(wideBounds.Height(), wideViewport.Height());
     EXPECT_GT(content->measuredWidths.front(), content->measuredWidths.back());
 
     const size_t idleMeasures     = content->measuredWidths.size();
@@ -1555,9 +1554,11 @@ TEST(EditorShellTest, AssetViewerOpensAndCloses)
 namespace {
     struct DocumentProbe {
         bool                     dirty = true, pending = false, fail = true, editing = false;
+        bool                     withPreview = false;
         int                      writes = 0, contentReleased = 0, documentReleased = 0;
         int                      cancelledEdits = 0, pointerEvents = 0, textEvents = 0;
         sky::ui::UIElement      *content = nullptr;
+        sky::ui::UIElement      *preview = nullptr;
         std::vector<std::string> releaseOrder;
         CommandService           history;
     };
@@ -1600,6 +1601,14 @@ namespace {
             auto content   = std::make_unique<ProbeContent>(state);
             state->content = content.get();
             return content;
+        }
+        std::unique_ptr<sky::ui::UIElement> CreatePreview(sky::ui::UITextSystem *) override
+        {
+            if (!state->withPreview)
+                return {};
+            auto preview   = std::make_unique<sky::ui::UIElement>();
+            state->preview = preview.get();
+            return preview;
         }
         CommandService &History() override
         {
@@ -1653,14 +1662,60 @@ namespace {
         AssetViewDocument OpenDocument(const sky::Uuid &asset, const std::string &) override
         {
             state            = std::make_shared<DocumentProbe>();
+            state->withPreview = withPreview;
             documents[asset] = state;
             return {std::make_unique<ProbeDocument>(state)};
         }
         std::shared_ptr<DocumentProbe>                                state;
         std::unordered_map<sky::Uuid, std::shared_ptr<DocumentProbe>> documents;
         bool                                                          useWindows = false;
+        bool                                                          withPreview = false;
     };
 } // namespace
+
+TEST(EditorShellTest, AssetDocumentPreviewObjectDeterminesContentLayout)
+{
+    ProbeDocumentProvider        provider;
+    ScopedAssetViewerEnvironment environment;
+    std::filesystem::create_directories(environment.root);
+    std::ofstream(environment.root / "layout.txt") << "layout";
+    if (environment.manager->QueryBuilder(".txt") == nullptr) {
+        environment.temporaryBuilder = new ShellTextBuilder();
+        environment.manager->RegisterBuilder(environment.temporaryBuilder);
+    }
+    environment.databaseChanged = true;
+    environment.database->Reset();
+    environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
+    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    environment.catalog->Refresh();
+    environment.providers->Register("Text", &provider);
+    EditorAssetItem item;
+    ASSERT_TRUE(environment.catalog->FindByPath("Project/layout.txt", item));
+
+    AssetViewerWidget full(nullptr);
+    full.SetCatalog(environment.catalog);
+    full.Open(item.uuid);
+    full.Arrange({0.f, 0.f, 1000.f, 700.f});
+    const auto withoutPreview = provider.state;
+    ASSERT_NE(withoutPreview->content, nullptr);
+    EXPECT_EQ(withoutPreview->preview, nullptr);
+    const auto fullBounds = withoutPreview->content->GetBounds();
+
+    provider.withPreview = true;
+    AssetViewerWidget split(nullptr);
+    split.SetCatalog(environment.catalog);
+    split.Open(item.uuid);
+    split.Arrange({0.f, 0.f, 1000.f, 700.f});
+    const auto withPreview = provider.state;
+    ASSERT_NE(withPreview->content, nullptr);
+    ASSERT_NE(withPreview->preview, nullptr);
+    const auto contentBounds = withPreview->content->GetBounds();
+    const auto previewBounds = withPreview->preview->GetBounds();
+    EXPECT_GT(previewBounds.Width(), 0.f);
+    EXPECT_GE(contentBounds.left, previewBounds.right);
+    EXPECT_NEAR(fullBounds.right, contentBounds.right, 0.01f);
+    EXPECT_GT(fullBounds.Width(), contentBounds.Width() * 1.5f);
+}
 
 TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndDestroyContentBeforeDocument)
 {

@@ -79,7 +79,7 @@ namespace {
     private:
         bool LoadConfigs() override
         {
-            moduleManager->AddStaticModule("StartupModuleProbe", std::make_unique<StartupModuleProbe>(events));
+            moduleManager->AddStaticModule("StartupModuleProbe", [&] { return std::make_unique<StartupModuleProbe>(events); });
             moduleManager->RegisterModule({"StartupModuleProbe", {}});
             return true;
         }
@@ -157,7 +157,7 @@ namespace {
         TeardownApplication(std::atomic_bool &done, std::atomic_bool &early)
         {
             moduleManager = std::make_unique<sky::ModuleManager>();
-            moduleManager->AddStaticModule("ShutdownProbe", std::make_unique<ShutdownProbe>(done, early));
+            moduleManager->AddStaticModule("ShutdownProbe", [&] { return std::make_unique<ShutdownProbe>(done, early); });
             moduleManager->RegisterModule({"ShutdownProbe", {}});
             moduleManager->TopoSort();
             moduleManager->LoadModules({});
@@ -182,7 +182,8 @@ namespace {
                 std::vector<int> &events;
             };
             moduleManager = std::make_unique<sky::ModuleManager>();
-            moduleManager->AddStaticModule("OrderedShutdownProbe", std::make_unique<Probe>(events));
+            moduleManager->AddStaticModule("OrderedShutdownProbe", [&] { return std::make_unique<Probe>(events); });
+            moduleManager->RegisterModule({"OrderedShutdownProbe", {}});
             moduleManager->TopoSort();
             moduleManager->LoadModules({});
         }
@@ -237,7 +238,8 @@ namespace {
                 }
                 ThreadSessionTrace &trace;
             };
-            moduleManager->AddStaticModule("ThreadSessionModule", std::make_unique<Module>(trace));
+            moduleManager->AddStaticModule("ThreadSessionModule", [&] { return std::make_unique<Module>(trace); });
+            moduleManager->RegisterModule({"ThreadSessionModule", {}});
             return true;
         }
         ThreadSessionTrace &trace;
@@ -307,6 +309,55 @@ namespace {
         return firstId != secondId && firstResult == 0 && secondResult == 0 ? 0 : 15;
     }
 
+    int RunCyclicModuleStartup()
+    {
+        struct State {
+            bool     serviceActive = false;
+            bool     completed     = false;
+            bool     factoryCalled = false;
+            uint32_t shutdowns     = 0;
+        } state;
+        class CyclicApplication final : public sky::Application {
+        public:
+            explicit CyclicApplication(State &state) : state(state)
+            {
+            }
+
+        private:
+            bool LoadConfigs() override
+            {
+                return moduleManager->AddStaticModule("CycleFirst", [this] {
+                           state.factoryCalled = true;
+                           return std::make_unique<sky::IModule>();
+                       }) &&
+                       moduleManager->RegisterModule({"CycleFirst", {"CycleSecond"}}) &&
+                       moduleManager->RegisterModule({"CycleSecond", {"CycleFirst"}});
+            }
+            bool PreInit() override
+            {
+                state.serviceActive = true;
+                sky::AssetExecutor::Get()->DependentAsync([this] {
+                    sky::ThreadDispatcher::Get()->PostToMain([this] { state.completed = true; });
+                });
+                return true;
+            }
+            void OnShutdown() override
+            {
+                state.serviceActive = false;
+                ++state.shutdowns;
+            }
+            State &state;
+        };
+        {
+            CyclicApplication application(state);
+            if (application.Init(0, nullptr) || state.serviceActive || !state.completed || state.factoryCalled || state.shutdowns != 1) {
+                return 16;
+            }
+            application.Shutdown();
+        }
+        return state.shutdowns == 1 ? 0 : 17;
+    }
+
 } // namespace
 
 std::optional<int> RunApplicationStartupProcessHelper(int argc, char **argv)
@@ -317,6 +368,9 @@ std::optional<int> RunApplicationStartupProcessHelper(int argc, char **argv)
     const std::string mode = argv[2];
     if (mode == "thread-restart") {
         return RunThreadedApplicationSessions();
+    }
+    if (mode == "cycle") {
+        return RunCyclicModuleStartup();
     }
     if (mode != "success" && mode != "failure" && mode != "restart") {
         return 2;
@@ -395,6 +449,11 @@ TEST(ApplicationShutdownTest, RuntimeStartupDataSeesServicesRegisteredByModuleSt
 TEST(ApplicationShutdownTest, StartupDataFailureReleasesWorldBeforeModulesAndSkipsPostInit)
 {
     CheckStartupProcess("failure");
+}
+
+TEST(ApplicationShutdownTest, CyclicModulesReleasePreInitServicesAndDrainCallbacksBeforeReturning)
+{
+    CheckStartupProcess("cycle");
 }
 
 TEST(ApplicationShutdownTest, RecreatedApplicationsReuseBuiltinWorldMetadataAndFactories)

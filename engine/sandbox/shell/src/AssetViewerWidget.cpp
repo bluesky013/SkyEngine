@@ -16,7 +16,6 @@ extern "C" __declspec(dllimport) void *__stdcall ShellExecuteW(
 
 #include <editor/core/EditorCore.h>
 #include <editor/core/asset/AssetCookService.h>
-#include <editor/core/asset/AssetPreviewProvider.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorScopeStack.h>
 #include <editor/core/input/KeyModifiers.h>
@@ -743,7 +742,7 @@ namespace sky::editor {
 
     sky::ui::UIRect AssetViewerWidget::RightRect(const sky::ui::UIRect &content) const
     {
-        const float previewW = (content.right - content.left) * 0.38f;
+        const float previewW = customPreview != nullptr ? (content.right - content.left) * 0.38f : 0.f;
         return {content.left + previewW + kPad, content.top + kPad, content.right - kPad, content.bottom - kPad};
     }
 
@@ -925,17 +924,7 @@ namespace sky::editor {
         const sky::ui::UIRect panel = PanelRect();
         skin.DrawPanel(context, panel, assetName.empty() ? std::string("Asset Viewer") : assetName, true);
         const sky::ui::UIRect body     = bodyArea->GetBounds();
-        const float           previewW = body.Width() * 0.38f;
-        const sky::ui::UIRect preview{body.left + kPad, body.top + kPad, body.left + previewW, body.bottom - kPad};
         const sky::ui::UIRect right = RightRect(body);
-
-        if (!customPreview) {
-            uc::RoundedField(context, preview, uc::color::Section, uc::color::BorderSoft, 4.0f);
-            IAssetPreviewProvider *provider   = AssetPreviewProviderRegistry::Get()->GetProvider();
-            const bool             hasPreview = provider != nullptr && provider->GetPreview(asset, assetType);
-            uc::Text(context, hasPreview ? "preview (reserved)" : "no preview", kTextSize, preview, uc::color::TextDisabled, textSystem,
-                     uc::HAlign::Center, uc::VAlign::Middle);
-        }
 
         uc::Text(context, assetName + "  [" + assetType + "]", kTextSize, {right.left, right.top, right.right, right.top + kRowHeight},
                  uc::color::Text, textSystem);

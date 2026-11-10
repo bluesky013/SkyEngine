@@ -65,6 +65,7 @@
     "core-ecs": "core",
     "core-ecs-view": "core",
     "core-graph": "core",
+    "curve": "curve",
     "cvar-registry": "console",
     "derived-data-cache": "assets",
     "editor-application": "editor-core",
@@ -311,6 +312,13 @@
       "spec": "specs/core/spec.md",
       "sourceCapabilities": 4,
       "requirements": 14
+    },
+    "curve": {
+      "spec": "specs/curve/spec.md",
+      "sourceCapabilities": 1,
+      "requirements": 9,
+      "status": "pending-archive",
+      "change": "add-curve-asset"
     },
     "editor-assets": {
       "spec": "specs/editor-assets/spec.md",

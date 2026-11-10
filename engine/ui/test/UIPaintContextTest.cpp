@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <ui/UIPaintContext.h>
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -291,4 +292,150 @@ TEST(UIPaintContextTest, RoundedShapeCarriesLayoutCoordinatesThroughAffineTransf
     EXPECT_FLOAT_EQ(data.vertices[4].v, 0.5f);
     EXPECT_FLOAT_EQ(data.vertices[6].u, 0.75f);
     EXPECT_FLOAT_EQ(data.vertices[6].v, 1.0f);
+}
+
+TEST(UIPaintContextTest, RectanglesAndTrianglesShareOneContiguousUntexturedBatch)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 100, 100});
+    paint.AddRect({10, 10, 20, 20}, 0xFF112233);
+    paint.AddTriangle(30, 30, 40, 30, 30, 40, 0xFF445566);
+    paint.AddRect({50, 50, 60, 60}, 0xFF778899);
+
+    const auto &data = paint.GetDrawData();
+    ASSERT_EQ(data.commands.size(), 1u);
+    EXPECT_FALSE(data.commands.front().shape);
+    EXPECT_EQ(data.commands.front().indexOffset, 0u);
+    EXPECT_EQ(data.commands.front().indexCount, 15u);
+    ASSERT_EQ(data.vertices.size(), 11u);
+    EXPECT_EQ(data.vertices[0].color, 0xFF112233u);
+    EXPECT_EQ(data.vertices[4].color, 0xFF445566u);
+    EXPECT_EQ(data.vertices[7].color, 0xFF778899u);
+    EXPECT_EQ(data.indices, (std::vector<uint32_t>{0, 1, 2, 0, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 10}));
+}
+
+TEST(UIPaintContextTest, FourChannelsOfNinetySixLinesShareOneShapeBatch)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 500, 500});
+    for (uint32_t channel = 0; channel < 4; ++channel) {
+        const float y = 10.f + static_cast<float>(channel) * 20.f;
+        for (uint32_t segment = 0; segment < 96; ++segment) {
+            const float x = 10.f + static_cast<float>(segment);
+            paint.AddLine(x, y, x + 1.f, y, static_cast<float>(channel + 1), 0xFF000000u | channel);
+        }
+    }
+    const auto &data = paint.GetDrawData();
+    ASSERT_EQ(data.commands.size(), 1u);
+    EXPECT_TRUE(data.commands.front().shape);
+    EXPECT_EQ(data.commands.front().textureId, UI_INVALID_TEXTURE);
+    EXPECT_EQ(data.commands.front().indexOffset, 0u);
+    EXPECT_EQ(data.commands.front().indexCount, 4u * 96u * 6u);
+    ASSERT_EQ(data.vertices.size(), 4u * 96u * 4u);
+    ASSERT_EQ(data.indices.size(), 4u * 96u * 6u);
+
+    const std::array<uint32_t, 6> quadIndices{0, 1, 2, 0, 2, 3};
+    for (uint32_t line = 0; line < 4u * 96u; ++line) {
+        const uint32_t             channel = line / 96;
+        const float                radius  = static_cast<float>(channel + 1) * 0.5f;
+        const float                extent  = 0.5f + radius;
+        const float                x       = 10.f + static_cast<float>(line % 96);
+        const float                y       = 10.f + static_cast<float>(channel) * 20.f;
+        const std::array<float, 4> localX{extent, extent, -extent, -extent};
+        const std::array<float, 4> localY{radius, -radius, -radius, radius};
+        for (uint32_t corner = 0; corner < 4; ++corner) {
+            const auto &vertex = data.vertices[line * 4 + corner];
+            EXPECT_FLOAT_EQ(vertex.x, x + 0.5f + localX[corner]);
+            EXPECT_FLOAT_EQ(vertex.y, y + localY[corner]);
+            EXPECT_FLOAT_EQ(vertex.u, localX[corner]);
+            EXPECT_FLOAT_EQ(vertex.v, localY[corner]);
+            EXPECT_FLOAT_EQ(vertex.roundCenterX, 0.f);
+            EXPECT_FLOAT_EQ(vertex.roundCenterY, 0.f);
+            EXPECT_FLOAT_EQ(vertex.roundHalfX, extent);
+            EXPECT_FLOAT_EQ(vertex.roundHalfY, radius);
+            EXPECT_FLOAT_EQ(vertex.roundRadius, radius);
+            EXPECT_EQ(vertex.color, 0xFF000000u | channel);
+        }
+        for (uint32_t index = 0; index < quadIndices.size(); ++index)
+            EXPECT_EQ(data.indices[line * 6 + index], line * 4 + quadIndices[index]);
+    }
+}
+
+TEST(UIPaintContextTest, ShapeParametersStayPerVertexWhenRoundedRectanglesAndLinesMerge)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 200, 200});
+    paint.AddRoundedRect({10, 20, 30, 60}, 0xFF112233, 3.f);
+    paint.PushOpacity(0.5f);
+    paint.AddLine(50, 50, 70, 50, 8.f, 0xFF445566);
+    paint.PopOpacity();
+    paint.AddRoundedRect({80, 90, 120, 110}, 0xFF778899, 9.f);
+
+    const auto &data = paint.GetDrawData();
+    ASSERT_EQ(data.commands.size(), 1u);
+    EXPECT_TRUE(data.commands.front().shape);
+    EXPECT_EQ(data.commands.front().indexCount, 18u);
+    ASSERT_EQ(data.vertices.size(), 12u);
+    const auto &first = data.vertices[0];
+    EXPECT_FLOAT_EQ(first.roundCenterX, 20.f);
+    EXPECT_FLOAT_EQ(first.roundCenterY, 40.f);
+    EXPECT_FLOAT_EQ(first.roundHalfX, 10.f);
+    EXPECT_FLOAT_EQ(first.roundHalfY, 20.f);
+    EXPECT_FLOAT_EQ(first.roundRadius, 3.f);
+    EXPECT_EQ(first.color, 0xFF112233u);
+    const auto &line = data.vertices[4];
+    EXPECT_FLOAT_EQ(line.roundCenterX, 0.f);
+    EXPECT_FLOAT_EQ(line.roundCenterY, 0.f);
+    EXPECT_FLOAT_EQ(line.roundHalfX, 14.f);
+    EXPECT_FLOAT_EQ(line.roundHalfY, 4.f);
+    EXPECT_FLOAT_EQ(line.roundRadius, 4.f);
+    EXPECT_EQ(line.color, 0x80445566u);
+    const auto &last = data.vertices[8];
+    EXPECT_FLOAT_EQ(last.roundCenterX, 100.f);
+    EXPECT_FLOAT_EQ(last.roundCenterY, 100.f);
+    EXPECT_FLOAT_EQ(last.roundHalfX, 20.f);
+    EXPECT_FLOAT_EQ(last.roundHalfY, 10.f);
+    EXPECT_FLOAT_EQ(last.roundRadius, 9.f);
+    EXPECT_EQ(last.color, 0xFF778899u);
+}
+
+TEST(UIPaintContextTest, ShapeTextureAndClipChangesKeepDrawOrderAndSeparateBatches)
+{
+    UIPaintContext paint;
+    paint.Begin({0, 0, 200, 200});
+    paint.AddRoundedRect({10, 10, 20, 20}, 0xFFFFFFFF, 2.f);
+    paint.AddLine(10, 30, 20, 30, 2.f, 0xFFFFFFFF);
+    paint.AddRect({30, 10, 40, 20}, 0xFFFFFFFF);
+    paint.AddTriangle(30, 30, 40, 30, 30, 40, 0xFFFFFFFF);
+    paint.AddTexturedQuad({50, 10, 60, 20}, {0, 0, 1, 1}, 7, 0xFFFFFFFF);
+    paint.AddTexturedQuad({50, 30, 60, 40}, {0, 0, 1, 1}, 7, 0xFFFFFFFF);
+    paint.AddTexturedQuad({70, 10, 80, 20}, {0, 0, 1, 1}, 8, 0xFFFFFFFF);
+    paint.AddTexturedQuad({70, 30, 80, 40}, {0, 0, 1, 1}, 7, 0xFFFFFFFF);
+    paint.AddLine(90, 30, 100, 30, 2.f, 0xFFFFFFFF);
+    paint.PushClip({5, 5, 150, 150});
+    paint.AddLine(90, 40, 100, 40, 2.f, 0xFFFFFFFF);
+    paint.PopClip();
+    paint.AddRoundedRect({90, 50, 100, 60}, 0xFFFFFFFF, 2.f);
+
+    const auto                      &data = paint.GetDrawData();
+    const std::array<uint32_t, 8>    counts{12, 9, 12, 6, 6, 6, 6, 6};
+    const std::array<UITextureId, 8> textures{0, 0, 7, 8, 7, 0, 0, 0};
+    const std::array<bool, 8>        shapes{true, false, false, false, false, true, true, true};
+    ASSERT_EQ(data.commands.size(), counts.size());
+    uint32_t offset = 0;
+    for (size_t i = 0; i < counts.size(); ++i) {
+        const auto &command = data.commands[i];
+        EXPECT_EQ(command.indexOffset, offset);
+        EXPECT_EQ(command.indexCount, counts[i]);
+        EXPECT_EQ(command.textureId, textures[i]);
+        EXPECT_EQ(command.shape, shapes[i]);
+        EXPECT_FLOAT_EQ(command.clip.left, i == 6 ? 5.f : 0.f);
+        EXPECT_FLOAT_EQ(command.clip.top, i == 6 ? 5.f : 0.f);
+        EXPECT_FLOAT_EQ(command.clip.right, i == 6 ? 150.f : 200.f);
+        EXPECT_FLOAT_EQ(command.clip.bottom, i == 6 ? 150.f : 200.f);
+        offset += command.indexCount;
+    }
+    EXPECT_EQ(offset, data.indices.size());
+    for (const uint32_t index : data.indices)
+        EXPECT_LT(index, data.vertices.size());
 }

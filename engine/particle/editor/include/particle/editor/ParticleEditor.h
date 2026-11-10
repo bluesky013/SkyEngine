@@ -2,6 +2,8 @@
 
 #include <editor/core/command/CommandService.h>
 #include <editor/core/document/Document.h>
+#include <editor/core/document/SourceDocumentState.h>
+#include <editor/core/document/SourceDocumentStorage.h>
 #include <editor/ui/AssetViewProvider.h>
 #include <particle/ParticleEffect.h>
 #include <particle/ParticleProgram.h>
@@ -22,11 +24,7 @@ namespace sky::editor {
 }
 namespace sky::particle::editor {
 
-    struct ParticleSourceStorage {
-        std::function<bool(std::string &, std::string &)>    read;
-        std::function<bool(std::string_view, std::string &)> write;
-        std::function<void(const Uuid &)>                    requestCook;
-    };
+    using ParticleSourceStorage = sky::editor::SourceDocumentStorage;
     ParticleSourceStorage ParticleEffectStorage(const Uuid &asset);
 
     class ParticleDocument final : public sky::editor::Document {
@@ -59,11 +57,8 @@ namespace sky::particle::editor {
         ParticleSourceStorage       storage;
         ParticleEffectDesc          effect;
         ParticleCompileResult       compiled;
-        std::string                 saved;
         std::string                 lastError;
-        uint64_t                    revision    = 0;
-        bool                        savePending = false;
-        bool                        loaded      = false;
+        sky::editor::SourceDocumentState state;
         sky::editor::CommandService commands;
     };
 

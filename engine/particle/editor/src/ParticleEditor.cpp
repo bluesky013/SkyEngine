@@ -1,10 +1,7 @@
 #include <particle/editor/ParticleEditor.h>
 
-#include <core/file/FileSystem.h>
-#include <core/file/FileUtil.h>
 #include <core/logger/Logger.h>
 #include <editor/core/EditorCore.h>
-#include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetPreviewProvider.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/property/PropertyDescriptor.h>
@@ -12,7 +9,6 @@
 #include <editor/ui/UiTheme.h>
 #include <editor/widgets/ReflectedFormView.h>
 #include <editor/widgets/UiSkin.h>
-#include <framework/asset/AssetDataBase.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/ComponentFactory.h>
 #include <framework/world/World.h>
@@ -26,8 +22,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <filesystem>
-#include <fstream>
 
 namespace sky::particle::editor {
     namespace {
@@ -42,52 +36,7 @@ namespace sky::particle::editor {
 
     ParticleSourceStorage ParticleEffectStorage(const Uuid &asset)
     {
-        return {[asset](std::string &out, std::string &error) -> bool {
-                    std::string path;
-                    if (!AssetDataBase::Get()->GetAbsoluteSourcePath(asset, path)) {
-                        error = "Particle source is not registered";
-                        return false;
-                    }
-                    std::ifstream stream(PathFromUtf8(path), std::ios::binary | std::ios::ate);
-                    if (!stream) {
-                        error = "Cannot open Particle source";
-                        return false;
-                    }
-                    const auto size = stream.tellg();
-                    if (size <= 0 || static_cast<size_t>(size) > MAX_PARTICLE_SOURCE_BYTES) {
-                        error = "Particle source size is invalid";
-                        return false;
-                    }
-                    std::string text(static_cast<size_t>(size), '\0');
-                    stream.seekg(0);
-                    if (!stream.read(text.data(), size)) {
-                        error = "Cannot read complete Particle source";
-                        return false;
-                    }
-                    out = std::move(text);
-                    return true;
-                },
-                [asset](std::string_view text, std::string &error) -> bool {
-                    std::string path;
-                    if (!AssetDataBase::Get()->GetAbsoluteSourcePath(asset, path)) {
-                        error = "Particle source is not registered";
-                        return false;
-                    }
-                    const FilePath   target(path);
-                    NativeFileSystem fs(target.Parent());
-                    const FilePath   staging(target.FileName() + "." + Uuid::Create().ToString() + ".tmp");
-                    auto             status = fs.WriteFileExclusive(staging, {reinterpret_cast<const uint8_t *>(text.data()), text.size()});
-                    if (status)
-                        status = fs.ReplaceFileAtomic(staging, FilePath(target.FileName()));
-                    if (!status) {
-                        std::error_code ignored;
-                        std::filesystem::remove(PathFromUtf8((target.Parent() / staging).GetStr()), ignored);
-                        error = status.message;
-                        return false;
-                    }
-                    return true;
-                },
-                [](const Uuid &id) { sky::editor::AssetCookService::Get()->RequestCook(id); }};
+        return sky::editor::MakeAssetSourceStorage(asset, MAX_PARTICLE_SOURCE_BYTES);
     }
 
     class ParticleDocument::Edit final : public sky::editor::UndoCommand {
@@ -124,8 +73,9 @@ namespace sky::particle::editor {
     bool ParticleDocument::Load()
     {
         std::string text, error;
-        if (!storage.read || !storage.read(text, error)) {
-            lastError = error.empty() ? "Particle source reader unavailable" : error;
+        const auto  status = storage.read ? storage.read(text) : FileOperationStatus{FileOperationError::Unsupported, "Particle reader unavailable"};
+        if (!status) {
+            lastError = status.message;
             return false;
         }
         ParticleEffectDesc next;
@@ -138,27 +88,19 @@ namespace sky::particle::editor {
             lastError = nextCompiled.diagnostics.empty() ? "Particle compilation failed" : nextCompiled.diagnostics.front().message;
             return false;
         }
-        commands.Clear();
-        effect   = std::move(next);
-        compiled = std::move(nextCompiled);
-        loaded = true;
-        if (!WriteParticleSource(effect, saved)) {
+        if (!WriteParticleSource(next, text)) {
             lastError = "Particle source cannot be serialized";
-            loaded    = false;
             return false;
         }
-        savePending = false;
+        effect   = std::move(next);
+        compiled = std::move(nextCompiled);
         lastError.clear();
-        ++revision;
-        ClearDirty();
+        state.Loaded(*this, commands, std::move(text));
         return true;
     }
     bool ParticleDocument::Save()
     {
-        savePending = false;
-        if (!loaded) {
-            if (lastError.empty())
-                lastError = "Particle source must load successfully before saving";
+        if (!state.BeginSave(lastError)) {
             return false;
         }
         compiled = CompileParticleEffect(effect);
@@ -166,41 +108,39 @@ namespace sky::particle::editor {
             lastError = compiled.diagnostics.empty() ? "Particle compilation failed" : compiled.diagnostics.front().message;
             return false;
         }
-        std::string text, error;
+        std::string text;
         if (!WriteParticleSource(effect, text)) {
             lastError = "Particle source cannot be serialized";
             return false;
         }
-        if (!storage.write || !storage.write(text, error)) {
-            lastError = error.empty() ? "Particle source writer unavailable" : error;
+        const auto status = storage.write ? storage.write(text) : FileOperationStatus{FileOperationError::Unsupported, "Particle writer unavailable"};
+        if (!status) {
+            lastError = status.message;
             return false;
         }
-        saved = std::move(text);
         lastError.clear();
-        ++revision;
-        ClearDirty();
+        state.Saved(*this, std::move(text));
         if (storage.requestCook)
             storage.requestCook(asset);
         return true;
     }
     void ParticleDocument::RequestSave()
     {
-        savePending = true;
+        state.RequestSave();
     }
     bool ParticleDocument::FlushPendingSave()
     {
-        if (!savePending)
+        if (!state.IsSavePending())
             return true;
-        savePending = false;
         return Save();
     }
     bool ParticleDocument::IsSavePending() const
     {
-        return savePending;
+        return state.IsSavePending();
     }
     bool ParticleDocument::IsLoaded() const
     {
-        return loaded;
+        return state.IsLoaded();
     }
     const ParticleEffectDesc &ParticleDocument::Effect() const
     {
@@ -220,7 +160,7 @@ namespace sky::particle::editor {
     }
     uint64_t ParticleDocument::Revision() const
     {
-        return revision;
+        return state.Revision();
     }
     const Uuid &ParticleDocument::AssetId() const
     {
@@ -238,11 +178,8 @@ namespace sky::particle::editor {
         else
             lastError.clear();
         std::string encoded;
-        if (WriteParticleSource(effect, encoded) && encoded == saved)
-            ClearDirty();
-        else
-            MarkDirty();
-        ++revision;
+        const bool  valid = WriteParticleSource(effect, encoded);
+        state.Changed(*this, encoded, valid);
     }
     void ParticleDocument::SetEffect(const ParticleEffectDesc &next)
     {
@@ -251,11 +188,17 @@ namespace sky::particle::editor {
     }
     sky::editor::UndoCommandPtr ParticleDocument::MakeEdit(std::string label, ParticleEffectDesc next)
     {
+        std::string current, encoded;
+        if (WriteParticleSource(effect, current) && WriteParticleSource(next, encoded) && current == encoded) {
+            lastError.clear();
+            return {};
+        }
         return std::make_unique<Edit>(*this, std::move(label), std::move(next));
     }
     bool ParticleDocument::Apply(std::string label, ParticleEffectDesc next)
     {
-        return commands.Execute(MakeEdit(std::move(label), std::move(next)));
+        auto command = MakeEdit(std::move(label), std::move(next));
+        return command ? commands.Execute(std::move(command)) : lastError.empty();
     }
     void ParticleDocument::ReplaceEffect(ParticleEffectDesc next)
     {

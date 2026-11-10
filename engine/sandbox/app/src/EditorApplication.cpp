@@ -8,6 +8,7 @@
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <framework/application/ModuleManager.h>
+#include <framework/application/ModuleManifest.h>
 #include <framework/platform/PlatformBase.h>
 
 #include <rapidjson/document.h>
@@ -16,7 +17,6 @@
 #include <cstdio>
 #include <filesystem>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #if defined(_WIN32)
@@ -45,52 +45,6 @@ namespace sky::editor::sandbox {
             maxFrames = static_cast<uint32_t>(std::stoul(result["frames"].as<std::string>()));
         }
     }
-
-    namespace {
-        // Parses {"modules":[{"name":..,"dependencies":[..]}]} into module infos.
-        bool ReadModules(const std::string &json, std::vector<ModuleInfo> &out)
-        {
-            rapidjson::Document document;
-            document.Parse(json.c_str());
-            if (document.HasParseError() || !document.IsObject()) {
-                return false;
-            }
-            if (!document.HasMember("modules") || !document["modules"].IsArray()) {
-                return false;
-            }
-            std::unordered_set<std::string> disabledModules;
-            for (const auto &module : document["modules"].GetArray()) {
-                if (!module.IsObject() || !module.HasMember("name") || !module["name"].IsString()) {
-                    continue;
-                }
-                if (module.HasMember("buildOption")) {
-                    if (!module["buildOption"].IsString())
-                        return false;
-                    const auto enabled = ModuleManager::GetBuildOption(module["buildOption"].GetString());
-                    if (!enabled)
-                        return false;
-                    if (!*enabled)
-                        disabledModules.emplace(module["name"].GetString());
-                }
-            }
-            for (const auto &module : document["modules"].GetArray()) {
-                if (!module.IsObject() || !module.HasMember("name") || !module["name"].IsString() ||
-                    disabledModules.contains(module["name"].GetString()))
-                    continue;
-                ModuleInfo info;
-                info.name = module["name"].GetString();
-                if (module.HasMember("dependencies") && module["dependencies"].IsArray()) {
-                    for (const auto &dep : module["dependencies"].GetArray()) {
-                        if (dep.IsString() && !disabledModules.contains(dep.GetString())) {
-                            info.dependencies.emplace_back(dep.GetString());
-                        }
-                    }
-                }
-                out.push_back(std::move(info));
-            }
-            return true;
-        }
-    } // namespace
 
     static std::string WindowStatePath()
     {
@@ -171,12 +125,19 @@ namespace sky::editor::sandbox {
         std::string             json;
         std::vector<ModuleInfo> modules;
         if (ReadString(configPath, json)) {
-            if (!ReadModules(json, modules) || modules.empty()) {
+            auto selection = ParseModuleManifest(json);
+            if (const auto *error = std::get_if<std::string>(&selection)) {
+                LOG_E(TAG, "Invalid editor module configuration %s: %s", configPath.c_str(), error->c_str());
+                return false;
+            }
+            modules = std::move(std::get<std::vector<ModuleInfo>>(selection));
+            if (modules.empty()) {
                 LOG_E(TAG, "Invalid editor module configuration or unknown buildOption: %s", configPath.c_str());
                 return false;
             }
             for (auto &info : modules) {
-                moduleManager->RegisterModule(info);
+                if (!moduleManager->RegisterModule(info))
+                    return false;
             }
             LOG_I(TAG, "editor modules loaded from %s", EDITOR_CONFIG_PATH);
             return true;

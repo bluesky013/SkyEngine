@@ -21,10 +21,11 @@ sky_add_library(TARGET EditorWidgets STATIC
         src
     PUBLIC_INC
         include
-    LINK_LIBS
+    PUBLIC_LINK_LIBS
         EditorUi
         EditorCore
         Framework
         Core
+        Curve
         UI
 )

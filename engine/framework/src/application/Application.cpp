@@ -23,7 +23,7 @@ namespace sky {
     class ModuleManager;
 }
 // Provided by the generated RegisterStaticModules.cpp (static module packaging).
-extern "C" void SkyEngineRegisterStaticModules(sky::ModuleManager &manager);
+extern "C" bool SkyEngineRegisterStaticModules(sky::ModuleManager &manager);
 #endif
 
 static const char *TAG = "Application";
@@ -137,9 +137,17 @@ namespace sky {
         if (moduleManager) {
             LOG_I(TAG, "Load Engine Module...");
 #if defined(SKY_MODULE_STATIC)
-            SkyEngineRegisterStaticModules(*moduleManager);
+            if (!SkyEngineRegisterStaticModules(*moduleManager)) {
+                LOG_E(TAG, "Static module factory registration failed");
+                Shutdown();
+                return false;
+            }
 #endif
-            moduleManager->TopoSort();
+            if (!moduleManager->TopoSort()) {
+                LOG_E(TAG, "Module dependencies contain a cycle");
+                Shutdown();
+                return false;
+            }
             if (!moduleManager->LoadModules(arguments)) {
                 LOG_E(TAG, "Required module initialization failed");
                 Shutdown();

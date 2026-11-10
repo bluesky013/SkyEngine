@@ -5,6 +5,7 @@ sky_add_test(TARGET EditorCoreTest
         CommandServiceTest.cpp
         PropertyModelTest.cpp
         DocumentServiceTest.cpp
+        SourceDocumentStorageTest.cpp
         SelectionServiceTest.cpp
         LayoutModelTest.cpp
         LayoutPersistenceTest.cpp

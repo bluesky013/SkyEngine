@@ -13,18 +13,17 @@ namespace {
         bool                  fail = false;
         ParticleSourceStorage Bind()
         {
-            return {[this](std::string &out, std::string &error) {
+            return {[this](std::string &out) -> FileOperationStatus {
                         out = text;
-                        return true;
+                        return {};
                     },
-                    [this](std::string_view value, std::string &error) {
+                    [this](std::string_view value) -> FileOperationStatus {
                         ++writes;
                         if (fail) {
-                            error = "Injected write failure";
-                            return false;
+                            return {FileOperationError::IOError, "Injected write failure"};
                         }
                         text = value;
-                        return true;
+                        return {};
                     },
                     [this](const Uuid &) { ++cooks; }};
         }
@@ -122,4 +121,16 @@ TEST(ParticleEditorDocument, InvalidDraftDoesNotReplaceSourceOnSave)
     ASSERT_TRUE(document.Commands().Undo());
     EXPECT_FALSE(document.IsDirty());
     EXPECT_TRUE(document.Compiled().succeeded);
+}
+
+TEST(ParticleEditorDocument, NoOpPreservesHistoryAndRevision)
+{
+    Storage          storage;
+    ParticleDocument document(Uuid::Create(), storage.Bind());
+    ASSERT_TRUE(document.Load());
+    const auto revision = document.Revision();
+    ASSERT_TRUE(document.Apply("Unchanged", document.Effect()));
+    EXPECT_EQ(document.Revision(), revision);
+    EXPECT_FALSE(document.Commands().CanUndo());
+    EXPECT_FALSE(document.IsDirty());
 }

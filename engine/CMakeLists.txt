@@ -3,6 +3,7 @@ set(CURRENT_FOLDER Engine)
 add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(animation)
+add_subdirectory(curve)
 
 add_subdirectory(content)
 add_subdirectory(audio)
@@ -48,6 +49,14 @@ endif ()
 
 if (SKY_BUILD_PARTICLE AND SKY_DEVELOP AND SKY_BUILD_SANDBOX)
     add_subdirectory(particle/editor)
+endif ()
+
+add_subdirectory(curve/assets)
+if (SKY_DEVELOP)
+    add_subdirectory(curve/builder)
+    if (SKY_BUILD_SANDBOX)
+        add_subdirectory(curve/editor)
+    endif ()
 endif ()
 
 if (SKY_BUILD_SANDBOX)

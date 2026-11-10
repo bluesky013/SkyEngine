@@ -64,9 +64,9 @@ namespace {
     void RegisterMetadata(ModuleManager &manager)
     {
 #if defined(AURORA_RENDERER_STATIC_FIXTURE)
-        manager.AddStaticModule("Aurora.Metadata", std::make_unique<MetadataFixture>());
+        manager.AddStaticModule("Aurora.Metadata", [&] { return std::make_unique<MetadataFixture>(); });
 #elif defined(AURORA_RENDERER_PACKAGED_STATIC)
-        manager.AddStaticModule("Aurora.Metadata", std::unique_ptr<IModule>(sky_module_create_Aurora_Metadata()));
+        manager.AddStaticModule("Aurora.Metadata", [&] { return std::unique_ptr<IModule>(sky_module_create_Aurora_Metadata()); });
 #else
         manager.RegisterModule({"Aurora.Metadata", {}});
 #endif
@@ -80,9 +80,9 @@ namespace {
         {
             RegisterMetadata(manager);
 #if defined(AURORA_RENDERER_STATIC_FIXTURE)
-            manager.AddStaticModule("Aurora.Render", std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract()));
+            manager.AddStaticModule("Aurora.Render", [&] { return std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract()); });
 #elif defined(AURORA_RENDERER_PACKAGED_STATIC)
-            manager.AddStaticModule("Aurora.Render", std::unique_ptr<IModule>(sky_module_create_Aurora_Render()));
+            manager.AddStaticModule("Aurora.Render", [&] { return std::unique_ptr<IModule>(sky_module_create_Aurora_Render()); });
 #else
             manager.RegisterModule({"Aurora.Render", {}});
 #endif
@@ -1057,9 +1057,12 @@ TEST(RendererModule, DuplicateRegistrationDoesNotReplaceOrUnregisterOwner)
 {
     ModuleManager manager;
     RegisterMetadata(manager);
-    auto  module = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
-    auto *owner  = module.get();
-    manager.AddStaticModule("Aurora.Render", std::move(module));
+    IModule *owner = nullptr;
+    manager.AddStaticModule("Aurora.Render", [&] {
+        auto module = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
+        owner       = module.get();
+        return module;
+    });
     manager.TopoSort();
     auto duplicate = std::unique_ptr<IModule>(sky_module_create_Aurora_Render_Contract());
     ASSERT_TRUE(manager.LoadModules({}));

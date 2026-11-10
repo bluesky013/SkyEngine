@@ -1,4 +1,4 @@
-> Status — 2026-11-01: frozen（设计就绪、实现按用户要求暂缓）。本 change 只负责宿主清单/parser/部署，剩余实施与验收任务尚未开始。
+> Status — 2026-11-10: implemented，当前 macOS 验证通过。用户在架构 review 后授权实施；本次复用既有 change，未 archive。构建与原生验收证据见 verification.md。
 > 当前压缩能力已由 Framework 内置 LZ4 提供；通用字节 IO 调度另属 `add-common-async-io`，不在此重复建设。
 
 ## Why
@@ -10,7 +10,7 @@ Game、Editor 已使用 `modules_*.json`，但解析代码各自维护；旧 Too
 ## What Changes
 
 - 新增 `configs/modules_asset_tool.json` 和最小 `configs/modules_asset_audit.json`，沿用 `modules / name / dependencies / buildOption` 格式。
-- 将模块清单解析提取为 Framework 内的小型共用函数，复用 `ModuleInfo`、`ModuleManager::GetBuildOption()`、现有拓扑与生命周期；AssetTool、Game、Editor 共用解析逻辑，配置定位仍由宿主负责。
+- 将模块清单解析提取为 Framework 内的小型共用函数，复用 `ModuleInfo`、`ModuleManager::GetBuildOption()`、现有拓扑与生命周期；AssetTool、Game、Editor 共用解析逻辑，配置定位仍由宿主负责。显式 `optionalDependencies` 只表达已声明模块的可选启动顺序，required 边仍严格校验。
 - 删除 AssetTool 中业务模块名清单及 `SKY_HAS_*_BUILDER` 宏；cook 与审计按运行模式选择配置。
 - 让 AssetTool 的构建依赖、配置部署和静态工厂收集消费同一份清单；区分静态工厂可用性与本次运行的模块激活。
 - 明确启用模块缺失、配置损坏和未知 buildOption 均显式失败；修正“缺失 DLL 被跳过”的过期注释。
@@ -37,4 +37,4 @@ None.
 
 ## Current Status
 
-2026-10-27 用户要求先建立 change、后续再做。本次仅形成 proposal/design/specs/tasks；实现和运行时验收均未开始，不归档、不标记实现完成。
+2026-10-27 用户要求先建立 change、后续再做。2026-11-10 用户在架构 review 后授权实施。清单/parser、静态工厂可用性与激活分离、构建依赖和部署已接入；原生构建与验收仍按实际结果记录，不提前标记完成。

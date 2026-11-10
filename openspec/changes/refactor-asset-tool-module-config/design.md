@@ -27,9 +27,11 @@
 
 在现有 Framework application 目录提取模块清单解析函数；输入为已经读取的 JSON 内容，输出使用已有 `ModuleInfo` 列表和明确错误。解析器不打开文件、不调用 LoadModules、不创建新的进程单例；buildOption 查询复用 ModuleManager 的已生成构建选项表。
 
-完整清单通过校验后，宿主才逐项 RegisterModule，避免前半部分已注册、后半部分解析失败。检查根结构、modules 数组、非空 name、字符串 dependencies、重复条目、未知/错误类型的 buildOption；对大小和条目数设明确上限。合法且为 false 的 buildOption 表示未选择该模块，不尝试加载其 DLL。
+完整清单通过校验后，宿主才逐项 RegisterModule，避免前半部分已注册、后半部分解析失败。检查根结构、modules 数组、非空 name、字符串 dependencies、重复条目、未知/错误类型的 buildOption；对大小和条目数设明确上限（1 MiB、1024 个模块、4096 条依赖、128 字节模块名）；RapidJSON 使用 iterative parse，深层未知字段不消耗本机调用栈。合法且为 false 的 buildOption 表示未选择该模块，不尝试加载其 DLL。
 
 依赖仍使用现有 ModuleInfo 字符串列表，允许现有的隐式 metadata 依赖节点；不得强制每个依赖都增加一个重复顶层条目。若启用模块依赖配置中明确禁用的模块，报告冲突，不通过隐式依赖偷偷重启它。依赖环需在装载前报告；复用现有图实现，不再创建第二套注册表。
+
+`optionalDependencies` 仅引用同一清单中已声明的模块。目标已显式禁用时不加边；未知目标报错，启用目标产生正常依赖。唯一迁移的可选边是 `SandboxModule -> RecastNavigation.Editor`：原 Editor parser 隐式删除 disabled 依赖，现将这项启动顺序意图写进配置，required 边不再被静默删除。
 
 Game 保留项目模块、配置优先级与 game 字段处理，Editor 保留内置路径与既有缺省策略；这里只替换其模块数组解析。旧宿主的回退行为不得因抽取解析器而悄悄改变。
 
@@ -62,7 +64,10 @@ AssetTool 所选配置缺失或损坏即启动失败，不静默使用另一份�
 
 - 动态构建：增加 build-only 依赖，不通过链接 builder DLL 代替运行时加载；生成配置与模块二进制一起部署到工具 bundle。
 - 已禁用的可选模块不成为 target/DLL 依赖；仓库内启用条目缺少 target 时明确诊断，不能当作可选模块静默删掉。
-- 静态构建：收集 cook/audit 所需工厂的并集，但只激活当次选中配置的闭包。收敛现有静态注册生成路径，避免全局 SKY_STATIC_MODULE_TARGETS 令 audit 间接初始化所有 builder/editor/runtime 模块。
+- 静态构建：manifest 闭包与真实 `SKY_STATIC_MODULE_TARGETS` 取交集，收集 cook/audit 工厂；`AddStaticModule` 仅保存 lazy factory，只有 `RegisterModule` 选择的根及依赖会构造/初始化。失败重试、同 manager 重启保留 factory，metadata owner 仍进程唯一。
+- 开发工具允许保留已有 hybrid 装载：`Aurora.Cook`、`Content.Builder.Module`、`SkyAudio.Builder`、`SkyTerrain.Builder` 等旧 SHARED targets 不伪造 tagged factory，继续动态加载并部署。此次不调整 Aurora target/入口，未声称全静态 cook 已验收。
+- `SKY_DEVELOP=OFF` 的 AssetTool 只提供 audit，启动 cook/worker/migrate 明确失败；CMake 只收集 audit 闭包。`Particle.Builder` module 同样仅开发构建启用，`SKY_BUILD_TEST` 可保留 WorldTest 所需 builder 静态实现，Launcher 不再依赖 builder。
+- 配置以 `file(GENERATE)` 部署到工具输出的 configs 目录，变更触发重新配置；动态模块作为 build-only 依赖并在 AssetTool post-build 复制到可执行目录，静态工厂仅链接真实 static targets。
 - 不把任意外部预编译模块存在性误当作 CMake 已证明的部署结果；本 change 先验证仓库内模块，外部扩展需独立部署契约。
 
 C++ 与 CMake 分别处理各自阶段的配置，但共同遵守字段、buildOption 和闭包语义，使用共享测试样例检查选择结果。无需为“统一”引入代码生成 DSL。
@@ -79,11 +84,13 @@ audit 配置只包含产品读取实际需要的模块，可以为空。Framewor
 
 不新增 throw/try-catch、静默跳过、重复反射幂等守卫。RegisterMeta 唯一 owner、process definition 对象所有权及 Init/Shutdown 会话语义保持不变；按 `remove-module-code-leases`，成功加载的 DLL 由 loader 保持进程常驻，不为清单或回调重新引入纯代码 token。配置失败发生于模块装载前；装载失败仍走现有对称清理并收齐工作。
 
+生成的静态工厂注册函数逐项传播注册结果；注册失败或拓扑检查失败均由 Application 调用 Shutdown，撤销 PreInit 服务并收齐异步任务及主线程回调后才返回失败。
+
 ## Implementation Plan
 
 先抽取解析器并迁移 Game/Editor 的重复模块解析，再接 AssetTool 两种清单，最后接通构建/部署和静态激活集合。旧配置仍保持原有字段，不进行目录重组。
 
-本次仅记录计划。已归档 Jolt 迁移的 131 路径提交快照不加入此 change，也不加入 AssetTool 的后续实现。
+2026-11-10 按上述方案实施；使用既有目录、target 和生命周期，不新增 catalog 或清单 include 语言。`sky_add_library`/`sky_add_module` 增加显式 PUBLIC/PRIVATE_LINK_LIBS，同时保留旧 LINK_LIBS 兼容；仅迁移本次 Curve/Particle/Widgets 的相关依赖，不全仓重排。
 
 ## Validation
 

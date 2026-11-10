@@ -134,8 +134,7 @@ add_subdirectory(source)
 # Bind every `DEPENDENCIES Launcher` registration (engine, plugins) to this launcher.
 sky_set_dependency(TARGET Launcher)
 
-# Static module packaging: generate the registration cpp from the statically built
-# modules and link them into the launcher (their code is compiled in, not dlopen'd).
+# Static factories provide availability; runtime configs select the modules to activate.
 if (SKY_MODULE_PACKAGING STREQUAL "static")
     get_property(_sky_all_static_targets GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS)
     set(_sky_static_targets ${_sky_all_static_targets})

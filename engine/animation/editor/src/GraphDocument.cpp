@@ -1,11 +1,6 @@
 #include "animation/editor/GraphDocument.h"
 
 #include <algorithm>
-#include <core/file/FileSystem.h>
-#include <editor/core/asset/AssetCookService.h>
-#include <filesystem>
-#include <framework/asset/AssetDataBase.h>
-#include <fstream>
 #include <map>
 #include <set>
 
@@ -19,43 +14,7 @@ namespace sky::animation::editor {
 
     GraphDocumentStorage GraphSourceStorage(const Uuid &asset)
     {
-        return {[asset](std::string &out) -> FileOperationStatus {
-                    std::string path;
-                    if (!AssetDataBase::Get()->GetAbsoluteSourcePath(asset, path))
-                        return {FileOperationError::InvalidPath, "Graph source is not registered"};
-                    std::ifstream stream(std::filesystem::u8path(path), std::ios::binary | std::ios::ate);
-                    if (!stream)
-                        return {FileOperationError::IOError, "Cannot open Graph source"};
-                    const auto size = stream.tellg();
-                    if (size <= 0 || size > 8 * 1024 * 1024)
-                        return {FileOperationError::IOError, "Graph source size is invalid"};
-                    std::string text(static_cast<size_t>(size), '\0');
-                    stream.seekg(0);
-                    if (!stream.read(text.data(), size))
-                        return {FileOperationError::IOError, "Cannot read complete Graph source"};
-                    out = std::move(text);
-                    return {};
-                },
-                [asset](std::string_view text) -> FileOperationStatus {
-                    std::string path;
-                    if (!AssetDataBase::Get()->GetAbsoluteSourcePath(asset, path))
-                        return {FileOperationError::InvalidPath, "Graph source is not registered"};
-                    const FilePath   target(path);
-                    NativeFileSystem fs(target.Parent());
-                    const FilePath   staging(target.FileName() + "." + Uuid::Create().ToString() + ".tmp");
-                    auto             status = fs.WriteFileExclusive(staging, {reinterpret_cast<const uint8_t *>(text.data()), text.size()});
-                    if (!status)
-                        return status;
-                    status = fs.ReplaceFileAtomic(staging, FilePath(target.FileName()));
-                    if (!status) {
-                        std::error_code error;
-                        std::filesystem::remove(std::filesystem::u8path((target.Parent() / staging).GetStr()), error);
-                        if (error)
-                            status.message += "; staging cleanup failed: " + error.message();
-                    }
-                    return status;
-                },
-                [](const Uuid &id) { sky::editor::AssetCookService::Get()->RequestCook(id); }};
+        return sky::editor::MakeAssetSourceStorage(asset, 8u * 1024u * 1024u);
     }
 
     class GraphDocument::Edit final : public sky::editor::UndoCommand {
@@ -95,11 +54,8 @@ namespace sky::animation::editor {
     {
         diagnostics = ValidateGraph(source.definition);
         std::string encoded;
-        if (WriteGraphSource(source, encoded) && encoded == saved)
-            ClearDirty();
-        else
-            MarkDirty();
-        ++revision;
+        const auto  valid = WriteGraphSource(source, encoded);
+        state.Changed(*this, encoded, static_cast<bool>(valid));
     }
     void GraphDocument::SetSource(const GraphSource &value)
     {
@@ -121,21 +77,20 @@ namespace sky::animation::editor {
             lastError = validation.diagnostics.front().message;
             return false;
         }
-        commands.Clear();
+        const auto encoded = WriteGraphSource(next, text);
+        if (!encoded) {
+            lastError = encoded.diagnostics.front().message;
+            return false;
+        }
         source = std::move(next);
-        loaded = true;
-        WriteGraphSource(source, saved);
-        savePending = false;
         lastError.clear();
-        Refresh();
+        diagnostics = ValidateGraph(source.definition);
+        state.Loaded(*this, commands, std::move(text));
         return true;
     }
     bool GraphDocument::Save()
     {
-        savePending = false;
-        if (!loaded) {
-            if (lastError.empty())
-                lastError = "Graph source must load successfully before saving";
+        if (!state.BeginSave(lastError)) {
             return false;
         }
         std::string text;
@@ -149,31 +104,37 @@ namespace sky::animation::editor {
             lastError = status.message;
             return false;
         }
-        saved = std::move(text);
         lastError.clear();
-        Refresh();
+        diagnostics = ValidateGraph(source.definition);
+        state.Saved(*this, std::move(text));
         if (storage.requestCook)
             storage.requestCook(asset);
         return true;
     }
     bool GraphDocument::FlushPendingSave()
     {
-        if (!savePending)
+        if (!state.IsSavePending())
             return true;
-        savePending = false;
         return Save();
     }
     GraphValidation GraphDocument::Apply(std::string label, GraphSource next)
     {
-        if (next.definition.document != source.definition.document)
-            return Invalid(asset, "Document identity cannot change");
+        if (next.definition.document != source.definition.document) {
+            lastError = "Document identity cannot change";
+            return Invalid(asset, lastError);
+        }
         std::string encoded, current;
         auto        valid = WriteGraphSource(next, encoded);
         if (!valid) {
             lastError = valid.diagnostics.front().message;
             return valid;
         }
-        WriteGraphSource(source, current);
+        const auto currentStatus = WriteGraphSource(source, current);
+        if (!currentStatus) {
+            lastError = currentStatus.diagnostics.front().message;
+            return currentStatus;
+        }
+        lastError.clear();
         if (current != encoded)
             commands.Execute(std::make_unique<Edit>(*this, std::move(label), std::move(next)));
         return {};
@@ -190,7 +151,12 @@ namespace sky::animation::editor {
             lastError = validation.diagnostics.front().message;
             return nullptr;
         }
-        WriteGraphSource(source, current);
+        const auto currentStatus = WriteGraphSource(source, current);
+        if (!currentStatus) {
+            lastError = currentStatus.diagnostics.front().message;
+            return {};
+        }
+        lastError.clear();
         return encoded == current ? nullptr : std::make_unique<Edit>(*this, std::move(label), std::move(next));
     }
     Uuid GraphDocument::AddNode(GraphNodeKind kind, float x, float y)

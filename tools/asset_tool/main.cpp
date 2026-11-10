@@ -4,6 +4,8 @@
 
 #include "CookWorkerHost.h"
 #include "ProductAudit.h"
+#include <core/file/FileIO.h>
+#include <framework/application/ModuleManifest.h>
 
 #include <core/cmdline/CmdParser.h>
 #include <core/file/MultiFileSystem.h>
@@ -92,35 +94,28 @@ namespace {
 
         bool LoadConfigs() override
         {
-            if (!auditManifest.empty()) {
-                return true;
+            const bool audit = !auditManifest.empty();
+#if !SKY_DEVELOP
+            if (!audit) {
+                LOG_E(TAG, "This AssetTool build supports product audit only; cook requires SKY_DEVELOP");
+                return false;
             }
-            if (moduleManager) {
-                // Builders consume their existing metadata owners; missing modules fail initialization.
-                moduleManager->RegisterModule(ModuleInfo{"Aurora.Cook", {"Aurora.Metadata"}});
-                if (ModuleManager::GetBuildOption("SKY_BUILD_AUDIO").value_or(false))
-                    moduleManager->RegisterModule(ModuleInfo{"SkyAudio.Builder", {}});
-#if SKY_HAS_JOLT_BUILDER
-                moduleManager->RegisterModule(ModuleInfo{"JoltPhysics.Builder", {"JoltPhysicsModule"}});
 #endif
-#if SKY_HAS_NAVIGATION_BUILDER
-                moduleManager->RegisterModule(ModuleInfo{"SkyNavigation.Builder", {"RecastNavigation"}});
-#endif
-                if (ModuleManager::GetBuildOption("SKY_BUILD_TERRAIN").value_or(false))
-                    moduleManager->RegisterModule(ModuleInfo{"SkyTerrain.Builder", {}});
-                moduleManager->RegisterModule(ModuleInfo{"Content.Builder.Module", {"Content.Metadata"}});
-#if SKY_HAS_ANIMATION_BUILDER
-                moduleManager->RegisterModule(ModuleInfo{"Animation.Builder", {"Animation.GraphAssets"}});
-#endif
-#if SKY_HAS_PARTICLE_WORLD
-                // World cook resolves ParticleComponent persistence schema and the "Particle"
-                // subsystem, so the runtime metadata owner must be present (as Aurora.Cook is).
-                moduleManager->RegisterModule(ModuleInfo{"Particle.World", {"Particle.Assets"}});
-#endif
-#if SKY_HAS_PARTICLE_BUILDER
-                moduleManager->RegisterModule(ModuleInfo{"Particle.Builder", {"Particle.Assets"}});
-#endif
+            const std::string root = audit ? Platform::Get()->GetBundlePath() : enginePath;
+            const std::string path = root + (audit ? "/configs/modules_asset_audit.json" : "/configs/modules_asset_tool.json");
+            std::string       json;
+            if (root.empty() || !ReadString(path, json)) {
+                LOG_E(TAG, "Cannot read module manifest: %s", path.c_str());
+                return false;
             }
+            auto selection = ParseModuleManifest(json);
+            if (const auto *error = std::get_if<std::string>(&selection)) {
+                LOG_E(TAG, "Invalid module manifest %s: %s", path.c_str(), error->c_str());
+                return false;
+            }
+            for (const auto &module : std::get<std::vector<ModuleInfo>>(selection))
+                if (!moduleManager->RegisterModule(module))
+                    return false;
             return true;
         }
 

@@ -118,3 +118,24 @@ TEST(AnimationGraphDocument, StateAndParameterDeletionRemovesReferencesAndUndoRe
     EXPECT_FALSE(document.Apply("Bad default", std::move(next)));
     EXPECT_TRUE(std::holds_alternative<bool>(document.Source().definition.parameters.front().value));
 }
+
+TEST(AnimationGraphDocument, NoOpClearsStaleErrorWithoutChangingHistory)
+{
+    Storage       storage;
+    GraphDocument document(Uuid::Create(), storage.Bind());
+    ASSERT_TRUE(document.Load());
+    auto invalid                = document.Source();
+    invalid.definition.document = Uuid::Create();
+    EXPECT_FALSE(document.Apply("Wrong owner", invalid));
+    EXPECT_FALSE(document.LastError().empty());
+    const auto revision = document.Revision();
+    ASSERT_TRUE(document.Apply("Unchanged", document.Source()));
+    EXPECT_TRUE(document.LastError().empty());
+    EXPECT_EQ(document.Revision(), revision);
+    EXPECT_FALSE(document.Commands().CanUndo());
+    EXPECT_FALSE(document.IsDirty());
+    EXPECT_EQ(document.MakeEdit("Wrong owner", invalid), nullptr);
+    EXPECT_FALSE(document.LastError().empty());
+    EXPECT_EQ(document.MakeEdit("Unchanged", document.Source()), nullptr);
+    EXPECT_TRUE(document.LastError().empty());
+}

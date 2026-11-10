@@ -3,6 +3,7 @@
 //
 
 #include <framework/application/GameApplication.h>
+#include <framework/application/ModuleManifest.h>
 
 #include <core/cmdline/CmdParser.h>
 #include <string>
@@ -280,54 +281,14 @@ namespace sky {
         }
 
         if (document.HasMember("modules")) {
-            if (!document["modules"].IsArray()) {
-                LOG_E(TAG, "Config 'modules' Is Not An Array: %s", CONFIG_PATH);
+            auto selection = ParseModuleManifest(json);
+            if (const auto *error = std::get_if<std::string>(&selection)) {
+                LOG_E(TAG, "Invalid module manifest %s: %s", CONFIG_PATH, error->c_str());
                 return false;
             }
-            auto array = document["modules"].GetArray();
-            for (auto &module : array) {
-                if (!module.IsObject()) {
-                    LOG_E(TAG, "Invalid Module Entry In Config: %s", CONFIG_PATH);
+            for (const auto &info : std::get<std::vector<ModuleInfo>>(selection))
+                if (!moduleManager->RegisterModule(info))
                     return false;
-                }
-
-                if (!module.HasMember("name") || !module["name"].IsString()) {
-                    continue;
-                }
-
-                if (module.HasMember("buildOption")) {
-                    if (!module["buildOption"].IsString()) {
-                        LOG_E(TAG, "Module buildOption must be a known build option string");
-                        return false;
-                    }
-                    const auto enabled = ModuleManager::GetBuildOption(module["buildOption"].GetString());
-                    if (!enabled) {
-                        LOG_E(TAG, "Unknown module buildOption: %s", module["buildOption"].GetString());
-                        return false;
-                    }
-                    if (!*enabled)
-                        continue;
-                }
-
-                ModuleInfo info;
-                info.name = module["name"].GetString();
-
-                if (module.HasMember("dependencies")) {
-                    if (!module["dependencies"].IsArray()) {
-                        LOG_E(TAG, "Module Dependencies Is Not An Array: %s", info.name.c_str());
-                        return false;
-                    }
-                    auto depArray = module["dependencies"].GetArray();
-                    for (auto &dep : depArray) {
-                        if (!dep.IsString()) {
-                            LOG_E(TAG, "Module Dependency Is Not A String: %s", info.name.c_str());
-                            return false;
-                        }
-                        info.dependencies.emplace_back(dep.GetString());
-                    }
-                }
-                moduleManager->RegisterModule(info);
-            }
         }
 
         if (document.HasMember("game")) {

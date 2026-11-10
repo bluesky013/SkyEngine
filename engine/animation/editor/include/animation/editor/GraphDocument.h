@@ -4,15 +4,13 @@
 #include <core/file/FileTransaction.h>
 #include <editor/core/command/CommandService.h>
 #include <editor/core/document/Document.h>
+#include <editor/core/document/SourceDocumentState.h>
+#include <editor/core/document/SourceDocumentStorage.h>
 #include <functional>
 #include <span>
 
 namespace sky::animation::editor {
-    struct GraphDocumentStorage {
-        std::function<FileOperationStatus(std::string &)>    read;
-        std::function<FileOperationStatus(std::string_view)> write;
-        std::function<void(const Uuid &)>                    requestCook;
-    };
+    using GraphDocumentStorage = sky::editor::SourceDocumentStorage;
     GraphDocumentStorage GraphSourceStorage(const Uuid &asset);
 
     class GraphDocument final : public sky::editor::Document {
@@ -24,16 +22,16 @@ namespace sky::animation::editor {
         bool Save() override;
         bool IsLoaded() const
         {
-            return loaded;
+            return state.IsLoaded();
         }
         void RequestSave()
         {
-            savePending = true;
+            state.RequestSave();
         }
         bool FlushPendingSave();
         bool IsSavePending() const
         {
-            return savePending;
+            return state.IsSavePending();
         }
         const GraphSource &Source() const
         {
@@ -49,7 +47,7 @@ namespace sky::animation::editor {
         }
         uint64_t Revision() const
         {
-            return revision;
+            return state.Revision();
         }
         const Uuid &AssetId() const
         {
@@ -79,9 +77,8 @@ namespace sky::animation::editor {
         GraphDocumentStorage        storage;
         GraphSource                 source;
         GraphValidation             diagnostics;
-        std::string                 saved, lastError;
-        uint64_t                    revision    = 0;
-        bool                        savePending = false, loaded = false;
+        std::string                      lastError;
+        sky::editor::SourceDocumentState state;
         sky::editor::CommandService commands;
     };
 } // namespace sky::animation::editor
