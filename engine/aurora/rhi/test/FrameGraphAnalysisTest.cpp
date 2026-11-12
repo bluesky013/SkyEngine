@@ -338,3 +338,192 @@ TEST(FrameResourceUses, RejectsMisalignedIndirectStrideAndInsufficientPaddedRang
     indirect.arguments.size = 63;
     EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));
 }
+
+TEST(FrameAnalysisBudget, RawDeclarationsAreChargedAcrossDeadPassesBeforeResolution)
+{
+    FrameGraphData data;
+    data.buffers.push_back({BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::UNIFORM)), 64});
+    FrameCustomPass pass;
+    pass.encoder = std::make_shared<AnalysisCustomEncoder>();
+    const FrameBufferBinding binding{0, 0, {{1, 0}, 16, 16}, 0, FrameAccessMode::READ, FrameBufferBindingKind::UNIFORM};
+    pass.buffers.assign(MAX_FRAME_RESOURCE_DECLARATIONS / 2, binding);
+    data.passes         = {pass, pass};
+    const auto boundary = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(boundary));
+    EXPECT_TRUE(std::get<FrameGraphAnalysis>(boundary).livePasses.empty());
+
+    std::get<FrameCustomPass>(data.passes[1]).buffers.push_back(binding);
+    std::get<FrameCustomPass>(data.passes[0]).buffers.front().range.buffer = {99, UINT32_MAX};
+    const auto exceeded                                                    = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(exceeded));
+    const auto &error = std::get<FrameError>(exceeded);
+    EXPECT_EQ(error.code, FrameErrorCode::OUT_OF_MEMORY);
+    EXPECT_NE(error.message.find("declaration budget"), std::string::npos);
+    EXPECT_NE(error.message.find("pass=1"), std::string::npos);
+}
+
+TEST(FrameAnalysisBudget, MipLayerWorkIsChargedBeforeMergingIncludingDeadPasses)
+{
+    for (const bool live : {false, true}) {
+        SCOPED_TRACE(live);
+        FrameGraphData data;
+        auto           image         = ColorTarget();
+        image.descriptor.mipLevels   = 4;
+        image.descriptor.arrayLayers = 16;
+        image.descriptor.usage       = ImageUsageFlagBit::STORAGE;
+        data.images.push_back(image);
+        FrameCustomPass pass;
+        pass.encoder    = std::make_shared<AnalysisCustomEncoder>();
+        pass.sideEffect = live;
+        FrameImageBinding binding;
+        binding.image  = {1, 0};
+        binding.kind   = FrameImageBindingKind::STORAGE;
+        binding.access = FrameAccessMode::WRITE;
+        binding.view   = {ImageViewType::VIEW_2D_ARRAY, 0, 4, 0, 16};
+        pass.images.assign(MAX_FRAME_ACCESS_WORK / 64, binding);
+        data.passes.push_back(pass);
+        const auto boundary = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+        ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(boundary));
+        const auto &analysis = std::get<FrameGraphAnalysis>(boundary);
+        EXPECT_EQ(analysis.livePasses.size(), live ? 1u : 0u);
+        ASSERT_EQ(analysis.passResourceUses.size(), 1u);
+        EXPECT_EQ(analysis.passResourceUses[0].images.size(), live ? pass.images.size() : 0u);
+        if (live) {
+            const auto &use = analysis.passResourceUses[0].images.back();
+            EXPECT_EQ(use.image, binding.image);
+            EXPECT_EQ(use.range.levels, 4u);
+            EXPECT_EQ(use.range.layers, 16u);
+        }
+
+        std::get<FrameCustomPass>(data.passes[0]).images.push_back(binding);
+        const auto exceeded = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+        ASSERT_TRUE(std::holds_alternative<FrameError>(exceeded));
+        const auto &error = std::get<FrameError>(exceeded);
+        EXPECT_EQ(error.code, FrameErrorCode::OUT_OF_MEMORY);
+        EXPECT_NE(error.message.find("access work budget"), std::string::npos);
+        EXPECT_NE(error.message.find("pass=0"), std::string::npos);
+        EXPECT_NE(error.message.find("image=0"), std::string::npos);
+    }
+}
+
+TEST(FrameResourceUses, MergedContentRangesPreservePartialProducersAndCustomOrder)
+{
+    FrameGraphData data;
+    data.buffers.push_back(
+        {BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::TRANSFER_SRC)), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, true});
+    FrameGraphBuffer destination;
+    destination.size      = 64;
+    destination.transient = Buffer::Descriptor{64, BufferUsageFlagBit::STORAGE | BufferUsageFlagBit::TRANSFER_DST, MemoryType::GPU_ONLY};
+    data.buffers.push_back(destination);
+    data.passes.push_back(BufferCopyPass{{1, 0}, {1, 1}, 0, 0, 32});
+    data.passes.push_back(BufferCopyPass{{1, 0}, {1, 1}, 32, 32, 32});
+    FrameCustomPass pass;
+    pass.encoder    = std::make_shared<AnalysisCustomEncoder>();
+    pass.sideEffect = true;
+    for (const uint64_t offset : {32u, 16u, 32u})
+        pass.buffers.push_back({0, 0, {{1, 1}, offset, 16}, 0, FrameAccessMode::READ_WRITE, FrameBufferBindingKind::STORAGE});
+    data.passes.push_back(pass);
+    data.exports.push_back({{1, 1}, 0, 64});
+    const auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(result));
+    const auto &analysis = std::get<FrameGraphAnalysis>(result);
+    EXPECT_EQ(analysis.livePasses, (std::vector<uint32_t>{0, 1, 2}));
+    const auto &uses = analysis.passResourceUses[2].buffers;
+    ASSERT_EQ(uses.size(), 3u);
+    EXPECT_EQ(uses[0].range.offset, 32u);
+    EXPECT_EQ(uses[1].range.offset, 16u);
+    EXPECT_EQ(uses[2].range.offset, 32u);
+
+    std::get<BufferCopyPass>(data.passes[0]).size = 16;
+    const auto missing                            = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(missing));
+    const auto &error = std::get<FrameError>(missing);
+    EXPECT_NE(error.message.find("pass=2"), std::string::npos);
+    EXPECT_NE(error.message.find("buffer=1"), std::string::npos);
+    EXPECT_NE(error.message.find("range=[16,48)"), std::string::npos);
+}
+
+TEST(FrameResourceUses, DiscardWritesNeverBecomeDefinedContents)
+{
+    FrameGraphData data;
+    data.images.push_back(ColorTarget());
+    FrameRasterPass clear;
+    clear.color = {1, 0};
+    data.passes.push_back(clear);
+    auto discard  = clear;
+    discard.load  = LoadOp::LOAD;
+    discard.store = StoreOp::DONT_CARE;
+    data.passes.push_back(discard);
+    data.imageExports.push_back({1, 0});
+    const auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(result));
+    const auto &error = std::get<FrameError>(result);
+    EXPECT_NE(error.message.find("Export reads undefined contents"), std::string::npos);
+    EXPECT_NE(error.message.find("image=0"), std::string::npos);
+    EXPECT_NE(error.message.find("range=[0,64)"), std::string::npos);
+}
+
+TEST(FrameAnalysisDiagnostics, InvalidHandlesReportPassAndRangeWithoutDereferencingThem)
+{
+    FrameGraphData data;
+    data.buffers.push_back(
+        {BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::TRANSFER_SRC)), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, true});
+    data.buffers.push_back({BufferPtr(new AnalysisBuffer(BufferUsageFlagBit::TRANSFER_DST)), 64});
+    data.passes.push_back(BufferCopyPass{{1, 0}, {1, 1}, 0, 0, 16});
+    data.passes.push_back(BufferCopyPass{{42, UINT32_MAX}, {1, 1}, 8, 0, 16});
+    const auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(result));
+    const auto &error = std::get<FrameError>(result);
+    EXPECT_EQ(error.code, FrameErrorCode::COMPILE_FAILED);
+    for (const auto *part : {"pass=1", "buffer=4294967295", "graph=42", "offset=8", "size=16"})
+        EXPECT_NE(error.message.find(part), std::string::npos) << error.message;
+}
+
+TEST(FrameAccessBoundaries, LastValuesAreValidButEndAndOutOfRangeAreRejected)
+{
+    FrameBufferBinding buffer;
+    buffer.range  = {{1, 0}, 0, 16};
+    buffer.kind   = FrameBufferBindingKind::STORAGE;
+    buffer.access = FrameAccessMode::READ_WRITE;
+    ASSERT_TRUE(std::holds_alternative<RasterBufferRange>(ResolveFrameBufferRange(buffer, 64)));
+    for (const auto kind : {FrameBufferBindingKind::END, static_cast<FrameBufferBindingKind>(UINT8_MAX)}) {
+        buffer.kind = kind;
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveFrameBufferRange(buffer, 64)));
+    }
+    buffer.kind = FrameBufferBindingKind::STORAGE;
+    for (const auto access : {FrameAccessMode::END, static_cast<FrameAccessMode>(UINT8_MAX)}) {
+        buffer.access = access;
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveFrameBufferRange(buffer, 64)));
+    }
+    FrameImageBinding image;
+    image.kind            = FrameImageBindingKind::STORAGE;
+    image.access          = FrameAccessMode::READ_WRITE;
+    const auto descriptor = ColorTarget().descriptor;
+    ASSERT_TRUE(std::holds_alternative<RasterImageView>(ResolveFrameImageView(image, descriptor, true)));
+    for (const auto kind : {FrameImageBindingKind::END, static_cast<FrameImageBindingKind>(UINT8_MAX)}) {
+        image.kind = kind;
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveFrameImageView(image, descriptor, true)));
+    }
+    image.kind = FrameImageBindingKind::STORAGE;
+    for (const auto access : {FrameAccessMode::END, static_cast<FrameAccessMode>(UINT8_MAX)}) {
+        image.access = access;
+        EXPECT_TRUE(std::holds_alternative<FrameError>(ResolveFrameImageView(image, descriptor, true)));
+    }
+}
+
+TEST(FrameAnalysisDiagnostics, InvalidImageCopyReportsRequestedMipAndLayer)
+{
+    FrameGraphData data;
+    data.images.push_back(ColorTarget());
+    BufferImageCopyPass copy;
+    copy.image                     = {1, 0};
+    copy.region.subRange.level     = 7;
+    copy.region.subRange.baseLayer = 9;
+    data.passes.push_back(copy);
+    const auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
+    ASSERT_TRUE(std::holds_alternative<FrameError>(result));
+    const auto &error = std::get<FrameError>(result);
+    EXPECT_EQ(error.code, FrameErrorCode::COMPILE_FAILED);
+    for (const auto *part : {"pass=0", "image=0", "mip=7", "layer=9"})
+        EXPECT_NE(error.message.find(part), std::string::npos) << error.message;
+}

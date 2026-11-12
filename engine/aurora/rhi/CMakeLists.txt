@@ -39,6 +39,11 @@ if (SKY_BUILD_TEST)
         add_dependencies(Aurora.RHITest Aurora.DX12)
     endif()
     if (TARGET Aurora.Metal)
+        target_include_directories(Aurora.RHITest PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/metal/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/metal/src
+        )
         add_dependencies(Aurora.RHITest Aurora.Metal)
     endif()
 

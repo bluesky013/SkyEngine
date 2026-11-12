@@ -646,10 +646,19 @@ namespace sky::aurora {
             step.indirectOffset   = arguments.offset;
         }
         step.layout  = shader->GetPipelineLayout();
-        CounterPtr<VulkanComputePipeline> pipeline(new VulkanComputePipeline(device));
-        if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
-            return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
-        step.pipeline = std::move(pipeline);
+        auto pipeline = device.GetFrameComputePipelineCache().Acquire(
+            FrameComputePipelineKey{pass.shader, lease.context.deviceEpoch}, [&]() -> std::variant<FrameError, CounterPtr<ComputePipeline>> {
+                CounterPtr<VulkanComputePipeline> created(new VulkanComputePipeline(device));
+                if (!created->Init(ComputePipeline::Descriptor{shader})) {
+                    if (created->GetCreateResult() != VK_SUCCESS)
+                        return VulkanFrameError(created->GetCreateResult(), FrameErrorCode::COMPILE_FAILED);
+                    return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
+                }
+                return CounterPtr<ComputePipeline>(created.Get());
+            });
+        if (const auto *error = std::get_if<FrameError>(&pipeline))
+            return *error;
+        step.pipeline.Reset(static_cast<VulkanComputePipeline *>(std::get<CounterPtr<ComputePipeline>>(pipeline).Get()));
 
         auto bindings = resources.ResolveBindings(context, lease, *shader, pass.groups);
         if (const auto *error = std::get_if<FrameError>(&bindings))

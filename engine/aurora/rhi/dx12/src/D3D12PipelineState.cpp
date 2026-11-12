@@ -191,8 +191,8 @@ namespace sky::aurora {
 
     bool D3D12ComputePipeline::Init(const Descriptor &desc)
     {
-        if (desc.cs == nullptr) {
-            LOG_E(TAG, "compute pipeline descriptor missing compute shader");
+        if (desc.cs == nullptr || desc.cs->GetDevice() != &device) {
+            LOG_E(TAG, "compute pipeline shader belongs to a different device or is missing");
             return false;
         }
 
@@ -209,7 +209,7 @@ namespace sky::aurora {
         psoDesc.NodeMask                          = 0;
         psoDesc.Flags                             = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-        const HRESULT hr = device.GetNativeHandle()->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(pso.GetAddressOf()));
+        const HRESULT hr = createResult = device.GetFunctions().createComputePipeline(device.GetNativeHandle(), &psoDesc, pso.GetAddressOf());
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create compute pipeline state, hr=0x%08X", static_cast<unsigned>(hr));
             return false;

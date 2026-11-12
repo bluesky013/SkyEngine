@@ -6,7 +6,9 @@
 
 #include <aurora/rdg/FrozenFrameGraph.h>
 #include <aurora/renderer/PreparedFrameTypes.h>
+#include <map>
 #include <span>
+#include <tuple>
 
 namespace sky::aurora {
     class DeviceFrameContext;
@@ -32,6 +34,10 @@ namespace sky::aurora {
         RasterDepthState         depth;
         RenderMaterialParameters parameters;
     };
+    struct PreparedMaterialTechniques {
+        RenderResourceKey                                    resource;
+        std::vector<std::pair<Name, PreparedMaterialLayout>> techniques;
+    };
     struct PreparedRasterView {
         std::vector<ResolvedRasterDraw>                          draws;
         std::vector<std::shared_ptr<const ResourceVersionLease>> pins;
@@ -40,6 +46,24 @@ namespace sky::aurora {
         RenderResourceKey resource;
         GraphBufferHandle handle;
     };
+
+    // Built after graph-local uploads resolve; layout borrows end before the frame's catalog moves into the frozen graph.
+    struct PreparedRasterIndex {
+        using ResourceKey = std::tuple<Uuid, uint64_t, uint64_t, uint64_t>;
+        static ResourceKey Key(const RenderResourceKey &key)
+        {
+            return {key.product, key.usageVariant, key.deviceEpoch, key.revision};
+        }
+        std::map<ResourceKey, std::shared_ptr<const ResourceVersionLease>>                 pins;
+        std::map<ResourceKey, const PreparedMeshLayout *>                                  meshes;
+        std::map<ResourceKey, std::map<Name, std::vector<const PreparedMaterialLayout *>>> materials;
+        std::map<ResourceKey, GraphBufferHandle>                                           localBuffers;
+        bool                                                                               GeometryReady(const PreparedDrawPacket &) const;
+    };
+    std::variant<FrameError, PreparedRasterIndex> BuildPreparedRasterIndex(const FrozenResourceCatalog &,
+                                                                           std::span<const PreparedMeshLayout>,
+                                                                           std::span<const PreparedMaterialTechniques>,
+                                                                           std::span<const PreparedGraphBuffer> = {});
 
     std::variant<FrameError, std::vector<RasterVertexAttribute>>
     ResolveVertexInputs(std::span<const RasterVertexAttribute>, const ShaderReflection &);
@@ -57,12 +81,11 @@ namespace sky::aurora {
                                                                        DeviceFrameContext &,
                                                                        const DeviceFrameLease &,
                                                                        FrameGraphBuilder &,
-                                                                       const PreparedViewData &,
-                                                                       const FrozenResourceCatalog &,
-                                                                       std::span<const PreparedMeshLayout>,
-                                                                       std::span<const PreparedMaterialLayout>,
-                                                                       Rect2D                               scissor,
-                                                                       std::span<const PreparedGraphBuffer> inGraph        = {},
-                                                                       PreparedDrawList                     list           = PreparedDrawList::VISIBLE,
-                                                                       const ShaderVariant                 &pipelineValues = {});
+                                                                       SceneId,
+                                                                       std::span<const PreparedDrawPacket>,
+                                                                       std::span<const std::shared_ptr<const RenderSkinningData>>,
+                                                                       const PreparedRasterIndex &,
+                                                                       Name                 tag,
+                                                                       Rect2D               scissor,
+                                                                       const ShaderVariant &pipelineValues = {});
 } // namespace sky::aurora

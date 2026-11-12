@@ -72,7 +72,10 @@ namespace sky::aurora {
                 FrameRasterPass pass;
                 pass.color = output->color;
                 pass.draws.push_back(std::move(draw));
-                return context.Fullscreen(std::move(pass));
+                const auto rendered = context.Fullscreen(std::move(pass));
+                if (std::holds_alternative<FrameError>(rendered))
+                    return rendered;
+                return context.Export(output->color);
             }
             void OnRetired() override
             {

@@ -111,6 +111,10 @@ namespace sky::aurora {
         {
             return pipelineCache;
         }
+        FrameComputePipelineCache &GetFrameComputePipelineCache() noexcept
+        {
+            return computePipelineCache;
+        }
         VulkanRenderPassCache &GetRenderPassCache() noexcept
         {
             return *renderPassCache;
@@ -142,6 +146,7 @@ namespace sky::aurora {
         bool                                   renderPass2               = false;
         std::unique_ptr<FrameTransientPool>    transientPool;
         FramePipelineCache                     pipelineCache;
+        FrameComputePipelineCache              computePipelineCache;
         std::unique_ptr<VulkanRenderPassCache> renderPassCache;
         bool                                   OnInit(const DeviceInit &init) override;
         void                                   UpdateDeviceCaps() override;

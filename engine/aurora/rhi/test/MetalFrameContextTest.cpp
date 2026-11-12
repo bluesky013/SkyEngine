@@ -19,6 +19,8 @@ using namespace sky::aurora;
 using namespace sky::aurora::test;
 
 #if defined(SKY_PLATFORM_MACOS) || defined(SKY_PLATFORM_IOS)
+    #include "rdg/MetalFrameCompiler.h"
+    #include <MetalDevice.h>
 namespace {
     constexpr uint32_t kSize    = 8;
     constexpr uint64_t kGraphId = 1;
@@ -857,9 +859,61 @@ TEST_F(AuroraMetalTest, SpecializationRejectsInvalidValuesAndAllowsIndependentSt
     EXPECT_FALSE(MetalConstantProgram(device, vertex, unsupported, &halfValue));
 }
 
+TEST_F(AuroraMetalTest, GraphicsPipelinesReuseAcrossFramesAndRemainPinnedAfterCacheClear)
+{
+    auto *device = static_cast<MetalDevice *>(GetDevice());
+    ASSERT_TRUE(device);
+    const auto shader = MakeFullscreenShader(device);
+    ASSERT_TRUE(shader);
+    Image::Descriptor descriptor;
+    descriptor.format = PixelFormat::RGBA8_UNORM;
+    descriptor.extent = {kSize, kSize, 1};
+    descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_SRC;
+    const ImagePtr  image(device->CreateImage(descriptor));
+    const BufferPtr readback(device->CreateBuffer({kSize * kSize * 4, BufferUsageFlagBit::TRANSFER_DST, MemoryType::CPU_TO_GPU}));
+    ASSERT_TRUE(image && readback);
+    auto       data = BuildClearReadbackGraph(image, descriptor, readback)->GetData();
+    RasterDraw draw;
+    draw.shader              = shader;
+    draw.command.vertexCount = 3;
+    std::get<FrameRasterPass>(data.passes[0]).draws.push_back(draw);
+    const auto                          graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
+    std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
+    ASSERT_TRUE(context);
+    CounterPtr<GraphicsPipeline> previous;
+    for (uint32_t round = 0; round < 3; ++round) {
+        const auto begun = context->TryBeginSlot();
+        ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+        auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        auto        plan     = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+        const auto &native   = static_cast<const MetalCompiledFrame &>(*plan);
+        const auto &pipeline = std::get<MetalRasterStep>(native.encoder->steps[0]).draws[0].pipeline;
+        if (round == 1) {
+            EXPECT_EQ(pipeline.Get(), previous.Get());
+            device->GetFramePipelineCache().Clear();
+            previous.Reset(nullptr);
+            EXPECT_EQ(pipeline->GetRef(), 1u);
+        } else if (!round) {
+            previous = pipeline;
+        }
+        const auto dispatched = context->Dispatch(plan);
+        ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+        auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+        auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+        ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+        ASSERT_TRUE(WaitForCompletion(*context));
+    }
+    const auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    EXPECT_EQ(pixels[(4 * kSize + 4) * 4 + 1], 255u);
+    readback->UnMap();
+}
+
 TEST_F(AuroraMetalTest, FrameContextDirectAndIndirectComputeUseDynamicOffsetsInBindingOrder)
 {
-    auto *device = GetDevice();
+    auto *device = static_cast<MetalDevice *>(GetDevice());
     ASSERT_TRUE(device);
     for (const bool indirect : {false, true}) {
         SCOPED_TRACE(indirect ? "indirect" : "direct");
@@ -951,24 +1005,49 @@ kernel void CSMain(constant Params &first [[buffer(0)]], constant Params &second
         bindings.buffers.push_back({0, 1, {{kGraphId, 0}, 0, 16}, 256, FrameAccessMode::READ});
         bindings.buffers.push_back({1, 0, {{kGraphId, 1}, 0, 16}, 0, FrameAccessMode::WRITE});
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(bindings))));
+        compute.sideEffect = true;
+        data.passes.emplace_back(compute);
         data.passes.emplace_back(std::move(compute));
         data.passes.emplace_back(BufferCopyPass{{kGraphId, 1}, {kGraphId, 2}, 0, 0, 16});
         data.exports.push_back({{kGraphId, 2}, 0, 16});
         const auto                          graph = std::make_shared<const FrozenFrameGraph>(kGraphId, std::move(data));
         std::unique_ptr<DeviceFrameContext> context(device->CreateFrameContext({1, 1, 1}));
         ASSERT_TRUE(context);
-        const auto begun = context->TryBeginSlot();
-        ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
-        auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
-        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
-        auto plan       = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
-        auto dispatched = context->Dispatch(plan);
-        ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
-        auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
-        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
-        auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
-        ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
-        ASSERT_TRUE(WaitForCompletion(*context));
+        CounterPtr<ComputePipeline> previousPipeline;
+        CounterPtr<ResourceGroup>   previousGroup;
+        for (uint32_t round = 0; round < 2; ++round) {
+            const auto begun = context->TryBeginSlot();
+            ASSERT_TRUE(std::holds_alternative<DeviceFrameLease>(begun));
+            auto compiled = context->Compile(std::get<DeviceFrameLease>(begun), graph);
+            ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+            auto        plan   = std::move(std::get<std::unique_ptr<BackendCompiledFrame>>(compiled));
+            const auto &native = static_cast<const MetalCompiledFrame &>(*plan);
+            const auto &first  = std::get<MetalComputeStep>(native.encoder->steps[indirect ? 1 : 0]);
+            const auto &second = std::get<MetalComputeStep>(native.encoder->steps[indirect ? 2 : 1]);
+            ASSERT_EQ(first.sets.size(), 2u);
+            ASSERT_EQ(second.sets.size(), 2u);
+            EXPECT_EQ(first.pipeline.Get(), second.pipeline.Get());
+            EXPECT_EQ(first.sets[0].group.Get(), second.sets[0].group.Get());
+            EXPECT_EQ(first.sets[1].group.Get(), second.sets[1].group.Get());
+            if (round) {
+                EXPECT_EQ(first.pipeline.Get(), previousPipeline.Get());
+                EXPECT_NE(first.sets[0].group.Get(), previousGroup.Get());
+                device->GetFrameComputePipelineCache().Clear();
+                previousPipeline.Reset(nullptr);
+                previousGroup.Reset(nullptr);
+                EXPECT_EQ(first.pipeline->GetRef(), 2u);
+            } else {
+                previousPipeline = first.pipeline;
+                previousGroup    = first.sets[0].group;
+            }
+            auto dispatched = context->Dispatch(plan);
+            ASSERT_TRUE(std::holds_alternative<EncodingTicket>(dispatched));
+            auto collected = context->TryCollect(std::get<EncodingTicket>(dispatched));
+            ASSERT_TRUE(std::holds_alternative<std::unique_ptr<RecordedFrame>>(collected));
+            auto recorded = std::move(std::get<std::unique_ptr<RecordedFrame>>(collected));
+            ASSERT_TRUE(std::holds_alternative<SubmissionAccepted>(context->Submit(recorded)));
+            ASSERT_TRUE(WaitForCompletion(*context));
+        }
         const auto *result = reinterpret_cast<const uint32_t *>(readback->Map());
         ASSERT_TRUE(result);
         for (uint32_t i = 0; i < 4; ++i)
@@ -1338,7 +1417,9 @@ kernel void CSMain(device const uint *input [[buffer(0)]], device uint *output [
         if (offset == 1) {
             ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
             EXPECT_EQ(std::get<FrameError>(compiled).code, FrameErrorCode::COMPILE_FAILED);
-            EXPECT_EQ(std::get<FrameError>(compiled).message, "Compute storage buffer range does not match the shader storage shape");
+            EXPECT_NE(std::get<FrameError>(compiled).message.find("Compute storage buffer range does not match the shader storage shape"),
+                      std::string::npos);
+            EXPECT_NE(std::get<FrameError>(compiled).message.find("pass=0"), std::string::npos);
             ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
             continue;
         }

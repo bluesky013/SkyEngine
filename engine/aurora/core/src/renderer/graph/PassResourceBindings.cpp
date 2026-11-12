@@ -155,12 +155,12 @@ namespace sky::aurora {
         return ApplyImpl(nullptr, draw, groups);
     }
     FrameOperationResult
-    PassResourceBindings::Apply(FrameGraphBuildContext &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
+    PassResourceBindings::Apply(FrameGraphServices &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
     {
         return ApplyImpl(&context, draw, groups);
     }
     FrameOperationResult
-    PassResourceBindings::ApplyImpl(FrameGraphBuildContext *context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
+    PassResourceBindings::ApplyImpl(FrameGraphServices *context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
     {
         if (context)
             return ApplyTransaction(*context, draw, groups);
@@ -231,7 +231,7 @@ namespace sky::aurora {
     }
 
     FrameOperationResult
-    PassResourceBindings::ApplyTransaction(FrameGraphBuildContext &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
+    PassResourceBindings::ApplyTransaction(FrameGraphServices &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups)
     {
         if (!draw.shader || !draw.shader->GetParameterTable().generation)
             return Invalid("Parameter transactions require the linked shader interface");

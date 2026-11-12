@@ -17,6 +17,7 @@ namespace {
     void EvictFrameCaches(VulkanDevice &device)
     {
         device.GetFramePipelineCache().Clear();
+        device.GetFrameComputePipelineCache().Clear();
         device.GetRenderPassCache().Clear();
     }
     struct NativeProbe {
@@ -32,6 +33,7 @@ namespace {
             fn.vkCmdPipelineBarrier2     = Barrier;
             fn.vkCreateRenderPass2       = CreateRenderPass;
             fn.vkCreateGraphicsPipelines = CreatePipelines;
+            fn.vkCreateComputePipelines  = CreateComputePipelines;
             fn.vkDestroyPipeline         = DestroyPipeline;
             fn.vkCreateFramebuffer       = CreateFramebuffer;
             fn.vkDestroyFramebuffer      = DestroyFramebuffer;
@@ -169,6 +171,20 @@ namespace {
             ASSERT_NE(next, nullptr);
             EXPECT_EQ(static_cast<const VkBaseInStructure *>(next)->sType, VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO);
         }
+        static VkResult VKAPI_PTR CreateComputePipelines(VkDevice                           device,
+                                                         VkPipelineCache                    cache,
+                                                         uint32_t                           count,
+                                                         const VkComputePipelineCreateInfo *infos,
+                                                         const VkAllocationCallbacks       *allocator,
+                                                         VkPipeline                        *output)
+        {
+            ++active->computePipelineAttempts;
+            if (active->computePipelineFailure != VK_SUCCESS) {
+                std::fill_n(output, count, VK_NULL_HANDLE);
+                return active->computePipelineFailure;
+            }
+            return active->saved.vkCreateComputePipelines(device, cache, count, infos, allocator, output);
+        }
         static void VKAPI_PTR DestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks *allocator)
         {
             ++active->pipelinesDestroyed;
@@ -204,6 +220,8 @@ namespace {
         uint32_t                                            dynamicBegins = 0, renderPassBegins = 0, dynamicPipelines = 0, renderPassPipelines = 0;
         uint32_t                                            pipelinesDestroyed = 0, renderPassesDestroyed = 0, framebuffersDestroyed = 0;
         VkResult                                            pipelineFailure = VK_SUCCESS, framebufferFailure = VK_SUCCESS;
+        VkResult                                            computePipelineFailure  = VK_SUCCESS;
+        uint32_t                                            computePipelineAttempts = 0;
         bool                                                insideScope          = false;
         bool                                                inspectStorageStages = false;
         uint32_t                                            storageSources = 0, storageDestinations = 0;
@@ -524,6 +542,24 @@ namespace {
             descriptor.cs = cs.Get();
             return cs ? ShaderPtr(device->CreateShader(descriptor)) : ShaderPtr{};
         }
+        std::pair<std::shared_ptr<const FrozenFrameGraph>, BufferPtr> ComputeReadbackGraph(const ShaderPtr &shader)
+        {
+            FrameGraphBuilder builder;
+            const auto        source =
+                std::get<GraphBufferHandle>(builder.Import(StorageBufferOf(), CopyBufferState::COMMON, CopyBufferState::COMMON, false));
+            auto       readback = BufferOf(BufferUsageFlagBit::TRANSFER_DST);
+            const auto target = std::get<GraphBufferHandle>(builder.Import(readback, CopyBufferState::HOST_READ, CopyBufferState::HOST_READ, false));
+            FrameComputePass pass;
+            pass.shader   = shader;
+            pass.dispatch = CmdDispatch{4, 1, 1};
+            ComputeBindingDraft bindings;
+            bindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(bindings))));
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(pass))));
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Copy({source, target, 0, 0, 64})));
+            EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({target, 0, 64})));
+            return {std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), readback};
+        }
         FrameGraphImage StorageImageOf()
         {
             FrameGraphImage image;
@@ -830,11 +866,60 @@ TEST_P(VulkanFrameCompilerFixture, ComputeSamplersRemainPinnedAfterCpuGraphRelea
     EXPECT_GE(shader->GetRef(), 2u);
     AwaitCompletions(1);
     EXPECT_EQ(sampler->GetRef(), 1u);
+    EXPECT_GT(shader->GetRef(), 1u);
+    device->GetFrameComputePipelineCache().Clear();
     EXPECT_EQ(shader->GetRef(), 1u);
     const auto *values = reinterpret_cast<const uint32_t *>(readback->Map());
     ASSERT_TRUE(values);
     EXPECT_EQ(values[0], 255u);
     readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputePipelinesReuseAcrossFramesAndRemainPinnedAfterCacheClear)
+{
+    const auto shader = ComputeShaderOf();
+    ASSERT_TRUE(shader);
+    const auto [graph, readback] = ComputeReadbackGraph(shader);
+    ASSERT_TRUE(graph && readback);
+    NativeProbe probe(*device);
+    Execute(graph);
+    Execute(graph, [&](const VulkanCompiledFrame &) {
+        EXPECT_EQ(probe.computePipelineAttempts, 1u);
+        device->GetFrameComputePipelineCache().Clear();
+        EXPECT_EQ(probe.pipelinesDestroyed, 0u);
+    });
+    EXPECT_EQ(probe.pipelinesDestroyed, 1u);
+    Execute(graph);
+    EXPECT_EQ(probe.computePipelineAttempts, 2u);
+    const auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+    ASSERT_TRUE(values);
+    for (uint32_t i = 0; i < 4; ++i)
+        EXPECT_EQ(values[i], i + 7u);
+    readback->UnMap();
+}
+
+TEST_P(VulkanFrameCompilerFixture, ComputePipelineFailurePreservesNativeCauseAndDoesNotPoisonCache)
+{
+    const auto shader = ComputeShaderOf();
+    ASSERT_TRUE(shader);
+    const auto [graph, readback] = ComputeReadbackGraph(shader);
+    ASSERT_TRUE(graph);
+    NativeProbe probe(*device);
+    probe.computePipelineFailure = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    const auto lease             = Begin();
+    auto       compiled          = context->Compile(lease, graph);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
+    const auto &error = std::get<FrameError>(compiled);
+    EXPECT_EQ(error.cause.code, GpuErrorCode::OUT_OF_MEMORY);
+    EXPECT_EQ(error.cause.nativeCode, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+    probe.computePipelineFailure = VK_SUCCESS;
+    compiled                     = context->Compile(lease, graph);
+    ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled));
+    EXPECT_EQ(probe.computePipelineAttempts, 2u);
+    std::get<std::unique_ptr<BackendCompiledFrame>>(compiled).reset();
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+    Execute(graph);
+    EXPECT_EQ(probe.computePipelineAttempts, 2u);
 }
 
 TEST_P(VulkanFrameCompilerFixture, DirectAndIndirectComputeStorageBufferWritesReadBack)

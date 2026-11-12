@@ -16,11 +16,6 @@ namespace sky::aurora {
     std::optional<FrameError>           ValidateFrameShader(const RenderTechniqueData &);
     std::variant<FrameError, ShaderPtr> CreateFrameShader(Device &, const RenderTechniqueData &);
 
-    struct PreparedMaterialTechniques {
-        RenderResourceKey                                    resource;
-        std::vector<std::pair<Name, PreparedMaterialLayout>> techniques;
-    };
-
     class FrameComposer final : public FrameGraphBuildContext {
     public:
         FrameComposer(Device &, DeviceFrameContext &, FrameGraphBuilder &, const FrameBuildInputs &);
@@ -38,11 +33,7 @@ namespace sky::aurora {
         std::variant<FrameError, FrameBindingGroupUse>
         MaterializeParameters(ShaderPtr, uint32_t, const ShaderParameterTransactionState &, RasterBindingDraft) override;
         // The coordinator retains the catalog in the frozen graph; this view borrow ends before BuildFrame.
-        void SetPreparedView(const PreparedViewData *,
-                             const FrozenResourceCatalog &,
-                             std::span<const PreparedMeshLayout>,
-                             std::span<const PreparedMaterialTechniques>,
-                             std::span<const PreparedGraphBuffer>);
+        void SetPreparedView(const PreparedViewData *, const PreparedRasterIndex *);
         std::variant<FrameError, std::vector<ResolvedRasterDraw>>
         ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *pipelineValues = nullptr) override;
         std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override;
@@ -57,7 +48,6 @@ namespace sky::aurora {
         FrameOperationResult                        Custom(FrameCustomPass) override;
         FrameOperationResult                        Export(GraphBufferExport) override;
         FrameOperationResult                        Export(GraphImageHandle) override;
-        FrameOperationResult                        ExportOutputs();
 
     private:
         struct ParameterGroupKey {
@@ -101,7 +91,6 @@ namespace sky::aurora {
             FrameRenderTarget target;
             bool              sampleable = false;
         };
-        FrameOperationResult                                                  AddRaster(FrameRasterPass, bool fullscreen);
         Device                                                               &device;
         DeviceFrameContext                                                   &context;
         FrameGraphBuilder                                                    &builder;
@@ -109,10 +98,7 @@ namespace sky::aurora {
         std::vector<Output>                                                   outputs;
         std::vector<std::pair<RenderResourceKey, GraphImageHandle>>           images;
         const PreparedViewData                                               *view      = nullptr;
-        const FrozenResourceCatalog                                          *resources = nullptr;
-        std::span<const PreparedMeshLayout>                                   meshes;
-        std::span<const PreparedMaterialTechniques>                           materials;
-        std::span<const PreparedGraphBuffer>                                  localBuffers;
+        const PreparedRasterIndex                                            *rasterIndex = nullptr;
         std::map<ParameterGroupKey, FrameBindingGroupUse, ParameterGroupLess> parameterGroups;
         std::map<UniformUploadKey, RasterUniformBinding, UniformUploadLess>   uniformUploads;
     };

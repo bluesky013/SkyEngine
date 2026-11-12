@@ -96,7 +96,10 @@ namespace sky::aurora {
             if (const auto *error = std::get_if<FrameError>(&bound))
                 return *error;
             sample.draws.push_back(std::move(draw));
-            return context.Raster(std::move(sample));
+            result = context.Raster(std::move(sample));
+            if (std::holds_alternative<FrameError>(result))
+                return result;
+            return context.Export(output->color);
         }
         void OnRetired() override
         {

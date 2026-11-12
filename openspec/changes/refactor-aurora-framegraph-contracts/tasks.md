@@ -1,5 +1,5 @@
 > 2026-11-01 整理：**active**。现行 owner：本 change 保持最终公共参数/DirectFrame/绑定组契约；平台矩阵由 `aurora-renderer-platform-parity` 接续。
-> 剩余：Windows 新契约原生回归 4.5；视觉质量 5.4 转 P02-LIGHTING，均未验收。下方较早状态与验收记录保留为历史。
+> 2026-11-11 续作：本 change 同时承接已确认的后端编译归属、显式 output Export、分析预算及局部精简；2026-11-12 完成本机验证。Windows 原生回归 4.5 与 P02-LIGHTING 5.4 仍未验收，历史验证不代替本轮证据。
 
 ## 1. Native correctness and resource-use facts
 
@@ -38,3 +38,25 @@
 - [x] 5.2 Validate version-correct Vulkan 1.1/KHR feature and command negotiation, mandatory synchronization and unsupported direct-rendering errors.
 - [x] 5.3 Recook Android SPIR-V 1.3 products, pass the 40-check physics APK audit, verify falling/settled bodies over the 121-second device run and record the separate 15-second presentation-progress sample with controlled cleanup.
 - [ ] 5.4 Transferred, not accepted: `aurora-renderer-platform-parity` P02-LIGHTING owns the observed shadow striping/vendor-warning visual review; the physics/package run does not establish visual-quality or validation-clean acceptance.
+
+## 6. Approved architecture follow-up — 2026-11-11
+
+- [x] 6.1 Combine DX12 sampled-image read states by physical backing/subresource and preserve compute creation native causes with exact-device checks.
+- [x] 6.2 Require explicit successful output Export, deduplicate image exports and migrate Scene/UI/TextureToScreen producers and fixtures; preserve Accepted-boundary persistent output state.
+- [x] 6.3 Resolve image readiness for the selected queue technique/variant, preserving strict variant, owner, type, epoch and range errors.
+- [x] 6.4 Check raw declarations and predicted access work before expansion/culling, normalize separate content collections and add exclusive enum bounds.
+
+## 7. Backend ownership and local simplification
+
+- [x] 7.1 Extract concrete Metal compiler/encoder into private files within the existing target; retain per-pass depth refresh and submitted GPU payload ownership.
+- [x] 7.2 Add bounded device/epoch compute PSO caches to all backends and graphics PSO caching to Metal; retain exact shader owners and independent plan pins.
+- [x] 7.3 Resolve binding drafts once for shared analysis, add failure-only pass/resource/range context and preserve Custom order.
+- [x] 7.4 Build frame-local resource/material lookup indices after resource preparation, use borrowed spans and narrow PassResourceBindings to FrameGraphServices.
+- [x] 7.5 Remove GraphBuildArena with equivalent shared/weak ownership and Reset behavior; simplify cached external override replacement.
+
+## 8. Follow-up verification
+
+- [x] 8.1 Add regressions for corrected boundaries, cache reuse/retention, output paths, selected-technique readiness and budget rejection.
+- [x] 8.2 Reconfigure the existing Xcode build, run source-ownership checks and build affected production targets and tests.
+- [x] 8.3 Run available host CPU/native suites, scoped formatting/rules and strict OpenSpec checks; record actual evidence and unavailable Windows checks.
+- [x] 8.4 Review the complete diff and update final design/verification without commit or archive.

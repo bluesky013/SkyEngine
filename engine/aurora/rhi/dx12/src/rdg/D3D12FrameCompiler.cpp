@@ -307,10 +307,19 @@ namespace sky::aurora {
                     return *error;
                 step.indirectSignature = std::get<ComPtr<ID3D12CommandSignature>>(std::move(signature));
             }
-            CounterPtr<D3D12ComputePipeline> pipeline(new D3D12ComputePipeline(device));
-            if (!pipeline->Init(ComputePipeline::Descriptor{shader}))
-                return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
-            step.pipeline = std::move(pipeline);
+            auto pipeline = device.GetFrameComputePipelineCache().Acquire(
+                FrameComputePipelineKey{pass.shader, lease.context.deviceEpoch}, [&]() -> std::variant<FrameError, CounterPtr<ComputePipeline>> {
+                    CounterPtr<D3D12ComputePipeline> created(new D3D12ComputePipeline(device));
+                    if (!created->Init(ComputePipeline::Descriptor{shader})) {
+                        if (FAILED(created->GetCreateResult()))
+                            return CompileError(created->GetCreateResult());
+                        return FrameError{FrameErrorCode::COMPILE_FAILED, "Compute pipeline creation failed"};
+                    }
+                    return CounterPtr<ComputePipeline>(created.Get());
+                });
+            if (const auto *error = std::get_if<FrameError>(&pipeline))
+                return *error;
+            step.pipeline.Reset(static_cast<D3D12ComputePipeline *>(std::get<CounterPtr<ComputePipeline>>(pipeline).Get()));
             auto bindings = ResolveD3D12Bindings(device, context, lease, shader, pass.groups, buffers, images, encoder, cache);
             if (const auto *error = std::get_if<FrameError>(&bindings))
                 return *error;
@@ -814,14 +823,30 @@ namespace sky::aurora {
                 }
                 for (const auto &[physical, read] : reads)
                     BufferBarrier(read.logical, read.state, task.before);
+                std::map<std::pair<uint32_t, uint32_t>, Read> imageReads;
                 for (const auto &use : uses.images) {
                     if (use.kind != FrameImageUseKind::SAMPLED && use.kind != FrameImageUseKind::STORAGE)
                         continue;
                     const bool storage = use.kind == FrameImageUseKind::STORAGE;
                     if (!images[use.image.index]->GetDescriptor().usage.TestBit(storage ? ImageUsageFlagBit::STORAGE : ImageUsageFlagBit::SAMPLED))
                         return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Shader image lacks its declared usage"};
-                    ImageBarrier(use.image.index, storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : shaderReadState(use.stages), task.before,
-                                 use.range);
+                    const auto logical  = use.image.index;
+                    const auto physical = plan->resources.imageBacking[logical];
+                    const auto mips     = data.images[logical].descriptor.mipLevels;
+                    const auto state    = storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : shaderReadState(use.stages);
+                    for (uint32_t layer = use.range.baseLayer; layer < use.range.baseLayer + use.range.layers; ++layer)
+                        for (uint32_t mip = use.range.baseLevel; mip < use.range.baseLevel + use.range.levels; ++mip) {
+                            auto &read = imageReads[{physical, layer * mips + mip}];
+                            if (read.state &&
+                                ((read.state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS) != (state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)))
+                                return FrameError{FrameErrorCode::UNSUPPORTED, "Writable storage cannot share a pass with a sampled image view"};
+                            read.logical = logical;
+                            read.state |= state;
+                        }
+                }
+                for (const auto &[key, read] : imageReads) {
+                    const auto mips = data.images[read.logical].descriptor.mipLevels;
+                    ImageBarrier(read.logical, read.state, task.before, {key.second % mips, 1, key.second / mips, 1});
                 }
                 return {};
             }

@@ -106,10 +106,15 @@ namespace sky::aurora {
         {
             return pipelineCache;
         }
+        FrameComputePipelineCache &GetFrameComputePipelineCache() noexcept
+        {
+            return computePipelineCache;
+        }
 
     private:
         std::unique_ptr<FrameTransientPool> transientPool;
         FramePipelineCache                  pipelineCache;
+        FrameComputePipelineCache           computePipelineCache;
         bool                                OnInit(const DeviceInit &init) override;
         void                                UpdateDeviceCaps() override;
         std::string                         GetDeviceInfo() const override;

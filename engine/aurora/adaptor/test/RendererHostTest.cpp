@@ -1128,9 +1128,12 @@ namespace {
         {
             return FrameError{FrameErrorCode::UNSUPPORTED};
         }
-        FrameOperationResult Export(GraphImageHandle) override
+        FrameOperationResult Export(GraphImageHandle image) override
         {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
+            if (image != target.color)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT};
+            target.exportRequested = true;
+            return FrameOperationComplete{};
         }
         std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) override
         {
@@ -1217,6 +1220,7 @@ TEST(UiRenderFeature, MetalDx12AndVulkanKeepTopAndBottomClipsInTheSamePhysicalRo
         UiBuildCapture context(backend);
         const auto     result = feature->BuildFrame(context, std::get<FrameExtensionPayload>(encoded));
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(result));
+        EXPECT_TRUE(context.target.exportRequested);
         ASSERT_EQ(context.rasters.size(), 1u);
         ASSERT_EQ(context.rasters.front().draws.size(), 2u);
         for (size_t draw = 0; draw < 2; ++draw) {
@@ -1228,6 +1232,16 @@ TEST(UiRenderFeature, MetalDx12AndVulkanKeepTopAndBottomClipsInTheSamePhysicalRo
         }
         ASSERT_EQ(context.vertices.size(), 3u);
         EXPECT_EQ(context.vertices.front().y, backend == API::VULKAN ? -1.f : 1.f);
+        UiBuildCapture   emptyContext(backend);
+        RenderUiSnapshot emptySnapshot;
+        emptySnapshot.output    = emptyContext.target.output.viewport;
+        const auto emptyPayload = EncodeRenderUiSnapshot(Name("ui.clip"), emptySnapshot);
+        ASSERT_TRUE(std::holds_alternative<FrameExtensionPayload>(emptyPayload));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(feature->BuildFrame(emptyContext, std::get<FrameExtensionPayload>(emptyPayload))));
+        ASSERT_EQ(emptyContext.rasters.size(), 1u);
+        EXPECT_TRUE(emptyContext.rasters.front().draws.empty());
+        EXPECT_EQ(emptyContext.rasters.front().load, LoadOp::CLEAR);
+        EXPECT_TRUE(emptyContext.target.exportRequested);
         feature->OnRetired();
     }
 }

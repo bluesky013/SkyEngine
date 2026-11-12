@@ -3,7 +3,7 @@
 #include <aurora/rdg/FrozenFrameGraph.h>
 
 namespace sky::aurora {
-    class FrameGraphBuildContext;
+    class FrameGraphServices;
     // Borrowed shared schema and graph handles are valid only during this frame's composition.
     class PassResourceBindings {
     public:
@@ -31,7 +31,7 @@ namespace sky::aurora {
         FrameOperationResult Storage(ShaderResourceSlot<ShaderResourceType::STORAGE_BUFFER> slot, RasterBufferRange range);
         // Validate all groups before replacing the draw's bindings; unused declarations need no value.
         static FrameOperationResult Apply(RasterDraw &draw, std::span<const PassResourceBindings *const> groups);
-        static FrameOperationResult Apply(FrameGraphBuildContext &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups);
+        static FrameOperationResult Apply(FrameGraphServices &context, RasterDraw &draw, std::span<const PassResourceBindings *const> groups);
 
     private:
         struct UniformValue {
@@ -53,8 +53,8 @@ namespace sky::aurora {
             Name       name;
             SamplerPtr sampler;
         };
-        static FrameOperationResult       ApplyTransaction(FrameGraphBuildContext &, RasterDraw &, std::span<const PassResourceBindings *const>);
-        static FrameOperationResult       ApplyImpl(FrameGraphBuildContext *, RasterDraw &, std::span<const PassResourceBindings *const>);
+        static FrameOperationResult       ApplyTransaction(FrameGraphServices &, RasterDraw &, std::span<const PassResourceBindings *const>);
+        static FrameOperationResult       ApplyImpl(FrameGraphServices *, RasterDraw &, std::span<const PassResourceBindings *const>);
         FrameOperationResult              Fail(FrameError error) const;
         std::optional<FrameError>         Check(uint32_t set, uint32_t binding, ShaderResourceType type) const;
         const ShaderReflection           &schema;

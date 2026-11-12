@@ -34,6 +34,7 @@ namespace sky::aurora {
     {
         WaitIdle();
         pipelineCache.Clear();
+        computePipelineCache.Clear();
         renderPassCache.reset();
         transientPool.reset();
         for (auto &q : queues) {

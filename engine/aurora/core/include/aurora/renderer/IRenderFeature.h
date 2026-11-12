@@ -13,7 +13,8 @@ namespace sky::aurora {
         GraphImageHandle color;
         uint64_t         revision      = 0;
         SurfaceTransform transform     = SurfaceTransform::IDENTITY;
-        bool             initialized   = false;
+        // A prior producer requested export; Compile still validates content at every read and export.
+        bool             exportRequested = false;
         Matrix4          logicalToClip = RenderIdentityMatrix();
     };
 

@@ -7,6 +7,7 @@
 #include "GpuTestSupport.h"
 #include "graph/FrameGraphBuilder.h"
 #include <D3D12Device.h>
+#include <D3D12Instance.h>
 #include <algorithm>
 #include <atomic>
 #include <aurora/rdg/FrameBindings.h>
@@ -18,7 +19,7 @@
 
 namespace {
     struct DxProbe {
-        enum class Fault { NONE, ALLOCATOR, LIST, RESET_ALLOCATOR, BEGIN, END, PIPELINE, TARGETS };
+        enum class Fault { NONE, ALLOCATOR, LIST, RESET_ALLOCATOR, BEGIN, END, PIPELINE, COMPUTE_PIPELINE, TARGETS };
         struct List {
             std::thread::id owner;
             bool            recording = false;
@@ -37,6 +38,7 @@ namespace {
             fn.signal                 = Signal;
             fn.completed              = Completed;
             fn.createGraphicsPipeline = Pipeline;
+            fn.createComputePipeline  = ComputePipeline;
             fn.createDescriptorHeap   = Targets;
         }
         ~DxProbe()
@@ -178,6 +180,11 @@ namespace {
         {
             return active->Fail(Fault::PIPELINE) ? active->compileFailure : active->saved.createGraphicsPipeline(device, desc, out);
         }
+        static HRESULT ComputePipeline(ID3D12Device *device, const D3D12_COMPUTE_PIPELINE_STATE_DESC *desc, ID3D12PipelineState **out)
+        {
+            ++active->computePipelines;
+            return active->Fail(Fault::COMPUTE_PIPELINE) ? active->compileFailure : active->saved.createComputePipeline(device, desc, out);
+        }
         static HRESULT Targets(ID3D12Device *device, const D3D12_DESCRIPTOR_HEAP_DESC *desc, ID3D12DescriptorHeap **out)
         {
             return active->Fail(Fault::TARGETS) ? active->compileFailure : active->saved.createDescriptorHeap(device, desc, out);
@@ -204,6 +211,7 @@ namespace {
         HRESULT                                             compileFailure = E_OUTOFMEMORY;
         std::atomic_bool                                    injected{false};
         uint32_t concurrent = 0, maximum = 0, begun = 0, finished = 0, held = 0, submits = 0, createdLists = 0, resets = 0;
+        uint32_t                                            computePipelines = 0;
         bool     gateBegins = false, delayFirst = false, holdEnd = false, released = false;
         bool     failSignal = false, queryOverride = false, holdIdle = false, idleEntered = false, releaseIdle = false;
         UINT64   queryValue = 0;
@@ -561,7 +569,7 @@ TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
     const auto          output = std::get<GraphImageHandle>(builder.Import(ImageOf()));
     FrameComputePass    compute;
     ComputeBindingDraft computeBindings;
-    compute.shader  = ComputeImageShaderOf();
+    compute.shader   = ComputeImageShaderOf();
     compute.dispatch = CmdDispatch{8, 8, 1};
     computeBindings.images.push_back({0, 0, source, {}, FrameAccessMode::WRITE});
     EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
@@ -588,6 +596,126 @@ TEST_F(D3D12FrameCompilerTest, ComputeStorageImageIsSampledByRaster)
         EXPECT_EQ(pixels[i * 4 + 3], 255);
     }
     readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, SharedImageCombinesVertexAndFragmentReadStates)
+{
+    constexpr const char *source = R"(
+[AuroraResource(0,0,"fixture/stage-sample")] [[vk::binding(0,0)]] Texture2D<float4> vertexImage : register(t0);
+[AuroraResource(0,1,"fixture/stage-sample")] [[vk::binding(1,0)]] Texture2D<float4> fragmentImage : register(t1);
+struct Varying { float4 position : SV_Position; float4 value : COLOR; };
+Varying VSMain(uint i : SV_VertexID) {
+    float2 positions[3] = {float2(-1,-1), float2(-1,3), float2(3,-1)};
+    Varying output;
+    output.position = float4(positions[i], 0, 1);
+    output.value = vertexImage.Load(int3(0,0,0));
+    return output;
+}
+float4 PSMain(Varying input) : SV_Target { return (input.value + fragmentImage.Load(int3(0,0,0))) * 0.5; }
+)";
+    const auto            vs     = CompileGpuFunction(*device, source, ShaderStageFlagBit::VS, "VSMain");
+    const auto            fs     = CompileGpuFunction(*device, source, ShaderStageFlagBit::FS, "PSMain");
+    ASSERT_TRUE(vs);
+    ASSERT_TRUE(fs);
+    Shader::Descriptor descriptor{};
+    descriptor.vs = vs.Get();
+    descriptor.ps = fs.Get();
+    auto shader   = ShaderPtr(device->CreateShader(descriptor));
+    ASSERT_TRUE(shader);
+
+    FrameGraphBuilder builder;
+    auto              input = StorageImageOf();
+    ASSERT_TRUE(input.image);
+    const auto       native  = static_cast<D3D12Image *>(input.image.Get())->GetNativeHandle();
+    const auto       sampled = std::get<GraphImageHandle>(builder.Import(std::move(input)));
+    const auto       output  = std::get<GraphImageHandle>(builder.Import(ImageOf()));
+    FrameComputePass compute;
+    compute.shader   = ComputeImageShaderOf();
+    compute.dispatch = CmdDispatch{8, 8, 1};
+    ComputeBindingDraft computeBindings;
+    computeBindings.images.push_back({0, 0, sampled, {}, FrameAccessMode::WRITE});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+
+    FrameRasterPass raster;
+    raster.color = output;
+    RasterDraw draw;
+    draw.shader  = std::move(shader);
+    draw.command = {3, 1, 0, 0};
+    RasterBindingDraft bindings;
+    bindings.images.push_back({0, 0, sampled, {}});
+    bindings.images.push_back({0, 1, sampled, {}});
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetRasterBindings(draw, std::move(bindings))));
+    raster.draws.push_back(std::move(draw));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Raster(std::move(raster))));
+    auto readback = Readback(builder, output);
+    Execute(std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze()), [&](const D3D12CompiledFrame &plan) {
+        uint32_t transitions = 0;
+        for (const auto &task : plan.encoder->tasks) {
+            if (!std::holds_alternative<D3D12RasterFragment>(task.operation))
+                continue;
+            for (const auto &barrier : task.before) {
+                if (barrier.Type != D3D12_RESOURCE_BARRIER_TYPE_TRANSITION || barrier.Transition.pResource != native)
+                    continue;
+                ++transitions;
+                EXPECT_EQ(barrier.Transition.Subresource, 0u);
+                EXPECT_EQ(barrier.Transition.StateBefore, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+                EXPECT_EQ(barrier.Transition.StateAfter, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            }
+        }
+        EXPECT_EQ(transitions, 1u);
+    });
+    const auto *pixels = readback->Map();
+    ASSERT_TRUE(pixels);
+    for (uint32_t i = 0; i < 64; ++i) {
+        EXPECT_EQ(pixels[i * 4], 0);
+        EXPECT_EQ(pixels[i * 4 + 1], 255);
+        EXPECT_EQ(pixels[i * 4 + 2], 0);
+        EXPECT_EQ(pixels[i * 4 + 3], 255);
+    }
+    readback->UnMap();
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputePipelineCacheReusesAcrossCompilesAndRetainsEvictedPlans)
+{
+    const auto function = CompileGpuFunction(*device, kGpuComputeUniformSource, ShaderStageFlagBit::CS, "CSMain");
+    ASSERT_TRUE(function);
+    Shader::Descriptor descriptor{};
+    descriptor.cs              = function.Get();
+    descriptor.bindingPolicies = ComputeUniformPolicies(false);
+    auto shader                = ShaderPtr(device->CreateShader(descriptor));
+    ASSERT_TRUE(shader);
+    auto [graph, readback] = RepeatedComputeUniformGraph(*device, shader, false, false);
+    ASSERT_TRUE(graph);
+    ASSERT_TRUE(readback);
+    DxProbe                          probe(*device);
+    CounterPtr<D3D12ComputePipeline> first;
+    for (uint32_t iteration = 0; iteration < 3; ++iteration) {
+        Execute(graph, [&](const D3D12CompiledFrame &plan) {
+            uint32_t dispatches = 0;
+            for (const auto &task : plan.encoder->tasks) {
+                const auto *step = std::get_if<D3D12ComputeStep>(&task.operation);
+                if (!step)
+                    continue;
+                ++dispatches;
+                if (!first && iteration == 0)
+                    first = step->pipeline;
+                if (iteration < 2)
+                    EXPECT_EQ(step->pipeline.Get(), first.Get());
+            }
+            EXPECT_EQ(dispatches, 2u);
+            EXPECT_EQ(probe.computePipelines, iteration < 2 ? 1u : 2u);
+            if (iteration == 1) {
+                first.Reset(nullptr);
+                device->GetFrameComputePipelineCache().Clear();
+            }
+        });
+        const auto *values = static_cast<const uint32_t *>(static_cast<const void *>(readback->Map()));
+        ASSERT_TRUE(values);
+        for (uint32_t i = 0; i < 4; ++i)
+            EXPECT_EQ(values[i], 81u + i);
+        readback->UnMap();
+    }
 }
 
 TEST_F(D3D12FrameCompilerTest, GpuProducedStorageCombinesVertexAndShaderReadSynchronization)
@@ -766,14 +894,14 @@ TEST_F(D3D12FrameCompilerTest, ConsecutiveComputeUavAccessesSynchronizeBuffersAn
     for (const bool accumulate : {false, true}) {
         FrameComputePass    pass;
         ComputeBindingDraft passBindings;
-        pass.shader  = ComputeShaderOf(accumulate);
+        pass.shader   = ComputeShaderOf(accumulate);
         pass.dispatch = CmdDispatch{4, 1, 1};
         passBindings.buffers.push_back({0, 0, {storage, 0, 16}, 0, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(pass, std::move(passBindings))));
         ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(pass))));
         FrameComputePass    fill;
         ComputeBindingDraft fillBindings;
-        fill.shader  = ComputeImageShaderOf();
+        fill.shader   = ComputeImageShaderOf();
         fill.dispatch = CmdDispatch{8, 8, 1};
         fillBindings.images.push_back({0, 0, image, {}, accumulate ? FrameAccessMode::READ_WRITE : FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(fill, std::move(fillBindings))));
@@ -821,7 +949,7 @@ TEST_F(D3D12FrameCompilerTest, ComputeRasterInterleavingIsStableAcrossWorkerCoun
             std::get<GraphBufferHandle>(builder.Import(FrameGraphBuffer{storage, 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
         FrameComputePass    compute;
         ComputeBindingDraft computeBindings;
-        compute.shader  = ComputeShaderOf();
+        compute.shader   = ComputeShaderOf();
         compute.dispatch = CmdDispatch{4, 1, 1};
         computeBindings.buffers.push_back({0, 0, {source, 0, 64}, 0, FrameAccessMode::WRITE});
         EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(computeBindings))));
@@ -1295,6 +1423,59 @@ TEST_F(D3D12FrameCompilerTest, CompileFailuresPreserveNativeErrorsAndCloseLostDe
             context.reset();
         }
     }
+}
+
+TEST_F(D3D12FrameCompilerTest, ComputeCreationPreservesNativeCauseAndAllowsOutOfMemoryRetry)
+{
+    for (const HRESULT failure : {E_OUTOFMEMORY, DXGI_ERROR_DEVICE_REMOVED}) {
+        ResetContext(1, 1);
+        auto shader = ComputeShaderOf();
+        ASSERT_TRUE(shader);
+        FrameGraphBuilder builder;
+        const auto        output = std::get<GraphBufferHandle>(
+            builder.Import(FrameGraphBuffer{StorageBufferOf(), 64, CopyBufferState::COMMON, CopyBufferState::COMMON, false}));
+        FrameComputePass compute;
+        compute.shader   = shader;
+        compute.dispatch = CmdDispatch{4, 1, 1};
+        ComputeBindingDraft bindings;
+        bindings.buffers.push_back({0, 0, {output, 0, 64}, 0, FrameAccessMode::WRITE});
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(SetComputeBindings(compute, std::move(bindings))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Compute(std::move(compute))));
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export({output, 0, 64})));
+        const auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+        DxProbe    probe(*device);
+        probe.fault          = DxProbe::Fault::COMPUTE_PIPELINE;
+        probe.compileFailure = failure;
+        const auto lease     = Begin();
+        auto       compiled  = context->Compile(lease, graph);
+        ASSERT_TRUE(std::holds_alternative<FrameError>(compiled));
+        const auto &error = std::get<FrameError>(compiled);
+        EXPECT_EQ(error.cause.nativeCode, failure);
+        EXPECT_EQ(error.cause.code, failure == E_OUTOFMEMORY ? GpuErrorCode::OUT_OF_MEMORY : GpuErrorCode::DEVICE_LOST);
+        EXPECT_EQ(probe.computePipelines, 1u);
+        EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(context->DiscardUnsubmitted(lease)));
+        if (failure == E_OUTOFMEMORY) {
+            Execute(graph);
+            EXPECT_EQ(probe.computePipelines, 2u);
+        } else {
+            EXPECT_EQ(error.code, FrameErrorCode::COMPILE_FAILED);
+            EXPECT_TRUE(std::holds_alternative<FrameError>(context->TryBeginSlot()));
+        }
+    }
+}
+
+TEST_F(D3D12FrameCompilerTest, DirectComputeRejectsUnknownAndDifferentDeviceBeforeNativeCreation)
+{
+    D3D12Instance   otherInstance;
+    D3D12Device     otherDevice(otherInstance);
+    const ShaderPtr foreign(new D3D12Shader(otherDevice));
+    const ShaderPtr unknown(new Shader());
+    DxProbe         probe(*device);
+    for (auto *shader : {foreign.Get(), unknown.Get(), static_cast<Shader *>(nullptr)}) {
+        CounterPtr<ComputePipeline> pipeline(device->CreatePipelineState(ComputePipeline::Descriptor{shader}));
+        EXPECT_FALSE(pipeline);
+    }
+    EXPECT_EQ(probe.computePipelines, 0u);
 }
 
 TEST_F(D3D12FrameCompilerTest, UnsupportedLocalReadAndForeignResourcesAreExplicit)

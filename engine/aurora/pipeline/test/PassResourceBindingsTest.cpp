@@ -44,7 +44,7 @@ namespace {
         ShaderReflection reflection;
         std::string      error;
     };
-    class ParameterFrameContext final : public FrameGraphBuildContext {
+    class ParameterFrameContext final : public FrameGraphServices {
     public:
         const FrameBuildInputs &GetInputs() const override
         {
@@ -83,46 +83,6 @@ namespace {
             return RasterUniformBinding{set, binding, {{1, 0}, 0, bytes.size()}, 0};
         }
         std::variant<FrameError, std::vector<ResolvedRasterDraw>> ResolveDraws(Name, Rect2D, PreparedDrawList, const ShaderVariant *) override
-        {
-            return Unsupported();
-        }
-        std::variant<FrameError, GraphBufferHandle> CreateBuffer(const Buffer::Descriptor &) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        FrameOperationResult Copy(BufferCopyPass) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        FrameOperationResult Copy(BufferImageCopyPass) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        FrameOperationResult Custom(FrameCustomPass) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        FrameOperationResult Export(GraphBufferExport) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        FrameOperationResult Export(GraphImageHandle) override
-        {
-            return FrameError{FrameErrorCode::UNSUPPORTED};
-        }
-        std::variant<FrameError, GraphImageHandle> CreateImage(const Image::Descriptor &) override
-        {
-            return Unsupported();
-        }
-        FrameOperationResult Raster(FrameRasterPass) override
-        {
-            return Unsupported();
-        }
-        FrameOperationResult Fullscreen(FrameRasterPass) override
-        {
-            return Unsupported();
-        }
-        FrameOperationResult Compute(FrameComputePass) override
         {
             return Unsupported();
         }

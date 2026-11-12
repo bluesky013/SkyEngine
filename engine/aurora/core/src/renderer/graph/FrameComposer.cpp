@@ -149,7 +149,7 @@ namespace sky::aurora {
     std::optional<GraphImageHandle> FrameComposer::ResolveViewOutput(ViewOutputRef ref) const
     {
         const auto found = std::find_if(outputs.begin(), outputs.end(), [&](const auto &output) {
-            return output.sampleable && output.target.initialized && output.target.output.viewport == ref.viewport &&
+            return output.sampleable && output.target.exportRequested && output.target.output.viewport == ref.viewport &&
                    output.target.revision == ref.revision;
         });
         return found == outputs.end() ? std::optional<GraphImageHandle>{} : found->target.color;
@@ -272,14 +272,7 @@ namespace sky::aurora {
                     return std::ranges::any_of(buffers, [&](const auto &buffer) { return buffer.binding == use.binding; });
                 });
             }
-            for (const auto &use : resourceKey.bufferUses) {
-                const auto found =
-                    std::find_if(result.bufferUses.begin(), result.bufferUses.end(), [&](const auto &value) { return value.binding == use.binding; });
-                if (found == result.bufferUses.end())
-                    result.bufferUses.push_back(use);
-                else
-                    *found = use;
-            }
+            result.bufferUses.insert(result.bufferUses.end(), resourceKey.bufferUses.begin(), resourceKey.bufferUses.end());
             result.imageUses = resourceKey.imageUses;
             return result;
         }
@@ -288,39 +281,24 @@ namespace sky::aurora {
             parameterGroups.emplace(std::move(cacheKey), *group);
         return materialized;
     }
-    void FrameComposer::SetPreparedView(const PreparedViewData                     *prepared,
-                                        const FrozenResourceCatalog                &catalog,
-                                        std::span<const PreparedMeshLayout>         meshLayouts,
-                                        std::span<const PreparedMaterialTechniques> materialLayouts,
-                                        std::span<const PreparedGraphBuffer>        inGraph)
+    void FrameComposer::SetPreparedView(const PreparedViewData *prepared, const PreparedRasterIndex *index)
     {
-        view         = prepared;
-        resources    = &catalog;
-        meshes       = meshLayouts;
-        materials    = materialLayouts;
-        localBuffers = inGraph;
+        view        = prepared;
+        rasterIndex = index;
     }
     std::variant<FrameError, std::vector<ResolvedRasterDraw>>
     FrameComposer::ResolveDraws(Name tag, Rect2D scissor, PreparedDrawList list, const ShaderVariant *pipelineValues)
     {
-        if (!view || !resources)
+        if (!view || !rasterIndex)
             return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Prepared draws require an active BuildView snapshot"};
-        if (tag.Empty() || (list != PreparedDrawList::VISIBLE && list != PreparedDrawList::SHADOW_CASTERS)) {
-            return FrameError{.code = FrameErrorCode::INVALID_ARGUMENT, .message = "Scene queue requires a Tag and a known draw list"};
-        }
-        PreparedViewData                    selected = *view;
-        auto                               &packets  = list == PreparedDrawList::VISIBLE ? selected.draws : selected.shadowCasters;
-        std::vector<PreparedMaterialLayout> layouts;
-        for (const auto &material : materials)
-            for (const auto &[candidate, layout] : material.techniques)
-                if (candidate == tag)
-                    layouts.push_back(layout);
-        std::erase_if(packets, [&](const auto &packet) {
-            return std::none_of(layouts.begin(), layouts.end(), [&](const auto &layout) { return layout.resource == packet.material.resource; });
-        });
+        if (tag.Empty() || (list != PreparedDrawList::VISIBLE && list != PreparedDrawList::SHADOW_CASTERS))
+            return FrameError{FrameErrorCode::INVALID_ARGUMENT, "Scene queue requires a Tag and a known draw list"};
+        const auto         &packets  = list == PreparedDrawList::VISIBLE ? view->draws : view->shadowCasters;
+        const auto          skinning = view->skinning ? std::span<const std::shared_ptr<const RenderSkinningData>>{*view->skinning}
+                                                      : std::span<const std::shared_ptr<const RenderSkinningData>>{};
         const ShaderVariant empty;
-        auto resolved = ResolvePreparedRaster(device, context, inputs.lease, builder, selected, *resources, meshes, layouts, scissor, localBuffers,
-                                              list, pipelineValues ? *pipelineValues : empty);
+        auto resolved = ResolvePreparedRaster(device, context, inputs.lease, builder, view->view.scene, packets, skinning, *rasterIndex, tag, scissor,
+                                              pipelineValues ? *pipelineValues : empty);
         if (const auto *error = std::get_if<FrameError>(&resolved))
             return *error;
         return std::move(std::get<PreparedRasterView>(resolved).draws);
@@ -348,23 +326,13 @@ namespace sky::aurora {
     {
         return builder.Copy(pass);
     }
-    FrameOperationResult FrameComposer::AddRaster(FrameRasterPass pass, bool fullscreen)
-    {
-        const auto color  = pass.color;
-        auto       result = fullscreen ? builder.Fullscreen(std::move(pass)) : builder.Raster(std::move(pass));
-        if (std::holds_alternative<FrameOperationComplete>(result))
-            for (auto &output : outputs)
-                if (output.target.color == color)
-                    output.target.initialized = true;
-        return result;
-    }
     FrameOperationResult FrameComposer::Raster(FrameRasterPass pass)
     {
-        return AddRaster(std::move(pass), false);
+        return builder.Raster(std::move(pass));
     }
     FrameOperationResult FrameComposer::Fullscreen(FrameRasterPass pass)
     {
-        return AddRaster(std::move(pass), true);
+        return builder.Fullscreen(std::move(pass));
     }
     FrameOperationResult FrameComposer::Compute(FrameComputePass pass)
     {
@@ -380,16 +348,11 @@ namespace sky::aurora {
     }
     FrameOperationResult FrameComposer::Export(GraphImageHandle value)
     {
-        return builder.Export(value);
-    }
-    FrameOperationResult FrameComposer::ExportOutputs()
-    {
-        for (const auto &output : outputs)
-            if (output.target.initialized) {
-                const auto result = builder.Export(output.target.color);
-                if (const auto *error = std::get_if<FrameError>(&result))
-                    return *error;
-            }
-        return FrameOperationComplete{};
+        const auto result = builder.Export(value);
+        if (std::holds_alternative<FrameOperationComplete>(result))
+            for (auto &output : outputs)
+                if (output.target.color == value)
+                    output.target.exportRequested = true;
+        return result;
     }
 } // namespace sky::aurora

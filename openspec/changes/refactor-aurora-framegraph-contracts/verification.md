@@ -1,5 +1,53 @@
 # Verification
 
+## Architecture follow-up — 2026-11-12
+
+Approved implementation scope: 2026-11-11. Host: macOS x86_64. The existing Xcode Debug cache and `3RD_PATH=/Users/lizhen/Program/SkyEngine/build_3rd/MacOS-x86` were preserved. No commit, archive, module/target ownership change or directory migration was performed. New Metal compiler/encoder files are private sources in the existing Metal target; RHITest receives private include paths only.
+
+### Current build and regression results
+
+Reconfigured for the extracted `.mm` source and built `Aurora.Metal`, `Aurora.Vulkan`, `Aurora.RHITest`, `Aurora.CoreTest`, `Aurora.PipelineTest`, `Aurora.AdaptorTest`, `Aurora.Renderer.ContractTest`, `Aurora.Render`, `SandboxModule` and `SandboxEditor`, including their production dependencies. The final Core change was rebuilt and the affected runtime/editor modules were relinked. This is an incremental build. Evidence below is retained under `cmake-build-debug/`.
+
+| Check | Current result | Evidence |
+|---|---|---|
+| RHI, including native Metal/Vulkan | 220 passed, no skips/failures | `framegraph-opt-rhi.xml/.log` |
+| Core, after the final vertex-input correction | 137 passed, no skips/failures | `framegraph-opt-core-final.xml/.log` |
+| Pipeline | 45 passed, no skips/failures | `framegraph-opt-pipeline-native.xml/.log` |
+| Adaptor | 91 passed, no skips/failures | `framegraph-opt-adaptor.xml/.log` |
+| Renderer interface contract | Exit 0 | `framegraph-opt-contract.log` |
+| Source ownership | 25 passed, one Windows path-identity skip | `framegraph-opt-source-ownership.log` |
+| Strict OpenSpec, scoped formatting, ASCII, forbidden additions and whitespace | Passed | `framegraph-opt-openspec.log`; scoped source inspection |
+
+The four gtest suites cover **493 unique passing cases**. Earlier runs and the standalone contract/ownership checks are not added to that count. Pipeline and Adaptor ran before the final local vertex-validation correction; Core ran again afterward. The final build logs are `framegraph-opt-build-close.log`, `framegraph-opt-build-rhi-close.log` and `framegraph-opt-build-vertex-validation.log`.
+
+Focused coverage includes explicit image Export for raster, copy and resolve outputs; undefined export/LOAD rejection; complete-handle export deduplication; selected queue/variant image readiness; inactive and unrelated technique resources; strict owner/epoch/type/range/vertex-input errors even when an active image is missing; per-frame index reuse; dead-pass declaration/access budgets; independent content normalization; enum END rejection and failed group publication preserving old values. Native Metal tests verify cross-frame PSO reuse, Compile-local group reuse, group separation across frames and clearing cache/test owners before executing a retained plan. Existing sampled-depth refresh, resolve, error/receipt and retirement regressions also pass after extraction.
+
+A repeated-view probe (one 1024-layer image, 4096 repeated accesses) now rejects both live and dead graphs in approximately 3 ms at a measured process peak RSS of 7,163,904 bytes. The preceding review measured approximately 402 MB for the unbounded expansion. These are scoped single-run observations, not a general performance benchmark. Evidence: `framegraph_analysis_fixed_probe_live.log` and `framegraph_analysis_fixed_probe_dead.log`.
+
+### Corrections found during verification
+
+Independent review moved Raster draft capacity checks ahead of reflection traversal and temporary expansion; a counting-shader regression confirms zero reflection queries on oversized input and unchanged published groups. Image-copy diagnostics now report the requested mip/layer. Vertex input validation now precedes image readiness, retaining parsed attributes rather than repeating resolution. Tests cover missing image plus float2/float3 mismatch and duplicate POSITION.
+
+The first sandboxed Xcode run failed to write DerivedData. A sandboxed Pipeline run could not obtain Metal for MoltenVK and exited before completing; its log is retained and is not counted as a pass. Normal-access reruns succeeded. Build iterations also caught missing private test include paths and invalid CounterPtr test comparisons/reset calls; these were fixed before the passing runs. The build still emits pre-existing Vulkan narrowing, Metal deprecation and duplicate-library warnings; no warning-free claim is made. clang-tidy is unavailable on this host.
+
+### Editor follow-up and key screenshot
+
+Rebuilt and ran `EditorCoreTest` (190), `EditorShellTest` (149), `EditorWidgetsTest` (42) and `EditorRenderTest` (45): **426 passed**, with no failures, errors, skips or disabled cases. Together with the four Aurora suites above, the eight suites cover **919 passing cases**. Evidence: `framegraph-opt-editor-tests-build.log` and `framegraph-opt-editor-{core,shell,widgets,render}.xml/.log`. The first sandboxed build could not write the compiler module cache; the normal-access rerun succeeded.
+
+The current Debug editor opened the existing Test project and `assets/framegraphlighting.world` using Metal, delivered a 1514x505 scene readback, wrote `framegraph-opt-editor-scene.png` and stopped the renderer with process exit 0. Evidence: `framegraph-opt-editor-visible-final.log`. Readback initially timed out while the window was unavailable, then completed after presentation resumed. The screenshot visibly contains the cube, plane, lighting and ground shadow. A separate UI session reopened the same world through File > Open World, visibly rendered it and was closed without editing the scene. This is a scoped scene smoke check, not acceptance of all editor interactions or shadow quality.
+
+### Remaining validation limits
+
+The third-party read-only preflight reports **25 stale metadata entries, zero output-missing entries** (`framegraph-opt-thirdparty.log`). Nineteen keys match the package configuration before the macOS architecture field was added to the build identity; recast, enet, jolt, slang, openssl and cpython have additional configuration differences. Existing outputs were used without relabeling metadata or rebuilding unrelated dependencies. These results therefore do not establish a clean build against freshly regenerated third-party packages.
+
+Windows-only `Aurora.Renderer.GpuSubmissionTest` cannot be built/run on this host. Its source was migrated/reviewed, but the following new checks remain **unexecuted**:
+
+- DX12 `SharedImageCombinesVertexAndFragmentReadStates`, compute PSO reuse/eviction, native OOM/device-loss causes and direct exact-device rejection.
+- Vulkan `ComputePipelinesReuseAcrossFramesAndRemainPinnedAfterCacheClear` and `ComputePipelineFailurePreservesNativeCauseAndDoesNotPoisonCache` in both Dynamic Rendering and RenderPass modes. Both compiler implementations remain independent and the Vulkan library builds, but this does not replace those Windows native runs.
+- Builder shared/weak Reset lifetime and image Export dedup cases in FrameGraphTest; updated IndexedRaster, image-subresource diagnostics and Runtime missing-image-in-another-technique pixel regression. Related host composition/analysis checks pass independently.
+
+Existing task 4.5 and transferred P02-LIGHTING task 5.4 remain open. The editor smoke check above does not establish comprehensive visual-quality acceptance. No new mobile run or source-free package acceptance is claimed.
+
 Date: 2026-10-27. Host: macOS, Intel Iris Plus Graphics 655. Existing Xcode Debug build and `3RD_PATH=build_3rd/MacOS-x86` were preserved. No commit, archive, target ownership or directory migration was performed.
 
 ## Physical Android compatibility follow-up — physics/package scope passed

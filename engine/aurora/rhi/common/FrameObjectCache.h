@@ -76,4 +76,15 @@ namespace sky::aurora {
         uint32_t         subpass;
     };
     using FramePipelineCache = FrameObjectCache<FramePipelineKey, CounterPtr<GraphicsPipeline>>;
+
+    struct FrameComputePipelineKey {
+        ShaderPtr shader;
+        uint64_t  epoch = 0;
+
+        bool operator==(const FrameComputePipelineKey &other) const
+        {
+            return shader.Get() == other.shader.Get() && epoch == other.epoch;
+        }
+    };
+    using FrameComputePipelineCache = FrameObjectCache<FrameComputePipelineKey, CounterPtr<ComputePipeline>>;
 } // namespace sky::aurora

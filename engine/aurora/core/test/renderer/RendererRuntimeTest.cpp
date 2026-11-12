@@ -99,7 +99,10 @@ namespace {
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
-            return context.Fullscreen(std::move(pass));
+            const auto rendered = context.Fullscreen(std::move(pass));
+            if (std::holds_alternative<FrameError>(rendered))
+                return rendered;
+            return context.Export(output->color);
         }
 
     private:
@@ -194,7 +197,10 @@ namespace {
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
-            return context.Fullscreen(std::move(pass));
+            const auto rendered = context.Fullscreen(std::move(pass));
+            if (std::holds_alternative<FrameError>(rendered))
+                return rendered;
+            return context.Export(output->color);
         }
         void OnRetired() override
         {
@@ -796,6 +802,32 @@ TEST_P(RendererRuntimeTest, SceneQueueOmitsMaterialsWithoutItsTag)
     Submit(std::move(packet));
     Complete(sequence);
     Pixel(sequence, viewport, 4, 4, {0, 0, 0});
+}
+
+TEST_P(RendererRuntimeTest, MissingImageInAnotherTechniqueDoesNotSuppressTheOpaqueQueue)
+{
+    auto packet = Scene();
+    AddMesh(*packet);
+    RenderMaterialTechnique shadow;
+    shadow.tag     = Name("shadow");
+    shadow.program = CompileHostRaster(renderer->GetInfo(), R"(
+        #include <aurora/pipeline/SceneBatch.slangh>
+        #include <aurora/pipeline/OpaquePass.slangh>
+        [AuroraResource(2,0,"fixture/Shadow")] [[vk::binding(0,2)]] Texture2D<float4> opacity : register(t0, space2);
+        [AuroraResource(2,1,"fixture/Shadow")] [[vk::binding(1,2)]] SamplerState sampling : register(s1, space2);
+        float4 VSMain(float3 position : POSITION) : SV_Position {
+            return mul(gOpaquePass.viewProjection, mul(gSceneBatch.world, float4(position, 1)));
+        }
+        float4 FSMain() : SV_Target { return opacity.Sample(sampling, float2(.5, .5)); }
+    )");
+    ASSERT_TRUE(shadow.program.vertex && shadow.program.fragment);
+    shadow.parameters.set = 2;
+    shadow.parameters.images.push_back({Name("opacity"), Key(1269)});
+    shadow.parameters.samplers.push_back({Name("sampling"), {}});
+    std::get<ResourceCpuReady>(packet->commands.back()).payload.material->techniques.push_back(std::move(shadow));
+    Submit(std::move(packet));
+    Complete(sequence);
+    Pixel(sequence, viewport, 4, 4, {255, 0, 0});
 }
 
 TEST_P(RendererRuntimeTest, DuplicateTechniqueTagsFailBeforeRendering)
@@ -1714,7 +1746,10 @@ TEST_P(RendererRuntimeTest, RotatedSurfacePreservesLogicalCameraAndMapsItsOutput
             clip                = mapping * sceneToLogical * projection * view.view.view * Vector4{-.4f, .2f, .25f, 1};
             FrameRasterPass pass;
             pass.color = target->color;
-            return context.Raster(std::move(pass));
+            const auto rendered = context.Raster(std::move(pass));
+            if (std::holds_alternative<FrameError>(rendered))
+                return rendered;
+            return context.Export(target->color);
         }
         Matrix4          projection, mapping;
         Vector4          clip;

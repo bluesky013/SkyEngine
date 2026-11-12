@@ -5,6 +5,7 @@
 #include "AuroraTestHelper.h"
 #include "RendererRuntime.h"
 #include "graph/FrameComposer.h"
+#include "resource/ResourceCatalog.h"
 
 #include <array>
 #include <aurora/rdg/DeviceFrameContext.h>
@@ -365,8 +366,8 @@ TEST_F(FrameGraphComposition, MismatchedParameterResourcesFailBeforeUniformAlloc
 
 TEST_F(FrameGraphComposition, PersistentBufferImportKeepsOwnershipAndRejectsConflicts)
 {
-    FrameGraphBuilder builder;
-    FrameComposer     composer(*device, *context, builder, inputs);
+    FrameGraphBuilder  builder;
+    FrameComposer      composer(*device, *context, builder, inputs);
     Buffer::Descriptor descriptor;
     descriptor.size   = 64;
     descriptor.memory = MemoryType::GPU_ONLY;
@@ -394,4 +395,379 @@ TEST_F(FrameGraphComposition, PersistentBufferImportKeepsOwnershipAndRejectsConf
     ASSERT_EQ(data.buffers.size(), 1u);
     EXPECT_TRUE(data.buffers[0].buffer);
     EXPECT_FALSE(data.buffers[0].transient);
+}
+
+TEST_F(FrameGraphComposition, OutputExportsAreExplicitAndRepeatedPublicationKeepsTheFinalContents)
+{
+    FrameGraphBuilder builder;
+    FrameComposer     composer(*device, *context, builder, inputs);
+    Image::Descriptor descriptor;
+    descriptor.extent  = {1, 1, 1};
+    descriptor.format  = PixelFormat::RGBA8_UNORM;
+    descriptor.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::SAMPLED;
+    const auto created = composer.CreateImage(descriptor);
+    ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(created));
+    const auto       image = std::get<GraphImageHandle>(created);
+    const ViewportId viewport{1, 1};
+    composer.AddOutput({{viewport, 0, {1, 1}, descriptor.format}, image, 7}, true);
+    FrameRasterPass first;
+    first.color = image;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Raster(first)));
+    EXPECT_FALSE(composer.GetOutput(viewport)->exportRequested);
+    EXPECT_FALSE(composer.ResolveViewOutput({viewport, 7}));
+    for (uint32_t i = 0; i < 300; ++i)
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Export(image)));
+    EXPECT_TRUE(composer.GetOutput(viewport)->exportRequested);
+    EXPECT_EQ(composer.ResolveViewOutput({viewport, 7}), image);
+    EXPECT_FALSE(composer.ResolveViewOutput({viewport, 8}));
+    EXPECT_FALSE(composer.ResolveViewOutput({{1, 2}, 7}));
+    FrameRasterPass second;
+    second.color = image;
+    second.load  = composer.GetOutput(viewport)->exportRequested ? LoadOp::LOAD : LoadOp::CLEAR;
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Raster(second)));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Export(image)));
+    const auto frozen = builder.Freeze();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+    const auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen);
+    EXPECT_EQ(graph->GetData().imageExports.size(), 1u);
+    const auto analyzed = AnalyzeFrameGraph(*graph);
+    ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(analyzed));
+    EXPECT_EQ(std::get<FrameGraphAnalysis>(analyzed).livePasses, (std::vector<uint32_t>{0, 1}));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(composer.Export(image)));
+}
+
+TEST_F(FrameGraphComposition, CopyAndMultisampleResolveCanPublishOutputWithoutADirectRasterWrite)
+{
+    for (const bool resolve : {false, true}) {
+        SCOPED_TRACE(resolve);
+        FrameGraphBuilder builder;
+        FrameComposer     composer(*device, *context, builder, inputs);
+        Image::Descriptor descriptor;
+        descriptor.extent = {1, 1, 1};
+        descriptor.format = PixelFormat::RGBA8_UNORM;
+        descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_DST;
+        const auto target = composer.CreateImage(descriptor);
+        ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(target));
+        const auto       image = std::get<GraphImageHandle>(target);
+        const ViewportId viewport{1, 1};
+        composer.AddOutput({{viewport, 0, {1, 1}, descriptor.format}, image}, false);
+        if (resolve) {
+            descriptor.samples = SampleCount::X4;
+            descriptor.usage   = ImageUsageFlagBit::RENDER_TARGET;
+            const auto source  = composer.CreateImage(descriptor);
+            ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(source));
+            FrameRasterPass pass;
+            pass.color        = std::get<GraphImageHandle>(source);
+            pass.store        = StoreOp::DONT_CARE;
+            pass.colorResolve = RasterColorResolve{image};
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Raster(std::move(pass))));
+        } else {
+            const std::array<std::byte, 4> bytes{};
+            const auto                     upload = composer.Upload(bytes, BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::TRANSFER_SRC);
+            ASSERT_TRUE(std::holds_alternative<RasterBufferRange>(upload));
+            const auto          source = std::get<RasterBufferRange>(upload);
+            BufferImageCopyPass copy;
+            copy.buffer              = source.buffer;
+            copy.image               = image;
+            copy.region.bufferOffset = source.offset;
+            copy.region.subRange     = {0, 0, 1, AspectFlagBit::COLOR_BIT};
+            copy.region.imageExtent  = {1, 1, 1};
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Copy(copy)));
+        }
+        EXPECT_FALSE(composer.GetOutput(viewport)->exportRequested);
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Export(image)));
+        EXPECT_TRUE(composer.GetOutput(viewport)->exportRequested);
+        const auto frozen = builder.Freeze();
+        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+        const auto graph    = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen);
+        const auto analyzed = AnalyzeFrameGraph(*graph);
+        ASSERT_TRUE(std::holds_alternative<FrameGraphAnalysis>(analyzed));
+        EXPECT_EQ(std::get<FrameGraphAnalysis>(analyzed).livePasses.size(), resolve ? 1u : 2u);
+        const auto compiled = context->Compile(inputs.lease, graph);
+        ASSERT_TRUE(std::holds_alternative<std::unique_ptr<BackendCompiledFrame>>(compiled))
+            << (std::holds_alternative<FrameError>(compiled) ? std::get<FrameError>(compiled).message : "No compiled output");
+    }
+}
+
+TEST_F(FrameGraphComposition, ExportIntentDoesNotValidateUndefinedDiscardedOrPrematurelyReadContents)
+{
+    for (uint32_t fault = 0; fault < 4; ++fault) {
+        SCOPED_TRACE(fault);
+        FrameGraphBuilder builder;
+        FrameComposer     composer(*device, *context, builder, inputs);
+        Image::Descriptor descriptor;
+        descriptor.extent  = {2, 2, 1};
+        descriptor.format  = PixelFormat::RGBA8_UNORM;
+        descriptor.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSFER_DST;
+        const auto created = composer.CreateImage(descriptor);
+        ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(created));
+        const auto       image = std::get<GraphImageHandle>(created);
+        const ViewportId viewport{1, 1};
+        composer.AddOutput({{viewport, 0, {2, 2}, descriptor.format}, image}, true);
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Export(image)));
+        EXPECT_TRUE(composer.GetOutput(viewport)->exportRequested);
+        if (fault == 1 || fault == 2) {
+            FrameRasterPass pass;
+            pass.color = image;
+            if (fault == 1)
+                pass.store = StoreOp::DONT_CARE;
+            else {
+                pass.load       = LoadOp::LOAD;
+                pass.sideEffect = true;
+            }
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Raster(pass)));
+            if (fault == 2) {
+                pass.load       = LoadOp::CLEAR;
+                pass.sideEffect = false;
+                ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Raster(pass)));
+            }
+        } else if (fault == 3) {
+            const std::array<std::byte, 4> bytes{};
+            const auto                     upload = composer.Upload(bytes, BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::TRANSFER_SRC);
+            ASSERT_TRUE(std::holds_alternative<RasterBufferRange>(upload));
+            const auto          source = std::get<RasterBufferRange>(upload);
+            BufferImageCopyPass copy;
+            copy.buffer              = source.buffer;
+            copy.image               = image;
+            copy.region.bufferOffset = source.offset;
+            copy.region.subRange     = {0, 0, 1, AspectFlagBit::COLOR_BIT};
+            copy.region.imageExtent  = {1, 1, 1};
+            ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(composer.Copy(copy)));
+        }
+        const auto frozen = builder.Freeze();
+        ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+        const auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen);
+        EXPECT_TRUE(std::holds_alternative<FrameError>(AnalyzeFrameGraph(*graph)));
+        EXPECT_TRUE(std::holds_alternative<FrameError>(context->Compile(inputs.lease, graph)));
+    }
+}
+
+TEST_F(FrameGraphComposition, ImportedPreviousContentsDoNotPublishTheCurrentOutput)
+{
+    FrameGraphBuilder builder;
+    FrameComposer     composer(*device, *context, builder, inputs);
+    FrameGraphImage   imported;
+    imported.descriptor.extent = {1, 1, 1};
+    imported.descriptor.format = PixelFormat::RGBA8_UNORM;
+    imported.descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::SAMPLED;
+    imported.image             = ImagePtr(device->CreateImage(imported.descriptor));
+    ASSERT_TRUE(imported.image);
+    imported.initial = imported.final = ImageLayout::GENERAL;
+    imported.initialized              = true;
+    const auto created                = builder.Import(std::move(imported));
+    ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(created));
+    const auto       image = std::get<GraphImageHandle>(created);
+    const ViewportId viewport{1, 1};
+    composer.AddOutput({{viewport, 0, {1, 1}, PixelFormat::RGBA8_UNORM}, image, 1}, true);
+    EXPECT_FALSE(composer.GetOutput(viewport)->exportRequested);
+    EXPECT_FALSE(composer.ResolveViewOutput({viewport, 1}));
+    const auto frozen = builder.Freeze();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+    const auto graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen);
+    EXPECT_TRUE(graph->GetData().images.front().initialized);
+    EXPECT_TRUE(graph->GetData().imageExports.empty());
+}
+
+namespace {
+    class PreparedRasterResolution : public FrameGraphComposition {
+    protected:
+        void SetUp() override
+        {
+            FrameGraphComposition::SetUp();
+            if (!device || !context)
+                return;
+            const auto epoch = inputs.lease.context.deviceEpoch;
+            meshKey          = {Uuid::CreateWithSeed(4201), 1, 1, epoch};
+            materialKey      = {Uuid::CreateWithSeed(4202), 1, 1, epoch};
+            imageKey         = {Uuid::CreateWithSeed(4203), 1, 1, epoch};
+            Buffer::Descriptor descriptor;
+            descriptor.size  = 16;
+            descriptor.usage = BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX;
+            BufferPtr buffer(device->CreateBuffer(descriptor));
+            ASSERT_TRUE(buffer);
+            auto meshCpu          = std::make_shared<ResourceVersionData>();
+            meshCpu->resource     = meshKey;
+            auto materialCpu      = std::make_shared<ResourceVersionData>();
+            materialCpu->resource = materialKey;
+            catalog.pins          = {std::make_shared<ResourceVersionLease>(
+                                ResourceVersionLease{meshCpu, std::make_shared<const ResourceBacking>(ResourceBufferBacking{buffer})}),
+                                     std::make_shared<ResourceVersionLease>(
+                                ResourceVersionLease{materialCpu, std::make_shared<const ResourceBacking>(ResourceBufferBacking{})})};
+            meshes.push_back({meshKey, {{0, 12, 12}}, {{0, 0, 0, Format::F_RGB32, "POSITION", 0}}, {{12, 4, IndexType::U16, {1, 1, 0, 0, 0}}}});
+            view.view.scene = {1, 1};
+            PreparedDrawPacket packet;
+            packet.entity.scene      = view.view.scene;
+            packet.entity.entity     = {1, 1};
+            packet.mesh.resource     = meshKey;
+            packet.material.resource = materialKey;
+            view.draws.push_back(packet);
+        }
+        void TearDown() override
+        {
+            builder.Reset();
+            catalog.pins.clear();
+            FrameGraphComposition::TearDown();
+        }
+        PreparedMaterialLayout Layout(bool declaresImage, bool activeImage, bool requiresPosition = false)
+        {
+            ShaderReflection reflection;
+            reflection.kind         = ShaderReflectionKind::PROGRAM;
+            reflection.complete     = true;
+            reflection.stages       = ShaderStageFlagBit::FS;
+            reflection.bindingModel = ShaderBindingModel::VULKAN_DESCRIPTORS;
+            if (requiresPosition) {
+                reflection.stages |= ShaderStageFlagBit::VS;
+                reflection.vertexInputs = {{"POSITION", 0, 0, ShaderScalarType::FLOAT, 3}};
+            }
+            if (declaresImage) {
+                ShaderResource image{"opacity", ShaderResourceType::SAMPLED_IMAGE, 2, 1, 1};
+                image.texture           = {ShaderTextureDimension::D2, ShaderScalarType::FLOAT, 4, false, false};
+                image.stages            = ShaderStageFlagBit::FS;
+                image.declarationOwner  = "test/prepared-raster";
+                reflection.declarations = {image};
+                if (activeImage) {
+                    reflection.resources      = {image};
+                    reflection.nativeBindings = {{2, 1, ShaderStageFlagBit::FS, 1, ShaderNativeCategory::DESCRIPTOR, 2, 1}};
+                }
+            }
+            auto                  *shader = new CompositionShader(device, std::move(reflection));
+            PreparedMaterialLayout layout;
+            layout.resource   = materialKey;
+            layout.shader     = ShaderPtr(shader);
+            layout.vertexMask = RenderVertexMask(meshes.front().streams, meshes.front().attributes).mask;
+            EXPECT_TRUE(shader->InitializeNames()) << shader->error;
+            if (declaresImage)
+                layout.parameters.images.push_back({Name("opacity"), imageKey});
+            return layout;
+        }
+        std::variant<FrameError, PreparedRasterView>
+        Resolve(const PreparedRasterIndex &index, Name tag = Name("opaque"), const ShaderVariant &pipeline = {})
+        {
+            return ResolvePreparedRaster(*device, *context, inputs.lease, builder, view.view.scene, view.draws, {}, index, tag, {}, pipeline);
+        }
+        RenderResourceKey               meshKey, materialKey, imageKey;
+        FrozenResourceCatalog           catalog;
+        std::vector<PreparedMeshLayout> meshes;
+        PreparedViewData                view;
+        FrameGraphBuilder               builder;
+    };
+} // namespace
+
+TEST_F(PreparedRasterResolution, UnselectedTechniqueResourcesDoNotSuppressTheSelectedQueue)
+{
+    const std::array materials{
+        PreparedMaterialTechniques{materialKey, {{Name("opaque"), Layout(false, false)}, {Name("shadow"), Layout(true, true)}}}};
+    const auto indexed = BuildPreparedRasterIndex(catalog, meshes, materials);
+    ASSERT_TRUE(std::holds_alternative<PreparedRasterIndex>(indexed));
+    const auto &index = std::get<PreparedRasterIndex>(indexed);
+    EXPECT_TRUE(index.GeometryReady(view.draws.front()));
+    auto opaque = Resolve(index);
+    ASSERT_TRUE(std::holds_alternative<PreparedRasterView>(opaque));
+    EXPECT_EQ(std::get<PreparedRasterView>(opaque).draws.size(), 1u);
+    EXPECT_EQ(std::get<PreparedRasterView>(opaque).pins.size(), 2u);
+    for (const auto tag : {Name("shadow"), Name("other")}) {
+        const auto omitted = Resolve(index, tag);
+        ASSERT_TRUE(std::holds_alternative<PreparedRasterView>(omitted));
+        EXPECT_TRUE(std::get<PreparedRasterView>(omitted).draws.empty());
+    }
+    catalog.pins.clear();
+    EXPECT_EQ(std::get<PreparedRasterView>(opaque).pins.front()->cpu->resource, meshKey);
+}
+
+TEST_F(PreparedRasterResolution, InactiveImageParametersDoNotRequireBacking)
+{
+    const std::array materials{PreparedMaterialTechniques{materialKey, {{Name("opaque"), Layout(true, false)}}}};
+    const auto       indexed = BuildPreparedRasterIndex(catalog, meshes, materials);
+    ASSERT_TRUE(std::holds_alternative<PreparedRasterIndex>(indexed));
+    const auto resolved = Resolve(std::get<PreparedRasterIndex>(indexed));
+    ASSERT_TRUE(std::holds_alternative<PreparedRasterView>(resolved));
+    EXPECT_EQ(std::get<PreparedRasterView>(resolved).draws.size(), 1u);
+}
+
+TEST_F(PreparedRasterResolution, UnavailableImagesDoNotHideInvalidVariantsAndResources)
+{
+    for (uint32_t fault = 0; fault < 6; ++fault) {
+        SCOPED_TRACE(fault);
+        auto       layout        = Layout(true, true);
+        const auto originalCount = catalog.pins.size();
+        if (fault == 0)
+            layout.pipeline.entries.push_back({Name("SHADOWS"), 1});
+        else if (fault == 1)
+            ++layout.parameters.images.front().resource.deviceEpoch;
+        else if (fault == 2)
+            layout.parameters.images.front().name = Name("unknown");
+        else if (fault >= 3) {
+            auto cpu      = std::make_shared<ResourceVersionData>();
+            cpu->resource = imageKey;
+            if (fault == 3)
+                catalog.pins.push_back(std::make_shared<ResourceVersionLease>(
+                    ResourceVersionLease{cpu, std::make_shared<const ResourceBacking>(ResourceBufferBacking{})}));
+            else {
+                ResourceImageBacking backing;
+                backing.descriptor.extent = {1, 1, 1};
+                backing.descriptor.format = PixelFormat::RGBA8_UNORM;
+                backing.descriptor.usage  = ImageUsageFlagBit::SAMPLED;
+                backing.image             = fault == 4 ? ImagePtr(new Image()) : ImagePtr(device->CreateImage(backing.descriptor));
+                ASSERT_TRUE(backing.image);
+                if (fault == 5)
+                    backing.descriptor.arrayLayers = 2;
+                catalog.pins.push_back(
+                    std::make_shared<ResourceVersionLease>(ResourceVersionLease{cpu, std::make_shared<const ResourceBacking>(backing)}));
+            }
+        }
+        const std::array materials{PreparedMaterialTechniques{materialKey, {{Name("opaque"), std::move(layout)}}}};
+        const auto       indexed = BuildPreparedRasterIndex(catalog, meshes, materials);
+        ASSERT_TRUE(std::holds_alternative<PreparedRasterIndex>(indexed));
+        EXPECT_TRUE(std::holds_alternative<FrameError>(Resolve(std::get<PreparedRasterIndex>(indexed))));
+        catalog.pins.resize(originalCount);
+    }
+}
+
+TEST_F(PreparedRasterResolution, UnavailableImagesDoNotHideInvalidVertexInputs)
+{
+    const auto attributes = meshes.front().attributes;
+    for (const bool duplicate : {false, true}) {
+        SCOPED_TRACE(duplicate);
+        meshes.front().attributes = attributes;
+        if (duplicate)
+            meshes.front().attributes.push_back(attributes.front());
+        else
+            meshes.front().attributes.front().format = Format::F_RG32;
+        const std::array materials{PreparedMaterialTechniques{materialKey, {{Name("opaque"), Layout(true, true, true)}}}};
+        const auto       indexed = BuildPreparedRasterIndex(catalog, meshes, materials);
+        ASSERT_TRUE(std::holds_alternative<PreparedRasterIndex>(indexed));
+        const auto &index = std::get<PreparedRasterIndex>(indexed);
+        EXPECT_FALSE(index.pins.contains(PreparedRasterIndex::Key(imageKey)));
+        const auto resolved = Resolve(index);
+        ASSERT_TRUE(std::holds_alternative<FrameError>(resolved));
+        EXPECT_EQ(std::get<FrameError>(resolved).code, FrameErrorCode::INVALID_ARGUMENT);
+        EXPECT_EQ(std::get<FrameError>(resolved).message,
+                  duplicate ? "Mesh has duplicate shader input semantics" : "Mesh vertex format does not match the shader input type");
+    }
+}
+
+TEST_F(PreparedRasterResolution, GraphLocalBuffersAndRepeatedViewsUseTheSameExactIndex)
+{
+    const std::array   materials{PreparedMaterialTechniques{materialKey, {{Name("opaque"), Layout(false, false)}}}};
+    Buffer::Descriptor descriptor;
+    descriptor.size  = 16;
+    descriptor.usage = BufferUsageFlagBit::VERTEX | BufferUsageFlagBit::INDEX;
+    const auto local = builder.CreateTransient(descriptor);
+    ASSERT_TRUE(std::holds_alternative<GraphBufferHandle>(local));
+    const auto       handle = std::get<GraphBufferHandle>(local);
+    const std::array buffers{PreparedGraphBuffer{meshKey, handle}};
+    const auto       indexed = BuildPreparedRasterIndex(catalog, meshes, materials, buffers);
+    ASSERT_TRUE(std::holds_alternative<PreparedRasterIndex>(indexed));
+    const auto &index = std::get<PreparedRasterIndex>(indexed);
+    for (uint32_t i = 0; i < 2; ++i) {
+        view.draws.front().world.v[12] = static_cast<float>(i);
+        const auto resolved            = Resolve(index);
+        ASSERT_TRUE(std::holds_alternative<PreparedRasterView>(resolved));
+        const auto &draw = std::get<PreparedRasterView>(resolved).draws.front();
+        EXPECT_EQ(draw.draw.vertices.front().range.buffer, handle);
+        EXPECT_EQ(draw.world.v[12], static_cast<float>(i));
+    }
+    ++view.draws.front().material.resource.revision;
+    EXPECT_FALSE(index.GeometryReady(view.draws.front()));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(Resolve(index)));
 }

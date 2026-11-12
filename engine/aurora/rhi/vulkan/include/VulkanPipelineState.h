@@ -58,6 +58,11 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
+        VkResult GetCreateResult() const noexcept
+        {
+            return createResult;
+        }
+
         VkPipeline GetNativeHandle() const
         {
             return pipeline;
@@ -71,6 +76,7 @@ namespace sky::aurora {
         VulkanDevice    &device;
         VkPipeline       pipeline     = VK_NULL_HANDLE;
         VkPipelineLayout layoutHandle = VK_NULL_HANDLE;
+        VkResult         createResult = VK_SUCCESS;
     };
 
 } // namespace sky::aurora

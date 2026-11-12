@@ -356,8 +356,13 @@ TEST_P(ImageSubresource, PartialProductionDoesNotDefineOtherMipsLayersOrWholeIma
             data.imageExports.push_back(read.image);
         auto result = context->Compile(lease, std::make_shared<const FrozenFrameGraph>(graph->GetId(), std::move(data)));
         ASSERT_TRUE(std::holds_alternative<FrameError>(result));
-        EXPECT_EQ(std::get<FrameError>(result).code, FrameErrorCode::COMPILE_FAILED);
-        EXPECT_EQ(std::get<FrameError>(result).message, fault == 2 ? "Export reads undefined contents" : "Pass reads undefined contents");
+        const auto &error = std::get<FrameError>(result);
+        EXPECT_EQ(error.code, FrameErrorCode::COMPILE_FAILED);
+        EXPECT_NE(error.message.find(fault == 2 ? "Export reads undefined contents" : "Pass reads undefined contents"), std::string::npos);
+        EXPECT_NE(error.message.find("image=0"), std::string::npos);
+        EXPECT_NE(error.message.find("range=["), std::string::npos);
+        if (fault != 2)
+            EXPECT_NE(error.message.find("pass=1"), std::string::npos);
     }
     auto data                  = graph->GetData();
     data.images[0].initial     = ImageLayout::TRANSFER_SRC;
@@ -926,13 +931,20 @@ TEST(FrameGraphImports, RectangleRangesAndImageAddressesAreBoundedBeforeNativeAl
     data.passes.push_back(pass);
     auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameError>(result));
-    EXPECT_EQ(std::get<FrameError>(result).message, "Image copy content range budget exceeded");
+    const auto &budgetError = std::get<FrameError>(result);
+    EXPECT_EQ(budgetError.code, FrameErrorCode::OUT_OF_MEMORY);
+    EXPECT_NE(budgetError.message.find("Frame access work budget exceeded"), std::string::npos);
+    EXPECT_NE(budgetError.message.find("pass=0"), std::string::npos);
+    EXPECT_NE(budgetError.message.find("image=0"), std::string::npos);
     data.passes.clear();
     data.images[0].descriptor.extent      = {UINT32_MAX, 1073741824, 1};
     data.images[0].descriptor.arrayLayers = 5;
     result                                = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameError>(result));
-    EXPECT_EQ(std::get<FrameError>(result).message, "Image content address overflow");
+    const auto &addressError = std::get<FrameError>(result);
+    EXPECT_EQ(addressError.code, FrameErrorCode::COMPILE_FAILED);
+    EXPECT_NE(addressError.message.find("Image content address overflow"), std::string::npos);
+    EXPECT_NE(addressError.message.find("image=0"), std::string::npos);
     data.images[0].descriptor.arrayLayers = 1;
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, std::move(data)))));
 }
@@ -1117,7 +1129,10 @@ TEST(FrameGraphImports, InitialRectangleExpansionSharesOneGraphBudgetEvenForUnus
     data.images.push_back(image);
     auto result = AnalyzeFrameGraph(FrozenFrameGraph(1, data));
     ASSERT_TRUE(std::holds_alternative<FrameError>(result));
-    EXPECT_EQ(std::get<FrameError>(result).message, "Initial image content range budget exceeded");
+    const auto &error = std::get<FrameError>(result);
+    EXPECT_EQ(error.code, FrameErrorCode::COMPILE_FAILED);
+    EXPECT_NE(error.message.find("Initial image content range budget exceeded"), std::string::npos);
+    EXPECT_NE(error.message.find("image=1"), std::string::npos);
     for (auto &input : data.images)
         --input.initializedRegions.front().rectangle.extent.height;
     EXPECT_TRUE(std::holds_alternative<FrameGraphAnalysis>(AnalyzeFrameGraph(FrozenFrameGraph(1, data))));

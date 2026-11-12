@@ -234,7 +234,7 @@ namespace sky::aurora {
             std::optional<FrameError>    ImportResourceImages(const PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer);
             std::optional<FrameError>    ImportFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer);
             std::optional<FrameError>    BuildFeaturePasses(const PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer);
-            std::optional<FrameError>    ExportFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer);
+            void                         FinalizeFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer);
             std::optional<FrameError>    AppendReadbacks(const PreparedRenderFrame &frame, FrameGraphWork &graph);
             std::optional<FrameError>    DispatchFrame(PreparedRenderFrame &frame, FrameGraphWork &graph);
             void                         BuildFrame(PreparedRenderFrame frame);
@@ -628,10 +628,7 @@ namespace sky::aurora {
                 fail(*error);
                 return;
             }
-            if (auto error = ExportFrameOutputs(frame, graph, composer)) {
-                fail(*error);
-                return;
-            }
+            FinalizeFrameOutputs(frame, graph, composer);
             if (auto error = AppendReadbacks(frame, graph)) {
                 fail(*error);
                 return;
@@ -849,42 +846,27 @@ namespace sky::aurora {
         std::optional<FrameError>
         RendererRuntime::BuildFeaturePasses(const PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer)
         {
+            auto indexed = BuildPreparedRasterIndex(frame.resources, frame.meshes, frame.materials, graph.localBuffers);
+            if (const auto *error = std::get_if<FrameError>(&indexed))
+                return *error;
+            const auto &index = std::get<PreparedRasterIndex>(indexed);
             for (auto view : frame.inputs.prepared->views) {
                 const auto target = composer.GetOutput(view.view.output);
                 if (!target)
                     continue;
-                const auto unavailable = [&](const auto &draw) {
-                    const auto ready = [&](const RenderResourceKey &key) {
-                        return std::any_of(frame.resources.pins.begin(), frame.resources.pins.end(),
-                                           [&](const auto &pin) { return pin->cpu->resource == key && pin->backing; });
-                    };
-                    const auto material = std::find_if(frame.materials.begin(), frame.materials.end(),
-                                                       [&](const auto &layout) { return layout.resource == draw.material.resource; });
-                    if (material == frame.materials.end())
-                        return true;
-                    for (const auto &[tag, technique] : material->techniques)
-                        for (const auto &image : technique.parameters.images) {
-                            ShaderParameterHandle handle;
-                            if (technique.shader->GetParameterTable().Resolve(image.name, 2, handle) == ShaderParameterLookup::READY &&
-                                !ready(image.resource))
-                                return true;
-                        }
-                    return !ready(draw.mesh.resource) || !ready(draw.material.resource) ||
-                           std::none_of(frame.meshes.begin(), frame.meshes.end(),
-                                        [&](const auto &layout) { return layout.resource == draw.mesh.resource; });
-                };
+                const auto unavailable = [&](const auto &draw) { return !index.GeometryReady(draw); };
                 std::erase_if(view.draws, unavailable);
                 std::erase_if(view.shadowCasters, unavailable);
-                composer.SetPreparedView(&view, frame.resources, frame.meshes, frame.materials, graph.localBuffers);
+                composer.SetPreparedView(&view, &index);
                 for (const auto &feature : frame.features) {
                     const auto built = feature.lease->registration.feature->BuildView(composer, view);
                     if (const auto *error = std::get_if<FrameError>(&built)) {
-                        composer.SetPreparedView(nullptr, frame.resources, {}, {}, {});
+                        composer.SetPreparedView(nullptr, nullptr);
                         return *error;
                     }
                 }
             }
-            composer.SetPreparedView(nullptr, frame.resources, {}, {}, {});
+            composer.SetPreparedView(nullptr, nullptr);
             for (const auto &payload : frame.inputs.prepared->extensions) {
                 const auto feature = std::find_if(frame.features.begin(), frame.features.end(),
                                                   [&](const auto &entry) { return entry.lease->registration.name == payload.feature; });
@@ -898,15 +880,11 @@ namespace sky::aurora {
             return {};
         }
 
-        std::optional<FrameError> RendererRuntime::ExportFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer)
+        void RendererRuntime::FinalizeFrameOutputs(PreparedRenderFrame &frame, FrameGraphWork &graph, FrameComposer &composer)
         {
-            const auto exported = composer.ExportOutputs();
-            if (const auto *error = std::get_if<FrameError>(&exported)) {
-                return *error;
-            }
             for (const auto &[index, version] : frame.outputVersions) {
                 const auto target = composer.GetOutput(version->cpu.id);
-                if (target && target->initialized) {
+                if (target && target->exportRequested) {
                     graph.renderedImages[index] = target->color;
                     if (version->cpu.desc.kind == ViewportKind::OFFSCREEN)
                         graph.encoding.offscreen.push_back(version);
@@ -920,7 +898,6 @@ namespace sky::aurora {
                 scheduler->Retain(graph.encoding.lease, graph.featureOwners);
             }
             graph.outputBatch.outputs.clear();
-            return {};
         }
 
         std::optional<FrameError> RendererRuntime::AppendReadbacks(const PreparedRenderFrame &frame, FrameGraphWork &graph)

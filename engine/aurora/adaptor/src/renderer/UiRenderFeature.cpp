@@ -130,13 +130,19 @@ namespace sky::aurora {
                     return FrameOperationComplete{};
                 FrameRasterPass pass;
                 pass.color         = output->color;
-                pass.load          = output->initialized ? LoadOp::LOAD : LoadOp::CLEAR;
+                pass.load          = output->exportRequested ? LoadOp::LOAD : LoadOp::CLEAR;
                 const auto resolve = [&](const RenderUiDraw &draw) {
                     return draw.image.product ? context.ResolveImage(draw.image) : context.ResolveViewOutput(draw.texture);
                 };
                 std::erase_if(snapshot.draws, [&](const auto &draw) { return !resolve(draw); });
+                const auto render = [&]() -> FrameOperationResult {
+                    const auto result = context.Raster(std::move(pass));
+                    if (std::holds_alternative<FrameError>(result))
+                        return result;
+                    return context.Export(output->color);
+                };
                 if (snapshot.draws.empty())
-                    return context.Raster(std::move(pass));
+                    return render();
                 if (!shader) {
                     auto created = context.CreateShader(code);
                     if (const auto *error = std::get_if<FrameError>(&created))
@@ -200,7 +206,7 @@ namespace sky::aurora {
                         return *error;
                     pass.draws.push_back(std::move(draw));
                 }
-                return context.Raster(std::move(pass));
+                return render();
             }
 
         private:

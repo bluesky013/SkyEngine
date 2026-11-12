@@ -331,7 +331,8 @@ namespace sky::aurora {
         const bool         hasSpec   = BuildSpecializationInfo(vkShader->GetSpecialization(), ShaderStageFlagBit::CS, specData);
         ci.stage.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
 
-        const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
+        const VkResult result = createResult =
+            device.GetDeviceFn().vkCreateComputePipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create compute pipeline, VkResult=%d", static_cast<int>(result));
             return false;

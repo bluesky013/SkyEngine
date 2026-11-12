@@ -445,7 +445,7 @@ namespace sky::aurora {
                 }
                 FrameRasterPass pass;
                 pass.color = target->color;
-                pass.load  = target->initialized ? LoadOp::LOAD : LoadOp::CLEAR;
+                pass.load  = target->exportRequested ? LoadOp::LOAD : LoadOp::CLEAR;
                 // Scene projections are Y-up; output mapping consumes top-left logical coordinates.
                 auto sceneToLogical = RenderIdentityMatrix();
                 sceneToLogical.v[5] = -1;
@@ -471,7 +471,7 @@ namespace sky::aurora {
                 }
                 const bool hdr = (settings.hdr != 0u) && (!draws.empty() || HasSceneExtensions(context, view.view.output, false));
                 if (hdr) {
-                    if (target->initialized) {
+                    if (target->exportRequested) {
                         return FrameError{.code    = FrameErrorCode::UNSUPPORTED,
                                           .message = "HDR scene output requires exclusive scene ownership before compositing"};
                     }
@@ -537,7 +537,10 @@ namespace sky::aurora {
                     if (std::holds_alternative<FrameError>(rendered))
                         return rendered;
                 }
-                return highlights.Render(context, *target, params.viewProjection, sceneDepth, highlight.style, selected);
+                const auto highlighted = highlights.Render(context, *target, params.viewProjection, sceneDepth, highlight.style, selected);
+                if (std::holds_alternative<FrameError>(highlighted))
+                    return highlighted;
+                return context.Export(target->color);
             }
 
             void OnRetired() override

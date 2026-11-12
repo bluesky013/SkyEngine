@@ -65,6 +65,11 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
+        HRESULT GetCreateResult() const noexcept
+        {
+            return createResult;
+        }
+
         ID3D12PipelineState *GetNativeHandle() const
         {
             return pso.Get();
@@ -78,6 +83,7 @@ namespace sky::aurora {
         D3D12Device                &device;
         ComPtr<ID3D12PipelineState> pso;
         CounterPtr<D3D12Shader>     shader;
+        HRESULT                     createResult = S_OK;
     };
 
 } // namespace sky::aurora

@@ -1,5 +1,5 @@
 > 2026-11-01 整理：**active**。现行 owner：本 change 保持最终公共参数/DirectFrame/绑定组契约；平台矩阵由 `aurora-renderer-platform-parity` 接续。
-> 剩余：Windows 新契约原生回归 4.5；视觉质量 5.4 转 P02-LIGHTING，均未验收。下方较早状态与验收记录保留为历史。
+> 2026-11-11 续作：本 change 同时承接已确认的后端编译归属、显式 output Export、分析预算及局部精简；2026-11-12 完成本机验证。Windows 原生回归 4.5 与 P02-LIGHTING 5.4 仍未验收，历史验证不代替本轮证据。
 
 ## Why
 
@@ -13,7 +13,8 @@ FrameGraph binding, content analysis and native synchronization independently en
 - **BREAKING** Separate named immutable parameter updates from numeric native descriptor writes, and isolate the legacy direct-frame protocol from the explicit lease context.
 - Expose the existing supported graph declaration operations independently of feature resource/draw resolution services.
 - Add focused semantic, allocation/reuse, lifecycle and native regressions; record unavailable platform checks explicitly.
-- Default Vulkan compiler selection to AUTO while preserving explicit modes; negotiate actual Vulkan 1.1/KHR capabilities and cook the Android SPIR-V 1.3 baseline without bypassing synchronization requirements.
+- Preserve device-level Vulkan dynamic-rendering preference and physical Vulkan 1.1/KHR capability negotiation; contexts consume the selected backend path. The earlier public AUTO-mode API is historical and has been removed.
+- Complete the approved 2026-11-11 follow-up: explicit output exports, selected-technique readiness, pre-expansion analysis budgets, backend-owned Metal compiler/encoder, bounded device PSO caches and local composition simplification.
 
 ## Capabilities
 
@@ -22,6 +23,8 @@ FrameGraph binding, content analysis and native synchronization independently en
 None.
 
 ### Modified Capabilities
+
+- `aurora-renderer`: Explicit per-frame output export requests, selected-technique resource readiness and frame-local draw resolution.
 
 - `aurora-framegraph`: Compile-local access facts, immutable logical groups, complete declaration services, explicit parameter/direct protocols and backend lifecycle parity.
   Freeze immutable group references with per-use overrides, unify pre-cull validation/resource uses, and preserve native synchronization/resolve/plan ownership.

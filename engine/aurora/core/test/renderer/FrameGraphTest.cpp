@@ -688,55 +688,71 @@ TEST_P(CopyGraph, CustomImportedBufferMustSupportItsDeclaredKind)
     }
 }
 
-TEST(FrameBuildLifetime, ArenaRejectsBorrowedResetAndDestroysObjectsInReverseOrder)
-{
-    struct alignas(64) Object {
-        Object(std::vector<int> &order, int value) : order(order), value(value)
-        {
-        }
-        ~Object()
-        {
-            order.push_back(value);
-        }
-        std::vector<int> &order;
-        int               value;
-    };
-    std::vector<int> order;
-    GraphBuildArena  arena(256);
-    ASSERT_TRUE(std::holds_alternative<Object *>(arena.Make<Object>(order, 1)));
-    auto second = arena.Make<Object>(order, 2);
-    ASSERT_TRUE(std::holds_alternative<Object *>(second));
-    EXPECT_EQ(reinterpret_cast<uintptr_t>(std::get<Object *>(second)) % 64, 0u);
-    auto                      borrower = arena.Borrow();
-    std::weak_ptr<const void> weak     = borrower;
-    EXPECT_TRUE(std::holds_alternative<FrameError>(arena.Reset()));
-    EXPECT_TRUE(std::holds_alternative<FrameError>(arena.Make<int>(3)));
-    EXPECT_TRUE(order.empty());
-    borrower.reset();
-    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(arena.Reset()));
-    EXPECT_TRUE(weak.expired());
-    EXPECT_EQ(order, (std::vector<int>{2, 1}));
-    auto sealed = arena.Seal();
-    EXPECT_FALSE(arena.Seal());
-    EXPECT_TRUE(std::holds_alternative<FrameError>(arena.Reset()));
-    sealed.reset();
-    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(arena.Reset()));
-    GraphBuildArena tiny(1);
-    EXPECT_EQ(std::get<FrameError>(tiny.Make<Object>(order, 3)).code, FrameErrorCode::OUT_OF_MEMORY);
-}
-
 TEST(FrameBuildLifetime, BuilderCannotResetWhileFrozenGraphIsBorrowed)
 {
-    FrameGraphBuilder builder;
-    auto              graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
-    const auto        id    = graph->GetId();
-    EXPECT_TRUE(std::holds_alternative<FrameError>(builder.Reset()));
-    std::weak_ptr<const FrozenFrameGraph> weak = graph;
+    FrameGraphBuilder                     builder;
+    auto                                  graph    = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    const auto                            id       = graph->GetId();
+    auto                                  borrower = graph;
+    std::weak_ptr<const FrozenFrameGraph> weak     = graph;
     graph.reset();
-    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Reset()));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(builder.Reset()));
+    EXPECT_EQ(builder.GetId(), id);
+    EXPECT_TRUE(std::holds_alternative<FrameError>(builder.Freeze()));
+    EXPECT_TRUE(std::holds_alternative<FrameError>(builder.KeepAlive({})));
+    borrower.reset();
     EXPECT_TRUE(weak.expired());
+    EXPECT_TRUE(std::holds_alternative<FrameError>(builder.Freeze()));
+    ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Reset()));
     graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
     EXPECT_NE(id, graph->GetId());
+}
+
+TEST(FrameBuildLifetime, FrozenGraphOwnsPayloadAfterBuilderDestruction)
+{
+    auto                                    payload = std::make_shared<const uint32_t>(42);
+    std::weak_ptr<const uint32_t>           weak    = payload;
+    std::shared_ptr<const FrozenFrameGraph> graph;
+    {
+        FrameGraphBuilder builder;
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.KeepAlive(payload)));
+        graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(builder.Freeze());
+    }
+    payload.reset();
+    EXPECT_FALSE(weak.expired());
+    graph.reset();
+    EXPECT_TRUE(weak.expired());
+}
+
+TEST(FrameBuildLifetime, ImageExportDeduplicatesFullHandlesBeforeBudgetButAfterSealing)
+{
+    FrameGraphBuilder builder;
+    Image::Descriptor descriptor;
+    descriptor.extent = {1, 1, 1};
+    descriptor.format = PixelFormat::RGBA8_UNORM;
+    descriptor.usage  = ImageUsageFlagBit::RENDER_TARGET;
+    GraphImageHandle first;
+    for (uint32_t i = 0; i < 256; ++i) {
+        const auto created = builder.CreateTransient(descriptor);
+        ASSERT_TRUE(std::holds_alternative<GraphImageHandle>(created));
+        const auto handle = std::get<GraphImageHandle>(created);
+        if (i == 0)
+            first = handle;
+        ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(handle)));
+    }
+    EXPECT_TRUE(std::holds_alternative<FrameOperationComplete>(builder.Export(first)));
+    auto foreign = first;
+    ++foreign.graph;
+    const auto rejected = builder.Export(foreign);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(rejected));
+    EXPECT_EQ(std::get<FrameError>(rejected).code, FrameErrorCode::OUT_OF_MEMORY);
+    const auto frozen = builder.Freeze();
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const FrozenFrameGraph>>(frozen));
+    const auto &graph = std::get<std::shared_ptr<const FrozenFrameGraph>>(frozen);
+    EXPECT_EQ(graph->GetData().imageExports.size(), 256u);
+    const auto sealed = builder.Export(first);
+    ASSERT_TRUE(std::holds_alternative<FrameError>(sealed));
+    EXPECT_EQ(std::get<FrameError>(sealed).code, FrameErrorCode::INVALID_STATE);
 }
 
 TEST(FrameBuildLifetime, CacheEvictionPreservesBorrowersAndDoesNotCacheFailures)

@@ -4,6 +4,42 @@ This delta defines the final public contracts of `refactor-aurora-framegraph-con
 
 ## ADDED Requirements
 
+### Requirement: Bounded semantic analysis before expansion
+
+Analysis SHALL reject declarations exceeding raw-resource or predicted-access-work budgets before expanding subresources, normalizing content or culling passes. Dead declarations SHALL be charged. Reads, writes and defines SHALL remain separate normalized collections per pass/resource; ordered Custom declarations SHALL retain their order. Shared semantic validation and use collection SHALL consume one locally resolved binding draft per draw/dispatch.
+
+#### Scenario: Dead pass exceeds expansion budget
+- **WHEN** an unconsumed pass contains repeated broad image views whose predicted work exceeds the budget
+- **THEN** analysis rejects it before allocating the expanded ranges, regardless of subsequent culling
+
+#### Scenario: Repeated valid ranges
+- **WHEN** a pass repeats overlapping content ranges within budget
+- **THEN** each read/write/define collection is independently normalized without converting writes into content definitions or losing native usage facts
+
+### Requirement: Backend-owned compilation and bounded PSO reuse
+
+Vulkan, DX12 and Metal SHALL each own native compilation and encoding. Each device MAY cache immutable graphics/compute pipelines within a bounded capacity, keyed by strong shader identity, device epoch and complete native pipeline signature. Vulkan RenderPass keys SHALL include scope identity and subpass. Plans and submissions SHALL retain independent pipeline ownership through safe retirement; descriptors/groups SHALL remain Compile/lease scoped. Compute creation failures SHALL preserve their explicit native cause.
+
+#### Scenario: Cache eviction while a frame is pending
+- **WHEN** a pipeline cache entry is evicted or cleared after Compile
+- **THEN** the compiled/recorded/submitted frame remains valid and retains the pipeline until its own safe retirement
+
+#### Scenario: Same image sampled by distinct vertex and fragment bindings
+- **WHEN** one raster pass reads the same physical image/subresource through separate VS and FS bindings
+- **THEN** DX12 combines NON_PIXEL_SHADER_RESOURCE and PIXEL_SHADER_RESOURCE before emitting the transition, without losing either consumer
+
+#### Scenario: Native compute creation fails
+- **WHEN** native pipeline creation returns an explicit failure such as out-of-memory
+- **THEN** Compile reports that cause, does not publish a cache entry and preserves normal unsubmitted cleanup
+
+### Requirement: Frozen graph ownership without a build arena
+
+A frozen graph SHALL own its immutable data through shared ownership. A builder SHALL reject Reset while that graph is borrowed without mutating its state, and SHALL require explicit successful Reset before reuse. Graph CPU ownership SHALL remain independent of GPU payload retirement.
+
+#### Scenario: Builder dies before its frozen graph
+- **WHEN** a caller retains a frozen graph after the builder is destroyed
+- **THEN** the graph remains readable and valid until its last owner releases it
+
 ### Requirement: Compile-local resource-use facts
 
 Compilation SHALL derive effective buffer byte ranges, normalized image subresource ranges, access modes and resource usage roles from the same typed declaration traversal used for graph analysis. Reads, writes and content definitions MUST remain distinct. These facts SHALL be temporary compilation data, not a second persistent frozen IR.

@@ -55,6 +55,10 @@ namespace sky::aurora {
             [](ID3D12Device *d, const D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc, ID3D12PipelineState **out) {
                 return d->CreateGraphicsPipelineState(desc, IID_PPV_ARGS(out));
             };
+        HRESULT (*createComputePipeline)(ID3D12Device *, const D3D12_COMPUTE_PIPELINE_STATE_DESC *, ID3D12PipelineState **) =
+            [](ID3D12Device *d, const D3D12_COMPUTE_PIPELINE_STATE_DESC *desc, ID3D12PipelineState **out) {
+                return d->CreateComputePipelineState(desc, IID_PPV_ARGS(out));
+            };
         HRESULT (*createDescriptorHeap)(ID3D12Device *, const D3D12_DESCRIPTOR_HEAP_DESC *, ID3D12DescriptorHeap **) =
             [](ID3D12Device *d, const D3D12_DESCRIPTOR_HEAP_DESC *desc, ID3D12DescriptorHeap **out) {
                 return d->CreateDescriptorHeap(desc, IID_PPV_ARGS(out));

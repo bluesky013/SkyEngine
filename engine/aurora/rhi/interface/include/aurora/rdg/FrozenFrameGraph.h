@@ -220,10 +220,10 @@ namespace sky::aurora {
         uint32_t   set = 0, binding = 0;
         SamplerPtr sampler;
     };
-    enum class FrameAccessMode : uint8_t { READ, WRITE, READ_WRITE };
+    enum class FrameAccessMode : uint8_t { READ, WRITE, READ_WRITE, END };
     // REFLECTED is valid only for Compute; Custom declares the descriptor kind explicitly.
-    enum class FrameBufferBindingKind : uint8_t { REFLECTED, UNIFORM, STORAGE };
-    enum class FrameImageBindingKind : uint8_t { REFLECTED, SAMPLED, STORAGE };
+    enum class FrameBufferBindingKind : uint8_t { REFLECTED, UNIFORM, STORAGE, END };
+    enum class FrameImageBindingKind : uint8_t { REFLECTED, SAMPLED, STORAGE, END };
 
     struct FrameGroupBufferBinding {
         uint32_t               binding = 0;
@@ -359,8 +359,8 @@ namespace sky::aurora {
         ShaderPtr shader;
         // Direct dispatch dimensions must be nonzero to define declared write contents.
         std::variant<CmdDispatch, ComputeIndirectDispatch> dispatch = CmdDispatch{};
-        FrameBindingGroups                groups;
-        bool                              sideEffect = false;
+        FrameBindingGroups                                 groups;
+        bool                                               sideEffect = false;
     };
 
     class FrameCustomPassEncoder;
@@ -435,8 +435,8 @@ namespace sky::aurora {
         FrameAccessMode      access = FrameAccessMode::READ;
         ShaderStageFlags     stages;
         ShaderResourceAccess resourceAccess = ShaderResourceAccess::READ_ONLY;
-        ShaderBufferKind     bufferKind = ShaderBufferKind::NONE;
-        uint32_t             elementStride = 0;
+        ShaderBufferKind     bufferKind     = ShaderBufferKind::NONE;
+        uint32_t             elementStride  = 0;
     };
     struct FrameImageUse {
         GraphImageHandle  image;
@@ -483,9 +483,12 @@ namespace sky::aurora {
     constexpr uint32_t                                        MAX_BUFFER_INITIAL_RANGES = 256;
     std::variant<FrameError, std::vector<BufferContentRange>> ResolveInitializedBufferContents(const FrameGraphBuffer &) noexcept;
 
-    constexpr uint32_t MAX_FRAME_IMAGE_SUBRESOURCES   = 65536;
-    constexpr uint32_t MAX_FRAME_IMAGE_COPY_RANGES    = 65536;
-    constexpr uint32_t MAX_FRAME_IMAGE_INITIAL_RANGES = 65536;
+    // Raw declarations and expanded accesses are charged before culling or content-range merging.
+    constexpr uint32_t MAX_FRAME_RESOURCE_DECLARATIONS = 65536;
+    constexpr uint32_t MAX_FRAME_ACCESS_WORK           = 65536;
+    constexpr uint32_t MAX_FRAME_IMAGE_SUBRESOURCES    = 65536;
+    constexpr uint32_t MAX_FRAME_IMAGE_COPY_RANGES     = 65536;
+    constexpr uint32_t MAX_FRAME_IMAGE_INITIAL_RANGES  = 65536;
     struct ImageContentSpan {
         uint64_t begin = 0, end = 0;
         bool     operator==(const ImageContentSpan &) const = default;

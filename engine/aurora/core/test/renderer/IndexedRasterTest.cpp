@@ -24,6 +24,26 @@
 #include <d3d12sdklayers.h>
 
 namespace {
+    std::variant<FrameError, PreparedRasterView> ResolveTestRaster(Device                                 &device,
+                                                                   DeviceFrameContext                     &context,
+                                                                   const DeviceFrameLease                 &lease,
+                                                                   FrameGraphBuilder                      &builder,
+                                                                   const PreparedViewData                 &view,
+                                                                   const FrozenResourceCatalog            &resources,
+                                                                   std::span<const PreparedMeshLayout>     meshes,
+                                                                   std::span<const PreparedMaterialLayout> materials,
+                                                                   Rect2D                                  scissor)
+    {
+        std::vector<PreparedMaterialTechniques> techniques;
+        for (const auto &material : materials)
+            techniques.push_back({material.resource, {{Name("opaque"), material}}});
+        auto indexed = BuildPreparedRasterIndex(resources, meshes, techniques);
+        if (const auto *error = std::get_if<FrameError>(&indexed))
+            return *error;
+        return ResolvePreparedRaster(device, context, lease, builder, view.view.scene, view.draws,
+                                     view.skinning ? std::span{*view.skinning} : std::span<const std::shared_ptr<const RenderSkinningData>>{},
+                                     std::get<PreparedRasterIndex>(indexed), Name("opaque"), scissor);
+    }
     constexpr uint64_t epoch                           = 127;
     HRESULT (*depthClose)(ID3D12GraphicsCommandList *) = nullptr;
     uint32_t depthCloseCalls                           = 0;
@@ -912,25 +932,25 @@ TEST_P(IndexedRaster, PreparedSceneViewsResolveExactFallbackAndDrawOwnedPackets)
     auto       wrongMaterials    = materials;
     wrongMaterials[0].vertexMask = 0;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
-        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, meshes, wrongMaterials, {})));
+        ResolveTestRaster(*device, *context, lease, builder, prepared->views[0], resources, meshes, wrongMaterials, {})));
     auto wrongMeshes                 = meshes;
     wrongMeshes[0].resource.revision = 2;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
-        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
+        ResolveTestRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
     wrongMeshes                      = meshes;
     wrongMeshes[0].streams[0].offset = UINT64_MAX;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
-        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
+        ResolveTestRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
     wrongMeshes                 = meshes;
     wrongMeshes[0].lods[0].size = UINT64_MAX;
     EXPECT_TRUE(std::holds_alternative<FrameError>(
-        ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
+        ResolveTestRaster(*device, *context, lease, builder, prepared->views[0], resources, wrongMeshes, materials, {})));
     for (uint32_t i = 0; i != 2; ++i) {
         ASSERT_EQ(prepared->views[i].draws.size(), 1u);
         EXPECT_EQ(prepared->views[i].draws[0].mesh.resource, mesh);
         EXPECT_EQ(prepared->views[i].draws[0].lod, i);
         auto raster =
-            ResolvePreparedRaster(*device, *context, lease, builder, prepared->views[i], resources, meshes, materials, {{int32_t(i * 4), 0}, {4, 8}});
+            ResolveTestRaster(*device, *context, lease, builder, prepared->views[i], resources, meshes, materials, {{int32_t(i * 4), 0}, {4, 8}});
         if (auto *error = std::get_if<FrameError>(&raster))
             FAIL() << error->message;
         retained->push_back(std::move(std::get<PreparedRasterView>(raster)));

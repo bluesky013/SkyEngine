@@ -1,5 +1,6 @@
 #include "graph/FrameGraphBuilder.h"
 
+#include <algorithm>
 #include <core/environment/Singleton.h>
 #include <mutex>
 
@@ -177,9 +178,9 @@ namespace sky::aurora {
     }
     FrameOperationResult FrameGraphBuilder::Reset() noexcept
     {
-        auto result = arena.Reset();
-        if (std::holds_alternative<FrameError>(result))
-            return result;
+        if (!retired.expired())
+            return FrameError{FrameErrorCode::INVALID_STATE, "Frozen graph has active borrowers"};
+        retired.reset();
         data   = {};
         id     = 0;
         sealed = false;
@@ -216,6 +217,8 @@ namespace sky::aurora {
     {
         if (sealed)
             return FrameError{FrameErrorCode::INVALID_STATE};
+        if (std::ranges::find(data.imageExports, output) != data.imageExports.end())
+            return FrameOperationComplete{};
         if (data.imageExports.size() >= 256)
             return FrameError{FrameErrorCode::OUT_OF_MEMORY};
 
@@ -231,11 +234,9 @@ namespace sky::aurora {
             id = FrameGraphIds::Get()->Next();
         if (!id)
             return FrameError{FrameErrorCode::INVALID_STATE};
-        auto allocated = arena.Make<FrozenFrameGraph>(id, std::move(data));
-        if (auto *error = std::get_if<FrameError>(&allocated))
-            return std::move(*error);
-        std::shared_ptr<const FrozenFrameGraph> graph(arena.Seal(), std::get<FrozenFrameGraph *>(allocated));
-        sealed = true;
+        auto graph = std::make_shared<const FrozenFrameGraph>(id, std::move(data));
+        retired    = graph;
+        sealed     = true;
         return graph;
     }
 } // namespace sky::aurora

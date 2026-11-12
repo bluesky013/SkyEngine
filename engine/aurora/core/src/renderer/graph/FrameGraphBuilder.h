@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GraphBuildArena.h"
 #include <aurora/rdg/FrozenFrameGraph.h>
 
 namespace sky::aurora {
@@ -37,10 +36,10 @@ namespace sky::aurora {
         std::variant<FrameError, std::shared_ptr<const FrozenFrameGraph>> Freeze() noexcept;
 
     private:
-        FrameOperationResult Add(FrameGraphPass pass) noexcept;
-        uint64_t             id     = 0;
-        bool                 sealed = false;
-        FrameGraphData       data;
-        GraphBuildArena      arena{sizeof(FrozenFrameGraph) + alignof(FrozenFrameGraph)};
+        FrameOperationResult                  Add(FrameGraphPass pass) noexcept;
+        uint64_t                              id     = 0;
+        bool                                  sealed = false;
+        FrameGraphData                        data;
+        std::weak_ptr<const FrozenFrameGraph> retired;
     };
 } // namespace sky::aurora

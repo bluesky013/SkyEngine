@@ -32,6 +32,7 @@ namespace sky::aurora {
     D3D12Device::~D3D12Device()
     {
         pipelineCache.Clear();
+        computePipelineCache.Clear();
         indirectSignatures.Clear();
         transientPool.reset();
         for (auto &q : queues) {

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <initializer_list>
 #include <tuple>
 
 namespace sky::aurora {
@@ -20,10 +21,29 @@ namespace sky::aurora {
             const auto found = std::ranges::find_if(bindings, [&](const auto &value) { return value.binding == binding; });
             return found == bindings.end() ? nullptr : &*found;
         }
+        bool FitsBindingBudget(std::initializer_list<size_t> counts)
+        {
+            uint32_t remaining = MAX_SHADER_SETS * 32;
+            for (const auto count : counts) {
+                if (count > remaining)
+                    return false;
+                remaining -= static_cast<uint32_t>(count);
+            }
+            return true;
+        }
         FrameOperationResult FreezeGroups(ShaderPtr shader, ComputeBindingDraft draft, FrameBindingGroups &out)
         {
             if (!shader)
                 return InvalidBindingGroup("Binding groups require a shader layout owner");
+            if (!FitsBindingBudget({draft.buffers.size(), draft.images.size(), draft.samplers.size()}))
+                return InvalidBindingGroup("Binding group declaration budget exceeded");
+            bool       occupied[MAX_SHADER_SETS][32]{};
+            const auto occupy = [&](uint32_t set, uint32_t binding) {
+                if (set >= MAX_SHADER_SETS || binding >= 32 || occupied[set][binding])
+                    return false;
+                occupied[set][binding] = true;
+                return true;
+            };
             std::array<FrameBindingGroupData, MAX_SHADER_SETS> data;
             FrameBindingGroups                                 groups;
             for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set) {
@@ -31,23 +51,23 @@ namespace sky::aurora {
                 data[set].set         = set;
             }
             for (auto &binding : draft.buffers) {
-                if (binding.set >= MAX_SHADER_SETS || binding.binding >= 32)
-                    return InvalidBindingGroup("Buffer group set or binding exceeds the supported range");
+                if (!occupy(binding.set, binding.binding) || binding.kind >= FrameBufferBindingKind::END || binding.access >= FrameAccessMode::END)
+                    return InvalidBindingGroup("Invalid or duplicate buffer group binding");
                 data[binding.set].buffers.push_back(
                     {binding.binding, binding.range, binding.kind, binding.resourceAccess, binding.bufferKind, binding.elementStride});
                 if (binding.dynamicOffset || binding.access != FrameAccessMode::READ)
                     groups[binding.set].bufferUses.push_back({binding.binding, binding.dynamicOffset, binding.access});
             }
             for (auto &binding : draft.images) {
-                if (binding.set >= MAX_SHADER_SETS || binding.binding >= 32)
-                    return InvalidBindingGroup("Image group set or binding exceeds the supported range");
+                if (!occupy(binding.set, binding.binding) || binding.kind >= FrameImageBindingKind::END || binding.access >= FrameAccessMode::END)
+                    return InvalidBindingGroup("Invalid or duplicate image group binding");
                 data[binding.set].images.push_back({binding.binding, binding.image, binding.view, binding.kind});
                 if (binding.access != FrameAccessMode::READ)
                     groups[binding.set].imageUses.push_back({binding.binding, binding.access});
             }
             for (auto &binding : draft.samplers) {
-                if (binding.set >= MAX_SHADER_SETS || binding.binding >= 32)
-                    return InvalidBindingGroup("Sampler group set or binding exceeds the supported range");
+                if (!occupy(binding.set, binding.binding))
+                    return InvalidBindingGroup("Invalid or duplicate sampler group binding");
                 data[binding.set].samplers.push_back({binding.binding, std::move(binding.sampler)});
             }
             for (uint32_t set = 0; set < MAX_SHADER_SETS; ++set)
@@ -89,23 +109,23 @@ namespace sky::aurora {
                 return true;
             };
             for (const auto &binding : data.buffers)
-                if (!occupy(binding.binding) || binding.kind > FrameBufferBindingKind::STORAGE)
+                if (!occupy(binding.binding) || binding.kind >= FrameBufferBindingKind::END)
                     return InvalidBindingGroup("Invalid or duplicate buffer group binding");
             for (const auto &binding : data.images)
-                if (!occupy(binding.binding) || binding.kind > FrameImageBindingKind::STORAGE)
+                if (!occupy(binding.binding) || binding.kind >= FrameImageBindingKind::END)
                     return InvalidBindingGroup("Invalid or duplicate image group binding");
             for (const auto &binding : data.samplers)
                 if (!occupy(binding.binding))
                     return InvalidBindingGroup("Invalid or duplicate sampler group binding");
             bool bufferOverrides[32]{}, imageOverrides[32]{};
             for (const auto &binding : use.bufferUses) {
-                if (binding.binding >= 32 || bufferOverrides[binding.binding] || binding.access > FrameAccessMode::READ_WRITE ||
+                if (binding.binding >= 32 || bufferOverrides[binding.binding] || binding.access >= FrameAccessMode::END ||
                     !FindBinding(data.buffers, binding.binding))
                     return InvalidBindingGroup("Invalid or duplicate buffer group use");
                 bufferOverrides[binding.binding] = true;
             }
             for (const auto &binding : use.imageUses) {
-                if (binding.binding >= 32 || imageOverrides[binding.binding] || binding.access > FrameAccessMode::READ_WRITE ||
+                if (binding.binding >= 32 || imageOverrides[binding.binding] || binding.access >= FrameAccessMode::END ||
                     !FindBinding(data.images, binding.binding))
                     return InvalidBindingGroup("Invalid or duplicate image group use");
                 imageOverrides[binding.binding] = true;
@@ -116,6 +136,10 @@ namespace sky::aurora {
 
     FrameOperationResult SetRasterBindings(RasterDraw &draw, RasterBindingDraft draft)
     {
+        if (!draw.shader)
+            return InvalidBindingGroup("Binding groups require a shader layout owner");
+        if (!FitsBindingBudget({draft.uniforms.size(), draft.storage.size(), draft.images.size(), draft.samplers.size()}))
+            return InvalidBindingGroup("Binding group declaration budget exceeded");
         ComputeBindingDraft bindings;
         const auto          append = [&](const auto &values, FrameBufferBindingKind kind) {
             for (const auto &value : values) {

@@ -7,6 +7,7 @@
 #include <MetalQueue.h>
 #include <array>
 #include <aurora/rhi/Device.h>
+#include <common/FrameObjectCache.h>
 #include <memory>
 
 namespace sky::aurora {
@@ -79,6 +80,14 @@ namespace sky::aurora {
         {
             return *transientPool;
         }
+        FramePipelineCache &GetFramePipelineCache() noexcept
+        {
+            return pipelineCache;
+        }
+        FrameComputePipelineCache &GetFrameComputePipelineCache() noexcept
+        {
+            return computePipelineCache;
+        }
 
     private:
         bool        OnInit(const DeviceInit &init) override;
@@ -96,6 +105,8 @@ namespace sky::aurora {
         std::array<std::unique_ptr<MetalQueue>, 3> queues; // by QueueType
         std::unique_ptr<MetalBlitHelper>           blitHelper;
         std::unique_ptr<FrameTransientPool>        transientPool;
+        FramePipelineCache                         pipelineCache;
+        FrameComputePipelineCache                  computePipelineCache;
     };
 
 } // namespace sky::aurora

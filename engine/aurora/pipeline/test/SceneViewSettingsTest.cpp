@@ -260,9 +260,12 @@ namespace {
         {
             return Unsupported();
         }
-        FrameOperationResult Export(GraphImageHandle) override
+        FrameOperationResult Export(GraphImageHandle image) override
         {
-            return Unsupported();
+            if (image != target.color)
+                return FrameError{FrameErrorCode::INVALID_ARGUMENT};
+            target.exportRequested = true;
+            return FrameOperationComplete{};
         }
         FrameOperationResult Raster(FrameRasterPass pass) override
         {
@@ -334,6 +337,7 @@ TEST(SceneViewSettingsTest, StageConsumesOnlyItsOutputPayloadAndSharesOpaqueAtta
     ASSERT_TRUE(std::holds_alternative<FrameOperationComplete>(feature->BuildView(context, view)));
     ASSERT_EQ(context.passes.size(), 2u);
     ASSERT_TRUE(context.passes.front().depth);
+    EXPECT_TRUE(context.target.exportRequested);
     EXPECT_EQ(extension->calls, 1u);
     EXPECT_EQ(extension->bytes, std::vector<uint8_t>{2});
     EXPECT_EQ(extension->color, context.passes.front().color);

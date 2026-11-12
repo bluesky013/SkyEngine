@@ -289,7 +289,10 @@ namespace {
             FrameRasterPass pass;
             pass.color = output->color;
             pass.draws.push_back(std::move(draw));
-            return context.Fullscreen(std::move(pass));
+            const auto rendered = context.Fullscreen(std::move(pass));
+            if (std::holds_alternative<FrameError>(rendered))
+                return rendered;
+            return context.Export(output->color);
         }
 
     private:
@@ -983,7 +986,10 @@ TEST(RendererModule, NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreRelea
             FrameRasterPass clear;
             clear.color = output->color;
             clear.clear = ClearValue{.1f, .5f, .8f, 1.f};
-            return context.Raster(std::move(clear));
+            const auto rendered = context.Raster(std::move(clear));
+            if (std::holds_alternative<FrameError>(rendered))
+                return rendered;
+            return context.Export(output->color);
         }
     };
     {

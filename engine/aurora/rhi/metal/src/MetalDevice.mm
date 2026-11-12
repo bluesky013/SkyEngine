@@ -96,6 +96,9 @@ namespace sky::aurora {
 
     MetalDevice::~MetalDevice()
     {
+        pipelineCache.Clear();
+        computePipelineCache.Clear();
+        transientPool.reset();
         for (auto &q : queues) {
             q.reset();
         }
