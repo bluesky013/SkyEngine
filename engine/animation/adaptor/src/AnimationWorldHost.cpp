@@ -58,11 +58,21 @@ namespace sky::animation {
             bool                                  pending      = false;
             bool                                  retained     = false;
             float                                 rate         = 1.f;
+            aurora::SkeletalPoseResult            published;
+            uint64_t                              publishedBaseRevision         = 0;
+            uint64_t                              publishedContributionRevision = 0;
+            Uuid                                  publishedContributor;
+            AnimationStatus                       contributionDiagnostic;
+        };
+        struct Contributor {
+            AnimationPoseContributionToken             token;
+            std::shared_ptr<IAnimationPoseContributor> provider;
         };
         class System;
         struct Registry {
-            std::unordered_map<const void *, System *> systems;
-            bool                                       active = true;
+            std::unordered_map<const void *, System *>             systems;
+            std::unordered_map<Uuid, std::shared_ptr<Contributor>> contributors;
+            bool                                                   active = true;
         };
         class System final : public IWorldSubSystem {
         public:
@@ -90,10 +100,12 @@ namespace sky::animation {
             void StopSimulation() override
             {
                 running = false;
+                ClearContributors();
                 instances.clear();
             }
             void Drain()
             {
+                ClearContributors();
                 instances.clear();
                 running = false;
             }
@@ -103,6 +115,7 @@ namespace sky::animation {
                     return;
                 }
                 if (epoch != world->GetRuntimeId()) {
+                    ClearContributors();
                     epoch = world->GetRuntimeId();
                     instances.clear();
                 }
@@ -131,6 +144,9 @@ namespace sky::animation {
                     auto       &slot   = instances[id];
                     const auto &config = component->GetData();
                     if (!slot || slot->attachment != component->GetAttachment() || !SameBinding(slot->config, config)) {
+                        if (slot) {
+                            registry->contributors.erase(slot->generation);
+                        }
                         slot             = std::make_unique<Instance>();
                         slot->config     = config;
                         slot->rate       = config.playRate;
@@ -159,7 +175,13 @@ namespace sky::animation {
                     instance.diagnostic = status;
                     instance.state      = status ? AnimationSourceState::Ready : AnimationSourceState::Error;
                 }
-                std::erase_if(instances, [&](const auto &entry) { return !entry.second->seen; });
+                std::erase_if(instances, [&](const auto &entry) {
+                    if (!entry.second->seen) {
+                        registry->contributors.erase(entry.second->generation);
+                        return true;
+                    }
+                    return false;
+                });
             }
             Instance *Find(const Uuid &actor) const
             {
@@ -194,6 +216,11 @@ namespace sky::animation {
                 result.retainedVersion   = instance->retained;
                 result.poseRevision      = instance->poseRevision;
                 result.rate              = instance->rate;
+                if (!instance->contributionDiagnostic) {
+                    result.diagnostic      = instance->contributionDiagnostic;
+                    result.state           = AnimationSourceState::Error;
+                    result.retainedVersion = instance->published.state == aurora::SkeletalPoseState::Ready;
+                }
                 if (instance->bound) {
                     const auto &bound = *instance->bound;
                     result.skeleton   = bound.rig.version;
@@ -215,7 +242,7 @@ namespace sky::animation {
                                 result.parameters.push_back({parameters[i].id, parameters[i].name, values[i]});
                             }
                         }
-                    } else {
+                    } else if (bound.clip.resource) {
                         result.animation = bound.clip.version;
                         result.playing   = bound.player.IsPlaying();
                         result.time      = bound.player.GetCurrentTime();
@@ -236,6 +263,9 @@ namespace sky::animation {
                 }
                 if (!instance->bound) {
                     return {AnimationError::InvalidPlayback, "Animation resources are not ready"};
+                }
+                if (!instance->bound->graph && !instance->bound->clip.resource) {
+                    return {AnimationError::Unsupported, "Reference pose has no playback timeline"};
                 }
                 if (auto *graph = instance->bound->graph.get()) {
                     switch (op) {
@@ -301,8 +331,10 @@ namespace sky::animation {
                 result.diagnostic      = status.diagnostic.message;
                 const auto *instance   = Find(actor);
                 if (instance && instance->bound && (instance->state == AnimationSourceState::Ready || instance->retained)) {
-                    result.state  = aurora::SkeletalPoseState::Ready;
-                    result.models = instance->bound->models;
+                    result.state           = aurora::SkeletalPoseState::Ready;
+                    result.models          = instance->bound->models;
+                    result.retainedVersion = instance->retained;
+                    result.diagnostic      = instance->diagnostic.message;
                 } else {
                     result.state =
                         status.state == AnimationSourceState::Pending ? aurora::SkeletalPoseState::Pending : aurora::SkeletalPoseState::Error;
@@ -316,6 +348,9 @@ namespace sky::animation {
                 if (bound.graph) {
                     const auto status = bound.graph->SetRate(rate);
                     return status && simulate ? bound.graph->Tick(delta) : status;
+                }
+                if (!bound.clip.resource) {
+                    return {};
                 }
                 bound.player.SetLoop(loop);
                 const auto status = bound.player.SetPlayRate(rate);
@@ -451,6 +486,7 @@ namespace sky::animation {
 
             void Detach()
             {
+                ClearContributors();
                 if (world) {
                     const auto found = registry->systems.find(world);
                     if (found != registry->systems.end() && found->second == this) {
@@ -459,6 +495,10 @@ namespace sky::animation {
                 }
                 world = nullptr;
                 instances.clear();
+            }
+            void ClearContributors()
+            {
+                std::erase_if(registry->contributors, [&](const auto &entry) { return entry.second->token.binding.instance.world == world; });
             }
             static void Fail(Instance &instance, AnimationStatus status)
             {
@@ -481,20 +521,20 @@ namespace sky::animation {
                 instance.pending    = false;
                 instance.state      = AnimationSourceState::Pending;
                 instance.diagnostic = {};
-                if (instance.config.mode != AnimationMode::Clip && instance.config.mode != AnimationMode::Graph) {
+                if (instance.config.mode < AnimationMode::Clip || instance.config.mode >= AnimationMode::END) {
                     Fail(instance, {AnimationError::Unsupported, "Unknown animation mode"});
                     return;
                 }
                 auto *rigs  = Interface<IAnimationSkeletonSource>::Get()->GetApi();
                 auto *clips = Interface<IAnimationClipSource>::Get()->GetApi();
-                if (!rigs || !clips) {
+                if (!rigs || (instance.config.mode != AnimationMode::ReferencePose && !clips)) {
                     Fail(instance, {AnimationError::MissingProvider, "Animation Clip/Skeleton provider is unavailable"});
                     return;
                 }
                 instance.rigRequest = rigs->Request(instance.config.skeleton);
                 if (instance.config.mode == AnimationMode::Clip) {
                     instance.clipRequest = clips->Request(instance.config.clip);
-                } else {
+                } else if (instance.config.mode == AnimationMode::Graph) {
                     instance.graphRequest = AssetManager::Get()->LoadAsset<GraphAsset>(instance.config.graph, AssetLoadPolicy::ProductsOnly);
                 }
                 instance.pending = true;
@@ -507,6 +547,32 @@ namespace sky::animation {
                 auto rig = instance.rigRequest.Poll();
                 if (instance.config.mode == AnimationMode::Graph) {
                     return PollGraph(instance, std::move(rig), delta, running);
+                }
+                if (instance.config.mode == AnimationMode::ReferencePose) {
+                    if (rig.state == AnimationSourceState::Pending) {
+                        return false;
+                    }
+                    if (rig.state != AnimationSourceState::Ready || !rig.resource || rig.version.asset != instance.config.skeleton ||
+                        !rig.version.generation || !rig.version.revision || rig.version.layout != rig.resource->GetLayoutSignature()) {
+                        Fail(instance, {AnimationError::InvalidSkeleton, "Reference pose Skeleton version is unavailable or incompatible"});
+                        return false;
+                    }
+                    auto next           = std::make_unique<BoundAnimation>();
+                    next->rig           = std::move(rig);
+                    next->pose.skeleton = next->rig.resource.Get();
+                    const auto status   = EvaluateBound(*next, instance.config.rootPolicy);
+                    if (!status) {
+                        Fail(instance, status);
+                        return false;
+                    }
+                    instance.bound      = std::move(next);
+                    instance.pending    = false;
+                    instance.retained   = false;
+                    instance.rigRequest = {};
+                    instance.diagnostic = {};
+                    instance.state      = AnimationSourceState::Ready;
+                    ++instance.poseRevision;
+                    return true;
                 }
                 auto clip = instance.clipRequest.Poll();
                 if (rig.state == AnimationSourceState::Error) {
@@ -580,13 +646,15 @@ namespace sky::animation {
             {
                 if (bound.graph) {
                     bound.graph->Evaluate(bound.pose);
-                } else {
+                } else if (bound.clip.resource) {
                     const auto status = bound.clip.resource->SamplePose(
                         bound.pose,
                         {Anim::ConvertFromFrameRate(bound.player.GetCurrentTime(), bound.clip.resource->GetPlayRate()), AnimInterpolation::LINEAR});
                     if (!status) {
                         return status;
                     }
+                } else {
+                    bound.pose.ResetRefPose();
                 }
                 if (rootPolicy == AnimationRootPolicy::LockToReference) {
                     for (const auto *root : bound.rig.resource->GetRoots()) {
@@ -614,6 +682,126 @@ namespace sky::animation {
             const IAnimationSkeletonSource                     *rigProvider  = nullptr;
             std::unordered_map<Uuid, std::unique_ptr<Instance>> instances;
         };
+        AnimationPoseBinding BindingOf(const aurora::SkeletalPoseResult &pose)
+        {
+            return {{static_cast<const World *>(pose.instance.world), pose.instance.worldEpoch, pose.instance.actor, pose.instance.generation},
+                    {pose.skeleton.asset, pose.skeleton.generation, pose.skeleton.revision, pose.skeleton.layout}};
+        }
+        Instance *FindBound(const std::shared_ptr<Registry> &registry, const AnimationPoseBinding &binding)
+        {
+            const auto found = registry->systems.find(binding.instance.world);
+            if (!registry->active || found == registry->systems.end()) {
+                return nullptr;
+            }
+            const auto status = found->second->Status(binding.instance.actor, false);
+            if (status.handle != binding.instance || status.skeleton != binding.skeleton) {
+                return nullptr;
+            }
+            auto *instance = found->second->Find(binding.instance.actor);
+            return instance && instance->bound ? instance : nullptr;
+        }
+        bool ValidPoseMatrix(const Matrix4 &matrix, bool normal)
+        {
+            if (!std::all_of(std::begin(matrix.v), std::end(matrix.v), [](float value) { return std::isfinite(value); })) {
+                return false;
+            }
+            const float determinant = matrix.Determinant();
+            return std::isfinite(determinant) && determinant != 0.f &&
+                   (normal || (matrix[0][3] == 0.f && matrix[1][3] == 0.f && matrix[2][3] == 0.f && matrix[3][3] == 1.f));
+        }
+        AnimationStatus ValidateContribution(const AnimationPoseBase &base, const AnimationPoseContribution &value)
+        {
+            if (!value.status) {
+                return value.status;
+            }
+            if (value.binding != base.binding || value.baseRevision != base.revision || !value.revision) {
+                return {AnimationError::StaleGeneration, "Pose contribution instance, Skeleton or base revision is stale"};
+            }
+            if (value.models.size() != base.models.size() || (!value.modelNormals.empty() && value.modelNormals.size() != base.models.size()) ||
+                !std::all_of(value.models.begin(), value.models.end(), [](const auto &matrix) { return ValidPoseMatrix(matrix, false); }) ||
+                !std::all_of(value.modelNormals.begin(), value.modelNormals.end(),
+                             [](const auto &matrix) { return ValidPoseMatrix(matrix, true); })) {
+                return {AnimationError::InvalidAsset, "Pose contribution contains incompatible, nonfinite or singular matrices"};
+            }
+            return {};
+        }
+        aurora::SkeletalPoseResult RetainPose(Instance &instance, AnimationStatus status)
+        {
+            instance.contributionDiagnostic = std::move(status);
+            auto result                     = instance.published;
+            result.retainedVersion          = true;
+            result.diagnostic               = instance.contributionDiagnostic.message;
+            return result;
+        }
+        aurora::SkeletalPoseResult ComposePose(const std::shared_ptr<Registry> &registry, aurora::SkeletalPoseResult base)
+        {
+            if (base.state != aurora::SkeletalPoseState::Ready) {
+                return base;
+            }
+            const auto binding  = BindingOf(base);
+            auto      *instance = FindBound(registry, binding);
+            if (!instance) {
+                base.state = aurora::SkeletalPoseState::Error;
+                base.models.clear();
+                base.diagnostic = "Pose instance detached before composition";
+                return base;
+            }
+            if (instance->published.state != aurora::SkeletalPoseState::Ready) {
+                instance->published             = base;
+                instance->publishedBaseRevision = base.revision;
+            }
+            const uint64_t baseRevision = base.revision;
+            Uuid           contributorId;
+            uint64_t       contributionRevision = 0;
+            const auto     found                = registry->contributors.find(binding.instance.generation);
+            if (found != registry->contributors.end()) {
+                const auto contributor = found->second;
+                if (contributor->token.binding != binding) {
+                    return RetainPose(*instance, {AnimationError::StaleGeneration, "Pose contributor is bound to a different Skeleton version"});
+                }
+                const AnimationPoseBase input{binding, baseRevision, base.models};
+                auto                    contribution = contributor->provider->Evaluate(input);
+                // The callback may detach the world or revoke itself; never retain a borrowed Instance across it.
+                instance = FindBound(registry, binding);
+                if (!instance) {
+                    base.state = aurora::SkeletalPoseState::Error;
+                    base.models.clear();
+                    base.diagnostic = "Pose instance detached during contribution evaluation";
+                    return base;
+                }
+                const auto current = registry->contributors.find(binding.instance.generation);
+                if (current == registry->contributors.end() || current->second != contributor || instance->poseRevision != baseRevision) {
+                    return RetainPose(*instance,
+                                      {AnimationError::StaleGeneration, "Pose registration or base changed during contribution evaluation"});
+                }
+                if (const auto status = ValidateContribution(input, contribution); !status) {
+                    return RetainPose(*instance, status);
+                }
+                contributorId        = contributor->token.id;
+                contributionRevision = contribution.revision;
+                if (instance->publishedContributor == contributorId && contributionRevision < instance->publishedContributionRevision) {
+                    return RetainPose(*instance, {AnimationError::StaleGeneration, "Pose contribution revision moved backwards"});
+                }
+                base.models       = std::move(contribution.models);
+                base.modelNormals = std::move(contribution.modelNormals);
+            }
+            instance->contributionDiagnostic = {};
+            if (instance->publishedBaseRevision != baseRevision || instance->publishedContributor != contributorId ||
+                instance->publishedContributionRevision != contributionRevision || instance->published.skeleton != base.skeleton) {
+                if (instance->published.revision == UINT64_MAX) {
+                    return RetainPose(*instance, {AnimationError::InvalidPlayback, "Published pose revision is exhausted"});
+                }
+                base.revision                           = std::max(baseRevision, instance->published.revision + 1);
+                instance->published                     = std::move(base);
+                instance->publishedBaseRevision         = baseRevision;
+                instance->publishedContributor          = contributorId;
+                instance->publishedContributionRevision = contributionRevision;
+            } else {
+                instance->published.retainedVersion = base.retainedVersion;
+                instance->published.diagnostic      = base.diagnostic;
+            }
+            return instance->published;
+        }
         class Host final : public AnimationWorldHost {
         public:
             Host() : registry(std::make_shared<Registry>())
@@ -633,6 +821,34 @@ namespace sky::animation {
                 for (const auto &[world, system] : registry->systems) {
                     system->Drain();
                 }
+                registry->contributors.clear();
+            }
+            AnimationStatus RegisterPoseContributor(const AnimationPoseBinding                &binding,
+                                                    std::shared_ptr<IAnimationPoseContributor> contributor,
+                                                    AnimationPoseContributionToken            &out) override
+            {
+                if (!contributor || !binding.instance.generation || !binding.skeleton.generation || !binding.skeleton.revision ||
+                    !FindBound(registry, binding)) {
+                    return {AnimationError::StaleGeneration, "Pose contributor requires a ready, current instance and Skeleton version"};
+                }
+                if (registry->contributors.contains(binding.instance.generation)) {
+                    return {AnimationError::InvalidPlayback, "Animation instance already has a pose contributor"};
+                }
+                const auto entry = std::make_shared<Contributor>();
+                entry->token     = {Uuid::Create(), binding};
+                entry->provider  = std::move(contributor);
+                registry->contributors.emplace(binding.instance.generation, entry);
+                out = entry->token;
+                return {};
+            }
+            AnimationStatus UnregisterPoseContributor(const AnimationPoseContributionToken &token) override
+            {
+                const auto found = registry->contributors.find(token.binding.instance.generation);
+                if (found == registry->contributors.end() || found->second->token.id != token.id || found->second->token.binding != token.binding) {
+                    return Stale();
+                }
+                registry->contributors.erase(found);
+                return {};
             }
             AnimationInstanceStatus Find(const World *world, const Uuid &actor) const override
             {
@@ -657,9 +873,10 @@ namespace sky::animation {
             }
             aurora::SkeletalPoseResult Describe(const void *world, const Uuid &actor) const override
             {
+                const auto  owner  = registry;
                 const auto *system = Get(world);
                 if (system) {
-                    return system->Describe(actor);
+                    return ComposePose(owner, system->Describe(actor));
                 }
                 aurora::SkeletalPoseResult result;
                 result.state      = aurora::SkeletalPoseState::Error;
@@ -668,12 +885,16 @@ namespace sky::animation {
             }
             aurora::SkeletalPoseResult Query(const aurora::SkeletalPoseIdentity &identity, const aurora::SkeletalRigVersion &rig) const override
             {
-                auto result = Describe(identity.world, identity.actor);
-                if (result.instance.worldEpoch != identity.worldEpoch || result.instance.generation != identity.generation ||
-                    result.skeleton != rig) {
+                auto       result  = Describe(identity.world, identity.actor);
+                const bool current = result.instance.world == identity.world && result.instance.worldEpoch == identity.worldEpoch &&
+                                     result.instance.actor == identity.actor && result.instance.generation &&
+                                     result.instance.generation == identity.generation;
+                // A pending instance owns its identity before its Skeleton version is available.
+                if (!current || (result.state == aurora::SkeletalPoseState::Ready && result.skeleton != rig)) {
                     result.state      = aurora::SkeletalPoseState::Error;
                     result.diagnostic = "Animation instance or Skeleton version is stale";
                     result.models.clear();
+                    result.modelNormals.clear();
                 }
                 return result;
             }

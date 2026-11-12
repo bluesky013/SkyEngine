@@ -1,29 +1,9 @@
 #pragma once
 
-#include <animation/IAnimationInstanceControl.h>
+#include <animation/assets/AnimationComponentData.h>
 #include <framework/world/Component.h>
 
 namespace sky::animation {
-    struct AnimationParameterOverride {
-        Uuid  parameter;
-        bool  isBoolean                                            = false;
-        bool  booleanValue                                         = false;
-        float floatValue                                           = 0.f;
-        bool  operator==(const AnimationParameterOverride &) const = default;
-    };
-    struct AnimationComponentData {
-        std::vector<AnimationParameterOverride> parameters;
-
-        AnimationMode       mode = AnimationMode::Clip;
-        Uuid                skeleton;
-        Uuid                clip;
-        Uuid                graph;
-        bool                autoplay                                         = true;
-        bool                loop                                             = true;
-        float               playRate                                         = 1.f;
-        AnimationRootPolicy rootPolicy                                       = AnimationRootPolicy::KeepInPose;
-        bool                operator==(const AnimationComponentData &) const = default;
-    };
     class AnimationComponent final : public ComponentAdaptor<AnimationComponentData> {
     public:
         COMPONENT_RUNTIME_INFO(AnimationComponent)
@@ -35,8 +15,15 @@ namespace sky::animation {
         {
             return data.parameters;
         }
-        static void Reflect(SerializationContext *context);
-        void        OnAttachToWorld() override
+        static void            Reflect(SerializationContext *context);
+        AnimationStatus        TryLoadJson(JsonInputArchive &archive);
+        void                   LoadJson(JsonInputArchive &archive) override;
+        bool                   TryAttachToWorld(std::string &error) override;
+        const AnimationStatus &GetLoadStatus() const
+        {
+            return loadStatus;
+        }
+        void OnAttachToWorld() override
         {
             attachment = Uuid::Create();
         }
@@ -46,7 +33,8 @@ namespace sky::animation {
         }
         void SetConfig(const AnimationComponentData &value)
         {
-            data = value;
+            data       = value;
+            loadStatus = {};
         }
         const Uuid &GetAttachment() const
         {
@@ -77,9 +65,13 @@ namespace sky::animation {
         {
             return data.graph;
         }
-        void SetMode(AnimationMode value)
+        bool SetMode(AnimationMode value)
         {
+            if (value < AnimationMode::Clip || value >= AnimationMode::END) {
+                return false;
+            }
             data.mode = value;
+            return true;
         }
         AnimationMode GetMode() const
         {
@@ -119,6 +111,7 @@ namespace sky::animation {
         }
 
     private:
-        Uuid attachment;
+        Uuid            attachment;
+        AnimationStatus loadStatus;
     };
 } // namespace sky::animation

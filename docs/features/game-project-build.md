@@ -51,6 +51,18 @@ On Win32 the preset is provided but build/run verification is expected on a Wind
 
 For optimized editing with symbols and engine assertions, use the new `<platform>-develop` presets; see [Develop builds](develop-build.md). Original publishing presets continue to select Release.
 
+### Renderer descriptor capacity
+
+The project-owned launcher can pass per-frame descriptor budgets through the existing `GameApplication::Init(argc, argv)` arguments:
+
+```text
+--aurora-resource-descriptors 8192 --aurora-sampler-descriptors 2048 --aurora-descriptor-sets 4096
+```
+
+These optional capacities default to 1024 resource descriptors, 128 sampler descriptors and 256 descriptor sets. Each value must be a separate decimal integer in `[1, 65536]`; missing, duplicate, out-of-range and `--flag=value` arguments fail initialization explicitly. Direct renderer hosts can set the corresponding `RendererInitInfo::resourceDescriptors`, `samplerDescriptors` and `descriptorSets` fields. The provider validates them before device creation and passes them to the existing frame allocation limits. Budgets remain bounded and reset only when a retired frame slot receives a new lease; backend defaults are unchanged.
+
+A crowd with 10 meshes of 25 primitives can require roughly 500 skinned draw bindings across the main and shadow passes, even with one shared texture atlas. The example above provides headroom for that workload without removing mesh parts or disabling shadows. This is a launcher configuration, not a new `.skyproj` or export-preset field. Use the same capacities for all cases in a performance comparison.
+
 ### Application identity, export presets, and signing
 
 The descriptor's `settings` holds runtime settings and shared version defaults:
@@ -162,6 +174,10 @@ Android build prerequisites (from the environment):
 - `SKY_3RD_PATH` pointing at the Android third-party output (`python/third_party.py -p Android`).
 - `JAVA_HOME` with a Gradle-compatible JDK (Gradle 8.10.2 supports up to Java 22; JDK 17/21 recommended). Some
   IDE-bundled runtimes are too new (e.g. a Java 25 JBR fails with `Unsupported class file major version 69`).
+
+When several host configurations exist, `SKY_HOST_TOOLS_DIR` explicitly selects the directory containing
+`AssetTool` and `ShaderCookTool` (for example `output/bin/Debug`). An explicit directory never falls back to
+another configuration when a tool is missing. Without this variable, the existing Develop-first lookup remains.
 
 ### Signed Apple archive and local export
 

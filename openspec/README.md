@@ -4,7 +4,7 @@
 
 2026-11-01 整理基线：`52fbcb3a`。176 份主 spec 合并为 32 个领域，1,327 条既有主需求全部保留。55 个原活跃 change 的 delta 路径与 proposal 能力 ID 同步迁移。仅两个同名的控制台历史导航条目增加来源前缀，其余需求名称保持原样。
 
-经用户确认，24 项已交付/被替代 change 已同步或仅历史归档，4 份未展开草案已移入 [backlog](backlog/README.md)。当前为 **32 个领域、1,391 条主需求、28 个活跃 change 目录**（含明确标记的冻结/债务记录）。未完成的平台验收仍保留在 P02。
+经用户确认，24 项已交付/被替代 change 已同步或仅历史归档，4 份未展开草案已移入 [backlog](backlog/README.md)。当前为 **32 个领域、1,416 条主需求、33 个活跃 change 目录**（含明确标记的冻结/债务记录）。未完成的平台验收仍保留在 P02。
 
 - [当前工作、依赖与逐项状态](changes/consolidate-active-changes/design.md)
 - [归档预审清单](changes/consolidate-active-changes/archive-review.md)：逐项记录已批准并执行的同步或历史保留方式。
@@ -23,25 +23,27 @@
 | 动画与物理制作 | [Animation engine 迁移已归档](changes/archive/2026-11-04-refactor-animation-engine-ownership/verification.md)；骨骼动画、碰撞制作继续按现有 workflow 收口；已有 target/入口不再重复计为待实现；`navigation-terrain-build-tests` 继续推进 terrain+collision→Recast 测试矩阵 |
 | 规划池 | 地形/植被渲染与编辑、动画事件、音频桥、网络预测；保持真实前置条件和未实现状态 |
 
+2026-11-13：[CPU XPBD 软体与 Mesh generator 已归档](changes/archive/2026-11-13-add-jolt-softbody-generators/implementation-summary.md)，同步五个领域的 25 条需求；[任务 5.4、7.5、8.5](changes/archive/2026-11-13-add-jolt-softbody-generators/tasks.md) 仍未验收，不把归档视为三端性能或全部视觉检查通过。
+
 ## 领域主规范
 
 | 领域 | 原 capability 数 | 需求数 |
 | --- | ---: | ---: |
-| [animation](specs/animation/spec.md) | 1 | 43 |
-| [asset-cook](specs/asset-cook/spec.md) | 6 | 37 |
+| [animation](specs/animation/spec.md) | 1 | 44 |
+| [asset-cook](specs/asset-cook/spec.md) | 6 | 45 |
 | [assets](specs/assets/spec.md) | 6 | 38 |
 | [async](specs/async/spec.md) | 2 | 16 |
 | [audio](specs/audio/spec.md) | 4 | 21 |
 | [aurora-framegraph](specs/aurora-framegraph/spec.md) | 1 | 24 |
 | [aurora-pipeline](specs/aurora-pipeline/spec.md) | 2 | 21 |
 | [aurora-renderer](specs/aurora-renderer/spec.md) | 5 | 74 |
-| [aurora-resources](specs/aurora-resources/spec.md) | 4 | 39 |
+| [aurora-resources](specs/aurora-resources/spec.md) | 4 | 41 |
 | [aurora-rhi](specs/aurora-rhi/spec.md) | 3 | 83 |
 | [aurora-shaders](specs/aurora-shaders/spec.md) | 4 | 82 |
 | [build](specs/build/spec.md) | 9 | 41 |
 | [console](specs/console/spec.md) | 7 | 57 |
 | [core](specs/core/spec.md) | 4 | 14 |
-| [editor-assets](specs/editor-assets/spec.md) | 5 | 43 |
+| [editor-assets](specs/editor-assets/spec.md) | 5 | 46 |
 | [editor-core](specs/editor-core/spec.md) | 7 | 47 |
 | [editor-inspector](specs/editor-inspector/spec.md) | 3 | 38 |
 | [editor-shell](specs/editor-shell/spec.md) | 15 | 115 |
@@ -49,7 +51,7 @@
 | [modules](specs/modules/spec.md) | 4 | 23 |
 | [navigation](specs/navigation/spec.md) | 11 | 62 |
 | [network](specs/network/spec.md) | 13 | 73 |
-| [physics](specs/physics/spec.md) | 15 | 97 |
+| [physics](specs/physics/spec.md) | 15 | 108 |
 | [platform](specs/platform/spec.md) | 4 | 33 |
 | [project-packaging](specs/project-packaging/spec.md) | 4 | 27 |
 | [python](specs/python/spec.md) | 3 | 19 |

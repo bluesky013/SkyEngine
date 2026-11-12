@@ -16,8 +16,23 @@
 
 namespace sky::phy {
 
+    PhysicsSystem::~PhysicsSystem()
+    {
+        closing      = true;
+        auto closing = std::move(stepListeners);
+        if (world) {
+            for (const auto &listener : closing) {
+                listener->OnPhysicsWorldClosing(*world);
+            }
+        }
+    }
+
     bool PhysicsSystem::Init(const PhysicsWorldDesc &desc)
     {
+        if (world || stepping || closing) {
+            status = {PhysicsError::InvalidState, "Physics system is already initialized"};
+            return false;
+        }
         world  = std::unique_ptr<IPhysicsWorld>(PhysicsBackendRegistry::Get().CreateWorld(desc));
         status = world ? PhysicsStatus{} : PhysicsStatus{PhysicsError::BackendFailure, "Physics world creation failed"};
         return world != nullptr;
@@ -60,6 +75,10 @@ namespace sky::phy {
 
     void PhysicsSystem::Tick(float time)
     {
+        if (stepping || closing) {
+            status = {PhysicsError::InvalidState, "Physics stepping is reentrant or closing"};
+            return;
+        }
         pendingEvents.clear();
         if (world == nullptr || !simulating || !std::isfinite(time) || time < 0) {
             return;
@@ -70,24 +89,57 @@ namespace sky::phy {
 
     void PhysicsSystem::RunSteps(uint32_t count, float alpha)
     {
+        if (stepping || closing) {
+            status = {PhysicsError::InvalidState, "Recursive physics stepping is unsupported"};
+            return;
+        }
         pendingEvents.clear();
         if (!world) {
             status = {PhysicsError::InvalidState, "Physics world is unavailable"};
             return;
         }
         std::vector<PhysicsEvent> completed;
+        stepping = true;
         for (uint32_t i = 0; i < count; ++i) {
-            status = world->Step(stepper.GetConfig().fixedDelta);
+            const float delta    = stepper.GetConfig().fixedDelta;
+            const auto  snapshot = stepListeners;
+            status               = {};
+            for (const auto &listener : snapshot) {
+                if (std::find(stepListeners.begin(), stepListeners.end(), listener) != stepListeners.end()) {
+                    status = listener->BeforePhysicsStep(*world, delta);
+                    if (!status) {
+                        break;
+                    }
+                }
+            }
+            if (status) {
+                status = world->Step(delta);
+            }
             if (!status) {
                 simulating = false;
                 LOG_E("Jolt", "%s", status.message.c_str());
                 break;
             }
             world->DrainEvents(completed);
+            for (const auto &listener : snapshot) {
+                if (std::find(stepListeners.begin(), stepListeners.end(), listener) != stepListeners.end()) {
+                    const auto published = listener->AfterPhysicsStep(*world, delta);
+                    if (!published && status) {
+                        status = published;
+                    }
+                }
+            }
+            if (!status) {
+                simulating = false;
+                LOG_E("Jolt", "%s", status.message.c_str());
+                break;
+            }
         }
         if (status) {
             world->SetInterpolationAlpha(alpha);
+            presentationAlpha = alpha;
         }
+        stepping = false;
         pendingEvents.insert(pendingEvents.end(), completed.begin(), completed.end());
         if (!completed.empty()) {
             const auto snapshot = listeners;
@@ -96,6 +148,26 @@ namespace sky::phy {
                     listener->OnPhysicsEvents(completed);
             }
         }
+    }
+
+    PhysicsStatus PhysicsSystem::AddStepListener(std::shared_ptr<IPhysicsStepListener> listener)
+    {
+        if (closing) {
+            return {PhysicsError::InvalidState, "Physics world is closing"};
+        }
+        if (!listener) {
+            return {PhysicsError::InvalidArgument, "Physics step listener is null"};
+        }
+        if (std::find(stepListeners.begin(), stepListeners.end(), listener) != stepListeners.end()) {
+            return {PhysicsError::InvalidArgument, "Physics step listener is already registered"};
+        }
+        stepListeners.push_back(std::move(listener));
+        return {};
+    }
+
+    void PhysicsSystem::RemoveStepListener(const IPhysicsStepListener *listener)
+    {
+        std::erase_if(stepListeners, [listener](const auto &entry) { return entry.get() == listener; });
     }
 
     PhysicsStatus PhysicsSystem::SetOptions(const PhysicsOptions &options)

@@ -13,9 +13,7 @@ TBD - consolidated from: aurora-render-buffers aurora-render-geometry aurora-ren
 ### aurora-skinning
 
 Define immutable inverse-bind Skin resources, geometry-only Mesh data and instance-selected Skin/Skeleton combinations. Runtime rig types remain in Animation; Aurora adaptor owns the Skeleton asset bridge, while Aurora core stays independent of Animation.
-
 ## Requirements
-
 ### Requirement: Material 内部按 technique 维护
 
 Material SHALL own tagged MaterialTechnique records containing an explicit ShaderTechnique program (stage/source/entry), checked legacy aliases and material render state. Scene queues SHALL select matching tags; fullscreen and compute SHALL select programs explicitly without requiring Material. Empty or duplicate Material technique tags SHALL fail. MaterialRenderState SHALL contain depth/stencil, raster, blend and alpha-to-coverage state, excluding mesh vertex layout/topology and Pass sample count. Shader resolution SHALL retain the selected program rather than substitute an implicit built-in shader.
@@ -632,3 +630,25 @@ Mesh SHALL 仅保存几何与 influence 顶点数据及其输入槽契约，SHAL
 #### Scenario: 仅创建几何资源
 - **WHEN** 创建带 JOINTS / WEIGHTS 的 Mesh 而未创建场景实例
 - **THEN** Mesh SHALL 不隐式分配 Skin、选择 Skeleton 或创建 palette
+
+### Requirement: Four influence deformation preserves shading and bounds
+Generated deformation bindings SHALL preserve the existing maximum of four positive influences per vertex. Positions, shadow positions, normal contributions and bounds SHALL consume compatible complete versions at the same presentation time. Translation-only bone positions SHALL not be accepted as sufficient evidence of correct deformed normals.
+
+#### Scenario: Affine deformation of a bound surface
+- **WHEN** a generated cage undergoes a known affine compression or rotation
+- **THEN** displayed positions and normal directions match the declared embedding and shading model, and dynamic bounds contain the result
+
+#### Scenario: Render a textured generated mesh
+- **WHEN** a generated mesh contains asset UV channels and its material consumes canonical shader TEXCOORD inputs
+- **THEN** the render bridge preserves the channel mapping without changing source serialization and rejects ambiguous channel indices before publishing render resources
+
+### Requirement: Generated mesh crowds use explicit bounded renderer capacity
+Renderer hosts SHALL be able to configure per-frame resource descriptor, sampler descriptor and descriptor-set budgets through the existing renderer initialization interface. Defaults SHALL remain 1024, 128 and 256 respectively, with supported values in `[1, 65536]`. The existing launcher module SHALL accept separate decimal arguments `--aurora-resource-descriptors`, `--aurora-sampler-descriptors` and `--aurora-descriptor-sets`; malformed, duplicate, missing or out-of-range values SHALL fail initialization without publishing a renderer. Backend default budgets, mesh primitives and shadows SHALL not be changed implicitly to accommodate a crowd.
+
+#### Scenario: A crowd exceeds the default descriptor-set budget
+- **WHEN** a project launcher explicitly configures sufficient capacity for its complete main and shadow draw workload
+- **THEN** the renderer applies those limits to its existing frame context and recycles descriptors only on a new retired-slot lease, allowing repeated frames without cumulative descriptor consumption
+
+#### Scenario: A launcher supplies an invalid capacity
+- **WHEN** a known descriptor-capacity flag is repeated, has no separate value, uses `--flag=value`, or supplies a value outside the supported decimal range
+- **THEN** initialization returns an explicit error before renderer creation and does not silently use a default budget

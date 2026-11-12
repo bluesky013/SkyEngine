@@ -1,0 +1,8 @@
+{
+  "targets": [
+    {"name": "SoftBody.Assets", "dependencies": ["Launcher", "SandboxEditor", "AssetTool"]},
+    {"name": "SoftBody.World", "dependencies": ["Launcher", "SandboxEditor"]},
+    {"name": "SoftBody.Builder", "dependencies": ["Launcher", "SandboxEditor", "AssetTool"]},
+    {"name": "SoftBody.Editor", "dependencies": ["SandboxEditor"]}
+  ]
+}

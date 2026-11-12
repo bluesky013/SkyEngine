@@ -36,7 +36,7 @@ namespace sky::aurora {
         void                                                   OnWindowClose(const NativeWindow *) override;
 
     private:
-        void                         ProcessArgs(const sky::StartArguments &args);
+        std::optional<RendererError> ProcessArgs(const sky::StartArguments &args);
         void                         PollEvents();
         void                         Pump(float delta, bool produceScene);
         void                         UpdateOutput(FramePacket &);
@@ -79,7 +79,8 @@ namespace sky::aurora {
         bool        pumping           = false;
         bool        shutdownRequested = false;
 
-        VulkanConfig vulkanConfig;
+        VulkanConfig     vulkanConfig;
+        RendererInitInfo rendererConfig;
 
         API         mApi         = API::DEFAULT;
         bool        providerOnly = false;

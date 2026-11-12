@@ -3,7 +3,7 @@ sky_add_library(TARGET JoltPhysics.Adaptor.Static STATIC
     SOURCES ${ADAPTOR_SOURCES}
     PRIVATE_INC src/backend src/assets ../shared
     PUBLIC_INC include
-    LINK_LIBS Physics Framework JoltPhysics.AssetCodec.Static
+    LINK_LIBS Physics Physics.SoftBody.Interface Framework JoltPhysics.AssetCodec.Static
 )
 set_target_properties(JoltPhysics.Adaptor.Static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET JoltPhysics.Adaptor.Static APPEND PROPERTY LINK_LIBRARIES 3rdParty::jolt)

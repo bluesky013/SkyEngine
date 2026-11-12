@@ -25,7 +25,7 @@ namespace sky::phy {
         static constexpr std::string_view NAME = PHYSICS_SYSTEM_NAME;
 
         PhysicsSystem()           = default;
-        ~PhysicsSystem() override = default;
+        ~PhysicsSystem() override;
 
         bool          Init(const PhysicsWorldDesc &desc = {});
         PhysicsStatus GetLastStatus() const
@@ -52,6 +52,12 @@ namespace sky::phy {
         void SetSimulating(bool value) override;
         bool IsSimulating() const override;
         void SingleStep() override;
+        PhysicsStatus AddStepListener(std::shared_ptr<IPhysicsStepListener> listener) override;
+        void          RemoveStepListener(const IPhysicsStepListener *listener) override;
+        float         GetInterpolationAlpha() const override
+        {
+            return presentationAlpha;
+        }
 
         const PhysicsStepConfig &GetStepConfig() const
         {
@@ -85,6 +91,10 @@ namespace sky::phy {
 
         std::vector<IPhysicsEventListener *> listeners;
         std::vector<PhysicsEvent>            pendingEvents;
+        std::vector<std::shared_ptr<IPhysicsStepListener>> stepListeners;
+        float                                              presentationAlpha = 1.f;
+        bool                                               stepping          = false;
+        bool                                               closing           = false;
     };
 
     // Creates a physics world from the registered backend, wraps it in a PhysicsSystem and attaches it

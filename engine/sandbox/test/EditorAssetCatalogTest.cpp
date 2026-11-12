@@ -92,6 +92,113 @@ namespace {
 
 using namespace sky::editor;
 
+namespace {
+    class GeneratedSourceFileSystem final : public sky::NativeFileSystem {
+    public:
+        explicit GeneratedSourceFileSystem(const sky::FilePath &path) : NativeFileSystem(path)
+        {
+        }
+        sky::FileOperationStatus ReplaceFileAtomic(const sky::FilePath &from, const sky::FilePath &to) const override
+        {
+            if ((failManifest && to.FileName() == "assets.jsonl") || (failRecipe && to.FileName() == "seal.recipe")) {
+                return {sky::FileOperationError::IOError, "Injected atomic replacement failure"};
+            }
+            return NativeFileSystem::ReplaceFileAtomic(from, to);
+        }
+        bool failManifest = false;
+        bool failRecipe   = false;
+    };
+
+    class GeneratedSourceSave : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            std::error_code error;
+            root = std::filesystem::temp_directory_path(error) / ("sky-generated-save-" + sky::Uuid::Create().ToString());
+            ASSERT_FALSE(error);
+            ASSERT_TRUE(root.is_absolute());
+            std::filesystem::create_directories(root, error);
+            ASSERT_FALSE(error);
+            filesystem = new GeneratedSourceFileSystem(sky::FilePath(root.string()));
+            sky::AssetDataBase::Get()->Reset();
+            sky::AssetDataBase::Get()->SetWorkSpaceFs(filesystem);
+        }
+        void TearDown() override
+        {
+            sky::AssetDataBase::Get()->Reset();
+            sky::AssetDataBase::Get()->SetWorkSpaceFs({});
+            filesystem = nullptr;
+            std::error_code error;
+            if (root.is_absolute() && root.filename().string().starts_with("sky-generated-save-")) {
+                std::filesystem::remove_all(root, error);
+            }
+            EXPECT_FALSE(error);
+        }
+        std::string Read(const char *path) const
+        {
+            std::ifstream file(root / path, std::ios::binary);
+            return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+        }
+        std::filesystem::path                      root;
+        sky::CounterPtr<GeneratedSourceFileSystem> filesystem;
+    };
+} // namespace
+
+TEST_F(GeneratedSourceSave, PersistsStableIdentityAndRefusesUnownedOrReadOnlyDestinations)
+{
+    auto     *service = AssetMutationService::Get();
+    sky::Uuid owner;
+    ASSERT_TRUE(service->SaveGeneratedSource("Project/seal.recipe", {}, "first", owner));
+    ASSERT_TRUE(owner);
+    EXPECT_EQ(Read("seal.recipe"), "first");
+    EXPECT_NE(Read("assets.jsonl").find(owner.ToString()), std::string::npos);
+    sky::Uuid updated;
+    ASSERT_TRUE(service->SaveGeneratedSource("Project/seal.recipe", owner, "second", updated));
+    EXPECT_EQ(updated, owner);
+    const auto sentinel  = sky::Uuid::Create();
+    auto       unchanged = sentinel;
+    EXPECT_FALSE(service->SaveGeneratedSource("Project/seal.recipe", {}, "replace", unchanged));
+    EXPECT_FALSE(service->SaveGeneratedSource("Project/seal.recipe", sky::Uuid::Create(), "replace", unchanged));
+    EXPECT_FALSE(service->SaveGeneratedSource("Engine/seal.recipe", {}, "replace", unchanged));
+    EXPECT_FALSE(service->SaveGeneratedSource("Project/../escape.recipe", {}, "replace", unchanged));
+    EXPECT_EQ(unchanged, sentinel);
+    EXPECT_EQ(Read("seal.recipe"), "second");
+    sky::AssetDataBase::Get()->Reset();
+    sky::AssetDataBase::Get()->SetWorkSpaceFs(filesystem);
+    auto reopened = sky::AssetDataBase::Get()->RegisterAsset(sky::FilePath("seal.recipe"), false);
+    ASSERT_TRUE(reopened);
+    EXPECT_EQ(reopened->uuid, owner);
+}
+
+TEST_F(GeneratedSourceSave, AtomicReplacementFailurePreservesOldRecipeAndOutput)
+{
+    sky::Uuid owner;
+    ASSERT_TRUE(AssetMutationService::Get()->SaveGeneratedSource("Project/seal.recipe", {}, "good", owner));
+    filesystem->failRecipe = true;
+    const auto sentinel    = sky::Uuid::Create();
+    auto       unchanged   = sentinel;
+    const auto status      = AssetMutationService::Get()->SaveGeneratedSource("Project/seal.recipe", owner, "bad", unchanged);
+    EXPECT_EQ(status.error, sky::FileOperationError::IOError);
+    EXPECT_EQ(unchanged, sentinel);
+    EXPECT_EQ(Read("seal.recipe"), "good");
+    EXPECT_EQ(sky::AssetDataBase::Get()->FindAsset(owner)->uuid, owner);
+}
+
+TEST_F(GeneratedSourceSave, ManifestFailurePreventsOverwriteAndRollsBackNewSource)
+{
+    sky::Uuid owner;
+    ASSERT_TRUE(AssetMutationService::Get()->SaveGeneratedSource("Project/seal.recipe", {}, "good", owner));
+    filesystem->failManifest = true;
+    sky::Uuid output;
+    EXPECT_FALSE(AssetMutationService::Get()->SaveGeneratedSource("Project/seal.recipe", owner, "bad", output));
+    EXPECT_EQ(Read("seal.recipe"), "good");
+    EXPECT_FALSE(output);
+    EXPECT_FALSE(AssetMutationService::Get()->SaveGeneratedSource("Project/new.recipe", {}, "new", output));
+    EXPECT_FALSE(output);
+    EXPECT_FALSE(filesystem->FileExist(sky::FilePath("new.recipe")));
+    EXPECT_FALSE(sky::AssetDataBase::Get()->FindAsset(sky::FilePath("new.recipe")));
+}
+
 TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
 {
     namespace fs = std::filesystem;

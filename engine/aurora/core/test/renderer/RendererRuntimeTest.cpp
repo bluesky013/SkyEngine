@@ -547,6 +547,18 @@ namespace {
             packet.commands.push_back(ResourceCpuReady{Mesh()});
             packet.commands.push_back(ResourceCpuReady{Material()});
         }
+        void AddStaticBatches(FramePacket &packet, uint32_t count)
+        {
+            for (uint32_t i = 0; i < count; ++i) {
+                RenderEntityDesc entity;
+                entity.mesh       = {Key(1201), 1};
+                entity.material   = {Key(1202), 1};
+                entity.world[3].x = static_cast<float>(i) * .0001f;
+                packet.commands.push_back(CreateRenderEntity{{scene, {i, 1}}, entity});
+            }
+            packet.commands.push_back(ResourceCpuReady{Mesh()});
+            packet.commands.push_back(ResourceCpuReady{HostMaterial(renderer->GetInfo(), false, false, false)});
+        }
         const ViewportReadback *Pixels(uint64_t seq, ViewportId id) const
         {
             for (const auto &event : events)
@@ -1784,6 +1796,38 @@ TEST_P(RendererRuntimeTest, RotatedSurfacePreservesLogicalCameraAndMapsItsOutput
     EXPECT_NEAR(probe->clip.y, -.15f, 1e-6f);
     EXPECT_FLOAT_EQ(probe->clip.z, .25f);
     EXPECT_FLOAT_EQ(probe->clip.w, 1);
+}
+
+TEST_P(RendererRuntimeTest, DefaultDescriptorCapacityRejectsOversizedFrame)
+{
+    if (GetParam() == 2)
+        GTEST_SKIP() << "DX12 uses a shared resource descriptor heap rather than Vulkan descriptor set limits";
+    auto packet = Scene();
+    AddStaticBatches(*packet, 300);
+    Submit(std::move(packet));
+    ASSERT_TRUE(Until([&] { return Find<RendererFailure>(); }));
+    EXPECT_EQ(Find<RendererFailure>()->error.code, RendererErrorCode::OUT_OF_MEMORY);
+}
+
+TEST_P(RendererRuntimeTest, ConfiguredDescriptorCapacityRendersLargeFramesAcrossLeaseReuse)
+{
+    Stop();
+    events.clear();
+    info.resourceDescriptors = 4096;
+    info.samplerDescriptors  = 256;
+    info.descriptorSets      = 384;
+    Create();
+    auto packet = Scene();
+    AddStaticBatches(*packet, 300);
+    Submit(std::move(packet));
+    Complete(sequence);
+    for (uint32_t i = 0; i < 4; ++i) {
+        auto next = Packet();
+        next->readbacks.push_back(viewport);
+        Submit(std::move(next));
+        Complete(sequence);
+        Pixel(sequence, viewport, 4, 4, {255, 0, 0});
+    }
 }
 
 TEST_P(RendererRuntimeTest, InvalidWorkerConfigurationAndWrongThreadSubmissionAreRejected)

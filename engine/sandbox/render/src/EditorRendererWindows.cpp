@@ -69,7 +69,7 @@ namespace sky::editor {
     {
     }
     EditorRenderer::Surface::~Surface() = default;
-    bool EditorRenderer::Init(const std::string &, uint32_t, uint32_t, API api, bool preview, VulkanConfig vulkan)
+    bool EditorRenderer::Init(const std::string &, uint32_t, uint32_t, API api, bool preview, VulkanConfig vulkan, FileSystemPtr shaderBundle)
     {
         if (host.Get())
             return false;
@@ -96,7 +96,7 @@ namespace sky::editor {
             return false;
         }
         feature           = std::move(std::get<std::shared_ptr<IFrameGraphFeature>>(compiled));
-        const auto bundle = Platform::Get()->GetBundleFileSystem();
+        const auto bundle = shaderBundle ? std::move(shaderBundle) : Platform::Get()->GetBundleFileSystem();
         if (!bundle) {
             Fail({RendererErrorCode::NOT_READY, "Editor shader bundle is unavailable"});
             Shutdown();
@@ -109,7 +109,7 @@ namespace sky::editor {
             return false;
         }
         shaderFiles      = std::move(std::get<ShaderResources>(resources).sources);
-        auto sceneSource = CreateSceneAssetSource(shaderFiles);
+        auto sceneSource = CreateSceneAssetSource(shaderFiles, {}, {}, {}, SceneMaterialCompilation::Asynchronous);
         if (!sceneSource) {
             Fail({.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene asset source creation failed"});
             Shutdown();
@@ -124,8 +124,9 @@ namespace sky::editor {
             Shutdown();
             return false;
         }
-        auto previewSource =
-            CreateSceneAssetSource(shaderFiles, [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id, AssetLoadPolicy::ProductsOnly); });
+        auto previewSource = CreateSceneAssetSource(
+            shaderFiles, [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id, AssetLoadPolicy::ProductsOnly); }, {}, {},
+            SceneMaterialCompilation::Asynchronous);
         previewSessions = std::make_unique<EditorPreviewSessions>(host.Get()->GetInfo(), std::move(previewSource), *textures, [this] {
             if (nextViewportId == UINT32_MAX || surfaces.size() + previewSessions->Count() >= 63)
                 return ViewportId{};

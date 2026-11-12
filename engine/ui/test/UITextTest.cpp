@@ -287,6 +287,25 @@ namespace sky::ui {
         EXPECT_EQ(registry.updates, 3);
     }
 
+    TEST(UITextTest, SharedRegistryReferenceExpiresWithItsTextSystem)
+    {
+        SharedImageRegistry                   backend;
+        UITextSystem::SharedRegistryReference view;
+        EXPECT_EQ(view.Get(), nullptr);
+        {
+            UITextSystem text(nullptr, &backend);
+            view = text.GetSharedRegistryReference();
+            ASSERT_EQ(view.Get(), text.GetSharedRegistry());
+            const auto texture = view.Get()->RegisterTexture(SharedImage(11));
+            ASSERT_NE(texture, UI_INVALID_TEXTURE);
+            EXPECT_TRUE(backend.images.contains(texture));
+        }
+        EXPECT_EQ(view.Get(), nullptr);
+        UITextSystem replacement(nullptr, &backend);
+        EXPECT_NE(replacement.GetSharedRegistryReference().Get(), nullptr);
+        EXPECT_EQ(view.Get(), nullptr);
+    }
+
     TEST(UITextTest, SharedImagesReplayAndPropagateLateRegistrationsAndUpdates)
     {
         SharedImageRegistry primary;

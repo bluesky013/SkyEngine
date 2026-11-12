@@ -12,6 +12,26 @@ static const char *TAG = "WorldSubSystemRegistry";
 
 namespace sky {
 
+    namespace {
+        Uuid ConfigType(const WorldSubSystemRegistration &registration)
+        {
+            return registration.configType ? registration.configType->registeredId : Uuid{};
+        }
+        bool ValidDefault(const WorldSubSystemRegistration &registration)
+        {
+            if (!registration.makeDefaultConfig) {
+                return registration.configType == nullptr;
+            }
+            const Any value = registration.makeDefaultConfig();
+            return registration.configType ? value.Info() && value.Info()->registeredId == ConfigType(registration) : !value;
+        }
+        bool Compatible(const WorldSubSystemRegistration &runtime, const WorldSubSystemRegistration &schema)
+        {
+            return ConfigType(runtime) == ConfigType(schema) && bool(runtime.makeDefaultConfig) == bool(schema.makeDefaultConfig) &&
+                   ValidDefault(runtime) && ValidDefault(schema);
+        }
+    } // namespace
+
     bool WorldSubSystemRegistry::Register(const Name &name, WorldSubSystemRegistration registration)
     {
         if (registration.factory == nullptr) {
@@ -22,7 +42,25 @@ namespace sky {
             LOG_E(TAG, "world subsystem '%.*s' already has an owner", static_cast<int>(name.GetStr().size()), name.GetStr().data());
             return false;
         }
+        const auto schema = persistentSchemas.find(name);
+        if (schema != persistentSchemas.end() && !Compatible(registration, schema->second)) {
+            LOG_E(TAG, "world subsystem '%.*s' conflicts with its persistent schema", static_cast<int>(name.GetStr().size()), name.GetStr().data());
+            return false;
+        }
         registrations.emplace(name, std::move(registration));
+        return true;
+    }
+
+    bool WorldSubSystemRegistry::RegisterPersistentSchema(const Name &name, WorldSubSystemRegistration schema)
+    {
+        if (name.GetStr().empty() || schema.factory || persistentSchemas.contains(name) || !ValidDefault(schema)) {
+            return false;
+        }
+        const auto runtime = registrations.find(name);
+        if (runtime != registrations.end() && !Compatible(runtime->second, schema)) {
+            return false;
+        }
+        persistentSchemas.emplace(name, std::move(schema));
         return true;
     }
 
@@ -40,6 +78,12 @@ namespace sky {
     {
         const auto it = registrations.find(name);
         return it != registrations.end() ? &it->second : nullptr;
+    }
+
+    const WorldSubSystemRegistration *WorldSubSystemRegistry::GetPersistentSchema(const Name &name) const
+    {
+        const auto it = persistentSchemas.find(name);
+        return it != persistentSchemas.end() ? &it->second : GetRegistration(name);
     }
 
     std::unique_ptr<IWorldSubSystem> WorldSubSystemRegistry::Create(const Name &name, World &world, const Any &config) const

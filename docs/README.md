@@ -39,6 +39,10 @@ Markdown, and grounded in the current repository state.
 
 ### Features
 
+- [Soft-Body Technology and Architecture Comparison](features/softbody-technology-comparison.md) - simulation
+  families, versioned solver/library evidence, mobile tradeoffs, and alternative coexistence architectures.
+- [Multi-Provider Deformable Integration Plan](features/softbody-integration-plan.md) - scene-based selection,
+  interaction domains, engine contracts, assets, Aurora presentation, mobile budgets, and delivery gates.
 - [Asset Pipeline](features/asset-pipeline.md) - source identities, the mounted source namespace, product bundles,
   loading, on-demand cook, cook configuration and the dependency graph.
 - [Game Project Build & Packaging](features/game-project-build.md) - creating a project, building its module,

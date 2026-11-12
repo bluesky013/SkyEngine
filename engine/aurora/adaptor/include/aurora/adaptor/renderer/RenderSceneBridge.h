@@ -7,8 +7,9 @@
 #include <span>
 
 namespace sky {
+    class Actor;
     class World;
-}
+} // namespace sky
 
 namespace sky::aurora {
     enum class SceneSurfaceCoverage { UNKNOWN, OPAQUE, ALPHA_TEST, BLENDED };
@@ -129,7 +130,8 @@ namespace sky::aurora {
         // Resolve only live bridge identities; optional surface gating excludes unsupported highlight geometry.
         std::vector<RenderEntityRef> Entities(std::span<const Uuid> actors, bool staticOpaqueOnly = false) const;
         // The sole host seals/submits this packet after World::Tick; BUSY retains that same packet.
-        std::optional<RendererError>      Append(FramePacket &packet, SceneId scene, ViewportId output = {});
+        // Extra drawable actors are borrowed for this Append, use distinct identities, and are omitted from World geometry snapshots.
+        std::optional<RendererError> Append(FramePacket &packet, SceneId scene, ViewportId output = {}, std::span<Actor *const> extraActors = {});
         std::optional<ViewDesc>           Camera(SceneId scene, ViewportId output, Extent2D extent) const;
         void                              OnEvent(const RendererEvent &event);
         const std::vector<RendererError> &GetIssues() const;

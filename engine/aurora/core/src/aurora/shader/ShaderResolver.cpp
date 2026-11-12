@@ -128,9 +128,32 @@ namespace sky::aurora {
         }
     } // namespace
 
-    ShaderResolver::ShaderResolver(
-        sky::IFileSystem *offlineRoot, sky::IFileSystem *localRoot, ShaderFileSystem &sourceFs, uint64_t layoutFp, uint64_t, ShaderResolveMode mode)
-        : mOffline(offlineRoot), mLocal(localRoot), mSourceFs(sourceFs), mLayoutFp(layoutFp), mMode(mode)
+    std::shared_ptr<ShaderFileSystem> ShaderFileSystem::SnapshotProgram(std::span<const std::string> stagePaths)
+    {
+        auto snapshot     = std::make_shared<ShaderFileSystem>();
+        snapshot->bundles = bundles;
+        snapshot->mFiles  = mFiles;
+        std::unordered_set<std::string> visited;
+        uint64_t                        hash = kFnv1aBasis;
+        for (const auto &path : stagePaths) {
+            if (IsBundlePath(path))
+                continue;
+            HashRec(*this, path, visited, hash, nullptr, *snapshot);
+            std::string companion;
+            if (ReadFile(path + ".json", companion))
+                snapshot->AddVirtualFile(path + ".json", std::move(companion));
+        }
+        return snapshot;
+    }
+
+    ShaderResolver::ShaderResolver(sky::IFileSystem *offlineRoot,
+                                   sky::IFileSystem *localRoot,
+                                   ShaderFileSystem &sourceFs,
+                                   uint64_t          layoutFp,
+                                   uint64_t,
+                                   ShaderResolveMode                          mode,
+                                   std::shared_ptr<const ShaderCompilerLease> compiler)
+        : mCompiler(std::move(compiler)), mOffline(offlineRoot), mLocal(localRoot), mSourceFs(sourceFs), mLayoutFp(layoutFp), mMode(mode)
     {
     }
     bool ShaderResolver::HashSourceClosure(
@@ -302,7 +325,7 @@ namespace sky::aurora {
         if (!CaptureSources(mSourceFs, request.relativePath, request.depends, sourceHash, source, snapshot)) {
             return fail("DEVELOPMENT shader source not found: " + request.relativePath);
         }
-        const auto owner    = ShaderCompilerFactory::Get().Acquire(true);
+        const auto owner    = mCompiler ? mCompiler : ShaderCompilerFactory::Get().Acquire(true);
         auto      *compiler = owner ? owner->compiler.get() : nullptr;
         if (compiler == nullptr) {
             return fail("DEVELOPMENT shader resolution requires a compiler producer identity");
@@ -427,7 +450,7 @@ namespace sky::aurora {
         if (status != ShaderResolveStatus::Compile) {
             return status == ShaderResolveStatus::Ready;
         }
-        const auto          owner    = ShaderCompilerFactory::Get().Acquire(true);
+        const auto          owner    = mCompiler ? mCompiler : ShaderCompilerFactory::Get().Acquire(true);
         auto               *compiler = owner ? owner->compiler.get() : nullptr;
         ShaderCompileResult result;
         if (compiler == nullptr || !task.Run(*compiler, result, error) || !CommitCompile(task, result, error)) {
@@ -440,7 +463,7 @@ namespace sky::aurora {
     ShaderResolver::ResolveShaderAsync(const Request &request, ShaderCompileResult &outResult, ShaderCompileFuture &outFuture, std::string *error)
     {
         outFuture                  = {};
-        const auto        compiler = ShaderCompilerFactory::Get().Acquire();
+        const auto        compiler = mCompiler ? mCompiler : ShaderCompilerFactory::Get().Acquire();
         ShaderCompileTask task;
         const auto        status = PrepareShader(request, outResult, task, error);
         if (status != ShaderResolveStatus::Compile) {

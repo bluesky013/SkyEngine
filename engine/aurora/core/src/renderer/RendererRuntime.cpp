@@ -283,10 +283,13 @@ namespace sky::aurora {
             session = std::move(std::get<std::unique_ptr<Instance::DeviceSession>>(acquired));
             device  = session->GetDevice();
             DeviceFrameContextInitInfo info;
-            info.inflightNum              = init.inflightFrames;
-            info.parallelNum              = init.encodeWorkers;
-            info.deviceEpoch              = session->GetEpoch();
-            info.allocations.stagingBytes = init.maxUploadBytesPerFrame;
+            info.inflightNum                     = init.inflightFrames;
+            info.parallelNum                     = init.encodeWorkers;
+            info.deviceEpoch                     = session->GetEpoch();
+            info.allocations.stagingBytes        = init.maxUploadBytesPerFrame;
+            info.allocations.resourceDescriptors = init.resourceDescriptors;
+            info.allocations.samplerDescriptors  = init.samplerDescriptors;
+            info.allocations.descriptorSets      = init.descriptorSets;
             context.reset(device->CreateFrameContext(info));
             if (!context || context->GetIdentity().deviceEpoch != info.deviceEpoch)
                 return RendererError{RendererErrorCode::UNSUPPORTED, "Backend could not initialize its frame context"};

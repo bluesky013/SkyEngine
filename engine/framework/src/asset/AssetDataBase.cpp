@@ -336,6 +336,43 @@ namespace sky {
         return info;
     }
 
+    FileOperationStatus AssetDataBase::PersistSourceIdentity(const Uuid &id)
+    {
+        std::lock_guard lock(assetMutex);
+        const auto      found = idMap.find(id);
+        if (found == idMap.end() || !found->second) {
+            return {FileOperationError::InvalidPath, "Source identity is not registered"};
+        }
+        const auto &source = found->second;
+        const int   index  = FindMountIndex(source->path);
+        if (index < 0 || index >= static_cast<int>(mountInfos.size()) || !mountInfos[index].writable || !mountFsList[index] ||
+            mountInfos[index].id != source->mount) {
+            return {FileOperationError::InvalidPath, "Source identity requires its writable owning mount"};
+        }
+        const auto &filesystem = mountFsList[index];
+        const auto  directory  = source->path.Parent();
+        FileLockPtr fileLock;
+        if (const auto status = filesystem->AcquireFileLock(directory / FilePath("assets.jsonl.lock"), fileLock); !status) {
+            return status;
+        }
+        manifests.Invalidate(filesystem, directory);
+        auto        manifest = manifests.Get(filesystem, directory);
+        const auto *entry    = manifest.Find(source->path.FileName());
+        if (entry && entry->id != id) {
+            return {FileOperationError::AlreadyExists, "Source manifest belongs to a different identity"};
+        }
+        if (!entry) {
+            IndexFileEntry added;
+            added.key = source->path.FileName();
+            added.id  = id;
+            manifest.Set(added);
+        }
+        if (!manifests.Save(filesystem, directory, manifest)) {
+            return {FileOperationError::IOError, "Source identity could not be persisted"};
+        }
+        return {};
+    }
+
     void AssetDataBase::RemoveAsset(const Uuid &id)
     {
         FilePath path;

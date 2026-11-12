@@ -1,3 +1,4 @@
+#include <animation/assets/AnimationComponentData.h>
 #include <animation/assets/GraphAsset.h>
 
 #include <framework/asset/AssetManager.h>
@@ -109,6 +110,7 @@ namespace sky::animation {
     }
     void RegisterGraphAssets(SerializationContext *context)
     {
+        RegisterAnimationComponentData(context);
         context->Register<GraphAssetData>("GraphAssetData").BinLoad<&GraphAssetData::Load>().BinSave<&GraphAssetData::Save>();
         AssetManager::Get()->RegisterAssetHandler(AssetTraits<GraphAsset>::ASSET_TYPE, new GraphHandler());
     }

@@ -928,6 +928,10 @@ def collect_apple_package(engine, project_dir, preset, name, versions=None):
 
 def find_asset_tool(engine):
     name = 'AssetTool.exe' if os.name == 'nt' else 'AssetTool'
+    host_tools_dir = os.environ.get('SKY_HOST_TOOLS_DIR')
+    if host_tools_dir:
+        candidate = Path(host_tools_dir).expanduser().resolve() / name
+        return candidate if candidate.is_file() else None
     for sub in ('Develop', 'Debug', 'Release', 'RelWithDebInfo', ''):
         candidate = engine / 'output' / 'bin' / sub / name if sub else engine / 'output' / 'bin' / name
         if candidate.is_file():
@@ -1426,6 +1430,9 @@ def cmd_package(args):
 
 def shader_cook_tool(engine):
     name = 'ShaderCookTool.exe' if os.name == 'nt' else 'ShaderCookTool'
+    host_tools_dir = os.environ.get('SKY_HOST_TOOLS_DIR')
+    if host_tools_dir:
+        return Path(host_tools_dir).expanduser().resolve() / name
     for configuration in ('Develop', 'Debug', 'Release', 'RelWithDebInfo', ''):
         candidate = engine / 'output/bin' / configuration / name
         if candidate.is_file():

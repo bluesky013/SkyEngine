@@ -6,7 +6,7 @@
 int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
-    sky::animation::AnimationComponent::Reflect(sky::SerializationContext::Get());
     sky::animation::RegisterGraphAssets(sky::SerializationContext::Get());
+    sky::animation::AnimationComponent::Reflect(sky::SerializationContext::Get());
     return RUN_ALL_TESTS();
 }

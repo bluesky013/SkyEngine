@@ -27,9 +27,10 @@ namespace sky::ui {
         uint32_t        button    = 0;
         // Router input uses surface coordinates. A handler receives coordinates
         // mapped into its untransformed layout space, matching GetBounds().
-        float x          = 0.0f;
-        float y          = 0.0f;
-        float wheelDelta = 0.0f;
+        float    x          = 0.0f;
+        float    y          = 0.0f;
+        float    wheelDelta = 0.0f;
+        uint32_t modifiers  = 0; // KeyMod bits at button down/up.
     };
 
     enum class UIKeyAction : uint8_t {

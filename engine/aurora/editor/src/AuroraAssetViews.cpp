@@ -3,6 +3,7 @@
 //
 
 #include <aurora/editor/AuroraAssetViews.h>
+#include <aurora/editor/MeshGeneratorDocument.h>
 
 #include <aurora/editor/MaterialEditorView.h>
 
@@ -271,6 +272,7 @@ namespace sky::aurora::editor {
 
         // Material / MaterialInstance are heterogeneous (typed property lists) -> custom editor providers.
         RegisterMaterialEditorProvider();
+        RegisterMeshGeneratorDocument();
     }
 
     void UnregisterAuroraAssetViews()
@@ -282,6 +284,7 @@ namespace sky::aurora::editor {
         registry->Unregister(std::string(AssetTraits<Skin>::ASSET_TYPE), &g_skinView);
         registry->Unregister(std::string(AssetTraits<LodGroup>::ASSET_TYPE), &g_lodGroupView);
         UnregisterMaterialEditorProvider();
+        UnregisterMeshGeneratorDocument();
     }
 
 } // namespace sky::aurora::editor

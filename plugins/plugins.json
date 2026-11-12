@@ -53,6 +53,12 @@
             "dir": "network-enet",
             "cmake_var": "SKY_BUILD_NETWORK_ENET",
             "enabled": true
+        },
+        {
+            "name": "softbody",
+            "dir": "softbody",
+            "cmake_var": "SKY_BUILD_SOFTBODY",
+            "enabled": true
         }
     ]
 }

@@ -7,9 +7,11 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <core/file/FileTransaction.h>
 #include <core/util/Uuid.h>
 
 #include <string>
+#include <string_view>
 
 namespace sky::editor {
 
@@ -17,10 +19,11 @@ namespace sky::editor {
         friend class sky::Singleton<AssetMutationService>;
 
     public:
-        Uuid Import(const std::string &sourceFile, const std::string &destPath, bool cook);
-        bool Move(const std::string &from, const std::string &to);
-        Uuid Duplicate(const std::string &from, const std::string &to);
-        bool Delete(const Uuid &uuid);
+        Uuid                Import(const std::string &sourceFile, const std::string &destPath, bool cook);
+        bool                Move(const std::string &from, const std::string &to);
+        Uuid                Duplicate(const std::string &from, const std::string &to);
+        bool                Delete(const Uuid &uuid);
+        FileOperationStatus SaveGeneratedSource(const std::string &displayPath, const Uuid &expectedOwner, std::string_view contents, Uuid &out);
 
     private:
         // Resolves a display path ("Project/textures/a.png") to a mount-relative path when its mount is

@@ -16,6 +16,8 @@ sky_add_library(TARGET Physics STATIC
         Framework
 )
 
+add_subdirectory(softbody)
+
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET PhysicsTest
         SOURCES

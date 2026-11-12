@@ -122,6 +122,7 @@ namespace sky::phy {
                                                                 ? JPH::EActivation::DontActivate
                                                                 : JPH::EActivation::Activate);
             entry->added = true;
+            collisionStepDelta = 0.f;
         }
         staged.clear();
     }

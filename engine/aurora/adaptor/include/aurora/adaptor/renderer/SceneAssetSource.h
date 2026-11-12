@@ -17,6 +17,7 @@ namespace sky::aurora {
     bool                                               IsBuiltinSceneAsset(const Uuid &id, std::string_view type);
     MeshAssetData                                      ScenePrimitiveMesh(ScenePrimitive primitive);
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info);
+    enum class SceneMaterialCompilation { Synchronous, Asynchronous };
     std::variant<RendererError, RenderResourcePayload>
     ConvertSceneImage(const Asset<Texture> &asset, RendererInfo info, SceneImageUsage usage = SceneImageUsage::ENVIRONMENT);
 
@@ -25,5 +26,6 @@ namespace sky::aurora {
     std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>                    files,
                                                                  std::function<AssetPtr(const Uuid &)>                loader       = {},
                                                                  FileSystemPtr                                        products     = {},
-                                                                 std::shared_ptr<const SceneMaterialCapabilitySource> capabilities = {});
+                                                                 std::shared_ptr<const SceneMaterialCapabilitySource> capabilities = {},
+                                                                 SceneMaterialCompilation compilation = SceneMaterialCompilation::Synchronous);
 } // namespace sky::aurora

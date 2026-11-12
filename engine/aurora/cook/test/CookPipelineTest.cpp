@@ -4,6 +4,7 @@
 //
 
 #include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
 #include <aurora/cook/image/ImageAssetWriter.h>
 #include <aurora/cook/image/ImageBuildConfig.h>
@@ -19,6 +20,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -87,6 +89,127 @@ namespace {
         return bytes;
     }
 
+    std::vector<uint8_t> FullMipPixels(uint32_t level)
+    {
+        const uint32_t       width  = std::max(1u, 256u >> level);
+        const uint32_t       height = std::max(1u, 128u >> level);
+        std::vector<uint8_t> pixels(width * height * 4);
+        for (size_t i = 0; i < pixels.size(); ++i)
+            pixels[i] = static_cast<uint8_t>((level * 31 + i * 13) % 251 + 1);
+        return pixels;
+    }
+
+    std::vector<uint8_t> MakeFullMipKtx1()
+    {
+        auto bytes = MakeKtx1();
+        bytes.resize(64);
+        Put32(bytes, 36, 256);
+        Put32(bytes, 40, 128);
+        Put32(bytes, 56, 9);
+        for (uint32_t level = 0; level < 9; ++level) {
+            const auto pixels = FullMipPixels(level);
+            const auto offset = bytes.size();
+            bytes.resize(offset + 4 + pixels.size());
+            Put32(bytes, offset, static_cast<uint32_t>(pixels.size()));
+            std::copy(pixels.begin(), pixels.end(), bytes.begin() + offset + 4);
+        }
+        return bytes;
+    }
+
+    std::vector<uint8_t> MakeFullMipKtx2()
+    {
+        constexpr uint32_t dfdOffset = 80 + 9 * 24;
+        constexpr uint32_t dfdSize   = 92;
+        auto               bytes     = MakeKtx2(0);
+        bytes.resize(dfdOffset + dfdSize, 0);
+        Put32(bytes, 20, 256);
+        Put32(bytes, 24, 128);
+        Put32(bytes, 28, 0);
+        Put32(bytes, 32, 0);
+        Put32(bytes, 40, 9);
+        Put32(bytes, 48, dfdOffset);
+        Put32(bytes, 52, dfdSize);
+        std::fill(bytes.begin() + 80, bytes.end(), 0);
+        Put32(bytes, dfdOffset, dfdSize);
+        Put32(bytes, dfdOffset + 8, (88u << 16) | 2u);
+        bytes[dfdOffset + 12] = 1;
+        bytes[dfdOffset + 13] = 1;
+        bytes[dfdOffset + 14] = 1;
+        bytes[dfdOffset + 20] = 4;
+        for (uint32_t channel = 0; channel < 4; ++channel) {
+            const auto offset = dfdOffset + 28 + channel * 16;
+            Put32(bytes, offset, channel * 8 | (7u << 16) | ((channel == 3 ? 15u : channel) << 24));
+            Put32(bytes, offset + 12, 255);
+        }
+        // KTX2 stores the smallest mip first; the level index supplies logical order.
+        for (uint32_t reverse = 0; reverse < 9; ++reverse) {
+            const auto level  = 8 - reverse;
+            const auto pixels = FullMipPixels(level);
+            const auto offset = bytes.size();
+            Put64(bytes, 80 + level * 24, offset);
+            Put64(bytes, 88 + level * 24, pixels.size());
+            Put64(bytes, 96 + level * 24, pixels.size());
+            bytes.insert(bytes.end(), pixels.begin(), pixels.end());
+        }
+        return bytes;
+    }
+
+    void VerifyFullMipEnvironment(const std::vector<uint8_t> &bytes)
+    {
+        CookImageSource source;
+        ASSERT_TRUE(LoadKtx(bytes, source));
+        ASSERT_FALSE(source.precompressed);
+        ASSERT_NE(source.image, nullptr);
+        ASSERT_EQ(source.image->mips.size(), 9u);
+        EXPECT_EQ(source.assetType, ImageAssetType::TEXTURE_2D);
+        std::vector<uint8_t> expected;
+        for (uint32_t level = 0; level < 9; ++level) {
+            SCOPED_TRACE(level);
+            const auto  pixels = FullMipPixels(level);
+            const auto &mip    = source.image->mips[level];
+            ASSERT_EQ(mip.width, std::max(1u, 256u >> level));
+            ASSERT_EQ(mip.height, std::max(1u, 128u >> level));
+            ASSERT_EQ(mip.dataLength, pixels.size());
+            ASSERT_NE(mip.data, nullptr);
+            EXPECT_TRUE(std::equal(pixels.begin(), pixels.end(), mip.data.get()));
+            expected.insert(expected.end(), pixels.begin(), pixels.end());
+        }
+        Asset<Texture> asset;
+        asset.SetUuid(Uuid::CreateWithSeed(715));
+        auto &data = asset.Data();
+        WriteImageAsset(*source.image, source.assetType, data);
+        ASSERT_EQ(data.slices.size(), 9u);
+        EXPECT_EQ(data.format, PixelFormat::RGBA8_UNORM);
+        EXPECT_EQ(data.width, 256u);
+        EXPECT_EQ(data.height, 128u);
+        EXPECT_EQ(data.mipLevels, 9u);
+        EXPECT_EQ(data.arrayLayers, 1u);
+        uint32_t offset = 0;
+        for (uint32_t level = 0; level < 9; ++level) {
+            SCOPED_TRACE(level);
+            const auto  pixels = FullMipPixels(level);
+            const auto &slice  = data.slices[level];
+            EXPECT_EQ(slice.offset, offset);
+            EXPECT_EQ(slice.size, pixels.size());
+            EXPECT_EQ(slice.mipLevel, level);
+            EXPECT_EQ(slice.layer, 0u);
+            EXPECT_EQ(slice.depth, 0u);
+            offset += static_cast<uint32_t>(pixels.size());
+        }
+        EXPECT_EQ(data.slices.back().offset, 174760u);
+        EXPECT_EQ(data.slices.back().size, 4u);
+        ASSERT_EQ(data.rawData.size(), 174764u);
+        EXPECT_EQ(data.rawData, expected);
+        data.dataSize        = data.rawData.size();
+        const auto converted = ConvertSceneImage(asset, {API::VULKAN, 9});
+        ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(converted));
+        const auto &payload = std::get<RenderResourcePayload>(converted);
+        ASSERT_TRUE(payload.metadata.image);
+        EXPECT_EQ(payload.metadata.image->mipLevels, 9u);
+        EXPECT_EQ(payload.metadata.image->format, RenderImageFormat::RGBA8_UNORM);
+        EXPECT_EQ(payload.bytes, expected);
+    }
+
     ImageObjectPtr MakeRGBA8(uint32_t width, uint32_t height, uint32_t depth = 1)
     {
         auto image   = ImageObject::CreateImage2D(width, height, PixelFormat::RGBA8_UNORM);
@@ -139,6 +262,16 @@ TEST(CookSourceTest, ParseKtx2)
     ASSERT_NE(source.image, nullptr);
     EXPECT_EQ(source.image->format, PixelFormat::RGBA8_UNORM);
     EXPECT_EQ(source.image->width, 2u);
+}
+
+TEST(CookSourceTest, Ktx1NonSquareFullMipChainPreservesEnvironmentBytes)
+{
+    VerifyFullMipEnvironment(MakeFullMipKtx1());
+}
+
+TEST(CookSourceTest, Ktx2NonSquareFullMipChainPreservesEnvironmentBytes)
+{
+    VerifyFullMipEnvironment(MakeFullMipKtx2());
 }
 
 TEST(CookSourceTest, RejectSupercompressedKtx2)

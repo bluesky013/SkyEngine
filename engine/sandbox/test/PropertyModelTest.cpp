@@ -5,9 +5,12 @@
 #include "TestTypes.h"
 #include <core/type/TypeInfo.h>
 #include <editor/core/property/PropertyModel.h>
+#include <editor/core/property/PropertyValidation.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
+
+#include <cmath>
 
 namespace sky::editor {
     namespace {
@@ -103,6 +106,49 @@ namespace sky::editor {
         EXPECT_FALSE(descriptor.CanEdit());
         EXPECT_FALSE(static_cast<bool>(descriptor.GetValue()));
         EXPECT_EQ(descriptor.MakeEditCommand(Any(1.f)), nullptr);
+    }
+
+    TEST(PropertyValidationTest, ScientificSmallValuesRemainVisibleAndRoundTripThroughEditing)
+    {
+        test::TestObject object;
+        PropertyModel    model(&object, GetTestType());
+        const auto      *value = Find(model, "value");
+        ASSERT_NE(value, nullptr);
+        EditorControl control;
+        control.kind       = PropertyEditorKind::Float;
+        control.editorHint = "scientific";
+        CommandService commands;
+        for (const float original : {1e-9f, 1e-5f, -1e-9f, std::nextafter(1.f, 2.f)}) {
+            object.value    = original;
+            const auto text = FormatPropertyValue(*value, control);
+            EXPECT_NE(text.find('e'), std::string::npos);
+            EXPECT_NE(text, "0.000");
+            EXPECT_TRUE(IsInputCharAllowed(control.kind, 'e'));
+            bool       ok     = false;
+            const auto parsed = ParseValueText(value->GetType(), control, text, ok);
+            ASSERT_TRUE(ok);
+            ASSERT_NE(parsed.GetAsConst<float>(), nullptr);
+            EXPECT_EQ(*parsed.GetAsConst<float>(), original);
+            ASSERT_TRUE(model.Edit(*value, parsed, commands));
+            EXPECT_EQ(object.value, original);
+        }
+    }
+
+    TEST(PropertyValidationTest, OrdinaryFormattingAndRangePrecisionStayUnchanged)
+    {
+        test::TestObject object;
+        object.value = 12.34567f;
+        PropertyModel model(&object, GetTestType());
+        const auto   *value = Find(model, "value");
+        ASSERT_NE(value, nullptr);
+        EditorControl control;
+        control.kind = PropertyEditorKind::Float;
+        EXPECT_EQ(FormatPropertyValue(*value, control), "12.346");
+        control.hasRange  = true;
+        control.rangeStep = 0.01;
+        EXPECT_EQ(FormatPropertyValue(*value, control), "12.35");
+        control.editorHint = "unrecognized";
+        EXPECT_EQ(FormatPropertyValue(*value, control), "12.35");
     }
 
 } // namespace sky::editor

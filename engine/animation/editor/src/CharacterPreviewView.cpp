@@ -7,6 +7,7 @@
 #include <editor/core/EditorCore.h>
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/ui/UiDraw.h>
+#include <editor/widgets/AssetPreviewCameraInput.h>
 #include <editor/widgets/ReflectedFormView.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
@@ -67,28 +68,41 @@ namespace sky::animation::editor {
         public:
             CharacterViewport(CharacterPreview &preview, UITextSystem *text) : preview(preview), skin(GetDefaultUiTheme(), text)
             {
+                SetFocusable(true);
             }
             bool WantsPointerCapture() const override
             {
-                return orbit || scrub;
+                return navigation.Captured() || scrub;
             }
             void OnPointerCancel(uint32_t) override
             {
-                orbit = scrub = false;
+                navigation.Cancel();
+                scrub = false;
+            }
+            UIEventResult OnKeyEvent(const UIKeyEvent &event) override
+            {
+                if (!AssetPreviewCameraInput::IsFrameKey(event))
+                    return UIEventResult::UNHANDLED;
+                const auto status = preview.FocusCharacter();
+                preview.ReportError(status.message);
+                MarkPaintDirty();
+                return UIEventResult::HANDLED;
             }
             UIEventResult OnPointerEvent(const UIPointerEvent &event) override
             {
                 const auto &m = skin.Theme().metrics;
+                if (!scrub && navigation.Handle(preview.Camera(), event, image)) {
+                    MarkPaintDirty();
+                    return UIEventResult::HANDLED;
+                }
                 if (event.action == UIPointerAction::WHEEL) {
                     if (tree.Contains(event.x, event.y)) {
                         scroll = std::max(0.f, scroll - event.wheelDelta * m.rowHeight);
-                    } else if (image.Contains(event.x, event.y)) {
-                        preview.Camera().Dolly(event.wheelDelta * preview.Camera().orbitDistance * .1f);
                     }
                     MarkPaintDirty();
                     return UIEventResult::HANDLED;
                 }
-                if (event.action == UIPointerAction::DOWN) {
+                if (event.action == UIPointerAction::DOWN && event.button == 0) {
                     if (timeline.Contains(event.x, event.y) && !preview.IsGraph() && preview.CanPlay()) {
                         scrub = true;
                         preview.Control(AnimationControlOp::Pause);
@@ -105,20 +119,14 @@ namespace sky::animation::editor {
                                     collapsed.insert(id);
                             }
                         }
-                    } else if (image.Contains(event.x, event.y)) {
-                        orbit = true;
                     }
-                    previous = {event.x, event.y};
                 }
                 if (scrub && (event.action == UIPointerAction::DOWN || event.action == UIPointerAction::MOVE)) {
                     const float fraction = std::clamp((event.x - timeline.left) / std::max(1.f, timeline.Width()), 0.f, 1.f);
                     preview.Control(AnimationControlOp::Seek, fraction * preview.Playback().duration);
-                } else if (orbit && event.action == UIPointerAction::MOVE) {
-                    preview.Camera().Look(event.x - previous.x, event.y - previous.y, .005f, true);
-                    previous = {event.x, event.y};
                 }
-                if (event.action == UIPointerAction::UP)
-                    orbit = scrub = false;
+                if (event.action == UIPointerAction::UP && event.button == 0)
+                    scrub = false;
                 MarkPaintDirty();
                 return UIEventResult::HANDLED;
             }
@@ -204,7 +212,7 @@ namespace sky::animation::editor {
                 if (!preview.IsGraph())
                     skin.DrawSlider(context, timeline, preview.Playback().time, 0.f, std::max(.001f, preview.Playback().duration));
                 const auto label = preview.IsGraph()
-                                       ? "Drag to orbit | Wheel to zoom | Focus character"
+                                       ? "Alt+Left: orbit | Alt+Middle: pan | Alt+Right: dolly | Wheel: zoom | F: frame"
                                        : std::to_string(preview.Playback().time) + " / " + std::to_string(preview.Playback().duration) + " s";
                 uidraw::Text(context, label, theme.fonts.small, timeline, theme.colors.text, skin.Text(), uidraw::HAlign::Center);
                 const auto rows = VisibleBones();
@@ -259,13 +267,13 @@ namespace sky::animation::editor {
                 }
                 return rows;
             }
-            CharacterPreview  &preview;
-            UiSkin             skin;
-            UIRect             image, timeline, tree;
-            Vector2            previous;
-            bool               orbit = false, scrub = false;
-            float              scroll = 0;
-            std::set<uint32_t> collapsed;
+            CharacterPreview       &preview;
+            UiSkin                  skin;
+            UIRect                  image, timeline, tree;
+            AssetPreviewCameraInput navigation;
+            bool                    scrub  = false;
+            float                   scroll = 0;
+            std::set<uint32_t>      collapsed;
         };
     } // namespace
 

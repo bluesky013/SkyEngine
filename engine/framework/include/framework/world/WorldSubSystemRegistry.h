@@ -41,17 +41,20 @@ namespace sky {
 
         // Duplicate names are rejected; only a successful registrant may unregister.
         bool Register(const Name &name, WorldSubSystemRegistration registration);
+        // Metadata owners register once; schemas never provide a runtime subsystem factory.
+        bool RegisterPersistentSchema(const Name &name, WorldSubSystemRegistration schema);
         void Unregister(const Name &name);
         bool IsRegistered(const Name &name) const;
 
         const WorldSubSystemRegistration *GetRegistration(const Name &name) const;
+        const WorldSubSystemRegistration *GetPersistentSchema(const Name &name) const;
 
         // Returns nullptr when the name is not registered.
         std::unique_ptr<IWorldSubSystem> Create(const Name &name, World &world, const Any &config) const;
 
         std::vector<Name> GetNames() const;
 
-        // Test-only: drops all registrations.
+        // Test-only: drops runtime registrations; process-owned schemas remain registered.
         void Clear();
 
     private:
@@ -59,6 +62,7 @@ namespace sky {
         WorldSubSystemRegistry() = default;
 
         std::unordered_map<Name, WorldSubSystemRegistration> registrations;
+        std::unordered_map<Name, WorldSubSystemRegistration> persistentSchemas;
     };
 
 } // namespace sky

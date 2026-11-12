@@ -18,6 +18,7 @@
 #include <aurora/shader/ShaderResolver.h>
 #include <aurora/shader/ShaderTechnique.h>
 #include <cmath>
+#include <core/async/ThreadPool.h>
 #include <cstring>
 #include <framework/asset/AssetEvent.h>
 #include <framework/asset/AssetManager.h>
@@ -127,14 +128,30 @@ namespace sky::aurora {
                 !semantics.emplace(attribute.semantic, attribute.semanticIndex).second) {
                 return Invalid("Scene mesh vertex attributes are invalid");
             }
-            const auto semantic = static_cast<VertexSemantic>(attribute.semantic);
+            const auto  semantic            = static_cast<VertexSemantic>(attribute.semantic);
+            const char *shaderSemantic      = VertexSemanticName(semantic);
+            uint32_t    shaderSemanticIndex = attribute.semanticIndex;
+            bool        isUvChannel         = true;
+            switch (semantic) {
+            case VertexSemantic::UV1: shaderSemanticIndex = 0; break;
+            case VertexSemantic::UV2: shaderSemanticIndex = 1; break;
+            case VertexSemantic::UV3: shaderSemanticIndex = 2; break;
+            case VertexSemantic::UV4: shaderSemanticIndex = 3; break;
+            default: isUvChannel = false; break;
+            }
+            if (isUvChannel) {
+                // The asset enum owns the UV channel; a second index would be ambiguous.
+                if (attribute.semanticIndex != 0)
+                    return Invalid("UV channel semantics require semantic index zero");
+                shaderSemantic = "TEXCOORD";
+            }
             position |= semantic == VertexSemantic::POSITION && attribute.semanticIndex == 0 && format == Format::F_RGB32;
             mesh.attributes.push_back({.location      = static_cast<uint32_t>(mesh.attributes.size()),
                                        .binding       = 0,
                                        .offset        = attribute.offset,
                                        .format        = format,
-                                       .semantic      = VertexSemanticName(semantic),
-                                       .semanticIndex = attribute.semanticIndex});
+                                       .semantic      = shaderSemantic,
+                                       .semanticIndex = shaderSemanticIndex});
         }
         if (!position) {
             return Invalid("Scene mesh requires float3 POSITION");
@@ -266,6 +283,7 @@ namespace sky::aurora {
                 if (current == loadedRevision)
                     return;
                 cache.clear();
+                programs.clear();
                 skeletalCache.clear();
                 skinBindings.PruneExpired();
                 imageCache.clear();
@@ -277,9 +295,18 @@ namespace sky::aurora {
             SceneAssetSource(std::shared_ptr<ShaderFileSystem>                    source,
                              std::function<AssetPtr(const Uuid &)>                load,
                              FileSystemPtr                                        products,
-                             std::shared_ptr<const SceneMaterialCapabilitySource> capabilities)
+                             std::shared_ptr<const SceneMaterialCapabilitySource> capabilities,
+                             SceneMaterialCompilation                             compilation)
                 : files(std::move(source)), loader(std::move(load)), products(std::move(products)), capabilities(std::move(capabilities))
             {
+                if (compilation == SceneMaterialCompilation::Asynchronous)
+                    compilerPool = std::make_unique<ThreadPool>(1);
+            }
+            ~SceneAssetSource() override
+            {
+                programs.clear();
+                if (compilerPool)
+                    compilerPool->WaitIdle();
             }
             SceneResourceResult ResolveMesh(const Uuid &id, const Uuid &overrideMaterial, RendererInfo info) override
             {
@@ -768,6 +795,58 @@ namespace sky::aurora {
                     return Invalid(std::move(error));
                 return {};
             }
+            using CompiledProgram = std::variant<RendererError, RenderTechniqueData>;
+            using ProgramKey      = std::tuple<API, std::string, std::string, std::string, std::string, uint64_t, std::string>;
+            struct ProgramJob {
+                CompiledProgram  result;
+                std::atomic_bool ready{false};
+            };
+            struct ProgramInput {
+                std::shared_ptr<ShaderFileSystem>          sources;
+                FileSystemPtr                              products;
+                std::shared_ptr<const ShaderCompilerLease> compiler;
+                API                                        backend;
+                ShaderTechnique                            technique;
+                ShaderTechniqueVariant                     variant;
+                std::weak_ptr<ProgramJob>                  destination;
+            };
+            std::optional<CompiledProgram> PollProgram(API backend, const ShaderTechnique &technique, const ShaderTechniqueVariant &variant)
+            {
+                if (!compilerPool)
+                    return CompileShaderTechnique(*files, backend, technique, products.Get(), &variant);
+
+                const ProgramKey key{backend,
+                                     technique.vertex.relativePath,
+                                     technique.vertex.entry,
+                                     technique.fragment.relativePath,
+                                     technique.fragment.entry,
+                                     variant.vertexFeatures.mask,
+                                     variant.dump};
+                if (const auto it = programs.find(key); it != programs.end()) {
+                    if (it->second->ready.load(std::memory_order_acquire))
+                        return it->second->result;
+                    return {};
+                }
+                if (programs.size() >= 4096)
+                    return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene material program cache capacity exceeded"};
+                const auto compiler = products ? nullptr : ShaderCompilerFactory::Get().Acquire();
+                if (!products && !compiler)
+                    return Invalid("Asynchronous scene materials require an owned shader compiler");
+                const std::array roots{technique.vertex.relativePath, technique.fragment.relativePath};
+                auto             job = std::make_shared<ProgramJob>();
+                auto             input =
+                    std::make_shared<ProgramInput>(ProgramInput{files->SnapshotProgram(roots), products, compiler, backend, technique, variant, job});
+                programs.emplace(key, job);
+                compilerPool->Schedule([input = std::move(input)](ThreadContext &) {
+                    // Invalidation drops queued results; a running worker owns all its compile inputs.
+                    if (const auto destination = input->destination.lock()) {
+                        destination->result = CompileShaderTechnique(*input->sources, input->backend, input->technique, input->products.Get(),
+                                                                     &input->variant, input->compiler);
+                        destination->ready.store(true, std::memory_order_release);
+                    }
+                });
+                return {};
+            }
             std::variant<RendererError, RenderResourcePayload> MaterialPayload(const Uuid                         &id,
                                                                                const MaterialAssetData            *data,
                                                                                RendererInfo                        info,
@@ -828,11 +907,15 @@ namespace sky::aurora {
                             return *error;
                         }
                         const auto &resolved = std::get<ShaderTechniqueVariant>(variant);
-                        auto        compiled = CompileShaderTechnique(*files, info.backend, authored.program, products.Get(), &resolved);
-                        if (const auto *error = std::get_if<RendererError>(&compiled)) {
+                        auto        compiled = PollProgram(info.backend, authored.program, resolved);
+                        if (!compiled) {
+                            pending = true;
+                            return RenderResourcePayload{};
+                        }
+                        if (const auto *error = std::get_if<RendererError>(&*compiled)) {
                             return *error;
                         }
-                        auto        program    = std::move(std::get<RenderTechniqueData>(compiled));
+                        auto        program    = std::get<RenderTechniqueData>(std::move(*compiled));
                         const auto &palette    = shared::GetSkinningBatchReflection().resources.front();
                         const auto  slot       = std::ranges::find_if(program.reflection.resources, [&](const auto &resource) {
                             return resource.set == palette.set && resource.binding == palette.binding;
@@ -944,12 +1027,15 @@ namespace sky::aurora {
             GlobalVariantLayout                                                                                        pipelineLayout;
             bool                                                                                                       pipelineLayoutReady = false;
             std::string                                                                                                pipelineError;
+            std::map<ProgramKey, std::shared_ptr<ProgramJob>>                                                          programs;
+            std::unique_ptr<ThreadPool>                                                                                compilerPool;
         };
     } // namespace
     std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>                    files,
                                                                  std::function<AssetPtr(const Uuid &)>                loader,
                                                                  FileSystemPtr                                        products,
-                                                                 std::shared_ptr<const SceneMaterialCapabilitySource> capabilities)
+                                                                 std::shared_ptr<const SceneMaterialCapabilitySource> capabilities,
+                                                                 SceneMaterialCompilation                             compilation)
     {
         if (!files) {
             files = std::make_shared<ShaderFileSystem>();
@@ -957,6 +1043,6 @@ namespace sky::aurora {
         if (!loader) {
             loader = [](const Uuid &id) { return AssetManager::Get()->LoadAsset(id); };
         }
-        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader), std::move(products), std::move(capabilities));
+        return std::make_shared<SceneAssetSource>(std::move(files), std::move(loader), std::move(products), std::move(capabilities), compilation);
     }
 } // namespace sky::aurora

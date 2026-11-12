@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <core/logger/Logger.h>
+#include <core/shapes/AABB.h>
 #include <editor/core/viewport/ViewportController.h>
 #include <filesystem>
 #include <framework/serialization/SerializationContext.h>
@@ -14,6 +15,53 @@
 
 using namespace sky;
 using namespace sky::editor;
+
+TEST(ViewportControls, AssetFrameFitsEveryCornerWithoutChangingViewingDirection)
+{
+    auto       camera = MakeAssetPreviewCamera();
+    const auto angle  = camera.Forward();
+    EXPECT_NEAR(angle.x, -.3753303f, 1.e-5f);
+    EXPECT_NEAR(angle.y, -.1950903f, 1.e-5f);
+    EXPECT_NEAR(angle.z, -.9061274f, 1.e-5f);
+    const AABB box{{2.f, -1.f, -4.f}, {10.f, 7.f, 3.f}};
+    for (const Vector2 extent : {Vector2{160, 720}, Vector2{960, 240}}) {
+        ASSERT_TRUE(FrameAssetPreview(camera, box, extent));
+        EXPECT_EQ(camera.Forward(), angle);
+        EXPECT_EQ(camera.pivot, (box.min + box.max) * .5f);
+        for (const float x : {box.min.x, box.max.x})
+            for (const float y : {box.min.y, box.max.y})
+                for (const float z : {box.min.z, box.max.z}) {
+                    Vector2 screen;
+                    ASSERT_TRUE(camera.Project({x, y, z}, extent, screen));
+                    EXPECT_GT(screen.x, 0.f);
+                    EXPECT_GT(screen.y, 0.f);
+                    EXPECT_LT(screen.x, extent.x);
+                    EXPECT_LT(screen.y, extent.y);
+                }
+    }
+    const auto position = camera.position;
+    EXPECT_FALSE(FrameAssetPreview(camera, {box.max, box.min}, {600, 480}));
+    EXPECT_FALSE(FrameAssetPreview(camera, box, {0, 480}));
+    EXPECT_EQ(camera.position, position);
+}
+
+TEST(ViewportControls, AssetPreviewResizeMaintainsHorizontalFieldOfViewAndOrbit)
+{
+    auto camera = MakeAssetPreviewCamera();
+    camera.Focus({1, 2, 3});
+    const auto eye = camera.position, pivot = camera.pivot;
+    for (const Vector2 size : {Vector2{1600, 900}, Vector2{240, 640}, Vector2{4, 4}}) {
+        ASSERT_TRUE(ResizeAssetPreviewCamera(camera, size));
+        EXPECT_NEAR(std::tan(camera.verticalFov * .5f) * size.x / size.y, 1.f, 1.e-5f);
+        EXPECT_NEAR(camera.Forward().Dot(camera.Ray({size.x, size.y * .5f}, size)), .70710678f, 1.e-5f);
+        EXPECT_EQ(camera.position, eye);
+        EXPECT_EQ(camera.pivot, pivot);
+    }
+    const auto verticalFov = camera.verticalFov;
+    EXPECT_FALSE(ResizeAssetPreviewCamera(camera, {0.f, 100.f}));
+    EXPECT_FALSE(ResizeAssetPreviewCamera(camera, {100.f, std::numeric_limits<float>::infinity()}));
+    EXPECT_EQ(camera.verticalFov, verticalFov);
+}
 
 TEST(ViewportControls, CameraProjectionRayAndNormalizedFlight)
 {

@@ -69,15 +69,19 @@ namespace sky::aurora {
     };
 
     struct RendererInitInfo {
-        API          backend                 = API::DEFAULT;
-        uint32_t     inflightFrames          = 2;
-        uint32_t     maxPendingPackets       = 2;
-        uint32_t     prepareWorkers          = 1;
-        uint32_t     encodeWorkers           = 1;
-        uint64_t     maxPendingResourceBytes = 256ull * 1024 * 1024;
-        uint64_t     maxUploadBytesPerFrame  = 16ull * 1024 * 1024;
-        VulkanConfig vulkan;
-        bool         enableValidation = false;
+        static constexpr uint32_t MAX_DESCRIPTOR_COUNT    = 65536;
+        API                       backend                 = API::DEFAULT;
+        uint32_t                  inflightFrames          = 2;
+        uint32_t                  maxPendingPackets       = 2;
+        uint32_t                  prepareWorkers          = 1;
+        uint32_t                  encodeWorkers           = 1;
+        uint64_t                  maxPendingResourceBytes = 256ull * 1024 * 1024;
+        uint64_t                  maxUploadBytesPerFrame  = 16ull * 1024 * 1024;
+        uint32_t                  resourceDescriptors     = 1024;
+        uint32_t                  samplerDescriptors      = 128;
+        uint32_t                  descriptorSets          = 256;
+        VulkanConfig              vulkan;
+        bool                      enableValidation = false;
     };
 
     struct RendererInfo {

@@ -9,8 +9,10 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/interface/Interface.h>
 #include <framework/world/TransformComponent.h>
+#include <functional>
 #include <gtest/gtest.h>
 #include <limits>
+#include <rapidjson/stringbuffer.h>
 #include <sstream>
 
 using namespace sky;
@@ -18,6 +20,22 @@ using namespace sky::animation;
 using namespace sky::aurora;
 
 namespace {
+    class PoseContributor final : public IAnimationPoseContributor {
+    public:
+        AnimationPoseContribution Evaluate(const AnimationPoseBase &base) const override
+        {
+            if (evaluate) {
+                return evaluate(base);
+            }
+            AnimationPoseContribution result{{}, base.binding, base.revision, 1, base.models, {}};
+            result.models[1][3].x += 3.f;
+            for (const auto &model : result.models) {
+                result.modelNormals.emplace_back(model.InverseTranspose());
+            }
+            return result;
+        }
+        std::function<AnimationPoseContribution(const AnimationPoseBase &)> evaluate;
+    };
     template <class T>
     struct Record {
         AnimationSourceResult<T> value;
@@ -394,6 +412,40 @@ TEST_F(AnimationWorldTest, PendingResultsCannotReviveRemovedOrReboundInstances)
     EXPECT_EQ(host->Query(owned.instance, owned.skeleton).state, SkeletalPoseState::Error);
 }
 
+TEST_F(AnimationWorldTest, PendingPoseQueryValidatesIdentityBeforeSkeletonBecomesReady)
+{
+    const auto record   = rigs.records[rigId];
+    record->value.state = AnimationSourceState::Pending;
+    auto *actor         = Add();
+    ASSERT_TRUE(actor->GetComponent<AnimationComponent>()->SetMode(AnimationMode::ReferencePose));
+    world->Tick(0.f);
+    const auto pending = host->Describe(world.Get(), actor->GetUuid());
+    ASSERT_EQ(pending.state, SkeletalPoseState::Pending);
+    ASSERT_TRUE(pending.instance.generation);
+    EXPECT_FALSE(pending.skeleton.generation);
+    const SkeletalRigVersion expected{rigId, record->value.version.generation, record->value.version.revision, record->value.version.layout};
+    const auto               queried = host->Query(pending.instance, expected);
+    EXPECT_EQ(queried.state, SkeletalPoseState::Pending);
+    EXPECT_TRUE(queried.models.empty());
+    EXPECT_TRUE(queried.modelNormals.empty());
+    auto stale       = pending.instance;
+    stale.worldEpoch = Uuid::Create();
+    EXPECT_EQ(host->Query(stale, expected).state, SkeletalPoseState::Error);
+    stale            = pending.instance;
+    stale.generation = Uuid::Create();
+    EXPECT_EQ(host->Query(stale, expected).state, SkeletalPoseState::Error);
+
+    record->value.state = AnimationSourceState::Ready;
+    world->Tick(0.f);
+    const auto ready = host->Query(pending.instance, expected);
+    ASSERT_EQ(ready.state, SkeletalPoseState::Ready);
+    EXPECT_EQ(ready.skeleton, expected);
+    EXPECT_EQ(ready.models.size(), 2u);
+    auto wrong       = expected;
+    wrong.generation = Uuid::Create();
+    EXPECT_EQ(host->Query(pending.instance, wrong).state, SkeletalPoseState::Error);
+}
+
 TEST_F(AnimationWorldTest, RigMismatchProviderAbsenceAndDrainAreExplicit)
 {
     auto *a                                   = Add();
@@ -458,4 +510,152 @@ TEST_F(AnimationWorldTest, WorldAndPoseRemainOwnedAfterHostShutdown)
     world->Tick(.5f);
     world.Reset(nullptr);
     EXPECT_EQ(pose.models.size(), 2u);
+}
+
+TEST_F(AnimationWorldTest, ReferencePoseNeedsOnlySkeletonAndComposesOwnedModifier)
+{
+    Interface<IAnimationClipSource>::Get()->UnRegister();
+    auto *actor     = Add();
+    auto *component = actor->GetComponent<AnimationComponent>();
+    ASSERT_TRUE(component->SetMode(AnimationMode::ReferencePose));
+    component->SetClip({});
+    world->Tick(0.f);
+    const auto status = host->Find(world.Get(), actor->GetUuid());
+    ASSERT_EQ(status.state, AnimationSourceState::Ready);
+    EXPECT_FALSE(status.animation.asset);
+    EXPECT_FALSE(status.playing);
+    const auto base = host->Describe(world.Get(), actor->GetUuid());
+    ASSERT_EQ(base.models.size(), 2u);
+    EXPECT_TRUE(base.modelNormals.empty());
+    EXPECT_FLOAT_EQ(base.models[1][3].y, 2.f);
+    AnimationPoseContributionToken token;
+    const auto                     contributor = std::make_shared<PoseContributor>();
+    ASSERT_TRUE(host->RegisterPoseContributor({status.handle, status.skeleton}, contributor, token));
+    AnimationPoseContributionToken duplicate;
+    EXPECT_EQ(host->RegisterPoseContributor(token.binding, contributor, duplicate).error, AnimationError::InvalidPlayback);
+    const auto modified = host->Describe(world.Get(), actor->GetUuid());
+    ASSERT_EQ(modified.state, SkeletalPoseState::Ready);
+    EXPECT_FLOAT_EQ(modified.models[1][3].x, 3.f);
+    EXPECT_FLOAT_EQ(base.models[1][3].x, 0.f);
+    EXPECT_EQ(modified.modelNormals.size(), 2u);
+    EXPECT_GT(modified.revision, base.revision);
+    EXPECT_EQ(host->Query(modified.instance, modified.skeleton).revision, modified.revision);
+    EXPECT_EQ(host->Control(status.handle, AnimationControlOp::Play).error, AnimationError::Unsupported);
+    ASSERT_TRUE(host->UnregisterPoseContributor(token));
+    const auto restored = host->Describe(world.Get(), actor->GetUuid());
+    EXPECT_FLOAT_EQ(restored.models[1][3].x, 0.f);
+    EXPECT_TRUE(restored.modelNormals.empty());
+    EXPECT_GT(restored.revision, modified.revision);
+    EXPECT_EQ(host->UnregisterPoseContributor(token).error, AnimationError::StaleGeneration);
+}
+
+TEST_F(AnimationWorldTest, BadOrStaleContributionRetainsCompletePoseAndNormals)
+{
+    auto *actor = Add();
+    ASSERT_TRUE(actor->GetComponent<AnimationComponent>()->SetMode(AnimationMode::ReferencePose));
+    world->Tick(0.f);
+    const auto                     status      = host->Find(world.Get(), actor->GetUuid());
+    const auto                     contributor = std::make_shared<PoseContributor>();
+    AnimationPoseContributionToken token;
+    ASSERT_TRUE(host->RegisterPoseContributor({status.handle, status.skeleton}, contributor, token));
+    const auto good = host->Describe(world.Get(), actor->GetUuid());
+    ASSERT_EQ(good.state, SkeletalPoseState::Ready);
+    for (uint32_t failure = 0; failure < 5; ++failure) {
+        contributor->evaluate = [failure](const AnimationPoseBase &base) {
+            AnimationPoseContribution value{{}, base.binding, base.revision, 2, base.models, {Matrix4::Identity(), Matrix4::Identity()}};
+            if (failure == 0) {
+                value.models.pop_back();
+            } else if (failure == 1) {
+                value.modelNormals[0][0].x = 0.f;
+            } else if (failure == 2) {
+                value.modelNormals[1][1].y = std::numeric_limits<float>::infinity();
+            } else if (failure == 3) {
+                value.binding.skeleton.generation = Uuid::Create();
+            } else {
+                ++value.baseRevision;
+            }
+            return value;
+        };
+        world->Tick(0.f);
+        const auto retained = host->Describe(world.Get(), actor->GetUuid());
+        EXPECT_EQ(retained.state, SkeletalPoseState::Ready);
+        EXPECT_TRUE(retained.retainedVersion);
+        EXPECT_EQ(retained.revision, good.revision);
+        EXPECT_EQ(retained.modelNormals.size(), good.modelNormals.size());
+        EXPECT_FLOAT_EQ(retained.models[1][3].x, good.models[1][3].x);
+        EXPECT_FALSE(retained.diagnostic.empty());
+    }
+    contributor->evaluate = {};
+    const auto repaired   = host->Describe(world.Get(), actor->GetUuid());
+    EXPECT_FALSE(repaired.retainedVersion);
+    EXPECT_GT(repaired.revision, good.revision);
+}
+
+TEST_F(AnimationWorldTest, ContributionRevocationAndWorldDetachInsideCallbackAreSafe)
+{
+    auto *actor = Add();
+    world->Tick(0.f);
+    const auto                           status      = host->Find(world.Get(), actor->GetUuid());
+    auto                                 contributor = std::make_shared<PoseContributor>();
+    const std::weak_ptr<PoseContributor> weak        = contributor;
+    AnimationPoseContributionToken       token;
+    contributor->evaluate = [&](const AnimationPoseBase &base) {
+        EXPECT_TRUE(host->UnregisterPoseContributor(token));
+        return AnimationPoseContribution{{}, base.binding, base.revision, 1, base.models, {}};
+    };
+    ASSERT_TRUE(host->RegisterPoseContributor({status.handle, status.skeleton}, contributor, token));
+    contributor.reset();
+    const auto retained = host->Describe(world.Get(), actor->GetUuid());
+    EXPECT_TRUE(retained.retainedVersion);
+    EXPECT_TRUE(weak.expired());
+    contributor           = std::make_shared<PoseContributor>();
+    contributor->evaluate = [&](const AnimationPoseBase &base) {
+        world.Reset(nullptr);
+        return AnimationPoseContribution{{}, base.binding, base.revision, 1, base.models, {}};
+    };
+    ASSERT_TRUE(host->RegisterPoseContributor({status.handle, status.skeleton}, contributor, token));
+    const auto stale = host->Query(retained.instance, retained.skeleton);
+    EXPECT_EQ(stale.state, SkeletalPoseState::Error);
+    EXPECT_TRUE(stale.models.empty());
+    EXPECT_TRUE(stale.modelNormals.empty());
+    EXPECT_EQ(host->RegisterPoseContributor(token.binding, contributor, token).error, AnimationError::StaleGeneration);
+}
+
+TEST_F(AnimationWorldTest, ReferenceModeRoundTripsAndRawInvalidModeDoesNotNarrowOrOverwrite)
+{
+    AnimationComponent component;
+    ASSERT_TRUE(component.SetMode(AnimationMode::ReferencePose));
+    component.SetSkeleton(rigId);
+    std::stringstream serialized;
+    StreamArchive     storage(serialized);
+    {
+        JsonOutputArchive archive(storage);
+        component.SaveJson(archive);
+    }
+    AnimationComponent restored;
+    JsonInputArchive   input(storage);
+    ASSERT_TRUE(restored.TryLoadJson(input));
+    EXPECT_EQ(restored.GetData(), component.GetData());
+    EXPECT_FALSE(restored.SetMode(AnimationMode::END));
+    const auto before = restored.GetData();
+    for (const uint64_t raw : {uint64_t(AnimationMode::END), uint64_t(AnimationMode::END) + 1, uint64_t(258), UINT64_MAX}) {
+        rapidjson::Document json;
+        json.Parse(serialized.str().c_str());
+        json["elements"]["mode"].SetUint64(raw);
+        rapidjson::StringBuffer                    buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        json.Accept(writer);
+        std::stringstream invalid(buffer.GetString());
+        StreamArchive     invalidStorage(invalid);
+        JsonInputArchive  archive(invalidStorage);
+        EXPECT_EQ(restored.TryLoadJson(archive).error, AnimationError::InvalidAsset);
+        EXPECT_EQ(restored.GetData(), before);
+        std::string error;
+        EXPECT_FALSE(restored.TryAttachToWorld(error));
+        EXPECT_FALSE(error.empty());
+    }
+    const auto *mode = GetTypeNode(TypeInfo<AnimationMode>::RegisteredId());
+    ASSERT_NE(mode, nullptr);
+    EXPECT_EQ(mode->enums.size(), 3u);
+    EXPECT_FALSE(mode->enums.contains(static_cast<uint64_t>(AnimationMode::END)));
 }

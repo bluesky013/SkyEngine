@@ -693,6 +693,8 @@ namespace sky {
 
         bool ComponentType(const Uuid &id)
         {
+            if (ComponentFactory::Get()->GetPersistentDataType(id))
+                return true;
             for (const auto &[group, types] : ComponentFactory::Get()->GetTypes())
                 if (std::any_of(types.begin(), types.end(), [&](const auto &entry) { return entry.typeId == id; }))
                     return true;
@@ -769,8 +771,8 @@ namespace sky {
 
         bool Config(const WorldSubSystemAsset &entry, Any &config, std::string &error)
         {
-            const auto *registration = WorldSubSystemRegistry::Get().GetRegistration(Name(entry.name.c_str()));
-            if (!registration || !registration->factory)
+            const auto *registration = WorldSubSystemRegistry::Get().GetPersistentSchema(Name(entry.name.c_str()));
+            if (!registration)
                 return Fail(error, "Unknown World subsystem: " + entry.name);
             if (registration->configType) {
                 if (entry.configType != registration->configType->registeredId || !registration->makeDefaultConfig)
@@ -960,9 +962,8 @@ namespace sky {
             if (entry.name.empty() || entry.name.size() > MAX_STRING || !Utf8(entry.name) || entry.name.find('\0') != std::string::npos ||
                 !systems.insert(entry.name).second || !add(25 + entry.name.size() + entry.payload.size()))
                 return Fail(error, "Invalid, duplicate or oversized World subsystem");
-            const auto *registration = WorldSubSystemRegistry::Get().GetRegistration(Name(entry.name.c_str()));
-            if (!registration || !registration->factory ||
-                (registration->configType ? registration->configType->registeredId : Uuid{}) != entry.configType)
+            const auto *registration = WorldSubSystemRegistry::Get().GetPersistentSchema(Name(entry.name.c_str()));
+            if (!registration || (registration->configType ? registration->configType->registeredId : Uuid{}) != entry.configType)
                 return Fail(error, "Unknown World subsystem or config schema mismatch");
             if (entry.configType) {
                 if (!Payload(entry.configType, entry.payload, nullptr, budget, error))
@@ -1087,7 +1088,7 @@ namespace sky {
             if (!JsonText(system["name"], entry.name, error) || !system["enabled"].IsBool())
                 return Fail(error, "Invalid World subsystem record");
             entry.enabled            = system["enabled"].GetBool();
-            const auto *registration = WorldSubSystemRegistry::Get().GetRegistration(Name(entry.name.c_str()));
+            const auto *registration = WorldSubSystemRegistry::Get().GetPersistentSchema(Name(entry.name.c_str()));
             if (!registration)
                 return Fail(error, "Unknown World subsystem: " + entry.name);
             if (registration->configType) {
@@ -1146,7 +1147,7 @@ namespace sky {
                 return Fail(error, "World subsystem count exceeds its budget");
             for (const auto &system : description->subSystems) {
                 WorldSubSystemAsset entry{std::string(system.name.GetStr()), system.enabled, {}, {}};
-                const auto         *registration = WorldSubSystemRegistry::Get().GetRegistration(system.name);
+                const auto         *registration = WorldSubSystemRegistry::Get().GetPersistentSchema(system.name);
                 if (!registration)
                     return Fail(error, "Unknown World subsystem: " + entry.name);
                 if (registration->configType) {

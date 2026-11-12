@@ -1,12 +1,13 @@
 #pragma once
 
 #include <animation/IAnimationInstanceControl.h>
+#include <animation/IAnimationPoseContributor.h>
 #include <aurora/renderer/ISkeletalPoseSource.h>
 #include <framework/world/World.h>
 
 namespace sky::animation {
     inline constexpr const char *ANIMATION_WORLD_SYSTEM = "Animation";
-    class AnimationWorldHost : public IAnimationInstanceControl, public aurora::ISkeletalPoseSource {
+    class AnimationWorldHost : public IAnimationInstanceControl, public IAnimationPoseContributionRegistry, public aurora::ISkeletalPoseSource {
     public:
         Uuid             GetComponentType() const override;
         std::string_view GetWorldSystemName() const override

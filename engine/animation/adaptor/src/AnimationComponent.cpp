@@ -3,27 +3,46 @@
 #include <framework/world/ComponentFactory.h>
 
 namespace sky::animation {
+    AnimationStatus AnimationComponent::TryLoadJson(JsonInputArchive &archive)
+    {
+        bool validMode = true;
+        archive.ForEachMember([&](const std::string &key, const JsonInputArchive::Value &value) {
+            if (key != "elements" || !value.IsObject()) {
+                return;
+            }
+            const auto mode = value.FindMember("mode");
+            if (mode != value.MemberEnd()) {
+                validMode = mode->value.IsUint64() && mode->value.GetUint64() < static_cast<uint64_t>(AnimationMode::END);
+            }
+        });
+        if (!validMode) {
+            loadStatus = {AnimationError::InvalidAsset, "Animation mode is outside the supported range"};
+            return loadStatus;
+        }
+        AnimationComponentData next;
+        archive.LoadValueObject(next);
+        data       = std::move(next);
+        loadStatus = {};
+        return loadStatus;
+    }
+
+    void AnimationComponent::LoadJson(JsonInputArchive &archive)
+    {
+        TryLoadJson(archive);
+    }
+
+    bool AnimationComponent::TryAttachToWorld(std::string &error)
+    {
+        if (!loadStatus) {
+            error = loadStatus.message;
+            return false;
+        }
+        OnAttachToWorld();
+        return true;
+    }
+
     void AnimationComponent::Reflect(SerializationContext *context)
     {
-        context->Register<AnimationMode>("AnimationMode").Enum(AnimationMode::Clip, "Clip").Enum(AnimationMode::Graph, "Graph");
-        context->Register<AnimationRootPolicy>("AnimationRootPolicy")
-            .Enum(AnimationRootPolicy::KeepInPose, "KeepInPose")
-            .Enum(AnimationRootPolicy::LockToReference, "LockToReference");
-        context->Register<AnimationParameterOverride>("AnimationParameterOverride")
-            .Member<&AnimationParameterOverride::parameter>("parameter")
-            .Member<&AnimationParameterOverride::isBoolean>("isBoolean")
-            .Member<&AnimationParameterOverride::booleanValue>("booleanValue")
-            .Member<&AnimationParameterOverride::floatValue>("floatValue");
-        context->Register<AnimationComponentData>("AnimationComponentData")
-            .Member<&AnimationComponentData::parameters>("parameters")
-            .Member<&AnimationComponentData::mode>("mode")
-            .Member<&AnimationComponentData::skeleton>("skeleton")
-            .Member<&AnimationComponentData::clip>("clip")
-            .Member<&AnimationComponentData::graph>("graph")
-            .Member<&AnimationComponentData::autoplay>("autoplay")
-            .Member<&AnimationComponentData::loop>("loop")
-            .Member<&AnimationComponentData::playRate>("playRate")
-            .Member<&AnimationComponentData::rootPolicy>("rootPolicy");
         context->Register<AnimationComponent>("AnimationComponent")
             .Member<&AnimationComponent::SetParameters, &AnimationComponent::GetParameters>("parameters")
             .Member<&AnimationComponent::SetMode, &AnimationComponent::GetMode>("mode")

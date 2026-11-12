@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <string>
 
 namespace sky::editor {
@@ -215,13 +216,13 @@ namespace sky::editor {
 
     std::string FormatPropertyValue(const PropertyDescriptor &descriptor, const EditorControl &control)
     {
-        const Any value = descriptor.GetValue();
-        const TypeInfoRT *info = value.Info();
+        const Any         value = descriptor.GetValue();
+        const TypeInfoRT *info  = value.Info();
         if (info == nullptr || info->staticInfo == nullptr || value.Data() == nullptr) {
             return {};
         }
         if (info->staticInfo->isEnum) {
-            int64_t raw = 0;
+            int64_t      raw  = 0;
             const size_t size = std::min<size_t>(info->staticInfo->size, sizeof(raw));
             std::memcpy(&raw, value.Data(), size);
             if (const TypeNode *node = GetTypeNode(info)) {
@@ -240,12 +241,15 @@ namespace sky::editor {
             const std::string *s = value.GetAsConst<std::string>();
             return s != nullptr ? *s : std::string();
         }
-        char buffer[64] = {0};
-        const int decimals = DecimalsForControl(control);
+        char       buffer[64] = {0};
+        const int  decimals   = DecimalsForControl(control);
+        const bool scientific = control.editorHint == "scientific";
         if (const float *v = value.GetAsConst<float>()) {
-            std::snprintf(buffer, sizeof(buffer), "%.*f", decimals, static_cast<double>(*v));
+            std::snprintf(buffer, sizeof(buffer), scientific ? "%.*e" : "%.*f", scientific ? std::numeric_limits<float>::max_digits10 - 1 : decimals,
+                          static_cast<double>(*v));
         } else if (const double *v = value.GetAsConst<double>()) {
-            std::snprintf(buffer, sizeof(buffer), "%.*f", decimals, *v);
+            std::snprintf(buffer, sizeof(buffer), scientific ? "%.*e" : "%.*f", scientific ? std::numeric_limits<double>::max_digits10 - 1 : decimals,
+                          *v);
         } else if (const int32_t *v = value.GetAsConst<int32_t>()) {
             std::snprintf(buffer, sizeof(buffer), "%d", *v);
         } else if (const uint32_t *v = value.GetAsConst<uint32_t>()) {

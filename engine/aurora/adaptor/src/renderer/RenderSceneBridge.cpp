@@ -47,6 +47,12 @@ namespace sky::aurora {
             const float   length = std::sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
             return length > 0.00001f ? v / length : Vector3{0, 0, -1};
         }
+        bool ValidNormalMatrix(const Matrix4 &matrix)
+        {
+            const float determinant = matrix.Determinant();
+            return std::isfinite(determinant) && determinant != 0.f &&
+                   std::all_of(std::begin(matrix.v), std::end(matrix.v), [](float value) { return std::isfinite(value); });
+        }
     } // namespace
 
     struct RenderSceneBridge::Impl final : IWorldEvent, ISceneComponentEvent {
@@ -207,13 +213,15 @@ namespace sky::aurora {
                 instance        = SkeletalInstance{};
                 instance.config = config;
             }
-            const auto resolved = resources->ResolveSkeletal(config.mesh, config.material, config.skin, config.skeleton, info);
-            bool       retained = true;
+            const auto resolved    = resources->ResolveSkeletal(config.mesh, config.material, config.skin, config.skeleton, info);
+            bool       retained    = true;
+            bool       posePending = false;
             if (const auto *error = std::get_if<RendererError>(&resolved)) {
                 issues.push_back(*error);
             } else if (const auto *ready = std::get_if<std::shared_ptr<const SceneSkeletalResources>>(&resolved); ready && *ready) {
                 const auto          &candidate = **ready;
                 std::vector<Matrix4> models;
+                std::vector<Matrix4> modelNormals;
                 Uuid                 poseGeneration = instance.generation;
                 uint64_t             poseRevision   = 1;
                 bool                 valid          = candidate.binding && candidate.geometry && candidate.skeleton.asset == config.skeleton &&
@@ -232,27 +240,36 @@ namespace sky::aurora {
                         issues.push_back({RendererErrorCode::UNSUPPORTED, "SameActorAnimation requires an animation pose provider"});
                         valid = false;
                     } else {
-                        const auto found = source->Describe(world.Get(), actor.GetUuid());
-                        auto       pose  = source->Query(found.instance, candidate.skeleton);
-                        valid = pose.state == SkeletalPoseState::Ready && pose.skeleton == candidate.skeleton && pose.instance.world == world.Get() &&
-                                pose.instance.worldEpoch == world->GetRuntimeId() && pose.instance.actor == actor.GetUuid() &&
-                                pose.instance.generation && pose.revision;
+                        const auto found   = source->Describe(world.Get(), actor.GetUuid());
+                        auto       pose    = source->Query(found.instance, candidate.skeleton);
+                        const bool current = pose.instance.world == world.Get() && pose.instance.worldEpoch == world->GetRuntimeId() &&
+                                             pose.instance.actor == actor.GetUuid() && pose.instance.generation;
+                        posePending = current && pose.state == SkeletalPoseState::Pending;
+                        valid       = current && pose.state == SkeletalPoseState::Ready && pose.skeleton == candidate.skeleton && pose.revision;
                         if (valid) {
                             models         = std::move(pose.models);
+                            modelNormals   = std::move(pose.modelNormals);
                             poseGeneration = pose.instance.generation;
                             poseRevision   = pose.revision;
                             if (pose.retainedVersion) {
                                 issues.push_back(
                                     {RendererErrorCode::INVALID_ARGUMENT, "Animation retains an older complete version: " + pose.diagnostic});
                             }
-                        } else {
+                        } else if (!posePending) {
                             issues.push_back({RendererErrorCode::INVALID_ARGUMENT,
-                                              "Animation pose is pending or incompatible with the render rig: " + pose.diagnostic});
+                                              "Animation pose is unavailable or incompatible with the render rig: " + pose.diagnostic});
                         }
                     }
                 } else {
                     valid = false;
                     issues.push_back({RendererErrorCode::INVALID_ARGUMENT, "Unknown skeletal pose mode"});
+                }
+                if (valid && !modelNormals.empty() &&
+                    (modelNormals.size() != candidate.binding->targetBoneCount ||
+                     !std::all_of(modelNormals.begin(), modelNormals.end(), ValidNormalMatrix))) {
+                    valid = false;
+                    issues.push_back(
+                        {RendererErrorCode::INVALID_ARGUMENT, "Model normal transforms have invalid bone count or singular/nonfinite values"});
                 }
                 if (valid) {
                     if (instance.resources != *ready || !instance.skinning || instance.skinning->instanceGeneration != poseGeneration ||
@@ -269,10 +286,13 @@ namespace sky::aurora {
                         }
                         if (status) {
                             next->matrices.reserve(palette.size() * 2);
-                            for (const auto &value : palette) {
-                                const auto normal = value.InverseTranspose();
-                                if (!std::all_of(std::begin(normal.v), std::end(normal.v), [](float v) { return std::isfinite(v); })) {
-                                    status = {SkinError::InvalidData, "Skin normal transform overflowed"};
+                            for (size_t slot = 0; slot < palette.size(); ++slot) {
+                                const auto &value  = palette[slot];
+                                const auto  normal = modelNormals.empty() ? value.InverseTranspose()
+                                                                          : modelNormals[candidate.binding->slotToBone[slot]] *
+                                                                               candidate.binding->inverseBindMatrices[slot].InverseTranspose();
+                                if (!ValidNormalMatrix(normal)) {
+                                    status = {SkinError::InvalidData, "Skin normal transform is singular or overflowed"};
                                     break;
                                 }
                                 next->matrices.push_back(value);
@@ -296,14 +316,14 @@ namespace sky::aurora {
             if (!instance.resources || !instance.skinning) {
                 return {};
             }
-            if (retained) {
+            if (retained && !posePending) {
                 issues.push_back({RendererErrorCode::INVALID_ARGUMENT, "Skeletal instance retains its previous complete resource and pose tuple"});
             }
             desc.world               = instance.world;
             desc.properties.skinning = instance.skinning;
             return instance.resources->geometry;
         }
-        std::optional<RendererError> Append(FramePacket &packet, SceneId scene, ViewportId output)
+        std::optional<RendererError> Append(FramePacket &packet, SceneId scene, ViewportId output, std::span<Actor *const> extraActors)
         {
             issues.clear();
             if (!scene.IsValid() || (packet.sequence == 0u) || (info.deviceEpoch == 0u) || !resources) {
@@ -326,7 +346,12 @@ namespace sky::aurora {
                 return true;
             };
             if (world) {
-                for (const auto &actor : world->GetActors()) {
+                const auto &worldActors = world->GetActors();
+                for (size_t index = 0; index < worldActors.size() + extraActors.size(); ++index) {
+                    const bool inWorld = index < worldActors.size();
+                    auto      *actor   = inWorld ? worldActors[index].get() : extraActors[index - worldActors.size()];
+                    if (!actor)
+                        return RendererError{.code = RendererErrorCode::INVALID_ARGUMENT, .message = "Scene bridge requires a valid extra actor"};
                     const auto watch  = watches.find(actor->GetUuid());
                     const auto matrix = watch != watches.end() ? watch->second->Read() : WorldMatrix(*actor);
                     for (const auto &[type, component] : actor->GetComponents()) {
@@ -344,7 +369,7 @@ namespace sky::aurora {
                                 continue;
                             }
                             SceneGeometryInstance *instance = nullptr;
-                            if (geometry) {
+                            if (geometry && inWorld) {
                                 instance            = &geometry->instances.emplace_back();
                                 instance->actor     = actor->GetUuid();
                                 instance->component = type;
@@ -673,9 +698,9 @@ namespace sky::aurora {
         }
         return result;
     }
-    std::optional<RendererError> RenderSceneBridge::Append(FramePacket &packet, SceneId scene, ViewportId output)
+    std::optional<RendererError> RenderSceneBridge::Append(FramePacket &packet, SceneId scene, ViewportId output, std::span<Actor *const> extraActors)
     {
-        return impl->Append(packet, scene, output);
+        return impl->Append(packet, scene, output, extraActors);
     }
     const std::vector<RendererError> &RenderSceneBridge::GetIssues() const
     {

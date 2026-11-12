@@ -29,6 +29,8 @@
 
 namespace sky::phy {
 
+    class ISoftBodyCollisionQuery;
+
     // Canonical world sub-system name. Every physics backend registers its sub-system under this name so
     // consumers resolve physics without depending on a specific backend plugin.
     inline constexpr std::string_view PHYSICS_SYSTEM_NAME = "Physics";
@@ -82,6 +84,10 @@ namespace sky::phy {
         virtual ~IPhysicsWorld() = default;
 
         virtual const PhysicsBackendCaps &GetCaps() const = 0;
+        virtual ISoftBodyCollisionQuery  *GetSoftBodyCollisionQuery()
+        {
+            return nullptr;
+        }
 
         virtual PhysicsStatus  SetOptions(const PhysicsOptions &options) = 0;
         virtual PhysicsOptions GetOptions() const                        = 0;

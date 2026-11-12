@@ -44,6 +44,14 @@
       "buildOption": "SKY_BUILD_ANIMATION"
     },
     {
+      "name": "SoftBody.Builder",
+      "dependencies": [
+        "SoftBody.Assets",
+        "Aurora.Cook"
+      ],
+      "buildOption": "SKY_BUILD_SOFTBODY"
+    },
+    {
       "name": "Particle.World",
       "dependencies": [
         "Particle.Assets"

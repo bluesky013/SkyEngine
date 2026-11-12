@@ -1,7 +1,14 @@
 #include "EditorPreviewSessions.h"
 
 #include <algorithm>
+#include <array>
+#include <aurora/adaptor/components/DirectLightComponent.h>
+#include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/components/SpotLightComponent.h>
+#include <aurora/adaptor/components/StaticMeshComponent.h>
+#include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <cmath>
+#include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 
 namespace sky::editor {
@@ -14,6 +21,78 @@ namespace sky::editor {
         bool ValidExtent(uint32_t width, uint32_t height)
         {
             return width && height && width <= 4096 && height <= 4096;
+        }
+        bool ValidBounds(const AABB &bounds)
+        {
+            for (uint32_t axis = 0; axis < 3; ++axis)
+                if (!std::isfinite(bounds.min[axis]) || !std::isfinite(bounds.max[axis]) || bounds.min[axis] > bounds.max[axis])
+                    return false;
+            return true;
+        }
+        std::optional<AABB> SubjectBounds(const RenderSceneBridge &bridge)
+        {
+            const auto          snapshot = bridge.GeometrySnapshot();
+            std::optional<AABB> result;
+            if (snapshot)
+                for (const auto &instance : snapshot->instances) {
+                    if (!instance.bounds)
+                        return {};
+                    const auto bounds = AABB::Transform(*instance.bounds, instance.world);
+                    if (!ValidBounds(bounds))
+                        return {};
+                    if (result)
+                        result->Merge(bounds);
+                    else
+                        result = bounds;
+                }
+            return result;
+        }
+        std::unique_ptr<Actor> CreateGround(const AABB &bounds)
+        {
+            const Vector3 extent = bounds.max - bounds.min;
+            const float   size   = std::max({extent.x, extent.y, extent.z, .01f});
+            const float   height = bounds.min.y - size * .001f;
+            if (!std::isfinite(size) || !std::isfinite(height) || !TypeInfo<TransformComponent>::RegisteredId() ||
+                !TypeInfo<StaticMeshComponent>::RegisteredId())
+                return {};
+            auto  actor     = std::make_unique<Actor>(Uuid::Create());
+            auto *transform = actor->AddComponent<TransformComponent>();
+            auto *mesh      = actor->AddComponent<StaticMeshComponent>();
+            if (!transform || !mesh)
+                return {};
+            const auto center = bounds.min * .5f + bounds.max * .5f;
+            Transform  placement;
+            placement.translation = {center.x, height, center.z};
+            placement.scale       = {size, 1.f, size};
+            transform->SetLocalTransform(placement);
+            mesh->SetMeshUuid(ScenePrimitiveId(ScenePrimitive::PLANE));
+            mesh->SetMaterialUuid(SceneLitMaterialId());
+            mesh->SetCastShadow(false);
+            mesh->SetReceiveShadow(true);
+            return actor;
+        }
+        bool HasSceneLight(const World &world)
+        {
+            for (const auto &actor : world.GetActors())
+                for (const auto &[type, component] : actor->GetComponents())
+                    if (type == TypeInfo<DirectLightComponent>::RegisteredId() || type == TypeInfo<PointLightComponent>::RegisteredId() ||
+                        type == TypeInfo<SpotLightComponent>::RegisteredId())
+                        return true;
+            return false;
+        }
+        std::unique_ptr<Actor> CreateLight(const Quaternion &rotation, float intensity, bool shadows)
+        {
+            if (!TypeInfo<TransformComponent>::RegisteredId() || !TypeInfo<DirectLightComponent>::RegisteredId())
+                return {};
+            auto  actor     = std::make_unique<Actor>(Uuid::Create());
+            auto *transform = actor->AddComponent<TransformComponent>();
+            auto *light     = actor->AddComponent<DirectLightComponent>();
+            if (!transform || !light)
+                return {};
+            transform->SetLocalRotation(rotation);
+            light->SetIntensity(intensity);
+            light->SetCastShadow(shadows);
+            return actor;
         }
         bool ValidCamera(const EditorCamera &camera, uint32_t width, uint32_t height)
         {
@@ -53,6 +132,8 @@ namespace sky::editor {
             return AssetPreviewError{AssetPreviewErrorCode::Unavailable, "Preview renderer unavailable"};
         if (!input.world || !ValidCamera(input.camera, input.width, input.height))
             return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Preview requires an owned World, valid camera and extent"};
+        if (input.subjectBounds && !ValidBounds(*input.subjectBounds))
+            return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Preview subject bounds must be finite and ordered"};
         if (sessions.size() >= 16 || nextScene == UINT32_MAX)
             return AssetPreviewError{AssetPreviewErrorCode::Capacity, "Preview session capacity exceeded"};
         const auto output = allocate ? allocate() : ViewportId{};
@@ -96,10 +177,14 @@ namespace sky::editor {
         } else if (!session.bridge->GetIssues().empty()) {
             result.diagnostic = session.bridge->GetIssues().front().message;
         }
-        if (const auto snapshot = session.bridge->GeometrySnapshot())
-            for (const auto &instance : snapshot->instances)
+        if (const auto snapshot = session.bridge->GeometrySnapshot()) {
+            for (const auto &instance : snapshot->instances) {
                 if (instance.bounds)
                     result.bounds.push_back(AABB::Transform(*instance.bounds, instance.world));
+                if (instance.state == SceneGeometryState::PENDING && !instance.resources && result.diagnostic.empty())
+                    result.diagnostic = "Preparing mesh geometry and materials...";
+            }
+        }
         return result;
     }
     AssetPreviewStatusResult EditorPreviewSessions::Update(AssetPreviewHandle handle, EditorCamera camera)
@@ -107,9 +192,17 @@ namespace sky::editor {
         auto *session = Find(handle);
         if (!session || session->closing)
             return Stale();
+        const auto &previous = session->input.camera;
+        if (camera.position.x == previous.position.x && camera.position.y == previous.position.y && camera.position.z == previous.position.z &&
+            camera.yaw == previous.yaw && camera.pitch == previous.pitch && camera.verticalFov == previous.verticalFov &&
+            camera.nearPlane == previous.nearPlane && camera.farPlane == previous.farPlane) {
+            session->input.camera = camera;
+            return Status(handle);
+        }
         if (!ValidCamera(camera, session->input.width, session->input.height))
             return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Invalid preview camera"};
         session->input.camera = camera;
+        session->cameraChanged = true;
         return Status(handle);
     }
     AssetPreviewStatusResult EditorPreviewSessions::Resize(AssetPreviewHandle handle, uint32_t width, uint32_t height)
@@ -154,30 +247,57 @@ namespace sky::editor {
                 continue;
             }
             const Extent2D extent{session.input.width, session.input.height};
-            ViewDesc       view;
-            view.scene          = {session.view.index, session.view.generation};
-            view.output         = session.output;
-            view.cameraPosition = session.input.camera.position;
-            view.view           = session.input.camera.View();
-            view.projection     = session.input.camera.Projection(float(extent.width) / extent.height);
-            if (!session.created) {
-                if (const auto error = session.scene.Create(packet, view.scene, {Name("asset-preview")}))
-                    return error;
-                packet.commands.push_back(CreateViewport{session.output, {ViewportKind::OFFSCREEN, extent}});
-                packet.commands.push_back(CreateView{session.view, view});
-                session.created         = true;
-                session.createdSequence = packet.sequence;
-                session.submitted       = extent;
-            } else {
-                if (extent.width != session.submitted.width || extent.height != session.submitted.height) {
-                    packet.commands.push_back(ResizeViewport{session.output, extent, ++session.outputRevision});
-                    session.submitted = extent;
+            const SceneId  scene{session.view.index, session.view.generation};
+            const bool     resized = extent.width != session.submitted.width || extent.height != session.submitted.height;
+            if (!session.created || resized || session.cameraChanged) {
+                ViewDesc view;
+                view.scene          = scene;
+                view.output         = session.output;
+                view.cameraPosition = session.input.camera.position;
+                view.view           = session.input.camera.View();
+                view.projection     = session.input.camera.Projection(float(extent.width) / extent.height);
+                if (!session.created) {
+                    if (const auto error = session.scene.Create(packet, scene, {Name("asset-preview")}))
+                        return error;
+                    packet.commands.push_back(CreateViewport{session.output, {ViewportKind::OFFSCREEN, extent}});
+                    packet.commands.push_back(CreateView{session.view, view});
+                    session.created         = true;
+                    session.createdSequence = packet.sequence;
+                } else {
+                    if (resized) {
+                        packet.commands.push_back(ResizeViewport{session.output, extent, ++session.outputRevision});
+                        if (!textures.UpdateView(session.texture, {session.output, session.outputRevision}))
+                            return RendererError{RendererErrorCode::INTERNAL_ERROR, "Preview texture registration was lost"};
+                    }
+                    packet.commands.push_back(UpdateView{session.view, view, ++session.viewRevision});
                 }
-                packet.commands.push_back(UpdateView{session.view, view, ++session.viewRevision});
+                session.cameraChanged = false;
+                session.submitted     = extent;
             }
-            if (!textures.UpdateView(session.texture, {session.output, session.outputRevision}))
-                return RendererError{RendererErrorCode::INTERNAL_ERROR, "Preview texture registration was lost"};
-            if (const auto error = session.bridge->Append(packet, view.scene, session.output))
+            if (session.input.showGround && !session.ground && session.error.empty()) {
+                const auto bounds = session.input.subjectBounds ? session.input.subjectBounds : SubjectBounds(*session.bridge);
+                if (bounds) {
+                    session.ground = CreateGround(*bounds);
+                    if (!session.ground)
+                        session.error = "Could not create the preview ground from the subject bounds";
+                }
+            }
+            std::array<Actor *, 3> stage{};
+            size_t                 count = 0;
+            if (session.ground)
+                stage[count++] = session.ground.get();
+            if ((session.ground || !session.input.world->GetActors().empty()) && !HasSceneLight(*session.input.world) && session.error.empty()) {
+                if (!session.keyLight) {
+                    session.keyLight  = CreateLight(Quaternion(-.55f, {0, 1, 0}) * Quaternion(-.65f, {1, 0, 0}), 1.25f, true);
+                    session.fillLight = CreateLight(Quaternion(2.2f, {0, 1, 0}) * Quaternion(-.25f, {1, 0, 0}), .65f, false);
+                }
+                if (session.keyLight && session.fillLight) {
+                    stage[count++] = session.keyLight.get();
+                    stage[count++] = session.fillLight.get();
+                } else
+                    session.error = "Could not create the preview lights";
+            }
+            if (const auto error = session.bridge->Append(packet, scene, session.output, std::span(stage).first(count)))
                 return error;
         }
         RetireClosed();

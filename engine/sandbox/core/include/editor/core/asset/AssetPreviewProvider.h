@@ -11,6 +11,7 @@
 #include <framework/world/World.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -30,6 +31,9 @@ namespace sky::editor {
         WorldPtr     world;
         EditorCamera camera;
         uint32_t     width = 320, height = 240;
+        bool         showGround = true;
+        // Rest bounds in world space. Supply these for effects and animated subjects whose rendered bounds vary.
+        std::optional<AABB> subjectBounds;
     };
     enum class AssetPreviewState { Pending, Ready, Closing, Closed, Failed };
     struct AssetPreviewStatus {

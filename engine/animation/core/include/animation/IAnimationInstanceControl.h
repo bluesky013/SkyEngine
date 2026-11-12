@@ -6,7 +6,7 @@
 namespace sky {
     class World;
 
-    enum class AnimationMode : uint8_t { Clip, Graph };
+    enum class AnimationMode : uint8_t { Clip, Graph, ReferencePose, END };
     enum class AnimationRootPolicy : uint8_t { KeepInPose, LockToReference };
     enum class AnimationControlOp : uint8_t { Play, Pause, Stop, Seek, SetRate, Reload };
 

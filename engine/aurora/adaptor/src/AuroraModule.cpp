@@ -14,6 +14,7 @@
 #include <aurora/renderer/RendererProvider.h>
 #include <aurora/shader/ShaderFileSystem.h>
 #include <aurora/shader/ShaderUsage.h>
+#include <charconv>
 #include <core/cmdline/CmdParser.h>
 #include <core/logger/Logger.h>
 #include <core/name/Name.h>
@@ -25,6 +26,7 @@
 #include <framework/window/NativeWindowManager.h>
 #include <framework/world/IGameWorld.h>
 #include <framework/world/World.h>
+#include <string_view>
 #include <utility>
 
 static const char *TAG = "AuroraModule";
@@ -131,12 +133,39 @@ namespace sky::aurora {
         }
     } // namespace
 
-    void AuroraModule::ProcessArgs(const StartArguments &args)
+    std::optional<RendererError> AuroraModule::ProcessArgs(const StartArguments &args)
     {
         mApi            = API::DEFAULT;
         providerOnly    = false;
         vulkanConfig    = {};
+        rendererConfig  = {};
         shaderUsagePath = {};
+        constexpr std::array<std::pair<std::string_view, uint32_t RendererInitInfo::*>, 3> budgets{
+            {{"--aurora-resource-descriptors", &RendererInitInfo::resourceDescriptors},
+             {"--aurora-sampler-descriptors", &RendererInitInfo::samplerDescriptors},
+             {"--aurora-descriptor-sets", &RendererInitInfo::descriptorSets}}};
+        std::array<bool, budgets.size()> seen{};
+        for (size_t i = 1; i < args.args.size(); ++i) {
+            if (!args.args[i])
+                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Renderer argument is null"};
+            const std::string_view argument(args.args[i]);
+            const auto             name = argument.substr(0, argument.find('='));
+            for (size_t index = 0; index < budgets.size(); ++index) {
+                if (name != budgets[index].first)
+                    continue;
+                if (seen[index] || name != argument || i + 1 == args.args.size() || !args.args[i + 1])
+                    return RendererError{RendererErrorCode::INVALID_ARGUMENT,
+                                         std::string(name) + " requires one separate decimal integer argument without duplicates"};
+                seen[index] = true;
+                const std::string_view value(args.args[++i]);
+                uint32_t               count  = 0;
+                const auto             parsed = std::from_chars(value.data(), value.data() + value.size(), count);
+                if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || !count || count > RendererInitInfo::MAX_DESCRIPTOR_COUNT)
+                    return RendererError{RendererErrorCode::INVALID_ARGUMENT, std::string(name) + " must be a decimal integer in [1, 65536]"};
+                rendererConfig.*budgets[index].second = count;
+                break;
+            }
+        }
         CmdOptions options("Aurora Render Module", "Aurora Render Module");
         options.allow_unrecognised_options();
         options.add_options()("r,rhi", "RHI Type", CmdValue<std::string>());
@@ -145,7 +174,7 @@ namespace sky::aurora {
         options.add_options()("aurora-shader-usage", "Write collected shader variants to this JSON path", CmdValue<std::string>());
 
         if (args.args.empty()) {
-            return;
+            return {};
         }
 
         auto result                   = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
@@ -157,6 +186,7 @@ namespace sky::aurora {
         if (result.count("aurora-shader-usage") != 0u) {
             shaderUsagePath = result["aurora-shader-usage"].as<std::string>();
         }
+        return {};
     }
 
     std::optional<RendererError> AuroraModule::UpdateDefaultSceneSession()
@@ -211,7 +241,10 @@ namespace sky::aurora {
         if (service->GetApi() != nullptr) {
             return service->GetApi() == provider.get();
         }
-        ProcessArgs(args);
+        if (const auto error = ProcessArgs(args)) {
+            LOG_E(TAG, "%s", error->message.c_str());
+            return false;
+        }
         auto *sceneService = Interface<ILauncherSceneSource>::Get();
         if (!providerOnly && sceneService->GetApi() != nullptr) {
             LOG_E(TAG, "Launcher scene source is already registered");
@@ -228,9 +261,9 @@ namespace sky::aurora {
             service->Register(*provider);
             return true;
         }
-        RendererInitInfo info;
-        info.backend = mApi;
-        info.vulkan  = vulkanConfig;
+        RendererInitInfo info = rendererConfig;
+        info.backend          = mApi;
+        info.vulkan           = vulkanConfig;
 #if SKY_ENABLE_GPU_VALIDATION
         info.enableValidation = true;
 #endif

@@ -11,9 +11,18 @@
 
 #include <framework/world/World.h>
 
+#include <memory>
 #include <vector>
 
 namespace sky::phy {
+
+    class IPhysicsStepListener {
+    public:
+        virtual ~IPhysicsStepListener()                                            = default;
+        virtual PhysicsStatus BeforePhysicsStep(IPhysicsWorld &world, float delta) = 0;
+        virtual PhysicsStatus AfterPhysicsStep(IPhysicsWorld &world, float delta)  = 0;
+        virtual void          OnPhysicsWorldClosing(IPhysicsWorld &world)          = 0;
+    };
 
     // A local-space collision mesh together with its world transform, for nav mesh generation.
     struct CollisionMeshInstance {
@@ -32,6 +41,19 @@ namespace sky::phy {
         virtual void SetSimulating(bool simulating) = 0;
         virtual bool IsSimulating() const = 0;
         virtual void SingleStep() = 0;
+
+        // Host-thread only. Listeners are owned until removed; callbacks may unregister themselves.
+        virtual PhysicsStatus AddStepListener(std::shared_ptr<IPhysicsStepListener> listener)
+        {
+            return {PhysicsError::Unsupported, "Fixed-step listeners are unsupported"};
+        }
+        virtual void RemoveStepListener(const IPhysicsStepListener *listener)
+        {
+        }
+        virtual float GetInterpolationAlpha() const
+        {
+            return 1.f;
+        }
 
         // Navigation consumes collision geometry through this call (engine types only).
         virtual void GatherCollisionMeshes(std::vector<CollisionMeshInstance> &out) const = 0;

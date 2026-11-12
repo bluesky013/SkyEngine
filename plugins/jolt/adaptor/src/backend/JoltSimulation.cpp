@@ -218,6 +218,7 @@ namespace sky::phy {
         Synchronize();
         PublishContacts();
         ++stats.stepCount;
+        collisionStepDelta         = delta;
         stats.lastStepMilliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
         return status;
     }
@@ -248,7 +249,7 @@ namespace sky::phy {
         if (!Ready()) {
             return false;
         }
-        if (scope > PhysicsSnapshotScope::Full) {
+        if (scope >= PhysicsSnapshotScope::END) {
             return Fail(PhysicsError::InvalidArgument, "Invalid snapshot scope");
         }
         PhysicsWorldState state;
@@ -273,7 +274,7 @@ namespace sky::phy {
         if (!Ready()) {
             return false;
         }
-        if (state.scope > PhysicsSnapshotScope::Full) {
+        if (state.scope >= PhysicsSnapshotScope::END) {
             return Fail(PhysicsError::InvalidArgument, "Invalid snapshot scope");
         }
         std::set<PhysicsObjectId> seen;
@@ -311,6 +312,7 @@ namespace sky::phy {
         stats.contactCount = 0;
         stats.stepCount    = state.frame;
         interpolationAlpha = 0;
+        collisionStepDelta = 0.f;
         return true;
     }
 

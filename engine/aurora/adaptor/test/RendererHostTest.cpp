@@ -92,15 +92,17 @@ namespace {
     };
     class HostProvider final : public IRendererProvider {
     public:
-        RendererCreateResult Create(const RendererInitInfo &) override
+        RendererCreateResult Create(const RendererInitInfo &info) override
         {
             ++trace.creates;
+            configuration = info;
             if (fail)
                 return RendererError{RendererErrorCode::OUT_OF_MEMORY, "injected creation failure"};
             return std::unique_ptr<IRenderer>(std::make_unique<HostRenderer>(trace));
         }
-        HostTrace trace;
-        bool      fail = false;
+        HostTrace        trace;
+        RendererInitInfo configuration;
+        bool             fail = false;
     };
     class ExternalSkeletonSource final : public IAnimationSkeletonSource {
     public:
@@ -226,6 +228,75 @@ TEST_F(AuroraModuleLifecycleTest, RendererHostInitializesWithoutSkeletonOrModule
     module.Shutdown();
     EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+}
+
+TEST_F(AuroraModuleLifecycleTest, DescriptorCapacityArgumentsReachProviderAndDefaultsRemainUnchanged)
+{
+    for (const bool configured : {true, false}) {
+        auto           provider = std::make_unique<HostProvider>();
+        const auto    *source   = provider.get();
+        AuroraModule   module(std::move(provider), {});
+        StartArguments arguments;
+        if (configured)
+            arguments.args = {"RendererCapacityTest",
+                              "--aurora-resource-descriptors",
+                              "4096",
+                              "--aurora-sampler-descriptors",
+                              "256",
+                              "--aurora-descriptor-sets",
+                              "2048"};
+        ASSERT_TRUE(module.Init(arguments));
+        EXPECT_EQ(source->configuration.resourceDescriptors, configured ? 4096u : 1024u);
+        EXPECT_EQ(source->configuration.samplerDescriptors, configured ? 256u : 128u);
+        EXPECT_EQ(source->configuration.descriptorSets, configured ? 2048u : 256u);
+        module.Shutdown();
+    }
+}
+
+TEST_F(AuroraModuleLifecycleTest, InvalidDescriptorCapacityArgumentsFailBeforeProviderCreation)
+{
+    for (const auto *flag : {"--aurora-resource-descriptors", "--aurora-sampler-descriptors", "--aurora-descriptor-sets"}) {
+        for (const auto *value : {"0", "-1", "+1", "65537", "4294967296", "1.5", "8x", ""}) {
+            auto           provider = std::make_unique<HostProvider>();
+            const auto    *source   = provider.get();
+            AuroraModule   module(std::move(provider), {});
+            StartArguments arguments;
+            arguments.args = {"RendererCapacityTest", flag, value};
+            EXPECT_FALSE(module.Init(arguments)) << flag << '=' << value;
+            EXPECT_EQ(source->trace.creates, 0u);
+            EXPECT_EQ(Interface<IRendererProvider>::Get()->GetApi(), nullptr);
+            EXPECT_EQ(Interface<IRenderer>::Get()->GetApi(), nullptr);
+        }
+        for (uint32_t invalid = 0; invalid < 3; ++invalid) {
+            auto              provider = std::make_unique<HostProvider>();
+            const auto       *source   = provider.get();
+            AuroraModule      module(std::move(provider), {});
+            StartArguments    arguments;
+            const std::string combined = std::string(flag) + "=512";
+            if (invalid == 0)
+                arguments.args = {"RendererCapacityTest", flag};
+            else if (invalid == 1)
+                arguments.args = {"RendererCapacityTest", flag, "512", flag, "1024"};
+            else
+                arguments.args = {"RendererCapacityTest", combined.c_str()};
+            EXPECT_FALSE(module.Init(arguments)) << flag << " invalid=" << invalid;
+            EXPECT_EQ(source->trace.creates, 0u);
+        }
+    }
+    for (const auto *value : {"1", "65536"}) {
+        auto           provider = std::make_unique<HostProvider>();
+        const auto    *source   = provider.get();
+        AuroraModule   module(std::move(provider), {});
+        StartArguments arguments;
+        arguments.args = {
+            "RendererCapacityTest", "--aurora-resource-descriptors", value, "--aurora-sampler-descriptors", value, "--aurora-descriptor-sets", value};
+        ASSERT_TRUE(module.Init(arguments));
+        EXPECT_EQ(source->trace.creates, 1u);
+        EXPECT_EQ(source->configuration.resourceDescriptors, value[0] == '1' ? 1u : 65536u);
+        EXPECT_EQ(source->configuration.samplerDescriptors, source->configuration.resourceDescriptors);
+        EXPECT_EQ(source->configuration.descriptorSets, source->configuration.resourceDescriptors);
+        module.Shutdown();
+    }
 }
 
 TEST_F(AuroraModuleLifecycleTest, RendererHostPreservesExternalSkeletonSourceThroughShutdown)

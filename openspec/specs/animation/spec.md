@@ -3,9 +3,7 @@
 ## Purpose
 
 Define animation sampling, graph data, world/adaptor integration and authoring contracts.
-
 ## Requirements
-
 ### Requirement: Runtime animation module boundary
 
 The animation runtime SHALL be provided by the `Animation` module, which SHALL depend only on `Core` and SHALL NOT depend on rendering modules. Rendering and editor consumers SHALL interact with it through its public runtime types.
@@ -641,3 +639,10 @@ Each Clip sampling operation SHALL initialize its destination from the selected 
 #### Scenario: Reused workspace with partial animation
 - **WHEN** one evaluation animates a joint's translation and the next clip omits that channel
 - **THEN** the next pose SHALL restore the reference translation without retaining the previous clip's value
+
+### Requirement: Physics deformation composes through the pose owner
+Completed softbody control snapshots SHALL contribute to the existing animation pose owner through an engine-side interface. Contributions SHALL carry world, instance, skeleton layout and revision identity and SHALL not replace the global skeletal pose source or step physics during render queries.
+
+#### Scenario: Render a physics driven seal
+- **WHEN** a compatible completed softbody sample is available
+- **THEN** the animation host composes the interpolated deformation with its base pose and publishes one complete final pose

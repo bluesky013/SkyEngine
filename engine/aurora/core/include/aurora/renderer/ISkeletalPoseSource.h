@@ -28,6 +28,8 @@ namespace sky::aurora {
         uint64_t             revision        = 0;
         bool                 retainedVersion = false;
         std::vector<Matrix4> models;
+        // Empty uses the inverse transpose of each model; otherwise one matrix per bone.
+        std::vector<Matrix4> modelNormals;
     };
     class ISkeletalPoseSource {
     public:

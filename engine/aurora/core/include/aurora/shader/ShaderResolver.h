@@ -21,6 +21,7 @@ namespace sky::aurora {
 
     class ShaderFileSystem;
     class ShaderCacheWriter;
+    struct ShaderCompilerLease;
 
     enum class ShaderResolveStatus : uint8_t {
         Ready,   // cache hit: result filled
@@ -32,12 +33,13 @@ namespace sky::aurora {
 
     class ShaderResolver {
     public:
-        ShaderResolver(sky::IFileSystem *offlineRoot,
-                       sky::IFileSystem *localRoot,
-                       ShaderFileSystem &sourceFs,
-                       uint64_t          layoutFp,
-                       uint64_t          toolchainFp,
-                       ShaderResolveMode mode = ShaderResolveMode::DEVELOPMENT);
+        ShaderResolver(sky::IFileSystem                          *offlineRoot,
+                       sky::IFileSystem                          *localRoot,
+                       ShaderFileSystem                          &sourceFs,
+                       uint64_t                                   layoutFp,
+                       uint64_t                                   toolchainFp,
+                       ShaderResolveMode                          mode     = ShaderResolveMode::DEVELOPMENT,
+                       std::shared_ptr<const ShaderCompilerLease> compiler = {});
 
         // When set, local index/cache writes go through the dedicated writer
         // thread (async, serialized) instead of inline synchronous writes.
@@ -94,13 +96,14 @@ namespace sky::aurora {
             FileSystemPtr                      root;
             std::shared_ptr<ShaderCacheWriter> writer;
         };
-        std::shared_ptr<AsyncCacheOwners> mAsyncCache;
-        sky::IFileSystem  *mOffline;
-        sky::IFileSystem  *mLocal;
-        ShaderFileSystem  &mSourceFs;
-        ShaderCacheWriter *mWriter = nullptr;
-        uint64_t           mLayoutFp;
-        ShaderResolveMode  mMode;
+        std::shared_ptr<AsyncCacheOwners>          mAsyncCache;
+        std::shared_ptr<const ShaderCompilerLease> mCompiler;
+        sky::IFileSystem                          *mOffline;
+        sky::IFileSystem                          *mLocal;
+        ShaderFileSystem                          &mSourceFs;
+        ShaderCacheWriter                         *mWriter = nullptr;
+        uint64_t                                   mLayoutFp;
+        ShaderResolveMode                          mMode;
     };
 
 } // namespace sky::aurora

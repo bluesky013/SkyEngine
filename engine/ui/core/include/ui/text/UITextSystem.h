@@ -8,6 +8,7 @@
 #include <ui/text/UIFontAtlas.h>
 
 #include <cstdint>
+#include <memory>
 
 namespace sky::ui {
 
@@ -17,6 +18,26 @@ namespace sky::ui {
     // Bundles the active font provider, texture registry, and glyph atlas.
     class UITextSystem {
     public:
+        // UI-thread borrow for widgets which may be destroyed after the text system.
+        class SharedRegistryReference {
+        public:
+            SharedRegistryReference() = default;
+
+            IUITextureRegistry *Get() const
+            {
+                return lifetime.expired() ? nullptr : registry;
+            }
+
+        private:
+            friend class UITextSystem;
+            SharedRegistryReference(IUITextureRegistry *registry, const std::shared_ptr<void> &lifetime) : registry(registry), lifetime(lifetime)
+            {
+            }
+
+            IUITextureRegistry *registry = nullptr;
+            std::weak_ptr<void> lifetime;
+        };
+
         UITextSystem(IUIFontProvider *provider, IUITextureRegistry *registry, uint32_t pageSize = 256);
 
         UIFontAtlas &GetAtlas()
@@ -40,6 +61,10 @@ namespace sky::ui {
         IUITextureRegistry *GetSharedRegistry()
         {
             return &sharedTextures;
+        }
+        SharedRegistryReference GetSharedRegistryReference()
+        {
+            return {&sharedTextures, registryLifetime};
         }
 
         // Register the atlas pages into an additional texture registry (a second
@@ -68,6 +93,7 @@ namespace sky::ui {
         IUITextureRegistry     *registry = nullptr;
         UIFontAtlas             atlas;
         UISharedTextureRegistry sharedTextures;
+        std::shared_ptr<void>   registryLifetime = std::make_shared<char>();
     };
 
 } // namespace sky::ui

@@ -40,6 +40,10 @@ namespace sky {
 
             const auto *info = TypeInfoObj<T>::Get()->RtInfo();
             SKY_ASSERT(Find(info->registeredId) == nullptr)
+            if constexpr (requires { typename T::PersistentDataType; }) {
+                const auto schema = persistentSchemas.find(info->registeredId);
+                SKY_ASSERT(schema == persistentSchemas.end() || schema->second == TypeInfoObj<typename T::PersistentDataType>::Get()->RtInfo())
+            }
             componentTypes[group].push_back({
                 info->registeredId,
                 std::string(info->name),
@@ -79,8 +83,22 @@ namespace sky {
 
         const TypeInfoRT *GetPersistentDataType(const Uuid &id) const
         {
+            const auto schema = persistentSchemas.find(id);
+            if (schema != persistentSchemas.end())
+                return schema->second;
             const auto *info = Find(id);
             return info && info->queryDataType ? info->queryDataType() : nullptr;
+        }
+
+        // Metadata owners publish persistence without loading runtime component factories into cook tools.
+        bool RegisterPersistentDataType(const Uuid &component, const TypeInfoRT *data)
+        {
+            if (!component || !data || !data->registeredId)
+                return false;
+            const auto *runtime = Find(component);
+            if (runtime && runtime->queryDataType && runtime->queryDataType() != data)
+                return false;
+            return persistentSchemas.emplace(component, data).second;
         }
 
         const std::unordered_map<std::string, std::vector<ComponentInfo>> &GetTypes() const
@@ -90,6 +108,7 @@ namespace sky {
 
     private:
         std::unordered_map<std::string, std::vector<ComponentInfo>> componentTypes;
+        std::unordered_map<Uuid, const TypeInfoRT *>                persistentSchemas;
     };
 
 } // namespace sky

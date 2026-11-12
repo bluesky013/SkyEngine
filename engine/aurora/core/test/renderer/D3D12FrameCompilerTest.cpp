@@ -7,11 +7,11 @@
 #include "GpuTestSupport.h"
 #include "graph/FrameGraphBuilder.h"
 #include <D3D12Device.h>
-#include <D3D12Instance.h>
 #include <algorithm>
 #include <atomic>
 #include <aurora/rdg/FrameBindings.h>
 #include <condition_variable>
+#include <core/util/DynamicModule.h>
 #include <d3d12sdklayers.h>
 #include <future>
 #include <map>
@@ -1466,9 +1466,29 @@ TEST_F(D3D12FrameCompilerTest, ComputeCreationPreservesNativeCauseAndAllowsOutOf
 
 TEST_F(D3D12FrameCompilerTest, DirectComputeRejectsUnknownAndDifferentDeviceBeforeNativeCreation)
 {
-    D3D12Instance   otherInstance;
-    D3D12Device     otherDevice(otherInstance);
-    const ShaderPtr foreign(new D3D12Shader(otherDevice));
+    DynamicModule library("Aurora.DX12");
+    ASSERT_TRUE(library.Load());
+    const auto create = library.GetAddress<Instance::Impl *(*)()>("CreateInstance");
+    ASSERT_TRUE(create);
+    const std::unique_ptr<Instance::Impl> backend(create());
+    ASSERT_TRUE(backend);
+    ASSERT_TRUE(backend->Init({"D3D12 foreign shader test", "SkyEngine", false, API::DX12}));
+    const auto releaseDevice = [](Device *value) {
+        if (value) {
+            value->Shutdown();
+            delete value;
+        }
+    };
+    const std::unique_ptr<Device, decltype(releaseDevice)> otherDevice(backend->CreateDevice(), releaseDevice);
+    ASSERT_TRUE(otherDevice);
+    const auto cs = CompileGpuFunction(*otherDevice, kGpuComputeSource, ShaderStageFlagBit::CS, "CSMain");
+    ASSERT_TRUE(cs);
+    Shader::Descriptor descriptor{};
+    descriptor.cs = cs.Get();
+    const ShaderPtr foreign(otherDevice->CreateShader(descriptor));
+    ASSERT_TRUE(foreign);
+    ASSERT_EQ(foreign->GetDevice(), otherDevice.get());
+    ASSERT_NE(foreign->GetDevice(), device);
     const ShaderPtr unknown(new Shader());
     DxProbe         probe(*device);
     for (auto *shader : {foreign.Get(), unknown.Get(), static_cast<Shader *>(nullptr)}) {

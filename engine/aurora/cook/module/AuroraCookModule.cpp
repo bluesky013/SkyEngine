@@ -9,10 +9,12 @@
 #include <aurora/cook/material/AuroraMaterialBuilder.h>
 #include <aurora/cook/material/AuroraMaterialInstanceBuilder.h>
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
+#include <aurora/cook/mesh/MeshAuthoringCompiler.h>
 #include <aurora/cook/skeleton/AuroraSkeletonBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
+#include <physics/softbody/IMeshAuthoringCompiler.h>
 
 namespace sky::aurora {
 
@@ -23,9 +25,13 @@ namespace sky::aurora {
 
         void RegisterMeta() override;
         bool Init(const StartArguments &args) override;
+        void Shutdown() override;
         void Tick(float delta) override
         {
         }
+
+    private:
+        std::shared_ptr<phy::IMeshAuthoringCompiler> meshCompiler;
     };
 
     void AuroraCookModule::RegisterMeta()
@@ -42,7 +48,20 @@ namespace sky::aurora {
 
     bool AuroraCookModule::Init(const StartArguments &args)
     {
+        meshCompiler = cook::CreateMeshAuthoringCompiler();
+        if (!phy::MeshAuthoringCompilerRegistry::Get()->Register(meshCompiler)) {
+            meshCompiler.reset();
+            return false;
+        }
         return true;
+    }
+
+    void AuroraCookModule::Shutdown()
+    {
+        if (meshCompiler) {
+            phy::MeshAuthoringCompilerRegistry::Get()->Unregister(meshCompiler);
+            meshCompiler.reset();
+        }
     }
 
 } // namespace sky::aurora

@@ -5,17 +5,102 @@
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorScopeStack.h>
 #include <editor/core/input/KeyModifiers.h>
+#include <editor/core/viewport/EditorCamera.h>
 #include <editor/ui/UiTheme.h>
 #include <editor/widgets/ActionBarBuilder.h>
+#include <editor/widgets/AssetPreviewCameraInput.h>
 #include <editor/widgets/ReflectedFormView.h>
 #include <editor/widgets/UiSkin.h>
 #include <gtest/gtest.h>
+#include <ui/UIEvent.h>
 #include <ui/UIPaintContext.h>
 
 #include <filesystem>
 #include <string>
 
 using namespace sky::editor;
+
+TEST(EditorWidgetsTest, AssetOrbitPanAndWheelKeepContentPickSeparate)
+{
+    using namespace sky::ui;
+    auto                    camera = MakeAssetPreviewCamera();
+    AssetPreviewCameraInput navigation;
+    const UIRect            image{20, 40, 820, 520};
+    const auto              handle = [&](UIPointerAction action, uint32_t id, uint32_t button, float x, float y, float wheel = 0) {
+        return navigation.Handle(camera, {.action = action, .pointerId = id, .button = button, .x = x, .y = y, .wheelDelta = wheel}, image);
+    };
+    const auto  center  = camera.pivot;
+    const float initial = camera.orbitDistance;
+    EXPECT_FALSE(handle(UIPointerAction::DOWN, 1, 0, 80, 90));
+    EXPECT_FALSE(handle(UIPointerAction::DOWN, 1, 1, 10, 20));
+    ASSERT_TRUE(handle(UIPointerAction::DOWN, 1, 1, 80, 90));
+    ASSERT_TRUE(navigation.Captured());
+    const auto yaw = camera.yaw;
+    EXPECT_FALSE(handle(UIPointerAction::MOVE, 3, 0, 102, 110));
+    EXPECT_EQ(camera.yaw, yaw);
+    ASSERT_TRUE(handle(UIPointerAction::MOVE, 1, 0, 102, 110));
+    EXPECT_NE(camera.yaw, yaw);
+    EXPECT_FALSE(handle(UIPointerAction::UP, 1, 2, 102, 110));
+    ASSERT_TRUE(handle(UIPointerAction::UP, 1, 1, 102, 110));
+    EXPECT_FALSE(navigation.Captured());
+    EXPECT_EQ(camera.pivot, center);
+    EXPECT_FLOAT_EQ(camera.orbitDistance, initial);
+    ASSERT_TRUE(handle(UIPointerAction::WHEEL, 1, 0, 80, 90, 120));
+    EXPECT_LT(camera.orbitDistance, initial);
+    EXPECT_GT(camera.orbitDistance, initial * .5f);
+    EXPECT_EQ(camera.pivot, center);
+    ASSERT_TRUE(handle(UIPointerAction::WHEEL, 1, 0, 80, 90, -120));
+    EXPECT_NEAR(camera.orbitDistance, initial, .0001f);
+    const auto before = camera.position;
+    ASSERT_TRUE(handle(UIPointerAction::DOWN, 1, 2, 80, 90));
+    ASSERT_TRUE(handle(UIPointerAction::MOVE, 1, 0, 180, 100));
+    EXPECT_GT((camera.pivot - center).Dot(camera.Right()), 0.f);
+    EXPECT_LT((camera.pivot - center).Dot(camera.Up()), 0.f);
+    EXPECT_LT(((camera.position - before) - (camera.pivot - center)).Length(), .0001f);
+    navigation.Cancel();
+    EXPECT_FALSE(navigation.Captured());
+    EXPECT_FALSE(handle(UIPointerAction::MOVE, 1, 0, 200, 110));
+    EXPECT_TRUE(AssetPreviewCameraInput::IsFrameKey({.keyCode = 'F', .action = UIKeyAction::DOWN}));
+    EXPECT_FALSE(AssetPreviewCameraInput::IsFrameKey({.keyCode = 'F', .action = UIKeyAction::DOWN, .modifiers = 1}));
+}
+
+TEST(EditorWidgetsTest, AltAssetNavigationKeepsThePressedButtonAndItsPivot)
+{
+    using namespace sky::ui;
+    auto                    camera = MakeAssetPreviewCamera();
+    AssetPreviewCameraInput navigation;
+    const UIRect            image{0, 0, 800, 500};
+    const auto              handle = [&](UIPointerAction action, uint32_t button, float x, float y, uint32_t modifiers = 0) {
+        return navigation.Handle(camera, {.action = action, .button = button, .x = x, .y = y, .modifiers = modifiers}, image);
+    };
+    const auto  pivot    = camera.pivot;
+    const float distance = camera.orbitDistance, yaw = camera.yaw, pitch = camera.pitch;
+    EXPECT_FALSE(handle(UIPointerAction::DOWN, 0, 100, 100, kModAlt | kModCtrl));
+    ASSERT_TRUE(handle(UIPointerAction::DOWN, 0, 100, 100, kModAlt));
+    ASSERT_TRUE(handle(UIPointerAction::MOVE, 0, 145, 145));
+    EXPECT_NEAR(camera.yaw - yaw, .15707963f, 1.e-5f);
+    EXPECT_NEAR(camera.pitch - pitch, -.15707963f, 1.e-5f);
+    EXPECT_FALSE(handle(UIPointerAction::UP, 1, 145, 145));
+    ASSERT_TRUE(handle(UIPointerAction::UP, 0, 145, 145));
+    EXPECT_EQ(camera.pivot, pivot);
+    EXPECT_FLOAT_EQ(camera.orbitDistance, distance);
+
+    const auto facing = camera.Forward();
+    ASSERT_TRUE(handle(UIPointerAction::DOWN, 1, 100, 100, kModAlt));
+    ASSERT_TRUE(handle(UIPointerAction::MOVE, 0, 150, 100));
+    const auto horizontal = camera.orbitDistance;
+    EXPECT_LT(horizontal, distance);
+    ASSERT_TRUE(handle(UIPointerAction::MOVE, 0, 150, 125));
+    EXPECT_LT(camera.orbitDistance, horizontal);
+    ASSERT_TRUE(handle(UIPointerAction::UP, 1, 100, 100));
+    EXPECT_NEAR(camera.orbitDistance, distance, 1.e-5f);
+    EXPECT_EQ(camera.Forward(), facing);
+    EXPECT_EQ(camera.pivot, pivot);
+    ASSERT_TRUE(handle(UIPointerAction::DOWN, 2, 100, 100, kModAlt));
+    ASSERT_TRUE(handle(UIPointerAction::UP, 2, 125, 115));
+    EXPECT_GT((camera.pivot - pivot).Dot(camera.Right()), 0.f);
+    EXPECT_LT((camera.pivot - pivot).Dot(camera.Up()), 0.f);
+}
 
 namespace {
 

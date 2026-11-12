@@ -7,7 +7,9 @@
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <stb_image.h>
 
 static const char *TAG = "AuroraImageSource";
@@ -44,7 +46,7 @@ namespace sky::aurora::cook {
 
         uint32_t MipDim(uint32_t base, uint32_t level)
         {
-            return base > level ? (base >> level) : 1u;
+            return level >= std::numeric_limits<uint32_t>::digits ? 1u : std::max(1u, base >> level);
         }
 
         PixelFormat MapVkFormat(uint32_t vk)

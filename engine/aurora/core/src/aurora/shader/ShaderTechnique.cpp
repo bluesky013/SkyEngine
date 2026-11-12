@@ -33,8 +33,12 @@ namespace sky::aurora {
         };
     } // namespace
 
-    std::variant<RendererError, RenderTechniqueData> CompileShaderTechnique(
-        ShaderFileSystem &files, API backend, const ShaderTechnique &technique, IFileSystem *products, const ShaderTechniqueVariant *resolved)
+    std::variant<RendererError, RenderTechniqueData> CompileShaderTechnique(ShaderFileSystem                          &files,
+                                                                            API                                        backend,
+                                                                            const ShaderTechnique                     &technique,
+                                                                            IFileSystem                               *products,
+                                                                            const ShaderTechniqueVariant              *resolved,
+                                                                            std::shared_ptr<const ShaderCompilerLease> compiler)
     {
         const auto target = Target(backend);
         if (!target)
@@ -44,7 +48,8 @@ namespace sky::aurora {
             return Invalid("Technique requires vertex + fragment or compute exclusively");
         RenderTechniqueData result;
         result.backend = backend;
-        ShaderResolver      resolver(products, nullptr, files, 0, 0, products ? ShaderResolveMode::PRODUCTS : ShaderResolveMode::DEVELOPMENT);
+        ShaderResolver      resolver(products, nullptr, files, 0, 0, products ? ShaderResolveMode::PRODUCTS : ShaderResolveMode::DEVELOPMENT,
+                                     std::move(compiler));
         Stage               stages[] = {{ShaderStageFlagBit::VS, technique.vertex, result.vertex},
                                         {ShaderStageFlagBit::FS, technique.fragment, result.fragment},
                                         {ShaderStageFlagBit::CS, technique.compute, result.compute}};

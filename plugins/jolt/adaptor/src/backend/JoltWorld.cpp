@@ -325,6 +325,7 @@ namespace sky::phy {
             native->GetBodyInterface().AddBody(entry.body, desc.startsAsleep || desc.kind == BodyKind::Static ? JPH::EActivation::DontActivate
                                                                                                               : JPH::EActivation::Activate);
             entry.added = true;
+            collisionStepDelta = 0.f;
         }
         ++stats.bodyCount;
         return entry.id;
@@ -419,6 +420,8 @@ namespace sky::phy {
         if (kind != BodyKind::Kinematic)
             entry->kinematicTarget.reset();
         EraseContacts(id);
+        if (entry->added)
+            collisionStepDelta = 0.f;
         return status = {};
     }
 
@@ -452,8 +455,10 @@ namespace sky::phy {
         }
         EraseContacts(id);
         nativeIds.erase(entry->body.GetIndexAndSequenceNumber());
-        if (entry->added)
+        if (entry->added) {
             native->GetBodyInterface().RemoveBody(entry->body);
+            collisionStepDelta = 0.f;
+        }
         native->GetBodyInterface().DestroyBody(entry->body);
         Release(id);
         --stats.bodyCount;
@@ -522,6 +527,8 @@ namespace sky::phy {
         entry->previous = entry->current = entry->desc.transform = transform;
         entry->kinematicTarget.reset();
         EraseContacts(id);
+        if (entry->added)
+            collisionStepDelta = 0.f;
         return true;
     }
     bool JoltWorld::SetKinematicTarget(PhysicsObjectId id, const Transform &target)
@@ -624,6 +631,8 @@ namespace sky::phy {
         }
         entry->filter = entry->desc.filter = filter;
         RefreshBody(*entry);
+        if (entry->added)
+            collisionStepDelta = 0.f;
         return true;
     }
     void JoltWorld::ApplyMaterial(Entry &entry)

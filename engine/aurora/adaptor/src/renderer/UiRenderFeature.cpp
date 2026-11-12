@@ -8,12 +8,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <type_traits>
 
 namespace sky::aurora {
     namespace {
         constexpr uint32_t           UI_VERSION   = 2;
         constexpr uint32_t           MAX_VERTICES = 65536, MAX_INDICES = 196608, MAX_DRAWS = 4096;
+        static_assert(std::is_trivially_copyable_v<RenderUiVertex> && sizeof(RenderUiVertex) == 52 && offsetof(RenderUiVertex, x) == 0 &&
+                      offsetof(RenderUiVertex, y) == 4 && offsetof(RenderUiVertex, u) == 8 && offsetof(RenderUiVertex, v) == 12 &&
+                      offsetof(RenderUiVertex, color) == 16 && offsetof(RenderUiVertex, shape) == 32 && offsetof(RenderUiVertex, radius) == 48);
         std::optional<RendererError> ValidateSnapshot(const RenderUiSnapshot &snapshot)
         {
             if (!snapshot.output.IsValid() || snapshot.vertices.size() > MAX_VERTICES || snapshot.indices.size() > MAX_INDICES ||
@@ -59,26 +64,19 @@ namespace sky::aurora {
                 size != payload.bytes.size())
                 return RendererError{RendererErrorCode::INVALID_PACKET, "UI payload size or version is invalid"};
             size_t     offset = 16;
-            const auto read   = [&]<typename T>(T &value) {
-                std::memcpy(&value, payload.bytes.data() + offset, sizeof(T));
-                offset += sizeof(T);
+            const auto copy   = [&](void *destination, size_t bytes) {
+                if (bytes)
+                    std::memcpy(destination, payload.bytes.data() + offset, bytes);
+                offset += bytes;
             };
+            const auto       read = [&]<typename T>(T &value) { copy(&value, sizeof(T)); };
             RenderUiSnapshot snapshot;
             snapshot.output = payload.outputs.front();
             snapshot.vertices.resize(header[1]);
             snapshot.indices.resize(header[2]);
             snapshot.draws.resize(header[3]);
-            for (auto &vertex : snapshot.vertices) {
-                read(vertex.x);
-                read(vertex.y);
-                read(vertex.u);
-                read(vertex.v);
-                read(vertex.color);
-                read(vertex.shape);
-                read(vertex.radius);
-            }
-            for (auto &index : snapshot.indices)
-                read(index);
+            copy(snapshot.vertices.data(), snapshot.vertices.size() * sizeof(RenderUiVertex));
+            copy(snapshot.indices.data(), snapshot.indices.size() * sizeof(uint32_t));
             for (auto &draw : snapshot.draws) {
                 read(draw.texture.viewport.index);
                 read(draw.texture.viewport.generation);
@@ -174,6 +172,7 @@ namespace sky::aurora {
                 auto indices = context.Upload(std::as_bytes(std::span(snapshot.indices)), BufferUsageFlagBit::INDEX);
                 if (const auto *error = std::get_if<FrameError>(&indices))
                     return *error;
+                pass.draws.reserve(snapshot.draws.size());
                 for (const auto &command : snapshot.draws) {
                     const auto a = transform(command.clip[0], command.clip[1]), b = transform(command.clip[2], command.clip[3]);
                     const auto pixelY = [&](float y) {
@@ -223,19 +222,16 @@ namespace sky::aurora {
         FrameExtensionPayload result;
         result.feature = feature;
         result.outputs = {snapshot.output};
+        const auto vertices = std::as_bytes(std::span(snapshot.vertices));
+        const auto indices  = std::as_bytes(std::span(snapshot.indices));
+        result.bytes.reserve(16 + vertices.size() + indices.size() + snapshot.draws.size() * 44);
         Append(result.bytes, std::array{UI_VERSION, static_cast<uint32_t>(snapshot.vertices.size()), static_cast<uint32_t>(snapshot.indices.size()),
                                         static_cast<uint32_t>(snapshot.draws.size())});
-        for (const auto &vertex : snapshot.vertices) {
-            Append(result.bytes, vertex.x);
-            Append(result.bytes, vertex.y);
-            Append(result.bytes, vertex.u);
-            Append(result.bytes, vertex.v);
-            Append(result.bytes, vertex.color);
-            Append(result.bytes, vertex.shape);
-            Append(result.bytes, vertex.radius);
-        }
-        for (const auto index : snapshot.indices)
-            Append(result.bytes, index);
+        result.bytes.resize(16 + vertices.size() + indices.size());
+        if (!vertices.empty())
+            std::memcpy(result.bytes.data() + 16, vertices.data(), vertices.size());
+        if (!indices.empty())
+            std::memcpy(result.bytes.data() + 16 + vertices.size(), indices.data(), indices.size());
         for (const auto &draw : snapshot.draws) {
             Append(result.bytes, draw.texture.viewport.index);
             Append(result.bytes, draw.texture.viewport.generation);

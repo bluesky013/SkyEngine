@@ -102,32 +102,53 @@ sky_resolve_module_manifest(selected "${CMAKE_CURRENT_SOURCE_DIR}/manifest.json"
         self.assertIn("Enabled module target is unavailable", result.stdout)
 
     def test_asset_tool_static_inventory_excludes_legacy_dynamic_modules(self):
-        result, build = self.configure(f'''
+        for softbody in (False, True):
+            with self.subTest(softbody=softbody):
+                result, build = self.configure(f'''
 set(SKY_DEVELOP ON)
 set(SKY_MODULE_PACKAGING static)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${{CMAKE_BINARY_DIR}}/bin")
-set_property(GLOBAL PROPERTY SKY_RUNTIME_BUILD_OPTIONS SKY_BUILD_AUDIO SKY_BUILD_JOLT SKY_BUILD_RECAST SKY_BUILD_TERRAIN SKY_BUILD_ANIMATION SKY_BUILD_PARTICLE)
-foreach(option SKY_BUILD_AUDIO SKY_BUILD_JOLT SKY_BUILD_RECAST SKY_BUILD_TERRAIN SKY_BUILD_ANIMATION SKY_BUILD_PARTICLE)
+set_property(GLOBAL PROPERTY SKY_RUNTIME_BUILD_OPTIONS SKY_BUILD_AUDIO SKY_BUILD_JOLT SKY_BUILD_RECAST SKY_BUILD_TERRAIN SKY_BUILD_ANIMATION SKY_BUILD_PARTICLE SKY_BUILD_SOFTBODY)
+foreach(option SKY_BUILD_AUDIO SKY_BUILD_JOLT SKY_BUILD_RECAST SKY_BUILD_TERRAIN SKY_BUILD_ANIMATION SKY_BUILD_PARTICLE SKY_BUILD_SOFTBODY)
     set(${{option}} OFF)
 endforeach()
-foreach(module Framework Aurora.Cook Aurora.Metadata Content.Builder.Module Content.Metadata Curve.Builder Curve.Assets)
+set(SKY_BUILD_SOFTBODY {"ON" if softbody else "OFF"})
+foreach(module Framework Aurora.Cook Aurora.Metadata Content.Builder.Module Content.Metadata Curve.Builder Curve.Assets SoftBody.Builder SoftBody.Assets)
     add_library(${{module}} INTERFACE)
 endforeach()
-set_property(GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS Curve.Builder Curve.Assets)
+set_property(GLOBAL PROPERTY SKY_STATIC_MODULE_TARGETS Curve.Builder Curve.Assets SoftBody.Builder SoftBody.Assets)
 function(sky_add_exe)
     file(WRITE "${{CMAKE_CURRENT_BINARY_DIR}}/main.cpp" "int main() {{ return 0; }}\n")
     set_source_files_properties("${{CMAKE_CURRENT_BINARY_DIR}}/main.cpp" PROPERTIES GENERATED TRUE)
     add_executable(AssetTool "${{CMAKE_CURRENT_BINARY_DIR}}/main.cpp")
 endfunction()
 add_subdirectory("{ROOT.as_posix()}/tools/asset_tool" tool)
+get_target_property(dependencies AssetTool MANUALLY_ADDED_DEPENDENCIES)
+file(WRITE "${{CMAKE_BINARY_DIR}}/asset-tool-dependencies" "${{dependencies}}")
+get_target_property(dependencies SoftBody.Builder MANUALLY_ADDED_DEPENDENCIES)
+file(WRITE "${{CMAKE_BINARY_DIR}}/softbody-builder-dependencies" "${{dependencies}}")
+sky_runtime_resource_directory(runtime_directory)
+file(GENERATE OUTPUT "${{CMAKE_BINARY_DIR}}/runtime-directory-$<CONFIG>.txt" CONTENT "${{runtime_directory}}")
 ''')
-        self.assertEqual(result.returncode, 0, result.stdout)
-        factories = (build / "tool/RegisterStaticModules.cpp").read_text()
-        self.assertIn("sky_module_create_Curve_Builder", factories)
-        self.assertNotIn("sky_module_create_Aurora_Cook", factories)
-        self.assertNotIn("sky_module_create_Content_Builder_Module", factories)
-        for name in ("modules_asset_tool.json", "modules_asset_audit.json"):
-            self.assertEqual((build / "bin/configs" / name).read_bytes(), (ROOT / "configs" / name).read_bytes())
+                self.assertEqual(result.returncode, 0, result.stdout)
+                factories = (build / "tool/RegisterStaticModules.cpp").read_text()
+                self.assertIn("sky_module_create_Curve_Builder", factories)
+                self.assertNotIn("sky_module_create_Aurora_Cook", factories)
+                self.assertNotIn("sky_module_create_Content_Builder_Module", factories)
+                dependencies = (build / "asset-tool-dependencies").read_text().split(";")
+                for module in ("SoftBody.Builder", "SoftBody.Assets"):
+                    self.assertEqual("sky_module_create_" + module.replace(".", "_") in factories, softbody)
+                    self.assertEqual(module in dependencies, softbody)
+                self.assertNotIn("sky_module_create_SoftBody_World", factories)
+                if softbody:
+                    self.assertEqual(set((build / "softbody-builder-dependencies").read_text().split(";")),
+                                     {"SoftBody.Assets", "Aurora.Cook"})
+                runtime_directories = sorted(build.glob("runtime-directory-*.txt"))
+                self.assertTrue(runtime_directories)
+                for directory in runtime_directories:
+                    for name in ("modules_asset_tool.json", "modules_asset_audit.json"):
+                        self.assertEqual((Path(directory.read_text()) / "configs" / name).read_bytes(),
+                                         (ROOT / "configs" / name).read_bytes())
 
     def test_private_link_requirements_do_not_leak_to_consumers(self):
         result, build = self.configure('''

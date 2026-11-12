@@ -8,13 +8,16 @@ namespace sky::aurora {
         RendererCreateResult Create(const RendererInitInfo &info) override
         {
             if (info.inflightFrames == 0 || info.maxPendingPackets == 0 || info.prepareWorkers == 0 || info.encodeWorkers == 0 ||
-                info.maxPendingResourceBytes == 0 || info.maxUploadBytesPerFrame < 4) {
+                info.maxPendingResourceBytes == 0 || info.maxUploadBytesPerFrame < 4 || info.resourceDescriptors == 0 ||
+                info.samplerDescriptors == 0 || info.descriptorSets == 0) {
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Frame, queue, worker counts and resource budgets must be nonzero"};
             }
             const bool validBackend =
                 info.backend == API::DEFAULT || info.backend == API::VULKAN || info.backend == API::METAL || info.backend == API::DX12;
             if (info.maxPendingPackets > 64 || info.inflightFrames > 8 || info.prepareWorkers > 64 || info.encodeWorkers > 64 ||
-                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || !validBackend)
+                info.maxUploadBytesPerFrame > UINT64_MAX / info.inflightFrames || !validBackend ||
+                info.resourceDescriptors > RendererInitInfo::MAX_DESCRIPTOR_COUNT ||
+                info.samplerDescriptors > RendererInitInfo::MAX_DESCRIPTOR_COUNT || info.descriptorSets > RendererInitInfo::MAX_DESCRIPTOR_COUNT)
                 return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Renderer configuration exceeds supported ranges"};
             return CreateRuntimeRenderer(info);
         }

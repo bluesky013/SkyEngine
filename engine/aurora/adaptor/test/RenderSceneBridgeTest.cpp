@@ -1,3 +1,4 @@
+#include <array>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/components/CameraComponent.h>
@@ -9,9 +10,12 @@
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <aurora/renderer/IRenderer.h>
+#include <aurora/renderer/ISkeletalPoseSource.h>
 #include <aurora/rhi/VertexSemantic.h>
+#include <core/math/Vector2.h>
 #include <cstring>
 #include <framework/asset/AssetEvent.h>
+#include <framework/interface/Interface.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <gtest/gtest.h>
@@ -223,6 +227,66 @@ TEST(SceneMeshConversion, SharedSectionsValidateIndicesAndOwnedBacking)
     EXPECT_NE(payload.bytes[payload.mesh->lods[0].offset], 255);
 }
 
+TEST(SceneMeshConversion, UvChannelsMapToShaderTexcoordsWithoutChangingAssetSemantics)
+{
+    constexpr std::array channels{VertexSemantic::UV1, VertexSemantic::UV2, VertexSemantic::UV3, VertexSemantic::UV4};
+    Asset<Mesh>          asset;
+    asset.SetUuid(Uuid::Create());
+    auto &data           = asset.Data();
+    data                 = ScenePrimitiveMesh(ScenePrimitive::CUBE);
+    const auto positions = data.vertexData;
+    data.vertexStride    = 24 + 4 * 8;
+    data.vertexSize      = uint64_t(data.vertexCount) * data.vertexStride;
+    data.vertexData.resize(data.vertexSize);
+    data.attributes.push_back({uint8_t(VertexSemantic::NORMAL), 0, 0, uint32_t(Format::F_RGB32), 12});
+    for (uint32_t channel = 0; channel < channels.size(); ++channel)
+        data.attributes.push_back({uint8_t(channels[channel]), 0, 0, uint32_t(Format::F_RG32), 24 + channel * 8});
+    for (uint32_t i = 0; i < data.vertexCount; ++i) {
+        auto *vertex = data.vertexData.data() + size_t(i) * data.vertexStride;
+        std::memset(vertex, 0, data.vertexStride);
+        std::memcpy(vertex, positions.data() + size_t(i) * sizeof(Vector3), sizeof(Vector3));
+        const Vector3 normal{0, 1, 0};
+        std::memcpy(vertex + 12, &normal, sizeof(normal));
+        for (uint32_t channel = 0; channel < channels.size(); ++channel) {
+            const Vector2 uv{float(channel), float(i)};
+            std::memcpy(vertex + 24 + channel * 8, &uv, sizeof(uv));
+        }
+    }
+    const auto result = ConvertSceneMesh(asset, {API::VULKAN, 9});
+    ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(result));
+    const auto &payload = std::get<RenderResourcePayload>(result);
+    ASSERT_TRUE(payload.mesh);
+    ASSERT_EQ(payload.mesh->attributes.size(), 6u);
+    EXPECT_EQ(payload.mesh->attributes[0].semantic, "POSITION");
+    EXPECT_EQ(payload.mesh->attributes[1].semantic, "NORMAL");
+    const auto mask = RenderVertexMask(payload.mesh->streams, payload.mesh->attributes);
+    EXPECT_TRUE(mask.Test(VertexSemantic::POSITION));
+    EXPECT_TRUE(mask.Test(VertexSemantic::NORMAL));
+    for (uint32_t channel = 0; channel < channels.size(); ++channel) {
+        const auto &attribute = payload.mesh->attributes[channel + 2];
+        EXPECT_EQ(attribute.semantic, "TEXCOORD");
+        EXPECT_EQ(attribute.semanticIndex, channel);
+        EXPECT_EQ(attribute.format, Format::F_RG32);
+        EXPECT_EQ(attribute.offset, 24 + channel * 8);
+        EXPECT_TRUE(mask.Test(channels[channel]));
+        EXPECT_EQ(data.attributes[channel + 2].semantic, uint8_t(channels[channel]));
+        EXPECT_EQ(data.attributes[channel + 2].semanticIndex, 0u);
+    }
+    EXPECT_STREQ(VertexSemanticName(VertexSemantic::UV1), "UV1");
+    const auto retainedBytes = payload.bytes;
+    for (uint32_t channel = 0; channel < channels.size(); ++channel) {
+        for (const uint8_t index : {uint8_t{1}, uint8_t{255}}) {
+            data.attributes[channel + 2].semanticIndex = index;
+            const auto rejected                        = ConvertSceneMesh(asset, {API::VULKAN, 9});
+            ASSERT_TRUE(std::holds_alternative<RendererError>(rejected));
+            EXPECT_EQ(std::get<RendererError>(rejected).code, RendererErrorCode::INVALID_ARGUMENT);
+            EXPECT_EQ(payload.bytes, retainedBytes);
+            EXPECT_EQ(payload.mesh->attributes[channel + 2].semanticIndex, channel);
+        }
+        data.attributes[channel + 2].semanticIndex = 0;
+    }
+}
+
 TEST_F(SceneBridgeTest, BusyAndRejectedKeepTheSameOwnedSnapshot)
 {
     struct Recorder final : IRenderer {
@@ -404,6 +468,11 @@ TEST(SceneMeshConversion, SkinInputsValidateIntegerSlotsWeightsAndBounds)
     ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(good));
     const auto &payload = std::get<RenderResourcePayload>(good);
     EXPECT_EQ(payload.mesh->attributes[1].format, Format::U_RGBA8);
+    EXPECT_EQ(payload.mesh->attributes[0].semantic, "POSITION");
+    EXPECT_EQ(payload.mesh->attributes[1].semantic, "JOINTS");
+    EXPECT_EQ(payload.mesh->attributes[2].semantic, "WEIGHTS");
+    for (const auto &attribute : payload.mesh->attributes)
+        EXPECT_EQ(attribute.semanticIndex, 0u);
     data.vertexData[12] = 1;
     EXPECT_TRUE(std::holds_alternative<RendererError>(ConvertSceneMesh(asset, {API::VULKAN, 9})));
     data.vertexData[12] = 0;
@@ -470,4 +539,220 @@ TEST_F(SceneBridgeTest, SkeletalReferencePoseOwnsTupleAndFailedReloadFreezesIt)
     JsonInputArchive      input(storage);
     restored.LoadJson(input);
     EXPECT_EQ(restored.GetData(), component->GetData());
+}
+
+namespace {
+    class PoseSource final : public ISkeletalPoseSource {
+    public:
+        PoseSource()
+        {
+            Interface<ISkeletalPoseSource>::Get()->Register(*this);
+        }
+        ~PoseSource() override
+        {
+            if (Interface<ISkeletalPoseSource>::Get()->GetApi() == this) {
+                Interface<ISkeletalPoseSource>::Get()->UnRegister();
+            }
+        }
+        SkeletalPoseResult Describe(const void *, const Uuid &) const override
+        {
+            return pose;
+        }
+        SkeletalPoseResult Query(const SkeletalPoseIdentity &, const SkeletalRigVersion &) const override
+        {
+            return pose;
+        }
+        SkeletalPoseResult pose;
+    };
+
+    Actor *PrepareContributedSkeleton(World &world, const std::shared_ptr<Source> &source, PoseSource &poses)
+    {
+        auto                     *actor = world.CreateActor();
+        SkeletalMeshComponentData config{Uuid::Create(), Uuid::Create(), Uuid::Create()};
+        config.pose = SkeletalPoseMode::SameActorAnimation;
+        actor->AddComponent<SkeletalMeshComponent>()->SetConfig(config);
+        const auto ready             = std::make_shared<SceneSkeletalResources>();
+        ready->geometry              = std::get<std::shared_ptr<const SceneMeshResources>>(source->ResolveMesh(config.mesh, {}, {API::VULKAN, 7}));
+        const auto binding           = std::make_shared<ResolvedSkinBinding>();
+        binding->key                 = {config.mesh, config.skin, config.skeleton, 1, 1, 1, 123, Uuid::Create(), Uuid::Create(), Uuid::Create()};
+        binding->targetBoneCount     = 2;
+        binding->slotToBone          = {1, 0};
+        Matrix4 scaled               = Matrix4::Identity();
+        scaled[0].x                  = 2.f;
+        scaled[1].y                  = 3.f;
+        scaled[2].z                  = 4.f;
+        Matrix4 rotated              = Matrix4::Identity();
+        rotated[0]                   = {0.f, 1.f, 0.f, 0.f};
+        rotated[1]                   = {-1.f, 0.f, 0.f, 0.f};
+        binding->inverseBindMatrices = {scaled, rotated};
+        ready->binding               = binding;
+        ready->skeleton              = {config.skeleton, binding->key.skeletonGeneration, 1, 123};
+        ready->referenceModels       = {Matrix4::Identity(), Matrix4::Identity()};
+        ready->slotBounds            = {{true, {{-1, -1, -1}, {1, 1, 1}}}, {true, {{-1, -1, -1}, {1, 1, 1}}}};
+        source->skeletal             = ready;
+        poses.pose.state             = SkeletalPoseState::Ready;
+        poses.pose.instance          = {&world, world.GetRuntimeId(), actor->GetUuid(), Uuid::Create()};
+        poses.pose.skeleton          = ready->skeleton;
+        poses.pose.revision          = 1;
+        poses.pose.models            = ready->referenceModels;
+        return actor;
+    }
+} // namespace
+
+TEST_F(SceneBridgeTest, PendingAnimationStartupDefersEntityUntilReadyWithoutIssue)
+{
+    PoseSource poses;
+    PrepareContributedSkeleton(*world, source, poses);
+    const auto ready    = poses.pose;
+    poses.pose.state    = SkeletalPoseState::Pending;
+    poses.pose.skeleton = {};
+    poses.pose.revision = 0;
+    poses.pose.models.clear();
+    bridge.SetWorld(world.Get());
+    EXPECT_TRUE(Commands<CreateRenderEntity>(Sync()).empty());
+    EXPECT_TRUE(bridge.GetIssues().empty());
+    poses.pose         = ready;
+    const auto created = Commands<CreateRenderEntity>(Sync());
+    ASSERT_EQ(created.size(), 1u);
+    EXPECT_EQ(created[0].desc.properties.skinning->poseRevision, ready.revision);
+    EXPECT_TRUE(bridge.GetIssues().empty());
+}
+
+TEST_F(SceneBridgeTest, PendingAnimationRetainsWholeTupleAndTransformUntilReady)
+{
+    PoseSource poses;
+    auto      *actor = PrepareContributedSkeleton(*world, source, poses);
+    bridge.SetWorld(world.Get());
+    bridge.EnableGeometrySnapshots(true);
+    const auto created = Commands<CreateRenderEntity>(Sync());
+    ASSERT_EQ(created.size(), 1u);
+    const auto retained          = created[0].desc.properties.skinning;
+    const auto readyPose         = poses.pose;
+    const auto originalResources = source->skeletal;
+    auto       candidate         = std::make_shared<SceneSkeletalResources>(*source->skeletal);
+    candidate->geometry          = std::make_shared<SceneMeshResources>(*candidate->geometry);
+    auto binding                 = std::make_shared<ResolvedSkinBinding>(*candidate->binding);
+    ++binding->key.skinRevision;
+    candidate->binding = binding;
+    source->skeletal   = candidate;
+    actor->GetComponent<TransformComponent>()->SetLocalTranslation({5, 0, 0});
+    poses.pose.state    = SkeletalPoseState::Pending;
+    poses.pose.skeleton = {};
+    poses.pose.revision = 0;
+    poses.pose.models.clear();
+    const auto pending = Sync();
+    EXPECT_TRUE(Commands<UpdateRenderEntity>(pending).empty());
+    EXPECT_TRUE(Commands<DestroyRenderEntity>(pending).empty());
+    EXPECT_TRUE(bridge.GetIssues().empty());
+    ASSERT_EQ(bridge.GeometrySnapshot()->instances.size(), 1u);
+    EXPECT_FLOAT_EQ(bridge.GeometrySnapshot()->instances[0].world[3].x, 0.f);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].resources, originalResources->geometry);
+    EXPECT_EQ(retained->binding.skinRevision + 1, binding->key.skinRevision);
+    poses.pose = readyPose;
+    ++poses.pose.revision;
+    const auto updates = Commands<UpdateRenderEntity>(Sync());
+    ASSERT_EQ(updates.size(), 1u);
+    EXPECT_FLOAT_EQ(updates[0].desc.world[3].x, 5.f);
+    EXPECT_EQ(updates[0].desc.properties.skinning->binding, binding->key);
+    EXPECT_NE(updates[0].desc.properties.skinning, retained);
+    EXPECT_EQ(bridge.GeometrySnapshot()->instances[0].resources, candidate->geometry);
+    EXPECT_TRUE(bridge.GetIssues().empty());
+}
+
+TEST_F(SceneBridgeTest, AnimationErrorReadyRigMismatchAndInvalidPendingIdentityRemainIssues)
+{
+    PoseSource poses;
+    PrepareContributedSkeleton(*world, source, poses);
+    const auto ready = poses.pose;
+    bridge.SetWorld(world.Get());
+    for (uint32_t failure = 0; failure < 3; ++failure) {
+        poses.pose = ready;
+        if (failure == 0) {
+            poses.pose.state      = SkeletalPoseState::Error;
+            poses.pose.diagnostic = "Animation source failed";
+        } else if (failure == 1) {
+            poses.pose.skeleton.generation = Uuid::Create();
+        } else {
+            poses.pose.state               = SkeletalPoseState::Pending;
+            poses.pose.instance.worldEpoch = Uuid::Create();
+        }
+        EXPECT_TRUE(Commands<CreateRenderEntity>(Sync()).empty());
+        EXPECT_FALSE(bridge.GetIssues().empty());
+    }
+    poses.pose = ready;
+    EXPECT_EQ(Commands<CreateRenderEntity>(Sync()).size(), 1u);
+    EXPECT_TRUE(bridge.GetIssues().empty());
+}
+
+TEST_F(SceneBridgeTest, ModelNormalsFollowSkinSlotMappingAndInverseBindThenFallback)
+{
+    PoseSource poses;
+    PrepareContributedSkeleton(*world, source, poses);
+    Matrix4 gradient        = Matrix4::Identity();
+    gradient[0]             = {0.f, 2.f, 0.f, 0.f};
+    gradient[1]             = {-3.f, 0.f, 0.f, 0.f};
+    gradient[2].z           = 4.f;
+    Matrix4 other           = Matrix4::Identity();
+    other[0].x              = 0.5f;
+    other[1].y              = 2.f;
+    other[2].z              = 3.f;
+    poses.pose.modelNormals = {other.InverseTranspose(), gradient.InverseTranspose()};
+    bridge.SetWorld(world.Get());
+    const auto created = Commands<CreateRenderEntity>(Sync());
+    ASSERT_EQ(created.size(), 1u);
+    const auto published = created[0].desc.properties.skinning;
+    ASSERT_EQ(published->matrices.size(), 4u);
+    const auto   &binding        = *source->skeletal->binding;
+    const Matrix4 expectedFirst  = (gradient * binding.inverseBindMatrices[0]).InverseTranspose();
+    const Matrix4 expectedSecond = (other * binding.inverseBindMatrices[1]).InverseTranspose();
+    for (uint32_t i = 0; i < 16; ++i) {
+        EXPECT_NEAR(published->matrices[1].v[i], expectedFirst.v[i], 0.00001f);
+        EXPECT_NEAR(published->matrices[3].v[i], expectedSecond.v[i], 0.00001f);
+    }
+    poses.pose.modelNormals.clear();
+    ++poses.pose.revision;
+    const auto updates = Commands<UpdateRenderEntity>(Sync());
+    ASSERT_EQ(updates.size(), 1u);
+    const auto fallback = updates[0].desc.properties.skinning;
+    for (size_t slot = 0; slot < binding.slotToBone.size(); ++slot) {
+        const auto normal = fallback->matrices[slot * 2].InverseTranspose();
+        for (uint32_t i = 0; i < 16; ++i) {
+            EXPECT_NEAR(fallback->matrices[slot * 2 + 1].v[i], normal.v[i], 0.00001f);
+        }
+    }
+    EXPECT_NE(published, fallback);
+}
+
+TEST_F(SceneBridgeTest, InvalidNormalCountValuesAndInvertibilityRetainWholeCandidate)
+{
+    PoseSource poses;
+    auto      *actor        = PrepareContributedSkeleton(*world, source, poses);
+    poses.pose.modelNormals = {Matrix4::Identity(), Matrix4::Identity()};
+    bridge.SetWorld(world.Get());
+    bridge.EnableGeometrySnapshots(true);
+    const auto created = Commands<CreateRenderEntity>(Sync());
+    ASSERT_EQ(created.size(), 1u);
+    const auto retained = created[0].desc.properties.skinning;
+    actor->GetComponent<TransformComponent>()->SetLocalTranslation({5, 0, 0});
+    for (uint32_t failure = 0; failure < 3; ++failure) {
+        poses.pose.modelNormals = {Matrix4::Identity(), Matrix4::Identity()};
+        if (failure == 0) {
+            poses.pose.modelNormals.pop_back();
+        } else if (failure == 1) {
+            poses.pose.modelNormals[1][0].x = std::numeric_limits<float>::quiet_NaN();
+        } else {
+            poses.pose.modelNormals[0][0].x = 0.f;
+        }
+        ++poses.pose.revision;
+        EXPECT_TRUE(Commands<UpdateRenderEntity>(Sync()).empty());
+        EXPECT_FALSE(bridge.GetIssues().empty());
+        EXPECT_FLOAT_EQ(bridge.GeometrySnapshot()->instances[0].world[3].x, 0.f);
+    }
+    poses.pose.modelNormals = {Matrix4::Identity(), Matrix4::Identity()};
+    ++poses.pose.revision;
+    const auto updates = Commands<UpdateRenderEntity>(Sync());
+    ASSERT_EQ(updates.size(), 1u);
+    EXPECT_FLOAT_EQ(updates[0].desc.world[3].x, 5.f);
+    EXPECT_NE(updates[0].desc.properties.skinning, retained);
+    EXPECT_EQ(retained->poseRevision, 1u);
 }

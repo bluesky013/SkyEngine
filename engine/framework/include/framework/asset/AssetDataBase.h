@@ -58,6 +58,8 @@ namespace sky {
         bool          GetGeneratedDefaults(const Uuid &owner, std::map<std::string, Uuid> &out) const;
 
         AssetSourcePtr RegisterAsset(const FilePath &path, bool build = true);
+        // Checked identity persistence for authoring saves; an unrelated manifest owner is never replaced.
+        FileOperationStatus PersistSourceIdentity(const Uuid &source);
 
         AssetSourcePtr FindAsset(const Uuid &id);
         AssetSourcePtr FindAsset(const FilePath &path);

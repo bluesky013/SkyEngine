@@ -276,6 +276,9 @@ namespace sky::editor {
             }
             return (std::filesystem::path(project.AssetsDir()) / worldPath).string();
         }
+
+        bool StageProjectShaderBundle(const ProjectDescriptor &project, FileSystemPtr &bundle, std::string &error);
+
         class HubTarget : public IUiTarget {
         public:
             explicit HubTarget(ProjectManagerView *view) : view(view)
@@ -382,7 +385,13 @@ namespace sky::editor {
             std::any_of(args.args.begin(), args.args.end(), [](const char *arg) { return std::string_view(arg) == "--aurora-vulkan-render-pass"; });
         sky::aurora::VulkanConfig vulkanConfig;
         vulkanConfig.dynamicRendering = !renderPass;
-        if (!renderer.Init("SandboxEditor", 1280, 720, api, false, vulkanConfig)) {
+        FileSystemPtr shaderBundle;
+        if (!hubMode && !project.resourceModules.empty()) {
+            std::string error;
+            if (!StageProjectShaderBundle(project, shaderBundle, error))
+                LOG_E(TAG, "Project shaders unavailable; using editor shader resources: %s", error.c_str());
+        }
+        if (!renderer.Init("SandboxEditor", 1280, 720, api, false, vulkanConfig, std::move(shaderBundle))) {
             return false;
         }
         initialized = true;
@@ -1431,10 +1440,11 @@ namespace sky::editor {
     namespace {
         std::string FindPackagingScript()
         {
-            const char *envRoot = std::getenv("SKY_ENGINE_ROOT");
+            std::error_code error;
+            const char     *envRoot = std::getenv("SKY_ENGINE_ROOT");
             if (envRoot != nullptr) {
                 const auto candidate = std::filesystem::path(envRoot) / "python" / "package_project.py";
-                if (std::filesystem::exists(candidate)) {
+                if (std::filesystem::is_regular_file(candidate, error)) {
                     return candidate.string();
                 }
             }
@@ -1444,7 +1454,7 @@ namespace sky::editor {
             }
             for (int i = 0; i < 6 && !dir.empty(); ++i) {
                 const auto candidate = dir / "python" / "package_project.py";
-                if (std::filesystem::exists(candidate)) {
+                if (std::filesystem::is_regular_file(candidate, error)) {
                     return candidate.string();
                 }
                 dir = dir.parent_path();
@@ -1462,6 +1472,65 @@ namespace sky::editor {
 #else
             return "python3";
 #endif
+        }
+
+        std::string Utf8Argument(const std::filesystem::path &path)
+        {
+            const auto utf8 = path.u8string();
+            return {utf8.begin(), utf8.end()};
+        }
+
+        bool StageProjectShaderBundle(const ProjectDescriptor &project, FileSystemPtr &bundle, std::string &error)
+        {
+            const auto script = FindPackagingScript();
+            if (script.empty()) {
+                error = "Cannot locate python/package_project.py (set SKY_ENGINE_ROOT)";
+                return false;
+            }
+            // The per-project staging root is protected by the editor's project lock.
+            const auto  root = std::filesystem::path(project.Dir()) / "Intermediate" / "editor-shaders";
+            ProcessDesc desc;
+            desc.args    = {Utf8Argument(FindPythonCommand()),
+                            "-X",
+                            "utf8",
+                            Utf8Argument(script),
+                            "stage-shaders",
+                            "--project",
+                            Utf8Argument(project.filePath),
+                            "--destination",
+                            Utf8Argument(root / "assets" / "shaders")};
+            auto process = CreateProcess();
+            if (!process || !process->Start(desc)) {
+                error = "Cannot start the shader staging tool (check SKY_PYTHON and PATH)";
+                return false;
+            }
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+            bool       outEof = false, errEof = false;
+            int        exitCode = 0;
+            while (!outEof || !errEof || !process->WaitFor(10, exitCode)) {
+                if (std::chrono::steady_clock::now() >= deadline) {
+                    process->Kill();
+                    process->WaitFor(1000, exitCode);
+                    error = "Shader source staging timed out";
+                    return false;
+                }
+                uint8_t bytes[4096];
+                if (!outEof)
+                    process->ReadStdout(bytes, sizeof(bytes), outEof);
+                if (!errEof) {
+                    const size_t count = process->ReadStderr(bytes, sizeof(bytes), errEof);
+                    error.append(reinterpret_cast<const char *>(bytes), count);
+                    if (error.size() > 8192)
+                        error.erase(0, error.size() - 8192);
+                }
+            }
+            if (exitCode != 0) {
+                if (error.empty())
+                    error = "Shader source staging exited with code " + std::to_string(exitCode);
+                return false;
+            }
+            bundle = new NativeFileSystem(root);
+            return true;
         }
     } // namespace
 
@@ -1489,21 +1558,17 @@ namespace sky::editor {
             return;
         }
         // Process argv is UTF-8; the file browser's filesystem paths use the native encoding.
-        const auto utf8Argument = [](const std::filesystem::path &path) {
-            const auto utf8 = path.u8string();
-            return std::string(utf8.begin(), utf8.end());
-        };
         sky::ProcessDesc desc;
-        desc.args = {utf8Argument(FindPythonCommand()),
+        desc.args = {Utf8Argument(FindPythonCommand()),
                      "-u",
                      "-X",
                      "utf8",
-                     utf8Argument(script),
+                     Utf8Argument(script),
                      "create",
                      "--dir",
-                     utf8Argument(target.parent_path()),
+                     Utf8Argument(target.parent_path()),
                      "--name",
-                     utf8Argument(target.filename()),
+                     Utf8Argument(target.filename()),
                      "--progress"};
         StartProjectCreation(std::move(desc), (target / (name + ".skyproj")).string());
     }
@@ -1951,6 +2016,7 @@ namespace sky::editor {
         sky::ui::UIPointerEvent pointer;
         pointer.action = sky::ui::UIPointerAction::DOWN;
         pointer.button = static_cast<uint32_t>(event.button);
+        pointer.modifiers = event.modifiers;
         pointer.x      = static_cast<float>(event.x);
         pointer.y      = static_cast<float>(event.y);
         RoutePointer(pointer, event.winID);
@@ -1970,6 +2036,7 @@ namespace sky::editor {
         sky::ui::UIPointerEvent pointer;
         pointer.action = sky::ui::UIPointerAction::UP;
         pointer.button = static_cast<uint32_t>(event.button);
+        pointer.modifiers = event.modifiers;
         pointer.x      = static_cast<float>(event.x);
         pointer.y      = static_cast<float>(event.y);
         RoutePointer(pointer, event.winID);

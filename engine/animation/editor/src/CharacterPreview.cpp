@@ -102,6 +102,7 @@ namespace sky::animation::editor {
     }
     CharacterPreview::CharacterPreview(Uuid asset, std::string type) : asset(asset), type(std::move(type))
     {
+        Resize(width, height);
         settings.referencePose = this->type == "AuroraSkeleton";
         if (settings.referencePose)
             settings.skeleton = asset;
@@ -150,8 +151,10 @@ namespace sky::animation::editor {
     }
     void CharacterPreview::Resize(uint32_t w, uint32_t h)
     {
-        width  = std::clamp(w, 1u, 4096u);
-        height = std::clamp(h, 1u, 4096u);
+        const float scale = 4096.f / static_cast<float>(std::max({w, h, 4096u}));
+        width             = std::max(1u, static_cast<uint32_t>(std::round(w * scale)));
+        height            = std::max(1u, static_cast<uint32_t>(std::round(h * scale)));
+        sky::editor::ResizeAssetPreviewCamera(camera, {static_cast<float>(width), static_cast<float>(height)});
     }
     void CharacterPreview::Control(AnimationControlOp op, float value)
     {
@@ -205,13 +208,8 @@ namespace sky::animation::editor {
         }
         if (!bounds)
             return {AnimationError::InvalidPlayback, "Load a skeleton or mesh before focusing the preview"};
-        const auto  center   = (bounds->min + bounds->max) * .5f;
-        const float halfFov  = std::atan(std::tan(camera.verticalFov * .5f) * std::min(1.f, float(width) / std::max(1u, height)));
-        const float distance = (bounds->max - bounds->min).Length() * .55f / std::sin(halfFov);
-        if (!std::isfinite(distance) || !std::isfinite(center.x) || !std::isfinite(center.y) || !std::isfinite(center.z))
-            return {AnimationError::InvalidAsset, "Preview bounds are not finite"};
-        camera.orbitDistance = std::max(1.f, distance);
-        camera.Focus(center);
+        if (!FrameAssetPreview(camera, *bounds, {static_cast<float>(width), static_cast<float>(height)}))
+            return {AnimationError::InvalidAsset, "Character bounds cannot be framed in this preview"};
         return {};
     }
     void CharacterPreview::ResolveRig()

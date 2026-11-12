@@ -14,6 +14,7 @@
 #include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <physics/IPhysicsBackend.h>
+#include <physics/softbody/ISoftBodyCollisionQuery.h>
 
 #include <atomic>
 #include <map>
@@ -85,7 +86,10 @@ namespace sky::phy {
         }
     };
 
-    class JoltWorld final : public IPhysicsWorld, private JPH::ContactListener, private JPH::CharacterContactListener {
+    class JoltWorld final : public IPhysicsWorld,
+                            public ISoftBodyCollisionQuery,
+                            private JPH::ContactListener,
+                            private JPH::CharacterContactListener {
     public:
         explicit JoltWorld(std::shared_ptr<JoltSession> session);
         ~JoltWorld() override;
@@ -98,6 +102,15 @@ namespace sky::phy {
         {
             return caps;
         }
+        ISoftBodyCollisionQuery *GetSoftBodyCollisionQuery() override
+        {
+            return this;
+        }
+        Vector3 GetGravity() const override
+        {
+            return descriptor.gravity;
+        }
+        PhysicsStatus QuerySoftBodyContacts(const SoftBodyCollisionQuery &query, std::vector<SoftBodyCollisionContact> &out) const override;
 
         PhysicsStatus  SetOptions(const PhysicsOptions &options) override;
         PhysicsOptions GetOptions() const override
@@ -259,6 +272,7 @@ namespace sky::phy {
         bool                                     faulted            = false;
         float                                    interpolationAlpha = 0.f;
         uint32_t                                 worldTag           = 0;
+        float                                    collisionStepDelta = 0.f;
     };
 
 } // namespace sky::phy

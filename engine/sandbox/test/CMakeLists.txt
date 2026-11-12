@@ -31,6 +31,7 @@ sky_add_test(TARGET EditorCoreTest
         ReflectedFormTest.cpp
         EditorAssetCatalogTest.cpp
         AssetSettingsHistoryTest.cpp
+        AssetGeneratorRegistryTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}
@@ -61,6 +62,7 @@ sky_add_test(TARGET EditorRenderTest
         EditorRender
         3rdParty::googletest
 )
+add_dependencies(EditorRenderTest Aurora.Metadata)
 
 sky_add_test(TARGET EditorShellTest
     SOURCES
@@ -77,16 +79,19 @@ sky_add_test(TARGET EditorShellTest
         EditorSmallPanelLayoutTest.cpp
         FileBrowserLayoutTest.cpp
         ProjectManagerLayoutTest.cpp
+        MeshGeneratorDocumentTest.cpp
         main.cpp
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}
     LIBS
         EditorShell
+        Aurora.Render.Editor
         UI
         EditorCore
         Core
         3rdParty::googletest
 )
+add_dependencies(EditorShellTest Aurora.Metadata)
 endif ()
 
 if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)

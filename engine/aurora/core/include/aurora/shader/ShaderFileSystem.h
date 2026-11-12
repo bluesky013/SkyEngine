@@ -33,6 +33,8 @@ namespace sky::aurora {
         bool                              RemoveBundle(const std::string &owner, std::string *error = nullptr);
         bool                              LoadBundles(sky::IFileSystem &root, const std::string &owner, std::string *error = nullptr);
         std::shared_ptr<ShaderFileSystem> Snapshot(const std::string &rootPath) const;
+        // Captures both stage roots and loose include closures before a graphics program is compiled on a worker.
+        std::shared_ptr<ShaderFileSystem> SnapshotProgram(std::span<const std::string> stagePaths);
         uint64_t                          BundleFingerprint() const;
         std::vector<std::string>          IncludeRoots() const;
         bool                              IsBundlePath(const std::string &path) const;

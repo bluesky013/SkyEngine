@@ -18,8 +18,8 @@ namespace sky::animation {
             if (host) {
                 return true;
             }
-            if (Interface<IAnimationInstanceControl>::Get()->GetApi() || Interface<aurora::ISkeletalPoseSource>::Get()->GetApi() ||
-                WorldSubSystemRegistry::Get().IsRegistered(Name(ANIMATION_WORLD_SYSTEM)) || !Interface<IAnimationClipSource>::Get()->GetApi() ||
+            if (Interface<IAnimationInstanceControl>::Get()->GetApi() || Interface<IAnimationPoseContributionRegistry>::Get()->GetApi() ||
+                Interface<aurora::ISkeletalPoseSource>::Get()->GetApi() || WorldSubSystemRegistry::Get().IsRegistered(Name(ANIMATION_WORLD_SYSTEM)) ||
                 !Interface<IAnimationSkeletonSource>::Get()->GetApi()) {
                 return false;
             }
@@ -34,6 +34,7 @@ namespace sky::animation {
                 return false;
             }
             Interface<IAnimationInstanceControl>::Get()->Register(*host);
+            Interface<IAnimationPoseContributionRegistry>::Get()->Register(*host);
             Interface<aurora::ISkeletalPoseSource>::Get()->Register(*host);
             return true;
         }
@@ -45,6 +46,9 @@ namespace sky::animation {
             WorldSubSystemRegistry::Get().Unregister(Name(ANIMATION_WORLD_SYSTEM));
             if (Interface<IAnimationInstanceControl>::Get()->GetApi() == host.get()) {
                 Interface<IAnimationInstanceControl>::Get()->UnRegister();
+            }
+            if (Interface<IAnimationPoseContributionRegistry>::Get()->GetApi() == host.get()) {
+                Interface<IAnimationPoseContributionRegistry>::Get()->UnRegister();
             }
             if (Interface<aurora::ISkeletalPoseSource>::Get()->GetApi() == host.get()) {
                 Interface<aurora::ISkeletalPoseSource>::Get()->UnRegister();

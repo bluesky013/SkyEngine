@@ -27,6 +27,11 @@ namespace {
         std::string text   = "typed leaf";
     };
 
+    Uuid MetadataOnlyComponentId()
+    {
+        return Uuid::CreateWithSeed(Fnv1a32("WorldBinaryMetadataOnlyComponent"));
+    }
+
     struct WorldBinaryFields {
         Vector2                      uv{1, 2};
         Vector3                      position{3, 4, 5};
@@ -183,6 +188,8 @@ namespace {
                 .Member<&WorldBinaryConfig::label>("label")
                 .Member<&WorldBinaryConfig::values>("values");
             auto *components = ComponentFactory::Get();
+            ASSERT_TRUE(WorldSubSystemRegistry::Get().RegisterPersistentSchema(Name("WorldBinaryMetadataOnly"), {}));
+            ASSERT_TRUE(components->RegisterPersistentDataType(MetadataOnlyComponentId(), TypeInfoObj<WorldBinaryLeaf>::Get()->RtInfo()));
             components->RegisterComponent<WorldBinaryComponent>("WorldAssetTest");
             components->RegisterComponent<WorldBinaryCountedComponent>("WorldAssetTest");
             components->RegisterComponent<WorldBinaryNoStaticSchemaComponent>("WorldAssetTest");
@@ -303,6 +310,82 @@ TEST_F(WorldAssetTest, AnyRequiresAReflectedDefaultConstructorWithoutConstructin
     EXPECT_NE(rejected.GetLoadError().find("no reflected default constructor"), std::string::npos);
     EXPECT_TRUE(rejected.actors.empty());
     EXPECT_EQ(WorldBinaryDynamicValue::constructions, 1u);
+}
+
+TEST_F(WorldAssetTest, MetadataOwnerCanCookWithoutRuntimeComponentFactory)
+{
+    auto      *factory = ComponentFactory::Get();
+    const auto id      = MetadataOnlyComponentId();
+    ASSERT_EQ(factory->Find(id), nullptr);
+    ASSERT_EQ(factory->GetPersistentDataType(id), TypeInfoObj<WorldBinaryLeaf>::Get()->RtInfo());
+    EXPECT_FALSE(factory->RegisterPersistentDataType(id, TypeInfoObj<WorldBinaryFields>::Get()->RtInfo()));
+    EXPECT_EQ(factory->GetPersistentDataType(id), TypeInfoObj<WorldBinaryLeaf>::Get()->RtInfo());
+
+    const WorldPtr original = World::CreateWorld();
+    auto          *actor    = original->CreateActor("Metadata only", false);
+    ASSERT_NE(actor->AddComponent<WorldBinaryCountedComponent>(), nullptr);
+    auto       source    = Source(*original);
+    const auto runtimeId = TypeInfoObj<WorldBinaryCountedComponent>::Get()->RtInfo()->registeredId.ToString();
+    const auto position  = source.find(runtimeId);
+    ASSERT_NE(position, std::string::npos);
+    source.replace(position, runtimeId.size(), id.ToString());
+    WorldBinaryCountedComponent::constructions = 0;
+
+    WorldAssetData cooked;
+    std::string    error;
+    ASSERT_TRUE(Cook(source, cooked, error)) << error;
+    ASSERT_TRUE(cooked.Validate(error)) << error;
+    WorldAssetData loaded;
+    ASSERT_TRUE(Decode(Encode(cooked), loaded)) << loaded.GetLoadError();
+    EXPECT_EQ(WorldBinaryCountedComponent::constructions, 0u);
+    WorldPtr instance;
+    EXPECT_FALSE(InstantiateWorldAsset(loaded, instance, error));
+    EXPECT_EQ(instance, nullptr);
+}
+
+TEST_F(WorldAssetTest, MetadataOnlySubsystemCooksWithoutProvidingARuntimeFactory)
+{
+    const Name  name("WorldBinaryMetadataOnly");
+    auto       &registry = WorldSubSystemRegistry::Get();
+    const auto *schema   = registry.GetPersistentSchema(name);
+    ASSERT_NE(schema, nullptr);
+    EXPECT_FALSE(schema->factory);
+    EXPECT_EQ(schema->configType, nullptr);
+    EXPECT_FALSE(registry.IsRegistered(name));
+    EXPECT_EQ(registry.GetRegistration(name), nullptr);
+    EXPECT_FALSE(registry.RegisterPersistentSchema(name, {}));
+
+    const WorldSubSystemFactory factory = [](World &, const Any &) { return std::make_unique<WorldBinarySubSystem>(); };
+    EXPECT_FALSE(registry.RegisterPersistentSchema(Name("WorldBinaryInvalidSchemaFactory"), {factory, nullptr, {}, {}}));
+    EXPECT_FALSE(registry.Register(
+        name, {factory, TypeInfoObj<WorldBinaryConfig>::Get()->RtInfo(), [] { return Any(std::in_place_type<WorldBinaryConfig>); }, {}}));
+    EXPECT_FALSE(registry.Register(name, {factory, nullptr, [] { return Any(std::in_place_type<WorldBinaryConfig>); }, {}}));
+
+    WorldAssetData cooked;
+    std::string    error;
+    ASSERT_TRUE(Cook(R"({"assetRoots":[],"actors":[],"subSystems":[{"name":"WorldBinaryMetadataOnly","enabled":true}]})", cooked, error)) << error;
+    ASSERT_TRUE(cooked.Validate(error)) << error;
+    WorldAssetData loaded;
+    ASSERT_TRUE(Decode(Encode(cooked), loaded)) << loaded.GetLoadError();
+    ASSERT_TRUE(loaded.Validate(error)) << error;
+    ASSERT_EQ(loaded.subSystems.size(), 1u);
+    EXPECT_FALSE(loaded.subSystems[0].configType);
+    EXPECT_TRUE(loaded.subSystems[0].payload.empty());
+
+    WorldPtr retained = World::CreateWorld();
+    WorldPtr output   = retained;
+    EXPECT_EQ(registry.Create(name, *retained, {}), nullptr);
+    EXPECT_FALSE(InstantiateWorldAsset(loaded, output, error));
+    EXPECT_EQ(output.Get(), retained.Get());
+    EXPECT_NE(error.find("World subsystem is unavailable"), std::string::npos);
+
+    EXPECT_TRUE(registry.Register(name, {factory, nullptr, {}, {}}));
+    EXPECT_TRUE(registry.IsRegistered(name));
+    EXPECT_EQ(registry.GetPersistentSchema(name), schema);
+    EXPECT_FALSE(registry.GetPersistentSchema(name)->factory);
+    registry.Unregister(name);
+    EXPECT_FALSE(registry.IsRegistered(name));
+    EXPECT_EQ(registry.GetPersistentSchema(name), schema);
 }
 
 TEST_F(WorldAssetTest, CookSaveLoadAndValidationDoNotConstructLiveComponents)

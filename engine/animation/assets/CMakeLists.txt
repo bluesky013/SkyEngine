@@ -1,6 +1,10 @@
-file(GLOB_RECURSE ASSET_SOURCES src/* include/*)
+file(GLOB_RECURSE ASSET_HEADERS include/*)
 sky_add_library(TARGET Animation.GraphAssets.Static STATIC
-    SOURCES ${ASSET_SOURCES}
+    SOURCES
+        src/AnimationComponentData.cpp
+        src/GraphAsset.cpp
+        src/GraphSource.cpp
+        ${ASSET_HEADERS}
     PUBLIC_INC include
     LINK_LIBS Animation Framework
 )

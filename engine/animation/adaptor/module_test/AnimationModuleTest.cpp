@@ -1,5 +1,6 @@
 #include <animation/IAnimationClipSource.h>
 #include <animation/IAnimationInstanceControl.h>
+#include <animation/IAnimationPoseContributor.h>
 #include <animation/IAnimationSkeletonSource.h>
 #include <aurora/renderer/ISkeletalPoseSource.h>
 #include <framework/application/ModuleManager.h>
@@ -56,6 +57,7 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     ASSERT_NE(clips, nullptr);
     ASSERT_NE(rigs, nullptr);
     ASSERT_NE(Interface<IAnimationInstanceControl>::Get()->GetApi(), nullptr);
+    ASSERT_NE(Interface<IAnimationPoseContributionRegistry>::Get()->GetApi(), nullptr);
     ASSERT_NE(Interface<aurora::ISkeletalPoseSource>::Get()->GetApi(), nullptr);
     auto      clipRequest = clips->Request({});
     auto      rigRequest  = rigs->Request({});
@@ -210,6 +212,7 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     EXPECT_EQ(Interface<IAnimationClipSource>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IAnimationSkeletonSource>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<IAnimationInstanceControl>::Get()->GetApi(), nullptr);
+    EXPECT_EQ(Interface<IAnimationPoseContributionRegistry>::Get()->GetApi(), nullptr);
     EXPECT_EQ(Interface<aurora::ISkeletalPoseSource>::Get()->GetApi(), nullptr);
     EXPECT_FALSE(WorldSubSystemRegistry::Get().IsRegistered(Name("Animation")));
     manager.reset();

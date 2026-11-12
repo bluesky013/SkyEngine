@@ -23,10 +23,7 @@ namespace sky::phy {
         bool      asleep          = false;
     };
 
-    enum class PhysicsSnapshotScope : uint8_t {
-        DynamicKinematic = 0,
-        Full
-    };
+    enum class PhysicsSnapshotScope : uint8_t { DynamicKinematic = 0, Full, END };
 
     // Backend-neutral world state addressed by stable handles. Re-simulation from a snapshot is
     // reserved for the future Exact mode; the delivered Fast mode restores snapshots directly.

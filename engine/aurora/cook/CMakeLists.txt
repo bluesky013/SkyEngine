@@ -25,6 +25,7 @@ sky_add_library(TARGET AuroraCook.Static STATIC
     LINK_LIBS
         Aurora.Adaptor.Static
         Framework
+        Physics.SoftBody.Interface
         Core
         3rdParty::stb
         3rdParty::ispc_texcomp

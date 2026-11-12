@@ -91,6 +91,7 @@ TEST(AnimationPreview, DelayedBoundsTriggerAutomaticFocusAndFitANarrowViewport)
     AssetPreviewProviderRegistry::Get()->SetProvider(&host);
     auto preview = std::make_shared<CharacterPreview>(Uuid::Create(), "AuroraSkeleton");
     preview->Resize(180, 600);
+    EXPECT_NEAR(preview->Camera().Forward().Dot(preview->Camera().Ray({180, 300}, {180, 600})), .70710678f, 1.e-5f);
     const auto original = preview->Camera().position;
     preview->Tick(0);
     EXPECT_FLOAT_EQ(preview->Camera().position.z, original.z);

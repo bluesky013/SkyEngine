@@ -6,6 +6,7 @@
 
 #include <aurora/editor/AuroraAssetViews.h>
 #include <aurora/editor/AuroraEditorExtension.h>
+#include <aurora/editor/MeshGeneratorDocument.h>
 #include <editor/core/extension/EditorExtensionRegistry.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -16,6 +17,7 @@ namespace sky::aurora::editor {
     void AuroraEditorModule::RegisterMeta()
     {
         ReflectAuroraAssetViews(SerializationContext::Get());
+        ReflectMeshGeneratorDocument(SerializationContext::Get());
     }
 
     bool AuroraEditorModule::Init(const StartArguments &args)

@@ -1,9 +1,17 @@
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/shader/IShaderCompiler.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
+#include <chrono>
+#include <condition_variable>
 #include <cstring>
+#include <future>
 #include <gtest/gtest.h>
+#include <mutex>
+#include <thread>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -242,6 +250,204 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
                     linked = true;
                 }
     EXPECT_TRUE(linked);
+}
+
+namespace {
+    using namespace std::chrono_literals;
+
+    class GatedMaterialCompiler final : public IShaderCompiler {
+    public:
+        explicit GatedMaterialCompiler(std::shared_ptr<IShaderCompiler> implementation = std::make_shared<InactiveMaterialCompiler>())
+            : compiler(std::move(implementation))
+        {
+        }
+        ShaderProducerIdentity GetProducerIdentity() const override
+        {
+            return compiler->GetProducerIdentity();
+        }
+        ShaderProducerIdentity GetProducerIdentity(ShaderTarget target) const override
+        {
+            return compiler->GetProducerIdentity(target);
+        }
+        bool InspectVariants(const ShaderCompileDesc &desc, std::vector<ShaderVariantBinding> &bindings, std::string &error) override
+        {
+            if (std::this_thread::get_id() == host) {
+                error = "Material shader inspection ran on the host thread";
+                return false;
+            }
+            return compiler->InspectVariants(desc, bindings, error);
+        }
+        bool Compile(const ShaderCompileDesc &desc, ShaderCompileResult &out) override
+        {
+            std::unique_lock lock(mutex);
+            ++calls;
+            changed.notify_all();
+            if (std::this_thread::get_id() == host) {
+                out.errorInfo = "Material compilation ran on the host thread";
+                return false;
+            }
+            if (!changed.wait_for(lock, 5s, [&] { return released; }) || fail) {
+                out.errorInfo = "Gated shader compilation failed";
+                return false;
+            }
+            lock.unlock();
+            return compiler->Compile(desc, out);
+        }
+        bool WaitForEntry()
+        {
+            std::unique_lock lock(mutex);
+            return changed.wait_for(lock, 5s, [&] { return calls != 0; });
+        }
+        void Release(bool failCompile = false)
+        {
+            std::lock_guard lock(mutex);
+            fail     = failCompile;
+            released = true;
+            changed.notify_all();
+        }
+
+        std::atomic_uint32_t calls{0};
+
+    private:
+        const std::thread::id            host = std::this_thread::get_id();
+        std::shared_ptr<IShaderCompiler> compiler;
+        std::mutex                       mutex;
+        std::condition_variable          changed;
+        bool                             released = false, fail = false;
+    };
+
+    class AsyncSceneMaterialSource : public testing::Test {
+    protected:
+        void SetUp() override
+        {
+            ASSERT_TRUE(ShaderCompilerFactory::Get().RegisterOwned(compiler));
+            files = std::make_shared<ShaderFileSystem>();
+            files->AddVirtualFile("aurora/config/pipeline_variants.slang", "// @variant\n// @reserved 16\n// @source pipeline\n// @end\n");
+            files->AddVirtualFile("fixture/Scene.slang", "fixture");
+            files->AddVirtualFile("fixture/Scene.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
+            MaterialTechniqueData technique;
+            technique.tag     = "opaque";
+            technique.program = {{"fixture/Scene.slang", "VSMain"}, {"fixture/Scene.slang", "FSMain"}};
+            for (const auto &material : materials)
+                material->Data().techniques = {technique};
+            source = CreateSceneAssetSource(
+                files,
+                [this](const Uuid &id) -> AssetPtr {
+                    for (const auto &material : materials)
+                        if (material->GetUuid() == id)
+                            return material;
+                    return {};
+                },
+                {}, {}, SceneMaterialCompilation::Asynchronous);
+        }
+        void TearDown() override
+        {
+            compiler->Release();
+            source.reset();
+            ShaderCompilerFactory::Get().Unregister(compiler.get());
+        }
+        SceneResourceResult Resolve(size_t material)
+        {
+            return source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), materials[material]->GetUuid(), {API::VULKAN, 9});
+        }
+        SceneResourceResult Await(size_t material)
+        {
+            const auto deadline = std::chrono::steady_clock::now() + 5s;
+            auto       result   = Resolve(material);
+            while (std::holds_alternative<std::monostate>(result) && std::chrono::steady_clock::now() < deadline) {
+                std::this_thread::sleep_for(1ms);
+                result = Resolve(material);
+            }
+            return result;
+        }
+
+        std::array<std::shared_ptr<LoadedMaterialAsset>, 2> materials{std::make_shared<LoadedMaterialAsset>(),
+                                                                      std::make_shared<LoadedMaterialAsset>()};
+        std::shared_ptr<GatedMaterialCompiler>              compiler = std::make_shared<GatedMaterialCompiler>();
+        std::shared_ptr<ShaderFileSystem>                   files;
+        std::shared_ptr<ISceneResourceSource>               source;
+    };
+
+    class AsyncVirtualSceneMaterialSource : public AsyncSceneMaterialSource {
+    protected:
+        void SetUp() override
+        {
+            compiler = std::make_shared<GatedMaterialCompiler>(std::make_shared<ShaderCompilerSlang>());
+            AsyncSceneMaterialSource::SetUp();
+            ASSERT_TRUE(files->AddVirtualFile("fixture/Scene.slang", R"(
+#define SURFACE_HEADER "fixture/Surface.slangh"
+#include SURFACE_HEADER
+struct VertexOutput { float4 position : SV_Position; };
+[shader("vertex")]
+VertexOutput VSMain(float3 position : POSITION)
+{
+    VertexOutput result;
+    result.position = float4(position, 1);
+    return result;
+}
+[shader("fragment")]
+float4 FSMain(VertexOutput input) : SV_Target { return SurfaceColor(); }
+)"));
+            ASSERT_TRUE(files->AddVirtualFile("fixture/Surface.slangh", "float4 SurfaceColor() { return float4(0.25, 0.5, 0.75, 1); }"));
+        }
+    };
+} // namespace
+
+TEST_F(AsyncVirtualSceneMaterialSource, MacroIncludeUsesOwnedSourcesAfterAuthoringChanges)
+{
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(Resolve(0)));
+    ASSERT_TRUE(files->AddVirtualFile("fixture/Surface.slangh", "#error authored header changed after scheduling"));
+    compiler->Release();
+    const auto result = Await(0);
+    if (const auto *error = std::get_if<RendererError>(&result))
+        ADD_FAILURE() << error->message;
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(result));
+    EXPECT_EQ(compiler->calls.load(), 2u);
+}
+
+TEST_F(AsyncSceneMaterialSource, PendingRequestsShareProgramsAcrossMaterials)
+{
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve(0)));
+    ASSERT_TRUE(compiler->WaitForEntry());
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve(0)));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve(1)));
+    compiler->Release();
+    const auto first = Await(0), second = Await(1);
+    if (const auto *failure = std::get_if<RendererError>(&first))
+        ADD_FAILURE() << failure->message;
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(first));
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(second));
+    EXPECT_EQ(compiler->calls.load(), 2u); // One VS and one FS for the shared program.
+}
+
+TEST_F(AsyncSceneMaterialSource, FailedCompilationIsStableAcrossFramePolls)
+{
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve(0)));
+    ASSERT_TRUE(compiler->WaitForEntry());
+    compiler->Release(true);
+    const auto  result  = Await(0);
+    const auto *failure = std::get_if<RendererError>(&result);
+    ASSERT_NE(failure, nullptr);
+    EXPECT_NE(failure->message.find("Gated shader compilation failed"), std::string::npos);
+    const auto again = Resolve(0);
+    ASSERT_TRUE(std::holds_alternative<RendererError>(again));
+    EXPECT_EQ(std::get<RendererError>(again).message, failure->message);
+    EXPECT_EQ(compiler->calls.load(), 1u);
+}
+
+TEST_F(AsyncSceneMaterialSource, SourceDestructionDrainsActiveCompilation)
+{
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(Resolve(0)));
+    ASSERT_TRUE(compiler->WaitForEntry());
+    std::promise<void> closing;
+    auto               close = std::async(std::launch::async, [owned = std::move(source), &closing]() mutable {
+        closing.set_value();
+        owned.reset();
+    });
+    closing.get_future().wait();
+    EXPECT_EQ(close.wait_for(25ms), std::future_status::timeout);
+    compiler->Release();
+    EXPECT_EQ(close.wait_for(5s), std::future_status::ready);
 }
 
 TEST(SceneMaterialSource, InactiveDeclarationsPreserveTypedValues)

@@ -10,6 +10,7 @@ namespace sky {
 }
 namespace sky::aurora {
     class ShaderFileSystem;
+    struct ShaderCompilerLease;
     struct ShaderTechnique {
         ShaderRef     vertex, fragment, compute;
         ShaderVariant variant; // Shader-local values.
@@ -27,8 +28,9 @@ namespace sky::aurora {
     // Exactly vertex + fragment or compute; entry names and source paths are explicit.
     // When `resolved` is null, `technique.variant` supplies S values; V is empty and P uses defaults.
     std::variant<RendererError, RenderTechniqueData> CompileShaderTechnique(ShaderFileSystem &,
-                                                                           API,
-                                                                           const ShaderTechnique           &,
-                                                                           sky::IFileSystem                *products = nullptr,
-                                                                           const ShaderTechniqueVariant    *resolved = nullptr);
+                                                                            API,
+                                                                            const ShaderTechnique &,
+                                                                            sky::IFileSystem                          *products = nullptr,
+                                                                            const ShaderTechniqueVariant              *resolved = nullptr,
+                                                                            std::shared_ptr<const ShaderCompilerLease> compiler = {});
 } // namespace sky::aurora

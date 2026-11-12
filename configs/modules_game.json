@@ -1,6 +1,16 @@
 {
   "modules": [
     {
+      "name": "SoftBody.Assets",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": []
+    },
+    {
+      "name": "SoftBody.World",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": ["SoftBody.Assets", "Animation.World"]
+    },
+    {
       "name": "Aurora.Render",
       "dependencies": [
         "Aurora.Metadata"

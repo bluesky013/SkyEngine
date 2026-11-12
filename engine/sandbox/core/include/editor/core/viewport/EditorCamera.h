@@ -8,6 +8,10 @@
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 
+namespace sky {
+    struct AABB;
+}
+
 namespace sky::editor {
     struct ViewportControlSettings {
         float       speed           = 5.f;
@@ -40,4 +44,8 @@ namespace sky::editor {
         void    Fly(Vector3 input, float seconds, float speed);
         void    Focus(const Vector3 &target);
     };
+
+    EditorCamera MakeAssetPreviewCamera();
+    bool         ResizeAssetPreviewCamera(EditorCamera &camera, Vector2 extent);
+    bool         FrameAssetPreview(EditorCamera &camera, const AABB &bounds, Vector2 extent);
 } // namespace sky::editor

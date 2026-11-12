@@ -1,6 +1,26 @@
 {
   "modules": [
     {
+      "name": "SoftBody.Builder",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": ["SoftBody.Assets", "Aurora.Cook"]
+    },
+    {
+      "name": "SoftBody.Editor",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": ["SoftBody.Assets", "Aurora.Render.Editor"]
+    },
+    {
+      "name": "SoftBody.Assets",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": []
+    },
+    {
+      "name": "SoftBody.World",
+      "buildOption": "SKY_BUILD_SOFTBODY",
+      "dependencies": ["SoftBody.Assets", "Animation.World"]
+    },
+    {
       "name": "JoltPhysics.Builder",
       "buildOption": "SKY_BUILD_JOLT",
       "dependencies": [

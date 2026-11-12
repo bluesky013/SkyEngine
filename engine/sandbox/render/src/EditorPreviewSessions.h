@@ -35,12 +35,14 @@ namespace sky::editor {
             AssetPreviewHandle                         handle;
             aurora::RenderSceneProxy                   scene;
             std::unique_ptr<aurora::RenderSceneBridge> bridge;
+            std::unique_ptr<Actor>                     ground, keyLight, fillLight;
             aurora::ViewportId                         output;
             aurora::ViewId                             view;
             uint32_t                                   texture = 0;
             aurora::Extent2D                           submitted;
             uint64_t                                   outputRevision = 0, viewRevision = 0, createdSequence = 0;
             bool                                       created = false, closing = false, retiring = false;
+            bool                                       cameraChanged = false;
             bool                                       sceneRetired = false, viewRetired = false, outputRetired = false;
             std::string                                error;
         };

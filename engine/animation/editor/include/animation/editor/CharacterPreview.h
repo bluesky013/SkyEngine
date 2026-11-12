@@ -83,7 +83,7 @@ namespace sky::animation::editor {
         uint32_t                                         width = 320, height = 240;
         sky::editor::AssetPreviewHandle                  session;
         sky::editor::AssetPreviewStatus                  output;
-        sky::editor::EditorCamera                        camera;
+        sky::editor::EditorCamera                        camera = sky::editor::MakeAssetPreviewCamera();
         AnimationInstanceStatus                          playback;
         AnimationSourceRequest<Skeleton>                 rigRequest;
         AnimationSourceRequest<AnimationClip>            clipRequest;

@@ -178,7 +178,8 @@ TEST(RendererModule, RejectsZeroCountsAndBudgets)
     auto          *provider = ProviderService::Get()->GetApi();
     ASSERT_NE(provider, nullptr);
     for (auto member : {&RendererInitInfo::inflightFrames, &RendererInitInfo::maxPendingPackets, &RendererInitInfo::prepareWorkers,
-                        &RendererInitInfo::encodeWorkers}) {
+                        &RendererInitInfo::encodeWorkers, &RendererInitInfo::resourceDescriptors, &RendererInitInfo::samplerDescriptors,
+                        &RendererInitInfo::descriptorSets}) {
         RendererInitInfo info;
         info.*member = 0;
         auto result  = provider->Create(info);
@@ -191,6 +192,20 @@ TEST(RendererModule, RejectsZeroCountsAndBudgets)
         auto result  = provider->Create(info);
         ASSERT_TRUE(std::holds_alternative<RendererError>(result));
         EXPECT_EQ(std::get<RendererError>(result).code, RendererErrorCode::INVALID_ARGUMENT);
+    }
+}
+
+TEST(RendererModule, RejectsDescriptorCapacityAboveSupportedRangeBeforeDeviceCreation)
+{
+    const auto provider = CreateRendererProvider();
+    for (auto member : {&RendererInitInfo::resourceDescriptors, &RendererInitInfo::samplerDescriptors, &RendererInitInfo::descriptorSets}) {
+        for (const auto value : {RendererInitInfo::MAX_DESCRIPTOR_COUNT + 1, UINT32_MAX}) {
+            RendererInitInfo info;
+            info.*member      = value;
+            const auto result = provider->Create(info);
+            ASSERT_TRUE(std::holds_alternative<RendererError>(result));
+            EXPECT_EQ(std::get<RendererError>(result).code, RendererErrorCode::INVALID_ARGUMENT);
+        }
     }
 }
 

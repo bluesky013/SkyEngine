@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('package_project', ROOT / 'python/package_project.py')
@@ -15,6 +16,46 @@ SPEC.loader.exec_module(PACKAGE)
 
 
 class DevelopToolDiscoveryTest(unittest.TestCase):
+    def setUp(self):
+        environment = mock.patch.dict(PACKAGE.os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        PACKAGE.os.environ.pop('SKY_HOST_TOOLS_DIR', None)
+
+    def test_explicit_host_directory_takes_priority(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            selected = root / 'selected host tools'
+            selected.mkdir()
+            PACKAGE.os.environ['SKY_HOST_TOOLS_DIR'] = str(selected)
+            suffix = '.exe' if PACKAGE.os.name == 'nt' else ''
+            for name, finder in (('AssetTool', PACKAGE.find_asset_tool), ('ShaderCookTool', PACKAGE.shader_cook_tool)):
+                with self.subTest(tool=name):
+                    fallback = root / 'output/bin/Develop' / (name + suffix)
+                    fallback.parent.mkdir(parents=True, exist_ok=True)
+                    fallback.touch()
+                    tool = selected / (name + suffix)
+                    tool.touch()
+                    self.assertEqual(finder(root), tool.resolve())
+
+    def test_explicit_missing_tool_does_not_fall_back(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            suffix = '.exe' if PACKAGE.os.name == 'nt' else ''
+            for name in ('AssetTool', 'ShaderCookTool'):
+                fallback = root / 'output/bin/Develop' / (name + suffix)
+                fallback.parent.mkdir(parents=True, exist_ok=True)
+                fallback.touch()
+            selected = root / 'missing host tools'
+            PACKAGE.os.environ['SKY_HOST_TOOLS_DIR'] = str(selected)
+            for directory_exists in (False, True):
+                with self.subTest(directory_exists=directory_exists):
+                    if directory_exists:
+                        selected.mkdir()
+                    self.assertIsNone(PACKAGE.find_asset_tool(root))
+                    self.assertEqual(PACKAGE.shader_cook_tool(root),
+                                     selected.resolve() / ('ShaderCookTool' + suffix))
+
     def test_prefers_develop_and_preserves_legacy_fallbacks(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -27,6 +68,15 @@ class DevelopToolDiscoveryTest(unittest.TestCase):
                     self.assertEqual(finder(root), tool)
                 (root / 'output/bin/Develop' / (name + suffix)).unlink()
                 self.assertEqual(finder(root), root / 'output/bin/Debug' / (name + suffix))
+
+    def test_empty_override_preserves_missing_tool_defaults(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            PACKAGE.os.environ['SKY_HOST_TOOLS_DIR'] = ''
+            suffix = '.exe' if PACKAGE.os.name == 'nt' else ''
+            self.assertIsNone(PACKAGE.find_asset_tool(root))
+            self.assertEqual(PACKAGE.shader_cook_tool(root),
+                             root / 'output/bin/Develop' / ('ShaderCookTool' + suffix))
 
 
 @unittest.skipUnless(shutil.which('ninja'), 'Ninja is required for SDK-free configuration tests')
@@ -164,8 +214,9 @@ class JoltBuilderConfigurationTest(unittest.TestCase):
         (plugin / 'builder/src/PhysicsAssetBuilder.cpp').write_text('int builder_stub;\n', encoding='utf-8')
         (root / 'main.cpp').write_text('int main() { return 0; }\n', encoding='utf-8')
         template = (ROOT / 'engine/templates/game/native/CMakeLists.txt').read_text(encoding='utf-8')
-        registration = template[template.index('if (SKY_MODULE_PACKAGING STREQUAL "static")'):
-                                template.index('# The same deployment runs')]
+        registration_start = template.index('if (SKY_MODULE_PACKAGING STREQUAL "static")')
+        registration_end = template.index('add_custom_target({{PROJECT_NAME}}Deploy ALL)', registration_start)
+        registration = template[registration_start:registration_end]
         (root / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.21)
 project(JoltModulePolicy LANGUAGES CXX)
 set(ENGINE_ROOT "@ROOT@")
