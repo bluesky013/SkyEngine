@@ -21,14 +21,31 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <map>
 #include <set>
+#include <sstream>
+#include <string_view>
 
 using namespace sky;
 using namespace sky::softbody;
 using namespace sky::phy;
 
 namespace {
+    bool ParseFixtureFloat(std::string_view text, float &out)
+    {
+        if (text.empty() || text.front() == '+')
+            return false;
+        std::istringstream input{std::string(text)};
+        input.imbue(std::locale::classic());
+        float value = 0.f;
+        input >> std::noskipws >> value;
+        if (!input || !input.eof())
+            return false;
+        out = value;
+        return true;
+    }
+
     class DependencyAsset final : public AssetBase {
     public:
         const uint8_t *GetData() const override
@@ -1294,10 +1311,7 @@ TEST_F(SoftBodyComponentTest, AuthoredSealPairMaintainsValidBoundPosesDuringSlow
     }
     float approachSpeed = .00375f;
     if (const char *speedText = std::getenv("SKY_SOFTBODY_PAIR_SPEED")) {
-        const std::string_view text(speedText);
-        const auto             parsed = std::from_chars(text.data(), text.data() + text.size(), approachSpeed);
-        ASSERT_EQ(parsed.ec, std::errc{});
-        ASSERT_EQ(parsed.ptr, text.data() + text.size());
+        ASSERT_TRUE(ParseFixtureFloat(speedText, approachSpeed));
     }
     ASSERT_TRUE(std::isfinite(approachSpeed));
     ASSERT_GT(approachSpeed, 0.f);
@@ -1368,10 +1382,7 @@ TEST_F(SoftBodyComponentTest, AuthoredSealPairMaintainsValidBoundPosesDuringSlow
     const float width       = maxZ - minZ;
     float       initialLift = 0.f;
     if (const char *liftText = std::getenv("SKY_SOFTBODY_PAIR_LIFT")) {
-        const std::string_view text(liftText);
-        const auto             parsed = std::from_chars(text.data(), text.data() + text.size(), initialLift);
-        ASSERT_EQ(parsed.ec, std::errc{});
-        ASSERT_EQ(parsed.ptr, text.data() + text.size());
+        ASSERT_TRUE(ParseFixtureFloat(liftText, initialLift));
     }
     ASSERT_TRUE(std::isfinite(initialLift));
     ASSERT_GE(initialLift, 0.f);
