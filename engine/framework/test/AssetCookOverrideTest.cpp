@@ -7,6 +7,8 @@
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/world/WorldAsset.h>
 
 #include <gtest/gtest.h>
 
@@ -79,4 +81,67 @@ TEST(AssetCookOverrideTest, BuildRequestCarriesManifestOverride)
     manager->UnRegisterBuilder(builder);
     db->Reset();
     fs::remove_all(root);
+}
+
+TEST(AssetCookOverrideTest, EnginePresetsFillMissingProjectConfigsAndProjectFilesTakePriority)
+{
+    class ConfigProbe final : public AssetBuilder {
+    public:
+        const std::vector<std::string> &GetExtensions() const override
+        {
+            return extensions;
+        }
+        std::string_view QueryType(const std::string &) const override
+        {
+            return {};
+        }
+        void Request(const AssetBuildRequest &, AssetBuildResult &) override
+        {
+        }
+        void LoadConfig(const FileSystemPtr &fs) override
+        {
+            content.clear();
+            if (const auto file = fs->OpenFile("mesh_build_presets.json"))
+                EXPECT_TRUE(file->ReadString(content));
+        }
+        std::string              content;
+        std::vector<std::string> extensions;
+    };
+    struct Cleanup {
+        std::filesystem::path root;
+        ~Cleanup()
+        {
+            EXPECT_TRUE(AssetManager::Get()->ResetRuntimeState());
+            std::error_code error;
+            std::filesystem::remove_all(root, error);
+            EXPECT_FALSE(error);
+        }
+    } cleanup{std::filesystem::temp_directory_path() / ("sky-engine-cook-defaults-" + Uuid::Create().ToString())};
+    const auto engine  = cleanup.root / "engine";
+    const auto project = cleanup.root / "project";
+    std::filesystem::create_directories(engine / "configs");
+    std::filesystem::create_directories(project);
+    std::ofstream(engine / "configs/mesh_build_presets.json") << "engine mesh presets";
+    std::ofstream(engine / "configs/asset_cook.jsonc") << R"({"bundles":["engine-common"]})";
+    AssetBuilderManager manager;
+    auto               *probe = new ConfigProbe();
+    manager.RegisterBuilder(probe);
+    manager.SetEngineFs(new NativeFileSystem(FilePath(engine)));
+    ASSERT_TRUE(manager.SetWorkSpaceFs(new NativeFileSystem(FilePath(project))));
+    EXPECT_EQ(probe->content, "engine mesh presets");
+    EXPECT_EQ(manager.GetCookConfig().GetBundles(), std::vector<std::string>{"engine-common"});
+    const auto world = AssetManager::Get()->CreateBuildAsset(Uuid::Create(), Name("World"));
+    ASSERT_TRUE(world);
+    EXPECT_TRUE(AssetManager::Get()->SaveAsset(world, "engine-common"));
+    std::filesystem::create_directories(project / "configs");
+    std::ofstream(project / "configs/mesh_build_presets.json") << "project mesh presets";
+    std::ofstream(project / "configs/asset_build_presets.json") << R"({"bundles":["project-common"]})";
+    ASSERT_TRUE(manager.SetWorkSpaceFs(new NativeFileSystem(FilePath(project))));
+    EXPECT_EQ(probe->content, "project mesh presets");
+    EXPECT_EQ(manager.GetCookConfig().GetBundles(), std::vector<std::string>{"project-common"});
+    EXPECT_TRUE(AssetManager::Get()->SaveAsset(world, "project-common"));
+    std::ofstream(project / "configs/asset_build_presets.json") << "invalid json";
+    EXPECT_FALSE(manager.SetWorkSpaceFs(new NativeFileSystem(FilePath(project))));
+    EXPECT_EQ(manager.GetCookConfig().GetBundles(), std::vector<std::string>{"project-common"});
+    manager.UnRegisterBuilder(probe);
 }

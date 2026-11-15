@@ -4,7 +4,6 @@
 
 #include <recast/render/NavigationRenderBridge.h>
 
-#include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <cstring>
 #include <gtest/gtest.h>
 #include <limits>
@@ -16,17 +15,43 @@ using namespace sky::aurora;
 namespace {
     class MaterialSource final : public ISceneResourceSource {
     public:
-        SceneResourceResult ResolveMesh(const Uuid &mesh, const Uuid &, RendererInfo info) override
+        Uuid     materialId = Uuid::Create();
+        Uuid     textureId  = Uuid::Create();
+        uint64_t revision   = 1;
+        bool     textured = false, pending = false, failed = false;
+        uint32_t loads = 0;
+        uint64_t Revision() const override
         {
-            EXPECT_EQ(mesh, ScenePrimitiveId(ScenePrimitive::PLANE));
-            auto                  resources = std::make_shared<SceneMeshResources>();
-            RenderResourcePayload material;
-            material.resource           = {Uuid::Create(), 1, 1, info.deviceEpoch};
+            return revision;
+        }
+        SceneResourceResult ResolveMesh(const Uuid &, const Uuid &, RendererInfo) override
+        {
+            ADD_FAILURE() << "Navigation must not load mesh assets to resolve its material";
+            return RendererError{RendererErrorCode::UNSUPPORTED, "No mesh assets available"};
+        }
+        SceneMaterialResult ResolveMaterial(const Uuid &id, RendererInfo info, VertexSemanticMask mask, bool skeletal) override
+        {
+            ++loads;
+            EXPECT_EQ(id, materialId);
+            EXPECT_EQ(mask.mask, 1u << uint32_t(VertexSemantic::POSITION));
+            EXPECT_FALSE(skeletal);
+            if (pending)
+                return {};
+            if (failed)
+                return RendererError{RendererErrorCode::INVALID_ARGUMENT, "Material failed"};
+            auto  resources             = std::make_shared<SceneMaterialResources>();
+            auto &material              = resources->material;
+            material.resource           = {materialId, revision, 1, info.deviceEpoch};
             material.format             = Name("runtime-material");
             auto &technique             = material.material.emplace().techniques.emplace_back();
             technique.tag               = Name("opaque");
             technique.parameters.values = {{Name("gMaterial.tint"), MakeShaderData(Vector4{1, 1, 1, 1})}};
-            resources->payloads.push_back(std::move(material));
+            if (textured) {
+                RenderResourcePayload image;
+                image.resource = {textureId, revision, 3, info.deviceEpoch};
+                image.bytes    = {128, 64, 32, 255};
+                resources->dependencies.push_back(std::move(image));
+            }
             return resources;
         }
     };
@@ -49,7 +74,7 @@ TEST(NavigationRenderBridgeTest, EmitsOwnedTrianglePayloadAndReusesUnchangedGeom
     MaterialSource         resources;
     auto                   geometry = Triangle();
     FramePacket            packet;
-    ASSERT_TRUE(bridge.Append(packet, SLOT, INFO, geometry, resources));
+    ASSERT_TRUE(bridge.Append(packet, SLOT, INFO, geometry, resources, resources.materialId));
     ASSERT_EQ(Count<CreateRenderEntity>(packet), 1u);
     EXPECT_EQ(Count<ResourceCpuReady>(packet), 2u);
     const auto entity =
@@ -93,10 +118,10 @@ TEST(NavigationRenderBridgeTest, EmitsOwnedTrianglePayloadAndReusesUnchangedGeom
     std::memcpy(&position, payload.bytes.data(), sizeof(position));
     EXPECT_FLOAT_EQ(position.y, .02f);
     FramePacket unchanged;
-    EXPECT_TRUE(bridge.Append(unchanged, SLOT, INFO, Triangle(), resources));
+    EXPECT_TRUE(bridge.Append(unchanged, SLOT, INFO, Triangle(), resources, resources.materialId));
     EXPECT_TRUE(unchanged.commands.empty());
     FramePacket updated;
-    EXPECT_TRUE(bridge.Append(updated, SLOT, INFO, Triangle(2), resources));
+    EXPECT_TRUE(bridge.Append(updated, SLOT, INFO, Triangle(2), resources, resources.materialId));
     EXPECT_EQ(Count<UpdateRenderEntity>(updated), 1u);
     EXPECT_EQ(Count<ResourceCpuReady>(updated), 1u);
     EXPECT_EQ(updated.releasedResources.size(), 1u);
@@ -107,17 +132,17 @@ TEST(NavigationRenderBridgeTest, DisableWaitsForRetirementBeforeRecreatingEntity
     NavigationRenderBridge bridge;
     MaterialSource         resources;
     FramePacket            create;
-    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources, resources.materialId));
     FramePacket hide;
     bridge.Clear(hide);
     EXPECT_EQ(Count<DestroyRenderEntity>(hide), 1u);
     EXPECT_EQ(hide.releasedResources.size(), 2u);
     FramePacket waiting;
-    EXPECT_TRUE(bridge.Append(waiting, SLOT, INFO, Triangle(), resources));
+    EXPECT_TRUE(bridge.Append(waiting, SLOT, INFO, Triangle(), resources, resources.materialId));
     EXPECT_TRUE(waiting.commands.empty());
     bridge.OnEvent(EntityDestroyed{SLOT});
     FramePacket recreate;
-    ASSERT_TRUE(bridge.Append(recreate, SLOT, INFO, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(recreate, SLOT, INFO, Triangle(), resources, resources.materialId));
     const auto created =
         std::ranges::find_if(recreate.commands, [](const auto &command) { return std::holds_alternative<CreateRenderEntity>(command); });
     ASSERT_NE(created, recreate.commands.end());
@@ -129,15 +154,15 @@ TEST(NavigationRenderBridgeTest, SlotChangeRetiresOldEntityEvenForIdenticalGeome
     NavigationRenderBridge bridge;
     MaterialSource         resources;
     FramePacket            create;
-    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources, resources.materialId));
     const RenderEntityRef next{{2, 1}, {8193, 1}};
     FramePacket           change;
-    EXPECT_TRUE(bridge.Append(change, next, INFO, Triangle(), resources));
+    EXPECT_TRUE(bridge.Append(change, next, INFO, Triangle(), resources, resources.materialId));
     EXPECT_EQ(Count<DestroyRenderEntity>(change), 1u);
     EXPECT_EQ(Count<CreateRenderEntity>(change), 0u);
     bridge.OnEvent(EntityDestroyed{SLOT});
     FramePacket recreate;
-    ASSERT_TRUE(bridge.Append(recreate, next, INFO, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(recreate, next, INFO, Triangle(), resources, resources.materialId));
     EXPECT_EQ(Count<CreateRenderEntity>(recreate), 1u);
 }
 
@@ -148,16 +173,59 @@ TEST(NavigationRenderBridgeTest, RejectsInvalidTrianglesAndRecoversOnNewRenderer
     auto                   invalid      = Triangle();
     invalid.vertices.front().position.x = std::numeric_limits<float>::quiet_NaN();
     FramePacket rejected;
-    EXPECT_FALSE(bridge.Append(rejected, SLOT, INFO, invalid, resources));
+    EXPECT_FALSE(bridge.Append(rejected, SLOT, INFO, invalid, resources, resources.materialId));
     EXPECT_TRUE(rejected.commands.empty());
     invalid = Triangle();
     invalid.vertices.pop_back();
-    EXPECT_FALSE(bridge.Append(rejected, SLOT, INFO, invalid, resources));
+    EXPECT_FALSE(bridge.Append(rejected, SLOT, INFO, invalid, resources, resources.materialId));
     FramePacket create;
-    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources, resources.materialId));
     bridge.OnRendererStopped();
     FramePacket restarted;
-    ASSERT_TRUE(bridge.Append(restarted, SLOT, {API::VULKAN, 18}, Triangle(), resources));
+    ASSERT_TRUE(bridge.Append(restarted, SLOT, {API::VULKAN, 18}, Triangle(), resources, resources.materialId));
     EXPECT_EQ(Count<CreateRenderEntity>(restarted), 1u);
     EXPECT_EQ(Count<ResourceCpuReady>(restarted), 2u);
+}
+
+TEST(NavigationRenderBridgeTest, MaterialOwnsDependenciesWithoutAnyPlaneAssetAndRefreshesWithSource)
+{
+    NavigationRenderBridge bridge;
+    MaterialSource         resources;
+    resources.textured = true;
+    FramePacket create;
+    ASSERT_TRUE(bridge.Append(create, SLOT, INFO, Triangle(), resources, resources.materialId));
+    EXPECT_EQ(Count<ResourceCpuReady>(create), 3u);
+    EXPECT_EQ(resources.loads, 1u);
+    const auto oldTexture = std::get<ResourceCpuReady>(create.commands.front()).payload.resource;
+    EXPECT_EQ(oldTexture.product, resources.textureId);
+    ++resources.revision;
+    FramePacket update;
+    ASSERT_TRUE(bridge.Append(update, SLOT, INFO, Triangle(), resources, resources.materialId));
+    EXPECT_EQ(Count<UpdateRenderEntity>(update), 1u);
+    EXPECT_EQ(Count<ResourceCpuReady>(update), 3u);
+    EXPECT_NE(std::ranges::find(update.releasedResources, oldTexture), update.releasedResources.end());
+    EXPECT_EQ(resources.loads, 2u);
+    FramePacket clear;
+    bridge.Clear(clear);
+    ASSERT_EQ(clear.releasedResources.size(), 3u);
+    EXPECT_TRUE(std::ranges::any_of(clear.releasedResources,
+                                    [&](const auto &key) { return key.product == resources.textureId && key.revision == resources.revision; }));
+}
+
+TEST(NavigationRenderBridgeTest, PendingOrFailedMaterialPublishesNoPartialResources)
+{
+    NavigationRenderBridge bridge;
+    MaterialSource         resources;
+    resources.pending = true;
+    FramePacket packet;
+    EXPECT_FALSE(bridge.Append(packet, SLOT, INFO, Triangle(), resources, resources.materialId));
+    EXPECT_TRUE(packet.commands.empty());
+    EXPECT_TRUE(bridge.GetError().empty());
+    resources.pending = false;
+    resources.failed  = true;
+    EXPECT_FALSE(bridge.Append(packet, SLOT, INFO, Triangle(), resources, resources.materialId));
+    EXPECT_TRUE(packet.commands.empty());
+    EXPECT_EQ(bridge.GetError(), "Material failed");
+    resources.failed = false;
+    EXPECT_TRUE(bridge.Append(packet, SLOT, INFO, Triangle(), resources, resources.materialId));
 }

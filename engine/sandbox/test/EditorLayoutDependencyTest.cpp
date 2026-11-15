@@ -629,7 +629,7 @@ TEST(EditorAssetSettingsHistoryTest, ViewerSessionPersistsUndoAfterHeapReloadAnd
 
     form = FindForm(viewer);
     ASSERT_TRUE(form->Form().Edit(*NamedField(*form, "maxSize"), sky::Any(uint32_t(256)), form->Commands()));
-    environment.database->RemoveAsset(first.uuid);
+    ASSERT_TRUE(environment.database->RemoveAsset(first.uuid));
     environment.catalog->Refresh();
     viewer.SynchronizeLayout();
     EXPECT_FALSE(viewer.CanUndo());
@@ -962,7 +962,7 @@ TEST(EditorActionOwnerLifetimeTest, OlderShellDestructionPreservesNewOwnersRegis
     second.Rebuild();
     second.OpenAssetViewer(asset.uuid); // same ids now belong to the second shell
     const auto replacedActions = EditorActionRegistry::Get()->GetActions();
-    second.Rebuild();                   // live-owner predicates must not read the just-destroyed viewer
+    second.Rebuild(); // live-owner predicates must not read the just-destroyed viewer
     for (const auto &action : replacedActions) {
         if (action.id.rfind("assetViewer.", 0) == 0) {
             ASSERT_TRUE(action.enabled);

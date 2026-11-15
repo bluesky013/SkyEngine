@@ -5,7 +5,6 @@
 #include <recast/render/NavigationRenderBridge.h>
 
 #include <algorithm>
-#include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <bit>
 #include <cmath>
 #include <cstring>
@@ -37,24 +36,30 @@ namespace sky::ai {
         }
     } // namespace
 
-    bool NavigationRenderBridge::PrepareMaterial(FramePacket &packet, RendererInfo info, ISceneResourceSource &resources)
+    bool NavigationRenderBridge::PrepareMaterial(FramePacket &packet, RendererInfo info, ISceneResourceSource &resources, const Uuid &asset)
     {
-        if (material.product)
+        const auto sourceRevision = resources.Revision();
+        if (material.product && materialAsset == asset && resourceRevision == sourceRevision)
             return true;
-        const auto resolved = resources.ResolveMesh(ScenePrimitiveId(ScenePrimitive::PLANE), {}, info);
+        if (!asset) {
+            error = "Navigation overlay material asset is unavailable";
+            return false;
+        }
+        VertexSemanticMask vertexMask;
+        vertexMask.Set(VertexSemantic::POSITION);
+        const auto resolved = resources.ResolveMaterial(asset, info, vertexMask);
         if (const auto *failure = std::get_if<RendererError>(&resolved)) {
             error = failure->message;
             return false;
         }
-        const auto *ready = std::get_if<std::shared_ptr<const SceneMeshResources>>(&resolved);
+        const auto *ready = std::get_if<std::shared_ptr<const SceneMaterialResources>>(&resolved);
         if (!ready || !*ready)
             return false;
-        const auto payload = std::ranges::find_if((*ready)->payloads, [](const auto &value) { return value.material.has_value(); });
-        if (payload == (*ready)->payloads.end()) {
-            error = "Navigation overlay requires an unlit scene material";
+        if (!(*ready)->material.material) {
+            error = "Navigation overlay requires a scene material";
             return false;
         }
-        auto copy     = *payload;
+        auto copy     = (*ready)->material;
         copy.resource = {Uuid::Create(), 1, 1, info.deviceEpoch};
         for (auto &technique : copy.material->techniques) {
             ConfigureProgram(technique.program);
@@ -64,13 +69,24 @@ namespace sky::ai {
                 if (value.name == Name("gMaterial.tint") || value.name == Name("tint"))
                     value.value = MakeShaderData(Vector4{.1f, .85f, .25f, .6f});
         }
-        material = copy.resource;
+        ReleaseMaterial(packet);
+        for (const auto &dependency : (*ready)->dependencies) {
+            materialDependencies.push_back(dependency.resource);
+            packet.commands.emplace_back(ResourceCpuReady{dependency});
+        }
+        material         = copy.resource;
+        materialAsset    = asset;
+        resourceRevision = sourceRevision;
         packet.commands.emplace_back(ResourceCpuReady{std::move(copy)});
         return true;
     }
 
-    bool NavigationRenderBridge::Append(
-        FramePacket &packet, RenderEntityRef slot, RendererInfo info, const NaviDebugGeometry &geometry, ISceneResourceSource &resources)
+    bool NavigationRenderBridge::Append(FramePacket             &packet,
+                                        RenderEntityRef          slot,
+                                        RendererInfo             info,
+                                        const NaviDebugGeometry &geometry,
+                                        ISceneResourceSource    &resources,
+                                        const Uuid              &materialAsset)
     {
         error.clear();
         if (info.deviceEpoch != deviceEpoch) {
@@ -96,10 +112,11 @@ namespace sky::ai {
             Clear(packet);
         if (retiring)
             return true;
-        if (!PrepareMaterial(packet, info, resources))
+        const auto previousMaterial = material;
+        if (!PrepareMaterial(packet, info, resources, materialAsset))
             return false;
         const auto hash = GeometryHash(geometry);
-        if (created && hash == geometryHash)
+        if (created && hash == geometryHash && previousMaterial == material)
             return true;
         if (revision == std::numeric_limits<uint64_t>::max() - 1) {
             error = "Navigation overlay revision exhausted";
@@ -153,11 +170,20 @@ namespace sky::ai {
         }
         if (mesh.product)
             packet.releasedResources.push_back(mesh);
+        ReleaseMaterial(packet);
+        mesh         = {};
+        geometryHash = 0;
+    }
+
+    void NavigationRenderBridge::ReleaseMaterial(FramePacket &packet)
+    {
         if (material.product)
             packet.releasedResources.push_back(material);
-        mesh         = {};
-        material     = {};
-        geometryHash = 0;
+        packet.releasedResources.insert(packet.releasedResources.end(), materialDependencies.begin(), materialDependencies.end());
+        materialDependencies.clear();
+        material         = {};
+        materialAsset    = {};
+        resourceRevision = 0;
     }
 
     void NavigationRenderBridge::OnEvent(const RendererEvent &event)
@@ -181,6 +207,9 @@ namespace sky::ai {
         created = retiring = false;
         entity             = {};
         mesh = material = {};
+        materialDependencies.clear();
+        materialAsset    = {};
+        resourceRevision = 0;
         deviceEpoch = geometryHash = revision = 0;
         generation                            = 1;
         error.clear();

@@ -16,7 +16,11 @@ namespace sky::aurora {
 
     class AuroraMeshBuilder : public AssetBuilder {
     public:
-        AuroraMeshBuilder()           = default;
+        explicit AuroraMeshBuilder(std::shared_ptr<cook::MeshBuildPresets> config = std::make_shared<cook::MeshBuildPresets>())
+            : presets(config ? std::move(config) : std::make_shared<cook::MeshBuildPresets>())
+        {
+        }
+
         ~AuroraMeshBuilder() override = default;
 
         const std::vector<std::string> &GetExtensions() const override
@@ -28,8 +32,8 @@ namespace sky::aurora {
         void             Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
     private:
-        std::vector<std::string> extensions = {".gltf", ".glb", ".fbx", ".obj"};
-        cook::MeshBuildPresets   presets;
+        std::vector<std::string>                extensions = {".gltf", ".glb", ".fbx", ".obj"};
+        std::shared_ptr<cook::MeshBuildPresets> presets;
     };
 
 } // namespace sky::aurora

@@ -1,12 +1,22 @@
+#include <aurora/adaptor/assets/SceneAssets.h>
 #include <aurora/adaptor/components/SkeletalMeshComponent.h>
+#include <aurora/adaptor/components/StaticMeshComponent.h>
+#include <aurora/editor/AuroraEditorExtension.h>
+#include <aurora/editor/MeshCreationSettings.h>
 #include <aurora/editor/MeshGeneratorDocument.h>
+#include <editor/core/actor/EditorActorCreation.h>
 #include <editor/core/asset/AssetCookService.h>
 #include <editor/core/asset/AssetPreviewProvider.h>
 #include <editor/core/command/CommandService.h>
+#include <editor/core/preferences/PreferencesPersistence.h>
+#include <editor/core/preferences/PreferencesSession.h>
+#include <editor/core/preferences/ProjectEditorSettings.h>
 #include <editor/ui/UiTheme.h>
+#include <editor/widgets/AssetReflectedWidget.h>
 #include <editor/widgets/ReflectedFormView.h>
 #include <framework/application/ModuleManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
 #include <ui/UIPaintContext.h>
@@ -113,9 +123,12 @@ namespace {
         {
             SerializationContext::Get()->Register<MeshTestSettings>("MeshDocumentTestSettings").Member<&MeshTestSettings::version>("version");
             modules = std::make_unique<ModuleManager>();
-            modules->RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata"}});
+            ASSERT_TRUE(modules->RegisterModule({"Aurora.Render", {"Aurora.Metadata"}}));
+            ASSERT_TRUE(modules->RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata", "Aurora.Render"}}));
             ASSERT_TRUE(modules->TopoSort());
-            ASSERT_TRUE(modules->LoadModules({}));
+            StartArguments args;
+            args.args = {"EditorShellTest", "--aurora-provider-only"};
+            ASSERT_TRUE(modules->LoadModules(args));
             ASSERT_TRUE(modules->StartModules());
         }
         void TearDown() override
@@ -160,6 +173,13 @@ namespace {
                 primitive.transform[3].x = static_cast<float>(i) * 1.5f;
                 out[0].primitives.push_back(primitive);
             }
+            return {};
+        }
+        phy::PhysicsStatus
+        ResolveMaterials(const std::string &, uint32_t count, std::span<const Uuid> supplied, std::vector<Uuid> &out) const override
+        {
+            out.assign(supplied.begin(), supplied.end());
+            out.resize(count, Uuid::CreateWithSeed(8103));
             return {};
         }
         phy::PhysicsStatus Compile(const phy::AuthoringMeshSource &,
@@ -263,6 +283,7 @@ namespace {
             ASSERT_FALSE(error);
             std::ofstream(root / "seal.obj") << "original mesh";
             AssetDataBase::Get()->Reset();
+            AssetDataBase::Get()->SetEngineFs({});
             AssetDataBase::Get()->SetWorkSpaceFs(new NativeFileSystem(FilePath(root.string())));
             auto source = AssetDataBase::Get()->RegisterAsset(FilePath("seal.obj"), false);
             ASSERT_TRUE(source);
@@ -283,6 +304,7 @@ namespace {
             AssetDataBase::Get()->Reset();
             AssetCookService::Get()->Drain();
             AssetDataBase::Get()->SetWorkSpaceFs({});
+            AssetDataBase::Get()->SetEngineFs({});
             std::error_code error;
             if (root.is_absolute() && root.filename().string().starts_with("sky-mesh-document-"))
                 std::filesystem::remove_all(root, error);
@@ -756,4 +778,224 @@ TEST_F(MeshDocumentTest, WeightPreviewShowsFrontSurfaceGradientInEitherPrimitive
         else
             reference = samples;
     }
+}
+
+namespace {
+    class CreationSettingsStorage final : public IPreferenceStorage {
+    public:
+        PreferenceResult Read(std::string &out) override
+        {
+            if (bytes.empty())
+                return {PreferenceCode::NotFound};
+            out = bytes;
+            return {};
+        }
+        PreferenceResult Write(const std::string &value) override
+        {
+            bytes = value;
+            return {};
+        }
+        std::string bytes;
+    };
+} // namespace
+
+TEST(ProjectCreationSettings, ProjectApplyIsIsolatedAndCancelPreservesAppliedDefaults)
+{
+    MeshCreationSettings   project, user;
+    PreferencePageRegistry projectPages, userPages;
+    auto                  *type = GetTypeNode(TypeInfo<MeshCreationSettings>::RegisteredId());
+    ASSERT_NE(type, nullptr);
+    projectPages.Add({"aurora.creation", "Mesh", &project, type});
+    userPages.Add({"aurora.creation", "Mesh", &user, type});
+    auto                   projectFile = std::make_shared<CreationSettingsStorage>();
+    auto                   userFile    = std::make_shared<CreationSettingsStorage>();
+    PreferencesPersistence projectStore(projectFile), userStore(userFile);
+    PreferencesSession     session;
+    session.Begin(&projectPages);
+    const auto *page = session.GetPage(0);
+    ASSERT_NE(page, nullptr);
+    const auto         asset = Uuid::Create();
+    PropertyDescriptor material(page->object, &type->members.at("material"), "material", "");
+    session.History().Execute(material.MakeEditCommand(Any(asset)));
+    EXPECT_FALSE(project.material);
+    ASSERT_TRUE(session.ApplyDetailed(&projectStore).Succeeded());
+    EXPECT_EQ(project.material, asset);
+    EXPECT_FALSE(user.material);
+    EXPECT_TRUE(userFile->bytes.empty());
+    EXPECT_FALSE(session.History().CanUndo());
+    session.History().Execute(material.MakeEditCommand(Any(Uuid{})));
+    session.End();
+    EXPECT_EQ(project.material, asset);
+    MeshCreationSettings   reopened;
+    PreferencePageRegistry nextProject;
+    nextProject.Add({"aurora.creation", "Mesh", &reopened, type});
+    ASSERT_TRUE(projectStore.Load(nextProject).Succeeded());
+    EXPECT_EQ(reopened.material, asset);
+    EXPECT_EQ(userStore.Load(userPages).code, PreferenceCode::NotFound);
+}
+
+TEST(ProjectCreationSettings, InvalidAssetUuidDoesNotOverwriteLiveValuesOrFile)
+{
+    MeshCreationSettings settings;
+    settings.material = Uuid::Create();
+    PreferencePageRegistry pages;
+    pages.Add({"aurora.creation", "Mesh", &settings, GetTypeNode(TypeInfo<MeshCreationSettings>::RegisteredId())});
+    auto                         file = std::make_shared<CreationSettingsStorage>();
+    PreferencesPersistence       store(file);
+    std::vector<PreferenceValue> values;
+    ASSERT_TRUE(CapturePreferenceValues(pages.GetPages(), values).Succeeded());
+    ASSERT_TRUE(store.Save(values).Succeeded());
+    const auto uuid   = settings.material.ToString();
+    const auto offset = file->bytes.find(uuid);
+    ASSERT_NE(offset, std::string::npos);
+    file->bytes[offset + 8] = '_';
+    const auto malformed    = file->bytes;
+    const auto result       = store.Load(pages);
+    EXPECT_EQ(result.code, PreferenceCode::InvalidData);
+    EXPECT_EQ(settings.material.ToString(), uuid);
+    EXPECT_EQ(file->bytes, malformed);
+}
+
+TEST_F(MeshDocumentTest, ProjectDefaultsAcceptCatalogMaterialAndRejectOtherAssetTypes)
+{
+    const std::array<GeneratedAssetDescriptor, 3> children{{{"material", "AuroraMaterial"}, {"alternate", "AuroraMaterial"}, {"mesh", "AuroraMesh"}}};
+    GeneratedAssetManifest                        manifest;
+    ASSERT_TRUE(AssetDataBase::Get()->UpdateGeneratedProducts(sourceOwner, children,
+                                                              {{"material", "material"}, {"alternate", "alternate"}, {"mesh", "mesh"}}, manifest));
+    std::map<std::string, Uuid> products;
+    ASSERT_TRUE(AssetDataBase::Get()->GetGeneratedDefaults(sourceOwner, products));
+    EditorAssetCatalog::Get()->Refresh();
+    struct RegisteredExtension {
+        AuroraEditorExtension value;
+        RegisteredExtension()
+        {
+            value.Register();
+        }
+        ~RegisteredExtension()
+        {
+            value.Unregister();
+        }
+    } extension;
+    auto      &pages = ProjectEditorSettings::Get()->Pages();
+    const auto entry = std::ranges::find(pages.GetPages(), std::string("aurora.creation"), &PreferencePage::id);
+    ASSERT_NE(entry, pages.GetPages().end());
+    auto &settings    = *static_cast<MeshCreationSettings *>(entry->object);
+    settings.material = products.at("material");
+    ASSERT_TRUE(ValidateMeshCreationSettings(settings).Succeeded());
+    std::filesystem::create_directories(root / "engine/assets/shapes");
+    std::ofstream(root / "engine/assets/shapes/cube.glb") << "fixture";
+    AssetDataBase::Get()->SetEngineFs(new NativeFileSystem(FilePath(root / "engine")));
+    ASSERT_TRUE(AssetDataBase::Get()->RegisterAsset("engine", FilePath(sky::aurora::scene_assets::CUBE), false));
+    const auto creator = EditorActorCreation::Get()->Find("cube");
+    ASSERT_TRUE(creator);
+    ProjectEditorSettings::Get()->SetReady(false);
+    Actor blocked;
+    EXPECT_FALSE(creator->create(blocked));
+    EXPECT_FALSE(blocked.GetComponent<sky::aurora::StaticMeshComponent>());
+    ProjectEditorSettings::Get()->SetReady(true);
+    Actor actor;
+    ASSERT_TRUE(creator->create(actor));
+    auto *mesh = actor.GetComponent<sky::aurora::StaticMeshComponent>();
+    ASSERT_TRUE(mesh);
+    EXPECT_EQ(mesh->GetMaterialUuid(), settings.material);
+    settings.material = products.at("alternate");
+    Actor second;
+    ASSERT_TRUE(creator->create(second));
+    auto *secondMesh = second.GetComponent<sky::aurora::StaticMeshComponent>();
+    ASSERT_TRUE(secondMesh);
+    EXPECT_EQ(secondMesh->GetMaterialUuid(), products.at("alternate"));
+    EXPECT_EQ(mesh->GetMaterialUuid(), products.at("material"));
+    settings.material           = products.at("material");
+    auto                   file = std::make_shared<CreationSettingsStorage>();
+    PreferencesPersistence store(file);
+    PreferencesSession     session;
+    session.Begin(&pages);
+    ASSERT_TRUE(session.ApplyDetailed(&store).Succeeded());
+    session.End();
+    settings.material = products.at("mesh");
+    EXPECT_EQ(ValidateMeshCreationSettings(settings).code, PreferenceCode::ValidationFailed);
+    ASSERT_TRUE(store.Load(pages).Succeeded());
+    EXPECT_EQ(settings.material, products.at("material"));
+}
+
+TEST(EngineSceneAssets, LegacyIdentitiesAreRepositoryAssetsWithPathsHintsAndDependencies)
+{
+    ModuleManager cookModules;
+    cookModules.RegisterModule({"Aurora.Cook", {"Aurora.Metadata"}});
+    ASSERT_TRUE(cookModules.TopoSort());
+    ASSERT_TRUE(cookModules.LoadModules({}));
+    ASSERT_TRUE(cookModules.StartModules());
+    using namespace sky::aurora;
+    struct EngineMount {
+        EngineMount()
+        {
+            AssetDataBase::Get()->Reset();
+            AssetDataBase::Get()->SetWorkSpaceFs({});
+            AssetDataBase::Get()->SetEngineFs(new NativeFileSystem(FilePath(std::filesystem::current_path())));
+            AssetManager::Get()->SetSourceCatalog(AssetDataBase::Get());
+        }
+        ~EngineMount()
+        {
+            AssetManager::Get()->SetSourceCatalog(nullptr);
+            AssetDataBase::Get()->Reset();
+            AssetDataBase::Get()->SetEngineFs({});
+        }
+    } mount;
+    const std::array paths{scene_assets::CUBE, scene_assets::PLANE, scene_assets::LIT, scene_assets::UNLIT};
+    const std::array ids{"8F015801-3437-4A44-A581-C191184C8101", "8F015801-3437-4A44-A581-C191184C8102", "8F015801-3437-4A44-A581-C191184C8104",
+                         "8F015801-3437-4A44-A581-C191184C8103"};
+    for (size_t i = 0; i < paths.size(); ++i) {
+        const auto source = AssetDataBase::Get()->RegisterAsset(FilePath(paths[i]), false);
+        ASSERT_TRUE(source);
+        EXPECT_EQ(source->uuid, Uuid::CreateFromString(ids[i]));
+    }
+    for (int session = 0; session < 2; ++session) {
+        struct ExtensionScope {
+            AuroraEditorExtension extension;
+            ExtensionScope()
+            {
+                extension.Register();
+            }
+            ~ExtensionScope()
+            {
+                extension.Unregister();
+            }
+        } scope;
+        StaticMeshComponent component;
+        auto               *node = GetTypeNode(TypeInfo<StaticMeshComponent>::RegisteredId());
+        ASSERT_TRUE(node);
+        AssetReflectedWidget widget;
+        for (size_t i = 0; i < paths.size(); ++i) {
+            const auto  id     = Uuid::CreateFromString(ids[i]);
+            const auto  path   = std::string("Engine/") + paths[i];
+            const bool  mesh   = i < 2;
+            const auto *member = mesh ? "mesh" : "material";
+            if (mesh)
+                component.SetMeshUuid(id);
+            else
+                component.SetMaterialUuid(id);
+            EditorAssetItem item;
+            ASSERT_TRUE(EditorAssetCatalog::Get()->Find(id, item));
+            EXPECT_EQ(item.path, path);
+            EXPECT_EQ(item.mount, "Engine");
+            EXPECT_FALSE(item.writable);
+            PropertyField field;
+            field.descriptor        = PropertyDescriptor(&component, &node->members.at(member), member, "");
+            field.control.assetType = mesh ? "AuroraMesh" : "AuroraMaterial";
+            std::string hint;
+            ASSERT_TRUE(widget.BuildTooltip(field, 1, hint));
+            EXPECT_NE(hint.find(path), std::string::npos);
+            EXPECT_NE(hint.find("GUID: " + id.ToString()), std::string::npos);
+            EXPECT_EQ(hint.find("Missing asset"), std::string::npos);
+            std::vector<ComponentAssetReference> dependencies;
+            component.CollectAssetReferences(dependencies);
+            EXPECT_TRUE(std::ranges::any_of(dependencies, [&](const auto &ref) { return ref.uuid == id; }));
+            EXPECT_EQ(std::ranges::any_of(dependencies, [&](const auto &ref) { return ref.uuid == Uuid::CreateFromString(ids[3]); }), i == 3);
+        }
+        for (const auto &folder : EditorAssetCatalog::Get()->GetRoots())
+            EXPECT_NE(folder.path, "Builtin");
+    }
+    std::string path;
+    EXPECT_TRUE(EditorAssetCatalog::Get()->GetPath(Uuid::CreateFromString(ids[2]), path));
+    EXPECT_EQ(path, std::string("Engine/") + scene_assets::LIT);
 }

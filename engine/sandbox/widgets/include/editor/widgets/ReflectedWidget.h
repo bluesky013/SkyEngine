@@ -9,6 +9,7 @@
 #include <editor/widgets/UiSkin.h>
 #include <ui/UIEvent.h>
 #include <ui/UIRect.h>
+#include <ui/UITooltip.h>
 
 #include <cstdint>
 #include <functional>
@@ -79,6 +80,25 @@ namespace sky::editor {
 
         // Draws the control inside rect for the given field.
         virtual void Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field, const sky::ui::UIRect &rect) = 0;
+
+        // Local target ids are scoped to this widget; the form supplies the binding lifetime.
+        virtual bool
+        QueryTooltip(const ReflectedWidgetHost &, const PropertyField &, const sky::ui::UIRect &, float, float, sky::ui::UITooltipTarget &) const
+        {
+            return false;
+        }
+        virtual bool BuildTooltip(const PropertyField &, uint64_t, std::string &) const
+        {
+            return false;
+        }
+        virtual bool QueryPopupTooltip(float, float, sky::ui::UITooltipTarget &) const
+        {
+            return false;
+        }
+        virtual bool BuildPopupTooltip(uint64_t, std::string &) const
+        {
+            return false;
+        }
 
         // Pointer DOWN inside the field's control; return true to become the active
         // widget and receive OnMove/OnUp until release.

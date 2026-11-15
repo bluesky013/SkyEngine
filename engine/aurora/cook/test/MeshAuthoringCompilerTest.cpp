@@ -1,7 +1,9 @@
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
+#include <aurora/cook/mesh/AuroraMeshBuilder.h>
 #include <aurora/cook/mesh/MeshAuthoringCompiler.h>
+#include <aurora/cook/mesh/MeshBuildConfig.h>
 #include <framework/asset/AssetManager.h>
 #include <gtest/gtest.h>
 #include <physics/softbody/IMeshAuthoringCompiler.h>
@@ -29,6 +31,7 @@ namespace {
     AuthoringMeshBinding Binding()
     {
         AuthoringMeshBinding binding;
+        binding.materialSlots                  = {Uuid::Create()};
         binding.layoutSignature                = 1234;
         binding.bones                          = {{"root", UINT16_MAX, {}}, {"control", 0, {}}};
         binding.bones[1].reference.translation = {0, 2, 0};
@@ -134,6 +137,7 @@ TEST(MeshAuthoringCompilerTest, MaterialSlotsPreservePartAssignmentsAndProductDe
     ASSERT_TRUE(compiler->Compile(source, binding, ids, out));
     const auto mesh = std::static_pointer_cast<Asset<Mesh>>(out.products.front());
     EXPECT_EQ(mesh->Data().materials, binding.materialSlots);
+    EXPECT_EQ(out.effectiveDependencies, binding.materialSlots);
     ASSERT_EQ(mesh->Data().subMeshes.size(), slots.size());
     for (size_t i = 0; i < slots.size(); ++i)
         EXPECT_EQ(mesh->Data().subMeshes[i].materialIndex, slots[i]);
@@ -169,12 +173,13 @@ TEST(MeshAuthoringCompilerTest, MaterialSlotsPreservePartAssignmentsAndProductDe
     binding.materialSlots[2] = binding.materialSlots[0];
     AuthoringMeshProducts duplicate;
     ASSERT_TRUE(compiler->Compile(source, binding, Ids(), duplicate));
+    EXPECT_EQ(duplicate.effectiveDependencies, (std::vector<Uuid>{binding.materialSlots[0], binding.materialSlots[1]}));
     ASSERT_TRUE(storage.SaveAsset(duplicate.products.front(), "materials"));
     ASSERT_TRUE(storage.InspectProduct(duplicate.products.front()->GetUuid(), "materials", inspection));
     EXPECT_EQ(inspection.dependencies, (std::vector<Uuid>{binding.materialSlots[0], binding.materialSlots[1]}));
 }
 
-TEST(MeshAuthoringCompilerTest, InvalidMaterialSlotsLeaveAllOutputsIntactAndEmptyTableKeepsFallback)
+TEST(MeshAuthoringCompilerTest, CompilationRequiresExplicitMaterialsAndReportsEffectiveDependencies)
 {
     auto *manager = AssetManager::Get();
     manager->RegisterAssetHandler<Mesh>();
@@ -185,9 +190,15 @@ TEST(MeshAuthoringCompilerTest, InvalidMaterialSlotsLeaveAllOutputsIntactAndEmpt
     auto                  source   = Triangle();
     auto                  binding  = Binding();
     AuthoringMeshProducts out;
+    binding.materialSlots.clear();
+    EXPECT_FALSE(compiler->Compile(source, binding, ids, out));
+    EXPECT_TRUE(out.products.empty());
+    const auto fallback = Uuid::Create();
+    binding.materialSlots.assign(8, fallback);
     source.primitives.front().materialIndex = 7;
     ASSERT_TRUE(compiler->Compile(source, binding, ids, out));
-    EXPECT_TRUE(std::static_pointer_cast<Asset<Mesh>>(out.products.front())->Data().materials.empty());
+    EXPECT_EQ(std::static_pointer_cast<Asset<Mesh>>(out.products.front())->Data().materials, std::vector<Uuid>(8, fallback));
+    EXPECT_EQ(out.effectiveDependencies, std::vector<Uuid>{fallback});
     const auto previous        = out.products;
     const auto previousSources = out.vertexSources;
     const auto previousLayout  = out.skeletonLayout;
@@ -243,4 +254,72 @@ TEST(MeshAuthoringCompilerTest, AcquiredCompilerSurvivesUnregistrationAndReplace
     acquired.reset();
     EXPECT_TRUE(weak.expired());
     EXPECT_TRUE(registry->Unregister(replacement));
+}
+
+TEST(MeshAuthoringCompilerTest, ExplicitMaterialPolicyPreparesSlotsBeforeCompilation)
+{
+    const auto fallback                        = Uuid::Create();
+    const auto presets                         = std::make_shared<cook::MeshBuildPresets>();
+    presets->defaultBundle                     = "common";
+    presets->bundles["common"].defaultMaterial = fallback;
+    const auto        compiler                 = cook::CreateMeshAuthoringCompiler(presets);
+    std::vector<Uuid> slots;
+    ASSERT_TRUE(compiler->ResolveMaterials("common", 3, {}, slots));
+    EXPECT_EQ(slots, std::vector<Uuid>(3, fallback));
+    const auto              explicitMaterial = Uuid::Create();
+    const std::vector<Uuid> explicitSlots(3, explicitMaterial);
+    ASSERT_TRUE(compiler->ResolveMaterials("common", 3, explicitSlots, slots));
+    EXPECT_EQ(slots, explicitSlots);
+    const auto previous = slots;
+    EXPECT_FALSE(compiler->ResolveMaterials("common", 8193, {}, slots));
+    EXPECT_EQ(slots, previous);
+    presets->bundles.clear();
+    EXPECT_FALSE(compiler->ResolveMaterials("common", 3, {}, slots));
+    EXPECT_EQ(slots, previous);
+    EXPECT_TRUE(compiler->ResolveMaterials("common", 3, explicitSlots, slots));
+}
+
+TEST(MeshAuthoringCompilerTest, SharedPolicyRejectsMalformedConfigAndMissingFileRestoresDefaults)
+{
+    std::error_code error;
+    const auto      temporary = std::filesystem::temp_directory_path(error);
+    ASSERT_FALSE(error);
+    const auto root = temporary / ("sky-mesh-policy-" + Uuid::Create().ToString());
+    struct Cleanup {
+        std::filesystem::path root;
+        ~Cleanup()
+        {
+            std::error_code error;
+            std::filesystem::remove_all(root, error);
+            EXPECT_FALSE(error);
+        }
+    } cleanup{root};
+    const FileSystemPtr files   = new NativeFileSystem(FilePath(root));
+    const auto          presets = std::make_shared<cook::MeshBuildPresets>();
+    AuroraMeshBuilder   builder(presets);
+    const auto          compiler = cook::CreateMeshAuthoringCompiler(presets);
+    ASSERT_TRUE(files->WriteFileExclusive("mesh_build_presets.json", std::vector<uint8_t>{'{'}));
+    builder.LoadConfig(files);
+    ASSERT_FALSE(presets->loadError.empty());
+    const std::vector<Uuid> supplied{Uuid::Create()};
+    std::vector<Uuid>       out      = supplied;
+    const auto              rejected = compiler->ResolveMaterials("common", 1, supplied, out);
+    EXPECT_FALSE(rejected);
+    EXPECT_EQ(rejected.message, presets->loadError);
+    EXPECT_EQ(out, supplied);
+    EXPECT_FALSE(compiler->ResolveMaterials("common", 1, {}, out));
+    AssetBuildRequest request;
+    request.assetInfo = new AssetSourceInfo;
+    request.file      = files->OpenFile("mesh_build_presets.json");
+    AssetBuildResult result;
+    builder.Request(request, result);
+    EXPECT_EQ(result.retCode, AssetBuildRetCode::FAILED);
+    EXPECT_EQ(result.error, presets->loadError);
+    ASSERT_TRUE(files->RemoveFile("mesh_build_presets.json"));
+    builder.LoadConfig(files);
+    EXPECT_TRUE(presets->loadError.empty());
+    EXPECT_EQ(presets->defaultBundle, "common");
+    ASSERT_EQ(presets->bundles.size(), 1u);
+    EXPECT_FALSE(presets->bundles.at("common").defaultMaterial);
+    EXPECT_TRUE(compiler->ResolveMaterials("common", 1, supplied, out));
 }

@@ -58,7 +58,8 @@
     {
       "name": "Aurora.Render.Editor",
       "dependencies": [
-        "Aurora.Metadata"
+        "Aurora.Metadata",
+        "Aurora.Render"
       ]
     },
     {

@@ -50,9 +50,13 @@ TEST(AssetProductPaths, ProductIndexesRejectConflictingLogicalIdentities)
 {
     class RecordingCatalog final : public ISourceCatalog {
     public:
-        bool ResolvePath(const std::string &path, Uuid &) const override
+        bool ResolvePath(const std::string &path, Uuid &out) const override
         {
             paths.push_back(path);
+            if (path == "materials/uncooked.mat") {
+                out = sourceId;
+                return true;
+            }
             return false;
         }
         bool Exists(const Uuid &) const override
@@ -71,6 +75,7 @@ TEST(AssetProductPaths, ProductIndexesRejectConflictingLogicalIdentities)
         {
             return false;
         }
+        Uuid                             sourceId = Uuid::Create();
         mutable std::vector<std::string> paths;
     } catalog;
     namespace fs = std::filesystem;
@@ -111,6 +116,10 @@ TEST(AssetProductPaths, ProductIndexesRejectConflictingLogicalIdentities)
     };
     AssetManager manager;
     manager.SetSourceCatalog(&catalog);
+    EXPECT_EQ(manager.ResolveAssetPath("./materials/uncooked.mat"), catalog.sourceId);
+    EXPECT_FALSE(manager.ResolveAssetPath("materials/uncooked.mat", AssetLoadPolicy::ProductsOnly));
+    EXPECT_EQ(catalog.paths, (std::vector<std::string>{"materials/uncooked.mat"}));
+    catalog.paths.clear();
     manager.AddAssetProductBundle(bundle("first", firstId));
     EXPECT_EQ(manager.ResolveProductPath("worlds/main.world"), firstId);
     EXPECT_EQ(manager.ResolveProductPath("worlds\\main.world"), firstId);
@@ -132,6 +141,7 @@ TEST(AssetProductPaths, ProductIndexesRejectConflictingLogicalIdentities)
     EXPECT_EQ(manager.ResolveProductPath("worlds/main.world"), firstId);
     manager.AddAssetProductBundle(bundle("conflict", conflictingId));
     EXPECT_FALSE(manager.ResolveProductPath("worlds/main.world"));
+    EXPECT_FALSE(manager.ResolveAssetPath("worlds/main.world"));
     EXPECT_EQ(manager.LoadAssetFromPath("worlds/main.world", AssetLoadPolicy::ProductsOnly), nullptr);
 }
 
@@ -549,7 +559,7 @@ public:
         AssetBuilderManager::Get()->RegisterBuilder(new TestBuilder1());
         AssetBuilderManager::Get()->RegisterBuilder(new TestBuilder2());
 
-        AssetBuilderManager::Get()->SetWorkSpaceFs(projectFs);
+        ASSERT_TRUE(AssetBuilderManager::Get()->SetWorkSpaceFs(projectFs));
         AssetBuilderManager::Get()->LoadBuildConfigs(projectFs->CreateSubSystem("configs", false));
 
         AssetManager::Get()->RegisterAssetHandler<T1Data>();
@@ -768,7 +778,7 @@ TEST_F(AssetManagerTest, MutationTest)
     EXPECT_FALSE(dupAsset->uuid == original);
 
     // Remove drops identity.
-    db->RemoveAsset(original);
+    ASSERT_TRUE(db->RemoveAsset(original));
     EXPECT_EQ(db->FindAsset(original), nullptr);
 
     // Cleanup generated sources and the manifest written by this test.
@@ -1339,4 +1349,83 @@ TEST_F(AssetManagerTest, NoBulkRoundTripTest)
     auto root = db->GetWorkSpaceFs()->GetPath().GetStr();
     std::filesystem::remove(FilePath(root + "/" + path).GetStr());
     std::filesystem::remove(FilePath(root + "/framework/data/assets.jsonl").GetStr());
+}
+
+TEST_F(AssetScanTest, EngineIdentityCannotBeRemovedOrMovedThroughDatabase)
+{
+    std::ofstream(engine / "protected.world") << "{}";
+    const auto source = database.RegisterAsset("protected.world", false);
+    ASSERT_TRUE(source);
+    EXPECT_FALSE(database.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.MoveAsset(source->path, "renamed.world"));
+    EXPECT_EQ(database.FindAsset(source->uuid).Get(), source.Get());
+    EXPECT_EQ(source->path, FilePath("protected.world"));
+    EXPECT_TRUE(std::filesystem::exists(engine / "protected.world"));
+    EXPECT_FALSE(std::filesystem::exists(engine / "renamed.world"));
+    EXPECT_FALSE(std::filesystem::exists(workspace / "renamed.world"));
+}
+
+TEST_F(AssetScanTest, SameRelativePathKeepsBothMountIdentitiesAndOwnedReads)
+{
+    const auto engineId = Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8101");
+    std::ofstream(engine / "scene.world") << "engine";
+    std::ofstream(engine / "assets.jsonl") << "{\"file\":\"scene.world\",\"id\":\"" << engineId.ToString()
+                                           << "\",\"cook\":{\"targets\":[\"engine\"]}}\n";
+    ASSERT_FALSE(database.RebuildCacheFromScan());
+    const auto projectSource = database.FindAsset("workspace", FilePath("scene.world"));
+    const auto engineSource  = database.FindAsset("engine", FilePath("scene.world"));
+    ASSERT_NE(projectSource, nullptr);
+    ASSERT_NE(engineSource, nullptr);
+    EXPECT_NE(projectSource->uuid, engineSource->uuid);
+    EXPECT_EQ(engineSource->uuid, engineId);
+    EXPECT_EQ(database.FindAsset(FilePath("scene.world")).Get(), projectSource.Get());
+    EXPECT_EQ(database.RegisterAsset("engine", FilePath("scene.world"), false).Get(), engineSource.Get());
+    std::string contents, absolute;
+    ASSERT_TRUE(database.OpenFile(engineSource)->ReadString(contents));
+    EXPECT_EQ(contents, "engine");
+    ASSERT_TRUE(database.GetAbsoluteSourcePath(engineId, absolute));
+    EXPECT_EQ(FilePath(absolute), FilePath(engine / "scene.world"));
+    EXPECT_FALSE(database.GetCookJson(engineId).empty());
+    EXPECT_FALSE(database.SetCookJson(engineId, "{}"));
+    EXPECT_FALSE(database.PersistSourceIdentity(engineId));
+    EXPECT_FALSE(database.DeleteAsset(engineId));
+    const auto projectId = projectSource->uuid;
+    database.Save();
+    database.Reset();
+    ASSERT_FALSE(database.Load());
+    EXPECT_EQ(database.FindAsset("engine", FilePath("scene.world"))->uuid, engineId);
+    EXPECT_EQ(database.FindAsset("workspace", FilePath("scene.world"))->uuid, projectId);
+    EXPECT_EQ(database.GetSources().size(), 2U);
+}
+
+TEST_F(AssetScanTest, DeletedSourceDoesNotReturnFromStaleDevelopmentCache)
+{
+    const auto source = database.RegisterAsset("scene.world", false);
+    ASSERT_NE(source, nullptr);
+    const auto id = source->uuid;
+    database.Save();
+    ASSERT_TRUE(database.DeleteAsset(id));
+    EXPECT_FALSE(database.GetWorkSpaceFs()->FileExist("scene.world"));
+    database.Reset();
+    ASSERT_FALSE(database.Load());
+    EXPECT_FALSE(database.FindAsset(id));
+    EXPECT_FALSE(database.FindAsset(FilePath("scene.world")));
+}
+
+TEST_F(AssetScanTest, LegacyCacheWithoutMountUsesCommittedOwnerBeforeOverlayOrder)
+{
+    const auto engineId = Uuid::Create();
+    std::ofstream(engine / "scene.world") << "engine";
+    std::ofstream(engine / "assets.jsonl") << "{\"file\":\"scene.world\",\"id\":\"" << engineId.ToString() << "\"}\n";
+    std::ofstream(workspace / "assets.db") << "{\"assets\":[{\"uuid\":\"" << engineId.ToString()
+                                           << "\",\"markedName\":\"legacy\",\"ext\":\".world\",\"path\":\"scene.world\",\"dependencies\":[]}]}";
+    ASSERT_FALSE(database.Load());
+    const auto engineSource  = database.FindAsset("engine", FilePath("scene.world"));
+    const auto projectSource = database.FindAsset("workspace", FilePath("scene.world"));
+    ASSERT_NE(engineSource, nullptr);
+    ASSERT_NE(projectSource, nullptr);
+    EXPECT_EQ(engineSource->uuid, engineId);
+    EXPECT_EQ(engineSource->name, "legacy");
+    EXPECT_NE(projectSource->uuid, engineId);
+    EXPECT_EQ(database.FindAsset(FilePath("scene.world")).Get(), projectSource.Get());
 }

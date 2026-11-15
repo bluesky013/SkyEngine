@@ -15,11 +15,42 @@ namespace {
     class ManifestFileSystem : public NativeFileSystem {
     public:
         using NativeFileSystem::NativeFileSystem;
-        bool                fail = false;
+        bool                             fail        = false;
+        bool                             failRemoval = false;
+        mutable std::string              failManifestOnce;
+        mutable std::vector<std::string> lockOrder;
+        bool                             failRead            = false;
+        bool                             failRestoreManifest = false;
+        FilePtr                          OpenFile(const FilePath &path) override
+        {
+            return failRead && path.FileName() == "assets.jsonl" ? FilePtr{} : NativeFileSystem::OpenFile(path);
+        }
         FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override
         {
+            if (failRestoreManifest && to.FileName() == "assets.jsonl") {
+                std::string contents;
+                const auto  file = const_cast<ManifestFileSystem *>(this)->NativeFileSystem::OpenFile(from);
+                if (file && file->ReadString(contents) && contents.find("character.model") != std::string::npos)
+                    return {FileOperationError::IOError, "injected manifest restoration failure"};
+            }
+            if (!failManifestOnce.empty() && to.GetStr() == failManifestOnce) {
+                failManifestOnce.clear();
+                return {FileOperationError::IOError, "injected manifest failure"};
+            }
             return fail ? FileOperationStatus{FileOperationError::IOError, "injected manifest failure"}
                         : NativeFileSystem::ReplaceFileAtomic(from, to);
+        }
+        FileOperationStatus RemoveFile(const FilePath &path) const override
+        {
+            if (failRemoval && path.GetStr().find(".deleted-") != std::string::npos) {
+                return {FileOperationError::IOError, "injected source removal failure"};
+            }
+            return NativeFileSystem::RemoveFile(path);
+        }
+        FileOperationStatus AcquireFileLock(const FilePath &path, FileLockPtr &out) const override
+        {
+            lockOrder.push_back(path.GetStr());
+            return NativeFileSystem::AcquireFileLock(path, out);
         }
     };
 
@@ -115,7 +146,7 @@ TEST_F(GeneratedAssetCatalogTest, DuplicateGetsNewChildIdsAndRemovalKeepsTombsto
     EXPECT_TRUE(database.Exists(original.records[1].uuid));
     Uuid owner;
     EXPECT_FALSE(database.GetOwner(old.uuid, owner));
-    database.RemoveAsset(copy->uuid);
+    ASSERT_TRUE(database.RemoveAsset(copy->uuid));
     EXPECT_FALSE(database.Exists(copied["skin"]));
 }
 
@@ -209,4 +240,205 @@ TEST(GeneratedAssetCatalog, ConcurrentOwnerCookRetainsEveryCompletionSubscriber)
     EXPECT_EQ(secondResult.get(), AssetBuildRetCode::SUCCESS);
     AssetExecutor::Get()->WaitForAll();
     EXPECT_EQ(builder->requests, 1U);
+}
+
+TEST_F(GeneratedAssetCatalogTest, FailedRemovalRetainsIdentityAndGeneratedProducts)
+{
+    const auto children = Generate();
+    filesystem->fail    = true;
+    const auto status   = database.RemoveAsset(source->uuid);
+    EXPECT_EQ(status.error, FileOperationError::IOError);
+    EXPECT_EQ(database.FindAsset(source->uuid).Get(), source.Get());
+    EXPECT_EQ(database.FindAsset(source->path).Get(), source.Get());
+    GeneratedAssetRecord child;
+    ASSERT_TRUE(database.GetGenerated(children.records.front().uuid, child));
+    EXPECT_TRUE(child.active);
+    filesystem->fail = false;
+    EXPECT_TRUE(database.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.FindAsset(source->uuid));
+}
+
+TEST_F(GeneratedAssetCatalogTest, FailedMoveRollsBackFileAndRetainsIdentity)
+{
+    ASSERT_TRUE(database.PersistSourceIdentity(source->uuid));
+    filesystem->fail = true;
+    EXPECT_FALSE(database.MoveAsset(source->path, "renamed.model"));
+    EXPECT_TRUE(filesystem->FileExist("character.model"));
+    EXPECT_FALSE(filesystem->FileExist("renamed.model"));
+    EXPECT_EQ(source->path, FilePath("character.model"));
+    EXPECT_EQ(database.FindAsset(source->uuid).Get(), source.Get());
+    filesystem->fail = false;
+    EXPECT_TRUE(database.MoveAsset(source->path, "renamed.model"));
+    EXPECT_EQ(source->path, FilePath("renamed.model"));
+}
+
+TEST_F(GeneratedAssetCatalogTest, RemovalRetainsWorkerManifestUpdatesFromIndependentCache)
+{
+    ASSERT_TRUE(filesystem->WriteFileExclusive("other.world", std::array<uint8_t, 1>{1}));
+    const auto other = database.RegisterAsset("other.world", false);
+    ASSERT_NE(other, nullptr);
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(filesystem);
+    ASSERT_NE(worker.RegisterAsset(source->path, false), nullptr);
+    GeneratedAssetManifest generated;
+    ASSERT_TRUE(worker.UpdateGeneratedProducts(source->uuid, descriptors, defaults, generated));
+    ASSERT_TRUE(worker.SetCookJson(source->uuid, R"({"targets":["worker"]})"));
+    ASSERT_TRUE(database.RemoveAsset(other->uuid));
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    ASSERT_EQ(generated.records.size(), 2U);
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    EXPECT_EQ(database.GetCookJson(source->uuid), R"({"targets":["worker"]})");
+}
+
+TEST_F(GeneratedAssetCatalogTest, MoveRetainsWorkerSourceAndDestinationManifestUpdates)
+{
+    ASSERT_TRUE(filesystem->WriteFileExclusive("moved/other.world", std::array<uint8_t, 1>{1}));
+    const auto other = database.RegisterAsset("moved/other.world", false);
+    ASSERT_NE(other, nullptr);
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(filesystem);
+    ASSERT_NE(worker.RegisterAsset(source->path, false), nullptr);
+    ASSERT_NE(worker.RegisterAsset(other->path, false), nullptr);
+    GeneratedAssetManifest generated;
+    ASSERT_TRUE(worker.UpdateGeneratedProducts(source->uuid, descriptors, defaults, generated));
+    ASSERT_TRUE(worker.SetCookJson(source->uuid, R"({"targets":["source-worker"]})"));
+    ASSERT_TRUE(worker.SetCookJson(other->uuid, R"({"targets":["destination-worker"]})"));
+    ASSERT_NE(database.MoveAsset(source->path, "moved/character.model"), nullptr);
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    EXPECT_EQ(database.GetCookJson(source->uuid), R"({"targets":["source-worker"]})");
+    EXPECT_EQ(database.GetCookJson(other->uuid), R"({"targets":["destination-worker"]})");
+}
+
+TEST_F(GeneratedAssetCatalogTest, RegistrationRetainsWorkerManifestUpdatesAndDetectsBusyWriter)
+{
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(filesystem);
+    ASSERT_NE(worker.RegisterAsset(source->path, false), nullptr);
+    GeneratedAssetManifest generated;
+    ASSERT_TRUE(worker.UpdateGeneratedProducts(source->uuid, descriptors, defaults, generated));
+    ASSERT_TRUE(filesystem->WriteFileExclusive("other.world", std::array<uint8_t, 1>{1}));
+    FileLockPtr writer;
+    ASSERT_TRUE(filesystem->AcquireFileLock("assets.jsonl.lock", writer));
+    EXPECT_EQ(database.RegisterAsset("other.world", false), nullptr);
+    EXPECT_EQ(database.RemoveAsset(source->uuid).error, FileOperationError::Busy);
+    EXPECT_FALSE(database.MoveAsset(source->path, "moved/character.model"));
+    writer.reset();
+    ASSERT_NE(database.RegisterAsset("other.world", false), nullptr);
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+}
+
+TEST_F(GeneratedAssetCatalogTest, DeleteFailureRestoresSourceManifestAndLiveIdentity)
+{
+    const auto generated         = Generate();
+    filesystem->failManifestOnce = "assets.jsonl";
+    EXPECT_FALSE(database.DeleteAsset(source->uuid));
+    EXPECT_TRUE(filesystem->FileExist(source->path));
+    EXPECT_EQ(database.FindAsset(source->uuid).Get(), source.Get());
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    filesystem->failRemoval = true;
+    EXPECT_FALSE(database.DeleteAsset(source->uuid));
+    EXPECT_TRUE(filesystem->FileExist(source->path));
+    EXPECT_EQ(database.FindAsset(source->uuid).Get(), source.Get());
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    filesystem->failRemoval = false;
+    ASSERT_TRUE(database.DeleteAsset(source->uuid));
+    EXPECT_FALSE(filesystem->FileExist(source->path));
+    EXPECT_FALSE(database.Exists(generated.records.front().uuid));
+}
+
+TEST_F(GeneratedAssetCatalogTest, CrossDirectoryMoveFailureRestoresFreshManifestSnapshotsUnderOrderedLocks)
+{
+    ASSERT_TRUE(filesystem->WriteFileExclusive("a/other.world", std::array<uint8_t, 1>{1}));
+    const auto other = database.RegisterAsset("a/other.world", false);
+    ASSERT_NE(other, nullptr);
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(filesystem);
+    ASSERT_NE(worker.RegisterAsset(source->path, false), nullptr);
+    ASSERT_NE(worker.RegisterAsset(other->path, false), nullptr);
+    ASSERT_TRUE(worker.SetCookJson(other->uuid, R"({"targets":["worker"]})"));
+    GeneratedAssetManifest generated;
+    ASSERT_TRUE(worker.UpdateGeneratedProducts(source->uuid, descriptors, defaults, generated));
+    filesystem->failManifestOnce = "assets.jsonl";
+    filesystem->lockOrder.clear();
+    EXPECT_FALSE(database.MoveAsset(source->path, "a/character.model"));
+    EXPECT_EQ(filesystem->lockOrder, (std::vector<std::string>{"assets.jsonl.lock", "a/assets.jsonl.lock"}));
+    EXPECT_TRUE(filesystem->FileExist(source->path));
+    EXPECT_FALSE(filesystem->FileExist("a/character.model"));
+    ASSERT_TRUE(database.RefreshOwner(source->uuid));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    EXPECT_EQ(database.GetCookJson(other->uuid), R"({"targets":["worker"]})");
+    EXPECT_FALSE(database.FindAsset(FilePath("a/character.model")));
+}
+
+TEST_F(GeneratedAssetCatalogTest, UnreadableAndMalformedManifestRejectMutationsWithoutLosingIdentities)
+{
+    const auto  generated = Generate();
+    std::string original;
+    ASSERT_TRUE(filesystem->OpenFile("assets.jsonl")->ReadString(original));
+    ASSERT_TRUE(filesystem->WriteFileExclusive("other.world", std::array<uint8_t, 1>{1}));
+    filesystem->failRead = true;
+    EXPECT_FALSE(database.RegisterAsset("other.world", false));
+    EXPECT_FALSE(database.PersistSourceIdentity(source->uuid));
+    EXPECT_FALSE(database.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.DeleteAsset(source->uuid));
+    EXPECT_FALSE(database.MoveAsset(source->path, "moved/character.model"));
+    EXPECT_FALSE(database.SetCookJson(source->uuid, "{}"));
+    GeneratedAssetManifest rejected;
+    EXPECT_FALSE(database.UpdateGeneratedProducts(source->uuid, descriptors, defaults, rejected));
+    filesystem->failRead = false;
+    std::string current;
+    ASSERT_TRUE(filesystem->OpenFile("assets.jsonl")->ReadString(current));
+    EXPECT_EQ(current, original);
+    EXPECT_TRUE(filesystem->FileExist(source->path));
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+    {
+        std::ofstream output(root / "assets.jsonl", std::ios::app);
+        output << "not-json\n";
+    }
+    EXPECT_FALSE(database.RegisterAsset("other.world", false));
+    EXPECT_FALSE(database.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.MoveAsset(source->path, "moved/character.model"));
+    ASSERT_TRUE(filesystem->OpenFile("assets.jsonl")->ReadString(current));
+    EXPECT_EQ(current, original + "not-json\n");
+    EXPECT_TRUE(database.Exists(generated.records.front().uuid));
+}
+
+TEST_F(GeneratedAssetCatalogTest, FailedDeletionCompensationQuarantinesBytesInsteadOfReassigningIdentity)
+{
+    const auto generated            = Generate();
+    filesystem->failRemoval         = true;
+    filesystem->failRestoreManifest = true;
+    const auto status               = database.DeleteAsset(source->uuid);
+    EXPECT_FALSE(status);
+    EXPECT_NE(status.message.find("deletion requires recovery from"), std::string::npos);
+    EXPECT_FALSE(filesystem->FileExist(source->path));
+    EXPECT_FALSE(database.FindAsset(source->uuid));
+    EXPECT_FALSE(database.Exists(generated.records.front().uuid));
+    std::error_code error;
+    size_t          quarantined = 0;
+    for (const auto &entry : std::filesystem::directory_iterator(root, error)) {
+        if (entry.path().filename().string().find("character.model.deleted-") == 0) {
+            ++quarantined;
+            EXPECT_NE(status.message.find(entry.path().string()), std::string::npos);
+        }
+    }
+    EXPECT_FALSE(error);
+    EXPECT_EQ(quarantined, 1U);
+    EXPECT_FALSE(database.RegisterAsset("character.model", false));
+}
+
+TEST_F(GeneratedAssetCatalogTest, MissingManifestOwnerRejectsStaleRemovalAndMove)
+{
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(filesystem);
+    ASSERT_NE(worker.RegisterAsset(source->path, false), nullptr);
+    ASSERT_TRUE(worker.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.RemoveAsset(source->uuid));
+    EXPECT_FALSE(database.DeleteAsset(source->uuid));
+    EXPECT_FALSE(database.MoveAsset(source->path, "moved/character.model"));
+    EXPECT_TRUE(filesystem->FileExist(source->path));
 }

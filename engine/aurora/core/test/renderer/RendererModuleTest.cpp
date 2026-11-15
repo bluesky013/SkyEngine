@@ -1,9 +1,11 @@
+#include "SceneAssetFixtures.h"
 #include <animation/IAnimationSkeletonSource.h>
 #include <array>
 
-#include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/assets/AuroraAssetReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <aurora/adaptor/renderer/RendererHost.h>
 #include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <aurora/pipeline/SceneHighlight.h>
@@ -22,9 +24,11 @@
 #include <aurora/shader/ShaderTechnique.h>
 #include <chrono>
 #include <cmath>
+#include <core/hash/Hash.h>
 #include <cstdlib>
 #include <filesystem>
 #include <framework/application/ModuleManager.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetProductBundle.h>
 #include <framework/interface/ISystem.h>
@@ -32,12 +36,17 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/world/ComponentFactory.h>
 #include <gtest/gtest.h>
 #include <map>
 #include <thread>
 
 #if defined(_WIN32)
     #include <windows.h>
+#endif
+
+#if defined(AURORA_COOK_MODULE_FIXTURE)
+    #include <physics/softbody/IMeshAuthoringCompiler.h>
 #endif
 
 using namespace sky;
@@ -57,7 +66,7 @@ namespace {
     class MetadataFixture final : public IModule {
         void RegisterMeta() override
         {
-            AuroraReflection(SerializationContext::Get());
+            RegisterAuroraAssetTypes(SerializationContext::Get());
         }
     };
 #endif
@@ -171,6 +180,102 @@ TEST(RendererModule, RegistersInHostEnvironmentAndReloads)
         EXPECT_EQ(service->GetApi(), nullptr);
     }
 }
+
+TEST(RendererModule, PersistentAndRuntimeDefinitionsSurviveFailedInitRetryAndManagerReplacement)
+{
+    auto           *context     = SerializationContext::Get();
+    auto           *components  = ComponentFactory::Get();
+    const auto      componentId = Uuid::CreateWithSeed(Fnv1a32("StaticMeshComponent"));
+    const TypeNode *dataType    = nullptr;
+    const TypeNode *runtimeType = nullptr;
+    for (uint32_t iteration = 0; iteration < 2; ++iteration) {
+        auto external = CreateRendererProvider();
+        ASSERT_TRUE(external);
+        ProviderService::Get()->Register(*external);
+        ScopedProviderRegistration registration{external.get()};
+        LoadedProvider             loaded(true);
+        ASSERT_FALSE(loaded.succeeded);
+        ASSERT_TRUE(loaded.manager.IsModuleInitialized("Aurora.Metadata"));
+        ASSERT_FALSE(loaded.manager.IsModuleInitialized("Aurora.Render"));
+        const auto *currentData    = context->FindType("StaticMeshComponentData");
+        const auto *currentRuntime = context->FindType("StaticMeshComponent");
+        ASSERT_NE(currentData, nullptr);
+        ASSERT_NE(currentRuntime, nullptr);
+        EXPECT_EQ(currentData->info, TypeInfoObj<StaticMeshComponentData>::Get()->RtInfo());
+        EXPECT_EQ(components->GetPersistentDataType(componentId), currentData->info);
+        const auto *creator = components->Find(componentId);
+        ASSERT_NE(creator, nullptr);
+        EXPECT_EQ(creator->queryDataType(), currentData->info);
+        EXPECT_EQ(currentRuntime->info->registeredId, componentId);
+        if (iteration) {
+            EXPECT_EQ(currentData, dataType);
+            EXPECT_EQ(currentRuntime, runtimeType);
+        }
+        dataType    = currentData;
+        runtimeType = currentRuntime;
+        ProviderService::Get()->UnRegister();
+        StartArguments args;
+        args.args = {"RendererModuleTest", "--aurora-provider-only"};
+        ASSERT_TRUE(loaded.manager.LoadModules(args));
+        EXPECT_EQ(context->FindType("StaticMeshComponentData"), dataType);
+        EXPECT_EQ(context->FindType("StaticMeshComponent"), runtimeType);
+        EXPECT_NE(ProviderService::Get()->GetApi(), nullptr);
+        loaded.manager.UnLoadModules();
+        EXPECT_EQ(ProviderService::Get()->GetApi(), nullptr);
+        EXPECT_EQ(context->FindType("StaticMeshComponentData"), dataType);
+        EXPECT_EQ(context->FindType("StaticMeshComponent"), runtimeType);
+    }
+}
+
+#if defined(AURORA_COOK_MODULE_FIXTURE)
+TEST(RendererModule, CookSessionRecreationKeepsDefinitionOwnedMaterialPresets)
+{
+    struct ConfigDirectory {
+        std::filesystem::path path;
+        bool                  loaded = false;
+        ~ConfigDirectory()
+        {
+            if (loaded)
+                AssetBuilderManager::Get()->LoadBuildConfigs({});
+            std::error_code error;
+            if (!path.empty())
+                std::filesystem::remove_all(path, error);
+            EXPECT_FALSE(error) << error.message();
+        }
+    } directory;
+    std::error_code error;
+    directory.path = std::filesystem::temp_directory_path(error) / ("sky-cook-definition-" + Uuid::Create().ToString());
+    ASSERT_FALSE(error);
+    FileSystemPtr config   = new NativeFileSystem(FilePath(directory.path));
+    const auto    material = Uuid::Create();
+    const auto    json     = "{\"defaultBundle\":\"common\",\"bundles\":{\"common\":{\"defaultMaterial\":\"" + material.ToString() + "\"}}}";
+    ASSERT_TRUE(config->WriteFileExclusive("mesh_build_presets.json", {reinterpret_cast<const uint8_t *>(json.data()), json.size()}));
+    auto *registry = phy::MeshAuthoringCompilerRegistry::Get();
+    EXPECT_FALSE(registry->Acquire());
+    for (uint32_t iteration = 0; iteration < 2; ++iteration) {
+        ModuleManager manager;
+        ASSERT_TRUE(manager.RegisterModule({"Aurora.Cook", {"Aurora.Metadata"}}));
+        ASSERT_TRUE(manager.TopoSort());
+        ASSERT_TRUE(manager.LoadModules({}));
+        EXPECT_FALSE(manager.IsModuleInitialized("Aurora.Render"));
+        if (!iteration) {
+            AssetBuilderManager::Get()->LoadBuildConfigs(config);
+            directory.loaded = true;
+        }
+        auto compiler = registry->Acquire();
+        ASSERT_TRUE(compiler);
+        std::vector<Uuid> slots;
+        const auto        status = compiler->ResolveMaterials("common", 2, {}, slots);
+        ASSERT_TRUE(status) << status.message;
+        EXPECT_EQ(slots, (std::vector<Uuid>{material, material}));
+        manager.UnLoadModules();
+        EXPECT_FALSE(registry->Acquire());
+        slots.clear();
+        EXPECT_TRUE(compiler->ResolveMaterials("common", 1, {}, slots));
+        EXPECT_EQ(slots, (std::vector<Uuid>{material}));
+    }
+}
+#endif
 
 TEST(RendererModule, RejectsZeroCountsAndBudgets)
 {
@@ -364,7 +469,7 @@ namespace {
                 std::make_shared<ShippedPasses>(std::get<RenderTechniqueData>(dispatch), std::get<RenderTechniqueData>(fullscreen))});
             packet->extensions.push_back({Name("package.passes"), {}, {output}, {}});
         } else {
-            const auto source   = CreateSceneAssetSource(sources, {}, products);
+            const auto source   = CreateTestSceneAssetSource(sources, {}, products);
             const auto resolved = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
             ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(resolved));
             const auto resources = std::get<std::shared_ptr<const SceneMeshResources>>(resolved);
@@ -576,7 +681,7 @@ namespace {
         EXPECT_TRUE(imageA->Data().rawData.empty() && imageB->Data().rawData.empty());
         const auto pendingTexture = assets->CreateBuildAsset(imageBId, Name(AssetTraits<Texture>::ASSET_TYPE.data()));
         ASSERT_NE(pendingTexture, nullptr);
-        auto source = CreateSceneAssetSource(
+        auto source = CreateTestSceneAssetSource(
             sources, [assets, pendingTexture](const Uuid &id) { return id == pendingTexture->GetUuid() ? pendingTexture : assets->FindAsset(id); },
             shaderProducts);
         const auto mesh           = ScenePrimitiveId(ScenePrimitive::CUBE);
@@ -586,7 +691,7 @@ namespace {
         };
         const auto pendingResult = source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo());
         EXPECT_TRUE(std::holds_alternative<std::monostate>(pendingResult)) << describeResult(pendingResult);
-        source                    = CreateSceneAssetSource(sources, [assets](const Uuid &id) { return assets->FindAsset(id); }, shaderProducts);
+        source                    = CreateTestSceneAssetSource(sources, [assets](const Uuid &id) { return assets->FindAsset(id); }, shaderProducts);
         const auto baseResult     = source->ResolveMesh(mesh, material->GetUuid(), renderer->GetInfo());
         const auto instanceResult = source->ResolveMesh(mesh, instance->GetUuid(), renderer->GetInfo());
         ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(baseResult)) << describeResult(baseResult);
@@ -749,7 +854,7 @@ TEST(RendererModule, MetalSelectionOutlineUsesTypedParametersAndExactEntityGener
     NativeFileSystem shaderRoot{FilePath("assets/shaders")};
     std::string      error;
     ASSERT_TRUE(sources->LoadBundles(shaderRoot, "", &error)) << error;
-    const auto source   = CreateSceneAssetSource(sources);
+    const auto source   = CreateTestSceneAssetSource(sources);
     const auto resolved = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(resolved));
     const auto resources = std::get<std::shared_ptr<const SceneMeshResources>>(resolved);
@@ -999,8 +1104,8 @@ TEST(RendererModule, NativeRendererHostDrainsBeforeLoadedModuleAndWindowAreRelea
             if (!output)
                 return FrameOperationComplete{};
             FrameRasterPass clear;
-            clear.color = output->color;
-            clear.clear = ClearValue{.1f, .5f, .8f, 1.f};
+            clear.color         = output->color;
+            clear.clear         = ClearValue{.1f, .5f, .8f, 1.f};
             const auto rendered = context.Raster(std::move(clear));
             if (std::holds_alternative<FrameError>(rendered))
                 return rendered;

@@ -8,6 +8,9 @@
 #include <editor/core/extension/EditorActionRegistry.h>
 #include <editor/core/extension/EditorExtensionHost.h>
 #include <editor/core/extension/EditorScopeStack.h>
+#include <editor/core/property/PropertyDescriptor.h>
+#include <framework/world/Actor.h>
+#include <framework/world/TransformComponent.h>
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
@@ -146,4 +149,106 @@ TEST(EditorExtensionTest, ExtensionActionsGoThroughRegistry)
 
     EditorActionRegistry::Get()->Clear();
     EditorScopeStack::Get()->Clear();
+}
+
+namespace {
+    class EditCounterCommand final : public UndoCommand {
+    public:
+        explicit EditCounterCommand(int &value) : value(value)
+        {
+        }
+        void Do() override
+        {
+            ++value;
+        }
+        void Undo() override
+        {
+            --value;
+        }
+
+    private:
+        int &value;
+    };
+    class EditExtension final : public EditorExtension {
+    public:
+        EditExtension(EditorEditState state, int &value, bool valid = true) : state(state), value(value), valid(valid)
+        {
+        }
+        const char *GetName() const override
+        {
+            return "EditExtension";
+        }
+        void Register() override
+        {
+        }
+        void Unregister() override
+        {
+        }
+        EditorEditResult MakePropertyEdit(Actor &, const PropertyDescriptor &, const Any &) override
+        {
+            return Prepare();
+        }
+        EditorEditResult PrepareComponentAddition(Actor &, ComponentBase &) override
+        {
+            return Prepare();
+        }
+
+    private:
+        EditorEditResult Prepare()
+        {
+            if (state == EditorEditState::Ready)
+                return {state, valid ? std::make_unique<EditCounterCommand>(value) : nullptr, {}};
+            return {state, {}, state == EditorEditState::Error ? "rejected by domain" : ""};
+        }
+        EditorEditState state;
+        int            &value;
+        bool            valid;
+    };
+} // namespace
+
+TEST(EditorExtensionTest, DomainEditsAreOwnedCommandsAndUnregisteredHostsDoNotHandle)
+{
+    Actor               actor(Uuid::Create());
+    TransformComponent  component;
+    PropertyDescriptor  property;
+    int                 value = 0;
+    EditorExtensionHost host;
+    host.Add(std::make_unique<EditExtension>(EditorEditState::Ready, value));
+    EXPECT_EQ(host.MakePropertyEdit(actor, property, Any{}).state, EditorEditState::Unhandled);
+    host.RegisterAll();
+    auto result = host.MakePropertyEdit(actor, property, Any{});
+    ASSERT_EQ(result.state, EditorEditState::Ready);
+    EXPECT_EQ(value, 0);
+    EXPECT_EQ(host.PrepareComponentAddition(actor, component).state, EditorEditState::Ready);
+    host.UnregisterAll();
+    EXPECT_EQ(host.MakePropertyEdit(actor, property, Any{}).state, EditorEditState::Unhandled);
+    EXPECT_EQ(host.PrepareComponentAddition(actor, component).state, EditorEditState::Unhandled);
+    ASSERT_TRUE(result.command->TryDo());
+    EXPECT_EQ(value, 1);
+    ASSERT_TRUE(result.command->TryUndo());
+    EXPECT_EQ(value, 0);
+}
+
+TEST(EditorExtensionTest, ConflictingFailedAndInvalidPreparedEditsNeverExecute)
+{
+    Actor              actor(Uuid::Create());
+    TransformComponent component;
+    PropertyDescriptor property;
+    int                value = 0;
+    for (int mode = 0; mode < 3; ++mode) {
+        EditorExtensionHost host;
+        if (mode != 2)
+            host.Add(std::make_unique<EditExtension>(EditorEditState::Ready, value));
+        host.Add(std::make_unique<EditExtension>(mode == 1 ? EditorEditState::Error : EditorEditState::Ready, value, mode != 2));
+        host.RegisterAll();
+        auto propertyResult  = host.MakePropertyEdit(actor, property, Any{});
+        auto componentResult = host.PrepareComponentAddition(actor, component);
+        EXPECT_EQ(propertyResult.state, EditorEditState::Error);
+        EXPECT_EQ(componentResult.state, EditorEditState::Error);
+        EXPECT_FALSE(propertyResult.command);
+        EXPECT_FALSE(componentResult.command);
+        EXPECT_FALSE(propertyResult.error.empty());
+        EXPECT_FALSE(componentResult.error.empty());
+        EXPECT_EQ(value, 0);
+    }
 }

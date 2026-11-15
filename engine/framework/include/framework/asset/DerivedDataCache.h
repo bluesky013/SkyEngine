@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/environment/Singleton.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -20,33 +22,40 @@ namespace sky {
         virtual ~IDerivedDataBuilder() = default;
 
         virtual std::string GetId() const = 0;
-        virtual uint32_t GetVersion() const { return 1; }
-        virtual bool Build(const std::vector<uint8_t> &source, const std::string &settings,
-                           std::vector<uint8_t> &out) const = 0;
+        virtual uint32_t    GetVersion() const
+        {
+            return 1;
+        }
+        virtual bool Build(const std::vector<uint8_t> &source, const std::string &settings, std::vector<uint8_t> &out) const = 0;
     };
 
-    // Content-addressed derived-data cache (DDC). The cache key is
-    // hash(source + builder id + builder version + settings + platform); on a miss
-    // the registered builder runs, its output is written, and returned; later
-    // fetches read the cache. Any input change invalidates the entry.
-    class DerivedDataCache {
+    // Process-wide derived data keyed by source, builder version, settings and platform.
+    class DerivedDataCache : public Singleton<DerivedDataCache> {
+        friend class Singleton<DerivedDataCache>;
+
     public:
         static DerivedDataCache &Get();
 
-        // Directory used for cached entries (created on first write).
-        void SetRoot(const std::string &dir);
-        const std::string &GetRoot() const { return root; }
+        // Empty disables persistence; the registered builder can still derive data.
+        void               SetRoot(const std::string &dir);
+        const std::string &GetRoot() const
+        {
+            return root;
+        }
 
-        void Register(const std::shared_ptr<IDerivedDataBuilder> &builder);
+        void                 Register(const std::shared_ptr<IDerivedDataBuilder> &builder);
         IDerivedDataBuilder *Find(const std::string &builderId) const;
 
-        bool Fetch(const std::vector<uint8_t> &source, const std::string &builderId,
-                   const std::string &settings, const std::string &platform, std::vector<uint8_t> &out);
+        bool Fetch(const std::vector<uint8_t> &source,
+                   const std::string          &builderId,
+                   const std::string          &settings,
+                   const std::string          &platform,
+                   std::vector<uint8_t>       &out);
 
     private:
         DerivedDataCache() = default;
 
-        std::string root = "ddc-cache";
+        std::string                                                           root;
         std::unordered_map<std::string, std::shared_ptr<IDerivedDataBuilder>> builders;
     };
 

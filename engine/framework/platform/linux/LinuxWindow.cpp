@@ -147,9 +147,8 @@ namespace sky {
         }
         display = xDisplay;
 
-        xwindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0,
-            static_cast<unsigned int>(desc.width), static_cast<unsigned int>(desc.height),
-            0, BlackPixel(xDisplay, 0), WhitePixel(xDisplay, 0));
+        xwindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, static_cast<unsigned int>(desc.width),
+                                      static_cast<unsigned int>(desc.height), 0, BlackPixel(xDisplay, 0), WhitePixel(xDisplay, 0));
         if (xwindow == 0) {
             LOG_E(TAG, "XCreateSimpleWindow failed");
             return false;
@@ -161,8 +160,8 @@ namespace sky {
         XSetWMProtocols(xDisplay, xwindow, const_cast<Atom *>(&deleteAtom), 1);
 
         XSelectInput(xDisplay, xwindow,
-            StructureNotifyMask | ExposureMask | FocusChangeMask | KeyPressMask | KeyReleaseMask |
-                ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
+                     StructureNotifyMask | ExposureMask | FocusChangeMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
+                         PointerMotionMask | LeaveWindowMask);
 
         XMapWindow(xDisplay, xwindow);
         XFlush(xDisplay);
@@ -181,7 +180,7 @@ namespace sky {
 
     void LinuxWindow::UpdateXcbHandle()
     {
-        auto *xDisplay = static_cast<Display *>(display);
+        auto *xDisplay       = static_cast<Display *>(display);
         xcbHandle.connection = xDisplay != nullptr ? x11::GetXcbConnection(xDisplay) : nullptr;
         xcbHandle.window     = reinterpret_cast<void *>(xwindow);
         winHandle            = &xcbHandle;
@@ -189,8 +188,8 @@ namespace sky {
 
     void LinuxWindow::DispatchNativeEvent(void *event)
     {
-        auto &ev            = *static_cast<XEvent *>(event);
-        const WindowID id   = GetWinId();
+        auto          &ev = *static_cast<XEvent *>(event);
+        const WindowID id = GetWinId();
 
         switch (ev.type) {
         case ConfigureNotify: {
@@ -212,16 +211,12 @@ namespace sky {
             Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowMove, move);
             break;
         }
-        case FocusIn:
-            Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnFocusChanged, true);
-            break;
-        case FocusOut:
-            Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnFocusChanged, false);
-            break;
+        case FocusIn: Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnFocusChanged, true); break;
+        case FocusOut: Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnFocusChanged, false); break;
         case KeyPress:
         case KeyRelease: {
-            auto *xDisplay = static_cast<Display *>(display);
-            const KeySym sym = XLookupKeysym(&ev.xkey, 0);
+            auto        *xDisplay = static_cast<Display *>(display);
+            const KeySym sym      = XLookupKeysym(&ev.xkey, 0);
 
             KeyboardEvent key = {};
             key.winID         = id;
@@ -234,11 +229,10 @@ namespace sky {
             }
 
             if (ev.type == KeyPress) {
-                char buffer[32] = {};
-                KeySym ignored  = 0;
-                const int count = XLookupString(&ev.xkey, buffer, sizeof(buffer) - 1, &ignored, nullptr);
-                if (count > 0 && static_cast<unsigned char>(buffer[0]) >= 0x20 &&
-                    static_cast<unsigned char>(buffer[0]) != 0x7f) {
+                char      buffer[32] = {};
+                KeySym    ignored    = 0;
+                const int count      = XLookupString(&ev.xkey, buffer, sizeof(buffer) - 1, &ignored, nullptr);
+                if (count > 0 && static_cast<unsigned char>(buffer[0]) >= 0x20 && static_cast<unsigned char>(buffer[0]) != 0x7f) {
                     buffer[count] = '\0';
                     Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, id, buffer);
                 }
@@ -249,7 +243,7 @@ namespace sky {
         case ButtonPress:
         case ButtonRelease: {
             const unsigned int button = ev.xbutton.button;
-            MouseButtonEvent mouse    = {};
+            MouseButtonEvent   mouse  = {};
             mouse.winID               = id;
             mouse.x                   = ev.xbutton.x;
             mouse.y                   = ev.xbutton.y;
@@ -292,8 +286,13 @@ namespace sky {
             Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseMotion, motion);
             break;
         }
+        case LeaveNotify:
+            if (ev.xcrossing.mode == NotifyNormal && ev.xcrossing.detail != NotifyInferior) {
+                Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseLeave, id);
+            }
+            break;
         case ClientMessage: {
-            auto *xDisplay      = static_cast<Display *>(display);
+            auto      *xDisplay = static_cast<Display *>(display);
             const Atom deleteAt = XInternAtom(xDisplay, "WM_DELETE_WINDOW", True);
             if (static_cast<Atom>(ev.xclient.data.l[0]) == deleteAt) {
                 Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowClose, static_cast<const NativeWindow *>(this));
@@ -341,9 +340,8 @@ namespace sky {
             return;
         }
         if (capture) {
-            XGrabPointer(xDisplay, xwindow, False,
-                ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-                GrabModeAsync, GrabModeAsync, xwindow, None, CurrentTime);
+            XGrabPointer(xDisplay, xwindow, False, ButtonPressMask | ButtonReleaseMask | PointerMotionMask, GrabModeAsync, GrabModeAsync, xwindow,
+                         None, CurrentTime);
         } else {
             XUngrabPointer(xDisplay, CurrentTime);
         }
@@ -355,14 +353,14 @@ namespace sky {
         if (xDisplay == nullptr || xwindow == 0) {
             return false;
         }
-        ::Window root   = 0;
-        ::Window child  = 0;
-        int rootX       = 0;
-        int rootY       = 0;
-        int winX        = 0;
-        int winY        = 0;
-        unsigned int mask = 0;
-        const Bool ok = XQueryPointer(xDisplay, xwindow, &root, &child, &rootX, &rootY, &winX, &winY, &mask);
+        ::Window     root  = 0;
+        ::Window     child = 0;
+        int          rootX = 0;
+        int          rootY = 0;
+        int          winX  = 0;
+        int          winY  = 0;
+        unsigned int mask  = 0;
+        const Bool   ok    = XQueryPointer(xDisplay, xwindow, &root, &child, &rootX, &rootY, &winX, &winY, &mask);
         if (ok == False) {
             return false;
         }

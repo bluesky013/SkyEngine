@@ -17,8 +17,6 @@
 
 namespace sky::aurora {
 
-    class Device;
-
     enum class ImageAssetType : uint32_t {
         TEXTURE_2D = 0,
         TEXTURE_2D_ARRAY,
@@ -124,11 +122,6 @@ namespace sky::aurora {
             rawData.clear();
         }
     };
-
-    // Runtime-only build: maps the header to an Image::Descriptor, creates the
-    // matching Texture subclass and uploads every slice. Returns null on invalid
-    // input (null device, version mismatch, wrong cube layer count).
-    CounterPtr<Texture> CreateTextureFromAsset(Device *device, const Asset<Texture> &asset);
 
 } // namespace sky::aurora
 

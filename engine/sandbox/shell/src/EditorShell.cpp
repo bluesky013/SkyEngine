@@ -94,7 +94,8 @@ namespace sky::editor {
         actionLifetime.reset();
         for (auto &[id, surface] : surfaces) {
             surface.actionLifetime.reset();
-            if (surface.assetTool) EditorActionRegistry::Get()->RemoveScope(surface.actionScope);
+            if (surface.assetTool)
+                EditorActionRegistry::Get()->RemoveScope(surface.actionScope);
         }
     }
 
@@ -495,18 +496,22 @@ namespace sky::editor {
         if (it == surfaces.end()) {
             return;
         }
-        Surface &surface = it->second;
+        Surface            &surface = it->second;
         ScopedEditorActions actions(surface.actionScope);
         if (SynchronizeDefaultUiTheme(*surface.context->GetRoot(), surface.themeRevision)) {
             ApplyTheme(surface.context.get());
         }
         surface.context->SetContentSize(inWidth, inHeight);
         if (surface.view != nullptr) {
-            if (surface.assetTool) surface.assetTool->SynchronizeLayout();
-            else SynchronizePanelLayout(surface.view);
+            if (surface.assetTool)
+                surface.assetTool->SynchronizeLayout();
+            else
+                SynchronizePanelLayout(surface.view);
             surface.view->ArrangeIfNeeded(sky::ui::UIRect{0.0f, 0.0f, inWidth, inHeight});
         }
         surface.context->Paint(paintContext);
+        surface.tooltip.ValidateRoot(TooltipRoot(surfaceId));
+        surface.tooltip.Paint(paintContext, {0.0f, 0.0f, inWidth, inHeight}, UiSkin(GetDefaultUiTheme(), textSystem));
     }
 
     sky::ui::UIEventRouter *EditorShell::SurfaceRouter(uint32_t surfaceId)
@@ -517,6 +522,11 @@ namespace sky::editor {
 
     bool EditorShell::PrepareSurfaceInput(uint32_t surfaceId)
     {
+        if (activeInputSurface != surfaceId) {
+            tooltip.Reset();
+            for (auto &[id, surface] : surfaces)
+                surface.tooltip.Reset();
+        }
         activeInputSurface              = surfaceId;
         const std::weak_ptr<void> alive = actionLifetime;
         const float               scale = GetSurfaceUiScale(surfaceId);
@@ -543,8 +553,10 @@ namespace sky::editor {
             ApplyTheme(target);
         }
         if (view != nullptr) {
-            if (found->second.assetTool) found->second.assetTool->SynchronizeLayout();
-            else SynchronizePanelLayout(view);
+            if (found->second.assetTool)
+                found->second.assetTool->SynchronizeLayout();
+            else
+                SynchronizePanelLayout(view);
         }
         if (alive.expired() || rootReference.Get() == nullptr || (view != nullptr && viewReference.Get() == nullptr)) {
             return false;
@@ -562,11 +574,13 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchPointer(event);
-        const auto tool = surfaces.find(surfaceId);
+        const auto          tool = surfaces.find(surfaceId);
         ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
-        if (tool->second.assetTool) return tool->second.assetTool->OnPointerEvent(event) == sky::ui::UIEventResult::HANDLED;
+        tool->second.tooltip.Pointer(event);
+        if (tool->second.assetTool)
+            return tool->second.assetTool->OnPointerEvent(event) == sky::ui::UIEventResult::HANDLED;
         if (ActiveModal() != nullptr)
             return true;
         auto      *router  = SurfaceRouter(surfaceId);
@@ -581,10 +595,11 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (surfaceId == 0)
             return DispatchKey(event);
-        const auto tool = surfaces.find(surfaceId);
+        const auto          tool = surfaces.find(surfaceId);
         ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
+        tool->second.tooltip.Cancel();
         if (!tool->second.assetTool && ActiveModal() != nullptr)
             return true;
         if (tool->second.assetTool && tool->second.assetTool->NeedsCloseDecision())
@@ -596,7 +611,8 @@ namespace sky::editor {
         }
         if (alive.expired())
             return true;
-        if (tool->second.assetTool) return tool->second.assetTool->OnKeyEvent(event) == sky::ui::UIEventResult::HANDLED;
+        if (tool->second.assetTool)
+            return tool->second.assetTool->OnKeyEvent(event) == sky::ui::UIEventResult::HANDLED;
         auto *router = SurfaceRouter(surfaceId);
         return router != nullptr && router->DispatchKey(event) == sky::ui::UIEventResult::HANDLED;
     }
@@ -605,11 +621,13 @@ namespace sky::editor {
     {
         if (surfaceId == 0)
             return DispatchText(event);
-        const auto tool = surfaces.find(surfaceId);
+        const auto          tool = surfaces.find(surfaceId);
         ScopedEditorActions actions(tool == surfaces.end() ? std::string{} : tool->second.actionScope);
         if (!PrepareSurfaceInput(surfaceId))
             return false;
-        if (tool->second.assetTool) return tool->second.assetTool->OnTextInput(event) == sky::ui::UIEventResult::HANDLED;
+        tool->second.tooltip.Cancel();
+        if (tool->second.assetTool)
+            return tool->second.assetTool->OnTextInput(event) == sky::ui::UIEventResult::HANDLED;
         if (ActiveModal() != nullptr)
             return true;
         auto *router = SurfaceRouter(surfaceId);
@@ -1187,10 +1205,11 @@ namespace sky::editor {
 
         auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
         preferencesElement = preferences.get();
-        preferences->SetModel(preferenceRegistry);
-        preferences->SetPersistence(preferencesPersistence);
+        preferences->SetModel(preferencesOpen ? openedSettingsRegistry : preferenceRegistry);
+        preferences->SetPersistence(preferencesOpen ? openedSettingsPersistence : preferencesPersistence);
+        preferences->SetTitle(preferencesOpen ? openedSettingsTitle : "Preferences");
         preferences->SetOnApplied([this]() {
-            auto callback = preferencesApplied;
+            auto callback = openedSettingsApplied;
             if (callback) {
                 callback();
             }
@@ -1198,7 +1217,6 @@ namespace sky::editor {
         preferences->SetOnClosed([this]() { preferencesOpen = false; });
         context->AddChild(std::move(preferences));
         if (preferencesOpen) {
-            preferencesElement->SetModel(preferenceRegistry);
             preferencesElement->Open();
         }
 
@@ -1380,27 +1398,54 @@ namespace sky::editor {
 
     void EditorShell::OpenPreferences()
     {
-        if (preferencesElement == nullptr) {
+        OpenSettings(preferenceRegistry, preferencesPersistence, "Preferences", preferencesApplied);
+    }
+
+    void EditorShell::OpenProjectSettings(PreferencePageRegistry                 *registry,
+                                          std::shared_ptr<PreferencesPersistence> persistence,
+                                          std::function<void()>                   onApplied)
+    {
+        if (registry && persistence)
+            OpenSettings(registry, std::move(persistence), "Project Settings", std::move(onApplied));
+    }
+
+    void EditorShell::OpenSettings(PreferencePageRegistry                 *registry,
+                                   std::shared_ptr<PreferencesPersistence> persistence,
+                                   std::string                             title,
+                                   std::function<void()>                   onApplied)
+    {
+        if (!preferencesElement)
             return;
-        }
-        const std::weak_ptr<void> alive      = actionLifetime;
-        auto                     *dialog     = preferencesElement;
-        const auto                reference  = dialog->GetInputReference();
-        const auto                generation = chromeGeneration;
-        const auto                current    = [this, alive, dialog, reference, generation] {
-            return !alive.expired() && reference.Get() == dialog && chromeGeneration == generation && preferencesElement == dialog;
+        auto      *dialog     = preferencesElement;
+        const auto reference  = dialog->GetInputReference();
+        const auto lifetime   = std::weak_ptr<void>(actionLifetime);
+        const auto generation = chromeGeneration;
+        const auto current    = [this, reference, lifetime, generation, dialog] {
+            return !lifetime.expired() && reference.Get() == dialog && generation == chromeGeneration && preferencesElement == dialog;
         };
-        preferencesOpen = true;
-        dialog->SetModel(preferenceRegistry);
+        if (dialog->IsOpen() && registry != openedSettingsRegistry) {
+            dialog->Close();
+            if (!current())
+                return;
+        }
+        openedSettingsRegistry    = registry;
+        openedSettingsPersistence = persistence;
+        openedSettingsApplied     = std::move(onApplied);
+        openedSettingsTitle       = std::move(title);
+        dialog->SetTitle(openedSettingsTitle);
+        dialog->SetOnApplied(openedSettingsApplied);
+        dialog->SetPersistence(std::move(persistence));
+        dialog->SetModel(registry);
         if (!current())
             return;
-        dialog->Arrange(sky::ui::UIRect{0.0f, 0.0f, width, height});
+        preferencesOpen = true;
+        dialog->Arrange({0.f, 0.f, width, height});
         if (!current())
             return;
         dialog->Open();
         if (!current())
             return;
-        dialog->Arrange({0.0f, 0.0f, width, height});
+        dialog->Arrange({0.f, 0.f, width, height});
     }
 
     bool EditorShell::IsPreferencesOpen() const
@@ -1427,7 +1472,8 @@ namespace sky::editor {
             if (assetCatalog->Find(asset, item) && !item.type.empty()) {
                 const auto *provider = AssetViewProviderRegistry::Get()->Find(item.type);
                 if (createAssetTool && provider && provider->UsesDocumentWindow()) {
-                    if (std::ranges::find(pendingAssetTools, asset) == pendingAssetTools.end()) pendingAssetTools.push_back(asset);
+                    if (std::ranges::find(pendingAssetTools, asset) == pendingAssetTools.end())
+                        pendingAssetTools.push_back(asset);
                     return;
                 }
                 std::string ext;
@@ -1466,15 +1512,17 @@ namespace sky::editor {
     }
     void EditorShell::RegisterAssetViewerActions(AssetViewerWidget *viewer, const std::string &scope, std::weak_ptr<void> lifetime)
     {
-        auto *actions = EditorActionRegistry::Get();
+        auto      *actions     = EditorActionRegistry::Get();
         const auto widgetAlive = viewer ? viewer->GetActionLifetime() : std::weak_ptr<void>{};
-        const auto ownerAlive = [lifetime, widgetAlive] { return !lifetime.expired() && !widgetAlive.expired(); };
-        for (const auto decision : {AssetViewerWidget::CloseDecision::Save, AssetViewerWidget::CloseDecision::Discard,
-                                    AssetViewerWidget::CloseDecision::Cancel}) {
-            const auto id = decision == AssetViewerWidget::CloseDecision::Save ? "saveClose" :
-                            decision == AssetViewerWidget::CloseDecision::Discard ? "discardClose" : "cancelClose";
-            const auto label = decision == AssetViewerWidget::CloseDecision::Save ? "Save and Close" :
-                               decision == AssetViewerWidget::CloseDecision::Discard ? "Discard Changes" : "Cancel Close";
+        const auto ownerAlive  = [lifetime, widgetAlive] { return !lifetime.expired() && !widgetAlive.expired(); };
+        for (const auto decision :
+             {AssetViewerWidget::CloseDecision::Save, AssetViewerWidget::CloseDecision::Discard, AssetViewerWidget::CloseDecision::Cancel}) {
+            const auto id    = decision == AssetViewerWidget::CloseDecision::Save      ? "saveClose"
+                               : decision == AssetViewerWidget::CloseDecision::Discard ? "discardClose"
+                                                                                       : "cancelClose";
+            const auto label = decision == AssetViewerWidget::CloseDecision::Save      ? "Save and Close"
+                               : decision == AssetViewerWidget::CloseDecision::Discard ? "Discard Changes"
+                                                                                       : "Cancel Close";
             actions->Add({.id      = std::string("assetViewer.") + id,
                           .label   = label,
                           .menu    = EditorMenu::File,
@@ -1572,46 +1620,95 @@ namespace sky::editor {
         if (assetViewerElement) {
             assetViewerElement->Tick(delta);
             assetViewerAsset = assetViewerElement->AssetId();
-            assetViewerOpen = assetViewerElement->IsOpen();
+            assetViewerOpen  = assetViewerElement->IsOpen();
         }
         std::vector<uint32_t> closed;
         for (auto &[id, surface] : surfaces) {
-            if (!surface.assetTool) continue;
+            if (!surface.assetTool)
+                continue;
             ScopedEditorActions actions(surface.actionScope);
             surface.assetTool->Tick(delta);
-            if (!surface.assetTool->IsOpen()) closed.push_back(id);
+            if (!surface.assetTool->IsOpen())
+                closed.push_back(id);
         }
         for (auto id : closed) {
             auto &surface = surfaces.at(id);
             surface.actionLifetime.reset();
             EditorActionRegistry::Get()->RemoveScope(surface.actionScope);
             surfaces.erase(id);
-            if (retireAssetTool) retireAssetTool(id);
+            if (retireAssetTool)
+                retireAssetTool(id);
         }
     }
 
     bool EditorShell::IsAssetViewerOpen() const
     {
         return (assetViewerElement != nullptr && assetViewerElement->IsOpen()) || !pendingAssetTools.empty() ||
-            std::ranges::any_of(surfaces, [](const auto &entry) { return entry.second.assetTool && entry.second.assetTool->IsOpen(); });
+               std::ranges::any_of(surfaces, [](const auto &entry) { return entry.second.assetTool && entry.second.assetTool->IsOpen(); });
     }
     void EditorShell::RequestCloseAssetViews()
     {
         pendingAssetTools.clear();
-        if (assetViewerElement && assetViewerElement->IsOpen()) assetViewerElement->Close();
-        for (auto &[id, surface] : surfaces) if (surface.assetTool) surface.assetTool->Close();
+        if (assetViewerElement && assetViewerElement->IsOpen())
+            assetViewerElement->Close();
+        for (auto &[id, surface] : surfaces)
+            if (surface.assetTool)
+                surface.assetTool->Close();
     }
     bool EditorShell::AreAssetViewsClosing() const
     {
-        if (assetViewerElement && assetViewerElement->IsOpen() && !assetViewerElement->IsCloseRequested()) return false;
+        if (assetViewerElement && assetViewerElement->IsOpen() && !assetViewerElement->IsCloseRequested())
+            return false;
         for (const auto &[id, surface] : surfaces)
-            if (surface.assetTool && surface.assetTool->IsOpen() && !surface.assetTool->IsCloseRequested()) return false;
+            if (surface.assetTool && surface.assetTool->IsOpen() && !surface.assetTool->IsCloseRequested())
+                return false;
         return IsAssetViewerOpen();
     }
 
     void EditorShell::Paint(sky::ui::UIPaintContext &paintContext)
     {
         context->Paint(paintContext);
+        tooltip.ValidateRoot(TooltipRoot(0));
+        tooltip.Paint(paintContext, {0.0f, 0.0f, width, height}, UiSkin(GetDefaultUiTheme(), textSystem));
+    }
+
+    sky::ui::UIElement *EditorShell::TooltipRoot(uint32_t surfaceId) const
+    {
+        if (surfaceId != activeInputSurface)
+            return nullptr;
+        if (surfaceId == 0) {
+            if (auto *modal = ActiveModal())
+                return assetViewerElement == modal && assetViewerElement->NeedsCloseDecision() ? nullptr : modal;
+            if (menuBarElement && static_cast<MenuBar *>(menuBarElement)->IsOpen())
+                return menuBarElement;
+            return context ? context->GetRoot() : nullptr;
+        }
+        const auto found = surfaces.find(surfaceId);
+        if (found == surfaces.end())
+            return nullptr;
+        const auto &surface = found->second;
+        if (surface.assetTool)
+            return surface.assetTool->NeedsCloseDecision() ? nullptr : surface.assetTool;
+        return ActiveModal() == nullptr ? surface.context->GetRoot() : nullptr;
+    }
+
+    void EditorShell::TickTooltips(float delta)
+    {
+        const float scale = GetSurfaceUiScale(activeInputSurface);
+        if (GetDefaultUiTheme().scale != scale)
+            SetDefaultUiTheme(MakeDarkTheme(scale));
+        tooltip.Tick(TooltipRoot(0), delta);
+        for (auto &[id, surface] : surfaces)
+            surface.tooltip.Tick(TooltipRoot(id), delta);
+    }
+
+    void EditorShell::CancelTooltip(uint32_t surfaceId)
+    {
+        if (surfaceId == 0) {
+            tooltip.Cancel();
+        } else if (const auto found = surfaces.find(surfaceId); found != surfaces.end()) {
+            found->second.tooltip.Cancel();
+        }
     }
 
     sky::ui::UIElement *EditorShell::HitTest(float x, float y) const
@@ -1641,6 +1738,7 @@ namespace sky::editor {
         const std::weak_ptr<void> alive = actionLifetime;
         if (!PrepareSurfaceInput(0))
             return true;
+        tooltip.Pointer(event);
         if (sky::ui::UIElement *modal = ActiveModal()) {
             modal->OnPointerEvent(event);
             return true;
@@ -1658,6 +1756,7 @@ namespace sky::editor {
 
     bool EditorShell::DispatchKey(const sky::ui::UIKeyEvent &event)
     {
+        tooltip.Cancel();
         if (!PrepareSurfaceInput(0))
             return true;
         const std::weak_ptr<void> alive = actionLifetime;
@@ -1709,6 +1808,7 @@ namespace sky::editor {
 
     bool EditorShell::DispatchText(const sky::ui::UITextInputEvent &event)
     {
+        tooltip.Cancel();
         if (!PrepareSurfaceInput(0))
             return true;
         if (sky::ui::UIElement *modal = ActiveModal()) {
@@ -1755,18 +1855,22 @@ namespace sky::editor {
     }
     void EditorShell::ResetInput()
     {
+        tooltip.Reset();
         if (eventRouter)
             eventRouter->Reset();
         for (auto &[id, surface] : surfaces) {
-            if (surface.assetTool) surface.assetTool->OnPointerCancel(0);
+            surface.tooltip.Reset();
+            if (surface.assetTool)
+                surface.assetTool->OnPointerCancel(0);
             if (surface.router)
                 surface.router->Reset();
         }
     }
     bool EditorShell::HasPointerCapture(uint32_t surfaceId) const
     {
-        const auto  found  = surfaces.find(surfaceId);
-        if (surfaceId && found != surfaces.end() && found->second.assetTool) return found->second.assetTool->WantsPointerCapture();
+        const auto found = surfaces.find(surfaceId);
+        if (surfaceId && found != surfaces.end() && found->second.assetTool)
+            return found->second.assetTool->WantsPointerCapture();
         const auto *router = surfaceId == 0 ? eventRouter.get() : found != surfaces.end() ? found->second.router.get() : nullptr;
         return router != nullptr && router->GetCapture() != nullptr;
     }

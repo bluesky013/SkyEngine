@@ -110,7 +110,9 @@ namespace sky {
         AssetPtr      CreateBuildAsset(const Uuid &uuid, const Name &type) const;
 
         // Paths normalize lexically; invalid, missing or conflicting logical identities return an invalid UUID.
-        Uuid     ResolveProductPath(std::string_view path);
+        Uuid ResolveProductPath(std::string_view path);
+        // Also queries the editor catalog when allowed; resolution never starts a cook or load.
+        Uuid     ResolveAssetPath(std::string_view path, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
         AssetPtr LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
 
         const FileSystemPtr &GetWorkSpaceFS() const

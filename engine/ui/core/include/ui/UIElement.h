@@ -22,6 +22,7 @@ namespace sky::ui {
     class UIElement;
     class UIContext;
     class UIPaintContext;
+    struct UITooltipTarget;
     using UIElementPtr = std::unique_ptr<UIElement>;
 
     class UIElement {
@@ -48,6 +49,16 @@ namespace sky::ui {
             }
         };
         InputReference GetInputReference() const;
+
+        // Query is cheap and uses layout coordinates. Build runs only after the hover delay.
+        virtual bool QueryTooltip(float, float, UITooltipTarget &) const
+        {
+            return false;
+        }
+        virtual bool BuildTooltip(uint64_t, std::string &) const
+        {
+            return false;
+        }
 
         uint32_t GetId() const
         {

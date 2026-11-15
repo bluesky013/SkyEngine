@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -19,22 +18,6 @@ namespace sky::editor::preferences_apply_result_test {
         int32_t               value        = 1;
         bool                  rejectWrites = false;
         std::function<void()> onSet;
-    };
-
-    struct ThrowingSettings {
-        ThrowingSettings() = default;
-        ThrowingSettings(const ThrowingSettings &other) : payload(other.payload), value(other.value)
-        {
-            if (value == 7) {
-                throw std::runtime_error("injected working settings copy failure");
-            }
-        }
-        ThrowingSettings &operator=(const ThrowingSettings &) = default;
-
-        // A nontrivial heap-backed member also exercises cleanup after a copy
-        // throws: its partially constructed string has already been destroyed.
-        std::string payload = std::string(180, 'p');
-        int32_t     value   = 1;
     };
 
     struct AccessorSettings {
@@ -98,10 +81,6 @@ namespace sky::editor::preferences_apply_result_test {
 
         const auto *reflectionEnvironment = sky::editor::test::AddReflectionEnvironment([] {
             SerializationContext::Get()->Register<Setting>("PreferencesApplyResultSetting").Member<&Setting::value>("value");
-            SerializationContext::Get()
-                ->Register<ThrowingSettings>("PreferencesApplyResultThrowingSettings")
-                .Member<&ThrowingSettings::value>("value")
-                .Member<&ThrowingSettings::payload>("payload");
             SerializationContext::Get()
                 ->Register<AccessorSettings>("PreferencesApplyResultAccessorSettings")
                 .Member<&AccessorSettings::SetValue, &AccessorSettings::GetValue>("value")
@@ -211,54 +190,19 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_EQ(live.value, 7);
     }
 
-    TEST_F(PreferencesApplyResultTest, ThrowingWorkingCopyReturnsInvalidDataAndLeavesTheSessionAvailableForRetry)
+    TEST_F(PreferencesApplyResultTest, InvalidCopyMetadataPreservesPreviouslyCapturedValues)
     {
-        ThrowingSettings live;
-        pages->Add({"throwing", "Throwing", &live, GetTypeNode(TypeInfo<ThrowingSettings>::RegisteredId())});
-        PreferencesSession session;
-        session.Begin(pages);
-        const auto editValue = [&session](int32_t value) {
-            const auto *page = session.GetPage(0);
-            ASSERT_NE(page, nullptr);
-            PropertyDescriptor descriptor{page->object, &page->type->members.at("value"), "value", ""};
-            session.History().Execute(descriptor.MakeEditCommand(Any(value)));
-        };
-        editValue(7);
-        PreferencesPersistence persistence(storage);
-        const auto             failed = session.ApplyDetailed(&persistence);
-        EXPECT_EQ(failed.code, PreferenceCode::InvalidData);
-        ExpectNoEffects(failed);
+        Setting live;
+        pages->Add(Page(live));
+        std::vector<PreferenceValue> values;
+        ASSERT_TRUE(CapturePreferenceValues(pages->GetPages(), values).Succeeded());
+        auto invalid         = pages->GetPages();
+        invalid.front().type = nullptr;
+        const auto result    = CapturePreferenceValues(invalid, values);
+        EXPECT_EQ(result.code, PreferenceCode::InvalidData);
+        ASSERT_EQ(values.size(), 1u);
+        EXPECT_EQ(static_cast<const Setting *>(values.front().value.Data())->value, 1);
         EXPECT_EQ(storage->writes, 0);
-        EXPECT_EQ(live.value, 1);
-        ASSERT_NE(session.GetPage(0), nullptr);
-        const auto *working = static_cast<const ThrowingSettings *>(session.GetPage(0)->object);
-        EXPECT_EQ(working->value, 7);
-        EXPECT_EQ(working->payload, live.payload);
-        EXPECT_EQ(session.History().GetUndoCount(), 1u);
-        std::vector<PreferenceValue> candidates;
-        ASSERT_TRUE(CapturePreferenceValues(pages->GetPages(), candidates).Succeeded());
-        ASSERT_EQ(candidates.size(), 1u);
-        auto *candidate       = static_cast<ThrowingSettings *>(candidates.front().value.Data());
-        candidate->value      = 7;
-        const auto saveFailed = persistence.Save(candidates);
-        EXPECT_EQ(saveFailed.code, PreferenceCode::InvalidData);
-        ExpectNoEffects(saveFailed);
-        EXPECT_EQ(storage->reads, 0);
-        EXPECT_EQ(storage->writes, 0);
-        EXPECT_EQ(candidate->payload, live.payload);
-        candidate->value = 8;
-        ASSERT_TRUE(persistence.Save(candidates).Succeeded());
-        EXPECT_EQ(storage->writes, 1);
-        EXPECT_EQ(live.value, 1);
-        EXPECT_EQ(working->value, 7);
-        EXPECT_EQ(session.History().GetUndoCount(), 1u);
-        editValue(8);
-        const auto retried = session.ApplyDetailed(&persistence);
-        EXPECT_TRUE(retried.Succeeded()) << retried.message;
-        EXPECT_EQ(live.value, 8);
-        EXPECT_EQ(live.payload, std::string(180, 'p'));
-        EXPECT_EQ(storage->writes, 2);
-        EXPECT_FALSE(session.History().CanUndo());
     }
 
     TEST_F(PreferencesApplyResultTest, StorageFailuresKeepLiveWorkingAndHistoryAvailableForRetry)
@@ -293,7 +237,7 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_FALSE(session.History().CanUndo());
     }
 
-    TEST_F(PreferencesApplyResultTest, RejectedAndThrowingValidatorsHaveNoEffectsAndDoNotConsumeHistory)
+    TEST_F(PreferencesApplyResultTest, RejectedValidatorsHaveNoEffectsAndDoNotConsumeHistory)
     {
         Setting live;
         int     mode  = 0;
@@ -302,7 +246,7 @@ namespace sky::editor::preferences_apply_result_test {
             if (mode == 0)
                 return {PreferenceCode::ValidationFailed, "plugin", "value", "rejected"};
             if (mode == 1)
-                throw std::runtime_error("validator failed");
+                return {PreferenceCode::ValidationFailed, {}, {}, "validator failed"};
             return {};
         };
         pages->Add(std::move(page));
@@ -323,7 +267,7 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_EQ(live.value, 7);
     }
 
-    TEST_F(PreferencesApplyResultTest, ApplicationFailureAndThrowReportPartialEffectsAndAllowRetryOrCancel)
+    TEST_F(PreferencesApplyResultTest, ApplicationFailuresReportPartialEffectsAndAllowRetryOrCancel)
     {
         Setting live;
         int     mode         = 0;
@@ -334,7 +278,7 @@ namespace sky::editor::preferences_apply_result_test {
             if (mode == 0)
                 return {PreferenceCode::ApplyFailed, "plugin", {}, "application rejected"};
             if (mode == 1)
-                throw std::runtime_error("application failed");
+                return {PreferenceCode::ApplyFailed, {}, {}, "application failed"};
             return {};
         };
         pages->Add(std::move(page));
@@ -442,7 +386,7 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_EQ(live.value, 1);
     }
 
-    TEST_F(PreferencesApplyResultTest, ThrowingGuardReturnsConflictAndLeavesWorkingHistoryAvailableForRetry)
+    TEST_F(PreferencesApplyResultTest, RejectedGuardReturnsConflictAndLeavesWorkingHistoryAvailableForRetry)
     {
         Setting live;
         pages->Add(Page(live));
@@ -451,7 +395,7 @@ namespace sky::editor::preferences_apply_result_test {
         Edit(session, 7);
         PreferencesPersistence persistence(storage);
         PreferenceResult       result;
-        ASSERT_NO_THROW(result = session.ApplyDetailed(&persistence, []() -> bool { throw std::runtime_error("guard failed"); }));
+        result = session.ApplyDetailed(&persistence, [] { return false; });
         EXPECT_EQ(result.code, PreferenceCode::Conflict);
         ExpectNoEffects(result);
         EXPECT_TRUE(session.IsOpen());
@@ -549,7 +493,7 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_FALSE(session.History().CanUndo());
     }
 
-    TEST_F(PreferencesApplyResultTest, DirectHelpersRejectEmptyValuesAndConvertGuardExceptionsWithoutLosingEffects)
+    TEST_F(PreferencesApplyResultTest, DirectHelpersRejectEmptyValuesAndRejectFailedGuardsWithoutLosingEffects)
     {
         Setting live;
         pages->Add(Page(live));
@@ -563,14 +507,14 @@ namespace sky::editor::preferences_apply_result_test {
         EXPECT_EQ(live.value, 1);
         ASSERT_TRUE(CapturePreferenceValues(pages->GetPages(), values).Succeeded());
         static_cast<Setting *>(values.front().value.Data())->value = 7;
-        const auto invalidGuard = ValidatePreferenceValues(*pages, values, []() -> bool { throw std::runtime_error("validation guard failed"); });
+        const auto invalidGuard                                    = ValidatePreferenceValues(*pages, values, []() -> bool { return false; });
         EXPECT_EQ(invalidGuard.code, PreferenceCode::Conflict);
         ExpectNoEffects(invalidGuard);
         bool enteredSetter   = false;
         live.onSet           = [&enteredSetter]() { enteredSetter = true; };
         const auto published = PublishPreferenceValues(*pages, values, [&enteredSetter]() {
             if (enteredSetter)
-                throw std::runtime_error("publication guard failed");
+                return false;
             return true;
         });
         EXPECT_EQ(published.code, PreferenceCode::Conflict);

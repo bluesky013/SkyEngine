@@ -14,8 +14,8 @@
 #include <framework/asset/AssetDataBase.h>
 
 #include <framework/asset/AssetManager.h>
-#include <framework/serialization/JsonArchive.h>
 
+#include <algorithm>
 #include <core/logger/Logger.h>
 #include <unordered_set>
 
@@ -50,6 +50,7 @@ namespace sky::aurora {
 
     void AuroraMeshBuilder::LoadConfig(const FileSystemPtr &cfg)
     {
+        *presets = {};
         if (cfg == nullptr) {
             return;
         }
@@ -59,10 +60,17 @@ namespace sky::aurora {
             return;
         }
 
-        auto             archive = file->ReadAsArchive();
-        JsonInputArchive json(*archive);
-        presets.LoadJson(json);
-        LOG_I(TAG, "loaded %u mesh build bundles (default '%s')", static_cast<uint32_t>(presets.bundles.size()), presets.defaultBundle.c_str());
+        std::string text;
+        if (!file->ReadString(text)) {
+            presets->loadError = "Mesh build presets could not be read";
+            return;
+        }
+        if (const auto status = presets->LoadJson(text); !status) {
+            presets->loadError = status.message;
+            LOG_E(TAG, "%s", presets->loadError.c_str());
+            return;
+        }
+        LOG_I(TAG, "loaded %u mesh build bundles (default '%s')", static_cast<uint32_t>(presets->bundles.size()), presets->defaultBundle.c_str());
     }
 
     void AuroraMeshBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
@@ -74,8 +82,12 @@ namespace sky::aurora {
             return;
         }
 
+        if (!presets->loadError.empty()) {
+            result.error = presets->loadError;
+            return;
+        }
         std::string                  bundleKey;
-        const cook::MeshBuildConfig *config = presets.Resolve(request.target, bundleKey);
+        const cook::MeshBuildConfig *config = presets->Resolve(request.target, bundleKey);
         if (config == nullptr) {
             result.error = "no mesh build configuration for target '" + request.target + "'";
             LOG_E(TAG, "%s", result.error.c_str());
@@ -114,6 +126,21 @@ namespace sky::aurora {
                     return;
                 }
             }
+        }
+        uint32_t slotCount = 0;
+        for (const auto &mesh : cooked) {
+            for (const auto &part : mesh.subMeshes) {
+                if (part.materialIndex >= 8192) {
+                    result.error = "Mesh material slot exceeds the product limit";
+                    return;
+                }
+                slotCount = std::max(slotCount, part.materialIndex + 1);
+            }
+        }
+        std::vector<Uuid> materials;
+        if (const auto status = cook::ResolveMeshMaterials(*config, slotCount, {}, materials); !status) {
+            result.error = status.message;
+            return;
         }
         std::vector<GeneratedAssetDescriptor> descriptors;
         std::map<std::string, std::string>    defaults;
@@ -164,8 +191,8 @@ namespace sky::aurora {
                 }
             }
         }
-        defaults["mesh"]  = "$source";
-        const auto bundle = request.bundle.empty() ? bundleKey : request.bundle;
+        defaults["mesh"]              = "$source";
+        const auto             bundle = request.bundle.empty() ? bundleKey : request.bundle;
         GeneratedAssetManifest manifest;
         if (const auto status = AssetDataBase::Get()->UpdateGeneratedProducts(request.assetInfo->uuid, descriptors, defaults, manifest); !status) {
             result.error = status.message;
@@ -179,6 +206,7 @@ namespace sky::aurora {
         }
         auto                    *manager = AssetManager::Get();
         std::vector<AssetPtr>    products;
+        std::vector<Uuid>        dependencies;
         std::unordered_set<Uuid> meshes;
         for (size_t i = 0; i < sources.size(); ++i) {
             const auto meshId = ids.at(meshKeys[i]);
@@ -190,6 +218,13 @@ namespace sky::aurora {
                 }
                 const auto asset = std::static_pointer_cast<Asset<Mesh>>(product);
                 cook::WriteMeshAsset(cooked[i], asset->Data());
+                if (const auto status = cook::BindMeshMaterials(*asset, materials); !status) {
+                    result.error = status.message;
+                    return;
+                }
+                for (const auto &material : asset->Data().materials)
+                    if (std::find(dependencies.begin(), dependencies.end(), material) == dependencies.end())
+                        dependencies.push_back(material);
                 CommitMeshBulk(*asset);
                 products.push_back(product);
             }
@@ -213,6 +248,7 @@ namespace sky::aurora {
             result.error = status.message;
             return;
         }
-        result.retCode = AssetBuildRetCode::SUCCESS;
+        request.assetInfo->dependencies = std::move(dependencies);
+        result.retCode                  = AssetBuildRetCode::SUCCESS;
     }
 } // namespace sky::aurora

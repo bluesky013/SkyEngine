@@ -1,5 +1,5 @@
 #include <animation/core/Skeleton.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
+#include <aurora/adaptor/assets/SkinResource.h>
 #include <core/archive/MemoryStreamArchive.h>
 #include <gtest/gtest.h>
 

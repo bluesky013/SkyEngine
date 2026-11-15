@@ -5,8 +5,8 @@
 // Runs in hub mode (Project Manager) when no `--project` is given.
 //
 
-#include "WorldEditorState.h"
 #include "ScreenshotWriter.h"
+#include "WorldEditorState.h"
 #include <editor/sandbox/SandboxModule.h>
 #include <editor/shell/SceneViewport.h>
 #include <editor/widgets/ReflectedFormView.h>
@@ -29,6 +29,7 @@
 #include <editor/core/extension/EditorExtensionRegistry.h>
 #include <editor/core/layout/LayoutPersistence.h>
 #include <editor/core/preferences/FilePreferenceStorage.h>
+#include <editor/core/preferences/ProjectEditorSettings.h>
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/ReflectionDemoTypes.h>
 #include <editor/core/resource/SandboxResources.h>
@@ -572,7 +573,7 @@ namespace sky::editor {
 
     void SandboxModule::OpenAssetById(const sky::Uuid &id)
     {
-        auto        *catalog = EditorAssetCatalog::Get();
+        auto       *catalog = EditorAssetCatalog::Get();
         std::string type;
         if (catalog != nullptr && catalog->GetType(id, type)) {
             if (auto *editor = EditorAssetEditorRegistry::Get()->Find(type); editor != nullptr) {
@@ -837,9 +838,8 @@ namespace sky::editor {
 
     void SandboxModule::LoadPreferences()
     {
-        preferencePersistence =
-            std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(PathFromUtf8(PreferencePath())));
-        const auto result = preferencePersistence->Load(*PreferencePageRegistry::Get());
+        preferencePersistence = std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(PathFromUtf8(PreferencePath())));
+        const auto result     = preferencePersistence->Load(*PreferencePageRegistry::Get());
         if (result.code == PreferenceCode::NotFound) {
             return;
         }
@@ -875,7 +875,11 @@ namespace sky::editor {
             // Cook setup: load the project's build presets and register its product bundles, then
             // select the host platform so cook targets resolve from the platform presets.
             auto *builderMgr = sky::AssetBuilderManager::Get();
-            builderMgr->SetWorkSpaceFs(workFs);
+            builderMgr->SetEngineFs(engineFs);
+            if (!builderMgr->SetWorkSpaceFs(workFs)) {
+                error = "Failed to read asset cook configuration.";
+                return false;
+            }
 
             std::string platform = sky::Platform::GetPlatformNameByType(sky::Platform::Get()->GetType());
             std::transform(platform.begin(), platform.end(), platform.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -903,7 +907,25 @@ namespace sky::editor {
         }
         extensionHost.Add(std::make_unique<DefaultEditorExtension>(panelRegistry));
         extensionHost.RegisterAll();
+        projectPreferencePersistence =
+            std::make_shared<PreferencesPersistence>(std::make_shared<FilePreferenceStorage>(PathFromUtf8(project.ConfigsDir()) / "editor.json"));
+        const auto projectSettingsResult = projectPreferencePersistence->Load(ProjectEditorSettings::Get()->Pages());
+        const bool defaultsReady         = projectSettingsResult.Succeeded() || projectSettingsResult.code == PreferenceCode::NotFound;
+        ProjectEditorSettings::Get()->SetReady(defaultsReady);
+        if (!defaultsReady)
+            LOG_E(TAG, "Project settings could not be loaded. Repair %s/editor.json and restart the editor; Apply preserves invalid files: %s",
+                  project.ConfigsDir().c_str(), projectSettingsResult.message.c_str());
         builtinCreators = RegisterBuiltinActorCreators();
+        EditorAction projectSettingsAction;
+        projectSettingsAction.id     = "project.settings";
+        projectSettingsAction.label  = "Project Settings...";
+        projectSettingsAction.menu   = EditorMenu::File;
+        projectSettingsAction.order  = 5;
+        projectSettingsAction.invoke = [this] {
+            shell.OpenProjectSettings(&ProjectEditorSettings::Get()->Pages(), projectPreferencePersistence,
+                                      [] { ProjectEditorSettings::Get()->SetReady(true); });
+        };
+        EditorActionRegistry::Get()->Add(std::move(projectSettingsAction));
 
         // Default: Outliner (left) | Viewport (center) | Inspector (right), with a bottom dock
         // for the asset browser + output log (Unity/Godot/O3DE place the asset browser at the
@@ -985,7 +1007,7 @@ namespace sky::editor {
         shell.SetLayout(&layoutModel);
         shell.SetPanelRegistry(&panelRegistry);
         shell.SetSelection(&selection);
-        worldEditor        = std::make_unique<WorldEditorState>(selection);
+        worldEditor        = std::make_unique<WorldEditorState>(selection, &extensionHost);
         viewportController = std::make_shared<ViewportController>(selection, EditorCore::GetCommandService(), EditorCore::GetPropertyChanges());
         viewportController->SetPicker(renderer.GetViewportPicker());
         viewportController->SetVisualProvider(gizmoVisualProvider);
@@ -1030,7 +1052,7 @@ namespace sky::editor {
         renderer.SetSurfaceGeometryCallback(
             [this](const std::string &panelId, float x, float y, float w, float h) { shell.SetFloatingGeometry(panelId, x, y, w, h); });
 
-        sky::DerivedDataCache::Get().SetRoot(SandboxResources::Resolve("cache"));
+        sky::DerivedDataCache::Get().SetRoot(SandboxResources::CacheRoot());
         InstallUiIconBuilder();
         shell.SetLogService(&logService);
         shell.SetCommandController(&commandController);
@@ -1274,7 +1296,8 @@ namespace sky::editor {
                               AssetMutationService::Get()->Duplicate(item.path, base + "_copy" + ext);
                           }});
             actions->Add({.id = "asset.delete", .label = "Delete", .enabled = selectedWritable, .invoke = [selectedAsset]() {
-                              AssetMutationService::Get()->Delete(selectedAsset());
+                              if (const auto status = AssetMutationService::Get()->Delete(selectedAsset()); !status)
+                                  LOG_E(TAG, "Asset deletion failed: %s", status.message.c_str());
                           }});
         }
         actions->Add({.id      = "play.play",
@@ -1857,7 +1880,8 @@ namespace sky::editor {
             screenshotRequested = true;
             LOG_I(TAG, "scene readback requested at frame %u", tickCount);
         }
-        if (screenshotRequested && !screenshotPath.empty() && !screenshotTimedOut && tickCount > screenshotFrame && tickCount - screenshotFrame > 120u) {
+        if (screenshotRequested && !screenshotPath.empty() && !screenshotTimedOut && tickCount > screenshotFrame &&
+            tickCount - screenshotFrame > 120u) {
             screenshotTimedOut = true;
             LOG_W(TAG, "screenshot readback timed out; keep the editor window visible/foreground (occluded windows pause frames)");
         }
@@ -1919,6 +1943,7 @@ namespace sky::editor {
                 RefreshActorCreationActions();
             worldEditor->Tick();
             shell.TickAssetViews(delta);
+            shell.TickTooltips(delta);
             if (quitAfterAssetClose) {
                 if (!shell.IsAssetViewerOpen())
                     Quit();
@@ -2014,11 +2039,11 @@ namespace sky::editor {
     {
         viewportAlt = (event.modifiers & static_cast<uint32_t>(KeyMod::ALT)) != 0;
         sky::ui::UIPointerEvent pointer;
-        pointer.action = sky::ui::UIPointerAction::DOWN;
-        pointer.button = static_cast<uint32_t>(event.button);
+        pointer.action    = sky::ui::UIPointerAction::DOWN;
+        pointer.button    = static_cast<uint32_t>(event.button);
         pointer.modifiers = event.modifiers;
-        pointer.x      = static_cast<float>(event.x);
-        pointer.y      = static_cast<float>(event.y);
+        pointer.x         = static_cast<float>(event.x);
+        pointer.y         = static_cast<float>(event.y);
         RoutePointer(pointer, event.winID);
         if (viewportController)
             viewportController->NavigationKey(0x10, (event.modifiers & static_cast<uint32_t>(KeyMod::SHIFT)) != 0);
@@ -2034,11 +2059,11 @@ namespace sky::editor {
     void SandboxModule::OnMouseButtonUp(const sky::MouseButtonEvent &event)
     {
         sky::ui::UIPointerEvent pointer;
-        pointer.action = sky::ui::UIPointerAction::UP;
-        pointer.button = static_cast<uint32_t>(event.button);
+        pointer.action    = sky::ui::UIPointerAction::UP;
+        pointer.button    = static_cast<uint32_t>(event.button);
         pointer.modifiers = event.modifiers;
-        pointer.x      = static_cast<float>(event.x);
-        pointer.y      = static_cast<float>(event.y);
+        pointer.x         = static_cast<float>(event.x);
+        pointer.y         = static_cast<float>(event.y);
         RoutePointer(pointer, event.winID);
         if (!hubMode) {
             if (auto *window = sky::NativeWindowManager::Get()->GetWindowByID(event.winID)) {
@@ -2076,6 +2101,16 @@ namespace sky::editor {
         pointer.y          = static_cast<float>(event.y);
         pointer.wheelDelta = static_cast<float>(event.delta);
         RoutePointer(pointer, event.winID);
+    }
+
+    void SandboxModule::OnMouseLeave(sky::WindowID winID)
+    {
+        if (hubMode)
+            return;
+        if (const uint32_t surfaceId = FloatingSurfaceForWindow(winID); surfaceId != 0)
+            shell.CancelTooltip(surfaceId);
+        else if (AcceptWindowEvent(winID))
+            shell.CancelTooltip();
     }
 
     void SandboxModule::OnKeyDown(const sky::KeyboardEvent &event)
@@ -2165,6 +2200,8 @@ namespace sky::editor {
         shell.SetPreferences(nullptr, {});
         shell.SetPreferencesPersistence(nullptr);
         preferencePersistence.reset();
+        projectPreferencePersistence.reset();
+        ProjectEditorSettings::Get()->SetReady(false);
         preferencePages.reset();
         if (!hubMode) {
             for (const auto &id : creationActions)

@@ -263,6 +263,50 @@ namespace sky::editor::preferences_persistence_shell_test {
         EXPECT_FALSE(dialog->History().CanUndo());
     }
 
+    TEST_F(PreferencesPersistenceShellTest, ProjectDialogKeepsItsScopeAcrossRebuildAndUserPreferencesReopen)
+    {
+        Settings               user, project;
+        PreferencePageRegistry projectPages;
+        pages->Add(Page(user));
+        projectPages.Add(Page(project));
+        auto        projectFile        = std::make_shared<MemoryStorage>();
+        auto        projectPersistence = std::make_shared<PreferencesPersistence>(projectFile);
+        LayoutModel layout;
+        layout.SetDefault({"main"});
+        PanelRegistry panels;
+        panels.Register(PanelInfo{"main", "Main", 0.f, 0.f, nullptr});
+        EditorShell shell;
+        shell.SetLayout(&layout);
+        shell.SetPanelRegistry(&panels);
+        shell.SetPreferences(pages, {});
+        shell.SetPreferencesPersistence(persistence);
+        shell.Rebuild();
+        shell.Layout(1000.f, 760.f);
+        shell.OpenProjectSettings(&projectPages, projectPersistence);
+        shell.Rebuild();
+        shell.Layout(1000.f, 760.f);
+        auto *element = shell.HitTest(1.f, 1.f);
+        ASSERT_NE(element, nullptr);
+        ASSERT_STREQ(element->GetTypeName(), "PreferencesDialog");
+        auto *dialog = static_cast<PreferencesDialog *>(element);
+        Edit(*dialog, "value", int32_t{9});
+        dialog->Apply();
+        ASSERT_TRUE(dialog->GetLastApplyResult().Succeeded());
+        EXPECT_EQ(project.value, 9);
+        EXPECT_EQ(user.value, 1);
+        EXPECT_EQ(storage->writes, 0);
+        EXPECT_EQ(projectFile->writes, 1);
+        dialog->Close();
+        shell.OpenPreferences();
+        EXPECT_EQ(Working(*dialog), 1);
+        Edit(*dialog, "value", int32_t{4});
+        dialog->Apply();
+        EXPECT_EQ(user.value, 4);
+        EXPECT_EQ(project.value, 9);
+        EXPECT_EQ(storage->writes, 1);
+        EXPECT_EQ(projectFile->writes, 1);
+    }
+
     TEST_F(PreferencesPersistenceShellTest, ResultAndStorageCallbacksCanReplaceSessionsPipelinesOrDeleteTheDialog)
     {
         Settings live;

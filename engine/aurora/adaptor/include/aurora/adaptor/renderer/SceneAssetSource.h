@@ -11,17 +11,12 @@ namespace sky::aurora {
     struct SceneMaterialCapabilitySource {
         std::function<SceneSurfaceFacts(const Uuid &, const MaterialAssetData &, uint64_t)> resolve;
     };
-    enum class ScenePrimitive { CUBE, PLANE };
-    Uuid                                               ScenePrimitiveId(ScenePrimitive primitive);
-    Uuid                                               SceneLitMaterialId();
-    bool                                               IsBuiltinSceneAsset(const Uuid &id, std::string_view type);
-    MeshAssetData                                      ScenePrimitiveMesh(ScenePrimitive primitive);
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info);
     enum class SceneMaterialCompilation { Synchronous, Asynchronous };
     std::variant<RendererError, RenderResourcePayload>
     ConvertSceneImage(const Asset<Texture> &asset, RendererInfo info, SceneImageUsage usage = SceneImageUsage::ENVIRONMENT);
 
-    // The loader returns owned assets; ResolveMesh polls status without waiting on asset workers.
+    // The loader returns owned assets; resolution polls status without waiting on asset workers.
     // Sources are supplied by the host; an empty provider supports cooked-only or non-shader asset requests.
     std::shared_ptr<ISceneResourceSource> CreateSceneAssetSource(std::shared_ptr<ShaderFileSystem>                    files,
                                                                  std::function<AssetPtr(const Uuid &)>                loader       = {},

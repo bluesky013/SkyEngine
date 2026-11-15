@@ -43,7 +43,7 @@ TEST(AnimationModules, RealProvidersUnregisterAndRequestsOutliveModuleManager)
     manager->RegisterModule({"Aurora.Render", {"Aurora.Metadata"}});
     manager->RegisterModule({"Animation.World", {"Animation.GraphAssets", "Content.Module", "Aurora.Render"}});
 #if ANIMATION_TEST_EDITOR
-    manager->RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata"}});
+    manager->RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata", "Aurora.Render"}});
     manager->RegisterModule({"Content.Views", {"Content.Metadata"}});
     manager->RegisterModule({"Animation.Editor", {"Animation.GraphAssets", "Animation.World", "Aurora.Render.Editor", "Content.Views"}});
 #endif
@@ -277,7 +277,7 @@ TEST(AnimationModules, MetadataOwnersSurviveCookRuntimeAndEditorReload)
         manager.RegisterModule({"Animation.World", {"Animation.GraphAssets", "Content.Module", "Aurora.Render"}});
         manager.RegisterModule({"Animation.Builder", {"Animation.GraphAssets"}});
     #if ANIMATION_TEST_EDITOR
-        manager.RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata"}});
+        manager.RegisterModule({"Aurora.Render.Editor", {"Aurora.Metadata", "Aurora.Render"}});
         manager.RegisterModule({"Content.Views", {"Content.Metadata"}});
         manager.RegisterModule({"Animation.Editor", {"Animation.GraphAssets", "Animation.World", "Aurora.Render.Editor", "Content.Views"}});
     #endif

@@ -4,16 +4,10 @@
 
 #pragma once
 
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <aurora/adaptor/renderer/SceneComponentEvent.h>
-#include <core/math/Vector3.h>
 
 namespace sky::aurora {
-
-    struct PointLightData {
-        Vector3 color     = {1.f, 1.f, 1.f};
-        float   intensity = 1.f;
-        float   range     = 10.f;
-    };
 
     class PointLightComponent : public SceneComponentAdaptor<PointLightData> {
     public:
@@ -24,14 +18,32 @@ namespace sky::aurora {
 
         static void Reflect(SerializationContext *context);
 
-        void           SetColor(const Vector3 &value) { data.color = value; }
-        const Vector3 &GetColor() const { return data.color; }
+        void SetColor(const Vector3 &value)
+        {
+            data.color = value;
+        }
+        const Vector3 &GetColor() const
+        {
+            return data.color;
+        }
 
-        void  SetIntensity(float value) { data.intensity = value; }
-        float GetIntensity() const { return data.intensity; }
+        void SetIntensity(float value)
+        {
+            data.intensity = value;
+        }
+        float GetIntensity() const
+        {
+            return data.intensity;
+        }
 
-        void  SetRange(float value) { data.range = value; }
-        float GetRange() const { return data.range; }
+        void SetRange(float value)
+        {
+            data.range = value;
+        }
+        float GetRange() const
+        {
+            return data.range;
+        }
     };
 
 } // namespace sky::aurora

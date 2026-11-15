@@ -23,7 +23,7 @@ sky_add_library(TARGET AuroraCook.Static STATIC
         lodgroup/include
         skeleton/include
     LINK_LIBS
-        Aurora.Adaptor.Static
+        Aurora.Assets.Static
         Framework
         Physics.SoftBody.Interface
         Core

@@ -42,13 +42,24 @@ namespace sky {
 
     void AssetIndexFile::Parse(const std::string &text)
     {
-        entries.clear();
+        (void)ParseImpl(text, false);
+    }
 
+    FileOperationStatus AssetIndexFile::ParseChecked(const std::string &text)
+    {
+        return ParseImpl(text, true);
+    }
+
+    FileOperationStatus AssetIndexFile::ParseImpl(const std::string &text, bool strict)
+    {
+        AssetIndexFile parsed(keyField, extraField);
         for (const auto &line : SplitJsonLines(text)) {
             rapidjson::Document doc;
             doc.Parse(line.c_str(), line.size());
             if (doc.HasParseError() || !doc.IsObject() || !doc.HasMember(keyField.c_str()) || !doc[keyField.c_str()].IsString() ||
                 !doc.HasMember("id") || !doc["id"].IsString()) {
+                if (strict)
+                    return {FileOperationError::IOError, "Manifest contains a malformed entry"};
                 LOG_W(TAG, "Skip malformed index line: %s", line.c_str());
                 continue;
             }
@@ -57,6 +68,8 @@ namespace sky {
             entry.key = doc[keyField.c_str()].GetString();
             entry.id  = Uuid::CreateFromString(doc["id"].GetString());
             if (!entry.id) {
+                if (strict)
+                    return {FileOperationError::IOError, "Manifest contains an invalid asset identity"};
                 LOG_W(TAG, "Skip index line with invalid uuid: %s", line.c_str());
                 continue;
             }
@@ -66,8 +79,13 @@ namespace sky {
             if (doc.HasMember("generated") && !doc["generated"].IsNull()) {
                 entry.generated = ValueToString(doc["generated"]);
             }
-            Set(entry);
+            if (strict && (entry.key.empty() || parsed.Find(entry.key) ||
+                           std::any_of(parsed.entries.begin(), parsed.entries.end(), [&](const auto &old) { return old.id == entry.id; })))
+                return {FileOperationError::IOError, "Manifest contains an empty key or duplicate identity"};
+            parsed.Set(entry);
         }
+        entries = std::move(parsed.entries);
+        return {};
     }
 
     std::string AssetIndexFile::Serialize() const
@@ -163,6 +181,23 @@ namespace sky {
         return file;
     }
 
+    FileOperationStatus AssetIndexFile::LoadChecked(const FileSystemPtr &fs, const FilePath &path, AssetIndexFile &out)
+    {
+        if (!fs)
+            return {FileOperationError::InvalidPath, "Manifest filesystem is unavailable"};
+        AssetIndexFile loaded(out.keyField, out.extraField);
+        if (fs->FileExist(path)) {
+            const auto  file = fs->OpenFile(path);
+            std::string text;
+            if (!file || !file->ReadString(text))
+                return {FileOperationError::IOError, "Existing manifest could not be read"};
+            if (const auto status = loaded.ParseChecked(text); !status)
+                return status;
+        }
+        out = std::move(loaded);
+        return {};
+    }
+
     bool AssetIndexFile::Save(const FileSystemPtr &fs, const FilePath &path, const AssetIndexFile &file)
     {
         return SaveAtomic(fs, path, file.Serialize());
@@ -190,6 +225,16 @@ namespace sky {
             iter = files.emplace(key, AssetIndexFile::Load(fs, dir / FilePath(fileName), keyField, extraField)).first;
         }
         return iter->second;
+    }
+
+    FileOperationStatus AssetIndexFileCache::Reload(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile &out)
+    {
+        AssetIndexFile loaded(keyField, extraField);
+        if (const auto status = AssetIndexFile::LoadChecked(fs, dir / FilePath(fileName), loaded); !status)
+            return status;
+        Set(fs, dir, loaded);
+        out = std::move(loaded);
+        return {};
     }
 
     bool AssetIndexFileCache::Save(const FileSystemPtr &fs, const FilePath &dir, const AssetIndexFile &file)

@@ -18,6 +18,15 @@
 
 namespace sky::aurora {
 
+    namespace {
+        std::shared_ptr<cook::MeshBuildPresets> DefinitionMeshPresets()
+        {
+            // This module is process-resident; builders and recreated sessions share its definition state.
+            static const auto presets = std::make_shared<cook::MeshBuildPresets>();
+            return presets;
+        }
+    } // namespace
+
     class AuroraCookModule : public IModule {
     public:
         AuroraCookModule()           = default;
@@ -39,7 +48,7 @@ namespace sky::aurora {
         cook::RegisterImageCookSettings();
 
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraImageBuilder());
-        AssetBuilderManager::Get()->RegisterBuilder(new AuroraMeshBuilder());
+        AssetBuilderManager::Get()->RegisterBuilder(new AuroraMeshBuilder(DefinitionMeshPresets()));
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraMaterialBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraMaterialInstanceBuilder());
         AssetBuilderManager::Get()->RegisterBuilder(new AuroraLodGroupBuilder());
@@ -48,7 +57,7 @@ namespace sky::aurora {
 
     bool AuroraCookModule::Init(const StartArguments &args)
     {
-        meshCompiler = cook::CreateMeshAuthoringCompiler();
+        meshCompiler = cook::CreateMeshAuthoringCompiler(DefinitionMeshPresets());
         if (!phy::MeshAuthoringCompilerRegistry::Get()->Register(meshCompiler)) {
             meshCompiler.reset();
             return false;

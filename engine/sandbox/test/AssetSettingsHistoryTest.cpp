@@ -259,7 +259,7 @@ TEST_F(AssetSettingsHistoryTest, MissingAssetRemovedTargetAndReplacementSchemaRe
     ASSERT_TRUE(commands.Undo());
     EXPECT_EQ(database->GetCookJson(asset), persisted);
     EXPECT_EQ(catalog->MakeCookSettingsPropertyEditCommand(asset, "common", "maxSize", sky::Any(uint32_t(9))), nullptr);
-    database->RemoveAsset(asset);
+    ASSERT_TRUE(database->RemoveAsset(asset));
     ASSERT_TRUE(commands.Redo());
     EXPECT_EQ(catalog->MakeCookSettingsPropertyEditCommand(asset, "other", "maxSize", sky::Any(uint32_t(9))), nullptr);
 }

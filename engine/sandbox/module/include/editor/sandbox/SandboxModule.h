@@ -54,6 +54,7 @@ namespace sky::editor {
         void OnMouseButtonDown(const sky::MouseButtonEvent &event) override;
         void OnMouseButtonUp(const sky::MouseButtonEvent &event) override;
         void OnMouseMotion(const sky::MouseMotionEvent &event) override;
+        void OnMouseLeave(sky::WindowID winID) override;
         void OnMouseWheel(const sky::MouseWheelEvent &event) override;
         void OnKeyUp(const sky::KeyboardEvent &event) override;
         void OnKeyDown(const sky::KeyboardEvent &event) override;
@@ -154,12 +155,13 @@ namespace sky::editor {
         RenderingSettings                       renderingSettings;
         std::unique_ptr<BuiltinPreferencePages> preferencePages;
         std::shared_ptr<PreferencesPersistence> preferencePersistence;
+        std::shared_ptr<PreferencesPersistence> projectPreferencePersistence;
         std::unique_ptr<WorldDocument>          worldDocument;
         std::unique_ptr<sky::ExportPresets>     exportPresets; // project export_presets.json (editor)
         PlaySession                             playSession;
         std::string                             startupWorld;
-        bool                                    startupPending      = false;
-        bool                                    autoPlayPending     = false;
+        bool                                    startupPending  = false;
+        bool                                    autoPlayPending = false;
         std::string                             startupAsset;
         std::string                             screenshotPath;
         uint32_t                                screenshotFrame     = 60;
@@ -167,9 +169,9 @@ namespace sky::editor {
         bool                                    screenshotRequested = false;
         bool                                    screenshotTimedOut  = false;
 
-        WorldDocument                          *lastDocPtr     = nullptr; // detects document switches
-        bool                                    lastDocDirty   = false;
-        bool                                    docInfoApplied = false; // forces the first title/status push
+        WorldDocument *lastDocPtr     = nullptr; // detects document switches
+        bool           lastDocDirty   = false;
+        bool           docInfoApplied = false; // forces the first title/status push
 
         // UI-linked shell that composes the panels from the services above.
         EditorShell shell;

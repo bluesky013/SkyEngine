@@ -17,6 +17,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace sky {
@@ -36,8 +37,8 @@ namespace sky::editor {
         Failed,
     };
 
-    // One source asset as surfaced to the editor. `path` is the logical path within the mount
-    // namespace. `type` is the derived AssetTypeId (empty when the extension is unknown).
+    // Source or generated asset in the logical mount namespace.
+    // `type` is the AssetTypeId (empty for sources whose extension is unknown).
     struct EditorAssetItem {
         Uuid           uuid;
         std::string    name;
@@ -107,11 +108,32 @@ namespace sky::editor {
         virtual std::vector<EditorAssetItem> Gather(const std::string &type) const                 = 0;
         virtual bool                         GetType(const Uuid &uuid, std::string &outType) const = 0;
         virtual bool                         GetName(const Uuid &uuid, std::string &outName) const = 0;
+        virtual bool                         GetPath(const Uuid &, std::string &) const
+        {
+            return false;
+        }
+        virtual bool Find(const Uuid &uuid, EditorAssetItem &out) const
+        {
+            EditorAssetItem item;
+            item.uuid         = uuid;
+            const bool named  = GetName(uuid, item.name);
+            const bool typed  = GetType(uuid, item.type);
+            const bool pathed = GetPath(uuid, item.path);
+            if (!named && !typed && !pathed)
+                return false;
+            if (!named)
+                item.name.clear();
+            if (!typed)
+                item.type.clear();
+            if (!pathed)
+                item.path.clear();
+            out = std::move(item);
+            return true;
+        }
     };
 
-    // Process-wide (cross-DLL) asset catalog. Its folder tree is derived from the registered sources
-    // in the framework AssetDataBase (the logical mount namespace), never from raw filesystem
-    // listing. Render- and toolkit-independent (no ui/aurora/Qt).
+    // Process-wide catalog of framework source and generated assets.
+    // Logical mount paths are independent of filesystem listings, rendering and UI toolkits.
     class EditorAssetCatalog : public sky::Singleton<EditorAssetCatalog>, public IEditorAssetCatalog {
         friend class sky::Singleton<EditorAssetCatalog>;
 
@@ -125,13 +147,14 @@ namespace sky::editor {
         std::vector<EditorAssetItem> Gather(const std::string &type) const override;
         bool                         GetType(const Uuid &uuid, std::string &outType) const override;
         bool                         GetName(const Uuid &uuid, std::string &outName) const override;
+        bool                         GetPath(const Uuid &uuid, std::string &outPath) const override;
 
         // Roots of the virtual-path tree (one per mount that has registered assets).
         std::vector<EditorAssetFolder> GetRoots();
         // The folder at `path` with its immediate child folders and items (empty name = root).
         EditorAssetFolder ListFolder(const std::string &path);
 
-        bool Find(const Uuid &uuid, EditorAssetItem &out) const;
+        bool Find(const Uuid &uuid, EditorAssetItem &out) const override;
         bool FindByPath(const std::string &path, EditorAssetItem &out) const;
 
         // Aggregate cook state across the asset's targets (failed if any target failed).
@@ -167,7 +190,7 @@ namespace sky::editor {
         // The full virtual-path tree (root folder), built in a single pass. A view flattens it.
         EditorAssetFolder GetTree() const;
 
-        // Rebuild the cached snapshot from the AssetDataBase and notify observers.
+        // Rebuild the source asset snapshot and notify observers.
         void Refresh();
 
         // Coalesced rescan: run once per frame on the main thread. OnBuildFinished only marks the flag
@@ -209,7 +232,7 @@ namespace sky::editor {
 
         bool ResolveEditableCookSettings(const Uuid &uuid, const std::string &target, Uuid &schema) const;
         void NotifyObservers();
-        // Revision-keyed snapshot of the registered sources (structure + metadata + cook state).
+        // Revision-keyed snapshot of assets (structure + metadata + cook state).
         // Rebuilt only when the revision advances (mutation, build event, refresh).
         std::vector<EditorAssetItem> CollectItems() const;
         std::vector<EditorAssetItem> BuildItems() const;

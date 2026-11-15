@@ -91,7 +91,12 @@ namespace sky::editor {
         // Specialized ticking panels and widgets with unnotified dynamic row
         // counts keep the default volatile layout behavior.
         void SynchronizeLayout();
-        bool HasActiveInteraction() const { return IsInteracting(); }
+        bool HasActiveInteraction() const
+        {
+            return IsInteracting();
+        }
+        bool QueryTooltip(float, float, sky::ui::UITooltipTarget &) const override;
+        bool BuildTooltip(uint64_t, std::string &) const override;
 
         // Hides the built-in header (title + "ctrl+Z/Y undo" hint). Useful when the form is embedded
         // as a section of a larger panel that already has its own title.
@@ -203,6 +208,16 @@ namespace sky::editor {
         }
 
     private:
+        struct TooltipSelection {
+            uint64_t                         id = 0, localId = 0;
+            std::string                      path;
+            std::shared_ptr<ReflectedWidget> widget;
+            std::weak_ptr<void>              lifetime;
+            bool                             popup = false;
+        };
+        mutable TooltipSelection tooltipSelection;
+        mutable uint64_t         nextTooltipId = 0;
+
         struct Row {
             PropertyField  *field = nullptr;
             sky::ui::UIRect rowRect;

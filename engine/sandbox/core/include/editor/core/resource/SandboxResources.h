@@ -8,12 +8,7 @@
 
 namespace sky::editor {
 
-    // Sandbox-owned editor resources.
-    //
-    // The editor ships its own builtin resources (icons, editor fonts, ...) under
-    // `engine/sandbox/resources/`, deployed next to the executable as `resources/`.
-    // This is distinct from the project package assets under the repo-root
-    // `assets/`, which are being retired: new editor builtin resources belong here.
+    // Packaged editor chrome (icons/fonts); scene assets belong to the Engine asset mount.
     class SandboxResources {
     public:
         // Absolute path to the deployed editor resources root (with trailing '/').
@@ -21,6 +16,9 @@ namespace sky::editor {
 
         // Absolute path to `relative` under the editor resources root.
         static std::string Resolve(const std::string &relative);
+
+        // Writable per-user cache root; empty disables persistence.
+        static std::string CacheRoot();
     };
 
 } // namespace sky::editor

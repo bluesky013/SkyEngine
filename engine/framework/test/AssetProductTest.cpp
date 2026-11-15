@@ -147,6 +147,46 @@ namespace {
         }
     };
 
+    class OverlayProductCatalog final : public DeferredProductCook {
+    public:
+        Uuid             engine;
+        Uuid             project;
+        mutable uint32_t lookups = 0;
+        bool             ResolvePath(const std::string &path, Uuid &out) const override
+        {
+            ++lookups;
+            if (path != "shapes/cube.glb")
+                return false;
+            out = id;
+            return static_cast<bool>(out);
+        }
+        bool Exists(const Uuid &value) const override
+        {
+            ++lookups;
+            return value == engine || value == project;
+        }
+        bool GetType(const Uuid &, std::string &out) const override
+        {
+            ++lookups;
+            out = "ProductTest";
+            return true;
+        }
+        bool GetTarget(const Uuid &, std::string &out) const override
+        {
+            ++lookups;
+            out = "test";
+            return true;
+        }
+        bool GetSourcePath(const Uuid &value, std::string &out) const override
+        {
+            ++lookups;
+            if (!Exists(value))
+                return false;
+            out = "shapes/cube.glb";
+            return true;
+        }
+    };
+
     class AssetProductTest : public testing::Test {
     protected:
         void SetUp() override
@@ -776,4 +816,69 @@ TEST_F(AssetProductTest, LateCompletionCannotFinishRetriedLoad)
     EXPECT_TRUE(second->IsLoaded());
     manager.SetCookRunner(nullptr);
     AssetExecutor::Get()->WaitForAll();
+}
+
+TEST_F(AssetProductTest, PublishingShadowedSourceCannotReplaceOverlayPathInEitherOrder)
+{
+    for (const bool projectFirst : {false, true}) {
+        const FileSystemPtr   files = new NativeFileSystem(FilePath(root / (projectFirst ? "project-first" : "engine-first")));
+        OverlayProductCatalog catalog;
+        catalog.engine  = mesh;
+        catalog.project = owner;
+        catalog.id      = owner;
+        AssetManager manager;
+        manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+        manager.AddAssetProductBundle(new HashedAssetBundle(files, "test"));
+        manager.SetSourceCatalog(&catalog);
+        const auto engineProduct  = Build(manager, mesh, 11);
+        const auto projectProduct = Build(manager, owner, 22);
+        ASSERT_TRUE(manager.SaveAsset(projectFirst ? projectProduct : engineProduct, "test"));
+        EXPECT_EQ(manager.ResolveProductPath("shapes/cube.glb"), projectFirst ? owner : Uuid{});
+        ASSERT_TRUE(manager.SaveAsset(projectFirst ? engineProduct : projectProduct, "test"));
+        EXPECT_EQ(manager.ResolveProductPath("shapes/cube.glb"), owner);
+        const auto index = AssetIndexFile::Load(files, FilePath("product.index"), "path");
+        ASSERT_NE(index.Find("shapes/cube.glb"), nullptr);
+        EXPECT_EQ(index.Find("shapes/cube.glb")->id, owner);
+        catalog.lookups = 0;
+        for (const auto &[id, value] : {std::pair{mesh, 11u}, std::pair{owner, 22u}}) {
+            const auto loaded = manager.LoadAsset(id, AssetLoadPolicy::ProductsOnly);
+            ASSERT_TRUE(loaded);
+            loaded->BlockUntilLoaded();
+            ASSERT_TRUE(loaded->IsLoaded());
+            EXPECT_EQ(std::static_pointer_cast<ProductTestAsset>(loaded)->value, value);
+        }
+        EXPECT_EQ(manager.ResolveAssetPath("shapes/cube.glb", AssetLoadPolicy::ProductsOnly), owner);
+        EXPECT_EQ(catalog.lookups, 0u);
+    }
+}
+
+TEST_F(AssetProductTest, AllowCookResolvesUncookedOverlayBeforeStalePublishedPath)
+{
+    OverlayProductCatalog catalog;
+    catalog.engine  = mesh;
+    catalog.project = owner;
+    catalog.id      = mesh;
+    AssetManager manager;
+    manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    manager.SetSourceCatalog(&catalog);
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, mesh, 11), "test"));
+    EXPECT_EQ(manager.ResolveProductPath("shapes/cube.glb"), mesh);
+    catalog.id = owner;
+    EXPECT_EQ(manager.ResolveAssetPath("shapes/cube.glb", AssetLoadPolicy::AllowCook), owner);
+    EXPECT_FALSE(manager.HasProduct(owner, "test"));
+    catalog.lookups = 0;
+    EXPECT_EQ(manager.ResolveAssetPath("shapes/cube.glb", AssetLoadPolicy::ProductsOnly), mesh);
+    EXPECT_EQ(catalog.lookups, 0u);
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, mesh, 33), "test"));
+    catalog.lookups = 0;
+    EXPECT_FALSE(manager.ResolveAssetPath("shapes/cube.glb", AssetLoadPolicy::ProductsOnly));
+    EXPECT_EQ(manager.LoadAsset(owner, AssetLoadPolicy::ProductsOnly), nullptr);
+    const auto engineProduct = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);
+    ASSERT_TRUE(engineProduct);
+    engineProduct->BlockUntilLoaded();
+    EXPECT_TRUE(engineProduct->IsLoaded());
+    EXPECT_EQ(catalog.lookups, 0u);
+    const auto index = AssetIndexFile::Load(fs, FilePath("product.index"), "path");
+    EXPECT_EQ(index.Find("shapes/cube.glb"), nullptr);
 }

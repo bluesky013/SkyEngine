@@ -242,6 +242,19 @@ namespace sky {
                 break;
             }
             case WM_MOUSEMOVE: {
+                RECT client = {};
+                if (GetClientRect(hwnd, &client)) {
+                    // Re-arm on captured re-entry, but never on captured motion outside the client area.
+                    const POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+                    if (PtInRect(&client, point)) {
+                        TRACKMOUSEEVENT tracking = {sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0};
+                        if (!TrackMouseEvent(&tracking)) {
+                            LOG_W(TAG, "TrackMouseEvent failed");
+                        }
+                    }
+                } else {
+                    LOG_W(TAG, "GetClientRect failed while tracking mouse leave");
+                }
                 MouseMotionEvent event = {};
                 event.winID            = winID;
                 event.x                = GET_X_LPARAM(lparam);
@@ -249,6 +262,7 @@ namespace sky {
                 Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseMotion, event);
                 break;
             }
+            case WM_MOUSELEAVE: Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseLeave, winID); break;
             case WM_LBUTTONDOWN:
             case WM_RBUTTONDOWN:
             case WM_MBUTTONDOWN:

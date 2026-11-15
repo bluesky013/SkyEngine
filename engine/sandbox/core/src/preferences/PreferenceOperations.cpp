@@ -6,7 +6,6 @@
 #include "PreferenceGuard.h"
 
 #include <algorithm>
-#include <exception>
 #include <unordered_set>
 
 namespace sky::editor {
@@ -77,19 +76,12 @@ namespace sky::editor {
                 page.type->info == nullptr || page.type->info->staticInfo == nullptr || page.type->info->copy == nullptr) {
                 return Failure(PreferenceCode::InvalidData, page.id, "", "Preferences contain an invalid or duplicate page.");
             }
-            Any value;
-            try {
-                value = Any::Create(page.type->info, page.object);
-            }
-            catch (const std::exception &error) {
-                return Failure(PreferenceCode::InvalidData, page.id, "", error.what());
-            }
-            catch (...) {
-                return Failure(PreferenceCode::InvalidData, page.id, "", "Could not copy preferences.");
-            }
+            auto value = Any::Create(page.type->info, page.object);
             if (!detail::CheckPreferenceGuard(isCurrent)) {
                 return Failure(PreferenceCode::Conflict, page.id, "", "Preferences changed during value capture.");
             }
+            if (!value || value.Info() != page.type->info)
+                return Failure(PreferenceCode::InvalidData, page.id, "", "Could not copy the reflected settings value.");
             next.push_back({page, std::move(value)});
         }
         values = std::move(next);
@@ -109,17 +101,8 @@ namespace sky::editor {
         for (const auto &value : values) {
             auto callback = value.identity.validate;
             if (callback) {
-                PreferenceResult result;
-                const auto       candidate = value.View();
-                try {
-                    result = callback(candidate);
-                }
-                catch (const std::exception &error) {
-                    result = Failure(PreferenceCode::ValidationFailed, value.identity.id, "", error.what());
-                }
-                catch (...) {
-                    result = Failure(PreferenceCode::ValidationFailed, value.identity.id, "", "Preference validation failed.");
-                }
+                const auto candidate = value.View();
+                auto       result    = callback(candidate);
                 if (!Current(registry, values, isCurrent)) {
                     return Failure(PreferenceCode::Conflict, value.identity.id, "", "Preferences changed during validation.");
                 }
@@ -163,18 +146,9 @@ namespace sky::editor {
                 if (member.isConst || member.setterFn == nullptr || attributes.readOnly || !attributes.visible) {
                     continue;
                 }
-                Any value;
-                try {
-                    value = member.getterFn != nullptr        ? member.getterFn(const_cast<void *>(page.value.Data()))
-                            : member.getterConstFn != nullptr ? member.getterConstFn(page.value.Data())
-                                                              : Any{};
-                }
-                catch (const std::exception &error) {
-                    return Failure(PreferenceCode::ApplyFailed, page.identity.id, std::string(name), error.what());
-                }
-                catch (...) {
-                    return Failure(PreferenceCode::ApplyFailed, page.identity.id, std::string(name), "Could not read a preference value.");
-                }
+                auto value = member.getterFn != nullptr        ? member.getterFn(const_cast<void *>(page.value.Data()))
+                             : member.getterConstFn != nullptr ? member.getterConstFn(page.value.Data())
+                                                               : Any{};
                 if (!Current(registry, values, isCurrent)) {
                     return conflict();
                 }
@@ -202,25 +176,16 @@ namespace sky::editor {
             auto      *object   = found->object;
             const auto setter   = member->second.setterFn;
             const auto changed  = member->second.valueChangedFn;
-            effects.liveWritten = true; // a rejecting/throwing setter may still have effects
-            try {
-                if (!setter(object, write.value.Data())) {
-                    return WithEffects(Failure(PreferenceCode::ApplyFailed, write.identity.id, write.member, "Could not apply a preference value."),
-                                       effects);
-                }
-                if (!Current(registry, values, isCurrent)) {
-                    return conflict();
-                }
-                if (changed != nullptr) {
-                    changed(object);
-                }
-            }
-            catch (const std::exception &error) {
-                return WithEffects(Failure(PreferenceCode::ApplyFailed, write.identity.id, write.member, error.what()), effects);
-            }
-            catch (...) {
+            effects.liveWritten = true; // a rejecting setter may still have effects
+            if (!setter(object, write.value.Data())) {
                 return WithEffects(Failure(PreferenceCode::ApplyFailed, write.identity.id, write.member, "Could not apply a preference value."),
                                    effects);
+            }
+            if (!Current(registry, values, isCurrent)) {
+                return conflict();
+            }
+            if (changed != nullptr) {
+                changed(object);
             }
             if (!Current(registry, values, isCurrent)) {
                 return conflict();
@@ -237,16 +202,7 @@ namespace sky::editor {
             // This is a live descriptor, never the disposable working snapshot.
             const auto live            = value.identity;
             effects.applicationApplied = true;
-            PreferenceResult result;
-            try {
-                result = callback(live);
-            }
-            catch (const std::exception &error) {
-                result = Failure(PreferenceCode::ApplyFailed, live.id, "", error.what());
-            }
-            catch (...) {
-                result = Failure(PreferenceCode::ApplyFailed, live.id, "", "Could not apply preference changes.");
-            }
+            auto result                = callback(live);
             effects.storageWritten |= result.storageWritten;
             effects.liveWritten |= result.liveWritten;
             effects.applicationApplied |= result.applicationApplied;

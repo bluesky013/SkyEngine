@@ -55,7 +55,7 @@ namespace sky::editor::widget_test {
 
     class AssetCatalog final : public IEditorAssetCatalog {
     public:
-        Uuid asset = Uuid::Create();
+        Uuid                         asset = Uuid::Create();
         std::vector<EditorAssetItem> Gather(const std::string &type) const override
         {
             return {{asset, "Character", "Character.gltf", type}};
@@ -102,7 +102,8 @@ namespace sky::editor::widget_test {
             serialization->Register<ToggleObject>("ReflectedWidgetTestToggle").Member<&ToggleObject::enabled>("enabled");
             serialization->Register<AssetObject>("ReflectedWidgetTestAsset")
                 .Member<&AssetObject::mesh>("mesh")
-                .Property(CommonPropertyKey::ASSET_TYPE, Any(std::string("AuroraMesh")));
+                .Property(CommonPropertyKey::ASSET_TYPE, Any(std::string("AuroraMesh")))
+                .Property(CommonPropertyKey::TOOLTIP, Any(std::string("Choose the mesh rendered by this component.")));
             serialization->Register<LayoutObject>("ReflectedWidgetTestLayout")
                 .Member<&LayoutObject::nested>("nested")
                 .Member<&LayoutObject::items>("items");
@@ -421,34 +422,36 @@ namespace sky::editor::widget_test {
     TEST(ReflectedFormWidgetsTest, AssetPickerSurvivesOpeningReleaseAndSelectionIsUndoable)
     {
         ObjectType();
-        AssetObject object;
+        AssetObject  object;
         AssetCatalog catalog;
-        Services services;
+        Services     services;
         struct Probe final : AssetReflectedWidget {
-            explicit Probe(IEditorAssetCatalog *catalog) : AssetReflectedWidget(catalog) {}
+            explicit Probe(IEditorAssetCatalog *catalog) : AssetReflectedWidget(catalog)
+            {
+            }
             ui::UIRect control;
-            void Paint(ReflectedWidgetHost &host, ui::UIPaintContext &context, PropertyField &field, const ui::UIRect &rect) override
+            void       Paint(ReflectedWidgetHost &host, ui::UIPaintContext &context, PropertyField &field, const ui::UIRect &rect) override
             {
                 control = rect;
                 AssetReflectedWidget::Paint(host, context, field, rect);
             }
         };
-        auto widget = std::make_shared<Probe>(&catalog);
+        auto              widget = std::make_shared<Probe>(&catalog);
         ReflectedFormView view(nullptr, "", services.Context());
         view.Widgets().Register(PropertyEditorKind::Asset, widget);
         view.Bind({&object, GetTypeNode(TypeInfo<AssetObject>::RegisteredId())});
         view.Arrange({0, 0, 800, 600});
         Paint(view);
-        const auto control = widget->control;
-        const float x = (control.left + control.right) * .5f;
-        const float y = (control.top + control.bottom) * .5f;
+        const auto  control = widget->control;
+        const float x       = (control.left + control.right) * .5f;
+        const float y       = (control.top + control.bottom) * .5f;
         view.OnPointerEvent(Pointer(ui::UIPointerAction::DOWN, x, y));
         ASSERT_TRUE(view.WantsPointerCapture());
         view.OnPointerEvent(Pointer(ui::UIPointerAction::UP, x, y));
         ASSERT_TRUE(view.WantsPointerCapture());
         EXPECT_FALSE(object.mesh);
         const auto &metrics = services.theme.metrics;
-        const float itemY = control.bottom + metrics.checkboxPad * 2.5f + metrics.popupItemHeight * .5f;
+        const float itemY   = control.bottom + metrics.checkboxPad * 2.5f + metrics.popupItemHeight * .5f;
         view.OnPointerEvent(Pointer(ui::UIPointerAction::DOWN, x, itemY));
         view.OnPointerEvent(Pointer(ui::UIPointerAction::UP, x, itemY));
         EXPECT_EQ(object.mesh, catalog.asset);
@@ -456,6 +459,213 @@ namespace sky::editor::widget_test {
         ASSERT_EQ(services.commands.GetUndoCount(), 1u);
         ASSERT_TRUE(services.commands.Undo());
         EXPECT_FALSE(object.mesh);
+    }
+
+    namespace {
+        class TooltipCatalog final : public IEditorAssetCatalog {
+        public:
+            EditorAssetItem  item{Uuid::Create(), "Mesh", "Project/Models/Characters/Hero.mesh", "AuroraMesh"};
+            mutable uint32_t finds   = 0;
+            bool             present = true;
+
+            std::vector<EditorAssetItem> Gather(const std::string &) const override
+            {
+                return {item};
+            }
+            bool GetType(const Uuid &id, std::string &out) const override
+            {
+                out = item.type;
+                return present && id == item.uuid;
+            }
+            bool GetName(const Uuid &id, std::string &out) const override
+            {
+                out = item.name;
+                return present && id == item.uuid;
+            }
+            bool Find(const Uuid &id, EditorAssetItem &out) const override
+            {
+                ++finds;
+                if (!present || id != item.uuid)
+                    return false;
+                out = item;
+                return true;
+            }
+        };
+
+        class TooltipAssetWidget final : public AssetReflectedWidget {
+        public:
+            explicit TooltipAssetWidget(IEditorAssetCatalog &catalog) : AssetReflectedWidget(&catalog)
+            {
+            }
+            ui::UIRect control;
+            void       Paint(ReflectedWidgetHost &host, ui::UIPaintContext &context, PropertyField &field, const ui::UIRect &rect) override
+            {
+                control = rect;
+                AssetReflectedWidget::Paint(host, context, field, rect);
+            }
+        };
+
+        class ReflectedTooltipTest : public testing::Test {
+        protected:
+            void SetUp() override
+            {
+                object.mesh = catalog.item.uuid;
+                view.Widgets().Register(PropertyEditorKind::Asset, widget);
+                view.Bind({&object, GetTypeNode(TypeInfo<AssetObject>::RegisteredId())});
+                view.Arrange({0, 0, 800, 600});
+                Paint(view);
+                EXPECT_EQ(catalog.finds, 1u);
+                catalog.finds = 0;
+            }
+            ui::UITooltipTarget ValueTarget()
+            {
+                ui::UITooltipTarget target;
+                EXPECT_TRUE(view.QueryTooltip(widget->control.left + 2.f, widget->control.top + 2.f, target));
+                return target;
+            }
+            TooltipCatalog                      catalog;
+            AssetObject                         object;
+            Services                            services;
+            ReflectedFormView                   view{nullptr, "", services.Context()};
+            std::shared_ptr<TooltipAssetWidget> widget = std::make_shared<TooltipAssetWidget>(catalog);
+        };
+    } // namespace
+
+    TEST(ReflectedFormWidgetsTest, CatalogDefaultFindUsesOnlySuccessfulMetadataAndPreservesFailedOutput)
+    {
+        class PartialCatalog final : public IEditorAssetCatalog {
+        public:
+            bool                         present = true;
+            std::vector<EditorAssetItem> Gather(const std::string &) const override
+            {
+                return {};
+            }
+            bool GetType(const Uuid &, std::string &out) const override
+            {
+                out = "AuroraMesh";
+                return present;
+            }
+            bool GetName(const Uuid &, std::string &out) const override
+            {
+                out = "discard failed query output";
+                return false;
+            }
+        } catalog;
+        EditorAssetItem item;
+        const auto      id = Uuid::Create();
+        ASSERT_TRUE(catalog.Find(id, item));
+        EXPECT_EQ(item.uuid, id);
+        EXPECT_EQ(item.type, "AuroraMesh");
+        EXPECT_TRUE(item.name.empty());
+        item.name       = "retained";
+        catalog.present = false;
+        EXPECT_FALSE(catalog.Find(Uuid::Create(), item));
+        EXPECT_EQ(item.uuid, id);
+        EXPECT_EQ(item.name, "retained");
+    }
+
+    TEST_F(ReflectedTooltipTest, MetadataAndAssetValueUseDistinctTargetsAndLazyCatalogLookup)
+    {
+        const auto *field = Field(view, "mesh");
+        ASSERT_NE(field, nullptr);
+        EXPECT_EQ(field->control.tooltip, "Choose the mesh rendered by this component.");
+        ui::UITooltipTarget label;
+        ASSERT_TRUE(view.QueryTooltip(20.f, widget->control.top + 2.f, label));
+        std::string text;
+        ASSERT_TRUE(view.BuildTooltip(label.id, text));
+        EXPECT_EQ(text, field->control.tooltip);
+        EXPECT_EQ(catalog.finds, 0u);
+        const auto value = ValueTarget();
+        EXPECT_NE(label.id, value.id);
+        EXPECT_FALSE(value.lifetime.expired());
+        EXPECT_EQ(catalog.finds, 0u);
+        catalog.item.path = "Project/Models/Renamed/Hero.mesh";
+        ASSERT_TRUE(view.BuildTooltip(value.id, text));
+        EXPECT_EQ(catalog.finds, 1u);
+        EXPECT_NE(text.find(catalog.item.path), std::string::npos);
+        EXPECT_NE(text.find("Type: AuroraMesh"), std::string::npos);
+        EXPECT_TRUE(text.ends_with("GUID: " + object.mesh.ToString()));
+        EXPECT_EQ(text.find("Expected type:"), std::string::npos);
+    }
+
+    TEST_F(ReflectedTooltipTest, MissingAssetsTypeMismatchAndCookFailureRemainExplicit)
+    {
+        std::string text;
+        const auto  target = ValueTarget();
+        catalog.present    = false;
+        ASSERT_TRUE(view.BuildTooltip(target.id, text));
+        EXPECT_NE(text.find("Missing asset"), std::string::npos);
+        EXPECT_NE(text.find("Expected type: AuroraMesh"), std::string::npos);
+        EXPECT_TRUE(text.ends_with("GUID: " + object.mesh.ToString()));
+        catalog.present    = true;
+        catalog.item.type  = "Texture";
+        catalog.item.state = AssetCookState::Failed;
+        catalog.item.error = "Source image is missing";
+        ASSERT_TRUE(view.BuildTooltip(target.id, text));
+        EXPECT_NE(text.find("Type: Texture"), std::string::npos);
+        EXPECT_NE(text.find("Type mismatch: expected AuroraMesh"), std::string::npos);
+        EXPECT_NE(text.find("Cook failed"), std::string::npos);
+        EXPECT_NE(text.find("Error: Source image is missing"), std::string::npos);
+        object.mesh = {};
+        services.changes.Notify();
+        EXPECT_FALSE(view.BuildTooltip(target.id, text));
+        view.SynchronizeLayout();
+        view.Arrange({0, 0, 800, 600});
+        ASSERT_TRUE(view.BuildTooltip(ValueTarget().id, text));
+        EXPECT_NE(text.find("No asset selected"), std::string::npos);
+        EXPECT_EQ(text.find("GUID:"), std::string::npos);
+    }
+
+    TEST_F(ReflectedTooltipTest, PopupRowsHaveLazyHintsAndBlockUnderlyingPropertyHints)
+    {
+        const float x = widget->control.left + 2.f;
+        const float y = widget->control.top + 2.f;
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::DOWN, x, y));
+        view.OnPointerEvent(Pointer(ui::UIPointerAction::UP, x, y));
+        ASSERT_TRUE(view.WantsPointerCapture());
+        ui::UITooltipTarget target;
+        EXPECT_FALSE(view.QueryTooltip(20.f, y, target));
+        const auto &metrics = services.theme.metrics;
+        const float itemY   = widget->control.bottom + metrics.checkboxPad * 2.5f + metrics.popupItemHeight * .5f;
+        ASSERT_TRUE(view.QueryTooltip(x, itemY, target));
+        EXPECT_EQ(catalog.finds, 0u);
+        EXPECT_FALSE(target.lifetime.expired());
+        std::string text;
+        ASSERT_TRUE(view.BuildTooltip(target.id, text));
+        EXPECT_NE(text.find(catalog.item.path), std::string::npos);
+        EXPECT_TRUE(text.ends_with("GUID: " + catalog.item.uuid.ToString()));
+        ui::UIKeyEvent escape;
+        escape.keyCode = 0x1B;
+        view.OnKeyEvent(escape);
+        EXPECT_FALSE(view.BuildTooltip(target.id, text));
+    }
+
+    TEST_F(ReflectedTooltipTest, RebindingAndExternalMutationInvalidateDelayedTargets)
+    {
+        auto oldObject = std::make_unique<AssetObject>(object);
+        view.Bind({oldObject.get(), GetTypeNode(TypeInfo<AssetObject>::RegisteredId())});
+        view.Arrange({0, 0, 800, 600});
+        const auto old = ValueTarget();
+        oldObject.reset();
+        view.Bind({&object, GetTypeNode(TypeInfo<AssetObject>::RegisteredId())});
+        view.Arrange({0, 0, 800, 600});
+        EXPECT_TRUE(old.lifetime.expired());
+        std::string text = "unchanged";
+        EXPECT_FALSE(view.BuildTooltip(old.id, text));
+        EXPECT_EQ(text, "unchanged");
+        const auto current = ValueTarget();
+        EXPECT_NE(old.id, current.id);
+        services.changes.Notify();
+        EXPECT_FALSE(view.BuildTooltip(current.id, text));
+        ui::UITooltipTarget target;
+        EXPECT_FALSE(view.QueryTooltip(widget->control.left + 2.f, widget->control.top + 2.f, target));
+        view.SynchronizeLayout();
+        view.Arrange({0, 0, 800, 600});
+        const auto refreshed = ValueTarget();
+        EXPECT_NE(current.id, refreshed.id);
+        view.CancelInteractions();
+        EXPECT_TRUE(refreshed.lifetime.expired());
+        EXPECT_FALSE(view.BuildTooltip(refreshed.id, text));
     }
 
     TEST(ReflectedFormWidgetsTest, GroupedFormsKeepExpansionAndHistoryIndependent)
@@ -1149,8 +1359,8 @@ namespace sky::editor::widget_test {
         object.translation = {30.0f, 30.0f, 30.0f};
         Services services;
         services.theme = MakeDarkTheme(2.0f);
-        ComponentTestFont font;
-        ui::UITextSystem text(&font, nullptr);
+        ComponentTestFont  font;
+        ui::UITextSystem   text(&font, nullptr);
         ComponentProbeForm host(&text, "", services.Context());
         host.Bind({&object, GetTypeNode(TypeInfo<Transform>::RegisteredId())});
         auto *field = Field(host, "translation");

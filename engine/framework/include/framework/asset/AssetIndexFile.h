@@ -27,8 +27,9 @@ namespace sky {
     public:
         AssetIndexFile(std::string keyField, std::string extraField = {});
 
-        void        Parse(const std::string &text);
-        std::string Serialize() const;
+        void                Parse(const std::string &text);
+        FileOperationStatus ParseChecked(const std::string &text);
+        std::string         Serialize() const;
 
         const IndexFileEntry *Find(std::string_view key) const;
         void                  Set(const IndexFileEntry &entry);
@@ -43,10 +44,12 @@ namespace sky {
             return entries.empty();
         }
 
-        static AssetIndexFile Load(const FileSystemPtr &fs, const FilePath &path, std::string keyField, std::string extraField = {});
-        static bool           Save(const FileSystemPtr &fs, const FilePath &path, const AssetIndexFile &file);
+        static AssetIndexFile      Load(const FileSystemPtr &fs, const FilePath &path, std::string keyField, std::string extraField = {});
+        static FileOperationStatus LoadChecked(const FileSystemPtr &fs, const FilePath &path, AssetIndexFile &out);
+        static bool                Save(const FileSystemPtr &fs, const FilePath &path, const AssetIndexFile &file);
 
     private:
+        FileOperationStatus         ParseImpl(const std::string &text, bool strict);
         std::string                 keyField;
         std::string                 extraField;
         std::vector<IndexFileEntry> entries; // sorted by key
@@ -58,6 +61,7 @@ namespace sky {
         AssetIndexFileCache(std::string fileName, std::string keyField, std::string extraField = {});
 
         const AssetIndexFile &Get(const FileSystemPtr &fs, const FilePath &dir);
+        FileOperationStatus   Reload(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile &out);
         bool                  Save(const FileSystemPtr &fs, const FilePath &dir, const AssetIndexFile &file);
         void                  Set(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile file);
         void                  Invalidate(const FileSystemPtr &fs, const FilePath &dir);

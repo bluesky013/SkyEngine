@@ -38,6 +38,12 @@ namespace sky::aurora {
         std::vector<SceneResourcePart>     parts;
         std::vector<RenderResourcePayload> payloads;
     };
+    struct SceneMaterialResources {
+        RenderResourcePayload              material;
+        std::vector<RenderResourcePayload> dependencies;
+        SceneSurfaceFacts                  surface;
+    };
+    using SceneMaterialResult = std::variant<std::monostate, RendererError, std::shared_ptr<const SceneMaterialResources>>;
     struct SceneSkeletalResources {
         std::shared_ptr<const SceneMeshResources> geometry;
         ResolvedSkinBindingPtr                    binding;
@@ -95,6 +101,10 @@ namespace sky::aurora {
         virtual ~ISceneResourceSource() = default;
         // Pending is explicit; successful results own all CPU data and exact versions.
         virtual SceneResourceResult ResolveMesh(const Uuid &mesh, const Uuid &material, RendererInfo info) = 0;
+        virtual SceneMaterialResult ResolveMaterial(const Uuid &, RendererInfo, VertexSemanticMask, bool skeletal = false)
+        {
+            return RendererError{RendererErrorCode::UNSUPPORTED, "Scene source does not provide independent materials"};
+        }
         virtual SceneSkeletalResult ResolveSkeletal(const Uuid &, const Uuid &, const Uuid &, const Uuid &, RendererInfo)
         {
             return RendererError{RendererErrorCode::UNSUPPORTED, "Scene source does not provide skeletal resources"};
@@ -132,8 +142,8 @@ namespace sky::aurora {
         // The sole host seals/submits this packet after World::Tick; BUSY retains that same packet.
         // Extra drawable actors are borrowed for this Append, use distinct identities, and are omitted from World geometry snapshots.
         std::optional<RendererError> Append(FramePacket &packet, SceneId scene, ViewportId output = {}, std::span<Actor *const> extraActors = {});
-        std::optional<ViewDesc>           Camera(SceneId scene, ViewportId output, Extent2D extent) const;
-        void                              OnEvent(const RendererEvent &event);
+        std::optional<ViewDesc>      Camera(SceneId scene, ViewportId output, Extent2D extent) const;
+        void                         OnEvent(const RendererEvent &event);
         const std::vector<RendererError> &GetIssues() const;
 
     private:

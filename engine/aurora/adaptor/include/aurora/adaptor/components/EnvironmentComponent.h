@@ -1,14 +1,9 @@
 #pragma once
 
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <aurora/adaptor/renderer/SceneComponentEvent.h>
-#include <core/util/Uuid.h>
 
 namespace sky::aurora {
-    struct EnvironmentData {
-        Uuid  diffuseIrradiance, specularEnvironment, brdfIntegration;
-        float intensity = 1, exposure = 0;
-        bool  enabled = true, hdr = true;
-    };
     class EnvironmentComponent : public SceneComponentAdaptor<EnvironmentData> {
     public:
         COMPONENT_RUNTIME_INFO(EnvironmentComponent)

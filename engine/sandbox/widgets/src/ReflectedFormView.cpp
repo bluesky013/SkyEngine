@@ -2,12 +2,13 @@
 // Created on 2026/10/04.
 //
 
+#include <editor/widgets/ReflectedFormView.h>
+
 #include <editor/ui/UiDraw.h>
 #include <editor/widgets/AssetReflectedWidget.h>
 #include <editor/widgets/ColorReflectedWidget.h>
 #include <editor/widgets/EnumReflectedWidget.h>
 #include <editor/widgets/GenericReflectedWidget.h>
-#include <editor/widgets/ReflectedFormView.h>
 #include <editor/widgets/RotationReflectedWidget.h>
 
 #include <editor/core/EditorCore.h>
@@ -167,6 +168,7 @@ namespace sky::editor {
         });
         widgets.SetOnChanged([this, lifetime]() {
             if (const auto alive = lifetime.lock()) {
+                tooltipSelection = {};
                 MarkLayoutDirty();
             }
         });
@@ -260,12 +262,14 @@ namespace sky::editor {
 
     void ReflectedFormView::InvalidateExternalState()
     {
+        tooltipSelection       = {};
         pendingExternalRefresh = true;
         MarkLayoutDirty();
     }
 
     void ReflectedFormView::ResetInteractions(ReflectedInteractionReset mode)
     {
+        tooltipSelection = {};
         if (mode == ReflectedInteractionReset::Abandon) {
             bindingLifetime.reset();
         }
@@ -296,6 +300,67 @@ namespace sky::editor {
     std::shared_ptr<ReflectedWidget> ReflectedFormView::ActivePopup() const
     {
         return activeWidget && activeWidget->HasPopup() ? activeWidget : widgets.FindPopupShared();
+    }
+
+    bool ReflectedFormView::QueryTooltip(float x, float y, sky::ui::UITooltipTarget &out) const
+    {
+        if (pendingExternalRefresh || !form.IsValid() || editField || dragField || scrollDrag)
+            return false;
+        sky::ui::UITooltipTarget         local;
+        std::shared_ptr<ReflectedWidget> widget = ActivePopup();
+        const bool                       popup  = widget != nullptr;
+        std::string                      path;
+        if (popup) {
+            if (!widget->QueryPopupTooltip(x, y, local))
+                return false;
+        } else {
+            if (!ContentRect().Contains(x, y))
+                return false;
+            const auto *row = RowAt(x, y);
+            if (!row)
+                return false;
+            path = row->field->path;
+            if (row->controlRect.Contains(x, y)) {
+                widget = widgets.FindShared(row->field->control.kind);
+                if (!widget || !widget->QueryTooltip(*this, *row->field, row->controlRect, x, y, local))
+                    widget.reset();
+            }
+            if (!widget) {
+                if (row->field->control.tooltip.empty() || (!row->labelRect.Contains(x, y) && !row->controlRect.Contains(x, y)))
+                    return false;
+                local.anchor = row->labelRect.Contains(x, y) ? row->labelRect : row->controlRect;
+            }
+        }
+        auto &selection = tooltipSelection;
+        if (!selection.id || selection.path != path || selection.widget != widget || selection.localId != local.id || selection.popup != popup ||
+            selection.lifetime.expired()) {
+            selection = {++nextTooltipId, local.id, std::move(path), std::move(widget), bindingLifetime, popup};
+        }
+        out = {selection.id, local.anchor, bindingLifetime};
+        return true;
+    }
+
+    bool ReflectedFormView::BuildTooltip(uint64_t id, std::string &out) const
+    {
+        const auto &selection = tooltipSelection;
+        if (!id || id != selection.id || selection.lifetime.expired() || pendingExternalRefresh || editField || dragField || scrollDrag)
+            return false;
+        if (selection.popup)
+            return selection.widget == ActivePopup() && selection.widget->BuildPopupTooltip(selection.localId, out);
+        if (ActivePopup())
+            return false;
+        for (const auto &row : rows) {
+            if (row.field->path != selection.path)
+                continue;
+            if (selection.widget)
+                return selection.widget == widgets.FindShared(row.field->control.kind) &&
+                       selection.widget->BuildTooltip(*row.field, selection.localId, out);
+            if (row.field->control.tooltip.empty())
+                return false;
+            out = row.field->control.tooltip;
+            return true;
+        }
+        return false;
     }
 
     sky::ui::UIRect ReflectedFormView::ContentRect() const

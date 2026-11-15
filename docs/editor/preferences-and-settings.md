@@ -146,7 +146,7 @@ remain necessary while synchronization can invoke observers.
 T11-C (`persist-preference-pages-portably`) adds an opt-in, UI-free `PreferencesPersistence` service
 in EditorCore. Portable implementation and normal/ASan verification are complete, with results in
 `ui-layout-and-chrome-plan.md` §17. It uses a shared injected `IPreferenceStorage` rather than a
-native path. `Read` distinguishes absent storage (`NotFound`) from read failure. Failed or throwing
+native path. `Read` distinguishes absent storage (`NotFound`) from read failure. Failed
 `Write` must preserve the adapter's previous bytes; an adapter that can partially replace data on
 failure does not satisfy this protocol. The owner serializes calls on a store.
 
@@ -183,19 +183,19 @@ tolerate retry, and Cancel only discards the remaining working session.
 - `applicationApplied` becomes true before entering a page application callback.
 
 The latter two flags conservatively indicate a potentially effectful stage was entered, including
-rejection/throw; they do not prove a value changed or application completed. `Succeeded()` reports
+explicit rejection; they do not prove a value changed or application completed. `Succeeded()` reports
 complete success and `HasPartialEffects()` identifies failed operations that crossed these boundaries.
 
 Hosts can inject a shared service through `EditorShell::SetPreferencesPersistence` or
 `PreferencesDialog::SetPersistence`. The dialog exposes `GetLastApplyResult()` and
 `SetOnApplyResult(...)` plus generic failure text through the shared UI. Failed OK/Apply suppresses
 the success callback and preserves retryable state; owner destruction/reopen/replacement keeps the
-existing weak lifetime/generation guards. A throwing candidate copy returns InvalidData without
-effects/history loss; Any::Create holds raw allocation through RAII and publishes type/storage only
-after successful construction, avoiding destruction of an incomplete object without a local catch.
+existing weak lifetime/generation guards. Invalid candidate metadata/copies return InvalidData without effects/history loss.
+Business callbacks and storage return explicit PreferenceResult/bool failures; this path does not
+catch standard-library exceptions. Any::Create retains allocation ownership through RAII.
 The generic JSON loader is unchanged. File storage reports OS errors through error_code/errno;
 ordinary allocation exceptions are not disguised as read/write failures.
-The current-state guard is also callback code: false/throw or changes made by that guard yield
+The current-state guard is also callback code: false or changes made by that guard yield
 Conflict after a state recheck. Apply captures CommandService::GetRevision, which changes for edits
 inside open transactions as well as visible stack changes. Storage/application/guard callbacks that
 edit working values invalidate the old snapshot while preserving the new work. Completion accepts
@@ -269,3 +269,26 @@ open; T11-A/B/C evidence remains in the canonical plan's §14/§16/§17.
 4. Optionally attach page validation/application callbacks and use the portable persistence service
    through the host-controlled file adapter. Register contributors before the host Load boundary;
    runtime registration/reload and provider/DLL lifetime still require their existing ownership rules.
+
+
+## Project object creation defaults
+
+`File > Project Settings...` uses the same reflected dialog/session as Preferences,
+with a separate `ProjectEditorSettings` page registry and persistence at the active
+project's `configs/editor.json`. User preferences and project settings never share
+storage. Closing the dialog discards unapplied working edits. Rebuilding the shell
+preserves the active settings scope; project teardown ends its session before
+unregistering extension-owned settings objects.
+
+Aurora contributes `Object Creation / Mesh` with a single default material asset
+field. It starts with the engine repository's `materials/lit.mat`. Apply
+affects subsequently created Cube/Plane objects; existing objects retain their
+material UUID. Missing or wrong-type assets fail validation. A failed config load
+blocks mesh creation until the settings file is repaired and the editor restarted. An absent file uses provider
+defaults; malformed JSON is not silently overwritten.
+
+Aurora.Editor registers Cube and Plane through the existing actor creation registry. They use `shapes/cube.glb` and `shapes/ground_plane.glb` through the asset database.
+Components retain the existing UUID schema. Asset loading, cooking and GPU resource
+ownership use the existing pipeline. The old resource IDs now belong to real Engine assets through their manifests;
+there is no separate Builtin folder or runtime GUID-generation path. The default material uses the existing Lit/Shadow shaders; it does not
+add a full Standard PBR implementation.

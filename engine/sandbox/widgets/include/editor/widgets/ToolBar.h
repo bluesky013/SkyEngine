@@ -57,6 +57,8 @@ namespace sky::editor {
         void SetItemEnabled(const std::string &id, bool enabled);
         void SetItemIcon(const std::string &id, sky::ui::UITextureId texture);
         bool RefreshActionStates();
+        bool QueryTooltip(float, float, sky::ui::UITooltipTarget &) const override;
+        bool BuildTooltip(uint64_t, std::string &) const override;
         void SetTabStyle(bool value)
         {
             tabStyle = value;

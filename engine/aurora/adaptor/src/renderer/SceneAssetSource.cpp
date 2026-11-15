@@ -7,7 +7,7 @@
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MaterialInstanceAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
+#include <aurora/adaptor/assets/SkinResource.h>
 #include <aurora/pipeline/GlobalVariantLayout.h>
 #include <aurora/pipeline/SceneRenderFeature.h>
 #include <aurora/pipeline/ShaderVariantAssembler.h>
@@ -32,53 +32,9 @@ namespace sky::aurora {
         {
             return {.code = RendererErrorCode::INVALID_ARGUMENT, .message = std::move(message)};
         }
+        constexpr size_t   MAX_SCENE_ASSETS = 1024;
         constexpr uint64_t MAX_MESH_BYTES   = 64ull * 1024 * 1024;
-        constexpr auto     DEFAULT_MATERIAL = Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8103");
     } // namespace
-    Uuid ScenePrimitiveId(ScenePrimitive primitive)
-    {
-        return primitive == ScenePrimitive::CUBE ? Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8101")
-                                                 : Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8102");
-    }
-    Uuid SceneLitMaterialId()
-    {
-        return Uuid::CreateFromString("8F015801-3437-4A44-A581-C191184C8104");
-    }
-    bool IsBuiltinSceneAsset(const Uuid &id, std::string_view type)
-    {
-        return (type == "AuroraMesh" && (id == ScenePrimitiveId(ScenePrimitive::CUBE) || id == ScenePrimitiveId(ScenePrimitive::PLANE))) ||
-               (type == "AuroraMaterial" && (id == DEFAULT_MATERIAL || id == SceneLitMaterialId()));
-    }
-    MeshAssetData ScenePrimitiveMesh(ScenePrimitive primitive)
-    {
-        MeshAssetData               mesh;
-        const std::vector<Vector3>  vertices = primitive == ScenePrimitive::CUBE
-                                                   ? std::vector<Vector3>{{-.5f, -.5f, -.5f}, {.5f, -.5f, -.5f}, {.5f, .5f, -.5f}, {-.5f, .5f, -.5f},
-                                                                          {-.5f, -.5f, .5f},  {.5f, -.5f, .5f},  {.5f, .5f, .5f},  {-.5f, .5f, .5f}}
-                                                   : std::vector<Vector3>{{-2, 0, -2}, {2, 0, -2}, {2, 0, 2}, {-2, 0, 2}};
-        const std::vector<uint16_t> indices =
-            primitive == ScenePrimitive::CUBE
-                ? std::vector<uint16_t>{0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5}
-                : std::vector<uint16_t>{0, 2, 1, 0, 3, 2};
-        mesh.vertexCount  = static_cast<uint32_t>(vertices.size());
-        mesh.vertexStride = sizeof(Vector3);
-        mesh.vertexSize   = vertices.size() * sizeof(Vector3);
-        mesh.vertexData.resize(mesh.vertexSize);
-        mesh.indexCount = static_cast<uint32_t>(indices.size());
-        mesh.indexType  = static_cast<uint32_t>(IndexType::U16);
-        mesh.indexSize  = indices.size() * sizeof(uint16_t);
-        mesh.indexData.resize(mesh.indexSize);
-        std::memcpy(mesh.vertexData.data(), vertices.data(), mesh.vertexSize);
-        std::memcpy(mesh.indexData.data(), indices.data(), mesh.indexSize);
-        mesh.attributes.push_back({.semantic      = static_cast<uint8_t>(VertexSemantic::POSITION),
-                                   .semanticIndex = 0,
-                                   .reserved      = 0,
-                                   .format        = static_cast<uint32_t>(Format::F_RGB32),
-                                   .offset        = 0});
-        mesh.subMeshes.push_back({.indexOffset = 0, .indexCount = mesh.indexCount, .materialIndex = 0});
-        mesh.bounds = primitive == ScenePrimitive::CUBE ? BoundingBoxSphere{{0, 0, 0}, {.5f, .5f, .5f}} : BoundingBoxSphere{{0, 0, 0}, {2, 0, 2}};
-        return mesh;
-    }
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info)
     {
         const auto &data = asset.Data();
@@ -247,17 +203,14 @@ namespace sky::aurora {
                 }
                 void OnAssetReload() override
                 {
-                    ++assetRevision;
                     ++source.revision;
                 }
                 void OnAssetReset() override
                 {
-                    ++assetRevision;
                     ++source.revision;
                 }
-                std::atomic<uint64_t> assetRevision{1};
-                Uuid                  id;
-                SceneAssetSource     &source;
+                Uuid              id;
+                SceneAssetSource &source;
             };
 
         public:
@@ -265,10 +218,8 @@ namespace sky::aurora {
             {
                 return revision.load() + AssetManager::Get()->GetProductChangeSerial();
             }
-            bool Invalidate(const Uuid &id) override
+            bool Invalidate(const Uuid &) override
             {
-                if (const auto found = watches.find(id); found != watches.end())
-                    ++found->second->assetRevision;
                 ++revision;
                 return true;
             }
@@ -283,11 +234,13 @@ namespace sky::aurora {
                 if (current == loadedRevision)
                     return;
                 cache.clear();
+                materialCache.clear();
                 programs.clear();
                 skeletalCache.clear();
                 skinBindings.PruneExpired();
                 imageCache.clear();
                 assets.clear();
+                watches.clear();
                 bounds.clear();
                 cachedBytes    = 0;
                 loadedRevision = current;
@@ -312,6 +265,100 @@ namespace sky::aurora {
             {
                 return ResolveGeometry(id, overrideMaterial, info, false);
             }
+            SceneMaterialResult ResolveMaterial(const Uuid &id, RendererInfo info, VertexSemanticMask vertexMask, bool skeletal) override
+            {
+                Refresh();
+                return ResolveMaterialData(id, info, vertexMask, skeletal);
+            }
+            SceneMaterialResult ResolveMaterialData(const Uuid &id, RendererInfo info, VertexSemanticMask vertexMask, bool skeletal)
+            {
+                if (!id || !info.deviceEpoch)
+                    return Invalid("Scene material requires an explicit asset and live device epoch");
+                const auto key = std::tuple{id, info.backend, info.deviceEpoch, vertexMask.mask, skeletal};
+                if (const auto found = materialCache.find(key); found != materialCache.end())
+                    return found->second;
+                if (materialCache.size() >= 128)
+                    return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene material cache budget exceeded"};
+                const MaterialAssetData *material = nullptr;
+                AssetPtr                 loaded;
+                MaterialAssetData        instanceMaterial;
+                std::set<std::string>    instanceOverrides;
+                loaded = Load(id);
+                if (!loaded || loaded->GetStatus() == AssetBase::Status::FAILED)
+                    return LoadFailure(id, "Scene material asset is missing or failed");
+                if (!loaded->IsLoaded())
+                    return {};
+                if (loaded->GetUuid() != id)
+                    return Invalid("Scene material loader returned a different asset identity");
+                if (loaded->GetType() == AssetTraits<Material>::ASSET_TYPE) {
+                    material = &std::static_pointer_cast<Asset<Material>>(loaded)->Data();
+                } else if (loaded->GetType() == AssetTraits<MaterialInstance>::ASSET_TYPE) {
+                    const auto &instance = std::static_pointer_cast<Asset<MaterialInstance>>(loaded)->Data();
+                    if (instance.version != MaterialInstanceAssetData::CURRENT_VERSION || !instance.material)
+                        return Invalid("Scene material instance has an incompatible version or missing parent");
+                    const auto parent = Load(instance.material);
+                    if (!parent || !(parent->GetType() == AssetTraits<Material>::ASSET_TYPE) || parent->GetStatus() == AssetBase::Status::FAILED)
+                        return LoadFailure(instance.material, "Scene material instance parent is missing or invalid");
+                    if (!parent->IsLoaded())
+                        return {};
+                    if (parent->GetUuid() != instance.material)
+                        return Invalid("Scene material parent loader returned a different asset identity");
+                    instanceMaterial = std::static_pointer_cast<Asset<Material>>(parent)->Data();
+                    std::set<std::string> overrides;
+                    for (const auto &value : instance.valueOverrides) {
+                        const auto property = std::ranges::find(instanceMaterial.properties, value.name, &MaterialPropertyData::name);
+                        if (property == instanceMaterial.properties.end() || !overrides.insert(value.name).second || property->type != value.type ||
+                            !MaterialPropertyValueMatches(value.type, value.value) || IsTextureProperty(value.type))
+                            return Invalid("Material instance value override has an unknown name or incompatible semantic type");
+                        property->value = value.value;
+                    }
+                    for (const auto &texture : instance.textureOverrides) {
+                        const auto property = std::ranges::find(instanceMaterial.properties, texture.name, &MaterialPropertyData::name);
+                        if (property == instanceMaterial.properties.end() || !overrides.insert(texture.name).second ||
+                            !IsTextureProperty(property->type))
+                            return Invalid("Material instance texture override has an unknown name or incompatible semantic type");
+                        property->value = texture.texture;
+                    }
+                    instanceOverrides = std::move(overrides);
+                    material          = &instanceMaterial;
+                } else {
+                    return Invalid("Scene material asset type mismatch");
+                }
+                auto result  = std::make_shared<SceneMaterialResources>();
+                bool pending = false;
+                auto ready   = MaterialPayload(id, material, info, skeletal, vertexMask, result->dependencies, pending);
+                if (pending)
+                    return {};
+                if (const auto *error = std::get_if<RendererError>(&ready)) {
+                    return *error;
+                }
+                auto payload = std::move(std::get<RenderResourcePayload>(ready));
+                for (const auto &key : payload.material->schema.keys)
+                    if (key.kind == MaterialKeyKind::OPTION && instanceOverrides.contains(key.name))
+                        return Invalid("MaterialInstance cannot override a static Shader option: " + key.name);
+                result->material = std::move(payload);
+                result->surface  = capabilities && capabilities->resolve ? capabilities->resolve(id, *material, loadedRevision) : SceneSurfaceFacts{};
+                const auto opaque = std::find_if(material->techniques.begin(), material->techniques.end(),
+                                                 [](const auto &technique) { return technique.tag == "opaque"; });
+                if (opaque == material->techniques.end() || !opaque->renderState.depthStencil.depthTest ||
+                    !opaque->renderState.depthStencil.depthWrite ||
+                    (opaque->renderState.depthStencil.compareOp != CompareOp::LESS &&
+                     opaque->renderState.depthStencil.compareOp != CompareOp::LESS_OR_EQUAL) ||
+                    std::any_of(opaque->renderState.blendStates.begin(), opaque->renderState.blendStates.end(),
+                                [](const auto &blend) { return bool(blend.blendEn); }) ||
+                    result->surface.cull != SceneSurfaceCull::NONE)
+                    result->surface = {};
+                uint64_t bytes = RenderResourceCpuBytes(result->material);
+                for (const auto &dependency : result->dependencies)
+                    bytes += RenderResourceCpuBytes(dependency);
+                if (bytes > 256ull * 1024 * 1024 - cachedBytes)
+                    return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene asset CPU byte budget exceeded"};
+                if (Revision() != loadedRevision)
+                    return {};
+                cachedBytes += bytes;
+                materialCache.emplace(key, result);
+                return std::shared_ptr<const SceneMaterialResources>(std::move(result));
+            }
             SceneSkeletalResult
             ResolveSkeletal(const Uuid &id, const Uuid &material, const Uuid &skinId, const Uuid &rigId, RendererInfo info) override
             {
@@ -334,7 +381,7 @@ namespace sky::aurora {
                 const auto skinAsset = Load(skinId);
                 const auto rigAsset  = Load(rigId);
                 if (!skinAsset || !rigAsset || skinAsset->GetType() != Name("AuroraSkin") || rigAsset->GetType() != Name("AuroraSkeleton")) {
-                    return Invalid("Skeletal mesh requires explicit Skin and Skeleton assets of the correct type");
+                    return LoadFailure(!skinAsset ? skinId : rigId, "Skeletal mesh requires explicit Skin and Skeleton assets of the correct type");
                 }
                 if (skinAsset->GetStatus() == AssetBase::Status::FAILED || rigAsset->GetStatus() == AssetBase::Status::FAILED) {
                     return Invalid("Skeletal mesh Skin or Skeleton failed to load");
@@ -390,12 +437,12 @@ namespace sky::aurora {
                 if (const auto found = cache.find(key); found != cache.end()) {
                     return found->second;
                 }
-                if (cache.size() >= 128 || assets.size() >= 1024) {
+                if (cache.size() >= 128) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset cache budget exceeded"};
                 }
                 auto asset = Load(id);
                 if (!asset) {
-                    return Invalid("Scene mesh asset could not be loaded");
+                    return LoadFailure(id, "Scene mesh asset could not be loaded");
                 }
                 if (!(asset->GetType() == AssetTraits<Mesh>::ASSET_TYPE)) {
                     return Invalid("Scene mesh asset type mismatch");
@@ -403,8 +450,7 @@ namespace sky::aurora {
                 if (asset->GetStatus() == AssetBase::Status::FAILED) {
                     return Invalid("Scene mesh asset load failed");
                 }
-                const bool primitive = id == ScenePrimitiveId(ScenePrimitive::CUBE) || id == ScenePrimitiveId(ScenePrimitive::PLANE);
-                if (!primitive && !asset->IsLoaded()) {
+                if (!asset->IsLoaded()) {
                     return {};
                 }
                 const auto meshAsset = std::static_pointer_cast<Asset<Mesh>>(asset);
@@ -429,94 +475,30 @@ namespace sky::aurora {
                     if (!data.materials.empty() && slot >= data.materials.size()) {
                         return Invalid("Scene mesh material slot exceeds its table");
                     }
-                    auto materialId = DEFAULT_MATERIAL;
+                    Uuid materialId;
                     if (slot == 0 && overrideMaterial) {
                         materialId = overrideMaterial;
                     } else if (!data.materials.empty() && data.materials[slot]) {
                         materialId = data.materials[slot];
                     }
+                    if (!materialId)
+                        return Invalid("Scene mesh requires cooked material slots or an explicit override; recook this asset");
                     if (!materials.contains(materialId)) {
-                        const MaterialAssetData *material = nullptr;
-                        AssetPtr                 loaded;
-                        MaterialAssetData        instanceMaterial;
-                        std::set<std::string>    instanceOverrides;
-                        if (materialId != DEFAULT_MATERIAL && materialId != SceneLitMaterialId()) {
-                            loaded = Load(materialId);
-                            if (!loaded || loaded->GetStatus() == AssetBase::Status::FAILED)
-                                return Invalid("Scene material asset is missing or failed");
-                            if (!loaded->IsLoaded())
-                                return {};
-                            if (loaded->GetType() == AssetTraits<Material>::ASSET_TYPE) {
-                                material = &std::static_pointer_cast<Asset<Material>>(loaded)->Data();
-                            } else if (loaded->GetType() == AssetTraits<MaterialInstance>::ASSET_TYPE) {
-                                const auto &instance = std::static_pointer_cast<Asset<MaterialInstance>>(loaded)->Data();
-                                if (instance.version != MaterialInstanceAssetData::CURRENT_VERSION || !instance.material)
-                                    return Invalid("Scene material instance has an incompatible version or missing parent");
-                                const auto parent = Load(instance.material);
-                                if (!parent || !(parent->GetType() == AssetTraits<Material>::ASSET_TYPE) ||
-                                    parent->GetStatus() == AssetBase::Status::FAILED)
-                                    return Invalid("Scene material instance parent is missing or invalid");
-                                if (!parent->IsLoaded())
-                                    return {};
-                                instanceMaterial = std::static_pointer_cast<Asset<Material>>(parent)->Data();
-                                std::set<std::string> overrides;
-                                for (const auto &value : instance.valueOverrides) {
-                                    const auto property = std::ranges::find(instanceMaterial.properties, value.name, &MaterialPropertyData::name);
-                                    if (property == instanceMaterial.properties.end() || !overrides.insert(value.name).second ||
-                                        property->type != value.type || !MaterialPropertyValueMatches(value.type, value.value) ||
-                                        IsTextureProperty(value.type))
-                                        return Invalid("Material instance value override has an unknown name or incompatible semantic type");
-                                    property->value = value.value;
-                                }
-                                for (const auto &texture : instance.textureOverrides) {
-                                    const auto property = std::ranges::find(instanceMaterial.properties, texture.name, &MaterialPropertyData::name);
-                                    if (property == instanceMaterial.properties.end() || !overrides.insert(texture.name).second ||
-                                        !IsTextureProperty(property->type))
-                                        return Invalid("Material instance texture override has an unknown name or incompatible semantic type");
-                                    property->value = texture.texture;
-                                }
-                                instanceOverrides = std::move(overrides);
-                                material          = &instanceMaterial;
-                            } else {
-                                return Invalid("Scene material asset type mismatch");
-                            }
-                        }
-                        std::vector<RenderResourcePayload> images;
-                        bool                               pending = false;
-                        auto                               ready   = MaterialPayload(
-                            materialId, material, info, skeletal,
-                            RenderVertexMask(result->payloads.front().mesh->streams, result->payloads.front().mesh->attributes), images, pending);
-                        if (pending)
-                            return {};
-                        if (const auto *error = std::get_if<RendererError>(&ready)) {
+                        const auto resolved = ResolveMaterialData(
+                            materialId, info, RenderVertexMask(result->payloads.front().mesh->streams, result->payloads.front().mesh->attributes),
+                            skeletal);
+                        if (const auto *error = std::get_if<RendererError>(&resolved))
                             return *error;
-                        }
-                        auto payload = std::move(std::get<RenderResourcePayload>(ready));
-                        for (const auto &key : payload.material->schema.keys)
-                            if (key.kind == MaterialKeyKind::OPTION && instanceOverrides.contains(key.name))
-                                return Invalid("MaterialInstance cannot override a static Shader option: " + key.name);
-                        materials.emplace(materialId, payload.resource);
-                        surfaces[materialId] =
-                            !material ? SceneSurfaceFacts::StaticOpaque(loadedRevision)
-                                      : (capabilities && capabilities->resolve ? capabilities->resolve(materialId, *material, loadedRevision)
-                                                                               : SceneSurfaceFacts{});
-                        if (material) {
-                            const auto opaque = std::find_if(material->techniques.begin(), material->techniques.end(),
-                                                             [](const auto &technique) { return technique.tag == "opaque"; });
-                            if (opaque == material->techniques.end() || !opaque->renderState.depthStencil.depthTest ||
-                                !opaque->renderState.depthStencil.depthWrite ||
-                                (opaque->renderState.depthStencil.compareOp != CompareOp::LESS &&
-                                 opaque->renderState.depthStencil.compareOp != CompareOp::LESS_OR_EQUAL) ||
-                                std::any_of(opaque->renderState.blendStates.begin(), opaque->renderState.blendStates.end(),
-                                            [](const auto &blend) { return bool(blend.blendEn); }) ||
-                                surfaces[materialId].cull != SceneSurfaceCull::NONE)
-                                surfaces[materialId] = {};
-                        }
-                        for (auto &image : images)
+                        const auto *ready = std::get_if<std::shared_ptr<const SceneMaterialResources>>(&resolved);
+                        if (!ready || !*ready)
+                            return {};
+                        materials.emplace(materialId, (*ready)->material.resource);
+                        surfaces[materialId] = (*ready)->surface;
+                        for (const auto &dependency : (*ready)->dependencies)
                             if (std::none_of(result->payloads.begin(), result->payloads.end(),
-                                             [&](const auto &existing) { return existing.resource == image.resource; }))
-                                result->payloads.push_back(std::move(image));
-                        result->payloads.push_back(std::move(payload));
+                                             [&](const auto &existing) { return existing.resource == dependency.resource; }))
+                                result->payloads.push_back(dependency);
+                        result->payloads.push_back((*ready)->material);
                     }
                     result->parts.push_back({.part     = part,
                                              .mesh     = {.resource = meshKey, .bindingRevision = 1},
@@ -543,12 +525,12 @@ namespace sky::aurora {
                 if (const auto found = imageCache.find(key); found != imageCache.end()) {
                     return found->second;
                 }
-                if (imageCache.size() >= 128 || assets.size() >= 1024) {
+                if (imageCache.size() >= 128) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Environment asset cache budget exceeded"};
                 }
                 const auto asset = Load(id);
                 if (!asset || !(asset->GetType() == AssetTraits<Texture>::ASSET_TYPE)) {
-                    return Invalid("Environment image asset type mismatch or missing asset");
+                    return LoadFailure(id, "Environment image asset type mismatch or missing asset");
                 }
                 if (asset->GetStatus() == AssetBase::Status::FAILED) {
                     return Invalid("Environment image asset load failed");
@@ -574,23 +556,20 @@ namespace sky::aurora {
             }
 
         private:
+            RendererError LoadFailure(const Uuid &id, const char *message) const
+            {
+                if (!assets.contains(id) && assets.size() >= MAX_SCENE_ASSETS)
+                    return {RendererErrorCode::OUT_OF_MEMORY, "Scene asset cache budget exceeded"};
+                return Invalid(message);
+            }
             AssetPtr Load(const Uuid &id)
             {
                 if (const auto found = assets.find(id); found != assets.end()) {
                     return found->second;
                 }
-                if (!watches.contains(id) && watches.size() >= 1024)
+                if (assets.size() >= MAX_SCENE_ASSETS)
                     return {};
-                AssetPtr result;
-                if (id == ScenePrimitiveId(ScenePrimitive::CUBE) || id == ScenePrimitiveId(ScenePrimitive::PLANE)) {
-                    auto mesh = std::make_shared<Asset<Mesh>>();
-                    mesh->SetUuid(id);
-                    mesh->SetType(Name(AssetTraits<Mesh>::ASSET_TYPE.data()));
-                    mesh->Data() = ScenePrimitiveMesh(id == ScenePrimitiveId(ScenePrimitive::CUBE) ? ScenePrimitive::CUBE : ScenePrimitive::PLANE);
-                    result       = std::move(mesh);
-                } else {
-                    result = loader(id);
-                }
+                auto result = loader(id);
                 if (result) {
                     assets.emplace(id, result);
                     if (!watches.contains(id))
@@ -766,7 +745,7 @@ namespace sky::aurora {
                             return Invalid("Active material texture asset is missing");
                         const auto image = Load(*id);
                         if (!image || !(image->GetType() == AssetTraits<Texture>::ASSET_TYPE) || image->GetStatus() == AssetBase::Status::FAILED)
-                            return Invalid("Material texture asset is missing, failed, or has the wrong type");
+                            return LoadFailure(*id, "Material texture asset is missing, failed, or has the wrong type");
                         if (!image->IsLoaded()) {
                             pending = true;
                             return {};
@@ -855,25 +834,8 @@ namespace sky::aurora {
                                                                                std::vector<RenderResourcePayload> &images,
                                                                                bool                               &pending)
             {
-                MaterialAssetData defaults;
-                if (data == nullptr) {
-                    const std::string     path = id == SceneLitMaterialId() ? "aurora/materials/Lit.slang" : "aurora/materials/Unlit.slang";
-                    MaterialTechniqueData opaque;
-                    opaque.tag     = "opaque";
-                    opaque.program = {.vertex = {.relativePath = path, .entry = "VSMain"}, .fragment = {.relativePath = path, .entry = "FSMain"}};
-                    opaque.aliases = {{"tint", "gMaterial.tint"}, {"surface", "gMaterial.surface"}};
-                    opaque.renderState.depthStencil.depthTest = opaque.renderState.depthStencil.depthWrite = true;
-                    opaque.renderState.depthStencil.compareOp                                              = CompareOp::LESS_OR_EQUAL;
-                    auto shadow                                                                            = opaque;
-                    shadow.tag                                                                             = "shadow";
-                    shadow.program = {.vertex   = {.relativePath = "aurora/materials/Shadow.slang", .entry = "VSMain"},
-                                      .fragment = {.relativePath = "aurora/materials/Shadow.slang", .entry = "FSMain"}};
-                    shadow.aliases.clear();
-                    defaults.techniques = {opaque, shadow};
-                    defaults.properties = {{.name = "tint", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.65f, .72f, .82f, 1}},
-                                           {.name = "surface", .type = MaterialPropertyType::FLOAT4, .value = Vector4{.5f, 0, 0, 0}}};
-                    data                = &defaults;
-                }
+                if (!data)
+                    return Invalid("Material asset data is unavailable");
                 std::string validation;
                 if (!ValidateMaterialAssetData(*data, validation))
                     return Invalid(std::move(validation));
@@ -1015,6 +977,7 @@ namespace sky::aurora {
             std::map<Uuid, AssetPtr>                                                                                   assets;
             std::map<std::tuple<Uuid, Uuid, API, uint64_t, bool>, std::shared_ptr<const SceneMeshResources>>           cache;
             std::map<std::tuple<Uuid, Uuid, Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneSkeletalResources>> skeletalCache;
+            std::map<std::tuple<Uuid, API, uint64_t, uint16_t, bool>, std::shared_ptr<const SceneMaterialResources>>   materialCache;
             SkinBindingCache                                                                                           skinBindings;
             std::map<std::tuple<Uuid, uint64_t, SceneImageUsage>, std::shared_ptr<const RenderResourcePayload>>        imageCache;
             std::atomic<uint64_t>                                                                                      revision{1};

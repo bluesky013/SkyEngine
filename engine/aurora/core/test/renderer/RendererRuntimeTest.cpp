@@ -1,3 +1,4 @@
+#include "SceneAssetFixtures.h"
 #include "ShaderSourcesFixture.h"
 
 #include <aurora/rdg/FrameBindings.h>
@@ -73,7 +74,7 @@ namespace {
                 return *error;
             const auto       target = std::get<GraphImageHandle>(image);
             FrameComputePass dispatch;
-            dispatch.shader  = std::get<ShaderPtr>(cs);
+            dispatch.shader   = std::get<ShaderPtr>(cs);
             dispatch.dispatch = CmdDispatch{desc.extent.width, desc.extent.height, 1};
             ComputeBindingDraft dispatchBindings;
             dispatchBindings.images.push_back({1, 0, target, {}, FrameAccessMode::WRITE});
@@ -606,7 +607,7 @@ TEST_P(RendererRuntimeTest, WorldBridgeProductionAssetsTransformAndRemovalReachP
     transform->SetLocalTranslation({0, 0, .5f});
     auto files = std::make_shared<ShaderFileSystem>();
     ASSERT_TRUE(LoadTestShaderSources(*files));
-    auto source = CreateSceneAssetSource(std::move(files));
+    auto source = CreateTestSceneAssetSource(std::move(files));
     ASSERT_NE(source, nullptr);
     RenderSceneBridge bridge(renderer->GetInfo(), source);
     bridge.SetWorld(world.Get());
@@ -727,7 +728,7 @@ TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
         }
     } scope;
     auto files  = TestShaderSources();
-    auto source = CreateSceneAssetSource(files);
+    auto source = CreateTestSceneAssetSource(files);
     auto unlit  = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
     auto lit    = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), SceneLitMaterialId(), renderer->GetInfo());
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(unlit));
@@ -873,7 +874,7 @@ TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler
     } noCompiler;
     FileSystemPtr products(new NativeFileSystem(FilePath(root.string())));
     auto          sources  = std::make_shared<ShaderFileSystem>();
-    auto          source   = CreateSceneAssetSource(sources, {}, products);
+    auto          source   = CreateTestSceneAssetSource(sources, {}, products);
     const auto    resolved = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), {}, renderer->GetInfo());
     if (const auto *error = std::get_if<RendererError>(&resolved))
         ADD_FAILURE() << static_cast<int>(error->code) << ": " << error->message;
@@ -1757,7 +1758,7 @@ TEST_P(RendererRuntimeTest, RotatedSurfacePreservesLogicalCameraAndMapsItsOutput
             sceneToLogical.v[5] = -1;
             clip                = mapping * sceneToLogical * projection * view.view.view * Vector4{-.4f, .2f, .25f, 1};
             FrameRasterPass pass;
-            pass.color = target->color;
+            pass.color          = target->color;
             const auto rendered = context.Raster(std::move(pass));
             if (std::holds_alternative<FrameError>(rendered))
                 return rendered;

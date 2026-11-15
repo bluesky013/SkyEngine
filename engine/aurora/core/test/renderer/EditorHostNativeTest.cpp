@@ -1,3 +1,4 @@
+#include "SceneAssetFixtures.h"
 //
 // Created on 2026/10/17.
 //
@@ -324,7 +325,7 @@ TEST_P(EditorHostNativeTest, StaticPickingUsesProductionSceneAndSharedSelection)
     auto        shaderRoot = Platform::Get()->GetBundleFileSystem()->CreateSubSystem("assets/shaders", false);
     std::string shaderError;
     ASSERT_TRUE(files->LoadBundles(*shaderRoot, "", &shaderError)) << shaderError;
-    auto resources = CreateSceneAssetSource(
+    auto resources = CreateTestSceneAssetSource(
         files, [authored](const Uuid &id) -> AssetPtr { return id == authored->GetUuid() ? authored : AssetPtr{}; }, {}, capabilities);
     const auto initialResource = resources->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), authoredId, renderer->GetInfo());
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(initialResource));

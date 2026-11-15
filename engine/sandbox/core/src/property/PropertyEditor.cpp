@@ -180,6 +180,7 @@ namespace sky::editor {
         control.editorHint = attrs.editorHint;
         control.assetType  = attrs.assetType;
         control.label      = attrs.label;
+        control.tooltip    = attrs.tooltip;
 
         if (attrs.hasKindOverride) {
             control.kind = attrs.kindOverride;

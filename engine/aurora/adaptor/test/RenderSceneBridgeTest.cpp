@@ -1,3 +1,4 @@
+#include "SceneAssetFixtures.h"
 #include <array>
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
@@ -337,11 +338,11 @@ TEST(SceneMeshConversion, PendingAndWrongTypeAssetsReturnExplicitly)
 {
     auto pending = std::make_shared<Asset<Mesh>>();
     pending->SetType(Name(AssetTraits<Mesh>::ASSET_TYPE.data()));
-    auto source = CreateSceneAssetSource({}, [pending](const Uuid &) { return pending; });
+    auto source = CreateTestSceneAssetSource({}, [pending](const Uuid &) { return pending; });
     EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveMesh(Uuid::CreateWithSeed(111), {}, {API::VULKAN, 1})));
     auto wrong = std::make_shared<Asset<Material>>();
     wrong->SetType(Name(AssetTraits<Material>::ASSET_TYPE.data()));
-    source = CreateSceneAssetSource({}, [wrong](const Uuid &) { return wrong; });
+    source = CreateTestSceneAssetSource({}, [wrong](const Uuid &) { return wrong; });
     EXPECT_TRUE(std::holds_alternative<RendererError>(source->ResolveMesh(Uuid::CreateWithSeed(111), {}, {API::VULKAN, 1})));
 }
 
@@ -401,7 +402,7 @@ TEST(SceneMeshConversion, ExplicitInvalidationReloadsOwnedAssetSource)
     int  loads   = 0;
     auto pending = std::make_shared<Asset<Mesh>>();
     pending->SetType(Name(AssetTraits<Mesh>::ASSET_TYPE.data()));
-    auto       source = CreateSceneAssetSource({}, [&](const Uuid &) {
+    auto       source = CreateTestSceneAssetSource({}, [&](const Uuid &) {
         ++loads;
         return pending;
     });

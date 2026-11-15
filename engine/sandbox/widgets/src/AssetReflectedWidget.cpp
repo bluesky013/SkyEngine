@@ -2,10 +2,10 @@
 // Created on 2026/10/04.
 //
 
-#include <editor/ui/UiDraw.h>
 #include <editor/widgets/AssetReflectedWidget.h>
 
 #include <editor/core/command/CommandService.h>
+#include <editor/ui/UiDraw.h>
 
 #include <core/util/Uuid.h>
 
@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 
 namespace sky::editor {
 
@@ -35,14 +36,12 @@ namespace sky::editor {
         if (catalog == nullptr) {
             return;
         }
-        std::string name;
-        if (catalog->GetName(*id, name)) {
-            outLabel = name;
-        }
-        if (!field.control.assetType.empty()) {
-            std::string type;
-            outValid = catalog->GetType(*id, type) && type == field.control.assetType;
-        }
+        EditorAssetItem item;
+        const bool      found = catalog->Find(*id, item);
+        if (found && (!item.path.empty() || !item.name.empty()))
+            outLabel = item.path.empty() ? item.name : item.path;
+        if (!field.control.assetType.empty())
+            outValid = found && item.type == field.control.assetType;
     }
 
     void AssetReflectedWidget::Paint(ReflectedWidgetHost &host, sky::ui::UIPaintContext &context, PropertyField &field, const sky::ui::UIRect &rect)
@@ -72,8 +71,93 @@ namespace sky::editor {
         items.clear();
     }
 
+    bool AssetReflectedWidget::QueryTooltip(
+        const ReflectedWidgetHost &host, const PropertyField &, const sky::ui::UIRect &rect, float x, float y, sky::ui::UITooltipTarget &out) const
+    {
+        const auto           &metrics = host.Skin().Theme().metrics;
+        const sky::ui::UIRect value{rect.left, rect.top, std::max(rect.left, rect.right - metrics.indentSmall - metrics.checkboxPad * 3.f),
+                                    rect.bottom};
+        if (!value.Contains(x, y))
+            return false;
+        out = {1, value, host.BindingLifetime()};
+        return true;
+    }
+
+    bool AssetReflectedWidget::FormatTooltip(const Uuid &id, const std::string &expectedType, std::string &out) const
+    {
+        std::string text;
+        bool        showExpectedType = false;
+        if (!id) {
+            text             = "No asset selected";
+            showExpectedType = true;
+        } else {
+            auto           *catalog = source ? source : GetEditorAssetCatalog();
+            EditorAssetItem item;
+            if (!catalog) {
+                text             = "Asset catalog unavailable";
+                showExpectedType = true;
+            } else if (!catalog->Find(id, item)) {
+                text             = "Missing asset";
+                showExpectedType = true;
+            } else {
+                text = item.path.empty() ? item.name : item.path;
+                if (text.empty())
+                    text = "Asset path unavailable";
+                if (!item.type.empty())
+                    text += "\nType: " + item.type;
+                if (item.type.empty())
+                    showExpectedType = true;
+                else if (!expectedType.empty() && item.type != expectedType)
+                    text += "\nType mismatch: expected " + expectedType;
+                if (item.state == AssetCookState::Cooking)
+                    text += "\nCooking";
+                else if (item.state == AssetCookState::Failed)
+                    text += "\nCook failed";
+                if (!item.error.empty())
+                    text += "\nError: " + item.error;
+            }
+        }
+        if (showExpectedType && !expectedType.empty())
+            text += "\nExpected type: " + expectedType;
+        if (id)
+            text += "\nGUID: " + id.ToString();
+        out = std::move(text);
+        return true;
+    }
+
+    bool AssetReflectedWidget::BuildTooltip(const PropertyField &field, uint64_t id, std::string &out) const
+    {
+        if (id != 1)
+            return false;
+        const Any   value = field.descriptor.GetValue();
+        const auto *asset = value.GetAsConst<Uuid>();
+        return asset && FormatTooltip(*asset, field.control.assetType, out);
+    }
+
+    bool AssetReflectedWidget::QueryPopupTooltip(float x, float y, sky::ui::UITooltipTarget &out) const
+    {
+        if (!openField)
+            return false;
+        for (size_t i = 0; i < itemRects.size(); ++i) {
+            if (itemRects[i].Contains(x, y)) {
+                out = {(uint64_t(popupGeneration) << 32) | (firstItem + i + 1), itemRects[i], {}};
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool AssetReflectedWidget::BuildPopupTooltip(uint64_t id, std::string &out) const
+    {
+        const auto index = static_cast<uint32_t>(id);
+        if (!openField || (id >> 32) != popupGeneration || !index || index > items.size())
+            return false;
+        return FormatTooltip(items[index - 1].uuid, openField->control.assetType, out);
+    }
+
     void AssetReflectedWidget::Open(PropertyField &field, const sky::ui::UIRect &control, const sky::ui::UIRect &bounds, const UiTheme &theme)
     {
+        ++popupGeneration;
         openField = &field;
         hoverItem = -1;
         firstItem = 0;
@@ -143,10 +227,10 @@ namespace sky::editor {
         Any         value   = openField->descriptor.GetValue();
         const Uuid *current = value.GetAsConst<Uuid>();
         for (size_t i = 0; i < itemRects.size(); ++i) {
-            const auto &item = items[firstItem + i];
-            const bool selected = current != nullptr && item.uuid == *current;
+            const auto &item     = items[firstItem + i];
+            const bool  selected = current != nullptr && item.uuid == *current;
             host.Skin().DrawPopupItem(context, itemRects[i], static_cast<int>(i) == hoverItem, selected);
-            const std::string &label = item.name.empty() ? item.path : item.name;
+            const std::string &label = item.path.empty() ? item.name : item.path;
             uc::Text(context, label, th.fonts.small,
                      sky::ui::UIRect{itemRects[i].left + 8.0f, itemRects[i].top, itemRects[i].right - 6.0f, itemRects[i].bottom}, th.colors.text,
                      host.Text());
@@ -160,8 +244,10 @@ namespace sky::editor {
         }
         if (event.action == sky::ui::UIPointerAction::WHEEL) {
             const auto maximum = items.size() - itemRects.size();
-            if (event.wheelDelta > 0) firstItem = firstItem ? firstItem - 1 : 0;
-            else if (event.wheelDelta < 0) firstItem = std::min(maximum, firstItem + 1);
+            if (event.wheelDelta > 0)
+                firstItem = firstItem ? firstItem - 1 : 0;
+            else if (event.wheelDelta < 0)
+                firstItem = std::min(maximum, firstItem + 1);
             hoverItem = -1;
             host.MarkDirty();
             return true;

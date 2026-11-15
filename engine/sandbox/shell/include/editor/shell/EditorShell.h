@@ -15,6 +15,7 @@
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
+#include <editor/widgets/TooltipHost.h>
 #include <framework/window/Cursor.h>
 #include <ui/UIDrawData.h>
 #include <ui/UIEvent.h>
@@ -101,6 +102,8 @@ namespace sky::editor {
         // modal overlay for the given asset.
         void OpenAssetViewer(const Uuid &asset);
         void TickAssetViews(float delta);
+        void TickTooltips(float delta);
+        void CancelTooltip(uint32_t surfaceId = 0);
         bool IsAssetViewerOpen() const;
         void RequestCloseAssetViews();
         bool AreAssetViewsClosing() const;
@@ -117,6 +120,9 @@ namespace sky::editor {
         void SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied);
         void SetPreferencesPersistence(std::shared_ptr<PreferencesPersistence> persistence);
         void OpenPreferences();
+        void OpenProjectSettings(PreferencePageRegistry                 *registry,
+                                 std::shared_ptr<PreferencesPersistence> persistence,
+                                 std::function<void()>                   onApplied = {});
         bool IsPreferencesOpen() const;
 
         // Project-level world configuration. The shell hosts the dialog over the
@@ -258,9 +264,14 @@ namespace sky::editor {
         bool ConsumeFloatRequest(std::string &panelId);
 
     private:
+        void OpenSettings(PreferencePageRegistry                 *registry,
+                          std::shared_ptr<PreferencesPersistence> persistence,
+                          std::string                             title,
+                          std::function<void()>                   onApplied);
         // Topmost open modal dialog (preferences over file browser); nullptr if
         // none. Used to route input while a modal is open.
         sky::ui::UIElement *ActiveModal() const;
+        sky::ui::UIElement *TooltipRoot(uint32_t surfaceId) const;
 
         // Texture for a registered icon name (UI_INVALID_TEXTURE if unknown).
         sky::ui::UITextureId ResolveIcon(const std::string &name) const;
@@ -276,21 +287,22 @@ namespace sky::editor {
 
         // One floating window's UI: its own context + router + the panel view.
         struct Surface {
-            std::shared_ptr<void> actionLifetime;
+            TooltipHost                             tooltip;
+            std::shared_ptr<void>                   actionLifetime;
             std::unique_ptr<sky::ui::UIContext>     context;
             std::unique_ptr<sky::ui::UIEventRouter> router;
             std::string                             panelId;
             sky::ui::UIElement                     *view          = nullptr;
             uint64_t                                themeRevision = 0;
-            AssetViewerWidget *assetTool = nullptr;
-            Uuid asset;
-            std::string actionScope;
+            AssetViewerWidget                      *assetTool     = nullptr;
+            Uuid                                    asset;
+            std::string                             actionScope;
         };
         void OpenPendingAssetTools();
         void RegisterAssetViewerActions(AssetViewerWidget *viewer, const std::string &scope, std::weak_ptr<void> lifetime);
         std::function<uint32_t(const std::string &)> createAssetTool;
-        std::function<void(uint32_t)> retireAssetTool;
-        std::vector<Uuid> pendingAssetTools;
+        std::function<void(uint32_t)>                retireAssetTool;
+        std::vector<Uuid>                            pendingAssetTools;
 
         // Event router for a floating surface (>0). Null if unknown; surface 0
         // uses the main router through the public Dispatch* methods.
@@ -322,6 +334,7 @@ namespace sky::editor {
 
         std::unique_ptr<sky::ui::UIContext>                   context;
         std::unique_ptr<sky::ui::UIEventRouter>               eventRouter;
+        TooltipHost                                           tooltip;
         LayoutModel                                          *layoutModel   = nullptr;
         PanelRegistry                                        *panelRegistry = nullptr;
         sky::ui::UITextSystem                                *textSystem    = nullptr;
@@ -394,7 +407,11 @@ namespace sky::editor {
         PreferencePageRegistry                 *preferenceRegistry = nullptr;
         std::function<void()>                   preferencesApplied;
         std::shared_ptr<PreferencesPersistence> preferencesPersistence;
-        bool                                    preferencesOpen = false;
+        PreferencePageRegistry                 *openedSettingsRegistry = nullptr;
+        std::shared_ptr<PreferencesPersistence> openedSettingsPersistence;
+        std::function<void()>                   openedSettingsApplied;
+        std::string                             openedSettingsTitle = "Preferences";
+        bool                                    preferencesOpen     = false;
 
         WorldDocument                           *worldDocument   = nullptr;
         PlayState                                playState       = PlayState::Editing;

@@ -24,7 +24,7 @@ namespace sky::editor {
         std::string    path;
         std::string    message;
         // Effects of THIS operation. Failure does not imply rollback. Setter/hook
-        // flags become true on entry, because even rejection/throw may have
+        // flags become true on entry, because even rejection may have
         // external effects; they do not assert that a value actually changed.
         bool storageWritten     = false;
         bool liveWritten        = false;

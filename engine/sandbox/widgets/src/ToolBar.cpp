@@ -9,6 +9,7 @@
 #include <editor/widgets/UiSkin.h>
 
 #include <ui/UIPaintContext.h>
+#include <ui/UITooltip.h>
 #include <ui/text/UITextSystem.h>
 
 #include <algorithm>
@@ -96,7 +97,7 @@ namespace sky::editor {
         const UiMetrics &m  = th.metrics;
         float            w  = 2.0f * m.controlPad;
         if (!tabStyle && items[index].icon != sky::ui::UI_INVALID_TEXTURE) {
-            w += m.iconSize; // icon-only; the label is reserved for a future tooltip
+            w += m.iconSize;
         } else if (!items[index].label.empty()) {
             w += uc::TextWidth(items[index].label, th.fonts.label, textSystem);
         }
@@ -179,20 +180,25 @@ namespace sky::editor {
             }
             previous = true;
         }
+    }
 
-        // Hover tooltip: an icon-only item reveals its label below the bar (the
-        // toolbar is not clipped to its bounds, like the MenuBar popup).
-        if (!tabStyle && hoverItem >= 0 && hoverItem < static_cast<int>(items.size())) {
-            const Item &item = items[static_cast<size_t>(hoverItem)];
-            if (item.icon != sky::ui::UI_INVALID_TEXTURE && !item.label.empty()) {
-                const sky::ui::UIRect hovered = ItemRect(static_cast<size_t>(hoverItem));
-                const float           w       = uc::TextWidth(item.label, th.fonts.label, textSystem) + 2.0f * m.controlPad;
-                const sky::ui::UIRect tip{hovered.left, b.bottom + m.panelGap, hovered.left + w, b.bottom + m.panelGap + m.popupItemHeight};
-                uc::Fill(context, tip, th.colors.borderSoft);
-                uc::Fill(context, sky::ui::UIRect{tip.left + 1.0f, tip.top + 1.0f, tip.right - 1.0f, tip.bottom - 1.0f}, th.colors.panel);
-                uc::Text(context, item.label, th.fonts.label, tip, th.colors.text, textSystem, uc::HAlign::Center, uc::VAlign::Middle, true);
-            }
-        }
+    bool ToolBar::QueryTooltip(float x, float y, sky::ui::UITooltipTarget &out) const
+    {
+        const auto index = ItemAt(x, y);
+        if (tabStyle || index < 0 || items[static_cast<size_t>(index)].label.empty())
+            return false;
+        out = {(itemsGeneration << 32) | (static_cast<uint32_t>(index) + 1), ItemRect(static_cast<size_t>(index)), GetInputReference().lifetime};
+        return true;
+    }
+
+    bool ToolBar::BuildTooltip(uint64_t id, std::string &out) const
+    {
+        const auto index = static_cast<uint32_t>(id);
+        if (tabStyle || (id >> 32) != itemsGeneration || !index || index > items.size() || !items[index - 1].visible ||
+            items[index - 1].label.empty())
+            return false;
+        out = items[index - 1].label;
+        return true;
     }
 
     sky::ui::UIEventResult ToolBar::OnPointerEvent(const sky::ui::UIPointerEvent &event)

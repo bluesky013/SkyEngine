@@ -42,6 +42,10 @@ namespace sky::editor {
         }
 
         void SetModel(PreferencePageRegistry *inRegistry);
+        void SetTitle(std::string value)
+        {
+            title = std::move(value);
+        }
         // Notification after complete success. Legacy hosts may persist here;
         // opt-in persistence below gates success and reports failures instead.
         void SetOnApplied(std::function<void()> callback)
@@ -104,6 +108,7 @@ namespace sky::editor {
         void ArrangeChildren(const sky::ui::UIRect &content) override;
 
     private:
+        std::string title = "Preferences";
         struct Layout;
         std::unique_ptr<Layout> composition;
         sky::ui::UIRect         ComputePanelRect() const;

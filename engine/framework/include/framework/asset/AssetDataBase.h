@@ -58,12 +58,16 @@ namespace sky {
         bool          GetGeneratedDefaults(const Uuid &owner, std::map<std::string, Uuid> &out) const;
 
         AssetSourcePtr RegisterAsset(const FilePath &path, bool build = true);
+        AssetSourcePtr RegisterAsset(const std::string &mount, const FilePath &path, bool build);
         // Checked identity persistence for authoring saves; an unrelated manifest owner is never replaced.
         FileOperationStatus PersistSourceIdentity(const Uuid &source);
 
         AssetSourcePtr FindAsset(const Uuid &id);
         AssetSourcePtr FindAsset(const FilePath &path);
-        void           RemoveAsset(const Uuid &id);
+        AssetSourcePtr FindAsset(const std::string &mount, const FilePath &path);
+        // RemoveAsset unregisters identity; DeleteAsset also removes the source file.
+        [[nodiscard]] FileOperationStatus RemoveAsset(const Uuid &id);
+        [[nodiscard]] FileOperationStatus DeleteAsset(const Uuid &id);
 
         // Source-asset mutation (framework). Move keeps the UUID; duplicate assigns a new one.
         AssetSourcePtr MoveAsset(const FilePath &from, const FilePath &to);
@@ -117,19 +121,23 @@ namespace sky {
         bool RefreshOwner(const Uuid &owner) override;
 
     private:
-        FileScanResult ScanSources() const;
-        static Uuid    CalculateUuidByPath(const FilePath &path);
+        FileOperationStatus WritableSource(const AssetSourcePtr &source, FileSystemPtr &out) const;
+        using MountedPath      = std::pair<std::string, FilePath>;
+        using SourceScanResult = std::variant<std::vector<MountedPath>, FileScanError>;
+        SourceScanResult    ScanSources() const;
+        FileOperationStatus RemoveSource(const Uuid &id, bool deleteFile);
+        static Uuid         CalculateUuidByPath(const FilePath &path);
         // Legacy `(bundle, path)` UUID, reproduced via the mount -> legacy `SourceAssetBundle` role
         // (engine mount -> ENGINE, workspace/other -> WORKSPACE). Used only by the migration.
-        Uuid          CalculateLegacyUuid(const FilePath &path) const;
+        Uuid          CalculateLegacyUuid(const std::string &mount, const FilePath &path) const;
         bool          migrationMode = false;
         std::string   QueryType(const std::string &ext) const;
         std::string   CookJsonFor(const AssetSourcePtr &src) const;
         void          RebuildMounts();
-        FileSystemPtr ResolveOwningFs(const FilePath &path) const;
+        FileSystemPtr ResolveOwningFs(const AssetSourcePtr &source) const;
         // Owning mount index for a logical path (or -1); index into mountInfos/mountFsList.
         int           FindMountIndex(const FilePath &path) const;
-        void          EnsureManifestEntry(const FileSystemPtr &fs, const FilePath &path, const Uuid &uuid);
+        int           FindMountIndex(const std::string &mount) const;
         ProductStatus PublishGeneratedCatalog(const Uuid &owner, const GeneratedAssetManifest &manifest);
         ProductStatus CheckGeneratedCatalogConflicts(const Uuid &owner, const GeneratedAssetManifest &manifest) const;
 
@@ -141,11 +149,11 @@ namespace sky {
         std::vector<AssetMount>    mountInfos;  // public, ordered (parallel to mountFsList)
         std::vector<FileSystemPtr> mountFsList; // resolution order
 
-        mutable std::recursive_mutex                     assetMutex;
-        std::unordered_map<FilePath, Uuid>               pathMap;
-        std::unordered_map<Uuid, AssetSourcePtr>         idMap;
-        std::unordered_map<Uuid, GeneratedAssetRecord>   generatedAssets;
-        std::unordered_map<Uuid, GeneratedAssetManifest> generatedManifests;
+        mutable std::recursive_mutex                                        assetMutex;
+        std::unordered_map<std::string, std::unordered_map<FilePath, Uuid>> pathMap;
+        std::unordered_map<Uuid, AssetSourcePtr>                            idMap;
+        std::unordered_map<Uuid, GeneratedAssetRecord>                      generatedAssets;
+        std::unordered_map<Uuid, GeneratedAssetManifest>                    generatedManifests;
 
         mutable AssetIndexFileCache manifests{"assets.jsonl", "file", "cook"};
     };

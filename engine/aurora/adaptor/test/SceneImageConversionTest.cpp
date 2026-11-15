@@ -1,3 +1,4 @@
+#include "SceneAssetFixtures.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -15,6 +16,33 @@
 
 using namespace sky;
 using namespace sky::aurora;
+
+TEST(SceneImageConversion, CompleteEnvironmentMipChainKeepsAllCookedBytes)
+{
+    Asset<Texture> asset;
+    asset.SetUuid(Uuid::CreateWithSeed(715));
+    auto &data     = asset.Data();
+    data.format    = PixelFormat::RGBA8_UNORM;
+    data.width     = 256;
+    data.height    = 128;
+    data.mipLevels = 9;
+    for (uint32_t level = 0; level < data.mipLevels; ++level) {
+        const auto offset = static_cast<uint32_t>(data.rawData.size());
+        const auto size   = std::max(1u, data.width >> level) * std::max(1u, data.height >> level) * 4;
+        data.slices.push_back({offset, size, level});
+        for (uint32_t i = 0; i < size; ++i)
+            data.rawData.push_back(static_cast<uint8_t>((level * 31 + i * 13) % 251 + 1));
+    }
+    data.dataSize        = data.rawData.size();
+    const auto converted = ConvertSceneImage(asset, {API::VULKAN, 9});
+    ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(converted));
+    const auto &payload = std::get<RenderResourcePayload>(converted);
+    ASSERT_TRUE(payload.metadata.image);
+    EXPECT_EQ(payload.metadata.image->mipLevels, 9u);
+    EXPECT_EQ(payload.metadata.image->format, RenderImageFormat::RGBA8_UNORM);
+    EXPECT_EQ(payload.bytes, data.rawData);
+    EXPECT_EQ(payload.bytes.size(), 174764u);
+}
 
 TEST(SceneImageConversion, OwnsReorderedMipBytesAndRejectsInvalidRadianceOrSlices)
 {
@@ -57,9 +85,9 @@ TEST(SceneImageConversion, PendingAndMissingAssetsRemainExplicit)
 {
     auto pending = std::make_shared<Asset<Texture>>();
     pending->SetType(Name(AssetTraits<Texture>::ASSET_TYPE.data()));
-    auto source = CreateSceneAssetSource({}, [pending](const Uuid &) { return pending; });
+    auto source = CreateTestSceneAssetSource({}, [pending](const Uuid &) { return pending; });
     EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveImage(Uuid::CreateWithSeed(713), {API::VULKAN, 9})));
-    source = CreateSceneAssetSource({}, [](const Uuid &) { return AssetPtr{}; });
+    source = CreateTestSceneAssetSource({}, [](const Uuid &) { return AssetPtr{}; });
     EXPECT_TRUE(std::holds_alternative<RendererError>(source->ResolveImage(Uuid::CreateWithSeed(713), {API::VULKAN, 9})));
 }
 
@@ -186,7 +214,7 @@ namespace {
     };
 } // namespace
 
-TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreservesTheOldSnapshot)
+TEST(SceneMaterialSource, IndependentMaterialOwnsTextureVersionsWithoutLoadingAnyMesh)
 {
     InactiveMaterialCompiler compiler(true);
     struct Registration {
@@ -209,22 +237,25 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     files->AddVirtualFile("fixture/Reload.slang", "fixture");
     files->AddVirtualFile("aurora/config/pipeline_variants.slang", "// @variant\n// @reserved 16\n// @source pipeline\n// @end\n");
     files->AddVirtualFile("fixture/Reload.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
-    auto       source  = CreateSceneAssetSource(files, [material, texture](const Uuid &id) -> AssetPtr {
+    auto               source = CreateSceneAssetSource(files, [material, texture](const Uuid &id) -> AssetPtr {
         if (id == material->GetUuid())
             return material;
         if (id == texture->GetUuid())
             return texture;
+        ADD_FAILURE() << "Independent material must not request an unrelated mesh or asset";
         return {};
     });
-    const auto resolve = [&] { return source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::CUBE), material->GetUuid(), {API::VULKAN, 9}); };
+    VertexSemanticMask mask;
+    mask.Set(VertexSemantic::POSITION);
+    const auto resolve = [&] { return source->ResolveMaterial(material->GetUuid(), {API::VULKAN, 9}, mask); };
     const auto first   = resolve();
     if (const auto *error = std::get_if<RendererError>(&first))
         ADD_FAILURE() << error->message;
-    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(first));
-    const auto original  = std::get<std::shared_ptr<const SceneMeshResources>>(first);
-    const auto findImage = [](const SceneMeshResources &mesh) -> const RenderResourcePayload * {
-        const auto found = std::ranges::find_if(mesh.payloads, [](const auto &payload) { return payload.metadata.image.has_value(); });
-        return found == mesh.payloads.end() ? nullptr : &*found;
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMaterialResources>>(first));
+    const auto original  = std::get<std::shared_ptr<const SceneMaterialResources>>(first);
+    const auto findImage = [](const SceneMaterialResources &resources) -> const RenderResourcePayload * {
+        const auto found = std::ranges::find_if(resources.dependencies, [](const auto &payload) { return payload.metadata.image.has_value(); });
+        return found == resources.dependencies.end() ? nullptr : &*found;
     };
     const auto *oldImage = findImage(*original);
     ASSERT_TRUE(oldImage);
@@ -232,8 +263,8 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     texture->Data().rawData[0] = 255;
     ASSERT_TRUE(source->Invalidate(texture->GetUuid()));
     const auto second = resolve();
-    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(second));
-    const auto  revised  = std::get<std::shared_ptr<const SceneMeshResources>>(second);
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMaterialResources>>(second));
+    const auto  revised  = std::get<std::shared_ptr<const SceneMaterialResources>>(second);
     const auto *newImage = findImage(*revised);
     ASSERT_TRUE(newImage);
     EXPECT_EQ(newImage->resource.product, oldKey.product);
@@ -242,13 +273,12 @@ TEST(SceneMaterialSource, TextureInvalidationPublishesANewExactVersionAndPreserv
     EXPECT_EQ(oldImage->bytes.front(), 128u);
     EXPECT_EQ(oldImage->resource, oldKey);
     bool linked = false;
-    for (const auto &payload : revised->payloads)
-        if (payload.material)
-            for (const auto &entry : payload.material->techniques)
-                for (const auto &image : entry.parameters.images) {
-                    EXPECT_EQ(image.resource, newImage->resource);
-                    linked = true;
-                }
+    ASSERT_TRUE(revised->material.material);
+    for (const auto &entry : revised->material.material->techniques)
+        for (const auto &image : entry.parameters.images) {
+            EXPECT_EQ(image.resource, newImage->resource);
+            linked = true;
+        }
     EXPECT_TRUE(linked);
 }
 
@@ -330,7 +360,7 @@ namespace {
             technique.program = {{"fixture/Scene.slang", "VSMain"}, {"fixture/Scene.slang", "FSMain"}};
             for (const auto &material : materials)
                 material->Data().techniques = {technique};
-            source = CreateSceneAssetSource(
+            source = CreateTestSceneAssetSource(
                 files,
                 [this](const Uuid &id) -> AssetPtr {
                     for (const auto &material : materials)
@@ -473,7 +503,7 @@ TEST(SceneMaterialSource, InactiveDeclarationsPreserveTypedValues)
         files->AddVirtualFile("fixture/Inactive.slang", "fixture");
         files->AddVirtualFile("aurora/config/pipeline_variants.slang", "// @variant\n// @reserved 16\n// @source pipeline\n// @end\n");
         files->AddVirtualFile("fixture/Inactive.slang.json", R"({"entries":["VSMain","FSMain"],"variants":[]})");
-        auto source = CreateSceneAssetSource(files, [material](const Uuid &id) -> AssetPtr {
+        auto source = CreateTestSceneAssetSource(files, [material](const Uuid &id) -> AssetPtr {
             EXPECT_EQ(id, material->GetUuid()) << "Inactive textures must not invoke the asset loader";
             return id == material->GetUuid() ? material : nullptr;
         });
@@ -520,4 +550,78 @@ TEST(SceneMaterialSource, DefinitionGeneratesKeysAndMigratesExactAliasesTransact
     source.techniques[0].aliases[0].target = "unrelated.tint";
     EXPECT_FALSE(ResolveMaterialDefinition(source, files, API::VULKAN, nullptr, definition, error));
     EXPECT_EQ(definition.canonical.properties[0].name, "inactiveValues.tint");
+}
+
+TEST(SceneImageConversion, RefreshRetiresWatchesInsteadOfExhaustingLifetimeBudget)
+{
+    size_t loads  = 0;
+    auto   source = CreateTestSceneAssetSource({}, [&](const Uuid &id) -> AssetPtr {
+        ++loads;
+        auto image = std::make_shared<Asset<Texture>>();
+        image->SetUuid(id);
+        image->SetType(Name(AssetTraits<Texture>::ASSET_TYPE.data()));
+        return image;
+    });
+    for (uint32_t i = 0; i < 1030; ++i) {
+        const auto id = Uuid::CreateWithSeed(50000 + i);
+        EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveImage(id, {API::VULKAN, 9})));
+        ASSERT_TRUE(source->Invalidate(id));
+    }
+    EXPECT_EQ(loads, 1030u);
+}
+
+TEST(SceneImageConversion, FullAssetBudgetKeepsExistingRequestsPollableAndReportsCapacity)
+{
+    size_t loads  = 0;
+    auto   source = CreateTestSceneAssetSource({}, [&](const Uuid &id) -> AssetPtr {
+        ++loads;
+        auto image = std::make_shared<Asset<Texture>>();
+        image->SetUuid(id);
+        image->SetType(Name(AssetTraits<Texture>::ASSET_TYPE.data()));
+        return image;
+    });
+    for (uint32_t i = 0; i < 1024; ++i)
+        ASSERT_TRUE(std::holds_alternative<std::monostate>(source->ResolveImage(Uuid::CreateWithSeed(60000 + i), {API::VULKAN, 9})));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveImage(Uuid::CreateWithSeed(60000), {API::VULKAN, 9})));
+    const auto blocked = source->ResolveImage(Uuid::CreateWithSeed(70000), {API::VULKAN, 9});
+    ASSERT_TRUE(std::holds_alternative<RendererError>(blocked));
+    EXPECT_EQ(std::get<RendererError>(blocked).code, RendererErrorCode::OUT_OF_MEMORY);
+    EXPECT_EQ(loads, 1024u);
+}
+
+TEST(SceneMaterialSource, MeshWithoutCookedMaterialFailsWithoutAnyImplicitGlobalLookup)
+{
+    auto mesh = std::make_shared<LoadedSceneTestAsset<Mesh>>();
+    mesh->SetUuid(Uuid::Create());
+    mesh->Data() = ScenePrimitiveMesh(ScenePrimitive::CUBE);
+    mesh->Data().materials.clear();
+    uint32_t   loads  = 0;
+    auto       source = CreateSceneAssetSource({}, [mesh, &loads](const Uuid &id) -> AssetPtr {
+        ++loads;
+        EXPECT_EQ(id, mesh->GetUuid());
+        return id == mesh->GetUuid() ? mesh : AssetPtr{};
+    });
+    const auto result = source->ResolveMesh(mesh->GetUuid(), {}, {API::VULKAN, 9});
+    ASSERT_TRUE(std::holds_alternative<RendererError>(result));
+    EXPECT_NE(std::get<RendererError>(result).message.find("recook"), std::string::npos);
+    EXPECT_EQ(loads, 1u);
+}
+
+TEST(SceneMaterialSource, IndependentMaterialReportsPendingMissingAndMismatchedIdentity)
+{
+    const Uuid         requested = Uuid::Create();
+    VertexSemanticMask mask;
+    mask.Set(VertexSemantic::POSITION);
+    auto pending = std::make_shared<Asset<Material>>();
+    pending->SetUuid(requested);
+    pending->SetType(Name(AssetTraits<Material>::ASSET_TYPE.data()));
+    auto source = CreateSceneAssetSource({}, [pending](const Uuid &) -> AssetPtr { return pending; });
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(source->ResolveMaterial(requested, {API::VULKAN, 9}, mask)));
+    source = CreateSceneAssetSource({}, [](const Uuid &) -> AssetPtr { return {}; });
+    EXPECT_TRUE(std::holds_alternative<RendererError>(source->ResolveMaterial(requested, {API::VULKAN, 9}, mask)));
+    auto wrong        = std::make_shared<LoadedMaterialAsset>();
+    source            = CreateSceneAssetSource({}, [wrong](const Uuid &) -> AssetPtr { return wrong; });
+    const auto result = source->ResolveMaterial(requested, {API::VULKAN, 9}, mask);
+    ASSERT_TRUE(std::holds_alternative<RendererError>(result));
+    EXPECT_NE(std::get<RendererError>(result).message.find("identity"), std::string::npos);
 }

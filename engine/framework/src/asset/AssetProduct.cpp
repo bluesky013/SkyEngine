@@ -289,8 +289,16 @@ namespace sky {
             for (const auto &product : products) {
                 std::string path;
                 Uuid        owner;
-                if (sourceCatalog->GetOwner(product.uuid, owner) && owner == product.uuid && sourceCatalog->GetSourcePath(product.uuid, path))
-                    index.Set({MakeCanonicalPath(path), product.uuid, {}});
+                if (!sourceCatalog->GetOwner(product.uuid, owner) || owner != product.uuid || !sourceCatalog->GetSourcePath(product.uuid, path))
+                    continue;
+                const auto canonical = MakeCanonicalPath(path);
+                Uuid       selected;
+                const bool resolved = sourceCatalog->ResolvePath(canonical, selected);
+                if (resolved && selected == product.uuid) {
+                    index.Set({canonical, product.uuid, {}});
+                } else if (const auto *entry = index.Find(canonical); entry && (!resolved || entry->id != selected)) {
+                    index.Remove(canonical);
+                }
             }
             if (!productIndices.Save(filesystem, FilePath{}, index))
                 return cleanup({ProductError::IOError, "product index publication failed"}, true);

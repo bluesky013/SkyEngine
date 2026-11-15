@@ -3,8 +3,7 @@
 // output mapping and build-preset bundle resolution.
 //
 
-#include <aurora/adaptor/AuroraReflection.h>
-#include <aurora/adaptor/renderer/SceneAssetSource.h>
+#include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/cook/image/AuroraImageBuilder.h>
 #include <aurora/cook/image/ImageAssetWriter.h>
 #include <aurora/cook/image/ImageBuildConfig.h>
@@ -174,9 +173,7 @@ namespace {
             EXPECT_TRUE(std::equal(pixels.begin(), pixels.end(), mip.data.get()));
             expected.insert(expected.end(), pixels.begin(), pixels.end());
         }
-        Asset<Texture> asset;
-        asset.SetUuid(Uuid::CreateWithSeed(715));
-        auto &data = asset.Data();
+        ImageAssetData data;
         WriteImageAsset(*source.image, source.assetType, data);
         ASSERT_EQ(data.slices.size(), 9u);
         EXPECT_EQ(data.format, PixelFormat::RGBA8_UNORM);
@@ -200,14 +197,6 @@ namespace {
         EXPECT_EQ(data.slices.back().size, 4u);
         ASSERT_EQ(data.rawData.size(), 174764u);
         EXPECT_EQ(data.rawData, expected);
-        data.dataSize        = data.rawData.size();
-        const auto converted = ConvertSceneImage(asset, {API::VULKAN, 9});
-        ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(converted));
-        const auto &payload = std::get<RenderResourcePayload>(converted);
-        ASSERT_TRUE(payload.metadata.image);
-        EXPECT_EQ(payload.metadata.image->mipLevels, 9u);
-        EXPECT_EQ(payload.metadata.image->format, RenderImageFormat::RGBA8_UNORM);
-        EXPECT_EQ(payload.bytes, expected);
     }
 
     ImageObjectPtr MakeRGBA8(uint32_t width, uint32_t height, uint32_t depth = 1)

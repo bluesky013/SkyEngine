@@ -1,4 +1,5 @@
 #include "EditorPreviewSessions.h"
+#include "SceneAssetFixtures.h"
 
 #include <algorithm>
 #include <aurora/adaptor/components/DirectLightComponent.h>
@@ -18,18 +19,23 @@ namespace {
     public:
         void SetUp() override
         {
+            AssetManager::Get()->SetSourceCatalog(&catalog);
             modules = std::make_unique<ModuleManager>();
-            ASSERT_TRUE(modules->RegisterModule({"Aurora.Metadata", {}}));
+            ASSERT_TRUE(modules->RegisterModule({"Aurora.Render", {"Aurora.Metadata"}}));
             ASSERT_TRUE(modules->TopoSort());
-            ASSERT_TRUE(modules->LoadModules({}));
+            StartArguments args;
+            args.args = {"EditorRenderTest", "--aurora-provider-only"};
+            ASSERT_TRUE(modules->LoadModules(args));
             ASSERT_TRUE(modules->StartModules());
         }
         void TearDown() override
         {
             modules.reset();
+            AssetManager::Get()->SetSourceCatalog(nullptr);
         }
 
     private:
+        SceneFixtureCatalog            catalog;
         std::unique_ptr<ModuleManager> modules;
     };
     const auto *previewMetadata = testing::AddGlobalTestEnvironment(new PreviewMetadata());
@@ -89,7 +95,11 @@ namespace {
         uint32_t              next = 10;
         UiSnapshotProducer    textures{1};
         EditorPreviewSessions host{{API::VULKAN, 1}, std::make_shared<EmptySource>(), textures, [this] { return ViewportId{next++, 1}; }};
-        AssetPreviewHandle    Create(WorldPtr world = World::CreateWorld())
+        void                  SetUp() override
+        {
+            ASSERT_TRUE(host.SetGroundAssets(ScenePrimitiveId(ScenePrimitive::PLANE), SceneLitMaterialId()));
+        }
+        AssetPreviewHandle Create(WorldPtr world = World::CreateWorld())
         {
             AssetPreviewScene scene;
             scene.world       = std::move(world);

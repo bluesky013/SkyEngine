@@ -4,9 +4,11 @@
 
 #include <recast/editor/NavigationEditorService.h>
 
+#include <aurora/adaptor/assets/SceneAssets.h>
 #include <core/logger/Logger.h>
 #include <editor/core/document/EditorWorldContext.h>
 #include <editor/core/extension/EditorActionRegistry.h>
+#include <framework/asset/AssetDataBase.h>
 #include <navigation/INavigationSystem.h>
 #include <navigation/NaviMeshFactory.h>
 
@@ -159,8 +161,9 @@ namespace sky::ai {
         }
         NaviDebugGeometry geometry;
         navigation->GetNaviMesh()->BuildDebugGeometry(geometry);
-        if (!render.Append(packet, context.entity, context.info, geometry, *context.resources) && !render.GetError().empty() &&
-            error != render.GetError()) {
+        const auto material = AssetDataBase::Get()->FindAsset("engine", FilePath(aurora::scene_assets::UNLIT));
+        if (!render.Append(packet, context.entity, context.info, geometry, *context.resources, material ? material->uuid : Uuid{}) &&
+            !render.GetError().empty() && error != render.GetError()) {
             error = render.GetError();
             LOG_W("NavigationEditor", "%s", error.c_str());
         }

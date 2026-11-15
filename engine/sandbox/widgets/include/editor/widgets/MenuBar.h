@@ -66,6 +66,10 @@ namespace sky::editor {
         {
             return openIndex >= 0;
         }
+        bool WantsPointerCapture() const override
+        {
+            return IsOpen();
+        }
         float PopupHeight() const;
 
         void                   OnPaint(sky::ui::UIPaintContext &context) override;

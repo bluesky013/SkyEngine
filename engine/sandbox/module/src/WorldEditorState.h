@@ -5,10 +5,12 @@
 #include <editor/core/selection/SelectionService.h>
 
 namespace sky::editor {
+    class EditorExtensionHost;
     std::vector<std::string> RegisterBuiltinActorCreators();
     class WorldEditorState   final : public IEditorPropertySource, public IWorldEvent {
     public:
-        explicit WorldEditorState(SelectionService &selection) : selection(selection)
+        explicit WorldEditorState(SelectionService &selection, EditorExtensionHost *extensions = nullptr)
+            : selection(selection), extensions(extensions)
         {
         }
         ~WorldEditorState() override;
@@ -29,7 +31,8 @@ namespace sky::editor {
 
     private:
         SelectionService                  &selection;
-        WorldDocument                     *document = nullptr;
+        EditorExtensionHost               *extensions = nullptr;
+        WorldDocument                     *document   = nullptr;
         WorldPtr                           world;
         std::vector<std::pair<Uuid, Uuid>> pendingComponents;
         bool                               refreshSelection = false;

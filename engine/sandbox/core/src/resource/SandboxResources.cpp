@@ -6,6 +6,8 @@
 
 #include <framework/platform/PlatformBase.h>
 
+#include <filesystem>
+
 namespace sky::editor {
 
     std::string SandboxResources::Root()
@@ -20,6 +22,13 @@ namespace sky::editor {
     std::string SandboxResources::Resolve(const std::string &relative)
     {
         return Root() + relative;
+    }
+
+    std::string SandboxResources::CacheRoot()
+    {
+        const auto *platform = Platform::Get();
+        const auto  base     = platform ? platform->GetUserConfigPath() : std::string{};
+        return base.empty() ? std::string{} : (std::filesystem::path(base) / "skyengine" / "cache" / "editor").string();
     }
 
 } // namespace sky::editor

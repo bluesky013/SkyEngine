@@ -1,0 +1,83 @@
+{
+  "techniques": [
+    {
+      "tag": "opaque",
+      "program": {
+        "vertex": {
+          "relativePath": "aurora/materials/Unlit.slang",
+          "entry": "VSMain"
+        },
+        "fragment": {
+          "relativePath": "aurora/materials/Unlit.slang",
+          "entry": "FSMain"
+        }
+      },
+      "aliases": [
+        {
+          "alias": "tint",
+          "target": "gMaterial.tint"
+        },
+        {
+          "alias": "surface",
+          "target": "gMaterial.surface"
+        }
+      ],
+      "renderState": {
+        "depthStencil": {
+          "depthTest": true,
+          "depthWrite": true,
+          "compareOp": 3
+        }
+      }
+    },
+    {
+      "tag": "shadow",
+      "program": {
+        "vertex": {
+          "relativePath": "aurora/materials/Shadow.slang",
+          "entry": "VSMain"
+        },
+        "fragment": {
+          "relativePath": "aurora/materials/Shadow.slang",
+          "entry": "FSMain"
+        }
+      },
+      "aliases": [],
+      "renderState": {
+        "depthStencil": {
+          "depthTest": true,
+          "depthWrite": true,
+          "compareOp": 3
+        }
+      }
+    }
+  ],
+  "properties": [
+    {
+      "name": "tint",
+      "type": 3,
+      "value": {
+        "index": 3,
+        "value": [
+          0.65,
+          0.72,
+          0.82,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "type": 3,
+      "value": {
+        "index": 3,
+        "value": [
+          0.5,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

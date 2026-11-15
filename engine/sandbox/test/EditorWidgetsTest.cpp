@@ -14,11 +14,44 @@
 #include <gtest/gtest.h>
 #include <ui/UIEvent.h>
 #include <ui/UIPaintContext.h>
+#include <ui/UITooltip.h>
 
 #include <filesystem>
+#include <memory>
 #include <string>
 
 using namespace sky::editor;
+
+TEST(EditorWidgetsTest, ToolbarTooltipTracksReplacementVisibilityAndInputLifetime)
+{
+    auto          toolbar = std::make_unique<ToolBar>(nullptr);
+    ToolBar::Item item;
+    item.id      = "save";
+    item.label   = "Save document";
+    item.enabled = false;
+    toolbar->SetItems({item});
+    const auto &metrics = GetDefaultUiTheme().metrics;
+    toolbar->Arrange({0, 0, 400, metrics.toolbarHeight});
+    sky::ui::UITooltipTarget target;
+    ASSERT_TRUE(toolbar->QueryTooltip(metrics.padX + 1.f, metrics.toolbarHeight * .5f, target));
+    EXPECT_FALSE(target.lifetime.expired());
+    std::string text;
+    ASSERT_TRUE(toolbar->BuildTooltip(target.id, text));
+    EXPECT_EQ(text, "Save document");
+    item.label = "Save current asset";
+    toolbar->SetItems({item});
+    EXPECT_FALSE(toolbar->BuildTooltip(target.id, text));
+    sky::ui::UITooltipTarget replacement;
+    ASSERT_TRUE(toolbar->QueryTooltip(metrics.padX + 1.f, metrics.toolbarHeight * .5f, replacement));
+    EXPECT_NE(target.id, replacement.id);
+    ASSERT_TRUE(toolbar->BuildTooltip(replacement.id, text));
+    EXPECT_EQ(text, "Save current asset");
+    item.visible = false;
+    toolbar->SetItems({item});
+    EXPECT_FALSE(toolbar->QueryTooltip(metrics.padX + 1.f, metrics.toolbarHeight * .5f, replacement));
+    toolbar.reset();
+    EXPECT_TRUE(target.lifetime.expired());
+}
 
 TEST(EditorWidgetsTest, AssetOrbitPanAndWheelKeepContentPickSeparate)
 {

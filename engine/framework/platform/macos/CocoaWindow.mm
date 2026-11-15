@@ -278,10 +278,11 @@ namespace sky {
     for (NSTrackingArea *area in [self trackingAreas]) {
         [self removeTrackingArea:area];
     }
-    auto *area = [[NSTrackingArea alloc] initWithRect:self.bounds
-                                              options:NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect
-                                                owner:self
-                                             userInfo:nil];
+    auto *area = [[NSTrackingArea alloc]
+        initWithRect:self.bounds
+             options:NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect
+               owner:self
+            userInfo:nil];
     [self addTrackingArea:area];
     [area release];
 }
@@ -516,6 +517,12 @@ namespace sky {
 - (void)mouseMoved:(NSEvent *)event
 {
     [self dispatchMotion:event];
+}
+- (void)mouseExited:(NSEvent *)event
+{
+    if (_owner != nullptr) {
+        sky::Event<sky::IMouseEvent>::BroadCast(&sky::IMouseEvent::OnMouseLeave, _owner->GetWinId());
+    }
 }
 - (void)mouseDragged:(NSEvent *)event
 {

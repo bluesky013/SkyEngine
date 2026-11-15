@@ -7,10 +7,12 @@
 
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/cook/mesh/MeshProcess.h>
+#include <span>
 
 namespace sky::aurora::cook {
 
-    void WriteMeshAsset(const CookedMesh &mesh, MeshAssetData &out);
-    void WriteSkeletonAsset(const CookMeshSource &source, SkeletonAssetData &out);
+    MeshCookStatus BindMeshMaterials(Asset<Mesh> &asset, std::span<const Uuid> materials);
+    void           WriteMeshAsset(const CookedMesh &mesh, MeshAssetData &out);
+    void           WriteSkeletonAsset(const CookMeshSource &source, SkeletonAssetData &out);
 
 } // namespace sky::aurora::cook

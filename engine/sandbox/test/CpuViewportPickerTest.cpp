@@ -1,3 +1,4 @@
+#include "SceneAssetFixtures.h"
 //
 // Created on 2026/10/23.
 //

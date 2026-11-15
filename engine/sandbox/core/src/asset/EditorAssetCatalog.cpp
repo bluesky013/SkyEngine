@@ -229,14 +229,16 @@ namespace sky::editor {
         });
         db->ForEachGenerated([&](const sky::GeneratedAssetRecord &child) {
             const auto owner = db->FindAsset(child.owner);
-            if (!child.active || !owner) { return; }
-            auto item = MakeItem(*owner);
-            item.uuid = child.uuid;
+            if (!child.active || !owner) {
+                return;
+            }
+            auto item        = MakeItem(*owner);
+            item.uuid        = child.uuid;
             item.sourceOwner = child.owner;
-            item.generated = true;
-            item.name = child.key;
+            item.generated   = true;
+            item.name        = child.key;
             item.path += "#" + child.key;
-            item.type = child.type;
+            item.type     = child.type;
             item.writable = false;
             items.emplace_back(std::move(item));
         });
@@ -275,7 +277,9 @@ namespace sky::editor {
         }
         sky::GeneratedAssetRecord child;
         if (db->GetGenerated(uuid, child)) {
-            if (!child.active) { return false; }
+            if (!child.active) {
+                return false;
+            }
             outName = child.key;
             return true;
         }
@@ -284,6 +288,15 @@ namespace sky::editor {
             return false;
         }
         outName = source->name.empty() ? source->path.FileName() : source->name;
+        return true;
+    }
+
+    bool EditorAssetCatalog::GetPath(const Uuid &uuid, std::string &outPath) const
+    {
+        EditorAssetItem item;
+        if (!Find(uuid, item) || item.path.empty())
+            return false;
+        outPath = std::move(item.path);
         return true;
     }
 
@@ -433,14 +446,16 @@ namespace sky::editor {
         sky::GeneratedAssetRecord child;
         if (db->GetGenerated(uuid, child)) {
             const auto owner = db->FindAsset(child.owner);
-            if (!child.active || !owner) { return false; }
-            out = MakeItem(*owner);
-            out.uuid = child.uuid;
+            if (!child.active || !owner) {
+                return false;
+            }
+            out             = MakeItem(*owner);
+            out.uuid        = child.uuid;
             out.sourceOwner = child.owner;
-            out.generated = true;
-            out.name = child.key;
+            out.generated   = true;
+            out.name        = child.key;
             out.path += "#" + child.key;
-            out.type = child.type;
+            out.type     = child.type;
             out.writable = false;
             return true;
         }

@@ -17,6 +17,7 @@ namespace sky::aurora::editor {
     void AuroraEditorModule::RegisterMeta()
     {
         ReflectAuroraAssetViews(SerializationContext::Get());
+        ReflectMeshCreationSettings(SerializationContext::Get());
         ReflectMeshGeneratorDocument(SerializationContext::Get());
     }
 

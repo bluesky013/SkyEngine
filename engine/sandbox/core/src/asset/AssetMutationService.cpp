@@ -98,29 +98,14 @@ namespace sky::editor {
         return source != nullptr ? source->uuid : Uuid{};
     }
 
-    bool AssetMutationService::Delete(const Uuid &uuid)
+    FileOperationStatus AssetMutationService::Delete(const Uuid &uuid)
     {
         auto *db = sky::AssetDataBase::Get();
-        if (db == nullptr) {
-            return false;
-        }
-        auto source = db->FindAsset(uuid);
-        if (!source) {
-            return false;
-        }
-        bool writable = false;
-        for (const auto &mount : db->GetMounts()) {
-            if (mount.writable && mount.id == source->mount) {
-                writable = true;
-                break;
-            }
-        }
-        if (!writable) {
-            return false;
-        }
-        db->RemoveAsset(uuid);
+        if (!db)
+            return {FileOperationError::InvalidPath, "Asset database is unavailable"};
+        const auto status = db->DeleteAsset(uuid);
         EditorAssetCatalog::Get()->Refresh();
-        return true;
+        return status;
     }
 
     FileOperationStatus
@@ -150,7 +135,7 @@ namespace sky::editor {
         if (const auto status = filesystem->AcquireFileLock(FilePath(relative + ".authoring.lock"), writeLock); !status) {
             return status;
         }
-        const auto existing = database->FindAsset(destination);
+        const auto existing = database->FindAsset("workspace", destination);
         if ((expectedOwner && (!existing || existing->uuid != expectedOwner)) ||
             (!expectedOwner && (existing || filesystem->FileExist(destination)))) {
             return {FileOperationError::AlreadyExists, "Generated source destination does not match the expected saved owner"};
@@ -173,20 +158,20 @@ namespace sky::editor {
             const auto cleanup = filesystem->RemoveFile(temporary);
             return cleanup ? status : FileOperationStatus{cleanup.error, status.message + "; temporary cleanup failed: " + cleanup.message};
         }
-        const auto source   = existing ? existing : database->RegisterAsset(destination, false);
+        const auto source   = existing ? existing : database->RegisterAsset("workspace", destination, false);
         const auto identity = existing ? FileOperationStatus{}
                               : source ? database->PersistSourceIdentity(source->uuid)
                                        : FileOperationStatus{FileOperationError::IOError, "Generated source registration failed"};
         if (!identity) {
             if (!existing) {
-                if (source) {
-                    database->RemoveAsset(source->uuid);
-                }
+                const auto removed = source ? database->RemoveAsset(source->uuid) : FileOperationStatus{};
                 const auto cleanup = filesystem->RemoveFile(destination);
                 EditorAssetCatalog::Get()->Refresh();
                 if (!cleanup) {
                     return {cleanup.error, identity.message + "; new source cleanup failed: " + cleanup.message};
                 }
+                if (!removed)
+                    return {removed.error, identity.message + "; identity cleanup failed: " + removed.message};
             }
             return identity;
         }

@@ -7,6 +7,7 @@
 #include <framework/asset/DerivedDataCache.h>
 
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,13 +18,20 @@ namespace {
 
     class CountingBuilder : public IDerivedDataBuilder {
     public:
-        explicit CountingBuilder(std::string builderId) : id(std::move(builderId)) {}
+        explicit CountingBuilder(std::string builderId) : id(std::move(builderId))
+        {
+        }
 
-        std::string GetId() const override { return id; }
-        uint32_t GetVersion() const override { return version; }
+        std::string GetId() const override
+        {
+            return id;
+        }
+        uint32_t GetVersion() const override
+        {
+            return version;
+        }
 
-        bool Build(const std::vector<uint8_t> &source, const std::string &settings,
-                   std::vector<uint8_t> &out) const override
+        bool Build(const std::vector<uint8_t> &source, const std::string &settings, std::vector<uint8_t> &out) const override
         {
             ++calls;
             out.assign(source.begin(), source.end());
@@ -32,13 +40,13 @@ namespace {
         }
 
         std::string id;
-        uint32_t version = 1;
-        mutable int calls = 0;
+        uint32_t    version = 1;
+        mutable int calls   = 0;
     };
 
     std::filesystem::path MakeTempRoot(const std::string &name)
     {
-        const auto root = std::filesystem::temp_directory_path() / ("sky-ddc-test-" + name);
+        const auto      root = std::filesystem::temp_directory_path() / ("sky-ddc-test-" + name);
         std::error_code error;
         std::filesystem::remove_all(root, error);
         return root;
@@ -48,13 +56,13 @@ namespace {
 
 TEST(DerivedDataCacheTest, MissThenHitThenInvalidate)
 {
-    auto &cache = DerivedDataCache::Get();
-    auto builder = std::make_shared<CountingBuilder>("ddc-test-basic");
+    auto &cache   = DerivedDataCache::Get();
+    auto  builder = std::make_shared<CountingBuilder>("ddc-test-basic");
     cache.Register(builder);
     cache.SetRoot(MakeTempRoot("basic").string());
 
     const std::vector<uint8_t> source = {1, 2, 3, 4};
-    std::vector<uint8_t> first;
+    std::vector<uint8_t>       first;
     ASSERT_TRUE(cache.Fetch(source, builder->GetId(), "16x16", "Win32", first));
     EXPECT_EQ(builder->calls, 1);
     EXPECT_FALSE(first.empty());
@@ -77,13 +85,13 @@ TEST(DerivedDataCacheTest, MissThenHitThenInvalidate)
 
 TEST(DerivedDataCacheTest, VersionInvalidates)
 {
-    auto &cache = DerivedDataCache::Get();
-    auto builder = std::make_shared<CountingBuilder>("ddc-test-version");
+    auto &cache   = DerivedDataCache::Get();
+    auto  builder = std::make_shared<CountingBuilder>("ddc-test-version");
     cache.Register(builder);
     cache.SetRoot(MakeTempRoot("version").string());
 
     const std::vector<uint8_t> source = {9, 8, 7};
-    std::vector<uint8_t> first;
+    std::vector<uint8_t>       first;
     ASSERT_TRUE(cache.Fetch(source, builder->GetId(), "", "Win32", first));
     EXPECT_EQ(builder->calls, 1);
 
@@ -92,4 +100,42 @@ TEST(DerivedDataCacheTest, VersionInvalidates)
     std::vector<uint8_t> second;
     ASSERT_TRUE(cache.Fetch(source, builder->GetId(), "", "Win32", second));
     EXPECT_EQ(builder->calls, 2);
+}
+
+TEST(DerivedDataCacheTest, DisabledPersistenceDoesNotReadPreviousRoot)
+{
+    auto      &cache   = DerivedDataCache::Get();
+    const auto builder = std::make_shared<CountingBuilder>("ddc-test-disabled");
+    cache.Register(builder);
+    const auto root = MakeTempRoot("disabled");
+    cache.SetRoot(root.string());
+    std::vector<uint8_t> output;
+    ASSERT_TRUE(cache.Fetch({1}, builder->GetId(), "", "Test", output));
+    cache.SetRoot({});
+    ASSERT_TRUE(cache.Fetch({1}, builder->GetId(), "", "Test", output));
+    EXPECT_EQ(builder->calls, 2);
+    EXPECT_TRUE(cache.GetRoot().empty());
+    std::error_code error;
+    std::filesystem::remove_all(root, error);
+    EXPECT_FALSE(error);
+}
+
+TEST(DerivedDataCacheTest, UnwritableCacheKeepsSuccessfulDerivedOutput)
+{
+    auto      &cache   = DerivedDataCache::Get();
+    const auto builder = std::make_shared<CountingBuilder>("ddc-test-unwritable");
+    cache.Register(builder);
+    const auto root = MakeTempRoot("unwritable");
+    {
+        std::ofstream file(root);
+        file << "block directory creation";
+    }
+    cache.SetRoot((root / "cache").string());
+    std::vector<uint8_t> output;
+    ASSERT_TRUE(cache.Fetch({1, 2}, builder->GetId(), "", "Test", output));
+    EXPECT_EQ(output, (std::vector<uint8_t>{1, 2, 0}));
+    cache.SetRoot({});
+    std::error_code error;
+    std::filesystem::remove(root, error);
+    EXPECT_FALSE(error);
 }

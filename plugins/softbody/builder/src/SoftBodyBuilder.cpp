@@ -83,9 +83,21 @@ namespace sky::softbody {
             result.error = status.message;
             return;
         }
-        rig.binding.materialSlots = recipe.settings.materialSlots;
-        if (std::find(recipe.settings.materialSlots.begin(), recipe.settings.materialSlots.end(), request.assetInfo->uuid) !=
-            recipe.settings.materialSlots.end()) {
+        uint32_t slotCount = 0;
+        for (const auto &primitive : source->primitives) {
+            if (primitive.materialIndex >= 8192) {
+                result.error = "Mesh material slot exceeds the product limit";
+                return;
+            }
+            slotCount = std::max(slotCount, primitive.materialIndex + 1);
+        }
+        if (const auto status = compiler->ResolveMaterials(request.target, slotCount, recipe.settings.materialSlots, rig.binding.materialSlots);
+            !status) {
+            result.error = status.message;
+            return;
+        }
+        if (std::find(rig.binding.materialSlots.begin(), rig.binding.materialSlots.end(), request.assetInfo->uuid) !=
+            rig.binding.materialSlots.end()) {
             result.error = "A softbody recipe cannot use itself as a material";
             return;
         }
@@ -148,7 +160,7 @@ namespace sky::softbody {
             return;
         }
         std::vector<Uuid> dependencies{recipe.source};
-        for (const auto &material : recipe.settings.materialSlots)
+        for (const auto &material : compiled.effectiveDependencies)
             if (std::find(dependencies.begin(), dependencies.end(), material) == dependencies.end())
                 dependencies.push_back(material);
         database->SetBuildDependencies(request.assetInfo->uuid, dependencies);

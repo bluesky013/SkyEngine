@@ -683,26 +683,24 @@ namespace sky {
         return FindProductPath(canonical, ambiguous);
     }
 
-    AssetPtr AssetManager::LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy)
+    Uuid AssetManager::ResolveAssetPath(std::string_view path, AssetLoadPolicy policy)
     {
         const auto canonical = NormalizeLogicalProductPath(path);
         if (canonical.empty())
             return {};
-        bool ambiguous = false;
-        auto uuid      = FindProductPath(canonical, ambiguous);
-        if (ambiguous)
-            return {};
-        if (!uuid && policy == AssetLoadPolicy::AllowCook) {
-            // Level 2: editor source-catalog fallback for not-yet-cooked sources (empty at runtime).
-            if (sourceCatalog != nullptr) {
-                Uuid resolved;
-                if (sourceCatalog->ResolvePath(canonical, resolved)) {
-                    uuid = resolved;
-                }
-            }
+        if (policy == AssetLoadPolicy::AllowCook && sourceCatalog) {
+            Uuid resolved;
+            if (sourceCatalog->ResolvePath(canonical, resolved))
+                return resolved;
         }
+        bool ambiguous = false;
+        return FindProductPath(canonical, ambiguous);
+    }
 
-        return uuid ? LoadAsset(uuid, policy) : AssetPtr{};
+    AssetPtr AssetManager::LoadAssetFromPath(const std::string &path, AssetLoadPolicy policy)
+    {
+        const auto id = ResolveAssetPath(path, policy);
+        return id ? LoadAsset(id, policy) : AssetPtr{};
     }
 
     FilePtr AssetManager::OpenFile(const Uuid &uuid) const

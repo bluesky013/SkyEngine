@@ -24,8 +24,6 @@
 
 namespace sky::aurora {
 
-    class Device;
-
     namespace detail {
 
         inline void SaveStencilState(BinaryOutputArchive &ar, const StencilState &s)
@@ -488,12 +486,6 @@ namespace sky::aurora {
                                      std::string                          &error);
     bool ResolveMaterialDefinition(const MaterialAssetData &, ShaderFileSystem &, API, IFileSystem *, MaterialDefinitionData &, std::string &);
     std::optional<MaterialPropertyData> MaterialDefaultValue(const MaterialKey &);
-
-    // Runtime-only build: maps the asset onto a Material (techniques with
-    // ShaderRef + render state, and typed property defaults). Textures are
-    // resolved through AssetManager + CreateTextureFromAsset; shaders are left
-    // as ShaderRef for the renderer's ShaderResolver.
-    CounterPtr<Material> CreateMaterialFromAsset(Device *device, const Asset<Material> &asset);
 
 } // namespace sky::aurora
 

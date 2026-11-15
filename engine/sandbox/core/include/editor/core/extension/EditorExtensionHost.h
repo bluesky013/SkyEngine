@@ -11,11 +11,7 @@
 
 namespace sky::editor {
 
-    // Owns editor extensions and drives their registration.
-    //
-    // Extensions can be added in-process (tests, statically linked) or, later,
-    // instantiated from loaded modules. The host has no toolkit/render
-    // dependency.
+    // Owns extension instances and their session registration without render dependencies.
     class EditorExtensionHost {
     public:
         EditorExtensionHost() = default;
@@ -24,10 +20,12 @@ namespace sky::editor {
         EditorExtensionHost(const EditorExtensionHost &)            = delete;
         EditorExtensionHost &operator=(const EditorExtensionHost &) = delete;
 
-        void Add(EditorExtensionPtr extension);
-        void Add(EditorExtensionRegistration extension);
-        void RegisterAll();
-        void UnregisterAll();
+        void             Add(EditorExtensionPtr extension);
+        void             Add(EditorExtensionRegistration extension);
+        void             RegisterAll();
+        void             UnregisterAll();
+        EditorEditResult MakePropertyEdit(Actor &, const PropertyDescriptor &, const Any &) const;
+        EditorEditResult PrepareComponentAddition(Actor &, ComponentBase &) const;
 
         bool IsRegistered() const
         {
@@ -47,7 +45,7 @@ namespace sky::editor {
 
     private:
         std::vector<EditorExtensionRegistration> extensions;
-        bool                            registered = false;
+        bool                                     registered = false;
     };
 
 } // namespace sky::editor

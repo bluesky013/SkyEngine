@@ -3,7 +3,7 @@
 // dimension-specific aurora::Texture (2D / 2D array / 3D / cube).
 //
 
-#include <aurora/adaptor/assets/ImageAsset.h>
+#include <aurora/adaptor/assets/ImageResource.h>
 
 #include <aurora/resource/Buffer.h>
 #include <core/logger/Logger.h>

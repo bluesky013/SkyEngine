@@ -1,4 +1,4 @@
-#include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/assets/AuroraAssetReflection.h>
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/serialization/SerializationContext.h>
@@ -9,7 +9,7 @@
 int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
-    sky::aurora::AuroraReflection(sky::SerializationContext::Get());
+    sky::aurora::RegisterAuroraAssetTypes(sky::SerializationContext::Get());
     sky::softbody::RegisterSoftBodyAssets();
     sky::AssetBuilderManager::Get()->RegisterBuilder(new sky::aurora::AuroraMeshBuilder());
     sky::AssetBuilderManager::Get()->RegisterBuilder(new sky::softbody::SoftBodyBuilder());

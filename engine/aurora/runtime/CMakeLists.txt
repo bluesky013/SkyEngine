@@ -1,7 +1,7 @@
-# Process metadata and runtime renderer entries reuse the existing adaptor implementation.
+# Persistent metadata and runtime components have separate definition owners.
 sky_add_module(TARGET Aurora.Metadata
     SOURCES src/AuroraMetadata.cpp
-    LINK_LIBS Aurora.Adaptor.Static Framework
+    LINK_LIBS Aurora.Assets.Static Framework
 )
 sky_add_dependency(TARGET Aurora.Metadata DEPENDENCIES Launcher SandboxEditor AssetTool)
 
@@ -29,6 +29,7 @@ sky_add_dependency(TARGET Aurora.Render DEPENDENCIES Launcher SandboxEditor)
 
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET Aurora.Renderer.ModuleTest
+        INCS ${CMAKE_CURRENT_SOURCE_DIR}/../core/test
         SOURCES ../core/test/renderer/RendererModuleTest.cpp
         LIBS Aurora.Adaptor.Static Framework 3rdParty::googletest
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.ModuleTest>)
@@ -37,10 +38,16 @@ if (SKY_BUILD_TEST)
         target_link_libraries(Aurora.Renderer.ModuleTest Aurora.Render Aurora.Metadata)
     else()
         add_dependencies(Aurora.Renderer.ModuleTest Aurora.Render Aurora.Metadata)
+        if (SKY_DEVELOP AND (CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Windows"))
+            target_compile_definitions(Aurora.Renderer.ModuleTest PRIVATE AURORA_COOK_MODULE_FIXTURE)
+            target_link_libraries(Aurora.Renderer.ModuleTest Physics.SoftBody.Interface)
+            add_dependencies(Aurora.Renderer.ModuleTest Aurora.Cook)
+        endif()
     endif()
 
     # Verify tagged static registration even when production modules are dynamic.
     sky_add_test(TARGET Aurora.Renderer.StaticModuleTest
+        INCS ${CMAKE_CURRENT_SOURCE_DIR}/../core/test
         SOURCES ../core/test/renderer/RendererModuleTest.cpp src/AuroraRegistry.cpp
         LIBS Aurora.Adaptor.Static Framework 3rdParty::googletest
         WORKING_DIR $<TARGET_FILE_DIR:Aurora.Renderer.StaticModuleTest>)

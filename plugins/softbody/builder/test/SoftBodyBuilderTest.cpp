@@ -1,9 +1,12 @@
 #include <softbody/builder/SoftBodyBuilder.h>
 
+#include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SceneAssets.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/cook/mesh/MeshAuthoringCompiler.h>
+#include <aurora/cook/mesh/MeshBuildConfig.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetProduct.h>
@@ -28,8 +31,20 @@ using namespace sky::softbody;
 namespace {
     class Compiler final : public phy::IMeshAuthoringCompiler {
     public:
-        bool                                         fail     = false;
-        std::shared_ptr<phy::IMeshAuthoringCompiler> delegate = aurora::cook::CreateMeshAuthoringCompiler();
+        Compiler()
+        {
+            const auto presets         = std::make_shared<aurora::cook::MeshBuildPresets>();
+            presets->defaultBundle     = "common";
+            presets->bundles["common"] = {};
+            delegate                   = aurora::cook::CreateMeshAuthoringCompiler(presets);
+        }
+        bool                                         fail = false;
+        std::shared_ptr<phy::IMeshAuthoringCompiler> delegate;
+        phy::PhysicsStatus
+        ResolveMaterials(const std::string &target, uint32_t count, std::span<const Uuid> supplied, std::vector<Uuid> &out) const override
+        {
+            return delegate->ResolveMaterials(target, count, supplied, out);
+        }
         phy::PhysicsStatus
         Load(std::span<const uint8_t> bytes, const std::string &extension, std::vector<phy::AuthoringMeshSource> &out) const override
         {
@@ -57,10 +72,19 @@ namespace {
             NativeFileSystemPtr products = new NativeFileSystem(FilePath(root / "products"));
             auto               *database = AssetDataBase::Get();
             auto               *manager  = AssetManager::Get();
+            database->Reset();
             database->SetWorkSpaceFs(sources);
+            const NativeFileSystemPtr engine = new NativeFileSystem(FilePath(root / "engine"));
+            database->SetEngineFs(engine);
+            ASSERT_TRUE(engine->CreateSubSystem("assets", true)->WriteFileExclusive(FilePath(aurora::scene_assets::UNLIT), std::vector<uint8_t>{1}));
+            const auto fallback = database->RegisterAsset("engine", FilePath(aurora::scene_assets::UNLIT), false);
+            ASSERT_TRUE(fallback);
             manager->SetSourceCatalog(database);
             const std::string bundle = "softbody-" + Uuid::Create().ToString();
             manager->AddAssetProductBundle(new HashedAssetBundle(products, bundle));
+            const auto material = manager->CreateBuildAsset(fallback->uuid, Name("AuroraMaterial"));
+            ASSERT_TRUE(material);
+            ASSERT_TRUE(manager->SaveAsset(material, bundle));
             const auto compiler = std::make_shared<Compiler>();
             ASSERT_TRUE(phy::MeshAuthoringCompilerRegistry::Get()->Register(compiler));
             struct Cleanup {
@@ -71,6 +95,8 @@ namespace {
                     AssetExecutor::Get()->WaitForAll();
                     AssetManager::Get()->SetSourceCatalog(nullptr);
                     AssetDataBase::Get()->Reset();
+                    AssetDataBase::Get()->SetEngineFs({});
+                    AssetDataBase::Get()->SetWorkSpaceFs({});
                 }
             } cleanup{compiler};
             const auto sourceName = "animal" + extension;
@@ -160,6 +186,13 @@ namespace {
             ASSERT_TRUE(skin->IsLoaded());
             ASSERT_TRUE(skeleton->IsLoaded());
             ASSERT_TRUE(rendered->IsLoaded());
+            EXPECT_EQ(owner->dependencies, (std::vector<Uuid>{original->uuid, fallback->uuid}));
+            EXPECT_FALSE(rendered->Data().materials.empty());
+            for (const auto &id : rendered->Data().materials)
+                EXPECT_EQ(id, fallback->uuid);
+            AssetProductInspection meshProduct;
+            ASSERT_TRUE(manager->InspectProduct(data.mesh, bundle, meshProduct));
+            EXPECT_EQ(meshProduct.dependencies, std::vector<Uuid>{fallback->uuid});
             EXPECT_EQ(skeleton->Data().boneData.size(), data.body.mesh.vertices.size() + 1u);
             EXPECT_EQ(skin->Data().sourceOwner, owner->uuid);
             EXPECT_EQ(skin->Data().binding.targetLayoutSignature, data.skeletonLayout);

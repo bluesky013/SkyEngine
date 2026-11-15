@@ -66,8 +66,9 @@ namespace sky::editor {
         float popupItemHeight   = 20.0f;  // combo/asset popup rows
         float popupMinWidth     = 220.0f; // combo/asset popup minimum width
         float popupMaxHeight    = 260.0f; // combo/asset popup maximum height
-        float panelRadius       = 5.0f;   // panel corner radius (Blender-like)
-        float panelGap          = 3.0f;   // gap between panels (Blender-like)
+        float tooltipMaxWidth   = 480.0f;
+        float panelRadius       = 5.0f; // panel corner radius (Blender-like)
+        float panelGap          = 3.0f; // gap between panels (Blender-like)
 
         // Spacing / padding.
         float padX           = 10.0f;

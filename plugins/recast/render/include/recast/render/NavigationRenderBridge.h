@@ -16,7 +16,8 @@ namespace sky::ai {
                                   aurora::RenderEntityRef       entity,
                                   aurora::RendererInfo          info,
                                   const NaviDebugGeometry      &geometry,
-                                  aurora::ISceneResourceSource &resources);
+                                  aurora::ISceneResourceSource &resources,
+                                  const Uuid                   &materialAsset);
         void               Clear(aurora::FramePacket &packet);
         void               OnEvent(const aurora::RendererEvent &event);
         void               OnRendererStopped();
@@ -26,13 +27,17 @@ namespace sky::ai {
         }
 
     private:
-        bool                      PrepareMaterial(aurora::FramePacket &packet, aurora::RendererInfo info, aurora::ISceneResourceSource &resources);
-        aurora::RenderEntityRef   entity;
-        aurora::RenderResourceKey mesh, material;
-        uint64_t                  deviceEpoch = 0, geometryHash = 0, revision = 0;
-        uint32_t                  generation = 1;
-        bool                      created = false, retiring = false;
-        std::string               error;
+        bool PrepareMaterial(aurora::FramePacket &packet, aurora::RendererInfo info, aurora::ISceneResourceSource &resources, const Uuid &asset);
+        void ReleaseMaterial(aurora::FramePacket &packet);
+        aurora::RenderEntityRef                entity;
+        aurora::RenderResourceKey              mesh, material;
+        std::vector<aurora::RenderResourceKey> materialDependencies;
+        Uuid                                   materialAsset;
+        uint64_t                               resourceRevision = 0;
+        uint64_t                               deviceEpoch = 0, geometryHash = 0, revision = 0;
+        uint32_t                               generation = 1;
+        bool                                   created = false, retiring = false;
+        std::string                            error;
     };
 
 } // namespace sky::ai

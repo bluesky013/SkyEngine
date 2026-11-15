@@ -6,8 +6,8 @@
 #include <aurora/adaptor/AuroraReflection.h>
 #include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SkinResource.h>
 #include <aurora/rhi/VertexSemantic.h>
-#include <aurora/adaptor/assets/SkinAsset.h>
 
 #include <core/math/Matrix4.h>
 #include <framework/asset/AssetManager.h>

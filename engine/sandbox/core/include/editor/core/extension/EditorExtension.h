@@ -4,17 +4,27 @@
 
 #pragma once
 
+#include <editor/core/command/UndoCommand.h>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace sky::editor {
+namespace sky {
+    class Actor;
+    class ComponentBase;
+    class Any;
+} // namespace sky
 
-    // A toolkit-agnostic editor extension.
-    //
-    // Implementations register asset creators, actor creators, gizmo factories,
-    // inspectors, and so on through the core singletons. No UI-toolkit or render
-    // type appears in this contract.
+namespace sky::editor {
+    class PropertyDescriptor;
+    enum class EditorEditState { Unhandled, Ready, Error };
+    struct EditorEditResult {
+        EditorEditState state = EditorEditState::Unhandled;
+        UndoCommandPtr  command;
+        std::string     error;
+    };
+
+    // Session extensions contribute registrations and owned edits without UI or render types.
     class EditorExtension {
     public:
         virtual ~EditorExtension() = default;
@@ -22,6 +32,17 @@ namespace sky::editor {
         virtual const char *GetName() const = 0;
         virtual void        Register()      = 0;
         virtual void        Unregister()    = 0;
+
+        // Preparation must not mutate the live actor; Ready owns a complete undoable edit.
+        virtual EditorEditResult MakePropertyEdit(Actor &, const PropertyDescriptor &, const Any &)
+        {
+            return {};
+        }
+        // Only the detached component may be prepared; the command runs after attachment.
+        virtual EditorEditResult PrepareComponentAddition(Actor &, ComponentBase &)
+        {
+            return {};
+        }
 
         // Resource-relative icon directories this extension contributes (e.g. "icons/aurora").
         // The host scans each for `*.svg` and registers them by file stem. Empty by default.

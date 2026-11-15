@@ -165,13 +165,12 @@ namespace sky::ui {
         }
     }
 
-    UIElement *UIEventRouter::HitTestElement(UIElement *element, float x, float y, const UIRect &clip, const UI2DTransform &parentTransform)
+    UIElement *UIEventRouter::HitTestElement(UIElement *element, float x, float y, const UIRect &clip, const UIGeometry &geometry)
     {
         if (element == nullptr || !element->IsVisible() || !clip.Contains(x, y)) {
             return nullptr;
         }
-        const UIGeometry geometry{element->GetBounds(), parentTransform * element->GetTransform().ToMatrix()};
-        UIPoint          point;
+        UIPoint point;
         if (!geometry.SurfaceToLayout(x, y, point)) {
             return nullptr;
         }
@@ -181,7 +180,8 @@ namespace sky::ui {
         }
         const auto order = element->GetPaintOrder();
         for (auto it = order.rbegin(); it != order.rend(); ++it) {
-            if (UIElement *hit = HitTestElement(*it, x, y, localClip, geometry.layoutToSurface)) {
+            if (UIElement *hit =
+                    HitTestElement(*it, x, y, localClip, {(*it)->GetBounds(), geometry.layoutToSurface * (*it)->GetTransform().ToMatrix()})) {
                 return hit;
             }
         }
@@ -194,7 +194,21 @@ namespace sky::ui {
             return nullptr;
         }
         UIElement *root = context->GetRoot();
-        return root != nullptr ? HitTestElement(root, x, y, root->GetBounds(), context->GetSurfaceTransform()) : nullptr;
+        return root != nullptr ? HitTest(*root, x, y) : nullptr;
+    }
+
+    UIElement *UIEventRouter::HitTest(UIElement &root, float x, float y)
+    {
+        if (!root.IsEffectivelyVisible())
+            return nullptr;
+        const auto *top = &root;
+        while (top->GetParent())
+            top = top->GetParent();
+        auto clip = top->GetBounds();
+        for (const auto *parent = root.GetParent(); parent; parent = parent->GetParent())
+            if (parent->ClipsChildren())
+                clip = UIRect::Intersect(clip, parent->GetGeometry().SurfaceBounds());
+        return HitTestElement(&root, x, y, clip, root.GetGeometry());
     }
 
     bool UIEventRouter::UpdateHover(UIElement *target, const UIPointerEvent &event, const DispatchGuard &guard)

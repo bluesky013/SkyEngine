@@ -16,7 +16,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <exception>
 #include <limits>
 #include <type_traits>
 #include <unordered_set>
@@ -64,19 +63,7 @@ namespace sky::editor {
             auto result = codec.Check(path);
             if (!result.Succeeded())
                 return result;
-            // Only reflection/provider calls belong here. JSON processing and
-            // ordinary container allocation remain outside this boundary.
-            try {
-                callback();
-            }
-            catch (const std::exception &error) {
-                result = codec.Check(path);
-                return result.Succeeded() ? Error(PreferenceCode::InvalidData, error.what(), codec.page, path) : result;
-            }
-            catch (...) {
-                result = codec.Check(path);
-                return result.Succeeded() ? codec.Invalid(path, "Could not access the reflected preferences candidate") : result;
-            }
+            callback();
             return codec.Check(path);
         }
 
@@ -162,7 +149,7 @@ namespace sky::editor {
             if (info == nullptr || info->staticInfo == nullptr || info->copy == nullptr) {
                 return codec.Unsupported(path, "Settings values must have reflection and copy construction");
             }
-            if (!checked.insert(info).second || Scalar(info)) {
+            if (!checked.insert(info).second || Scalar(info) || info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
                 return {};
             }
             if (info->staticInfo->isPointer || info->staticInfo->isMemberObjectPointer || info->staticInfo->isMemberFunctionPointer) {
@@ -237,6 +224,17 @@ namespace sky::editor {
         {
             if (depth > MaxDepth) {
                 return codec.Invalid(path, "Settings nesting is too deep");
+            }
+            if (info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
+                if (!json.IsString())
+                    return codec.Invalid(path, "Expected an asset UUID string");
+                const std::string_view text(json.GetString(), json.GetStringLength());
+                if (text.size() != 36 || text[8] != '-' || text[13] != '-' || text[18] != '-' || text[23] != '-')
+                    return codec.Invalid(path, "Invalid asset UUID");
+                for (size_t i = 0; i < text.size(); ++i)
+                    if (i != 8 && i != 13 && i != 18 && i != 23 && GetDigit(text[i]) == std::string_view::npos)
+                        return codec.Invalid(path, "Invalid asset UUID");
+                return {};
             }
             if (info->registeredId == TypeInfo<bool>::RegisteredId()) {
                 return json.IsBool() ? PreferenceResult{} : codec.Invalid(path, "Expected a boolean");
@@ -322,6 +320,10 @@ namespace sky::editor {
         PreferenceResult
         Decode(const Codec &codec, const Json &json, void *object, const TypeInfoRT *info, const TypeNode *hint, const std::string &path)
         {
+            if (info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
+                *static_cast<Uuid *>(object) = Uuid::CreateFromString(std::string_view(json.GetString(), json.GetStringLength()));
+                return {};
+            }
             if (info->registeredId == TypeInfo<bool>::RegisteredId()) {
                 *static_cast<bool *>(object) = json.GetBool();
                 return {};
@@ -408,6 +410,11 @@ namespace sky::editor {
         {
             if (depth > MaxDepth) {
                 return codec.Invalid(path, "Settings nesting is too deep");
+            }
+            if (info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
+                const auto text = static_cast<const Uuid *>(object)->ToString();
+                json.SetString(text.data(), static_cast<rapidjson::SizeType>(text.size()), allocator);
+                return {};
             }
             if (info->registeredId == TypeInfo<bool>::RegisteredId()) {
                 json.SetBool(*static_cast<const bool *>(object));
@@ -621,16 +628,7 @@ namespace sky::editor {
         template <typename Callback>
         PreferenceResult StorageCall(PreferenceCode failure, Callback &&callback)
         {
-            PreferenceResult result;
-            try {
-                result = callback();
-            }
-            catch (const std::exception &error) {
-                result = Error(failure, error.what());
-            }
-            catch (...) {
-                result = Error(failure, "Preferences storage failed");
-            }
+            auto result = callback();
             // The adapter performs storage I/O only. The service owns effect
             // accounting and marks writes after its post-callback guard.
             result.storageWritten     = false;
@@ -789,8 +787,10 @@ namespace sky::editor {
             if (!read.Succeeded())
                 return read;
             result = Parse(source, document);
-            if (!result.Succeeded())
+            if (!result.Succeeded()) {
+                result.message += ". Repair the settings file and restart the editor; Apply preserves invalid files.";
                 return result;
+            }
         }
         rapidjson::Document encoded;
         encoded.SetObject();
@@ -799,8 +799,10 @@ namespace sky::editor {
             const auto  found = Find(document, value.identity.id);
             if (found != document.MemberEnd()) {
                 result = CheckJson(codec, found->value, value.identity.type->info, value.identity.type, {});
-                if (!result.Succeeded())
+                if (!result.Succeeded()) {
+                    result.message += ". Repair the settings file and restart the editor; Apply preserves invalid files.";
                     return result;
+                }
             }
             Json page;
             result = Encode(codec, value.value.Data(), value.identity.type->info, value.identity.type, page, encoded.GetAllocator(), {});

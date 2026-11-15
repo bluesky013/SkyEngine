@@ -4,8 +4,10 @@
 
 #include <aurora/adaptor/AnimationSkeletonSource.h>
 #include <aurora/adaptor/AuroraModule.h>
+#include <aurora/adaptor/AuroraReflection.h>
 #include <core/logger/Logger.h>
 #include <framework/interface/Interface.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::aurora {
     class AuroraRuntimeModule final : public IModule {
@@ -13,6 +15,11 @@ namespace sky::aurora {
         ~AuroraRuntimeModule() override
         {
             Shutdown();
+        }
+
+        void RegisterMeta() override
+        {
+            RegisterAuroraRuntimeTypes(SerializationContext::Get());
         }
 
         bool Init(const StartArguments &args) override

@@ -4,16 +4,10 @@
 
 #pragma once
 
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <aurora/adaptor/renderer/SceneComponentEvent.h>
-#include <core/math/Vector3.h>
 
 namespace sky::aurora {
-
-    struct DirectLightData {
-        Vector3 color     = {1.f, 1.f, 1.f};
-        float   intensity = 1.f;
-        bool    castShadow = true;
-    };
 
     class DirectLightComponent : public SceneComponentAdaptor<DirectLightData> {
     public:
@@ -24,14 +18,32 @@ namespace sky::aurora {
 
         static void Reflect(SerializationContext *context);
 
-        void           SetColor(const Vector3 &value) { data.color = value; }
-        const Vector3 &GetColor() const { return data.color; }
+        void SetColor(const Vector3 &value)
+        {
+            data.color = value;
+        }
+        const Vector3 &GetColor() const
+        {
+            return data.color;
+        }
 
-        void  SetIntensity(float value) { data.intensity = value; }
-        float GetIntensity() const { return data.intensity; }
+        void SetIntensity(float value)
+        {
+            data.intensity = value;
+        }
+        float GetIntensity() const
+        {
+            return data.intensity;
+        }
 
-        void SetCastShadow(bool value) { data.castShadow = value; }
-        bool GetCastShadow() const { return data.castShadow; }
+        void SetCastShadow(bool value)
+        {
+            data.castShadow = value;
+        }
+        bool GetCastShadow() const
+        {
+            return data.castShadow;
+        }
     };
 
 } // namespace sky::aurora

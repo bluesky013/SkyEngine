@@ -3,6 +3,7 @@
 //
 
 #include <core/file/FileUtil.h>
+#include <core/file/MultiFileSystem.h>
 #include <core/platform/Platform.h>
 #include <core/thread/ThreadDispatcher.h>
 #include <framework/asset/AssetBuilderManager.h>
@@ -115,42 +116,46 @@ namespace sky {
         intermediateFs = fs;
     }
 
-    void AssetBuilderManager::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
+    bool AssetBuilderManager::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
     {
-        workSpaceFs = fs;
-
-        // create products directory
-        auto productFs = workSpaceFs->CreateSubSystem("products", true);
-        auto configFs  = workSpaceFs->CreateSubSystem("configs", false);
-
-        // Load per-kind build presets (e.g. image_build_presets.json) into the registered builders, so
-        // both in-process cooking and the editor's reflected settings operate on the same presets.
-        if (configFs != nullptr) {
-            LoadBuildConfigs(configFs);
-        }
-
-        auto *am = AssetManager::Get();
-        // Unified cook/build config; falls back to the legacy presets file name.
-        auto file = configFs->OpenFile("asset_cook.jsonc");
-        if (!file) {
-            file = configFs->OpenFile("asset_build_presets.json");
-        }
+        if (!fs)
+            return false;
+        const auto    productFs      = fs->CreateSubSystem("products", true);
+        const auto    projectConfigs = fs->CreateSubSystem("configs", false);
+        const auto    engineConfigs  = engineFs ? engineFs->CreateSubSystem("configs", false) : FileSystemPtr{};
+        auto          configs        = new MultiFileSystem();
+        FileSystemPtr configFs       = configs;
+        if (projectConfigs)
+            configs->AddFileSystem(projectConfigs);
+        if (engineConfigs)
+            configs->AddFileSystem(engineConfigs);
+        // Project legacy presets also override engine defaults using the newer filename.
+        const auto findCookConfig = [](const FileSystemPtr &fs) -> FilePtr {
+            if (!fs)
+                return {};
+            auto file = fs->OpenFile("asset_cook.jsonc");
+            return file ? file : fs->OpenFile("asset_build_presets.json");
+        };
+        auto file = findCookConfig(projectConfigs);
+        if (!file)
+            file = findCookConfig(engineConfigs);
+        CookConfig parsed;
         if (file) {
             std::string text;
-            file->ReadString(text);
+            if (!file->ReadString(text) || !parsed.Parse(text))
+                return false;
+        }
+        workSpaceFs = fs;
+        LoadBuildConfigs(configFs);
+        SetCookConfig(parsed);
 
-            CookConfig parsed;
-            parsed.Parse(text);
-            SetCookConfig(parsed);
-
-            auto bundles = parsed.GetBundles();
-            if (bundles.empty()) {
-                bundles.emplace_back("common");
-            }
-            for (auto &bundle : bundles) {
-                auto bundleFs = productFs->CreateSubSystem(bundle, true);
-                am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundle));
-            }
+        auto *am      = AssetManager::Get();
+        auto  bundles = parsed.GetBundles();
+        if (bundles.empty())
+            bundles.emplace_back("common");
+        for (const auto &bundle : bundles) {
+            const auto bundleFs = productFs->CreateSubSystem(bundle, true);
+            am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundle));
         }
 
         // Select the cook backend from the parsed config (D5); default in-process keeps the
@@ -176,6 +181,7 @@ namespace sky {
             cookRunner.reset();
             am->SetCookRunner(nullptr);
         }
+        return true;
     }
 
     void AssetBuilderManager::RegisterBuilder(AssetBuilder *builder)

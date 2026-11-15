@@ -266,7 +266,7 @@ namespace sky::editor {
         hoverCategory   = -1;
         hoverButton     = -1;
         lastApplyResult = {};
-        composition->header->SetLabel("Preferences");
+        composition->header->SetLabel(title);
         formCaptured = false;
         composition->categoryScroll->SetScroll(0.0f, 0.0f);
         pageIndex = 0;
@@ -426,7 +426,7 @@ namespace sky::editor {
         lastApplyResult = result;
         if (!result.Succeeded()) {
             const std::string reason = result.message.empty() ? "Could not apply settings." : result.message;
-            composition->header->SetLabel("Preferences: " + reason + (result.HasPartialEffects() ? " Changes may already be applied or saved." : ""));
+            composition->header->SetLabel(title + ": " + reason + (result.HasPartialEffects() ? " Changes may already be applied or saved." : ""));
             MarkPaintDirty();
             auto callback = onApplyResult;
             if (callback) {
@@ -434,7 +434,7 @@ namespace sky::editor {
             }
             return;
         }
-        composition->header->SetLabel("Preferences");
+        composition->header->SetLabel(title);
         const auto                callback = onApplied;
         const std::weak_ptr<void> alive    = lifetime;
         const auto                closed   = close ? CloseState() : std::function<void()>{};

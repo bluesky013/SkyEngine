@@ -16,7 +16,6 @@
 #include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
-static const char *CONFIG_PATH = "/config/modules_game.json";
 
 namespace sky {
 

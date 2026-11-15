@@ -52,6 +52,7 @@ sky_add_test(TARGET EditorRenderTest
         main.cpp
     INCS
         ${CMAKE_CURRENT_SOURCE_DIR}/../render/src
+        ${CMAKE_SOURCE_DIR}/engine/aurora/core/test
     WORKING_DIR
         ${CMAKE_SOURCE_DIR}
     LIBS
@@ -62,11 +63,12 @@ sky_add_test(TARGET EditorRenderTest
         EditorRender
         3rdParty::googletest
 )
-add_dependencies(EditorRenderTest Aurora.Metadata)
+add_dependencies(EditorRenderTest Aurora.Metadata Aurora.Render)
 
 sky_add_test(TARGET EditorShellTest
     SOURCES
         EditorShellTest.cpp
+        EditorTooltipIntegrationTest.cpp
         SceneViewportTest.cpp
         EditorLayoutDependencyTest.cpp
         EditorHistoryRoutingTest.cpp
@@ -91,7 +93,7 @@ sky_add_test(TARGET EditorShellTest
         Core
         3rdParty::googletest
 )
-add_dependencies(EditorShellTest Aurora.Metadata)
+add_dependencies(EditorShellTest Aurora.Metadata Aurora.Render Aurora.Cook)
 endif ()
 
 if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
@@ -113,6 +115,7 @@ if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
             GraphCanvasTest.cpp
             EditorScrollbarTest.cpp
             ReflectedFormWidgetsTest.cpp
+            TooltipHostTest.cpp
             main.cpp
         WORKING_DIR
             ${CMAKE_SOURCE_DIR}
@@ -135,7 +138,7 @@ if (SKY_BUILD_SANDBOX AND SKY_BUILD_TEST)
             WorldEditorStateTest.cpp
             main.cpp
         WORKING_DIR ${CMAKE_SOURCE_DIR}
-        LIBS SandboxModule.Static 3rdParty::googletest
+        LIBS SandboxModule.Static Aurora.Render.Editor 3rdParty::googletest
     )
     target_include_directories(SandboxProjectTest PRIVATE ../module/src)
     target_compile_definitions(SandboxProjectTest PRIVATE

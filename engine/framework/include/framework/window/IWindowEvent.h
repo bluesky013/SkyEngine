@@ -68,6 +68,10 @@ namespace sky {
         virtual void OnMouseWheel(const MouseWheelEvent &event)
         {
         }
+        // Hover leave does not cancel pointer capture or a pressed-button gesture.
+        virtual void OnMouseLeave(WindowID winID)
+        {
+        }
     };
 
     class IDropEvent : public EventTraits {

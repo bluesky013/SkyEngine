@@ -24,7 +24,8 @@ namespace sky::ui {
 
         // Topmost visible element under the point, in reverse paint order and
         // clipped by every ancestor that clips its children.
-        UIElement *HitTest(float x, float y) const;
+        UIElement        *HitTest(float x, float y) const;
+        static UIElement *HitTest(UIElement &root, float x, float y);
 
         UIEventResult DispatchPointer(const UIPointerEvent &event);
         UIEventResult DispatchKey(const UIKeyEvent &event);
@@ -45,10 +46,9 @@ namespace sky::ui {
     private:
         friend class UIContext;
         struct DispatchGuard;
-        void       CollectDetachedInput(UIElement *subtree, std::vector<UIElement::InputCancellation> &pending);
-        UIElement *Resolve(const UIElement::InputReference &reference) const;
-        static UIElement *
-        HitTestElement(UIElement *element, float x, float y, const struct UIRect &clip, const struct UI2DTransform &parentTransform);
+        void              CollectDetachedInput(UIElement *subtree, std::vector<UIElement::InputCancellation> &pending);
+        UIElement        *Resolve(const UIElement::InputReference &reference) const;
+        static UIElement *HitTestElement(UIElement *element, float x, float y, const struct UIRect &clip, const struct UIGeometry &geometry);
 
         bool UpdateHover(UIElement *target, const UIPointerEvent &event, const DispatchGuard &guard);
         void SetFocusFrom(UIElement *target);

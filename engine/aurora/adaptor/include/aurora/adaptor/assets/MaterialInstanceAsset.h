@@ -18,8 +18,6 @@
 
 namespace sky::aurora {
 
-    class Device;
-
     struct MaterialInstanceValueOverride {
         std::string           name;
         MaterialPropertyType  type = MaterialPropertyType::FLOAT;
@@ -117,10 +115,6 @@ namespace sky::aurora {
             textureOverrides.clear();
         }
     };
-
-    // Runtime-only build: resolves the parent material asset through AssetManager
-    // and applies the value / texture overrides onto a MaterialInstance.
-    CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(Device *device, const Asset<MaterialInstance> &asset);
 
 } // namespace sky::aurora
 

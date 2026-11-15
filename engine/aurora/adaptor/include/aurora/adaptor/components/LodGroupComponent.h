@@ -6,17 +6,11 @@
 #pragma once
 
 #include <aurora/adaptor/assets/LodGroupAsset.h>
-#include <core/util/Uuid.h>
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <framework/asset/AssetHolder.h>
 #include <framework/world/Component.h>
 
 namespace sky::aurora {
-
-    struct LodGroupComponentData {
-        Uuid lodGroup;
-        bool castShadow    = false;
-        bool receiveShadow = false;
-    };
 
     class LodGroupComponent : public ComponentAdaptor<LodGroupComponentData>, public IAssetReadyNotifier {
     public:
@@ -32,17 +26,38 @@ namespace sky::aurora {
             data.lodGroup = uuid;
             lodGroupHolder.SetAsset(uuid, this);
         }
-        const Uuid &GetLodGroupUuid() const { return data.lodGroup; }
+        const Uuid &GetLodGroupUuid() const
+        {
+            return data.lodGroup;
+        }
 
-        void SetCastShadow(bool value) { data.castShadow = value; }
-        bool GetCastShadow() const { return data.castShadow; }
+        void SetCastShadow(bool value)
+        {
+            data.castShadow = value;
+        }
+        bool GetCastShadow() const
+        {
+            return data.castShadow;
+        }
 
-        void SetReceiveShadow(bool value) { data.receiveShadow = value; }
-        bool GetReceiveShadow() const { return data.receiveShadow; }
+        void SetReceiveShadow(bool value)
+        {
+            data.receiveShadow = value;
+        }
+        bool GetReceiveShadow() const
+        {
+            return data.receiveShadow;
+        }
 
         // Loaded asset payload (null until the async load completes).
-        Asset<sky::aurora::LodGroup> *GetLodGroupAsset() const { return lodGroupHolder.GetAsset().get(); }
-        bool                          IsLodGroupLoaded() const { return lodGroupHolder.IsLoaded(); }
+        Asset<sky::aurora::LodGroup> *GetLodGroupAsset() const
+        {
+            return lodGroupHolder.GetAsset().get();
+        }
+        bool IsLodGroupLoaded() const
+        {
+            return lodGroupHolder.IsLoaded();
+        }
 
         void OnAssetLoaded(const Uuid &uuid, const std::string_view &type) override;
 

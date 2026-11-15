@@ -39,12 +39,16 @@ namespace sky {
             return false;
         }
         const auto &path = source->second->path;
-        const auto  fs   = ResolveOwningFs(path);
+        const auto  fs   = ResolveOwningFs(source->second);
         if (!fs) {
             return false;
         }
         manifests.Invalidate(fs, path.Parent());
-        const auto            *entry = manifests.Get(fs, path.Parent()).Find(path.FileName());
+        const auto *entry = manifests.Get(fs, path.Parent()).Find(path.FileName());
+        if (entry && entry->id != owner) {
+            LOG_E("AssetDataBase", "Source manifest identity changed: %s", path.GetStr().c_str());
+            return false;
+        }
         GeneratedAssetManifest data;
         const auto             parsed = ParseGeneratedAssets(owner, entry ? entry->generated : std::string{}, data);
         if (!parsed) {
@@ -70,7 +74,7 @@ namespace sky {
             return {ProductError::NotFound, "generated asset source is not registered"};
         }
         const auto &path  = source->second->path;
-        const auto  mount = FindMountIndex(path);
+        const auto  mount = FindMountIndex(source->second->mount);
         if (mount < 0) {
             return {ProductError::NotFound, "generated source is not mounted"};
         }
@@ -105,9 +109,10 @@ namespace sky {
         if (const auto status = filesystem->AcquireFileLock(path.Parent() / FilePath("assets.jsonl.lock"), fileLock); !status) {
             return {status.error == FileOperationError::Busy ? ProductError::Busy : ProductError::IOError, status.message};
         }
-        manifests.Invalidate(filesystem, path.Parent());
-        auto        manifest = manifests.Get(filesystem, path.Parent());
-        const auto *entry    = manifest.Find(path.FileName());
+        AssetIndexFile manifest("file", "cook");
+        if (const auto status = manifests.Reload(filesystem, path.Parent(), manifest); !status)
+            return {ProductError::IOError, status.message};
+        const auto *entry = manifest.Find(path.FileName());
         if (!entry || entry->id != owner) {
             return {ProductError::InvalidData, "source manifest identity changed"};
         }

@@ -1,25 +1,13 @@
 #pragma once
 
+#include <aurora/adaptor/components/AuroraComponentData.h>
 #include <aurora/adaptor/renderer/SceneComponentEvent.h>
-#include <core/util/Uuid.h>
 
 namespace sky::aurora {
-    enum class SkeletalPoseMode : uint8_t { ReferencePose, SameActorAnimation };
-    struct SkeletalMeshComponentData {
-        Uuid             mesh;
-        Uuid             skin;
-        Uuid             skeleton;
-        Uuid             material;
-        SkeletalPoseMode pose                                                = SkeletalPoseMode::ReferencePose;
-        bool             castShadow                                          = true;
-        bool             receiveShadow                                       = true;
-        bool             operator==(const SkeletalMeshComponentData &) const = default;
-    };
     class SkeletalMeshComponent final : public SceneComponentAdaptor<SkeletalMeshComponentData> {
     public:
         COMPONENT_RUNTIME_INFO(SkeletalMeshComponent)
         static void Reflect(SerializationContext *context);
-        void CollectAssetReferences(std::vector<ComponentAssetReference> &out) const override;
         void        SetConfig(const SkeletalMeshComponentData &value)
         {
             data = value;

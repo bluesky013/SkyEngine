@@ -20,8 +20,8 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -264,7 +264,7 @@ TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
 TEST(EditorAssetCatalog, GeneratedSkinAppearsInPickerWithOwnerAndCannotBeEditedAsSource)
 {
     std::error_code error;
-    const auto root = std::filesystem::temp_directory_path(error) / ("sky-generated-picker-" + sky::Uuid::Create().ToString());
+    const auto      root = std::filesystem::temp_directory_path(error) / ("sky-generated-picker-" + sky::Uuid::Create().ToString());
     ASSERT_FALSE(error);
     sky::NativeFileSystemPtr filesystem = new sky::NativeFileSystem(sky::FilePath(root));
     ASSERT_TRUE(filesystem->WriteFileExclusive("character.model", std::array<uint8_t, 1>{1}));
@@ -273,7 +273,7 @@ TEST(EditorAssetCatalog, GeneratedSkinAppearsInPickerWithOwnerAndCannotBeEditedA
     database->SetWorkSpaceFs(filesystem);
     const auto source = database->RegisterAsset("character.model", false);
     ASSERT_NE(source, nullptr);
-    sky::GeneratedAssetManifest generated;
+    sky::GeneratedAssetManifest                        generated;
     const std::array<sky::GeneratedAssetDescriptor, 1> children{{{"binding/body", "AuroraSkin"}}};
     ASSERT_TRUE(database->UpdateGeneratedProducts(source->uuid, children, {{"skin", "binding/body"}}, generated));
     auto *catalog = EditorAssetCatalog::Get();
@@ -444,9 +444,15 @@ TEST(EditorAssetCatalog, MutationPreservesIdentity)
     ASSERT_TRUE(catalog->FindByPath("Project/c.txt", duplicated));
     EXPECT_EQ(duplicated.uuid, copy);
 
-    // Delete removes identity.
     EXPECT_TRUE(AssetMutationService::Get()->Delete(original));
     EXPECT_FALSE(catalog->FindByPath("Project/b.txt", moved));
+    EXPECT_FALSE(workSpace->FileExist("b.txt"));
+    db->Reset();
+    ASSERT_FALSE(db->RebuildCacheFromScan());
+    EXPECT_FALSE(catalog->FindByPath("Project/b.txt", moved));
+    EXPECT_FALSE(db->FindAsset(original));
+    ASSERT_TRUE(catalog->FindByPath("Project/c.txt", duplicated));
+    EXPECT_EQ(duplicated.uuid, copy);
 
     manager->UnRegisterBuilder(builder);
     db->Reset();

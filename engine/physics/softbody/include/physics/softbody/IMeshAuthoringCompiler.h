@@ -76,6 +76,7 @@ namespace sky::phy {
     struct AuthoringMeshProducts {
         std::vector<std::shared_ptr<AssetBase>> products;
         uint64_t                                skeletonLayout = 0;
+        std::vector<Uuid>                       effectiveDependencies;
         // Output vertex -> primitive/vertex in the supplied source, after any reordering.
         std::vector<std::array<uint32_t, 2>> vertexSources;
     };
@@ -84,6 +85,8 @@ namespace sky::phy {
     public:
         virtual ~IMeshAuthoringCompiler() = default;
         virtual PhysicsStatus Load(std::span<const uint8_t> bytes, const std::string &extension, std::vector<AuthoringMeshSource> &out) const = 0;
+        virtual PhysicsStatus
+        ResolveMaterials(const std::string &target, uint32_t slotCount, std::span<const Uuid> supplied, std::vector<Uuid> &out) const = 0;
         // Constructs owned products only; the recipe builder owns publication and child IDs.
         virtual PhysicsStatus Compile(const AuthoringMeshSource  &source,
                                       const AuthoringMeshBinding &binding,

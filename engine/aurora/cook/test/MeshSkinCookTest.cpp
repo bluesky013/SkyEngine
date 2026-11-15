@@ -1,4 +1,5 @@
-#include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/assets/MaterialAsset.h>
+#include <aurora/adaptor/assets/SceneAssets.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
 #include <aurora/cook/mesh/MeshAssembler.h>
@@ -197,7 +198,10 @@ TEST(MeshSkinCook, HelperMotionAndActorTransformAgreeWithCpuLbsBounds)
     const auto rig = Skeleton::BuildSkeleton(rigData);
     ASSERT_NE(rig, nullptr);
     SkinTargetLayout target;
-    ASSERT_TRUE(MakeSkinTargetLayout(*rig, target));
+    target.signature = rig->GetLayoutSignature();
+    ASSERT_TRUE(rig->GetRefPos()->ToSkinRenderData(target.referenceModels, Transform::GetIdentity()));
+    for (size_t index = 0; index < rig->GetNumBones(); ++index)
+        target.paths.emplace_back(rig->GetBoneByIndex(static_cast<BoneIndex>(index))->name.GetStr());
     const auto     skin = Skin::Create(source.skin);
     SkinBindingKey key{Uuid::Create(), Uuid::Create(), Uuid::Create(), 1, 1, 1, target.signature, Uuid::Create(), Uuid::Create(), Uuid::Create()};
     ResolvedSkinBindingPtr binding;
@@ -312,6 +316,11 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         auto *database = AssetDataBase::Get();
         database->Reset();
         database->SetWorkSpaceFs(fs);
+        const NativeFileSystemPtr engineFs = new NativeFileSystem(FilePath(root / "engine"));
+        database->SetEngineFs(engineFs);
+        ASSERT_TRUE(engineFs->CreateSubSystem("assets", true)->WriteFileExclusive(FilePath(scene_assets::UNLIT), std::vector<uint8_t>{1}));
+        const auto fallback = database->RegisterAsset("engine", FilePath(scene_assets::UNLIT), false);
+        ASSERT_TRUE(fallback);
         const auto source = database->RegisterAsset("character.gltf", false);
         ASSERT_NE(source, nullptr);
         auto *manager = AssetManager::Get();
@@ -320,6 +329,10 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         manager->RegisterAssetHandler<Skeleton>();
         manager->AddAssetProductBundle(new HashedAssetBundle(fs, "mesh-skin-test"));
         manager->SetSourceCatalog(database);
+        manager->RegisterAssetHandler<Material>();
+        const auto material = std::static_pointer_cast<Asset<Material>>(manager->CreateBuildAsset(fallback->uuid, Name("AuroraMaterial")));
+        ASSERT_TRUE(material);
+        ASSERT_TRUE(manager->SaveAsset(material, "mesh-skin-test"));
         AuroraMeshBuilder builder;
         builder.LoadConfig(fs);
         AssetBuildRequest request;
@@ -344,7 +357,7 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         AssetProductInspection inspection;
         ASSERT_TRUE(manager->InspectProduct(source->uuid, request.bundle, inspection));
         EXPECT_EQ(inspection.type, "AuroraMesh");
-        EXPECT_TRUE(inspection.dependencies.empty());
+        EXPECT_EQ(inspection.dependencies, (std::vector<Uuid>{fallback->uuid}));
         for (const auto &id : products) {
             EXPECT_TRUE(fs->FileExist(ProductFilePath(id)));
             const auto loaded = manager->LoadAsset(id);
@@ -391,6 +404,8 @@ TEST(MeshSkinCook, BuilderPublishesOneMeshTwoSkinsAndStableRigProducts)
         EXPECT_EQ(manager->LoadAsset<Mesh>(source->uuid).get(), beforeFailure.get());
         manager->SetSourceCatalog(nullptr);
         database->Reset();
+        database->SetEngineFs({});
+        database->SetWorkSpaceFs({});
         AssetExecutor::Get()->WaitForAll();
     }
     std::filesystem::remove_all(root, error);

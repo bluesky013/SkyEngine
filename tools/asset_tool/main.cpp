@@ -143,7 +143,10 @@ namespace {
             AssetBuilderManager::Get()->SetForceInProcess(true);
 
             AssetBuilderManager::Get()->SetEngineFs(engineFs);
-            AssetBuilderManager::Get()->SetWorkSpaceFs(workFs);
+            if (!AssetBuilderManager::Get()->SetWorkSpaceFs(workFs)) {
+                LOG_E("AssetTool", "Failed to read asset cook configuration.");
+                return false;
+            }
             AssetBuilderManager::Get()->SetInterMediateFs(new NativeFileSystem(intermediate));
 
             AssetManager::Get()->SetCookRunner(nullptr);

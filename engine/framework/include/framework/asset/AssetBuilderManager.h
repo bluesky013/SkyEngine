@@ -22,9 +22,9 @@ namespace sky {
         AssetBuilderManager() = default;
         ~AssetBuilderManager() override;
 
-        void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
-        void SetEngineFs(const NativeFileSystemPtr &fs);
-        void SetInterMediateFs(const NativeFileSystemPtr &fs);
+        [[nodiscard]] bool SetWorkSpaceFs(const NativeFileSystemPtr &fs);
+        void               SetEngineFs(const NativeFileSystemPtr &fs);
+        void               SetInterMediateFs(const NativeFileSystemPtr &fs);
         // The worker process forces in-process cooking (it IS the worker); must be set
         // before SetWorkSpaceFs so out-of-process selection is skipped (single writer).
         void SetForceInProcess(bool force)

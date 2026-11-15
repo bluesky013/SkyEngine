@@ -1,5 +1,5 @@
 //
-// Aurora -> framework reflection / asset / component bridge implementation.
+// Runtime component metadata; persistent schemas are owned by Aurora.Metadata.
 //
 
 #include <aurora/adaptor/AuroraReflection.h>
@@ -7,8 +7,6 @@
 #include <aurora/adaptor/assets/ImageAsset.h>
 #include <aurora/adaptor/assets/LodGroupAsset.h>
 #include <aurora/adaptor/assets/MaterialAsset.h>
-#include <aurora/adaptor/assets/MaterialInstanceAsset.h>
-#include <aurora/adaptor/assets/MaterialReflection.h>
 #include <aurora/adaptor/assets/MeshAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
@@ -17,14 +15,11 @@
 #include <aurora/adaptor/components/EnvironmentComponent.h>
 #include <aurora/adaptor/components/LodGroupComponent.h>
 #include <aurora/adaptor/components/PointLightComponent.h>
+#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
-#include <aurora/adaptor/components/SkeletalMeshComponent.h>
 #include <aurora/scene/SceneTypes.h>
-#include <aurora/adaptor/renderer/SceneAssetSource.h>
 
-#include <core/shapes/Bounds.h>
-#include <framework/asset/AssetManager.h>
 #include <framework/serialization/Any.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
@@ -33,35 +28,8 @@
 #include <string>
 
 namespace sky {
-
-    void aurora::StaticMeshComponent::CollectAssetReferences(std::vector<ComponentAssetReference> &out) const
-    {
-        std::vector<ComponentAssetReference> references;
-        ComponentBase::CollectAssetReferences(references);
-        for (auto &reference : references)
-            if (!IsBuiltinSceneAsset(reference.uuid, reference.type))
-                out.push_back(std::move(reference));
-    }
-
-    void aurora::SkeletalMeshComponent::CollectAssetReferences(std::vector<ComponentAssetReference> &out) const
-    {
-        std::vector<ComponentAssetReference> references;
-        ComponentBase::CollectAssetReferences(references);
-        for (auto &reference : references)
-            if (reference.type != "AuroraMaterial" || !IsBuiltinSceneAsset(reference.uuid, reference.type))
-                out.push_back(std::move(reference));
-    }
-
     void aurora::EnvironmentComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::EnvironmentData>("EnvironmentData")
-            .Member<&aurora::EnvironmentData::diffuseIrradiance>("diffuseIrradiance")
-            .Member<&aurora::EnvironmentData::specularEnvironment>("specularEnvironment")
-            .Member<&aurora::EnvironmentData::brdfIntegration>("brdfIntegration")
-            .Member<&aurora::EnvironmentData::intensity>("intensity")
-            .Member<&aurora::EnvironmentData::exposure>("exposure")
-            .Member<&aurora::EnvironmentData::enabled>("enabled")
-            .Member<&aurora::EnvironmentData::hdr>("hdr");
         context->Register<aurora::EnvironmentComponent>("EnvironmentComponent")
             .Member<&aurora::EnvironmentComponent::SetDiffuseIrradiance, &aurora::EnvironmentComponent::GetDiffuseIrradiance>("diffuseIrradiance")
             .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<aurora::Texture>::ASSET_TYPE))
@@ -83,17 +51,6 @@ namespace sky {
     void aurora::SkeletalMeshComponent::Reflect(SerializationContext *context)
     {
         using namespace aurora;
-        context->Register<SkeletalPoseMode>("SkeletalPoseMode")
-            .Enum(SkeletalPoseMode::ReferencePose, "ReferencePose")
-            .Enum(SkeletalPoseMode::SameActorAnimation, "SameActorAnimation");
-        context->Register<SkeletalMeshComponentData>("SkeletalMeshComponentData")
-            .Member<&SkeletalMeshComponentData::mesh>("mesh")
-            .Member<&SkeletalMeshComponentData::skin>("skin")
-            .Member<&SkeletalMeshComponentData::skeleton>("skeleton")
-            .Member<&SkeletalMeshComponentData::material>("material")
-            .Member<&SkeletalMeshComponentData::pose>("pose")
-            .Member<&SkeletalMeshComponentData::castShadow>("castShadow")
-            .Member<&SkeletalMeshComponentData::receiveShadow>("receiveShadow");
         context->Register<SkeletalMeshComponent>("SkeletalMeshComponent")
             .Member<&SkeletalMeshComponent::SetMeshUuid, &SkeletalMeshComponent::GetMeshUuid>("mesh")
             .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
@@ -110,11 +67,6 @@ namespace sky {
 
     void aurora::StaticMeshComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::StaticMeshComponentData>("StaticMeshComponentData")
-            .Member<&aurora::StaticMeshComponentData::mesh>("mesh")
-            .Member<&aurora::StaticMeshComponentData::material>("material")
-            .Member<&aurora::StaticMeshComponentData::castShadow>("castShadow")
-            .Member<&aurora::StaticMeshComponentData::receiveShadow>("receiveShadow");
 
         context->Register<aurora::StaticMeshComponent>("StaticMeshComponent")
             .Member<&aurora::StaticMeshComponent::SetMeshUuid, &aurora::StaticMeshComponent::GetMeshUuid>("mesh")
@@ -127,10 +79,6 @@ namespace sky {
 
     void aurora::LodGroupComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::LodGroupComponentData>("LodGroupComponentData")
-            .Member<&aurora::LodGroupComponentData::lodGroup>("lodGroup")
-            .Member<&aurora::LodGroupComponentData::castShadow>("castShadow")
-            .Member<&aurora::LodGroupComponentData::receiveShadow>("receiveShadow");
 
         context->Register<aurora::LodGroupComponent>("LodGroupComponent")
             .Member<&aurora::LodGroupComponent::SetLodGroupUuid, &aurora::LodGroupComponent::GetLodGroupUuid>("lodGroup")
@@ -147,10 +95,6 @@ namespace sky {
 
     void aurora::CameraComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::CameraComponentData>("CameraComponentData")
-            .Member<&aurora::CameraComponentData::fov>("fov")
-            .Member<&aurora::CameraComponentData::nearZ>("nearZ")
-            .Member<&aurora::CameraComponentData::farZ>("farZ");
 
         context->Register<aurora::CameraComponent>("CameraComponent")
             .Member<&aurora::CameraComponent::SetFov, &aurora::CameraComponent::GetFov>("fov")
@@ -160,10 +104,6 @@ namespace sky {
 
     void aurora::DirectLightComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::DirectLightData>("DirectLightData")
-            .Member<&aurora::DirectLightData::color>("color")
-            .Member<&aurora::DirectLightData::intensity>("intensity")
-            .Member<&aurora::DirectLightData::castShadow>("castShadow");
 
         context->Register<aurora::DirectLightComponent>("DirectLightComponent")
             .Member<&aurora::DirectLightComponent::SetColor, &aurora::DirectLightComponent::GetColor>("color")
@@ -173,10 +113,6 @@ namespace sky {
 
     void aurora::PointLightComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::PointLightData>("PointLightData")
-            .Member<&aurora::PointLightData::color>("color")
-            .Member<&aurora::PointLightData::intensity>("intensity")
-            .Member<&aurora::PointLightData::range>("range");
 
         context->Register<aurora::PointLightComponent>("PointLightComponent")
             .Member<&aurora::PointLightComponent::SetColor, &aurora::PointLightComponent::GetColor>("color")
@@ -186,12 +122,6 @@ namespace sky {
 
     void aurora::SpotLightComponent::Reflect(SerializationContext *context)
     {
-        context->Register<aurora::SpotLightData>("SpotLightData")
-            .Member<&aurora::SpotLightData::color>("color")
-            .Member<&aurora::SpotLightData::intensity>("intensity")
-            .Member<&aurora::SpotLightData::range>("range")
-            .Member<&aurora::SpotLightData::innerConeAngle>("innerConeAngle")
-            .Member<&aurora::SpotLightData::outerConeAngle>("outerConeAngle");
 
         context->Register<aurora::SpotLightComponent>("SpotLightComponent")
             .Member<&aurora::SpotLightComponent::SetColor, &aurora::SpotLightComponent::GetColor>("color")
@@ -205,10 +135,6 @@ namespace sky {
 
         static void ReflectSceneTypes(SerializationContext *context)
         {
-            context->Register<BoundingBoxSphere>("BoundingBoxSphere")
-                .Member<&BoundingBoxSphere::center>("center")
-                .Member<&BoundingBoxSphere::extent>("extent")
-                .Member<&BoundingBoxSphere::radius>("radius");
 
             context->Register<sky::aurora::Bounds>("Bounds").Member<&sky::aurora::Bounds::worldBounds>("worldBounds");
 
@@ -228,44 +154,6 @@ namespace sky {
                 .Member<&sky::aurora::Light::outerConeAngle>("outerConeAngle");
         }
 
-        static void ReflectAssetTypes(SerializationContext *context)
-        {
-            context->Register<sky::aurora::MeshAssetData>("MeshAssetData")
-                .BinLoad<&sky::aurora::MeshAssetData::Load>()
-                .BinSave<&sky::aurora::MeshAssetData::Save>();
-
-            context->Register<sky::aurora::SkeletonAssetData>("SkeletonAssetData")
-                .BinLoad<&sky::aurora::SkeletonAssetData::Load>()
-                .BinSave<&sky::aurora::SkeletonAssetData::Save>();
-
-            context->Register<sky::aurora::SkinAssetData>("SkinAssetData")
-                .BinLoad<&sky::aurora::SkinAssetData::Load>()
-                .BinSave<&sky::aurora::SkinAssetData::Save>();
-
-            sky::aurora::RegisterMaterialReflection(context);
-
-            context->Register<sky::aurora::MaterialInstanceAssetData>("MaterialInstanceAssetData")
-                .BinLoad<&sky::aurora::MaterialInstanceAssetData::Load>()
-                .BinSave<&sky::aurora::MaterialInstanceAssetData::Save>();
-
-            context->Register<sky::aurora::ImageAssetData>("ImageAssetData")
-                .BinLoad<&sky::aurora::ImageAssetData::Load>()
-                .BinSave<&sky::aurora::ImageAssetData::Save>();
-
-            context->Register<sky::aurora::LodGroupAssetData>("LodGroupAssetData")
-                .BinLoad<&sky::aurora::LodGroupAssetData::Load>()
-                .BinSave<&sky::aurora::LodGroupAssetData::Save>();
-
-            auto *manager = AssetManager::Get();
-            manager->RegisterAssetHandler<sky::aurora::Mesh>();
-            manager->RegisterAssetHandler<sky::Skeleton>();
-            manager->RegisterAssetHandler<sky::aurora::Skin>();
-            manager->RegisterAssetHandler<sky::aurora::Material>();
-            manager->RegisterAssetHandler<sky::aurora::MaterialInstance>();
-            manager->RegisterAssetHandler<sky::aurora::Texture>();
-            manager->RegisterAssetHandler<sky::aurora::LodGroup>();
-        }
-
         static void RegisterComponents()
         {
             auto             *factory = ComponentFactory::Get();
@@ -280,10 +168,9 @@ namespace sky {
             factory->RegisterComponent<sky::aurora::CameraComponent>(group);
         }
 
-        void AuroraReflection(sky::SerializationContext *context)
+        void RegisterAuroraRuntimeTypes(sky::SerializationContext *context)
         {
             ReflectSceneTypes(context);
-            ReflectAssetTypes(context);
 
             sky::aurora::StaticMeshComponent::Reflect(context);
             sky::aurora::SkeletalMeshComponent::Reflect(context);

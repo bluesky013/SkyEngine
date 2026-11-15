@@ -56,6 +56,10 @@ namespace sky::editor {
         {
             return false;
         }
+        virtual bool SetGroundAssets(const Uuid &, const Uuid &)
+        {
+            return false;
+        }
         virtual AssetPreviewResult CreateSession(AssetPreviewScene)
         {
             return AssetPreviewError{AssetPreviewErrorCode::Unavailable, "Preview sessions unavailable"};

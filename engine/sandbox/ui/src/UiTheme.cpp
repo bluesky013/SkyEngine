@@ -86,6 +86,7 @@ namespace sky::editor {
         s(popupItemHeight);
         s(popupMinWidth);
         s(popupMaxHeight);
+        s(tooltipMaxWidth);
         s(panelRadius);
         s(panelGap);
 

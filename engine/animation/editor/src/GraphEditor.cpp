@@ -58,6 +58,17 @@ namespace sky::animation::editor {
                 auto *catalog = GetEditorAssetCatalog();
                 return catalog && catalog->GetType(id, out);
             }
+            bool GetPath(const Uuid &id, std::string &out) const override
+            {
+                const auto &graph   = document.Source().definition;
+                const auto  matches = [&id](const auto &item) { return item.id == id; };
+                if (std::ranges::any_of(graph.nodes, matches) || std::ranges::any_of(graph.parameters, matches) ||
+                    std::ranges::any_of(graph.states, matches) || std::ranges::any_of(graph.transitions, matches)) {
+                    return false;
+                }
+                auto *catalog = GetEditorAssetCatalog();
+                return catalog && catalog->GetPath(id, out);
+            }
             bool GetName(const Uuid &id, std::string &out) const override
             {
                 for (const auto *type : {"GraphNode", "GraphParameter", "GraphState", "GraphTransition"})

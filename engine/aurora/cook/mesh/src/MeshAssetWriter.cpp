@@ -4,7 +4,30 @@
 
 #include <aurora/cook/mesh/MeshAssetWriter.h>
 
+#include <algorithm>
+
 namespace sky::aurora::cook {
+
+    MeshCookStatus BindMeshMaterials(Asset<Mesh> &asset, std::span<const Uuid> materials)
+    {
+        std::vector<Uuid> slots(materials.begin(), materials.end());
+        uint32_t          count = 0;
+        for (const auto &part : asset.Data().subMeshes) {
+            if (part.materialIndex >= 8192)
+                return {MeshCookError::InvalidData, "Mesh material slot exceeds the product limit"};
+            count = std::max(count, part.materialIndex + 1);
+        }
+        if (slots.size() > 8192 || slots.size() < count || std::any_of(slots.begin(), slots.end(), [](const Uuid &id) { return !id; }))
+            return {MeshCookError::InvalidData, "Mesh material slots are incomplete or exceed the product limit"};
+        std::vector<Uuid> dependencies;
+        for (const auto &id : slots)
+            if (std::find(dependencies.begin(), dependencies.end(), id) == dependencies.end())
+                dependencies.push_back(id);
+        asset.Data().materials = std::move(slots);
+        for (const auto &id : dependencies)
+            asset.AddDependencies(id);
+        return {};
+    }
 
     void WriteMeshAsset(const CookedMesh &mesh, MeshAssetData &out)
     {

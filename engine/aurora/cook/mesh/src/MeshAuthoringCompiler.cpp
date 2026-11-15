@@ -21,6 +21,23 @@ namespace sky::aurora::cook {
 
         class MeshAuthoringCompiler final : public phy::IMeshAuthoringCompiler {
         public:
+            explicit MeshAuthoringCompiler(std::shared_ptr<const MeshBuildPresets> config) : presets(std::move(config))
+            {
+            }
+
+            phy::PhysicsStatus
+            ResolveMaterials(const std::string &target, uint32_t slotCount, std::span<const Uuid> supplied, std::vector<Uuid> &out) const override
+            {
+                if (presets && !presets->loadError.empty())
+                    return Invalid(presets->loadError);
+                std::string key;
+                const auto *config = presets ? presets->Resolve(target, key) : nullptr;
+                if (supplied.empty() && slotCount && !config)
+                    return Invalid("Mesh material policy has no cook configuration for target '" + target + "'");
+                const auto status = ResolveMeshMaterials(config ? *config : MeshBuildConfig{}, slotCount, supplied, out);
+                return status ? phy::PhysicsStatus{} : Invalid(status.message);
+            }
+
             phy::PhysicsStatus
             Load(std::span<const uint8_t> bytes, const std::string &extension, std::vector<phy::AuthoringMeshSource> &out) const override
             {
@@ -161,14 +178,12 @@ namespace sky::aurora::cook {
                 }
                 const auto meshAsset = std::static_pointer_cast<Asset<Mesh>>(meshProduct);
                 WriteMeshAsset(cooked, meshAsset->Data());
-                meshAsset->Data().materials = binding.materialSlots;
-                std::vector<Uuid> dependencies;
-                for (const auto &material : binding.materialSlots) {
-                    if (std::find(dependencies.begin(), dependencies.end(), material) == dependencies.end()) {
-                        meshAsset->AddDependencies(material);
-                        dependencies.push_back(material);
-                    }
-                }
+                if (const auto status = BindMeshMaterials(*meshAsset, binding.materialSlots); !status)
+                    return Invalid(status.message);
+                for (const auto &material : meshAsset->Data().materials)
+                    if (std::find(candidate.effectiveDependencies.begin(), candidate.effectiveDependencies.end(), material) ==
+                        candidate.effectiveDependencies.end())
+                        candidate.effectiveDependencies.push_back(material);
                 meshAsset->AddBulk(cooked.vertexData.data(), cooked.vertexData.size());
                 meshAsset->AddBulk(cooked.indexData.data(), cooked.indexData.size());
                 meshAsset->Data().vertexData.clear();
@@ -181,11 +196,14 @@ namespace sky::aurora::cook {
                 out                = std::move(candidate);
                 return {};
             }
+
+        private:
+            std::shared_ptr<const MeshBuildPresets> presets;
         };
     } // namespace
 
-    std::shared_ptr<phy::IMeshAuthoringCompiler> CreateMeshAuthoringCompiler()
+    std::shared_ptr<phy::IMeshAuthoringCompiler> CreateMeshAuthoringCompiler(std::shared_ptr<const MeshBuildPresets> presets)
     {
-        return std::make_shared<MeshAuthoringCompiler>();
+        return std::make_shared<MeshAuthoringCompiler>(std::move(presets));
     }
 } // namespace sky::aurora::cook

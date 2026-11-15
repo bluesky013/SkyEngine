@@ -91,12 +91,20 @@ namespace {
             button = event;
             ++eventCount;
         }
+        void OnMouseLeave(sky::WindowID winID) override
+        {
+            leaveWindow = winID;
+            ++leaveCount;
+            ++eventCount;
+        }
 
-        sky::MouseWheelEvent  wheel      = {};
-        sky::MouseMotionEvent motion     = {};
-        sky::MouseButtonEvent button     = {};
-        int                   wheelCount = 0;
-        int                   eventCount = 0;
+        sky::MouseWheelEvent  wheel       = {};
+        sky::MouseMotionEvent motion      = {};
+        sky::MouseButtonEvent button      = {};
+        sky::WindowID         leaveWindow = sky::INVALID_WIN_ID;
+        int                   wheelCount  = 0;
+        int                   leaveCount  = 0;
+        int                   eventCount  = 0;
     };
 
     class KeyboardRecorder : public sky::IKeyboardEvent {
@@ -259,6 +267,30 @@ namespace {
         EXPECT_EQ(recorder.button.x, recorder.motion.x);
         EXPECT_EQ(recorder.button.y, recorder.motion.y);
         EXPECT_EQ(recorder.button.clicks, 2u);
+    }
+
+    TEST_F(CocoaPlatformTest, MouseLeaveUsesWindowIdentityAndKeepsSubsequentInput)
+    {
+        MouseRecorder recorder;
+        NSView       *view = Native().contentView;
+        [view updateTrackingAreas];
+        bool tracksLeave = false;
+        for (NSTrackingArea *area in view.trackingAreas) {
+            tracksLeave |= area.owner == view && (area.options & NSTrackingMouseEnteredAndExited) != 0;
+        }
+        ASSERT_TRUE(tracksLeave);
+
+        auto *event = Input(30.0, 20.0);
+        [view mouseExited:event];
+        EXPECT_EQ(recorder.leaveCount, 1);
+        EXPECT_EQ(recorder.leaveWindow, window->GetWinId());
+        EXPECT_EQ(recorder.eventCount, 1);
+
+        [view mouseDragged:event];
+        [view mouseUp:event];
+        EXPECT_EQ(recorder.eventCount, 3);
+        EXPECT_EQ(recorder.motion.winID, window->GetWinId());
+        EXPECT_EQ(recorder.button.winID, window->GetWinId());
     }
 
     TEST_F(CocoaPlatformTest, MainWindowTitleAndDesktopPositionAreLive)
@@ -589,6 +621,7 @@ namespace {
         [view mouseDown:mouse];
         [view mouseUp:mouse];
         [view mouseMoved:mouse];
+        [view mouseExited:mouse];
         [view scrollWheel:mouse];
         EXPECT_EQ(mouseRecorder.eventCount, 0);
         EXPECT_EQ(keyboardRecorder.eventCount, 0);

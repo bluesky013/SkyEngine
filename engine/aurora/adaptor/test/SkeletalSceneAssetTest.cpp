@@ -1,5 +1,6 @@
-#include "ShaderSourcesFixture.h"
+#include "SceneAssetFixtures.h"
 #include "ShaderArtifactTest.h"
+#include "ShaderSourcesFixture.h"
 
 #include <aurora/adaptor/assets/MaterialAsset.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
@@ -57,7 +58,7 @@ namespace {
             rig->Data().boneData       = {{Name("root"), INVALID_BONE_ID}};
             rig->Data().refPos.resize(1);
             assets = {{mesh->GetUuid(), mesh}, {skin->GetUuid(), skin}, {rig->GetUuid(), rig}};
-            source = CreateSceneAssetSource(files, [this](const Uuid &id) -> AssetPtr {
+            source = CreateTestSceneAssetSource(files, [this](const Uuid &id) -> AssetPtr {
                 const auto found = assets.find(id);
                 return found == assets.end() ? nullptr : found->second;
             });
@@ -71,8 +72,8 @@ namespace {
         {
             return source->ResolveSkeletal(mesh->GetUuid(), material, skin->GetUuid(), rig->GetUuid(), {API::VULKAN, 1});
         }
-        IShaderCompiler *previous = nullptr;
-        ShaderCompilerSlang compiler;
+        IShaderCompiler                      *previous = nullptr;
+        ShaderCompilerSlang                   compiler;
         std::shared_ptr<ShaderFileSystem>     files;
         std::shared_ptr<ReadyAsset<Mesh>>     mesh = std::make_shared<ReadyAsset<Mesh>>();
         std::shared_ptr<ReadyAsset<Skin>>     skin = std::make_shared<ReadyAsset<Skin>>();
@@ -115,11 +116,11 @@ TEST_F(SkeletalSceneAssets, ProductionMaterialAndReferenceBindingNeedNoAnimation
 
 TEST_F(SkeletalSceneAssets, OddTriangleIndexCountPadsUploadWithoutChangingDrawRanges)
 {
-    auto &data = mesh->Data();
+    auto &data      = mesh->Data();
     data.indexCount = 3;
-    data.indexSize = 3 * sizeof(uint16_t);
+    data.indexSize  = 3 * sizeof(uint16_t);
     data.indexData.resize(data.indexSize);
-    data.subMeshes = {{0, 3, 0}};
+    data.subMeshes    = {{0, 3, 0}};
     const auto result = Resolve();
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(result));
     const auto &payload = std::get<std::shared_ptr<const SceneSkeletalResources>>(result)->geometry->payloads.front();
@@ -145,24 +146,27 @@ TEST_F(SkeletalSceneAssets, ProductsOnlySelectionRetainsPipelineAndCompleteVerte
     const auto usage = ShaderUsageStore::Snapshot();
     ASSERT_FALSE(usage.empty());
     GlobalVariantLayout pipeline;
-    std::string error;
+    std::string         error;
     ASSERT_TRUE(pipeline.Load(*files, "aurora/config/pipeline_variants.slang", &error)) << error;
     ShaderResolver cook(nullptr, products.fs.Get(), *files, 0, 0);
     ASSERT_TRUE(BuildUsageCache(cook, usage, &error, &pipeline.schema)) << error;
     const auto manifest = test::TestProductManifest(DefaultShaderEnvironment(ShaderTarget::SPIRV));
     ASSERT_TRUE(WriteFileAtomic(*products.fs, "distribution.json", {manifest.begin(), manifest.end()}));
     ShaderCompilerFactory::Get().Register(nullptr);
-    source = CreateSceneAssetSource(std::make_shared<ShaderFileSystem>(), [this](const Uuid &id) -> AssetPtr {
-        const auto found = assets.find(id);
-        return found == assets.end() ? nullptr : found->second;
-    }, products.fs);
+    source = CreateTestSceneAssetSource(
+        std::make_shared<ShaderFileSystem>(),
+        [this](const Uuid &id) -> AssetPtr {
+            const auto found = assets.find(id);
+            return found == assets.end() ? nullptr : found->second;
+        },
+        products.fs);
     const auto restored = Resolve();
     if (const auto *failure = std::get_if<RendererError>(&restored))
         ADD_FAILURE() << failure->message;
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(restored));
     const auto &geometry = *std::get<std::shared_ptr<const SceneSkeletalResources>>(restored)->geometry;
     const auto &meshData = *geometry.payloads.front().mesh;
-    const auto mask = RenderVertexMask(meshData.streams, meshData.attributes);
+    const auto  mask     = RenderVertexMask(meshData.streams, meshData.attributes);
     EXPECT_TRUE(mask.Test(VertexSemantic::POSITION));
     EXPECT_TRUE(mask.Test(VertexSemantic::JOINTS));
     for (const auto &technique : geometry.payloads.back().material->techniques) {

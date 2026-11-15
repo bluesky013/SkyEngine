@@ -24,6 +24,7 @@ namespace sky::editor {
         void                                 OnEvent(const aurora::RendererEvent &event);
         void                                 OnRendererStopped();
         bool                                 SetResources(std::shared_ptr<aurora::ISceneResourceSource> source);
+        bool                                 SetGroundAssets(const Uuid &mesh, const Uuid &material) override;
         size_t                               Count() const
         {
             return sessions.size();
@@ -53,6 +54,7 @@ namespace sky::editor {
         std::shared_ptr<aurora::ISceneResourceSource> resources;
         UiSnapshotProducer                           &textures;
         std::function<aurora::ViewportId()>           allocate;
+        Uuid                                          groundMesh, groundMaterial;
         std::vector<std::unique_ptr<Session>>         sessions;
         std::deque<AssetPreviewHandle>                retired;
         uint32_t                                      nextScene         = 1;

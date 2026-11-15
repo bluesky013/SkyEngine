@@ -6,7 +6,6 @@
 #include <aurora/adaptor/components/PointLightComponent.h>
 #include <aurora/adaptor/components/SpotLightComponent.h>
 #include <aurora/adaptor/components/StaticMeshComponent.h>
-#include <aurora/adaptor/renderer/SceneAssetSource.h>
 #include <cmath>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
@@ -47,7 +46,7 @@ namespace sky::editor {
                 }
             return result;
         }
-        std::unique_ptr<Actor> CreateGround(const AABB &bounds)
+        std::unique_ptr<Actor> CreateGround(const AABB &bounds, const Uuid &meshId, const Uuid &materialId)
         {
             const Vector3 extent = bounds.max - bounds.min;
             const float   size   = std::max({extent.x, extent.y, extent.z, .01f});
@@ -65,8 +64,10 @@ namespace sky::editor {
             placement.translation = {center.x, height, center.z};
             placement.scale       = {size, 1.f, size};
             transform->SetLocalTransform(placement);
-            mesh->SetMeshUuid(ScenePrimitiveId(ScenePrimitive::PLANE));
-            mesh->SetMaterialUuid(SceneLitMaterialId());
+            if (!meshId || !materialId)
+                return {};
+            mesh->SetMeshUuid(meshId);
+            mesh->SetMaterialUuid(materialId);
             mesh->SetCastShadow(false);
             mesh->SetReceiveShadow(true);
             return actor;
@@ -119,6 +120,14 @@ namespace sky::editor {
         if (stopped || !source || !sessions.empty())
             return false;
         resources = std::move(source);
+        return true;
+    }
+    bool EditorPreviewSessions::SetGroundAssets(const Uuid &mesh, const Uuid &material)
+    {
+        if (stopped || !sessions.empty() || !mesh || !material)
+            return false;
+        groundMesh     = mesh;
+        groundMaterial = material;
         return true;
     }
     EditorPreviewSessions::Session *EditorPreviewSessions::Find(AssetPreviewHandle handle)
@@ -201,7 +210,7 @@ namespace sky::editor {
         }
         if (!ValidCamera(camera, session->input.width, session->input.height))
             return AssetPreviewError{AssetPreviewErrorCode::InvalidArgument, "Invalid preview camera"};
-        session->input.camera = camera;
+        session->input.camera  = camera;
         session->cameraChanged = true;
         return Status(handle);
     }
@@ -277,7 +286,7 @@ namespace sky::editor {
             if (session.input.showGround && !session.ground && session.error.empty()) {
                 const auto bounds = session.input.subjectBounds ? session.input.subjectBounds : SubjectBounds(*session.bridge);
                 if (bounds) {
-                    session.ground = CreateGround(*bounds);
+                    session.ground = CreateGround(*bounds, groundMesh, groundMaterial);
                     if (!session.ground)
                         session.error = "Could not create the preview ground from the subject bounds";
                 }

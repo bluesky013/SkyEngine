@@ -1,4 +1,4 @@
-#include <aurora/adaptor/AuroraReflection.h>
+#include <aurora/adaptor/assets/AuroraAssetReflection.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -7,7 +7,7 @@ namespace sky::aurora {
     public:
         void RegisterMeta() override
         {
-            AuroraReflection(SerializationContext::Get());
+            RegisterAuroraAssetTypes(SerializationContext::Get());
         }
     };
 } // namespace sky::aurora

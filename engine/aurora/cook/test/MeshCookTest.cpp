@@ -218,14 +218,9 @@ TEST(MeshCookWriterTest, VersionMismatchRejected)
 TEST(MeshCookConfigTest, LoadJsonAndResolve)
 {
     const char *json =
-        R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true},"mesh_pc":{"tangents":true,"optimize":true}}})";
-    std::vector<uint8_t> bytes(json, json + std::strlen(json));
-
-    IMemoryArchive   in(bytes.data(), bytes.size());
-    JsonInputArchive archive(in);
-
+        R"({"defaultBundle":"mesh_pc","bundles":{"common":{"tangents":true,"optimize":true},"mesh_pc":{"tangents":true,"optimize":true,"defaultMaterial":"12345678-1234-1234-1234-123456789ABC"}}})";
     MeshBuildPresets presets;
-    presets.LoadJson(archive);
+    ASSERT_TRUE(presets.LoadJson(json));
 
     ASSERT_EQ(presets.bundles.size(), 2u);
 
@@ -234,9 +229,68 @@ TEST(MeshCookConfigTest, LoadJsonAndResolve)
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "mesh_pc");
     EXPECT_TRUE(cfg->optimize);
+    EXPECT_EQ(cfg->defaultMaterial, Uuid::CreateFromString("12345678-1234-1234-1234-123456789ABC"));
 
     // unknown key falls back to the default bundle
     cfg = presets.Resolve("does_not_exist", key);
     ASSERT_NE(cfg, nullptr);
     EXPECT_EQ(key, "mesh_pc");
+}
+
+TEST(MeshCookConfigTest, InvalidDefaultMaterialPreservesConfiguration)
+{
+    MeshBuildPresets presets;
+    presets.defaultBundle = "previous";
+    presets.bundles.clear();
+    presets.bundles["previous"] = {};
+    for (const auto *json : {R"({"bundles":{"common":{"defaultMaterial":17}}})", R"({"bundles":{"common":{"defaultMaterial":"invalid"}}})",
+                             R"({"bundles":{"common":{"defaultMaterial":"12345678X1234-1234-1234-123456789ABC"}}})",
+                             R"({"bundles":{"common":{"defaultMaterial":"X2345678-1234-1234-1234-123456789ABC"}}})",
+                             R"({"bundles":{"common":{"defaultMaterial":"00000000-0000-0000-0000-000000000000"}}})",
+                             R"({"bundles":{"common":{"optimize":17}}})", R"({"bundles":null})", "[]", "invalid"}) {
+        EXPECT_FALSE(presets.LoadJson(json));
+        EXPECT_EQ(presets.defaultBundle, "previous");
+        ASSERT_EQ(presets.bundles.size(), 1u);
+        EXPECT_TRUE(presets.bundles.contains("previous"));
+    }
+}
+
+TEST(MeshCookWriterTest, MaterialBindingHasNoImplicitFallbackAndPreservesValidOutput)
+{
+    Asset<Mesh> asset;
+    const auto  material = Uuid::Create();
+    asset.Data().subMeshes.resize(1);
+    asset.Data().subMeshes.front().materialIndex = 2;
+    asset.Data().materials                       = {material};
+    EXPECT_FALSE(BindMeshMaterials(asset, {}));
+    EXPECT_EQ(asset.Data().materials, std::vector<Uuid>{material});
+    const std::vector<Uuid> supplied(3, material);
+    ASSERT_TRUE(BindMeshMaterials(asset, supplied));
+    EXPECT_EQ(asset.Data().materials, supplied);
+    asset.Data().subMeshes.front().materialIndex = 8192;
+    EXPECT_FALSE(BindMeshMaterials(asset, supplied));
+    EXPECT_EQ(asset.Data().materials, supplied);
+}
+
+TEST(MeshCookConfigTest, CommonOverridesDefaultsAndReloadKeepsOnlyDeclaredBundles)
+{
+    MeshBuildPresets presets;
+    ASSERT_TRUE(presets.LoadJson(
+        R"({"bundles":{"common":{"tangents":false,"optimize":false,"skinning":false,"defaultMaterial":"12345678-1234-1234-1234-123456789ABC"}}})"));
+    ASSERT_EQ(presets.bundles.size(), 1u);
+    std::string key;
+    const auto *config = presets.Resolve("common", key);
+    ASSERT_NE(config, nullptr);
+    EXPECT_FALSE(config->tangents);
+    EXPECT_FALSE(config->optimize);
+    EXPECT_FALSE(config->skinning);
+    EXPECT_EQ(config->defaultMaterial, Uuid::CreateFromString("12345678-1234-1234-1234-123456789ABC"));
+    ASSERT_TRUE(presets.LoadJson(R"({"defaultBundle":"custom","bundles":{"custom":{"optimize":false}}})"));
+    ASSERT_EQ(presets.bundles.size(), 1u);
+    EXPECT_FALSE(presets.bundles.contains("common"));
+    config = presets.Resolve("common", key);
+    ASSERT_NE(config, nullptr);
+    EXPECT_EQ(key, "custom");
+    EXPECT_FALSE(config->optimize);
+    EXPECT_FALSE(config->defaultMaterial);
 }

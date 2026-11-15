@@ -359,11 +359,8 @@ def find_bash():
 
 
 def find_ninja():
-    found = shutil.which("ninja")
-    if found:
-        return found
-    candidate = Path(r"D:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe")
-    return str(candidate) if candidate.exists() else None
+    override = os.environ.get("NINJA")
+    return shutil.which(override) if override else shutil.which("ninja")
 
 
 def android_ndk_bin(ndk):
